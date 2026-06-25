@@ -25,6 +25,9 @@ function create() {
   let inFlight = false;
   let pollTimer: ReturnType<typeof setInterval> | undefined;
   let isEditing = false;
+  // bumped on every load/dispose so in-flight responses for a previous list are ignored
+  let epoch = 0;
+  let teardownListeners: (() => void) | undefined;
 
   const totals = computed(() =>
     snapshot.value ? computeTotals(snapshot.value) : null,
@@ -44,18 +47,27 @@ function create() {
   }
 
   async function load(token: string) {
+    epoch++;
+    const myEpoch = epoch;
     editToken = token;
+    pending = [];
+    inFlight = false;
+    isEditing = false;
+    clearTimeout(flushTimer);
+    snapshot.value = null;
     status.value = "loading";
+    installListeners();
     try {
       const res = await $fetch<{ snapshot: ListSnapshot }>("/api/edit/list", {
         headers: authHeaders(),
       });
+      if (myEpoch !== epoch) return; // a newer load() superseded this one
       snapshot.value = res.snapshot;
       status.value = "synced";
       syncRegistry();
       startPoll();
-      installFocusTracking();
     } catch (e: any) {
+      if (myEpoch !== epoch) return;
       status.value = e?.statusCode === 404 ? "missing" : "error";
     }
   }
@@ -76,6 +88,7 @@ function create() {
 
   async function flush() {
     if (inFlight || !pending.length || !snapshot.value) return;
+    const myEpoch = epoch;
     const ops = pending;
     pending = [];
     inFlight = true;
@@ -86,19 +99,28 @@ function create() {
         headers: authHeaders(),
         body: { ops },
       });
-      // adopt authoritative state only if the user isn't mid-edit and nothing
-      // new is queued (avoid clobbering in-progress typing / racing a newer op)
-      if (!isEditing && !pending.length) snapshot.value = res.snapshot;
-      else if (snapshot.value) snapshot.value.version = res.snapshot.version;
+      if (myEpoch !== epoch) return; // controller moved to a different list
+      if (!isEditing) {
+        // adopt the authoritative merged snapshot, then re-apply ops queued while
+        // this request was in flight (rebase) so nothing is lost or clobbered.
+        const merged = res.snapshot;
+        if (pending.length) applyOps(merged as any, pending);
+        snapshot.value = merged;
+      }
+      // While mid-edit: keep local content AND do NOT advance the local version,
+      // so the post-blur poll (since < server version) still delivers the merge.
       status.value = "synced";
       syncRegistry();
-    } catch (e) {
-      pending = ops.concat(pending); // re-queue and retry shortly
+    } catch (e: any) {
+      if (myEpoch !== epoch) return;
+      pending = ops.concat(pending); // re-queue (incl. 409 contention) and retry shortly
       status.value = "error";
       setTimeout(scheduleFlush, 1500);
     } finally {
-      inFlight = false;
-      if (pending.length) scheduleFlush();
+      if (myEpoch === epoch) {
+        inFlight = false;
+        if (pending.length) scheduleFlush();
+      }
     }
   }
 
@@ -107,11 +129,13 @@ function create() {
     pollTimer = setInterval(async () => {
       if (typeof document !== "undefined" && document.hidden) return;
       if (inFlight || pending.length || !snapshot.value) return;
+      const myEpoch = epoch;
       try {
         const res = await $fetch<{ version: number; snapshot?: ListSnapshot }>(
           "/api/edit/changes",
           { headers: authHeaders(), query: { since: snapshot.value.version } },
         );
+        if (myEpoch !== epoch) return;
         if (res.snapshot && !isEditing && !pending.length && !inFlight) {
           snapshot.value = res.snapshot;
           syncRegistry();
@@ -126,12 +150,25 @@ function create() {
     pollTimer = undefined;
   }
 
-  function installFocusTracking() {
-    if (typeof window === "undefined") return;
+  function installListeners() {
+    if (typeof window === "undefined" || teardownListeners) return; // once only
     const isField = (el: EventTarget | null) =>
       el instanceof HTMLElement && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName);
-    window.addEventListener("focusin", (e) => { if (isField(e.target)) isEditing = true; });
-    window.addEventListener("focusout", () => { isEditing = false; });
+    const onFocusIn = (e: FocusEvent) => { if (isField(e.target)) isEditing = true; };
+    const onFocusOut = () => { isEditing = false; };
+    // warn before leaving with unsynced edits
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (pending.length || inFlight) { e.preventDefault(); e.returnValue = ""; }
+    };
+    window.addEventListener("focusin", onFocusIn);
+    window.addEventListener("focusout", onFocusOut);
+    window.addEventListener("beforeunload", onBeforeUnload);
+    teardownListeners = () => {
+      window.removeEventListener("focusin", onFocusIn);
+      window.removeEventListener("focusout", onFocusOut);
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      teardownListeners = undefined;
+    };
   }
 
   // ---- convenience mutators ----
@@ -178,8 +215,21 @@ function create() {
       editToken = res.editToken;
       const my = useMyLists();
       const prev = my.entries.value.find((e) => e.editToken === old);
+      // always persist the NEW token, even if the old registry entry was missing,
+      // so a rotate can never strand the only copy of the write capability
+      const base =
+        prev ??
+        (snapshot.value
+          ? {
+              shareCode: snapshot.value.shareCode,
+              slug: snapshot.value.slug,
+              title: snapshot.value.title,
+              totalMg: computeTotals(snapshot.value).totalMg,
+              version: snapshot.value.version,
+            }
+          : null);
       my.forget(old);
-      if (prev) my.upsert({ ...prev, editToken: res.editToken, lastOpened: Date.now() });
+      if (base) my.upsert({ ...base, editToken: res.editToken, lastOpened: Date.now() } as any);
       return res.editToken;
     } catch {
       return null;
@@ -187,11 +237,15 @@ function create() {
   }
 
   function dispose() {
+    epoch++; // invalidate any in-flight flush/poll responses
     stopPoll();
     clearTimeout(flushTimer);
+    teardownListeners?.();
     snapshot.value = null;
     pending = [];
     editToken = "";
+    inFlight = false;
+    isEditing = false;
     status.value = "idle";
   }
 

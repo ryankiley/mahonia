@@ -57,6 +57,7 @@ const CLASS_OPTS: { value: Classification; label: string }[] = [
         v-if="!packed"
         class="btn btn--icon btn--ghost"
         title="Remove folder"
+        aria-label="Remove folder"
         @click="c.removeFolder(folder.id)"
       >
         ✕

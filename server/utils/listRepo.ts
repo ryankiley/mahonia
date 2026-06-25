@@ -2,9 +2,17 @@
 // edit token (write) or a share code (read); the internal numeric id never
 // leaves this module.
 
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { createError } from "h3";
+import { and, eq, isNull } from "drizzle-orm";
 import { lists, type ListRow } from "../db/schema";
-import { applyOps, type Op } from "../../shared/ops";
+import {
+  applyOps,
+  MAX_FOLDERS,
+  MAX_ITEMS,
+  normalizeFolder,
+  normalizeItem,
+  type Op,
+} from "../../shared/ops";
 import { computeTotals } from "../../shared/weights";
 import type { ListData, ListSnapshot, ListState, Unit } from "../../shared/types";
 import { useDb } from "./db";
@@ -40,6 +48,14 @@ function rowToState(row: ListRow): ListState {
 const liveOnly = (col: typeof lists.editTokenHash | typeof lists.shareCode, val: string) =>
   and(eq(col, val), eq(lists.status, "active"), isNull(lists.deletedAt));
 
+// Enforce the advertised case-insensitive Crockford contract + reject malformed
+// codes before any DB round-trip.
+const CROCKFORD_RE = /^[0-9ABCDEFGHJKMNPQRSTVWXYZ]{12}$/;
+function normShareCode(raw: string): string | null {
+  const c = (raw || "").toUpperCase().replace(/[IL]/g, "1").replace(/O/g, "0");
+  return CROCKFORD_RE.test(c) ? c : null;
+}
+
 async function findByEditToken(editToken: string): Promise<ListRow | null> {
   const db = await useDb();
   const hash = sha256Hex(editToken);
@@ -48,8 +64,10 @@ async function findByEditToken(editToken: string): Promise<ListRow | null> {
 }
 
 export async function getByShareCode(code: string): Promise<ListSnapshot | null> {
+  const c = normShareCode(code);
+  if (!c) return null;
   const db = await useDb();
-  const rows = await db.select().from(lists).where(liveOnly(lists.shareCode, code)).limit(1);
+  const rows = await db.select().from(lists).where(liveOnly(lists.shareCode, c)).limit(1);
   return rows[0] ? rowToSnapshot(rows[0]) : null;
 }
 
@@ -60,11 +78,13 @@ export async function getByEditToken(editToken: string): Promise<ListSnapshot | 
 
 /** version of a list addressed by share code (cheap; for live-sync polling). */
 export async function versionByShareCode(code: string): Promise<number | null> {
+  const c = normShareCode(code);
+  if (!c) return null;
   const db = await useDb();
   const rows = await db
     .select({ version: lists.version })
     .from(lists)
-    .where(liveOnly(lists.shareCode, code))
+    .where(liveOnly(lists.shareCode, c))
     .limit(1);
   return rows[0]?.version ?? null;
 }
@@ -87,29 +107,44 @@ export async function createList(init?: {
 }): Promise<{ editToken: string; snapshot: ListSnapshot }> {
   const db = await useDb();
   const editToken = randomEditToken();
-  const data: ListData = init?.data ?? { folders: [], items: [] };
+  const editTokenHash = sha256Hex(editToken);
+  const title = (init?.title ?? "Untitled list").slice(0, 200);
+  // Normalize + cap inbound content through the SAME reducer helpers the mutate
+  // path uses — the create path must not be a clamp-bypass into raw JSONB.
+  const data: ListData = {
+    folders: (init?.data?.folders ?? []).slice(0, MAX_FOLDERS).map(normalizeFolder),
+    items: (init?.data?.items ?? []).slice(0, MAX_ITEMS).map(normalizeItem),
+  };
   const totals = computeTotals(data);
-  const title = init?.title ?? "Untitled list";
+  const displayUnit = init?.displayUnit ?? "g";
 
-  const inserted = await db
-    .insert(lists)
-    .values({
-      publicSlug: randomSlug(title),
-      editTokenHash: sha256Hex(editToken),
-      shareCode: randomShareCode(),
-      title,
-      displayUnit: init?.displayUnit ?? "g",
-      data,
-      baseWeightMg: totals.baseMg,
-      wornWeightMg: totals.wornMg,
-      consumableWeightMg: totals.consumableMg,
-      totalWeightMg: totals.totalMg,
-      itemCount: totals.itemCount,
-      version: 1,
-    })
-    .returning();
-
-  return { editToken, snapshot: rowToSnapshot(inserted[0]) };
+  // Retry on slug/share_code unique collision (regenerated each attempt).
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      const inserted = await db
+        .insert(lists)
+        .values({
+          publicSlug: randomSlug(title),
+          editTokenHash,
+          shareCode: randomShareCode(),
+          title,
+          displayUnit,
+          data,
+          baseWeightMg: totals.baseMg,
+          wornWeightMg: totals.wornMg,
+          consumableWeightMg: totals.consumableMg,
+          totalWeightMg: totals.totalMg,
+          itemCount: totals.itemCount,
+          version: 1,
+        })
+        .returning();
+      return { editToken, snapshot: rowToSnapshot(inserted[0]) };
+    } catch (e) {
+      if ((e as { code?: string })?.code === "23505" && attempt < 4) continue;
+      throw e;
+    }
+  }
+  throw createError({ statusCode: 500, statusMessage: "Could not allocate list code" });
 }
 
 /**
@@ -153,8 +188,9 @@ export async function applyOpsByEditToken(
     if (updated[0]) return rowToSnapshot(updated[0]);
     // version moved under us — retry against the latest
   }
-  // extreme contention: return the latest known state so the client converges
-  return getByEditToken(editToken);
+  // extreme contention: refuse rather than silently drop the caller's ops.
+  // The client's flush() catch re-queues and retries (no ops lost).
+  throw createError({ statusCode: 409, statusMessage: "Save contention — retry" });
 }
 
 export async function rotateEditToken(editToken: string): Promise<string | null> {

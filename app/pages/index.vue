@@ -39,6 +39,17 @@ async function newList() {
     creating.value = false;
   }
 }
+
+function removeList(editToken: string) {
+  // the edit token is the ONLY copy of the write capability — confirm before dropping it
+  if (
+    confirm(
+      "Remove this list from this device? You'll lose edit access unless you've saved its edit link elsewhere.",
+    )
+  ) {
+    myLists.forget(editToken);
+  }
+}
 </script>
 
 <template>
@@ -79,8 +90,9 @@ async function newList() {
             </span>
             <button
               class="btn btn--icon btn--ghost card__del"
-              title="Remove from this device"
-              @click.prevent="myLists.forget(l.editToken)"
+              title="Remove from this device (you lose edit access)"
+              aria-label="Remove from this device (you lose edit access)"
+              @click.prevent="removeList(l.editToken)"
             >
               ✕
             </button>

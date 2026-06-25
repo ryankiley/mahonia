@@ -7,19 +7,40 @@ const router = useRouter();
 const snapshot = c.snapshot;
 const totals = c.totals;
 const status = c.status;
+// items whose folder was removed (e.g. by a concurrent editor) land here, not as invisible ghosts
+const ungrouped = computed(() =>
+  snapshot.value ? snapshot.value.items.filter((i) => !i.folderId) : [],
+);
 
 const showBreakdown = ref(false);
 const packed = ref(false);
 const menuOpen = ref(false);
+const menuRef = ref<HTMLElement | null>(null);
 const toast = ref("");
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
 
-onMounted(() => {
-  const token = decodeURIComponent(location.hash.replace(/^#/, ""));
-  if (token) c.load(token);
-  else c.status.value = "missing" as any;
+const route = useRoute();
+// Drive load off the reactive hash so back/forward + same-route nav between two
+// of your lists dispose+reload correctly (the editor singleton holds one list).
+watch(
+  () => route.hash,
+  (h) => {
+    c.dispose();
+    const token = decodeURIComponent((h || "").replace(/^#/, ""));
+    if (token) c.load(token);
+    else c.status.value = "missing";
+  },
+  { immediate: true },
+);
+onBeforeUnmount(() => {
+  clearTimeout(toastTimer);
+  c.dispose();
 });
-onBeforeUnmount(() => c.dispose());
+
+onClickOutside(menuRef, () => (menuOpen.value = false));
+onKeyStroke("Escape", () => {
+  if (menuOpen.value) menuOpen.value = false;
+});
 
 function flash(msg: string) {
   toast.value = msg;
@@ -67,13 +88,12 @@ async function newList() {
     editToken: res.editToken, shareCode: res.snapshot.shareCode, slug: res.snapshot.slug,
     title: res.snapshot.title, totalMg: 0, version: res.snapshot.version, lastOpened: Date.now(),
   });
+  // the route.hash watcher disposes + loads — don't double-load here
   router.push(`/e#${res.editToken}`);
-  location.hash = res.editToken;
-  c.load(res.editToken);
 }
 
 const statusLabel = computed(() =>
-  ({ loading: "Loading…", saving: "Saving…", synced: "Saved", error: "Retrying…", missing: "", idle: "" })[status.value] || "",
+  ({ loading: "Loading…", saving: "Saving…", synced: "Saved", error: "Not saved ↻", missing: "", idle: "" })[status.value] || "",
 );
 </script>
 
@@ -92,8 +112,8 @@ const statusLabel = computed(() =>
         <span v-if="snapshot" class="t-micro t-faint editor__status">{{ statusLabel }}</span>
         <template v-if="snapshot">
           <button class="btn btn--sm btn--primary" @click="copyShare">Share</button>
-          <div class="menu">
-            <button class="btn btn--sm btn--ghost" aria-haspopup="true" @click="menuOpen = !menuOpen">⋯</button>
+          <div ref="menuRef" class="menu">
+            <button class="btn btn--sm btn--ghost" aria-haspopup="true" aria-label="More actions" :aria-expanded="menuOpen" @click="menuOpen = !menuOpen">⋯</button>
             <ul v-if="menuOpen" class="menu__list panel">
               <li><button @click="copyMarkdown">Copy as Markdown</button></li>
               <li><button @click="copyEditLink">Copy edit link…</button></li>
@@ -121,6 +141,11 @@ const statusLabel = computed(() =>
           :packed="packed"
         />
       </div>
+      <section v-if="ungrouped.length" class="panel editor__ungrouped">
+        <p class="t-label">Ungrouped</p>
+        <ItemRow v-for="it in ungrouped" :key="it.id" :list="snapshot" :item="it" :packed="packed" />
+      </section>
+
       <button v-if="!packed" class="btn editor__addfolder" @click="c.addFolder()">+ Add folder</button>
     </main>
 
@@ -199,6 +224,15 @@ const statusLabel = computed(() =>
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+}
+.editor__ungrouped {
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.editor__ungrouped .t-label {
+  margin-bottom: var(--space-2);
 }
 .editor__addfolder {
   align-self: flex-start;

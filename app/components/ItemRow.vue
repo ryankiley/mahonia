@@ -82,6 +82,7 @@ const CLASS_OPTS: { value: Classification | ""; label: string }[] = [
       v-if="!packed"
       class="btn btn--icon btn--ghost item__del"
       title="Remove item"
+      aria-label="Remove item"
       @click="c.removeItem(item.id)"
     >
       ✕

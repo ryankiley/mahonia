@@ -101,6 +101,22 @@ onBeforeUnmount(() => poll && clearInterval(poll));
           <li v-if="!itemsIn(f.id).length" class="t-small t-faint">—</li>
         </ul>
       </section>
+
+      <section v-if="snapshot.items.some((i) => !i.folderId)" class="folder">
+        <header class="folder__head"><span class="folder__name">Ungrouped</span></header>
+        <ul class="rows">
+          <li
+            v-for="it in snapshot.items.filter((i) => !i.folderId)"
+            :key="it.id"
+            class="vrow"
+            :class="`vrow--${effectiveClassification(it, snapshot.folders)}`"
+          >
+            <span class="vrow__name"><template v-if="it.brand">{{ it.brand }} </template>{{ it.name }}</span>
+            <span class="t-num t-micro t-muted">×{{ it.qty }}</span>
+            <span class="t-num vrow__w">{{ it.unitWeightMg > 0 ? formatWeight(lineMg(it), unit) : "—" }}</span>
+          </li>
+        </ul>
+      </section>
     </main>
 
     <main v-else class="wrap view view--missing">

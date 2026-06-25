@@ -19,6 +19,16 @@ export type Op =
 const CLASSES: Classification[] = ["base", "worn", "consumable"];
 const UNITS: Unit[] = ["g", "kg", "oz", "lb"];
 
+// Hard caps (enforced in the reducer → client + server agree). Generous for
+// real lists, but bound row size / DoS and keep summed totals exact under the
+// bigint(mode:number) columns (MAX_ITEMS × qtyMax × UNIT_WEIGHT_MAX_MG < 2^53).
+export const MAX_ITEMS = 1000;
+export const MAX_FOLDERS = 50;
+export const UNIT_WEIGHT_MAX_MG = 100_000_000; // 100 kg per single unit
+
+const clampWeight = (n: number) =>
+  Math.max(0, Math.min(UNIT_WEIGHT_MAX_MG, Math.round(n)));
+
 // Defensive clamps so a malformed op (or hostile client) can't corrupt state.
 function cleanItemPatch(patch: Partial<Item>): Partial<Item> {
   const out: Partial<Item> = {};
@@ -27,7 +37,7 @@ function cleanItemPatch(patch: Partial<Item>): Partial<Item> {
   if (typeof patch.description === "string") out.description = patch.description.slice(0, 2000);
   if (typeof patch.productUrl === "string") out.productUrl = patch.productUrl.slice(0, 2000);
   if (typeof patch.unitWeightMg === "number" && isFinite(patch.unitWeightMg))
-    out.unitWeightMg = Math.max(0, Math.round(patch.unitWeightMg));
+    out.unitWeightMg = clampWeight(patch.unitWeightMg);
   if (typeof patch.qty === "number" && isFinite(patch.qty))
     out.qty = Math.max(0, Math.min(9999, Math.round(patch.qty)));
   if (patch.classification === null || (typeof patch.classification === "string" && CLASSES.includes(patch.classification)))
@@ -53,8 +63,17 @@ function cleanFolderPatch(patch: Partial<Folder>): Partial<Folder> {
 export function applyOp(state: ListState, op: Op): void {
   switch (op?.t) {
     case "addItem":
-      if (op.item && typeof op.item.id === "string" && !state.items.some((i) => i.id === op.item.id))
-        state.items.push(normalizeItem(op.item));
+      if (
+        op.item &&
+        typeof op.item.id === "string" &&
+        state.items.length < MAX_ITEMS &&
+        !state.items.some((i) => i.id === op.item.id)
+      ) {
+        const it = normalizeItem(op.item);
+        // coerce a dangling folderId (e.g. folder deleted by a concurrent editor) to null
+        if (it.folderId && !state.folders.some((f) => f.id === it.folderId)) it.folderId = null;
+        state.items.push(it);
+      }
       break;
     case "updateItem": {
       const it = state.items.find((i) => i.id === op.id);
@@ -67,13 +86,20 @@ export function applyOp(state: ListState, op: Op): void {
     case "moveItem": {
       const it = state.items.find((i) => i.id === op.id);
       if (it) {
-        if (typeof op.folderId === "string" || op.folderId === null) it.folderId = op.folderId;
+        if (op.folderId === null) it.folderId = null;
+        else if (typeof op.folderId === "string")
+          it.folderId = state.folders.some((f) => f.id === op.folderId) ? op.folderId : null;
         if (typeof op.sortOrder === "number") it.sortOrder = op.sortOrder;
       }
       break;
     }
     case "addFolder":
-      if (op.folder && typeof op.folder.id === "string" && !state.folders.some((f) => f.id === op.folder.id))
+      if (
+        op.folder &&
+        typeof op.folder.id === "string" &&
+        state.folders.length < MAX_FOLDERS &&
+        !state.folders.some((f) => f.id === op.folder.id)
+      )
         state.folders.push(normalizeFolder(op.folder));
       break;
     case "updateFolder": {
@@ -100,13 +126,13 @@ export function applyOps(state: ListState, ops: Op[]): ListState {
   return state;
 }
 
-function normalizeItem(raw: Item): Item {
+export function normalizeItem(raw: Item): Item {
   return {
     id: String(raw.id),
     folderId: typeof raw.folderId === "string" ? raw.folderId : null,
     name: String(raw.name ?? "").slice(0, 200),
     brand: raw.brand ? String(raw.brand).slice(0, 120) : undefined,
-    unitWeightMg: Math.max(0, Math.round(Number(raw.unitWeightMg) || 0)),
+    unitWeightMg: clampWeight(Number(raw.unitWeightMg) || 0),
     weightOverridden: !!raw.weightOverridden,
     qty: Math.max(0, Math.min(9999, Math.round(Number(raw.qty) || 1))),
     classification: CLASSES.includes(raw.classification as Classification)
@@ -119,7 +145,7 @@ function normalizeItem(raw: Item): Item {
   };
 }
 
-function normalizeFolder(raw: Folder): Folder {
+export function normalizeFolder(raw: Folder): Folder {
   return {
     id: String(raw.id),
     name: String(raw.name ?? "").slice(0, 120) || "Folder",

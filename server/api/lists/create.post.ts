@@ -1,10 +1,13 @@
 import { createError, defineEventHandler, readBody } from "h3";
 import { createList } from "../../utils/listRepo";
+import { assertMaxBody, rateLimit } from "../../utils/rateLimit";
 import type { ListData, Unit } from "../../../shared/types";
 
 const UNITS: Unit[] = ["g", "kg", "oz", "lb"];
 
 export default defineEventHandler(async (event) => {
+  rateLimit(event, "create", 30, 60_000);
+  assertMaxBody(event, 512_000);
   const body = (await readBody(event).catch(() => ({}))) as {
     title?: string;
     displayUnit?: Unit;
@@ -24,10 +27,6 @@ export default defineEventHandler(async (event) => {
     return { editToken, snapshot };
   } catch (e) {
     console.error("[create list]", e);
-    throw createError({
-      statusCode: 500,
-      statusMessage: "Could not create list",
-      message: (e as Error)?.message,
-    });
+    throw createError({ statusCode: 500, statusMessage: "Could not create list" });
   }
 });

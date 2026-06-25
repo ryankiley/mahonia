@@ -4,6 +4,7 @@
 
 import { sql } from "drizzle-orm";
 import * as schema from "../db/schema";
+import { CATALOG_DDL } from "./catalog";
 
 type Db = Awaited<ReturnType<typeof build>>;
 
@@ -14,6 +15,8 @@ async function build() {
   if (url) {
     const { drizzle } = await import("drizzle-orm/neon-http");
     const { neon } = await import("@neondatabase/serverless");
+    // Prod: schema is applied via migrations at deploy time, NOT on the request
+    // path (running DDL per cold-start adds latency + a first-deploy race).
     return drizzle(neon(url), { schema });
   }
   const { PGlite } = await import("@electric-sql/pglite");
@@ -22,8 +25,9 @@ async function build() {
   const dir = process.env.PGLITE_DIR || ".data/pglite";
   // persisted local file so dev data survives restarts (PGlite's mkdir isn't recursive)
   mkdirSync(dir, { recursive: true });
-  const client = new PGlite(dir);
-  return drizzle(client, { schema });
+  const db = drizzle(new PGlite(dir), { schema });
+  await ensureSchema(db); // local dev only — idempotent
+  return db;
 }
 
 const DDL = [
@@ -56,6 +60,10 @@ const DDL = [
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_lists_share_code ON lists(share_code) WHERE deleted_at IS NULL`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_lists_slug ON lists(public_slug) WHERE deleted_at IS NULL`,
   `CREATE INDEX IF NOT EXISTS idx_lists_feed ON lists(base_weight_mg) WHERE is_public AND status='active' AND deleted_at IS NULL`,
+  // catalog_items (Phase 2) — single-sourced in server/utils/catalog.ts so the
+  // seed script + search endpoint can ensure it on Neon too. These are safe on
+  // both engines; the pg_trgm GIN index is created Neon-only (see catalog.ts).
+  ...CATALOG_DDL,
 ];
 
 async function ensureSchema(db: Db) {
@@ -63,11 +71,6 @@ async function ensureSchema(db: Db) {
 }
 
 export async function useDb(): Promise<Db> {
-  if (!_dbPromise) {
-    _dbPromise = build().then(async (db) => {
-      await ensureSchema(db);
-      return db;
-    });
-  }
+  if (!_dbPromise) _dbPromise = build();
   return _dbPromise;
 }
