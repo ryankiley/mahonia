@@ -13,17 +13,21 @@ const items = computed(() =>
 
 const folderMg = computed(() => items.value.reduce((s, i) => s + lineMg(i), 0));
 
-const draftName = ref("");
-const draftWeight = ref("");
+const draft = ref("");
 
-function add() {
-  if (!draftName.value.trim()) return;
-  c.addItem(props.folder.id, {
-    name: draftName.value,
-    weight: draftWeight.value || undefined,
-  });
-  draftName.value = "";
-  draftWeight.value = "";
+// "just type and it adds" — Enter commits and keeps focus for the next item;
+// blur commits too so nothing typed is lost. A trailing weight token
+// ("Tent 540 g", "Quilt 1.2kg") is split off automatically; a bare number with
+// no unit stays part of the name (so "Hornet 2P" isn't mistaken for a weight).
+const WEIGHT_TAIL = /\s+(\d[\d.,]*\s*(?:kgs?|g|grams?|oz|ounces?|lbs?|pounds?))$/i;
+function commit() {
+  const raw = draft.value.trim();
+  if (!raw) return;
+  const m = raw.match(WEIGHT_TAIL);
+  const name = (m ? raw.slice(0, m.index) : raw).trim();
+  if (!name) return;
+  c.addItem(props.folder.id, { name, weight: m ? m[1] : undefined });
+  draft.value = "";
 }
 
 const CLASS_OPTS: { value: Classification; label: string }[] = [
@@ -71,18 +75,13 @@ const CLASS_OPTS: { value: Classification; label: string }[] = [
 
     <div v-if="!packed" class="folder__add">
       <input
-        v-model="draftName"
-        class="field"
+        v-model="draft"
+        class="field folder__addinput"
         placeholder="Add an item…"
-        @keyup.enter="add"
+        aria-label="Add an item"
+        @keyup.enter="commit"
+        @blur="commit"
       />
-      <input
-        v-model="draftWeight"
-        class="field field--num folder__addw"
-        :placeholder="`weight (${list.displayUnit})`"
-        @keyup.enter="add"
-      />
-      <button class="btn btn--sm" @click="add">Add</button>
     </div>
   </section>
 </template>
@@ -123,13 +122,11 @@ const CLASS_OPTS: { value: Classification; label: string }[] = [
   padding: var(--space-2) 0;
 }
 .folder__add {
-  display: flex;
-  gap: var(--space-2);
   margin-top: var(--space-3);
   padding-top: var(--space-3);
   border-top: 1px dashed var(--line);
 }
-.folder__addw {
-  max-width: 120px;
+.folder__addinput {
+  width: 100%;
 }
 </style>
