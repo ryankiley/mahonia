@@ -164,10 +164,11 @@ const badge = (r: CatalogResult) => (r.verified ? "✓" : (r.weightSource[0] || 
 .ac {
   position: relative;
 }
-/* add mode: name + weight laid out in the same columns as item rows */
+/* add mode: same column template as item rows so the weight lands in the weight
+   column (cols 4–5 reserved but empty, matching class + actions) */
 .ac--add {
   display: grid;
-  grid-template-columns: 1fr 56px 84px;
+  grid-template-columns: 1fr 56px 84px 110px 68px;
   gap: var(--space-3);
   align-items: baseline;
 }
@@ -179,6 +180,11 @@ const badge = (r: CatalogResult) => (r.verified ? "✓" : (r.weightSource[0] || 
   display: flex;
   align-items: baseline;
   gap: var(--space-1);
+}
+@media (max-width: 560px) {
+  .ac--add {
+    grid-template-columns: 1fr 44px 92px;
+  }
 }
 .ac__unit {
   flex: none;

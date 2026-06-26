@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { StickyNote, X } from "@lucide/vue";
+import { StickyNoteMinus, StickyNotePlus, X } from "@lucide/vue";
 import type { Classification, Item, ListSnapshot } from "~~/shared/types";
 import { effectiveClassification, formatWeight, lineMg, parseWeightInput } from "~~/shared/weights";
 
@@ -64,9 +64,20 @@ function onClass(e: Event) {
 // shows as live text once it has content
 const noteOpen = ref(false);
 const noteRef = ref<HTMLInputElement | null>(null);
-function openNote() {
-  noteOpen.value = true;
-  nextTick(() => noteRef.value?.focus());
+// the note button adds (plus) when there's no note, removes (minus) when there is;
+// editing an existing note is done by clicking its text
+function onNoteBtn() {
+  if (props.item.description) {
+    c.updateItem(props.item.id, { description: "" });
+    noteOpen.value = false;
+  } else {
+    noteOpen.value = true;
+    nextTick(() => noteRef.value?.focus());
+  }
+}
+// an opened-but-empty note collapses again when you click away without typing
+function onNoteBlur(e: Event) {
+  if (!(e.target as HTMLInputElement).value.trim()) noteOpen.value = false;
 }
 
 // "Fix for everyone": only offered once the user's weight diverges from the
@@ -161,11 +172,12 @@ function openFix() {
         <button
           class="btn btn--icon btn--ghost item__note-btn"
           :class="{ 'is-active': !!item.description }"
-          :title="item.description ? 'Edit note' : 'Add a note'"
-          aria-label="Add a note"
-          @click="openNote"
+          :title="item.description ? 'Remove note' : 'Add a note'"
+          :aria-label="item.description ? 'Remove note' : 'Add a note'"
+          @click="onNoteBtn"
         >
-          <StickyNote :size="15" />
+          <StickyNoteMinus v-if="item.description" :size="15" />
+          <StickyNotePlus v-else :size="15" />
         </button>
         <button
           class="btn btn--icon btn--ghost item__del"
@@ -187,6 +199,7 @@ function openFix() {
       placeholder="Add a note"
       aria-label="Item note"
       @change="c.updateItem(item.id, { description: ($event.target as HTMLInputElement).value })"
+      @blur="onNoteBlur"
     />
 
     <button v-if="showFix" type="button" class="item__under-link t-sm" @click="openFix">
@@ -341,12 +354,12 @@ function openFix() {
 .item__note {
   width: 100%;
   min-height: 0;
-  margin: var(--space-2) 0 0;
+  margin: var(--space-1) 0 0;
   padding: 0;
   border: 0;
   background: none;
   color: var(--ink-2);
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
 }
 .item__note::placeholder {
   color: var(--ink-3);

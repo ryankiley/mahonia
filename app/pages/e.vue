@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowLeft, Ellipsis, Undo2 } from "@lucide/vue";
+import { ArrowLeft, Ellipsis, SaveCheck, Undo2 } from "@lucide/vue";
 import { listToMarkdown } from "~~/shared/exporters/markdown";
 import { listToCsv } from "~~/shared/exporters/csv";
 import { listToSummary } from "~~/shared/exporters/summary";
@@ -202,7 +202,8 @@ function onPublished(e: { status: string }) {
           @change="c.setMeta({ title: ($event.target as HTMLInputElement).value })"
         />
         <span v-if="snapshot && statusLabel" class="savechip" :data-state="status">
-          <i class="savechip__dot" />{{ statusLabel }}
+          <SaveCheck v-if="status === 'synced'" :size="13" />
+          <i v-else class="savechip__dot" />{{ statusLabel }}
         </span>
         <template v-if="snapshot">
           <button class="btn btn--sm btn--primary editor__share" @click="copyShare">Share</button>
