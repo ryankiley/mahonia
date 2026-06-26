@@ -101,6 +101,17 @@ function onCommit(p: {
 }
 .folder__del {
   grid-column: 5;
+  opacity: 0;
+  transition: opacity var(--dur) var(--ease);
+}
+.folder:hover .folder__del,
+.folder:focus-within .folder__del {
+  opacity: 1;
+}
+@media (hover: none) {
+  .folder__del {
+    opacity: 1;
+  }
 }
 
 @media (max-width: 560px) {

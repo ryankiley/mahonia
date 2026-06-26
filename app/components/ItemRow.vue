@@ -237,8 +237,17 @@ function openFix() {
 .item__class--consumable {
   color: var(--ink-2);
 }
+/* remove control is quiet at rest — fades in on row hover/focus (always on touch) */
 .item__del {
   color: var(--ink-3);
+  opacity: 0;
+  transition:
+    opacity var(--dur) var(--ease),
+    color var(--dur) var(--ease);
+}
+.item-wrap:hover .item__del,
+.item-wrap:focus-within .item__del {
+  opacity: 1;
 }
 .item__del:hover {
   color: var(--ink);
@@ -265,6 +274,34 @@ function openFix() {
 .item__note:focus {
   outline: none;
   color: var(--ink);
+}
+/* an EMPTY note collapses away; the "Add a note" affordance reveals on hover/focus
+   (and is always present on touch, which has no hover) */
+.item__note:placeholder-shown {
+  max-height: 0;
+  margin: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition:
+    max-height var(--dur) var(--ease),
+    opacity var(--dur) var(--ease),
+    margin var(--dur) var(--ease);
+}
+.item-wrap:hover .item__note:placeholder-shown,
+.item-wrap:focus-within .item__note:placeholder-shown {
+  max-height: 1.6em;
+  margin: calc(-1 * var(--space-1)) 0 0;
+  opacity: 1;
+}
+@media (hover: none) {
+  .item__del {
+    opacity: 1;
+  }
+  .item__note:placeholder-shown {
+    max-height: 1.6em;
+    margin: calc(-1 * var(--space-1)) 0 0;
+    opacity: 1;
+  }
 }
 
 /* quiet "suggest a fix" link under a row */
