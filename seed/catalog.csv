@@ -115,6 +115,7 @@ Western Mountaineering,MegaLite,"6 ft, 30°F",sleep,680388,manufacturer,https://
 Western Mountaineering,SummerLite,"6 ft, 32°F",sleep,538641,manufacturer,https://www.westernmountaineering.com/product/summerlite/
 Western Mountaineering,UltraLite,"6 ft, 20°F",sleep,822136,manufacturer,https://www.westernmountaineering.com/product/ultralite/
 Western Mountaineering,VersaLite,"6 ft, 10°F",sleep,907185,manufacturer,https://www.westernmountaineering.com/product/versalite/
+Zenbivy,Ultralight Bed,"25F, Regular (quilt + Fast Sheet)",sleep,566990,manufacturer,https://zenbivy.com/collections/ultralight-beds
 Zpacks,Solo Quilt,"20F / -7C, Standard width, Medium length (standard config), 900FP",sleep,518796,manufacturer,https://zpacks.com/products/solo-quilt
 Durston,Kakwa 40,Ultra 200X / M,pack,793787,manufacturer,https://durstongear.com/products/kakwa-40-backpack
 Durston,Kakwa 40,UltraGrid / M,pack,839146,manufacturer,https://durstongear.com/products/kakwa-40-backpack
@@ -152,6 +153,7 @@ Osprey,Talon 44,S/M (44 L),pack,1569430,manufacturer,https://web.archive.org/web
 Osprey,Tempest 40,WM/L (40 L),pack,1327665,manufacturer,https://web.archive.org/web/2id_/https://www.osprey.com/gb/osprey-tempest-40-2021
 Osprey,Tempest 40,WXS/S (38 L),pack,1240575,manufacturer,https://web.archive.org/web/2id_/https://www.osprey.com/gb/osprey-tempest-40-2021
 Pa'lante,V2,"Gridstop (16"" / 19"")",pack,501787,manufacturer,https://palantepacks.com/products/v2
+REI Co-op,Flash 55 Pack,"Men's, Medium (18-20 in torso)",pack,1275729,manufacturer,https://web.archive.org/web/20240601231228/https://www.rei.com/product/216571/rei-co-op-flash-55-pack-mens
 Six Moon Designs,Swift X,"Standard configuration (Stay, Hip Belt, Flight Vest)",pack,1099961,manufacturer,https://www.sixmoondesigns.com/products/swift-x-ultralight-backpack
 ULA Equipment,Catalyst,,pack,1258719,manufacturer,https://www.ula-equipment.com/product/catalyst/
 ULA Equipment,CDT,UltraGrid,pack,768272,manufacturer,https://www.ula-equipment.com/product/cdt/
@@ -161,11 +163,14 @@ ULA Equipment,Photon,with hipbelt and foam back panel,pack,739923,manufacturer,h
 Zpacks,Arc Blast 55L,discontinued,pack,564156,manufacturer,https://zpacks.com/products/arc-blast-backpack
 Zpacks,Arc Haul Ultra 50L,,pack,606680,manufacturer,https://zpacks.com/products/arc-haul-ultra-50l-backpack
 Zpacks,Arc Haul Ultra 60L,,pack,618020,manufacturer,https://zpacks.com/products/arc-haul-ultra-60l-backpack
+Fire Maple,Petrel G2 Ultralight Pot,"750ml, pot only (no stove)",cook,184000,manufacturer,https://gearjunkie.com/camping/cooking/fire-maple-petrel-ultralight-g2-pot-review
+Fozzils,Snapfold Bowl,single bowl,cook,40000,measured,https://the-high-route.com/review-fozzils-snapfold-bowl/
 Jetboil,Flash Cooking System,1.0L,cook,371039,manufacturer,https://jetboil.johnsonoutdoors.com/us/shop/stoves-systems/flash-10l-fast-boil-system
 Jetboil,MiniMo Cooking System,,cook,414130,manufacturer,https://jetboil.johnsonoutdoors.com/us/shop/stoves-systems/minimo-cooking-system/mnmcb
 Jetboil,Stash Cooking System,0.8L,cook,201282,manufacturer,https://jetboil.johnsonoutdoors.com/us/shop/stoves-systems/stash-cooking-system
 MSR,PocketRocket 2 Stove,,cook,73709,manufacturer,https://cascadedesigns.com/products/pocketrocket-2-stove
 MSR,PocketRocket Deluxe Stove,,cook,82214,manufacturer,https://cascadedesigns.com/products/pocketrocket-deluxe-stove
+Sea to Summit,Camp Cutlery Spoon,glass-reinforced polypropylene,cook,12000,manufacturer,https://seatosummit.com/products/camp-spoon
 Sea to Summit,X-Mug,,cook,70874,manufacturer,https://seatosummit.com/products/x-mug-16oz-with-cool-grip-used
 Snow Peak,LiteMax Titanium Stove,,cook,53864,manufacturer,https://www.snowpeak.com/products/litemax-titanium-stove
 Snow Peak,Trek 700 Titanium,700ml,cook,136078,manufacturer,https://www.snowpeak.com/products/trek-700-titanium
@@ -187,6 +192,7 @@ Katadyn,BeFree Gravity Water Filter,3.0L,water,192777,manufacturer,https://www.b
 Katadyn,BeFree Water Filter,0.6L,water,59534,manufacturer,https://www.bestglide.com/products/katadyn-befree-0-6l-us
 Katadyn,BeFree Water Filter,1.0L,water,62369,manufacturer,https://zpacks.com/collections/katadyn-befree
 Mazama Designs,M!GO Bottle,,water,132000,manufacturer,https://mazamadesigns.com/products/m-go-bottle
+Osprey,Hydraulics Reservoir,2 L,water,208652,manufacturer,https://appoutdoors.com/products/hydraulics-2l-reservoir.json
 Platypus,GravityWorks Water Filter System,4L,water,326020,manufacturer,https://cascadedesigns.com/products/gravityworks-water-filter-system
 Platypus,Hoser Reservoir,2L,water,102058,manufacturer,https://cascadedesigns.com/products/hoser-reservoir
 Platypus,QuickDraw Microfilter,,water,82214,manufacturer,https://cascadedesigns.com/products/quickdraw-filter

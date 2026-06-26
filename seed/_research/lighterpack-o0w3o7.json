@@ -1,0 +1,73 @@
+{
+  "rows": [
+    {
+      "brand": "REI Co-op",
+      "name": "Flash 55 Pack",
+      "variant": "Men's, Medium (18-20 in torso)",
+      "category_hint": "pack",
+      "weight_value": 2,
+      "weight_unit": "lb",
+      "weight_secondary": "13 oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://web.archive.org/web/20240601231228/https://www.rei.com/product/216571/rei-co-op-flash-55-pack-mens",
+      "quote": "REI spec Weight: M: 2 lbs. 13 oz. (S: 2 lbs. 12 oz., L: 2 lbs. 14 oz.)"
+    },
+    {
+      "brand": "Zenbivy",
+      "name": "Ultralight Bed",
+      "variant": "25F, Regular (quilt + Fast Sheet)",
+      "category_hint": "sleep",
+      "weight_value": 20,
+      "weight_unit": "oz",
+      "weight_secondary": "system: 17 oz quilt + 3 oz Fast Sheet",
+      "weight_source": "manufacturer",
+      "source_url": "https://zenbivy.com/collections/ultralight-beds",
+      "quote": "20 oz lightweight modular sleep system for backpacking ... 3 oz UL Fast Sheet and 17 oz UL Quilt (25F Regular)"
+    },
+    {
+      "brand": "Fire Maple",
+      "name": "Petrel G2 Ultralight Pot",
+      "variant": "750ml, pot only (no stove)",
+      "category_hint": "cook",
+      "weight_value": 184,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://gearjunkie.com/camping/cooking/fire-maple-petrel-ultralight-g2-pot-review",
+      "quote": "Weight: 6.5 oz. / 184g (Fire Maple spec; brand store .json reports 185 g across variants)"
+    },
+    {
+      "brand": "Sea to Summit",
+      "name": "Camp Cutlery Spoon",
+      "variant": "glass-reinforced polypropylene",
+      "category_hint": "cook",
+      "weight_value": 12,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://seatosummit.com/products/camp-spoon",
+      "quote": "Weight: 12 g / 0.4 oz; Material: Polypropylene with 30% glass fibre; 18.5 cm"
+    },
+    {
+      "brand": "Fozzils",
+      "name": "Snapfold Bowl",
+      "variant": "single bowl",
+      "category_hint": "cook",
+      "weight_value": 40,
+      "weight_unit": "g",
+      "weight_source": "measured",
+      "source_url": "https://the-high-route.com/review-fozzils-snapfold-bowl/",
+      "quote": "It weighs 40 g. (per-bowl; corroborated by Coghlan's Snapfold Bowls 2-pack at 2.4 oz / 80.08 g ~= 40 g each)"
+    },
+    {
+      "brand": "Osprey",
+      "name": "Hydraulics Reservoir",
+      "variant": "2 L",
+      "category_hint": "water",
+      "weight_value": 0.46,
+      "weight_unit": "lb",
+      "weight_secondary": "7.4 oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://appoutdoors.com/products/hydraulics-2l-reservoir.json",
+      "quote": "VOLUME 122 IN3 / 2 L  WEIGHT 0.46 LBS. (Osprey Hydraulics 2 L Reservoir, empty)"
+    }
+  ]
+}
