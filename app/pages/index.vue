@@ -213,7 +213,7 @@ function onFile(e: Event) {
 }
 .import__text {
   width: 100%;
-  font-family: var(--font-mono);
+  font-family: var(--font);
   font-size: var(--text-sm);
   border: 1px solid var(--line);
   padding: var(--space-3);
