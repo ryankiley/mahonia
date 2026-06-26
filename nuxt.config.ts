@@ -28,6 +28,16 @@ export default defineNuxtConfig({
     },
   },
 
+  nitro: {
+    // Pre-compress static assets (the client JS/CSS) at build time so they ship
+    // gzip + brotli. Nitro serves the .br/.gz variant with the right
+    // Content-Encoding + Vary on node-server / self-host / `nuxt preview`; on
+    // Vercel the edge compresses on the fly, so this is a harmless belt-and-
+    // braces that also keeps the site fast off-Vercel (portable Nitro, decision
+    // #10). Dynamic SSR/API responses are compressed by Vercel's edge in prod.
+    compressPublicAssets: { gzip: true, brotli: true },
+  },
+
   css: ["~/assets/styles/main.scss"],
 
   components: [
