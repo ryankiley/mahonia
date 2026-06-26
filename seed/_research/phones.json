@@ -1,0 +1,92 @@
+{
+  "rows": [
+    {
+      "brand": "Apple",
+      "name": "iPhone 14 Pro",
+      "variant": "",
+      "category_hint": "electronics",
+      "weight_value": 206,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.apple.com/iphone-14-pro/specs/",
+      "quote": "iPhone 14 Pro Weight: 7.27 ounces (206 grams)"
+    },
+    {
+      "brand": "Apple",
+      "name": "iPhone 15 Pro",
+      "variant": "",
+      "category_hint": "electronics",
+      "weight_value": 187,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.apple.com/iphone-15-pro/specs/",
+      "quote": "iPhone 15 Pro Weight: 6.60 ounces (187 grams)"
+    },
+    {
+      "brand": "Apple",
+      "name": "iPhone 16 Pro",
+      "variant": "",
+      "category_hint": "electronics",
+      "weight_value": 199,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.apple.com/iphone-16-pro/specs/",
+      "quote": "iPhone 16 Pro Weight: 7.03 ounces (199 grams)"
+    },
+    {
+      "brand": "Apple",
+      "name": "iPhone 17 Pro",
+      "variant": "",
+      "category_hint": "electronics",
+      "weight_value": 206,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.apple.com/iphone-17-pro/specs/",
+      "quote": "iPhone 17 Pro Weight: 7.27 ounces (206 grams)"
+    },
+    {
+      "brand": "Apple",
+      "name": "iPhone 15",
+      "variant": "",
+      "category_hint": "electronics",
+      "weight_value": 171,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.apple.com/iphone-15/specs/",
+      "quote": "iPhone 15 Weight: 6.02 ounces (171 grams)"
+    },
+    {
+      "brand": "Apple",
+      "name": "iPhone 16",
+      "variant": "",
+      "category_hint": "electronics",
+      "weight_value": 170,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.apple.com/iphone-16/specs/",
+      "quote": "iPhone 16 Weight: 6.00 ounces (170 grams)"
+    },
+    {
+      "brand": "Apple",
+      "name": "iPhone 17",
+      "variant": "",
+      "category_hint": "electronics",
+      "weight_value": 177,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.apple.com/iphone-17/specs/",
+      "quote": "iPhone 17 Weight: 6.24 ounces (177 grams)"
+    },
+    {
+      "brand": "Apple",
+      "name": "iPhone 16e",
+      "variant": "",
+      "category_hint": "electronics",
+      "weight_value": 167,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.apple.com/iphone-16e/specs/",
+      "quote": "iPhone 16e Weight: 5.88 ounces (167 grams)"
+    }
+  ]
+}

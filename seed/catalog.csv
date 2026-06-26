@@ -85,6 +85,9 @@ Nemo,Tensor All-Season Ultralight Insulated,Regular,sleep,439418,manufacturer,ht
 Nemo,Tensor All-Season Ultralight Insulated,Regular Wide,sleep,538641,manufacturer,https://www.nemoequipment.com/products/tensor-all-season-insulated-sleeping-pad
 Nemo,Tensor Extreme Conditions Ultralight Insulated,Regular Mummy,sleep,481942,manufacturer,https://www.campman.com/camp-hike/nemo-tensor-extreme-conditions-sleeping-pad/
 Nemo,Tensor Trail Ultralight Insulated,Regular,sleep,394058,manufacturer,https://www.nemoequipment.com/products/tensor-trail-insulated-ultralight-sleeping-pad
+NEMO,Tensor Elite Ultralight Sleeping Pad,Regular Mummy,sleep,240971,manufacturer,https://zpacks.com/products/nemo-tensor-elite-sleeping-pad
+NEMO,Tensor Elite Ultralight Sleeping Pad,Regular Wide Mummy,sleep,294835,manufacturer,https://zpacks.com/products/nemo-tensor-elite-sleeping-pad
+NEMO,Tensor Elite Ultralight Sleeping Pad,Short Mummy,sleep,215456,manufacturer,https://zpacks.com/products/nemo-tensor-elite-sleeping-pad
 Pillow Strap,Camping Pillowcase,Medium,sleep,65204,manufacturer,https://www.pillowstrap.com/products/medium-grey
 REI Co-op,Magma 30,"30F, Regular, 850FP",sleep,561320,manufacturer,https://web.archive.org/web/20200311095059id_/https://www.rei.com/product/148246/rei-co-op-magma-30-sleeping-bag-mens
 Sea to Summit,Aeros Premium Pillow,Regular,sleep,99223,manufacturer,https://seatosummit.com/products/aeros-pillow-premium
@@ -161,6 +164,8 @@ ULA Equipment,Photon,with hipbelt and foam back panel,pack,739923,manufacturer,h
 Zpacks,Arc Blast 55L,discontinued,pack,564156,manufacturer,https://zpacks.com/products/arc-blast-backpack
 Zpacks,Arc Haul Ultra 50L,,pack,606680,manufacturer,https://zpacks.com/products/arc-haul-ultra-50l-backpack
 Zpacks,Arc Haul Ultra 60L,,pack,618020,manufacturer,https://zpacks.com/products/arc-haul-ultra-60l-backpack
+Evernew,Titanium NS Pot 0.9L (ECA422),900ml,cook,140000,manufacturer,https://evernew-global.com/products/titanium/ECA422.html
+Evernew,Titanium Ti Cup 400FD (EBY265),"400ml, single wall",cook,60101,manufacturer,https://www.evernewamerica.com/ti-mugs/
 Fire Maple,Petrel G2 Ultralight Pot,"750ml, pot only (no stove)",cook,184000,manufacturer,https://gearjunkie.com/camping/cooking/fire-maple-petrel-ultralight-g2-pot-review
 Fozzils,Snapfold Bowl,single bowl,cook,40000,measured,https://the-high-route.com/review-fozzils-snapfold-bowl/
 Jetboil,Flash Cooking System,1.0L,cook,371039,manufacturer,https://jetboil.johnsonoutdoors.com/us/shop/stoves-systems/flash-10l-fast-boil-system
@@ -168,6 +173,7 @@ Jetboil,MiniMo Cooking System,,cook,414130,manufacturer,https://jetboil.johnsono
 Jetboil,Stash Cooking System,0.8L,cook,201282,manufacturer,https://jetboil.johnsonoutdoors.com/us/shop/stoves-systems/stash-cooking-system
 MSR,PocketRocket 2 Stove,,cook,73709,manufacturer,https://cascadedesigns.com/products/pocketrocket-2-stove
 MSR,PocketRocket Deluxe Stove,,cook,82214,manufacturer,https://cascadedesigns.com/products/pocketrocket-deluxe-stove
+MSR,Titan Long Spoon,,cook,19845,manufacturer,https://cascadedesigns.com/products/titan-long-spoon
 Sea to Summit,Camp Cutlery Spoon,glass-reinforced polypropylene,cook,12000,manufacturer,https://seatosummit.com/products/camp-spoon
 Sea to Summit,X-Mug,,cook,70874,manufacturer,https://seatosummit.com/products/x-mug-16oz-with-cool-grip-used
 Snow Peak,LiteMax Titanium Stove,,cook,53864,manufacturer,https://www.snowpeak.com/products/litemax-titanium-stove
@@ -182,6 +188,7 @@ Toaks,Titanium 900ml D115mm Pot,900ml,cook,116233,manufacturer,https://www.toaks
 Toaks,Titanium Long Handle Spoon,,cook,18427,manufacturer,https://www.toaksoutdoor.com/products/slv-03
 Vargo,BOT 700,700ml,cook,136078,manufacturer,https://vargooutdoors.com/products/bot-700
 Aquamira,"Water Treatment Drops (2-part, Part A + Part B)",1 oz,water,85049,measured,https://www.cleverhiker.com/backpacking/aquamira-water-purification-drops-review/
+Aquatabs,"Water Purification Tablets (NaDCC, 67mg active)",per tablet (397mg whole-tablet); sold x100,water,397,manufacturer,https://www.aquatabs.us/product/aquatabs-397mg-tablets-x100/
 CNOC,Vecto Water Container (28mm),2L,water,76000,manufacturer,https://www.sixmoondesigns.com/products/vecto-2l-water-container-28mm
 CNOC,Vecto Water Container (28mm),3L,water,84000,manufacturer,https://www.sixmoondesigns.com/products/vecto-3l-water-container-28mm
 Glaceau,Smartwater Bottle,1L,water,39689,measured,https://www.adventurealan.com/hard-ultralight-water-bottles/
@@ -211,6 +218,7 @@ Arc'teryx,Cormac Hoody,Men's,clothing,160000,manufacturer,https://mountainhighou
 Black Diamond,Lightweight Screentap Liners,Men's,clothing,37000,manufacturer,https://blackdiamondequipment.com/products/lightweight-screentap-liners
 Brooks,Cascadia 18,"Men's, per shoe (brand spec)",clothing,314680,manufacturer,https://runrepeat.com/brooks-cascadia-18
 Buff,Original Multifunctional Headwear,One size,clothing,35000,measured,https://www.alexroddie.com/2017/03/review-original-buff-multifunctional-headwear/
+Coghlan's,Mosquito Head Net,One size (model 8941),clothing,41000,manufacturer,https://coghlans.com/products/mosquito-head-net.json
 Darn Tough,Hiker Boot Midweight,"Men's, Full Cushion (per pair)",clothing,73709,measured,https://www.outdoorgearlab.com/reviews/shoes-and-boots/hiking-socks/darn-tough-hiker-full-cushion
 Decathlon,Forclaz MT100 Hooded Down Jacket,Men's L,clothing,320350,manufacturer,https://www.decathlon.com/products/simond-mt100-hooded-down-puffer-jacket-167571.json
 Decathlon (Simond),MT100 Hooded Down Jacket,Men's M,clothing,292000,measured,https://www.outdoorgearlab.com/reviews/clothing-mens/down-jacket-men/decathlon-simond-mt100-hooded-puffer
@@ -225,17 +233,24 @@ Hoka,Torrent 4,"Men's, per shoe (US size 9)",clothing,246641,manufacturer,https:
 Injinji,Liner Crew,Toe socks (per pair),clothing,11340,measured,https://www.outdoorgearlab.com/reviews/shoes-and-boots/hiking-socks/injinji-liner-crew
 Injinji,Trail Midweight Mini-Crew,Toe socks (per pair),clothing,55000,measured,https://brianoutdoorsblog.wordpress.com/2019/05/06/injinji-trail-midweight-mini-crew-toe-socks/
 La Sportiva,Bushido III,"Men's, per shoe",clothing,297670,manufacturer,https://www.lasportivausa.com/products/bushido-iii
+La Sportiva,Ethereal Pro Jacket,Men's M,clothing,157000,manufacturer,https://web.archive.org/web/20250905154433id_/https://www.lasportivausa.com/ethereal-pro-jkt-m.html
 LightHeart Gear,Alpha Direct 90 Hoodie,Men's M,clothing,147418,manufacturer,https://lightheartgear.com/products/alpha-direct-90-hoodie-with-kangaroo-pocket
 Melanzana,Micro Grid Hoodie V2,Men's L (men's M weight not published),clothing,343029,manufacturer,https://melanzana.com/products/2025-micro-grid-hoodie-v2
 Merrell,Moab 3 (low),"Men's, per shoe (brand spec)",clothing,459262,manufacturer,https://runrepeat.com/merrell-moab-3
+Montbell,Alpine Light Down Parka,Men's M,clothing,391223,manufacturer,https://web.archive.org/web/20250828103536id_/https://www.montbell.com/us/en/products/detail/2301366
 Montbell,Ex Light Down Anorak,Men's,clothing,215456,manufacturer,https://www.adventurealan.com/product/montbell-ex-light-down-anorak/
 Montbell,EX Light Down Anorak,Men's M,clothing,215456,manufacturer,https://web.archive.org/web/20250321083016id_/https://www.montbell.com/us/en/products/detail/2301351
 Montbell,Plasma 1000 Down Jacket,Men's M,clothing,136078,manufacturer,https://www.montbell.com/us/en/products/detail/2301381
 Montbell,Storm Cruiser Jacket,Men's M,clothing,283495,manufacturer,https://web.archive.org/web/20250419023338id_/https://www.montbell.com/us/en/products/detail/2328174
 Montbell,Versalite Jacket,Men's M,clothing,181437,manufacturer,https://web.archive.org/web/2id_/https://www.montbell.com/us/en/products/detail/2328169
+Montbell,Versalite Pants,Men's M,clothing,90718,manufacturer,https://euro.montbell.com/products/disp.php?p_id=2328232
 Mountain Hardwear,Ghost Whisperer Hoody,Men's M,clothing,249476,manufacturer,https://web.archive.org/web/20240719182014id_/https://www.mountainhardwear.com/p/mens-ghost-whisperer%2F2-hoody-1874761.html
 Mountain Hardwear,Ghost Whisperer UL Hoody,Men's M,clothing,189942,manufacturer,https://www.adventurealan.com/product/mountain-hardwear-ghost-whisperer-ul-jacket/
 Mountain Hardwear,Stretchdown Hoody,Men's M,clothing,263651,manufacturer,https://web.archive.org/web/20260510152321id_/https://www.mountainhardwear.com/p/mens-stretchdown-hoody-2104491.html
+Norda,001 G+ Spike,"Men's, per shoe (US M 8.5)",clothing,267903,manufacturer,https://nordarun.com/products/001-m-g-spike-black
+Norda,001A,"Men's, per shoe (US M 8.5)",clothing,267903,manufacturer,https://nordarun.com/products/001a-m-black
+Norda,002,"Men's, per shoe (US M 8.5)",clothing,248909,manufacturer,https://nordarun.com/products/002-m-summit-black
+Norda,005,"Men's, per shoe (US M 8.5)",clothing,212621,manufacturer,https://nordarun.com/products/005-m-neve
 Outdoor Research,ActiveIce Chroma Full Sun Gloves,,clothing,39973,manufacturer,https://www.outdoorresearch.com/products/activeice-chroma-full-sun-gloves-280134
 Outdoor Research,ActiveIce Chroma Sun Gloves,"Unisex, one size (model #280133)",clothing,34019,manufacturer,https://web.archive.org/web/20251211063136id_/https://www.outdoorresearch.com/products/activeice-chroma-sun-gloves-280133
 Outdoor Research,Echo Hoodie,Men's M,clothing,149969,manufacturer,https://www.outdoorresearch.com/products/mens-echo-hoodie-287625
@@ -249,12 +264,14 @@ Patagonia,Capilene Cool Lightweight Shirt,Men's M (short sleeve),clothing,74000,
 Patagonia,Capilene Midweight Bottoms,Men's M,clothing,164000,manufacturer,https://web.archive.org/web/20240114165323id_/https://www.patagonia.com/product/mens-capilene-midweight-baselayer-bottoms/44487.html
 Patagonia,Down Sweater Hoody,Men's M,clothing,420000,manufacturer,https://web.archive.org/web/20250811183007id_/https://www.patagonia.com/product/mens-down-sweater-insulated-hoody/84702.html
 Patagonia,Houdini Jacket,Men's M,clothing,105000,manufacturer,https://web.archive.org/web/20200718053536id_/https://www.patagonia.com/product/mens-houdini-windbreaker-jacket/24142.html
+Patagonia,Long-Sleeved Sun Stretch Shirt,Men's M,clothing,159000,manufacturer,https://web.archive.org/web/20250522095505id_/https://www.patagonia.com/product/mens-long-sleeved-sun-stretch-shirt/52198.html
 Patagonia,Micro Puff Hoody,Men's,clothing,298000,manufacturer,https://www.patagoniabend.com/products/ms-micro-puff-hoody-1
 Patagonia,Micro Puff Hoody,Men's M,clothing,298000,manufacturer,https://web.archive.org/web/20241207105818id_/https://www.patagonia.com/product/mens-micro-puff-insulated-hoody/84031.html
 Patagonia,Nano Puff Jacket,Men's,clothing,337360,manufacturer,https://outdoornewengland.com/products/mens-nano-puff-jacket
 Patagonia,Nano Puff Jacket,Men's M,clothing,369000,manufacturer,https://web.archive.org/web/20250903022513id_/https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84213.html
 Patagonia,Nano Puff Jacket,Women's M,clothing,309000,manufacturer,https://web.archive.org/web/20250912112307id_/https://www.patagonia.com/product/womens-nano-puff-insulated-jacket/84218.html
 Patagonia,P-6 Logo LoPro Trucker Hat,,clothing,85000,manufacturer,https://www.idahomountaintouring.com/products/p-6-logo-lopro-trucker-hat
+Patagonia,Quandary Pants - Regular,Men's M,clothing,318000,manufacturer,https://web.archive.org/web/20260128055417id_/https://www.patagonia.com/product/mens-quandary-hiking-pants-regular/55183.html
 Patagonia,R1 Air Full-Zip Hoody,Men's,clothing,369000,manufacturer,https://www.whittakermountaineering.com/products/mens-r1-air-full-zip-hoody
 Patagonia,R1 Air Full-Zip Hoody,Men's M,clothing,369000,manufacturer,https://web.archive.org/web/20250912121826id_/https://www.patagonia.com/product/mens-r1-air-fleece-midlayer-full-zip-hoody/40256.html
 Petzl,Cordex Plus belay/rappel gloves,Size L,clothing,146000,manufacturer,https://www.petzl.com/US/en/Sport/Packs-And-Accessories/CORDEX-PLUS
@@ -280,6 +297,14 @@ Anker,313 Power Bank (PowerCore 10K),A1229,electronics,212621,manufacturer,https
 Anker,511 Power Bank (PowerCore Fusion 5K),A1633,electronics,170000,manufacturer,https://service.anker.com/product-description/a085g000004zVOvAAM/anker-511-power-bank-powercore-fusion-5k
 Anker,Nano Charger (20W),A2637,electronics,31184,manufacturer,https://www.anker.com/products/a2637-nano-20w-charger
 Anker,PowerCore 10000,A1263,electronics,178602,manufacturer,https://service.anker.com/product-description/a085g000004x2B3AAI/powercore-10000
+Apple,iPhone 14 Pro,,electronics,206000,manufacturer,https://www.apple.com/iphone-14-pro/specs/
+Apple,iPhone 15,,electronics,171000,manufacturer,https://www.apple.com/iphone-15/specs/
+Apple,iPhone 15 Pro,,electronics,187000,manufacturer,https://www.apple.com/iphone-15-pro/specs/
+Apple,iPhone 16,,electronics,170000,manufacturer,https://www.apple.com/iphone-16/specs/
+Apple,iPhone 16 Pro,,electronics,199000,manufacturer,https://www.apple.com/iphone-16-pro/specs/
+Apple,iPhone 16e,,electronics,167000,manufacturer,https://www.apple.com/iphone-16e/specs/
+Apple,iPhone 17,,electronics,177000,manufacturer,https://www.apple.com/iphone-17/specs/
+Apple,iPhone 17 Pro,,electronics,206000,manufacturer,https://www.apple.com/iphone-17-pro/specs/
 Black Diamond,Spot 400 Headlamp,,electronics,86000,manufacturer,https://blackdiamondequipment.com/products/spot-400-headlamp
 Black Diamond,Storm 500-R Headlamp,Rechargeable,electronics,120000,manufacturer,https://blackdiamondequipment.com/products/storm-500-r-rechargeable-headlamp
 Garmin,inReach Messenger,,electronics,113398,manufacturer,https://www.garmin.com/en-US/p/793265/
@@ -322,6 +347,7 @@ RXBAR,Protein Bar (Chocolate Sea Salt),single bar,consumable,51880,manufacturer,
 Skratch Labs,Hydration Sport Drink Mix,single-serving stick,consumable,22000,manufacturer,https://www.skratchlabs.com/products/hydration-sport-drink-mix
 Snickers,Snickers Singles Size Chocolate Candy Bar,1.86 oz single (full size),consumable,52730,manufacturer,https://www.snickers.com/products/chocolate/snickers-singles-size-chocolate-candy-bars-186-oz-bars
 Starbucks,VIA Instant Coffee (Pike Place Roast),single packet,consumable,3118,manufacturer,https://www.target.com/p/starbucks-via-instant-coffee-medium-roast-packets-pike-place-roast-packets-8ct-0-11oz/-/A-15251130
+Adotec,"Ultralight Food Locker (Grizzly Bear-Resistant, DCF)",14L (IGBC-certified),other,199000,manufacturer,https://adotecgear.com/products/ultralight-food-locker-grizzly-bear-resistant-bag
 BearVault,BV450 Jaunt Bear Canister,standard,other,935535,manufacturer,https://bearvault.com/products/bv450
 BearVault,BV500 Journey Bear Canister,standard,other,1162331,manufacturer,https://bearvault.com/products/bv500
 BIC,J25 Mini Lighter,Mini (J25),other,13000,manufacturer,https://www.bicgraphic.com/gb/bic-j25-lighter-3460002360.html
@@ -332,6 +358,8 @@ Black Diamond,Raven Pro Ice Axe,55cm,other,390000,manufacturer,https://blackdiam
 Black Diamond,Trail Ergo Cork Trekking Poles,per pair,other,512000,manufacturer,https://gearheadoutfitters.com/products/trail-ergo-cork-trek-poles
 CAMP,Corsa Ice Axe,50cm,other,209000,manufacturer,https://skimo.co/camp-corsa-ice-axe
 CAMP,Corsa Nanotech Ice Axe,60cm,other,277000,manufacturer,https://skimo.co/camp-corsa-nanotech-ice-axe
+Durston,Iceline Trekking Poles,"Strapless, per pole",other,134000,manufacturer,https://durstongear.com/products/iceline-trekking-poles
+Durston,Iceline Trekking Poles,"Strapped, per pole",other,145000,manufacturer,https://durstongear.com/products/iceline-trekking-poles
 Gossamer Gear,Lightrek Hiking Umbrella,,other,164427,manufacturer,https://www.gossamergear.com/products/liteflex-hiking-chrome-umbrella
 Gossamer Gear,LT5 Three Piece Carbon Trekking Poles,per pole (page states per pole),other,138913,manufacturer,https://www.gossamergear.com/products/lt5-three-piece-carbon-trekking-poles-pair
 Helinox,Chair Zero,chair only,other,490000,manufacturer,https://www.outdoorline.eu/products/helinox-chair-zero
@@ -348,11 +376,15 @@ REI Co-op,Flexlite Air Chair,,other,479107,measured,https://www.outdoorgearlab.c
 Sea to Summit,Ultra-Sil Dry Bag,8L,other,39000,manufacturer,https://seatosummit.com/products/ultra-sil-dry-bag
 Sea to Summit,Ultra-Sil Dry Sack,8L,other,39000,manufacturer,https://seatosummit.com/products/ultra-sil-dry-bag
 Sea to Summit,Ultra-Sil Stuff Sack,13L,other,44000,manufacturer,https://seatosummit.com/products/the-ultra-sil-stuff-sack
+Sea to Summit,Ultra-Sil Stuff Sack,L (15L),other,28350,manufacturer,https://www.ellis-brigham.com/sea-to-summit-ultra-sil-stuff-sack-large-15l-253103900
+Sea to Summit,Ultra-Sil Stuff Sack,XXS (2.5L),other,11340,manufacturer,https://www.altitude-sports.com/products/sea-to-summit-ultra-sil-stuff-sack-xxs-2-5-l-llll-sts-181
 Six Moon Designs,Silver Shadow Carbon Umbrella,,other,192777,manufacturer,https://www.sixmoondesigns.com/products/silver-shadow-carbon-umbrella
+Suunto,Clipper L/B NH Compass,,other,5103,manufacturer,https://www.gossamergear.com/products/suunto-clipper-compact-compass
 Teva,Original Universal Sandals (men's),"per pair, size 11",other,411068,measured,https://www.outdoorgearlab.com/reviews/shoes-and-boots/sandals-mens/teva-original-universal
 TheTentLab,The Deuce of Spades #2 Trowel,#2,other,17010,manufacturer,https://www.thetentlab.com/Deuce/number2.html
 Ursack,"AllMitey (Major S29.3 AllMitey, Kevlar)",standard,other,269320,manufacturer,https://ursack.com/products/ursack-allmitey
 Ursack,Major (S29.3) Bear-Proof Bag,standard ~10.65L,other,215456,manufacturer,https://ursack.com/products/ursack-major
+Victorinox,Classic SD,,other,22680,manufacturer,https://www.victorinox.com/en-US/Products/Swiss-Army-Knives/Small-Pocket-Knives/Classic-SD/p/0.6223
 Victorinox,Classic SD Swiss Army Knife,standard (Cellidor),other,22680,manufacturer,https://www.victorinox.com/en-US/Products/Swiss-Army-Knives/Small-Pocket-Knives/Classic-SD/p/0.6223
 Wild Ideas,Bearikade Weekender,standard,other,878835,manufacturer,https://wild-ideas.net/weekender/
 Zpacks,Tyvek Groundsheet,5 ft x 9 ft cut,other,260816,manufacturer,https://zpacks.com/products/tyvek-groundsheet

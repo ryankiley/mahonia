@@ -1,0 +1,100 @@
+{
+  "rows": [
+    {
+      "brand": "Coghlan's",
+      "name": "Mosquito Head Net",
+      "variant": "One size (model 8941)",
+      "category_hint": "clothing",
+      "weight_value": 41,
+      "weight_unit": "g",
+      "weight_secondary": "0.09 lb",
+      "weight_source": "manufacturer",
+      "source_url": "https://coghlans.com/products/mosquito-head-net.json",
+      "quote": "product variant: \"grams\":\"41\",\"weight\":\"0.09\",\"weight_unit\":\"lb\""
+    },
+    {
+      "brand": "Montbell",
+      "name": "Alpine Light Down Parka",
+      "variant": "Men's M",
+      "category_hint": "clothing",
+      "weight_value": 13.8,
+      "weight_unit": "oz",
+      "weight_secondary": "391 g",
+      "weight_source": "manufacturer",
+      "source_url": "https://web.archive.org/web/20250828103536id_/https://www.montbell.com/us/en/products/detail/2301366",
+      "quote": "\"weight_g\":\"391 g\",\"weight_oz\":\"13.8 oz\""
+    },
+    {
+      "brand": "La Sportiva",
+      "name": "Ethereal Pro Jacket",
+      "variant": "Men's M",
+      "category_hint": "clothing",
+      "weight_value": 157,
+      "weight_unit": "g",
+      "weight_secondary": "5.5 oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://web.archive.org/web/20250905154433id_/https://www.lasportivausa.com/ethereal-pro-jkt-m.html",
+      "quote": "WEIGHT: 157 g / 5.5 oz (Membrane is Pertex Shield, PFAS-free; not GORE-TEX)"
+    },
+    {
+      "brand": "Montbell",
+      "name": "Versalite Pants",
+      "variant": "Men's M",
+      "category_hint": "clothing",
+      "weight_value": 3.2,
+      "weight_unit": "oz",
+      "weight_secondary": "91 g",
+      "weight_source": "manufacturer",
+      "source_url": "https://euro.montbell.com/products/disp.php?p_id=2328232",
+      "quote": "\"weight_g\":\"91 g\",\"weight_oz\":\"3.2 oz\""
+    },
+    {
+      "brand": "Patagonia",
+      "name": "Long-Sleeved Sun Stretch Shirt",
+      "variant": "Men's M",
+      "category_hint": "clothing",
+      "weight_value": 159,
+      "weight_unit": "g",
+      "weight_secondary": "5.6 oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://web.archive.org/web/20250522095505id_/https://www.patagonia.com/product/mens-long-sleeved-sun-stretch-shirt/52198.html",
+      "quote": "<p class=\"content-feature__description\">159 g (5.6 oz)</p>"
+    },
+    {
+      "brand": "Patagonia",
+      "name": "Quandary Pants - Regular",
+      "variant": "Men's M",
+      "category_hint": "clothing",
+      "weight_value": 318,
+      "weight_unit": "g",
+      "weight_secondary": "11.2 oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://web.archive.org/web/20260128055417id_/https://www.patagonia.com/product/mens-quandary-hiking-pants-regular/55183.html",
+      "quote": "<p class=\"content-feature__description\">318 g (11.2 oz)</p>"
+    },
+    {
+      "brand": "Patagonia",
+      "name": "Capilene Cool Lightweight Shirt",
+      "variant": "Men's M (short sleeve)",
+      "category_hint": "clothing",
+      "weight_value": 74,
+      "weight_unit": "g",
+      "weight_secondary": "2.6 oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://web.archive.org/web/20260128014309id_/https://www.patagonia.com/product/mens-capilene-cool-lightweight-shirt/45760.html",
+      "quote": "<p class=\"content-feature__description\">74 g (2.6 oz)</p>"
+    },
+    {
+      "brand": "Smartwool",
+      "name": "Merino 250 Cuffed Beanie",
+      "variant": "One size",
+      "category_hint": "clothing",
+      "weight_value": 2.1,
+      "weight_unit": "oz",
+      "weight_secondary": "60 g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.rei.com/product/738915/smartwool-thermal-merino-reversible-cuffed-beanie",
+      "quote": "Smartwool Merino 250 Cuffed Beanie — 2.1 oz / 60 g (REI). Smartwool.com lists garment weight 60 g (2.1 oz)."
+    }
+  ]
+}

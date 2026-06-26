@@ -1,0 +1,172 @@
+{
+  "rows": [
+    {
+      "brand": "NEMO",
+      "name": "Tensor Elite Ultralight Sleeping Pad",
+      "variant": "Short Mummy",
+      "category_hint": "sleep",
+      "weight_value": 7.6,
+      "weight_unit": "oz",
+      "weight_secondary": null,
+      "weight_source": "manufacturer",
+      "source_url": "https://zpacks.com/products/nemo-tensor-elite-sleeping-pad",
+      "quote": "Short: 7.6 oz (215 g); 20 x 63\" x 3\". Manufacturer spec table reproduced by Zpacks (NEMO product page is JS-rendered and does not expose per-size weights)."
+    },
+    {
+      "brand": "NEMO",
+      "name": "Tensor Elite Ultralight Sleeping Pad",
+      "variant": "Regular Mummy",
+      "category_hint": "sleep",
+      "weight_value": 8.5,
+      "weight_unit": "oz",
+      "weight_secondary": null,
+      "weight_source": "manufacturer",
+      "source_url": "https://zpacks.com/products/nemo-tensor-elite-sleeping-pad",
+      "quote": "Regular: 8.5 oz (240 g); 20 x 72\" x 3\". Corroborated by NEMO's own copy describing 'an ethereal 240-gram weight' (nemoequipment.com/products/tensor-elite-ultralight-sleeping-pad)."
+    },
+    {
+      "brand": "NEMO",
+      "name": "Tensor Elite Ultralight Sleeping Pad",
+      "variant": "Regular Wide Mummy",
+      "category_hint": "sleep",
+      "weight_value": 10.4,
+      "weight_unit": "oz",
+      "weight_secondary": null,
+      "weight_source": "manufacturer",
+      "source_url": "https://zpacks.com/products/nemo-tensor-elite-sleeping-pad",
+      "quote": "Regular-Wide: 10.4 oz (295g); 25\" x 72\" x 3\". Manufacturer spec table reproduced by Zpacks."
+    },
+    {
+      "brand": "Durston",
+      "name": "Iceline Trekking Poles",
+      "variant": "Strapless, per pole",
+      "category_hint": "other",
+      "weight_value": 134,
+      "weight_unit": "g",
+      "weight_secondary": null,
+      "weight_source": "manufacturer",
+      "source_url": "https://durstongear.com/products/iceline-trekking-poles",
+      "quote": "Strapless: '134 g (4.7 oz) per pole' (poles, no baskets, no hand straps) = 268 g / 9.4 oz per pair. Durston reviews/marketing cite '9.4 oz/pair'; manufacturer product page states the figure per pole."
+    },
+    {
+      "brand": "Durston",
+      "name": "Iceline Trekking Poles",
+      "variant": "Strapped, per pole",
+      "category_hint": "other",
+      "weight_value": 145,
+      "weight_unit": "g",
+      "weight_secondary": null,
+      "weight_source": "manufacturer",
+      "source_url": "https://durstongear.com/products/iceline-trekking-poles",
+      "quote": "Strap version (separate option on same product): '145 g (5.1 oz) per pole' = 290 g / 10.2 oz per pair."
+    },
+    {
+      "brand": "Sea to Summit",
+      "name": "Ultra-Sil Stuff Sack",
+      "variant": "L (15L)",
+      "category_hint": "other",
+      "weight_value": 1.0,
+      "weight_unit": "oz",
+      "weight_secondary": null,
+      "weight_source": "manufacturer",
+      "source_url": "https://www.ellis-brigham.com/sea-to-summit-ultra-sil-stuff-sack-large-15l-253103900",
+      "quote": "Large 15L = 1.0 oz (28 g). Previous-generation Ultra-Sil sizing (current S2S line is 1.5/3/5/8/13/20L); 15L spec confirmed across retailers (Ellis-Brigham, REI, Altitude Sports)."
+    },
+    {
+      "brand": "Sea to Summit",
+      "name": "Ultra-Sil Stuff Sack",
+      "variant": "XXS (2.5L)",
+      "category_hint": "other",
+      "weight_value": 0.4,
+      "weight_unit": "oz",
+      "weight_source": "manufacturer",
+      "weight_secondary": null,
+      "source_url": "https://www.altitude-sports.com/products/sea-to-summit-ultra-sil-stuff-sack-xxs-2-5-l-llll-sts-181",
+      "quote": "Spec table: 'XXS 4'' x 8.5'' 0.4 oz 11g 130 cu in /2.5 Liter'. Previous-generation Ultra-Sil sizing."
+    },
+    {
+      "brand": "Evernew",
+      "name": "Titanium NS Pot 0.9L (ECA422)",
+      "variant": "900ml",
+      "category_hint": "cook",
+      "weight_value": 140,
+      "weight_unit": "g",
+      "weight_secondary": null,
+      "weight_source": "manufacturer",
+      "source_url": "https://evernew-global.com/products/titanium/ECA422.html",
+      "quote": "TITANIUM NS POT 0.9 L, 900ml (with scale), Weight: 140g (4.93oz). (Non-stick/ceramic-coated Ti pot.)"
+    },
+    {
+      "brand": "Evernew",
+      "name": "Titanium Ti Cup 400FD (EBY265)",
+      "variant": "400ml, single wall",
+      "category_hint": "cook",
+      "weight_value": 2.12,
+      "weight_unit": "oz",
+      "weight_secondary": null,
+      "weight_source": "manufacturer",
+      "source_url": "https://www.evernewamerica.com/ti-mugs/",
+      "quote": "Ti Cup 400FD (EBY265), Single Wall Mug with Folding Handle: '2.12oz/60g'. NOTE: the requested 'ECA278' is Evernew's Ti UL Stacking SET (750ml pot + 400ml cup + sack, 180g/6.3oz total), not a standalone 400ml single-wall mug; EBY265 is the standalone single-wall 400ml mug. The other single-wall 400ml standalone is Ti Mug 400 (EBY262) at 2.4oz/67g."
+    },
+    {
+      "brand": "MSR",
+      "name": "Titan Long Spoon",
+      "variant": "",
+      "category_hint": "cook",
+      "weight_value": 0.7,
+      "weight_unit": "oz",
+      "weight_secondary": null,
+      "weight_source": "manufacturer",
+      "source_url": "https://cascadedesigns.com/products/titan-long-spoon",
+      "quote": "Weight 0.7 oz (0.02 kg). Ultralight titanium long-handled utensil (a.k.a. MSR Titan Spoon)."
+    },
+    {
+      "brand": "Aquatabs",
+      "name": "Water Purification Tablets (NaDCC, 67mg active)",
+      "variant": "per tablet (397mg whole-tablet); sold x100",
+      "category_hint": "water",
+      "weight_value": 0.397,
+      "weight_unit": "g",
+      "weight_secondary": null,
+      "weight_source": "manufacturer",
+      "source_url": "https://www.aquatabs.us/product/aquatabs-397mg-tablets-x100/",
+      "quote": "Manufacturer product is 'Aquatabs 397mg Tablets x100' — 397 mg = 0.397 g is the whole-tablet mass (67 mg active NaDCC; Aquatabs lists tablets by active ingredient: 3.5/8.5/17/33/67/167/500mg). Value recorded in grams since schema units are oz|g|lb|kg (no mg); cited figure is 397 mg per tablet."
+    },
+    {
+      "brand": "Suunto",
+      "name": "Clipper L/B NH Compass",
+      "variant": "",
+      "category_hint": "other",
+      "weight_value": 0.18,
+      "weight_unit": "oz",
+      "weight_secondary": null,
+      "weight_source": "manufacturer",
+      "source_url": "https://www.gossamergear.com/products/suunto-clipper-compact-compass",
+      "quote": "Weight: 0.18 oz / 5g (Suunto spec; Suunto's own page is JS-rendered. Corroborated by Litesmith citing manufacturer)."
+    },
+    {
+      "brand": "Victorinox",
+      "name": "Classic SD",
+      "variant": "",
+      "category_hint": "other",
+      "weight_value": 0.8,
+      "weight_unit": "oz",
+      "weight_secondary": null,
+      "weight_source": "manufacturer",
+      "source_url": "https://www.victorinox.com/en-US/Products/Swiss-Army-Knives/Small-Pocket-Knives/Classic-SD/p/0.6223",
+      "quote": "Dimensions section lists Weight: 0.8 oz (a.k.a. Swiss Army Mini Classic). Manufacturer page gives oz only; secondary retailers commonly list ~21 g."
+    },
+    {
+      "brand": "Adotec",
+      "name": "Ultralight Food Locker (Grizzly Bear-Resistant, DCF)",
+      "variant": "14L (IGBC-certified)",
+      "category_hint": "other",
+      "weight_value": 199,
+      "weight_unit": "g",
+      "weight_secondary": null,
+      "weight_source": "manufacturer",
+      "source_url": "https://adotecgear.com/products/ultralight-food-locker-grizzly-bear-resistant-bag",
+      "quote": "14 Litre: '199 g (7.0 oz)'. 'The 14L version bag is certified Grizzly Bear Resistant by the Interagency Grizzly Bear Committee (IGBC). Certificate #245493.' (9L = 147 g / 5.3 oz and 20L = 226 g / 8.0 oz are not IGBC-certified.)"
+    }
+  ]
+}

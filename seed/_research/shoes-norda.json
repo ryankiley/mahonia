@@ -1,0 +1,52 @@
+{
+  "rows": [
+    {
+      "brand": "Norda",
+      "name": "001A",
+      "variant": "Men's, per shoe (US M 8.5)",
+      "category_hint": "clothing",
+      "weight_value": 9.45,
+      "weight_unit": "oz",
+      "weight_secondary": "268 g",
+      "weight_source": "manufacturer",
+      "source_url": "https://nordarun.com/products/001a-m-black",
+      "quote": "268g / 9.45 oz (US M 8.5)"
+    },
+    {
+      "brand": "Norda",
+      "name": "002",
+      "variant": "Men's, per shoe (US M 8.5)",
+      "category_hint": "clothing",
+      "weight_value": 8.78,
+      "weight_unit": "oz",
+      "weight_secondary": "249 g",
+      "weight_source": "manufacturer",
+      "source_url": "https://nordarun.com/products/002-m-summit-black",
+      "quote": "249g / 8.78 oz (US M 8.5)"
+    },
+    {
+      "brand": "Norda",
+      "name": "005",
+      "variant": "Men's, per shoe (US M 8.5)",
+      "category_hint": "clothing",
+      "weight_value": 7.5,
+      "weight_unit": "oz",
+      "weight_secondary": "214 g",
+      "weight_source": "manufacturer",
+      "source_url": "https://nordarun.com/products/005-m-neve",
+      "quote": "214g / 7.5 oz (US M 8.5)"
+    },
+    {
+      "brand": "Norda",
+      "name": "001 G+ Spike",
+      "variant": "Men's, per shoe (US M 8.5)",
+      "category_hint": "clothing",
+      "weight_value": 9.45,
+      "weight_unit": "oz",
+      "weight_secondary": "268 g",
+      "weight_source": "manufacturer",
+      "source_url": "https://nordarun.com/products/001-m-g-spike-black",
+      "quote": "268g / 9.45 oz (US M 8.5)"
+    }
+  ]
+}
