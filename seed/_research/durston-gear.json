@@ -1,7 +1,7 @@
 {
   "rows": [
     {
-      "brand": "NEMO",
+      "brand": "Nemo",
       "name": "Tensor Elite Ultralight Sleeping Pad",
       "variant": "Short Mummy",
       "category_hint": "sleep",
@@ -13,7 +13,7 @@
       "quote": "Short: 7.6 oz (215 g); 20 x 63\" x 3\". Manufacturer spec table reproduced by Zpacks (NEMO product page is JS-rendered and does not expose per-size weights)."
     },
     {
-      "brand": "NEMO",
+      "brand": "Nemo",
       "name": "Tensor Elite Ultralight Sleeping Pad",
       "variant": "Regular Mummy",
       "category_hint": "sleep",
@@ -25,7 +25,7 @@
       "quote": "Regular: 8.5 oz (240 g); 20 x 72\" x 3\". Corroborated by NEMO's own copy describing 'an ethereal 240-gram weight' (nemoequipment.com/products/tensor-elite-ultralight-sleeping-pad)."
     },
     {
-      "brand": "NEMO",
+      "brand": "Nemo",
       "name": "Tensor Elite Ultralight Sleeping Pad",
       "variant": "Regular Wide Mummy",
       "category_hint": "sleep",
