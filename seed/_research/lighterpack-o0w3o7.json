@@ -29,11 +29,11 @@
       "name": "Petrel G2 Ultralight Pot",
       "variant": "750ml, pot only",
       "category_hint": "cook",
-      "weight_value": 184,
+      "weight_value": 185,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://gearjunkie.com/camping/cooking/fire-maple-petrel-ultralight-g2-pot-review",
-      "quote": "Weight: 6.5 oz. / 184g (Fire Maple spec; brand store .json reports 185 g across variants)"
+      "source_url": "https://firemaplegear.com/products/petrel-ultralight-pot-750ml",
+      "quote": "Weight 185 g (Fire Maple product .json, all variants)."
     },
     {
       "brand": "Sea to Summit",
