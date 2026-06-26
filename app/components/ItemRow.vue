@@ -60,8 +60,8 @@ function onClass(e: Event) {
   c.updateItem(props.item.id, { classification: v === "base" ? null : v });
 }
 
-// notes: edited via a hover icon button (not an always-present field); the note
-// shows as live text once it has content
+// notes: toggled via an always-visible icon button (add/remove), not an
+// always-present field; the note shows as live text once it has content
 const noteOpen = ref(false);
 const noteRef = ref<HTMLInputElement | null>(null);
 // the note button adds (plus) when there's no note, removes (minus) when there is;

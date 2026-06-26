@@ -79,26 +79,9 @@ onKeyStroke("Escape", () => target.value && close());
 </template>
 
 <style scoped>
-.ovl {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-4);
-  background: light-dark(#1d1c1c80, #00000099);
-}
+/* overlay + dialog shell live in atoms/dialog.scss; this dialog adds a rise-in
+   and its own header/actions */
 .dlg {
-  width: 100%;
-  max-width: 30rem;
-  padding: var(--space-5);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  /* solid surface + hairline (no soft shadow — brutalist) so it reads off the scrim */
-  background: var(--paper);
-  border: 1px solid var(--line-2);
   transition:
     transform var(--dur) var(--ease-spring),
     opacity var(--dur) var(--ease);
@@ -121,14 +104,6 @@ onKeyStroke("Escape", () => target.value && close());
   font-weight: 600;
   letter-spacing: -0.02em;
 }
-.dlg__lede {
-  margin-bottom: var(--space-2);
-}
-.dlg__field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
 .dlg__field em {
   font-style: normal;
   color: var(--accent);
@@ -138,14 +113,6 @@ onKeyStroke("Escape", () => target.value && close());
   justify-content: flex-end;
   gap: var(--space-2);
   margin-top: var(--space-2);
-}
-.ovl-enter-active,
-.ovl-leave-active {
-  transition: opacity var(--dur) var(--ease);
-}
-.ovl-enter-from,
-.ovl-leave-to {
-  opacity: 0;
 }
 /* the dialog itself rises in (the scrim just fades) */
 .ovl-enter-from .dlg {

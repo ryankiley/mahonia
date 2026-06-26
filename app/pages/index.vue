@@ -41,16 +41,7 @@ async function newList() {
       "/api/lists/create",
       { method: "POST", body: { title: "Untitled list", data: { folders, items: [] } } },
     );
-    myLists.upsert({
-      editToken: res.editToken,
-      shareCode: res.snapshot.shareCode,
-      slug: res.snapshot.slug,
-      title: res.snapshot.title,
-      totalMg: 0,
-      version: res.snapshot.version,
-      lastOpened: Date.now(),
-    });
-    router.push(`/e#${res.editToken}`);
+    router.push(`/e#${myLists.registerCreated(res)}`);
   } finally {
     creating.value = false;
   }
@@ -85,16 +76,7 @@ async function importData(data: ListData) {
       method: "POST",
       body: { title: "Imported list", data },
     });
-    myLists.upsert({
-      editToken: res.editToken,
-      shareCode: res.snapshot.shareCode,
-      slug: res.snapshot.slug,
-      title: res.snapshot.title,
-      totalMg: 0,
-      version: res.snapshot.version,
-      lastOpened: Date.now(),
-    });
-    router.push(`/e#${res.editToken}`);
+    router.push(`/e#${myLists.registerCreated(res)}`);
   } catch {
     importError.value = "Import failed — check the CSV and try again.";
   } finally {

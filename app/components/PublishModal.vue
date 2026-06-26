@@ -114,26 +114,8 @@ onKeyStroke("Escape", () => isOpen.value && close());
 </template>
 
 <style scoped>
-.ovl {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-4);
-  background: light-dark(#1d1c1c80, #00000099);
-}
-.dlg {
-  width: 100%;
-  max-width: 30rem;
-  padding: var(--space-5);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  background: var(--paper);
-  border: 1px solid var(--line-2);
-}
+/* overlay + dialog shell live in atoms/dialog.scss; only the publish-specific
+   body is scoped here */
 .dlg__head {
   display: flex;
   align-items: center;
@@ -141,14 +123,6 @@ onKeyStroke("Escape", () => isOpen.value && close());
   font-size: var(--text-title);
   font-weight: 600;
   letter-spacing: -0.02em;
-}
-.dlg__lede {
-  margin-bottom: var(--space-2);
-}
-.dlg__field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
 }
 .dlg__link {
   display: flex;
@@ -183,13 +157,5 @@ onKeyStroke("Escape", () => isOpen.value && close());
 }
 .dlg__danger {
   color: var(--ink-2);
-}
-.ovl-enter-active,
-.ovl-leave-active {
-  transition: opacity var(--dur) var(--ease);
-}
-.ovl-enter-from,
-.ovl-leave-to {
-  opacity: 0;
 }
 </style>

@@ -1,5 +1,5 @@
 import { useStorage } from "@vueuse/core";
-import type { MyListEntry } from "~~/shared/types";
+import type { ListSnapshot, MyListEntry } from "~~/shared/types";
 
 // No-login "My Lists": the registry of edit tokens this browser holds. This is
 // the only thing tying a visitor to their lists — clear the browser and they're
@@ -32,5 +32,23 @@ export function useMyLists() {
     entries.value = entries.value.filter((x) => x.editToken !== editToken);
   }
 
-  return { entries, all, upsert, touch, forget };
+  // Register a freshly created/imported/cloned list in this browser's registry.
+  // Returns the edit token so the caller can navigate straight to /e#{token}.
+  function registerCreated(
+    res: { editToken: string; snapshot: ListSnapshot },
+    totalMg = 0,
+  ): string {
+    upsert({
+      editToken: res.editToken,
+      shareCode: res.snapshot.shareCode,
+      slug: res.snapshot.slug,
+      title: res.snapshot.title,
+      totalMg,
+      version: res.snapshot.version,
+      lastOpened: Date.now(),
+    });
+    return res.editToken;
+  }
+
+  return { entries, all, upsert, touch, forget, registerCreated };
 }

@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { Flag, Globe } from "@lucide/vue";
 import { seasonLabel, tripTypeLabel } from "~~/shared/discovery";
-import type { ListSnapshot, Unit } from "~~/shared/types";
-import { computeTotals, formatWeight } from "~~/shared/weights";
+import type { ListSnapshot } from "~~/shared/types";
+import { formatWeight } from "~~/shared/weights";
 
 const route = useRoute();
 const slug = String(route.params.slug || "");
@@ -15,20 +15,7 @@ const snapshot = ref<ListSnapshot | null>(data.value?.list ?? null);
 useResponseHeader("Cache-Control").value =
   "public, max-age=0, s-maxage=30, stale-while-revalidate=120";
 
-const unit = ref<Unit>(snapshot.value?.displayUnit ?? "g");
-const totals = computed(() => (snapshot.value ? computeTotals(snapshot.value) : null));
-// re-skin with the viewer's chosen unit; the readonly components read displayUnit
-const roList = computed(() =>
-  snapshot.value ? { ...snapshot.value, displayUnit: unit.value } : null,
-);
-const ungrouped = computed(() =>
-  snapshot.value ? snapshot.value.items.filter((i) => !i.folderId) : [],
-);
-const shownFolders = computed(() =>
-  roList.value
-    ? roList.value.folders.filter((f) => snapshot.value!.items.some((i) => i.folderId === f.id))
-    : [],
-);
+const { unit, totals, roList, ungrouped, shownFolders } = useReadonlyList(snapshot);
 
 const tripLabel = computed(() => tripTypeLabel(snapshot.value?.tripType));
 const seasonName = computed(() => seasonLabel(snapshot.value?.season));

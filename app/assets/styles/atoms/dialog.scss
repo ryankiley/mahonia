@@ -1,0 +1,41 @@
+// Modal shell — shared by the publish + catalog-correction dialogs. A centered
+// dialog over a dimmed scrim; solid surface + hairline (no soft shadow —
+// brutalist) so it reads off the scrim, which fades on enter/leave. Each modal
+// keeps only its own body bits (header, actions, any rise-in) scoped.
+
+.ovl {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  background: light-dark(#1d1c1c80, #00000099);
+}
+.dlg {
+  width: 100%;
+  max-width: 30rem;
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  background: var(--paper);
+  border: 1px solid var(--line-2);
+}
+.dlg__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.dlg__lede {
+  margin-bottom: var(--space-2);
+}
+.ovl-enter-active,
+.ovl-leave-active {
+  transition: opacity var(--dur) var(--ease);
+}
+.ovl-enter-from,
+.ovl-leave-to {
+  opacity: 0;
+}

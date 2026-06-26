@@ -108,16 +108,7 @@ async function cloneList() {
     method: "POST",
     body: { title: `${snapshot.value.title || "Untitled list"} (copy)`, data: { folders, items } },
   });
-  useMyLists().upsert({
-    editToken: res.editToken,
-    shareCode: res.snapshot.shareCode,
-    slug: res.snapshot.slug,
-    title: res.snapshot.title,
-    totalMg: totals.value?.totalMg ?? 0,
-    version: res.snapshot.version,
-    lastOpened: Date.now(),
-  });
-  router.push(`/e#${res.editToken}`);
+  router.push(`/e#${useMyLists().registerCreated(res, totals.value?.totalMg ?? 0)}`);
   flash("List duplicated");
 }
 function download(filename: string, text: string, type: string) {
@@ -150,12 +141,8 @@ async function newList() {
     method: "POST",
     body: { title: "Untitled list", data: { folders: [], items: [] } },
   });
-  useMyLists().upsert({
-    editToken: res.editToken, shareCode: res.snapshot.shareCode, slug: res.snapshot.slug,
-    title: res.snapshot.title, totalMg: 0, version: res.snapshot.version, lastOpened: Date.now(),
-  });
   // the route.hash watcher disposes + loads — don't double-load here
-  router.push(`/e#${res.editToken}`);
+  router.push(`/e#${useMyLists().registerCreated(res)}`);
 }
 
 const statusLabel = computed(() =>

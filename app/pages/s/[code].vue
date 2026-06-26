@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import type { ListSnapshot, Unit } from "~~/shared/types";
-import { computeTotals } from "~~/shared/weights";
+import type { ListSnapshot } from "~~/shared/types";
 
 const route = useRoute();
 const code = String(route.params.code || "");
@@ -9,21 +8,7 @@ const code = String(route.params.code || "");
 const { data } = await useFetch<{ snapshot: ListSnapshot }>(`/api/s/${code}`);
 const snapshot = ref<ListSnapshot | null>(data.value?.snapshot ?? null);
 
-const unit = ref<Unit>(snapshot.value?.displayUnit ?? "g");
-const totals = computed(() => (snapshot.value ? computeTotals(snapshot.value) : null));
-// re-skin the snapshot with the viewer's chosen unit; the editor components read list.displayUnit
-const roList = computed(() =>
-  snapshot.value ? { ...snapshot.value, displayUnit: unit.value } : null,
-);
-const ungrouped = computed(() =>
-  snapshot.value ? snapshot.value.items.filter((i) => !i.folderId) : [],
-);
-// a shared list shouldn't show empty folders
-const shownFolders = computed(() =>
-  roList.value
-    ? roList.value.folders.filter((f) => snapshot.value!.items.some((i) => i.folderId === f.id))
-    : [],
-);
+const { unit, totals, roList, ungrouped, shownFolders } = useReadonlyList(snapshot);
 
 useHead({
   title: () => (snapshot.value ? `${snapshot.value.title} — Gear` : "Gear"),
