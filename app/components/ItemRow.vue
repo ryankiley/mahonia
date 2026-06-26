@@ -136,7 +136,7 @@ function openFix() {
 
       <select
         class="field item__class"
-        :class="`item__class--${effClass}`"
+        :class="[`item__class--${effClass}`, { 'item__class--quiet': effClass === 'base' }]"
         :value="item.classification ?? ''"
         :title="`Counts as ${effClass}`"
         @change="c.updateItem(item.id, { classification: (($event.target as HTMLSelectElement).value || null) as any })"
@@ -264,6 +264,16 @@ function openFix() {
 .item__class--consumable {
   color: var(--ink-2);
 }
+/* the default (base) classification is implicit — hide the selector at rest, reveal
+   on hover/focus; worn/consumable stay visible because they carry real info */
+.item__class--quiet {
+  opacity: 0;
+  transition: opacity var(--dur) var(--ease);
+}
+.item-wrap:hover .item__class--quiet,
+.item__class--quiet:focus {
+  opacity: 1;
+}
 /* remove control is quiet at rest — fades in on row hover/focus (always on touch) */
 .item__del {
   color: var(--ink-3);
@@ -321,7 +331,8 @@ function openFix() {
   opacity: 1;
 }
 @media (hover: none) {
-  .item__del {
+  .item__del,
+  .item__class--quiet {
     opacity: 1;
   }
   .item__note:placeholder-shown {
