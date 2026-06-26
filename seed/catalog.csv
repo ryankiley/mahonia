@@ -27,7 +27,7 @@ Mountain Laurel Designs,DuoMid,SilPoly,shelter,510291,manufacturer,https://mount
 Mountain Laurel Designs,SoloMid XL,DCF (.75),shelter,396893,manufacturer,https://mountainlaureldesigns.com/product/solomid-xl/
 Mountain Laurel Designs,SoloMid XL,SilPoly,shelter,453592,manufacturer,https://mountainlaureldesigns.com/product/solomid-xl/
 Nemo,Dragonfly OSMO,1P,shelter,992233,manufacturer,https://www.gearx.com/products/nemo-equipment-dragonfly-osmo-1p-tent-ai7bp-fog
-Nemo,Dragonfly OSMO,2P,shelter,1502525,manufacturer,https://www.gearx.com/products/nemo-equipment-dragonfly-osmo-2p-tent-pg9dz-fog
+Nemo,Dragonfly OSMO,2P,shelter,1190680,manufacturer,https://www.rei.com/product/215776/nemo-dragonfly-osmo-2p-tent
 Nemo,Hornet Elite OSMO,1P,shelter,657000,manufacturer,https://www.outdoorline.eu/products/nemo-hornet-elite-osmo-1p
 Nemo,Hornet Elite OSMO,2P,shelter,779000,manufacturer,https://www.outdoorline.eu/products/nemo-hornet-elite-osmo-2p
 Nemo,Hornet OSMO,1P,shelter,810000,manufacturer,https://www.alpinetrek.co.uk/nemo-hornet-osmo-1p-1-person-tent/
@@ -92,7 +92,7 @@ Pillow Strap,Camping Pillowcase,Medium,sleep,65204,manufacturer,https://www.pill
 REI Co-op,Magma 30,"30F, Regular, 850FP",sleep,561320,manufacturer,https://web.archive.org/web/20200311095059id_/https://www.rei.com/product/148246/rei-co-op-magma-30-sleeping-bag-mens
 Sea to Summit,Aeros Premium Pillow,Regular,sleep,99223,manufacturer,https://seatosummit.com/products/aeros-pillow-premium
 Sea to Summit,Ember 30F,"30F, Regular",sleep,544000,manufacturer,https://seatosummit.com/products/the-ember-down-quilt
-Sea to Summit,Ether Light XT Extreme Insulated,Regular Rectangular,sleep,707604,manufacturer,https://seatosummit.com/pages/ether-light-xt-insulated-sleeping-pad
+Sea to Summit,Ether Light XT Extreme Insulated,Regular (tapered),sleep,720000,manufacturer,https://seatosummit.com/pages/ether-light-xt-insulated-sleeping-pad
 Sea to Summit,Ether Light XT Insulated,Regular,sleep,490447,manufacturer,https://seatosummit.com/pages/ether-light-xt-insulated-sleeping-pad
 Sea to Summit,Spark 15F,"15F, Regular",sleep,728583,manufacturer,https://seatosummit.com/products/spark-down-sleeping-bag
 Sea to Summit,Spark 30F,"30F, Regular",sleep,493000,manufacturer,https://seatosummit.com/products/spark-down-sleeping-bag
@@ -203,7 +203,7 @@ Platypus,Hoser Reservoir,2L,water,102058,manufacturer,https://cascadedesigns.com
 Platypus,QuickDraw Microfilter,,water,82214,manufacturer,https://cascadedesigns.com/products/quickdraw-filter
 Platypus,QuickDraw Microfilter,Filter only,water,68039,manufacturer,https://cascadedesigns.com/products/quickdraw-filter
 Sawyer,Micro Squeeze Water Filter,,water,56699,manufacturer,https://www.sawyer.com/product/micro-squeeze-water-filtration-system
-Sawyer,MINI Water Filter,,water,56699,manufacturer,https://www.sawyer.com/product/mini-water-filtration-system-black
+Sawyer,MINI Water Filter,,water,39000,measured,https://faroutguides.com/sawyer-mini-micro-and-squeeze-compared/
 Sawyer,Squeeze Water Filter (SP129),,water,85049,manufacturer,https://www.sawyereurope.com/water-filtration/sawyer-sp129-squeeze-water-filtration-system
 Altra,Lone Peak 9,"Men's, per shoe (US size 9)",clothing,294835,manufacturer,https://www.runningwarehouse.com/Altra_Lone_Peak_9/descpage-ALL9PM1.html
 Altra,Lone Peak 9+,"Men's, per shoe (US size 9)",clothing,303340,manufacturer,https://www.runningwarehouse.com/Altra_Lone_Peak_9/descpage-AMLP9M6.html
@@ -218,7 +218,7 @@ Arc'teryx,Cormac Hoody,Men's,clothing,160000,manufacturer,https://mountainhighou
 Black Diamond,Lightweight Screentap Liners,Men's,clothing,37000,manufacturer,https://blackdiamondequipment.com/products/lightweight-screentap-liners
 Brooks,Cascadia 18,"Men's, per shoe (brand spec)",clothing,314680,manufacturer,https://runrepeat.com/brooks-cascadia-18
 Buff,Original Multifunctional Headwear,One size,clothing,35000,measured,https://www.alexroddie.com/2017/03/review-original-buff-multifunctional-headwear/
-Coghlan's,Mosquito Head Net,One size (model 8941),clothing,41000,manufacturer,https://coghlans.com/products/mosquito-head-net.json
+Coghlan's,Mosquito Head Net,One size (model 8941),clothing,29000,measured,https://riversportsman.com/product/coghlans-mosquito-head-net/
 Darn Tough,Hiker Boot Midweight,"Men's, Full Cushion (per pair)",clothing,73709,measured,https://www.outdoorgearlab.com/reviews/shoes-and-boots/hiking-socks/darn-tough-hiker-full-cushion
 Decathlon,Forclaz MT100 Hooded Down Jacket,Men's L,clothing,320350,manufacturer,https://www.decathlon.com/products/simond-mt100-hooded-down-puffer-jacket-167571.json
 Decathlon (Simond),MT100 Hooded Down Jacket,Men's M,clothing,292000,measured,https://www.outdoorgearlab.com/reviews/clothing-mens/down-jacket-men/decathlon-simond-mt100-hooded-puffer
@@ -247,7 +247,6 @@ Montbell,Versalite Pants,Men's M,clothing,90718,manufacturer,https://euro.montbe
 Mountain Hardwear,Ghost Whisperer Hoody,Men's M,clothing,249476,manufacturer,https://web.archive.org/web/20240719182014id_/https://www.mountainhardwear.com/p/mens-ghost-whisperer%2F2-hoody-1874761.html
 Mountain Hardwear,Ghost Whisperer UL Hoody,Men's M,clothing,189942,manufacturer,https://www.adventurealan.com/product/mountain-hardwear-ghost-whisperer-ul-jacket/
 Mountain Hardwear,Stretchdown Hoody,Men's M,clothing,263651,manufacturer,https://web.archive.org/web/20260510152321id_/https://www.mountainhardwear.com/p/mens-stretchdown-hoody-2104491.html
-Norda,001 G+ Spike,"Men's, per shoe (US M 8.5)",clothing,267903,manufacturer,https://nordarun.com/products/001-m-g-spike-black
 Norda,001A,"Men's, per shoe (US M 8.5)",clothing,267903,manufacturer,https://nordarun.com/products/001a-m-black
 Norda,002,"Men's, per shoe (US M 8.5)",clothing,248909,manufacturer,https://nordarun.com/products/002-m-summit-black
 Norda,005,"Men's, per shoe (US M 8.5)",clothing,212621,manufacturer,https://nordarun.com/products/005-m-neve
@@ -267,7 +266,6 @@ Patagonia,Houdini Jacket,Men's M,clothing,105000,manufacturer,https://web.archiv
 Patagonia,Long-Sleeved Sun Stretch Shirt,Men's M,clothing,159000,manufacturer,https://web.archive.org/web/20250522095505id_/https://www.patagonia.com/product/mens-long-sleeved-sun-stretch-shirt/52198.html
 Patagonia,Micro Puff Hoody,Men's,clothing,298000,manufacturer,https://www.patagoniabend.com/products/ms-micro-puff-hoody-1
 Patagonia,Micro Puff Hoody,Men's M,clothing,298000,manufacturer,https://web.archive.org/web/20241207105818id_/https://www.patagonia.com/product/mens-micro-puff-insulated-hoody/84031.html
-Patagonia,Nano Puff Jacket,Men's,clothing,337360,manufacturer,https://outdoornewengland.com/products/mens-nano-puff-jacket
 Patagonia,Nano Puff Jacket,Men's M,clothing,369000,manufacturer,https://web.archive.org/web/20250903022513id_/https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84213.html
 Patagonia,Nano Puff Jacket,Women's M,clothing,309000,manufacturer,https://web.archive.org/web/20250912112307id_/https://www.patagonia.com/product/womens-nano-puff-insulated-jacket/84218.html
 Patagonia,P-6 Logo LoPro Trucker Hat,,clothing,85000,manufacturer,https://www.idahomountaintouring.com/products/p-6-logo-lopro-trucker-hat
@@ -351,9 +349,9 @@ Adotec,"Ultralight Food Locker (Grizzly Bear-Resistant, DCF)",14L (IGBC-certifie
 BearVault,BV450 Jaunt Bear Canister,standard,other,935535,manufacturer,https://bearvault.com/products/bv450
 BearVault,BV500 Journey Bear Canister,standard,other,1162331,manufacturer,https://bearvault.com/products/bv500
 BIC,J25 Mini Lighter,Mini (J25),other,13000,manufacturer,https://www.bicgraphic.com/gb/bic-j25-lighter-3460002360.html
-Black Diamond,Distance Carbon Z Trekking Poles,"120cm, per pole",other,280000,manufacturer,https://blackdiamondequipment.com/products/distance-carbon-z-poles
+Black Diamond,Distance Carbon Z Trekking Poles,"120cm, per pair",other,280000,manufacturer,https://blackdiamondequipment.com/products/distance-carbon-z-poles
 Black Diamond,Distance Spike Traction Device,per pair,other,200000,manufacturer,https://blackdiamondequipment.com/products/distance-spike-traction-device
-Black Diamond,Distance Z Trekking Poles,per pole,other,347000,manufacturer,https://blackdiamondequipment.com/products/distance-z-trekking-running-poles
+Black Diamond,Distance Z Trekking Poles,per pair,other,347000,manufacturer,https://blackdiamondequipment.com/products/distance-z-trekking-running-poles
 Black Diamond,Raven Pro Ice Axe,55cm,other,390000,manufacturer,https://blackdiamondequipment.com/products/raven-pro-ice-axe
 Black Diamond,Trail Ergo Cork Trekking Poles,per pair,other,512000,manufacturer,https://gearheadoutfitters.com/products/trail-ergo-cork-trek-poles
 CAMP,Corsa Ice Axe,50cm,other,209000,manufacturer,https://skimo.co/camp-corsa-ice-axe

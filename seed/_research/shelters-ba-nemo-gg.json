@@ -137,11 +137,11 @@
       "name": "Dragonfly OSMO",
       "variant": "2P",
       "category_hint": "shelter",
-      "weight_value": 53,
+      "weight_value": 42,
       "weight_unit": "oz",
       "weight_source": "manufacturer",
-      "source_url": "https://www.gearx.com/products/nemo-equipment-dragonfly-osmo-2p-tent-pg9dz-fog",
-      "quote": "Packed Weight: 3 lbs 5 oz (gearx lists only Packed Weight for the 2P; minimum weight not stated on this page — figure recorded is PACKED, not trail)"
+      "source_url": "https://www.rei.com/product/215776/nemo-dragonfly-osmo-2p-tent",
+      "quote": "Minimum (trail) weight 2 lb 10 oz / 1191 g (REI/NEMO). Catalog convention = min weight; packed weight is 3 lb 5 oz."
     },
     {
       "brand": "Gossamer Gear",

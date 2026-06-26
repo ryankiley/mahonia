@@ -27,11 +27,11 @@
       "name": "MINI Water Filter",
       "variant": "",
       "category_hint": "water",
-      "weight_value": 2,
-      "weight_unit": "oz",
-      "weight_source": "manufacturer",
-      "source_url": "https://www.sawyer.com/product/mini-water-filtration-system-black",
-      "quote": "a total field weight of just 2 ounces"
+      "weight_value": 39,
+      "weight_unit": "g",
+      "weight_source": "measured",
+      "source_url": "https://faroutguides.com/sawyer-mini-micro-and-squeeze-compared/",
+      "quote": "Sawyer MINI bare filter ~39 g dry (measured). Sawyer markets '2 oz' for both MINI and Micro, but the MINI is the lighter unit; 56.7 g was the Micro's weight."
     },
     {
       "brand": "Katadyn",

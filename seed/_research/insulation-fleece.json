@@ -71,18 +71,6 @@
     },
     {
       "brand": "Patagonia",
-      "name": "Nano Puff Jacket",
-      "variant": "Men's",
-      "category_hint": "clothing",
-      "weight_value": 337.36,
-      "weight_unit": "g",
-      "weight_secondary": "11.9 oz",
-      "weight_source": "manufacturer",
-      "source_url": "https://outdoornewengland.com/products/mens-nano-puff-jacket",
-      "quote": "337.36 g (11.9 oz)"
-    },
-    {
-      "brand": "Patagonia",
       "name": "Micro Puff Hoody",
       "variant": "Men's",
       "category_hint": "clothing",

@@ -74,14 +74,13 @@
     {
       "brand": "Sea to Summit",
       "name": "Ether Light XT Extreme Insulated",
-      "variant": "Regular Rectangular",
+      "variant": "Regular (tapered)",
       "category_hint": "sleep",
-      "weight_value": 1.56,
-      "weight_unit": "lb",
-      "weight_secondary": "720 g",
+      "weight_value": 720,
+      "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://seatosummit.com/pages/ether-light-xt-insulated-sleeping-pad",
-      "quote": "Ether Light XT Extreme Insulated (R-value 6.2) -- Weight: starting at 1lb 9oz | 720g"
+      "quote": "Ether Light XT Extreme, Tapered Regular (72 x 21.5 in): ~720 g / 1.6 lb. (The Rectangular Regular is ~950 g; this row is the lighter tapered config.)"
     },
     {
       "brand": "Therm-a-Rest",

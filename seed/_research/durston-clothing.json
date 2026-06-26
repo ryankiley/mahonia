@@ -5,12 +5,11 @@
       "name": "Mosquito Head Net",
       "variant": "One size (model 8941)",
       "category_hint": "clothing",
-      "weight_value": 41,
+      "weight_value": 29,
       "weight_unit": "g",
-      "weight_secondary": "0.09 lb",
-      "weight_source": "manufacturer",
-      "source_url": "https://coghlans.com/products/mosquito-head-net.json",
-      "quote": "product variant: \"grams\":\"41\",\"weight\":\"0.09\",\"weight_unit\":\"lb\""
+      "weight_source": "measured",
+      "source_url": "https://riversportsman.com/product/coghlans-mosquito-head-net/",
+      "quote": "Product weight ~0.029 kg / 29 g (retailer spec). The prior 41 g was the coghlans.com Shopify shipping-weight field, not the net product weight."
     },
     {
       "brand": "Montbell",
