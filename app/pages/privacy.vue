@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// CONTACT_EMAIL is auto-imported from app/utils/site.
 useHead({
   title: "Privacy — Gear",
   meta: [{ name: "description", content: "What Gear stores, why, and how to remove it." }],
@@ -23,7 +24,7 @@ useHead({
           Gear is a tool for making and sharing packing lists, made by one person. There are no
           accounts, no advertising, and I don’t sell your data. This page describes what Gear stores,
           what it sends over the network and when, and where to ask questions. If anything here is
-          unclear, email <a href="mailto:hello@ryankiley.com">hello@ryankiley.com</a>.
+          unclear, email <a :href="`mailto:${CONTACT_EMAIL}`">{{ CONTACT_EMAIL }}</a>.
         </p>
 
         <h2>Where your data lives</h2>
@@ -77,7 +78,7 @@ useHead({
           <li>Unpublish or delete a shared or public list from its editor to remove it from the server.</li>
           <li>
             For anything else — including a copy or deletion of a shared list — email
-            <a href="mailto:hello@ryankiley.com">hello@ryankiley.com</a> and I’ll sort it out.
+            <a :href="`mailto:${CONTACT_EMAIL}`">{{ CONTACT_EMAIL }}</a> and I’ll sort it out.
           </li>
         </ul>
         <p>
@@ -105,7 +106,7 @@ useHead({
 
         <h2>Contact</h2>
         <p>
-          Questions or requests: <a href="mailto:hello@ryankiley.com">hello@ryankiley.com</a>. See
+          Questions or requests: <a :href="`mailto:${CONTACT_EMAIL}`">{{ CONTACT_EMAIL }}</a>. See
           also the <NuxtLink to="/terms">Terms of Use</NuxtLink>.
         </p>
       </div>

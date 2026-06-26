@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// CONTACT_EMAIL is auto-imported from app/utils/site.
 useHead({
   title: "Terms — Gear",
   meta: [{ name: "description", content: "The terms for using Gear." }],
@@ -53,7 +54,7 @@ useHead({
           Please don’t use Gear to break the law, infringe others’ rights, post abusive or deceptive
           content, impersonate people, or attack, overload, or scrape the service. Public lists can
           be flagged with the “Report” button; to report a problem or request a takedown, email
-          <a href="mailto:hello@ryankiley.com">hello@ryankiley.com</a> with enough detail to find the
+          <a :href="`mailto:${CONTACT_EMAIL}`">{{ CONTACT_EMAIL }}</a> with enough detail to find the
           content. I may remove content or limit access — including pulling lists off the public feed
           — especially in response to reports.
         </p>
@@ -91,7 +92,7 @@ useHead({
 
         <h2>Contact</h2>
         <p>
-          Questions about these terms: <a href="mailto:hello@ryankiley.com">hello@ryankiley.com</a>.
+          Questions about these terms: <a :href="`mailto:${CONTACT_EMAIL}`">{{ CONTACT_EMAIL }}</a>.
           See also the <NuxtLink to="/privacy">Privacy</NuxtLink> page.
         </p>
       </div>
