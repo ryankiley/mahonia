@@ -57,7 +57,7 @@
     },
     {
       "brand": "Clif Bar",
-      "name": "Clif Bar (Chocolate Chip / original)",
+      "name": "Clif Bar",
       "variant": "single bar",
       "category_hint": "consumable",
       "weight_value": 68,
@@ -80,7 +80,7 @@
     {
       "brand": "Snickers",
       "name": "Snickers Singles Size Chocolate Candy Bar",
-      "variant": "1.86 oz single (full size)",
+      "variant": "single bar",
       "category_hint": "consumable",
       "weight_value": 1.86,
       "weight_unit": "oz",
@@ -123,7 +123,7 @@
     },
     {
       "brand": "Starbucks",
-      "name": "VIA Instant Coffee (Pike Place Roast)",
+      "name": "VIA Instant Coffee",
       "variant": "single packet",
       "category_hint": "consumable",
       "weight_value": 0.11,

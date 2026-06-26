@@ -122,7 +122,7 @@
     },
     {
       "brand": "Aquatabs",
-      "name": "Water Purification Tablets (NaDCC, 67mg active)",
+      "name": "Water Purification Tablets",
       "variant": "per tablet",
       "category_hint": "consumable",
       "weight_value": 0.397,
@@ -147,7 +147,7 @@
     {
       "brand": "Victorinox",
       "name": "Classic SD",
-      "variant": "",
+      "variant": "standard",
       "category_hint": "other",
       "weight_value": 0.8,
       "weight_unit": "oz",
@@ -158,8 +158,8 @@
     },
     {
       "brand": "Adotec",
-      "name": "Ultralight Food Locker (Grizzly Bear-Resistant, DCF)",
-      "variant": "14L (IGBC-certified)",
+      "name": "Ultralight Food Locker",
+      "variant": "14L",
       "category_hint": "other",
       "weight_value": 199,
       "weight_unit": "g",

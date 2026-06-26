@@ -14,7 +14,7 @@
     {
       "brand": "Gossamer Gear",
       "name": "Gorilla 50",
-      "variant": "Medium, with M Straight belt",
+      "variant": "Medium",
       "category_hint": "pack",
       "weight_value": 31.9,
       "weight_unit": "oz",
@@ -47,7 +47,7 @@
     {
       "brand": "Granite Gear",
       "name": "Crown3 60",
-      "variant": "Regular torso, without lid",
+      "variant": "Regular torso",
       "category_hint": "pack",
       "weight_value": 2.4,
       "weight_unit": "lb",
@@ -58,7 +58,7 @@
     {
       "brand": "Granite Gear",
       "name": "Blaze 60",
-      "variant": "Regular torso, without lid",
+      "variant": "Regular torso",
       "category_hint": "pack",
       "weight_value": 3,
       "weight_unit": "lb",

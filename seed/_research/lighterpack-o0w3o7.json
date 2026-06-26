@@ -3,7 +3,7 @@
     {
       "brand": "REI Co-op",
       "name": "Flash 55 Pack",
-      "variant": "Men's, Medium (18-20 in torso)",
+      "variant": "Men's, Medium",
       "category_hint": "pack",
       "weight_value": 2,
       "weight_unit": "lb",
@@ -27,7 +27,7 @@
     {
       "brand": "Fire Maple",
       "name": "Petrel G2 Ultralight Pot",
-      "variant": "750ml, pot only (no stove)",
+      "variant": "750ml, pot only",
       "category_hint": "cook",
       "weight_value": 184,
       "weight_unit": "g",
@@ -38,7 +38,6 @@
     {
       "brand": "Sea to Summit",
       "name": "Camp Cutlery Spoon",
-      "variant": "glass-reinforced polypropylene",
       "category_hint": "cook",
       "weight_value": 12,
       "weight_unit": "g",

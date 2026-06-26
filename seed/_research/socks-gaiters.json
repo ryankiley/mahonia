@@ -3,7 +3,7 @@
     {
       "brand": "Darn Tough",
       "name": "Hiker Boot Midweight",
-      "variant": "Men's, Full Cushion (per pair)",
+      "variant": "Men's, per pair",
       "category_hint": "clothing",
       "weight_value": 2.6,
       "weight_unit": "oz",
@@ -14,7 +14,7 @@
     {
       "brand": "Injinji",
       "name": "Liner Crew",
-      "variant": "Toe socks (per pair)",
+      "variant": "per pair",
       "category_hint": "clothing",
       "weight_value": 0.4,
       "weight_unit": "oz",
@@ -36,7 +36,7 @@
     {
       "brand": "Dirty Girl Gaiters",
       "name": "Dirty Girl Gaiters",
-      "variant": "One pair (0.7 oz each)",
+      "variant": "per pair",
       "category_hint": "clothing",
       "weight_value": 1.4,
       "weight_unit": "oz",
@@ -48,7 +48,7 @@
     {
       "brand": "Altra",
       "name": "Trail Gaiter",
-      "variant": "Unisex (per pair)",
+      "variant": "per pair",
       "category_hint": "clothing",
       "weight_value": 1.3,
       "weight_unit": "oz",
@@ -59,7 +59,7 @@
     {
       "brand": "Outdoor Research",
       "name": "Helium Gaiters",
-      "variant": "Men's (per pair)",
+      "variant": "per pair",
       "category_hint": "clothing",
       "weight_value": 4.9,
       "weight_unit": "oz",

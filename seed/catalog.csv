@@ -52,9 +52,9 @@ Zpacks,Offset Solo,,shelter,496117,manufacturer,https://zpacks.com/products/offs
 Zpacks,Pivot Solo,Lite Floor,shelter,379884,manufacturer,https://zpacks.com/products/pivot-solo-tent
 Zpacks,Pivot Solo,Standard Floor,shelter,450000,manufacturer,https://zpacks.com/products/pivot-solo-tent
 Zpacks,Plex Solo,,shelter,411068,manufacturer,https://zpacks.com/products/plexsolo-tent
-Zpacks,Plex Solo Classic,Classic (thicker DCF),shelter,411068,manufacturer,https://zpacks.com/products/plexsolo-tent
+Zpacks,Plex Solo Classic,,shelter,411068,manufacturer,https://zpacks.com/products/plexsolo-tent
 Zpacks,Triplex,,shelter,612350,manufacturer,https://zpacks.com/products/bargain-triplex-tent-white
-Big Agnes,Divide Insulated,"Regular (20"" x 72""), R-value 4",sleep,635000,manufacturer,https://www.bigagnes.com/products/divide-insulated.json
+Big Agnes,Divide Insulated,Regular,sleep,635000,manufacturer,https://www.bigagnes.com/products/divide-insulated.json
 Big Agnes,Rapide SL Insulated,Regular,sleep,510291,manufacturer,https://www.bigagnes.com/products/rapide-sl-insulated
 Big Agnes,Rapide SL Pillow,One size,sleep,45359,manufacturer,https://www.bigagnes.com/products/rapide-sl-pillow
 Enlightened Equipment,Enigma,"10F, 850FP, Regular",sleep,699666,manufacturer,https://web.archive.org/web/20211201053529id_/https://enlightenedequipment.com/enigma-850-10-f-12-c-regular-regular-navy-10d-charcoal-10d-5900-23/
@@ -70,7 +70,7 @@ Feathered Friends,Hummingbird UL 20,"Regular (6 ft), 20°F",sleep,677553,manufac
 Feathered Friends,Hummingbird UL 30,"Regular (6 ft), 30°F",sleep,601010,manufacturer,https://featheredfriends.com/products/hummingbird-ul-ultralight-20-30-degree-down-sleeping-bag
 Feathered Friends,Swallow UL 20,"Regular (6 ft), 20°F",sleep,754097,manufacturer,https://featheredfriends.com/products/swallow-ul-ultralight-20-30-degree-down-sleeping-bag-c0
 Feathered Friends,Swallow UL 30,"Regular (6 ft), 30°F",sleep,663378,manufacturer,https://featheredfriends.com/products/swallow-ul-ultralight-20-30-degree-down-sleeping-bag-c0
-Gossamer Gear,"Thinlight Foam Pad 1/8""",Rolled (standard),sleep,76544,manufacturer,https://www.gossamergear.com/products/thinlight-foam-pad
+Gossamer Gear,"Thinlight Foam Pad 1/8""",Rolled,sleep,76544,manufacturer,https://www.gossamergear.com/products/thinlight-foam-pad
 Hammock Gear,Premium Burrow 20,"20F, 850FP, Standard",sleep,615752,manufacturer,https://hammockgear.com/wp-content/uploads/2025/06/B850finalweights.pdf
 Hammock Gear,Premium Burrow 30,"30F, 850FP, Standard",sleep,520781,manufacturer,https://hammockgear.com/wp-content/uploads/2025/06/B850finalweights.pdf
 Hyperlite Mountain Gear,Stuff Sack Pillow,One size (9L),sleep,48194,manufacturer,https://hyperlitemountaingear.com/products/stuff-sack-pillows
@@ -122,12 +122,12 @@ Durston,Kakwa 40,Ultra 200X / M,pack,793787,manufacturer,https://durstongear.com
 Durston,Kakwa 40,UltraGrid / M,pack,839146,manufacturer,https://durstongear.com/products/kakwa-40-backpack
 Durston,Kakwa 55,Ultra 200X / M,pack,893010,manufacturer,https://durstongear.com/products/kakwa-55
 Durston,Kakwa 55,UltraGrid / M,pack,867495,manufacturer,https://durstongear.com/products/kakwa-55
-Gossamer Gear,Gorilla 50,"Medium, with M Straight belt",pack,904350,manufacturer,https://www.gossamergear.com/products/gorilla-50
+Gossamer Gear,Gorilla 50,Medium,pack,904350,manufacturer,https://www.gossamergear.com/products/gorilla-50
 Gossamer Gear,Kumo 36,Medium,pack,566990,manufacturer,https://www.gossamergear.com/products/kumo-36-superlight-backpack
 Gossamer Gear,Mariposa 60,"Medium, with M Straight belt",pack,969554,manufacturer,https://www.gossamergear.com/products/mariposa-60-lightweight-backpack
 Gossamer Gear,Murmur 36,,pack,223961,manufacturer,https://www.gossamergear.com/products/murmur-36-hyperlight-backpack
-Granite Gear,Blaze 60,"Regular torso, without lid",pack,1360777,manufacturer,https://www.granitegear.com/blaze-60-unisex.html
-Granite Gear,Crown3 60,"Regular torso, without lid",pack,1088622,manufacturer,https://www.granitegear.com/crown3-60-pack.html
+Granite Gear,Blaze 60,Regular torso,pack,1360777,manufacturer,https://www.granitegear.com/blaze-60-unisex.html
+Granite Gear,Crown3 60,Regular torso,pack,1088622,manufacturer,https://www.granitegear.com/crown3-60-pack.html
 Hyperlite Mountain Gear,Junction 2400,40 L,pack,833476,manufacturer,https://hyperlitemountaingear.com/products/junction
 Hyperlite Mountain Gear,Junction 3400,55 L,pack,867495,manufacturer,https://hyperlitemountaingear.com/products/junction
 Hyperlite Mountain Gear,Southwest 2400,40 L,pack,841981,manufacturer,https://hyperlitemountaingear.com/products/southwest
@@ -154,19 +154,19 @@ Osprey,Talon 44,S/M (44 L),pack,1569430,manufacturer,https://web.archive.org/web
 Osprey,Tempest 40,WM/L (40 L),pack,1327665,manufacturer,https://web.archive.org/web/2id_/https://www.osprey.com/gb/osprey-tempest-40-2021
 Osprey,Tempest 40,WXS/S (38 L),pack,1240575,manufacturer,https://web.archive.org/web/2id_/https://www.osprey.com/gb/osprey-tempest-40-2021
 Pa'lante,V2,"Gridstop (16"" / 19"")",pack,501787,manufacturer,https://palantepacks.com/products/v2
-REI Co-op,Flash 55 Pack,"Men's, Medium (18-20 in torso)",pack,1275729,manufacturer,https://web.archive.org/web/20240601231228/https://www.rei.com/product/216571/rei-co-op-flash-55-pack-mens
+REI Co-op,Flash 55 Pack,"Men's, Medium",pack,1275729,manufacturer,https://web.archive.org/web/20240601231228/https://www.rei.com/product/216571/rei-co-op-flash-55-pack-mens
 Six Moon Designs,Swift X,Standard,pack,1099961,manufacturer,https://www.sixmoondesigns.com/products/swift-x-ultralight-backpack
 ULA Equipment,Catalyst,,pack,1258719,manufacturer,https://www.ula-equipment.com/product/catalyst/
 ULA Equipment,CDT,UltraGrid,pack,768272,manufacturer,https://www.ula-equipment.com/product/cdt/
 ULA Equipment,Circuit,,pack,1091457,manufacturer,https://www.ula-equipment.com/product/circuit/
 ULA Equipment,Ohm 2.0,UltraGrid,pack,861826,manufacturer,https://www.ula-equipment.com/product/ohm/
-ULA Equipment,Photon,with hipbelt and foam back panel,pack,739923,manufacturer,https://www.ula-equipment.com/product/photon/
+ULA Equipment,Photon,,pack,739923,manufacturer,https://www.ula-equipment.com/product/photon/
 Zpacks,Arc Blast 55L,discontinued,pack,564156,manufacturer,https://zpacks.com/products/arc-blast-backpack
 Zpacks,Arc Haul Ultra 50L,,pack,606680,manufacturer,https://zpacks.com/products/arc-haul-ultra-50l-backpack
 Zpacks,Arc Haul Ultra 60L,,pack,618020,manufacturer,https://zpacks.com/products/arc-haul-ultra-60l-backpack
 Evernew,Titanium NS Pot 0.9L (ECA422),900ml,cook,140000,manufacturer,https://evernew-global.com/products/titanium/ECA422.html
 Evernew,Titanium Ti Cup 400FD (EBY265),"400ml, single wall",cook,60101,manufacturer,https://www.evernewamerica.com/ti-mugs/
-Fire Maple,Petrel G2 Ultralight Pot,"750ml, pot only (no stove)",cook,184000,manufacturer,https://gearjunkie.com/camping/cooking/fire-maple-petrel-ultralight-g2-pot-review
+Fire Maple,Petrel G2 Ultralight Pot,"750ml, pot only",cook,184000,manufacturer,https://gearjunkie.com/camping/cooking/fire-maple-petrel-ultralight-g2-pot-review
 Fozzils,Snapfold Bowl,single bowl,cook,40000,measured,https://the-high-route.com/review-fozzils-snapfold-bowl/
 Jetboil,Flash Cooking System,1.0L,cook,371039,manufacturer,https://jetboil.johnsonoutdoors.com/us/shop/stoves-systems/flash-10l-fast-boil-system
 Jetboil,MiniMo Cooking System,,cook,414130,manufacturer,https://jetboil.johnsonoutdoors.com/us/shop/stoves-systems/minimo-cooking-system/mnmcb
@@ -174,7 +174,7 @@ Jetboil,Stash Cooking System,0.8L,cook,201282,manufacturer,https://jetboil.johns
 MSR,PocketRocket 2 Stove,,cook,73709,manufacturer,https://cascadedesigns.com/products/pocketrocket-2-stove
 MSR,PocketRocket Deluxe Stove,,cook,82214,manufacturer,https://cascadedesigns.com/products/pocketrocket-deluxe-stove
 MSR,Titan Long Spoon,,cook,19845,manufacturer,https://cascadedesigns.com/products/titan-long-spoon
-Sea to Summit,Camp Cutlery Spoon,glass-reinforced polypropylene,cook,12000,manufacturer,https://seatosummit.com/products/camp-spoon
+Sea to Summit,Camp Cutlery Spoon,,cook,12000,manufacturer,https://seatosummit.com/products/camp-spoon
 Sea to Summit,X-Mug,,cook,70874,manufacturer,https://seatosummit.com/products/x-mug-16oz-with-cool-grip-used
 Snow Peak,LiteMax Titanium Stove,,cook,53864,manufacturer,https://www.snowpeak.com/products/litemax-titanium-stove
 Snow Peak,Trek 700 Titanium,700ml,cook,136078,manufacturer,https://www.snowpeak.com/products/trek-700-titanium
@@ -187,7 +187,7 @@ Toaks,Titanium 750ml Pot,750ml,cook,102058,manufacturer,https://www.toaksoutdoor
 Toaks,Titanium 900ml D115mm Pot,900ml,cook,116233,manufacturer,https://www.toaksoutdoor.com/products/pot-900-d115
 Toaks,Titanium Long Handle Spoon,,cook,18427,manufacturer,https://www.toaksoutdoor.com/products/slv-03
 Vargo,BOT 700,700ml,cook,136078,manufacturer,https://vargooutdoors.com/products/bot-700
-Aquamira,"Water Treatment Drops (2-part, Part A + Part B)",1 oz,water,85049,measured,https://www.cleverhiker.com/backpacking/aquamira-water-purification-drops-review/
+Aquamira,Water Treatment Drops,1 oz,water,85049,measured,https://www.cleverhiker.com/backpacking/aquamira-water-purification-drops-review/
 CNOC,Vecto Water Container (28mm),2L,water,76000,manufacturer,https://www.sixmoondesigns.com/products/vecto-2l-water-container-28mm
 CNOC,Vecto Water Container (28mm),3L,water,84000,manufacturer,https://www.sixmoondesigns.com/products/vecto-3l-water-container-28mm
 Glaceau,Smartwater Bottle,1L,water,39689,measured,https://www.adventurealan.com/hard-ultralight-water-bottles/
@@ -204,38 +204,38 @@ Platypus,QuickDraw Microfilter,Filter only,water,68039,manufacturer,https://casc
 Sawyer,Micro Squeeze Water Filter,,water,56699,manufacturer,https://www.sawyer.com/product/micro-squeeze-water-filtration-system
 Sawyer,MINI Water Filter,,water,39000,measured,https://faroutguides.com/sawyer-mini-micro-and-squeeze-compared/
 Sawyer,Squeeze Water Filter (SP129),,water,85049,manufacturer,https://www.sawyereurope.com/water-filtration/sawyer-sp129-squeeze-water-filtration-system
-Altra,Lone Peak 9,"Men's, per shoe (US size 9)",clothing,294835,manufacturer,https://www.runningwarehouse.com/Altra_Lone_Peak_9/descpage-ALL9PM1.html
-Altra,Lone Peak 9+,"Men's, per shoe (US size 9)",clothing,303340,manufacturer,https://www.runningwarehouse.com/Altra_Lone_Peak_9/descpage-AMLP9M6.html
-Altra,Olympus 6,"Men's, per shoe (US size 9)",clothing,354369,manufacturer,https://www.runningwarehouse.com/Altra_Olympus_6/descpage-AL6OLM4.html
-Altra,Timp 5,"Men's, per shoe (US size 9)",clothing,277825,manufacturer,https://www.runningwarehouse.com/Altra_Timp_5/descpage-AL5TIM2.html
-Altra,Trail Gaiter,Unisex (per pair),clothing,36854,manufacturer,https://trailful.com/products/altra-trail-gaiter
+Altra,Lone Peak 9,"Men's, per shoe",clothing,294835,manufacturer,https://www.runningwarehouse.com/Altra_Lone_Peak_9/descpage-ALL9PM1.html
+Altra,Lone Peak 9+,"Men's, per shoe",clothing,303340,manufacturer,https://www.runningwarehouse.com/Altra_Lone_Peak_9/descpage-AMLP9M6.html
+Altra,Olympus 6,"Men's, per shoe",clothing,354369,manufacturer,https://www.runningwarehouse.com/Altra_Olympus_6/descpage-AL6OLM4.html
+Altra,Timp 5,"Men's, per shoe",clothing,277825,manufacturer,https://www.runningwarehouse.com/Altra_Timp_5/descpage-AL5TIM2.html
+Altra,Trail Gaiter,per pair,clothing,36854,manufacturer,https://trailful.com/products/altra-trail-gaiter
 Appalachian Gear Company,All-Paca Fleece Hoodie,Men's M,clothing,311845,manufacturer,https://pieonthetrail.com/appalachian-gear-company-all-paca-fleece-hoodie-review/
 Arc'teryx,Atom Hoody,Men's M,clothing,355000,manufacturer,https://web.archive.org/web/20260317104033id_/https://arcteryx.com/us/en/shop/mens/atom-hoody-9556
 Arc'teryx,Cerium Hoody,Men's,clothing,338000,manufacturer,https://arcteryx.com/us/en/shop/mens/cerium-hoody-0521
 Arc'teryx,Cerium SL Hoody,Men's M,clothing,215456,manufacturer,https://arcteryx.com/us/en/shop/mens/cerium-sl-hoody-1036
 Arc'teryx,Cormac Hoody,Men's,clothing,160000,manufacturer,https://mountainhighoutfitters.com/products/m-cormac-hoody
 Black Diamond,Lightweight Screentap Liners,Men's,clothing,37000,manufacturer,https://blackdiamondequipment.com/products/lightweight-screentap-liners
-Brooks,Cascadia 18,"Men's, per shoe (brand spec)",clothing,314680,manufacturer,https://runrepeat.com/brooks-cascadia-18
+Brooks,Cascadia 18,"Men's, per shoe",clothing,314680,manufacturer,https://runrepeat.com/brooks-cascadia-18
 Buff,Original Multifunctional Headwear,One size,clothing,35000,measured,https://www.alexroddie.com/2017/03/review-original-buff-multifunctional-headwear/
-Coghlan's,Mosquito Head Net,One size (model 8941),clothing,29000,measured,https://riversportsman.com/product/coghlans-mosquito-head-net/
-Darn Tough,Hiker Boot Midweight,"Men's, Full Cushion (per pair)",clothing,73709,measured,https://www.outdoorgearlab.com/reviews/shoes-and-boots/hiking-socks/darn-tough-hiker-full-cushion
+Coghlan's,Mosquito Head Net,One size,clothing,29000,measured,https://riversportsman.com/product/coghlans-mosquito-head-net/
+Darn Tough,Hiker Boot Midweight,"Men's, per pair",clothing,73709,measured,https://www.outdoorgearlab.com/reviews/shoes-and-boots/hiking-socks/darn-tough-hiker-full-cushion
 Decathlon,Forclaz MT100 Hooded Down Jacket,Men's L,clothing,320350,manufacturer,https://www.decathlon.com/products/simond-mt100-hooded-down-puffer-jacket-167571.json
 Decathlon (Simond),MT100 Hooded Down Jacket,Men's M,clothing,292000,measured,https://www.outdoorgearlab.com/reviews/clothing-mens/down-jacket-men/decathlon-simond-mt100-hooded-puffer
-Dirty Girl Gaiters,Dirty Girl Gaiters,One pair (0.7 oz each),clothing,39689,measured,https://www.outdoorgearlab.com/reviews/climbing/gaiters/dirty-girl-gaiter
+Dirty Girl Gaiters,Dirty Girl Gaiters,per pair,clothing,39689,measured,https://www.outdoorgearlab.com/reviews/climbing/gaiters/dirty-girl-gaiter
 Enlightened Equipment,Copperfield Wind Pants,Men's,clothing,37138,manufacturer,https://enlightenedequipment.com/mens-copperfield-wind-pants-cus/
 Enlightened Equipment,Torrid APEX Jacket,Men's M,clothing,238136,manufacturer,https://www.adventurealan.com/enlightened-equipment-torrid-apex-jacket-review/
 Frogg Toggs,Ultra-Lite2 Rain Suit (jacket + pants),Men's,clothing,362874,manufacturer,https://www.froggtoggs.com/products/the-frogg-toggsr-ultra-lite2tm-4749
-Goldwin,GORE-TEX 3L Jacket,"GL05140, size 3 (M)",clothing,420000,manufacturer,https://usshop.goldwin-global.com/products/gl05140
-Hoka,Challenger 7,"Men's, per pair (US size 9)",clothing,504622,manufacturer,https://www.treelinereview.com/gearreviews/hoka-challenger-7-running-shoe-review
-Hoka,Speedgoat 6,"Men's, per shoe (US size 9)",clothing,277825,manufacturer,https://www.treelinereview.com/gearreviews/hoka-speedgoat-6
-Hoka,Torrent 4,"Men's, per shoe (US size 9)",clothing,246641,manufacturer,https://www.runningwarehouse.eu/HOKA_Torrent_4/descpage-HTO4CGN-EN.html
-Injinji,Liner Crew,Toe socks (per pair),clothing,11340,measured,https://www.outdoorgearlab.com/reviews/shoes-and-boots/hiking-socks/injinji-liner-crew
+Goldwin,GORE-TEX 3L Jacket,size 3 (M),clothing,420000,manufacturer,https://usshop.goldwin-global.com/products/gl05140
+Hoka,Challenger 7,"Men's, per pair",clothing,504622,manufacturer,https://www.treelinereview.com/gearreviews/hoka-challenger-7-running-shoe-review
+Hoka,Speedgoat 6,"Men's, per shoe",clothing,277825,manufacturer,https://www.treelinereview.com/gearreviews/hoka-speedgoat-6
+Hoka,Torrent 4,"Men's, per shoe",clothing,246641,manufacturer,https://www.runningwarehouse.eu/HOKA_Torrent_4/descpage-HTO4CGN-EN.html
+Injinji,Liner Crew,per pair,clothing,11340,measured,https://www.outdoorgearlab.com/reviews/shoes-and-boots/hiking-socks/injinji-liner-crew
 Injinji,Trail Midweight Mini-Crew,Toe socks (per pair),clothing,55000,measured,https://brianoutdoorsblog.wordpress.com/2019/05/06/injinji-trail-midweight-mini-crew-toe-socks/
 La Sportiva,Bushido III,"Men's, per shoe",clothing,297670,manufacturer,https://www.lasportivausa.com/products/bushido-iii
 La Sportiva,Ethereal Pro Jacket,Men's M,clothing,157000,manufacturer,https://web.archive.org/web/20250905154433id_/https://www.lasportivausa.com/ethereal-pro-jkt-m.html
 LightHeart Gear,Alpha Direct 90 Hoodie,Men's M,clothing,147418,manufacturer,https://lightheartgear.com/products/alpha-direct-90-hoodie-with-kangaroo-pocket
 Melanzana,Micro Grid Hoodie V2,Men's L,clothing,343029,manufacturer,https://melanzana.com/products/2025-micro-grid-hoodie-v2
-Merrell,Moab 3 (low),"Men's, per shoe (brand spec)",clothing,459262,manufacturer,https://runrepeat.com/merrell-moab-3
+Merrell,Moab 3 (low),"Men's, per shoe",clothing,459262,manufacturer,https://runrepeat.com/merrell-moab-3
 Montbell,Alpine Light Down Parka,Men's M,clothing,391223,manufacturer,https://web.archive.org/web/20250828103536id_/https://www.montbell.com/us/en/products/detail/2301366
 Montbell,EX Light Down Anorak,Men's M,clothing,215456,manufacturer,https://web.archive.org/web/20250321083016id_/https://www.montbell.com/us/en/products/detail/2301351
 Montbell,Plasma 1000 Down Jacket,Men's M,clothing,136078,manufacturer,https://www.montbell.com/us/en/products/detail/2301381
@@ -249,10 +249,10 @@ Norda,001A,"Men's, per shoe (US M 8.5)",clothing,267903,manufacturer,https://nor
 Norda,002,"Men's, per shoe (US M 8.5)",clothing,248909,manufacturer,https://nordarun.com/products/002-m-summit-black
 Norda,005,"Men's, per shoe (US M 8.5)",clothing,212621,manufacturer,https://nordarun.com/products/005-m-neve
 Outdoor Research,ActiveIce Chroma Full Sun Gloves,,clothing,39973,manufacturer,https://www.outdoorresearch.com/products/activeice-chroma-full-sun-gloves-280134
-Outdoor Research,ActiveIce Chroma Sun Gloves,"Unisex, one size (model #280133)",clothing,34019,manufacturer,https://web.archive.org/web/20251211063136id_/https://www.outdoorresearch.com/products/activeice-chroma-sun-gloves-280133
+Outdoor Research,ActiveIce Chroma Sun Gloves,"Unisex, one size",clothing,34019,manufacturer,https://web.archive.org/web/20251211063136id_/https://www.outdoorresearch.com/products/activeice-chroma-sun-gloves-280133
 Outdoor Research,Echo Hoodie,Men's M,clothing,149969,manufacturer,https://www.outdoorresearch.com/products/mens-echo-hoodie-287625
 Outdoor Research,Foray II GORE-TEX Jacket,Men's M,clothing,337359,manufacturer,https://www.rei.com/product/203479/outdoor-research-foray-ii-gore-tex-jacket-mens
-Outdoor Research,Helium Gaiters,Men's (per pair),clothing,138913,manufacturer,https://blog.outdoorprolink.com/proview-outdoor-research-mens-helium-gaiters/
+Outdoor Research,Helium Gaiters,per pair,clothing,138913,manufacturer,https://blog.outdoorprolink.com/proview-outdoor-research-mens-helium-gaiters/
 Outdoor Research,Helium Rain Jacket,Men's M,clothing,175767,manufacturer,https://web.archive.org/web/20250512151841id_/https://www.outdoorresearch.com/products/mens-helium-rain-jacket-275386
 Outdoor Research,Helium Rain Pants,Men's M,clothing,150252,manufacturer,https://web.archive.org/web/20250514181805id_/https://www.outdoorresearch.com/products/mens-helium-rain-pants-275387
 Outdoor Research,Sun Runner Cap,,clothing,84482,manufacturer,https://www.outdoorresearch.com/products/sun-runner-cap-300299
@@ -273,17 +273,17 @@ Petzl,Cordex Plus belay/rappel gloves,Size S,clothing,136000,manufacturer,https:
 Petzl,Cordex Plus belay/rappel gloves,Size XL,clothing,152000,manufacturer,https://www.petzl.com/US/en/Sport/Packs-And-Accessories/CORDEX-PLUS
 Rab,Microlight Alpine Jacket,Men's L,clothing,467767,manufacturer,https://web.archive.org/web/20260218183657id_/https://rab.equipment/us/microlight-alpine-jacket
 Rab,Mythic Ultra,Men's M,clothing,535806,manufacturer,https://web.archive.org/web/20251118014943/https://rab.equipment/us/mythic-ultra-jacket
-Salomon,Sense Ride 5,"Men's, per shoe (brand spec)",clothing,292000,manufacturer,https://runrepeat.com/salomon-sense-ride-5
+Salomon,Sense Ride 5,"Men's, per shoe",clothing,292000,manufacturer,https://runrepeat.com/salomon-sense-ride-5
 Salomon,X Ultra 360 (low),"Men's, per shoe",clothing,348699,manufacturer,https://runrepeat.com/salomon-x-ultra-360
-Saucony,Peregrine 14,"Men's, per shoe (brand spec)",clothing,266486,manufacturer,https://runrepeat.com/saucony-peregrine-14
+Saucony,Peregrine 14,"Men's, per shoe",clothing,266486,manufacturer,https://runrepeat.com/saucony-peregrine-14
 Sea to Summit,Mosquito Head Net with Insect Shield,,clothing,36854,manufacturer,https://www.campingworld.com/sea-to-summit-mosquito-head-net-with-insect-shield-202502.html
 Senchi Designs,Alpha 60 Hoodie,Men's M,clothing,107728,manufacturer,https://senchidesigns.com/pages/weight-chart-alpha-60-hoodie
 Senchi Designs,Alpha 90 Hoodie,Men's M,clothing,127573,manufacturer,https://senchidesigns.com/pages/weight-chart-alpha-90-hoodie-w-pocket
 Smartwool,Merino 150 Base Layer Long Sleeve,Men's M,clothing,170097,manufacturer,https://web.archive.org/web/20190721193205id_/https://www.smartwool.com/shop/mens-merino-150-base-layer-long-sleeve-SW016042
 Smartwool,Merino 250 Cuffed Beanie,One size,clothing,59534,manufacturer,https://www.rei.com/product/738915/smartwool-thermal-merino-reversible-cuffed-beanie
 The North Face,ThermoBall Eco Hoodie,Men's M,clothing,450757,manufacturer,https://web.archive.org/web/20240913041531/https://www.backcountry.com/the-north-face-thermoball-eco-hoodie-mens
-Topo Athletic,Pursuit 2,"Men's, per shoe (US size 9)",clothing,300505,manufacturer,https://www.runningwarehouse.eu/Topo_Athletic_Pursuit_2/descpage-TO2PUM0-EN.html
-Topo Athletic,Ultraventure 4,"Men's, per shoe (US size 9 / M9)",clothing,294835,manufacturer,https://www.topoathletic.com/mens-ultraventure-4
+Topo Athletic,Pursuit 2,"Men's, per shoe",clothing,300505,manufacturer,https://www.runningwarehouse.eu/Topo_Athletic_Pursuit_2/descpage-TO2PUM0-EN.html
+Topo Athletic,Ultraventure 4,"Men's, per shoe",clothing,294835,manufacturer,https://www.topoathletic.com/mens-ultraventure-4
 Zpacks,Vertice Rain Jacket,Men's,clothing,153087,manufacturer,https://zpacks.com/products/vertice-rain-jacket
 ACR,ResQLink 400 PLB,,electronics,143789,manufacturer,https://www.acrartex.com/products/resqlink-400/
 Anker,313 Power Bank (PowerCore 10K),A1229,electronics,212621,manufacturer,https://service.anker.com/product-description/a085g000004x2B4AAI/anker-313-power-bank-powercore-10k
@@ -303,11 +303,11 @@ Black Diamond,Storm 500-R Headlamp,Rechargeable,electronics,120000,manufacturer,
 Garmin,inReach Messenger,,electronics,113398,manufacturer,https://www.garmin.com/en-US/p/793265/
 Garmin,inReach Mini,original,electronics,99223,manufacturer,https://andrewskurka.com/preview-garmin-inreach-mini/
 Garmin,inReach Mini 2,Satellite Communicator,electronics,99223,manufacturer,https://osat.com/products/garmin-inreach-mini-2
-Garmin,inReach Mini 3,"base, without clips/tethers",electronics,122000,measured,https://www.dcrainmaker.com/2025/12/garmin-inreach-mini-3-3-plus-in-depth-review-upgrade.html
+Garmin,inReach Mini 3,base,electronics,122000,measured,https://www.dcrainmaker.com/2025/12/garmin-inreach-mini-3-3-plus-in-depth-review-upgrade.html
 Goal Zero,Flip 24 Power Bank,6700mAh,electronics,130408,manufacturer,https://shop.gohunt.com/products/goal-zero-flip-24-power-bank
 Nitecore,NB10000,GEN2,electronics,150000,manufacturer,https://www.nitecore.com/product/nb10000
 Nitecore,NB5000,5000mAh,electronics,115000,manufacturer,https://imrbatteries.com/products/nitecore-nb5000-ultra-lightweight-power-bank-5-000mah.json
-Nitecore,NU25,"MCT (400 lumen, USB-C)",electronics,50000,manufacturer,https://www.nitecore.com/product/nu25
+Nitecore,NU25,"400 lumen, USB-C",electronics,50000,manufacturer,https://www.nitecore.com/product/nu25
 Petzl,ACTIK CORE Headlamp,,electronics,88000,manufacturer,https://www.petzl.com/US/en/Sport/Headlamps/ACTIK-CORE
 Petzl,BINDI Headlamp,,electronics,34870,manufacturer,https://www.petzl.com/US/en/Sport/News/2018-7-24/What-you-need-to-know-about-the-BINDI
 Petzl,e+LITE,Emergency Headlamp,electronics,26000,manufacturer,https://www.petzl.com/INT/en/Operators/Headlamps/ePLUSLITE
@@ -315,9 +315,9 @@ ZOLEO,Satellite Communicator,,electronics,150000,manufacturer,https://www.zoleo.
 Adventure Medical Kits,Ultralight/Watertight .5 Medical Kit,.5,firstaid,102058,manufacturer,https://adventuremedicalkits.com/products/ultralight-watertight-medical-kit-5
 Adventure Medical Kits,Ultralight/Watertight .7 Medical Kit,.7,firstaid,164427,manufacturer,https://adventuremedicalkits.com/products/ultralight-watertight-medical-kit-7
 Leukotape,Leukotape P Sports Tape,1.5 in x 15 yd full roll,firstaid,110563,measured,https://www.litesmith.com/leukotape-p-blister-prevention-tape/
-Aquatabs,"Water Purification Tablets (NaDCC, 67mg active)",per tablet,consumable,397,manufacturer,https://www.aquatabs.us/product/aquatabs-397mg-tablets-x100/
-Backpacker's Pantry,Pad Thai (Vegan),"pouch (2 servings, net)",consumable,175767,manufacturer,https://backpackerspantry.com/products/pad-thai
-Clif Bar,Clif Bar (Chocolate Chip / original),single bar,consumable,68000,manufacturer,https://eu.clifbar.com/en/products/clif-bar-chocolate-chip/
+Aquatabs,Water Purification Tablets,per tablet,consumable,397,manufacturer,https://www.aquatabs.us/product/aquatabs-397mg-tablets-x100/
+Backpacker's Pantry,Pad Thai,"pouch (2 servings, net)",consumable,175767,manufacturer,https://backpackerspantry.com/products/pad-thai
+Clif Bar,Clif Bar,single bar,consumable,68000,manufacturer,https://eu.clifbar.com/en/products/clif-bar-chocolate-chip/
 Esbit,Solid Fuel Tablet,per 14 g tablet,consumable,14000,manufacturer,https://esbit.de/en/products/solid-fuel-tablets
 Esbit,Solid Fuel Tablets,12 x 14 g pack (net),consumable,172000,manufacturer,https://esbit.de/en/products/solid-fuel-tablets
 Honey Stinger,Organic Honey Waffle,single waffle,consumable,30050,manufacturer,https://honeystinger.com/products/honey
@@ -332,16 +332,16 @@ Mountain House,Biscuits and Gravy,"pouch (2 servings, net)",consumable,124738,ma
 MSR,IsoPro Fuel Canister,110g canister (net fuel),consumable,110000,manufacturer,https://cascadedesigns.com/products/msr-isopro-fuel
 MSR,IsoPro Fuel Canister,227g canister (net fuel),consumable,227000,manufacturer,https://cascadedesigns.com/products/msr-isopro-fuel
 MSR,IsoPro Fuel Canister,450g canister (net fuel),consumable,450000,manufacturer,https://cascadedesigns.com/products/msr-isopro-fuel
-Nature Valley,Crunchy Granola Bars (Oats 'n Honey),one 2-bar pouch (net),consumable,42000,manufacturer,https://www.naturevalley.com/products/oats-n-honey-crunchy-granola-bars
+Nature Valley,Crunchy Granola Bars,one 2-bar pouch (net),consumable,42000,manufacturer,https://www.naturevalley.com/products/oats-n-honey-crunchy-granola-bars
 Peak Refuel,Beef Stroganoff,"pouch (2 servings, net)",consumable,141748,manufacturer,https://peakrefuel.com/products/beef-stroganoff
 Pop-Tarts,Frosted Strawberry Toaster Pastries,one pouch (2 pastries),consumable,96000,manufacturer,https://foods.fatsecret.com/calories-nutrition/kelloggs/pop-tarts-frosted---strawberry/1-pastry
 PROBAR,BOLT Organic Energy Chews,single pouch,consumable,59534,manufacturer,https://theprobar.com/products/berry-blast-bolt-energy-chew
 PROBAR,MEAL Bar,single bar,consumable,85049,manufacturer,https://theprobar.com/collections/meal-bar
-RXBAR,Protein Bar (Chocolate Sea Salt),single bar,consumable,51880,manufacturer,https://www.amazon.com/RXBAR-Whole-Protein-Chocolate-1-83oz/dp/B07CWXX69K
+RXBAR,Protein Bar,single bar,consumable,51880,manufacturer,https://www.amazon.com/RXBAR-Whole-Protein-Chocolate-1-83oz/dp/B07CWXX69K
 Skratch Labs,Hydration Sport Drink Mix,single-serving stick,consumable,22000,manufacturer,https://www.skratchlabs.com/products/hydration-sport-drink-mix
-Snickers,Snickers Singles Size Chocolate Candy Bar,1.86 oz single (full size),consumable,52730,manufacturer,https://www.snickers.com/products/chocolate/snickers-singles-size-chocolate-candy-bars-186-oz-bars
-Starbucks,VIA Instant Coffee (Pike Place Roast),single packet,consumable,3118,manufacturer,https://www.target.com/p/starbucks-via-instant-coffee-medium-roast-packets-pike-place-roast-packets-8ct-0-11oz/-/A-15251130
-Adotec,"Ultralight Food Locker (Grizzly Bear-Resistant, DCF)",14L (IGBC-certified),other,199000,manufacturer,https://adotecgear.com/products/ultralight-food-locker-grizzly-bear-resistant-bag
+Snickers,Snickers Singles Size Chocolate Candy Bar,single bar,consumable,52730,manufacturer,https://www.snickers.com/products/chocolate/snickers-singles-size-chocolate-candy-bars-186-oz-bars
+Starbucks,VIA Instant Coffee,single packet,consumable,3118,manufacturer,https://www.target.com/p/starbucks-via-instant-coffee-medium-roast-packets-pike-place-roast-packets-8ct-0-11oz/-/A-15251130
+Adotec,Ultralight Food Locker,14L,other,199000,manufacturer,https://adotecgear.com/products/ultralight-food-locker-grizzly-bear-resistant-bag
 BearVault,BV450 Jaunt Bear Canister,standard,other,935535,manufacturer,https://bearvault.com/products/bv450
 BearVault,BV500 Journey Bear Canister,standard,other,1162331,manufacturer,https://bearvault.com/products/bv500
 BIC,J25 Mini Lighter,Mini (J25),other,13000,manufacturer,https://www.bicgraphic.com/gb/bic-j25-lighter-3460002360.html
@@ -355,12 +355,12 @@ CAMP,Corsa Nanotech Ice Axe,60cm,other,277000,manufacturer,https://skimo.co/camp
 Durston,Iceline Trekking Poles,"Strapless, per pole",other,134000,manufacturer,https://durstongear.com/products/iceline-trekking-poles
 Durston,Iceline Trekking Poles,"Strapped, per pole",other,145000,manufacturer,https://durstongear.com/products/iceline-trekking-poles
 Gossamer Gear,Lightrek Hiking Umbrella,,other,164427,manufacturer,https://www.gossamergear.com/products/liteflex-hiking-chrome-umbrella
-Gossamer Gear,LT5 Three Piece Carbon Trekking Poles,per pole (page states per pole),other,138913,manufacturer,https://www.gossamergear.com/products/lt5-three-piece-carbon-trekking-poles-pair
+Gossamer Gear,LT5 Three Piece Carbon Trekking Poles,per pole,other,138913,manufacturer,https://www.gossamergear.com/products/lt5-three-piece-carbon-trekking-poles-pair
 Helinox,Chair Zero,chair only,other,490000,manufacturer,https://www.outdoorline.eu/products/helinox-chair-zero
 Hillsound,Trail Crampon,per pair,other,462097,manufacturer,https://hillsound.com/products/trail-crampon
 Kahtoola,EXOspikes,"per pair, Medium",other,206952,measured,https://www.cleverhiker.com/footwear/kahtoola-exospikes-traction-device-review/
 Kahtoola,MICROspikes,per pair,other,337359,measured,https://www.cleverhiker.com/footwear/kahtoola-microspikes-traction-device-review/
-Leki,Makalu Lite Trekking Poles,per pair (reviewer scale weight),other,490447,measured,https://www.outdoorgearlab.com/reviews/camping-and-hiking/trekking-poles/leki-makalu-lite-cor-tec
+Leki,Makalu Lite Trekking Poles,per pair,other,490447,measured,https://www.outdoorgearlab.com/reviews/camping-and-hiking/trekking-poles/leki-makalu-lite-cor-tec
 Montbell,Trekking Umbrella 50,50,other,155000,manufacturer,https://www.montbell.com/us/en/products/detail/1128698
 Montbell,Trekking Umbrella 55,55,other,153087,manufacturer,https://www.montbell.com/us/en/products/detail/1128701
 Montbell,Trekking Umbrella 60,60,other,167262,manufacturer,https://www.montbell.com/us/en/products/detail/1128702
@@ -374,11 +374,10 @@ Sea to Summit,Ultra-Sil Stuff Sack,L (15L),other,28350,manufacturer,https://www.
 Sea to Summit,Ultra-Sil Stuff Sack,XXS (2.5L),other,11340,manufacturer,https://www.altitude-sports.com/products/sea-to-summit-ultra-sil-stuff-sack-xxs-2-5-l-llll-sts-181
 Six Moon Designs,Silver Shadow Carbon Umbrella,,other,192777,manufacturer,https://www.sixmoondesigns.com/products/silver-shadow-carbon-umbrella
 Suunto,Clipper L/B NH Compass,,other,5103,manufacturer,https://www.gossamergear.com/products/suunto-clipper-compact-compass
-Teva,Original Universal Sandals (men's),"per pair, size 11",other,411068,measured,https://www.outdoorgearlab.com/reviews/shoes-and-boots/sandals-mens/teva-original-universal
+Teva,Original Universal Sandals,"per pair, size 11",other,411068,measured,https://www.outdoorgearlab.com/reviews/shoes-and-boots/sandals-mens/teva-original-universal
 TheTentLab,The Deuce of Spades #2 Trowel,#2,other,17010,manufacturer,https://www.thetentlab.com/Deuce/number2.html
-Ursack,"AllMitey (Major S29.3 AllMitey, Kevlar)",standard,other,269320,manufacturer,https://ursack.com/products/ursack-allmitey
-Ursack,Major (S29.3) Bear-Proof Bag,standard ~10.65L,other,215456,manufacturer,https://ursack.com/products/ursack-major
-Victorinox,Classic SD,,other,22680,manufacturer,https://www.victorinox.com/en-US/Products/Swiss-Army-Knives/Small-Pocket-Knives/Classic-SD/p/0.6223
-Victorinox,Classic SD Swiss Army Knife,standard (Cellidor),other,22680,manufacturer,https://www.victorinox.com/en-US/Products/Swiss-Army-Knives/Small-Pocket-Knives/Classic-SD/p/0.6223
+Ursack,Major AllMitey,standard,other,269320,manufacturer,https://ursack.com/products/ursack-allmitey
+Ursack,Major Bear Bag,standard ~10.65L,other,215456,manufacturer,https://ursack.com/products/ursack-major
+Victorinox,Classic SD,standard,other,22680,manufacturer,https://www.victorinox.com/en-US/Products/Swiss-Army-Knives/Small-Pocket-Knives/Classic-SD/p/0.6223
 Wild Ideas,Bearikade Weekender,standard,other,878835,manufacturer,https://wild-ideas.net/weekender/
 Zpacks,Tyvek Groundsheet,5 ft x 9 ft cut,other,260816,manufacturer,https://zpacks.com/products/tyvek-groundsheet

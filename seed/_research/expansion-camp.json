@@ -37,7 +37,7 @@
     {
       "brand": "Gossamer Gear",
       "name": "LT5 Three Piece Carbon Trekking Poles",
-      "variant": "per pole (page states per pole)",
+      "variant": "per pole",
       "category_hint": "other",
       "weight_value": 4.9,
       "weight_unit": "oz",
@@ -49,7 +49,7 @@
     {
       "brand": "Leki",
       "name": "Makalu Lite Trekking Poles",
-      "variant": "per pair (reviewer scale weight)",
+      "variant": "per pair",
       "category_hint": "other",
       "weight_value": 17.3,
       "weight_unit": "oz",
@@ -94,7 +94,7 @@
     },
     {
       "brand": "Ursack",
-      "name": "AllMitey (Major S29.3 AllMitey, Kevlar)",
+      "name": "Major AllMitey",
       "variant": "standard",
       "category_hint": "other",
       "weight_value": 9.5,
@@ -105,7 +105,7 @@
     },
     {
       "brand": "Ursack",
-      "name": "Major (S29.3) Bear-Proof Bag",
+      "name": "Major Bear Bag",
       "variant": "standard ~10.65L",
       "category_hint": "other",
       "weight_value": 7.6,
@@ -153,7 +153,7 @@
     {
       "brand": "Gossamer Gear",
       "name": "Thinlight Foam Pad 1/8\"",
-      "variant": "Rolled (standard)",
+      "variant": "Rolled",
       "category_hint": "sleep",
       "weight_value": 2.7,
       "weight_unit": "oz",
@@ -185,17 +185,6 @@
       "weight_source": "manufacturer",
       "source_url": "https://zpacks.com/products/tyvek-groundsheet",
       "quote": "Groundsheet weight: 9.2 ounces (262 grams); Material Weight: 1.85 oz. per square yard (62.7 grams per square meter); Size: 5 feet by 9 feet"
-    },
-    {
-      "brand": "Victorinox",
-      "name": "Classic SD Swiss Army Knife",
-      "variant": "standard (Cellidor)",
-      "category_hint": "other",
-      "weight_value": 0.8,
-      "weight_unit": "oz",
-      "weight_source": "manufacturer",
-      "source_url": "https://www.victorinox.com/en-US/Products/Swiss-Army-Knives/Small-Pocket-Knives/Classic-SD/p/0.6223",
-      "quote": "Weight: 0.8 oz"
     },
     {
       "brand": "Opinel",

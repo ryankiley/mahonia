@@ -104,7 +104,7 @@
     },
     {
       "brand": "Nature Valley",
-      "name": "Crunchy Granola Bars (Oats 'n Honey)",
+      "name": "Crunchy Granola Bars",
       "variant": "one 2-bar pouch (net)",
       "category_hint": "consumable",
       "weight_value": 42,
@@ -126,7 +126,7 @@
     },
     {
       "brand": "RXBAR",
-      "name": "Protein Bar (Chocolate Sea Salt)",
+      "name": "Protein Bar",
       "variant": "single bar",
       "category_hint": "consumable",
       "weight_value": 1.83,
@@ -183,7 +183,7 @@
     },
     {
       "brand": "Backpacker's Pantry",
-      "name": "Pad Thai (Vegan)",
+      "name": "Pad Thai",
       "variant": "pouch (2 servings, net)",
       "category_hint": "consumable",
       "weight_value": 6.2,
