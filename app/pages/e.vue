@@ -13,7 +13,6 @@ const ungrouped = computed(() =>
   snapshot.value ? snapshot.value.items.filter((i) => !i.folderId) : [],
 );
 
-const showBreakdown = ref(false);
 const packed = ref(false);
 const menuOpen = ref(false);
 const menuRef = ref<HTMLElement | null>(null);
@@ -168,7 +167,6 @@ function onCorrected(res: { status: string; itemName?: string }) {
       <TotalsBar
         :list="snapshot"
         :totals="totals"
-        v-model:show-breakdown="showBreakdown"
         v-model:packed="packed"
         @set-unit="(u) => c.setUnit(u)"
       />
@@ -223,7 +221,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
 .editor__title {
   flex: 1;
   min-width: 0;
-  font-family: var(--font-serif);
+  font-family: var(--font);
   font-size: var(--text-title);
   border-bottom-color: transparent;
 }

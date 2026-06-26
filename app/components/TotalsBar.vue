@@ -6,15 +6,13 @@ const props = withDefaults(
   defineProps<{
     list: ListSnapshot;
     totals: Totals;
-    showBreakdown: boolean;
     packed?: boolean;
-    readonly?: boolean; // read-only share view: hide the Packing toggle, keep unit + breakdown
+    readonly?: boolean; // read-only share view: hide the Packing toggle, keep the unit switch
   }>(),
   { packed: false, readonly: false },
 );
 
 const emit = defineEmits<{
-  "update:showBreakdown": [boolean];
   "update:packed": [boolean];
   "set-unit": [Unit];
 }>();
@@ -26,9 +24,9 @@ const UNITS: Unit[] = ["g", "kg", "oz", "lb"];
   <div class="totals">
     <div class="totals__main">
       <div class="totals__headline">
-        <span class="t-label">{{ showBreakdown ? "Base weight" : "Total" }}</span>
+        <span class="t-label">Total</span>
         <span v-if="totals.hasWeights" class="t-num totals__big">
-          {{ formatWeight(showBreakdown ? totals.baseMg : totals.totalMg, list.displayUnit) }}
+          {{ formatWeight(totals.totalMg, list.displayUnit) }}
         </span>
         <span v-else class="t-muted totals__empty">Add weights to see your pack weight</span>
       </div>
@@ -52,22 +50,15 @@ const UNITS: Unit[] = ["g", "kg", "oz", "lb"];
         >
           {{ packed ? "Editing" : "Packing" }}
         </button>
-        <button
-          v-if="totals.hasWeights"
-          class="btn btn--sm btn--ghost"
-          @click="emit('update:showBreakdown', !showBreakdown)"
-        >
-          {{ showBreakdown ? "Hide breakdown" : "Show breakdown" }}
-        </button>
       </div>
     </div>
 
-    <div v-if="showBreakdown && totals.hasWeights" class="totals__breakdown">
+    <!-- the breakdown is always shown once any weights exist -->
+    <div v-if="totals.hasWeights" class="totals__breakdown">
       <div class="totals__chips">
         <span class="chip"><span class="t-label">Base</span><span class="t-num">{{ formatWeight(totals.baseMg, list.displayUnit) }}</span></span>
         <span class="chip"><span class="t-label">Worn</span><span class="t-num">{{ formatWeight(totals.wornMg, list.displayUnit) }}</span></span>
-        <span class="chip"><span class="t-label">Consum.</span><span class="t-num">{{ formatWeight(totals.consumableMg, list.displayUnit) }}</span></span>
-        <span class="chip"><span class="t-label">Total</span><span class="t-num">{{ formatWeight(totals.totalMg, list.displayUnit) }}</span></span>
+        <span class="chip"><span class="t-label">Consumable</span><span class="t-num">{{ formatWeight(totals.consumableMg, list.displayUnit) }}</span></span>
       </div>
       <CategoryBar :list="list" />
     </div>

@@ -10,7 +10,6 @@ const { data } = await useFetch<{ snapshot: ListSnapshot }>(`/api/s/${code}`);
 const snapshot = ref<ListSnapshot | null>(data.value?.snapshot ?? null);
 
 const unit = ref<Unit>(snapshot.value?.displayUnit ?? "g");
-const showBreakdown = ref(false);
 const totals = computed(() => (snapshot.value ? computeTotals(snapshot.value) : null));
 // re-skin the snapshot with the viewer's chosen unit; the editor components read list.displayUnit
 const roList = computed(() =>
@@ -54,7 +53,7 @@ onBeforeUnmount(() => poll && clearInterval(poll));
   <div>
     <header class="topbar">
       <div class="wrap topbar__inner">
-        <NuxtLink to="/" class="t-label brand">GEAR</NuxtLink>
+        <NuxtLink to="/" class="t-label brand">Gear</NuxtLink>
         <span class="t-sm t-muted">Read-only</span>
         <NuxtLink to="/" class="btn btn--sm">Make your own</NuxtLink>
       </div>
@@ -63,13 +62,7 @@ onBeforeUnmount(() => poll && clearInterval(poll));
     <main v-if="roList && totals" class="wrap view">
       <h1 class="t-title view__title">{{ roList.title }}</h1>
 
-      <TotalsBar
-        :list="roList"
-        :totals="totals"
-        v-model:show-breakdown="showBreakdown"
-        readonly
-        @set-unit="(u) => (unit = u)"
-      />
+      <TotalsBar :list="roList" :totals="totals" readonly @set-unit="(u) => (unit = u)" />
 
       <div class="view__folders">
         <FolderSection v-for="f in shownFolders" :key="f.id" :list="roList" :folder="f" readonly />
@@ -98,7 +91,7 @@ onBeforeUnmount(() => poll && clearInterval(poll));
   padding-block: var(--space-3);
 }
 .brand {
-  letter-spacing: 0.08em;
+  color: var(--ink);
 }
 .topbar__inner .btn {
   margin-left: auto;
@@ -110,7 +103,7 @@ onBeforeUnmount(() => poll && clearInterval(poll));
   gap: var(--space-6);
 }
 .view__title {
-  font-family: var(--font-serif);
+  font-family: var(--font);
 }
 .view__folders {
   display: flex;

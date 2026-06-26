@@ -40,7 +40,7 @@ function when(iso: string) {
   <div>
     <header class="topbar">
       <div class="wrap topbar__inner">
-        <NuxtLink to="/" class="t-label brand">GEAR</NuxtLink>
+        <NuxtLink to="/" class="t-label brand">Gear</NuxtLink>
         <span class="t-sm t-muted">Catalog history</span>
       </div>
     </header>
@@ -90,7 +90,7 @@ function when(iso: string) {
   padding-block: var(--space-3);
 }
 .brand {
-  letter-spacing: 0.08em;
+  color: var(--ink);
 }
 .chg {
   padding-block: var(--space-5) var(--space-9);

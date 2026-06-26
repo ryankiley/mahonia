@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Classification, Item, ListSnapshot } from "~~/shared/types";
-import { effectiveClassification, formatWeight, lineMg } from "~~/shared/weights";
+import { effectiveClassification, formatWeight, lineMg, parseWeightInput } from "~~/shared/weights";
 
 const props = withDefaults(
   defineProps<{ list: ListSnapshot; item: Item; packed?: boolean; readonly?: boolean }>(),
@@ -20,6 +20,32 @@ const effClass = computed(() =>
 
 function onWeight(e: Event) {
   c.setItemWeight(props.item.id, (e.target as HTMLInputElement).value);
+}
+
+// renaming in place via the same autocomplete: a catalog pick re-links + fills the
+// weight; a free-text rename just updates the name (or its trailing weight).
+function onNameCommit(p: {
+  name: string;
+  brand?: string;
+  weight?: string;
+  weightMg?: number;
+  catalogItemId?: number;
+}) {
+  const patch: Partial<Item> = { name: p.name };
+  if (p.catalogItemId != null) {
+    patch.catalogItemId = p.catalogItemId;
+    patch.unitWeightMg = p.weightMg;
+    patch.catalogWeightMgAtLink = p.weightMg;
+    patch.weightOverridden = false;
+    if (p.brand) patch.brand = p.brand;
+  } else if (p.weight != null) {
+    const mg = parseWeightInput(p.weight, props.list.displayUnit);
+    if (mg != null) {
+      patch.unitWeightMg = mg;
+      patch.weightOverridden = true;
+    }
+  }
+  c.updateItem(props.item.id, patch);
 }
 
 const CLASS_OPTS: { value: Classification | ""; label: string }[] = [
@@ -77,12 +103,15 @@ function openFix() {
       />
     </label>
 
-    <input
-      class="field item__name"
-      :value="item.name"
+    <span v-if="packed" class="item__name item__name--ro">{{ item.name }}</span>
+    <ItemInput
+      v-else
+      class="item__name"
+      :unit="list.displayUnit"
+      :initial="item.name"
       placeholder="Item name"
-      :disabled="packed"
-      @change="c.updateItem(item.id, { name: ($event.target as HTMLInputElement).value })"
+      :clear-on-commit="false"
+      @commit="onNameCommit"
     />
 
     <input
@@ -168,6 +197,13 @@ function openFix() {
 }
 .item__unit {
   flex: none;
+}
+.item__name--ro {
+  align-self: center;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .item__class {
   font-size: var(--text-sm);

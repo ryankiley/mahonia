@@ -1,18 +1,17 @@
 body {
-  font-family: var(--font-sans);
+  font-family: var(--font);
   font-size: var(--text-base);
   line-height: 1.5;
   color: var(--ink);
   background: var(--paper);
 }
 
-// The whole type system: 4 sizes (sm / base / title / display), 2 weights
-// (400 regular, 600 strong), 3 families (serif display · sans UI · mono data),
-// 2 trackings. Everything below composes from those — nothing else.
+// The whole type system: ONE family, 4 sizes (sm / base / title / display),
+// 2 weights (400 regular, 600 strong), 2 trackings. Everything composes from
+// these — nothing else. (Family is inherited from body, so classes don't repeat it.)
 
-// Serif display — the hero headline + the live total. Nothing else uses it.
+// Display — the hero headline + the live total.
 .t-display {
-  font-family: var(--font-serif);
   font-weight: 400;
   font-size: var(--text-display);
   line-height: 0.98;
@@ -21,20 +20,16 @@ body {
 
 // The one heading style (folder names, page + section titles).
 .t-title {
-  font-family: var(--font-sans);
   font-size: var(--text-title);
   font-weight: 600;
   line-height: 1.15;
   letter-spacing: -0.02em;
 }
 
-// Small uppercase eyebrow label (the one "special" treatment).
+// Small label — sentence case (no all-caps).
 .t-label {
-  font-family: var(--font-sans);
   font-size: var(--text-sm);
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
   color: var(--ink-2);
 }
 
@@ -42,9 +37,8 @@ body {
   font-size: var(--text-sm);
 }
 
-// Monospace for data figures (composes with any size).
+// Tabular figures for data — aligned columns, same family.
 .t-num {
-  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
 }

@@ -3,18 +3,39 @@ import type { Unit } from "~~/shared/types";
 import { formatWeight } from "~~/shared/weights";
 import type { CatalogResult } from "~/composables/useCatalogSearch";
 
-const props = defineProps<{ unit: Unit }>();
+// Maps-grade autocomplete, used for BOTH adding a new item and renaming an
+// existing one in place. In add mode it clears after commit; in edit mode
+// (clearOnCommit=false) it keeps the value and only emits when it actually changed.
+const props = withDefaults(
+  defineProps<{
+    unit: Unit;
+    initial?: string;
+    placeholder?: string;
+    clearOnCommit?: boolean;
+  }>(),
+  { initial: "", placeholder: "Add an item…", clearOnCommit: true },
+);
 const emit = defineEmits<{
   commit: [
     { name: string; brand?: string; weight?: string; weightMg?: number; catalogItemId?: number },
   ];
 }>();
 
-const { results, loading, search, clear } = useCatalogSearch();
-const draft = ref("");
+const { results, search, clear } = useCatalogSearch();
+const draft = ref(props.initial);
 const open = ref(false);
 const active = ref(-1);
+const focused = ref(false);
 const rootRef = ref<HTMLElement | null>(null);
+
+// keep an edit field in sync if the item name changes elsewhere (catalog pick,
+// concurrent editor) — but never clobber what the user is actively typing
+watch(
+  () => props.initial,
+  (v) => {
+    if (!focused.value) draft.value = v;
+  },
+);
 
 watch(draft, (v) => {
   search(v);
@@ -26,8 +47,7 @@ onClickOutside(rootRef, () => (open.value = false));
 // trailing weight in free text: "Tent 540 g" → name + weight; unitless ("UL2") stays in the name
 const WEIGHT_TAIL = /\s+(\d[\d.,]*\s*(?:kgs?|g|grams?|oz|ounces?|lbs?|pounds?))$/i;
 
-function reset() {
-  draft.value = "";
+function close() {
   clear();
   open.value = false;
   active.value = -1;
@@ -39,22 +59,33 @@ function selectResult(r: CatalogResult) {
   emit("commit", { name, weightMg: r.weightMg, catalogItemId: r.id });
   // self-improving ranking: tell the catalog this item was used (fire-and-forget)
   $fetch("/api/catalog/use", { method: "POST", body: { ids: [r.id] } }).catch(() => {});
-  reset();
+  draft.value = props.clearOnCommit ? "" : name;
+  close();
 }
 function commitFree() {
   const raw = draft.value.trim();
   if (!raw) return;
+  // editing an unchanged name shouldn't emit a redundant update
+  if (!props.clearOnCommit && raw === props.initial.trim()) return close();
   const m = raw.match(WEIGHT_TAIL);
   const name = (m ? raw.slice(0, m.index) : raw).trim();
   if (!name) return;
   emit("commit", { name, weight: m ? m[1] : undefined });
-  reset();
+  draft.value = props.clearOnCommit ? "" : name;
+  close();
+}
+function onBlur() {
+  focused.value = false;
+  commitFree();
 }
 function onKeydown(e: KeyboardEvent) {
   const n = results.value.length;
   if (e.key === "ArrowDown") {
     e.preventDefault();
-    if (n) { open.value = true; active.value = (active.value + 1) % n; }
+    if (n) {
+      open.value = true;
+      active.value = (active.value + 1) % n;
+    }
   } else if (e.key === "ArrowUp") {
     e.preventDefault();
     if (n) active.value = (active.value - 1 + n) % n;
@@ -69,8 +100,7 @@ function onKeydown(e: KeyboardEvent) {
   }
 }
 
-const badge = (r: CatalogResult) =>
-  r.verified ? "✓" : (r.weightSource[0] || "?").toUpperCase();
+const badge = (r: CatalogResult) => (r.verified ? "✓" : (r.weightSource[0] || "?").toUpperCase());
 </script>
 
 <template>
@@ -78,12 +108,12 @@ const badge = (r: CatalogResult) =>
     <input
       v-model="draft"
       class="field ac__input"
-      placeholder="Add an item…"
-      aria-label="Add an item"
+      :placeholder="placeholder"
+      :aria-label="placeholder"
       autocomplete="off"
       @keydown="onKeydown"
-      @blur="commitFree"
-      @focus="open = true"
+      @focus="focused = true; open = true"
+      @blur="onBlur"
     />
     <ul v-if="open && results.length" class="ac__menu panel">
       <li
@@ -117,7 +147,7 @@ const badge = (r: CatalogResult) =>
 }
 .ac__input {
   width: 100%;
-  color: var(--ink-2);
+  color: var(--ink);
 }
 .ac__menu {
   position: absolute;
@@ -128,6 +158,7 @@ const badge = (r: CatalogResult) =>
   max-height: 320px;
   overflow-y: auto;
   padding: var(--space-1);
+  min-width: 16rem;
 }
 .ac__opt {
   display: flex;
