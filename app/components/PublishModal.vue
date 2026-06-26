@@ -44,14 +44,11 @@ async function copyLink() {
   }
 }
 
-onKeyStroke("Escape", () => isOpen.value && close());
 </script>
 
 <template>
-  <Transition name="ovl">
-    <div v-if="isOpen" class="ovl" @click.self="close()">
-      <div class="dlg panel" role="dialog" aria-modal="true" aria-label="Publish list">
-        <p class="t-label">Discovery feed</p>
+  <BaseModal :open="isOpen" label="Publish list" @close="close()">
+    <p class="t-label">Discovery feed</p>
 
         <p v-if="loading" class="t-muted">Loading…</p>
 
@@ -108,9 +105,7 @@ onKeyStroke("Escape", () => isOpen.value && close());
             </button>
           </div>
         </template>
-      </div>
-    </div>
-  </Transition>
+  </BaseModal>
 </template>
 
 <style scoped>
