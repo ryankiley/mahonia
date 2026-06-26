@@ -1,6 +1,7 @@
-import { createError, defineEventHandler, getHeader, readBody, setHeader } from "h3";
+import { createError, defineEventHandler, getHeader, setHeader } from "h3";
 import { ensureCatalogSchema, revertEdit } from "../../utils/catalog";
 import { useDb } from "../../utils/db";
+import { readJsonBody } from "../../utils/http";
 import { assertMaxBody } from "../../utils/rateLimit";
 
 // One-click revert of an applied catalog edit. Admin-only: gated on GEAR_ADMIN_TOKEN.
@@ -12,7 +13,7 @@ export default defineEventHandler(async (event) => {
   const provided = getHeader(event, "x-admin-token");
   if (!admin || provided !== admin) throw createError({ statusCode: 404, statusMessage: "Not found" });
 
-  const body = (await readBody(event).catch(() => ({}))) as { editId?: number };
+  const body = await readJsonBody<{ editId?: number }>(event);
   const editId = Number(body?.editId);
   if (!Number.isInteger(editId) || editId <= 0)
     throw createError({ statusCode: 400, statusMessage: "Bad request" });

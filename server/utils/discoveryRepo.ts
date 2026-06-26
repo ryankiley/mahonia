@@ -26,8 +26,9 @@ import {
   type FeedView,
   type PublishState,
 } from "../../shared/discovery";
-import type { ListData, ListSnapshot, Unit } from "../../shared/types";
+import type { ListData, ListSnapshot } from "../../shared/types";
 import { useDb } from "./db";
+import { rowToSnapshot } from "./listRepo";
 import { sha256Hex } from "./tokens";
 
 type Db = Awaited<ReturnType<typeof useDb>>;
@@ -126,17 +127,9 @@ export async function publishList(
 // minus the id + token. Null → 404.
 // ---------------------------------------------------------------------------
 function rowToPublicView(row: ListRow): ListSnapshot {
-  const data = (row.data ?? { folders: [], items: [] }) as ListData;
+  // Same base shape as the edit/share snapshot, plus the public-feed facets.
   return {
-    shareCode: row.shareCode,
-    slug: row.publicSlug,
-    title: row.title,
-    description: row.description ?? undefined,
-    displayUnit: row.displayUnit as Unit,
-    folders: data.folders ?? [],
-    items: data.items ?? [],
-    version: row.version,
-    isPublic: row.isPublic,
+    ...rowToSnapshot(row),
     tripType: row.tripType ?? undefined,
     season: row.season ?? undefined,
     publishedAt: row.publishedAt ? row.publishedAt.toISOString() : undefined,

@@ -18,7 +18,7 @@ import type { ListData, ListSnapshot, ListState, Unit } from "../../shared/types
 import { useDb } from "./db";
 import { randomEditToken, randomShareCode, randomSlug, sha256Hex } from "./tokens";
 
-function rowToSnapshot(row: ListRow): ListSnapshot {
+export function rowToSnapshot(row: ListRow): ListSnapshot {
   const data = (row.data ?? { folders: [], items: [] }) as ListData;
   return {
     shareCode: row.shareCode,

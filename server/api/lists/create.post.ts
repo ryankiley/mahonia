@@ -1,18 +1,18 @@
-import { createError, defineEventHandler, readBody } from "h3";
+import { createError, defineEventHandler } from "h3";
 import { createList } from "../../utils/listRepo";
+import { readJsonBody } from "../../utils/http";
 import { assertMaxBody, rateLimit } from "../../utils/rateLimit";
 import type { ListData, Unit } from "../../../shared/types";
-
-const UNITS: Unit[] = ["g", "kg", "oz", "lb"];
+import { UNITS } from "../../../shared/types";
 
 export default defineEventHandler(async (event) => {
   await rateLimit(event, "create", 30, 60_000);
   assertMaxBody(event, 512_000);
-  const body = (await readBody(event).catch(() => ({}))) as {
+  const body = await readJsonBody<{
     title?: string;
     displayUnit?: Unit;
     data?: ListData;
-  };
+  }>(event);
 
   const title = typeof body?.title === "string" ? body.title.slice(0, 200) : undefined;
   const displayUnit =

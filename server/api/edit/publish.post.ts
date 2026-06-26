@@ -1,6 +1,7 @@
-import { createError, defineEventHandler, readBody, setHeader } from "h3";
+import { createError, defineEventHandler, setHeader } from "h3";
 import { requireEditToken } from "../../utils/auth";
 import { publishList } from "../../utils/discoveryRepo";
+import { readJsonBody } from "../../utils/http";
 import { assertMaxBody, rateLimit } from "../../utils/rateLimit";
 
 // Make a list public/private + set its feed facets. Write capability: the edit
@@ -11,11 +12,11 @@ export default defineEventHandler(async (event) => {
   await rateLimit(event, "publish", 20, 60_000);
   assertMaxBody(event, 8_000);
   const token = requireEditToken(event);
-  const body = (await readBody(event).catch(() => ({}))) as {
+  const body = await readJsonBody<{
     isPublic?: boolean;
     tripType?: string | null;
     season?: string | null;
-  };
+  }>(event);
 
   const state = await publishList(token, {
     isPublic: !!body?.isPublic,

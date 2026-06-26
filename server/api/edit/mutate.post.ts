@@ -1,6 +1,7 @@
-import { createError, defineEventHandler, readBody, setHeader } from "h3";
+import { createError, defineEventHandler, setHeader } from "h3";
 import { applyOpsByEditToken } from "../../utils/listRepo";
 import { requireEditToken } from "../../utils/auth";
+import { readJsonBody } from "../../utils/http";
 import { assertMaxBody, rateLimit } from "../../utils/rateLimit";
 import type { Op } from "../../../shared/ops";
 
@@ -9,7 +10,7 @@ export default defineEventHandler(async (event) => {
   await rateLimit(event, "mutate", 300, 60_000);
   assertMaxBody(event, 512_000);
   const token = requireEditToken(event);
-  const body = (await readBody(event).catch(() => ({}))) as { ops?: Op[] };
+  const body = await readJsonBody<{ ops?: Op[] }>(event);
   const ops = Array.isArray(body?.ops) ? body.ops.slice(0, 500) : [];
   if (!ops.length) throw createError({ statusCode: 400, statusMessage: "No ops" });
 

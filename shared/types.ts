@@ -2,6 +2,9 @@
 
 export type Unit = "g" | "kg" | "oz" | "lb";
 
+/** All units in display order — the runtime companion to the `Unit` type. */
+export const UNITS: Unit[] = ["g", "kg", "oz", "lb"];
+
 // One field, not two booleans — structurally prevents "worn AND consumable".
 // `base` counts toward base weight; `worn` = on your body; `consumable` = food/fuel/water.
 export type Classification = "base" | "worn" | "consumable";

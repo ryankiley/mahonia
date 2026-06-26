@@ -2,10 +2,10 @@
 // and ingests LighterPack's "Export to CSV" output (flexible header detection).
 
 import type { ListData, ListSnapshot, Unit } from "../types";
+import { UNITS } from "../types";
 import { effectiveClassification, fromMg, toMg } from "../weights";
 import { uid } from "../id";
 
-const UNITS: Unit[] = ["g", "kg", "oz", "lb"];
 function normalizeUnit(raw: string | undefined, fallback: Unit): Unit {
   const u = (raw || "").trim().toLowerCase();
   if (UNITS.includes(u as Unit)) return u as Unit;

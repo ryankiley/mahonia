@@ -5,6 +5,7 @@
 // version counter only signals "you're behind, refetch", not "rejected".
 
 import type { Classification, Folder, Item, ListState, Unit } from "./types";
+import { UNITS } from "./types";
 
 export type Op =
   | { t: "addItem"; item: Item }
@@ -17,7 +18,6 @@ export type Op =
   | { t: "setMeta"; patch: Partial<{ title: string; description: string; displayUnit: Unit }> };
 
 const CLASSES: Classification[] = ["base", "worn", "consumable"];
-const UNITS: Unit[] = ["g", "kg", "oz", "lb"];
 
 // Hard caps (enforced in the reducer → client + server agree). Generous for
 // real lists, but bound row size / DoS and keep summed totals exact under the

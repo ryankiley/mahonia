@@ -1,7 +1,8 @@
-import { createError, defineEventHandler, readBody, setHeader } from "h3";
+import { createError, defineEventHandler, setHeader } from "h3";
 import { parseWeightInput } from "../../../shared/weights";
 import { ensureCatalogSchema, proposeCorrection } from "../../utils/catalog";
 import { useDb } from "../../utils/db";
+import { readJsonBody } from "../../utils/http";
 import { assertMaxBody, rateLimit } from "../../utils/rateLimit";
 
 // "Fix a weight for everyone" (wiki edit). Trust-tiered in proposeCorrection:
@@ -12,13 +13,13 @@ export default defineEventHandler(async (event) => {
   assertMaxBody(event, 8_000);
   await rateLimit(event, "catalog-correct", 20, 60_000);
 
-  const body = (await readBody(event).catch(() => ({}))) as {
+  const body = await readJsonBody<{
     catalogItemId?: number;
     weight?: string;
     weightMg?: number;
     sourceUrl?: string;
     reason?: string;
-  };
+  }>(event);
 
   const catalogItemId = Number(body?.catalogItemId);
   if (!Number.isInteger(catalogItemId) || catalogItemId <= 0)
