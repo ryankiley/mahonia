@@ -113,12 +113,11 @@
       "name": "Trekking Umbrella 50",
       "variant": "50",
       "category_hint": "other",
-      "weight_value": 4.9,
-      "weight_unit": "oz",
-      "weight_secondary": "139 g",
+      "weight_value": 155,
+      "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://www.montbell.com/us/en/products/detail/1128698",
-      "quote": "\"weight_g\":\"139 g\",\"weight_oz\":\"4.9 oz\""
+      "quote": "Montbell Trekking Umbrella 50 — 155 g (montbell.com)"
     },
     {
       "brand": "Montbell",

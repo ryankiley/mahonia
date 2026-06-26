@@ -107,11 +107,11 @@
       "name": "inReach Messenger",
       "variant": "",
       "category_hint": "electronics",
-      "weight_value": 4.0,
+      "weight_value": 4,
       "weight_unit": "oz",
-      "weight_source": "measured",
-      "source_url": "https://www.outdoorgearlab.com/reviews/camping-and-hiking/personal-locator-beacon/garmin-inreach-messenger",
-      "quote": "Measured Weight: 4.0 oz"
+      "weight_source": "manufacturer",
+      "source_url": "https://www.garmin.com/en-US/p/793265/",
+      "quote": "Garmin inReach Messenger — 4.0 oz / 113.9 g (Garmin official spec)"
     },
     {
       "brand": "Garmin",

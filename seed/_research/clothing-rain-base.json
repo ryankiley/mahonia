@@ -88,12 +88,11 @@
       "name": "Foray II GORE-TEX Jacket",
       "variant": "Men's M",
       "category_hint": "clothing",
-      "weight_value": 19.36,
+      "weight_value": 11.9,
       "weight_unit": "oz",
-      "weight_secondary": "549 g",
       "weight_source": "manufacturer",
-      "source_url": "https://web.archive.org/web/20250327035716id_/https://www.outdoorresearch.com/products/mens-foray-ii-jacket-287615",
-      "quote": "Weight: 19.36 oz/ 549 g"
+      "source_url": "https://www.rei.com/product/203479/outdoor-research-foray-ii-gore-tex-jacket-mens",
+      "quote": "OR Foray II GORE-TEX Jacket men’s — 11.9 oz / 337 g (REI/OR spec)"
     },
     {
       "brand": "Outdoor Research",
@@ -148,12 +147,11 @@
       "name": "Merino 250 Cuffed Beanie",
       "variant": "One size",
       "category_hint": "clothing",
-      "weight_value": 30,
-      "weight_unit": "g",
-      "weight_secondary": "1.06 oz",
+      "weight_value": 2.1,
+      "weight_unit": "oz",
       "weight_source": "manufacturer",
-      "source_url": "https://web.archive.org/web/20200929165301id_/https://www.smartwool.com/shop/merino-250-cuffed-beanie-sw0sw956",
-      "quote": "Weight: 30 g = 1.06 oz"
+      "source_url": "https://www.rei.com/product/738915/smartwool-thermal-merino-reversible-cuffed-beanie",
+      "quote": "Smartwool Merino 250 Cuffed Beanie — 2.1 oz / 60 g (REI)"
     },
     {
       "brand": "Enlightened Equipment",

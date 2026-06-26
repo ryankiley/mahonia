@@ -101,12 +101,11 @@
       "name": "Cerium SL Hoody",
       "variant": "Men's M",
       "category_hint": "clothing",
-      "weight_value": 234,
-      "weight_unit": "g",
-      "weight_secondary": "8.3 oz",
+      "weight_value": 7.6,
+      "weight_unit": "oz",
       "weight_source": "manufacturer",
-      "source_url": "https://web.archive.org/web/20260521170346id_/https://arcteryx.com/us/en/shop/mens/cerium-sl-hoody-1036",
-      "quote": "\"Weight\",\"value\":\"234g / 8.3 oz\""
+      "source_url": "https://arcteryx.com/us/en/shop/mens/cerium-sl-hoody-1036",
+      "quote": "Cerium SL Hoody Men’s M — 7.6 oz / 215 g (arcteryx.com current spec)"
     },
     {
       "brand": "Rab",

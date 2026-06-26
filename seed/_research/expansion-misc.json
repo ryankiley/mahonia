@@ -13,18 +13,6 @@
       "quote": "3.5oz (100g)"
     },
     {
-      "brand": "Garmin",
-      "name": "inReach Messenger",
-      "variant": "Satellite Communicator",
-      "category_hint": "electronics",
-      "weight_value": 3.78,
-      "weight_unit": "oz",
-      "weight_secondary": "107.16 g",
-      "weight_source": "manufacturer",
-      "source_url": "https://www.treelinereview.com/gearreviews/garmin-inreach-messenger-review",
-      "quote": "3.78 ounces (107.16 grams)"
-    },
-    {
       "brand": "Nitecore",
       "name": "NB5000",
       "variant": "Ultra Lightweight Power Bank (5000mAh)",
@@ -187,7 +175,7 @@
       "name": "Beef Stroganoff",
       "variant": "pouch (2 servings, net)",
       "category_hint": "consumable",
-      "weight_value": 5.0,
+      "weight_value": 5,
       "weight_unit": "oz",
       "weight_source": "manufacturer",
       "source_url": "https://peakrefuel.com/products/beef-stroganoff",
