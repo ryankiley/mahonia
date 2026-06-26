@@ -2,7 +2,7 @@
 import { Flag, Globe } from "@lucide/vue";
 import { seasonLabel, tripTypeLabel } from "~~/shared/discovery";
 import type { ListSnapshot } from "~~/shared/types";
-import { formatWeight } from "~~/shared/weights";
+import { formatWeightAuto } from "~~/shared/weights";
 
 const route = useRoute();
 const slug = String(route.params.slug || "");
@@ -27,7 +27,7 @@ const desc = computed(() => {
   const bits = [`${totals.value.itemCount} items`];
   if (facets.value.length) bits.unshift(facets.value.join(", "));
   if (totals.value.hasWeights)
-    bits.push(`${formatWeight(totals.value.baseMg, "g")} base weight`);
+    bits.push(`${formatWeightAuto(totals.value.baseMg)} base weight`);
   return `${snapshot.value.title} — a public packing list (${bits.join(" · ")}). Browse gear lists on Gear.`;
 });
 useHead({

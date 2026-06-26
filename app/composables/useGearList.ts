@@ -226,10 +226,11 @@ function create() {
     fields: {
       name: string;
       weight?: string; // free-typed, parsed with the list unit
-      weightMg?: number; // resolved (e.g. from a catalog pick)
+      weightMg?: number; // resolved (e.g. from a catalog pick, or a water volume)
       qty?: number;
       brand?: string;
       catalogItemId?: number;
+      classification?: Classification; // e.g. water comes in as a consumable
     },
   ) {
     const name = fields.name.trim();
@@ -248,7 +249,7 @@ function create() {
       brand: fields.brand || undefined,
       unitWeightMg: mg,
       qty: fields.qty && fields.qty > 0 ? fields.qty : 1,
-      classification: null,
+      classification: fields.classification ?? null,
       sortOrder,
       catalogItemId: fields.catalogItemId,
       // record the catalog weight at link time so a future catalog correction can nudge non-overridden items

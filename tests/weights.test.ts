@@ -3,6 +3,7 @@ import {
   computeTotals,
   effectiveClassification,
   formatWeight,
+  formatWeightAuto,
   fromMg,
   parseWeightInput,
   toMg,
@@ -134,10 +135,28 @@ describe("computeTotals: base = total − worn − consumable", () => {
 });
 
 describe("formatWeight", () => {
-  it("auto-promotes g→kg", () => {
-    expect(formatWeight(1_360_000, "g")).toBe("1.36 kg");
+  it("is strict — shows the selected unit, no auto-promotion", () => {
+    expect(formatWeight(1_360_000, "g")).toBe("1,360 g");
+    expect(formatWeight(1_360_000, "kg")).toBe("1.36 kg");
   });
   it("keeps small grams in g", () => {
     expect(formatWeight(820_000, "g")).toBe("820 g");
+  });
+});
+
+describe("formatWeightAuto (magnitude-promoted, for comparison surfaces)", () => {
+  it("promotes g→kg at ≥1 kg, stays g below", () => {
+    expect(formatWeightAuto(5_000_000)).toBe("5 kg"); // not "5,000 g" — the bug
+    expect(formatWeightAuto(1_360_000)).toBe("1.36 kg");
+    expect(formatWeightAuto(1_000_000)).toBe("1 kg"); // threshold is inclusive
+    expect(formatWeightAuto(999_000)).toBe("999 g");
+    expect(formatWeightAuto(820_000)).toBe("820 g");
+  });
+  it("promotes oz→lb by magnitude when system is imperial", () => {
+    expect(formatWeightAuto(700_000, { system: "imperial" })).toMatch(/ lb$/);
+    expect(formatWeightAuto(300_000, { system: "imperial" })).toMatch(/ oz$/);
+  });
+  it("honours withUnit: false", () => {
+    expect(formatWeightAuto(5_000_000, { withUnit: false })).toBe("5");
   });
 });

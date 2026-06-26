@@ -144,23 +144,43 @@ export function computeTotals(list: ListData): Totals {
   };
 }
 
-/** Format milligrams for display. Auto-promotes g→kg / oz→lb when large. */
+/**
+ * Format milligrams for display in `unit`. STRICT: the selected unit is always
+ * the unit shown — grams stay grams, kg stays kg (no auto g→kg / oz→lb promotion).
+ */
 export function formatWeight(
   mg: number,
   unit: Unit,
-  opts: { auto?: boolean; withUnit?: boolean } = {},
+  opts: { withUnit?: boolean } = {},
 ): string {
-  const { auto = true, withUnit = true } = opts;
-  let outUnit = unit;
-  if (auto) {
-    if (unit === "g" && mg >= 1_000_000) outUnit = "kg";
-    if (unit === "oz" && mg >= 16 * MG_PER_UNIT.oz) outUnit = "lb";
-  }
-  const value = fromMg(mg, outUnit);
-  const decimals = outUnit === "g" ? 0 : outUnit === "kg" ? 2 : outUnit === "oz" ? 1 : 2;
+  const { withUnit = true } = opts;
+  const value = fromMg(mg, unit);
+  const decimals = unit === "g" ? 0 : unit === "kg" ? 2 : unit === "oz" ? 1 : 2;
   const num = value.toLocaleString(undefined, {
     minimumFractionDigits: 0,
     maximumFractionDigits: decimals,
   });
-  return withUnit ? `${num} ${outUnit}` : num;
+  return withUnit ? `${num} ${unit}` : num;
+}
+
+/**
+ * Pick a display unit by magnitude, then format — for comparison and marketing
+ * surfaces (SEO/OG meta, feed cards) where "5 kg" reads better than "5,000 g".
+ * Metric promotes g→kg at ≥1 kg; imperial promotes oz→lb at ≥1 lb. This is the
+ * magnitude auto-promotion that `formatWeight` deliberately dropped.
+ */
+export function formatWeightAuto(
+  mg: number,
+  opts: { system?: "metric" | "imperial"; withUnit?: boolean } = {},
+): string {
+  const { system = "metric", withUnit = true } = opts;
+  const unit: Unit =
+    system === "imperial"
+      ? mg >= MG_PER_UNIT.lb
+        ? "lb"
+        : "oz"
+      : mg >= MG_PER_UNIT.kg
+        ? "kg"
+        : "g";
+  return formatWeight(mg, unit, { withUnit });
 }

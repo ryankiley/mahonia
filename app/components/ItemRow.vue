@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ChevronDown, CircleMinus, GripVertical, StickyNoteMinus, StickyNotePlus } from "@lucide/vue";
-import type { Classification, Item, ListSnapshot } from "~~/shared/types";
-import { effectiveClassification, formatWeight, lineMg, parseWeightInput } from "~~/shared/weights";
+import { ChevronDown, CircleMinus, GripVertical, StickyNoteMinus, StickyNotePlus, X } from "@lucide/vue";
+import type { Classification, Item, ListSnapshot, Unit } from "~~/shared/types";
+import { effectiveClassification, formatWeight, fromMg, lineMg, parseWeightInput } from "~~/shared/weights";
 
 const props = withDefaults(
   defineProps<{ list: ListSnapshot; item: Item; packed?: boolean; readonly?: boolean }>(),
@@ -19,12 +19,11 @@ const isDropBefore = computed(
     dnd.drop.value?.beforeId === props.item.id,
 );
 
-// edit field: NEVER auto-promote (kg/lb) — the unit label + the parser both use
-// the raw list unit, so the shown number must stay in that unit or a re-save
-// silently rescales it (1000×/16×)
+// edit field: show the bare number in the list unit (formatWeight is strict, so
+// the shown number stays in that unit — the unit label + parser agree, no rescale)
 const weightDisplay = computed(() =>
   props.item.unitWeightMg > 0
-    ? formatWeight(props.item.unitWeightMg, props.list.displayUnit, { withUnit: false, auto: false })
+    ? formatWeight(props.item.unitWeightMg, props.list.displayUnit, { withUnit: false })
     : "",
 );
 
@@ -42,6 +41,18 @@ function onQty(e: Event) {
   const q = Math.max(1, Number(el.value) || 1);
   c.updateItem(props.item.id, { qty: q });
   el.value = String(q); // resync even when the clamp is a no-op (e.g. 0 / letters)
+}
+// arrow keys nudge the weight by a unit-appropriate step (Shift = ×10), so you can
+// tap into the field and increment/decrement without retyping
+const STEP_BY_UNIT: Record<Unit, number> = { g: 1, kg: 0.01, oz: 0.1, lb: 0.1 };
+function onWeightStep(e: KeyboardEvent, dir: 1 | -1) {
+  const unit = props.list.displayUnit;
+  const step = (STEP_BY_UNIT[unit] ?? 1) * (e.shiftKey ? 10 : 1);
+  const current = fromMg(props.item.unitWeightMg, unit);
+  const next = Math.max(0, Number((current + dir * step).toFixed(unit === "g" ? 0 : 2)));
+  c.setItemWeight(props.item.id, String(next));
+  // in-place op-reducer mutation makes weightDisplay fresh synchronously
+  (e.target as HTMLInputElement).value = weightDisplay.value;
 }
 
 // renaming in place via the same autocomplete: a catalog pick re-links + fills the
@@ -125,6 +136,11 @@ function openFix() {
     displayUnit: props.list.displayUnit,
   });
 }
+// dismiss the nudge from the page: re-baseline the linked catalog weight to the
+// current weight, so it no longer diverges (persists; re-offers if they edit again)
+function dismissFix() {
+  c.updateItem(props.item.id, { catalogWeightMgAtLink: props.item.unitWeightMg });
+}
 </script>
 
 <template>
@@ -161,8 +177,18 @@ function openFix() {
     class="item-wrap"
     :data-item-id="item.id"
     :class="{ 'is-dragging': isDragging, 'is-drop-before': isDropBefore }"
+    :style="isDragging ? { '--drag-dy': dnd.dy.value + 'px' } : undefined"
   >
     <div class="item">
+      <button
+        class="item__grip"
+        title="Drag to reorder"
+        :aria-label="`Reorder ${item.name || 'item'}`"
+        @pointerdown="dnd.start(item.id, $event)"
+      >
+        <GripVertical :size="15" />
+      </button>
+
       <ItemInput
         class="item__name"
         :unit="list.displayUnit"
@@ -181,7 +207,15 @@ function openFix() {
       />
 
       <div class="item__weight">
-        <input class="field field--num" :value="weightDisplay" placeholder="—" @change="onWeight" />
+        <input
+          class="field field--num"
+          :value="weightDisplay"
+          placeholder="—"
+          inputmode="decimal"
+          @change="onWeight"
+          @keydown.up.prevent="onWeightStep($event, 1)"
+          @keydown.down.prevent="onWeightStep($event, -1)"
+        />
         <span class="t-sm t-muted item__unit">{{ list.displayUnit }}</span>
       </div>
 
@@ -200,14 +234,6 @@ function openFix() {
       </div>
 
       <div class="item__actions">
-        <button
-          class="btn btn--icon btn--ghost item__grip"
-          title="Drag to reorder"
-          :aria-label="`Reorder ${item.name || 'item'}`"
-          @pointerdown="dnd.start(item.id, $event)"
-        >
-          <GripVertical :size="15" />
-        </button>
         <button
           class="btn btn--icon btn--ghost item__note-btn"
           :class="{ 'is-active': !!item.description }"
@@ -241,9 +267,20 @@ function openFix() {
       @blur="onNoteBlur"
     />
 
-    <button v-if="showFix" type="button" class="item__under-link t-sm" @click="openFix">
-      Catalog: {{ formatWeight(item.catalogWeightMgAtLink ?? 0, list.displayUnit) }} — suggest a fix
-    </button>
+    <div v-if="showFix" class="item__fixrow">
+      <button type="button" class="item__under-link t-sm" @click="openFix">
+        Catalog: {{ formatWeight(item.catalogWeightMgAtLink ?? 0, list.displayUnit) }} — suggest a fix
+      </button>
+      <button
+        type="button"
+        class="item__fixdismiss"
+        title="Dismiss"
+        aria-label="Dismiss suggestion"
+        @click="dismissFix"
+      >
+        <X :size="13" />
+      </button>
+    </div>
   </div>
 </template>
 
@@ -253,7 +290,7 @@ function openFix() {
   grid-template-columns: var(--item-cols);
   /* baseline so the name, qty, weight, unit + class text all sit on one line */
   align-items: baseline;
-  gap: var(--space-3);
+  gap: var(--item-gap);
   /* vertical padding comes from the row wrapper (.folder__items > *) so the rule
      lines between items sit at a consistent rhythm */
 }
@@ -398,9 +435,26 @@ function openFix() {
 .item-wrap {
   position: relative;
 }
+/* picked up: the whole row lifts off the page, follows the pointer (--drag-dy is
+   updated live by useItemDnd), and casts a shadow so it reads as a held object.
+   pointer-events:none so the drop detection (elementFromPoint) sees the rows
+   underneath, not the floating row. */
 .item-wrap.is-dragging {
-  opacity: 0.4;
+  position: relative;
+  z-index: 50;
   pointer-events: none;
+  transform: translateY(var(--drag-dy, 0)) scale(1.01);
+  /* a raised surface tone (not the page colour) so the lifted row reads as
+     elevated in BOTH themes without a glow — dark gets a visible dark-grey card */
+  background: var(--paper-2);
+  border-radius: var(--radius-2);
+  /* a hairline ring (subtle in BOTH themes — no white glow in dark, which the
+     old --ink-derived shadow caused) + a neutral black drop that reads as
+     elevation in light; in dark the ring + the lift/motion carry it */
+  box-shadow:
+    0 0 0 1px var(--line-2),
+    0 10px 24px -10px rgba(0, 0, 0, 0.35);
+  cursor: grabbing;
 }
 /* insertion line marking where the dragged row will land */
 .item-wrap.is-drop-before::before {
@@ -413,7 +467,15 @@ function openFix() {
   background: var(--ink);
   pointer-events: none;
 }
+/* grip sits in the leading gutter column, left of the name; a slim handle (not a
+   full icon button) so the name indents only a hair past it */
 .item__grip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  width: 100%;
+  padding: 0;
   cursor: grab;
   touch-action: none;
 }
@@ -455,6 +517,29 @@ function openFix() {
 .item__under-link:hover {
   color: var(--ink);
 }
+/* the suggest-a-fix nudge + an × to dismiss it from the page */
+.item__fixrow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+}
+.item__fixrow .item__under-link {
+  margin-top: 0;
+}
+.item__fixdismiss {
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+  background: none;
+  border: 0;
+  color: var(--ink-3);
+  cursor: pointer;
+  transition: color var(--dur) var(--ease);
+}
+.item__fixdismiss:hover {
+  color: var(--ink);
+}
 
 @media (max-width: 560px) {
   /* the EDITABLE item reads as ONE data row — name · qty · weight; the controls
@@ -466,9 +551,12 @@ function openFix() {
     align-items: baseline;
     grid-template-columns: var(--item-cols-mobile);
     grid-template-areas:
-      "name qty weight"
-      "class actions actions";
-    gap: var(--space-2) var(--space-3);
+      "grip name qty weight"
+      "grip class actions actions";
+    gap: var(--space-1) var(--item-gap);
+  }
+  .item__grip {
+    grid-area: grip;
   }
   .item__name {
     grid-area: name;

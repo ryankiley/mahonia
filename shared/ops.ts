@@ -43,6 +43,12 @@ function cleanItemPatch(patch: Partial<Item>): Partial<Item> {
   if (patch.classification === null || (typeof patch.classification === "string" && CLASSES.includes(patch.classification)))
     out.classification = patch.classification;
   if (typeof patch.weightOverridden === "boolean") out.weightOverridden = patch.weightOverridden;
+  // catalog link fields — settable on re-link (rename to a catalog item) and on
+  // dismissing the "suggest a fix" nudge (re-baseline to the current weight)
+  if (typeof patch.catalogItemId === "number" && isFinite(patch.catalogItemId))
+    out.catalogItemId = patch.catalogItemId;
+  if (typeof patch.catalogWeightMgAtLink === "number" && isFinite(patch.catalogWeightMgAtLink))
+    out.catalogWeightMgAtLink = clampWeight(patch.catalogWeightMgAtLink);
   if (typeof patch.packed === "boolean") out.packed = patch.packed;
   if (typeof patch.sortOrder === "number" && isFinite(patch.sortOrder)) out.sortOrder = patch.sortOrder;
   if (typeof patch.folderId === "string" || patch.folderId === null) out.folderId = patch.folderId;

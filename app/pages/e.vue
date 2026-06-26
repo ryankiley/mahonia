@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { ArrowLeft, Ellipsis, SaveCheck, Undo2 } from "@lucide/vue";
+import { Ellipsis, Undo2 } from "@lucide/vue";
 import { listToMarkdown } from "~~/shared/exporters/markdown";
 import { listToCsv } from "~~/shared/exporters/csv";
-import { listToSummary } from "~~/shared/exporters/summary";
 import { uid } from "~~/shared/id";
 import type { ListSnapshot } from "~~/shared/types";
 
@@ -24,6 +23,7 @@ const ungrouped = computed(() =>
 
 const packed = ref(false);
 const menuOpen = ref(false);
+const importOpen = ref(false);
 const menuRef = ref<HTMLElement | null>(null);
 const toast = ref("");
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
@@ -87,11 +87,6 @@ function copyMarkdown() {
   menuOpen.value = false;
   if (snapshot.value) copy(listToMarkdown(snapshot.value), "Copied as Markdown");
 }
-function copySummary() {
-  menuOpen.value = false;
-  if (snapshot.value)
-    copy(listToSummary(snapshot.value, `${origin()}/s/${snapshot.value.shareCode}`), "Summary copied");
-}
 async function cloneList() {
   menuOpen.value = false;
   if (!snapshot.value) return;
@@ -140,6 +135,11 @@ function downloadJson() {
   flash("JSON downloaded");
 }
 
+function openImport() {
+  menuOpen.value = false;
+  importOpen.value = true;
+}
+
 async function newList() {
   const res = await $fetch<{ editToken: string; snapshot: ListSnapshot }>("/api/lists/create", {
     method: "POST",
@@ -165,57 +165,38 @@ function onCorrected(res: { status: string; itemName?: string }) {
   );
 }
 
-function openPublish() {
-  menuOpen.value = false;
-  usePublish().open();
-}
-function onPublished(e: { status: string }) {
-  flash(
-    e.status === "private"
-      ? "List is now private"
-      : e.status === "pending"
-        ? "Published — pending review"
-        : "List is public",
-  );
-}
 </script>
 
 <template>
   <div class="editor">
     <header class="topbar">
       <div class="wrap topbar__inner">
-        <NuxtLink to="/" class="btn btn--sm btn--ghost"><ArrowLeft :size="15" /> Lists</NuxtLink>
-        <input
-          v-if="snapshot"
-          class="field editor__title"
-          :value="snapshot.title"
-          placeholder="Untitled list"
-          @change="c.setMeta({ title: ($event.target as HTMLInputElement).value })"
-        />
-        <span
-          v-if="snapshot && statusLabel"
-          class="savechip"
-          :data-state="status"
-          :title="statusLabel"
-          :aria-label="statusLabel"
-        >
-          <SaveCheck v-if="status === 'synced'" :size="14" />
-          <template v-else>{{ statusLabel }}</template>
-        </span>
+        <div v-if="snapshot" class="editor__titlewrap">
+          <input
+            class="field editor__title"
+            :value="snapshot.title"
+            placeholder="Untitled list"
+            @change="c.setMeta({ title: ($event.target as HTMLInputElement).value })"
+          />
+          <span
+            v-if="statusLabel"
+            class="editor__status"
+            :data-state="status"
+            aria-live="polite"
+          >{{ statusLabel }}</span>
+        </div>
         <template v-if="snapshot">
           <button class="btn btn--sm btn--primary editor__share" @click="copyShare">Share</button>
           <div ref="menuRef" class="menu">
             <button class="btn btn--sm btn--ghost btn--icon" aria-haspopup="true" title="More actions" aria-label="More actions" :aria-expanded="menuOpen" @click="menuOpen = !menuOpen"><Ellipsis :size="16" /></button>
             <ul v-if="menuOpen" class="menu__list panel">
-              <li><button @click="openPublish">{{ snapshot.isPublic ? "Public — manage…" : "Make public…" }}</button></li>
               <li><button @click="cloneList">Duplicate this list</button></li>
+              <li><button @click="openImport">Import a list…</button></li>
               <li><button @click="copyMarkdown">Copy as Markdown</button></li>
-              <li><button @click="copySummary">Copy summary</button></li>
               <li><button @click="downloadCsv">Download CSV</button></li>
               <li><button @click="downloadJson">Download JSON (backup)</button></li>
               <li><button @click="copyEditLink">Copy edit link…</button></li>
               <li><button @click="rotate">Rotate edit link…</button></li>
-              <li><NuxtLink to="/changes" @click="menuOpen = false">Recent catalog changes</NuxtLink></li>
             </ul>
           </div>
         </template>
@@ -272,7 +253,7 @@ function onPublished(e: { status: string }) {
     </Transition>
 
     <CatalogCorrectionModal @done="onCorrected" />
-    <PublishModal @done="onPublished" />
+    <ImportModal :open="importOpen" @close="importOpen = false" />
   </div>
 </template>
 
@@ -300,10 +281,16 @@ function onPublished(e: { status: string }) {
   gap: var(--space-2);
   padding-block: var(--space-3);
 }
-.editor__title {
+/* the list name is the toolbar's heading; the save state sits quietly beneath it */
+.editor__titlewrap {
   flex: 0 1 auto;
-  /* size to the title text so the Saved chip hugs the name (progressive
-     enhancement; falls back to default input width where unsupported) */
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.editor__title {
+  /* size to the title text (progressive enhancement; falls back to default
+     input width where unsupported) */
   width: auto;
   field-sizing: content;
   min-width: 8ch;
@@ -315,21 +302,13 @@ function onPublished(e: { status: string }) {
 .editor__title:focus {
   border-bottom-color: var(--accent);
 }
-/* quiet save status hugging the title — synced shows just the save-check icon (no
-   label), saving/error show their text. Monochrome: no pill, no colour. */
-.savechip {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  color: var(--ink-3);
+/* save status as plain text under the title — no icon, no pill, no colour */
+.editor__status {
+  color: var(--ink-2);
   font-size: var(--text-sm);
   white-space: nowrap;
 }
-.savechip[data-state="synced"] {
-  color: var(--ink-2);
-}
-.savechip[data-state="error"] {
+.editor__status[data-state="error"] {
   color: var(--ink);
 }
 .editor__share {
@@ -352,6 +331,7 @@ function onPublished(e: { status: string }) {
   width: 100%;
   text-align: left;
   padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-1);
   font-size: var(--text-sm);
   color: var(--ink);
 }

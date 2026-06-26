@@ -6,20 +6,21 @@
 :root {
   color-scheme: light dark;
 
-  /* ---- surfaces: ROA warm naturals (sampled from roa-hiking.com) ---- */
-  /* warm bone / warm OFF-black (never pure #000 — ROA + SPACE10 both avoid it) */
-  --paper: light-dark(#efece4, #0f0e0d); /* dark = deep warm off-black (still not pure #000) */
-  --paper-2: light-dark(#f6f4ef, #181614); /* faintly raised */
-  --paper-3: light-dark(#e4e0d5, #211f1c); /* stone (ROA #d2cfc4) — for quiet surfaces, not borders */
+  /* ---- surfaces: pure black & white (Ryan: "none of these off whites").
+     main paper is true #fff / #000; raised surfaces use a hair of NEUTRAL grey
+     (no warm tint) only where elevation needs to read. ---- */
+  --paper: light-dark(#ffffff, #000000);
+  --paper-2: light-dark(#f4f4f4, #151515); /* faintly raised */
+  --paper-3: light-dark(#eaeaea, #1f1f1f); /* quiet surfaces, not borders */
 
-  /* ---- ink (warm) ---- */
-  --ink: light-dark(#1d1c1c, #ece8e0);
-  --ink-2: light-dark(#4d413b, #b0a59f); /* ROA warm brown / taupe — secondary text */
-  --ink-3: light-dark(#8c837a, #80776d); /* faint */
+  /* ---- ink: neutral grey ramp; primary is true black / white ---- */
+  --ink: light-dark(#000000, #ffffff);
+  --ink-2: light-dark(#595959, #a8a8a8); /* secondary text */
+  --ink-3: light-dark(#8c8c8c, #707070); /* faint */
 
   /* ---- hairlines: faint + rare. Whitespace + type do the separating, not boxes ---- */
-  --line: light-dark(#1d1c1c12, #ece8e010);
-  --line-2: light-dark(#1d1c1c22, #ece8e01f);
+  --line: light-dark(#00000014, #ffffff14);
+  --line-2: light-dark(#00000026, #ffffff26);
 
   /* ---- chrome is MONOCHROME — controls/state/primary all read as ink; the only
      colour on the site is the data viz (the category bar + dots, --cat-* below).
@@ -28,28 +29,39 @@
   --accent: var(--ink);
   --accent-ink: var(--paper);
 
-  /* ---- category palette (muted naturals) ---- */
-  --cat-shelter: light-dark(oklch(0.55 0.07 150), oklch(0.66 0.07 150));
-  --cat-sleep: light-dark(oklch(0.55 0.06 250), oklch(0.68 0.06 250));
-  --cat-pack: light-dark(oklch(0.52 0.05 95), oklch(0.66 0.05 95));
-  --cat-kitchen: light-dark(oklch(0.55 0.1 45), oklch(0.68 0.1 45));
-  --cat-water: light-dark(oklch(0.55 0.07 220), oklch(0.68 0.07 220));
-  --cat-clothing: light-dark(oklch(0.55 0.06 320), oklch(0.68 0.06 320));
-  --cat-electronics: light-dark(oklch(0.5 0.03 285), oklch(0.64 0.03 285));
-  --cat-firstaid: light-dark(oklch(0.54 0.13 22), oklch(0.66 0.12 22));
-  --cat-worn: light-dark(oklch(0.56 0.045 80), oklch(0.68 0.045 80));
-  --cat-consumable: light-dark(oklch(0.6 0.09 100), oklch(0.72 0.09 100));
-  --cat-other: light-dark(oklch(0.56 0.018 80), oklch(0.64 0.018 80));
+  /* ---- category palette — LOUD + UNEXPECTED: the only colour on the site is the
+     data viz, so it's pushed to electric, non-natural hues (volt green / hot pink /
+     hyper orange anchor it). light-mode lightness stays low enough to read on white
+     (>~3:1 fills); dark-mode goes full neon on black. "other" = neutral grey. ---- */
+  --cat-shelter: light-dark(oklch(0.74 0.21 132), oklch(0.88 0.24 130)); /* volt green */
+  --cat-sleep: light-dark(oklch(0.62 0.27 350), oklch(0.72 0.28 350)); /* hot pink */
+  --cat-pack: light-dark(oklch(0.67 0.2 50), oklch(0.78 0.21 55)); /* hyper orange */
+  --cat-kitchen: light-dark(oklch(0.57 0.27 328), oklch(0.7 0.26 330)); /* magenta */
+  --cat-water: light-dark(oklch(0.58 0.21 232), oklch(0.74 0.18 235)); /* electric blue */
+  --cat-clothing: light-dark(oklch(0.55 0.28 300), oklch(0.7 0.26 302)); /* violet */
+  --cat-electronics: light-dark(oklch(0.54 0.22 266), oklch(0.7 0.2 268)); /* indigo */
+  --cat-firstaid: light-dark(oklch(0.58 0.25 22), oklch(0.68 0.25 25)); /* red */
+  --cat-worn: light-dark(oklch(0.66 0.18 95), oklch(0.85 0.2 100)); /* acid yellow */
+  --cat-consumable: light-dark(oklch(0.64 0.17 175), oklch(0.8 0.16 178)); /* teal */
+  --cat-other: light-dark(oklch(0.6 0.02 250), oklch(0.68 0.02 250)); /* neutral grey */
 
-  /* ---- type: ONE family for the whole app (system stack now; swap to a self-hosted face later) ---- */
-  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
-    sans-serif;
+  /* ---- type: ONE family — the platform system UI font (SF Pro on Apple,
+     Segoe UI on Windows, Roboto on Android), with robust fallbacks ---- */
+  --font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
 
-  /* ---- type scale — 4 sizes, deliberately tight ---- */
-  --text-sm: 0.8125rem; /* labels, meta, units, controls, secondary */
-  --text-base: 1rem; /* body, inputs, item names */
-  --text-title: 1.375rem; /* the one heading size (folders, page + section titles) */
-  --text-display: clamp(2.5rem, 6vw, 3.5rem); /* hero headline + the live total */
+  /* ---- type scale — 4 sizes. Each token is fluid IN ITSELF (portfolio model):
+     fixed at its px floor up to the 1720px anchor, then scaling with the viewport
+     above it — max(floor, floor/1720*100vw). So any consumer of a token scales,
+     not just heading classes; below the anchor (i.e. almost every screen) the
+     floor holds, so type stays stable on phones/laptops and only grows on huge
+     displays. ---- */
+  --text-base: max(1rem, 0.93vw); /* 16px — body, inputs, item names, labels, meta, controls */
+  --text-title: max(1.375rem, 1.28vw); /* 22px — the one heading size */
+  --text-display: max(3.25rem, 3.02vw); /* 52px — the live total */
+  /* the small tier was removed (Ryan: "the small one needs to go") — kept as an
+     alias = base so existing `var(--text-sm)` consumers don't break */
+  --text-sm: var(--text-base);
 
   /* ---- spacing (4/8 grid) ---- */
   --space-px: 2px; /* hairline — sub-grid micro-gap (bar segments, chip stacks) */
@@ -63,9 +75,12 @@
   --space-8: 64px;
   --space-9: 96px;
 
-  /* ---- radius: sharp by default; hairline only ---- */
+  /* ---- radius: softened — buttons + floating surfaces get real rounding,
+     controls/icon-buttons go pill so hover fills read as soft shapes, not boxes ---- */
   --radius-0: 0;
   --radius-1: 2px;
+  --radius-2: 8px; /* panels, menus */
+  --radius-pill: 999px; /* buttons + icon buttons */
 
   /* ---- motion: one signature ease (SPACE10's expo-out workhorse) ---- */
   --ease: cubic-bezier(0.19, 1, 0.22, 1);
@@ -78,10 +93,11 @@
 
   /* ---- component primitives — shared structure so duplicated values can't drift ---- */
   /* item rows + folder headers share ONE column template so weights stay aligned */
-  --item-cols: 1fr 56px 84px 110px 104px; /* edit: name · qty · weight+unit · class · actions (grip+note+remove) */
+  --item-cols: 16px 1fr 56px 84px 110px 68px; /* edit: grip · name · qty · weight+unit · class · actions (note+remove) */
   --item-cols-ro: 1fr 44px 96px; /* read / checklist: name · qty · weight */
-  --item-cols-mobile: 1fr 44px 92px; /* name · qty · weight on one row */
-  /* category sparkline (the one data-viz mark — CategoryBar + ListCard) */
+  --item-cols-mobile: 16px 1fr 44px 92px; /* grip · name · qty · weight on one row */
+  --item-gap: var(--space-3); /* column gap shared by item rows, folder headers + the add row (keeps weights aligned) — 12px so weight↔class don't crowd */
+  /* category sparkline (the one data-viz mark — CategoryBar) */
   --bar-h: 6px;
   --bar-seg-min: 3px;
 }

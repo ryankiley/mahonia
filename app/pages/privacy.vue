@@ -16,139 +16,97 @@ useHead({
 
     <main class="wrap page">
       <div class="prose">
-        <h1 class="t-title">Privacy Policy</h1>
-        <p class="t-sm t-muted">Last updated 25 June 2026</p>
+        <h1 class="t-title">Privacy</h1>
+        <p class="t-sm t-muted">Last updated 26 June 2026</p>
 
         <p>
-          This policy explains what Gear collects, why, and what you can do about it. It’s written
-          to be read, not just filed. If anything here is unclear, email
-          <a href="mailto:hello@ryankiley.com">hello@ryankiley.com</a>.
+          Gear is a tool for making and sharing packing lists, made by one person. There are no
+          accounts, no advertising, and I don’t sell your data. This page describes what Gear stores,
+          what it sends over the network and when, and where to ask questions. If anything here is
+          unclear, email <a href="mailto:hello@ryankiley.com">hello@ryankiley.com</a>.
         </p>
 
-        <h2>The short version</h2>
-        <ul>
-          <li>No accounts, no login, no advertising, no selling your data.</li>
-          <li>Your lists stay in your browser until you choose to share or publish them.</li>
-          <li>We keep the minimum needed to make the service work and to stop abuse.</li>
-          <li>You can remove your data yourself, or ask us to.</li>
-        </ul>
-
-        <h2>Who is responsible for your data</h2>
+        <h2>Where your data lives</h2>
         <p>
-          Gear is run by an individual operator based in Oregon, USA, who is the “data controller”
-          for the purposes of this policy. Contact:
-          <a href="mailto:hello@ryankiley.com">hello@ryankiley.com</a>.
+          The lists you create — titles, folders, items, notes, and any weights — are saved on your
+          device in your browser’s <code>localStorage</code>. While a list is just yours, it stays
+          there and is never sent anywhere.
+        </p>
+        <p>
+          A list is sent to the server only when you choose to share or publish it. At that point its
+          contents are stored so the share link and public feed can work, and they stay stored until
+          you unpublish or delete the list. Public means public: anyone with the link can read it.
         </p>
 
-        <h2>What we collect</h2>
+        <h2>What Gear collects in the background</h2>
+        <p>
+          Running the site touches a little technical data, kept to the minimum needed:
+        </p>
         <ul>
           <li>
-            <strong>Lists you create</strong> — titles, folders, items, notes, and any weights.
-            While you’re editing, this is saved only in your browser’s <code>localStorage</code> on
-            your device. It’s sent to our server only when you create a shareable or public list.
+            <strong>Request data.</strong> Your IP address and basic request details are processed
+            briefly to serve pages, apply rate limits, and stop abuse. The hosting provider keeps
+            standard short-lived server logs.
           </li>
           <li>
-            <strong>Technical data</strong> — your IP address and basic request details, processed
-            briefly to operate the site, apply rate limits, and prevent abuse. Our hosting provider
-            keeps standard server logs.
-          </li>
-          <li>
-            <strong>Aggregate usage</strong> — privacy-preserving analytics about page views and
-            performance, with no advertising cookies and no cross-site tracking.
+            <strong>Aggregate analytics.</strong> Cookieless, privacy-preserving counts of page
+            views and performance — no advertising cookies, no cross-site tracking, no profile.
           </li>
         </ul>
         <p>
-          We do <strong>not</strong> ask for or collect your name, email, password, payment details,
-          or precise location.
+          Gear never asks for your name, email, password, payment details, or precise location.
         </p>
 
-        <h2>Why we use it, and our legal basis</h2>
+        <h2>The services Gear relies on</h2>
         <p>
-          We use the data above only to: provide and maintain the service; make shared and public
-          lists work; keep the service secure and prevent abuse; and understand aggregate usage so
-          we can improve it. Where the GDPR applies, our legal basis is our legitimate interest in
-          running a reliable, abuse-resistant service, and performing the service you ask for when
-          you share or publish a list. We don’t use your data for advertising or profiling.
-        </p>
-
-        <h2>Cookies and local storage</h2>
-        <p>
-          Gear doesn’t use advertising or cross-site tracking cookies. The only data kept on your
-          device is functional storage the app needs to work — primarily your lists in
-          <code>localStorage</code>. You can clear it any time through your browser.
-        </p>
-
-        <h2>Who we share data with</h2>
-        <p>
-          We don’t sell your data or share it for advertising. We use a small number of service
-          providers that process data on our behalf to run the site:
+          A few service providers run the plumbing on my behalf. They’re all US-based, so if you’re
+          outside the US your data may be processed there.
         </p>
         <ul>
-          <li><strong>Vercel</strong> — hosting, content delivery, and aggregate analytics.</li>
+          <li><strong>Vercel</strong> — hosting, content delivery, and the aggregate analytics.</li>
           <li><strong>Neon</strong> — the database that stores shared and public lists.</li>
           <li><strong>Upstash</strong> — the store used for rate limiting.</li>
         </ul>
-        <p>
-          These providers operate in the United States, so if you’re outside the US your data may be
-          processed there. We may also disclose data if required by law, or to protect the rights,
-          safety, and security of Gear and its users.
-        </p>
 
-        <h2>How long we keep it</h2>
-        <ul>
-          <li>Lists in your browser stay until you delete them or clear your browser.</li>
-          <li>
-            Shared and public lists stay on our server until you unpublish or delete them, or ask
-            us to remove them.
-          </li>
-          <li>Server logs and rate-limit data are short-lived and rotate automatically.</li>
-        </ul>
-
-        <h2>Your rights</h2>
+        <h2>Keeping and deleting your data</h2>
         <p>
-          Depending on where you live, you may have the right to access, correct, delete, or
-          receive a copy of your data, and to object to or restrict certain processing. Because Gear
-          has no accounts, the fastest way to exercise most of these is directly:
+          Because there are no accounts, you’re in control of removing things yourself:
         </p>
         <ul>
-          <li>Delete a list from this device in “Your lists.”</li>
-          <li>Unpublish or stop sharing a list from its editor to remove it from our server.</li>
+          <li>Delete a list from this device in “Your lists,” or clear your browser storage.</li>
+          <li>Unpublish or delete a shared or public list from its editor to remove it from the server.</li>
           <li>
-            For anything else — including access, deletion, or a copy of a shared list — email
-            <a href="mailto:hello@ryankiley.com">hello@ryankiley.com</a> and we’ll respond within
-            a reasonable time.
+            For anything else — including a copy or deletion of a shared list — email
+            <a href="mailto:hello@ryankiley.com">hello@ryankiley.com</a> and I’ll sort it out.
           </li>
         </ul>
         <p>
-          If you’re in California, note that we do not sell or “share” personal information as those
-          terms are used under California law. If you’re in the EU or UK, you also have the right to
-          complain to your local data protection authority.
+          No system is perfectly secure, so please don’t put sensitive personal information into a
+          list.
         </p>
+
+        <h2>What Gear does not do</h2>
+        <ul>
+          <li>No accounts, no passwords, no advertising.</li>
+          <li>No selling your data and no cross-site tracking.</li>
+          <li>No advertising cookies, tracking pixels, or third-party trackers.</li>
+        </ul>
 
         <h2>Children</h2>
         <p>
-          Gear isn’t directed at children under 13, and we don’t knowingly collect data from them.
-          If you believe a child has provided data through Gear, contact us and we’ll remove it.
+          Gear isn’t directed at children under 13 and doesn’t knowingly collect data from them. If
+          you believe a child has provided data through Gear, email me and I’ll remove it.
         </p>
 
-        <h2>Security</h2>
+        <h2>Changes</h2>
         <p>
-          We take reasonable measures to protect data, but no method of transmission or storage is
-          perfectly secure, and we can’t guarantee absolute security. Don’t put sensitive personal
-          information into a list.
-        </p>
-
-        <h2>Changes to this policy</h2>
-        <p>
-          We may update this policy from time to time. We’ll change the “last updated” date above,
-          and significant changes will be reflected here. Continuing to use Gear after a change
-          means you accept the updated policy.
+          Material changes to this policy will be reflected here with an updated date.
         </p>
 
         <h2>Contact</h2>
         <p>
           Questions or requests: <a href="mailto:hello@ryankiley.com">hello@ryankiley.com</a>. See
-          also our <NuxtLink to="/terms">Terms of Use</NuxtLink>.
+          also the <NuxtLink to="/terms">Terms of Use</NuxtLink>.
         </p>
       </div>
     </main>

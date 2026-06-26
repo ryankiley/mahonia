@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CircleMinus } from "@lucide/vue";
+import { ChevronDown, CircleMinus } from "@lucide/vue";
 import type { Folder, ListSnapshot } from "~~/shared/types";
 import { lineMg, formatWeight } from "~~/shared/weights";
 
@@ -38,12 +38,41 @@ function onCommit(p: {
 }) {
   c.addItem(props.folder.id, p);
 }
+
+// collapse: the chevron shows/hides the folder body. Persisted per folder id so a
+// collapsed folder stays collapsed across reloads (pure UI state, not synced).
+const COLLAPSE_KEY = `gear.fold.${props.folder.id}`;
+const collapsed = ref(false);
+onMounted(() => {
+  try {
+    collapsed.value = localStorage.getItem(COLLAPSE_KEY) === "1";
+  } catch {
+    /* private mode / no storage — default expanded */
+  }
+});
+function toggleCollapsed() {
+  collapsed.value = !collapsed.value;
+  try {
+    localStorage.setItem(COLLAPSE_KEY, collapsed.value ? "1" : "0");
+  } catch {
+    /* ignore */
+  }
+}
 </script>
 
 <template>
   <section class="folder" :data-folder="folder.id">
     <header class="folder__head" :class="{ 'folder__head--ro': readonly, 'folder__head--packed': packed }">
       <div class="folder__title">
+        <button
+          class="folder__collapse"
+          :aria-expanded="!collapsed"
+          :aria-label="`${collapsed ? 'Expand' : 'Collapse'} ${folder.name || 'folder'}`"
+          :title="collapsed ? 'Expand folder' : 'Collapse folder'"
+          @click="toggleCollapsed"
+        >
+          <ChevronDown class="folder__chev" :class="{ 'is-collapsed': collapsed }" :size="18" :stroke-width="2" />
+        </button>
         <span v-if="readonly" class="folder__name">{{ folder.name }}</span>
         <input
           v-else
@@ -65,14 +94,16 @@ function onCommit(p: {
       </button>
     </header>
 
-    <TransitionGroup name="item" tag="div" class="folder__items">
+    <TransitionGroup v-show="!collapsed" name="item" tag="div" class="folder__items">
       <ItemRow v-for="it in items" :key="it.id" :list="list" :item="it" :packed="packed" :readonly="readonly" />
       <p v-if="!items.length && readonly" key="empty-ro" class="t-sm t-muted folder__empty">—</p>
     </TransitionGroup>
 
-    <div v-if="isAppendTarget" class="folder__droptail" aria-hidden="true" />
+    <div v-if="isAppendTarget && !collapsed" class="folder__droptail" aria-hidden="true" />
 
-    <div v-if="!packed && !readonly" class="folder__add">
+    <div v-if="!packed && !readonly" v-show="!collapsed" class="folder__add">
+      <!-- one add affordance: type an item name, or a water volume ("1 L", "500 ml",
+           "water 1l") → the autocomplete surfaces a Water option -->
       <ItemInput :unit="list.displayUnit" with-weight @commit="onCommit" />
     </div>
   </section>
@@ -87,7 +118,7 @@ function onCommit(p: {
 .folder__head {
   display: grid;
   grid-template-columns: var(--item-cols);
-  gap: var(--space-3);
+  gap: var(--item-gap);
   align-items: baseline;
   margin-bottom: var(--space-1);
 }
@@ -100,18 +131,46 @@ function onCommit(p: {
 .folder__head--packed {
   grid-template-columns: auto var(--item-cols-ro);
 }
-.folder__head--packed .folder__title {
-  grid-column: 1 / 4;
-}
-.folder__head--packed .folder__weight {
-  grid-column: 4;
-}
-.folder__title {
+/* read view: 3-col template (name · qty · weight), no grip column — keep the title
+   at name+qty and the total in the last col */
+.folder__head--ro .folder__title {
   grid-column: 1 / 3;
+}
+.folder__head--ro .folder__weight {
+  grid-column: 3;
+}
+/* editor + packing share a leading column (grip / checkbox), so the title spans
+   the first three tracks — the folder name starts at the page edge, above the
+   indented item rows, while the total stays aligned with item weights */
+.folder__title {
+  grid-column: 1 / 4;
   display: flex;
   align-items: baseline;
-  gap: var(--space-3);
+  gap: var(--item-gap);
   min-width: 0;
+}
+/* collapse toggle sits in the leading gutter (like the item grip), so the folder
+   name lands at the same column as the item names below it */
+.folder__collapse {
+  flex: none;
+  align-self: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  padding: 0;
+  color: var(--ink-3);
+  cursor: pointer;
+  transition: color var(--dur) var(--ease);
+}
+.folder__collapse:hover {
+  color: var(--ink);
+}
+.folder__chev {
+  transition: transform var(--dur) var(--ease);
+}
+.folder__chev.is-collapsed {
+  transform: rotate(-90deg);
 }
 .folder__name {
   flex: 1;
@@ -121,12 +180,12 @@ function onCommit(p: {
   letter-spacing: -0.02em;
 }
 .folder__weight {
-  grid-column: 3;
+  grid-column: 4;
   text-align: right;
   white-space: nowrap;
 }
 .folder__del {
-  grid-column: 5;
+  grid-column: 6;
   justify-self: end;
   color: var(--ink-3);
   transition: color var(--dur) var(--ease);
@@ -152,6 +211,10 @@ function onCommit(p: {
   }
   .folder__del {
     grid-column: auto;
+  }
+  /* tighten the two-row mobile items so each row reads as one unit, not spaced out */
+  .folder__items > * {
+    padding-block: var(--space-2);
   }
 }
 /* rule lines between items — a quiet spec-sheet rhythm; padding here (not on the

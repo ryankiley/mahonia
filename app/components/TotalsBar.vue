@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChevronDown } from "@lucide/vue";
+import { Backpack, ChevronDown, PersonStanding, Utensils } from "@lucide/vue";
 import type { ListSnapshot, Totals, Unit } from "~~/shared/types";
 import { formatWeight } from "~~/shared/weights";
 
@@ -25,10 +25,13 @@ const UNITS: Unit[] = ["g", "kg", "oz", "lb"];
   <div class="totals">
     <div class="totals__main">
       <div class="totals__headline">
-        <span class="t-label">Total</span>
+        <!-- no "Total" label: the big figure makes it implicit -->
         <div v-if="totals.hasWeights" class="totals__amount">
-          <span class="t-num totals__big">{{ formatWeight(totals.totalMg, list.displayUnit) }}</span>
-          <ChevronDown class="totals__chev" :size="22" :stroke-width="2.25" />
+          <AnimatedCount class="t-num totals__big" :value="formatWeight(totals.totalMg, list.displayUnit, { withUnit: false })" />
+          <span class="totals__uc" aria-hidden="true">
+            <span class="totals__unit">{{ list.displayUnit }}</span>
+            <ChevronDown class="totals__chev" :size="16" :stroke-width="2.25" />
+          </span>
           <!-- transparent native select over the number: tap the total to change units -->
           <select
             class="totals__unitsel"
@@ -53,9 +56,18 @@ const UNITS: Unit[] = ["g", "kg", "oz", "lb"];
     <!-- the breakdown is always shown once any weights exist -->
     <div v-if="totals.hasWeights" class="totals__breakdown">
       <div class="totals__chips">
-        <span class="chip"><span class="t-label">Base</span><span class="t-num">{{ formatWeight(totals.baseMg, list.displayUnit) }}</span></span>
-        <span class="chip"><span class="t-label">Worn</span><span class="t-num">{{ formatWeight(totals.wornMg, list.displayUnit) }}</span></span>
-        <span class="chip"><span class="t-label">Consumable</span><span class="t-num">{{ formatWeight(totals.consumableMg, list.displayUnit) }}</span></span>
+        <span class="chip">
+          <span class="chip__head"><Backpack class="chip__icon" :size="14" :stroke-width="2" aria-hidden="true" /><span class="t-label">Base</span></span>
+          <span class="t-num">{{ formatWeight(totals.baseMg, list.displayUnit) }}</span>
+        </span>
+        <span class="chip">
+          <span class="chip__head"><PersonStanding class="chip__icon" :size="14" :stroke-width="2" aria-hidden="true" /><span class="t-label">Worn</span></span>
+          <span class="t-num">{{ formatWeight(totals.wornMg, list.displayUnit) }}</span>
+        </span>
+        <span class="chip">
+          <span class="chip__head"><Utensils class="chip__icon" :size="14" :stroke-width="2" aria-hidden="true" /><span class="t-label">Consumable</span></span>
+          <span class="t-num">{{ formatWeight(totals.consumableMg, list.displayUnit) }}</span>
+        </span>
       </div>
       <CategoryBar :list="list" />
     </div>
@@ -81,14 +93,27 @@ const UNITS: Unit[] = ["g", "kg", "oz", "lb"];
 .totals__amount {
   position: relative;
   display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
+  align-items: baseline;
+  gap: var(--space-1);
 }
 .totals__big {
   font-size: var(--text-display);
   line-height: 0.95;
   letter-spacing: -0.02em;
   color: var(--accent);
+}
+/* unit + its dropdown chevron travel together, centered to each other, and the
+   group baseline-aligns with the big figure */
+.totals__uc {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-px);
+}
+.totals__unit {
+  font-size: var(--text-title);
+  font-weight: 400;
+  color: var(--ink-2);
+  letter-spacing: -0.01em;
 }
 .totals__chev {
   flex: none;
@@ -130,5 +155,14 @@ const UNITS: Unit[] = ["g", "kg", "oz", "lb"];
   display: inline-flex;
   flex-direction: column;
   gap: var(--space-px);
+}
+.chip__head {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.chip__icon {
+  flex: none;
+  color: var(--ink-2);
 }
 </style>

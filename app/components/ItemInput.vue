@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { BadgeCheck } from "@lucide/vue";
-import type { Unit } from "~~/shared/types";
+import { BadgeCheck, Droplet } from "@lucide/vue";
+import type { Classification, Unit } from "~~/shared/types";
 import { formatWeight } from "~~/shared/weights";
+import { formatVolume, parseVolumeMl, waterMgFromMl } from "~~/shared/water";
 import type { CatalogResult } from "~/composables/useCatalogSearch";
 
 // Maps-grade autocomplete, used for BOTH adding a new item and renaming an
@@ -19,7 +20,14 @@ const props = withDefaults(
 );
 const emit = defineEmits<{
   commit: [
-    { name: string; brand?: string; weight?: string; weightMg?: number; catalogItemId?: number },
+    {
+      name: string;
+      brand?: string;
+      weight?: string;
+      weightMg?: number;
+      catalogItemId?: number;
+      classification?: Classification;
+    },
   ];
 }>();
 
@@ -59,6 +67,37 @@ onClickOutside(rootRef, () => (open.value = false));
 // trailing weight in free text: "Tent 540 g" → name + weight; unitless ("UL2") stays in the name
 const WEIGHT_TAIL = /\s+(\d[\d.,]*\s*(?:kgs?|g|grams?|oz|ounces?|lbs?|pounds?))$/i;
 
+// Water folds into THIS input (no separate "add water"): typing a bare volume
+// ("1 L", "500 ml", "32 fl oz") or "water [volume]" surfaces a water option that
+// adds a consumable with the derived weight. "water" alone defaults to 1 L.
+type WaterSug = { ml: number; label: string; weightMg: number };
+const waterSuggestion = computed<WaterSug | null>(() => {
+  const low = draft.value.trim().toLowerCase();
+  if (!low) return null;
+  let volStr: string | null = null;
+  if (/^water\b/.test(low)) {
+    const rest = low.replace(/^water\b/, "").trim();
+    volStr = rest === "" ? "1l" : rest;
+  } else if (/\bwater$/.test(low)) {
+    volStr = low.replace(/\bwater$/, "").trim();
+  } else if (parseVolumeMl(low) != null) {
+    volStr = low;
+  }
+  if (volStr == null) return null;
+  const ml = parseVolumeMl(volStr);
+  if (ml == null || ml <= 0) return null;
+  return { ml, label: `Water · ${formatVolume(ml)}`, weightMg: waterMgFromMl(ml) };
+});
+
+// the menu = an optional water row on top, then catalog results (one nav model)
+type AcOption = { water: WaterSug } | { result: CatalogResult };
+const options = computed<AcOption[]>(() => {
+  const opts: AcOption[] = [];
+  if (waterSuggestion.value) opts.push({ water: waterSuggestion.value });
+  for (const r of results.value) opts.push({ result: r });
+  return opts;
+});
+
 function close() {
   clear();
   open.value = false;
@@ -74,6 +113,16 @@ function selectResult(r: CatalogResult) {
   setDraftQuiet(props.clearOnCommit ? "" : name);
   weightDraft.value = "";
   close();
+}
+function selectWater(w: WaterSug) {
+  emit("commit", { name: w.label, weightMg: w.weightMg, classification: "consumable" });
+  setDraftQuiet(props.clearOnCommit ? "" : w.label);
+  weightDraft.value = "";
+  close();
+}
+function selectOption(opt: AcOption) {
+  if ("water" in opt) selectWater(opt.water);
+  else selectResult(opt.result);
 }
 function commitFree() {
   const raw = draft.value.trim();
@@ -98,7 +147,7 @@ function onFocusOut(e: FocusEvent) {
   commitFree();
 }
 function onKeydown(e: KeyboardEvent) {
-  const n = results.value.length;
+  const n = options.value.length;
   if (e.key === "ArrowDown") {
     e.preventDefault();
     if (n) {
@@ -110,8 +159,9 @@ function onKeydown(e: KeyboardEvent) {
     if (n) active.value = (active.value - 1 + n) % n;
   } else if (e.key === "Enter") {
     e.preventDefault();
-    if (open.value && active.value >= 0 && results.value[active.value])
-      selectResult(results.value[active.value]!);
+    if (open.value && active.value >= 0 && options.value[active.value])
+      selectOption(options.value[active.value]!);
+    else if (waterSuggestion.value) selectWater(waterSuggestion.value);
     else commitFree();
   } else if (e.key === "Escape") {
     // cancel: revert to the original (or clear in add mode) so the focusout that
@@ -150,30 +200,40 @@ const srcLetter = (r: CatalogResult) => (r.weightSource[0] || "?").toUpperCase()
       />
       <span class="t-sm t-muted ac__unit">{{ unit }}</span>
     </div>
-    <ul v-if="open && results.length" class="ac__menu panel">
+    <ul v-if="open && options.length" class="ac__menu panel">
       <li
-        v-for="(r, i) in results"
-        :key="r.id"
+        v-for="(opt, i) in options"
+        :key="'water' in opt ? 'water' : opt.result.id"
         class="ac__opt"
         :class="{ 'is-active': i === active }"
-        @mousedown.prevent="selectResult(r)"
+        @mousedown.prevent="selectOption(opt)"
         @mouseenter="active = i"
       >
-        <span class="ac__name">
-          <span v-if="r.brand" class="ac__brand">{{ r.brand }}</span> {{ r.name }}<span
-            v-if="r.variant"
-            class="t-muted"
-          >
-            · {{ r.variant }}</span
-          >
-        </span>
-        <span class="ac__metaright">
-          <span class="t-num ac__w">{{ formatWeight(r.weightMg, unit) }}</span>
-          <span class="ac__src" :title="r.weightSource">
-            <BadgeCheck v-if="r.verified" :size="14" :stroke-width="2" aria-hidden="true" />
-            <template v-else>{{ srcLetter(r) }}</template>
+        <template v-if="'water' in opt">
+          <span class="ac__name">
+            <Droplet class="ac__watericon" :size="14" :stroke-width="2" aria-hidden="true" />{{ opt.water.label }}
           </span>
-        </span>
+          <span class="ac__metaright">
+            <span class="t-num ac__w">{{ formatWeight(opt.water.weightMg, unit) }}</span>
+          </span>
+        </template>
+        <template v-else>
+          <span class="ac__name">
+            <span v-if="opt.result.brand" class="ac__brand">{{ opt.result.brand }}</span> {{ opt.result.name }}<span
+              v-if="opt.result.variant"
+              class="t-muted"
+            >
+              · {{ opt.result.variant }}</span
+            >
+          </span>
+          <span class="ac__metaright">
+            <span class="t-num ac__w">{{ formatWeight(opt.result.weightMg, unit) }}</span>
+            <span class="ac__src" :title="opt.result.weightSource">
+              <BadgeCheck v-if="opt.result.verified" :size="14" :stroke-width="2" aria-hidden="true" />
+              <template v-else>{{ srcLetter(opt.result) }}</template>
+            </span>
+          </span>
+        </template>
       </li>
     </ul>
   </div>
@@ -183,19 +243,19 @@ const srcLetter = (r: CatalogResult) => (r.weightSource[0] || "?").toUpperCase()
 .ac {
   position: relative;
 }
-/* add mode: same column template as item rows so the weight lands in the weight
-   column (cols 4–5 reserved but empty, matching class + actions) */
+/* add mode: same column template as item rows so the input aligns with item names
+   (col 2, past the grip gutter) and the weight lands in the weight column (col 4) */
 .ac--add {
   display: grid;
   grid-template-columns: var(--item-cols);
-  gap: var(--space-3);
+  gap: var(--item-gap);
   align-items: baseline;
 }
 .ac--add .ac__input {
-  grid-column: 1;
+  grid-column: 2;
 }
 .ac__weightcell {
-  grid-column: 3;
+  grid-column: 4;
   display: flex;
   align-items: baseline;
   gap: var(--space-1);
@@ -243,6 +303,11 @@ const srcLetter = (r: CatalogResult) => (r.weightSource[0] || "?").toUpperCase()
 }
 .ac__brand {
   font-weight: 600;
+}
+.ac__watericon {
+  vertical-align: -2px;
+  margin-right: var(--space-1);
+  color: var(--ink-2);
 }
 .ac__metaright {
   display: inline-flex;

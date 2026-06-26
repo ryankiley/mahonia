@@ -14,6 +14,11 @@ let singleton: ReturnType<typeof create> | undefined;
 function create() {
   const dragId = ref<string | null>(null);
   const drop = ref<DropTarget | null>(null);
+  // live vertical offset of the lifted row from where it was picked up, so the
+  // dragged item visibly tracks the pointer (the "carry" feel) instead of just
+  // dimming in place. Pixels.
+  const dy = ref(0);
+  let startY = 0;
 
   function nextItemId(folderEl: HTMLElement, row: HTMLElement): string | null {
     const rows = [...folderEl.querySelectorAll("[data-item-id]")] as HTMLElement[];
@@ -26,6 +31,7 @@ function create() {
 
   function onMove(ev: PointerEvent) {
     if (!dragId.value) return;
+    dy.value = ev.clientY - startY;
     const el = document.elementFromPoint(ev.clientX, ev.clientY) as HTMLElement | null;
     const folderEl = el?.closest("[data-folder]") as HTMLElement | null;
     if (!folderEl) {
@@ -60,6 +66,7 @@ function create() {
     if (typeof document !== "undefined") document.body.style.userSelect = "";
     dragId.value = null;
     drop.value = null;
+    dy.value = 0;
   }
 
   function onUp() {
@@ -80,13 +87,15 @@ function create() {
     ev.preventDefault();
     dragId.value = itemId;
     drop.value = null;
+    startY = ev.clientY;
+    dy.value = 0;
     document.body.style.userSelect = "none";
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
     window.addEventListener("pointercancel", onCancel);
   }
 
-  return { dragId, drop, start, reset };
+  return { dragId, drop, dy, start, reset };
 }
 
 export function useItemDnd() {
