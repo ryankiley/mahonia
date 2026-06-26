@@ -13,21 +13,16 @@ const items = computed(() =>
 
 const folderMg = computed(() => items.value.reduce((s, i) => s + lineMg(i), 0));
 
-const draft = ref("");
-
-// "just type and it adds" — Enter commits and keeps focus for the next item;
-// blur commits too so nothing typed is lost. A trailing weight token
-// ("Tent 540 g", "Quilt 1.2kg") is split off automatically; a bare number with
-// no unit stays part of the name (so "Hornet 2P" isn't mistaken for a weight).
-const WEIGHT_TAIL = /\s+(\d[\d.,]*\s*(?:kgs?|g|grams?|oz|ounces?|lbs?|pounds?))$/i;
-function commit() {
-  const raw = draft.value.trim();
-  if (!raw) return;
-  const m = raw.match(WEIGHT_TAIL);
-  const name = (m ? raw.slice(0, m.index) : raw).trim();
-  if (!name) return;
-  c.addItem(props.folder.id, { name, weight: m ? m[1] : undefined });
-  draft.value = "";
+// add via the Maps-grade ItemInput: a catalog pick fills name/brand/weight + links
+// the catalog id; free text falls back to a typed name (+ optional trailing weight).
+function onCommit(p: {
+  name: string;
+  brand?: string;
+  weight?: string;
+  weightMg?: number;
+  catalogItemId?: number;
+}) {
+  c.addItem(props.folder.id, p);
 }
 
 const CLASS_OPTS: { value: Classification; label: string }[] = [
@@ -47,7 +42,7 @@ const CLASS_OPTS: { value: Classification; label: string }[] = [
         :disabled="packed"
         @change="c.updateFolder(folder.id, { name: ($event.target as HTMLInputElement).value })"
       />
-      <span v-if="folderMg > 0" class="t-num t-micro t-muted">{{ formatWeight(folderMg, list.displayUnit) }}</span>
+      <span v-if="folderMg > 0" class="t-num t-xs t-muted">{{ formatWeight(folderMg, list.displayUnit) }}</span>
       <select
         v-if="!packed"
         class="field folder__class"
@@ -70,18 +65,11 @@ const CLASS_OPTS: { value: Classification; label: string }[] = [
 
     <div class="folder__items">
       <ItemRow v-for="it in items" :key="it.id" :list="list" :item="it" :packed="packed" />
-      <p v-if="!items.length && !packed" class="t-small t-faint folder__empty">No items yet.</p>
+      <p v-if="!items.length && !packed" class="t-sm t-faint folder__empty">No items yet.</p>
     </div>
 
     <div v-if="!packed" class="folder__add">
-      <input
-        v-model="draft"
-        class="field folder__addinput"
-        placeholder="Add an item…"
-        aria-label="Add an item"
-        @keyup.enter="commit"
-        @blur="commit"
-      />
+      <ItemInput :unit="list.displayUnit" @commit="onCommit" />
     </div>
   </section>
 </template>
@@ -105,12 +93,12 @@ const CLASS_OPTS: { value: Classification; label: string }[] = [
 .folder__name {
   flex: 1;
   font-weight: 700;
-  font-size: var(--t-h3);
+  font-size: var(--text-title);
   letter-spacing: -0.01em;
 }
 .folder__class {
   width: auto;
-  font-size: var(--t-micro);
+  font-size: var(--text-xs);
   color: var(--ink-2);
 }
 .folder__empty {

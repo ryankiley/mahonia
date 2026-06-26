@@ -134,7 +134,7 @@ const statusLabel = computed(() =>
           placeholder="Untitled list"
           @change="c.setMeta({ title: ($event.target as HTMLInputElement).value })"
         />
-        <span v-if="snapshot" class="t-micro t-faint editor__status">{{ statusLabel }}</span>
+        <span v-if="snapshot" class="t-xs t-faint editor__status">{{ statusLabel }}</span>
         <template v-if="snapshot">
           <button class="btn btn--sm btn--primary" @click="copyShare">Share</button>
           <div ref="menuRef" class="menu">
@@ -186,7 +186,7 @@ const statusLabel = computed(() =>
     </main>
 
     <Transition name="toast">
-      <div v-if="toast" class="toast t-small">{{ toast }}</div>
+      <div v-if="toast" class="toast t-sm">{{ toast }}</div>
     </Transition>
   </div>
 </template>
@@ -209,7 +209,7 @@ const statusLabel = computed(() =>
   flex: 1;
   min-width: 0;
   font-family: var(--font-serif);
-  font-size: var(--t-h3);
+  font-size: var(--text-title);
   border-bottom-color: transparent;
 }
 .editor__title:focus {
@@ -236,7 +236,7 @@ const statusLabel = computed(() =>
   width: 100%;
   text-align: left;
   padding: var(--space-2) var(--space-3);
-  font-size: var(--t-small);
+  font-size: var(--text-sm);
 }
 .menu__list button:hover {
   background: var(--paper-3);

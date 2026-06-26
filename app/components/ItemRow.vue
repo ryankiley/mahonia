@@ -62,7 +62,7 @@ const CLASS_OPTS: { value: Classification | ""; label: string }[] = [
         :disabled="packed"
         @change="onWeight"
       />
-      <span class="t-micro t-faint item__unit">{{ list.displayUnit }}</span>
+      <span class="t-xs t-faint item__unit">{{ list.displayUnit }}</span>
     </div>
 
     <select
@@ -115,7 +115,7 @@ const CLASS_OPTS: { value: Classification | ""; label: string }[] = [
   flex: none;
 }
 .item__class {
-  font-size: var(--t-micro);
+  font-size: var(--text-xs);
   color: var(--ink-2);
 }
 .item__class--worn {

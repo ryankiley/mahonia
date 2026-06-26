@@ -28,7 +28,8 @@ export interface Item {
   imageUrl?: string;
   priceCents?: number;
   currency?: string;
-  catalogWeightMgAtLink?: number;
+  catalogItemId?: number; // linked catalog entry (set when chosen from autocomplete)
+  catalogWeightMgAtLink?: number; // catalog weight at link time → powers the "catalog changed" nudge
   packed?: boolean;
   sortOrder: number;
 }

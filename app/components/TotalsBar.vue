@@ -2,12 +2,16 @@
 import type { ListSnapshot, Totals, Unit } from "~~/shared/types";
 import { formatWeight } from "~~/shared/weights";
 
-const props = defineProps<{
-  list: ListSnapshot;
-  totals: Totals;
-  showBreakdown: boolean;
-  packed: boolean;
-}>();
+const props = withDefaults(
+  defineProps<{
+    list: ListSnapshot;
+    totals: Totals;
+    showBreakdown: boolean;
+    packed?: boolean;
+    readonly?: boolean; // read-only share view: hide the Packing toggle, keep unit + breakdown
+  }>(),
+  { packed: false, readonly: false },
+);
 
 const emit = defineEmits<{
   "update:showBreakdown": [boolean];
@@ -41,6 +45,7 @@ const UNITS: Unit[] = ["g", "kg", "oz", "lb"];
           </button>
         </div>
         <button
+          v-if="!readonly"
           class="btn btn--sm"
           :aria-pressed="packed"
           @click="emit('update:packed', !packed)"
@@ -86,13 +91,13 @@ const UNITS: Unit[] = ["g", "kg", "oz", "lb"];
   gap: var(--space-1);
 }
 .totals__big {
-  font-size: var(--t-display);
+  font-size: var(--text-display);
   line-height: 0.95;
   letter-spacing: -0.02em;
   color: var(--accent);
 }
 .totals__empty {
-  font-size: var(--t-body);
+  font-size: var(--text-base);
 }
 .totals__controls {
   display: flex;

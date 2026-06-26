@@ -184,15 +184,38 @@ function create() {
     dispatch({ t: "updateFolder", id, patch });
   const removeFolder = (id: string) => dispatch({ t: "removeFolder", id });
 
-  function addItem(folderId: string, fields: { name: string; weight?: string; qty?: number }) {
+  function addItem(
+    folderId: string,
+    fields: {
+      name: string;
+      weight?: string; // free-typed, parsed with the list unit
+      weightMg?: number; // resolved (e.g. from a catalog pick)
+      qty?: number;
+      brand?: string;
+      catalogItemId?: number;
+    },
+  ) {
     const name = fields.name.trim();
     if (!name || !snapshot.value) return;
-    const mg = fields.weight ? (parseWeightInput(fields.weight, snapshot.value.displayUnit) ?? 0) : 0;
+    const mg =
+      fields.weightMg != null
+        ? fields.weightMg
+        : fields.weight
+          ? (parseWeightInput(fields.weight, snapshot.value.displayUnit) ?? 0)
+          : 0;
     const sortOrder = snapshot.value.items.filter((i) => i.folderId === folderId).length;
     const item: Item = {
-      id: uid(), folderId, name, unitWeightMg: mg,
+      id: uid(),
+      folderId,
+      name,
+      brand: fields.brand || undefined,
+      unitWeightMg: mg,
       qty: fields.qty && fields.qty > 0 ? fields.qty : 1,
-      classification: null, sortOrder,
+      classification: null,
+      sortOrder,
+      catalogItemId: fields.catalogItemId,
+      // record the catalog weight at link time so a future catalog correction can nudge non-overridden items
+      catalogWeightMgAtLink: fields.catalogItemId != null ? mg : undefined,
     };
     dispatch({ t: "addItem", item });
   }

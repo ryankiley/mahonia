@@ -45,7 +45,7 @@ const segments = computed(() => {
       <li v-for="s in segments" :key="s.id" class="catbar__item">
         <span class="catbar__swatch" :style="{ background: `var(--cat-${s.colorKey})` }" />
         <span class="catbar__name">{{ s.name }}</span>
-        <span class="t-num t-micro t-muted">{{ formatWeight(s.mg, list.displayUnit) }}</span>
+        <span class="t-num t-xs t-muted">{{ formatWeight(s.mg, list.displayUnit) }}</span>
       </li>
     </ul>
   </div>
@@ -67,7 +67,7 @@ const segments = computed(() => {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  font-size: var(--t-micro);
+  font-size: var(--text-xs);
 }
 .catbar__swatch {
   width: 10px;

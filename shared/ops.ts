@@ -140,6 +140,20 @@ export function normalizeItem(raw: Item): Item {
       : null,
     description: raw.description ? String(raw.description).slice(0, 2000) : undefined,
     productUrl: raw.productUrl ? String(raw.productUrl).slice(0, 2000) : undefined,
+    imageUrl: raw.imageUrl ? String(raw.imageUrl).slice(0, 2000) : undefined,
+    priceCents:
+      typeof raw.priceCents === "number" && isFinite(raw.priceCents)
+        ? Math.max(0, Math.round(raw.priceCents))
+        : undefined,
+    currency: raw.currency ? String(raw.currency).slice(0, 8) : undefined,
+    catalogItemId:
+      typeof raw.catalogItemId === "number" && isFinite(raw.catalogItemId)
+        ? raw.catalogItemId
+        : undefined,
+    catalogWeightMgAtLink:
+      typeof raw.catalogWeightMgAtLink === "number" && isFinite(raw.catalogWeightMgAtLink)
+        ? clampWeight(raw.catalogWeightMgAtLink)
+        : undefined,
     packed: !!raw.packed,
     sortOrder: Number(raw.sortOrder) || 0,
   };

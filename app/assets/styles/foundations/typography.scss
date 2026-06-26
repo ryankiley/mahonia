@@ -1,53 +1,46 @@
 body {
   font-family: var(--font-sans);
-  font-size: var(--t-body);
-  line-height: 1.45;
+  font-size: var(--text-base);
+  line-height: 1.5;
   color: var(--ink);
   background: var(--paper);
 }
 
-// Editorial serif for display moments (wordmark, headers, intro copy).
-.t-display,
-.t-h1,
-.t-h2 {
+// 5 sizes total. Display (serif) and Title (grotesque) are the only headings.
+
+// Editorial serif — display moments only (hero, the live total).
+.t-display {
   font-family: var(--font-serif);
   font-weight: 500;
-  line-height: 1.05;
-  letter-spacing: -0.01em;
+  font-size: var(--text-display);
+  line-height: 0.98;
+  letter-spacing: -0.02em;
 }
 
-.t-display {
-  font-size: var(--t-display);
-}
-.t-h1 {
-  font-size: var(--t-h1);
-}
-.t-h2 {
-  font-size: var(--t-h2);
-}
-
-// Technical grotesque for UI headers / labels.
-.t-h3 {
+// One heading size for everything else (folder names, page + section titles).
+.t-title {
   font-family: var(--font-sans);
-  font-size: var(--t-h3);
-  font-weight: 600;
+  font-size: var(--text-title);
+  font-weight: 700;
+  line-height: 1.15;
   letter-spacing: -0.01em;
 }
 
+// Uppercase eyebrow label (same px as xs).
 .t-label {
   font-family: var(--font-sans);
-  font-size: var(--t-micro);
+  font-size: var(--text-xs);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--ink-2);
 }
 
-.t-small {
-  font-size: var(--t-small);
+.t-sm {
+  font-size: var(--text-sm);
 }
-.t-micro {
-  font-size: var(--t-micro);
+.t-xs {
+  font-size: var(--text-xs);
 }
 
 // Monospace for all data — instrument-readout figures.

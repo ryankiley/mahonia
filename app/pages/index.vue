@@ -116,7 +116,7 @@ function onFile(e: Event) {
         </div>
 
         <div v-if="showImport" class="import panel">
-          <p class="t-small t-muted">
+          <p class="t-sm t-muted">
             Paste a CSV — LighterPack’s “Export to CSV”, or any spreadsheet — or choose a file.
           </p>
           <textarea
@@ -135,15 +135,15 @@ function onFile(e: Event) {
               {{ importing ? "Importing…" : "Import" }}
             </button>
           </div>
-          <p v-if="importError" class="t-small import__err">{{ importError }}</p>
+          <p v-if="importError" class="t-sm import__err">{{ importError }}</p>
         </div>
       </div>
     </header>
 
     <main class="wrap mylists">
       <div class="spread mylists__head">
-        <h2 class="t-h3">Your lists</h2>
-        <span class="t-micro t-faint">saved in this browser</span>
+        <h2 class="t-title">Your lists</h2>
+        <span class="t-xs t-faint">saved in this browser</span>
       </div>
 
       <p v-if="!myLists.all.value.length" class="t-muted mylists__empty">
@@ -153,8 +153,8 @@ function onFile(e: Event) {
       <ul v-else class="mylists__grid">
         <li v-for="l in myLists.all.value" :key="l.editToken">
           <NuxtLink :to="`/e#${l.editToken}`" class="card">
-            <span class="card__title t-h3">{{ l.title || "Untitled list" }}</span>
-            <span class="card__meta t-micro t-muted">
+            <span class="card__title t-title">{{ l.title || "Untitled list" }}</span>
+            <span class="card__meta t-xs t-muted">
               <template v-if="l.totalMg > 0">
                 <span class="t-num">{{ formatWeight(l.totalMg, "g") }}</span> total
               </template>
@@ -190,7 +190,7 @@ function onFile(e: Event) {
 }
 .hero__sub {
   max-width: 46ch;
-  font-size: var(--t-base);
+  font-size: var(--text-base);
 }
 .hero__ctas {
   display: flex;
@@ -214,7 +214,7 @@ function onFile(e: Event) {
 .import__text {
   width: 100%;
   font-family: var(--font-mono);
-  font-size: var(--t-small);
+  font-size: var(--text-sm);
   border: 1px solid var(--line);
   padding: var(--space-3);
   resize: vertical;
