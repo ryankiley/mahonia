@@ -6,6 +6,10 @@ import { listToSummary } from "~~/shared/exporters/summary";
 import { uid } from "~~/shared/id";
 import type { ListSnapshot } from "~~/shared/types";
 
+// The editor is a focused app surface — it skips the marketing SiteFooter (the
+// default layout) in favour of the slim legal line at the bottom of this view.
+definePageMeta({ layout: false });
+
 const c = useGearList();
 const router = useRouter();
 
@@ -251,6 +255,12 @@ function onPublished(e: { status: string }) {
       <p class="t-muted">Loading…</p>
     </main>
 
+    <footer class="wrap editor__legal">
+      <NuxtLink to="/privacy" class="t-sm">Privacy</NuxtLink>
+      <NuxtLink to="/terms" class="t-sm">Terms</NuxtLink>
+      <span class="t-sm t-muted">© {{ new Date().getFullYear() }} Gear</span>
+    </footer>
+
     <Transition name="toast">
       <div v-if="pendingUndo" class="toast undobar">
         <span class="t-sm">Removed <strong>{{ pendingUndo.label }}</strong></span>
@@ -267,6 +277,16 @@ function onPublished(e: { status: string }) {
 </template>
 
 <style scoped>
+/* column shell so the slim legal footer pins to the bottom on the short
+   (empty / missing) states and sits below the list on long ones */
+.editor {
+  display: flex;
+  flex-direction: column;
+  min-height: 100svh;
+}
+.editor > main {
+  flex: 1 0 auto;
+}
 .topbar {
   position: sticky;
   top: 0;
@@ -400,6 +420,27 @@ function onPublished(e: { status: string }) {
   flex-direction: column;
   align-items: flex-start;
   gap: var(--space-4);
+}
+/* slim, quiet legal line — the app surface's stand-in for the marketing footer */
+.editor__legal {
+  flex: none;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-4);
+  padding-block: var(--space-5);
+  border-top: 1px solid var(--line);
+}
+.editor__legal a {
+  color: var(--ink-2);
+  border-bottom: 1px solid transparent;
+  transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.editor__legal a:hover {
+  color: var(--ink);
+  border-bottom-color: var(--ink);
+}
+.editor__legal span {
+  margin-left: auto;
 }
 .toast {
   position: fixed;
