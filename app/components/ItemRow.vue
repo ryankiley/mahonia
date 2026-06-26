@@ -19,9 +19,12 @@ const isDropBefore = computed(
     dnd.drop.value?.beforeId === props.item.id,
 );
 
+// edit field: NEVER auto-promote (kg/lb) — the unit label + the parser both use
+// the raw list unit, so the shown number must stay in that unit or a re-save
+// silently rescales it (1000×/16×)
 const weightDisplay = computed(() =>
   props.item.unitWeightMg > 0
-    ? formatWeight(props.item.unitWeightMg, props.list.displayUnit, { withUnit: false })
+    ? formatWeight(props.item.unitWeightMg, props.list.displayUnit, { withUnit: false, auto: false })
     : "",
 );
 
@@ -30,7 +33,15 @@ const effClass = computed(() =>
 );
 
 function onWeight(e: Event) {
-  c.setItemWeight(props.item.id, (e.target as HTMLInputElement).value);
+  const el = e.target as HTMLInputElement;
+  c.setItemWeight(props.item.id, el.value);
+  el.value = weightDisplay.value; // resync to canonical (handles unparseable / no-op edits)
+}
+function onQty(e: Event) {
+  const el = e.target as HTMLInputElement;
+  const q = Math.max(1, Number(el.value) || 1);
+  c.updateItem(props.item.id, { qty: q });
+  el.value = String(q); // resync even when the clamp is a no-op (e.g. 0 / letters)
 }
 
 // renaming in place via the same autocomplete: a catalog pick re-links + fills the
@@ -166,7 +177,7 @@ function openFix() {
         type="number"
         min="1"
         :value="item.qty"
-        @change="c.updateItem(item.id, { qty: Math.max(1, Number(($event.target as HTMLInputElement).value) || 1) })"
+        @change="onQty"
       />
 
       <div class="item__weight">
@@ -446,11 +457,12 @@ function openFix() {
 }
 
 @media (max-width: 560px) {
-  /* the item reads as ONE data row — name · qty · weight; the controls
+  /* the EDITABLE item reads as ONE data row — name · qty · weight; the controls
      (classification + grip/note/remove) sit on a quiet second row. The actions
-     cluster spans two tracks so all three icons fit (the single track is too
-     narrow for grip + note + remove). */
-  .item {
+     cluster spans two tracks so all three icons fit. Scoped to `.item-wrap .item`
+     so the readonly (.item--ro) and checklist (.item--check) rows keep their own
+     grids instead of inheriting this two-row template. */
+  .item-wrap .item {
     align-items: baseline;
     grid-template-columns: var(--item-cols-mobile);
     grid-template-areas:

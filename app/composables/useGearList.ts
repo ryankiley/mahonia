@@ -144,7 +144,7 @@ function create() {
     stopPoll();
     pollTimer = setInterval(async () => {
       if (typeof document !== "undefined" && document.hidden) return;
-      if (inFlight || pending.length || !snapshot.value) return;
+      if (inFlight || pending.length || !snapshot.value || useItemDnd().dragId.value != null) return;
       const myEpoch = epoch;
       try {
         const res = await $fetch<{ version: number; snapshot?: ListSnapshot }>(
@@ -152,7 +152,17 @@ function create() {
           { headers: authHeaders(), query: { since: snapshot.value.version } },
         );
         if (myEpoch !== epoch) return;
-        if (res.snapshot && !isEditing && !pending.length && !inFlight) {
+        // adopt only a strictly-newer snapshot, and only when not mid-write/edit —
+        // so a slow poll can't clobber a fresher flushed state with stale data
+        if (
+          res.snapshot &&
+          snapshot.value &&
+          res.snapshot.version > snapshot.value.version &&
+          !isEditing &&
+          !pending.length &&
+          !inFlight &&
+          useItemDnd().dragId.value == null
+        ) {
           snapshot.value = res.snapshot;
           syncRegistry();
         }
@@ -315,6 +325,11 @@ function create() {
   }
 
   function dispose() {
+    // best-effort: flush unsynced edits before teardown (SPA nav / unmount) so
+    // queued ops aren't silently dropped on the way out
+    if (pending.length && editToken) {
+      $fetch("/api/edit/mutate", { method: "POST", headers: authHeaders(), body: { ops: pending } }).catch(() => {});
+    }
     epoch++; // invalidate any in-flight flush/poll responses
     useItemDnd().reset(); // drop any in-flight drag so it can't commit against a new list
     stopPoll();

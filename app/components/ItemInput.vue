@@ -114,8 +114,12 @@ function onKeydown(e: KeyboardEvent) {
       selectResult(results.value[active.value]!);
     else commitFree();
   } else if (e.key === "Escape") {
+    // cancel: revert to the original (or clear in add mode) so the focusout that
+    // follows blur won't commit the rejected draft
+    setDraftQuiet(props.clearOnCommit ? "" : props.initial);
     open.value = false;
     active.value = -1;
+    (e.target as HTMLInputElement).blur();
   }
 }
 

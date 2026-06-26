@@ -278,11 +278,26 @@ const TRUSTED_DOMAINS = new Set([
   "palantepacks.com", "swdbackpacks.com", "litesmith.com", "garagegrowngear.com",
 ]);
 
+/** True only for http(s) URLs — keeps non-fetchable schemes (javascript:, data:)
+ * out of stored citations, which are rendered as links in the changes feed. */
+export function isHttpUrl(url: string | undefined | null): boolean {
+  if (!url) return false;
+  try {
+    const p = new URL(url).protocol;
+    return p === "http:" || p === "https:";
+  } catch {
+    return false;
+  }
+}
+
 /** True if `url` cites a trusted manufacturer/retailer domain (host or subdomain). */
 export function isTrustedSource(url: string | undefined | null): boolean {
   if (!url) return false;
   try {
-    const host = new URL(url).hostname.toLowerCase().replace(/^www\./, "");
+    const u = new URL(url);
+    // scheme guard first: javascript://zpacks.com/… parses a trusted hostname
+    if (u.protocol !== "http:" && u.protocol !== "https:") return false;
+    const host = u.hostname.toLowerCase().replace(/^www\./, "");
     for (const d of TRUSTED_DOMAINS) if (host === d || host.endsWith(`.${d}`)) return true;
     return false;
   } catch {
@@ -321,7 +336,11 @@ export async function proposeCorrection(
   const oldW = Number(item.weightMg);
   if (newW === oldW) return { status: "noop", weightMg: oldW, itemName };
 
-  const cited = isTrustedSource(input.sourceUrl);
+  // Drop non-http(s) schemes before the value is stored or rendered as a link
+  // (javascript:/data: citations are an XSS vector in the changes feed, and a
+  // `javascript://trusted-domain/` URL would otherwise pass isTrustedSource).
+  const safeSource = isHttpUrl(input.sourceUrl) ? input.sourceUrl!.slice(0, 2000) : undefined;
+  const cited = isTrustedSource(safeSource);
   // uncited/community values are wiki-open; a verified value needs a trusted citation
   const applies = !item.verified || cited;
   const status: "applied" | "proposed" = applies ? "applied" : "proposed";
@@ -330,7 +349,7 @@ export async function proposeCorrection(
     catalogItemId: id,
     oldWeightMg: oldW,
     newWeightMg: newW,
-    sourceUrl: input.sourceUrl?.slice(0, 2000) ?? null,
+    sourceUrl: safeSource ?? null,
     reason: input.reason?.slice(0, 500) ?? null,
     status,
   });
@@ -342,7 +361,7 @@ export async function proposeCorrection(
         weightMg: newW,
         updatedAt: new Date(),
         // a cited fix also (re)anchors the citation
-        ...(cited && input.sourceUrl ? { sourceUrl: input.sourceUrl.slice(0, 2000) } : {}),
+        ...(cited && safeSource ? { sourceUrl: safeSource } : {}),
       })
       .where(eq(catalogItems.id, id));
   }

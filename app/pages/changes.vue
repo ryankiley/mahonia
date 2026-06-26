@@ -19,13 +19,22 @@ useHead({
   meta: [{ name: "robots", content: "noindex" }],
 });
 
-function host(u: string | null) {
-  if (!u) return "";
+// Only treat http(s) citations as linkable — a javascript:/data: sourceUrl bound
+// to :href would execute on click (Vue doesn't sanitize attribute bindings).
+function safeUrl(u: string | null): URL | null {
+  if (!u) return null;
   try {
-    return new URL(u).hostname.replace(/^www\./, "");
+    const url = new URL(u);
+    return url.protocol === "http:" || url.protocol === "https:" ? url : null;
   } catch {
-    return "";
+    return null;
   }
+}
+function host(u: string | null) {
+  return safeUrl(u)?.hostname.replace(/^www\./, "") ?? "";
+}
+function safeHref(u: string | null) {
+  return safeUrl(u)?.href;
 }
 function when(iso: string) {
   if (!iso) return "";
@@ -65,7 +74,7 @@ function when(iso: string) {
           <span class="t-sm chg__status" :class="`chg__status--${ch.status}`">{{ ch.status }}</span>
           <a
             v-if="host(ch.sourceUrl)"
-            :href="ch.sourceUrl ?? undefined"
+            :href="safeHref(ch.sourceUrl)"
             class="t-sm chg__src"
             target="_blank"
             rel="noreferrer noopener"

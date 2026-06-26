@@ -139,6 +139,11 @@ function onCommit(p: {
   .folder__head {
     grid-template-columns: 1fr auto auto;
   }
+  /* keep packing mode matching the checklist grid so the folder total stays
+     aligned with item weights on mobile too */
+  .folder__head--packed {
+    grid-template-columns: auto var(--item-cols-ro);
+  }
   .folder__title {
     grid-column: 1;
   }
