@@ -296,7 +296,7 @@ function openFix() {
   width: 100%;
   field-sizing: content;
   min-height: 0;
-  margin: calc(-1 * var(--space-1)) 0 0;
+  margin: var(--space-2) 0 0;
   padding: 0;
   border: 0;
   background: none;
@@ -324,10 +324,12 @@ function openFix() {
     opacity var(--dur) var(--ease),
     margin var(--dur) var(--ease);
 }
+/* reveal the empty-note affordance on row hover or when the note itself is focused —
+   NOT when the name is focused (that left them cramped together) */
 .item-wrap:hover .item__note:placeholder-shown,
-.item-wrap:focus-within .item__note:placeholder-shown {
+.item__note:placeholder-shown:focus {
   max-height: 1.6em;
-  margin: calc(-1 * var(--space-1)) 0 0;
+  margin: var(--space-2) 0 0;
   opacity: 1;
 }
 @media (hover: none) {
@@ -337,7 +339,7 @@ function openFix() {
   }
   .item__note:placeholder-shown {
     max-height: 1.6em;
-    margin: calc(-1 * var(--space-1)) 0 0;
+    margin: var(--space-2) 0 0;
     opacity: 1;
   }
 }
