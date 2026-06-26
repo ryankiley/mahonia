@@ -371,19 +371,19 @@ function openFix() {
 }
 
 @media (max-width: 560px) {
+  /* the item reads as ONE data row — name · qty · weight; the controls
+     (classification + remove) sit on a quiet second row */
   .item {
-    /* baseline is for the single-row desktop layout; the stacked mobile grid
-       wants its cells centered in each track (baseline inflates the rows) */
-    align-items: center;
-    grid-template-columns: 1fr 56px 84px;
+    align-items: baseline;
+    grid-template-columns: 1fr 44px 92px;
     grid-template-areas:
-      "name name name"
-      "qty weight class"
-      "del del del";
-    gap: var(--space-2);
+      "name qty weight"
+      "class class del";
+    gap: var(--space-2) var(--space-3);
   }
   .item__name {
     grid-area: name;
+    min-width: 0;
   }
   .item__qty {
     grid-area: qty;
@@ -393,6 +393,7 @@ function openFix() {
   }
   .item__class {
     grid-area: class;
+    justify-self: start;
   }
   .item__del {
     grid-area: del;
