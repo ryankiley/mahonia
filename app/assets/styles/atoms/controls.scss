@@ -1,5 +1,6 @@
-// Controls — de-outlined. Whitespace + type carry the UI; borders are rare.
-// Accent is reserved for the primary action and live/active state only.
+// Controls — de-outlined + monochrome. Whitespace + type carry the UI; borders
+// are rare. No colour in chrome (see tokens.scss): the primary action is inverted
+// ink, state reads as ink/weight, and colour lives only on the data viz.
 
 .btn {
   display: inline-flex;
@@ -87,26 +88,6 @@
   font-family: var(--font);
   font-variant-numeric: tabular-nums;
   text-align: right;
-}
-
-// Segmented control — de-boxed: a row of quiet text buttons; active = accent.
-.seg {
-  display: inline-flex;
-  gap: var(--space-1);
-}
-.seg button {
-  padding: var(--space-1) var(--space-2);
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--ink-3);
-
-  transition: color var(--dur) var(--ease);
-}
-.seg button:hover {
-  color: var(--ink);
-}
-.seg button[aria-pressed="true"] {
-  color: var(--accent);
 }
 
 // .panel — reserved for genuinely floating surfaces (dropdown menu). Quiet.

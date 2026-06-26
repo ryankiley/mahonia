@@ -26,16 +26,13 @@ export interface FolderPreset {
   defaultClassification: Classification;
 }
 
-// A calm default set. "On Body" defaults worn, "Food & Fuel" defaults
-// consumable, everything else base — so the weight math is right out of the box
-// without the user touching a single flag.
+// A calm, minimal starter set — just the Big 3 so a new list isn't empty but
+// isn't a wall of folders either. Everything's user-named + editable; "+ Add
+// folder" covers the rest (On Body → worn, Food & Fuel → consumable, etc.).
 export const STARTER_FOLDERS: FolderPreset[] = [
   { name: "Shelter", colorKey: "shelter", defaultClassification: "base" },
   { name: "Sleep", colorKey: "sleep", defaultClassification: "base" },
   { name: "Pack", colorKey: "pack", defaultClassification: "base" },
-  { name: "Kitchen", colorKey: "kitchen", defaultClassification: "base" },
-  { name: "On Body", colorKey: "worn", defaultClassification: "worn" },
-  { name: "Food & Fuel", colorKey: "consumable", defaultClassification: "consumable" },
 ];
 
 export const CLASSIFICATION_LABELS: Record<Classification, string> = {

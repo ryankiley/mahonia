@@ -145,9 +145,11 @@ function onCorrected(res: { status: string; itemName?: string }) {
           placeholder="Untitled list"
           @change="c.setMeta({ title: ($event.target as HTMLInputElement).value })"
         />
-        <span v-if="snapshot" class="t-sm t-muted editor__status">{{ statusLabel }}</span>
+        <span v-if="snapshot && statusLabel" class="savechip" :data-state="status">
+          <i class="savechip__dot" />{{ statusLabel }}
+        </span>
         <template v-if="snapshot">
-          <button class="btn btn--sm btn--primary" @click="copyShare">Share</button>
+          <button class="btn btn--sm btn--primary editor__share" @click="copyShare">Share</button>
           <div ref="menuRef" class="menu">
             <button class="btn btn--sm btn--ghost" aria-haspopup="true" aria-label="More actions" :aria-expanded="menuOpen" @click="menuOpen = !menuOpen">⋯</button>
             <ul v-if="menuOpen" class="menu__list panel">
@@ -219,8 +221,13 @@ function onCorrected(res: { status: string; itemName?: string }) {
   padding-block: var(--space-2);
 }
 .editor__title {
-  flex: 1;
-  min-width: 0;
+  flex: 0 1 auto;
+  /* size to the title text so the Saved chip hugs the name (progressive
+     enhancement; falls back to default input width where unsupported) */
+  width: auto;
+  field-sizing: content;
+  min-width: 8ch;
+  max-width: min(46ch, 42vw);
   font-family: var(--font);
   font-size: var(--text-title);
   border-bottom-color: transparent;
@@ -228,10 +235,31 @@ function onCorrected(res: { status: string; itemName?: string }) {
 .editor__title:focus {
   border-bottom-color: var(--accent);
 }
-.editor__status {
+/* small "Saved" chip hugging the title; actions get pushed to the right */
+.savechip {
   flex: none;
-  min-width: 48px;
-  text-align: right;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 2px var(--space-2);
+  background: var(--paper-3);
+  color: var(--ink-2);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+.savechip__dot {
+  width: 5px;
+  height: 5px;
+  background: var(--ink-3);
+}
+.savechip[data-state="synced"] .savechip__dot {
+  background: var(--ink);
+}
+.savechip[data-state="error"] {
+  color: var(--ink);
+}
+.editor__share {
+  margin-left: auto;
 }
 .menu {
   position: relative;

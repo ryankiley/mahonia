@@ -168,7 +168,8 @@ function openFix() {
 .item {
   display: grid;
   grid-template-columns: 1fr 56px 84px 110px 32px;
-  align-items: center;
+  /* baseline so the name, qty, weight, unit + class text all sit on one line */
+  align-items: baseline;
   gap: var(--space-3);
   padding: var(--space-1) 0;
 }
@@ -189,6 +190,7 @@ function openFix() {
 .item__check {
   display: flex;
   align-items: center;
+  align-self: center;
 }
 .item__weight {
   display: flex;
@@ -209,17 +211,16 @@ function openFix() {
   font-size: var(--text-sm);
   color: var(--ink-2);
 }
-.item__class--worn {
-  color: var(--cat-worn);
-}
+/* classification reads from its text label, not colour (chrome stays monochrome) */
+.item__class--worn,
 .item__class--consumable {
-  color: var(--cat-consumable);
+  color: var(--ink-2);
 }
 .item__del {
   color: var(--ink-3);
 }
 .item__del:hover {
-  color: var(--cat-firstaid);
+  color: var(--ink);
 }
 .item__fix {
   align-self: start;
@@ -237,6 +238,9 @@ function openFix() {
 
 @media (max-width: 560px) {
   .item {
+    /* baseline is for the single-row desktop layout; the stacked mobile grid
+       wants its cells centered in each track (baseline inflates the rows) */
+    align-items: center;
     grid-template-columns: 44px 1fr 84px;
     grid-template-areas:
       "check name name"

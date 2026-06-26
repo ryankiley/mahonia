@@ -21,9 +21,12 @@
   --line: light-dark(#1d1c1c12, #ece8e010);
   --line-2: light-dark(#1d1c1c22, #ece8e01f);
 
-  /* ---- accent: ROA sage — the ONE chromatic (state / primary / the live number) ---- */
-  --accent: light-dark(#4f6d5c, #85a493);
-  --accent-ink: light-dark(#fbfbf8, #14170f);
+  /* ---- chrome is MONOCHROME — controls/state/primary all read as ink; the only
+     colour on the site is the data viz (the category bar + dots, --cat-* below).
+     See wiki: concepts/monochrome-chrome-colour-from-content. The primary action
+     is inverted ink (ink ground, paper text). ---- */
+  --accent: var(--ink);
+  --accent-ink: var(--paper);
 
   /* ---- category palette (muted naturals) ---- */
   --cat-shelter: light-dark(oklch(0.55 0.07 150), oklch(0.66 0.07 150));

@@ -32,16 +32,14 @@ const UNITS: Unit[] = ["g", "kg", "oz", "lb"];
       </div>
 
       <div class="totals__controls">
-        <div class="seg" role="group" aria-label="Display unit">
-          <button
-            v-for="u in UNITS"
-            :key="u"
-            :aria-pressed="list.displayUnit === u"
-            @click="emit('set-unit', u)"
-          >
-            {{ u }}
-          </button>
-        </div>
+        <select
+          class="field unit-select"
+          aria-label="Display unit"
+          :value="list.displayUnit"
+          @change="emit('set-unit', ($event.target as HTMLSelectElement).value as Unit)"
+        >
+          <option v-for="u in UNITS" :key="u" :value="u">{{ u }}</option>
+        </select>
         <button
           v-if="!readonly"
           class="btn btn--sm"
@@ -93,8 +91,14 @@ const UNITS: Unit[] = ["g", "kg", "oz", "lb"];
 .totals__controls {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-3);
   flex-wrap: wrap;
+}
+.unit-select {
+  width: auto;
+  min-height: 32px;
+  color: var(--ink-2);
+  cursor: pointer;
 }
 .totals__breakdown {
   margin-top: var(--space-4);

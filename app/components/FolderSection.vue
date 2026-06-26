@@ -87,7 +87,7 @@ const CLASS_OPTS: { value: Classification; label: string }[] = [
 }
 .folder__head {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: var(--space-3);
   margin-bottom: var(--space-1);
 }
@@ -95,6 +95,7 @@ const CLASS_OPTS: { value: Classification; label: string }[] = [
   width: 8px;
   height: 8px;
   flex: none;
+  align-self: center;
 }
 .folder__name {
   flex: 1;
