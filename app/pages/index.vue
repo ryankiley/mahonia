@@ -106,7 +106,7 @@ function onFile(e: Event) {
           when you care. No login.
         </p>
         <div class="hero__ctas">
-          <button class="btn btn--primary hero__cta" :disabled="creating" @click="newList">
+          <button class="btn btn--primary" :disabled="creating" @click="newList">
             {{ creating ? "Starting…" : "Start a list" }}
           </button>
           <button class="btn btn--ghost" @click="showImport = !showImport">Import a list</button>
@@ -224,7 +224,9 @@ function onFile(e: Event) {
   margin-top: var(--space-2);
   flex-wrap: wrap;
 }
-.hero__cta {
+/* the hero pair reads as one matched set: same height + generous padding,
+   whether primary or ghost — no marginally-different sibling */
+.hero__ctas .btn {
   min-height: 48px;
   padding-inline: var(--space-6);
 }

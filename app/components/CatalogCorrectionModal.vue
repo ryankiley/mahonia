@@ -34,15 +34,12 @@ async function onSubmit() {
     close();
   }
 }
-
-onKeyStroke("Escape", () => target.value && close());
 </script>
 
 <template>
-  <Transition name="ovl">
-    <div v-if="target" class="ovl" @click.self="close()">
-      <div class="dlg panel" role="dialog" aria-modal="true" aria-label="Fix catalog weight">
-        <div class="dlg__top">
+  <BaseModal :open="!!target" label="Fix catalog weight" @close="close()">
+    <template v-if="target">
+      <div class="dlg__top">
           <p class="t-label">Fix catalog weight</p>
           <button class="btn btn--icon btn--ghost dlg__close" title="Close" aria-label="Close" @click="close()">
             <X :size="16" />
@@ -73,19 +70,13 @@ onKeyStroke("Escape", () => target.value && close());
             {{ submitting ? "Sending…" : "Suggest fix" }}
           </button>
         </div>
-      </div>
-    </div>
-  </Transition>
+    </template>
+  </BaseModal>
 </template>
 
 <style scoped>
-/* overlay + dialog shell live in atoms/dialog.scss; this dialog adds a rise-in
-   and its own header/actions */
-.dlg {
-  transition:
-    transform var(--dur) var(--ease-spring),
-    opacity var(--dur) var(--ease);
-}
+/* overlay + dialog shell + rise-in live in atoms/dialog.scss; this dialog keeps
+   only its own header/actions */
 .dlg__top {
   display: flex;
   align-items: center;
@@ -113,10 +104,5 @@ onKeyStroke("Escape", () => target.value && close());
   justify-content: flex-end;
   gap: var(--space-2);
   margin-top: var(--space-2);
-}
-/* the dialog itself rises in (the scrim just fades) */
-.ovl-enter-from .dlg {
-  transform: translateY(12px);
-  opacity: 0;
 }
 </style>

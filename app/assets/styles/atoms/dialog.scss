@@ -39,3 +39,13 @@
 .ovl-leave-to {
   opacity: 0;
 }
+// the scrim just fades; the dialog itself rises in (same for every modal)
+.dlg {
+  transition:
+    transform var(--dur) var(--ease-spring),
+    opacity var(--dur) var(--ease);
+}
+.ovl-enter-from .dlg {
+  transform: translateY(12px);
+  opacity: 0;
+}
