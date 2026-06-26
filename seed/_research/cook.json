@@ -27,7 +27,7 @@
       "name": "WindMaster Stove",
       "variant": "with 4Flex",
       "category_hint": "cook",
-      "weight_value": 3.0,
+      "weight_value": 3,
       "weight_unit": "oz",
       "weight_source": "manufacturer",
       "source_url": "https://sotooutdoors.com/product/windmaster-stove-with-4flex/",

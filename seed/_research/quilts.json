@@ -3,7 +3,7 @@
     {
       "brand": "Enlightened Equipment",
       "name": "Revelation",
-      "variant": "20F, 950FP, Regular/Regular (closest config listed on page; page does not state an 850FP Regular/Regular total weight)",
+      "variant": "20F, 950FP, Regular",
       "category_hint": "sleep",
       "weight_value": 19.98,
       "weight_unit": "oz",
@@ -14,7 +14,7 @@
     {
       "brand": "Enlightened Equipment",
       "name": "Enigma",
-      "variant": "20F, 950FP, Regular/Regular (closest config listed on page; page does not state an 850FP Regular/Regular total weight)",
+      "variant": "20F, 950FP, Regular",
       "category_hint": "sleep",
       "weight_value": 18.35,
       "weight_unit": "oz",
@@ -25,7 +25,7 @@
     {
       "brand": "Katabatic Gear",
       "name": "Flex 22",
-      "variant": "22F, 850FP, Regular (6')/Regular width, Total Weight",
+      "variant": "22F, 850FP, Regular",
       "category_hint": "sleep",
       "weight_value": 23.9,
       "weight_unit": "oz",
@@ -36,7 +36,7 @@
     {
       "brand": "Katabatic Gear",
       "name": "Alsek 22",
-      "variant": "22F, 850FP, Regular (6')/Regular width, Total Weight",
+      "variant": "22F, 850FP, Regular",
       "category_hint": "sleep",
       "weight_value": 23.3,
       "weight_unit": "oz",
@@ -47,7 +47,7 @@
     {
       "brand": "Katabatic Gear",
       "name": "Palisade 30",
-      "variant": "30F, 850FP, Regular (6')/Regular width, Total Weight",
+      "variant": "30F, 850FP, Regular",
       "category_hint": "sleep",
       "weight_value": 19.8,
       "weight_unit": "oz",
@@ -58,7 +58,7 @@
     {
       "brand": "Hammock Gear",
       "name": "Premium Burrow 20",
-      "variant": "20F, 850FP, Standard length (74\")/Standard width (55\"), Sewn footbox, 10D shell, Final Weight 10D/850",
+      "variant": "20F, 850FP, Standard",
       "category_hint": "sleep",
       "weight_value": 21.72,
       "weight_unit": "oz",
@@ -69,7 +69,7 @@
     {
       "brand": "Hammock Gear",
       "name": "Premium Burrow 30",
-      "variant": "30F, 850FP, Standard length (74\")/Standard width (55\"), Sewn footbox, 10D shell, Final Weight 10D/850",
+      "variant": "30F, 850FP, Standard",
       "category_hint": "sleep",
       "weight_value": 18.37,
       "weight_unit": "oz",

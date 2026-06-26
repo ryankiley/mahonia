@@ -60,7 +60,7 @@
     {
       "brand": "Appalachian Gear Company",
       "name": "All-Paca Fleece Hoodie",
-      "variant": "Men's M (manufacturer-stated lot average)",
+      "variant": "Men's M",
       "category_hint": "clothing",
       "weight_value": 11,
       "weight_unit": "oz",
@@ -72,7 +72,7 @@
     {
       "brand": "Patagonia",
       "name": "Nano Puff Jacket",
-      "variant": "Men's (size not specified for average weight)",
+      "variant": "Men's",
       "category_hint": "clothing",
       "weight_value": 337.36,
       "weight_unit": "g",
@@ -84,7 +84,7 @@
     {
       "brand": "Patagonia",
       "name": "Micro Puff Hoody",
-      "variant": "Men's (average weight)",
+      "variant": "Men's",
       "category_hint": "clothing",
       "weight_value": 298,
       "weight_unit": "g",
@@ -107,7 +107,7 @@
     {
       "brand": "Patagonia",
       "name": "R1 Air Full-Zip Hoody",
-      "variant": "Men's (size not specified for spec weight)",
+      "variant": "Men's",
       "category_hint": "clothing",
       "weight_value": 369,
       "weight_unit": "g",
@@ -130,7 +130,7 @@
     {
       "brand": "Montbell",
       "name": "Ex Light Down Anorak",
-      "variant": "Men's (size not specified for spec weight)",
+      "variant": "Men's",
       "category_hint": "clothing",
       "weight_value": 7.6,
       "weight_unit": "oz",

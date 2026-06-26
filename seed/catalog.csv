@@ -1,7 +1,7 @@
 brand,name,variant,category_hint,weight_mg,weight_source,source_url
 Big Agnes,Copper Spur HV UL1,UL1,shelter,963884,manufacturer,https://www.absolute-snow.com/big-agnes-copper-spur-hv-ul1-ultralight-backpacking-tent
 Big Agnes,Copper Spur HV UL2,UL2,shelter,1219029,manufacturer,https://www.absolute-snow.com/big-agnes-copper-spur-hv-ul2-ultralight-backpacking-tent
-Big Agnes,Copper Spur HV UL2 mtnGLO,"Trail (minimum) weight, with integrated LED lights",shelter,1275729,manufacturer,https://jrifecompany.com/products/big-agnes-copper-spur-hv-ul2-mtnglo%C2%AE
+Big Agnes,Copper Spur HV UL2 mtnGLO,UL2,shelter,1275729,manufacturer,https://jrifecompany.com/products/big-agnes-copper-spur-hv-ul2-mtnglo%C2%AE
 Big Agnes,Copper Spur HV UL3,UL3,shelter,1587573,manufacturer,https://www.absolute-snow.com/big-agnes-copper-spur-hv-ul3-ultralight-backpacking-tent
 Big Agnes,Fly Creek HV UL1,UL1,shelter,765437,manufacturer,https://www.outdoorline.eu/products/big-agnes-fly-creek-hv-ul1-ultralight-tent
 Big Agnes,Fly Creek HV UL2,UL2,shelter,878835,manufacturer,https://www.outdoorline.eu/products/big-agnes-fly-creek-hv-ul2-ultralight-tent
@@ -57,44 +57,42 @@ Zpacks,Triplex,,shelter,612350,manufacturer,https://zpacks.com/products/bargain-
 Big Agnes,Divide Insulated,"Regular (20"" x 72""), R-value 4",sleep,635000,manufacturer,https://www.bigagnes.com/products/divide-insulated.json
 Big Agnes,Rapide SL Insulated,Regular,sleep,510291,manufacturer,https://www.bigagnes.com/products/rapide-sl-insulated
 Big Agnes,Rapide SL Pillow,One size,sleep,45359,manufacturer,https://www.bigagnes.com/products/rapide-sl-pillow
-Enlightened Equipment,Enigma,"10F, 850FP, Regular/Regular, 10D/10D (manufacturer SKU page, base config)",sleep,699666,manufacturer,https://web.archive.org/web/20211201053529id_/https://enlightenedequipment.com/enigma-850-10-f-12-c-regular-regular-navy-10d-charcoal-10d-5900-23/
-Enlightened Equipment,Enigma,"20F, 950FP, Regular/Regular (closest config listed on page; page does not state an 850FP Regular/Regular total weight)",sleep,520214,manufacturer,https://enlightenedequipment.com/quilt-comparison
-Enlightened Equipment,Enigma,"30F, 850FP, Regular/Regular (manufacturer SKU page, base config, sewn footbox)",sleep,508590,manufacturer,https://web.archive.org/web/20221209030426id_/https://enlightenedequipment.com/copy-of-enigma-850-30-1-regular-regular-graphite-7d-salmon-7d-6144-3-1/
-Enlightened Equipment,Revelation,"10F, 850FP, Regular/Regular, 10D/7D (manufacturer SKU page, base config, no draft collar)",sleep,722913,manufacturer,https://web.archive.org/web/20220125080410id_/https://enlightenedequipment.com/revelation-850-10-f-12-c-regular-regular-forest-10d-graphite-7d-171121/
-Enlightened Equipment,Revelation,"20F, 950FP, Regular/Regular (closest config listed on page; page does not state an 850FP Regular/Regular total weight)",sleep,566423,manufacturer,https://enlightenedequipment.com/quilt-comparison
-Enlightened Equipment,Revelation,"30F, 850FP, Regular/Regular, 10D/10D (manufacturer SKU page, base config, no draft collar)",sleep,551398,manufacturer,https://web.archive.org/web/20211016111200id_/https://enlightenedequipment.com/revelation-850-30-f-1-c-regular-regular-burnt-orange-10d-charcoal-10d-5815-38/
-Enlightened Equipment,Revelation,"40F, 850FP, Regular/Regular, 10D/10D (manufacturer SKU page, base config, no draft collar)",sleep,448206,manufacturer,https://web.archive.org/web/20220524032618id_/https://enlightenedequipment.com/revelation-850-40-f-5-c-regular-regular-forest-10d-charcoal-10d-5763-28/
-Feathered Friends,Flicker UL Quilt,"20 Degree, Regular, 950+FP goose down, Average Weight",sleep,721212,manufacturer,https://featheredfriends.com/products/flicker-ul-ultralight-down-quilt-sleeping-bag
+Enlightened Equipment,Enigma,"10F, 850FP, Regular",sleep,699666,manufacturer,https://web.archive.org/web/20211201053529id_/https://enlightenedequipment.com/enigma-850-10-f-12-c-regular-regular-navy-10d-charcoal-10d-5900-23/
+Enlightened Equipment,Enigma,"20F, 950FP, Regular",sleep,520214,manufacturer,https://enlightenedequipment.com/quilt-comparison
+Enlightened Equipment,Enigma,"30F, 850FP, Regular",sleep,508590,manufacturer,https://web.archive.org/web/20221209030426id_/https://enlightenedequipment.com/copy-of-enigma-850-30-1-regular-regular-graphite-7d-salmon-7d-6144-3-1/
+Enlightened Equipment,Revelation,"10F, 850FP, Regular",sleep,722913,manufacturer,https://web.archive.org/web/20220125080410id_/https://enlightenedequipment.com/revelation-850-10-f-12-c-regular-regular-forest-10d-graphite-7d-171121/
+Enlightened Equipment,Revelation,"20F, 950FP, Regular",sleep,566423,manufacturer,https://enlightenedequipment.com/quilt-comparison
+Enlightened Equipment,Revelation,"30F, 850FP, Regular",sleep,551398,manufacturer,https://web.archive.org/web/20211016111200id_/https://enlightenedequipment.com/revelation-850-30-f-1-c-regular-regular-burnt-orange-10d-charcoal-10d-5815-38/
+Enlightened Equipment,Revelation,"40F, 850FP, Regular",sleep,448206,manufacturer,https://web.archive.org/web/20220524032618id_/https://enlightenedequipment.com/revelation-850-40-f-5-c-regular-regular-forest-10d-charcoal-10d-5763-28/
+Feathered Friends,Flicker UL Quilt,"20F, Regular, 950+FP",sleep,721212,manufacturer,https://featheredfriends.com/products/flicker-ul-ultralight-down-quilt-sleeping-bag
 Feathered Friends,Flicker UL Wide 20,"Regular (6 ft) Wide, 20°F",sleep,779612,manufacturer,https://featheredfriends.com/products/flicker-ul-wide-ultralight-down-quilt-sleeping-bag
 Feathered Friends,Hummingbird UL 20,"Regular (6 ft), 20°F",sleep,677553,manufacturer,https://featheredfriends.com/products/hummingbird-ul-ultralight-20-30-degree-down-sleeping-bag
 Feathered Friends,Hummingbird UL 30,"Regular (6 ft), 30°F",sleep,601010,manufacturer,https://featheredfriends.com/products/hummingbird-ul-ultralight-20-30-degree-down-sleeping-bag
 Feathered Friends,Swallow UL 20,"Regular (6 ft), 20°F",sleep,754097,manufacturer,https://featheredfriends.com/products/swallow-ul-ultralight-20-30-degree-down-sleeping-bag-c0
 Feathered Friends,Swallow UL 30,"Regular (6 ft), 30°F",sleep,663378,manufacturer,https://featheredfriends.com/products/swallow-ul-ultralight-20-30-degree-down-sleeping-bag-c0
 Gossamer Gear,"Thinlight Foam Pad 1/8""",Rolled (standard),sleep,76544,manufacturer,https://www.gossamergear.com/products/thinlight-foam-pad
-Hammock Gear,Premium Burrow 20,"20F, 850FP, Standard length (74"")/Standard width (55""), Sewn footbox, 10D shell, Final Weight 10D/850",sleep,615752,manufacturer,https://hammockgear.com/wp-content/uploads/2025/06/B850finalweights.pdf
-Hammock Gear,Premium Burrow 30,"30F, 850FP, Standard length (74"")/Standard width (55""), Sewn footbox, 10D shell, Final Weight 10D/850",sleep,520781,manufacturer,https://hammockgear.com/wp-content/uploads/2025/06/B850finalweights.pdf
+Hammock Gear,Premium Burrow 20,"20F, 850FP, Standard",sleep,615752,manufacturer,https://hammockgear.com/wp-content/uploads/2025/06/B850finalweights.pdf
+Hammock Gear,Premium Burrow 30,"30F, 850FP, Standard",sleep,520781,manufacturer,https://hammockgear.com/wp-content/uploads/2025/06/B850finalweights.pdf
 Hyperlite Mountain Gear,Stuff Sack Pillow,One size (9L),sleep,48194,manufacturer,https://hyperlitemountaingear.com/products/stuff-sack-pillows
-Katabatic Gear,Alsek 22,"22F, 850FP, Regular (6')/Regular width, Total Weight",sleep,660544,manufacturer,https://katabaticgear.com/products/alsek-ultralight-quilt
-Katabatic Gear,Flex 22,"22F, 850FP, Regular (6')/Regular width, Total Weight",sleep,677554,manufacturer,https://katabaticgear.com/products/flex-22-ultralight-quilt
-Katabatic Gear,Palisade 30,"30F, 850FP, Regular (6')/Regular width, Total Weight",sleep,561321,manufacturer,https://katabaticgear.com/products/palisade-ultralight-quilt
-Katabatic Gear,Sawatch 15,"15F, 900FP goose down, Regular length (6')/Regular width, Total Weight",sleep,700233,manufacturer,https://katabaticgear.com/products/sawatch-ultralight-quilt
+Katabatic Gear,Alsek 22,"22F, 850FP, Regular",sleep,660544,manufacturer,https://katabaticgear.com/products/alsek-ultralight-quilt
+Katabatic Gear,Flex 22,"22F, 850FP, Regular",sleep,677554,manufacturer,https://katabaticgear.com/products/flex-22-ultralight-quilt
+Katabatic Gear,Palisade 30,"30F, 850FP, Regular",sleep,561321,manufacturer,https://katabaticgear.com/products/palisade-ultralight-quilt
+Katabatic Gear,Sawatch 15,"15F, 900FP, Regular",sleep,700233,manufacturer,https://katabaticgear.com/products/sawatch-ultralight-quilt
+Nemo,Disco 30,"30F, Regular, 650FP",sleep,878835,manufacturer,https://www.treelinereview.com/gearreviews/nemo-disco-endless-promise-sleeping-bag
 Nemo,Fillo,Regular,sleep,260816,manufacturer,https://www.nemoequipment.com/products/fillo-backpacking-pillow
 Nemo,Switchback Ultralight,Regular,sleep,411068,manufacturer,https://www.nemoequipment.com/products/switchback-ultralight-sleeping-pad
 Nemo,Tensor All-Season Ultralight Insulated,Regular,sleep,439418,manufacturer,https://www.nemoequipment.com/products/tensor-all-season-insulated-sleeping-pad
 Nemo,Tensor All-Season Ultralight Insulated,Regular Wide,sleep,538641,manufacturer,https://www.nemoequipment.com/products/tensor-all-season-insulated-sleeping-pad
+Nemo,Tensor Extreme Conditions Ultralight Insulated,Regular Mummy,sleep,481942,manufacturer,https://www.campman.com/camp-hike/nemo-tensor-extreme-conditions-sleeping-pad/
 Nemo,Tensor Trail Ultralight Insulated,Regular,sleep,394058,manufacturer,https://www.nemoequipment.com/products/tensor-trail-insulated-ultralight-sleeping-pad
-NEMO,Disco 30,"30F, men's Regular, 650FP down (Endless Promise); NEMO's stated weight per Treeline Review manufacturer-sourced spec table",sleep,878835,manufacturer,https://www.treelinereview.com/gearreviews/nemo-disco-endless-promise-sleeping-bag
-NEMO,Tensor All-Season Ultralight Insulated,"Regular (rectangular, 72"" x 20""), R-value 5.4",sleep,453592,manufacturer,https://www.campman.com/camp-hike/nemo-tensor-all-season-sleeping-pad/
-NEMO,Tensor Extreme Conditions Ultralight Insulated,"Regular Mummy (72"" x 20""), R-value 8.5",sleep,481942,manufacturer,https://www.campman.com/camp-hike/nemo-tensor-extreme-conditions-sleeping-pad/
 Pillow Strap,Camping Pillowcase,Medium,sleep,65204,manufacturer,https://www.pillowstrap.com/products/medium-grey
-REI Co-op,Magma 30,"30F, men's Regular (Left Zip), 850FP goose down",sleep,561320,manufacturer,https://web.archive.org/web/20200311095059id_/https://www.rei.com/product/148246/rei-co-op-magma-30-sleeping-bag-mens
+REI Co-op,Magma 30,"30F, Regular, 850FP",sleep,561320,manufacturer,https://web.archive.org/web/20200311095059id_/https://www.rei.com/product/148246/rei-co-op-magma-30-sleeping-bag-mens
 Sea to Summit,Aeros Premium Pillow,Regular,sleep,99223,manufacturer,https://seatosummit.com/products/aeros-pillow-premium
-Sea to Summit,Ember (EbII / 30F),"30F/-1C, Regular, 850+ loft Ultra-Dry down (current Ember Down Quilt; EbII = 30F variant)",sleep,544000,manufacturer,https://seatosummit.com/products/the-ember-down-quilt
-Sea to Summit,Ether Light XT Extreme Insulated,"Regular (Rectangular), R-value 6.2",sleep,707604,manufacturer,https://seatosummit.com/pages/ether-light-xt-insulated-sleeping-pad
+Sea to Summit,Ember 30F,"30F, Regular",sleep,544000,manufacturer,https://seatosummit.com/products/the-ember-down-quilt
+Sea to Summit,Ether Light XT Extreme Insulated,Regular Rectangular,sleep,707604,manufacturer,https://seatosummit.com/pages/ether-light-xt-insulated-sleeping-pad
 Sea to Summit,Ether Light XT Insulated,Regular,sleep,490447,manufacturer,https://seatosummit.com/pages/ether-light-xt-insulated-sleeping-pad
-Sea to Summit,Spark (30F / -1C),"30F/-1C, Regular, 850+ loft down (current Spark line; formerly SpII)",sleep,493000,manufacturer,https://seatosummit.com/products/spark-down-sleeping-bag
-Sea to Summit,Spark 15F,"15F / -9C, Regular, Total Weight (850+FP goose down)",sleep,728583,manufacturer,https://seatosummit.com/products/spark-down-sleeping-bag
-Sea to Summit,Spark 30F,"30F / -1C, Regular, Total Weight (850+FP goose down)",sleep,493282,manufacturer,https://seatosummit.com/products/spark-down-sleeping-bag
+Sea to Summit,Spark 15F,"15F, Regular",sleep,728583,manufacturer,https://seatosummit.com/products/spark-down-sleeping-bag
+Sea to Summit,Spark 30F,"30F, Regular",sleep,493000,manufacturer,https://seatosummit.com/products/spark-down-sleeping-bag
 Sea to Summit,Trek TkII Down Sleeping Bag,"Long, 18F",sleep,1077282,manufacturer,https://www.thebrokebackpacker.com/sea-to-summit-trek-tkii-review/
 Therm-a-Rest,Corus 20F,"20F / -6C, Regular, 650FP down",sleep,734820,manufacturer,https://cascadedesigns.com/products/corus-20f-6c-down-quilt
 Therm-a-Rest,NeoAir XLite NXT,Large,sleep,481942,manufacturer,https://cascadedesigns.com/products/neoair-xlite-nxt-sleeping-pad
@@ -104,8 +102,7 @@ Therm-a-Rest,NeoAir XTherm NXT,Large,sleep,566990,manufacturer,https://cascadede
 Therm-a-Rest,NeoAir XTherm NXT,Regular,sleep,439418,manufacturer,https://cascadedesigns.com/products/neoair-xtherm-nxt-sleeping-pad
 Therm-a-Rest,NeoAir XTherm NXT,Regular Wide,sleep,538641,manufacturer,https://cascadedesigns.com/products/neoair-xtherm-nxt-sleeping-pad
 Therm-a-Rest,ProLite Plus,Regular,sleep,652039,manufacturer,https://cascadedesigns.com/en-eu/products/prolite-plus-sleeping-pad
-Therm-a-Rest,Vesper 20F,"20F / -6C, Regular, 900FP Nikwax Hydrophobic Down",sleep,539775,manufacturer,https://cascadedesigns.com/products/vesper-20f-6c-down-quilt
-Therm-a-Rest,Vesper 20F,"20F/-6C down quilt, Regular, 900FP down",sleep,550000,manufacturer,https://cascadedesigns.com/products/vesper-20f-6c-down-quilt
+Therm-a-Rest,Vesper 20F,"20F, Regular",sleep,550000,manufacturer,https://cascadedesigns.com/products/vesper-20f-6c-down-quilt
 Therm-a-Rest,Z Lite Sol,Regular,sleep,396893,manufacturer,https://cascadedesigns.com/products/z-lite-sol-sleeping-pad
 Therm-a-Rest,Z Lite Sol,Small,sleep,283495,manufacturer,https://cascadedesigns.com/products/z-lite-sol-sleeping-pad
 Therm-a-Rest,Z Seat,standard,sleep,56699,manufacturer,https://cascadedesigns.com/products/z-seat
@@ -117,13 +114,13 @@ Western Mountaineering,SummerLite,"6 ft, 32°F",sleep,538641,manufacturer,https:
 Western Mountaineering,UltraLite,"6 ft, 20°F",sleep,822136,manufacturer,https://www.westernmountaineering.com/product/ultralite/
 Western Mountaineering,VersaLite,"6 ft, 10°F",sleep,907185,manufacturer,https://www.westernmountaineering.com/product/versalite/
 Zenbivy,Ultralight Bed,"25F, Regular (quilt + Fast Sheet)",sleep,566990,manufacturer,https://zenbivy.com/collections/ultralight-beds
-Zpacks,Solo Quilt,"20F / -7C, Standard width, Medium length (standard config), 900FP",sleep,518796,manufacturer,https://zpacks.com/products/solo-quilt
+Zpacks,Solo Quilt,"20F, 900FP, Standard",sleep,518796,manufacturer,https://zpacks.com/products/solo-quilt
 Durston,Kakwa 40,Ultra 200X / M,pack,793787,manufacturer,https://durstongear.com/products/kakwa-40-backpack
 Durston,Kakwa 40,UltraGrid / M,pack,839146,manufacturer,https://durstongear.com/products/kakwa-40-backpack
 Durston,Kakwa 55,Ultra 200X / M,pack,893010,manufacturer,https://durstongear.com/products/kakwa-55
 Durston,Kakwa 55,UltraGrid / M,pack,867495,manufacturer,https://durstongear.com/products/kakwa-55
 Gossamer Gear,Gorilla 50,"Medium, with M Straight belt",pack,904350,manufacturer,https://www.gossamergear.com/products/gorilla-50
-Gossamer Gear,Kumo 36,"Medium, total (fast belt + sitlight pad)",pack,566990,manufacturer,https://www.gossamergear.com/products/kumo-36-superlight-backpack
+Gossamer Gear,Kumo 36,Medium,pack,566990,manufacturer,https://www.gossamergear.com/products/kumo-36-superlight-backpack
 Gossamer Gear,Mariposa 60,"Medium, with M Straight belt",pack,969554,manufacturer,https://www.gossamergear.com/products/mariposa-60-lightweight-backpack
 Gossamer Gear,Murmur 36,,pack,223961,manufacturer,https://www.gossamergear.com/products/murmur-36-hyperlight-backpack
 Granite Gear,Blaze 60,"Regular torso, without lid",pack,1360777,manufacturer,https://www.granitegear.com/blaze-60-unisex.html
@@ -155,7 +152,7 @@ Osprey,Tempest 40,WM/L (40 L),pack,1327665,manufacturer,https://web.archive.org/
 Osprey,Tempest 40,WXS/S (38 L),pack,1240575,manufacturer,https://web.archive.org/web/2id_/https://www.osprey.com/gb/osprey-tempest-40-2021
 Pa'lante,V2,"Gridstop (16"" / 19"")",pack,501787,manufacturer,https://palantepacks.com/products/v2
 REI Co-op,Flash 55 Pack,"Men's, Medium (18-20 in torso)",pack,1275729,manufacturer,https://web.archive.org/web/20240601231228/https://www.rei.com/product/216571/rei-co-op-flash-55-pack-mens
-Six Moon Designs,Swift X,"Standard configuration (Stay, Hip Belt, Flight Vest)",pack,1099961,manufacturer,https://www.sixmoondesigns.com/products/swift-x-ultralight-backpack
+Six Moon Designs,Swift X,Standard,pack,1099961,manufacturer,https://www.sixmoondesigns.com/products/swift-x-ultralight-backpack
 ULA Equipment,Catalyst,,pack,1258719,manufacturer,https://www.ula-equipment.com/product/catalyst/
 ULA Equipment,CDT,UltraGrid,pack,768272,manufacturer,https://www.ula-equipment.com/product/cdt/
 ULA Equipment,Circuit,,pack,1091457,manufacturer,https://www.ula-equipment.com/product/circuit/
@@ -206,19 +203,19 @@ Altra,Lone Peak 9+,"Men's, per shoe (US size 9)",clothing,303340,manufacturer,ht
 Altra,Olympus 6,"Men's, per shoe (US size 9)",clothing,354369,manufacturer,https://www.runningwarehouse.com/Altra_Olympus_6/descpage-AL6OLM4.html
 Altra,Timp 5,"Men's, per shoe (US size 9)",clothing,277825,manufacturer,https://www.runningwarehouse.com/Altra_Timp_5/descpage-AL5TIM2.html
 Altra,Trail Gaiter,Unisex (per pair),clothing,36854,manufacturer,https://trailful.com/products/altra-trail-gaiter
-Appalachian Gear Company,All-Paca Fleece Hoodie,Men's M (manufacturer-stated lot average),clothing,311845,manufacturer,https://pieonthetrail.com/appalachian-gear-company-all-paca-fleece-hoodie-review/
+Appalachian Gear Company,All-Paca Fleece Hoodie,Men's M,clothing,311845,manufacturer,https://pieonthetrail.com/appalachian-gear-company-all-paca-fleece-hoodie-review/
 Arc'teryx,Atom Hoody,Men's M,clothing,355000,manufacturer,https://web.archive.org/web/20260317104033id_/https://arcteryx.com/us/en/shop/mens/atom-hoody-9556
 Arc'teryx,Cerium Hoody,Men's,clothing,338000,manufacturer,https://arcteryx.com/us/en/shop/mens/cerium-hoody-0521
 Arc'teryx,Cerium SL Hoody,Men's M,clothing,215456,manufacturer,https://arcteryx.com/us/en/shop/mens/cerium-sl-hoody-1036
 Arc'teryx,Cormac Hoody,Men's,clothing,160000,manufacturer,https://mountainhighoutfitters.com/products/m-cormac-hoody
-Black Diamond,Lightweight Screentap Liners,Men's M (size not specified for weight),clothing,37000,manufacturer,https://blackdiamondequipment.com/products/lightweight-screentap-liners
+Black Diamond,Lightweight Screentap Liners,Men's,clothing,37000,manufacturer,https://blackdiamondequipment.com/products/lightweight-screentap-liners
 Brooks,Cascadia 18,"Men's, per shoe (brand spec)",clothing,314680,manufacturer,https://runrepeat.com/brooks-cascadia-18
 Buff,Original Multifunctional Headwear,One size,clothing,35000,measured,https://www.alexroddie.com/2017/03/review-original-buff-multifunctional-headwear/
 Darn Tough,Hiker Boot Midweight,"Men's, Full Cushion (per pair)",clothing,73709,measured,https://www.outdoorgearlab.com/reviews/shoes-and-boots/hiking-socks/darn-tough-hiker-full-cushion
-Decathlon,Forclaz MT100 Hooded Down Jacket,"Men's, size L (manufacturer spec size)",clothing,320350,manufacturer,https://www.decathlon.com/products/simond-mt100-hooded-down-puffer-jacket-167571.json
+Decathlon,Forclaz MT100 Hooded Down Jacket,Men's L,clothing,320350,manufacturer,https://www.decathlon.com/products/simond-mt100-hooded-down-puffer-jacket-167571.json
 Decathlon (Simond),MT100 Hooded Down Jacket,Men's M,clothing,292000,measured,https://www.outdoorgearlab.com/reviews/clothing-mens/down-jacket-men/decathlon-simond-mt100-hooded-puffer
 Dirty Girl Gaiters,Dirty Girl Gaiters,One pair (0.7 oz each),clothing,39689,measured,https://www.outdoorgearlab.com/reviews/climbing/gaiters/dirty-girl-gaiter
-Enlightened Equipment,Copperfield Wind Pants,"Men's, starting weight (lightest fabric/size)",clothing,37138,manufacturer,https://enlightenedequipment.com/mens-copperfield-wind-pants-cus/
+Enlightened Equipment,Copperfield Wind Pants,Men's,clothing,37138,manufacturer,https://enlightenedequipment.com/mens-copperfield-wind-pants-cus/
 Enlightened Equipment,Torrid APEX Jacket,Men's M,clothing,238136,manufacturer,https://www.adventurealan.com/enlightened-equipment-torrid-apex-jacket-review/
 Frogg Toggs,Ultra-Lite2 Rain Suit (jacket + pants),Men's,clothing,362874,manufacturer,https://www.froggtoggs.com/products/the-frogg-toggsr-ultra-lite2tm-4749
 Goldwin,GORE-TEX 3L Jacket,"GL05140, size 3 (M)",clothing,420000,manufacturer,https://usshop.goldwin-global.com/products/gl05140
@@ -231,7 +228,7 @@ La Sportiva,Bushido III,"Men's, per shoe",clothing,297670,manufacturer,https://w
 LightHeart Gear,Alpha Direct 90 Hoodie,Men's M,clothing,147418,manufacturer,https://lightheartgear.com/products/alpha-direct-90-hoodie-with-kangaroo-pocket
 Melanzana,Micro Grid Hoodie V2,Men's L (men's M weight not published),clothing,343029,manufacturer,https://melanzana.com/products/2025-micro-grid-hoodie-v2
 Merrell,Moab 3 (low),"Men's, per shoe (brand spec)",clothing,459262,manufacturer,https://runrepeat.com/merrell-moab-3
-Montbell,Ex Light Down Anorak,Men's (size not specified for spec weight),clothing,215456,manufacturer,https://www.adventurealan.com/product/montbell-ex-light-down-anorak/
+Montbell,Ex Light Down Anorak,Men's,clothing,215456,manufacturer,https://www.adventurealan.com/product/montbell-ex-light-down-anorak/
 Montbell,EX Light Down Anorak,Men's M,clothing,215456,manufacturer,https://web.archive.org/web/20250321083016id_/https://www.montbell.com/us/en/products/detail/2301351
 Montbell,Plasma 1000 Down Jacket,Men's M,clothing,136078,manufacturer,https://www.montbell.com/us/en/products/detail/2301381
 Montbell,Storm Cruiser Jacket,Men's M,clothing,283495,manufacturer,https://web.archive.org/web/20250419023338id_/https://www.montbell.com/us/en/products/detail/2328174
@@ -252,22 +249,22 @@ Patagonia,Capilene Cool Lightweight Shirt,Men's M (short sleeve),clothing,74000,
 Patagonia,Capilene Midweight Bottoms,Men's M,clothing,164000,manufacturer,https://web.archive.org/web/20240114165323id_/https://www.patagonia.com/product/mens-capilene-midweight-baselayer-bottoms/44487.html
 Patagonia,Down Sweater Hoody,Men's M,clothing,420000,manufacturer,https://web.archive.org/web/20250811183007id_/https://www.patagonia.com/product/mens-down-sweater-insulated-hoody/84702.html
 Patagonia,Houdini Jacket,Men's M,clothing,105000,manufacturer,https://web.archive.org/web/20200718053536id_/https://www.patagonia.com/product/mens-houdini-windbreaker-jacket/24142.html
-Patagonia,Micro Puff Hoody,Men's (average weight),clothing,298000,manufacturer,https://www.patagoniabend.com/products/ms-micro-puff-hoody-1
+Patagonia,Micro Puff Hoody,Men's,clothing,298000,manufacturer,https://www.patagoniabend.com/products/ms-micro-puff-hoody-1
 Patagonia,Micro Puff Hoody,Men's M,clothing,298000,manufacturer,https://web.archive.org/web/20241207105818id_/https://www.patagonia.com/product/mens-micro-puff-insulated-hoody/84031.html
-Patagonia,Nano Puff Jacket,Men's (size not specified for average weight),clothing,337360,manufacturer,https://outdoornewengland.com/products/mens-nano-puff-jacket
+Patagonia,Nano Puff Jacket,Men's,clothing,337360,manufacturer,https://outdoornewengland.com/products/mens-nano-puff-jacket
 Patagonia,Nano Puff Jacket,Men's M,clothing,369000,manufacturer,https://web.archive.org/web/20250903022513id_/https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84213.html
 Patagonia,Nano Puff Jacket,Women's M,clothing,309000,manufacturer,https://web.archive.org/web/20250912112307id_/https://www.patagonia.com/product/womens-nano-puff-insulated-jacket/84218.html
 Patagonia,P-6 Logo LoPro Trucker Hat,,clothing,85000,manufacturer,https://www.idahomountaintouring.com/products/p-6-logo-lopro-trucker-hat
-Patagonia,R1 Air Full-Zip Hoody,Men's (size not specified for spec weight),clothing,369000,manufacturer,https://www.whittakermountaineering.com/products/mens-r1-air-full-zip-hoody
+Patagonia,R1 Air Full-Zip Hoody,Men's,clothing,369000,manufacturer,https://www.whittakermountaineering.com/products/mens-r1-air-full-zip-hoody
 Patagonia,R1 Air Full-Zip Hoody,Men's M,clothing,369000,manufacturer,https://web.archive.org/web/20250912121826id_/https://www.patagonia.com/product/mens-r1-air-fleece-midlayer-full-zip-hoody/40256.html
 Petzl,Cordex Plus belay/rappel gloves,Size L,clothing,146000,manufacturer,https://www.petzl.com/US/en/Sport/Packs-And-Accessories/CORDEX-PLUS
 Petzl,Cordex Plus belay/rappel gloves,Size M,clothing,140000,manufacturer,https://www.petzl.com/US/en/Sport/Packs-And-Accessories/CORDEX-PLUS
 Petzl,Cordex Plus belay/rappel gloves,Size S,clothing,136000,manufacturer,https://www.petzl.com/US/en/Sport/Packs-And-Accessories/CORDEX-PLUS
 Petzl,Cordex Plus belay/rappel gloves,Size XL,clothing,152000,manufacturer,https://www.petzl.com/US/en/Sport/Packs-And-Accessories/CORDEX-PLUS
-Rab,Microlight Alpine Jacket,"Men's, Size L (manufacturer spec size)",clothing,467767,manufacturer,https://web.archive.org/web/20260218183657id_/https://rab.equipment/us/microlight-alpine-jacket
+Rab,Microlight Alpine Jacket,Men's L,clothing,467767,manufacturer,https://web.archive.org/web/20260218183657id_/https://rab.equipment/us/microlight-alpine-jacket
 Rab,Mythic Ultra,Men's M,clothing,535806,manufacturer,https://web.archive.org/web/20251118014943/https://rab.equipment/us/mythic-ultra-jacket
 Salomon,Sense Ride 5,"Men's, per shoe (brand spec)",clothing,292000,manufacturer,https://runrepeat.com/salomon-sense-ride-5
-Salomon,X Ultra 360 (low),"Men's, per shoe (brand spec, non-GTX)",clothing,348699,manufacturer,https://runrepeat.com/salomon-x-ultra-360
+Salomon,X Ultra 360 (low),"Men's, per shoe",clothing,348699,manufacturer,https://runrepeat.com/salomon-x-ultra-360
 Saucony,Peregrine 14,"Men's, per shoe (brand spec)",clothing,266486,manufacturer,https://runrepeat.com/saucony-peregrine-14
 Sea to Summit,Mosquito Head Net with Insect Shield,,clothing,36854,manufacturer,https://www.campingworld.com/sea-to-summit-mosquito-head-net-with-insect-shield-202502.html
 Senchi Designs,Alpha 60 Hoodie,Men's M,clothing,107728,manufacturer,https://senchidesigns.com/pages/weight-chart-alpha-60-hoodie
@@ -277,7 +274,7 @@ Smartwool,Merino 250 Cuffed Beanie,One size,clothing,59534,manufacturer,https://
 The North Face,ThermoBall Eco Hoodie,Men's M,clothing,450757,manufacturer,https://web.archive.org/web/20240913041531/https://www.backcountry.com/the-north-face-thermoball-eco-hoodie-mens
 Topo Athletic,Pursuit 2,"Men's, per shoe (US size 9)",clothing,300505,manufacturer,https://www.runningwarehouse.eu/Topo_Athletic_Pursuit_2/descpage-TO2PUM0-EN.html
 Topo Athletic,Ultraventure 4,"Men's, per shoe (US size 9 / M9)",clothing,294835,manufacturer,https://www.topoathletic.com/mens-ultraventure-4
-Zpacks,Vertice Rain Jacket,Men's (size not specified for headline weight),clothing,153087,manufacturer,https://zpacks.com/products/vertice-rain-jacket
+Zpacks,Vertice Rain Jacket,Men's,clothing,153087,manufacturer,https://zpacks.com/products/vertice-rain-jacket
 ACR,ResQLink 400 PLB,,electronics,143789,manufacturer,https://www.acrartex.com/products/resqlink-400/
 Anker,313 Power Bank (PowerCore 10K),A1229,electronics,212621,manufacturer,https://service.anker.com/product-description/a085g000004x2B4AAI/anker-313-power-bank-powercore-10k
 Anker,511 Power Bank (PowerCore Fusion 5K),A1633,electronics,170000,manufacturer,https://service.anker.com/product-description/a085g000004zVOvAAM/anker-511-power-bank-powercore-fusion-5k
@@ -291,7 +288,7 @@ Garmin,inReach Mini 2,Satellite Communicator,electronics,99223,manufacturer,http
 Garmin,inReach Mini 3,"base, without clips/tethers",electronics,122000,measured,https://www.dcrainmaker.com/2025/12/garmin-inreach-mini-3-3-plus-in-depth-review-upgrade.html
 Goal Zero,Flip 24 Power Bank,6700mAh,electronics,130408,manufacturer,https://shop.gohunt.com/products/goal-zero-flip-24-power-bank
 Nitecore,NB10000,GEN2,electronics,150000,manufacturer,https://www.nitecore.com/product/nb10000
-Nitecore,NB5000,Ultra Lightweight Power Bank (5000mAh),electronics,115000,manufacturer,https://imrbatteries.com/products/nitecore-nb5000-ultra-lightweight-power-bank-5-000mah.json
+Nitecore,NB5000,5000mAh,electronics,115000,manufacturer,https://imrbatteries.com/products/nitecore-nb5000-ultra-lightweight-power-bank-5-000mah.json
 Nitecore,NU25,"MCT (400 lumen, USB-C)",electronics,50000,manufacturer,https://www.nitecore.com/product/nu25
 Petzl,ACTIK CORE Headlamp,,electronics,88000,manufacturer,https://www.petzl.com/US/en/Sport/Headlamps/ACTIK-CORE
 Petzl,BINDI Headlamp,,electronics,34870,manufacturer,https://www.petzl.com/US/en/Sport/News/2018-7-24/What-you-need-to-know-about-the-BINDI
@@ -328,16 +325,16 @@ Starbucks,VIA Instant Coffee (Pike Place Roast),single packet,consumable,3118,ma
 BearVault,BV450 Jaunt Bear Canister,standard,other,935535,manufacturer,https://bearvault.com/products/bv450
 BearVault,BV500 Journey Bear Canister,standard,other,1162331,manufacturer,https://bearvault.com/products/bv500
 BIC,J25 Mini Lighter,Mini (J25),other,13000,manufacturer,https://www.bicgraphic.com/gb/bic-j25-lighter-3460002360.html
-Black Diamond,Distance Carbon Z Trekking Poles,120cm (per pole; spec scales by length so value is per pole),other,280000,manufacturer,https://blackdiamondequipment.com/products/distance-carbon-z-poles
+Black Diamond,Distance Carbon Z Trekking Poles,"120cm, per pole",other,280000,manufacturer,https://blackdiamondequipment.com/products/distance-carbon-z-poles
 Black Diamond,Distance Spike Traction Device,per pair,other,200000,manufacturer,https://blackdiamondequipment.com/products/distance-spike-traction-device
-Black Diamond,Distance Z Trekking Poles,"aluminum, per pole (spec scales by length so value is per pole); range across sizes",other,347000,manufacturer,https://blackdiamondequipment.com/products/distance-z-trekking-running-poles
+Black Diamond,Distance Z Trekking Poles,per pole,other,347000,manufacturer,https://blackdiamondequipment.com/products/distance-z-trekking-running-poles
 Black Diamond,Raven Pro Ice Axe,55cm,other,390000,manufacturer,https://blackdiamondequipment.com/products/raven-pro-ice-axe
 Black Diamond,Trail Ergo Cork Trekking Poles,per pair,other,512000,manufacturer,https://gearheadoutfitters.com/products/trail-ergo-cork-trek-poles
 CAMP,Corsa Ice Axe,50cm,other,209000,manufacturer,https://skimo.co/camp-corsa-ice-axe
 CAMP,Corsa Nanotech Ice Axe,60cm,other,277000,manufacturer,https://skimo.co/camp-corsa-nanotech-ice-axe
 Gossamer Gear,Lightrek Hiking Umbrella,,other,164427,manufacturer,https://www.gossamergear.com/products/liteflex-hiking-chrome-umbrella
 Gossamer Gear,LT5 Three Piece Carbon Trekking Poles,per pole (page states per pole),other,138913,manufacturer,https://www.gossamergear.com/products/lt5-three-piece-carbon-trekking-poles-pair
-Helinox,Chair Zero,"original (chair only, without case)",other,490000,manufacturer,https://www.outdoorline.eu/products/helinox-chair-zero
+Helinox,Chair Zero,chair only,other,490000,manufacturer,https://www.outdoorline.eu/products/helinox-chair-zero
 Hillsound,Trail Crampon,per pair,other,462097,manufacturer,https://hillsound.com/products/trail-crampon
 Kahtoola,EXOspikes,"per pair, Medium",other,206952,measured,https://www.cleverhiker.com/footwear/kahtoola-exospikes-traction-device-review/
 Kahtoola,MICROspikes,per pair,other,337359,measured,https://www.cleverhiker.com/footwear/kahtoola-microspikes-traction-device-review/
@@ -347,12 +344,12 @@ Montbell,Trekking Umbrella 55,55,other,153087,manufacturer,https://www.montbell.
 Montbell,Trekking Umbrella 60,60,other,167262,manufacturer,https://www.montbell.com/us/en/products/detail/1128702
 Opinel,No.06 Folding Knife,Carbon Steel,other,34019,manufacturer,https://www.opinel-usa.com/products/opinel-no-6-carbon-steel-blade
 Petzl,Glacier Ice Axe,60cm,other,345000,manufacturer,https://www.petzl.com/US/en/Sport/Ice-axes/GLACIER
-REI Co-op,Flexlite Air Chair,Measured weight (OutdoorGearLab scale),other,479107,measured,https://www.outdoorgearlab.com/reviews/camping-and-hiking/backpacking-chair/rei-co-op-flexlite-air
+REI Co-op,Flexlite Air Chair,,other,479107,measured,https://www.outdoorgearlab.com/reviews/camping-and-hiking/backpacking-chair/rei-co-op-flexlite-air
 Sea to Summit,Ultra-Sil Dry Bag,8L,other,39000,manufacturer,https://seatosummit.com/products/ultra-sil-dry-bag
 Sea to Summit,Ultra-Sil Dry Sack,8L,other,39000,manufacturer,https://seatosummit.com/products/ultra-sil-dry-bag
 Sea to Summit,Ultra-Sil Stuff Sack,13L,other,44000,manufacturer,https://seatosummit.com/products/the-ultra-sil-stuff-sack
 Six Moon Designs,Silver Shadow Carbon Umbrella,,other,192777,manufacturer,https://www.sixmoondesigns.com/products/silver-shadow-carbon-umbrella
-Teva,Original Universal Sandals (men's),"Measured weight per pair, size 11 (OutdoorGearLab scale)",other,411068,measured,https://www.outdoorgearlab.com/reviews/shoes-and-boots/sandals-mens/teva-original-universal
+Teva,Original Universal Sandals (men's),"per pair, size 11",other,411068,measured,https://www.outdoorgearlab.com/reviews/shoes-and-boots/sandals-mens/teva-original-universal
 TheTentLab,The Deuce of Spades #2 Trowel,#2,other,17010,manufacturer,https://www.thetentlab.com/Deuce/number2.html
 Ursack,"AllMitey (Major S29.3 AllMitey, Kevlar)",standard,other,269320,manufacturer,https://ursack.com/products/ursack-allmitey
 Ursack,Major (S29.3) Bear-Proof Bag,standard ~10.65L,other,215456,manufacturer,https://ursack.com/products/ursack-major

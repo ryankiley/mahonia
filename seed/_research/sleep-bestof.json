@@ -3,7 +3,7 @@
     {
       "brand": "Katabatic Gear",
       "name": "Sawatch 15",
-      "variant": "15F, 900FP goose down, Regular length (6')/Regular width, Total Weight",
+      "variant": "15F, 900FP, Regular",
       "category_hint": "sleep",
       "weight_value": 24.7,
       "weight_unit": "oz",
@@ -14,7 +14,7 @@
     {
       "brand": "Sea to Summit",
       "name": "Spark 15F",
-      "variant": "15F / -9C, Regular, Total Weight (850+FP goose down)",
+      "variant": "15F, Regular",
       "category_hint": "sleep",
       "weight_value": 25.7,
       "weight_unit": "oz",
@@ -26,7 +26,7 @@
     {
       "brand": "Sea to Summit",
       "name": "Spark 30F",
-      "variant": "30F / -1C, Regular, Total Weight (850+FP goose down)",
+      "variant": "30F, Regular",
       "category_hint": "sleep",
       "weight_value": 17.4,
       "weight_unit": "oz",
@@ -38,7 +38,7 @@
     {
       "brand": "Zpacks",
       "name": "Solo Quilt",
-      "variant": "20F / -7C, Standard width, Medium length (standard config), 900FP",
+      "variant": "20F, 900FP, Standard",
       "category_hint": "sleep",
       "weight_value": 18.3,
       "weight_unit": "oz",
@@ -50,7 +50,7 @@
     {
       "brand": "Feathered Friends",
       "name": "Flicker UL Quilt",
-      "variant": "20 Degree, Regular, 950+FP goose down, Average Weight",
+      "variant": "20F, Regular, 950+FP",
       "category_hint": "sleep",
       "weight_value": 1.59,
       "weight_unit": "lb",
@@ -60,9 +60,9 @@
       "quote": "20 Degree / Regular -- Average Weight: Reg 1 lb 9.5 oz / 723 g (Fill Weight: Reg 14.7 oz / 417 g)"
     },
     {
-      "brand": "NEMO",
+      "brand": "Nemo",
       "name": "Tensor Extreme Conditions Ultralight Insulated",
-      "variant": "Regular Mummy (72\" x 20\"), R-value 8.5",
+      "variant": "Regular Mummy",
       "category_hint": "sleep",
       "weight_value": 17,
       "weight_unit": "oz",
@@ -72,21 +72,9 @@
       "quote": "Regular Mummy size weight: 17 oz (472 g)"
     },
     {
-      "brand": "NEMO",
-      "name": "Tensor All-Season Ultralight Insulated",
-      "variant": "Regular (rectangular, 72\" x 20\"), R-value 5.4",
-      "category_hint": "sleep",
-      "weight_value": 16,
-      "weight_unit": "oz",
-      "weight_secondary": "440 g",
-      "weight_source": "manufacturer",
-      "source_url": "https://www.campman.com/camp-hike/nemo-tensor-all-season-sleeping-pad/",
-      "quote": "Regular | 16 oz (440 g) [size table: Regular 16 oz/440g, Regular Mummy 14.1 oz/400g, Regular Wide 20 oz/580g, Long Wide 19 oz/530g]"
-    },
-    {
       "brand": "Sea to Summit",
       "name": "Ether Light XT Extreme Insulated",
-      "variant": "Regular (Rectangular), R-value 6.2",
+      "variant": "Regular Rectangular",
       "category_hint": "sleep",
       "weight_value": 1.56,
       "weight_unit": "lb",
@@ -98,7 +86,7 @@
     {
       "brand": "Therm-a-Rest",
       "name": "Vesper 20F",
-      "variant": "20F / -6C, Regular, 900FP Nikwax Hydrophobic Down",
+      "variant": "20F, Regular",
       "category_hint": "sleep",
       "weight_value": 1.19,
       "weight_unit": "lb",

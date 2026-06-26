@@ -26,7 +26,7 @@
     {
       "brand": "Big Agnes",
       "name": "Copper Spur HV UL2 mtnGLO",
-      "variant": "Trail (minimum) weight, with integrated LED lights",
+      "variant": "UL2",
       "category_hint": "shelter",
       "weight_value": 2,
       "weight_unit": "lb",
@@ -38,7 +38,6 @@
     {
       "brand": "REI Co-op",
       "name": "Flexlite Air Chair",
-      "variant": "Measured weight (OutdoorGearLab scale)",
       "category_hint": "other",
       "weight_value": 16.9,
       "weight_unit": "oz",
@@ -176,7 +175,7 @@
     {
       "brand": "Teva",
       "name": "Original Universal Sandals (men's)",
-      "variant": "Measured weight per pair, size 11 (OutdoorGearLab scale)",
+      "variant": "per pair, size 11",
       "category_hint": "other",
       "weight_value": 14.5,
       "weight_unit": "oz",

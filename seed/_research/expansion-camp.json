@@ -3,7 +3,7 @@
     {
       "brand": "Black Diamond",
       "name": "Distance Carbon Z Trekking Poles",
-      "variant": "120cm (per pole; spec scales by length so value is per pole)",
+      "variant": "120cm, per pole",
       "category_hint": "other",
       "weight_value": 280,
       "weight_unit": "g",
@@ -14,7 +14,7 @@
     {
       "brand": "Black Diamond",
       "name": "Distance Z Trekking Poles",
-      "variant": "aluminum, per pole (spec scales by length so value is per pole); range across sizes",
+      "variant": "per pole",
       "category_hint": "other",
       "weight_value": 347,
       "weight_unit": "g",
@@ -141,7 +141,7 @@
     {
       "brand": "Helinox",
       "name": "Chair Zero",
-      "variant": "original (chair only, without case)",
+      "variant": "chair only",
       "category_hint": "other",
       "weight_value": 490,
       "weight_unit": "g",

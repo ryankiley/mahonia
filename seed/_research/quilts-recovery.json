@@ -3,7 +3,7 @@
     {
       "brand": "Enlightened Equipment",
       "name": "Revelation",
-      "variant": "10F, 850FP, Regular/Regular, 10D/7D (manufacturer SKU page, base config, no draft collar)",
+      "variant": "10F, 850FP, Regular",
       "category_hint": "sleep",
       "weight_value": 25.5,
       "weight_unit": "oz",
@@ -14,7 +14,7 @@
     {
       "brand": "Enlightened Equipment",
       "name": "Revelation",
-      "variant": "30F, 850FP, Regular/Regular, 10D/10D (manufacturer SKU page, base config, no draft collar)",
+      "variant": "30F, 850FP, Regular",
       "category_hint": "sleep",
       "weight_value": 19.45,
       "weight_unit": "oz",
@@ -25,7 +25,7 @@
     {
       "brand": "Enlightened Equipment",
       "name": "Revelation",
-      "variant": "40F, 850FP, Regular/Regular, 10D/10D (manufacturer SKU page, base config, no draft collar)",
+      "variant": "40F, 850FP, Regular",
       "category_hint": "sleep",
       "weight_value": 15.81,
       "weight_unit": "oz",
@@ -36,7 +36,7 @@
     {
       "brand": "Enlightened Equipment",
       "name": "Enigma",
-      "variant": "10F, 850FP, Regular/Regular, 10D/10D (manufacturer SKU page, base config)",
+      "variant": "10F, 850FP, Regular",
       "category_hint": "sleep",
       "weight_value": 24.68,
       "weight_unit": "oz",
@@ -47,7 +47,7 @@
     {
       "brand": "Enlightened Equipment",
       "name": "Enigma",
-      "variant": "30F, 850FP, Regular/Regular (manufacturer SKU page, base config, sewn footbox)",
+      "variant": "30F, 850FP, Regular",
       "category_hint": "sleep",
       "weight_value": 17.94,
       "weight_unit": "oz",
@@ -56,9 +56,9 @@
       "quote": "product_attributes JSON: \"weight\":{\"formatted\":\"17.94 Ounces\",\"value\":17.94},\"base\":true (EE's own Enigma 850 30F Regular/Regular SKU page; matches outdoorline.eu table Regular/Regular 850 = 510 g / 17.94 oz)"
     },
     {
-      "brand": "NEMO",
+      "brand": "Nemo",
       "name": "Disco 30",
-      "variant": "30F, men's Regular, 650FP down (Endless Promise); NEMO's stated weight per Treeline Review manufacturer-sourced spec table",
+      "variant": "30F, Regular, 650FP",
       "category_hint": "sleep",
       "weight_value": 1,
       "weight_unit": "lb",
@@ -70,7 +70,7 @@
     {
       "brand": "REI Co-op",
       "name": "Magma 30",
-      "variant": "30F, men's Regular (Left Zip), 850FP goose down",
+      "variant": "30F, Regular, 850FP",
       "category_hint": "sleep",
       "weight_value": 1,
       "weight_unit": "lb",
@@ -81,8 +81,8 @@
     },
     {
       "brand": "Sea to Summit",
-      "name": "Spark (30F / -1C)",
-      "variant": "30F/-1C, Regular, 850+ loft down (current Spark line; formerly SpII)",
+      "name": "Spark 30F",
+      "variant": "30F, Regular",
       "category_hint": "sleep",
       "weight_value": 493,
       "weight_unit": "g",
@@ -94,7 +94,7 @@
     {
       "brand": "Therm-a-Rest",
       "name": "Vesper 20F",
-      "variant": "20F/-6C down quilt, Regular, 900FP down",
+      "variant": "20F, Regular",
       "category_hint": "sleep",
       "weight_value": 550,
       "weight_unit": "g",
@@ -104,8 +104,8 @@
     },
     {
       "brand": "Sea to Summit",
-      "name": "Ember (EbII / 30F)",
-      "variant": "30F/-1C, Regular, 850+ loft Ultra-Dry down (current Ember Down Quilt; EbII = 30F variant)",
+      "name": "Ember 30F",
+      "variant": "30F, Regular",
       "category_hint": "sleep",
       "weight_value": 544,
       "weight_unit": "g",
