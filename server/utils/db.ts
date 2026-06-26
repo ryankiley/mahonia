@@ -57,6 +57,7 @@ export const LISTS_DDL: string[] = [
     view_count integer NOT NULL DEFAULT 0,
     flagged boolean NOT NULL DEFAULT false,
     claim_phrase_hash text,
+    last_snapshot_at timestamptz,
     version integer NOT NULL DEFAULT 1,
     status text NOT NULL DEFAULT 'active',
     created_at timestamptz NOT NULL DEFAULT now(),
@@ -66,6 +67,7 @@ export const LISTS_DDL: string[] = [
   `ALTER TABLE lists ADD COLUMN IF NOT EXISTS trip_type text`,
   `ALTER TABLE lists ADD COLUMN IF NOT EXISTS view_count integer NOT NULL DEFAULT 0`,
   `ALTER TABLE lists ADD COLUMN IF NOT EXISTS flagged boolean NOT NULL DEFAULT false`,
+  `ALTER TABLE lists ADD COLUMN IF NOT EXISTS last_snapshot_at timestamptz`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_lists_edit_token ON lists(edit_token_hash) WHERE deleted_at IS NULL`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_lists_share_code ON lists(share_code) WHERE deleted_at IS NULL`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_lists_slug ON lists(public_slug) WHERE deleted_at IS NULL`,
@@ -96,9 +98,14 @@ let _snapEnsured: Promise<void> | undefined;
 /** Idempotently create list_snapshots (memoized) — for Neon (no build-time DDL). */
 export function ensureSnapshotSchema(db: Db): Promise<void> {
   if (!_snapEnsured) {
+    // reset the memo on failure so a transient first-ensure error (Neon cold
+    // start / blip) doesn't cache a rejected promise + wedge the endpoints
     _snapEnsured = (async () => {
       for (const stmt of SNAPSHOTS_DDL) await db.execute(sql.raw(stmt));
-    })();
+    })().catch((e) => {
+      _snapEnsured = undefined;
+      throw e;
+    });
   }
   return _snapEnsured;
 }

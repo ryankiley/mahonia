@@ -89,7 +89,11 @@ export function ensureCatalogSchema(db: unknown): Promise<void> {
           ),
         );
       }
-    })();
+    })().catch((e) => {
+      // reset the memo so a transient first-ensure failure retries (not a cached reject)
+      _ensured = undefined;
+      throw e;
+    });
   }
   return _ensured;
 }

@@ -4,7 +4,7 @@ import { drizzle } from "drizzle-orm/pglite";
 import { describe, expect, it } from "vitest";
 import * as schema from "../server/db/schema";
 import { lists } from "../server/db/schema";
-import { LISTS_DDL, SNAPSHOTS_DDL } from "../server/utils/db";
+import { LISTS_DDL, SNAPSHOTS_DDL, _resetSnapshotEnsured } from "../server/utils/db";
 import { sha256Hex } from "../server/utils/tokens";
 import {
   applyOpsByEditToken,
@@ -95,5 +95,14 @@ describe("snapshots — vandalism recovery", () => {
     const db = await freshDb();
     expect(await listSnapshotsByEditToken("nope", db)).toBeNull();
     expect(await restoreSnapshotByEditToken("nope", 1, db)).toBeNull();
+  });
+
+  it("bootstraps the snapshots table on first use (Neon request-path)", async () => {
+    // build WITHOUT the snapshots DDL — the repo must create it lazily via ensureSnapshotSchema
+    const db = drizzle(new PGlite(), { schema });
+    for (const stmt of LISTS_DDL) await db.execute(sql.raw(stmt));
+    _resetSnapshotEnsured();
+    const { editToken } = await seedList(db, { folders: [], items: [item("i1", "X")] });
+    expect(await listSnapshotsByEditToken(editToken, db)).toEqual([]);
   });
 });

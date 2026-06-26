@@ -70,22 +70,13 @@ const SNAPSHOT_THROTTLE_MS = 5 * 60_000; // at most one auto-snapshot per list /
 const SNAPSHOT_CAP = 20; // keep the most recent N per list (older are pruned)
 
 /**
- * Best-effort recovery point of a list row's CURRENT state. `force` skips the
- * throttle (used before a restore). NEVER throws — a snapshot failure must not
- * break the actual write.
+ * Insert a recovery point of `row`'s CURRENT state + prune to the cap. Best-effort
+ * — NEVER throws (a snapshot failure must not break a write). The THROTTLE lives in
+ * the caller (off the in-hand row's lastSnapshotAt) so the hot path needs no query.
  */
-async function snapshotRow(db: Db, row: ListRow, reason: string, force = false): Promise<void> {
+async function captureSnapshot(db: Db, row: ListRow, reason: string): Promise<void> {
   try {
     await ensureSnapshotSchema(db);
-    if (!force) {
-      const last = await db
-        .select({ createdAt: listSnapshots.createdAt })
-        .from(listSnapshots)
-        .where(eq(listSnapshots.listId, row.id))
-        .orderBy(desc(listSnapshots.createdAt))
-        .limit(1);
-      if (last[0] && Date.now() - new Date(last[0].createdAt).getTime() < SNAPSHOT_THROTTLE_MS) return;
-    }
     await db.insert(listSnapshots).values({
       listId: row.id,
       snapshot: {
@@ -97,12 +88,12 @@ async function snapshotRow(db: Db, row: ListRow, reason: string, force = false):
       version: row.version,
       reason,
     });
-    // prune beyond the cap (oldest first), so storage stays bounded per list
+    // prune beyond the cap (oldest first; id tie-breaks same-timestamp rows)
     const all = await db
       .select({ id: listSnapshots.id })
       .from(listSnapshots)
       .where(eq(listSnapshots.listId, row.id))
-      .orderBy(desc(listSnapshots.createdAt));
+      .orderBy(desc(listSnapshots.createdAt), desc(listSnapshots.id));
     const stale = all.slice(SNAPSHOT_CAP).map((r) => r.id);
     if (stale.length) await db.delete(listSnapshots).where(inArray(listSnapshots.id, stale));
   } catch {
@@ -131,7 +122,7 @@ export async function listSnapshotsByEditToken(
     .select()
     .from(listSnapshots)
     .where(eq(listSnapshots.listId, row.id))
-    .orderBy(desc(listSnapshots.createdAt))
+    .orderBy(desc(listSnapshots.createdAt), desc(listSnapshots.id))
     .limit(SNAPSHOT_CAP);
   return rows.map((r) => ({
     id: r.id,
@@ -154,45 +145,58 @@ export async function restoreSnapshotByEditToken(
   db?: Db,
 ): Promise<ListSnapshot | null> {
   const d = db ?? (await useDb());
-  const row = await findByEditToken(editToken, d);
-  if (!row) return null;
+  const owner = await findByEditToken(editToken, d);
+  if (!owner) return null;
   await ensureSnapshotSchema(d);
   const snaps = await d
     .select()
     .from(listSnapshots)
-    .where(and(eq(listSnapshots.id, snapshotId), eq(listSnapshots.listId, row.id)))
+    .where(and(eq(listSnapshots.id, snapshotId), eq(listSnapshots.listId, owner.id)))
     .limit(1);
   const snap = snaps[0];
   if (!snap) return null; // unknown id, or not this caller's list
 
-  await snapshotRow(d, row, "before restore", true);
-
   const s = snap.snapshot;
-  // re-normalize through the SAME reducer helpers (defensive — a snapshot must
-  // not be a clamp-bypass back into raw JSONB)
+  // re-normalize through the SAME reducer helpers (defensive — a snapshot must not
+  // be a clamp-bypass back into raw JSONB), and re-validate the unit
   const data: ListData = {
     folders: (s.data?.folders ?? []).slice(0, MAX_FOLDERS).map(normalizeFolder),
     items: (s.data?.items ?? []).slice(0, MAX_ITEMS).map(normalizeItem),
   };
   const totals = computeTotals(data);
-  const updated = await d
-    .update(lists)
-    .set({
-      title: (s.title ?? "Untitled list").slice(0, 200),
-      description: s.description ?? null,
-      displayUnit: s.displayUnit,
-      data,
-      baseWeightMg: totals.baseMg,
-      wornWeightMg: totals.wornMg,
-      consumableWeightMg: totals.consumableMg,
-      totalWeightMg: totals.totalMg,
-      itemCount: totals.itemCount,
-      version: row.version + 1,
-      updatedAt: new Date(),
-    })
-    .where(eq(lists.id, row.id))
-    .returning();
-  return updated[0] ? rowToSnapshot(updated[0]) : null;
+  const title = (s.title ?? "Untitled list").slice(0, 200);
+  const displayUnit: Unit = (["g", "kg", "oz", "lb"] as Unit[]).includes(s.displayUnit as Unit)
+    ? (s.displayUnit as Unit)
+    : "g";
+
+  // CAS like the mutate path: re-read + version-guard so a concurrent edit can't
+  // be silently lost — and snapshot the CURRENT (fresh) state before overwriting,
+  // so that edit is itself recoverable.
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const row = await findByEditToken(editToken, d);
+    if (!row) return null;
+    await captureSnapshot(d, row, "before restore");
+    const updated = await d
+      .update(lists)
+      .set({
+        title,
+        description: s.description ?? null,
+        displayUnit,
+        data,
+        baseWeightMg: totals.baseMg,
+        wornWeightMg: totals.wornMg,
+        consumableWeightMg: totals.consumableMg,
+        totalWeightMg: totals.totalMg,
+        itemCount: totals.itemCount,
+        version: row.version + 1,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(lists.id, row.id), eq(lists.version, row.version)))
+      .returning();
+    if (updated[0]) return rowToSnapshot(updated[0]);
+    // version moved under us — retry against the latest (re-capture the newer state)
+  }
+  throw createError({ statusCode: 409, statusMessage: "Restore contention — retry" });
 }
 
 export async function getByShareCode(code: string): Promise<ListSnapshot | null> {
@@ -300,6 +304,12 @@ export async function applyOpsByEditToken(
     const data: ListData = { folders: state.folders, items: state.items };
     const totals = computeTotals(data);
 
+    // Throttle off the in-hand row (no extra query). Stamping lastSnapshotAt in
+    // the SAME CAS update serializes the decision by the version guard, so two
+    // concurrent writers can't both snapshot (the loser retries + sees it set).
+    const lastSnap = row.lastSnapshotAt ? new Date(row.lastSnapshotAt).getTime() : 0;
+    const doSnapshot = Date.now() - lastSnap >= SNAPSHOT_THROTTLE_MS;
+
     const updated = await d
       .update(lists)
       .set({
@@ -314,13 +324,14 @@ export async function applyOpsByEditToken(
         itemCount: totals.itemCount,
         version: row.version + 1,
         updatedAt: new Date(),
+        ...(doSnapshot ? { lastSnapshotAt: new Date() } : {}),
       })
       .where(and(eq(lists.id, row.id), eq(lists.version, row.version)))
       .returning();
 
     if (updated[0]) {
-      // throttled recovery point of the PRE-edit state (best-effort; never blocks)
-      await snapshotRow(d, row, "edit");
+      // pre-edit recovery point (best-effort; only ~once per throttle window)
+      if (doSnapshot) await captureSnapshot(d, row, "edit");
       return rowToSnapshot(updated[0]);
     }
     // version moved under us — retry against the latest

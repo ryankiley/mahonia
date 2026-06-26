@@ -58,6 +58,9 @@ export const lists = pgTable(
     flagged: boolean("flagged").notNull().default(false),
     // optional recovery (generated phrase only); not used yet
     claimPhraseHash: text("claim_phrase_hash"),
+    // when this list was last auto-snapshotted (drives the snapshot throttle from
+    // the in-hand row, so the hot mutate path needs no extra query)
+    lastSnapshotAt: timestamp("last_snapshot_at", { withTimezone: true }),
     // optimistic concurrency + live-sync counter
     version: integer("version").notNull().default(1),
     status: text("status").notNull().default("active"), // active | hidden | removed
