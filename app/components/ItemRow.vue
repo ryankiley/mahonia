@@ -211,7 +211,7 @@ function openFix() {
 <style scoped>
 .item {
   display: grid;
-  grid-template-columns: 1fr 56px 84px 110px 68px;
+  grid-template-columns: var(--item-cols);
   /* baseline so the name, qty, weight, unit + class text all sit on one line */
   align-items: baseline;
   gap: var(--space-3);
@@ -221,7 +221,7 @@ function openFix() {
 
 /* read-only (share view) */
 .item--ro {
-  grid-template-columns: 1fr 44px 96px;
+  grid-template-columns: var(--item-cols-ro);
 }
 .item__roname {
   min-width: 0;
@@ -233,7 +233,7 @@ function openFix() {
 /* packing / checklist — a big tap target */
 .item--check {
   display: grid;
-  grid-template-columns: auto 1fr 44px 96px;
+  grid-template-columns: auto var(--item-cols-ro);
   align-items: baseline;
   gap: var(--space-3);
   cursor: pointer;
@@ -370,7 +370,7 @@ function openFix() {
      (classification + remove) sit on a quiet second row */
   .item {
     align-items: baseline;
-    grid-template-columns: 1fr 44px 92px;
+    grid-template-columns: var(--item-cols-mobile);
     grid-template-areas:
       "name qty weight"
       "class class del";

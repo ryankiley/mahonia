@@ -168,7 +168,7 @@ const badge = (r: CatalogResult) => (r.verified ? "✓" : (r.weightSource[0] || 
    column (cols 4–5 reserved but empty, matching class + actions) */
 .ac--add {
   display: grid;
-  grid-template-columns: 1fr 56px 84px 110px 68px;
+  grid-template-columns: var(--item-cols);
   gap: var(--space-3);
   align-items: baseline;
 }
@@ -183,7 +183,7 @@ const badge = (r: CatalogResult) => (r.verified ? "✓" : (r.weightSource[0] || 
 }
 @media (max-width: 560px) {
   .ac--add {
-    grid-template-columns: 1fr 44px 92px;
+    grid-template-columns: var(--item-cols-mobile);
   }
 }
 .ac__unit {
@@ -197,7 +197,7 @@ const badge = (r: CatalogResult) => (r.verified ? "✓" : (r.weightSource[0] || 
   position: absolute;
   left: 0;
   right: 0;
-  top: calc(100% + var(--space-px));
+  top: calc(100% + var(--space-1));
   z-index: 30;
   max-height: 320px;
   overflow-y: auto;

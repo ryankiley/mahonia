@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { CircleMinus } from "@lucide/vue";
 import { STARTER_FOLDERS } from "~~/shared/categories";
 import { TRIP_TYPES, type DiscoveryCard, type FeedView } from "~~/shared/discovery";
 import type { Folder, ListData, ListSnapshot } from "~~/shared/types";
@@ -183,7 +184,7 @@ function onFile(e: Event) {
               aria-label="Remove from this device (you lose edit access)"
               @click.prevent="removeList(l.editToken)"
             >
-              ✕
+              <CircleMinus :size="15" />
             </button>
           </NuxtLink>
         </li>
@@ -285,7 +286,7 @@ function onFile(e: Event) {
   flex-wrap: wrap;
 }
 .import__err {
-  color: var(--cat-firstaid);
+  color: var(--ink);
 }
 .mylists {
   padding-block: var(--space-7);

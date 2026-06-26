@@ -73,13 +73,13 @@ const meta = computed(() => {
 }
 .lcard__spark {
   display: flex;
-  gap: 2px;
-  height: 6px;
+  gap: var(--space-px);
+  height: var(--bar-h);
   margin-top: var(--space-1);
 }
 .lcard__seg {
   flex-basis: 0;
-  min-width: 3px;
+  min-width: var(--bar-seg-min);
 }
 .lcard__foot {
   display: flex;

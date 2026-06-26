@@ -44,11 +44,11 @@ const segments = computed(() => {
 .catbar__track {
   display: flex;
   gap: var(--space-px);
-  height: 6px;
+  height: var(--bar-h);
 }
 .catbar__seg {
   flex-basis: 0;
-  min-width: 3px;
+  min-width: var(--bar-seg-min);
 }
 .catbar__legend {
   display: flex;

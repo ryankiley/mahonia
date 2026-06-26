@@ -32,7 +32,7 @@ function onCommit(p: {
 
 <template>
   <section class="folder">
-    <header class="folder__head">
+    <header class="folder__head" :class="{ 'folder__head--ro': readonly }">
       <div class="folder__title">
         <span v-if="readonly" class="folder__name">{{ folder.name }}</span>
         <input
@@ -75,10 +75,14 @@ function onCommit(p: {
 /* same column template as ItemRow so folder totals line up with item weights */
 .folder__head {
   display: grid;
-  grid-template-columns: 1fr 56px 84px 110px 68px;
+  grid-template-columns: var(--item-cols);
   gap: var(--space-3);
   align-items: baseline;
   margin-bottom: var(--space-1);
+}
+/* read view: match the read-only item template so folder totals line up with item weights */
+.folder__head--ro {
+  grid-template-columns: var(--item-cols-ro);
 }
 .folder__title {
   grid-column: 1 / 3;

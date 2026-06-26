@@ -201,9 +201,15 @@ function onPublished(e: { status: string }) {
           placeholder="Untitled list"
           @change="c.setMeta({ title: ($event.target as HTMLInputElement).value })"
         />
-        <span v-if="snapshot && statusLabel" class="savechip" :data-state="status">
-          <SaveCheck v-if="status === 'synced'" :size="13" />
-          <i v-else class="savechip__dot" />{{ statusLabel }}
+        <span
+          v-if="snapshot && statusLabel"
+          class="savechip"
+          :data-state="status"
+          :title="statusLabel"
+          :aria-label="statusLabel"
+        >
+          <SaveCheck v-if="status === 'synced'" :size="14" />
+          <template v-else>{{ statusLabel }}</template>
         </span>
         <template v-if="snapshot">
           <button class="btn btn--sm btn--primary editor__share" @click="copyShare">Share</button>
@@ -285,7 +291,7 @@ function onPublished(e: { status: string }) {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding-block: var(--space-2);
+  padding-block: var(--space-3);
 }
 .editor__title {
   flex: 0 1 auto;
@@ -302,25 +308,19 @@ function onPublished(e: { status: string }) {
 .editor__title:focus {
   border-bottom-color: var(--accent);
 }
-/* small "Saved" chip hugging the title; actions get pushed to the right */
+/* quiet save status hugging the title — synced shows just the save-check icon (no
+   label), saving/error show their text. Monochrome: no pill, no colour. */
 .savechip {
   flex: none;
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: 2px var(--space-2);
-  background: var(--paper-3);
-  color: var(--ink-2);
+  gap: var(--space-1);
+  color: var(--ink-3);
   font-size: var(--text-sm);
   white-space: nowrap;
 }
-.savechip__dot {
-  width: 5px;
-  height: 5px;
-  background: var(--ink-3);
-}
-.savechip[data-state="synced"] .savechip__dot {
-  background: var(--ink);
+.savechip[data-state="synced"] {
+  color: var(--ink-2);
 }
 .savechip[data-state="error"] {
   color: var(--ink);
@@ -334,7 +334,7 @@ function onPublished(e: { status: string }) {
 .menu__list {
   position: absolute;
   right: 0;
-  top: calc(100% + 4px);
+  top: calc(100% + var(--space-1));
   min-width: 180px;
   z-index: 20;
   padding: var(--space-1);

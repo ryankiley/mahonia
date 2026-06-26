@@ -75,4 +75,13 @@
 
   /* ---- layout ---- */
   --measure: 56rem;
+
+  /* ---- component primitives — shared structure so duplicated values can't drift ---- */
+  /* item rows + folder headers share ONE column template so weights stay aligned */
+  --item-cols: 1fr 56px 84px 110px 68px; /* edit: name · qty · weight+unit · class · actions */
+  --item-cols-ro: 1fr 44px 96px; /* read / checklist: name · qty · weight */
+  --item-cols-mobile: 1fr 44px 92px; /* name · qty · weight on one row */
+  /* category sparkline (the one data-viz mark — CategoryBar + ListCard) */
+  --bar-h: 6px;
+  --bar-seg-min: 3px;
 }

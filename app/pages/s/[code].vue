@@ -87,7 +87,7 @@ onBeforeUnmount(() => poll && clearInterval(poll));
 .topbar__inner {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
   padding-block: var(--space-3);
 }
 .brand {
