@@ -56,7 +56,7 @@ Zpacks,Plex Solo Classic,Classic (thicker DCF),shelter,411068,manufacturer,https
 Zpacks,Triplex,,shelter,612350,manufacturer,https://zpacks.com/products/bargain-triplex-tent-white
 Big Agnes,Divide Insulated,"Regular (20"" x 72""), R-value 4",sleep,635000,manufacturer,https://www.bigagnes.com/products/divide-insulated.json
 Big Agnes,Rapide SL Insulated,Regular,sleep,510291,manufacturer,https://www.bigagnes.com/products/rapide-sl-insulated
-Big Agnes,Rapide SL Pillow,One size (no Medium variant in current catalog),sleep,45359,manufacturer,https://www.bigagnes.com/products/rapide-sl-pillow
+Big Agnes,Rapide SL Pillow,One size,sleep,45359,manufacturer,https://www.bigagnes.com/products/rapide-sl-pillow
 Enlightened Equipment,Enigma,"10F, 850FP, Regular/Regular, 10D/10D (manufacturer SKU page, base config)",sleep,699666,manufacturer,https://web.archive.org/web/20211201053529id_/https://enlightenedequipment.com/enigma-850-10-f-12-c-regular-regular-navy-10d-charcoal-10d-5900-23/
 Enlightened Equipment,Enigma,"20F, 950FP, Regular/Regular (closest config listed on page; page does not state an 850FP Regular/Regular total weight)",sleep,520214,manufacturer,https://enlightenedequipment.com/quilt-comparison
 Enlightened Equipment,Enigma,"30F, 850FP, Regular/Regular (manufacturer SKU page, base config, sewn footbox)",sleep,508590,manufacturer,https://web.archive.org/web/20221209030426id_/https://enlightenedequipment.com/copy-of-enigma-850-30-1-regular-regular-graphite-7d-salmon-7d-6144-3-1/
@@ -86,6 +86,7 @@ Nemo,Tensor Trail Ultralight Insulated,Regular,sleep,394058,manufacturer,https:/
 NEMO,Disco 30,"30F, men's Regular, 650FP down (Endless Promise); NEMO's stated weight per Treeline Review manufacturer-sourced spec table",sleep,878835,manufacturer,https://www.treelinereview.com/gearreviews/nemo-disco-endless-promise-sleeping-bag
 NEMO,Tensor All-Season Ultralight Insulated,"Regular (rectangular, 72"" x 20""), R-value 5.4",sleep,453592,manufacturer,https://www.campman.com/camp-hike/nemo-tensor-all-season-sleeping-pad/
 NEMO,Tensor Extreme Conditions Ultralight Insulated,"Regular Mummy (72"" x 20""), R-value 8.5",sleep,481942,manufacturer,https://www.campman.com/camp-hike/nemo-tensor-extreme-conditions-sleeping-pad/
+Pillow Strap,Camping Pillowcase,Medium,sleep,65204,manufacturer,https://www.pillowstrap.com/products/medium-grey
 REI Co-op,Magma 30,"30F, men's Regular (Left Zip), 850FP goose down",sleep,561320,manufacturer,https://web.archive.org/web/20200311095059id_/https://www.rei.com/product/148246/rei-co-op-magma-30-sleeping-bag-mens
 Sea to Summit,Aeros Premium Pillow,Regular,sleep,99223,manufacturer,https://seatosummit.com/products/aeros-pillow-premium
 Sea to Summit,Ember (EbII / 30F),"30F/-1C, Regular, 850+ loft Ultra-Dry down (current Ember Down Quilt; EbII = 30F variant)",sleep,544000,manufacturer,https://seatosummit.com/products/the-ember-down-quilt
@@ -220,6 +221,7 @@ Dirty Girl Gaiters,Dirty Girl Gaiters,One pair (0.7 oz each),clothing,39689,meas
 Enlightened Equipment,Copperfield Wind Pants,"Men's, starting weight (lightest fabric/size)",clothing,37138,manufacturer,https://enlightenedequipment.com/mens-copperfield-wind-pants-cus/
 Enlightened Equipment,Torrid APEX Jacket,Men's M,clothing,238136,manufacturer,https://www.adventurealan.com/enlightened-equipment-torrid-apex-jacket-review/
 Frogg Toggs,Ultra-Lite2 Rain Suit (jacket + pants),Men's,clothing,362874,manufacturer,https://www.froggtoggs.com/products/the-frogg-toggsr-ultra-lite2tm-4749
+Goldwin,GORE-TEX 3L Jacket,"GL05140, size 3 (M)",clothing,420000,manufacturer,https://usshop.goldwin-global.com/products/gl05140
 Hoka,Challenger 7,"Men's, per pair (US size 9)",clothing,504622,manufacturer,https://www.treelinereview.com/gearreviews/hoka-challenger-7-running-shoe-review
 Hoka,Speedgoat 6,"Men's, per shoe (US size 9)",clothing,277825,manufacturer,https://www.treelinereview.com/gearreviews/hoka-speedgoat-6
 Hoka,Torrent 4,"Men's, per shoe (US size 9)",clothing,246641,manufacturer,https://www.runningwarehouse.eu/HOKA_Torrent_4/descpage-HTO4CGN-EN.html
@@ -317,6 +319,7 @@ MSR,IsoPro Fuel Canister,450g canister (net fuel),consumable,450000,manufacturer
 Nature Valley,Crunchy Granola Bars (Oats 'n Honey),one 2-bar pouch (net),consumable,42000,manufacturer,https://www.naturevalley.com/products/oats-n-honey-crunchy-granola-bars
 Peak Refuel,Beef Stroganoff,"pouch (2 servings, net)",consumable,141748,manufacturer,https://peakrefuel.com/products/beef-stroganoff
 Pop-Tarts,Frosted Strawberry Toaster Pastries,one pouch (2 pastries),consumable,96000,manufacturer,https://foods.fatsecret.com/calories-nutrition/kelloggs/pop-tarts-frosted---strawberry/1-pastry
+PROBAR,BOLT Organic Energy Chews,single pouch,consumable,59534,manufacturer,https://theprobar.com/products/berry-blast-bolt-energy-chew
 PROBAR,MEAL Bar,single bar,consumable,85049,manufacturer,https://theprobar.com/collections/meal-bar
 RXBAR,Protein Bar (Chocolate Sea Salt),single bar,consumable,51880,manufacturer,https://www.amazon.com/RXBAR-Whole-Protein-Chocolate-1-83oz/dp/B07CWXX69K
 Skratch Labs,Hydration Sport Drink Mix,single-serving stick,consumable,22000,manufacturer,https://www.skratchlabs.com/products/hydration-sport-drink-mix

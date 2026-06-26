@@ -1,0 +1,37 @@
+{
+  "rows": [
+    {
+      "brand": "PROBAR",
+      "name": "BOLT Organic Energy Chews",
+      "variant": "single pouch",
+      "category_hint": "consumable",
+      "weight_value": 2.1,
+      "weight_unit": "oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://theprobar.com/products/berry-blast-bolt-energy-chew",
+      "quote": "2.1 oz. Pouch (net wt per pouch, same across flavors). User's 'Bolt Energy Chews' = PROBAR BOLT Organic Energy Chews."
+    },
+    {
+      "brand": "Goldwin",
+      "name": "GORE-TEX 3L Jacket",
+      "variant": "GL05140, size 3 (M)",
+      "category_hint": "clothing",
+      "weight_value": 420,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://usshop.goldwin-global.com/products/gl05140",
+      "quote": "Approx. 420g (The weight for size 3). User's 'Goldwin 0 3L' = Goldwin GORE-TEX 3L Jacket (3-layer shell)."
+    },
+    {
+      "brand": "Pillow Strap",
+      "name": "Camping Pillowcase",
+      "variant": "Medium",
+      "category_hint": "sleep",
+      "weight_value": 2.3,
+      "weight_unit": "oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.pillowstrap.com/products/medium-grey",
+      "quote": "Medium camping pillowcase: 2.3 oz (65 g); fits pillows 15-18 in wide. Straps a pillow onto a sleeping pad (the user's 'Pillow Strap - Medium')."
+    }
+  ]
+}
