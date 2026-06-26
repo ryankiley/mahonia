@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { X } from "@lucide/vue";
+import { StickyNote, X } from "@lucide/vue";
 import type { Classification, Item, ListSnapshot } from "~~/shared/types";
 import { effectiveClassification, formatWeight, lineMg, parseWeightInput } from "~~/shared/weights";
 
@@ -49,12 +49,25 @@ function onNameCommit(p: {
   c.updateItem(props.item.id, patch);
 }
 
-const CLASS_OPTS: { value: Classification | ""; label: string }[] = [
-  { value: "", label: "Auto" },
+const CLASS_OPTS: { value: Classification; label: string }[] = [
   { value: "base", label: "Base" },
   { value: "worn", label: "Worn" },
-  { value: "consumable", label: "Consum." },
+  { value: "consumable", label: "Consumable" },
 ];
+function onClass(e: Event) {
+  // folders always default to base, so there's no "Auto" — store base as null (default)
+  const v = (e.target as HTMLSelectElement).value as Classification;
+  c.updateItem(props.item.id, { classification: v === "base" ? null : v });
+}
+
+// notes: edited via a hover icon button (not an always-present field); the note
+// shows as live text once it has content
+const noteOpen = ref(false);
+const noteRef = ref<HTMLInputElement | null>(null);
+function openNote() {
+  noteOpen.value = true;
+  nextTick(() => noteRef.value?.focus());
+}
 
 // "Fix for everyone": only offered once the user's weight diverges from the
 // catalog value they linked — i.e. they think the canonical spec is wrong.
@@ -137,33 +150,43 @@ function openFix() {
       <select
         class="field item__class"
         :class="[`item__class--${effClass}`, { 'item__class--quiet': effClass === 'base' }]"
-        :value="item.classification ?? ''"
+        :value="effClass"
         :title="`Counts as ${effClass}`"
-        @change="c.updateItem(item.id, { classification: (($event.target as HTMLSelectElement).value || null) as any })"
+        @change="onClass"
       >
-        <option v-for="o in CLASS_OPTS" :key="o.label" :value="o.value">
-          {{ o.value === "" ? `Auto · ${effClass}` : o.label }}
-        </option>
+        <option v-for="o in CLASS_OPTS" :key="o.value" :value="o.value">{{ o.label }}</option>
       </select>
 
-      <button
-        class="btn btn--icon btn--ghost item__del"
-        title="Remove item"
-        aria-label="Remove item"
-        @click="c.removeItem(item.id)"
-      >
-        <X :size="16" />
-      </button>
+      <div class="item__actions">
+        <button
+          class="btn btn--icon btn--ghost item__note-btn"
+          :class="{ 'is-active': !!item.description }"
+          :title="item.description ? 'Edit note' : 'Add a note'"
+          aria-label="Add a note"
+          @click="openNote"
+        >
+          <StickyNote :size="15" />
+        </button>
+        <button
+          class="btn btn--icon btn--ghost item__del"
+          title="Remove item"
+          aria-label="Remove item"
+          @click="c.removeItem(item.id)"
+        >
+          <X :size="16" />
+        </button>
+      </div>
     </div>
 
-    <!-- note: live text under the item, edited in place (no boxed field) -->
-    <textarea
+    <!-- note: a single-line live-text field; appears once it has content or the note button is clicked -->
+    <input
+      v-if="item.description || noteOpen"
+      ref="noteRef"
       class="item__note"
       :value="item.description ?? ''"
-      rows="1"
       placeholder="Add a note"
       aria-label="Item note"
-      @change="c.updateItem(item.id, { description: ($event.target as HTMLTextAreaElement).value })"
+      @change="c.updateItem(item.id, { description: ($event.target as HTMLInputElement).value })"
     />
 
     <button v-if="showFix" type="button" class="item__under-link t-sm" @click="openFix">
@@ -175,7 +198,7 @@ function openFix() {
 <style scoped>
 .item {
   display: grid;
-  grid-template-columns: 1fr 56px 84px 110px 32px;
+  grid-template-columns: 1fr 56px 84px 110px 68px;
   /* baseline so the name, qty, weight, unit + class text all sit on one line */
   align-items: baseline;
   gap: var(--space-3);
@@ -283,7 +306,15 @@ function openFix() {
 .item__class--quiet:focus {
   opacity: 1;
 }
-/* remove control is quiet at rest — fades in on row hover/focus (always on touch) */
+/* row controls (note + remove) are quiet at rest — fade in on row hover/focus
+   (always on touch); the note button stays lit when a note exists */
+.item__actions {
+  display: flex;
+  align-items: center;
+  justify-self: end;
+  gap: var(--space-1);
+}
+.item__note-btn,
 .item__del {
   color: var(--ink-3);
   opacity: 0;
@@ -291,28 +322,31 @@ function openFix() {
     opacity var(--dur) var(--ease),
     color var(--dur) var(--ease);
 }
+.item-wrap:hover .item__note-btn,
 .item-wrap:hover .item__del,
+.item-wrap:focus-within .item__note-btn,
 .item-wrap:focus-within .item__del {
   opacity: 1;
 }
+.item__note-btn.is-active {
+  opacity: 1;
+  color: var(--ink-2);
+}
+.item__note-btn:hover,
 .item__del:hover {
   color: var(--ink);
 }
 
-/* note — live text under the item (no box); auto-grows, reads as plain text */
+/* note — a single-line live-text field under the item (no box, no resize handle) */
 .item__note {
-  display: block;
   width: 100%;
-  field-sizing: content;
   min-height: 0;
   margin: var(--space-2) 0 0;
   padding: 0;
   border: 0;
   background: none;
-  resize: none;
   color: var(--ink-2);
   font-size: var(--text-sm);
-  line-height: 1.4;
 }
 .item__note::placeholder {
   color: var(--ink-3);
@@ -321,34 +355,10 @@ function openFix() {
   outline: none;
   color: var(--ink);
 }
-/* an EMPTY note collapses away; the "Add a note" affordance reveals on hover/focus
-   (and is always present on touch, which has no hover) */
-.item__note:placeholder-shown {
-  max-height: 0;
-  margin: 0;
-  opacity: 0;
-  overflow: hidden;
-  transition:
-    max-height var(--dur) var(--ease),
-    opacity var(--dur) var(--ease),
-    margin var(--dur) var(--ease);
-}
-/* reveal the empty-note affordance on row hover or when the note itself is focused —
-   NOT when the name is focused (that left them cramped together) */
-.item-wrap:hover .item__note:placeholder-shown,
-.item__note:placeholder-shown:focus {
-  max-height: 1.6em;
-  margin: var(--space-2) 0 0;
-  opacity: 1;
-}
 @media (hover: none) {
+  .item__note-btn,
   .item__del,
   .item__class--quiet {
-    opacity: 1;
-  }
-  .item__note:placeholder-shown {
-    max-height: 1.6em;
-    margin: var(--space-2) 0 0;
     opacity: 1;
   }
 }
@@ -395,7 +405,7 @@ function openFix() {
     grid-area: class;
     justify-self: start;
   }
-  .item__del {
+  .item__actions {
     grid-area: del;
     justify-self: end;
   }

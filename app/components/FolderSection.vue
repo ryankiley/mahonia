@@ -75,7 +75,7 @@ function onCommit(p: {
 /* same column template as ItemRow so folder totals line up with item weights */
 .folder__head {
   display: grid;
-  grid-template-columns: 1fr 56px 84px 110px 32px;
+  grid-template-columns: 1fr 56px 84px 110px 68px;
   gap: var(--space-3);
   align-items: baseline;
   margin-bottom: var(--space-1);
@@ -101,6 +101,7 @@ function onCommit(p: {
 }
 .folder__del {
   grid-column: 5;
+  justify-self: end;
   opacity: 0;
   transition: opacity var(--dur) var(--ease);
 }
