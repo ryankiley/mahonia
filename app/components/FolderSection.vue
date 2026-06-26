@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { X } from "@lucide/vue";
+import { CircleMinus } from "@lucide/vue";
 import type { Folder, ListSnapshot } from "~~/shared/types";
 import { lineMg, formatWeight } from "~~/shared/weights";
 
@@ -51,7 +51,7 @@ function onCommit(p: {
         aria-label="Remove folder"
         @click="c.removeFolder(folder.id)"
       >
-        <X :size="16" />
+        <CircleMinus :size="16" />
       </button>
     </header>
 

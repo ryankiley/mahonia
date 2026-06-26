@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { StickyNoteMinus, StickyNotePlus, X } from "@lucide/vue";
+import { CircleMinus, StickyNoteMinus, StickyNotePlus } from "@lucide/vue";
 import type { Classification, Item, ListSnapshot } from "~~/shared/types";
 import { effectiveClassification, formatWeight, lineMg, parseWeightInput } from "~~/shared/weights";
 
@@ -185,7 +185,7 @@ function openFix() {
           aria-label="Remove item"
           @click="c.removeItem(item.id)"
         >
-          <X :size="16" />
+          <CircleMinus :size="16" />
         </button>
       </div>
     </div>
