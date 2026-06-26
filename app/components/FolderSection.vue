@@ -9,6 +9,16 @@ const props = withDefaults(
 );
 const c = useGearList();
 
+// drag-to-reorder: this folder is a drop zone; show a tail line when an item is
+// being dragged to the end of it (no specific row targeted)
+const dnd = useItemDnd();
+const isAppendTarget = computed(
+  () =>
+    dnd.dragId.value != null &&
+    dnd.drop.value?.folderId === props.folder.id &&
+    dnd.drop.value?.beforeId == null,
+);
+
 const items = computed(() =>
   props.list.items
     .filter((i) => i.folderId === props.folder.id)
@@ -31,7 +41,7 @@ function onCommit(p: {
 </script>
 
 <template>
-  <section class="folder">
+  <section class="folder" :data-folder="folder.id">
     <header class="folder__head" :class="{ 'folder__head--ro': readonly }">
       <div class="folder__title">
         <span v-if="readonly" class="folder__name">{{ folder.name }}</span>
@@ -59,6 +69,8 @@ function onCommit(p: {
       <ItemRow v-for="it in items" :key="it.id" :list="list" :item="it" :packed="packed" :readonly="readonly" />
       <p v-if="!items.length && readonly" key="empty-ro" class="t-sm t-muted folder__empty">—</p>
     </TransitionGroup>
+
+    <div v-if="isAppendTarget" class="folder__droptail" aria-hidden="true" />
 
     <div v-if="!packed && !readonly" class="folder__add">
       <ItemInput :unit="list.displayUnit" with-weight @commit="onCommit" />
@@ -136,6 +148,12 @@ function onCommit(p: {
 }
 .folder__empty {
   color: var(--ink-3);
+}
+/* drag-to-reorder: insertion line when dropping at the end of this folder */
+.folder__droptail {
+  height: 2px;
+  background: var(--ink);
+  margin: var(--space-1) 0;
 }
 /* a newly added item rises + fades in (initial load stays static — no `appear`) */
 .item-enter-active {

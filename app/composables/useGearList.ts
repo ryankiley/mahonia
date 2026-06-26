@@ -261,6 +261,27 @@ function create() {
     const mg = parseWeightInput(raw, snapshot.value.displayUnit);
     if (mg !== null) updateItem(id, { unitWeightMg: mg, weightOverridden: true });
   }
+  // Drag-to-reorder: move item `id` into `folderId`, positioned before `beforeId`
+  // (null = append to that folder's end). Reindexes the target folder to clean
+  // 0..n-1 integers in the new order — collision-proof and self-healing against
+  // any pre-existing duplicate sortOrders (which would otherwise re-sort
+  // ambiguously on reload). One moveItem op per item that actually shifts; all
+  // batched into a single flush.
+  function moveItem(id: string, folderId: string | null, beforeId: string | null) {
+    if (!snapshot.value) return;
+    const it = snapshot.value.items.find((i) => i.id === id);
+    if (!it) return;
+    const target = snapshot.value.items
+      .filter((i) => i.folderId === folderId && i.id !== id)
+      .sort((a, b) => a.sortOrder - b.sortOrder);
+    let idx = beforeId == null ? target.length : target.findIndex((s) => s.id === beforeId);
+    if (idx < 0) idx = target.length;
+    const ordered = [...target.slice(0, idx), it, ...target.slice(idx)];
+    ordered.forEach((item, i) => {
+      const moved = item.id === id ? item.folderId !== folderId || item.sortOrder !== i : item.sortOrder !== i;
+      if (moved) dispatch({ t: "moveItem", id: item.id, folderId, sortOrder: i });
+    });
+  }
 
   async function rotate(): Promise<string | null> {
     try {
@@ -313,7 +334,7 @@ function create() {
     get editToken() { return editToken; },
     load, dispose, rotate,
     setMeta, setUnit, addFolder, updateFolder, removeFolder,
-    addItem, updateItem, removeItem, setItemWeight,
+    addItem, updateItem, removeItem, setItemWeight, moveItem,
     pendingUndo, undoRemove, dismissUndo,
   };
 }

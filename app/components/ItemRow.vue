@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChevronDown, CircleMinus, StickyNoteMinus, StickyNotePlus } from "@lucide/vue";
+import { ChevronDown, CircleMinus, GripVertical, StickyNoteMinus, StickyNotePlus } from "@lucide/vue";
 import type { Classification, Item, ListSnapshot } from "~~/shared/types";
 import { effectiveClassification, formatWeight, lineMg, parseWeightInput } from "~~/shared/weights";
 
@@ -8,6 +8,16 @@ const props = withDefaults(
   { packed: false, readonly: false },
 );
 const c = useGearList();
+
+// drag-to-reorder (editable rows only)
+const dnd = useItemDnd();
+const isDragging = computed(() => dnd.dragId.value === props.item.id);
+const isDropBefore = computed(
+  () =>
+    dnd.dragId.value != null &&
+    dnd.dragId.value !== props.item.id &&
+    dnd.drop.value?.beforeId === props.item.id,
+);
 
 const weightDisplay = computed(() =>
   props.item.unitWeightMg > 0
@@ -134,7 +144,12 @@ function openFix() {
   </label>
 
   <!-- editable row (default) -->
-  <div v-else class="item-wrap">
+  <div
+    v-else
+    class="item-wrap"
+    :data-item-id="item.id"
+    :class="{ 'is-dragging': isDragging, 'is-drop-before': isDropBefore }"
+  >
     <div class="item">
       <ItemInput
         class="item__name"
@@ -172,6 +187,14 @@ function openFix() {
       </div>
 
       <div class="item__actions">
+        <button
+          class="btn btn--icon btn--ghost item__grip"
+          title="Drag to reorder"
+          :aria-label="`Reorder ${item.name || 'item'}`"
+          @pointerdown="dnd.start(item.id, $event)"
+        >
+          <GripVertical :size="15" />
+        </button>
         <button
           class="btn btn--icon btn--ghost item__note-btn"
           :class="{ 'is-active': !!item.description }"
@@ -338,6 +361,7 @@ function openFix() {
   justify-self: end;
   gap: var(--space-1);
 }
+.item__grip,
 .item__note-btn,
 .item__del {
   color: var(--ink-3);
@@ -346,9 +370,36 @@ function openFix() {
 .item__note-btn.is-active {
   color: var(--ink-2);
 }
+.item__grip:hover,
 .item__note-btn:hover,
 .item__del:hover {
   color: var(--ink);
+}
+/* drag-to-reorder */
+.item-wrap {
+  position: relative;
+}
+.item-wrap.is-dragging {
+  opacity: 0.4;
+  pointer-events: none;
+}
+/* insertion line marking where the dragged row will land */
+.item-wrap.is-drop-before::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--ink);
+  pointer-events: none;
+}
+.item__grip {
+  cursor: grab;
+  touch-action: none;
+}
+.item__grip:active {
+  cursor: grabbing;
 }
 
 /* note — a single-line live-text field under the item (no box, no resize handle) */

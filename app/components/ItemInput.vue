@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { BadgeCheck } from "@lucide/vue";
 import type { Unit } from "~~/shared/types";
 import { formatWeight } from "~~/shared/weights";
 import type { CatalogResult } from "~/composables/useCatalogSearch";
@@ -109,7 +110,9 @@ function onKeydown(e: KeyboardEvent) {
   }
 }
 
-const badge = (r: CatalogResult) => (r.verified ? "✓" : (r.weightSource[0] || "?").toUpperCase());
+// non-verified rows show a one-letter weight-source tag; verified rows get the
+// BadgeCheck icon instead (see template)
+const srcLetter = (r: CatalogResult) => (r.weightSource[0] || "?").toUpperCase();
 </script>
 
 <template>
@@ -123,7 +126,7 @@ const badge = (r: CatalogResult) => (r.verified ? "✓" : (r.weightSource[0] || 
       @keydown="onKeydown"
       @focus="focused = true; open = true"
     />
-    <div v-if="withWeight" class="ac__weightcell">
+    <div v-if="withWeight && (focused || draft || weightDraft)" class="ac__weightcell">
       <input
         v-model="weightDraft"
         class="field field--num"
@@ -153,7 +156,10 @@ const badge = (r: CatalogResult) => (r.verified ? "✓" : (r.weightSource[0] || 
         </span>
         <span class="ac__metaright">
           <span class="t-num ac__w">{{ formatWeight(r.weightMg, unit) }}</span>
-          <span class="ac__src" :title="r.weightSource">{{ badge(r) }}</span>
+          <span class="ac__src" :title="r.weightSource">
+            <BadgeCheck v-if="r.verified" :size="14" :stroke-width="2" aria-hidden="true" />
+            <template v-else>{{ srcLetter(r) }}</template>
+          </span>
         </span>
       </li>
     </ul>
@@ -236,9 +242,11 @@ const badge = (r: CatalogResult) => (r.verified ? "✓" : (r.weightSource[0] || 
   color: var(--ink-2);
 }
 .ac__src {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font-size: var(--text-sm);
   color: var(--accent);
   width: 1.2em;
-  text-align: center;
 }
 </style>
