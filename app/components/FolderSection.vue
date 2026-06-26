@@ -55,11 +55,11 @@ function onCommit(p: {
       </button>
     </header>
 
-    <div class="folder__items">
+    <TransitionGroup name="item" tag="div" class="folder__items">
       <ItemRow v-for="it in items" :key="it.id" :list="list" :item="it" :packed="packed" :readonly="readonly" />
-      <p v-if="!items.length && !packed && !readonly" class="t-sm t-muted folder__empty">No items yet.</p>
-      <p v-else-if="!items.length && readonly" class="t-sm t-muted folder__empty">—</p>
-    </div>
+      <p v-if="!items.length && !packed && !readonly" key="empty" class="t-sm t-muted folder__empty">No items yet.</p>
+      <p v-else-if="!items.length && readonly" key="empty-ro" class="t-sm t-muted folder__empty">—</p>
+    </TransitionGroup>
 
     <div v-if="!packed && !readonly" class="folder__add">
       <ItemInput :unit="list.displayUnit" with-weight @commit="onCommit" />
@@ -117,11 +117,31 @@ function onCommit(p: {
     grid-column: auto;
   }
 }
+/* rule lines between items — a quiet spec-sheet rhythm; padding here (not on the
+   rows) keeps the gap above/below each rule consistent across all row types */
+.folder__items > * {
+  padding-block: var(--space-2);
+}
+.folder__items > * + * {
+  border-top: 1px solid var(--line);
+}
 .folder__empty {
-  padding: var(--space-2) 0;
+  color: var(--ink-3);
+}
+/* a newly added item rises + fades in (initial load stays static — no `appear`) */
+.item-enter-active {
+  transition:
+    opacity var(--dur) var(--ease),
+    transform var(--dur) var(--ease);
+}
+.item-enter-from {
+  opacity: 0;
+  transform: translateY(8px);
 }
 .folder__add {
-  margin-top: var(--space-1);
+  border-top: 1px solid var(--line);
+  padding-top: var(--space-2);
+  margin-top: 0;
 }
 .folder__addinput {
   width: 100%;

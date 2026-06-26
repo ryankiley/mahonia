@@ -346,6 +346,25 @@ function onCorrected(res: { status: string; itemName?: string }) {
   flex-direction: column;
   gap: var(--space-7);
 }
+/* load reveal: folders cascade in (SPACE10 signature), ~50ms apart */
+.editor__folders > * {
+  animation: rise var(--dur-slow) var(--ease) both;
+}
+.editor__folders > *:nth-child(2) {
+  animation-delay: 50ms;
+}
+.editor__folders > *:nth-child(3) {
+  animation-delay: 100ms;
+}
+.editor__folders > *:nth-child(4) {
+  animation-delay: 150ms;
+}
+.editor__folders > *:nth-child(5) {
+  animation-delay: 200ms;
+}
+.editor__folders > *:nth-child(n + 6) {
+  animation-delay: 250ms;
+}
 .editor__ungrouped {
   padding: var(--space-3) var(--space-4) var(--space-4);
   display: flex;

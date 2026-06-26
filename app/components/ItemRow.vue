@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { StickyNote, X } from "@lucide/vue";
+import { X } from "@lucide/vue";
 import type { Classification, Item, ListSnapshot } from "~~/shared/types";
 import { effectiveClassification, formatWeight, lineMg, parseWeightInput } from "~~/shared/weights";
 
@@ -69,7 +69,6 @@ const showFix = computed(
     props.item.unitWeightMg > 0 &&
     props.item.unitWeightMg !== props.item.catalogWeightMgAtLink,
 );
-const noteOpen = ref(false);
 function openFix() {
   if (props.item.catalogItemId == null || props.item.catalogWeightMgAtLink == null) return;
   correction.open({
@@ -111,7 +110,7 @@ function openFix() {
   </label>
 
   <!-- editable row (default) -->
-  <template v-else>
+  <div v-else class="item-wrap">
     <div class="item">
       <ItemInput
         class="item__name"
@@ -157,29 +156,20 @@ function openFix() {
       </button>
     </div>
 
+    <!-- note: live text under the item, edited in place (no boxed field) -->
     <textarea
-      v-if="noteOpen || item.description"
-      class="field item__notebox"
+      class="item__note"
       :value="item.description ?? ''"
-      rows="2"
-      placeholder="Add a note — pack location, condition, a reminder…"
+      rows="1"
+      placeholder="Add a note"
+      aria-label="Item note"
       @change="c.updateItem(item.id, { description: ($event.target as HTMLTextAreaElement).value })"
     />
 
-    <div v-if="showFix || (!noteOpen && !item.description)" class="item__under">
-      <button
-        v-if="!noteOpen && !item.description"
-        type="button"
-        class="item__under-link t-sm"
-        @click="noteOpen = true"
-      >
-        <StickyNote :size="13" /> Add note
-      </button>
-      <button v-if="showFix" type="button" class="item__under-link t-sm" @click="openFix">
-        Catalog: {{ formatWeight(item.catalogWeightMgAtLink ?? 0, list.displayUnit) }} — suggest a fix
-      </button>
-    </div>
-  </template>
+    <button v-if="showFix" type="button" class="item__under-link t-sm" @click="openFix">
+      Catalog: {{ formatWeight(item.catalogWeightMgAtLink ?? 0, list.displayUnit) }} — suggest a fix
+    </button>
+  </div>
 </template>
 
 <style scoped>
@@ -189,7 +179,8 @@ function openFix() {
   /* baseline so the name, qty, weight, unit + class text all sit on one line */
   align-items: baseline;
   gap: var(--space-3);
-  padding: var(--space-1) 0;
+  /* vertical padding comes from the row wrapper (.folder__items > *) so the rule
+     lines between items sit at a consistent rhythm */
 }
 
 /* read-only (share view) */
@@ -209,7 +200,6 @@ function openFix() {
   grid-template-columns: auto 1fr 44px 96px;
   align-items: baseline;
   gap: var(--space-3);
-  padding: var(--space-2) 0;
   cursor: pointer;
 }
 .item__box {
@@ -254,30 +244,35 @@ function openFix() {
   color: var(--ink);
 }
 
-/* per-item note */
-.item__notebox {
+/* note — live text under the item (no box); auto-grows, reads as plain text */
+.item__note {
+  display: block;
   width: 100%;
+  field-sizing: content;
   min-height: 0;
-  margin: calc(-1 * var(--space-1)) 0 var(--space-2);
-  padding: var(--space-2);
-  resize: vertical;
-  font-size: var(--text-sm);
+  margin: calc(-1 * var(--space-1)) 0 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  resize: none;
   color: var(--ink-2);
-  background: var(--paper-2);
-  border-bottom: 1px solid var(--line);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+}
+.item__note::placeholder {
+  color: var(--ink-3);
+}
+.item__note:focus {
+  outline: none;
+  color: var(--ink);
 }
 
-/* quiet links under a row ("+ note", "suggest a fix") */
-.item__under {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-4);
-  margin: calc(-1 * var(--space-1)) 0 var(--space-2);
-}
+/* quiet "suggest a fix" link under a row */
 .item__under-link {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
+  margin-top: var(--space-1);
   padding: 0;
   background: none;
   border: 0;
