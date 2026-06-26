@@ -226,14 +226,23 @@ function openFix() {
   background: var(--ink);
   border-color: var(--ink);
 }
-.item__box:checked::after {
+.item__box::after {
   content: "";
   width: 4px;
   height: 8px;
   margin-top: -2px;
   border: solid var(--paper);
   border-width: 0 2px 2px 0;
-  transform: rotate(45deg);
+  /* checkmark pops in with a springy overshoot on check (SPACE10's easeOutBack) */
+  transform: rotate(45deg) scale(0);
+  opacity: 0;
+  transition:
+    transform var(--dur) var(--ease-spring),
+    opacity 120ms var(--ease);
+}
+.item__box:checked::after {
+  transform: rotate(45deg) scale(1);
+  opacity: 1;
 }
 .item__cname {
   min-width: 0;

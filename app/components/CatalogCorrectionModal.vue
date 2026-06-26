@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { X } from "@lucide/vue";
 import { formatWeight } from "~~/shared/weights";
 
 const { target, submitting, close, submit } = useCatalogCorrection();
@@ -41,7 +42,12 @@ onKeyStroke("Escape", () => target.value && close());
   <Transition name="ovl">
     <div v-if="target" class="ovl" @click.self="close()">
       <div class="dlg panel" role="dialog" aria-modal="true" aria-label="Fix catalog weight">
-        <p class="t-label">Fix catalog weight</p>
+        <div class="dlg__top">
+          <p class="t-label">Fix catalog weight</p>
+          <button class="btn btn--icon btn--ghost dlg__close" aria-label="Close" @click="close()">
+            <X :size="16" />
+          </button>
+        </div>
         <p class="dlg__item">{{ target.itemName }}</p>
         <p class="t-sm t-muted dlg__lede">
           Catalog lists {{ formatWeight(target.catalogWeightMg, target.displayUnit) }}. Suggest the
@@ -93,6 +99,22 @@ onKeyStroke("Escape", () => target.value && close());
   /* solid surface + hairline (no soft shadow — brutalist) so it reads off the scrim */
   background: var(--paper);
   border: 1px solid var(--line-2);
+  transition:
+    transform var(--dur) var(--ease-spring),
+    opacity var(--dur) var(--ease);
+}
+.dlg__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.dlg__close {
+  margin: calc(-1 * var(--space-2)) calc(-1 * var(--space-2)) 0 0;
+  color: var(--ink-3);
+}
+.dlg__close:hover {
+  color: var(--ink);
 }
 .dlg__item {
   font-size: var(--text-title);
@@ -123,6 +145,11 @@ onKeyStroke("Escape", () => target.value && close());
 }
 .ovl-enter-from,
 .ovl-leave-to {
+  opacity: 0;
+}
+/* the dialog itself rises in (the scrim just fades) */
+.ovl-enter-from .dlg {
+  transform: translateY(12px);
   opacity: 0;
 }
 </style>
