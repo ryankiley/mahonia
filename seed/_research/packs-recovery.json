@@ -41,7 +41,7 @@
       "name": "Exos 58",
       "variant": "L/XL",
       "category_hint": "pack",
-      "weight_value": 3.00,
+      "weight_value": 3,
       "weight_unit": "lb",
       "weight_secondary": "1.36 kg",
       "weight_source": "manufacturer",
@@ -89,7 +89,7 @@
       "name": "Eja 58",
       "variant": "WM/L",
       "category_hint": "pack",
-      "weight_value": 2.90,
+      "weight_value": 2.9,
       "weight_unit": "lb",
       "weight_secondary": "1.32 kg",
       "weight_source": "manufacturer",
@@ -217,7 +217,7 @@
     {
       "brand": "Hyperlite Mountain Gear",
       "name": "Southwest 2400",
-      "variant": "40 L, White",
+      "variant": "40 L",
       "category_hint": "pack",
       "weight_value": 29.7,
       "weight_unit": "oz",
@@ -229,7 +229,7 @@
     {
       "brand": "Hyperlite Mountain Gear",
       "name": "Southwest 3400",
-      "variant": "55 L, White",
+      "variant": "55 L",
       "category_hint": "pack",
       "weight_value": 30.8,
       "weight_unit": "oz",
@@ -241,7 +241,7 @@
     {
       "brand": "Hyperlite Mountain Gear",
       "name": "Windrider 2400",
-      "variant": "40 L, White",
+      "variant": "40 L",
       "category_hint": "pack",
       "weight_value": 29.6,
       "weight_unit": "oz",
@@ -253,7 +253,7 @@
     {
       "brand": "Hyperlite Mountain Gear",
       "name": "Windrider 3400",
-      "variant": "55 L, White",
+      "variant": "55 L",
       "category_hint": "pack",
       "weight_value": 31.1,
       "weight_unit": "oz",
@@ -265,7 +265,7 @@
     {
       "brand": "Hyperlite Mountain Gear",
       "name": "Junction 2400",
-      "variant": "40 L, White",
+      "variant": "40 L",
       "category_hint": "pack",
       "weight_value": 29.4,
       "weight_unit": "oz",
@@ -277,7 +277,7 @@
     {
       "brand": "Hyperlite Mountain Gear",
       "name": "Junction 3400",
-      "variant": "55 L, White",
+      "variant": "55 L",
       "category_hint": "pack",
       "weight_value": 30.6,
       "weight_unit": "oz",
@@ -289,7 +289,7 @@
     {
       "brand": "Hyperlite Mountain Gear",
       "name": "Unbound 40",
-      "variant": "40 L, White",
+      "variant": "40 L",
       "category_hint": "pack",
       "weight_value": 29.6,
       "weight_unit": "oz",

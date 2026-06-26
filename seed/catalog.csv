@@ -126,13 +126,13 @@ Gossamer Gear,Mariposa 60,"Medium, with M Straight belt",pack,969554,manufacture
 Gossamer Gear,Murmur 36,,pack,223961,manufacturer,https://www.gossamergear.com/products/murmur-36-hyperlight-backpack
 Granite Gear,Blaze 60,"Regular torso, without lid",pack,1360777,manufacturer,https://www.granitegear.com/blaze-60-unisex.html
 Granite Gear,Crown3 60,"Regular torso, without lid",pack,1088622,manufacturer,https://www.granitegear.com/crown3-60-pack.html
-Hyperlite Mountain Gear,Junction 2400,"40 L, White",pack,833476,manufacturer,https://hyperlitemountaingear.com/products/junction
-Hyperlite Mountain Gear,Junction 3400,"55 L, White",pack,867495,manufacturer,https://hyperlitemountaingear.com/products/junction
-Hyperlite Mountain Gear,Southwest 2400,"40 L, White",pack,841981,manufacturer,https://hyperlitemountaingear.com/products/southwest
-Hyperlite Mountain Gear,Southwest 3400,"55 L, White",pack,873165,manufacturer,https://hyperlitemountaingear.com/products/southwest
-Hyperlite Mountain Gear,Unbound 40,"40 L, White",pack,839146,manufacturer,https://hyperlitemountaingear.com/products/unbound
-Hyperlite Mountain Gear,Windrider 2400,"40 L, White",pack,839146,manufacturer,https://hyperlitemountaingear.com/products/windrider
-Hyperlite Mountain Gear,Windrider 3400,"55 L, White",pack,881670,manufacturer,https://hyperlitemountaingear.com/products/windrider
+Hyperlite Mountain Gear,Junction 2400,40 L,pack,833476,manufacturer,https://hyperlitemountaingear.com/products/junction
+Hyperlite Mountain Gear,Junction 3400,55 L,pack,867495,manufacturer,https://hyperlitemountaingear.com/products/junction
+Hyperlite Mountain Gear,Southwest 2400,40 L,pack,841981,manufacturer,https://hyperlitemountaingear.com/products/southwest
+Hyperlite Mountain Gear,Southwest 3400,55 L,pack,873165,manufacturer,https://hyperlitemountaingear.com/products/southwest
+Hyperlite Mountain Gear,Unbound 40,40 L,pack,839146,manufacturer,https://hyperlitemountaingear.com/products/unbound
+Hyperlite Mountain Gear,Windrider 2400,40 L,pack,839146,manufacturer,https://hyperlitemountaingear.com/products/windrider
+Hyperlite Mountain Gear,Windrider 3400,55 L,pack,881670,manufacturer,https://hyperlitemountaingear.com/products/windrider
 Osprey,Atmos AG 65,L/XL (68 L),pack,2180419,manufacturer,https://web.archive.org/web/2id_/https://www.osprey.com/atmos-ag-65-atmos65s22-415
 Osprey,Atmos AG 65,S/M (65 L),pack,2092422,manufacturer,https://web.archive.org/web/2id_/https://www.osprey.com/atmos-ag-65-atmos65s22-415
 Osprey,Aura AG 65,WM/L (65 L),pack,2085164,manufacturer,https://web.archive.org/web/2id_/https://www.osprey.com/aura-ag-65-aura65s22-224
@@ -186,7 +186,7 @@ HydraPak,Flux Collapsible Bottle,1.5L,water,122000,manufacturer,https://www.hydr
 Katadyn,BeFree Gravity Water Filter,3.0L,water,192777,manufacturer,https://www.bestglide.com/products/katadyn-befree-gravity-water-filtration-system-3-0l-usa
 Katadyn,BeFree Water Filter,0.6L,water,59534,manufacturer,https://www.bestglide.com/products/katadyn-befree-0-6l-us
 Katadyn,BeFree Water Filter,1.0L,water,62369,manufacturer,https://zpacks.com/collections/katadyn-befree
-Mazama Designs,M!GO Bottle,Avalanche colorway,water,132000,manufacturer,https://mazamadesigns.com/products/m-go-bottle
+Mazama Designs,M!GO Bottle,,water,132000,manufacturer,https://mazamadesigns.com/products/m-go-bottle
 Platypus,GravityWorks Water Filter System,4L,water,326020,manufacturer,https://cascadedesigns.com/products/gravityworks-water-filter-system
 Platypus,Hoser Reservoir,2L,water,102058,manufacturer,https://cascadedesigns.com/products/hoser-reservoir
 Platypus,QuickDraw Microfilter,,water,82214,manufacturer,https://cascadedesigns.com/products/quickdraw-filter
