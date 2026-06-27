@@ -176,6 +176,54 @@
       "weight_source": "manufacturer",
       "source_url": "https://senchidesigns.com/pages/weight-chart-alpha-60-hoodie",
       "quote": "M | 3.8 oz | 108 g"
+    },
+    {
+      "brand": "Senchi Designs",
+      "name": "Alpha 120 Hoodie",
+      "variant": "Men's M",
+      "category_hint": "clothing",
+      "weight_value": 7.1,
+      "weight_unit": "oz",
+      "weight_secondary": "201 g",
+      "weight_source": "manufacturer",
+      "source_url": "https://senchidesigns.com/pages/weight-chart-alpha-120-hoodie-w-pocket",
+      "quote": "M | 7.1 oz | 201 g"
+    },
+    {
+      "brand": "Senchi Designs",
+      "name": "Alpha 60 Crewneck",
+      "variant": "Men's M",
+      "category_hint": "clothing",
+      "weight_value": 3.4,
+      "weight_unit": "oz",
+      "weight_secondary": "96 g",
+      "weight_source": "manufacturer",
+      "source_url": "https://senchidesigns.com/pages/weight-chart-alpha-60-crewneck",
+      "quote": "M | 3.4 oz | 96 g"
+    },
+    {
+      "brand": "Senchi Designs",
+      "name": "Alpha 60 Legging",
+      "variant": "Men's M",
+      "category_hint": "clothing",
+      "weight_value": 2.5,
+      "weight_unit": "oz",
+      "weight_secondary": "71 g",
+      "weight_source": "manufacturer",
+      "source_url": "https://senchidesigns.com/pages/weight-chart-alpha-legging",
+      "quote": "M | 2.5 oz | 71 g"
+    },
+    {
+      "brand": "Senchi Designs",
+      "name": "Alpha 90 Legging",
+      "variant": "Men's M",
+      "category_hint": "clothing",
+      "weight_value": 3.1,
+      "weight_unit": "oz",
+      "weight_secondary": "88 g",
+      "weight_source": "manufacturer",
+      "source_url": "https://senchidesigns.com/pages/weight-chart-alpha-legging",
+      "quote": "M | 3.1 oz | 88 g"
     }
   ]
 }
