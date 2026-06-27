@@ -11,7 +11,7 @@ const snapshot = ref<ListSnapshot | null>(data.value?.snapshot ?? null);
 const { unit, totals, roList, ungrouped, shownFolders } = useReadonlyList(snapshot);
 
 useHead({
-  title: () => (snapshot.value ? `${snapshot.value.title} — Gear` : "Gear"),
+  title: () => (snapshot.value ? `${snapshot.value.title} — Mahonia` : "Mahonia"),
   meta: [{ name: "robots", content: "noindex" }],
 });
 
@@ -38,7 +38,7 @@ onBeforeUnmount(() => poll && clearInterval(poll));
   <div>
     <header class="topbar">
       <div class="wrap topbar__inner">
-        <NuxtLink to="/" class="t-label brand">Gear</NuxtLink>
+        <NuxtLink to="/" class="t-label brand">Mahonia</NuxtLink>
         <span class="t-sm t-muted">Read-only</span>
         <NuxtLink to="/" class="btn btn--sm">Make your own</NuxtLink>
       </div>

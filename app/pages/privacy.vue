@@ -1,8 +1,8 @@
 <script setup lang="ts">
 // CONTACT_EMAIL is auto-imported from app/utils/site.
 useHead({
-  title: "Privacy — Gear",
-  meta: [{ name: "description", content: "What Gear stores, why, and how to remove it." }],
+  title: "Privacy — Mahonia",
+  meta: [{ name: "description", content: "What Mahonia stores, why, and how to remove it." }],
 });
 </script>
 
@@ -10,7 +10,7 @@ useHead({
   <div>
     <header class="topbar">
       <div class="wrap topbar__inner">
-        <NuxtLink to="/" class="t-label brand">Gear</NuxtLink>
+        <NuxtLink to="/" class="t-label brand">Mahonia</NuxtLink>
         <span class="t-sm t-muted">Privacy</span>
       </div>
     </header>
@@ -21,8 +21,8 @@ useHead({
         <p class="t-sm t-muted">Last updated 26 June 2026</p>
 
         <p>
-          Gear is a tool for making and sharing packing lists, made by one person. There are no
-          accounts, no advertising, and I don’t sell your data. This page describes what Gear stores,
+          Mahonia is a tool for making and sharing packing lists, made by one person. There are no
+          accounts, no advertising, and I don’t sell your data. This page describes what Mahonia stores,
           what it sends over the network and when, and where to ask questions. If anything here is
           unclear, email <a :href="`mailto:${CONTACT_EMAIL}`">{{ CONTACT_EMAIL }}</a>.
         </p>
@@ -39,7 +39,7 @@ useHead({
           you unpublish or delete the list. Public means public: anyone with the link can read it.
         </p>
 
-        <h2>What Gear collects in the background</h2>
+        <h2>What Mahonia collects in the background</h2>
         <p>
           Running the site touches a little technical data, kept to the minimum needed:
         </p>
@@ -55,10 +55,10 @@ useHead({
           </li>
         </ul>
         <p>
-          Gear never asks for your name, email, password, payment details, or precise location.
+          Mahonia never asks for your name, email, password, payment details, or precise location.
         </p>
 
-        <h2>The services Gear relies on</h2>
+        <h2>The services Mahonia relies on</h2>
         <p>
           A few service providers run the plumbing on my behalf. They’re all US-based, so if you’re
           outside the US your data may be processed there.
@@ -86,7 +86,7 @@ useHead({
           list.
         </p>
 
-        <h2>What Gear does not do</h2>
+        <h2>What Mahonia does not do</h2>
         <ul>
           <li>No accounts, no passwords, no advertising.</li>
           <li>No selling your data and no cross-site tracking.</li>
@@ -95,8 +95,8 @@ useHead({
 
         <h2>Children</h2>
         <p>
-          Gear isn’t directed at children under 13 and doesn’t knowingly collect data from them. If
-          you believe a child has provided data through Gear, email me and I’ll remove it.
+          Mahonia isn’t directed at children under 13 and doesn’t knowingly collect data from them. If
+          you believe a child has provided data through Mahonia, email me and I’ll remove it.
         </p>
 
         <h2>Changes</h2>

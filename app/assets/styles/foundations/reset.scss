@@ -3,7 +3,7 @@
  * mapped onto gear's tokens (--paper / --ink / --line / --accent, single --font).
  * Sources: Andy Bell (piccalil.li, 2023), Josh Comeau (2026).
  *
- * Gear divergences kept on purpose:
+ * Mahonia divergences kept on purpose:
  * - Universal margin/padding zero — gear's many unstyled <ul> grids (My Lists,
  *   Discover, the catbar legend) rely on no default list padding.
  * - Links inherit ink with NO underline — gear styles links per component

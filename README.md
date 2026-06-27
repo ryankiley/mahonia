@@ -1,4 +1,4 @@
-# Gear
+# Mahonia
 
 A no-login gear-list and pack-weight tracker for hikers. Make a packing list, see what it
 weighs, share it — no account, no app.

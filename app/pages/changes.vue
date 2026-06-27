@@ -15,7 +15,7 @@ const { data } = await useFetch<{ changes: RecentChange[] }>("/api/catalog/chang
 const changes = computed(() => data.value?.changes ?? []);
 
 useHead({
-  title: "Recent catalog changes — Gear",
+  title: "Recent catalog changes — Mahonia",
   meta: [{ name: "robots", content: "noindex" }],
 });
 
@@ -49,7 +49,7 @@ function when(iso: string) {
   <div>
     <header class="topbar">
       <div class="wrap topbar__inner">
-        <NuxtLink to="/" class="t-label brand">Gear</NuxtLink>
+        <NuxtLink to="/" class="t-label brand">Mahonia</NuxtLink>
         <span class="t-sm t-muted">Catalog history</span>
       </div>
     </header>

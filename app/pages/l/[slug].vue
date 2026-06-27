@@ -23,20 +23,20 @@ const facets = computed(() => [tripLabel.value, seasonName.value].filter(Boolean
 
 // SEO — indexable (NOT noindex, unlike /s/[code]). Description summarizes the list.
 const desc = computed(() => {
-  if (!snapshot.value || !totals.value) return "A public packing list on Gear.";
+  if (!snapshot.value || !totals.value) return "A public packing list on Mahonia.";
   const bits = [`${totals.value.itemCount} items`];
   if (facets.value.length) bits.unshift(facets.value.join(", "));
   if (totals.value.hasWeights)
     bits.push(`${formatWeightAuto(totals.value.baseMg)} base weight`);
-  return `${snapshot.value.title} — a public packing list (${bits.join(" · ")}). Browse gear lists on Gear.`;
+  return `${snapshot.value.title} — a public packing list (${bits.join(" · ")}). Browse gear lists on Mahonia.`;
 });
 useHead({
-  title: () => (snapshot.value ? `${snapshot.value.title} — Gear` : "List not found — Gear"),
+  title: () => (snapshot.value ? `${snapshot.value.title} — Mahonia` : "List not found — Mahonia"),
   link: [{ rel: "canonical", href: `/l/${slug}` }],
 });
 useSeoMeta({
   description: () => desc.value,
-  ogTitle: () => (snapshot.value ? snapshot.value.title : "Gear"),
+  ogTitle: () => (snapshot.value ? snapshot.value.title : "Mahonia"),
   ogDescription: () => desc.value,
   ogType: "article",
 });
@@ -63,7 +63,7 @@ async function report() {
   <div>
     <header class="topbar">
       <div class="wrap topbar__inner">
-        <NuxtLink to="/" class="t-label brand">Gear</NuxtLink>
+        <NuxtLink to="/" class="t-label brand">Mahonia</NuxtLink>
         <span class="t-sm t-muted topbar__tag"><Globe :size="13" :stroke-width="2" /> Public list</span>
         <NuxtLink to="/" class="btn btn--sm">Make your own</NuxtLink>
       </div>

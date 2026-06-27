@@ -328,7 +328,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
     <footer class="wrap editor__legal">
       <NuxtLink to="/privacy" class="t-sm">Privacy</NuxtLink>
       <NuxtLink to="/terms" class="t-sm">Terms</NuxtLink>
-      <span class="t-sm t-muted">© {{ new Date().getFullYear() }} Gear</span>
+      <span class="t-sm t-muted">© {{ new Date().getFullYear() }} Mahonia</span>
     </footer>
 
     <Transition name="toast">

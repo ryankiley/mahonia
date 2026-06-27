@@ -10,7 +10,7 @@ const year = new Date().getFullYear();
   <footer class="foot">
     <div class="wrap foot__inner">
       <div class="foot__brand">
-        <NuxtLink to="/" class="t-label foot__name">Gear</NuxtLink>
+        <NuxtLink to="/" class="t-label foot__name">Mahonia</NuxtLink>
         <p class="t-sm t-muted foot__tag">Pack lists, weighed. No login.</p>
       </div>
 
@@ -21,7 +21,7 @@ const year = new Date().getFullYear();
         <a :href="`mailto:${CONTACT_EMAIL}`" class="foot__link t-sm">Contact</a>
       </nav>
 
-      <p class="t-sm t-muted foot__copy">© {{ year }} Gear</p>
+      <p class="t-sm t-muted foot__copy">© {{ year }} Mahonia</p>
     </div>
   </footer>
 </template>

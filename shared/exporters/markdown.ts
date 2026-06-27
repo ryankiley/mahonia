@@ -9,7 +9,7 @@ export function listToMarkdown(list: ListSnapshot): string {
   const totals = computeTotals(list);
   const out: string[] = [];
 
-  out.push(`# ${list.title || "Gear list"}`);
+  out.push(`# ${list.title || "Mahonia list"}`);
   out.push("");
 
   for (const folder of list.folders) {

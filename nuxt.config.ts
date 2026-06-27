@@ -66,7 +66,7 @@ export default defineNuxtConfig({
   app: {
     head: {
       htmlAttrs: { lang: "en" },
-      title: "Gear — pack lists, weighed",
+      title: "Mahonia — pack lists, weighed",
       meta: [
         { charset: "utf-8" },
         {

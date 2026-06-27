@@ -3,5 +3,5 @@
 // app/utils, so app code can use these bare.
 
 // Public contact / takedown address. Doubles as the Terms abuse address.
-// Swap here if Gear gets a dedicated inbox.
+// Swap here if Mahonia gets a dedicated inbox.
 export const CONTACT_EMAIL = "hello@ryankiley.com";
