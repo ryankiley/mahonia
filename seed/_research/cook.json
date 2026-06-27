@@ -197,6 +197,17 @@
       "weight_source": "manufacturer",
       "source_url": "https://goinggear.com/products/sea-to-summit-alpha-light-aluminum-spoon",
       "quote": "Alpha Light Spoon: 0.3 oz / 9 g"
+    },
+    {
+      "brand": "Sea to Summit",
+      "name": "Frontier UL Collapsible Cup",
+      "variant": "400 ml",
+      "category_hint": "cook",
+      "weight_value": 53,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://seatosummit.com/products/frontier-collapsible-cup",
+      "quote": "Frontier Ultralight Collapsible Cup — 53g (1.9 oz), 400ml"
     }
   ]
 }
