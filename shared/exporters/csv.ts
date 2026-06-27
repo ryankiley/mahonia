@@ -3,6 +3,7 @@
 
 import type { ListData, ListSnapshot, Unit } from "../types";
 import { UNITS } from "../types";
+import { nextFolderColor } from "../categories";
 import { effectiveClassification, fromMg, itemsInFolder, toMg } from "../weights";
 import { uid } from "../id";
 
@@ -109,7 +110,8 @@ export function csvToListData(text: string, defaultUnit: Unit = "g"): ListData {
     if (!folderId.has(key)) {
       const id = uid();
       folderId.set(key, id);
-      folders.push({ id, name: key, colorKey: "other", defaultClassification: "base", sortOrder: folders.length });
+      const colorKey = nextFolderColor(folders.map((f) => f.colorKey ?? "other"));
+      folders.push({ id, name: key, colorKey, defaultClassification: "base", sortOrder: folders.length });
     }
     return folderId.get(key)!;
   };

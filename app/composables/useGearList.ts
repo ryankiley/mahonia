@@ -86,6 +86,19 @@ function create() {
       for (const it of res.snapshot.items) {
         if (/^water\s*·/i.test(it.name)) updateItem(it.id, { name: "Water" });
       }
+      // one-time backfill: lists imported before folders got colours assigned have
+      // every folder on the neutral grey ("other"), so the category chart reads as
+      // all grey. Reassign distinct palette hues — same logic as addFolder — so the
+      // viz is colourful. "other" is never auto-assigned and has no picker, so the
+      // only folders carrying it came from a pre-colour import; recolouring is safe
+      // and self-persists via the mutate flow (covers existing prod lists on open).
+      const colorKeys = res.snapshot.folders.map((f) => f.colorKey ?? "other");
+      res.snapshot.folders.forEach((f, i) => {
+        if (colorKeys[i] !== "other") return;
+        const colorKey = nextFolderColor(colorKeys);
+        colorKeys[i] = colorKey;
+        updateFolder(f.id, { colorKey });
+      });
       startPoll();
     } catch (e: any) {
       if (myEpoch !== epoch) return;
