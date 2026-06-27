@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Backpack, Ellipsis, Share2, SquareCheck, Undo2 } from "@lucide/vue";
+import { Backpack, Share2, SquareCheck, Undo2 } from "@lucide/vue";
 import { listToMarkdown } from "~~/shared/exporters/markdown";
 import { listToCsv } from "~~/shared/exporters/csv";
 import { uid } from "~~/shared/id";
@@ -27,9 +27,8 @@ const sortedFolders = computed(() =>
 );
 
 const packed = ref(false);
-const menuOpen = ref(false);
 const importOpen = ref(false);
-const menuRef = ref<HTMLElement | null>(null);
+const menuAction = ref("");
 const toast = ref("");
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -87,11 +86,6 @@ onBeforeUnmount(() => {
   window.removeEventListener("focusin", onFocusIn);
 });
 
-onClickOutside(menuRef, () => (menuOpen.value = false));
-onKeyStroke("Escape", () => {
-  if (menuOpen.value) menuOpen.value = false;
-});
-
 function flash(msg: string) {
   toast.value = msg;
   clearTimeout(toastTimer);
@@ -107,16 +101,31 @@ async function copy(text: string, msg: string) {
 }
 const origin = () => (typeof location !== "undefined" ? location.origin : "");
 
+// the ⋯ actions menu is a native <select> (OS menu chrome on mobile + desktop):
+// route the chosen option to its handler, then reset to the placeholder so the
+// same action can be re-picked and the control shows "Actions…" again at rest.
+function onMenuAction() {
+  const action = menuAction.value;
+  menuAction.value = "";
+  switch (action) {
+    case "duplicate": return cloneList();
+    case "import": return openImport();
+    case "markdown": return copyMarkdown();
+    case "csv": return downloadCsv();
+    case "json": return downloadJson();
+    case "editlink": return copyEditLink();
+    case "rotate": return rotate();
+  }
+}
+
 function copyShare() {
   if (snapshot.value) copy(`${origin()}/s/${snapshot.value.shareCode}`, "Read-only link copied");
 }
 function copyEditLink() {
-  menuOpen.value = false;
   if (!confirm("Anyone with this link can edit your list. Only send it to people you trust.")) return;
   copy(`${origin()}/e#${c.editToken}`, "Edit link copied");
 }
 async function rotate() {
-  menuOpen.value = false;
   if (!confirm("Make the old edit link stop working and create a new one?")) return;
   const next = await c.rotate();
   if (next) {
@@ -125,11 +134,9 @@ async function rotate() {
   }
 }
 function copyMarkdown() {
-  menuOpen.value = false;
   if (snapshot.value) copy(listToMarkdown(snapshot.value), "Copied as Markdown");
 }
 async function cloneList() {
-  menuOpen.value = false;
   if (!snapshot.value) return;
   // fresh ids so the copy is fully independent; keep folder→item links + notes/weights
   const idMap = new Map<string, string>();
@@ -152,7 +159,6 @@ async function cloneList() {
   flash("List duplicated");
 }
 function download(filename: string, text: string, type: string) {
-  menuOpen.value = false;
   const url = URL.createObjectURL(new Blob([text], { type }));
   const a = document.createElement("a");
   a.href = url;
@@ -177,7 +183,6 @@ function downloadJson() {
 }
 
 function openImport() {
-  menuOpen.value = false;
   importOpen.value = true;
 }
 
@@ -263,17 +268,22 @@ function onCorrected(res: { status: string; itemName?: string }) {
           >
             <Share2 :size="16" />
           </button>
-          <div ref="menuRef" class="menu">
-            <button class="btn btn--sm btn--ghost btn--icon" aria-haspopup="true" title="More actions" aria-label="More actions" :aria-expanded="menuOpen" @click="menuOpen = !menuOpen"><Ellipsis :size="16" /></button>
-            <ul v-if="menuOpen" class="menu__list panel">
-              <li><button @click="cloneList">Duplicate this list</button></li>
-              <li><button @click="openImport">Import a list…</button></li>
-              <li><button @click="copyMarkdown">Copy as Markdown</button></li>
-              <li><button @click="downloadCsv">Download CSV</button></li>
-              <li><button @click="downloadJson">Download JSON (backup)</button></li>
-              <li><button @click="copyEditLink">Copy edit link…</button></li>
-              <li><button @click="rotate">Rotate edit link…</button></li>
-            </ul>
+          <div class="menu">
+            <select
+              v-model="menuAction"
+              class="menu__select"
+              aria-label="More actions"
+              @change="onMenuAction"
+            >
+              <option value="">Actions…</option>
+              <option value="duplicate">Duplicate this list</option>
+              <option value="import">Import a list…</option>
+              <option value="markdown">Copy as Markdown</option>
+              <option value="csv">Download CSV</option>
+              <option value="json">Download JSON (backup)</option>
+              <option value="editlink">Copy edit link…</option>
+              <option value="rotate">Rotate edit link…</option>
+            </select>
           </div>
         </template>
       </div>
@@ -463,29 +473,26 @@ function onCorrected(res: { status: string; itemName?: string }) {
   color: var(--ink-2);
 }
 .menu {
-  position: relative;
+  display: inline-flex;
 }
-.menu__list {
-  position: absolute;
-  right: 0;
-  top: calc(100% + var(--space-1));
-  min-width: 180px;
-  z-index: 20;
-  padding: var(--space-1);
-}
-.menu__list button,
-.menu__list a {
-  display: block;
-  width: 100%;
-  text-align: left;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-1);
+/* native OS menu chrome: a real <select> so mobile gets the system picker/sheet
+   and desktop the native dropdown. Styled only enough to sit in the toolbar — the
+   disclosure arrow and the open list are the platform's own. */
+.menu__select {
+  font-family: var(--font);
   font-size: var(--text-sm);
   color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-1);
+  padding: var(--space-1) var(--space-2);
+  cursor: pointer;
 }
-.menu__list button:hover,
-.menu__list a:hover {
-  background: var(--paper-3);
+@media (pointer: coarse) {
+  /* match the ~44px touch targets of the toolbar's icon buttons */
+  .menu__select {
+    min-height: 40px;
+  }
 }
 .editor__body {
   padding-block: var(--space-4) var(--space-9);
