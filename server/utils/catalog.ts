@@ -158,14 +158,20 @@ export async function searchCatalog(
 
   if (isNeon()) {
     const d = db as { execute: (query: unknown) => Promise<unknown> };
-    // word_similarity (the `<%` operator) matches a short query against the best
-    // extent of a longer name — the right metric for autocomplete fragments. The
-    // gin_trgm_ops index supports `<%`. Values are bound params (injection-safe).
+    // word_similarity matches a short query against the best extent of a longer
+    // name — the right metric for autocomplete fragments. We DON'T use the `<%`
+    // operator: its threshold is the GUC pg_trgm.word_similarity_threshold, which
+    // defaults to 0.6 — ~2x stricter than the local JS fallback's SIM_THRESHOLD
+    // (0.3), so typo'd/partial queries ("kawa 55", "palante") that match locally
+    // returned nothing in prod. Filtering on the function with our own threshold
+    // makes prod recall match local. The catalog is small + bounded, so the seq
+    // scan (we forgo the gin_trgm_ops index this way) is cheap. Bound params are
+    // injection-safe.
     const res = await d.execute(sql`
       select id, brand, name, variant, weight_mg, weight_source, verified
       from catalog_items
       where status = 'active'
-        and ${q} <% (coalesce(brand,'') || ' ' || name)
+        and word_similarity(${q}, coalesce(brand,'') || ' ' || name) >= ${SIM_THRESHOLD}
       order by verified desc,
                usage_count desc,
                word_similarity(${q}, coalesce(brand,'') || ' ' || name) desc

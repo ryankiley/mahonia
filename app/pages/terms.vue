@@ -8,12 +8,9 @@ useHead({
 
 <template>
   <div>
-    <header class="topbar">
-      <div class="wrap topbar__inner">
-        <NuxtLink to="/" class="t-label brand">Mahonia</NuxtLink>
-        <span class="t-sm t-muted">Terms</span>
-      </div>
-    </header>
+    <SiteTopbar>
+      <span class="t-sm t-muted">Terms</span>
+    </SiteTopbar>
 
     <main class="wrap page">
       <div class="prose">
@@ -101,18 +98,6 @@ useHead({
 </template>
 
 <style scoped>
-.topbar {
-  border-bottom: 1px solid var(--line);
-}
-.topbar__inner {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding-block: var(--space-3);
-}
-.brand {
-  color: var(--ink);
-}
 .page {
   padding-block: var(--space-5) var(--space-9);
 }

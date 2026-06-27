@@ -47,12 +47,9 @@ function when(iso: string) {
 
 <template>
   <div>
-    <header class="topbar">
-      <div class="wrap topbar__inner">
-        <NuxtLink to="/" class="t-label brand">Mahonia</NuxtLink>
-        <span class="t-sm t-muted">Catalog history</span>
-      </div>
-    </header>
+    <SiteTopbar>
+      <span class="t-sm t-muted">Catalog history</span>
+    </SiteTopbar>
 
     <main class="wrap chg">
       <header class="chg__head">
@@ -89,18 +86,6 @@ function when(iso: string) {
 </template>
 
 <style scoped>
-.topbar {
-  border-bottom: 1px solid var(--line);
-}
-.topbar__inner {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding-block: var(--space-3);
-}
-.brand {
-  color: var(--ink);
-}
 .chg {
   padding-block: var(--space-5) var(--space-9);
   display: flex;

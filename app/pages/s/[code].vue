@@ -36,70 +36,17 @@ onBeforeUnmount(() => poll && clearInterval(poll));
 
 <template>
   <div>
-    <header class="topbar">
-      <div class="wrap topbar__inner">
-        <NuxtLink to="/" class="t-label brand">Mahonia</NuxtLink>
-        <span class="t-sm t-muted">Read-only</span>
-        <NuxtLink to="/" class="btn btn--sm">Make your own</NuxtLink>
-      </div>
-    </header>
+    <SiteTopbar compact>
+      <span class="t-sm t-muted">Read-only</span>
+      <NuxtLink to="/" class="btn btn--sm">Make your own</NuxtLink>
+    </SiteTopbar>
 
-    <main v-if="roList && totals" class="wrap view">
-      <h1 class="t-title view__title">{{ roList.title }}</h1>
-
-      <TotalsBar :list="roList" :totals="totals" @set-unit="(u) => (unit = u)" />
-
-      <div class="view__folders">
-        <FolderSection v-for="f in shownFolders" :key="f.id" :list="roList" :folder="f" readonly />
-        <section v-if="ungrouped.length">
-          <p class="t-label view__ungrouped">Ungrouped</p>
-          <ItemRow v-for="it in ungrouped" :key="it.id" :list="roList" :item="it" readonly />
-        </section>
-      </div>
-    </main>
-
-    <main v-else class="wrap view view--missing">
-      <p class="t-muted">This list doesn’t exist (or was removed).</p>
-      <NuxtLink to="/" class="btn btn--primary">Make a list</NuxtLink>
-    </main>
+    <ReadonlyListView
+      :list="roList"
+      :totals="totals"
+      :shown-folders="shownFolders"
+      :ungrouped="ungrouped"
+      @set-unit="(u) => (unit = u)"
+    />
   </div>
 </template>
-
-<style scoped>
-.topbar {
-  border-bottom: 1px solid var(--line);
-}
-.topbar__inner {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding-block: var(--space-3);
-}
-.brand {
-  color: var(--ink);
-}
-.topbar__inner .btn {
-  margin-left: auto;
-}
-.view {
-  padding-block: var(--space-5) var(--space-9);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-6);
-}
-.view__title {
-  font-family: var(--font);
-}
-.view__folders {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-7);
-}
-.view__ungrouped {
-  margin-bottom: var(--space-1);
-}
-.view--missing {
-  padding-block: var(--space-9);
-  align-items: flex-start;
-}
-</style>

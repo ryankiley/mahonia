@@ -13,12 +13,9 @@ useHead({
 
 <template>
   <div>
-    <header class="topbar">
-      <div class="wrap topbar__inner">
-        <NuxtLink to="/" class="t-label brand">Mahonia</NuxtLink>
-        <span class="t-sm t-muted">About</span>
-      </div>
-    </header>
+    <SiteTopbar>
+      <span class="t-sm t-muted">About</span>
+    </SiteTopbar>
 
     <main class="wrap page">
       <div class="prose">
@@ -40,10 +37,8 @@ useHead({
         </p>
         <p>
           I wanted a name that was short, a little bit odd, and actually rooted in the place — for a
-          domain I’d own outright. The obvious choices were all taken or sitting on a parked
-          look-alike domain, and most puns came with a twin address a squatter would happily sell
-          me. Mahonia was free, it’s a real word with a real place behind it, and it doesn’t need
-          explaining. A native plant for a tool about getting outside felt right.
+          domain I’d own outright. Mahonia is a real word with a real place behind it, and it
+          doesn’t need explaining. A native plant for a tool about getting outside felt right.
         </p>
 
         <h2>The short version of how it works</h2>
@@ -65,18 +60,6 @@ useHead({
 </template>
 
 <style scoped>
-.topbar {
-  border-bottom: 1px solid var(--line);
-}
-.topbar__inner {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding-block: var(--space-3);
-}
-.brand {
-  color: var(--ink);
-}
 .page {
   padding-block: var(--space-5) var(--space-9);
 }
