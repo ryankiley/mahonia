@@ -1,6 +1,6 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
-  modules: ["@vueuse/nuxt"],
+  modules: ["@vueuse/nuxt", "@vercel/analytics"],
 
   // Rate-limit counter store (server/utils/rateLimit.ts). Prod prefers Upstash
   // Redis — a single shared store across every Vercel serverless instance, so the
