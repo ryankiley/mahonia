@@ -36,7 +36,6 @@
 .btn--primary {
   background: var(--accent);
   color: var(--accent-ink);
-  padding-inline: var(--space-4);
 }
 .btn--primary:hover {
   background: var(--accent);
@@ -45,7 +44,6 @@
 
 // ghost === default now (kept for intent at call sites)
 .btn--ghost {
-  background: transparent;
   color: var(--ink-2);
 }
 .btn--ghost:hover {
@@ -56,7 +54,6 @@
 .btn--sm {
   min-height: 32px;
   padding: 0 var(--space-2);
-  font-size: var(--text-sm);
 }
 
 .btn--icon {
