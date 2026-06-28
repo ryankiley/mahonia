@@ -21,6 +21,9 @@ Durston,X-Mid 1,Silpoly,shelter,742758,manufacturer,https://durstongear.com/prod
 Durston,X-Mid 2,Silpoly,shelter,887340,manufacturer,https://durstongear.com/products/x-mid-2-tent-ultralight-backpacking
 Durston,X-Mid Pro 1,DCF,shelter,439418,manufacturer,https://durstongear.com/products/x-mid-pro-1-tent-ultralight-thruhiking
 Durston,X-Mid Pro 2,DCF,shelter,507456,manufacturer,https://durstongear.com/products/x-mid-pro-2-tent-ultralight-thruhiking
+ENO,DoubleNest Hammock,,shelter,538641,manufacturer,https://coontail.com/products/eno-doublenest-hammock
+ENO,SingleNest Hammock,,shelter,453592,manufacturer,https://www.campingworld.com/eno-singlenest-hammock-218830_OGRY.html
+ENO,Sub6 Ultralight Hammock,,shelter,164427,manufacturer,https://eaglesnestoutfittersinc.com/products/sub6-ultralight-hammock
 Gossamer Gear,The Free,1P,shelter,844816,manufacturer,https://www.gossamergear.com/products/the-free
 Gossamer Gear,The One,,shelter,557919,manufacturer,https://www.gossamergear.com/products/the-one
 Gossamer Gear,The Two,,shelter,798039,manufacturer,https://www.gossamergear.com/products/the-two
@@ -301,6 +304,7 @@ Zpacks,Arc Blast 55L,,pack,564156,manufacturer,https://zpacks.com/products/arc-b
 Zpacks,Arc Haul Ultra 50L,,pack,606680,manufacturer,https://zpacks.com/products/arc-haul-ultra-50l-backpack
 Zpacks,Arc Haul Ultra 60L,,pack,618020,manufacturer,https://zpacks.com/products/arc-haul-ultra-60l-backpack
 Zpacks,Nero Pro,30L,pack,314680,manufacturer,https://zpacks.com/products/nero-pro-ultra-backpack
+AeroPress,AeroPress Go,,cook,323185,manufacturer,https://aeropress.com/products/aeropress-go-travel-coffee-press
 BioLite,CampStove 2+,,cook,935000,manufacturer,https://www.bioliteenergy.com/products/campstove-2-plus
 Evernew,Titanium NS Pot 0.9L (ECA422),900ml,cook,140000,manufacturer,https://evernew-global.com/products/titanium/ECA422.html
 Evernew,Titanium Ti Cup 400FD (EBY265),"400ml, single wall",cook,60101,manufacturer,https://www.evernewamerica.com/ti-mugs/
@@ -579,9 +583,15 @@ Topo Designs,Mountain Puffer Hoodie,Men's M,clothing,450000,community,https://ww
 Veja,Condor 3,"Men's UK 10, per pair",clothing,686000,measured,https://www.advnture.com/reviews/veja-condor-3
 Veja,Dekkan Alveomesh,"Men's US 9, per pair",clothing,680000,community,https://www.veja-store.com/en_gb/p/dekkan-alveomesh-natural-white-DC0102576.html
 Veja,Fitz Roy Trek-Shell,"Men's US 9, EU 42, per pair",clothing,736000,manufacturer,https://www.veja-store.com/en_us/p/fitz-roy-trek-shell-full-black-FS2302456.html
+Western Mountaineering,Flash Down Booties,"Men's M, per pair",clothing,85049,manufacturer,https://www.westernmountaineering.com/product/flash-down-booties/
 Yamatomichi,UL Shirt,Size M,clothing,99000,manufacturer,https://www.yamatomichi.com/en/products/ul-shirt
 Zpacks,Vertice Rain Jacket,Men's,clothing,153087,manufacturer,https://zpacks.com/products/vertice-rain-jacket
 ACR,ResQLink 400 PLB,,electronics,143789,manufacturer,https://www.acrartex.com/products/resqlink-400/
+Amazon,Kindle (2024),,electronics,158000,manufacturer,https://blog.the-ebook-reader.com/2024/10/16/new-basic-kindle-for-2024-details-summary/
+Amazon,Kindle Colorsoft Signature Edition (2024),,electronics,219000,manufacturer,https://blog.the-ebook-reader.com/2024/10/16/new-kindle-colorsoft-details-summary-first-color-kindle/
+Amazon,Kindle Paperwhite (2024),,electronics,211000,manufacturer,https://blog.the-ebook-reader.com/2024/10/16/new-12th-gen-kindle-paperwhite-specs-and-features-summary/
+Amazon,Kindle Paperwhite Signature Edition (2024),,electronics,214000,manufacturer,https://liliputing.com/amazon-kindle-2024-specs-compared/
+Amazon,Kindle Scribe (2024),,electronics,433000,manufacturer,https://ewritable.net/brands/kindle/tablets/kindle-scribe-2024/
 Anker,313 Power Bank (PowerCore 10K),A1229,electronics,212621,manufacturer,https://service.anker.com/product-description/a085g000004x2B4AAI/anker-313-power-bank-powercore-10k
 Anker,511 Power Bank (PowerCore Fusion 5K),A1633,electronics,170000,manufacturer,https://service.anker.com/product-description/a085g000004zVOvAAM/anker-511-power-bank-powercore-fusion-5k
 Anker,Nano Charger (20W),A2637,electronics,31184,manufacturer,https://www.anker.com/products/a2637-nano-20w-charger
@@ -686,10 +696,14 @@ District Vision,Keiichi Sunglasses,,other,22000,manufacturer,https://twelvesixty
 District Vision,Nako Sunglasses,,other,22000,manufacturer,https://www.sportique.com/products/district-vision-nako-black-sunglasses-district-sky-g15
 Durston,Iceline Trekking Poles,"Strapless, per pole",other,134000,manufacturer,https://durstongear.com/products/iceline-trekking-poles
 Durston,Iceline Trekking Poles,"Strapped, per pole",other,145000,manufacturer,https://durstongear.com/products/iceline-trekking-poles
+ENO,Atlas Suspension Straps,per pair,other,255146,manufacturer,https://eaglesnestoutfittersinc.com/products/atlas-hammock-straps
+ENO,Atlas XL Suspension Straps,per pair,other,368544,manufacturer,https://gearheadoutfitters.com/products/atlas-xl
+ENO,Helios Ultralight Suspension Straps,per pair,other,121903,manufacturer,https://www.nrs.com/eno-helios-suspension-system/psm7
 Gnuhr,Sling One,,other,23000,manufacturer,https://www.gnuhr.com/products/sling-1
 goodr,OG,,other,22100,measured,https://www.packhacker.com/travel-gear/goodr/og-sunglasses/
 Gossamer Gear,Lightrek Hiking Umbrella,,other,164427,manufacturer,https://www.gossamergear.com/products/liteflex-hiking-chrome-umbrella
 Gossamer Gear,LT5 Three Piece Carbon Trekking Poles,per pole,other,138913,manufacturer,https://www.gossamergear.com/products/lt5-three-piece-carbon-trekking-poles-pair
+Helinox,Chair One,,other,893000,manufacturer,https://helinox.com/products/chair-one
 Helinox,Chair Zero,chair only,other,490000,manufacturer,https://www.outdoorline.eu/products/helinox-chair-zero
 Hillsound,Trail Crampon,per pair,other,462097,manufacturer,https://hillsound.com/products/trail-crampon
 Kahtoola,EXOspikes,"per pair, Medium",other,206952,measured,https://www.cleverhiker.com/footwear/kahtoola-exospikes-traction-device-review/

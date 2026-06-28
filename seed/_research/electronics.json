@@ -142,6 +142,61 @@
       "weight_source": "measured",
       "source_url": "https://akkutest.org/en/iniu-power-bank-with-100w-and-25000mah-review/",
       "quote": "INIU P63 100W 25000mAh — measured 493 g"
+    },
+    {
+      "brand": "Amazon",
+      "name": "Kindle (2024)",
+      "variant": "",
+      "category_hint": "electronics",
+      "weight_value": 158,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://blog.the-ebook-reader.com/2024/10/16/new-basic-kindle-for-2024-details-summary/",
+      "quote": "Weight: 158 grams."
+    },
+    {
+      "brand": "Amazon",
+      "name": "Kindle Paperwhite (2024)",
+      "variant": "",
+      "category_hint": "electronics",
+      "weight_value": 211,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://blog.the-ebook-reader.com/2024/10/16/new-12th-gen-kindle-paperwhite-specs-and-features-summary/",
+      "quote": "Weight: 211 grams (214 grams SE)"
+    },
+    {
+      "brand": "Amazon",
+      "name": "Kindle Paperwhite Signature Edition (2024)",
+      "variant": "",
+      "category_hint": "electronics",
+      "weight_value": 214,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://liliputing.com/amazon-kindle-2024-specs-compared/",
+      "quote": "214 grams / 7.5 ounces"
+    },
+    {
+      "brand": "Amazon",
+      "name": "Kindle Colorsoft Signature Edition (2024)",
+      "variant": "",
+      "category_hint": "electronics",
+      "weight_value": 219,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://blog.the-ebook-reader.com/2024/10/16/new-kindle-colorsoft-details-summary-first-color-kindle/",
+      "quote": "Weight: 219 grams."
+    },
+    {
+      "brand": "Amazon",
+      "name": "Kindle Scribe (2024)",
+      "variant": "",
+      "category_hint": "electronics",
+      "weight_value": 433,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://ewritable.net/brands/kindle/tablets/kindle-scribe-2024/",
+      "quote": "Weight: 433g"
     }
   ]
 }

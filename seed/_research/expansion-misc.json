@@ -191,6 +191,105 @@
       "weight_source": "manufacturer",
       "source_url": "https://backpackerspantry.com/products/pad-thai",
       "quote": "6.2 oz"
+    },
+    {
+      "brand": "ENO",
+      "name": "SingleNest Hammock",
+      "variant": "",
+      "category_hint": "shelter",
+      "weight_value": 16,
+      "weight_unit": "oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.campingworld.com/eno-singlenest-hammock-218830_OGRY.html",
+      "quote": "ENO SingleNest, hammock only: 16 oz / 454 g"
+    },
+    {
+      "brand": "ENO",
+      "name": "DoubleNest Hammock",
+      "variant": "",
+      "category_hint": "shelter",
+      "weight_value": 19,
+      "weight_unit": "oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://coontail.com/products/eno-doublenest-hammock",
+      "quote": "Weight: 19 oz / 538 g"
+    },
+    {
+      "brand": "ENO",
+      "name": "Sub6 Ultralight Hammock",
+      "variant": "",
+      "category_hint": "shelter",
+      "weight_value": 5.8,
+      "weight_unit": "oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://eaglesnestoutfittersinc.com/products/sub6-ultralight-hammock",
+      "quote": "Weight: 5.8 oz / 164 g"
+    },
+    {
+      "brand": "ENO",
+      "name": "Atlas Suspension Straps",
+      "variant": "per pair",
+      "category_hint": "other",
+      "weight_value": 9,
+      "weight_unit": "oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://eaglesnestoutfittersinc.com/products/atlas-hammock-straps",
+      "quote": "Weight: 9 oz / 255 g"
+    },
+    {
+      "brand": "ENO",
+      "name": "Atlas XL Suspension Straps",
+      "variant": "per pair",
+      "category_hint": "other",
+      "weight_value": 13,
+      "weight_unit": "oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://gearheadoutfitters.com/products/atlas-xl",
+      "quote": "Weight: 13oz / 369g"
+    },
+    {
+      "brand": "ENO",
+      "name": "Helios Ultralight Suspension Straps",
+      "variant": "per pair",
+      "category_hint": "other",
+      "weight_value": 4.3,
+      "weight_unit": "oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.nrs.com/eno-helios-suspension-system/psm7",
+      "quote": "4.3 oz (122g)"
+    },
+    {
+      "brand": "Helinox",
+      "name": "Chair One",
+      "variant": "",
+      "category_hint": "other",
+      "weight_value": 893,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://helinox.com/products/chair-one",
+      "quote": "Assembled weight: 1 lb 15 oz / 893 g (packed weight: 2 lb 2 oz / 965 g)"
+    },
+    {
+      "brand": "Western Mountaineering",
+      "name": "Flash Down Booties",
+      "variant": "Men's M, per pair",
+      "category_hint": "clothing",
+      "weight_value": 3,
+      "weight_unit": "oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.westernmountaineering.com/product/flash-down-booties/",
+      "quote": "Weighing just 3 oz (85g) per pair in size medium"
+    },
+    {
+      "brand": "AeroPress",
+      "name": "AeroPress Go",
+      "variant": "",
+      "category_hint": "cook",
+      "weight_value": 11.4,
+      "weight_unit": "oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://aeropress.com/products/aeropress-go-travel-coffee-press",
+      "quote": "When fully packed up in the mug with the lid on top, the AeroPress Go, its accessories, and the 20 paper filters that fit into the travel filter holder weigh 11.4 oz. (323 g) altogether."
     }
   ]
 }
