@@ -90,7 +90,7 @@
     {
       "brand": "Durston",
       "name": "Kakwa 40",
-      "variant": "Ultra 200X / M",
+      "variant": "Ultra 200X, M",
       "category_hint": "pack",
       "weight_value": 28,
       "weight_unit": "oz",
@@ -101,7 +101,7 @@
     {
       "brand": "Durston",
       "name": "Kakwa 40",
-      "variant": "UltraGrid / M",
+      "variant": "UltraGrid, M",
       "category_hint": "pack",
       "weight_value": 29.6,
       "weight_unit": "oz",
@@ -112,7 +112,7 @@
     {
       "brand": "Durston",
       "name": "Kakwa 55",
-      "variant": "Ultra 200X / M",
+      "variant": "Ultra 200X, M",
       "category_hint": "pack",
       "weight_value": 31.5,
       "weight_unit": "oz",
@@ -123,7 +123,7 @@
     {
       "brand": "Durston",
       "name": "Kakwa 55",
-      "variant": "UltraGrid / M",
+      "variant": "UltraGrid, M",
       "category_hint": "pack",
       "weight_value": 30.6,
       "weight_unit": "oz",

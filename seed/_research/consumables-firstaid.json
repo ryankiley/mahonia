@@ -3,7 +3,7 @@
     {
       "brand": "MSR",
       "name": "IsoPro Fuel Canister",
-      "variant": "110g canister (net fuel)",
+      "variant": "110g canister, net fuel",
       "category_hint": "consumable",
       "weight_value": 110,
       "weight_unit": "g",
@@ -14,7 +14,7 @@
     {
       "brand": "MSR",
       "name": "IsoPro Fuel Canister",
-      "variant": "227g canister (net fuel)",
+      "variant": "227g canister, net fuel",
       "category_hint": "consumable",
       "weight_value": 227,
       "weight_unit": "g",
@@ -25,7 +25,7 @@
     {
       "brand": "MSR",
       "name": "IsoPro Fuel Canister",
-      "variant": "450g canister (net fuel)",
+      "variant": "450g canister, net fuel",
       "category_hint": "consumable",
       "weight_value": 450,
       "weight_unit": "g",
@@ -36,7 +36,7 @@
     {
       "brand": "Jetboil",
       "name": "JetPower Fuel",
-      "variant": "100g (net fuel)",
+      "variant": "100g, net fuel",
       "category_hint": "consumable",
       "weight_value": 100,
       "weight_unit": "g",
@@ -47,7 +47,7 @@
     {
       "brand": "Jetboil",
       "name": "JetPower Fuel",
-      "variant": "230g (net fuel)",
+      "variant": "230g, net fuel",
       "category_hint": "consumable",
       "weight_value": 230,
       "weight_unit": "g",
@@ -113,7 +113,7 @@
     {
       "brand": "Mountain House",
       "name": "Beef Stroganoff - Pro-Pak",
-      "variant": "Pro-Pak (1 serving)",
+      "variant": "Pro-Pak, 1 serving",
       "category_hint": "consumable",
       "weight_value": 4.6,
       "weight_unit": "oz",
@@ -146,7 +146,7 @@
     {
       "brand": "Pop-Tarts",
       "name": "Frosted Strawberry Toaster Pastries",
-      "variant": "one pouch (2 pastries)",
+      "variant": "one pouch, 2 pastries",
       "category_hint": "consumable",
       "weight_value": 96,
       "weight_unit": "g",
@@ -168,7 +168,7 @@
     {
       "brand": "BIC",
       "name": "J25 Mini Lighter",
-      "variant": "Mini (J25)",
+      "variant": "Mini, J25",
       "category_hint": "other",
       "weight_value": 13,
       "weight_unit": "g",

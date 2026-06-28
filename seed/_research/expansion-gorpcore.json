@@ -36,7 +36,7 @@
     {
       "brand": "Diemme",
       "name": "Roccia Vet",
-      "variant": "Men's US 9 (EU 42), per pair",
+      "variant": "Men's US 9, EU 42, per pair",
       "category_hint": "clothing",
       "weight_value": 1040,
       "weight_unit": "g",
@@ -47,7 +47,7 @@
     {
       "brand": "Diemme",
       "name": "Maggiore",
-      "variant": "Men's US 9 (EU 42), per pair",
+      "variant": "Men's US 9, EU 42, per pair",
       "category_hint": "clothing",
       "weight_value": 960,
       "weight_unit": "g",
@@ -58,7 +58,7 @@
     {
       "brand": "Diemme",
       "name": "Possagno Mid",
-      "variant": "Men's US 9 (EU 42), per pair",
+      "variant": "Men's US 9, EU 42, per pair",
       "category_hint": "clothing",
       "weight_value": 800,
       "weight_unit": "g",
@@ -179,7 +179,7 @@
     {
       "brand": "Veja",
       "name": "Fitz Roy Trek-Shell",
-      "variant": "Men's US 9 (EU 42), per pair",
+      "variant": "Men's US 9, EU 42, per pair",
       "category_hint": "clothing",
       "weight_value": 736,
       "weight_unit": "g",
@@ -223,7 +223,7 @@
     {
       "brand": "Stone Island Shadow Project",
       "name": "Tie Up Cargo Pant",
-      "variant": "Men's M (IT 50)",
+      "variant": "Men's M, IT 50",
       "category_hint": "clothing",
       "weight_value": 580,
       "weight_unit": "g",

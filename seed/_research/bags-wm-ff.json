@@ -3,7 +3,7 @@
     {
       "brand": "Western Mountaineering",
       "name": "UltraLite",
-      "variant": "6 ft, 20°F",
+      "variant": "6 ft, 20F",
       "category_hint": "sleep",
       "weight_value": 1,
       "weight_unit": "lb",
@@ -15,7 +15,7 @@
     {
       "brand": "Western Mountaineering",
       "name": "MegaLite",
-      "variant": "6 ft, 30°F",
+      "variant": "6 ft, 30F",
       "category_hint": "sleep",
       "weight_value": 1,
       "weight_unit": "lb",
@@ -27,7 +27,7 @@
     {
       "brand": "Western Mountaineering",
       "name": "VersaLite",
-      "variant": "6 ft, 10°F",
+      "variant": "6 ft, 10F",
       "category_hint": "sleep",
       "weight_value": 2,
       "weight_unit": "lb",
@@ -39,7 +39,7 @@
     {
       "brand": "Western Mountaineering",
       "name": "AlpinLite",
-      "variant": "6 ft, 20°F",
+      "variant": "6 ft, 20F",
       "category_hint": "sleep",
       "weight_value": 1,
       "weight_unit": "lb",
@@ -51,7 +51,7 @@
     {
       "brand": "Western Mountaineering",
       "name": "SummerLite",
-      "variant": "6 ft, 32°F",
+      "variant": "6 ft, 32F",
       "category_hint": "sleep",
       "weight_value": 1,
       "weight_unit": "lb",
@@ -63,7 +63,7 @@
     {
       "brand": "Western Mountaineering",
       "name": "HighLite",
-      "variant": "6 ft, 35°F",
+      "variant": "6 ft, 35F",
       "category_hint": "sleep",
       "weight_value": 16,
       "weight_unit": "oz",
@@ -74,7 +74,7 @@
     {
       "brand": "Feathered Friends",
       "name": "Hummingbird UL 20",
-      "variant": "Regular (6 ft), 20°F",
+      "variant": "Regular, 6 ft, 20F",
       "category_hint": "sleep",
       "weight_value": 1,
       "weight_unit": "lb",
@@ -86,7 +86,7 @@
     {
       "brand": "Feathered Friends",
       "name": "Hummingbird UL 30",
-      "variant": "Regular (6 ft), 30°F",
+      "variant": "Regular, 6 ft, 30F",
       "category_hint": "sleep",
       "weight_value": 1,
       "weight_unit": "lb",
@@ -98,7 +98,7 @@
     {
       "brand": "Feathered Friends",
       "name": "Swallow UL 20",
-      "variant": "Regular (6 ft), 20°F",
+      "variant": "Regular, 6 ft, 20F",
       "category_hint": "sleep",
       "weight_value": 1,
       "weight_unit": "lb",
@@ -110,7 +110,7 @@
     {
       "brand": "Feathered Friends",
       "name": "Swallow UL 30",
-      "variant": "Regular (6 ft), 30°F",
+      "variant": "Regular, 6 ft, 30F",
       "category_hint": "sleep",
       "weight_value": 1,
       "weight_unit": "lb",
@@ -122,7 +122,7 @@
     {
       "brand": "Feathered Friends",
       "name": "Flicker UL Wide 20",
-      "variant": "Regular (6 ft) Wide, 20°F",
+      "variant": "Regular, 6 ft Wide, 20F",
       "category_hint": "sleep",
       "weight_value": 1,
       "weight_unit": "lb",

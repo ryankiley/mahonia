@@ -19,6 +19,7 @@ import {
   WEIGHT_SOURCES,
   type SpecUnit,
 } from "./catalogCsv";
+import { normalizeVariant } from "../shared/catalogQuality";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, "..");
@@ -115,7 +116,7 @@ function main() {
       const out: BuiltRow = {
         brand: (row.brand ?? "").trim(),
         name,
-        variant: (row.variant ?? "").trim(),
+        variant: normalizeVariant(row.variant ?? ""),
         category_hint: category,
         weight_mg: weightMg,
         weight_source: source,

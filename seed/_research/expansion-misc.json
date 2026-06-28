@@ -93,7 +93,7 @@
     {
       "brand": "Esbit",
       "name": "Solid Fuel Tablets",
-      "variant": "12 x 14 g pack (net)",
+      "variant": "12 x 14 g pack, net",
       "category_hint": "consumable",
       "weight_value": 0.172,
       "weight_unit": "kg",
@@ -105,7 +105,7 @@
     {
       "brand": "Nature Valley",
       "name": "Crunchy Granola Bars",
-      "variant": "one 2-bar pouch (net)",
+      "variant": "one 2-bar pouch, net",
       "category_hint": "consumable",
       "weight_value": 42,
       "weight_unit": "g",
@@ -161,7 +161,7 @@
     {
       "brand": "Mountain House",
       "name": "Biscuits and Gravy",
-      "variant": "pouch (2 servings, net)",
+      "variant": "pouch, 2 servings, net",
       "category_hint": "consumable",
       "weight_value": 4.4,
       "weight_unit": "oz",
@@ -173,7 +173,7 @@
     {
       "brand": "Peak Refuel",
       "name": "Beef Stroganoff",
-      "variant": "pouch (2 servings, net)",
+      "variant": "pouch, 2 servings, net",
       "category_hint": "consumable",
       "weight_value": 5,
       "weight_unit": "oz",
@@ -184,7 +184,7 @@
     {
       "brand": "Backpacker's Pantry",
       "name": "Pad Thai",
-      "variant": "pouch (2 servings, net)",
+      "variant": "pouch, 2 servings, net",
       "category_hint": "consumable",
       "weight_value": 6.2,
       "weight_unit": "oz",

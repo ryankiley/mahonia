@@ -15,7 +15,7 @@
     {
       "brand": "Zenbivy",
       "name": "Ultralight Bed",
-      "variant": "25F, Regular (quilt + Fast Sheet)",
+      "variant": "25F, Regular, quilt + Fast Sheet",
       "category_hint": "sleep",
       "weight_value": 20,
       "weight_unit": "oz",
@@ -59,7 +59,7 @@
     {
       "brand": "Osprey",
       "name": "Hydraulics Reservoir",
-      "variant": "2 L",
+      "variant": "2L",
       "category_hint": "water",
       "weight_value": 0.46,
       "weight_unit": "lb",

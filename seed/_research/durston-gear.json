@@ -63,7 +63,7 @@
     {
       "brand": "Sea to Summit",
       "name": "Ultra-Sil Stuff Sack",
-      "variant": "L (15L)",
+      "variant": "L, 15L",
       "category_hint": "other",
       "weight_value": 1,
       "weight_unit": "oz",
@@ -75,7 +75,7 @@
     {
       "brand": "Sea to Summit",
       "name": "Ultra-Sil Stuff Sack",
-      "variant": "XXS (2.5L)",
+      "variant": "XXS, 2.5L",
       "category_hint": "other",
       "weight_value": 0.4,
       "weight_unit": "oz",

@@ -99,7 +99,7 @@
     {
       "brand": "Osprey",
       "name": "Exos Pro 55",
-      "variant": "S/M (55 L)",
+      "variant": "S/M, 55L",
       "category_hint": "pack",
       "weight_value": 2.077,
       "weight_unit": "lb",
@@ -110,7 +110,7 @@
     {
       "brand": "Osprey",
       "name": "Exos Pro 55",
-      "variant": "L/XL (58 L)",
+      "variant": "L/XL, 58L",
       "category_hint": "pack",
       "weight_value": 2.165,
       "weight_unit": "lb",
@@ -121,7 +121,7 @@
     {
       "brand": "Osprey",
       "name": "Atmos AG 65",
-      "variant": "S/M (65 L)",
+      "variant": "S/M, 65L",
       "category_hint": "pack",
       "weight_value": 4.613,
       "weight_unit": "lb",
@@ -133,7 +133,7 @@
     {
       "brand": "Osprey",
       "name": "Atmos AG 65",
-      "variant": "L/XL (68 L)",
+      "variant": "L/XL, 68L",
       "category_hint": "pack",
       "weight_value": 4.807,
       "weight_unit": "lb",
@@ -145,7 +145,7 @@
     {
       "brand": "Osprey",
       "name": "Aura AG 65",
-      "variant": "WXS/S (62 L)",
+      "variant": "WXS/S, 62L",
       "category_hint": "pack",
       "weight_value": 4.467,
       "weight_unit": "lb",
@@ -157,7 +157,7 @@
     {
       "brand": "Osprey",
       "name": "Aura AG 65",
-      "variant": "WM/L (65 L)",
+      "variant": "WM/L, 65L",
       "category_hint": "pack",
       "weight_value": 4.597,
       "weight_unit": "lb",
@@ -169,7 +169,7 @@
     {
       "brand": "Osprey",
       "name": "Talon 44",
-      "variant": "S/M (44 L)",
+      "variant": "S/M, 44L",
       "category_hint": "pack",
       "weight_value": 3.46,
       "weight_unit": "lb",
@@ -181,7 +181,7 @@
     {
       "brand": "Osprey",
       "name": "Talon 44",
-      "variant": "L/XL (48 L)",
+      "variant": "L/XL, 48L",
       "category_hint": "pack",
       "weight_value": 3.57,
       "weight_unit": "lb",
@@ -193,7 +193,7 @@
     {
       "brand": "Osprey",
       "name": "Tempest 40",
-      "variant": "WXS/S (38 L)",
+      "variant": "WXS/S, 38L",
       "category_hint": "pack",
       "weight_value": 2.735,
       "weight_unit": "lb",
@@ -205,7 +205,7 @@
     {
       "brand": "Osprey",
       "name": "Tempest 40",
-      "variant": "WM/L (40 L)",
+      "variant": "WM/L, 40L",
       "category_hint": "pack",
       "weight_value": 2.927,
       "weight_unit": "lb",
@@ -217,7 +217,7 @@
     {
       "brand": "Hyperlite Mountain Gear",
       "name": "Southwest 2400",
-      "variant": "40 L",
+      "variant": "40L",
       "category_hint": "pack",
       "weight_value": 29.7,
       "weight_unit": "oz",
@@ -229,7 +229,7 @@
     {
       "brand": "Hyperlite Mountain Gear",
       "name": "Southwest 3400",
-      "variant": "55 L",
+      "variant": "55L",
       "category_hint": "pack",
       "weight_value": 30.8,
       "weight_unit": "oz",
@@ -241,7 +241,7 @@
     {
       "brand": "Hyperlite Mountain Gear",
       "name": "Windrider 2400",
-      "variant": "40 L",
+      "variant": "40L",
       "category_hint": "pack",
       "weight_value": 29.6,
       "weight_unit": "oz",
@@ -253,7 +253,7 @@
     {
       "brand": "Hyperlite Mountain Gear",
       "name": "Windrider 3400",
-      "variant": "55 L",
+      "variant": "55L",
       "category_hint": "pack",
       "weight_value": 31.1,
       "weight_unit": "oz",
@@ -265,7 +265,7 @@
     {
       "brand": "Hyperlite Mountain Gear",
       "name": "Junction 2400",
-      "variant": "40 L",
+      "variant": "40L",
       "category_hint": "pack",
       "weight_value": 29.4,
       "weight_unit": "oz",
@@ -277,7 +277,7 @@
     {
       "brand": "Hyperlite Mountain Gear",
       "name": "Junction 3400",
-      "variant": "55 L",
+      "variant": "55L",
       "category_hint": "pack",
       "weight_value": 30.6,
       "weight_unit": "oz",
@@ -289,7 +289,7 @@
     {
       "brand": "Hyperlite Mountain Gear",
       "name": "Unbound 40",
-      "variant": "40 L",
+      "variant": "40L",
       "category_hint": "pack",
       "weight_value": 29.6,
       "weight_unit": "oz",

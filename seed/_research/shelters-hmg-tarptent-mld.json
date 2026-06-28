@@ -36,7 +36,7 @@
     {
       "brand": "Tarptent",
       "name": "Notch",
-      "variant": "silpoly fly / silnylon floor",
+      "variant": "silpoly fly, silnylon floor",
       "category_hint": "shelter",
       "weight_value": 26,
       "weight_unit": "oz",
@@ -135,7 +135,7 @@
     {
       "brand": "Mountain Laurel Designs",
       "name": "DuoMid",
-      "variant": "DCF (.75)",
+      "variant": "DCF, .75",
       "category_hint": "shelter",
       "weight_value": 15.5,
       "weight_unit": "oz",
@@ -157,7 +157,7 @@
     {
       "brand": "Mountain Laurel Designs",
       "name": "SoloMid XL",
-      "variant": "DCF (.75)",
+      "variant": "DCF, .75",
       "category_hint": "shelter",
       "weight_value": 14,
       "weight_unit": "oz",

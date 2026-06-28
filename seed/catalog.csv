@@ -38,9 +38,9 @@ Marmot,Tungsten UL 2P,2P,shelter,1340000,manufacturer,https://marmotau.com/produ
 Mountain Laurel Designs,Cricket Pyramid Tarp,.5 DCF,shelter,212621,manufacturer,https://mountainlaureldesigns.com/product/cricket-pyramid-tarp/
 Mountain Laurel Designs,Cricket Pyramid Tarp,.8 DCF,shelter,255146,manufacturer,https://mountainlaureldesigns.com/product/cricket-pyramid-tarp/
 Mountain Laurel Designs,Cricket Pyramid Tarp,20d Pro SilPoly,shelter,354369,manufacturer,https://mountainlaureldesigns.com/product/cricket-pyramid-tarp/
-Mountain Laurel Designs,DuoMid,DCF (.75),shelter,439418,manufacturer,https://mountainlaureldesigns.com/product/duomid/
+Mountain Laurel Designs,DuoMid,"DCF, .75",shelter,439418,manufacturer,https://mountainlaureldesigns.com/product/duomid/
 Mountain Laurel Designs,DuoMid,SilPoly,shelter,510291,manufacturer,https://mountainlaureldesigns.com/product/duomid/
-Mountain Laurel Designs,SoloMid XL,DCF (.75),shelter,396893,manufacturer,https://mountainlaureldesigns.com/product/solomid-xl/
+Mountain Laurel Designs,SoloMid XL,"DCF, .75",shelter,396893,manufacturer,https://mountainlaureldesigns.com/product/solomid-xl/
 Mountain Laurel Designs,SoloMid XL,SilPoly,shelter,453592,manufacturer,https://mountainlaureldesigns.com/product/solomid-xl/
 Naturehike,Cloud Up 2,20D,shelter,1380000,manufacturer,https://www.naturehike.com/products/cloud-up-2-person-ultralight-backpacking-tent
 Naturehike,Mongar 2,2P,shelter,2200000,manufacturer,https://www.naturehike.com/products/mongar-2-person-ultralight-backpacking-tent
@@ -61,7 +61,7 @@ SlingFin,SplitWing UL Tarp,tarp only,shelter,223961,manufacturer,https://www.sli
 Tarptent,Aeon Li,DCF,shelter,477689,manufacturer,https://www.tarptent.com/product/aeon-li/
 Tarptent,Double Rainbow,silpoly/silnylon,shelter,1017748,manufacturer,https://www.tarptent.com/product/double-rainbow/
 Tarptent,Double Rainbow Li,DCF,shelter,742758,manufacturer,https://www.tarptent.com/product/double-rainbow-li/
-Tarptent,Notch,silpoly fly / silnylon floor,shelter,737088,manufacturer,https://www.tarptent.com/product/notch/
+Tarptent,Notch,"silpoly fly, silnylon floor",shelter,737088,manufacturer,https://www.tarptent.com/product/notch/
 Tarptent,Notch Li,DCF,shelter,566990,manufacturer,https://www.tarptent.com/product/notch-li/
 Tarptent,ProTrail Li,DCF,shelter,452175,manufacturer,https://www.tarptent.com/product/protrail-li/
 Tarptent,StratoSpire 2,silpoly/silnylon,shelter,1099961,manufacturer,https://www.tarptent.com/product/stratospire-2/
@@ -107,16 +107,16 @@ Enlightened Equipment,Revelation,"30F, 850FP, Regular",sleep,551398,manufacturer
 Enlightened Equipment,Revelation,"40F, 850FP, Regular",sleep,448206,manufacturer,https://web.archive.org/web/20220524032618id_/https://enlightenedequipment.com/revelation-850-40-f-5-c-regular-regular-forest-10d-charcoal-10d-5763-28/
 Exped,Ultra 6.5R,M,sleep,439418,manufacturer,https://www.expedusa.com/products/ultra-6-5r
 Feathered Friends,Flicker UL Quilt,"20F, Regular, 950+FP",sleep,721212,manufacturer,https://featheredfriends.com/products/flicker-ul-ultralight-down-quilt-sleeping-bag
-Feathered Friends,Flicker UL Wide 20,"Regular (6 ft) Wide, 20°F",sleep,779612,manufacturer,https://featheredfriends.com/products/flicker-ul-wide-ultralight-down-quilt-sleeping-bag
-Feathered Friends,Hummingbird UL 20,"Regular (6 ft), 20°F",sleep,677553,manufacturer,https://featheredfriends.com/products/hummingbird-ul-ultralight-20-30-degree-down-sleeping-bag
-Feathered Friends,Hummingbird UL 30,"Regular (6 ft), 30°F",sleep,601010,manufacturer,https://featheredfriends.com/products/hummingbird-ul-ultralight-20-30-degree-down-sleeping-bag
-Feathered Friends,Swallow UL 20,"Regular (6 ft), 20°F",sleep,754097,manufacturer,https://featheredfriends.com/products/swallow-ul-ultralight-20-30-degree-down-sleeping-bag-c0
-Feathered Friends,Swallow UL 30,"Regular (6 ft), 30°F",sleep,663378,manufacturer,https://featheredfriends.com/products/swallow-ul-ultralight-20-30-degree-down-sleeping-bag-c0
+Feathered Friends,Flicker UL Wide 20,"Regular, 6 ft Wide, 20F",sleep,779612,manufacturer,https://featheredfriends.com/products/flicker-ul-wide-ultralight-down-quilt-sleeping-bag
+Feathered Friends,Hummingbird UL 20,"Regular, 6 ft, 20F",sleep,677553,manufacturer,https://featheredfriends.com/products/hummingbird-ul-ultralight-20-30-degree-down-sleeping-bag
+Feathered Friends,Hummingbird UL 30,"Regular, 6 ft, 30F",sleep,601010,manufacturer,https://featheredfriends.com/products/hummingbird-ul-ultralight-20-30-degree-down-sleeping-bag
+Feathered Friends,Swallow UL 20,"Regular, 6 ft, 20F",sleep,754097,manufacturer,https://featheredfriends.com/products/swallow-ul-ultralight-20-30-degree-down-sleeping-bag-c0
+Feathered Friends,Swallow UL 30,"Regular, 6 ft, 30F",sleep,663378,manufacturer,https://featheredfriends.com/products/swallow-ul-ultralight-20-30-degree-down-sleeping-bag-c0
 Gossamer Gear,"Thinlight Foam Pad 1/8""",Rolled,sleep,76544,manufacturer,https://www.gossamergear.com/products/thinlight-foam-pad
 Hammock Gear,Premium Burrow 20,"20F, 850FP, Standard",sleep,615752,manufacturer,https://hammockgear.com/wp-content/uploads/2025/06/B850finalweights.pdf
 Hammock Gear,Premium Burrow 30,"30F, 850FP, Standard",sleep,520781,manufacturer,https://hammockgear.com/wp-content/uploads/2025/06/B850finalweights.pdf
-Hyperlite Mountain Gear,20-Degree Quilt,Regular / 20°F,sleep,570000,manufacturer,https://hyperlitemountaingear.com/products/20-degree-quilt
-Hyperlite Mountain Gear,Stuff Sack Pillow,One size (9L),sleep,48194,manufacturer,https://hyperlitemountaingear.com/products/stuff-sack-pillows
+Hyperlite Mountain Gear,20-Degree Quilt,"Regular, 20F",sleep,570000,manufacturer,https://hyperlitemountaingear.com/products/20-degree-quilt
+Hyperlite Mountain Gear,Stuff Sack Pillow,"One size, 9L",sleep,48194,manufacturer,https://hyperlitemountaingear.com/products/stuff-sack-pillows
 Katabatic Gear,Alsek 22,"22F, 850FP, Regular",sleep,660544,manufacturer,https://katabaticgear.com/products/alsek-ultralight-quilt
 Katabatic Gear,Flex 22,"22F, 850FP, Regular",sleep,677554,manufacturer,https://katabaticgear.com/products/flex-22-ultralight-quilt
 Katabatic Gear,Palisade 30,"30F, 850FP, Regular",sleep,561321,manufacturer,https://katabaticgear.com/products/palisade-ultralight-quilt
@@ -144,7 +144,7 @@ REI Co-op,Magma 30,"30F, Regular, 850FP",sleep,561320,manufacturer,https://web.a
 Sea to Summit,Aeros Premium Pillow,Regular,sleep,99223,manufacturer,https://seatosummit.com/products/aeros-pillow-premium
 Sea to Summit,Ember 30F,"30F, Regular",sleep,544000,manufacturer,https://seatosummit.com/products/the-ember-down-quilt
 Sea to Summit,Ether Light XR Insulated,Regular Wide,sleep,605000,manufacturer,https://seatosummit.com/products/ether-light-xr-insulated-air-sleeping-pad
-Sea to Summit,Ether Light XT Extreme Insulated,Regular (tapered),sleep,720000,manufacturer,https://seatosummit.com/pages/ether-light-xt-insulated-sleeping-pad
+Sea to Summit,Ether Light XT Extreme Insulated,"Regular, tapered",sleep,720000,manufacturer,https://seatosummit.com/pages/ether-light-xt-insulated-sleeping-pad
 Sea to Summit,Ether Light XT Insulated,Regular,sleep,490447,manufacturer,https://seatosummit.com/pages/ether-light-xt-insulated-sleeping-pad
 Sea to Summit,Spark 15F,"15F, Regular",sleep,728583,manufacturer,https://seatosummit.com/products/spark-down-sleeping-bag
 Sea to Summit,Spark 30F,"30F, Regular",sleep,493000,manufacturer,https://seatosummit.com/products/spark-down-sleeping-bag
@@ -165,13 +165,13 @@ Therm-a-Rest,Z Seat,standard,sleep,56699,manufacturer,https://cascadedesigns.com
 Trekology,Aluft 2.0,Regular,sleep,110563,manufacturer,https://trekology.com/products/trekology-aluft-2-0-inflatable-pillow-for-camping-copy-2
 UGQ Outdoor,Bandit Top Quilt,"20F, Long, 850FP, insulated footbox",sleep,770540,manufacturer,https://ugqlimited.com/products/bandit-20f-insulated
 UGQ Outdoor,Bandit Top Quilt,"20F, Regular/Wide, zip footbox",sleep,632194,measured,https://www.cleverhiker.com/backpacking/backpacking-individual-gear-reviews/ugq-bandit-20-review/
-Western Mountaineering,AlpinLite,"6 ft, 20°F",sleep,878835,manufacturer,https://www.westernmountaineering.com/product/alpinlite/
-Western Mountaineering,HighLite,"6 ft, 35°F",sleep,453592,manufacturer,https://www.westernmountaineering.com/product/highlite/
-Western Mountaineering,MegaLite,"6 ft, 30°F",sleep,680388,manufacturer,https://www.westernmountaineering.com/product/megalite/
-Western Mountaineering,SummerLite,"6 ft, 32°F",sleep,538641,manufacturer,https://www.westernmountaineering.com/product/summerlite/
-Western Mountaineering,UltraLite,"6 ft, 20°F",sleep,822136,manufacturer,https://www.westernmountaineering.com/product/ultralite/
-Western Mountaineering,VersaLite,"6 ft, 10°F",sleep,907185,manufacturer,https://www.westernmountaineering.com/product/versalite/
-Zenbivy,Ultralight Bed,"25F, Regular (quilt + Fast Sheet)",sleep,566990,manufacturer,https://zenbivy.com/collections/ultralight-beds
+Western Mountaineering,AlpinLite,"6 ft, 20F",sleep,878835,manufacturer,https://www.westernmountaineering.com/product/alpinlite/
+Western Mountaineering,HighLite,"6 ft, 35F",sleep,453592,manufacturer,https://www.westernmountaineering.com/product/highlite/
+Western Mountaineering,MegaLite,"6 ft, 30F",sleep,680388,manufacturer,https://www.westernmountaineering.com/product/megalite/
+Western Mountaineering,SummerLite,"6 ft, 32F",sleep,538641,manufacturer,https://www.westernmountaineering.com/product/summerlite/
+Western Mountaineering,UltraLite,"6 ft, 20F",sleep,822136,manufacturer,https://www.westernmountaineering.com/product/ultralite/
+Western Mountaineering,VersaLite,"6 ft, 10F",sleep,907185,manufacturer,https://www.westernmountaineering.com/product/versalite/
+Zenbivy,Ultralight Bed,"25F, Regular, quilt + Fast Sheet",sleep,566990,manufacturer,https://zenbivy.com/collections/ultralight-beds
 Zpacks,Solo Quilt,"20F, 900FP, Standard",sleep,518796,manufacturer,https://zpacks.com/products/solo-quilt
 Atom Packs,The Atom,"30L, M torso",pack,408000,manufacturer,https://atompacks.co.uk/products/the-atom-custom
 Atom Packs,The Atom,"40L, M torso",pack,438000,manufacturer,https://atompacks.co.uk/products/the-atom-custom
@@ -179,10 +179,10 @@ Atom Packs,The Prospector,"40L, M torso",pack,890000,manufacturer,https://atompa
 Atom Packs,The Pulse,"EP50, M torso",pack,675000,manufacturer,https://atompacks.co.uk/products/the-pulse-ep50-black
 Bonfus,Framus 48,"Ultra 200X, M",pack,760000,manufacturer,https://bonfus.com/product/framus-48l/
 Bonfus,Framus 58,"Ultra 200X, M",pack,795000,manufacturer,https://bonfus.com/product/framus-58l/
-Durston,Kakwa 40,Ultra 200X / M,pack,793787,manufacturer,https://durstongear.com/products/kakwa-40-backpack
-Durston,Kakwa 40,UltraGrid / M,pack,839146,manufacturer,https://durstongear.com/products/kakwa-40-backpack
-Durston,Kakwa 55,Ultra 200X / M,pack,893010,manufacturer,https://durstongear.com/products/kakwa-55
-Durston,Kakwa 55,UltraGrid / M,pack,867495,manufacturer,https://durstongear.com/products/kakwa-55
+Durston,Kakwa 40,"Ultra 200X, M",pack,793787,manufacturer,https://durstongear.com/products/kakwa-40-backpack
+Durston,Kakwa 40,"UltraGrid, M",pack,839146,manufacturer,https://durstongear.com/products/kakwa-40-backpack
+Durston,Kakwa 55,"Ultra 200X, M",pack,893010,manufacturer,https://durstongear.com/products/kakwa-55
+Durston,Kakwa 55,"UltraGrid, M",pack,867495,manufacturer,https://durstongear.com/products/kakwa-55
 Durston,Wapta 30,M,pack,518796,manufacturer,https://durstongear.com/products/wapta-30-ultralight-backpack
 Goldwin,Star Trail Pack,size 3,pack,178000,manufacturer,https://usshop.goldwin-global.com/products/gm95181
 Gossamer Gear,Gorilla 50,Medium,pack,904350,manufacturer,https://www.gossamergear.com/products/gorilla-50
@@ -199,16 +199,16 @@ Gregory,Focal 58,M,pack,1202020,manufacturer,https://web.archive.org/web/2023091
 Gregory,Maven 45,S/M,pack,1500000,manufacturer,https://www.snowcountry.eu/gregory-maven-45-8258.html
 Gregory,Paragon 48,M/L,pack,1600000,manufacturer,https://www.snowcountry.eu/gregory-paragon-48-1416.html
 Hanchor,COBBLE Multi-day Backpack,,pack,810000,manufacturer,https://www.hanchor.com/products/Outdoor%20Series/COBBLE_Multi-day_backpack?locale=en
-Hanchor,MARBLE Hiking Backpack,torso R / hipbelt S,pack,1160000,manufacturer,https://www.hanchor.com/products/Outdoor%20Series/MARBLE_Hiking_Backpack?locale=en
-Hanchor,MARL Hiking Backpack,torso R / hipbelt S,pack,1053000,manufacturer,https://www.hanchor.com/products/Outdoor%20Series/MARL_Hiking_Backpack?locale=en
-Hyperlite Mountain Gear,Junction 2400,40 L,pack,833476,manufacturer,https://hyperlitemountaingear.com/products/junction
-Hyperlite Mountain Gear,Junction 3400,55 L,pack,867495,manufacturer,https://hyperlitemountaingear.com/products/junction
+Hanchor,MARBLE Hiking Backpack,"torso R, hipbelt S",pack,1160000,manufacturer,https://www.hanchor.com/products/Outdoor%20Series/MARBLE_Hiking_Backpack?locale=en
+Hanchor,MARL Hiking Backpack,"torso R, hipbelt S",pack,1053000,manufacturer,https://www.hanchor.com/products/Outdoor%20Series/MARL_Hiking_Backpack?locale=en
+Hyperlite Mountain Gear,Junction 2400,40L,pack,833476,manufacturer,https://hyperlitemountaingear.com/products/junction
+Hyperlite Mountain Gear,Junction 3400,55L,pack,867495,manufacturer,https://hyperlitemountaingear.com/products/junction
 Hyperlite Mountain Gear,Pemi 15,M,pack,351534,manufacturer,https://www.hyperlitemountaingear.com/products/pemi-15
-Hyperlite Mountain Gear,Southwest 2400,40 L,pack,841981,manufacturer,https://hyperlitemountaingear.com/products/southwest
-Hyperlite Mountain Gear,Southwest 3400,55 L,pack,873165,manufacturer,https://hyperlitemountaingear.com/products/southwest
-Hyperlite Mountain Gear,Unbound 40,40 L,pack,839146,manufacturer,https://hyperlitemountaingear.com/products/unbound
-Hyperlite Mountain Gear,Windrider 2400,40 L,pack,839146,manufacturer,https://hyperlitemountaingear.com/products/windrider
-Hyperlite Mountain Gear,Windrider 3400,55 L,pack,881670,manufacturer,https://hyperlitemountaingear.com/products/windrider
+Hyperlite Mountain Gear,Southwest 2400,40L,pack,841981,manufacturer,https://hyperlitemountaingear.com/products/southwest
+Hyperlite Mountain Gear,Southwest 3400,55L,pack,873165,manufacturer,https://hyperlitemountaingear.com/products/southwest
+Hyperlite Mountain Gear,Unbound 40,40L,pack,839146,manufacturer,https://hyperlitemountaingear.com/products/unbound
+Hyperlite Mountain Gear,Windrider 2400,40L,pack,839146,manufacturer,https://hyperlitemountaingear.com/products/windrider
+Hyperlite Mountain Gear,Windrider 3400,55L,pack,881670,manufacturer,https://hyperlitemountaingear.com/products/windrider
 Kelty,Redwing 50,,pack,1474175,manufacturer,https://www.rei.com/product/895781/kelty-redwing-50-pack-mens
 LiteAF,Curve 30,"Dyneema, frameless",pack,368544,manufacturer,https://liteaf.com/product/dyneema-30l-curve-frameless-custom-ultralight-backpack/
 LiteAF,Full Suspension 46,UltraWeave,pack,708738,manufacturer,https://liteaf.com/product/ultra-46l-curve-full-suspension/
@@ -236,10 +236,10 @@ Nashville Pack,Cutaway,20L,pack,408233,manufacturer,https://nashvillepack.com/pr
 Nashville Pack,Cutaway,30L,pack,436583,manufacturer,https://nashvillepack.com/products/the-cutaway-pack
 Nashville Pack,Cutaway,40L,pack,493282,manufacturer,https://nashvillepack.com/pages/cutaway-pack-specs
 Nunatak,Bears Ears 50,frameless,pack,793787,manufacturer,https://backpackinglight.com/bears-ears-50-review/
-Osprey,Atmos AG 65,L/XL (68 L),pack,2180419,manufacturer,https://web.archive.org/web/2id_/https://www.osprey.com/atmos-ag-65-atmos65s22-415
-Osprey,Atmos AG 65,S/M (65 L),pack,2092422,manufacturer,https://web.archive.org/web/2id_/https://www.osprey.com/atmos-ag-65-atmos65s22-415
-Osprey,Aura AG 65,WM/L (65 L),pack,2085164,manufacturer,https://web.archive.org/web/2id_/https://www.osprey.com/aura-ag-65-aura65s22-224
-Osprey,Aura AG 65,WXS/S (62 L),pack,2026197,manufacturer,https://web.archive.org/web/2id_/https://www.osprey.com/aura-ag-65-aura65s22-224
+Osprey,Atmos AG 65,"L/XL, 68L",pack,2180419,manufacturer,https://web.archive.org/web/2id_/https://www.osprey.com/atmos-ag-65-atmos65s22-415
+Osprey,Atmos AG 65,"S/M, 65L",pack,2092422,manufacturer,https://web.archive.org/web/2id_/https://www.osprey.com/atmos-ag-65-atmos65s22-415
+Osprey,Aura AG 65,"WM/L, 65L",pack,2085164,manufacturer,https://web.archive.org/web/2id_/https://www.osprey.com/aura-ag-65-aura65s22-224
+Osprey,Aura AG 65,"WXS/S, 62L",pack,2026197,manufacturer,https://web.archive.org/web/2id_/https://www.osprey.com/aura-ag-65-aura65s22-224
 Osprey,Eja 48,WM/L,pack,1288202,manufacturer,https://www.osprey.com/gb/media/user_manuals/OM_Exos_Eja_S22_ENG.pdf
 Osprey,Eja 48,WXS/S,pack,1247379,manufacturer,https://www.osprey.com/gb/media/user_manuals/OM_Exos_Eja_S22_ENG.pdf
 Osprey,Eja 58,WM/L,pack,1315418,manufacturer,https://www.osprey.com/gb/media/user_manuals/OM_Exos_Eja_S22_ENG.pdf
@@ -248,16 +248,16 @@ Osprey,Exos 48,L/XL,pack,1333562,manufacturer,https://www.osprey.com/gb/media/us
 Osprey,Exos 48,S/M,pack,1288202,manufacturer,https://www.osprey.com/gb/media/user_manuals/OM_Exos_Eja_S22_ENG.pdf
 Osprey,Exos 58,L/XL,pack,1360777,manufacturer,https://www.osprey.com/gb/media/user_manuals/OM_Exos_Eja_S22_ENG.pdf
 Osprey,Exos 58,S/M,pack,1319954,manufacturer,https://www.osprey.com/gb/media/user_manuals/OM_Exos_Eja_S22_ENG.pdf
-Osprey,Exos Pro 55,L/XL (58 L),pack,982027,manufacturer,https://web.archive.org/web/2id_/https://www.osprey.com/exos-pro-55-exospro55s23-482
-Osprey,Exos Pro 55,S/M (55 L),pack,942111,manufacturer,https://web.archive.org/web/2id_/https://www.osprey.com/exos-pro-55-exospro55s23-482
+Osprey,Exos Pro 55,"L/XL, 58L",pack,982027,manufacturer,https://web.archive.org/web/2id_/https://www.osprey.com/exos-pro-55-exospro55s23-482
+Osprey,Exos Pro 55,"S/M, 55L",pack,942111,manufacturer,https://web.archive.org/web/2id_/https://www.osprey.com/exos-pro-55-exospro55s23-482
 Osprey,Levity 45,M,pack,839146,measured,https://www.pctoregon.com/review-osprey-levity-45-ultralight-backpack/
 Osprey,Levity 60,M,pack,830000,measured,https://www.adventure52.com/reviews/osprey-levity-60-rucsac-review/
 Osprey,Lumina 45,,pack,843682,measured,https://www.outdoorgearlab.com/reviews/camping-and-hiking/backpacks-womens/osprey-lumina-45
 Osprey,Lumina 60,,pack,816466,measured,https://www.outdoorgearlab.com/reviews/camping-and-hiking/backpacks-womens/osprey-lumina-60
-Osprey,Talon 44,L/XL (48 L),pack,1619325,manufacturer,https://web.archive.org/web/2id_/https://www.osprey.com/talontm-8
-Osprey,Talon 44,S/M (44 L),pack,1569430,manufacturer,https://web.archive.org/web/2id_/https://www.osprey.com/talontm-8
-Osprey,Tempest 40,WM/L (40 L),pack,1327665,manufacturer,https://web.archive.org/web/2id_/https://www.osprey.com/gb/osprey-tempest-40-2021
-Osprey,Tempest 40,WXS/S (38 L),pack,1240575,manufacturer,https://web.archive.org/web/2id_/https://www.osprey.com/gb/osprey-tempest-40-2021
+Osprey,Talon 44,"L/XL, 48L",pack,1619325,manufacturer,https://web.archive.org/web/2id_/https://www.osprey.com/talontm-8
+Osprey,Talon 44,"S/M, 44L",pack,1569430,manufacturer,https://web.archive.org/web/2id_/https://www.osprey.com/talontm-8
+Osprey,Tempest 40,"WM/L, 40L",pack,1327665,manufacturer,https://web.archive.org/web/2id_/https://www.osprey.com/gb/osprey-tempest-40-2021
+Osprey,Tempest 40,"WXS/S, 38L",pack,1240575,manufacturer,https://web.archive.org/web/2id_/https://www.osprey.com/gb/osprey-tempest-40-2021
 Outdoor Vitals,Carbon Evo 50,"R torso, M belt",pack,850486,manufacturer,https://outdoorvitals.com/products/carbon-evo-50-backpack-1
 Pa'lante,Desert Pack,Gridstop,pack,532971,manufacturer,https://palantepacks.com/products/desert-pack
 Pa'lante,Desert Pack,Ultraweave,pack,592505,manufacturer,https://palantepacks.com/products/desert-pack
@@ -267,7 +267,7 @@ Pa'lante,Mini Joey,Robic,pack,362874,manufacturer,https://palantepacks.com/produ
 Pa'lante,Ultralight Pack,Gridstop,pack,416738,manufacturer,https://palantepacks.com/products/ultralight
 Pa'lante,Ultralight Pack,Robic,pack,385554,manufacturer,https://palantepacks.com/products/ultralight
 Pa'lante,Ultralight Pack,Ultraweave,pack,396893,manufacturer,https://palantepacks.com/products/ultralight
-Pa'lante,V2,"Gridstop (16"" / 19"")",pack,501787,manufacturer,https://palantepacks.com/products/v2
+Pa'lante,V2,"Gridstop, 16"" / 19""",pack,501787,manufacturer,https://palantepacks.com/products/v2
 Pa'lante,V2,Ultraweave,pack,513126,manufacturer,https://palantepacks.com/products/v2
 PaaGo Works,RUSH 20,20L,pack,450000,manufacturer,https://www.paagoworks.com/en/products/rush20
 PaaGo Works,RUSH 30,30L,pack,720000,manufacturer,https://www.paagoworks.com/en/products/rush30
@@ -347,7 +347,7 @@ LifeStraw,Peak Series Solo Filter,,water,48194,manufacturer,https://lifestraw.co
 LifeStraw,Peak Series Squeeze Bottle with Filter,650 ml,water,102000,manufacturer,https://lifestraw.com/products/lifestraw-peak-series-squeeze-bottle
 Mazama Designs,M!GO Bottle,,water,132000,manufacturer,https://mazamadesigns.com/products/m-go-bottle
 Nalgene,Wide Mouth Bottle,32oz / 1L,water,177185,manufacturer,https://nalgene.com/product/32oz-wide-mouth-bottle/
-Osprey,Hydraulics Reservoir,2 L,water,208652,manufacturer,https://appoutdoors.com/products/hydraulics-2l-reservoir.json
+Osprey,Hydraulics Reservoir,2L,water,208652,manufacturer,https://appoutdoors.com/products/hydraulics-2l-reservoir.json
 Platypus,GravityWorks Water Filter System,4L,water,326020,manufacturer,https://cascadedesigns.com/products/gravityworks-water-filter-system
 Platypus,Hoser Reservoir,2L,water,102058,manufacturer,https://cascadedesigns.com/products/hoser-reservoir
 Platypus,QuickDraw Microfilter,,water,82214,manufacturer,https://cascadedesigns.com/products/quickdraw-filter
@@ -382,9 +382,9 @@ Danner,Trail 2650,"Men's, per pair",clothing,680389,measured,https://www.cleverh
 Darn Tough,Hiker Boot Midweight,"Men's, per pair",clothing,73709,measured,https://www.outdoorgearlab.com/reviews/shoes-and-boots/hiking-socks/darn-tough-hiker-full-cushion
 Darn Tough,Light Hiker Quarter Lightweight Cushion,"Men's, per pair",clothing,59534,manufacturer,https://darntough.com/products/mens-merino-wool-light-hiker-quarter-cushioned-lightweight-hiking-socks
 Decathlon (Simond),MT100 Hooded Down Jacket,Men's M,clothing,292000,measured,https://www.outdoorgearlab.com/reviews/clothing-mens/down-jacket-men/decathlon-simond-mt100-hooded-puffer
-Diemme,Maggiore,"Men's US 9 (EU 42), per pair",clothing,960000,community,https://diemme.com/products/maggiore-black-suede-m
-Diemme,Possagno Mid,"Men's US 9 (EU 42), per pair",clothing,800000,community,https://diemme.com/products/possagno-mid-black
-Diemme,Roccia Vet,"Men's US 9 (EU 42), per pair",clothing,1040000,community,https://diemme.com/products/roccia-vet-black-full-grain
+Diemme,Maggiore,"Men's US 9, EU 42, per pair",clothing,960000,community,https://diemme.com/products/maggiore-black-suede-m
+Diemme,Possagno Mid,"Men's US 9, EU 42, per pair",clothing,800000,community,https://diemme.com/products/possagno-mid-black
+Diemme,Roccia Vet,"Men's US 9, EU 42, per pair",clothing,1040000,community,https://diemme.com/products/roccia-vet-black-full-grain
 Dirty Girl,Gaiters,per pair,clothing,39689,measured,https://www.outdoorgearlab.com/reviews/climbing/gaiters/dirty-girl-gaiter
 Enlightened Equipment,Copperfield Wind Pants,Men's,clothing,37138,manufacturer,https://enlightenedequipment.com/mens-copperfield-wind-pants-cus/
 Enlightened Equipment,Torrid APEX Jacket,Men's M,clothing,238136,manufacturer,https://www.adventurealan.com/enlightened-equipment-torrid-apex-jacket-review/
@@ -417,19 +417,19 @@ Gnuhr x Norda,Gnorda Shag Zip Hoodie,4,clothing,141000,manufacturer,https://www.
 Gnuhr x Norda,Gnorda Warp Cargo Legging,3-4,clothing,235000,manufacturer,https://www.gnuhr.com/products/gnorda-warp-cargo-legging
 Gnuhr x Norda,Gnorda Warp Short Short Lined,3-4,clothing,197000,manufacturer,https://www.gnuhr.com/products/gnorda-warp-short-short-lined
 Gnuhr x Norda,Gnorda Warp T-Tank,3-4,clothing,179000,manufacturer,https://www.gnuhr.com/products/gnorda-warp-t-tank
-Goldwin,Dry Mesh Jacket,size 3 (M),clothing,250000,manufacturer,https://eushop.goldwin-global.com/products/gm35100
-Goldwin,Dual Layered L/S Hoodie,size 3 (M),clothing,257000,manufacturer,https://usshop.goldwin-global.com/products/gm35323
-Goldwin,GORE-TEX 3/4 Over Coat,size 3 (M),clothing,500000,manufacturer,https://usshop.goldwin-global.com/products/gl05141
-Goldwin,GORE-TEX 3L Jacket,size 3 (M),clothing,420000,manufacturer,https://usshop.goldwin-global.com/products/gl05140
-Goldwin,Light Warmer Kochi Jacket,size 3 (M),clothing,170000,manufacturer,https://eushop.goldwin-global.com/products/gmw25309
-Goldwin,Nylon Multi Purpose Jacket,size 3 (M),clothing,510000,manufacturer,https://ukshop.goldwin-global.com/products/gl15143
-Goldwin,One Tuck Tapered Stretch Pants,size 3 (M),clothing,535000,manufacturer,https://usshop.goldwin-global.com/products/gl75177
+Goldwin,Dry Mesh Jacket,"size 3, M",clothing,250000,manufacturer,https://eushop.goldwin-global.com/products/gm35100
+Goldwin,Dual Layered L/S Hoodie,"size 3, M",clothing,257000,manufacturer,https://usshop.goldwin-global.com/products/gm35323
+Goldwin,GORE-TEX 3/4 Over Coat,"size 3, M",clothing,500000,manufacturer,https://usshop.goldwin-global.com/products/gl05141
+Goldwin,GORE-TEX 3L Jacket,"size 3, M",clothing,420000,manufacturer,https://usshop.goldwin-global.com/products/gl05140
+Goldwin,Light Warmer Kochi Jacket,"size 3, M",clothing,170000,manufacturer,https://eushop.goldwin-global.com/products/gmw25309
+Goldwin,Nylon Multi Purpose Jacket,"size 3, M",clothing,510000,manufacturer,https://ukshop.goldwin-global.com/products/gl15143
+Goldwin,One Tuck Tapered Stretch Pants,"size 3, M",clothing,535000,manufacturer,https://usshop.goldwin-global.com/products/gl75177
 Goldwin,Pertex Shield Air Fast Run Jacket,size L,clothing,115000,manufacturer,https://www.goldwin-global.com/us/feature/trail-running-25ss/
-Goldwin,Pertex Shield Pro Fast Run Jacket,size 3 (M),clothing,140000,manufacturer,https://eushop.goldwin-global.com/products/gm05333
-Goldwin,Pertex Shieldair A/L Jacket,size 3 (M),clothing,104000,manufacturer,https://www.goldwin-global.com/us/feature/trail-running-24ss/
-Goldwin,Relax Straight Easy Pants,size 3 (M),clothing,350000,manufacturer,https://usshop.goldwin-global.com/products/gl73179
-Goldwin,Rip-stop Hooded Jacket,size 3 (M),clothing,320000,manufacturer,https://usshop.goldwin-global.com/products/gl15145
-Goldwin,Zip-up Floating Wind Shell Jacket,size 3 (M),clothing,90000,manufacturer,https://www.goldwin-global.com/us/feature/trail-running-24ss/
+Goldwin,Pertex Shield Pro Fast Run Jacket,"size 3, M",clothing,140000,manufacturer,https://eushop.goldwin-global.com/products/gm05333
+Goldwin,Pertex Shieldair A/L Jacket,"size 3, M",clothing,104000,manufacturer,https://www.goldwin-global.com/us/feature/trail-running-24ss/
+Goldwin,Relax Straight Easy Pants,"size 3, M",clothing,350000,manufacturer,https://usshop.goldwin-global.com/products/gl73179
+Goldwin,Rip-stop Hooded Jacket,"size 3, M",clothing,320000,manufacturer,https://usshop.goldwin-global.com/products/gl15145
+Goldwin,Zip-up Floating Wind Shell Jacket,"size 3, M",clothing,90000,manufacturer,https://www.goldwin-global.com/us/feature/trail-running-24ss/
 Gramicci,G-Pant,Men's 32,clothing,500000,community,https://www.rei.com/product/252981/gramicci-gramicci-pants-mens
 Gramicci,G-Short,Men's M,clothing,396893,manufacturer,https://www.backcountry.com/gramicci-g-short-mens
 Gramicci,NN-Pant,Men's M,clothing,460000,community,https://gramicci.com/products/nn-pant
@@ -445,7 +445,7 @@ Houdini,Power Houdi,,clothing,478000,manufacturer,https://houdinisportswear.com/
 Houdini,The Orange Jacket,L,clothing,195000,manufacturer,https://houdinisportswear.com/en-us/clothing/jackets/mens-the-orange-jacket-810006
 Houdini,The Orange Tee,L,clothing,130000,manufacturer,https://houdinisportswear.com/en-us/clothing/t-shirts/mens-the-orange-tee-810062
 Injinji,Liner Crew,per pair,clothing,11340,measured,https://www.outdoorgearlab.com/reviews/shoes-and-boots/hiking-socks/injinji-liner-crew
-Injinji,Trail Midweight Mini-Crew,Toe socks (per pair),clothing,55000,measured,https://brianoutdoorsblog.wordpress.com/2019/05/06/injinji-trail-midweight-mini-crew-toe-socks/
+Injinji,Trail Midweight Mini-Crew,"Toe socks, per pair",clothing,55000,measured,https://brianoutdoorsblog.wordpress.com/2019/05/06/injinji-trail-midweight-mini-crew-toe-socks/
 Keen,Targhee III Waterproof Low,"Men's, per pair",clothing,873165,measured,https://runrepeat.com/keen-targhee-iii-waterproof
 Keen,Targhee III Waterproof Mid,"Men's, per pair",clothing,986563,measured,https://runrepeat.com/keen-targhee-iii-waterproof-mid
 Klättermusen,Allgrön 2.0 Jacket,Men's M,clothing,624000,manufacturer,https://www.klattermusen.com/en-us/10003-allgron-2-0-jacket-ms-black/
@@ -474,11 +474,11 @@ Nnormal,Kjerag,"UK 8, per pair",clothing,400000,manufacturer,https://www.nnormal
 Nnormal,Kjerag 02,"UK 7.5, per pair",clothing,428000,manufacturer,https://www.nnormal.com/en_US/men/shoes/kjerag/nnormal-kjerag_02_shoe_black-N1ZKGM2-001
 Nnormal,Tomir 02,"UK 8.5, per pair",clothing,528000,manufacturer,https://www.nnormal.com/en_US/men/shoes/tmi/nnormal-tomir_02_shoe_green_white-N2ZTR25-005
 Nnormal,Tomir 02 GTX,"UK 7.5, per pair",clothing,564000,manufacturer,https://www.nnormal.com/en_US/men/shoes/tmi/nnormal-tomir_02_gtx_shoe_blue_grey-N2ZTRG1-001
-Norda,001,"Men's, per pair (US M9)",clothing,596000,measured,https://www.irunfar.com/norda-001-review
-Norda,001A,"Men's, per pair (US M 8.5)",clothing,536000,manufacturer,https://nordarun.com/products/001a-m-black
-Norda,002,"Men's, per pair (US M 8.5)",clothing,498000,manufacturer,https://nordarun.com/products/002-m-summit-black
-Norda,005,"Men's, per pair (US M 8.5)",clothing,425000,manufacturer,https://nordarun.com/products/005-m-neve
-Oboz,Sawtooth X Low Waterproof,"Men's, per pair (size 11)",clothing,1079550,measured,https://www.outdoorgearlab.com/reviews/shoes-and-boots/hiking-shoes-men/oboz-sawtooth-x-low-waterproof
+Norda,001,"Men's, per pair, US M9",clothing,596000,measured,https://www.irunfar.com/norda-001-review
+Norda,001A,"Men's, per pair, US M 8.5",clothing,536000,manufacturer,https://nordarun.com/products/001a-m-black
+Norda,002,"Men's, per pair, US M 8.5",clothing,498000,manufacturer,https://nordarun.com/products/002-m-summit-black
+Norda,005,"Men's, per pair, US M 8.5",clothing,425000,manufacturer,https://nordarun.com/products/005-m-neve
+Oboz,Sawtooth X Low Waterproof,"Men's, per pair, size 11",clothing,1079550,measured,https://www.outdoorgearlab.com/reviews/shoes-and-boots/hiking-shoes-men/oboz-sawtooth-x-low-waterproof
 Oboz,Sawtooth X Mid Waterproof,"Men's, per pair",clothing,1099961,manufacturer,https://obozfootwear.com/products/mens-sawtooth-x-mid-waterproof
 On,Cloudrock Low Waterproof,"men's, per pair",clothing,858991,measured,https://www.treelinereview.com/gearreviews/on-cloudrock-low-waterproof-hiking-shoe-review
 On,Cloudultra,"US M9, per pair",clothing,590000,measured,https://www.doctorsofrunning.com/2021/04/on-cloudultra-review.html
@@ -496,7 +496,7 @@ Outdoor Research,Helium Rain Jacket,Men's M,clothing,175767,manufacturer,https:/
 Outdoor Research,Helium Rain Pants,Men's M,clothing,150252,manufacturer,https://web.archive.org/web/20250514181805id_/https://www.outdoorresearch.com/products/mens-helium-rain-pants-275387
 Outdoor Research,Sun Runner Cap,,clothing,84482,manufacturer,https://www.outdoorresearch.com/products/sun-runner-cap-300299
 Pas Normal Studios,Mechanism Pertex Rain Jacket,Medium,clothing,112000,measured,https://www.cyclist.co.uk/reviews/pas-normal-studios-mechanism-pertex-rain-jacket-review
-Patagonia,Capilene Cool Lightweight Shirt,Men's M (short sleeve),clothing,74000,manufacturer,https://web.archive.org/web/20201029055041id_/https://www.patagonia.com/product/mens-capilene-cool-lightweight-shirt/45760.html
+Patagonia,Capilene Cool Lightweight Shirt,"Men's M, short sleeve",clothing,74000,manufacturer,https://web.archive.org/web/20201029055041id_/https://www.patagonia.com/product/mens-capilene-cool-lightweight-shirt/45760.html
 Patagonia,Capilene Midweight Bottoms,Men's M,clothing,164000,manufacturer,https://web.archive.org/web/20240114165323id_/https://www.patagonia.com/product/mens-capilene-midweight-baselayer-bottoms/44487.html
 Patagonia,Down Sweater Hoody,Men's M,clothing,420000,manufacturer,https://web.archive.org/web/20250811183007id_/https://www.patagonia.com/product/mens-down-sweater-insulated-hoody/84702.html
 Patagonia,Houdini Jacket,Men's M,clothing,105000,manufacturer,https://web.archive.org/web/20200718053536id_/https://www.patagonia.com/product/mens-houdini-windbreaker-jacket/24142.html
@@ -554,7 +554,7 @@ Soar,Running Sleeves,M,clothing,28000,measured,https://www.irunfar.com/soar-runn
 Soar,Trail Rain Jacket,M,clothing,159000,measured,https://www.roadtrailrun.com/2023/11/soar-running-x-trail-round-up-review.html
 Soar,Ultra Rain Jacket 2.0,M,clothing,144000,manufacturer,https://www.runningxpert.com/en/soar-herre-ultra-rain-jacket-2-0.html
 Stone Island Shadow Project,DPM Map Down Jacket,Men's M,clothing,750000,community,https://www.endclothing.com/us/stone-island-shadow-project-dpm-map-down-jacket-7119-40412-v0029.html
-Stone Island Shadow Project,Tie Up Cargo Pant,Men's M (IT 50),clothing,580000,community,https://www.endclothing.com/us/stone-island-shadow-project-tie-up-cargo-pant-701930308-v0029.html
+Stone Island Shadow Project,Tie Up Cargo Pant,"Men's M, IT 50",clothing,580000,community,https://www.endclothing.com/us/stone-island-shadow-project-tie-up-cargo-pant-701930308-v0029.html
 Teton Bros,Feather Rain Jacket,Men's M,clothing,185000,manufacturer,https://www.teton-bros.com/en/products/feather-rain-jacket
 Teton Bros,Tsurugi Lite Jacket,Men's M,clothing,240000,manufacturer,https://www.teton-bros.com/products/tb251-03m
 Teton Bros,Wind River Hoody,Men's M,clothing,100000,manufacturer,https://www.teton-bros.com/products/tb261-19m
@@ -567,7 +567,7 @@ Topo Designs,Mountain Pant,Men's 32,clothing,480000,community,https://www.backco
 Topo Designs,Mountain Puffer Hoodie,Men's M,clothing,450000,community,https://www.rei.com/product/210404/topo-designs-mountain-puffer-insulated-hoodie-mens
 Veja,Condor 3,"Men's UK 10, per pair",clothing,686000,measured,https://www.advnture.com/reviews/veja-condor-3
 Veja,Dekkan Alveomesh,"Men's US 9, per pair",clothing,680000,community,https://www.veja-store.com/en_gb/p/dekkan-alveomesh-natural-white-DC0102576.html
-Veja,Fitz Roy Trek-Shell,"Men's US 9 (EU 42), per pair",clothing,736000,manufacturer,https://www.veja-store.com/en_us/p/fitz-roy-trek-shell-full-black-FS2302456.html
+Veja,Fitz Roy Trek-Shell,"Men's US 9, EU 42, per pair",clothing,736000,manufacturer,https://www.veja-store.com/en_us/p/fitz-roy-trek-shell-full-black-FS2302456.html
 Yamatomichi,UL Shirt,Size M,clothing,99000,manufacturer,https://www.yamatomichi.com/en/products/ul-shirt
 Zpacks,Vertice Rain Jacket,Men's,clothing,153087,manufacturer,https://zpacks.com/products/vertice-rain-jacket
 ACR,ResQLink 400 PLB,,electronics,143789,manufacturer,https://www.acrartex.com/products/resqlink-400/
@@ -617,28 +617,28 @@ Adventure Medical Kits,Ultralight/Watertight .7 Medical Kit,.7,firstaid,164427,m
 Leukotape,Leukotape P Sports Tape,1.5 in x 15 yd full roll,firstaid,110563,measured,https://www.litesmith.com/leukotape-p-blister-prevention-tape/
 Aquaphor,Lip Repair,0.35 fl oz,consumable,10000,community,https://www.aquaphorus.com/products/aquaphor/aquaphor-lip-repair
 Aquatabs,Water Purification Tablets,per tablet,consumable,397,manufacturer,https://www.aquatabs.us/product/aquatabs-397mg-tablets-x100/
-Backpacker's Pantry,Pad Thai,"pouch (2 servings, net)",consumable,175767,manufacturer,https://backpackerspantry.com/products/pad-thai
+Backpacker's Pantry,Pad Thai,"pouch, 2 servings, net",consumable,175767,manufacturer,https://backpackerspantry.com/products/pad-thai
 ChapStick,Classic Original Lip Balm,0.15 oz,consumable,4252,manufacturer,https://www.amazon.com/ChapStick-Classic-Original-Balm-0-15/dp/B01IA9EERW
 Clif,Energy Bar (Chocolate Chip),single bar,consumable,68000,manufacturer,https://eu.clifbar.com/en/products/clif-bar-chocolate-chip/
 Esbit,Solid Fuel Tablet,per 14 g tablet,consumable,14000,manufacturer,https://esbit.de/en/products/solid-fuel-tablets
-Esbit,Solid Fuel Tablets,12 x 14 g pack (net),consumable,172000,manufacturer,https://esbit.de/en/products/solid-fuel-tablets
+Esbit,Solid Fuel Tablets,"12 x 14 g pack, net",consumable,172000,manufacturer,https://esbit.de/en/products/solid-fuel-tablets
 Honey Stinger,Organic Honey Waffle,single waffle,consumable,30050,manufacturer,https://honeystinger.com/products/honey
 Idahoan,Classic Mashed Potatoes,single pouch,consumable,113398,manufacturer,https://idahoan.com/products/100645
-Jetboil,JetPower Fuel,100g (net fuel),consumable,100000,manufacturer,https://jetboil.johnsonoutdoors.com/us/shop/parts-accessories/fuel-related/jetpower-fuel-single/jf1001
-Jetboil,JetPower Fuel,230g (net fuel),consumable,230000,manufacturer,https://jetboil.johnsonoutdoors.com/us/shop/parts-accessories/fuel-related/jetpower-fuel-single
+Jetboil,JetPower Fuel,"100g, net fuel",consumable,100000,manufacturer,https://jetboil.johnsonoutdoors.com/us/shop/parts-accessories/fuel-related/jetpower-fuel-single/jf1001
+Jetboil,JetPower Fuel,"230g, net fuel",consumable,230000,manufacturer,https://jetboil.johnsonoutdoors.com/us/shop/parts-accessories/fuel-related/jetpower-fuel-single
 Justin's,Classic Almond Butter Squeeze Pack,single serve,consumable,32602,manufacturer,https://www.target.com/p/justin-s-squeeze-pack-classic-almond-butter-1-15oz/-/A-15989040
 Knorr,Rice Sides Cheddar Broccoli,one pouch,consumable,161592,manufacturer,https://smartlabel.unileverusa.com/041000022784-0001-en-US/index.html
 Liquid I.V.,Hydration Multiplier,single stick,consumable,15876,manufacturer,https://www.fairwaymarket.com/product/liquid-iv-hydration-multiplier-electrolyte-drink-mix-sticks-056-oz-10-count-id-00810125970535
 Matador,Refillable Toothpaste Tubes,1-week,consumable,7000,manufacturer,https://www.matadorequipment.com/products/refillable-toothpaste-tubes
 Matador,Refillable Toothpaste Tubes,2-week,consumable,8000,manufacturer,https://www.matadorequipment.com/products/refillable-toothpaste-tubes
-Mountain House,Beef Stroganoff - Pro-Pak,Pro-Pak (1 serving),consumable,130408,manufacturer,https://lintonoutdoors.com/mountain-house-beef-stroganoff-propak/
-Mountain House,Biscuits and Gravy,"pouch (2 servings, net)",consumable,124738,manufacturer,https://lintonoutdoors.com/mountain-house-biscuits-and-gravy/
-MSR,IsoPro Fuel Canister,110g canister (net fuel),consumable,110000,manufacturer,https://cascadedesigns.com/products/msr-isopro-fuel
-MSR,IsoPro Fuel Canister,227g canister (net fuel),consumable,227000,manufacturer,https://cascadedesigns.com/products/msr-isopro-fuel
-MSR,IsoPro Fuel Canister,450g canister (net fuel),consumable,450000,manufacturer,https://cascadedesigns.com/products/msr-isopro-fuel
-Nature Valley,Crunchy Granola Bars,one 2-bar pouch (net),consumable,42000,manufacturer,https://www.naturevalley.com/products/oats-n-honey-crunchy-granola-bars
-Peak Refuel,Beef Stroganoff,"pouch (2 servings, net)",consumable,141748,manufacturer,https://peakrefuel.com/products/beef-stroganoff
-Pop-Tarts,Frosted Strawberry Toaster Pastries,one pouch (2 pastries),consumable,96000,manufacturer,https://foods.fatsecret.com/calories-nutrition/kelloggs/pop-tarts-frosted---strawberry/1-pastry
+Mountain House,Beef Stroganoff - Pro-Pak,"Pro-Pak, 1 serving",consumable,130408,manufacturer,https://lintonoutdoors.com/mountain-house-beef-stroganoff-propak/
+Mountain House,Biscuits and Gravy,"pouch, 2 servings, net",consumable,124738,manufacturer,https://lintonoutdoors.com/mountain-house-biscuits-and-gravy/
+MSR,IsoPro Fuel Canister,"110g canister, net fuel",consumable,110000,manufacturer,https://cascadedesigns.com/products/msr-isopro-fuel
+MSR,IsoPro Fuel Canister,"227g canister, net fuel",consumable,227000,manufacturer,https://cascadedesigns.com/products/msr-isopro-fuel
+MSR,IsoPro Fuel Canister,"450g canister, net fuel",consumable,450000,manufacturer,https://cascadedesigns.com/products/msr-isopro-fuel
+Nature Valley,Crunchy Granola Bars,"one 2-bar pouch, net",consumable,42000,manufacturer,https://www.naturevalley.com/products/oats-n-honey-crunchy-granola-bars
+Peak Refuel,Beef Stroganoff,"pouch, 2 servings, net",consumable,141748,manufacturer,https://peakrefuel.com/products/beef-stroganoff
+Pop-Tarts,Frosted Strawberry Toaster Pastries,"one pouch, 2 pastries",consumable,96000,manufacturer,https://foods.fatsecret.com/calories-nutrition/kelloggs/pop-tarts-frosted---strawberry/1-pastry
 PROBAR,BOLT Organic Energy Chews,single pouch,consumable,59534,manufacturer,https://theprobar.com/products/berry-blast-bolt-energy-chew
 PROBAR,MEAL Bar,single bar,consumable,85049,manufacturer,https://theprobar.com/collections/meal-bar
 Purell,Advanced Hand Sanitizer Gel,1 fl oz travel bottle,consumable,40000,community,https://www.amazon.com/Purell-Advanced-Hand-Sanitizer-Refreshing/dp/B00LPC7IH0
@@ -651,7 +651,7 @@ Tocobo,Cica Cooling Sun Stick SPF50+,18 g,consumable,18000,manufacturer,https://
 Adotec,Ultralight Food Locker,14L,other,199000,manufacturer,https://adotecgear.com/products/ultralight-food-locker-grizzly-bear-resistant-bag
 BearVault,BV450 Jaunt Bear Canister,standard,other,935535,manufacturer,https://bearvault.com/products/bv450
 BearVault,BV500 Journey Bear Canister,standard,other,1162331,manufacturer,https://bearvault.com/products/bv500
-BIC,J25 Mini Lighter,Mini (J25),other,13000,manufacturer,https://www.bicgraphic.com/gb/bic-j25-lighter-3460002360.html
+BIC,J25 Mini Lighter,"Mini, J25",other,13000,manufacturer,https://www.bicgraphic.com/gb/bic-j25-lighter-3460002360.html
 Black Diamond,Distance Carbon Z Trekking Poles,"120cm, per pair",other,280000,manufacturer,https://blackdiamondequipment.com/products/distance-carbon-z-poles
 Black Diamond,Distance Spike Traction Device,per pair,other,200000,manufacturer,https://blackdiamondequipment.com/products/distance-spike-traction-device
 Black Diamond,Distance Z Trekking Poles,per pair,other,347000,manufacturer,https://blackdiamondequipment.com/products/distance-z-trekking-running-poles
@@ -705,8 +705,8 @@ Satisfy,PeaceShell Running Cap,,other,30000,manufacturer,https://satisfyrunning.
 Satisfy,Pertex 3L Rain Cap,,other,27000,manufacturer,https://satisfyrunning.com/products/pertex-3l-rain-cap
 Sea to Summit,Ultra-Sil Dry Bag,8L,other,39000,manufacturer,https://seatosummit.com/products/ultra-sil-dry-bag
 Sea to Summit,Ultra-Sil Stuff Sack,13L,other,44000,manufacturer,https://seatosummit.com/products/the-ultra-sil-stuff-sack
-Sea to Summit,Ultra-Sil Stuff Sack,L (15L),other,28350,manufacturer,https://www.ellis-brigham.com/sea-to-summit-ultra-sil-stuff-sack-large-15l-253103900
-Sea to Summit,Ultra-Sil Stuff Sack,XXS (2.5L),other,11340,manufacturer,https://www.altitude-sports.com/products/sea-to-summit-ultra-sil-stuff-sack-xxs-2-5-l-llll-sts-181
+Sea to Summit,Ultra-Sil Stuff Sack,"L, 15L",other,28350,manufacturer,https://www.ellis-brigham.com/sea-to-summit-ultra-sil-stuff-sack-large-15l-253103900
+Sea to Summit,Ultra-Sil Stuff Sack,"XXS, 2.5L",other,11340,manufacturer,https://www.altitude-sports.com/products/sea-to-summit-ultra-sil-stuff-sack-xxs-2-5-l-llll-sts-181
 Six Moon Designs,Silver Shadow Carbon Umbrella,,other,192777,manufacturer,https://www.sixmoondesigns.com/products/silver-shadow-carbon-umbrella
 Soar,Ultra Race Cap,,other,27000,manufacturer,https://www.altitude-sports.com/p/soar-running-ultra-race-cap-unisex-soa-sa13mw
 Sunski,Treeline,,other,28100,manufacturer,https://sunski.com/products/og-treeline
