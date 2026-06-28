@@ -88,11 +88,8 @@ function onFocusIn(ev: FocusEvent) {
     el.scrollIntoView({ block: "center", behavior: "smooth" });
   }, 300);
 }
-onMounted(() => window.addEventListener("focusin", onFocusIn));
-onBeforeUnmount(() => {
-  clearTimeout(focusScrollTimer);
-  window.removeEventListener("focusin", onFocusIn);
-});
+useEventListener(window, "focusin", onFocusIn); // auto-removes on unmount
+onBeforeUnmount(() => clearTimeout(focusScrollTimer));
 
 function flash(msg: string) {
   toast.value = msg;
@@ -462,8 +459,8 @@ function onCorrected(res: { status: string; itemName?: string }) {
 .modetoggle {
   flex: none;
   display: inline-flex;
-  gap: 2px;
-  padding: 2px;
+  gap: var(--space-px);
+  padding: var(--space-px);
   background: var(--paper-2);
   border-radius: var(--radius-pill);
 }

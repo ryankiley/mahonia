@@ -191,18 +191,25 @@ export interface FeedQuery {
   limit?: number;
 }
 
+// The public-discovery visibility gate, single-sourced so the feed + sitemap
+// can't drift: public, active, not withheld (reported / spam-flagged), not
+// deleted, and non-empty (empty lists are hidden, not just de-ranked).
+function publicVisibilityConditions() {
+  return [
+    eq(lists.isPublic, true),
+    eq(lists.status, "active"),
+    eq(lists.flagged, false),
+    isNull(lists.deletedAt),
+    gt(lists.itemCount, 0),
+  ];
+}
+
 export async function getFeed(q: FeedQuery, db?: Db): Promise<DiscoveryCard[]> {
   const d = db ?? (await useDb());
   const view: FeedView = q.view ?? "recent";
   const limit = Math.min(60, Math.max(1, Math.floor(q.limit || 24)));
 
-  const conds = [
-    eq(lists.isPublic, true),
-    eq(lists.status, "active"),
-    eq(lists.flagged, false), // withheld (reported / spam-flagged) lists never appear
-    isNull(lists.deletedAt),
-    gt(lists.itemCount, 0), // de-rank/hide empty lists
-  ];
+  const conds = publicVisibilityConditions();
   const trip = normalizeTripType(q.tripType);
   if (trip) conds.push(eq(lists.tripType, trip));
   const season = normalizeSeason(q.season);
@@ -248,15 +255,7 @@ export async function listPublicSlugs(
   return d
     .select({ slug: lists.publicSlug, updatedAt: lists.updatedAt })
     .from(lists)
-    .where(
-      and(
-        eq(lists.isPublic, true),
-        eq(lists.status, "active"),
-        eq(lists.flagged, false),
-        isNull(lists.deletedAt),
-        gt(lists.itemCount, 0),
-      ),
-    )
+    .where(and(...publicVisibilityConditions()))
     .orderBy(desc(lists.publishedAt))
     .limit(5000);
 }
