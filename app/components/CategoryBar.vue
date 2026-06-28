@@ -68,8 +68,11 @@ const segments = computed(() => categorySegments(props.list));
 .swatch {
   align-self: center;
 }
+/* folder names read as labels — same treatment as the Base/Worn chips (t-label):
+   strong weight, secondary ink. The figure beside them keeps full ink. */
 .catbar__name {
-  color: var(--ink);
+  font-weight: 600;
+  color: var(--ink-2);
 }
 /* the figure carries the data (full ink); its unit is secondary (--ink-2, the one
    de-emphasis level — same as every other unit), and the two sit tight as one

@@ -22,7 +22,9 @@ const year = new Date().getFullYear();
 <style scoped>
 .foot {
   border-top: 1px solid var(--line);
-  margin-top: var(--space-9);
+  /* the single content→footer gap, site-wide — matches the inter-folder rhythm
+     (--space-7). Page containers add no bottom padding, so this isn't doubled. */
+  margin-top: var(--space-7);
 }
 .foot__inner {
   padding-block: var(--space-5);

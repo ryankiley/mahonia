@@ -42,7 +42,9 @@ defineEmits<{ "set-unit": [Unit] }>();
 
 <style scoped>
 .view {
-  padding-block: var(--space-5) var(--space-9);
+  /* no bottom padding: the footer's own margin-top is the single content→footer
+     gap (matches the inter-folder rhythm), so this row doesn't double it up */
+  padding-block: var(--space-5) 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-6);

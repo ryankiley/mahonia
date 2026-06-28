@@ -525,7 +525,9 @@ function onCorrected(res: { status: string; itemName?: string }) {
   cursor: pointer;
 }
 .editor__body {
-  padding-block: var(--space-4) var(--space-9);
+  /* no bottom padding: the footer's margin-top is the single content→footer gap
+     (matches the inter-folder rhythm), so it isn't doubled up here */
+  padding-block: var(--space-4) 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
