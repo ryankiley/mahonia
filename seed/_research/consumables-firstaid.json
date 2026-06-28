@@ -241,6 +241,17 @@
       "weight_source": "manufacturer",
       "source_url": "https://tocobo.us/products/cica-cooling-sun-stick",
       "quote": "Cica Cooling Sun Stick SPF50+ PA++++ — 18 g (net contents)"
+    },
+    {
+      "brand": "Beauty of Joseon",
+      "name": "Relief Sun: Rice + Probiotics SPF50+",
+      "variant": "50 ml",
+      "category_hint": "consumable",
+      "weight_value": 50,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://beautyofjoseon.com/products/relief-sun-rice-probiotics",
+      "quote": "Relief Sun: Rice + Probiotics SPF50+ PA++++ — 50 ml / 1.69 fl oz net content; water-based emulsion density ~1.0, so ≈ 50 g net (net contents, not full tube)"
     }
   ]
 }
