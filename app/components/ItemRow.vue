@@ -406,6 +406,11 @@ function dismissFix() {
 /* read-only (share view) */
 .item--ro {
   grid-template-columns: var(--item-cols-ro);
+  /* drop the base row's 5-area template ("name qty weight class actions") — this
+     row only has 3 columns, and auto-placement fills them. Without this, the two
+     phantom trailing area columns add two grid gaps after the weight, so it stops
+     short of the row's right edge (the hairline runs full width). */
+  grid-template-areas: none;
 }
 .item__roname {
   min-width: 0;
@@ -421,6 +426,9 @@ function dismissFix() {
 .item--check {
   display: grid;
   grid-template-columns: auto var(--item-cols-ro);
+  /* same as .item--ro: don't inherit the editable row's 5-area template, or its
+     phantom trailing columns push the line weight in from the row's right edge */
+  grid-template-areas: none;
   align-items: center;
   gap: var(--space-3);
   cursor: pointer;
