@@ -275,6 +275,12 @@ function toggleCollapsed() {
   .folder__title {
     grid-column: 1;
   }
+  /* checklist/packing mode has no trailing actions, so let the title span the WHOLE
+     row — otherwise the empty 1fr data column steals the width and the name
+     truncates with room to spare (e.g. "Miscellaneous …") */
+  .folder__head--packed .folder__title {
+    grid-column: 1 / -1;
+  }
   /* on a phone, 50vw strands space before the action icons — let the name run the
      full row (the grid column + chevron bound it) and ellipsize at the edge */
   .folder__name {

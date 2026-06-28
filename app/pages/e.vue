@@ -399,8 +399,12 @@ function onCorrected(res: { status: string; itemName?: string }) {
 /* the list name is the toolbar's heading; the save state sits quietly beside it,
    on the same line so the title stays vertically centred with the app-bar icons
    (a stacked second line pushed the title above centre) */
+/* flex:1 so the title group always fills the space up to the icon cluster — the
+   transient "Saving…" status then changes width WITHIN this box (the title
+   ellipsizes) instead of growing the group and nudging the app-bar icons on every
+   save. */
 .editor__titlewrap {
-  flex: 0 1 auto;
+  flex: 1 1 auto;
   min-width: 0;
   display: flex;
   align-items: baseline;
@@ -443,9 +447,16 @@ function onCorrected(res: { status: string; itemName?: string }) {
 .editor__status[data-state="error"] {
   color: var(--ink);
 }
+/* the icon cluster is rigid (flex:none) and pinned to the trailing edge by the
+   title group's flex:1 — so the transient "Saving…" status is absorbed by the
+   title (it ellipsizes) and never nudges these icons on a flush. */
+.editor__share,
+.menu {
+  flex: none;
+}
 /* editing/packing toggle — a light container with two icon options */
 .modetoggle {
-  margin-left: auto;
+  flex: none;
   display: inline-flex;
   gap: 2px;
   padding: 2px;
@@ -499,6 +510,12 @@ function onCorrected(res: { status: string; itemName?: string }) {
   color: var(--ink-2);
   /* purely decorative — the overlaid <select> is the real control */
   pointer-events: none;
+  /* push the dots flush to the trailing edge so the kebab lines up with the item
+     rows' drag handle below (same justify-end + 33% overshoot as .item__grip) */
+  justify-content: flex-end;
+}
+.menu__btn svg {
+  transform: translateX(33.333%);
 }
 .menu__select {
   position: absolute;
