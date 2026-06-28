@@ -289,6 +289,16 @@ function toggleCollapsed() {
   .folder__actions {
     grid-column: auto;
   }
+  /* the 44px touch tap targets keep their size but overflow the (shorter) 36px
+     title field via negative margins — otherwise they inflate the editing header
+     and, with baseline alignment, push the folder name down. Packing mode has no
+     actions, so without this the title jumps vertically when toggling modes.
+     (mirrors the item rows' .item__actions treatment) */
+  .folder__actions .btn--icon {
+    min-height: 0;
+    height: 2.75rem;
+    margin-block: -0.65rem;
+  }
   /* tighten the two-row mobile items so each row reads as one unit, not spaced out */
   .folder__items > * {
     padding-block: var(--space-2);
