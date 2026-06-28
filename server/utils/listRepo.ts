@@ -102,8 +102,11 @@ async function findByEditToken(editToken: string, db?: Db): Promise<ListRow | nu
 }
 
 // ---- snapshots (vandalism recovery for the shared-edit-link model) ----
-const SNAPSHOT_THROTTLE_MS = 5 * 60_000; // at most one auto-snapshot per list / 5 min
-const SNAPSHOT_CAP = 20; // keep the most recent N per list (older are pruned)
+// snapshots are full copies of the list, so they dominate per-list storage. Keep a
+// small recent window (vandalism recovery rarely needs deep history) — at ~1/10min,
+// 5 points cover ~50 min of active editing across sessions.
+const SNAPSHOT_THROTTLE_MS = 10 * 60_000; // at most one auto-snapshot per list / 10 min
+const SNAPSHOT_CAP = 5; // keep the most recent N per list (older are pruned)
 
 /**
  * Insert a recovery point of `row`'s CURRENT state + prune to the cap. Best-effort
