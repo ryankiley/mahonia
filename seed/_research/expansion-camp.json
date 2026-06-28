@@ -82,6 +82,30 @@
       "quote": "Weight: 2.5 lb | 2 lbs 9 oz | 1.16 kg"
     },
     {
+      "brand": "BearVault",
+      "name": "BV425 Sprint Bear Canister",
+      "variant": "standard",
+      "category_hint": "other",
+      "weight_value": 1,
+      "weight_unit": "lb",
+      "weight_secondary": "12 oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://bearvault.com/products/bv425",
+      "quote": "Weight: 1.75 lb | 1 lb 12 oz | 800 g"
+    },
+    {
+      "brand": "BearVault",
+      "name": "BV475 Trek Bear Canister",
+      "variant": "standard",
+      "category_hint": "other",
+      "weight_value": 2,
+      "weight_unit": "lb",
+      "weight_secondary": "4 oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://bearvault.com/products/bv475",
+      "quote": "Weight: 2.25 lb | 2 lb 4 oz | 1.03 kg"
+    },
+    {
       "brand": "Wild Ideas",
       "name": "Bearikade Weekender",
       "variant": "standard",
