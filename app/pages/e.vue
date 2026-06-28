@@ -223,7 +223,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
 </script>
 
 <template>
-  <div class="editor">
+  <div class="editor" :class="{ 'editor--centered': !(snapshot && totals) }">
     <header class="topbar">
       <div class="wrap topbar__inner">
         <div v-if="snapshot" class="editor__titlewrap">
@@ -595,8 +595,16 @@ function onCorrected(res: { status: string; itemName?: string }) {
   padding-block: var(--space-9);
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
   gap: var(--space-4);
+}
+/* On the empty states (missing / loading) the message is the whole page, so centre
+   it in the viewport: drop the footer's top gap that would otherwise cap the grown
+   <main> short of the footer and pull the optical centre upward. */
+.editor--centered :deep(.foot) {
+  margin-top: 0;
 }
 .toast {
   position: fixed;
