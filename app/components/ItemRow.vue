@@ -421,6 +421,13 @@ function dismissFix() {
 .item__roweight {
   text-align: right;
 }
+/* the qty/amount label lives in the narrow 44px column; keep it on one line so a
+   water row's volume ("1.75 L") never breaks between the number and its "L" unit.
+   Shared by the read + checklist static views (the editable row uses a field). */
+.item__roqty,
+.item__cqty {
+  white-space: nowrap;
+}
 
 /* packing / checklist — a big tap target */
 .item--check {
