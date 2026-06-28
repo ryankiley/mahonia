@@ -71,16 +71,12 @@ export default defineNuxtConfig({
         { charset: "utf-8" },
         {
           name: "viewport",
-          // minimum-scale=1 floors zoom-OUT at 100%. Without it, pinching out below
-          // scale 1 makes iOS Safari grow its layout viewport to the (now wider)
-          // visual viewport and re-lay-out at that width — and it never snaps back,
-          // leaving a stuck right-hand letterbox/margin (WebKit bug 240860/170981,
-          // engine-fixed only in Safari 26.5+). This is a viewport-canvas behaviour,
-          // not descendant overflow, so overflow-x:clip can't touch it. Pinch-zoom
-          // IN stays enabled (no maximum-scale / user-scalable=no), so accessibility
-          // zoom is preserved.
-          content:
-            "width=device-width, initial-scale=1, minimum-scale=1, viewport-fit=cover",
+          // viewport-fit=cover lets content reach the screen edges (safe-area insets
+          // handle the notch). The iOS pinch-zoom phantom-margin bug (WebKit 240860)
+          // is NOT fixed here — `minimum-scale=1` is inert on iOS (it always allows
+          // pinch-zoom as an a11y override) — it's fixed in CSS via overflow-x:clip
+          // on BOTH html and body (see app/assets/styles/foundations/reset.scss).
+          content: "width=device-width, initial-scale=1, viewport-fit=cover",
         },
         // Resolve light-dark() to the right mode on first paint (no flash).
         { name: "color-scheme", content: "light dark" },

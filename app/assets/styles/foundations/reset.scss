@@ -36,11 +36,15 @@ html {
   // field focus), leave room for the sticky topbar so the field doesn't land
   // hidden underneath it — which read as the page "jumping" on focus.
   scroll-padding-top: 5rem;
-  // Pin the layout width to the viewport. iOS Safari otherwise expands its layout
-  // viewport to contain any sub-pixel horizontal overflow and, after a pinch-zoom
-  // in/out, "fits" that wider viewport — leaving a phantom right margin that
-  // sticks. `clip` (not `hidden`) constrains the width WITHOUT creating a scroll
-  // container, so the sticky topbar keeps working.
+  // Pin the layout width to the viewport. After a pinch-zoom in/out iOS Safari
+  // grows its LAYOUT VIEWPORT (WebKit 240860) and <body> stretches to fill the
+  // wider canvas, leaving a phantom right margin that sticks. The clip must sit
+  // on BOTH html and body: overflow on the root element is propagated to the
+  // viewport, leaving the <html> box itself `visible`, so html-clip alone never
+  // clamps the document (measured on-device: doc scrollWidth stayed 422 with
+  // only this rule). Clipping <body> too caps documentElement.scrollWidth back
+  // to the viewport width. `clip` (not `hidden`) doesn't create a scroll
+  // container, so the sticky topbar survives.
   overflow-x: clip;
 }
 
@@ -48,6 +52,10 @@ body {
   // 100svh = small-viewport height — stable across the mobile URL-bar toggle
   // (dvh thrashes during the toggle; portfolio's reasoning).
   min-height: 100svh;
+  // The load-bearing half of the iOS phantom-margin fix — see html{} above.
+  // <body> fills the grown layout viewport; clipping it here is what actually
+  // clamps the document width (verified on-device: doc scrollWidth 422 → 402).
+  overflow-x: clip;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
