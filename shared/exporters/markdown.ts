@@ -21,7 +21,7 @@ export function listToMarkdown(list: ListSnapshot): string {
     out.push("| --- | ---: | ---: |");
     for (const it of items) {
       const w = it.unitWeightMg > 0 ? formatWeight(lineMg(it), u) : "—";
-      const name = itemDisplayName(it.brand, it.name);
+      const name = itemDisplayName(it.brand, it.name, it.variant);
       out.push(`| ${name} | ${it.qty} | ${w} |`);
     }
     out.push("");

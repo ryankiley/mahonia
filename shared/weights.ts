@@ -126,9 +126,14 @@ export function itemsInFolder<T extends { folderId: string | null }>(
 export const bySortOrder = (a: { sortOrder: number }, b: { sortOrder: number }): number =>
   a.sortOrder - b.sortOrder;
 
-/** Display name "Brand Name" (brand optional) — shared by exports + catalog search. */
-export const itemDisplayName = (brand: string | null | undefined, name: string): string =>
-  brand ? `${brand} ${name}` : name;
+/** Flat display name "Brand Name Variant" (brand/variant optional) — shared by
+ *  exports + the editable name field. Two-arg calls (e.g. catalog search text)
+ *  keep the old "Brand Name" behavior since variant defaults to undefined. */
+export const itemDisplayName = (
+  brand: string | null | undefined,
+  name: string,
+  variant?: string | null,
+): string => [brand, name, variant].filter(Boolean).join(" ");
 
 /**
  * Compute the four rollups. base = total − worn − consumable.

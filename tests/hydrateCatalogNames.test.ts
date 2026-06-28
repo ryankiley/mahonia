@@ -1,0 +1,55 @@
+import { PGlite } from "@electric-sql/pglite";
+import { sql } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/pglite";
+import { describe, expect, it } from "vitest";
+import * as schema from "../server/db/schema";
+import { CATALOG_DDL } from "../server/utils/catalog";
+import { hydrateCatalogNames } from "../server/utils/listRepo";
+import type { Item, ListSnapshot } from "../shared/types";
+
+async function freshDb() {
+  const db = drizzle(new PGlite(), { schema });
+  for (const stmt of CATALOG_DDL) await db.execute(sql.raw(stmt));
+  return db;
+}
+
+function snap(items: Partial<Item>[]): ListSnapshot {
+  return {
+    shareCode: "X", slug: "x", title: "t", displayUnit: "g", version: 1, isPublic: false,
+    folders: [],
+    items: items.map((p, i) => ({ id: String(i), folderId: null, name: "", unitWeightMg: 0, qty: 1, classification: null, sortOrder: i, ...p })),
+  };
+}
+
+describe("hydrateCatalogNames (trickle-down)", () => {
+  it("resolves linked items to the catalog's CURRENT brand/name/variant", async () => {
+    const db = await freshDb();
+    // catalog row was cleaned after this list linked it (variant '/ M' → ', M')
+    const inserted = await db
+      .insert(schema.catalogItems)
+      .values({ brand: "Durston", name: "Kakwa 55", variant: "Ultra 200X, M", weightMg: 893010, weightSource: "manufacturer", verified: true })
+      .returning({ id: schema.catalogItems.id });
+    const cid = inserted[0]!.id;
+
+    const out = await hydrateCatalogNames(db, snap([
+      // stored snapshot has the OLD flat name; linked, not overridden
+      { name: "Kakwa 55 OLD", brand: "Durston", variant: "Ultra 200X / M", catalogItemId: cid },
+      // custom-renamed: must keep the user's text
+      { name: "my frankenpack", catalogItemId: cid, nameOverridden: true },
+      // unlinked typed item: untouched
+      { name: "homemade alcohol stove" },
+    ]));
+
+    expect(out.items[0]).toMatchObject({ brand: "Durston", name: "Kakwa 55", variant: "Ultra 200X, M" });
+    expect(out.items[1].name).toBe("my frankenpack"); // nameOverridden respected
+    expect(out.items[2].name).toBe("homemade alcohol stove"); // unlinked untouched
+  });
+
+  it("falls back to the stored snapshot when the catalog row is gone", async () => {
+    const db = await freshDb();
+    const out = await hydrateCatalogNames(db, snap([
+      { name: "Discontinued Thing", brand: "OldCo", catalogItemId: 99999 },
+    ]));
+    expect(out.items[0]).toMatchObject({ brand: "OldCo", name: "Discontinued Thing" });
+  });
+});

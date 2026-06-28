@@ -24,6 +24,7 @@ const emit = defineEmits<{
     {
       name: string;
       brand?: string;
+      variant?: string;
       weight?: string;
       weightMg?: number;
       catalogItemId?: number;
@@ -109,13 +110,19 @@ function close() {
   active.value = -1;
 }
 function selectResult(r: CatalogResult) {
-  // full display name (brand carried in the name, not a separate field, so exports
-  // don't double it); the catalog link is preserved via catalogItemId.
-  const name = [r.brand, r.name, r.variant].filter(Boolean).join(" ");
-  emit("commit", { name, weightMg: r.weightMg, catalogItemId: r.id });
+  // store brand / model / variant as separate fields so the UI can render the
+  // variant dimmed and linked items can live-resolve their name from the catalog.
+  // The flat string is only used for the editable field + exports (itemDisplayName).
+  emit("commit", {
+    name: r.name,
+    brand: r.brand ?? undefined,
+    variant: r.variant ?? undefined,
+    weightMg: r.weightMg,
+    catalogItemId: r.id,
+  });
   // self-improving ranking: tell the catalog this item was used (fire-and-forget)
   $fetch("/api/catalog/use", { method: "POST", body: { ids: [r.id] } }).catch(() => {});
-  setDraftQuiet(props.clearOnCommit ? "" : name);
+  setDraftQuiet(props.clearOnCommit ? "" : [r.brand, r.name, r.variant].filter(Boolean).join(" "));
   weightDraft.value = "";
   close();
 }

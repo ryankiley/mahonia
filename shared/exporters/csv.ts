@@ -4,7 +4,7 @@
 import type { ListData, ListSnapshot, Unit } from "../types";
 import { UNITS } from "../types";
 import { nextFolderColor } from "../categories";
-import { effectiveClassification, fromMg, itemsInFolder, toMg } from "../weights";
+import { effectiveClassification, fromMg, itemDisplayName, itemsInFolder, toMg } from "../weights";
 import { uid } from "../id";
 
 function normalizeUnit(raw: string | undefined, fallback: Unit): Unit {
@@ -39,7 +39,8 @@ export function listToCsv(list: ListSnapshot): string {
     out.push(
       [
         esc(folderName(it.folderId)),
-        esc(it.name),
+        // brand has its own column, so the name field carries model + variant
+        esc(itemDisplayName(null, it.name, it.variant)),
         esc(it.brand ?? ""),
         it.qty,
         w,

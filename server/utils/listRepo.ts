@@ -4,7 +4,7 @@
 
 import { createError } from "h3";
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
-import { lists, listSnapshots, type ListRow } from "../db/schema";
+import { catalogItems, lists, listSnapshots, type ListRow } from "../db/schema";
 import {
   applyOps,
   MAX_FOLDERS,
@@ -33,6 +33,41 @@ export function rowToSnapshot(row: ListRow): ListSnapshot {
     version: row.version,
     isPublic: row.isPublic,
   };
+}
+
+// Trickle-down: for items still linked to a catalog product (and not custom-
+// renamed), display the catalog's CURRENT brand/name/variant rather than the flat
+// snapshot baked in at add time — so catalog cleanups (e.g. variant normalization)
+// reach existing lists. The stored snapshot is the fallback (removed/merged rows).
+// Display-only: never written back to the list's `data` (mutations go through
+// applyOps on the stored row), so storage stays the user's original snapshot.
+export async function hydrateCatalogNames(db: Db, snap: ListSnapshot): Promise<ListSnapshot> {
+  const ids = [
+    ...new Set(
+      snap.items
+        .filter((i) => typeof i.catalogItemId === "number" && !i.nameOverridden)
+        .map((i) => i.catalogItemId as number),
+    ),
+  ];
+  if (!ids.length) return snap;
+  const rows = await db
+    .select({
+      id: catalogItems.id,
+      brand: catalogItems.brand,
+      name: catalogItems.name,
+      variant: catalogItems.variant,
+    })
+    .from(catalogItems)
+    .where(and(inArray(catalogItems.id, ids), eq(catalogItems.status, "active")));
+  if (!rows.length) return snap;
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  snap.items = snap.items.map((it) => {
+    if (it.catalogItemId == null || it.nameOverridden) return it;
+    const c = byId.get(it.catalogItemId);
+    if (!c) return it;
+    return { ...it, brand: c.brand ?? undefined, name: c.name, variant: c.variant ?? undefined };
+  });
+  return snap;
 }
 
 function rowToState(row: ListRow): ListState {
@@ -204,12 +239,13 @@ export async function getByShareCode(code: string): Promise<ListSnapshot | null>
   if (!c) return null;
   const db = await useDb();
   const rows = await db.select().from(lists).where(liveOnly(lists.shareCode, c)).limit(1);
-  return rows[0] ? rowToSnapshot(rows[0]) : null;
+  return rows[0] ? hydrateCatalogNames(db, rowToSnapshot(rows[0])) : null;
 }
 
 export async function getByEditToken(editToken: string): Promise<ListSnapshot | null> {
-  const row = await findByEditToken(editToken);
-  return row ? rowToSnapshot(row) : null;
+  const db = await useDb();
+  const row = await findByEditToken(editToken, db);
+  return row ? hydrateCatalogNames(db, rowToSnapshot(row)) : null;
 }
 
 export async function versionByEditToken(editToken: string): Promise<number | null> {
@@ -319,7 +355,7 @@ export async function applyOpsByEditToken(
     if (updated[0]) {
       // pre-edit recovery point (best-effort; only ~once per throttle window)
       if (doSnapshot) await captureSnapshot(d, row, "edit");
-      return rowToSnapshot(updated[0]);
+      return hydrateCatalogNames(d, rowToSnapshot(updated[0]));
     }
     // version moved under us — retry against the latest
   }

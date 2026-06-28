@@ -33,7 +33,11 @@ const clampWeight = (n: number) =>
 function cleanItemPatch(patch: Partial<Item>): Partial<Item> {
   const out: Partial<Item> = {};
   if (typeof patch.name === "string") out.name = patch.name.slice(0, 200);
-  if (typeof patch.brand === "string") out.brand = patch.brand.slice(0, 120);
+  // brand/variant: a non-empty string sets it; "" clears it (so a free rename can
+  // drop the catalog-derived brand/variant from a now-custom item)
+  if (typeof patch.brand === "string") out.brand = patch.brand ? patch.brand.slice(0, 120) : undefined;
+  if (typeof patch.variant === "string") out.variant = patch.variant ? patch.variant.slice(0, 120) : undefined;
+  if (typeof patch.nameOverridden === "boolean") out.nameOverridden = patch.nameOverridden;
   if (typeof patch.description === "string") out.description = patch.description.slice(0, 2000);
   if (typeof patch.productUrl === "string") out.productUrl = patch.productUrl.slice(0, 2000);
   if (typeof patch.unitWeightMg === "number" && isFinite(patch.unitWeightMg))
@@ -138,6 +142,8 @@ export function normalizeItem(raw: Item): Item {
     folderId: typeof raw.folderId === "string" ? raw.folderId : null,
     name: String(raw.name ?? "").slice(0, 200),
     brand: raw.brand ? String(raw.brand).slice(0, 120) : undefined,
+    variant: raw.variant ? String(raw.variant).slice(0, 120) : undefined,
+    nameOverridden: raw.nameOverridden ? true : undefined,
     unitWeightMg: clampWeight(Number(raw.unitWeightMg) || 0),
     weightOverridden: !!raw.weightOverridden,
     qty: Math.max(0, Math.min(9999, Math.round(Number(raw.qty) || 1))),

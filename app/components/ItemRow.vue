@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ChevronDown, CircleMinus, GripVertical, StickyNotePlus, StickyNoteX, X } from "@lucide/vue";
 import type { Classification, Item, ListSnapshot, Unit } from "~~/shared/types";
-import { effectiveClassification, formatWeight, fromMg, lineMg, parseWeightInput } from "~~/shared/weights";
+import { effectiveClassification, formatWeight, fromMg, itemDisplayName, lineMg, parseWeightInput } from "~~/shared/weights";
 
 const props = withDefaults(
   defineProps<{ list: ListSnapshot; item: Item; packed?: boolean; readonly?: boolean }>(),
@@ -46,6 +46,13 @@ const weightDisplay = computed(() =>
 
 const effClass = computed(() =>
   effectiveClassification(props.item, props.list.folders),
+);
+
+// the editable name field shows the full flat "Brand Model Variant" so a rename
+// edits the whole thing; the static (read-only/packed) views render it structured
+// with the variant dimmed via <ItemName>.
+const editableName = computed(() =>
+  itemDisplayName(props.item.brand, props.item.name, props.item.variant),
 );
 
 // water rows: the qty field becomes a LITRES field (water is 1 L = 1 kg), driving
@@ -98,6 +105,7 @@ function onWeightStep(e: KeyboardEvent, dir: 1 | -1) {
 function onNameCommit(p: {
   name: string;
   brand?: string;
+  variant?: string;
   weight?: string;
   weightMg?: number;
   catalogItemId?: number;
@@ -105,20 +113,31 @@ function onNameCommit(p: {
 }) {
   const patch: Partial<Item> = { name: p.name };
   if (p.catalogItemId != null) {
+    // a catalog pick: store brand/model/variant structured, link, and let
+    // live-resolve keep the name fresh ("" clears any prior brand/variant)
     patch.catalogItemId = p.catalogItemId;
     patch.unitWeightMg = p.weightMg;
     patch.catalogWeightMgAtLink = p.weightMg;
     patch.weightOverridden = false;
-    if (p.brand) patch.brand = p.brand;
-  } else if (p.weightMg != null) {
-    // a resolved weight with no catalog link (e.g. a water volume → fixed grams)
-    patch.unitWeightMg = p.weightMg;
-    patch.weightOverridden = true;
-  } else if (p.weight != null) {
-    const mg = parseWeightInput(p.weight, props.list.displayUnit);
-    if (mg != null) {
-      patch.unitWeightMg = mg;
+    patch.brand = p.brand ?? "";
+    patch.variant = p.variant ?? "";
+    patch.nameOverridden = false;
+  } else {
+    // free text / water / trailing weight → a user-owned custom name: drop the
+    // catalog-derived brand/variant and mark it so live-resolve won't overwrite it
+    patch.brand = "";
+    patch.variant = "";
+    patch.nameOverridden = true;
+    if (p.weightMg != null) {
+      // a resolved weight with no catalog link (e.g. a water volume → fixed grams)
+      patch.unitWeightMg = p.weightMg;
       patch.weightOverridden = true;
+    } else if (p.weight != null) {
+      const mg = parseWeightInput(p.weight, props.list.displayUnit);
+      if (mg != null) {
+        patch.unitWeightMg = mg;
+        patch.weightOverridden = true;
+      }
     }
   }
   // water arrives as a consumable; base is stored as null (the folder default)
@@ -195,8 +214,7 @@ function dismissFix() {
   <!-- read-only row (shared with the public /s view) -->
   <div v-if="readonly" class="item item--ro">
     <span class="item__roname">
-      {{ item.name
-      }}<span v-if="effClass !== 'base'" class="t-sm" :class="`item__class--${effClass}`"> · {{ effClass }}</span>
+      <ItemName :item="item" /><span v-if="effClass !== 'base'" class="t-sm" :class="`item__class--${effClass}`"> · {{ effClass }}</span>
     </span>
     <span class="t-num t-sm t-muted">×{{ item.qty }}</span>
     <span class="t-num item__roweight">{{
@@ -212,7 +230,7 @@ function dismissFix() {
       :checked="item.packed"
       @change="c.updateItem(item.id, { packed: ($event.target as HTMLInputElement).checked })"
     />
-    <span class="item__cname">{{ item.name }}</span>
+    <span class="item__cname"><ItemName :item="item" /></span>
     <span class="t-num t-sm t-muted item__cqty">×{{ item.qty }}</span>
     <span class="t-num item__cweight">{{
       item.unitWeightMg > 0 ? formatWeight(lineMg(item), list.displayUnit) : "—"
@@ -233,7 +251,7 @@ function dismissFix() {
       <ItemInput
         class="item__name"
         :unit="list.displayUnit"
-        :initial="item.name"
+        :initial="editableName"
         placeholder="Item name"
         :clear-on-commit="false"
         :autofocus="isPendingBlank"

@@ -20,8 +20,12 @@ export interface Folder {
 export interface Item {
   id: string; // client-generated
   folderId: string | null;
-  name: string; // product name
+  name: string; // product name (the model, when brand/variant are split out)
   brand?: string; // company / maker
+  variant?: string; // size/config qualifier (rendered dimmed); set from a catalog pick
+  // true once the user free-renames a catalog-linked item → keep their text; don't
+  // let live-resolve overwrite it with the catalog's current name (mirrors weightOverridden)
+  nameOverridden?: boolean;
   unitWeightMg: number; // the user's truth for THIS list, integer milligrams
   weightOverridden?: boolean;
   qty: number;
