@@ -197,6 +197,17 @@
       "weight_source": "manufacturer",
       "source_url": "https://trekology.com/products/trekology-aluft-2-0-inflatable-pillow-for-camping-copy-2",
       "quote": "the ALUFT 2.0 weighs in at only 3.9oz (110g)"
+    },
+    {
+      "brand": "Therm-a-Rest",
+      "name": "Z Lite Original",
+      "variant": "Regular",
+      "category_hint": "sleep",
+      "weight_value": 14,
+      "weight_unit": "oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://cascadedesigns.com/products/original-z-lite-sleeping-pad",
+      "quote": "Regular ... Weight 14 oz (0.41 kg)"
     }
   ]
 }
