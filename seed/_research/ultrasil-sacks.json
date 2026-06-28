@@ -1,0 +1,124 @@
+{
+  "rows": [
+    {
+      "brand": "Sea to Summit",
+      "name": "Ultra-Sil Stuff Sack",
+      "variant": "1.5L",
+      "category_hint": "other",
+      "weight_value": 16,
+      "weight_unit": "g",
+      "weight_secondary": "0.6 oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://seatosummit.com/products/the-ultra-sil-stuff-sack",
+      "quote": "1.5L: 16 g / 0.6 oz"
+    },
+    {
+      "brand": "Sea to Summit",
+      "name": "Ultra-Sil Stuff Sack",
+      "variant": "3L",
+      "category_hint": "other",
+      "weight_value": 20,
+      "weight_unit": "g",
+      "weight_secondary": "0.7 oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://seatosummit.com/products/the-ultra-sil-stuff-sack",
+      "quote": "3L: 20 g / 0.7 oz"
+    },
+    {
+      "brand": "Sea to Summit",
+      "name": "Ultra-Sil Stuff Sack",
+      "variant": "5L",
+      "category_hint": "other",
+      "weight_value": 25,
+      "weight_unit": "g",
+      "weight_secondary": "0.9 oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://seatosummit.com/products/the-ultra-sil-stuff-sack",
+      "quote": "5L: 25 g / 0.9 oz"
+    },
+    {
+      "brand": "Sea to Summit",
+      "name": "Ultra-Sil Stuff Sack",
+      "variant": "8L",
+      "category_hint": "other",
+      "weight_value": 32,
+      "weight_unit": "g",
+      "weight_secondary": "1.1 oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://seatosummit.com/products/the-ultra-sil-stuff-sack",
+      "quote": "8L: 32 g / 1.1 oz"
+    },
+    {
+      "brand": "Sea to Summit",
+      "name": "Ultra-Sil Stuff Sack",
+      "variant": "20L",
+      "category_hint": "other",
+      "weight_value": 49,
+      "weight_unit": "g",
+      "weight_secondary": "1.7 oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://seatosummit.com/products/the-ultra-sil-stuff-sack",
+      "quote": "20L: 49 g / 1.7 oz"
+    },
+    {
+      "brand": "Sea to Summit",
+      "name": "Ultra-Sil Dry Bag",
+      "variant": "3L",
+      "category_hint": "other",
+      "weight_value": 30,
+      "weight_unit": "g",
+      "weight_secondary": "1.1 oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://seatosummit.com/products/ultra-sil-dry-bag",
+      "quote": "3L: 30 g / 1.1 oz"
+    },
+    {
+      "brand": "Sea to Summit",
+      "name": "Ultra-Sil Dry Bag",
+      "variant": "5L",
+      "category_hint": "other",
+      "weight_value": 32,
+      "weight_unit": "g",
+      "weight_secondary": "1.1 oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://seatosummit.com/products/ultra-sil-dry-bag",
+      "quote": "5L: 32 g / 1.1 oz"
+    },
+    {
+      "brand": "Sea to Summit",
+      "name": "Ultra-Sil Dry Bag",
+      "variant": "13L",
+      "category_hint": "other",
+      "weight_value": 47,
+      "weight_unit": "g",
+      "weight_secondary": "1.7 oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://seatosummit.com/products/ultra-sil-dry-bag",
+      "quote": "13L: 47 g / 1.7 oz"
+    },
+    {
+      "brand": "Sea to Summit",
+      "name": "Ultra-Sil Dry Bag",
+      "variant": "20L",
+      "category_hint": "other",
+      "weight_value": 58,
+      "weight_unit": "g",
+      "weight_secondary": "2.0 oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://seatosummit.com/products/ultra-sil-dry-bag",
+      "quote": "20L: 58 g / 2.0 oz"
+    },
+    {
+      "brand": "Sea to Summit",
+      "name": "Ultra-Sil Dry Bag",
+      "variant": "35L",
+      "category_hint": "other",
+      "weight_value": 74,
+      "weight_unit": "g",
+      "weight_secondary": "2.6 oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://seatosummit.com/products/ultra-sil-dry-bag",
+      "quote": "35L: 74 g / 2.6 oz"
+    }
+  ]
+}
