@@ -39,6 +39,22 @@ describe("CSV round-trip", () => {
   });
 });
 
+describe("CSV formula-injection guard", () => {
+  it("neutralizes formula-leading cells on export and strips the guard on import", () => {
+    const s = snap();
+    s.items[0]!.name = "=HYPERLINK(\"http://evil\",\"x\")"; // classic CSV injection
+    s.items[1]!.name = "+1234567890";
+    const csv = listToCsv(s);
+    // every data cell that started with a formula char is quote-prefixed in the export
+    expect(csv).toContain("'=HYPERLINK");
+    expect(csv).toContain("'+1234567890");
+    // and the guard is removed on re-import (lossless round-trip)
+    const data = csvToListData(csv);
+    expect(data.items.some((i) => i.name === "=HYPERLINK(\"http://evil\",\"x\")")).toBe(true);
+    expect(data.items.some((i) => i.name === "+1234567890")).toBe(true);
+  });
+});
+
 describe("LighterPack CSV import", () => {
   it("maps LighterPack headers + unit conversion + flags", () => {
     const lp = [

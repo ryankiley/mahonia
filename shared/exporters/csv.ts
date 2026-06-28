@@ -20,11 +20,23 @@ function normalizeUnit(raw: string | undefined, fallback: Unit): Unit {
 const truthy = (v: string | undefined) =>
   !!v && /^(1|true|yes|y|x|worn|consumable)$/i.test(v.trim());
 
+// A leading =, +, -, @, or a control char (tab/CR) makes a spreadsheet treat the
+// cell as a formula/command (CSV injection / DDE) when the export is opened in
+// Excel/Sheets — dangerous because list content can come from another user (a
+// shared edit link, or a LighterPack import). Neutralize by prefixing a single
+// quote, the standard mitigation; stripFormulaGuard() removes it again on import
+// so our own round-trip is lossless.
+const FORMULA_LEAD = /^[=+\-@\t\r]/;
+const guardFormula = (s: string) => (FORMULA_LEAD.test(s) ? `'${s}` : s);
+export function stripFormulaGuard(s: string): string {
+  return s.length > 1 && s[0] === "'" && FORMULA_LEAD.test(s.slice(1)) ? s.slice(1) : s;
+}
+
 // ---- export ----
 export function listToCsv(list: ListSnapshot): string {
   const u = list.displayUnit;
   const esc = (v: unknown) => {
-    const s = String(v ?? "");
+    const s = guardFormula(String(v ?? ""));
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   const folderName = (id: string | null) =>
@@ -120,9 +132,9 @@ export function csvToListData(text: string, defaultUnit: Unit = "g"): ListData {
   const items: ListData["items"] = [];
   for (let r = 1; r < rows.length; r++) {
     const row = rows[r]!;
-    const name = (row[nameCol] || "").trim();
+    const name = stripFormulaGuard((row[nameCol] || "").trim());
     if (!name) continue;
-    const cat = iCat >= 0 ? row[iCat] : "";
+    const cat = iCat >= 0 ? stripFormulaGuard(row[iCat] ?? "") : "";
     const fId = ensureFolder(cat || "Imported");
     const unit = normalizeUnit(iUnit >= 0 ? row[iUnit] : undefined, defaultUnit);
     const weightNum = iWeight >= 0 ? parseFloat((row[iWeight] || "").replace(/,/g, "")) : 0;
@@ -139,12 +151,12 @@ export function csvToListData(text: string, defaultUnit: Unit = "g"): ListData {
       id: uid(),
       folderId: fId,
       name,
-      brand: iBrand >= 0 && row[iBrand]?.trim() ? row[iBrand].trim() : undefined,
+      brand: iBrand >= 0 && row[iBrand]?.trim() ? stripFormulaGuard(row[iBrand].trim()) : undefined,
       unitWeightMg,
       qty,
       classification,
-      description: iDesc >= 0 && row[iDesc]?.trim() ? row[iDesc].trim() : undefined,
-      productUrl: iUrl >= 0 && row[iUrl]?.trim() ? row[iUrl].trim() : undefined,
+      description: iDesc >= 0 && row[iDesc]?.trim() ? stripFormulaGuard(row[iDesc].trim()) : undefined,
+      productUrl: iUrl >= 0 && row[iUrl]?.trim() ? stripFormulaGuard(row[iUrl].trim()) : undefined,
       priceCents: isFinite(priceVal) ? Math.round(priceVal * 100) : undefined,
       sortOrder: itemsInFolder(items, fId).length,
     });
