@@ -165,3 +165,19 @@ ul {
   background-color: var(--paper-3);
   color: var(--ink);
 }
+
+// Visually hidden but still announced by assistive tech — for content that
+// should reach screen readers without occupying visual space (e.g. the full
+// value behind a per-character animated count, skip links). Pair with the
+// element staying in the a11y tree (don't add aria-hidden).
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

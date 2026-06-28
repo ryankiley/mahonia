@@ -6,7 +6,7 @@
   <span ref="el" class="acount" :class="{ 'is-animating': animating }">
     <!-- screen readers get the value as one string; the per-char spans (a known
          AT-fragmentation trap) are hidden from them -->
-    <span class="acount__sr">{{ value }}</span>
+    <span class="visually-hidden">{{ value }}</span>
     <span
       v-for="(char, i) in chars"
       :key="`${generation}-${i}`"
@@ -55,18 +55,8 @@ onMounted(() => {
   display: inline-block;
   white-space: pre; /* keep the space before the unit */
 }
-/* visually hidden, still read by AT */
-.acount__sr {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
+/* .acount__sr → migrated to the shared global .visually-hidden utility
+   (app/assets/styles/foundations/reset.scss) */
 /* no filter:blur — Safari can leave the last character stuck in a blurred
    compositing layer (it fails to repaint the final blur(0) state). translate +
    opacity alone give the pop-in and never freeze. */
