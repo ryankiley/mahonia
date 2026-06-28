@@ -36,6 +36,12 @@ html {
   // field focus), leave room for the sticky topbar so the field doesn't land
   // hidden underneath it — which read as the page "jumping" on focus.
   scroll-padding-top: 5rem;
+  // Pin the layout width to the viewport. iOS Safari otherwise expands its layout
+  // viewport to contain any sub-pixel horizontal overflow and, after a pinch-zoom
+  // in/out, "fits" that wider viewport — leaving a phantom right margin that
+  // sticks. `clip` (not `hidden`) constrains the width WITHOUT creating a scroll
+  // container, so the sticky topbar keeps working.
+  overflow-x: clip;
 }
 
 body {

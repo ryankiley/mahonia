@@ -9,7 +9,14 @@
   width: 100%;
   max-width: var(--measure);
   margin-inline: auto;
-  padding-inline: var(--space-4);
+  /* viewport-fit=cover (nuxt.config) lets content reach the screen edges, so the
+     gutter must clear the safe-area insets — e.g. the notch/Dynamic Island when
+     the phone is in landscape. Keep the --space-4 gutter as the floor and grow it
+     only where an inset exists; env() is 0 on screens without one, so this is a
+     no-op there (portrait, desktop). */
+  padding-inline:
+    max(var(--space-4), env(safe-area-inset-left))
+    max(var(--space-4), env(safe-area-inset-right));
 }
 
 // Long-form reading column — legal pages, any prose. One measure, calm rhythm,
