@@ -42,4 +42,16 @@ describe("lighterpackId — strict LighterPack URL allowlist (SSRF guard)", () =
       expect(lighterpackId(u), u).toBeNull();
     }
   });
+
+  it("returns null (never throws) on malformed percent-encoding in the id", () => {
+    // decodeURIComponent throws URIError on these; the importer must get null, not a 500
+    for (const u of [
+      "https://lighterpack.com/r/%E0%A4%A",
+      "https://lighterpack.com/csv/%",
+      "https://lighterpack.com/e/%C3%28",
+    ]) {
+      expect(() => lighterpackId(u), u).not.toThrow();
+      expect(lighterpackId(u), u).toBeNull();
+    }
+  });
 });

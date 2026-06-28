@@ -1,6 +1,7 @@
 import { createError, defineEventHandler, getHeader, setHeader } from "h3";
 import { useDb } from "../../../utils/db";
 import { corroborateCatalog } from "../../../utils/candidates";
+import { safeEqual } from "../../../utils/tokens";
 
 // Nightly community-intake job (registered in vercel.json). Promotes typed list
 // items corroborated by >= K distinct lists into community/unverified catalog rows.
@@ -13,7 +14,8 @@ export default defineEventHandler(async (event) => {
   const auth = getHeader(event, "authorization") || "";
   const bearer = auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
   const admin = getHeader(event, "x-admin-token") || "";
-  const ok = (!!cronSecret && bearer === cronSecret) || (!!adminToken && admin === adminToken);
+  // constant-time compare so neither secret leaks a matching-prefix length via timing
+  const ok = safeEqual(bearer, cronSecret) || safeEqual(admin, adminToken);
   if (!ok) throw createError({ statusCode: 404, statusMessage: "Not found" });
 
   const db = await useDb();

@@ -17,6 +17,14 @@ export function lighterpackId(raw: string): string | null {
   const host = u.hostname.toLowerCase().replace(/^www\./, "");
   if (host !== "lighterpack.com") return null;
   const m = u.pathname.match(/^\/(?:r|csv|e)\/([^/]+)\/?$/);
-  const id = m?.[1] ? decodeURIComponent(m[1]) : "";
+  if (!m?.[1]) return null;
+  // decodeURIComponent throws URIError on malformed percent-encoding (e.g. "%E0%A4%A");
+  // a hostile/typo'd id must yield null (a clean 400), never an unhandled 500.
+  let id: string;
+  try {
+    id = decodeURIComponent(m[1]);
+  } catch {
+    return null;
+  }
   return ID_RE.test(id) ? id : null;
 }

@@ -1,7 +1,8 @@
 import { createError, defineEventHandler, getHeader, setHeader } from "h3";
 import { restoreList } from "../../../utils/discoveryRepo";
 import { readJsonBody } from "../../../utils/http";
-import { assertMaxBody, clearReportTally, type KvStorage } from "../../../utils/rateLimit";
+import { assertMaxBody, clearReportTally, rateLimit, type KvStorage } from "../../../utils/rateLimit";
+import { safeEqual } from "../../../utils/tokens";
 
 const SLUG_RE = /^[a-z0-9-]{1,80}$/;
 
@@ -11,10 +12,12 @@ const SLUG_RE = /^[a-z0-9-]{1,80}$/;
 // the catalog revert admin gate.
 export default defineEventHandler(async (event) => {
   setHeader(event, "X-Robots-Tag", "noindex");
+  // Throttle the admin gate (defense-in-depth alongside the constant-time compare).
+  await rateLimit(event, "admin", 30, 60_000);
   assertMaxBody(event, 4_000);
   const admin = process.env.GEAR_ADMIN_TOKEN;
   const provided = getHeader(event, "x-admin-token");
-  if (!admin || provided !== admin) throw createError({ statusCode: 404, statusMessage: "Not found" });
+  if (!safeEqual(provided, admin)) throw createError({ statusCode: 404, statusMessage: "Not found" });
 
   const body = await readJsonBody<{ slug?: string }>(event);
   const slug = (typeof body?.slug === "string" ? body.slug : "").trim().toLowerCase();
