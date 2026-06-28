@@ -6,8 +6,8 @@ import { uid } from "~~/shared/id";
 import type { ListSnapshot } from "~~/shared/types";
 import { bySortOrder } from "~~/shared/weights";
 
-// The editor is a focused app surface — it skips the marketing SiteFooter (the
-// default layout) in favour of the slim legal line at the bottom of this view.
+// The editor opts out of the default layout (its own sticky topbar + flex shell),
+// but renders the shared SiteFooter at the bottom so the footer is the same site-wide.
 definePageMeta({ layout: false });
 
 const c = useGearList();
@@ -355,12 +355,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
       <p class="t-muted">Loading…</p>
     </main>
 
-    <footer class="wrap editor__legal">
-      <NuxtLink to="/about" class="t-sm">About</NuxtLink>
-      <NuxtLink to="/privacy" class="t-sm">Privacy</NuxtLink>
-      <NuxtLink to="/terms" class="t-sm">Terms</NuxtLink>
-      <span class="t-sm t-muted">© {{ new Date().getFullYear() }} Mahonia</span>
-    </footer>
+    <SiteFooter />
 
     <Transition name="toast">
       <div v-if="pendingUndo" class="toast undobar">
@@ -602,27 +597,6 @@ function onCorrected(res: { status: string; itemName?: string }) {
   flex-direction: column;
   align-items: flex-start;
   gap: var(--space-4);
-}
-/* slim, quiet legal line — the app surface's stand-in for the marketing footer */
-.editor__legal {
-  flex: none;
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-4);
-  padding-block: var(--space-5);
-  border-top: 1px solid var(--line);
-}
-.editor__legal a {
-  color: var(--ink-2);
-  border-bottom: 1px solid transparent;
-  transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease);
-}
-.editor__legal a:hover {
-  color: var(--ink);
-  border-bottom-color: var(--ink);
-}
-.editor__legal span {
-  margin-left: auto;
 }
 .toast {
   position: fixed;
