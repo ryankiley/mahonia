@@ -278,6 +278,7 @@ function highlightParts(text: string): { t: string; on: boolean }[] {
               >{{ p.t }}</span>
             </span>
             <span v-if="opt.result.variant" class="ac__variant">· {{ opt.result.variant }}</span>
+            <span v-if="!opt.result.verified" class="ac__community" title="community-contributed, unverified">· community</span>
           </span>
           <span class="ac__metaright">
             <span class="t-num ac__w">{{ formatWeight(opt.result.weightMg, unit) }}</span>
@@ -374,6 +375,13 @@ function highlightParts(text: string): { t: string; on: boolean }[] {
 }
 .ac__variant {
   flex: 0 1000 auto;
+  font-style: italic;
+  color: var(--ink-3);
+}
+/* community/unverified marker — quiet; these rows already rank below the cited spine */
+.ac__community {
+  flex: 0 1 auto;
+  white-space: nowrap;
   font-style: italic;
   color: var(--ink-3);
 }

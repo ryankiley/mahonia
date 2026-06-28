@@ -5,6 +5,7 @@
 import { sql } from "drizzle-orm";
 import * as schema from "../db/schema";
 import { CATALOG_DDL } from "./catalog";
+import { CANDIDATES_DDL } from "./candidates";
 
 type Db = Awaited<ReturnType<typeof build>>;
 
@@ -137,6 +138,7 @@ const DDL = [
   // seed script + search endpoint can ensure it on Neon too. These are safe on
   // both engines; the pg_trgm GIN index is created Neon-only (see catalog.ts).
   ...CATALOG_DDL,
+  ...CANDIDATES_DDL,
   ...SNAPSHOTS_DDL,
 ];
 

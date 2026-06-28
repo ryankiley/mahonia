@@ -17,6 +17,7 @@ import { computeTotals } from "../../shared/weights";
 import type { ListData, ListSnapshot, ListState, Unit } from "../../shared/types";
 import { ensureSnapshotSchema, useDb } from "./db";
 import { randomEditToken, randomShareCode, randomSlug, sha256Hex } from "./tokens";
+import { stageCandidates, type CandidateObservation } from "./candidates";
 
 type Db = Awaited<ReturnType<typeof useDb>>;
 
@@ -355,6 +356,21 @@ export async function applyOpsByEditToken(
     if (updated[0]) {
       // pre-edit recovery point (best-effort; only ~once per throttle window)
       if (doSnapshot) await captureSnapshot(d, row, "edit");
+      // community intake: stage typed (non-catalog) items touched by this batch so
+      // the catalog can grow from real use. Best-effort — never break/slow a save.
+      try {
+        const touched = new Set<string>();
+        for (const op of ops) {
+          if (op.t === "addItem") touched.add(op.item.id);
+          else if (op.t === "updateItem" && typeof op.patch?.name === "string") touched.add(op.id);
+        }
+        const typed: CandidateObservation[] = [];
+        for (const it of state.items) {
+          if (!touched.has(it.id) || it.catalogItemId != null || !it.name?.trim()) continue;
+          typed.push({ brand: it.brand, name: it.name, weightMg: it.unitWeightMg, classification: it.classification });
+        }
+        if (typed.length) await stageCandidates(d, row.id, typed);
+      } catch { /* intake must never break a list save */ }
       return hydrateCatalogNames(d, rowToSnapshot(updated[0]));
     }
     // version moved under us — retry against the latest

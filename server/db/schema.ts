@@ -203,6 +203,42 @@ export type CatalogEditRow = typeof catalogEdits.$inferSelect;
 export type NewCatalogEditRow = typeof catalogEdits.$inferInsert;
 
 // ---------------------------------------------------------------------------
+// catalog_candidates — community intake staging (Phase 3). When a user TYPES an
+// item into a list that isn't from the catalog, one observation is staged here.
+// A nightly job promotes a norm_key seen on >= K distinct lists into a real
+// (community, unverified) catalog_items row using the median observed weight.
+// Staged (not added on sight) so the cited spine stays clean; one row per
+// (norm_key, list_id) so the distinct-list count and median are plain aggregates.
+// ---------------------------------------------------------------------------
+export const catalogCandidates = pgTable(
+  "catalog_candidates",
+  {
+    id: serial("id").primaryKey(),
+    normKey: text("norm_key").notNull(), // normalized "brand name" for grouping
+    rawBrand: text("raw_brand"),
+    rawName: text("raw_name").notNull(),
+    listId: integer("list_id").notNull(), // INTERNAL list id — distinctness only, never exposed
+    weightMg: bigint("weight_mg", { mode: "number" }), // nullable: user may type no weight
+    classification: text("classification"), // base|worn|consumable|null → category_hint
+    promotedIntoId: integer("promoted_into_id"), // set once promoted/merged → stop recounting
+    rejectedAt: timestamp("rejected_at", { withTimezone: true }), // filtered out → stop recounting
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    // one observation per (item, list) — re-typing on the same list updates, never duplicates
+    uniqueIndex("idx_candidate_identity").on(t.normKey, t.listId),
+    // grouping scan: un-processed candidates by norm_key
+    index("idx_candidate_open")
+      .on(t.normKey)
+      .where(sql`${t.promotedIntoId} is null and ${t.rejectedAt} is null`),
+  ],
+);
+
+export type CatalogCandidateRow = typeof catalogCandidates.$inferSelect;
+export type NewCatalogCandidateRow = typeof catalogCandidates.$inferInsert;
+
+// ---------------------------------------------------------------------------
 // list_snapshots — periodic recovery points for the shared-edit-link model.
 // An edit link is a SHARED capability, so a clumsy/malicious editor can wreck a
 // list; a throttled snapshot of the pre-mutation state (plus one before any
