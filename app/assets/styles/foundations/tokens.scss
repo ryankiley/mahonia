@@ -16,7 +16,7 @@
   /* ---- ink: neutral grey ramp; primary is true black / white ---- */
   --ink: light-dark(#000000, #ffffff);
   --ink-2: light-dark(#595959, #a8a8a8); /* secondary text */
-  --ink-3: light-dark(#8c8c8c, #707070); /* faint */
+  --ink-3: light-dark(#767676, #757575); /* faint — tuned to clear WCAG AA 4.5:1 on paper */
 
   /* ---- hairlines: faint + rare. Whitespace + type do the separating, not boxes ---- */
   --line: light-dark(#00000014, #ffffff14);

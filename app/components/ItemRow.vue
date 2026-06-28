@@ -282,6 +282,7 @@ function dismissFix() {
             :value="weightDisplay"
             placeholder="--"
             inputmode="decimal"
+            aria-label="Weight"
             :readonly="isWater"
             @change="onWeight"
             @keydown.up.prevent="onWeightStep($event, 1)"

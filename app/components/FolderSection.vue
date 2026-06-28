@@ -75,6 +75,7 @@ function toggleCollapsed() {
           class="field folder__name"
           :value="folder.name"
           :disabled="packed"
+          aria-label="Folder name"
           autocorrect="off"
           spellcheck="false"
           @change="c.updateFolder(folder.id, { name: ($event.target as HTMLInputElement).value })"
