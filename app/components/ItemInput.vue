@@ -256,7 +256,7 @@ function highlightParts(text: string): { t: string; on: boolean }[] {
             <Droplet class="ac__watericon" :size="14" :stroke-width="2" aria-hidden="true" />{{ opt.water.label }}
           </span>
           <span class="ac__metaright">
-            <span class="t-num ac__w">{{ formatWeight(opt.water.weightMg, unit) }}</span>
+            <span class="t-num ac__w">{{ formatWeight(opt.water.weightMg, unit, { withUnit: false }) }} <span class="t-muted">{{ unit }}</span></span>
           </span>
         </template>
         <template v-else>
@@ -281,7 +281,7 @@ function highlightParts(text: string): { t: string; on: boolean }[] {
             <span v-if="!opt.result.verified" class="ac__community" title="community-contributed, unverified">· community</span>
           </span>
           <span class="ac__metaright">
-            <span class="t-num ac__w">{{ formatWeight(opt.result.weightMg, unit) }}</span>
+            <span class="t-num ac__w">{{ formatWeight(opt.result.weightMg, unit, { withUnit: false }) }} <span class="t-muted">{{ unit }}</span></span>
             <span class="ac__src" :title="opt.result.weightSource">{{ srcLetter(opt.result) }}</span>
           </span>
         </template>

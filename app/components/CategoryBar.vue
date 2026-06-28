@@ -69,10 +69,11 @@ const segments = computed(() => categorySegments(props.list));
   align-self: center;
 }
 .catbar__name {
-  color: var(--ink-2);
+  color: var(--ink);
 }
-/* the figure carries the data (darker); its unit is secondary (lighter), and the
-   two sit tight as one "1,300 g" pair */
+/* the figure carries the data (full ink); its unit is secondary (--ink-2, the one
+   de-emphasis level — same as every other unit), and the two sit tight as one
+   "1,300 g" pair */
 .catbar__wt {
   display: inline-flex;
   align-items: baseline;
@@ -82,7 +83,7 @@ const segments = computed(() => categorySegments(props.list));
   color: var(--ink);
 }
 .catbar__unit {
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 /* roomier separation between folder entries when they sit on one line on a phone */
 @media (max-width: 560px) {
