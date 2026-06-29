@@ -36,6 +36,7 @@
   },
   "devDependencies": {
     "@types/node": "^24",
+    "@vite-pwa/nuxt": "^1.1.1",
     "drizzle-kit": "^0.31.10",
     "jiti": "^2.7.0",
     "sass": "^1.101.0",

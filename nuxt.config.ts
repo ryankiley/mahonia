@@ -1,6 +1,91 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
-  modules: ["@vueuse/nuxt", "@vercel/analytics"],
+  modules: ["@vueuse/nuxt", "@vercel/analytics", "@vite-pwa/nuxt"],
+
+  // Master switch for the offline plumbing (service worker + background sync, and
+  // the offline catalog search). OFF by default so the whole feature ships DORMANT
+  // — real users see no change until NUXT_PUBLIC_OFFLINE=true is set at deploy
+  // time. Dev defaults ON (see $development below) so it's testable locally.
+  runtimeConfig: {
+    public: {
+      offline: process.env.NUXT_PUBLIC_OFFLINE === "true",
+    },
+  },
+
+  // @vite-pwa generates the service worker + Workbox runtime, but we keep it INERT
+  // in production: `manifest: false` (no <link rel=manifest> → not installable, no
+  // affordance), `injectRegister: false` (no auto-registration — a gated client
+  // plugin, app/plugins/pwa.client.ts, calls registerSW() only when the offline
+  // flag is on). `autoUpdate` = silent updates, never a "new version, reload?"
+  // prompt. `devOptions.enabled:false` = no SW under `nuxt dev` (in dev the
+  // virtual registerSW is a no-op, so the gated plugin is harmless there).
+  pwa: {
+    registerType: "autoUpdate",
+    injectRegister: false,
+    // @vite-pwa/nuxt ships its OWN client plugin that auto-registers the SW
+    // unconditionally — disable it so registration is solely our gated plugin
+    // (app/plugins/pwa.client.ts). Without this the SW registers even with the
+    // flag off, defeating the dormancy.
+    client: { registerPlugin: false },
+    manifest: false,
+    devOptions: { enabled: false },
+    workbox: {
+      // precache the client shell (hashed JS/CSS/fonts) so it boots from cache
+      globPatterns: ["**/*.{js,css,woff2}"],
+      // Disable the plugin's default catch-all navigation fallback: it binds to a
+      // non-precached "/" (the auto-precache of the fallback only runs in dev, not
+      // the prod build), so it would throw on every navigation. The `/e` route
+      // below handles the editor shell explicitly instead.
+      navigateFallback: "",
+      runtimeCaching: [
+        // editor shell — Nuxt serves /e dynamically (ssr:false), so there's no
+        // static HTML to precache; cache the navigation response instead so a prior
+        // online visit lets the editor boot offline. NetworkFirst keeps online users
+        // on the fresh shell (so its referenced chunks match the live precache).
+        {
+          urlPattern: /\/e\/?$/,
+          handler: "NetworkFirst",
+          options: {
+            cacheName: "mahonia-shell",
+            networkTimeoutSeconds: 3,
+            expiration: { maxEntries: 4, maxAgeSeconds: 60 * 60 * 24 * 7 },
+          },
+        },
+        // public read views — mirror their stale-while-revalidate edge headers so a
+        // previously-opened list still renders offline
+        {
+          urlPattern: /\/api\/l\/.*/,
+          handler: "StaleWhileRevalidate",
+          options: {
+            cacheName: "mahonia-list-data",
+            expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 * 7 },
+          },
+        },
+        {
+          urlPattern: /\/l\/[^/]+$/,
+          handler: "StaleWhileRevalidate",
+          options: {
+            cacheName: "mahonia-list-pages",
+            expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 * 7 },
+          },
+        },
+        // queue list edits made offline and replay them on reconnect — even after
+        // the tab closes. Safe because /api/edit/mutate is idempotent (CAS version
+        // + merge-designed ops → a replayed op set no-ops; see server/utils/listRepo).
+        {
+          urlPattern: /\/api\/edit\/mutate$/,
+          method: "POST",
+          handler: "NetworkOnly",
+          options: {
+            backgroundSync: {
+              name: "mahonia-mutate-queue",
+              options: { maxRetentionTime: 60 * 24 },
+            },
+          },
+        },
+      ],
+    },
+  },
 
   // Rate-limit counter store (server/utils/rateLimit.ts). Prod prefers Upstash
   // Redis — a single shared store across every Vercel serverless instance, so the
@@ -13,6 +98,9 @@ export default defineNuxtConfig({
   // that throws on every request — rate limiting then holds per-instance only,
   // which is degraded but keeps the app serving. Dev always uses in-memory.
   $development: {
+    // offline plumbing defaults ON in dev so it's testable locally without setting
+    // an env var (the SW itself still needs a prod build — see pwa.devOptions)
+    runtimeConfig: { public: { offline: true } },
     nitro: {
       storage: {
         kv: { driver: "memory" },
