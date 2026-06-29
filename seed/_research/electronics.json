@@ -208,6 +208,18 @@
       "weight_source": "manufacturer",
       "source_url": "https://us.ricoh-imaging.com/product/gr-iiix/",
       "quote": "Approx. 262g (Included dedicated battery and SD memory card)"
+    },
+    {
+      "brand": "INIU",
+      "name": "Ultra Mini Power Bank (P50)",
+      "variant": "P50-E1, 10000mAh",
+      "category_hint": "electronics",
+      "weight_value": 160,
+      "weight_unit": "g",
+      "weight_secondary": "5.6 oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://iniushop.com/products/new-iniu-carry-p50-e1-power-bank-45w-smallest-10000mah",
+      "quote": "and a weight of only 5.6oz (160g)"
     }
   ]
 }
