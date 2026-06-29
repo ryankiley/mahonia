@@ -8,6 +8,25 @@ import { registerSW } from "virtual:pwa-register";
 // autoUpdate means new SWs activate silently (no reload prompt). In dev the virtual
 // registerSW is a no-op (devOptions disabled), so calling it here is harmless.
 export default defineNuxtPlugin(() => {
-  if (!useOfflineEnabled()) return;
-  registerSW({ immediate: true });
+  if (useOfflineEnabled()) {
+    registerSW({ immediate: true });
+    return;
+  }
+  // Flag off: actively tear down any service worker + Workbox caches a previously
+  // ENABLED build may have left registered, so toggling the flag back off is a
+  // clean, complete rollback (a SW otherwise persists until manually unregistered).
+  // Touches only the Cache Storage the SW created — NOT IndexedDB, where Tier-1's
+  // always-on on-device drafts live.
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker
+      .getRegistrations()
+      .then((regs) => regs.forEach((r) => r.unregister()))
+      .catch(() => {});
+  }
+  if (typeof caches !== "undefined") {
+    caches
+      .keys()
+      .then((keys) => keys.forEach((k) => caches.delete(k)))
+      .catch(() => {});
+  }
 });
