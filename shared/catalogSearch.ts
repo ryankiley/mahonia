@@ -89,3 +89,26 @@ export function searchCatalogLocal(
       verified: Boolean(row.verified),
     }));
 }
+
+/**
+ * Fold freshly-seen catalog rows into the on-device cache: dedup by id (the
+ * incoming/fresher copy wins), most-recently-seen first, capped to `cap`. Pure so
+ * it's unit-testable; the client (useCatalogCache) builds its offline index by
+ * running each online search's results through this — no bulk-dump endpoint, so it
+ * adds zero new scraping surface beyond the rate-limited search.
+ */
+export function mergeCatalogRows(
+  existing: LocalCatalogRow[],
+  incoming: LocalCatalogRow[],
+  cap = 2000,
+): LocalCatalogRow[] {
+  const seen = new Set<number>();
+  const out: LocalCatalogRow[] = [];
+  for (const row of [...incoming, ...existing]) {
+    if (seen.has(row.id)) continue;
+    seen.add(row.id);
+    out.push(row);
+    if (out.length >= cap) break;
+  }
+  return out;
+}

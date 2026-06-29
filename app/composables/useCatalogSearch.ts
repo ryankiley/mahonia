@@ -13,9 +13,10 @@ export interface CatalogResult {
 
 export function useCatalogSearch() {
   const results = ref<CatalogResult[]>([]);
-  // When the offline flag is on, warm an on-device catalog snapshot and fall back
-  // to it if the live search can't reach the network. Flag off → both are inert
-  // and this behaves exactly as before (server-only).
+  // When the offline flag is on, accumulate an on-device catalog cache from the
+  // results the user sees (no bulk endpoint — zero new scraping surface) and fall
+  // back to it if the live search can't reach the network. Flag off → inert; this
+  // behaves exactly as before (server-only).
   const cache = useOfflineEnabled() ? useCatalogCache() : null;
   if (cache) void cache.prime();
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -46,6 +47,9 @@ export function useCatalogSearch() {
           signal: controller.signal,
         });
         if (lastQ === q) results.value = res.results || [];
+        // remember every successful result set (even a superseded one — it's still
+        // real catalog data) so offline search has it later
+        if (cache && res.results?.length) cache.remember(res.results);
       } catch {
         // A newer keystroke aborted this request → lastQ !== q, leave results be.
         // A genuine failure (offline / network) with the flag on → serve the cached

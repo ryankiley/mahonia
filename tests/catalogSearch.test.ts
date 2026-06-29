@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  mergeCatalogRows,
   searchCatalogLocal,
   trigramScore,
   trigrams,
@@ -79,5 +80,28 @@ describe("searchCatalogLocal", () => {
       verified: true,
     });
     expect("usageCount" in (r as object)).toBe(false);
+  });
+});
+
+describe("mergeCatalogRows", () => {
+  it("dedups by id, with the incoming (fresher) copy winning", () => {
+    const existing = [row({ id: 1, name: "Duplex", weightMg: 1000 })];
+    const incoming = [row({ id: 1, name: "Duplex", weightMg: 2000 })];
+    const merged = mergeCatalogRows(existing, incoming);
+    expect(merged).toHaveLength(1);
+    expect(merged[0]!.weightMg).toBe(2000); // fresher value kept
+  });
+
+  it("puts most-recently-seen rows first", () => {
+    const existing = [row({ id: 1 }), row({ id: 2 })];
+    const incoming = [row({ id: 3 })];
+    expect(mergeCatalogRows(existing, incoming).map((r) => r.id)).toEqual([3, 1, 2]);
+  });
+
+  it("caps the cache, evicting the oldest", () => {
+    const existing = Array.from({ length: 5 }, (_, i) => row({ id: i + 1 }));
+    const incoming = [row({ id: 99 })];
+    const merged = mergeCatalogRows(existing, incoming, 3);
+    expect(merged.map((r) => r.id)).toEqual([99, 1, 2]); // newest kept, oldest dropped
   });
 });
