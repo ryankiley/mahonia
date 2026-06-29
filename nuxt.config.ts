@@ -85,6 +85,26 @@ export default defineNuxtConfig({
           content:
             "Make a packing list, see what it weighs, share it. No login.",
         },
+        // Social card. The editor (the landing page) is `ssr: false`, so runtime
+        // useSeoMeta can't reach crawlers there — this static set is what unfurls the
+        // bare domain. og:image MUST be absolute and the editor shell has no request
+        // context, so the canonical prod host is pinned here (the one place we hard-set
+        // a URL; sitemap/SSR routes still derive the host from the request). SSR routes
+        // (/s, /l) override og:title/description per-list via their own useSeoMeta.
+        { property: "og:type", content: "website" },
+        { property: "og:site_name", content: "Mahonia" },
+        { property: "og:title", content: "Mahonia — pack lists, weighed" },
+        {
+          property: "og:description",
+          content: "Make a packing list, see what it weighs, share it. No login.",
+        },
+        { property: "og:image", content: "https://mahonia.app/og.jpg" },
+        { property: "og:image:width", content: "1200" },
+        { property: "og:image:height", content: "630" },
+        { property: "og:image:type", content: "image/jpeg" },
+        { property: "og:image:alt", content: "Mahonia — Oregon grape in flower and fruit" },
+        { name: "twitter:card", content: "summary_large_image" },
+        { name: "twitter:image", content: "https://mahonia.app/og.jpg" },
       ],
     },
   },
