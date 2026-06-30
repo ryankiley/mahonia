@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { Search } from "@lucide/vue";
 import type { Item } from "~~/shared/types";
 import { itemSearchName, itemSearchUrl } from "~~/shared/links";
 
@@ -26,7 +25,7 @@ const searchLabel = computed(() => `Search the web for ${itemSearchName(props.it
       target="_blank"
       rel="noopener noreferrer"
       :aria-label="searchLabel"
-    >{{ main }}<Search class="iname__search" :size="13" aria-hidden="true" /></a><template v-else>{{ main }}</template><span v-if="variant" class="iname__variant"> · {{ variant }}</span></span>
+    >{{ main }}</a><template v-else>{{ main }}</template><span v-if="variant" class="iname__variant"> · {{ variant }}</span></span>
 </template>
 
 <style scoped>
@@ -50,25 +49,5 @@ const searchLabel = computed(() => `Search the web for ${itemSearchName(props.it
 .iname__link:hover,
 .iname__link:focus-visible {
   text-decoration-color: var(--ink-2);
-}
-/* search-icon hint: muted, sits just after the name. inline-block so it's excluded
-   from the anchor's underline. On desktop it's hidden at rest and fades in on
-   hover/focus (mirrors the editor's hover-reveal row icons); on touch (no hover) it
-   stays subtly visible so the affordance is discoverable. */
-.iname__search {
-  display: inline-block;
-  margin-inline-start: var(--space-1);
-  color: var(--ink-3);
-  vertical-align: -2px;
-}
-@media (hover: hover) {
-  .iname__search {
-    opacity: 0;
-    transition: opacity var(--dur) var(--ease);
-  }
-  .iname__link:hover .iname__search,
-  .iname__link:focus-visible .iname__search {
-    opacity: 1;
-  }
 }
 </style>
