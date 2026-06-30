@@ -444,20 +444,22 @@ function dismissFix() {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* the read-only name links out to a web search (look up / buy the gear). Quiet at
-   rest — keeps the list reading as text — with a SOFT underline (never full ink)
-   appearing on hover/focus, alongside the search icon. */
+/* the read-only name links out to a web search (look up / buy the gear). A
+   persistent DOTTED underline marks it as a lookup-able link at rest (not just on
+   hover) — soft colour, never full ink; it firms up to --ink-2 on hover/focus,
+   alongside the search icon. */
 .item__rolink {
   color: inherit;
-  text-decoration: none;
-  text-underline-offset: 2px;
+  text-decoration-line: underline;
+  text-decoration-style: dotted;
+  text-decoration-color: var(--underline);
   text-decoration-thickness: 1px; /* from-font is heavy; pin it thin */
+  text-underline-offset: 2px;
   transition: text-decoration-color var(--dur) var(--ease);
 }
 .item__rolink:hover,
 .item__rolink:focus-visible {
-  text-decoration: underline;
-  text-decoration-color: var(--underline);
+  text-decoration-color: var(--ink-2);
 }
 /* search-icon hint: muted, sits just after the name. On desktop it's hidden at rest
    and fades in on hover/focus (mirrors the editor's hover-reveal row icons); on
