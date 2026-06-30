@@ -1,0 +1,112 @@
+{
+  "rows": [
+    {
+      "brand": "Zenbivy",
+      "name": "Ultralight Quilt",
+      "variant": "25F, 900FP, Regular",
+      "category_hint": "sleep",
+      "weight_value": 482,
+      "weight_unit": "g",
+      "weight_secondary": "1 lb 1 oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://zenbivy.com/products/ultralight-quilt",
+      "quote": "Ultralight Quilt — 25°F Down, 900+ FP — Regular: 1 lb 1 oz (482 g)"
+    },
+    {
+      "brand": "Zenbivy",
+      "name": "Ultralight Quilt",
+      "variant": "10F, 900FP, Regular",
+      "category_hint": "sleep",
+      "weight_value": 709,
+      "weight_unit": "g",
+      "weight_secondary": "1 lb 9 oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://zenbivy.com/products/ultralight-quilt",
+      "quote": "Ultralight Quilt — 10°F Down, 900+ FP — Regular: 1 lb 9 oz (709 g)"
+    },
+    {
+      "brand": "Zenbivy",
+      "name": "Light Quilt",
+      "variant": "25F, Regular",
+      "category_hint": "sleep",
+      "weight_value": 623,
+      "weight_unit": "g",
+      "weight_secondary": "1 lb 6 oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://zenbivy.com/products/light-quilt",
+      "quote": "Light Quilt — 25°F Down — Regular: 1 lb 6 oz (623 g)"
+    },
+    {
+      "brand": "Zenbivy",
+      "name": "Light Quilt",
+      "variant": "10F, Regular",
+      "category_hint": "sleep",
+      "weight_value": 907,
+      "weight_unit": "g",
+      "weight_secondary": "2 lb",
+      "weight_source": "manufacturer",
+      "source_url": "https://zenbivy.com/products/light-quilt",
+      "quote": "Light Quilt — 10°F Down — Regular: 2 lb (907 g)"
+    },
+    {
+      "brand": "Zenbivy",
+      "name": "Ultralight Sheet",
+      "variant": "25F, 25\"",
+      "category_hint": "sleep",
+      "weight_value": 162,
+      "weight_unit": "g",
+      "weight_secondary": "5.7 oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://zenbivy.com/products/ultralight-sheet",
+      "quote": "Ultralight Sheet — 25°F Down — 25\": 5.7 oz (162 g)"
+    },
+    {
+      "brand": "Zenbivy",
+      "name": "Light Sheet",
+      "variant": "25F, 25\"",
+      "category_hint": "sleep",
+      "weight_value": 261,
+      "weight_unit": "g",
+      "weight_secondary": "9.2 oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://zenbivy.com/collections/light-beds",
+      "quote": "Light Sheet (Full-Length) — 25°F Down — 25\": 9.2 oz (261 g)"
+    },
+    {
+      "brand": "Zenbivy",
+      "name": "Fast Sheet",
+      "variant": "20\"",
+      "category_hint": "sleep",
+      "weight_value": 86,
+      "weight_unit": "g",
+      "weight_secondary": "3.0 oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://zenbivy.com/products/fast-sheet",
+      "quote": "Fast Sheet — 20\": 3.0 oz (86 g)"
+    },
+    {
+      "brand": "Zenbivy",
+      "name": "Ultralight Mattress",
+      "variant": "Tapered, 20 x 72",
+      "category_hint": "sleep",
+      "weight_value": 482,
+      "weight_unit": "g",
+      "weight_secondary": "1 lb 1 oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://zenbivy.com/products/ultralight-mattress",
+      "quote": "Ultralight Mattress — Tapered 20x72 — 1 lb 1 oz (482 g); R-Value 4.8"
+    },
+    {
+      "brand": "Zenbivy",
+      "name": "Ultralight Pillow",
+      "variant": "Regular",
+      "category_hint": "sleep",
+      "weight_value": 68,
+      "weight_unit": "g",
+      "weight_secondary": "2.4 oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://zenbivy.com/products/ultralight-pillow",
+      "quote": "Ultralight Pillow — Regular total: 2.4 oz (68 g) — pillowcase 1 oz (28 g) + air bladder 1.4 oz (40 g)"
+    }
+  ]
+}
