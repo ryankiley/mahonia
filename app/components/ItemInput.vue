@@ -31,6 +31,9 @@ const emit = defineEmits<{
       classification?: Classification;
     },
   ];
+  // true while the suggestion dropdown is showing — the folder lifts its collapse
+  // clip so a dropdown at the bottom of the folder isn't cropped (see FolderSection).
+  autocompleteToggle: [boolean];
 }>();
 
 const { results, search, clear } = useCatalogSearch();
@@ -102,6 +105,16 @@ const options = computed<AcOption[]>(() => {
   if (waterSuggestion.value) opts.push({ water: waterSuggestion.value });
   for (const r of results.value) opts.push({ result: r });
   return opts;
+});
+
+// the dropdown is position:absolute and can extend past the bottom of its folder,
+// whose body clips overflow for the collapse animation. Signal the ancestor while the
+// menu is showing so it can lift that clip (mirrors the drag-pass clip lift). Emit a
+// closing toggle on unmount too, so a row removed mid-suggestion doesn't strand it.
+const menuVisible = computed(() => open.value && options.value.length > 0);
+watch(menuVisible, (v) => emit("autocompleteToggle", v));
+onBeforeUnmount(() => {
+  if (menuVisible.value) emit("autocompleteToggle", false);
 });
 
 function close() {

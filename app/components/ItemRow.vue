@@ -7,6 +7,9 @@ const props = withDefaults(
   defineProps<{ list: ListSnapshot; item: Item; packed?: boolean; readonly?: boolean }>(),
   { packed: false, readonly: false },
 );
+// forwarded up to FolderSection so it can lift its collapse clip while this row's
+// name autocomplete is open (otherwise a dropdown at the folder's bottom is cropped)
+defineEmits<{ autocompleteToggle: [boolean] }>();
 const c = useGearList();
 
 // drag-to-reorder (editable rows only)
@@ -258,6 +261,7 @@ function dismissFix() {
         :clear-on-commit="false"
         :autofocus="isPendingBlank"
         @commit="onNameCommit"
+        @autocomplete-toggle="$emit('autocompleteToggle', $event)"
       />
 
       <!-- metadata + controls: display:contents on desktop, so qty/weight/class/

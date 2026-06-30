@@ -23,6 +23,14 @@ const isAppendTarget = computed(
 // the duration. A collapse animation never runs mid-drag, so dropping the clip is safe.
 const anyItemDrag = computed(() => dnd.dragId.value != null);
 
+// a row's name autocomplete dropdown is absolute and can extend past the folder's
+// bottom, which the collapse clip (overflow:hidden) would crop. Count how many rows
+// have it open and lift the clip while any is (same idea as the drag-pass lift).
+const acOpenCount = ref(0);
+function onAcToggle(open: boolean) {
+  acOpenCount.value = Math.max(0, acOpenCount.value + (open ? 1 : -1));
+}
+
 const items = computed(() => itemsInFolder(props.list.items, props.folder.id).sort(bySortOrder));
 
 // drag-to-reorder folders via the grip handle (a drop line shows where it lands)
@@ -125,9 +133,9 @@ function toggleCollapsed() {
          inner clips — works on Safari, unlike height:auto/interpolate-size which is
          Chromium-only. The chevron rotates in sync. -->
     <div class="folder__body">
-      <div class="folder__bodyinner" :class="{ 'is-dragpass': anyItemDrag && !collapsed }">
+      <div class="folder__bodyinner" :class="{ 'is-dragpass': anyItemDrag && !collapsed, 'is-acopen': acOpenCount > 0 }">
         <TransitionGroup name="item" tag="div" class="folder__items">
-          <ItemRow v-for="it in items" :key="it.id" :list="list" :item="it" :packed="packed" :readonly="readonly" />
+          <ItemRow v-for="it in items" :key="it.id" :list="list" :item="it" :packed="packed" :readonly="readonly" @autocomplete-toggle="onAcToggle" />
           <p v-if="!items.length && readonly" key="empty-ro" class="t-sm t-muted folder__empty">—</p>
         </TransitionGroup>
 
@@ -247,6 +255,11 @@ function toggleCollapsed() {
   opacity: 0;
 }
 .folder__bodyinner.is-dragpass {
+  overflow: visible;
+}
+/* lift the collapse clip while a row's name autocomplete is open, so its dropdown
+   (absolute, opens below) isn't cropped when the row sits at the folder's bottom */
+.folder__bodyinner.is-acopen {
   overflow: visible;
 }
 /* size to the typed text so the chevron hugs the name (not the full column);
