@@ -36,7 +36,8 @@ const sortedFolders = computed(() =>
 
 const packed = ref(false);
 const importOpen = ref(false);
-const menuAction = ref("");
+const menuOpen = ref(false);
+const menuRef = ref<HTMLElement | null>(null);
 const toast = ref("");
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -104,12 +105,10 @@ function flash(msg: string) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => (toast.value = ""), 2000);
 }
-// Clipboard writes here fire from a native <select> change (the ⋯ actions menu, e.g.
-// "Copy as Markdown") as well as buttons. iOS/Safari rejects the async Clipboard API
-// unless the write is part of a live user gesture with no await before it — a
-// select-change frequently doesn't qualify — so fall back to a synchronous
-// execCommand('copy') off a hidden textarea, which WebKit still honours in those
-// contexts. (See controls.scss for the sibling iOS input quirks.)
+// Clipboard writes fire from real button clicks (the ⋯ menu items + the share
+// button), so the async Clipboard API has the user gesture iOS Safari demands. Keep a
+// synchronous execCommand('copy') fallback off a hidden textarea for older browsers
+// where the async API is missing or rejected. (See controls.scss for sibling iOS quirks.)
 function legacyCopy(text: string): boolean {
   try {
     const ta = document.createElement("textarea");
@@ -138,19 +137,23 @@ async function copy(text: string, msg: string) {
       return;
     }
   } catch {
-    // async API unavailable or rejected (e.g. fired from a select-change on iOS
-    // Safari) — fall through to the legacy path, still within the user gesture.
+    // async API unavailable or rejected — fall through to the legacy path,
+    // still within the user gesture.
   }
   flash(legacyCopy(text) ? msg : "Copy failed");
 }
 const origin = () => (typeof location !== "undefined" ? location.origin : "");
 
-// the ⋯ actions menu is a native <select> (OS menu chrome on mobile + desktop):
-// route the chosen option to its handler, then reset to the placeholder so the
-// same action can be re-picked and the control shows "Actions…" again at rest.
-function onMenuAction() {
-  const action = menuAction.value;
-  menuAction.value = "";
+// the ⋯ actions menu is a custom popover of real <button>s (was a native <select>).
+// Each item dispatches from a CLICK — the clipboard actions (markdown, edit link)
+// need a direct user gesture, and a <select> change isn't one on iOS Safari, so the
+// copy silently failed there. Close on the action itself, an outside tap, or Escape.
+onClickOutside(menuRef, () => (menuOpen.value = false));
+useEventListener(window, "keydown", (e: KeyboardEvent) => {
+  if (e.key === "Escape" && menuOpen.value) menuOpen.value = false;
+});
+function runMenu(action: string) {
+  menuOpen.value = false;
   switch (action) {
     case "duplicate": return cloneList();
     case "import": return openImport();
@@ -328,34 +331,45 @@ function onCorrected(res: { status: string; itemName?: string }) {
           >
             <Share2 :size="16" />
           </button>
-          <div class="menu">
-            <!-- the kebab is the visible trigger; a transparent native <select>
-                 sits on top of it (same pattern as the row's classification
-                 control), so a tap opens OS menu chrome — the system sheet/picker
-                 on mobile, the native dropdown on desktop. -->
+          <div ref="menuRef" class="menu">
+            <!-- a custom popover of real <button>s (was a native <select>): the
+                 clipboard items need a direct click gesture, which a <select> change
+                 isn't on iOS Safari. The kebab toggles it; each item runs on click. -->
             <button
               type="button"
               class="btn btn--icon btn--ghost menu__btn"
-              tabindex="-1"
-              aria-hidden="true"
+              aria-label="More actions"
+              aria-haspopup="true"
+              :aria-expanded="menuOpen"
+              @click="menuOpen = !menuOpen"
             >
               <Ellipsis :size="16" />
             </button>
-            <select
-              v-model="menuAction"
-              class="menu__select"
-              aria-label="More actions"
-              @change="onMenuAction"
-            >
-              <option value="">Actions…</option>
-              <option value="duplicate">Duplicate this list</option>
-              <option value="import">Import a list…</option>
-              <option value="markdown">Copy as Markdown</option>
-              <option value="csv">Download CSV</option>
-              <option value="json">Download JSON (backup)</option>
-              <option value="editlink">Copy edit link…</option>
-              <option value="rotate">Rotate edit link…</option>
-            </select>
+            <Transition name="menu">
+              <ul v-if="menuOpen" class="panel menu__list" role="menu" aria-label="More actions">
+                <li role="none">
+                  <button type="button" role="menuitem" class="menu__item" @click="runMenu('duplicate')">Duplicate this list</button>
+                </li>
+                <li role="none">
+                  <button type="button" role="menuitem" class="menu__item" @click="runMenu('import')">Import a list…</button>
+                </li>
+                <li role="none">
+                  <button type="button" role="menuitem" class="menu__item" @click="runMenu('markdown')">Copy as Markdown</button>
+                </li>
+                <li role="none">
+                  <button type="button" role="menuitem" class="menu__item" @click="runMenu('csv')">Download CSV</button>
+                </li>
+                <li role="none">
+                  <button type="button" role="menuitem" class="menu__item" @click="runMenu('json')">Download JSON (backup)</button>
+                </li>
+                <li role="none">
+                  <button type="button" role="menuitem" class="menu__item" @click="runMenu('editlink')">Copy edit link…</button>
+                </li>
+                <li role="none">
+                  <button type="button" role="menuitem" class="menu__item" @click="runMenu('rotate')">Rotate edit link…</button>
+                </li>
+              </ul>
+            </Transition>
           </div>
         </template>
       </div>
@@ -574,10 +588,8 @@ function onCorrected(res: { status: string; itemName?: string }) {
 .editor__share {
   color: var(--ink-2);
 }
-/* the kebab icon is the visible trigger; a transparent native <select> sits on
-   top of it (same pattern as the row's classification control) so a tap opens OS
-   menu chrome — the system sheet/picker on mobile, the native dropdown on desktop.
-   the disclosure arrow + the open list are the platform's own. */
+/* the kebab is the trigger; it toggles a custom popover (.menu__list) anchored to it.
+   relative so the absolute popover anchors here. */
 .menu {
   position: relative;
   display: inline-flex;
@@ -589,15 +601,55 @@ function onCorrected(res: { status: string; itemName?: string }) {
 }
 .menu__btn {
   color: var(--ink-2);
-  /* purely decorative — the overlaid <select> is the real control */
-  pointer-events: none;
 }
-.menu__select {
+/* the dropdown — a floating .panel (paper-2 + hairline + radius-2) anchored under the
+   kebab, right-aligned to it and the toolbar gutter. Items are real <button>s so the
+   clipboard actions fire from a click (a <select> change isn't a clipboard gesture on
+   iOS Safari). */
+.menu__list {
   position: absolute;
-  inset: 0;
+  top: calc(100% + var(--space-1));
+  right: 0;
+  z-index: 20;
+  min-width: 12rem;
+  margin: 0;
+  padding: var(--space-1);
+  list-style: none;
+  box-shadow: var(--shadow-pop);
+  transform-origin: top right;
+}
+.menu__item {
   width: 100%;
-  opacity: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-1);
+  background: none;
+  color: var(--ink);
+  font-size: var(--text-base);
+  text-align: left;
+  white-space: nowrap;
   cursor: pointer;
+  transition: background var(--dur) var(--ease);
+}
+.menu__item:hover,
+.menu__item:focus-visible {
+  background: color-mix(in oklab, var(--ink) 8%, transparent);
+  outline: none;
+}
+/* pops in from the kebab corner: quick fade + slight rise, spring on enter */
+.menu-enter-active {
+  transition:
+    opacity var(--dur) var(--ease),
+    transform var(--dur) var(--ease-spring);
+}
+.menu-leave-active {
+  transition:
+    opacity var(--dur) var(--ease),
+    transform var(--dur) var(--ease);
+}
+.menu-enter-from,
+.menu-leave-to {
+  opacity: 0;
+  transform: translateY(-4px) scale(0.98);
 }
 .editor__body {
   /* no bottom padding: the footer's margin-top is the single content→footer gap
