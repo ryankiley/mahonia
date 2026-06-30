@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ChevronDown, GripVertical, Search, StickyNotePlus, StickyNoteX, Trash2, X } from "@lucide/vue";
-import { webSearchUrl } from "~~/shared/links";
+import { itemSearchName, itemSearchUrl } from "~~/shared/links";
 import type { Classification, Item, ListSnapshot, Unit } from "~~/shared/types";
 import { effectiveClassification, formatWeight, fromMg, itemDisplayName, lineMg, parseWeightInput } from "~~/shared/weights";
 
@@ -74,15 +74,11 @@ const qtyLabel = computed(() =>
   isWater.value ? `${litersDisplay.value || "0"} L` : `×${props.item.qty}`,
 );
 // read-only share views: the item name links out to a web search so a viewer can
-// look the gear up (and maybe buy it). The query is the same flat "Brand Model
-// Variant" the editable name shows; water + unnamed rows get no link (a search
-// for "Water" is meaningless).
-const searchName = computed(() =>
-  itemDisplayName(props.item.brand, props.item.name, props.item.variant).trim(),
-);
-const searchUrl = computed(() =>
-  !isWater.value && searchName.value ? webSearchUrl(searchName.value) : null,
-);
+// look the gear up (and maybe buy it). Query + gating live in shared/links so
+// they're unit-tested — it's "Brand Model" only (the variant is dropped), and
+// water/unnamed rows get no link. searchName is also the link's aria-label.
+const searchName = computed(() => itemSearchName(props.item));
+const searchUrl = computed(() => itemSearchUrl(props.item));
 function onWaterLiters(e: Event) {
   const el = e.target as HTMLInputElement;
   const liters = Math.max(0, Number(el.value) || 0);
