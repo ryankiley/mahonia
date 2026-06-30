@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChevronDown, CircleMinus, GripVertical, StickyNotePlus, StickyNoteX, X } from "@lucide/vue";
+import { ChevronDown, GripVertical, StickyNotePlus, StickyNoteX, Trash2, X } from "@lucide/vue";
 import type { Classification, Item, ListSnapshot, Unit } from "~~/shared/types";
 import { effectiveClassification, formatWeight, fromMg, itemDisplayName, lineMg, parseWeightInput } from "~~/shared/weights";
 
@@ -328,7 +328,7 @@ function dismissFix() {
             aria-label="Remove item"
             @click="c.removeItem(item.id)"
           >
-            <CircleMinus :size="16" />
+            <Trash2 :size="16" />
           </button>
           <button
             class="btn btn--icon btn--ghost item__grip"
@@ -662,6 +662,10 @@ function dismissFix() {
   .item__note-btn:not(.is-active) {
     opacity: 0;
     transition: opacity var(--dur) var(--ease);
+    /* keep a standing compositing layer so Safari doesn't re-snap the icon ~1px when
+       it creates a layer for the fade on the first hover (same WebKit quirk handled
+       with will-change on .folder__chev) */
+    will-change: opacity;
   }
   .item-wrap:hover :is(.item__del, .item__note-btn),
   .item-wrap:focus-within :is(.item__del, .item__note-btn) {
