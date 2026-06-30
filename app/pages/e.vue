@@ -772,6 +772,8 @@ function onCorrected(res: { status: string; itemName?: string }) {
   background: var(--ink);
   color: var(--paper);
   padding: var(--space-2) var(--space-4);
+  /* gently rounded — softens the square slab without going full pill */
+  border-radius: var(--radius-2);
 }
 .undobar {
   display: flex;
