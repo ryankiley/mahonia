@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChevronDown, CircleMinus, GripVertical } from "@lucide/vue";
+import { ChevronDown, GripVertical, Trash2 } from "@lucide/vue";
 import type { Folder, ListSnapshot } from "~~/shared/types";
 import { bySortOrder, itemsInFolder } from "~~/shared/weights";
 
@@ -116,7 +116,7 @@ function toggleCollapsed() {
           aria-label="Remove folder"
           @click="c.removeFolder(folder.id)"
         >
-          <CircleMinus :size="16" />
+          <Trash2 :size="16" />
         </button>
         <button
           class="btn btn--icon btn--ghost folder__grip"
