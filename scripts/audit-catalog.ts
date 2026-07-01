@@ -17,30 +17,18 @@
 //
 // Run: npm run catalog:audit   (node + jiti, like the other scripts)
 
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { csvToCatalogRows, specToMg, WEIGHT_SOURCES, type SpecUnit } from "./catalogCsv";
 import { RANGE_G, runCatalogChecks } from "./catalogChecks";
+import { readResearchFiles, type ResearchRow } from "./research";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const researchDir = join(here, "..", "seed", "_research");
 
 // Plausible per-category weight ranges (RANGE_G) are single-sourced in
 // catalogChecks.ts so the CLI audit and the gating test agree exactly.
-
-interface Row {
-  brand?: string | null;
-  name?: string;
-  variant?: string | null;
-  category_hint?: string;
-  weight_value?: number;
-  weight_unit?: string;
-  weight_secondary?: string | null;
-  weight_source?: string;
-  source_url?: string | null;
-  quote?: string;
-}
 
 /** All gram-equivalent figures mentioned in a quote (kg converted to g). */
 function gramsInQuote(q: string): number[] {
@@ -50,10 +38,9 @@ function gramsInQuote(q: string): number[] {
   return out;
 }
 
-const label = (r: Row) => `${r.brand ?? ""} ${r.name ?? "?"}${r.variant ? ` [${r.variant}]` : ""}`.trim();
+const label = (r: ResearchRow) => `${r.brand ?? ""} ${r.name ?? "?"}${r.variant ? ` [${r.variant}]` : ""}`.trim();
 
 function main() {
-  const files = readdirSync(researchDir).filter((f) => f.endsWith(".json")).sort();
   const errors: string[] = [];
   const warns: string[] = [];
   const identity = new Map<string, { g: number; where: string }>();
@@ -61,15 +48,12 @@ function main() {
   let total = 0;
   let quoteChecked = 0;
 
-  for (const file of files) {
-    let parsed: { rows?: Row[] };
-    try {
-      parsed = JSON.parse(readFileSync(join(researchDir, file), "utf8"));
-    } catch (e) {
-      errors.push(`[json] ${file}: ${(e as Error).message}`);
+  for (const { file, rows, parseError } of readResearchFiles(researchDir)) {
+    if (parseError) {
+      errors.push(`[json] ${file}: ${parseError}`);
       continue;
     }
-    for (const r of parsed.rows ?? []) {
+    for (const r of rows) {
       total++;
       const where = `${file}: ${label(r)}`;
 

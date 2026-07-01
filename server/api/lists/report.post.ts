@@ -1,5 +1,5 @@
 import { defineEventHandler, setHeader } from "h3";
-import { reportList } from "../../utils/discoveryRepo";
+import { reportList, SLUG_RE } from "../../utils/discoveryRepo";
 import { readJsonBody } from "../../utils/http";
 import { sha256Hex } from "../../utils/tokens";
 import {
@@ -7,12 +7,11 @@ import {
   getClientIp,
   rateLimit,
   tallyDistinctReport,
-  type KvStorage,
+  useKv,
 } from "../../utils/rateLimit";
 
-// Public-address shape (must match discoveryRepo's SLUG_RE) — validated before
-// the slug is used as a KV key, and so junk never reaches the DB.
-const SLUG_RE = /^[a-z0-9-]{1,80}$/;
+// The public-address shape is validated (against discoveryRepo's shared SLUG_RE)
+// before the slug is used as a KV key, so junk never reaches the DB.
 // A list is withheld only once this many DISTINCT reporters (by hashed IP) flag
 // it within the window — so no single actor can suppress a list on their own.
 const REPORT_THRESHOLD = 3;
@@ -33,9 +32,8 @@ export default defineEventHandler(async (event) => {
   const slug = (typeof body?.slug === "string" ? body.slug : "").trim().toLowerCase();
   if (SLUG_RE.test(slug)) {
     const reporterHash = sha256Hex(getClientIp(event) || "unknown");
-    const storage = useStorage("kv") as unknown as KvStorage;
     const { reached } = await tallyDistinctReport(
-      storage,
+      useKv(),
       slug,
       reporterHash,
       REPORT_THRESHOLD,

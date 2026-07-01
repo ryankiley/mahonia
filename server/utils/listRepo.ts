@@ -21,12 +21,35 @@ import {
   stateToFullSnap,
   type FullSnap,
 } from "../../shared/snapshotDiff";
-import type { ListData, ListSnapshot, ListState, Unit } from "../../shared/types";
+import { UNITS } from "../../shared/types";
+import type { ListData, ListSnapshot, ListState, Totals, Unit } from "../../shared/types";
 import { ensureSnapshotSchema, useDb } from "./db";
 import { randomEditToken, randomShareCode, randomSlug, sha256Hex } from "./tokens";
 import { stageCandidates, type CandidateObservation } from "./candidates";
 
 type Db = Awaited<ReturnType<typeof useDb>>;
+
+// The denormalized weight-rollup columns, derived from a list's totals. Single-
+// sourced so the create / mutate / restore writes all set the SAME set of columns
+// — adding a rollup touches one place, not three (where they could drift).
+function weightColumns(totals: Totals) {
+  return {
+    baseWeightMg: totals.baseMg,
+    wornWeightMg: totals.wornMg,
+    consumableWeightMg: totals.consumableMg,
+    totalWeightMg: totals.totalMg,
+    itemCount: totals.itemCount,
+  };
+}
+
+// Normalize + cap inbound content through the SAME reducer helpers the mutate path
+// uses, so the create/restore paths can never be a clamp-bypass into raw JSONB.
+function normalizeListData(raw?: Partial<ListData>): ListData {
+  return {
+    folders: (raw?.folders ?? []).slice(0, MAX_FOLDERS).map(normalizeFolder),
+    items: (raw?.items ?? []).slice(0, MAX_ITEMS).map(normalizeItem),
+  };
+}
 
 export function rowToSnapshot(row: ListRow): ListSnapshot {
   const data = (row.data ?? { folders: [], items: [] }) as ListData;
@@ -101,7 +124,9 @@ function normShareCode(raw: string): string | null {
   return CROCKFORD_RE.test(c) ? c : null;
 }
 
-async function findByEditToken(editToken: string, db?: Db): Promise<ListRow | null> {
+// The "is this token holder allowed to touch this live, non-deleted list" lookup.
+// Exported so discoveryRepo shares the exact same capability gate (no drift).
+export async function findByEditToken(editToken: string, db?: Db): Promise<ListRow | null> {
   const d = db ?? (await useDb());
   const hash = sha256Hex(editToken);
   const rows = await d.select().from(lists).where(liveOnly(lists.editTokenHash, hash)).limit(1);
@@ -246,15 +271,10 @@ export async function restoreSnapshotByEditToken(
 
   // re-normalize through the SAME reducer helpers (defensive — a snapshot must not
   // be a clamp-bypass back into raw JSONB), and re-validate the unit
-  const data: ListData = {
-    folders: (s.folders ?? []).slice(0, MAX_FOLDERS).map(normalizeFolder),
-    items: (s.items ?? []).slice(0, MAX_ITEMS).map(normalizeItem),
-  };
+  const data = normalizeListData(s);
   const totals = computeTotals(data);
   const title = (s.title ?? "Untitled list").slice(0, 200);
-  const displayUnit: Unit = (["g", "kg", "oz", "lb"] as Unit[]).includes(s.displayUnit as Unit)
-    ? (s.displayUnit as Unit)
-    : "g";
+  const displayUnit: Unit = UNITS.includes(s.displayUnit as Unit) ? (s.displayUnit as Unit) : "g";
 
   // CAS like the mutate path: re-read + version-guard so a concurrent edit can't
   // be silently lost — and snapshot the CURRENT (fresh) state before overwriting,
@@ -270,11 +290,7 @@ export async function restoreSnapshotByEditToken(
         description: s.description ?? null,
         displayUnit,
         data,
-        baseWeightMg: totals.baseMg,
-        wornWeightMg: totals.wornMg,
-        consumableWeightMg: totals.consumableMg,
-        totalWeightMg: totals.totalMg,
-        itemCount: totals.itemCount,
+        ...weightColumns(totals),
         version: row.version + 1,
         updatedAt: new Date(),
       })
@@ -320,12 +336,7 @@ export async function createList(init?: {
   const editToken = randomEditToken();
   const editTokenHash = sha256Hex(editToken);
   const title = (init?.title ?? "Untitled list").slice(0, 200);
-  // Normalize + cap inbound content through the SAME reducer helpers the mutate
-  // path uses — the create path must not be a clamp-bypass into raw JSONB.
-  const data: ListData = {
-    folders: (init?.data?.folders ?? []).slice(0, MAX_FOLDERS).map(normalizeFolder),
-    items: (init?.data?.items ?? []).slice(0, MAX_ITEMS).map(normalizeItem),
-  };
+  const data = normalizeListData(init?.data);
   const totals = computeTotals(data);
   const displayUnit = init?.displayUnit ?? "g";
 
@@ -341,11 +352,7 @@ export async function createList(init?: {
           title,
           displayUnit,
           data,
-          baseWeightMg: totals.baseMg,
-          wornWeightMg: totals.wornMg,
-          consumableWeightMg: totals.consumableMg,
-          totalWeightMg: totals.totalMg,
-          itemCount: totals.itemCount,
+          ...weightColumns(totals),
           version: 1,
         })
         .returning();
@@ -392,11 +399,7 @@ export async function applyOpsByEditToken(
         description: state.description ?? null,
         displayUnit: state.displayUnit,
         data,
-        baseWeightMg: totals.baseMg,
-        wornWeightMg: totals.wornMg,
-        consumableWeightMg: totals.consumableMg,
-        totalWeightMg: totals.totalMg,
-        itemCount: totals.itemCount,
+        ...weightColumns(totals),
         version: row.version + 1,
         updatedAt: new Date(),
         ...(doSnapshot ? { lastSnapshotAt: new Date() } : {}),

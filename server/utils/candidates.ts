@@ -16,8 +16,9 @@ import {
 } from "../../shared/catalogQuality";
 import { itemDisplayName } from "../../shared/weights";
 import { bumpUsage, ensureCatalogSchema, searchCatalog, trigramScore } from "./catalog";
+import { memoizedEnsure } from "./memoize";
 
-type Db = { execute: (q: unknown) => Promise<unknown>; [k: string]: unknown } & any;
+type Db = Awaited<ReturnType<typeof import("./db").useDb>>;
 
 export const K_DISTINCT_LISTS = Math.max(2, Number(process.env.CATALOG_MIN_DISTINCT_LISTS) || 3);
 const DEDUP_THRESHOLD = 0.6; // 2x the autocomplete recall floor — bias to a new (recoverable) row
@@ -41,19 +42,10 @@ export const CANDIDATES_DDL: string[] = [
   `CREATE INDEX IF NOT EXISTS idx_candidate_open ON catalog_candidates (norm_key) WHERE promoted_into_id IS NULL AND rejected_at IS NULL`,
 ];
 
-let _ensured: Promise<void> | undefined;
-export function ensureCandidatesSchema(db: unknown): Promise<void> {
+export const ensureCandidatesSchema = memoizedEnsure(async (db: unknown) => {
   const d = db as { execute: (q: unknown) => Promise<unknown> };
-  if (!_ensured) {
-    _ensured = (async () => {
-      for (const stmt of CANDIDATES_DDL) await d.execute(sql.raw(stmt));
-    })().catch((e) => {
-      _ensured = undefined;
-      throw e;
-    });
-  }
-  return _ensured;
-}
+  for (const stmt of CANDIDATES_DDL) await d.execute(sql.raw(stmt));
+});
 
 export interface CandidateObservation {
   brand?: string | null;
@@ -72,7 +64,7 @@ export async function stageCandidates(
     .filter((o) => o.name && isAcceptableTypedItem({ brand: o.brand, name: o.name }))
     .slice(0, 50)
     .map((o) => ({
-      normKey: normKey([o.brand, o.name].filter(Boolean).join(" ")),
+      normKey: normKey(itemDisplayName(o.brand, o.name)),
       rawBrand: o.brand?.trim() || null,
       rawName: o.name.trim(),
       listId,
@@ -153,7 +145,7 @@ export async function corroborateCatalog(db: Db): Promise<CorroborateResult> {
   for (const [key, grp] of groups) {
     const rawName = mode(grp.map((r) => r.rawName))!;
     const rawBrand = mode(grp.filter((r) => r.rawBrand).map((r) => r.rawBrand!)) ?? null;
-    const full = [rawBrand, rawName].filter(Boolean).join(" ");
+    const full = itemDisplayName(rawBrand, rawName);
 
     // gates: clean + branded
     if (!isAcceptableTypedItem({ brand: rawBrand, name: rawName }) || !isBrandedTypedItem({ brand: rawBrand, name: rawName, knownBrands })) {
@@ -187,7 +179,7 @@ export async function corroborateCatalog(db: Db): Promise<CorroborateResult> {
       const ins = await db.insert(catalogItems).values({
         brand: rawBrand, name: rawName, variant: null, categoryHint: category,
         weightMg: med, weightSource: "community", verified: false, status: "active", usageCount: lists,
-      }).returning({ id: catalogItems.id });
+      }).returning();
       await markPromoted(key, ins[0]!.id);
       res.promoted++;
     } catch {
@@ -198,7 +190,7 @@ export async function corroborateCatalog(db: Db): Promise<CorroborateResult> {
   // retention: drop raw typed text after 90 days (it can contain PII)
   const purged = await db.delete(catalogCandidates)
     .where(sql`${catalogCandidates.createdAt} < now() - interval '90 days'`)
-    .returning({ id: catalogCandidates.id });
+    .returning();
   res.purged = Array.isArray(purged) ? purged.length : 0;
   return res;
 }

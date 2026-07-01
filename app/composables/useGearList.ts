@@ -41,20 +41,23 @@ function create() {
   const online = scope.run(() => useOnline())!;
   let persistTimer: ReturnType<typeof setTimeout> | undefined;
 
-  // Mirror the current snapshot + queue to IndexedDB under this list's key (its
-  // edit token, or the draft slot before first save). Debounced — local writes are
-  // cheap but frequent (every keystroke dispatches an op). Best-effort: the store
-  // swallows its own failures, so this never throws into the edit path.
+  // Write the current snapshot + queue to IndexedDB under this list's key (its edit
+  // token, or the draft slot before first save). Best-effort: the store swallows its
+  // own failures, so this never throws into the edit path. No-ops with no snapshot.
+  function writeLocal() {
+    if (!snapshot.value) return;
+    store.set(localKey(editToken), {
+      snapshot: snapshot.value,
+      pending: pending.slice(),
+      updatedAt: Date.now(),
+    });
+  }
+
+  // Mirror to IndexedDB, debounced — local writes are cheap but frequent (every
+  // keystroke dispatches an op).
   function persistLocal() {
     clearTimeout(persistTimer);
-    persistTimer = setTimeout(() => {
-      if (!snapshot.value) return;
-      store.set(localKey(editToken), {
-        snapshot: snapshot.value,
-        pending: pending.slice(),
-        updatedAt: Date.now(),
-      });
-    }, 200);
+    persistTimer = setTimeout(writeLocal, 200);
   }
 
   // Going offline surfaces honestly; coming back online drains whatever the offline
@@ -251,7 +254,7 @@ function create() {
       if (myEpoch !== epoch) return;
       editToken = res.editToken;
       const merged = res.snapshot;
-      if (pending.length) applyOps(merged as any, pending); // edits made mid-create
+      if (pending.length) applyOps(merged, pending); // edits made mid-create
       snapshot.value = merged;
       status.value = "synced";
       // the draft is now a real list — move its on-device record onto the token key
@@ -280,7 +283,7 @@ function create() {
   function dispatch(op: Op) {
     if (!snapshot.value) return;
     // optimistic: same reducer as the server
-    applyOps(snapshot.value as any, [op]);
+    applyOps(snapshot.value, [op]);
     snapshot.value = { ...snapshot.value };
     persistLocal(); // mirror to IndexedDB so this edit survives a reload/crash
     // Draft (no token yet): keep edits local until there's real content, then create
@@ -319,7 +322,7 @@ function create() {
         // adopt the authoritative merged snapshot, then re-apply ops queued while
         // this request was in flight (rebase) so nothing is lost or clobbered.
         const merged = res.snapshot;
-        if (pending.length) applyOps(merged as any, pending);
+        if (pending.length) applyOps(merged, pending);
         snapshot.value = merged;
       }
       // While mid-edit: keep local content AND do NOT advance the local version,
@@ -537,13 +540,7 @@ function create() {
     }
     // capture the latest state on device before teardown — the debounced persist
     // may not have fired, and SPA nav / unmount must not drop the last edits
-    if (snapshot.value) {
-      store.set(localKey(editToken), {
-        snapshot: snapshot.value,
-        pending: pending.slice(),
-        updatedAt: Date.now(),
-      });
-    }
+    writeLocal();
     clearTimeout(persistTimer);
     epoch++; // invalidate any in-flight flush/poll responses
     useItemDnd().reset(); // drop any in-flight drag so it can't commit against a new list

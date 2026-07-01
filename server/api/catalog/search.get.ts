@@ -1,6 +1,6 @@
 import { defineEventHandler, getQuery, setHeader } from "h3";
-import { ensureCatalogSchema, searchCatalog } from "../../utils/catalog";
-import { useDb } from "../../utils/db";
+import { searchCatalog } from "../../utils/catalog";
+import { useCatalogDb } from "../../utils/db";
 import { rateLimit } from "../../utils/rateLimit";
 
 // Maps-grade autocomplete for the gear catalog. `?q=` returns up to 8 fuzzy
@@ -25,8 +25,7 @@ export default defineEventHandler(async (event) => {
   const raw = getQuery(event).q;
   const q = (Array.isArray(raw) ? raw[0] : raw ?? "").toString().slice(0, 100);
 
-  const db = await useDb();
-  await ensureCatalogSchema(db);
+  const db = await useCatalogDb();
   const results = await searchCatalog(db, q, 8);
 
   return { results };

@@ -9,7 +9,7 @@
 // Run: node node_modules/jiti/lib/jiti-cli.mjs scripts/build-catalog.ts
 // (jiti ships with Nuxt and resolves the project's extensionless TS imports.)
 
-import { readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -19,6 +19,7 @@ import {
   WEIGHT_SOURCES,
   type SpecUnit,
 } from "./catalogCsv";
+import { readResearchFiles } from "./research";
 import { normalizeVariant } from "../shared/catalogQuality";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -40,19 +41,6 @@ const CATEGORY_ORDER = [
   "other",
 ];
 
-interface ResearchRow {
-  brand?: string | null;
-  name?: string;
-  variant?: string | null;
-  category_hint?: string | null;
-  weight_value?: number;
-  weight_unit?: string;
-  weight_secondary?: string | null;
-  weight_source?: string;
-  source_url?: string | null;
-  quote?: string;
-}
-
 interface BuiltRow {
   brand: string;
   name: string;
@@ -67,20 +55,15 @@ const identity = (r: { brand: string; name: string; variant: string }) =>
   `${r.brand.toLowerCase()}|${r.name.toLowerCase()}|${r.variant.toLowerCase()}`;
 
 function main() {
-  const files = readdirSync(researchDir).filter((f) => f.endsWith(".json")).sort();
   const built: BuiltRow[] = [];
   const seen = new Map<string, string>(); // identity -> source file (for dup reporting)
   const skipped: string[] = [];
 
-  for (const file of files) {
-    let parsed: { rows?: ResearchRow[] };
-    try {
-      parsed = JSON.parse(readFileSync(join(researchDir, file), "utf8"));
-    } catch (e) {
-      skipped.push(`${file}: invalid JSON (${(e as Error).message})`);
+  for (const { file, rows, parseError } of readResearchFiles(researchDir)) {
+    if (parseError) {
+      skipped.push(`${file}: invalid JSON (${parseError})`);
       continue;
     }
-    const rows = parsed.rows ?? [];
     for (const row of rows) {
       const name = (row.name ?? "").trim();
       if (!name) {

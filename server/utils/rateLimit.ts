@@ -46,6 +46,16 @@ export interface KvStorage {
 }
 
 /**
+ * The shared KV store (Upstash in prod, in-memory in dev — see nuxt.config.ts),
+ * as the narrow KvStorage surface. Confines the one unavoidable `as unknown as`
+ * cast over Nitro's loosely-typed `useStorage` to a single auditable spot, instead
+ * of repeating it at every call site. (`useStorage` is a Nitro auto-import.)
+ */
+export function useKv(): KvStorage {
+  return useStorage("kv") as unknown as KvStorage;
+}
+
+/**
  * Fixed-window counter against a SHARED store. Returns true when the request is
  * over the limit. Clock + storage are injected so it's pure and unit-testable —
  * and, crucially, instance-independent: backing this with one shared Upstash
@@ -125,7 +135,6 @@ export async function rateLimit(
   windowMs: number,
 ): Promise<void> {
   const ip = getClientIp(event) || "unknown";
-  const storage = useStorage("kv") as unknown as KvStorage;
-  const over = await consumeRateLimit(storage, `rl:${action}:${ip}`, limit, windowMs, Date.now());
+  const over = await consumeRateLimit(useKv(), `rl:${action}:${ip}`, limit, windowMs, Date.now());
   if (over) throw createError({ statusCode: 429, statusMessage: "Too many requests" });
 }

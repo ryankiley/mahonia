@@ -1,4 +1,5 @@
 import type { LocalListRecord } from "~~/shared/localList";
+import { openIdb } from "~~/shared/idb";
 
 // Thin promise wrapper over IndexedDB — the on-device backing for the editor's op
 // queue (see shared/localList.ts). One object store, key→LocalListRecord. Every
@@ -10,27 +11,11 @@ const DB_NAME = "mahonia";
 const STORE = "lists";
 const DB_VERSION = 1;
 
-let dbPromise: Promise<IDBDatabase> | undefined;
-
-function openDb(): Promise<IDBDatabase> {
-  if (!dbPromise) {
-    dbPromise = new Promise((resolve, reject) => {
-      const req = indexedDB.open(DB_NAME, DB_VERSION);
-      req.onupgradeneeded = () => {
-        if (!req.result.objectStoreNames.contains(STORE)) req.result.createObjectStore(STORE);
-      };
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error);
-    });
-  }
-  return dbPromise;
-}
-
 function tx<T>(
   mode: IDBTransactionMode,
   run: (store: IDBObjectStore) => IDBRequest<T>,
 ): Promise<T> {
-  return openDb().then(
+  return openIdb(DB_NAME, DB_VERSION, STORE).then(
     (db) =>
       new Promise<T>((resolve, reject) => {
         const req = run(db.transaction(STORE, mode).objectStore(STORE));

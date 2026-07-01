@@ -4,8 +4,9 @@
 
 import { sql } from "drizzle-orm";
 import * as schema from "../db/schema";
-import { CATALOG_DDL } from "./catalog";
+import { CATALOG_DDL, ensureCatalogSchema } from "./catalog";
 import { CANDIDATES_DDL } from "./candidates";
+import { memoizedEnsure } from "./memoize";
 
 type Db = Awaited<ReturnType<typeof build>>;
 
@@ -101,40 +102,20 @@ export const SNAPSHOTS_DDL: string[] = [
   `CREATE INDEX IF NOT EXISTS idx_list_snapshots_list ON list_snapshots(list_id, created_at DESC)`,
 ];
 
-let _listsEnsured: Promise<void> | undefined;
 /** Idempotently create the `lists` table + indexes (memoized) — for Neon, where
  *  there's no build-time DDL. Mirrors ensureSnapshotSchema; gated to the prod path
  *  in useDb (dev's PGlite already runs the full DDL in build()). */
-function ensureListsSchema(db: Db): Promise<void> {
-  if (!_listsEnsured) {
-    _listsEnsured = (async () => {
-      for (const stmt of LISTS_DDL) await db.execute(sql.raw(stmt));
-    })().catch((e) => {
-      _listsEnsured = undefined; // don't cache a transient cold-start failure
-      throw e;
-    });
-  }
-  return _listsEnsured;
-}
+const ensureListsSchema = memoizedEnsure(async (db: Db) => {
+  for (const stmt of LISTS_DDL) await db.execute(sql.raw(stmt));
+});
 
-let _snapEnsured: Promise<void> | undefined;
 /** Idempotently create list_snapshots (memoized) — for Neon (no build-time DDL). */
-export function ensureSnapshotSchema(db: Db): Promise<void> {
-  if (!_snapEnsured) {
-    // reset the memo on failure so a transient first-ensure error (Neon cold
-    // start / blip) doesn't cache a rejected promise + wedge the endpoints
-    _snapEnsured = (async () => {
-      for (const stmt of SNAPSHOTS_DDL) await db.execute(sql.raw(stmt));
-    })().catch((e) => {
-      _snapEnsured = undefined;
-      throw e;
-    });
-  }
-  return _snapEnsured;
-}
+export const ensureSnapshotSchema = memoizedEnsure(async (db: Db) => {
+  for (const stmt of SNAPSHOTS_DDL) await db.execute(sql.raw(stmt));
+});
 /** Reset the ensure-memo — for tests that spin up a fresh database. */
 export function _resetSnapshotEnsured(): void {
-  _snapEnsured = undefined;
+  ensureSnapshotSchema.reset();
 }
 
 const DDL = [
@@ -158,5 +139,17 @@ export async function useDb(): Promise<Db> {
   // ensure the core `lists` table exists on first use. Memoized → one batch per
   // warm instance. Snapshots + catalog self-ensure on their own paths.
   if (process.env.DATABASE_URL) await ensureListsSchema(db);
+  return db;
+}
+
+/**
+ * The shared DB with the catalog schema ensured. Every catalog endpoint needs
+ * both — and forgetting the ensure is a Neon-only latent bug (works on PGlite,
+ * where build() ran the full DDL, but throws in prod). Folding them into one call
+ * makes that impossible to forget. Both are memoized, so this adds no round-trips.
+ */
+export async function useCatalogDb(): Promise<Db> {
+  const db = await useDb();
+  await ensureCatalogSchema(db);
   return db;
 }

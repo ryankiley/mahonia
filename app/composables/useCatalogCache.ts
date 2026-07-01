@@ -4,6 +4,7 @@ import {
   type CatalogSearchResult,
   type LocalCatalogRow,
 } from "~~/shared/catalogSearch";
+import { openIdb } from "~~/shared/idb";
 
 // On-device catalog cache for offline autocomplete, built INCREMENTALLY from the
 // results the user actually sees while online — there's no bulk-dump endpoint, so
@@ -25,22 +26,8 @@ const KEY = "catalog";
 const DB_VERSION = 1;
 const MAX_ITEMS = 2000; // bounded; far above what one person realistically searches
 
-let dbPromise: Promise<IDBDatabase> | undefined;
-function openDb(): Promise<IDBDatabase> {
-  if (!dbPromise) {
-    dbPromise = new Promise((resolve, reject) => {
-      const req = indexedDB.open(DB_NAME, DB_VERSION);
-      req.onupgradeneeded = () => {
-        if (!req.result.objectStoreNames.contains(STORE)) req.result.createObjectStore(STORE);
-      };
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error);
-    });
-  }
-  return dbPromise;
-}
 function idbGet(): Promise<CatalogCacheRecord | undefined> {
-  return openDb()
+  return openIdb(DB_NAME, DB_VERSION, STORE)
     .then(
       (db) =>
         new Promise<CatalogCacheRecord | undefined>((res) => {
@@ -52,7 +39,7 @@ function idbGet(): Promise<CatalogCacheRecord | undefined> {
     .catch(() => undefined);
 }
 function idbSet(record: CatalogCacheRecord): Promise<void> {
-  return openDb()
+  return openIdb(DB_NAME, DB_VERSION, STORE)
     .then(
       (db) =>
         new Promise<void>((res) => {

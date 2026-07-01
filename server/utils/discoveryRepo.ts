@@ -28,25 +28,31 @@ import {
 } from "../../shared/discovery";
 import type { ListData, ListSnapshot } from "../../shared/types";
 import { useDb } from "./db";
-import { rowToSnapshot } from "./listRepo";
-import { sha256Hex } from "./tokens";
+import { findByEditToken, rowToSnapshot } from "./listRepo";
 
 type Db = Awaited<ReturnType<typeof useDb>>;
 
 // Public addresses look like `{slug}-{6 crockford}`, lowercased. Validate the
-// shape before any DB round-trip (and to keep obviously-junk input out).
-const SLUG_RE = /^[a-z0-9-]{1,80}$/;
+// shape before any DB round-trip (and to keep obviously-junk input out). Exported
+// so the public endpoints validate against the SAME shape this repo enforces.
+export const SLUG_RE = /^[a-z0-9-]{1,80}$/;
 function normalizeSlug(raw: string): string | null {
   const s = (raw || "").trim().toLowerCase();
   return SLUG_RE.test(s) ? s : null;
 }
 
-const liveByEditToken = (hash: string) =>
-  and(eq(lists.editTokenHash, hash), eq(lists.status, "active"), isNull(lists.deletedAt));
-
-async function findRowByEditToken(db: Db, editToken: string): Promise<ListRow | null> {
-  const rows = await db.select().from(lists).where(liveByEditToken(sha256Hex(editToken))).limit(1);
-  return rows[0] ?? null;
+// The public-read visibility gate (public + active + not withheld + not deleted),
+// single-sourced so the by-slug reads (getPublicBySlug / bumpView / reportList) and
+// the feed can't drift. Returns a FRESH array each call — getFeed mutates its copy
+// via .push() to append optional filters, so a shared module const would leak filters
+// across requests.
+function publicReadConditions() {
+  return [
+    eq(lists.isPublic, true),
+    eq(lists.status, "active"),
+    eq(lists.flagged, false),
+    isNull(lists.deletedAt),
+  ];
 }
 
 // ---------------------------------------------------------------------------
@@ -77,7 +83,7 @@ function publicState(row: {
 /** Current publish state for the editor's modal to prefill. Null → 404. */
 export async function getPublishState(editToken: string, db?: Db): Promise<PublishState | null> {
   const d = db ?? (await useDb());
-  const row = await findRowByEditToken(d, editToken);
+  const row = await findByEditToken(editToken, d);
   return row ? publicState(row) : null;
 }
 
@@ -92,7 +98,7 @@ export async function publishList(
   db?: Db,
 ): Promise<PublishState | null> {
   const d = db ?? (await useDb());
-  const row = await findRowByEditToken(d, editToken);
+  const row = await findByEditToken(editToken, d);
   if (!row) return null;
 
   const tripType = normalizeTripType(input.tripType) ?? null;
@@ -143,15 +149,7 @@ export async function getPublicBySlug(slug: string, db?: Db): Promise<ListSnapsh
   const rows = await d
     .select()
     .from(lists)
-    .where(
-      and(
-        eq(lists.publicSlug, s),
-        eq(lists.isPublic, true),
-        eq(lists.status, "active"),
-        eq(lists.flagged, false),
-        isNull(lists.deletedAt),
-      ),
-    )
+    .where(and(eq(lists.publicSlug, s), ...publicReadConditions()))
     .limit(1);
   return rows[0] ? rowToPublicView(rows[0]) : null;
 }
@@ -165,15 +163,7 @@ export async function bumpView(slug: string, db?: Db): Promise<void> {
     await d
       .update(lists)
       .set({ viewCount: sql`${lists.viewCount} + 1` })
-      .where(
-        and(
-          eq(lists.publicSlug, s),
-          eq(lists.isPublic, true),
-          eq(lists.status, "active"),
-          eq(lists.flagged, false),
-          isNull(lists.deletedAt),
-        ),
-      );
+      .where(and(eq(lists.publicSlug, s), ...publicReadConditions()));
   } catch {
     /* a view counter is never worth failing a page render */
   }
@@ -192,16 +182,11 @@ export interface FeedQuery {
 }
 
 // The public-discovery visibility gate, single-sourced so the feed + sitemap
-// can't drift: public, active, not withheld (reported / spam-flagged), not
-// deleted, and non-empty (empty lists are hidden, not just de-ranked).
+// can't drift: the shared public-read gate PLUS non-empty (empty lists are hidden
+// from discovery, not just de-ranked). Spreads a fresh publicReadConditions() so
+// the returned array is safe for getFeed to .push() onto.
 function publicVisibilityConditions() {
-  return [
-    eq(lists.isPublic, true),
-    eq(lists.status, "active"),
-    eq(lists.flagged, false),
-    isNull(lists.deletedAt),
-    gt(lists.itemCount, 0),
-  ];
+  return [...publicReadConditions(), gt(lists.itemCount, 0)];
 }
 
 export async function getFeed(q: FeedQuery, db?: Db): Promise<DiscoveryCard[]> {
@@ -276,18 +261,12 @@ export async function reportList(slug: string, db?: Db): Promise<boolean> {
   const s = normalizeSlug(slug);
   if (!s) return false;
   const d = db ?? (await useDb());
+  // publicReadConditions()'s `flagged = false` doubles as the idempotency guard
+  // here — an already-flagged list matches nothing, so a re-report is a no-op.
   const res = await d
     .update(lists)
     .set({ flagged: true, updatedAt: new Date() })
-    .where(
-      and(
-        eq(lists.publicSlug, s),
-        eq(lists.isPublic, true),
-        eq(lists.status, "active"),
-        eq(lists.flagged, false), // first report only → idempotent
-        isNull(lists.deletedAt),
-      ),
-    )
+    .where(and(eq(lists.publicSlug, s), ...publicReadConditions()))
     .returning(); // no-arg form (the union db type's only shared overload)
   return res.length > 0;
 }

@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { Flag, Globe } from "@lucide/vue";
-import { seasonLabel, tripTypeLabel } from "~~/shared/discovery";
 import type { ListSnapshot } from "~~/shared/types";
-import { formatWeightAuto } from "~~/shared/weights";
 
 const route = useRoute();
 const slug = String(route.params.slug || "");
@@ -17,28 +15,12 @@ useResponseHeader("Cache-Control").value =
 
 const { unit, totals, roList, ungrouped, shownFolders } = useReadonlyList(snapshot);
 
-const tripLabel = computed(() => tripTypeLabel(snapshot.value?.tripType));
-const seasonName = computed(() => seasonLabel(snapshot.value?.season));
-const facets = computed(() => [tripLabel.value, seasonName.value].filter(Boolean) as string[]);
-
-// SEO — indexable (NOT noindex, unlike /s/[code]). Description summarizes the list.
-const desc = computed(() => {
-  if (!snapshot.value || !totals.value) return "A public packing list on Mahonia.";
-  const bits = [`${totals.value.itemCount} items`];
-  if (facets.value.length) bits.unshift(facets.value.join(", "));
-  if (totals.value.hasWeights)
-    bits.push(`${formatWeightAuto(totals.value.baseMg)} base weight`);
-  return `${snapshot.value.title} — a public packing list (${bits.join(" · ")}). Browse gear lists on Mahonia.`;
-});
+// SEO — indexable (NOT noindex, unlike /s/[code]). Summary shared via useReadonlyListSeo;
+// `facets` comes back for the <head> template below. Only the canonical link differs.
+const { facets } = useReadonlyListSeo(snapshot, totals, "public");
 useHead({
   title: () => (snapshot.value ? `${snapshot.value.title} — Mahonia` : "List not found — Mahonia"),
   link: [{ rel: "canonical", href: `/l/${slug}` }],
-});
-useSeoMeta({
-  description: () => desc.value,
-  ogTitle: () => (snapshot.value ? snapshot.value.title : "Mahonia"),
-  ogDescription: () => desc.value,
-  ogType: "article",
 });
 
 // Report — flag for review (hides from the feed pending moderation).

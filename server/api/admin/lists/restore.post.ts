@@ -1,10 +1,8 @@
-import { createError, defineEventHandler, getHeader, setHeader } from "h3";
-import { restoreList } from "../../../utils/discoveryRepo";
+import { createError, defineEventHandler, setHeader } from "h3";
+import { restoreList, SLUG_RE } from "../../../utils/discoveryRepo";
 import { readJsonBody } from "../../../utils/http";
-import { assertMaxBody, clearReportTally, rateLimit, type KvStorage } from "../../../utils/rateLimit";
-import { safeEqual } from "../../../utils/tokens";
-
-const SLUG_RE = /^[a-z0-9-]{1,80}$/;
+import { clearReportTally, useKv } from "../../../utils/rateLimit";
+import { requireAdmin } from "../../../utils/auth";
 
 // Admin: restore a reported/flagged list to discovery (the counterpart to the
 // public report endpoint). Gated on GEAR_ADMIN_TOKEN; 404 (not 403) when
@@ -12,12 +10,7 @@ const SLUG_RE = /^[a-z0-9-]{1,80}$/;
 // the catalog revert admin gate.
 export default defineEventHandler(async (event) => {
   setHeader(event, "X-Robots-Tag", "noindex");
-  // Throttle the admin gate (defense-in-depth alongside the constant-time compare).
-  await rateLimit(event, "admin", 30, 60_000);
-  assertMaxBody(event, 4_000);
-  const admin = process.env.GEAR_ADMIN_TOKEN;
-  const provided = getHeader(event, "x-admin-token");
-  if (!safeEqual(provided, admin)) throw createError({ statusCode: 404, statusMessage: "Not found" });
+  await requireAdmin(event, 4_000);
 
   const body = await readJsonBody<{ slug?: string }>(event);
   const slug = (typeof body?.slug === "string" ? body.slug : "").trim().toLowerCase();
@@ -26,8 +19,7 @@ export default defineEventHandler(async (event) => {
   const restored = await restoreList(slug);
   // Reset the distinct-report tally so the restored list can't instantly re-flag
   // off the prior reporters.
-  const storage = useStorage("kv") as unknown as KvStorage;
-  await clearReportTally(storage, slug);
+  await clearReportTally(useKv(), slug);
 
   return { ok: true, restored };
 });
