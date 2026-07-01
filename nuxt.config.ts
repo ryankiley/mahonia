@@ -1,6 +1,13 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
-  modules: ["@vueuse/nuxt", "@vercel/analytics", "@vite-pwa/nuxt"],
+  // Pin date-gated Nuxt/Nitro defaults so builds are reproducible across CI/Vercel
+  // (an unset compatibilityDate falls back to "today" and can shift under us).
+  compatibilityDate: "2026-06-30",
+
+  // @vercel/analytics ships its Nuxt module at the `/nuxt` subpath; the bare
+  // specifier resolves to the plain inject()/track() API (NOT a defineNuxtModule),
+  // so registering "@vercel/analytics" silently injected nothing.
+  modules: ["@vueuse/nuxt", "@vercel/analytics/nuxt", "@vite-pwa/nuxt"],
 
   // Master switch for the offline plumbing (service worker + background sync, and
   // the offline catalog search). OFF by default so the whole feature ships DORMANT
@@ -208,6 +215,4 @@ export default defineNuxtConfig({
     "/": { redirect: "/e" },
     "/e": { ssr: false },
   },
-
-  future: { compatibilityVersion: 4 },
 });
