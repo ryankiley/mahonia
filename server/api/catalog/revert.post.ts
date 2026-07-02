@@ -1,11 +1,11 @@
 import { createError, defineEventHandler, setHeader } from "h3";
+import { requireAdmin } from "../../utils/auth";
 import { revertEdit } from "../../utils/catalog";
 import { useCatalogDb } from "../../utils/db";
 import { readJsonBody } from "../../utils/http";
-import { requireAdmin } from "../../utils/auth";
 
-// One-click revert of an applied catalog edit. Admin-only: gated on GEAR_ADMIN_TOKEN.
-// 404 (not 403) when unconfigured or the token is wrong — no oracle that the route exists.
+// One-click revert of an applied catalog edit. Admin-only: gated on GEAR_ADMIN_TOKEN
+// via requireAdmin (rate-limited, constant-time, 404 on a miss — no route oracle).
 export default defineEventHandler(async (event) => {
   setHeader(event, "X-Robots-Tag", "noindex");
   await requireAdmin(event, 8_000);

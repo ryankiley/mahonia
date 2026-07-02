@@ -7,7 +7,7 @@ import { rateLimit } from "../../utils/rateLimit";
 // gated (edit token in the Authorization header); never exposes id/token.
 export default defineEventHandler(async (event) => {
   setHeader(event, "X-Robots-Tag", "noindex");
-  await rateLimit(event, "publishget", 120, 60_000);
+  await rateLimit(event, "publishget");
   const token = requireEditToken(event);
   const state = await getPublishState(token);
   if (!state) throw createError({ statusCode: 404, statusMessage: "Not found" });

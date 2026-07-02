@@ -1,7 +1,7 @@
 import type { Ref } from "vue";
+import { seasonLabel, tripTypeLabel } from "~~/shared/discovery";
 import type { ListSnapshot, Totals, Unit } from "~~/shared/types";
 import { computeTotals, formatWeightAuto } from "~~/shared/weights";
-import { seasonLabel, tripTypeLabel } from "~~/shared/discovery";
 
 // Shared reactive view-model for the two read-only pages (/s/[code] + /l/[slug]):
 // a viewer-chosen display unit, the rolled-up totals, the unit-reskinned list the
@@ -22,12 +22,13 @@ export function useReadonlyList(snapshot: Ref<ListSnapshot | null>) {
   const ungrouped = computed(() =>
     snapshot.value ? snapshot.value.items.filter((i) => !i.folderId) : [],
   );
-  // a shared list shouldn't show empty folders
-  const shownFolders = computed(() =>
-    roList.value
-      ? roList.value.folders.filter((f) => snapshot.value!.items.some((i) => i.folderId === f.id))
-      : [],
-  );
+  // a shared list shouldn't show empty folders (one Set pass, not an
+  // items.some() scan per folder)
+  const shownFolders = computed(() => {
+    if (!roList.value) return [];
+    const withItems = new Set(snapshot.value!.items.map((i) => i.folderId));
+    return roList.value.folders.filter((f) => withItems.has(f.id));
+  });
   return { unit, totals, roList, ungrouped, shownFolders };
 }
 

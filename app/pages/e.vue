@@ -3,8 +3,8 @@ import { Backpack, Ellipsis, Share2, SquareCheck, Undo2 } from "@lucide/vue";
 import { listToMarkdown } from "~~/shared/exporters/markdown";
 import { listToCsv } from "~~/shared/exporters/csv";
 import { uid } from "~~/shared/id";
-import type { ListSnapshot } from "~~/shared/types";
-import { bySortOrder } from "~~/shared/weights";
+import type { Item, ListSnapshot } from "~~/shared/types";
+import { bySortOrder, groupItemsByFolder } from "~~/shared/weights";
 
 // The editor opts out of the default layout (its own sticky topbar + flex shell),
 // but renders the shared SiteFooter at the bottom so the footer is the same site-wide.
@@ -33,18 +33,22 @@ const ungrouped = computed(() =>
 const sortedFolders = computed(() =>
   snapshot.value ? [...snapshot.value.folders].sort(bySortOrder) : [],
 );
+// one grouping pass per snapshot, handed to each FolderSection — so a keystroke
+// in one folder doesn't make every folder re-filter + re-sort the whole item array
+const itemsByFolder = computed(() => groupItemsByFolder(snapshot.value?.items ?? []));
+const NO_ITEMS: Item[] = [];
 
 const packed = ref(false);
 const importOpen = ref(false);
 const menuOpen = ref(false);
-const menuRef = ref<HTMLElement | null>(null);
+const menuRef = useTemplateRef<HTMLElement>("menuRef");
 const toast = ref("");
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
 
 // "Add folder" becomes an inline text field on tap; it only creates the folder
 // (and shows the next "Add folder") once you commit — enter or click away.
 const addingFolder = ref(false);
-const newFolderRef = ref<HTMLInputElement | null>(null);
+const newFolderRef = useTemplateRef<HTMLInputElement>("newFolderRef");
 function openAddFolder() {
   addingFolder.value = true;
   nextTick(() => newFolderRef.value?.focus());
@@ -387,6 +391,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
           :key="f.id"
           :list="snapshot"
           :folder="f"
+          :items="itemsByFolder.get(f.id) ?? NO_ITEMS"
           :packed="packed"
         />
       </div>

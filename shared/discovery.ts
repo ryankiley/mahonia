@@ -56,6 +56,19 @@ export function seasonLabel(slug: string | null | undefined): string | undefined
 }
 
 // ---------------------------------------------------------------------------
+// Public addresses. Slugs look like `{slug}-{6 crockford}`, lowercased. The
+// shape rule lives HERE, once — the repo and every endpoint that validates a
+// slug before a KV key or DB round-trip import it (three copies used to drift).
+// ---------------------------------------------------------------------------
+export const SLUG_RE = /^[a-z0-9-]{1,80}$/;
+
+/** A raw slug value → its normalized (trimmed, lowercased) form, or null. */
+export function normalizeSlug(raw: unknown): string | null {
+  const s = (typeof raw === "string" ? raw : "").trim().toLowerCase();
+  return SLUG_RE.test(s) ? s : null;
+}
+
+// ---------------------------------------------------------------------------
 // Feed views (the sort). `recent` (the default) and `popular` are the calm
 // sorts; `light` is the OPTIONAL lightest-packs leaderboard (base weight
 // ascending) — one view, not the front door (weight is optional). Trip-type is
@@ -115,6 +128,9 @@ export interface SparkSegment {
 
 export function categorySegments(data: ListData): SparkSegment[] {
   const byFolder = new Map<string, SparkSegment>();
+  // one lookup table instead of a folders.find() per item — this recomputes on
+  // every edit (CategoryBar) and per feed card, so keep it O(items + folders)
+  const folderById = new Map((data.folders ?? []).map((f) => [f.id, f]));
   let ungrouped = 0;
   for (const item of data.items ?? []) {
     const mg = lineMg(item);
@@ -123,7 +139,7 @@ export function categorySegments(data: ListData): SparkSegment[] {
       ungrouped += mg;
       continue;
     }
-    const folder = (data.folders ?? []).find((f) => f.id === item.folderId);
+    const folder = folderById.get(item.folderId);
     const key = folder?.id ?? item.folderId;
     const existing = byFolder.get(key);
     if (existing) existing.mg += mg;

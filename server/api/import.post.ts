@@ -12,7 +12,7 @@ import { assertMaxBody, rateLimit } from "../utils/rateLimit";
 // CSV/file import).
 export default defineEventHandler(async (event) => {
   setHeader(event, "X-Robots-Tag", "noindex");
-  await rateLimit(event, "import", 20, 60_000);
+  await rateLimit(event, "import");
   assertMaxBody(event, 4_000);
   const body = await readJsonBody<{ url?: string }>(event);
   const id = lighterpackId(typeof body?.url === "string" ? body.url : "");

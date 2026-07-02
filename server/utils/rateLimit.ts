@@ -123,18 +123,40 @@ export async function clearReportTally(storage: KvStorage, slug: string): Promis
   await storage.setItem(`report:${slug}`, { ips: [] }, { ttl: 1 });
 }
 
+// Per-IP request budgets, all on a fixed 1-minute window — the whole throttle
+// policy in one reviewable table (endpoints used to hardcode their own numbers).
+const WINDOW_MS = 60_000;
+export const RATE_LIMITS = {
+  // editor write path — every keystroke batch lands here, so it's the roomiest
+  "mutate": 300,
+  "create": 30,
+  "import": 20,
+  // editor read/poll paths
+  "snapshots": 120,
+  "publishget": 120,
+  // heavier / abuse-prone writes
+  "publish": 20,
+  "restore": 30,
+  "report": 10,
+  // catalog: autocomplete search is per-keystroke; corrections are rare writes
+  "catalog-search": 240,
+  "catalog-use": 120,
+  "catalog-changes": 60,
+  "catalog-correct": 20,
+  // the admin gate itself (see requireAdmin) — throttled against brute force
+  "admin": 30,
+} as const satisfies Record<string, number>;
+
+export type RateLimitAction = keyof typeof RATE_LIMITS;
+
 /**
- * Per-IP rate limit for a public mutating endpoint. Backed by Nitro's
- * `useStorage("kv")` — Upstash Redis in prod (shared across every serverless
- * instance), in-memory in dev. Throws 429 once the window's limit is exceeded.
+ * Per-IP rate limit for a public mutating endpoint, with the budget looked up
+ * from RATE_LIMITS. Backed by Nitro's `useStorage("kv")` — Upstash Redis in prod
+ * (shared across every serverless instance), in-memory in dev. Throws 429 once
+ * the window's limit is exceeded.
  */
-export async function rateLimit(
-  event: H3Event,
-  action: string,
-  limit: number,
-  windowMs: number,
-): Promise<void> {
+export async function rateLimit(event: H3Event, action: RateLimitAction): Promise<void> {
   const ip = getClientIp(event) || "unknown";
-  const over = await consumeRateLimit(useKv(), `rl:${action}:${ip}`, limit, windowMs, Date.now());
+  const over = await consumeRateLimit(useKv(), `rl:${action}:${ip}`, RATE_LIMITS[action], WINDOW_MS, Date.now());
   if (over) throw createError({ statusCode: 429, statusMessage: "Too many requests" });
 }

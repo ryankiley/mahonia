@@ -9,7 +9,7 @@ import { assertMaxBody, rateLimit } from "../../utils/rateLimit";
 // snapshot id doesn't resolve to this caller's list (no cross-list oracle).
 export default defineEventHandler(async (event) => {
   setHeader(event, "X-Robots-Tag", "noindex");
-  await rateLimit(event, "restore", 30, 60_000);
+  await rateLimit(event, "restore");
   assertMaxBody(event, 4_000);
   const token = requireEditToken(event);
   const body = await readJsonBody<{ snapshotId?: number }>(event);

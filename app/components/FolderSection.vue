@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { ChevronDown, GripVertical, Trash2 } from "@lucide/vue";
-import type { Folder, ListSnapshot } from "~~/shared/types";
-import { bySortOrder, itemsInFolder } from "~~/shared/weights";
+import type { Folder, Item, ListSnapshot } from "~~/shared/types";
 
+// `items` is this folder's items, pre-grouped + sorted by the parent (one
+// groupItemsByFolder pass per snapshot) — so an edit anywhere in the list
+// doesn't make every folder re-filter the whole item array.
 const props = withDefaults(
-  defineProps<{ list: ListSnapshot; folder: Folder; packed?: boolean; readonly?: boolean }>(),
+  defineProps<{ list: ListSnapshot; folder: Folder; items: Item[]; packed?: boolean; readonly?: boolean }>(),
   { packed: false, readonly: false },
 );
 const c = useGearList();
@@ -30,8 +32,6 @@ const acOpenCount = ref(0);
 function onAcToggle(open: boolean) {
   acOpenCount.value = Math.max(0, acOpenCount.value + (open ? 1 : -1));
 }
-
-const items = computed(() => itemsInFolder(props.list.items, props.folder.id).sort(bySortOrder));
 
 // drag-to-reorder folders via the grip handle (a drop line shows where it lands)
 const fdnd = useFolderDnd();

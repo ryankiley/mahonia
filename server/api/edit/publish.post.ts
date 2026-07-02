@@ -9,7 +9,7 @@ import { assertMaxBody, rateLimit } from "../../utils/rateLimit";
 // path — so the public feed/routes can never expose or derive it.
 export default defineEventHandler(async (event) => {
   setHeader(event, "X-Robots-Tag", "noindex");
-  await rateLimit(event, "publish", 20, 60_000);
+  await rateLimit(event, "publish");
   assertMaxBody(event, 8_000);
   const token = requireEditToken(event);
   const body = await readJsonBody<{

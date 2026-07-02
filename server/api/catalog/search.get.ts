@@ -17,7 +17,7 @@ export default defineEventHandler(async (event) => {
   // keystroke prefixes are absorbed by the edge cache below, never reaching here);
   // distinct-query enumeration by a scraper gets capped per IP, forcing rotation.
   // Runs BEFORE the cache headers so a 429 is never cached at the edge. Tunable.
-  await rateLimit(event, "catalog-search", 240, 60_000);
+  await rateLimit(event, "catalog-search");
 
   setHeader(event, "X-Robots-Tag", "noindex");
   setHeader(event, "Cache-Control", "public, max-age=2, s-maxage=10");

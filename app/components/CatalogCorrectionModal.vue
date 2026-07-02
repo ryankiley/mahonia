@@ -53,7 +53,7 @@ async function onSubmit() {
 
         <label class="dlg__field">
           <span class="t-sm t-muted">Correct weight</span>
-          <input v-model="weight" class="field" inputmode="decimal" @input="edited = true" @keydown.enter="onSubmit" />
+          <input v-model="weight" class="field" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" @input="edited = true" @keydown.enter="onSubmit" />
         </label>
         <label class="dlg__field">
           <span class="t-sm t-muted">Source link <em>— a manufacturer/retailer page applies it instantly</em></span>

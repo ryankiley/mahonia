@@ -6,7 +6,7 @@ import type { ListData, Unit } from "../../../shared/types";
 import { UNITS } from "../../../shared/types";
 
 export default defineEventHandler(async (event) => {
-  await rateLimit(event, "create", 30, 60_000);
+  await rateLimit(event, "create");
   assertMaxBody(event, 512_000);
   const body = await readJsonBody<{
     title?: string;

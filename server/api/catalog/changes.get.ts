@@ -7,7 +7,7 @@ import { rateLimit } from "../../utils/rateLimit";
 export default defineEventHandler(async (event) => {
   // Per-IP throttle: this feed exposes item + before/after weights, so cap bulk
   // pulls. Before the cache headers so a 429 isn't cached. Tunable.
-  await rateLimit(event, "catalog-changes", 60, 60_000);
+  await rateLimit(event, "catalog-changes");
 
   setHeader(event, "X-Robots-Tag", "noindex");
   setHeader(event, "Cache-Control", "public, max-age=30");

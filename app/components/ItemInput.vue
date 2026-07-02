@@ -42,8 +42,8 @@ const weightDraft = ref(""); // add mode only — the companion weight field
 const open = ref(false);
 const active = ref(-1);
 const focused = ref(false);
-const rootRef = ref<HTMLElement | null>(null);
-const inputEl = ref<HTMLInputElement | null>(null);
+const rootRef = useTemplateRef<HTMLElement>("rootRef");
+const inputEl = useTemplateRef<HTMLInputElement>("inputEl");
 onMounted(() => {
   if (props.autofocus) inputEl.value?.focus();
 });
@@ -249,8 +249,11 @@ function highlightParts(text: string): { t: string; on: boolean }[] {
         v-model="weightDraft"
         class="field field--num"
         placeholder="--"
-        inputmode="decimal"
         aria-label="Weight"
+        autocomplete="off"
+        autocorrect="off"
+        autocapitalize="off"
+        spellcheck="false"
         @keydown.enter="commitFree"
       />
       <span class="t-sm t-muted ac__unit">{{ unit }}</span>

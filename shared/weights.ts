@@ -125,6 +125,26 @@ export function itemsInFolder<T extends { folderId: string | null }>(
   return items.filter((i) => i.folderId === folderId);
 }
 
+/**
+ * Group items by folder id (ungrouped items excluded), each group sorted by
+ * sortOrder. One O(items) pass, built once per snapshot — so per-folder
+ * consumers (one FolderSection per folder) don't each re-filter and re-sort
+ * the whole item array on every edit.
+ */
+export function groupItemsByFolder<T extends { folderId: string | null; sortOrder: number }>(
+  items: readonly T[],
+): Map<string, T[]> {
+  const byFolder = new Map<string, T[]>();
+  for (const item of items) {
+    if (item.folderId == null) continue;
+    const group = byFolder.get(item.folderId);
+    if (group) group.push(item);
+    else byFolder.set(item.folderId, [item]);
+  }
+  for (const group of byFolder.values()) group.sort(bySortOrder);
+  return byFolder;
+}
+
 /** Sort comparator for anything with a sortOrder (items + folders). */
 export const bySortOrder = (a: { sortOrder: number }, b: { sortOrder: number }): number =>
   a.sortOrder - b.sortOrder;
@@ -149,11 +169,17 @@ export function computeTotals(list: ListData): Totals {
   let consumableMg = 0;
   let hasWeights = false;
 
+  // one lookup table instead of a folders.find() per item — keeps the rollup
+  // O(items + folders) (it recomputes on every edit)
+  const folderById = new Map(list.folders.map((f) => [f.id, f]));
   for (const item of list.items) {
     const line = lineMg(item);
     if (item.unitWeightMg > 0) hasWeights = true;
     totalMg += line;
-    const cls = effectiveClassification(item, list.folders);
+    const cls =
+      item.classification ??
+      (item.folderId ? folderById.get(item.folderId)?.defaultClassification : undefined) ??
+      "base";
     if (cls === "worn") wornMg += line;
     else if (cls === "consumable") consumableMg += line;
   }

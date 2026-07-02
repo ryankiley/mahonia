@@ -108,7 +108,7 @@ function create() {
     useMyLists().touch(editToken, {
       title: snapshot.value.title,
       version: snapshot.value.version,
-      totalMg: computeTotals(snapshot.value).totalMg,
+      totalMg: totals.value?.totalMg ?? 0, // the memoized rollup — no fresh full-list pass
     });
   }
 
@@ -262,7 +262,7 @@ function create() {
       persistLocal();
       // register the write capability + put the token in the URL WITHOUT routing
       // (replaceState, so the editor's hash watcher doesn't dispose/reload us)
-      const token = useMyLists().registerCreated(res, computeTotals(merged).totalMg);
+      const token = useMyLists().registerCreated(res, totals.value?.totalMg ?? 0);
       if (typeof history !== "undefined") history.replaceState(history.state, "", `/e#${token}`);
       startPoll();
     } catch {
@@ -519,7 +519,7 @@ function create() {
               shareCode: snapshot.value.shareCode,
               slug: snapshot.value.slug,
               title: snapshot.value.title,
-              totalMg: computeTotals(snapshot.value).totalMg,
+              totalMg: totals.value?.totalMg ?? 0,
               version: snapshot.value.version,
             }
           : null);

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ChevronDown } from "@lucide/vue";
-import { UNITS } from "~~/shared/types";
 import type { ListSnapshot, Totals, Unit } from "~~/shared/types";
+import { UNITS } from "~~/shared/types";
 import { formatWeight } from "~~/shared/weights";
 
 const props = defineProps<{

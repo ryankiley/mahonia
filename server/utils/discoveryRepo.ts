@@ -21,6 +21,7 @@ import {
   cardFromRow,
   decidePublish,
   normalizeSeason,
+  normalizeSlug,
   normalizeTripType,
   type DiscoveryCard,
   type FeedView,
@@ -32,20 +33,12 @@ import { findByEditToken, rowToSnapshot } from "./listRepo";
 
 type Db = Awaited<ReturnType<typeof useDb>>;
 
-// Public addresses look like `{slug}-{6 crockford}`, lowercased. Validate the
-// shape before any DB round-trip (and to keep obviously-junk input out). Exported
-// so the public endpoints validate against the SAME shape this repo enforces.
-export const SLUG_RE = /^[a-z0-9-]{1,80}$/;
-function normalizeSlug(raw: string): string | null {
-  const s = (raw || "").trim().toLowerCase();
-  return SLUG_RE.test(s) ? s : null;
-}
-
 // The public-read visibility gate (public + active + not withheld + not deleted),
 // single-sourced so the by-slug reads (getPublicBySlug / bumpView / reportList) and
 // the feed can't drift. Returns a FRESH array each call — getFeed mutates its copy
 // via .push() to append optional filters, so a shared module const would leak filters
-// across requests.
+// across requests. (Slug shape validation is shared/discovery's normalizeSlug; the
+// live edit-token lookup is listRepo's findByEditToken — both imported above.)
 function publicReadConditions() {
   return [
     eq(lists.isPublic, true),

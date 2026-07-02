@@ -7,7 +7,7 @@ import type { Op } from "../../../shared/ops";
 
 export default defineEventHandler(async (event) => {
   setHeader(event, "X-Robots-Tag", "noindex");
-  await rateLimit(event, "mutate", 300, 60_000);
+  await rateLimit(event, "mutate");
   assertMaxBody(event, 512_000);
   const token = requireEditToken(event);
   const body = await readJsonBody<{ ops?: Op[] }>(event);

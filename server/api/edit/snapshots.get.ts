@@ -7,7 +7,7 @@ import { rateLimit } from "../../utils/rateLimit";
 // Edit-token-gated; 404 when the token doesn't resolve (no existence oracle).
 export default defineEventHandler(async (event) => {
   setHeader(event, "X-Robots-Tag", "noindex");
-  await rateLimit(event, "snapshots", 120, 60_000);
+  await rateLimit(event, "snapshots");
   const token = requireEditToken(event);
   const snapshots = await listSnapshotsByEditToken(token);
   if (!snapshots) throw createError({ statusCode: 404, statusMessage: "Not found" });

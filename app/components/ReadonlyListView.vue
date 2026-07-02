@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import type { ListSnapshot, Totals, Unit } from "~~/shared/types";
+import type { Item, ListSnapshot, Totals, Unit } from "~~/shared/types";
+import { groupItemsByFolder } from "~~/shared/weights";
 
 // The shared body for the two read-only pages (/s/[code] + /l/[slug]). Both render
 // the same totals + folder/ungrouped block over the same useReadonlyList view-model
 // (kept in the page); only the head, footer, and missing-state copy differ, so those
-// are slots. This is purely the shared template + .view CSS — no data shaping.
-defineProps<{
+// are slots. This is purely the shared template + .view CSS — no data shaping
+// (beyond the per-folder grouping every FolderSection consumes).
+const props = defineProps<{
   list: ListSnapshot | null;
   totals: Totals | null;
   shownFolders: ListSnapshot["folders"];
@@ -13,6 +15,10 @@ defineProps<{
 }>();
 
 defineEmits<{ "set-unit": [Unit] }>();
+
+// one grouping pass for all folders (FolderSection takes its items pre-grouped)
+const itemsByFolder = computed(() => groupItemsByFolder(props.list?.items ?? []));
+const NO_ITEMS: Item[] = [];
 </script>
 
 <template>
@@ -24,7 +30,7 @@ defineEmits<{ "set-unit": [Unit] }>();
     <TotalsBar :list="list" :totals="totals" @set-unit="(u) => $emit('set-unit', u)" />
 
     <div class="view__folders">
-      <FolderSection v-for="f in shownFolders" :key="f.id" :list="list" :folder="f" readonly />
+      <FolderSection v-for="f in shownFolders" :key="f.id" :list="list" :folder="f" :items="itemsByFolder.get(f.id) ?? NO_ITEMS" readonly />
       <section v-if="ungrouped.length">
         <p class="t-label view__ungrouped">Ungrouped</p>
         <ItemRow v-for="it in ungrouped" :key="it.id" :list="list" :item="it" readonly />
