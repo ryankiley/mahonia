@@ -19,6 +19,9 @@
 
 import { and, desc, eq, gt, inArray, sql } from "drizzle-orm";
 import { catalogEdits, catalogItems } from "../db/schema";
+import { itemDisplayName } from "../../shared/weights";
+import { UNIT_WEIGHT_MAX_MG } from "../../shared/ops";
+import { memoizedEnsure } from "./memoize";
 import {
   SIM_THRESHOLD,
   searchCatalogLocal,
@@ -77,32 +80,21 @@ export const CATALOG_DDL: string[] = [
   `CREATE INDEX IF NOT EXISTS idx_catalog_edits_recent ON catalog_edits (created_at DESC)`,
 ];
 
-let _ensured: Promise<void> | undefined;
-
 /** Idempotently create the catalog table + indexes (memoized per process). */
-export function ensureCatalogSchema(db: unknown): Promise<void> {
+export const ensureCatalogSchema = memoizedEnsure(async (db: unknown) => {
   const d = db as { execute: (q: unknown) => Promise<unknown> };
-  if (!_ensured) {
-    _ensured = (async () => {
-      for (const stmt of CATALOG_DDL) await d.execute(sql.raw(stmt));
-      if (isNeon()) {
-        // Neon ships pg_trgm — create the extension + GIN trigram index that
-        // power fuzzy autocomplete. (No-op'd locally; see file header.)
-        await d.execute(sql.raw(`CREATE EXTENSION IF NOT EXISTS pg_trgm`));
-        await d.execute(
-          sql.raw(
-            `CREATE INDEX IF NOT EXISTS idx_catalog_trgm ON catalog_items USING gin ((coalesce(brand,'') || ' ' || name) gin_trgm_ops)`,
-          ),
-        );
-      }
-    })().catch((e) => {
-      // reset the memo so a transient first-ensure failure retries (not a cached reject)
-      _ensured = undefined;
-      throw e;
-    });
+  for (const stmt of CATALOG_DDL) await d.execute(sql.raw(stmt));
+  if (isNeon()) {
+    // Neon ships pg_trgm — create the extension + GIN trigram index that
+    // power fuzzy autocomplete. (No-op'd locally; see file header.)
+    await d.execute(sql.raw(`CREATE EXTENSION IF NOT EXISTS pg_trgm`));
+    await d.execute(
+      sql.raw(
+        `CREATE INDEX IF NOT EXISTS idx_catalog_trgm ON catalog_items USING gin ((coalesce(brand,'') || ' ' || name) gin_trgm_ops)`,
+      ),
+    );
   }
-  return _ensured;
-}
+});
 
 function normalizeQuery(q: unknown): string {
   return typeof q === "string" ? q.trim() : "";
@@ -246,7 +238,6 @@ export function isTrustedSource(url: string | undefined | null): boolean {
   }
 }
 
-const MAX_WEIGHT_MG = 100_000_000; // 100 kg — matches the list reducer's per-item cap
 
 export type CorrectionStatus = "applied" | "proposed" | "noop" | "rejected" | "notfound";
 export interface CorrectionOutcome {
@@ -268,12 +259,13 @@ export async function proposeCorrection(
   const id = Number(input.catalogItemId);
   if (!Number.isInteger(id) || id <= 0) return { status: "rejected" };
   const newW = Math.round(input.newWeightMg);
-  if (!Number.isFinite(newW) || newW <= 0 || newW > MAX_WEIGHT_MG) return { status: "rejected" };
+  // 100 kg per-item ceiling — the SAME cap the list reducer clamps to (shared/ops)
+  if (!Number.isFinite(newW) || newW <= 0 || newW > UNIT_WEIGHT_MAX_MG) return { status: "rejected" };
 
   const rows = await d.select().from(catalogItems).where(eq(catalogItems.id, id)).limit(1);
   const item = rows[0];
   if (!item) return { status: "notfound" };
-  const itemName = [item.brand, item.name, item.variant].filter(Boolean).join(" ");
+  const itemName = itemDisplayName(item.brand, item.name, item.variant);
   const oldW = Number(item.weightMg);
   if (newW === oldW) return { status: "noop", weightMg: oldW, itemName };
 
@@ -340,7 +332,9 @@ export async function recentChanges(db: unknown, limit = 50): Promise<RecentChan
     .limit(Math.min(100, Math.max(1, limit)));
   return (rows as Array<Record<string, unknown>>).map((r) => ({
     id: Number(r.id),
-    itemName: [r.brand, r.name, r.variant].filter(Boolean).join(" ") || "(removed item)",
+    itemName:
+      itemDisplayName(r.brand as string | null, String(r.name ?? ""), r.variant as string | null) ||
+      "(removed item)",
     oldWeightMg: Number(r.oldWeightMg),
     newWeightMg: Number(r.newWeightMg),
     status: String(r.status),

@@ -80,4 +80,11 @@ describe("LighterPack CSV import", () => {
     const data = csvToListData("thing,grams\nSpork,18");
     expect(data.items[0]?.name).toBe("Spork");
   });
+
+  it("recognizes the full unit vocabulary shared with weight entry (e.g. singular 'kilogram')", () => {
+    // regression: the CSV importer used to miss "kilogram" (only "kilograms"/"kgs"),
+    // silently falling back to grams. It now shares weights.UNIT_ALIASES.
+    const data = csvToListData("name,weight,unit\nBear can,1.2,kilogram");
+    expect(data.items[0]?.unitWeightMg).toBe(toMg(1.2, "kg"));
+  });
 });

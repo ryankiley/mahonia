@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Droplet } from "@lucide/vue";
 import type { Classification, Unit } from "~~/shared/types";
-import { formatWeight } from "~~/shared/weights";
+import { formatWeight, itemDisplayName } from "~~/shared/weights";
 import { formatVolume, parseVolumeMl, waterMgFromMl } from "~~/shared/water";
 import type { CatalogResult } from "~/composables/useCatalogSearch";
 
@@ -135,7 +135,7 @@ function selectResult(r: CatalogResult) {
   });
   // self-improving ranking: tell the catalog this item was used (fire-and-forget)
   $fetch("/api/catalog/use", { method: "POST", body: { ids: [r.id] } }).catch(() => {});
-  setDraftQuiet(props.clearOnCommit ? "" : [r.brand, r.name, r.variant].filter(Boolean).join(" "));
+  setDraftQuiet(props.clearOnCommit ? "" : itemDisplayName(r.brand, r.name, r.variant));
   weightDraft.value = "";
   close();
 }

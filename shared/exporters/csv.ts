@@ -2,19 +2,17 @@
 // and ingests LighterPack's "Export to CSV" output (flexible header detection).
 
 import type { ListData, ListSnapshot, Unit } from "../types";
-import { UNITS } from "../types";
 import { nextFolderColor } from "../categories";
-import { effectiveClassification, fromMg, itemDisplayName, itemsInFolder, toMg } from "../weights";
+import { effectiveClassification, fromMg, itemDisplayName, itemsInFolder, toMg, UNIT_ALIASES } from "../weights";
 import { uid } from "../id";
 
+// Delegate to the shared unit vocabulary (weights.UNIT_ALIASES) so a CSV / LighterPack
+// import recognizes the exact same unit words as free-text weight entry. This hand-
+// rolled list had drifted — it missed the singular "kilogram" — so importing a row in
+// "kilogram" silently fell through to the fallback unit.
 function normalizeUnit(raw: string | undefined, fallback: Unit): Unit {
   const u = (raw || "").trim().toLowerCase();
-  if (UNITS.includes(u as Unit)) return u as Unit;
-  if (u === "grams" || u === "gram") return "g";
-  if (u === "kgs" || u === "kilograms") return "kg";
-  if (u === "ounce" || u === "ounces") return "oz";
-  if (u === "lbs" || u === "pound" || u === "pounds") return "lb";
-  return fallback;
+  return UNIT_ALIASES[u] ?? fallback;
 }
 
 const truthy = (v: string | undefined) =>

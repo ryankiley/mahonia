@@ -3,15 +3,14 @@ import { normalizeSlug } from "../../../../shared/discovery";
 import { requireAdmin } from "../../../utils/auth";
 import { restoreList } from "../../../utils/discoveryRepo";
 import { readJsonBody } from "../../../utils/http";
-import { assertMaxBody, clearReportTally, type KvStorage } from "../../../utils/rateLimit";
+import { clearReportTally, useKv } from "../../../utils/rateLimit";
 
 // Admin: restore a reported/flagged list to discovery (the counterpart to the
 // public report endpoint). Gated on GEAR_ADMIN_TOKEN via requireAdmin
 // (rate-limited, constant-time, 404 on a miss — no route oracle).
 export default defineEventHandler(async (event) => {
   setHeader(event, "X-Robots-Tag", "noindex");
-  await requireAdmin(event);
-  assertMaxBody(event, 4_000);
+  await requireAdmin(event, 4_000);
 
   const body = await readJsonBody<{ slug?: string }>(event);
   const slug = normalizeSlug(body?.slug);
@@ -20,8 +19,7 @@ export default defineEventHandler(async (event) => {
   const restored = await restoreList(slug);
   // Reset the distinct-report tally so the restored list can't instantly re-flag
   // off the prior reporters.
-  const storage = useStorage("kv") as unknown as KvStorage;
-  await clearReportTally(storage, slug);
+  await clearReportTally(useKv(), slug);
 
   return { ok: true, restored };
 });

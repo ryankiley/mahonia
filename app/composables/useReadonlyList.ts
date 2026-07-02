@@ -32,17 +32,32 @@ export function useReadonlyList(snapshot: Ref<ListSnapshot | null>) {
   return { unit, totals, roList, ungrouped, shownFolders };
 }
 
-/**
- * Shared SEO summary for the two read-only pages: the trip/season facet labels
- * and the meta/OG description ("{title} — a {kind} packing list (…) …"). The
- * pages differ only in two words of copy, passed in — the assembly is identical
- * and lives here so it can't drift.
- */
+// The read-only pages' SEO summary was copy-pasted across /s and /l and already
+// drifting. The facet + item/weight assembly and the useSeoMeta shape are identical;
+// only three copy fragments differ (the empty-state fallback, the noun, and the CTA),
+// selected by `kind`. Returns `facets` so /l can render it in its <head> template.
+// Each page keeps its own useHead (noindex on /s, canonical on /l) — that's the one
+// genuinely divergent bit.
+type ReadonlyKind = "shared" | "public";
+const SEO_COPY: Record<ReadonlyKind, { empty: string; noun: string; cta: string }> = {
+  shared: {
+    empty: "A shared packing list on Mahonia.",
+    noun: "a shared packing list",
+    cta: "Make your own on Mahonia.",
+  },
+  public: {
+    empty: "A public packing list on Mahonia.",
+    noun: "a public packing list",
+    cta: "Browse gear lists on Mahonia.",
+  },
+};
+
 export function useReadonlyListSeo(
   snapshot: Ref<ListSnapshot | null>,
   totals: Ref<Totals | null>,
-  opts: { kind: string; cta: string },
+  kind: ReadonlyKind,
 ) {
+  const copy = SEO_COPY[kind];
   const facets = computed(
     () =>
       [tripTypeLabel(snapshot.value?.tripType), seasonLabel(snapshot.value?.season)].filter(
@@ -50,12 +65,17 @@ export function useReadonlyListSeo(
       ) as string[],
   );
   const desc = computed(() => {
-    if (!snapshot.value || !totals.value) return `A ${opts.kind} packing list on Mahonia.`;
+    if (!snapshot.value || !totals.value) return copy.empty;
     const bits = [`${totals.value.itemCount} items`];
     if (facets.value.length) bits.unshift(facets.value.join(", "));
-    if (totals.value.hasWeights)
-      bits.push(`${formatWeightAuto(totals.value.baseMg)} base weight`);
-    return `${snapshot.value.title} — a ${opts.kind} packing list (${bits.join(" · ")}). ${opts.cta}`;
+    if (totals.value.hasWeights) bits.push(`${formatWeightAuto(totals.value.baseMg)} base weight`);
+    return `${snapshot.value.title} — ${copy.noun} (${bits.join(" · ")}). ${copy.cta}`;
   });
-  return { facets, desc };
+  useSeoMeta({
+    description: () => desc.value,
+    ogTitle: () => (snapshot.value ? snapshot.value.title : "Mahonia"),
+    ogDescription: () => desc.value,
+    ogType: "article",
+  });
+  return { facets };
 }

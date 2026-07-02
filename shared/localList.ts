@@ -29,6 +29,6 @@ export const localKey = (editToken: string): string => editToken || DRAFT_KEY;
 export function rebaseOnto(server: ListSnapshot, pending: Op[]): ListSnapshot {
   if (!pending.length) return server;
   const next = structuredClone(server);
-  applyOps(next as any, pending);
+  applyOps(next, pending);
   return next;
 }

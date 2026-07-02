@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Item } from "~~/shared/types";
 import { itemSearchName, itemSearchUrl } from "~~/shared/links";
+import { itemDisplayName } from "~~/shared/weights";
 
 // Renders a product like "Sea to Summit Trek TkII Down Sleeping Bag · Long, 18F":
 // brand + model in normal ink; the variant as a dimmed " · …" suffix. A
@@ -11,7 +12,7 @@ import { itemSearchName, itemSearchUrl } from "~~/shared/links";
 // the link's dotted underline never runs under the variant. Water / unnamed rows
 // resolve to no link (itemSearchUrl → null), so they render as plain text.
 const props = defineProps<{ item: Item; search?: boolean }>();
-const main = computed(() => [props.item.brand, props.item.name].filter(Boolean).join(" "));
+const main = computed(() => itemDisplayName(props.item.brand, props.item.name));
 const variant = computed(() => (props.item.nameOverridden ? "" : props.item.variant || ""));
 const href = computed(() => (props.search ? itemSearchUrl(props.item) : null));
 const searchLabel = computed(() => `Search the web for ${itemSearchName(props.item)}`);

@@ -8,7 +8,7 @@ import {
   getClientIp,
   rateLimit,
   tallyDistinctReport,
-  type KvStorage,
+  useKv,
 } from "../../utils/rateLimit";
 
 // A list is withheld only once this many DISTINCT reporters (by hashed IP) flag
@@ -33,9 +33,8 @@ export default defineEventHandler(async (event) => {
   const slug = normalizeSlug(body?.slug);
   if (slug) {
     const reporterHash = sha256Hex(getClientIp(event) || "unknown");
-    const storage = useStorage("kv") as unknown as KvStorage;
     const { reached } = await tallyDistinctReport(
-      storage,
+      useKv(),
       slug,
       reporterHash,
       REPORT_THRESHOLD,

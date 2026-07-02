@@ -1,6 +1,6 @@
 import type { H3Event } from "h3";
 import { createError, getHeader } from "h3";
-import { rateLimit } from "./rateLimit";
+import { assertMaxBody, rateLimit } from "./rateLimit";
 import { safeEqual } from "./tokens";
 
 /**
@@ -16,14 +16,17 @@ export function requireEditToken(event: H3Event): string {
 }
 
 /**
- * Admin gate: constant-time GEAR_ADMIN_TOKEN check, 404 (not 403) when
- * unconfigured or the token is wrong — no oracle that the route exists. One
- * shared gate so the admin endpoints can't drift apart. The gate itself is
- * rate-limited so a leaked/guessed-at token can't be brute-forced unthrottled
- * (defense-in-depth on top of the constant-time compare).
+ * Gate an admin-only endpoint on GEAR_ADMIN_TOKEN. Order is preserved from the
+ * handlers this replaces: throttle the gate (brute-force defense on top of the
+ * constant-time compare, budget from RATE_LIMITS) → reject oversized bodies
+ * (`maxBody` differs per endpoint, so it's passed in) → constant-time compare the
+ * `x-admin-token` header. A miss (or an unset server token) throws 404 — never
+ * 403 — so the route reveals nothing about whether it exists. Rejects before the
+ * handler reads/parses the body.
  */
-export async function requireAdmin(event: H3Event): Promise<void> {
+export async function requireAdmin(event: H3Event, maxBody: number): Promise<void> {
   await rateLimit(event, "admin");
+  assertMaxBody(event, maxBody);
   const provided = getHeader(event, "x-admin-token");
   if (!safeEqual(provided, process.env.GEAR_ADMIN_TOKEN))
     throw createError({ statusCode: 404, statusMessage: "Not found" });

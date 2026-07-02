@@ -2,6 +2,7 @@
 import { ChevronDown, GripVertical, StickyNotePlus, StickyNoteX, Trash2, X } from "@lucide/vue";
 import type { Classification, Item, ListSnapshot, Unit } from "~~/shared/types";
 import { effectiveClassification, formatWeight, fromMg, itemDisplayName, lineMg, parseWeightInput } from "~~/shared/weights";
+import { waterMgFromMl } from "~~/shared/water";
 
 const props = withDefaults(
   defineProps<{ list: ListSnapshot; item: Item; packed?: boolean; readonly?: boolean }>(),
@@ -78,9 +79,10 @@ const qtyLabel = computed(() =>
 function onWaterLiters(e: Event) {
   const el = e.target as HTMLInputElement;
   const liters = Math.max(0, Number(el.value) || 0);
-  const ml = Math.round(liters * 1000);
   c.updateItem(props.item.id, {
-    unitWeightMg: ml * 1000, // 1 mL water = 1000 mg
+    // one source of truth for volume→weight (shared/water), matching ItemInput's
+    // water suggestion — the row used to round to whole mL first and could drift
+    unitWeightMg: waterMgFromMl(liters * 1000),
     weightOverridden: true,
   });
   el.value = litersDisplay.value; // resync (in-place op mutation makes it fresh)

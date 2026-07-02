@@ -18,21 +18,13 @@ useResponseHeader("Cache-Control").value =
 
 const { unit, totals, roList, ungrouped, shownFolders } = useReadonlyList(snapshot);
 
-// SEO — indexable (NOT noindex, unlike /s/[code]). Description summarizes the list.
-const { facets, desc } = useReadonlyListSeo(snapshot, totals, {
-  kind: "public",
-  cta: "Browse gear lists on Mahonia.",
-});
+// SEO — indexable (NOT noindex, unlike /s/[code]). Summary shared via useReadonlyListSeo;
+// `facets` comes back for the <head> template below. Only the canonical link differs.
+const { facets } = useReadonlyListSeo(snapshot, totals, "public");
 useHead(() => ({
   title: snapshot.value ? `${snapshot.value.title} — Mahonia` : "List not found — Mahonia",
   link: [{ rel: "canonical", href: `/l/${slug.value}` }],
 }));
-useSeoMeta({
-  description: () => desc.value,
-  ogTitle: () => (snapshot.value ? snapshot.value.title : "Mahonia"),
-  ogDescription: () => desc.value,
-  ogType: "article",
-});
 
 // Report — flag for review (hides from the feed pending moderation).
 const reported = ref(false);

@@ -4,7 +4,7 @@ import type { ListSnapshot, Totals, Unit } from "~~/shared/types";
 import { UNITS } from "~~/shared/types";
 import { formatWeight } from "~~/shared/weights";
 
-defineProps<{
+const props = defineProps<{
   list: ListSnapshot;
   totals: Totals;
 }>();
@@ -12,6 +12,16 @@ defineProps<{
 const emit = defineEmits<{
   "set-unit": [Unit];
 }>();
+
+// the classification breakdown chips, in fixed order; only categories that carry
+// weight show (no "Consumable 0 g" noise)
+const chips = computed(() =>
+  [
+    { label: "Base", mg: props.totals.baseMg },
+    { label: "Worn", mg: props.totals.wornMg },
+    { label: "Consumable", mg: props.totals.consumableMg },
+  ].filter((c) => c.mg > 0),
+);
 </script>
 
 <template>
@@ -46,17 +56,9 @@ const emit = defineEmits<{
     <div class="totals__breakdown">
       <!-- only the categories actually present show — no "Consumable 0 g" noise -->
       <div class="totals__chips">
-        <span v-if="totals.baseMg > 0" class="chip">
-          <span class="t-label">Base</span>
-          <span class="t-num">{{ formatWeight(totals.baseMg, list.displayUnit, { withUnit: false }) }} <span class="t-muted">{{ list.displayUnit }}</span></span>
-        </span>
-        <span v-if="totals.wornMg > 0" class="chip">
-          <span class="t-label">Worn</span>
-          <span class="t-num">{{ formatWeight(totals.wornMg, list.displayUnit, { withUnit: false }) }} <span class="t-muted">{{ list.displayUnit }}</span></span>
-        </span>
-        <span v-if="totals.consumableMg > 0" class="chip">
-          <span class="t-label">Consumable</span>
-          <span class="t-num">{{ formatWeight(totals.consumableMg, list.displayUnit, { withUnit: false }) }} <span class="t-muted">{{ list.displayUnit }}</span></span>
+        <span v-for="c in chips" :key="c.label" class="chip">
+          <span class="t-label">{{ c.label }}</span>
+          <span class="t-num">{{ formatWeight(c.mg, list.displayUnit, { withUnit: false }) }} <span class="t-muted">{{ list.displayUnit }}</span></span>
         </span>
       </div>
       <CategoryBar :list="list" />

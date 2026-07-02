@@ -29,7 +29,10 @@ export function fromMg(mg: number, unit: Unit): number {
   return mg / MG_PER_UNIT[unit];
 }
 
-const UNIT_ALIASES: Record<string, Unit> = {
+/** Every accepted unit word (incl. plurals / full names) → canonical Unit. The single
+ *  source of truth for unit vocabulary, shared by free-text weight parsing and the
+ *  CSV / LighterPack importer so both recognize the same words. */
+export const UNIT_ALIASES: Record<string, Unit> = {
   g: "g",
   gram: "g",
   grams: "g",
