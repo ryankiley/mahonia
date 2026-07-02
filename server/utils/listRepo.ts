@@ -201,8 +201,16 @@ export async function listSnapshotsByEditToken(
   const row = await findByEditToken(editToken, d);
   if (!row) return null;
   await ensureSnapshotSchema(d);
+  // partial select: this listing never reads the `snapshot` JSONB (the largest
+  // column — a full list payload per row), so don't pull it over the wire
   const rows = await d
-    .select()
+    .select({
+      id: listSnapshots.id,
+      version: listSnapshots.version,
+      reason: listSnapshots.reason,
+      createdAt: listSnapshots.createdAt,
+      itemCount: listSnapshots.itemCount,
+    })
     .from(listSnapshots)
     .where(eq(listSnapshots.listId, row.id))
     .orderBy(desc(listSnapshots.createdAt), desc(listSnapshots.id))

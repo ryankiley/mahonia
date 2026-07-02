@@ -2,11 +2,14 @@
 import type { ListSnapshot } from "~~/shared/types";
 
 const route = useRoute();
-const code = String(route.params.code || "");
+const code = computed(() => String(route.params.code || ""));
 
 // SSR fetch so a shared link is readable before hydration + indexable structure.
-const { data } = await useFetch<{ snapshot: ListSnapshot }>(`/api/s/${code}`);
-const snapshot = ref<ListSnapshot | null>(data.value?.snapshot ?? null);
+// Computed URL + derived snapshot: a string URL is frozen at call time (per the
+// useFetch docs) and a one-time ref copy goes stale — this way an in-app
+// /s/a → /s/b navigation refetches and the page tracks the response.
+const { data } = await useFetch<{ snapshot: ListSnapshot }>(() => `/api/s/${code.value}`);
+const snapshot = computed<ListSnapshot | null>(() => data.value?.snapshot ?? null);
 
 const { unit, totals, roList, ungrouped, shownFolders } = useReadonlyList(snapshot);
 

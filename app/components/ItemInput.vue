@@ -42,8 +42,8 @@ const weightDraft = ref(""); // add mode only — the companion weight field
 const open = ref(false);
 const active = ref(-1);
 const focused = ref(false);
-const rootRef = ref<HTMLElement | null>(null);
-const inputEl = ref<HTMLInputElement | null>(null);
+const rootRef = useTemplateRef<HTMLElement>("rootRef");
+const inputEl = useTemplateRef<HTMLInputElement>("inputEl");
 onMounted(() => {
   if (props.autofocus) inputEl.value?.focus();
 });

@@ -1,6 +1,8 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
-  modules: ["@vueuse/nuxt", "@vercel/analytics", "@vite-pwa/nuxt"],
+  // NB: the analytics Nuxt module lives at the `/nuxt` subpath — the package
+  // root exports the plain browser lib, which silently registers nothing.
+  modules: ["@vueuse/nuxt", "@vercel/analytics/nuxt", "@vite-pwa/nuxt"],
 
   // Master switch for the offline plumbing (service worker + background sync, and
   // the offline catalog search). OFF by default so the whole feature ships DORMANT

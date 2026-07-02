@@ -3,11 +3,14 @@ import { Flag, Globe } from "@lucide/vue";
 import type { ListSnapshot } from "~~/shared/types";
 
 const route = useRoute();
-const slug = String(route.params.slug || "");
+const slug = computed(() => String(route.params.slug || ""));
 
 // SSR fetch so the shared link is readable before hydration AND indexable.
-const { data } = await useFetch<{ list: ListSnapshot }>(`/api/l/${slug}`);
-const snapshot = ref<ListSnapshot | null>(data.value?.list ?? null);
+// Computed URL + derived snapshot: a string URL is frozen at call time (per the
+// useFetch docs) and a one-time ref copy goes stale — this way an in-app
+// /l/a → /l/b navigation refetches and the page tracks the response.
+const { data } = await useFetch<{ list: ListSnapshot }>(() => `/api/l/${slug.value}`);
+const snapshot = computed<ListSnapshot | null>(() => data.value?.list ?? null);
 
 // edge-cache the HTML for a short window (SSR + Cache-Control, per the plan).
 useResponseHeader("Cache-Control").value =
@@ -20,10 +23,10 @@ const { facets, desc } = useReadonlyListSeo(snapshot, totals, {
   kind: "public",
   cta: "Browse gear lists on Mahonia.",
 });
-useHead({
-  title: () => (snapshot.value ? `${snapshot.value.title} — Mahonia` : "List not found — Mahonia"),
-  link: [{ rel: "canonical", href: `/l/${slug}` }],
-});
+useHead(() => ({
+  title: snapshot.value ? `${snapshot.value.title} — Mahonia` : "List not found — Mahonia",
+  link: [{ rel: "canonical", href: `/l/${slug.value}` }],
+}));
 useSeoMeta({
   description: () => desc.value,
   ogTitle: () => (snapshot.value ? snapshot.value.title : "Mahonia"),
@@ -39,7 +42,7 @@ async function report() {
   if (!confirm("Report this list as spam or inappropriate? It will be hidden from the feed pending review.")) return;
   reporting.value = true;
   try {
-    await $fetch("/api/lists/report", { method: "POST", body: { slug } });
+    await $fetch("/api/lists/report", { method: "POST", body: { slug: slug.value } });
     reported.value = true;
   } catch {
     /* swallow — the affordance is best-effort */

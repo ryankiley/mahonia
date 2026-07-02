@@ -24,7 +24,7 @@ const isDropBefore = computed(
 
 // a just-added "Add an item" row autofocuses its name; if focus leaves the whole
 // row while it's still untouched, it removes itself (no empty-row litter)
-const wrapRef = ref<HTMLElement | null>(null);
+const wrapRef = useTemplateRef<HTMLElement>("wrapRef");
 const isPendingBlank = computed(() => c.pendingBlankId.value === props.item.id);
 function onRowBlur(e: FocusEvent) {
   if (!isPendingBlank.value) return;
@@ -172,7 +172,7 @@ const effClassLabel = computed(() => CLASS_OPTS.find((o) => o.value === effClass
 // notes: toggled via an always-visible icon button (add/remove), not an
 // always-present field; the note shows as live text once it has content
 const noteOpen = ref(false);
-const noteRef = ref<HTMLInputElement | null>(null);
+const noteRef = useTemplateRef<HTMLInputElement>("noteRef");
 // the note field is showing when there's a saved note OR it's been opened to type one
 const noteShown = computed(() => !!props.item.description || noteOpen.value);
 // plus → open the field; once shown (X) → hide it: clears a saved note, or just

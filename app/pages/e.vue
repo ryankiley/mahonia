@@ -41,14 +41,14 @@ const NO_ITEMS: Item[] = [];
 const packed = ref(false);
 const importOpen = ref(false);
 const menuOpen = ref(false);
-const menuRef = ref<HTMLElement | null>(null);
+const menuRef = useTemplateRef<HTMLElement>("menuRef");
 const toast = ref("");
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
 
 // "Add folder" becomes an inline text field on tap; it only creates the folder
 // (and shows the next "Add folder") once you commit — enter or click away.
 const addingFolder = ref(false);
-const newFolderRef = ref<HTMLInputElement | null>(null);
+const newFolderRef = useTemplateRef<HTMLInputElement>("newFolderRef");
 function openAddFolder() {
   addingFolder.value = true;
   nextTick(() => newFolderRef.value?.focus());

@@ -82,15 +82,27 @@ export async function stageCandidates(
     .filter((r) => r.normKey);
   if (!rows.length) return;
   await ensureCandidatesSchema(db);
-  for (const r of rows) {
-    await db
-      .insert(catalogCandidates)
-      .values(r)
-      .onConflictDoUpdate({
-        target: [catalogCandidates.normKey, catalogCandidates.listId],
-        set: { rawBrand: r.rawBrand, rawName: r.rawName, weightMg: r.weightMg, classification: r.classification, updatedAt: new Date() },
-      });
-  }
+  // Dedupe by the upsert key (last observation wins): two staged rows sharing a
+  // normKey inside ONE multi-row INSERT would raise Postgres's "ON CONFLICT DO
+  // UPDATE command cannot affect row a second time". listId is constant here, so
+  // normKey alone is the key.
+  const deduped = [...new Map(rows.map((r) => [r.normKey, r])).values()];
+  // One multi-row upsert = one round trip (neon-http sends one query per fetch,
+  // so the previous per-row loop cost up to 50 sequential round trips on the
+  // list-save path). `excluded.*` pulls each conflicting row's own values.
+  await db
+    .insert(catalogCandidates)
+    .values(deduped)
+    .onConflictDoUpdate({
+      target: [catalogCandidates.normKey, catalogCandidates.listId],
+      set: {
+        rawBrand: sql`excluded.raw_brand`,
+        rawName: sql`excluded.raw_name`,
+        weightMg: sql`excluded.weight_mg`,
+        classification: sql`excluded.classification`,
+        updatedAt: new Date(),
+      },
+    });
 }
 
 const mode = <T>(arr: T[]): T | undefined => {
