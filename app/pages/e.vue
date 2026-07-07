@@ -4,7 +4,7 @@ import { listToMarkdown } from "~~/shared/exporters/markdown";
 import { listToCsv } from "~~/shared/exporters/csv";
 import { uid } from "~~/shared/id";
 import type { Item, ListSnapshot } from "~~/shared/types";
-import { bySortOrder, groupItemsByFolder } from "~~/shared/weights";
+import { bySortOrder, formatWeightAuto, groupItemsByFolder } from "~~/shared/weights";
 
 // The editor opts out of the default layout (its own sticky topbar + flex shell),
 // but renders the shared SiteFooter at the bottom so the footer is the same site-wide.
@@ -18,12 +18,45 @@ const totals = c.totals;
 const status = c.status;
 const pendingUndo = c.pendingUndo;
 
-// Reflect the list name in the tab title, matching the read views (/l, /s).
+// Reflect the list's given name in the tab title AND the page's social/preview
+// metadata, matching the read views (/l, /s): a named list carries its name; an
+// unnamed draft (the bare-domain landing) keeps the generic site card, so the
+// static nuxt.config card that unfurls the bare domain is unchanged.
+//
+// Caveat: /e is ssr:false and the edit token lives in the URL *fragment* (never
+// sent to the server), so a link-preview bot fetching an edit link can't know which
+// list it is — these tags are set client-side. They cover the browser tab,
+// bookmarks, and in-app share targets that read live metadata, but NOT JS-less
+// unfurl bots (iMessage/Slack/…). The read-only link (/s/…) is SSR and is the
+// unfurl-friendly share.
+const GENERIC_TITLE = "Mahonia — pack lists, weighed";
+const GENERIC_DESC = "Make a packing list, see what it weighs, share it. No login.";
+// "if given" — the default "Untitled list" (or an empty name) counts as not named,
+// so an unnamed list keeps the generic card rather than advertising "Untitled list".
+const listName = computed(() => {
+  const t = snapshot.value?.title?.trim();
+  return t && t !== "Untitled list" ? t : "";
+});
+const seoDesc = computed(() => {
+  if (!listName.value) return GENERIC_DESC;
+  const t = totals.value;
+  if (!t) return `${listName.value} — a packing list on Mahonia.`;
+  const bits = [`${t.itemCount} items`];
+  if (t.hasWeights) bits.push(`${formatWeightAuto(t.baseMg)} base weight`);
+  return `${listName.value} — a packing list (${bits.join(" · ")}) on Mahonia.`;
+});
 useHead({
-  title: () => {
-    if (!snapshot.value) return "Mahonia";
-    return `${snapshot.value.title || "Untitled list"} — Mahonia`;
-  },
+  title: () =>
+    !snapshot.value
+      ? "Mahonia"
+      : listName.value
+        ? `${listName.value} — Mahonia`
+        : "Untitled list — Mahonia",
+});
+useSeoMeta({
+  description: () => seoDesc.value,
+  ogTitle: () => listName.value || GENERIC_TITLE,
+  ogDescription: () => seoDesc.value,
 });
 // items whose folder was removed (e.g. by a concurrent editor) land here, not as invisible ghosts
 const ungrouped = computed(() =>
