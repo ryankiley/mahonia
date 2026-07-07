@@ -1,11 +1,15 @@
 import { createError, defineEventHandler, getHeader, setHeader } from "h3";
 import { useDb } from "../../../utils/db";
-import { reapAbandonedLists } from "../../../utils/listRepo";
+import { purgeDeletedLists, reapAbandonedLists } from "../../../utils/listRepo";
 import { safeEqual } from "../../../utils/tokens";
 
-// Nightly maintenance job (registered in vercel.json). Soft-deletes abandoned
-// empty lists (0 items, never public, untouched for LIST_REAP_STALE_DAYS) so the
-// table can't be padded indefinitely with contentless rows.
+// Nightly list-maintenance job (registered in vercel.json). Two stages:
+//   1. REAP  — soft-delete abandoned empty lists (0 items, never public, untouched
+//              for LIST_REAP_STALE_DAYS) so the table can't be padded indefinitely
+//              with contentless rows.
+//   2. PURGE — hard-delete rows soft-deleted past LIST_PURGE_GRACE_DAYS (+ their
+//              snapshots) to reclaim the storage; the grace window keeps a reap
+//              reversible until then.
 // Auth mirrors the corroborate-catalog cron: Vercel auto-sends
 // `Authorization: Bearer $CRON_SECRET` to cron routes; `x-admin-token:
 // $GEAR_ADMIN_TOKEN` also works for a manual run. 404 otherwise.
@@ -21,7 +25,9 @@ export default defineEventHandler(async (event) => {
   if (!ok) throw createError({ statusCode: 404, statusMessage: "Not found" });
 
   const db = await useDb();
-  const result = await reapAbandonedLists(db);
+  const reaped = await reapAbandonedLists(db);
+  const purged = await purgeDeletedLists(db);
+  const result = { ...reaped, ...purged };
   console.log("[cron] reap-lists", JSON.stringify(result));
   return { ok: true, ...result };
 });

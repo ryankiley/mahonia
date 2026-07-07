@@ -3,16 +3,19 @@ import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { describe, expect, it } from "vitest";
 import * as schema from "../server/db/schema";
-import { lists } from "../server/db/schema";
-import { LISTS_DDL } from "../server/utils/db";
-import { reapAbandonedLists } from "../server/utils/listRepo";
+import { lists, listSnapshots } from "../server/db/schema";
+import { LISTS_DDL, SNAPSHOTS_DDL, _resetSnapshotEnsured } from "../server/utils/db";
+import { purgeDeletedLists, reapAbandonedLists } from "../server/utils/listRepo";
 import { sha256Hex } from "../server/utils/tokens";
 import type { ListData } from "../shared/types";
 
-// Repo against a fresh in-memory PGlite (mirrors discovery.test.ts).
+// Repo against a fresh in-memory PGlite (mirrors discovery.test.ts). Creates the
+// snapshots table too (the purge cascades into it), and resets the memoized
+// ensure so purgeDeletedLists's ensureSnapshotSchema runs against THIS db.
 async function freshDb() {
   const db = drizzle(new PGlite(), { schema });
-  for (const stmt of LISTS_DDL) await db.execute(sql.raw(stmt));
+  for (const stmt of [...LISTS_DDL, ...SNAPSHOTS_DDL]) await db.execute(sql.raw(stmt));
+  _resetSnapshotEnsured();
   return db;
 }
 
@@ -140,5 +143,75 @@ describe("reapAbandonedLists — soft-deletes only abandoned empty lists", () =>
     expect((await reapAbandonedLists(db, { limit: 2 })).reaped).toBe(2);
     expect((await reapAbandonedLists(db, { limit: 2 })).reaped).toBe(1);
     expect((await reapAbandonedLists(db, { limit: 2 })).reaped).toBe(0);
+  });
+});
+
+const softDeleted = (days: number) => new Date(Date.now() - days * DAY);
+
+const rowCount = async (db: Awaited<ReturnType<typeof freshDb>>) =>
+  (await db.select({ id: lists.id }).from(lists)).length;
+
+describe("purgeDeletedLists — hard-deletes rows past the grace window", () => {
+  it("purges a list soft-deleted longer than the grace period", async () => {
+    const db = await freshDb();
+    await seed(db, { deletedAt: softDeleted(100) }); // > 90-day default
+    const { purged } = await purgeDeletedLists(db);
+    expect(purged).toBe(1);
+    expect(await rowCount(db)).toBe(0); // physically gone, not just hidden
+  });
+
+  it("keeps a recently soft-deleted list inside the grace window", async () => {
+    const db = await freshDb();
+    await seed(db, { deletedAt: softDeleted(10) }); // < 90 days → still recoverable
+    const { purged } = await purgeDeletedLists(db);
+    expect(purged).toBe(0);
+    expect(await rowCount(db)).toBe(1);
+  });
+
+  it("never touches a live (not soft-deleted) list", async () => {
+    const db = await freshDb();
+    await seed(db, { deletedAt: null, updatedAt: softDeleted(400) }); // ancient but alive
+    const { purged } = await purgeDeletedLists(db);
+    expect(purged).toBe(0);
+    expect(await rowCount(db)).toBe(1);
+  });
+
+  it("cascades: drops the purged list's snapshots too", async () => {
+    const db = await freshDb();
+    const row = await seed(db, { deletedAt: softDeleted(100) });
+    await db.insert(listSnapshots).values({
+      listId: row.id,
+      kind: "base",
+      snapshot: {} as never, // shape irrelevant to the purge
+      itemCount: 0,
+      version: 1,
+    });
+    expect((await db.select().from(listSnapshots)).length).toBe(1);
+    const { purged } = await purgeDeletedLists(db);
+    expect(purged).toBe(1);
+    expect((await db.select().from(listSnapshots)).length).toBe(0); // orphan snapshots gone
+  });
+
+  it("does not immediately purge a list the reaper just soft-deleted", async () => {
+    const db = await freshDb();
+    await seed(db, { updatedAt: stale() });
+    expect((await reapAbandonedLists(db)).reaped).toBe(1); // deleted_at = now
+    expect((await purgeDeletedLists(db)).purged).toBe(0); // inside the grace window
+    expect(await rowCount(db)).toBe(1); // soft-deleted, still recoverable
+  });
+
+  it("respects a custom graceDays window", async () => {
+    const db = await freshDb();
+    await seed(db, { deletedAt: softDeleted(20) });
+    expect((await purgeDeletedLists(db, { graceDays: 30 })).purged).toBe(0); // 20d < 30d
+    expect((await purgeDeletedLists(db, { graceDays: 7 })).purged).toBe(1); // 20d > 7d
+  });
+
+  it("respects the batch limit (backlog drains over runs)", async () => {
+    const db = await freshDb();
+    for (let i = 0; i < 3; i++) await seed(db, { deletedAt: softDeleted(100) });
+    expect((await purgeDeletedLists(db, { limit: 2 })).purged).toBe(2);
+    expect((await purgeDeletedLists(db, { limit: 2 })).purged).toBe(1);
+    expect((await purgeDeletedLists(db, { limit: 2 })).purged).toBe(0);
   });
 });

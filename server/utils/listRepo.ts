@@ -3,7 +3,7 @@
 // leaves this module.
 
 import { createError } from "h3";
-import { and, desc, eq, inArray, isNull, lt, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull, lt, sql } from "drizzle-orm";
 import { catalogItems, lists, listSnapshots, type ListRow } from "../db/schema";
 import {
   applyOps,
@@ -504,6 +504,45 @@ export async function reapAbandonedLists(
     .where(inArray(lists.id, ids))
     .returning();
   return { reaped: reaped.length };
+}
+
+// Second stage: HARD-delete rows that have sat soft-deleted past the grace window,
+// so the storage is actually reclaimed (soft-delete alone only hides the row). The
+// grace period (default 90 days) is the reversible window — long enough that a
+// mistaken reap can be spotted and restored before it's gone for good. Applies to
+// ANY soft-deleted list, not just reaped ones (a general purge keyed on deleted_at
+// age). Cascades to each list's snapshots, which hold full-copy payloads and are
+// the real storage weight; an empty reaped list rarely has any, but other
+// soft-deleted lists can.
+export const LIST_PURGE_GRACE_DAYS = Math.max(1, Number(process.env.LIST_PURGE_GRACE_DAYS) || 90);
+
+/**
+ * Permanently delete lists soft-deleted more than `graceDays` ago (+ their
+ * snapshots). Batched (`limit`) like the reaper so one run can't issue an unbounded
+ * delete. Returns how many list rows were purged.
+ */
+export async function purgeDeletedLists(
+  db?: Db,
+  opts?: { graceDays?: number; limit?: number },
+): Promise<{ purged: number }> {
+  const d = db ?? (await useDb());
+  const graceDays = Math.max(1, Math.floor(opts?.graceDays ?? LIST_PURGE_GRACE_DAYS));
+  const limit = Math.max(1, Math.min(REAP_BATCH_MAX, Math.floor(opts?.limit ?? 5_000)));
+  const cutoff = new Date(Date.now() - graceDays * 86_400_000);
+
+  const doomed = await d
+    .select({ id: lists.id })
+    .from(lists)
+    .where(and(isNotNull(lists.deletedAt), lt(lists.deletedAt, cutoff)))
+    .limit(limit);
+  if (!doomed.length) return { purged: 0 };
+  const ids = doomed.map((r) => r.id);
+
+  // drop child snapshots first (no DB-level FK, so this is manual), then the rows
+  await ensureSnapshotSchema(d);
+  await d.delete(listSnapshots).where(inArray(listSnapshots.listId, ids));
+  await d.delete(lists).where(inArray(lists.id, ids));
+  return { purged: ids.length };
 }
 
 export async function rotateEditToken(editToken: string): Promise<string | null> {
