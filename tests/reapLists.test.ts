@@ -25,6 +25,13 @@ const oneItem: ListData = {
   folders: [],
   items: [{ id: "i1", folderId: null, name: "Tent", unitWeightMg: 500_000, qty: 1, classification: null, sortOrder: 0 }],
 };
+const twoItems: ListData = {
+  folders: [],
+  items: [
+    { id: "i1", folderId: null, name: "Tent", unitWeightMg: 500_000, qty: 1, classification: null, sortOrder: 0 },
+    { id: "i2", folderId: null, name: "Quilt", unitWeightMg: 400_000, qty: 1, classification: null, sortOrder: 1 },
+  ],
+};
 
 let seq = 0;
 async function seed(
@@ -59,8 +66,8 @@ const liveIds = async (db: Awaited<ReturnType<typeof freshDb>>) =>
     .filter((r) => r.deletedAt == null)
     .map((r) => r.id);
 
-describe("reapAbandonedLists — soft-deletes only abandoned empty lists", () => {
-  it("reaps a stale, empty, never-published list", async () => {
+describe("reapAbandonedLists — soft-deletes near-empty abandoned lists", () => {
+  it("reaps a stale empty (0-item) list", async () => {
     const db = await freshDb();
     const row = await seed(db, { updatedAt: stale() });
     const { reaped } = await reapAbandonedLists(db);
@@ -69,38 +76,39 @@ describe("reapAbandonedLists — soft-deletes only abandoned empty lists", () =>
     expect(after.deletedAt).toBeInstanceOf(Date); // soft-deleted, not hard-deleted
   });
 
-  it("leaves recently-touched empty lists alone (within the window)", async () => {
-    const db = await freshDb();
-    await seed(db, { updatedAt: new Date(Date.now() - 5 * DAY) });
-    const { reaped } = await reapAbandonedLists(db);
-    expect(reaped).toBe(0);
-  });
-
-  it("never reaps a list that has items", async () => {
+  it("reaps a stale one-item list", async () => {
     const db = await freshDb();
     await seed(db, { updatedAt: stale(), itemCount: 1, data: oneItem });
     const { reaped } = await reapAbandonedLists(db);
-    expect(reaped).toBe(0);
+    expect(reaped).toBe(1);
   });
 
-  it("guards against a drifted item_count rollup (empty count, non-empty data)", async () => {
+  it("NEVER reaps a real list (2+ items), however stale — the Loowit rule", async () => {
     const db = await freshDb();
-    // item_count says 0 but the JSONB actually holds an item → must NOT be reaped
-    await seed(db, { updatedAt: stale(), itemCount: 0, data: oneItem });
+    // a finished list untouched for a year must survive: staleness is not grounds
+    await seed(db, { updatedAt: new Date(Date.now() - 365 * DAY), itemCount: 2, data: twoItems });
     const { reaped } = await reapAbandonedLists(db);
     expect(reaped).toBe(0);
   });
 
-  it("never reaps a public list, even if empty + stale", async () => {
+  it("leaves a near-empty list touched within the window (staleness is only a debounce)", async () => {
     const db = await freshDb();
-    await seed(db, { updatedAt: stale(), isPublic: true });
+    await seed(db, { updatedAt: new Date(Date.now() - 5 * DAY), itemCount: 1, data: oneItem });
     const { reaped } = await reapAbandonedLists(db);
     expect(reaped).toBe(0);
   });
 
-  it("never reaps a once-published list (published_at set), even if unpublished + empty", async () => {
+  it("publish status is not a factor — reaps a public/once-published near-empty list", async () => {
     const db = await freshDb();
-    await seed(db, { updatedAt: stale(), isPublic: false, publishedAt: stale() });
+    await seed(db, { updatedAt: stale(), itemCount: 1, data: oneItem, isPublic: true, publishedAt: stale() });
+    const { reaped } = await reapAbandonedLists(db);
+    expect(reaped).toBe(1);
+  });
+
+  it("guards against a drifted item_count (rollup says 0 but data holds 2 items)", async () => {
+    const db = await freshDb();
+    // the actual JSONB item array (2) wins over a stale count → real list, survives
+    await seed(db, { updatedAt: stale(), itemCount: 0, data: twoItems });
     const { reaped } = await reapAbandonedLists(db);
     expect(reaped).toBe(0);
   });
@@ -116,18 +124,17 @@ describe("reapAbandonedLists — soft-deletes only abandoned empty lists", () =>
 
   it("reaps only the eligible rows in a mixed table", async () => {
     const db = await freshDb();
-    const doomed1 = await seed(db, { updatedAt: stale() });
-    const doomed2 = await seed(db, { updatedAt: stale() });
+    const doomedEmpty = await seed(db, { updatedAt: stale() });
+    const doomedOne = await seed(db, { updatedAt: stale(), itemCount: 1, data: oneItem });
     const keepFresh = await seed(db, { updatedAt: new Date() });
-    const keepItems = await seed(db, { updatedAt: stale(), itemCount: 1, data: oneItem });
-    const keepPublic = await seed(db, { updatedAt: stale(), isPublic: true });
+    const keepReal = await seed(db, { updatedAt: new Date(Date.now() - 365 * DAY), itemCount: 2, data: twoItems });
 
     const { reaped } = await reapAbandonedLists(db);
     expect(reaped).toBe(2);
     const live = await liveIds(db);
-    expect(live.sort()).toEqual([keepFresh.id, keepItems.id, keepPublic.id].sort());
-    expect(live).not.toContain(doomed1.id);
-    expect(live).not.toContain(doomed2.id);
+    expect(live.sort()).toEqual([keepFresh.id, keepReal.id].sort());
+    expect(live).not.toContain(doomedEmpty.id);
+    expect(live).not.toContain(doomedOne.id);
   });
 
   it("respects a custom staleDays window", async () => {

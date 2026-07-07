@@ -3,7 +3,7 @@
 // leaves this module.
 
 import { createError } from "h3";
-import { and, desc, eq, inArray, isNotNull, isNull, lt, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull, lt, lte, sql } from "drizzle-orm";
 import { catalogItems, lists, listSnapshots, type ListRow } from "../db/schema";
 import {
   applyOps,
@@ -442,26 +442,29 @@ export async function applyOpsByEditToken(
   throw createError({ statusCode: 409, statusMessage: "Save contention — retry" });
 }
 
-// ---- maintenance: reap abandoned empty lists ------------------------------
-// The editor never creates a server row until a list has real content (see
-// useGearList.hasRealContent), so a persisted list with ZERO items and no public
-// footprint is either a fully-emptied draft or direct-API junk — nothing
-// recoverable. Left alone they only accrete, padding the table and burning
-// slug/share-code space. A nightly cron soft-deletes the stale ones.
+// ---- maintenance: reap near-empty abandoned lists -------------------------
+// A pack list with 0 or 1 items isn't a real list — the editor won't even create a
+// server row until a list has real content (useGearList.hasRealContent), so these
+// are fully-emptied drafts or direct-API junk. Left alone they only accrete,
+// padding the table and burning slug/share-code space. A nightly cron soft-deletes
+// the stale ones.
 //
-// Soft-delete (deleted_at, mirroring the rest of the schema) is deliberately
-// conservative: it drops the row from every live query and frees the
-// slug/share_code/edit_token (the unique indexes are WHERE deleted_at IS NULL) —
-// and stays reversible, so a mistaken reap loses nothing. The predicate is
-// strict on purpose: only NEVER-public (is_public=false AND published_at IS NULL),
-// genuinely-empty rows untouched for the window are eligible.
+// The CONTENT test is item count (<= 1): a real list (2+ items) is NEVER eligible,
+// however old — staleness is NOT grounds to delete a real list (a finished list can
+// sit untouched forever and must survive). Staleness (updated_at) is only a
+// debounce so we don't reap a near-empty list that's being actively built right
+// now. Publish status is deliberately NOT a factor. Soft-delete (deleted_at,
+// mirroring the rest of the schema) drops the row from every live query, frees the
+// slug/share_code/edit_token (the unique indexes are WHERE deleted_at IS NULL), and
+// stays reversible.
 export const LIST_REAP_STALE_DAYS = Math.max(1, Number(process.env.LIST_REAP_STALE_DAYS) || 30);
 const REAP_BATCH_MAX = 10_000;
 
 /**
- * Soft-delete abandoned empty lists (0 items, never public, untouched for
- * `staleDays`). Batched (`limit`) so one run can never issue an unbounded delete —
- * a backlog just drains over successive nights. Returns how many were reaped.
+ * Soft-delete near-empty abandoned lists (<= 1 item, untouched for `staleDays`).
+ * Real lists (2+ items) are never eligible, however stale. Batched (`limit`) so one
+ * run can never issue an unbounded delete — a backlog just drains over successive
+ * nights. Returns how many were reaped.
  */
 export async function reapAbandonedLists(
   db?: Db,
@@ -475,8 +478,8 @@ export async function reapAbandonedLists(
   // Select the eligible ids first (bounded), then soft-delete them and count via
   // RETURNING — a reliable affected-row count across both the neon-http and PGlite
   // drivers. The jsonb_array_length guard is belt-and-suspenders: reap only rows
-  // whose ACTUAL item array is empty, so a drifted item_count rollup can't cause a
-  // non-empty list to be reaped.
+  // whose ACTUAL item array holds <= 1 item, so a drifted item_count rollup can't
+  // cause a real (2+ item) list to be reaped.
   const candidates = await d
     .select({ id: lists.id })
     .from(lists)
@@ -484,10 +487,8 @@ export async function reapAbandonedLists(
       and(
         eq(lists.status, "active"),
         isNull(lists.deletedAt),
-        eq(lists.isPublic, false),
-        isNull(lists.publishedAt),
-        eq(lists.itemCount, 0),
-        sql`jsonb_array_length(coalesce(${lists.data} -> 'items', '[]'::jsonb)) = 0`,
+        lte(lists.itemCount, 1),
+        sql`jsonb_array_length(coalesce(${lists.data} -> 'items', '[]'::jsonb)) <= 1`,
         lt(lists.updatedAt, cutoff),
       ),
     )
