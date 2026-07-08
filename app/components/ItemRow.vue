@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ChevronDown, GripVertical, StickyNotePlus, StickyNoteX, Trash2, X } from "@lucide/vue";
 import type { Classification, Item, ListSnapshot, Unit } from "~~/shared/types";
+import type { ItemPatch } from "~~/shared/ops";
 import { effectiveClassification, formatWeight, fromMg, itemDisplayName, lineMg, parseWeightInput } from "~~/shared/weights";
 import { waterMgFromMl } from "~~/shared/water";
 
@@ -125,7 +126,7 @@ function onNameCommit(p: {
   catalogItemId?: number;
   classification?: Classification;
 }) {
-  const patch: Partial<Item> = { name: p.name };
+  const patch: ItemPatch = { name: p.name };
   if (p.catalogItemId != null) {
     // a catalog pick: store brand/model/variant structured, link, and let
     // live-resolve keep the name fresh ("" clears any prior brand/variant)
@@ -138,9 +139,12 @@ function onNameCommit(p: {
     patch.nameOverridden = false;
   } else {
     // free text / water / trailing weight → a user-owned custom name: drop the
-    // catalog-derived brand/variant and mark it so live-resolve won't overwrite it
+    // catalog-derived brand/variant AND the catalog link itself — renaming to a
+    // different product (or a like-item "upgrade") must not stay linked to the
+    // old row, or its weight-drift nudge would fire from the wrong product
     patch.brand = "";
     patch.variant = "";
+    patch.catalogItemId = null;
     patch.nameOverridden = true;
     if (p.weightMg != null) {
       // a resolved weight with no catalog link (e.g. a water volume → fixed grams)

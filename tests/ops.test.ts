@@ -41,6 +41,32 @@ describe("op reducer", () => {
     expect(s.items[0].name).toBe("Y");
   });
 
+  it("catalogItemId: null unlinks (free rename → custom item); number re-links; absent leaves it", () => {
+    const s = base();
+    applyOps(s, [
+      { t: "addItem", item: { id: "i1", folderId: "f1", name: "Multi Towel Lite", brand: "REI Co-op", variant: "Small", unitWeightMg: 21262, qty: 1, classification: null, sortOrder: 0, catalogItemId: 769, catalogWeightMgAtLink: 21262 } },
+    ]);
+    // an unrelated edit leaves the link untouched
+    applyOps(s, [{ t: "updateItem", id: "i1", patch: { qty: 2 } }]);
+    expect(s.items[0].catalogItemId).toBe(769);
+    // free rename to a different product: the old link must NOT survive
+    applyOps(s, [
+      { t: "updateItem", id: "i1", patch: { name: "Matador Ultralight Travel Towel", brand: "", variant: "", catalogItemId: null, nameOverridden: true } },
+    ]);
+    expect(s.items[0].catalogItemId).toBeUndefined();
+    expect(s.items[0].catalogWeightMgAtLink).toBeUndefined();
+    expect(s.items[0].name).toBe("Matador Ultralight Travel Towel");
+    // a null unlink also wins over a stray link-weight in the same patch
+    applyOps(s, [{ t: "updateItem", id: "i1", patch: { catalogItemId: null, catalogWeightMgAtLink: 19000 } }]);
+    expect(s.items[0].catalogWeightMgAtLink).toBeUndefined();
+    // picking from autocomplete re-links
+    applyOps(s, [
+      { t: "updateItem", id: "i1", patch: { catalogItemId: 840, catalogWeightMgAtLink: 19000, unitWeightMg: 19000, nameOverridden: false } },
+    ]);
+    expect(s.items[0].catalogItemId).toBe(840);
+    expect(s.items[0].catalogWeightMgAtLink).toBe(19000);
+  });
+
   it("removes a folder and its items", () => {
     const s = base();
     applyOps(s, [
