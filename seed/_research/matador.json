@@ -208,6 +208,17 @@
       "weight_source": "manufacturer",
       "source_url": "https://www.matadorequipment.com/products/global-travel-stash",
       "quote": "Weight: 4.3oz (120g)"
+    },
+    {
+      "brand": "Matador",
+      "name": "Ultralight Travel Towel",
+      "variant": "Small",
+      "category_hint": "other",
+      "weight_value": 19,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.matadorequipment.com/products/ultralight-travel-towel-small",
+      "quote": "Weight: 0.7oz (19g) — 'Ultralight Travel Towel - Small', 15 x 15 in nanofiber."
     }
   ]
 }
