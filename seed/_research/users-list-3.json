@@ -1,0 +1,214 @@
+{
+  "_comment": "Third pass over user-typed items staged in prod catalog_candidates (2026-07-07). Every open candidate that resolved to a real, citable product. Notable: all four suspected test entries (Alpenblow, Igneous NOBO, Tark, Trailbrush) turned out to be real cottage products.",
+  "rows": [
+    {
+      "brand": "Apple",
+      "name": "Apple Watch Series 6",
+      "variant": "40mm, Aluminum, GPS",
+      "category_hint": "electronics",
+      "weight_value": 30.5,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://support.apple.com/en-us/111918",
+      "quote": "Weight — 40mm: Aluminum: 30.5g (Apple Watch Series 6 Technical Specifications; Apple doesn't split GPS vs Cellular for aluminum)."
+    },
+    {
+      "brand": "Snow Peak",
+      "name": "GigaPower Fuel 110 Gold",
+      "variant": "110g canister, net fuel",
+      "category_hint": "consumable",
+      "weight_value": 110,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://web.archive.org/web/20191212224444/https://snowpeak.com/products/gigapower-fuel-110-gold-gp-110g",
+      "quote": "Fuel Weight: 3.9oz (110g); full-canister Weight: 7.5oz (212.6g). Net-fuel convention, matching the MSR IsoPro rows. SKU GP-110G; live snowpeak.com URL now 404s, cited from Snow Peak's own archived page."
+    },
+    {
+      "brand": "BearVault",
+      "name": "BV ONE Adjustable Bear Canister",
+      "variant": null,
+      "category_hint": "other",
+      "weight_value": 895,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://bearvault.com/products/bv-one",
+      "quote": "Weight: 1.97 lb (1 lb 15 oz / 895 g). 2026 release — first adjustable/telescoping canister (4.65-8.3L, IGBC #255500; not approved for Yosemite/SEKI)."
+    },
+    {
+      "brand": "Platypus",
+      "name": "SoftBottle",
+      "variant": "1L",
+      "category_hint": "water",
+      "weight_value": 29,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://cascadedesigns.com/products/softbottle",
+      "quote": "Weight: 1.0 oz. (29 g) — current closure-cap model (part 11530); older push-pull listings show 1.2 oz."
+    },
+    {
+      "brand": "Black Diamond",
+      "name": "Alpenglow Pro Hoody",
+      "variant": "Women's",
+      "category_hint": "clothing",
+      "weight_value": 189,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://blackdiamondequipment.com/products/womens-alpenglow-pro-hoody",
+      "quote": "Weight: 189 g (spec metafield on the live page; the 230-270 g per-size figures in the Shopify variant JSON are shipping weights)."
+    },
+    {
+      "brand": "Patagonia",
+      "name": "Wild Trails Sports Bra",
+      "variant": null,
+      "category_hint": "clothing",
+      "weight_value": 113,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://web.archive.org/web/20240424025155/https://www.patagonia.com/product/womens-wild-trails-sports-bra/32045.html",
+      "quote": "Weight 113 g (4 oz). Live patagonia.com bot-blocks; cited from the archived official product page."
+    },
+    {
+      "brand": "Smartwool",
+      "name": "Classic Thermal Merino Base Layer Quarter-Zip",
+      "variant": "Women's",
+      "category_hint": "clothing",
+      "weight_value": 8.32,
+      "weight_unit": "oz",
+      "weight_source": "measured",
+      "source_url": "https://web.archive.org/web/20250808170303/https://www.rei.com/product/235798/smartwool-classic-thermal-merino-quarter-zip-base-layer-top-womens",
+      "quote": "The approximate garment weight is 8.32 oz. (236 g) — official REI staff answer in the product Q&A (neither Smartwool nor REI's spec tab publishes a weight); matches a user-measured 236 g."
+    },
+    {
+      "brand": "Arc'teryx",
+      "name": "Sinsola Cinch Cap",
+      "variant": null,
+      "category_hint": "clothing",
+      "weight_value": 36,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://arcteryx.com/us/en/shop/sinsola-cinch-cap-0182",
+      "quote": "Weight: 36g / 1.3 oz. A real current product, distinct from the Sinsola Hat."
+    },
+    {
+      "brand": "Montbell",
+      "name": "Tempest Jacket",
+      "variant": "Men's",
+      "category_hint": "clothing",
+      "weight_value": 259,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.montbell.com/us/en/products/detail/2328313",
+      "quote": "259 g / 9.1 oz (271 g / 9.6 oz incl. stuff sack) — GORE-TEX rain shell, US #2328313 men's; women's is #2328314. User typed just 'Mont bell tempest'."
+    },
+    {
+      "brand": "Nemo",
+      "name": "Fillo Elite",
+      "variant": null,
+      "category_hint": "sleep",
+      "weight_value": 3,
+      "weight_unit": "oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.nemoequipment.com/products/fillo-elite-backpacking-pillow",
+      "quote": "Ultralight (3 ounces!) (85 g) — nemoequipment.com publishes the Elite's weight only in ounces."
+    },
+    {
+      "brand": "Sea to Summit",
+      "name": "Aeros Ultralight Pillow",
+      "variant": "Regular",
+      "category_hint": "sleep",
+      "weight_value": 55,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://seatosummit.com/products/aeros-pillow-ultra-light",
+      "quote": "Weight: 55 g / 1.9 oz (Packed Weight: 57 g / 2.0 oz) — Regular size."
+    },
+    {
+      "brand": "Big Agnes",
+      "name": "Lost Ranger 3N1 15F",
+      "variant": "Regular",
+      "category_hint": "sleep",
+      "weight_value": 1247,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.wearbap.com/products/lost-ranger-3n1-015",
+      "quote": "Total Weight: 2lb 12oz (1247 g); Inner Bag 1lb 3oz, Outer Bag 1lb 9oz — full 3N1 system, Regular. Spec from Big Agnes's company storefront (bigagnes.com renders the same table as an image); Shopify JSON 1261 g likely includes the stuff sack."
+    },
+    {
+      "brand": "Big Agnes",
+      "name": "Tiger Wall UL2 Footprint",
+      "variant": null,
+      "category_hint": "shelter",
+      "weight_value": 5,
+      "weight_unit": "oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.wearbap.com/collections/staff-picks/products/tiger-wall-ul-two-footprint",
+      "quote": "Weight: 5oz (142 g) — spec-page footprint weight, not the 168 g Shopify JSON shipping/packed figure."
+    },
+    {
+      "brand": "Nalgene",
+      "name": "Wide Mouth Ultralite Bottle",
+      "variant": "32oz / 1L, HDPE",
+      "category_hint": "water",
+      "weight_value": 106.25,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://nalgene.com/product/32oz-wide-mouth-ultralite-bottle/",
+      "quote": "3.75 oz (106.25g) — HDPE Ultralite, distinct from the 177 g Tritan Wide Mouth already cataloged."
+    },
+    {
+      "brand": "Sunski",
+      "name": "Tera",
+      "variant": null,
+      "category_hint": "other",
+      "weight_value": 26.1,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://sunski.com/products/og-tera",
+      "quote": "Weight: 26.1 g (polarized; sunglasses filed under other, matching the Treeline row)."
+    },
+    {
+      "brand": "Alpenglow Gear",
+      "name": "Alpenblow Classic Micro Inflator",
+      "variant": null,
+      "category_hint": "electronics",
+      "weight_value": 8.6,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://alpenglowgear.co/products/alpenblow",
+      "quote": "Weight: 8.60 g (0.30 oz) — USB-powered sleeping-pad micro inflator; brand is Alpenglow Gear, 'Alpenblow' is the product."
+    },
+    {
+      "brand": "Igneous",
+      "name": "NOBO Bottle",
+      "variant": "1L, HDPE",
+      "category_hint": "water",
+      "weight_value": 65,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://igneousgear.com/products/nobo-bottle",
+      "quote": "Weight: 65 g (spec table; description paragraph says 64 g) — 1L HDPE bottle with Smartwater-compatible 28-410 threads."
+    },
+    {
+      "brand": "Suluk 46",
+      "name": "Tark Titanium Backpacking Trowel",
+      "variant": "Hybrid",
+      "category_hint": "other",
+      "weight_value": 16,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://suluk46.com/product/tark-ultralight-backpacking-trowels/",
+      "quote": "Tark Hybrid Titanium: 16 g — other variants: Compact 10 g, Large 19 g. Brand is Suluk 46 (Canada)."
+    },
+    {
+      "brand": "Zpacks",
+      "name": "Trailbrush",
+      "variant": "brush only",
+      "category_hint": "other",
+      "weight_value": 2,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://zpacks.com/products/trailbrush-w-5g-colgate-toothpaste",
+      "quote": "Brush - 0.07 oz (2 g) — brush head that mounts on a titanium spoon/spork handle; sold as 'Trailbrush w/ 5g Colgate Toothpaste'."
+    }
+  ]
+}
