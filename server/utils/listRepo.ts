@@ -3,7 +3,7 @@
 // leaves this module.
 
 import { createError } from "h3";
-import { and, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull, lt, lte, sql } from "drizzle-orm";
 import { catalogItems, lists, listSnapshots, type ListRow } from "../db/schema";
 import {
   applyOps,
@@ -440,6 +440,110 @@ export async function applyOpsByEditToken(
   // extreme contention: refuse rather than silently drop the caller's ops.
   // The client's flush() catch re-queues and retries (no ops lost).
   throw createError({ statusCode: 409, statusMessage: "Save contention — retry" });
+}
+
+// ---- maintenance: reap near-empty abandoned lists -------------------------
+// A pack list with 0 or 1 items isn't a real list — the editor won't even create a
+// server row until a list has real content (useGearList.hasRealContent), so these
+// are fully-emptied drafts or direct-API junk. Left alone they only accrete,
+// padding the table and burning slug/share-code space. A nightly cron soft-deletes
+// the stale ones.
+//
+// The CONTENT test is item count (<= 1): a real list (2+ items) is NEVER eligible,
+// however old — staleness is NOT grounds to delete a real list (a finished list can
+// sit untouched forever and must survive). Staleness (updated_at) is only a
+// debounce so we don't reap a near-empty list that's being actively built right
+// now. Publish status is deliberately NOT a factor. Soft-delete (deleted_at,
+// mirroring the rest of the schema) drops the row from every live query, frees the
+// slug/share_code/edit_token (the unique indexes are WHERE deleted_at IS NULL), and
+// stays reversible.
+export const LIST_REAP_STALE_DAYS = Math.max(1, Number(process.env.LIST_REAP_STALE_DAYS) || 30);
+const REAP_BATCH_MAX = 10_000;
+
+/**
+ * Soft-delete near-empty abandoned lists (<= 1 item, untouched for `staleDays`).
+ * Real lists (2+ items) are never eligible, however stale. Batched (`limit`) so one
+ * run can never issue an unbounded delete — a backlog just drains over successive
+ * nights. Returns how many were reaped.
+ */
+export async function reapAbandonedLists(
+  db?: Db,
+  opts?: { staleDays?: number; limit?: number },
+): Promise<{ reaped: number }> {
+  const d = db ?? (await useDb());
+  const staleDays = Math.max(1, Math.floor(opts?.staleDays ?? LIST_REAP_STALE_DAYS));
+  const limit = Math.max(1, Math.min(REAP_BATCH_MAX, Math.floor(opts?.limit ?? 5_000)));
+  const cutoff = new Date(Date.now() - staleDays * 86_400_000);
+
+  // Select the eligible ids first (bounded), then soft-delete them and count via
+  // RETURNING — a reliable affected-row count across both the neon-http and PGlite
+  // drivers. The jsonb_array_length guard is belt-and-suspenders: reap only rows
+  // whose ACTUAL item array holds <= 1 item, so a drifted item_count rollup can't
+  // cause a real (2+ item) list to be reaped.
+  const candidates = await d
+    .select({ id: lists.id })
+    .from(lists)
+    .where(
+      and(
+        eq(lists.status, "active"),
+        isNull(lists.deletedAt),
+        lte(lists.itemCount, 1),
+        sql`jsonb_array_length(coalesce(${lists.data} -> 'items', '[]'::jsonb)) <= 1`,
+        lt(lists.updatedAt, cutoff),
+      ),
+    )
+    .limit(limit);
+  if (!candidates.length) return { reaped: 0 };
+
+  const ids = candidates.map((c) => c.id);
+  const now = new Date();
+  // no-arg .returning() — the neon-http | PGlite union's only shared overload
+  // (same constraint discoveryRepo.reportList notes). We only need the row count.
+  const reaped = await d
+    .update(lists)
+    .set({ deletedAt: now, updatedAt: now })
+    .where(inArray(lists.id, ids))
+    .returning();
+  return { reaped: reaped.length };
+}
+
+// Second stage: HARD-delete rows that have sat soft-deleted past the grace window,
+// so the storage is actually reclaimed (soft-delete alone only hides the row). The
+// grace period (default 90 days) is the reversible window — long enough that a
+// mistaken reap can be spotted and restored before it's gone for good. Applies to
+// ANY soft-deleted list, not just reaped ones (a general purge keyed on deleted_at
+// age). Cascades to each list's snapshots, which hold full-copy payloads and are
+// the real storage weight; an empty reaped list rarely has any, but other
+// soft-deleted lists can.
+export const LIST_PURGE_GRACE_DAYS = Math.max(1, Number(process.env.LIST_PURGE_GRACE_DAYS) || 90);
+
+/**
+ * Permanently delete lists soft-deleted more than `graceDays` ago (+ their
+ * snapshots). Batched (`limit`) like the reaper so one run can't issue an unbounded
+ * delete. Returns how many list rows were purged.
+ */
+export async function purgeDeletedLists(
+  db?: Db,
+  opts?: { graceDays?: number; limit?: number },
+): Promise<{ purged: number }> {
+  const d = db ?? (await useDb());
+  const graceDays = Math.max(1, Math.floor(opts?.graceDays ?? LIST_PURGE_GRACE_DAYS));
+  const limit = Math.max(1, Math.min(REAP_BATCH_MAX, Math.floor(opts?.limit ?? 5_000)));
+  const cutoff = new Date(Date.now() - graceDays * 86_400_000);
+
+  const doomed = await d
+    .select({ id: lists.id })
+    .from(lists)
+    .where(and(isNotNull(lists.deletedAt), lt(lists.deletedAt, cutoff)))
+    .limit(limit);
+  if (!doomed.length) return { purged: 0 };
+  const ids = doomed.map((r) => r.id);
+
+  // drop child snapshots first (no DB-level FK, so this is manual), then the rows
+  await ensureSnapshotSchema(d);
+  await d.delete(listSnapshots).where(inArray(listSnapshots.listId, ids));
+  await d.delete(lists).where(inArray(lists.id, ids));
+  return { purged: ids.length };
 }
 
 export async function rotateEditToken(editToken: string): Promise<string | null> {
