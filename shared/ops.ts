@@ -7,9 +7,17 @@
 import type { Classification, Folder, Item, ListState, Unit } from "./types";
 import { UNITS } from "./types";
 
+// updateItem's patch: Partial<Item> plus `catalogItemId: null` as an explicit
+// "unlink" — a free rename turns a linked item into a custom one, and the old
+// product's link must not survive the rename (it would keep feeding the
+// weight-drift nudge from a product the user no longer has).
+export type ItemPatch = Omit<Partial<Item>, "catalogItemId"> & {
+  catalogItemId?: number | null;
+};
+
 export type Op =
   | { t: "addItem"; item: Item }
-  | { t: "updateItem"; id: string; patch: Partial<Item> }
+  | { t: "updateItem"; id: string; patch: ItemPatch }
   | { t: "removeItem"; id: string }
   | { t: "moveItem"; id: string; folderId: string | null; sortOrder: number }
   | { t: "addFolder"; folder: Folder }
@@ -30,7 +38,7 @@ const clampWeight = (n: number) =>
   Math.max(0, Math.min(UNIT_WEIGHT_MAX_MG, Math.round(n)));
 
 // Defensive clamps so a malformed op (or hostile client) can't corrupt state.
-function cleanItemPatch(patch: Partial<Item>): Partial<Item> {
+function cleanItemPatch(patch: ItemPatch): Partial<Item> {
   const out: Partial<Item> = {};
   if (typeof patch.name === "string") out.name = patch.name.slice(0, 200);
   // brand/variant: a non-empty string sets it; "" clears it (so a free rename can
@@ -47,11 +55,15 @@ function cleanItemPatch(patch: Partial<Item>): Partial<Item> {
   if (patch.classification === null || (typeof patch.classification === "string" && CLASSES.includes(patch.classification)))
     out.classification = patch.classification;
   if (typeof patch.weightOverridden === "boolean") out.weightOverridden = patch.weightOverridden;
-  // catalog link fields — settable on re-link (rename to a catalog item) and on
-  // dismissing the "suggest a fix" nudge (re-baseline to the current weight)
-  if (typeof patch.catalogItemId === "number" && isFinite(patch.catalogItemId))
+  // catalog link fields — a number re-links (rename to a catalog pick, or the
+  // nudge re-baselining to the current weight); null UNLINKS both fields (free
+  // rename → now a custom item, the old product's link must not survive)
+  if (patch.catalogItemId === null) {
+    out.catalogItemId = undefined;
+    out.catalogWeightMgAtLink = undefined;
+  } else if (typeof patch.catalogItemId === "number" && isFinite(patch.catalogItemId))
     out.catalogItemId = patch.catalogItemId;
-  if (typeof patch.catalogWeightMgAtLink === "number" && isFinite(patch.catalogWeightMgAtLink))
+  if (patch.catalogItemId !== null && typeof patch.catalogWeightMgAtLink === "number" && isFinite(patch.catalogWeightMgAtLink))
     out.catalogWeightMgAtLink = clampWeight(patch.catalogWeightMgAtLink);
   if (typeof patch.packed === "boolean") out.packed = patch.packed;
   if (typeof patch.sortOrder === "number" && isFinite(patch.sortOrder)) out.sortOrder = patch.sortOrder;

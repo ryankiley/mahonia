@@ -1,4 +1,4 @@
-import type { Op } from "~~/shared/ops";
+import type { ItemPatch, Op } from "~~/shared/ops";
 import { applyOps } from "~~/shared/ops";
 import { uid } from "~~/shared/id";
 import { nextFolderColor, STARTER_FOLDERS } from "~~/shared/categories";
@@ -459,7 +459,7 @@ function create() {
     pendingBlankId.value = null;
     dispatch({ t: "removeItem", id }); // quiet — no undo toast for an abandoned blank
   }
-  function updateItem(id: string, patch: Partial<Item>) {
+  function updateItem(id: string, patch: ItemPatch) {
     // any real edit means this row is no longer an untouched blank to clean up
     if (pendingBlankId.value === id) pendingBlankId.value = null;
     dispatch({ t: "updateItem", id, patch });
