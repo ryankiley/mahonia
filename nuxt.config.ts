@@ -201,6 +201,15 @@ export default defineNuxtConfig({
         { name: "twitter:card", content: "summary_large_image" },
         { name: "twitter:image", content: "https://mahonia.app/og.jpg" },
       ],
+      link: [
+        // Icon set (files in public/). The SVG is the primary favicon (vector,
+        // dark-mode aware); the ICO is the legacy/RSS fallback — Safari takes the
+        // apple-touch-icon since it ignores SVG favicons.
+        { rel: "icon", href: "/favicon.ico", sizes: "32x32" },
+        { rel: "icon", href: "/icon.svg", type: "image/svg+xml" },
+        { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
+        { rel: "manifest", href: "/manifest.webmanifest" },
+      ],
     },
   },
 
