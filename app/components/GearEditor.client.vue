@@ -3,12 +3,15 @@ import { Backpack, Ellipsis, Share2, SquareCheck, Undo2 } from "@lucide/vue";
 import { listToMarkdown } from "~~/shared/exporters/markdown";
 import { listToCsv } from "~~/shared/exporters/csv";
 import { uid } from "~~/shared/id";
+import { editLinkPath } from "~~/shared/links";
 import type { Item, ListSnapshot } from "~~/shared/types";
 import { bySortOrder, formatWeightAuto, groupItemsByFolder } from "~~/shared/weights";
 
-// The editor opts out of the default layout (its own sticky topbar + flex shell),
-// but renders the shared SiteFooter at the bottom so the footer is the same site-wide.
-definePageMeta({ layout: false });
+// The whole editor surface (its own sticky topbar + flex shell + the shared
+// SiteFooter). Rendered by the page routes: /e (bare, ssr:false) and /e/[code]
+// (client-only under a server-rendered <head>). It is CLIENT-ONLY — it holds a
+// singleton controller with IndexedDB + window listeners, so it never runs on the
+// server (the /e/[code] page wraps it in <ClientOnly>; /e is ssr:false).
 
 const c = useGearList();
 const router = useRouter();
@@ -23,12 +26,10 @@ const pendingUndo = c.pendingUndo;
 // unnamed draft (the bare-domain landing) keeps the generic site card, so the
 // static nuxt.config card that unfurls the bare domain is unchanged.
 //
-// Caveat: /e is ssr:false and the edit token lives in the URL *fragment* (never
-// sent to the server), so a link-preview bot fetching an edit link can't know which
-// list it is — these tags are set client-side. They cover the browser tab,
-// bookmarks, and in-app share targets that read live metadata, but NOT JS-less
-// unfurl bots (iMessage/Slack/…). The read-only link (/s/…) is SSR and is the
-// unfurl-friendly share.
+// This runs client-side, so it drives the browser tab + in-app share targets. The
+// SERVER-rendered name that JS-less unfurl bots (Apple Notes/iMessage/Slack) read
+// comes from the /e/[code] route's <head> — that's why the shareable edit link
+// embeds the share code in its path.
 const GENERIC_TITLE = "Mahonia — pack lists, weighed";
 const GENERIC_DESC = "Make a packing list, see what it weighs, share it. No login.";
 // "if given" — the default "Untitled list" (or an empty name) counts as not named,
@@ -210,13 +211,16 @@ function copyShare() {
 function copyEditLink() {
   if (!c.editToken) return flash("Add an item first to get an edit link");
   if (!confirm("Anyone with this link can edit your list. Only send it to people you trust.")) return;
-  copy(`${origin()}/e#${c.editToken}`, "Edit link copied");
+  // /e/{shareCode}#{token} so link previews (Apple Notes/iMessage) show the name;
+  // token stays in the fragment (see shared/links.editLinkPath)
+  copy(`${origin()}${editLinkPath(snapshot.value?.shareCode, c.editToken)}`, "Edit link copied");
 }
 async function rotate() {
   if (!confirm("Make the old edit link stop working and create a new one?")) return;
   const next = await c.rotate();
   if (next) {
-    history.replaceState(null, "", `/e#${next}`);
+    // keep the pretty path (rotate only swaps the token, not the share code)
+    history.replaceState(null, "", editLinkPath(snapshot.value?.shareCode, next));
     flash("Edit link rotated");
   }
 }
@@ -242,7 +246,8 @@ async function cloneList() {
     method: "POST",
     body: { title: `${snapshot.value.title || "Untitled list"} (copy)`, data: { folders, items } },
   });
-  router.push(`/e#${useMyLists().registerCreated(res, totals.value?.totalMg ?? 0)}`);
+  const token = useMyLists().registerCreated(res, totals.value?.totalMg ?? 0);
+  router.push(editLinkPath(res.snapshot.shareCode, token));
   flash("List duplicated");
 }
 function download(filename: string, text: string, type: string) {

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { csvToListData } from "~~/shared/exporters/csv";
 import { lighterpackId } from "~~/shared/lighterpack";
+import { editLinkPath } from "~~/shared/links";
 import type { ListData, ListSnapshot } from "~~/shared/types";
 
 // "Import a list" dialog — mint a NEW list from a LighterPack share link, a
@@ -43,7 +44,7 @@ async function createFrom(data: ListData) {
       body: { title: "Imported list", data },
     });
     emit("close");
-    router.push(`/e#${myLists.registerCreated(res)}`);
+    router.push(editLinkPath(res.snapshot.shareCode, myLists.registerCreated(res)));
   } catch {
     error.value = "Import failed — check the CSV and try again.";
   } finally {

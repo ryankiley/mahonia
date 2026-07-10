@@ -45,17 +45,21 @@ export default defineNuxtConfig({
       // below handles the editor shell explicitly instead.
       navigateFallback: "",
       runtimeCaching: [
-        // editor shell — Nuxt serves /e dynamically (ssr:false), so there's no
-        // static HTML to precache; cache the navigation response instead so a prior
-        // online visit lets the editor boot offline. NetworkFirst keeps online users
-        // on the fresh shell (so its referenced chunks match the live precache).
+        // editor shell — Nuxt serves the editor dynamically (the bare /e is
+        // ssr:false; /e/{shareCode} is SSR for its <head>), so there's no static HTML
+        // to precache; cache the navigation response instead so a prior online visit
+        // lets the editor boot offline. The pattern covers BOTH the bare /e and the
+        // named-link /e/{shareCode} so a saved pretty link opens offline too.
+        // NetworkFirst keeps online users on the fresh shell (so its referenced
+        // chunks match the live precache).
         {
-          urlPattern: /\/e\/?$/,
+          urlPattern: /\/e(?:\/[^/]+)?\/?$/,
           handler: "NetworkFirst",
           options: {
             cacheName: "mahonia-shell",
+            // room for the bare shell + several distinct /e/{shareCode} links
             networkTimeoutSeconds: 3,
-            expiration: { maxEntries: 4, maxAgeSeconds: 60 * 60 * 24 * 7 },
+            expiration: { maxEntries: 16, maxAgeSeconds: 60 * 60 * 24 * 7 },
           },
         },
         // public read views — mirror their stale-while-revalidate edge headers so a
@@ -222,6 +226,13 @@ export default defineNuxtConfig({
     // opening the site forwards straight into the editor, which starts an unsaved
     // draft — no list row is created until you actually add content
     "/": { redirect: "/e" },
-    "/e": { ssr: false },
+    // The editor routes (/e and /e/{shareCode}) are SSR, but the editor BODY is a
+    // client-only component (GearEditor.client.vue — IndexedDB, the singleton
+    // controller, window refs), so it still runs only in the browser and no list data
+    // is rendered server-side. SSR exists purely for the <head>: /e stays the generic
+    // site card, while /e/{shareCode} resolves the list's name (by its PUBLIC share
+    // code) so link-preview bots unfurl it. The secret edit token lives in the URL
+    // fragment and is never sent to the server. (Previously /e was ssr:false; that
+    // rule also suppressed data/head SSR on the nested /e/{shareCode} route.)
   },
 });
