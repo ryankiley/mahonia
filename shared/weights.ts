@@ -117,6 +117,16 @@ export function lineMg(item: Pick<Item, "qty" | "unitWeightMg">): number {
   return Math.max(0, item.qty) * Math.max(0, item.unitWeightMg);
 }
 
+/** Units of a line that count as worn via the wornQty split.
+ *  0 when the split doesn't apply (no wornQty, or effective class ≠ base). */
+export function splitWornQty(
+  item: Pick<Item, "qty" | "wornQty">,
+  cls: Classification,
+): number {
+  if (cls !== "base" || item.wornQty == null) return 0;
+  return Math.max(0, Math.min(Math.round(item.wornQty), Math.max(0, item.qty)));
+}
+
 /** Items belonging to a folder (or null = ungrouped), in array order. */
 export function itemsInFolder<T extends { folderId: string | null }>(
   items: readonly T[],
@@ -182,6 +192,12 @@ export function computeTotals(list: ListData): Totals {
       "base";
     if (cls === "worn") wornMg += line;
     else if (cls === "consumable") consumableMg += line;
+    else {
+      // a base line can carry a worn split (e.g. 3 pairs of socks, 1 worn) —
+      // move that portion into worn; the remainder stays in the derived base
+      const wq = splitWornQty(item, cls);
+      if (wq > 0) wornMg += wq * Math.max(0, item.unitWeightMg);
+    }
   }
 
   return {

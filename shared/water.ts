@@ -4,6 +4,9 @@
 // Water counts as a consumable (see Classification in types.ts), so it stays out
 // of base weight.
 
+import type { Classification } from "./types";
+import { splitWornQty } from "./weights";
+
 /** Milligrams of water per millilitre (water ≈ 1 g/mL = 1000 mg/mL). */
 const WATER_MG_PER_ML = 1000;
 
@@ -68,8 +71,14 @@ export function waterLiters(unitWeightMg: number): string {
 /**
  * The static (read-only + checklist) views' amount label: water's "amount" is its
  * volume in litres (matching the editable row's litres field), so it reads "2 L"
- * rather than a meaningless "×1"; everything else keeps its ×quantity.
+ * rather than a meaningless "×1"; everything else keeps its ×quantity. Pass the
+ * row's effective classification to surface a worn split ("×3 · 1 worn").
  */
-export function itemQtyLabel(item: { name: string; qty: number; unitWeightMg: number }): string {
-  return isWaterName(item.name) ? `${waterLiters(item.unitWeightMg) || "0"} L` : `×${item.qty}`;
+export function itemQtyLabel(
+  item: { name: string; qty: number; unitWeightMg: number; wornQty?: number },
+  cls?: Classification,
+): string {
+  if (isWaterName(item.name)) return `${waterLiters(item.unitWeightMg) || "0"} L`;
+  const wq = cls ? splitWornQty(item, cls) : 0;
+  return wq > 0 ? `×${item.qty} · ${wq} worn` : `×${item.qty}`;
 }

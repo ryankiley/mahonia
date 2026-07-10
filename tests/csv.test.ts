@@ -37,6 +37,21 @@ describe("CSV round-trip", () => {
     // "On Body" defaults worn → export writes Worn=1 → import sets classification worn
     expect(jacket.classification).toBe("worn");
   });
+
+  it("round-trips a worn split via its own Worn Qty column", () => {
+    const s = snap();
+    s.items.push({ id: "i3", folderId: "f1", name: "Socks", unitWeightMg: 100000, qty: 3, wornQty: 1, classification: null, sortOrder: 1 });
+    const csv = listToCsv(s);
+    expect(csv.split("\n")[0]).toContain("Worn Qty");
+    const data = csvToListData(csv);
+    const socks = data.items.find((i) => i.name === "Socks")!;
+    expect(socks.wornQty).toBe(1);
+    expect(socks.classification).toBeNull(); // still a base row, NOT fully worn
+    // the fully-worn jacket keeps the boolean Worn column and gains no split
+    const jacket = data.items.find((i) => i.name === "Rain jacket")!;
+    expect(jacket.classification).toBe("worn");
+    expect(jacket.wornQty).toBeUndefined();
+  });
 });
 
 describe("CSV formula-injection guard", () => {

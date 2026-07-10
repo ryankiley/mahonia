@@ -52,8 +52,16 @@ function cleanItemPatch(patch: ItemPatch): Partial<Item> {
     out.unitWeightMg = clampWeight(patch.unitWeightMg);
   if (typeof patch.qty === "number" && isFinite(patch.qty))
     out.qty = Math.max(0, Math.min(9999, Math.round(patch.qty)));
+  if (typeof patch.wornQty === "number" && isFinite(patch.wornQty)) {
+    const wq = Math.round(patch.wornQty);
+    out.wornQty = wq > 0 ? Math.min(9999, wq) : undefined; // ≤0 clears the split
+  }
   if (patch.classification === null || (typeof patch.classification === "string" && CLASSES.includes(patch.classification)))
     out.classification = patch.classification;
+  // an explicit worn/consumable classification makes the split meaningless —
+  // clear it in the same patch (wins over any wornQty also present)
+  if (out.classification === "worn" || out.classification === "consumable")
+    out.wornQty = undefined;
   if (typeof patch.weightOverridden === "boolean") out.weightOverridden = patch.weightOverridden;
   // catalog link fields — a number re-links (rename to a catalog pick, or the
   // nudge re-baselining to the current weight); null UNLINKS both fields (free
@@ -99,7 +107,15 @@ function applyOp(state: ListState, op: Op): void {
       break;
     case "updateItem": {
       const it = state.items.find((i) => i.id === op.id);
-      if (it) Object.assign(it, cleanItemPatch(op.patch || {}));
+      if (it) {
+        Object.assign(it, cleanItemPatch(op.patch || {}));
+        // wornQty can never exceed qty — re-clamp after ANY patch (needs the
+        // item's current qty, which cleanItemPatch can't see)
+        if (it.wornQty != null) {
+          const wq = Math.min(it.wornQty, it.qty);
+          it.wornQty = wq > 0 ? wq : undefined;
+        }
+      }
       break;
     }
     case "removeItem":
@@ -149,6 +165,12 @@ export function applyOps(state: ListState, ops: Op[]): ListState {
 }
 
 export function normalizeItem(raw: Item): Item {
+  const qty = Math.max(0, Math.min(9999, Math.round(Number(raw.qty) || 1)));
+  const classification = CLASSES.includes(raw.classification as Classification)
+    ? (raw.classification as Classification)
+    : null;
+  const wornQtyRaw =
+    typeof raw.wornQty === "number" && isFinite(raw.wornQty) ? Math.round(raw.wornQty) : 0;
   return {
     id: String(raw.id),
     folderId: typeof raw.folderId === "string" ? raw.folderId : null,
@@ -158,10 +180,14 @@ export function normalizeItem(raw: Item): Item {
     nameOverridden: raw.nameOverridden ? true : undefined,
     unitWeightMg: clampWeight(Number(raw.unitWeightMg) || 0),
     weightOverridden: !!raw.weightOverridden,
-    qty: Math.max(0, Math.min(9999, Math.round(Number(raw.qty) || 1))),
-    classification: CLASSES.includes(raw.classification as Classification)
-      ? (raw.classification as Classification)
-      : null,
+    qty,
+    // the split is a refinement of a base-effective line; an explicit
+    // worn/consumable item can't carry one (folder inheritance resolves at compute time)
+    wornQty:
+      wornQtyRaw > 0 && qty > 0 && classification !== "worn" && classification !== "consumable"
+        ? Math.min(wornQtyRaw, qty)
+        : undefined,
+    classification,
     description: raw.description ? String(raw.description).slice(0, 2000) : undefined,
     productUrl: raw.productUrl ? String(raw.productUrl).slice(0, 2000) : undefined,
     imageUrl: raw.imageUrl ? String(raw.imageUrl).slice(0, 2000) : undefined,

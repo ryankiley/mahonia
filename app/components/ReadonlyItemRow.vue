@@ -17,7 +17,7 @@ const effClass = computed(() => effectiveClassification(props.item, props.list.f
     <span class="item__roname">
       <ItemName :item="item" search /><span v-if="effClass !== 'base'" class="t-sm item__class"> · {{ effClass }}</span>
     </span>
-    <span class="t-num t-sm t-muted item__roqty">{{ itemQtyLabel(item) }}</span>
+    <span class="t-num t-sm t-muted item__roqty">{{ itemQtyLabel(item, effClass) }}</span>
     <span class="t-num item__roweight"><template v-if="item.unitWeightMg > 0">{{ formatWeight(lineMg(item), list.displayUnit, { withUnit: false }) }}<span class="t-muted item__wunit">{{ list.displayUnit }}</span></template><template v-else>—</template></span>
   </div>
 </template>
