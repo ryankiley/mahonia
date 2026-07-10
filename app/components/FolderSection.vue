@@ -2,12 +2,16 @@
 import { ChevronDown, GripVertical, Trash2 } from "@lucide/vue";
 import type { Folder, Item, ListSnapshot } from "~~/shared/types";
 
+// The editor's folder — editable by default, a checklist in packing mode. The
+// share views (/s + /l) render ReadonlyFolderSection instead, so this component
+// (and the editor graph it pulls in) never ships to a read-only page.
+//
 // `items` is this folder's items, pre-grouped + sorted by the parent (one
 // groupItemsByFolder pass per snapshot) — so an edit anywhere in the list
 // doesn't make every folder re-filter the whole item array.
 const props = withDefaults(
-  defineProps<{ list: ListSnapshot; folder: Folder; items: Item[]; packed?: boolean; readonly?: boolean }>(),
-  { packed: false, readonly: false },
+  defineProps<{ list: ListSnapshot; folder: Folder; items: Item[]; packed?: boolean }>(),
+  { packed: false },
 );
 const c = useGearList();
 
@@ -51,17 +55,13 @@ function addBlank() {
   c.addBlankItem(props.folder.id);
 }
 
-// collapse: the chevron shows/hides the folder body. In the EDITABLE view it's
-// persisted per folder id so a collapsed folder stays collapsed across reloads
-// (pure UI state, never sent to the server). The read-only shared views (/s, /l)
-// deliberately DON'T read or write this: they always start with every folder open
-// so the owner's collapse state can't bleed into a shared link (folder ids — and
-// thus the localStorage keys — are shared across views in the same browser). A
-// viewer may still collapse locally, but that choice is never persisted.
+// collapse: the chevron shows/hides the folder body, persisted per folder id so a
+// collapsed folder stays collapsed across reloads (pure UI state, never sent to the
+// server). The read-only views keep their own local-only collapse (see
+// ReadonlyFolderSection) so the owner's state can't bleed into a shared link.
 const COLLAPSE_KEY = `gear.fold.${props.folder.id}`;
 const collapsed = ref(false);
 onMounted(() => {
-  if (props.readonly) return; // shared views always start expanded
   try {
     collapsed.value = localStorage.getItem(COLLAPSE_KEY) === "1";
   } catch {
@@ -70,7 +70,6 @@ onMounted(() => {
 });
 function toggleCollapsed() {
   collapsed.value = !collapsed.value;
-  if (props.readonly) return; // don't persist/sync collapse from a shared view
   try {
     localStorage.setItem(COLLAPSE_KEY, collapsed.value ? "1" : "0");
   } catch {
@@ -86,11 +85,9 @@ function toggleCollapsed() {
     :data-collapsed="collapsed || null"
     :class="{ 'folder--dragging': isFolderDragging, 'folder--drop-before': isDropBefore, 'folder--drop-after': isDropAfter }"
   >
-    <header class="folder__head" :class="{ 'folder__head--ro': readonly, 'folder__head--packed': packed }">
+    <header class="folder__head" :class="{ 'folder__head--packed': packed }">
       <div class="folder__title">
-        <span v-if="readonly" class="folder__name">{{ folder.name }}</span>
         <input
-          v-else
           class="field folder__name"
           :value="folder.name"
           :disabled="packed"
@@ -109,7 +106,7 @@ function toggleCollapsed() {
           <ChevronDown class="folder__chev" :class="{ 'is-collapsed': collapsed }" :size="18" :stroke-width="2" />
         </button>
       </div>
-      <div v-if="!packed && !readonly" class="folder__actions">
+      <div v-if="!packed" class="folder__actions">
         <button
           class="btn btn--icon btn--ghost folder__del"
           title="Remove folder"
@@ -135,13 +132,12 @@ function toggleCollapsed() {
     <div class="folder__body">
       <div class="folder__bodyinner" :class="{ 'is-dragpass': anyItemDrag && !collapsed, 'is-acopen': acOpenCount > 0 }">
         <TransitionGroup name="item" tag="div" class="folder__items">
-          <ItemRow v-for="it in items" :key="it.id" :list="list" :item="it" :packed="packed" :readonly="readonly" @autocomplete-toggle="onAcToggle" />
-          <p v-if="!items.length && readonly" key="empty-ro" class="t-sm t-muted folder__empty">—</p>
+          <ItemRow v-for="it in items" :key="it.id" :list="list" :item="it" :packed="packed" @autocomplete-toggle="onAcToggle" />
         </TransitionGroup>
 
         <div v-if="isAppendTarget" class="folder__droptail" aria-hidden="true" />
 
-        <div v-if="!packed && !readonly" class="folder__add">
+        <div v-if="!packed" class="folder__add">
           <button type="button" class="folder__addbtn" @click="addBlank">Add an item</button>
         </div>
       </div>
@@ -183,15 +179,8 @@ function toggleCollapsed() {
   align-items: baseline;
   margin-bottom: var(--space-1);
 }
-.folder__head--ro {
-  grid-template-columns: var(--item-cols-ro);
-}
 .folder__head--packed {
   grid-template-columns: auto var(--item-cols-ro);
-}
-/* read view: just the name */
-.folder__head--ro .folder__title {
-  grid-column: 1 / 4;
 }
 /* the name sits flush at the page edge (aligned with item names); the collapse
    chevron sits just to its right; remove + grip are the trailing columns */
@@ -384,9 +373,6 @@ function toggleCollapsed() {
 }
 .folder__items > * + * {
   border-top: 1px solid var(--line);
-}
-.folder__empty {
-  color: var(--ink-3);
 }
 /* drag-to-reorder: insertion line when dropping at the end of this folder */
 .folder__droptail {

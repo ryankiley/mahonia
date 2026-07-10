@@ -53,3 +53,23 @@ export function formatVolume(ml: number): string {
   }
   return `${Math.round(ml)} mL`;
 }
+
+/** Exact "water" only — so "Water filter" stays a normal item, not a litres row. */
+export function isWaterName(name: string): boolean {
+  return /^water$/i.test(name.trim());
+}
+
+/** A water row's volume in litres as the bare number its fields show ("1.75"), or "" at zero. */
+export function waterLiters(unitWeightMg: number): string {
+  const l = unitWeightMg / 1_000_000;
+  return l > 0 ? String(Number(l.toFixed(2))) : "";
+}
+
+/**
+ * The static (read-only + checklist) views' amount label: water's "amount" is its
+ * volume in litres (matching the editable row's litres field), so it reads "2 L"
+ * rather than a meaningless "×1"; everything else keeps its ×quantity.
+ */
+export function itemQtyLabel(item: { name: string; qty: number; unitWeightMg: number }): string {
+  return isWaterName(item.name) ? `${waterLiters(item.unitWeightMg) || "0"} L` : `×${item.qty}`;
+}

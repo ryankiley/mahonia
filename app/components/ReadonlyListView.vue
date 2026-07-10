@@ -6,7 +6,7 @@ import { groupItemsByFolder } from "~~/shared/weights";
 // the same totals + folder/ungrouped block over the same useReadonlyList view-model
 // (kept in the page); only the head, footer, and missing-state copy differ, so those
 // are slots. This is purely the shared template + .view CSS — no data shaping
-// (beyond the per-folder grouping every FolderSection consumes).
+// (beyond the per-folder grouping every ReadonlyFolderSection consumes).
 const props = defineProps<{
   list: ListSnapshot | null;
   totals: Totals | null;
@@ -16,7 +16,7 @@ const props = defineProps<{
 
 defineEmits<{ "set-unit": [Unit] }>();
 
-// one grouping pass for all folders (FolderSection takes its items pre-grouped)
+// one grouping pass for all folders (ReadonlyFolderSection takes its items pre-grouped)
 const itemsByFolder = computed(() => groupItemsByFolder(props.list?.items ?? []));
 const NO_ITEMS: Item[] = [];
 </script>
@@ -30,10 +30,10 @@ const NO_ITEMS: Item[] = [];
     <TotalsBar :list="list" :totals="totals" @set-unit="(u) => $emit('set-unit', u)" />
 
     <div class="view__folders">
-      <FolderSection v-for="f in shownFolders" :key="f.id" :list="list" :folder="f" :items="itemsByFolder.get(f.id) ?? NO_ITEMS" readonly />
+      <ReadonlyFolderSection v-for="f in shownFolders" :key="f.id" :list="list" :folder="f" :items="itemsByFolder.get(f.id) ?? NO_ITEMS" />
       <section v-if="ungrouped.length">
         <p class="t-label view__ungrouped">Ungrouped</p>
-        <ItemRow v-for="it in ungrouped" :key="it.id" :list="list" :item="it" readonly />
+        <ReadonlyItemRow v-for="it in ungrouped" :key="it.id" :list="list" :item="it" />
       </section>
     </div>
 

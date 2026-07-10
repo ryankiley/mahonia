@@ -8,29 +8,25 @@ import { LISTS_DDL } from "../server/utils/db";
 import { sha256Hex } from "../server/utils/tokens";
 import {
   bumpView,
-  getFeed,
   getPublicBySlug,
   getPublishState,
+  listPublicSlugs,
   publishList,
   reportList,
   restoreList,
 } from "../server/utils/discoveryRepo";
 import {
-  cardFromRow,
   categorySegments,
   countLinks,
   decidePublish,
   isLikelySpam,
-  normalizeLimit,
   normalizeSeason,
   normalizeTripType,
-  normalizeView,
-  sparkTop3,
 } from "../shared/discovery";
 import type { ListData } from "../shared/types";
 
 // ===========================================================================
-// Pure logic (no DB) — this is where the real feed logic lives + is tested.
+// Pure logic (no DB) — this is where the real discovery logic lives + is tested.
 // ===========================================================================
 
 describe("facet normalizers — closed enums, sanitize by allow-list", () => {
@@ -38,7 +34,7 @@ describe("facet normalizers — closed enums, sanitize by allow-list", () => {
     expect(normalizeTripType("thru-hike")).toBe("thru-hike");
     expect(normalizeTripType("  Car-Camping ")).toBe("car-camping");
   });
-  it("rejects anything else (no arbitrary strings into the feed)", () => {
+  it("rejects anything else (no arbitrary strings into public metadata)", () => {
     expect(normalizeTripType("<script>")).toBeUndefined();
     expect(normalizeTripType("")).toBeUndefined();
     expect(normalizeTripType(null)).toBeUndefined();
@@ -47,18 +43,6 @@ describe("facet normalizers — closed enums, sanitize by allow-list", () => {
   it("normalizes seasons the same way", () => {
     expect(normalizeSeason("THREE-season")).toBe("three-season");
     expect(normalizeSeason("monsoon")).toBeUndefined();
-  });
-});
-
-describe("feed view + limit normalizers", () => {
-  it("defaults to recent and clamps the limit", () => {
-    expect(normalizeView(undefined)).toBe("recent");
-    expect(normalizeView("light")).toBe("light");
-    expect(normalizeView("garbage")).toBe("recent");
-    expect(normalizeLimit("5")).toBe(5);
-    expect(normalizeLimit(999)).toBe(60); // FEED_LIMIT_MAX
-    expect(normalizeLimit("nope")).toBe(24); // default
-    expect(normalizeLimit(-3)).toBe(24);
   });
 });
 
@@ -110,53 +94,18 @@ const dataWithWeights = (): ListData => ({
   ],
 });
 
-describe("category sparkline (the one colour on a card)", () => {
-  it("sums folder weights, top-3 + rolls the rest into other", () => {
+describe("category segments (CategoryBar's data)", () => {
+  it("sums folder weights, heaviest first", () => {
     const segs = categorySegments(dataWithWeights());
     expect(segs.map((s) => s.colorKey)).toEqual(["shelter", "sleep", "pack", "kitchen"]);
-    const top = sparkTop3(dataWithWeights());
-    expect(top).toHaveLength(4); // top 3 + an "other" remainder
-    expect(top[3]).toMatchObject({ colorKey: "other", mg: 100_000 });
-    expect(top.slice(0, 3).map((s) => s.colorKey)).toEqual(["shelter", "sleep", "pack"]);
+    expect(segs[0]).toMatchObject({ name: "Shelter", mg: 500_000 });
   });
   it("returns nothing for a weightless list (weight is optional)", () => {
     const empty: ListData = {
       folders: [{ id: "f1", name: "X", defaultClassification: "base", sortOrder: 0 }],
       items: [{ id: "i1", folderId: "f1", name: "Thing", unitWeightMg: 0, qty: 1, classification: null, sortOrder: 0 }],
     };
-    expect(sparkTop3(empty)).toEqual([]);
-  });
-});
-
-describe("cardFromRow — public shape, never leaks the id", () => {
-  it("maps a row to a card with only public fields", () => {
-    const card = cardFromRow({
-      publicSlug: "my-kit-abc123",
-      shareCode: "ABC123XYZ789",
-      title: "My kit",
-      itemCount: 4,
-      tripType: "thru-hike",
-      season: "three-season",
-      baseWeightMg: 1_300_000,
-      totalWeightMg: 1_300_000,
-      publishedAt: new Date("2026-06-01T00:00:00Z"),
-      data: dataWithWeights(),
-    });
-    expect(card.slug).toBe("my-kit-abc123");
-    expect(card.tripTypeLabel).toBe("Thru-hike");
-    expect(card.seasonLabel).toBe("Three-season");
-    expect(card.hasWeights).toBe(true);
-    expect(card.spark.length).toBeGreaterThan(0);
-    expect(card).not.toHaveProperty("id");
-    expect(card.publishedAt).toBe("2026-06-01T00:00:00.000Z");
-  });
-  it("marks a weightless list as hasWeights:false", () => {
-    const card = cardFromRow({
-      publicSlug: "s", shareCode: "c", title: "t", itemCount: 1,
-      baseWeightMg: 0, totalWeightMg: 0, data: { folders: [], items: [] },
-    });
-    expect(card.hasWeights).toBe(false);
-    expect(card.spark).toEqual([]);
+    expect(categorySegments(empty)).toEqual([]);
   });
 });
 
@@ -274,58 +223,27 @@ describe("getPublicBySlug — public-only, no id/token leak", () => {
   });
 });
 
-describe("getFeed — filters + sort", () => {
-  async function feedFixture() {
+describe("listPublicSlugs — the sitemap's visibility gate", () => {
+  it("lists only public + active + unflagged + non-empty lists", async () => {
     const db = await freshDb();
-    // light, recent-ish
-    await seed(db, { isPublic: true, itemCount: 5, baseWeightMg: 3_000_000, totalWeightMg: 3_000_000, publishedAt: new Date("2026-01-01"), viewCount: 1, tripType: "thru-hike" });
-    // lightest
-    await seed(db, { isPublic: true, itemCount: 5, baseWeightMg: 1_000_000, totalWeightMg: 1_000_000, publishedAt: new Date("2026-02-01"), viewCount: 9, tripType: "car-camping" });
-    // newest, no weight
-    await seed(db, { isPublic: true, itemCount: 5, baseWeightMg: 0, totalWeightMg: 0, publishedAt: new Date("2026-03-01"), viewCount: 3, tripType: "thru-hike" });
-    // excluded: empty
-    await seed(db, { isPublic: true, itemCount: 0, baseWeightMg: 500_000, publishedAt: new Date("2026-04-01") });
-    // excluded: private
-    await seed(db, { isPublic: false, itemCount: 5, baseWeightMg: 200_000, publishedAt: new Date("2026-05-01") });
-    // excluded: hidden
-    await seed(db, { isPublic: true, status: "hidden", itemCount: 5, baseWeightMg: 100_000, publishedAt: new Date("2026-06-01") });
-    // excluded: flagged (reported/spam) — NEWEST, so its absence from `recent` proves exclusion
-    await seed(db, { isPublic: true, flagged: true, itemCount: 5, baseWeightMg: 50_000, publishedAt: new Date("2026-07-01"), tripType: "thru-hike" });
-    return db;
-  }
-
-  it("recent: newest first, hides empty/private/hidden", async () => {
-    const db = await feedFixture();
-    const cards = await getFeed({ view: "recent" }, db);
-    expect(cards).toHaveLength(3);
-    expect(cards[0]!.publishedAt!.startsWith("2026-03")).toBe(true);
-  });
-  it("popular: most-viewed first", async () => {
-    const db = await feedFixture();
-    const cards = await getFeed({ view: "popular" }, db);
-    expect(cards[0]!.totalWeightMg).toBe(1_000_000); // the viewCount:9 one
-  });
-  it("light: lightest base weight first, weightless excluded", async () => {
-    const db = await feedFixture();
-    const cards = await getFeed({ view: "light" }, db);
-    expect(cards).toHaveLength(2); // the zero-base one drops out
-    expect(cards[0]!.baseWeightMg).toBe(1_000_000);
-  });
-  it("filters by trip type", async () => {
-    const db = await feedFixture();
-    const cards = await getFeed({ view: "recent", tripType: "thru-hike" }, db);
-    expect(cards).toHaveLength(2);
-    expect(cards.every((c) => c.tripType === "thru-hike")).toBe(true);
+    const { row } = await seed(db, { isPublic: true, itemCount: 5, publishedAt: new Date("2026-03-01") });
+    await seed(db, { isPublic: true, itemCount: 0, publishedAt: new Date("2026-04-01") }); // empty
+    await seed(db, { isPublic: false, itemCount: 5, publishedAt: new Date("2026-05-01") }); // private
+    await seed(db, { isPublic: true, status: "hidden", itemCount: 5, publishedAt: new Date("2026-06-01") }); // takedown
+    await seed(db, { isPublic: true, flagged: true, itemCount: 5, publishedAt: new Date("2026-07-01") }); // reported/spam
+    const slugs = await listPublicSlugs(db);
+    expect(slugs).toHaveLength(1);
+    expect(slugs[0]!.slug).toBe(row.publicSlug);
   });
 });
 
 describe("reportList + bumpView", () => {
-  it("report withholds a list from the feed + read view but keeps the owner's access", async () => {
+  it("report withholds a list from public discovery but keeps the owner's access", async () => {
     const db = await freshDb();
     const { row } = await seed(db, { isPublic: true, itemCount: 3, baseWeightMg: 1_000_000, publishedAt: new Date() });
-    expect(await getFeed({}, db)).toHaveLength(1);
+    expect(await listPublicSlugs(db)).toHaveLength(1);
     expect(await reportList(row.publicSlug, db)).toBe(true);
-    expect(await getFeed({}, db)).toHaveLength(0);
+    expect(await listPublicSlugs(db)).toHaveLength(0);
     expect(await getPublicBySlug(row.publicSlug, db)).toBeNull();
     // owner is NOT locked out: status stays active, so listRepo's /e + /s still resolve
     const after = (await db.select().from(lists))[0]!;
@@ -334,13 +252,13 @@ describe("reportList + bumpView", () => {
     // idempotent: a second report on an already-flagged list changes nothing
     expect(await reportList(row.publicSlug, db)).toBe(false);
   });
-  it("restoreList clears the flag so a falsely-reported list returns to the feed", async () => {
+  it("restoreList clears the flag so a falsely-reported list returns to discovery", async () => {
     const db = await freshDb();
     const { row } = await seed(db, { isPublic: true, itemCount: 3, baseWeightMg: 1_000_000, publishedAt: new Date() });
     await reportList(row.publicSlug, db);
-    expect(await getFeed({}, db)).toHaveLength(0);
+    expect(await listPublicSlugs(db)).toHaveLength(0);
     expect(await restoreList(row.publicSlug, db)).toBe(true);
-    expect(await getFeed({}, db)).toHaveLength(1); // back in discovery
+    expect(await listPublicSlugs(db)).toHaveLength(1); // back in discovery
     expect(await getPublicBySlug(row.publicSlug, db)).not.toBeNull();
     // restoring an unflagged list is a no-op
     expect(await restoreList(row.publicSlug, db)).toBe(false);

@@ -1,6 +1,8 @@
 // Debounced, abortable catalog autocomplete client. Consumes /api/catalog/search
 // (the catalog session's endpoint): fuzzy, ranked verified→usage→similarity.
 
+import type { useCatalogCache } from "./useCatalogCache";
+
 export interface CatalogResult {
   id: number;
   brand: string | null;
@@ -15,10 +17,17 @@ export function useCatalogSearch() {
   const results = ref<CatalogResult[]>([]);
   // When the offline flag is on, accumulate an on-device catalog cache from the
   // results the user sees (no bulk endpoint — zero new scraping surface) and fall
-  // back to it if the live search can't reach the network. Flag off → inert; this
-  // behaves exactly as before (server-only).
-  const cache = useOfflineEnabled() ? useCatalogCache() : null;
-  if (cache) void cache.prime();
+  // back to it if the live search can't reach the network. The cache module (and
+  // the shared ranking + IDB code behind it) loads DYNAMICALLY so flag-off users
+  // never download it; until it resolves, the null cache is simply live-search-only
+  // — exactly the flag-off behavior.
+  let cache: ReturnType<typeof useCatalogCache> | null = null;
+  if (useOfflineEnabled()) {
+    void import("./useCatalogCache").then((m) => {
+      cache = m.useCatalogCache();
+      void cache.prime();
+    });
+  }
   let timer: ReturnType<typeof setTimeout> | undefined;
   let controller: AbortController | undefined;
   let lastQ = "";
