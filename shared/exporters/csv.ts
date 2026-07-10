@@ -3,7 +3,7 @@
 
 import type { ListData, ListSnapshot, Unit } from "../types";
 import { nextFolderColor } from "../categories";
-import { effectiveClassification, fromMg, itemDisplayName, itemsInFolder, toMg, UNIT_ALIASES } from "../weights";
+import { effectiveClassification, fromMg, itemDisplayName, itemsInFolder, splitWornQty, toMg, UNIT_ALIASES } from "../weights";
 import { uid } from "../id";
 
 // Delegate to the shared unit vocabulary (weights.UNIT_ALIASES) so a CSV / LighterPack
@@ -41,11 +41,14 @@ export function listToCsv(list: ListSnapshot): string {
     list.folders.find((f) => f.id === id)?.name ?? "";
 
   const out = [
-    "Category,Item Name,Brand,Qty,Weight,Unit,Worn,Consumable,Price,URL,Description",
+    "Category,Item Name,Brand,Qty,Weight,Unit,Worn,Consumable,Price,URL,Description,Worn Qty",
   ];
   for (const it of list.items) {
     const cls = effectiveClassification(it, list.folders);
     const w = it.unitWeightMg > 0 ? +fromMg(it.unitWeightMg, u).toFixed(u === "g" ? 0 : 3) : "";
+    // the split gets its OWN column: the boolean Worn column can't carry a count
+    // (a split row must not import back as fully worn)
+    const wq = splitWornQty(it, cls);
     out.push(
       [
         esc(folderName(it.folderId)),
@@ -60,6 +63,7 @@ export function listToCsv(list: ListSnapshot): string {
         it.priceCents != null ? (it.priceCents / 100).toFixed(2) : "",
         esc(it.productUrl ?? ""),
         esc(it.description ?? ""),
+        wq > 0 ? wq : "",
       ].join(","),
     );
   }
@@ -108,6 +112,7 @@ export function csvToListData(text: string, defaultUnit: Unit = "g"): ListData {
   const iUnit = idx(["unit", "units"]);
   const iWorn = idx(["worn"]);
   const iCons = idx(["consumable", "consumables"]);
+  const iWornQty = idx(["worn qty", "wornqty", "worn quantity"]);
   const iPrice = idx(["price", "cost"]);
   const iUrl = idx(["url", "link", "product url"]);
   const iDesc = idx(["desc", "description", "notes", "note"]);
@@ -143,6 +148,10 @@ export function csvToListData(text: string, defaultUnit: Unit = "g"): ListData {
       : iCons >= 0 && truthy(row[iCons])
         ? "consumable"
         : null;
+    // the worn split only applies to base rows (normalizeItem re-clamps server-side)
+    const wornQtyVal = iWornQty >= 0 && classification === null
+      ? Math.round(parseFloat(row[iWornQty] || "") || 0)
+      : 0;
     const priceVal = iPrice >= 0 ? parseFloat((row[iPrice] || "").replace(/[^0-9.]/g, "")) : NaN;
 
     items.push({
@@ -152,6 +161,7 @@ export function csvToListData(text: string, defaultUnit: Unit = "g"): ListData {
       brand: iBrand >= 0 && row[iBrand]?.trim() ? stripFormulaGuard(row[iBrand].trim()) : undefined,
       unitWeightMg,
       qty,
+      wornQty: wornQtyVal > 0 ? Math.min(wornQtyVal, qty) : undefined,
       classification,
       description: iDesc >= 0 && row[iDesc]?.trim() ? stripFormulaGuard(row[iDesc].trim()) : undefined,
       productUrl: iUrl >= 0 && row[iUrl]?.trim() ? stripFormulaGuard(row[iUrl].trim()) : undefined,

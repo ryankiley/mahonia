@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatVolume, parseVolumeMl, waterMgFromMl } from "../shared/water";
+import { formatVolume, itemQtyLabel, parseVolumeMl, waterMgFromMl } from "../shared/water";
 
 describe("parseVolumeMl — human volume → millilitres", () => {
   it("reads litres (the default for a bare number) and millilitres", () => {
@@ -48,5 +48,20 @@ describe("formatVolume — tidy labels", () => {
     expect(formatVolume(2000)).toBe("2 L");
     expect(formatVolume(500)).toBe("500 mL");
     expect(formatVolume(946.352)).toBe("946 mL");
+  });
+});
+
+describe("itemQtyLabel — amount labels incl. the worn split", () => {
+  const socks = { name: "Socks", qty: 3, unitWeightMg: 100_000, wornQty: 1 };
+  it("shows the worn split on a base line", () => {
+    expect(itemQtyLabel(socks, "base")).toBe("×3 · 1 worn");
+  });
+  it("keeps the plain ×qty when the class is worn or the split is absent", () => {
+    expect(itemQtyLabel(socks, "worn")).toBe("×3");
+    expect(itemQtyLabel({ ...socks, wornQty: undefined }, "base")).toBe("×3");
+    expect(itemQtyLabel(socks)).toBe("×3"); // no class passed = legacy behavior
+  });
+  it("keeps water as a volume label regardless of any split", () => {
+    expect(itemQtyLabel({ name: "Water", qty: 1, unitWeightMg: 2_000_000, wornQty: 1 }, "base")).toBe("2 L");
   });
 });

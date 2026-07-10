@@ -29,6 +29,10 @@ export interface Item {
   unitWeightMg: number; // the user's truth for THIS list, integer milligrams
   weightOverridden?: boolean;
   qty: number;
+  // of qty units, this many count as WORN; remainder = the row's effective class.
+  // Only meaningful when the effective classification is "base" (a refinement of
+  // the base line — NOT a second classification field). Absent/0 = no split. 0..qty.
+  wornQty?: number;
   classification: Classification | null; // null = inherit folder default
   description?: string; // optional freeform user text
   productUrl?: string;

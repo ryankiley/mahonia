@@ -6,6 +6,7 @@ import {
   formatWeightAuto,
   fromMg,
   parseWeightInput,
+  splitWornQty,
   toMg,
 } from "../shared/weights";
 import type { Folder, Item } from "../shared/types";
@@ -131,6 +132,62 @@ describe("computeTotals: base = total − worn − consumable", () => {
     });
     expect(t.hasWeights).toBe(false);
     expect(t.totalMg).toBe(0);
+  });
+});
+
+describe("splitWornQty — the wornQty split applies only to base lines", () => {
+  it("returns the clamped worn count on a base line", () => {
+    expect(splitWornQty({ qty: 3, wornQty: 1 }, "base")).toBe(1);
+    expect(splitWornQty({ qty: 3, wornQty: 5 }, "base")).toBe(3); // clamped to qty
+    expect(splitWornQty({ qty: 3, wornQty: 3 }, "base")).toBe(3); // all worn
+  });
+  it("returns 0 when absent or on worn/consumable lines", () => {
+    expect(splitWornQty({ qty: 3 }, "base")).toBe(0);
+    expect(splitWornQty({ qty: 3, wornQty: 1 }, "worn")).toBe(0);
+    expect(splitWornQty({ qty: 3, wornQty: 1 }, "consumable")).toBe(0);
+  });
+});
+
+describe("computeTotals with a worn split (one row, some units worn)", () => {
+  const folders = [folder("pack", "base"), folder("body", "worn"), folder("food", "consumable")];
+
+  it("moves the worn portion of a base line into wornMg; the rest stays base", () => {
+    // 3 pairs of socks, wearing 1: 1×100g worn, 2×100g base
+    const t = computeTotals({
+      folders,
+      items: [item({ id: "socks", folderId: "pack", unitWeightMg: 100_000, qty: 3, wornQty: 1 })],
+    });
+    expect(t.totalMg).toBe(300_000);
+    expect(t.wornMg).toBe(100_000);
+    expect(t.baseMg).toBe(200_000);
+    expect(t.consumableMg).toBe(0);
+  });
+
+  it("never double-counts on an effective-worn line (folder default)", () => {
+    const t = computeTotals({
+      folders,
+      items: [item({ id: "socks", folderId: "body", unitWeightMg: 100_000, qty: 3, wornQty: 1 })],
+    });
+    expect(t.wornMg).toBe(300_000); // whole line worn; the split is dormant
+    expect(t.baseMg).toBe(0);
+  });
+
+  it("ignores the split on a consumable line", () => {
+    const t = computeTotals({
+      folders,
+      items: [item({ id: "bars", folderId: "food", unitWeightMg: 60_000, qty: 5, wornQty: 2 })],
+    });
+    expect(t.consumableMg).toBe(300_000);
+    expect(t.wornMg).toBe(0);
+  });
+
+  it("clamps a stale wornQty > qty and empties base at wornQty === qty", () => {
+    const t = computeTotals({
+      folders,
+      items: [item({ id: "socks", folderId: "pack", unitWeightMg: 100_000, qty: 2, wornQty: 9 })],
+    });
+    expect(t.wornMg).toBe(200_000); // clamped to qty
+    expect(t.baseMg).toBe(0);
   });
 });
 

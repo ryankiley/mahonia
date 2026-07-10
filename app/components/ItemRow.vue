@@ -9,13 +9,16 @@ const CLASS_OPTS: { value: Classification; label: string }[] = [
   { value: "worn", label: "Worn" },
   { value: "consumable", label: "Consumable" },
 ];
+// generated "N worn" split options stop here (the stored value is always shown
+// even beyond the cap, so clamps/imports can't strand invisible state)
+const MAX_SPLIT_OPTS = 5;
 </script>
 
 <script setup lang="ts">
 import { ChevronDown, GripVertical, StickyNotePlus, StickyNoteX, Trash2, X } from "@lucide/vue";
 import type { Item, ListSnapshot } from "~~/shared/types";
 import type { ItemPatch } from "~~/shared/ops";
-import { effectiveClassification, formatWeight, fromMg, itemDisplayName, lineMg, parseWeightInput } from "~~/shared/weights";
+import { effectiveClassification, formatWeight, fromMg, itemDisplayName, lineMg, parseWeightInput, splitWornQty } from "~~/shared/weights";
 import { isWaterName, itemQtyLabel, waterLiters, waterMgFromMl } from "~~/shared/water";
 
 // The editor's row — editable by default, a checklist row in packing mode. The
@@ -167,12 +170,47 @@ function onNameCommit(p: {
   c.updateItem(props.item.id, patch);
 }
 
+// a base row with multiples can split its count into worn + base (e.g. 3 pairs
+// of socks, 1 worn) — the split lives in the same classification select as
+// generated "N worn · M base" options, so the dense row gains no new control
+const activeSplit = computed(() => splitWornQty(props.item, effClass.value)); // 0 = no split
+const classOptions = computed<{ value: string; label: string }[]>(() => {
+  const opts: { value: string; label: string }[] = [...CLASS_OPTS];
+  if (isWater.value || effClass.value === "consumable") return opts;
+  const counts = new Set<number>();
+  for (let n = 1; n <= Math.min(props.item.qty - 1, MAX_SPLIT_OPTS); n++) counts.add(n);
+  if (activeSplit.value > 0) counts.add(activeSplit.value);
+  for (const n of [...counts].sort((a, b) => a - b))
+    opts.push({ value: `worn:${n}`, label: `${n} worn · ${Math.max(0, props.item.qty - n)} base` });
+  return opts;
+});
+const classValue = computed(() => (activeSplit.value > 0 ? `worn:${activeSplit.value}` : effClass.value));
 function onClass(e: Event) {
-  // folders always default to base, so there's no "Auto" — store base as null (default)
-  const v = (e.target as HTMLSelectElement).value as Classification;
-  c.updateItem(props.item.id, { classification: v === "base" ? null : v });
+  const v = (e.target as HTMLSelectElement).value;
+  if (v.startsWith("worn:")) {
+    // the remainder counts as base: keep the null (folder default) convention,
+    // pinning explicit base only when the folder defaults elsewhere
+    const folderDefault = effectiveClassification({ classification: null, folderId: props.item.folderId }, props.list.folders);
+    c.updateItem(props.item.id, {
+      wornQty: Number(v.slice(5)) || 0,
+      classification: folderDefault === "base" ? null : "base",
+    });
+    return;
+  }
+  // folders always default to base, so there's no "Auto" — store base as null (default).
+  // a plain pick also drops any split (wornQty 0 clears; worn/consumable clear in the reducer)
+  c.updateItem(props.item.id, { classification: v === "base" ? null : (v as Classification), wornQty: 0 });
 }
-const effClassLabel = computed(() => CLASS_OPTS.find((o) => o.value === effClass.value)?.label ?? "Base");
+const effClassLabel = computed(() =>
+  activeSplit.value > 0
+    ? `${activeSplit.value} worn`
+    : (CLASS_OPTS.find((o) => o.value === effClass.value)?.label ?? "Base"),
+);
+const classTitle = computed(() =>
+  activeSplit.value > 0
+    ? `Counts as ${activeSplit.value} worn, ${Math.max(0, props.item.qty - activeSplit.value)} base`
+    : `Counts as ${effClass.value}`,
+);
 
 // notes: toggled via an always-visible icon button (add/remove), not an
 // always-present field; the note shows as live text once it has content
@@ -236,7 +274,7 @@ function dismissFix() {
       @change="c.updateItem(item.id, { packed: ($event.target as HTMLInputElement).checked })"
     />
     <span class="item__cname"><ItemName :item="item" /></span>
-    <span class="t-num t-sm t-muted item__cqty">{{ itemQtyLabel(item) }}</span>
+    <span class="t-num t-sm t-muted item__cqty">{{ itemQtyLabel(item, effClass) }}</span>
     <span class="t-num item__cweight"><template v-if="item.unitWeightMg > 0">{{ formatWeight(lineMg(item), list.displayUnit, { withUnit: false }) }}<span class="t-muted item__wunit">{{ list.displayUnit }}</span></template><template v-else>—</template></span>
   </label>
 
@@ -303,12 +341,12 @@ function dismissFix() {
           <ChevronDown class="item__classchev" :size="13" :stroke-width="2" aria-hidden="true" />
           <select
             class="item__classsel"
-            :value="effClass"
-            :title="`Counts as ${effClass}`"
+            :value="classValue"
+            :title="classTitle"
             aria-label="Classification"
             @change="onClass"
           >
-            <option v-for="o in CLASS_OPTS" :key="o.value" :value="o.value">{{ o.label }}</option>
+            <option v-for="o in classOptions" :key="o.value" :value="o.value">{{ o.label }}</option>
           </select>
         </div>
 

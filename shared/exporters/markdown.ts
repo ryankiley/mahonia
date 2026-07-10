@@ -2,7 +2,7 @@
 // Apple Notes. Shared by the client (copy/download) and later the server.
 
 import type { ListSnapshot } from "../types";
-import { bySortOrder, computeTotals, formatWeight, itemDisplayName, itemsInFolder, lineMg } from "../weights";
+import { bySortOrder, computeTotals, effectiveClassification, formatWeight, itemDisplayName, itemsInFolder, lineMg, splitWornQty } from "../weights";
 
 export function listToMarkdown(list: ListSnapshot): string {
   const u = list.displayUnit;
@@ -22,7 +22,8 @@ export function listToMarkdown(list: ListSnapshot): string {
     for (const it of items) {
       const w = it.unitWeightMg > 0 ? formatWeight(lineMg(it), u) : "—";
       const name = itemDisplayName(it.brand, it.name, it.variant);
-      out.push(`| ${name} | ${it.qty} | ${w} |`);
+      const wq = splitWornQty(it, effectiveClassification(it, list.folders));
+      out.push(`| ${name} | ${it.qty}${wq > 0 ? ` (${wq} worn)` : ""} | ${w} |`);
     }
     out.push("");
   }

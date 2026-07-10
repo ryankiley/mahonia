@@ -99,3 +99,55 @@ describe("op reducer", () => {
     expect(() => applyOps(s, [{} as Op, { t: "updateItem", id: "nope", patch: {} } as Op])).not.toThrow();
   });
 });
+
+describe("wornQty (the worn split on a base line)", () => {
+  const add = (over: Record<string, unknown> = {}): Op => ({
+    t: "addItem",
+    item: { id: "i1", folderId: "f1", name: "Socks", unitWeightMg: 100000, qty: 3, classification: null, sortOrder: 0, ...over } as any,
+  });
+
+  it("stores a valid split; 0 / negative / NaN clear it", () => {
+    const s = base();
+    applyOps(s, [add(), { t: "updateItem", id: "i1", patch: { wornQty: 2 } }]);
+    expect(s.items[0].wornQty).toBe(2);
+    applyOps(s, [{ t: "updateItem", id: "i1", patch: { wornQty: 0 } }]);
+    expect(s.items[0].wornQty).toBeUndefined();
+    applyOps(s, [{ t: "updateItem", id: "i1", patch: { wornQty: 2 } }, { t: "updateItem", id: "i1", patch: { wornQty: -1 } }]);
+    expect(s.items[0].wornQty).toBeUndefined();
+    applyOps(s, [{ t: "updateItem", id: "i1", patch: { wornQty: NaN } }]);
+    expect(s.items[0].wornQty).toBeUndefined();
+  });
+
+  it("re-clamps when qty drops below the split", () => {
+    const s = base();
+    applyOps(s, [add(), { t: "updateItem", id: "i1", patch: { wornQty: 2 } }]);
+    applyOps(s, [{ t: "updateItem", id: "i1", patch: { qty: 1 } }]);
+    expect(s.items[0].wornQty).toBe(1); // the worn unit is the one you keep wearing
+    applyOps(s, [{ t: "updateItem", id: "i1", patch: { qty: 0 } }]);
+    expect(s.items[0].wornQty).toBeUndefined();
+  });
+
+  it("an explicit worn/consumable classification clears the split, even in the same patch", () => {
+    const s = base();
+    applyOps(s, [add(), { t: "updateItem", id: "i1", patch: { wornQty: 1 } }]);
+    applyOps(s, [{ t: "updateItem", id: "i1", patch: { classification: "worn" } }]);
+    expect(s.items[0].wornQty).toBeUndefined();
+    applyOps(s, [{ t: "updateItem", id: "i1", patch: { classification: "consumable", wornQty: 2 } }]);
+    expect(s.items[0].wornQty).toBeUndefined();
+  });
+
+  it("normalizes on addItem: clamps to qty, drops junk and worn/consumable carriers", () => {
+    const s = base();
+    applyOps(s, [add({ wornQty: 5 })]);
+    expect(s.items[0].wornQty).toBe(3); // clamped to qty
+    s.items = [];
+    applyOps(s, [add({ wornQty: "2" })]);
+    expect(s.items[0].wornQty).toBeUndefined(); // non-number dropped
+    s.items = [];
+    applyOps(s, [add({ wornQty: 1, classification: "worn" })]);
+    expect(s.items[0].wornQty).toBeUndefined();
+    s.items = [];
+    applyOps(s, [add()]); // legacy shape: no wornQty
+    expect(s.items[0].wornQty).toBeUndefined();
+  });
+});
