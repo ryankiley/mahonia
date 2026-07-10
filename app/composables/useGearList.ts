@@ -2,6 +2,7 @@ import type { ItemPatch, Op } from "~~/shared/ops";
 import { applyOps } from "~~/shared/ops";
 import { uid } from "~~/shared/id";
 import { nextFolderColor, STARTER_FOLDERS } from "~~/shared/categories";
+import { editLinkPath } from "~~/shared/links";
 import { DRAFT_KEY, localKey, rebaseOnto } from "~~/shared/localList";
 import type { Folder, Item, ListSnapshot, Unit } from "~~/shared/types";
 import { bySortOrder, computeTotals, itemsInFolder, parseWeightInput } from "~~/shared/weights";
@@ -263,7 +264,10 @@ function create() {
       // register the write capability + put the token in the URL WITHOUT routing
       // (replaceState, so the editor's hash watcher doesn't dispose/reload us)
       const token = useMyLists().registerCreated(res, totals.value?.totalMg ?? 0);
-      if (typeof history !== "undefined") history.replaceState(history.state, "", `/e#${token}`);
+      // pretty path (/e/{shareCode}#{token}) so the URL is share-ready immediately;
+      // replaceState (not routing) so the hash watcher doesn't dispose/reload us
+      if (typeof history !== "undefined")
+        history.replaceState(history.state, "", editLinkPath(res.snapshot.shareCode, token));
       startPoll();
     } catch {
       if (myEpoch !== epoch) return;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { itemSearchName, itemSearchUrl, webSearchUrl } from "../shared/links";
+import { editLinkPath, itemSearchName, itemSearchUrl, webSearchUrl } from "../shared/links";
 
 describe("webSearchUrl", () => {
   it("builds a Google search URL for a simple query", () => {
@@ -60,5 +60,25 @@ describe("itemSearchUrl", () => {
   it("returns null for an unnamed row", () => {
     expect(itemSearchUrl({ brand: "", name: "" })).toBeNull();
     expect(itemSearchUrl({ brand: null, name: "   " })).toBeNull();
+  });
+});
+
+describe("editLinkPath", () => {
+  const token = "GKHuCrc6L1ayXRraaUYfM5aWd9y_UABsv7JFcNsyGnA";
+
+  it("embeds the share code in the path so preview bots can resolve the name", () => {
+    expect(editLinkPath("M4K7Q2X9YZ3P", token)).toBe(`/e/M4K7Q2X9YZ3P#${token}`);
+  });
+
+  it("keeps the token in the fragment (never in the path/query)", () => {
+    const path = editLinkPath("M4K7Q2X9YZ3P", token);
+    expect(path.split("#")[0]).toBe("/e/M4K7Q2X9YZ3P"); // nothing secret before the #
+    expect(path.split("#")[1]).toBe(token);
+  });
+
+  it("falls back to the bare /e#token when there's no share code (a fresh draft)", () => {
+    expect(editLinkPath("", token)).toBe(`/e#${token}`);
+    expect(editLinkPath(null, token)).toBe(`/e#${token}`);
+    expect(editLinkPath(undefined, token)).toBe(`/e#${token}`);
   });
 });
