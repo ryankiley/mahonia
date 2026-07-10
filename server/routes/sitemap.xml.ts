@@ -2,8 +2,9 @@ import { defineEventHandler, getRequestURL, setHeader } from "h3";
 import { listPublicSlugs } from "../utils/discoveryRepo";
 
 // Hand-rolled sitemap (no module / dep): the home page + every public list
-// (/l/{slug}), gated to the same visibility as the discovery feed (public,
-// active, not flagged/deleted, non-empty). The host comes from the request, so
+// (/l/{slug}), gated by the public-discovery visibility rule (public, active,
+// not flagged/deleted, non-empty — see discoveryRepo's
+// publicVisibilityConditions). The host comes from the request, so
 // it works on any deploy domain without configuring a canonical URL. The /e
 // editor and /s share views are intentionally excluded (noindex capabilities).
 const esc = (s: string) =>

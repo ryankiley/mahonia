@@ -1,7 +1,5 @@
 <script setup lang="ts">
 import { Backpack, Ellipsis, Share2, SquareCheck, Undo2 } from "@lucide/vue";
-import { listToMarkdown } from "~~/shared/exporters/markdown";
-import { listToCsv } from "~~/shared/exporters/csv";
 import { uid } from "~~/shared/id";
 import { editLinkPath } from "~~/shared/links";
 import type { Item, ListSnapshot } from "~~/shared/types";
@@ -182,6 +180,14 @@ async function copy(text: string, msg: string) {
 }
 const origin = () => (typeof location !== "undefined" ? location.origin : "");
 
+// The exporters are menu actions, not part of the editor's boot path — they load
+// on demand. Warmed when the ⋯ menu opens: the markdown action's clipboard write
+// must stay within iOS Safari's user-gesture window, and a warmed import() resolves
+// from module cache in a microtask, so the await in the handler doesn't spend the
+// gesture on a network fetch.
+const mdExporter = () => import("~~/shared/exporters/markdown");
+const csvExporter = () => import("~~/shared/exporters/csv");
+
 // the ⋯ actions menu is a custom popover of real <button>s (was a native <select>).
 // Each item dispatches from a CLICK — the clipboard actions (markdown, edit link)
 // need a direct user gesture, and a <select> change isn't one on iOS Safari, so the
@@ -190,6 +196,13 @@ onClickOutside(menuRef, () => (menuOpen.value = false));
 useEventListener(window, "keydown", (e: KeyboardEvent) => {
   if (e.key === "Escape" && menuOpen.value) menuOpen.value = false;
 });
+function toggleMenu() {
+  menuOpen.value = !menuOpen.value;
+  if (menuOpen.value) {
+    void mdExporter();
+    void csvExporter();
+  }
+}
 function runMenu(action: string) {
   menuOpen.value = false;
   switch (action) {
@@ -224,8 +237,16 @@ async function rotate() {
     flash("Edit link rotated");
   }
 }
-function copyMarkdown() {
-  if (snapshot.value) copy(listToMarkdown(snapshot.value), "Copied as Markdown");
+async function copyMarkdown() {
+  if (!snapshot.value) return;
+  try {
+    const { listToMarkdown } = await mdExporter();
+    copy(listToMarkdown(snapshot.value), "Copied as Markdown");
+  } catch {
+    // the exporter chunk failed to load (offline before the SW cached it, or a
+    // dropped connection) — the old static import could never fail, so say so
+    flash("Couldn’t load the exporter — try again");
+  }
 }
 async function cloneList() {
   if (!snapshot.value) return;
@@ -269,10 +290,15 @@ function fileBase(): string {
     .replace(/^-+|-+$/g, "");
   return fromTitle || snapshot.value?.slug || "gear";
 }
-function downloadCsv() {
+async function downloadCsv() {
   if (!snapshot.value) return;
-  download(`${fileBase()}.csv`, listToCsv(snapshot.value), "text/csv");
-  flash("CSV downloaded");
+  try {
+    const { listToCsv } = await csvExporter();
+    download(`${fileBase()}.csv`, listToCsv(snapshot.value), "text/csv");
+    flash("CSV downloaded");
+  } catch {
+    flash("Couldn’t load the exporter — try again");
+  }
 }
 function downloadJson() {
   if (!snapshot.value) return;
@@ -301,6 +327,20 @@ function newList() {
 const statusLabel = computed(() =>
   ({ loading: "Loading…", saving: "Saving…", synced: "", error: "Not saved ↻", offline: "Offline · saved on device", missing: "", idle: "" })[status.value] || "",
 );
+
+// Both dialogs are Lazy + mounted on first use, so their code (incl. the CSV
+// parser + LighterPack link handling behind the import) stays out of the editor's
+// boot chunk. Once opened they STAY mounted — an unmount-on-close would cut the
+// leave transition short, and re-opens then reuse the fetched component.
+const importEverOpened = ref(false);
+watch(importOpen, (o) => {
+  if (o) importEverOpened.value = true;
+});
+const { target: correctionTarget } = useCatalogCorrection();
+const correctionEverOpened = ref(false);
+watch(correctionTarget, (t) => {
+  if (t) correctionEverOpened.value = true;
+});
 
 function onCorrected(res: { status: string; itemName?: string }) {
   flash(
@@ -383,7 +423,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
               aria-label="More actions"
               aria-haspopup="true"
               :aria-expanded="menuOpen"
-              @click="menuOpen = !menuOpen"
+              @click="toggleMenu"
             >
               <Ellipsis :size="16" />
             </button>
@@ -476,8 +516,8 @@ function onCorrected(res: { status: string; itemName?: string }) {
       <div v-else-if="toast" class="toast t-sm">{{ toast }}</div>
     </Transition>
 
-    <CatalogCorrectionModal @done="onCorrected" />
-    <ImportModal :open="importOpen" @close="importOpen = false" />
+    <LazyCatalogCorrectionModal v-if="correctionEverOpened" @done="onCorrected" />
+    <LazyImportModal v-if="importEverOpened" :open="importOpen" @close="importOpen = false" />
   </div>
 </template>
 

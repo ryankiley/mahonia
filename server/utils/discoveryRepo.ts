@@ -1,12 +1,12 @@
 // Discovery + publish repository — all DB access for the PUBLIC surfaces
-// (the feed, the /l/[slug] read view, the publish toggle, list reports).
+// (the /l/[slug] read view, the sitemap, the publish toggle, list reports).
 //
 // Capability-based, exactly like listRepo.ts: a writer holds an edit token, the
 // public reads address a list by its slug. The internal numeric `id` and the
-// `edit_token_hash` NEVER leave this module — feed cards and the public view
-// expose only `public_slug` + `share_code`, so the edit capability can't be
-// derived from anything public. Misses return null → the endpoints answer 404
-// (never 403), so there's no existence/enumeration oracle.
+// `edit_token_hash` NEVER leave this module — the public view exposes only
+// `public_slug` + `share_code`, so the edit capability can't be derived from
+// anything public. Misses return null → the endpoints answer 404 (never 403),
+// so there's no existence/enumeration oracle.
 //
 // Each function takes an OPTIONAL db (defaults to useDb()) so the query logic
 // is exercisable against an in-memory PGlite in tests — endpoints call the
@@ -15,19 +15,16 @@
 // Lives in its own file (not listRepo.ts) so this Phase-3 work stays additive
 // and merge-clean alongside the concurrent rate-limiter + component sessions.
 
-import { and, asc, desc, eq, gt, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, gt, isNull, sql } from "drizzle-orm";
 import { lists, type ListRow } from "../db/schema";
 import {
-  cardFromRow,
   decidePublish,
   normalizeSeason,
   normalizeSlug,
   normalizeTripType,
-  type DiscoveryCard,
-  type FeedView,
   type PublishState,
 } from "../../shared/discovery";
-import type { ListData, ListSnapshot } from "../../shared/types";
+import type { ListSnapshot } from "../../shared/types";
 import { useDb } from "./db";
 import { findByEditToken, rowToSnapshot } from "./listRepo";
 
@@ -35,10 +32,10 @@ type Db = Awaited<ReturnType<typeof useDb>>;
 
 // The public-read visibility gate (public + active + not withheld + not deleted),
 // single-sourced so the by-slug reads (getPublicBySlug / bumpView / reportList) and
-// the feed can't drift. Returns a FRESH array each call — getFeed mutates its copy
-// via .push() to append optional filters, so a shared module const would leak filters
-// across requests. (Slug shape validation is shared/discovery's normalizeSlug; the
-// live edit-token lookup is listRepo's findByEditToken — both imported above.)
+// the sitemap can't drift. Returns a FRESH array each call so callers can safely
+// spread + extend it without leaking conditions across requests. (Slug shape
+// validation is shared/discovery's normalizeSlug; the live edit-token lookup is
+// listRepo's findByEditToken — both imported above.)
 function publicReadConditions() {
   return [
     eq(lists.isPublic, true),
@@ -122,8 +119,8 @@ export async function publishList(
 
 // ---------------------------------------------------------------------------
 // Public read view (/l/[slug]) — resolves ONLY if the list is public. Returns a
-// ListSnapshot-shaped view (reuses the readonly FolderSection/ItemRow/TotalsBar)
-// minus the id + token. Null → 404.
+// ListSnapshot-shaped view (reuses the readonly components + TotalsBar) minus
+// the id + token. Null → 404.
 // ---------------------------------------------------------------------------
 function rowToPublicView(row: ListRow): ListSnapshot {
   // Same base shape as the edit/share snapshot, plus the public-feed facets.
@@ -162,70 +159,13 @@ export async function bumpView(slug: string, db?: Db): Promise<void> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// The feed query. Always: public + active + not-deleted + NON-EMPTY (empty
-// lists are hidden, not just de-ranked). Optional trip/season filters. Sort by
-// view. `light` is the optional leaderboard — only weighted lists, base asc.
-// ---------------------------------------------------------------------------
-export interface FeedQuery {
-  view?: FeedView;
-  tripType?: string | null;
-  season?: string | null;
-  limit?: number;
-}
-
-// The public-discovery visibility gate, single-sourced so the feed + sitemap
-// can't drift: the shared public-read gate PLUS non-empty (empty lists are hidden
-// from discovery, not just de-ranked). Spreads a fresh publicReadConditions() so
-// the returned array is safe for getFeed to .push() onto.
+// The public-discovery visibility gate: the shared public-read gate PLUS
+// non-empty (empty lists are hidden from discovery, not just de-ranked).
 function publicVisibilityConditions() {
   return [...publicReadConditions(), gt(lists.itemCount, 0)];
 }
 
-export async function getFeed(q: FeedQuery, db?: Db): Promise<DiscoveryCard[]> {
-  const d = db ?? (await useDb());
-  const view: FeedView = q.view ?? "recent";
-  const limit = Math.min(60, Math.max(1, Math.floor(q.limit || 24)));
-
-  const conds = publicVisibilityConditions();
-  const trip = normalizeTripType(q.tripType);
-  if (trip) conds.push(eq(lists.tripType, trip));
-  const season = normalizeSeason(q.season);
-  if (season) conds.push(eq(lists.season, season));
-  // the leaderboard only ranks lists that actually carry weight
-  if (view === "light") conds.push(gt(lists.baseWeightMg, 0));
-
-  const orderBy =
-    view === "light"
-      ? [asc(lists.baseWeightMg)]
-      : view === "popular"
-        ? [desc(lists.viewCount), desc(lists.publishedAt)]
-        : [desc(lists.publishedAt)];
-
-  const rows = await d
-    .select({
-      publicSlug: lists.publicSlug,
-      shareCode: lists.shareCode,
-      title: lists.title,
-      itemCount: lists.itemCount,
-      tripType: lists.tripType,
-      season: lists.season,
-      baseWeightMg: lists.baseWeightMg,
-      totalWeightMg: lists.totalWeightMg,
-      publishedAt: lists.publishedAt,
-      data: lists.data,
-    })
-    .from(lists)
-    .where(and(...conds))
-    .orderBy(...orderBy)
-    .limit(limit);
-
-  return rows.map((r) =>
-    cardFromRow({ ...r, data: (r.data ?? { folders: [], items: [] }) as ListData }),
-  );
-}
-
-/** Public list slugs for the sitemap — same visibility gate as the feed. */
+/** Public list slugs for the sitemap — the public-discovery visibility gate. */
 export async function listPublicSlugs(
   db?: Db,
 ): Promise<{ slug: string; updatedAt: Date | string | null }[]> {

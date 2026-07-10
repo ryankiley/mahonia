@@ -1,13 +1,29 @@
+<script lang="ts">
+import type { Classification, Unit } from "~~/shared/types";
+
+// static per-component tables — module scope so a large list doesn't rebuild
+// them in every row instance
+const STEP_BY_UNIT: Record<Unit, number> = { g: 1, kg: 0.01, oz: 0.1, lb: 0.1 };
+const CLASS_OPTS: { value: Classification; label: string }[] = [
+  { value: "base", label: "Base" },
+  { value: "worn", label: "Worn" },
+  { value: "consumable", label: "Consumable" },
+];
+</script>
+
 <script setup lang="ts">
 import { ChevronDown, GripVertical, StickyNotePlus, StickyNoteX, Trash2, X } from "@lucide/vue";
-import type { Classification, Item, ListSnapshot, Unit } from "~~/shared/types";
+import type { Item, ListSnapshot } from "~~/shared/types";
 import type { ItemPatch } from "~~/shared/ops";
 import { effectiveClassification, formatWeight, fromMg, itemDisplayName, lineMg, parseWeightInput } from "~~/shared/weights";
-import { waterMgFromMl } from "~~/shared/water";
+import { isWaterName, itemQtyLabel, waterLiters, waterMgFromMl } from "~~/shared/water";
 
+// The editor's row — editable by default, a checklist row in packing mode. The
+// share views (/s + /l) render ReadonlyItemRow instead, so this component (and
+// the editor graph it pulls in) never ships to a read-only page.
 const props = withDefaults(
-  defineProps<{ list: ListSnapshot; item: Item; packed?: boolean; readonly?: boolean }>(),
-  { packed: false, readonly: false },
+  defineProps<{ list: ListSnapshot; item: Item; packed?: boolean }>(),
+  { packed: false },
 );
 // forwarded up to FolderSection so it can lift its collapse clip while this row's
 // name autocomplete is open (otherwise a dropdown at the folder's bottom is cropped)
@@ -62,21 +78,10 @@ const editableName = computed(() =>
 
 // water rows: the qty field becomes a LITRES field (water is 1 L = 1 kg), driving
 // the weight; the weight field itself is read-only so the two can't desync.
-// exact "water" only — so "Water filter" stays a normal item, not a litres row
-const isWater = computed(() => /^water$/i.test(props.item.name.trim()));
-const litersDisplay = computed(() => {
-  const l = props.item.unitWeightMg / 1_000_000;
-  return l > 0 ? String(Number(l.toFixed(2))) : "";
-});
-// the qty shown in the static (read-only + checklist) views: water's "amount" is
-// its volume in litres (matching the editable row's litres field), so it reads
-// "2 L" rather than a meaningless "×1"; everything else keeps its ×quantity
-const qtyLabel = computed(() =>
-  isWater.value ? `${litersDisplay.value || "0"} L` : `×${props.item.qty}`,
-);
-// read-only share views: <ItemName search> turns the product name into a web-search
-// link (look up / buy the gear) — query, gating, link + underline all live in that
-// component (and shared/links). Nothing search-related needed here.
+// (isWaterName / waterLiters / itemQtyLabel live in shared/water, shared with
+// ReadonlyItemRow so the two views can't drift.)
+const isWater = computed(() => isWaterName(props.item.name));
+const litersDisplay = computed(() => waterLiters(props.item.unitWeightMg));
 function onWaterLiters(e: Event) {
   const el = e.target as HTMLInputElement;
   const liters = Math.max(0, Number(el.value) || 0);
@@ -103,7 +108,6 @@ function onQty(e: Event) {
 }
 // arrow keys nudge the weight by a unit-appropriate step (Shift = ×10), so you can
 // tap into the field and increment/decrement without retyping
-const STEP_BY_UNIT: Record<Unit, number> = { g: 1, kg: 0.01, oz: 0.1, lb: 0.1 };
 function onWeightStep(e: KeyboardEvent, dir: 1 | -1) {
   if (isWater.value) return; // water weight is derived from its litres field
   const unit = props.list.displayUnit;
@@ -163,11 +167,6 @@ function onNameCommit(p: {
   c.updateItem(props.item.id, patch);
 }
 
-const CLASS_OPTS: { value: Classification; label: string }[] = [
-  { value: "base", label: "Base" },
-  { value: "worn", label: "Worn" },
-  { value: "consumable", label: "Consumable" },
-];
 function onClass(e: Event) {
   // folders always default to base, so there's no "Auto" — store base as null (default)
   const v = (e.target as HTMLSelectElement).value as Classification;
@@ -205,7 +204,6 @@ const correction = useCatalogCorrection();
 const showFix = computed(
   () =>
     !props.packed &&
-    !props.readonly &&
     props.item.catalogItemId != null &&
     props.item.catalogWeightMgAtLink != null &&
     props.item.unitWeightMg > 0 &&
@@ -229,17 +227,8 @@ function dismissFix() {
 </script>
 
 <template>
-  <!-- read-only row (shared with the public /s view) -->
-  <div v-if="readonly" class="item item--ro">
-    <span class="item__roname">
-      <ItemName :item="item" search /><span v-if="effClass !== 'base'" class="t-sm" :class="`item__class--${effClass}`"> · {{ effClass }}</span>
-    </span>
-    <span class="t-num t-sm t-muted item__roqty">{{ qtyLabel }}</span>
-    <span class="t-num item__roweight"><template v-if="item.unitWeightMg > 0">{{ formatWeight(lineMg(item), list.displayUnit, { withUnit: false }) }}<span class="t-muted item__wunit">{{ list.displayUnit }}</span></template><template v-else>—</template></span>
-  </div>
-
   <!-- packing / checklist: a big tap target — check off the item; name + line weight only -->
-  <label v-else-if="packed" class="item item--check" :class="{ 'item--done': item.packed }">
+  <label v-if="packed" class="item item--check" :class="{ 'item--done': item.packed }">
     <input
       type="checkbox"
       class="item__box"
@@ -247,7 +236,7 @@ function dismissFix() {
       @change="c.updateItem(item.id, { packed: ($event.target as HTMLInputElement).checked })"
     />
     <span class="item__cname"><ItemName :item="item" /></span>
-    <span class="t-num t-sm t-muted item__cqty">{{ qtyLabel }}</span>
+    <span class="t-num t-sm t-muted item__cqty">{{ itemQtyLabel(item) }}</span>
     <span class="t-num item__cweight"><template v-if="item.unitWeightMg > 0">{{ formatWeight(lineMg(item), list.displayUnit, { withUnit: false }) }}<span class="t-muted item__wunit">{{ list.displayUnit }}</span></template><template v-else>—</template></span>
   </label>
 
@@ -427,31 +416,8 @@ function dismissFix() {
   display: contents;
 }
 
-/* read-only (share view) */
-.item--ro {
-  grid-template-columns: var(--item-cols-ro);
-  /* drop the base row's 5-area template ("name qty weight class actions") — this
-     row only has 3 columns, and auto-placement fills them. Without this, the two
-     phantom trailing area columns add two grid gaps after the weight, so it stops
-     short of the row's right edge (the hairline runs full width). */
-  grid-template-areas: none;
-}
-.item__roname {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-/* the read-only name is a web-search link (look up / buy the gear) — see
-   ItemName.vue, which owns the dotted underline + search icon so the underline
-   wraps only the product name, not the variant. */
-.item__roweight {
-  text-align: right;
-}
 /* the qty/amount label lives in the narrow 44px column; keep it on one line so a
-   water row's volume ("1.75 L") never breaks between the number and its "L" unit.
-   Shared by the read + checklist static views (the editable row uses a field). */
-.item__roqty,
+   water row's volume ("1.75 L") never breaks between the number and its "L" unit. */
 .item__cqty {
   white-space: nowrap;
 }
@@ -460,8 +426,9 @@ function dismissFix() {
 .item--check {
   display: grid;
   grid-template-columns: auto var(--item-cols-ro);
-  /* same as .item--ro: don't inherit the editable row's 5-area template, or its
-     phantom trailing columns push the line weight in from the row's right edge */
+  /* don't inherit the editable row's 5-area template — this row only has these
+     columns, and the phantom trailing area columns would add two grid gaps after
+     the weight, pushing it in from the row's right edge */
   grid-template-areas: none;
   align-items: center;
   gap: var(--space-3);
@@ -522,7 +489,7 @@ function dismissFix() {
 .item__cweight {
   text-align: right;
 }
-/* unit suffix in the read + checklist weights — an explicit gap from the number so it
+/* unit suffix in the checklist weight — an explicit gap from the number so it
    doesn't crowd ("1200g"); matches the editing row's --space-1 unit gap (a literal
    template space rendered inconsistently) */
 .item__wunit {
@@ -576,11 +543,6 @@ function dismissFix() {
   align-self: center;
   color: var(--ink-3);
   pointer-events: none;
-}
-/* classification reads from its text label, not colour (chrome stays monochrome) */
-.item__class--worn,
-.item__class--consumable {
-  color: var(--ink-2);
 }
 /* row controls (note + remove) stay visible at rest; the note button is lit when
    a note exists, and hover just darkens for feedback */
@@ -794,8 +756,7 @@ function dismissFix() {
   /* the full-width name gets its own line so long product names never truncate;
      qty · weight · class + the controls reflow into a flex-wrap row beneath it,
      and the controls drop to a further line if that row runs out of width.
-     Scoped to `.item-wrap .item` so the readonly + checklist rows keep their own
-     layouts. */
+     Scoped to `.item-wrap .item` so the checklist rows keep their own layout. */
   .item-wrap .item {
     display: flex;
     flex-direction: column;
@@ -929,33 +890,6 @@ function dismissFix() {
   }
   .item__cweight {
     grid-column: 3;
-    grid-row: 2;
-    justify-self: start;
-    text-align: left;
-  }
-
-  /* read view adopts the checklist's two-line shape (mirrors .item--check above):
-     the name takes its own line and wraps (never clips), and ×qty + weight sit
-     together on a second line, flush-left — instead of the weight stranded out at
-     the far-right margin on its own. */
-  .item--ro {
-    grid-template-columns: auto 1fr;
-    align-items: center;
-    column-gap: var(--space-3);
-    row-gap: var(--space-1);
-  }
-  .item__roname {
-    grid-column: 1 / -1;
-    grid-row: 1;
-    white-space: normal;
-    overflow: visible;
-  }
-  .item__roqty {
-    grid-column: 1;
-    grid-row: 2;
-  }
-  .item__roweight {
-    grid-column: 2;
     grid-row: 2;
     justify-self: start;
     text-align: left;

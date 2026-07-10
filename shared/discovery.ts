@@ -1,8 +1,8 @@
-// Public discovery feed — the framework-agnostic logic behind the front-page
-// feed, the publish flow, and the public /l/[slug] read view. Pure + DB-agnostic
-// so it unit-tests without Nuxt or a database (the repo in
-// server/utils/discoveryRepo.ts wires these to Postgres). The feed exposes ONLY
-// public addresses (slug + share code) and never the internal id or edit token.
+// Public discovery — the framework-agnostic logic behind the publish flow and
+// the public /l/[slug] read view. Pure + DB-agnostic so it unit-tests without
+// Nuxt or a database (the repo in server/utils/discoveryRepo.ts wires these to
+// Postgres). Exposes ONLY public addresses (slug + share code) and never the
+// internal id or edit token.
 
 import { lineMg } from "./weights";
 import type { ListData } from "./types";
@@ -69,29 +69,6 @@ export function normalizeSlug(raw: unknown): string | null {
 }
 
 // ---------------------------------------------------------------------------
-// Feed views (the sort). `recent` (the default) and `popular` are the calm
-// sorts; `light` is the OPTIONAL lightest-packs leaderboard (base weight
-// ascending) — one view, not the front door (weight is optional). Trip-type is
-// an orthogonal filter (the front-page tabs), not a view.
-// ---------------------------------------------------------------------------
-export type FeedView = "recent" | "popular" | "light";
-const FEED_VIEWS = new Set<FeedView>(["recent", "popular", "light"]);
-
-export function normalizeView(raw: unknown): FeedView {
-  const s = typeof raw === "string" ? (raw.trim().toLowerCase() as FeedView) : "recent";
-  return FEED_VIEWS.has(s) ? s : "recent";
-}
-
-const FEED_LIMIT_DEFAULT = 24;
-export const FEED_LIMIT_MAX = 60;
-
-export function normalizeLimit(raw: unknown): number {
-  const n = Math.floor(Number(raw));
-  if (!Number.isFinite(n) || n <= 0) return FEED_LIMIT_DEFAULT;
-  return Math.min(FEED_LIMIT_MAX, n);
-}
-
-// ---------------------------------------------------------------------------
 // Anti-spam — a cheap URL-count heuristic on a list's public free text. A list
 // that's mostly links is almost always spam; flagged lists publish as `hidden`
 // (default-safe, pending review) rather than landing live in the feed.
@@ -115,10 +92,9 @@ export function isLikelySpam(parts: { title?: string | null; description?: strin
 }
 
 // ---------------------------------------------------------------------------
-// Category sparkline — the ONE colour on a card (the data viz). Sums each
-// folder's line weight, takes the top 3 by weight, and rolls the remainder into
-// "other". Empty / weightless lists return [] (no bar — weight is optional).
-// Mirrors CategoryBar's folder-grouped model so cards and the read view agree.
+// Category segments — the ONE colour in the app (CategoryBar's data viz). Sums
+// each folder's line weight, heaviest first; ungrouped weight rolls into
+// "Other". Empty / weightless lists return [] (no bar — weight is optional).
 // ---------------------------------------------------------------------------
 export interface SparkSegment {
   colorKey: string;
@@ -129,7 +105,7 @@ export interface SparkSegment {
 export function categorySegments(data: ListData): SparkSegment[] {
   const byFolder = new Map<string, SparkSegment>();
   // one lookup table instead of a folders.find() per item — this recomputes on
-  // every edit (CategoryBar) and per feed card, so keep it O(items + folders)
+  // every edit (CategoryBar), so keep it O(items + folders)
   const folderById = new Map((data.folders ?? []).map((f) => [f.id, f]));
   let ungrouped = 0;
   for (const item of data.items ?? []) {
@@ -153,16 +129,6 @@ export function categorySegments(data: ListData): SparkSegment[] {
   const segs = [...byFolder.values()];
   if (ungrouped > 0) segs.push({ colorKey: "other", name: "Other", mg: ungrouped });
   return segs.sort((a, b) => b.mg - a.mg);
-}
-
-/** Top-3 category segments + a rolled-up "other" remainder (for the card spark). */
-export function sparkTop3(data: ListData): SparkSegment[] {
-  const segs = categorySegments(data);
-  if (segs.length <= 3) return segs;
-  const top = segs.slice(0, 3);
-  const restMg = segs.slice(3).reduce((s, x) => s + x.mg, 0);
-  if (restMg > 0) top.push({ colorKey: "other", name: "Other", mg: restMg });
-  return top;
 }
 
 // ---------------------------------------------------------------------------
@@ -207,60 +173,3 @@ export interface PublishState {
   shareCode: string;
 }
 
-// ---------------------------------------------------------------------------
-// DiscoveryCard — the feed's wire shape. Carries ONLY public addresses; the
-// internal numeric id and the edit token are never part of this object.
-// ---------------------------------------------------------------------------
-export interface DiscoveryCard {
-  slug: string;
-  shareCode: string;
-  title: string;
-  itemCount: number;
-  tripType?: string;
-  tripTypeLabel?: string;
-  season?: string;
-  seasonLabel?: string;
-  baseWeightMg: number;
-  totalWeightMg: number;
-  hasWeights: boolean;
-  spark: SparkSegment[];
-  publishedAt?: string;
-}
-
-/** The minimal, DB-agnostic row shape a card needs (no id, no token). */
-interface FeedRowInput {
-  publicSlug: string;
-  shareCode: string;
-  title: string;
-  itemCount: number;
-  tripType?: string | null;
-  season?: string | null;
-  baseWeightMg: number;
-  totalWeightMg: number;
-  publishedAt?: string | Date | null;
-  data: ListData;
-}
-
-function toIso(v: string | Date | null | undefined): string | undefined {
-  if (!v) return undefined;
-  return v instanceof Date ? v.toISOString() : String(v);
-}
-
-/** Shape a DB row into a feed card. Pure — never reads or exposes the id. */
-export function cardFromRow(row: FeedRowInput): DiscoveryCard {
-  return {
-    slug: row.publicSlug,
-    shareCode: row.shareCode,
-    title: row.title,
-    itemCount: Number(row.itemCount) || 0,
-    tripType: row.tripType ?? undefined,
-    tripTypeLabel: tripTypeLabel(row.tripType),
-    season: row.season ?? undefined,
-    seasonLabel: seasonLabel(row.season),
-    baseWeightMg: Number(row.baseWeightMg) || 0,
-    totalWeightMg: Number(row.totalWeightMg) || 0,
-    hasWeights: (Number(row.totalWeightMg) || 0) > 0,
-    spark: sparkTop3(row.data ?? { folders: [], items: [] }),
-    publishedAt: toIso(row.publishedAt),
-  };
-}

@@ -10,15 +10,21 @@ const sourceUrl = ref("");
 const reason = ref("");
 const edited = ref(false); // did the user touch the weight field?
 
-// prefill the user's current weight as the suggestion whenever the dialog opens
-watch(target, (t) => {
-  if (t) {
-    weight.value = formatWeight(t.suggestedMg, t.displayUnit);
-    sourceUrl.value = "";
-    reason.value = "";
-    edited.value = false;
-  }
-});
+// prefill the user's current weight as the suggestion whenever the dialog opens —
+// immediate, because this component is Lazy-mounted on first use, when the target
+// is ALREADY set (a plain watch would never fire for that first open)
+watch(
+  target,
+  (t) => {
+    if (t) {
+      weight.value = formatWeight(t.suggestedMg, t.displayUnit);
+      sourceUrl.value = "";
+      reason.value = "";
+      edited.value = false;
+    }
+  },
+  { immediate: true },
+);
 
 async function onSubmit() {
   // if the field is untouched, send the EXACT integer mg (formatWeight→parse is

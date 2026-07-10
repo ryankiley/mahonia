@@ -6,8 +6,8 @@ import { formatWeight } from "~~/shared/weights";
 
 const props = defineProps<{ list: ListSnapshot }>();
 
-// one folder-grouped rollup, shared with the discovery feed's spark (sorted by
-// weight; ungrouped items fold into "Other"); empty / weightless lists give []
+// one folder-grouped rollup (sorted by weight; ungrouped items fold into
+// "Other"); empty / weightless lists give []
 const segments = computed(() => categorySegments(props.list));
 </script>
 
