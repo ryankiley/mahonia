@@ -164,6 +164,21 @@ function create() {
         colorKeys[i] = colorKey;
         updateFolder(f.id, { colorKey });
       });
+      // Upgrade a legacy bare /e#{token} URL to the share-ready pretty path
+      // (/e/{shareCode}#{token}) once the share code is known. Pre-#54 lists —
+      // every bookmark and my-lists entry from before the pretty links shipped —
+      // otherwise keep the bare form forever, and the ADDRESS BAR is what people
+      // actually copy into Apple Notes/iMessage: the bare /e head is deliberately
+      // generic, so those pastes never unfurled the list name (#54's SSR head
+      // only exists at /e/{shareCode}). replaceState, not routing, so the hash
+      // watcher doesn't dispose/reload us (same pattern as createFromDraft).
+      if (
+        typeof location !== "undefined" &&
+        location.pathname === "/e" &&
+        merged.shareCode
+      ) {
+        history.replaceState(history.state, "", editLinkPath(merged.shareCode, token));
+      }
       persistLocal();
       if (pending.length) scheduleFlush();
       startPoll();
