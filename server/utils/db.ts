@@ -22,7 +22,21 @@ async function build() {
     // snapshot + catalog tables. No separate migration step to forget.
     return drizzle(neon(url), { schema });
   }
-  const { PGlite } = await import("@electric-sql/pglite");
+  // @electric-sql/pglite is kept OUT of the deployed server bundle — its wasm
+  // weighed ~17 MB, 77% of the server output, and prod (DATABASE_URL set) never
+  // reaches this branch. Two mechanisms, both required:
+  //  1. the computed specifier below stops rollup resolving the package as an
+  //     external entry (an entry bypasses the trace ignore);
+  //  2. nitro.externals.traceOptions.ignore (nuxt.config) drops the package's
+  //     files where node-file-trace reaches them transitively via the
+  //     drizzle-orm/pglite driver (whose small JS still ships).
+  // Locally nothing changes: with no copy inside .output, Node resolves the bare
+  // specifier by walking up to the workspace's node_modules, so `nuxt preview`,
+  // scripts, and tests keep working. A prod deploy WITHOUT a DATABASE_URL now
+  // fails loudly here instead of silently writing to an ephemeral per-instance
+  // database — a strictly better failure mode.
+  const pgliteSpec = ["@electric-sql", "pglite"].join("/");
+  const { PGlite } = (await import(/* @vite-ignore */ pgliteSpec)) as typeof import("@electric-sql/pglite");
   const { drizzle } = await import("drizzle-orm/pglite");
   const { mkdirSync } = await import("node:fs");
   const dir = process.env.PGLITE_DIR || ".data/pglite";

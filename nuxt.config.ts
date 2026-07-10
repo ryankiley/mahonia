@@ -10,20 +10,24 @@ export default defineNuxtConfig({
   modules: ["@vueuse/nuxt", "@vercel/analytics/nuxt", "@vite-pwa/nuxt"],
 
   // Master switch for the offline plumbing (service worker + background sync, and
-  // the offline catalog search). OFF by default so the whole feature ships DORMANT
-  // — real users see no change until NUXT_PUBLIC_OFFLINE=true is set at deploy
-  // time. Dev defaults ON (see $development below) so it's testable locally.
+  // the offline catalog search). ON by default — the site is a full PWA out of the
+  // box (installable, boots from cache, offline edits queue + replay). Setting
+  // NUXT_PUBLIC_OFFLINE=false at deploy time is the kill switch: the gated plugin
+  // then unregisters any SW + drops its caches, a clean rollback (see
+  // app/plugins/pwa.client.ts).
   runtimeConfig: {
     public: {
-      offline: process.env.NUXT_PUBLIC_OFFLINE === "true",
+      offline: process.env.NUXT_PUBLIC_OFFLINE !== "false",
     },
   },
 
-  // @vite-pwa generates the service worker + Workbox runtime, but we keep it INERT
-  // in production: `manifest: false` (no <link rel=manifest> → not installable, no
-  // affordance), `injectRegister: false` (no auto-registration — a gated client
-  // plugin, app/plugins/pwa.client.ts, calls registerSW() only when the offline
-  // flag is on). `autoUpdate` = silent updates, never a "new version, reload?"
+  // @vite-pwa generates the service worker + Workbox runtime. `injectRegister:
+  // false` = no auto-registration — a gated client plugin, app/plugins/
+  // pwa.client.ts, calls registerSW() only while the offline flag is on, so the
+  // env kill switch above fully disables it. `manifest: false` = the module
+  // doesn't GENERATE a manifest; the hand-written public/manifest.webmanifest
+  // (name/icons/standalone) is linked from app.head and is what makes the site
+  // installable. `autoUpdate` = silent updates, never a "new version, reload?"
   // prompt. `devOptions.enabled:false` = no SW under `nuxt dev` (in dev the
   // virtual registerSW is a no-op, so the gated plugin is harmless there).
   pwa: {
@@ -62,10 +66,12 @@ export default defineNuxtConfig({
             expiration: { maxEntries: 16, maxAgeSeconds: 60 * 60 * 24 * 7 },
           },
         },
-        // public read views — mirror their stale-while-revalidate edge headers so a
-        // previously-opened list still renders offline
+        // public + shared read views — mirror their stale-while-revalidate edge
+        // headers so a previously-opened list still renders offline. /s (the
+        // share-code read) is included alongside /l: it's the most-shared link
+        // shape, and its API also feeds the /e/{shareCode} SSR head.
         {
-          urlPattern: /\/api\/l\/.*/,
+          urlPattern: /\/api\/[ls]\/.*/,
           handler: "StaleWhileRevalidate",
           options: {
             cacheName: "mahonia-list-data",
@@ -73,7 +79,7 @@ export default defineNuxtConfig({
           },
         },
         {
-          urlPattern: /\/l\/[^/]+$/,
+          urlPattern: /\/[ls]\/[^/]+$/,
           handler: "StaleWhileRevalidate",
           options: {
             cacheName: "mahonia-list-pages",
@@ -141,6 +147,20 @@ export default defineNuxtConfig({
     // braces that also keeps the site fast off-Vercel (portable Nitro, decision
     // #10). Dynamic SSR/API responses are compressed by Vercel's edge in prod.
     compressPublicAssets: { gzip: true, brotli: true },
+    // Keep PGlite's ~17 MB wasm OUT of the deployed server bundle (it was 77% of
+    // the output). It's the local-dev DB only — production always has
+    // DATABASE_URL and takes the Neon branch in server/utils/db.ts. The
+    // drizzle-orm/pglite driver file still ships (tiny JS); only the wasm
+    // package is dropped. Locally, Node resolves @electric-sql/pglite by walking
+    // up from .output to the workspace's node_modules, so `nuxt preview` and the
+    // seed/audit scripts keep working unchanged.
+    externals: {
+      traceOptions: {
+        // function form: node-file-trace matches string globs against paths
+        // relative to its base ("/"), which proved brittle — predicate it instead
+        ignore: (path: string) => path.includes("node_modules/@electric-sql/pglite/"),
+      },
+    },
   },
 
   // Dev-only: the dev server runs behind a proxy (preview tooling) whose Host
@@ -179,6 +199,10 @@ export default defineNuxtConfig({
         },
         // Resolve light-dark() to the right mode on first paint (no flash).
         { name: "color-scheme", content: "light dark" },
+        // Browser/PWA chrome colour (address bar, installed-app title bar) tracks
+        // the page's --paper in each mode.
+        { name: "theme-color", media: "(prefers-color-scheme: light)", content: "#ffffff" },
+        { name: "theme-color", media: "(prefers-color-scheme: dark)", content: "#000000" },
         {
           name: "description",
           content:
@@ -234,5 +258,22 @@ export default defineNuxtConfig({
     // code) so link-preview bots unfurl it. The secret edit token lives in the URL
     // fragment and is never sent to the server. (Previously /e was ssr:false; that
     // rule also suppressed data/head SSR on the nested /e/{shareCode} route.)
+    //
+    // Bare /e renders identically for everyone (generic head + a client-only body),
+    // so PRERENDER it — the landing route (where "/" redirects) becomes a static
+    // file served from the CDN: fastest possible TTFB and zero function invocations
+    // on the site's most-hit route. /e/{shareCode} differs per code, so it gets a
+    // short ISR window instead (collapses repeat opens + crawler bursts on a shared
+    // pretty link; the head tolerates 60 s of staleness — the list BODY is always
+    // live, it loads client-side from the fragment token).
+    "/e": { prerender: true },
+    "/e/**": { swr: 60 },
+    // pure-static pages → build-time prerender (CDN-served, zero invocations)
+    "/about": { prerender: true },
+    "/privacy": { prerender: true },
+    "/terms": { prerender: true },
+    // the catalog-changes page reads a slow-moving feed — a 10-minute ISR window
+    // makes repeat views free without letting it go meaningfully stale
+    "/changes": { swr: 600 },
   },
 });
