@@ -23,10 +23,14 @@ export function useCatalogSearch() {
   // — exactly the flag-off behavior.
   let cache: ReturnType<typeof useCatalogCache> | null = null;
   if (useOfflineEnabled()) {
-    void import("./useCatalogCache").then((m) => {
-      cache = m.useCatalogCache();
-      void cache.prime();
-    });
+    import("./useCatalogCache")
+      .then((m) => {
+        cache = m.useCatalogCache();
+        void cache.prime();
+      })
+      // chunk fetch failed (e.g. offline before the SW cached it) — stay
+      // live-search-only rather than surfacing an unhandled rejection
+      .catch(() => {});
   }
   let timer: ReturnType<typeof setTimeout> | undefined;
   let controller: AbortController | undefined;

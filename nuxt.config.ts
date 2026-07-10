@@ -12,9 +12,13 @@ export default defineNuxtConfig({
   // Master switch for the offline plumbing (service worker + background sync, and
   // the offline catalog search). ON by default — the site is a full PWA out of the
   // box (installable, boots from cache, offline edits queue + replay). Setting
-  // NUXT_PUBLIC_OFFLINE=false at deploy time is the kill switch: the gated plugin
-  // then unregisters any SW + drops its caches, a clean rollback (see
-  // app/plugins/pwa.client.ts).
+  // NUXT_PUBLIC_OFFLINE=false (that exact string) is the kill switch: the gated
+  // plugin then unregisters any SW + drops its caches, a clean rollback (see
+  // app/plugins/pwa.client.ts). NOTE the flag must be present AT BUILD TIME:
+  // prerendered routes (/e, the legal pages) bake runtimeConfig into their static
+  // payload. On Vercel that's automatic — changing an env var redeploys, which
+  // rebuilds — but a bare `NUXT_PUBLIC_OFFLINE=false node server` won't reach the
+  // prerendered landing route.
   runtimeConfig: {
     public: {
       offline: process.env.NUXT_PUBLIC_OFFLINE !== "false",
@@ -49,13 +53,12 @@ export default defineNuxtConfig({
       // below handles the editor shell explicitly instead.
       navigateFallback: "",
       runtimeCaching: [
-        // editor shell — Nuxt serves the editor dynamically (the bare /e is
-        // ssr:false; /e/{shareCode} is SSR for its <head>), so there's no static HTML
-        // to precache; cache the navigation response instead so a prior online visit
-        // lets the editor boot offline. The pattern covers BOTH the bare /e and the
-        // named-link /e/{shareCode} so a saved pretty link opens offline too.
-        // NetworkFirst keeps online users on the fresh shell (so its referenced
-        // chunks match the live precache).
+        // editor shell — the bare /e is prerendered and /e/{shareCode} is ISR, but
+        // neither is precached (globPatterns is assets-only), so cache the
+        // navigation response: a prior online visit lets the editor boot offline.
+        // The pattern covers BOTH the bare /e and the named-link /e/{shareCode} so
+        // a saved pretty link opens offline too. NetworkFirst keeps online users on
+        // the fresh shell (so its referenced chunks match the live precache).
         {
           urlPattern: /\/e(?:\/[^/]+)?\/?$/,
           handler: "NetworkFirst",
@@ -66,10 +69,16 @@ export default defineNuxtConfig({
             expiration: { maxEntries: 16, maxAgeSeconds: 60 * 60 * 24 * 7 },
           },
         },
-        // public + shared read views — mirror their stale-while-revalidate edge
-        // headers so a previously-opened list still renders offline. /s (the
-        // share-code read) is included alongside /l: it's the most-shared link
-        // shape, and its API also feeds the /e/{shareCode} SSR head.
+        // public + shared read views — cached so a previously-opened list still
+        // renders offline. /s (the share-code read) is included alongside /l: it's
+        // the most-shared link shape, and its API also feeds the /e/{shareCode}
+        // SSR head. The DATA is stale-while-revalidate (JSON references no hashed
+        // assets, so staleness is only content-lag); the page HTML is NetworkFirst
+        // like the /e shell — SWR-serving week-old HTML can reference hashed
+        // /_nuxt assets that no longer exist after a redeploy (once the SW has
+        // updated and purged the old precache), leaving an unstyled, unhydrated
+        // page for an ONLINE user. NetworkFirst costs one network round-trip when
+        // online and still falls back to cache offline.
         {
           urlPattern: /\/api\/[ls]\/.*/,
           handler: "StaleWhileRevalidate",
@@ -80,9 +89,10 @@ export default defineNuxtConfig({
         },
         {
           urlPattern: /\/[ls]\/[^/]+$/,
-          handler: "StaleWhileRevalidate",
+          handler: "NetworkFirst",
           options: {
             cacheName: "mahonia-list-pages",
+            networkTimeoutSeconds: 3,
             expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 * 7 },
           },
         },
@@ -266,14 +276,19 @@ export default defineNuxtConfig({
     // short ISR window instead (collapses repeat opens + crawler bursts on a shared
     // pretty link; the head tolerates 60 s of staleness — the list BODY is always
     // live, it loads client-side from the fragment token).
+    // `isr: N` (not `swr: N`): on the Vercel preset, `swr` maps through nitro's
+    // deprecated back-compat path to `{ expiration: false }` — cached until the
+    // NEXT DEPLOY, not for N seconds (verified in nitropack's vercel preset).
+    // `isr: N` writes `{ expiration: N }`, the intended revalidation window; on
+    // non-Vercel targets it's simply inert.
     "/e": { prerender: true },
-    "/e/**": { swr: 60 },
+    "/e/**": { isr: 60 },
     // pure-static pages → build-time prerender (CDN-served, zero invocations)
     "/about": { prerender: true },
     "/privacy": { prerender: true },
     "/terms": { prerender: true },
     // the catalog-changes page reads a slow-moving feed — a 10-minute ISR window
     // makes repeat views free without letting it go meaningfully stale
-    "/changes": { swr: 600 },
+    "/changes": { isr: 600 },
   },
 });

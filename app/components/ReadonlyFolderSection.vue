@@ -113,8 +113,11 @@ const collapsed = ref(false);
 .folder[data-collapsed] .folder__bodyinner {
   opacity: 0;
 }
+/* truncate long names at the same cap as the editor's folder-name field so the
+   collapse chevron hugs the name rather than drifting to the column edge */
 .folder__name {
   min-width: 0;
+  max-width: min(40ch, 50vw);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -135,11 +138,17 @@ const collapsed = ref(false);
 }
 
 @media (max-width: 560px) {
+  /* no trailing actions in the read view — let the title (name + chevron) run
+     the WHOLE row, and drop the desktop 50vw cap so the name uses the width the
+     grid gives it before ellipsizing (mirrors the editor's mobile treatment) */
   .folder__head {
-    grid-template-columns: 1fr auto;
+    grid-template-columns: 1fr;
   }
   .folder__title {
-    grid-column: 1;
+    grid-column: 1 / -1;
+  }
+  .folder__name {
+    max-width: none;
   }
   /* tighten the two-row mobile items so each row reads as one unit, not spaced out */
   .folder__items > * {

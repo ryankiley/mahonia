@@ -5,3 +5,10 @@
 // Public contact / takedown address. Doubles as the Terms abuse address.
 // Swap here if Mahonia gets a dedicated inbox.
 export const CONTACT_EMAIL = "ryanekiley@gmail.com";
+
+// Canonical production origin. Used where a request-derived origin doesn't
+// exist or lies: PRERENDERED routes (the build crawler's request origin is
+// http://localhost, which would bake broken absolute URLs into the static
+// HTML) and the static social-card fallback in nuxt.config. SSR routes keep
+// deriving their origin from the live request (portable across deploy hosts).
+export const CANONICAL_ORIGIN = "https://mahonia.app";

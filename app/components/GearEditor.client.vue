@@ -239,8 +239,14 @@ async function rotate() {
 }
 async function copyMarkdown() {
   if (!snapshot.value) return;
-  const { listToMarkdown } = await mdExporter();
-  copy(listToMarkdown(snapshot.value), "Copied as Markdown");
+  try {
+    const { listToMarkdown } = await mdExporter();
+    copy(listToMarkdown(snapshot.value), "Copied as Markdown");
+  } catch {
+    // the exporter chunk failed to load (offline before the SW cached it, or a
+    // dropped connection) — the old static import could never fail, so say so
+    flash("Couldn’t load the exporter — try again");
+  }
 }
 async function cloneList() {
   if (!snapshot.value) return;
@@ -286,9 +292,13 @@ function fileBase(): string {
 }
 async function downloadCsv() {
   if (!snapshot.value) return;
-  const { listToCsv } = await csvExporter();
-  download(`${fileBase()}.csv`, listToCsv(snapshot.value), "text/csv");
-  flash("CSV downloaded");
+  try {
+    const { listToCsv } = await csvExporter();
+    download(`${fileBase()}.csv`, listToCsv(snapshot.value), "text/csv");
+    flash("CSV downloaded");
+  } catch {
+    flash("Couldn’t load the exporter — try again");
+  }
 }
 function downloadJson() {
   if (!snapshot.value) return;
