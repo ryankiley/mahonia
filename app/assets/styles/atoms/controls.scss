@@ -277,6 +277,10 @@ button svg {
   transition:
     opacity var(--dur) var(--ease),
     transform var(--dur) var(--ease);
+  // a departing toast is already dead (the undo bar's pendingUndo is null) but still
+  // painted mid-fade — without this, its Undo button eats a late click that then
+  // silently no-ops. Harmless on the plain message toasts, which aren't interactive.
+  pointer-events: none;
 }
 .toast-enter-from {
   opacity: 0;

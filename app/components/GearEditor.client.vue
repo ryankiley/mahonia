@@ -82,6 +82,23 @@ function clearChecks() {
   if (!confirm("Uncheck all packed items?")) return;
   for (const it of snapshot.value.items) if (it.packed) c.updateItem(it.id, { packed: false });
 }
+// The undo toast holds its dismiss timer while hovered or containing focus, and
+// restarts the window on leave/blur. Two flags (pointer, focus) so releasing one
+// while the other still holds doesn't resume the clock. They reset when the toast
+// goes, since no mouseleave/focusout fires for an element that just unmounted —
+// otherwise a stale "hovered" would pin the NEXT toast open forever.
+const undoHovered = ref(false);
+const undoFocused = ref(false);
+watch(
+  () => undoHovered.value || undoFocused.value,
+  (held) => (held ? c.holdUndo() : c.releaseUndo()),
+);
+watch(pendingUndo, (u) => {
+  if (!u) {
+    undoHovered.value = false;
+    undoFocused.value = false;
+  }
+});
 const importOpen = ref(false);
 const menuOpen = ref(false);
 const menuRef = useTemplateRef<HTMLElement>("menuRef");
@@ -452,7 +469,14 @@ function onCorrected(res: { status: string; itemName?: string }) {
     <SiteFooter />
 
     <Transition name="toast">
-      <div v-if="pendingUndo" class="toast undobar">
+      <div
+        v-if="pendingUndo"
+        class="toast undobar"
+        @mouseenter="undoHovered = true"
+        @mouseleave="undoHovered = false"
+        @focusin="undoFocused = true"
+        @focusout="undoFocused = false"
+      >
         <span class="t-sm">Removed <strong>{{ pendingUndo.label }}</strong></span>
         <button class="undobar__btn t-sm" @click="c.undoRemove()">
           <Undo2 :size="14" /> Undo
