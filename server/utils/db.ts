@@ -12,8 +12,27 @@ type Db = Awaited<ReturnType<typeof build>>;
 
 let _dbPromise: Promise<Db> | undefined;
 
+/**
+ * The effective database connection URL.
+ *
+ * On Vercel *preview* deployments an explicit `PREVIEW_DATABASE_URL` wins over
+ * `DATABASE_URL` — a belt-and-suspenders guard so a preview can be pinned to an
+ * isolated database even if a production-scoped `DATABASE_URL` were ever injected
+ * into the preview environment. In the normal setup (Neon's per-preview branch
+ * injection sets `DATABASE_URL`, and `PREVIEW_DATABASE_URL` is unset) this is
+ * exactly `DATABASE_URL`, so production and ordinary previews are unaffected.
+ * Isolation is enforced by the Vercel↔Neon preview-branch integration; this is
+ * just the in-code safety net.
+ */
+function databaseUrl(): string | undefined {
+  if (process.env.VERCEL_ENV === "preview" && process.env.PREVIEW_DATABASE_URL) {
+    return process.env.PREVIEW_DATABASE_URL;
+  }
+  return process.env.DATABASE_URL;
+}
+
 async function build() {
-  const url = process.env.DATABASE_URL;
+  const url = databaseUrl();
   if (url) {
     const { drizzle } = await import("drizzle-orm/neon-http");
     const { neon } = await import("@neondatabase/serverless");
@@ -152,7 +171,7 @@ export async function useDb(): Promise<Db> {
   // Neon has no build-time DDL (dev's PGlite ensured the schema in build()), so
   // ensure the core `lists` table exists on first use. Memoized → one batch per
   // warm instance. Snapshots + catalog self-ensure on their own paths.
-  if (process.env.DATABASE_URL) await ensureListsSchema(db);
+  if (databaseUrl()) await ensureListsSchema(db);
   return db;
 }
 
