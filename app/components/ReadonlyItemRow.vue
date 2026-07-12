@@ -19,6 +19,9 @@ const effClass = computed(() => effectiveClassification(props.item, props.list.f
     </span>
     <span class="t-num t-sm t-muted item__roqty">{{ itemQtyLabel(item, effClass) }}</span>
     <span class="t-num item__roweight"><template v-if="item.unitWeightMg > 0">{{ formatWeight(lineMg(item), list.displayUnit, { withUnit: false }) }}<span class="t-muted item__wunit">{{ list.displayUnit }}</span></template><template v-else>—</template></span>
+    <!-- the owner's note travels with the share (it used to be silently dropped
+         here); same quiet caption voice as the editor's note field -->
+    <p v-if="item.description" class="t-sm item__ronote">{{ item.description }}</p>
   </div>
 </template>
 
@@ -57,6 +60,14 @@ const effClass = computed(() => effectiveClassification(props.item, props.list.f
 .item__class {
   color: var(--ink-2);
 }
+/* the note — a full-width caption line under the row, in the editor note's quiet
+   voice (lightest ink, italic) */
+.item__ronote {
+  grid-column: 1 / -1;
+  margin-top: calc(-1 * var(--space-1));
+  color: var(--ink-3);
+  font-style: italic;
+}
 
 @media (max-width: 560px) {
   /* two-line shape (mirrors the editor's mobile rows): the name takes its own line
@@ -90,6 +101,13 @@ const effClass = computed(() => effectiveClassification(props.item, props.list.f
     grid-row: 2;
     justify-self: start;
     text-align: left;
+  }
+  /* third line on the two-line mobile shape; the row-gap provides the spacing,
+     so drop the desktop's upward tuck */
+  .item__ronote {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    margin-top: 0;
   }
 }
 </style>

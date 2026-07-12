@@ -18,6 +18,19 @@ useResponseHeader("Cache-Control").value =
 
 const { unit, totals, roList, ungrouped, shownFolders } = useReadonlyList(snapshot);
 
+// "Copy this list" — the viewer takes an independent, editable copy of what
+// they're looking at (the share-a-template loop). Same path as the editor's
+// Duplicate; lands in the copy's editor on success.
+const { copying, copyList } = useCopyList();
+const copyFailed = ref(false);
+async function onCopy() {
+  if (!snapshot.value) return;
+  copyFailed.value = !(await copyList(snapshot.value, totals.value?.totalMg ?? 0));
+}
+const copyLabel = computed(() =>
+  copying.value ? "Copying…" : copyFailed.value ? "Couldn’t copy — retry" : "Copy this list",
+);
+
 // Social unfurl (iMessage/Slack/etc.): the title + a short summary so a pasted share
 // link shows the list name, not a bare URL. Shared with /l via useReadonlyListSeo;
 // this page's noindex (below) keeps it out of search — og tags still drive previews.
@@ -31,8 +44,17 @@ useHead({
 <template>
   <div>
     <SiteTopbar compact>
-      <span class="t-sm t-muted">Read-only</span>
-      <NuxtLink to="/" class="btn btn--link">Make your own</NuxtLink>
+      <span class="t-sm t-muted topbar__tag">Read-only</span>
+      <span class="topbar__actions">
+        <button
+          v-if="snapshot"
+          type="button"
+          class="btn btn--link"
+          :disabled="copying"
+          @click="onCopy"
+        >{{ copyLabel }}</button>
+        <NuxtLink to="/" class="btn btn--link">Make your own</NuxtLink>
+      </span>
     </SiteTopbar>
 
     <ReadonlyListView
@@ -44,3 +66,14 @@ useHead({
     />
   </div>
 </template>
+
+<style scoped>
+/* the two CTAs travel together at the trailing edge (the wrapper takes the auto
+   margin the topbar would otherwise give each .btn, which would spread them out) */
+.topbar__actions {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+</style>
