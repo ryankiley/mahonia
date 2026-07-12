@@ -88,7 +88,9 @@ describe("LighterPack CSV import", () => {
     expect(bars.qty).toBe(5);
     const pack = data.items.find((i) => i.name === "Hyperlite 2400")!;
     expect(pack.productUrl).toBe("https://hmg.com");
-    expect(pack.priceCents).toBe(35500);
+    // Mahonia doesn't do prices — a "price" column is dropped on import, not
+    // silently carried (it would otherwise be invisible but re-exported).
+    expect(pack.priceCents).toBeUndefined();
   });
 
   it("falls back to first column for the name when no name header", () => {

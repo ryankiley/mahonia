@@ -287,6 +287,9 @@ export default defineNuxtConfig({
     "/about": { prerender: true },
     "/privacy": { prerender: true },
     "/terms": { prerender: true },
+    // "Your lists" is a device-local read-out (localStorage) — prerender the shell,
+    // the list fills in client-side; noindex (set per-page)
+    "/mine": { prerender: true },
     // the catalog-changes page reads a slow-moving feed — a 10-minute ISR window
     // makes repeat views free without letting it go meaningfully stale
     "/changes": { isr: 600 },

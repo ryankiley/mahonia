@@ -13,6 +13,7 @@ export default defineEventHandler((event) => {
     "Allow: /",
     "Disallow: /e",
     "Disallow: /s/",
+    "Disallow: /mine",
     "Disallow: /api/",
     "",
     `Sitemap: ${origin}/sitemap.xml`,

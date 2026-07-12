@@ -9,6 +9,7 @@ const year = new Date().getFullYear();
   <footer class="foot">
     <div class="wrap foot__inner">
       <nav class="foot__nav" aria-label="Footer">
+        <NuxtLink to="/mine" class="foot__link t-sm">Your lists</NuxtLink>
         <NuxtLink to="/about" class="foot__link t-sm">About</NuxtLink>
         <NuxtLink to="/privacy" class="foot__link t-sm">Privacy</NuxtLink>
         <NuxtLink to="/terms" class="foot__link t-sm">Terms</NuxtLink>

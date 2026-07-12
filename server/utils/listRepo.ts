@@ -374,6 +374,23 @@ export async function createList(init?: {
 }
 
 /**
+ * Owner-initiated delete: soft-delete the list this edit token holds. Reuses the
+ * reaper's `deletedAt` model, so the list drops out of every capability lookup
+ * (edit/share/public/feed all go through `liveOnly`) the instant this runs, and
+ * the nightly purge reclaims its storage + snapshots after the same grace window
+ * (so a mistaken delete is admin-recoverable for `LIST_PURGE_GRACE_DAYS`). Returns
+ * false if the token resolves to nothing (already deleted / never existed) → 404.
+ */
+export async function softDeleteByEditToken(editToken: string, db?: Db): Promise<boolean> {
+  const d = db ?? (await useDb());
+  const row = await findByEditToken(editToken, d);
+  if (!row) return false;
+  const now = new Date();
+  await d.update(lists).set({ deletedAt: now, updatedAt: now }).where(eq(lists.id, row.id));
+  return true;
+}
+
+/**
  * Apply a batch of ops via compare-and-set on version. Ops MERGE: if another
  * editor bumped the version between read and write, we re-read and re-apply onto
  * the latest state (so independent edits both land). Returns the authoritative

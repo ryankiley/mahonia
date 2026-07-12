@@ -113,7 +113,10 @@ export function csvToListData(text: string, defaultUnit: Unit = "g"): ListData {
   const iWorn = idx(["worn"]);
   const iCons = idx(["consumable", "consumables"]);
   const iWornQty = idx(["worn qty", "wornqty", "worn quantity"]);
-  const iPrice = idx(["price", "cost"]);
+  // Mahonia doesn't do prices — a LighterPack/CSV "price" column is dropped on
+  // import rather than silently carried (invisible in the editor, but re-emitted
+  // on export). productUrl is kept: it's not a price, and it seeds the future
+  // canonical-URL affiliate tagging.
   const iUrl = idx(["url", "link", "product url"]);
   const iDesc = idx(["desc", "description", "notes", "note"]);
   const nameCol = iName >= 0 ? iName : 0;
@@ -152,7 +155,6 @@ export function csvToListData(text: string, defaultUnit: Unit = "g"): ListData {
     const wornQtyVal = iWornQty >= 0 && classification === null
       ? Math.round(parseFloat(row[iWornQty] || "") || 0)
       : 0;
-    const priceVal = iPrice >= 0 ? parseFloat((row[iPrice] || "").replace(/[^0-9.]/g, "")) : NaN;
 
     items.push({
       id: uid(),
@@ -165,7 +167,6 @@ export function csvToListData(text: string, defaultUnit: Unit = "g"): ListData {
       classification,
       description: iDesc >= 0 && row[iDesc]?.trim() ? stripFormulaGuard(row[iDesc].trim()) : undefined,
       productUrl: iUrl >= 0 && row[iUrl]?.trim() ? stripFormulaGuard(row[iUrl].trim()) : undefined,
-      priceCents: isFinite(priceVal) ? Math.round(priceVal * 100) : undefined,
       sortOrder: itemsInFolder(items, fId).length,
     });
   }
