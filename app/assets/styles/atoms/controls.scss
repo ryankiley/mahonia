@@ -82,6 +82,24 @@
   background: transparent;
   color: var(--ink);
 }
+
+// Quiet text button — bare like --link, one step calmer: regular weight, faint
+// ink, no chrome; darkens to full ink on hover. For tertiary/secondary text
+// actions (the Your-lists row actions, the packing "Clear checks"). Composes .btn,
+// so it inherits the shared transition + disabled/active states.
+.btn--quiet {
+  min-height: 0;
+  padding: 0;
+  background: transparent;
+  font-weight: 400;
+  letter-spacing: normal;
+  white-space: nowrap;
+  color: var(--ink-3);
+}
+.btn--quiet:hover {
+  background: transparent;
+  color: var(--ink);
+}
 // Icons render as blocks (centred by each button's flexbox). An inline SVG sits on
 // the text baseline at a fractional offset that Safari re-snaps by ~1px on the
 // hover/active repaint — a visible jitter; block layout removes the baseline.
