@@ -153,41 +153,11 @@ function flash(msg: string) {
   toastTimer = setTimeout(() => (toast.value = ""), 2000);
 }
 // Clipboard writes fire from real button clicks (the ⋯ menu items + the share
-// button), so the async Clipboard API has the user gesture iOS Safari demands. Keep a
-// synchronous execCommand('copy') fallback off a hidden textarea for older browsers
-// where the async API is missing or rejected. (See controls.scss for sibling iOS quirks.)
-function legacyCopy(text: string): boolean {
-  try {
-    const ta = document.createElement("textarea");
-    ta.value = text;
-    ta.setAttribute("readonly", "");
-    // off-screen but still selectable; fixed + opacity:0 avoids iOS scroll-to-field + zoom
-    ta.style.position = "fixed";
-    ta.style.top = "0";
-    ta.style.left = "0";
-    ta.style.opacity = "0";
-    document.body.appendChild(ta);
-    ta.select();
-    ta.setSelectionRange(0, text.length);
-    const ok = document.execCommand("copy");
-    document.body.removeChild(ta);
-    return ok;
-  } catch {
-    return false;
-  }
-}
+// button), so the async Clipboard API has the user gesture iOS Safari demands. The
+// async-first write + synchronous execCommand fallback lives in the shared copyText()
+// util (app/utils/clipboard.ts); flash() just reports the outcome.
 async function copy(text: string, msg: string) {
-  try {
-    if (navigator.clipboard?.writeText && window.isSecureContext) {
-      await navigator.clipboard.writeText(text);
-      flash(msg);
-      return;
-    }
-  } catch {
-    // async API unavailable or rejected — fall through to the legacy path,
-    // still within the user gesture.
-  }
-  flash(legacyCopy(text) ? msg : "Copy failed");
+  flash((await copyText(text)) ? msg : "Copy failed");
 }
 const origin = () => (typeof location !== "undefined" ? location.origin : "");
 
@@ -265,30 +235,13 @@ async function cloneList() {
   const ok = await copyList(snapshot.value, totals.value?.totalMg ?? 0);
   flash(ok ? "List duplicated" : "Couldn’t duplicate — try again");
 }
-function download(filename: string, text: string, type: string) {
-  const url = URL.createObjectURL(new Blob([text], { type }));
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-// Name the downloaded file after the list's NAME (what the user typed), e.g.
-// "Summer JMT" → "summer-jmt.json", so the saved file is recognisable. Falls back to
-// the URL slug, then "gear" (an unnamed draft has neither a title nor a slug yet).
-function fileBase(): string {
-  const fromTitle = (snapshot.value?.title || "")
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-  return fromTitle || snapshot.value?.slug || "gear";
-}
+// downloadFile() + listFileBase() (the saved file is named after the list) live in
+// the shared app/utils/download.ts, used by the read views' export menu too.
 async function downloadCsv() {
   if (!snapshot.value) return;
   try {
     const { listToCsv } = await csvExporter();
-    download(`${fileBase()}.csv`, listToCsv(snapshot.value), "text/csv");
+    downloadFile(`${listFileBase(snapshot.value.title, snapshot.value.slug)}.csv`, listToCsv(snapshot.value), "text/csv");
     flash("CSV downloaded");
   } catch {
     flash("Couldn’t load the exporter — try again");
@@ -297,8 +250,8 @@ async function downloadCsv() {
 function downloadJson() {
   if (!snapshot.value) return;
   const { title, description, displayUnit, folders, items } = snapshot.value;
-  download(
-    `${fileBase()}.json`,
+  downloadFile(
+    `${listFileBase(title, snapshot.value.slug)}.json`,
     JSON.stringify({ title, description, displayUnit, folders, items }, null, 2),
     "application/json",
   );
@@ -643,68 +596,12 @@ function onCorrected(res: { status: string; itemName?: string }) {
 .editor__share {
   color: var(--ink-2);
 }
-/* the kebab is the trigger; it toggles a custom popover (.menu__list) anchored to it.
-   relative so the absolute popover anchors here. */
+/* the popover's look + open/close come from the shared .menu atom (controls.scss);
+   the editor only nudges the trailing cluster (toggle · share · kebab) right into the
+   gutter so the kebab lines up with the item rows' drag handle below. The title group
+   (flex:1) absorbs the freed space, so the cluster reflows as a unit. */
 .menu {
-  position: relative;
-  display: inline-flex;
-  /* shift the whole trailing cluster (toggle · share · kebab) right into the
-     gutter so the kebab lines up with the item rows' drag handle below — and the
-     toggle + share move over with it. The title group (flex:1) absorbs the freed
-     space, so this reflows the cluster as a unit (no tap-target overlap). */
   margin-right: -13px;
-}
-.menu__btn {
-  color: var(--ink-2);
-}
-/* the dropdown — a floating .panel (paper-2 + hairline + radius-2) anchored under the
-   kebab, right-aligned to it and the toolbar gutter. Items are real <button>s so the
-   clipboard actions fire from a click (a <select> change isn't a clipboard gesture on
-   iOS Safari). */
-.menu__list {
-  position: absolute;
-  top: calc(100% + var(--space-1));
-  right: 0;
-  z-index: 20;
-  min-width: 12rem;
-  margin: 0;
-  padding: var(--space-1);
-  list-style: none;
-  box-shadow: var(--shadow-pop);
-  transform-origin: top right;
-}
-.menu__item {
-  width: 100%;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-1);
-  background: none;
-  color: var(--ink);
-  font-size: var(--text-base);
-  text-align: left;
-  white-space: nowrap;
-  cursor: pointer;
-  transition: background var(--dur) var(--ease);
-}
-.menu__item:hover,
-.menu__item:focus-visible {
-  background: color-mix(in oklab, var(--ink) 8%, transparent);
-  outline: none;
-}
-/* pops in from the kebab corner: quick fade + slight rise, spring on enter */
-.menu-enter-active {
-  transition:
-    opacity var(--dur) var(--ease),
-    transform var(--dur) var(--ease-spring);
-}
-.menu-leave-active {
-  transition:
-    opacity var(--dur) var(--ease),
-    transform var(--dur) var(--ease);
-}
-.menu-enter-from,
-.menu-leave-to {
-  opacity: 0;
-  transform: translateY(-4px) scale(0.98);
 }
 .editor__body {
   /* no bottom padding: the footer's margin-top is the single content→footer gap
@@ -823,27 +720,9 @@ function onCorrected(res: { status: string; itemName?: string }) {
 .editor--centered :deep(.foot) {
   margin-top: 0;
 }
-.toast {
-  position: fixed;
-  left: 50%;
-  bottom: var(--space-5);
-  /* translate(-50%, 0) — NOT translateX(-50%) — so the resting transform is the SAME
-     function as the enter/leave states' translate(-50%, Ypx). iOS Safari won't animate
-     across mismatched transform functions (translateX → translate); Chromium will
-     (matrix interpolation), which masked this. */
-  transform: translate(-50%, 0);
-  /* a position:fixed box is laid out against the viewport, so it escapes the
-     html{overflow-x:clip} guard; without a cap, translateX(-50%) of a wide toast
-     could overhang an edge and (like any element wider than the layout viewport)
-     nudge iOS Safari into the same viewport-growth margin bug. Keep it within the
-     gutters. */
-  max-width: calc(100% - 2 * var(--space-4));
-  background: var(--ink);
-  color: var(--paper);
-  padding: var(--space-2) var(--space-4);
-  /* gently rounded — softens the square slab without going full pill */
-  border-radius: var(--radius-2);
-}
+/* the toast base + its enter/leave motion now live in the shared .toast atom
+   (controls.scss), used by the read views' menu too; the undo bar just adds its
+   inner layout on top of that pill. */
 .undobar {
   display: flex;
   align-items: center;
@@ -865,26 +744,5 @@ function onCorrected(res: { status: string; itemName?: string }) {
   text-decoration-color: color-mix(in srgb, var(--paper) 55%, transparent);
   text-underline-offset: 2px;
   cursor: pointer;
-}
-/* enter ≠ exit: it arrives with a livelier spring rise (the toast is the event), and
-   leaves quietly on the plain ease. both keep translate(-50%, …) — the toast is
-   X-centred, so the overshoot only plays on Y (both ends share X = -50%). */
-.toast-enter-active {
-  transition:
-    opacity var(--dur) var(--ease),
-    transform var(--dur) var(--ease-spring);
-}
-.toast-leave-active {
-  transition:
-    opacity var(--dur) var(--ease),
-    transform var(--dur) var(--ease);
-}
-.toast-enter-from {
-  opacity: 0;
-  transform: translate(-50%, 12px);
-}
-.toast-leave-to {
-  opacity: 0;
-  transform: translate(-50%, 8px);
 }
 </style>
