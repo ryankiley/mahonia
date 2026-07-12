@@ -19,13 +19,38 @@ defineEmits<{ "set-unit": [Unit] }>();
 // one grouping pass for all folders (ReadonlyFolderSection takes its items pre-grouped)
 const itemsByFolder = computed(() => groupItemsByFolder(props.list?.items ?? []));
 const NO_ITEMS: Item[] = [];
+
+// Quiet meta line under the title — the page's read-only status (a #status slot:
+// "Read-only" / "Public list") joined with the list's last-edit time into one text
+// object. The time is the read-only twin of the editor's SyncStatus suffix: no sync
+// words (the viewer isn't writing), just the last server write via the shared
+// timeAgo(), so a share link tells the reader how fresh the list is. Ticks silently.
+const now = useNow({ interval: 30_000 });
+const editedAt = computed(() => {
+  const iso = props.list?.updatedAt;
+  const t = iso ? Date.parse(iso) : NaN;
+  return Number.isFinite(t) ? t : null;
+});
 </script>
 
 <template>
   <main v-if="list && totals" class="wrap view">
-    <slot name="head">
-      <h1 class="t-title view__title">{{ list.title }}</h1>
-    </slot>
+    <div class="view__header">
+      <slot name="head">
+        <h1 class="t-title view__title">{{ list.title }}</h1>
+      </slot>
+      <p v-if="$slots.status || editedAt != null" class="view__meta">
+        <span v-if="$slots.status" class="view__status"><slot name="status" /></span>
+        <!-- the relative time is a client concern (avoids an SSR/hydration time
+             mismatch on the indexable /l page); the dot only shows once it does -->
+        <ClientOnly>
+          <template v-if="editedAt != null">
+            <span v-if="$slots.status" class="view__dot" aria-hidden="true">·</span>
+            <span>Edited {{ timeAgo(editedAt, now.getTime()) }}</span>
+          </template>
+        </ClientOnly>
+      </p>
+    </div>
 
     <TotalsBar :list="list" :totals="totals" @set-unit="(u) => $emit('set-unit', u)" />
 
@@ -55,8 +80,37 @@ const NO_ITEMS: Item[] = [];
   flex-direction: column;
   gap: var(--space-6);
 }
+/* the title/head block and its trailing "Edited …" line, kept close (the tighter
+   --space-2) so the whole header still reads as one --space-6 step off TotalsBar */
+.view__header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
 .view__title {
   font-family: var(--font);
+}
+/* status · edited — one quiet line. flex so a #status icon (the /l globe) sits on the
+   text baseline, with a drawn middle-dot between the pieces */
+.view__meta {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--ink-3);
+  font-size: var(--text-sm);
+  user-select: none; /* passive metadata, not a control */
+}
+.view__status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+/* the middle-dot is its own flex child (aria-hidden) so it isn't announced/copied and
+   the flex gap centres it evenly between status and time */
+.view__dot {
+  color: var(--ink-3);
 }
 .view__folders {
   display: flex;

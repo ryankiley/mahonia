@@ -165,6 +165,117 @@ button svg {
   background: var(--paper-2);
 }
 
+// Popover menu — a kebab/⋯ trigger with a floating list of actions, anchored under
+// and right-aligned to it. Shared by the editor toolbar and the read-only share
+// views. Items are real <button>s (a clipboard action needs a click gesture, which a
+// native <select> change isn't on iOS Safari). Pair the list with <Transition
+// name="menu"> for the open/close; give it class="panel menu__list" for the surface.
+.menu {
+  position: relative;
+  display: inline-flex;
+}
+.menu__btn {
+  color: var(--ink-2);
+}
+.menu__list {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  right: 0;
+  z-index: 20;
+  min-width: 12rem;
+  margin: 0;
+  padding: var(--space-1);
+  list-style: none;
+  box-shadow: var(--shadow-pop);
+  transform-origin: top right;
+}
+.menu__item {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-1);
+  background: none;
+  color: var(--ink);
+  font-size: var(--text-base);
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--dur) var(--ease);
+}
+.menu__item:hover,
+.menu__item:focus-visible {
+  background: color-mix(in oklab, var(--ink) 8%, transparent);
+  outline: none;
+}
+.menu__item:disabled {
+  color: var(--ink-3);
+  cursor: default;
+}
+// pops in from the trigger corner: quick fade + slight rise, spring on enter
+.menu-enter-active {
+  transition:
+    opacity var(--dur) var(--ease),
+    transform var(--dur) var(--ease-spring);
+}
+.menu-leave-active {
+  transition:
+    opacity var(--dur) var(--ease),
+    transform var(--dur) var(--ease);
+}
+.menu-enter-from,
+.menu-leave-to {
+  opacity: 0;
+  transform: translateY(-4px) scale(0.98);
+}
+
+// Toast / snackbar — a brief status pill at the bottom edge (the copy confirmations
+// after Share, the undo bar). Shared by the editor and the read-only share views;
+// pair with <Transition name="toast">. Motion is opacity + transform only, on a CSS
+// transition (NOT a keyframe/filter): Safari reliably animates both — including the
+// LEAVE, where a filter transition on removal just snaps off — and a transition rests
+// at the VISIBLE base state, so if animation is ever throttled the toast still shows
+// (a keyframe would hold its hidden from-frame). It arrives as the event — a spring
+// rise that settles a slight scale-up, opacity leading on the quicker --dur so the
+// text reads before the spring finishes — and leaves quick + quiet on the plain ease,
+// a small sink. Every state shares one transform function, translate(-50%, …)
+// scale(…), so Safari interpolates cleanly (mismatched functions it won't).
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: var(--space-5);
+  z-index: 50; // above the sticky topbar (10) and the popover menu (20)
+  transform: translate(-50%, 0) scale(1);
+  // size to the text, up to a cap. `width: max-content` is load-bearing: a fixed box
+  // with left:50% + width:auto shrink-to-fits against only the half-viewport RIGHT of
+  // the 50% mark, so a long message would wrap at ~50% width instead of growing to the
+  // cap. The cap keeps a wide toast within the gutters (and clear of iOS's viewport-
+  // growth bug, since a fixed box escapes the html{overflow-x:clip} guard).
+  width: max-content;
+  max-width: calc(100% - 2 * var(--space-4));
+  padding: var(--space-2) var(--space-4);
+  background: var(--ink);
+  color: var(--paper);
+  border-radius: var(--radius-2); // gently rounded, not full pill
+  box-shadow: var(--shadow-pop); // lift it off the page
+}
+.toast-enter-active {
+  transition:
+    opacity var(--dur) var(--ease),
+    transform var(--dur-slow) var(--ease-spring);
+}
+.toast-leave-active {
+  transition:
+    opacity var(--dur) var(--ease),
+    transform var(--dur) var(--ease);
+}
+.toast-enter-from {
+  opacity: 0;
+  transform: translate(-50%, 10px) scale(0.96);
+}
+.toast-leave-to {
+  opacity: 0;
+  transform: translate(-50%, 6px) scale(0.98);
+}
+
 // Touch devices: icon buttons hit the ~44px minimum tap target (Apple HIG) and
 // their glyphs grow a touch so they don't read as tiny on a phone. Desktop keeps
 // the dense 32px chrome — a mouse is precise and doesn't need the bigger targets.

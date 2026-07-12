@@ -26,19 +26,6 @@ useHead(() => ({
   link: [{ rel: "canonical", href: `/l/${slug.value}` }],
 }));
 
-// "Copy this list" — the viewer takes an independent, editable copy of what
-// they're looking at (the share-a-template loop). Same path as the editor's
-// Duplicate; lands in the copy's editor on success.
-const { copying, copyList } = useCopyList();
-const copyFailed = ref(false);
-async function onCopy() {
-  if (!snapshot.value) return;
-  copyFailed.value = !(await copyList(snapshot.value, totals.value?.totalMg ?? 0));
-}
-const copyLabel = computed(() =>
-  copying.value ? "Copying…" : copyFailed.value ? "Couldn’t copy — retry" : "Copy this list",
-);
-
 // Report — flag for review (hides from the feed pending moderation).
 const reported = ref(false);
 const reporting = ref(false);
@@ -60,16 +47,9 @@ async function report() {
 <template>
   <div>
     <SiteTopbar compact>
-      <span class="t-sm t-muted topbar__tag"><Globe :size="13" :stroke-width="2" /> Public list</span>
       <span class="topbar__actions">
-        <button
-          v-if="snapshot"
-          type="button"
-          class="btn btn--link"
-          :disabled="copying"
-          @click="onCopy"
-        >{{ copyLabel }}</button>
         <NuxtLink to="/" class="btn btn--link">Make your own</NuxtLink>
+        <ReadonlyMenu v-if="snapshot" :snapshot="snapshot" :totals="totals" />
       </span>
     </SiteTopbar>
 
@@ -80,6 +60,8 @@ async function report() {
       :ungrouped="ungrouped"
       @set-unit="(u) => (unit = u)"
     >
+      <template #status><Globe :size="13" :stroke-width="2" /> Public list</template>
+
       <template #head>
         <div class="view__head">
           <h1 class="t-title view__title">{{ roList!.title }}</h1>
@@ -103,13 +85,8 @@ async function report() {
 </template>
 
 <style scoped>
-.topbar__tag {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-}
-/* the two CTAs travel together at the trailing edge (the wrapper takes the auto
-   margin the topbar would otherwise give each .btn, which would spread them out) */
+/* "Make your own" + the ⋯ menu travel together at the trailing edge (the wrapper
+   takes the auto margin the topbar would otherwise give each .btn, spreading them) */
 .topbar__actions {
   margin-left: auto;
   display: inline-flex;
