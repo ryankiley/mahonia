@@ -63,6 +63,14 @@ export function rowToSnapshot(row: ListRow): ListSnapshot {
     items: data.items ?? [],
     version: row.version,
     isPublic: row.isPublic,
+    // ISO string for the wire; the driver hands back a Date (neon/PGlite) or, in
+    // some paths, an already-serialized string — normalize both.
+    updatedAt:
+      row.updatedAt instanceof Date
+        ? row.updatedAt.toISOString()
+        : row.updatedAt
+          ? String(row.updatedAt)
+          : undefined,
   };
 }
 
