@@ -42,8 +42,14 @@ useHead({
 
         <h2>The short version of how it works</h2>
         <ul>
-          <li>Your lists live in your browser until you choose to share one.</li>
-          <li>Sharing creates a private edit link and a separate read-only link — no sign-up.</li>
+          <li>
+            A list syncs to the server under a private, unguessable link as soon as you start
+            building it — that’s how the same list opens on your phone and your laptop.
+          </li>
+          <li>
+            Every list gets a private edit link and a separate read-only link to share — no
+            sign-up. Nothing shows up publicly unless you choose to publish it.
+          </li>
           <li>Weights are backed by a curated, cited gear catalog, but you can override anything.</li>
         </ul>
 

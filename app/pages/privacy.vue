@@ -27,13 +27,18 @@ useHead({
         <h2>Where your data lives</h2>
         <p>
           The lists you create — titles, folders, items, notes, and any weights — are saved on your
-          device in your browser’s <code>localStorage</code>. While a list is just yours, it stays
-          there and is never sent anywhere.
+          device in your browser’s storage, and synced to the server as you build them. As soon as a
+          list has real content — a first item, a first weight — it’s stored on the server under an
+          unguessable private link. That sync is what lets the same edit link open your list on
+          another device, and it’s why the editor says “Synced” from the start. An empty draft you
+          never add anything to is never sent anywhere.
         </p>
         <p>
-          A list is sent to the server only when you choose to share or publish it. At that point its
-          contents are stored so the share link and public feed can work, and they stay stored until
-          you unpublish or delete the list. Public means public: anyone with the link can read it.
+          A synced list is private by default: it isn’t listed anywhere on the site, search engines
+          are asked not to index it, and only someone you give the link to can open it. Its contents
+          stay on the server until you delete the list. Publishing is a separate, explicit step that
+          puts a list in the public feed — and public means public: anyone can read it until you
+          unpublish or delete it.
         </p>
 
         <h2>What Mahonia collects in the background</h2>
@@ -62,7 +67,7 @@ useHead({
         </p>
         <ul>
           <li><strong>Vercel</strong> — hosting, content delivery, and the aggregate analytics.</li>
-          <li><strong>Neon</strong> — the database that stores shared and public lists.</li>
+          <li><strong>Neon</strong> — the database where your synced lists are stored.</li>
           <li><strong>Upstash</strong> — the store used for rate limiting.</li>
         </ul>
 
@@ -72,7 +77,7 @@ useHead({
         </p>
         <ul>
           <li>Open “Your lists” to see every list saved on this device.</li>
-          <li>There, “Remove from device” takes a list off this browser (it stays online if you’ve shared its link); “Delete” removes the list from the server for everyone.</li>
+          <li>There, “Remove from device” takes a list off this browser (the list itself stays online for anyone with its link); “Delete” removes the list from the server for everyone.</li>
           <li>
             For anything else — including a copy or deletion of a shared list — email
             <a :href="`mailto:${CONTACT_EMAIL}`">{{ CONTACT_EMAIL }}</a> and I’ll sort it out.
@@ -114,9 +119,5 @@ useHead({
 <style scoped>
 .page {
   padding-block: var(--space-5) var(--space-9);
-}
-code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.9em;
 }
 </style>
