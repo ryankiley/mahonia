@@ -30,7 +30,7 @@ const collapsed = ref(false);
           :title="collapsed ? 'Expand folder' : 'Collapse folder'"
           @click="collapsed = !collapsed"
         >
-          <ChevronDown class="folder__chev" :class="{ 'is-collapsed': collapsed }" :size="18" :stroke-width="2" />
+          <ChevronDown class="folder__chev" :class="{ 'is-collapsed': collapsed }" :size="20" :stroke-width="2" />
         </button>
       </div>
     </header>
