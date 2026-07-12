@@ -5,6 +5,7 @@ import {
   formatWeight,
   formatWeightAuto,
   fromMg,
+  nextSortOrder,
   parseWeightInput,
   splitWornQty,
   toMg,
@@ -215,5 +216,36 @@ describe("formatWeightAuto (magnitude-promoted, for comparison surfaces)", () =>
   });
   it("honours withUnit: false", () => {
     expect(formatWeightAuto(5_000_000, { withUnit: false })).toBe("5");
+  });
+});
+
+describe("nextSortOrder — new items append at the folder's bottom", () => {
+  it("is 0 for an empty folder", () => {
+    expect(nextSortOrder([], "f1")).toBe(0);
+    expect(nextSortOrder([item({ id: "a", folderId: "other", sortOrder: 4 })], "f1")).toBe(0);
+  });
+  it("appends after a dense 0..n-1 folder", () => {
+    const items = [
+      item({ id: "a", folderId: "f1", sortOrder: 0 }),
+      item({ id: "b", folderId: "f1", sortOrder: 1 }),
+    ];
+    expect(nextSortOrder(items, "f1")).toBe(2);
+  });
+  it("appends after the max when deletes/drag-outs left holes (count-based would land mid-folder)", () => {
+    // folder had 0..4; two rows were dragged out or deleted → holes at 1,2
+    const items = [
+      item({ id: "a", folderId: "f1", sortOrder: 0 }),
+      item({ id: "d", folderId: "f1", sortOrder: 3 }),
+      item({ id: "e", folderId: "f1", sortOrder: 4 }),
+    ];
+    expect(nextSortOrder(items, "f1")).toBe(5); // NOT 3 (the count), which sorts above e
+  });
+  it("scopes to the requested folder, including ungrouped (null)", () => {
+    const items = [
+      item({ id: "a", folderId: "f1", sortOrder: 7 }),
+      item({ id: "b", folderId: null, sortOrder: 2 }),
+    ];
+    expect(nextSortOrder(items, null)).toBe(3);
+    expect(nextSortOrder(items, "f1")).toBe(8);
   });
 });

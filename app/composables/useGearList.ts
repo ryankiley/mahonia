@@ -5,7 +5,7 @@ import { nextFolderColor, STARTER_FOLDERS } from "~~/shared/categories";
 import { editLinkPath } from "~~/shared/links";
 import { DRAFT_KEY, localKey, rebaseOnto } from "~~/shared/localList";
 import type { Folder, Item, ListSnapshot, Unit } from "~~/shared/types";
-import { bySortOrder, computeTotals, itemsInFolder, parseWeightInput } from "~~/shared/weights";
+import { bySortOrder, computeTotals, itemsInFolder, nextSortOrder, parseWeightInput } from "~~/shared/weights";
 
 // Editor controller (one list open at a time → module singleton). Mutations are
 // applied optimistically via the SAME op-reducer the server uses, queued, and
@@ -467,7 +467,7 @@ function create() {
   function addBlankItem(folderId: string): string {
     if (!snapshot.value) return "";
     const id = uid();
-    const sortOrder = itemsInFolder(snapshot.value.items, folderId).length;
+    const sortOrder = nextSortOrder(snapshot.value.items, folderId);
     const item: Item = { id, folderId, name: "", unitWeightMg: 0, qty: 1, classification: null, sortOrder };
     dispatch({ t: "addItem", item });
     pendingBlankId.value = id;
