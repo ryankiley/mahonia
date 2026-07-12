@@ -71,8 +71,8 @@ useHead({
           Because there are no accounts, you’re in control of removing things yourself:
         </p>
         <ul>
-          <li>Delete a list from this device in “Your lists,” or clear your browser storage.</li>
-          <li>Unpublish or delete a shared or public list from its editor to remove it from the server.</li>
+          <li>Open “Your lists” to see every list saved on this device.</li>
+          <li>There, “Remove from device” takes a list off this browser (it stays online if you’ve shared its link); “Delete” removes the list from the server for everyone.</li>
           <li>
             For anything else — including a copy or deletion of a shared list — email
             <a :href="`mailto:${CONTACT_EMAIL}`">{{ CONTACT_EMAIL }}</a> and I’ll sort it out.

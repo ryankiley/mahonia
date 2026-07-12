@@ -31,6 +31,23 @@ export function useMyLists() {
     useLocalListStore().del(editToken);
   }
 
+  // Delete the list on the server (soft-delete — it drops out of every lookup at
+  // once, the nightly purge reclaims it), then forget it locally. A 404 means it
+  // was already gone server-side, so we still forget it. Any other failure
+  // (offline) leaves the entry so the user can retry. Returns whether it's gone.
+  async function deleteList(editToken: string): Promise<boolean> {
+    try {
+      await $fetch("/api/edit/delete", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${editToken}` },
+      });
+    } catch (e) {
+      if ((e as { statusCode?: number })?.statusCode !== 404) return false;
+    }
+    forget(editToken);
+    return true;
+  }
+
   // Register a freshly created/imported/cloned list in this browser's registry.
   // Returns the edit token so the caller can navigate straight to /e#{token}.
   function registerCreated(
@@ -49,5 +66,5 @@ export function useMyLists() {
     return res.editToken;
   }
 
-  return { entries, upsert, touch, forget, registerCreated };
+  return { entries, upsert, touch, forget, deleteList, registerCreated };
 }
