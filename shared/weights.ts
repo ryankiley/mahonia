@@ -136,6 +136,20 @@ export function itemsInFolder<T extends { folderId: string | null }>(
 }
 
 /**
+ * sortOrder that appends a new item at the BOTTOM of a folder: max existing
+ * sortOrder + 1, not the item count. Deletes and drag-outs leave holes in a
+ * folder's sortOrders (only a move's TARGET folder gets reindexed), so a
+ * count-based value can land mid-folder.
+ */
+export function nextSortOrder<T extends { folderId: string | null; sortOrder: number }>(
+  items: readonly T[],
+  folderId: string | null,
+): number {
+  const siblings = itemsInFolder(items, folderId);
+  return siblings.length ? Math.max(...siblings.map((i) => i.sortOrder)) + 1 : 0;
+}
+
+/**
  * Group items by folder id (ungrouped items excluded), each group sorted by
  * sortOrder. One O(items) pass, built once per snapshot — so per-folder
  * consumers (one FolderSection per folder) don't each re-filter and re-sort
