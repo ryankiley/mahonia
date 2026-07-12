@@ -15,7 +15,7 @@ useHead({
     <main class="wrap page">
       <div class="prose">
         <h1 class="t-title">Privacy</h1>
-        <p class="t-sm t-muted">Last updated 26 June 2026</p>
+        <p class="t-sm t-muted">Last updated 12 July 2026</p>
 
         <p>
           Mahonia is a tool for making and sharing packing lists, made by one person. There are no

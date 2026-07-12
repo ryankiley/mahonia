@@ -1,0 +1,4 @@
+#!/bin/sh
+# Committed hooks, activated by `git config core.hooksPath .githooks`
+# (scripts/setup-git-hooks.mjs runs that on npm install).
+node scripts/stamp-legal-dates.mjs
