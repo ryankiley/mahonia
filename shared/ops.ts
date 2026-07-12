@@ -34,6 +34,17 @@ export const MAX_ITEMS = 1000;
 export const MAX_FOLDERS = 50;
 export const UNIT_WEIGHT_MAX_MG = 100_000_000; // 100 kg per single unit
 
+// Identity strings are clamped too. Every HUMAN field below is length-capped, but
+// item/folder ids + folderId references are free-form client strings — left
+// unbounded, a hostile client could pack a single `data` JSONB row to hundreds of
+// MB (1000 items × a giant id), amplified ×5 by the full-copy snapshots. 128 is far
+// above any real uid().
+const MAX_ID_LEN = 128;
+// colorKey is interpolated into a CSS value (categoryColor → `var(--cat-<key>)`);
+// restrict it to a safe charset so it can't smuggle a CSS token (e.g. a `url()`
+// tracking beacon) onto a shared list a viewer opens.
+const SAFE_COLOR_KEY = /^[a-z0-9-]{1,40}$/;
+
 const clampWeight = (n: number) =>
   Math.max(0, Math.min(UNIT_WEIGHT_MAX_MG, Math.round(n)));
 
@@ -75,14 +86,15 @@ function cleanItemPatch(patch: ItemPatch): Partial<Item> {
     out.catalogWeightMgAtLink = clampWeight(patch.catalogWeightMgAtLink);
   if (typeof patch.packed === "boolean") out.packed = patch.packed;
   if (typeof patch.sortOrder === "number" && isFinite(patch.sortOrder)) out.sortOrder = patch.sortOrder;
-  if (typeof patch.folderId === "string" || patch.folderId === null) out.folderId = patch.folderId;
+  if (patch.folderId === null) out.folderId = null;
+  else if (typeof patch.folderId === "string") out.folderId = patch.folderId.slice(0, MAX_ID_LEN);
   return out;
 }
 
 function cleanFolderPatch(patch: Partial<Folder>): Partial<Folder> {
   const out: Partial<Folder> = {};
   if (typeof patch.name === "string") out.name = patch.name.slice(0, 120);
-  if (typeof patch.colorKey === "string") out.colorKey = patch.colorKey.slice(0, 40);
+  if (typeof patch.colorKey === "string" && SAFE_COLOR_KEY.test(patch.colorKey)) out.colorKey = patch.colorKey;
   if (typeof patch.defaultClassification === "string" && CLASSES.includes(patch.defaultClassification))
     out.defaultClassification = patch.defaultClassification;
   if (typeof patch.sortOrder === "number" && isFinite(patch.sortOrder)) out.sortOrder = patch.sortOrder;
@@ -172,8 +184,8 @@ export function normalizeItem(raw: Item): Item {
   const wornQtyRaw =
     typeof raw.wornQty === "number" && isFinite(raw.wornQty) ? Math.round(raw.wornQty) : 0;
   return {
-    id: String(raw.id),
-    folderId: typeof raw.folderId === "string" ? raw.folderId : null,
+    id: String(raw.id).slice(0, MAX_ID_LEN),
+    folderId: typeof raw.folderId === "string" ? raw.folderId.slice(0, MAX_ID_LEN) : null,
     name: String(raw.name ?? "").slice(0, 200),
     brand: raw.brand ? String(raw.brand).slice(0, 120) : undefined,
     variant: raw.variant ? String(raw.variant).slice(0, 120) : undefined,
@@ -211,9 +223,9 @@ export function normalizeItem(raw: Item): Item {
 
 export function normalizeFolder(raw: Folder): Folder {
   return {
-    id: String(raw.id),
+    id: String(raw.id).slice(0, MAX_ID_LEN),
     name: String(raw.name ?? "").slice(0, 120) || "Folder",
-    colorKey: raw.colorKey ? String(raw.colorKey).slice(0, 40) : "other",
+    colorKey: raw.colorKey && SAFE_COLOR_KEY.test(String(raw.colorKey)) ? String(raw.colorKey) : "other",
     defaultClassification: CLASSES.includes(raw.defaultClassification)
       ? raw.defaultClassification
       : "base",

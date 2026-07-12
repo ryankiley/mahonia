@@ -3,7 +3,7 @@
 
 import type { ListData, ListSnapshot, Unit } from "../types";
 import { nextFolderColor } from "../categories";
-import { effectiveClassification, fromMg, itemDisplayName, itemsInFolder, splitWornQty, toMg, UNIT_ALIASES } from "../weights";
+import { effectiveClassification, fromMg, itemDisplayName, splitWornQty, toMg, UNIT_ALIASES } from "../weights";
 import { uid } from "../id";
 
 // Delegate to the shared unit vocabulary (weights.UNIT_ALIASES) so a CSV / LighterPack
@@ -136,6 +136,9 @@ export function csvToListData(text: string, defaultUnit: Unit = "g"): ListData {
   };
 
   const items: ListData["items"] = [];
+  // per-folder running count → O(1) sortOrder instead of rescanning all prior
+  // items each row (an O(n²) blowup on a big LighterPack import).
+  const folderCount = new Map<string | null, number>();
   for (let r = 1; r < rows.length; r++) {
     const row = rows[r]!;
     const name = stripFormulaGuard((row[nameCol] || "").trim());
@@ -167,8 +170,9 @@ export function csvToListData(text: string, defaultUnit: Unit = "g"): ListData {
       classification,
       description: iDesc >= 0 && row[iDesc]?.trim() ? stripFormulaGuard(row[iDesc].trim()) : undefined,
       productUrl: iUrl >= 0 && row[iUrl]?.trim() ? stripFormulaGuard(row[iUrl].trim()) : undefined,
-      sortOrder: itemsInFolder(items, fId).length,
+      sortOrder: folderCount.get(fId) ?? 0,
     });
+    folderCount.set(fId, (folderCount.get(fId) ?? 0) + 1);
   }
   return { folders, items };
 }

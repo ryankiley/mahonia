@@ -1,4 +1,34 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
+
+// Content-Security-Policy — defense-in-depth for a public, anyone-can-write app.
+// `'unsafe-inline'` is required for script + style: Nuxt SSR/prerender emits inline
+// bootstrap/payload scripts and Vue `:style` produces inline styles, and there's no
+// per-request nonce for prerendered static files. Everything else is same-origin —
+// Vercel Analytics injects `/_vercel/insights` (self), and the PWA service worker,
+// fonts, and images are all served from our own origin — so no external hosts are
+// allowed (this also backstops the folder-colorKey `url()` beacon).
+const CSP = [
+  "default-src 'self'",
+  "base-uri 'none'",
+  "object-src 'none'",
+  "frame-ancestors 'none'",
+  "form-action 'self'",
+  "img-src 'self' data: blob:",
+  "font-src 'self'",
+  "style-src 'self' 'unsafe-inline'",
+  "script-src 'self' 'unsafe-inline'",
+  "connect-src 'self'",
+  "worker-src 'self' blob:",
+  "manifest-src 'self'",
+].join("; ");
+
+const SECURITY_HEADERS = {
+  "Content-Security-Policy": CSP,
+  "Referrer-Policy": "no-referrer", // keep the URL-fragment edit token out of the Referer
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY", // legacy clickjacking guard (frame-ancestors covers modern browsers)
+};
+
 export default defineNuxtConfig({
   // Pin date-gated Nuxt/Nitro defaults so builds are reproducible across CI/Vercel
   // (an unset compatibilityDate falls back to "today" and can shift under us).
@@ -257,6 +287,12 @@ export default defineNuxtConfig({
   // editor stays a pure client island (edit token in the URL fragment, no SSR value).
   // Everything else (legal pages, the public /l read view) is SSR by default.
   routeRules: {
+    // Security headers on EVERY route — including prerendered/static ones. The
+    // server middleware only runs for dynamic responses, so prerendered routes
+    // (/e, the legal pages) previously shipped with NO security headers; setting
+    // them here (Nitro applies routeRules headers to the prerendered + static
+    // output too) closes that gap and adds the CSP site-wide.
+    "/**": { headers: SECURITY_HEADERS },
     // opening the site forwards straight into the editor, which starts an unsaved
     // draft — no list row is created until you actually add content
     "/": { redirect: "/e" },

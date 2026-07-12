@@ -1,8 +1,8 @@
 import { createError, defineEventHandler, setHeader } from "h3";
 import { csvToListData } from "../../shared/exporters/csv";
 import { lighterpackId } from "../../shared/lighterpack";
-import { readJsonBody } from "../utils/http";
-import { assertMaxBody, rateLimit } from "../utils/rateLimit";
+import { readJsonBodyCapped } from "../utils/http";
+import { rateLimit } from "../utils/rateLimit";
 
 // Import a LighterPack shared list by URL. We ONLY ever fetch lighterpack.com's
 // sanctioned CSV export (/csv/{id}) — the HOST is hardcoded, never user-supplied
@@ -13,8 +13,7 @@ import { assertMaxBody, rateLimit } from "../utils/rateLimit";
 export default defineEventHandler(async (event) => {
   setHeader(event, "X-Robots-Tag", "noindex");
   await rateLimit(event, "import");
-  assertMaxBody(event, 4_000);
-  const body = await readJsonBody<{ url?: string }>(event);
+  const body = await readJsonBodyCapped<{ url?: string }>(event, 4_000);
   const id = lighterpackId(typeof body?.url === "string" ? body.url : "");
   if (!id) throw createError({ statusCode: 400, statusMessage: "Not a LighterPack share link" });
 

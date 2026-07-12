@@ -150,4 +150,35 @@ describe("wornQty (the worn split on a base line)", () => {
     applyOps(s, [add()]); // legacy shape: no wornQty
     expect(s.items[0].wornQty).toBeUndefined();
   });
+
+  it("caps oversized item/folder id + folderId (single-row DoS guard)", () => {
+    const s = base();
+    const big = "z".repeat(500);
+    applyOps(s, [
+      { t: "addFolder", folder: { id: big, name: "F", defaultClassification: "base", sortOrder: 0 } as any },
+      { t: "addItem", item: { id: big, folderId: big, name: "I", unitWeightMg: 0, qty: 1, classification: null, sortOrder: 0 } as any },
+    ]);
+    const folder = s.folders[s.folders.length - 1]!;
+    const item = s.items[s.items.length - 1]!;
+    expect(folder.id.length).toBe(128);
+    expect(item.id.length).toBe(128);
+    expect(item.folderId!.length).toBe(128); // still resolves to the (capped) folder, not nulled
+    // a normal-length id is untouched
+    s.items = [];
+    applyOps(s, [{ t: "addItem", item: { id: "i-ok", folderId: "f1", name: "J", unitWeightMg: 0, qty: 1, classification: null, sortOrder: 0 } }]);
+    expect(s.items[0]!.id).toBe("i-ok");
+  });
+
+  it("rejects an unsafe folder colorKey (CSS-injection guard)", () => {
+    const s = base();
+    applyOps(s, [
+      { t: "addFolder", folder: { id: "fc", name: "C", colorKey: "x,url(//evil.tld)", defaultClassification: "base", sortOrder: 0 } as any },
+    ]);
+    const fc = () => s.folders.find((x) => x.id === "fc")!;
+    expect(fc().colorKey).toBe("other"); // unsafe key dropped to the neutral default
+    applyOps(s, [{ t: "updateFolder", id: "fc", patch: { colorKey: "h240" } }]);
+    expect(fc().colorKey).toBe("h240"); // valid key accepted
+    applyOps(s, [{ t: "updateFolder", id: "fc", patch: { colorKey: "evil;}" } }]);
+    expect(fc().colorKey).toBe("h240"); // unsafe patch ignored, prior value kept
+  });
 });
