@@ -1,0 +1,82 @@
+// Print — the list as a clean paper sheet. Chrome (bars, buttons, transient UI)
+// disappears; the title, totals, folders, items, and notes remain. Applies to the
+// editor and both read views alike: these are GLOBAL rules matching the class
+// names components render (scoped-CSS attributes don't stop a global selector),
+// so one sheet covers every printable page.
+@media print {
+  // every token is defined with light-dark(); forcing the light scheme resolves
+  // the whole palette to its paper values — no per-token print overrides needed
+  :root {
+    color-scheme: light;
+  }
+
+  @page {
+    margin: 14mm;
+  }
+
+  // chrome off: footer, transient UI, action clusters, add affordances, the
+  // read-view topbar CTAs + tag (the brand line stays as quiet provenance),
+  // and every control that only means something on screen
+  .foot,
+  .toast,
+  .ovl,
+  .modetoggle,
+  .editor__share,
+  .editor__status,
+  .menu,
+  .editor__addfolder,
+  .folder__add,
+  .folder__actions,
+  .folder__collapse,
+  .item__actions,
+  .item__fixrow,
+  .ac__menu,
+  .ac__weightcell,
+  .packbar__clear,
+  .topbar__actions,
+  .topbar__tag,
+  .view__footer {
+    display: none !important;
+  }
+
+  // the editor's sticky bar becomes a plain title line
+  .topbar {
+    position: static;
+    border-bottom: 0;
+  }
+
+  // a collapsed folder still prints complete — paper has no chevron to expand
+  .folder__body {
+    grid-template-rows: 1fr !important;
+  }
+  .folder__bodyinner {
+    opacity: 1 !important;
+    overflow: visible;
+  }
+
+  // keep a row (and a folder heading with its first rows) on one page
+  .item-wrap,
+  .item--ro,
+  .item--check {
+    break-inside: avoid;
+  }
+  .folder__head {
+    break-inside: avoid;
+    break-after: avoid;
+  }
+
+  // the page's only colour (category bar + legend swatches) and the checklist's
+  // filled checkboxes survive the browser's ink-saving background stripping
+  .item__box,
+  .catbar__seg,
+  .swatch {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  // item names are web-search links on the read views — on paper the dotted
+  // underline is noise, not an affordance
+  .iname__link {
+    text-decoration: none;
+  }
+}

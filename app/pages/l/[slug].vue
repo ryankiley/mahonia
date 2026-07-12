@@ -26,6 +26,19 @@ useHead(() => ({
   link: [{ rel: "canonical", href: `/l/${slug.value}` }],
 }));
 
+// "Copy this list" — the viewer takes an independent, editable copy of what
+// they're looking at (the share-a-template loop). Same path as the editor's
+// Duplicate; lands in the copy's editor on success.
+const { copying, copyList } = useCopyList();
+const copyFailed = ref(false);
+async function onCopy() {
+  if (!snapshot.value) return;
+  copyFailed.value = !(await copyList(snapshot.value, totals.value?.totalMg ?? 0));
+}
+const copyLabel = computed(() =>
+  copying.value ? "Copying…" : copyFailed.value ? "Couldn’t copy — retry" : "Copy this list",
+);
+
 // Report — flag for review (hides from the feed pending moderation).
 const reported = ref(false);
 const reporting = ref(false);
@@ -48,7 +61,16 @@ async function report() {
   <div>
     <SiteTopbar compact>
       <span class="t-sm t-muted topbar__tag"><Globe :size="13" :stroke-width="2" /> Public list</span>
-      <NuxtLink to="/" class="btn btn--link">Make your own</NuxtLink>
+      <span class="topbar__actions">
+        <button
+          v-if="snapshot"
+          type="button"
+          class="btn btn--link"
+          :disabled="copying"
+          @click="onCopy"
+        >{{ copyLabel }}</button>
+        <NuxtLink to="/" class="btn btn--link">Make your own</NuxtLink>
+      </span>
     </SiteTopbar>
 
     <ReadonlyListView
@@ -85,6 +107,14 @@ async function report() {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
+}
+/* the two CTAs travel together at the trailing edge (the wrapper takes the auto
+   margin the topbar would otherwise give each .btn, which would spread them out) */
+.topbar__actions {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 .view__head {
   display: flex;

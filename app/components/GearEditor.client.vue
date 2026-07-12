@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { Backpack, Ellipsis, Share2, SquareCheck, Undo2 } from "@lucide/vue";
-import { uid } from "~~/shared/id";
 import { editLinkPath } from "~~/shared/links";
-import type { Item, ListSnapshot } from "~~/shared/types";
+import type { Item } from "~~/shared/types";
 import { bySortOrder, formatWeightAuto, groupItemsByFolder } from "~~/shared/weights";
 
 // The whole editor surface (its own sticky topbar + flex shell + the shared
@@ -71,6 +70,18 @@ const itemsByFolder = computed(() => groupItemsByFolder(snapshot.value?.items ??
 const NO_ITEMS: Item[] = [];
 
 const packed = ref(false);
+// packing progress — rows checked / rows total (a row is one check, whatever its qty)
+const packProgress = computed(() => {
+  const items = snapshot.value?.items ?? [];
+  return { done: items.filter((i) => i.packed).length, total: items.length };
+});
+// start the next trip clean: uncheck everything (each row is its own op, so the
+// existing queue/flush machinery — offline, CAS, live-sync — applies unchanged)
+function clearChecks() {
+  if (!snapshot.value) return;
+  if (!confirm("Uncheck all packed items?")) return;
+  for (const it of snapshot.value.items) if (it.packed) c.updateItem(it.id, { packed: false });
+}
 const importOpen = ref(false);
 const menuOpen = ref(false);
 const menuRef = useTemplateRef<HTMLElement>("menuRef");
@@ -248,28 +259,11 @@ async function copyMarkdown() {
     flash("Couldn’t load the exporter — try again");
   }
 }
+const { copyList } = useCopyList();
 async function cloneList() {
   if (!snapshot.value) return;
-  // fresh ids so the copy is fully independent; keep folder→item links + notes/weights
-  const idMap = new Map<string, string>();
-  const folders = snapshot.value.folders.map((f) => {
-    const nid = uid();
-    idMap.set(f.id, nid);
-    return { ...f, id: nid };
-  });
-  const items = snapshot.value.items.map((i) => ({
-    ...i,
-    id: uid(),
-    folderId: i.folderId ? (idMap.get(i.folderId) ?? null) : null,
-    packed: false,
-  }));
-  const res = await $fetch<{ editToken: string; snapshot: ListSnapshot }>("/api/lists/create", {
-    method: "POST",
-    body: { title: `${snapshot.value.title || "Untitled list"} (copy)`, data: { folders, items } },
-  });
-  const token = useMyLists().registerCreated(res, totals.value?.totalMg ?? 0);
-  router.push(editLinkPath(res.snapshot.shareCode, token));
-  flash("List duplicated");
+  const ok = await copyList(snapshot.value, totals.value?.totalMg ?? 0);
+  flash(ok ? "List duplicated" : "Couldn’t duplicate — try again");
 }
 function download(filename: string, text: string, type: string) {
   const url = URL.createObjectURL(new Blob([text], { type }));
@@ -463,6 +457,15 @@ function onCorrected(res: { status: string; itemName?: string }) {
         :totals="totals"
         @set-unit="(u) => c.setUnit(u)"
       />
+      <div v-if="packed && packProgress.total" class="packbar t-sm">
+        <span class="t-num" aria-live="polite">{{ packProgress.done }} of {{ packProgress.total }} packed</span>
+        <button
+          v-if="packProgress.done"
+          type="button"
+          class="packbar__clear"
+          @click="clearChecks"
+        >Clear checks</button>
+      </div>
       <div class="editor__folders">
         <FolderSection
           v-for="f in sortedFolders"
@@ -741,6 +744,30 @@ function onCorrected(res: { status: string; itemName?: string }) {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+}
+/* packing progress — one quiet line between the totals and the checklist. The
+   count is the info; "Clear checks" sits beside it in the site's under-link
+   voice (ink-3, darkens on hover, no chrome). */
+.packbar {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-4);
+  color: var(--ink-2);
+  /* the body's --space-4 gap reads roomier before a bare text line than before
+     the folder blocks — tuck it up toward the totals it annotates */
+  margin-top: calc(-1 * var(--space-2));
+}
+.packbar__clear {
+  padding: 0;
+  background: none;
+  border: 0;
+  font-size: var(--text-sm);
+  color: var(--ink-3);
+  cursor: pointer;
+  transition: color var(--dur) var(--ease);
+}
+.packbar__clear:hover {
+  color: var(--ink);
 }
 .editor__folders {
   display: flex;
