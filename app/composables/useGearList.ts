@@ -81,12 +81,25 @@ function create() {
   });
 
   // single-level undo for destructive removes — drives the "Undo" toast
+  // 10s: the full notice → reach → tap loop has to fit, including on mobile
+  const UNDO_MS = 10_000;
   const pendingUndo = ref<{ label: string; restore: () => void } | null>(null);
   let undoTimer: ReturnType<typeof setTimeout> | undefined;
   function offerUndo(label: string, restore: () => void) {
     pendingUndo.value = { label, restore };
     clearTimeout(undoTimer);
-    undoTimer = setTimeout(() => (pendingUndo.value = null), 6000);
+    undoTimer = setTimeout(() => (pendingUndo.value = null), UNDO_MS);
+  }
+  // The toast pauses its dismiss timer while pointed at or holding focus — someone
+  // reading it (or reaching for the button) shouldn't race the clock. Release
+  // restarts the FULL window, not the remainder: it's cheap and never surprises.
+  function holdUndo() {
+    clearTimeout(undoTimer);
+  }
+  function releaseUndo() {
+    if (!pendingUndo.value) return;
+    clearTimeout(undoTimer);
+    undoTimer = setTimeout(() => (pendingUndo.value = null), UNDO_MS);
   }
   function undoRemove() {
     const u = pendingUndo.value;
@@ -582,7 +595,7 @@ function create() {
     load, startDraft, dispose, rotate,
     setMeta, setUnit, addFolder, updateFolder, removeFolder, moveFolderBefore,
     addBlankItem, discardBlank, updateItem, removeItem, setItemWeight, moveItem,
-    pendingBlankId, pendingUndo, undoRemove,
+    pendingBlankId, pendingUndo, undoRemove, holdUndo, releaseUndo,
   };
 }
 
