@@ -315,13 +315,6 @@ function newList() {
   router.replace("/e");
 }
 
-// no steady-state "Saved" noise — only transient saving / error / loading shows.
-// "offline" is the one persistent cue: edits are held on device until the
-// connection returns, so we say so rather than crying "Not saved".
-const statusLabel = computed(() =>
-  ({ loading: "Loading…", saving: "Saving…", synced: "", error: "Not saved ↻", offline: "Offline · saved on device", missing: "", idle: "" })[status.value] || "",
-);
-
 // Both dialogs are Lazy + mounted on first use, so their code (incl. the CSV
 // parser + LighterPack link handling behind the import) stays out of the editor's
 // boot chunk. Once opened they STAY mounted — an unmount-on-close would cut the
@@ -363,13 +356,6 @@ function onCorrected(res: { status: string; itemName?: string }) {
             spellcheck="false"
             @change="c.setMeta({ title: ($event.target as HTMLInputElement).value })"
           />
-          <!-- always rendered (height reserved) so the transient "Saving…" never
-               grows the sticky header and shoves the list down on every flush -->
-          <span
-            class="editor__status"
-            :data-state="status"
-            aria-live="polite"
-          >{{ statusLabel }}</span>
         </div>
         <template v-if="snapshot">
           <div class="modetoggle" role="group" aria-label="View mode">
@@ -452,6 +438,9 @@ function onCorrected(res: { status: string; itemName?: string }) {
     </header>
 
     <main v-if="snapshot && totals" class="wrap editor__body">
+      <!-- persistent sync state + last-edit time, in the calm zone under the
+           header (not crammed into the dense control row above) -->
+      <SyncStatus />
       <TotalsBar
         :list="snapshot"
         :totals="totals"
@@ -548,19 +537,15 @@ function onCorrected(res: { status: string; itemName?: string }) {
   gap: var(--space-2);
   padding-block: var(--space-3);
 }
-/* the list name is the toolbar's heading; the save state sits quietly beside it,
-   on the same line so the title stays vertically centred with the app-bar icons
-   (a stacked second line pushed the title above centre) */
-/* flex:1 so the title group always fills the space up to the icon cluster — the
-   transient "Saving…" status then changes width WITHIN this box (the title
-   ellipsizes) instead of growing the group and nudging the app-bar icons on every
-   save. */
+/* the list name is the toolbar's heading. flex:1 so it fills the space up to the
+   icon cluster — a long name ellipsizes WITHIN this box instead of nudging the
+   app-bar icons. (Sync state + last-edit time live in the SyncStatus line below
+   the header, not in this dense row.) */
 .editor__titlewrap {
   flex: 1 1 auto;
   min-width: 0;
   display: flex;
-  align-items: baseline;
-  gap: var(--space-2);
+  align-items: center;
 }
 .editor__title {
   /* size to the title text (progressive enhancement; falls back to default
@@ -584,32 +569,16 @@ function onCorrected(res: { status: string; itemName?: string }) {
     min-width: 0;
     /* drop the 42vw cap here: the flex layout (titlewrap flex:1 + this min-width:0)
        already bounds the title and ellipsizes it, so the cap just stranded usable
-       space — let the name run right up to the status + icon cluster */
+       space — let the name run right up to the icon cluster */
     max-width: none;
   }
 }
 .editor__title:focus {
   border-bottom-color: var(--accent);
 }
-/* save status as plain text beside the title — no icon, no pill, no colour. On
-   one line (flex:none, nowrap) it shares the title's line box, so it appears &
-   vanishes between saves without ever changing the header height (no reflow). */
-.editor__status {
-  flex: none;
-  color: var(--ink-2);
-  font-size: var(--text-sm);
-  white-space: nowrap;
-}
-.editor__status[data-state="error"] {
-  color: var(--ink);
-}
-/* offline is informational, not an alarm — sits quietly, dimmer than the error cue */
-.editor__status[data-state="offline"] {
-  color: var(--ink-3);
-}
 /* the icon cluster is rigid (flex:none) and pinned to the trailing edge by the
-   title group's flex:1 — so the transient "Saving…" status is absorbed by the
-   title (it ellipsizes) and never nudges these icons on a flush. */
+   title group's flex:1 — so a long name is absorbed by the title (it ellipsizes)
+   and never nudges these icons. */
 .editor__share,
 .menu {
   flex: none;

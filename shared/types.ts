@@ -63,6 +63,10 @@ export interface ListSnapshot extends ListMeta, ListData {
   slug: string;
   version: number;
   isPublic: boolean;
+  // ISO timestamp of the server's last write to this list — drives the editor's
+  // "edited Nm ago" line. Authoritative (reflects a collaborator's edit the poll
+  // pulls in), unlike a device-local clock. Absent on a never-server-saved draft.
+  updatedAt?: string;
   // public-feed metadata (only populated on the public read view / publish flow)
   tripType?: string;
   season?: string;

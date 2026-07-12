@@ -23,19 +23,6 @@ const displayTitle = (t: string) => {
   return n && n !== "Untitled list" ? n : "Untitled list";
 };
 
-// compact "last opened" — this page is client-only, so Date.now() is fine
-function ago(ts: number): string {
-  const s = Math.max(0, Math.round((Date.now() - ts) / 1000));
-  if (s < 60) return "just now";
-  const m = Math.round(s / 60);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.round(m / 60);
-  if (h < 24) return `${h}h ago`;
-  const d = Math.round(h / 24);
-  if (d < 30) return `${d}d ago`;
-  return new Date(ts).toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
-
 const busy = ref<string | null>(null); // editToken mid-delete
 const error = ref("");
 
@@ -80,7 +67,7 @@ async function deleteList(e: MyListEntry) {
             <div class="mine__main">
               <NuxtLink :to="editPath(e)" class="mine__title">{{ displayTitle(e.title) }}</NuxtLink>
               <p class="t-sm t-muted mine__meta">
-                {{ ago(e.lastOpened) }}<template v-if="e.totalMg > 0"> · {{ formatWeightAuto(e.totalMg) }}</template>
+                {{ timeAgo(e.lastOpened) }}<template v-if="e.totalMg > 0"> · {{ formatWeightAuto(e.totalMg) }}</template>
               </p>
             </div>
             <div class="mine__actions">
