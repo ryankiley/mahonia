@@ -65,14 +65,14 @@ async function deleteList(e: MyListEntry) {
         <ul v-if="lists.length" class="mine__list">
           <li v-for="e in lists" :key="e.editToken" class="mine__row">
             <div class="mine__main">
-              <NuxtLink :to="editPath(e)" class="mine__title">{{ displayTitle(e.title) }}</NuxtLink>
+              <NuxtLink :to="editPath(e)" class="t-title mine__title">{{ displayTitle(e.title) }}</NuxtLink>
               <p class="t-sm t-muted mine__meta">
                 {{ timeAgo(e.lastOpened) }}<template v-if="e.totalMg > 0"> · {{ formatWeightAuto(e.totalMg) }}</template>
               </p>
             </div>
             <div class="mine__actions">
-              <button type="button" class="mine__act" @click="removeFromDevice(e)">Remove from device</button>
-              <button type="button" class="mine__act" :disabled="busy === e.editToken" @click="deleteList(e)">Delete</button>
+              <button type="button" class="btn btn--quiet" @click="removeFromDevice(e)">Remove from device</button>
+              <button type="button" class="btn btn--quiet" :disabled="busy === e.editToken" @click="deleteList(e)">Delete</button>
             </div>
           </li>
         </ul>
@@ -129,45 +129,26 @@ async function deleteList(e: MyListEntry) {
   flex-direction: column;
   gap: var(--space-px);
 }
+/* type comes from .t-title; this just adds the link colour + single-line clamp */
 .mine__title {
   color: var(--ink);
-  font-weight: 600;
-  font-size: var(--text-title);
-  letter-spacing: -0.02em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .mine__title:hover {
   text-decoration: underline;
-  text-decoration-color: var(--line-2);
+  text-decoration-color: var(--underline);
   text-underline-offset: 2px;
 }
 .mine__meta {
   white-space: nowrap;
 }
-/* quiet actions — monochrome, darken on hover (destructive isn't coloured) */
+/* quiet monochrome text actions (.btn--quiet); destructive isn't coloured */
 .mine__actions {
   flex: none;
   display: flex;
   gap: var(--space-4);
-}
-.mine__act {
-  padding: 0;
-  background: none;
-  border: 0;
-  font-size: var(--text-sm);
-  color: var(--ink-3);
-  cursor: pointer;
-  white-space: nowrap;
-  transition: color var(--dur) var(--ease);
-}
-.mine__act:hover {
-  color: var(--ink);
-}
-.mine__act:disabled {
-  opacity: 0.5;
-  cursor: default;
 }
 .mine__empty {
   display: flex;

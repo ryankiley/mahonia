@@ -451,7 +451,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
         <button
           v-if="packProgress.done"
           type="button"
-          class="packbar__clear"
+          class="btn btn--quiet packbar__clear"
           @click="clearChecks"
         >Clear checks</button>
       </div>
@@ -726,18 +726,8 @@ function onCorrected(res: { status: string; itemName?: string }) {
      the folder blocks — tuck it up toward the totals it annotates */
   margin-top: calc(-1 * var(--space-2));
 }
-.packbar__clear {
-  padding: 0;
-  background: none;
-  border: 0;
-  font-size: var(--text-sm);
-  color: var(--ink-3);
-  cursor: pointer;
-  transition: color var(--dur) var(--ease);
-}
-.packbar__clear:hover {
-  color: var(--ink);
-}
+/* .packbar__clear kept as the print-hide hook (see print.scss); its button styling
+   comes from the shared .btn--quiet */
 .editor__folders {
   display: flex;
   flex-direction: column;
