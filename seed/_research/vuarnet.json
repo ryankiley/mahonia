@@ -1,0 +1,16 @@
+{
+  "rows": [
+    {
+      "brand": "Vuarnet",
+      "name": "Glacier 02 Sunglasses",
+      "variant": null,
+      "category_hint": "other",
+      "weight_value": 52,
+      "weight_unit": "g",
+      "weight_secondary": null,
+      "weight_source": "manufacturer",
+      "source_url": "https://us.vuarnet.com/products/glacier-round-02",
+      "quote": "Weight: 52 grams with lenses, removable side shields, nose and strap"
+    }
+  ]
+}

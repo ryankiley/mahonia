@@ -1,0 +1,124 @@
+{
+  "rows": [
+    {
+      "brand": "Klättermusen",
+      "name": "Fjörm Backpack",
+      "variant": "18L",
+      "category_hint": "pack",
+      "weight_value": 448,
+      "weight_unit": "g",
+      "weight_secondary": null,
+      "weight_source": "manufacturer",
+      "source_url": "https://www.klattermusen.com/en-us/10557-fjorm-backpack-18l-raven/",
+      "quote": "Fjörm Backpack 18L — Technical Performance: Weight 448 g"
+    },
+    {
+      "brand": "Klättermusen",
+      "name": "Bure 2.0 Backpack",
+      "variant": "20L",
+      "category_hint": "pack",
+      "weight_value": 550,
+      "weight_unit": "g",
+      "weight_secondary": null,
+      "weight_source": "manufacturer",
+      "source_url": "https://www.klattermusen.com/en-us/backpacks/new-arrivals/10167-bure-2-0-backpack-20l-dark-hights/",
+      "quote": "Bure 2.0 Backpack 20L — Technical Performance: Weight 550 g"
+    },
+    {
+      "brand": "Klättermusen",
+      "name": "Tjalve 2.0 Backpack",
+      "variant": "10L",
+      "category_hint": "pack",
+      "weight_value": 320,
+      "weight_unit": "g",
+      "weight_secondary": null,
+      "weight_source": "manufacturer",
+      "source_url": "https://www.klattermusen.com/en-us/backpacks/new-arrivals/10166-tjalve-2-0-backpack-10l-cloud-berry/",
+      "quote": "Tjalve 2.0 Backpack 10L — Technical Performance: Weight 320 g"
+    },
+    {
+      "brand": "Klättermusen",
+      "name": "Ull Backpack",
+      "variant": "30L",
+      "category_hint": "pack",
+      "weight_value": 798,
+      "weight_unit": "g",
+      "weight_secondary": null,
+      "weight_source": "manufacturer",
+      "source_url": "https://www.klattermusen.com/en-us/backpacks/all-backpacks/ull-backpack-jade-green/",
+      "quote": "Ull Backpack 30L — Technical Performance: Weight 798 g"
+    },
+    {
+      "brand": "Klättermusen",
+      "name": "Gilling Backpack",
+      "variant": "26L",
+      "category_hint": "pack",
+      "weight_value": 840,
+      "weight_unit": "g",
+      "weight_secondary": null,
+      "weight_source": "manufacturer",
+      "source_url": "https://www.klattermusen.com/en-us/backpacks/new-arrivals/gilling-backpack-dark-teal/",
+      "quote": "Gilling Backpack 26L — Technical Performance: Weight 840 g"
+    },
+    {
+      "brand": "Klättermusen",
+      "name": "Vide Backpack",
+      "variant": "30L",
+      "category_hint": "pack",
+      "weight_value": 1140,
+      "weight_unit": "g",
+      "weight_secondary": null,
+      "weight_source": "manufacturer",
+      "source_url": "https://www.klattermusen.com/en-us/backpacks/all-backpacks/vide-backpack-silver-creme/",
+      "quote": "Vide Backpack 30L — Technical Performance: Weight 1140 g"
+    },
+    {
+      "brand": "Klättermusen",
+      "name": "Skrymner Backpack",
+      "variant": "20L",
+      "category_hint": "pack",
+      "weight_value": 440,
+      "weight_unit": "g",
+      "weight_secondary": null,
+      "weight_source": "manufacturer",
+      "source_url": "https://www.klattermusen.com/en-us/backpacks/all-backpacks/skrymner-backpack-dark-teal/",
+      "quote": "Skrymner Backpack 20L — Technical Performance: Weight 440 g"
+    },
+    {
+      "brand": "Klättermusen",
+      "name": "Gungne Backpack",
+      "variant": "43L",
+      "category_hint": "pack",
+      "weight_value": 1700,
+      "weight_unit": "g",
+      "weight_secondary": null,
+      "weight_source": "manufacturer",
+      "source_url": "https://www.klattermusen.com/en-us/backpacks/new-arrivals/gungne-backpack-jade-green/",
+      "quote": "Gungne Backpack 43L — Technical Performance: Weight 1700 g"
+    },
+    {
+      "brand": "Klättermusen",
+      "name": "Fimmafäng 4.0 Lumbarpack",
+      "variant": "7L",
+      "category_hint": "pack",
+      "weight_value": 350,
+      "weight_unit": "g",
+      "weight_secondary": null,
+      "weight_source": "manufacturer",
+      "source_url": "https://www.klattermusen.com/en-us/backpacks/new-arrivals/fimmaf%C3%A4ng-40-lumbarpack-dark-straw/",
+      "quote": "Fimmafäng 4.0 Lumbarpack 7L — Technical Performance: Weight 350 g"
+    },
+    {
+      "brand": "Klättermusen",
+      "name": "Eldner 2.0 Lumbarpack",
+      "variant": "2L",
+      "category_hint": "pack",
+      "weight_value": 156,
+      "weight_unit": "g",
+      "weight_secondary": null,
+      "weight_source": "manufacturer",
+      "source_url": "https://www.klattermusen.com/en-us/backpacks/new-arrivals/eldner-20-lumbarpack-dark-straw/",
+      "quote": "Eldner 2.0 Lumbarpack 2L — Technical Performance: Weight 156 g"
+    }
+  ]
+}

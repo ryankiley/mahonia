@@ -1,0 +1,88 @@
+{
+  "rows": [
+    {
+      "brand": "Research Studio",
+      "name": "Pace Sunglasses",
+      "variant": null,
+      "category_hint": "other",
+      "weight_value": 24,
+      "weight_unit": "g",
+      "weight_secondary": null,
+      "weight_source": "manufacturer",
+      "source_url": "https://researchstudio.com/products/pace-black-night-bottomless-pit",
+      "quote": "Pace — frame dimensions spec: Weight: 24 g"
+    },
+    {
+      "brand": "Research Studio",
+      "name": "Apex Sunglasses",
+      "variant": null,
+      "category_hint": "other",
+      "weight_value": 26,
+      "weight_unit": "g",
+      "weight_secondary": null,
+      "weight_source": "manufacturer",
+      "source_url": "https://researchstudio.com/products/apex-black-night-bottomless-pit",
+      "quote": "Apex — frame dimensions spec: Weight: 26 g"
+    },
+    {
+      "brand": "Research Studio",
+      "name": "Scope Sunglasses",
+      "variant": null,
+      "category_hint": "other",
+      "weight_value": 26,
+      "weight_unit": "g",
+      "weight_secondary": null,
+      "weight_source": "manufacturer",
+      "source_url": "https://researchstudio.com/products/scope-black-night-gun-blue",
+      "quote": "Scope — frame dimensions spec: Weight w/ lens: 26g"
+    },
+    {
+      "brand": "Research Studio",
+      "name": "Stride w/ Bandit Sunglasses",
+      "variant": null,
+      "category_hint": "other",
+      "weight_value": 26,
+      "weight_unit": "g",
+      "weight_secondary": null,
+      "weight_source": "manufacturer",
+      "source_url": "https://researchstudio.com/products/stride-1974-001",
+      "quote": "Stride w/ Bandit — frame dimensions spec: Weight w/ lens: 26g"
+    },
+    {
+      "brand": "Research Studio",
+      "name": "Foam w/ Bandit Sunglasses",
+      "variant": null,
+      "category_hint": "other",
+      "weight_value": 28,
+      "weight_unit": "g",
+      "weight_secondary": null,
+      "weight_source": "manufacturer",
+      "source_url": "https://researchstudio.com/products/foam-1992-002-bandit",
+      "quote": "Foam w/ Bandit — frame dimensions spec: Weight w/ lens: 28g"
+    },
+    {
+      "brand": "Research Studio",
+      "name": "Shadow Sunglasses",
+      "variant": null,
+      "category_hint": "other",
+      "weight_value": 27,
+      "weight_unit": "g",
+      "weight_secondary": null,
+      "weight_source": "manufacturer",
+      "source_url": "https://researchstudio.com/products/shadow-black-night-silver-glacier",
+      "quote": "Shadow — specs grid: Weight: 27g"
+    },
+    {
+      "brand": "Research Studio",
+      "name": "Uncut Sunglasses",
+      "variant": null,
+      "category_hint": "other",
+      "weight_value": 27,
+      "weight_unit": "g",
+      "weight_secondary": null,
+      "weight_source": "manufacturer",
+      "source_url": "https://researchstudio.com/products/uncut-black-night-silver-glacier",
+      "quote": "Uncut — frame dimensions spec: Weight: 27 g"
+    }
+  ]
+}
