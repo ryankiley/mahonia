@@ -338,7 +338,7 @@ function dismissFix() {
 
         <div class="item__classwrap">
           <span class="item__classlabel">{{ effClassLabel }}</span>
-          <ChevronDown class="item__classchev" :size="13" :stroke-width="2" aria-hidden="true" />
+          <ChevronDown class="item__classchev" :size="14" :stroke-width="2" aria-hidden="true" />
           <select
             class="item__classsel"
             :value="classValue"
@@ -358,8 +358,8 @@ function dismissFix() {
             :aria-label="noteShown ? 'Remove note' : 'Add a note'"
             @click="onNoteBtn"
           >
-            <StickyNoteX v-if="noteShown" :size="15" />
-            <StickyNotePlus v-else :size="15" />
+            <StickyNoteX v-if="noteShown" :size="16" />
+            <StickyNotePlus v-else :size="16" />
           </button>
           <button
             class="btn btn--icon btn--ghost item__del"
@@ -375,7 +375,7 @@ function dismissFix() {
             :aria-label="`Reorder ${item.name || 'item'}`"
             @pointerdown="dnd.start(item.id, $event)"
           >
-            <GripVertical :size="15" />
+            <GripVertical :size="16" />
           </button>
         </div>
       </div>
@@ -412,7 +412,7 @@ function dismissFix() {
             aria-label="Dismiss suggestion"
             @click="dismissFix"
           >
-            <X :size="13" />
+            <X :size="14" />
           </button>
         </div>
       </div>

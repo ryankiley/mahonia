@@ -103,7 +103,7 @@ function toggleCollapsed() {
           :title="collapsed ? 'Expand folder' : 'Collapse folder'"
           @click="toggleCollapsed"
         >
-          <ChevronDown class="folder__chev" :class="{ 'is-collapsed': collapsed }" :size="18" :stroke-width="2" />
+          <ChevronDown class="folder__chev" :class="{ 'is-collapsed': collapsed }" :size="20" :stroke-width="2" />
         </button>
       </div>
       <div v-if="!packed" class="folder__actions">
@@ -121,7 +121,7 @@ function toggleCollapsed() {
           :aria-label="`Reorder ${folder.name || 'folder'}`"
           @pointerdown="fdnd.start(folder.id, $event)"
         >
-          <GripVertical :size="15" />
+          <GripVertical :size="16" />
         </button>
       </div>
     </header>
@@ -191,13 +191,19 @@ function toggleCollapsed() {
   gap: var(--space-1);
   min-width: 0;
 }
-/* collapse chevron — right after the folder name */
+/* collapse chevron — right after the folder name. The ChevronDown glyph sits ~5px
+   inside its own box (the `v` occupies only the middle of a 20px viewbox), so a small
+   negative margin trims that dead space so it optically hugs the name (without cancelling
+   it entirely — a touch of air reads better). This is safe/consistent only because
+   .folder__name now hugs its text (field-sizing:content with a tiny min-width) — the
+   input no longer adds variable slack per name. */
 .folder__collapse {
   flex: none;
   align-self: center;
   display: flex;
   align-items: center;
   justify-content: center;
+  margin-left: -1px;
   padding: 0;
   color: var(--ink-3);
   cursor: pointer;
@@ -253,11 +259,14 @@ function toggleCollapsed() {
 }
 /* size to the typed text so the chevron hugs the name (not the full column);
    once it hits the cap (or, on mobile, the row edge) it truncates with an ellipsis
-   rather than a hard mid-character cut */
+   rather than a hard mid-character cut. min-width is a small floor ONLY so a
+   *cleared* name stays clickable (folders are always created with a name) — 4ch
+   floored the box wider than short names like "Pack", stranding the chevron a
+   variable distance from the text; 2ch lets every real name hug tightly. */
 .folder__name {
   width: auto;
   field-sizing: content;
-  min-width: 4ch;
+  min-width: 2ch;
   max-width: min(40ch, 50vw);
   white-space: nowrap;
   overflow: hidden;
