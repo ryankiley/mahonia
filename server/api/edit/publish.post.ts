@@ -1,8 +1,8 @@
 import { createError, defineEventHandler, setHeader } from "h3";
 import { requireEditToken } from "../../utils/auth";
 import { publishList } from "../../utils/discoveryRepo";
-import { readJsonBody } from "../../utils/http";
-import { assertMaxBody, rateLimit } from "../../utils/rateLimit";
+import { readJsonBodyCapped } from "../../utils/http";
+import { rateLimit } from "../../utils/rateLimit";
 
 // Make a list public/private + set its feed facets. Write capability: the edit
 // token travels in the Authorization header (same as edit/mutate), never the
@@ -10,13 +10,12 @@ import { assertMaxBody, rateLimit } from "../../utils/rateLimit";
 export default defineEventHandler(async (event) => {
   setHeader(event, "X-Robots-Tag", "noindex");
   await rateLimit(event, "publish");
-  assertMaxBody(event, 8_000);
   const token = requireEditToken(event);
-  const body = await readJsonBody<{
+  const body = await readJsonBodyCapped<{
     isPublic?: boolean;
     tripType?: string | null;
     season?: string | null;
-  }>(event);
+  }>(event, 8_000);
 
   const state = await publishList(token, {
     isPublic: !!body?.isPublic,

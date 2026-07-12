@@ -1,10 +1,9 @@
 import { defineEventHandler, setHeader } from "h3";
 import { normalizeSlug } from "../../../shared/discovery";
 import { reportList } from "../../utils/discoveryRepo";
-import { readJsonBody } from "../../utils/http";
+import { readJsonBodyCapped } from "../../utils/http";
 import { sha256Hex } from "../../utils/tokens";
 import {
-  assertMaxBody,
   getClientIp,
   rateLimit,
   tallyDistinctReport,
@@ -25,9 +24,7 @@ const REPORT_WINDOW_MS = 14 * 24 * 60 * 60_000; // 14 days to accumulate
 export default defineEventHandler(async (event) => {
   setHeader(event, "X-Robots-Tag", "noindex");
   await rateLimit(event, "report");
-  assertMaxBody(event, 4_000);
-
-  const body = await readJsonBody<{ slug?: string }>(event);
+  const body = await readJsonBodyCapped<{ slug?: string }>(event, 4_000);
   // shared shape rule (shared/discovery) — validated before the slug is used as
   // a KV key, and so junk never reaches the DB
   const slug = normalizeSlug(body?.slug);

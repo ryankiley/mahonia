@@ -117,5 +117,10 @@ export function categoryColor(colorKey: string): string {
     const h = Number(m[1]) % 360;
     return `light-dark(oklch(0.6 0.19 ${h}), oklch(0.74 0.21 ${h}))`;
   }
-  return `var(--cat-${colorKey}, var(--cat-other))`;
+  // Anything else is interpolated into a CSS value, so gate it to a safe charset:
+  // an unrestricted key (e.g. `x,url(//evil)`) would smuggle a real CSS token
+  // (an outbound `url()` fetch = a viewer-tracking beacon) into a shared list.
+  // Belt-and-suspenders with the colorKey clamp in shared/ops — this also guards
+  // any value already persisted before that clamp existed.
+  return /^[a-z0-9-]+$/.test(colorKey) ? `var(--cat-${colorKey}, var(--cat-other))` : "var(--cat-other)";
 }

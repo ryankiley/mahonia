@@ -134,6 +134,15 @@ export const RATE_LIMITS = {
   // editor read/poll paths
   "snapshots": 120,
   "publishget": 120,
+  // the live-sync editor poll + full-snapshot fetch — hit ~20/min per open editor,
+  // so a roomy budget; gates the unauthenticated DB lookup any bearer string triggers
+  "poll": 180,
+  // owner-only, rare: whole-list delete + edit-token rotation
+  "delete": 20,
+  "rotate": 20,
+  // public read views (/l, /s) — edge-cached, so origin hits are rare; a generous
+  // per-IP cap bounds cache-busted floods (each uncached /l hit also bumps view_count)
+  "public-read": 120,
   // heavier / abuse-prone writes
   "publish": 20,
   "restore": 30,
