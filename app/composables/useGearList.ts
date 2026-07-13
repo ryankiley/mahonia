@@ -127,6 +127,31 @@ function create() {
     });
   }
 
+  // Add this list to the device's "Your lists" (upsert, not touch), so a list
+  // opened from an edit link — one someone shared with you, or your own link
+  // opened on a second device — is remembered here, not only lists this browser
+  // created/imported/cloned. Called ONLY after the server has confirmed the token
+  // (load's authed fetch below), so a bad or rotated token never mints a dead
+  // entry; the local-hydrate path keeps using touch (update-only) for that reason.
+  // No new exposure: by the time we're here the token IS the on-device IndexedDB
+  // key and load() has already persisted the snapshot there — this just surfaces a
+  // visible handle. "Remove from device" (forget) still wins: the edit-path syncs
+  // stay touch, so a list you removed mid-session isn't silently re-added.
+  function registerOpened() {
+    if (!snapshot.value || !editToken) return;
+    const s = snapshot.value;
+    useMyLists().upsert({
+      editToken,
+      shareCode: s.shareCode,
+      slug: s.slug,
+      title: s.title,
+      totalMg: totals.value?.totalMg ?? 0,
+      version: s.version,
+      lastOpened: Date.now(),
+      displayUnit: s.displayUnit,
+    });
+  }
+
   async function load(token: string) {
     epoch++;
     const myEpoch = epoch;
@@ -159,7 +184,7 @@ function create() {
       const merged = rebaseOnto(res.snapshot, pending);
       snapshot.value = merged;
       status.value = pending.length ? "saving" : "synced";
-      syncRegistry();
+      registerOpened(); // server confirmed the token → remember this list in "Your lists"
       // one-time cleanup: early water rows were named "Water · 1 L"; the volume now
       // lives in the qty (litres) field, so the name should just be "Water"
       for (const it of merged.items) {
