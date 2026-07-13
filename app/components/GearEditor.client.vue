@@ -454,7 +454,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
            moment the list has an item. -->
       <div v-if="isFirstRun" class="editor__intro">
         <p class="editor__introlede">
-          <strong>Mahonia</strong> weighs your pack. Type a gear name and the weight fills itself. No login, no app.
+          Mahonia weighs your pack. Type a gear name and the weight fills itself. No login, no app.
         </p>
         <NuxtLink v-if="savedCount" to="/mine" class="btn btn--link editor__introlink">
           Your {{ savedCount }} saved {{ savedCount === 1 ? "list" : "lists" }} →
@@ -697,12 +697,9 @@ function onCorrected(res: { status: string; itemName?: string }) {
 }
 .editor__introlede {
   margin: 0;
-  max-width: 54ch;
+  /* no measure cap — it's a single short hint line, so let it use the body width
+     (the .wrap container already bounds it) instead of wrapping early mid-sentence */
   color: var(--ink-2);
-}
-.editor__introlede strong {
-  color: var(--ink);
-  font-weight: 600;
 }
 /* packing progress — one quiet line between the totals and the checklist. The
    count is the info; "Clear checks" sits beside it in the site's under-link
