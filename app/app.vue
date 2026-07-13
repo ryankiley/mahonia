@@ -27,4 +27,5 @@ useSeoMeta({
   <NuxtLayout>
     <NuxtPage />
   </NuxtLayout>
+  <AppDialogs />
 </template>

@@ -62,6 +62,7 @@ export function useMyLists() {
       totalMg,
       version: res.snapshot.version,
       lastOpened: Date.now(),
+      displayUnit: res.snapshot.displayUnit,
     });
     return res.editToken;
   }

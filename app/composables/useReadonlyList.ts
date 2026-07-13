@@ -69,7 +69,7 @@ export function useReadonlyListSeo(
     const bits = [`${totals.value.itemCount} items`];
     if (facets.value.length) bits.unshift(facets.value.join(", "));
     if (totals.value.hasWeights) bits.push(`${formatWeightAuto(totals.value.baseMg)} base weight`);
-    return `${snapshot.value.title} — ${copy.noun} (${bits.join(" · ")}). ${copy.cta}`;
+    return `${snapshot.value.title}, ${copy.noun} (${bits.join(" · ")}). ${copy.cta}`;
   });
   useSeoMeta({
     description: () => desc.value,

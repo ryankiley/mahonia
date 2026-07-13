@@ -48,7 +48,7 @@ function when(iso: string) {
 <template>
   <div>
     <SiteTopbar>
-      <span class="t-sm t-muted">Catalog history</span>
+      <span class="t-sm t-muted">Catalog changes</span>
     </SiteTopbar>
 
     <main class="wrap chg">
@@ -56,7 +56,7 @@ function when(iso: string) {
         <h1 class="t-title">Recent catalog changes</h1>
         <p class="t-sm t-muted">
           Every weight edit is logged here. Uncited community values change instantly; verified
-          weights only change with a trusted source — otherwise they’re proposed.
+          weights only change with a trusted source, otherwise they’re proposed.
         </p>
       </header>
 

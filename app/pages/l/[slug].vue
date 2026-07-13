@@ -27,11 +27,16 @@ useHead(() => ({
 }));
 
 // Report — flag for review (hides from the feed pending moderation).
+const { confirm: askConfirm } = useDialogs();
 const reported = ref(false);
 const reporting = ref(false);
 async function report() {
   if (reported.value || reporting.value) return;
-  if (!confirm("Report this list as spam or inappropriate? It will be hidden from the feed pending review.")) return;
+  if (!(await askConfirm({
+    title: "Report this list",
+    message: "Report this list as spam or inappropriate? It will be hidden from the feed pending review.",
+    confirmLabel: "Report",
+  }))) return;
   reporting.value = true;
   try {
     await $fetch("/api/lists/report", { method: "POST", body: { slug: slug.value } });
@@ -75,7 +80,7 @@ async function report() {
           <button v-if="!reported" class="btn btn--sm btn--ghost view__report" :disabled="reporting" @click="report">
             <Flag :size="13" /> Report list
           </button>
-          <span v-else class="t-sm t-muted">Reported — thanks, we’ll take a look.</span>
+          <span v-else class="t-sm t-muted">Reported. Thanks, we’ll take a look.</span>
         </footer>
       </template>
 

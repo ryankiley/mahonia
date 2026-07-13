@@ -87,6 +87,10 @@ export interface MyListEntry {
   totalMg: number;
   version: number;
   lastOpened: number;
+  // the list's chosen unit, so the "Your lists" summary reads in the same system
+  // (metric/imperial) the list uses. Optional: legacy entries predate it and fall
+  // back to metric auto-formatting.
+  displayUnit?: Unit;
 }
 
 export interface Totals {

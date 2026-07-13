@@ -26,9 +26,9 @@ useHead({
 
         <h2>Where your data lives</h2>
         <p>
-          The lists you create — titles, folders, items, notes, and any weights — are saved on your
+          The lists you create (titles, folders, items, notes, and any weights) are saved on your
           device in your browser’s storage, and synced to the server as you build them. As soon as a
-          list has real content — a first item, a first weight — it’s stored on the server under an
+          list has real content (a first item, a first weight) it’s stored on the server under an
           unguessable private link. That sync is what lets the same edit link open your list on
           another device, and it’s why the editor says “Synced” from the start. An empty draft you
           never add anything to is never sent anywhere.
@@ -37,7 +37,7 @@ useHead({
           A synced list is private by default: it isn’t listed anywhere on the site, search engines
           are asked not to index it, and only someone you give the link to can open it. Its contents
           stay on the server until you delete the list. Publishing is a separate, explicit step that
-          puts a list in the public feed — and public means public: anyone can read it until you
+          puts a list in the public feed, and public means public: anyone can read it until you
           unpublish or delete it.
         </p>
 
@@ -53,7 +53,7 @@ useHead({
           </li>
           <li>
             <strong>Aggregate analytics.</strong> Cookieless, privacy-preserving counts of page
-            views and performance — no advertising cookies, no cross-site tracking, no profile.
+            views and performance. No advertising cookies, no cross-site tracking, no profile.
           </li>
         </ul>
         <p>
@@ -66,9 +66,9 @@ useHead({
           outside the US your data may be processed there.
         </p>
         <ul>
-          <li><strong>Vercel</strong> — hosting, content delivery, and the aggregate analytics.</li>
-          <li><strong>Neon</strong> — the database where your synced lists are stored.</li>
-          <li><strong>Upstash</strong> — the store used for rate limiting.</li>
+          <li><strong>Vercel</strong>: hosting, content delivery, and the aggregate analytics.</li>
+          <li><strong>Neon</strong>: the database where your synced lists are stored.</li>
+          <li><strong>Upstash</strong>: the store used for rate limiting.</li>
         </ul>
 
         <h2>Keeping and deleting your data</h2>
@@ -79,7 +79,7 @@ useHead({
           <li>Open “Your lists” to see every list saved on this device.</li>
           <li>There, “Remove from device” takes a list off this browser (the list itself stays online for anyone with its link); “Delete” removes the list from the server for everyone.</li>
           <li>
-            For anything else — including a copy or deletion of a shared list — email
+            For anything else, including a copy or deletion of a shared list, email
             <a :href="`mailto:${CONTACT_EMAIL}`">{{ CONTACT_EMAIL }}</a> and I’ll sort it out.
           </li>
         </ul>

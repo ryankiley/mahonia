@@ -20,7 +20,7 @@ useHead({
         <p>
           These terms cover your use of Mahonia. They’re written to be readable, not to trap you. Mahonia
           is made by one person, it’s free, and it has no accounts. By using it you agree to what’s
-          below. If you don’t agree, that’s completely fine — just don’t use it.
+          below. If you don’t agree, that’s completely fine. Just don’t use it.
         </p>
 
         <h2>What Mahonia is</h2>
@@ -40,7 +40,7 @@ useHead({
         <h2>Your content is yours</h2>
         <p>
           You keep ownership of the lists you create. By sharing or publishing one, you give me
-          permission to store and display it so the feature works — and that permission ends when you
+          permission to store and display it so the feature works, and that permission ends when you
           remove the content. You’re responsible for what you put in your lists and for having the
           right to share it. Public means public: a published or shared list can be read by anyone
           with the link, so don’t share anything you wouldn’t want out in the open.
@@ -52,18 +52,18 @@ useHead({
           content, impersonate people, or attack, overload, or scrape the service. Public lists can
           be flagged with the “Report” button; to report a problem or request a takedown, email
           <a :href="`mailto:${CONTACT_EMAIL}`">{{ CONTACT_EMAIL }}</a> with enough detail to find the
-          content. I may remove content or limit access — including pulling lists off the public feed
-          — especially in response to reports.
+          content. I may remove content or limit access, including pulling lists off the public feed,
+          especially in response to reports.
         </p>
 
         <h2>It’s free and provided “as is”</h2>
         <p>
           Mahonia is offered free of charge and may change, pause, or shut down at any time, and isn’t
-          guaranteed to keep your data forever — so keep your own backups of anything important (the
+          guaranteed to keep your data forever, so keep your own backups of anything important (the
           editor can export your list). It’s provided <strong>as is</strong> and
           <strong>as available</strong>, with no warranties of any kind, to the fullest extent the
           law allows. Weights, the catalog, and totals may be wrong or out of date, so don’t rely on
-          Mahonia for anything safety-critical — verify your own kit before you head out.
+          Mahonia for anything safety-critical. Verify your own kit before you head out.
         </p>
 
         <h2>Limitation of liability</h2>

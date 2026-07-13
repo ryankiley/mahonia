@@ -54,7 +54,7 @@ async function onSubmit() {
         <p class="dlg__item">{{ target.itemName }}</p>
         <p class="t-sm t-muted dlg__lede">
           Catalog lists {{ formatWeight(target.catalogWeightMg, target.displayUnit) }}. Suggest the
-          correct weight — this fixes it for everyone, not just your list.
+          correct weight; this fixes it for everyone, not just your list.
         </p>
 
         <label class="dlg__field">
@@ -62,7 +62,7 @@ async function onSubmit() {
           <input v-model="weight" class="field" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" @input="edited = true" @keydown.enter="onSubmit" />
         </label>
         <label class="dlg__field">
-          <span class="t-sm t-muted">Source link <em>— a manufacturer/retailer page applies it instantly</em></span>
+          <span class="t-sm t-muted">Source link <em>(a manufacturer/retailer page applies it instantly)</em></span>
           <input v-model="sourceUrl" class="field" placeholder="https://" inputmode="url" @keydown.enter="onSubmit" />
         </label>
         <label class="dlg__field">

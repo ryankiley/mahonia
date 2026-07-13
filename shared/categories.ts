@@ -68,6 +68,24 @@ const CATEGORY_HUE: Record<CategoryKey, number> = {
   other: 250,
 };
 
+// Common folder names → their canonical category colour. So a folder literally
+// named "Clothing" gets the violet clothing token instead of whatever the next
+// creation-order palette slot happened to be. Names are matched normalised
+// (lowercased, whitespace-collapsed); synonyms map to the nearest canonical hue.
+const NAME_TO_KEY: Record<string, CategoryKey> = {
+  shelter: "shelter", tent: "shelter", tarp: "shelter",
+  sleep: "sleep", sleeping: "sleep", "sleep system": "sleep", bag: "sleep", quilt: "sleep",
+  pack: "pack", backpack: "pack", "pack & bags": "pack", carry: "pack",
+  kitchen: "kitchen", cook: "kitchen", cooking: "kitchen", stove: "kitchen", "cook system": "kitchen",
+  water: "water", hydration: "water", "water treatment": "water",
+  clothing: "clothing", clothes: "clothing", apparel: "clothing", layers: "clothing", wardrobe: "clothing",
+  electronics: "electronics", electronic: "electronics", tech: "electronics", camera: "electronics", power: "electronics",
+  firstaid: "firstaid", "first aid": "firstaid", "first-aid": "firstaid", medical: "firstaid", meds: "firstaid", "health & hygiene": "firstaid",
+  worn: "worn", "worn weight": "worn", "on body": "worn", wearing: "worn",
+  consumable: "consumable", consumables: "consumable", food: "consumable", fuel: "consumable", "food & fuel": "consumable",
+  other: "other", misc: "other", miscellaneous: "other", toiletries: "other", extras: "other",
+};
+
 // A procedural overflow key looks like "h247" — a bare OKLCH hue angle. These are
 // minted once the curated palette is exhausted, so a list can hold any number of
 // folders and still get a distinct colour for each.
@@ -83,6 +101,20 @@ function hueOf(colorKey: string): number | null {
 // the first curated hue not yet used, or — once all ten are taken — a fresh hue
 // dropped into the widest empty arc of the colour wheel, so colours stay distinct
 // no matter how many folders the list grows to (never repeating, never going grey).
+// Pick a colour for a NEWLY NAMED folder: if its name matches a canonical category
+// (and that hue isn't already taken), use that hue so the colour reads as meaningful;
+// otherwise fall back to the creation-order palette walk. Grey "other" may repeat —
+// it's the neutral bucket — but a coloured hue never doubles up.
+export function colorKeyForName(name: string, used: readonly string[]): string {
+  const norm = name.trim().toLowerCase().replace(/\s+/g, " ");
+  const key = NAME_TO_KEY[norm];
+  if (key) {
+    if (key === "other") return "other";
+    if (!used.includes(key)) return key;
+  }
+  return nextFolderColor(used);
+}
+
 export function nextFolderColor(used: readonly string[]): string {
   const unused = FOLDER_PALETTE.find((k) => !used.includes(k));
   if (unused) return unused;
