@@ -45,7 +45,7 @@ const editedAt = computed(() => {
              mismatch on the indexable /l page); the dot only shows once it does -->
         <ClientOnly>
           <template v-if="editedAt != null">
-            <span v-if="$slots.status" class="view__dot" aria-hidden="true">·</span>
+            <span v-if="$slots.status" class="view__dot" aria-hidden="true">•</span>
             <span>Edited {{ timeAgo(editedAt, now.getTime()) }}</span>
           </template>
         </ClientOnly>
@@ -80,12 +80,12 @@ const editedAt = computed(() => {
   flex-direction: column;
   gap: var(--space-6);
 }
-/* the title/head block and its trailing "Edited …" line, kept close (the tighter
-   --space-2) so the whole header still reads as one --space-6 step off TotalsBar */
+/* the title/head block and its trailing "Edited …" line, kept tight (--space-1) so
+   the name + its status/time read as one unit, one --space-6 step off TotalsBar */
 .view__header {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-1);
 }
 .view__title {
   font-family: var(--font);
@@ -107,15 +107,21 @@ const editedAt = computed(() => {
   align-items: center;
   gap: var(--space-1);
 }
-/* the middle-dot is its own flex child (aria-hidden) so it isn't announced/copied and
-   the flex gap centres it evenly between status and time */
+/* the separator is its own flex child (aria-hidden) so it isn't announced/copied. A
+   bullet (•) reads bigger than a middle-dot at the same size; a small negative inline
+   margin pulls the status + time a touch closer than the meta's flex gap. */
 .view__dot {
   color: var(--ink-3);
+  line-height: 1;
+  margin-inline: -2px;
 }
+/* read views are denser than the editor (no add-item row or controls per folder),
+   so the inter-folder gap is a step tighter here (space-6, vs the editor's space-7)
+   — the list scans as one block instead of drifting apart. */
 .view__folders {
   display: flex;
   flex-direction: column;
-  gap: var(--space-7);
+  gap: var(--space-6);
 }
 .view__ungrouped {
   margin-bottom: var(--space-1);

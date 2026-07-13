@@ -31,10 +31,10 @@ const name = computed(() => {
 const desc = computed(() => {
   if (!name.value) return GENERIC_DESC;
   const t = snap.value ? computeTotals(snap.value) : null;
-  if (!t) return `${name.value} — a packing list on Mahonia.`;
+  if (!t) return `${name.value}, a packing list on Mahonia.`;
   const bits = [`${t.itemCount} items`];
   if (t.hasWeights) bits.push(`${formatWeightAuto(t.baseMg)} base weight`);
-  return `${name.value} — a packing list (${bits.join(" · ")}) on Mahonia.`;
+  return `${name.value}, a packing list (${bits.join(" · ")}) on Mahonia.`;
 });
 useHead({
   title: () => (name.value ? `${name.value} — Mahonia` : "Mahonia"),

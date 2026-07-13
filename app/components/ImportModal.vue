@@ -33,7 +33,7 @@ watch(
 
 async function createFrom(data: ListData) {
   if (!data.items.length) {
-    error.value = "No items found — paste a CSV with a header row.";
+    error.value = "No items found. Paste a CSV with a header row.";
     return;
   }
   importing.value = true;
@@ -46,7 +46,7 @@ async function createFrom(data: ListData) {
     emit("close");
     router.push(editLinkPath(res.snapshot.shareCode, myLists.registerCreated(res)));
   } catch {
-    error.value = "Import failed — check the CSV and try again.";
+    error.value = "Import failed. Check the CSV and try again.";
   } finally {
     importing.value = false;
   }
@@ -98,7 +98,7 @@ function onFile(e: Event) {
       v-model="text"
       class="field import__text"
       rows="5"
-      placeholder="https://lighterpack.com/r/… — or — Category,Item Name,Qty,Weight,Unit,Worn,Consumable…"
+      placeholder="https://lighterpack.com/r/… or a CSV like Category,Item Name,Qty,Weight,Unit,Worn,Consumable…"
     />
 
     <p v-if="error" class="t-sm import__err">{{ error }}</p>

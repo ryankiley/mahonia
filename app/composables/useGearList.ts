@@ -1,7 +1,7 @@
 import type { ItemPatch, Op } from "~~/shared/ops";
 import { applyOps } from "~~/shared/ops";
 import { uid } from "~~/shared/id";
-import { nextFolderColor, STARTER_FOLDERS } from "~~/shared/categories";
+import { colorKeyForName, nextFolderColor, STARTER_FOLDERS } from "~~/shared/categories";
 import { editLinkPath } from "~~/shared/links";
 import { DRAFT_KEY, localKey, rebaseOnto } from "~~/shared/localList";
 import type { Folder, Item, ListSnapshot, Unit } from "~~/shared/types";
@@ -123,6 +123,7 @@ function create() {
       title: snapshot.value.title,
       version: snapshot.value.version,
       totalMg: totals.value?.totalMg ?? 0, // the memoized rollup — no fresh full-list pass
+      displayUnit: snapshot.value.displayUnit, // keep the summary in the list's unit system
     });
   }
 
@@ -443,7 +444,9 @@ function create() {
 
   function addFolder(name = "New folder") {
     const folders = snapshot.value?.folders ?? [];
-    const colorKey = nextFolderColor(folders.map((f) => f.colorKey ?? "other"));
+    // a recognised name (e.g. "Clothing") gets its canonical hue; otherwise the
+    // next distinct palette colour (see colorKeyForName)
+    const colorKey = colorKeyForName(name, folders.map((f) => f.colorKey ?? "other"));
     dispatch({ t: "addFolder", folder: { id: uid(), name, colorKey, defaultClassification: "base", sortOrder: folders.length } });
   }
   const updateFolder = (id: string, patch: Partial<Folder>) =>

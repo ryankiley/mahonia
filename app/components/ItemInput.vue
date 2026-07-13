@@ -44,6 +44,10 @@ const active = ref(-1);
 const focused = ref(false);
 const rootRef = useTemplateRef<HTMLElement>("rootRef");
 const inputEl = useTemplateRef<HTMLInputElement>("inputEl");
+// stable ids wiring the combobox to its listbox + active option, so assistive tech
+// can announce the suggestions (the menu was a bare ul/li, invisible to AT)
+const acId = useId();
+const optId = (i: number) => `${acId}-opt-${i}`;
 onMounted(() => {
   if (props.autofocus) inputEl.value?.focus();
 });
@@ -238,6 +242,12 @@ function highlightParts(text: string): { t: string; on: boolean }[] {
       class="field ac__input"
       :placeholder="placeholder"
       :aria-label="placeholder"
+      :title="draft"
+      role="combobox"
+      aria-autocomplete="list"
+      :aria-expanded="open && options.length > 0"
+      :aria-controls="`${acId}-listbox`"
+      :aria-activedescendant="active >= 0 ? optId(active) : undefined"
       autocomplete="off"
       autocorrect="off"
       spellcheck="false"
@@ -258,11 +268,14 @@ function highlightParts(text: string): { t: string; on: boolean }[] {
       />
       <span class="t-sm t-muted ac__unit">{{ unit }}</span>
     </div>
-    <ul v-if="open && options.length" class="ac__menu panel">
+    <ul v-if="open && options.length" :id="`${acId}-listbox`" class="ac__menu panel" role="listbox">
       <li
         v-for="(opt, i) in options"
+        :id="optId(i)"
         :key="'water' in opt ? 'water' : opt.result.id"
         class="ac__opt"
+        role="option"
+        :aria-selected="i === active"
         :class="{ 'is-active': i === active }"
         @mousedown.prevent="selectOption(opt)"
         @mouseenter="active = i"
@@ -298,7 +311,7 @@ function highlightParts(text: string): { t: string; on: boolean }[] {
           </span>
           <span class="ac__metaright">
             <span class="t-num ac__w">{{ formatWeight(opt.result.weightMg, unit, { withUnit: false }) }} <span class="t-muted">{{ unit }}</span></span>
-            <span class="ac__src" :title="opt.result.weightSource">{{ srcLetter(opt.result) }}</span>
+            <span class="ac__src" :title="`weight source: ${opt.result.weightSource}`" :aria-label="`weight source: ${opt.result.weightSource}`">{{ srcLetter(opt.result) }}</span>
           </span>
         </template>
       </li>
@@ -388,6 +401,10 @@ function highlightParts(text: string): { t: string; on: boolean }[] {
 }
 .ac__model {
   flex: 0 1 auto;
+  /* the model is the most distinguishing part — keep a readable floor so it never
+     collapses to a couple of letters ("Enig…") while a long brand keeps its width;
+     brand + variant (higher shrink factors) yield around it first. */
+  min-width: 6ch;
 }
 .ac__variant {
   flex: 0 1000 auto;

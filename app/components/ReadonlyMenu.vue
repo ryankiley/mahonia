@@ -45,6 +45,7 @@ function toggleMenu() {
 }
 
 const { copying, copyList } = useCopyList();
+const { showLinkFallback } = useDialogs();
 
 function runMenu(action: string) {
   menuOpen.value = false;
@@ -60,18 +61,20 @@ function runMenu(action: string) {
 async function copyThis() {
   // success navigates to the new copy's editor, so only a failure needs a word here
   const ok = await copyList(props.snapshot, props.totals?.totalMg ?? 0);
-  if (!ok) flash("Couldn’t copy — try again");
+  if (!ok) flash("Couldn’t copy. Try again.");
 }
 async function copyLink() {
   const url = typeof location !== "undefined" ? location.href : "";
-  flash((await copyText(url)) ? "Link copied" : "Copy failed");
+  if (await copyText(url)) return flash("Link copied");
+  // blocked clipboard → show the link selectable instead of dead-ending
+  showLinkFallback(url, "Copy this link");
 }
 async function copyMarkdown() {
   try {
     const { listToMarkdown } = await mdExporter();
     flash((await copyText(listToMarkdown(props.snapshot))) ? "Copied as Markdown" : "Copy failed");
   } catch {
-    flash("Couldn’t load the exporter — try again");
+    flash("Couldn’t load the exporter. Try again.");
   }
 }
 async function downloadCsv() {
@@ -80,7 +83,7 @@ async function downloadCsv() {
     downloadFile(`${fileBase()}.csv`, listToCsv(props.snapshot), "text/csv");
     flash("CSV downloaded");
   } catch {
-    flash("Couldn’t load the exporter — try again");
+    flash("Couldn’t load the exporter. Try again.");
   }
 }
 function downloadJson() {

@@ -23,14 +23,14 @@ useHead({
 
         <p>
           Mahonia is a no-login tool for building, weighing, and sharing packing lists, made by one
-          person. Make a list, see what it weighs, send someone the link — no account, no app, no
+          person. Make a list, see what it weighs, send someone the link. No account, no app, no
           ads. The grams are optional; build a list with zero weights and the totals just stay
           quiet.
         </p>
 
         <h2>Why “Mahonia”?</h2>
         <p>
-          <em>Mahonia</em> is the Oregon grape — the Oregon state flower, and one of the most common
+          <em>Mahonia</em> is the Oregon grape, the Oregon state flower and one of the most common
           native plants in the Pacific Northwest woods this tool is built for. It’s an unfussy
           evergreen shrub: holly-shaped leaves, bright yellow flowers in late winter, dusty-blue
           berries. Hardy, understated, and everywhere on the trails around Portland.
@@ -44,10 +44,10 @@ useHead({
         <ul>
           <li>
             A list syncs to the server under a private, unguessable link as soon as you start
-            building it — that’s how the same list opens on your phone and your laptop.
+            building it. That’s how the same list opens on your phone and your laptop.
           </li>
           <li>
-            Every list gets a private edit link and a separate read-only link to share — no
+            Every list gets a private edit link and a separate read-only link to share. No
             sign-up. Nothing shows up publicly unless you choose to publish it.
           </li>
           <li>Weights are backed by a curated, cited gear catalog, but you can override anything.</li>

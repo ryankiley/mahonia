@@ -271,6 +271,7 @@ function dismissFix() {
       type="checkbox"
       class="item__box"
       :checked="item.packed"
+      :aria-label="`Packed: ${editableName || 'item'}`"
       @change="c.updateItem(item.id, { packed: ($event.target as HTMLInputElement).checked })"
     />
     <span class="item__cname"><ItemName :item="item" /></span>
@@ -403,7 +404,7 @@ function dismissFix() {
       <div v-if="showFix" class="reveal">
         <div class="item__fixrow">
           <button type="button" class="item__under-link t-sm" @click="openFix">
-            Catalog: {{ formatWeight(item.catalogWeightMgAtLink ?? 0, list.displayUnit) }} — suggest a fix
+            Catalog: {{ formatWeight(item.catalogWeightMgAtLink ?? 0, list.displayUnit) }} · suggest a fix
           </button>
           <button
             type="button"
@@ -533,9 +534,10 @@ function dismissFix() {
 .item__wunit {
   margin-inline-start: var(--space-1);
 }
+/* packed = "in the bag", so it reads as done (dimmed), NOT excluded — the check
+   mark carries the state; a strikethrough would say "removed/crossed off". */
 .item--done {
   opacity: 0.5;
-  text-decoration: line-through;
 }
 
 /* editable */

@@ -12,11 +12,27 @@ import { bySortOrder, formatWeightAuto, groupItemsByFolder } from "~~/shared/wei
 
 const c = useGearList();
 const router = useRouter();
+const my = useMyLists();
+// app-wide dialogs (replace native confirm()/the copy dead-end) — see useDialogs
+const { confirm: askConfirm, showLinkFallback } = useDialogs();
 
 const snapshot = c.snapshot;
 const totals = c.totals;
 const status = c.status;
 const pendingUndo = c.pendingUndo;
+
+// First-run / returning-user helper: an untouched draft (not yet saved to the
+// server, no named item — the starter draft ships one blank row) shows a one-line
+// intro so the bare-domain landing isn't a nameless editor, plus a pointer back to
+// saved lists for anyone who has them (the editor otherwise only reaches "Your
+// lists" via the footer). shareCode/items are reactive, so it recedes the moment
+// the first real item lands (which is also when the draft gets its shareCode).
+const savedCount = computed(() => my.entries.value.length);
+const isFirstRun = computed(() => {
+  const s = snapshot.value;
+  if (!s || s.shareCode) return false;
+  return !s.items.some((i) => i.name.trim());
+});
 
 // Reflect the list's given name in the tab title AND the page's social/preview
 // metadata, matching the read views (/l, /s): a named list carries its name; an
@@ -38,10 +54,10 @@ const listName = computed(() => {
 const seoDesc = computed(() => {
   if (!listName.value) return GENERIC_DESC;
   const t = totals.value;
-  if (!t) return `${listName.value} — a packing list on Mahonia.`;
+  if (!t) return `${listName.value}, a packing list on Mahonia.`;
   const bits = [`${t.itemCount} items`];
   if (t.hasWeights) bits.push(`${formatWeightAuto(t.baseMg)} base weight`);
-  return `${listName.value} — a packing list (${bits.join(" · ")}) on Mahonia.`;
+  return `${listName.value}, a packing list (${bits.join(" · ")}) on Mahonia.`;
 });
 useHead({
   title: () =>
@@ -77,9 +93,14 @@ const packProgress = computed(() => {
 });
 // start the next trip clean: uncheck everything (each row is its own op, so the
 // existing queue/flush machinery — offline, CAS, live-sync — applies unchanged)
-function clearChecks() {
+async function clearChecks() {
   if (!snapshot.value) return;
-  if (!confirm("Uncheck all packed items?")) return;
+  if (!(await askConfirm({
+    title: "Clear checks",
+    message: "Uncheck every packed item? Your gear stays. Only the check marks reset.",
+    confirmLabel: "Clear checks",
+  }))) return;
+  if (!snapshot.value) return; // re-check after the awaited dialog
   for (const it of snapshot.value.items) if (it.packed) c.updateItem(it.id, { packed: false });
 }
 // The undo toast holds its dismiss timer while hovered or containing focus, and
@@ -173,8 +194,12 @@ function flash(msg: string) {
 // button), so the async Clipboard API has the user gesture iOS Safari demands. The
 // async-first write + synchronous execCommand fallback lives in the shared copyText()
 // util (app/utils/clipboard.ts); flash() just reports the outcome.
-async function copy(text: string, msg: string) {
-  flash((await copyText(text)) ? msg : "Copy failed");
+async function copy(text: string, msg: string, linkFallbackTitle?: string) {
+  if (await copyText(text)) return flash(msg);
+  // a blocked clipboard write shouldn't dead-end: for a link, show it selectable
+  // so it can be copied by hand; other copies (markdown) fall back to a brief toast
+  if (linkFallbackTitle) return showLinkFallback(text, linkFallbackTitle);
+  flash("Copy failed");
 }
 const origin = () => (typeof location !== "undefined" ? location.origin : "");
 
@@ -217,17 +242,26 @@ function runMenu(action: string) {
 function copyShare() {
   // a draft has no shareCode/token yet — nudge instead of copying a broken link
   if (!snapshot.value?.shareCode) return flash("Add an item first to share");
-  copy(`${origin()}/s/${snapshot.value.shareCode}`, "Read-only link copied");
+  copy(`${origin()}/s/${snapshot.value.shareCode}`, "Read-only link copied", "Read-only link");
 }
-function copyEditLink() {
+async function copyEditLink() {
   if (!c.editToken) return flash("Add an item first to get an edit link");
-  if (!confirm("Anyone with this link can edit your list. Only send it to people you trust.")) return;
+  if (!(await askConfirm({
+    title: "Copy edit link",
+    message: "Anyone with this link can edit your list. Only send it to people you trust.",
+    confirmLabel: "Copy edit link",
+  }))) return;
   // /e/{shareCode}#{token} so link previews (Apple Notes/iMessage) show the name;
   // token stays in the fragment (see shared/links.editLinkPath)
-  copy(`${origin()}${editLinkPath(snapshot.value?.shareCode, c.editToken)}`, "Edit link copied");
+  copy(`${origin()}${editLinkPath(snapshot.value?.shareCode, c.editToken)}`, "Edit link copied", "Edit link");
 }
 async function rotate() {
-  if (!confirm("Make the old edit link stop working and create a new one?")) return;
+  if (!(await askConfirm({
+    title: "Rotate edit link",
+    message: "Make the old edit link stop working and create a new one? Anyone you shared the old link with will lose edit access.",
+    confirmLabel: "Rotate link",
+    danger: true,
+  }))) return;
   const next = await c.rotate();
   if (next) {
     // keep the pretty path (rotate only swaps the token, not the share code)
@@ -243,14 +277,14 @@ async function copyMarkdown() {
   } catch {
     // the exporter chunk failed to load (offline before the SW cached it, or a
     // dropped connection) — the old static import could never fail, so say so
-    flash("Couldn’t load the exporter — try again");
+    flash("Couldn’t load the exporter. Try again.");
   }
 }
 const { copyList } = useCopyList();
 async function cloneList() {
   if (!snapshot.value) return;
   const ok = await copyList(snapshot.value, totals.value?.totalMg ?? 0);
-  flash(ok ? "List duplicated" : "Couldn’t duplicate — try again");
+  flash(ok ? "List duplicated" : "Couldn’t duplicate. Try again.");
 }
 // downloadFile() + listFileBase() (the saved file is named after the list) live in
 // the shared app/utils/download.ts, used by the read views' export menu too.
@@ -261,7 +295,7 @@ async function downloadCsv() {
     downloadFile(`${listFileBase(snapshot.value.title, snapshot.value.slug)}.csv`, listToCsv(snapshot.value), "text/csv");
     flash("CSV downloaded");
   } catch {
-    flash("Couldn’t load the exporter — try again");
+    flash("Couldn’t load the exporter. Try again.");
   }
 }
 function downloadJson() {
@@ -302,9 +336,9 @@ watch(correctionTarget, (t) => {
 function onCorrected(res: { status: string; itemName?: string }) {
   flash(
     res.status === "applied"
-      ? "Catalog updated for everyone — thank you"
+      ? "Catalog updated for everyone. Thank you."
       : res.status === "proposed"
-        ? "Suggested — pending a citation"
+        ? "Suggested, pending a citation"
         : res.status === "noop"
           ? "That already matches the catalog"
           : "Couldn’t submit that fix",
@@ -315,6 +349,9 @@ function onCorrected(res: { status: string; itemName?: string }) {
 
 <template>
   <div class="editor" :class="{ 'editor--centered': !(snapshot && totals) }">
+    <!-- the editor's page heading — visually the title input carries it, but a
+         real (hidden) h1 gives AT users a page title on this client-only view -->
+    <h1 class="visually-hidden">{{ listName ? `${listName} — pack list` : "New pack list — Mahonia" }}</h1>
     <header class="topbar">
       <div class="wrap topbar__inner">
         <div v-if="snapshot" class="editor__titlewrap">
@@ -358,7 +395,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
           <button
             class="btn btn--icon btn--ghost editor__share"
             title="Copy read-only link"
-            aria-label="Share — copy read-only link"
+            aria-label="Copy read-only link"
             @click="copyShare"
           >
             <Share2 :size="16" />
@@ -379,6 +416,9 @@ function onCorrected(res: { status: string; itemName?: string }) {
             </button>
             <Transition name="menu">
               <ul v-if="menuOpen" class="panel menu__list" role="menu" aria-label="More actions">
+                <li role="none">
+                  <NuxtLink to="/mine" role="menuitem" class="menu__item" @click="menuOpen = false">Your lists</NuxtLink>
+                </li>
                 <li role="none">
                   <button type="button" role="menuitem" class="menu__item" @click="runMenu('duplicate')">Duplicate this list</button>
                 </li>
@@ -408,6 +448,18 @@ function onCorrected(res: { status: string; itemName?: string }) {
     </header>
 
     <main v-if="snapshot && totals" class="wrap editor__body">
+      <!-- first-run / returning-user intro: a fresh, empty draft gets one quiet
+           line of identity + help (the bare domain lands straight in the editor),
+           and anyone who already has lists gets a pointer back to them. Recedes the
+           moment the list has an item. -->
+      <div v-if="isFirstRun" class="editor__intro">
+        <p class="editor__introlede">
+          <strong>Mahonia</strong> weighs your pack. Type a gear name and the weight fills itself. No login, no app.
+        </p>
+        <NuxtLink v-if="savedCount" to="/mine" class="btn btn--link editor__introlink">
+          Your {{ savedCount }} saved {{ savedCount === 1 ? "list" : "lists" }} →
+        </NuxtLink>
+      </div>
       <!-- persistent sync state + last-edit time, in the calm zone under the
            header (not crammed into the dense control row above) -->
       <SyncStatus />
@@ -634,6 +686,23 @@ function onCorrected(res: { status: string; itemName?: string }) {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+}
+/* first-run intro — one quiet line of brand + help above the empty totals, plus an
+   optional pointer back to saved lists. Recedes once the list has content. */
+.editor__intro {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+}
+.editor__introlede {
+  margin: 0;
+  max-width: 54ch;
+  color: var(--ink-2);
+}
+.editor__introlede strong {
+  color: var(--ink);
+  font-weight: 600;
 }
 /* packing progress — one quiet line between the totals and the checklist. The
    count is the info; "Clear checks" sits beside it in the site's under-link

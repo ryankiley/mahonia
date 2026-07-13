@@ -1,6 +1,7 @@
 <script setup lang="ts">
+import { Trash2 } from "@lucide/vue";
 import { editLinkPath } from "~~/shared/links";
-import type { MyListEntry } from "~~/shared/types";
+import type { MyListEntry, Unit } from "~~/shared/types";
 import { formatWeightAuto } from "~~/shared/weights";
 
 // "Your lists" — the no-login stand-in for an account. It's a read-out of the
@@ -17,36 +18,50 @@ const my = useMyLists();
 // most-recently-opened first
 const lists = computed(() => [...my.entries.value].sort((a, b) => b.lastOpened - a.lastOpened));
 
+const { confirm: askConfirm } = useDialogs();
+
 const editPath = (e: MyListEntry) => editLinkPath(e.shareCode, e.editToken);
 const displayTitle = (t: string) => {
   const n = t?.trim();
   return n && n !== "Untitled list" ? n : "Untitled list";
 };
+// summarise the total in the list's own unit system (imperial lists → lb/oz),
+// falling back to metric auto for legacy entries that predate the stored unit
+const systemOf = (u?: Unit) => (u === "oz" || u === "lb" ? "imperial" : "metric");
+const totalLabel = (e: MyListEntry) => formatWeightAuto(e.totalMg, { system: systemOf(e.displayUnit) });
 
 const busy = ref<string | null>(null); // editToken mid-delete
 const error = ref("");
 
 // Remove from THIS device only — the list stays online for anyone with a link.
-function removeFromDevice(e: MyListEntry) {
-  if (!confirm(`Remove “${displayTitle(e.title)}” from this device? The list stays online — you'll need its edit link to open it again.`)) return;
+async function removeFromDevice(e: MyListEntry) {
+  if (!(await askConfirm({
+    title: "Remove from this device",
+    message: `Remove “${displayTitle(e.title)}” from this device? The list stays online. You'll need its edit link to open it again.`,
+    confirmLabel: "Remove",
+  }))) return;
   error.value = "";
   my.forget(e.editToken);
 }
 // Delete the list itself (server soft-delete + forget locally).
 async function deleteList(e: MyListEntry) {
-  if (!confirm(`Delete “${displayTitle(e.title)}” for everyone? Anyone with the link will lose it, and this can't be undone.`)) return;
+  if (!(await askConfirm({
+    title: "Delete for everyone",
+    message: `Delete “${displayTitle(e.title)}” for everyone? Anyone with the link will lose it, and this can't be undone.`,
+    confirmLabel: "Delete",
+    danger: true,
+  }))) return;
   error.value = "";
   busy.value = e.editToken;
   const ok = await my.deleteList(e.editToken);
   busy.value = null;
-  if (!ok) error.value = "Couldn’t delete that list — check your connection and try again.";
+  if (!ok) error.value = "Couldn’t delete that list. Check your connection and try again.";
 }
 </script>
 
 <template>
   <div>
     <SiteTopbar>
-      <span class="t-sm t-muted">Your lists</span>
       <NuxtLink to="/e" class="btn btn--link">New list</NuxtLink>
     </SiteTopbar>
 
@@ -54,7 +69,7 @@ async function deleteList(e: MyListEntry) {
       <div class="mine__head">
         <h1 class="t-title">Your lists</h1>
         <p class="t-sm t-muted mine__sub">
-          Saved on this device. Clear your browser and they’re gone — keep a list’s edit link to
+          Saved on this device. Clear your browser and they’re gone, so keep a list’s edit link to
           open it anywhere else.
         </p>
       </div>
@@ -67,12 +82,14 @@ async function deleteList(e: MyListEntry) {
             <div class="mine__main">
               <NuxtLink :to="editPath(e)" class="t-title mine__title">{{ displayTitle(e.title) }}</NuxtLink>
               <p class="t-sm t-muted mine__meta">
-                {{ timeAgo(e.lastOpened) }}<template v-if="e.totalMg > 0"> · {{ formatWeightAuto(e.totalMg) }}</template>
+                {{ timeAgo(e.lastOpened) }}<template v-if="e.totalMg > 0"> · {{ totalLabel(e) }}</template>
               </p>
             </div>
             <div class="mine__actions">
               <button type="button" class="btn btn--quiet" @click="removeFromDevice(e)">Remove from device</button>
-              <button type="button" class="btn btn--quiet" :disabled="busy === e.editToken" @click="deleteList(e)">Delete</button>
+              <button type="button" class="btn btn--quiet mine__delete" :disabled="busy === e.editToken" @click="deleteList(e)">
+                <Trash2 :size="14" aria-hidden="true" /> Delete
+              </button>
             </div>
           </li>
         </ul>
@@ -148,7 +165,16 @@ async function deleteList(e: MyListEntry) {
 .mine__actions {
   flex: none;
   display: flex;
+  align-items: center;
   gap: var(--space-4);
+}
+/* the destructive action carries a trash glyph so it's distinguishable at a glance
+   from the harmless "Remove from device" (the chrome is monochrome, so the icon —
+   not colour — does the differentiating) */
+.mine__delete {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
 }
 .mine__empty {
   display: flex;
