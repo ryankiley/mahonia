@@ -201,6 +201,9 @@ button svg {
   transform-origin: top right;
 }
 .menu__item {
+  // block so a <NuxtLink>/<a> item fills the row like the <button> items do —
+  // an inline anchor ignores width:100%, shrinking the padding + hover box to the text
+  display: block;
   width: 100%;
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-1);

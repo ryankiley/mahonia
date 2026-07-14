@@ -78,7 +78,6 @@ const shown = computed(() => stateWord.value !== "");
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  user-select: none; /* passive status, not a control */
 }
 /* a genuine "Not saved" is the one state worth full ink */
 .syncstatus.is-alert {

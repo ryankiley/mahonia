@@ -160,12 +160,6 @@ ul {
   scroll-margin-block: 5ex;
 }
 
-// Text selection — gear's stone surface instead of the OS-blue accent.
-::selection {
-  background-color: var(--paper-3);
-  color: var(--ink);
-}
-
 // Visually hidden but still announced by assistive tech — for content that
 // should reach screen readers without occupying visual space (e.g. the full
 // value behind a per-character animated count, skip links). Pair with the
