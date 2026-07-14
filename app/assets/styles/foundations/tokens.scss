@@ -55,14 +55,16 @@
     Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
 
   /* ---- type scale — 4 sizes. Each token is fluid IN ITSELF (portfolio model):
-     fixed at its px floor up to the 1720px anchor, then scaling with the viewport
-     above it — max(floor, floor/1720*100vw). So any consumer of a token scales,
-     not just heading classes; below the anchor (i.e. almost every screen) the
-     floor holds, so type stays stable on phones/laptops and only grows on huge
-     displays. ---- */
-  --text-base: max(1rem, 0.93vw); /* 16px — body, inputs, item names, labels, meta, controls */
-  --text-title: max(1.375rem, 1.28vw); /* 22px — the one heading size */
-  --text-display: max(3.25rem, 3.02vw); /* 52px — the live total */
+     fixed at its px floor up to the 1920px anchor, then scaling with the viewport
+     above it — max(floor, floor/1920*100vw). So any consumer of a token scales,
+     not just heading classes; below the anchor (i.e. almost every screen,
+     including the 1728px 16" MacBook Pro) the floor holds, so type stays stable
+     on phones/laptops and only grows on huge displays. The anchor's media-query
+     companion (iOS input-zoom escape hatch) lives in atoms/controls.scss — keep
+     the two in sync. ---- */
+  --text-base: max(1rem, 0.833vw); /* 16px — body, inputs, item names, labels, meta, controls */
+  --text-title: max(1.375rem, 1.146vw); /* 22px — the one heading size */
+  --text-display: max(3.25rem, 2.708vw); /* 52px — the live total */
   /* the small tier was removed (Ryan: "the small one needs to go") — kept as an
      alias = base so existing `var(--text-sm)` consumers don't break */
   --text-sm: var(--text-base);
@@ -98,7 +100,10 @@
   --shadow-pop: 0 10px 24px -10px rgba(0, 0, 0, 0.35);
 
   /* ---- layout ---- */
-  --measure: 56rem;
+  /* fluid like the type tokens: 1024px floor, growing past the same 1920px
+     anchor (1024/1920 ≈ 53.33vw) so the column keeps its character measure as
+     the type scales instead of getting proportionally narrower */
+  --measure: max(64rem, 53.33vw);
 
   /* ---- component primitives — shared structure so duplicated values can't drift ---- */
   /* item rows + folder headers share ONE column template so weights stay aligned */
