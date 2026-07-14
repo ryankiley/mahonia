@@ -504,8 +504,8 @@ function create() {
   }
 
   // "Add an item" drops a real, empty row in immediately (so it has every control
-  // a normal row has) and focuses it; discardBlank cleans it up if abandoned.
-  function addBlankItem(folderId: string): string {
+  // a normal row has) and focuses it; discardEmpty cleans it up if abandoned.
+  function addBlankItem(folderId: string | null): string {
     if (!snapshot.value) return "";
     const id = uid();
     const sortOrder = nextSortOrder(snapshot.value.items, folderId);
@@ -514,10 +514,32 @@ function create() {
     pendingBlankId.value = id;
     return id;
   }
-  function discardBlank(id: string) {
-    if (pendingBlankId.value !== id) return;
-    pendingBlankId.value = null;
-    dispatch({ t: "removeItem", id }); // quiet — no undo toast for an abandoned blank
+  // Enter in a row's name opens the NEXT row right below it (todo-list flow):
+  // the same blank-row machinery as "Add an item", but positioned after the
+  // source row instead of at the folder's end, so mid-list entry stays in place.
+  function addBlankItemAfter(afterId: string): string {
+    const src = snapshot.value?.items.find((i) => i.id === afterId);
+    if (!src) return "";
+    const sibs = itemsInFolder(snapshot.value!.items, src.folderId).sort(bySortOrder);
+    const next = sibs[sibs.findIndex((s) => s.id === afterId) + 1];
+    const id = addBlankItem(src.folderId);
+    if (id && next) moveItem(id, src.folderId, next.id);
+    return id;
+  }
+  // A row that's still untouched-empty removes itself when focus leaves it (the
+  // row calls this on focusout). Quiet — no undo toast: nothing was typed, so
+  // nothing is lost. Emptiness is verified against the snapshot HERE, not just
+  // in the caller's view, so a stale event can never discard a row with content.
+  function discardEmpty(id: string) {
+    const it = snapshot.value?.items.find((i) => i.id === id);
+    if (!it) return;
+    if (
+      it.name.trim() !== "" || it.unitWeightMg > 0 || it.qty !== 1 ||
+      it.description || it.catalogItemId != null ||
+      it.classification != null || it.wornQty != null || it.packed
+    ) return;
+    if (pendingBlankId.value === id) pendingBlankId.value = null;
+    dispatch({ t: "removeItem", id });
   }
   function updateItem(id: string, patch: ItemPatch) {
     // any real edit means this row is no longer an untouched blank to clean up
@@ -622,7 +644,7 @@ function create() {
     get editToken() { return editToken; },
     load, startDraft, dispose, rotate,
     setMeta, setUnit, addFolder, updateFolder, removeFolder, moveFolderBefore,
-    addBlankItem, discardBlank, updateItem, removeItem, setItemWeight, moveItem,
+    addBlankItem, addBlankItemAfter, discardEmpty, updateItem, removeItem, setItemWeight, moveItem,
     pendingBlankId, pendingUndo, undoRemove, holdUndo, releaseUndo,
   };
 }
