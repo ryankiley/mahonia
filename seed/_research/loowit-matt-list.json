@@ -87,7 +87,7 @@
     {
       "brand": "Darn Tough",
       "name": "Light Hiker Quarter Lightweight Cushion",
-      "variant": "Men's, per pair",
+      "variant": "Men's",
       "category_hint": "clothing",
       "weight_value": 2.1,
       "weight_unit": "oz",
@@ -111,7 +111,7 @@
     {
       "brand": "Crocs",
       "name": "Classic Clog",
-      "variant": "Men's, per pair",
+      "variant": "Men's",
       "category_hint": "clothing",
       "weight_value": 11.2,
       "weight_unit": "oz",
@@ -183,14 +183,14 @@
     {
       "brand": "Cascade Mountain Tech",
       "name": "Carbon Fiber Quick Lock Trekking Pole",
-      "variant": "Cork Grip, per pole",
+      "variant": "Cork Grip, per pair",
       "category_hint": "other",
-      "weight_value": 8.1,
+      "weight_value": 16.2,
       "weight_unit": "oz",
       "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://cascademountaintech.com/products/carbon-fiber-hiking-trekking-pole-cork-grip",
-      "quote": "Single Pole Weight (without rubber tips): 8.1 oz"
+      "quote": "Single Pole Weight (without rubber tips): 8.1 oz = 16.2 oz / 459 g per pair (2× single)."
     }
   ]
 }

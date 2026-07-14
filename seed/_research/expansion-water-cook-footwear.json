@@ -124,7 +124,7 @@
     {
       "brand": "Keen",
       "name": "Targhee III Waterproof Mid",
-      "variant": "Men's, per pair",
+      "variant": "Men's",
       "category_hint": "clothing",
       "weight_value": 34.8,
       "weight_unit": "oz",
@@ -135,7 +135,7 @@
     {
       "brand": "Keen",
       "name": "Targhee III Waterproof Low",
-      "variant": "Men's, per pair",
+      "variant": "Men's",
       "category_hint": "clothing",
       "weight_value": 30.8,
       "weight_unit": "oz",
@@ -146,7 +146,7 @@
     {
       "brand": "Oboz",
       "name": "Sawtooth X Mid Waterproof",
-      "variant": "Men's, per pair",
+      "variant": "Men's",
       "category_hint": "clothing",
       "weight_value": 38.8,
       "weight_unit": "oz",
@@ -157,7 +157,7 @@
     {
       "brand": "Oboz",
       "name": "Sawtooth X Low Waterproof",
-      "variant": "Men's, per pair, size 11",
+      "variant": "Men's, size 11",
       "category_hint": "clothing",
       "weight_value": 2.38,
       "weight_unit": "lb",
@@ -168,7 +168,7 @@
     {
       "brand": "Danner",
       "name": "Mountain 600",
-      "variant": "Men's, per pair",
+      "variant": "Men's",
       "category_hint": "clothing",
       "weight_value": 37.4,
       "weight_unit": "oz",
@@ -179,7 +179,7 @@
     {
       "brand": "Danner",
       "name": "Trail 2650",
-      "variant": "Men's, per pair",
+      "variant": "Men's",
       "category_hint": "clothing",
       "weight_value": 1.5,
       "weight_unit": "lb",

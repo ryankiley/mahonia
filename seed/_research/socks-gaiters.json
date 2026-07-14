@@ -3,7 +3,7 @@
     {
       "brand": "Darn Tough",
       "name": "Hiker Boot Midweight",
-      "variant": "Men's, per pair",
+      "variant": "Men's",
       "category_hint": "clothing",
       "weight_value": 2.6,
       "weight_unit": "oz",
@@ -14,7 +14,7 @@
     {
       "brand": "Injinji",
       "name": "Liner Crew",
-      "variant": "per pair",
+      "variant": null,
       "category_hint": "clothing",
       "weight_value": 0.4,
       "weight_unit": "oz",
@@ -25,7 +25,7 @@
     {
       "brand": "Injinji",
       "name": "Trail Midweight Mini-Crew",
-      "variant": "Toe socks, per pair",
+      "variant": "Toe socks",
       "category_hint": "clothing",
       "weight_value": 55,
       "weight_unit": "g",
@@ -36,7 +36,7 @@
     {
       "brand": "Dirty Girl",
       "name": "Gaiters",
-      "variant": "per pair",
+      "variant": null,
       "category_hint": "clothing",
       "weight_value": 1.4,
       "weight_unit": "oz",
@@ -48,7 +48,7 @@
     {
       "brand": "Altra",
       "name": "Trail Gaiter",
-      "variant": "per pair",
+      "variant": null,
       "category_hint": "clothing",
       "weight_value": 1.3,
       "weight_unit": "oz",
@@ -59,7 +59,7 @@
     {
       "brand": "Outdoor Research",
       "name": "Helium Gaiters",
-      "variant": "per pair",
+      "variant": null,
       "category_hint": "clothing",
       "weight_value": 4.9,
       "weight_unit": "oz",
@@ -71,7 +71,7 @@
     {
       "brand": "Outdoor Research",
       "name": "Crocodile Classic Gaiters",
-      "variant": "per pair",
+      "variant": null,
       "category_hint": "clothing",
       "weight_value": 7.51,
       "weight_unit": "oz",
@@ -83,7 +83,7 @@
     {
       "brand": "Outdoor Research",
       "name": "Crocodile Mid-Height Gaiters",
-      "variant": "per pair",
+      "variant": null,
       "category_hint": "clothing",
       "weight_value": 8.29,
       "weight_unit": "oz",
@@ -95,7 +95,7 @@
     {
       "brand": "Outdoor Research",
       "name": "Crocodile Gaiters",
-      "variant": "per pair",
+      "variant": null,
       "category_hint": "clothing",
       "weight_value": 11.11,
       "weight_unit": "oz",
@@ -107,7 +107,7 @@
     {
       "brand": "Outdoor Research",
       "name": "Expedition Crocodile Classic Gaiters",
-      "variant": "per pair",
+      "variant": null,
       "category_hint": "clothing",
       "weight_value": 7.87,
       "weight_unit": "oz",
@@ -119,7 +119,7 @@
     {
       "brand": "Outdoor Research",
       "name": "Rocky Mountain High Gaiters II",
-      "variant": "per pair",
+      "variant": null,
       "category_hint": "clothing",
       "weight_value": 7.76,
       "weight_unit": "oz",
@@ -131,7 +131,7 @@
     {
       "brand": "Outdoor Research",
       "name": "Rocky Mountain Low Gaiters II",
-      "variant": "per pair",
+      "variant": null,
       "category_hint": "clothing",
       "weight_value": 5.82,
       "weight_unit": "oz",
@@ -143,7 +143,7 @@
     {
       "brand": "Outdoor Research",
       "name": "Helium UL Gaiters",
-      "variant": "per pair",
+      "variant": null,
       "category_hint": "clothing",
       "weight_value": 3.8,
       "weight_unit": "oz",
@@ -155,7 +155,7 @@
     {
       "brand": "Outdoor Research",
       "name": "Ferrosi Trail Gaiters",
-      "variant": "per pair",
+      "variant": null,
       "category_hint": "clothing",
       "weight_value": 2.65,
       "weight_unit": "oz",
@@ -167,7 +167,7 @@
     {
       "brand": "Outdoor Research",
       "name": "Swift Run Gaiters",
-      "variant": "per pair",
+      "variant": null,
       "category_hint": "clothing",
       "weight_value": 1.23,
       "weight_unit": "oz",

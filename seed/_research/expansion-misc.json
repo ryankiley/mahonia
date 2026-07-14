@@ -228,7 +228,7 @@
     {
       "brand": "ENO",
       "name": "Atlas Suspension Straps",
-      "variant": "per pair",
+      "variant": null,
       "category_hint": "other",
       "weight_value": 9,
       "weight_unit": "oz",
@@ -239,7 +239,7 @@
     {
       "brand": "ENO",
       "name": "Atlas XL Suspension Straps",
-      "variant": "per pair",
+      "variant": null,
       "category_hint": "other",
       "weight_value": 13,
       "weight_unit": "oz",
@@ -250,7 +250,7 @@
     {
       "brand": "ENO",
       "name": "Helios Ultralight Suspension Straps",
-      "variant": "per pair",
+      "variant": null,
       "category_hint": "other",
       "weight_value": 4.3,
       "weight_unit": "oz",
@@ -272,7 +272,7 @@
     {
       "brand": "Western Mountaineering",
       "name": "Flash Down Booties",
-      "variant": "Men's M, per pair",
+      "variant": "Men's M",
       "category_hint": "clothing",
       "weight_value": 3,
       "weight_unit": "oz",

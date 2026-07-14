@@ -47,7 +47,7 @@
     {
       "brand": "Kahtoola",
       "name": "MICROspikes",
-      "variant": "per pair",
+      "variant": null,
       "category_hint": "other",
       "weight_value": 11.9,
       "weight_unit": "oz",
@@ -59,7 +59,7 @@
     {
       "brand": "Kahtoola",
       "name": "EXOspikes",
-      "variant": "per pair, Medium",
+      "variant": "Medium",
       "category_hint": "other",
       "weight_value": 7.3,
       "weight_unit": "oz",
@@ -71,7 +71,7 @@
     {
       "brand": "Black Diamond",
       "name": "Distance Spike Traction Device",
-      "variant": "per pair",
+      "variant": null,
       "category_hint": "other",
       "weight_value": 200,
       "weight_unit": "g",
@@ -82,7 +82,7 @@
     {
       "brand": "Hillsound",
       "name": "Trail Crampon",
-      "variant": "per pair",
+      "variant": null,
       "category_hint": "other",
       "weight_value": 16.3,
       "weight_unit": "oz",

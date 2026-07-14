@@ -651,7 +651,7 @@
     {
       "brand": "Nnormal",
       "name": "Kjerag",
-      "variant": "UK 8, per pair",
+      "variant": "UK 8",
       "category_hint": "clothing",
       "weight_value": 400,
       "weight_unit": "g",
@@ -663,7 +663,7 @@
     {
       "brand": "Nnormal",
       "name": "Kjerag 02",
-      "variant": "UK 7.5, per pair",
+      "variant": "UK 7.5",
       "category_hint": "clothing",
       "weight_value": 428,
       "weight_unit": "g",
@@ -675,7 +675,7 @@
     {
       "brand": "Nnormal",
       "name": "Tomir 02",
-      "variant": "UK 8.5, per pair",
+      "variant": "UK 8.5",
       "category_hint": "clothing",
       "weight_value": 528,
       "weight_unit": "g",
@@ -687,7 +687,7 @@
     {
       "brand": "Nnormal",
       "name": "Tomir 02 GTX",
-      "variant": "UK 7.5, per pair",
+      "variant": "UK 7.5",
       "category_hint": "clothing",
       "weight_value": 564,
       "weight_unit": "g",
@@ -699,7 +699,7 @@
     {
       "brand": "On",
       "name": "Cloudultra",
-      "variant": "US M9, per pair",
+      "variant": "US M9",
       "category_hint": "clothing",
       "weight_value": 590,
       "weight_unit": "g",
@@ -711,7 +711,7 @@
     {
       "brand": "On",
       "name": "Cloudultra 2",
-      "variant": "US M9, per pair",
+      "variant": "US M9",
       "category_hint": "clothing",
       "weight_value": 578,
       "weight_unit": "g",
@@ -723,7 +723,7 @@
     {
       "brand": "On",
       "name": "Cloudultra 3",
-      "variant": "per pair",
+      "variant": null,
       "category_hint": "clothing",
       "weight_value": 20.8,
       "weight_unit": "oz",
@@ -735,7 +735,7 @@
     {
       "brand": "On",
       "name": "Cloudvista",
-      "variant": "US M8.5, per pair",
+      "variant": "US M8.5",
       "category_hint": "clothing",
       "weight_value": 570,
       "weight_unit": "g",
@@ -747,7 +747,7 @@
     {
       "brand": "On",
       "name": "Cloudvista 2",
-      "variant": "per pair",
+      "variant": null,
       "category_hint": "clothing",
       "weight_value": 584,
       "weight_unit": "g",
@@ -759,7 +759,7 @@
     {
       "brand": "On",
       "name": "Cloudrock Low Waterproof",
-      "variant": "men's, per pair",
+      "variant": "men's",
       "category_hint": "clothing",
       "weight_value": 30.3,
       "weight_unit": "oz",

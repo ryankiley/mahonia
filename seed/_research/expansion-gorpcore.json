@@ -3,7 +3,7 @@
     {
       "brand": "ROA",
       "name": "Andreas Hiking Boot",
-      "variant": "Men's US 9, per pair",
+      "variant": "Men's US 9",
       "category_hint": "clothing",
       "weight_value": 1160,
       "weight_unit": "g",
@@ -14,7 +14,7 @@
     {
       "brand": "ROA",
       "name": "Lhakpa Hiking Sneaker",
-      "variant": "Men's US 9, per pair",
+      "variant": "Men's US 9",
       "category_hint": "clothing",
       "weight_value": 860,
       "weight_unit": "g",
@@ -25,7 +25,7 @@
     {
       "brand": "ROA",
       "name": "Minaar Hiking Sneaker",
-      "variant": "Men's US 9, per pair",
+      "variant": "Men's US 9",
       "category_hint": "clothing",
       "weight_value": 760,
       "weight_unit": "g",
@@ -58,7 +58,7 @@
     {
       "brand": "Diemme",
       "name": "Roccia Vet",
-      "variant": "Men's US 9, EU 42, per pair",
+      "variant": "Men's US 9, EU 42",
       "category_hint": "clothing",
       "weight_value": 1040,
       "weight_unit": "g",
@@ -69,7 +69,7 @@
     {
       "brand": "Diemme",
       "name": "Maggiore",
-      "variant": "Men's US 9, EU 42, per pair",
+      "variant": "Men's US 9, EU 42",
       "category_hint": "clothing",
       "weight_value": 960,
       "weight_unit": "g",
@@ -80,7 +80,7 @@
     {
       "brand": "Diemme",
       "name": "Possagno Mid",
-      "variant": "Men's US 9, EU 42, per pair",
+      "variant": "Men's US 9, EU 42",
       "category_hint": "clothing",
       "weight_value": 800,
       "weight_unit": "g",
@@ -201,7 +201,7 @@
     {
       "brand": "Veja",
       "name": "Fitz Roy Trek-Shell",
-      "variant": "Men's US 9, EU 42, per pair",
+      "variant": "Men's US 9, EU 42",
       "category_hint": "clothing",
       "weight_value": 736,
       "weight_unit": "g",
@@ -212,7 +212,7 @@
     {
       "brand": "Veja",
       "name": "Condor 3",
-      "variant": "Men's UK 10, per pair",
+      "variant": "Men's UK 10",
       "category_hint": "clothing",
       "weight_value": 686,
       "weight_unit": "g",
@@ -223,7 +223,7 @@
     {
       "brand": "Veja",
       "name": "Dekkan Alveomesh",
-      "variant": "Men's US 9, per pair",
+      "variant": "Men's US 9",
       "category_hint": "clothing",
       "weight_value": 680,
       "weight_unit": "g",
