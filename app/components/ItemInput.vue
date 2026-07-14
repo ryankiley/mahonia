@@ -34,6 +34,9 @@ const emit = defineEmits<{
   // true while the suggestion dropdown is showing — the folder lifts its collapse
   // clip so a dropdown at the bottom of the folder isn't cropped (see FolderSection).
   autocompleteToggle: [boolean];
+  // Enter (the mobile return key too) landed a commit — the parent may continue
+  // the flow by opening a fresh row below (todo-list entry; see ItemRow).
+  advance: [];
 }>();
 
 const { results, search, clear } = useCatalogSearch();
@@ -189,11 +192,22 @@ function onKeydown(e: KeyboardEvent) {
     e.preventDefault();
     if (n) active.value = (active.value - 1 + n) % n;
   } else if (e.key === "Enter") {
+    if (e.isComposing) return; // IME confirming a composition, not a commit
     e.preventDefault();
-    if (open.value && active.value >= 0 && options.value[active.value])
+    if (open.value && active.value >= 0 && options.value[active.value]) {
       selectOption(options.value[active.value]!);
-    else if (waterSuggestion.value) selectWater(waterSuggestion.value);
-    else commitFree();
+    } else if (waterSuggestion.value) {
+      selectWater(waterSuggestion.value);
+    } else if (draft.value.trim()) {
+      commitFree();
+    } else {
+      // Enter on an empty name ends the entry chain instead of spawning another
+      // row: drop focus, so an untouched blank cleans itself up via the row's
+      // focusout (discardEmpty) and the mobile keyboard dismisses
+      (e.target as HTMLInputElement).blur();
+      return;
+    }
+    emit("advance");
   } else if (e.key === "Escape") {
     // cancel: revert to the original (or clear in add mode) so the focusout that
     // follows blur won't commit the rejected draft

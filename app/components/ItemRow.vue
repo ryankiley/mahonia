@@ -43,21 +43,19 @@ const isDropBefore = computed(
     dnd.drop.value?.beforeId === props.item.id,
 );
 
-// a just-added "Add an item" row autofocuses its name; if focus leaves the whole
-// row while it's still untouched, it removes itself (no empty-row litter)
+// a just-added "Add an item" row autofocuses its name; any row whose fields are
+// all still empty removes itself when focus leaves it — an abandoned blank, or
+// one you clicked into and out of (no empty-row litter). discardEmpty verifies
+// the emptiness against the snapshot, so a row with content is never touched.
 const wrapRef = useTemplateRef<HTMLElement>("wrapRef");
 const isPendingBlank = computed(() => c.pendingBlankId.value === props.item.id);
 function onRowBlur(e: FocusEvent) {
-  if (!isPendingBlank.value) return;
   const next = e.relatedTarget as Node | null;
   if (wrapRef.value?.contains(next)) return; // focus moved within the row — keep
   // focus left the window entirely (alt-tab / app switch) rather than moving
   // elsewhere in the app — keep the row so they can come back and finish it
   if (!next && typeof document !== "undefined" && !document.hasFocus()) return;
-  const it = props.item;
-  if (!it.name.trim() && it.unitWeightMg === 0 && it.qty === 1 && !it.description && it.catalogItemId == null) {
-    c.discardBlank(it.id);
-  }
+  c.discardEmpty(props.item.id);
 }
 
 // edit field: the bare number in the list unit (formatWeight is strict, so the shown
@@ -310,6 +308,7 @@ function dismissFix() {
         :clear-on-commit="false"
         :autofocus="isPendingBlank"
         @commit="onNameCommit"
+        @advance="c.addBlankItemAfter(item.id)"
         @autocomplete-toggle="$emit('autocompleteToggle', $event)"
       />
 
