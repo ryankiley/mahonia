@@ -927,7 +927,7 @@
     {
       "brand": "Astral Designs",
       "name": "TR1 Mesh 2.0 Hiking Shoe",
-      "variant": "M's 9 | W's 10 US",
+      "variant": "M's 9, W's 10 US",
       "category_hint": "clothing",
       "weight_value": 304,
       "weight_unit": "g",
@@ -1107,14 +1107,14 @@
     {
       "brand": "Bedrock Sandals",
       "name": "Cairn Evo C",
-      "variant": "M9, single sandal",
+      "variant": "M9",
       "category_hint": "clothing",
-      "weight_value": 272,
+      "weight_value": 544,
       "weight_unit": "g",
-      "weight_secondary": "9.6 oz",
+      "weight_secondary": "19.2 oz",
       "weight_source": "manufacturer",
       "source_url": "https://www.garagegrowngear.com/products/cairn-evo-c-by-bedrock-sandals",
-      "quote": "Weight: 9.6oz | 272g (single sandal, men's size 9)"
+      "quote": "Weight per pair: 544 g | 19.2 oz (2× single sandal; single = 272 g / 9.6 oz, men's size 9)"
     },
     {
       "brand": "Ben's Tick and Insect Repellent",
@@ -1491,7 +1491,7 @@
     {
       "brand": "Black Diamond",
       "name": "Gridtech Storm Hood Gloves",
-      "variant": "per pair",
+      "variant": null,
       "category_hint": "clothing",
       "weight_value": 60,
       "weight_unit": "g",
@@ -3651,7 +3651,7 @@
     {
       "brand": "Farm to Feet",
       "name": "Cascade Locks American Trail 3/4 Crew Socks",
-      "variant": "M, per pair",
+      "variant": "M",
       "category_hint": "clothing",
       "weight_value": 62,
       "weight_unit": "g",
@@ -3663,7 +3663,7 @@
     {
       "brand": "Farm to Feet",
       "name": "Chester PCT American Trail 3/4 Crew Sock",
-      "variant": "M, per pair",
+      "variant": "M",
       "category_hint": "clothing",
       "weight_value": 62,
       "weight_unit": "g",
@@ -3675,7 +3675,7 @@
     {
       "brand": "Farm to Feet",
       "name": "Gray's Peak CDT American Trail 3/4 Crew Socks",
-      "variant": "M, per pair",
+      "variant": "M",
       "category_hint": "clothing",
       "weight_value": 62,
       "weight_unit": "g",
@@ -3687,7 +3687,7 @@
     {
       "brand": "Farm to Feet",
       "name": "Harpers Ferry AT American Trail 3/4 Crew Socks",
-      "variant": "M, per pair",
+      "variant": "M",
       "category_hint": "clothing",
       "weight_value": 62,
       "weight_unit": "g",
@@ -3699,7 +3699,7 @@
     {
       "brand": "Farm to Feet",
       "name": "Max Patch American Trail 1/4 Crew Socks",
-      "variant": "M, per pair",
+      "variant": "M",
       "category_hint": "clothing",
       "weight_value": 49,
       "weight_unit": "g",
@@ -3711,7 +3711,7 @@
     {
       "brand": "Farm to Feet",
       "name": "Max Patch American Trail 3/4 Crew Socks",
-      "variant": "M, per pair",
+      "variant": "M",
       "category_hint": "clothing",
       "weight_value": 62,
       "weight_unit": "g",
@@ -3747,7 +3747,7 @@
     {
       "brand": "FarPointe Outdoor Gear",
       "name": "Alpha Camp Socks",
-      "variant": "per pair",
+      "variant": null,
       "category_hint": "clothing",
       "weight_value": 25,
       "weight_unit": "g",
@@ -5775,7 +5775,7 @@
     {
       "brand": "Hollow Socks",
       "name": "Trail Socks",
-      "variant": "Ankle, M, per pair",
+      "variant": "Ankle, M",
       "category_hint": "clothing",
       "weight_value": 62,
       "weight_unit": "g",
@@ -5787,7 +5787,7 @@
     {
       "brand": "Hollow Socks",
       "name": "Trail Socks",
-      "variant": "Crew, M, per pair",
+      "variant": "Crew, M",
       "category_hint": "clothing",
       "weight_value": 77,
       "weight_unit": "g",
@@ -6843,7 +6843,7 @@
     {
       "brand": "Kahtoola",
       "name": "INSTAgaiter",
-      "variant": "Low L, XL, per pair",
+      "variant": "Low L, XL",
       "category_hint": "clothing",
       "weight_value": 62,
       "weight_unit": "g",
@@ -6855,7 +6855,7 @@
     {
       "brand": "Kahtoola",
       "name": "INSTAgaiter",
-      "variant": "Low S, M, per pair",
+      "variant": "Low S, M",
       "category_hint": "clothing",
       "weight_value": 56,
       "weight_unit": "g",
@@ -6867,7 +6867,7 @@
     {
       "brand": "Kahtoola",
       "name": "INSTAgaiter",
-      "variant": "Mid L, XL, per pair",
+      "variant": "Mid L, XL",
       "category_hint": "clothing",
       "weight_value": 77,
       "weight_unit": "g",
@@ -6879,7 +6879,7 @@
     {
       "brand": "Kahtoola",
       "name": "INSTAgaiter",
-      "variant": "Mid S, M, per pair",
+      "variant": "Mid S, M",
       "category_hint": "clothing",
       "weight_value": 68,
       "weight_unit": "g",
@@ -8055,7 +8055,7 @@
     {
       "brand": "LUNA PROJECT",
       "name": "Air Mesh Shoulder Pads",
-      "variant": "Medium, per pair",
+      "variant": "Medium",
       "category_hint": "other",
       "weight_value": 48,
       "weight_unit": "g",
@@ -8067,7 +8067,7 @@
     {
       "brand": "LUNA PROJECT",
       "name": "Air Mesh Shoulder Pads",
-      "variant": "Small, per pair",
+      "variant": "Small",
       "category_hint": "other",
       "weight_value": 34,
       "weight_unit": "g",
@@ -8103,7 +8103,7 @@
     {
       "brand": "Mayfly Ultralight Equipment",
       "name": "Imago",
-      "variant": "Men's 9, per pair",
+      "variant": "Men's 9",
       "category_hint": "clothing",
       "weight_value": 51,
       "weight_unit": "g",
@@ -8115,7 +8115,7 @@
     {
       "brand": "Mayfly Ultralight Equipment",
       "name": "Nymph",
-      "variant": "Men's 9, per pair",
+      "variant": "Men's 9",
       "category_hint": "clothing",
       "weight_value": 48,
       "weight_unit": "g",
@@ -8715,7 +8715,7 @@
     {
       "brand": "Nnormal",
       "name": "Tomir 2.0 NN",
-      "variant": "M's 9 | W's 10 US",
+      "variant": "M's 9, W's 10 US",
       "category_hint": "clothing",
       "weight_value": 264,
       "weight_unit": "g",
@@ -10443,7 +10443,7 @@
     {
       "brand": "Shamma Sandals",
       "name": "Cruzers",
-      "variant": "Size 9, per pair",
+      "variant": "Size 9",
       "category_hint": "clothing",
       "weight_value": 182,
       "weight_unit": "g",
@@ -10455,7 +10455,7 @@
     {
       "brand": "Shamma Sandals",
       "name": "Elite Warriors",
-      "variant": "Size 9, per pair",
+      "variant": "Size 9",
       "category_hint": "clothing",
       "weight_value": 198,
       "weight_unit": "g",
@@ -11786,7 +11786,7 @@
     },
     {
       "brand": "Toaks",
-      "name": "Titanium 650ml Pot (Ultralight Version)",
+      "name": "Titanium 650ml Pot (Ultralight)",
       "variant": null,
       "category_hint": "cook",
       "weight_value": 79,
@@ -11798,7 +11798,7 @@
     },
     {
       "brand": "Toaks",
-      "name": "Titanium 700ml Pot (Ultralight Version)",
+      "name": "Titanium 700ml Pot (Ultralight)",
       "variant": null,
       "category_hint": "cook",
       "weight_value": 91,
@@ -11991,7 +11991,7 @@
     {
       "brand": "Topo Athletic",
       "name": "Terraventure 4",
-      "variant": "Men's US 9, per pair",
+      "variant": "Men's US 9",
       "category_hint": "clothing",
       "weight_value": 286,
       "weight_unit": "g",
@@ -12003,7 +12003,7 @@
     {
       "brand": "Topo Athletic",
       "name": "Terraventure 4",
-      "variant": "Women's US 7, per pair",
+      "variant": "Women's US 7",
       "category_hint": "clothing",
       "weight_value": 244,
       "weight_unit": "g",
@@ -12015,7 +12015,7 @@
     {
       "brand": "ToughCutie",
       "name": "Ladies Lightweight Hiker Crew",
-      "variant": "M, per pair",
+      "variant": "M",
       "category_hint": "clothing",
       "weight_value": 65,
       "weight_unit": "g",
@@ -12027,7 +12027,7 @@
     {
       "brand": "ToughCutie",
       "name": "Ladies Lightweight Hiker Quarter Crew",
-      "variant": "M, per pair",
+      "variant": "M",
       "category_hint": "clothing",
       "weight_value": 46,
       "weight_unit": "g",
@@ -12207,7 +12207,7 @@
     {
       "brand": "Ultra Gam",
       "name": "Ankle Gaiters",
-      "variant": "Medium, per pair",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 31,
       "weight_unit": "g",
@@ -12219,7 +12219,7 @@
     {
       "brand": "Ultra Gam",
       "name": "Arm Sleeves/Warmers",
-      "variant": "Medium, per pair",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 42.5,
       "weight_unit": "g",
@@ -12231,7 +12231,7 @@
     {
       "brand": "Ultra Gam",
       "name": "Calf Gaiters",
-      "variant": "Medium, per pair",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 2.4,
       "weight_unit": "oz",
@@ -12951,7 +12951,7 @@
     {
       "brand": "WIDE OPEN Socks",
       "name": "Men's Multi Stripe Cushioned Micro Crew Socks",
-      "variant": "L, per pair",
+      "variant": "L",
       "category_hint": "clothing",
       "weight_value": 60,
       "weight_unit": "g",
@@ -12963,7 +12963,7 @@
     {
       "brand": "WIDE OPEN Socks",
       "name": "Men's Solid Cushioned Quarter Crew Socks",
-      "variant": "L, per pair",
+      "variant": "L",
       "category_hint": "clothing",
       "weight_value": 56,
       "weight_unit": "g",
@@ -12975,7 +12975,7 @@
     {
       "brand": "WIDE OPEN Socks",
       "name": "Women's Multi Stripe Cushioned Micro Crew Socks",
-      "variant": "M, per pair",
+      "variant": "M",
       "category_hint": "clothing",
       "weight_value": 52,
       "weight_unit": "g",
@@ -12987,7 +12987,7 @@
     {
       "brand": "WIDE OPEN Socks",
       "name": "Women's Stripe Cushioned Quarter Crew Socks",
-      "variant": "M, per pair",
+      "variant": "M",
       "category_hint": "clothing",
       "weight_value": 56,
       "weight_unit": "g",
@@ -13035,7 +13035,7 @@
     {
       "brand": "XOSKIN",
       "name": "XOTOES Toe Sock Anklet",
-      "variant": "Size 2, per pair",
+      "variant": "Size 2",
       "category_hint": "clothing",
       "weight_value": 37,
       "weight_unit": "g",
@@ -13047,7 +13047,7 @@
     {
       "brand": "XOSKIN",
       "name": "XOTOES Toe Sock Crew",
-      "variant": "Size 2, per pair",
+      "variant": "Size 2",
       "category_hint": "clothing",
       "weight_value": 57,
       "weight_unit": "g",
@@ -13059,7 +13059,7 @@
     {
       "brand": "XOSKIN",
       "name": "XOTOES Toe Sock Quarter Crew",
-      "variant": "Size 2, per pair",
+      "variant": "Size 2",
       "category_hint": "clothing",
       "weight_value": 43,
       "weight_unit": "g",
@@ -13071,7 +13071,7 @@
     {
       "brand": "XOSKIN",
       "name": "XOWOOL (Toe Sock) Mid Crew",
-      "variant": "Size 2, per pair",
+      "variant": "Size 2",
       "category_hint": "clothing",
       "weight_value": 66,
       "weight_unit": "g",
@@ -13083,7 +13083,7 @@
     {
       "brand": "XOSKIN",
       "name": "XOWOOL (Toe Sock) Quarter Crew",
-      "variant": "Size 2, per pair",
+      "variant": "Size 2",
       "category_hint": "clothing",
       "weight_value": 56,
       "weight_unit": "g",
@@ -13503,7 +13503,7 @@
     {
       "brand": "Zpacks",
       "name": "Deluxe Camp Shoes",
-      "variant": "M, per pair",
+      "variant": "M",
       "category_hint": "clothing",
       "weight_value": 76,
       "weight_unit": "g",
@@ -13623,7 +13623,7 @@
     {
       "brand": "Zpacks",
       "name": "Ultralight Camp Shoes",
-      "variant": "Medium, per pair",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 52,
       "weight_unit": "g",

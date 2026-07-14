@@ -120,6 +120,9 @@ export function isBrandedTypedItem(p: {
 //   • trailing parenthetical qualifiers unwrapped ("Regular (6 ft)" → "Regular, 6 ft")
 //   • KEEP genuine tokens: size ranges ("S/M", "L/XL", "M/L torso") and spaced
 //     unit/temperature equivalents ("32oz / 1L", "20F / -6C", '16" / 19"')
+//   • a "|" between dimensions is treated like a top-level comma ("M's 9 | W's 10"
+//     → "M's 9, W's 10") — it's a transcription artifact from manufacturer quotes,
+//     never a canonical separator
 
 const SIZE_TOKEN = /^W?(XS|S|M|L|XL|XXL|XXXL)$/i;
 const isSizeTok = (s: string) => SIZE_TOKEN.test(s.trim());
@@ -141,10 +144,11 @@ export function normalizeVariant(input: string | null | undefined): string {
   // 3. volume: a number followed by L (with optional space) → "<n>L" (only when a digit precedes L,
   //    so size letters like the L in "L/XL" are untouched; "90mL" untouched — 'm' breaks the match)
   v = v.replace(/\b(\d+(?:\.\d+)?)\s*[lL]\b/g, (_m, n: string) => `${n}L`);
-  // 4. split into dimensions: top-level commas, then SPACED " / " separators (an UNSPACED "/" stays
-  //    inside its token — that's a real size range like S/M or M/L)
+  // 4. split into dimensions: top-level commas (and "|", a non-canonical separator
+  //    copied from manufacturer quotes), then SPACED " / " separators (an UNSPACED
+  //    "/" stays inside its token — that's a real size range like S/M or M/L)
   const dims: string[] = [];
-  for (const seg of v.split(",")) {
+  for (const seg of v.split(/[,|]/)) {
     const parts = seg.split(/\s+\/\s+/).map((s) => s.trim()).filter(Boolean);
     if (parts.length >= 2 && parts.every(hasNumUnit)) {
       // a spaced unit/temp equivalent ("32oz / 1L", "20F / -6C") — keep joined with " / "

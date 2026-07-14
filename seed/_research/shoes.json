@@ -3,7 +3,7 @@
     {
       "brand": "Altra",
       "name": "Lone Peak 9",
-      "variant": "Men's, per pair",
+      "variant": "Men's",
       "category_hint": "clothing",
       "weight_value": 590,
       "weight_unit": "g",
@@ -14,7 +14,7 @@
     {
       "brand": "Altra",
       "name": "Lone Peak 9+",
-      "variant": "Men's, per pair",
+      "variant": "Men's",
       "category_hint": "clothing",
       "weight_value": 607,
       "weight_unit": "g",
@@ -25,7 +25,7 @@
     {
       "brand": "Altra",
       "name": "Timp 5",
-      "variant": "Men's, per pair",
+      "variant": "Men's",
       "category_hint": "clothing",
       "weight_value": 556,
       "weight_unit": "g",
@@ -36,7 +36,7 @@
     {
       "brand": "Altra",
       "name": "Olympus 6",
-      "variant": "Men's, per pair",
+      "variant": "Men's",
       "category_hint": "clothing",
       "weight_value": 709,
       "weight_unit": "g",
@@ -47,7 +47,7 @@
     {
       "brand": "Hoka",
       "name": "Speedgoat 6",
-      "variant": "Men's, per pair",
+      "variant": "Men's",
       "category_hint": "clothing",
       "weight_value": 19.6,
       "weight_unit": "oz",
@@ -58,7 +58,7 @@
     {
       "brand": "Hoka",
       "name": "Challenger 7",
-      "variant": "Men's, per pair",
+      "variant": "Men's",
       "category_hint": "clothing",
       "weight_value": 17.8,
       "weight_unit": "oz",
@@ -69,7 +69,7 @@
     {
       "brand": "Hoka",
       "name": "Torrent 4",
-      "variant": "Men's, per pair",
+      "variant": "Men's",
       "category_hint": "clothing",
       "weight_value": 493,
       "weight_unit": "g",
@@ -80,7 +80,7 @@
     {
       "brand": "Topo Athletic",
       "name": "Pursuit 2",
-      "variant": "Men's, per pair",
+      "variant": "Men's",
       "category_hint": "clothing",
       "weight_value": 601,
       "weight_unit": "g",
@@ -91,7 +91,7 @@
     {
       "brand": "Topo Athletic",
       "name": "Ultraventure 4",
-      "variant": "Men's, per pair",
+      "variant": "Men's",
       "category_hint": "clothing",
       "weight_value": 20.8,
       "weight_unit": "oz",
@@ -102,7 +102,7 @@
     {
       "brand": "Brooks",
       "name": "Cascadia 18",
-      "variant": "Men's, per pair",
+      "variant": "Men's",
       "category_hint": "clothing",
       "weight_value": 629,
       "weight_unit": "g",
@@ -113,7 +113,7 @@
     {
       "brand": "Saucony",
       "name": "Peregrine 14",
-      "variant": "Men's, per pair",
+      "variant": "Men's",
       "category_hint": "clothing",
       "weight_value": 533,
       "weight_unit": "g",
@@ -124,7 +124,7 @@
     {
       "brand": "La Sportiva",
       "name": "Bushido III",
-      "variant": "Men's, per pair",
+      "variant": "Men's",
       "category_hint": "clothing",
       "weight_value": 595,
       "weight_unit": "g",
@@ -135,7 +135,7 @@
     {
       "brand": "Merrell",
       "name": "Moab 3 (low)",
-      "variant": "Men's, per pair",
+      "variant": "Men's",
       "category_hint": "clothing",
       "weight_value": 919,
       "weight_unit": "g",
@@ -146,7 +146,7 @@
     {
       "brand": "Salomon",
       "name": "Sense Ride 5",
-      "variant": "Men's, per pair",
+      "variant": "Men's",
       "category_hint": "clothing",
       "weight_value": 584,
       "weight_unit": "g",
@@ -157,7 +157,7 @@
     {
       "brand": "Salomon",
       "name": "X Ultra 360 (low)",
-      "variant": "Men's, per pair",
+      "variant": "Men's",
       "category_hint": "clothing",
       "weight_value": 697,
       "weight_unit": "g",

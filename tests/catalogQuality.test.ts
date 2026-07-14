@@ -26,6 +26,8 @@ describe("normalizeVariant", () => {
     ["32oz / 1L", "32oz / 1L"], // spaced unit equivalent
     ["20F / -6C, Regular, 650FP down", "20F / -6C, Regular, 650FP down"], // F/C temp equivalent
     ['Gridstop (16" / 19")', 'Gridstop, 16" / 19"'], // measurement range kept
+    // "|" is a non-canonical separator (copied from a manufacturer quote) → comma
+    ["M's 9 | W's 10 US", "M's 9, W's 10 US"],
     // already-canonical / no-op
     ["Men's M", "Men's M"],
     ["one size", "one size"],
