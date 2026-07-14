@@ -130,13 +130,13 @@ button svg {
 .field::placeholder {
   color: var(--ink-3);
 }
-/* Above the 1720px type anchor (tokens.scss) --text-base scales past 16px, but
+/* Above the 1920px type anchor (tokens.scss) --text-base scales past 16px, but
    the literal 1rem above doesn't — so on large monitors an input's text falls
    behind the type around it (e.g. a water row's number vs its scaling "L" unit).
    That literal exists ONLY to dodge iOS Safari's focus-zoom, a phone/tablet bug;
-   no iOS device is 1720px wide, so past the anchor it's safe to rejoin the
+   no iOS device is 1920px wide, so past the anchor it's safe to rejoin the
    scaling and consume --text-base like every other consumer. */
-@media (min-width: 1720px) {
+@media (min-width: 1920px) {
   .field {
     font-size: var(--text-base);
   }
