@@ -10,7 +10,31 @@
       "weight_secondary": "1 lb 1 oz",
       "weight_source": "manufacturer",
       "source_url": "https://zenbivy.com/products/ultralight-quilt",
-      "quote": "Ultralight Quilt — 25°F Down, 900+ FP — Regular: 1 lb 1 oz (482 g)"
+      "quote": "Ultralight Quilt — 25°F Down, 900+ FP ExpeDRY Muscovy — Regular: 1 lb 1 oz (482 g)"
+    },
+    {
+      "brand": "Zenbivy",
+      "name": "Ultralight Quilt",
+      "variant": "25F, 900FP, Large",
+      "category_hint": "sleep",
+      "weight_value": 538,
+      "weight_unit": "g",
+      "weight_secondary": "1 lb 3 oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://zenbivy.com/products/ultralight-quilt",
+      "quote": "Ultralight Quilt — 25°F Down, 900+ FP ExpeDRY Muscovy — Large: 1 lb 3 oz (538 g)"
+    },
+    {
+      "brand": "Zenbivy",
+      "name": "Ultralight Quilt",
+      "variant": "25F, 900FP, XL",
+      "category_hint": "sleep",
+      "weight_value": 623,
+      "weight_unit": "g",
+      "weight_secondary": "1 lb 6 oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://zenbivy.com/products/ultralight-quilt",
+      "quote": "Ultralight Quilt — 25°F Down, 900+ FP ExpeDRY Muscovy — XL: 1 lb 6 oz (623 g)"
     },
     {
       "brand": "Zenbivy",
@@ -22,7 +46,139 @@
       "weight_secondary": "1 lb 9 oz",
       "weight_source": "manufacturer",
       "source_url": "https://zenbivy.com/products/ultralight-quilt",
-      "quote": "Ultralight Quilt — 10°F Down, 900+ FP — Regular: 1 lb 9 oz (709 g)"
+      "quote": "Ultralight Quilt — 10°F Down, 900+ FP ExpeDRY Muscovy — Regular: 1 lb 9 oz (709 g)"
+    },
+    {
+      "brand": "Zenbivy",
+      "name": "Ultralight Quilt",
+      "variant": "10F, 900FP, Large",
+      "category_hint": "sleep",
+      "weight_value": 822,
+      "weight_unit": "g",
+      "weight_secondary": "1 lb 13 oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://zenbivy.com/products/ultralight-quilt",
+      "quote": "Ultralight Quilt — 10°F Down, 900+ FP ExpeDRY Muscovy — Large: 1 lb 13 oz (822 g)"
+    },
+    {
+      "brand": "Zenbivy",
+      "name": "Ultralight Quilt",
+      "variant": "10F, 900FP, XL",
+      "category_hint": "sleep",
+      "weight_value": 936,
+      "weight_unit": "g",
+      "weight_secondary": "2 lb 1 oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://zenbivy.com/products/ultralight-quilt",
+      "quote": "Ultralight Quilt — 10°F Down, 900+ FP ExpeDRY Muscovy — XL: 2 lb 1 oz (936 g)"
+    },
+    {
+      "brand": "Zenbivy",
+      "name": "Ultralight Quilt",
+      "variant": "25F, 950FP, Regular",
+      "category_hint": "sleep",
+      "weight_value": 454,
+      "weight_unit": "g",
+      "weight_secondary": "1 lb",
+      "weight_source": "manufacturer",
+      "source_url": "https://zenbivy.com/products/ultralight-quilt",
+      "quote": "Ultralight Quilt — 25°F Down, 950+ FP Ultrasonic Muscovy — Regular: 1 lb (454 g)"
+    },
+    {
+      "brand": "Zenbivy",
+      "name": "Ultralight Quilt",
+      "variant": "25F, 950FP, Large",
+      "category_hint": "sleep",
+      "weight_value": 510,
+      "weight_unit": "g",
+      "weight_secondary": "1 lb 2 oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://zenbivy.com/products/ultralight-quilt",
+      "quote": "Ultralight Quilt — 25°F Down, 950+ FP Ultrasonic Muscovy — Large: 1 lb 2 oz (510 g)"
+    },
+    {
+      "brand": "Zenbivy",
+      "name": "Ultralight Quilt",
+      "variant": "25F, 950FP, XL",
+      "category_hint": "sleep",
+      "weight_value": 595,
+      "weight_unit": "g",
+      "weight_secondary": "1 lb 5 oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://zenbivy.com/products/ultralight-quilt",
+      "quote": "Ultralight Quilt — 25°F Down, 950+ FP Ultrasonic Muscovy — XL: 1 lb 5 oz (595 g)"
+    },
+    {
+      "brand": "Zenbivy",
+      "name": "Ultralight Quilt",
+      "variant": "10F, 950FP, Regular",
+      "category_hint": "sleep",
+      "weight_value": 680,
+      "weight_unit": "g",
+      "weight_secondary": "1 lb 8 oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://zenbivy.com/products/ultralight-quilt",
+      "quote": "Ultralight Quilt — 10°F Down, 950+ FP Ultrasonic Muscovy — Regular: 1 lb 8 oz (680 g)"
+    },
+    {
+      "brand": "Zenbivy",
+      "name": "Ultralight Quilt",
+      "variant": "10F, 950FP, Large",
+      "category_hint": "sleep",
+      "weight_value": 751,
+      "weight_unit": "g",
+      "weight_secondary": "1 lb 10 oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://zenbivy.com/products/ultralight-quilt",
+      "quote": "Ultralight Quilt — 10°F Down, 950+ FP Ultrasonic Muscovy — Large: 1 lb 10 oz (751 g)"
+    },
+    {
+      "brand": "Zenbivy",
+      "name": "Ultralight Quilt",
+      "variant": "10F, 950FP, XL",
+      "category_hint": "sleep",
+      "weight_value": 850,
+      "weight_unit": "g",
+      "weight_secondary": "1 lb 14 oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://zenbivy.com/products/ultralight-quilt",
+      "quote": "Ultralight Quilt — 10°F Down, 950+ FP Ultrasonic Muscovy — XL: 1 lb 14 oz (850 g)"
+    },
+    {
+      "brand": "Zenbivy",
+      "name": "Ultralight Quilt",
+      "variant": "25F, Synthetic, Regular",
+      "category_hint": "sleep",
+      "weight_value": 709,
+      "weight_unit": "g",
+      "weight_secondary": "1 lb 9 oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://zenbivy.com/products/ultralight-quilt",
+      "quote": "Ultralight Quilt — 25°F Synthetic PrimaLoft Gold — Regular: 1 lb 9 oz (709 g)"
+    },
+    {
+      "brand": "Zenbivy",
+      "name": "Ultralight Quilt",
+      "variant": "25F, Synthetic, Large",
+      "category_hint": "sleep",
+      "weight_value": 794,
+      "weight_unit": "g",
+      "weight_secondary": "1 lb 12 oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://zenbivy.com/products/ultralight-quilt",
+      "quote": "Ultralight Quilt — 25°F Synthetic PrimaLoft Gold — Large: 1 lb 12 oz (794 g)"
+    },
+    {
+      "brand": "Zenbivy",
+      "name": "Ultralight Quilt",
+      "variant": "25F, Synthetic, XL",
+      "category_hint": "sleep",
+      "weight_value": 936,
+      "weight_unit": "g",
+      "weight_secondary": "2 lb 1 oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://zenbivy.com/products/ultralight-quilt",
+      "quote": "Ultralight Quilt — 25°F Synthetic PrimaLoft Gold — XL: 2 lb 1 oz (936 g)"
     },
     {
       "brand": "Zenbivy",

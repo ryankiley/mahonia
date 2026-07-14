@@ -1,0 +1,148 @@
+{
+  "rows": [
+    {
+      "brand": "Snow Peak",
+      "name": "GigaPower Stove 2.0",
+      "variant": "Auto",
+      "category_hint": "cook",
+      "weight_value": 120,
+      "weight_unit": "g",
+      "weight_secondary": "4.23 oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.snowpeak.com/products/gigapower-stove-2-0-auto",
+      "quote": "4.23 oz (120 g)"
+    },
+    {
+      "brand": "Snow Peak",
+      "name": "GigaPower Stove",
+      "variant": "Manual",
+      "category_hint": "cook",
+      "weight_value": 75,
+      "weight_unit": "g",
+      "weight_secondary": "2.64 oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.snowpeak.com/products/giga-power-stove-manual-renewed2",
+      "quote": "2.64 oz (75 g)"
+    },
+    {
+      "brand": "Snow Peak",
+      "name": "Trek 1400 Titanium",
+      "variant": "1400ml",
+      "category_hint": "cook",
+      "weight_value": 210,
+      "weight_unit": "g",
+      "weight_secondary": "7.4 oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.snowpeak.com/products/trek-1400-titanium-cookset",
+      "quote": "7.4 oz (210 g)"
+    },
+    {
+      "brand": "Snow Peak",
+      "name": "Titanium Trek Combo",
+      "variant": "",
+      "category_hint": "cook",
+      "weight_value": 370,
+      "weight_unit": "g",
+      "weight_secondary": "13 oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.snowpeak.com/products/trek-combo-titanium-scs-010t",
+      "quote": "13 oz ( 370 g)"
+    },
+    {
+      "brand": "Snow Peak",
+      "name": "Ti-Single 450 Cup",
+      "variant": "",
+      "category_hint": "cook",
+      "weight_value": 70,
+      "weight_unit": "g",
+      "weight_secondary": "2.4 oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.snowpeak.com/products/titanium-single-450-cup-mg-043",
+      "quote": "2.4 oz (70 g)"
+    },
+    {
+      "brand": "Snow Peak",
+      "name": "Ti-Single 600 Cup",
+      "variant": "",
+      "category_hint": "cook",
+      "weight_value": 88,
+      "weight_unit": "g",
+      "weight_secondary": "2.8 oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.snowpeak.com/products/titanium-single-600-wall-cup-mg-044",
+      "quote": "2.8 oz (88 g)"
+    },
+    {
+      "brand": "Snow Peak",
+      "name": "Ti-Double 450 Mug",
+      "variant": "",
+      "category_hint": "cook",
+      "weight_value": 104,
+      "weight_unit": "g",
+      "weight_secondary": "3.6 oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.snowpeak.com/products/titanium-double-450-mug",
+      "quote": "Weight: 3.6 oz (104 g)"
+    },
+    {
+      "brand": "Snow Peak",
+      "name": "Mini Hozuki",
+      "variant": "",
+      "category_hint": "electronics",
+      "weight_value": 54,
+      "weight_unit": "g",
+      "weight_secondary": "1.9 oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.snowpeak.com/products/mini-hozuki-1",
+      "quote": "Weight: 1.9 oz (54 g)"
+    },
+    {
+      "brand": "Snow Peak",
+      "name": "Hozuki Lantern",
+      "variant": "",
+      "category_hint": "electronics",
+      "weight_value": 164,
+      "weight_unit": "g",
+      "weight_secondary": "5.8 oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.snowpeak.com/products/hozuki-lantern-2",
+      "quote": "5.8 oz (164 g)"
+    },
+    {
+      "brand": "Snow Peak",
+      "name": "Kettle No.1",
+      "variant": "",
+      "category_hint": "cook",
+      "weight_value": 290,
+      "weight_unit": "g",
+      "weight_secondary": "10.2 oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.snowpeak.com/products/kettle-no-1-cs-068",
+      "quote": "10.2 oz (290 g)"
+    },
+    {
+      "brand": "Snow Peak",
+      "name": "Ti-Mini Solo Combo 2.0",
+      "variant": "",
+      "category_hint": "cook",
+      "weight_value": 190,
+      "weight_unit": "g",
+      "weight_secondary": "6.7 oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.snowpeak.com/products/ti-mini-solo-combo-scs-004t",
+      "quote": "6.7 oz (190 g)"
+    },
+    {
+      "brand": "Snow Peak",
+      "name": "3 Piece Titanium Cookset",
+      "variant": "",
+      "category_hint": "cook",
+      "weight_value": 200,
+      "weight_unit": "g",
+      "weight_secondary": "7.1 oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.snowpeak.com/products/3-piece-titanium-cookset",
+      "quote": "7.1 oz (200 g)"
+    }
+  ]
+}

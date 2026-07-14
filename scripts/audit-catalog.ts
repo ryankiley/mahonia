@@ -30,11 +30,13 @@ const researchDir = join(here, "..", "seed", "_research");
 // Plausible per-category weight ranges (RANGE_G) are single-sourced in
 // catalogChecks.ts so the CLI audit and the gating test agree exactly.
 
-/** All gram-equivalent figures mentioned in a quote (kg converted to g). */
+/** All gram-equivalent figures mentioned in a quote (kg converted to g).
+ *  Handles thousands separators ("1,790 g" is 1790, not 790). */
 function gramsInQuote(q: string): number[] {
   const out: number[] = [];
-  for (const m of q.matchAll(/(\d+(?:\.\d+)?)\s*kg/gi)) out.push(parseFloat(m[1]) * 1000);
-  for (const m of q.matchAll(/(\d+(?:\.\d+)?)\s*g(?![a-z])/gi)) out.push(parseFloat(m[1]));
+  const num = (s: string) => parseFloat(s.replace(/,/g, ""));
+  for (const m of q.matchAll(/(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)\s*kg/gi)) out.push(num(m[1]) * 1000);
+  for (const m of q.matchAll(/(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)\s*g(?![a-z])/gi)) out.push(num(m[1]));
   return out;
 }
 
