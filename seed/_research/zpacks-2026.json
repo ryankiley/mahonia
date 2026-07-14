@@ -1,0 +1,213 @@
+{
+  "rows": [
+    {
+      "brand": "Zpacks",
+      "name": "Duplex Pro",
+      "variant": "Lite Floor",
+      "category_hint": "shelter",
+      "weight_value": 19.2,
+      "weight_unit": "oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://zpacks.com/products/duplex-pro-tent",
+      "quote": "Weight 19.2 oz / 544 g (Lite floor; total weight of the tent including guy lines, sewn in linelocs, and taped seams)"
+    },
+    {
+      "brand": "Zpacks",
+      "name": "Duplex Lite",
+      "variant": "",
+      "category_hint": "shelter",
+      "weight_value": 15.2,
+      "weight_unit": "oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://zpacks.com/products/duplex-lite",
+      "quote": "Weight 15.2 oz / 431 g (Blue/Olive Drab Lite fabric; Spruce Green Standard fabric 506 g)"
+    },
+    {
+      "brand": "Zpacks",
+      "name": "Triplex Pro",
+      "variant": "Lite Floor",
+      "category_hint": "shelter",
+      "weight_value": 21.7,
+      "weight_unit": "oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://zpacks.com/products/triplex-pro-tent",
+      "quote": "Weight 21.7 oz / 616 g (Lite Floor)"
+    },
+    {
+      "brand": "Zpacks",
+      "name": "Pivot Duo",
+      "variant": "Lite Floor",
+      "category_hint": "shelter",
+      "weight_value": 19.4,
+      "weight_unit": "oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://zpacks.com/products/pivot-duo-tent",
+      "quote": "Weight 19.4 oz / 550 g (Lite Floor; includes guy lines, sewn-in linelocs, and taped seams)"
+    },
+    {
+      "brand": "Zpacks",
+      "name": "Pivot Trio",
+      "variant": "Lite Floor",
+      "category_hint": "shelter",
+      "weight_value": 22.3,
+      "weight_unit": "oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://zpacks.com/products/pivot-trio-tent",
+      "quote": "Weight 22.3 oz / 631 g (Lite Floor; includes guylines, sewn-in linelocs, and taped seams)"
+    },
+    {
+      "brand": "Zpacks",
+      "name": "Big Ass Camp Tarp",
+      "variant": "",
+      "category_hint": "shelter",
+      "weight_value": 9,
+      "weight_unit": "oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://zpacks.com/products/big-ass-camp-tarp-10-x-13",
+      "quote": "Weight 9 oz / 254 g (10' x 13' tarp, .55 oz/sqyd Dyneema Composite Fabric)"
+    },
+    {
+      "brand": "Zpacks",
+      "name": "Flat Tarp 7' x 9'",
+      "variant": "",
+      "category_hint": "shelter",
+      "weight_value": 4.7,
+      "weight_unit": "oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://zpacks.com/products/flat-tarp-7-x-9-w-8-loops",
+      "quote": "Weight 4.7 oz / 132 g (.55 oz/sqyd Dyneema Composite Fabric)"
+    },
+    {
+      "brand": "Zpacks",
+      "name": "Flat Tarp 8.5' x 10'",
+      "variant": "",
+      "category_hint": "shelter",
+      "weight_value": 6.4,
+      "weight_unit": "oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://zpacks.com/products/flat-tarp-8-5-x-10-w-12-loops",
+      "quote": "Weight 6.4 oz / 182 g (.55 oz/sqyd Dyneema Composite Fabric, includes guy lines and taped seams)"
+    },
+    {
+      "brand": "Zpacks",
+      "name": "Arc Haul Ultra 40L",
+      "variant": "",
+      "category_hint": "pack",
+      "weight_value": 21.1,
+      "weight_unit": "oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://zpacks.com/products/arc-haul-ultra-40l-backpack",
+      "quote": "Weight 21.1 oz / 597 g"
+    },
+    {
+      "brand": "Zpacks",
+      "name": "Arc Haul Ultra 70L",
+      "variant": "",
+      "category_hint": "pack",
+      "weight_value": 22.2,
+      "weight_unit": "oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://zpacks.com/products/arc-haul-ultra-70l-backpack",
+      "quote": "Weight 22.2 oz / 630 g"
+    },
+    {
+      "brand": "Zpacks",
+      "name": "Arc Zip Ultra 62L",
+      "variant": "",
+      "category_hint": "pack",
+      "weight_value": 24.7,
+      "weight_unit": "oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://zpacks.com/products/arc-zip-ultra-62l-backpack",
+      "quote": "Weight 24.7 oz / 700 g"
+    },
+    {
+      "brand": "Zpacks",
+      "name": "Super Nero Ultra 50L",
+      "variant": "",
+      "category_hint": "pack",
+      "weight_value": 379,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://zpacks.com/products/super-nero-ultra-50l-backpack",
+      "quote": "Manufacturer-listed weight 379 g (13.4 oz) for the base configuration (Small/Women's Straps, Webbing Belt); 552 g with Vest Straps and Padded Belt"
+    },
+    {
+      "brand": "Zpacks",
+      "name": "Nero Classic",
+      "variant": "30L",
+      "category_hint": "pack",
+      "weight_value": 9.9,
+      "weight_unit": "oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://zpacks.com/products/nero-classic-ultra-backpack",
+      "quote": "Weight 9.9 oz / 281 g (30L, Standard Straps, No Belt)"
+    },
+    {
+      "brand": "Zpacks",
+      "name": "Bagger Ultra 25L",
+      "variant": "",
+      "category_hint": "pack",
+      "weight_value": 12.4,
+      "weight_unit": "oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://zpacks.com/products/bagger-ultra-25l-backpack",
+      "quote": "Weight 12.4 oz / 352 g"
+    },
+    {
+      "brand": "Zpacks",
+      "name": "Classic Sleeping Bag",
+      "variant": "30F, Slim-Short",
+      "category_hint": "sleep",
+      "weight_value": 12.2,
+      "weight_unit": "oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://zpacks.com/products/classic-sleeping-bag",
+      "quote": "Weight 12.2 oz / 347 g (30F (-1C), Slim-Short)"
+    },
+    {
+      "brand": "Zpacks",
+      "name": "Mummy Sleeping Bag",
+      "variant": "20F, Standard-Short",
+      "category_hint": "sleep",
+      "weight_value": 22,
+      "weight_unit": "oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://zpacks.com/products/mummy-sleeping-bag",
+      "quote": "Weight 22 oz / 625 g (20F (-7C), Standard-Short)"
+    },
+    {
+      "brand": "Zpacks",
+      "name": "Zip Around Sleeping Bag",
+      "variant": "30F, Standard-Short",
+      "category_hint": "sleep",
+      "weight_value": 15.7,
+      "weight_unit": "oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://zpacks.com/products/zip-around-sleeping-bag",
+      "quote": "Weight 15.7 oz / 446 g (30F (-1C), Standard-Short)"
+    },
+    {
+      "brand": "Zpacks",
+      "name": "Twin Quilt",
+      "variant": "20F",
+      "category_hint": "sleep",
+      "weight_value": 27.9,
+      "weight_unit": "oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://zpacks.com/products/twin-quilt",
+      "quote": "Weight 27.9 oz / 792 g (20F (-7C) two-person quilt)"
+    },
+    {
+      "brand": "Zpacks",
+      "name": "Summer Quilt",
+      "variant": "40F, Slim-Short",
+      "category_hint": "sleep",
+      "weight_value": 8.8,
+      "weight_unit": "oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://zpacks.com/products/summer-quilt-winter-liner",
+      "quote": "Weight 8.8 oz / 250 g (40F (5C), Slim-Short; Summer Quilt / Winter Liner)"
+    }
+  ]
+}

@@ -35,6 +35,17 @@
     },
     {
       "brand": "Soto",
+      "name": "WindMaster Stove",
+      "variant": "with TriFlex",
+      "category_hint": "cook",
+      "weight_value": 2.3,
+      "weight_unit": "oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://sotooutdoors.com/product/windmaster-stove-with-4flex/",
+      "quote": "3.0. oz.(87g) with the 4Flex pot support; 2.3 oz.(67g) with the optional TriFlex pot support; 2.12 oz. (60g) with no pot support"
+    },
+    {
+      "brand": "Soto",
       "name": "Amicus Stove with Igniter",
       "variant": "",
       "category_hint": "cook",

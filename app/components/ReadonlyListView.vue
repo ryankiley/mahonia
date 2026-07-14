@@ -100,7 +100,6 @@ const editedAt = computed(() => {
   gap: var(--space-2);
   color: var(--ink-3);
   font-size: var(--text-sm);
-  user-select: none; /* passive metadata, not a control */
 }
 .view__status {
   display: inline-flex;

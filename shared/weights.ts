@@ -227,15 +227,29 @@ export function computeTotals(list: ListData): Totals {
 /**
  * Format milligrams for display in `unit`. STRICT: the selected unit is always
  * the unit shown — grams stay grams, kg stays kg (no auto g→kg / oz→lb promotion).
+ *
+ * A real (non-zero) weight that would round to zero in a coarse unit — a 2 g brush
+ * shown in lb — must NOT read as "0"; that's just wrong. Instead we show it as
+ * "less than the smallest step the unit resolves" ("<0.01 lb", "<0.1 oz", "<1 g"),
+ * so a tiny item reads as present-but-small. Pass `raw: true` to opt out: editable
+ * weight fields need a bare, parseable number (and a genuine 0 stays "0").
  */
 export function formatWeight(
   mg: number,
   unit: Unit,
-  opts: { withUnit?: boolean } = {},
+  opts: { withUnit?: boolean; raw?: boolean } = {},
 ): string {
-  const { withUnit = true } = opts;
+  const { withUnit = true, raw = false } = opts;
   const value = fromMg(mg, unit);
   const decimals = unit === "g" ? 0 : unit === "kg" ? 2 : unit === "oz" ? 1 : 2;
+  const step = 10 ** -decimals; // smallest value this unit shows: 1 g, 0.1 oz, 0.01 lb/kg
+  if (!raw && mg > 0 && Math.round(value / step) === 0) {
+    const stepStr = step.toLocaleString(undefined, {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    });
+    return withUnit ? `<${stepStr} ${unit}` : `<${stepStr}`;
+  }
   const num = value.toLocaleString(undefined, {
     minimumFractionDigits: 0,
     maximumFractionDigits: decimals,

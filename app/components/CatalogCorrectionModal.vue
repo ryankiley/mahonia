@@ -17,7 +17,7 @@ watch(
   target,
   (t) => {
     if (t) {
-      weight.value = formatWeight(t.suggestedMg, t.displayUnit);
+      weight.value = formatWeight(t.suggestedMg, t.displayUnit, { raw: true });
       sourceUrl.value = "";
       reason.value = "";
       edited.value = false;

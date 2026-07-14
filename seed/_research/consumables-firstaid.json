@@ -285,6 +285,17 @@
       "weight_source": "community",
       "source_url": "https://www.tums.com/antacid-products/extra-750/",
       "quote": "No published pack weight; 8-tablet travel roll ≈ 8 x ~1.5 g chewable + paper wrapper ≈ 14 g (estimate, re-weigh to confirm)"
+    },
+    {
+      "brand": "Tick Key",
+      "name": "The Original Tick Key",
+      "variant": "",
+      "category_hint": "firstaid",
+      "weight_value": 0.2,
+      "weight_unit": "oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.rei.com/product/152051/tick-key-company-the-tick-key",
+      "quote": "0.2 oz — high-strength anodized aluminum tick-removal tool (REI-listed spec; ≈5.7 g)"
     }
   ]
 }

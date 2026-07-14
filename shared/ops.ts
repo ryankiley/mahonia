@@ -121,11 +121,21 @@ function applyOp(state: ListState, op: Op): void {
       const it = state.items.find((i) => i.id === op.id);
       if (it) {
         Object.assign(it, cleanItemPatch(op.patch || {}));
-        // wornQty can never exceed qty — re-clamp after ANY patch (needs the
-        // item's current qty, which cleanItemPatch can't see)
+        // Normalize the worn/base split after ANY patch (needs the item's current
+        // qty, which cleanItemPatch can't see). A split only reads as a GENUINE
+        // PARTIAL of ≥2 units, so:
+        //  • qty < 2 → nothing to split: drop it, let the item's base class stand
+        //    (not clamp to 1, which would flip the lone unit to fully worn)
+        //  • every copy worn (wornQty ≥ qty) → that's just the Worn class, not a
+        //    "N worn · 0 base" split with no base remainder
+        //  • otherwise a real partial (1 ≤ wornQty ≤ qty−1) stays as-is
         if (it.wornQty != null) {
-          const wq = Math.min(it.wornQty, it.qty);
-          it.wornQty = wq > 0 ? wq : undefined;
+          if (it.qty < 2) {
+            it.wornQty = undefined;
+          } else if (it.wornQty >= it.qty) {
+            it.classification = "worn";
+            it.wornQty = undefined;
+          }
         }
       }
       break;
@@ -178,11 +188,19 @@ export function applyOps(state: ListState, ops: Op[]): ListState {
 
 export function normalizeItem(raw: Item): Item {
   const qty = Math.max(0, Math.min(9999, Math.round(Number(raw.qty) || 1)));
-  const classification = CLASSES.includes(raw.classification as Classification)
+  let classification = CLASSES.includes(raw.classification as Classification)
     ? (raw.classification as Classification)
     : null;
   const wornQtyRaw =
     typeof raw.wornQty === "number" && isFinite(raw.wornQty) ? Math.round(raw.wornQty) : 0;
+  // Resolve the worn split exactly as the op-reducer does: keep it only as a genuine
+  // partial of a base-effective line with ≥2 units; an all-worn count is just the
+  // Worn class, and a lone line has nothing to split.
+  let wornQty: number | undefined;
+  if (wornQtyRaw > 0 && qty >= 2 && classification !== "worn" && classification !== "consumable") {
+    if (wornQtyRaw < qty) wornQty = wornQtyRaw;
+    else classification = "worn";
+  }
   return {
     id: String(raw.id).slice(0, MAX_ID_LEN),
     folderId: typeof raw.folderId === "string" ? raw.folderId.slice(0, MAX_ID_LEN) : null,
@@ -193,12 +211,7 @@ export function normalizeItem(raw: Item): Item {
     unitWeightMg: clampWeight(Number(raw.unitWeightMg) || 0),
     weightOverridden: !!raw.weightOverridden,
     qty,
-    // the split is a refinement of a base-effective line; an explicit
-    // worn/consumable item can't carry one (folder inheritance resolves at compute time)
-    wornQty:
-      wornQtyRaw > 0 && qty > 0 && classification !== "worn" && classification !== "consumable"
-        ? Math.min(wornQtyRaw, qty)
-        : undefined,
+    wornQty,
     classification,
     description: raw.description ? String(raw.description).slice(0, 2000) : undefined,
     productUrl: raw.productUrl ? String(raw.productUrl).slice(0, 2000) : undefined,

@@ -219,6 +219,17 @@
       "weight_source": "manufacturer",
       "source_url": "https://www.matadorequipment.com/products/ultralight-travel-towel-small",
       "quote": "Weight: 0.7oz (19g) — 'Ultralight Travel Towel - Small', 15 x 15 in nanofiber."
+    },
+    {
+      "brand": "Matador",
+      "name": "Ultralight Travel Towel",
+      "variant": "Large",
+      "category_hint": "other",
+      "weight_value": 77,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.matadorequipment.com/products/ultralight-travel-towel-large",
+      "quote": "Weight: 2.7oz (77g) — 'Ultralight Travel Towel - Large', 47 x 24 in nanofiber."
     }
   ]
 }

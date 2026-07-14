@@ -200,6 +200,23 @@ describe("formatWeight", () => {
   it("keeps small grams in g", () => {
     expect(formatWeight(820_000, "g")).toBe("820 g");
   });
+  it("shows a tiny real weight as '<step', not a wrong '0', in coarse units", () => {
+    // a 2 g brush would round to 0 in lb/kg — show "less than the smallest step"
+    expect(formatWeight(2_000, "lb")).toBe("<0.01 lb");
+    expect(formatWeight(2_000, "kg")).toBe("<0.01 kg");
+    expect(formatWeight(1_000, "oz")).toBe("<0.1 oz"); // 1 g ≈ 0.035 oz → rounds to 0
+    expect(formatWeight(400, "g")).toBe("<1 g"); // 0.4 g → rounds to 0 g
+    expect(formatWeight(2_000, "lb", { withUnit: false })).toBe("<0.01");
+  });
+  it("leaves a genuine zero as '0', and never marks a value that rounds up", () => {
+    expect(formatWeight(0, "lb")).toBe("0 lb");
+    expect(formatWeight(500_000, "lb")).toBe("1.1 lb"); // sanity: normal path unaffected
+    expect(formatWeight(5_000, "lb")).toBe("0.01 lb"); // 5 g rounds up to the step, not below
+  });
+  it("raw: keeps a bare parseable number for editable fields", () => {
+    expect(formatWeight(2_000, "lb", { raw: true })).toBe("0 lb");
+    expect(formatWeight(2_000, "lb", { withUnit: false, raw: true })).toBe("0");
+  });
 });
 
 describe("formatWeightAuto (magnitude-promoted, for comparison surfaces)", () => {

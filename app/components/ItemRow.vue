@@ -60,8 +60,11 @@ function onRowBlur(e: FocusEvent) {
   }
 }
 
-// edit field: show the bare number in the list unit (formatWeight is strict, so
-// the shown number stays in that unit — the unit label + parser agree, no rescale)
+// edit field: the bare number in the list unit (formatWeight is strict, so the shown
+// number stays in that unit — the unit label + parser agree, no rescale). A weight too
+// small to show in the chosen unit renders as "<0.01" (never a wrong "0"); tapping in
+// selects that label so a real number replaces it (onWeightFocus), and onWeight refuses
+// to commit a "<…" label back as a value.
 const weightDisplay = computed(() =>
   props.item.unitWeightMg > 0
     ? formatWeight(props.item.unitWeightMg, props.list.displayUnit, { withUnit: false })
@@ -100,8 +103,17 @@ function onWaterLiters(e: Event) {
 function onWeight(e: Event) {
   if (isWater.value) return; // water weight is derived from its litres field
   const el = e.target as HTMLInputElement;
-  c.setItemWeight(props.item.id, el.value);
+  // "<0.01"-style text is the DISPLAY for a real weight too small to render in the
+  // chosen unit — a label, not an entry. Never parse it back (that would overwrite the
+  // true sub-precision weight with the rounded-up label). A genuine edit replaces it.
+  if (!el.value.trim().startsWith("<")) c.setItemWeight(props.item.id, el.value);
   el.value = weightDisplay.value; // resync to canonical (handles unparseable / no-op edits)
+}
+// tapping a "<0.01"-style weight selects the label so the first keystroke replaces it
+// with a real number instead of appending to it ("<0.013" → nonsense)
+function onWeightFocus(e: Event) {
+  const el = e.target as HTMLInputElement;
+  if (el.value.trim().startsWith("<")) el.select();
 }
 function onQty(e: Event) {
   const el = e.target as HTMLInputElement;
@@ -330,6 +342,7 @@ function dismissFix() {
             autocapitalize="off"
             spellcheck="false"
             :readonly="isWater"
+            @focus="onWeightFocus"
             @change="onWeight"
             @keydown.up.prevent="onWeightStep($event, 1)"
             @keydown.down.prevent="onWeightStep($event, -1)"
@@ -353,6 +366,14 @@ function dismissFix() {
 
         <div class="item__actions">
           <button
+            class="btn btn--icon btn--ghost item__del"
+            title="Remove item"
+            aria-label="Remove item"
+            @click="c.removeItem(item.id)"
+          >
+            <Trash2 :size="16" />
+          </button>
+          <button
             class="btn btn--icon btn--ghost item__note-btn"
             :class="{ 'is-active': !!item.description }"
             :title="noteShown ? 'Remove note' : 'Add a note'"
@@ -361,14 +382,6 @@ function dismissFix() {
           >
             <StickyNoteX v-if="noteShown" :size="16" />
             <StickyNotePlus v-else :size="16" />
-          </button>
-          <button
-            class="btn btn--icon btn--ghost item__del"
-            title="Remove item"
-            aria-label="Remove item"
-            @click="c.removeItem(item.id)"
-          >
-            <Trash2 :size="16" />
           </button>
           <button
             class="btn btn--icon btn--ghost item__grip"
