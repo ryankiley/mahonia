@@ -118,13 +118,33 @@ describe("wornQty (the worn split on a base line)", () => {
     expect(s.items[0].wornQty).toBeUndefined();
   });
 
-  it("re-clamps when qty drops below the split", () => {
+  it("re-clamps when qty drops, and reverts to base at qty < 2 (nothing to split)", () => {
     const s = base();
-    applyOps(s, [add(), { t: "updateItem", id: "i1", patch: { wornQty: 2 } }]);
+    applyOps(s, [add({ qty: 5 }), { t: "updateItem", id: "i1", patch: { wornQty: 3 } }]);
+    applyOps(s, [{ t: "updateItem", id: "i1", patch: { qty: 4 } }]);
+    expect(s.items[0].wornQty).toBe(3); // still a partial split at qty ≥ 2
+    // qty 1 → the split is meaningless, so drop it and let base stand (not "1 worn · 0 base")
     applyOps(s, [{ t: "updateItem", id: "i1", patch: { qty: 1 } }]);
-    expect(s.items[0].wornQty).toBe(1); // the worn unit is the one you keep wearing
+    expect(s.items[0].wornQty).toBeUndefined();
+    // qty 0 likewise leaves no split
+    applyOps(s, [{ t: "updateItem", id: "i1", patch: { qty: 3 } }, { t: "updateItem", id: "i1", patch: { wornQty: 2 } }]);
+    expect(s.items[0].wornQty).toBe(2);
     applyOps(s, [{ t: "updateItem", id: "i1", patch: { qty: 0 } }]);
     expect(s.items[0].wornQty).toBeUndefined();
+  });
+  it("normalizeItem: a qty-1 item can't carry a split (reverts to base)", () => {
+    const s = base();
+    applyOps(s, [add({ qty: 1, wornQty: 1 })]);
+    expect(s.items[0].wornQty).toBeUndefined();
+  });
+  it("collapses an all-worn split to the plain Worn class (no '0 base' remainder)", () => {
+    const s = base();
+    applyOps(s, [add({ qty: 3 }), { t: "updateItem", id: "i1", patch: { wornQty: 2 } }]); // 2 worn · 1 base
+    expect(s.items[0].wornQty).toBe(2);
+    // drop to qty 2 → every copy is now worn: becomes the Worn class, split cleared
+    applyOps(s, [{ t: "updateItem", id: "i1", patch: { qty: 2 } }]);
+    expect(s.items[0].wornQty).toBeUndefined();
+    expect(s.items[0].classification).toBe("worn");
   });
 
   it("an explicit worn/consumable classification clears the split, even in the same patch", () => {
@@ -136,10 +156,15 @@ describe("wornQty (the worn split on a base line)", () => {
     expect(s.items[0].wornQty).toBeUndefined();
   });
 
-  it("normalizes on addItem: clamps to qty, drops junk and worn/consumable carriers", () => {
+  it("normalizes on addItem: over-count → Worn, partial kept, drops junk & worn/consumable carriers", () => {
     const s = base();
-    applyOps(s, [add({ wornQty: 5 })]);
-    expect(s.items[0].wornQty).toBe(3); // clamped to qty
+    applyOps(s, [add({ wornQty: 5 })]); // qty 3 default; every copy worn (over-count)
+    expect(s.items[0].wornQty).toBeUndefined(); // → plain Worn class, not "3 worn · 0 base"
+    expect(s.items[0].classification).toBe("worn");
+    s.items = [];
+    applyOps(s, [add({ wornQty: 1 })]); // a genuine partial split survives
+    expect(s.items[0].wornQty).toBe(1);
+    expect(s.items[0].classification).toBeNull();
     s.items = [];
     applyOps(s, [add({ wornQty: "2" })]);
     expect(s.items[0].wornQty).toBeUndefined(); // non-number dropped
