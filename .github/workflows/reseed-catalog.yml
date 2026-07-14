@@ -1,0 +1,76 @@
+# Reseeds the production Neon catalog whenever the seed data lands on `main`.
+#
+# WHY: `npm run seed` is a manual step — a normal Vercel deploy does NOT touch the
+# catalog data in Neon (the app only ensures the schema, it never re-runs the seed).
+# So a merged catalog PR used to leave prod behind until someone ran the seed by
+# hand. This closes that gap: any push to `main` that changes the seed data reseeds
+# prod automatically, always from main's CSV — so concurrent catalog PRs can't leave
+# prod stale (the old "reseed from main, not a feature branch" foot-gun).
+#
+# SAFETY
+#   • Aborts if PROD_DATABASE_URL is unset — otherwise the seeder would silently
+#     write to an ephemeral PGlite DB in the runner and report success, leaving
+#     prod untouched (a green-but-wrong run).
+#   • Runs `catalog:audit` first — hard errors (exit 1) abort before any DB write.
+#   • The seeder is idempotent (upsert by brand+name+variant) and self-guards
+#     against wiping the catalog (it skips the prune when the CSV has <50 rows).
+#   • Community rows (verified=false) are never touched; only seed-managed
+#     (verified=true) rows are inserted / updated / pruned.
+#   • concurrency: one reseed at a time, never cancelled mid-write.
+#
+# One-time setup (repo → Settings → Secrets and variables → Actions):
+#   • Secret  PROD_DATABASE_URL = the Neon pooled connection string
+#     (the same value as ~/Documents/Claude/mahonia/.data/prod-db-url)
+name: Reseed prod catalog
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - seed/catalog.csv
+      - scripts/seed-catalog.ts
+      - scripts/catalogCsv.ts
+  # manual re-run (e.g. after setting the secret, or to force a resync)
+  workflow_dispatch: {}
+
+# only reads the checkout and talks to Neon over HTTPS — no repo write access
+permissions:
+  contents: read
+
+# never run two reseeds at once, and never cancel one mid-write
+concurrency:
+  group: reseed-prod-catalog
+  cancel-in-progress: false
+
+jobs:
+  reseed:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require the prod DB secret (fail fast, before any work)
+        env:
+          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::PROD_DATABASE_URL is not set. Refusing to run — an empty" \
+                 "DATABASE_URL makes the seeder write to a throwaway PGlite DB and" \
+                 "report success while prod stays stale. Add the secret in repo" \
+                 "Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Audit catalog (hard errors abort before any prod write)
+        run: npm run catalog:audit
+
+      - name: Reseed prod Neon catalog
+        env:
+          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+        run: npm run seed
