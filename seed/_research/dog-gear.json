@@ -1,0 +1,26 @@
+{
+  "rows": [
+    {
+      "brand": "Zpacks",
+      "name": "Ultralight Dog Bowl",
+      "variant": "Small",
+      "category_hint": "other",
+      "weight_value": 4,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://zpacks.com/products/ultralight-dog-bowl",
+      "quote": "0.14 oz / 4 g"
+    },
+    {
+      "brand": "Zpacks",
+      "name": "Ultralight Dog Bowl",
+      "variant": "Large",
+      "category_hint": "other",
+      "weight_value": 8,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://zpacks.com/products/ultralight-dog-bowl",
+      "quote": "Size selector lists per-size gram weights: Small / Single - 4, Large / Single - 8"
+    }
+  ]
+}

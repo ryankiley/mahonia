@@ -14,10 +14,9 @@ const props = withDefaults(
     initial?: string;
     placeholder?: string;
     clearOnCommit?: boolean;
-    withWeight?: boolean; // add mode: show a companion weight field in the weight column
     autofocus?: boolean; // focus the field on mount (a freshly-added blank row)
   }>(),
-  { initial: "", placeholder: "Add an item…", clearOnCommit: true, withWeight: false, autofocus: false },
+  { initial: "", placeholder: "Add an item…", clearOnCommit: true, autofocus: false },
 );
 const emit = defineEmits<{
   commit: [
@@ -41,7 +40,6 @@ const emit = defineEmits<{
 
 const { results, search, clear } = useCatalogSearch();
 const draft = ref(props.initial);
-const weightDraft = ref(""); // add mode only — the companion weight field
 const open = ref(false);
 const active = ref(-1);
 const focused = ref(false);
@@ -56,11 +54,15 @@ onMounted(() => {
 });
 
 // keep an edit field in sync if the item name changes elsewhere (catalog pick,
-// concurrent editor) — but never clobber what the user is actively typing
+// concurrent editor) — but never clobber what the user is actively typing.
+// QUIET sync: this is a programmatic update, not typing — a bare assignment
+// would trip the draft watcher's search-and-open, popping the menu on rows
+// nobody is touching whenever the server snapshot lands with a differing name
+// (stale local cache on entry, a collaborator's rename via the poll).
 watch(
   () => props.initial,
   (v) => {
-    if (!focused.value) draft.value = v;
+    if (!focused.value) setDraftQuiet(v);
   },
 );
 
@@ -119,10 +121,34 @@ const options = computed<AcOption[]>(() => {
 // menu is showing so it can lift that clip (mirrors the drag-pass clip lift). Emit a
 // closing toggle on unmount too, so a row removed mid-suggestion doesn't strand it.
 const menuVisible = computed(() => open.value && options.value.length > 0);
-watch(menuVisible, (v) => emit("autocompleteToggle", v));
-onBeforeUnmount(() => {
-  if (menuVisible.value) emit("autocompleteToggle", false);
+// The folder lifts its collapse clip while we're lifted (a +1/−1 count), so only
+// emit on genuine state CHANGES — dedup makes the count impossible to unbalance.
+let acLifted = false;
+function setLift(v: boolean) {
+  if (acLifted === v) return;
+  acLifted = v;
+  emit("autocompleteToggle", v);
+}
+// Lift the clip the moment the menu shows, but release it only in the
+// Transition's after-leave — releasing at leave START let the folder's
+// overflow:hidden guillotine the exiting menu at t=0: everything below the
+// folder's bottom edge vanished instantly while the slice inside kept fading,
+// which read as "the top row hangs on". A leave cancelled by reopening never
+// fires after-leave, and setLift's dedup means the re-show is a no-op — the
+// clip just stays lifted through the whole blink.
+watch(menuVisible, (v) => {
+  if (v) setLift(true);
 });
+onBeforeUnmount(() => setLift(false));
+
+// keyboard nav in a list taller than the scroller: keep the active option in
+// view. Called ONLY from the arrow-key handlers — never from hover-set active:
+// scrolling on hover would move the half-cropped fold row under a stationary
+// pointer, and (Chrome/Firefox re-dispatch mouseenter when content scrolls under
+// the cursor) let a resting mouse yank the highlight away from the keyboard row.
+function scrollActiveIntoView() {
+  nextTick(() => document.getElementById(optId(active.value))?.scrollIntoView({ block: "nearest" }));
+}
 
 function close() {
   clear();
@@ -143,7 +169,6 @@ function selectResult(r: CatalogResult) {
   // self-improving ranking: tell the catalog this item was used (fire-and-forget)
   $fetch("/api/catalog/use", { method: "POST", body: { ids: [r.id] } }).catch(() => {});
   setDraftQuiet(props.clearOnCommit ? "" : itemDisplayName(r.brand, r.name, r.variant));
-  weightDraft.value = "";
   close();
 }
 function selectWater(w: WaterSug) {
@@ -151,7 +176,6 @@ function selectWater(w: WaterSug) {
   // in the name plus "1 L" in qty was redundant/confusing
   emit("commit", { name: "Water", weightMg: w.weightMg, classification: "consumable" });
   setDraftQuiet(props.clearOnCommit ? "" : "Water");
-  weightDraft.value = "";
   close();
 }
 function selectOption(opt: AcOption) {
@@ -161,20 +185,18 @@ function selectOption(opt: AcOption) {
 function commitFree() {
   const raw = draft.value.trim();
   if (!raw) return;
-  // editing an unchanged name (with no new weight typed) shouldn't emit a redundant update
-  if (!props.clearOnCommit && raw === props.initial.trim() && !weightDraft.value.trim())
-    return close();
+  // editing an unchanged name shouldn't emit a redundant update
+  if (!props.clearOnCommit && raw === props.initial.trim()) return close();
   const m = raw.match(WEIGHT_TAIL);
   const name = (m ? raw.slice(0, m.index) : raw).trim();
   if (!name) return;
-  // the companion weight field wins; else a trailing weight in the typed name
-  const weight = weightDraft.value.trim() || (m ? m[1] : undefined);
+  // a trailing weight in the typed name ("Tent 540 g") rides along
+  const weight = m ? m[1] : undefined;
   emit("commit", { name, weight });
   setDraftQuiet(props.clearOnCommit ? "" : name);
-  weightDraft.value = "";
   close();
 }
-// commit when focus leaves the whole control (so tabbing name → weight doesn't commit early)
+// commit when focus leaves the whole control
 function onFocusOut(e: FocusEvent) {
   if (rootRef.value?.contains(e.relatedTarget as Node | null)) return;
   focused.value = false;
@@ -187,10 +209,14 @@ function onKeydown(e: KeyboardEvent) {
     if (n) {
       open.value = true;
       active.value = (active.value + 1) % n;
+      scrollActiveIntoView();
     }
   } else if (e.key === "ArrowUp") {
     e.preventDefault();
-    if (n) active.value = (active.value - 1 + n) % n;
+    if (n) {
+      active.value = (active.value - 1 + n) % n;
+      scrollActiveIntoView();
+    }
   } else if (e.key === "Enter") {
     if (e.isComposing) return; // IME confirming a composition, not a commit
     e.preventDefault();
@@ -249,7 +275,7 @@ function highlightParts(text: string): { t: string; on: boolean }[] {
 </script>
 
 <template>
-  <div ref="rootRef" class="ac" :class="{ 'ac--add': withWeight }" @focusout="onFocusOut">
+  <div ref="rootRef" class="ac" @focusout="onFocusOut">
     <input
       ref="inputEl"
       v-model="draft"
@@ -268,21 +294,16 @@ function highlightParts(text: string): { t: string; on: boolean }[] {
       @keydown="onKeydown"
       @focus="focused = true; open = true"
     />
-    <div v-if="withWeight && (focused || draft || weightDraft)" class="ac__weightcell">
-      <input
-        v-model="weightDraft"
-        class="field field--num"
-        placeholder="--"
-        aria-label="Weight"
-        autocomplete="off"
-        autocorrect="off"
-        autocapitalize="off"
-        spellcheck="false"
-        @keydown.enter="commitFree"
-      />
-      <span class="t-sm t-muted ac__unit">{{ unit }}</span>
-    </div>
-    <ul v-if="open && options.length" :id="`${acId}-listbox`" class="ac__menu panel" role="listbox">
+    <!-- pointer leaving the menu clears the hover highlight (mouseenter on options
+         sets it; without this the last row stays lit). Keyboard arrows re-set it.
+         The card (div) and the scroller (ul) are SEPARATE elements: a native
+         scrollbar isn't clipped by border-radius, so scrolling happens on the
+         inner list, safely inside the card's padding, never over the corners.
+         <Transition name="menu"> = the kebab menu's pop-in (fade + spring rise),
+         so the two floating menus arrive the same way. -->
+    <Transition name="menu" @after-leave="setLift(false)">
+    <div v-if="open && options.length" class="popover ac__menu" @mouseleave="active = -1">
+    <ul :id="`${acId}-listbox`" class="ac__list" role="listbox">
       <li
         v-for="(opt, i) in options"
         :id="optId(i)"
@@ -330,6 +351,8 @@ function highlightParts(text: string): { t: string; on: boolean }[] {
         </template>
       </li>
     </ul>
+    </div>
+    </Transition>
   </div>
 </template>
 
@@ -338,31 +361,6 @@ function highlightParts(text: string): { t: string; on: boolean }[] {
   position: relative;
   min-width: 0; /* allow the name cell to shrink so long names ellipsize */
 }
-/* add mode: same column template as item rows so the input aligns with item names
-   (col 2, past the grip gutter) and the weight lands in the weight column (col 4) */
-.ac--add {
-  display: grid;
-  grid-template-columns: var(--item-cols);
-  gap: var(--item-gap);
-  align-items: baseline;
-}
-.ac--add .ac__input {
-  grid-column: 1;
-}
-.ac__weightcell {
-  grid-column: 3;
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-1);
-}
-@media (max-width: 560px) {
-  .ac--add {
-    grid-template-columns: var(--item-cols-mobile);
-  }
-}
-.ac__unit {
-  flex: none;
-}
 .ac__input {
   width: 100%;
   color: var(--ink);
@@ -370,16 +368,56 @@ function highlightParts(text: string): { t: string; on: boolean }[] {
      into view while editing (focused) */
   text-overflow: ellipsis;
 }
+/* The menu's surface (background/radius/shadow/forced-colors border) comes from
+   the shared .popover atom — this block only positions and sizes it.
+   In an item row the anchor is the whole name CELL (.item__name overrides .ac to
+   position:static), so left:0 = the row's left edge and the width can safely run
+   wider than the input: 40rem, capped by the page column so it can never cross
+   the row's right edge or the viewport. */
 .ac__menu {
   position: absolute;
   left: 0;
-  right: 0;
   top: calc(100% + var(--space-1));
   z-index: 30;
-  max-height: 320px;
+  width: min(40rem, calc(min(100vw, var(--measure)) - 2 * var(--space-4)));
+  /* inline padding only — the VERTICAL breathing room lives inside the scroller
+     (its padding-block scrolls with the content), so scrolled rows travel all
+     the way to the card's edge instead of clipping 8px early at a padding ledge */
+  padding: 0 var(--space-2);
+  /* clip those full-bleed rows (and the scrollbar's extremes) to the radius */
+  overflow: hidden;
+  /* the pop-in scales from where the menu hangs off the input (kebab: top right) */
+  transform-origin: top left;
+}
+/* the scroller — INSIDE the card's inline padding, so the (thin, transparent-
+   track) scrollbar sits inset from the edge, never over the rounded corners */
+.ac__list {
+  margin: 0;
+  padding: var(--space-2) 0;
+  list-style: none;
+  /* cap at 10.5 ROWS (+ the resting top padding), not a round length: a half-
+     cropped row at the fold is the scroll cue. (28rem landed a hair past 11 rows
+     — an invisible 8px sliver, so an overflowing list read as complete.) One row
+     = 2×space-2 padding + a 1.5-line-height text-sm line; phrasing it that way
+     keeps the fold mid-row even past the 1920px anchor where the type (and the
+     rows) scale fluidly. The dvh cap keeps it on-screen on small devices (dvh
+     tracks the collapsing mobile URL bar; vh line = older-browser fallback). */
+  max-height: min(calc(10.5 * (2 * var(--space-2) + 1.5 * var(--text-sm)) + var(--space-2)), 55vh);
+  max-height: min(calc(10.5 * (2 * var(--space-2) + 1.5 * var(--text-sm)) + var(--space-2)), 50dvh);
   overflow-y: auto;
-  padding: var(--space-1);
-  min-width: 16rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-2) transparent;
+  /* reaching the end of the list must not hand the swipe to the page */
+  overscroll-behavior: contain;
+}
+@media (max-width: 720px) {
+  /* span the row's own edges — the content column — so the menu keeps the site's
+     margins rather than bleeding to the viewport (per Ryan: never touch the edges) */
+  .ac__menu {
+    left: 0;
+    right: 0;
+    width: auto;
+  }
 }
 .ac__opt {
   display: flex;
@@ -389,9 +427,11 @@ function highlightParts(text: string): { t: string; on: boolean }[] {
   padding: var(--space-2) var(--space-2);
   cursor: pointer;
   font-size: var(--text-sm);
+  /* concentric radius + hover tint are pinned on the shared .popover surface */
+  border-radius: var(--popover-item-radius);
 }
 .ac__opt.is-active {
-  background: var(--paper-3);
+  background: var(--popover-hover);
 }
 .ac__name {
   min-width: 0;

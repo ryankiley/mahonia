@@ -183,7 +183,7 @@ async function deleteList(e: MyListEntry) {
   gap: var(--space-4);
 }
 
-@media (max-width: 560px) {
+@media (max-width: 720px) {
   /* stack the actions under the title so nothing is cramped on a phone */
   .mine__row {
     flex-direction: column;

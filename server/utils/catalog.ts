@@ -23,6 +23,7 @@ import { itemDisplayName } from "../../shared/weights";
 import { UNIT_WEIGHT_MAX_MG } from "../../shared/ops";
 import { memoizedEnsure } from "./memoize";
 import {
+  SEARCH_LIMIT,
   SIM_THRESHOLD,
   searchCatalogLocal,
   type CatalogSearchResult,
@@ -108,7 +109,7 @@ function normalizeQuery(q: unknown): string {
 export async function searchCatalog(
   db: unknown,
   rawQuery: unknown,
-  limit = 8,
+  limit = SEARCH_LIMIT, // same default as the offline ranker — counts can't drift
 ): Promise<CatalogSearchResult[]> {
   const q = normalizeQuery(rawQuery);
   if (q.length < 2) return []; // 1 char is too noisy for trigram autocomplete

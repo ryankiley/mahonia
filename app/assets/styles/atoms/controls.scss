@@ -176,11 +176,27 @@ button svg {
   background: var(--paper-2);
 }
 
+// .popover — the ONE floating-menu surface (autocomplete + kebab share it, so the
+// recipe can't drift): bright lifted background, decisively rounded, soft shadow.
+// The 1px TRANSPARENT border is load-bearing: forced-colors (Windows High
+// Contrast) strips box-shadow and forces backgrounds to Canvas, but repaints
+// authored borders in system colors — without it the menus render edgeless there.
+// Items inside consume the two custom props so the concentric radius + hover
+// tint stay pinned to this surface's geometry.
+.popover {
+  --popover-item-radius: calc(var(--radius-3) - var(--space-2));
+  --popover-hover: color-mix(in oklab, var(--ink) 8%, transparent);
+  border: 1px solid transparent;
+  border-radius: var(--radius-3);
+  background: var(--surface-float);
+  box-shadow: var(--shadow-soft);
+}
+
 // Popover menu — a kebab/⋯ trigger with a floating list of actions, anchored under
 // and right-aligned to it. Shared by the editor toolbar and the read-only share
 // views. Items are real <button>s (a clipboard action needs a click gesture, which a
 // native <select> change isn't on iOS Safari). Pair the list with <Transition
-// name="menu"> for the open/close; give it class="panel menu__list" for the surface.
+// name="menu"> for the open/close; give it class="popover menu__list" for the surface.
 .menu {
   position: relative;
   display: inline-flex;
@@ -195,9 +211,11 @@ button svg {
   z-index: 20;
   min-width: 12rem;
   margin: 0;
-  padding: var(--space-1);
+  // same edge inset as the autocomplete menu (.ac__menu) so the two floating
+  // menus' hover tints sit at an identical margin from the card edge
+  padding: var(--space-2);
   list-style: none;
-  box-shadow: var(--shadow-pop);
+  // the surface itself comes from .popover (shared with the autocomplete)
   transform-origin: top right;
 }
 .menu__item {
@@ -206,7 +224,8 @@ button svg {
   display: block;
   width: 100%;
   padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-1);
+  // concentric with the .popover container (pinned there, shared with .ac__opt)
+  border-radius: var(--popover-item-radius);
   background: none;
   color: var(--ink);
   font-size: var(--text-base);
@@ -217,7 +236,7 @@ button svg {
 }
 .menu__item:hover,
 .menu__item:focus-visible {
-  background: color-mix(in oklab, var(--ink) 8%, transparent);
+  background: var(--popover-hover);
   outline: none;
 }
 .menu__item:disabled {
@@ -230,15 +249,22 @@ button svg {
     opacity var(--dur) var(--ease),
     transform var(--dur) var(--ease-spring);
 }
+// exit: FASTER and FLATTER than the entrance. No scale — a scaling exit pins
+// the row at the transform origin (on a tall menu the top row visibly "hangs"
+// while the rest pulls away) — and the shorter duration cuts expo-out's long
+// low-opacity tail, which read as a lingering ghost.
 .menu-leave-active {
   transition:
-    opacity var(--dur) var(--ease),
-    transform var(--dur) var(--ease);
+    opacity calc(var(--dur) * 0.6) var(--ease),
+    transform calc(var(--dur) * 0.6) var(--ease);
 }
-.menu-enter-from,
-.menu-leave-to {
+.menu-enter-from {
   opacity: 0;
   transform: translateY(-4px) scale(0.98);
+}
+.menu-leave-to {
+  opacity: 0;
+  transform: translateY(-2px);
 }
 
 // Toast / snackbar — a brief status pill at the bottom edge (the copy confirmations

@@ -89,7 +89,7 @@ const segments = computed(() => categorySegments(props.list));
   color: var(--ink-2);
 }
 /* roomier separation between folder entries when they sit on one line on a phone */
-@media (max-width: 560px) {
+@media (max-width: 720px) {
   .catbar__legend {
     column-gap: var(--space-6);
   }

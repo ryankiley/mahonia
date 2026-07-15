@@ -137,7 +137,7 @@ const collapsed = ref(false);
   color: var(--ink-3);
 }
 
-@media (max-width: 560px) {
+@media (max-width: 720px) {
   /* no trailing actions in the read view — let the title (name + chevron) run
      the WHOLE row, and drop the desktop 50vw cap so the name uses the width the
      grid gives it before ellipsizing (mirrors the editor's mobile treatment) */

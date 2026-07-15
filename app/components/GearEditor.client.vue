@@ -415,7 +415,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
               <Ellipsis :size="16" />
             </button>
             <Transition name="menu">
-              <ul v-if="menuOpen" class="panel menu__list" role="menu" aria-label="More actions">
+              <ul v-if="menuOpen" class="popover menu__list" role="menu" aria-label="More actions">
                 <li role="none">
                   <NuxtLink to="/mine" role="menuitem" class="menu__item" @click="menuOpen = false">Your lists</NuxtLink>
                 </li>
@@ -591,7 +591,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
      (the input still scrolls to the caret while you're editing it) */
   text-overflow: ellipsis;
 }
-@media (max-width: 560px) {
+@media (max-width: 720px) {
   /* let the title shrink past its content width so it ellipsizes instead of
      pushing the save status + app-bar controls off the edge */
   .editor__title {

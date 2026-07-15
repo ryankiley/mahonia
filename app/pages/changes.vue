@@ -141,7 +141,7 @@ function when(iso: string) {
   text-align: right;
 }
 
-@media (max-width: 560px) {
+@media (max-width: 720px) {
   .chg__row {
     grid-template-columns: 1fr auto;
     gap: var(--space-1) var(--space-3);

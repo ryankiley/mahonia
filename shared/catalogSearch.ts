@@ -33,6 +33,10 @@ export function trigramScore(query: string, target: string): number {
 
 export const SIM_THRESHOLD = 0.3; // matches pg_trgm's default similarity threshold
 
+/** Max autocomplete results — one constant shared by the server endpoint and the
+ *  offline ranker so the two can never return different counts. */
+export const SEARCH_LIMIT = 12;
+
 /** A catalog row as needed for local ranking (a subset of the DB row). */
 export interface LocalCatalogRow {
   id: number;
@@ -65,7 +69,7 @@ export interface CatalogSearchResult {
 export function searchCatalogLocal(
   rows: LocalCatalogRow[],
   rawQuery: string,
-  limit = 8,
+  limit = SEARCH_LIMIT,
 ): CatalogSearchResult[] {
   const q = (rawQuery ?? "").trim();
   if (q.length < 2) return []; // 1 char is too noisy for trigram autocomplete
