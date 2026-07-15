@@ -614,7 +614,16 @@ function create() {
     }
   }
 
-  function dispose() {
+  function dispose(ownEpoch?: number) {
+    // Ownership check: on an /e ↔ /e/[code] route-record swap, Nuxt runs the NEW
+    // page's setup (whose hash watcher starts a fresh load/startDraft, bumping
+    // epoch) BEFORE the old page unmounts — so the old instance's unmount dispose
+    // arrives late and must not tear down the session the newer instance just
+    // started (it would abandon the in-flight load and strand "Loading…").
+    // Callers pass the epoch of the session THEY started; if the controller has
+    // moved on, this dispose isn't theirs to run. An undefined ownEpoch disposes
+    // unconditionally (a new instance clearing whatever came before it).
+    if (ownEpoch !== undefined && ownEpoch !== epoch) return;
     // best-effort: flush unsynced edits before teardown (SPA nav / unmount) so
     // queued ops aren't silently dropped on the way out
     if (pending.length && editToken) {
@@ -642,6 +651,7 @@ function create() {
   return {
     snapshot, totals, status,
     get editToken() { return editToken; },
+    get epoch() { return epoch; },
     load, startDraft, dispose, rotate,
     setMeta, setUnit, addFolder, updateFolder, removeFolder, moveFolderBefore,
     addBlankItem, addBlankItemAfter, discardEmpty, updateItem, removeItem, setItemWeight, moveItem,

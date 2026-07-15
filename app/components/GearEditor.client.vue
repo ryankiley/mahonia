@@ -141,21 +141,30 @@ function commitAddFolder() {
 }
 
 const route = useRoute();
+// The epoch of the session THIS instance started. On an /e ↔ /e/[code] route
+// swap, Nuxt runs the incoming page's setup (whose watcher below starts a new
+// session) BEFORE this instance unmounts — passing our own epoch lets dispose()
+// no-op when the session is no longer ours, instead of tearing down the newer
+// instance's in-flight load (which stranded the editor on "Loading…").
+let ownedEpoch: number | undefined;
 // Drive load off the reactive hash so back/forward + same-route nav between two
 // of your lists dispose+reload correctly (the editor singleton holds one list).
 watch(
   () => route.hash,
   (h) => {
-    c.dispose();
+    // first run: ownedEpoch is undefined → unconditional, clearing (and flushing)
+    // whatever session a previous page instance left behind
+    c.dispose(ownedEpoch);
     const token = decodeURIComponent((h || "").replace(/^#/, ""));
     if (token) c.load(token);
     else c.startDraft(); // no token = a fresh, unsaved draft (persists on first real content)
+    ownedEpoch = c.epoch; // load()/startDraft() mint their epoch synchronously
   },
   { immediate: true },
 );
 onBeforeUnmount(() => {
   clearTimeout(toastTimer);
-  c.dispose();
+  c.dispose(ownedEpoch);
 });
 
 // On touch, the browser's own "scroll the focused field into view" is flaky — it
