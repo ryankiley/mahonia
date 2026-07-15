@@ -651,6 +651,14 @@ function onCorrected(res: { status: string; itemName?: string }) {
   color: var(--ink-3);
   cursor: pointer;
   transition: color var(--dur) var(--ease);
+  /* Pin a standing compositing layer. These buttons overlap the pill, so when the
+     pill's transform animates, Safari promotes them for the run and demotes them
+     after — re-rasterising each (at a fractional flex x) to the pixel grid, so the
+     icon jumps ~1px per toggle. A static translateZ(0) holds one layer through and
+     after the run; will-change is droppable here since the button's own transform
+     never animates. Invisible in Chromium (keeps layers warm). Icons only, no text,
+     so no glyph-blur cost. See concepts/webkit-relayers-on-animation-boundaries. */
+  transform: translateZ(0);
 }
 .modetoggle__opt:hover {
   color: var(--ink-2);
