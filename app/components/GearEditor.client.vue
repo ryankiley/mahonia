@@ -210,6 +210,7 @@ const origin = () => (typeof location !== "undefined" ? location.origin : "");
 // gesture on a network fetch.
 const mdExporter = () => import("~~/shared/exporters/markdown");
 const csvExporter = () => import("~~/shared/exporters/csv");
+const jsonExporter = () => import("~~/shared/exporters/json");
 
 // the ⋯ actions menu is a custom popover of real <button>s (was a native <select>).
 // Each item dispatches from a CLICK — the clipboard actions (markdown, edit link)
@@ -224,6 +225,7 @@ function toggleMenu() {
   if (menuOpen.value) {
     void mdExporter();
     void csvExporter();
+    void jsonExporter();
   }
 }
 function runMenu(action: string) {
@@ -298,15 +300,21 @@ async function downloadCsv() {
     flash("Couldn’t load the exporter. Try again.");
   }
 }
-function downloadJson() {
+async function downloadJson() {
   if (!snapshot.value) return;
-  const { title, description, displayUnit, folders, items } = snapshot.value;
-  downloadFile(
-    `${listFileBase(title, snapshot.value.slug)}.json`,
-    JSON.stringify({ title, description, displayUnit, folders, items }, null, 2),
-    "application/json",
-  );
-  flash("JSON downloaded");
+  try {
+    // shared/exporters/json.ts also holds the import-side parser, so the backup
+    // the import dialog restores is by construction the shape written here
+    const { listToJson } = await jsonExporter();
+    downloadFile(
+      `${listFileBase(snapshot.value.title, snapshot.value.slug)}.json`,
+      listToJson(snapshot.value),
+      "application/json",
+    );
+    flash("JSON downloaded");
+  } catch {
+    flash("Couldn’t load the exporter. Try again.");
+  }
 }
 
 function openImport() {

@@ -1,14 +1,16 @@
 <script setup lang="ts">
 import { csvToListData } from "~~/shared/exporters/csv";
+import { jsonToListImport } from "~~/shared/exporters/json";
 import { lighterpackId } from "~~/shared/lighterpack";
 import { editLinkPath } from "~~/shared/links";
-import type { ListData, ListSnapshot } from "~~/shared/types";
+import type { ListData, ListSnapshot, Unit } from "~~/shared/types";
 
 // "Import a list" dialog — mint a NEW list from a LighterPack share link, a
-// pasted CSV, or an uploaded file, then navigate into it. Mounted once in the
-// editor; opened from the menu. LighterPack links are resolved + parsed
-// server-side (/api/import — host-allowlisted, no SSRF surface); plain CSV/TSV
-// is parsed client-side. This is the importer the old home page used to host.
+// pasted CSV, a JSON backup (the menus' "Download JSON"), or an uploaded file,
+// then navigate into it. Mounted once in the editor; opened from the menu.
+// LighterPack links are resolved + parsed server-side (/api/import —
+// host-allowlisted, no SSRF surface); CSV/TSV and JSON are parsed client-side.
+// This is the importer the old home page used to host.
 const props = defineProps<{ open: boolean }>();
 const emit = defineEmits<{ close: [] }>();
 
@@ -31,8 +33,14 @@ watch(
   },
 );
 
-async function createFrom(data: ListData) {
-  if (!data.items.length) {
+// meta rides along on a JSON-backup restore (its title/unit/description are the
+// list's own); CSV/LighterPack imports have no meta and keep the stock title
+async function createFrom(
+  data: ListData,
+  meta?: { title?: string; description?: string; displayUnit?: Unit },
+) {
+  // a folders-only JSON backup is still a real restore; an empty CSV is not
+  if (!data.items.length && !data.folders.length) {
     error.value = "No items found. Paste a CSV with a header row.";
     return;
   }
@@ -41,12 +49,17 @@ async function createFrom(data: ListData) {
   try {
     const res = await $fetch<{ editToken: string; snapshot: ListSnapshot }>("/api/lists/create", {
       method: "POST",
-      body: { title: "Imported list", data },
+      body: {
+        title: meta?.title || "Imported list",
+        description: meta?.description,
+        displayUnit: meta?.displayUnit,
+        data,
+      },
     });
     emit("close");
     router.push(editLinkPath(res.snapshot.shareCode, myLists.registerCreated(res)));
   } catch {
-    error.value = "Import failed. Check the CSV and try again.";
+    error.value = "Import failed. Check the file and try again.";
   } finally {
     importing.value = false;
   }
@@ -73,6 +86,13 @@ async function importFromText() {
     }
     return;
   }
+  // a pasted JSON backup (the menus' "Download JSON") — restored at full fidelity
+  if (raw.startsWith("{")) {
+    const parsed = jsonToListImport(raw);
+    if (parsed) return createFrom(parsed.data, parsed);
+    error.value = "That looks like JSON, but not a list backup. Use “Download JSON” to make one.";
+    return;
+  }
   // otherwise treat the pasted text as CSV/TSV — parsed client-side
   createFrom(csvToListData(raw));
 }
@@ -80,8 +100,22 @@ async function importFromText() {
 function onFile(e: Event) {
   const file = (e.target as HTMLInputElement).files?.[0];
   if (!file) return;
+  const isJson = /\.json$/i.test(file.name) || file.type === "application/json";
   const reader = new FileReader();
-  reader.onload = () => createFrom(csvToListData(String(reader.result)));
+  reader.onload = () => {
+    const text = String(reader.result);
+    // a .json file is a "Download JSON" backup — full-fidelity restore. Sniff
+    // {-leading content too, so a mis-extensioned backup still restores.
+    if (isJson || text.trimStart().startsWith("{")) {
+      const parsed = jsonToListImport(text);
+      if (parsed) return void createFrom(parsed.data, parsed);
+      if (isJson) {
+        error.value = "Couldn’t read that file as a list backup. Use “Download JSON” to make one.";
+        return;
+      }
+    }
+    void createFrom(csvToListData(text));
+  };
   reader.readAsText(file);
 }
 </script>
@@ -91,7 +125,8 @@ function onFile(e: Event) {
     <p class="t-label">Import a list</p>
     <p class="t-sm t-muted dlg__lede">
       Paste a LighterPack share link, a CSV (LighterPack’s “Export to CSV” or any
-      spreadsheet), or choose a file. It becomes a new list.
+      spreadsheet), or choose a file. A JSON backup from “Download JSON” restores
+      the full list. It becomes a new list.
     </p>
 
     <textarea
@@ -104,7 +139,7 @@ function onFile(e: Event) {
     <p v-if="error" class="t-sm import__err">{{ error }}</p>
 
     <div class="import__actions">
-      <input type="file" accept=".csv,.tsv,text/csv,text/plain" @change="onFile" />
+      <input type="file" accept=".csv,.tsv,.json,text/csv,text/plain,application/json" @change="onFile" />
       <span class="dlg__spacer" />
       <button class="btn btn--ghost" @click="emit('close')">Cancel</button>
       <button class="btn btn--primary" :disabled="importing || !text.trim()" @click="importFromText">

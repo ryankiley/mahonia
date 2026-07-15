@@ -9,11 +9,17 @@ export default defineEventHandler(async (event) => {
   await rateLimit(event, "create");
   const body = await readJsonBodyCapped<{
     title?: string;
+    description?: string;
     displayUnit?: Unit;
     data?: ListData;
   }>(event, 512_000);
 
   const title = typeof body?.title === "string" ? body.title.slice(0, 200) : undefined;
+  // set on a JSON-backup restore, so the description survives the round-trip
+  const description =
+    typeof body?.description === "string" && body.description
+      ? body.description.slice(0, 4000)
+      : undefined;
   const displayUnit =
     body?.displayUnit && UNITS.includes(body.displayUnit) ? body.displayUnit : undefined;
   const data =
@@ -22,7 +28,7 @@ export default defineEventHandler(async (event) => {
       : undefined;
 
   try {
-    const { editToken, snapshot } = await createList({ title, displayUnit, data });
+    const { editToken, snapshot } = await createList({ title, description, displayUnit, data });
     return { editToken, snapshot };
   } catch (e) {
     console.error("[create list]", e);
