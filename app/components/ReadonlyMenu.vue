@@ -36,11 +36,13 @@ useEventListener(window, "keydown", (e: KeyboardEvent) => {
 // warmed when the menu opens so the copy stays inside the click's gesture window
 const mdExporter = () => import("~~/shared/exporters/markdown");
 const csvExporter = () => import("~~/shared/exporters/csv");
+const jsonExporter = () => import("~~/shared/exporters/json");
 function toggleMenu() {
   menuOpen.value = !menuOpen.value;
   if (menuOpen.value) {
     void mdExporter();
     void csvExporter();
+    void jsonExporter();
   }
 }
 
@@ -54,7 +56,7 @@ function runMenu(action: string) {
     case "link": return void copyLink();
     case "markdown": return void copyMarkdown();
     case "csv": return void downloadCsv();
-    case "json": return downloadJson();
+    case "json": return void downloadJson();
   }
 }
 
@@ -86,14 +88,15 @@ async function downloadCsv() {
     flash("Couldn’t load the exporter. Try again.");
   }
 }
-function downloadJson() {
-  const { title, description, displayUnit, folders, items } = props.snapshot;
-  downloadFile(
-    `${fileBase()}.json`,
-    JSON.stringify({ title, description, displayUnit, folders, items }, null, 2),
-    "application/json",
-  );
-  flash("JSON downloaded");
+async function downloadJson() {
+  try {
+    // same module as the import dialog's parser — export/import can't drift
+    const { listToJson } = await jsonExporter();
+    downloadFile(`${fileBase()}.json`, listToJson(props.snapshot), "application/json");
+    flash("JSON downloaded");
+  } catch {
+    flash("Couldn’t load the exporter. Try again.");
+  }
 }
 function fileBase() {
   return listFileBase(props.snapshot.title, props.snapshot.slug);

@@ -345,6 +345,7 @@ export async function versionByEditToken(editToken: string): Promise<number | nu
 
 export async function createList(init?: {
   title?: string;
+  description?: string;
   displayUnit?: Unit;
   data?: ListData;
 }): Promise<{ editToken: string; snapshot: ListSnapshot }> {
@@ -352,6 +353,7 @@ export async function createList(init?: {
   const editToken = randomEditToken();
   const editTokenHash = sha256Hex(editToken);
   const title = (init?.title ?? "Untitled list").slice(0, 200);
+  const description = init?.description ? init.description.slice(0, 4000) : undefined;
   const data = normalizeListData(init?.data);
   const totals = computeTotals(data);
   const displayUnit = init?.displayUnit ?? "g";
@@ -366,6 +368,7 @@ export async function createList(init?: {
           editTokenHash,
           shareCode: randomShareCode(),
           title,
+          description,
           displayUnit,
           data,
           ...weightColumns(totals),
