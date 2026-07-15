@@ -113,7 +113,7 @@ function fileBase() {
       <Ellipsis :size="16" />
     </button>
     <Transition name="menu">
-      <ul v-if="menuOpen" class="panel menu__list" role="menu" aria-label="More actions">
+      <ul v-if="menuOpen" class="popover menu__list" role="menu" aria-label="More actions">
         <li role="none">
           <button type="button" role="menuitem" class="menu__item" :disabled="copying" @click="runMenu('copy')">Copy this list</button>
         </li>

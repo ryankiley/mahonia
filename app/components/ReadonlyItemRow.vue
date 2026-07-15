@@ -69,7 +69,7 @@ const effClass = computed(() => effectiveClassification(props.item, props.list.f
   font-style: italic;
 }
 
-@media (max-width: 560px) {
+@media (max-width: 720px) {
   /* two-line shape (mirrors the editor's mobile rows): the name takes its own line
      and wraps (never clips), and ×qty + weight sit together on a second line,
      flush-left — instead of the weight stranded out at the far-right margin. */

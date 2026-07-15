@@ -300,17 +300,18 @@ function dismissFix() {
     @focusout="onRowBlur"
   >
     <div class="item">
-      <ItemInput
-        class="item__name"
-        :unit="list.displayUnit"
-        :initial="editableName"
-        placeholder="Item name"
-        :clear-on-commit="false"
-        :autofocus="isPendingBlank"
-        @commit="onNameCommit"
-        @advance="c.addBlankItemAfter(item.id)"
-        @autocomplete-toggle="$emit('autocompleteToggle', $event)"
-      />
+      <div class="item__name">
+        <ItemInput
+          :unit="list.displayUnit"
+          :initial="editableName"
+          placeholder="Item name"
+          :clear-on-commit="false"
+          :autofocus="isPendingBlank"
+          @commit="onNameCommit"
+          @advance="c.addBlankItemAfter(item.id)"
+          @autocomplete-toggle="$emit('autocompleteToggle', $event)"
+        />
+      </div>
 
       <!-- metadata + controls: display:contents on desktop, so qty/weight/class/
            actions drop into the shared grid columns; on mobile the wrapper turns
@@ -364,10 +365,17 @@ function dismissFix() {
         </div>
 
         <div class="item__actions">
+          <!-- mousedown.prevent on the action buttons: on macOS Safari/Firefox a
+               button does NOT take focus on mousedown, so clicking one from a
+               focused input blurs the row (relatedTarget null) and a pristine
+               blank row discards itself before the click can act (e.g. the note
+               button would delete the row instead of opening the note field).
+               Preventing the default keeps focus where it was; click still fires. -->
           <button
             class="btn btn--icon btn--ghost item__del"
             title="Remove item"
             aria-label="Remove item"
+            @mousedown.prevent
             @click="c.removeItem(item.id)"
           >
             <Trash2 :size="16" />
@@ -377,6 +385,7 @@ function dismissFix() {
             :class="{ 'is-active': !!item.description }"
             :title="noteShown ? 'Remove note' : 'Add a note'"
             :aria-label="noteShown ? 'Remove note' : 'Add a note'"
+            @mousedown.prevent
             @click="onNoteBtn"
           >
             <StickyNoteX v-if="noteShown" :size="16" />
@@ -446,8 +455,16 @@ function dismissFix() {
   /* vertical padding comes from the row wrapper (.folder__items > *) so the rule
      lines between items sit at a consistent rhythm */
 }
+/* position:relative makes the name cell the autocomplete dropdown's anchor, so
+   the menu opens flush with the row's left edge and its width math is cell-based
+   (see ItemInput .ac__menu) — the .ac root inside defers via position:static. */
 .item__name {
   grid-area: name;
+  position: relative;
+  min-width: 0;
+}
+.item__name :deep(.ac) {
+  position: static;
 }
 .item__qty {
   grid-area: qty;
@@ -804,7 +821,7 @@ function dismissFix() {
   color: var(--ink);
 }
 
-@media (max-width: 560px) {
+@media (max-width: 720px) {
   /* the full-width name gets its own line so long product names never truncate;
      qty · weight · class + the controls reflow into a flex-wrap row beneath it,
      and the controls drop to a further line if that row runs out of width.

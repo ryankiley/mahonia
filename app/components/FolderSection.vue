@@ -334,7 +334,7 @@ function toggleCollapsed() {
   }
 }
 
-@media (max-width: 560px) {
+@media (max-width: 720px) {
   .folder__head {
     grid-template-columns: 1fr auto;
   }

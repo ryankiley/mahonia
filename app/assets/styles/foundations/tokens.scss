@@ -3,6 +3,17 @@
 // custom properties) with fresh values. Fonts are system stacks for now — to be
 // swapped for self-hosted woff2 subsets within a ≤60KB budget (no British colour).
 
+@use "sass:math";
+
+// Fluid item-row track: $min wide at the 720px mobile stack point, $max at the
+// 1024px full-width point, linear between (clamped outside). The two anchors
+// live ONLY here — the emitted calc uses a unitless delta because CSS calc can't
+// multiply two lengths. Keep the 720px in sync with the app-wide
+// `@media (max-width: 720px)` stack queries.
+@function fluid-track($min, $max) {
+  @return clamp(#{$min}, calc(#{$min} + (100vw - 720px) * #{math.div($max - $min, 1px)} / 304), #{$max});
+}
+
 :root {
   color-scheme: light dark;
 
@@ -84,7 +95,8 @@
      controls/icon-buttons go pill so hover fills read as soft shapes, not boxes ---- */
   --radius-0: 0;
   --radius-1: 2px;
-  --radius-2: 8px; /* panels, menus */
+  --radius-2: 8px; /* panels, dialogs */
+  --radius-3: 20px; /* floating menus (autocomplete, kebab) — decisively rounder than panels */
   --radius-pill: 999px; /* buttons + icon buttons */
 
   /* ---- motion: one signature ease (SPACE10's expo-out workhorse) ---- */
@@ -98,6 +110,13 @@
   /* ---- elevation: one floating-surface drop, shared so the lifted row + the toast
      read at the same height and can't drift apart ---- */
   --shadow-pop: 0 10px 24px -10px rgba(0, 0, 0, 0.35);
+  /* soft float for anchored surfaces (the autocomplete + kebab) — no border, no
+     ring: the shadow alone defines the edge in light mode, the elevated
+     --surface-float tone carries it in dark (a shadow on #000 is invisible) */
+  --shadow-soft: 0 4px 12px rgba(0, 0, 0, 0.07), 0 20px 48px -8px rgba(0, 0, 0, 0.2);
+  /* floating-menu surface: bright white in light (NOT the grey paper-2 — popovers
+     should read crisp, lifted off the page), a clearly-elevated grey in dark */
+  --surface-float: light-dark(#ffffff, #1f1f1f);
 
   /* ---- layout ---- */
   /* fluid like the type tokens: 1024px floor, growing past the same 1920px
@@ -106,9 +125,16 @@
   --measure: max(64rem, 53.33vw);
 
   /* ---- component primitives — shared structure so duplicated values can't drift ---- */
-  /* item rows + folder headers share ONE column template so weights stay aligned */
-  --item-cols: 1fr 64px 88px 128px auto; /* edit: name · qty(+L) · weight+unit · class · actions(note+remove+grip) */
-  --item-cols-ro: 1fr 44px 96px; /* read / checklist: name · qty · weight */
+  /* item rows + folder headers share ONE column template so weights stay aligned.
+     The meta tracks are FLUID (see fluid-track() at the top of this file):
+     full-size at ≥1024px viewport, compressing linearly down to the 720px mobile
+     stack point — so a narrowing window gives the name room instead of crushing
+     only the 1fr column while ~280px of metas stand firm. */
+  --item-col-qty: #{fluid-track(48px, 64px)};
+  --item-col-weight: #{fluid-track(68px, 88px)};
+  --item-col-class: #{fluid-track(108px, 128px)}; /* min fits "Consumable" at 1rem */
+  --item-cols: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-class) auto; /* edit: name · qty(+L) · weight+unit · class · actions(note+remove+grip) */
+  --item-cols-ro: 1fr #{fluid-track(36px, 44px)} #{fluid-track(80px, 96px)}; /* read / checklist: name · qty · weight */
   --item-cols-mobile: 1fr 44px 92px; /* name · qty · weight (controls + grip on row 2) */
   --item-gap: var(--space-4); /* column gap shared by item rows, folder headers + the add row (keeps weights aligned) — 16px so the data columns breathe */
   /* category sparkline (the one data-viz mark — CategoryBar) */

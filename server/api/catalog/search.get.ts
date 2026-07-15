@@ -2,10 +2,11 @@ import { defineEventHandler, getQuery, setHeader } from "h3";
 import { searchCatalog } from "../../utils/catalog";
 import { useCatalogDb } from "../../utils/db";
 import { rateLimit } from "../../utils/rateLimit";
+import { SEARCH_LIMIT } from "../../../shared/catalogSearch";
 
-// Maps-grade autocomplete for the gear catalog. `?q=` returns up to 8 fuzzy
-// matches ordered `verified DESC, usage_count DESC, similarity DESC`. Fuzzy via
-// pg_trgm on Neon, JS trigram ranking on PGlite (see server/utils/catalog.ts).
+// Maps-grade autocomplete for the gear catalog. `?q=` returns up to SEARCH_LIMIT
+// fuzzy matches ordered `verified DESC, usage_count DESC, similarity DESC`. Fuzzy
+// via pg_trgm on Neon, JS trigram ranking on PGlite (see server/utils/catalog.ts).
 //
 // Public read-only endpoint. The client debounces; we add a short edge cache so
 // repeated keystrokes for the same prefix collapse to one DB hit. noindex — this
@@ -26,7 +27,7 @@ export default defineEventHandler(async (event) => {
   const q = (Array.isArray(raw) ? raw[0] : raw ?? "").toString().slice(0, 100);
 
   const db = await useCatalogDb();
-  const results = await searchCatalog(db, q, 8);
+  const results = await searchCatalog(db, q, SEARCH_LIMIT);
 
   return { results };
 });
