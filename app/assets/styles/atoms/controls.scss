@@ -169,7 +169,8 @@ button svg {
   border-radius: var(--radius-pill);
 }
 
-// .panel — reserved for genuinely floating surfaces (dropdown menu). Quiet, rounded.
+// .panel — a quiet hairline in-page surface (the ungrouped-items section).
+// Floating things (menus, dialogs) wear .popover / .dlg instead.
 .panel {
   border: 1px solid var(--line-2);
   border-radius: var(--radius-2);
@@ -178,15 +179,20 @@ button svg {
 
 // .popover — the ONE floating-menu surface (autocomplete + kebab share it, so the
 // recipe can't drift): bright lifted background, decisively rounded, soft shadow.
-// The 1px TRANSPARENT border is load-bearing: forced-colors (Windows High
+// The 1px TRANSPARENT edge is load-bearing: forced-colors (Windows High
 // Contrast) strips box-shadow and forces backgrounds to Canvas, but repaints
-// authored borders in system colors — without it the menus render edgeless there.
+// authored transparent OUTLINES in system colors — without it the menus render
+// edgeless there. It must be an outline, NOT a border: a border sits inside the
+// box, so overflow:hidden clipped scrolled content at the padding box — 1px
+// short of the visual edge, a hairline surface ledge around every sliced row —
+// and nudged the 8px concentric-tint inset to 9. Outlines follow the radius,
+// draw outside, and take no space.
 // Items inside consume the two custom props so the concentric radius + hover
 // tint stay pinned to this surface's geometry.
 .popover {
   --popover-item-radius: calc(var(--radius-3) - var(--space-2));
   --popover-hover: color-mix(in oklab, var(--ink) 8%, transparent);
-  border: 1px solid transparent;
+  outline: 1px solid transparent;
   border-radius: var(--radius-3);
   background: var(--surface-float);
   box-shadow: var(--shadow-soft);

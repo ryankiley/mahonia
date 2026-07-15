@@ -1,7 +1,10 @@
-// Modal shell — shared by the publish + catalog-correction dialogs. A centered
-// dialog over a dimmed scrim; solid surface + hairline (no soft shadow —
-// brutalist) so it reads off the scrim, which fades on enter/leave. Each modal
-// keeps only its own body bits (header, actions, any rise-in) scoped.
+// Modal shell — shared by every dialog (import, publish, catalog-correction,
+// confirms). A centered dialog over a dimmed scrim. The card wears the same
+// recipe as the floating menus (.popover): bright lifted surface, decisively
+// rounded, soft shadow — one language for everything that floats over the page.
+// The 1px transparent OUTLINE (not a border — a border insets any overflow
+// clipping by 1px; see .popover) keeps an edge under forced-colors, where
+// shadows are stripped and backgrounds forced to Canvas.
 
 .ovl {
   position: fixed;
@@ -11,7 +14,9 @@
   align-items: center;
   justify-content: center;
   padding: var(--space-4);
-  background: light-dark(#1d1c1c80, #00000099);
+  /* barely-there: the card's own shadow + lifted surface do the separating —
+     the scrim only needs to hush the page, not black it out */
+  background: light-dark(#1d1c1c33, #00000059);
 }
 .dlg {
   width: 100%;
@@ -20,8 +25,10 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  background: var(--paper);
-  border: 1px solid var(--line-2);
+  background: var(--surface-float);
+  border-radius: var(--radius-3);
+  box-shadow: var(--shadow-soft);
+  outline: 1px solid transparent;
 }
 .dlg__field {
   display: flex;

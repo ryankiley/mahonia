@@ -16,7 +16,7 @@ onKeyStroke("Escape", () => props.open && emit("close"));
        later false→true toggle -->
   <Transition name="ovl" appear>
     <div v-if="open" class="ovl" @click.self="emit('close')">
-      <div class="dlg panel" role="dialog" aria-modal="true" :aria-label="label">
+      <div class="dlg" role="dialog" aria-modal="true" :aria-label="label">
         <slot />
       </div>
     </div>

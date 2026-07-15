@@ -433,9 +433,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
             </button>
             <Transition name="menu">
               <ul v-if="menuOpen" class="popover menu__list" role="menu" aria-label="More actions">
-                <li role="none">
-                  <NuxtLink to="/mine" role="menuitem" class="menu__item" @click="menuOpen = false">Your lists</NuxtLink>
-                </li>
+                <!-- no "Your lists" here — the footer already carries that link -->
                 <li role="none">
                   <button type="button" role="menuitem" class="menu__item" @click="runMenu('duplicate')">Duplicate this list</button>
                 </li>
@@ -449,7 +447,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
                   <button type="button" role="menuitem" class="menu__item" @click="runMenu('csv')">Download CSV</button>
                 </li>
                 <li role="none">
-                  <button type="button" role="menuitem" class="menu__item" @click="runMenu('json')">Download JSON (backup)</button>
+                  <button type="button" role="menuitem" class="menu__item" @click="runMenu('json')">Download JSON</button>
                 </li>
                 <li role="none">
                   <button type="button" role="menuitem" class="menu__item" @click="runMenu('editlink')">Copy edit link…</button>
@@ -598,26 +596,19 @@ function onCorrected(res: { status: string; itemName?: string }) {
      input width where unsupported) */
   width: auto;
   field-sizing: content;
-  min-width: 8ch;
-  max-width: min(46ch, 42vw);
+  /* NO width cap, and shrink-past-content allowed (min-width: 0): the flex row
+     — titlewrap flex:1 against the rigid icon cluster — is what bounds the
+     title. The old min(46ch, 42vw) cap truncated long names on wide screens
+     while the row sat half-empty; now the name runs right up to the icons and
+     only ellipsizes when the row genuinely runs out. */
+  min-width: 0;
   font-family: var(--font);
   font-size: 1rem; /* static 16px — avoid iOS focus-zoom (see .field in controls.scss) */
   font-weight: 600;
   border-bottom-color: transparent;
-  /* a long name that exceeds max-width truncates with an ellipsis at rest
-     (the input still scrolls to the caret while you're editing it) */
+  /* a long name that exceeds the available room truncates with an ellipsis at
+     rest (the input still scrolls to the caret while you're editing it) */
   text-overflow: ellipsis;
-}
-@media (max-width: 720px) {
-  /* let the title shrink past its content width so it ellipsizes instead of
-     pushing the save status + app-bar controls off the edge */
-  .editor__title {
-    min-width: 0;
-    /* drop the 42vw cap here: the flex layout (titlewrap flex:1 + this min-width:0)
-       already bounds the title and ellipsizes it, so the cap just stranded usable
-       space — let the name run right up to the icon cluster */
-    max-width: none;
-  }
 }
 .editor__title:focus {
   border-bottom-color: var(--accent);
