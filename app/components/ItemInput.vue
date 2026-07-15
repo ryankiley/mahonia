@@ -395,16 +395,25 @@ function highlightParts(text: string): { t: string; on: boolean }[] {
   margin: 0;
   padding: var(--space-2) 0;
   list-style: none;
-  /* cap at 10.5 ROWS (+ the resting top padding), not a round length: a half-
-     cropped row at the fold is the scroll cue. (28rem landed a hair past 11 rows
-     — an invisible 8px sliver, so an overflowing list read as complete.) One row
-     = 2×space-2 padding + a 1.5-line-height text-sm line; phrasing it that way
-     keeps the fold mid-row even past the 1920px anchor where the type (and the
-     rows) scale fluidly. The dvh cap keeps it on-screen on small devices (dvh
-     tracks the collapsing mobile URL bar; vh line = older-browser fallback). */
-  max-height: min(calc(10.5 * (2 * var(--space-2) + 1.5 * var(--text-sm)) + var(--space-2)), 55vh);
-  max-height: min(calc(10.5 * (2 * var(--space-2) + 1.5 * var(--text-sm)) + var(--space-2)), 50dvh);
+  /* cap at 10.5 ROWS (+ the resting top padding), not a round length: the half-
+     cropped row at the fold is the scroll cue — glyphs sliced cleanly AT the
+     card's visual edge (the .popover outline-not-border fix keeps the overflow
+     clip flush; it was a 1px-inset ledge that made this crop read as broken).
+     A full-text fold read as a complete list and left the card too tall. One row
+     = 2×space-2 padding + a 1.5-line-height text-sm line; phrasing it in the
+     same vars keeps the fold mid-row past the 1920px anchor where the type (and
+     the rows) scale fluidly. The dvh cap keeps it on-screen on small devices
+     (dvh tracks the collapsing mobile URL bar; vh line = older-browser fallback). */
+  /* +2px: eye-tuned crop point (Ryan) — a hair more of the fold row's glyphs */
+  max-height: min(calc(10.5 * (2 * var(--space-2) + 1.5 * var(--text-sm)) + var(--space-2) + 2px), 55vh);
+  max-height: min(calc(10.5 * (2 * var(--space-2) + 1.5 * var(--text-sm)) + var(--space-2) + 2px), 50dvh);
   overflow-y: auto;
+  /* never a horizontal bar: overflow-y alone computes overflow-x to auto, and with
+     classic (always-shown) scrollbars the vertical bar narrows the rows, so any
+     sub-pixel x-overflow painted a horizontal TRACK across the menu's bottom —
+     stealing height so the fold crop landed mid-glyph with a dead band below it.
+     Width pressure is the rows' ellipses' job, never a scrollbar's. */
+  overflow-x: hidden;
   scrollbar-width: thin;
   scrollbar-color: var(--line-2) transparent;
   /* reaching the end of the list must not hand the swipe to the page */
