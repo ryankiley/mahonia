@@ -1,0 +1,11 @@
+{
+  "rows": [
+    {"brand":"Houdini","name":"Desoli Light Half Zip","variant":"Men's L","category_hint":"clothing","weight_value":212,"weight_unit":"g","weight_secondary":null,"weight_source":"manufacturer","source_url":"https://houdinisportswear.com/en-us/clothing/base-layers/mens-desoli-light-half-zip-840039","quote":"Weight men's large: 212 g"},
+    {"brand":"Montbell","name":"Zeo-Line Light Weight Round Neck Shirt","variant":"Men's","category_hint":"clothing","weight_value":120,"weight_unit":"g","weight_secondary":null,"weight_source":"manufacturer","source_url":"https://www.montbell.com/us/en/products/detail/1107732","quote":"Average Weight: 120 g (4.2 oz)"},
+    {"brand":"Montbell","name":"Trekking Gloves","variant":"Men's","category_hint":"clothing","weight_value":58,"weight_unit":"g","weight_secondary":null,"weight_source":"manufacturer","source_url":"https://www.montbell.com/us/en/products/detail/1118289","quote":"Weight: 58 g (2 oz)"},
+    {"brand":"REI Co-op","name":"Swiftland High-Low-Hem Long-Sleeve Running T-Shirt","variant":"Women's","category_hint":"clothing","weight_value":3.9,"weight_unit":"oz","weight_secondary":null,"weight_source":"manufacturer","source_url":"https://www.rei.com/product/244757/rei-co-op-swiftland-high-low-hem-long-sleeve-running-t-shirt-womens","quote":"Weight: 3.9 ounces"},
+    {"brand":"Arc'teryx","name":"Bird Head Toque","variant":"","category_hint":"clothing","weight_value":57,"weight_unit":"g","weight_secondary":null,"weight_source":"manufacturer","source_url":"https://www.scheels.com/p/arcteryx-bird-head-toque-beanie/5875-X000006756/","quote":"57g / 2 oz."},
+    {"brand":"Simms","name":"SunGaiter","variant":"","category_hint":"clothing","weight_value":1.6,"weight_unit":"oz","weight_secondary":null,"weight_source":"manufacturer","source_url":"https://www.simmsfishing.com/products/sungaiter-2025","quote":"WEIGHT: 1.6 oz. (45.4 g)"},
+    {"brand":"The North Face","name":"ThermoBall Traction Mule V","variant":"Women's","category_hint":"clothing","weight_value":14.2,"weight_unit":"oz","weight_secondary":null,"weight_source":"measured","source_url":"https://gearheadoutfitters.com/products/w-thermoball-traction-mule-v","quote":"7.09 oz [half pair] — 14.2 oz per pair"}
+  ]
+}
