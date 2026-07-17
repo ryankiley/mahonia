@@ -374,6 +374,20 @@ function toggleCollapsed() {
   opacity: 0;
   cursor: pointer;
 }
+/* touch: .btn--icon grows to a 44px tap target on coarse pointers (controls.scss), so
+   the sort control has to match — left at its 32px desktop width, its box is 12px
+   narrower than the delete/grip beside it, which shoves the folder's delete out of
+   line with the item rows' delete below. Match the width (and bump the glyph to 18px,
+   like the sibling .btn--icon svg) so the whole cluster lines up column-for-column. */
+@media (pointer: coarse) {
+  .folder__sortwrap {
+    width: 44px;
+  }
+  .folder__sorticon {
+    width: 18px;
+    height: 18px;
+  }
+}
 /* right-align both controls + pull the grip's layout box left so its gap matches
    the item rows below (the flush shift is otherwise invisible to layout) */
 .folder__actions .btn--icon {
