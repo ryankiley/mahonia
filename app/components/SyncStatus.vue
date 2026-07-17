@@ -2,9 +2,11 @@
 // The list's live sync state + last-edit time, in one quiet text line below the
 // header (so the dense top control row stays uncramped on mobile). The words carry
 // the state — "Syncing…", "Synced · edited 1 hour ago", "Offline · saved on
-// device" — and the state word pops on change (the translate+fade+blur the live
-// total uses). Self-contained: reads the editor singleton, so callers just drop in
-// <SyncStatus />.
+// device" — and the state word swaps in place on change. No animation here: a save
+// cycle flips the word Synced→Syncing…→Synced in ~15ms, so animating a word that
+// changes faster than the motion runs looked like it was racing itself. A subtler
+// motion is worth revisiting, but plain-swap is the calm baseline. Self-contained:
+// reads the editor singleton, so callers just drop in <SyncStatus />.
 const c = useGearList();
 const status = c.status;
 const snapshot = c.snapshot;
@@ -27,8 +29,8 @@ const hasContent = computed(
   () => !!snapshot.value?.items.some((i) => i.name.trim() !== "" || i.unitWeightMg > 0),
 );
 
-// state word (announced + popped on change) and the time suffix (silent, updates
-// in place) are kept apart so the 30s tick never re-announces or re-pops
+// state word (announced on change) and the time suffix (silent, updates in place)
+// are kept apart so the 30s tick never re-announces the state
 const stateWord = computed(() => {
   switch (status.value) {
     case "loading":
@@ -58,14 +60,12 @@ const shown = computed(() => stateWord.value !== "");
 
 <template>
   <p v-if="shown" class="syncstatus" :class="{ 'is-alert': status === 'error' }">
-    <!-- stable live region; the keyed inner word re-mounts + pops on state change,
-         while the time suffix updates silently in place --><span
+    <!-- polite live region: the state word swaps in place and re-announces on
+         change, while the time suffix updates silently outside it (so the 30s tick
+         never re-announces) --><span
       class="syncstatus__state"
       aria-live="polite"
-    ><Transition name="syncpop" mode="out-in"><span
-      :key="stateWord"
-      class="syncstatus__word"
-    >{{ stateWord }}</span></Transition></span><span v-if="timeSuffix">{{ timeSuffix }}</span>
+    >{{ stateWord }}</span><span v-if="timeSuffix">{{ timeSuffix }}</span>
   </p>
 </template>
 
@@ -82,31 +82,5 @@ const shown = computed(() => stateWord.value !== "");
 /* a genuine "Not saved" is the one state worth full ink */
 .syncstatus.is-alert {
   color: var(--ink);
-}
-/* inline-block so the pop's translate/blur render */
-.syncstatus__word {
-  display: inline-block;
-}
-/* state-change pop — the translate+fade+blur the live total (AnimatedCount) uses,
-   so a "Syncing → Synced" flip feels of a piece with the app */
-@keyframes syncstatus-pop {
-  from {
-    opacity: 0;
-    transform: translateY(0.25em) translateZ(0);
-    filter: blur(var(--blur-pop));
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) translateZ(0);
-    filter: blur(0);
-  }
-}
-.syncpop-enter-active {
-  animation: syncstatus-pop var(--dur-slow) var(--ease-spring) both;
-}
-@media (prefers-reduced-motion: reduce) {
-  .syncpop-enter-active {
-    animation: none;
-  }
 }
 </style>
