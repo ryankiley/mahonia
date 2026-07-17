@@ -1,0 +1,54 @@
+[
+  {
+    "date": "2026-07-17",
+    "added": [
+      "A “What’s new” page — a running list of features and fixes as they ship."
+    ]
+  },
+  {
+    "date": "2026-07-16",
+    "added": [
+      "Sort any folder by name, heaviest, or lightest — or keep your own manual order."
+    ]
+  },
+  {
+    "date": "2026-07-14",
+    "added": [
+      "Import a JSON backup to restore a list. Exporting and re-importing now round-trips a list at full fidelity."
+    ]
+  },
+  {
+    "date": "2026-07-12",
+    "added": [
+      "A quiet line in the editor tells you when your list last saved and synced."
+    ],
+    "fixed": [
+      "The undo toast is easier to catch — it now stays for ten seconds, pauses when you hover or focus it, and no longer swallows a stray click as it fades."
+    ]
+  },
+  {
+    "date": "2026-07-11",
+    "added": [
+      "“Your lists” remembers the lists you've opened on this device, and lets you delete one.",
+      "A “Copy this list” button on shared lists, so anyone can fork their own editable copy.",
+      "Import an existing list straight from a LighterPack link or a CSV file.",
+      "A print-friendly layout and a packing checklist with check-off progress, for using a list on the trail."
+    ]
+  },
+  {
+    "date": "2026-07-10",
+    "added": [
+      "Add the same item a few times and it folds into one row with a count and a worn split, e.g. “Socks ×3 · 1 worn”."
+    ]
+  },
+  {
+    "date": "2026-06-27",
+    "title": "Mahonia is live",
+    "added": [
+      "Build a packing list and share it with a link — no account, no app, no ads.",
+      "Live pack-weight totals, with a base / worn / consumable breakdown and a category bar. Weights are optional; a list with none just stays quiet.",
+      "A curated, cited gear-weight database with autocomplete, so most items weigh themselves as you type.",
+      "Light and dark themes."
+    ]
+  }
+]

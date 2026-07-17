@@ -18,6 +18,7 @@
     "test:watch": "vitest",
     "typecheck": "nuxt typecheck",
     "bundle-budget": "node scripts/bundle-budget.mjs",
+    "changelog": "node scripts/changelog.mjs",
     "catalog:build": "node node_modules/jiti/lib/jiti-cli.mjs scripts/build-catalog.ts",
     "catalog:audit": "node node_modules/jiti/lib/jiti-cli.mjs scripts/audit-catalog.ts",
     "seed": "node node_modules/jiti/lib/jiti-cli.mjs scripts/seed-catalog.ts"

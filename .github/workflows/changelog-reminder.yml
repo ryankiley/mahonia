@@ -1,0 +1,83 @@
+# Nudges every PR to keep the on-site "What's new" changelog fed. The entries are
+# curated by hand (plain, user-facing — not auto-scraped from commits), so this
+# doesn't write them; it just leaves a sticky reminder comment when a PR looks
+# user-facing (touches app/ or shared/) but doesn't touch content/changelog.json.
+#
+# It never blocks a merge (the repo runs no required checks) and clears its own
+# comment once the changelog is updated. Refactors / deps / infra: ignore it, or
+# add the `skip-changelog` label. See scripts/changelog.mjs + README.
+name: Changelog reminder
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+# comment on the PR; read the diff. No code checkout, so no build/secret exposure.
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  remind:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const MARKER = "<!-- changelog-reminder -->";
+            const pr = context.payload.pull_request;
+            const { owner, repo } = context.repo;
+
+            const labels = pr.labels.map((l) => l.name);
+            const skipped = labels.includes("skip-changelog");
+
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner, repo, pull_number: pr.number, per_page: 100,
+            });
+            const paths = files.map((f) => f.filename);
+
+            const touchedChangelog = paths.includes("content/changelog.json");
+            // "user-facing" = the surfaces a visitor sees; ignore tests
+            const isTest = (p) => p.startsWith("tests/") || p.includes(".test.");
+            const userFacing = paths.some(
+              (p) => (p.startsWith("app/") || p.startsWith("shared/")) && !isTest(p),
+            );
+
+            const needsReminder = userFacing && !touchedChangelog && !skipped;
+
+            // find our existing sticky comment (if any)
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner, repo, issue_number: pr.number, per_page: 100,
+            });
+            const existing = comments.find(
+              (c) => c.user?.type === "Bot" && c.body?.includes(MARKER),
+            );
+
+            if (!needsReminder) {
+              // requirement met (or N/A) — clear a stale reminder
+              if (existing) {
+                await github.rest.issues.deleteComment({ owner, repo, comment_id: existing.id });
+              }
+              return;
+            }
+
+            const body = [
+              MARKER,
+              "📝 **Changelog reminder** — this PR touches `app/` or `shared/` but doesn't update `content/changelog.json`.",
+              "",
+              "If it changes something people will notice, add a line as part of this PR:",
+              "",
+              "```bash",
+              'npm run changelog -- --added "One plain sentence about the change."',
+              "```",
+              "",
+              "Grouped Added / Changed / Fixed, plain and user-facing — it shows up on [/changelog](https://mahonia.app/changelog).",
+              "",
+              "Not user-facing (refactor, deps, infra)? Ignore this, or add the **`skip-changelog`** label.",
+            ].join("\n");
+
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number: pr.number, body });
+            }

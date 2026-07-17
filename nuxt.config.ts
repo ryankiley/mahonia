@@ -321,6 +321,7 @@ export default defineNuxtConfig({
     "/e/**": { isr: 60 },
     // pure-static pages → build-time prerender (CDN-served, zero invocations)
     "/about": { prerender: true },
+    "/changelog": { prerender: true },
     "/privacy": { prerender: true },
     "/terms": { prerender: true },
     // "Your lists" is a device-local read-out (localStorage) — prerender the shell,
