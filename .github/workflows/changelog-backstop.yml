@@ -1,0 +1,80 @@
+# The safety net behind the changelog-reminder nudge: when a user-facing PR
+# (touches app/ or shared/, ignoring tests) merges WITHOUT touching
+# content/changelog.json and without the `skip-changelog` label, this appends
+# the PR title to the changelog via `scripts/changelog.mjs --auto` and pushes
+# the commit to main — so the on-site "What's new" page can no longer silently
+# miss a shipped change.
+#
+# The title is filed verbatim (classified fix→Fixed, add/new→Added, else
+# Changed), which is deliberately rougher than a hand-written entry — the
+# reminder comment still asks for one in the PR, and a PR that adds its own
+# entry suppresses this entirely. --auto is idempotent, so reruns are safe.
+name: Changelog backstop
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  append:
+    if: github.event.pull_request.merged == true && !contains(github.event.pull_request.labels.*.name, 'skip-changelog')
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Decide whether the PR needs a backstop entry
+        id: decide
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const { owner, repo } = context.repo;
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner, repo, pull_number: pr.number, per_page: 100,
+            });
+            const paths = files.map((f) => f.filename);
+            // same "user-facing" heuristic as changelog-reminder.yml
+            const isTest = (p) => p.startsWith("tests/") || p.includes(".test.");
+            const userFacing = paths.some(
+              (p) => (p.startsWith("app/") || p.startsWith("shared/")) && !isTest(p),
+            );
+            const touchedChangelog = paths.includes("content/changelog.json");
+            core.setOutput("append", userFacing && !touchedChangelog ? "yes" : "no");
+
+      - uses: actions/checkout@v4
+        if: steps.decide.outputs.append == 'yes'
+        with:
+          ref: main
+
+      - name: Append the PR title to the changelog and push
+        if: steps.decide.outputs.append == 'yes'
+        env:
+          # env var, never shell interpolation — PR titles are untrusted input
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          TZ: America/Los_Angeles # ship-date semantics: entries are dated in local time
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # regenerate-from-fresh-main per attempt: if another merge lands a
+          # changelog commit between our fetch and push, redo rather than rebase
+          # (two appends touch the same lines — a rebase would just conflict)
+          for attempt in 1 2 3 4 5; do
+            git fetch origin main
+            git reset --hard origin/main
+            node scripts/changelog.mjs --auto "$PR_TITLE"
+            git add content/changelog.json
+            if git diff --cached --quiet; then
+              echo "changelog already covers this PR — nothing to push"
+              exit 0
+            fi
+            git commit -m "Changelog: ${PR_TITLE} (#${PR_NUMBER})"
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            echo "push rejected (concurrent merge?) — retrying ($attempt/5)"
+          done
+          echo "could not push the changelog entry after 5 attempts" >&2
+          exit 1

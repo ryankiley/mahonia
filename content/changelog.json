@@ -3,7 +3,9 @@
     "date": "2026-07-17",
     "added": [
       "A “What’s new” page — a running list of features and fixes as they ship.",
-      "Search the gear catalog by everyday name — type “tent” to find tents, or “rucksack” and “backpack” to reach the same packs."
+      "Search the gear catalog by everyday name — type “tent” to find tents, or “rucksack” and “backpack” to reach the same packs.",
+      "Nest items one level deep — split a tent into body, fly, poles, and stakes on their own lines, with the group total on the parent row.",
+      "Women’s versions across the gear catalog — about a hundred new entries covering footwear, apparel, packs, and sleep."
     ],
     "changed": [
       "Combined the Privacy and Terms pages into a single Legal page."

@@ -37,6 +37,11 @@ npm run changelog -- --fixed "…" --changed "…"
 Entries are grouped Added / Changed / Fixed and describe the observable change, not the
 implementation.
 
+Two workflows keep the page honest: a PR comment reminds any user-facing PR that's missing
+an entry, and if one merges anyway, a backstop appends the PR title to the changelog after
+merge (rough but never silent). Label a PR **`skip-changelog`** to opt out of both. A
+hand-written entry in the PR always beats the scraped title.
+
 ## License
 
 Code is [MIT](LICENSE). The gear catalog data under `seed/` is licensed separately — see
