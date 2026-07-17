@@ -28,7 +28,7 @@ onBeforeUnmount(() => clearTimeout(toastTimer));
 
 // close on the action itself, an outside tap, or Escape (mirrors the editor kebab)
 onClickOutside(menuRef, () => (menuOpen.value = false));
-useEventListener(window, "keydown", (e: KeyboardEvent) => {
+useWindowEvent("keydown", (e) => {
   if (e.key === "Escape" && menuOpen.value) menuOpen.value = false;
 });
 

@@ -37,7 +37,7 @@ export default defineNuxtConfig({
   // @vercel/analytics ships its Nuxt module at the `/nuxt` subpath; the bare
   // specifier resolves to the plain inject()/track() API (NOT a defineNuxtModule),
   // so registering "@vercel/analytics" silently injected nothing.
-  modules: ["@vueuse/nuxt", "@vercel/analytics/nuxt", "@vite-pwa/nuxt"],
+  modules: ["@vercel/analytics/nuxt", "@vite-pwa/nuxt"],
 
   // Master switch for the offline plumbing (service worker + background sync, and
   // the offline catalog search). ON by default — the site is a full PWA out of the
@@ -57,8 +57,8 @@ export default defineNuxtConfig({
 
   // @vite-pwa generates the service worker + Workbox runtime. `injectRegister:
   // false` = no auto-registration — a gated client plugin, app/plugins/
-  // pwa.client.ts, calls registerSW() only while the offline flag is on, so the
-  // env kill switch above fully disables it. `manifest: false` = the module
+  // pwa.client.ts, registers /sw.js by hand only while the offline flag is on,
+  // so the env kill switch above fully disables it. `manifest: false` = the module
   // doesn't GENERATE a manifest; the hand-written public/manifest.webmanifest
   // (name/icons/standalone) is linked from app.head and is what makes the site
   // installable. `autoUpdate` = silent updates, never a "new version, reload?"
