@@ -394,9 +394,12 @@ function dismissFix() {
                blank row discards itself before the click can act (e.g. the note
                button would delete the row instead of opening the note field).
                Preventing the default keeps focus where it was; click still fires. -->
-          <!-- add a nested item under this row (icon; a nested row can't nest further) -->
+          <!-- add a nested item under this row (icon; a nested row can't nest further).
+               Only on a row that has NO children yet — it's the entry point to START
+               nesting. Once the group exists, its ever-present "Add an item" (below)
+               is where more children get added, so the icon would be redundant. -->
           <button
-            v-if="!nested"
+            v-if="!nested && !isParent"
             class="btn btn--icon btn--ghost item__nest-btn"
             title="Add a nested item"
             aria-label="Add a nested item"
