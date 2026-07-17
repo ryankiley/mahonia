@@ -163,6 +163,9 @@ describe("trigram fuzzy scoring (local PGlite search fallback)", () => {
   it("produces padded trigrams per word", () => {
     expect(trigrams("cat")).toEqual(new Set(["  c", " ca", "cat", "at "]));
   });
+  it("folds diacritics so a plain query matches an accented name", () => {
+    expect(trigramScore("Fjallraven", "Fjällräven Keb Hike 30")).toBe(1);
+  });
 });
 
 describe("isTrustedSource — citation domain allowlist", () => {

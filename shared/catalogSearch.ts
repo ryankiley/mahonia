@@ -5,9 +5,19 @@
 
 import { itemDisplayName } from "./weights";
 
-/** pg_trgm-style trigrams: lowercase, non-alphanumerics→space, each word padded. */
+/** pg_trgm-style trigrams: fold diacritics, lowercase, non-alphanumerics→space,
+ *  each word padded. Diacritics are folded to their base letter (ä→a, ū→u) BEFORE
+ *  the a–z0–9 strip, so an accented brand ("Fjällräven") tokenizes identically to
+ *  its plain spelling ("Fjallraven") and each finds the other. Without the fold the
+ *  accent bytes drop to spaces, fragmenting the word and weakening the match. The
+ *  Neon path mirrors this with unaccent() (see server/utils/catalog.ts). */
 export function trigrams(input: string): Set<string> {
-  const cleaned = input.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const cleaned = input
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
   const out = new Set<string>();
   if (!cleaned) return out;
   for (const word of cleaned.split(/\s+/)) {
