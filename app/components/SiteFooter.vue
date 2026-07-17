@@ -12,8 +12,7 @@ const year = new Date().getFullYear();
         <NuxtLink to="/mine" class="foot__link t-sm">Your lists</NuxtLink>
         <NuxtLink to="/about" class="foot__link t-sm">About</NuxtLink>
         <NuxtLink to="/changelog" class="foot__link t-sm">What's new</NuxtLink>
-        <NuxtLink to="/privacy" class="foot__link t-sm">Privacy</NuxtLink>
-        <NuxtLink to="/terms" class="foot__link t-sm">Terms</NuxtLink>
+        <NuxtLink to="/legal" class="foot__link t-sm">Legal</NuxtLink>
       </nav>
 
       <p class="t-sm t-muted foot__copy">© {{ year }} Mahonia</p>
