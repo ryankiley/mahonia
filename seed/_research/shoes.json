@@ -24,6 +24,17 @@
     },
     {
       "brand": "Altra",
+      "name": "Lone Peak 9+",
+      "variant": "Women's",
+      "category_hint": "clothing",
+      "weight_value": 532,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.runningwarehouse.com/Altra_Lone_Peak_9/descpage-AWLP9W8.html",
+      "quote": "Weight: 9.4 oz | 266 g per shoe | pair = 532 g (2× per-shoe)"
+    },
+    {
+      "brand": "Altra",
       "name": "Timp 5",
       "variant": "Men's",
       "category_hint": "clothing",
