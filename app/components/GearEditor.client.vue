@@ -81,8 +81,26 @@ const sortedFolders = computed(() =>
   snapshot.value ? [...snapshot.value.folders].sort(bySortOrder) : [],
 );
 // one grouping pass per snapshot, handed to each FolderSection — so a keystroke
-// in one folder doesn't make every folder re-filter + re-sort the whole item array
-const itemsByFolder = computed(() => groupItemsByFolder(snapshot.value?.items ?? []));
+// in one folder doesn't make every folder re-filter + re-sort the whole item array.
+// Folders are passed so each group honors its own `sortBy` (manual = drag order).
+const itemsByFolder = computed(() => {
+  const map = groupItemsByFolder(snapshot.value?.items ?? [], snapshot.value?.folders ?? []);
+  // A just-added, still-blank row is pinned to the BOTTOM of its (possibly sorted)
+  // folder — otherwise a name/weight sort would immediately yank the empty row it
+  // autofocused off to the top, away from where you clicked "Add an item". Once you
+  // name it and blur, pendingBlankId clears and it slots into sorted position.
+  const pid = c.pendingBlankId.value;
+  if (pid) {
+    for (const group of map.values()) {
+      const i = group.findIndex((it) => it.id === pid);
+      if (i >= 0) {
+        group.push(...group.splice(i, 1));
+        break;
+      }
+    }
+  }
+  return map;
+});
 const NO_ITEMS: Item[] = [];
 
 const packed = ref(false);

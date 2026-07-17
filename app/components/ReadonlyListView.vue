@@ -16,8 +16,9 @@ const props = defineProps<{
 
 defineEmits<{ "set-unit": [Unit] }>();
 
-// one grouping pass for all folders (ReadonlyFolderSection takes its items pre-grouped)
-const itemsByFolder = computed(() => groupItemsByFolder(props.list?.items ?? []));
+// one grouping pass for all folders (ReadonlyFolderSection takes its items pre-grouped),
+// each folder ordered by its own sortBy so a shared list reads exactly as the owner's
+const itemsByFolder = computed(() => groupItemsByFolder(props.list?.items ?? [], props.list?.folders ?? []));
 const NO_ITEMS: Item[] = [];
 
 // Quiet meta line under the title — the page's read-only status (a #status slot:

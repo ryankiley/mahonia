@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
+  compareItemsBy,
   computeTotals,
   effectiveClassification,
   formatWeight,
   formatWeightAuto,
   fromMg,
+  groupItemsByFolder,
   nextSortOrder,
   parseWeightInput,
+  sortedFolderItems,
   splitWornQty,
   toMg,
 } from "../shared/weights";
@@ -264,5 +267,84 @@ describe("nextSortOrder — new items append at the folder's bottom", () => {
     ];
     expect(nextSortOrder(items, null)).toBe(3);
     expect(nextSortOrder(items, "f1")).toBe(8);
+  });
+});
+
+describe("per-folder sort (compareItemsBy)", () => {
+  // sortOrder is deliberately the reverse of both name and weight order, so each mode
+  // has to actually re-order (and manual has to preserve this "hand-dragged" order)
+  const mk = () => [
+    item({ id: "tent", name: "Tent", brand: "Zpacks", unitWeightMg: 500_000, qty: 1, sortOrder: 0 }),
+    item({ id: "socks", name: "socks", unitWeightMg: 40_000, qty: 3, sortOrder: 1 }), // 120g line
+    item({ id: "apple", name: "Apple", unitWeightMg: 200_000, qty: 1, sortOrder: 2 }),
+  ];
+  const ids = (arr: Item[]) => arr.map((i) => i.id);
+  const order = (sortBy: Folder["sortBy"]) =>
+    ids([...mk()].sort((a, b) => compareItemsBy(sortBy, a, b)));
+
+  it("manual (and undefined/unknown) keeps the drag order (sortOrder)", () => {
+    expect(order("manual")).toEqual(["tent", "socks", "apple"]);
+    expect(order(undefined)).toEqual(["tent", "socks", "apple"]);
+    expect(order("bogus" as any)).toEqual(["tent", "socks", "apple"]);
+  });
+
+  it("name sorts A–Z case-insensitively on the flat display name", () => {
+    // "Zpacks Tent" (brand folded in) > "Apple" > "socks"; case-insensitive puts
+    // lowercase "socks" after "Apple", not at the end where ASCII would place it
+    expect(order("name")).toEqual(["apple", "socks", "tent"]);
+  });
+
+  it("heaviest / lightest key off the LINE weight (qty × unit), not unit weight", () => {
+    // lines: tent 500g, apple 200g, socks 3×40g = 120g
+    expect(order("heaviest")).toEqual(["tent", "apple", "socks"]);
+    expect(order("lightest")).toEqual(["socks", "apple", "tent"]);
+  });
+
+  it("breaks ties on sortOrder so equal-weight runs keep their manual order", () => {
+    const tied = [
+      item({ id: "b", name: "b", unitWeightMg: 100_000, sortOrder: 1 }),
+      item({ id: "a", name: "a", unitWeightMg: 100_000, sortOrder: 0 }),
+    ];
+    expect(tied.slice().sort((x, y) => compareItemsBy("heaviest", x, y)).map((i) => i.id)).toEqual(["a", "b"]);
+  });
+});
+
+describe("groupItemsByFolder honors each folder's sortBy", () => {
+  it("orders each group by its own folder's sort, ungrouped excluded", () => {
+    const folders: Folder[] = [
+      { id: "f1", name: "f1", defaultClassification: "base", sortBy: "heaviest", sortOrder: 0 },
+      { id: "f2", name: "f2", defaultClassification: "base", sortOrder: 1 }, // manual
+    ];
+    const items = [
+      item({ id: "light", folderId: "f1", unitWeightMg: 10_000, sortOrder: 0 }),
+      item({ id: "heavy", folderId: "f1", unitWeightMg: 90_000, sortOrder: 1 }),
+      item({ id: "x", folderId: "f2", sortOrder: 5 }),
+      item({ id: "y", folderId: "f2", sortOrder: 4 }),
+      item({ id: "loose", folderId: null, sortOrder: 0 }),
+    ];
+    const map = groupItemsByFolder(items, folders);
+    expect(map.get("f1")!.map((i) => i.id)).toEqual(["heavy", "light"]); // sorted by weight
+    expect(map.get("f2")!.map((i) => i.id)).toEqual(["y", "x"]); // manual = sortOrder
+    expect(map.has(null as any)).toBe(false); // ungrouped never grouped
+  });
+
+  it("with no folders passed, every group falls back to manual sortOrder", () => {
+    const items = [
+      item({ id: "b", folderId: "f1", unitWeightMg: 90_000, sortOrder: 1 }),
+      item({ id: "a", folderId: "f1", unitWeightMg: 10_000, sortOrder: 0 }),
+    ];
+    expect(groupItemsByFolder(items).get("f1")!.map((i) => i.id)).toEqual(["a", "b"]);
+  });
+});
+
+describe("sortedFolderItems", () => {
+  it("returns just this folder's items in its chosen order", () => {
+    const f: Folder = { id: "f1", name: "f1", defaultClassification: "base", sortBy: "name", sortOrder: 0 };
+    const items = [
+      item({ id: "c", folderId: "f1", name: "Cook pot", sortOrder: 0 }),
+      item({ id: "a", folderId: "f1", name: "Axe", sortOrder: 1 }),
+      item({ id: "other", folderId: "f2", name: "Zzz", sortOrder: 0 }),
+    ];
+    expect(sortedFolderItems(items, f).map((i) => i.id)).toEqual(["a", "c"]);
   });
 });

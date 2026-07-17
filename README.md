@@ -5,7 +5,7 @@ weighs, share it — no account, no app.
 
 ## Run locally
 
-Requires **Node 24** (Nuxt's dev server doesn't run on Node 25 — see `.nvmrc`).
+Requires **Node 24** (the pinned version — see `.nvmrc`).
 
 ```bash
 npm install

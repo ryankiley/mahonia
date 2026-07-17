@@ -9,11 +9,18 @@ export const UNITS: Unit[] = ["g", "kg", "oz", "lb"];
 // `base` counts toward base weight; `worn` = on your body; `consumable` = food/fuel/water.
 export type Classification = "base" | "worn" | "consumable";
 
+// How a folder orders its items. "manual" is the drag order (sortOrder); the rest are
+// derived views recomputed on every render, so they stay sorted as items are
+// added/edited. Absent/"manual" is the default — legacy folders (no field) read as
+// manual, and manual is stored as absent to keep the folder payload lean.
+export type FolderSort = "manual" | "name" | "heaviest" | "lightest";
+
 export interface Folder {
   id: string; // client-generated (nanoid/uuid) so optimistic edits need no round-trip
   name: string;
   colorKey?: string; // maps to a `--cat-*` color token
   defaultClassification: Classification; // items inherit unless they override
+  sortBy?: FolderSort; // per-folder item order (absent = "manual" drag order)
   sortOrder: number;
 }
 

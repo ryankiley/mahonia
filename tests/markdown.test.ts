@@ -47,4 +47,18 @@ describe("listToMarkdown", () => {
     expect(md).toContain("## Shelter");
     expect(md).not.toContain("## On Body");
   });
+
+  it("orders a folder's rows by its sortBy (heaviest first here)", () => {
+    const s = snap();
+    // add two lighter Shelter items out of weight order; a heaviest sort must lead
+    // with the 538g Duplex, then 200g, then 50g — regardless of sortOrder
+    s.folders[0]!.sortBy = "heaviest";
+    s.items.push({ id: "i4", folderId: "f1", name: "Stakes", unitWeightMg: 50000, qty: 1, classification: null, sortOrder: 1 });
+    s.items.push({ id: "i5", folderId: "f1", name: "Groundsheet", unitWeightMg: 200000, qty: 1, classification: null, sortOrder: 2 });
+    const rows = listToMarkdown(s)
+      .split("\n")
+      .filter((l) => l.startsWith("| ") && !l.includes("Item |") && !l.includes("---"));
+    const shelter = rows.slice(0, 3).map((r) => r.split("|")[1]!.trim());
+    expect(shelter).toEqual(["Zpacks Duplex", "Groundsheet", "Stakes"]);
+  });
 });

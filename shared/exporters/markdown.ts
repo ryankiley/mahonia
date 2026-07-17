@@ -2,7 +2,7 @@
 // Apple Notes. Shared by the client (copy/download) and later the server.
 
 import type { ListSnapshot } from "../types";
-import { bySortOrder, computeTotals, effectiveClassification, formatWeight, itemDisplayName, itemsInFolder, lineMg, splitWornQty } from "../weights";
+import { computeTotals, effectiveClassification, formatWeight, itemDisplayName, lineMg, sortedFolderItems, splitWornQty } from "../weights";
 
 export function listToMarkdown(list: ListSnapshot): string {
   const u = list.displayUnit;
@@ -13,7 +13,7 @@ export function listToMarkdown(list: ListSnapshot): string {
   out.push("");
 
   for (const folder of list.folders) {
-    const items = itemsInFolder(list.items, folder.id).sort(bySortOrder);
+    const items = sortedFolderItems(list.items, folder);
     if (!items.length) continue;
     out.push(`## ${folder.name}`);
     out.push("");
