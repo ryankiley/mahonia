@@ -60,6 +60,15 @@
   min-height: 32px;
   width: 32px;
   padding: 0;
+  /* Pin a standing compositing layer. :active animates opacity (a compositor
+     property), so WebKit promotes the button for the press transition and demotes
+     it at rest — re-rasterising the glyph at its fractional flex x, a ~1px jitter
+     per press/release (seen on the read-view ⋯; same class as the mode-toggle fix).
+     A static translateZ(0) holds one layer through and after the run; will-change
+     would be droppable since the button's own transform never animates. Icon-only
+     buttons, no text → no glyph-blur cost. Chromium keeps layers warm, so the
+     preview can't reproduce it. See concepts/webkit-relayers-on-animation-boundaries. */
+  transform: translateZ(0);
 }
 // icon buttons: no fill on hover — the icon just darkens (via the colour rules
 // on .btn--ghost / the per-button colour), which is enough
