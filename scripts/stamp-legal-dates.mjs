@@ -13,7 +13,7 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 
-const PAGES = ["app/pages/privacy.vue", "app/pages/terms.vue"];
+const PAGES = ["app/pages/legal.vue"];
 
 const git = (...args) => execFileSync("git", args, { encoding: "utf8" }).trim();
 

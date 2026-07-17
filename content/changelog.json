@@ -4,6 +4,9 @@
     "added": [
       "A “What’s new” page — a running list of features and fixes as they ship.",
       "Search the gear catalog by everyday name — type “tent” to find tents, or “rucksack” and “backpack” to reach the same packs."
+    ],
+    "changed": [
+      "Combined the Privacy and Terms pages into a single Legal page."
     ]
   },
   {

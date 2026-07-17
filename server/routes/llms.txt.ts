@@ -22,8 +22,7 @@ export default defineEventHandler((event) => {
     "",
     `- [About](${origin}/about): what Mahonia is and how it works`,
     `- [Public lists](${origin}/sitemap.xml): every shared public list, at /l/{slug}`,
-    `- [Privacy](${origin}/privacy)`,
-    `- [Terms](${origin}/terms)`,
+    `- [Legal](${origin}/legal): privacy policy and terms of use`,
     "",
   ].join("\n");
 });

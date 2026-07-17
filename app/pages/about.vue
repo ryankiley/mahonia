@@ -64,8 +64,7 @@ useHead({
         <p>
           Questions, or want a list removed? Email
           <a :href="`mailto:${CONTACT_EMAIL}`">{{ CONTACT_EMAIL }}</a>. See also the
-          <NuxtLink to="/privacy">Privacy</NuxtLink> and
-          <NuxtLink to="/terms">Terms</NuxtLink> pages.
+          <NuxtLink to="/legal">Legal</NuxtLink> page.
         </p>
       </div>
     </main>
