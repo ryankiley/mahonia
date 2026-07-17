@@ -47,7 +47,14 @@ function toggleMenu() {
 }
 
 const { copying, copyList } = useCopyList();
-const { showLinkFallback } = useDialogs();
+const { confirm: askConfirm, showLinkFallback } = useDialogs();
+
+// "Report list" — flag a public list for review. Only offered when the list is
+// public (the Terms scope reporting to public lists, and a private share has
+// nothing on the feed to withhold). Hidden once reported so the ⋯ item doesn't
+// invite a second, no-op tap. See /api/lists/report for the distinct-reporter
+// threshold that actually withholds a list.
+const reported = ref(false);
 
 function runMenu(action: string) {
   menuOpen.value = false;
@@ -57,6 +64,24 @@ function runMenu(action: string) {
     case "markdown": return void copyMarkdown();
     case "csv": return void downloadCsv();
     case "json": return void downloadJson();
+    case "report": return void reportThis();
+  }
+}
+
+async function reportThis() {
+  if (reported.value) return;
+  if (!(await askConfirm({
+    title: "Report this list",
+    message: "Report this list as spam or inappropriate? Reports are reviewed, and a list is withheld from public discovery once enough people flag it.",
+    confirmLabel: "Report",
+  }))) return;
+  try {
+    await $fetch("/api/lists/report", { method: "POST", body: { slug: props.snapshot.slug } });
+    reported.value = true;
+    flash("Reported. Thanks, we’ll take a look.");
+  } catch {
+    // best-effort affordance — a failed report just asks the viewer to retry
+    flash("Couldn’t report. Try again.");
   }
 }
 
@@ -132,6 +157,11 @@ function fileBase() {
         <li role="none">
           <button type="button" role="menuitem" class="menu__item" @click="runMenu('json')">Download JSON</button>
         </li>
+        <!-- moderation, not a read of the list — set off from the copy/export group by a
+             hairline, and only for public lists (per the Terms) that aren't yet reported -->
+        <li v-if="snapshot.isPublic && !reported" role="none" class="menu__report">
+          <button type="button" role="menuitem" class="menu__item" @click="runMenu('report')">Report list</button>
+        </li>
       </ul>
     </Transition>
 
@@ -144,3 +174,15 @@ function fileBase() {
     </Teleport>
   </div>
 </template>
+
+<style scoped>
+/* the report row is a different class of action from the copy/export items above
+   it — a hairline + a touch of space sets it apart without a heavy divider. The
+   rule sits on the <li>, so it aligns to the item hover box (inset by the list's
+   own padding), matching the rounded rows rather than bleeding to the card edge. */
+.menu__report {
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--line);
+}
+</style>

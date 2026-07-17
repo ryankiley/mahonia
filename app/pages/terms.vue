@@ -15,7 +15,7 @@ useHead({
     <main class="wrap page">
       <div class="prose">
         <h1 class="t-title">Terms of Use</h1>
-        <p class="t-sm t-muted">Last updated 26 June 2026</p>
+        <p class="t-sm t-muted">Last updated 16 July 2026</p>
 
         <p>
           These terms cover your use of Mahonia. They’re written to be readable, not to trap you. Mahonia
@@ -50,7 +50,7 @@ useHead({
         <p>
           Please don’t use Mahonia to break the law, infringe others’ rights, post abusive or deceptive
           content, impersonate people, or attack, overload, or scrape the service. Public lists can
-          be flagged with the “Report” button; to report a problem or request a takedown, email
+          be flagged with the “Report list” action in the ⋯ menu; to report a problem or request a takedown, email
           <a :href="`mailto:${CONTACT_EMAIL}`">{{ CONTACT_EMAIL }}</a> with enough detail to find the
           content. I may remove content or limit access, including pulling lists off the public feed,
           especially in response to reports.

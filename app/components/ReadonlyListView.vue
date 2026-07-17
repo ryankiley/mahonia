@@ -61,8 +61,6 @@ const editedAt = computed(() => {
         <ReadonlyItemRow v-for="it in ungrouped" :key="it.id" :list="list" :item="it" />
       </section>
     </div>
-
-    <slot name="footer" />
   </main>
 
   <main v-else class="wrap view view--missing">
@@ -73,7 +71,7 @@ const editedAt = computed(() => {
 
 <style scoped>
 .view {
-  /* no bottom padding: the footer's own margin-top is the single content→footer
+  /* no bottom padding: the site footer's own margin-top is the single content→footer
      gap (matches the inter-folder rhythm), so this row doesn't double it up */
   padding-block: var(--space-5) 0;
   display: flex;
