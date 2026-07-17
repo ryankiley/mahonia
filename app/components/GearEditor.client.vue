@@ -191,7 +191,7 @@ function onFocusIn(ev: FocusEvent) {
     }
   }, 300);
 }
-useEventListener(window, "focusin", onFocusIn); // auto-removes on unmount
+useWindowEvent("focusin", onFocusIn); // auto-removes on unmount
 onBeforeUnmount(() => clearTimeout(focusScrollTimer));
 
 function flash(msg: string) {
@@ -226,7 +226,7 @@ const jsonExporter = () => import("~~/shared/exporters/json");
 // need a direct user gesture, and a <select> change isn't one on iOS Safari, so the
 // copy silently failed there. Close on the action itself, an outside tap, or Escape.
 onClickOutside(menuRef, () => (menuOpen.value = false));
-useEventListener(window, "keydown", (e: KeyboardEvent) => {
+useWindowEvent("keydown", (e) => {
   if (e.key === "Escape" && menuOpen.value) menuOpen.value = false;
 });
 function toggleMenu() {

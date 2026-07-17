@@ -1,4 +1,4 @@
-import { useStorage } from "@vueuse/core";
+import type { Ref } from "vue";
 import type { ListSnapshot, MyListEntry } from "~~/shared/types";
 
 // No-login "My Lists": the registry of edit tokens this browser holds. This is
@@ -6,10 +6,45 @@ import type { ListSnapshot, MyListEntry } from "~~/shared/types";
 // gone unless the edit link was saved elsewhere.
 const STORAGE_KEY = "gear.mylists.v1";
 
-let _entries: ReturnType<typeof useStorage<MyListEntry[]>> | undefined;
+// Hand-rolled localStorage-backed ref (was @vueuse/core's useStorage — see
+// app/composables/dom.ts for why the library left). The server/prerender pass
+// sees an empty registry; the client seeds it from localStorage at setup.
+// Every mutation below REASSIGNS entries.value rather than mutating the array
+// in place (the repo-wide rule a deep watcher once forced), so a plain shallow
+// watch persists reliably. The "storage" event keeps a second open tab in sync;
+// it only fires on OTHER tabs and only when the stored string actually changed,
+// so echoing the read back through the watcher can't loop.
+function readEntries(): MyListEntry[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as MyListEntry[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+let _entries: Ref<MyListEntry[]> | undefined;
+
+function storageEntries(): Ref<MyListEntry[]> {
+  const entries = ref<MyListEntry[]>([]);
+  if (import.meta.client) {
+    entries.value = readEntries();
+    watch(entries, (v) => {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(v));
+      } catch {
+        // storage full/blocked — keep the in-memory registry working
+      }
+    });
+    window.addEventListener("storage", (e) => {
+      if (e.key === STORAGE_KEY) entries.value = readEntries();
+    });
+  }
+  return entries;
+}
 
 export function useMyLists() {
-  if (!_entries) _entries = useStorage<MyListEntry[]>(STORAGE_KEY, []);
+  if (!_entries) _entries = storageEntries();
   const entries = _entries;
 
   function upsert(e: MyListEntry) {

@@ -5,9 +5,9 @@
 // date once it's old enough that a relative phrase stops helping.
 //
 // Client-only callers (both are) pass Date.now() by default; pass a reactive `now`
-// (e.g. VueUse useNow) to get a label that re-renders as time passes without
-// recomputing the base timestamp. Nuxt auto-imports app/utils, so callers use
-// `timeAgo(...)` bare.
+// (the useNow composable in app/composables/dom.ts) to get a label that re-renders
+// as time passes without recomputing the base timestamp. Nuxt auto-imports
+// app/utils, so callers use `timeAgo(...)` bare.
 export function timeAgo(ts: number, now: number = Date.now()): string {
   const s = Math.max(0, Math.round((now - ts) / 1000)); // clamp future skew to "just now"
   if (s < 45) return "just now";
