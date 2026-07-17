@@ -3,6 +3,7 @@
 // these directly (tests/catalog.test.ts) and the build/seed scripts reuse them.
 
 import { MG_PER_UNIT, parseWeightInput } from "../shared/weights";
+import { buildSearchTerms } from "../shared/searchTerms";
 
 export type SpecUnit = "g" | "kg" | "oz" | "lb";
 
@@ -181,6 +182,9 @@ export interface CatalogCsvRow {
   weightMg: number;
   weightSource: string;
   sourceUrl: string | null;
+  // Derived (not a CSV column): the extra words this row is searchable by —
+  // category noun + locale/synonym aliases. See shared/searchTerms.ts.
+  searchTerms: string | null;
 }
 
 /** Map parsed CSV (with a header row) to typed catalog rows; validates required fields. */
@@ -218,14 +222,16 @@ export function csvToCatalogRows(text: string): CatalogCsvRow[] {
       const t = (v ?? "").trim();
       return t === "" ? null : t;
     };
+    const categoryHint = iCat >= 0 ? blankToNull(cells[iCat]) : null;
     out.push({
       brand: iBrand >= 0 ? blankToNull(cells[iBrand]) : null,
       name,
       variant: iVariant >= 0 ? blankToNull(cells[iVariant]) : null,
-      categoryHint: iCat >= 0 ? blankToNull(cells[iCat]) : null,
+      categoryHint,
       weightMg,
       weightSource,
       sourceUrl: iUrl >= 0 ? blankToNull(cells[iUrl]) : null,
+      searchTerms: buildSearchTerms(name, categoryHint),
     });
   }
   return out;

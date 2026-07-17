@@ -128,6 +128,10 @@ export const catalogItems = pgTable(
     description: text("description"),
     // shelter|sleep|pack|cook|water|clothing|electronics|firstaid|consumable|other
     categoryHint: text("category_hint"),
+    // Extra searchable words (category noun + locale/synonym aliases), derived at
+    // seed time from name + category_hint — see shared/searchTerms.ts. Folded into
+    // the fuzzy match so "tent" finds a "Copper Spur" and "rucksack" a "backpack".
+    searchTerms: text("search_terms"),
     weightMg: bigint("weight_mg", { mode: "number" }).notNull(),
     // REQUIRED provenance — forces every row to declare where its weight came from
     weightSource: text("weight_source").notNull(), // manufacturer|measured|community|imported

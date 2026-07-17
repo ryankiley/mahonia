@@ -47,6 +47,10 @@ export interface LocalCatalogRow {
   weightSource: string;
   verified: boolean;
   usageCount: number;
+  // Extra searchable words (category noun + locale/synonym aliases) derived at
+  // seed time — see shared/searchTerms.ts. Folded into the trigram target so
+  // "tent" finds a "Copper Spur" and "rucksack" finds a "backpack".
+  searchTerms?: string | null;
 }
 
 /** The autocomplete result shape returned to the client (no usageCount). */
@@ -58,6 +62,9 @@ export interface CatalogSearchResult {
   weightMg: number;
   weightSource: string;
   verified: boolean;
+  // Carried through so the offline cache ranks identically to online (it matches
+  // on this too). Not shown in the UI.
+  searchTerms?: string | null;
 }
 
 /**
@@ -74,7 +81,12 @@ export function searchCatalogLocal(
   const q = (rawQuery ?? "").trim();
   if (q.length < 2) return []; // 1 char is too noisy for trigram autocomplete
   return rows
-    .map((r) => ({ row: r, score: trigramScore(q, itemDisplayName(r.brand, r.name)) }))
+    .map((r) => ({
+      row: r,
+      // Match against name AND the derived search terms, mirroring the Neon target
+      // (coalesce(brand,'') || ' ' || name || ' ' || coalesce(search_terms,'')).
+      score: trigramScore(q, `${itemDisplayName(r.brand, r.name)} ${r.searchTerms ?? ""}`),
+    }))
     .filter((r) => r.score >= SIM_THRESHOLD)
     .sort(
       (a, b) =>
@@ -91,6 +103,7 @@ export function searchCatalogLocal(
       weightMg: Number(row.weightMg),
       weightSource: row.weightSource,
       verified: Boolean(row.verified),
+      searchTerms: row.searchTerms ?? null,
     }));
 }
 
