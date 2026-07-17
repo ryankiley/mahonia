@@ -5,7 +5,7 @@ import { colorKeyForName, nextFolderColor, STARTER_FOLDERS } from "~~/shared/cat
 import { editLinkPath } from "~~/shared/links";
 import { DRAFT_KEY, localKey, rebaseOnto } from "~~/shared/localList";
 import type { Folder, Item, ListSnapshot, Unit } from "~~/shared/types";
-import { bySortOrder, computeTotals, itemsInFolder, nextSortOrder, parseWeightInput } from "~~/shared/weights";
+import { bySortOrder, computeTotals, itemsInFolder, nextSortOrder, parseWeightInput, siblingItems } from "~~/shared/weights";
 
 // Editor controller (one list open at a time → module singleton). Mutations are
 // applied optimistically via the SAME op-reducer the server uses, queued, and
@@ -492,7 +492,11 @@ function create() {
   }
   function removeFolder(id: string) {
     const folder = snapshot.value?.folders.find((f) => f.id === id);
-    const items = itemsInFolder(snapshot.value?.items ?? [], id).map((i) => ({ ...i }));
+    // parents before children so nesting re-links on undo (addItem drops a child whose
+    // parent isn't back yet)
+    const items = itemsInFolder(snapshot.value?.items ?? [], id)
+      .map((i) => ({ ...i }))
+      .sort((a, b) => (a.parentId ? 1 : 0) - (b.parentId ? 1 : 0));
     dispatch({ t: "removeFolder", id });
     if (folder) {
       const f = { ...folder };
@@ -520,10 +524,12 @@ function create() {
   function addBlankItemAfter(afterId: string): string {
     const src = snapshot.value?.items.find((i) => i.id === afterId);
     if (!src) return "";
-    const sibs = itemsInFolder(snapshot.value!.items, src.folderId).sort(bySortOrder);
+    // the new row is a SIBLING of src — a child if src is nested, else top-level
+    const parentId = src.parentId ?? null;
+    const sibs = siblingItems(snapshot.value!.items, src.folderId, parentId).sort(bySortOrder);
     const next = sibs[sibs.findIndex((s) => s.id === afterId) + 1];
-    const id = addBlankItem(src.folderId);
-    if (id && next) moveItem(id, src.folderId, next.id);
+    const id = parentId ? addChild(parentId) : addBlankItem(src.folderId);
+    if (id && next) moveItem(id, src.folderId, next.id, parentId);
     return id;
   }
   // A row that's still untouched-empty removes itself when focus leaves it (the
@@ -536,7 +542,8 @@ function create() {
     if (
       it.name.trim() !== "" || it.unitWeightMg > 0 || it.qty !== 1 ||
       it.description || it.catalogItemId != null ||
-      it.classification != null || it.wornQty != null || it.packed
+      it.classification != null || it.wornQty != null || it.packed ||
+      snapshot.value?.items.some((c) => c.parentId === id) // has nested children
     ) return;
     if (pendingBlankId.value === id) pendingBlankId.value = null;
     dispatch({ t: "removeItem", id });
@@ -548,10 +555,16 @@ function create() {
   }
   function removeItem(id: string) {
     const item = snapshot.value?.items.find((i) => i.id === id);
+    // removing a parent cascades to its children (reducer) — capture them so undo can
+    // restore the whole group
+    const kids = (snapshot.value?.items ?? []).filter((i) => i.parentId === id).map((i) => ({ ...i }));
     dispatch({ t: "removeItem", id });
     if (item) {
       const saved = { ...item };
-      offerUndo(item.name || "Item", () => dispatch({ t: "addItem", item: saved }));
+      offerUndo(item.name || "Item", () => {
+        dispatch({ t: "addItem", item: saved }); // parent first, so children re-link
+        for (const k of kids) dispatch({ t: "addItem", item: k });
+      });
     }
   }
   function setItemWeight(id: string, raw: string) {
@@ -560,25 +573,68 @@ function create() {
     const mg = parseWeightInput(raw, snapshot.value.displayUnit);
     if (mg !== null) updateItem(id, { unitWeightMg: mg, weightOverridden: true });
   }
-  // Drag-to-reorder: move item `id` into `folderId`, positioned before `beforeId`
-  // (null = append to that folder's end). Reindexes the target folder to clean
-  // 0..n-1 integers in the new order — collision-proof and self-healing against
-  // any pre-existing duplicate sortOrders (which would otherwise re-sort
-  // ambiguously on reload). One moveItem op per item that actually shifts; all
-  // batched into a single flush.
-  function moveItem(id: string, folderId: string | null, beforeId: string | null) {
+
+  // ---- nesting (a nested item is just a normal item carrying a parentId) ----
+  // Add a blank child under `parentId` and focus it — the same blank-row machinery as
+  // addBlankItem, positioned as the parent's last child (it inherits the parent's folder).
+  function addChild(parentId: string): string {
+    const parent = snapshot.value?.items.find((i) => i.id === parentId);
+    if (!parent) return "";
+    const id = uid();
+    const sortOrder = nextSortOrder(snapshot.value!.items, parent.folderId, parentId);
+    const item: Item = { id, folderId: parent.folderId, parentId, name: "", unitWeightMg: 0, qty: 1, classification: null, sortOrder };
+    dispatch({ t: "addItem", item });
+    pendingBlankId.value = id;
+    return id;
+  }
+  // Nest `id` under `parentId`, appended to that parent's children (via moveItem so the
+  // folder + sortOrder + parent all move together and the reducer enforces one level).
+  function nestItem(id: string, parentId: string) {
+    const parent = snapshot.value?.items.find((i) => i.id === parentId);
+    if (!parent) return;
+    moveItem(id, parent.folderId, null, parentId);
+  }
+  // Indent: nest a top-level row under the top-level row directly above it (turning two
+  // siblings into parent + child). No-op if there's nothing above or it already nests.
+  function nestUnderAbove(id: string) {
+    const it = snapshot.value?.items.find((i) => i.id === id);
+    if (!it || it.parentId != null) return;
+    const sibs = siblingItems(snapshot.value!.items, it.folderId, null).sort(bySortOrder);
+    const above = sibs[sibs.findIndex((s) => s.id === id) - 1];
+    if (above) nestItem(id, above.id);
+  }
+  // Outdent: un-nest a child back to top-level, dropped right after its former parent.
+  function unnest(id: string) {
+    const it = snapshot.value?.items.find((i) => i.id === id);
+    if (!it || it.parentId == null) return;
+    const top = siblingItems(snapshot.value!.items, it.folderId, null).sort(bySortOrder);
+    const after = top[top.findIndex((s) => s.id === it.parentId) + 1];
+    moveItem(id, it.folderId, after ? after.id : null, null);
+  }
+  // Move item `id` into the container (`folderId`, `parentId`), before `beforeId`
+  // (null = append to the container's end). parentId null = top-level; a string nests it
+  // under that item. Reindexes the target container to clean 0..n-1 integers in the new
+  // order — collision-proof and self-healing against duplicate sortOrders (which would
+  // otherwise re-sort ambiguously on reload). One moveItem op per row that actually
+  // shifts, all batched into a single flush. Only the moved row carries the explicit
+  // parentId; shifted siblings reorder in place (their nesting left untouched).
+  function moveItem(id: string, folderId: string | null, beforeId: string | null, parentId: string | null = null) {
     if (!snapshot.value) return;
     const it = snapshot.value.items.find((i) => i.id === id);
     if (!it) return;
-    const target = itemsInFolder(snapshot.value.items, folderId)
+    const target = siblingItems(snapshot.value.items, folderId, parentId)
       .filter((i) => i.id !== id)
       .sort(bySortOrder);
     let idx = beforeId == null ? target.length : target.findIndex((s) => s.id === beforeId);
     if (idx < 0) idx = target.length;
     const ordered = [...target.slice(0, idx), it, ...target.slice(idx)];
     ordered.forEach((item, i) => {
-      const moved = item.id === id ? item.folderId !== folderId || item.sortOrder !== i : item.sortOrder !== i;
-      if (moved) dispatch({ t: "moveItem", id: item.id, folderId, sortOrder: i });
+      if (item.id === id) {
+        if (item.folderId !== folderId || (item.parentId ?? null) !== parentId || item.sortOrder !== i)
+          dispatch({ t: "moveItem", id, folderId, parentId, sortOrder: i });
+      } else if (item.sortOrder !== i) {
+        dispatch({ t: "moveItem", id: item.id, folderId, sortOrder: i });
+      }
     });
   }
 
@@ -655,6 +711,7 @@ function create() {
     load, startDraft, dispose, rotate,
     setMeta, setUnit, addFolder, updateFolder, removeFolder, moveFolderBefore,
     addBlankItem, addBlankItemAfter, discardEmpty, updateItem, removeItem, setItemWeight, moveItem,
+    addChild, nestItem, nestUnderAbove, unnest,
     pendingBlankId, pendingUndo, undoRemove, holdUndo, releaseUndo,
   };
 }

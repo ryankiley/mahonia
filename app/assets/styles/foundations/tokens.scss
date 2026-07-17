@@ -133,7 +133,13 @@
   --item-col-qty: #{fluid-track(48px, 64px)};
   --item-col-weight: #{fluid-track(68px, 88px)};
   --item-col-class: #{fluid-track(108px, 128px)}; /* min fits "Consumable" at 1rem */
-  --item-cols: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-class) auto; /* edit: name · qty(+L) · weight+unit · class · actions(note+remove+grip) */
+  /* actions column is FIXED, not auto: a row shows 4 or 5 trailing icons (the nesting
+     add/indent/outdent varies), and an auto column would size to that count — stealing
+     from the 1fr name column by a different amount per row and misaligning qty/weight/
+     class. Reserve the widest case (5 × 32px icons + 4 gaps; −9px = the grip's gutter
+     overshoot) so every row's data columns line up regardless of its icon count. */
+  --item-col-actions: calc(5 * 32px + 4 * var(--space-1) - 9px);
+  --item-cols: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-class) var(--item-col-actions); /* edit: name · qty(+L) · weight+unit · class · actions */
   --item-cols-ro: 1fr #{fluid-track(36px, 44px)} #{fluid-track(80px, 96px)}; /* read / checklist: name · qty · weight */
   --item-cols-mobile: 1fr 44px 92px; /* name · qty · weight (controls + grip on row 2) */
   --item-gap: var(--space-4); /* column gap shared by item rows, folder headers + the add row (keeps weights aligned) — 16px so the data columns breathe */

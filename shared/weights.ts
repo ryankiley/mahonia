@@ -118,6 +118,31 @@ export function lineMg(item: Pick<Item, "qty" | "unitWeightMg">): number {
   return Math.max(0, item.qty) * Math.max(0, item.unitWeightMg);
 }
 
+/** An item's nested children (items nested directly under it), in sortOrder. */
+export function childrenOf<T extends { parentId?: string | null; sortOrder: number }>(
+  items: readonly T[],
+  parentId: string,
+): T[] {
+  return items.filter((i) => i.parentId === parentId).sort(bySortOrder);
+}
+
+/** True when an item has nested children (a "parent"/group row). */
+export function hasChildren(items: readonly { parentId?: string | null }[], id: string): boolean {
+  return items.some((i) => i.parentId === id);
+}
+
+/**
+ * A row's GROUP line weight for DISPLAY: the item's own line plus its children's lines.
+ * Totals never use this (they sum each item's OWN line, so a parent + its kids aren't
+ * double-counted) — it's what a parent row shows in its weight column and what a folder
+ * subtotal rolls up per top-level row.
+ */
+export function groupLineMg(item: Item, items: readonly Item[]): number {
+  let mg = lineMg(item);
+  for (const child of items) if (child.parentId === item.id) mg += lineMg(child);
+  return mg;
+}
+
 /** Units of a line that count as worn via the wornQty split.
  *  0 when the split doesn't apply (no wornQty, or effective class ≠ base). */
 export function splitWornQty(
@@ -128,7 +153,9 @@ export function splitWornQty(
   return Math.max(0, Math.min(Math.round(item.wornQty), Math.max(0, item.qty)));
 }
 
-/** Items belonging to a folder (or null = ungrouped), in array order. */
+/** Items belonging to a folder (or null = ungrouped), in array order. Includes nested
+ *  children (they carry their parent's folderId) — callers that want only top-level rows
+ *  pass parentId = null via siblingItems / groupItemsByFolder. */
 export function itemsInFolder<T extends { folderId: string | null }>(
   items: readonly T[],
   folderId: string | null,
@@ -136,18 +163,28 @@ export function itemsInFolder<T extends { folderId: string | null }>(
   return items.filter((i) => i.folderId === folderId);
 }
 
-/**
- * sortOrder that appends a new item at the BOTTOM of a folder: max existing
- * sortOrder + 1, not the item count. Deletes and drag-outs leave holes in a
- * folder's sortOrders (only a move's TARGET folder gets reindexed), so a
- * count-based value can land mid-folder.
- */
-export function nextSortOrder<T extends { folderId: string | null; sortOrder: number }>(
+/** Items sharing a "container" — the same folder AND the same parent (null = top-level).
+ *  This is the sibling set an item reorders within, and where a new sibling appends. */
+export function siblingItems<T extends { folderId: string | null; parentId?: string | null }>(
   items: readonly T[],
   folderId: string | null,
+  parentId: string | null = null,
+): T[] {
+  return items.filter((i) => i.folderId === folderId && (i.parentId ?? null) === parentId);
+}
+
+/**
+ * sortOrder that appends a new item at the BOTTOM of its container (folder + parent):
+ * max existing sibling sortOrder + 1, not the count. Deletes and drag-outs leave holes
+ * (only a move's TARGET container gets reindexed), so a count-based value can land mid-list.
+ */
+export function nextSortOrder<T extends { folderId: string | null; parentId?: string | null; sortOrder: number }>(
+  items: readonly T[],
+  folderId: string | null,
+  parentId: string | null = null,
 ): number {
-  const siblings = itemsInFolder(items, folderId);
-  return siblings.length ? Math.max(...siblings.map((i) => i.sortOrder)) + 1 : 0;
+  const sibs = siblingItems(items, folderId, parentId);
+  return sibs.length ? Math.max(...sibs.map((i) => i.sortOrder)) + 1 : 0;
 }
 
 /**
@@ -177,18 +214,22 @@ export function compareItemsBy(sortBy: FolderSort | undefined, a: Item, b: Item)
   }
 }
 
-/** A folder's items in its chosen sort order. Shared by the exporters so every
- *  surface (editor, share views, Markdown/CSV) orders a folder identically. */
+/** A folder's TOP-LEVEL items in its chosen sort order (nested children render under
+ *  their parent, so they're excluded here). Shared by the exporters so every surface
+ *  (editor, share views, Markdown/CSV) orders a folder identically. */
 export function sortedFolderItems(items: readonly Item[], folder: Folder): Item[] {
-  return itemsInFolder(items, folder.id).sort((a, b) => compareItemsBy(folder.sortBy, a, b));
+  return items
+    .filter((i) => i.folderId === folder.id && i.parentId == null)
+    .sort((a, b) => compareItemsBy(folder.sortBy, a, b));
 }
 
 /**
- * Group items by folder id (ungrouped items excluded), each group ordered by its
- * folder's `sortBy` (manual = sortOrder). One O(items) pass, built once per snapshot
- * — so per-folder consumers (one FolderSection per folder) don't each re-filter and
- * re-sort the whole item array on every edit. Pass `folders` to honor per-folder
- * sorts; omit it and every group falls back to manual sortOrder.
+ * Group TOP-LEVEL items by folder id (ungrouped + nested children excluded), each group
+ * ordered by its folder's `sortBy` (manual = sortOrder). One O(items) pass, built once
+ * per snapshot — so per-folder consumers (one FolderSection per folder) don't each
+ * re-filter and re-sort the whole item array on every edit. Children are rendered by
+ * their parent row (via childrenOf), not as folder rows. Pass `folders` to honor
+ * per-folder sorts; omit it and every group falls back to manual sortOrder.
  */
 export function groupItemsByFolder(
   items: readonly Item[],
@@ -197,7 +238,7 @@ export function groupItemsByFolder(
   const sortByOf = new Map(folders.map((f) => [f.id, f.sortBy]));
   const byFolder = new Map<string, Item[]>();
   for (const item of items) {
-    if (item.folderId == null) continue;
+    if (item.folderId == null || item.parentId != null) continue; // top-level only
     const group = byFolder.get(item.folderId);
     if (group) group.push(item);
     else byFolder.set(item.folderId, [item]);
@@ -233,6 +274,10 @@ export function computeTotals(list: ListData): Totals {
 
   // one lookup table instead of a folders.find() per item — keeps the rollup
   // O(items + folders) (it recomputes on every edit)
+  // Every item — top-level OR nested — is counted ONCE by its own effective class and
+  // own line weight. A nested child carries its own weight/class/folder (it shares its
+  // parent's folder), and a parent container's own weight is usually 0, so summing every
+  // item is exactly total = Σ(all lines) with no parent/child double-count.
   const folderById = new Map(list.folders.map((f) => [f.id, f]));
   for (const item of list.items) {
     const line = lineMg(item);

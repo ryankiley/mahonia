@@ -19,8 +19,9 @@ export function useReadonlyList(snapshot: Ref<ListSnapshot | null>) {
   const roList = computed(() =>
     snapshot.value ? { ...snapshot.value, displayUnit: unit.value } : null,
   );
+  // top-level ungrouped rows only — nested children render under their parent
   const ungrouped = computed(() =>
-    snapshot.value ? snapshot.value.items.filter((i) => !i.folderId) : [],
+    snapshot.value ? snapshot.value.items.filter((i) => !i.folderId && i.parentId == null) : [],
   );
   // a shared list shouldn't show empty folders (one Set pass, not an
   // items.some() scan per folder)

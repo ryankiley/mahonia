@@ -12,7 +12,11 @@ import { readdirSync, readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { brotliCompressSync, gzipSync, constants } from "node:zlib";
 
-const TOTAL_BUDGET_KB = 125; // all client JS + CSS, brotli
+// all client JS + CSS, brotli. Bumped 125→127 for nested items (an item can hold nested
+// items — the same editable row one level down: catalog autocomplete, weight/qty/class,
+// nest/un-nest, drag) landing on a main baseline already grown to ~124.5 by the changelog
+// page + catalog search-terms. ~1.1 KB headroom for the next feature.
+const TOTAL_BUDGET_KB = 127;
 const MAX_CHUNK_BUDGET_KB = 72; // largest single chunk, brotli (the framework runtime)
 
 // First build output that exists: node-server, Vercel preset, or static generate.

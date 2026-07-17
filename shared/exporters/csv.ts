@@ -3,7 +3,7 @@
 
 import type { Item, ListData, ListSnapshot, Unit } from "../types";
 import { nextFolderColor } from "../categories";
-import { bySortOrder, effectiveClassification, fromMg, itemDisplayName, itemsInFolder, sortedFolderItems, splitWornQty, toMg, UNIT_ALIASES } from "../weights";
+import { bySortOrder, childrenOf, effectiveClassification, fromMg, itemDisplayName, sortedFolderItems, splitWornQty, toMg, UNIT_ALIASES } from "../weights";
 import { uid } from "../id";
 
 // Delegate to the shared unit vocabulary (weights.UNIT_ALIASES) so a CSV / LighterPack
@@ -45,10 +45,15 @@ export function listToCsv(list: ListSnapshot): string {
   ];
   // rows follow what the app shows: folders in their order, each folder's items in its
   // chosen sort, then any ungrouped items — so a re-import of a name/weight-sorted list
-  // bakes that visible order in (CSV has no sort field; JSON round-trips sortBy itself)
+  // bakes that visible order in (CSV has no sort field; JSON round-trips sortBy itself).
+  // Each top-level row is immediately followed by its nested children so they stay
+  // adjacent; each item exports its OWN weight (a container parent's is usually blank),
+  // so the flat CSV re-imports with correct totals and no parent/child double-count.
+  // (CSV has no nesting column — children re-import as flat top-level rows.)
+  const withKids = (top: Item[]): Item[] => top.flatMap((it) => [it, ...childrenOf(list.items, it.id)]);
   const ordered: Item[] = [
-    ...[...list.folders].sort(bySortOrder).flatMap((f) => sortedFolderItems(list.items, f)),
-    ...itemsInFolder(list.items, null).sort(bySortOrder),
+    ...[...list.folders].sort(bySortOrder).flatMap((f) => withKids(sortedFolderItems(list.items, f))),
+    ...withKids(list.items.filter((i) => !i.folderId && i.parentId == null).sort(bySortOrder)),
   ];
   for (const it of ordered) {
     const cls = effectiveClassification(it, list.folders);

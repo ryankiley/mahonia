@@ -15,23 +15,44 @@ const MAX_SPLIT_OPTS = 5;
 </script>
 
 <script setup lang="ts">
-import { ChevronDown, GripVertical, StickyNotePlus, StickyNoteX, Trash2, X } from "@lucide/vue";
+import { ChevronDown, GripVertical, IndentDecrease, IndentIncrease, ListPlus, StickyNotePlus, StickyNoteX, Trash2, X } from "@lucide/vue";
 import type { Item, ListSnapshot } from "~~/shared/types";
 import type { ItemPatch } from "~~/shared/ops";
-import { effectiveClassification, formatWeight, fromMg, itemDisplayName, lineMg, parseWeightInput, splitWornQty } from "~~/shared/weights";
+import { bySortOrder, childrenOf, effectiveClassification, formatWeight, fromMg, groupLineMg, itemDisplayName, lineMg, parseWeightInput, splitWornQty } from "~~/shared/weights";
 import { isWaterName, itemQtyLabel, waterLiters, waterMgFromMl } from "~~/shared/water";
 
-// The editor's row — editable by default, a checklist row in packing mode. The
-// share views (/s + /l) render ReadonlyItemRow instead, so this component (and
-// the editor graph it pulls in) never ships to a read-only page.
+// The editor's row — editable by default, a checklist row in packing mode. A nested item
+// renders the SAME row with `nested` set (indented, one level only). The share views
+// (/s + /l) render ReadonlyItemRow instead, so this component (and the editor graph it
+// pulls in) never ships to a read-only page.
 const props = withDefaults(
-  defineProps<{ list: ListSnapshot; item: Item; packed?: boolean }>(),
-  { packed: false },
+  defineProps<{ list: ListSnapshot; item: Item; packed?: boolean; nested?: boolean }>(),
+  { packed: false, nested: false },
 );
 // forwarded up to FolderSection so it can lift its collapse clip while this row's
 // name autocomplete is open (otherwise a dropdown at the folder's bottom is cropped)
 defineEmits<{ autocompleteToggle: [boolean] }>();
 const c = useGearList();
+
+// ---- nesting: children render as the SAME row, indented under this one ----
+// A row with children is a "group": its weight column shows the group total (own +
+// children, read-only, like a folder subtotal); the children carry the real editable
+// weights. Nesting is one level, so a nested row never renders its own children.
+const children = computed(() => (props.nested ? [] : childrenOf(props.list.items, props.item.id)));
+const isParent = computed(() => children.value.length > 0);
+// the group total shown on a parent's read-only weight column (bare number, list unit)
+const groupWeight = computed(() =>
+  formatWeight(groupLineMg(props.item, props.list.items), props.list.displayUnit, { withUnit: false }),
+);
+// Indent (nest under the row above): only a top-level, childless row with a top-level
+// sibling above it can (keeps nesting one level deep). Outdent is offered to any child.
+const canIndent = computed(() => {
+  if (props.nested || isParent.value) return false;
+  const sibs = props.list.items
+    .filter((i) => i.folderId === props.item.folderId && i.parentId == null)
+    .sort(bySortOrder);
+  return sibs.findIndex((s) => s.id === props.item.id) > 0;
+});
 
 // drag-to-reorder (editable rows only)
 const dnd = useItemDnd();
@@ -99,7 +120,7 @@ function onWaterLiters(e: Event) {
 }
 
 function onWeight(e: Event) {
-  if (isWater.value) return; // water weight is derived from its litres field
+  if (isWater.value || isParent.value) return; // water + group weights are derived, not typed
   const el = e.target as HTMLInputElement;
   // "<0.01"-style text is the DISPLAY for a real weight too small to render in the
   // chosen unit — a label, not an entry. Never parse it back (that would overwrite the
@@ -122,7 +143,7 @@ function onQty(e: Event) {
 // arrow keys nudge the weight by a unit-appropriate step (Shift = ×10), so you can
 // tap into the field and increment/decrement without retyping
 function onWeightStep(e: KeyboardEvent, dir: 1 | -1) {
-  if (isWater.value) return; // water weight is derived from its litres field
+  if (isWater.value || isParent.value) return; // water + group weights are derived, not typed
   const unit = props.list.displayUnit;
   const step = (STEP_BY_UNIT[unit] ?? 1) * (e.shiftKey ? 10 : 1);
   const current = fromMg(props.item.unitWeightMg, unit);
@@ -295,6 +316,7 @@ function dismissFix() {
     ref="wrapRef"
     class="item-wrap"
     :data-item-id="item.id"
+    :data-parent="item.parentId || null"
     :class="{ 'is-dragging': isDragging, 'is-drop-before': isDropBefore }"
     :style="isDragging ? { '--drag-dy': dnd.dy.value + 'px' } : undefined"
     @focusout="onRowBlur"
@@ -334,14 +356,15 @@ function dismissFix() {
         <div class="item__weight">
           <input
             class="field field--num"
-            :value="weightDisplay"
+            :value="isParent ? groupWeight : weightDisplay"
             placeholder="--"
             aria-label="Weight"
             autocomplete="off"
             autocorrect="off"
             autocapitalize="off"
             spellcheck="false"
-            :readonly="isWater"
+            :readonly="isWater || isParent"
+            :title="isParent ? 'Total of this group (its nested items)' : undefined"
             @focus="onWeightFocus"
             @change="onWeight"
             @keydown.up.prevent="onWeightStep($event, 1)"
@@ -371,6 +394,39 @@ function dismissFix() {
                blank row discards itself before the click can act (e.g. the note
                button would delete the row instead of opening the note field).
                Preventing the default keeps focus where it was; click still fires. -->
+          <!-- add a nested item under this row (icon; a nested row can't nest further) -->
+          <button
+            v-if="!nested"
+            class="btn btn--icon btn--ghost item__nest-btn"
+            title="Add a nested item"
+            aria-label="Add a nested item"
+            @mousedown.prevent
+            @click="c.addChild(item.id)"
+          >
+            <ListPlus :size="16" />
+          </button>
+          <!-- nesting: a child un-nests (outdent); a top-level row with a sibling above
+               nests under it (indent). Reparenting is only these actions — never a drag. -->
+          <button
+            v-if="nested"
+            class="btn btn--icon btn--ghost item__nest-btn"
+            title="Un-nest (move out)"
+            aria-label="Un-nest item"
+            @mousedown.prevent
+            @click="c.unnest(item.id)"
+          >
+            <IndentDecrease :size="16" />
+          </button>
+          <button
+            v-else-if="canIndent"
+            class="btn btn--icon btn--ghost item__nest-btn"
+            title="Nest under the item above"
+            aria-label="Nest under the item above"
+            @mousedown.prevent
+            @click="c.nestUnderAbove(item.id)"
+          >
+            <IndentIncrease :size="16" />
+          </button>
           <button
             class="btn btn--icon btn--ghost item__del"
             title="Remove item"
@@ -439,6 +495,24 @@ function dismissFix() {
         </div>
       </div>
     </Transition>
+
+    <!-- nested items: the SAME editable row, one level down, in a block indented behind a
+         hairline thread line. Their real weights sum into this row's weight column. New
+         children come from the ListPlus action above OR the ever-present "Add an item"
+         below (mirrors the folder's, so growing a group doesn't need a hover). -->
+    <div v-if="!nested && isParent" class="item-nest">
+      <ItemRow
+        v-for="child in children"
+        :key="child.id"
+        :list="list"
+        :item="child"
+        nested
+        @autocomplete-toggle="$emit('autocompleteToggle', $event)"
+      />
+      <button type="button" class="item-nest__add" @mousedown.prevent @click="c.addChild(item.id)">
+        Add an item
+      </button>
+    </div>
   </div>
 </template>
 
@@ -629,6 +703,7 @@ function dismissFix() {
 }
 .item__grip,
 .item__note-btn,
+.item__nest-btn,
 .item__del {
   color: var(--ink-3);
   transition: color var(--dur) var(--ease);
@@ -638,6 +713,7 @@ function dismissFix() {
 }
 .item__grip:hover,
 .item__note-btn:hover,
+.item__nest-btn:hover,
 .item__del:hover {
   color: var(--ink);
 }
@@ -704,8 +780,13 @@ function dismissFix() {
    (it's the affordance for the row). Opacity only (not display), so revealing never
    shifts the layout. Touch (hover: none) keeps everything visible. */
 @media (hover: hover) {
+  /* desktop: keep rows clean — remove + note + nest fade in on row hover/focus (the
+     note stays lit when a note exists, but still HIDES at rest like the delete). The
+     grip stays put. `> .item` scopes the reveal to a row's OWN cluster so hovering a
+     parent doesn't reveal every nested child's icons. */
   .item__del,
-  .item__note-btn:not(.is-active) {
+  .item__note-btn:not(.is-active),
+  .item__nest-btn {
     opacity: 0;
     transition: opacity var(--dur) var(--ease);
     /* keep a standing compositing layer so Safari doesn't re-snap the icon ~1px when
@@ -713,8 +794,8 @@ function dismissFix() {
        with will-change on .folder__chev) */
     will-change: opacity;
   }
-  .item-wrap:hover :is(.item__del, .item__note-btn),
-  .item-wrap:focus-within :is(.item__del, .item__note-btn) {
+  .item-wrap:hover > .item :is(.item__del, .item__note-btn, .item__nest-btn),
+  .item-wrap:focus-within > .item :is(.item__del, .item__note-btn, .item__nest-btn) {
     opacity: 1;
   }
 }
@@ -821,6 +902,39 @@ function dismissFix() {
   color: var(--ink);
 }
 
+/* nested items — the SAME editable rows, one level deep, in a block indented behind a
+   hairline "thread" line. The WHOLE row indents uniformly (via the container), so the
+   name and its number line sit at the same indent — which matters most on the two-line
+   mobile layout, where indenting just the name left the ×qty·weight line stranded flush.
+   No rules between nested rows: they read as one quiet group, spaced only by the gap. */
+.item-nest {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: var(--space-3) 0 0 var(--space-4);
+  padding-left: var(--space-4);
+  border-left: 1px solid var(--line);
+}
+/* ever-present "Add an item" at the bottom of a group — mirrors the folder's add row
+   (quiet dim text, flush with the nested names), so growing a group needs no hover. It
+   sits inside the thread line with the rest of the nested block; no horizontal rule. */
+.item-nest__add {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: var(--space-1) 0;
+  background: none;
+  border: 0;
+  font-size: var(--text-base);
+  color: var(--ink-3);
+  cursor: pointer;
+  transition: color var(--dur) var(--ease);
+}
+.item-nest__add:hover {
+  color: var(--ink);
+}
+
 @media (max-width: 720px) {
   /* the full-width name gets its own line so long product names never truncate;
      qty · weight · class + the controls reflow into a flex-wrap row beneath it,
@@ -874,6 +988,16 @@ function dismissFix() {
     min-height: 0;
     height: 2.75rem;
     margin-block: -0.65rem;
+  }
+  /* keep note / delete / nest visible at rest on small viewports — the hover:hover
+     reveal above assumes a mouse, but this breakpoint is also hit by touch devices
+     that report hover:hover and by a narrowed desktop window, where a hover you
+     can't perform (or don't have room for) shouldn't be the only way to reach them.
+     `.item-wrap` prefix lifts specificity past the reveal's `:not(.is-active)`. */
+  .item-wrap .item__del,
+  .item-wrap .item__note-btn,
+  .item-wrap .item__nest-btn {
+    opacity: 1;
   }
   /* the classification label is the only flexible piece — it ellipsizes on very
      narrow screens so qty/weight/controls keep their place on the single row */
