@@ -7,6 +7,9 @@
     ],
     "changed": [
       "Combined the Privacy and Terms pages into a single Legal page."
+    ],
+    "fixed": [
+      "Search an accented brand by its plain spelling — typing \"Fjallraven\" now finds Fjällräven (and Klattermusen finds Klättermusen)."
     ]
   },
   {
