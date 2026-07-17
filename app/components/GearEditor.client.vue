@@ -73,8 +73,9 @@ useSeoMeta({
   ogDescription: () => seoDesc.value,
 });
 // items whose folder was removed (e.g. by a concurrent editor) land here, not as invisible ghosts
+// top-level ungrouped rows only — nested children render under their parent (via ItemRow)
 const ungrouped = computed(() =>
-  snapshot.value ? snapshot.value.items.filter((i) => !i.folderId) : [],
+  snapshot.value ? snapshot.value.items.filter((i) => !i.folderId && i.parentId == null) : [],
 );
 // render folders in sortOrder so drag-reorder (moveFolderBefore) reflects immediately
 const sortedFolders = computed(() =>

@@ -19,7 +19,9 @@ export type Op =
   | { t: "addItem"; item: Item }
   | { t: "updateItem"; id: string; patch: ItemPatch }
   | { t: "removeItem"; id: string }
-  | { t: "moveItem"; id: string; folderId: string | null; sortOrder: number }
+  // moveItem reorders + reparents in one op. parentId: undefined = leave nesting as-is
+  // (a plain reorder); null = top-level; a string = nest under that item.
+  | { t: "moveItem"; id: string; folderId: string | null; sortOrder: number; parentId?: string | null }
   | { t: "addFolder"; folder: Folder }
   | { t: "updateFolder"; id: string; patch: Partial<Folder> }
   | { t: "removeFolder"; id: string }
@@ -123,6 +125,13 @@ function applyOp(state: ListState, op: Op): void {
         const it = normalizeItem(op.item);
         // coerce a dangling folderId (e.g. folder deleted by a concurrent editor) to null
         if (it.folderId && !state.folders.some((f) => f.id === it.folderId)) it.folderId = null;
+        // a valid child inherits its parent's folder; a dangling/non-top-level/self
+        // parent coerces to top-level (keeps nesting one level deep + acyclic)
+        if (it.parentId) {
+          const parent = state.items.find((p) => p.id === it.parentId);
+          if (parent && parent.parentId == null && parent.id !== it.id) it.folderId = parent.folderId;
+          else it.parentId = null;
+        }
         state.items.push(it);
       }
       break;
@@ -150,12 +159,28 @@ function applyOp(state: ListState, op: Op): void {
       break;
     }
     case "removeItem":
-      state.items = state.items.filter((i) => i.id !== op.id);
+      // removing a parent takes its nested children with it (they can't outlive it)
+      state.items = state.items.filter((i) => i.id !== op.id && i.parentId !== op.id);
       break;
     case "moveItem": {
       const it = state.items.find((i) => i.id === op.id);
       if (it) {
-        if (op.folderId === null) it.folderId = null;
+        // reparent (only when the op carries a parentId; undefined = leave as-is). A
+        // valid parent must exist, be top-level, differ from this item, and this item
+        // must not itself have children — keeping nesting one level deep + acyclic.
+        if (op.parentId !== undefined) {
+          let parentId: string | null = null;
+          if (typeof op.parentId === "string" && op.parentId !== op.id) {
+            const parent = state.items.find((p) => p.id === op.parentId);
+            const hasKids = state.items.some((c) => c.parentId === op.id);
+            if (parent && parent.parentId == null && !hasKids) parentId = op.parentId;
+          }
+          it.parentId = parentId;
+        }
+        // a child always follows its parent's folder; otherwise honor the op's folder
+        const parent = it.parentId ? state.items.find((p) => p.id === it.parentId) : null;
+        if (parent) it.folderId = parent.folderId;
+        else if (op.folderId === null) it.folderId = null;
         else if (typeof op.folderId === "string")
           it.folderId = state.folders.some((f) => f.id === op.folderId) ? op.folderId : null;
         if (typeof op.sortOrder === "number") it.sortOrder = op.sortOrder;
@@ -213,6 +238,9 @@ export function normalizeItem(raw: Item): Item {
   return {
     id: String(raw.id).slice(0, MAX_ID_LEN),
     folderId: typeof raw.folderId === "string" ? raw.folderId.slice(0, MAX_ID_LEN) : null,
+    // the item this is nested under (validated against real, top-level items by the
+    // addItem/moveItem reducer cases, which can see the whole list; here we only clamp)
+    parentId: typeof raw.parentId === "string" ? raw.parentId.slice(0, MAX_ID_LEN) : null,
     name: String(raw.name ?? "").slice(0, 200),
     brand: raw.brand ? String(raw.brand).slice(0, 120) : undefined,
     variant: raw.variant ? String(raw.variant).slice(0, 120) : undefined,

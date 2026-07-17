@@ -27,6 +27,13 @@ export interface Folder {
 export interface Item {
   id: string; // client-generated
   folderId: string | null;
+  // Nesting: the item this one is nested UNDER (a tent's fly/poles/stakes sit under the
+  // tent). Absent/null = a top-level row. A nested item is a NORMAL item in every way —
+  // same fields, same editor row, its own weight/qty/class/catalog link — it just renders
+  // indented under its parent, and its parent's line shows the group total (own + kids).
+  // Nesting is ONE level deep (a child can't itself be a parent); the reducer enforces it.
+  // A child always shares its parent's folderId (kept in sync on nest/move).
+  parentId?: string | null;
   name: string; // product name (the model, when brand/variant are split out)
   brand?: string; // company / maker
   variant?: string; // size/config qualifier (rendered dimmed); set from a catalog pick

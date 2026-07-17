@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { applyOps, type Op } from "../shared/ops";
-import type { ListState } from "../shared/types";
+import { applyOps, normalizeItem, type Op } from "../shared/ops";
+import type { Item, ListState } from "../shared/types";
 
 const base = (): ListState => ({
   title: "T",
@@ -234,3 +234,73 @@ describe("wornQty (the worn split on a base line)", () => {
     expect(s.folders.find((f) => f.id === "fb")!.sortBy).toBeUndefined();
   });
 });
+
+describe("nesting (parentId)", () => {
+  const parent = (id: string, over: Record<string, unknown> = {}): Op => ({
+    t: "addItem",
+    item: { id, folderId: "f1", name: id, unitWeightMg: 0, qty: 1, classification: null, sortOrder: 0, ...over } as any,
+  });
+  const childOf = (id: string, parentId: string, over: Record<string, unknown> = {}): Op => ({
+    t: "addItem",
+    item: { id, folderId: "f1", parentId, name: id, unitWeightMg: 100, qty: 1, classification: null, sortOrder: 0, ...over } as any,
+  });
+
+  it("addItem with a valid parent nests it (and inherits the parent's folder)", () => {
+    const s = base();
+    applyOps(s, [parent("tent"), childOf("fly", "tent", { folderId: "f2" })]);
+    const fly = s.items.find((i) => i.id === "fly")!;
+    expect(fly.parentId).toBe("tent");
+    expect(fly.folderId).toBe("f1"); // follows the parent's folder, not the op's f2
+  });
+
+  it("addItem with a dangling / self parent coerces to top-level", () => {
+    const s = base();
+    applyOps(s, [parent("tent"), childOf("ghost", "nope"), { t: "addItem", item: { id: "self", folderId: "f1", parentId: "self", name: "x", unitWeightMg: 0, qty: 1, classification: null, sortOrder: 0 } as any }]);
+    expect(s.items.find((i) => i.id === "ghost")!.parentId).toBeNull();
+    expect(s.items.find((i) => i.id === "self")!.parentId).toBeNull();
+  });
+
+  it("moveItem reparents; nesting is one level (can't nest under a child, or nest a parent)", () => {
+    const s = base();
+    applyOps(s, [parent("tent"), childOf("fly", "tent"), parent("pack", { sortOrder: 1 })]);
+    // nest pack under tent
+    applyOps(s, [{ t: "moveItem", id: "pack", folderId: "f1", parentId: "tent", sortOrder: 1 }]);
+    expect(s.items.find((i) => i.id === "pack")!.parentId).toBe("tent");
+    // can't nest under a CHILD (fly) — stays top-level (parentId cleared)
+    applyOps(s, [parent("bag", { sortOrder: 2 }), { t: "moveItem", id: "bag", folderId: "f1", parentId: "fly", sortOrder: 0 }]);
+    expect(s.items.find((i) => i.id === "bag")!.parentId).toBeNull();
+    // tent HAS children, so it can't itself be nested under pack — stays top-level
+    applyOps(s, [{ t: "moveItem", id: "tent", folderId: "f1", parentId: "pack", sortOrder: 0 }]);
+    expect(s.items.find((i) => i.id === "tent")!.parentId).toBeNull();
+  });
+
+  it("moveItem with no parentId is a plain reorder — nesting is left unchanged", () => {
+    const s = base();
+    applyOps(s, [parent("tent"), childOf("fly", "tent")]);
+    applyOps(s, [{ t: "moveItem", id: "fly", folderId: "f1", sortOrder: 5 }]);
+    const fly = s.items.find((i) => i.id === "fly")!;
+    expect(fly.parentId).toBe("tent"); // still nested
+    expect(fly.sortOrder).toBe(5);
+  });
+
+  it("removeItem cascades to the item's nested children", () => {
+    const s = base();
+    applyOps(s, [parent("tent"), childOf("fly", "tent"), childOf("inner", "tent"), parent("pack", { sortOrder: 1 })]);
+    applyOps(s, [{ t: "removeItem", id: "tent" }]);
+    expect(s.items.map((i) => i.id)).toEqual(["pack"]); // tent + both children gone
+  });
+
+  it("removeFolder takes nested children with it (they carry the parent's folderId)", () => {
+    const s = base();
+    applyOps(s, [parent("tent"), childOf("fly", "tent")]);
+    applyOps(s, [{ t: "removeFolder", id: "f1" }]);
+    expect(s.items).toEqual([]);
+  });
+
+  it("normalizeItem clamps parentId to a string or null", () => {
+    expect(normalizeItem({ id: "a", parentId: "p" } as unknown as Item).parentId).toBe("p");
+    expect(normalizeItem({ id: "a" } as unknown as Item).parentId).toBeNull();
+    expect(normalizeItem({ id: "a", parentId: 42 } as unknown as Item).parentId).toBeNull();
+  });
+});
+

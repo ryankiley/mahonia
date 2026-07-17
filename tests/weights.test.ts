@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  childrenOf,
   compareItemsBy,
   computeTotals,
   effectiveClassification,
@@ -7,6 +8,7 @@ import {
   formatWeightAuto,
   fromMg,
   groupItemsByFolder,
+  groupLineMg,
   nextSortOrder,
   parseWeightInput,
   sortedFolderItems,
@@ -346,5 +348,69 @@ describe("sortedFolderItems", () => {
       item({ id: "other", folderId: "f2", name: "Zzz", sortOrder: 0 }),
     ];
     expect(sortedFolderItems(items, f).map((i) => i.id)).toEqual(["a", "c"]);
+  });
+});
+
+describe("nesting (a nested item is just an item with a parentId)", () => {
+  it("childrenOf returns the item's children in sortOrder; groupLineMg = own + children", () => {
+    const items = [
+      item({ id: "tent", folderId: "f1", unitWeightMg: 0 }), // a pure container
+      item({ id: "fly", folderId: "f1", parentId: "tent", unitWeightMg: 720_000, sortOrder: 1 }),
+      item({ id: "inner", folderId: "f1", parentId: "tent", unitWeightMg: 840_000, sortOrder: 0 }),
+      item({ id: "stakes", folderId: "f1", parentId: "tent", unitWeightMg: 12_000, qty: 8, sortOrder: 2 }),
+      item({ id: "solo", folderId: "f1", unitWeightMg: 5_000 }),
+    ];
+    expect(childrenOf(items, "tent").map((i) => i.id)).toEqual(["inner", "fly", "stakes"]);
+    expect(childrenOf(items, "solo")).toEqual([]);
+    // 0 (own) + 840k + 720k + 8×12k = 1,656,000
+    expect(groupLineMg(items[0]!, items)).toBe(1_656_000);
+  });
+
+  it("computeTotals counts every item once by its OWN class — parent + children, no double", () => {
+    // a container tent (own 0) with three parts; totals sum each item's own line so the
+    // group total = Σ children, counted exactly once.
+    const items = [
+      item({ id: "tent", folderId: "f1", unitWeightMg: 0 }),
+      item({ id: "inner", folderId: "f1", parentId: "tent", unitWeightMg: 840_000 }),
+      item({ id: "fly", folderId: "f1", parentId: "tent", unitWeightMg: 720_000 }),
+    ];
+    const t = computeTotals({ folders: [folder("f1", "base")], items });
+    expect(t.totalMg).toBe(1_560_000);
+    expect(t.baseMg).toBe(1_560_000);
+  });
+
+  it("a nested item carries its own class — a cook kit's consumable fuel lands in consumable", () => {
+    const items = [
+      item({ id: "cook", folderId: "f1", unitWeightMg: 0 }),
+      item({ id: "pot", folderId: "f1", parentId: "cook", unitWeightMg: 300_000 }), // inherits base
+      item({ id: "fuel", folderId: "f1", parentId: "cook", unitWeightMg: 15_000, qty: 8, classification: "consumable" }),
+    ];
+    const t = computeTotals({ folders: [folder("f1", "base")], items });
+    expect(t.totalMg).toBe(420_000);
+    expect(t.consumableMg).toBe(120_000); // 8 × 15 g fuel
+    expect(t.baseMg).toBe(300_000); // the pot
+  });
+
+  it("a nested item inherits its (parent's) folder default class", () => {
+    // children share the parent's folderId, so they inherit the folder default like any item
+    const items = [
+      item({ id: "gloves", folderId: "fw", unitWeightMg: 0 }),
+      item({ id: "shell", folderId: "fw", parentId: "gloves", unitWeightMg: 60_000 }), // inherits worn
+      item({ id: "liner", folderId: "fw", parentId: "gloves", unitWeightMg: 30_000, classification: "base" }),
+    ];
+    const t = computeTotals({ folders: [folder("fw", "worn")], items });
+    expect(t.wornMg).toBe(60_000);
+    expect(t.baseMg).toBe(30_000);
+  });
+
+  it("groupItemsByFolder / sortedFolderItems return TOP-LEVEL rows only (children render nested)", () => {
+    const f: Folder = { id: "f1", name: "f1", defaultClassification: "base", sortOrder: 0 };
+    const items = [
+      item({ id: "tent", folderId: "f1", sortOrder: 0 }),
+      item({ id: "fly", folderId: "f1", parentId: "tent", sortOrder: 0 }),
+      item({ id: "pack", folderId: "f1", sortOrder: 1 }),
+    ];
+    expect(groupItemsByFolder(items).get("f1")!.map((i) => i.id)).toEqual(["tent", "pack"]);
+    expect(sortedFolderItems(items, f).map((i) => i.id)).toEqual(["tent", "pack"]);
   });
 });
