@@ -100,6 +100,17 @@
       "quote": "Women: 9.9oz / 280.7g per shoe | pair = 561 g (2× per-shoe)"
     },
     {
+      "brand": "Cumulus",
+      "name": "Incredilite Endurance",
+      "variant": "Women's down jacket",
+      "category_hint": "clothing",
+      "weight_value": 325,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://cumulus.equipment/us_en/women-down-jacket-incredilite-endurance-lady.html",
+      "quote": "MASA 325 g"
+    },
+    {
       "brand": "Danner",
       "name": "Mountain 600",
       "variant": "Women's",
@@ -276,6 +287,28 @@
       "quote": "WEIGHT: 8.8 oz / 250 g per shoe | pair = 499 g (2× per-shoe)"
     },
     {
+      "brand": "La Sportiva",
+      "name": "Ethereal Pro Jacket",
+      "variant": "Women's M",
+      "category_hint": "clothing",
+      "weight_value": 144,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.lasportivausa.com/products/ethereal-pro-jacket-womens",
+      "quote": "WEIGHT: 144 g / 5.1 oz"
+    },
+    {
+      "brand": "La Sportiva",
+      "name": "Lumina 200 Down Jacket",
+      "variant": "Women's",
+      "category_hint": "clothing",
+      "weight_value": 206,
+      "weight_unit": "g",
+      "weight_source": "measured",
+      "source_url": "https://www.treelinereview.com/gearreviews/la-sportiva-lumina-down-jacket-review",
+      "quote": "7.2 oz / 206 g (women's)"
+    },
+    {
       "brand": "LightHeart Gear",
       "name": "Alpha Direct 90 Hoodie",
       "variant": "Women's M",
@@ -307,6 +340,94 @@
       "weight_source": "manufacturer",
       "source_url": "https://www.merrell.com/US/en/moab-3/51004W.html",
       "quote": "Half pair weight: 0lbs-12.34oz, 350g | pair = 700 g (2× per-shoe)"
+    },
+    {
+      "brand": "Montbell",
+      "name": "Alpine Light Down Parka",
+      "variant": "Women's M",
+      "category_hint": "clothing",
+      "weight_value": 363,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.montbell.com/us/en/products/detail/2301430",
+      "quote": "Weight： 12.8 oz / 363 g"
+    },
+    {
+      "brand": "Montbell",
+      "name": "EX Light Down Jacket",
+      "variant": "Women's M, full-zip",
+      "category_hint": "clothing",
+      "weight_value": 135,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://web.archive.org/web/20160113231637/http://www.montbell.us/products/disp.php?p_id=2301345",
+      "quote": "Weight 4.8 oz. (135 g)"
+    },
+    {
+      "brand": "Montbell",
+      "name": "Storm Cruiser Jacket",
+      "variant": "Women's M",
+      "category_hint": "clothing",
+      "weight_value": 253,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.montbell.com/us/en/products/detail/2328175",
+      "quote": "Weight： 8.9 oz / 253 g"
+    },
+    {
+      "brand": "Montbell",
+      "name": "Tempest Jacket",
+      "variant": "Women's",
+      "category_hint": "clothing",
+      "weight_value": 223,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.montbell.com/us/en/products/detail/1128723",
+      "quote": "Weight： 7.9 oz / 223 g"
+    },
+    {
+      "brand": "Montbell",
+      "name": "Trekking Gloves",
+      "variant": "Women's",
+      "category_hint": "clothing",
+      "weight_value": 49,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.montbell.com/us/en/products/detail/1118310",
+      "quote": "Weight： 1.7 oz / 49 g"
+    },
+    {
+      "brand": "Montbell",
+      "name": "Versalite Jacket",
+      "variant": "Women's M",
+      "category_hint": "clothing",
+      "weight_value": 165,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.montbell.com/us/en/products/detail/2328170",
+      "quote": "Weight： 5.8 oz / 165 g"
+    },
+    {
+      "brand": "Montbell",
+      "name": "Versalite Pants",
+      "variant": "Women's M",
+      "category_hint": "clothing",
+      "weight_value": 83,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.montbell.com/us/en/products/detail/2328233",
+      "quote": "Weight： 2.9 oz / 83 g"
+    },
+    {
+      "brand": "Montbell",
+      "name": "Zeo-Line Light Weight Round Neck Shirt",
+      "variant": "Women's",
+      "category_hint": "clothing",
+      "weight_value": 90,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.montbell.com/us/en/products/detail/1107733",
+      "quote": "Weight： 3.2 oz / 90 g"
     },
     {
       "brand": "Mountain Hardwear",
@@ -694,6 +815,39 @@
       "quote": "Weight: 464 g (Reference size: medium-sized pair)"
     },
     {
+      "brand": "SkyGOAT",
+      "name": "Women's Full Zip Fleece Jacket",
+      "variant": "Medium",
+      "category_hint": "clothing",
+      "weight_value": 275,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://web.archive.org/web/20250513103243/https://www.garagegrowngear.com/products/womens-full-zip-fleece-hoodie-by-skygoat",
+      "quote": "Weight: X-Small : 8.8oz | 249g Small : 9.2oz | 261g Medium : 9.7oz | 275g Large : 10.2oz | 289g"
+    },
+    {
+      "brand": "Smartwool",
+      "name": "Merino 150 Base Layer Long Sleeve",
+      "variant": "Women's M",
+      "category_hint": "clothing",
+      "weight_value": 133,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://web.archive.org/web/20190520002111/https://www.smartwool.com/shop/womens-merino-150-base-layer-long-sleeve-SW015255?variationId=001",
+      "quote": "Garment Weight: 133 g = 4.7 oz"
+    },
+    {
+      "brand": "Territory Run Co.",
+      "name": "Women's Long Haul Short",
+      "variant": "Medium",
+      "category_hint": "clothing",
+      "weight_value": 4,
+      "weight_unit": "oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://web.archive.org/web/20240713070703/https://www.garagegrowngear.com/products/womens-long-haul-short-by-territory-run-co",
+      "quote": "Weight: 4oz (size medium)"
+    },
+    {
       "brand": "Teton Bros",
       "name": "Wind River Hoody",
       "variant": "Women's M",
@@ -716,6 +870,17 @@
       "quote": "Measured Weight (per pair): 10.0 oz (size 6.5)"
     },
     {
+      "brand": "The North Face",
+      "name": "ThermoBall Eco Hoodie",
+      "variant": "Women's M",
+      "category_hint": "clothing",
+      "weight_value": 390,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.bobssportschalet.com/the-north-face/the-north-face-thermoball-eco--23465",
+      "quote": "Avg Weight: 390 g (13.76 oz)"
+    },
+    {
       "brand": "Topo Athletic",
       "name": "Pursuit 2",
       "variant": "Women's",
@@ -736,6 +901,39 @@
       "weight_source": "manufacturer",
       "source_url": "https://www.topoathletic.com/womens-ultraventure-4",
       "quote": "Weight: 8.2 OZ (W7) per shoe | pair = 465 g (2× per-shoe)"
+    },
+    {
+      "brand": "WIDE OPEN Socks",
+      "name": "Women's Stripe Cushioned Quarter Crew Socks",
+      "variant": "M",
+      "category_hint": "clothing",
+      "weight_value": 56,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.garagegrowngear.com/products/womens-stripe-cushioned-quarter-crew-socks-by-wide-open-socks",
+      "quote": "Weight: 2oz | 56g (medium)"
+    },
+    {
+      "brand": "Wūru Wool",
+      "name": "Women's 100% Merino Short Sleeve Shirt",
+      "variant": "Size M",
+      "category_hint": "clothing",
+      "weight_value": 198,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.garagegrowngear.com/products/womens-100-merino-relaxed-crew-short-sleeve-by-wuru-wool",
+      "quote": "Weight: 7oz | 198g (medium)"
+    },
+    {
+      "brand": "XOSKIN",
+      "name": "Women's XOUNDERWEAR Seamless Liner Shorts Midi",
+      "variant": "",
+      "category_hint": "clothing",
+      "weight_value": 2.2,
+      "weight_unit": "oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.xoskin.us/31-XOUNDERWEAR-Seamless-Liner-with-2-Way-Stretch-XO-Waist-Band-New-Release-Made-in-the-USA/31-Womens-XOUNDERWEAR-Seamless-Liner-Shorts-Midi-with-2-Way-Stretch-XO-Waist-Band-has-a-proprietary-highly-breathable-mesh-throughout-the-garment-to-rapidly-wick-moisture-away-from-your-skin-Made-in-the-USA/",
+      "quote": "Weighing in at +-2.2 ounces it is the lightest performance underwear on the market."
     },
     {
       "brand": "Granite Gear",
