@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Flag, Globe } from "@lucide/vue";
+import { Globe } from "@lucide/vue";
 import type { ListSnapshot } from "~~/shared/types";
 
 const route = useRoute();
@@ -25,28 +25,8 @@ useHead(() => ({
   title: snapshot.value ? `${snapshot.value.title} — Mahonia` : "List not found — Mahonia",
   link: [{ rel: "canonical", href: `/l/${slug.value}` }],
 }));
-
-// Report — flag for review (hides from the feed pending moderation).
-const { confirm: askConfirm } = useDialogs();
-const reported = ref(false);
-const reporting = ref(false);
-async function report() {
-  if (reported.value || reporting.value) return;
-  if (!(await askConfirm({
-    title: "Report this list",
-    message: "Report this list as spam or inappropriate? It will be hidden from the feed pending review.",
-    confirmLabel: "Report",
-  }))) return;
-  reporting.value = true;
-  try {
-    await $fetch("/api/lists/report", { method: "POST", body: { slug: slug.value } });
-    reported.value = true;
-  } catch {
-    /* swallow — the affordance is best-effort */
-  } finally {
-    reporting.value = false;
-  }
-}
+// "Report list" lives in the ⋯ menu (ReadonlyMenu) now — shared with /s and gated
+// on isPublic there — so this page no longer carries its own report affordance.
 </script>
 
 <template>
@@ -75,15 +55,6 @@ async function report() {
         </div>
       </template>
 
-      <template #footer>
-        <footer class="view__footer">
-          <button v-if="!reported" class="btn btn--sm btn--ghost view__report" :disabled="reporting" @click="report">
-            <Flag :size="13" /> Report list
-          </button>
-          <span v-else class="t-sm t-muted">Reported. Thanks, we’ll take a look.</span>
-        </footer>
-      </template>
-
       <template #missing>This list isn’t public (or doesn’t exist).</template>
     </ReadonlyListView>
   </div>
@@ -108,16 +79,5 @@ async function report() {
 }
 .view__desc {
   max-width: 60ch;
-}
-.view__footer {
-  margin-top: var(--space-4);
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--line);
-}
-.view__report {
-  color: var(--ink-3);
-}
-.view__report:hover {
-  color: var(--ink);
 }
 </style>
