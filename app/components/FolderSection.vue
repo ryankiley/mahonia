@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ChevronDown, GripVertical, Trash2 } from "@lucide/vue";
-import type { Folder, Item, ListSnapshot } from "~~/shared/types";
+import { ArrowDown10, ArrowDownAZ, ArrowDownUp, ArrowUp01, ChevronDown, GripVertical, Trash2 } from "@lucide/vue";
+import type { Folder, FolderSort, Item, ListSnapshot } from "~~/shared/types";
 
 // The editor's folder — editable by default, a checklist in packing mode. The
 // share views (/s + /l) render ReadonlyFolderSection instead, so this component
@@ -35,6 +35,28 @@ const anyItemDrag = computed(() => dnd.dragId.value != null);
 const acOpenCount = ref(0);
 function onAcToggle(open: boolean) {
   acOpenCount.value = Math.max(0, acOpenCount.value + (open ? 1 : -1));
+}
+
+// per-folder "sort by": manual (drag order) is the default; name/weight are derived
+// views the parent's groupItemsByFolder recomputes each render, so they stay sorted
+// as items change. The control's glyph reflects the active mode (and lights up when
+// it's not manual, so a sorted folder is legible at a glance without opening it).
+// Glyphs read as a matched "sort key" family: A–Z for the name sort, digits for the
+// numeric (weight) sorts; the weight arrow flips (down = heaviest/descending, up =
+// lightest/ascending) so the two weight modes are distinguishable at 16px, where the
+// digit order alone (1-0 vs 0-1) isn't.
+const SORT_META: Record<FolderSort, { label: string; icon: typeof ArrowDownUp }> = {
+  manual: { label: "Manual order", icon: ArrowDownUp },
+  name: { label: "Name (A–Z)", icon: ArrowDownAZ },
+  heaviest: { label: "Heaviest first", icon: ArrowDown10 },
+  lightest: { label: "Lightest first", icon: ArrowUp01 },
+};
+const SORT_ORDER: FolderSort[] = ["manual", "name", "heaviest", "lightest"];
+const sortBy = computed<FolderSort>(() => props.folder.sortBy ?? "manual");
+const isSorted = computed(() => sortBy.value !== "manual");
+const sortIcon = computed(() => SORT_META[sortBy.value].icon);
+function onSort(e: Event) {
+  c.updateFolder(props.folder.id, { sortBy: (e.target as HTMLSelectElement).value as FolderSort });
 }
 
 // drag-to-reorder folders via the grip handle (a drop line shows where it lands)
@@ -82,6 +104,7 @@ function toggleCollapsed() {
   <section
     class="folder"
     :data-folder="folder.id"
+    :data-sort="sortBy"
     :data-collapsed="collapsed || null"
     :class="{ 'folder--dragging': isFolderDragging, 'folder--drop-before': isDropBefore, 'folder--drop-after': isDropAfter }"
   >
@@ -106,6 +129,8 @@ function toggleCollapsed() {
           <ChevronDown class="folder__chev" :class="{ 'is-collapsed': collapsed }" :size="20" :stroke-width="2" />
         </button>
       </div>
+      <!-- trailing actions read left→right: delete · sort · reorder-grip (grip stays
+           flush at the edge, matching the item rows) -->
       <div v-if="!packed" class="folder__actions">
         <button
           class="btn btn--icon btn--ghost folder__del"
@@ -115,6 +140,18 @@ function toggleCollapsed() {
         >
           <Trash2 :size="16" />
         </button>
+        <div class="folder__sortwrap" :class="{ 'is-active': isSorted }">
+          <component :is="sortIcon" class="folder__sorticon" :size="16" :stroke-width="2" aria-hidden="true" />
+          <select
+            class="folder__sortsel"
+            :value="sortBy"
+            :title="`Sort items — ${SORT_META[sortBy].label}`"
+            :aria-label="`Sort items in ${folder.name || 'folder'}`"
+            @change="onSort"
+          >
+            <option v-for="key in SORT_ORDER" :key="key" :value="key">{{ SORT_META[key].label }}</option>
+          </select>
+        </div>
         <button
           class="btn btn--icon btn--ghost folder__grip"
           title="Drag to reorder folder"
@@ -301,6 +338,42 @@ function toggleCollapsed() {
 .folder__grip:hover {
   color: var(--ink);
 }
+/* sort control — a quiet glyph (the active mode's arrow) with a transparent native
+   <select> laid over it for the picker + full keyboard access, matching the item
+   rows' classification selector. Sized like the icon buttons beside it so the
+   three-glyph cluster (sort · remove · grip) lines up with the item actions below. */
+.folder__sortwrap {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  width: 32px;
+  min-height: 32px;
+  color: var(--ink-3);
+  transition: color var(--dur) var(--ease), opacity var(--dur) var(--ease);
+}
+.folder__sortwrap:hover {
+  color: var(--ink);
+}
+/* a non-manual sort keeps the glyph lit (like the note button when a note exists),
+   so a sorted folder reads as sorted at a glance — even collapsed */
+.folder__sortwrap.is-active {
+  color: var(--ink-2);
+}
+.folder__sortwrap.is-active:hover {
+  color: var(--ink);
+}
+.folder__sorticon {
+  pointer-events: none;
+}
+.folder__sortsel {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
 /* right-align both controls + pull the grip's layout box left so its gap matches
    the item rows below (the flush shift is otherwise invisible to layout) */
 .folder__actions .btn--icon {
@@ -321,15 +394,22 @@ function toggleCollapsed() {
   cursor: grabbing;
 }
 
-/* desktop (mouse): clean header at rest — the remove control fades in on hover or
-   focus; the reorder grip stays visible always. Touch (hover: none) keeps both. */
+/* desktop (mouse): clean header at rest — the remove control (and the sort control
+   while it's on the default Manual) fade in on hover or focus; the reorder grip stays
+   visible always, and a folder on a NON-default sort keeps its lit glyph so the state
+   is legible without hovering. Touch (hover: none) keeps everything visible. */
 @media (hover: hover) {
-  .folder__del {
+  .folder__del,
+  .folder__sortwrap:not(.is-active) {
     opacity: 0;
-    transition: opacity var(--dur) var(--ease);
+    /* standing compositing layer so Safari doesn't re-snap the glyph ~1px when it
+       makes a layer for the first hover fade (same quirk handled on .folder__chev) */
+    will-change: opacity;
   }
   .folder__head:hover .folder__del,
-  .folder__head:focus-within .folder__del {
+  .folder__head:focus-within .folder__del,
+  .folder__head:hover .folder__sortwrap,
+  .folder__head:focus-within .folder__sortwrap {
     opacity: 1;
   }
 }
@@ -365,7 +445,8 @@ function toggleCollapsed() {
      and, with baseline alignment, push the folder name down. Packing mode has no
      actions, so without this the title jumps vertically when toggling modes.
      (mirrors the item rows' .item__actions treatment) */
-  .folder__actions .btn--icon {
+  .folder__actions .btn--icon,
+  .folder__sortwrap {
     min-height: 0;
     height: 2.75rem;
     margin-block: -0.65rem;

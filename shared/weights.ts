@@ -5,6 +5,7 @@
 import type {
   Classification,
   Folder,
+  FolderSort,
   Item,
   ListData,
   Totals,
@@ -150,22 +151,59 @@ export function nextSortOrder<T extends { folderId: string | null; sortOrder: nu
 }
 
 /**
- * Group items by folder id (ungrouped items excluded), each group sorted by
- * sortOrder. One O(items) pass, built once per snapshot — so per-folder
- * consumers (one FolderSection per folder) don't each re-filter and re-sort
- * the whole item array on every edit.
+ * Compare two items within a folder for the given sort mode. "manual" (the default,
+ * and any unknown mode) falls back to sortOrder — the drag order. "name" is a
+ * locale A–Z on the flat display name; "heaviest"/"lightest" key off the LINE weight
+ * (qty × unit), so a heavy single and a stack of light items rank by what they add to
+ * the pack. Every mode breaks ties on sortOrder, so equal-weight/name runs keep their
+ * manual order and the result is deterministic (a stable sort isn't guaranteed here).
  */
-export function groupItemsByFolder<T extends { folderId: string | null; sortOrder: number }>(
-  items: readonly T[],
-): Map<string, T[]> {
-  const byFolder = new Map<string, T[]>();
+export function compareItemsBy(sortBy: FolderSort | undefined, a: Item, b: Item): number {
+  switch (sortBy) {
+    case "name":
+      return (
+        itemDisplayName(a.brand, a.name, a.variant).localeCompare(
+          itemDisplayName(b.brand, b.name, b.variant),
+          undefined,
+          { sensitivity: "base", numeric: true },
+        ) || a.sortOrder - b.sortOrder
+      );
+    case "heaviest":
+      return lineMg(b) - lineMg(a) || a.sortOrder - b.sortOrder;
+    case "lightest":
+      return lineMg(a) - lineMg(b) || a.sortOrder - b.sortOrder;
+    default:
+      return a.sortOrder - b.sortOrder;
+  }
+}
+
+/** A folder's items in its chosen sort order. Shared by the exporters so every
+ *  surface (editor, share views, Markdown/CSV) orders a folder identically. */
+export function sortedFolderItems(items: readonly Item[], folder: Folder): Item[] {
+  return itemsInFolder(items, folder.id).sort((a, b) => compareItemsBy(folder.sortBy, a, b));
+}
+
+/**
+ * Group items by folder id (ungrouped items excluded), each group ordered by its
+ * folder's `sortBy` (manual = sortOrder). One O(items) pass, built once per snapshot
+ * — so per-folder consumers (one FolderSection per folder) don't each re-filter and
+ * re-sort the whole item array on every edit. Pass `folders` to honor per-folder
+ * sorts; omit it and every group falls back to manual sortOrder.
+ */
+export function groupItemsByFolder(
+  items: readonly Item[],
+  folders: readonly Folder[] = [],
+): Map<string, Item[]> {
+  const sortByOf = new Map(folders.map((f) => [f.id, f.sortBy]));
+  const byFolder = new Map<string, Item[]>();
   for (const item of items) {
     if (item.folderId == null) continue;
     const group = byFolder.get(item.folderId);
     if (group) group.push(item);
     else byFolder.set(item.folderId, [item]);
   }
-  for (const group of byFolder.values()) group.sort(bySortOrder);
+  for (const [fid, group] of byFolder)
+    group.sort((a, b) => compareItemsBy(sortByOf.get(fid), a, b));
   return byFolder;
 }
 

@@ -1,9 +1,9 @@
 // CSV export + import — hand-rolled (no deps). Round-trips with our own export
 // and ingests LighterPack's "Export to CSV" output (flexible header detection).
 
-import type { ListData, ListSnapshot, Unit } from "../types";
+import type { Item, ListData, ListSnapshot, Unit } from "../types";
 import { nextFolderColor } from "../categories";
-import { effectiveClassification, fromMg, itemDisplayName, splitWornQty, toMg, UNIT_ALIASES } from "../weights";
+import { bySortOrder, effectiveClassification, fromMg, itemDisplayName, itemsInFolder, sortedFolderItems, splitWornQty, toMg, UNIT_ALIASES } from "../weights";
 import { uid } from "../id";
 
 // Delegate to the shared unit vocabulary (weights.UNIT_ALIASES) so a CSV / LighterPack
@@ -43,7 +43,14 @@ export function listToCsv(list: ListSnapshot): string {
   const out = [
     "Category,Item Name,Brand,Qty,Weight,Unit,Worn,Consumable,Price,URL,Description,Worn Qty",
   ];
-  for (const it of list.items) {
+  // rows follow what the app shows: folders in their order, each folder's items in its
+  // chosen sort, then any ungrouped items — so a re-import of a name/weight-sorted list
+  // bakes that visible order in (CSV has no sort field; JSON round-trips sortBy itself)
+  const ordered: Item[] = [
+    ...[...list.folders].sort(bySortOrder).flatMap((f) => sortedFolderItems(list.items, f)),
+    ...itemsInFolder(list.items, null).sort(bySortOrder),
+  ];
+  for (const it of ordered) {
     const cls = effectiveClassification(it, list.folders);
     const w = it.unitWeightMg > 0 ? +fromMg(it.unitWeightMg, u).toFixed(u === "g" ? 0 : 3) : "";
     // the split gets its OWN column: the boolean Worn column can't carry a count

@@ -32,6 +32,14 @@ function create() {
       // as a gap and keep the last visible target.
       if (folderEl.hasAttribute("data-collapsed")) return;
       const folderId = folderEl.getAttribute("data-folder") || null;
+      // dropping into a folder on a name/weight sort: the exact row position is moot —
+      // the folder re-orders the item by its sort the moment it lands. Show the tail
+      // (append) indicator rather than an insertion line that lies about where it goes.
+      const sortMode = folderEl.getAttribute("data-sort");
+      if (sortMode && sortMode !== "manual") {
+        drop.value = { folderId, beforeId: null };
+        return;
+      }
       // pick the insertion point purely by vertical position among this folder's rows
       // (excluding the one being dragged): land before the first row whose middle is
       // below the pointer, else append. This makes the whole row band a target — no

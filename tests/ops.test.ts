@@ -206,4 +206,31 @@ describe("wornQty (the worn split on a base line)", () => {
     applyOps(s, [{ t: "updateFolder", id: "fc", patch: { colorKey: "evil;}" } }]);
     expect(fc().colorKey).toBe("h240"); // unsafe patch ignored, prior value kept
   });
+
+  it("sets a folder sortBy, clears it on Manual, and rejects unknown values", () => {
+    const s = base();
+    const f1 = () => s.folders.find((x) => x.id === "f1")!;
+    // a new folder has no stored sort (Manual is the absent default)
+    expect(f1().sortBy).toBeUndefined();
+    // a known non-default sort is accepted
+    applyOps(s, [{ t: "updateFolder", id: "f1", patch: { sortBy: "heaviest" } }]);
+    expect(f1().sortBy).toBe("heaviest");
+    // switching back to Manual clears the field (not persisted as "manual")
+    applyOps(s, [{ t: "updateFolder", id: "f1", patch: { sortBy: "manual" } }]);
+    expect(f1().sortBy).toBeUndefined();
+    // an unknown value also clears it (defensive: never persist garbage)
+    applyOps(s, [{ t: "updateFolder", id: "f1", patch: { sortBy: "name" } }]);
+    applyOps(s, [{ t: "updateFolder", id: "f1", patch: { sortBy: "sideways" as any } }]);
+    expect(f1().sortBy).toBeUndefined();
+  });
+
+  it("normalizes a folder's sortBy on add (valid kept, invalid dropped)", () => {
+    const s = base();
+    applyOps(s, [
+      { t: "addFolder", folder: { id: "fa", name: "A", defaultClassification: "base", sortBy: "name", sortOrder: 2 } as any },
+      { t: "addFolder", folder: { id: "fb", name: "B", defaultClassification: "base", sortBy: "bogus", sortOrder: 3 } as any },
+    ]);
+    expect(s.folders.find((f) => f.id === "fa")!.sortBy).toBe("name");
+    expect(s.folders.find((f) => f.id === "fb")!.sortBy).toBeUndefined();
+  });
 });
