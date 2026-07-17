@@ -23,6 +23,20 @@ for a production deploy.
 [Nuxt 4](https://nuxt.com) · Vue 3 · TypeScript · [Drizzle ORM](https://orm.drizzle.team) ·
 deployed on [Vercel](https://vercel.com).
 
+## Changelog
+
+The site's [“What’s new”](https://mahonia.app/changelog) page renders
+[`content/changelog.json`](content/changelog.json) — the one source of truth. When a change is
+user-facing, add a plain one- or two-sentence entry as part of the same PR:
+
+```bash
+npm run changelog -- --added "Sort folders by weight."
+npm run changelog -- --fixed "…" --changed "…"
+```
+
+Entries are grouped Added / Changed / Fixed and describe the observable change, not the
+implementation.
+
 ## License
 
 Code is [MIT](LICENSE). The gear catalog data under `seed/` is licensed separately — see
