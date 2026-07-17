@@ -61,6 +61,10 @@ export const CATALOG_DDL: string[] = [
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now()
   )`,
+  // search_terms — derived noun + locale/synonym aliases (shared/searchTerms.ts),
+  // folded into the fuzzy match. Added via ALTER so existing tables gain it too
+  // (CREATE TABLE IF NOT EXISTS above is a no-op once the table exists).
+  `ALTER TABLE catalog_items ADD COLUMN IF NOT EXISTS search_terms text`,
   // identity for idempotent upsert — coalesce so NULL brand/variant compare equal
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_catalog_identity ON catalog_items ((coalesce(brand,'')), name, (coalesce(variant,'')))`,
   // autocomplete ranking: verified first, then most-used
@@ -125,14 +129,17 @@ export async function searchCatalog(
     // makes prod recall match local. The catalog is small + bounded, so the seq
     // scan (we forgo the gin_trgm_ops index this way) is cheap. Bound params are
     // injection-safe.
+    // Match target includes search_terms (derived noun + locale/synonym aliases)
+    // so a category word ("tent") or a regional variant ("rucksack") hits a row
+    // whose brand+name never contains it. Mirrors shared/catalogSearch.ts.
     const res = await d.execute(sql`
-      select id, brand, name, variant, weight_mg, weight_source, verified
+      select id, brand, name, variant, weight_mg, weight_source, verified, search_terms
       from catalog_items
       where status = 'active'
-        and word_similarity(${q}, coalesce(brand,'') || ' ' || name) >= ${SIM_THRESHOLD}
+        and word_similarity(${q}, coalesce(brand,'') || ' ' || name || ' ' || coalesce(search_terms,'')) >= ${SIM_THRESHOLD}
       order by verified desc,
                usage_count desc,
-               word_similarity(${q}, coalesce(brand,'') || ' ' || name) desc
+               word_similarity(${q}, coalesce(brand,'') || ' ' || name || ' ' || coalesce(search_terms,'')) desc
       limit ${limit}
     `);
     return normalizeRows(res);
@@ -181,6 +188,7 @@ function normalizeRows(res: unknown): CatalogSearchResult[] {
     weightMg: Number(r.weight_mg),
     weightSource: String(r.weight_source),
     verified: Boolean(r.verified),
+    searchTerms: (r.search_terms as string | null) ?? null,
   }));
 }
 

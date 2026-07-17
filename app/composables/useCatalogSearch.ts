@@ -11,6 +11,9 @@ export interface CatalogResult {
   weightMg: number;
   weightSource: string;
   verified: boolean;
+  // Carried only so the offline cache can rank on it too (matches on the derived
+  // noun + locale/synonym aliases); never rendered.
+  searchTerms?: string | null;
 }
 
 export function useCatalogSearch() {

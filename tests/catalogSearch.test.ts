@@ -78,8 +78,28 @@ describe("searchCatalogLocal", () => {
       weightMg: 549981,
       weightSource: "manufacturer",
       verified: true,
+      searchTerms: null,
     });
     expect("usageCount" in (r as object)).toBe(false);
+  });
+
+  it("matches a category noun via search_terms when the name lacks it", () => {
+    // "Copper Spur" contains no gear noun; its search_terms carries "tent".
+    const rows = [
+      row({ id: 1, brand: "Big Agnes", name: "Copper Spur HV UL2", searchTerms: "tent" }),
+      row({ id: 2, brand: "MSR", name: "PocketRocket 2", searchTerms: "stove" }),
+    ];
+    expect(searchCatalogLocal(rows, "tent").map((r) => r.id)).toEqual([1]);
+  });
+
+  it("matches a locale/synonym term folded into search_terms", () => {
+    // A backpack row is found by the UK term "rucksack" (aliased into search_terms).
+    const rows = [
+      row({ id: 1, brand: "Osprey", name: "Exos 58", searchTerms: "backpack rucksack" }),
+      row({ id: 2, brand: "Zpacks", name: "Duplex", searchTerms: "tent" }),
+    ];
+    expect(searchCatalogLocal(rows, "rucksack").map((r) => r.id)).toEqual([1]);
+    expect(searchCatalogLocal(rows, "backpack").map((r) => r.id)).toEqual([1]);
   });
 });
 
