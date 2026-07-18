@@ -453,7 +453,15 @@ function dismissFix() {
         :aria-label="`Packed: ${editableName || 'item'}`"
         @change="c.updateItem(item.id, { packed: ($event.target as HTMLInputElement).checked })"
       />
-      <span class="item__cname"><ItemName :item="item" /></span>
+      <span class="item__cname" :class="{ 'item__cname--group': isParent }"><ItemName :item="item" /><button
+          v-if="isParent"
+          class="item__nestcollapse"
+          :aria-expanded="!nestCollapsed"
+          :aria-label="`${nestCollapsed ? 'Expand' : 'Collapse'} ${item.name || 'group'}`"
+          :title="nestCollapsed ? 'Expand group' : 'Collapse group'"
+          @mousedown.prevent
+          @click.stop.prevent="toggleNest"
+        ><ChevronDown class="item__nestchev" :class="{ 'is-collapsed': nestCollapsed }" :size="16" :stroke-width="2" /></button></span>
       <span class="t-num t-sm t-muted item__cqty">{{ itemQtyLabel(item, effClass) }}</span>
       <span class="t-num item__cweight"><template v-if="rowWeightMg > 0">{{ formatWeight(rowWeightMg, list.displayUnit, { withUnit: false }) }}<span class="t-muted item__wunit">{{ list.displayUnit }}</span></template><template v-else>—</template></span>
     </label>
@@ -651,7 +659,7 @@ function dismissFix() {
           placeholder="Add a note"
           aria-label="Item note"
           autocorrect="off"
-          spellcheck="false"
+          spellcheck="true"
           @change="c.updateItem(item.id, { description: ($event.target as HTMLInputElement).value })"
           @blur="onNoteBlur"
         />
@@ -685,7 +693,7 @@ function dismissFix() {
       v-if="!nested && isParent"
       class="nestcollapse"
       :class="{ 'is-lifted': nestLifted }"
-      :data-collapsed="(!packed && nestCollapsed) || null"
+      :data-collapsed="nestCollapsed || null"
     >
       <div class="item-nest nest-block">
         <ItemRow
@@ -737,6 +745,7 @@ function dismissFix() {
   display: flex;
   align-items: baseline;
   gap: var(--space-1);
+  min-width: 0;
 }
 .item__name--group :deep(.ac) {
   flex: 0 1 auto;
@@ -746,43 +755,17 @@ function dismissFix() {
   width: auto;
   field-sizing: content;
   min-width: 2ch;
+  /* cap so a LONG name truncates (ellipsis, from .ac__input) instead of growing the
+     field-sizing input until it shoves the chevron off the row edge. The cap is
+     VIEWPORT-relative (like the folder's 50vw) — a `%` cap is useless here because the
+     field-sizing input grows its own row, so `100%` resolves to the grown width. The
+     5rem reserve leaves room for the chevron + the row gutter; it still hugs short
+     names so the chevron trails them tightly. */
+  max-width: min(40ch, calc(100vw - 5rem));
 }
-/* the collapse chevron — trails the group name, same ink/rotate as the folder chevron */
-.item__nestcollapse {
-  flex: none;
-  align-self: center;
-  display: flex;
-  align-items: center;
-  padding: 0;
-  color: var(--ink-3);
-  cursor: pointer;
-  transition: color var(--dur) var(--ease);
-}
-.item__nestcollapse:hover {
-  color: var(--ink);
-}
-.item__nestchev {
-  transition: transform var(--dur) var(--ease);
-  /* standing layer so WebKit doesn't re-snap the glyph ~1px when it layers for the
-     rotate (same quirk handled on .folder__chev) */
-  will-change: transform;
-}
-.item__nestchev.is-collapsed {
-  transform: rotate(-90deg);
-}
-@media (pointer: coarse) {
-  /* touch: the chevron gets the ~44px tap target the icon buttons get. Grows
-     rightward + vertically only (left edge stays tight to the name), pulled back out
-     of layout so the row keeps its height. calc(16px − --tap) cancels the width added
-     past the 16px glyph (see the folder chevron's identical treatment). */
-  .item__nestcollapse {
-    min-width: var(--tap);
-    height: var(--tap);
-    justify-content: flex-start;
-    margin-right: calc(16px - var(--tap));
-    margin-block: var(--tap-pull);
-  }
-}
+/* the collapse chevron button + its rotate + touch tap target are the shared
+   .item__nestcollapse / .item__nestchev recipe in atoms/item.scss — one recipe for
+   the edit row, the packing row (.item__cname--group below), and the share views. */
 .item__qty {
   grid-area: qty;
 }
@@ -871,6 +854,13 @@ function dismissFix() {
 }
 .item__cname {
   min-width: 0;
+}
+/* a group (parent) in packing mode: name + trailing collapse chevron, like the
+   editor row + folder header */
+.item__cname--group {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1);
 }
 .item__cweight {
   text-align: right;
@@ -1209,6 +1199,12 @@ function dismissFix() {
   }
   .item__name {
     width: 100%;
+  }
+  /* on the two-line mobile layout, indent the nested block so its content lands on
+     the parent's WEIGHT column (one qty-column + gap in from the row edge) — the
+     nested rows read as hanging under the weight above, not floating mid-name */
+  .item-nest {
+    margin-left: var(--space-5);
   }
   /* tighter text boxes so the name and its meta line sit close as one unit — the
      default 36px field min-height, with vertically-centred text, left a big visual

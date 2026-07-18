@@ -49,8 +49,9 @@ const collapsed = ref(true);
   <div class="ro-wrap">
     <div class="item item--ro">
       <span class="item__roname" :class="{ 'item__roname--group': isParent }">
-        <ItemName :item="item" search /><span v-if="effClass !== 'base'" class="t-sm item__class"> · {{ effClass }}</span>
-        <!-- collapse a group of nested items — trails the name like the folder chevron -->
+        <span class="item__ronametext"><ItemName :item="item" search /><span v-if="effClass !== 'base'" class="t-sm item__class"> · {{ effClass }}</span></span>
+        <!-- collapse a group of nested items — trails the name like the folder chevron.
+             The name text truncates so a long group name never shoves the chevron off. -->
         <button
           v-if="isParent"
           class="item__nestcollapse"
@@ -108,37 +109,17 @@ const collapsed = ref(true);
   gap: var(--space-1);
   overflow: visible;
 }
-.item__nestcollapse {
-  flex: none;
-  align-self: center;
-  display: flex;
-  align-items: center;
-  padding: 0;
-  color: var(--ink-3);
-  cursor: pointer;
-  transition: color var(--dur) var(--ease);
+/* the name text truncates within the group flex so a long name never pushes the
+   chevron off the row edge (the chevron is flex:none, always kept) */
+.item__roname--group .item__ronametext {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.item__nestcollapse:hover {
-  color: var(--ink);
-}
-.item__nestchev {
-  transition: transform var(--dur) var(--ease);
-  will-change: transform;
-}
-.item__nestchev.is-collapsed {
-  transform: rotate(-90deg);
-}
-@media (pointer: coarse) {
-  /* touch: the ~44px tap target, grown rightward + vertically and pulled back out of
-     layout so the row height holds (same treatment as the folder chevron) */
-  .item__nestcollapse {
-    min-width: var(--tap);
-    height: var(--tap);
-    justify-content: flex-start;
-    margin-right: calc(16px - var(--tap));
-    margin-block: var(--tap-pull);
-  }
-}
+/* the collapse chevron button + its rotate + touch tap target are the shared
+   .item__nestcollapse / .item__nestchev recipe in atoms/item.scss (identical to the
+   editor's), so a group chevron looks the same in the editor and the share views. */
 /* the read-only name is a web-search link (look up / buy the gear) — see ItemName.vue,
    which owns the dotted underline + search icon so the underline wraps only the product
    name, not the variant. */
