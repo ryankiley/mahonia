@@ -16,6 +16,11 @@ describe("trigrams", () => {
   it("is empty for whitespace/punctuation only", () => {
     expect(trigrams("  -- ").size).toBe(0);
   });
+  it("folds diacritics so an accented word tokenizes like its plain spelling", () => {
+    expect(trigrams("Fjällräven")).toEqual(trigrams("Fjallraven"));
+    expect(trigrams("Klättermusen")).toEqual(trigrams("Klattermusen"));
+    expect(trigrams("Wūru")).toEqual(trigrams("Wuru"));
+  });
 });
 
 describe("trigramScore", () => {
@@ -27,6 +32,10 @@ describe("trigramScore", () => {
   });
   it("scores an unrelated target low", () => {
     expect(trigramScore("duplx", "MSR PocketRocket 2")).toBeLessThan(0.2);
+  });
+  it("fully matches an accented target typed in plain ASCII (both directions)", () => {
+    expect(trigramScore("Fjallraven", "Fjällräven Keb Hike 30")).toBe(1);
+    expect(trigramScore("Fjällräven", "Fjallraven Keb Hike 30")).toBe(1);
   });
 });
 
@@ -90,6 +99,15 @@ describe("searchCatalogLocal", () => {
       row({ id: 2, brand: "MSR", name: "PocketRocket 2", searchTerms: "stove" }),
     ];
     expect(searchCatalogLocal(rows, "tent").map((r) => r.id)).toEqual([1]);
+  });
+
+  it("finds an accented brand typed in plain ASCII, and vice versa", () => {
+    const rows = [
+      row({ id: 1, brand: "Fjällräven", name: "Keb Hike 30", searchTerms: "backpack" }),
+      row({ id: 2, brand: "MSR", name: "PocketRocket 2", searchTerms: "stove" }),
+    ];
+    expect(searchCatalogLocal(rows, "Fjallraven").map((r) => r.id)).toEqual([1]);
+    expect(searchCatalogLocal(rows, "Fjällräven").map((r) => r.id)).toEqual([1]);
   });
 
   it("matches a locale/synonym term folded into search_terms", () => {

@@ -478,6 +478,7 @@ Durston,Kakwa 40,"UltraGrid, M",pack,839146,manufacturer,https://durstongear.com
 Durston,Kakwa 55,"Ultra 200X, M",pack,893010,manufacturer,https://durstongear.com/products/kakwa-55
 Durston,Kakwa 55,"UltraGrid, M",pack,867495,manufacturer,https://durstongear.com/products/kakwa-55
 Durston,Wapta 30,M,pack,518796,manufacturer,https://durstongear.com/products/wapta-30-ultralight-backpack
+Fjällräven,Keb Hike 30,,pack,1440000,manufacturer,https://www.fjallraven.com/us/en-us/bags-gear/backpacks-bags/trekking-backpacks/keb-hike-30
 Goldwin,Star Trail Pack,size 3,pack,178000,manufacturer,https://usshop.goldwin-global.com/products/gm95181
 Gossamer Gear,Cima 15,,pack,505000,manufacturer,https://www.garagegrowngear.com/products/cima-15-by-gossamer-gear
 Gossamer Gear,Elixir 20 Daypack,,pack,178000,manufacturer,https://www.garagegrowngear.com/products/elixir-20-daypack-by-gossamer-gear
@@ -895,6 +896,7 @@ One Bottle Hydration,Hydration System - For 28mm Waterbottles,,water,79000,manuf
 One Bottle Hydration,Magnetic Tube Clip,,water,14000,manufacturer,https://www.garagegrowngear.com/products/magnetic-tube-clip-by-one-bottle-hydration
 One Bottle Hydration,Wide Mouth Flip-Top Lid,,water,32000,manufacturer,https://www.garagegrowngear.com/products/wide-mouth-flip-top-lid-by-one-bottle-hydration
 Osprey,Hydraulics Reservoir,2L,water,208652,manufacturer,https://appoutdoors.com/products/hydraulics-2l-reservoir.json
+Osprey,Hydraulics Reservoir,3L,water,235868,manufacturer,https://appoutdoors.com/products/hydraulics-3l-reservoir.json
 Platypus,GravityWorks Water Filter System,4L,water,326020,manufacturer,https://cascadedesigns.com/products/gravityworks-water-filter-system
 Platypus,Hoser Reservoir,2L,water,102058,manufacturer,https://cascadedesigns.com/products/hoser-reservoir
 Platypus,Platy 2L Collapsible Bottle,,water,37000,manufacturer,https://www.garagegrowngear.com/products/platy-2l-bottle-collapsible-bottle-by-platypus
@@ -1205,7 +1207,7 @@ Mountain Hardwear,Ghost Whisperer Hoody,Men's M,clothing,249476,manufacturer,htt
 Mountain Hardwear,Ghost Whisperer Hoody,Women's,clothing,240000,manufacturer,https://www.mountainhardwear.com/p/womens-ghost-whisperer-hooded-down-jacket-2104731.html
 Mountain Hardwear,Ghost Whisperer UL Hoody,Men's M,clothing,189942,manufacturer,https://www.adventurealan.com/product/mountain-hardwear-ghost-whisperer-ul-jacket/
 Mountain Hardwear,Ghost Whisperer UL Hoody,Women's,clothing,175000,manufacturer,https://web.archive.org/web/20260214164847id_/https://www.mountainhardwear.com/p/womens-ghost-whisperer-ul-hoody-2092701.html
-Mountain Hardwear,Stretchdown Hoody,Men's M,clothing,263651,manufacturer,https://web.archive.org/web/20260510152321id_/https://www.mountainhardwear.com/p/mens-stretchdown-hoody-2104491.html
+Mountain Hardwear,Stretchdown Hoody,Men's M,clothing,513126,measured,https://www.outdoorgearlab.com/reviews/clothing-mens/down-jacket-men/mountain-hardwear-stretchdown-hoody
 Mountain Hardwear,Stretchdown Hoody,Women's,clothing,439000,manufacturer,https://www.mountainhardwear.com/p/womens-stretchdown-hooded-down-jacket-2104781.html
 Nanga,Aurora Down Jacket,Men's M,clothing,650000,manufacturer,https://unexpected-store.com/products/nanga-aurora-down-jacket
 Nanga,Aurora Down Jacket,Women's L,clothing,600000,manufacturer,https://roco2web.com/products/12912
@@ -1335,6 +1337,7 @@ Satisfy,CloudMerino Liner Gloves,,clothing,32000,manufacturer,https://satisfyrun
 Satisfy,"HeatCrush 8"" Desert Shorts",M,clothing,86000,manufacturer,https://satisfyrunning.com/products/heatcrush-desert-shorts-moonstruck
 Satisfy,HeatCrush Arm Sleeves,,clothing,32000,manufacturer,https://satisfyrunning.com/products/heatcrush-arm-sleeves-moonstruck
 Satisfy,HeatCrush Long Sleeve Base Layer,M,clothing,120000,manufacturer,https://satisfyrunning.com/products/heatcrush-base-layer-moonstruck
+Satisfy,HeatCrush Neck Cooler,,clothing,30000,manufacturer,https://satisfyrunning.com/products/heatcrushneck-cooler-moonstruck
 Satisfy,HeatCrush T-Shirt,M,clothing,175000,manufacturer,https://satisfyrunning.com/products/heatcrush-t-shirt-moonstruck
 Satisfy,"Justice Cordura 9"" Half Tights",M,clothing,93000,manufacturer,https://satisfyrunning.com/products/justice-cordura-9-half-tights-black
 Satisfy,Justice Trail Half-Zip T-Shirt,M,clothing,68000,manufacturer,https://satisfyrunning.com/products/justice-trail-half-zip-t-shirt-falcon
@@ -1398,6 +1401,7 @@ Teton Bros,Wind River Hoody,Men's M,clothing,100000,manufacturer,https://www.tet
 Teton Bros,Wind River Hoody,Women's M,clothing,90000,manufacturer,https://www.teton-bros.com/en/products/tb261-19w
 Teva,Original Universal Sandals,size 11,clothing,411068,measured,https://www.outdoorgearlab.com/reviews/shoes-and-boots/sandals-mens/teva-original-universal
 Teva,Original Universal Sandals,"Women's, size 6.5",clothing,283495,measured,https://www.outdoorgearlab.com/reviews/shoes-and-boots/sandals-womens/teva-original-universal-womens
+The North Face,Class V Brimmer,,clothing,90700,manufacturer,https://www.wildfiresports.com.au/the-north-face-class-v-brimmer-unisex-hat
 The North Face,ThermoBall Eco Hoodie,Men's M,clothing,450757,manufacturer,https://web.archive.org/web/20240913041531/https://www.backcountry.com/the-north-face-thermoball-eco-hoodie-mens
 The North Face,ThermoBall Eco Hoodie,Women's M,clothing,390000,manufacturer,https://www.bobssportschalet.com/the-north-face/the-north-face-thermoball-eco--23465
 The North Face,ThermoBall Traction Mule V,Women's,clothing,402563,measured,https://gearheadoutfitters.com/products/w-thermoball-traction-mule-v
@@ -1447,7 +1451,7 @@ Zpacks,Ultralight Camp Shoes,Medium,clothing,52000,manufacturer,https://www.gara
 Zpacks,Vertice Rain Jacket,Men's,clothing,153087,manufacturer,https://zpacks.com/products/vertice-rain-jacket
 ACR,ResQLink 400 PLB,,electronics,143789,manufacturer,https://www.acrartex.com/products/resqlink-400/
 Alpenglow Gear,Alpenblow Classic Micro Inflator,,electronics,8600,manufacturer,https://alpenglowgear.co/products/alpenblow
-Alpenglow Gear,Alpenblow Lux,,electronics,13700,manufacturer,https://alpenglowgear.co/products/alpenblow-lux
+Alpenglow Gear,Alpenblow Lux Micro Inflator,,electronics,13700,manufacturer,https://alpenglowgear.co/products/alpenblow-lux
 Alpenglow Gear,Alpenblow Nozzle Expansion Pack,,electronics,4000,manufacturer,https://www.garagegrowngear.com/products/alpenblow-nozzle-expansion-pack-by-alpenglow-gear
 Amazon,Kindle (2024),,electronics,158000,manufacturer,https://blog.the-ebook-reader.com/2024/10/16/new-basic-kindle-for-2024-details-summary/
 Amazon,Kindle Colorsoft Signature Edition (2024),,electronics,219000,manufacturer,https://blog.the-ebook-reader.com/2024/10/16/new-kindle-colorsoft-details-summary-first-color-kindle/

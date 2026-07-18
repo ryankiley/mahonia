@@ -93,6 +93,11 @@ export const ensureCatalogSchema = memoizedEnsure(async (db: unknown) => {
     // Neon ships pg_trgm — create the extension + GIN trigram index that
     // power fuzzy autocomplete. (No-op'd locally; see file header.)
     await d.execute(sql.raw(`CREATE EXTENSION IF NOT EXISTS pg_trgm`));
+    // unaccent folds diacritics (ä→a) at query time so an accented brand
+    // ("Fjällräven") matches its plain spelling — mirrors the diacritic fold in
+    // shared/catalogSearch.ts's trigrams(). Used in the WHERE/ORDER expressions
+    // below, not an index, so unaccent()'s STABLE volatility is fine.
+    await d.execute(sql.raw(`CREATE EXTENSION IF NOT EXISTS unaccent`));
     await d.execute(
       sql.raw(
         `CREATE INDEX IF NOT EXISTS idx_catalog_trgm ON catalog_items USING gin ((coalesce(brand,'') || ' ' || name) gin_trgm_ops)`,
@@ -132,14 +137,16 @@ export async function searchCatalog(
     // Match target includes search_terms (derived noun + locale/synonym aliases)
     // so a category word ("tent") or a regional variant ("rucksack") hits a row
     // whose brand+name never contains it. Mirrors shared/catalogSearch.ts.
+    // Both query and target are unaccent()'d so a plain-typed brand finds its
+    // accented spelling and vice versa (mirrors trigrams()' diacritic fold).
     const res = await d.execute(sql`
       select id, brand, name, variant, weight_mg, weight_source, verified, search_terms
       from catalog_items
       where status = 'active'
-        and word_similarity(${q}, coalesce(brand,'') || ' ' || name || ' ' || coalesce(search_terms,'')) >= ${SIM_THRESHOLD}
+        and word_similarity(unaccent(${q}), unaccent(coalesce(brand,'') || ' ' || name || ' ' || coalesce(search_terms,''))) >= ${SIM_THRESHOLD}
       order by verified desc,
                usage_count desc,
-               word_similarity(${q}, coalesce(brand,'') || ' ' || name || ' ' || coalesce(search_terms,'')) desc
+               word_similarity(unaccent(${q}), unaccent(coalesce(brand,'') || ' ' || name || ' ' || coalesce(search_terms,''))) desc
       limit ${limit}
     `);
     return normalizeRows(res);

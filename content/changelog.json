@@ -15,7 +15,8 @@
       "Dragging a grouped item into another folder now carries its nested items along, so weights stay correct.",
       "Copying a list with nested items no longer leaves hidden phantom rows in the copy.",
       "Shared and public lists now show folders in the same order you arranged them.",
-      "Reorder items and folders from the keyboard — focus the grip and press the up/down arrows."
+      "Reorder items and folders from the keyboard — focus the grip and press the up/down arrows.",
+      "Search an accented brand by its plain spelling — typing \"Fjallraven\" now finds Fjällräven (and Klattermusen finds Klättermusen)."
     ]
   },
   {
