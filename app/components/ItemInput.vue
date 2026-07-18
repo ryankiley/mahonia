@@ -271,9 +271,6 @@ function onKeydown(e: KeyboardEvent) {
   }
 }
 
-// one-letter weight-source tag (M=manufacturer, etc.)
-const srcLetter = (r: CatalogResult) => (r.weightSource[0] || "?").toUpperCase();
-
 // Split a suggestion into matched / unmatched runs against what's been typed, so
 // the overlap reads bold — the standard typeahead affordance. Each whitespace
 // token of the query is matched independently (so "hyperl wind" bolds both),
@@ -373,7 +370,6 @@ function highlightParts(text: string): { t: string; on: boolean }[] {
           </span>
           <span class="ac__metaright">
             <span class="t-num ac__w">{{ formatWeight(opt.result.weightMg, unit, { withUnit: false }) }} <span class="t-muted">{{ unit }}</span></span>
-            <span class="ac__src" :title="`weight source: ${opt.result.weightSource}`" :aria-label="`weight source: ${opt.result.weightSource}`">{{ srcLetter(opt.result) }}</span>
           </span>
         </template>
       </li>
@@ -528,13 +524,5 @@ function highlightParts(text: string): { t: string; on: boolean }[] {
 .ac__w {
   font-size: var(--text-sm);
   color: var(--ink-2);
-}
-.ac__src {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: var(--text-sm);
-  color: var(--accent);
-  width: 1.2em;
 }
 </style>
