@@ -7,7 +7,8 @@
       "Drag an item into or out of a nested group — drag it right to tuck it under the row above, left to pop it back out."
     ],
     "changed": [
-      "Combined the Privacy and Terms pages into a single Legal page."
+      "Combined the Privacy and Terms pages into a single Legal page.",
+      "On phones, an item's extra actions (add a note, nest, un-nest) tuck into a ⋯ menu, so each row stays uncluttered — delete and drag stay put."
     ],
     "fixed": [
       "Nested items now work in packing mode — you can check them off, and pack progress can reach 100%.",

@@ -18,7 +18,7 @@ const MAX_SPLIT_OPTS = 5;
 </script>
 
 <script setup lang="ts">
-import { ChevronDown, GripVertical, IndentDecrease, IndentIncrease, ListPlus, StickyNotePlus, StickyNoteX, Trash2, X } from "@lucide/vue";
+import { ChevronDown, CircleEllipsis, GripVertical, IndentDecrease, IndentIncrease, ListPlus, StickyNotePlus, StickyNoteX, Trash2, X } from "@lucide/vue";
 import type { Item, ListSnapshot } from "~~/shared/types";
 import type { ItemPatch } from "~~/shared/ops";
 import { bySortOrder, effectiveClassification, formatWeight, fromMg, groupLineMg, itemDisplayName, parseWeightInput, rowDisplayMg, siblingItems, splitWornQty } from "~~/shared/weights";
@@ -45,9 +45,10 @@ const props = withDefaults(
   }>(),
   { prevId: null, packed: false, nested: false },
 );
-// forwarded up to FolderSection so it can lift its collapse clip while this row's
-// name autocomplete is open (otherwise a dropdown at the folder's bottom is cropped)
-defineEmits<{ autocompleteToggle: [boolean] }>();
+// forwarded up to FolderSection so it can lift its collapse clip while this row has a
+// floating overlay open — the name autocomplete, or the mobile ⋯ menu (otherwise an
+// overlay at the folder's bottom is cropped)
+const emit = defineEmits<{ overlayToggle: [boolean] }>();
 const c = useGearList();
 
 // ---- nesting: children render as the SAME row, indented under this one ----
@@ -337,6 +338,37 @@ function onNoteBlur(e: Event) {
   if (!(e.target as HTMLInputElement).value.trim()) noteOpen.value = false;
 }
 
+// ---- mobile overflow (⋯) menu ----
+// On mobile the trailing icons crowd the two-line row, so all of them EXCEPT delete
+// + grip collapse into a ⋯ menu (note + the nesting actions). Desktop keeps the
+// inline icons and never shows this. One menu open at a time across the list (shared
+// singleton), and the folder lifts its collapse clip while it's open (overlayToggle).
+const menu = useItemMenu();
+const menuRootRef = useTemplateRef<HTMLElement>("menuRootRef");
+const isMenuOpen = computed(() => menu.openId.value === props.item.id);
+watch(isMenuOpen, (open) => emit("overlayToggle", open));
+function toggleMenu() {
+  menu.toggle(props.item.id, menuRootRef.value);
+}
+// the same actions the inline icons run, in the order the icons sat: note, then the
+// one nesting action that applies to this row's state (add-nested / nest-up / un-nest)
+const overflowActions = computed(() => {
+  const acts: { label: string; run: () => void }[] = [
+    { label: noteShown.value ? "Remove note" : "Add a note", run: onNoteBtn },
+  ];
+  if (props.nested) acts.push({ label: "Un-nest", run: () => c.unnest(props.item.id) });
+  else {
+    if (!isParent.value) acts.push({ label: "Add a nested item", run: () => c.addChild(props.item.id) });
+    if (canIndent.value)
+      acts.push({ label: "Nest under the item above", run: () => props.prevId && c.nestItem(props.item.id, props.prevId) });
+  }
+  return acts;
+});
+function runOverflow(a: { run: () => void }) {
+  menu.close();
+  a.run();
+}
+
 // "Fix for everyone": only offered once the user's weight diverges from the
 // catalog value they linked — i.e. they think the canonical spec is wrong.
 // A plain free-typed override (no catalog link) never nags.
@@ -403,7 +435,7 @@ function dismissFix() {
           :autofocus="isPendingBlank"
           @commit="onNameCommit"
           @advance="c.addBlankItemAfter(item.id)"
-          @autocomplete-toggle="$emit('autocompleteToggle', $event)"
+          @overlay-toggle="$emit('overlayToggle', $event)"
         />
       </div>
 
@@ -522,6 +554,29 @@ function dismissFix() {
             <StickyNoteX v-if="noteShown" :size="16" />
             <StickyNotePlus v-else :size="16" />
           </button>
+          <!-- mobile overflow: the note + nesting actions collapse in here (delete +
+               grip stay inline). Hidden on desktop. Same .menu/.popover atom as the
+               editor's ⋯ kebab; one row's menu open at a time (useItemMenu). -->
+          <div ref="menuRootRef" class="menu item__more">
+            <button
+              class="btn btn--icon btn--ghost menu__btn item__morebtn"
+              type="button"
+              aria-haspopup="menu"
+              :aria-expanded="isMenuOpen"
+              aria-label="More actions"
+              @mousedown.prevent
+              @click="toggleMenu"
+            >
+              <CircleEllipsis :size="16" />
+            </button>
+            <Transition name="menu">
+              <ul v-if="isMenuOpen" class="popover menu__list item__morelist" role="menu" aria-label="Item actions">
+                <li v-for="a in overflowActions" :key="a.label" role="none">
+                  <button type="button" role="menuitem" class="menu__item" @click="runOverflow(a)">{{ a.label }}</button>
+                </li>
+              </ul>
+            </Transition>
+          </div>
           <!-- drag via pointerdown; arrow keys give the focused grip the reordering
                its label promises (a drag needs a pointer) -->
           <button
@@ -588,7 +643,7 @@ function dismissFix() {
         :children-by-parent="childrenByParent"
         :packed="packed"
         nested
-        @autocomplete-toggle="$emit('autocompleteToggle', $event)"
+        @overlay-toggle="$emit('overlayToggle', $event)"
       />
       <div v-if="isNestAppendTarget" class="item-nest__droptail" aria-hidden="true" />
       <button v-if="!packed" type="button" class="item-nest__add" @mousedown.prevent @click="c.addChild(item.id)">
@@ -1016,6 +1071,11 @@ function dismissFix() {
   color: var(--ink);
 }
 
+/* the ⋯ overflow menu is mobile-only — desktop shows every action inline (below) */
+.item__more {
+  display: none;
+}
+
 @media (max-width: $bp-stack) {
   /* the full-width name gets its own line so long product names never truncate;
      qty · weight · class + the controls reflow into a flex-wrap row beneath it,
@@ -1071,14 +1131,22 @@ function dismissFix() {
     height: var(--tap);
     margin-block: var(--tap-pull);
   }
-  /* keep note / delete / nest visible at rest on small viewports — the hover:hover
-     reveal above assumes a mouse, but this breakpoint is also hit by touch devices
-     that report hover:hover and by a narrowed desktop window, where a hover you
-     can't perform (or don't have room for) shouldn't be the only way to reach them.
-     `.item-wrap` prefix lifts specificity past the reveal's `:not(.is-active)`. */
-  .item-wrap .item__del,
-  .item-wrap .item__note-btn,
-  .item-wrap .item__nest-btn {
+  /* mobile trailing cluster = delete · ⋯ · grip. The note + nesting actions move
+     into the ⋯ menu (item__more) so the two-line row isn't crowded; only delete
+     stays inline beside the overflow. */
+  .item__note-btn,
+  .item__nest-btn {
+    display: none;
+  }
+  .item__more {
+    display: inline-flex;
+  }
+  /* keep delete visible at rest — the hover:hover reveal above assumes a mouse, but
+     this breakpoint is also hit by touch devices that report hover:hover and by a
+     narrowed desktop window, where a hover you can't perform shouldn't be the only
+     way to reach it. `.item-wrap` prefix lifts specificity past the reveal's
+     `:not(.is-active)`. */
+  .item-wrap .item__del {
     opacity: 1;
   }
   /* the classification label is the only flexible piece — it ellipsizes on very

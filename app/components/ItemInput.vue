@@ -33,7 +33,8 @@ const emit = defineEmits<{
   ];
   // true while the suggestion dropdown is showing — the folder lifts its collapse
   // clip so a dropdown at the bottom of the folder isn't cropped (see FolderSection).
-  autocompleteToggle: [boolean];
+  // Named generically ("overlay") because the row's ⋯ menu rides the same lift.
+  overlayToggle: [boolean];
   // Enter (the mobile return key too) landed a commit — the parent may continue
   // the flow by opening a fresh row below (todo-list entry; see ItemRow).
   advance: [];
@@ -153,7 +154,7 @@ let acLifted = false;
 function setLift(v: boolean) {
   if (acLifted === v) return;
   acLifted = v;
-  emit("autocompleteToggle", v);
+  emit("overlayToggle", v);
 }
 // Lift the clip the moment the menu shows, but release it only in the
 // Transition's after-leave — releasing at leave START let the folder's
