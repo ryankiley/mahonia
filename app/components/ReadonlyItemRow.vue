@@ -163,6 +163,13 @@ const collapsed = ref(true);
     white-space: normal;
     overflow: visible;
   }
+  /* a GROUP name gets its own full-width line here (like a leaf name), so let it
+     wrap and be fully read — the desktop nowrap/ellipsis (to keep the chevron on a
+     fixed-width grid column) isn't needed once the name owns the row */
+  .item__roname--group .item__ronametext {
+    white-space: normal;
+    overflow: visible;
+  }
   .item__roqty {
     grid-column: 1;
     grid-row: 2;

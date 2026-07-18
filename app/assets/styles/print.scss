@@ -28,6 +28,7 @@
   .folder__add,
   .folder__actions,
   .folder__collapse,
+  .item__nestcollapse,
   .item__actions,
   .item__fixrow,
   .ac__menu,
@@ -48,6 +49,16 @@
   }
   .folder__bodyinner {
     opacity: 1 !important;
+    overflow: visible;
+  }
+  // …and so does a collapsed nested GROUP (same 1fr↔0fr clip as the folder body).
+  // The share views default groups closed and packing collapses too, so without
+  // this a printed/PDF'd list would drop every nested child and show only the
+  // group's summary row. Un-collapse the grid + release the child clip.
+  .nestcollapse {
+    grid-template-rows: 1fr !important;
+  }
+  .nestcollapse > .nest-block {
     overflow: visible;
   }
 
