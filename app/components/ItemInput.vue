@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Droplet } from "@lucide/vue";
+import type { EffectScope } from "vue";
 import type { Classification, Unit } from "~~/shared/types";
 import { formatWeight, itemDisplayName } from "~~/shared/weights";
 import { formatVolume, parseVolumeMl, waterMgFromMl } from "~~/shared/water";
@@ -32,7 +33,8 @@ const emit = defineEmits<{
   ];
   // true while the suggestion dropdown is showing — the folder lifts its collapse
   // clip so a dropdown at the bottom of the folder isn't cropped (see FolderSection).
-  autocompleteToggle: [boolean];
+  // Named generically ("overlay") because the row's ⋯ menu rides the same lift.
+  overlayToggle: [boolean];
   // Enter (the mobile return key too) landed a commit — the parent may continue
   // the flow by opening a fresh row below (todo-list entry; see ItemRow).
   advance: [];
@@ -80,7 +82,32 @@ watch(draft, (v) => {
   active.value = -1;
   open.value = true;
 });
-onClickOutside(rootRef, () => (open.value = false));
+// Click-outside listeners exist only WHILE `open` — this component mounts once
+// per row (collapsed folders keep rows mounted), so an unconditional call would
+// pile two always-on window listeners per row, all running composedPath() on
+// every tap, to close a menu only the single focused row can have open.
+let outsideScope: EffectScope | null = null;
+watch(open, (v) => {
+  if (v && !outsideScope) {
+    outsideScope = effectScope(true);
+    outsideScope.run(() => {
+      // The scope can attach MID-press (the press that focused the input and
+      // opened the menu), and onClickOutside seeds "press started outside" as
+      // true — so a text-selection drag from the input releasing outside would
+      // read as an outside click and close the just-opened menu. Only a press
+      // that STARTS after attach may close (the atom's own guard semantics).
+      let sawPress = false;
+      useWindowEvent("pointerdown", () => (sawPress = true), { passive: true });
+      onClickOutside(rootRef, () => {
+        if (sawPress) open.value = false;
+      });
+    });
+  } else if (!v && outsideScope) {
+    outsideScope.stop();
+    outsideScope = null;
+  }
+});
+onScopeDispose(() => outsideScope?.stop());
 
 // trailing weight in free text: "Tent 540 g" → name + weight; unitless ("UL2") stays in the name
 const WEIGHT_TAIL = /\s+(\d[\d.,]*\s*(?:kgs?|g|grams?|oz|ounces?|lbs?|pounds?))$/i;
@@ -127,7 +154,7 @@ let acLifted = false;
 function setLift(v: boolean) {
   if (acLifted === v) return;
   acLifted = v;
-  emit("autocompleteToggle", v);
+  emit("overlayToggle", v);
 }
 // Lift the clip the moment the menu shows, but release it only in the
 // Transition's after-leave — releasing at leave START let the folder's
@@ -244,9 +271,6 @@ function onKeydown(e: KeyboardEvent) {
   }
 }
 
-// one-letter weight-source tag (M=manufacturer, etc.)
-const srcLetter = (r: CatalogResult) => (r.weightSource[0] || "?").toUpperCase();
-
 // Split a suggestion into matched / unmatched runs against what's been typed, so
 // the overlap reads bold — the standard typeahead affordance. Each whitespace
 // token of the query is matched independently (so "hyperl wind" bolds both),
@@ -346,7 +370,6 @@ function highlightParts(text: string): { t: string; on: boolean }[] {
           </span>
           <span class="ac__metaright">
             <span class="t-num ac__w">{{ formatWeight(opt.result.weightMg, unit, { withUnit: false }) }} <span class="t-muted">{{ unit }}</span></span>
-            <span class="ac__src" :title="`weight source: ${opt.result.weightSource}`" :aria-label="`weight source: ${opt.result.weightSource}`">{{ srcLetter(opt.result) }}</span>
           </span>
         </template>
       </li>
@@ -356,7 +379,7 @@ function highlightParts(text: string): { t: string; on: boolean }[] {
   </div>
 </template>
 
-<style scoped>
+<style scoped lang="scss">
 .ac {
   position: relative;
   min-width: 0; /* allow the name cell to shrink so long names ellipsize */
@@ -378,7 +401,7 @@ function highlightParts(text: string): { t: string; on: boolean }[] {
   position: absolute;
   left: 0;
   top: calc(100% + var(--space-1));
-  z-index: 30;
+  z-index: var(--z-autocomplete);
   width: min(40rem, calc(min(100vw, var(--measure)) - 2 * var(--space-4)));
   /* inline padding only — the VERTICAL breathing room lives inside the scroller
      (its padding-block scrolls with the content), so scrolled rows travel all
@@ -419,7 +442,7 @@ function highlightParts(text: string): { t: string; on: boolean }[] {
   /* reaching the end of the list must not hand the swipe to the page */
   overscroll-behavior: contain;
 }
-@media (max-width: 720px) {
+@media (max-width: $bp-stack) {
   /* span the row's own edges — the content column — so the menu keeps the site's
      margins rather than bleeding to the viewport (per Ryan: never touch the edges) */
   .ac__menu {
@@ -501,13 +524,5 @@ function highlightParts(text: string): { t: string; on: boolean }[] {
 .ac__w {
   font-size: var(--text-sm);
   color: var(--ink-2);
-}
-.ac__src {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: var(--text-sm);
-  color: var(--accent);
-  width: 1.2em;
 }
 </style>

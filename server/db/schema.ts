@@ -99,7 +99,6 @@ export const lists = pgTable(
 );
 
 export type ListRow = typeof lists.$inferSelect;
-export type NewListRow = typeof lists.$inferInsert;
 
 // ---------------------------------------------------------------------------
 // catalog_items — the curated, *cited* gear-weight spine (Phase 2).
@@ -109,14 +108,17 @@ export type NewListRow = typeof lists.$inferInsert;
 // Every seeded row carries a real citation (`source_url`) and a provenance
 // (`weight_source`) — provenance is the product's trust moat, so it's required.
 //
-// Fuzzy search uses a pg_trgm GIN index. pg_trgm is available on Neon but NOT
-// on local PGlite (its WASM build doesn't ship the extension unless loaded into
-// the constructor, which we don't touch), so the trigram index is created at
-// runtime ONLY on Neon by `ensureCatalogTrgm()` in server/utils/catalog.ts; the
-// search endpoint falls back to ILIKE substring matching on PGlite. The GIN
-// index is declared here too so the Drizzle schema / future migrations stay
-// faithful — this declaration is metadata only and is never run by the raw-DDL
-// `ensureSchema()` path that the live app uses.
+// Fuzzy search uses pg_trgm's word_similarity(). pg_trgm is available on Neon
+// but NOT on local PGlite (its WASM build doesn't ship the extension unless
+// loaded into the constructor, which we don't touch), so the extension + GIN
+// trigram index are created at runtime ONLY on Neon by `ensureCatalogSchema()`
+// in server/utils/catalog.ts; on PGlite the search endpoint falls back to the
+// shared JS trigram ranker `searchCatalogLocal` (shared/catalogSearch.ts) — the
+// same ranking the offline client uses, so recall can't drift. The GIN index
+// declared below is schema-fidelity metadata only: it is never run by the
+// raw-DDL `ensureSchema()` path the live app uses, and the Neon query filters +
+// orders on the word_similarity() function directly, deliberately forgoing
+// gin_trgm_ops (the catalog is small + bounded, so the seq scan is cheap).
 // ---------------------------------------------------------------------------
 export const catalogItems = pgTable(
   "catalog_items",
@@ -163,16 +165,13 @@ export const catalogItems = pgTable(
     index("idx_catalog_rank")
       .on(t.verified.desc(), t.usageCount.desc())
       .where(sql`${t.status} = 'active'`),
-    // fuzzy search (Neon only — see note above; created by ensureCatalogTrgm())
+    // fuzzy search (Neon only — see note above; created by ensureCatalogSchema())
     index("idx_catalog_trgm").using(
       "gin",
       sql`(coalesce(${t.brand},'') || ' ' || ${t.name}) gin_trgm_ops`,
     ),
   ],
 );
-
-export type CatalogItemRow = typeof catalogItems.$inferSelect;
-export type NewCatalogItemRow = typeof catalogItems.$inferInsert;
 
 // ---------------------------------------------------------------------------
 // catalog_edits — the wiki history (Phase 3). One row per change to a catalog
@@ -207,9 +206,6 @@ export const catalogEdits = pgTable(
   ],
 );
 
-export type CatalogEditRow = typeof catalogEdits.$inferSelect;
-export type NewCatalogEditRow = typeof catalogEdits.$inferInsert;
-
 // ---------------------------------------------------------------------------
 // catalog_candidates — community intake staging (Phase 3). When a user TYPES an
 // item into a list that isn't from the catalog, one observation is staged here.
@@ -243,9 +239,6 @@ export const catalogCandidates = pgTable(
   ],
 );
 
-export type CatalogCandidateRow = typeof catalogCandidates.$inferSelect;
-export type NewCatalogCandidateRow = typeof catalogCandidates.$inferInsert;
-
 // ---------------------------------------------------------------------------
 // list_snapshots — periodic recovery points for the shared-edit-link model.
 // An edit link is a SHARED capability, so a clumsy/malicious editor can wreck a
@@ -271,5 +264,3 @@ export const listSnapshots = pgTable(
   },
   (t) => [index("idx_list_snapshots_list").on(t.listId, t.createdAt.desc())],
 );
-
-export type ListSnapshotRow = typeof listSnapshots.$inferSelect;

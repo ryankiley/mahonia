@@ -1,0 +1,110 @@
+// Folder shell — the subset the editor's FolderSection and the share views'
+// ReadonlyFolderSection must render identically. The two are deliberately separate
+// components (the read pages must not pull the editor JS graph), so their shared
+// LOOK lives here instead of hand-mirrored scoped copies. The class names were
+// already a cross-file contract (print.scss targets .folder__body/.folder__bodyinner
+// globally); each component's scoped extras out-specify this base via [data-v-*].
+
+// the stack breakpoint from the token source (Sass dedupes this module — already
+// @use'd by main.scss — so no :root re-emission); keeps the literal out of here
+@use "../foundations/tokens" as t;
+
+/* collapsible body — a grid whose one row animates 1fr↔0fr (cross-browser slide;
+   Safari has no interpolate-size, so height:auto↔0 would just snap there). The inner
+   needs min-height:0 to collapse below content size + overflow:hidden to clip the
+   reveal. */
+.folder__body {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows var(--dur) var(--ease);
+}
+.folder[data-collapsed] .folder__body {
+  grid-template-rows: 0fr;
+}
+.folder__bodyinner {
+  min-height: 0;
+  overflow: hidden;
+  opacity: 1;
+  transition: opacity var(--dur) var(--ease);
+}
+.folder[data-collapsed] .folder__bodyinner {
+  opacity: 0;
+}
+
+/* the collapse chevron rotates in sync with the body */
+.folder__chev {
+  transition: transform var(--dur) var(--ease);
+  /* standing layer: the chevron transforms on every toggle, so keep it promoted to
+     avoid WebKit re-snapping it ~1px as the compositing layer comes and goes */
+  will-change: transform;
+}
+.folder__chev.is-collapsed {
+  transform: rotate(-90deg);
+}
+
+/* collapse chevron button — right after the folder name. One recipe for both
+   folder views (the editor adds only a -1px margin-left to trim input slack). */
+.folder__collapse {
+  flex: none;
+  align-self: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  color: var(--ink-3);
+  cursor: pointer;
+  transition: color var(--dur) var(--ease);
+}
+.folder__collapse:hover {
+  color: var(--ink);
+}
+/* touch: the chevron is the primary per-folder control (and the ONLY interactive
+   control on a share view), so it gets the same ~44px tap target as the icon
+   buttons (controls.scss). The box grows rightward + vertically ONLY — the left
+   edge stays tight against the name, so a tap at the end of an editor name still
+   focuses the input instead of toggling — and the overshoot is pulled back out of
+   layout (--tap-pull) so the glyph stays optically put and the header keeps its
+   height. calc(20px − --tap) cancels exactly the width added past the 20px glyph. */
+@media (pointer: coarse) {
+  .folder__collapse {
+    min-width: var(--tap);
+    height: var(--tap);
+    justify-content: flex-start;
+    margin-right: calc(20px - var(--tap));
+    margin-block: var(--tap-pull);
+  }
+}
+
+/* folder-name type: caps at 40ch (or half the viewport) and truncates with an
+   ellipsis rather than a hard mid-character cut, so the collapse chevron hugs the
+   name instead of drifting to the column edge */
+.folder__name {
+  max-width: min(40ch, 50vw);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 600;
+  font-size: var(--text-title);
+  letter-spacing: -0.02em;
+}
+
+/* rule lines between items — a quiet spec-sheet rhythm; padding here (not on the
+   rows) keeps the gap above/below each rule consistent across all row types */
+.folder__items > * {
+  padding-block: var(--space-3);
+}
+.folder__items > * + * {
+  border-top: 1px solid var(--line);
+}
+
+@media (max-width: t.$bp-stack) {
+  /* on a phone, 50vw strands space before the trailing content — let the name run
+     the full row (its grid column + the chevron bound it) and ellipsize at the edge */
+  .folder__name {
+    max-width: none;
+  }
+  /* tighten the two-row mobile items so each row reads as one unit, not spaced out */
+  .folder__items > * {
+    padding-block: var(--space-2);
+  }
+}

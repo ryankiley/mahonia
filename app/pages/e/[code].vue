@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { ListSnapshot } from "~~/shared/types";
-import { computeTotals, formatWeightAuto } from "~~/shared/weights";
+import { computeTotals } from "~~/shared/weights";
 
 // The shareable edit link: /e/{shareCode}#{token}. The share code (a PUBLIC read
 // capability) lets THIS route resolve the list's name SERVER-SIDE and put it in the
@@ -20,31 +20,18 @@ const code = computed(() => String(route.params.code || ""));
 const { data } = await useFetch<{ snapshot: ListSnapshot }>(() => `/api/s/${code.value}`);
 const snap = computed<ListSnapshot | null>(() => data.value?.snapshot ?? null);
 
-const GENERIC_TITLE = "Mahonia — pack lists, weighed";
-const GENERIC_DESC = "Make a packing list, see what it weighs, share it. No login.";
-// mirror the editor's rule: the default "Untitled list" (or empty) is "not named",
-// so an unnamed list keeps the generic card rather than advertising "Untitled list".
-const name = computed(() => {
-  const t = snap.value?.title?.trim();
-  return t && t !== "Untitled list" ? t : "";
-});
-const desc = computed(() => {
-  if (!name.value) return GENERIC_DESC;
-  const t = snap.value ? computeTotals(snap.value) : null;
-  if (!t) return `${name.value}, a packing list on Mahonia.`;
-  const bits = [`${t.itemCount} items`];
-  if (t.hasWeights) bits.push(`${formatWeightAuto(t.baseMg)} base weight`);
-  return `${name.value}, a packing list (${bits.join(" · ")}) on Mahonia.`;
-});
+// naming rule + description builder live in editorSeo (app/utils/editorSeo.ts), the
+// single source shared with the editor's own client-side tab/share card.
+const seo = computed(() => editorSeo(snap.value?.title, snap.value ? computeTotals(snap.value) : null));
 useHead({
-  title: () => (name.value ? `${name.value} — Mahonia` : "Mahonia"),
+  title: () => (seo.value.name ? `${seo.value.name} — Mahonia` : "Mahonia"),
   // a capability link, not a page — keep it out of search (og still drives previews)
   meta: [{ name: "robots", content: "noindex" }],
 });
 useSeoMeta({
-  description: () => desc.value,
-  ogTitle: () => name.value || GENERIC_TITLE,
-  ogDescription: () => desc.value,
+  description: () => seo.value.desc,
+  ogTitle: () => seo.value.name || GENERIC_TITLE,
+  ogDescription: () => seo.value.desc,
 });
 </script>
 

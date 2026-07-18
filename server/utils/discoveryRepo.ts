@@ -26,7 +26,7 @@ import {
 } from "../../shared/discovery";
 import type { ListSnapshot } from "../../shared/types";
 import { useDb } from "./db";
-import { findByEditToken, rowToSnapshot } from "./listRepo";
+import { findByEditToken, hydrateCatalogNames, rowToSnapshot } from "./listRepo";
 
 type Db = Awaited<ReturnType<typeof useDb>>;
 
@@ -141,7 +141,9 @@ export async function getPublicBySlug(slug: string, db?: Db): Promise<ListSnapsh
     .from(lists)
     .where(and(eq(lists.publicSlug, s), ...publicReadConditions()))
     .limit(1);
-  return rows[0] ? rowToPublicView(rows[0]) : null;
+  // hydrate like every listRepo snapshot read — the indexable /l page must show
+  // the same current catalog names as /s and the editor, not the add-time ones
+  return rows[0] ? hydrateCatalogNames(d, rowToPublicView(rows[0])) : null;
 }
 
 /** Best-effort "most-viewed" signal. Never throws into the read path. */

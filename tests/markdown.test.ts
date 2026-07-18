@@ -48,6 +48,25 @@ describe("listToMarkdown", () => {
     expect(md).not.toContain("## On Body");
   });
 
+  it("emits ungrouped items in a trailing Ungrouped table and honors folder sortOrder over array order", () => {
+    const s = snap();
+    // folder drag-reorder only rewrites sortOrder — the stored array keeps
+    // insertion order, so the export must sort, not trust the array
+    s.folders[0]!.sortOrder = 1;
+    s.folders[1]!.sortOrder = 0;
+    s.items.push({ id: "i6", folderId: null, name: "Loose spork", unitWeightMg: 18000, qty: 1, classification: null, sortOrder: 0 });
+    const md = listToMarkdown(s);
+    const headings = md.split("\n").filter((l) => l.startsWith("## "));
+    expect(headings).toEqual(["## On Body", "## Shelter", "## Ungrouped"]);
+    expect(md).toContain("| Loose spork | 1 | 18 g |");
+    // the tables must account for every item computeTotals sums
+    expect(md).toContain("**Total:** 856 g"); // 538 + 300 + 18
+  });
+
+  it("omits the Ungrouped table when every item has a folder", () => {
+    expect(listToMarkdown(snap())).not.toContain("## Ungrouped");
+  });
+
   it("orders a folder's rows by its sortBy (heaviest first here)", () => {
     const s = snap();
     // add two lighter Shelter items out of weight order; a heaviest sort must lead

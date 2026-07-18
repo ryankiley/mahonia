@@ -38,17 +38,15 @@ watch(
 </template>
 
 <style scoped>
-/* shared dialog action row — trailing-aligned buttons, matching the import dialog */
-.dlg__actions {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: var(--space-2);
-  margin-top: var(--space-2);
-}
+/* the action row (.dlg__actions) is shared shell — it lives in atoms/dialog.scss */
 .dlg__linkfield {
   width: 100%;
-  border: 1px solid var(--line-2);
+  /* the import textarea's language — quiet tinted well, rounded a concentric
+     step inside the card (radius-3 − space-2), not a hairline box. No focus
+     deepen: the field is readonly and arrives preselected. */
+  border: 0;
+  background: var(--paper-2);
+  border-radius: calc(var(--radius-3) - var(--space-2));
   padding: var(--space-2) var(--space-3);
   font-size: var(--text-sm);
 }

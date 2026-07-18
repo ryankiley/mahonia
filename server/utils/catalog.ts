@@ -224,7 +224,7 @@ const TRUSTED_DOMAINS = new Set([
   "ula-equipment.com", "enlightenedequipment.com", "katabaticgear.com", "tarptent.com",
   "sixmoondesigns.com", "mountainlaureldesigns.com", "borahgear.com", "nunatakusa.com",
   "westernmountaineering.com", "featheredfriends.com", "timmermade.com", "bonfus.com",
-  "palantepacks.com", "swdbackpacks.com", "litesmith.com", "garagegrowngear.com",
+  "palantepacks.com", "swdbackpacks.com", "litesmith.com",
 ]);
 
 /** True only for http(s) URLs — keeps non-fetchable schemes (javascript:, data:)

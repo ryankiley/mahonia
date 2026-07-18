@@ -45,8 +45,12 @@ const stateWord = computed(() => {
       // saved to the server → its last-write time; a draft with content but no
       // server time yet is held on device; an untouched empty list says nothing
       return editedAt.value != null ? "Synced" : hasContent.value ? "Saved on device" : "";
+    case "missing":
+      // the server no longer knows this list (deleted or reaped) but the local
+      // copy is intact — say so honestly instead of claiming a sync state
+      return "No longer online · saved on device";
     default:
-      return ""; // idle / missing
+      return ""; // idle
   }
 });
 const timeSuffix = computed(() =>

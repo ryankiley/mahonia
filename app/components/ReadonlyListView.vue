@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Item, ListSnapshot, Totals, Unit } from "~~/shared/types";
-import { groupItemsByFolder } from "~~/shared/weights";
+import { groupItemsByFolder, groupItemsByParent } from "~~/shared/weights";
 
 // The shared body for the two read-only pages (/s/[code] + /l/[slug]). Both render
 // the same totals + folder/ungrouped block over the same useReadonlyList view-model
@@ -19,6 +19,8 @@ defineEmits<{ "set-unit": [Unit] }>();
 // one grouping pass for all folders (ReadonlyFolderSection takes its items pre-grouped),
 // each folder ordered by its own sortBy so a shared list reads exactly as the owner's
 const itemsByFolder = computed(() => groupItemsByFolder(props.list?.items ?? [], props.list?.folders ?? []));
+// one children pass for all rows — a row doesn't re-scan the item array for its children
+const childrenByParent = computed(() => groupItemsByParent(props.list?.items ?? []));
 const NO_ITEMS: Item[] = [];
 
 // Quiet meta line under the title — the page's read-only status (a #status slot:
@@ -56,10 +58,10 @@ const editedAt = computed(() => {
     <TotalsBar :list="list" :totals="totals" @set-unit="(u) => $emit('set-unit', u)" />
 
     <div class="view__folders">
-      <ReadonlyFolderSection v-for="f in shownFolders" :key="f.id" :list="list" :folder="f" :items="itemsByFolder.get(f.id) ?? NO_ITEMS" />
+      <ReadonlyFolderSection v-for="f in shownFolders" :key="f.id" :list="list" :folder="f" :items="itemsByFolder.get(f.id) ?? NO_ITEMS" :children-by-parent="childrenByParent" />
       <section v-if="ungrouped.length">
         <p class="t-label view__ungrouped">Ungrouped</p>
-        <ReadonlyItemRow v-for="it in ungrouped" :key="it.id" :list="list" :item="it" />
+        <ReadonlyItemRow v-for="it in ungrouped" :key="it.id" :list="list" :item="it" :children-by-parent="childrenByParent" />
       </section>
     </div>
   </main>

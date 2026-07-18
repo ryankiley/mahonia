@@ -1,11 +1,5 @@
 import type { H3Event } from "h3";
-import { createError, getHeader, getRequestHeader, getRequestIP } from "h3";
-
-/** Reject oversized request bodies before parsing (defense-in-depth vs DoS). */
-export function assertMaxBody(event: H3Event, maxBytes: number) {
-  const len = Number(getHeader(event, "content-length") || 0);
-  if (len > maxBytes) throw createError({ statusCode: 413, statusMessage: "Payload too large" });
-}
+import { createError, getRequestHeader, getRequestIP } from "h3";
 
 /**
  * Resolve the client IP for rate limiting.

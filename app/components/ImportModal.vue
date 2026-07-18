@@ -99,7 +99,12 @@ async function importFromText() {
 }
 
 function onFile(e: Event) {
-  const file = (e.target as HTMLInputElement).files?.[0];
+  const input = e.target as HTMLInputElement;
+  const file = input.files?.[0];
+  // clear the selection immediately (the File object is already captured): a
+  // failed import keeps the dialog open, and re-choosing the SAME file — the
+  // natural retry after fixing it — fires no change event while a value sticks
+  input.value = "";
   if (!file) return;
   const isJson = /\.json$/i.test(file.name) || file.type === "application/json";
   const reader = new FileReader();
@@ -139,7 +144,7 @@ function onFile(e: Event) {
 
     <p v-if="error" class="t-sm import__err">{{ error }}</p>
 
-    <div class="import__actions">
+    <div class="dlg__actions import__actions">
       <!-- the native file control ("Choose File · No file chosen") can't be
            styled; a real button proxies a hidden input, and choosing a file
            imports immediately (onFile), so there's no chosen-name state to show -->
@@ -152,8 +157,7 @@ function onFile(e: Event) {
         aria-hidden="true"
         @change="onFile"
       />
-      <button class="btn btn--ghost" type="button" @click="fileRef?.click()">Choose a file…</button>
-      <span class="dlg__spacer" />
+      <button class="btn btn--ghost import__choose" type="button" @click="fileRef?.click()">Choose a file…</button>
       <button class="btn btn--ghost" @click="emit('close')">Cancel</button>
       <button class="btn btn--primary" :disabled="importing || !text.trim()" @click="importFromText">
         {{ importing ? "Importing…" : "Import" }}
@@ -192,13 +196,13 @@ function onFile(e: Event) {
 .import__err {
   color: var(--ink);
 }
+/* composes the shared .dlg__actions row (atoms/dialog.scss); this dialog's extras:
+   the row may wrap when narrow, and the file picker anchors left while
+   Cancel/Import stay trailing */
 .import__actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
   flex-wrap: wrap;
 }
-.dlg__spacer {
-  flex: 1;
+.import__choose {
+  margin-right: auto;
 }
 </style>

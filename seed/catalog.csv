@@ -948,6 +948,7 @@ Arc'teryx,Cerium SL Hoody,Men's M,clothing,215456,manufacturer,https://arcteryx.
 Arc'teryx,Cerium SL Hoody,Women's,clothing,208000,manufacturer,https://web.archive.org/web/20250306101116id_/https://arcteryx.com/us/en/shop/womens/cerium-sl-hoody-9506
 Arc'teryx,Cormac Hoody,Men's,clothing,160000,manufacturer,https://mountainhighoutfitters.com/products/m-cormac-hoody
 Arc'teryx,Sinsola Cinch Cap,,clothing,36000,manufacturer,https://arcteryx.com/us/en/shop/sinsola-cinch-cap-0182
+Arc'teryx,Sinsolo Bandana,,clothing,28000,manufacturer,https://arcteryx.com/us/en/shop/sinsolo-bandana-0184
 Arc'teryx,Taema Hoody,Women's,clothing,140000,manufacturer,https://outlet.arcteryx.com/us/en/shop/womens/taema-hoody
 Arc'teryx Veilance,Isogon Hooded Jacket,,clothing,390000,manufacturer,https://www.altitude-sports.com/products/arcteryx-veilance-mens-isogon-hooded-jacket-llll-vlc-15643
 Arms of Andes,Alpaca Sun Hoodie,Men's M,clothing,192000,manufacturer,https://www.garagegrowngear.com/products/mens-alpaca-wool-sun-hoodie-by-arms-of-andes
@@ -1548,6 +1549,7 @@ After Bite,After Bite Advanced,,consumable,32000,manufacturer,https://www.garage
 Aloe Up,Aloe Kote SPF 25,,consumable,7000,manufacturer,https://www.garagegrowngear.com/products/aloe-kote-spf-25-by-aloe-up
 Aloe Up,Mineral Lip Balm SPF 15,,consumable,4250,manufacturer,https://www.garagegrowngear.com/products/mineral-lip-balm-spf-15-by-aloe-up
 Aloe Up,Sport SPF 15 Lip Balm,,consumable,4250,manufacturer,https://www.garagegrowngear.com/products/sport-spf-15-lip-balm-by-aloe-up
+Anessa,Perfect UV Sunscreen Skincare Milk NA SPF50+,60 ml,consumable,60000,manufacturer,https://japanesetaste.com/products/shiseido-anessa-perfect-uv-sunscreen-skincare-milk-spf50-60ml
 Aquaphor,Lip Repair,0.35 fl oz,consumable,10000,community,https://www.aquaphorus.com/products/aquaphor/aquaphor-lip-repair
 Aquatabs,Water Purification Tablets,per tablet,consumable,397,manufacturer,https://www.aquatabs.us/product/aquatabs-397mg-tablets-x100/
 Backpacker's Pantry,Pad Thai,"pouch, 2 servings, net",consumable,175767,manufacturer,https://backpackerspantry.com/products/pad-thai
@@ -1629,6 +1631,7 @@ Sawyer,Picaridin Insect Repellant,4oz Lotion,consumable,136000,manufacturer,http
 Sea to Summit,Wilderness Wipes,"Compact, 12-pack",consumable,93000,manufacturer,https://www.garagegrowngear.com/products/wilderness-wipes-by-sea-to-summit
 Sea to Summit,Wilderness Wipes,"Compact, 36-pack",consumable,292000,manufacturer,https://www.garagegrowngear.com/products/wilderness-wipes-by-sea-to-summit
 Sea to Summit,Wilderness Wipes,"X-Large, 8-pack",consumable,122000,manufacturer,https://www.garagegrowngear.com/products/wilderness-wipes-by-sea-to-summit
+SKIN1004,Madagascar Centella Hyalu-Cica Water-Fit Sun Serum SPF50+,50 ml,consumable,50000,manufacturer,https://www.skin1004.com/products/hyalu-cica-water-fit-sun-serum-uv
 Skratch Labs,Hydration Sport Drink Mix,single-serving stick,consumable,22000,manufacturer,https://www.skratchlabs.com/products/hydration-sport-drink-mix
 Snickers,Singles Size Bar,single bar,consumable,52730,manufacturer,https://www.snickers.com/products/chocolate/snickers-singles-size-chocolate-candy-bars-186-oz-bars
 Snow Peak,GigaPower Fuel 110 Gold,"110g canister, net fuel",consumable,110000,manufacturer,https://web.archive.org/web/20191212224444/https://snowpeak.com/products/gigapower-fuel-110-gold-gp-110g
@@ -1712,7 +1715,18 @@ Black Diamond,Distance FLZ Trekking Poles,"120-140cm, per pair",other,450000,man
 Black Diamond,Distance FLZ Trekking Poles,"95-100cm, per pair",other,390000,manufacturer,https://www.garagegrowngear.com/products/distance-flz-trekking-poles-by-black-diamond
 Black Diamond,Distance Spike Traction Device,,other,200000,manufacturer,https://blackdiamondequipment.com/products/distance-spike-traction-device
 Black Diamond,Distance Z Trekking Poles,per pair,other,347000,manufacturer,https://blackdiamondequipment.com/products/distance-z-trekking-running-poles
+Black Diamond,Gridlock Triple Lock Carabiner,,other,90000,manufacturer,https://blackdiamondequipment.com/products/gridlock-triple-lock-carabiner
+Black Diamond,HotForge Screwgate Carabiner,,other,50000,manufacturer,https://blackdiamondequipment.com/products/hotforge-screwgate-carabiner-3-pack
+Black Diamond,HotForge Straight Gate Carabiner,,other,45000,manufacturer,https://blackdiamondequipment.com/products/hotforge-straight-gate-carabiner
+Black Diamond,HotWire Carabiner,,other,40000,manufacturer,https://blackdiamondequipment.com/products/hotwire-carabiner
+Black Diamond,LiteForge Screwgate Carabiner,,other,45000,manufacturer,https://blackdiamondequipment.com/products/liteforge-screwgate-carabiner
+Black Diamond,LiteWire Carabiner,,other,32000,manufacturer,https://blackdiamondequipment.com/products/litewire-carabiner
+Black Diamond,MiniWire Carabiner,,other,23000,manufacturer,https://blackdiamondequipment.com/products/miniwire-carabiner
+Black Diamond,Oval Triple Lock Carabiner,,other,70000,manufacturer,https://blackdiamondequipment.com/products/oval-triple-lock-carabiner
+Black Diamond,Pearlock Twistlock Carabiner,,other,84000,manufacturer,https://blackdiamondequipment.com/products/pearlock-twistlock-carabiner
 Black Diamond,Raven Pro Ice Axe,55cm,other,390000,manufacturer,https://blackdiamondequipment.com/products/raven-pro-ice-axe
+Black Diamond,RockLock Screwgate Carabiner,,other,85000,manufacturer,https://blackdiamondequipment.com/products/rocklock-screwgate-carabiner
+Black Diamond,RockLock Twistlock Carabiner,,other,89000,manufacturer,https://blackdiamondequipment.com/products/rocklock-twistlock-carbiner
 Black Diamond,Trail Cork Trekking Poles,per pair,other,494000,manufacturer,https://www.garagegrowngear.com/products/trail-cork-trekking-poles-by-black-diamond
 Black Diamond,Trail Ergo Cork Trekking Poles,per pair,other,512000,manufacturer,https://gearheadoutfitters.com/products/trail-ergo-cork-trek-poles
 Black Diamond,Venom LT Classic Ice Axe,,other,240000,manufacturer,https://www.garagegrowngear.com/products/venom-lt-classic-piolet-ice-axe-by-black-diamond

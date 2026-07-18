@@ -1,0 +1,43 @@
+// Item-row atoms — the rules the editor's ItemRow (editing + packing modes) and
+// the share views' ReadonlyItemRow must render identically. The two are
+// deliberately separate components (the read pages must not pull the editor JS
+// graph), so their shared LOOK lives here instead of hand-mirrored scoped copies.
+
+// the stack breakpoint from the token source (Sass dedupes this module — already
+// @use'd by main.scss — so no :root re-emission); keeps the literal out of here
+@use "../foundations/tokens" as t;
+
+/* nested items — a block indented behind a hairline "thread" line. The WHOLE row
+   indents uniformly (via the container), so the name and its number line sit at the
+   same indent — which matters most on the two-line mobile layout, where indenting
+   just the name left the ×qty·weight line stranded flush. No rules between nested
+   rows: they read as one quiet group, spaced only by the gap. */
+.nest-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: var(--space-3) 0 0 var(--space-4);
+  padding-left: var(--space-4);
+  border-left: 1px solid var(--line);
+}
+
+/* unit suffix on a weight — an explicit gap from the number so it doesn't crowd
+   ("1200g"); one gap shared by the editing, packing, and read rows */
+.item__wunit {
+  margin-inline-start: var(--space-1);
+}
+
+@media (max-width: t.$bp-stack) {
+  /* the qty + weight cells of the two-line mobile rows share the editing fields'
+     box metrics (padding + line-height), so a packing/read row is the exact same
+     height as its editing counterpart — no shift when modes or views swap */
+  .item__cqty,
+  .item__cweight,
+  .item__roqty,
+  .item__roweight {
+    padding-block: 2px;
+    line-height: 1.3;
+    display: inline-flex;
+    align-items: center;
+  }
+}

@@ -5,7 +5,9 @@ import { describe, expect, it } from "vitest";
 import * as schema from "../server/db/schema";
 import { lists } from "../server/db/schema";
 import { LISTS_DDL } from "../server/utils/db";
+import { CATALOG_DDL } from "../server/utils/catalog";
 import { sha256Hex } from "../server/utils/tokens";
+import { applyOpsByEditToken } from "../server/utils/listRepo";
 import {
   bumpView,
   getPublicBySlug,
@@ -221,6 +223,27 @@ describe("getPublicBySlug — public-only, no id/token leak", () => {
     const db = await freshDb();
     expect(await getPublicBySlug("not a slug!!", db)).toBeNull();
   });
+  it("hydrates catalog-linked names (parity with /api/s and the editor)", async () => {
+    const db = await freshDb();
+    for (const stmt of CATALOG_DDL) await db.execute(sql.raw(stmt));
+    const cat = await db
+      .insert(schema.catalogItems)
+      .values({ brand: "Durston", name: "Kakwa 55", weightMg: 893_010, weightSource: "manufacturer" })
+      .returning({ id: schema.catalogItems.id });
+    const { row } = await seed(db, {
+      isPublic: true,
+      itemCount: 1,
+      publishedAt: new Date(),
+      data: {
+        folders: [],
+        // stored snapshot carries the OLD add-time name; the public view must
+        // show the catalog's current one, same as the /s + edit reads
+        items: [{ id: "i1", folderId: null, name: "Kakwa OLD", unitWeightMg: 0, qty: 1, classification: null, sortOrder: 0, catalogItemId: cat[0]!.id }],
+      },
+    });
+    const view = await getPublicBySlug(row.publicSlug, db);
+    expect(view!.items[0]).toMatchObject({ brand: "Durston", name: "Kakwa 55" });
+  });
 });
 
 describe("listPublicSlugs — the sitemap's visibility gate", () => {
@@ -234,6 +257,44 @@ describe("listPublicSlugs — the sitemap's visibility gate", () => {
     const slugs = await listPublicSlugs(db);
     expect(slugs).toHaveLength(1);
     expect(slugs[0]!.slug).toBe(row.publicSlug);
+  });
+});
+
+describe("post-publish spam gate — setMeta on a public list re-runs isLikelySpam", () => {
+  it("flags when a setMeta stuffs links into a public list's description", async () => {
+    const db = await freshDb();
+    const { editToken } = await seed(db, { isPublic: true, itemCount: 2, publishedAt: new Date() });
+    await applyOpsByEditToken(
+      editToken,
+      [{ t: "setMeta", patch: { description: "https://a.com https://b.com c.shop d.store" } }],
+      db,
+    );
+    expect((await db.select().from(lists))[0]!.flagged).toBe(true);
+  });
+  it("item edits never re-flag (an admin-restored list stays restored)", async () => {
+    const db = await freshDb();
+    const { editToken } = await seed(db, {
+      isPublic: true,
+      itemCount: 1,
+      description: "https://a.com https://b.com c.shop d.store", // spammy but admin-cleared
+      flagged: false,
+      data: {
+        folders: [],
+        items: [{ id: "i1", folderId: null, name: "Tent", unitWeightMg: 1, qty: 1, classification: null, sortOrder: 0 }],
+      },
+    });
+    await applyOpsByEditToken(editToken, [{ t: "updateItem", id: "i1", patch: { qty: 2 } }], db);
+    expect((await db.select().from(lists))[0]!.flagged).toBe(false);
+  });
+  it("a private list's setMeta never flags (the gate is public-only)", async () => {
+    const db = await freshDb();
+    const { editToken } = await seed(db, { isPublic: false, itemCount: 1 });
+    await applyOpsByEditToken(
+      editToken,
+      [{ t: "setMeta", patch: { description: "https://a.com https://b.com c.shop d.store" } }],
+      db,
+    );
+    expect((await db.select().from(lists))[0]!.flagged).toBe(false);
   });
 });
 

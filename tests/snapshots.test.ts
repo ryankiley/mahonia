@@ -108,6 +108,36 @@ describe("snapshots — vandalism recovery", () => {
     expect(mid!.items.map((i) => i.id).sort()).toEqual(["i1", "i2", "i3"]);
   });
 
+  it("re-applies the reducer's referential invariants on restore (normalizeListData)", async () => {
+    const db = await freshDb();
+    // corrupted data as a raw create POST could have stored it: dangling refs,
+    // deep nesting, a child/parent folder mismatch, and a duplicate id
+    const bad: ListData = {
+      folders: [folder],
+      items: [
+        item("p1", "Parent"),
+        { ...item("c1", "Child"), parentId: "p1", folderId: "ghost" }, // folder differs from parent's
+        { ...item("d1", "Dangler"), folderId: "ghost" }, // folder doesn't exist
+        { ...item("o1", "Orphan"), parentId: "nope" }, // parent doesn't exist
+        { ...item("g1", "Grand"), parentId: "c1" }, // nested under a nested item
+        item("dup", "One"),
+        { ...item("dup", "Two"), unitWeightMg: 9 }, // duplicate id
+      ],
+    };
+    const { editToken } = await seedList(db, bad);
+    // the mutate captures the corrupted pre-edit state; restoring it must heal
+    await applyOpsByEditToken(editToken, [{ t: "updateItem", id: "p1", patch: { name: "P" } }], db);
+    const snaps = await listSnapshotsByEditToken(editToken, db);
+    const restored = await restoreSnapshotByEditToken(editToken, snaps![0]!.id, db);
+    const by = new Map(restored!.items.map((i) => [i.id, i]));
+    expect(by.get("d1")!.folderId).toBeNull(); // dangling folderId → ungrouped
+    expect(by.get("o1")!.parentId).toBeNull(); // dangling parentId → top-level
+    expect(by.get("c1")!.folderId).toBe("f1"); // child rides in its parent's folder
+    expect(by.get("g1")!.parentId).toBeNull(); // one nesting level only
+    expect(restored!.items.filter((i) => i.id === "dup")).toHaveLength(1);
+    expect(by.get("dup")!.name).toBe("One"); // first occurrence wins
+  });
+
   it("won't restore a snapshot that belongs to another list", async () => {
     const db = await freshDb();
     const a = await seedList(db, { folders: [], items: [item("x", "A")] });
