@@ -59,6 +59,26 @@ const children = computed(() =>
   props.nested ? NO_ITEMS : (props.childrenByParent.get(props.item.id) ?? NO_ITEMS),
 );
 const isParent = computed(() => children.value.length > 0);
+// collapse a nested group — hide/show its children, persisted per item id (pure UI
+// state, never sent to the server), mirroring the folder collapse. Only meaningful on
+// a parent row; packing mode always shows children (you're checking them off).
+const NEST_KEY = `gear.nest.${props.item.id}`;
+const nestCollapsed = ref(false);
+onMounted(() => {
+  try {
+    nestCollapsed.value = localStorage.getItem(NEST_KEY) === "1";
+  } catch {
+    /* private mode / no storage — default expanded */
+  }
+});
+function toggleNest() {
+  nestCollapsed.value = !nestCollapsed.value;
+  try {
+    localStorage.setItem(NEST_KEY, nestCollapsed.value ? "1" : "0");
+  } catch {
+    /* ignore */
+  }
+}
 // the group total shown on a parent's read-only weight column (bare number, list
 // unit) — `children` holds exactly this row's children, so the sum is O(children)
 const groupWeight = computed(() =>
@@ -76,6 +96,20 @@ const canIndent = computed(() => !props.nested && !isParent.value && props.prevI
 // drag-to-reorder (editable rows only)
 const dnd = useItemDnd();
 const isDragging = computed(() => dnd.dragId.value === props.item.id);
+// the group's collapse clip (overflow:hidden on .nest-block, needed for the 1fr↔0fr
+// slide) would crop a child's autocomplete dropdown or a lifted drag row. Lift it
+// while a child overlay is open or any drag is in flight — mirrors the folder's
+// overlay/dragpass lifts. Counts CHILD overlays only (the parent's own dropdown opens
+// above the block); still bubbles each up so the folder lifts its clip too. Never
+// lifts when collapsed (hidden children can't open an overlay or be dragged).
+const nestOverlayCount = ref(0);
+function onChildOverlay(open: boolean) {
+  nestOverlayCount.value = Math.max(0, nestOverlayCount.value + (open ? 1 : -1));
+  emit("overlayToggle", open);
+}
+const nestLifted = computed(
+  () => !nestCollapsed.value && (nestOverlayCount.value > 0 || dnd.dragId.value != null),
+);
 const isDropBefore = computed(
   () =>
     dnd.dragId.value != null &&
@@ -426,7 +460,7 @@ function dismissFix() {
 
     <!-- editable row (default) -->
     <div v-if="!packed" class="item">
-      <div class="item__name">
+      <div class="item__name" :class="{ 'item__name--group': isParent }">
         <ItemInput
           :unit="list.displayUnit"
           :initial="editableName"
@@ -437,6 +471,19 @@ function dismissFix() {
           @advance="c.addBlankItemAfter(item.id)"
           @overlay-toggle="$emit('overlayToggle', $event)"
         />
+        <!-- collapse a group of nested items — trails the name like the folder's
+             chevron (the name hugs its text so this sits right after it) -->
+        <button
+          v-if="isParent"
+          class="item__nestcollapse"
+          :aria-expanded="!nestCollapsed"
+          :aria-label="`${nestCollapsed ? 'Expand' : 'Collapse'} ${item.name || 'group'}`"
+          :title="nestCollapsed ? 'Expand group' : 'Collapse group'"
+          @mousedown.prevent
+          @click="toggleNest"
+        >
+          <ChevronDown class="item__nestchev" :class="{ 'is-collapsed': nestCollapsed }" :size="16" :stroke-width="2" />
+        </button>
       </div>
 
       <!-- metadata + controls: display:contents on desktop, so qty/weight/class/
@@ -634,21 +681,28 @@ function dismissFix() {
          block indented behind a hairline thread line. Their real weights sum into this row's
          weight column. New children come from the ListPlus action above OR the ever-present
          "Add an item" below (mirrors the folder's, so growing a group doesn't need a hover). -->
-    <div v-if="!nested && isParent" class="item-nest nest-block">
-      <ItemRow
-        v-for="child in children"
-        :key="child.id"
-        :list="list"
-        :item="child"
-        :children-by-parent="childrenByParent"
-        :packed="packed"
-        nested
-        @overlay-toggle="$emit('overlayToggle', $event)"
-      />
-      <div v-if="isNestAppendTarget" class="item-nest__droptail" aria-hidden="true" />
-      <button v-if="!packed" type="button" class="item-nest__add" @mousedown.prevent @click="c.addChild(item.id)">
-        Add an item
-      </button>
+    <div
+      v-if="!nested && isParent"
+      class="item-nestcollapse"
+      :class="{ 'is-lifted': nestLifted }"
+      :data-collapsed="(!packed && nestCollapsed) || null"
+    >
+      <div class="item-nest nest-block">
+        <ItemRow
+          v-for="child in children"
+          :key="child.id"
+          :list="list"
+          :item="child"
+          :children-by-parent="childrenByParent"
+          :packed="packed"
+          nested
+          @overlay-toggle="onChildOverlay"
+        />
+        <div v-if="isNestAppendTarget" class="item-nest__droptail" aria-hidden="true" />
+        <button v-if="!packed" type="button" class="item-nest__add" @mousedown.prevent @click="c.addChild(item.id)">
+          Add an item
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -676,6 +730,58 @@ function dismissFix() {
 }
 .item__name :deep(.ac) {
   position: static;
+}
+/* a GROUP (parent) row: the name hugs its text so the collapse chevron trails it,
+   exactly like a folder header (.folder__title / .folder__name / .folder__collapse) */
+.item__name--group {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
+}
+.item__name--group :deep(.ac) {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.item__name--group :deep(.ac__input) {
+  width: auto;
+  field-sizing: content;
+  min-width: 2ch;
+}
+/* the collapse chevron — trails the group name, same ink/rotate as the folder chevron */
+.item__nestcollapse {
+  flex: none;
+  align-self: center;
+  display: flex;
+  align-items: center;
+  padding: 0;
+  color: var(--ink-3);
+  cursor: pointer;
+  transition: color var(--dur) var(--ease);
+}
+.item__nestcollapse:hover {
+  color: var(--ink);
+}
+.item__nestchev {
+  transition: transform var(--dur) var(--ease);
+  /* standing layer so WebKit doesn't re-snap the glyph ~1px when it layers for the
+     rotate (same quirk handled on .folder__chev) */
+  will-change: transform;
+}
+.item__nestchev.is-collapsed {
+  transform: rotate(-90deg);
+}
+@media (pointer: coarse) {
+  /* touch: the chevron gets the ~44px tap target the icon buttons get. Grows
+     rightward + vertically only (left edge stays tight to the name), pulled back out
+     of layout so the row keeps its height. calc(16px − --tap) cancels the width added
+     past the 16px glyph (see the folder chevron's identical treatment). */
+  .item__nestcollapse {
+    min-width: var(--tap);
+    height: var(--tap);
+    justify-content: flex-start;
+    margin-right: calc(16px - var(--tap));
+    margin-block: var(--tap-pull);
+  }
 }
 .item__qty {
   grid-area: qty;
@@ -1044,6 +1150,31 @@ function dismissFix() {
 
 /* the nested block's thread-line container is the shared .nest-block atom
    (atoms/item.scss), rendered identically by ReadonlyItemRow */
+/* collapse a group — the same 1fr↔0fr grid slide the folder body uses (Safari-safe;
+   height:auto↔0 would snap there). The .nest-block inner needs min-height:0 +
+   overflow:hidden to clip the reveal; its parent→child margin collapses too so a
+   collapsed group leaves no orphan gap. */
+.item-nestcollapse {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows var(--dur) var(--ease);
+}
+.item-nestcollapse[data-collapsed] {
+  grid-template-rows: 0fr;
+}
+.item-nestcollapse > .nest-block {
+  min-height: 0;
+  overflow: hidden;
+  transition: margin-top var(--dur) var(--ease);
+}
+.item-nestcollapse[data-collapsed] > .nest-block {
+  margin-top: 0;
+}
+/* lift the clip while a child overlay is open or a drag is live, so a child's
+   autocomplete dropdown / lifted row isn't cropped (folder's is-overlay-open idea) */
+.item-nestcollapse.is-lifted > .nest-block {
+  overflow: visible;
+}
 /* drag-to-reorder: insertion line when a nested sibling drops at the end of this
    group (the folder's tail line stands down for it — see FolderSection) */
 .item-nest__droptail {
