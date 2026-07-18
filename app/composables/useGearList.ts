@@ -29,6 +29,11 @@ function create() {
   let inFlight = false;
   let pollTimer: ReturnType<typeof setInterval> | undefined;
   let isEditing = false;
+  // The server has no row under this token (deleted, or the link was rotated) but
+  // a local copy is still on screen. Mutate's 404 is a permanent token-lookup
+  // failure, so while set, edits persist to IndexedDB only — never queued/flushed
+  // against the dead token.
+  let remoteMissing = false;
   // bumped on every load/dispose so in-flight responses for a previous list are ignored
   let epoch = 0;
   let teardownListeners: (() => void) | undefined;
@@ -72,6 +77,8 @@ function create() {
       if (!snapshot.value) return;
       if (!editToken) {
         if (hasRealContent(snapshot.value)) createFromDraft();
+      } else if (remoteMissing) {
+        status.value = "missing"; // still dead server-side; nothing to drain
       } else if (pending.length) {
         scheduleFlush();
       } else if (status.value === "offline") {
@@ -139,17 +146,8 @@ function create() {
   // stay touch, so a list you removed mid-session isn't silently re-added.
   function registerOpened() {
     if (!snapshot.value || !editToken) return;
-    const s = snapshot.value;
-    useMyLists().upsert({
-      editToken,
-      shareCode: s.shareCode,
-      slug: s.slug,
-      title: s.title,
-      totalMg: totals.value?.totalMg ?? 0,
-      version: s.version,
-      lastOpened: Date.now(),
-      displayUnit: s.displayUnit,
-    });
+    // registerCreated owns the snapshot→MyListEntry mapping — one source of truth
+    useMyLists().registerCreated({ editToken, snapshot: snapshot.value }, totals.value?.totalMg ?? 0);
   }
 
   async function load(token: string) {
@@ -159,6 +157,7 @@ function create() {
     pending = [];
     inFlight = false;
     isEditing = false;
+    remoteMissing = false;
     clearTimeout(flushTimer);
     snapshot.value = null;
     status.value = "loading";
@@ -203,6 +202,20 @@ function create() {
         colorKeys[i] = colorKey;
         updateFolder(f.id, { colorKey });
       });
+      // one-time heal: before the reducer cascaded folderId on cross-folder parent
+      // moves (shared/ops.ts moveItem), a dragged parent could strand its children's
+      // folderId in the old folder — skewing class totals and folder-delete scope.
+      // A same-place moveItem on the parent is a pure no-op for the parent itself
+      // and re-runs the cascade; self-persists via the mutate flow like the
+      // backfills above.
+      const stranded = new Set<Item>();
+      for (const it of merged.items) {
+        if (it.parentId == null) continue;
+        const parent = merged.items.find((p) => p.id === it.parentId);
+        if (parent && parent.folderId !== it.folderId) stranded.add(parent);
+      }
+      for (const p of stranded)
+        dispatch({ t: "moveItem", id: p.id, folderId: p.folderId, sortOrder: p.sortOrder });
       // Upgrade a legacy bare /e#{token} URL to the share-ready pretty path
       // (/e/{shareCode}#{token}) once the share code is known. Pre-#54 lists —
       // every bookmark and my-lists entry from before the pretty links shipped —
@@ -226,8 +239,10 @@ function create() {
       if (e?.statusCode === 404) {
         // The server has no list under this token (deleted, or the link was
         // rotated). If we still hold a local copy, keep it on screen so the data
-        // is readable/exportable, but don't poll or flush against a dead token.
-        status.value = local ? "synced" : "missing";
+        // is readable/exportable, but don't poll or flush against a dead token —
+        // and don't claim "synced": later edits stay device-only (remoteMissing).
+        remoteMissing = true;
+        status.value = "missing";
       } else if (local) {
         // Network failure with a local copy: keep editing, sync when it returns.
         status.value = "offline";
@@ -256,6 +271,7 @@ function create() {
     pending = [];
     inFlight = false;
     isEditing = false;
+    remoteMissing = false;
     clearTimeout(flushTimer);
     installListeners();
     const folders: Folder[] = STARTER_FOLDERS.map((p, i) => ({
@@ -340,9 +356,10 @@ function create() {
 
   function dispatch(op: Op) {
     if (!snapshot.value) return;
-    // optimistic: same reducer as the server
+    // optimistic: same reducer as the server. The in-place mutation through the
+    // deep ref's proxy gives precise property-level reactivity — only the touched
+    // rows re-render, so a keystroke in one folder doesn't repaint every folder.
     applyOps(snapshot.value, [op]);
-    snapshot.value = { ...snapshot.value };
     persistLocal(); // mirror to IndexedDB so this edit survives a reload/crash
     // Draft (no token yet): keep edits local until there's real content, then create
     // the list once. While that create is in flight, queue ops for the post-create flush.
@@ -351,6 +368,8 @@ function create() {
       else if (hasRealContent(snapshot.value)) createFromDraft();
       return;
     }
+    // the server row is gone (deleted/rotated token) — edits stay on-device only
+    if (remoteMissing) return;
     pending.push(op);
     scheduleFlush();
   }
@@ -361,12 +380,15 @@ function create() {
   }
 
   async function flush() {
-    if (inFlight || !pending.length || !snapshot.value) return;
+    if (inFlight || remoteMissing || !pending.length || !snapshot.value) return;
     // offline: leave the queue intact + persisted; the online watcher re-flushes
     if (!online.value) { status.value = "offline"; persistLocal(); return; }
     const myEpoch = epoch;
-    const ops = pending;
-    pending = [];
+    // ≤500 ops per request — the server 400s on oversized batches instead of
+    // truncating. A longer queue (offline session) drains across sequential
+    // flushes: the finally reschedules while pending is non-empty, and the
+    // rebase below re-applies the remainder onto each merged snapshot.
+    const ops = pending.splice(0, 500);
     inFlight = true;
     status.value = "saving";
     try {
@@ -391,6 +413,14 @@ function create() {
     } catch (e: any) {
       if (myEpoch !== epoch) return;
       pending = ops.concat(pending); // re-queue (incl. 409 contention) and retry shortly
+      // mutate's 404 is permanent (token deleted/rotated mid-session), never
+      // transient — stop retrying; the queue stays persisted on device
+      if (e?.statusCode === 404) {
+        remoteMissing = true;
+        status.value = "missing";
+        persistLocal();
+        return;
+      }
       // offline surfaces honestly; a genuine server error keeps the "Not saved" cue
       status.value = online.value ? "error" : "offline";
       persistLocal(); // keep the re-queued ops on device until they land
@@ -408,7 +438,10 @@ function create() {
     pollTimer = setInterval(async () => {
       if (typeof document !== "undefined" && document.hidden) return;
       if (!online.value) return; // nothing to pull while the connection is down
-      if (inFlight || pending.length || !snapshot.value || useItemDnd().dragId.value != null) return;
+      if (inFlight || pending.length || !snapshot.value) return;
+      // never adopt mid-drag (item OR folder): a reshuffle under the pointer would
+      // commit the drop against pre-adoption geometry
+      if (useItemDnd().dragId.value != null || useFolderDnd().dragId.value != null) return;
       const myEpoch = epoch;
       try {
         const res = await $fetch<{ version: number; snapshot?: ListSnapshot }>(
@@ -425,10 +458,14 @@ function create() {
           !isEditing &&
           !pending.length &&
           !inFlight &&
-          useItemDnd().dragId.value == null
+          useItemDnd().dragId.value == null &&
+          useFolderDnd().dragId.value == null
         ) {
           snapshot.value = res.snapshot;
           syncRegistry();
+          // mirror the adopted merge on device — the guards above guarantee the
+          // queue is empty, so a hard tab kill can't leave a stale local copy
+          persistLocal();
         }
       } catch {
         /* transient */
@@ -447,9 +484,10 @@ function create() {
     const onFocusIn = (e: FocusEvent) => { if (isField(e.target)) isEditing = true; };
     const onFocusOut = () => { isEditing = false; };
     // warn before leaving with unsynced edits — but offline edits are safely held
-    // on device (IndexedDB), so only nag when a server sync is pending AND reachable
+    // on device (IndexedDB), so only nag when a server sync is pending AND reachable.
+    // A dead-token queue (remoteMissing) can never sync, so it never nags either.
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
-      if ((pending.length || inFlight) && online.value) { e.preventDefault(); e.returnValue = ""; }
+      if ((pending.length || inFlight) && online.value && !remoteMissing) { e.preventDefault(); e.returnValue = ""; }
     };
     window.addEventListener("focusin", onFocusIn);
     window.addEventListener("focusout", onFocusOut);
@@ -594,15 +632,9 @@ function create() {
     if (!parent) return;
     moveItem(id, parent.folderId, null, parentId);
   }
-  // Indent: nest a top-level row under the top-level row directly above it (turning two
-  // siblings into parent + child). No-op if there's nothing above or it already nests.
-  function nestUnderAbove(id: string) {
-    const it = snapshot.value?.items.find((i) => i.id === id);
-    if (!it || it.parentId != null) return;
-    const sibs = siblingItems(snapshot.value!.items, it.folderId, null).sort(bySortOrder);
-    const above = sibs[sibs.findIndex((s) => s.id === id) - 1];
-    if (above) nestItem(id, above.id);
-  }
+  // (Indent lives in ItemRow: the row's DISPLAY-order predecessor comes from the
+  // parent's v-for as prevId, and the click is nestItem(id, prevId) — a sorted
+  // folder nests under the row you see above, not the sortOrder-previous one.)
   // Outdent: un-nest a child back to top-level, dropped right after its former parent.
   function unnest(id: string) {
     const it = snapshot.value?.items.find((i) => i.id === id);
@@ -659,10 +691,11 @@ function create() {
               title: snapshot.value.title,
               totalMg: totals.value?.totalMg ?? 0,
               version: snapshot.value.version,
+              displayUnit: snapshot.value.displayUnit, // keep the unit system through a rotate
             }
           : null);
       my.forget(old); // also drops the old token's on-device record
-      if (base) my.upsert({ ...base, editToken: res.editToken, lastOpened: Date.now() } as any);
+      if (base) my.upsert({ ...base, editToken: res.editToken, lastOpened: Date.now() });
       persistLocal(); // re-key this device's copy onto the new token
       return res.editToken;
     } catch {
@@ -681,16 +714,21 @@ function create() {
     // unconditionally (a new instance clearing whatever came before it).
     if (ownEpoch !== undefined && ownEpoch !== epoch) return;
     // best-effort: flush unsynced edits before teardown (SPA nav / unmount) so
-    // queued ops aren't silently dropped on the way out
-    if (pending.length && editToken) {
-      $fetch("/api/edit/mutate", { method: "POST", headers: authHeaders(), body: { ops: pending } }).catch(() => {});
+    // queued ops aren't silently dropped on the way out. Capped at the server's
+    // 500-op batch limit (it rejects oversized batches); the remainder is safe in
+    // the on-device copy below and drains on the next open. A dead token
+    // (remoteMissing) would only 404, so don't bother.
+    if (pending.length && editToken && !remoteMissing) {
+      $fetch("/api/edit/mutate", { method: "POST", headers: authHeaders(), body: { ops: pending.slice(0, 500) } }).catch(() => {});
     }
     // capture the latest state on device before teardown — the debounced persist
     // may not have fired, and SPA nav / unmount must not drop the last edits
     writeLocal();
     clearTimeout(persistTimer);
     epoch++; // invalidate any in-flight flush/poll responses
-    useItemDnd().reset(); // drop any in-flight drag so it can't commit against a new list
+    // drop any in-flight drag (item or folder) so it can't commit against a new list
+    useItemDnd().reset();
+    useFolderDnd().reset();
     stopPoll();
     clearTimeout(flushTimer);
     clearTimeout(undoTimer);
@@ -701,6 +739,7 @@ function create() {
     editToken = "";
     inFlight = false;
     isEditing = false;
+    remoteMissing = false;
     status.value = "idle";
   }
 
@@ -711,7 +750,7 @@ function create() {
     load, startDraft, dispose, rotate,
     setMeta, setUnit, addFolder, updateFolder, removeFolder, moveFolderBefore,
     addBlankItem, addBlankItemAfter, discardEmpty, updateItem, removeItem, setItemWeight, moveItem,
-    addChild, nestItem, nestUnderAbove, unnest,
+    addChild, nestItem, unnest,
     pendingBlankId, pendingUndo, undoRemove, holdUndo, releaseUndo,
   };
 }

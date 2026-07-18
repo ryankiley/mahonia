@@ -8,7 +8,10 @@ export function downloadFile(filename: string, text: string, type: string): void
   a.href = url;
   a.download = filename;
   a.click();
-  URL.revokeObjectURL(url);
+  // Revoke off the click task — WebKit (iOS Safari) can race a synchronous
+  // revoke against the download fetch and save an empty file. The blob is a
+  // small in-memory string, so holding it a beat costs nothing.
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 // A filesystem-friendly base name for an exported list, named after the list's NAME

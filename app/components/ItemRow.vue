@@ -1,9 +1,12 @@
 <script lang="ts">
-import type { Classification, Unit } from "~~/shared/types";
+import type { Classification, Item as ItemT, Unit } from "~~/shared/types";
 
 // static per-component tables — module scope so a large list doesn't rebuild
 // them in every row instance
 const STEP_BY_UNIT: Record<Unit, number> = { g: 1, kg: 0.01, oz: 0.1, lb: 0.1 };
+// one stable empty array for every leaf row, so `children` never mints a fresh
+// identity per row per render
+const NO_ITEMS: ItemT[] = [];
 const CLASS_OPTS: { value: Classification; label: string }[] = [
   { value: "base", label: "Base" },
   { value: "worn", label: "Worn" },
@@ -18,7 +21,7 @@ const MAX_SPLIT_OPTS = 5;
 import { ChevronDown, GripVertical, IndentDecrease, IndentIncrease, ListPlus, StickyNotePlus, StickyNoteX, Trash2, X } from "@lucide/vue";
 import type { Item, ListSnapshot } from "~~/shared/types";
 import type { ItemPatch } from "~~/shared/ops";
-import { bySortOrder, childrenOf, effectiveClassification, formatWeight, fromMg, groupLineMg, itemDisplayName, lineMg, parseWeightInput, splitWornQty } from "~~/shared/weights";
+import { bySortOrder, effectiveClassification, formatWeight, fromMg, groupLineMg, itemDisplayName, parseWeightInput, rowDisplayMg, siblingItems, splitWornQty } from "~~/shared/weights";
 import { isWaterName, itemQtyLabel, waterLiters, waterMgFromMl } from "~~/shared/water";
 
 // The editor's row — editable by default, a checklist row in packing mode. A nested item
@@ -26,8 +29,21 @@ import { isWaterName, itemQtyLabel, waterLiters, waterMgFromMl } from "~~/shared
 // (/s + /l) render ReadonlyItemRow instead, so this component (and the editor graph it
 // pulls in) never ships to a read-only page.
 const props = withDefaults(
-  defineProps<{ list: ListSnapshot; item: Item; packed?: boolean; nested?: boolean }>(),
-  { packed: false, nested: false },
+  defineProps<{
+    list: ListSnapshot;
+    item: Item;
+    // children grouped by parent id — ONE groupItemsByParent pass per snapshot at
+    // the view root (GearEditor), threaded to every row, so each row doesn't
+    // re-scan the whole item array for its children on every render
+    childrenByParent: Map<string, Item[]>;
+    // the row rendered directly ABOVE this one in the parent's DISPLAY order
+    // (null = first row) — drives the indent affordance + its nest target, so a
+    // name/weight-sorted folder indents under the row you actually see above
+    prevId?: string | null;
+    packed?: boolean;
+    nested?: boolean;
+  }>(),
+  { prevId: null, packed: false, nested: false },
 );
 // forwarded up to FolderSection so it can lift its collapse clip while this row's
 // name autocomplete is open (otherwise a dropdown at the folder's bottom is cropped)
@@ -38,21 +54,23 @@ const c = useGearList();
 // A row with children is a "group": its weight column shows the group total (own +
 // children, read-only, like a folder subtotal); the children carry the real editable
 // weights. Nesting is one level, so a nested row never renders its own children.
-const children = computed(() => (props.nested ? [] : childrenOf(props.list.items, props.item.id)));
-const isParent = computed(() => children.value.length > 0);
-// the group total shown on a parent's read-only weight column (bare number, list unit)
-const groupWeight = computed(() =>
-  formatWeight(groupLineMg(props.item, props.list.items), props.list.displayUnit, { withUnit: false }),
+const children = computed(() =>
+  props.nested ? NO_ITEMS : (props.childrenByParent.get(props.item.id) ?? NO_ITEMS),
 );
-// Indent (nest under the row above): only a top-level, childless row with a top-level
-// sibling above it can (keeps nesting one level deep). Outdent is offered to any child.
-const canIndent = computed(() => {
-  if (props.nested || isParent.value) return false;
-  const sibs = props.list.items
-    .filter((i) => i.folderId === props.item.folderId && i.parentId == null)
-    .sort(bySortOrder);
-  return sibs.findIndex((s) => s.id === props.item.id) > 0;
-});
+const isParent = computed(() => children.value.length > 0);
+// the group total shown on a parent's read-only weight column (bare number, list
+// unit) — `children` holds exactly this row's children, so the sum is O(children)
+const groupWeight = computed(() =>
+  formatWeight(groupLineMg(props.item, children.value), props.list.displayUnit, { withUnit: false }),
+);
+// the packing row's weight — same rule as the read views (ReadonlyItemRow): a
+// group shows its total (own + children), a leaf its own line
+const rowWeightMg = computed(() => rowDisplayMg(props.item, children.value));
+// Indent (nest under the row above): only a top-level, childless row with a row
+// above it in DISPLAY order can (keeps nesting one level deep; prevId comes from
+// the parent's v-for, so a sorted folder nests under the row you see, not the
+// sortOrder-previous one). Outdent is offered to any child.
+const canIndent = computed(() => !props.nested && !isParent.value && props.prevId != null);
 
 // drag-to-reorder (editable rows only)
 const dnd = useItemDnd();
@@ -63,6 +81,56 @@ const isDropBefore = computed(
     dnd.dragId.value !== props.item.id &&
     dnd.drop.value?.beforeId === props.item.id,
 );
+// end-of-group indicator: a nested sibling dragged below its last sibling appends as
+// this row's LAST CHILD (useItemDnd encodes it as {parentId, beforeId: null}) — mark
+// that landing spot at the group's tail. The folder-tail line must not light up for
+// it; see FolderSection's isAppendTarget parentId guard.
+const isNestAppendTarget = computed(
+  () =>
+    dnd.dragId.value != null &&
+    dnd.drop.value?.parentId === props.item.id &&
+    dnd.drop.value?.beforeId == null,
+);
+// "will nest under this row" highlight: when a drag targets this row as the new parent
+// (drag-right past the threshold, useItemDnd), tint the row so the intent reads — the
+// one feedback for nesting under a row that has NO children yet (no group tail to show)
+const isNestParent = computed(
+  () =>
+    dnd.dragId.value != null &&
+    dnd.dragId.value !== props.item.id &&
+    dnd.drop.value?.parentId === props.item.id,
+);
+// keyboard path for the reorder grip (its label promises reordering, but a drag
+// needs a pointer): ArrowUp/Down move the row one slot among its sortOrder-sorted
+// siblings, through the same moveItem commit a drop uses — persistence and
+// reindexing come for free
+function onGripKey(e: KeyboardEvent) {
+  if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+  e.preventDefault();
+  const parentId = props.item.parentId ?? null;
+  // a top-level row in a non-manual folder is displayed in the sort's order, NOT
+  // sortOrder — reordering it would rewrite the manual order invisibly (the drag
+  // path bails the same way, useItemDnd). Nested children always render in
+  // sortOrder, so their keyboard reorder stays meaningful.
+  if (parentId == null) {
+    const sortBy = props.list.folders.find((f) => f.id === props.item.folderId)?.sortBy ?? "manual";
+    if (sortBy !== "manual") return;
+  }
+  const sibs = siblingItems(props.list.items, props.item.folderId, parentId).sort(bySortOrder);
+  const i = sibs.findIndex((s) => s.id === props.item.id);
+  if (i < 0) return;
+  if (e.key === "ArrowUp") {
+    const above = sibs[i - 1];
+    if (above) c.moveItem(props.item.id, props.item.folderId, above.id, parentId);
+  } else if (sibs[i + 1]) {
+    // one slot down = insert before the row after next (none = append)
+    c.moveItem(props.item.id, props.item.folderId, sibs[i + 2]?.id ?? null, parentId);
+  }
+  // the reorder re-inserts this row's DOM node, blurring the grip — re-focus it so
+  // repeat presses work (the row's component is keyed by id, so the ref persists)
+  const grip = e.currentTarget as HTMLElement;
+  nextTick(() => grip.focus());
+}
 
 // a just-added "Add an item" row autofocuses its name; any row whose fields are
 // all still empty removes itself when focus leaves it — an abandoned blank, or
@@ -71,6 +139,9 @@ const isDropBefore = computed(
 const wrapRef = useTemplateRef<HTMLElement>("wrapRef");
 const isPendingBlank = computed(() => c.pendingBlankId.value === props.item.id);
 function onRowBlur(e: FocusEvent) {
+  // packing mode shares the row wrapper but has no editable fields — a checkbox
+  // blur must never discard a (still-unnamed) row
+  if (props.packed) return;
   const next = e.relatedTarget as Node | null;
   if (wrapRef.value?.contains(next)) return; // focus moved within the row — keep
   // focus left the window entirely (alt-tab / app switch) rather than moving
@@ -296,32 +367,33 @@ function dismissFix() {
 </script>
 
 <template>
-  <!-- packing / checklist: a big tap target — check off the item; name + line weight only -->
-  <label v-if="packed" class="item item--check" :class="{ 'item--done': item.packed }">
-    <input
-      type="checkbox"
-      class="item__box"
-      :checked="item.packed"
-      :aria-label="`Packed: ${editableName || 'item'}`"
-      @change="c.updateItem(item.id, { packed: ($event.target as HTMLInputElement).checked })"
-    />
-    <span class="item__cname"><ItemName :item="item" /></span>
-    <span class="t-num t-sm t-muted item__cqty">{{ itemQtyLabel(item, effClass) }}</span>
-    <span class="t-num item__cweight"><template v-if="item.unitWeightMg > 0">{{ formatWeight(lineMg(item), list.displayUnit, { withUnit: false }) }}<span class="t-muted item__wunit">{{ list.displayUnit }}</span></template><template v-else>—</template></span>
-  </label>
-
-  <!-- editable row (default) -->
+  <!-- one wrapper for BOTH modes, so a parent row's nested children render (and are
+       checkable) in packing mode too — the packed branch swaps only the row itself -->
   <div
-    v-else
     ref="wrapRef"
     class="item-wrap"
     :data-item-id="item.id"
     :data-parent="item.parentId || null"
-    :class="{ 'is-dragging': isDragging, 'is-drop-before': isDropBefore }"
+    :class="{ 'is-dragging': isDragging, 'is-drop-before': isDropBefore, 'is-nest-parent': isNestParent }"
     :style="isDragging ? { '--drag-dy': dnd.dy.value + 'px' } : undefined"
     @focusout="onRowBlur"
   >
-    <div class="item">
+    <!-- packing / checklist: a big tap target — check off the item; name + line weight only -->
+    <label v-if="packed" class="item item--check" :class="{ 'item--done': item.packed }">
+      <input
+        type="checkbox"
+        class="item__box"
+        :checked="item.packed"
+        :aria-label="`Packed: ${editableName || 'item'}`"
+        @change="c.updateItem(item.id, { packed: ($event.target as HTMLInputElement).checked })"
+      />
+      <span class="item__cname"><ItemName :item="item" /></span>
+      <span class="t-num t-sm t-muted item__cqty">{{ itemQtyLabel(item, effClass) }}</span>
+      <span class="t-num item__cweight"><template v-if="rowWeightMg > 0">{{ formatWeight(rowWeightMg, list.displayUnit, { withUnit: false }) }}<span class="t-muted item__wunit">{{ list.displayUnit }}</span></template><template v-else>—</template></span>
+    </label>
+
+    <!-- editable row (default) -->
+    <div v-if="!packed" class="item">
       <div class="item__name">
         <ItemInput
           :unit="list.displayUnit"
@@ -426,7 +498,7 @@ function dismissFix() {
             title="Nest under the item above"
             aria-label="Nest under the item above"
             @mousedown.prevent
-            @click="c.nestUnderAbove(item.id)"
+            @click="prevId && c.nestItem(item.id, prevId)"
           >
             <IndentIncrease :size="16" />
           </button>
@@ -450,11 +522,14 @@ function dismissFix() {
             <StickyNoteX v-if="noteShown" :size="16" />
             <StickyNotePlus v-else :size="16" />
           </button>
+          <!-- drag via pointerdown; arrow keys give the focused grip the reordering
+               its label promises (a drag needs a pointer) -->
           <button
             class="btn btn--icon btn--ghost item__grip"
             title="Drag to reorder"
             :aria-label="`Reorder ${item.name || 'item'}`"
             @pointerdown="dnd.start(item.id, $event)"
+            @keydown="onGripKey"
           >
             <GripVertical :size="16" />
           </button>
@@ -462,10 +537,11 @@ function dismissFix() {
       </div>
     </div>
 
-    <!-- note: a single-line live-text field; appears once it has content or the note button is clicked.
+    <!-- note: a single-line live-text field; appears once it has content or the note button is
+         clicked (editing only — the checklist row is name + weight, nothing else).
          the .reveal wrapper is a grid whose row animates 1fr↔0fr (Safari-safe slide). -->
     <Transition name="reveal">
-      <div v-if="item.description || noteOpen" class="reveal reveal--note">
+      <div v-if="!packed && (item.description || noteOpen)" class="reveal reveal--note">
         <input
           ref="noteRef"
           class="item__note"
@@ -488,7 +564,7 @@ function dismissFix() {
           </button>
           <button
             type="button"
-            class="item__fixdismiss"
+            class="btn btn--icon btn--ghost item__fixdismiss"
             title="Dismiss"
             aria-label="Dismiss suggestion"
             @click="dismissFix"
@@ -499,27 +575,30 @@ function dismissFix() {
       </div>
     </Transition>
 
-    <!-- nested items: the SAME editable row, one level down, in a block indented behind a
-         hairline thread line. Their real weights sum into this row's weight column. New
-         children come from the ListPlus action above OR the ever-present "Add an item"
-         below (mirrors the folder's, so growing a group doesn't need a hover). -->
-    <div v-if="!nested && isParent" class="item-nest">
+    <!-- nested items: the SAME row, one level down (checklist rows in packing mode), in a
+         block indented behind a hairline thread line. Their real weights sum into this row's
+         weight column. New children come from the ListPlus action above OR the ever-present
+         "Add an item" below (mirrors the folder's, so growing a group doesn't need a hover). -->
+    <div v-if="!nested && isParent" class="item-nest nest-block">
       <ItemRow
         v-for="child in children"
         :key="child.id"
         :list="list"
         :item="child"
+        :children-by-parent="childrenByParent"
+        :packed="packed"
         nested
         @autocomplete-toggle="$emit('autocompleteToggle', $event)"
       />
-      <button type="button" class="item-nest__add" @mousedown.prevent @click="c.addChild(item.id)">
+      <div v-if="isNestAppendTarget" class="item-nest__droptail" aria-hidden="true" />
+      <button v-if="!packed" type="button" class="item-nest__add" @mousedown.prevent @click="c.addChild(item.id)">
         Add an item
       </button>
     </div>
   </div>
 </template>
 
-<style scoped>
+<style scoped lang="scss">
 .item {
   display: grid;
   grid-template-columns: var(--item-cols);
@@ -578,13 +657,13 @@ function dismissFix() {
   align-items: center;
   gap: var(--space-3);
   cursor: pointer;
-  /* match the editable row height (a 36px field + the shared row padding) so
+  /* match the editable row height (a --field-h field + the shared row padding) so
      toggling between packing and editing doesn't change row heights */
-  min-height: calc(36px + 2 * var(--space-3));
+  min-height: calc(var(--field-h) + 2 * var(--space-3));
 }
 /* custom monochrome checkbox — softly rounded square, fills with ink + a paper
-   check. 4px sits between --radius-1 (2px, imperceptible here) and --radius-2 (8px,
-   too round at 18px) — a slight, friendly rounding. */
+   check. 4px is a deliberate off-scale radius: 2px is imperceptible here and
+   --radius-2 (8px) too round at 18px — a slight, friendly rounding. */
 .item__box {
   align-self: center;
   appearance: none;
@@ -617,12 +696,13 @@ function dismissFix() {
   background: var(--paper);
   -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5 10 17.5 19 7'/%3E%3C/svg%3E") center / contain no-repeat;
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5 10 17.5 19 7'/%3E%3C/svg%3E") center / contain no-repeat;
-  /* checkmark pops in with a springy overshoot on check (SPACE10's easeOutBack) */
+  /* checkmark pops in with a springy overshoot on check (SPACE10's easeOutBack);
+     the fade runs the established faster-than---dur step (0.6×, cf. .menu-leave-active) */
   transform: scale(0);
   opacity: 0;
   transition:
     transform var(--dur) var(--ease-spring),
-    opacity 120ms var(--ease);
+    opacity calc(var(--dur) * 0.6) var(--ease);
 }
 .item__box:checked::after {
   transform: scale(1);
@@ -634,12 +714,7 @@ function dismissFix() {
 .item__cweight {
   text-align: right;
 }
-/* unit suffix in the checklist weight — an explicit gap from the number so it
-   doesn't crowd ("1200g"); matches the editing row's --space-1 unit gap (a literal
-   template space rendered inconsistently) */
-.item__wunit {
-  margin-inline-start: var(--space-1);
-}
+/* the unit suffix gap (.item__wunit) is shared with the read rows — atoms/item.scss */
 /* packed = "in the bag", so it reads as done (dimmed), NOT excluded — the check
    mark carries the state; a strikethrough would say "removed/crossed off". */
 .item--done {
@@ -730,7 +805,7 @@ function dismissFix() {
    underneath, not the floating row. */
 .item-wrap.is-dragging {
   position: relative;
-  z-index: 50;
+  z-index: var(--z-lifted);
   pointer-events: none;
   transform: translateY(var(--drag-dy, 0)) scale(1.01);
   /* a raised surface tone (not the page colour) so the lifted row reads as
@@ -755,6 +830,14 @@ function dismissFix() {
   height: var(--space-px);
   background: var(--ink);
   pointer-events: none;
+}
+/* "will nest under this row" — a left thread bar + faint tint on the target parent,
+   the only cue when nesting under a row that has no children yet (and so no group
+   tail line to light up). Mirrors the nested block's own left thread line. */
+.item-wrap.is-nest-parent > .item {
+  box-shadow: inset 2px 0 0 var(--ink);
+  background: var(--paper-2);
+  border-radius: var(--radius-1);
 }
 /* grip is the last icon in the trailing actions cluster (note · remove · grip);
    sizing/colour come from .btn--icon / the shared colour rule above */
@@ -891,32 +974,27 @@ function dismissFix() {
 .item__fixrow .item__under-link {
   margin-top: 0;
 }
+/* composes .btn--icon for the real tap target (--icon-btn box, --tap on touch) —
+   without it the bare 14px glyph was the whole hit area. This rule keeps the quiet
+   --ink-3 treatment over .btn--ghost's ink, and the negative block margins pull the
+   enlarged box back out of layout so the fix row keeps its one-text-line rhythm
+   (the actions cluster's overshoot technique). */
 .item__fixdismiss {
-  display: inline-flex;
-  align-items: center;
-  padding: 0;
-  background: none;
-  border: 0;
   color: var(--ink-3);
-  cursor: pointer;
-  transition: color var(--dur) var(--ease);
+  margin-block: var(--tap-pull);
 }
 .item__fixdismiss:hover {
   color: var(--ink);
 }
 
-/* nested items — the SAME editable rows, one level deep, in a block indented behind a
-   hairline "thread" line. The WHOLE row indents uniformly (via the container), so the
-   name and its number line sit at the same indent — which matters most on the two-line
-   mobile layout, where indenting just the name left the ×qty·weight line stranded flush.
-   No rules between nested rows: they read as one quiet group, spaced only by the gap. */
-.item-nest {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  margin: var(--space-3) 0 0 var(--space-4);
-  padding-left: var(--space-4);
-  border-left: 1px solid var(--line);
+/* the nested block's thread-line container is the shared .nest-block atom
+   (atoms/item.scss), rendered identically by ReadonlyItemRow */
+/* drag-to-reorder: insertion line when a nested sibling drops at the end of this
+   group (the folder's tail line stands down for it — see FolderSection) */
+.item-nest__droptail {
+  height: var(--space-px);
+  background: var(--ink);
+  margin: var(--space-1) 0;
 }
 /* ever-present "Add an item" at the bottom of a group — mirrors the folder's add row
    (quiet dim text, flush with the nested names), so growing a group needs no hover. It
@@ -925,7 +1003,7 @@ function dismissFix() {
   align-self: flex-start;
   display: inline-flex;
   align-items: center;
-  min-height: 36px;
+  min-height: var(--field-h);
   padding: var(--space-1) 0;
   background: none;
   border: 0;
@@ -938,12 +1016,13 @@ function dismissFix() {
   color: var(--ink);
 }
 
-@media (max-width: 720px) {
+@media (max-width: $bp-stack) {
   /* the full-width name gets its own line so long product names never truncate;
      qty · weight · class + the controls reflow into a flex-wrap row beneath it,
      and the controls drop to a further line if that row runs out of width.
-     Scoped to `.item-wrap .item` so the checklist rows keep their own layout. */
-  .item-wrap .item {
+     :not(.item--check) because the checklist rows share the wrapper now — they
+     keep their own grid below. */
+  .item-wrap .item:not(.item--check) {
     display: flex;
     flex-direction: column;
     align-items: stretch;
@@ -984,13 +1063,13 @@ function dismissFix() {
     flex: none;
     align-self: center;
   }
-  /* the 44px tap targets keep their size but overflow the (shorter) text line via
+  /* the --tap tap targets keep their size but overflow the (shorter) text line via
      negative margins, so the icons don't inflate the row and push the two text
      lines apart */
   .item__actions .btn--icon {
     min-height: 0;
-    height: 2.75rem;
-    margin-block: -0.65rem;
+    height: var(--tap);
+    margin-block: var(--tap-pull);
   }
   /* keep note / delete / nest visible at rest on small viewports — the hover:hover
      reveal above assumes a mouse, but this breakpoint is also hit by touch devices
@@ -1077,13 +1156,8 @@ function dismissFix() {
     grid-column: 2;
     grid-row: 2;
   }
-  .item__cqty,
-  .item__cweight {
-    padding-block: 2px;
-    line-height: 1.3;
-    display: inline-flex;
-    align-items: center;
-  }
+  /* the qty/weight cells' compact box metrics are shared with the read rows —
+     atoms/item.scss */
   .item__cweight {
     grid-column: 3;
     grid-row: 2;

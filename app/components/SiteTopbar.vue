@@ -26,7 +26,7 @@ defineProps<{
 .topbar {
   position: sticky;
   top: 0;
-  z-index: 10;
+  z-index: var(--z-topbar);
   background: var(--paper);
   border-bottom: 1px solid var(--line);
 }

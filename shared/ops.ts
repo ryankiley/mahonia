@@ -11,7 +11,10 @@ import { UNITS } from "./types";
 // "unlink" — a free rename turns a linked item into a custom one, and the old
 // product's link must not survive the rename (it would keep feeding the
 // weight-drift nudge from a product the user no longer has).
-export type ItemPatch = Omit<Partial<Item>, "catalogItemId"> & {
+// folderId is excluded: moveItem is the SOLE folder-changing op — it validates the
+// target folder against the list and keeps nested children's folderId in sync,
+// neither of which a bare field patch can do (cleanItemPatch can't see the list).
+export type ItemPatch = Omit<Partial<Item>, "catalogItemId" | "folderId"> & {
   catalogItemId?: number | null;
 };
 
@@ -92,8 +95,7 @@ function cleanItemPatch(patch: ItemPatch): Partial<Item> {
     out.catalogWeightMgAtLink = clampWeight(patch.catalogWeightMgAtLink);
   if (typeof patch.packed === "boolean") out.packed = patch.packed;
   if (typeof patch.sortOrder === "number" && isFinite(patch.sortOrder)) out.sortOrder = patch.sortOrder;
-  if (patch.folderId === null) out.folderId = null;
-  else if (typeof patch.folderId === "string") out.folderId = patch.folderId.slice(0, MAX_ID_LEN);
+  // no folderId branch: a raw op smuggling one in is ignored (see ItemPatch)
   return out;
 }
 
@@ -140,15 +142,20 @@ function applyOp(state: ListState, op: Op): void {
       if (it) {
         Object.assign(it, cleanItemPatch(op.patch || {}));
         // Normalize the worn/base split after ANY patch (needs the item's current
-        // qty, which cleanItemPatch can't see). A split only reads as a GENUINE
-        // PARTIAL of ≥2 units, so:
+        // qty + classification, which cleanItemPatch can't see). A split only reads
+        // as a GENUINE PARTIAL of a base line with ≥2 units, so:
+        //  • the item is already explicitly worn/consumable → no base remainder to
+        //    split: drop it (mirrors normalizeItem; a wornQty-only patch must not
+        //    resurrect a split — or flip a consumable to Worn via the collapse below)
         //  • qty < 2 → nothing to split: drop it, let the item's base class stand
         //    (not clamp to 1, which would flip the lone unit to fully worn)
         //  • every copy worn (wornQty ≥ qty) → that's just the Worn class, not a
         //    "N worn · 0 base" split with no base remainder
         //  • otherwise a real partial (1 ≤ wornQty ≤ qty−1) stays as-is
         if (it.wornQty != null) {
-          if (it.qty < 2) {
+          if (it.classification === "worn" || it.classification === "consumable") {
+            it.wornQty = undefined;
+          } else if (it.qty < 2) {
             it.wornQty = undefined;
           } else if (it.wornQty >= it.qty) {
             it.classification = "worn";
@@ -184,6 +191,11 @@ function applyOp(state: ListState, op: Op): void {
         else if (typeof op.folderId === "string")
           it.folderId = state.folders.some((f) => f.id === op.folderId) ? op.folderId : null;
         if (typeof op.sortOrder === "number") it.sortOrder = op.sortOrder;
+        // nested children carry their parent's folderId (types.ts) — cascade so a
+        // parent crossing folders takes its children along. A no-op for every other
+        // flavor: reorders keep the same folder, and a newly-nested item is
+        // childless per the hasKids guard above.
+        for (const c of state.items) if (c.parentId === it.id) c.folderId = it.folderId;
       }
       break;
     }
@@ -237,10 +249,14 @@ export function normalizeItem(raw: Item): Item {
   }
   return {
     id: String(raw.id).slice(0, MAX_ID_LEN),
-    folderId: typeof raw.folderId === "string" ? raw.folderId.slice(0, MAX_ID_LEN) : null,
+    // empty string collapses to null — a real id or nothing. "" is a truthy-looking
+    // non-id that would dodge the dangling-ref heals (both are `if (folderId && …)`)
+    // AND the strict `=== null` ungrouped predicate, leaving the item rendered in no
+    // folder yet counted in totals: invisible, UI-undeletable weight.
+    folderId: typeof raw.folderId === "string" && raw.folderId ? raw.folderId.slice(0, MAX_ID_LEN) : null,
     // the item this is nested under (validated against real, top-level items by the
     // addItem/moveItem reducer cases, which can see the whole list; here we only clamp)
-    parentId: typeof raw.parentId === "string" ? raw.parentId.slice(0, MAX_ID_LEN) : null,
+    parentId: typeof raw.parentId === "string" && raw.parentId ? raw.parentId.slice(0, MAX_ID_LEN) : null,
     name: String(raw.name ?? "").slice(0, 200),
     brand: raw.brand ? String(raw.brand).slice(0, 120) : undefined,
     variant: raw.variant ? String(raw.variant).slice(0, 120) : undefined,

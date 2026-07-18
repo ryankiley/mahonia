@@ -3,10 +3,18 @@
     "date": "2026-07-17",
     "added": [
       "A “What’s new” page — a running list of features and fixes as they ship.",
-      "Search the gear catalog by everyday name — type “tent” to find tents, or “rucksack” and “backpack” to reach the same packs."
+      "Search the gear catalog by everyday name — type “tent” to find tents, or “rucksack” and “backpack” to reach the same packs.",
+      "Drag an item into or out of a nested group — drag it right to tuck it under the row above, left to pop it back out."
     ],
     "changed": [
       "Combined the Privacy and Terms pages into a single Legal page."
+    ],
+    "fixed": [
+      "Nested items now work in packing mode — you can check them off, and pack progress can reach 100%.",
+      "Dragging a grouped item into another folder now carries its nested items along, so weights stay correct.",
+      "Copying a list with nested items no longer leaves hidden phantom rows in the copy.",
+      "Shared and public lists now show folders in the same order you arranged them.",
+      "Reorder items and folders from the keyboard — focus the grip and press the up/down arrows."
     ]
   },
   {

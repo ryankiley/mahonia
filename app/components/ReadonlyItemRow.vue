@@ -1,6 +1,14 @@
+<script lang="ts">
+import type { Item as ItemT } from "~~/shared/types";
+
+// one stable empty array for every leaf row — module scope so a large list
+// doesn't mint a fresh identity per row
+const NO_ITEMS: ItemT[] = [];
+</script>
+
 <script setup lang="ts">
 import type { Item, ListSnapshot } from "~~/shared/types";
-import { childrenOf, effectiveClassification, formatWeight, groupLineMg, lineMg } from "~~/shared/weights";
+import { effectiveClassification, formatWeight, rowDisplayMg } from "~~/shared/weights";
 import { itemQtyLabel } from "~~/shared/water";
 
 // The share views' row (/s + /l): name (a web-search link via <ItemName search>),
@@ -8,18 +16,28 @@ import { itemQtyLabel } from "~~/shared/water";
 // (indented), exactly mirroring the editor. Deliberately its OWN component, not ItemRow
 // with a flag — the read pages must not pull the editor graph (autocomplete, drag,
 // useGearList, the modals) into their bundle just to render static text.
-const props = withDefaults(defineProps<{ list: ListSnapshot; item: Item; nested?: boolean }>(), {
-  nested: false,
-});
+//
+// `childrenByParent` is one groupItemsByParent pass per snapshot (ReadonlyListView),
+// threaded to every row so rows don't each re-scan the whole item array.
+const props = withDefaults(
+  defineProps<{
+    list: ListSnapshot;
+    item: Item;
+    childrenByParent: Map<string, Item[]>;
+    nested?: boolean;
+  }>(),
+  { nested: false },
+);
 
 const effClass = computed(() => effectiveClassification(props.item, props.list.folders));
 // one level of nesting: a nested row never renders its own children
-const children = computed(() => (props.nested ? [] : childrenOf(props.list.items, props.item.id)));
+const children = computed(() =>
+  props.nested ? NO_ITEMS : (props.childrenByParent.get(props.item.id) ?? NO_ITEMS),
+);
 const isParent = computed(() => children.value.length > 0);
 // a group shows its total (own + children); a leaf shows its own line weight
-const rowWeightMg = computed(() =>
-  isParent.value ? groupLineMg(props.item, props.list.items) : lineMg(props.item),
-);
+// (`children` holds exactly this row's children, so the sum is O(children))
+const rowWeightMg = computed(() => rowDisplayMg(props.item, children.value));
 </script>
 
 <template>
@@ -36,13 +54,20 @@ const rowWeightMg = computed(() =>
     </div>
     <!-- nested items: the same read row, indented one level (their weights sum into the
          group total shown above) -->
-    <div v-if="isParent" class="ro-nest">
-      <ReadonlyItemRow v-for="child in children" :key="child.id" :list="list" :item="child" nested />
+    <div v-if="isParent" class="ro-nest nest-block">
+      <ReadonlyItemRow
+        v-for="child in children"
+        :key="child.id"
+        :list="list"
+        :item="child"
+        :children-by-parent="childrenByParent"
+        nested
+      />
     </div>
   </div>
 </template>
 
-<style scoped>
+<style scoped lang="scss">
 .item--ro {
   display: grid;
   grid-template-columns: var(--item-cols-ro);
@@ -68,11 +93,7 @@ const rowWeightMg = computed(() =>
 .item__roqty {
   white-space: nowrap;
 }
-/* unit suffix on the weight — an explicit gap from the number so it doesn't crowd
-   ("1200g"); matches the editing row's --space-1 unit gap */
-.item__wunit {
-  margin-inline-start: var(--space-1);
-}
+/* the unit suffix gap (.item__wunit) is shared with the editor's rows — atoms/item.scss */
 /* classification reads from its text label, not colour (chrome stays monochrome) */
 .item__class {
   color: var(--ink-2);
@@ -85,18 +106,10 @@ const rowWeightMg = computed(() =>
   color: var(--ink-3);
   font-style: italic;
 }
-/* nested read rows: a block indented behind a hairline thread line, the WHOLE row
-   uniformly indented (name + its number line), no rules between rows — mirrors the editor. */
-.ro-nest {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  margin: var(--space-3) 0 0 var(--space-4);
-  padding-left: var(--space-4);
-  border-left: 1px solid var(--line);
-}
+/* the nested block's thread-line container is the shared .nest-block atom
+   (atoms/item.scss), rendered identically by the editor's ItemRow */
 
-@media (max-width: 720px) {
+@media (max-width: $bp-stack) {
   /* two-line shape (mirrors the editor's mobile rows): the name takes its own line and
      wraps (never clips), and ×qty + weight sit together on a second line, flush-left —
      instead of the weight stranded out at the far-right margin. */
@@ -116,13 +129,8 @@ const rowWeightMg = computed(() =>
     grid-column: 1;
     grid-row: 2;
   }
-  .item__roqty,
-  .item__roweight {
-    padding-block: 2px;
-    line-height: 1.3;
-    display: inline-flex;
-    align-items: center;
-  }
+  /* the qty/weight cells' compact box metrics are shared with the editor's rows —
+     atoms/item.scss */
   .item__roweight {
     grid-column: 2;
     grid-row: 2;

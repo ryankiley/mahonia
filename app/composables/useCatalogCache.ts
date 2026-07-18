@@ -87,12 +87,5 @@ export function useCatalogCache() {
     return searchCatalogLocal(memItems, q);
   }
 
-  return {
-    prime,
-    remember,
-    searchLocal,
-    get size() {
-      return memItems.length;
-    },
-  };
+  return { prime, remember, searchLocal };
 }

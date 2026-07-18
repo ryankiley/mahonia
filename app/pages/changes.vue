@@ -36,12 +36,17 @@ function host(u: string | null) {
 function safeHref(u: string | null) {
   return safeUrl(u)?.href;
 }
+// Fixed locale + timezone, never `undefined`: the page is ISR-cached, so a
+// runtime-locale format would differ between the render lambda and the
+// visitor's browser and trip a hydration mismatch — the changelog page's rule.
+// createdAt is a full timestamp (not a date-only string), so the timezone must
+// be pinned too or west-of-UTC visitors day-shift near midnight.
 function when(iso: string) {
   if (!iso) return "";
   const d = new Date(iso);
   return Number.isNaN(d.getTime())
     ? ""
-    : d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    : d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 }
 </script>
 
@@ -85,7 +90,7 @@ function when(iso: string) {
   </div>
 </template>
 
-<style scoped>
+<style scoped lang="scss">
 .chg {
   padding-block: var(--space-5) var(--space-9);
   display: flex;
@@ -141,7 +146,7 @@ function when(iso: string) {
   text-align: right;
 }
 
-@media (max-width: 720px) {
+@media (max-width: $bp-stack) {
   .chg__row {
     grid-template-columns: 1fr auto;
     gap: var(--space-1) var(--space-3);

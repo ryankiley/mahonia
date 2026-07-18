@@ -31,12 +31,7 @@ useHead(() => ({
 
 <template>
   <div>
-    <SiteTopbar compact>
-      <span class="topbar__actions">
-        <NuxtLink to="/" class="btn btn--link">Make your own</NuxtLink>
-        <ReadonlyMenu v-if="snapshot" :snapshot="snapshot" :totals="totals" />
-      </span>
-    </SiteTopbar>
+    <ReadTopbar :snapshot="snapshot" :totals="totals" />
 
     <ReadonlyListView
       :list="roList"
@@ -45,7 +40,8 @@ useHead(() => ({
       :ungrouped="ungrouped"
       @set-unit="(u) => (unit = u)"
     >
-      <template #status><Globe :size="13" :stroke-width="2" /> Public list</template>
+      <!-- 14 = the small icon tier, the size every other inline-with-text icon uses -->
+      <template #status><Globe :size="14" :stroke-width="2" /> Public list</template>
 
       <template #head>
         <div class="view__head">
@@ -61,19 +57,14 @@ useHead(() => ({
 </template>
 
 <style scoped>
-/* "Make your own" + the ⋯ menu travel together at the trailing edge (the wrapper
-   takes the auto margin the topbar would otherwise give each .btn, spreading them) */
-.topbar__actions {
-  margin-left: auto;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-}
 .view__head {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
 }
+/* near-dup of ReadonlyListView's rule, but load-bearing: the #head slot's h1 is
+   THIS page's scoped content, out of reach of ReadonlyListView's scoped copy
+   (which styles only its own /s fallback heading) */
 .view__title {
   font-family: var(--font);
 }

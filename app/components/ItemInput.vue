@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Droplet } from "@lucide/vue";
+import type { EffectScope } from "vue";
 import type { Classification, Unit } from "~~/shared/types";
 import { formatWeight, itemDisplayName } from "~~/shared/weights";
 import { formatVolume, parseVolumeMl, waterMgFromMl } from "~~/shared/water";
@@ -80,7 +81,32 @@ watch(draft, (v) => {
   active.value = -1;
   open.value = true;
 });
-onClickOutside(rootRef, () => (open.value = false));
+// Click-outside listeners exist only WHILE `open` — this component mounts once
+// per row (collapsed folders keep rows mounted), so an unconditional call would
+// pile two always-on window listeners per row, all running composedPath() on
+// every tap, to close a menu only the single focused row can have open.
+let outsideScope: EffectScope | null = null;
+watch(open, (v) => {
+  if (v && !outsideScope) {
+    outsideScope = effectScope(true);
+    outsideScope.run(() => {
+      // The scope can attach MID-press (the press that focused the input and
+      // opened the menu), and onClickOutside seeds "press started outside" as
+      // true — so a text-selection drag from the input releasing outside would
+      // read as an outside click and close the just-opened menu. Only a press
+      // that STARTS after attach may close (the atom's own guard semantics).
+      let sawPress = false;
+      useWindowEvent("pointerdown", () => (sawPress = true), { passive: true });
+      onClickOutside(rootRef, () => {
+        if (sawPress) open.value = false;
+      });
+    });
+  } else if (!v && outsideScope) {
+    outsideScope.stop();
+    outsideScope = null;
+  }
+});
+onScopeDispose(() => outsideScope?.stop());
 
 // trailing weight in free text: "Tent 540 g" → name + weight; unitless ("UL2") stays in the name
 const WEIGHT_TAIL = /\s+(\d[\d.,]*\s*(?:kgs?|g|grams?|oz|ounces?|lbs?|pounds?))$/i;
@@ -356,7 +382,7 @@ function highlightParts(text: string): { t: string; on: boolean }[] {
   </div>
 </template>
 
-<style scoped>
+<style scoped lang="scss">
 .ac {
   position: relative;
   min-width: 0; /* allow the name cell to shrink so long names ellipsize */
@@ -378,7 +404,7 @@ function highlightParts(text: string): { t: string; on: boolean }[] {
   position: absolute;
   left: 0;
   top: calc(100% + var(--space-1));
-  z-index: 30;
+  z-index: var(--z-autocomplete);
   width: min(40rem, calc(min(100vw, var(--measure)) - 2 * var(--space-4)));
   /* inline padding only — the VERTICAL breathing room lives inside the scroller
      (its padding-block scrolls with the content), so scrolled rows travel all
@@ -419,7 +445,7 @@ function highlightParts(text: string): { t: string; on: boolean }[] {
   /* reaching the end of the list must not hand the swipe to the page */
   overscroll-behavior: contain;
 }
-@media (max-width: 720px) {
+@media (max-width: $bp-stack) {
   /* span the row's own edges — the content column — so the menu keeps the site's
      margins rather than bleeding to the viewport (per Ryan: never touch the edges) */
   .ac__menu {

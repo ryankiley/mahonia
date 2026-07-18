@@ -41,6 +41,22 @@ describe("cloneListData — an independent copy of a list", () => {
     for (const i of out.items) expect(i.packed).toBe(false);
   });
 
+  it("re-points a nested child's parentId to its parent's NEW id; a dangling parent degrades to top-level", () => {
+    const out = cloneListData({
+      folders: [{ id: "f1", name: "Shelter", defaultClassification: "base", sortOrder: 0 }],
+      items: [
+        // child listed BEFORE its parent — the remap must not depend on array order
+        { id: "c1", folderId: "f1", parentId: "p1", name: "Fly", unitWeightMg: 1000, qty: 1, classification: null, sortOrder: 0 },
+        { id: "p1", folderId: "f1", name: "Tent", unitWeightMg: 1000, qty: 1, classification: null, sortOrder: 1 },
+        { id: "c2", folderId: "f1", parentId: "gone", name: "Orphan", unitWeightMg: 1000, qty: 1, classification: null, sortOrder: 2 },
+      ],
+    });
+    const tent = out.items.find((i) => i.name === "Tent")!;
+    expect(out.items.find((i) => i.name === "Fly")!.parentId).toBe(tent.id);
+    expect(out.items.find((i) => i.name === "Orphan")!.parentId).toBeNull();
+    expect(tent.parentId).toBeNull();
+  });
+
   it("leaves the source untouched", () => {
     const s = src();
     cloneListData(s);

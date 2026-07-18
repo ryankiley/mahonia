@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ArrowDown10, ArrowDownAZ, ArrowDownUp, ArrowUp01, ChevronDown, GripVertical, Trash2 } from "@lucide/vue";
 import type { Folder, FolderSort, Item, ListSnapshot } from "~~/shared/types";
+import { bySortOrder } from "~~/shared/weights";
 
 // The editor's folder — editable by default, a checklist in packing mode. The
 // share views (/s + /l) render ReadonlyFolderSection instead, so this component
@@ -8,9 +9,17 @@ import type { Folder, FolderSort, Item, ListSnapshot } from "~~/shared/types";
 //
 // `items` is this folder's items, pre-grouped + sorted by the parent (one
 // groupItemsByFolder pass per snapshot) — so an edit anywhere in the list
-// doesn't make every folder re-filter the whole item array.
+// doesn't make every folder re-filter the whole item array. `childrenByParent`
+// is the same idea for nested rows (one groupItemsByParent pass), threaded
+// through to each ItemRow.
 const props = withDefaults(
-  defineProps<{ list: ListSnapshot; folder: Folder; items: Item[]; packed?: boolean }>(),
+  defineProps<{
+    list: ListSnapshot;
+    folder: Folder;
+    items: Item[];
+    childrenByParent: Map<string, Item[]>;
+    packed?: boolean;
+  }>(),
   { packed: false },
 );
 const c = useGearList();
@@ -22,6 +31,10 @@ const isAppendTarget = computed(
   () =>
     dnd.dragId.value != null &&
     dnd.drop.value?.folderId === props.folder.id &&
+    // a nested sibling's append (parentId set, beforeId null) lands at the end of
+    // its GROUP, mid-folder — that spot gets ItemRow's .item-nest__droptail, not
+    // this whole-folder tail line
+    dnd.drop.value?.parentId == null &&
     dnd.drop.value?.beforeId == null,
 );
 // while an item is being dragged, the source folder's body must let the lifted row
@@ -68,6 +81,22 @@ const isDropBefore = computed(
 const isDropAfter = computed(
   () => fdnd.dragId.value != null && fdnd.drop.value?.targetId === props.folder.id && fdnd.drop.value?.before === false,
 );
+// keyboard path for the reorder grip (its label promises reordering, but a drag
+// needs a pointer): ArrowUp/Down move the folder one slot, through the same
+// moveFolderBefore commit a drop uses — persistence + reindexing come for free
+function onGripKey(e: KeyboardEvent) {
+  if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+  e.preventDefault();
+  const folders = [...props.list.folders].sort(bySortOrder);
+  const i = folders.findIndex((f) => f.id === props.folder.id);
+  if (i < 0) return;
+  const neighbor = folders[e.key === "ArrowUp" ? i - 1 : i + 1];
+  if (neighbor) c.moveFolderBefore(props.folder.id, neighbor.id, e.key === "ArrowUp");
+  // the reorder re-inserts this folder's DOM node, blurring the grip — re-focus it
+  // so repeat presses work (the section is keyed by id, so the ref persists)
+  const grip = e.currentTarget as HTMLElement;
+  nextTick(() => grip.focus());
+}
 
 // "Add an item" drops a real, empty row into the folder (with every control a
 // normal row has) and focuses it — you just start typing. Catalog autocomplete +
@@ -152,11 +181,14 @@ function toggleCollapsed() {
             <option v-for="key in SORT_ORDER" :key="key" :value="key">{{ SORT_META[key].label }}</option>
           </select>
         </div>
+        <!-- drag via pointerdown; arrow keys give the focused grip the reordering
+             its label promises (a drag needs a pointer) -->
         <button
           class="btn btn--icon btn--ghost folder__grip"
           title="Drag to reorder folder"
           :aria-label="`Reorder ${folder.name || 'folder'}`"
           @pointerdown="fdnd.start(folder.id, $event)"
+          @keydown="onGripKey"
         >
           <GripVertical :size="16" />
         </button>
@@ -169,7 +201,18 @@ function toggleCollapsed() {
     <div class="folder__body">
       <div class="folder__bodyinner" :class="{ 'is-dragpass': anyItemDrag && !collapsed, 'is-acopen': acOpenCount > 0 }">
         <TransitionGroup name="item" tag="div" class="folder__items">
-          <ItemRow v-for="it in items" :key="it.id" :list="list" :item="it" :packed="packed" @autocomplete-toggle="onAcToggle" />
+          <!-- prev-id is the DISPLAY-order predecessor (items is already in this
+               folder's sort order) — it drives each row's indent affordance -->
+          <ItemRow
+            v-for="(it, i) in items"
+            :key="it.id"
+            :list="list"
+            :item="it"
+            :children-by-parent="childrenByParent"
+            :prev-id="items[i - 1]?.id ?? null"
+            :packed="packed"
+            @autocomplete-toggle="onAcToggle"
+          />
         </TransitionGroup>
 
         <div v-if="isAppendTarget" class="folder__droptail" aria-hidden="true" />
@@ -182,7 +225,7 @@ function toggleCollapsed() {
   </section>
 </template>
 
-<style scoped>
+<style scoped lang="scss">
 /* de-outlined: no card box — the heading + the colored dot + whitespace separate folders */
 .folder {
   position: relative;
@@ -228,64 +271,28 @@ function toggleCollapsed() {
   gap: var(--space-1);
   min-width: 0;
 }
-/* collapse chevron — right after the folder name. The ChevronDown glyph sits ~5px
-   inside its own box (the `v` occupies only the middle of a 20px viewbox), so a small
-   negative margin trims that dead space so it optically hugs the name (without cancelling
-   it entirely — a touch of air reads better). This is safe/consistent only because
-   .folder__name now hugs its text (field-sizing:content with a tiny min-width) — the
-   input no longer adds variable slack per name. */
+/* the collapse chevron button (base + coarse-pointer tap target) is the shared
+   folder atom — atoms/folder.scss. The editor's only extra: the ChevronDown glyph
+   sits ~5px inside its own box (the `v` occupies the middle of a 20px viewbox), so
+   a small negative margin trims that dead space so it optically hugs the name.
+   Safe only because .folder__name hugs its text (field-sizing:content) — the input
+   no longer adds variable slack per name. */
 .folder__collapse {
-  flex: none;
-  align-self: center;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   margin-left: -1px;
-  padding: 0;
-  color: var(--ink-3);
-  cursor: pointer;
-  transition: color var(--dur) var(--ease);
 }
-.folder__collapse:hover {
-  color: var(--ink);
-}
-.folder__chev {
-  transition: transform var(--dur) var(--ease);
-  /* standing layer: the chevron transforms on every toggle, so keep it promoted to
-     avoid WebKit re-snapping it ~1px as the compositing layer comes and goes */
-  will-change: transform;
-}
-.folder__chev.is-collapsed {
-  transform: rotate(-90deg);
-}
-/* collapsible body — a grid whose one row animates 1fr↔0fr (cross-browser slide;
-   Safari has no interpolate-size, so height:auto↔0 would just snap there). The inner
-   needs min-height:0 to collapse below content size + overflow:hidden to clip the
-   reveal; that clip is lifted mid-drag (.is-dragpass) so a lifted row can translate
-   out of its source folder. */
-.folder__body {
-  display: grid;
-  grid-template-rows: 1fr;
-  transition: grid-template-rows var(--dur) var(--ease);
-}
-.folder[data-collapsed] .folder__body {
-  grid-template-rows: 0fr;
-}
+/* the collapse machinery (.folder__body 1fr↔0fr, .folder__bodyinner clip + fade,
+   the .folder__chev rotate) is the shared folder atom — atoms/folder.scss */
 .folder__bodyinner {
-  min-height: 0;
-  overflow: hidden;
-  opacity: 1;
-  transition: opacity var(--dur) var(--ease);
-  /* the collapse clip (overflow:hidden) clips BOTH axes, but the row grips sit flush at
-     the content edge and overshoot ~5px into the gutter — so they were getting cropped.
-     Push the clip box's right edge out into the gutter: margin + padding cancel, so
-     content alignment is unchanged, and the collapse's vertical clip is untouched. */
+  /* the collapse clip (overflow:hidden, from the atom) clips BOTH axes, but the row
+     grips sit flush at the content edge and overshoot ~5px into the gutter — so they
+     were getting cropped. Push the clip box's right edge out into the gutter: margin +
+     padding cancel, so content alignment is unchanged, and the collapse's vertical
+     clip is untouched. */
   margin-right: calc(-1 * var(--space-3));
   padding-right: var(--space-3);
 }
-.folder[data-collapsed] .folder__bodyinner {
-  opacity: 0;
-}
+/* the clip is lifted mid-drag so a lifted row can translate out of its source folder
+   (a collapse animation never runs mid-drag, so dropping it is safe) */
 .folder__bodyinner.is-dragpass {
   overflow: visible;
 }
@@ -294,23 +301,15 @@ function toggleCollapsed() {
 .folder__bodyinner.is-acopen {
   overflow: visible;
 }
-/* size to the typed text so the chevron hugs the name (not the full column);
-   once it hits the cap (or, on mobile, the row edge) it truncates with an ellipsis
-   rather than a hard mid-character cut. min-width is a small floor ONLY so a
-   *cleared* name stays clickable (folders are always created with a name) — 4ch
-   floored the box wider than short names like "Pack", stranding the chevron a
-   variable distance from the text; 2ch lets every real name hug tightly. */
+/* size to the typed text so the chevron hugs the name (not the full column) — the
+   cap/truncation + name type come from the shared folder atom. min-width is a small
+   floor ONLY so a *cleared* name stays clickable (folders are always created with a
+   name) — 4ch floored the box wider than short names like "Pack", stranding the
+   chevron a variable distance from the text; 2ch lets every real name hug tightly. */
 .folder__name {
   width: auto;
   field-sizing: content;
   min-width: 2ch;
-  max-width: min(40ch, 50vw);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-weight: 600;
-  font-size: var(--text-title);
-  letter-spacing: -0.02em;
 }
 /* packing/checklist mode disables the name input (it's read-only there). Browsers
    grey disabled inputs out (UA -webkit-text-fill-color), so pin it back to full ink —
@@ -348,8 +347,8 @@ function toggleCollapsed() {
   display: inline-flex;
   align-items: center;
   justify-content: flex-end;
-  width: 32px;
-  min-height: 32px;
+  width: var(--icon-btn);
+  min-height: var(--icon-btn);
   color: var(--ink-3);
   transition: color var(--dur) var(--ease), opacity var(--dur) var(--ease);
 }
@@ -374,18 +373,21 @@ function toggleCollapsed() {
   opacity: 0;
   cursor: pointer;
 }
-/* touch: .btn--icon grows to a 44px tap target on coarse pointers (controls.scss), so
-   the sort control has to match — left at its 32px desktop width, its box is 12px
-   narrower than the delete/grip beside it, which shoves the folder's delete out of
-   line with the item rows' delete below. Match the width (and bump the glyph to 18px,
-   like the sibling .btn--icon svg) so the whole cluster lines up column-for-column. */
+/* touch: .btn--icon grows to a --tap (44px) target on coarse pointers (controls.scss),
+   so the sort control has to match — left at its desktop --icon-btn width, its box is
+   12px narrower than the delete/grip beside it, which shoves the folder's delete out of
+   line with the item rows' delete below. Match the width AND height (the overlaid
+   select is the actual tap target, and the sibling buttons already set the cluster
+   height on wide touch viewports; the ≤$bp-stack block later re-squashes phones) and
+   bump the glyph like the sibling .btn--icon svg, so the cluster lines up column-for-column. */
 @media (pointer: coarse) {
   .folder__sortwrap {
-    width: 44px;
+    width: var(--tap);
+    min-height: var(--tap);
   }
   .folder__sorticon {
-    width: 18px;
-    height: 18px;
+    width: var(--icon-touch);
+    height: var(--icon-touch);
   }
 }
 /* right-align both controls + pull the grip's layout box left so its gap matches
@@ -428,7 +430,7 @@ function toggleCollapsed() {
   }
 }
 
-@media (max-width: 720px) {
+@media (max-width: $bp-stack) {
   .folder__head {
     grid-template-columns: 1fr auto;
   }
@@ -446,11 +448,6 @@ function toggleCollapsed() {
   .folder__head--packed .folder__title {
     grid-column: 1 / -1;
   }
-  /* on a phone, 50vw strands space before the action icons — let the name run the
-     full row (the grid column + chevron bound it) and ellipsize at the edge */
-  .folder__name {
-    max-width: none;
-  }
   .folder__actions {
     grid-column: auto;
   }
@@ -462,22 +459,12 @@ function toggleCollapsed() {
   .folder__actions .btn--icon,
   .folder__sortwrap {
     min-height: 0;
-    height: 2.75rem;
-    margin-block: -0.65rem;
-  }
-  /* tighten the two-row mobile items so each row reads as one unit, not spaced out */
-  .folder__items > * {
-    padding-block: var(--space-2);
+    height: var(--tap);
+    margin-block: var(--tap-pull);
   }
 }
-/* rule lines between items — a quiet spec-sheet rhythm; padding here (not on the
-   rows) keeps the gap above/below each rule consistent across all row types */
-.folder__items > * {
-  padding-block: var(--space-3);
-}
-.folder__items > * + * {
-  border-top: 1px solid var(--line);
-}
+/* the item rule-line rhythm (.folder__items > *) and the mobile name/row
+   tightening are the shared folder atom — atoms/folder.scss */
 /* drag-to-reorder: insertion line when dropping at the end of this folder */
 .folder__droptail {
   height: var(--space-px);
@@ -510,7 +497,7 @@ function toggleCollapsed() {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  min-height: 36px;
+  min-height: var(--field-h);
   padding: var(--space-1) 0;
   background: none;
   border: 0;

@@ -54,6 +54,17 @@ describe("CSV round-trip", () => {
   });
 });
 
+describe("CSV row order", () => {
+  it("follows folder sortOrder (not array order) and appends ungrouped rows last", () => {
+    const s = snap();
+    s.folders[0]!.sortOrder = 1;
+    s.folders[1]!.sortOrder = 0;
+    s.items.push({ id: "i9", folderId: null, name: "Loose spork", unitWeightMg: 18000, qty: 1, classification: null, sortOrder: 0 });
+    const names = listToCsv(s).split("\n").slice(1).map((r) => r.split(",")[1]);
+    expect(names).toEqual(["Rain jacket", "Zpacks Duplex", "Loose spork"]);
+  });
+});
+
 describe("CSV formula-injection guard", () => {
   it("neutralizes formula-leading cells on export and strips the guard on import", () => {
     const s = snap();

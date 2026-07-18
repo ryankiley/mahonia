@@ -156,6 +156,21 @@ describe("wornQty (the worn split on a base line)", () => {
     expect(s.items[0].wornQty).toBeUndefined();
   });
 
+  it("a wornQty-only patch on an already worn/consumable item is dropped (no stale split, no class flip)", () => {
+    const s = base();
+    applyOps(s, [add({ classification: "worn" }), { t: "updateItem", id: "i1", patch: { wornQty: 2 } }]);
+    expect(s.items[0].wornQty).toBeUndefined();
+    expect(s.items[0].classification).toBe("worn");
+    // a later revert to base must not resurrect a split the user never set
+    applyOps(s, [{ t: "updateItem", id: "i1", patch: { classification: null } }]);
+    expect(s.items[0].wornQty).toBeUndefined();
+    // wornQty ≥ qty on a consumable must NOT hit the all-worn collapse and flip the class
+    s.items = [];
+    applyOps(s, [add({ classification: "consumable" }), { t: "updateItem", id: "i1", patch: { wornQty: 3 } }]);
+    expect(s.items[0].wornQty).toBeUndefined();
+    expect(s.items[0].classification).toBe("consumable");
+  });
+
   it("normalizes on addItem: over-count → Worn, partial kept, drops junk & worn/consumable carriers", () => {
     const s = base();
     applyOps(s, [add({ wornQty: 5 })]); // qty 3 default; every copy worn (over-count)
@@ -274,6 +289,32 @@ describe("nesting (parentId)", () => {
     expect(s.items.find((i) => i.id === "tent")!.parentId).toBeNull();
   });
 
+  it("moving a parent to another folder takes its nested children along", () => {
+    const s = base();
+    applyOps(s, [parent("tent"), childOf("fly", "tent"), childOf("inner", "tent")]);
+    applyOps(s, [{ t: "moveItem", id: "tent", folderId: "f2", sortOrder: 0 }]);
+    expect(s.items.find((i) => i.id === "tent")!.folderId).toBe("f2");
+    expect(s.items.find((i) => i.id === "fly")!.folderId).toBe("f2");
+    expect(s.items.find((i) => i.id === "inner")!.folderId).toBe("f2");
+    expect(s.items.find((i) => i.id === "fly")!.parentId).toBe("tent"); // still nested
+    // dragging the parent out to Ungrouped carries the children too
+    applyOps(s, [{ t: "moveItem", id: "tent", folderId: null, sortOrder: 0 }]);
+    expect(s.items.find((i) => i.id === "fly")!.folderId).toBeNull();
+    expect(s.items.find((i) => i.id === "inner")!.folderId).toBeNull();
+  });
+
+  it("updateItem ignores a folderId patch — moveItem is the sole folder-changing op", () => {
+    const s = base();
+    applyOps(s, [
+      parent("tent"),
+      childOf("fly", "tent"),
+      { t: "updateItem", id: "tent", patch: { folderId: "nonexistent" } as any },
+      { t: "updateItem", id: "fly", patch: { folderId: null } as any },
+    ]);
+    expect(s.items.find((i) => i.id === "tent")!.folderId).toBe("f1");
+    expect(s.items.find((i) => i.id === "fly")!.folderId).toBe("f1");
+  });
+
   it("moveItem with no parentId is a plain reorder — nesting is left unchanged", () => {
     const s = base();
     applyOps(s, [parent("tent"), childOf("fly", "tent")]);
@@ -301,6 +342,15 @@ describe("nesting (parentId)", () => {
     expect(normalizeItem({ id: "a", parentId: "p" } as unknown as Item).parentId).toBe("p");
     expect(normalizeItem({ id: "a" } as unknown as Item).parentId).toBeNull();
     expect(normalizeItem({ id: "a", parentId: 42 } as unknown as Item).parentId).toBeNull();
+  });
+
+  it("normalizeItem collapses empty-string folderId/parentId to null", () => {
+    // "" is a truthy-looking non-id: it would dodge the dangling-ref heals (both
+    // gated on `folderId && …`) AND the strict `=== null` ungrouped predicate,
+    // leaving an item rendered in no folder yet counted in totals. Must be null.
+    const item = normalizeItem({ id: "a", folderId: "", parentId: "" } as unknown as Item);
+    expect(item.folderId).toBeNull();
+    expect(item.parentId).toBeNull();
   });
 });
 

@@ -30,12 +30,7 @@ useHead({
 
 <template>
   <div>
-    <SiteTopbar compact>
-      <span class="topbar__actions">
-        <NuxtLink to="/" class="btn btn--link">Make your own</NuxtLink>
-        <ReadonlyMenu v-if="snapshot" :snapshot="snapshot" :totals="totals" />
-      </span>
-    </SiteTopbar>
+    <ReadTopbar :snapshot="snapshot" :totals="totals" />
 
     <ReadonlyListView
       :list="roList"
@@ -48,14 +43,3 @@ useHead({
     </ReadonlyListView>
   </div>
 </template>
-
-<style scoped>
-/* "Make your own" + the ⋯ menu travel together at the trailing edge (the wrapper
-   takes the auto margin the topbar would otherwise give each .btn, spreading them) */
-.topbar__actions {
-  margin-left: auto;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-</style>

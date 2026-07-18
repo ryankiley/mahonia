@@ -15,14 +15,14 @@
   }
 
   // chrome off: footer, transient UI, action clusters, add affordances, the
-  // read-view topbar CTAs + tag (the brand line stays as quiet provenance),
+  // read-view topbar CTAs (the brand line stays as quiet provenance),
   // and every control that only means something on screen
   .foot,
   .toast,
   .ovl,
   .modetoggle,
   .editor__share,
-  .editor__status,
+  .syncstatus,
   .menu,
   .editor__addfolder,
   .folder__add,
@@ -31,10 +31,8 @@
   .item__actions,
   .item__fixrow,
   .ac__menu,
-  .ac__weightcell,
   .packbar__clear,
-  .topbar__actions,
-  .topbar__tag {
+  .topbar__actions {
     display: none !important;
   }
 

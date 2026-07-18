@@ -52,13 +52,13 @@
 }
 
 .btn--sm {
-  min-height: 32px;
+  min-height: var(--icon-btn);
   padding: 0 var(--space-2);
 }
 
 .btn--icon {
-  min-height: 32px;
-  width: 32px;
+  min-height: var(--icon-btn);
+  width: var(--icon-btn);
   padding: 0;
   /* Pin a standing compositing layer. :active animates opacity (a compositor
      property), so WebKit promotes the button for the press transition and demotes
@@ -120,7 +120,7 @@ button svg {
 // focus (NOT an underline — that read as one of the row divider lines).
 .field {
   width: 100%;
-  min-height: 36px;
+  min-height: var(--field-h);
   padding: var(--space-1) 0;
   border: 0;
   background: transparent;
@@ -223,7 +223,7 @@ button svg {
   position: absolute;
   top: calc(100% + var(--space-1));
   right: 0;
-  z-index: 20;
+  z-index: var(--z-menu);
   min-width: 12rem;
   margin: 0;
   // same edge inset as the autocomplete menu (.ac__menu) so the two floating
@@ -297,7 +297,7 @@ button svg {
   position: fixed;
   left: 50%;
   bottom: var(--space-5);
-  z-index: 50; // above the sticky topbar (10) and the popover menu (20)
+  z-index: var(--z-float); // above --z-topbar and --z-menu
   transform: translate(-50%, 0) scale(1);
   // size to the text, up to a cap. `width: max-content` is load-bearing: a fixed box
   // with left:50% + width:auto shrink-to-fits against only the half-viewport RIGHT of
@@ -335,16 +335,17 @@ button svg {
   transform: translate(-50%, 6px) scale(0.98);
 }
 
-// Touch devices: icon buttons hit the ~44px minimum tap target (Apple HIG) and
-// their glyphs grow a touch so they don't read as tiny on a phone. Desktop keeps
-// the dense 32px chrome — a mouse is precise and doesn't need the bigger targets.
+// Touch devices: icon buttons hit the --tap minimum tap target (Apple HIG) and
+// their glyphs grow to --icon-touch so they don't read as tiny on a phone.
+// Desktop keeps the dense --icon-btn chrome — a mouse is precise and doesn't
+// need the bigger targets.
 @media (pointer: coarse) {
   .btn--icon {
-    min-height: 44px;
-    width: 44px;
+    min-height: var(--tap);
+    width: var(--tap);
   }
   .btn--icon svg {
-    width: 18px;
-    height: 18px;
+    width: var(--icon-touch);
+    height: var(--icon-touch);
   }
 }

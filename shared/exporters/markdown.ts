@@ -2,7 +2,8 @@
 // Apple Notes. Shared by the client (copy/download) and later the server.
 
 import type { ListSnapshot } from "../types";
-import { childrenOf, computeTotals, effectiveClassification, formatWeight, groupLineMg, itemDisplayName, lineMg, sortedFolderItems, splitWornQty } from "../weights";
+import { computeTotals, effectiveClassification, formatWeight, itemDisplayName, lineMg, rowDisplayMg, splitWornQty } from "../weights";
+import { exportSections } from "./rows";
 
 export function listToMarkdown(list: ListSnapshot): string {
   const u = list.displayUnit;
@@ -12,17 +13,19 @@ export function listToMarkdown(list: ListSnapshot): string {
   out.push(`# ${list.title || "Mahonia list"}`);
   out.push("");
 
-  for (const folder of list.folders) {
-    const items = sortedFolderItems(list.items, folder);
-    if (!items.length) continue;
-    out.push(`## ${folder.name}`);
+  // exportSections carries the app's visible order (folders by sortOrder, then an
+  // "Ungrouped" tail) so the table rows always sum to the totals block below —
+  // ungrouped items are in computeTotals, so they must be in the tables too.
+  for (const section of exportSections(list)) {
+    if (!section.rows.length) continue;
+    out.push(`## ${section.name}`);
     out.push("");
     out.push("| Item | Qty | Weight |");
     out.push("| --- | ---: | ---: |");
-    for (const it of items) {
-      const kids = childrenOf(list.items, it.id);
-      // a group's weight is its total (own + children); a plain row shows its own line
-      const rowMg = kids.length ? groupLineMg(it, list.items) : lineMg(it);
+    for (const { item: it, children: kids } of section.rows) {
+      // a group's weight is its total (own + children); a plain row shows its own
+      // line — kids is already this row's children, so no whole-list rescan
+      const rowMg = rowDisplayMg(it, kids);
       const w = rowMg > 0 ? formatWeight(rowMg, u) : "—";
       const name = itemDisplayName(it.brand, it.name, it.variant);
       const wq = splitWornQty(it, effectiveClassification(it, list.folders));
