@@ -683,7 +683,7 @@ function dismissFix() {
          "Add an item" below (mirrors the folder's, so growing a group doesn't need a hover). -->
     <div
       v-if="!nested && isParent"
-      class="item-nestcollapse"
+      class="nestcollapse"
       :class="{ 'is-lifted': nestLifted }"
       :data-collapsed="(!packed && nestCollapsed) || null"
     >
@@ -943,7 +943,10 @@ function dismissFix() {
 .item__grip,
 .item__note-btn,
 .item__nest-btn,
-.item__del {
+.item__del,
+/* the ⋯ overflow (mobile) — override .menu__btn's --ink-2 so it reads at the same
+   weight as the delete + grip it sits between */
+.item__morebtn {
   color: var(--ink-3);
   transition: color var(--dur) var(--ease);
 }
@@ -953,7 +956,8 @@ function dismissFix() {
 .item__grip:hover,
 .item__note-btn:hover,
 .item__nest-btn:hover,
-.item__del:hover {
+.item__del:hover,
+.item__morebtn:hover {
   color: var(--ink);
 }
 /* drag-to-reorder */
@@ -1150,29 +1154,11 @@ function dismissFix() {
 
 /* the nested block's thread-line container is the shared .nest-block atom
    (atoms/item.scss), rendered identically by ReadonlyItemRow */
-/* collapse a group — the same 1fr↔0fr grid slide the folder body uses (Safari-safe;
-   height:auto↔0 would snap there). The .nest-block inner needs min-height:0 +
-   overflow:hidden to clip the reveal; its parent→child margin collapses too so a
-   collapsed group leaves no orphan gap. */
-.item-nestcollapse {
-  display: grid;
-  grid-template-rows: 1fr;
-  transition: grid-template-rows var(--dur) var(--ease);
-}
-.item-nestcollapse[data-collapsed] {
-  grid-template-rows: 0fr;
-}
-.item-nestcollapse > .nest-block {
-  min-height: 0;
-  overflow: hidden;
-  transition: margin-top var(--dur) var(--ease);
-}
-.item-nestcollapse[data-collapsed] > .nest-block {
-  margin-top: 0;
-}
-/* lift the clip while a child overlay is open or a drag is live, so a child's
-   autocomplete dropdown / lifted row isn't cropped (folder's is-overlay-open idea) */
-.item-nestcollapse.is-lifted > .nest-block {
+/* the collapse machinery (1fr↔0fr grid slide + clip) is the shared .nestcollapse atom
+   (atoms/item.scss). The editor's only addition: lift the clip while a child overlay
+   is open or a drag is live, so a child's autocomplete dropdown / lifted row isn't
+   cropped (mirrors the folder's is-overlay-open / is-dragpass lifts). */
+.nestcollapse.is-lifted > .nest-block {
   overflow: visible;
 }
 /* drag-to-reorder: insertion line when a nested sibling drops at the end of this

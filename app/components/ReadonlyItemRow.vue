@@ -7,6 +7,7 @@ const NO_ITEMS: ItemT[] = [];
 </script>
 
 <script setup lang="ts">
+import { ChevronDown } from "@lucide/vue";
 import type { Item, ListSnapshot } from "~~/shared/types";
 import { effectiveClassification, formatWeight, rowDisplayMg } from "~~/shared/weights";
 import { itemQtyLabel } from "~~/shared/water";
@@ -38,13 +39,28 @@ const isParent = computed(() => children.value.length > 0);
 // a group shows its total (own + children); a leaf shows its own line weight
 // (`children` holds exactly this row's children, so the sum is O(children))
 const rowWeightMg = computed(() => rowDisplayMg(props.item, children.value));
+// nested groups start CLOSED in a shared list — it reads compact (the group total is
+// shown; expand to see the members). Local + per-view, NEVER persisted, matching
+// ReadonlyFolderSection (the owner's editor collapse can't bleed into the share).
+const collapsed = ref(true);
 </script>
 
 <template>
   <div class="ro-wrap">
     <div class="item item--ro">
-      <span class="item__roname">
+      <span class="item__roname" :class="{ 'item__roname--group': isParent }">
         <ItemName :item="item" search /><span v-if="effClass !== 'base'" class="t-sm item__class"> · {{ effClass }}</span>
+        <!-- collapse a group of nested items — trails the name like the folder chevron -->
+        <button
+          v-if="isParent"
+          class="item__nestcollapse"
+          :aria-expanded="!collapsed"
+          :aria-label="`${collapsed ? 'Expand' : 'Collapse'} ${item.name || 'group'}`"
+          :title="collapsed ? 'Expand group' : 'Collapse group'"
+          @click="collapsed = !collapsed"
+        >
+          <ChevronDown class="item__nestchev" :class="{ 'is-collapsed': collapsed }" :size="16" :stroke-width="2" />
+        </button>
       </span>
       <span class="t-num t-sm t-muted item__roqty">{{ itemQtyLabel(item, effClass) }}</span>
       <span class="t-num item__roweight"><template v-if="rowWeightMg > 0">{{ formatWeight(rowWeightMg, list.displayUnit, { withUnit: false }) }}<span class="t-muted item__wunit">{{ list.displayUnit }}</span></template><template v-else>—</template></span>
@@ -53,16 +69,18 @@ const rowWeightMg = computed(() => rowDisplayMg(props.item, children.value));
       <p v-if="item.description" class="t-sm item__ronote">{{ item.description }}</p>
     </div>
     <!-- nested items: the same read row, indented one level (their weights sum into the
-         group total shown above) -->
-    <div v-if="isParent" class="ro-nest nest-block">
-      <ReadonlyItemRow
-        v-for="child in children"
-        :key="child.id"
-        :list="list"
-        :item="child"
-        :children-by-parent="childrenByParent"
-        nested
-      />
+         group total shown above). Collapsed by default in the share view. -->
+    <div v-if="isParent" class="nestcollapse" :data-collapsed="collapsed || null">
+      <div class="ro-nest nest-block">
+        <ReadonlyItemRow
+          v-for="child in children"
+          :key="child.id"
+          :list="list"
+          :item="child"
+          :children-by-parent="childrenByParent"
+          nested
+        />
+      </div>
     </div>
   </div>
 </template>
@@ -81,6 +99,45 @@ const rowWeightMg = computed(() => rowDisplayMg(props.item, children.value));
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+/* a GROUP (parent) row: the name + trailing collapse chevron, mirroring the editor's
+   ItemRow / a folder header. The name is a link so it hugs its text naturally. */
+.item__roname--group {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  overflow: visible;
+}
+.item__nestcollapse {
+  flex: none;
+  align-self: center;
+  display: flex;
+  align-items: center;
+  padding: 0;
+  color: var(--ink-3);
+  cursor: pointer;
+  transition: color var(--dur) var(--ease);
+}
+.item__nestcollapse:hover {
+  color: var(--ink);
+}
+.item__nestchev {
+  transition: transform var(--dur) var(--ease);
+  will-change: transform;
+}
+.item__nestchev.is-collapsed {
+  transform: rotate(-90deg);
+}
+@media (pointer: coarse) {
+  /* touch: the ~44px tap target, grown rightward + vertically and pulled back out of
+     layout so the row height holds (same treatment as the folder chevron) */
+  .item__nestcollapse {
+    min-width: var(--tap);
+    height: var(--tap);
+    justify-content: flex-start;
+    margin-right: calc(16px - var(--tap));
+    margin-block: var(--tap-pull);
+  }
 }
 /* the read-only name is a web-search link (look up / buy the gear) — see ItemName.vue,
    which owns the dotted underline + search icon so the underline wraps only the product
