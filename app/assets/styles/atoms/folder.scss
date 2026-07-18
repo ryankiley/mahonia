@@ -89,9 +89,11 @@
 }
 
 /* rule lines between items — a quiet spec-sheet rhythm; padding here (not on the
-   rows) keeps the gap above/below each rule consistent across all row types */
+   rows) keeps the gap above/below each rule consistent across all row types.
+   --space-2 between rows (dense); mobile keeps --space-2 too. The nested-block
+   gaps (atoms/item.scss) track these. */
 .folder__items > * {
-  padding-block: var(--space-3);
+  padding-block: var(--space-2);
 }
 .folder__items > * + * {
   border-top: 1px solid var(--line);
@@ -102,9 +104,5 @@
      the full row (its grid column + the chevron bound it) and ellipsize at the edge */
   .folder__name {
     max-width: none;
-  }
-  /* tighten the two-row mobile items so each row reads as one unit, not spaced out */
-  .folder__items > * {
-    padding-block: var(--space-2);
   }
 }

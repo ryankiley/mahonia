@@ -7,6 +7,7 @@ const NO_ITEMS: ItemT[] = [];
 </script>
 
 <script setup lang="ts">
+import { ChevronDown } from "@lucide/vue";
 import type { Item, ListSnapshot } from "~~/shared/types";
 import { effectiveClassification, formatWeight, rowDisplayMg } from "~~/shared/weights";
 import { itemQtyLabel } from "~~/shared/water";
@@ -38,13 +39,29 @@ const isParent = computed(() => children.value.length > 0);
 // a group shows its total (own + children); a leaf shows its own line weight
 // (`children` holds exactly this row's children, so the sum is O(children))
 const rowWeightMg = computed(() => rowDisplayMg(props.item, children.value));
+// nested groups start CLOSED in a shared list — it reads compact (the group total is
+// shown; expand to see the members). Local + per-view, NEVER persisted, matching
+// ReadonlyFolderSection (the owner's editor collapse can't bleed into the share).
+const collapsed = ref(true);
 </script>
 
 <template>
   <div class="ro-wrap">
     <div class="item item--ro">
-      <span class="item__roname">
-        <ItemName :item="item" search /><span v-if="effClass !== 'base'" class="t-sm item__class"> · {{ effClass }}</span>
+      <span class="item__roname" :class="{ 'item__roname--group': isParent }">
+        <span class="item__ronametext"><ItemName :item="item" search /><span v-if="effClass !== 'base'" class="t-sm item__class"> · {{ effClass }}</span></span>
+        <!-- collapse a group of nested items — trails the name like the folder chevron.
+             The name text truncates so a long group name never shoves the chevron off. -->
+        <button
+          v-if="isParent"
+          class="item__nestcollapse"
+          :aria-expanded="!collapsed"
+          :aria-label="`${collapsed ? 'Expand' : 'Collapse'} ${item.name || 'group'}`"
+          :title="collapsed ? 'Expand group' : 'Collapse group'"
+          @click="collapsed = !collapsed"
+        >
+          <ChevronDown class="item__nestchev" :class="{ 'is-collapsed': collapsed }" :size="16" :stroke-width="2" />
+        </button>
       </span>
       <span class="t-num t-sm t-muted item__roqty">{{ itemQtyLabel(item, effClass) }}</span>
       <span class="t-num item__roweight"><template v-if="rowWeightMg > 0">{{ formatWeight(rowWeightMg, list.displayUnit, { withUnit: false }) }}<span class="t-muted item__wunit">{{ list.displayUnit }}</span></template><template v-else>—</template></span>
@@ -53,16 +70,18 @@ const rowWeightMg = computed(() => rowDisplayMg(props.item, children.value));
       <p v-if="item.description" class="t-sm item__ronote">{{ item.description }}</p>
     </div>
     <!-- nested items: the same read row, indented one level (their weights sum into the
-         group total shown above) -->
-    <div v-if="isParent" class="ro-nest nest-block">
-      <ReadonlyItemRow
-        v-for="child in children"
-        :key="child.id"
-        :list="list"
-        :item="child"
-        :children-by-parent="childrenByParent"
-        nested
-      />
+         group total shown above). Collapsed by default in the share view. -->
+    <div v-if="isParent" class="nestcollapse" :data-collapsed="collapsed || null">
+      <div class="ro-nest nest-block">
+        <ReadonlyItemRow
+          v-for="child in children"
+          :key="child.id"
+          :list="list"
+          :item="child"
+          :children-by-parent="childrenByParent"
+          nested
+        />
+      </div>
     </div>
   </div>
 </template>
@@ -82,6 +101,25 @@ const rowWeightMg = computed(() => rowDisplayMg(props.item, children.value));
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* a GROUP (parent) row: the name + trailing collapse chevron, mirroring the editor's
+   ItemRow / a folder header. The name is a link so it hugs its text naturally. */
+.item__roname--group {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  overflow: visible;
+}
+/* the name text truncates within the group flex so a long name never pushes the
+   chevron off the row edge (the chevron is flex:none, always kept) */
+.item__roname--group .item__ronametext {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* the collapse chevron button + its rotate + touch tap target are the shared
+   .item__nestcollapse / .item__nestchev recipe in atoms/item.scss (identical to the
+   editor's), so a group chevron looks the same in the editor and the share views. */
 /* the read-only name is a web-search link (look up / buy the gear) — see ItemName.vue,
    which owns the dotted underline + search icon so the underline wraps only the product
    name, not the variant. */
@@ -122,6 +160,13 @@ const rowWeightMg = computed(() => rowDisplayMg(props.item, children.value));
   .item__roname {
     grid-column: 1 / -1;
     grid-row: 1;
+    white-space: normal;
+    overflow: visible;
+  }
+  /* a GROUP name gets its own full-width line here (like a leaf name), so let it
+     wrap and be fully read — the desktop nowrap/ellipsis (to keep the chevron on a
+     fixed-width grid column) isn't needed once the name owns the row */
+  .item__roname--group .item__ronametext {
     white-space: normal;
     overflow: visible;
   }
