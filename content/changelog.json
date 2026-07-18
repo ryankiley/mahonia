@@ -4,7 +4,8 @@
     "added": [
       "A “What’s new” page — a running list of features and fixes as they ship.",
       "Search the gear catalog by everyday name — type “tent” to find tents, or “rucksack” and “backpack” to reach the same packs.",
-      "Drag an item into or out of a nested group — drag it right to tuck it under the row above, left to pop it back out."
+      "Drag an item into or out of a nested group — drag it right to tuck it under the row above, left to pop it back out.",
+      "Collapse a group of nested items — a chevron by the group's name hides or shows its children (and remembers your choice), just like a folder."
     ],
     "changed": [
       "Combined the Privacy and Terms pages into a single Legal page.",
