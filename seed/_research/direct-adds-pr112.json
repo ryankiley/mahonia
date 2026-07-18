@@ -1,0 +1,160 @@
+{
+  "_note": "Backfill of 14 rows that were added directly to seed/catalog.csv in PR #112 (0276772) without a corresponding research source, which left `npm run catalog:build` lossy (a rebuild silently dropped them). Each row's weight has been re-verified against the manufacturer's spec page and matches the value committed in #112.",
+  "rows": [
+    {
+      "brand": "Arc'teryx",
+      "name": "Sinsolo Bandana",
+      "variant": "",
+      "category_hint": "clothing",
+      "weight_value": 28,
+      "weight_unit": "g",
+      "weight_secondary": "1 oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://arcteryx.com/us/en/shop/sinsolo-bandana-0184",
+      "quote": "Weight: 28 g / 1 oz"
+    },
+    {
+      "brand": "Anessa",
+      "name": "Perfect UV Sunscreen Skincare Milk NA SPF50+",
+      "variant": "60 ml",
+      "category_hint": "consumable",
+      "weight_value": 60,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://japanesetaste.com/products/shiseido-anessa-perfect-uv-sunscreen-skincare-milk-spf50-60ml",
+      "quote": "Net content 60ml (recorded as 60 g, the catalog's ml→g convention for sunscreens)"
+    },
+    {
+      "brand": "SKIN1004",
+      "name": "Madagascar Centella Hyalu-Cica Water-Fit Sun Serum SPF50+",
+      "variant": "50 ml",
+      "category_hint": "consumable",
+      "weight_value": 50,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.skin1004.com/products/hyalu-cica-water-fit-sun-serum-uv",
+      "quote": "50ml (recorded as 50 g, the catalog's ml→g convention for sunscreens)"
+    },
+    {
+      "brand": "Black Diamond",
+      "name": "Gridlock Triple Lock Carabiner",
+      "variant": "",
+      "category_hint": "other",
+      "weight_value": 90,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://blackdiamondequipment.com/products/gridlock-triple-lock-carabiner",
+      "quote": "Weight: 90 g"
+    },
+    {
+      "brand": "Black Diamond",
+      "name": "HotForge Screwgate Carabiner",
+      "variant": "",
+      "category_hint": "other",
+      "weight_value": 50,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://blackdiamondequipment.com/products/hotforge-screwgate-carabiner-3-pack",
+      "quote": "150 g (3-pack); 50 g per carabiner"
+    },
+    {
+      "brand": "Black Diamond",
+      "name": "HotForge Straight Gate Carabiner",
+      "variant": "",
+      "category_hint": "other",
+      "weight_value": 45,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://blackdiamondequipment.com/products/hotforge-straight-gate-carabiner",
+      "quote": "Weight: 45 g"
+    },
+    {
+      "brand": "Black Diamond",
+      "name": "HotWire Carabiner",
+      "variant": "",
+      "category_hint": "other",
+      "weight_value": 40,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://blackdiamondequipment.com/products/hotwire-carabiner",
+      "quote": "Weight: 40 g"
+    },
+    {
+      "brand": "Black Diamond",
+      "name": "LiteForge Screwgate Carabiner",
+      "variant": "",
+      "category_hint": "other",
+      "weight_value": 45,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://blackdiamondequipment.com/products/liteforge-screwgate-carabiner",
+      "quote": "Weight: 45 g"
+    },
+    {
+      "brand": "Black Diamond",
+      "name": "LiteWire Carabiner",
+      "variant": "",
+      "category_hint": "other",
+      "weight_value": 32,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://blackdiamondequipment.com/products/litewire-carabiner",
+      "quote": "Weight: 32 g"
+    },
+    {
+      "brand": "Black Diamond",
+      "name": "MiniWire Carabiner",
+      "variant": "",
+      "category_hint": "other",
+      "weight_value": 23,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://blackdiamondequipment.com/products/miniwire-carabiner",
+      "quote": "Weight: 23 g"
+    },
+    {
+      "brand": "Black Diamond",
+      "name": "Oval Triple Lock Carabiner",
+      "variant": "",
+      "category_hint": "other",
+      "weight_value": 70,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://blackdiamondequipment.com/products/oval-triple-lock-carabiner",
+      "quote": "Weight: 70 g"
+    },
+    {
+      "brand": "Black Diamond",
+      "name": "Pearlock Twistlock Carabiner",
+      "variant": "",
+      "category_hint": "other",
+      "weight_value": 84,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://blackdiamondequipment.com/products/pearlock-twistlock-carabiner",
+      "quote": "Weight: 84 g"
+    },
+    {
+      "brand": "Black Diamond",
+      "name": "RockLock Screwgate Carabiner",
+      "variant": "",
+      "category_hint": "other",
+      "weight_value": 85,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://blackdiamondequipment.com/products/rocklock-screwgate-carabiner",
+      "quote": "Weight: 85 g"
+    },
+    {
+      "brand": "Black Diamond",
+      "name": "RockLock Twistlock Carabiner",
+      "variant": "",
+      "category_hint": "other",
+      "weight_value": 89,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://blackdiamondequipment.com/products/rocklock-twistlock-carbiner",
+      "quote": "Weight: 89 g"
+    }
+  ]
+}
