@@ -155,6 +155,61 @@
       "quote": "2 pastries (96 g), 370 calories, 1 serving per container"
     },
     {
+      "brand": "Clif",
+      "name": "Energy Bar (Crunchy Peanut Butter)",
+      "variant": "single bar",
+      "category_hint": "consumable",
+      "weight_value": 68,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://eu.clifbar.com/en/products/clif-bar-crunchy-peanut-butter/",
+      "quote": "Per bar (68g)"
+    },
+    {
+      "brand": "Clif",
+      "name": "Nut Butter Bar (Peanut Butter)",
+      "variant": "single bar",
+      "category_hint": "consumable",
+      "weight_value": 50,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://eu.clifbar.com/en/products/clif-nut-butter-bar-peanut-butter/",
+      "quote": "Per bar (50g)"
+    },
+    {
+      "brand": "Clif",
+      "name": "Builders Protein Bar (Chocolate Peanut Butter)",
+      "variant": "single bar",
+      "category_hint": "consumable",
+      "weight_value": 68,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://us.britishessentials.com/products/clif-builders-protein-bar-peanut-butter-68g",
+      "quote": "Clif Builders Chocolate Peanut Butter Protein Bar 68g ... Per Bar (68 g)"
+    },
+    {
+      "brand": "Skratch Labs",
+      "name": "Sport Energy Chews (Raspberry)",
+      "variant": "single pouch",
+      "category_hint": "consumable",
+      "weight_value": 50,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.skratchlabs.com/products/energy-chews-sport-fuel",
+      "quote": "Sport Energy Chews - Raspberry - 50g - Single Serving (SKU ECS-RB-50g)"
+    },
+    {
+      "brand": "Peter Rabbit Organics",
+      "name": "Organic Fruit Snack (Strawberry & Banana)",
+      "variant": "single pouch",
+      "category_hint": "consumable",
+      "weight_value": 4,
+      "weight_unit": "oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.wholefoodsmarket.com/product/peter-rabbit-organics-strawberry-banana-4-oz-b00fbo6b80",
+      "quote": "1 pouch (4oz / 113g)"
+    },
+    {
       "brand": "Leukotape",
       "name": "Leukotape P Sports Tape",
       "variant": "1.5 in x 15 yd full roll",
