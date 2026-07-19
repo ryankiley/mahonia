@@ -1,6 +1,9 @@
 [
   {
     "date": "2026-07-19",
+    "added": [
+      "Give an item a common name like \"Tent\" or \"Shoes\", shown as a quiet line under the product."
+    ],
     "changed": [
       "Typing a gear name now surfaces closer name matches first, above merely-popular ones."
     ]

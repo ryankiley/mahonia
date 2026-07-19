@@ -349,27 +349,40 @@ const classTitle = computed(() =>
     : `Counts as ${effClass.value}`,
 );
 
-// notes: toggled via an always-visible icon button (add/remove), not an
-// always-present field; the note shows as live text once it has content
-const noteOpen = ref(false);
+// the sub-line (common name + note): toggled via an always-visible icon button
+// (add/remove), not always-present fields; it shows once either field has content
+const subOpen = ref(false);
+const cnameRef = useTemplateRef<HTMLInputElement>("cnameRef");
 const noteRef = useTemplateRef<HTMLInputElement>("noteRef");
-// the note field is showing when there's a saved note OR it's been opened to type one
-const noteShown = computed(() => !!props.item.description || noteOpen.value);
-// plus → open the field; once shown (X) → hide it: clears a saved note, or just
-// closes an accidentally-opened empty one (show/hide). editing a saved note is
-// done by clicking its text.
-function onNoteBtn() {
-  if (noteShown.value) {
-    if (props.item.description) c.updateItem(props.item.id, { description: "" });
-    noteOpen.value = false;
+// the sub-line is showing when a common name or note is saved OR it's been opened to type one
+const subShown = computed(
+  () => !!props.item.commonName || !!props.item.description || subOpen.value,
+);
+// plus → open the fields (focus the common name); once shown (X) → hide it: clears any saved
+// common name + note, or just closes an accidentally-opened empty one. Editing a saved value
+// is done by clicking its text.
+function onSubBtn() {
+  if (subShown.value) {
+    if (props.item.commonName || props.item.description)
+      c.updateItem(props.item.id, { commonName: "", description: "" });
+    subOpen.value = false;
   } else {
-    noteOpen.value = true;
-    nextTick(() => noteRef.value?.focus());
+    subOpen.value = true;
+    nextTick(() => cnameRef.value?.focus());
   }
 }
-// an opened-but-empty note collapses again when you click away without typing
-function onNoteBlur(e: Event) {
-  if (!(e.target as HTMLInputElement).value.trim()) noteOpen.value = false;
+// an opened-but-empty sub-line collapses when focus leaves BOTH fields with nothing typed;
+// moving focus between the two sibling inputs keeps it open
+function onSubBlur(e: FocusEvent) {
+  const next = e.relatedTarget as HTMLElement | null;
+  if (next && (next === cnameRef.value || next === noteRef.value)) return;
+  if (
+    !props.item.commonName &&
+    !props.item.description &&
+    !cnameRef.value?.value.trim() &&
+    !noteRef.value?.value.trim()
+  )
+    subOpen.value = false;
 }
 
 // ---- mobile overflow (⋯) menu ----
@@ -388,7 +401,7 @@ function toggleMenu() {
 // one nesting action that applies to this row's state (add-nested / nest-up / un-nest)
 const overflowActions = computed(() => {
   const acts: { label: string; run: () => void }[] = [
-    { label: noteShown.value ? "Remove note" : "Add a note", run: onNoteBtn },
+    { label: subShown.value ? "Remove details" : "Add common name or note", run: onSubBtn },
   ];
   if (props.nested) acts.push({ label: "Un-nest", run: () => c.unnest(props.item.id) });
   else {
@@ -600,13 +613,13 @@ function dismissFix() {
           </button>
           <button
             class="btn btn--icon btn--ghost item__note-btn"
-            :class="{ 'is-active': !!item.description }"
-            :title="noteShown ? 'Remove note' : 'Add a note'"
-            :aria-label="noteShown ? 'Remove note' : 'Add a note'"
+            :class="{ 'is-active': !!(item.commonName || item.description) }"
+            :title="subShown ? 'Remove details' : 'Add common name or note'"
+            :aria-label="subShown ? 'Remove details' : 'Add common name or note'"
             @mousedown.prevent
-            @click="onNoteBtn"
+            @click="onSubBtn"
           >
-            <StickyNoteX v-if="noteShown" :size="16" />
+            <StickyNoteX v-if="subShown" :size="16" />
             <StickyNotePlus v-else :size="16" />
           </button>
           <!-- mobile overflow: the note + nesting actions collapse in here (delete +
@@ -647,22 +660,37 @@ function dismissFix() {
       </div>
     </div>
 
-    <!-- note: a single-line live-text field; appears once it has content or the note button is
-         clicked (editing only — the checklist row is name + weight, nothing else).
-         the .reveal wrapper is a grid whose row animates 1fr↔0fr (Safari-safe slide). -->
+    <!-- sub-line: the common name (a quiet upright label) and, under it, the freeform note;
+         both single-line live-text fields, appearing once either has content or the details
+         button is clicked (editing only — the checklist row is name + weight, nothing else).
+         The .reveal wrapper is a grid whose row animates 1fr↔0fr (Safari-safe slide); the two
+         inputs share one inner child so that single-child slide stays clean. -->
     <Transition name="reveal">
-      <div v-if="!packed && (item.description || noteOpen)" class="reveal reveal--note">
-        <input
-          ref="noteRef"
-          class="item__note"
-          :value="item.description ?? ''"
-          placeholder="Add a note"
-          aria-label="Item note"
-          autocorrect="off"
-          spellcheck="true"
-          @change="c.updateItem(item.id, { description: ($event.target as HTMLInputElement).value })"
-          @blur="onNoteBlur"
-        />
+      <div v-if="!packed && subShown" class="reveal reveal--note">
+        <div class="item__subfields">
+          <input
+            ref="cnameRef"
+            class="item__note item__cname-input"
+            :value="item.commonName ?? ''"
+            placeholder="Common name — Tent, Shoes…"
+            aria-label="Common name"
+            autocorrect="off"
+            spellcheck="true"
+            @change="c.updateItem(item.id, { commonName: ($event.target as HTMLInputElement).value })"
+            @blur="onSubBlur"
+          />
+          <input
+            ref="noteRef"
+            class="item__note"
+            :value="item.description ?? ''"
+            placeholder="Add a note"
+            aria-label="Item note"
+            autocorrect="off"
+            spellcheck="true"
+            @change="c.updateItem(item.id, { description: ($event.target as HTMLInputElement).value })"
+            @blur="onSubBlur"
+          />
+        </div>
       </div>
     </Transition>
 
@@ -1078,6 +1106,24 @@ function dismissFix() {
    lives on the wrapper, not the input, so the grid track sizing stays clean */
 .reveal--note {
   margin-top: calc(-1 * var(--space-1) - var(--space-px));
+}
+/* the two sub-line fields (common name + note) stack as one grid child so the reveal's
+   1fr↔0fr slide keeps a single clipping child; a hair of gap keeps the two lines apart */
+.item__subfields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+/* the common-name field is an upright quiet LABEL (--ink-2), distinct from the note's
+   italic aside voice below it — mirrors the read-only sub-line's two voices. .item__note
+   also matches this element and sets italic, so pin the override at higher specificity to
+   win regardless of source order. */
+.item__note.item__cname-input {
+  color: var(--ink-2);
+  font-style: normal;
+}
+.item__cname-input::placeholder {
+  color: var(--ink-3);
 }
 /* note — a single-line live-text field under the item (no box, no resize handle).
    reads as a caption: the lightest ink (matching the "Add an item" placeholder) and

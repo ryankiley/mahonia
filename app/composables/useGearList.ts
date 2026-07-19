@@ -579,7 +579,7 @@ function create() {
     if (!it) return;
     if (
       it.name.trim() !== "" || it.unitWeightMg > 0 || it.qty !== 1 ||
-      it.description || it.catalogItemId != null ||
+      it.commonName || it.description || it.catalogItemId != null ||
       it.classification != null || it.wornQty != null || it.packed ||
       snapshot.value?.items.some((c) => c.parentId === id) // has nested children
     ) return;

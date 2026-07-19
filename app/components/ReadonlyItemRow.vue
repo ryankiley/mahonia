@@ -71,9 +71,13 @@ const collapsed = ref(true);
            readers with no visual change (position:absolute → takes no grid cell). -->
       <span class="visually-hidden"> · </span>
       <span class="t-num item__roweight"><template v-if="rowWeightMg > 0">{{ formatWeight(rowWeightMg, list.displayUnit, { withUnit: false }) }}<span class="t-muted item__wunit">{{ list.displayUnit }}</span></template><template v-else>—</template></span>
-      <!-- the owner's note travels with the share (it used to be silently dropped here);
-           same quiet caption voice as the editor's note field -->
-      <p v-if="item.description" class="t-sm item__ronote">{{ item.description }}</p>
+      <!-- the sub-line: the common name (a quiet upright label, "Tent"/"Shoes") with the
+           owner's note trailing it inline in the italic caption voice. Either may be absent;
+           with no common name the note shows alone, exactly as it did before this field. -->
+      <p v-if="item.commonName || item.description" class="t-sm item__rosub">
+        <span v-if="item.commonName" class="item__cname">{{ item.commonName }}</span
+        ><span v-if="item.description" class="item__ronote">{{ item.commonName ? " · " : "" }}{{ item.description }}</span>
+      </p>
     </div>
     <!-- nested items: the same read row, indented one level (their weights sum into the
          group total shown above). Collapsed by default in the share view. -->
@@ -142,11 +146,18 @@ const collapsed = ref(true);
 .item__class {
   color: var(--ink-2);
 }
-/* the note — a full-width caption line under the row, in the editor note's quiet voice
-   (lightest ink, italic) */
-.item__ronote {
+/* the sub-line — a full-width caption line under the row holding the common name and,
+   trailing it, the owner's note. Two voices within: the common name is an upright quiet
+   LABEL (--ink-2); the note keeps the quietest italic aside voice (--ink-3). */
+.item__rosub {
   grid-column: 1 / -1;
   margin-top: calc(-1 * var(--space-1));
+  color: var(--ink-3);
+}
+.item__cname {
+  color: var(--ink-2);
+}
+.item__ronote {
   color: var(--ink-3);
   font-style: italic;
 }
@@ -190,7 +201,7 @@ const collapsed = ref(true);
   }
   /* third line on the two-line mobile shape; the row-gap provides the spacing, so drop
      the desktop's upward tuck */
-  .item__ronote {
+  .item__rosub {
     grid-column: 1 / -1;
     grid-row: 3;
     margin-top: 0;

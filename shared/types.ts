@@ -37,6 +37,10 @@ export interface Item {
   name: string; // product name (the model, when brand/variant are split out)
   brand?: string; // company / maker
   variant?: string; // size/config qualifier (rendered dimmed); set from a catalog pick
+  // user's generic label for what this is ("Tent", "Shoes") — a quiet sub-line under the
+  // product name. Independent of name/nameOverridden (which rename the PRODUCT) and of
+  // description (a freeform note, which trails the common name on that same sub-line).
+  commonName?: string;
   // true once the user free-renames a catalog-linked item → keep their text; don't
   // let live-resolve overwrite it with the catalog's current name (mirrors weightOverridden)
   nameOverridden?: boolean;
