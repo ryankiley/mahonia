@@ -37,10 +37,10 @@ npm run changelog -- --fixed "…" --changed "…"
 Entries are grouped Added / Changed / Fixed and describe the observable change, not the
 implementation.
 
-Two workflows keep the page honest: a PR comment reminds any user-facing PR that's missing
-an entry, and if one merges anyway, a backstop appends the PR title to the changelog after
-merge (rough but never silent). Label a PR **`skip-changelog`** to opt out of both. A
-hand-written entry in the PR always beats the scraped title.
+A PR comment reminds any user-facing PR that's missing an entry — but nothing auto-fills it,
+so the entry is always hand-written (the page stays plain, curated prose). If a PR merges
+without one, the page just omits that change until it's backfilled. Label a PR
+**`skip-changelog`** to silence the reminder for non-user-facing work.
 
 ## License
 

@@ -4,9 +4,9 @@
 // app/pages/changelog.vue renders them and scripts/changelog.mjs appends to
 // them. Pure, so it unit-tests without Nuxt or a database.
 //
-// A PR that forgets its entry doesn't lose it: changelog-backstop.yml appends
-// the PR title after merge (see scripts/changelog.mjs --auto). Hand-written
-// entries in the PR are still the quality path.
+// Entries are hand-written per PR — never auto-generated. A changelog-reminder
+// comment nudges a user-facing PR that's missing one, but nothing scrapes the PR
+// title; if an entry is forgotten the page just omits that change until backfilled.
 //
 // Entry style is the house rule: plain, one or two user-facing sentences (the
 // observable change, not the implementation), grouped Keep-a-Changelog style.
