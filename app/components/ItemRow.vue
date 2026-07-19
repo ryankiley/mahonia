@@ -444,6 +444,10 @@ function dismissFix() {
     :style="isDragging ? { '--drag-dy': dnd.dy.value + 'px' } : undefined"
     @focusout="onRowBlur"
   >
+    <!-- editing↔packing swap: the entering row content fades in (heights match across
+         modes now, so nothing reflows) while the leaving content is dropped instantly —
+         a crossfade would ghost, since the name sits at a different x in each mode. -->
+    <Transition name="rowmode">
     <!-- packing / checklist: a big tap target — check off the item; name + line weight only -->
     <label v-if="packed" class="item item--check" :class="{ 'item--done': item.packed }">
       <input
@@ -467,7 +471,7 @@ function dismissFix() {
     </label>
 
     <!-- editable row (default) -->
-    <div v-if="!packed" class="item">
+    <div v-else class="item">
       <div class="item__name" :class="{ 'item__name--group': isParent }">
         <ItemInput
           :unit="list.displayUnit"
@@ -647,6 +651,8 @@ function dismissFix() {
       </div>
     </div>
 
+    </Transition>
+
     <!-- note: a single-line live-text field; appears once it has content or the note button is
          clicked (editing only — the checklist row is name + weight, nothing else).
          the .reveal wrapper is a grid whose row animates 1fr↔0fr (Safari-safe slide). -->
@@ -801,9 +807,13 @@ function dismissFix() {
   align-items: center;
   gap: var(--space-3);
   cursor: pointer;
-  /* match the editable row height (a --field-h field + the shared row padding) so
-     toggling between packing and editing doesn't change row heights */
-  min-height: calc(var(--field-h) + 2 * var(--space-3));
+  /* SAME inner height as the editable row (its name field is --field-h; the shared
+     --space-2 wrapper padding is added identically on both), so toggling editing↔
+     packing never changes a row's height. The whole row is the tap target, so
+     --field-h (+ padding) is already a comfortable hit area — it earlier used
+     field-h + 2×space-3, which stood 24px taller than the edit row and made the
+     list jump on every toggle. */
+  min-height: var(--field-h);
 }
 /* custom monochrome checkbox — softly rounded square, fills with ink + a paper
    check. 4px is a deliberate off-scale radius: 2px is imperceptible here and
@@ -1074,10 +1084,26 @@ function dismissFix() {
 .reveal-leave-to > * {
   transform: translateY(0.4em);
 }
+/* editing↔packing row swap: fade the entering content in; drop the leaving content
+   out of flow instantly (display:none) so the two never stack — the row keeps its
+   height (both modes are --field-h now), so there's no reflow to smooth, only the
+   content-change to soften. reduced-motion → the global --dur kill-switch makes it
+   instant. */
+.rowmode-enter-active {
+  transition: opacity calc(var(--dur) * 0.9) var(--ease);
+}
+.rowmode-enter-from {
+  opacity: 0;
+}
+.rowmode-leave-active {
+  display: none;
+}
 /* the note tucks up under the name (into the 36px field's dead space); the offset
-   lives on the wrapper, not the input, so the grid track sizing stays clean */
+   lives on the wrapper, not the input, so the grid track sizing stays clean.
+   --caption-tuck is shared with the read/share row (.item__ronote) so the caption
+   sits the same distance under the name in both modes. */
 .reveal--note {
-  margin-top: calc(-1 * var(--space-1) - var(--space-px));
+  margin-top: var(--caption-tuck);
 }
 /* note — a single-line live-text field under the item (no box, no resize handle).
    reads as a caption: the lightest ink (matching the "Add an item" placeholder) and

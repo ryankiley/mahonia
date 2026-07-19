@@ -427,15 +427,21 @@ function onCorrected(res: { status: string; itemName?: string }) {
         :totals="totals"
         @set-unit="(u) => c.setUnit(u)"
       />
-      <div v-if="packed && packProgress.total" class="packbar t-sm">
-        <span class="t-num" aria-live="polite">{{ packProgress.done }} of {{ packProgress.total }} packed</span>
-        <button
-          v-if="packProgress.done"
-          type="button"
-          class="btn btn--quiet packbar__clear"
-          @click="clearChecks"
-        >Clear checks</button>
-      </div>
+      <!-- packing progress: slides+fades in on entering packing (grid-rows 1fr↔0fr,
+           the shared reveal recipe) so the folders below ease down instead of jumping -->
+      <Transition name="packbar">
+        <div v-if="packed && packProgress.total" class="packbar-reveal">
+          <div class="packbar t-sm">
+            <span class="t-num" aria-live="polite">{{ packProgress.done }} of {{ packProgress.total }} packed</span>
+            <button
+              v-if="packProgress.done"
+              type="button"
+              class="btn btn--quiet packbar__clear"
+              @click="clearChecks"
+            >Clear checks</button>
+          </div>
+        </div>
+      </Transition>
       <div class="editor__folders">
         <FolderSection
           v-for="f in sortedFolders"
@@ -675,14 +681,36 @@ function onCorrected(res: { status: string; itemName?: string }) {
 /* packing progress — one quiet line between the totals and the checklist. The
    count is the info; "Clear checks" sits beside it in the site's under-link
    voice (ink-3, darkens on hover, no chrome). */
+/* reveal wrapper: carries the tuck + the grid-rows height/fade slide (shared recipe
+   with ItemRow's .reveal). The tuck lives here, not on the inner .packbar, so the
+   inner line isn't clipped by the wrapper's overflow as it slides. */
+.packbar-reveal {
+  display: grid;
+  grid-template-rows: 1fr;
+  /* the body's --space-4 gap reads roomier before a bare text line than before
+     the folder blocks — tuck it up toward the totals it annotates */
+  margin-top: calc(-1 * var(--space-2));
+}
+.packbar-reveal > * {
+  min-height: 0;
+  overflow: hidden;
+}
 .packbar {
   display: flex;
   align-items: baseline;
   gap: var(--space-4);
   color: var(--ink-2);
-  /* the body's --space-4 gap reads roomier before a bare text line than before
-     the folder blocks — tuck it up toward the totals it annotates */
-  margin-top: calc(-1 * var(--space-2));
+}
+.packbar-enter-active,
+.packbar-leave-active {
+  transition:
+    grid-template-rows var(--dur) var(--ease),
+    opacity var(--dur) var(--ease);
+}
+.packbar-enter-from,
+.packbar-leave-to {
+  grid-template-rows: 0fr;
+  opacity: 0;
 }
 /* .packbar__clear kept as the print-hide hook (see print.scss); its button styling
    comes from the shared .btn--quiet */
