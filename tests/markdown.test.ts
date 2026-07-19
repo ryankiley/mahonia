@@ -38,6 +38,15 @@ describe("listToMarkdown", () => {
     expect(md).toContain("**Base weight:** 738 g"); // duplex + 2×100g socks
   });
 
+  it("trails the common name after the product name in the Item cell", () => {
+    const s = snap();
+    s.items[0]!.commonName = "Tent";
+    const md = listToMarkdown(s);
+    expect(md).toContain("| Zpacks Duplex — Tent | 1 | 538 g |");
+    // an item without a common name is unchanged
+    expect(md).toContain("| Rain jacket | 1 | 300 g |");
+  });
+
   it("falls back to a default title and skips empty folders", () => {
     const s = snap();
     s.title = "";

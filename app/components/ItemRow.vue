@@ -477,6 +477,9 @@ function dismissFix() {
         ><ChevronDown class="item__nestchev" :class="{ 'is-collapsed': nestCollapsed }" :size="16" :stroke-width="2" /></button></span>
       <span class="t-num t-sm t-muted item__cqty">{{ itemQtyLabel(item, effClass) }}</span>
       <span class="t-num item__cweight"><template v-if="rowWeightMg > 0">{{ formatWeight(rowWeightMg, list.displayUnit, { withUnit: false }) }}<span class="t-muted item__wunit">{{ list.displayUnit }}</span></template><template v-else>—</template></span>
+      <!-- the common name — a quiet sub-line under the product name (what you're checking
+           off), aligned to the name column past the checkbox; mirrors the read row -->
+      <span v-if="item.commonName" class="t-sm item__csub">{{ item.commonName }}</span>
     </label>
 
     <!-- editable row (default) -->
@@ -892,6 +895,14 @@ function dismissFix() {
 }
 .item__cweight {
   text-align: right;
+}
+/* the common name in packing mode — a quiet upright sub-line under the product name,
+   spanning from the name column (2) to the row end so it aligns under the name, not the
+   checkbox; the negative tuck pulls it snug beneath, like the read row's sub-line */
+.item__csub {
+  grid-column: 2 / -1;
+  margin-top: calc(-1 * var(--space-1));
+  color: var(--ink-2);
 }
 /* the unit suffix gap (.item__wunit) is shared with the read rows — atoms/item.scss */
 /* packed = "in the bag", so it reads as done (dimmed), NOT excluded — the check
@@ -1390,6 +1401,13 @@ function dismissFix() {
     grid-row: 2;
     justify-self: start;
     text-align: left;
+  }
+  /* common name on its own third line (under name + qty/weight), aligned to the name
+     column; the row-gap gives the spacing so drop the desktop upward tuck */
+  .item__csub {
+    grid-column: 2 / -1;
+    grid-row: 3;
+    margin-top: 0;
   }
 }
 </style>

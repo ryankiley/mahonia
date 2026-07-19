@@ -5,6 +5,10 @@ import type { ListSnapshot } from "../types";
 import { computeTotals, effectiveClassification, formatWeight, itemDisplayName, lineMg, rowDisplayMg, splitWornQty } from "../weights";
 import { exportSections } from "./rows";
 
+// a product name with its common name trailing after an em dash, when the item has one
+const withCommon = (name: string, commonName?: string) =>
+  commonName ? `${name} — ${commonName}` : name;
+
 export function listToMarkdown(list: ListSnapshot): string {
   const u = list.displayUnit;
   const totals = computeTotals(list);
@@ -27,13 +31,16 @@ export function listToMarkdown(list: ListSnapshot): string {
       // line — kids is already this row's children, so no whole-list rescan
       const rowMg = rowDisplayMg(it, kids);
       const w = rowMg > 0 ? formatWeight(rowMg, u) : "—";
-      const name = itemDisplayName(it.brand, it.name, it.variant);
+      // the product name, with the common name trailing it after an em dash when set
+      // ("Altra Lone Peak 9+ — Shoes") so a pasted list still says what each item is
+      const name = withCommon(itemDisplayName(it.brand, it.name, it.variant), it.commonName);
       const wq = splitWornQty(it, effectiveClassification(it, list.folders));
       out.push(`| ${name} | ${it.qty}${wq > 0 ? ` (${wq} worn)` : ""} | ${w} |`);
       // nested items as indented sub-rows (the row weight above is their total)
       for (const child of kids) {
         const cw = child.unitWeightMg > 0 ? formatWeight(lineMg(child), u) : "—";
-        out.push(`| ↳ ${itemDisplayName(child.brand, child.name, child.variant)} | ${child.qty} | ${cw} |`);
+        const cn = withCommon(itemDisplayName(child.brand, child.name, child.variant), child.commonName);
+        out.push(`| ↳ ${cn} | ${child.qty} | ${cw} |`);
       }
     }
     out.push("");
