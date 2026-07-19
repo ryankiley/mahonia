@@ -64,6 +64,12 @@ const collapsed = ref(true);
         </button>
       </span>
       <span class="t-num t-sm t-muted item__roqty">{{ itemQtyLabel(item, effClass) }}</span>
+      <!-- separate the qty and weight columns in the TEXT stream. On screen they're
+           distinct grid cells, but flattened text (crawlers, LLMs, plain scrapers of
+           this SSR'd share page) concatenates "×1" + "206" into "1206" — reading every
+           weight ~1000 g heavy. A visually-hidden delimiter keeps them apart for those
+           readers with no visual change (position:absolute → takes no grid cell). -->
+      <span class="visually-hidden"> · </span>
       <span class="t-num item__roweight"><template v-if="rowWeightMg > 0">{{ formatWeight(rowWeightMg, list.displayUnit, { withUnit: false }) }}<span class="t-muted item__wunit">{{ list.displayUnit }}</span></template><template v-else>—</template></span>
       <!-- the owner's note travels with the share (it used to be silently dropped here);
            same quiet caption voice as the editor's note field -->
