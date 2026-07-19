@@ -18,7 +18,9 @@ import { brotliCompressSync, gzipSync, constants } from "node:zlib";
 // page + catalog search-terms. Bumped 127→128 for two interaction features: drag an item
 // in/out of a nested group, and the mobile ⋯ overflow menu (a CircleEllipsis glyph + the
 // per-row menu that tucks the note/nesting actions away on the crowded two-line row).
-const TOTAL_BUDGET_KB = 128;
+// Bumped 128→133 for the nuxt 4.4.8→4.5.0 client-runtime growth (~4.5 KB brotli); no app
+// code changed, just the framework we ship.
+const TOTAL_BUDGET_KB = 133;
 const MAX_CHUNK_BUDGET_KB = 72; // largest single chunk, brotli (the framework runtime)
 
 // First build output that exists: node-server, Vercel preset, or static generate.
