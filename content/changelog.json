@@ -1,5 +1,11 @@
 [
   {
+    "date": "2026-07-19",
+    "changed": [
+      "Typing a gear name now surfaces closer name matches first, above merely-popular ones."
+    ]
+  },
+  {
     "date": "2026-07-17",
     "added": [
       "A “What’s new” page — a running list of features and fixes as they ship.",
