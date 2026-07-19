@@ -23,8 +23,10 @@ import { itemDisplayName } from "../../shared/weights";
 import { UNIT_WEIGHT_MAX_MG } from "../../shared/ops";
 import { memoizedEnsure } from "./memoize";
 import {
+  RANK_POOL,
   SEARCH_LIMIT,
   SIM_THRESHOLD,
+  rankCandidates,
   searchCatalogLocal,
   type CatalogSearchResult,
   type LocalCatalogRow,
@@ -111,9 +113,12 @@ function normalizeQuery(q: unknown): string {
 }
 
 /**
- * Fuzzy autocomplete. Returns up to `limit` results ordered
- * `verified DESC, usage_count DESC, similarity DESC`, gated to relevant matches.
- * pg_trgm on Neon; JS trigram ranking on PGlite (see file header).
+ * Fuzzy autocomplete. Two stages that share ONE ranking (shared/catalogSearch.ts):
+ * SQL/scan does coarse recall, then rankCandidates() does the fine ordering
+ * (relevance-tier cascade: tier → verified → usage_count → similarity → id) and
+ * caps to `limit`. pg_trgm recall on Neon; whole-table JS on PGlite (see file
+ * header). Keeping the order in rankCandidates() — not in SQL — is what makes the
+ * "prod and offline must never diverge" invariant real instead of hand-mirrored.
  */
 export async function searchCatalog(
   db: unknown,
@@ -125,31 +130,34 @@ export async function searchCatalog(
 
   if (isNeon()) {
     const d = db as { execute: (query: unknown) => Promise<unknown> };
-    // word_similarity matches a short query against the best extent of a longer
-    // name — the right metric for autocomplete fragments. We DON'T use the `<%`
-    // operator: its threshold is the GUC pg_trgm.word_similarity_threshold, which
-    // defaults to 0.6 — ~2x stricter than the local JS fallback's SIM_THRESHOLD
-    // (0.3), so typo'd/partial queries ("kawa 55", "palante") that match locally
-    // returned nothing in prod. Filtering on the function with our own threshold
-    // makes prod recall match local. The catalog is small + bounded, so the seq
-    // scan (we forgo the gin_trgm_ops index this way) is cheap. Bound params are
-    // injection-safe.
+    // STAGE 1 — recall only. word_similarity matches a short query against the best
+    // extent of a longer name — the right metric for autocomplete fragments. We
+    // DON'T use the `<%` operator: its threshold is the GUC
+    // pg_trgm.word_similarity_threshold, which defaults to 0.6 — ~2x stricter than
+    // SIM_THRESHOLD (0.3), so typo'd/partial queries ("kawa 55", "palante") that
+    // match locally returned nothing in prod. Filtering on the function with our own
+    // threshold makes prod recall match local. The catalog is small + bounded, so
+    // the seq scan (we forgo the gin_trgm_ops index this way) is cheap. Bound params
+    // are injection-safe.
     // Match target includes search_terms (derived noun + locale/synonym aliases)
     // so a category word ("tent") or a regional variant ("rucksack") hits a row
     // whose brand+name never contains it. Mirrors shared/catalogSearch.ts.
     // Both query and target are unaccent()'d so a plain-typed brand finds its
     // accented spelling and vice versa (mirrors trigrams()' diacritic fold).
+    // We fetch a POOL (order by similarity so only the weakest tail can be cut;
+    // id asc makes the cut deterministic on ties) and carry usage_count through, so
+    // STAGE 2's rankCandidates() has everything it needs to reorder + cap in JS.
     const res = await d.execute(sql`
-      select id, brand, name, variant, weight_mg, weight_source, verified, search_terms
+      select id, brand, name, variant, weight_mg, weight_source, verified, usage_count, search_terms
       from catalog_items
       where status = 'active'
         and word_similarity(unaccent(${q}), unaccent(coalesce(brand,'') || ' ' || name || ' ' || coalesce(search_terms,''))) >= ${SIM_THRESHOLD}
-      order by verified desc,
-               usage_count desc,
-               word_similarity(unaccent(${q}), unaccent(coalesce(brand,'') || ' ' || name || ' ' || coalesce(search_terms,''))) desc
-      limit ${limit}
+      order by word_similarity(unaccent(${q}), unaccent(coalesce(brand,'') || ' ' || name || ' ' || coalesce(search_terms,''))) desc,
+               id asc
+      limit ${Math.max(limit, RANK_POOL)}
     `);
-    return normalizeRows(res);
+    // STAGE 2 — the same JS re-ranker the offline path uses.
+    return rankCandidates(normalizeRows(res), q, limit);
   }
 
   // PGlite: load the bounded active catalog and rank in JS — the SAME ranking the
@@ -184,8 +192,11 @@ export async function bumpUsage(db: unknown, ids: number[]): Promise<void> {
     .where(inArray(catalogItems.id, clean));
 }
 
-/** Normalize the row shape across drivers (neon-http vs pglite execute()). */
-function normalizeRows(res: unknown): CatalogSearchResult[] {
+/** Normalize the recall-pool rows across drivers (neon-http vs pglite execute())
+ *  into LocalCatalogRow — the shape rankCandidates() consumes. usage_count is
+ *  carried through for the re-rank; rankCandidates() strips it from the returned
+ *  CatalogSearchResult, so the public result shape is unchanged. */
+function normalizeRows(res: unknown): LocalCatalogRow[] {
   const rows = (Array.isArray(res) ? res : (res as { rows?: unknown[] }).rows) ?? [];
   return (rows as Array<Record<string, unknown>>).map((r) => ({
     id: Number(r.id),
@@ -195,6 +206,7 @@ function normalizeRows(res: unknown): CatalogSearchResult[] {
     weightMg: Number(r.weight_mg),
     weightSource: String(r.weight_source),
     verified: Boolean(r.verified),
+    usageCount: Number(r.usage_count),
     searchTerms: (r.search_terms as string | null) ?? null,
   }));
 }

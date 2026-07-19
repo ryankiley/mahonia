@@ -5,8 +5,9 @@ import { rateLimit } from "../../utils/rateLimit";
 import { SEARCH_LIMIT } from "../../../shared/catalogSearch";
 
 // Maps-grade autocomplete for the gear catalog. `?q=` returns up to SEARCH_LIMIT
-// fuzzy matches ordered `verified DESC, usage_count DESC, similarity DESC`. Fuzzy
-// via pg_trgm on Neon, JS trigram ranking on PGlite (see server/utils/catalog.ts).
+// fuzzy matches ordered by the shared relevance-tier cascade (tier → verified →
+// usage_count → similarity → id; see shared/catalogSearch.ts). Fuzzy recall via
+// pg_trgm on Neon, whole-table JS on PGlite (see server/utils/catalog.ts).
 //
 // Public read-only endpoint. The client debounces; we add a short edge cache so
 // repeated keystrokes for the same prefix collapse to one DB hit. noindex — this
