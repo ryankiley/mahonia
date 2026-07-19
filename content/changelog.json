@@ -4,6 +4,8 @@
     "added": [
       "A “What’s new” page — a running list of features and fixes as they ship.",
       "Search the gear catalog by everyday name — type “tent” to find tents, or “rucksack” and “backpack” to reach the same packs.",
+      "Women’s versions across the gear catalog — about a hundred new entries covering footwear, apparel, packs, and sleep.",
+      "Nest items one level deep — split a tent into body, fly, poles, and stakes on their own lines, with the group total on the parent row.",
       "Drag an item into or out of a nested group — drag it right to tuck it under the row above, left to pop it back out.",
       "Collapse a group of nested items — a chevron by the group's name hides or shows its children (and remembers your choice), just like a folder."
     ],

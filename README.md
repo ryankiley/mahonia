@@ -37,6 +37,11 @@ npm run changelog -- --fixed "…" --changed "…"
 Entries are grouped Added / Changed / Fixed and describe the observable change, not the
 implementation.
 
+A PR comment reminds any user-facing PR that's missing an entry — but nothing auto-fills it,
+so the entry is always hand-written (the page stays plain, curated prose). If a PR merges
+without one, the page just omits that change until it's backfilled. Label a PR
+**`skip-changelog`** to silence the reminder for non-user-facing work.
+
 ## License
 
 Code is [MIT](LICENSE). The gear catalog data under `seed/` is licensed separately — see

@@ -6,6 +6,10 @@
 # It never blocks a merge (the repo runs no required checks) and clears its own
 # comment once the changelog is updated. Refactors / deps / infra: ignore it, or
 # add the `skip-changelog` label. See scripts/changelog.mjs + README.
+#
+# There is no auto-fill: nothing writes the entry for you. If a user-facing PR
+# merges without one, the "What's new" page simply omits that change until it's
+# backfilled by hand (npm run changelog). This comment is the only nudge.
 name: Changelog reminder
 
 on:
@@ -73,7 +77,9 @@ jobs:
               "",
               "Grouped Added / Changed / Fixed, plain and user-facing — it shows up on [/changelog](https://mahonia.app/changelog).",
               "",
-              "Not user-facing (refactor, deps, infra)? Ignore this, or add the **`skip-changelog`** label.",
+              "Not user-facing (refactor, deps, infra)? Add the **`skip-changelog`** label.",
+              "",
+              "_No auto-fill: if this merges without an entry, the page just omits the change until someone backfills it._",
             ].join("\n");
 
             if (existing) {

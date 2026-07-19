@@ -11,7 +11,9 @@
 //
 // --added / --changed / --fixed are repeatable. Bullets land under today's
 // release (created if absent); --date overrides the date, --title sets/updates
-// the batch headline. Newest release is kept first.
+// the batch headline. Newest release is kept first. Entries are hand-written
+// (the PR author adds one per user-facing change) — never auto-generated, so the
+// "What's new" page stays plain, user-facing prose.
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -56,6 +58,7 @@ if (!groups.added.length && !groups.changed.length && !groups.fixed.length && !t
 
 // --- load, merge into the release for `date`, write back newest-first ---
 const releases = JSON.parse(readFileSync(FILE, "utf8"));
+
 let release = releases.find((r) => r.date === date);
 if (!release) {
   release = { date };
