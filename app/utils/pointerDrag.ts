@@ -24,17 +24,31 @@ export function createPointerDrag<T>(hooks: PointerDragHooks<T>) {
   // The pointer id we explicitly captured (see start()), so we can release it on
   // reset. -1 = nothing captured.
   let capturedId = -1;
+  // The pointer that started the drag. The window listeners below hear EVERY
+  // pointer — on touch, a second finger tapping off a grip would otherwise fire
+  // pointerup (committing the drag wherever the indicator sits) or pointercancel
+  // (aborting it) while finger 1 is still holding the row. Separate from
+  // capturedId, which resets to -1 when setPointerCapture is unsupported.
+  let activePointer = -1;
   // true when the pointer is fully clear of the editing surface (over the sticky
   // top bar, the footer, or off-screen). A release while outside cancels instead of
   // committing — the touch-reachable abort, since there's no Escape key on mobile.
   let outside = false;
 
   function onMove(ev: PointerEvent) {
-    if (!dragId.value) return;
+    if (!dragId.value || ev.pointerId !== activePointer) return;
     const el = document.elementFromPoint(ev.clientX, ev.clientY) as HTMLElement | null;
-    // a gap *between* folders still counts as in-list (persist + commit); only a
-    // release clear of the whole editor body reads as a cancel.
-    outside = !el?.closest(".editor__body");
+    // Cancel only on a VERTICAL escape — dragging up over the sticky top bar or down
+    // past the footer. A sideways drag into the horizontal page margin is still a
+    // valid drop: nesting a row means dragging it rightward off the row's right edge
+    // (where the grip sits) into the gutter, so the margin must NOT read as "outside".
+    const body = document.querySelector(".editor__body");
+    if (body) {
+      const b = body.getBoundingClientRect();
+      outside = ev.clientY < b.top || ev.clientY > b.bottom;
+    } else {
+      outside = !el?.closest(".editor__body");
+    }
     hooks.track(ev, el, dragId.value);
   }
 
@@ -70,7 +84,8 @@ export function createPointerDrag<T>(hooks: PointerDragHooks<T>) {
     hooks.onReset?.();
   }
 
-  function onUp() {
+  function onUp(ev: PointerEvent) {
+    if (ev.pointerId !== activePointer) return;
     const id = dragId.value;
     const target = hooks.target();
     const cancelled = outside;
@@ -78,9 +93,12 @@ export function createPointerDrag<T>(hooks: PointerDragHooks<T>) {
     if (!cancelled && id && target) hooks.commit(id, target);
   }
 
-  // touch/OS can end a gesture with pointercancel (second finger, edge-swipe,
-  // scroll steal) instead of pointerup — drop the drag, commit nothing.
-  function onCancel() {
+  // touch/OS can end a gesture with pointercancel (edge-swipe, scroll steal)
+  // instead of pointerup — drop the drag, commit nothing. Only for the drag's
+  // own pointer: a system gesture that kills the drag cancels the active
+  // pointer itself, so it passes the guard; a second finger's cancel doesn't.
+  function onCancel(ev: PointerEvent) {
+    if (ev.pointerId !== activePointer) return;
     reset();
   }
 
@@ -94,6 +112,7 @@ export function createPointerDrag<T>(hooks: PointerDragHooks<T>) {
     // and fires pointercancel — killing the drag before it starts. Explicit
     // capture on a stable node keeps the gesture alive; pointermove/up still
     // bubble to the window listeners below.
+    activePointer = ev.pointerId;
     capturedId = ev.pointerId;
     try {
       document.documentElement.setPointerCapture(ev.pointerId);

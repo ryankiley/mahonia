@@ -2,7 +2,7 @@
 import { Backpack, Ellipsis, Share2, SquareCheck, Undo2 } from "@lucide/vue";
 import { editLinkPath } from "~~/shared/links";
 import type { Item } from "~~/shared/types";
-import { bySortOrder, formatWeightAuto, groupItemsByFolder } from "~~/shared/weights";
+import { bySortOrder, groupItemsByFolder, groupItemsByParent, ungroupedTopLevel } from "~~/shared/weights";
 
 // The whole editor surface (its own sticky topbar + flex shell + the shared
 // SiteFooter). Rendered by the page routes: /e (bare, ssr:false) and /e/[code]
@@ -43,39 +43,27 @@ const isFirstRun = computed(() => {
 // SERVER-rendered name that JS-less unfurl bots (Apple Notes/iMessage/Slack) read
 // comes from the /e/[code] route's <head> — that's why the shareable edit link
 // embeds the share code in its path.
-const GENERIC_TITLE = "Mahonia — pack lists, weighed";
-const GENERIC_DESC = "Make a packing list, see what it weighs, share it. No login.";
-// "if given" — the default "Untitled list" (or an empty name) counts as not named,
-// so an unnamed list keeps the generic card rather than advertising "Untitled list".
-const listName = computed(() => {
-  const t = snapshot.value?.title?.trim();
-  return t && t !== "Untitled list" ? t : "";
-});
-const seoDesc = computed(() => {
-  if (!listName.value) return GENERIC_DESC;
-  const t = totals.value;
-  if (!t) return `${listName.value}, a packing list on Mahonia.`;
-  const bits = [`${t.itemCount} items`];
-  if (t.hasWeights) bits.push(`${formatWeightAuto(t.baseMg)} base weight`);
-  return `${listName.value}, a packing list (${bits.join(" · ")}) on Mahonia.`;
-});
+// naming rule + description builder shared with the /e/[code] SSR head via
+// editorSeo (app/utils/editorSeo.ts), so the two surfaces can't drift
+const seo = computed(() => editorSeo(snapshot.value?.title, totals.value));
+const listName = computed(() => seo.value.name);
 useHead({
   title: () =>
     !snapshot.value
       ? "Mahonia"
-      : listName.value
-        ? `${listName.value} — Mahonia`
+      : seo.value.name
+        ? `${seo.value.name} — Mahonia`
         : "Untitled list — Mahonia",
 });
 useSeoMeta({
-  description: () => seoDesc.value,
-  ogTitle: () => listName.value || GENERIC_TITLE,
-  ogDescription: () => seoDesc.value,
+  description: () => seo.value.desc,
+  ogTitle: () => seo.value.name || GENERIC_TITLE,
+  ogDescription: () => seo.value.desc,
 });
 // items whose folder was removed (e.g. by a concurrent editor) land here, not as invisible ghosts
-// top-level ungrouped rows only — nested children render under their parent (via ItemRow)
+// (ungroupedTopLevel: nested children render under their parent, via ItemRow)
 const ungrouped = computed(() =>
-  snapshot.value ? snapshot.value.items.filter((i) => !i.folderId && i.parentId == null) : [],
+  snapshot.value ? ungroupedTopLevel(snapshot.value.items) : [],
 );
 // render folders in sortOrder so drag-reorder (moveFolderBefore) reflects immediately
 const sortedFolders = computed(() =>
@@ -102,6 +90,9 @@ const itemsByFolder = computed(() => {
   }
   return map;
 });
+// one children pass per snapshot, threaded to every row — so a parent row doesn't
+// re-scan the whole item array for its children on each render
+const childrenByParent = computed(() => groupItemsByParent(snapshot.value?.items ?? []));
 const NO_ITEMS: Item[] = [];
 
 const packed = ref(false);
@@ -231,14 +222,12 @@ async function copy(text: string, msg: string, linkFallbackTitle?: string) {
 }
 const origin = () => (typeof location !== "undefined" ? location.origin : "");
 
-// The exporters are menu actions, not part of the editor's boot path — they load
-// on demand. Warmed when the ⋯ menu opens: the markdown action's clipboard write
-// must stay within iOS Safari's user-gesture window, and a warmed import() resolves
-// from module cache in a microtask, so the await in the handler doesn't spend the
-// gesture on a network fetch.
-const mdExporter = () => import("~~/shared/exporters/markdown");
-const csvExporter = () => import("~~/shared/exporters/csv");
-const jsonExporter = () => import("~~/shared/exporters/json");
+// the three export actions + their chunk warm-up live in useListExports, shared
+// with the read views' ⋯ menu so the copy + error handling can't drift
+const { warmExporters, copyMarkdown, downloadCsv, downloadJson } = useListExports(
+  () => snapshot.value,
+  flash,
+);
 
 // the ⋯ actions menu is a custom popover of real <button>s (was a native <select>).
 // Each item dispatches from a CLICK — the clipboard actions (markdown, edit link)
@@ -250,23 +239,7 @@ useWindowEvent("keydown", (e) => {
 });
 function toggleMenu() {
   menuOpen.value = !menuOpen.value;
-  if (menuOpen.value) {
-    void mdExporter();
-    void csvExporter();
-    void jsonExporter();
-  }
-}
-function runMenu(action: string) {
-  menuOpen.value = false;
-  switch (action) {
-    case "duplicate": return cloneList();
-    case "import": return openImport();
-    case "markdown": return copyMarkdown();
-    case "csv": return downloadCsv();
-    case "json": return downloadJson();
-    case "editlink": return copyEditLink();
-    case "rotate": return rotate();
-  }
+  if (menuOpen.value) warmExporters();
 }
 
 function copyShare() {
@@ -299,55 +272,24 @@ async function rotate() {
     flash("Edit link rotated");
   }
 }
-async function copyMarkdown() {
-  if (!snapshot.value) return;
-  try {
-    const { listToMarkdown } = await mdExporter();
-    copy(listToMarkdown(snapshot.value), "Copied as Markdown");
-  } catch {
-    // the exporter chunk failed to load (offline before the SW cached it, or a
-    // dropped connection) — the old static import could never fail, so say so
-    flash("Couldn’t load the exporter. Try again.");
-  }
-}
 const { copyList } = useCopyList();
 async function cloneList() {
   if (!snapshot.value) return;
   const ok = await copyList(snapshot.value, totals.value?.totalMg ?? 0);
   flash(ok ? "List duplicated" : "Couldn’t duplicate. Try again.");
 }
-// downloadFile() + listFileBase() (the saved file is named after the list) live in
-// the shared app/utils/download.ts, used by the read views' export menu too.
-async function downloadCsv() {
-  if (!snapshot.value) return;
-  try {
-    const { listToCsv } = await csvExporter();
-    downloadFile(`${listFileBase(snapshot.value.title, snapshot.value.slug)}.csv`, listToCsv(snapshot.value), "text/csv");
-    flash("CSV downloaded");
-  } catch {
-    flash("Couldn’t load the exporter. Try again.");
-  }
-}
-async function downloadJson() {
-  if (!snapshot.value) return;
-  try {
-    // shared/exporters/json.ts also holds the import-side parser, so the backup
-    // the import dialog restores is by construction the shape written here
-    const { listToJson } = await jsonExporter();
-    downloadFile(
-      `${listFileBase(snapshot.value.title, snapshot.value.slug)}.json`,
-      listToJson(snapshot.value),
-      "application/json",
-    );
-    flash("JSON downloaded");
-  } catch {
-    flash("Couldn’t load the exporter. Try again.");
-  }
-}
 
-function openImport() {
-  importOpen.value = true;
-}
+// one table drives the ⋯ menu — its markup AND its dispatch — so an action can't
+// exist in one without the other (a string-keyed lookup would let a typo no-op)
+const MENU_ACTIONS = [
+  { label: "Duplicate this list", run: cloneList },
+  { label: "Import a list…", run: () => { importOpen.value = true; } },
+  { label: "Copy as Markdown", run: copyMarkdown },
+  { label: "Download CSV", run: downloadCsv },
+  { label: "Download JSON", run: downloadJson },
+  { label: "Copy edit link…", run: copyEditLink },
+  { label: "Rotate edit link…", run: rotate },
+];
 
 function newList() {
   // a fresh draft — no server row until something is added. Clearing the hash fires
@@ -452,27 +394,10 @@ function onCorrected(res: { status: string; itemName?: string }) {
             </button>
             <Transition name="menu">
               <ul v-if="menuOpen" class="popover menu__list" role="menu" aria-label="More actions">
-                <!-- no "Your lists" here — the footer already carries that link -->
-                <li role="none">
-                  <button type="button" role="menuitem" class="menu__item" @click="runMenu('duplicate')">Duplicate this list</button>
-                </li>
-                <li role="none">
-                  <button type="button" role="menuitem" class="menu__item" @click="runMenu('import')">Import a list…</button>
-                </li>
-                <li role="none">
-                  <button type="button" role="menuitem" class="menu__item" @click="runMenu('markdown')">Copy as Markdown</button>
-                </li>
-                <li role="none">
-                  <button type="button" role="menuitem" class="menu__item" @click="runMenu('csv')">Download CSV</button>
-                </li>
-                <li role="none">
-                  <button type="button" role="menuitem" class="menu__item" @click="runMenu('json')">Download JSON</button>
-                </li>
-                <li role="none">
-                  <button type="button" role="menuitem" class="menu__item" @click="runMenu('editlink')">Copy edit link…</button>
-                </li>
-                <li role="none">
-                  <button type="button" role="menuitem" class="menu__item" @click="runMenu('rotate')">Rotate edit link…</button>
+                <!-- no "Your lists" here — the footer already carries that link.
+                     Close BEFORE the action runs, matching the old dispatch order. -->
+                <li v-for="a in MENU_ACTIONS" :key="a.label" role="none">
+                  <button type="button" role="menuitem" class="menu__item" @click="menuOpen = false; a.run()">{{ a.label }}</button>
                 </li>
               </ul>
             </Transition>
@@ -518,12 +443,23 @@ function onCorrected(res: { status: string; itemName?: string }) {
           :list="snapshot"
           :folder="f"
           :items="itemsByFolder.get(f.id) ?? NO_ITEMS"
+          :children-by-parent="childrenByParent"
           :packed="packed"
         />
       </div>
       <section v-if="ungrouped.length" class="panel editor__ungrouped">
         <p class="t-label">Ungrouped</p>
-        <ItemRow v-for="it in ungrouped" :key="it.id" :list="snapshot" :item="it" :packed="packed" />
+        <!-- prev-id follows this section's render order, so the indent affordance
+             points at the row actually shown above -->
+        <ItemRow
+          v-for="(it, i) in ungrouped"
+          :key="it.id"
+          :list="snapshot"
+          :item="it"
+          :children-by-parent="childrenByParent"
+          :prev-id="ungrouped[i - 1]?.id ?? null"
+          :packed="packed"
+        />
       </section>
 
       <div v-if="!packed" class="editor__addfolder">
@@ -590,7 +526,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
 .topbar {
   position: sticky;
   top: 0;
-  z-index: 10;
+  z-index: var(--z-topbar);
   background: var(--paper);
   border-bottom: 1px solid var(--line);
 }
@@ -672,7 +608,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
+  width: var(--icon-btn);
   height: 28px;
   border-radius: var(--radius-pill);
   color: var(--ink-3);
@@ -693,15 +629,15 @@ function onCorrected(res: { status: string; itemName?: string }) {
 .modetoggle__opt.is-active {
   color: var(--ink);
 }
-/* touch: each segment becomes a proper tap target (matches the 44px icon buttons) */
+/* touch: each segment becomes a proper tap target (matches the --tap icon buttons) */
 @media (pointer: coarse) {
   .modetoggle__opt {
-    width: 44px;
+    width: var(--tap);
     height: 40px;
   }
   .modetoggle__opt svg {
-    width: 18px;
-    height: 18px;
+    width: var(--icon-touch);
+    height: var(--icon-touch);
   }
 }
 .editor__share {
@@ -818,7 +754,9 @@ function onCorrected(res: { status: string; itemName?: string }) {
   transition: color var(--dur) var(--ease);
 }
 .editor__addfolderbtn:hover {
-  color: var(--ink-2);
+  /* full ink, like every quiet add affordance (.folder__addbtn, .item-nest__add) —
+     the house hover for quiet text actions (controls.scss) */
+  color: var(--ink);
 }
 .editor__addfolderinput {
   color: var(--ink);

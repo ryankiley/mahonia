@@ -23,7 +23,9 @@ import {
 } from "../../shared/snapshotDiff";
 import { UNITS } from "../../shared/types";
 import type { ListData, ListSnapshot, ListState, Totals, Unit } from "../../shared/types";
+import { isLikelySpam } from "../../shared/discovery";
 import { ensureSnapshotSchema, useDb } from "./db";
+import { ensureCatalogSchema } from "./catalog";
 import { randomEditToken, randomShareCode, randomSlug, sha256Hex } from "./tokens";
 import { stageCandidates, type CandidateObservation } from "./candidates";
 
@@ -44,11 +46,41 @@ function weightColumns(totals: Totals) {
 
 // Normalize + cap inbound content through the SAME reducer helpers the mutate path
 // uses, so the create/restore paths can never be a clamp-bypass into raw JSONB.
+// Beyond the per-field clamps, this is the only write path that takes a WHOLE list
+// at once, so the reducer's list-wide referential invariants (enforced per-op in
+// ops.ts addItem/moveItem) must be re-applied in bulk here — otherwise a raw create
+// POST can persist dangling refs that render nowhere yet still count in totals
+// (invisible, UI-undeletable weight). Mirrors jsonToListImport's healing rules:
+// unknown folderId → ungrouped, dangling/self parentId → top-level, one nesting
+// level only, and a nested child always carries its parent's folderId.
 function normalizeListData(raw?: Partial<ListData>): ListData {
-  return {
-    folders: (raw?.folders ?? []).slice(0, MAX_FOLDERS).map(normalizeFolder),
-    items: (raw?.items ?? []).slice(0, MAX_ITEMS).map(normalizeItem),
-  };
+  // duplicate ids: first occurrence wins (the reducer's addItem/addFolder rule)
+  const folders: ListData["folders"] = [];
+  const folderIds = new Set<string>();
+  for (const f of (raw?.folders ?? []).slice(0, MAX_FOLDERS).map(normalizeFolder)) {
+    if (folderIds.has(f.id)) continue;
+    folderIds.add(f.id);
+    folders.push(f);
+  }
+  const items: ListData["items"] = [];
+  const byId = new Map<string, ListData["items"][number]>();
+  for (const it of (raw?.items ?? []).slice(0, MAX_ITEMS).map(normalizeItem)) {
+    if (byId.has(it.id)) continue;
+    byId.set(it.id, it);
+    items.push(it);
+  }
+  for (const it of items) {
+    if (it.folderId && !folderIds.has(it.folderId)) it.folderId = null;
+    if (it.parentId && (it.parentId === it.id || !byId.has(it.parentId))) it.parentId = null;
+  }
+  // enforce one level: children of a parent that is itself nested flatten to
+  // top-level (the set is computed before the pass, so deeper chains fully unwind)
+  const topLevel = new Set(items.filter((i) => i.parentId == null).map((i) => i.id));
+  for (const it of items) if (it.parentId && !topLevel.has(it.parentId)) it.parentId = null;
+  // a nested child rides in its parent's folder (the shared/types invariant the
+  // reducer keeps on addItem/moveItem) — parents' folderIds are already healed above
+  for (const it of items) if (it.parentId) it.folderId = byId.get(it.parentId)!.folderId;
+  return { folders, items };
 }
 
 export function rowToSnapshot(row: ListRow): ListSnapshot {
@@ -89,6 +121,13 @@ export async function hydrateCatalogNames(db: Db, snap: ListSnapshot): Promise<L
     ),
   ];
   if (!ids.length) return snap;
+  // The catalog table self-ensures on its own endpoints, but THIS query can run
+  // first on a fresh database (a copied list carries catalogItemId) — ensure here
+  // or every list read 500s until some catalog endpoint happens to run (the exact
+  // Neon-only latent bug db.ts's useCatalogDb exists to prevent). Memoized, and
+  // catalog-link-free lists never reach it (the early-out above), so no steady-
+  // state cost. Lives here (not in callers) to also cover caller-passed db handles.
+  await ensureCatalogSchema(db);
   const rows = await db
     .select({
       id: catalogItems.id,
@@ -258,8 +297,9 @@ export async function listSnapshotsByEditToken(
 }
 
 /**
- * Restore a list to one of its snapshots (edit-token-gated). The current state is
- * snapshotted first ("before restore") so a restore is itself undoable. Returns
+ * Restore a list to one of its snapshots (edit-token-gated). The overwritten
+ * pre-restore state is snapshotted ("before restore") so a restore is itself
+ * undoable. Returns
  * null when the token or snapshot id doesn't resolve to THIS caller's list (→ 404,
  * no cross-list oracle).
  */
@@ -291,14 +331,18 @@ export async function restoreSnapshotByEditToken(
   const totals = computeTotals(data);
   const title = (s.title ?? "Untitled list").slice(0, 200);
   const displayUnit: Unit = UNITS.includes(s.displayUnit as Unit) ? (s.displayUnit as Unit) : "g";
+  // restore writes title/description like a mutate does, so it's the same link-spam
+  // vector: publish clean, then restore a link-stuffed earlier snapshot. Re-check
+  // here too (set-only, mirroring applyOpsByEditToken) so this path can't smuggle
+  // spam meta onto an already-public list past the publish-time gate.
+  const spammyMeta = isLikelySpam({ title, description: s.description ?? null });
 
   // CAS like the mutate path: re-read + version-guard so a concurrent edit can't
-  // be silently lost — and snapshot the CURRENT (fresh) state before overwriting,
-  // so that edit is itself recoverable.
+  // be silently lost — and snapshot the overwritten state, so that edit is itself
+  // recoverable.
   for (let attempt = 0; attempt < 5; attempt++) {
     const row = await findByEditToken(editToken, d);
     if (!row) return null;
-    await captureSnapshot(d, row, "before restore");
     const updated = await d
       .update(lists)
       .set({
@@ -307,13 +351,23 @@ export async function restoreSnapshotByEditToken(
         displayUnit,
         data,
         ...weightColumns(totals),
+        ...(row.isPublic && spammyMeta ? { flagged: true } : {}),
         version: row.version + 1,
         updatedAt: new Date(),
       })
       .where(and(eq(lists.id, row.id), eq(lists.version, row.version)))
       .returning();
-    if (updated[0]) return rowToSnapshot(updated[0]);
-    // version moved under us — retry against the latest (re-capture the newer state)
+    if (updated[0]) {
+      // Capture AFTER the CAS succeeds (mirroring the mutate path): the version
+      // guard proves the in-hand `row` is exactly the state just overwritten, so
+      // the pre-restore state (including any mid-loop concurrent edit) stays
+      // recoverable — while failed attempts insert nothing. Capturing per attempt
+      // would let a contended retry storm prune the whole recovery window with
+      // post-vandalism states, which is the one scenario snapshots exist for.
+      await captureSnapshot(d, row, "before restore");
+      return rowToSnapshot(updated[0]);
+    }
+    // version moved under us — retry against the latest
   }
   throw createError({ statusCode: 409, statusMessage: "Restore contention — retry" });
 }
@@ -422,6 +476,22 @@ export async function applyOpsByEditToken(
     const data: ListData = { folders: state.folders, items: state.items };
     const totals = computeTotals(data);
 
+    // The publish-time link-spam gate must survive publishing: a setMeta on an
+    // already-public list re-runs it, or clean-at-publish + spam-stuffed-after
+    // bypasses moderation entirely on the indexable /l page. Set-only (sticky,
+    // like publishList's `row.flagged || decision.flagged`) and gated on batches
+    // that actually touch title/description, so ordinary item edits can never
+    // re-flag an admin-restored list.
+    const touchesMeta = ops.some(
+      (op) =>
+        op.t === "setMeta" &&
+        (typeof op.patch?.title === "string" || typeof op.patch?.description === "string"),
+    );
+    const reflag =
+      row.isPublic &&
+      touchesMeta &&
+      isLikelySpam({ title: state.title, description: state.description });
+
     // Throttle off the in-hand row (no extra query). Stamping lastSnapshotAt in
     // the SAME CAS update serializes the decision by the version guard, so two
     // concurrent writers can't both snapshot (the loser retries + sees it set).
@@ -439,6 +509,7 @@ export async function applyOpsByEditToken(
         version: row.version + 1,
         updatedAt: new Date(),
         ...(doSnapshot ? { lastSnapshotAt: new Date() } : {}),
+        ...(reflag ? { flagged: true } : {}),
       })
       .where(and(eq(lists.id, row.id), eq(lists.version, row.version)))
       .returning();
@@ -576,12 +647,17 @@ export async function purgeDeletedLists(
 
 export async function rotateEditToken(editToken: string): Promise<string | null> {
   const db = await useDb();
-  const row = await findByEditToken(editToken);
-  if (!row) return null;
   const next = randomEditToken();
-  await db
+  // One atomic UPDATE keyed on the OLD token (not find-by-token then update-by-id):
+  // when two rotates race — owner vs leaked-token holder, or the owner's own two
+  // tabs — the loser's WHERE matches nothing and it 404s, instead of a 200 carrying
+  // a token that was already overwritten (a silent, permanent lockout: the token is
+  // the only credential). `liveOnly` keeps the active/not-deleted gate.
+  // no-arg .returning() — the neon-http | PGlite union's only shared overload.
+  const updated = await db
     .update(lists)
     .set({ editTokenHash: sha256Hex(next), updatedAt: new Date() })
-    .where(eq(lists.id, row.id));
-  return next;
+    .where(liveOnly(lists.editTokenHash, sha256Hex(editToken)))
+    .returning();
+  return updated[0] ? next : null;
 }

@@ -15,26 +15,25 @@
   }
 
   // chrome off: footer, transient UI, action clusters, add affordances, the
-  // read-view topbar CTAs + tag (the brand line stays as quiet provenance),
+  // read-view topbar CTAs (the brand line stays as quiet provenance),
   // and every control that only means something on screen
   .foot,
   .toast,
   .ovl,
   .modetoggle,
   .editor__share,
-  .editor__status,
+  .syncstatus,
   .menu,
   .editor__addfolder,
   .folder__add,
   .folder__actions,
   .folder__collapse,
+  .item__nestcollapse,
   .item__actions,
   .item__fixrow,
   .ac__menu,
-  .ac__weightcell,
   .packbar__clear,
-  .topbar__actions,
-  .topbar__tag {
+  .topbar__actions {
     display: none !important;
   }
 
@@ -50,6 +49,16 @@
   }
   .folder__bodyinner {
     opacity: 1 !important;
+    overflow: visible;
+  }
+  // …and so does a collapsed nested GROUP (same 1fr↔0fr clip as the folder body).
+  // The share views default groups closed and packing collapses too, so without
+  // this a printed/PDF'd list would drop every nested child and show only the
+  // group's summary row. Un-collapse the grid + release the child clip.
+  .nestcollapse {
+    grid-template-rows: 1fr !important;
+  }
+  .nestcollapse > .nest-block {
     overflow: visible;
   }
 

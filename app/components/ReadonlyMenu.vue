@@ -32,18 +32,16 @@ useWindowEvent("keydown", (e) => {
   if (e.key === "Escape" && menuOpen.value) menuOpen.value = false;
 });
 
-// the exporters are on-demand chunks (kept out of the read view's initial payload),
-// warmed when the menu opens so the copy stays inside the click's gesture window
-const mdExporter = () => import("~~/shared/exporters/markdown");
-const csvExporter = () => import("~~/shared/exporters/csv");
-const jsonExporter = () => import("~~/shared/exporters/json");
+// the three export actions + their chunk warm-up live in useListExports, shared
+// with the editor's kebab so the copy + error handling can't drift (the exporters
+// stay on-demand chunks, out of the read view's initial payload)
+const { warmExporters, copyMarkdown, downloadCsv, downloadJson } = useListExports(
+  () => props.snapshot,
+  flash,
+);
 function toggleMenu() {
   menuOpen.value = !menuOpen.value;
-  if (menuOpen.value) {
-    void mdExporter();
-    void csvExporter();
-    void jsonExporter();
-  }
+  if (menuOpen.value) warmExporters();
 }
 
 const { copying, copyList } = useCopyList();
@@ -95,36 +93,6 @@ async function copyLink() {
   if (await copyText(url)) return flash("Link copied");
   // blocked clipboard → show the link selectable instead of dead-ending
   showLinkFallback(url, "Copy this link");
-}
-async function copyMarkdown() {
-  try {
-    const { listToMarkdown } = await mdExporter();
-    flash((await copyText(listToMarkdown(props.snapshot))) ? "Copied as Markdown" : "Copy failed");
-  } catch {
-    flash("Couldn’t load the exporter. Try again.");
-  }
-}
-async function downloadCsv() {
-  try {
-    const { listToCsv } = await csvExporter();
-    downloadFile(`${fileBase()}.csv`, listToCsv(props.snapshot), "text/csv");
-    flash("CSV downloaded");
-  } catch {
-    flash("Couldn’t load the exporter. Try again.");
-  }
-}
-async function downloadJson() {
-  try {
-    // same module as the import dialog's parser — export/import can't drift
-    const { listToJson } = await jsonExporter();
-    downloadFile(`${fileBase()}.json`, listToJson(props.snapshot), "application/json");
-    flash("JSON downloaded");
-  } catch {
-    flash("Couldn’t load the exporter. Try again.");
-  }
-}
-function fileBase() {
-  return listFileBase(props.snapshot.title, props.snapshot.slug);
 }
 </script>
 

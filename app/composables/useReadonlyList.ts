@@ -1,7 +1,7 @@
 import type { Ref } from "vue";
 import { seasonLabel, tripTypeLabel } from "~~/shared/discovery";
 import type { ListSnapshot, Totals, Unit } from "~~/shared/types";
-import { computeTotals, formatWeightAuto } from "~~/shared/weights";
+import { bySortOrder, computeTotals, formatWeightAuto, ungroupedTopLevel } from "~~/shared/weights";
 
 // Shared reactive view-model for the two read-only pages (/s/[code] + /l/[slug]):
 // a viewer-chosen display unit, the rolled-up totals, the unit-reskinned list the
@@ -20,15 +20,17 @@ export function useReadonlyList(snapshot: Ref<ListSnapshot | null>) {
     snapshot.value ? { ...snapshot.value, displayUnit: unit.value } : null,
   );
   // top-level ungrouped rows only — nested children render under their parent
+  // (the same predicate the editor uses, so the two views can't drift)
   const ungrouped = computed(() =>
-    snapshot.value ? snapshot.value.items.filter((i) => !i.folderId && i.parentId == null) : [],
+    snapshot.value ? ungroupedTopLevel(snapshot.value.items) : [],
   );
   // a shared list shouldn't show empty folders (one Set pass, not an
-  // items.some() scan per folder)
+  // items.some() scan per folder); sorted by sortOrder because array order is
+  // insertion order — folder drag-reorder only rewrites sortOrder
   const shownFolders = computed(() => {
     if (!roList.value) return [];
     const withItems = new Set(snapshot.value!.items.map((i) => i.folderId));
-    return roList.value.folders.filter((f) => withItems.has(f.id));
+    return roList.value.folders.filter((f) => withItems.has(f.id)).sort(bySortOrder);
   });
   return { unit, totals, roList, ungrouped, shownFolders };
 }

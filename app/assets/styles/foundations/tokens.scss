@@ -3,15 +3,23 @@
 // custom properties) with fresh values. Fonts are system stacks for now — to be
 // swapped for self-hosted woff2 subsets within a ≤60KB budget (no British colour).
 
+// Stack breakpoints — the mobile stack point and the full-width point.
+// nuxt.config.ts injects these SAME declarations into every SFC style block
+// (vite css additionalData) so plain `@media (max-width: $bp-stack)` queries
+// share the anchors; Sass module scoping keeps that injection out of @use'd
+// files, so this file carries its own copy — `!default` so the two can never
+// fight, but a retune must change BOTH places.
+$bp-stack: 720px !default;
+$bp-full: 1024px !default;
+
 @use "sass:math";
 
-// Fluid item-row track: $min wide at the 720px mobile stack point, $max at the
-// 1024px full-width point, linear between (clamped outside). The two anchors
-// live ONLY here — the emitted calc uses a unitless delta because CSS calc can't
-// multiply two lengths. Keep the 720px in sync with the app-wide
-// `@media (max-width: 720px)` stack queries.
+// Fluid item-row track: $min wide at the $bp-stack mobile stack point, $max at
+// the $bp-full full-width point, linear between (clamped outside). The emitted
+// calc uses a unitless delta + divisor because CSS calc can't multiply or
+// divide two lengths.
 @function fluid-track($min, $max) {
-  @return clamp(#{$min}, calc(#{$min} + (100vw - 720px) * #{math.div($max - $min, 1px)} / 304), #{$max});
+  @return clamp(#{$min}, calc(#{$min} + (100vw - #{$bp-stack}) * #{math.div($max - $min, 1px)} / #{math.div($bp-full - $bp-stack, 1px)}), #{$max});
 }
 
 :root {
@@ -93,8 +101,6 @@
 
   /* ---- radius: softened — buttons + floating surfaces get real rounding,
      controls/icon-buttons go pill so hover fills read as soft shapes, not boxes ---- */
-  --radius-0: 0;
-  --radius-1: 2px;
   --radius-2: 8px; /* panels, dialogs */
   --radius-3: 20px; /* floating menus (autocomplete, kebab) — decisively rounder than panels */
   --radius-pill: 999px; /* buttons + icon buttons */
@@ -117,6 +123,19 @@
   /* floating-menu surface: bright white in light (NOT the grey paper-2 — popovers
      should read crisp, lifted off the page), a clearly-elevated grey in dark */
   --surface-float: light-dark(#ffffff, #1f1f1f);
+  /* dialog scrim — pure-black alphas so it stays on the neutral ramp (no warm
+     tint, same rule as the surfaces above) */
+  --scrim: light-dark(#0000002d, #00000059);
+
+  /* ---- z-index layer scale — every positioned surface takes its layer from
+     here so the stack order reads in one place. --z-lifted shares --z-float's
+     value but is its own layer: a dragged row competes in a local stacking
+     context (sibling rows + the sticky topbar), not against the toast/dialog. ---- */
+  --z-topbar: 10;
+  --z-menu: 20;
+  --z-autocomplete: 30;
+  --z-float: 50; /* toasts + dialog overlays */
+  --z-lifted: 50; /* the row mid-drag */
 
   /* ---- layout ---- */
   /* fluid like the type tokens: 1024px floor, growing past the same 1920px
@@ -125,20 +144,35 @@
   --measure: max(64rem, 53.33vw);
 
   /* ---- component primitives — shared structure so duplicated values can't drift ---- */
+  /* icon-button box — the dense desktop chrome. The fixed actions track below
+     multiplies it, so resizing the button here resizes the track with it. */
+  --icon-btn: 32px;
+  /* touch targets — the ~44px Apple-HIG minimum box + the enlarged glyph,
+     consumed by every `@media (pointer: coarse)` icon-button override */
+  --tap: 44px;
+  --icon-touch: 18px;
+  /* the negative margin that pulls a --tap-sized touch box back onto the 1.45rem
+     text line (so enlarging the hit area doesn't grow row height). Derived from
+     --tap — a retune of --tap keeps the rhythm instead of needing every paired
+     margin-block literal hand-updated. */
+  --tap-pull: calc((1.45rem - var(--tap)) / 2);
+  /* field height — .field's min-height, mirrored by the add affordances and the
+     packing-row height calc so toggling modes never jumps the row height */
+  --field-h: 36px;
   /* item rows + folder headers share ONE column template so weights stay aligned.
      The meta tracks are FLUID (see fluid-track() at the top of this file):
-     full-size at ≥1024px viewport, compressing linearly down to the 720px mobile
-     stack point — so a narrowing window gives the name room instead of crushing
-     only the 1fr column while ~280px of metas stand firm. */
+     full-size at the ≥$bp-full viewport, compressing linearly down to the
+     $bp-stack mobile stack point — so a narrowing window gives the name room
+     instead of crushing only the 1fr column while ~280px of metas stand firm. */
   --item-col-qty: #{fluid-track(48px, 64px)};
   --item-col-weight: #{fluid-track(68px, 88px)};
   --item-col-class: #{fluid-track(108px, 128px)}; /* min fits "Consumable" at 1rem */
   /* actions column is FIXED, not auto: a row shows 4 or 5 trailing icons (the nesting
      add/indent/outdent varies), and an auto column would size to that count — stealing
      from the 1fr name column by a different amount per row and misaligning qty/weight/
-     class. Reserve the widest case (5 × 32px icons + 4 gaps; −9px = the grip's gutter
-     overshoot) so every row's data columns line up regardless of its icon count. */
-  --item-col-actions: calc(5 * 32px + 4 * var(--space-1) - 9px);
+     class. Reserve the widest case (5 × --icon-btn icons + 4 gaps; −9px = the grip's
+     gutter overshoot) so every row's data columns line up regardless of its icon count. */
+  --item-col-actions: calc(5 * var(--icon-btn) + 4 * var(--space-1) - 9px);
   --item-cols: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-class) var(--item-col-actions); /* edit: name · qty(+L) · weight+unit · class · actions */
   --item-cols-ro: 1fr #{fluid-track(36px, 44px)} #{fluid-track(80px, 96px)}; /* read / checklist: name · qty · weight */
   --item-cols-mobile: 1fr 44px 92px; /* name · qty · weight (controls + grip on row 2) */

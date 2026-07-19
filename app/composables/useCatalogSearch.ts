@@ -50,7 +50,11 @@ export function useCatalogSearch() {
     const q = raw.trim();
     clearTimeout(timer);
     if (q.length < 2) {
-      results.value = [];
+      // full teardown, not just an empty results list: an in-flight request (and
+      // its lastQ) would otherwise land later and reopen the menu with results
+      // for a query the user already deleted. Resetting lastQ also suppresses the
+      // aborted fetch's offline-cache fallback (its guard sees lastQ !== q).
+      clear();
       return;
     }
     timer = setTimeout(async () => {

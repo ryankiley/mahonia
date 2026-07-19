@@ -39,7 +39,7 @@ const segments = computed(() => categorySegments(props.list));
   </div>
 </template>
 
-<style scoped>
+<style scoped lang="scss">
 .catbar__track {
   display: flex;
   gap: var(--space-px);
@@ -89,7 +89,7 @@ const segments = computed(() => categorySegments(props.list));
   color: var(--ink-2);
 }
 /* roomier separation between folder entries when they sit on one line on a phone */
-@media (max-width: 720px) {
+@media (max-width: $bp-stack) {
   .catbar__legend {
     column-gap: var(--space-6);
   }

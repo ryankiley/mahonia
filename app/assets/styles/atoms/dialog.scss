@@ -9,14 +9,14 @@
 .ovl {
   position: fixed;
   inset: 0;
-  z-index: 50;
+  z-index: var(--z-float);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: var(--space-4);
   /* barely-there: the card's own shadow + lifted surface do the separating —
      the scrim only needs to hush the page, not black it out */
-  background: light-dark(#1d1c1c33, #00000059);
+  background: var(--scrim);
 }
 .dlg {
   width: 100%;
@@ -37,6 +37,15 @@
 }
 .dlg__lede {
   margin-bottom: var(--space-2);
+}
+// trailing-aligned buttons closing every dialog body — part of the shared shell,
+// so it lives here beside .dlg rather than in one caller's scoped styles
+.dlg__actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
 }
 .ovl-enter-active,
 .ovl-leave-active {

@@ -8,12 +8,14 @@ import {
   formatWeightAuto,
   fromMg,
   groupItemsByFolder,
+  groupItemsByParent,
   groupLineMg,
   nextSortOrder,
   parseWeightInput,
   sortedFolderItems,
   splitWornQty,
   toMg,
+  ungroupedTopLevel,
 } from "../shared/weights";
 import type { Folder, Item } from "../shared/types";
 
@@ -412,5 +414,32 @@ describe("nesting (a nested item is just an item with a parentId)", () => {
     ];
     expect(groupItemsByFolder(items).get("f1")!.map((i) => i.id)).toEqual(["tent", "pack"]);
     expect(sortedFolderItems(items, f).map((i) => i.id)).toEqual(["tent", "pack"]);
+  });
+
+  it("groupItemsByParent matches childrenOf: children under their parent id, in sortOrder", () => {
+    const items = [
+      item({ id: "tent", folderId: "f1", sortOrder: 0 }),
+      item({ id: "fly", folderId: "f1", parentId: "tent", sortOrder: 1 }),
+      item({ id: "inner", folderId: "f1", parentId: "tent", sortOrder: 0 }),
+      item({ id: "cook", folderId: "f1", sortOrder: 1 }),
+      item({ id: "pot", folderId: "f1", parentId: "cook", sortOrder: 0 }),
+      item({ id: "solo", folderId: "f1", sortOrder: 2 }),
+    ];
+    const map = groupItemsByParent(items);
+    expect(map.get("tent")!.map((i) => i.id)).toEqual(["inner", "fly"]);
+    expect(map.get("cook")!.map((i) => i.id)).toEqual(["pot"]);
+    expect(map.has("solo")).toBe(false); // leaves get no entry (rows fall back to a shared [])
+    expect(map.get("tent")).toEqual(childrenOf(items, "tent"));
+  });
+});
+
+describe("ungroupedTopLevel — the 'Ungrouped' section's rows", () => {
+  it("keeps only folderless TOP-LEVEL rows (children render under their parent)", () => {
+    const items = [
+      item({ id: "loose", folderId: null, sortOrder: 0 }),
+      item({ id: "kid", folderId: null, parentId: "loose", sortOrder: 0 }),
+      item({ id: "homed", folderId: "f1", sortOrder: 0 }),
+    ];
+    expect(ungroupedTopLevel(items).map((i) => i.id)).toEqual(["loose"]);
   });
 });

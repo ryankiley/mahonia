@@ -1,0 +1,106 @@
+// Item-row atoms — the rules the editor's ItemRow (editing + packing modes) and
+// the share views' ReadonlyItemRow must render identically. The two are
+// deliberately separate components (the read pages must not pull the editor JS
+// graph), so their shared LOOK lives here instead of hand-mirrored scoped copies.
+
+// the stack breakpoint from the token source (Sass dedupes this module — already
+// @use'd by main.scss — so no :root re-emission); keeps the literal out of here
+@use "../foundations/tokens" as t;
+
+/* nested items — a block indented behind a hairline "thread" line. The WHOLE row
+   indents uniformly (via the container), so the name and its number line sit at the
+   same indent — which matters most on the two-line mobile layout, where indenting
+   just the name left the ×qty·weight line stranded flush. No rules between nested
+   rows: they read as one quiet group, spaced only by the gap — kept a touch tighter
+   than the ruled top-level rhythm (.folder__items, atoms/folder.scss). */
+.nest-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: var(--space-2) 0 0 var(--space-4);
+  padding-left: var(--space-4);
+  border-left: 1px solid var(--line);
+}
+
+/* collapse a nested group — hide/show its children with the folder's 1fr↔0fr grid
+   slide (Safari-safe). Shared by the editor's ItemRow and the share views'
+   ReadonlyItemRow: the .nest-block inner needs min-height:0 + overflow:hidden to clip
+   the reveal, and its parent→child margin collapses too so a closed group leaves no
+   orphan gap. (The editor additionally lifts the clip while an autocomplete/drag is
+   live — that override lives in ItemRow, which is the only view with those.) */
+.nestcollapse {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows var(--dur) var(--ease);
+}
+.nestcollapse[data-collapsed] {
+  grid-template-rows: 0fr;
+}
+.nestcollapse > .nest-block {
+  min-height: 0;
+  overflow: hidden;
+  transition: margin-top var(--dur) var(--ease);
+}
+.nestcollapse[data-collapsed] > .nest-block {
+  margin-top: 0;
+}
+
+/* the collapse chevron that trails a group's name — shared by the editor (edit +
+   packing) and the share views, all three placing it right after the name. -1px so
+   the glyph hugs the name at the same distance the folder chevron does. */
+.item__nestcollapse {
+  flex: none;
+  align-self: center;
+  display: flex;
+  align-items: center;
+  padding: 0;
+  margin-left: -1px;
+  color: var(--ink-3);
+  cursor: pointer;
+  transition: color var(--dur) var(--ease);
+}
+.item__nestcollapse:hover {
+  color: var(--ink);
+}
+.item__nestchev {
+  transition: transform var(--dur) var(--ease);
+  /* standing layer so WebKit doesn't re-snap the glyph ~1px when it layers for the
+     rotate (same quirk handled on .folder__chev) */
+  will-change: transform;
+}
+.item__nestchev.is-collapsed {
+  transform: rotate(-90deg);
+}
+@media (pointer: coarse) {
+  /* touch: the ~44px tap target, grown rightward + vertically and pulled back out of
+     layout so the row height holds — same treatment (and same query) as the folder
+     chevron .folder__collapse. */
+  .item__nestcollapse {
+    min-width: var(--tap);
+    height: var(--tap);
+    justify-content: flex-start;
+    margin-right: calc(16px - var(--tap));
+    margin-block: var(--tap-pull);
+  }
+}
+
+/* unit suffix on a weight — an explicit gap from the number so it doesn't crowd
+   ("1200g"); one gap shared by the editing, packing, and read rows */
+.item__wunit {
+  margin-inline-start: var(--space-1);
+}
+
+@media (max-width: t.$bp-stack) {
+  /* the qty + weight cells of the two-line mobile rows share the editing fields'
+     box metrics (padding + line-height), so a packing/read row is the exact same
+     height as its editing counterpart — no shift when modes or views swap */
+  .item__cqty,
+  .item__cweight,
+  .item__roqty,
+  .item__roweight {
+    padding-block: 2px;
+    line-height: 1.3;
+    display: inline-flex;
+    align-items: center;
+  }
+}

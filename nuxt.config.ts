@@ -155,9 +155,6 @@ export default defineNuxtConfig({
   // that throws on every request — rate limiting then holds per-instance only,
   // which is degraded but keeps the app serving. Dev always uses in-memory.
   $development: {
-    // offline plumbing defaults ON in dev so it's testable locally without setting
-    // an env var (the SW itself still needs a prod build — see pwa.devOptions)
-    runtimeConfig: { public: { offline: true } },
     nitro: {
       storage: {
         kv: { driver: "memory" },
@@ -203,10 +200,22 @@ export default defineNuxtConfig({
     },
   },
 
-  // Dev-only: the dev server runs behind a proxy (preview tooling) whose Host
-  // header isn't localhost; Vite 7 otherwise rejects those requests with 426
-  // Upgrade Required. Only affects `nuxt dev`, never the prod build.
   vite: {
+    // Shared SCSS breakpoint vars, prepended to every SFC `lang="scss"` style
+    // block so plain `@media (max-width: $bp-stack)` queries share the tokens'
+    // anchors. Sass module scoping keeps this injection out of @use'd files, so
+    // foundations/tokens.scss carries the same declarations (`!default`) for its
+    // own math — a retune must change both places.
+    css: {
+      preprocessorOptions: {
+        scss: {
+          additionalData: "$bp-stack: 720px; $bp-full: 1024px;",
+        },
+      },
+    },
+    // Dev-only: the dev server runs behind a proxy (preview tooling) whose Host
+    // header isn't localhost; Vite 7 otherwise rejects those requests with 426
+    // Upgrade Required. Only affects `nuxt dev`, never the prod build.
     server: {
       allowedHosts: true,
     },

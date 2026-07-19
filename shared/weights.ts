@@ -126,11 +126,6 @@ export function childrenOf<T extends { parentId?: string | null; sortOrder: numb
   return items.filter((i) => i.parentId === parentId).sort(bySortOrder);
 }
 
-/** True when an item has nested children (a "parent"/group row). */
-export function hasChildren(items: readonly { parentId?: string | null }[], id: string): boolean {
-  return items.some((i) => i.parentId === id);
-}
-
 /**
  * A row's GROUP line weight for DISPLAY: the item's own line plus its children's lines.
  * Totals never use this (they sum each item's OWN line, so a parent + its kids aren't
@@ -141,6 +136,16 @@ export function groupLineMg(item: Item, items: readonly Item[]): number {
   let mg = lineMg(item);
   for (const child of items) if (child.parentId === item.id) mg += lineMg(child);
   return mg;
+}
+
+/**
+ * What a row's weight column shows: a group's total (own + children) for a parent,
+ * its own line for a leaf. The one rule the editor's ItemRow and the share views'
+ * ReadonlyItemRow both render, so they can't drift. `children` is this row's own
+ * children (already filtered), so the group sum is O(children).
+ */
+export function rowDisplayMg(item: Item, children: readonly Item[]): number {
+  return children.length > 0 ? groupLineMg(item, children) : lineMg(item);
 }
 
 /** Units of a line that count as worn via the wornQty split.
@@ -171,6 +176,15 @@ export function siblingItems<T extends { folderId: string | null; parentId?: str
   parentId: string | null = null,
 ): T[] {
   return items.filter((i) => i.folderId === folderId && (i.parentId ?? null) === parentId);
+}
+
+/** Top-level rows with no folder — the "Ungrouped" section the editor and the read
+ *  views both render (nested children render under their parent, so a change to the
+ *  nesting rules has one predicate to touch). */
+export function ungroupedTopLevel<T extends { folderId: string | null; parentId?: string | null }>(
+  items: readonly T[],
+): T[] {
+  return siblingItems(items, null);
 }
 
 /**
@@ -246,6 +260,26 @@ export function groupItemsByFolder(
   for (const [fid, group] of byFolder)
     group.sort((a, b) => compareItemsBy(sortByOf.get(fid), a, b));
   return byFolder;
+}
+
+/**
+ * Group nested children by their parent id, each group in sortOrder (matching
+ * childrenOf). One O(items) pass, built once per snapshot at the view root and
+ * threaded to the rows — so each row doesn't re-scan the whole item array for its
+ * children on every render (O(rows × items) across a list).
+ */
+export function groupItemsByParent<T extends { parentId?: string | null; sortOrder: number }>(
+  items: readonly T[],
+): Map<string, T[]> {
+  const byParent = new Map<string, T[]>();
+  for (const item of items) {
+    if (item.parentId == null) continue;
+    const group = byParent.get(item.parentId);
+    if (group) group.push(item);
+    else byParent.set(item.parentId, [item]);
+  }
+  for (const group of byParent.values()) group.sort(bySortOrder);
+  return byParent;
 }
 
 /** Sort comparator for anything with a sortOrder (items + folders). */

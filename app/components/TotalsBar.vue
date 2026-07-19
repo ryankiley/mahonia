@@ -35,6 +35,9 @@ const chips = computed(() =>
           <AnimatedCount class="t-num totals__big" :value="formatWeight(totals.totalMg, list.displayUnit, { withUnit: false })" />
           <span class="totals__uc" aria-hidden="true">
             <span class="totals__unit">{{ list.displayUnit }}</span>
+            <!-- stroke 2.25, not the app-wide 2: at size 16 it renders an exact
+                 1.5px stroke (crisp 3 device px at 2x), so the chevron holds its
+                 weight beside the display-size figure -->
             <ChevronDown class="totals__chev" :size="16" :stroke-width="2.25" />
           </span>
           <!-- transparent native select over the number: tap the total to change units -->
@@ -105,6 +108,9 @@ const chips = computed(() =>
   font-size: var(--text-title);
   font-weight: 400;
   color: var(--ink-2);
+  /* half-step between the type system's two trackings: the full -0.02em tight
+     visibly pinches a bare two-letter unit ("oz"), while normal tracking reads
+     loose beside the tightly-tracked display figure */
   letter-spacing: -0.01em;
 }
 .totals__chev {

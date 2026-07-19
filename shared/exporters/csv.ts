@@ -3,7 +3,8 @@
 
 import type { Item, ListData, ListSnapshot, Unit } from "../types";
 import { nextFolderColor } from "../categories";
-import { bySortOrder, childrenOf, effectiveClassification, fromMg, itemDisplayName, sortedFolderItems, splitWornQty, toMg, UNIT_ALIASES } from "../weights";
+import { effectiveClassification, fromMg, itemDisplayName, splitWornQty, toMg, UNIT_ALIASES } from "../weights";
+import { exportSections } from "./rows";
 import { uid } from "../id";
 
 // Delegate to the shared unit vocabulary (weights.UNIT_ALIASES) so a CSV / LighterPack
@@ -43,18 +44,17 @@ export function listToCsv(list: ListSnapshot): string {
   const out = [
     "Category,Item Name,Brand,Qty,Weight,Unit,Worn,Consumable,Price,URL,Description,Worn Qty",
   ];
-  // rows follow what the app shows: folders in their order, each folder's items in its
-  // chosen sort, then any ungrouped items — so a re-import of a name/weight-sorted list
-  // bakes that visible order in (CSV has no sort field; JSON round-trips sortBy itself).
-  // Each top-level row is immediately followed by its nested children so they stay
-  // adjacent; each item exports its OWN weight (a container parent's is usually blank),
-  // so the flat CSV re-imports with correct totals and no parent/child double-count.
-  // (CSV has no nesting column — children re-import as flat top-level rows.)
-  const withKids = (top: Item[]): Item[] => top.flatMap((it) => [it, ...childrenOf(list.items, it.id)]);
-  const ordered: Item[] = [
-    ...[...list.folders].sort(bySortOrder).flatMap((f) => withKids(sortedFolderItems(list.items, f))),
-    ...withKids(list.items.filter((i) => !i.folderId && i.parentId == null).sort(bySortOrder)),
-  ];
+  // rows follow what the app shows (exportSections): folders in their order, each
+  // folder's items in its chosen sort, then any ungrouped items — so a re-import of a
+  // name/weight-sorted list bakes that visible order in (CSV has no sort field; JSON
+  // round-trips sortBy itself). Each top-level row is immediately followed by its
+  // nested children so they stay adjacent; each item exports its OWN weight (a
+  // container parent's is usually blank), so the flat CSV re-imports with correct
+  // totals and no parent/child double-count. (CSV has no nesting column — children
+  // re-import as flat top-level rows.)
+  const ordered: Item[] = exportSections(list).flatMap((s) =>
+    s.rows.flatMap((r) => [r.item, ...r.children]),
+  );
   for (const it of ordered) {
     const cls = effectiveClassification(it, list.folders);
     const w = it.unitWeightMg > 0 ? +fromMg(it.unitWeightMg, u).toFixed(u === "g" ? 0 : 3) : "";

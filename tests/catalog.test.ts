@@ -163,6 +163,9 @@ describe("trigram fuzzy scoring (local PGlite search fallback)", () => {
   it("produces padded trigrams per word", () => {
     expect(trigrams("cat")).toEqual(new Set(["  c", " ca", "cat", "at "]));
   });
+  it("folds diacritics so a plain query matches an accented name", () => {
+    expect(trigramScore("Fjallraven", "Fjällräven Keb Hike 30")).toBe(1);
+  });
 });
 
 describe("isTrustedSource — citation domain allowlist", () => {
@@ -170,6 +173,8 @@ describe("isTrustedSource — citation domain allowlist", () => {
     expect(isTrustedSource("https://zpacks.com/products/duplex")).toBe(true);
     expect(isTrustedSource("https://www.thermarest.com/x")).toBe(true);
     expect(isTrustedSource("https://shop.bigagnes.com/x")).toBe(true);
+    // listed once, under retailers — guards TRUSTED_DOMAINS against re-adding a duplicate
+    expect(isTrustedSource("https://garagegrowngear.com/x")).toBe(true);
   });
   it("rejects untrusted, malformed, and empty sources", () => {
     expect(isTrustedSource("https://random-blog.example.com/x")).toBe(false);

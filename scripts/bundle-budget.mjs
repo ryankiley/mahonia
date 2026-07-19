@@ -15,8 +15,10 @@ import { brotliCompressSync, gzipSync, constants } from "node:zlib";
 // all client JS + CSS, brotli. Bumped 125→127 for nested items (an item can hold nested
 // items — the same editable row one level down: catalog autocomplete, weight/qty/class,
 // nest/un-nest, drag) landing on a main baseline already grown to ~124.5 by the changelog
-// page + catalog search-terms. ~1.1 KB headroom for the next feature.
-const TOTAL_BUDGET_KB = 127;
+// page + catalog search-terms. Bumped 127→128 for two interaction features: drag an item
+// in/out of a nested group, and the mobile ⋯ overflow menu (a CircleEllipsis glyph + the
+// per-row menu that tucks the note/nesting actions away on the crowded two-line row).
+const TOTAL_BUDGET_KB = 128;
 const MAX_CHUNK_BUDGET_KB = 72; // largest single chunk, brotli (the framework runtime)
 
 // First build output that exists: node-server, Vercel preset, or static generate.

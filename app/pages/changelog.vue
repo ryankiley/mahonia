@@ -93,7 +93,7 @@ const lastUpdated = (() => {
   </div>
 </template>
 
-<style scoped>
+<style scoped lang="scss">
 .log {
   padding-block: var(--space-5) var(--space-9);
   display: flex;
@@ -164,7 +164,7 @@ const lastUpdated = (() => {
   background: var(--ink-3);
 }
 
-@media (max-width: 720px) {
+@media (max-width: $bp-stack) {
   .log__rel {
     grid-template-columns: 1fr;
     gap: var(--space-3);

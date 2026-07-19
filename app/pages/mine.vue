@@ -107,7 +107,7 @@ async function deleteList(e: MyListEntry) {
   </div>
 </template>
 
-<style scoped>
+<style scoped lang="scss">
 .page {
   padding-block: var(--space-5) var(--space-9);
 }
@@ -155,7 +155,9 @@ async function deleteList(e: MyListEntry) {
 }
 .mine__title:hover {
   text-decoration: underline;
-  text-decoration-color: var(--underline);
+  /* --ink-2, not --underline: the system's hover underlines deepen to --ink-2
+     (--underline is the rest-state tone) */
+  text-decoration-color: var(--ink-2);
   text-underline-offset: 2px;
 }
 .mine__meta {
@@ -183,7 +185,7 @@ async function deleteList(e: MyListEntry) {
   gap: var(--space-4);
 }
 
-@media (max-width: 720px) {
+@media (max-width: $bp-stack) {
   /* stack the actions under the title so nothing is cramped on a phone */
   .mine__row {
     flex-direction: column;
