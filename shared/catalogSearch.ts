@@ -61,13 +61,6 @@ export const STRONG_THRESHOLD = 0.6;
  *  offline ranker so the two can never return different counts. */
 export const SEARCH_LIMIT = 12;
 
-/** Stage-1 recall pool size for the Neon path: fetch this many most-similar rows,
- *  then re-rank them in JS with rankCandidates() (the SAME ranking the offline path
- *  runs over the whole cached table). Comfortably above SEARCH_LIMIT so the final
- *  top-N is never starved — on the small, bounded catalog a real query clears the
- *  0.3 gate on far fewer than this. */
-export const RANK_POOL = 100;
-
 /** A catalog row as needed for local ranking (a subset of the DB row). */
 export interface LocalCatalogRow {
   id: number;

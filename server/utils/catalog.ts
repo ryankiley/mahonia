@@ -23,7 +23,6 @@ import { itemDisplayName } from "../../shared/weights";
 import { UNIT_WEIGHT_MAX_MG } from "../../shared/ops";
 import { memoizedEnsure } from "./memoize";
 import {
-  RANK_POOL,
   SEARCH_LIMIT,
   SIM_THRESHOLD,
   rankCandidates,
@@ -144,17 +143,20 @@ export async function searchCatalog(
     // whose brand+name never contains it. Mirrors shared/catalogSearch.ts.
     // Both query and target are unaccent()'d so a plain-typed brand finds its
     // accented spelling and vice versa (mirrors trigrams()' diacritic fold).
-    // We fetch a POOL (order by similarity so only the weakest tail can be cut;
-    // id asc makes the cut deterministic on ties) and carry usage_count through, so
-    // STAGE 2's rankCandidates() has everything it needs to reorder + cap in JS.
+    // We fetch EVERY gated row (no ORDER BY / LIMIT here) and carry usage_count
+    // through, so STAGE 2's rankCandidates() reorders + caps in JS. Truncating the
+    // recall to a top-N-by-similarity pool is NOT safe: common-token queries ("pro",
+    // "tent") tie hundreds of rows at similarity 1.0, so a similarity+id cut is
+    // arbitrary among the ties and can drop a verified/high-usage row the tier
+    // re-rank would have surfaced — diverging from the offline path. The gate bounds
+    // the row count on the small, bounded catalog (same bet the offline path makes
+    // by loading the whole active table), so fetching all gated rows is cheap and
+    // makes Neon ≡ PGlite ≡ offline by construction.
     const res = await d.execute(sql`
       select id, brand, name, variant, weight_mg, weight_source, verified, usage_count, search_terms
       from catalog_items
       where status = 'active'
         and word_similarity(unaccent(${q}), unaccent(coalesce(brand,'') || ' ' || name || ' ' || coalesce(search_terms,''))) >= ${SIM_THRESHOLD}
-      order by word_similarity(unaccent(${q}), unaccent(coalesce(brand,'') || ' ' || name || ' ' || coalesce(search_terms,''))) desc,
-               id asc
-      limit ${Math.max(limit, RANK_POOL)}
     `);
     // STAGE 2 — the same JS re-ranker the offline path uses.
     return rankCandidates(normalizeRows(res), q, limit);

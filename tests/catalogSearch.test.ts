@@ -195,6 +195,19 @@ describe("rankCandidates ordering", () => {
     const rows = Array.from({ length: 20 }, (_, i) => row({ id: i + 1, name: "Duplex" }));
     expect(rankCandidates(rows, "duplex", 12)).toHaveLength(12);
   });
+
+  it("surfaces a high-usage row buried at a large id among many equal-similarity ties", () => {
+    // A common-token query ties hundreds of rows at similarity 1.0 (all "Duplex").
+    // The winner (verified + high usage) sits at the LARGEST id, so any pre-rank
+    // truncation by (similarity, id) would drop it. Passing the full set to the
+    // re-ranker must still float it to the top — this is why the Neon path fetches
+    // every gated row rather than a top-N-by-similarity pool.
+    const rows = Array.from({ length: 300 }, (_, i) =>
+      row({ id: i + 1, name: "Duplex", verified: false, usageCount: 0 }),
+    );
+    rows.push(row({ id: 999, name: "Duplex", verified: true, usageCount: 500 }));
+    expect(rankCandidates(rows, "duplex", 12)[0]!.id).toBe(999);
+  });
 });
 
 describe("mergeCatalogRows", () => {
