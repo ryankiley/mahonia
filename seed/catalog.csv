@@ -257,6 +257,7 @@ Exped,Ultra 3R Sleeping Mat,Rectangular LW,sleep,558000,manufacturer,https://www
 Exped,Ultra 3R Sleeping Mat,Rectangular M,sleep,465000,manufacturer,https://www.garagegrowngear.com/products/ultra-sleeping-mat-by-exped
 Exped,Ultra 3R Sleeping Mat,Rectangular MW,sleep,519000,manufacturer,https://www.garagegrowngear.com/products/ultra-sleeping-mat-by-exped
 Exped,Ultra 6.5R,M,sleep,439418,manufacturer,https://www.expedusa.com/products/ultra-6-5r
+Exped,Ultra Pillow,M,sleep,51029,manufacturer,https://www.expedusa.com/products/ultra-pillow-2026
 Feathered Friends,Egret UL 20,"Regular, 5 ft 3 in, 20F",sleep,723000,manufacturer,https://featheredfriends.com/products/egret-ul-ultralight-20-30-degree-womens-down-sleeping-bag
 Feathered Friends,Egret UL 30,"Regular, 5 ft 3 in, 30F",sleep,634000,manufacturer,https://featheredfriends.com/products/egret-ul-ultralight-20-30-degree-womens-down-sleeping-bag
 Feathered Friends,Flicker UL Quilt,"20F, Regular, 950+FP",sleep,721212,manufacturer,https://featheredfriends.com/products/flicker-ul-ultralight-down-quilt-sleeping-bag
@@ -1471,6 +1472,7 @@ Apple,iPhone 15,,electronics,171000,manufacturer,https://www.apple.com/iphone-15
 Apple,iPhone 15 Pro,,electronics,187000,manufacturer,https://www.apple.com/iphone-15-pro/specs/
 Apple,iPhone 16,,electronics,170000,manufacturer,https://www.apple.com/iphone-16/specs/
 Apple,iPhone 16 Pro,,electronics,199000,manufacturer,https://www.apple.com/iphone-16-pro/specs/
+Apple,iPhone 16 Pro Max,,electronics,227000,manufacturer,https://support.apple.com/en-us/121032
 Apple,iPhone 16e,,electronics,167000,manufacturer,https://www.apple.com/iphone-16e/specs/
 Apple,iPhone 17,,electronics,177000,manufacturer,https://www.apple.com/iphone-17/specs/
 Apple,iPhone 17 Pro,,electronics,206000,manufacturer,https://www.apple.com/iphone-17-pro/specs/
@@ -1494,6 +1496,7 @@ Flextail,Tiny Helio 600Z Lightweight Headlamp,,electronics,60000,manufacturer,ht
 Flextail,Zero Power 5000,5000mAh,electronics,85000,manufacturer,https://www.flextail.com/products/zero-power-5-000c-the-worlds-lightest-thinnest-5-000mah-power-bank-85g
 FLEXTAIL,"Zero Power Bank 10,000",,electronics,145000,manufacturer,https://www.garagegrowngear.com/products/zero-power-bank-10-000-by-flextail
 FLEXTAIL,Zero Pump 2,,electronics,48000,manufacturer,https://www.garagegrowngear.com/products/zero-pump-by-flextail
+Fujifilm,X100VI,,electronics,521000,manufacturer,https://www.fujifilm-x.com/en-us/products/cameras/x100vi/specifications/
 Garmin,inReach Messenger,,electronics,113398,manufacturer,https://www.garmin.com/en-US/p/793265/
 Garmin,inReach Messenger Plus,,electronics,116233,measured,https://backpackinglight.com/garmin-inreach-messenger-plus-review/
 Garmin,inReach Mini,original,electronics,99223,manufacturer,https://andrewskurka.com/preview-garmin-inreach-mini/
@@ -1954,7 +1957,39 @@ Lawson Equipment,Bar Tensioners,3mm,other,5000,manufacturer,https://www.garagegr
 Lawson Equipment,Reflective Glowire (50' Hank),2.5mm,other,82000,manufacturer,https://www.garagegrowngear.com/products/reflective-glowire-by-lawson-equipment
 Lawson Equipment,Reflective Glowire (50' Hank),2mm,other,55000,manufacturer,https://www.garagegrowngear.com/products/reflective-glowire-by-lawson-equipment
 Lawson Equipment,Reflective Glowire (50' Hank),3mm,other,113000,manufacturer,https://www.garagegrowngear.com/products/reflective-glowire-by-lawson-equipment
+Leki,Black Series FX Carbon Trekking Poles,per pair,other,456000,manufacturer,https://lekiusa.com/products/black-series-fx-carbon_leki-usa_trekking-poles_all-season
+Leki,Cressida Cork Lite Trekking Poles,"Women's, per pair",other,480000,manufacturer,https://lekiusa.com/products/cressida-cork-lite_leki-usa_trekking-poles_all-season
+Leki,Cressida FX Carbon Trekking Poles,"Women's, per pair",other,490000,manufacturer,https://lekiusa.com/products/cressida-fx-carbon_leki-usa_trekking-poles_all-season
+Leki,Journey Lite Trekking Poles,per pair,other,510000,manufacturer,https://lekiusa.com/products/journey-lite_leki-usa_trekking-poles_all-season
+Leki,Khumbu Lite AS Trekking Poles,per pair,other,500000,manufacturer,https://lekiusa.com/products/khumbu-lite-as
+Leki,Khumbu Lite Trekking Poles,"100-135 cm, per pair",other,498000,manufacturer,https://lekiusa.com/products/khumbu-lite
+Leki,Khumbu Lite Trekking Poles,"90-125 cm, per pair",other,480000,manufacturer,https://lekiusa.com/products/khumbu-lite
+Leki,Khumbu Trekking Poles,per pair,other,554000,manufacturer,https://lekiusa.com/products/khumbu
+Leki,Legacy Trekking Poles,per pair,other,560000,manufacturer,https://lekiusa.com/products/legacy
+Leki,Makalu Cork FX TA Trekking Poles,"100-120 cm, per pair",other,514000,manufacturer,https://lekiusa.com/products/makalu-cork-fx-ta
+Leki,Makalu Cork FX TA Trekking Poles,"110-130 cm, per pair",other,554000,manufacturer,https://lekiusa.com/products/makalu-cork-fx-ta
+Leki,Makalu Cork Lite Trekking Poles,"100-135 cm, per pair",other,500000,manufacturer,https://lekiusa.com/products/makalu-cork-lite
+Leki,Makalu Cork Lite Trekking Poles,"90-125 cm, per pair",other,476000,manufacturer,https://lekiusa.com/products/makalu-cork-lite
+Leki,Makalu FX Carbon AS Trekking Poles,"100-120 cm, per pair",other,494000,manufacturer,https://lekiusa.com/products/makalu-fx-carbon-as
+Leki,Makalu FX Carbon AS Trekking Poles,"110-130 cm, per pair",other,516000,manufacturer,https://lekiusa.com/products/makalu-fx-carbon-as
+Leki,Makalu FX Carbon Trekking Poles,"100-120 cm, per pair",other,482000,manufacturer,https://lekiusa.com/products/makalu-fx-carbon
+Leki,Makalu FX Carbon Trekking Poles,"110-130 cm, per pair",other,504000,manufacturer,https://lekiusa.com/products/makalu-fx-carbon
+Leki,Makalu Lite AS Trekking Poles,"100-120 cm, per pair",other,484000,manufacturer,https://lekiusa.com/products/makalu-lite-as
+Leki,Makalu Lite AS Trekking Poles,"100-135 cm, per pair",other,506000,manufacturer,https://lekiusa.com/products/makalu-lite-as
 Leki,Makalu Lite Trekking Poles,per pair,other,490447,measured,https://www.outdoorgearlab.com/reviews/camping-and-hiking/trekking-poles/leki-makalu-lite-cor-tec
+Leki,Makalu Pro FX Carbon Trekking Poles,per pair,other,510000,manufacturer,https://lekiusa.com/products/makalu-pro-fx-carbon
+Leki,Makalu Trekking Poles,per pair,other,538000,manufacturer,https://lekiusa.com/products/makalu
+Leki,Skysolo FX Carbon Trekking Poles,"100-120 cm, per pair",other,434000,manufacturer,https://lekiusa.com/products/skysolo-fx-carbon
+Leki,Skysolo FX Carbon Trekking Poles,"120-140 cm, per pair",other,476000,manufacturer,https://lekiusa.com/products/skysolo-fx-carbon
+Leki,Skysolo FX.One Carbon Trekking Poles,"120 cm, per pair",other,362000,manufacturer,https://lekiusa.com/products/skysolo-fx-one-carbon-copy
+Leki,Skysolo Trekking Poles,per pair,other,508000,manufacturer,https://lekiusa.com/products/skysolo
+Leki,Skytera Carbon Lite Trekking Poles,per pair,other,392000,manufacturer,https://lekiusa.com/products/skytera-carbon-lite
+Leki,Skytera FX Carbon SL Compact Trekking Poles,per pair,other,346000,manufacturer,https://lekiusa.com/products/skytera-fx-carbon-sl-compact
+Leki,Skytera FX Carbon SL Trekking Poles,per pair,other,356000,manufacturer,https://lekiusa.com/products/skytera-fx-carbon-sl
+Leki,Skytera FX.One SL Trekking Poles,"120 cm, per pair",other,316000,manufacturer,https://lekiusa.com/products/skytera-fx-one-sl
+Leki,Skytera Lite Trekking Poles,"100-135 cm, per pair",other,434000,manufacturer,https://lekiusa.com/products/skytera-lite
+Leki,Skytera Lite Trekking Poles,"90-125 cm, per pair",other,414000,manufacturer,https://lekiusa.com/products/skytera-lite
+Leki,Voyager Trekking Poles,per pair,other,540000,manufacturer,https://lekiusa.com/products/voyager_leki-usa_trekking-poles_all-season
 LightHeart Gear,Stuff Sacks,10L,other,14200,manufacturer,https://www.garagegrowngear.com/products/stuff-sacks-by-lightheart-gear
 LightHeart Gear,Stuff Sacks,1L,other,7000,manufacturer,https://www.garagegrowngear.com/products/stuff-sacks-by-lightheart-gear
 LightHeart Gear,Stuff Sacks,2.5L,other,8500,manufacturer,https://www.garagegrowngear.com/products/stuff-sacks-by-lightheart-gear
