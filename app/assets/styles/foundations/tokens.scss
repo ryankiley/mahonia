@@ -94,10 +94,11 @@ $bp-full: 1024px !default;
   --leading-normal: 1.5; /* body prose, item names + notes — multi-line reading */
 
   /* ---- caption tuck — the negative top-margin that pulls an item's note up under
-     its name so the two read as one unit. ONE token so the editor row (.reveal--note),
-     the packing row (.item__csub) and the read/share row (.item__rosub) can't drift;
-     the first two used to differ by 2px
-     (edit −6, read −4), which is the caption gap that looked off between the modes. ---- */
+     its name so the two read as one unit. ONE token so the editor row (.reveal--note)
+     and the packing row (.item__csub) can't drift. It cancels the dead space a caption
+     inherits from the name ABOVE it (the edit row's 36px name field, the packing row's
+     grid gap) — the read/share row has none to cancel, so it sets a 0 row-gap instead
+     (.item--ro) and lands at the same distance. ---- */
   --caption-tuck: calc(-1 * var(--space-1) - var(--space-px));
 
   /* ---- spacing (4/8 grid) ---- */
