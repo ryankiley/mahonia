@@ -1,5 +1,11 @@
 [
   {
+    "date": "2026-07-20",
+    "fixed": [
+      "On a shared list, an item's gear type now sits snug under its name, matching the editor."
+    ]
+  },
+  {
     "date": "2026-07-19",
     "added": [
       "Every item now carries a gear type like \"tent\" or \"trail runners\" — filled in automatically when you pick it, shown as a quiet line under the product, and renamable per list.",

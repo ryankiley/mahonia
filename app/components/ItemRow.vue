@@ -1200,8 +1200,8 @@ function dismissFix() {
 }
 /* the note tucks up under the name (into the 36px field's dead space); the offset
    lives on the wrapper, not the input, so the grid track sizing stays clean.
-   --caption-tuck is shared with the read/share row (.item__rosub) so the caption
-   sits the same distance under the name in both modes. */
+   Cancelling that dead space puts the caption's line box flush under the name's — the
+   distance the read/share row matches with its 0 row-gap (ReadonlyItemRow .item--ro). */
 .reveal--note {
   margin-top: var(--caption-tuck);
 }

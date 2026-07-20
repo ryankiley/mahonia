@@ -99,11 +99,17 @@ const collapsed = ref(true);
 <style scoped lang="scss">
 .item--ro {
   /* the grid scaffold (display / columns / align / gap) is the shared .item-row base
-     (atoms/item.scss); the read row only feeds it the read column token. baseline align +
-     --item-gap are the base defaults, so nothing else to set here.
+     (atoms/item.scss); the read row only feeds it the read column token. baseline align
+     is the base default, so nothing else to set here.
      vertical padding comes from the row wrapper (.folder__items > * / .ro-nest > *) so the
      rule lines between items sit at a consistent rhythm. */
   --row-cols: var(--item-cols-ro);
+  /* ROW gap 0, column gap the shared --item-gap: the sub-line below the name is a grid
+     row here, so the row gap IS the caption gap — and any of it puts the sub-line
+     further under the name than the editor does (there the caption hangs off the name
+     field, whose own dead space is what the tuck cancels). At 0 the two line boxes meet,
+     so the caption sits exactly one line under the name in read + edit alike. */
+  --row-gap: 0 var(--item-gap);
 }
 .item__roname {
   min-width: 0;
@@ -151,9 +157,9 @@ const collapsed = ref(true);
    LABEL (--ink-2); the note keeps the quietest italic aside voice (--ink-3). */
 .item__rosub {
   grid-column: 1 / -1;
-  /* same tuck as the editor's note (.reveal--note) via the shared token, so the
-     caption sits the SAME distance under the name in read + edit — no drift */
-  margin-top: var(--caption-tuck);
+  /* no tuck here — the row's own gap is what sets this caption's distance from the name
+     (see --row-gap above), unlike the editor's note, which tucks up into its name
+     field's dead space */
   color: var(--ink-3);
 }
 .item__rogtype {
@@ -202,12 +208,10 @@ const collapsed = ref(true);
     justify-self: start;
     text-align: left;
   }
-  /* third line on the two-line mobile shape; the row-gap provides the spacing, so drop
-     the desktop's upward tuck */
+  /* third line on the two-line mobile shape; the row-gap provides its spacing */
   .item__rosub {
     grid-column: 1 / -1;
     grid-row: 3;
-    margin-top: 0;
   }
 }
 </style>
