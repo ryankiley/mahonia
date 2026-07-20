@@ -464,6 +464,16 @@ function toggleCollapsed() {
     height: var(--tap);
     margin-block: var(--tap-pull);
   }
+  /* the "Add an item" affordance takes the item name field's compact mobile metrics
+     (the same min-height / padding / leading the rows' .item .field drops to), so its
+     text sits at the SAME rhythm as the names above it — not in a taller 36px box that
+     would float it lower than a compact item name. `.folder__add` prefix out-specifies
+     the base .folder__addbtn rule, which sits later in source order. */
+  .folder__add .folder__addbtn {
+    min-height: 0;
+    padding-block: 2px;
+    line-height: 1.3;
+  }
 }
 /* the item rule-line rhythm (.folder__items > *) and the mobile name/row
    tightening are the shared folder atom — atoms/folder.scss */
@@ -485,11 +495,14 @@ function toggleCollapsed() {
    splices the item out in place before the re-render, so TransitionGroup never holds
    the leaving vnode — a CSS leave can't engage. Deletes stay instant by design, paired
    with the undo toast as the real "undo a delete" affordance.) */
-/* the add affordance is the next row in the list rhythm: same top padding +
-   border as the rule line between items, so it doesn't read as a separate block */
+/* the add affordance is the next row in the list rhythm: the SAME top padding
+   (--space-2, matching .folder__items > *) + the rule line between items, so the
+   "Add an item" text lands at the same distance below its divider as an item name
+   below theirs — it reads as the next row, not a separate block. (Was --space-3,
+   4px too much, which floated it a touch clear of the list.) */
 .folder__add {
   border-top: 1px solid var(--line);
-  padding-top: var(--space-3);
+  padding-top: var(--space-2);
   margin-top: 0;
 }
 /* quiet add affordance — a dim "Add an item" flush with the item names. Shares the
