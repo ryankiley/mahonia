@@ -25,6 +25,7 @@ const emit = defineEmits<{
       name: string;
       brand?: string;
       variant?: string;
+      commonName?: string;
       weight?: string;
       weightMg?: number;
       catalogItemId?: number;

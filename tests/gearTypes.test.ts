@@ -2,16 +2,18 @@ import { describe, expect, it } from "vitest";
 import { GEAR_TYPE_ALIASES, normalizeGearType } from "../shared/gearTypes";
 
 describe("normalizeGearType", () => {
-  it("collapses drift labels to their canonical common name", () => {
-    expect(normalizeGearType("tent stake")).toBe("tent stakes");
-    expect(normalizeGearType("running shoes")).toBe("trail runners");
-    expect(normalizeGearType("windbreaker")).toBe("wind jacket");
-    expect(normalizeGearType("hipbelt pocket")).toBe("hip belt pocket");
+  it("collapses drift labels to their canonical common name (sentence-cased)", () => {
+    expect(normalizeGearType("tent stake")).toBe("Tent stakes");
+    expect(normalizeGearType("running shoes")).toBe("Trail runners");
+    expect(normalizeGearType("windbreaker")).toBe("Wind jacket");
+    expect(normalizeGearType("hipbelt pocket")).toBe("Hip belt pocket");
   });
 
-  it("lowercases + trims, and passes an already-canonical label through", () => {
-    expect(normalizeGearType("  Tent  ")).toBe("tent");
-    expect(normalizeGearType("trekking poles")).toBe("trekking poles");
+  it("sentence-cases the first word (acronyms upper-cased), trims, passes canonical through", () => {
+    expect(normalizeGearType("  tent  ")).toBe("Tent");
+    expect(normalizeGearType("trekking poles")).toBe("Trekking poles");
+    expect(normalizeGearType("gps watch")).toBe("GPS watch");
+    expect(normalizeGearType("plb")).toBe("PLB");
     expect(normalizeGearType("")).toBe("");
     expect(normalizeGearType(null)).toBe("");
   });
