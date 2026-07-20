@@ -1,5 +1,6 @@
 // Debounced, abortable catalog autocomplete client. Consumes /api/catalog/search
-// (the catalog session's endpoint): fuzzy, ranked verified→usage→similarity.
+// (the catalog session's endpoint): fuzzy, ranked by the shared relevance-tier
+// cascade (tier→verified→usage→similarity→id; see shared/catalogSearch.ts).
 
 import type { useCatalogCache } from "./useCatalogCache";
 

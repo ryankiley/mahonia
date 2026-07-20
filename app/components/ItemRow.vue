@@ -446,10 +446,13 @@ function dismissFix() {
   >
     <!-- editing↔packing swap: the entering row content fades in (heights match across
          modes now, so nothing reflows) while the leaving content is dropped instantly —
-         a crossfade would ghost, since the name sits at a different x in each mode. -->
+         a crossfade would ghost, since the name sits at a different x in each mode.
+         Its single child is the v-if/v-else pair: packing / checklist (a big tap target —
+         check off the item; name + line weight only) vs the editable row below. Keep any
+         explanatory comments OUT of the <Transition> body — a comment node between its
+         open tag and the v-if is counted as a second child by Vue's template compiler. -->
     <Transition name="rowmode">
-    <!-- packing / checklist: a big tap target — check off the item; name + line weight only -->
-    <label v-if="packed" class="item item--check" :class="{ 'item--done': item.packed }">
+      <label v-if="packed" class="item item--check" :class="{ 'item--done': item.packed }">
       <input
         type="checkbox"
         class="item__box"
@@ -470,8 +473,8 @@ function dismissFix() {
       <span class="t-num item__cweight"><template v-if="rowWeightMg > 0">{{ formatWeight(rowWeightMg, list.displayUnit, { withUnit: false }) }}<span class="t-muted item__wunit">{{ list.displayUnit }}</span></template><template v-else>—</template></span>
     </label>
 
-    <!-- editable row (default) -->
     <div v-else class="item">
+      <!-- editable row (default) -->
       <div class="item__name" :class="{ 'item__name--group': isParent }">
         <ItemInput
           :unit="list.displayUnit"
