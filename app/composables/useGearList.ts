@@ -613,15 +613,69 @@ function create() {
   }
 
   // ---- nesting (a nested item is just a normal item carrying a parentId) ----
+  // A parent row's weight column shows the GROUP total (own + children) and is
+  // read-only, so a row that already HAS a weight would take that weight into
+  // hiding the moment something nested under it: still counted in every total,
+  // printed on no row, editable in no field. A group is a container, not a product.
+  //
+  // So nesting into a row that carries a weight WRAPS it: a new group takes the
+  // row's slot, the product slides underneath as its first child (name, weight,
+  // catalog link and all), and the caller nests into the group instead. A row with
+  // no weight is already a container — nest straight into it, exactly as before,
+  // which is what keeps a hand-built "Cook kit" group working the way it does now.
+  //
+  // The group takes the product's COMMON NAME ("Tent") — the field that exists to
+  // say what a thing generically IS, which is precisely what the group now is — and
+  // the child gives it up so it isn't printed on both lines. With no common name to
+  // take, the group starts empty with its name field focused; it can't be discarded
+  // out from under the user, as discardEmpty never removes a row that has children.
+  //
+  // Returns the id to actually nest into: the row itself, or the new group.
+  function containerFor(targetId: string): string {
+    const items = snapshot.value?.items;
+    const target = items?.find((i) => i.id === targetId);
+    if (!items || !target) return targetId;
+    // nothing to strand: no weight of its own, or already a group (whatever weight
+    // it had became a child's the first time round). A nested row can't be a parent
+    // at all (one level deep) — leave it to the reducer's own coercion.
+    if (target.unitWeightMg <= 0 || target.parentId != null) return targetId;
+    if (items.some((i) => i.parentId === targetId)) return targetId;
+    const id = uid();
+    const group: Item = {
+      id,
+      folderId: target.folderId,
+      parentId: null,
+      name: target.commonName ?? "",
+      unitWeightMg: 0,
+      qty: 1,
+      classification: null,
+      sortOrder: target.sortOrder, // take the product's slot in the folder
+    };
+    dispatch({ t: "addItem", item: group });
+    // the product moves under it whole — and this vacates the sortOrder the group
+    // just took, so the two never share a slot among their folder's top-level rows
+    dispatch({ t: "moveItem", id: targetId, folderId: target.folderId, parentId: id, sortOrder: 0 });
+    // commonNameOverridden, not just an empty commonName: the child keeps its catalog
+    // link, and hydrateCatalogNames refills an un-overridden common name from the
+    // catalog on the very next snapshot — the label would come straight back and
+    // print on both lines. Clearing it here IS the "user cleared it" the flag means.
+    if (target.commonName)
+      dispatch({ t: "updateItem", id: targetId, patch: { commonName: "", commonNameOverridden: true } });
+    else pendingBlankId.value = id; // nothing to name it with — focus the empty field
+    return id;
+  }
   // Add a blank child under `parentId` and focus it — the same blank-row machinery as
   // addBlankItem, positioned as the parent's last child (it inherits the parent's folder).
   function addChild(parentId: string): string {
-    const parent = snapshot.value?.items.find((i) => i.id === parentId);
+    const containerId = containerFor(parentId);
+    const parent = snapshot.value?.items.find((i) => i.id === containerId);
     if (!parent) return "";
     const id = uid();
-    const sortOrder = nextSortOrder(snapshot.value!.items, parent.folderId, parentId);
-    const item: Item = { id, folderId: parent.folderId, parentId, name: "", unitWeightMg: 0, qty: 1, classification: null, sortOrder };
+    const sortOrder = nextSortOrder(snapshot.value!.items, parent.folderId, containerId);
+    const item: Item = { id, folderId: parent.folderId, parentId: containerId, name: "", unitWeightMg: 0, qty: 1, classification: null, sortOrder };
     dispatch({ t: "addItem", item });
+    // the blank child is what the user asked for — it takes the focus even when the
+    // wrap above claimed it for an unnamed group
     pendingBlankId.value = id;
     return id;
   }
@@ -654,6 +708,21 @@ function create() {
     if (!snapshot.value) return;
     const it = snapshot.value.items.find((i) => i.id === id);
     if (!it) return;
+    // nesting into a row that carries a weight wraps it in a group first (see
+    // containerFor), so the row we nest INTO may be a brand-new id — and beforeId,
+    // which addressed a child of the row we aimed at, no longer means anything
+    // there. Appending is right: the wrapped product is the group's first child.
+    if (parentId != null && parentId !== id) {
+      const containerId = containerFor(parentId);
+      if (containerId !== parentId) {
+        parentId = containerId;
+        beforeId = null;
+      }
+    }
+    // a row pulled OUT of a group can leave it childless; an untouched, unnamed
+    // container is then litter, and discardEmpty is exactly the "nothing was typed,
+    // nothing is lost" test for it (it keeps any group the user named or filled)
+    const formerParentId = it.parentId ?? null;
     const target = siblingItems(snapshot.value.items, folderId, parentId)
       .filter((i) => i.id !== id)
       .sort(bySortOrder);
@@ -668,6 +737,7 @@ function create() {
         dispatch({ t: "moveItem", id: item.id, folderId, sortOrder: i });
       }
     });
+    if (formerParentId && formerParentId !== parentId) discardEmpty(formerParentId);
   }
 
   async function rotate(): Promise<string | null> {

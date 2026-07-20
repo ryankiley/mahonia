@@ -14,13 +14,18 @@ import { itemDisplayName } from "~~/shared/weights";
 const props = defineProps<{ item: Item; search?: boolean }>();
 const main = computed(() => itemDisplayName(props.item.brand, props.item.name));
 const variant = computed(() => (props.item.nameOverridden ? "" : props.item.variant || ""));
+// Only a GROUP can reach these views unnamed: nesting into a weighed row wraps it in
+// a container (useGearList.containerFor) which starts empty when there was no common
+// name to take, and the name field refuses to commit an empty string, so nothing else
+// can be blank. Label it rather than render a nameless line with a weight beside it.
+const unnamed = computed(() => !main.value && !variant.value);
 const href = computed(() => (props.search ? itemSearchUrl(props.item) : null));
 const searchLabel = computed(() => `Search the web for ${itemSearchName(props.item)}`);
 </script>
 
 <template>
-  <span class="iname"><a
-      v-if="href"
+  <span class="iname"><span v-if="unnamed" class="iname__unnamed">Group</span><a
+      v-else-if="href"
       class="iname__link"
       :href="href"
       target="_blank"
@@ -31,6 +36,12 @@ const searchLabel = computed(() => `Search the web for ${itemSearchName(props.it
 
 <style scoped>
 .iname__variant {
+  color: var(--ink-3);
+  font-style: italic;
+}
+/* a group the user never named — a stand-in label, quiet enough to read as
+   "nothing here yet" rather than as a product actually called "Group" */
+.iname__unnamed {
   color: var(--ink-3);
   font-style: italic;
 }
