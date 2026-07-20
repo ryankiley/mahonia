@@ -218,7 +218,7 @@ function toggleCollapsed() {
 
         <div v-if="isAppendTarget" class="folder__droptail" aria-hidden="true" />
 
-        <div v-if="!packed" class="folder__add">
+        <div v-if="!packed" class="folder__add" :class="{ 'folder__add--first': !items.length }">
           <button type="button" class="folder__addbtn" @click="addBlank">Add an item</button>
         </div>
       </div>
@@ -504,6 +504,14 @@ function toggleCollapsed() {
   border-top: 1px solid var(--line);
   padding-top: var(--space-2);
   margin-top: 0;
+}
+/* when the folder is EMPTY the add row is the FIRST row, so it drops the rule line —
+   a first row never carries a divider under the folder name (same as .folder__items >
+   *:first-child), and it keeps the name line-free through the 0→1 add instead of the
+   line jumping down under the new item. The --space-2 padding still lands the text
+   where a first item would sit. */
+.folder__add--first {
+  border-top: 0;
 }
 /* quiet add affordance — a dim "Add an item" flush with the item names. Shares the
    item name field's box metrics (min-height + vertical centring) so its text lands
