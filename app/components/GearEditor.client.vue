@@ -282,7 +282,7 @@ async function cloneList() {
 // one table drives the ⋯ menu — its markup AND its dispatch — so an action can't
 // exist in one without the other (a string-keyed lookup would let a typo no-op)
 const MENU_ACTIONS = [
-  { label: "New list", run: () => newList() },
+  { label: "Create a list", run: () => newList() },
   { label: "Duplicate this list", run: cloneList },
   { label: "Import a list…", run: () => { importOpen.value = true; } },
   { label: "Copy as Markdown", run: copyMarkdown },
