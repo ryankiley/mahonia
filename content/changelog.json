@@ -6,7 +6,8 @@
     ],
     "changed": [
       "Typing a gear name now surfaces closer name matches first, above merely-popular ones.",
-      "Editing and packing modes now ease from one to the other when you switch, instead of snapping."
+      "Editing and packing modes now ease from one to the other when you switch, instead of snapping.",
+      "Empty folders no longer draw a faint line under their name — the divider only shows between rows once you've added items."
     ],
     "fixed": [
       "Switching to packing mode no longer makes the rows taller — editing and packing keep the same row height, so the list doesn't jump on toggle.",
