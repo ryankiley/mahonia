@@ -15,6 +15,8 @@ export interface CatalogResult {
   // Carried only so the offline cache can rank on it too (matches on the derived
   // noun + locale/synonym aliases); never rendered.
   searchTerms?: string | null;
+  // The catalog's default common name → pre-fills the picked item's commonName.
+  commonName?: string | null;
 }
 
 export function useCatalogSearch() {

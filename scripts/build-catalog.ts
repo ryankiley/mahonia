@@ -9,7 +9,7 @@
 // Run: node node_modules/jiti/lib/jiti-cli.mjs scripts/build-catalog.ts
 // (jiti ships with Nuxt and resolves the project's extensionless TS imports.)
 
-import { writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -21,11 +21,14 @@ import {
 } from "./catalogCsv";
 import { readResearchFiles } from "./research";
 import { normalizeVariant } from "../shared/catalogQuality";
+import { deriveNoun } from "../shared/searchTerms";
+import { normalizeGearType } from "../shared/gearTypes";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, "..");
 const researchDir = join(root, "seed", "_research");
 const outPath = join(root, "seed", "catalog.csv");
+const commonNamesPath = join(root, "seed", "common-names.json");
 
 // Canonical category order for a tidy, browsable CSV.
 const CATEGORY_ORDER = [
@@ -44,6 +47,7 @@ const CATEGORY_ORDER = [
 interface BuiltRow {
   brand: string;
   name: string;
+  common_name: string;
   variant: string;
   category_hint: string;
   weight_mg: number;
@@ -54,10 +58,41 @@ interface BuiltRow {
 const identity = (r: { brand: string; name: string; variant: string }) =>
   `${r.brand.toLowerCase()}|${r.name.toLowerCase()}|${r.variant.toLowerCase()}`;
 
+// The generated default common names, keyed by identity. Source of truth for the
+// `common_name` CSV column — authored in seed/common-names.json (survives rebuilds,
+// unlike a hand-edited CSV column). Missing rows fall back to deriveNoun(name).
+function loadCommonNames(): Map<string, string> {
+  const m = new Map<string, string>();
+  try {
+    const arr = JSON.parse(readFileSync(commonNamesPath, "utf8")) as Array<{
+      brand?: string;
+      name?: string;
+      variant?: string;
+      common_name?: string;
+    }>;
+    for (const e of arr) {
+      const cn = (e.common_name ?? "").trim();
+      if (!cn) continue;
+      m.set(
+        identity({
+          brand: (e.brand ?? "").trim(),
+          name: (e.name ?? "").trim(),
+          variant: normalizeVariant(e.variant ?? ""),
+        }),
+        cn,
+      );
+    }
+  } catch {
+    // no map yet → every row falls back to deriveNoun (or blank)
+  }
+  return m;
+}
+
 function main() {
   const built: BuiltRow[] = [];
   const seen = new Map<string, string>(); // identity -> source file (for dup reporting)
   const skipped: string[] = [];
+  const commonNames = loadCommonNames();
 
   for (const { file, rows, parseError } of readResearchFiles(researchDir)) {
     if (parseError) {
@@ -99,6 +134,7 @@ function main() {
       const out: BuiltRow = {
         brand: (row.brand ?? "").trim(),
         name,
+        common_name: "",
         variant: normalizeVariant(row.variant ?? ""),
         category_hint: category,
         weight_mg: weightMg,
@@ -107,6 +143,12 @@ function main() {
       };
 
       const key = identity(out);
+      // Common name is REQUIRED. Resolve it: the research row's own common_name wins, else the
+      // generated seed/common-names.json map, else a name-token derivation. normalizeGearType
+      // collapses drift (singular/plural, spelling, synonyms) to the canonical label. A row that
+      // resolves to nothing fails the build below — a new catalog entry must ship a common name.
+      const rowCommon = typeof row.common_name === "string" ? row.common_name.trim() : "";
+      out.common_name = normalizeGearType(rowCommon || commonNames.get(key) || deriveNoun(name) || "");
       if (seen.has(key)) {
         skipped.push(`${file}: ${label} — duplicate of ${seen.get(key)} (kept first)`);
         continue;
@@ -123,6 +165,17 @@ function main() {
       a.name.localeCompare(b.name) ||
       a.variant.localeCompare(b.variant),
   );
+
+  // Enforce: every catalog row must have a common name (the pick-time default). A row that
+  // resolved to nothing — no research common_name, no map entry, no derivable noun — fails the
+  // build so a new entry can't ship without one. Fail BEFORE writing so no blank CSV is emitted.
+  const missingCommon = built.filter((r) => !r.common_name);
+  if (missingCommon.length) {
+    console.error(`\n✗ ${missingCommon.length} row(s) have NO common name — every catalog row needs one.`);
+    console.error(`  Add "common_name" to the research row (or seed/common-names.json):`);
+    for (const r of missingCommon) console.error(`    - ${[r.brand, r.name, r.variant].filter(Boolean).join(" ")}`);
+    process.exit(1);
+  }
 
   writeFileSync(outPath, serializeCsv(CATALOG_CSV_HEADERS, built), "utf8");
 

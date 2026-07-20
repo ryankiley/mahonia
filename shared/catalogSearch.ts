@@ -75,6 +75,9 @@ export interface LocalCatalogRow {
   // seed time — see shared/searchTerms.ts. Folded into the trigram target so
   // "tent" finds a "Copper Spur" and "rucksack" finds a "backpack".
   searchTerms?: string | null;
+  // The catalog's default common name — carried through to the client so a pick
+  // can pre-fill the list item's commonName. Not used for ranking.
+  commonName?: string | null;
 }
 
 /** The autocomplete result shape returned to the client (no usageCount). */
@@ -89,6 +92,8 @@ export interface CatalogSearchResult {
   // Carried through so the offline cache ranks identically to online (it matches
   // on this too). Not shown in the UI.
   searchTerms?: string | null;
+  // The catalog's default common name → pre-fills the picked item's commonName.
+  commonName?: string | null;
 }
 
 /**
@@ -180,6 +185,7 @@ export function rankCandidates(
       weightSource: row.weightSource,
       verified: Boolean(row.verified),
       searchTerms: row.searchTerms ?? null,
+      commonName: row.commonName ?? null,
     }));
 }
 

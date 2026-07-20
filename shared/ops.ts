@@ -65,6 +65,9 @@ function cleanItemPatch(patch: ItemPatch): Partial<Item> {
   // drop the catalog-derived brand/variant from a now-custom item)
   if (typeof patch.brand === "string") out.brand = patch.brand ? patch.brand.slice(0, 120) : undefined;
   if (typeof patch.variant === "string") out.variant = patch.variant ? patch.variant.slice(0, 120) : undefined;
+  // common name: a non-empty string sets it; "" clears it (mirrors brand/variant)
+  if (typeof patch.commonName === "string") out.commonName = patch.commonName ? patch.commonName.slice(0, 120) : undefined;
+  if (typeof patch.commonNameOverridden === "boolean") out.commonNameOverridden = patch.commonNameOverridden;
   if (typeof patch.nameOverridden === "boolean") out.nameOverridden = patch.nameOverridden;
   if (typeof patch.description === "string") out.description = patch.description.slice(0, 2000);
   if (typeof patch.productUrl === "string") out.productUrl = patch.productUrl.slice(0, 2000);
@@ -260,6 +263,8 @@ export function normalizeItem(raw: Item): Item {
     name: String(raw.name ?? "").slice(0, 200),
     brand: raw.brand ? String(raw.brand).slice(0, 120) : undefined,
     variant: raw.variant ? String(raw.variant).slice(0, 120) : undefined,
+    commonName: raw.commonName ? String(raw.commonName).slice(0, 120) : undefined,
+    commonNameOverridden: raw.commonNameOverridden ? true : undefined,
     nameOverridden: raw.nameOverridden ? true : undefined,
     unitWeightMg: clampWeight(Number(raw.unitWeightMg) || 0),
     weightOverridden: !!raw.weightOverridden,

@@ -265,6 +265,7 @@ function onNameCommit(p: {
   name: string;
   brand?: string;
   variant?: string;
+  commonName?: string;
   weight?: string;
   weightMg?: number;
   catalogItemId?: number;
@@ -281,6 +282,12 @@ function onNameCommit(p: {
     patch.brand = p.brand ?? "";
     patch.variant = p.variant ?? "";
     patch.nameOverridden = false;
+    // pre-fill the catalog's default common name — unless the user already typed
+    // their own (a rename they want kept), mirroring the nameOverridden gate
+    if (!props.item.commonNameOverridden) {
+      patch.commonName = p.commonName ?? "";
+      patch.commonNameOverridden = false;
+    }
   } else {
     // free text / water / trailing weight → a user-owned custom name: drop the
     // catalog-derived brand/variant AND the catalog link itself — renaming to a
@@ -349,27 +356,34 @@ const classTitle = computed(() =>
     : `Counts as ${effClass.value}`,
 );
 
-// notes: toggled via an always-visible icon button (add/remove), not an
-// always-present field; the note shows as live text once it has content
-const noteOpen = ref(false);
+// the sub-line: the common name shows as an editable field whenever it's set (a catalog
+// pick pre-fills it), the note is opt-in. The button reveals the empty fields so a common
+// name / note can be added; each is cleared by emptying its own input.
+const subOpen = ref(false);
+const cnameRef = useTemplateRef<HTMLInputElement>("cnameRef");
 const noteRef = useTemplateRef<HTMLInputElement>("noteRef");
-// the note field is showing when there's a saved note OR it's been opened to type one
-const noteShown = computed(() => !!props.item.description || noteOpen.value);
-// plus → open the field; once shown (X) → hide it: clears a saved note, or just
-// closes an accidentally-opened empty one (show/hide). editing a saved note is
-// done by clicking its text.
-function onNoteBtn() {
-  if (noteShown.value) {
-    if (props.item.description) c.updateItem(props.item.id, { description: "" });
-    noteOpen.value = false;
-  } else {
-    noteOpen.value = true;
-    nextTick(() => noteRef.value?.focus());
-  }
+// the sub-line block shows when a common name or note is set, OR the fields were opened to add one
+const subShown = computed(
+  () => !!props.item.commonName || !!props.item.description || subOpen.value,
+);
+// reveal the (empty) fields to add a common name / note; focus the common name. Toggling
+// off just hides the empties — saved values keep showing and are edited/cleared in place.
+function onSubBtn() {
+  subOpen.value = !subOpen.value;
+  if (subOpen.value) nextTick(() => cnameRef.value?.focus());
 }
-// an opened-but-empty note collapses again when you click away without typing
-function onNoteBlur(e: Event) {
-  if (!(e.target as HTMLInputElement).value.trim()) noteOpen.value = false;
+// an opened-but-empty sub-line collapses when focus leaves BOTH fields with nothing typed;
+// moving focus between the two sibling inputs keeps it open
+function onSubBlur(e: FocusEvent) {
+  const next = e.relatedTarget as HTMLElement | null;
+  if (next && (next === cnameRef.value || next === noteRef.value)) return;
+  if (
+    !props.item.commonName &&
+    !props.item.description &&
+    !cnameRef.value?.value.trim() &&
+    !noteRef.value?.value.trim()
+  )
+    subOpen.value = false;
 }
 
 // ---- mobile overflow (⋯) menu ----
@@ -388,7 +402,7 @@ function toggleMenu() {
 // one nesting action that applies to this row's state (add-nested / nest-up / un-nest)
 const overflowActions = computed(() => {
   const acts: { label: string; run: () => void }[] = [
-    { label: noteShown.value ? "Remove note" : "Add a note", run: onNoteBtn },
+    { label: subOpen.value ? "Hide common name & note" : "Common name & note", run: onSubBtn },
   ];
   if (props.nested) acts.push({ label: "Un-nest", run: () => c.unnest(props.item.id) });
   else {
@@ -471,6 +485,9 @@ function dismissFix() {
         ><ChevronDown class="item__nestchev" :class="{ 'is-collapsed': nestCollapsed }" :size="16" :stroke-width="2" /></button></span>
       <span class="t-num t-sm t-muted item__cqty">{{ itemQtyLabel(item, effClass) }}</span>
       <span class="t-num item__cweight"><template v-if="rowWeightMg > 0">{{ formatWeight(rowWeightMg, list.displayUnit, { withUnit: false }) }}<span class="t-muted item__wunit">{{ list.displayUnit }}</span></template><template v-else>—</template></span>
+      <!-- the common name — a quiet sub-line under the product name (what you're checking
+           off), aligned to the name column past the checkbox; mirrors the read row -->
+      <span v-if="item.commonName" class="t-sm item__csub">{{ item.commonName }}</span>
     </label>
 
     <div v-else class="item-row item">
@@ -607,13 +624,13 @@ function dismissFix() {
           </button>
           <button
             class="btn btn--icon btn--ghost item__note-btn"
-            :class="{ 'is-active': !!item.description }"
-            :title="noteShown ? 'Remove note' : 'Add a note'"
-            :aria-label="noteShown ? 'Remove note' : 'Add a note'"
+            :class="{ 'is-active': !!(item.commonName || item.description) }"
+            :title="subOpen ? 'Hide common name & note' : 'Common name & note'"
+            :aria-label="subOpen ? 'Hide common name & note' : 'Add common name or note'"
             @mousedown.prevent
-            @click="onNoteBtn"
+            @click="onSubBtn"
           >
-            <StickyNoteX v-if="noteShown" :size="16" />
+            <StickyNoteX v-if="subOpen" :size="16" />
             <StickyNotePlus v-else :size="16" />
           </button>
           <!-- mobile overflow: the note + nesting actions collapse in here (delete +
@@ -656,22 +673,39 @@ function dismissFix() {
 
     </Transition>
 
-    <!-- note: a single-line live-text field; appears once it has content or the note button is
-         clicked (editing only — the checklist row is name + weight, nothing else).
-         the .reveal wrapper is a grid whose row animates 1fr↔0fr (Safari-safe slide). -->
+    <!-- sub-line: the common name (a quiet upright label) and, under it, the freeform note;
+         both single-line live-text fields, appearing once either has content or the details
+         button is clicked (editing only — the checklist row is name + weight, nothing else).
+         The .reveal wrapper is a grid whose row animates 1fr↔0fr (Safari-safe slide); the two
+         inputs share one inner child so that single-child slide stays clean. -->
     <Transition name="reveal">
-      <div v-if="!packed && (item.description || noteOpen)" class="reveal reveal--note">
-        <input
-          ref="noteRef"
-          class="item__note"
-          :value="item.description ?? ''"
-          placeholder="Add a note"
-          aria-label="Item note"
-          autocorrect="off"
-          spellcheck="true"
-          @change="c.updateItem(item.id, { description: ($event.target as HTMLInputElement).value })"
-          @blur="onNoteBlur"
-        />
+      <div v-if="!packed && subShown" class="reveal reveal--note">
+        <div class="item__subfields">
+          <input
+            v-if="item.commonName || subOpen"
+            ref="cnameRef"
+            class="item__note item__cname-input"
+            :value="item.commonName ?? ''"
+            placeholder="Common name — Tent, Shoes…"
+            aria-label="Common name"
+            autocorrect="off"
+            spellcheck="true"
+            @change="c.updateItem(item.id, { commonName: ($event.target as HTMLInputElement).value, commonNameOverridden: true })"
+            @blur="onSubBlur"
+          />
+          <input
+            v-if="item.description || subOpen"
+            ref="noteRef"
+            class="item__note"
+            :value="item.description ?? ''"
+            placeholder="Add a note"
+            aria-label="Item note"
+            autocorrect="off"
+            spellcheck="true"
+            @change="c.updateItem(item.id, { description: ($event.target as HTMLInputElement).value })"
+            @blur="onSubBlur"
+          />
+        </div>
       </div>
     </Transition>
 
@@ -876,6 +910,16 @@ function dismissFix() {
 }
 .item__cweight {
   text-align: right;
+}
+/* the common name in packing mode — a quiet upright sub-line under the product name,
+   spanning from the name column (2) to the row end so it aligns under the name, not the
+   checkbox; the negative tuck pulls it snug beneath, like the read row's sub-line */
+.item__csub {
+  grid-column: 2 / -1;
+  /* same caption tuck as the read/edit rows (shared token) so the common name sits the
+     same distance under the name in packing mode too */
+  margin-top: var(--caption-tuck);
+  color: var(--ink-2);
 }
 /* the unit suffix gap (.item__wunit) is shared with the read rows — atoms/item.scss */
 /* packed = "in the bag", so it reads as done (dimmed), NOT excluded — the check
@@ -1106,6 +1150,24 @@ function dismissFix() {
    sits the same distance under the name in both modes. */
 .reveal--note {
   margin-top: var(--caption-tuck);
+}
+/* the two sub-line fields (common name + note) stack as one grid child so the reveal's
+   1fr↔0fr slide keeps a single clipping child; a hair of gap keeps the two lines apart */
+.item__subfields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+/* the common-name field is an upright quiet LABEL (--ink-2), distinct from the note's
+   italic aside voice below it — mirrors the read-only sub-line's two voices. .item__note
+   also matches this element and sets italic, so pin the override at higher specificity to
+   win regardless of source order. */
+.item__note.item__cname-input {
+  color: var(--ink-2);
+  font-style: normal;
+}
+.item__cname-input::placeholder {
+  color: var(--ink-3);
 }
 /* note — a single-line live-text field under the item (no box, no resize handle).
    reads as a caption: the lightest ink (matching the "Add an item" placeholder) and
@@ -1380,6 +1442,13 @@ function dismissFix() {
     grid-row: 2;
     justify-self: start;
     text-align: left;
+  }
+  /* common name on its own third line (under name + qty/weight), aligned to the name
+     column; the row-gap gives the spacing so drop the desktop upward tuck */
+  .item__csub {
+    grid-column: 2 / -1;
+    grid-row: 3;
+    margin-top: 0;
   }
 }
 </style>

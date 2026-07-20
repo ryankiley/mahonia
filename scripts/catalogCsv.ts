@@ -10,6 +10,7 @@ export type SpecUnit = "g" | "kg" | "oz" | "lb";
 export const CATALOG_CSV_HEADERS = [
   "brand",
   "name",
+  "common_name",
   "variant",
   "category_hint",
   "weight_mg",
@@ -177,6 +178,9 @@ export function parseCsv(text: string): string[][] {
 export interface CatalogCsvRow {
   brand: string | null;
   name: string;
+  // Generated default common name (a CSV column, unlike searchTerms which is derived);
+  // sourced from seed/common-names.json at build time. See scripts/build-catalog.ts.
+  commonName: string | null;
   variant: string | null;
   categoryHint: string | null;
   weightMg: number;
@@ -195,6 +199,7 @@ export function csvToCatalogRows(text: string): CatalogCsvRow[] {
   const idx = (col: string) => header.indexOf(col);
   const iBrand = idx("brand");
   const iName = idx("name");
+  const iCommon = idx("common_name");
   const iVariant = idx("variant");
   const iCat = idx("category_hint");
   const iMg = idx("weight_mg");
@@ -226,6 +231,7 @@ export function csvToCatalogRows(text: string): CatalogCsvRow[] {
     out.push({
       brand: iBrand >= 0 ? blankToNull(cells[iBrand]) : null,
       name,
+      commonName: iCommon >= 0 ? blankToNull(cells[iCommon]) : null,
       variant: iVariant >= 0 ? blankToNull(cells[iVariant]) : null,
       categoryHint,
       weightMg,

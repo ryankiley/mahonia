@@ -66,6 +66,9 @@ export const CATALOG_DDL: string[] = [
   // folded into the fuzzy match. Added via ALTER so existing tables gain it too
   // (CREATE TABLE IF NOT EXISTS above is a no-op once the table exists).
   `ALTER TABLE catalog_items ADD COLUMN IF NOT EXISTS search_terms text`,
+  // common_name — the generated default label ("tent", "trekking poles") a pick
+  // pre-fills onto a list item. ALTER so existing tables gain it (like search_terms).
+  `ALTER TABLE catalog_items ADD COLUMN IF NOT EXISTS common_name text`,
   // identity for idempotent upsert — coalesce so NULL brand/variant compare equal
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_catalog_identity ON catalog_items ((coalesce(brand,'')), name, (coalesce(variant,'')))`,
   // autocomplete ranking: verified first, then most-used
@@ -153,7 +156,7 @@ export async function searchCatalog(
     // by loading the whole active table), so fetching all gated rows is cheap and
     // makes Neon ≡ PGlite ≡ offline by construction.
     const res = await d.execute(sql`
-      select id, brand, name, variant, weight_mg, weight_source, verified, usage_count, search_terms
+      select id, brand, name, variant, weight_mg, weight_source, verified, usage_count, search_terms, common_name
       from catalog_items
       where status = 'active'
         and word_similarity(unaccent(${q}), unaccent(coalesce(brand,'') || ' ' || name || ' ' || coalesce(search_terms,''))) >= ${SIM_THRESHOLD}
@@ -210,6 +213,7 @@ function normalizeRows(res: unknown): LocalCatalogRow[] {
     verified: Boolean(r.verified),
     usageCount: Number(r.usage_count),
     searchTerms: (r.search_terms as string | null) ?? null,
+    commonName: (r.common_name as string | null) ?? null,
   }));
 }
 

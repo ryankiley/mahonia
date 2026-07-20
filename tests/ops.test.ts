@@ -67,6 +67,30 @@ describe("op reducer", () => {
     expect(s.items[0].catalogWeightMgAtLink).toBe(19000);
   });
 
+  it("commonName + commonNameOverridden carry through; '' clears the name, flag stays", () => {
+    const s = base();
+    applyOps(s, [
+      { t: "addItem", item: { id: "i1", folderId: "f1", name: "Altra Lone Peak 9+", unitWeightMg: 238000, qty: 1, classification: null, sortOrder: 0 } },
+    ]);
+    // the user renames the common name → kept + flagged; an unrelated edit leaves both alone
+    applyOps(s, [{ t: "updateItem", id: "i1", patch: { commonName: "shoes", commonNameOverridden: true } }]);
+    applyOps(s, [{ t: "updateItem", id: "i1", patch: { qty: 2 } }]);
+    expect(s.items[0].commonName).toBe("shoes");
+    expect(s.items[0].commonNameOverridden).toBe(true);
+    // clearing (itself an override) empties the name but keeps the flag → won't re-resolve
+    applyOps(s, [{ t: "updateItem", id: "i1", patch: { commonName: "", commonNameOverridden: true } }]);
+    expect(s.items[0].commonName).toBeUndefined();
+    expect(s.items[0].commonNameOverridden).toBe(true);
+  });
+
+  it("normalizeItem carries commonName + commonNameOverridden (false → absent)", () => {
+    const a = normalizeItem({ name: "Altra Lone Peak 9+", commonName: "trail runners", commonNameOverridden: true } as never);
+    expect(a.commonName).toBe("trail runners");
+    expect(a.commonNameOverridden).toBe(true);
+    const b = normalizeItem({ name: "x", commonNameOverridden: false } as never);
+    expect(b.commonNameOverridden).toBeUndefined();
+  });
+
   it("removes a folder and its items", () => {
     const s = base();
     applyOps(s, [

@@ -45,6 +45,25 @@ describe("hydrateCatalogNames (trickle-down)", () => {
     expect(out.items[2].name).toBe("homemade alcohol stove"); // unlinked untouched
   });
 
+  it("trickles the catalog common name down, but respects commonNameOverridden", async () => {
+    const db = await freshDb();
+    const inserted = await db
+      .insert(schema.catalogItems)
+      .values({ brand: "Durston", name: "X-Mid Pro 1", commonName: "tent", weightMg: 439418, weightSource: "manufacturer", verified: true })
+      .returning({ id: schema.catalogItems.id });
+    const cid = inserted[0]!.id;
+
+    const out = await hydrateCatalogNames(db, snap([
+      // linked, not overridden → shows the catalog's default common name
+      { name: "X-Mid Pro 1", brand: "Durston", catalogItemId: cid, commonName: "stale" },
+      // the user renamed the common name → their text must survive re-resolution
+      { name: "X-Mid Pro 1", brand: "Durston", catalogItemId: cid, commonName: "my shelter", commonNameOverridden: true },
+    ]));
+
+    expect(out.items[0].commonName).toBe("tent"); // trickled down (overwrote "stale")
+    expect(out.items[1].commonName).toBe("my shelter"); // commonNameOverridden respected
+  });
+
   it("falls back to the stored snapshot when the catalog row is gone", async () => {
     const db = await freshDb();
     const out = await hydrateCatalogNames(db, snap([

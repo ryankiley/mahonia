@@ -42,7 +42,7 @@ export function listToCsv(list: ListSnapshot): string {
     list.folders.find((f) => f.id === id)?.name ?? "";
 
   const out = [
-    "Category,Item Name,Brand,Qty,Weight,Unit,Worn,Consumable,Price,URL,Description,Worn Qty",
+    "Category,Item Name,Common Name,Brand,Qty,Weight,Unit,Worn,Consumable,Price,URL,Description,Worn Qty",
   ];
   // rows follow what the app shows (exportSections): folders in their order, each
   // folder's items in its chosen sort, then any ungrouped items — so a re-import of a
@@ -66,6 +66,7 @@ export function listToCsv(list: ListSnapshot): string {
         esc(folderName(it.folderId)),
         // brand has its own column, so the name field carries model + variant
         esc(itemDisplayName(null, it.name, it.variant)),
+        esc(it.commonName ?? ""),
         esc(it.brand ?? ""),
         it.qty,
         w,
@@ -117,6 +118,7 @@ export function csvToListData(text: string, defaultUnit: Unit = "g"): ListData {
     return -1;
   };
   const iName = idx(["item name", "name", "item"]);
+  const iCommon = idx(["common name", "commonname", "common"]);
   const iCat = idx(["category", "folder", "section"]);
   const iBrand = idx(["brand", "maker", "manufacturer"]);
   const iQty = idx(["qty", "quantity", "count"]);
@@ -175,6 +177,10 @@ export function csvToListData(text: string, defaultUnit: Unit = "g"): ListData {
       id: uid(),
       folderId: fId,
       name,
+      commonName: iCommon >= 0 && row[iCommon]?.trim() ? stripFormulaGuard(row[iCommon].trim()) : undefined,
+      // an imported common name is the user's — mark it overridden so a catalog re-link
+      // (if the name matches a catalog row) can't overwrite it
+      commonNameOverridden: iCommon >= 0 && row[iCommon]?.trim() ? true : undefined,
       brand: iBrand >= 0 && row[iBrand]?.trim() ? stripFormulaGuard(row[iBrand].trim()) : undefined,
       unitWeightMg,
       qty,
