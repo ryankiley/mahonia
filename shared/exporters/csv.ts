@@ -42,7 +42,7 @@ export function listToCsv(list: ListSnapshot): string {
     list.folders.find((f) => f.id === id)?.name ?? "";
 
   const out = [
-    "Category,Item Name,Common Name,Brand,Qty,Weight,Unit,Worn,Consumable,Price,URL,Description,Worn Qty",
+    "Category,Item Name,Gear Type,Brand,Qty,Weight,Unit,Worn,Consumable,Price,URL,Description,Worn Qty",
   ];
   // rows follow what the app shows (exportSections): folders in their order, each
   // folder's items in its chosen sort, then any ungrouped items — so a re-import of a
@@ -118,7 +118,9 @@ export function csvToListData(text: string, defaultUnit: Unit = "g"): ListData {
     return -1;
   };
   const iName = idx(["item name", "name", "item"]);
-  const iCommon = idx(["common name", "commonname", "common"]);
+  // "common name" was this column's header before it was renamed to Gear Type — keep it
+  // (and its variants) accepted, or every CSV exported before the rename stops round-tripping
+  const iCommon = idx(["gear type", "geartype", "type", "common name", "commonname", "common"]);
   const iCat = idx(["category", "folder", "section"]);
   const iBrand = idx(["brand", "maker", "manufacturer"]);
   const iQty = idx(["qty", "quantity", "count"]);

@@ -370,16 +370,32 @@ const noteRef = useTemplateRef<HTMLInputElement>("noteRef");
 // on to the field itself, or to qty/weight, doesn't yank it away mid-edit), then cleared
 // by onRowBlur. An empty field just folds back up — nothing is written by revealing it.
 const nameEditing = ref(false);
-// the sub-line block shows when a common name or note is set, OR the fields were opened to add one
-const subShown = computed(
-  () => !!props.item.commonName || !!props.item.description || subOpen.value || nameEditing.value,
+// A GROUP's own name is already the everyday label — that's where it comes from
+// (useGearList.containerFor lifts the wrapped product's common name up to be the
+// group's name), so offering a group a second one is circular. A parent therefore
+// never opens the EMPTY field. A value it already carries still shows, so a row
+// that acquired one before it became a group can still be read and cleared —
+// never a stored value with no field to edit it.
+const cnameShown = computed(
+  () => !!props.item.commonName || ((subOpen.value || nameEditing.value) && !isParent.value),
 );
-// reveal the (empty) fields to add a common name / note; focus the common name. Toggling
-// off just hides the empties — saved values keep showing and are edited/cleared in place.
+const noteShown = computed(() => !!props.item.description || subOpen.value);
+// the sub-line block shows when either field does — phrased off the two so a parent
+// mid-name-edit doesn't open an empty reveal with nothing in it
+const subShown = computed(() => cnameShown.value || noteShown.value);
+// reveal the (empty) fields to add a common name / note; focus the common name (the
+// note, on a group — it has no common name field to focus). Toggling off just hides
+// the empties — saved values keep showing and are edited/cleared in place.
 function onSubBtn() {
   subOpen.value = !subOpen.value;
-  if (subOpen.value) nextTick(() => cnameRef.value?.focus());
+  if (subOpen.value) nextTick(() => (isParent.value ? noteRef : cnameRef).value?.focus());
 }
+// the button says what it will actually open — a group gets only the note, so it must
+// not promise a common name field that (see cnameShown) it will never show
+const subNoun = computed(() => (isParent.value ? "note" : "gear type & note"));
+const subLabel = computed(
+  () => (subOpen.value ? `Hide ${subNoun.value}` : subNoun.value.replace(/^./, (c) => c.toUpperCase())),
+);
 // an opened-but-empty sub-line collapses when focus leaves BOTH fields with nothing typed;
 // moving focus between the two sibling inputs keeps it open
 function onSubBlur(e: FocusEvent) {
@@ -410,7 +426,7 @@ function toggleMenu() {
 // one nesting action that applies to this row's state (add-nested / nest-up / un-nest)
 const overflowActions = computed(() => {
   const acts: { label: string; run: () => void }[] = [
-    { label: subOpen.value ? "Hide common name & note" : "Common name & note", run: onSubBtn },
+    { label: subLabel.value, run: onSubBtn },
   ];
   if (props.nested) acts.push({ label: "Un-nest", run: () => c.unnest(props.item.id) });
   else {
@@ -636,8 +652,8 @@ function dismissFix() {
           <button
             class="btn btn--icon btn--ghost item__note-btn"
             :class="{ 'is-active': !!(item.commonName || item.description) }"
-            :title="subOpen ? 'Hide common name & note' : 'Common name & note'"
-            :aria-label="subOpen ? 'Hide common name & note' : 'Add common name or note'"
+            :title="subLabel"
+            :aria-label="subOpen ? `Hide ${subNoun}` : `Add ${isParent ? 'a note' : 'a gear type or note'}`"
             @mousedown.prevent
             @click="onSubBtn"
           >
@@ -692,20 +708,30 @@ function dismissFix() {
     <Transition name="reveal">
       <div v-if="!packed && subShown" class="reveal reveal--note">
         <div class="item__subfields">
+          <!-- the gear-type field's placeholder is EXAMPLES ONLY, no concept noun: it sits
+               directly under the product name, so the contrast (a specific product / the
+               everyday word for it) is what explains it — naming the abstraction there is
+               what read as jargon. The aria-label carries the noun for screen readers,
+               which have no such positional context.
+               The three examples are the three most common types in the catalog itself
+               (backpack 237 rows, tent 118, quilt 107 — seed/common-names.json), so they
+               are real canonical values, spelled as the vocabulary spells them. The old
+               "Shoes" was neither: no row carries it (footwear is "trail runners" /
+               "hiking shoes"), so the field was advertising a value it would never fill in. -->
           <input
-            v-if="item.commonName || subOpen || nameEditing"
+            v-if="cnameShown"
             ref="cnameRef"
             class="item__note item__cname-input"
             :value="item.commonName ?? ''"
-            placeholder="Common name — Tent, Shoes…"
-            aria-label="Common name"
+            placeholder="Tent, Backpack, Quilt…"
+            aria-label="Gear type"
             autocorrect="off"
             spellcheck="true"
             @change="c.updateItem(item.id, { commonName: ($event.target as HTMLInputElement).value, commonNameOverridden: true })"
             @blur="onSubBlur"
           />
           <input
-            v-if="item.description || subOpen"
+            v-if="noteShown"
             ref="noteRef"
             class="item__note"
             :value="item.description ?? ''"
