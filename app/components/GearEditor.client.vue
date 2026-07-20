@@ -302,13 +302,16 @@ const MENU_ACTIONS = [
 //    /e. A nav to /e is then a no-op that never fires the watcher, so reset the
 //    session in place (same steps the watcher runs) and clean the URL back to /e.
 // `replace` for the dead-token missing state (don't keep it in history); push from a
-// live list so Back returns to it.
+// live list so Back returns to it — including on the in-place path, which is a live
+// list too: PUSH the clean /e so the entry still holding /e/{code}#{token} survives
+// underneath it. (replaceState would overwrite the only record of the list the user
+// was just on, and Back would leave the editor entirely.)
 function newList({ replace = false } = {}) {
   if (route.path === "/e" && !route.hash) {
     c.dispose(ownedEpoch);
     c.startDraft();
     ownedEpoch = c.epoch; // startDraft mints its epoch synchronously
-    history.replaceState(history.state, "", "/e");
+    history.pushState(history.state, "", "/e");
     return;
   }
   if (replace) router.replace("/e");

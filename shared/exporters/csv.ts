@@ -119,8 +119,11 @@ export function csvToListData(text: string, defaultUnit: Unit = "g"): ListData {
   };
   const iName = idx(["item name", "name", "item"]);
   // "common name" was this column's header before it was renamed to Gear Type — keep it
-  // (and its variants) accepted, or every CSV exported before the rename stops round-tripping
-  const iCommon = idx(["gear type", "geartype", "type", "common name", "commonname", "common"]);
+  // (and its variants) accepted, or every CSV exported before the rename stops round-tripping.
+  // Deliberately NOT bare "type" or "common": "Type" is a very common spelling of CATEGORY in
+  // third-party gear spreadsheets, and a wrong hit here is stamped commonNameOverridden below,
+  // which pins it against every later correction.
+  const iCommon = idx(["gear type", "geartype", "common name", "commonname"]);
   const iCat = idx(["category", "folder", "section"]);
   const iBrand = idx(["brand", "maker", "manufacturer"]);
   const iQty = idx(["qty", "quantity", "count"]);

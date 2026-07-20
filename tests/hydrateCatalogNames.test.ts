@@ -64,6 +64,28 @@ describe("hydrateCatalogNames (trickle-down)", () => {
     expect(out.items[1].commonName).toBe("my shelter"); // commonNameOverridden respected
   });
 
+  it("gates each field on its OWN flag — a renamed product still tracks the gear type", async () => {
+    const db = await freshDb();
+    const inserted = await db
+      .insert(schema.catalogItems)
+      .values({ brand: "Durston", name: "X-Mid Pro 1", commonName: "tent", weightMg: 439418, weightSource: "manufacturer", verified: true })
+      .returning({ id: schema.catalogItems.id });
+    const cid = inserted[0]!.id;
+
+    const out = await hydrateCatalogNames(db, snap([
+      // renamed the PRODUCT only: their name survives, the gear type still resolves
+      { name: "my shelter", catalogItemId: cid, commonName: "stale", nameOverridden: true },
+      // renamed the GEAR TYPE only: their label survives, the product name still resolves
+      { name: "X-Mid OLD", catalogItemId: cid, commonName: "palace", commonNameOverridden: true },
+      // both pinned: nothing resolves, and the row never reaches the query
+      { name: "mine", catalogItemId: cid, commonName: "mine too", nameOverridden: true, commonNameOverridden: true },
+    ]));
+
+    expect(out.items[0]).toMatchObject({ name: "my shelter", commonName: "tent" });
+    expect(out.items[1]).toMatchObject({ name: "X-Mid Pro 1", commonName: "palace" });
+    expect(out.items[2]).toMatchObject({ name: "mine", commonName: "mine too" });
+  });
+
   it("falls back to the stored snapshot when the catalog row is gone", async () => {
     const db = await freshDb();
     const out = await hydrateCatalogNames(db, snap([
