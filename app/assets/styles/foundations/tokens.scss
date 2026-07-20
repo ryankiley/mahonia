@@ -185,7 +185,8 @@ $bp-full: 1024px !default;
      gutter overshoot) so every row's data columns line up regardless of its icon count. */
   --item-col-actions: calc(5 * var(--icon-btn) + 4 * var(--space-1) - 9px);
   --item-cols: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-class) var(--item-col-actions); /* edit: name · qty(+L) · weight+unit · class · actions */
-  --item-cols-ro: 1fr #{fluid-track(36px, 44px)} #{fluid-track(80px, 96px)}; /* read / checklist: name · qty · weight */
+  --item-cols-ro: 1fr #{fluid-track(36px, 44px)} #{fluid-track(80px, 96px)}; /* read: name · qty · weight */
+  --item-cols-pack: auto var(--item-cols-ro); /* packing/checklist: a checkbox gutter, then the read cols — a named token so it can't drift from --item-cols-ro */
   --item-cols-mobile: 1fr 44px 92px; /* name · qty · weight (controls + grip on row 2) */
   --item-gap: var(--space-4); /* column gap shared by item rows, folder headers + the add row (keeps weights aligned) — 16px so the data columns breathe */
   /* category sparkline (the one data-viz mark — CategoryBar) */

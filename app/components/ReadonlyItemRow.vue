@@ -47,7 +47,7 @@ const collapsed = ref(true);
 
 <template>
   <div class="ro-wrap">
-    <div class="item item--ro">
+    <div class="item-row item item--ro">
       <span class="item__roname" :class="{ 'item__roname--group': isParent }">
         <span class="item__ronametext"><ItemName :item="item" search /><span v-if="effClass !== 'base'" class="t-sm item__class"> · {{ effClass }}</span></span>
         <!-- collapse a group of nested items — trails the name like the folder chevron.
@@ -94,12 +94,12 @@ const collapsed = ref(true);
 
 <style scoped lang="scss">
 .item--ro {
-  display: grid;
-  grid-template-columns: var(--item-cols-ro);
-  align-items: baseline;
-  gap: var(--item-gap);
-  /* vertical padding comes from the row wrapper (.folder__items > * / .ro-nest > *) so the
-     rule lines between items sit at a consistent rhythm */
+  /* the grid scaffold (display / columns / align / gap) is the shared .item-row base
+     (atoms/item.scss); the read row only feeds it the read column token. baseline align +
+     --item-gap are the base defaults, so nothing else to set here.
+     vertical padding comes from the row wrapper (.folder__items > * / .ro-nest > *) so the
+     rule lines between items sit at a consistent rhythm. */
+  --row-cols: var(--item-cols-ro);
 }
 .item__roname {
   min-width: 0;
@@ -160,10 +160,11 @@ const collapsed = ref(true);
      wraps (never clips), and ×qty + weight sit together on a second line, flush-left —
      instead of the weight stranded out at the far-right margin. */
   .item--ro {
-    grid-template-columns: auto 1fr;
-    align-items: center;
-    column-gap: var(--space-3);
-    row-gap: var(--space-1);
+    /* two-line stack via the shared .item-row grid: the name takes row 1, ×qty · weight
+       row 2 (cell placements below). Only the columns, centre-align + gap change here. */
+    --row-cols: auto 1fr;
+    --row-align: center;
+    --row-gap: var(--space-1) var(--space-3); /* row-gap · column-gap */
   }
   .item__roname {
     grid-column: 1 / -1;
