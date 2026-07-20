@@ -1,7 +1,7 @@
 body {
   font-family: var(--font);
   font-size: var(--text-base);
-  line-height: 1.5;
+  line-height: var(--leading-normal);
   color: var(--ink);
   background: var(--paper);
 }
@@ -14,7 +14,7 @@ body {
 .t-title {
   font-size: var(--text-title);
   font-weight: 600;
-  line-height: 1.15;
+  line-height: var(--leading-tight);
   letter-spacing: -0.02em;
 }
 

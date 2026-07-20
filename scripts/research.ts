@@ -14,6 +14,10 @@ export interface ResearchRow {
   name?: string;
   variant?: string | null;
   category_hint?: string | null;
+  // the item's common name ("tent", "trekking poles") — REQUIRED for a new row to build
+  // (a row with no common_name here, no seed/common-names.json entry, and no derivable
+  // noun fails the build). Authored inline so a new catalog add ships its common name.
+  common_name?: string | null;
   weight_value?: number;
   weight_unit?: string;
   weight_secondary?: string | null;

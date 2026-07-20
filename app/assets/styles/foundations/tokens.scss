@@ -88,6 +88,17 @@ $bp-full: 1024px !default;
      alias = base so existing `var(--text-sm)` consumers don't break */
   --text-sm: var(--text-base);
 
+  /* ---- line-height scale — the two leadings the type system uses, named so they
+     can't drift as scattered literals. ---- */
+  --leading-tight: 1.15; /* the one heading size (.t-title) — cap-height rows */
+  --leading-normal: 1.5; /* body prose, item names + notes — multi-line reading */
+
+  /* ---- caption tuck — the negative top-margin that pulls an item's note up under
+     its name so the two read as one unit. ONE token so the editor row (.reveal--note)
+     and the read/share row (.item__ronote) can't drift; they used to differ by 2px
+     (edit −6, read −4), which is the caption gap that looked off between the modes. ---- */
+  --caption-tuck: calc(-1 * var(--space-1) - var(--space-px));
+
   /* ---- spacing (4/8 grid) ---- */
   --space-px: 2px; /* hairline — sub-grid micro-gap (bar segments, chip stacks) */
   --space-1: 4px;
@@ -174,7 +185,8 @@ $bp-full: 1024px !default;
      gutter overshoot) so every row's data columns line up regardless of its icon count. */
   --item-col-actions: calc(5 * var(--icon-btn) + 4 * var(--space-1) - 9px);
   --item-cols: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-class) var(--item-col-actions); /* edit: name · qty(+L) · weight+unit · class · actions */
-  --item-cols-ro: 1fr #{fluid-track(36px, 44px)} #{fluid-track(80px, 96px)}; /* read / checklist: name · qty · weight */
+  --item-cols-ro: 1fr #{fluid-track(36px, 44px)} #{fluid-track(80px, 96px)}; /* read: name · qty · weight */
+  --item-cols-pack: auto var(--item-cols-ro); /* packing/checklist: a checkbox gutter, then the read cols — a named token so it can't drift from --item-cols-ro */
   --item-cols-mobile: 1fr 44px 92px; /* name · qty · weight (controls + grip on row 2) */
   --item-gap: var(--space-4); /* column gap shared by item rows, folder headers + the add row (keeps weights aligned) — 16px so the data columns breathe */
   /* category sparkline (the one data-viz mark — CategoryBar) */

@@ -282,6 +282,7 @@ async function cloneList() {
 // one table drives the ⋯ menu — its markup AND its dispatch — so an action can't
 // exist in one without the other (a string-keyed lookup would let a typo no-op)
 const MENU_ACTIONS = [
+  { label: "New list", run: () => newList() },
   { label: "Duplicate this list", run: cloneList },
   { label: "Import a list…", run: () => { importOpen.value = true; } },
   { label: "Copy as Markdown", run: copyMarkdown },
@@ -291,10 +292,27 @@ const MENU_ACTIONS = [
   { label: "Rotate edit link…", run: rotate },
 ];
 
-function newList() {
-  // a fresh draft — no server row until something is added. Clearing the hash fires
-  // the route watcher → startDraft; replace so Back doesn't return to the dead token.
-  router.replace("/e");
+// Start a fresh, empty draft — no server row until something is added. The current
+// list isn't lost: it's auto-saved and lives in "Your lists" behind its own link.
+// Two paths, by how this list was reached:
+//  - opened via an edit link (/e/{code}#{token}) → route to /e; clearing the hash
+//    fires the route watcher, which disposes this session and starts the draft.
+//  - a draft minted THIS session at /e — its URL was rewritten to /e/{code}#{token}
+//    via replaceState WITHOUT routing, so Vue Router still thinks we're at the bare
+//    /e. A nav to /e is then a no-op that never fires the watcher, so reset the
+//    session in place (same steps the watcher runs) and clean the URL back to /e.
+// `replace` for the dead-token missing state (don't keep it in history); push from a
+// live list so Back returns to it.
+function newList({ replace = false } = {}) {
+  if (route.path === "/e" && !route.hash) {
+    c.dispose(ownedEpoch);
+    c.startDraft();
+    ownedEpoch = c.epoch; // startDraft mints its epoch synchronously
+    history.replaceState(history.state, "", "/e");
+    return;
+  }
+  if (replace) router.replace("/e");
+  else router.push("/e");
 }
 
 // Both dialogs are Lazy + mounted on first use, so their code (incl. the CSV
@@ -427,15 +445,21 @@ function onCorrected(res: { status: string; itemName?: string }) {
         :totals="totals"
         @set-unit="(u) => c.setUnit(u)"
       />
-      <div v-if="packed && packProgress.total" class="packbar t-sm">
-        <span class="t-num" aria-live="polite">{{ packProgress.done }} of {{ packProgress.total }} packed</span>
-        <button
-          v-if="packProgress.done"
-          type="button"
-          class="btn btn--quiet packbar__clear"
-          @click="clearChecks"
-        >Clear checks</button>
-      </div>
+      <!-- packing progress: slides+fades in on entering packing (grid-rows 1fr↔0fr,
+           the shared reveal recipe) so the folders below ease down instead of jumping -->
+      <Transition name="packbar">
+        <div v-if="packed && packProgress.total" class="packbar-reveal">
+          <div class="packbar t-sm">
+            <span class="t-num" aria-live="polite">{{ packProgress.done }} of {{ packProgress.total }} packed</span>
+            <button
+              v-if="packProgress.done"
+              type="button"
+              class="btn btn--quiet packbar__clear"
+              @click="clearChecks"
+            >Clear checks</button>
+          </div>
+        </div>
+      </Transition>
       <div class="editor__folders">
         <FolderSection
           v-for="f in sortedFolders"
@@ -481,7 +505,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
 
     <main v-else-if="status === 'missing'" class="wrap editor__missing">
       <p class="t-muted">This list isn’t in this browser, or the link is invalid.</p>
-      <button class="btn btn--primary" @click="newList">Start a new list</button>
+      <button class="btn btn--primary" @click="newList({ replace: true })">Start a new list</button>
     </main>
 
     <main v-else class="wrap editor__missing">
@@ -675,14 +699,36 @@ function onCorrected(res: { status: string; itemName?: string }) {
 /* packing progress — one quiet line between the totals and the checklist. The
    count is the info; "Clear checks" sits beside it in the site's under-link
    voice (ink-3, darkens on hover, no chrome). */
+/* reveal wrapper: carries the tuck + the grid-rows height/fade slide (shared recipe
+   with ItemRow's .reveal). The tuck lives here, not on the inner .packbar, so the
+   inner line isn't clipped by the wrapper's overflow as it slides. */
+.packbar-reveal {
+  display: grid;
+  grid-template-rows: 1fr;
+  /* the body's --space-4 gap reads roomier before a bare text line than before
+     the folder blocks — tuck it up toward the totals it annotates */
+  margin-top: calc(-1 * var(--space-2));
+}
+.packbar-reveal > * {
+  min-height: 0;
+  overflow: hidden;
+}
 .packbar {
   display: flex;
   align-items: baseline;
   gap: var(--space-4);
   color: var(--ink-2);
-  /* the body's --space-4 gap reads roomier before a bare text line than before
-     the folder blocks — tuck it up toward the totals it annotates */
-  margin-top: calc(-1 * var(--space-2));
+}
+.packbar-enter-active,
+.packbar-leave-active {
+  transition:
+    grid-template-rows var(--dur) var(--ease),
+    opacity var(--dur) var(--ease);
+}
+.packbar-enter-from,
+.packbar-leave-to {
+  grid-template-rows: 0fr;
+  opacity: 0;
 }
 /* .packbar__clear kept as the print-hide hook (see print.scss); its button styling
    comes from the shared .btn--quiet */

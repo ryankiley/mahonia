@@ -143,9 +143,12 @@ function main() {
       };
 
       const key = identity(out);
-      // generated map wins; fall back to name-token derivation, else blank. normalizeGearType
-      // collapses drift (singular/plural, spelling, synonyms) to the canonical common name.
-      out.common_name = normalizeGearType(commonNames.get(key) ?? deriveNoun(name) ?? "");
+      // Common name is REQUIRED. Resolve it: the research row's own common_name wins, else the
+      // generated seed/common-names.json map, else a name-token derivation. normalizeGearType
+      // collapses drift (singular/plural, spelling, synonyms) to the canonical label. A row that
+      // resolves to nothing fails the build below — a new catalog entry must ship a common name.
+      const rowCommon = typeof row.common_name === "string" ? row.common_name.trim() : "";
+      out.common_name = normalizeGearType(rowCommon || commonNames.get(key) || deriveNoun(name) || "");
       if (seen.has(key)) {
         skipped.push(`${file}: ${label} — duplicate of ${seen.get(key)} (kept first)`);
         continue;
@@ -162,6 +165,17 @@ function main() {
       a.name.localeCompare(b.name) ||
       a.variant.localeCompare(b.variant),
   );
+
+  // Enforce: every catalog row must have a common name (the pick-time default). A row that
+  // resolved to nothing — no research common_name, no map entry, no derivable noun — fails the
+  // build so a new entry can't ship without one. Fail BEFORE writing so no blank CSV is emitted.
+  const missingCommon = built.filter((r) => !r.common_name);
+  if (missingCommon.length) {
+    console.error(`\n✗ ${missingCommon.length} row(s) have NO common name — every catalog row needs one.`);
+    console.error(`  Add "common_name" to the research row (or seed/common-names.json):`);
+    for (const r of missingCommon) console.error(`    - ${[r.brand, r.name, r.variant].filter(Boolean).join(" ")}`);
+    process.exit(1);
+  }
 
   writeFileSync(outPath, serializeCsv(CATALOG_CSV_HEADERS, built), "utf8");
 

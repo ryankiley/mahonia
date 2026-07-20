@@ -2,10 +2,16 @@
   {
     "date": "2026-07-19",
     "added": [
-      "Every item now carries a common name like \"tent\" or \"trail runners\" — filled in automatically when you pick it, shown as a quiet line under the product, and renamable per list."
+      "Every item now carries a common name like \"tent\" or \"trail runners\" — filled in automatically when you pick it, shown as a quiet line under the product, and renamable per list.",
+      "Start a new list straight from the editor's ⋯ menu."
     ],
     "changed": [
-      "Typing a gear name now surfaces closer name matches first, above merely-popular ones."
+      "Typing a gear name now surfaces closer name matches first, above merely-popular ones.",
+      "Editing and packing modes now ease from one to the other when you switch, instead of snapping."
+    ],
+    "fixed": [
+      "Switching to packing mode no longer makes the rows taller — editing and packing keep the same row height, so the list doesn't jump on toggle.",
+      "Item notes sit the same distance below their name in shared and public lists as they do in the editor."
     ]
   },
   {

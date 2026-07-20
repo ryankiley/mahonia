@@ -7,6 +7,25 @@
 // @use'd by main.scss — so no :root re-emission); keeps the literal out of here
 @use "../foundations/tokens" as t;
 
+/* The list-item ROW skeleton — the ONE place the row's presentation grid is drawn, so
+   the editor's ItemRow (editing + packing modes) and the share views' ReadonlyItemRow
+   can't draw it three different ways. Every mode's row element carries `.item-row` and
+   supplies only what legitimately differs, as custom properties:
+     --row-cols  : the grid-template-columns for that mode + breakpoint
+     --row-align : align-items — edit + read sit on the baseline; packing centres its checkbox
+     --row-gap   : the gap — one value, or `<row> <col>` on the mobile two-line stacks
+   plus its own chrome in its scoped block (edit's named areas, packing's checkbox +
+   min-height, read's search link). The column templates themselves are tokens
+   (--item-cols / --item-cols-ro / --item-cols-pack, tokens.scss), shared with the
+   folder headers so weights stay aligned. Vertical padding + the divider rhythm come
+   from `.folder__items > *` (atoms/folder.scss) — the shared anchor, kept there. */
+.item-row {
+  display: grid;
+  grid-template-columns: var(--row-cols);
+  align-items: var(--row-align, baseline);
+  gap: var(--row-gap, var(--item-gap));
+}
+
 /* nested items — a block indented behind a hairline "thread" line. The WHOLE row
    indents uniformly (via the container), so the name and its number line sit at the
    same indent — which matters most on the two-line mobile layout, where indenting
