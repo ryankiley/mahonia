@@ -452,7 +452,7 @@ function dismissFix() {
          explanatory comments OUT of the <Transition> body — a comment node between its
          open tag and the v-if is counted as a second child by Vue's template compiler. -->
     <Transition name="rowmode">
-      <label v-if="packed" class="item item--check" :class="{ 'item--done': item.packed }">
+      <label v-if="packed" class="item-row item item--check" :class="{ 'item--done': item.packed }">
       <input
         type="checkbox"
         class="item__box"
@@ -473,7 +473,7 @@ function dismissFix() {
       <span class="t-num item__cweight"><template v-if="rowWeightMg > 0">{{ formatWeight(rowWeightMg, list.displayUnit, { withUnit: false }) }}<span class="t-muted item__wunit">{{ list.displayUnit }}</span></template><template v-else>—</template></span>
     </label>
 
-    <div v-else class="item">
+    <div v-else class="item-row item">
       <!-- editable row (default) -->
       <div class="item__name" :class="{ 'item__name--group': isParent }">
         <ItemInput
@@ -726,14 +726,12 @@ function dismissFix() {
 
 <style scoped lang="scss">
 .item {
-  display: grid;
-  grid-template-columns: var(--item-cols);
-  /* names sit flush at the page edge; the note + remove + grip live together in
-     one trailing actions cluster (evenly spaced, same vertical centre) */
+  /* the grid scaffold (display / columns / align / gap) is the shared .item-row base
+     (atoms/item.scss); this row only feeds it the edit column token and lays its cells
+     into named areas. names sit flush at the page edge; the note + remove + grip live
+     together in one trailing actions cluster (evenly spaced, same vertical centre). */
+  --row-cols: var(--item-cols);
   grid-template-areas: "name qty weight class actions";
-  /* baseline so the name, qty, weight, unit + class text all sit on one line */
-  align-items: baseline;
-  gap: var(--item-gap);
   /* vertical padding comes from the row wrapper (.folder__items > *) so the rule
      lines between items sit at a consistent rhythm */
 }
@@ -801,14 +799,15 @@ function dismissFix() {
 
 /* packing / checklist — a big tap target */
 .item--check {
-  display: grid;
-  grid-template-columns: auto var(--item-cols-ro);
-  /* don't inherit the editable row's 5-area template — this row only has these
-     columns, and the phantom trailing area columns would add two grid gaps after
-     the weight, pushing it in from the row's right edge */
+  /* shared .item-row grid; packing feeds it a checkbox gutter + read cols, and centres
+     the row on the checkbox instead of the baseline */
+  --row-cols: var(--item-cols-pack);
+  --row-align: center;
+  --row-gap: var(--space-3);
+  /* don't inherit the editable row's 5-area template — this element also carries .item,
+     so it would pick up those areas and add phantom trailing gaps after the weight,
+     pushing it in from the row's right edge */
   grid-template-areas: none;
-  align-items: center;
-  gap: var(--space-3);
   cursor: pointer;
   /* SAME inner height as the editable row (its name field is --field-h; the shared
      --space-2 wrapper padding is added identically on both), so toggling editing↔
@@ -1338,11 +1337,11 @@ function dismissFix() {
      ×qty · weight below. The two text lines keep the editing row's metrics (36px
      each) so toggling between editing and packing modes never reflows the row. */
   .item--check {
-    display: grid;
-    grid-template-columns: auto auto 1fr;
-    align-items: center;
-    column-gap: var(--space-3);
-    row-gap: var(--space-1);
+    /* stack via the shared .item-row grid: a checkbox column, then the name (row 1)
+       over ×qty · weight (row 2) — cell placements below. --row-align stays `center`
+       from the desktop rule; only the columns + gap change here. */
+    --row-cols: auto auto 1fr;
+    --row-gap: var(--space-1) var(--space-3); /* row-gap · column-gap */
     min-height: 0; /* drop the desktop tall single-row min-height */
   }
   /* checkbox in the left column, aligned to the title line (not centred across the
