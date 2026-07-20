@@ -190,6 +190,7 @@ function selectResult(r: CatalogResult) {
     name: r.name,
     brand: r.brand ?? undefined,
     variant: r.variant ?? undefined,
+    commonName: r.commonName ?? undefined,
     weightMg: r.weightMg,
     catalogItemId: r.id,
   });

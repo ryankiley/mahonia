@@ -134,6 +134,7 @@ export async function hydrateCatalogNames(db: Db, snap: ListSnapshot): Promise<L
       brand: catalogItems.brand,
       name: catalogItems.name,
       variant: catalogItems.variant,
+      commonName: catalogItems.commonName,
     })
     .from(catalogItems)
     .where(and(inArray(catalogItems.id, ids), eq(catalogItems.status, "active")));
@@ -143,7 +144,15 @@ export async function hydrateCatalogNames(db: Db, snap: ListSnapshot): Promise<L
     if (it.catalogItemId == null || it.nameOverridden) return it;
     const c = byId.get(it.catalogItemId);
     if (!c) return it;
-    return { ...it, brand: c.brand ?? undefined, name: c.name, variant: c.variant ?? undefined };
+    // brand/name/variant always trickle down (not nameOverridden here); the common name
+    // trickles down too UNLESS the user renamed/cleared it (commonNameOverridden)
+    return {
+      ...it,
+      brand: c.brand ?? undefined,
+      name: c.name,
+      variant: c.variant ?? undefined,
+      commonName: it.commonNameOverridden ? it.commonName : (c.commonName ?? undefined),
+    };
   });
   return snap;
 }

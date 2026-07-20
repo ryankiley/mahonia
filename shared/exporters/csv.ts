@@ -178,6 +178,9 @@ export function csvToListData(text: string, defaultUnit: Unit = "g"): ListData {
       folderId: fId,
       name,
       commonName: iCommon >= 0 && row[iCommon]?.trim() ? stripFormulaGuard(row[iCommon].trim()) : undefined,
+      // an imported common name is the user's — mark it overridden so a catalog re-link
+      // (if the name matches a catalog row) can't overwrite it
+      commonNameOverridden: iCommon >= 0 && row[iCommon]?.trim() ? true : undefined,
       brand: iBrand >= 0 && row[iBrand]?.trim() ? stripFormulaGuard(row[iBrand].trim()) : undefined,
       unitWeightMg,
       qty,

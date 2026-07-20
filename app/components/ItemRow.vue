@@ -265,6 +265,7 @@ function onNameCommit(p: {
   name: string;
   brand?: string;
   variant?: string;
+  commonName?: string;
   weight?: string;
   weightMg?: number;
   catalogItemId?: number;
@@ -281,6 +282,12 @@ function onNameCommit(p: {
     patch.brand = p.brand ?? "";
     patch.variant = p.variant ?? "";
     patch.nameOverridden = false;
+    // pre-fill the catalog's default common name — unless the user already typed
+    // their own (a rename they want kept), mirroring the nameOverridden gate
+    if (!props.item.commonNameOverridden) {
+      patch.commonName = p.commonName ?? "";
+      patch.commonNameOverridden = false;
+    }
   } else {
     // free text / water / trailing weight → a user-owned custom name: drop the
     // catalog-derived brand/variant AND the catalog link itself — renaming to a
@@ -349,27 +356,21 @@ const classTitle = computed(() =>
     : `Counts as ${effClass.value}`,
 );
 
-// the sub-line (common name + note): toggled via an always-visible icon button
-// (add/remove), not always-present fields; it shows once either field has content
+// the sub-line: the common name shows as an editable field whenever it's set (a catalog
+// pick pre-fills it), the note is opt-in. The button reveals the empty fields so a common
+// name / note can be added; each is cleared by emptying its own input.
 const subOpen = ref(false);
 const cnameRef = useTemplateRef<HTMLInputElement>("cnameRef");
 const noteRef = useTemplateRef<HTMLInputElement>("noteRef");
-// the sub-line is showing when a common name or note is saved OR it's been opened to type one
+// the sub-line block shows when a common name or note is set, OR the fields were opened to add one
 const subShown = computed(
   () => !!props.item.commonName || !!props.item.description || subOpen.value,
 );
-// plus → open the fields (focus the common name); once shown (X) → hide it: clears any saved
-// common name + note, or just closes an accidentally-opened empty one. Editing a saved value
-// is done by clicking its text.
+// reveal the (empty) fields to add a common name / note; focus the common name. Toggling
+// off just hides the empties — saved values keep showing and are edited/cleared in place.
 function onSubBtn() {
-  if (subShown.value) {
-    if (props.item.commonName || props.item.description)
-      c.updateItem(props.item.id, { commonName: "", description: "" });
-    subOpen.value = false;
-  } else {
-    subOpen.value = true;
-    nextTick(() => cnameRef.value?.focus());
-  }
+  subOpen.value = !subOpen.value;
+  if (subOpen.value) nextTick(() => cnameRef.value?.focus());
 }
 // an opened-but-empty sub-line collapses when focus leaves BOTH fields with nothing typed;
 // moving focus between the two sibling inputs keeps it open
@@ -401,7 +402,7 @@ function toggleMenu() {
 // one nesting action that applies to this row's state (add-nested / nest-up / un-nest)
 const overflowActions = computed(() => {
   const acts: { label: string; run: () => void }[] = [
-    { label: subShown.value ? "Remove details" : "Add common name or note", run: onSubBtn },
+    { label: subOpen.value ? "Hide common name & note" : "Common name & note", run: onSubBtn },
   ];
   if (props.nested) acts.push({ label: "Un-nest", run: () => c.unnest(props.item.id) });
   else {
@@ -617,12 +618,12 @@ function dismissFix() {
           <button
             class="btn btn--icon btn--ghost item__note-btn"
             :class="{ 'is-active': !!(item.commonName || item.description) }"
-            :title="subShown ? 'Remove details' : 'Add common name or note'"
-            :aria-label="subShown ? 'Remove details' : 'Add common name or note'"
+            :title="subOpen ? 'Hide common name & note' : 'Common name & note'"
+            :aria-label="subOpen ? 'Hide common name & note' : 'Add common name or note'"
             @mousedown.prevent
             @click="onSubBtn"
           >
-            <StickyNoteX v-if="subShown" :size="16" />
+            <StickyNoteX v-if="subOpen" :size="16" />
             <StickyNotePlus v-else :size="16" />
           </button>
           <!-- mobile overflow: the note + nesting actions collapse in here (delete +
@@ -672,6 +673,7 @@ function dismissFix() {
       <div v-if="!packed && subShown" class="reveal reveal--note">
         <div class="item__subfields">
           <input
+            v-if="item.commonName || subOpen"
             ref="cnameRef"
             class="item__note item__cname-input"
             :value="item.commonName ?? ''"
@@ -679,10 +681,11 @@ function dismissFix() {
             aria-label="Common name"
             autocorrect="off"
             spellcheck="true"
-            @change="c.updateItem(item.id, { commonName: ($event.target as HTMLInputElement).value })"
+            @change="c.updateItem(item.id, { commonName: ($event.target as HTMLInputElement).value, commonNameOverridden: true })"
             @blur="onSubBlur"
           />
           <input
+            v-if="item.description || subOpen"
             ref="noteRef"
             class="item__note"
             :value="item.description ?? ''"

@@ -40,7 +40,11 @@ export interface Item {
   // user's generic label for what this is ("Tent", "Shoes") — a quiet sub-line under the
   // product name. Independent of name/nameOverridden (which rename the PRODUCT) and of
   // description (a freeform note, which trails the common name on that same sub-line).
+  // A catalog pick pre-fills this from the catalog's default; live-resolve keeps it fresh.
   commonName?: string;
+  // true once the user renames/clears the common name → keep their text; don't let the
+  // catalog live-resolve overwrite it with the catalog's default (mirrors nameOverridden)
+  commonNameOverridden?: boolean;
   // true once the user free-renames a catalog-linked item → keep their text; don't
   // let live-resolve overwrite it with the catalog's current name (mirrors weightOverridden)
   nameOverridden?: boolean;

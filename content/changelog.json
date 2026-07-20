@@ -2,7 +2,7 @@
   {
     "date": "2026-07-19",
     "added": [
-      "Give an item a common name like \"Tent\" or \"Shoes\", shown as a quiet line under the product."
+      "Every item now carries a common name like \"tent\" or \"trail runners\" — filled in automatically when you pick it, shown as a quiet line under the product, and renamable per list."
     ],
     "changed": [
       "Typing a gear name now surfaces closer name matches first, above merely-popular ones."

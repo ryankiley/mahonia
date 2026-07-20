@@ -26,6 +26,11 @@ describe("seed/catalog.csv data quality", () => {
     expect(errors.map((e) => `[${e.code}] ${e.message}`)).toEqual([]);
   });
 
+  it("every row has a common name (the pick-time auto-fill default)", () => {
+    const missing = rows.filter((r) => !r.commonName || !r.commonName.trim());
+    expect(missing.map((r) => `${r.brand ?? ""} ${r.name}`.trim())).toEqual([]);
+  });
+
   it("every row has provenance + a citation URL", () => {
     const bad = rows.filter(
       (r) =>

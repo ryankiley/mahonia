@@ -92,6 +92,7 @@ describe("searchCatalogLocal", () => {
       weightSource: "manufacturer",
       verified: true,
       searchTerms: null,
+      commonName: null,
     });
     expect("usageCount" in (r as object)).toBe(false);
   });
