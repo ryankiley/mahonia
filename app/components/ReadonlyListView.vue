@@ -68,7 +68,7 @@ const editedAt = computed(() => {
 
   <main v-else class="wrap view view--missing">
     <p class="t-muted"><slot name="missing">This list doesn’t exist (or was removed).</slot></p>
-    <NuxtLink to="/" class="btn btn--primary">Make a list</NuxtLink>
+    <NuxtLink to="/" class="btn btn--primary">Create a list</NuxtLink>
   </main>
 </template>
 

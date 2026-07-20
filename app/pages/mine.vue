@@ -62,7 +62,7 @@ async function deleteList(e: MyListEntry) {
 <template>
   <div>
     <SiteTopbar>
-      <NuxtLink to="/e" class="btn btn--link">New list</NuxtLink>
+      <NuxtLink to="/e" class="btn btn--link">Create a list</NuxtLink>
     </SiteTopbar>
 
     <main class="wrap page">
@@ -96,7 +96,7 @@ async function deleteList(e: MyListEntry) {
 
         <div v-else class="mine__empty">
           <p class="t-muted">No lists saved on this device yet.</p>
-          <NuxtLink to="/e" class="btn btn--primary">Make a list</NuxtLink>
+          <NuxtLink to="/e" class="btn btn--primary">Create a list</NuxtLink>
         </div>
 
         <template #fallback>

@@ -505,7 +505,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
 
     <main v-else-if="status === 'missing'" class="wrap editor__missing">
       <p class="t-muted">This list isn’t in this browser, or the link is invalid.</p>
-      <button class="btn btn--primary" @click="newList({ replace: true })">Start a new list</button>
+      <button class="btn btn--primary" @click="newList({ replace: true })">Create a list</button>
     </main>
 
     <main v-else class="wrap editor__missing">
