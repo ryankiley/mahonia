@@ -22,6 +22,7 @@ import {
 import { readResearchFiles } from "./research";
 import { normalizeVariant } from "../shared/catalogQuality";
 import { deriveNoun } from "../shared/searchTerms";
+import { normalizeGearType } from "../shared/gearTypes";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, "..");
@@ -142,8 +143,9 @@ function main() {
       };
 
       const key = identity(out);
-      // generated map wins; fall back to name-token derivation, else blank
-      out.common_name = commonNames.get(key) ?? deriveNoun(name) ?? "";
+      // generated map wins; fall back to name-token derivation, else blank. normalizeGearType
+      // collapses drift (singular/plural, spelling, synonyms) to the canonical common name.
+      out.common_name = normalizeGearType(commonNames.get(key) ?? deriveNoun(name) ?? "");
       if (seen.has(key)) {
         skipped.push(`${file}: ${label} — duplicate of ${seen.get(key)} (kept first)`);
         continue;

@@ -10,6 +10,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { csvToCatalogRows } from "../scripts/catalogCsv";
 import { runCatalogChecks } from "../scripts/catalogChecks";
+import { GEAR_TYPE_ALIASES } from "../shared/gearTypes";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const rows = csvToCatalogRows(readFileSync(join(root, "seed/catalog.csv"), "utf8"));
@@ -29,6 +30,11 @@ describe("seed/catalog.csv data quality", () => {
   it("every row has a common name (the pick-time auto-fill default)", () => {
     const missing = rows.filter((r) => !r.commonName || !r.commonName.trim());
     expect(missing.map((r) => `${r.brand ?? ""} ${r.name}`.trim())).toEqual([]);
+  });
+
+  it("common names are canonical — no un-normalized drift terms leaked through the build", () => {
+    const leaked = rows.filter((r) => r.commonName && GEAR_TYPE_ALIASES[r.commonName]);
+    expect(leaked.map((r) => `${r.name} → ${r.commonName}`)).toEqual([]);
   });
 
   it("every row has provenance + a citation URL", () => {
