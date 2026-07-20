@@ -71,11 +71,11 @@ const collapsed = ref(true);
            readers with no visual change (position:absolute → takes no grid cell). -->
       <span class="visually-hidden"> · </span>
       <span class="t-num item__roweight"><template v-if="rowWeightMg > 0">{{ formatWeight(rowWeightMg, list.displayUnit, { withUnit: false }) }}<span class="t-muted item__wunit">{{ list.displayUnit }}</span></template><template v-else>—</template></span>
-      <!-- the sub-line: the common name (a quiet upright label, "Tent"/"Shoes") with the
+      <!-- the sub-line: the gear type (a quiet upright label, "Tent"/"Trail runners") with the
            owner's note trailing it inline in the italic caption voice. Either may be absent;
            with no common name the note shows alone, exactly as it did before this field. -->
       <p v-if="item.commonName || item.description" class="t-sm item__rosub">
-        <span v-if="item.commonName" class="item__cname">{{ item.commonName }}</span
+        <span v-if="item.commonName" class="item__rogtype">{{ item.commonName }}</span
         ><span v-if="item.description" class="item__ronote">{{ item.commonName ? " · " : "" }}{{ item.description }}</span>
       </p>
     </div>
@@ -156,7 +156,7 @@ const collapsed = ref(true);
   margin-top: var(--caption-tuck);
   color: var(--ink-3);
 }
-.item__cname {
+.item__rogtype {
   color: var(--ink-2);
 }
 .item__ronote {

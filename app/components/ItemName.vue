@@ -36,12 +36,10 @@ const searchLabel = computed(() => `Search the web for ${itemSearchName(props.it
 </template>
 
 <style scoped>
-.iname__variant {
-  color: var(--ink-3);
-  font-style: italic;
-}
-/* a group the user never named — a stand-in label, quiet enough to read as
-   "nothing here yet" rather than as a product actually called "Group" */
+/* the dimmed variant suffix, and the stand-in label for a group the user never named —
+   both quiet asides beside the product name, so both read as "not the name itself"
+   ("Group" must not look like a product actually called that) */
+.iname__variant,
 .iname__unnamed {
   color: var(--ink-3);
   font-style: italic;

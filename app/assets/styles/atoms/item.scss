@@ -109,6 +109,33 @@
   margin-inline-start: var(--space-1);
 }
 
+/* The quiet "Add an item" affordance — ONE recipe for the folder's add row and a nested
+   group's alike, which were hand-copied from each other (right down to needing the mobile
+   compaction written twice, below). Dim text flush with the item names, sharing the name
+   field's box metrics so it reads as the next row in the list rather than a separate block.
+   `align-self` earns its place only inside a group, whose .nest-block is a column flex
+   container — without it the button stretches to the group's full width instead of hugging
+   its text. It is inert on the folder's add row, a plain block child. */
+.folder__addbtn,
+.item-nest__add {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--field-h);
+  padding: var(--space-1) 0;
+  background: none;
+  border: 0;
+  font-size: var(--text-base);
+  color: var(--ink-3);
+  cursor: pointer;
+  transition: color var(--dur) var(--ease);
+}
+.folder__addbtn:hover,
+.item-nest__add:hover {
+  color: var(--ink);
+}
+
 @media (max-width: t.$bp-stack) {
   /* the qty + weight cells of the two-line mobile rows share the editing fields'
      box metrics (padding + line-height), so a packing/read row is the exact same
@@ -121,5 +148,14 @@
     line-height: 1.3;
     display: inline-flex;
     align-items: center;
+  }
+  /* both add affordances take those compact metrics too (a separate rule: the cells
+     above keep their default min-height, these must drop the 36px field floor), so their
+     text sits at the same rhythm as the compact rows above it */
+  .folder__addbtn,
+  .item-nest__add {
+    min-height: 0;
+    padding-block: 2px;
+    line-height: 1.3;
   }
 }

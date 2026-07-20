@@ -32,7 +32,7 @@ export function listToMarkdown(list: ListSnapshot): string {
       const rowMg = rowDisplayMg(it, kids);
       const w = rowMg > 0 ? formatWeight(rowMg, u) : "—";
       // the product name, with the common name trailing it after an em dash when set
-      // ("Altra Lone Peak 9+ — Shoes") so a pasted list still says what each item is
+      // ("Altra Lone Peak 9+ — Trail runners") so a pasted list still says what each item is
       const name = withCommon(itemDisplayName(it.brand, it.name, it.variant), it.commonName);
       const wq = splitWornQty(it, effectiveClassification(it, list.folders));
       out.push(`| ${name} | ${it.qty}${wq > 0 ? ` (${wq} worn)` : ""} | ${w} |`);

@@ -10,7 +10,6 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { csvToCatalogRows } from "../scripts/catalogCsv";
 import { runCatalogChecks } from "../scripts/catalogChecks";
-import { GEAR_TYPE_ALIASES } from "../shared/gearTypes";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const rows = csvToCatalogRows(readFileSync(join(root, "seed/catalog.csv"), "utf8"));
@@ -27,16 +26,10 @@ describe("seed/catalog.csv data quality", () => {
     expect(errors.map((e) => `[${e.code}] ${e.message}`)).toEqual([]);
   });
 
-  it("every row has a common name (the pick-time auto-fill default)", () => {
-    const missing = rows.filter((r) => !r.commonName || !r.commonName.trim());
-    expect(missing.map((r) => `${r.brand ?? ""} ${r.name}`.trim())).toEqual([]);
-  });
-
-  it("common names are canonical — no un-normalized drift terms leaked through the build", () => {
-    // common names ship sentence-cased ("Tent"); the alias keys are lowercase, so fold first
-    const leaked = rows.filter((r) => r.commonName && GEAR_TYPE_ALIASES[r.commonName.toLowerCase()]);
-    expect(leaked.map((r) => `${r.name} → ${r.commonName}`)).toEqual([]);
-  });
+  // ("every row has a gear type" and "no un-normalized drift terms" used to live here as
+  //  their own it() blocks. They're standing defect classes, so they now run inside
+  //  runCatalogChecks — gated by the error assertion above AND reported by
+  //  `npm run catalog:audit`, which the bespoke versions were invisible to.)
 
   it("every row has provenance + a citation URL", () => {
     const bad = rows.filter(

@@ -21,6 +21,7 @@ const MAX_SPLIT_OPTS = 5;
 import { ChevronDown, CircleEllipsis, GripVertical, IndentDecrease, IndentIncrease, ListPlus, StickyNotePlus, StickyNoteX, Trash2, X } from "@lucide/vue";
 import type { Item, ListSnapshot } from "~~/shared/types";
 import type { ItemPatch } from "~~/shared/ops";
+import type { NameCommit } from "~/composables/useCatalogSearch";
 import { bySortOrder, effectiveClassification, formatWeight, fromMg, groupLineMg, itemDisplayName, parseWeightInput, rowDisplayMg, siblingItems, splitWornQty } from "~~/shared/weights";
 import { isWaterName, itemQtyLabel, waterLiters, waterMgFromMl } from "~~/shared/water";
 
@@ -262,16 +263,7 @@ function onWeightStep(e: KeyboardEvent, dir: 1 | -1) {
 
 // renaming in place via the same autocomplete: a catalog pick re-links + fills the
 // weight; a free-text rename just updates the name (or its trailing weight).
-function onNameCommit(p: {
-  name: string;
-  brand?: string;
-  variant?: string;
-  commonName?: string;
-  weight?: string;
-  weightMg?: number;
-  catalogItemId?: number;
-  classification?: Classification;
-}) {
+function onNameCommit(p: NameCommit) {
   const patch: ItemPatch = { name: p.name };
   if (p.catalogItemId != null) {
     // a catalog pick: store brand/model/variant structured, link, and let
@@ -726,7 +718,8 @@ function dismissFix() {
 
     <!-- sub-line: the common name (a quiet upright label) and, under it, the freeform note;
          both single-line live-text fields, appearing once either has content or the details
-         button is clicked (editing only — the checklist row is name + weight, nothing else).
+         button is clicked. Editing only: the checklist row shows a saved gear type as plain
+         text (.item__csub) and no note at all — nothing there is editable.
          The .reveal wrapper is a grid whose row animates 1fr↔0fr (Safari-safe slide); the two
          inputs share one inner child so that single-child slide stays clean. -->
     <Transition name="reveal">
@@ -745,7 +738,7 @@ function dismissFix() {
           <input
             v-if="cnameShown"
             ref="cnameRef"
-            class="item__note item__cname-input"
+            class="item__note item__gtype-input"
             :value="item.commonName ?? ''"
             placeholder="Tent, Backpack, Quilt…"
             aria-label="Gear type"
@@ -1207,7 +1200,7 @@ function dismissFix() {
 }
 /* the note tucks up under the name (into the 36px field's dead space); the offset
    lives on the wrapper, not the input, so the grid track sizing stays clean.
-   --caption-tuck is shared with the read/share row (.item__ronote) so the caption
+   --caption-tuck is shared with the read/share row (.item__rosub) so the caption
    sits the same distance under the name in both modes. */
 .reveal--note {
   margin-top: var(--caption-tuck);
@@ -1223,12 +1216,9 @@ function dismissFix() {
    italic aside voice below it — mirrors the read-only sub-line's two voices. .item__note
    also matches this element and sets italic, so pin the override at higher specificity to
    win regardless of source order. */
-.item__note.item__cname-input {
+.item__note.item__gtype-input {
   color: var(--ink-2);
   font-style: normal;
-}
-.item__cname-input::placeholder {
-  color: var(--ink-3);
 }
 /* note — a single-line live-text field under the item (no box, no resize handle).
    reads as a caption: the lightest ink (matching the "Add an item" placeholder) and
@@ -1309,25 +1299,10 @@ function dismissFix() {
   background: var(--ink);
   margin: var(--space-1) 0;
 }
-/* ever-present "Add an item" at the bottom of a group — mirrors the folder's add row
-   (quiet dim text, flush with the nested names), so growing a group needs no hover. It
-   sits inside the thread line with the rest of the nested block; no horizontal rule. */
-.item-nest__add {
-  align-self: flex-start;
-  display: inline-flex;
-  align-items: center;
-  min-height: var(--field-h);
-  padding: var(--space-1) 0;
-  background: none;
-  border: 0;
-  font-size: var(--text-base);
-  color: var(--ink-3);
-  cursor: pointer;
-  transition: color var(--dur) var(--ease);
-}
-.item-nest__add:hover {
-  color: var(--ink);
-}
+/* ever-present "Add an item" at the bottom of a group, so growing a group needs no hover.
+   It sits inside the thread line with the rest of the nested block; no horizontal rule.
+   Its look IS the folder add row's — one shared add-affordance atom (atoms/item.scss),
+   including the mobile compaction. */
 
 /* the ⋯ overflow menu is mobile-only — desktop shows every action inline (below) */
 .item__more {
@@ -1356,14 +1331,6 @@ function dismissFix() {
      nested rows read as hanging under the weight above, not floating mid-name */
   .item-nest {
     margin-left: var(--space-5);
-  }
-  /* the group's "Add an item" takes the compact mobile field metrics too (like the
-     folder-level .folder__addbtn), so it sits at the same rhythm as the compact nested
-     rows above it instead of a taller 36px box */
-  .item-nest__add {
-    min-height: 0;
-    padding-block: 2px;
-    line-height: 1.3;
   }
   /* tighter text boxes so the name and its meta line sit close as one unit — the
      default 36px field min-height, with vertically-centred text, left a big visual

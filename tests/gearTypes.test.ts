@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { GEAR_TYPE_ALIASES, normalizeGearType } from "../shared/gearTypes";
+import { GEAR_TYPE_ALIASES, normalizeGearType } from "../scripts/gearTypes";
 
 describe("normalizeGearType", () => {
   it("collapses drift labels to their canonical common name (sentence-cased)", () => {

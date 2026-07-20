@@ -160,8 +160,15 @@ export function csvToListData(text: string, defaultUnit: Unit = "g"): ListData {
   const folderCount = new Map<string | null, number>();
   for (let r = 1; r < rows.length; r++) {
     const row = rows[r]!;
+    // one optional text cell: absent column, or blank after trimming → undefined (the
+    // shape every optional Item field wants), else the de-fanged value
+    const cell = (i: number) => {
+      const v = i >= 0 ? row[i]?.trim() : "";
+      return v ? stripFormulaGuard(v) : undefined;
+    };
     const name = stripFormulaGuard((row[nameCol] || "").trim());
     if (!name) continue;
+    const gearType = cell(iCommon); // read once — it also decides the override flag below
     const cat = iCat >= 0 ? stripFormulaGuard(row[iCat] ?? "") : "";
     const fId = ensureFolder(cat || "Imported");
     const unit = normalizeUnit(iUnit >= 0 ? row[iUnit] : undefined, defaultUnit);
@@ -182,17 +189,17 @@ export function csvToListData(text: string, defaultUnit: Unit = "g"): ListData {
       id: uid(),
       folderId: fId,
       name,
-      commonName: iCommon >= 0 && row[iCommon]?.trim() ? stripFormulaGuard(row[iCommon].trim()) : undefined,
-      // an imported common name is the user's — mark it overridden so a catalog re-link
+      commonName: gearType,
+      // an imported gear type is the user's — mark it overridden so a catalog re-link
       // (if the name matches a catalog row) can't overwrite it
-      commonNameOverridden: iCommon >= 0 && row[iCommon]?.trim() ? true : undefined,
-      brand: iBrand >= 0 && row[iBrand]?.trim() ? stripFormulaGuard(row[iBrand].trim()) : undefined,
+      commonNameOverridden: gearType ? true : undefined,
+      brand: cell(iBrand),
       unitWeightMg,
       qty,
       wornQty: wornQtyVal > 0 ? Math.min(wornQtyVal, qty) : undefined,
       classification,
-      description: iDesc >= 0 && row[iDesc]?.trim() ? stripFormulaGuard(row[iDesc].trim()) : undefined,
-      productUrl: iUrl >= 0 && row[iUrl]?.trim() ? stripFormulaGuard(row[iUrl].trim()) : undefined,
+      description: cell(iDesc),
+      productUrl: cell(iUrl),
       sortOrder: folderCount.get(fId) ?? 0,
     });
     folderCount.set(fId, (folderCount.get(fId) ?? 0) + 1);

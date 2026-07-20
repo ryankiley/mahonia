@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { Droplet } from "@lucide/vue";
 import type { EffectScope } from "vue";
-import type { Classification, Unit } from "~~/shared/types";
+import type { Unit } from "~~/shared/types";
 import { formatWeight, itemDisplayName } from "~~/shared/weights";
 import { formatVolume, parseVolumeMl, waterMgFromMl } from "~~/shared/water";
-import type { CatalogResult } from "~/composables/useCatalogSearch";
+import type { CatalogResult, NameCommit } from "~/composables/useCatalogSearch";
 
 // Maps-grade autocomplete, used for BOTH adding a new item and renaming an
 // existing one in place. In add mode it clears after commit; in edit mode
@@ -20,18 +20,7 @@ const props = withDefaults(
   { initial: "", placeholder: "Add an item…", clearOnCommit: true, autofocus: false },
 );
 const emit = defineEmits<{
-  commit: [
-    {
-      name: string;
-      brand?: string;
-      variant?: string;
-      commonName?: string;
-      weight?: string;
-      weightMg?: number;
-      catalogItemId?: number;
-      classification?: Classification;
-    },
-  ];
+  commit: [NameCommit];
   // true while the suggestion dropdown is showing — the folder lifts its collapse
   // clip so a dropdown at the bottom of the folder isn't cropped (see FolderSection).
   // Named generically ("overlay") because the row's ⋯ menu rides the same lift.
