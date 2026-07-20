@@ -282,6 +282,7 @@ async function cloneList() {
 // one table drives the ⋯ menu — its markup AND its dispatch — so an action can't
 // exist in one without the other (a string-keyed lookup would let a typo no-op)
 const MENU_ACTIONS = [
+  { label: "New list", run: () => newList() },
   { label: "Duplicate this list", run: cloneList },
   { label: "Import a list…", run: () => { importOpen.value = true; } },
   { label: "Copy as Markdown", run: copyMarkdown },
@@ -291,10 +292,27 @@ const MENU_ACTIONS = [
   { label: "Rotate edit link…", run: rotate },
 ];
 
-function newList() {
-  // a fresh draft — no server row until something is added. Clearing the hash fires
-  // the route watcher → startDraft; replace so Back doesn't return to the dead token.
-  router.replace("/e");
+// Start a fresh, empty draft — no server row until something is added. The current
+// list isn't lost: it's auto-saved and lives in "Your lists" behind its own link.
+// Two paths, by how this list was reached:
+//  - opened via an edit link (/e/{code}#{token}) → route to /e; clearing the hash
+//    fires the route watcher, which disposes this session and starts the draft.
+//  - a draft minted THIS session at /e — its URL was rewritten to /e/{code}#{token}
+//    via replaceState WITHOUT routing, so Vue Router still thinks we're at the bare
+//    /e. A nav to /e is then a no-op that never fires the watcher, so reset the
+//    session in place (same steps the watcher runs) and clean the URL back to /e.
+// `replace` for the dead-token missing state (don't keep it in history); push from a
+// live list so Back returns to it.
+function newList({ replace = false } = {}) {
+  if (route.path === "/e" && !route.hash) {
+    c.dispose(ownedEpoch);
+    c.startDraft();
+    ownedEpoch = c.epoch; // startDraft mints its epoch synchronously
+    history.replaceState(history.state, "", "/e");
+    return;
+  }
+  if (replace) router.replace("/e");
+  else router.push("/e");
 }
 
 // Both dialogs are Lazy + mounted on first use, so their code (incl. the CSV
@@ -487,7 +505,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
 
     <main v-else-if="status === 'missing'" class="wrap editor__missing">
       <p class="t-muted">This list isn’t in this browser, or the link is invalid.</p>
-      <button class="btn btn--primary" @click="newList">Start a new list</button>
+      <button class="btn btn--primary" @click="newList({ replace: true })">Start a new list</button>
     </main>
 
     <main v-else class="wrap editor__missing">

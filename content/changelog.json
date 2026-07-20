@@ -1,6 +1,9 @@
 [
   {
     "date": "2026-07-19",
+    "added": [
+      "Start a new list straight from the editor's ⋯ menu."
+    ],
     "changed": [
       "Typing a gear name now surfaces closer name matches first, above merely-popular ones.",
       "Editing and packing modes now ease from one to the other when you switch, instead of snapping."
