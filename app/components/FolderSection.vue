@@ -261,7 +261,7 @@ function toggleCollapsed() {
   margin-bottom: var(--space-1);
 }
 .folder__head--packed {
-  grid-template-columns: auto var(--item-cols-ro);
+  grid-template-columns: var(--item-cols-pack);
 }
 /* the name sits flush at the page edge (aligned with item names); the collapse
    chevron sits just to its right; remove + grip are the trailing columns */
@@ -436,10 +436,12 @@ function toggleCollapsed() {
   .folder__head {
     grid-template-columns: 1fr auto;
   }
-  /* keep packing mode matching the checklist grid so the folder total stays
-     aligned with item weights on mobile too */
+  /* keep packing mode matching the checklist COLUMNS so the folder total stays aligned
+     with item weights on mobile too (the checklist ROW itself restacks to
+     `auto auto 1fr` here — the header keeps the desktop columns and just needs the
+     same right-hand weight track) */
   .folder__head--packed {
-    grid-template-columns: auto var(--item-cols-ro);
+    grid-template-columns: var(--item-cols-pack);
   }
   .folder__title {
     grid-column: 1;
@@ -464,16 +466,8 @@ function toggleCollapsed() {
     height: var(--tap);
     margin-block: var(--tap-pull);
   }
-  /* the "Add an item" affordance takes the item name field's compact mobile metrics
-     (the same min-height / padding / leading the rows' .item .field drops to), so its
-     text sits at the SAME rhythm as the names above it — not in a taller 36px box that
-     would float it lower than a compact item name. `.folder__add` prefix out-specifies
-     the base .folder__addbtn rule, which sits later in source order. */
-  .folder__add .folder__addbtn {
-    min-height: 0;
-    padding-block: 2px;
-    line-height: 1.3;
-  }
+  /* the add button's compact mobile metrics ride along with the shared atom
+     (atoms/item.scss), so this row and a nested group's stay in step */
 }
 /* the item rule-line rhythm (.folder__items > *) and the mobile name/row
    tightening are the shared folder atom — atoms/folder.scss */
@@ -513,23 +507,6 @@ function toggleCollapsed() {
 .folder__add--first {
   border-top: 0;
 }
-/* quiet add affordance — a dim "Add an item" flush with the item names. Shares the
-   item name field's box metrics (min-height + vertical centring) so its text lands
-   on the same baseline as the names above it, reading as one continuous list */
-.folder__addbtn {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-height: var(--field-h);
-  padding: var(--space-1) 0;
-  background: none;
-  border: 0;
-  font-size: var(--text-base);
-  color: var(--ink-3);
-  cursor: pointer;
-  transition: color var(--dur) var(--ease);
-}
-.folder__addbtn:hover {
-  color: var(--ink);
-}
+/* the add button itself (.folder__addbtn) is the shared add-affordance atom, shared with
+   a nested group's own add row — atoms/item.scss */
 </style>

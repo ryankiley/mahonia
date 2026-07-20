@@ -2,15 +2,15 @@
   {
     "date": "2026-07-19",
     "added": [
-      "Every item now carries a common name like \"tent\" or \"trail runners\" — filled in automatically when you pick it, shown as a quiet line under the product, and renamable per list.",
+      "Every item now carries a gear type like \"tent\" or \"trail runners\" — filled in automatically when you pick it, shown as a quiet line under the product, and renamable per list.",
       "Start a new list straight from the editor's ⋯ menu."
     ],
     "changed": [
       "Typing a gear name now surfaces closer name matches first, above merely-popular ones.",
       "Editing and packing modes now ease from one to the other when you switch, instead of snapping.",
       "Empty folders no longer draw a faint line under their name — the divider only shows between rows once you've added items.",
-      "Editing an item's name now offers its common name right below, so gear you type in yourself can carry one too.",
-      "An item's everyday label is now called its gear type, and the field just shows examples — Tent, Backpack, Quilt — instead of naming itself. CSV exports carry a \"Gear Type\" column; older files with a \"Common Name\" column still import.",
+      "Editing an item's name now offers its gear type right below, so gear you type in yourself can carry one too.",
+      "CSV exports carry a \"Gear Type\" column; older files with a \"Common Name\" column still import.",
       "A group row no longer offers a gear type of its own — the group's name already is one."
     ],
     "fixed": [

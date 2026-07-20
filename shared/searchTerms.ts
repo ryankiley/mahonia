@@ -11,8 +11,11 @@
 //
 // The noun is derived from the product name where the name carries a gear word,
 // and falls back to a conservative per-category default where the name is
-// model-only. This is deliberately NOT the (deferred) list-item common-name UI —
-// it only feeds search, hence the search-scoped name.
+// model-only. This is deliberately NOT the item's gear type (the label shown under a
+// product name — scripts/gearTypes.ts): these words only feed SEARCH, hence the
+// search-scoped name. A row is found by its search_terms and never by its gear type,
+// so the two vocabularies need only stay consistent, not identical — the better
+// display term wins there ("neck gaiter"), the better recall term wins here ("buff").
 
 // Canonical gear nouns, lowercase. Matching is case-insensitive on word
 // boundaries with an optional trailing "s" — so "Trekking Pole" derives

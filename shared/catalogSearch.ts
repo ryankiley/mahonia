@@ -61,25 +61,6 @@ export const STRONG_THRESHOLD = 0.6;
  *  offline ranker so the two can never return different counts. */
 export const SEARCH_LIMIT = 12;
 
-/** A catalog row as needed for local ranking (a subset of the DB row). */
-export interface LocalCatalogRow {
-  id: number;
-  brand: string | null;
-  name: string;
-  variant: string | null;
-  weightMg: number;
-  weightSource: string;
-  verified: boolean;
-  usageCount: number;
-  // Extra searchable words (category noun + locale/synonym aliases) derived at
-  // seed time — see shared/searchTerms.ts. Folded into the trigram target so
-  // "tent" finds a "Copper Spur" and "rucksack" finds a "backpack".
-  searchTerms?: string | null;
-  // The catalog's default common name — carried through to the client so a pick
-  // can pre-fill the list item's commonName. Not used for ranking.
-  commonName?: string | null;
-}
-
 /** The autocomplete result shape returned to the client (no usageCount). */
 export interface CatalogSearchResult {
   id: number;
@@ -89,11 +70,21 @@ export interface CatalogSearchResult {
   weightMg: number;
   weightSource: string;
   verified: boolean;
-  // Carried through so the offline cache ranks identically to online (it matches
-  // on this too). Not shown in the UI.
+  // Extra searchable words (category noun + locale/synonym aliases) derived at
+  // seed time — see shared/searchTerms.ts. Folded into the trigram target so
+  // "tent" finds a "Copper Spur" and "rucksack" finds a "backpack". Carried through
+  // so the offline cache ranks identically to online. Not shown in the UI.
   searchTerms?: string | null;
   // The catalog's default common name → pre-fills the picked item's commonName.
+  // Not used for ranking.
   commonName?: string | null;
+}
+
+/** A catalog row as needed for local ranking: the result shape plus the usage count
+ *  the re-rank consumes and rankCandidates() strips back out. Declared off the result
+ *  type so the two can't drift — every searchable field is described once, above. */
+export interface LocalCatalogRow extends CatalogSearchResult {
+  usageCount: number;
 }
 
 /**

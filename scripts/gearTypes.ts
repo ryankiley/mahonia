@@ -7,6 +7,12 @@
 // search and display share spellings — but the better DISPLAY term wins when a search noun
 // reads worse ("neck gaiter", not "buff"); search matches via a row's search_terms, never
 // its common name, so the two need only be consistent, not identical.
+//
+// BUILD-TIME ONLY, which is why this lives in scripts/ beside catalogChecks + catalogCsv
+// rather than in shared/: the one production caller is build-catalog.ts (the tests import
+// it too). A gear type the USER types is deliberately left alone — canonicalizing someone's
+// own label for their own list would be us overruling them, and the vocabulary exists to
+// keep the CATALOG's generated defaults consistent, not to police what people write.
 
 /**
  * Drift map: a raw/legacy label → its canonical common name. Only entries that CHANGE live
@@ -55,8 +61,10 @@ export const GEAR_TYPE_ALIASES: Record<string, string> = {
   "zipper pouch": "pouch",
 };
 
-// leading words that read better fully upper-cased than sentence-cased ("GPS watch", "PLB")
-const ACRONYMS: Record<string, string> = { gps: "GPS", plb: "PLB", uv: "UV", usb: "USB" };
+// leading words that read better fully upper-cased than sentence-cased ("GPS watch", "PLB").
+// A Set, not a map of word→GPS: every value would just be the word upper-cased, so a map
+// implied a per-word override the vocabulary has never needed.
+const ACRONYMS = new Set(["gps", "plb"]);
 
 /** Sentence-case: capitalize the FIRST word only ("trail runners" → "Trail runners"),
  *  upper-casing a known leading acronym whole ("gps watch" → "GPS watch"). */
@@ -65,7 +73,7 @@ function sentenceCase(s: string): string {
   const sp = s.indexOf(" ");
   const first = sp === -1 ? s : s.slice(0, sp);
   const rest = sp === -1 ? "" : s.slice(sp);
-  return (ACRONYMS[first] ?? first.charAt(0).toUpperCase() + first.slice(1)) + rest;
+  return (ACRONYMS.has(first) ? first.toUpperCase() : first.charAt(0).toUpperCase() + first.slice(1)) + rest;
 }
 
 /** Canonicalize a common-name label: lowercase + trim, apply the drift map, then

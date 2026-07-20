@@ -22,7 +22,7 @@ import {
 import { readResearchFiles } from "./research";
 import { normalizeVariant } from "../shared/catalogQuality";
 import { deriveNoun } from "../shared/searchTerms";
-import { normalizeGearType } from "../shared/gearTypes";
+import { normalizeGearType } from "./gearTypes";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, "..");
@@ -58,9 +58,15 @@ interface BuiltRow {
 const identity = (r: { brand: string; name: string; variant: string }) =>
   `${r.brand.toLowerCase()}|${r.name.toLowerCase()}|${r.variant.toLowerCase()}`;
 
-// The generated default common names, keyed by identity. Source of truth for the
-// `common_name` CSV column — authored in seed/common-names.json (survives rebuilds,
-// unlike a hand-edited CSV column). Missing rows fall back to deriveNoun(name).
+// The default gear types, keyed by identity. Source of truth for the `common_name` CSV
+// column — HAND-AUTHORED in seed/common-names.json (nothing generates it; it survives
+// rebuilds, unlike a hand-edited CSV column). Missing rows fall back to deriveNoun(name).
+//
+// Because the key is brand|name|variant, editing any of those three in a research row
+// orphans its entry here and the row silently falls back to a different label — so main()
+// reports entries that matched nothing (see `orphaned` below) rather than letting the map
+// rot quietly. New rows should carry `common_name` on the research row itself; this file
+// is the one-time backfill for everything that predates that.
 function loadCommonNames(): Map<string, string> {
   const m = new Map<string, string>();
   try {
@@ -93,6 +99,7 @@ function main() {
   const seen = new Map<string, string>(); // identity -> source file (for dup reporting)
   const skipped: string[] = [];
   const commonNames = loadCommonNames();
+  const usedCommonKeys = new Set<string>(); // which map entries actually matched a row
 
   for (const { file, rows, parseError } of readResearchFiles(researchDir)) {
     if (parseError) {
@@ -143,12 +150,14 @@ function main() {
       };
 
       const key = identity(out);
-      // Common name is REQUIRED. Resolve it: the research row's own common_name wins, else the
-      // generated seed/common-names.json map, else a name-token derivation. normalizeGearType
+      // A gear type is REQUIRED. Resolve it: the research row's own common_name wins, else the
+      // hand-authored seed/common-names.json map, else a name-token derivation. normalizeGearType
       // collapses drift (singular/plural, spelling, synonyms) to the canonical label. A row that
-      // resolves to nothing fails the build below — a new catalog entry must ship a common name.
+      // resolves to nothing fails the build below — a new catalog entry must ship a gear type.
       const rowCommon = typeof row.common_name === "string" ? row.common_name.trim() : "";
-      out.common_name = normalizeGearType(rowCommon || commonNames.get(key) || deriveNoun(name) || "");
+      const mapped = commonNames.get(key);
+      if (mapped) usedCommonKeys.add(key);
+      out.common_name = normalizeGearType(rowCommon || mapped || deriveNoun(name) || "");
       if (seen.has(key)) {
         skipped.push(`${file}: ${label} — duplicate of ${seen.get(key)} (kept first)`);
         continue;
@@ -175,6 +184,17 @@ function main() {
     console.error(`  Add "common_name" to the research row (or seed/common-names.json):`);
     for (const r of missingCommon) console.error(`    - ${[r.brand, r.name, r.variant].filter(Boolean).join(" ")}`);
     process.exit(1);
+  }
+
+  // A map entry that matched no row is dead weight AND a warning sign: its brand/name/variant
+  // was edited in the research file, so that row silently fell back to a derived label instead
+  // of the one authored here. Surfacing it is the difference between noticing and not.
+  const orphaned = [...commonNames.keys()].filter((k) => !usedCommonKeys.has(k));
+  if (orphaned.length) {
+    console.log(`\n  ⚠ ${orphaned.length} seed/common-names.json entr${orphaned.length === 1 ? "y" : "ies"} matched no row`);
+    console.log(`    (identity changed in the research file → the row fell back to a derived gear type)`);
+    for (const k of orphaned.slice(0, 10)) console.log(`      - ${k.replace(/\|/g, " ")}`);
+    if (orphaned.length > 10) console.log(`      … and ${orphaned.length - 10} more`);
   }
 
   writeFileSync(outPath, serializeCsv(CATALOG_CSV_HEADERS, built), "utf8");

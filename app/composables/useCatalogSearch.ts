@@ -2,21 +2,27 @@
 // (the catalog session's endpoint): fuzzy, ranked by the shared relevance-tier
 // cascade (tier→verified→usage→similarity→id; see shared/catalogSearch.ts).
 
+import type { CatalogSearchResult } from "~~/shared/catalogSearch";
+import type { Classification } from "~~/shared/types";
 import type { useCatalogCache } from "./useCatalogCache";
 
-export interface CatalogResult {
-  id: number;
-  brand: string | null;
+// Exactly what /api/catalog/search returns — the shared type IS the contract, so a
+// field added there can't be missed here (this was a hand-kept copy of it).
+export type CatalogResult = CatalogSearchResult;
+
+/** What ItemInput hands back when a name is committed — a catalog pick (carrying its
+ *  structured fields + link), a water suggestion, or free text with an optional trailing
+ *  weight. One declaration, so the emit and the row's handler can't drift: a field the
+ *  input starts sending but the handler's type omits would otherwise be dropped silently. */
+export interface NameCommit {
   name: string;
-  variant: string | null;
-  weightMg: number;
-  weightSource: string;
-  verified: boolean;
-  // Carried only so the offline cache can rank on it too (matches on the derived
-  // noun + locale/synonym aliases); never rendered.
-  searchTerms?: string | null;
-  // The catalog's default common name → pre-fills the picked item's commonName.
-  commonName?: string | null;
+  brand?: string;
+  variant?: string;
+  commonName?: string;
+  weight?: string;
+  weightMg?: number;
+  catalogItemId?: number;
+  classification?: Classification;
 }
 
 export function useCatalogSearch() {

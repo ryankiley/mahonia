@@ -157,18 +157,27 @@ const route = useRoute();
 // no-op when the session is no longer ours, instead of tearing down the newer
 // instance's in-flight load (which stranded the editor on "Loading…").
 let ownedEpoch: number | undefined;
+// Tear down whatever session this instance owns and start the one `token` names (or a
+// fresh draft when it names none), re-capturing the epoch. The ordering is the whole
+// point — see the note above — so it lives in ONE place, called by the route watcher
+// and by newList's in-place reset alike.
+function startSession(token?: string) {
+  c.dispose(ownedEpoch);
+  if (token) c.load(token);
+  else c.startDraft();
+  ownedEpoch = c.epoch; // load()/startDraft() mint their epoch synchronously
+}
 // Drive load off the reactive hash so back/forward + same-route nav between two
 // of your lists dispose+reload correctly (the editor singleton holds one list).
 watch(
   () => route.hash,
   (h) => {
-    // first run: ownedEpoch is undefined → unconditional, clearing (and flushing)
-    // whatever session a previous page instance left behind
-    c.dispose(ownedEpoch);
+    // decode HERE, not inside startSession: a malformed hash ("#%") throws, and that
+    // throw must land before the dispose, exactly as it always has.
+    // first run: ownedEpoch is undefined → dispose is unconditional, clearing (and
+    // flushing) whatever session a previous page instance left behind
     const token = decodeURIComponent((h || "").replace(/^#/, ""));
-    if (token) c.load(token);
-    else c.startDraft(); // no token = a fresh, unsaved draft (persists on first real content)
-    ownedEpoch = c.epoch; // load()/startDraft() mint their epoch synchronously
+    startSession(token); // no token = a fresh, unsaved draft (persists on first real content)
   },
   { immediate: true },
 );
@@ -308,9 +317,7 @@ const MENU_ACTIONS = [
 // was just on, and Back would leave the editor entirely.)
 function newList({ replace = false } = {}) {
   if (route.path === "/e" && !route.hash) {
-    c.dispose(ownedEpoch);
-    c.startDraft();
-    ownedEpoch = c.epoch; // startDraft mints its epoch synchronously
+    startSession(); // the same steps the route watcher runs
     history.pushState(history.state, "", "/e");
     return;
   }

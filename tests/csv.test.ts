@@ -52,6 +52,39 @@ describe("CSV round-trip", () => {
     expect(jacket.classification).toBe("worn");
     expect(jacket.wornQty).toBeUndefined();
   });
+
+  it("round-trips the gear type via its own Gear Type column, pinned as the user's", () => {
+    const s = snap();
+    s.items[0]!.commonName = "Tent";
+    const csv = listToCsv(s);
+    expect(csv.split("\n")[0]).toContain("Gear Type");
+    const duplex = csvToListData(csv).items.find((i) => i.name === "Zpacks Duplex")!;
+    expect(duplex.commonName).toBe("Tent");
+    // an imported label is the user's, so a later catalog re-link can't overwrite it
+    expect(duplex.commonNameOverridden).toBe(true);
+    // a row with no gear type gains neither the value nor the flag
+    const jacket = csvToListData(csv).items.find((i) => i.name === "Rain jacket")!;
+    expect(jacket.commonName).toBeUndefined();
+    expect(jacket.commonNameOverridden).toBeUndefined();
+  });
+});
+
+describe("CSV gear-type column aliases", () => {
+  // "Common Name" was this column's header before the rename — files exported then must
+  // keep importing, which is the whole reason the alias list exists.
+  it("accepts the legacy Common Name header", () => {
+    const data = csvToListData("Item Name,Common Name,Weight,Unit\nZpacks Duplex,Tent,538,g");
+    expect(data.items[0]!.commonName).toBe("Tent");
+  });
+
+  // ...but NOT a bare "Type" column: that's a very common spelling of CATEGORY in
+  // third-party gear spreadsheets, and a wrong hit gets stamped overridden, which would
+  // pin the mis-mapped value against every later correction.
+  it("ignores a bare Type column", () => {
+    const data = csvToListData("Item Name,Type,Weight,Unit\nZpacks Duplex,Shelter,538,g");
+    expect(data.items[0]!.commonName).toBeUndefined();
+    expect(data.items[0]!.commonNameOverridden).toBeUndefined();
+  });
 });
 
 describe("CSV row order", () => {
