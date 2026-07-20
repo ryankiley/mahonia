@@ -916,7 +916,9 @@ function dismissFix() {
    checkbox; the negative tuck pulls it snug beneath, like the read row's sub-line */
 .item__csub {
   grid-column: 2 / -1;
-  margin-top: calc(-1 * var(--space-1));
+  /* same caption tuck as the read/edit rows (shared token) so the common name sits the
+     same distance under the name in packing mode too */
+  margin-top: var(--caption-tuck);
   color: var(--ink-2);
 }
 /* the unit suffix gap (.item__wunit) is shared with the read rows — atoms/item.scss */
