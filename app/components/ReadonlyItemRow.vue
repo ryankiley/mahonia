@@ -146,7 +146,9 @@ const collapsed = ref(true);
    (lightest ink, italic) */
 .item__ronote {
   grid-column: 1 / -1;
-  margin-top: calc(-1 * var(--space-1));
+  /* same tuck as the editor's note (.reveal--note) via the shared token, so the
+     caption sits the SAME distance under the name in read + edit — no drift */
+  margin-top: var(--caption-tuck);
   color: var(--ink-3);
   font-style: italic;
 }

@@ -88,6 +88,17 @@ $bp-full: 1024px !default;
      alias = base so existing `var(--text-sm)` consumers don't break */
   --text-sm: var(--text-base);
 
+  /* ---- line-height scale — the two leadings the type system uses, named so they
+     can't drift as scattered literals. ---- */
+  --leading-tight: 1.15; /* the one heading size (.t-title) — cap-height rows */
+  --leading-normal: 1.5; /* body prose, item names + notes — multi-line reading */
+
+  /* ---- caption tuck — the negative top-margin that pulls an item's note up under
+     its name so the two read as one unit. ONE token so the editor row (.reveal--note)
+     and the read/share row (.item__ronote) can't drift; they used to differ by 2px
+     (edit −6, read −4), which is the caption gap that looked off between the modes. ---- */
+  --caption-tuck: calc(-1 * var(--space-1) - var(--space-px));
+
   /* ---- spacing (4/8 grid) ---- */
   --space-px: 2px; /* hairline — sub-grid micro-gap (bar segments, chip stacks) */
   --space-1: 4px;
