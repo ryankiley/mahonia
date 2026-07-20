@@ -181,12 +181,16 @@ Zpacks,Altaplex,Tent,Standard Floor,shelter,456000,manufacturer,https://zpacks.c
 Zpacks,Altaplex Pro,Tent,Lite Floor,shelter,411068,manufacturer,https://zpacks.com/products/altaplex-pro-tent
 Zpacks,Big Ass Camp Tarp,Tarp,,shelter,255146,manufacturer,https://zpacks.com/products/big-ass-camp-tarp-10-x-13
 Zpacks,Duplex,Tent,,shelter,504622,manufacturer,https://zpacks.com/products/duplex-tent
+Zpacks,Duplex Freestanding Flex Kit,Tent poles,,shelter,394000,manufacturer,https://zpacks.com/products/duplex-freestanding-flex-kit
 Zpacks,Duplex Lite,Tent,,shelter,430913,manufacturer,https://zpacks.com/products/duplex-lite
 Zpacks,Duplex Pro,Tent,Lite Floor,shelter,544311,manufacturer,https://zpacks.com/products/duplex-pro-tent
 Zpacks,Duplex Zip,Tent,,shelter,578330,manufacturer,https://zpacks.com/pages/zpacks-duplex-zip-tent
+Zpacks,Flat Groundsheet,Groundsheet,,shelter,60000,manufacturer,https://zpacks.com/products/flat-groundsheet
 Zpacks,Flat Tarp 7' x 9',Tarp,,shelter,133243,manufacturer,https://zpacks.com/products/flat-tarp-7-x-9-w-8-loops
 Zpacks,Flat Tarp 8.5' x 10',Tarp,,shelter,181437,manufacturer,https://zpacks.com/products/flat-tarp-8-5-x-10-w-12-loops
+Zpacks,Hexamid Bathtub Groundsheet,Groundsheet,,shelter,76000,manufacturer,https://zpacks.com/products/hexamid-bathtub-groundsheet
 Zpacks,Hexamid Pocket Tarp,Tarp,,shelter,157000,manufacturer,https://www.garagegrowngear.com/products/hexamid-pocket-tarp-w-doors-by-zpacks
+Zpacks,Hexamid Tent,Tent,,shelter,275000,manufacturer,https://zpacks.com/products/hexamid-solo-tent
 Zpacks,Offset Duo,Tent,Lite Floor,shelter,549981,manufacturer,https://zpacks.com/products/offset-duo
 Zpacks,Offset Solo,Tent,,shelter,496117,manufacturer,https://zpacks.com/products/offset-solo-tent
 Zpacks,Pivot Duo,Tent,Lite Floor,shelter,549981,manufacturer,https://zpacks.com/products/pivot-duo-tent
@@ -197,6 +201,8 @@ Zpacks,Plex Solo Classic,Tent,,shelter,411068,manufacturer,https://zpacks.com/pr
 Zpacks,Plex Solo Lite Tent,Tent,,shelter,335000,manufacturer,https://www.garagegrowngear.com/products/plex-solo-lite-tent-by-zpacks
 Zpacks,Plex Solo Pro,Tent,Lite Floor,shelter,374214,manufacturer,https://zpacks.com/products/plex-solo-pro-tent
 Zpacks,Plex Solo Tent,Tent,,shelter,437000,manufacturer,https://www.garagegrowngear.com/products/plex-solo-tent-by-zpacks
+Zpacks,Solo Bathtub Groundsheet,Groundsheet,,shelter,91000,manufacturer,https://zpacks.com/products/solo-bathtub-groundsheet
+Zpacks,Solo-Plus Bathtub Groundsheet,Groundsheet,,shelter,99000,manufacturer,https://zpacks.com/products/solo-plus-bathtub-groundsheet
 Zpacks,Triplex,Tent,,shelter,612350,manufacturer,https://zpacks.com/products/bargain-triplex-tent-white
 Zpacks,Triplex Pro,Tent,Lite Floor,shelter,615185,manufacturer,https://zpacks.com/products/triplex-pro-tent
 3FULGEAR,Footbox Bivy,Bivy,,sleep,43000,manufacturer,https://www.garagegrowngear.com/products/footbox-bivy-by-3fulgear
@@ -217,6 +223,7 @@ Big Agnes,Rapide SL Insulated,Sleeping pad,Regular Wide,sleep,649000,manufacture
 Big Agnes,Rapide SL Pillow,Pillow,One size,sleep,45359,manufacturer,https://www.bigagnes.com/products/rapide-sl-pillow
 Big Sky International,Ultralight Deluxe Pillow,Pillow,,sleep,124000,manufacturer,https://www.garagegrowngear.com/products/big-sky-ultralight-deluxe-pillow-by-big-sky-international
 Big Sky International,Ultralight Pillow,Pillow,,sleep,45000,manufacturer,https://www.garagegrowngear.com/products/ultralight-pillow-by-big-sky-international
+CAYL,Alpha Blanket,Blanket,,sleep,190000,manufacturer,https://cayl.co.kr/product/alpha-blanket-black/3359/
 Cumulus,Aerial 180 Sleeping Bag,Sleeping bag,,sleep,301000,manufacturer,https://www.garagegrowngear.com/products/aerial-180-sleeping-bag-by-cumulus
 Cumulus,Aerial 250 Sleeping Bag,Sleeping bag,,sleep,383000,manufacturer,https://www.garagegrowngear.com/products/aerial-250-sleeping-bag-by-cumulus
 Cumulus,Aerial 330 Sleeping Bag,Sleeping bag,,sleep,482000,manufacturer,https://www.garagegrowngear.com/products/aerial-sleeping-bag-by-cumulus
@@ -319,6 +326,8 @@ Klymit,Static V,Sleeping pad,,sleep,513126,manufacturer,https://klymit.com/produ
 Klymit,Static V Base,Sleeping pad,,sleep,530136,manufacturer,https://klymit.com/products/static-v-base-sleeping-pad
 Marmot,Trestles Elite Eco 20,Sleeping bag,Regular,sleep,1712311,measured,https://www.cleverhiker.com/backpacking/marmot-trestles-elite-eco-20-review/
 Mountain Hardwear,Ghoul 20F,Sleeping bag,Regular,sleep,633000,manufacturer,https://climbonequipment.com/en-us/products/mhw-ghoul-7-c-sleeping-bag
+Nanga,Down Blanket,Quilt,Single,sleep,946000,manufacturer,https://store.nanga.jp/products/down-blanket-single
+Nanga,Minimarhythm 5Below Sleeping Bag,Sleeping bag,Regular,sleep,415000,manufacturer,https://store.nanga.jp/products/minimarhythm-5below
 Nemo,Disco 30,Sleeping bag,"30F, Regular, 650FP",sleep,878835,manufacturer,https://www.rei.com/product/162950/nemo-disco-30-sleeping-bag-mens
 Nemo,Eclipse All-Season,Sleeping bag,Regular,sleep,453592,measured,https://www.adventurealan.com/product/nemo-eclipse-review/
 Nemo,Fillo,Pillow,Regular,sleep,260816,manufacturer,https://www.nemoequipment.com/products/fillo-backpacking-pillow
@@ -452,8 +461,10 @@ Zenbivy,Ultralight Quilt,Quilt,"25F, Synthetic, Regular",sleep,709000,manufactur
 Zenbivy,Ultralight Quilt,Quilt,"25F, Synthetic, XL",sleep,936000,manufacturer,https://zenbivy.com/products/ultralight-quilt
 Zenbivy,Ultralight Sheet,Sheet,"25F, 25""",sleep,162000,manufacturer,https://zenbivy.com/products/ultralight-sheet
 Zpacks,Classic Sleeping Bag,Sleeping bag,"30F, Slim-Short",sleep,345864,manufacturer,https://zpacks.com/products/classic-sleeping-bag
+Zpacks,Comfy Camp Pillow,Pillow,,sleep,92000,manufacturer,https://zpacks.com/products/comfy-camp-pillow
 Zpacks,Mummy Sleeping Bag,Sleeping bag,"20F, Standard-Short",sleep,623690,manufacturer,https://zpacks.com/products/mummy-sleeping-bag
 Zpacks,Pillow Dry Bag,Pillow,Medium,sleep,41000,manufacturer,https://zpacks.com/products/medium-pillow
+Zpacks,Pillow Dry Bag,Pillow,Medium-Plus,sleep,46000,manufacturer,https://zpacks.com/products/medium-plus-pillow
 Zpacks,Solo Quilt,Quilt,"20F, 900FP, Standard",sleep,518796,manufacturer,https://zpacks.com/products/solo-quilt
 Zpacks,Summer Quilt,Quilt,"40F, Slim-Short",sleep,249476,manufacturer,https://zpacks.com/products/summer-quilt-winter-liner
 Zpacks,Twin Quilt,Quilt,20F,sleep,790952,manufacturer,https://zpacks.com/products/twin-quilt
@@ -499,6 +510,7 @@ Bonfus,Saccus 48L,Backpack,Medium,pack,480000,manufacturer,https://www.garagegro
 BullMoose Softgoods Co.,L.T.F.P.,Fanny pack,,pack,99000,manufacturer,https://www.garagegrowngear.com/products/l-t-f-p-by-bullmoose-softgoods
 BullMoose Softgoods Co.,Mini Sling Bag,Sling bag,,pack,71000,manufacturer,https://www.garagegrowngear.com/products/mini-sling-bag-by-bullmoose-softgoods
 BullMoose Softgoods Co.,Triangle Sling Bag,Sling bag,,pack,50000,manufacturer,https://www.garagegrowngear.com/products/triangle-sling-bag-by-bull-moose-softgoods-co
+CAYL,Chopee Cordura,Daypack,20L,pack,340000,manufacturer,https://cayl.co.kr/product/chopee-cordura-chopee-black/3304/
 Durston,Kakwa 40,Backpack,"Ultra 200X, M",pack,793787,manufacturer,https://durstongear.com/products/kakwa-40-backpack
 Durston,Kakwa 40,Backpack,"UltraGrid, M",pack,839146,manufacturer,https://durstongear.com/products/kakwa-40-backpack
 Durston,Kakwa 55,Backpack,"Ultra 200X, M",pack,893010,manufacturer,https://durstongear.com/products/kakwa-55
@@ -669,6 +681,8 @@ Pa'lante,Joey,Chest pack,Gridstop,pack,405398,manufacturer,https://palantepacks.
 Pa'lante,Joey,Chest pack,Ultraweave,pack,408233,manufacturer,https://palantepacks.com/products/joey
 Pa'lante,Mini Joey,Chest pack,Robic,pack,362874,manufacturer,https://palantepacks.com/products/mini-joey
 Pa'lante,Sidebag,Shoulder pocket,,pack,91000,manufacturer,https://www.garagegrowngear.com/products/sidebag-by-palante-packs
+Pa'lante,Turtle Pack,Backpack,Robic,pack,351534,manufacturer,https://palantepacks.com/products/turtle-pack
+Pa'lante,Turtle Pack,Backpack,Ultraweave,pack,357204,manufacturer,https://palantepacks.com/products/turtle-pack
 Pa'lante,Ultralight Pack,Backpack,Gridstop,pack,416738,manufacturer,https://palantepacks.com/products/ultralight
 Pa'lante,Ultralight Pack,Backpack,Robic,pack,385554,manufacturer,https://palantepacks.com/products/ultralight
 Pa'lante,Ultralight Pack,Backpack,Ultraweave,pack,396893,manufacturer,https://palantepacks.com/products/ultralight
@@ -694,6 +708,9 @@ REI Co-op,Flash 55 Pack,Backpack,"Women's, M",pack,1224699,measured,https://www.
 REI Co-op,Flash Air 50,Backpack,,pack,850486,measured,https://www.adventurealan.com/product/rei-co-op-flash-air-50-review/
 Salomon,ADV Skin 12 Set,Running vest,,pack,247000,manufacturer,https://salomon.com.au/products/adv-skin-12-set-9
 Salomon,Trailblazer 20,Backpack,,pack,434000,manufacturer,https://salomon.com.au/products/trailblazer-20
+Sealson,M1 ECOYA Crossbody Bag,Sling bag,,pack,198900,manufacturer,https://sealson.co/products/m1-ecoya-crossbody-bag-black
+Sealson,M2 Crossbody Bag,Sling bag,Ultra TX70,pack,145000,manufacturer,https://sealson.co/products/m2-crossbody-bag
+Sealson,UNUS52 Backpack,Backpack,,pack,740000,manufacturer,https://sealson.co/products/unus52-backpack-1
 Sierra Designs,Flex Capacitor 25-40,Backpack,S/M waist belt,pack,1100000,measured,https://blog.outdoorprolink.com/proview-sierra-designs-flex-capacitor-25-40l/
 Sierra Designs,Flex Capacitor 40-60,Backpack,M/L torso,pack,1400000,manufacturer,https://sierradesigns.com/flex-capacitor-40-60/
 Sierra Designs,Flex Capacitor 40-60,Backpack,S/M torso,pack,1230000,manufacturer,https://sierradesigns.com/flex-capacitor-40-60/
@@ -708,6 +725,7 @@ Superior Wilderness Designs,Superior 35,Backpack,Ultra200X,pack,396893,manufactu
 Symbiosis Gear,Huckleberry Fanny Pack,Fanny pack,Pouch only,pack,45000,manufacturer,https://www.garagegrowngear.com/products/huckleberry-fanny-pack-by-symbiosis-gear
 Symbiosis Gear,Huckleberry Fanny Pack,Fanny pack,Pouch with waist belt,pack,91000,manufacturer,https://www.garagegrowngear.com/products/huckleberry-fanny-pack-by-symbiosis-gear
 Symbiosis Gear,The Aspen Women's Backpack,Backpack,,pack,709000,manufacturer,https://www.garagegrowngear.com/products/the-aspen-by-symbiosis-gear
+Tantrums,Crest 6 Hydration Pack,Running vest,M,pack,135000,manufacturer,https://tantrums.run/products/crest-6-hydration-pack
 Thrupack,Summit Bum Classic,Fanny pack,Comfy Strap,pack,133000,manufacturer,https://www.garagegrowngear.com/products/the-hiker-fanny-pack-by-thru
 Thrupack,Summit Bum Classic,Fanny pack,No Strap,pack,71000,manufacturer,https://www.garagegrowngear.com/products/the-hiker-fanny-pack-by-thru
 Thrupack,Summit Bum Classic,Fanny pack,Standard Strap,pack,99000,manufacturer,https://www.garagegrowngear.com/products/the-hiker-fanny-pack-by-thru
@@ -748,10 +766,15 @@ Zpacks,Arc Haul 50L,Backpack,Tall torso,pack,439000,manufacturer,https://www.gar
 Zpacks,Arc Haul 60L EPX,Backpack,Medium,pack,482000,manufacturer,https://www.garagegrowngear.com/products/arc-haul-60l-epx-by-zpacks
 Zpacks,Arc Haul 60L EPX,Backpack,Short,pack,470000,manufacturer,https://www.garagegrowngear.com/products/arc-haul-60l-epx-by-zpacks
 Zpacks,Arc Haul Ultra 40L,Backpack,,pack,598175,manufacturer,https://zpacks.com/products/arc-haul-ultra-40l-backpack
+Zpacks,Arc Haul Ultra 40L,Backpack,Women's,pack,575000,manufacturer,https://zpacks.com/products/womens-arc-haul-ultra-40l-backpack
 Zpacks,Arc Haul Ultra 50L,Backpack,,pack,606680,manufacturer,https://zpacks.com/products/arc-haul-ultra-50l-backpack
+Zpacks,Arc Haul Ultra 50L,Backpack,Women's,pack,586000,manufacturer,https://zpacks.com/products/womens-arc-haul-ultra-50l-backpack
 Zpacks,Arc Haul Ultra 60L,Backpack,,pack,618020,manufacturer,https://zpacks.com/products/arc-haul-ultra-60l-backpack
+Zpacks,Arc Haul Ultra 60L,Backpack,Women's,pack,597000,manufacturer,https://zpacks.com/products/womens-arc-haul-ultra-60l-backpack
 Zpacks,Arc Haul Ultra 70L,Backpack,,pack,629359,manufacturer,https://zpacks.com/products/arc-haul-ultra-70l-backpack
+Zpacks,Arc Haul Ultra 70L,Backpack,Women's,pack,608000,manufacturer,https://zpacks.com/products/womens-arc-haul-ultra-70l-backpack
 Zpacks,Arc Zip Ultra 62L,Backpack,,pack,700233,manufacturer,https://zpacks.com/products/arc-zip-ultra-62l-backpack
+Zpacks,Arc Zip Ultra 62L,Backpack,Women's,pack,678000,manufacturer,https://zpacks.com/products/womens-arc-zip-ultra-62l-backpack
 Zpacks,Bagger Ultra 25L,Backpack,,pack,351534,manufacturer,https://zpacks.com/products/bagger-ultra-25l-backpack
 Zpacks,Nero Classic,Backpack,30L,pack,280660,manufacturer,https://zpacks.com/products/nero-classic-ultra-backpack
 Zpacks,Nero Pro,Backpack,30L,pack,314680,manufacturer,https://zpacks.com/products/nero-pro-ultra-backpack
@@ -824,6 +847,7 @@ SilverAnt,Titanium 3 Piece Cookset,Cookset,,cook,312000,manufacturer,https://www
 SilverAnt,Titanium 3 Piece Cutlery Set,Utensils,,cook,43000,manufacturer,https://www.garagegrowngear.com/products/titanium-3-piece-cutlery-set-knife-fork-and-spoon-by-silverant
 SilverAnt,Titanium Funnel,Funnel,,cook,6000,manufacturer,https://www.garagegrowngear.com/products/titanium-funnel-by-silverant
 Snow Peak,3 Piece Titanium Cookset,Cookset,,cook,200000,manufacturer,https://www.snowpeak.com/products/3-piece-titanium-cookset
+Snow Peak,GigaPower Lantern Auto,Lantern,,cook,128000,manufacturer,https://www.snowpeak.com/products/gigapower-lantern-auto-gl-100a
 Snow Peak,GigaPower Stove,Stove,Manual,cook,75000,manufacturer,https://www.snowpeak.com/products/giga-power-stove-manual-renewed2
 Snow Peak,GigaPower Stove 2.0,Stove,Auto,cook,120000,manufacturer,https://www.snowpeak.com/products/gigapower-stove-2-0-auto
 Snow Peak,Hot Lips 2 Piece Set,Lip guards,,cook,8000,manufacturer,https://www.garagegrowngear.com/products/hotlips-2-piece-set-by-snow-peak
@@ -834,6 +858,7 @@ Snow Peak,Ti-Mini Solo Combo 2.0,Cookset,,cook,190000,manufacturer,https://www.s
 Snow Peak,Ti-Single 450 Anodized Cup,Cup,,cook,70000,manufacturer,https://www.garagegrowngear.com/products/ti-single-450-anodized-cup-by-snow-peak
 Snow Peak,Ti-Single 450 Cup,Cup,,cook,70000,manufacturer,https://www.snowpeak.com/products/titanium-single-450-cup-mg-043
 Snow Peak,Ti-Single 600 Cup,Cup,,cook,88000,manufacturer,https://www.snowpeak.com/products/titanium-single-600-wall-cup-mg-044
+Snow Peak,Titanium Chopsticks,Chopsticks,,cook,22000,manufacturer,https://www.snowpeak.com/products/titanium-chopsticks
 Snow Peak,Titanium French Press,French press,,cook,200000,manufacturer,https://www.garagegrowngear.com/products/titanium-french-press-by-snow-peak
 Snow Peak,Titanium Spork,Spork,,cook,16000,manufacturer,https://www.garagegrowngear.com/products/titanium-spork-by-snow-peak
 Snow Peak,Titanium Trek Combo,Cookset,,cook,370000,manufacturer,https://www.snowpeak.com/products/trek-combo-titanium-scs-010t
@@ -915,6 +940,8 @@ Vargo,Titanium Sierra Cup 450ml,Cup,,cook,55000,manufacturer,https://www.garageg
 Vargo,Titanium Spork ULV,Spork,,cook,11000,manufacturer,https://www.garagegrowngear.com/products/titanium-spork-by-vargo-outdoors
 Vargo,Titanium Travel Coffee Filter,Coffee filter,,cook,36000,manufacturer,https://www.garagegrowngear.com/products/titanium-travel-coffee-filter-by-vargo-outdoors
 Vargo,Titanium Triad Multi-Fuel Stove,Stove,,cook,30000,manufacturer,https://www.garagegrowngear.com/products/triad-multi-fuel-stove
+Zpacks,Cooking Pot Stuff Sack,Stuff sack,,cook,3600,manufacturer,https://zpacks.com/products/cooking-pot-stuff-sack
+Zpacks,Titanium Trail Spoon,Spoon,,cook,11100,manufacturer,https://zpacks.com/products/zpacks-titanium-trail-spoon
 Aquamira,Water Treatment Drops,Water treatment,1 oz,water,85049,measured,https://www.cleverhiker.com/backpacking/aquamira-water-purification-drops-review/
 Aquatabs,Water Purification Tablets,Water treatment,Sleeve of 10,water,2000,manufacturer,https://www.garagegrowngear.com/products/aqua-tabs
 CamelBak,Chute Mag Bottle,Water bottle,1L Tritan,water,192777,measured,https://www.packhacker.com/travel-gear/camelbak/chute-mag-1l-bottle/
@@ -980,6 +1007,7 @@ Sawyer,Squeeze Water Filter (SP129),Water filter,,water,85049,manufacturer,https
 Sawyer,Squeeze Water Filtration System with CNOC Premium 1L Bottle,Water filter,,water,139000,manufacturer,https://www.garagegrowngear.com/products/squeeze-water-filtration-system-with-cnoc-premium-1l-bottle-by-sawyer
 Sawyer,Squeeze Water Filtration System with CNOC Premium 2L Bladder,Water filter,,water,167000,manufacturer,https://www.garagegrowngear.com/products/squeeze-water-filtration-system-with-cnoc-premium-2l-bladder-by-sawyer
 SilverAnt,Titanium 800ml Screw Top Clip Bottle,Water bottle,,water,167000,manufacturer,https://www.garagegrowngear.com/products/titanium-800ml-screw-top-clip-bottle-by-silverant
+Snow Peak,Titanium Aurora Bottle,Water bottle,800ml,water,147418,manufacturer,https://www.snowpeak.com/products/ti-aurora-bottle
 3FULGEAR,Minimalist Rain Pant Legs,Rain chaps,Large,clothing,90000,manufacturer,https://www.garagegrowngear.com/products/minimalist-rain-pants-by-3fulgear
 3FULGEAR,Minimalist Rain Pant Legs,Rain chaps,Medium,clothing,79000,manufacturer,https://www.garagegrowngear.com/products/minimalist-rain-pants-by-3fulgear
 3FULGEAR,Rain Poncho,Poncho,Large,clothing,246000,manufacturer,https://www.garagegrowngear.com/products/rain-poncho-by-3fulgear
@@ -1013,7 +1041,7 @@ Arc'teryx,Atom Vest,Vest,Women's,clothing,185000,measured,https://featheredfrien
 Arc'teryx,Beta SV Jacket,Rain jacket,Men's,clothing,480000,measured,https://www.t3.com/active/outerwear/arcteryx-beta-sv-2026-severe-weather-jacket
 Arc'teryx,Beta SV Jacket,Rain jacket,Women's,clothing,429000,measured,https://featheredfriends.com/products/arcteryx-beta-sv-jacket-womens
 Arc'teryx,Bird Head Toque,Beanie,,clothing,57000,manufacturer,https://www.scheels.com/p/arcteryx-bird-head-toque-beanie/5875-X000006756/
-Arc'teryx,Bird Trucker Curved Brim Hat,Cap,,clothing,60000,manufacturer,https://footprintusa.co/products/arcteryx-bird-trucker-curved-brim-hat
+Arc'teryx,Bird Trucker Curved Brim Hat,Hat,,clothing,60000,manufacturer,https://footprintusa.co/products/arcteryx-bird-trucker-curved-brim-hat
 Arc'teryx,Cerium Hoody,Down jacket,Men's,clothing,338000,manufacturer,https://arcteryx.com/us/en/shop/mens/cerium-hoody-0521
 Arc'teryx,Cerium Hoody,Down jacket,Women's,clothing,290000,manufacturer,https://web.archive.org/web/20260212102700id_/https://arcteryx.com/us/en/shop/womens/cerium-hoody-0554
 Arc'teryx,Cerium SL Hoody,Down jacket,Men's M,clothing,215456,manufacturer,https://arcteryx.com/us/en/shop/mens/cerium-sl-hoody-1036
@@ -1021,7 +1049,7 @@ Arc'teryx,Cerium SL Hoody,Down jacket,Women's,clothing,208000,manufacturer,https
 Arc'teryx,Cormac Hoody,Sun hoodie,Men's,clothing,160000,manufacturer,https://mountainhighoutfitters.com/products/m-cormac-hoody
 Arc'teryx,Rho LT Hoody,Base layer top,Men's,clothing,255000,manufacturer,https://www.bergfreunde.eu/arcteryx-rho-lt-hoody-synthetic-base-layer/
 Arc'teryx,Rho LT Hoody,Base layer top,Women's,clothing,215000,manufacturer,https://www.powder7.com/Arcteryx-Womens-Rho-LT-Hoody-Baselayer/sale
-Arc'teryx,Sinsola Cinch Cap,Cap,,clothing,36000,manufacturer,https://arcteryx.com/us/en/shop/sinsola-cinch-cap-0182
+Arc'teryx,Sinsola Cinch Cap,Hat,,clothing,36000,manufacturer,https://arcteryx.com/us/en/shop/sinsola-cinch-cap-0182
 Arc'teryx,Sinsolo Bandana,Bandana,,clothing,28000,manufacturer,https://arcteryx.com/us/en/shop/sinsolo-bandana-0184
 Arc'teryx,Taema Hoody,Sun hoodie,Women's,clothing,140000,manufacturer,https://outlet.arcteryx.com/us/en/shop/womens/taema-hoody
 Arc'teryx Veilance,Isogon Hooded Jacket,Rain jacket,,clothing,390000,manufacturer,https://www.altitude-sports.com/products/arcteryx-veilance-mens-isogon-hooded-jacket-llll-vlc-15643
@@ -1072,6 +1100,10 @@ Burgeon Outdoor,Alpha Direct Hoodie,Fleece,"120gsm, Size M",clothing,193000,manu
 Burgeon Outdoor,Alpha Direct Hoodie,Fleece,"90gsm, Size M",clothing,128000,manufacturer,https://www.garagegrowngear.com/products/alpha-direct-hoodie-by-burgeon-outdoors
 Burgeon Outdoor,Men's Sunseeker Hoodie,Sun hoodie,Size M,clothing,184000,manufacturer,https://www.garagegrowngear.com/products/mens-sunseeker-hoodie-by-burgeon-outdoor
 Burgeon Outdoor,Women's Sunseeker Hoodie,Sun hoodie,Size M,clothing,167000,manufacturer,https://www.garagegrowngear.com/products/womens-sunseeker-hoodie-by-burgeon-outdoor
+CAYL,Light Conseal Zip Jacket,Wind jacket,S,clothing,153000,manufacturer,https://cayl.co.kr/product/light-conseal-zip-jacket-black/3269/
+CAYL,Light Pointed Cap,Hat,,clothing,41000,manufacturer,https://cayl.co.kr/product/light-pointed-cap-black/3515/
+CAYL,Stripe B.L. Short Sleeve,Shirt,S,clothing,91000,manufacturer,https://cayl.co.kr/product/stripe-bl-short-sleeve-black/3485/
+CAYL,Trail Air Jacket,Wind jacket,S,clothing,134000,manufacturer,https://cayl.co.kr/product/trail-air-jacket-black/3348/
 Coghlan's,Mosquito Head Net,Head net,One size,clothing,29000,measured,https://riversportsman.com/product/coghlans-mosquito-head-net/
 Columbia,Midweight Stretch Long-Sleeve Baselayer Top,Base layer top,Women's,clothing,198447,measured,https://www.backcountry.com/columbia-midweight-stretch-long-sleeve-baselayer-top-womens
 CRISTGEE,"Foldable Sun Cap, Fishing Hat, UPF 50+ with Face Mask Neck Flap",Sun hat,One size,clothing,110563,manufacturer,https://www.amazon.com/Foldable-Fishing-Hats-Protection-Caps/dp/B0875ZFCH2
@@ -1127,8 +1159,8 @@ finetrack,Elemental Layer Long Sleeve Crew,Base layer top,Women's,clothing,47000
 finetrack,Everbreath Photon Jacket,Rain jacket,Women's,clothing,280000,manufacturer,https://www.finetrackglobal.com/en_US/shop_by_product/l5_outer_shell_layer/women's-everbreath-photon-jacket/FAW0331-AQUA-S.html
 finetrack,Polygon UL Jacket,Wind jacket,Men's M,clothing,185000,manufacturer,https://www.finetrackglobal.com/en_SE/shop_by_product/l3_mid_layer/men's-polygon-ul-jacket/FIM0311.html
 finetrack,Polygon UL Jacket,Wind jacket,Women's M,clothing,165000,manufacturer,https://www.finetrackglobal.com/en_US/shop_by_product/l3_mid_layer/women's-polygon-ul-jacket/FIW0311-BLCK-S.html
-FRACTEL,L-Series Winter Legionnaire Hat,Cap,,clothing,150000,manufacturer,https://www.garagegrowngear.com/products/l-series-winter-legionnaire-hat-sized-by-fractel
-FRACTEL,M-Series Cap,Cap,,clothing,68000,manufacturer,https://www.garagegrowngear.com/products/m-series-cap-by-fractel
+FRACTEL,L-Series Winter Legionnaire Hat,Hat,,clothing,150000,manufacturer,https://www.garagegrowngear.com/products/l-series-winter-legionnaire-hat-sized-by-fractel
+FRACTEL,M-Series Cap,Hat,,clothing,68000,manufacturer,https://www.garagegrowngear.com/products/m-series-cap-by-fractel
 Frogg Toggs,Chilly Pro Cooling Neck Gaiter,Neck gaiter,,clothing,44000,manufacturer,https://www.garagegrowngear.com/products/chilly-pro-cooling-neck-gaiter-by-frogg-toggs
 Frogg Toggs,Ultra-Lite2 Rain Suit (jacket + pants),Rain suit,Men's,clothing,362874,manufacturer,https://www.froggtoggs.com/products/the-frogg-toggsr-ultra-lite2tm-4749
 Fulton,Athletic Insole,Insoles,Men's 10,clothing,102000,manufacturer,https://www.garagegrowngear.com/products/the-athletic-insole-by-fulton
@@ -1188,14 +1220,19 @@ Hollow Socks,Trail Socks,Socks,"Ankle, M",clothing,62000,manufacturer,https://ww
 Hollow Socks,Trail Socks,Socks,"Crew, M",clothing,77000,manufacturer,https://www.garagegrowngear.com/products/trail-socks-by-hollow-socks
 Houdini,Desoli Light Half Zip,Fleece,Men's L,clothing,212000,manufacturer,https://houdinisportswear.com/en-us/clothing/base-layers/mens-desoli-light-half-zip-840039
 Houdini,Desoli Light Half Zip,Fleece,Women's M,clothing,178000,manufacturer,https://houdinisportswear.com/en-us/clothing/base-layers/womens-desoli-light-half-zip-840029
+Houdini,Desoli Thermal Hat,Beanie,,clothing,32000,manufacturer,https://houdinisportswear.com/en-us/clothing/accessories/desoli-thermal-hat-850006
 Houdini,Fall in Jacket,Insulated jacket,L,clothing,1000000,manufacturer,https://houdinisportswear.com/en-us/clothing/jackets/mens-fall-in-jacket-820008
 Houdini,Five to Nine Jacket,Wind jacket,L,clothing,630000,manufacturer,https://houdinisportswear.com/en-us/clothing/jackets/mens-five-to-nine-jacket-810022
 Houdini,Go Jacket,Wind jacket,M,clothing,506000,manufacturer,https://houdinisportswear.com/en-us/clothing/jackets/mens-go-jacket-860028
+Houdini,Lykan Balaclava,Balaclava,,clothing,79000,manufacturer,https://houdinisportswear.com/en-us/clothing/accessories/lykan-balaclava-850036
 Houdini,Pace Trail Jacket,Wind jacket,L,clothing,150000,manufacturer,https://houdinisportswear.com/en-us/clothing/jackets/mens-pace-trail-jacket-810058
 Houdini,Pace Wind Jacket,Wind jacket,L,clothing,224000,manufacturer,https://houdinisportswear.com/en-us/clothing/jackets/mens-pace-wind-jacket-840005
+Houdini,Power Hat,Beanie,,clothing,35000,manufacturer,https://houdinisportswear.com/en-us/clothing/accessories/power-hat-850043
 Houdini,Power Houdi,Fleece,,clothing,478000,manufacturer,https://houdinisportswear.com/en-us/clothing/sweaters-hoodies/mens-power-houdi-830063
 Houdini,The Orange Jacket,Rain jacket,L,clothing,195000,manufacturer,https://houdinisportswear.com/en-us/clothing/jackets/mens-the-orange-jacket-810006
 Houdini,The Orange Tee,Shirt,L,clothing,130000,manufacturer,https://houdinisportswear.com/en-us/clothing/t-shirts/mens-the-orange-tee-810062
+Houdini,Tree Chore Jacket,Jacket,Men's L,clothing,326000,manufacturer,https://houdinisportswear.com/en-us/clothing/jackets/ms-tree-chore-jacket-860046
+Houdini,Tree Chore Jacket,Jacket,Women's M,clothing,284000,manufacturer,https://houdinisportswear.com/en/products/ws-tree-chore-jacket
 Icebreaker,Merino 200 Waffle Pocket Hat,Beanie,,clothing,50000,manufacturer,https://na.icebreaker.com/en-us/products/merino-200-pocket-hat-ibibm200a04
 Injinji,Liner Crew,Sock liners,,clothing,11340,measured,https://www.outdoorgearlab.com/reviews/shoes-and-boots/hiking-socks/injinji-liner-crew
 Injinji,Trail Midweight Mini-Crew,Socks,Toe socks,clothing,55000,measured,https://brianoutdoorsblog.wordpress.com/2019/05/06/injinji-trail-midweight-mini-crew-toe-socks/
@@ -1231,7 +1268,11 @@ Keen,Zionic ADV Open-Air,Hiking shoes,Men's,clothing,666000,manufacturer,https:/
 Kinich Sun Hoods,UV Protective Sun Hood,Sun hoodie,,clothing,55000,manufacturer,https://www.garagegrowngear.com/products/kinich-uv-protective-sun-hood-by-kinich-sun-hoods
 Klättermusen,Allgrön 2.0 Jacket,Rain jacket,Men's M,clothing,624000,manufacturer,https://www.klattermusen.com/en-us/10003-allgron-2-0-jacket-ms-black/
 Klättermusen,Allgrön 2.0 Jacket,Rain jacket,Women's,clothing,617000,manufacturer,https://www.klattermusen.com/en-us/10004-allgron-2-0-jacket-ws-grape/
+Klättermusen,Allvis Scarf,Scarf,,clothing,30000,manufacturer,https://www.klattermusen.com/en-us/unisex/all-accessories/10498-allvis-scarf-ruby-red/
+Klättermusen,Asynja Jacket,Rain jacket,Men's,clothing,347000,manufacturer,https://www.klattermusen.com/en-eu/10651m11-asynja-jacket-ms-raven/
 Klättermusen,Bore 2.0 Down Jacket,Down jacket,Men's M,clothing,800000,manufacturer,https://www.klattermusen.com/en/men/down-insulated-jackets/10632u82-bore-2.0-jacket-usex-frost-green/
+Klättermusen,Groa LS Tee,Shirt,Men's,clothing,147000,manufacturer,https://www.klattermusen.com/en-us/men/t-shirts/10488-groa-ls-tee-ms-raven/
+Klättermusen,Vidre Hood Jacket,Rain jacket,Men's,clothing,228000,manufacturer,https://www.klattermusen.com/en-eu/vidre-hood-jacket-ms-faded-green/
 La Sportiva,Bushido III,Trail runners,Men's,clothing,595000,manufacturer,https://www.lasportivausa.com/products/bushido-iii
 La Sportiva,Bushido III,Trail runners,Women's,clothing,499000,manufacturer,https://www.lasportivausa.com/bushido-iii-womens.html
 La Sportiva,Ethereal Pro Jacket,Rain jacket,Men's M,clothing,157000,manufacturer,https://web.archive.org/web/20250905154433id_/https://www.lasportivausa.com/ethereal-pro-jkt-m.html
@@ -1352,16 +1393,18 @@ Outdoor Research,Helium Rain Pants,Rain pants,Women's M,clothing,173000,manufact
 Outdoor Research,Helium UL Gaiters,Gaiters,,clothing,107728,manufacturer,https://www.outdoorresearch.com/products/mens-helium-ul-gaiter-322696
 Outdoor Research,Rocky Mountain High Gaiters II,Gaiters,,clothing,219992,manufacturer,https://www.outdoorresearch.com/products/mens-rocky-mountain-high-gaiters-ii-322419
 Outdoor Research,Rocky Mountain Low Gaiters II,Gaiters,,clothing,164994,manufacturer,https://www.outdoorresearch.com/products/rocky-mountain-low-gaiters-ii-322423
-Outdoor Research,Sun Runner Cap,Cap,,clothing,84482,manufacturer,https://www.outdoorresearch.com/products/sun-runner-cap-300299
+Outdoor Research,Sun Runner Cap,Hat,,clothing,84482,manufacturer,https://www.outdoorresearch.com/products/sun-runner-cap-300299
 Outdoor Research,Swift Run Gaiters,Gaiters,,clothing,34870,manufacturer,https://www.outdoorresearch.com/products/swift-run-gaiters-322427
 Outdoor Research,Swiftbreaker Jacket,Wind jacket,Women's,clothing,181437,manufacturer,https://www.grivetoutdoors.com/products/outdoor-research-swiftbreaker-jacket-womens
 Outdoor Vitals,Ventus Active Hoodie,Sun hoodie,Men's M,clothing,198000,manufacturer,https://www.garagegrowngear.com/products/mens-ventus-active-hoodie-by-outdoor-vitals
 Pa'lante,Grid Fleece Hoody,Fleece,Medium,clothing,289000,manufacturer,https://www.garagegrowngear.com/products/grid-fleece-hoody-by-palante-packs
 Pa'lante,Shorts,Shorts,Medium,clothing,181000,manufacturer,https://www.garagegrowngear.com/products/shorts-by-palante-packs
+Parapack,6P,Hat,,clothing,33500,manufacturer,https://www.parapack.co/shopheadwear/p/6p
+Parapack,6P Lite,Hat,,clothing,31000,manufacturer,https://www.parapack.co/shopheadwear/p/6plite
 Parapack,B-CAP Bucket Hat,Bucket hat,,clothing,58000,manufacturer,https://www.garagegrowngear.com/products/b-cap-bucket-hat-by-parapack
-Parapack,L-CAP,Cap,,clothing,58000,manufacturer,https://www.garagegrowngear.com/products/l-cap-by-parapack
-Parapack,P-CAP,Cap,,clothing,28000,manufacturer,https://www.garagegrowngear.com/products/p-cap-by-parapack
-Parapack,P-CAP Lite,Cap,,clothing,23000,manufacturer,https://www.garagegrowngear.com/products/p-cap-lite-by-parapack
+Parapack,L-CAP,Hat,,clothing,58000,manufacturer,https://www.garagegrowngear.com/products/l-cap-by-parapack
+Parapack,P-CAP,Hat,,clothing,28000,manufacturer,https://www.garagegrowngear.com/products/p-cap-by-parapack
+Parapack,P-CAP Lite,Hat,,clothing,23000,manufacturer,https://www.garagegrowngear.com/products/p-cap-lite-by-parapack
 Pas Normal Studios,Mechanism Pertex Rain Jacket,Rain jacket,Medium,clothing,112000,measured,https://www.cyclist.co.uk/reviews/pas-normal-studios-mechanism-pertex-rain-jacket-review
 Patagonia,Capilene Cool Lightweight Shirt,Base layer,"Men's M, short sleeve",clothing,74000,manufacturer,https://web.archive.org/web/20201029055041id_/https://www.patagonia.com/product/mens-capilene-cool-lightweight-shirt/45760.html
 Patagonia,Capilene Cool Lightweight Shirt,Base layer,"Women's M, short sleeve",clothing,60000,manufacturer,https://web.archive.org/web/20260130212501id_/https://www.patagonia.com/product/womens-capilene-cool-lightweight-shirt/45765.html
@@ -1391,6 +1434,29 @@ Petzl,Cordex Plus belay/rappel gloves,Gloves,Size L,clothing,146000,manufacturer
 Petzl,Cordex Plus belay/rappel gloves,Gloves,Size M,clothing,140000,manufacturer,https://www.petzl.com/US/en/Sport/Packs-And-Accessories/CORDEX-PLUS
 Petzl,Cordex Plus belay/rappel gloves,Gloves,Size S,clothing,136000,manufacturer,https://www.petzl.com/US/en/Sport/Packs-And-Accessories/CORDEX-PLUS
 Petzl,Cordex Plus belay/rappel gloves,Gloves,Size XL,clothing,152000,manufacturer,https://www.petzl.com/US/en/Sport/Packs-And-Accessories/CORDEX-PLUS
+Portal,Acre Light Pant,Hiking pants,M,clothing,320000,manufacturer,https://portal-brand.com/products/acre-light-pant
+Portal,Biome Insulated Jacket,Insulated jacket,M,clothing,560000,manufacturer,https://portal-brand.com/products/biome-insulated-parka
+Portal,Borders Cargo Belt,Belt,,clothing,100000,manufacturer,https://portal-brand.com/products/borders-cargo-belt
+Portal,Code Wind Jacket,Wind jacket,M,clothing,77000,manufacturer,https://portal-brand.com/products/code-wind-jacket
+Portal,Drift Merino Boxer Brief,Underwear,M,clothing,70000,manufacturer,https://portal-brand.com/products/drift-merino-boxer-brief
+Portal,Drift Merino Glove,Gloves,per pair,clothing,15000,manufacturer,https://portal-brand.com/products/drift-merino-glove
+Portal,Drift Merino LS T,Base layer top,M,clothing,140000,manufacturer,https://portal-brand.com/products/drift-merino-ls-t
+Portal,Drift Merino SS T,Base layer top,M,clothing,120000,manufacturer,https://portal-brand.com/products/drift-merino-ss-t
+Portal,Lateral Peak LS T,Shirt,M,clothing,110000,manufacturer,https://portal-brand.com/products/lateral-peak-ls-t
+Portal,Lateral Peak T,Shirt,M,clothing,90000,manufacturer,https://portal-brand.com/products/lateral-peak-t
+Portal,Level Alpha Jacket,Fleece,M,clothing,330000,manufacturer,https://portal-brand.com/products/level-alpha-jacket
+Portal,Lineage All Purpose Sock,Socks,"M, per pair",clothing,60000,manufacturer,https://portal-brand.com/products/lineage-all-purpose-sock
+Portal,Loam Fleece Jacket,Fleece,M,clothing,480000,manufacturer,https://portal-brand.com/products/loam-fleece-jacket
+Portal,Marka Liner Short,Shorts,M,clothing,150000,manufacturer,https://portal-brand.com/products/marka-liner-short
+Portal,Pattern Active Sock,Socks,"M, per pair",clothing,40000,manufacturer,https://portal-brand.com/products/pattern-active-sock
+Portal,Planar Lightweight Cap,Hat,one size,clothing,35000,manufacturer,https://portal-brand.com/products/planar-lightweight-cap
+Portal,Radius Cap,Hat,one size,clothing,40000,manufacturer,https://portal-brand.com/products/radius-cap-aw25
+Portal,Range Light Jersey,Shirt,M,clothing,150000,manufacturer,https://portal-brand.com/products/range-light-jersey
+Portal,Ritual Merino Sock,Socks,"M, per pair",clothing,60000,manufacturer,https://portal-brand.com/products/ritual-merino-sock
+Portal,Root Hemp LS T,Shirt,M,clothing,260000,manufacturer,https://portal-brand.com/products/root-hemp-ls-t
+Portal,Root Hemp T,Shirt,M,clothing,220000,manufacturer,https://portal-brand.com/products/root-hemp-t
+Portal,Traka Softshell Pant,Hiking pants,M,clothing,360000,manufacturer,https://portal-brand.com/products/traka-softshell-pant
+Portal,Traka Softshell Short,Shorts,M,clothing,250000,manufacturer,https://portal-brand.com/products/traka-softshell-short
 prAna,Stretch Zion Pant,Hiking pants,Men's M,clothing,377049,measured,https://www.outdoorgearlab.com/reviews/clothing-mens/hiking-pants-men/prana-stretch-zion-ii-pants
 Rab,Downpour Waterproof Jacket,Rain jacket,Men's M,clothing,377000,manufacturer,https://rab.equipment/us/mens-downpour-waterproof-jacket
 Rab,Downpour Waterproof Jacket,Rain jacket,Women's 10,clothing,341500,manufacturer,https://rab.equipment/us/womens-downpour-waterproof-jacket
@@ -1418,7 +1484,7 @@ ROA,Andreas Hiking Boot,Hiking boots,Men's US 9,clothing,1160000,community,https
 ROA,Lhakpa Hiking Sneaker,Hiking shoes,Men's US 9,clothing,860000,community,https://www.roa-hiking.com/products/roa-footwear-lhakpa-black-j268219
 ROA,Logo Wool Beanie,Beanie,,clothing,65000,community,https://www.roa-hiking.com/products/roa-accessories-logo-wool-beanie-black-j334872
 ROA,Minaar Hiking Sneaker,Hiking shoes,Men's US 9,clothing,760000,community,https://www.roa-hiking.com/en-us/products/roa-footwear-minaar-black-j279650
-ROA,Saharan Cap,Cap,,clothing,92000,community,https://www.roa-hiking.com/products/roa-accessories-saharan-cap-multicolor-j277346
+ROA,Saharan Cap,Hat,,clothing,92000,community,https://www.roa-hiking.com/products/roa-accessories-saharan-cap-multicolor-j277346
 Salomon,Sense Ride 5,Trail runners,Men's,clothing,584000,manufacturer,https://www.alpinetrek.co.uk/salomon-sense-ride-5-trail-running-shoes/
 Salomon,Sense Ride 5,Trail runners,Women's,clothing,506000,manufacturer,https://www.alpinetrek.co.uk/salomon-womens-sense-ride-5-trail-running-shoes/
 Salomon,X Ultra 360 (low),Hiking shoes,Men's,clothing,697000,manufacturer,https://www.alpinetrek.co.uk/salomon-x-ultra-360-multisport-shoes/
@@ -1443,6 +1509,7 @@ Satisfy,PeaceShell River Shirt,Sun shirt,M,clothing,168000,manufacturer,https://
 Satisfy,Pertex 3L Fly Rain Jacket,Rain jacket,M,clothing,154000,manufacturer,https://satisfyrunning.com/products/pertex-3l-fly-rain-jacket
 Satisfy,Pertex Diamond Fuse Windbreaker,Wind jacket,M,clothing,107000,manufacturer,https://satisfyrunning.com/products/pertex-diamond-fuse-windbreaker-black
 Satisfy,Pertex Modular Thermal Vest,Vest,M,clothing,187000,manufacturer,https://satisfyrunning.com/products/pertex-modular-thermal-vest-1
+Satisfy,Rippy Air Trail Cap,Hat,,clothing,24000,manufacturer,https://www.satisfyrunning.com/products/rippy-air-trail-cap-black
 Satisfy,Rippy Modular Windbreaker,Wind jacket,M,clothing,93000,manufacturer,https://satisfyrunning.com/products/rippy-modular-windbreaker-black
 Satisfy,"Space-O 2.5"" Shorts",Shorts,M,clothing,124000,manufacturer,https://satisfyrunning.com/products/long-distance-2-5-shorts
 Satisfy,"TechSilk 8"" Shorts",Shorts,M,clothing,130000,manufacturer,https://satisfyrunning.com/products/short-distance-8-shorts
@@ -1480,6 +1547,7 @@ Snow Peak,Breathable Insulated Jacket,Insulated jacket,Size L,clothing,410000,ma
 Soar,Nano Jacket,Wind jacket,M,clothing,129000,measured,https://www.roadtrailrun.com/2025/12/soar-running-nano-jacket-review.html
 Soar,Nano Rain Jacket,Rain jacket,L,clothing,242000,measured,https://www.advnture.com/reviews/soar-nano-rain-jacket
 Soar,Running Sleeves,Arm sleeves,M,clothing,28000,measured,https://www.irunfar.com/soar-running-apparel-review
+Soar,Tempo Top,Running shirt,M,clothing,150000,manufacturer,https://www.soarrunning.com/en-us/products/mens-tempo-top-black-1
 Soar,Trail Rain Jacket,Rain jacket,M,clothing,159000,measured,https://www.roadtrailrun.com/2023/11/soar-running-x-trail-round-up-review.html
 Soar,Ultra Rain Jacket 2.0,Rain jacket,M,clothing,144000,manufacturer,https://www.runningxpert.com/en/soar-herre-ultra-rain-jacket-2-0.html
 Stone Island Shadow Project,DPM Map Down Jacket,Down jacket,Men's M,clothing,750000,community,https://www.endclothing.com/us/stone-island-shadow-project-dpm-map-down-jacket-7119-40412-v0029.html
@@ -1491,7 +1559,7 @@ Superfeet,Hike Cushion Insole,Insoles,Size D,clothing,96000,manufacturer,https:/
 Superfeet,Hike Support Insole,Insoles,Size D,clothing,104000,manufacturer,https://www.garagegrowngear.com/products/hike-support-insole-by-superfeet
 Superfeet,Hike Women's Support Insole,Insoles,Size D,clothing,104000,manufacturer,https://www.garagegrowngear.com/products/hike-womens-support-insole-by-superfeet
 Territory Run Co.,Men's Long Haul Short,Shorts,Medium,clothing,150000,manufacturer,https://www.garagegrowngear.com/products/mens-long-haul-short-by-territory-run-co
-Territory Run Co.,The Long Haul Cap,Cap,,clothing,60000,manufacturer,https://www.garagegrowngear.com/products/the-long-haul-cap-by-territory-run-co
+Territory Run Co.,The Long Haul Cap,Hat,,clothing,60000,manufacturer,https://www.garagegrowngear.com/products/the-long-haul-cap-by-territory-run-co
 Territory Run Co.,Women's All Day Run Shorts,Shorts,,clothing,113398,manufacturer,https://www.garagegrowngear.com/products/womens-all-day-run-shorts-by-territory-run-co
 Territory Run Co.,Women's Long Haul Short,Shorts,Medium,clothing,113398,manufacturer,https://web.archive.org/web/20240713070703/https://www.garagegrowngear.com/products/womens-long-haul-short-by-territory-run-co
 Teton Bros,Feather Rain Jacket,Rain jacket,Men's M,clothing,185000,manufacturer,https://www.teton-bros.com/en/products/feather-rain-jacket
@@ -1547,9 +1615,44 @@ XOSKIN,XOWOOL (Toe Sock) Quarter Crew,Socks,Size 2,clothing,56000,manufacturer,h
 Yamatomichi,UL Shirt,Shirt,Size M,clothing,99000,manufacturer,https://www.yamatomichi.com/en/products/ul-shirt
 Yonderwear,The Yonderpair Women's Underwear,Underwear,Medium Mid-Rise,clothing,39000,manufacturer,https://www.garagegrowngear.com/products/the-yonderpair-womens-underwear-by-yonderwear
 Youer,Treasure Dress Air,Dress,Medium,clothing,170000,manufacturer,https://www.garagegrowngear.com/products/treasure-dress-by-youer
+Zpacks,Brushtail Possum Beanie,Beanie,,clothing,67000,manufacturer,https://zpacks.com/products/brushtail-possum-beanie
+Zpacks,Brushtail Possum Mittens,Mittens,,clothing,31000,manufacturer,https://zpacks.com/products/brushtail-possum-mittens
+Zpacks,Brushtail Possum Socks,Socks,,clothing,77000,manufacturer,https://zpacks.com/products/possumdown-socks
+Zpacks,Conductive Brushtail Possum Gloves,Gloves,,clothing,33000,manufacturer,https://zpacks.com/products/possumdown-gloves
+Zpacks,DCF Rain Kilt,Rain skirt,,clothing,52000,manufacturer,https://zpacks.com/products/dcf-rain-kilt
 Zpacks,Deluxe Camp Shoes,Camp shoes,M,clothing,76000,manufacturer,https://www.garagegrowngear.com/products/deluxe-camp-shoes-by-zpacks
+Zpacks,Down Booties,Booties,,clothing,38000,manufacturer,https://zpacks.com/products/zpacks-down-booties
+Zpacks,Down Hood,Hood,,clothing,36000,manufacturer,https://zpacks.com/products/zpacks-down-hood
+Zpacks,Down Jacket,Down jacket,,clothing,174000,manufacturer,https://zpacks.com/products/zpacks-down-jacket
+Zpacks,Fingerless Brushtail Possum Gloves,Gloves,,clothing,29000,manufacturer,https://zpacks.com/products/fingerless-brushtail-possum-gloves
+Zpacks,Foldable Trail Hat,Sun hat,,clothing,54000,manufacturer,https://zpacks.com/products/foldable-trail-hat
+Zpacks,Groundsheet Poncho,Poncho,,clothing,166000,manufacturer,https://zpacks.com/products/groundsheet-poncho-flat
+Zpacks,Micro-Fleece Hat,Beanie,,clothing,28000,manufacturer,https://zpacks.com/products/fleece-hat
+Zpacks,Mirage Merino Sun Hoody,Sun hoodie,,clothing,200000,manufacturer,https://zpacks.com/products/the-mirage-merino-sun-hoody
+Zpacks,Mirage Merino Sun Hoody,Sun hoodie,Women's,clothing,169000,manufacturer,https://zpacks.com/products/womens-mirage-merino-sun-hoody
+Zpacks,Neck Gaiter,Neck gaiter,,clothing,31000,manufacturer,https://zpacks.com/products/zpacks-neck-gaiter
+Zpacks,Octa Fleece Camp Pants,Fleece pants,,clothing,147000,manufacturer,https://zpacks.com/products/zpacks-octa-fleece-camp-pants
+Zpacks,Octa Fleece Hoody,Fleece,Full Zip,clothing,144000,manufacturer,https://zpacks.com/products/zpacks-octa-fleece-hoody-full-zip
+Zpacks,Octa Fleece Hoody,Fleece,Pullover,clothing,134000,manufacturer,https://zpacks.com/products/zpacks-octa-fleece-hoody
+Zpacks,Octa Fleece Hoody,Fleece,"Women's, Full Zip",clothing,120000,manufacturer,https://zpacks.com/products/womens-octa-fleece-hoody-full-zip
+Zpacks,Octa Fleece Hoody,Fleece,"Women's, Pullover",clothing,114000,manufacturer,https://zpacks.com/products/womens-octa-fleece-hoody-pullover
+Zpacks,Octa Fleece Thermal Bottoms,Base layer bottoms,,clothing,99000,manufacturer,https://zpacks.com/products/octa-thermal-bottoms-long-underwear-leggings
+Zpacks,Radiant Wool T-Shirt,Shirt,,clothing,110000,manufacturer,https://zpacks.com/products/radiant-merino-wool-t-shirt
+Zpacks,Rain Gaiters,Gaiters,,clothing,51000,manufacturer,https://zpacks.com/products/gaiters
+Zpacks,Trail Cool Hiking Shorts,Shorts,,clothing,149000,manufacturer,https://zpacks.com/products/trail-cool-hiking-shorts
+Zpacks,Trail Cool Joggers,Joggers,,clothing,203000,manufacturer,https://zpacks.com/products/zpacks-trail-cool-joggers
+Zpacks,Trail Cool Socks,Socks,,clothing,21000,manufacturer,https://zpacks.com/products/trail-cool-socks
+Zpacks,Trail Cool Sun Hoody,Sun hoodie,,clothing,146000,manufacturer,https://zpacks.com/products/zpacks-trail-cool-sun-hoody
+Zpacks,Trail Cool T-Shirt,Shirt,,clothing,75000,manufacturer,https://zpacks.com/products/zpacks-trail-cool-t-shirt-obs
+Zpacks,Trail Trucker Hat,Trucker hat,,clothing,75000,manufacturer,https://zpacks.com/products/trail-trucker-hat
+Zpacks,Travel & Trail Convertible Hiking Pants,Hiking pants,,clothing,324000,manufacturer,https://zpacks.com/products/zpacks-travel-trail-convertible-hiking-pants
+Zpacks,Travel & Trail Hiking Pants,Hiking pants,,clothing,287000,manufacturer,https://zpacks.com/products/zpacks-travel-trail-hiking-pants
 Zpacks,Ultralight Camp Shoes,Camp shoes,Medium,clothing,52000,manufacturer,https://www.garagegrowngear.com/products/ultralight-camp-shoes-by-zpacks
+Zpacks,Ventum Wind Shell Jacket,Wind jacket,,clothing,55000,manufacturer,https://zpacks.com/products/wind-shell-jacket
 Zpacks,Vertice Rain Jacket,Rain jacket,Men's,clothing,153087,manufacturer,https://zpacks.com/products/vertice-rain-jacket
+Zpacks,Vertice Rain Kilt,Rain skirt,,clothing,68000,manufacturer,https://zpacks.com/products/vertice-rain-kilt
+Zpacks,Vertice Rain Mitts,Rain mitts,,clothing,21000,manufacturer,https://zpacks.com/products/vertice-rain-mitts
+Zpacks,Zpacks x TownShirt Button Up Hiking Shirt,Shirt,,clothing,177000,manufacturer,https://zpacks.com/products/zpacks-x-townshirt-button-up-hiking-shirt
 ACR,ResQLink 400 PLB,PLB,,electronics,143789,manufacturer,https://www.acrartex.com/products/resqlink-400/
 Alpenglow Gear,Alpenblow Classic Micro Inflator,Air pump,,electronics,8600,manufacturer,https://alpenglowgear.co/products/alpenblow
 Alpenglow Gear,Alpenblow Lux Micro Inflator,Air pump,,electronics,13700,manufacturer,https://alpenglowgear.co/products/alpenblow-lux
@@ -1619,6 +1722,8 @@ Nitecore,NU25,Headlamp,"400 lumen, USB-C",electronics,50000,manufacturer,https:/
 Nitecore,NU25 MCT UL,Headlamp,"400 lumen, USB-C",electronics,47000,manufacturer,https://www.nitecore.us/mobile-product/nu25ul
 Nitecore,NU27 600 Lumen Rechargeable Headlamp,Headlamp,,electronics,56000,manufacturer,https://www.garagegrowngear.com/products/nu27-600-lumen-rechargeable-headlamp-by-nitecore
 Nitecore,TINI 3 Keychain Flashlight,Flashlight,,electronics,20000,manufacturer,https://www.garagegrowngear.com/products/tini-3-keychain-flashlight-by-nitecore
+Nocs Provisions,Standard Issue 8x25 Waterproof Binoculars,Binoculars,,electronics,336000,manufacturer,https://www.nocsprovisions.com/products/standard-issue-8x25-waterproof-binoculars
+Nocs Provisions,Zoom Tube 8x32 Monocular,Monocular,,electronics,215000,manufacturer,https://www.nocsprovisions.com/products/zoom-tube-8x32-monocular-telescope
 Petzl,ACTIK CORE Headlamp,Headlamp,,electronics,88000,manufacturer,https://www.petzl.com/US/en/Sport/Headlamps/ACTIK-CORE
 Petzl,BINDI Headlamp,Headlamp,,electronics,34870,manufacturer,https://www.petzl.com/US/en/Sport/News/2018-7-24/What-you-need-to-know-about-the-BINDI
 Petzl,e+LITE,Headlamp,Emergency Headlamp,electronics,26000,manufacturer,https://www.petzl.com/INT/en/Operators/Headlamps/ePLUSLITE
@@ -1756,7 +1861,7 @@ Soto,Power Gas 500 Triple Mix,Fuel canister,"460g canister, net fuel",consumable
 Starbucks,VIA Instant Coffee,Instant coffee,single packet,consumable,3118,manufacturer,https://www.target.com/p/starbucks-via-instant-coffee-medium-roast-packets-pike-place-roast-packets-8ct-0-11oz/-/A-15251130
 Sun Bum,Sunscreen Lip Balm SPF 30,Lip balm,0.15 oz,consumable,4252,manufacturer,https://www.sunbum.com/products/signature-spf-30-sunscreen-lip-balm
 Tini Naturals,Mini Travel Size Deodorant,Deodorant,per item,consumable,11340,manufacturer,https://www.amazon.com/Naturals-Travel-Deodorant-Aluminum-Coconut/dp/B0FQXQCKYS
-Tocobo,Cica Cooling Sun Stick SPF50+,Sunscreen,18 g,consumable,18000,manufacturer,https://tocobo.us/products/cica-cooling-sun-stick
+Tocobo,Cica Cooling Sun Stick SPF50+,Sunscreen stick,18 g,consumable,18000,manufacturer,https://tocobo.us/products/cica-cooling-sun-stick
 Unpaste,Tooth Tabs,Toothpaste tablets,125 tablets,consumable,43000,manufacturer,https://www.garagegrowngear.com/products/tooth-tabs-by-unpaste
 Venture Wipes,Venture Wipes,Wipes,per packet,consumable,28000,manufacturer,https://www.garagegrowngear.com/products/venture-wipes
 WYSI Wipes,Multi-Purpose Expandable Wipes,Wipes,,consumable,27000,manufacturer,https://www.garagegrowngear.com/products/multi-purpose-expandable-wipes-by-wysi-wipes
@@ -1873,6 +1978,7 @@ CAMP,Corsa Race Ice Axe,Ice axe,,other,185000,manufacturer,https://www.garagegro
 CAMP,EKTO Lock Carabiner,Carabiner,,other,11000,manufacturer,https://www.garagegrowngear.com/products/ekto-lock-carabiner-by-c-a-m-p
 Cascade Mountain Tech,Carbon Fiber Quick Lock Trekking Pole,Trekking poles,"Cork Grip, per pair",other,459262,manufacturer,https://cascademountaintech.com/products/carbon-fiber-hiking-trekking-pole-cork-grip
 Cascade Wild,Ultralight Folding Table,Table,,other,65000,manufacturer,https://www.garagegrowngear.com/products/ultralight-table-by-cascade-wild
+CAYL,Race Bag,Duffel,,other,716000,manufacturer,https://cayl.co.kr/product/race-bag-cayl-grid-black/3209/
 Chicken Tramper Gear,Bear Can Key,Bear can key,,other,4000,manufacturer,https://www.garagegrowngear.com/products/bear-can-key-by-chicken-tramper-gear
 Chicken Tramper Gear,Hiker Hairbrush,Hairbrush,,other,28300,manufacturer,https://www.garagegrowngear.com/products/hiker-hairbrush-by-chicken-tramper-gear
 Chicken Tramper Gear,Phone Pocket,Phone pocket,,other,43000,manufacturer,https://www.garagegrowngear.com/products/phone-pocket-by-chicken-tramper-gear
@@ -1884,10 +1990,10 @@ Chicken Tramper Gear,Water Bottle Sleeve,Bottle sleeve,Short,other,40000,manufac
 Chicken Tramper Gear,Water Bottle Sleeve,Bottle sleeve,Smartwater Tall,other,45000,manufacturer,https://www.garagegrowngear.com/products/water-bottle-sleeve-by-chicken-tramper-gear
 Chicken Tramper Gear,Water Bottle Sleeve,Bottle sleeve,Wide,other,48000,manufacturer,https://www.garagegrowngear.com/products/water-bottle-sleeve-by-chicken-tramper-gear
 Chicken Tramper Gear,Zippered Shoulder Strap Pocket,Shoulder pocket,,other,48000,manufacturer,https://www.garagegrowngear.com/products/chest-strap-pocket-by-chicken-tramper-gear
-Ciele,ALZCap SC,Cap,,other,54000,manufacturer,https://www.altitude-sports.com/p/ciele-alz-cap-sc-athletics-small-unisex-cie-clalzscas
-Ciele,GOCap Century,Cap,,other,62000,manufacturer,https://thefeed.com/products/ciele-gocap-century
-Ciele,GOCap Comp,Cap,,other,50000,manufacturer,https://cieleathletics.com/products/gocap-comp-century-glade
-Ciele,GOCap SC,Cap,,other,55000,manufacturer,https://thealpinistas.com/ciele-gocap-sc-grp
+Ciele,ALZCap SC,Hat,,other,54000,manufacturer,https://www.altitude-sports.com/p/ciele-alz-cap-sc-athletics-small-unisex-cie-clalzscas
+Ciele,GOCap Century,Hat,,other,62000,manufacturer,https://thefeed.com/products/ciele-gocap-century
+Ciele,GOCap Comp,Hat,,other,50000,manufacturer,https://cieleathletics.com/products/gocap-comp-century-glade
+Ciele,GOCap SC,Hat,,other,55000,manufacturer,https://thealpinistas.com/ciele-gocap-sc-grp
 Coghlan's,Egg Holder,Egg holder,6 egg,other,95000,manufacturer,https://coghlans.com/products/egg-holder-6-count
 Cowboy Camping,Corral Cube,Packing cubes,Medium,other,28000,manufacturer,https://www.garagegrowngear.com/products/corral-cube-by-cowboy-camping
 Cowboy Camping,Corral Cube,Packing cubes,Small,other,21000,manufacturer,https://www.garagegrowngear.com/products/corral-cube-by-cowboy-camping
@@ -1909,7 +2015,10 @@ Dangle Supply,Lil Slugger Titanium One Hitter,One hitter,,other,8500,manufacture
 Derma-Safe,Folding Knife,Knife,,other,8000,manufacturer,https://www.garagegrowngear.com/products/derma-safe-knife-by-derma-safe
 District Vision,Kazu Tourer Sunglasses,Sunglasses,,other,22000,manufacturer,https://twelvesixtynine.com/products/kazu-tourer-glacier-blue-ice
 District Vision,Keiichi Sunglasses,Sunglasses,,other,22000,manufacturer,https://twelvesixtynine.com/products/district-vision-keiichi-grey-calm-tech
+District Vision,Koharu Eclipse,Sunglasses,,other,21000,manufacturer,https://districtvision.com/products/koharu-eclipse-black-d-onyx-mirror
+District Vision,Momoka Pacer,Sunglasses,,other,21000,manufacturer,https://districtvision.com/products/momoka-pacer-veridian-d-onyx-mirror
 District Vision,Nako Sunglasses,Sunglasses,,other,22000,manufacturer,https://www.sportique.com/products/district-vision-nako-black-sunglasses-district-sky-g15
+District Vision,Takeyoshi Altitude Master,Sunglasses,,other,24000,manufacturer,https://districtvision.com/products/takeyoshi-altitude-master-flint-d-silver-flash-mirror
 Durston,Iceline Trekking Poles,Trekking poles,"Strapless, per pair",other,268000,manufacturer,https://durstongear.com/products/iceline-trekking-poles
 Durston,Iceline Trekking Poles,Trekking poles,"Strapped, per pair",other,290000,manufacturer,https://durstongear.com/products/iceline-trekking-poles
 ENO,Atlas Suspension Straps,Hammock straps,,other,255146,manufacturer,https://eaglesnestoutfittersinc.com/products/atlas-hammock-straps
@@ -1984,6 +2093,7 @@ Hawbuck,Lean Wallet Topo,Wallet,,other,5000,manufacturer,https://www.garagegrown
 Helinox,Chair One,Camp chair,,other,893000,manufacturer,https://helinox.com/products/chair-one
 Helinox,Chair Zero,Camp chair,chair only,other,490000,manufacturer,https://www.outdoorline.eu/products/helinox-chair-zero
 Helinox,Speed Stool,Camp stool,,other,454000,manufacturer,https://www.garagegrowngear.com/products/speed-stool-by-helinox
+Helinox,Vibram Ball Feet,Chair feet,"Set of 4, 55mm",other,297670,manufacturer,https://helinox.com/products/vibram-ball-feet-set
 High Tail Designs,Printed Dyneema Drawstring Stuff Sack,Stuff sack,,other,6800,manufacturer,https://www.garagegrowngear.com/products/ultralight-drawstring-stuff-sack-by-high-tail-designs
 High Tail Designs,Printed Dyneema Roll-Top Sack,Stuff sack,3.5L,other,17000,manufacturer,https://www.garagegrowngear.com/products/dyneema-roll-top-sack-by-high-tail-designs
 High Tail Designs,Printed Dyneema Roll-Top Sack,Stuff sack,9L,other,26000,manufacturer,https://www.garagegrowngear.com/products/dyneema-roll-top-sack-by-high-tail-designs
@@ -2060,6 +2170,9 @@ Kahtoola,K•10 Hiking Crampon,Crampons,X-Large,other,700000,manufacturer,https:
 Kahtoola,K•10 Hiking Crampon,Crampons,X-Small,other,658000,manufacturer,https://www.garagegrowngear.com/products/k-10-hiking-crampon
 Kahtoola,MICROspikes,Microspikes,,other,337359,measured,https://www.cleverhiker.com/footwear/kahtoola-microspikes-traction-device-review/
 Kahtoola,MICROspikes Ghost,Microspikes,M,other,192000,manufacturer,https://kahtoola.com/traction/microspikes-ghost-footwear-traction/
+Klättermusen,Algir Accessory Bag,Pouch,Medium,other,61000,manufacturer,https://www.klattermusen.com/en-us/backpacks/all-packs/41426u01-algir-accessory-bag-medium-raven/
+Klättermusen,Gebo Bag 23L,Tote bag,,other,127000,manufacturer,https://www.klattermusen.com/en-eu/40409u01-gebo-bag-23l-raven/
+Klättermusen,Hrid WP Accessory Bag 3L,Dry bag,,other,97000,manufacturer,https://www.klattermusen.com/en-us/backpacks/all-packs/10561-hrid-wp-accessory-bag-3l-raven/
 Kula Cloth,Pee Cloth,Pee cloth,,other,14000,manufacturer,https://www.garagegrowngear.com/products/kula-pee-cloth-by-kula-cloth
 Lawson Equipment,Bar Tensioners,Line tensioner,3mm,other,5000,manufacturer,https://www.garagegrowngear.com/products/bar-tensioners-by-lawson-equipment
 Lawson Equipment,Reflective Glowire (50' Hank),Guyline,2.5mm,other,82000,manufacturer,https://www.garagegrowngear.com/products/reflective-glowire-by-lawson-equipment
@@ -2196,6 +2309,7 @@ Rawlogy,Cork Massage Ball,Massage ball,"Classic 2.4""",other,40000,manufacturer,
 Rawlogy,Cork Massage Ball,Massage ball,"Mini 2""",other,20000,manufacturer,https://www.garagegrowngear.com/products/cork-massage-balls-by-rawlogy
 Rawlogy,Cork Massage Ball,Massage ball,"Ultra Mini 1.4"", per ball",other,7000,manufacturer,https://www.garagegrowngear.com/products/cork-massage-balls-by-rawlogy
 Rawlogy,Micro Cork Massage Ball,Massage ball,per ball,other,1000,manufacturer,https://www.garagegrowngear.com/products/micro-massage-ball-cork-by-rawlogy
+Rayon Vert,Wormholes Sunglasses,Sunglasses,without lanyard,other,22800,manufacturer,https://rayonvert.international/blogs/news/wormholes-sunglasses-how-to-do-sunglasses-almost-entirely-in-house
 Red Paw Packs,Ultralight Dog Backpack,Dog pack,Large,other,366000,manufacturer,https://www.garagegrowngear.com/products/ultralight-dog-backpack-by-red-paw-packs
 Red Paw Packs,Ultralight Dog Backpack,Dog pack,Medium,other,323000,manufacturer,https://www.garagegrowngear.com/products/ultralight-dog-backpack-by-red-paw-packs
 Red Paw Packs,Ultralight Dog Backpack,Dog pack,Small,other,278000,manufacturer,https://www.garagegrowngear.com/products/ultralight-dog-backpack-by-red-paw-packs
@@ -2216,7 +2330,7 @@ Research Studio,Uncut Sunglasses,Sunglasses,,other,27000,manufacturer,https://re
 Rite in the Rain,All-Weather Pocket Pen,Pen,2-pack,other,23000,manufacturer,https://www.garagegrowngear.com/products/all-weather-pocket-pen-by-rite-in-the-rain
 Rite in the Rain,Stapled All-Weather Notebooks,Notebook,3-pack,other,57000,manufacturer,https://www.garagegrowngear.com/products/stapled-all-weather-notebook-by-rite-in-the-rain
 Rite in the Rain,Top Spiral All-Weather Notebook,Notebook,,other,57000,manufacturer,https://www.garagegrowngear.com/products/top-spiral-waterproof-notebook-by-rite-in-the-rain
-Satisfy,PeaceShell Running Cap,Cap,,other,30000,manufacturer,https://satisfyrunning.com/products/peaceshell-running-cap-5
+Satisfy,PeaceShell Running Cap,Hat,,other,30000,manufacturer,https://satisfyrunning.com/products/peaceshell-running-cap-5
 Satisfy,Pertex 3L Rain Cap,Rain cap,,other,27000,manufacturer,https://satisfyrunning.com/products/pertex-3l-rain-cap
 Sea to Summit,Field Repair Buckle,Repair buckle,"20mm, 1 Pin",other,13000,manufacturer,https://www.garagegrowngear.com/products/field-repair-buckle-by-sea-to-summit
 Sea to Summit,Field Repair Buckle,Repair buckle,"20mm, 2 Pins",other,13000,manufacturer,https://www.garagegrowngear.com/products/field-repair-buckle-by-sea-to-summit
@@ -2239,6 +2353,7 @@ Sea to Summit,Ultra-Sil Stuff Sack,Stuff sack,5L,other,25000,manufacturer,https:
 Sea to Summit,Ultra-Sil Stuff Sack,Stuff sack,8L,other,32000,manufacturer,https://seatosummit.com/products/the-ultra-sil-stuff-sack
 Sea to Summit,Ultra-Sil Stuff Sack,Stuff sack,"L, 15L",other,28350,manufacturer,https://www.ellis-brigham.com/sea-to-summit-ultra-sil-stuff-sack-large-15l-253103900
 Sea to Summit,Ultra-Sil Stuff Sack,Stuff sack,"XXS, 2.5L",other,11340,manufacturer,https://www.altitude-sports.com/products/sea-to-summit-ultra-sil-stuff-sack-xxs-2-5-l-llll-sts-181
+Sealson,RVxSE P1 Mesh Wallet,Wallet,,other,25800,manufacturer,https://sealson.co/products/sexrv-p1-mesh-wallet
 Six Moon Designs,Hands Free Umbrella Kit,Umbrella,,other,10000,manufacturer,https://www.garagegrowngear.com/products/hands-free-umbrella-kit-by-six-moon-designs
 Six Moon Designs,Pack Liner,Pack liner,,other,85000,manufacturer,https://www.garagegrowngear.com/products/pack-liner-by-six-moon-designs
 Six Moon Designs,Packing Pod,Packing cubes,"Large, 7L, per pod",other,28000,manufacturer,https://www.garagegrowngear.com/products/pack-pods-3-pack-large-by-six-moon-designs
@@ -2249,9 +2364,12 @@ SKS Bottles,Fine Mist Sprayer,Spray bottle,10mL,other,10000,manufacturer,https:/
 SKS Bottles,Hinged Box Container,Container,,other,6000,manufacturer,https://www.garagegrowngear.com/products/hinged-containers
 SKS Bottles,Pill Bottles,Pill bottle,20mm,other,11000,manufacturer,https://www.garagegrowngear.com/products/pill-bottles
 SKS Bottles,Toiletry Bottles,Toiletry bottle,,other,8500,manufacturer,https://www.garagegrowngear.com/products/lotion-bottles
+Snow Peak,Camping Bucket Jumbo,Container,6 gal,other,370000,manufacturer,https://www.snowpeak.com/products/camping-bucket-jumbo-fp-150
 Snow Peak,Low Beach Chair,Camp chair,,other,3628739,manufacturer,https://www.snowpeak.com/products/low-beach-chair
 SnoWander,PoleClinometer Version 2.0,Inclinometer,,other,1500,manufacturer,https://www.garagegrowngear.com/products/poleclinometer-by-snowander
-Soar,Ultra Race Cap,Cap,,other,27000,manufacturer,https://www.altitude-sports.com/p/soar-running-ultra-race-cap-unisex-soa-sa13mw
+Soar,Cirrus Titanium Sunglasses 01,Sunglasses,,other,20000,manufacturer,https://www.soarrunning.com/en-us/products/cir-r-sil-01-soar-x-cubitts-sunglasses-01
+Soar,Cirrus Titanium Sunglasses 02,Sunglasses,,other,20000,manufacturer,https://www.soarrunning.com/en-us/products/cir-r-sil-02-soar-x-cubitts-sunglasses-02
+Soar,Ultra Race Cap,Hat,,other,27000,manufacturer,https://www.altitude-sports.com/p/soar-running-ultra-race-cap-unisex-soa-sa13mw
 SOL,"Duct Tape, 2 x 50"" Rolls",Duct tape,per roll,other,20000,manufacturer,https://www.garagegrowngear.com/products/duct-tape-2-x-50-rolls-by-sol
 Soto,Field Hopper Table,Table,,other,395000,manufacturer,https://www.garagegrowngear.com/products/field-hopper-table-by-soto-outdoors
 Space Bear Bags,First Aid Pouch,First aid pouch,,other,9000,manufacturer,https://www.garagegrowngear.com/products/first-aid-pouch-by-space-bear-bags
@@ -2325,17 +2443,82 @@ Zenbivy,Dry Sack + Compression Caps,Dry bag,15L,other,156000,manufacturer,https:
 Zenbivy,Dry Sack + Compression Caps,Dry bag,20L,other,181000,manufacturer,https://zenbivy.com/products/dry-sack-with-caps
 Zenbivy,Dry Sack + Compression Caps,Dry bag,4L,other,110000,manufacturer,https://zenbivy.com/products/dry-sack-with-caps
 Zenbivy,Dry Sack + Compression Caps,Dry bag,7L,other,122000,manufacturer,https://zenbivy.com/products/dry-sack-with-caps
+Zpacks,50 Feet 2 mm Z-Line Reflective Cord,Guyline,50 ft,other,55000,manufacturer,https://zpacks.com/products/50-feet-2-3-mm-z-line-reflective-cord
+Zpacks,Airplane Case,Case,,other,87000,manufacturer,https://zpacks.com/products/airplane-case
+Zpacks,Arc Backpack Belt,Hip belt,,other,108000,manufacturer,https://zpacks.com/products/replacement-arc-backpack-belt
+Zpacks,Bear Bagging Kit,Bear hang kit,,other,92000,manufacturer,https://zpacks.com/products/bear-bagging-kit
+Zpacks,Big Dry Bag,Dry bag,,other,20000,manufacturer,https://zpacks.com/products/big-dry-bag
+Zpacks,Big Food Bag,Food bag,,other,31000,manufacturer,https://zpacks.com/products/big-food-bag
+Zpacks,Big Stuff Sack,Stuff sack,,other,10000,manufacturer,https://zpacks.com/products/big-stuff-sack
+Zpacks,Carbon Fiber Staff,Hiking staff,,other,232000,manufacturer,https://zpacks.com/products/carbon-fiber-staff
 Zpacks,Carbon Fiber Tent Pole,Tent poles,"32""",other,27000,manufacturer,https://www.garagegrowngear.com/products/carbon-fiber-tent-poles-by-zpacks
 Zpacks,Carbon Fiber Tent Pole,Tent poles,"48""",other,74000,manufacturer,https://www.garagegrowngear.com/products/carbon-fiber-tent-poles-by-zpacks
 Zpacks,Carbon Fiber Tent Pole,Tent poles,"52""",other,79000,manufacturer,https://www.garagegrowngear.com/products/carbon-fiber-tent-poles-by-zpacks
 Zpacks,Carbon Fiber Tent Pole,Tent poles,"58""",other,111000,manufacturer,https://www.garagegrowngear.com/products/carbon-fiber-tent-poles-by-zpacks
+Zpacks,Document Zip Pouch,Pouch,,other,27000,manufacturer,https://zpacks.com/products/document-zip-pouch
+Zpacks,Double-Hook Apparatus,Gear hooks,,other,2100,manufacturer,https://zpacks.com/products/double-hook-apparatus
+Zpacks,Foam Sit Pad,Sit pad,,other,27000,manufacturer,https://zpacks.com/products/foam-sit-pad
+Zpacks,Front Utility Pack Accessory,Chest pack,,other,81000,manufacturer,https://zpacks.com/products/front-utility-pack-accessory
+Zpacks,Gear Nest,Pouch,,other,10500,manufacturer,https://zpacks.com/products/gear-nest
+Zpacks,Glasses Zip Pouch,Pouch,,other,10600,manufacturer,https://zpacks.com/products/glasses-zip-pouch
+Zpacks,Groundsheet Attachment Kit,Rigging kit,,other,11000,manufacturer,https://zpacks.com/products/groundsheet-attachment-kit
 Zpacks,Hip Belt Pouch,Hip belt pocket,,other,24000,manufacturer,https://www.garagegrowngear.com/products/belt-pouch-by-zpacks
+Zpacks,Ice Axe Loops,Gear hooks,both sides of pack,other,3000,manufacturer,https://zpacks.com/products/ice-axe-loops-both-sides-of-pack
+Zpacks,Itty Bitty Ditty Bag,Stuff sack,,other,11200,manufacturer,https://zpacks.com/products/itty-bitty-ditty-bag
+Zpacks,Large Food Bag,Food bag,,other,38000,manufacturer,https://zpacks.com/products/large-food-bag
+Zpacks,Large Rectangle Dry Bag,Dry bag,,other,24000,manufacturer,https://zpacks.com/products/large-rectangle-dry-bag
+Zpacks,Large Stuff Sack,Stuff sack,,other,11400,manufacturer,https://zpacks.com/products/large-stuff-sack
 Zpacks,Lotus UL Umbrella,Umbrella,,other,193000,manufacturer,https://www.garagegrowngear.com/products/lotus-ul-umbrella-by-zpacks
+Zpacks,Lumbar Pad,Back pad,,other,28000,manufacturer,https://zpacks.com/products/lumbar-pad
+Zpacks,Medium Dry Bag,Dry bag,,other,17000,manufacturer,https://zpacks.com/products/medium-dry-bag
+Zpacks,Medium Stuff Sack,Stuff sack,,other,7800,manufacturer,https://zpacks.com/products/medium-stuff-sack
+Zpacks,Medium-Plus Dry Bag,Dry bag,,other,20000,manufacturer,https://zpacks.com/products/medium-plus-dry-bag
+Zpacks,Medium-Plus Stuff Sack,Stuff sack,,other,9000,manufacturer,https://zpacks.com/products/medium-plus-stuff-sack
+Zpacks,Mesh Tent Pocket,Pouch,,other,4000,manufacturer,https://zpacks.com/products/mesh-tent-pocket
+Zpacks,Mini Hair Brush w/ Mirror,Hairbrush,,other,33000,manufacturer,https://zpacks.com/products/mini-hair-brush-w-mirror
+Zpacks,Mini Stuff Sack,Stuff sack,,other,4200,manufacturer,https://zpacks.com/products/mini-stuff-sack
+Zpacks,Multi-Pack,Chest pack,,other,86000,manufacturer,https://zpacks.com/products/multi-pack
+Zpacks,Pack Cover,Pack cover,,other,40000,manufacturer,https://zpacks.com/products/pack-cover
+Zpacks,Pack Liner,Pack liner,,other,35000,manufacturer,https://zpacks.com/products/pack-liner
+Zpacks,Padded Belt for Frameless Backpacks,Hip belt,,other,88000,manufacturer,https://zpacks.com/products/padded-belt-for-nero-bagger
+Zpacks,Pair of Shoulder Strap Pads,Shoulder pads,,other,27000,manufacturer,https://zpacks.com/products/pair-of-shoulder-strap-pads
+Zpacks,Passport Zip Pouch,Pouch,,other,9400,manufacturer,https://zpacks.com/products/passport-zip-pouch
+Zpacks,Phablet Zip Pouch,Pouch,,other,10600,manufacturer,https://zpacks.com/products/phablet-zip-pouch
+Zpacks,Phone Zip Pouch,Pouch,,other,9400,manufacturer,https://zpacks.com/products/phone-zip-pouch
+Zpacks,Potty Pack with Trowel,Bathroom kit,,other,39000,manufacturer,https://zpacks.com/products/potty-pack
+Zpacks,Rock Stuff Sack,Rock sack,,other,4200,manufacturer,https://zpacks.com/products/rock-stuff-sack
 Zpacks,Shoulder Strap Pocket,Shoulder pocket,Drawstring,other,18000,manufacturer,https://www.garagegrowngear.com/products/shoulder-strap-with-zipper-by-zpacks
 Zpacks,Shoulder Strap Pocket,Shoulder pocket,Zippered,other,25000,manufacturer,https://www.garagegrowngear.com/products/shoulder-strap-with-zipper-by-zpacks
+Zpacks,Sleeping Pad Slide Stopper Set,Straps,,other,11260,manufacturer,https://zpacks.com/products/sleep-pad-slide-stopper
+Zpacks,Slim Dry Bag,Dry bag,,other,15000,manufacturer,https://zpacks.com/products/slim-dry-bag
+Zpacks,Slim Stuff Sack,Stuff sack,,other,6800,manufacturer,https://zpacks.com/products/slim-stuff-sack
+Zpacks,Small Dry Bag,Dry bag,,other,12000,manufacturer,https://zpacks.com/products/small-dry-bag
+Zpacks,Small Stuff Sack,Stuff sack,,other,5000,manufacturer,https://zpacks.com/products/small-stuff-sack
+Zpacks,Small-Plus Stuff Sack,Stuff sack,,other,6000,manufacturer,https://zpacks.com/products/small-plus-stuff-sack
 Zpacks,Sonic Stake,Tent stakes,"6"" Sonic",other,8500,manufacturer,https://www.garagegrowngear.com/products/sonic-stake-by-zpacks
 Zpacks,Sonic Stake,Tent stakes,"7"" Super Sonic",other,16000,manufacturer,https://www.garagegrowngear.com/products/sonic-stake-by-zpacks
-Zpacks,Trailbrush,Brush,brush only,other,2000,manufacturer,https://zpacks.com/products/trailbrush-w-5g-colgate-toothpaste
+Zpacks,Stake Sack,Stake bag,,other,3400,manufacturer,https://zpacks.com/products/stake-sack
+Zpacks,Stove Stuff Sack,Stuff sack,,other,2600,manufacturer,https://zpacks.com/products/stove-stuff-sack
+Zpacks,Tablet Zip Pouch,Pouch,,other,13500,manufacturer,https://zpacks.com/products/tablet-zip-pouch
+Zpacks,Tall Dry Bag,Dry bag,,other,17000,manufacturer,https://zpacks.com/products/tall-dry-bag
+Zpacks,Tiny Oval Carabiner,Carabiner,per carabiner,other,1500,manufacturer,https://zpacks.com/products/zpacks-tiny-oval-carabiner-4-pack
+Zpacks,Top Side Pocket,Pack pocket,,other,14000,manufacturer,https://zpacks.com/products/top-side-pocket
+Zpacks,Trailbrush,Toothbrush,brush only,other,2000,manufacturer,https://zpacks.com/products/trailbrush-w-5g-colgate-toothpaste
+Zpacks,Travel Utility Zip,Pouch,,other,26000,manufacturer,https://zpacks.com/products/travel-line-utility-zip
+Zpacks,Trekking Pole Cup,Pole holder,,other,4000,manufacturer,https://zpacks.com/products/trekking-pole-cup
+Zpacks,Trekking Pole Holsters,Pole holder,both sides of pack,other,12000,manufacturer,https://zpacks.com/products/trekking-pole-holsters-both-sides-of-pack
+Zpacks,Tri-Fold Minimalist Wallet,Wallet,,other,12200,manufacturer,https://zpacks.com/products/tri-fold-minimalist-wallet
 Zpacks,Tyvek Groundsheet,Groundsheet,5 ft x 9 ft cut,other,260816,manufacturer,https://zpacks.com/products/tyvek-groundsheet
 Zpacks,Ultralight Dog Bowl,Dog bowl,Large,other,8000,manufacturer,https://zpacks.com/products/ultralight-dog-bowl
 Zpacks,Ultralight Dog Bowl,Dog bowl,Small,other,4000,manufacturer,https://zpacks.com/products/ultralight-dog-bowl
+Zpacks,Ultralight Sunglasses Case,Case,,other,17000,manufacturer,https://zpacks.com/products/sunglass-case
+Zpacks,Ultralight Sunglasses Case w/ Microfiber Cloth,Case,,other,26000,manufacturer,https://zpacks.com/products/ultralight-sunglasses-case-w-microfiber-cloth
+Zpacks,Ultralight Titanium Whistle,Whistle,,other,5000,manufacturer,https://zpacks.com/products/ultralight-titanium-whistle
+Zpacks,Umbrella Holster,Umbrella mount,,other,6000,manufacturer,https://zpacks.com/products/umbrella-holster
+Zpacks,Umbrella Stuff Sack,Stuff sack,,other,8000,manufacturer,https://zpacks.com/products/umbrella-stuff-sack
+Zpacks,Wallet Stuff Sack,Stuff sack,,other,2200,manufacturer,https://zpacks.com/products/wallet-camera-stuff-sack
+Zpacks,Wallet Zip Pouch,Pouch,,other,6200,manufacturer,https://zpacks.com/products/wallet-zip-pouch
+Zpacks,Water Bottle Sleeve,Bottle sleeve,,other,16000,manufacturer,https://zpacks.com/products/water-bottle-sleeve
+Zpacks,XL Airplane Case,Case,,other,106000,manufacturer,https://zpacks.com/products/airplane-case-xl
+Zpacks,Zpacks x Glacial Gear Wool Trail Rag,Bandana,,other,17000,manufacturer,https://zpacks.com/products/zpacks-x-glacial-gear-wool-trail-rag
+Zpacks,Zpacks x Vaucluse Ventilation Frame + Sleeve,Ventilation frame,,other,137000,manufacturer,https://zpacks.com/products/vaucluse-ventilation-air-frame-sleeve

@@ -208,6 +208,19 @@
       "weight_source": "manufacturer",
       "source_url": "https://zpacks.com/products/summer-quilt-winter-liner",
       "quote": "Weight 8.8 oz / 250 g (40F (5C), Slim-Short; Summer Quilt / Winter Liner)"
+    },
+    {
+      "brand": "Zpacks",
+      "name": "Stove Stuff Sack",
+      "variant": "",
+      "category_hint": "other",
+      "common_name": "stuff sack",
+      "weight_value": 2.6,
+      "weight_unit": "g",
+      "weight_secondary": "0.09 oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://zpacks.com/products/stove-stuff-sack",
+      "quote": "0.09 oz / 2.6 g (black 1.0 oz/sqyd Dyneema Composite Fabric, 3.5\" x 5.5\"; sized for a Soto Windmaster canister stove)"
     }
   ]
 }
