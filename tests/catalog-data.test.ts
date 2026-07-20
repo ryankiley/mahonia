@@ -33,7 +33,8 @@ describe("seed/catalog.csv data quality", () => {
   });
 
   it("common names are canonical — no un-normalized drift terms leaked through the build", () => {
-    const leaked = rows.filter((r) => r.commonName && GEAR_TYPE_ALIASES[r.commonName]);
+    // common names ship sentence-cased ("Tent"); the alias keys are lowercase, so fold first
+    const leaked = rows.filter((r) => r.commonName && GEAR_TYPE_ALIASES[r.commonName.toLowerCase()]);
     expect(leaked.map((r) => `${r.name} → ${r.commonName}`)).toEqual([]);
   });
 

@@ -55,8 +55,23 @@ export const GEAR_TYPE_ALIASES: Record<string, string> = {
   "zipper pouch": "pouch",
 };
 
-/** Canonicalize a common-name label: lowercase + trim, then apply the drift map. */
+// leading words that read better fully upper-cased than sentence-cased ("GPS watch", "PLB")
+const ACRONYMS: Record<string, string> = { gps: "GPS", plb: "PLB", uv: "UV", usb: "USB" };
+
+/** Sentence-case: capitalize the FIRST word only ("trail runners" → "Trail runners"),
+ *  upper-casing a known leading acronym whole ("gps watch" → "GPS watch"). */
+function sentenceCase(s: string): string {
+  if (!s) return s;
+  const sp = s.indexOf(" ");
+  const first = sp === -1 ? s : s.slice(0, sp);
+  const rest = sp === -1 ? "" : s.slice(sp);
+  return (ACRONYMS[first] ?? first.charAt(0).toUpperCase() + first.slice(1)) + rest;
+}
+
+/** Canonicalize a common-name label: lowercase + trim, apply the drift map, then
+ *  sentence-case it (first word capitalized) — the default display form. */
 export function normalizeGearType(label: string | null | undefined): string {
   const key = (label ?? "").trim().toLowerCase();
-  return GEAR_TYPE_ALIASES[key] ?? key;
+  if (!key) return "";
+  return sentenceCase(GEAR_TYPE_ALIASES[key] ?? key);
 }
