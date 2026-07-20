@@ -182,6 +182,7 @@ function onRowBlur(e: FocusEvent) {
   // focus left the window entirely (alt-tab / app switch) rather than moving
   // elsewhere in the app — keep the row so they can come back and finish it
   if (!next && typeof document !== "undefined" && !document.hasFocus()) return;
+  nameEditing.value = false; // done with this row — an untouched common-name field folds away
   c.discardEmpty(props.item.id);
 }
 
@@ -362,9 +363,16 @@ const classTitle = computed(() =>
 const subOpen = ref(false);
 const cnameRef = useTemplateRef<HTMLInputElement>("cnameRef");
 const noteRef = useTemplateRef<HTMLInputElement>("noteRef");
+// Editing the product name also offers the common name, so gear typed by hand (no catalog
+// row to pre-fill it) has a visible place to put one — otherwise the only way in is the
+// hover-only sub-line button, and a custom item looks like it simply can't have one. Set
+// by focus landing anywhere in the name cell; held until focus leaves the ROW (so tabbing
+// on to the field itself, or to qty/weight, doesn't yank it away mid-edit), then cleared
+// by onRowBlur. An empty field just folds back up — nothing is written by revealing it.
+const nameEditing = ref(false);
 // the sub-line block shows when a common name or note is set, OR the fields were opened to add one
 const subShown = computed(
-  () => !!props.item.commonName || !!props.item.description || subOpen.value,
+  () => !!props.item.commonName || !!props.item.description || subOpen.value || nameEditing.value,
 );
 // reveal the (empty) fields to add a common name / note; focus the common name. Toggling
 // off just hides the empties — saved values keep showing and are edited/cleared in place.
@@ -492,7 +500,10 @@ function dismissFix() {
 
     <div v-else class="item-row item">
       <!-- editable row (default) -->
-      <div class="item__name" :class="{ 'item__name--group': isParent }">
+      <!-- focusin (it bubbles, unlike focus) rather than binding ItemInput's own input:
+           the name cell is the whole "what is this item" affordance, so landing anywhere
+           in it offers the common name below (see nameEditing) -->
+      <div class="item__name" :class="{ 'item__name--group': isParent }" @focusin="nameEditing = true">
         <ItemInput
           :unit="list.displayUnit"
           :initial="editableName"
@@ -682,7 +693,7 @@ function dismissFix() {
       <div v-if="!packed && subShown" class="reveal reveal--note">
         <div class="item__subfields">
           <input
-            v-if="item.commonName || subOpen"
+            v-if="item.commonName || subOpen || nameEditing"
             ref="cnameRef"
             class="item__note item__cname-input"
             :value="item.commonName ?? ''"
