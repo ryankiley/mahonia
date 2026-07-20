@@ -282,7 +282,7 @@ async function cloneList() {
 // one table drives the ⋯ menu — its markup AND its dispatch — so an action can't
 // exist in one without the other (a string-keyed lookup would let a typo no-op)
 const MENU_ACTIONS = [
-  { label: "New list", run: () => newList() },
+  { label: "Create a list", run: () => newList() },
   { label: "Duplicate this list", run: cloneList },
   { label: "Import a list…", run: () => { importOpen.value = true; } },
   { label: "Copy as Markdown", run: copyMarkdown },
@@ -505,7 +505,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
 
     <main v-else-if="status === 'missing'" class="wrap editor__missing">
       <p class="t-muted">This list isn’t in this browser, or the link is invalid.</p>
-      <button class="btn btn--primary" @click="newList({ replace: true })">Start a new list</button>
+      <button class="btn btn--primary" @click="newList({ replace: true })">Create a list</button>
     </main>
 
     <main v-else class="wrap editor__missing">
