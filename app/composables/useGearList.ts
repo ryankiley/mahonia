@@ -630,8 +630,13 @@ function create() {
   // take, the group starts empty with its name field focused; it can't be discarded
   // out from under the user, as discardEmpty never removes a row that has children.
   //
+  // `focusNewGroup` — whether an unnamed new group should take the caret. True for the
+  // deliberate, one-at-a-time gestures (the indent button, "add a nested item"); FALSE for
+  // a drag, where the group is a side effect of the drop and stealing focus summons the
+  // soft keyboard the instant the finger lifts.
+  //
   // Returns the id to actually nest into: the row itself, or the new group.
-  function containerFor(targetId: string): string {
+  function containerFor(targetId: string, focusNewGroup: boolean): string {
     const items = snapshot.value?.items;
     const target = items?.find((i) => i.id === targetId);
     if (!items || !target) return targetId;
@@ -661,22 +666,57 @@ function create() {
     // print on both lines. Clearing it here IS the "user cleared it" the flag means.
     if (target.commonName)
       dispatch({ t: "updateItem", id: targetId, patch: { commonName: "", commonNameOverridden: true } });
-    else pendingBlankId.value = id; // nothing to name it with — focus the empty field
+    else if (focusNewGroup) pendingBlankId.value = id; // nothing to name it with — focus the empty field
     return id;
+  }
+  // The reverse of the wrap. Pulling the LAST child out of a container that holds nothing
+  // but a name undoes the whole thing: the container goes, and the name it was given —
+  // the product's gear type, lifted at wrap time — goes back to the product.
+  //
+  // Without this, nest-then-un-nest loses in both directions: the product's gear type was
+  // cleared WITH commonNameOverridden set (so live-resolve can't refill it — see the wrap
+  // above), and the childless container outlives discardEmpty precisely because it has a
+  // name. The user gets a product missing its label plus a stray zero-weight row.
+  //
+  // A hand-built group ("Cook kit") is shaped identically to a wrap group — a name and
+  // nothing else — so the discriminator is on the CHILD: an empty-but-overridden gear type
+  // is exactly what the wrap leaves behind and nothing else produces. Anything that isn't
+  // that signature falls through to discardEmpty, which is the old behavior untouched.
+  function unwrapEmptied(containerId: string, childId: string) {
+    const items = snapshot.value?.items;
+    const container = items?.find((i) => i.id === containerId);
+    const child = items?.find((i) => i.id === childId);
+    if (
+      !items || !container || !child || !container.name ||
+      items.some((i) => i.parentId === containerId) || // still holds other children
+      !child.commonNameOverridden || child.commonName || // not a row that gave a label up
+      // a container carrying content of its own is a real row, not a wrapper
+      container.unitWeightMg > 0 || container.qty !== 1 || container.description ||
+      container.productUrl || container.catalogItemId != null ||
+      container.classification != null || container.wornQty != null || container.packed
+    )
+      return discardEmpty(containerId);
+    dispatch({
+      t: "updateItem",
+      id: childId,
+      // a catalog-linked row's gear type was the catalog's own default, so hand ownership
+      // back to live-resolve; a hand-typed row's label is the user's, so keep it pinned
+      patch: { commonName: container.name, commonNameOverridden: child.catalogItemId == null },
+    });
+    dispatch({ t: "removeItem", id: containerId });
   }
   // Add a blank child under `parentId` and focus it — the same blank-row machinery as
   // addBlankItem, positioned as the parent's last child (it inherits the parent's folder).
   function addChild(parentId: string): string {
-    const containerId = containerFor(parentId);
+    // the blank child below takes the caret, so the wrap must not claim it first
+    const containerId = containerFor(parentId, false);
     const parent = snapshot.value?.items.find((i) => i.id === containerId);
     if (!parent) return "";
     const id = uid();
     const sortOrder = nextSortOrder(snapshot.value!.items, parent.folderId, containerId);
     const item: Item = { id, folderId: parent.folderId, parentId: containerId, name: "", unitWeightMg: 0, qty: 1, classification: null, sortOrder };
     dispatch({ t: "addItem", item });
-    // the blank child is what the user asked for — it takes the focus even when the
-    // wrap above claimed it for an unnamed group
-    pendingBlankId.value = id;
+    pendingBlankId.value = id; // the blank child is what the user asked for
     return id;
   }
   // Nest `id` under `parentId`, appended to that parent's children (via moveItem so the
@@ -684,7 +724,9 @@ function create() {
   function nestItem(id: string, parentId: string) {
     const parent = snapshot.value?.items.find((i) => i.id === parentId);
     if (!parent) return;
-    moveItem(id, parent.folderId, null, parentId);
+    // a deliberate one-row gesture (the indent button), so an unnamed new group is worth
+    // the caret — unlike the drag path, which reaches moveItem without this
+    moveItem(id, parent.folderId, null, parentId, { focusNewGroup: true });
   }
   // (Indent lives in ItemRow: the row's DISPLAY-order predecessor comes from the
   // parent's v-for as prevId, and the click is nestItem(id, prevId) — a sorted
@@ -704,7 +746,13 @@ function create() {
   // otherwise re-sort ambiguously on reload). One moveItem op per row that actually
   // shifts, all batched into a single flush. Only the moved row carries the explicit
   // parentId; shifted siblings reorder in place (their nesting left untouched).
-  function moveItem(id: string, folderId: string | null, beforeId: string | null, parentId: string | null = null) {
+  function moveItem(
+    id: string,
+    folderId: string | null,
+    beforeId: string | null,
+    parentId: string | null = null,
+    { focusNewGroup = false }: { focusNewGroup?: boolean } = {},
+  ) {
     if (!snapshot.value) return;
     const it = snapshot.value.items.find((i) => i.id === id);
     if (!it) return;
@@ -713,15 +761,16 @@ function create() {
     // which addressed a child of the row we aimed at, no longer means anything
     // there. Appending is right: the wrapped product is the group's first child.
     if (parentId != null && parentId !== id) {
-      const containerId = containerFor(parentId);
+      const containerId = containerFor(parentId, focusNewGroup);
       if (containerId !== parentId) {
         parentId = containerId;
         beforeId = null;
       }
     }
-    // a row pulled OUT of a group can leave it childless; an untouched, unnamed
-    // container is then litter, and discardEmpty is exactly the "nothing was typed,
-    // nothing is lost" test for it (it keeps any group the user named or filled)
+    // a row pulled OUT of a group can leave it childless — unwrapEmptied undoes a wrap
+    // outright (name back to the product, container gone) and otherwise falls through to
+    // discardEmpty, the "nothing was typed, nothing is lost" test that keeps any group
+    // the user named or filled
     const formerParentId = it.parentId ?? null;
     const target = siblingItems(snapshot.value.items, folderId, parentId)
       .filter((i) => i.id !== id)
@@ -737,7 +786,7 @@ function create() {
         dispatch({ t: "moveItem", id: item.id, folderId, sortOrder: i });
       }
     });
-    if (formerParentId && formerParentId !== parentId) discardEmpty(formerParentId);
+    if (formerParentId && formerParentId !== parentId) unwrapEmptied(formerParentId, id);
   }
 
   async function rotate(): Promise<string | null> {

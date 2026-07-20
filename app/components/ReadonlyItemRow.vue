@@ -49,7 +49,7 @@ const collapsed = ref(true);
   <div class="ro-wrap">
     <div class="item-row item item--ro">
       <span class="item__roname" :class="{ 'item__roname--group': isParent }">
-        <span class="item__ronametext"><ItemName :item="item" search /><span v-if="effClass !== 'base'" class="t-sm item__class"> · {{ effClass }}</span></span>
+        <span class="item__ronametext"><ItemName :item="item" :group="isParent" search /><span v-if="effClass !== 'base'" class="t-sm item__class"> · {{ effClass }}</span></span>
         <!-- collapse a group of nested items — trails the name like the folder chevron.
              The name text truncates so a long group name never shoves the chevron off. -->
         <button

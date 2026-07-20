@@ -11,14 +11,15 @@ import { itemDisplayName } from "~~/shared/weights";
 // becomes a web-search link — the variant stays plain text OUTSIDE the anchor, so
 // the link's dotted underline never runs under the variant. Water / unnamed rows
 // resolve to no link (itemSearchUrl → null), so they render as plain text.
-const props = defineProps<{ item: Item; search?: boolean }>();
+// `group` is the caller's own isParent (it has childrenByParent to hand) — the FACT,
+// not a guess. A nameless group gets a stand-in label rather than rendering an empty
+// line with a weight beside it; a nameless leaf renders as the blank it is.
+const props = defineProps<{ item: Item; search?: boolean; group?: boolean }>();
 const main = computed(() => itemDisplayName(props.item.brand, props.item.name));
 const variant = computed(() => (props.item.nameOverridden ? "" : props.item.variant || ""));
-// Only a GROUP can reach these views unnamed: nesting into a weighed row wraps it in
-// a container (useGearList.containerFor) which starts empty when there was no common
-// name to take, and the name field refuses to commit an empty string, so nothing else
-// can be blank. Label it rather than render a nameless line with a weight beside it.
-const unnamed = computed(() => !main.value && !variant.value);
+// A group reaches these views unnamed when nesting wrapped a weighed row that had no
+// gear type to take (useGearList.containerFor) — it starts empty, awaiting a name.
+const unnamed = computed(() => props.group && !main.value && !variant.value);
 const href = computed(() => (props.search ? itemSearchUrl(props.item) : null));
 const searchLabel = computed(() => `Search the web for ${itemSearchName(props.item)}`);
 </script>

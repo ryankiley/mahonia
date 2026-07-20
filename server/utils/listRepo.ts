@@ -113,10 +113,15 @@ export function rowToSnapshot(row: ListRow): ListSnapshot {
 // Display-only: never written back to the list's `data` (mutations go through
 // applyOps on the stored row), so storage stays the user's original snapshot.
 export async function hydrateCatalogNames(db: Db, snap: ListSnapshot): Promise<ListSnapshot> {
+  // every catalog-linked row, whatever its override flags: each flag gates its OWN fields
+  // below (nameOverridden the brand/name/variant, commonNameOverridden the gear type), so
+  // filtering on one of them here would freeze the other's field too — a renamed product
+  // would keep the gear type it had at rename time forever, which is not what
+  // shared/types.ts promises ("independent of name/nameOverridden").
   const ids = [
     ...new Set(
       snap.items
-        .filter((i) => typeof i.catalogItemId === "number" && !i.nameOverridden)
+        .filter((i) => typeof i.catalogItemId === "number" && !(i.nameOverridden && i.commonNameOverridden))
         .map((i) => i.catalogItemId as number),
     ),
   ];
@@ -141,17 +146,19 @@ export async function hydrateCatalogNames(db: Db, snap: ListSnapshot): Promise<L
   if (!rows.length) return snap;
   const byId = new Map(rows.map((r) => [r.id, r]));
   snap.items = snap.items.map((it) => {
-    if (it.catalogItemId == null || it.nameOverridden) return it;
+    if (it.catalogItemId == null) return it;
     const c = byId.get(it.catalogItemId);
     if (!c) return it;
-    // brand/name/variant always trickle down (not nameOverridden here); the common name
-    // trickles down too UNLESS the user renamed/cleared it (commonNameOverridden)
+    // each flag gates only its own fields: nameOverridden keeps the user's brand/name/
+    // variant, commonNameOverridden keeps their gear type. A row can hold one and not the
+    // other — a renamed product still tracks the catalog's gear type, and a row with a
+    // hand-typed gear type still tracks the catalog's name.
     return {
       ...it,
-      brand: c.brand ?? undefined,
-      name: c.name,
-      variant: c.variant ?? undefined,
-      commonName: it.commonNameOverridden ? it.commonName : (c.commonName ?? undefined),
+      ...(it.nameOverridden
+        ? {}
+        : { brand: c.brand ?? undefined, name: c.name, variant: c.variant ?? undefined }),
+      ...(it.commonNameOverridden ? {} : { commonName: c.commonName ?? undefined }),
     };
   });
   return snap;

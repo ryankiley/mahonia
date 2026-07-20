@@ -298,6 +298,12 @@ function onNameCommit(p: {
     patch.variant = "";
     patch.catalogItemId = null;
     patch.nameOverridden = true;
+    // the gear type that arrived WITH the catalog row is catalog-derived too, so it
+    // goes the same way as brand/variant — otherwise "Zpacks Duplex" renamed to "my
+    // old tarp" keeps reading "Tent" forever, and with the link now gone
+    // hydrateCatalogNames can never correct it. A gear type the user typed
+    // themselves (commonNameOverridden) is theirs and survives the rename.
+    if (!props.item.commonNameOverridden) patch.commonName = "";
     if (p.weightMg != null) {
       // a resolved weight with no catalog link (e.g. a water volume → fixed grams)
       patch.unitWeightMg = p.weightMg;
@@ -383,19 +389,35 @@ const noteShown = computed(() => !!props.item.description || subOpen.value);
 // the sub-line block shows when either field does — phrased off the two so a parent
 // mid-name-edit doesn't open an empty reveal with nothing in it
 const subShown = computed(() => cnameShown.value || noteShown.value);
-// reveal the (empty) fields to add a common name / note; focus the common name (the
-// note, on a group — it has no common name field to focus). Toggling off just hides
-// the empties — saved values keep showing and are edited/cleared in place.
+// what the button can still bring on screen. A group never gets a gear-type field (see
+// cnameShown), and a field showing a saved value is already there — so on a catalog-picked
+// row, whose gear type is pre-filled, the only thing left to open is the note.
+const hiddenFields = computed(() => {
+  const f: string[] = [];
+  if (!isParent.value && !cnameShown.value) f.push("gear type");
+  if (!noteShown.value) f.push("note");
+  return f;
+});
+// ONE name for this control, used as tooltip, accessible name AND ⋯-menu entry: a visible
+// label that isn't contained in the accessible name is a WCAG 2.5.3 failure and leaves the
+// button unhittable by speech input ("click Add a note" matching nothing).
+const subLabel = computed(() => {
+  const both = isParent.value ? "note" : "gear type & note";
+  if (subOpen.value) return `Hide ${both}`;
+  return hiddenFields.value.length ? `Add a ${hiddenFields.value.join(" or ")}` : `Edit ${both}`;
+});
+// the reveal's id, so the button can point at what it expands (aria-controls)
+const subId = useId();
+// Reveal the empty fields; toggling off hides them again (saved values keep showing and
+// are edited/cleared in place). Focus goes to the field that actually APPEARED — on a
+// catalog-picked row that's the note, not the gear type sitting there already.
 function onSubBtn() {
+  const opening = hiddenFields.value[0]; // read BEFORE the toggle invalidates it
+  // nothing left to reveal: the click means "let me edit what's showing", not "open more"
+  if (!subOpen.value && !opening) return void (cnameShown.value ? cnameRef : noteRef).value?.focus();
   subOpen.value = !subOpen.value;
-  if (subOpen.value) nextTick(() => (isParent.value ? noteRef : cnameRef).value?.focus());
+  if (subOpen.value) nextTick(() => (opening === "gear type" ? cnameRef : noteRef).value?.focus());
 }
-// the button says what it will actually open — a group gets only the note, so it must
-// not promise a common name field that (see cnameShown) it will never show
-const subNoun = computed(() => (isParent.value ? "note" : "gear type & note"));
-const subLabel = computed(
-  () => (subOpen.value ? `Hide ${subNoun.value}` : subNoun.value.replace(/^./, (c) => c.toUpperCase())),
-);
 // an opened-but-empty sub-line collapses when focus leaves BOTH fields with nothing typed;
 // moving focus between the two sibling inputs keeps it open
 function onSubBlur(e: FocusEvent) {
@@ -498,7 +520,7 @@ function dismissFix() {
         :aria-label="`Packed: ${editableName || 'item'}`"
         @change="c.updateItem(item.id, { packed: ($event.target as HTMLInputElement).checked })"
       />
-      <span class="item__cname" :class="{ 'item__cname--group': isParent }"><ItemName :item="item" /><button
+      <span class="item__cname" :class="{ 'item__cname--group': isParent }"><ItemName :item="item" :group="isParent" /><button
           v-if="isParent"
           class="item__nestcollapse"
           :aria-expanded="!nestCollapsed"
@@ -651,9 +673,11 @@ function dismissFix() {
           </button>
           <button
             class="btn btn--icon btn--ghost item__note-btn"
-            :class="{ 'is-active': !!(item.commonName || item.description) }"
+            :class="{ 'is-active': !!item.description }"
             :title="subLabel"
-            :aria-label="subOpen ? `Hide ${subNoun}` : `Add ${isParent ? 'a note' : 'a gear type or note'}`"
+            :aria-label="subLabel"
+            :aria-expanded="subShown"
+            :aria-controls="subId"
             @mousedown.prevent
             @click="onSubBtn"
           >
@@ -706,7 +730,7 @@ function dismissFix() {
          The .reveal wrapper is a grid whose row animates 1fr↔0fr (Safari-safe slide); the two
          inputs share one inner child so that single-child slide stays clean. -->
     <Transition name="reveal">
-      <div v-if="!packed && subShown" class="reveal reveal--note">
+      <div v-if="!packed && subShown" :id="subId" class="reveal reveal--note">
         <div class="item__subfields">
           <!-- the gear-type field's placeholder is EXAMPLES ONLY, no concept noun: it sits
                directly under the product name, so the contrast (a specific product / the

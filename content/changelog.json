@@ -17,7 +17,17 @@
       "Switching to packing mode no longer makes the rows taller — editing and packing keep the same row height, so the list doesn't jump on toggle.",
       "Item notes sit the same distance below their name in shared and public lists as they do in the editor.",
       "The “Add an item” button now lines up with your list's row spacing on phone and desktop, instead of sitting a touch below it.",
-      "Nesting an item under a piece of gear that already has a weight now groups the two, so that gear's own weight stays on its own line — visible and editable — instead of vanishing into the group total."
+      "Nesting an item under a piece of gear that already has a weight now groups the two, so that gear's own weight stays on its own line — visible and editable — instead of vanishing into the group total.",
+      "Renaming a catalog item to your own name now clears the gear type that came with it, instead of leaving the old label stuck on the row for good.",
+      "Un-nesting an item out of a group the app created for you now hands its gear type back and removes the leftover group row.",
+      "Dragging one weighed item onto another no longer pops the keyboard open on a phone.",
+      "The gear type and note button now says what it will actually open, and opens to the field you asked for instead of the one already showing.",
+      "Screen readers and voice control can now reach an item's gear type and note button.",
+      "\"Create a list\" from the editor menu no longer drops the list you were on out of your browser history — Back returns to it.",
+      "Printed lists no longer show an \"Add an item\" line under each group.",
+      "A renamed catalog item now keeps tracking the catalog's gear type, and an item with your own gear type still tracks the catalog's product name.",
+      "A CSV column called \"Type\" is no longer imported as a gear type — only a \"Gear Type\" or \"Common Name\" column is.",
+      "An unnamed item no longer shows the placeholder label \"Group\" unless it really is a group."
     ]
   },
   {
