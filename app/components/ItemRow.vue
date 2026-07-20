@@ -1234,6 +1234,14 @@ function dismissFix() {
   .item-nest {
     margin-left: var(--space-5);
   }
+  /* the group's "Add an item" takes the compact mobile field metrics too (like the
+     folder-level .folder__addbtn), so it sits at the same rhythm as the compact nested
+     rows above it instead of a taller 36px box */
+  .item-nest__add {
+    min-height: 0;
+    padding-block: 2px;
+    line-height: 1.3;
+  }
   /* tighter text boxes so the name and its meta line sit close as one unit — the
      default 36px field min-height, with vertically-centred text, left a big visual
      gap between the two lines. (:deep reaches the name input inside <ItemInput>.) */

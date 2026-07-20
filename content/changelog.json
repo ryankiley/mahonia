@@ -10,7 +10,8 @@
     ],
     "fixed": [
       "Switching to packing mode no longer makes the rows taller — editing and packing keep the same row height, so the list doesn't jump on toggle.",
-      "Item notes sit the same distance below their name in shared and public lists as they do in the editor."
+      "Item notes sit the same distance below their name in shared and public lists as they do in the editor.",
+      "The “Add an item” button now lines up with your list's row spacing on phone and desktop, instead of sitting a touch below it."
     ]
   },
   {
