@@ -1,0 +1,17 @@
+{
+  "rows": [
+    {
+      "brand": "Yama Mountain Gear",
+      "name": "DCF Stake Bag",
+      "common_name": "stake bag",
+      "variant": null,
+      "category_hint": "other",
+      "weight_value": 3.8,
+      "weight_unit": "g",
+      "weight_secondary": "0.13oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://yamamountaingear.com/products/dcf-stake-bag",
+      "quote": "Weight & Material: 0.8 oz DCF (CT2E.08): 3.8g | 0.13 oz"
+    }
+  ]
+}
