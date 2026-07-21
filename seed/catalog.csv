@@ -33,12 +33,35 @@ Bonfus,Solus 1P,Tent,DCF 0.75,shelter,495000,manufacturer,https://bonfus.com/pro
 Borah Gear,Ultralight Bivy,Bivy,"Argon67, standard",shelter,141748,manufacturer,https://borahgear.com/ultralightbivy.html
 Borah Gear,Ultralight Cuben Bivy,Bivy,"DCF, standard",shelter,120485,manufacturer,https://borahgear.com/cubenbivy.html
 Borah Gear,Ultralight Silpoly Tarp,Tarp,"solo, 9'",shelter,219709,manufacturer,https://borahgear.com/tarps.html
-Durston,X-Dome 1+,Tent,Carbon poles,shelter,983728,manufacturer,https://durstongear.com/products/x-dome-1-plus-ultralight-backpacking-tent
-Durston,X-Dome 2,Tent,Carbon poles,shelter,1247379,manufacturer,https://durstongear.com/products/x-dome-2-ultralight-tent
+Durston,X-Dome 1+,Tent,"Regular inner, aluminum poles",shelter,1085000,manufacturer,https://durstongear.com/products/x-dome-1-plus-ultralight-backpacking-tent
+Durston,X-Dome 1+,Tent,"Regular inner, carbon poles",shelter,983728,manufacturer,https://durstongear.com/products/x-dome-1-plus-ultralight-backpacking-tent
+Durston,X-Dome 1+,Tent,"Regular inner, carbon short poles",shelter,1030000,manufacturer,https://durstongear.com/products/x-dome-1-plus-ultralight-backpacking-tent
+Durston,X-Dome 1+,Tent,"Solid inner, aluminum poles",shelter,1135000,manufacturer,https://durstongear.com/products/x-dome-1-plus-ultralight-backpacking-tent
+Durston,X-Dome 1+,Tent,"Solid inner, carbon poles",shelter,1035000,manufacturer,https://durstongear.com/products/x-dome-1-plus-ultralight-backpacking-tent
+Durston,X-Dome 1+,Tent,"Solid inner, carbon short poles",shelter,1080000,manufacturer,https://durstongear.com/products/x-dome-1-plus-ultralight-backpacking-tent
+Durston,X-Dome 1+ Groundsheet,Groundsheet,,shelter,104893,manufacturer,https://durstongear.com/products/x-dome-1-groundsheet
+Durston,X-Dome 2,Tent,"Regular inner, aluminum poles",shelter,1430000,manufacturer,https://durstongear.com/products/x-dome-2-ultralight-tent
+Durston,X-Dome 2,Tent,"Regular inner, carbon poles",shelter,1247379,manufacturer,https://durstongear.com/products/x-dome-2-ultralight-tent
+Durston,X-Dome 2,Tent,"Regular inner, carbon short poles",shelter,1290000,manufacturer,https://durstongear.com/products/x-dome-2-ultralight-tent
+Durston,X-Dome 2,Tent,"Solid inner, aluminum poles",shelter,1535000,manufacturer,https://durstongear.com/products/x-dome-2-ultralight-tent
+Durston,X-Dome 2,Tent,"Solid inner, carbon poles",shelter,1360000,manufacturer,https://durstongear.com/products/x-dome-2-ultralight-tent
+Durston,X-Dome 2,Tent,"Solid inner, carbon short poles",shelter,1395000,manufacturer,https://durstongear.com/products/x-dome-2-ultralight-tent
+Durston,X-Dome 2 Groundsheet,Groundsheet,,shelter,144583,manufacturer,https://durstongear.com/products/x-dome-2-groundsheet
 Durston,X-Mid 1,Tent,Silpoly,shelter,742758,manufacturer,https://durstongear.com/products/x-mid-1-tent-ultralight-backpacking
+Durston,X-Mid 1 Groundsheet,Groundsheet,,shelter,104893,manufacturer,https://durstongear.com/products/x-mid-1-groundsheet
+Durston,X-Mid 1 Solid,Tent,,shelter,890175,manufacturer,https://durstongear.com/products/x-mid-1-solid
 Durston,X-Mid 2,Tent,Silpoly,shelter,887340,manufacturer,https://durstongear.com/products/x-mid-2-tent-ultralight-backpacking
+Durston,X-Mid 2 Groundsheet,Groundsheet,,shelter,144583,manufacturer,https://durstongear.com/products/x-mid-2-groundsheet
+Durston,X-Mid 2 Solid,Tent,,shelter,1063107,manufacturer,https://durstongear.com/products/x-mid-2-solid
 Durston,X-Mid Pro 1,Tent,DCF,shelter,439418,manufacturer,https://durstongear.com/products/x-mid-pro-1-tent-ultralight-thruhiking
+Durston,X-Mid Pro 1,Tent,Silnylon,shelter,484777,manufacturer,https://durstongear.com/products/x-mid-pro-1-tent-ultralight-thruhiking
+Durston,X-Mid Pro 1 Groundsheet,Groundsheet,,shelter,93553,manufacturer,https://durstongear.com/products/x-mid-pro-1-groundsheet
 Durston,X-Mid Pro 2,Tent,DCF,shelter,507456,manufacturer,https://durstongear.com/products/x-mid-pro-2-tent-ultralight-thruhiking
+Durston,X-Mid Pro 2,Tent,Silnylon,shelter,564156,manufacturer,https://durstongear.com/products/x-mid-pro-2-tent-ultralight-thruhiking
+Durston,X-Mid Pro 2 Groundsheet,Groundsheet,,shelter,136078,manufacturer,https://durstongear.com/products/x-mid-pro-2-groundsheet
+Durston,X-Mid Pro 2+,Tent,DCF,shelter,544311,manufacturer,https://durstongear.com/products/x-mid-pro-plus-tent-ultralight-thruhiking
+Durston,X-Mid Pro 2+,Tent,Silnylon,shelter,609515,manufacturer,https://durstongear.com/products/x-mid-pro-plus-tent-ultralight-thruhiking
+Durston,X-Mid Pro 2+ Groundsheet,Groundsheet,,shelter,144583,manufacturer,https://durstongear.com/products/x-mid-pro-2-plus-groundsheet
 ENO,DoubleNest Hammock,Hammock,,shelter,538641,manufacturer,https://coontail.com/products/eno-doublenest-hammock
 ENO,SingleNest Hammock,Hammock,,shelter,453592,manufacturer,https://www.campingworld.com/eno-singlenest-hammock-218830_OGRY.html
 ENO,Sub6 Ultralight Hammock,Hammock,,shelter,164427,manufacturer,https://eaglesnestoutfittersinc.com/products/sub6-ultralight-hammock
@@ -511,11 +534,21 @@ BullMoose Softgoods Co.,L.T.F.P.,Fanny pack,,pack,99000,manufacturer,https://www
 BullMoose Softgoods Co.,Mini Sling Bag,Sling bag,,pack,71000,manufacturer,https://www.garagegrowngear.com/products/mini-sling-bag-by-bullmoose-softgoods
 BullMoose Softgoods Co.,Triangle Sling Bag,Sling bag,,pack,50000,manufacturer,https://www.garagegrowngear.com/products/triangle-sling-bag-by-bull-moose-softgoods-co
 CAYL,Chopee Cordura,Daypack,20L,pack,340000,manufacturer,https://cayl.co.kr/product/chopee-cordura-chopee-black/3304/
+Durston,Kakwa 40,Backpack,"Ultra 200X, L",pack,819301,manufacturer,https://durstongear.com/products/kakwa-40-backpack
 Durston,Kakwa 40,Backpack,"Ultra 200X, M",pack,793787,manufacturer,https://durstongear.com/products/kakwa-40-backpack
+Durston,Kakwa 40,Backpack,"Ultra 200X, S",pack,768272,manufacturer,https://durstongear.com/products/kakwa-40-backpack
+Durston,Kakwa 40,Backpack,"UltraGrid, L",pack,858991,manufacturer,https://durstongear.com/products/kakwa-40-backpack
 Durston,Kakwa 40,Backpack,"UltraGrid, M",pack,839146,manufacturer,https://durstongear.com/products/kakwa-40-backpack
+Durston,Kakwa 40,Backpack,"UltraGrid, S",pack,819301,manufacturer,https://durstongear.com/products/kakwa-40-backpack
+Durston,Kakwa 55,Backpack,"Ultra 200X, L",pack,918525,manufacturer,https://durstongear.com/products/kakwa-55
 Durston,Kakwa 55,Backpack,"Ultra 200X, M",pack,893010,manufacturer,https://durstongear.com/products/kakwa-55
+Durston,Kakwa 55,Backpack,"Ultra 200X, S",pack,853321,manufacturer,https://durstongear.com/products/kakwa-55
+Durston,Kakwa 55,Backpack,"UltraGrid, L",pack,887340,manufacturer,https://durstongear.com/products/kakwa-55
 Durston,Kakwa 55,Backpack,"UltraGrid, M",pack,867495,manufacturer,https://durstongear.com/products/kakwa-55
+Durston,Kakwa 55,Backpack,"UltraGrid, S",pack,827806,manufacturer,https://durstongear.com/products/kakwa-55
+Durston,Wapta 30,Backpack,L,pack,535806,manufacturer,https://durstongear.com/products/wapta-30-ultralight-backpack
 Durston,Wapta 30,Backpack,M,pack,518796,manufacturer,https://durstongear.com/products/wapta-30-ultralight-backpack
+Durston,Wapta 30,Backpack,S,pack,504622,manufacturer,https://durstongear.com/products/wapta-30-ultralight-backpack
 Fjällräven,Keb Hike 30,Backpack,,pack,1440000,manufacturer,https://www.fjallraven.com/us/en-us/bags-gear/backpacks-bags/trekking-backpacks/keb-hike-30
 Goldwin,Star Trail Pack,Backpack,size 3,pack,178000,manufacturer,https://usshop.goldwin-global.com/products/gm95181
 Gossamer Gear,Cima 15,Backpack,,pack,505000,manufacturer,https://www.garagegrowngear.com/products/cima-15-by-gossamer-gear
@@ -2011,6 +2044,8 @@ Crystal Creek Gear,GoReel Hand Reel,Cord reel,,other,30000,manufacturer,https://
 Crystal Creek Gear,GoReel Pro Hand Reel,Cord reel,,other,65000,manufacturer,https://www.garagegrowngear.com/products/goreel-pro-hand-reel-by-crystal-creek-gear
 Crystal Creek Gear,LineLock,Line tensioner,,other,4000,manufacturer,https://www.garagegrowngear.com/products/linelock-by-crystal-creek-gear
 CuloClean,Portable Bidet,Bidet,,other,12000,manufacturer,https://www.garagegrowngear.com/products/portable-bidet-by-culoclean
+DAC,J Stake,Tent stakes,"6"", per stake",other,7000,manufacturer,https://durstongear.com/products/spare-tent-parts
+DAC,J Stake,Tent stakes,"8"", per stake",other,16000,manufacturer,https://durstongear.com/products/spare-tent-parts
 Dangle Supply,Lil Slugger Titanium One Hitter,One hitter,,other,8500,manufacturer,https://www.garagegrowngear.com/products/lil-slugger-titanium-one-hitter-for-dugouts-by-dangle-supply
 Derma-Safe,Folding Knife,Knife,,other,8000,manufacturer,https://www.garagegrowngear.com/products/derma-safe-knife-by-derma-safe
 District Vision,Kazu Tourer Sunglasses,Sunglasses,,other,22000,manufacturer,https://twelvesixtynine.com/products/kazu-tourer-glacier-blue-ice
@@ -2021,6 +2056,9 @@ District Vision,Nako Sunglasses,Sunglasses,,other,22000,manufacturer,https://www
 District Vision,Takeyoshi Altitude Master,Sunglasses,,other,24000,manufacturer,https://districtvision.com/products/takeyoshi-altitude-master-flint-d-silver-flash-mirror
 Durston,Iceline Trekking Poles,Trekking poles,"Strapless, per pair",other,268000,manufacturer,https://durstongear.com/products/iceline-trekking-poles
 Durston,Iceline Trekking Poles,Trekking poles,"Strapped, per pair",other,290000,manufacturer,https://durstongear.com/products/iceline-trekking-poles
+Durston,X-Mid Stargazer Kit,Rigging kit,,other,22680,manufacturer,https://durstongear.com/products/stargazer-kit
+Durston,Z-Flick Tent Pole,Tent poles,per pair,other,176000,manufacturer,https://durstongear.com/products/z-flick-tent-pole
+Durston,Z-Flick Tent Pole,Tent poles,per pole,other,88000,manufacturer,https://durstongear.com/products/z-flick-tent-pole
 ENO,Atlas Suspension Straps,Hammock straps,,other,255146,manufacturer,https://eaglesnestoutfittersinc.com/products/atlas-hammock-straps
 ENO,Atlas XL Suspension Straps,Hammock straps,,other,368544,manufacturer,https://gearheadoutfitters.com/products/atlas-xl
 ENO,Helios Ultralight Suspension Straps,Hammock straps,,other,121903,manufacturer,https://www.nrs.com/eno-helios-suspension-system/psm7
@@ -2178,6 +2216,7 @@ Lawson Equipment,Bar Tensioners,Line tensioner,3mm,other,5000,manufacturer,https
 Lawson Equipment,Reflective Glowire (50' Hank),Guyline,2.5mm,other,82000,manufacturer,https://www.garagegrowngear.com/products/reflective-glowire-by-lawson-equipment
 Lawson Equipment,Reflective Glowire (50' Hank),Guyline,2mm,other,55000,manufacturer,https://www.garagegrowngear.com/products/reflective-glowire-by-lawson-equipment
 Lawson Equipment,Reflective Glowire (50' Hank),Guyline,3mm,other,113000,manufacturer,https://www.garagegrowngear.com/products/reflective-glowire-by-lawson-equipment
+Lawson Equipment,Reflective Ironwire (50' Hank),Guyline,2mm,other,59534,manufacturer,https://durstongear.com/products/lawson-reflective-dyneema-ironwire
 Leki,Black Series FX Carbon Trekking Poles,Trekking poles,per pair,other,456000,manufacturer,https://lekiusa.com/products/black-series-fx-carbon_leki-usa_trekking-poles_all-season
 Leki,Cressida Cork Lite Trekking Poles,Trekking poles,"Women's, per pair",other,480000,manufacturer,https://lekiusa.com/products/cressida-cork-lite_leki-usa_trekking-poles_all-season
 Leki,Cressida FX Carbon Trekking Poles,Trekking poles,"Women's, per pair",other,490000,manufacturer,https://lekiusa.com/products/cressida-fx-carbon_leki-usa_trekking-poles_all-season
