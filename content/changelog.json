@@ -1,6 +1,9 @@
 [
   {
     "date": "2026-07-20",
+    "changed": [
+      "The big pack-weight total at the top of a list now reads larger."
+    ],
     "fixed": [
       "On a shared list, an item's gear type now sits snug under its name, matching the editor."
     ]

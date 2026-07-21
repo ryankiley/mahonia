@@ -83,7 +83,7 @@ $bp-full: 1024px !default;
      the two in sync. ---- */
   --text-base: max(1rem, 0.833vw); /* 16px — body, inputs, item names, labels, meta, controls */
   --text-title: max(1.375rem, 1.146vw); /* 22px — the one heading size */
-  --text-display: max(3.25rem, 2.708vw); /* 52px — the live total */
+  --text-display: max(4rem, 3.333vw); /* 64px — the live total */
   /* the small tier was removed (Ryan: "the small one needs to go") — kept as an
      alias = base so existing `var(--text-sm)` consumers don't break */
   --text-sm: var(--text-base);
