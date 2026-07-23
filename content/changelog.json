@@ -1,5 +1,11 @@
 [
   {
+    "date": "2026-07-22",
+    "changed": [
+      "The packing checklist's checkboxes are now drawn by the same icon set as the toolbar's packing toggle — the same square-and-tick glyph, with the tick still popping in."
+    ]
+  },
+  {
     "date": "2026-07-20",
     "changed": [
       "The big pack-weight total at the top of a list now reads larger."

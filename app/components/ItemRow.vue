@@ -18,7 +18,7 @@ const MAX_SPLIT_OPTS = 5;
 </script>
 
 <script setup lang="ts">
-import { ChevronDown, CircleEllipsis, GripVertical, IndentDecrease, IndentIncrease, ListPlus, StickyNotePlus, StickyNoteX, Trash2, X } from "@lucide/vue";
+import { ChevronDown, CircleEllipsis, GripVertical, IndentDecrease, IndentIncrease, ListPlus, Square, SquareCheck, StickyNotePlus, StickyNoteX, Trash2, X } from "@lucide/vue";
 import type { Item, ListSnapshot } from "~~/shared/types";
 import type { ItemPatch } from "~~/shared/ops";
 import type { NameCommit } from "~/composables/useCatalogSearch";
@@ -505,13 +505,24 @@ function dismissFix() {
          open tag and the v-if is counted as a second child by Vue's template compiler. -->
     <Transition name="rowmode">
       <label v-if="packed" class="item-row item item--check" :class="{ 'item--done': item.packed }">
-      <input
-        type="checkbox"
-        class="item__box"
-        :checked="item.packed"
-        :aria-label="`Packed: ${editableName || 'item'}`"
-        @change="c.updateItem(item.id, { packed: ($event.target as HTMLInputElement).checked })"
-      />
+      <!-- checkbox visuals come from the icon set (Square empty / SquareCheck checked —
+           the same glyph as the header's packing toggle, and the two share an identical
+           outer square so the swap reads as the tick appearing); the real <input> stays
+           on top, invisible but focusable, so behavior + focus stay native -->
+      <span class="item__boxwrap">
+        <input
+          type="checkbox"
+          class="item__box"
+          :checked="item.packed"
+          :aria-label="`Packed: ${editableName || 'item'}`"
+          @change="c.updateItem(item.id, { packed: ($event.target as HTMLInputElement).checked })"
+        />
+        <!-- absolute-stroke-width pins the drawn line at ~1.33px — what the surrounding
+             16px icons render (2 nominal × 16/24) — so the bigger box doesn't read bolder
+             than its row -->
+        <Square class="item__boxicon item__boxicon--empty" :size="20" :stroke-width="1.33" absolute-stroke-width aria-hidden="true" />
+        <SquareCheck class="item__boxicon item__boxicon--check" :size="20" :stroke-width="1.33" absolute-stroke-width aria-hidden="true" />
+      </span>
       <span class="item__cname" :class="{ 'item__cname--group': isParent }"><ItemName :item="item" :group="isParent" /><button
           v-if="isParent"
           class="item__nestcollapse"
@@ -905,52 +916,58 @@ function dismissFix() {
      list jump on every toggle. */
   min-height: var(--field-h);
 }
-/* custom monochrome checkbox — softly rounded square, fills with ink + a paper
-   check. 4px is a deliberate off-scale radius: 2px is imperceptible here and
-   --radius-2 (8px) too round at 18px — a slight, friendly rounding. */
-.item__box {
+/* checkbox — drawn by the icon set now: Square (empty) under SquareCheck (checked),
+   the same glyph as the header's packing toggle, stacked in one grid cell. The two
+   share an identical outer square, so the checked icon fading in reads as the tick
+   appearing inside the standing box. 20px — a step up from the old 18px drawn box;
+   the icons pin their stroke at ~1.33px (absolute-stroke-width) so the bigger box
+   keeps the same line weight the surrounding 16px icons render. */
+.item__boxwrap {
+  position: relative;
   align-self: center;
-  appearance: none;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   flex: none;
   display: grid;
   place-content: center;
-  border: 1.5px solid var(--ink-3);
-  background: var(--paper);
+}
+/* the real control, stretched over the icons: invisible (appearance:none draws nothing)
+   but hoverable, clickable and focusable, so the native focus ring lands on the box */
+.item__box {
+  position: absolute;
+  inset: 0;
+  appearance: none;
+  margin: 0;
   border-radius: 4px;
   cursor: pointer;
-  transition:
-    background var(--dur) var(--ease),
-    border-color var(--dur) var(--ease);
 }
-.item__box:hover {
-  border-color: var(--ink);
+.item__boxicon {
+  grid-area: 1 / 1;
+  pointer-events: none;
+  color: var(--ink-3);
+  transition: color var(--dur) var(--ease);
 }
-.item__box:checked {
-  background: var(--ink);
-  border-color: var(--ink);
+.item__boxwrap:hover .item__boxicon {
+  color: var(--ink);
 }
-/* a drawn checkmark with ROUND caps/joins (from the design-system checkbox) — a
-   paper-coloured shape masked by the tick SVG, so it adapts to light/dark. */
-.item__box::after {
-  content: "";
-  width: 12px;
-  height: 12px;
-  background: var(--paper);
-  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5 10 17.5 19 7'/%3E%3C/svg%3E") center / contain no-repeat;
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5 10 17.5 19 7'/%3E%3C/svg%3E") center / contain no-repeat;
-  /* checkmark pops in with a springy overshoot on check (SPACE10's easeOutBack);
-     the fade runs the established faster-than---dur step (0.6×, cf. .menu-leave-active) */
-  transform: scale(0);
+/* the checked glyph pops in with the springy overshoot the old drawn tick had
+   (SPACE10's easeOutBack); scale starts at .5 — not 0 — so its square lands on the
+   standing one instead of visibly growing a second box */
+.item__boxicon--check {
   opacity: 0;
+  color: var(--ink);
+  transform: scale(0.5);
   transition:
     transform var(--dur) var(--ease-spring),
     opacity calc(var(--dur) * 0.6) var(--ease);
 }
-.item__box:checked::after {
-  transform: scale(1);
+.item__box:checked ~ .item__boxicon--empty {
+  opacity: 0;
+  transition: opacity calc(var(--dur) * 0.6) var(--ease);
+}
+.item__box:checked ~ .item__boxicon--check {
   opacity: 1;
+  transform: scale(1);
 }
 .item__cname {
   min-width: 0;
