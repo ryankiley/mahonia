@@ -29,7 +29,15 @@ import { brotliCompressSync, gzipSync, constants } from "node:zlib";
 // this gate measures on PRs that ship no code at all, and the ratchet slowly became a
 // tax on writing changelog entries. Watch for the same shape in any other checked-in
 // content: import it in a server route, not a page.
-const TOTAL_BUDGET_KB = 133;
+//
+// Bumped 133→134 to RE-ANCHOR after that shave, not to make room for anything. The shave
+// left current at 132.9 against a 133 budget — 0.1 KB, which is below the noise floor
+// (reflowing a comment in a .vue file can move it), so the gate would have failed on the
+// next trivial change and been bumped reflexively. That is the failure this ratchet
+// exists to avoid: a threshold nobody trusts gets raised on autopilot, and then it isn't
+// a threshold. 134 restores roughly the ~1 KB gap the earlier anchors carried — enough
+// that a heavy dep or a stray client import still trips it, but ordinary work doesn't.
+const TOTAL_BUDGET_KB = 134;
 const MAX_CHUNK_BUDGET_KB = 72; // largest single chunk, brotli (the framework runtime)
 
 // First build output that exists: node-server, Vercel preset, or static generate.
