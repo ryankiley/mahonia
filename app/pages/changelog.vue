@@ -1,6 +1,12 @@
 <script setup lang="ts">
-import changelog from "~~/content/changelog.json";
-import { sortReleases, type ChangelogRelease } from "~~/shared/changelog";
+import type { ChangelogEntry } from "~~/server/api/changelog.get";
+
+// Fetched, not imported. A module-scope `import` of content/changelog.json bundled
+// every entry into this route's client chunk — content that only grows, on PRs that
+// often ship no code. The server route does the read + the group flattening; this page
+// is prerendered, so that runs at build time and the entries arrive in the payload.
+const { data } = await useFetch<{ releases: ChangelogEntry[] }>("/api/changelog");
+const releases = computed(() => data.value?.releases ?? []);
 
 useHead({
   title: "What's new — Mahonia",
@@ -11,22 +17,6 @@ useHead({
     },
   ],
 });
-
-const GROUP_DEFS = [
-  { key: "added", label: "Added" },
-  { key: "changed", label: "Changed" },
-  { key: "fixed", label: "Fixed" },
-] as const;
-
-// Flatten once at module scope (the data is static, checked-in content): drop
-// empty groups so the template just iterates what's there.
-const releases = sortReleases(changelog as ChangelogRelease[]).map((rel) => ({
-  date: rel.date,
-  title: rel.title,
-  groups: GROUP_DEFS.map((g) => ({ label: g.label, items: rel[g.key] ?? [] })).filter(
-    (g) => g.items.length > 0,
-  ),
-}));
 
 // Parse in LOCAL time from the parts — `new Date("2026-06-27")` parses as UTC
 // midnight, which toLocaleDateString would render as the day before in a
@@ -49,14 +39,16 @@ function fmtDate(iso: string) {
 // "Last updated" is just the newest entry's date, formatted like the legal
 // pages' stamped line ("17 July 2026") — so it updates itself whenever an entry
 // is added, with no commit hook to forget and no way to drift from the content.
-const lastUpdated = (() => {
-  const iso = releases[0]?.date;
+// computed, not a module-scope constant: `releases` is now fetched, so this has to
+// track it rather than read an empty array once at setup
+const lastUpdated = computed(() => {
+  const iso = releases.value[0]?.date;
   if (!iso) return "";
   return (
     parseIso(iso)?.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }) ??
     iso
   );
-})();
+});
 </script>
 
 <template>
