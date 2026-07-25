@@ -56,7 +56,7 @@ function when(iso: string) {
       <span class="t-sm t-muted">Catalog changes</span>
     </SiteTopbar>
 
-    <main class="wrap chg">
+    <main id="main-content" tabindex="-1" class="wrap chg">
       <header class="chg__head">
         <h1 class="t-title">Recent catalog changes</h1>
         <p class="t-sm t-muted">

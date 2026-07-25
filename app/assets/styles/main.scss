@@ -27,6 +27,13 @@
 // (the reset strips link affordance by default).
 .prose {
   max-width: 42rem;
+  /* CENTRED in the page column, not flush to its left gutter. .wrap is --measure
+     wide (≥1024px) and this column is 42rem, so left-aligning parked ~350px of dead
+     space to the right of every prose page and the block sat noticeably left of
+     centre — it read as a layout fault rather than a measure. The topbar and footer
+     still span the full --measure, which is correct: they're chrome, and the reading
+     column is the thing that wants optical centring. */
+  margin-inline: auto;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);

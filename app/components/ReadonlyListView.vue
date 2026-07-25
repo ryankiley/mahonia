@@ -37,7 +37,7 @@ const editedAt = computed(() => {
 </script>
 
 <template>
-  <main v-if="list && totals" class="wrap view">
+  <main v-if="list && totals" id="main-content" tabindex="-1" class="wrap view">
     <div class="view__header">
       <slot name="head">
         <h1 class="t-title view__title">{{ list.title }}</h1>
@@ -66,7 +66,7 @@ const editedAt = computed(() => {
     </div>
   </main>
 
-  <main v-else class="wrap view view--missing">
+  <main v-else id="main-content" tabindex="-1" class="wrap view view--missing">
     <p class="t-muted"><slot name="missing">This list doesn’t exist (or was removed).</slot></p>
     <NuxtLink to="/" class="btn btn--primary">Create a list</NuxtLink>
   </main>

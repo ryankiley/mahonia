@@ -187,8 +187,31 @@ $bp-full: 1024px !default;
      gutter overshoot) so every row's data columns line up regardless of its icon count. */
   --item-col-actions: calc(5 * var(--icon-btn) + 4 * var(--space-1) - 9px);
   --item-cols: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-class) var(--item-col-actions); /* edit: name · qty(+L) · weight+unit · class · actions */
-  --item-cols-ro: 1fr #{fluid-track(36px, 44px)} #{fluid-track(80px, 96px)}; /* read: name · qty · weight */
-  --item-cols-pack: auto var(--item-cols-ro); /* packing/checklist: a checkbox gutter, then the read cols — a named token so it can't drift from --item-cols-ro */
+  /* the read/share views' two data tracks, named so the read row, the folder header
+     and the packing row all measure them identically (they used to be inlined in
+     --item-cols-ro, which --item-cols-pack then nested — sharing them by value here
+     keeps that no-drift guarantee while letting the two templates differ where they
+     genuinely should, below) */
+  --item-col-qty-ro: #{fluid-track(36px, 44px)};
+  --item-col-weight-ro: #{fluid-track(80px, 96px)};
+  /* read/share: name · qty · weight · SPACER. The name track is CAPPED (not a bare
+     1fr) and a trailing 1fr absorbs what's left. With an uncapped name the two data
+     columns rode the right margin, so on a wide window ~800px of dead row sat
+     between "Tent" and its weight and the eye lost the pairing — the same defect the
+     mobile override already fixes by stacking qty+weight under the name
+     (ReadonlyItemRow). Cap the NAME, not the row: every row stays on one shared
+     template so the columns still align down the list (each row is its own grid, so
+     a max-content name would let every row disagree), and the row stays full-width
+     so the hairlines and the folder header still span the whole column. */
+  --item-cols-ro: minmax(0, 36rem) var(--item-col-qty-ro) var(--item-col-weight-ro) 1fr;
+  /* packing/checklist: a checkbox gutter, then the read data tracks — but the name
+     stays an UNCAPPED 1fr, so the weight keeps riding the row's right edge. This one
+     is a mode of the EDITOR (you toggle editing↔packing in place), and the editing
+     row's weight is also right-anchored — capping here would slide the weight
+     sideways on every toggle, the horizontal twin of the row-height jump the
+     .item--check min-height comment guards against. The share views have no such
+     toggle, so they take the tighter measure above. */
+  --item-cols-pack: auto 1fr var(--item-col-qty-ro) var(--item-col-weight-ro);
   --item-cols-mobile: 1fr 44px 92px; /* name · qty · weight (controls + grip on row 2) */
   --item-gap: var(--space-4); /* column gap shared by item rows, folder headers + the add row (keeps weights aligned) — 16px so the data columns breathe */
   /* category sparkline (the one data-viz mark — CategoryBar) */

@@ -23,7 +23,7 @@ const dev = import.meta.dev;
       <span class="t-sm t-muted">{{ error?.statusCode ?? "Error" }}</span>
     </SiteTopbar>
 
-    <main class="wrap page">
+    <main id="main-content" tabindex="-1" class="wrap page">
       <div class="prose">
         <h1 class="t-title">
           {{ notFound ? "This page doesn't exist." : "Something went wrong." }}

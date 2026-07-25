@@ -17,7 +17,7 @@ useHead({
       <span class="t-sm t-muted">Legal</span>
     </SiteTopbar>
 
-    <main class="wrap page">
+    <main id="main-content" tabindex="-1" class="wrap page">
       <div class="prose">
         <h1 class="t-title">Legal</h1>
         <p class="t-sm t-muted">Last updated 17 July 2026</p>
