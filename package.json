@@ -35,8 +35,11 @@
     "vue-router": "^5.1.0"
   },
   "devDependencies": {
+    "@nuxt/test-utils": "^4.0.3",
     "@types/node": "^24",
     "@vite-pwa/nuxt": "^1.1.1",
+    "@vue/test-utils": "^2.4.11",
+    "happy-dom": "^20.11.1",
     "jiti": "^2.7.0",
     "sass": "^1.101.0",
     "typescript": "^5.9.0",
