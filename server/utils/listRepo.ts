@@ -212,11 +212,11 @@ async function captureSnapshot(db: Db, row: ListRow, reason: string): Promise<vo
   try {
     await ensureSnapshotSchema(db);
     const cur = rowToState(row);
-    // The newest snapshot is the chain anchor (a full `base`). Demote it to a
-    // reverse-delta against the new state, then insert the new full base on top —
-    // so only the newest row is ever a full copy. Reconstruction folds newest→target
-    // (see shared/snapshotDiff), and pruning only drops the oldest deltas (the anchor
-    // is the newest, never pruned) — no rebasing needed.
+    // The newest snapshot is the chain anchor (a full `base`). We insert the new
+    // full base on top and demote the previous anchor to a reverse-delta against
+    // it — so only the newest row is ever a full copy. Reconstruction folds
+    // newest→target (see shared/snapshotDiff), and pruning only drops the oldest
+    // deltas (the anchor is the newest, never pruned) — no rebasing needed.
     const newest = (
       await db
         .select()
@@ -225,13 +225,30 @@ async function captureSnapshot(db: Db, row: ListRow, reason: string): Promise<vo
         .orderBy(desc(listSnapshots.createdAt), desc(listSnapshots.id))
         .limit(1)
     )[0];
-    if (newest && newest.kind === "base") {
-      const prevState = fullSnapToState(newest.snapshot as FullSnap);
-      await db
-        .update(listSnapshots)
-        .set({ kind: "diff", snapshot: diffListState(cur, prevState) })
-        .where(eq(listSnapshots.id, newest.id));
-    }
+    // The delta is computed from the row we just READ, before either write — so
+    // the insert below can never be mistaken for the anchor being demoted.
+    const demote =
+      newest && newest.kind === "base"
+        ? {
+            id: newest.id,
+            snapshot: diffListState(cur, fullSnapToState(newest.snapshot as FullSnap)),
+          }
+        : null;
+    // ORDER MATTERS, and it is the opposite of the obvious one. These are two
+    // separate statements with no transaction around them (the neon-http driver
+    // sends one HTTP request per statement), and the catch below deliberately
+    // swallows failures so snapshotting can never break a write — which means a
+    // half-applied capture is silent. So make the half-applied state the harmless
+    // one: INSERT the new base first, then demote.
+    //   insert-then-demote (this order): a failed demote leaves TWO bases. A base
+    //     resets the fold in reconstructChainAt, so every index still reconstructs
+    //     correctly — it just costs one extra full copy until pruning.
+    //   demote-then-insert (the reverse): a failed insert leaves the list with NO
+    //     base at all. reconstructChainAt returns null for a diff with no anchor,
+    //     so every restore 404s — and it never heals: the next capture sees a
+    //     "diff" newest, skips the demotion, and stacks a fresh base on an orphaned
+    //     delta whose reverse-diff was computed against a state that no longer
+    //     precedes it, silently reconstructing WRONG history from then on.
     await db.insert(listSnapshots).values({
       listId: row.id,
       kind: "base",
@@ -240,6 +257,12 @@ async function captureSnapshot(db: Db, row: ListRow, reason: string): Promise<vo
       version: row.version,
       reason,
     });
+    if (demote) {
+      await db
+        .update(listSnapshots)
+        .set({ kind: "diff", snapshot: demote.snapshot })
+        .where(eq(listSnapshots.id, demote.id));
+    }
     // prune oldest beyond the cap (id tie-breaks same-timestamp rows)
     const all = await db
       .select({ id: listSnapshots.id })

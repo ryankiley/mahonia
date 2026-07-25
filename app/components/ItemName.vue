@@ -44,10 +44,15 @@ const searchLabel = computed(() => `Search the web for ${itemSearchName(props.it
   color: var(--ink-3);
   font-style: italic;
 }
-/* read-only search link: a persistent DOTTED underline marks the product NAME as a
-   lookup link. Only the name lives inside this anchor (the variant is a sibling
-   outside it), so the underline never runs under the variant. Soft colour, firming
-   to --ink-2 on hover/focus, never full ink. */
+/* read-only search link: a DOTTED underline marks the product NAME as a lookup link.
+   Only the name lives inside this anchor (the variant is a sibling outside it), so
+   the underline never runs under the variant. Soft colour, firming to --ink-2 on
+   hover/focus, never full ink.
+   The link text is otherwise indistinguishable from body copy (color: inherit), so
+   the underline is the ONLY affordance — it can't just be dropped, and it can't be
+   faded below text contrast either. But every row in a shared list is one of these,
+   and 40 always-on underlines read as a wall of links rather than a list of gear. So
+   it's revealed by pointer instead: quiet at rest, drawn on hover. */
 .iname__link {
   color: inherit;
   text-decoration-line: underline;
@@ -57,6 +62,23 @@ const searchLabel = computed(() => `Search the web for ${itemSearchName(props.it
   text-underline-offset: 2px;
   transition: text-decoration-color var(--dur) var(--ease);
 }
+/* Hover-capable pointers only. On touch there IS no hover, so the underline stays
+   painted — a reveal-on-hover rule would leave phone readers (most of a shared
+   link's traffic) with no affordance at all. Same reason it's `hover: hover` and not
+   a width breakpoint: a touch laptop must keep the persistent form. */
+@media (hover: hover) {
+  .iname__link {
+    text-decoration-color: transparent;
+  }
+  /* the whole ROW is the reveal target, not the 4 characters of "Tent" — the
+     underlines come up as the pointer travels the list, so the affordance is found
+     without having to land on the text first */
+  .item-row:hover .iname__link {
+    text-decoration-color: var(--underline);
+  }
+}
+/* keyboard tabbing and direct hover always firm it up, at every pointer type —
+   listed outside the media query so focus is never left without the cue */
 .iname__link:hover,
 .iname__link:focus-visible {
   text-decoration-color: var(--ink-2);

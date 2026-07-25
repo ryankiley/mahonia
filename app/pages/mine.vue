@@ -65,7 +65,7 @@ async function deleteList(e: MyListEntry) {
       <NuxtLink to="/e" class="btn btn--link">Create a list</NuxtLink>
     </SiteTopbar>
 
-    <main class="wrap page">
+    <main id="main-content" tabindex="-1" class="wrap page">
       <div class="mine__head">
         <h1 class="t-title">Your lists</h1>
         <p class="t-sm t-muted mine__sub">

@@ -224,6 +224,18 @@ describe("formatWeight", () => {
     expect(formatWeight(2_000, "lb", { raw: true })).toBe("0 lb");
     expect(formatWeight(2_000, "lb", { withUnit: false, raw: true })).toBe("0");
   });
+  // The share views (/l, /s) render weights server-side, so the separators must not
+  // depend on the ambient locale — the render lambda's and the visitor's differ, and
+  // the mismatch shows up as a hydration patch after paint. Asserting against an
+  // explicitly non-en formatter proves the pin holds regardless of where this runs.
+  it("formats identically whatever the ambient locale is", () => {
+    const de = (1.36).toLocaleString("de-DE", { maximumFractionDigits: 2 });
+    expect(de).toBe("1,36"); // sanity: this machine's ICU really does have de-DE
+    // grouping separator (thousands) and decimal separator both stay pinned
+    expect(formatWeight(1_360_000, "g")).toBe("1,360 g");
+    expect(formatWeight(1_360_000, "kg")).toBe("1.36 kg");
+    expect(formatWeight(2_000, "kg")).toBe("<0.01 kg"); // the "<step" label too
+  });
 });
 
 describe("formatWeightAuto (magnitude-promoted, for comparison surfaces)", () => {

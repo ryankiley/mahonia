@@ -65,7 +65,7 @@ const lastUpdated = (() => {
       <span class="t-sm t-muted">What's new</span>
     </SiteTopbar>
 
-    <main class="wrap page log">
+    <main id="main-content" tabindex="-1" class="wrap page log">
       <header class="log__head">
         <h1 class="t-title">What's new</h1>
         <p class="t-sm t-muted">

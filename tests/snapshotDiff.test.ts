@@ -144,4 +144,36 @@ describe("reverse-delta chain (capture + reconstruct + prune)", () => {
     expect(chain[0].kind).toBe("base");
     for (let k = 0; k < chain.length; k++) expectSame(reconstructChainAt(chain, k), chain[k]._ref);
   });
+
+  // captureSnapshot's two writes (insert new base, demote old base → diff) are not
+  // in a transaction, so a capture can be interrupted between them. It inserts
+  // FIRST precisely so the half-applied state is an extra base rather than none —
+  // this pins that the extra base is genuinely harmless.
+  it("reconstructs every point when an interrupted capture left a stray extra base", () => {
+    const states = [
+      st({ folders: [f("a")], items: [i("x", { folderId: "a" })] }),
+      st({ folders: [f("a")], items: [i("x", { folderId: "a", qty: 3 }), i("y")] }),
+      st({ title: "renamed", folders: [f("a"), f("b")], items: [i("y", { name: "Y!" })] }),
+      st({ folders: [f("b")], items: [i("y"), i("z")], displayUnit: "lb" }),
+    ];
+    // build normally up to the last step, then append the newest WITHOUT demoting
+    // the previous anchor — exactly what a crash between the insert and the update
+    // leaves behind.
+    const chain = buildChain(states.slice(0, 3));
+    chain.unshift({ kind: "base", snapshot: stateToFullSnap(states[3]!), _ref: states[3]! });
+
+    expect(chain.filter((r) => r.kind === "base").length).toBe(2); // the stray
+    // a base resets the fold, so every retained point — including the ones behind
+    // the un-demoted anchor — still reconstructs to exactly its original state
+    for (let k = 0; k < chain.length; k++) expectSame(reconstructChainAt(chain, k), chain[k]._ref);
+  });
+
+  // The failure mode the insert-first ordering exists to prevent: demote-then-insert,
+  // interrupted, leaves a chain whose newest row is a diff with no anchor.
+  it("returns null (never wrong state) for an anchorless chain", () => {
+    const chain = buildChain([st({ items: [i("x")] }), st({ items: [i("x"), i("y")] })]);
+    chain.shift(); // drop the base — what a failed insert after a demote would leave
+    expect(chain[0]!.kind).toBe("diff");
+    expect(reconstructChainAt(chain, 0)).toBeNull();
+  });
 });

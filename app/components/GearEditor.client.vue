@@ -434,7 +434,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
       </div>
     </header>
 
-    <main v-if="snapshot && totals" class="wrap editor__body">
+    <main v-if="snapshot && totals" id="main-content" tabindex="-1" class="wrap editor__body">
       <!-- first-run / returning-user intro: a fresh, empty draft gets one quiet
            line of identity + help (the bare domain lands straight in the editor),
            and anyone who already has lists gets a pointer back to them. Recedes the
@@ -513,12 +513,12 @@ function onCorrected(res: { status: string; itemName?: string }) {
       </div>
     </main>
 
-    <main v-else-if="status === 'missing'" class="wrap editor__missing">
+    <main v-else-if="status === 'missing'" id="main-content" tabindex="-1" class="wrap editor__missing">
       <p class="t-muted">This list isn’t in this browser, or the link is invalid.</p>
       <button class="btn btn--primary" @click="newList({ replace: true })">Create a list</button>
     </main>
 
-    <main v-else class="wrap editor__missing">
+    <main v-else id="main-content" tabindex="-1" class="wrap editor__missing">
       <p class="t-muted">Loading…</p>
     </main>
 

@@ -341,6 +341,18 @@ export function computeTotals(list: ListData): Totals {
   };
 }
 
+// Number formatting is PINNED to one locale, never the ambient default.
+// `toLocaleString(undefined, …)` resolves to the render lambda's locale on the
+// server and the visitor's in the browser, and the read-only share views
+// (/l/{slug}, /s/{code}) render weights server-side — so a visitor whose browser
+// says de-DE would hydrate "1.235" over an SSR'd "1,235" (and "1,5 kg" over
+// "1.5 kg"), a mismatch Vue silently patches after paint. Those pages are also
+// edge-cached, so the HTML every visitor gets carries whichever locale the lambda
+// happened to have. Pinning makes the two sides agree by construction. This is the
+// same rule the date formatters already follow — see app/pages/changelog.vue and
+// app/pages/changes.vue, which pin for exactly this reason.
+const NUM_LOCALE = "en-US";
+
 /**
  * Format milligrams for display in `unit`. STRICT: the selected unit is always
  * the unit shown — grams stay grams, kg stays kg (no auto g→kg / oz→lb promotion).
@@ -361,13 +373,13 @@ export function formatWeight(
   const decimals = unit === "g" ? 0 : unit === "kg" ? 2 : unit === "oz" ? 1 : 2;
   const step = 10 ** -decimals; // smallest value this unit shows: 1 g, 0.1 oz, 0.01 lb/kg
   if (!raw && mg > 0 && Math.round(value / step) === 0) {
-    const stepStr = step.toLocaleString(undefined, {
+    const stepStr = step.toLocaleString(NUM_LOCALE, {
       minimumFractionDigits: decimals,
       maximumFractionDigits: decimals,
     });
     return withUnit ? `<${stepStr} ${unit}` : `<${stepStr}`;
   }
-  const num = value.toLocaleString(undefined, {
+  const num = value.toLocaleString(NUM_LOCALE, {
     minimumFractionDigits: 0,
     maximumFractionDigits: decimals,
   });

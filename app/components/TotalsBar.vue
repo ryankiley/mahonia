@@ -15,13 +15,22 @@ const emit = defineEmits<{
 
 // the classification breakdown chips, in fixed order; only categories that carry
 // weight show (no "Consumable 0 g" noise)
-const chips = computed(() =>
-  [
+const chips = computed(() => {
+  const present = [
     { label: "Base", mg: props.totals.baseMg },
     { label: "Worn", mg: props.totals.wornMg },
     { label: "Consumable", mg: props.totals.consumableMg },
-  ].filter((c) => c.mg > 0),
-);
+  ].filter((c) => c.mg > 0);
+  // A lone "Base" chip equal to the total just restates the headline figure
+  // directly beneath it — the same number twice, three times counting a
+  // single-folder category bar. Base is the default class, so "it's all base" is
+  // the null result and the big number already says it. Drop it.
+  // A lone WORN or CONSUMABLE chip is kept: that one IS a fact about the pack the
+  // headline doesn't carry (nothing here counts toward base weight), and nothing
+  // else on the page states the classification.
+  if (present.length === 1 && present[0]!.label === "Base") return [];
+  return present;
+});
 </script>
 
 <template>

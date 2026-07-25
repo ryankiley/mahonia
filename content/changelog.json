@@ -1,5 +1,21 @@
 [
   {
+    "date": "2026-07-24",
+    "added": [
+      "A \"Skip to content\" link now appears on the first tab press, jumping straight past the toolbar to the list."
+    ],
+    "changed": [
+      "On a shared list, each item's weight now sits closer to its name instead of drifting out to the far right of a wide window.",
+      "Item names on a shared list no longer carry a permanent underline — the search link shows itself as you move down the list.",
+      "The pack total no longer repeats itself as a \"Base\" figure directly underneath when everything in the list is base weight.",
+      "The About and Legal pages now sit centred in the page instead of hugging the left edge."
+    ],
+    "fixed": [
+      "Edits made in the moment you leave a list no longer go missing if the connection drops on the way out.",
+      "Weights on a shared list no longer flicker into a different number format as the page finishes loading."
+    ]
+  },
+  {
     "date": "2026-07-22",
     "changed": [
       "The packing checklist's checkboxes are now drawn by the same icon set as the toolbar's packing toggle — the same square-and-tick glyph, with the tick still popping in."
