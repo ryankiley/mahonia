@@ -384,6 +384,10 @@ function create() {
     // offline: leave the queue intact + persisted; the online watcher re-flushes
     if (!online.value) { status.value = "offline"; persistLocal(); return; }
     const myEpoch = epoch;
+    // Captured for the orphan-recovery write in the catch — by the time it runs,
+    // dispose() may already have cleared both of these.
+    const myToken = editToken;
+    const snapAtFlush = snapshot.value;
     // ≤500 ops per request — the server 400s on oversized batches instead of
     // truncating. A longer queue (offline session) drains across sequential
     // flushes: the finally reschedules while pending is non-empty, and the
@@ -411,7 +415,29 @@ function create() {
       syncRegistry();
       persistLocal(); // snapshot adopted + queue drained → update the on-device copy
     } catch (e: any) {
-      if (myEpoch !== epoch) return;
+      if (myEpoch !== epoch) {
+        // The controller moved to a different list (SPA nav out of the editor, or
+        // a switch between two of your lists) WHILE this batch was in flight — and
+        // the batch then failed, so these ops reached no server. They're also gone
+        // from `pending`: the splice above removed them, and `pending` now belongs
+        // to whatever list the controller moved on to, so re-queueing them here
+        // would graft them onto the wrong list.
+        //
+        // Worse, dispose() has already rewritten THIS list's on-device record with
+        // the post-splice (empty) queue — so without this they'd be lost outright,
+        // and the next open would paint the local snapshot with the edits and then
+        // replace it with the server's, making them visibly appear and vanish.
+        // Restore them into that record instead, so the next open replays them.
+        // (beforeunload doesn't cover this — SPA navigation never fires it.)
+        if (myToken && snapAtFlush) {
+          store.set(localKey(myToken), {
+            snapshot: snapAtFlush,
+            pending: ops,
+            updatedAt: Date.now(),
+          });
+        }
+        return;
+      }
       pending = ops.concat(pending); // re-queue (incl. 409 contention) and retry shortly
       // mutate's 404 is permanent (token deleted/rotated mid-session), never
       // transient — stop retrying; the queue stays persisted on device
