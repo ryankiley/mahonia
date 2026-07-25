@@ -20,6 +20,15 @@ import { brotliCompressSync, gzipSync, constants } from "node:zlib";
 // per-row menu that tucks the note/nesting actions away on the crowded two-line row).
 // Bumped 128→133 for the nuxt 4.4.8→4.5.0 client-runtime growth (~4.5 KB brotli); no app
 // code changed, just the framework we ship.
+//
+// NOT a bump, but the reason current dropped ~2.4 KB: content/changelog.json used to be a
+// module-scope import in app/pages/changelog.vue, so every entry was bundled into that
+// route's client chunk. It's served from server/api/changelog.get.ts now (the page is
+// prerendered, so the read happens at build time). That matters beyond the one-off saving
+// — the house rule is a changelog entry per user-facing PR, so the old shape grew what
+// this gate measures on PRs that ship no code at all, and the ratchet slowly became a
+// tax on writing changelog entries. Watch for the same shape in any other checked-in
+// content: import it in a server route, not a page.
 const TOTAL_BUDGET_KB = 133;
 const MAX_CHUNK_BUDGET_KB = 72; // largest single chunk, brotli (the framework runtime)
 
