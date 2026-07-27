@@ -361,6 +361,10 @@ function onCorrected(res: { status: string; itemName?: string }) {
     <header class="topbar">
       <div class="wrap topbar__inner">
         <template v-if="snapshot">
+          <!-- sync state + last-edit time, on the bar's leading edge — the space the
+               title vacated when it became a page title. Its own margin-inline-end:auto
+               is what keeps the icon cluster pinned trailing. -->
+          <SyncStatus />
           <div class="modetoggle" role="group" aria-label="View mode">
             <!-- one pill tracks between the two segments (damped --ease, never overshoot —
                  a tracking indicator must not leave its track); the icons sit above it -->
@@ -437,9 +441,6 @@ function onCorrected(res: { status: string; itemName?: string }) {
            ghosted placeholder, at the top of the content — matching what the two read
            views have always done (ReadonlyListView's h1). -->
       <ListHead :snapshot="snapshot" @toast="flash" />
-      <!-- persistent sync state + last-edit time, in the calm zone under the
-           header (not crammed into the dense control row above) -->
-      <SyncStatus />
       <TotalsBar
         :list="snapshot"
         :totals="totals"
@@ -653,7 +654,11 @@ function onCorrected(res: { status: string; itemName?: string }) {
   padding-block: var(--space-4) 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  /* one step up from --space-4. This is the gap directly under the trail link (the last
+     row ListHead owns), and it was reading tight against the page title above it now
+     that the sync line no longer sits in this column. Moves the editor toward the air
+     the read views already give the same seam (.view is a --space-6 column). */
+  gap: var(--space-5);
 }
 /* first-run pointer back to saved lists. Recedes once the list has content. */
 .editor__intro {

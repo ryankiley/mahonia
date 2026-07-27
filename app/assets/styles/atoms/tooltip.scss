@@ -1,0 +1,75 @@
+// Tooltip atom — the hover description popup rendered by <Tooltip>. Lives here
+// rather than in the SFC's <style> block so it lands in the entry CSS instead of a
+// chunk that every consuming page pulls in synchronously (the reason the portfolio,
+// where this component came from, made the same split).
+//
+// `.tooltip-trigger` is the inline-flex wrapper drawn around the slotted control.
+// `.tooltip` and its children are the popup, teleported into <body> — only on
+// screen during a hover, but the rules must exist before it mounts or the first
+// frame flashes unstyled.
+
+.tooltip-trigger {
+  display: inline-flex;
+}
+
+.tooltip {
+  // above every other floating layer: a tooltip can describe a control inside a
+  // popover or a dialog, so it has to clear --z-float rather than tie with it
+  z-index: var(--z-tooltip);
+  max-width: 280px;
+  transform-origin: center;
+}
+
+// Inverted ink — the one surface on the site that flips the page's own colours, so
+// a tooltip never reads as another panel. --radius-2 (not the in-flow --radius-1)
+// because it floats; --text-chrome is the type tier reserved for a popover's own
+// text (see the FLOATING CHROME note in foundations/tokens.scss).
+.tooltip__content {
+  background: var(--ink);
+  color: var(--paper);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-2);
+  box-shadow: var(--shadow-pop);
+  font-size: var(--text-chrome);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+// Wraps at the 280px cap rather than running on — the portfolio's original kept a
+// nowrap row (it had a keyboard-shortcut column to hold on one line), which meant
+// the max-width above was never actually enforced.
+.tooltip__text {
+  display: inline-block;
+  text-wrap: pretty;
+}
+
+// Enter/leave — a Y-nudge plus a scale-in, the portfolio's motion for this exact
+// component. A top-anchored tooltip starts 6px lower and rises, a bottom-anchored
+// one starts 6px higher and falls, so it always reads as coming out of the trigger.
+//
+// Enter rides --spring-smooth (critically damped — it settles into place with no
+// overshoot, which is what makes a popup feel placed rather than thrown). Leave
+// takes --ease-in at 0.6× the duration, accelerating away: dismissal should feel
+// lighter and quicker than reveal, and there's nothing left to decelerate into.
+// (The global prefers-reduced-motion rule in main.scss flattens both.)
+.tooltip-enter-active {
+  transition:
+    opacity var(--dur) var(--spring-smooth),
+    transform var(--dur) var(--spring-smooth);
+}
+.tooltip-leave-active {
+  transition:
+    opacity calc(var(--dur) * 0.6) var(--ease-in),
+    transform calc(var(--dur) * 0.6) var(--ease-in);
+}
+.tooltip-enter-from[data-placement="top"],
+.tooltip-leave-to[data-placement="top"] {
+  opacity: 0;
+  transform: translateY(6px) scale(0.96);
+}
+.tooltip-enter-from[data-placement="bottom"],
+.tooltip-leave-to[data-placement="bottom"] {
+  opacity: 0;
+  transform: translateY(-6px) scale(0.96);
+}

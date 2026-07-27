@@ -1184,6 +1184,7 @@ function dismissFix() {
 .reveal-leave-active {
   transition:
     grid-template-rows var(--dur) var(--ease),
+    margin-top var(--dur) var(--ease),
     opacity var(--dur) var(--ease);
 }
 /* the content also rises a touch as it fades — so the note reads as lifting into
@@ -1196,6 +1197,16 @@ function dismissFix() {
 .reveal-leave-to {
   grid-template-rows: 0fr;
   opacity: 0;
+}
+/* The tuck has to collapse WITH the height. It's a negative margin, so a reveal that
+   has animated to 0fr but is still in the DOM keeps pulling the row 6px up — the row
+   closed 6px past its resting height and then snapped back down the moment Vue
+   removed the node. Retiring the margin over the same duration lands the closing row
+   exactly where the closed row sits, and opening still draws the caption up into the
+   name's dead space. */
+.reveal-enter-from.reveal--note,
+.reveal-leave-to.reveal--note {
+  margin-top: 0;
 }
 .reveal-enter-from > *,
 .reveal-leave-to > * {

@@ -31,6 +31,21 @@ const chips = computed(() => {
   if (present.length === 1 && present[0]!.label === "Base") return [];
   return present;
 });
+
+// "Carried" — base + consumable, the weight actually on your back. The three chips
+// above partition the total, so this is the one figure here that's a ROLL-UP of two
+// of them rather than a slice, and it's the number you check against what a pack
+// carries comfortably. LighterPack shows the slices and the skin-out total and
+// leaves you to add two of them in your head.
+//
+// Shown only when it isn't a restatement of a figure already on screen — the same
+// rule the lone-Base case above applies. With no worn weight, carried IS the total
+// (already the headline); with no consumables, carried IS base (already a chip).
+// It earns its place exactly when both are present, which is also the only time the
+// mental arithmetic was annoying.
+const carriedMg = computed(() =>
+  props.totals.wornMg > 0 && props.totals.consumableMg > 0 ? props.totals.carriedMg : null,
+);
 </script>
 
 <template>
@@ -72,6 +87,23 @@ const chips = computed(() => {
           <span class="t-label">{{ c.label }}</span>
           <span class="t-num">{{ formatWeight(c.mg, list.displayUnit, { withUnit: false }) }} <span class="t-muted">{{ list.displayUnit }}</span></span>
         </span>
+        <!-- the derived roll-up, set apart by a hairline because it doesn't belong to
+             the partition on its left; the tooltip carries the definition so the label
+             doesn't have to spell out the arithmetic -->
+        <!-- opens DOWNWARD: the chips sit directly under the display-size total, and a
+             top-anchored popup lands on top of the one number the page exists to show.
+             Below it, it only crosses the category sparkline. Still flips back up near
+             the viewport floor. -->
+        <Tooltip
+          v-if="carriedMg !== null"
+          preferred-placement="bottom"
+          text="Base + consumable — everything in the pack, nothing worn on your body."
+        >
+          <span class="chip chip--sum">
+            <span class="t-label">Carried</span>
+            <span class="t-num">{{ formatWeight(carriedMg, list.displayUnit, { withUnit: false }) }} <span class="t-muted">{{ list.displayUnit }}</span></span>
+          </span>
+        </Tooltip>
       </div>
       <CategoryBar :list="list" />
     </div>
@@ -139,7 +171,10 @@ const chips = computed(() => {
   cursor: pointer;
 }
 .totals__breakdown {
-  margin-top: var(--space-4);
+  /* one step up from --space-4 — the display-size figure above has a lot of optical
+     mass, so the breakdown needs more clearance than a body-copy gap to stop reading
+     as a caption hanging off the number */
+  margin-top: var(--space-5);
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
@@ -153,5 +188,13 @@ const chips = computed(() => {
   display: inline-flex;
   flex-direction: column;
   gap: var(--space-px);
+}
+/* the roll-up chip reads as a different KIND of figure from the slices beside it —
+   a hairline + the row's own gap sets it apart without a heavy divider (same idiom
+   as the ⋯ menu's report row). The gap is --space-5, so the rule sits optically
+   centred in it rather than crowding the label. */
+.chip--sum {
+  padding-left: var(--space-5);
+  border-left: 1px solid var(--line);
 }
 </style>

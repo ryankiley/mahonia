@@ -306,6 +306,21 @@ onClickOutside(trailEl, () => (mode.value = null));
   min-width: 0;
   color: var(--ink-2);
   text-decoration-color: var(--underline);
+  transition:
+    color var(--dur) var(--ease),
+    text-decoration-color var(--dur) var(--ease);
+}
+/* Hover/focus lifts the link out of its resting mute — it's the one thing in this
+   block that goes somewhere, and at --ink-2 it read as inert label text. Text to full
+   ink and the underline up one step to --ink-2: the same two-step deepening .prose a
+   uses, and it keeps the underline under the full-strength floor the --underline token
+   sets. Keyboard focus gets it too, so the affordance isn't pointer-only. This rule is
+   shared by the editor AND packing modes (one ListHead serves both); the read/share
+   views carry their own copy on .view__trail. */
+.head__link:hover,
+.head__link:focus-visible {
+  color: var(--ink);
+  text-decoration-color: var(--ink-2);
 }
 /* the icon is the one thing that ISN'T type: baseline-aligning a replaced element sits
    its bottom edge on the baseline, which rides visibly high next to the text */

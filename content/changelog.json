@@ -2,10 +2,18 @@
   {
     "date": "2026-07-26",
     "added": [
-      "Attach a link to the trail a list was packed for — it shows on the shared and public views, with the site's icon."
+      "Attach a link to the trail a list was packed for — it shows on the shared and public views, with the site's icon.",
+      "The summary now shows a carried weight — base plus consumable, the weight actually on your back — alongside the three figures it's drawn from.",
+      "Copying a list as Markdown includes the carried weight too."
     ],
     "changed": [
-      "A list's name now sits at the top of the page as a proper title, instead of in the toolbar."
+      "A list's name now sits at the top of the page as a proper title, instead of in the toolbar.",
+      "The trail link now brightens as you point at it, in the editor, the packing checklist and the shared views alike.",
+      "The sync state and last-edited time now sit at the left of the editor's toolbar instead of below the list name.",
+      "The pack total and the trail link now have a little more room beneath them."
+    ],
+    "fixed": [
+      "Closing an item's gear-type field no longer jumps a few pixels past where it settles and snaps back."
     ]
   },
   {

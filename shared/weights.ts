@@ -296,7 +296,8 @@ export const itemDisplayName = (
 ): string => [brand, name, variant].filter(Boolean).join(" ");
 
 /**
- * Compute the four rollups. base = total − worn − consumable.
+ * Compute the rollups. base = total − worn − consumable; carried = total − worn
+ * (i.e. base + consumable — everything in the pack, nothing on your body).
  * The math keys off effective classification, never folder names, so lists
  * stay comparable no matter how each person folders.
  */
@@ -336,6 +337,9 @@ export function computeTotals(list: ListData): Totals {
     wornMg,
     consumableMg,
     baseMg: totalMg - wornMg - consumableMg,
+    // derived off worn rather than re-adding base + consumable, so it can't drift
+    // from the two lines above by a rounding path of its own
+    carriedMg: totalMg - wornMg,
     itemCount: list.items.length,
     hasWeights,
   };
