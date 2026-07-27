@@ -20,8 +20,7 @@ let timer: ReturnType<typeof setTimeout> | undefined;
 // Capture rows built and waiting: either for the debounce to elapse, or for a
 // retry after a failed send. Held as built rows (not raw items) so the page-hide
 // flush can beacon them synchronously — it has no chance to await anything.
-let pendingItems: unknown[] | null = null;
-let pendingFingerprint = "";
+let pending: { items: unknown[]; fingerprint: string } | null = null;
 
 /**
  * Capture the gear in a list into this device's vault.
@@ -39,7 +38,7 @@ let pendingFingerprint = "";
  * bundle is budgeted).
  */
 export function useVaultCapture() {
-  const { token, setToken, authHeaders } = useVaultToken();
+  const { token, setToken, vaultFetch } = useVaultToken();
 
   /**
    * Note a change to the list.
@@ -66,33 +65,27 @@ export function useVaultCapture() {
         return; // chunk fetch failed (offline before the SW cached it) — skip
       }
       // already stored, or already queued for exactly this state
-      if (built.fingerprint === lastFingerprint || built.fingerprint === pendingFingerprint) return;
-      pendingItems = built.caps;
-      pendingFingerprint = built.fingerprint;
+      if (built.fingerprint === lastFingerprint || built.fingerprint === pending?.fingerprint) return;
+      pending = { items: built.caps, fingerprint: built.fingerprint };
       clearTimeout(timer);
       timer = setTimeout(send, CAPTURE_DEBOUNCE_MS);
     })();
   }
 
   async function send(): Promise<void> {
-    const items = pendingItems;
-    const fingerprint = pendingFingerprint;
-    if (!items) return;
+    const sending = pending;
+    if (!sending) return;
     try {
-      const res = await $fetch<{ vaultToken?: string }>("/api/vault/capture", {
+      const res = await vaultFetch<{ vaultToken?: string }>("/api/vault/capture", {
         method: "POST",
-        body: { items },
-        headers: authHeaders(),
+        body: { items: sending.items },
       });
       // first capture on this device — the server minted a vault and this is the
       // only time its token is ever sent to us
       if (res?.vaultToken) setToken(res.vaultToken);
-      lastFingerprint = fingerprint;
+      lastFingerprint = sending.fingerprint;
       // only clear if nothing newer arrived while this was in flight
-      if (pendingFingerprint === fingerprint) {
-        pendingItems = null;
-        pendingFingerprint = "";
-      }
+      if (pending?.fingerprint === sending.fingerprint) pending = null;
     } catch {
       // Offline, rate-limited, or the token no longer resolves. Leave the rows
       // pending so the page-hide flush (or the next edit) retries. Capture is a
@@ -117,15 +110,14 @@ export function useVaultCapture() {
    * beacon is the last-resort backstop.
    */
   function flush(): void {
-    if (!import.meta.client || !pendingItems || !navigator.sendBeacon) return;
+    if (!import.meta.client || !pending || !navigator.sendBeacon) return;
     const blob = new Blob(
-      [JSON.stringify({ items: pendingItems, ...(token.value ? { vaultToken: token.value } : {}) })],
+      [JSON.stringify({ items: pending.items, ...(token.value ? { vaultToken: token.value } : {}) })],
       { type: "application/json" },
     );
     if (navigator.sendBeacon("/api/vault/capture", blob)) {
-      lastFingerprint = pendingFingerprint;
-      pendingItems = null;
-      pendingFingerprint = "";
+      lastFingerprint = pending.fingerprint;
+      pending = null;
     }
   }
 
@@ -152,16 +144,15 @@ export function useVaultCapture() {
     });
   }
 
-  return { sync, flush, bindFlushOnLeave };
+  return { sync, bindFlushOnLeave };
 }
 
-/** Reset the capture memo — used by tests, and when a device switches vaults, so
+/** Reset the capture memo — called when a device switches vaults, so
  *  the next vault doesn't inherit the previous one's "already sent". */
 export function resetVaultCapture(): void {
   clearTimeout(timer);
   lastFingerprint = "";
-  pendingItems = null;
-  pendingFingerprint = "";
+  pending = null;
 }
 
 // ---------------------------------------------------------------------------
@@ -177,7 +168,7 @@ export function resetVaultCapture(): void {
  * trigram code — this composable is a fetch and a timer.
  */
 export function useVaultSearch() {
-  const { hasVault, authHeaders } = useVaultToken();
+  const { hasVault, vaultFetch } = useVaultToken();
   const results = ref<VaultEntry[]>([]);
   let searchTimer: ReturnType<typeof setTimeout> | undefined;
   let controller: AbortController | undefined;
@@ -206,9 +197,8 @@ export function useVaultSearch() {
       controller?.abort();
       controller = new AbortController();
       try {
-        const res = await $fetch<{ results: VaultEntry[] }>("/api/vault/search", {
+        const res = await vaultFetch<{ results: VaultEntry[] }>("/api/vault/search", {
           query: { q },
-          headers: authHeaders(),
           signal: controller.signal,
         });
         if (lastQ === q) results.value = res.results || [];

@@ -33,7 +33,7 @@ export default defineEventHandler(async (event) => {
         : undefined;
   if (priceCents === undefined) return { ok: false };
 
-  // the vault's currency, resolved in requireVault, so the stored figure carries
-  // its unit with it without a second round trip
+  // stamped with the vault's currency, resolved in requireVault, so the figure
+  // carries its unit with it without a second round trip
   return { ok: await setVaultItemPrice(db, vaultId, id, priceCents, normalizeCurrency(stored)) };
 });

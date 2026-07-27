@@ -16,9 +16,9 @@ import {
   captureFingerprint,
   captureFromList,
   isVaultWorthy,
-  rankVaultRows,
   vaultNormKey,
 } from "../shared/vault";
+import { rankVaultRows } from "../server/utils/vaultRepo";
 import type { Item } from "../shared/types";
 
 type DB = ReturnType<typeof drizzle>;

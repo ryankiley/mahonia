@@ -20,7 +20,7 @@ import { randomEditToken, sha256Hex } from "./tokens";
 type Db = Awaited<ReturnType<typeof useVaultDb>>;
 
 /** The raw token off the request, or "" — presence is the caller's to interpret. */
-function bearer(event: H3Event): string {
+export function bearer(event: H3Event): string {
   const header = getHeader(event, "authorization") || "";
   return header.startsWith("Bearer ") ? header.slice(7).trim() : "";
 }
@@ -100,10 +100,7 @@ export async function resolveOrMintVault(
   event: H3Event,
   bodyToken?: string,
 ): Promise<{ db: Db; vaultId: number; mintedToken?: string }> {
-  if (suppliedToken(event, bodyToken)) {
-    const { db, vaultId } = await requireVault(event, bodyToken);
-    return { db, vaultId };
-  }
+  if (suppliedToken(event, bodyToken)) return requireVault(event, bodyToken);
   const db = await useVaultDb();
   const { vaultId, token } = await mintVault(db);
   return { db, vaultId, mintedToken: token };

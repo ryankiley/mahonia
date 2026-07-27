@@ -3,7 +3,7 @@ import { Trash2 } from "@lucide/vue";
 import type { Unit } from "~~/shared/types";
 import type { VaultEntry } from "~~/shared/vault";
 import { formatWeightAuto, itemDisplayName } from "~~/shared/weights";
-import { formatMoney, parseMoneyInput } from "~~/shared/money";
+import { CURRENCIES, DEFAULT_CURRENCY, formatMoney, normalizeCurrency, parseMoneyInput } from "~~/shared/money";
 
 // The vault — every piece of gear you've put in a list, in one place, so building
 // the next list is picking rather than retyping.
@@ -18,11 +18,24 @@ useHead({
   meta: [{ name: "robots", content: "noindex" }],
 });
 
-const { token, hasVault, setToken, forget, authHeaders } = useVaultToken();
+const { token, hasVault, setToken, forget, vaultFetch } = useVaultToken();
 
-// The vault's currency, as the server knows it — used to label costs. Comes back
-// with the gear rather than from a second request.
-const currency = ref<string | null>(null);
+// The currency this vault records costs in — comes back with the gear rather than
+// from a second request, and is changed by the picker beside the unit toggle.
+// Changing it RE-LABELS what's stored; it converts nothing, because there are no
+// rates here and inventing one would be worse than showing the figure you typed.
+const currency = ref<string>(DEFAULT_CURRENCY);
+async function setCurrency(e: Event) {
+  const next = (e.target as HTMLSelectElement).value;
+  const prior = currency.value;
+  currency.value = next; // optimistic: the totals re-label immediately
+  try {
+    await vaultFetch("/api/vault/currency", { method: "POST", body: { currency: next } });
+  } catch {
+    currency.value = prior;
+    loadError.value = "Couldn’t change the currency. Try again?";
+  }
+}
 
 // ---- arriving from a transfer link ---------------------------------------
 // /vault#<token> is how a vault reaches a second device. The token rides in the
@@ -82,11 +95,9 @@ async function loadVault() {
   loading.value = true;
   loadError.value = "";
   try {
-    const res = await $fetch<{ items: VaultEntry[]; currency: string | null }>("/api/vault/list", {
-      headers: authHeaders(),
-    });
+    const res = await vaultFetch<{ items: VaultEntry[]; currency: string | null }>("/api/vault/list");
     items.value = res.items || [];
-    currency.value = res.currency ?? null;
+    currency.value = normalizeCurrency(res.currency);
   } catch {
     loadError.value = "Couldn’t load your vault. Check your connection and try again.";
   }
@@ -117,7 +128,7 @@ const totalCents = computed(() =>
   filtered.value.reduce((sum, i) => sum + (i.priceCents ?? 0), 0),
 );
 const pricedCount = computed(() => filtered.value.filter((i) => i.priceCents != null).length);
-const costLabel = (cents: number) => formatMoney(cents, currency.value ?? undefined);
+const costLabel = (cents: number) => formatMoney(cents, currency.value);
 
 // Which row's cost is being typed into. At rest a cost reads as MONEY ("$699");
 // under the caret it's the plain number you'd actually type. Same split the
@@ -161,7 +172,7 @@ async function onPrice(entry: VaultEntry, e: Event) {
   editingPrice.value = null;
   el.value = priceValue(entry);
   try {
-    const res = await $fetch<{ ok: boolean }>("/api/vault/update", {
+    const res = await vaultFetch<{ ok: boolean }>("/api/vault/update", {
       method: "POST",
       body: { id: entry.id, priceCents: next },
     });
@@ -214,7 +225,7 @@ async function remove(entry: VaultEntry) {
   removing.value = entry.id;
   loadError.value = "";
   try {
-    await $fetch("/api/vault/remove", { method: "POST", body: { id: entry.id } });
+    await vaultFetch("/api/vault/remove", { method: "POST", body: { id: entry.id } });
     items.value = items.value.filter((i) => i.id !== entry.id);
     undoable.value = entry;
     clearTimeout(undoTimer);
@@ -231,7 +242,7 @@ async function undoRemove() {
   undoable.value = null;
   clearTimeout(undoTimer);
   try {
-    await $fetch("/api/vault/remove", { method: "POST", body: { id: entry.id, restore: true } });
+    await vaultFetch("/api/vault/remove", { method: "POST", body: { id: entry.id, restore: true } });
     await loadVault();
   } catch {
     loadError.value = "Couldn’t put that back. Check your connection and try again.";
@@ -293,6 +304,18 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
                 @click="setSystem('imperial')"
               >oz</button>
             </div>
+            <!-- sits with the unit toggle: both answer "how do I read the figures
+                 here", and neither changes what's stored. Only shown once something
+                 has a price — an empty vault has no figures to label. -->
+            <select
+              v-if="pricedCount > 0"
+              class="field vault__currency"
+              aria-label="Currency"
+              :value="currency"
+              @change="setCurrency"
+            >
+              <option v-for="c in CURRENCIES" :key="c" :value="c">{{ c }}</option>
+            </select>
           </div>
 
           <p v-if="loadError" class="t-sm vault__error">{{ loadError }}</p>
@@ -430,54 +453,17 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
 .vault__sub {
   max-width: 56ch;
 }
-
-/* --- sign-in --- */
 .vault__auth {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
   max-width: 44ch;
 }
-.vault__form {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
 /* the shared .field is deliberately borderless (it sits inside list rows, where a
    box would be noise). On a standalone sign-in form there's nothing to show where
    to click, so give it the same bottom rule the editor's title field carries —
-   the system's existing answer to "this text is editable". */
-.vault__email {
-  flex: 1 1 auto;
-  min-width: 0;
-  border-bottom: 1px solid var(--line);
-}
-.vault__email:focus {
-  border-bottom-color: var(--ink-2);
-}
-/* the button must not be squeezed into two lines by the growing input */
-.vault__form .btn {
-  flex: none;
-  white-space: nowrap;
-}
 /* the passkey path, as a sentence rather than a second black button — it inherits
    the surrounding muted prose and only deepens on hover, like every other inline
-   link on the site */
-.vault__pklink {
-  padding: 0;
-  border: 0;
-  background: none;
-  font: inherit;
-  color: var(--ink-2);
-  text-decoration: underline;
-  text-decoration-color: var(--underline);
-  text-underline-offset: 2px;
-  cursor: pointer;
-}
-.vault__pklink:hover {
-  color: var(--ink);
-  text-decoration-color: var(--ink-2);
-}
 /* same treatment for the gear search, which is the other standalone field here */
 .vault__search {
   border-bottom: 1px solid var(--line);
@@ -487,9 +473,6 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
 }
 .vault__sentline {
   color: var(--ink);
-}
-.vault__note {
-  max-width: 46ch;
 }
 .vault__error {
   color: var(--ink);
@@ -511,6 +494,14 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
   display: flex;
   gap: var(--space-1);
   margin-left: auto;
+}
+/* sized to its content, not the field's full width, and quiet like the unit toggle
+   beside it — it's a label for the numbers, not a form field to fill in */
+.vault__currency {
+  width: auto;
+  min-height: 0;
+  color: var(--ink-3);
+  font-size: var(--text-chrome);
 }
 /* the selected unit is the only chrome that carries weight here — everything else
    on the page is monochrome text, so "on" is a deepened ink, not a fill */
@@ -618,17 +609,6 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
   align-items: flex-start;
   gap: var(--space-4);
 }
-/* --- passkeys --- */
-.vault__footer {
-  margin-top: var(--space-4);
-  padding-top: 0;
-  border-top: 0;
-}
-.vault__footer {
-  margin-top: var(--space-7);
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--line);
-}
 /* the transfer disclosure — a quiet footer affordance, not a call to action. The
    link it reveals is a capability, so nothing about this should invite a casual
    click; it sits below the gear, under a hairline, like the "Your account" link it
@@ -661,11 +641,6 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
 }
 
 @media (max-width: $bp-stack) {
-  /* the field and its button stack rather than squeezing on a phone */
-  .vault__form {
-    flex-direction: column;
-    align-items: stretch;
-  }
   /* the search keeps the full width; the unit toggle drops beneath it */
   .vault__bar {
     flex-wrap: wrap;

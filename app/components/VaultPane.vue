@@ -20,7 +20,7 @@ import { formatWeight, itemDisplayName } from "~~/shared/weights";
 const emit = defineEmits<{ close: [] }>();
 
 const c = useGearList();
-const { hasVault, authHeaders } = useVaultToken();
+const { hasVault, vaultFetch } = useVaultToken();
 
 const items = ref<VaultEntry[]>([]);
 const loading = ref(true);
@@ -54,7 +54,7 @@ async function load() {
   loading.value = true;
   loadError.value = "";
   try {
-    const res = await $fetch<{ items: VaultEntry[] }>("/api/vault/list", { headers: authHeaders() });
+    const res = await vaultFetch<{ items: VaultEntry[] }>("/api/vault/list");
     items.value = res.items || [];
   } catch {
     loadError.value = "Couldn’t load your vault.";
@@ -95,26 +95,17 @@ const inListCounts = computed(() => {
   return counts;
 });
 
-// brief per-row acknowledgement, so adding several in a row is legible
-const justAdded = ref<Set<number>>(new Set());
-const addTimers = new Map<number, ReturnType<typeof setTimeout>>();
+// brief per-row acknowledgement, so adding several in a row is legible. One id, not
+// a set: adds are one-at-a-time clicks, so only the latest can be mid-acknowledgement.
+const justAdded = ref<number | null>(null);
+let addTimer: ReturnType<typeof setTimeout> | undefined;
 function add(entry: VaultEntry) {
   c.addVaultItem(entry, targetFolderId.value);
-  justAdded.value = new Set(justAdded.value).add(entry.id);
-  clearTimeout(addTimers.get(entry.id));
-  addTimers.set(
-    entry.id,
-    setTimeout(() => {
-      const next = new Set(justAdded.value);
-      next.delete(entry.id);
-      justAdded.value = next;
-      addTimers.delete(entry.id);
-    }, 1400),
-  );
+  justAdded.value = entry.id;
+  clearTimeout(addTimer);
+  addTimer = setTimeout(() => (justAdded.value = null), 1400);
 }
-onBeforeUnmount(() => {
-  for (const t of addTimers.values()) clearTimeout(t);
-});
+onBeforeUnmount(() => clearTimeout(addTimer));
 
 onKeyStroke("Escape", () => emit("close"));
 </script>
@@ -137,10 +128,10 @@ onKeyStroke("Escape", () => emit("close"));
     <!-- signed out: the pane explains itself rather than sitting empty -->
     <div v-if="!hasVault" class="vp__empty">
       <p class="t-sm t-muted">
-        Sign in and every piece of gear you add to a list is kept here, ready to drop into the
-        next one.
+        Every piece of gear you add to a list is kept here, ready to drop into the next one.
+        Nothing to set up — it fills itself as you build.
       </p>
-      <NuxtLink to="/vault" class="btn btn--primary">Set up your vault</NuxtLink>
+      <NuxtLink to="/vault" class="btn btn--primary">Open your vault</NuxtLink>
     </div>
 
     <template v-else>
@@ -186,7 +177,7 @@ onKeyStroke("Escape", () => emit("close"));
             </span>
             <span class="t-num t-sm vp__w">{{ formatWeight(entry.weightMg, unit, { withUnit: false }) }}<span class="t-muted"> {{ unit }}</span></span>
             <span class="vp__icon" aria-hidden="true">
-              <Check v-if="justAdded.has(entry.id)" :size="15" :stroke-width="2.2" class="vp__added" />
+              <Check v-if="justAdded === entry.id" :size="15" :stroke-width="2.2" class="vp__added" />
               <Plus v-else :size="15" :stroke-width="2" />
             </span>
           </button>

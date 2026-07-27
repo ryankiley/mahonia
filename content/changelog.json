@@ -1,5 +1,11 @@
 [
   {
+    "date": "2026-07-27",
+    "added": [
+      "Pick the currency your gear costs are recorded in, on the vault page."
+    ]
+  },
+  {
     "date": "2026-07-26",
     "added": [
       "Attach a link to the trail a list was packed for — it shows on the shared and public views, with the site's icon.",
