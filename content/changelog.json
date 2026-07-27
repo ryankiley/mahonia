@@ -2,7 +2,8 @@
   {
     "date": "2026-07-27",
     "changed": [
-      "The trail link's card shows the destination without the https:// and www., so more of the address fits."
+      "The trail link's card shows the destination without the https:// and www., so more of the address fits.",
+      "In the editor, tapping a trail link now opens its card instead of leaving the page — the link itself is in the card. On a shared list it still goes straight there."
     ],
     "fixed": [
       "A long list name now wraps onto more lines instead of scrolling sideways out of view.",

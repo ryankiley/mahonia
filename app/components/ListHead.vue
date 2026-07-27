@@ -20,6 +20,10 @@ const c = useGearList();
 // full set, reached only by hovering an existing link, so naming it stays a deliberate
 // second step rather than a second thing to fill in.
 const mode = ref<"add" | "edit" | null>(null);
+// Whether the link card is held open. On a fine pointer it also appears on hover; this
+// is what a CLICK on the name does, and it's what makes the card reachable at all on a
+// touch device, where there is no hover to reveal it.
+const pinned = ref(false);
 const open = computed(() => mode.value !== null);
 const fieldsId = useId();
 const fieldsEl = useTemplateRef<HTMLElement>("fieldsEl");
@@ -116,6 +120,7 @@ async function copyLink() {
 
 async function openFields(next: "add" | "edit") {
   mode.value = next;
+  pinned.value = false;
   await nextTick();
   document.getElementById(`${fieldsId}-url`)?.focus();
 }
@@ -136,7 +141,10 @@ function onFocusOut(e: FocusEvent) {
 // Watched element is the whole ROW, not the panel: the Edit/Add button that opens the
 // panel lives in that row, and targeting the panel alone would let the very click that
 // opens it register as an outside click and close it again.
-onClickOutside(trailEl, () => (mode.value = null));
+onClickOutside(trailEl, () => {
+  mode.value = null;
+  pinned.value = false;
+});
 </script>
 
 <template>
@@ -184,11 +192,17 @@ onClickOutside(trailEl, () => (mode.value = null));
            identifies the site, an opaque URL falls back to showing the hostname AS the
            name, and the card below carries the destination in full. -->
       <span v-else class="head__anchor">
-        <a
+        <!-- A BUTTON, not a link: in the editor this opens the card rather than
+             navigating. Tapping the name used to leave the page, which on a phone (no
+             hover) meant Edit and Remove were unreachable — you'd have to come back to
+             get at them. The destination is still one tap away, on the URL inside the
+             card. The read views keep a real anchor: there's nothing to edit there, so
+             clicking the name should go where it says. -->
+        <button
+          type="button"
           class="link head__link"
-          :href="link.href"
-          target="_blank"
-          rel="nofollow ugc noopener noreferrer"
+          :aria-expanded="pinned"
+          @click="pinned = !pinned"
         >
           <!-- every link carries a mark. The site's own once we've cached it; a globe
                until then — some hosts block the fetch outright. Same 16px box either
@@ -203,14 +217,14 @@ onClickOutside(trailEl, () => (mode.value = null));
           />
           <Globe v-else class="head__icon head__icon--fallback" :size="16" :stroke-width="2" aria-hidden="true" />
           <span class="head__name">{{ link.name }}</span>
-        </a>
+        </button>
 
         <!-- Notion's link card: the destination in full, then the actions on it. Shown
              on hover (and on keyboard focus) rather than sitting in the layout, because
              the link is the content and Edit/Remove are only ever wanted deliberately.
              On a coarse pointer there IS no hover, so the media query below drops this
              back into the flow permanently — otherwise a phone could never reach it. -->
-        <span v-if="!open" class="head__card popover">
+        <span v-if="!open" class="head__card popover" :class="{ 'is-pinned': pinned }">
           <img
             v-if="icon"
             class="head__cardicon"
@@ -220,7 +234,12 @@ onClickOutside(trailEl, () => (mode.value = null));
             height="14"
           />
           <Globe v-else class="head__cardicon head__icon--fallback" :size="14" :stroke-width="2" aria-hidden="true" />
-          <span class="head__cardurl">{{ cardUrl }}</span>
+          <a
+            class="head__cardurl"
+            :href="link.href"
+            target="_blank"
+            rel="nofollow ugc noopener noreferrer"
+          >{{ cardUrl }}</a>
           <button
             type="button"
             class="btn btn--quiet head__cardbtn"
@@ -232,8 +251,10 @@ onClickOutside(trailEl, () => (mode.value = null));
                  at 14. 16 is the size for marks beside 16px text (the link row) and reads
                  oversized in here. Stroke drops to 1.5 — the reference's icons are FILLED
                  paths (stroke:none), so a stroked outline at the house's 2 reads heavier
-                 than the thing it imitates. Closest optical match without swapping sets. -->
-            <Copy :size="14" :stroke-width="1.5" aria-hidden="true" />
+                 than the thing it imitates. 1.75, not 1.5: at 14 the lighter stroke went
+                 a touch spindly beside the text it sits in, and this is the smallest step
+                 that reads as the same weight. -->
+            <Copy :size="14" :stroke-width="1.75" aria-hidden="true" />
           </button>
           <!-- no Remove here: the card mirrors Notion's, where removal lives one level
                in, behind Edit (the fields row below carries it). Keeping a destructive
@@ -355,6 +376,15 @@ onClickOutside(trailEl, () => (mode.value = null));
   align-items: baseline;
   gap: var(--space-2);
   min-width: 0;
+  /* it's a <button> (see the template note), so the UA's chrome has to go — it should
+     read as the line of text it looks like, not as a control */
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: start;
+  cursor: pointer;
 }
 /* the icon is the one thing that ISN'T type: baseline-aligning a replaced element sits
    its bottom edge on the baseline, which rides visibly high next to the text */
@@ -375,7 +405,12 @@ onClickOutside(trailEl, () => (mode.value = null));
   white-space: nowrap;
 }
 .head__anchor {
-  position: relative;
+  /* deliberately NOT a positioning context: the floating card below is absolute, and
+     anchoring it here made .head__anchor its containing block — so `max-width: 100%`
+     resolved to the width of the NAME. It anchors to .head__trail instead (already
+     relative, for the edit panel), whose box is the page column, which is the bound
+     the card actually wants. Same left edge either way: the anchor is the row's first
+     item, so inset-inline-start: 0 lands in the same place. */
   display: inline-flex;
   align-items: baseline;
   min-width: 0;
@@ -426,18 +461,28 @@ onClickOutside(trailEl, () => (mode.value = null));
   display: block;
   border-radius: 2px;
 }
-/* wrapped onto its own line the card owns the width, so the URL is capped by the row
-   rather than by a guess — 22ch was sized for sharing a line with the name. min-width:0
-   is what actually lets it ellipsis: a flex item's auto minimum refuses to shrink below
-   its content, which is what pushed the card past the viewport. */
+/* The URL FLEXES between a floor and a ceiling rather than being sized by its content.
+   Content-sizing gave the two bad ends: a 45-character URL made the card wider than the
+   phone, and clamping the card to its parent squeezed the URL to "all…". Between 12ch
+   and 44ch it takes what the row can spare — the whole line on a phone, a comfortable
+   measure on a desktop — and ellipsises at either end. 12ch is the floor because below
+   that the text stops identifying anything; with the card's chrome it still fits the
+   narrowest phone. ONE rule for both pointer branches. */
 .head__cardurl {
-  flex: 1;
-  min-width: 0;
-  max-width: none;
+  flex: 1 1 auto;
+  min-width: 12ch;
+  max-width: 44ch;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  /* the one thing here that navigates, so it deepens on hover — quiet at rest, because
+     the card is a place you land on the way to Edit as often as to the trail itself */
   color: var(--ink-3);
+  transition: color var(--dur) var(--ease);
+}
+.head__cardurl:hover,
+.head__cardurl:focus-visible {
+  color: var(--ink);
 }
 /* the actions are the emphasis in this card: full ink, regular weight. The explicit
    font-size is load-bearing — .btn hard-sets --text-sm (16px), which would otherwise
@@ -493,8 +538,10 @@ onClickOutside(trailEl, () => (mode.value = null));
        the toast/dialog surfaces rather than competing with them */
     z-index: var(--z-menu);
     margin-inline-start: 0;
-    /* undo the wrapped-on-its-own-line sizing the coarse-pointer default sets: floating,
-       the card is out of flow and sizes to its content */
+    /* Undo the wrapped-on-its-own-line sizing the coarse-pointer default sets. Floating,
+       the card is out of flow and sizes to its CONTENT, bounded by the base rule's
+       `max-width: 100%` — which is the page column, since .head__trail is the
+       containing block. Content-sized but never past the screen edge. */
     flex: 0 0 auto;
     width: max-content;
     /* --radius-3 is the small-card step; inner surfaces derive from it with calc() so a
@@ -520,15 +567,11 @@ onClickOutside(trailEl, () => (mode.value = null));
     flex: 0 1 auto;
   }
   .head__anchor:hover .head__card,
-  .head__anchor:focus-within .head__card {
+  .head__anchor:focus-within .head__card,
+  .head__card.is-pinned {
     opacity: 1;
     visibility: visible;
   }
-  .head__cardurl {
-    flex: 0 1 auto;
-    max-width: 34ch;
-  }
-
   /* opacity only — the transition list lives on the base rule (see the note there) */
   .head__add {
     opacity: 0;
