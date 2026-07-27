@@ -27,6 +27,27 @@ const trailEl = useTemplateRef<HTMLElement>("trailEl");
 
 const link = computed(() => parseTrailLink(props.snapshot.trailUrl, props.snapshot.trailLabel));
 
+// The title grows to fit its content. `field-sizing: content` does this natively but
+// isn't in every engine yet, so the height is set by hand: collapse to auto first,
+// then take scrollHeight — without the reset the box can only ever grow, since
+// scrollHeight of an already-tall textarea includes the empty space.
+const titleEl = useTemplateRef<HTMLTextAreaElement>("titleEl");
+function fit(el: HTMLTextAreaElement | null) {
+  if (!el) return;
+  el.style.height = "auto";
+  el.style.height = `${el.scrollHeight}px`;
+}
+function autoGrow(e: Event) {
+  fit(e.target as HTMLTextAreaElement);
+}
+// Re-fit when the value changes from OUTSIDE this component — a list loading in, a
+// collaborator's rename arriving on a poll — and once on mount for the initial value.
+// Also on resize: the wrap point moves with the column, so a title that fits on one
+// line in landscape may need two in portrait.
+onMounted(() => fit(titleEl.value));
+watch(() => props.snapshot.title, () => nextTick(() => fit(titleEl.value)));
+useWindowEvent("resize", () => fit(titleEl.value));
+
 // The site's mark. A SAVED list gets it joined into its snapshot server-side; a DRAFT has
 // no row yet, so we ask for it directly — the browser can't fetch a third-party icon
 // itself under the site's CSP. Kept in a local ref rather than written onto the snapshot:
@@ -110,14 +131,23 @@ onClickOutside(trailEl, () => (mode.value = null));
 
 <template>
   <div class="head">
-    <input
+    <!-- A TEXTAREA, not an input: a list name is a page title and long ones must wrap.
+         An <input> is single-line by definition — "Ryan's Summer Daypack 2026" scrolled
+         sideways inside its box and you could only ever read the start of it. Rows is 1
+         and it grows to fit (see autoGrow); Enter commits rather than inserting a
+         newline, so the value stays the single line of text it is. -->
+    <textarea
+      ref="titleEl"
       class="field head__title"
+      rows="1"
       :value="snapshot.title"
       placeholder="List name"
       aria-label="List name"
       autocorrect="off"
       spellcheck="false"
-      @change="c.setMeta({ title: ($event.target as HTMLInputElement).value })"
+      @input="autoGrow"
+      @keydown.enter.prevent="($event.target as HTMLTextAreaElement).blur()"
+      @change="c.setMeta({ title: ($event.target as HTMLTextAreaElement).value })"
     />
 
     <!-- One row under the title, holding either the affordance or its result — the
@@ -279,6 +309,16 @@ onClickOutside(trailEl, () => (mode.value = null));
   font-weight: 700;
   line-height: 1.2;
   letter-spacing: -0.02em;
+  /* textarea defaults that have to go for it to read as a title rather than a control:
+     no drag handle, no scrollbar (it's sized to its content, so there's nothing to
+     scroll), and no min-height from .field — one line at this size is already taller
+     than --field-h, and the floor would add dead space under a single-line name. */
+  resize: none;
+  overflow: hidden;
+  min-height: 0;
+  /* native content-sizing where it exists; the JS fallback in fit() covers the rest and
+     is harmless here — it computes the same height this would. */
+  field-sizing: content;
 }
 /* much lighter than .field's --ink-3 default: at 32px bold, --ink-3 reads as a real
    title someone typed rather than as an empty field. See --ink-ghost in tokens.scss
@@ -345,6 +385,19 @@ onClickOutside(trailEl, () => (mode.value = null));
   display: inline-flex;
   align-items: baseline;
   min-width: 0;
+  /* On a phone the card is IN FLOW (see below), and side by side with the name the two
+     split the row — the name got the smaller half and ellipsed to "Timberline Tra…"
+     while the card showed a URL that was itself truncated. Neither was readable, and
+     the name is the content. Wrapping lets the card drop to its own line and gives the
+     name the full width; on a fine pointer the card is absolutely positioned, so this
+     has nothing to act on and is inert. */
+  flex-wrap: wrap;
+  row-gap: var(--space-2);
+  /* takes the whole row so the wrapped card's 100% basis has something real to resolve
+     against — inline-flex alone sizes to the NAME, and the card then measured wider
+     than the phone. The fine-pointer branch puts this back to content-sized, where the
+     card floats and the anchor shouldn't claim a full row. */
+  flex: 1 1 100%;
 }
 /* The link card. DEFAULT (coarse pointer / no hover) is in-flow and permanent: a phone
    has no hover, so a reveal-on-hover card would put Edit and Remove out of reach
@@ -356,7 +409,13 @@ onClickOutside(trailEl, () => (mode.value = null));
      "Edit" is a separate control */
   gap: var(--space-2);
   min-width: 0;
-  margin-inline-start: var(--space-2);
+  /* Full width once it has wrapped onto its own line, so the URL gets the room the
+     name was taking from it rather than ellipsing at both ends. SHRINK IS 1, not 0:
+     with 0 the card can't go below its content and the URL's intrinsic width pushed
+     it (and the Edit button) clean off the side of the phone. */
+  flex: 1 1 100%;
+  max-width: 100%;
+  margin-inline-start: 0;
   font-size: var(--text-chrome);
   /* tight leading, not the inherited 1.5 — the card's height is content + padding, and
      1.5 alone pushed it past the reference's 32px */
@@ -373,8 +432,14 @@ onClickOutside(trailEl, () => (mode.value = null));
   display: block;
   border-radius: 2px;
 }
+/* wrapped onto its own line the card owns the width, so the URL is capped by the row
+   rather than by a guess — 22ch was sized for sharing a line with the name. min-width:0
+   is what actually lets it ellipsis: a flex item's auto minimum refuses to shrink below
+   its content, which is what pushed the card past the viewport. */
 .head__cardurl {
-  max-width: 22ch;
+  flex: 1;
+  min-width: 0;
+  max-width: none;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -434,6 +499,10 @@ onClickOutside(trailEl, () => (mode.value = null));
        the toast/dialog surfaces rather than competing with them */
     z-index: var(--z-menu);
     margin-inline-start: 0;
+    /* undo the wrapped-on-its-own-line sizing the coarse-pointer default sets: floating,
+       the card is out of flow and sizes to its content */
+    flex: 0 0 auto;
+    width: max-content;
     /* --radius-3 is the small-card step; inner surfaces derive from it with calc() so a
        nested curve can never end up rounder than the box holding it. */
     padding: var(--space-2) var(--space-3);
@@ -453,12 +522,16 @@ onClickOutside(trailEl, () => (mode.value = null));
       opacity var(--dur) var(--ease),
       visibility var(--dur) var(--ease);
   }
+  .head__anchor {
+    flex: 0 1 auto;
+  }
   .head__anchor:hover .head__card,
   .head__anchor:focus-within .head__card {
     opacity: 1;
     visibility: visible;
   }
   .head__cardurl {
+    flex: 0 1 auto;
     max-width: 34ch;
   }
 
