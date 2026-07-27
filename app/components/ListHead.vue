@@ -464,14 +464,14 @@ onClickOutside(trailEl, () => {
 /* The URL FLEXES between a floor and a ceiling rather than being sized by its content.
    Content-sizing gave the two bad ends: a 45-character URL made the card wider than the
    phone, and clamping the card to its parent squeezed the URL to "all…". Between 12ch
-   and 44ch it takes what the row can spare — the whole line on a phone, a comfortable
+   and 32ch it takes what the row can spare — the whole line on a phone, a comfortable
    measure on a desktop — and ellipsises at either end. 12ch is the floor because below
    that the text stops identifying anything; with the card's chrome it still fits the
    narrowest phone. ONE rule for both pointer branches. */
 .head__cardurl {
   flex: 1 1 auto;
   min-width: 12ch;
-  max-width: 44ch;
+  max-width: 32ch;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
