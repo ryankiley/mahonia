@@ -1,8 +1,19 @@
 #!/usr/bin/env node
-// Brotli bundle-budget gate. The product shaves grams; the site shaves bytes —
-// this fails the build if the client bundle (the JS/CSS a visitor downloads)
-// grows past budget once brotli-compressed (what every modern browser actually
-// receives, and what Nitro's compressPublicAssets + Vercel's edge serve).
+// Brotli bundle-budget gate. The product shaves grams; the site shaves bytes.
+//
+// THE RATCHET IS FIRST LOAD — the JS/CSS a visitor to the editor actually
+// downloads, read from the assets the prerendered /e references. Everything else
+// in _nuxt (the /vault, /account, /changelog, /legal route chunks, the lazy modals
+// and panes) is counted only against a deliberately loose TOTAL backstop.
+//
+// It used to gate on the sum of every built file, and that measured the wrong
+// thing by a wide margin: on the vault + accounts work it reported +19.0 KB where
+// a visitor downloaded +8.3 KB — 2.3× the real cost. Worse, the gap WAS the
+// lazy-loading. Route-splitting a page and dynamically importing a pane bought
+// nothing against the gate, so the guardrail actively taxed the optimisation the
+// codebase is built around, and every new page was billed to people who never
+// open it. Splitting the two numbers puts the incentive back the right way up:
+// move code off the hot path and the ratchet falls.
 //
 // Run after `nuxt build`: `npm run build && npm run bundle-budget`.
 // Budgets are a ratchet — set a little above current so a heavy dep or accidental
@@ -56,29 +67,24 @@ import { brotliCompressSync, gzipSync, constants } from "node:zlib";
 // field on Totals, one chip, one line in the Markdown export. The tooltip is priced as
 // infrastructure rather than as one feature — it exists to be reused, and the second and
 // third consumer cost almost nothing on top of this. 138 restores the ~1 KB headroom.
-// Bumped 138→150 for the vault: your own gear remembered from the lists you build,
-// offered back in the item autocomplete and in a pick-from palette, browsable on
-// /vault. Measured, not estimated — current lands at 146.8.
-//   • /vault — a whole new page: the gear table, cost editing, the transfer-link
-//     disclosure, and its stylesheet. A route chunk, so only people who open it pay.
-//   • VaultPane — the floating "add from your vault" palette, rendered via
-//     <LazyVaultPane v-if>, so it and the shared vault module it imports are their
-//     own chunk, fetched the first time the pane is opened.
-//   • useVaultSearch + useVaultToken + the vault rows in the item autocomplete.
-//     These DO land in the editor chunk, because the input offers your own gear
-//     alongside the catalog — the one part of this work every visitor downloads.
-//   • shared/money.ts (parse + format) for gear cost.
-// Verified NOT in the editor chunk, deliberately: shared/vault.ts (the capture
-// folding + the gear-identity rule) is dynamically imported by useVaultCapture, the
-// same treatment the offline catalog cache gets.
 //
-// Worth recording against the alternative: the accounts-based version of this
-// feature (draft #147 — magic links, sessions, passkeys, claims, /account) measured
-// 153.9 on the same tree. Owning the vault by LINK instead of by account is ~7 KB
-// lighter on the client, and drops Resend, the users table, and the session layer
-// entirely. The saving is the smaller half of that argument, but it is real and it
-// belongs in the ratchet's history.
-const TOTAL_BUDGET_KB = 150;
+// FIRST LOAD, the ratchet. 128.5 KB with the vault; 130 keeps the working headroom.
+//
+// Bumped 126→130 for the vault. This is the honest price of it: +6.7 KB on the hot
+// path, paid by every visitor whether or not they ever open a vault, because
+// useVaultToken, useVaultSearch and the vault rows in the item autocomplete all land
+// in the editor chunk — the input offers your own gear alongside the catalog, so that
+// part can't be lazy. Everything else IS: /vault is a route chunk, VaultPane and
+// shared/vault.ts are dynamically imported, and the old whole-output gate would have
+// charged another 4.6 KB for exactly that splitting. If the vault should cost the hot
+// path less, the lever is the autocomplete integration, not the page.
+const FIRST_LOAD_BUDGET_KB = 130;
+// TOTAL of every built file, the backstop. Deliberately slack: its job is to catch
+// a route chunk ballooning or a heavy dep landing somewhere unnoticed, NOT to price
+// ordinary feature work. Set well clear of current (137.1) so it only speaks up when
+// something has genuinely gone wrong. If you find yourself bumping this one often,
+// something is being shipped to every page that shouldn't be.
+const TOTAL_BUDGET_KB = 180;
 const MAX_CHUNK_BUDGET_KB = 72; // largest single chunk, brotli (the framework runtime)
 
 // First build output that exists: node-server, Vercel preset, or static generate.
@@ -97,7 +103,22 @@ const brotli = (buf) =>
   brotliCompressSync(buf, { params: { [constants.BROTLI_PARAM_QUALITY]: 11 } }).length;
 const kb = (n) => (n / 1024).toFixed(1);
 
+/**
+ * The assets the editor's first load pulls — read from the prerendered /e HTML
+ * (its <script>/<link> refs), which is exactly what the browser fetches before the
+ * app is interactive. Falls back to null if the page isn't in the build output, in
+ * which case the first-load gate is skipped rather than guessed at.
+ */
+function firstLoadAssets() {
+  const html = [".output/public/e/index.html", ".vercel/output/static/e/index.html"]
+    .filter(existsSync)
+    .map((f) => readFileSync(f, "utf8"))[0];
+  if (!html) return null;
+  return new Set([...html.matchAll(/\/_nuxt\/([A-Za-z0-9_.-]+\.(?:js|css))/g)].map((m) => m[1]));
+}
+
 const files = readdirSync(dir).filter((f) => /\.(js|css)$/.test(f));
+const firstLoad = firstLoadAssets();
 let totalRaw = 0;
 let totalBr = 0;
 let totalGz = 0;
@@ -109,10 +130,12 @@ for (const f of files) {
   totalRaw += buf.length;
   totalBr += br;
   totalGz += gz;
-  rows.push({ f, raw: buf.length, br, gz });
+  rows.push({ f, raw: buf.length, br, gz, first: firstLoad?.has(f) ?? false });
 }
 rows.sort((a, b) => b.br - a.br);
 
+const firstBr = rows.filter((r) => r.first).reduce((n, r) => n + r.br, 0);
+const firstBrKb = firstBr / 1024;
 const totalBrKb = totalBr / 1024;
 const maxChunk = rows[0] ?? { f: "—", br: 0 };
 const maxChunkBrKb = maxChunk.br / 1024;
@@ -120,20 +143,33 @@ const maxChunkBrKb = maxChunk.br / 1024;
 console.log(`Client bundle (${files.length} files from ${dir}):`);
 for (const r of rows.slice(0, 8)) {
   console.log(
-    `  ${r.f.padEnd(30)} ${(kb(r.raw) + "KB").padStart(9)} raw → ${(kb(r.br) + "KB").padStart(8)} br`,
+    `  ${(r.first ? "▸ " : "  ") + r.f.padEnd(28)} ${(kb(r.raw) + "KB").padStart(9)} raw → ${(kb(r.br) + "KB").padStart(8)} br`,
   );
 }
 if (rows.length > 8) console.log(`  …and ${rows.length - 8} more`);
 console.log("");
+console.log(`  (▸ = on the editor's first load)`);
+console.log("");
+if (firstLoad) {
+  console.log(
+    `  FIRST LOAD   : ${kb(firstBr)} KB brotli  (budget ${FIRST_LOAD_BUDGET_KB} KB)  ← the ratchet`,
+  );
+}
 console.log(`  total raw    : ${kb(totalRaw)} KB`);
 console.log(`  total gzip   : ${kb(totalGz)} KB`);
-console.log(`  total brotli : ${kb(totalBr)} KB  (budget ${TOTAL_BUDGET_KB} KB)`);
+console.log(`  total brotli : ${kb(totalBr)} KB  (budget ${TOTAL_BUDGET_KB} KB)  ← backstop`);
 console.log(
   `  largest chunk: ${kb(maxChunk.br)} KB brotli — ${maxChunk.f}  (budget ${MAX_CHUNK_BUDGET_KB} KB)`,
 );
 console.log("");
 
 const failures = [];
+if (firstLoad && firstBrKb > FIRST_LOAD_BUDGET_KB)
+  failures.push(
+    `first load ${kb(firstBr)} KB > ${FIRST_LOAD_BUDGET_KB} KB budget — this is what every visitor downloads`,
+  );
+if (!firstLoad)
+  console.warn("  ! /e not in the build output — first-load gate skipped, total only.\n");
 if (totalBrKb > TOTAL_BUDGET_KB)
   failures.push(`total brotli ${kb(totalBr)} KB > ${TOTAL_BUDGET_KB} KB budget`);
 if (maxChunkBrKb > MAX_CHUNK_BUDGET_KB)
@@ -148,5 +184,5 @@ if (failures.length) {
   process.exit(1);
 }
 console.log(
-  `✓ Within budget — ${kb(totalBr)}/${TOTAL_BUDGET_KB} KB brotli, largest ${kb(maxChunk.br)}/${MAX_CHUNK_BUDGET_KB} KB.`,
+  `✓ Within budget — first load ${kb(firstBr)}/${FIRST_LOAD_BUDGET_KB} KB, total ${kb(totalBr)}/${TOTAL_BUDGET_KB} KB, largest ${kb(maxChunk.br)}/${MAX_CHUNK_BUDGET_KB} KB.`,
 );
