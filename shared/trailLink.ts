@@ -78,6 +78,18 @@ export function displayHost(url: URL): string {
   return url.hostname.replace(/^www\./, "");
 }
 
+/**
+ * The URL as a human reads it — scheme and `www.` dropped, trailing slash gone.
+ *
+ * The card that shows this has one line and, on a phone, not many characters; the
+ * eleven the scheme and `www.` take are the eleven that carry no information, and
+ * they're at the FRONT, so an ellipsis eats the part that identifies the trail.
+ * Same trimming the browser's own address bar does, and for the same reason.
+ */
+export function displayUrl(url: URL): string {
+  return (displayHost(url) + url.pathname + url.search).replace(/\/$/, "");
+}
+
 // The stored bounds. They live here, applied INSIDE the normalizers, because the DB
 // columns are bare `text` — these are the only limit there is, and a caller that
 // remembered to normalize but forgot to clamp would be an unbounded write.

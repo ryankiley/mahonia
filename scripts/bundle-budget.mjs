@@ -47,7 +47,16 @@ import { brotliCompressSync, gzipSync, constants } from "node:zlib";
 // into SSR HTML, which this gate doesn't measure at all, and the whole page-metadata
 // scraper the feature originally implied was dropped rather than shipped to the client.
 // 136 keeps the same ~1 KB working headroom the anchor is supposed to carry.
-// Bumped 136→148 for the vault: your own gear remembered from the lists you build,
+//
+// Bumped 136→138 for the hover tooltip + the carried weight. Measured against the same
+// build both ways: 135.6 KB before, 137.0 after, so +1.4 KB brotli. Most of that is the
+// tooltip — a new shared component (Tooltip.vue: the flip/clamp positioning, the teleported
+// popup) plus atoms/tooltip.scss and the two motion curves it brought with it, one of which
+// is a 51-sample linear() spring. The carried weight itself is nearly free: one derived
+// field on Totals, one chip, one line in the Markdown export. The tooltip is priced as
+// infrastructure rather than as one feature — it exists to be reused, and the second and
+// third consumer cost almost nothing on top of this. 138 restores the ~1 KB headroom.
+// Bumped 138→150 for the vault: your own gear remembered from the lists you build,
 // offered back in the item autocomplete and in a pick-from palette, browsable on
 // /vault. Measured, not estimated — current lands at 146.8.
 //   • /vault — a whole new page: the gear table, cost editing, the transfer-link
@@ -69,7 +78,7 @@ import { brotliCompressSync, gzipSync, constants } from "node:zlib";
 // lighter on the client, and drops Resend, the users table, and the session layer
 // entirely. The saving is the smaller half of that argument, but it is real and it
 // belongs in the ratchet's history.
-const TOTAL_BUDGET_KB = 148;
+const TOTAL_BUDGET_KB = 150;
 const MAX_CHUNK_BUDGET_KB = 72; // largest single chunk, brotli (the framework runtime)
 
 // First build output that exists: node-server, Vercel preset, or static generate.

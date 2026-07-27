@@ -1,6 +1,16 @@
 [
   {
     "date": "2026-07-27",
+    "changed": [
+      "The trail link's card shows the destination without the https:// and www., so more of the address fits.",
+      "In the editor, tapping a trail link now opens its card instead of leaving the page — the link itself is in the card. On a shared list it still goes straight there.",
+      "The trail link's address is capped at a readable length instead of running the width of the card."
+    ],
+    "fixed": [
+      "A long list name now wraps onto more lines instead of scrolling sideways out of view.",
+      "On a phone, the trail link's card now sits on its own line, so the trail's name isn't cut short and Edit stays reachable.",
+      "The toolbar's controls no longer drift to the left on a brand-new list."
+    ],
     "added": [
       "Pick the currency your gear costs are recorded in, on the vault page."
     ]
@@ -9,13 +19,21 @@
     "date": "2026-07-26",
     "added": [
       "Attach a link to the trail a list was packed for — it shows on the shared and public views, with the site's icon.",
+      "The summary now shows a carried weight — base plus consumable, the weight actually on your back — alongside the three figures it's drawn from.",
+      "Copying a list as Markdown includes the carried weight too.",
       "Your vault: gear you put in a list is remembered in one place, ready to pull into the next list without retyping. No account — the vault is yours by link, like a list.",
       "Add gear from your vault without typing: a panel beside the list you're building, with everything you own a click away.",
       "Record what each piece of gear cost, in your vault. It travels with the item into any list you add it to.",
       "Open your vault on another device with a link, the same way you already move a list."
     ],
     "changed": [
-      "A list's name now sits at the top of the page as a proper title, instead of in the toolbar."
+      "A list's name now sits at the top of the page as a proper title, instead of in the toolbar.",
+      "The trail link now brightens as you point at it, in the editor, the packing checklist and the shared views alike.",
+      "The sync state and last-edited time now sit at the left of the editor's toolbar instead of below the list name.",
+      "The pack total and the trail link now have a little more room beneath them."
+    ],
+    "fixed": [
+      "Closing an item's gear-type field no longer jumps a few pixels past where it settles and snaps back."
     ]
   },
   {
@@ -141,7 +159,6 @@
   },
   {
     "date": "2026-06-27",
-    "title": "Mahonia is live",
     "added": [
       "Build a packing list and share it with a link — no account, no app, no ads.",
       "Live pack-weight totals, with a base / worn / consumable breakdown and a category bar. Weights are optional; a list with none just stays quiet.",

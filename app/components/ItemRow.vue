@@ -1202,6 +1202,13 @@ function dismissFix() {
 .reveal {
   display: grid;
   grid-template-rows: 1fr;
+  /* Any offset a variant carries must COLLAPSE with the height. A margin still
+     applies to a box that has animated to 0fr, so the row lands off by it and then
+     snaps when the node is removed — which is exactly what the note's negative tuck
+     did. Owned here as a hook rather than patched per variant: the mobile override
+     below already sets a POSITIVE margin on the same wrapper, so "the tuck is
+     negative" was never the invariant — "the offset retires" is. */
+  margin-top: var(--reveal-offset, 0);
 }
 .reveal > * {
   min-height: 0;
@@ -1211,6 +1218,7 @@ function dismissFix() {
 .reveal-leave-active {
   transition:
     grid-template-rows var(--dur) var(--ease),
+    margin-top var(--dur) var(--ease),
     opacity var(--dur) var(--ease);
 }
 /* the content also rises a touch as it fades — so the note reads as lifting into
@@ -1223,6 +1231,10 @@ function dismissFix() {
 .reveal-leave-to {
   grid-template-rows: 0fr;
   opacity: 0;
+}
+.reveal-enter-from,
+.reveal-leave-to {
+  --reveal-offset: 0;
 }
 .reveal-enter-from > *,
 .reveal-leave-to > * {
@@ -1247,7 +1259,7 @@ function dismissFix() {
    Cancelling that dead space puts the caption's line box flush under the name's — the
    distance the read/share row matches with its 0 row-gap (ReadonlyItemRow .item--ro). */
 .reveal--note {
-  margin-top: var(--caption-tuck);
+  --reveal-offset: var(--caption-tuck);
 }
 /* the two sub-line fields (common name + note) stack as one grid child so the reveal's
    1fr↔0fr slide keeps a single clipping child; a hair of gap keeps the two lines apart */
@@ -1386,9 +1398,10 @@ function dismissFix() {
     line-height: 1.3;
   }
   /* the caption sits under the compact meta line here (not a tall 36px field), so
-     the desktop negative pull would overlap — a small positive gap instead */
+     the desktop negative pull would overlap — a small positive gap instead. Through
+     the same hook, so it collapses on close exactly as the negative tuck does. */
   .reveal--note {
-    margin-top: var(--space-px);
+    --reveal-offset: var(--space-px);
   }
   /* one line only — qty · weight · class on the left, controls on the right — so a
      row is never more than two lines (name + this) and icons never land on a third */
