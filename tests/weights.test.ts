@@ -133,6 +133,29 @@ describe("computeTotals: base = total − worn − consumable", () => {
     expect(t.hasWeights).toBe(true);
   });
 
+  it("rolls base + consumable into carried — everything but what's worn", () => {
+    const t = computeTotals({ folders, items });
+    expect(t.carriedMg).toBe(t.baseMg + t.consumableMg); // 1,370,000
+    expect(t.carriedMg).toBe(t.totalMg - t.wornMg);
+  });
+
+  it("counts a partly-worn base line's worn units OUT of carried", () => {
+    // 3 pairs of socks, wearing 1 — carried is the 2 in the pack, not all 3
+    const t = computeTotals({
+      folders,
+      items: [item({ id: "socks", folderId: "pack", unitWeightMg: 100_000, qty: 3, wornQty: 1 })],
+    });
+    expect(t.carriedMg).toBe(200_000);
+  });
+
+  it("equals the total when nothing is worn", () => {
+    const t = computeTotals({
+      folders,
+      items: [item({ id: "tent", folderId: "pack", unitWeightMg: 820_000 })],
+    });
+    expect(t.carriedMg).toBe(t.totalMg);
+  });
+
   it("reports hasWeights=false when every item is weightless", () => {
     const t = computeTotals({
       folders,

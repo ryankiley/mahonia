@@ -65,7 +65,7 @@ const trail = computed(() => parseTrailLink(props.list?.trailUrl, props.list?.tr
            the viewer's browser and img-src stays 'self' data:. -->
       <a
         v-if="trail"
-        class="view__trail"
+        class="link view__trail"
         :href="trail.href"
         :title="trail.href"
         target="_blank"
@@ -162,10 +162,7 @@ const trail = computed(() => parseTrailLink(props.list?.trailUrl, props.list?.tr
   align-self: flex-start;
   max-width: 100%;
   min-width: 0;
-  /* links may deepen to --ink-2, never to --ink (tokens.scss) */
-  color: var(--ink-2);
   font-size: var(--text-sm);
-  text-decoration-color: var(--underline);
 }
 /* the icon is the one thing that isn't type: baseline-aligning a replaced element sits
    its bottom edge on the baseline, riding visibly high next to the text */

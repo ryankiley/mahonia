@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Copy, Globe, Trash2 } from "@lucide/vue";
-import { parseTrailLink } from "~~/shared/trailLink";
+import { displayUrl, parseTrailLink, safeUrl } from "~~/shared/trailLink";
 import type { ListSnapshot } from "~~/shared/types";
 import { copyText } from "~/utils/clipboard";
 
@@ -20,12 +20,47 @@ const c = useGearList();
 // full set, reached only by hovering an existing link, so naming it stays a deliberate
 // second step rather than a second thing to fill in.
 const mode = ref<"add" | "edit" | null>(null);
+// Whether the link card is held open. On a fine pointer it also appears on hover; this
+// is what a CLICK on the name does, and it's what makes the card reachable at all on a
+// touch device, where there is no hover to reveal it.
+const pinned = ref(false);
 const open = computed(() => mode.value !== null);
 const fieldsId = useId();
 const fieldsEl = useTemplateRef<HTMLElement>("fieldsEl");
 const trailEl = useTemplateRef<HTMLElement>("trailEl");
 
 const link = computed(() => parseTrailLink(props.snapshot.trailUrl, props.snapshot.trailLabel));
+// what the card SHOWS — the destination without the scheme or `www.`, so the
+// characters that fit are the ones that say which trail it is. The href is
+// untouched; this is only the label. See displayUrl in shared/trailLink.
+const cardUrl = computed(() => {
+  const u = link.value ? safeUrl(link.value.href) : null;
+  return u ? displayUrl(u) : (link.value?.href ?? "");
+});
+
+// The title grows to fit its content. `field-sizing: content` (in the stylesheet)
+// does this natively; this is the fallback for engines without it, and it runs ONLY
+// there — an explicit inline height overrides content sizing, so running both would
+// mean the JS silently replacing the free native path with a forced layout flush per
+// keystroke. Collapse to auto first, then take scrollHeight: without the reset the
+// box can only ever grow, since scrollHeight of an already-tall textarea includes
+// the empty space.
+const titleEl = useTemplateRef<HTMLTextAreaElement>("titleEl");
+const needsFit = import.meta.client && !CSS.supports("field-sizing", "content");
+function fit() {
+  const el = titleEl.value;
+  if (!needsFit || !el) return;
+  el.style.height = "auto";
+  el.style.height = `${el.scrollHeight}px`;
+}
+// Covers the initial value and any that arrives from OUTSIDE this component — a list
+// loading in, a collaborator's rename on a poll. Also on resize: the wrap point moves
+// with the column, so a title that fits on one line in landscape may need two in
+// portrait.
+if (needsFit) {
+  watch(() => props.snapshot.title, () => nextTick(fit), { immediate: true });
+  useWindowEvent("resize", fit);
+}
 
 // The site's mark. A SAVED list gets it joined into its snapshot server-side; a DRAFT has
 // no row yet, so we ask for it directly — the browser can't fetch a third-party icon
@@ -85,6 +120,7 @@ async function copyLink() {
 
 async function openFields(next: "add" | "edit") {
   mode.value = next;
+  pinned.value = false;
   await nextTick();
   document.getElementById(`${fieldsId}-url`)?.focus();
 }
@@ -105,19 +141,31 @@ function onFocusOut(e: FocusEvent) {
 // Watched element is the whole ROW, not the panel: the Edit/Add button that opens the
 // panel lives in that row, and targeting the panel alone would let the very click that
 // opens it register as an outside click and close it again.
-onClickOutside(trailEl, () => (mode.value = null));
+onClickOutside(trailEl, () => {
+  mode.value = null;
+  pinned.value = false;
+});
 </script>
 
 <template>
   <div class="head">
-    <input
+    <!-- A TEXTAREA, not an input: a list name is a page title and long ones must wrap.
+         An <input> is single-line by definition — "Ryan's Summer Daypack 2026" scrolled
+         sideways inside its box and you could only ever read the start of it. Rows is 1
+         and it grows to fit (see autoGrow); Enter commits rather than inserting a
+         newline, so the value stays the single line of text it is. -->
+    <textarea
+      ref="titleEl"
       class="field head__title"
+      rows="1"
       :value="snapshot.title"
       placeholder="List name"
       aria-label="List name"
       autocorrect="off"
       spellcheck="false"
-      @change="c.setMeta({ title: ($event.target as HTMLInputElement).value })"
+      @input="fit"
+      @keydown.enter.prevent="($event.target as HTMLTextAreaElement).blur()"
+      @change="c.setMeta({ title: ($event.target as HTMLTextAreaElement).value })"
     />
 
     <!-- One row under the title, holding either the affordance or its result — the
@@ -144,11 +192,17 @@ onClickOutside(trailEl, () => (mode.value = null));
            identifies the site, an opaque URL falls back to showing the hostname AS the
            name, and the card below carries the destination in full. -->
       <span v-else class="head__anchor">
-        <a
-          class="head__link"
-          :href="link.href"
-          target="_blank"
-          rel="nofollow ugc noopener noreferrer"
+        <!-- A BUTTON, not a link: in the editor this opens the card rather than
+             navigating. Tapping the name used to leave the page, which on a phone (no
+             hover) meant Edit and Remove were unreachable — you'd have to come back to
+             get at them. The destination is still one tap away, on the URL inside the
+             card. The read views keep a real anchor: there's nothing to edit there, so
+             clicking the name should go where it says. -->
+        <button
+          type="button"
+          class="link head__link"
+          :aria-expanded="pinned"
+          @click="pinned = !pinned"
         >
           <!-- every link carries a mark. The site's own once we've cached it; a globe
                until then — some hosts block the fetch outright. Same 16px box either
@@ -163,14 +217,14 @@ onClickOutside(trailEl, () => (mode.value = null));
           />
           <Globe v-else class="head__icon head__icon--fallback" :size="16" :stroke-width="2" aria-hidden="true" />
           <span class="head__name">{{ link.name }}</span>
-        </a>
+        </button>
 
         <!-- Notion's link card: the destination in full, then the actions on it. Shown
              on hover (and on keyboard focus) rather than sitting in the layout, because
              the link is the content and Edit/Remove are only ever wanted deliberately.
              On a coarse pointer there IS no hover, so the media query below drops this
              back into the flow permanently — otherwise a phone could never reach it. -->
-        <span v-if="!open" class="head__card popover">
+        <span v-if="!open" class="head__card popover" :class="{ 'is-pinned': pinned }">
           <img
             v-if="icon"
             class="head__cardicon"
@@ -180,7 +234,12 @@ onClickOutside(trailEl, () => (mode.value = null));
             height="14"
           />
           <Globe v-else class="head__cardicon head__icon--fallback" :size="14" :stroke-width="2" aria-hidden="true" />
-          <span class="head__cardurl">{{ link.href }}</span>
+          <a
+            class="head__cardurl"
+            :href="link.href"
+            target="_blank"
+            rel="nofollow ugc noopener noreferrer"
+          >{{ cardUrl }}</a>
           <button
             type="button"
             class="btn btn--quiet head__cardbtn"
@@ -192,8 +251,10 @@ onClickOutside(trailEl, () => (mode.value = null));
                  at 14. 16 is the size for marks beside 16px text (the link row) and reads
                  oversized in here. Stroke drops to 1.5 — the reference's icons are FILLED
                  paths (stroke:none), so a stroked outline at the house's 2 reads heavier
-                 than the thing it imitates. Closest optical match without swapping sets. -->
-            <Copy :size="14" :stroke-width="1.5" aria-hidden="true" />
+                 than the thing it imitates. 1.75, not 1.5: at 14 the lighter stroke went
+                 a touch spindly beside the text it sits in, and this is the smallest step
+                 that reads as the same weight. -->
+            <Copy :size="14" :stroke-width="1.75" aria-hidden="true" />
           </button>
           <!-- no Remove here: the card mirrors Notion's, where removal lives one level
                in, behind Edit (the fields row below carries it). Keeping a destructive
@@ -279,6 +340,17 @@ onClickOutside(trailEl, () => (mode.value = null));
   font-weight: 700;
   line-height: 1.2;
   letter-spacing: -0.02em;
+  /* textarea defaults that have to go for it to read as a title rather than a control:
+     no drag handle, no scrollbar (it's sized to its content, so there's nothing to
+     scroll), and no min-height from .field — one line at this size is already taller
+     than --field-h, and the floor would add dead space under a single-line name. */
+  resize: none;
+  overflow: hidden;
+  min-height: 0;
+  /* the primary mechanism: the box sizes to its content, wrapped lines and all. fit()
+     in the script is the fallback for engines without it, and is inert where this
+     works — see the note there for why only one of the two may ever be live. */
+  field-sizing: content;
 }
 /* much lighter than .field's --ink-3 default: at 32px bold, --ink-3 reads as a real
    title someone typed rather than as an empty field. See --ink-ghost in tokens.scss
@@ -304,8 +376,15 @@ onClickOutside(trailEl, () => (mode.value = null));
   align-items: baseline;
   gap: var(--space-2);
   min-width: 0;
-  color: var(--ink-2);
-  text-decoration-color: var(--underline);
+  /* it's a <button> (see the template note), so the UA's chrome has to go — it should
+     read as the line of text it looks like, not as a control */
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: start;
+  cursor: pointer;
 }
 /* the icon is the one thing that ISN'T type: baseline-aligning a replaced element sits
    its bottom edge on the baseline, which rides visibly high next to the text */
@@ -326,10 +405,28 @@ onClickOutside(trailEl, () => (mode.value = null));
   white-space: nowrap;
 }
 .head__anchor {
-  position: relative;
+  /* deliberately NOT a positioning context: the floating card below is absolute, and
+     anchoring it here made .head__anchor its containing block — so `max-width: 100%`
+     resolved to the width of the NAME. It anchors to .head__trail instead (already
+     relative, for the edit panel), whose box is the page column, which is the bound
+     the card actually wants. Same left edge either way: the anchor is the row's first
+     item, so inset-inline-start: 0 lands in the same place. */
   display: inline-flex;
   align-items: baseline;
   min-width: 0;
+  /* On a phone the card is IN FLOW (see below), and side by side with the name the two
+     split the row — the name got the smaller half and ellipsed to "Timberline Tra…"
+     while the card showed a URL that was itself truncated. Neither was readable, and
+     the name is the content. Wrapping lets the card drop to its own line and gives the
+     name the full width; on a fine pointer the card is absolutely positioned, so this
+     has nothing to act on and is inert. */
+  flex-wrap: wrap;
+  row-gap: var(--space-2);
+  /* takes the whole row so the wrapped card's 100% basis has something real to resolve
+     against — inline-flex alone sizes to the NAME, and the card then measured wider
+     than the phone. The fine-pointer branch puts this back to content-sized, where the
+     card floats and the anchor shouldn't claim a full row. */
+  flex: 1 1 100%;
 }
 /* The link card. DEFAULT (coarse pointer / no hover) is in-flow and permanent: a phone
    has no hover, so a reveal-on-hover card would put Edit and Remove out of reach
@@ -341,7 +438,13 @@ onClickOutside(trailEl, () => (mode.value = null));
      "Edit" is a separate control */
   gap: var(--space-2);
   min-width: 0;
-  margin-inline-start: var(--space-2);
+  /* Full width once it has wrapped onto its own line, so the URL gets the room the
+     name was taking from it rather than ellipsing at both ends. SHRINK IS 1, not 0:
+     with 0 the card can't go below its content and the URL's intrinsic width pushed
+     it (and the Edit button) clean off the side of the phone. */
+  flex: 1 1 100%;
+  max-width: 100%;
+  margin-inline-start: 0;
   font-size: var(--text-chrome);
   /* tight leading, not the inherited 1.5 — the card's height is content + padding, and
      1.5 alone pushed it past the reference's 32px */
@@ -358,12 +461,28 @@ onClickOutside(trailEl, () => (mode.value = null));
   display: block;
   border-radius: 2px;
 }
+/* The URL FLEXES between a floor and a ceiling rather than being sized by its content.
+   Content-sizing gave the two bad ends: a 45-character URL made the card wider than the
+   phone, and clamping the card to its parent squeezed the URL to "all…". Between 12ch
+   and 32ch it takes what the row can spare — the whole line on a phone, a comfortable
+   measure on a desktop — and ellipsises at either end. 12ch is the floor because below
+   that the text stops identifying anything; with the card's chrome it still fits the
+   narrowest phone. ONE rule for both pointer branches. */
 .head__cardurl {
-  max-width: 22ch;
+  flex: 1 1 auto;
+  min-width: 12ch;
+  max-width: 32ch;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  /* the one thing here that navigates, so it deepens on hover — quiet at rest, because
+     the card is a place you land on the way to Edit as often as to the trail itself */
   color: var(--ink-3);
+  transition: color var(--dur) var(--ease);
+}
+.head__cardurl:hover,
+.head__cardurl:focus-visible {
+  color: var(--ink);
 }
 /* the actions are the emphasis in this card: full ink, regular weight. The explicit
    font-size is load-bearing — .btn hard-sets --text-sm (16px), which would otherwise
@@ -419,6 +538,12 @@ onClickOutside(trailEl, () => (mode.value = null));
        the toast/dialog surfaces rather than competing with them */
     z-index: var(--z-menu);
     margin-inline-start: 0;
+    /* Undo the wrapped-on-its-own-line sizing the coarse-pointer default sets. Floating,
+       the card is out of flow and sizes to its CONTENT, bounded by the base rule's
+       `max-width: 100%` — which is the page column, since .head__trail is the
+       containing block. Content-sized but never past the screen edge. */
+    flex: 0 0 auto;
+    width: max-content;
     /* --radius-3 is the small-card step; inner surfaces derive from it with calc() so a
        nested curve can never end up rounder than the box holding it. */
     padding: var(--space-2) var(--space-3);
@@ -438,15 +563,15 @@ onClickOutside(trailEl, () => (mode.value = null));
       opacity var(--dur) var(--ease),
       visibility var(--dur) var(--ease);
   }
+  .head__anchor {
+    flex: 0 1 auto;
+  }
   .head__anchor:hover .head__card,
-  .head__anchor:focus-within .head__card {
+  .head__anchor:focus-within .head__card,
+  .head__card.is-pinned {
     opacity: 1;
     visibility: visible;
   }
-  .head__cardurl {
-    max-width: 34ch;
-  }
-
   /* opacity only — the transition list lives on the base rule (see the note there) */
   .head__add {
     opacity: 0;

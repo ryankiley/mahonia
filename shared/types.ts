@@ -130,6 +130,11 @@ export interface Totals {
   baseMg: number;
   wornMg: number;
   consumableMg: number;
+  /** base + consumable — what's actually on your back. The three slices above
+   *  partition the total; this one is a ROLL-UP of two of them, and it's the
+   *  figure you compare against a pack's comfort rating. LighterPack makes you
+   *  add it up in your head. */
+  carriedMg: number;
   itemCount: number;
   hasWeights: boolean;
 }

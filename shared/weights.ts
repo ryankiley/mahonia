@@ -296,7 +296,21 @@ export const itemDisplayName = (
 ): string => [brand, name, variant].filter(Boolean).join(" ");
 
 /**
- * Compute the four rollups. base = total − worn − consumable.
+ * Is `carriedMg` worth showing, or would it just restate a figure already on screen?
+ *
+ * With nothing worn, carried IS the total; with no consumables, it IS base. It earns
+ * its place only when both are present — which is also the only time the arithmetic
+ * was annoying enough to want it done for you.
+ *
+ * Lives here, not in the surfaces: it's a judgment about the data, and it had been
+ * written out longhand in both TotalsBar and the Markdown exporter, where a third
+ * consumer could have got it subtly different with nothing to catch it.
+ */
+export const carriedIsDistinct = (t: Totals): boolean => t.wornMg > 0 && t.consumableMg > 0;
+
+/**
+ * Compute the rollups. base = total − worn − consumable; carried = total − worn
+ * (i.e. base + consumable — everything in the pack, nothing on your body).
  * The math keys off effective classification, never folder names, so lists
  * stay comparable no matter how each person folders.
  */
@@ -336,6 +350,9 @@ export function computeTotals(list: ListData): Totals {
     wornMg,
     consumableMg,
     baseMg: totalMg - wornMg - consumableMg,
+    // derived off worn rather than re-adding base + consumable, so it can't drift
+    // from the two lines above by a rounding path of its own
+    carriedMg: totalMg - wornMg,
     itemCount: list.items.length,
     hasWeights,
   };

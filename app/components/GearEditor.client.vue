@@ -361,6 +361,10 @@ function onCorrected(res: { status: string; itemName?: string }) {
     <header class="topbar">
       <div class="wrap topbar__inner">
         <template v-if="snapshot">
+          <!-- sync state + last-edit time, on the bar's leading edge — the space the
+               title vacated when it became a page title. It takes the free width, which
+               is what pins the icon cluster to the trailing edge. -->
+          <SyncStatus class="topbar__status" />
           <div class="modetoggle" role="group" aria-label="View mode">
             <!-- one pill tracks between the two segments (damped --ease, never overshoot —
                  a tracking indicator must not leave its track); the icons sit above it -->
@@ -437,9 +441,6 @@ function onCorrected(res: { status: string; itemName?: string }) {
            ghosted placeholder, at the top of the content — matching what the two read
            views have always done (ReadonlyListView's h1). -->
       <ListHead :snapshot="snapshot" @toast="flash" />
-      <!-- persistent sync state + last-edit time, in the calm zone under the
-           header (not crammed into the dense control row above) -->
-      <SyncStatus />
       <TotalsBar
         :list="snapshot"
         :totals="totals"
@@ -559,10 +560,19 @@ function onCorrected(res: { status: string; itemName?: string }) {
   align-items: center;
   gap: var(--space-2);
   padding-block: var(--space-3);
-  /* the title used to live here with flex:1, which is what pinned the icon cluster to
-     the trailing edge. It's a page title now (below), so the controls need to be pushed
-     over explicitly or they bunch up on the left. */
+  /* NOT vestigial, and it can't be dropped in favour of the status line's flex:1
+     below: SyncStatus renders conditionally (it says nothing on an untouched draft),
+     and with no status there is no flexible item, so the icon cluster fell back to
+     the leading edge. This is what holds it trailing in that case. */
   justify-content: flex-end;
+}
+/* The bar's flexible item WHEN PRESENT — it takes the free width so the rigid icon
+   cluster stays at the trailing edge and doesn't drift as the words change length.
+   (The title did this job before it became a page title below.) min-width:0 lets it
+   shrink so its own ellipsis fires rather than squeezing the controls. */
+.topbar__status {
+  flex: 1;
+  min-width: 0;
 }
 /* The title block (name + trail link) belongs to ListHead.vue — it owns its own layout
    so the hover affordance, the title, and the link keep one DOM order. */
@@ -653,7 +663,11 @@ function onCorrected(res: { status: string; itemName?: string }) {
   padding-block: var(--space-4) 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  /* one step up from --space-4. This is the gap directly under the trail link (the last
+     row ListHead owns), and it was reading tight against the page title above it now
+     that the sync line no longer sits in this column. Moves the editor toward the air
+     the read views already give the same seam (.view is a --space-6 column). */
+  gap: var(--space-5);
 }
 /* first-run pointer back to saved lists. Recedes once the list has content. */
 .editor__intro {

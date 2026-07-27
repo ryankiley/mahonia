@@ -1,8 +1,8 @@
 <script setup lang="ts">
-// The list's live sync state + last-edit time, in one quiet text line below the
-// header (so the dense top control row stays uncramped on mobile). The words carry
-// the state — "Syncing…", "Synced · edited 1 hour ago", "Offline · saved on
-// device" — and the state word swaps in place on change. No animation here: a save
+// The list's live sync state + last-edit time, in one quiet text line on the
+// leading edge of the editor's top bar. The words carry the state — "Syncing…",
+// "Synced · edited 1 hour ago", "Offline · saved on device" — and the state word
+// swaps in place on change. No animation here: a save
 // cycle flips the word Synced→Syncing…→Synced in ~15ms, so animating a word that
 // changes faster than the motion runs looked like it was racing itself. A subtler
 // motion is worth revisiting, but plain-swap is the calm baseline. Self-contained:
@@ -69,19 +69,35 @@ const shown = computed(() => stateWord.value !== "");
          never re-announces) --><span
       class="syncstatus__state"
       aria-live="polite"
-    >{{ stateWord }}</span><span v-if="timeSuffix">{{ timeSuffix }}</span>
+    >{{ stateWord }}</span><span v-if="timeSuffix" class="syncstatus__time">{{ timeSuffix }}</span>
   </p>
 </template>
 
-<style scoped>
+<!-- lang="scss" is load-bearing, not decoration: the $bp-stack breakpoint below is
+     injected by vite's additionalData (nuxt.config), which only reaches scss blocks.
+     In a plain CSS block the literal `$bp-stack` survives to the minifier and fails
+     the production build with "Invalid media query" — dev is happy either way. -->
+<style scoped lang="scss">
 .syncstatus {
   margin: 0;
   color: var(--ink-3);
-  font-size: var(--text-sm);
+  /* the chrome tier, not body size: this annotates the app rather than being part of
+     the list, and it shares a dense toolbar with 32px icon buttons */
+  font-size: var(--text-chrome);
   /* one line; a long "edited Jul 8" clips rather than wraps */
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+/* Below the stack point the bar is genuinely tight — the mode toggle, share and kebab
+   leave ~130px, and the full string wants ~180. Drop the TIME rather than ellipsis the
+   line: "Synced · edi…" is worse than "Synced", and the state word is the part that's
+   load-bearing. This is the same mobile-crowding concern that used to keep the whole
+   line out of the bar; it's answered here instead of by relocating the component. */
+@media (max-width: $bp-stack) {
+  .syncstatus__time {
+    display: none;
+  }
 }
 /* a genuine "Not saved" is the one state worth full ink */
 .syncstatus.is-alert {

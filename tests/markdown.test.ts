@@ -38,6 +38,18 @@ describe("listToMarkdown", () => {
     expect(md).toContain("**Base weight:** 738 g"); // duplex + 2×100g socks
   });
 
+  it("adds a Carried line once the list has both worn and consumable weight", () => {
+    const s = snap();
+    // the base snapshot is base + worn only, so Carried would just restate Base
+    expect(listToMarkdown(s)).not.toContain("**Carried:**");
+
+    s.folders.push({ id: "f3", name: "Food", defaultClassification: "consumable", sortOrder: 2 });
+    s.items.push({ id: "i4", folderId: "f3", name: "Bars", unitWeightMg: 60000, qty: 5, classification: null, sortOrder: 0 });
+    const md = listToMarkdown(s);
+    expect(md).toContain("**Carried:** 838 g"); // 538 g duplex + 300 g bars
+    expect(md).toContain("**Total:** 1,138 g"); // + the 300 g worn jacket
+  });
+
   it("trails the common name after the product name in the Item cell", () => {
     const s = snap();
     s.items[0]!.commonName = "Tent";
