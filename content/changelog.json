@@ -1,9 +1,13 @@
 [
   {
     "date": "2026-07-27",
+    "changed": [
+      "The trail link's card shows the destination without the https:// and www., so more of the address fits."
+    ],
     "fixed": [
       "A long list name now wraps onto more lines instead of scrolling sideways out of view.",
-      "On a phone, the trail link's card now sits on its own line, so the trail's name isn't cut short and Edit stays reachable."
+      "On a phone, the trail link's card now sits on its own line, so the trail's name isn't cut short and Edit stays reachable.",
+      "The toolbar's controls no longer drift to the left on a brand-new list."
     ]
   },
   {

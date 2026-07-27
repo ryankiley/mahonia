@@ -81,7 +81,9 @@ const shown = computed(() => stateWord.value !== "");
 .syncstatus {
   margin: 0;
   color: var(--ink-3);
-  font-size: var(--text-sm);
+  /* the chrome tier, not body size: this annotates the app rather than being part of
+     the list, and it shares a dense toolbar with 32px icon buttons */
+  font-size: var(--text-chrome);
   /* one line; a long "edited Jul 8" clips rather than wraps */
   white-space: nowrap;
   overflow: hidden;

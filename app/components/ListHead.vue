@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Copy, Globe, Trash2 } from "@lucide/vue";
-import { parseTrailLink } from "~~/shared/trailLink";
+import { displayUrl, parseTrailLink, safeUrl } from "~~/shared/trailLink";
 import type { ListSnapshot } from "~~/shared/types";
 import { copyText } from "~/utils/clipboard";
 
@@ -26,6 +26,13 @@ const fieldsEl = useTemplateRef<HTMLElement>("fieldsEl");
 const trailEl = useTemplateRef<HTMLElement>("trailEl");
 
 const link = computed(() => parseTrailLink(props.snapshot.trailUrl, props.snapshot.trailLabel));
+// what the card SHOWS — the destination without the scheme or `www.`, so the
+// characters that fit are the ones that say which trail it is. The href is
+// untouched; this is only the label. See displayUrl in shared/trailLink.
+const cardUrl = computed(() => {
+  const u = link.value ? safeUrl(link.value.href) : null;
+  return u ? displayUrl(u) : (link.value?.href ?? "");
+});
 
 // The title grows to fit its content. `field-sizing: content` (in the stylesheet)
 // does this natively; this is the fallback for engines without it, and it runs ONLY
@@ -213,7 +220,7 @@ onClickOutside(trailEl, () => (mode.value = null));
             height="14"
           />
           <Globe v-else class="head__cardicon head__icon--fallback" :size="14" :stroke-width="2" aria-hidden="true" />
-          <span class="head__cardurl">{{ link.href }}</span>
+          <span class="head__cardurl">{{ cardUrl }}</span>
           <button
             type="button"
             class="btn btn--quiet head__cardbtn"

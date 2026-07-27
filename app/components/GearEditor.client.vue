@@ -560,11 +560,16 @@ function onCorrected(res: { status: string; itemName?: string }) {
   align-items: center;
   gap: var(--space-2);
   padding-block: var(--space-3);
+  /* NOT vestigial, and it can't be dropped in favour of the status line's flex:1
+     below: SyncStatus renders conditionally (it says nothing on an untouched draft),
+     and with no status there is no flexible item, so the icon cluster fell back to
+     the leading edge. This is what holds it trailing in that case. */
+  justify-content: flex-end;
 }
-/* The bar's one flexible item — it takes the free width, which is what pins the rigid
-   icon cluster to the trailing edge. (The title used to do this job before it became a
-   page title below.) min-width:0 lets it shrink so its own ellipsis can fire rather
-   than squeezing the controls. */
+/* The bar's flexible item WHEN PRESENT — it takes the free width so the rigid icon
+   cluster stays at the trailing edge and doesn't drift as the words change length.
+   (The title did this job before it became a page title below.) min-width:0 lets it
+   shrink so its own ellipsis fires rather than squeezing the controls. */
 .topbar__status {
   flex: 1;
   min-width: 0;
