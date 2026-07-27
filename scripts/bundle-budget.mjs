@@ -37,7 +37,17 @@ import { brotliCompressSync, gzipSync, constants } from "node:zlib";
 // exists to avoid: a threshold nobody trusts gets raised on autopilot, and then it isn't
 // a threshold. 134 restores roughly the ~1 KB gap the earlier anchors carried — enough
 // that a heavy dep or a stray client import still trips it, but ordinary work doesn't.
-const TOTAL_BUDGET_KB = 134;
+//
+// Bumped 134→136 for the trail link + the list-title block: a new list-level field
+// threaded through the reducer, shared/trailLink.ts (URL guard + the name derived from a
+// URL's path), ListHead.vue (the page title, its hover affordance, the link row), and the
+// matching render on the two read views. ~2.0 KB brotli, measured — the gate caught it at
+// 134.9 and this is the deliberate answer, not a nudge to make red go green. Worth noting
+// what it did NOT cost: the favicons are fetched server-side and inlined as data: URLs
+// into SSR HTML, which this gate doesn't measure at all, and the whole page-metadata
+// scraper the feature originally implied was dropped rather than shipped to the client.
+// 136 keeps the same ~1 KB working headroom the anchor is supposed to carry.
+const TOTAL_BUDGET_KB = 136;
 const MAX_CHUNK_BUDGET_KB = 72; // largest single chunk, brotli (the framework runtime)
 
 // First build output that exists: node-server, Vercel preset, or static generate.

@@ -12,6 +12,8 @@ export default defineEventHandler(async (event) => {
     title?: string;
     description?: string;
     displayUnit?: Unit;
+    trailUrl?: string;
+    trailLabel?: string;
     data?: ListData;
   }>(event, 512_000);
 
@@ -23,13 +25,25 @@ export default defineEventHandler(async (event) => {
       : undefined;
   const displayUnit =
     body?.displayUnit && UNITS.includes(body.displayUnit) ? body.displayUnit : undefined;
+  // A trail link can be set on a DRAFT, before the list exists server-side — without
+  // these it would be silently dropped the moment the draft is first saved. (createList
+  // re-validates the URL; passing it through raw here is safe.)
+  const trailUrl = typeof body?.trailUrl === "string" ? body.trailUrl : undefined;
+  const trailLabel = typeof body?.trailLabel === "string" ? body.trailLabel : undefined;
   const data =
     body?.data && Array.isArray(body.data.folders) && Array.isArray(body.data.items)
       ? body.data
       : undefined;
 
   try {
-    const { editToken, snapshot } = await createList({ title, description, displayUnit, data });
+    const { editToken, snapshot } = await createList({
+      title,
+      description,
+      displayUnit,
+      trailUrl,
+      trailLabel,
+      data,
+    });
     return { editToken, snapshot };
   } catch (e) {
     console.error("[create list]", e);

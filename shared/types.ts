@@ -78,6 +78,11 @@ export interface ListMeta {
   title: string;
   description?: string;
   displayUnit: Unit;
+  // Optional pointer to the route this list was packed for — any http(s) URL, stored
+  // already normalized (see normalizeTrailUrl). trailLabel overrides the name derived
+  // from the URL's path, for sites whose URLs are opaque (caltopo.com/m/ABC).
+  trailUrl?: string;
+  trailLabel?: string;
 }
 
 /** Canonical wire shape returned by the API and held by the client editor. */
@@ -94,6 +99,10 @@ export interface ListSnapshot extends ListMeta, ListData {
   tripType?: string;
   season?: string;
   publishedAt?: string;
+  // The trail site's favicon as a data: URL, joined in from the per-host cache. Derived
+  // data, not user content: it's absent from snapshots, diffs and the JSON export, and
+  // queries that don't join simply leave it undefined (the link renders without a mark).
+  trailFaviconDataUrl?: string;
 }
 
 /** The reducer's state: meta + content + version. */

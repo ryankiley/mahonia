@@ -4,6 +4,7 @@
 // MERGE: two editors adding different items both succeed with no conflict; the
 // version counter only signals "you're behind, refetch", not "rejected".
 
+import { normalizeTrailLabel, normalizeTrailUrl } from "./trailLink";
 import type { Classification, Folder, FolderSort, Item, ListState, Unit } from "./types";
 import { UNITS } from "./types";
 
@@ -28,7 +29,16 @@ export type Op =
   | { t: "addFolder"; folder: Folder }
   | { t: "updateFolder"; id: string; patch: Partial<Folder> }
   | { t: "removeFolder"; id: string }
-  | { t: "setMeta"; patch: Partial<{ title: string; description: string; displayUnit: Unit }> };
+  | {
+      t: "setMeta";
+      patch: Partial<{
+        title: string;
+        description: string;
+        displayUnit: Unit;
+        trailUrl: string;
+        trailLabel: string;
+      }>;
+    };
 
 const CLASSES: Classification[] = ["base", "worn", "consumable"];
 // The non-default folder sorts. "manual" is the default and stored as ABSENT (see
@@ -225,6 +235,20 @@ function applyOp(state: ListState, op: Op): void {
       if (typeof p.title === "string") state.title = p.title.slice(0, 200);
       if (typeof p.description === "string") state.description = p.description.slice(0, 4000);
       if (typeof p.displayUnit === "string" && UNITS.includes(p.displayUnit)) state.displayUnit = p.displayUnit;
+      // The trail URL is VALIDATED, not just clamped: it ends up in a :href on a page
+      // strangers open, and Vue won't sanitize it. An empty string clears the link;
+      // anything that isn't http(s) is dropped, so a hostile client can't persist a
+      // javascript: value by talking to the API directly.
+      if (typeof p.trailUrl === "string") {
+        const href = normalizeTrailUrl(p.trailUrl);
+        if (href) state.trailUrl = href;
+        else if (!p.trailUrl.trim()) delete state.trailUrl;
+      }
+      if (typeof p.trailLabel === "string") {
+        const label = normalizeTrailLabel(p.trailLabel);
+        if (label) state.trailLabel = label;
+        else delete state.trailLabel;
+      }
       break;
     }
   }

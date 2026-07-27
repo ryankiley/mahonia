@@ -86,9 +86,19 @@ export function countLinks(text: string | null | undefined): number {
   return (String(text).match(URL_RE) || []).length;
 }
 
-/** True when the combined public free text trips the link-spam heuristic. */
-export function isLikelySpam(parts: { title?: string | null; description?: string | null }): boolean {
-  return countLinks(`${parts.title ?? ""} ${parts.description ?? ""}`) >= SPAM_URL_THRESHOLD;
+/** True when the combined public free text trips the link-spam heuristic.
+ *
+ *  trailLabel counts: it's owner-typed free text that renders on the indexable /l page,
+ *  so it's exactly the surface this heuristic exists for. trailUrl deliberately does NOT
+ *  count — it's a single structurally-validated URL in a dedicated field, and counting it
+ *  would flag every list that legitimately uses the feature. */
+export function isLikelySpam(parts: {
+  title?: string | null;
+  description?: string | null;
+  trailLabel?: string | null;
+}): boolean {
+  const text = `${parts.title ?? ""} ${parts.description ?? ""} ${parts.trailLabel ?? ""}`;
+  return countLinks(text) >= SPAM_URL_THRESHOLD;
 }
 
 // ---------------------------------------------------------------------------
@@ -150,12 +160,23 @@ interface PublishDecision {
 }
 
 export function decidePublish(
-  current: { hasPublishedAt: boolean; title?: string | null; description?: string | null },
+  current: {
+    hasPublishedAt: boolean;
+    title?: string | null;
+    description?: string | null;
+    trailLabel?: string | null;
+  },
   input: { isPublic: boolean },
 ): PublishDecision {
   const isPublic = !!input.isPublic;
   // a link-heavy list is withheld from the feed pending review — never a takedown
-  const flagged = isPublic && isLikelySpam({ title: current.title, description: current.description });
+  const flagged =
+    isPublic &&
+    isLikelySpam({
+      title: current.title,
+      description: current.description,
+      trailLabel: current.trailLabel,
+    });
   // published_at is stamped once — the first time the list goes public.
   const stampPublishedAt = isPublic && !current.hasPublishedAt;
   return { isPublic, flagged, stampPublishedAt };

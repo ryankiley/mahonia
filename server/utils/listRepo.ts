@@ -24,7 +24,9 @@ import {
 import { UNITS } from "../../shared/types";
 import type { ListData, ListSnapshot, ListState, Totals, Unit } from "../../shared/types";
 import { isLikelySpam } from "../../shared/discovery";
-import { ensureSnapshotSchema, useDb } from "./db";
+import { displayHost, normalizeTrailLabel, normalizeTrailUrl, safeUrl } from "../../shared/trailLink";
+import { ensureSnapshotSchema, ensureTrailFaviconSchema, useDb } from "./db";
+import { getFavicon, warmFavicon } from "./trailFavicon";
 import { ensureCatalogSchema } from "./catalog";
 import { randomEditToken, randomShareCode, randomSlug, sha256Hex } from "./tokens";
 import { stageCandidates, type CandidateObservation } from "./candidates";
@@ -83,6 +85,9 @@ function normalizeListData(raw?: Partial<ListData>): ListData {
   return { folders, items };
 }
 
+// trailFaviconDataUrl is NOT set here — it lives in a separate per-host table and is
+// attached by attachTrailFavicon on the read paths. A snapshot without it is perfectly
+// valid; the link just renders without a mark.
 export function rowToSnapshot(row: ListRow): ListSnapshot {
   const data = (row.data ?? { folders: [], items: [] }) as ListData;
   return {
@@ -90,6 +95,8 @@ export function rowToSnapshot(row: ListRow): ListSnapshot {
     slug: row.publicSlug,
     title: row.title,
     description: row.description ?? undefined,
+    trailUrl: row.trailUrl ?? undefined,
+    trailLabel: row.trailLabel ?? undefined,
     displayUnit: row.displayUnit as Unit,
     folders: data.folders ?? [],
     items: data.items ?? [],
@@ -164,11 +171,45 @@ export async function hydrateCatalogNames(db: Db, snap: ListSnapshot): Promise<L
   return snap;
 }
 
+/** Attach the trail site's favicon from the per-host cache, if we have one. Never
+ *  throws and never blocks: an unknown host, a missing table on a fresh Neon deploy, or
+ *  a known-bad icon all just mean the link renders without a mark. */
+export async function attachTrailFavicon(db: Db, snap: ListSnapshot): Promise<ListSnapshot> {
+  if (!snap.trailUrl) return snap;
+  try {
+    await ensureTrailFaviconSchema(db);
+    const url = safeUrl(snap.trailUrl);
+    const dataUrl = url ? await getFavicon(db, displayHost(url)) : null;
+    if (dataUrl) snap.trailFaviconDataUrl = dataUrl;
+  } catch {
+    /* decoration — a read must never fail over a missing favicon */
+  }
+  return snap;
+}
+
+/** Everything a READ view needs on top of the raw row: catalog trickle-down plus the
+ *  trail-link favicon. Single-sourced so the read paths can't drift apart.
+ *
+ *  Deliberately NOT used by the mutate path. The favicon is a data: URL of up to 64 KB
+ *  (~87 KB base64), and applyOpsByEditToken returns on a 450 ms autosave debounce whose
+ *  response the client adopts wholesale and mirrors into IndexedDB — so attaching it
+ *  there re-shipped an immutable icon on every keystroke batch. The editor gets its icon
+ *  once from getByEditToken, or from /api/trail-favicon while the list is still a draft.
+ *
+ *  The two lookups hit different tables and touch different fields, so they run
+ *  concurrently rather than paying both latencies in series. */
+export async function hydrateForRead(db: Db, snap: ListSnapshot): Promise<ListSnapshot> {
+  await Promise.all([hydrateCatalogNames(db, snap), attachTrailFavicon(db, snap)]);
+  return snap;
+}
+
 function rowToState(row: ListRow): ListState {
   const data = (row.data ?? { folders: [], items: [] }) as ListData;
   return {
     title: row.title,
     description: row.description ?? undefined,
+    trailUrl: row.trailUrl ?? undefined,
+    trailLabel: row.trailLabel ?? undefined,
     displayUnit: row.displayUnit as Unit,
     folders: structuredClone(data.folders ?? []),
     items: structuredClone(data.items ?? []),
@@ -374,7 +415,11 @@ export async function restoreSnapshotByEditToken(
   // vector: publish clean, then restore a link-stuffed earlier snapshot. Re-check
   // here too (set-only, mirroring applyOpsByEditToken) so this path can't smuggle
   // spam meta onto an already-public list past the publish-time gate.
-  const spammyMeta = isLikelySpam({ title, description: s.description ?? null });
+  const spammyMeta = isLikelySpam({
+    title,
+    description: s.description ?? null,
+    trailLabel: s.trailLabel ?? null,
+  });
 
   // CAS like the mutate path: re-read + version-guard so a concurrent edit can't
   // be silently lost — and snapshot the overwritten state, so that edit is itself
@@ -387,6 +432,8 @@ export async function restoreSnapshotByEditToken(
       .set({
         title,
         description: s.description ?? null,
+        trailUrl: s.trailUrl ?? null,
+        trailLabel: s.trailLabel ?? null,
         displayUnit,
         data,
         ...weightColumns(totals),
@@ -416,13 +463,13 @@ export async function getByShareCode(code: string): Promise<ListSnapshot | null>
   if (!c) return null;
   const db = await useDb();
   const rows = await db.select().from(lists).where(liveOnly(lists.shareCode, c)).limit(1);
-  return rows[0] ? hydrateCatalogNames(db, rowToSnapshot(rows[0])) : null;
+  return rows[0] ? hydrateForRead(db, rowToSnapshot(rows[0])) : null;
 }
 
 export async function getByEditToken(editToken: string): Promise<ListSnapshot | null> {
   const db = await useDb();
   const row = await findByEditToken(editToken, db);
-  return row ? hydrateCatalogNames(db, rowToSnapshot(row)) : null;
+  return row ? hydrateForRead(db, rowToSnapshot(row)) : null;
 }
 
 export async function versionByEditToken(editToken: string): Promise<number | null> {
@@ -440,13 +487,21 @@ export async function createList(init?: {
   title?: string;
   description?: string;
   displayUnit?: Unit;
+  trailUrl?: string;
+  trailLabel?: string;
   data?: ListData;
 }): Promise<{ editToken: string; snapshot: ListSnapshot }> {
   const db = await useDb();
   const editToken = randomEditToken();
   const editTokenHash = sha256Hex(editToken);
-  const title = (init?.title ?? "Untitled list").slice(0, 200);
+  // `|| `, not `??`: an unnamed draft now arrives with an EMPTY title (the editor shows
+  // its ghosted placeholder instead of a literal), and a blank name would otherwise
+  // produce a bare "-a1b2c3" slug and an empty row in "Your lists".
+  const title = (init?.title?.trim() || "Untitled list").slice(0, 200);
   const description = init?.description ? init.description.slice(0, 4000) : undefined;
+  // re-validated, not just clamped — a create can carry an imported JSON backup's URL
+  const trailUrl = normalizeTrailUrl(init?.trailUrl) ?? undefined;
+  const trailLabel = normalizeTrailLabel(init?.trailLabel);
   const data = normalizeListData(init?.data);
   const totals = computeTotals(data);
   const displayUnit = init?.displayUnit ?? "g";
@@ -462,12 +517,17 @@ export async function createList(init?: {
           shareCode: randomShareCode(),
           title,
           description,
+          trailUrl,
+          trailLabel,
           displayUnit,
           data,
           ...weightColumns(totals),
           version: 1,
         })
         .returning();
+      // same warm as the mutate path — a list created WITH a trail link (a saved draft,
+      // or a JSON-backup import) must get its mark too, not wait for the nightly sweep
+      warmFavicon(db, trailUrl);
       return { editToken, snapshot: rowToSnapshot(inserted[0]!) };
     } catch (e) {
       if ((e as { code?: string })?.code === "23505" && attempt < 4) continue;
@@ -521,15 +581,24 @@ export async function applyOpsByEditToken(
     // like publishList's `row.flagged || decision.flagged`) and gated on batches
     // that actually touch title/description, so ordinary item edits can never
     // re-flag an admin-restored list.
+    // trailLabel joins title/description here: it's owner-typed free text that renders
+    // on /l. trailUrl doesn't — it's one validated URL in its own field, and counting
+    // it would flag every list that legitimately uses the feature.
     const touchesMeta = ops.some(
       (op) =>
         op.t === "setMeta" &&
-        (typeof op.patch?.title === "string" || typeof op.patch?.description === "string"),
+        (typeof op.patch?.title === "string" ||
+          typeof op.patch?.description === "string" ||
+          typeof op.patch?.trailLabel === "string"),
     );
     const reflag =
       row.isPublic &&
       touchesMeta &&
-      isLikelySpam({ title: state.title, description: state.description });
+      isLikelySpam({
+        title: state.title,
+        description: state.description,
+        trailLabel: state.trailLabel,
+      });
 
     // Throttle off the in-hand row (no extra query). Stamping lastSnapshotAt in
     // the SAME CAS update serializes the decision by the version guard, so two
@@ -542,6 +611,8 @@ export async function applyOpsByEditToken(
       .set({
         title: state.title,
         description: state.description ?? null,
+        trailUrl: state.trailUrl ?? null,
+        trailLabel: state.trailLabel ?? null,
         displayUnit: state.displayUnit,
         data,
         ...weightColumns(totals),
@@ -571,6 +642,15 @@ export async function applyOpsByEditToken(
         }
         if (typed.length) await stageCandidates(d, row.id, typed);
       } catch { /* intake must never break a list save */ }
+      // Warm the trail site's favicon the first time we see its host, so the link
+      // carries its mark straight away rather than waiting for the nightly sweep.
+      // Only when the URL actually CHANGED in this batch — otherwise every item edit
+      // on a list with a trail link would re-enter this (it early-outs on a cached
+      // host, but that's still a query per save for no reason).
+      // Deliberately not awaited: a slow third-party favicon must never hold up the
+      // mutate response, and warmFavicon swallows its own failures.
+      if (state.trailUrl !== row.trailUrl) warmFavicon(d, state.trailUrl);
+      // catalog names only — see hydrateForRead on why the favicon stays off the write path
       return hydrateCatalogNames(d, rowToSnapshot(updated[0]));
     }
     // version moved under us — retry against the latest

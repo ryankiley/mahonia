@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { Globe } from "@lucide/vue";
+import { parseTrailLink } from "~~/shared/trailLink";
 import type { Item, ListSnapshot, Totals, Unit } from "~~/shared/types";
 import { groupItemsByFolder, groupItemsByParent } from "~~/shared/weights";
 
@@ -34,6 +36,10 @@ const editedAt = computed(() => {
   const t = iso ? Date.parse(iso) : NaN;
   return Number.isFinite(t) ? t : null;
 });
+
+// The route this list was packed for. Lives here rather than in either page's #head
+// slot so /s and /l both get it — /l overrides only the heading block.
+const trail = computed(() => parseTrailLink(props.list?.trailUrl, props.list?.trailLabel));
 </script>
 
 <template>
@@ -53,6 +59,31 @@ const editedAt = computed(() => {
           </template>
         </ClientOnly>
       </p>
+      <!-- nofollow ugc: /l is indexable and this is a viewer-submitted outbound link,
+           so without it the public feed reads as a link farm. The favicon is a data:
+           URL (fetched server-side, cached per host), so no third-party request leaves
+           the viewer's browser and img-src stays 'self' data:. -->
+      <a
+        v-if="trail"
+        class="view__trail"
+        :href="trail.href"
+        :title="trail.href"
+        target="_blank"
+        rel="nofollow ugc noopener noreferrer"
+      >
+        <!-- every link carries a mark: the site's own once cached, a globe otherwise
+             (some hosts block the fetch outright). Same 16px box either way. -->
+        <img
+          v-if="list.trailFaviconDataUrl"
+          class="view__trailicon"
+          :src="list.trailFaviconDataUrl"
+          alt=""
+          width="16"
+          height="16"
+        />
+        <Globe v-else class="view__trailicon view__trailicon--fallback" :size="16" :stroke-width="2" aria-hidden="true" />
+        <span class="view__trailname">{{ trail.name }}</span>
+      </a>
     </div>
 
     <TotalsBar :list="list" :totals="totals" @set-unit="(u) => $emit('set-unit', u)" />
@@ -88,8 +119,12 @@ const editedAt = computed(() => {
   flex-direction: column;
   gap: var(--space-1);
 }
+/* the page-title step, matching the editor's title input — a shared link and the editor
+   must render the list's name the same size, or /s reads as a different document */
 .view__title {
   font-family: var(--font);
+  font-size: var(--text-page-title);
+  font-weight: 700;
 }
 /* status · edited — one quiet line. flex so a #status icon (the /l globe) sits on the
    text baseline, with a drawn middle-dot between the pieces */
@@ -114,6 +149,40 @@ const editedAt = computed(() => {
   color: var(--ink-3);
   line-height: 1;
   margin-inline: -2px;
+}
+/* the trail link — one quiet line under the title/meta pair. The mark identifies the
+   site and the full destination rides on the anchor's title attribute, so the hostname
+   isn't repeated in the text. */
+.view__trail {
+  display: inline-flex;
+  /* baseline so the name sits on the same line as the title/meta above it */
+  align-items: baseline;
+  /* the mark and the name are one object — --space-2 let the icon drift off the text */
+  gap: var(--space-1);
+  align-self: flex-start;
+  max-width: 100%;
+  min-width: 0;
+  /* links may deepen to --ink-2, never to --ink (tokens.scss) */
+  color: var(--ink-2);
+  font-size: var(--text-sm);
+  text-decoration-color: var(--underline);
+}
+/* the icon is the one thing that isn't type: baseline-aligning a replaced element sits
+   its bottom edge on the baseline, riding visibly high next to the text */
+.view__trailicon {
+  flex: none;
+  align-self: center;
+  border-radius: 2px;
+}
+/* a stand-in, not the site's mark — a step lighter than the link text beside it */
+.view__trailicon--fallback {
+  color: var(--ink-3);
+  opacity: 0.6;
+}
+.view__trailname {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 /* read views are denser than the editor (no add-item row or controls per folder),
    so the inter-folder gap is a step tighter here (space-6, vs the editor's space-7)

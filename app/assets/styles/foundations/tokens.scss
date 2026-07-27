@@ -36,6 +36,13 @@ $bp-full: 1024px !default;
   --ink: light-dark(#000000, #ffffff);
   --ink-2: light-dark(#595959, #a8a8a8); /* secondary text */
   --ink-3: light-dark(#767676, #757575); /* faint — tuned to clear WCAG AA 4.5:1 on paper */
+  /* Ghost: the unfilled LIST TITLE only, and deliberately far below --ink-3's AA floor.
+     Two things make that legitimate here and nowhere else — the field carries a real
+     aria-label ("List name"), so the placeholder is never the accessible name; and it's
+     only ever set at --text-page-title, where 32px bold carries enough mass that
+     --ink-3 reads as a filled-in value rather than as an empty field. Do NOT reuse this
+     on body-size placeholders, where it would be unreadable and unlabelled. */
+  --ink-ghost: light-dark(#dedede, #333333);
 
   /* ---- hairlines: faint + rare. Whitespace + type do the separating, not boxes ---- */
   --line: light-dark(#00000014, #ffffff14);
@@ -83,10 +90,23 @@ $bp-full: 1024px !default;
      the two in sync. ---- */
   --text-base: max(1rem, 0.833vw); /* 16px — body, inputs, item names, labels, meta, controls */
   --text-title: max(1.375rem, 1.146vw); /* 22px — the one heading size */
+  /* 32px — the LIST'S OWN NAME, and nothing else. A deliberate fifth step: a page title
+     is a different role from a section heading (--text-title), which is why 22px read as
+     a label rather than as the name of the thing you're looking at. Sits clearly under
+     --text-display so the live total still dominates the page — this app weighs packs,
+     so the number outranks the name. */
+  --text-page-title: max(2rem, 1.667vw);
   --text-display: max(4rem, 3.333vw); /* 64px — the live total */
   /* the small tier was removed (Ryan: "the small one needs to go") — kept as an
      alias = base so existing `var(--text-sm)` consumers don't break */
   --text-sm: var(--text-base);
+  /* ---- FLOATING CHROME ONLY — two steps, for text inside a popover, where the surface
+     is small and its text is annotation rather than content. Neither is a revival of the
+     removed small tier: --text-sm stays aliased to base, and nothing in the document flow
+     may use either. Never put either on an <input> — under 16px iOS Safari zooms the page
+     on focus (see .field in atoms/controls.scss). ---- */
+  --text-chrome: max(0.875rem, 0.729vw); /* 14px — a popover's own text + its menu rows */
+  --text-micro: max(0.75rem, 0.625vw); /* 12px — the small labels sitting above its fields */
 
   /* ---- line-height scale — the two leadings the type system uses, named so they
      can't drift as scattered literals. ---- */
@@ -114,8 +134,21 @@ $bp-full: 1024px !default;
 
   /* ---- radius: softened — buttons + floating surfaces get real rounding,
      controls/icon-buttons go pill so hover fills read as soft shapes, not boxes ---- */
+  /* Ascending scale on the 4px grid — the step number IS the size order, so a surface
+     picks its corner by how much it floats, not by a name describing what it's for. */
+  /* in-flow row states (the drag nest-target tint). One step under the lifted row's
+     --radius-2, which is the relationship the two drag states want: the row you're
+     dragging reads as picked up, the row you'd drop onto only as marked. */
+  --radius-1: 4px;
   --radius-2: 8px; /* panels, dialogs */
-  --radius-3: 20px; /* floating menus (autocomplete, kebab) — decisively rounder than panels */
+  /* small floating CARDS (the trail-link hover card + its edit panel). 8px is visibly
+     squarer than the reference and 20px turns a 32px card into a lozenge, so this sits
+     between them. The reference measures 10px; 12 keeps the 4px grid the rest of this
+     file is built on and is indistinguishable at this size. Nested surfaces derive from
+     it with calc() rather than hard-coding, so an inner curve can never end up rounder
+     than the box holding it. */
+  --radius-3: 12px;
+  --radius-4: 20px; /* floating menus (autocomplete, kebab) — decisively rounder than panels */
   --radius-pill: 999px; /* buttons + icon buttons */
 
   /* ---- motion: one signature ease (SPACE10's expo-out workhorse) ---- */

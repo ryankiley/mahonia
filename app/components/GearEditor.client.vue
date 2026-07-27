@@ -360,16 +360,6 @@ function onCorrected(res: { status: string; itemName?: string }) {
     <h1 class="visually-hidden">{{ listName ? `${listName} — pack list` : "New pack list — Mahonia" }}</h1>
     <header class="topbar">
       <div class="wrap topbar__inner">
-        <div v-if="snapshot" class="editor__titlewrap">
-          <input
-            class="field editor__title"
-            :value="snapshot.title"
-            placeholder="Untitled list"
-            autocorrect="off"
-            spellcheck="false"
-            @change="c.setMeta({ title: ($event.target as HTMLInputElement).value })"
-          />
-        </div>
         <template v-if="snapshot">
           <div class="modetoggle" role="group" aria-label="View mode">
             <!-- one pill tracks between the two segments (damped --ease, never overshoot —
@@ -435,18 +425,18 @@ function onCorrected(res: { status: string; itemName?: string }) {
     </header>
 
     <main v-if="snapshot && totals" id="main-content" tabindex="-1" class="wrap editor__body">
-      <!-- first-run / returning-user intro: a fresh, empty draft gets one quiet
-           line of identity + help (the bare domain lands straight in the editor),
-           and anyone who already has lists gets a pointer back to them. Recedes the
-           moment the list has an item. -->
-      <div v-if="isFirstRun" class="editor__intro">
-        <p class="editor__introlede">
-          Mahonia weighs your pack. Type a gear name and the weight fills itself. No login, no app.
-        </p>
-        <NuxtLink v-if="savedCount" to="/mine" class="btn btn--link editor__introlink">
+      <!-- Returning-user pointer back to saved lists, on a fresh empty draft only. The
+           marketing lede that used to sit here is gone: the ghosted title now says what
+           this page is, and a pitch above it just crowded the thing you came to do. -->
+      <div v-if="isFirstRun && savedCount" class="editor__intro">
+        <NuxtLink to="/mine" class="btn btn--link editor__introlink">
           Your {{ savedCount }} saved {{ savedCount === 1 ? "list" : "lists" }} →
         </NuxtLink>
       </div>
+      <!-- The list name is a page title, not a toolbar field: large, borderless, with a
+           ghosted placeholder, at the top of the content — matching what the two read
+           views have always done (ReadonlyListView's h1). -->
+      <ListHead :snapshot="snapshot" @toast="flash" />
       <!-- persistent sync state + last-edit time, in the calm zone under the
            header (not crammed into the dense control row above) -->
       <SyncStatus />
@@ -569,42 +559,15 @@ function onCorrected(res: { status: string; itemName?: string }) {
   align-items: center;
   gap: var(--space-2);
   padding-block: var(--space-3);
+  /* the title used to live here with flex:1, which is what pinned the icon cluster to
+     the trailing edge. It's a page title now (below), so the controls need to be pushed
+     over explicitly or they bunch up on the left. */
+  justify-content: flex-end;
 }
-/* the list name is the toolbar's heading. flex:1 so it fills the space up to the
-   icon cluster — a long name ellipsizes WITHIN this box instead of nudging the
-   app-bar icons. (Sync state + last-edit time live in the SyncStatus line below
-   the header, not in this dense row.) */
-.editor__titlewrap {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-}
-.editor__title {
-  /* size to the title text (progressive enhancement; falls back to default
-     input width where unsupported) */
-  width: auto;
-  field-sizing: content;
-  /* NO width cap, and shrink-past-content allowed (min-width: 0): the flex row
-     — titlewrap flex:1 against the rigid icon cluster — is what bounds the
-     title. The old min(46ch, 42vw) cap truncated long names on wide screens
-     while the row sat half-empty; now the name runs right up to the icons and
-     only ellipsizes when the row genuinely runs out. */
-  min-width: 0;
-  font-family: var(--font);
-  font-size: 1rem; /* static 16px — avoid iOS focus-zoom (see .field in controls.scss) */
-  font-weight: 600;
-  border-bottom-color: transparent;
-  /* a long name that exceeds the available room truncates with an ellipsis at
-     rest (the input still scrolls to the caret while you're editing it) */
-  text-overflow: ellipsis;
-}
-.editor__title:focus {
-  border-bottom-color: var(--accent);
-}
-/* the icon cluster is rigid (flex:none) and pinned to the trailing edge by the
-   title group's flex:1 — so a long name is absorbed by the title (it ellipsizes)
-   and never nudges these icons. */
+/* The title block (name + trail link) belongs to ListHead.vue — it owns its own layout
+   so the hover affordance, the title, and the link keep one DOM order. */
+
+/* the icon cluster is rigid so it can't be nudged by anything that joins the row */
 .editor__share,
 .menu {
   flex: none;
@@ -692,19 +655,12 @@ function onCorrected(res: { status: string; itemName?: string }) {
   flex-direction: column;
   gap: var(--space-4);
 }
-/* first-run intro — one quiet line of brand + help above the empty totals, plus an
-   optional pointer back to saved lists. Recedes once the list has content. */
+/* first-run pointer back to saved lists. Recedes once the list has content. */
 .editor__intro {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: var(--space-1);
-}
-.editor__introlede {
-  margin: 0;
-  /* no measure cap — it's a single short hint line, so let it use the body width
-     (the .wrap container already bounds it) instead of wrapping early mid-sentence */
-  color: var(--ink-2);
 }
 /* packing progress — one quiet line between the totals and the checklist. The
    count is the info; "Clear checks" sits beside it in the site's under-link

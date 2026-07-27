@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { displayHost, safeUrl } from "~~/shared/trailLink";
 import { formatWeight } from "~~/shared/weights";
 
 interface RecentChange {
@@ -20,18 +21,12 @@ useHead({
 });
 
 // Only treat http(s) citations as linkable — a javascript:/data: sourceUrl bound
-// to :href would execute on click (Vue doesn't sanitize attribute bindings).
-function safeUrl(u: string | null): URL | null {
-  if (!u) return null;
-  try {
-    const url = new URL(u);
-    return url.protocol === "http:" || url.protocol === "https:" ? url : null;
-  } catch {
-    return null;
-  }
-}
+// to :href would execute on click (Vue doesn't sanitize attribute bindings). The
+// guard lives in shared/trailLink.ts so this page and the trail link on a shared
+// list can't drift apart on what counts as safe.
 function host(u: string | null) {
-  return safeUrl(u)?.hostname.replace(/^www\./, "") ?? "";
+  const url = safeUrl(u);
+  return url ? displayHost(url) : "";
 }
 function safeHref(u: string | null) {
   return safeUrl(u)?.href;

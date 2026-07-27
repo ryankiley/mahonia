@@ -79,6 +79,8 @@ export const LISTS_DDL: string[] = [
     title text NOT NULL DEFAULT 'Untitled list',
     description text,
     display_unit text NOT NULL DEFAULT 'g',
+    trail_url text,
+    trail_label text,
     data jsonb NOT NULL,
     base_weight_mg bigint NOT NULL DEFAULT 0,
     worn_weight_mg bigint NOT NULL DEFAULT 0,
@@ -104,6 +106,8 @@ export const LISTS_DDL: string[] = [
   `ALTER TABLE lists ADD COLUMN IF NOT EXISTS view_count integer NOT NULL DEFAULT 0`,
   `ALTER TABLE lists ADD COLUMN IF NOT EXISTS flagged boolean NOT NULL DEFAULT false`,
   `ALTER TABLE lists ADD COLUMN IF NOT EXISTS last_snapshot_at timestamptz`,
+  `ALTER TABLE lists ADD COLUMN IF NOT EXISTS trail_url text`,
+  `ALTER TABLE lists ADD COLUMN IF NOT EXISTS trail_label text`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_lists_edit_token ON lists(edit_token_hash) WHERE deleted_at IS NULL`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_lists_share_code ON lists(share_code) WHERE deleted_at IS NULL`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_lists_slug ON lists(public_slug) WHERE deleted_at IS NULL`,
@@ -135,11 +139,28 @@ export const SNAPSHOTS_DDL: string[] = [
   `CREATE INDEX IF NOT EXISTS idx_list_snapshots_list ON list_snapshots(list_id, created_at DESC)`,
 ];
 
+// trail_favicons — one row per HOST, not per list (see server/db/schema.ts). Single-
+// sourced here like the others so tests build the production-faithful shape.
+export const TRAIL_FAVICONS_DDL: string[] = [
+  `CREATE TABLE IF NOT EXISTS trail_favicons (
+    host text PRIMARY KEY,
+    data_url text,
+    fetched_at timestamptz NOT NULL DEFAULT now()
+  )`,
+  // the monthly refresh sweep reads oldest-first; without this it seq-scans
+  `CREATE INDEX IF NOT EXISTS idx_trail_favicons_stale ON trail_favicons(fetched_at)`,
+];
+
 /** Idempotently create the `lists` table + indexes (memoized) — for Neon, where
  *  there's no build-time DDL. Mirrors ensureSnapshotSchema; gated to the prod path
  *  in useDb (dev's PGlite already runs the full DDL in build()). */
 const ensureListsSchema = memoizedEnsure(async (db: Db) => {
   for (const stmt of LISTS_DDL) await db.execute(sql.raw(stmt));
+});
+
+/** Idempotently create trail_favicons (memoized) — for Neon (no build-time DDL). */
+export const ensureTrailFaviconSchema = memoizedEnsure(async (db: Db) => {
+  for (const stmt of TRAIL_FAVICONS_DDL) await db.execute(sql.raw(stmt));
 });
 
 /** Idempotently create list_snapshots (memoized) — for Neon (no build-time DDL). */
@@ -159,6 +180,7 @@ const DDL = [
   ...CATALOG_DDL,
   ...CANDIDATES_DDL,
   ...SNAPSHOTS_DDL,
+  ...TRAIL_FAVICONS_DDL,
 ];
 
 async function ensureSchema(db: Db) {

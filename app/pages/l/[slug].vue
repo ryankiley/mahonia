@@ -67,6 +67,8 @@ useHead(() => ({
    (which styles only its own /s fallback heading) */
 .view__title {
   font-family: var(--font);
+  font-size: var(--text-page-title);
+  font-weight: 700;
 }
 .view__desc {
   max-width: 60ch;

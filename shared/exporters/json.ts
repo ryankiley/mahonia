@@ -7,12 +7,19 @@
 import type { Folder, Item, ListData, ListMeta, Unit } from "../types";
 import { UNITS } from "../types";
 import { MAX_FOLDERS, MAX_ITEMS, normalizeFolder, normalizeItem } from "../ops";
+import { normalizeTrailLabel, normalizeTrailUrl } from "../trailLink";
 import { uid } from "../id";
 
 /** The downloaded backup's shape: the list's meta + its full content. */
 export function listToJson(list: ListMeta & ListData): string {
-  const { title, description, displayUnit, folders, items } = list;
-  return JSON.stringify({ title, description, displayUnit, folders, items }, null, 2);
+  const { title, description, displayUnit, trailUrl, trailLabel, folders, items } = list;
+  // trailFaviconDataUrl is deliberately absent — it's a per-host cache the server
+  // rebuilds, not part of the list the owner authored.
+  return JSON.stringify(
+    { title, description, displayUnit, trailUrl, trailLabel, folders, items },
+    null,
+    2,
+  );
 }
 
 /** A parsed backup: meta to seed the new list with + sanitized content. */
@@ -20,6 +27,8 @@ export interface JsonImport {
   title?: string;
   description?: string;
   displayUnit?: Unit;
+  trailUrl?: string;
+  trailLabel?: string;
   data: ListData;
 }
 
@@ -104,6 +113,10 @@ export function jsonToListImport(text: string): JsonImport | null {
       typeof raw.displayUnit === "string" && UNITS.includes(raw.displayUnit as Unit)
         ? (raw.displayUnit as Unit)
         : undefined,
+    // a hand-edited backup can carry any string here, so re-validate rather than clamp:
+    // this ends up in a :href on a page strangers open
+    trailUrl: normalizeTrailUrl(typeof raw.trailUrl === "string" ? raw.trailUrl : null) ?? undefined,
+    trailLabel: normalizeTrailLabel(typeof raw.trailLabel === "string" ? raw.trailLabel : null),
     data: { folders, items },
   };
 }

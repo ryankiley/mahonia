@@ -13,7 +13,7 @@
 import type { Folder, Item, ListData, ListState } from "./types";
 
 export interface ListDiff {
-  meta?: Partial<Pick<ListState, "title" | "description" | "displayUnit">>;
+  meta?: Partial<Pick<ListState, "title" | "description" | "displayUnit" | "trailUrl" | "trailLabel">>;
   foldersUpsert?: Folder[]; // present in target and new-or-changed vs base
   foldersDel?: string[]; // ids in base, gone in target
   itemsUpsert?: Item[];
@@ -25,6 +25,8 @@ export interface FullSnap {
   title: string;
   description: string | null;
   displayUnit: string;
+  trailUrl?: string | null;
+  trailLabel?: string | null;
   data: ListData;
 }
 
@@ -32,12 +34,18 @@ export const stateToFullSnap = (s: ListState): FullSnap => ({
   title: s.title,
   description: s.description ?? null,
   displayUnit: s.displayUnit,
+  trailUrl: s.trailUrl ?? null,
+  trailLabel: s.trailLabel ?? null,
   data: { folders: s.folders, items: s.items },
 });
 export const fullSnapToState = (s: FullSnap): ListState => ({
   title: s.title,
   description: s.description ?? "",
   displayUnit: s.displayUnit as ListState["displayUnit"],
+  // undefined, not "" — these are optional on ListMeta, and an empty string would
+  // round-trip a cleared link back as a present-but-blank field
+  trailUrl: s.trailUrl ?? undefined,
+  trailLabel: s.trailLabel ?? undefined,
   folders: s.data?.folders ?? [],
   items: s.data?.items ?? [],
   version: 0, // not carried by snapshots — the row's own version column is authoritative
@@ -77,6 +85,10 @@ export function diffListState(base: ListState, target: ListState): ListDiff {
   if (base.title !== target.title) meta.title = target.title;
   if ((base.description ?? "") !== (target.description ?? "")) meta.description = target.description ?? "";
   if (base.displayUnit !== target.displayUnit) meta.displayUnit = target.displayUnit;
+  // "" is the CLEAR sentinel (same shape description uses): a link removed between base
+  // and target has to be recorded as a change, or restoring would resurrect it.
+  if ((base.trailUrl ?? "") !== (target.trailUrl ?? "")) meta.trailUrl = target.trailUrl ?? "";
+  if ((base.trailLabel ?? "") !== (target.trailLabel ?? "")) meta.trailLabel = target.trailLabel ?? "";
   if (Object.keys(meta).length) diff.meta = meta;
 
   const baseF = new Map(base.folders.map((f) => [f.id, f]));
@@ -105,6 +117,16 @@ export function applyListDiff(base: ListState, diff: ListDiff): ListState {
     if (diff.meta.title !== undefined) out.title = diff.meta.title;
     if (diff.meta.description !== undefined) out.description = diff.meta.description;
     if (diff.meta.displayUnit !== undefined) out.displayUnit = diff.meta.displayUnit;
+    // "" clears (see diffListState) — drop the key rather than storing a blank string,
+    // so a restored state matches a never-set one exactly
+    if (diff.meta.trailUrl !== undefined) {
+      if (diff.meta.trailUrl) out.trailUrl = diff.meta.trailUrl;
+      else delete out.trailUrl;
+    }
+    if (diff.meta.trailLabel !== undefined) {
+      if (diff.meta.trailLabel) out.trailLabel = diff.meta.trailLabel;
+      else delete out.trailLabel;
+    }
   }
   out.folders = mergeEntities(out.folders, diff.foldersUpsert, diff.foldersDel);
   out.items = mergeEntities(out.items, diff.itemsUpsert, diff.itemsDel);

@@ -146,6 +146,10 @@ export const RATE_LIMITS = {
   "catalog-use": 120,
   "catalog-changes": 60,
   "catalog-correct": 20,
+  // trail-link favicon lookup — the ONE endpoint that fetches a caller-named third-party
+  // host, so it's the tightest public budget here. A real editor asks once per link it
+  // adds, and the per-host cache means most asks never leave the origin at all.
+  "trail-favicon": 30,
   // the admin gate itself (see requireAdmin) — throttled against brute force
   "admin": 30,
 } as const satisfies Record<string, number>;

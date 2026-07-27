@@ -1,5 +1,14 @@
 [
   {
+    "date": "2026-07-26",
+    "added": [
+      "Attach a link to the trail a list was packed for — it shows on the shared and public views, with the site's icon."
+    ],
+    "changed": [
+      "A list's name now sits at the top of the page as a proper title, instead of in the toolbar."
+    ]
+  },
+  {
     "date": "2026-07-24",
     "added": [
       "A \"Skip to content\" link now appears on the first tab press, jumping straight past the toolbar to the list."
