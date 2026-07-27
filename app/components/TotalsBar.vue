@@ -2,7 +2,7 @@
 import { ChevronDown } from "@lucide/vue";
 import type { ListSnapshot, Totals, Unit } from "~~/shared/types";
 import { UNITS } from "~~/shared/types";
-import { formatWeight } from "~~/shared/weights";
+import { carriedIsDistinct, formatWeight } from "~~/shared/weights";
 
 const props = defineProps<{
   list: ListSnapshot;
@@ -33,19 +33,14 @@ const chips = computed(() => {
 });
 
 // "Carried" — base + consumable, the weight actually on your back. The three chips
-// above partition the total, so this is the one figure here that's a ROLL-UP of two
-// of them rather than a slice, and it's the number you check against what a pack
-// carries comfortably. LighterPack shows the slices and the skin-out total and
-// leaves you to add two of them in your head.
+// above partition the total, so this is the one figure here that's a ROLL-UP of two of
+// them rather than a slice, and it's the number you check against what a pack carries
+// comfortably. LighterPack shows the slices and the skin-out total and leaves you to
+// add two of them in your head.
 //
-// Shown only when it isn't a restatement of a figure already on screen — the same
-// rule the lone-Base case above applies. With no worn weight, carried IS the total
-// (already the headline); with no consumables, carried IS base (already a chip).
-// It earns its place exactly when both are present, which is also the only time the
-// mental arithmetic was annoying.
-const carriedMg = computed(() =>
-  props.totals.wornMg > 0 && props.totals.consumableMg > 0 ? props.totals.carriedMg : null,
-);
+// carriedIsDistinct (shared/weights.ts) decides whether it's worth showing — the same
+// call the Markdown export makes, so the two can't drift.
+const showCarried = computed(() => carriedIsDistinct(props.totals));
 </script>
 
 <template>
@@ -95,13 +90,13 @@ const carriedMg = computed(() =>
              Below it, it only crosses the category sparkline. Still flips back up near
              the viewport floor. -->
         <Tooltip
-          v-if="carriedMg !== null"
+          v-if="showCarried"
           preferred-placement="bottom"
           text="Base + consumable — everything in the pack, nothing worn on your body."
         >
           <span class="chip chip--sum">
             <span class="t-label">Carried</span>
-            <span class="t-num">{{ formatWeight(carriedMg, list.displayUnit, { withUnit: false }) }} <span class="t-muted">{{ list.displayUnit }}</span></span>
+            <span class="t-num">{{ formatWeight(totals.carriedMg, list.displayUnit, { withUnit: false }) }} <span class="t-muted">{{ list.displayUnit }}</span></span>
           </span>
         </Tooltip>
       </div>

@@ -27,26 +27,29 @@ const trailEl = useTemplateRef<HTMLElement>("trailEl");
 
 const link = computed(() => parseTrailLink(props.snapshot.trailUrl, props.snapshot.trailLabel));
 
-// The title grows to fit its content. `field-sizing: content` does this natively but
-// isn't in every engine yet, so the height is set by hand: collapse to auto first,
-// then take scrollHeight — without the reset the box can only ever grow, since
-// scrollHeight of an already-tall textarea includes the empty space.
+// The title grows to fit its content. `field-sizing: content` (in the stylesheet)
+// does this natively; this is the fallback for engines without it, and it runs ONLY
+// there — an explicit inline height overrides content sizing, so running both would
+// mean the JS silently replacing the free native path with a forced layout flush per
+// keystroke. Collapse to auto first, then take scrollHeight: without the reset the
+// box can only ever grow, since scrollHeight of an already-tall textarea includes
+// the empty space.
 const titleEl = useTemplateRef<HTMLTextAreaElement>("titleEl");
-function fit(el: HTMLTextAreaElement | null) {
-  if (!el) return;
+const needsFit = import.meta.client && !CSS.supports("field-sizing", "content");
+function fit() {
+  const el = titleEl.value;
+  if (!needsFit || !el) return;
   el.style.height = "auto";
   el.style.height = `${el.scrollHeight}px`;
 }
-function autoGrow(e: Event) {
-  fit(e.target as HTMLTextAreaElement);
+// Covers the initial value and any that arrives from OUTSIDE this component — a list
+// loading in, a collaborator's rename on a poll. Also on resize: the wrap point moves
+// with the column, so a title that fits on one line in landscape may need two in
+// portrait.
+if (needsFit) {
+  watch(() => props.snapshot.title, () => nextTick(fit), { immediate: true });
+  useWindowEvent("resize", fit);
 }
-// Re-fit when the value changes from OUTSIDE this component — a list loading in, a
-// collaborator's rename arriving on a poll — and once on mount for the initial value.
-// Also on resize: the wrap point moves with the column, so a title that fits on one
-// line in landscape may need two in portrait.
-onMounted(() => fit(titleEl.value));
-watch(() => props.snapshot.title, () => nextTick(() => fit(titleEl.value)));
-useWindowEvent("resize", () => fit(titleEl.value));
 
 // The site's mark. A SAVED list gets it joined into its snapshot server-side; a DRAFT has
 // no row yet, so we ask for it directly — the browser can't fetch a third-party icon
@@ -145,7 +148,7 @@ onClickOutside(trailEl, () => (mode.value = null));
       aria-label="List name"
       autocorrect="off"
       spellcheck="false"
-      @input="autoGrow"
+      @input="fit"
       @keydown.enter.prevent="($event.target as HTMLTextAreaElement).blur()"
       @change="c.setMeta({ title: ($event.target as HTMLTextAreaElement).value })"
     />
@@ -175,7 +178,7 @@ onClickOutside(trailEl, () => (mode.value = null));
            name, and the card below carries the destination in full. -->
       <span v-else class="head__anchor">
         <a
-          class="head__link"
+          class="link head__link"
           :href="link.href"
           target="_blank"
           rel="nofollow ugc noopener noreferrer"
@@ -316,8 +319,9 @@ onClickOutside(trailEl, () => (mode.value = null));
   resize: none;
   overflow: hidden;
   min-height: 0;
-  /* native content-sizing where it exists; the JS fallback in fit() covers the rest and
-     is harmless here — it computes the same height this would. */
+  /* the primary mechanism: the box sizes to its content, wrapped lines and all. fit()
+     in the script is the fallback for engines without it, and is inert where this
+     works — see the note there for why only one of the two may ever be live. */
   field-sizing: content;
 }
 /* much lighter than .field's --ink-3 default: at 32px bold, --ink-3 reads as a real
@@ -344,23 +348,6 @@ onClickOutside(trailEl, () => (mode.value = null));
   align-items: baseline;
   gap: var(--space-2);
   min-width: 0;
-  color: var(--ink-2);
-  text-decoration-color: var(--underline);
-  transition:
-    color var(--dur) var(--ease),
-    text-decoration-color var(--dur) var(--ease);
-}
-/* Hover/focus lifts the link out of its resting mute — it's the one thing in this
-   block that goes somewhere, and at --ink-2 it read as inert label text. Text to full
-   ink and the underline up one step to --ink-2: the same two-step deepening .prose a
-   uses, and it keeps the underline under the full-strength floor the --underline token
-   sets. Keyboard focus gets it too, so the affordance isn't pointer-only. This rule is
-   shared by the editor AND packing modes (one ListHead serves both); the read/share
-   views carry their own copy on .view__trail. */
-.head__link:hover,
-.head__link:focus-visible {
-  color: var(--ink);
-  text-decoration-color: var(--ink-2);
 }
 /* the icon is the one thing that ISN'T type: baseline-aligning a replaced element sits
    its bottom edge on the baseline, which rides visibly high next to the text */

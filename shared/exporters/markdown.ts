@@ -2,7 +2,7 @@
 // Apple Notes. Shared by the client (copy/download) and later the server.
 
 import type { ListSnapshot } from "../types";
-import { computeTotals, effectiveClassification, formatWeight, itemDisplayName, lineMg, rowDisplayMg, splitWornQty } from "../weights";
+import { carriedIsDistinct, computeTotals, effectiveClassification, formatWeight, itemDisplayName, lineMg, rowDisplayMg, splitWornQty } from "../weights";
 import { exportSections } from "./rows";
 
 // a product name with its common name trailing after an em dash, when the item has one
@@ -52,9 +52,8 @@ export function listToMarkdown(list: ListSnapshot): string {
     out.push(`- **Base weight:** ${formatWeight(totals.baseMg, u)}`);
     out.push(`- **Worn:** ${formatWeight(totals.wornMg, u)}`);
     out.push(`- **Consumable:** ${formatWeight(totals.consumableMg, u)}`);
-    // the base + consumable roll-up, on the same rule the summary bar uses: with no
-    // worn weight it just restates Total, with no consumables it restates Base
-    if (totals.wornMg > 0 && totals.consumableMg > 0) {
+    // the base + consumable roll-up, on the same rule the summary bar uses
+    if (carriedIsDistinct(totals)) {
       out.push(`- **Carried:** ${formatWeight(totals.carriedMg, u)}`);
     }
     out.push(`- **Total:** ${formatWeight(totals.totalMg, u)}`);

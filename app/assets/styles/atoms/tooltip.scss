@@ -13,17 +13,30 @@
 }
 
 .tooltip {
+  // fixed + non-interactive never vary, so they belong here rather than in the
+  // inline style the component writes — that carries only the computed left/top
+  position: fixed;
+  pointer-events: none;
   // above every other floating layer: a tooltip can describe a control inside a
   // popover or a dialog, so it has to clear --z-float rather than tie with it
   z-index: var(--z-tooltip);
   max-width: 280px;
   transform-origin: center;
+  // How far the enter/leave states travel, and in which direction — flipped by
+  // placement so the motion always reads as coming OUT of the trigger. As a custom
+  // property, the transform itself is written once below instead of once per side.
+  --tooltip-rise: 6px;
+}
+.tooltip[data-placement="bottom"] {
+  --tooltip-rise: -6px;
 }
 
-// Inverted ink — the one surface on the site that flips the page's own colours, so
-// a tooltip never reads as another panel. --radius-2 (not the in-flow --radius-1)
+// Inverted ink — the one surface here that flips the page's own colours, so a
+// tooltip never reads as another panel. --radius-2 (not the in-flow --radius-1)
 // because it floats; --text-chrome is the type tier reserved for a popover's own
-// text (see the FLOATING CHROME note in foundations/tokens.scss).
+// text (see the FLOATING CHROME note in foundations/tokens.scss). Wrapping at the
+// 280px cap is the point of the cap — the portfolio's original kept a nowrap row
+// (it had a keyboard-shortcut column to hold on one line) and never enforced it.
 .tooltip__content {
   background: var(--ink);
   color: var(--paper);
@@ -31,23 +44,9 @@
   border-radius: var(--radius-2);
   box-shadow: var(--shadow-pop);
   font-size: var(--text-chrome);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-// Wraps at the 280px cap rather than running on — the portfolio's original kept a
-// nowrap row (it had a keyboard-shortcut column to hold on one line), which meant
-// the max-width above was never actually enforced.
-.tooltip__text {
-  display: inline-block;
   text-wrap: pretty;
 }
 
-// Enter/leave — a Y-nudge plus a scale-in, the portfolio's motion for this exact
-// component. A top-anchored tooltip starts 6px lower and rises, a bottom-anchored
-// one starts 6px higher and falls, so it always reads as coming out of the trigger.
-//
 // Enter rides --spring-smooth (critically damped — it settles into place with no
 // overshoot, which is what makes a popup feel placed rather than thrown). Leave
 // takes --ease-in at 0.6× the duration, accelerating away: dismissal should feel
@@ -63,13 +62,8 @@
     opacity calc(var(--dur) * 0.6) var(--ease-in),
     transform calc(var(--dur) * 0.6) var(--ease-in);
 }
-.tooltip-enter-from[data-placement="top"],
-.tooltip-leave-to[data-placement="top"] {
+.tooltip-enter-from,
+.tooltip-leave-to {
   opacity: 0;
-  transform: translateY(6px) scale(0.96);
-}
-.tooltip-enter-from[data-placement="bottom"],
-.tooltip-leave-to[data-placement="bottom"] {
-  opacity: 0;
-  transform: translateY(-6px) scale(0.96);
+  transform: translateY(var(--tooltip-rise)) scale(0.96);
 }

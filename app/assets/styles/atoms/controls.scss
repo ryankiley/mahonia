@@ -92,6 +92,24 @@
   color: var(--ink);
 }
 
+// Text link that goes somewhere off-site — the trail link, in the editor and in both
+// read views. Rests muted with a soft underline and DEEPENS on hover/focus: text to
+// full ink, underline one step to --ink-2, which is the floor the --underline token
+// sets (a link's rule may reach --ink-2, never --ink). Consumers add only their own
+// layout; the two trail links had been carrying byte-identical copies of this.
+.link {
+  color: var(--ink-2);
+  text-decoration-color: var(--underline);
+  transition:
+    color var(--dur) var(--ease),
+    text-decoration-color var(--dur) var(--ease);
+}
+.link:hover,
+.link:focus-visible {
+  color: var(--ink);
+  text-decoration-color: var(--ink-2);
+}
+
 // Quiet text button — bare like --link, one step calmer: regular weight, faint
 // ink, no chrome; darkens to full ink on hover. For tertiary/secondary text
 // actions (the Your-lists row actions, the packing "Clear checks"). Composes .btn,

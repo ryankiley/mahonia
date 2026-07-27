@@ -86,13 +86,6 @@ const shown = computed(() => stateWord.value !== "");
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  /* takes the top bar's leading edge and pushes the icon cluster to the trailing one
-     (the bar is justify-content: flex-end, so without this the two would sit together).
-     min-width:0 is what actually lets the ellipsis above fire — a flex item's default
-     min-width:auto refuses to shrink below its content and would instead squeeze the
-     controls. */
-  margin-inline-end: auto;
-  min-width: 0;
 }
 /* Below the stack point the bar is genuinely tight — the mode toggle, share and kebab
    leave ~130px, and the full string wants ~180. Drop the TIME rather than ellipsis the

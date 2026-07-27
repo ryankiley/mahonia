@@ -362,9 +362,9 @@ function onCorrected(res: { status: string; itemName?: string }) {
       <div class="wrap topbar__inner">
         <template v-if="snapshot">
           <!-- sync state + last-edit time, on the bar's leading edge — the space the
-               title vacated when it became a page title. Its own margin-inline-end:auto
-               is what keeps the icon cluster pinned trailing. -->
-          <SyncStatus />
+               title vacated when it became a page title. It takes the free width, which
+               is what pins the icon cluster to the trailing edge. -->
+          <SyncStatus class="topbar__status" />
           <div class="modetoggle" role="group" aria-label="View mode">
             <!-- one pill tracks between the two segments (damped --ease, never overshoot —
                  a tracking indicator must not leave its track); the icons sit above it -->
@@ -560,10 +560,14 @@ function onCorrected(res: { status: string; itemName?: string }) {
   align-items: center;
   gap: var(--space-2);
   padding-block: var(--space-3);
-  /* the title used to live here with flex:1, which is what pinned the icon cluster to
-     the trailing edge. It's a page title now (below), so the controls need to be pushed
-     over explicitly or they bunch up on the left. */
-  justify-content: flex-end;
+}
+/* The bar's one flexible item — it takes the free width, which is what pins the rigid
+   icon cluster to the trailing edge. (The title used to do this job before it became a
+   page title below.) min-width:0 lets it shrink so its own ellipsis can fire rather
+   than squeezing the controls. */
+.topbar__status {
+  flex: 1;
+  min-width: 0;
 }
 /* The title block (name + trail link) belongs to ListHead.vue — it owns its own layout
    so the hover affordance, the title, and the link keep one DOM order. */

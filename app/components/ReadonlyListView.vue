@@ -65,7 +65,7 @@ const trail = computed(() => parseTrailLink(props.list?.trailUrl, props.list?.tr
            the viewer's browser and img-src stays 'self' data:. -->
       <a
         v-if="trail"
-        class="view__trail"
+        class="link view__trail"
         :href="trail.href"
         :title="trail.href"
         target="_blank"
@@ -162,21 +162,7 @@ const trail = computed(() => parseTrailLink(props.list?.trailUrl, props.list?.tr
   align-self: flex-start;
   max-width: 100%;
   min-width: 0;
-  color: var(--ink-2);
   font-size: var(--text-sm);
-  /* the UNDERLINE is what the token's floor governs: it rests at --underline (--ink-3)
-     and may deepen to --ink-2 on hover, never to --ink (tokens.scss) */
-  text-decoration-color: var(--underline);
-  transition:
-    color var(--dur) var(--ease),
-    text-decoration-color var(--dur) var(--ease);
-}
-/* the read/share twin of .head__link's hover in ListHead — same two-step deepening, so
-   the trail link behaves identically whichever view you meet it in */
-.view__trail:hover,
-.view__trail:focus-visible {
-  color: var(--ink);
-  text-decoration-color: var(--ink-2);
 }
 /* the icon is the one thing that isn't type: baseline-aligning a replaced element sits
    its bottom edge on the baseline, riding visibly high next to the text */
