@@ -40,6 +40,10 @@ export const lists = pgTable(
     title: text("title").notNull().default("Untitled list"),
     description: text("description"),
     displayUnit: text("display_unit").notNull().default("g"),
+    // optional link to the route this list was packed for (any http(s) URL, stored
+    // normalized); trail_label overrides the name derived from the URL's path
+    trailUrl: text("trail_url"),
+    trailLabel: text("trail_label"),
     // folders + items (the op-reducer's state)
     data: jsonb("data").$type<ListData>().notNull(),
     // cached rollups (feed sort only; recomputed on every write)
@@ -267,3 +271,17 @@ export const listSnapshots = pgTable(
   },
   (t) => [index("idx_list_snapshots_list").on(t.listId, t.createdAt.desc())],
 );
+
+// Favicons for trail-link hosts, cached ONCE PER HOST rather than per list. Every list
+// pointing at alltrails.com shares this row, so a popular site costs one fetch a month
+// however many lists link to it — and the refresh sweep walks a handful of hosts instead
+// of thousands of rows. Stored as a data: URL so a strict img-src 'self' data: never has
+// to loosen (see nuxt.config.ts).
+export const trailFavicons = pgTable("trail_favicons", {
+  // hostname, lowercased, www. stripped — matches TrailLink.host
+  host: text("host").primaryKey(),
+  // null = fetched and there wasn't a usable icon. A NEGATIVE row still counts as
+  // fetched: it's what stops a dead host being re-fetched on every subsequent save.
+  dataUrl: text("data_url"),
+  fetchedAt: timestamp("fetched_at", { withTimezone: true }).notNull().defaultNow(),
+});

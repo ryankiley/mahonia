@@ -254,9 +254,14 @@ function create() {
     }
   }
 
-  // A list "has content" once any item carries a name or a weight. We don't persist
-  // a draft (or count it as a keepable list) until then — opening the site and
-  // bouncing leaves no row behind.
+  // A list "has content" once any ITEM carries a name or a weight — nothing else counts.
+  // We don't persist a draft (or count it as a keepable list) until then, so opening the
+  // site and bouncing leaves no row behind.
+  //
+  // Deliberately NOT counted: a title, and a trail link. Both are things you can set
+  // while circling a list you never actually make, and a pack list with no gear in it
+  // isn't a pack list. A link-only draft still shows its site mark — ListHead asks
+  // /api/trail-favicon directly, so nothing about the icon depends on having a row.
   function hasRealContent(s: ListSnapshot) {
     return s.items.some((i) => i.name.trim() !== "" || i.unitWeightMg > 0);
   }
@@ -282,7 +287,12 @@ function create() {
       sortOrder: i,
     }));
     snapshot.value = {
-      title: "Untitled list",
+      // Empty, not "Untitled list": the title input is a page heading now, and an
+      // unnamed draft should show its ghosted placeholder rather than a literal string
+      // you have to select and delete before typing. Anything that reaches the server
+      // still lands as "Untitled list" (createList), so slugs and "Your lists" are
+      // unchanged — the blank only exists while the draft is unnamed.
+      title: "",
       description: "",
       displayUnit: "g",
       folders,
@@ -320,7 +330,14 @@ function create() {
       const s = snapshot.value;
       const res = await $fetch<{ editToken: string; snapshot: ListSnapshot }>("/api/lists/create", {
         method: "POST",
-        body: { title: s.title, displayUnit: s.displayUnit, data: { folders: s.folders, items: s.items } },
+        body: {
+          title: s.title,
+          displayUnit: s.displayUnit,
+          // a trail link added to the draft must survive its first save
+          trailUrl: s.trailUrl,
+          trailLabel: s.trailLabel,
+          data: { folders: s.folders, items: s.items },
+        },
       });
       if (myEpoch !== epoch) return;
       editToken = res.editToken;
@@ -527,8 +544,15 @@ function create() {
   }
 
   // ---- convenience mutators ----
-  const setMeta = (patch: Partial<{ title: string; description: string; displayUnit: Unit }>) =>
-    dispatch({ t: "setMeta", patch });
+  const setMeta = (
+    patch: Partial<{
+      title: string;
+      description: string;
+      displayUnit: Unit;
+      trailUrl: string;
+      trailLabel: string;
+    }>,
+  ) => dispatch({ t: "setMeta", patch });
   const setUnit = (displayUnit: Unit) => setMeta({ displayUnit });
 
   function addFolder(name = "New folder") {

@@ -38,7 +38,13 @@ watch(
 // list's own); CSV/LighterPack imports have no meta and keep the stock title
 async function createFrom(
   data: ListData,
-  meta?: { title?: string; description?: string; displayUnit?: Unit },
+  meta?: {
+    title?: string;
+    description?: string;
+    displayUnit?: Unit;
+    trailUrl?: string;
+    trailLabel?: string;
+  },
 ) {
   // a folders-only JSON backup is still a real restore; an empty CSV is not
   if (!data.items.length && !data.folders.length) {
@@ -54,6 +60,8 @@ async function createFrom(
         title: meta?.title || "Imported list",
         description: meta?.description,
         displayUnit: meta?.displayUnit,
+        trailUrl: meta?.trailUrl,
+        trailLabel: meta?.trailLabel,
         data,
       },
     });
@@ -174,10 +182,10 @@ function onFile(e: Event) {
   font-family: var(--font);
   font-size: var(--text-sm);
   /* the menus' language, not a hairline box: quiet tinted well, rounded like a
-     popover item (radius-3 − space-2, the same concentric step the menus use) */
+     popover item (radius-4 − space-2, the same concentric step the menus use) */
   border: 0;
   background: var(--paper-2);
-  border-radius: calc(var(--radius-3) - var(--space-2));
+  border-radius: calc(var(--radius-4) - var(--space-2));
   padding: var(--space-3);
   /* no resize: the native grip drew a square notch over the rounded corner, and
      the box scrolls anyway (the dialog is fixed-width, rows are fixed) */

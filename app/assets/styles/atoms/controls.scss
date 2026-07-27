@@ -199,10 +199,10 @@ button svg {
 // Items inside consume the two custom props so the concentric radius + hover
 // tint stay pinned to this surface's geometry.
 .popover {
-  --popover-item-radius: calc(var(--radius-3) - var(--space-2));
+  --popover-item-radius: calc(var(--radius-4) - var(--space-2));
   --popover-hover: color-mix(in oklab, var(--ink) 8%, transparent);
   outline: 1px solid transparent;
-  border-radius: var(--radius-3);
+  border-radius: var(--radius-4);
   background: var(--surface-float);
   box-shadow: var(--shadow-soft);
 }
