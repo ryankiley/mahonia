@@ -5,6 +5,7 @@ import { colorKeyForName, nextFolderColor, STARTER_FOLDERS } from "~~/shared/cat
 import { editLinkPath } from "~~/shared/links";
 import { DRAFT_KEY, localKey, rebaseOnto } from "~~/shared/localList";
 import type { Folder, Item, ListSnapshot, Unit } from "~~/shared/types";
+import type { VaultEntry } from "~~/shared/vault";
 import { bySortOrder, computeTotals, itemsInFolder, nextSortOrder, parseWeightInput, siblingItems } from "~~/shared/weights";
 
 // Editor controller (one list open at a time → module singleton). Mutations are
@@ -44,6 +45,10 @@ function create() {
   // outlives any single mount).
   const store = useLocalListStore();
   const scope = effectScope(true);
+  // The vault's capture side. Bound inside the controller's scope so its
+  // page-hide flush lives exactly as long as the editor does.
+  const vault = useVaultCapture();
+  scope.run(() => vault.bindFlushOnLeave());
   const online = scope.run(() => useOnline())!;
   let persistTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -184,6 +189,11 @@ function create() {
       snapshot.value = merged;
       status.value = pending.length ? "saving" : "synced";
       registerOpened(); // server confirmed the token → remember this list in "Your lists"
+      // Capture on OPEN as well as on edit: a list that arrived whole — imported
+      // from LighterPack, cloned from someone's public list, or simply built on
+      // another device — dispatches no ops here, so opening it is the only moment
+      // its gear can reach the vault.
+      vault.sync(merged.items);
       // one-time cleanup: early water rows were named "Water · 1 L"; the volume now
       // lives in the qty (litres) field, so the name should just be "Water"
       for (const it of merged.items) {
@@ -378,6 +388,10 @@ function create() {
     // rows re-render, so a keystroke in one folder doesn't repaint every folder.
     applyOps(snapshot.value, [op]);
     persistLocal(); // mirror to IndexedDB so this edit survives a reload/crash
+    // Every mutation funnels through here, whatever made it — typing, a catalog
+    // pick, a drag, an undo — so this one call captures gear from all of them
+    // without each call site having to remember to.
+    vault.sync(snapshot.value.items);
     // Draft (no token yet): keep edits local until there's real content, then create
     // the list once. While that create is in flight, queue ops for the post-create flush.
     if (!editToken) {
@@ -604,6 +618,47 @@ function create() {
     const item: Item = { id, folderId, name: "", unitWeightMg: 0, qty: 1, classification: null, sortOrder };
     dispatch({ t: "addItem", item });
     pendingBlankId.value = id;
+    return id;
+  }
+  // Add a piece of gear straight from the vault — the VaultPane's one write.
+  //
+  // A complete row lands in one dispatch, NOT a blank row that is then patched: a
+  // half-built row that briefly exists would trip the pending-blank focus machinery
+  // and the discard-on-blur cleanup.
+  //
+  // The value semantics mirror an autocomplete pick from the vault (see ItemRow's
+  // onNameCommit): the weight and the name are the HOLDER'S, so they're marked
+  // overridden and the catalog's live-resolve leaves them alone. The catalog link
+  // rides along when the gear originally came from a pick, so nothing else that
+  // keys off it breaks.
+  function addVaultItem(entry: VaultEntry, folderId: string | null): string {
+    if (!snapshot.value) return "";
+    const id = uid();
+    const item: Item = {
+      id,
+      folderId,
+      name: entry.name,
+      brand: entry.brand,
+      variant: entry.variant,
+      commonName: entry.commonName,
+      // the vault's label is the holder's own, so pin it against live-resolve
+      commonNameOverridden: entry.commonName ? true : undefined,
+      nameOverridden: true,
+      unitWeightMg: entry.weightMg,
+      weightOverridden: true,
+      qty: 1,
+      // "base" is stored as null — it IS the folder default, and storing it
+      // explicitly would pin the row against a later change to that default
+      classification: entry.classification && entry.classification !== "base" ? entry.classification : null,
+      catalogItemId: entry.catalogItemId,
+      // what you paid rides along, so a list can total its cost without the price
+      // being retyped into every list the item appears in. The currency is stamped
+      // on the vault row when the price is set, so it travels with the figure.
+      priceCents: entry.priceCents,
+      currency: entry.priceCents != null ? entry.currency : undefined,
+      sortOrder: nextSortOrder(snapshot.value.items, folderId),
+    };
+    dispatch({ t: "addItem", item });
     return id;
   }
   // Enter in a row's name opens the NEXT row right below it (todo-list flow):
@@ -918,7 +973,7 @@ function create() {
     get epoch() { return epoch; },
     load, startDraft, dispose, rotate,
     setMeta, setUnit, addFolder, updateFolder, removeFolder, moveFolderBefore,
-    addBlankItem, addBlankItemAfter, discardEmpty, updateItem, removeItem, setItemWeight, moveItem,
+    addBlankItem, addBlankItemAfter, addVaultItem, discardEmpty, updateItem, removeItem, setItemWeight, moveItem,
     addChild, nestItem, unnest,
     pendingBlankId, pendingUndo, undoRemove, holdUndo, releaseUndo,
   };

@@ -265,7 +265,34 @@ function onWeightStep(e: KeyboardEvent, dir: 1 | -1) {
 // weight; a free-text rename just updates the name (or its trailing weight).
 function onNameCommit(p: NameCommit) {
   const patch: ItemPatch = { name: p.name };
-  if (p.catalogItemId != null) {
+  if (p.fromVault) {
+    // Pulled from your own vault. It may carry a catalog link (it does when the
+    // gear first arrived as a catalog pick), and that link is kept for provenance
+    // — but every VALUE here is yours, not the catalog's, so each is marked
+    // overridden. Without that, live-resolve would quietly rewrite your measured
+    // weight and your chosen name back to the catalog's on the next snapshot,
+    // which would make the vault pointless for exactly the gear it matters most
+    // for: the item whose spec weight is wrong.
+    patch.catalogItemId = p.catalogItemId ?? null;
+    patch.brand = p.brand ?? "";
+    patch.variant = p.variant ?? "";
+    patch.nameOverridden = true;
+    if (p.weightMg != null && p.weightMg > 0) {
+      patch.unitWeightMg = p.weightMg;
+      patch.weightOverridden = true;
+    }
+    // catalogWeightMgAtLink is deliberately NOT set: it's the baseline for the
+    // "the catalog's weight changed" nudge, and your own weight is not that
+    // baseline — stamping it here would compare the catalog against you.
+    if (!props.item.commonNameOverridden && p.commonName) {
+      patch.commonName = p.commonName;
+      patch.commonNameOverridden = true;
+    }
+    if (p.priceCents != null) {
+      patch.priceCents = p.priceCents;
+      patch.currency = p.currency;
+    }
+  } else if (p.catalogItemId != null) {
     // a catalog pick: store brand/model/variant structured, link, and let
     // live-resolve keep the name fresh ("" clears any prior brand/variant)
     patch.catalogItemId = p.catalogItemId;

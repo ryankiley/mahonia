@@ -285,3 +285,96 @@ export const trailFavicons = pgTable("trail_favicons", {
   dataUrl: text("data_url"),
   fetchedAt: timestamp("fetched_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// ---------------------------------------------------------------------------
+// vaults + vault_items — your own gear locker, owned by a LINK.
+//
+// The identity here is deliberately the same primitive a list already uses: an
+// unguessable token, stored only as sha256, that grants capability by possession.
+// There is no account, no email, and no user row — a vault is a thing you hold a
+// link to, exactly like a list. That keeps one mental model in the product ("a
+// link owns a thing") instead of introducing a second one, and it keeps Mahonia
+// holding no personal data.
+//
+// The cost is stated plainly in the UI: lose the link and you lose the vault. That
+// is survivable in a way it wouldn't be for a list, because a vault is DERIVED —
+// it accumulates from the lists you build (see captureFromList in shared/vault.ts),
+// so a fresh vault refills itself as you open your lists again.
+// ---------------------------------------------------------------------------
+export const vaults = pgTable(
+  "vaults",
+  {
+    // internal id — NEVER exposed in a URL or API response
+    id: serial("id").primaryKey(),
+    // sha256(vaultToken) hex — the capability; the raw token never lands here,
+    // exactly as with lists.edit_token_hash
+    tokenHash: text("token_hash").notNull(),
+    // The currency this vault's gear costs are in. One per VAULT rather than per
+    // item: /vault shows a running total, and summing mixed currencies would be
+    // arithmetic on incomparable numbers. Null = the default (USD).
+    currency: text("currency"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    // bumped on use, so an abandoned vault can be reaped on the same schedule as
+    // an abandoned list rather than accumulating forever
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("idx_vaults_token").on(t.tokenHash)],
+);
+
+export type VaultRow = typeof vaults.$inferSelect;
+
+// Relational, not JSONB (unlike a list's content): the vault is QUERIED — fuzzy
+// autocomplete while building a list, sorted browsing on /vault — which is the
+// same reason catalog_items is a real table.
+//
+// Identity is `norm_key` (folded brand + name + variant — see shared/vault.ts),
+// unique per vault, so re-adding the same tent to a tenth list updates one row
+// instead of growing a tenth. Weight is LAST-WRITE-WINS: your most recent entry
+// is your current truth about your own gear, and correcting a weight in any list
+// should correct the vault rather than fork it.
+//
+// `removed_at` is a TOMBSTONE, not a delete. Capture is automatic, so a hard
+// delete would be undone by the next list that still contains the item —
+// removing something has to mean "stop offering me this", and only a row that
+// outlives the capture can say so. A later capture of a tombstoned key leaves it
+// tombstoned; explicitly re-adding the item from a list clears it.
+export const vaultItems = pgTable(
+  "vault_items",
+  {
+    id: serial("id").primaryKey(),
+    vaultId: integer("vault_id").notNull(),
+    normKey: text("norm_key").notNull(),
+    brand: text("brand"),
+    name: text("name").notNull(),
+    variant: text("variant"),
+    commonName: text("common_name"),
+    weightMg: bigint("weight_mg", { mode: "number" }).notNull().default(0),
+    classification: text("classification"), // base|worn|consumable (null = unset)
+    catalogItemId: integer("catalog_item_id"), // set when the row came from a catalog pick
+    productUrl: text("product_url"),
+    priceCents: integer("price_cents"),
+    currency: text("currency"),
+    // how many distinct captures have landed here — ranks the autocomplete, the
+    // vault's analogue of catalog_items.usage_count
+    timesSeen: integer("times_seen").notNull().default(1),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }).notNull().defaultNow(),
+    removedAt: timestamp("removed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    check(
+      "vault_classification_ck",
+      sql`${t.classification} is null or ${t.classification} in ('base','worn','consumable')`,
+    ),
+    // one row per piece of gear per vault — the upsert target
+    uniqueIndex("idx_vault_identity").on(t.vaultId, t.normKey),
+    // the /vault browse + the autocomplete's candidate pool: a vault's live rows,
+    // most-recently-used first
+    index("idx_vault_recent")
+      .on(t.vaultId, t.lastUsedAt.desc())
+      .where(sql`${t.removedAt} is null`),
+  ],
+);
+
+export type VaultItemRow = typeof vaultItems.$inferSelect;

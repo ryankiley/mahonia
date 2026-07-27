@@ -20,7 +20,7 @@ useHead({
     <main id="main-content" tabindex="-1" class="wrap page">
       <div class="prose">
         <h1 class="t-title">Legal</h1>
-        <p class="t-sm t-muted">Last updated 17 July 2026</p>
+        <p class="t-sm t-muted">Last updated 26 July 2026</p>
         <p>
           How Mahonia handles your data, and the terms for using it — written to be read, not to trap
           you. Jump to <a href="#privacy">Privacy</a> or <a href="#terms">Terms</a>.
@@ -50,6 +50,13 @@ useHead({
           stay on the server until you delete the list. Publishing is a separate, explicit step that
           puts a list in the public feed, and public means public: anyone can read it until you
           unpublish or delete it.
+        </p>
+
+        <p>
+          Your <strong>vault</strong> — the gear remembered from the lists you build — works the
+          same way. It’s stored under its own unguessable link, and that link is the only thing
+          that opens it. It holds gear: names, brands, weights, and what you paid if you record it.
+          There’s no account attached to it, and nothing in it identifies you.
         </p>
 
         <h3>What Mahonia collects in the background</h3>
@@ -89,6 +96,7 @@ useHead({
         <ul>
           <li>Open “Your lists” to see every list saved on this device.</li>
           <li>There, “Remove from device” takes a list off this browser (the list itself stays online for anyone with its link); “Delete” removes the list from the server for everyone.</li>
+          <li>In your vault, “Remove” takes a piece of gear out and keeps it out — it won’t be picked up again from your lists. “Forget this vault on this device” drops the link from this browser without touching the vault itself.</li>
           <li>
             For anything else, including a copy or deletion of a shared list, email
             <a :href="`mailto:${CONTACT_EMAIL}`">{{ CONTACT_EMAIL }}</a> and I’ll sort it out.

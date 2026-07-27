@@ -47,7 +47,29 @@ import { brotliCompressSync, gzipSync, constants } from "node:zlib";
 // into SSR HTML, which this gate doesn't measure at all, and the whole page-metadata
 // scraper the feature originally implied was dropped rather than shipped to the client.
 // 136 keeps the same ~1 KB working headroom the anchor is supposed to carry.
-const TOTAL_BUDGET_KB = 136;
+// Bumped 136→148 for the vault: your own gear remembered from the lists you build,
+// offered back in the item autocomplete and in a pick-from palette, browsable on
+// /vault. Measured, not estimated — current lands at 146.8.
+//   • /vault — a whole new page: the gear table, cost editing, the transfer-link
+//     disclosure, and its stylesheet. A route chunk, so only people who open it pay.
+//   • VaultPane — the floating "add from your vault" palette, rendered via
+//     <LazyVaultPane v-if>, so it and the shared vault module it imports are their
+//     own chunk, fetched the first time the pane is opened.
+//   • useVaultSearch + useVaultToken + the vault rows in the item autocomplete.
+//     These DO land in the editor chunk, because the input offers your own gear
+//     alongside the catalog — the one part of this work every visitor downloads.
+//   • shared/money.ts (parse + format) for gear cost.
+// Verified NOT in the editor chunk, deliberately: shared/vault.ts (the capture
+// folding + the gear-identity rule) is dynamically imported by useVaultCapture, the
+// same treatment the offline catalog cache gets.
+//
+// Worth recording against the alternative: the accounts-based version of this
+// feature (draft #147 — magic links, sessions, passkeys, claims, /account) measured
+// 153.9 on the same tree. Owning the vault by LINK instead of by account is ~7 KB
+// lighter on the client, and drops Resend, the users table, and the session layer
+// entirely. The saving is the smaller half of that argument, but it is real and it
+// belongs in the ratchet's history.
+const TOTAL_BUDGET_KB = 148;
 const MAX_CHUNK_BUDGET_KB = 72; // largest single chunk, brotli (the framework runtime)
 
 // First build output that exists: node-server, Vercel preset, or static generate.

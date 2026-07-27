@@ -2,7 +2,11 @@
   {
     "date": "2026-07-26",
     "added": [
-      "Attach a link to the trail a list was packed for — it shows on the shared and public views, with the site's icon."
+      "Attach a link to the trail a list was packed for — it shows on the shared and public views, with the site's icon.",
+      "Your vault: gear you put in a list is remembered in one place, ready to pull into the next list without retyping. No account — the vault is yours by link, like a list.",
+      "Add gear from your vault without typing: a panel beside the list you're building, with everything you own a click away.",
+      "Record what each piece of gear cost, in your vault. It travels with the item into any list you add it to.",
+      "Open your vault on another device with a link, the same way you already move a list."
     ],
     "changed": [
       "A list's name now sits at the top of the page as a proper title, instead of in the toolbar."

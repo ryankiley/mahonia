@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Backpack, Ellipsis, Share2, SquareCheck, Undo2 } from "@lucide/vue";
+import { Backpack, Boxes, Ellipsis, Share2, SquareCheck, Undo2 } from "@lucide/vue";
 import { editLinkPath } from "~~/shared/links";
 import type { Item } from "~~/shared/types";
 import { bySortOrder, groupItemsByFolder, groupItemsByParent, ungroupedTopLevel } from "~~/shared/weights";
@@ -96,6 +96,10 @@ const childrenByParent = computed(() => groupItemsByParent(snapshot.value?.items
 const NO_ITEMS: Item[] = [];
 
 const packed = ref(false);
+
+// The vault palette. Closed by default and only ever opened deliberately, so the
+// pane's chunk (and the vault read behind it) costs nothing until it's wanted.
+const vaultOpen = ref(false);
 // packing progress — rows checked / rows total (a row is one check, whatever its qty)
 const packProgress = computed(() => {
   const items = snapshot.value?.items ?? [];
@@ -388,6 +392,19 @@ function onCorrected(res: { status: string; itemName?: string }) {
               <SquareCheck :size="16" :stroke-width="2" />
             </button>
           </div>
+          <!-- the vault palette: pick from gear you already own instead of typing
+               each name. Lazy — the pane and the shared vault module it pulls in
+               are their own chunk, downloaded the first time it's opened. -->
+          <button
+            class="btn btn--icon btn--ghost editor__vault"
+            :class="{ 'is-on': vaultOpen }"
+            title="Add from your vault"
+            aria-label="Add from your vault"
+            :aria-expanded="vaultOpen"
+            @click="vaultOpen = !vaultOpen"
+          >
+            <Boxes :size="16" />
+          </button>
           <button
             class="btn btn--icon btn--ghost editor__share"
             title="Copy read-only link"
@@ -531,6 +548,8 @@ function onCorrected(res: { status: string; itemName?: string }) {
       <div v-else-if="toast" class="toast t-sm">{{ toast }}</div>
     </Transition>
 
+    <LazyVaultPane v-if="vaultOpen" @close="vaultOpen = false" />
+
     <LazyCatalogCorrectionModal v-if="correctionEverOpened" @done="onCorrected" />
     <LazyImportModal v-if="importEverOpened" :open="importOpen" @close="importOpen = false" />
   </div>
@@ -569,6 +588,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
 
 /* the icon cluster is rigid so it can't be nudged by anything that joins the row */
 .editor__share,
+.editor__vault,
 .menu {
   flex: none;
 }
@@ -636,6 +656,15 @@ function onCorrected(res: { status: string; itemName?: string }) {
     width: var(--icon-touch);
     height: var(--icon-touch);
   }
+}
+.editor__vault {
+  color: var(--ink-2);
+}
+/* on = the pane is open: the icon takes full ink and a soft ground, so the button
+   reads as a held state rather than a hover */
+.editor__vault.is-on {
+  color: var(--ink);
+  background: var(--paper-2);
 }
 .editor__share {
   color: var(--ink-2);

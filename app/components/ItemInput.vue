@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { Droplet } from "@lucide/vue";
+import { Boxes, Droplet } from "@lucide/vue";
 import type { EffectScope } from "vue";
 import type { Unit } from "~~/shared/types";
 import { formatWeight, itemDisplayName } from "~~/shared/weights";
 import { formatVolume, parseVolumeMl, waterMgFromMl } from "~~/shared/water";
 import type { CatalogResult, NameCommit } from "~/composables/useCatalogSearch";
+import type { VaultEntry } from "~~/shared/vault";
 
 // Maps-grade autocomplete, used for BOTH adding a new item and renaming an
 // existing one in place. In add mode it clears after commit; in edit mode
@@ -31,6 +32,10 @@ const emit = defineEmits<{
 }>();
 
 const { results, search, clear } = useCatalogSearch();
+// Your own gear, searched alongside the catalog from the same keystroke. Signed
+// out it short-circuits to an empty list without a request, so this costs
+// nothing for visitors who have no vault yet.
+const { results: vaultResults, search: vaultSearch, clear: vaultClear } = useVaultSearch();
 const draft = ref(props.initial);
 const open = ref(false);
 const active = ref(-1);
@@ -69,6 +74,7 @@ function setDraftQuiet(v: string) {
 watch(draft, (v) => {
   if (suppressOpen) return;
   search(v);
+  vaultSearch(v);
   active.value = -1;
   open.value = true;
 });
@@ -124,13 +130,49 @@ const waterSuggestion = computed<WaterSug | null>(() => {
   return { ml, label: `Water · ${formatVolume(ml)}`, weightMg: waterMgFromMl(ml) };
 });
 
-// the menu = an optional water row on top, then catalog results (one nav model)
-type AcOption = { water: WaterSug } | { result: CatalogResult };
+// The menu, in one flat nav model: an optional water row, then YOUR gear, then the
+// catalog. Vault rows sit above the catalog because gear you already own is the
+// more likely answer when the two match — and because it's the whole point of
+// keeping a vault.
+type AcOption = { water: WaterSug } | { vault: VaultEntry } | { result: CatalogResult };
 const options = computed<AcOption[]>(() => {
   const opts: AcOption[] = [];
   if (waterSuggestion.value) opts.push({ water: waterSuggestion.value });
-  for (const r of results.value) opts.push({ result: r });
+  // A vault row that came from a catalog pick keeps its catalog id, so the same
+  // product would otherwise appear twice — once as yours (with your weight) and
+  // once from the catalog (with the spec weight). Yours wins; the catalog copy is
+  // dropped.
+  const mine = new Set(vaultResults.value.map((v) => v.catalogItemId).filter((id) => id != null));
+  for (const v of vaultResults.value) opts.push({ vault: v });
+  for (const r of results.value) if (!mine.has(r.id)) opts.push({ result: r });
   return opts;
+});
+
+// Where each SOURCE starts, so the menu can label the two.
+//
+// Your gear and the catalog are different kinds of thing — one carries the weight
+// you measured, the other the manufacturer's, and picking one rather than the
+// other changes what the row means. That distinction used to rest on a trailing
+// "· yours", which is the same visual device the rows already use for a variant
+// ("· Auto") and for provenance ("· community"): three meanings, one form, and the
+// one that mattered most was the easiest to miss.
+//
+// Labels appear only when BOTH sources are present — a single-source menu has
+// nothing to tell apart. Kept as an index→label map rather than nesting the
+// options, so `options` stays flat and arrow-key nav, option ids and
+// aria-activedescendant are all untouched.
+const sectionAt = computed<Map<number, string>>(() => {
+  const map = new Map<number, string>();
+  let vaultAt = -1;
+  let catalogAt = -1;
+  options.value.forEach((o, i) => {
+    if (vaultAt < 0 && "vault" in o) vaultAt = i;
+    if (catalogAt < 0 && "result" in o) catalogAt = i;
+  });
+  if (vaultAt < 0 || catalogAt < 0) return map;
+  map.set(vaultAt, "Your gear");
+  map.set(catalogAt, "Catalog");
+  return map;
 });
 
 // the dropdown is position:absolute and can extend past the bottom of its folder,
@@ -169,6 +211,7 @@ function scrollActiveIntoView() {
 
 function close() {
   clear();
+  vaultClear();
   open.value = false;
   active.value = -1;
 }
@@ -196,8 +239,29 @@ function selectWater(w: WaterSug) {
   setDraftQuiet(props.clearOnCommit ? "" : "Water");
   close();
 }
+// Pulling a piece of your own gear into the list. It carries YOUR weight, not the
+// catalog's — that's the difference between the vault and the catalog, and the
+// reason the row exists. The catalog link rides along when the gear originally
+// came from a pick, so weight-drift nudges and live name resolution keep working.
+function selectVault(v: VaultEntry) {
+  emit("commit", {
+    name: v.name,
+    brand: v.brand,
+    variant: v.variant,
+    commonName: v.commonName,
+    weightMg: v.weightMg,
+    catalogItemId: v.catalogItemId,
+    classification: v.classification,
+    priceCents: v.priceCents,
+    currency: v.currency,
+    fromVault: true,
+  });
+  setDraftQuiet(props.clearOnCommit ? "" : itemDisplayName(v.brand, v.name, v.variant));
+  close();
+}
 function selectOption(opt: AcOption) {
   if ("water" in opt) selectWater(opt.water);
+  else if ("vault" in opt) selectVault(opt.vault);
   else selectResult(opt.result);
 }
 function commitFree() {
@@ -319,10 +383,17 @@ function highlightParts(text: string): { t: string; on: boolean }[] {
     <Transition name="menu" @after-leave="setLift(false)">
     <div v-if="open && options.length" class="popover ac__menu" @mouseleave="active = -1">
     <ul :id="`${acId}-listbox`" class="ac__list" role="listbox">
-      <li
+      <template
         v-for="(opt, i) in options"
+        :key="'water' in opt ? 'water' : 'vault' in opt ? `v${opt.vault.id}` : `c${opt.result.id}`"
+      >
+      <!-- a source heading, not an option: role="presentation" keeps it out of the
+           listbox's option set, so it can't be arrowed onto or counted in it. Screen
+           readers get the same fact from the visually-hidden qualifier on each vault
+           row below, which travels with the option it actually describes. -->
+      <li v-if="sectionAt.get(i)" class="ac__section" role="presentation">{{ sectionAt.get(i) }}</li>
+      <li
         :id="optId(i)"
-        :key="'water' in opt ? 'water' : opt.result.id"
         class="ac__opt"
         role="option"
         :aria-selected="i === active"
@@ -336,6 +407,35 @@ function highlightParts(text: string): { t: string; on: boolean }[] {
           </span>
           <span class="ac__metaright">
             <span class="t-num ac__w">{{ formatWeight(opt.water.weightMg, unit, { withUnit: false }) }} <span class="t-muted">{{ unit }}</span></span>
+          </span>
+        </template>
+        <!-- your own gear: the same row shape as a catalog hit, marked "yours" the
+             way an unverified catalog row is marked "community" — a quiet italic
+             qualifier, not a section header, so the menu stays one flat list -->
+        <template v-else-if="'vault' in opt">
+          <span class="ac__name">
+            <!-- the same glyph as the editor toolbar's vault button, so one mark
+                 means one thing across both surfaces and reads before the text does -->
+            <Boxes class="ac__mineicon" :size="14" :stroke-width="2" aria-hidden="true" />
+            <span class="visually-hidden">From your vault: </span>
+            <span v-if="opt.vault.brand" class="ac__brand">
+              <span
+                v-for="(p, pi) in highlightParts(opt.vault.brand)"
+                :key="pi"
+                :class="{ 'ac__hl': p.on }"
+              >{{ p.t }}</span>
+            </span>
+            <span class="ac__model">
+              <span
+                v-for="(p, pi) in highlightParts(opt.vault.name)"
+                :key="pi"
+                :class="{ 'ac__hl': p.on }"
+              >{{ p.t }}</span>
+            </span>
+            <span v-if="opt.vault.variant" class="ac__variant">· {{ opt.vault.variant }}</span>
+          </span>
+          <span class="ac__metaright">
+            <span class="t-num ac__w">{{ formatWeight(opt.vault.weightMg, unit, { withUnit: false }) }} <span class="t-muted">{{ unit }}</span></span>
           </span>
         </template>
         <template v-else>
@@ -364,6 +464,7 @@ function highlightParts(text: string): { t: string; on: boolean }[] {
           </span>
         </template>
       </li>
+      </template>
     </ul>
     </div>
     </Transition>
@@ -487,6 +588,26 @@ function highlightParts(text: string): { t: string; on: boolean }[] {
   flex: 0 1000 auto;
   font-style: italic;
   color: var(--ink-3);
+}
+/* source heading — it separates, it doesn't compete with the rows. Inline padding
+   matches .ac__opt so it sits on the rows' text edge; the first one drops its top
+   margin, since the scroller's own padding already supplies that space. */
+.ac__section {
+  padding: var(--space-2) var(--space-2) var(--space-1);
+  margin-top: var(--space-2);
+  color: var(--ink-3);
+}
+.ac__section:first-child {
+  margin-top: 0;
+}
+/* the vault mark. LEADING, not trailing: it has to register before the name is
+   read, which a suffix doesn't — and it can't be mistaken for the italic
+   "· variant" / "· community" qualifiers that trail the name. */
+.ac__mineicon {
+  flex: none;
+  align-self: center;
+  margin-right: var(--space-1);
+  color: var(--ink-2);
 }
 /* community/unverified marker — quiet; these rows already rank below the cited spine */
 .ac__community {

@@ -6,6 +6,7 @@ import { sql } from "drizzle-orm";
 import * as schema from "../db/schema";
 import { CATALOG_DDL, ensureCatalogSchema } from "./catalog";
 import { CANDIDATES_DDL } from "./candidates";
+import { VAULT_DDL } from "./vaultSchema";
 import { memoizedEnsure } from "./memoize";
 
 type Db = Awaited<ReturnType<typeof build>>;
@@ -172,6 +173,31 @@ export function _resetSnapshotEnsured(): void {
   ensureSnapshotSchema.reset();
 }
 
+/** Idempotently create the vault tables (memoized) — for Neon, where there's no
+ *  build-time DDL. Mirrors ensureCatalogSchema; every vault endpoint reaches its
+ *  connection through useVaultDb() below, so the ensure can't be forgotten on a
+ *  path that needs it. */
+export const ensureVaultSchema = memoizedEnsure(async (db: Db) => {
+  for (const stmt of VAULT_DDL) await db.execute(sql.raw(stmt));
+});
+/** Reset the ensure-memo — for tests that spin up a fresh database. */
+export function _resetVaultEnsured(): void {
+  ensureVaultSchema.reset();
+}
+
+/**
+ * The shared DB with the vault schema ensured — the vault's counterpart to
+ * useCatalogDb(), and for the same reason: on Neon the tables are created on first
+ * use, so every vault endpoint must ensure before it queries. Folding the two calls
+ * together makes that impossible to forget. Both memoized, so this costs no extra
+ * round-trips on a warm instance.
+ */
+export async function useVaultDb(): Promise<Db> {
+  const db = await useDb();
+  await ensureVaultSchema(db);
+  return db;
+}
+
 const DDL = [
   ...LISTS_DDL,
   // catalog_items (Phase 2) — single-sourced in server/utils/catalog.ts so the
@@ -181,6 +207,7 @@ const DDL = [
   ...CANDIDATES_DDL,
   ...SNAPSHOTS_DDL,
   ...TRAIL_FAVICONS_DDL,
+  ...VAULT_DDL,
 ];
 
 async function ensureSchema(db: Db) {

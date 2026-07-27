@@ -150,6 +150,14 @@ export const RATE_LIMITS = {
   // host, so it's the tightest public budget here. A real editor asks once per link it
   // adds, and the per-host cache means most asks never leave the origin at all.
   "trail-favicon": 30,
+  // vault: capture is a debounced background write from an open editor (one per few
+  // seconds at worst); search is per-keystroke, like the catalog's, so it carries the
+  // same order of budget. Capture is also the only endpoint that can MINT a vault, so
+  // its budget doubles as the cap on how fast rows can be conjured from nothing.
+  "vault-capture": 60,
+  "vault-search": 240,
+  "vault-read": 120,
+  "vault-write": 60,
   // the admin gate itself (see requireAdmin) — throttled against brute force
   "admin": 30,
 } as const satisfies Record<string, number>;
