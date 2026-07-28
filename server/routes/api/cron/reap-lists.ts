@@ -14,9 +14,18 @@ import { refreshStaleFavicons } from "../../../utils/trailFavicon";
 //              reversible until then.
 //   3. FAVICONS — re-fetch trail-link favicons older than a month, oldest first and
 //              batch-capped (see server/utils/trailFavicon.ts). Rides along here
-//              rather than as its own vercel.json entry: the Hobby tier allows two
-//              cron jobs and both are already spoken for, and this is list
-//              maintenance by any reasonable reading of the name.
+//              rather than as its own vercel.json entry because it IS list
+//              maintenance by any reasonable reading of the name — NOT for want of
+//              cron budget. (It used to be: Hobby allowed two cron jobs per team and
+//              both were spoken for. That cap was lifted in Jan 2026 — per-project
+//              limits are now 100 on every plan — so splitting this out is available
+//              if it ever earns its own entry.)
+// Scheduling: what Hobby still constrains is FREQUENCY, not count — once a day, and
+// Vercel may fire the job anywhere inside the scheduled hour. So the 20-minute gap
+// from corroborate-catalog in vercel.json is a nicety, not a guarantee: both jobs can
+// land at once. Harmless today (they touch different tables, and the shared "admin"
+// rate-limit budget is 30/min against two requests), but don't add work here that
+// assumes the catalog job has already finished.
 // Auth: requireCronAuth — Bearer $CRON_SECRET (Vercel) or x-admin-token for a
 // manual run; rate-limited, 404 otherwise.
 export default defineEventHandler(async (event) => {
