@@ -1,6 +1,7 @@
 // Controls — de-outlined + monochrome. Whitespace + type carry the UI; borders
 // are rare. No colour in chrome (see tokens.scss): the primary action is inverted
 // ink, state reads as ink/weight, and colour lives only on the data viz.
+@use "../foundations/tokens" as t;
 
 .btn {
   display: inline-flex;
@@ -153,6 +154,17 @@ button svg {
 /* no underline (it read as a row divider) and no fill — the caret carries focus */
 .field:focus {
   outline: none;
+}
+/* Kill the platform's own search affordances. type="search" earns the semantics
+   (a clear role, the right virtual keyboard, Escape-to-clear on some platforms),
+   but WebKit dresses it with a cancel button that is a filled BLUE circle-x —
+   the only colour anywhere in the chrome, on a site whose one rule is that colour
+   belongs to the data viz and nothing else (tokens.scss). Safari also reserves
+   space for a results decoration that never renders. Drop both; the semantics stay. */
+input[type="search"]::-webkit-search-cancel-button,
+input[type="search"]::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
 }
 .field::placeholder {
   color: var(--ink-3);
@@ -351,6 +363,81 @@ button svg {
 .toast-leave-to {
   opacity: 0;
   transform: translate(-50%, 6px) scale(0.98);
+}
+
+// The undo bar — a toast carrying an action. Shared, because two surfaces now put
+// up the same object: the editor when you remove an item, and /vault when you
+// remove a piece of gear. It was scoped to the editor, which meant /vault had to
+// grow a lookalike; one copy keeps the two saying "Removed X · Undo" identically.
+.undobar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+/* a second, lesser action on the same bar — the one you take to decline */
+.undobar__btn--quiet {
+  font-weight: 400;
+  opacity: 0.72;
+}
+.undobar__btn--quiet:hover {
+  opacity: 1;
+}
+.undobar__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0;
+  background: none;
+  border: 0;
+  color: var(--paper);
+  font-weight: 600;
+  /* soft underline, matching the site's --underline house style — but the toast is
+     inverted (paper text on ink), so soften the PAPER rather than using --ink-3
+     (which would vanish on the dark toast). Translucent paper stays legible + quiet. */
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--paper) 55%, transparent);
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+// Corner variant — a snackbar that STAYS until dismissed, rather than a message
+// that passes through the centre. Bottom-RIGHT on desktop: the centre is where the
+// transient toasts land, and a persistent panel parked there would be in the way of
+// them; the right corner is also clear of the vault pane, which is a top-right
+// column. It re-declares the three transform states because the centre toast's
+// translate(-50%, …) would drag this one back to the middle as it animates — and it
+// keeps the same transform FUNCTION across all three for the Safari interpolation
+// reason above.
+// The radius steps up from the centre toast's --radius-2: this one is a floating
+// panel that sits there, so it takes the same --radius-4 the other persistent
+// floating surfaces wear (the autocomplete, the kebab menu, the vault pane) rather
+// than the panel radius a passing message uses.
+.toast--corner {
+  left: auto;
+  right: var(--space-4);
+  bottom: var(--space-4);
+  transform: translate(0, 0) scale(1);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-4);
+}
+.toast--corner.toast-enter-from {
+  transform: translate(0, 10px) scale(0.96);
+}
+.toast--corner.toast-leave-to {
+  transform: translate(0, 6px) scale(0.98);
+}
+// A phone has no corner to spare — span the gutters like the centre toast does.
+@media (max-width: t.$bp-stack) {
+  .toast--corner {
+    left: var(--space-3);
+    right: var(--space-3);
+    bottom: var(--space-3);
+    width: auto;
+    max-width: none;
+  }
 }
 
 // Touch devices: icon buttons hit the --tap minimum tap target (Apple HIG) and

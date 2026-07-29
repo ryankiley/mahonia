@@ -19,10 +19,28 @@
 // large enough that a vertical drag with a little wobble never re-nests by accident
 const NEST_THRESHOLD = 24;
 
+// The dragId an INSERTING drag carries — one that brings something in from outside
+// the list rather than moving a row already in it (today: the vault pane). Everything
+// downstream of the drop target — the insertion line, the folder tail, the
+// collapse-clip lift — is identical either way, so it runs through this same gesture
+// rather than a parallel one that would have to grow its own copy of each indicator.
+// A sentinel rather than a real id: no row is ever `dragId`, so no row dims itself as
+// the source, which is right — the source is still sitting there. The leading space
+// keeps it clear of any uuid while staying truthy for pointerDrag's `if (dragId)`.
+const INSERT_SOURCE = " insert";
+
 export interface DropTarget {
   folderId: string | null;
   beforeId: string | null; // item to insert before; null = append to the container's end
   parentId: string | null; // the container's parent (null = top-level)
+  /** Set when the drag INSERTS rather than moves: the source's own commit, called
+   *  with the resolved slot. A closure, not a payload this module would have to
+   *  understand — so the vault's own rules (its duplicate check, its addVaultItem
+   *  call) stay in the pane that owns them, and this file, which sits in the
+   *  editor's first-load chunk, never imports shared/vault or the catalog-search
+   *  fold behind it. It rides on the TARGET rather than in a ref because
+   *  createPointerDrag reads target() and then reset()s before calling commit(). */
+  insert?: (folderId: string | null, beforeId: string | null) => void;
 }
 
 let singleton: ReturnType<typeof create> | undefined;
@@ -34,6 +52,10 @@ function create() {
   const dy = ref(0);
   let startY = 0;
   let startX = 0;
+  // the insert commit for the gesture in flight, when it came from outside the list.
+  // A plain local, not a ref — it's read only inside the pointermove handler below,
+  // never by a template or computed.
+  let pendingInsert: DropTarget["insert"];
 
   // the slot index (0..rows.length) where the dragged row would land, purely by
   // vertical position: before the first row whose middle is below the pointer, else end.
@@ -71,6 +93,31 @@ function create() {
   const drag = createPointerDrag<DropTarget>({
     track(ev, el, dragId) {
       dy.value = ev.clientY - startY;
+
+      // ---- inserting from outside: no row to reorder, so no nesting and no sibling
+      // flow. Land it at a top-level slot in whatever folder is under the pointer. ----
+      if (pendingInsert) {
+        // over the source pane itself → no target, so releasing there cancels rather
+        // than committing to whichever folder happens to sit behind it
+        if (el?.closest("[data-vault-pane]")) {
+          drop.value = null;
+          return;
+        }
+        const overFolder = folderUnder(el, ev.clientY);
+        if (!overFolder || overFolder.hasAttribute("data-collapsed")) return;
+        const rows = topRowsOf(overFolder, dragId);
+        const isSorted = (overFolder.getAttribute("data-sort") || "manual") !== "manual";
+        drop.value = {
+          folderId: overFolder.getAttribute("data-folder") || null,
+          parentId: null,
+          beforeId: isSorted ? null : idOf(rows[slotFor(rows, ev.clientY)]),
+          insert: pendingInsert,
+        };
+        return;
+      }
+
+      // read only on the reorder path — an inserting drag returned above without
+      // needing either, and this runs on every pointermove
       const dx = ev.clientX - startX;
       const snap = useGearList().snapshot.value;
       const dragged = snap?.items.find((i) => i.id === dragId);
@@ -127,7 +174,8 @@ function create() {
       drop.value = { folderId, parentId: null, beforeId: sorted ? null : idOf(topRows[slot]) };
     },
     target: () => drop.value,
-    commit: (id, t) => useGearList().moveItem(id, t.folderId, t.beforeId, t.parentId),
+    commit: (id, t) =>
+      t.insert ? t.insert(t.folderId, t.beforeId) : useGearList().moveItem(id, t.folderId, t.beforeId, t.parentId),
     onStart(ev) {
       drop.value = null;
       startY = ev.clientY;
@@ -137,10 +185,21 @@ function create() {
     onReset() {
       drop.value = null;
       dy.value = 0;
+      pendingInsert = undefined;
     },
   });
 
-  return { dragId: drag.dragId, drop, dy, start: drag.start, reset: drag.reset };
+  /**
+   * Begin a drag that INSERTS a new row rather than moving an existing one. `insert`
+   * is called once, on a committed drop, with the slot the pointer resolved to —
+   * the caller owns what actually gets created and any rules about whether it may be.
+   */
+  function startInsert(insert: NonNullable<DropTarget["insert"]>, ev: PointerEvent) {
+    pendingInsert = insert;
+    drag.start(INSERT_SOURCE, ev);
+  }
+
+  return { dragId: drag.dragId, drop, dy, start: drag.start, startInsert, reset: drag.reset };
 }
 
 export function useItemDnd() {

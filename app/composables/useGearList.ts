@@ -5,6 +5,7 @@ import { colorKeyForName, nextFolderColor, STARTER_FOLDERS } from "~~/shared/cat
 import { editLinkPath } from "~~/shared/links";
 import { DRAFT_KEY, localKey, rebaseOnto } from "~~/shared/localList";
 import type { Folder, Item, ListSnapshot, Unit } from "~~/shared/types";
+import type { VaultCapture, VaultEntry } from "~~/shared/vault";
 import { bySortOrder, computeTotals, itemsInFolder, nextSortOrder, parseWeightInput, siblingItems } from "~~/shared/weights";
 
 // Editor controller (one list open at a time → module singleton). Mutations are
@@ -36,6 +37,20 @@ function create() {
   let remoteMissing = false;
   // bumped on every load/dispose so in-flight responses for a previous list are ignored
   let epoch = 0;
+  // True while load() runs its one-time backfills (water names, folder colours,
+  // stranded children). Those go through dispatch like any edit — which is right for
+  // persistence, and wrong for the vault: they fire on OPEN, so a list someone
+  // shared with you would capture its owner's whole gear set into your vault the
+  // moment a single legacy folder needed a colour. Suppressed here rather than at
+  // each backfill, so a fourth one added later inherits the rule instead of
+  // reintroducing the leak.
+  let hydrating = false;
+  // Raised when gear would reach the vault from a list this device didn't create
+  // and hasn't been answered for. The editor shows it as a toast; nothing is
+  // captured until it's answered, and the answer is remembered per list.
+  const vaultPrompt = ref<{ title: string } | null>(null);
+  // the rows the chooser is offering, or null when it's closed
+  const vaultPicker = ref<VaultCapture[] | null>(null);
   let teardownListeners: (() => void) | undefined;
 
   // on-device durability + connectivity awareness. The connectivity ref + watcher
@@ -44,6 +59,10 @@ function create() {
   // outlives any single mount).
   const store = useLocalListStore();
   const scope = effectScope(true);
+  // The vault's capture side. Bound inside the controller's scope so its
+  // page-hide flush lives exactly as long as the editor does.
+  const vault = useVaultCapture();
+  scope.run(() => vault.bindFlushOnLeave());
   const online = scope.run(() => useOnline())!;
   let persistTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -158,6 +177,10 @@ function create() {
     inFlight = false;
     isEditing = false;
     remoteMissing = false;
+    // the vault question is about THIS list — an unanswered one must not ride
+    // along to the next list opened (where it would ask about the wrong gear,
+    // and spend that list's one chance to ask)
+    vaultPrompt.value = null;
     clearTimeout(flushTimer);
     snapshot.value = null;
     status.value = "loading";
@@ -184,6 +207,15 @@ function create() {
       snapshot.value = merged;
       status.value = pending.length ? "saving" : "synced";
       registerOpened(); // server confirmed the token → remember this list in "Your lists"
+      // NO capture on open. It used to happen here, to catch a list that arrived
+      // whole (imported, cloned) and dispatches no ops — but an edit link is an
+      // edit link, and this hook could not tell YOUR list opened on a second device
+      // from one a friend shared with you. So opening a shared list copied its
+      // owner's gear into the opener's vault, and minted a vault for someone who
+      // had never asked for one. The whole-list cases capture at the moment they're
+      // CREATED instead (useVaultCapture().captureNewList), where the device knows
+      // it made the thing; everything else still captures as you edit.
+      hydrating = true;
       // one-time cleanup: early water rows were named "Water · 1 L"; the volume now
       // lives in the qty (litres) field, so the name should just be "Water"
       for (const it of merged.items) {
@@ -216,6 +248,7 @@ function create() {
       }
       for (const p of stranded)
         dispatch({ t: "moveItem", id: p.id, folderId: p.folderId, sortOrder: p.sortOrder });
+      hydrating = false;
       // Upgrade a legacy bare /e#{token} URL to the share-ready pretty path
       // (/e/{shareCode}#{token}) once the share code is known. Pre-#54 lists —
       // every bookmark and my-lists entry from before the pretty links shipped —
@@ -277,6 +310,7 @@ function create() {
     inFlight = false;
     isEditing = false;
     remoteMissing = false;
+    vaultPrompt.value = null; // see load() — a draft is yours, and never asks
     clearTimeout(flushTimer);
     installListeners();
     const folders: Folder[] = STARTER_FOLDERS.map((p, i) => ({
@@ -351,6 +385,7 @@ function create() {
       // register the write capability + put the token in the URL WITHOUT routing
       // (replaceState, so the editor's hash watcher doesn't dispose/reload us)
       const token = useMyLists().registerCreated(res, totals.value?.totalMg ?? 0);
+      setVaultDecisionFor(token, "yes"); // you built it; it's yours without asking
       // pretty path (/e/{shareCode}#{token}) so the URL is share-ready immediately;
       // replaceState (not routing) so the hash watcher doesn't dispose/reload us
       if (typeof history !== "undefined")
@@ -378,6 +413,10 @@ function create() {
     // rows re-render, so a keystroke in one folder doesn't repaint every folder.
     applyOps(snapshot.value, [op]);
     persistLocal(); // mirror to IndexedDB so this edit survives a reload/crash
+    // Every mutation funnels through here, whatever made it — typing, a catalog
+    // pick, a drag, an undo — so this one call captures gear from all of them
+    // without each call site having to remember to.
+    if (!hydrating) captureIfMine();
     // Draft (no token yet): keep edits local until there's real content, then create
     // the list once. While that create is in flight, queue ops for the post-create flush.
     if (!editToken) {
@@ -606,6 +645,104 @@ function create() {
     pendingBlankId.value = id;
     return id;
   }
+  // Add a piece of gear straight from the vault — the VaultPane's one write.
+  //
+  // A complete row lands in one dispatch, NOT a blank row that is then patched: a
+  // half-built row that briefly exists would trip the pending-blank focus machinery
+  // and the discard-on-blur cleanup.
+  //
+  // The value semantics mirror an autocomplete pick from the vault (see ItemRow's
+  // onNameCommit): the weight and the name are the HOLDER'S, so they're marked
+  // overridden and the catalog's live-resolve leaves them alone. The catalog link
+  // rides along when the gear originally came from a pick, so nothing else that
+  // keys off it breaks.
+  function addVaultItem(entry: VaultEntry, folderId: string | null): string {
+    if (!snapshot.value) return "";
+    const id = uid();
+    const item: Item = {
+      id,
+      folderId,
+      name: entry.name,
+      brand: entry.brand,
+      variant: entry.variant,
+      commonName: entry.commonName,
+      // the vault's label is the holder's own, so pin it against live-resolve
+      commonNameOverridden: entry.commonName ? true : undefined,
+      nameOverridden: true,
+      unitWeightMg: entry.weightMg,
+      weightOverridden: true,
+      qty: 1,
+      // "base" is stored as null — it IS the folder default, and storing it
+      // explicitly would pin the row against a later change to that default
+      classification: entry.classification && entry.classification !== "base" ? entry.classification : null,
+      catalogItemId: entry.catalogItemId,
+      sortOrder: nextSortOrder(snapshot.value.items, folderId),
+    };
+    dispatch({ t: "addItem", item });
+    return id;
+  }
+  /**
+   * Offer this list's gear to the vault, if it's ours to offer.
+   *
+   * A draft (no token yet) is yours by definition. A list this device CREATED —
+   * built, imported or cloned — recorded "yes" at that moment. Anything else is an
+   * edit link you hold, which is either your own list on a second device or a
+   * friend's, and the link cannot say which. So the first time gear would move, ask
+   * once and remember; until it's answered, nothing is captured.
+   */
+  function captureIfMine() {
+    if (!snapshot.value) return;
+    // The decision lives in sync(), which asks only once it knows there is gear
+    // worth asking about — see useVault.
+    vault.sync(snapshot.value.items, snapshot.value.folders, {
+      editToken,
+      onAsk: () => (vaultPrompt.value = { title: snapshot.value?.title || "this list" }),
+    });
+  }
+
+  /**
+   * Answer the prompt.
+   *
+   * "No" is final and needs nothing else. "Yes" opens the chooser rather than
+   * taking the list wholesale: the only lists that ever ask are ones you didn't
+   * start, and on a trip you planned together the tent is yours and the stove
+   * isn't. All-or-nothing forces a wrong answer whichever way you go.
+   */
+  async function answerVaultPrompt(yes: boolean) {
+    vaultPrompt.value = null;
+    if (!yes) return setVaultDecisionFor(editToken, "no");
+    const s = snapshot.value;
+    const caps = s ? await vault.buildCaptures(s.items, s.folders) : [];
+    // nothing to choose between — record the answer and take the (empty) set, so
+    // an empty chooser never appears and the question doesn't come back
+    if (caps.length < 2) {
+      setVaultDecisionFor(editToken, "yes");
+      return captureIfMine();
+    }
+    vaultPicker.value = caps;
+  }
+
+  /** Confirm the chooser: `keep` is the normKeys ticked. Everything else is
+   *  recorded as not-yours FOR THIS LIST, so later edits don't re-offer it. */
+  function confirmVaultPicker(keep: string[]) {
+    const offered = vaultPicker.value ?? [];
+    vaultPicker.value = null;
+    const kept = new Set(keep);
+    setVaultExclusionsFor(
+      editToken,
+      offered.filter((c) => !kept.has(c.normKey)).map((c) => c.normKey),
+    );
+    setVaultDecisionFor(editToken, "yes");
+    captureIfMine();
+  }
+
+  /** Back out of the chooser. Deliberately records NOTHING: you opened it to
+   *  decide and didn't, so the question is still open and the banner returns on
+   *  the next edit. */
+  function cancelVaultPicker() {
+    vaultPicker.value = null;
+  }
+
   // Enter in a row's name opens the NEXT row right below it (todo-list flow):
   // the same blank-row machinery as "Add an item", but positioned after the
   // source row instead of at the folder's end, so mid-list entry stays in place.
@@ -918,7 +1055,9 @@ function create() {
     get epoch() { return epoch; },
     load, startDraft, dispose, rotate,
     setMeta, setUnit, addFolder, updateFolder, removeFolder, moveFolderBefore,
-    addBlankItem, addBlankItemAfter, discardEmpty, updateItem, removeItem, setItemWeight, moveItem,
+    vaultPrompt, answerVaultPrompt,
+    vaultPicker, confirmVaultPicker, cancelVaultPicker,
+    addBlankItem, addBlankItemAfter, addVaultItem, discardEmpty, updateItem, removeItem, setItemWeight, moveItem,
     addChild, nestItem, unnest,
     pendingBlankId, pendingUndo, undoRemove, holdUndo, releaseUndo,
   };

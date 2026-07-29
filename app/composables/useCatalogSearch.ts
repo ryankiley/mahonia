@@ -23,6 +23,15 @@ export interface NameCommit {
   weightMg?: number;
   catalogItemId?: number;
   classification?: Classification;
+  // what the item cost, when it came from the vault — the vault is where a price
+  // is recorded, so a pick carries it into the list rather than losing it
+  priceCents?: number;
+  currency?: string;
+  // Came from the holder's vault rather than the catalog. The fields look the same,
+  // but their AUTHORITY differs: a vault row's weight and name are the holder's own,
+  // so the handler marks them overridden instead of letting the catalog's
+  // live-resolve keep them "fresh". See ItemRow's onNameCommit.
+  fromVault?: boolean;
 }
 
 export function useCatalogSearch() {

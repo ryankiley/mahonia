@@ -17,6 +17,15 @@ export interface PointerDragHooks<T> {
   onStart?: (ev: PointerEvent) => void;
   /** Per-gesture extra cleanup on reset (e.g. the item drag's dy). */
   onReset?: () => void;
+  /** CSS selector for the surface the gesture belongs to — a release outside its
+   *  vertical band cancels instead of committing (the touch-reachable abort, since
+   *  there's no Escape key on a phone). Defaults to the editor's body.
+   *
+   *  It has to be a parameter rather than a constant: this scaffold started as the
+   *  editor's alone, and a second surface (/vault's folders) inherited a hardcoded
+   *  `.editor__body` that isn't on its page — so `outside` computed true on every
+   *  move and EVERY drag silently cancelled at the drop. */
+  within?: string;
 }
 
 export function createPointerDrag<T>(hooks: PointerDragHooks<T>) {
@@ -42,12 +51,15 @@ export function createPointerDrag<T>(hooks: PointerDragHooks<T>) {
     // past the footer. A sideways drag into the horizontal page margin is still a
     // valid drop: nesting a row means dragging it rightward off the row's right edge
     // (where the grip sits) into the gutter, so the margin must NOT read as "outside".
-    const body = document.querySelector(".editor__body");
-    if (body) {
-      const b = body.getBoundingClientRect();
+    const within = hooks.within ?? ".editor__body";
+    const surface = document.querySelector(within);
+    if (surface) {
+      const b = surface.getBoundingClientRect();
       outside = ev.clientY < b.top || ev.clientY > b.bottom;
     } else {
-      outside = !el?.closest(".editor__body");
+      // the surface isn't on this page at all — nothing to escape from, so a
+      // release always commits rather than always cancelling
+      outside = false;
     }
     hooks.track(ev, el, dragId.value);
   }

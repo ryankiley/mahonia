@@ -1,5 +1,42 @@
 [
   {
+    "date": "2026-07-29",
+    "added": [
+      "Gear vaults that go unused for a long time are now cleaned up, and using the vault's link brings one back."
+    ]
+  },
+  {
+    "date": "2026-07-28",
+    "added": [
+      "Drag gear straight from your vault onto the folder you want it in, instead of picking the folder first.",
+      "Your vault sits beside the list you're building and can be resized to whatever width suits you.",
+      "Reach your vault from the footer of any page.",
+      "Gear you've removed from your vault is listed under \"Removed gear\", so you can put a piece back.",
+      "Folders in your gear vault: gear files itself under the list folder it came from, and you can rename, sort, reorder and delete them.",
+      "Drag gear between folders in your vault.",
+      "When you edit a list you didn't start, Mahonia asks once whether its gear belongs in your vault.",
+      "Opening a gear vault link on a device that already has gear now combines the two, instead of leaving one of them behind.",
+      "Bring another device's gear vault into this one by pasting its link, without leaving the vault you're on.",
+      "Choosing Add on a list you didn't start now lets you pick which gear is yours, instead of taking all of it."
+    ],
+    "changed": [
+      "Gear already in the open list shows as \"Already added\" in the vault, so nothing lands twice.",
+      "About and What's new are one page now.",
+      "Change the weight unit from the vault's total, the same way you do on a list.",
+      "Removing gear from your vault now offers an undo, like removing an item from a list.",
+      "The vault slides in when you open it beside a list, instead of appearing all at once.",
+      "Vault search now forgives typos and matches on gear type, like the item search does — and bolds what you typed.",
+      "The vault is now called your gear vault, everywhere it's named.",
+      "Gear rows in the vault use icons for their actions instead of a word.",
+      "The vault prompt now sits inline under the weight chart, and slides away when dismissed."
+    ],
+    "fixed": [
+      "Long gear names in the vault no longer swallow the brand or knock a row out of line.",
+      "The vault panel keeps its height while you filter it, instead of collapsing as results narrow.",
+      "Opening a list someone shared with you no longer copies their gear into your vault."
+    ]
+  },
+  {
     "date": "2026-07-27",
     "changed": [
       "The trail link's card shows the destination without the https:// and www., so more of the address fits.",
@@ -17,7 +54,10 @@
     "added": [
       "Attach a link to the trail a list was packed for — it shows on the shared and public views, with the site's icon.",
       "The summary now shows a carried weight — base plus consumable, the weight actually on your back — alongside the three figures it's drawn from.",
-      "Copying a list as Markdown includes the carried weight too."
+      "Copying a list as Markdown includes the carried weight too.",
+      "Your vault: gear you put in a list is remembered in one place, ready to pull into the next list without retyping. No account — the vault is yours by link, like a list.",
+      "Add gear from your vault without typing: a panel beside the list you're building, with everything you own a click away.",
+      "Open your vault on another device with a link, the same way you already move a list."
     ],
     "changed": [
       "A list's name now sits at the top of the page as a proper title, instead of in the toolbar.",
@@ -152,7 +192,6 @@
   },
   {
     "date": "2026-06-27",
-    "title": "Mahonia is live",
     "added": [
       "Build a packing list and share it with a link — no account, no app, no ads.",
       "Live pack-weight totals, with a base / worn / consumable breakdown and a category bar. Weights are optional; a list with none just stays quiet.",

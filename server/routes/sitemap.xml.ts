@@ -1,6 +1,5 @@
 import { defineEventHandler, getRequestURL, setHeader } from "h3";
 import { listPublicSlugs } from "../utils/discoveryRepo";
-
 // Hand-rolled sitemap (no module / dep): the home page + every public list
 // (/l/{slug}), gated by the public-discovery visibility rule (public, active,
 // not flagged/deleted, non-empty — see discoveryRepo's
@@ -9,13 +8,14 @@ import { listPublicSlugs } from "../utils/discoveryRepo";
 // editor and /s share views are intentionally excluded (noindex capabilities).
 const esc = (s: string) =>
   s.replace(/[<>&'"]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", "'": "&apos;", '"': "&quot;" })[c]!);
-
 export default defineEventHandler(async (event) => {
   const origin = getRequestURL(event).origin;
   const rows = await listPublicSlugs().catch(() => []);
   const urls = [
     `  <url><loc>${esc(origin)}/</loc></url>`,
-    `  <url><loc>${esc(origin)}/changelog</loc></url>`,
+    // /about absorbed the old /changelog page (it's the "What's new" section now),
+    // so the crawlable copy that used to live at /changelog is listed here instead
+    `  <url><loc>${esc(origin)}/about</loc></url>`,
     ...rows.map((r) => {
       const d = r.updatedAt ? new Date(r.updatedAt) : null;
       const lastmod = d && !isNaN(d.getTime()) ? `<lastmod>${d.toISOString().slice(0, 10)}</lastmod>` : "";

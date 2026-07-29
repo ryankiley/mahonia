@@ -25,7 +25,7 @@ deployed on [Vercel](https://vercel.com).
 
 ## Changelog
 
-The site's [“What’s new”](https://mahonia.app/changelog) page renders
+The site's [“What’s new”](https://mahonia.app/about#whats-new) section (on the About page) renders
 [`content/changelog.json`](content/changelog.json) — the one source of truth. When a change is
 user-facing, add a plain one- or two-sentence entry as part of the same PR:
 

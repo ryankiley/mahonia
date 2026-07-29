@@ -216,3 +216,38 @@ export function mergeCatalogRows(
   }
   return out;
 }
+
+/**
+ * Split a suggestion into matched / unmatched runs against what's been typed, so
+ * the overlap can be rendered bold — the standard typeahead affordance. Each
+ * whitespace token of the query is matched independently (so "hyperl wind" bolds
+ * both), case-insensitively. Single characters are ignored: at one letter the
+ * emphasis lands on half the alphabet and reads as noise. A purely fuzzy hit with
+ * no literal overlap returns one plain run, which is correct — there is nothing
+ * honest to point at.
+ *
+ * Lives here, beside the ranker, because the highlight has to agree with whatever
+ * decided the row was a match; two surfaces now render it (the item autocomplete
+ * and the vault's own search) and a second copy would be free to drift.
+ */
+export function highlightParts(text: string, rawQuery: string): { t: string; on: boolean }[] {
+  const q = (rawQuery ?? "").trim().toLowerCase();
+  const tokens = q ? q.split(/\s+/).filter((t) => t.length > 1) : [];
+  if (!tokens.length) return [{ t: text, on: false }];
+  const lower = text.toLowerCase();
+  const hit = new Array(text.length).fill(false);
+  for (const tok of tokens) {
+    let from = 0;
+    for (let idx = lower.indexOf(tok, from); idx !== -1; idx = lower.indexOf(tok, from)) {
+      for (let i = idx; i < idx + tok.length; i++) hit[i] = true;
+      from = idx + tok.length;
+    }
+  }
+  const parts: { t: string; on: boolean }[] = [];
+  for (let i = 0; i < text.length; i++) {
+    const last = parts[parts.length - 1];
+    if (last && last.on === hit[i]) last.t += text[i];
+    else parts.push({ t: text[i]!, on: hit[i] });
+  }
+  return parts;
+}

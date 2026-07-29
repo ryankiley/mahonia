@@ -1,0 +1,72 @@
+// DDL for the vault. A LEAF module: it imports nothing from db.ts, so db.ts can
+// spread it into the local dev DDL while vaultRepo.ts imports its connection back
+// from db.ts — the same shape as CATALOG_DDL, minus the import cycle that would
+// follow from putting the statements in the repo module itself.
+//
+// Every statement is idempotent and safe on BOTH engines (PGlite locally, Neon in
+// production, where there's no build-time migration step and the schema is ensured
+// on first use). See server/db/schema.ts for what each table is for.
+
+export const VAULT_DDL: string[] = [
+  // A vault is owned by a LINK, not an account: token_hash is sha256 of the token
+  // the holder keeps, and possession is the whole authorisation model — exactly as
+  // lists.edit_token_hash works. No users table, no sessions, no email.
+  `CREATE TABLE IF NOT EXISTS vaults (
+    id serial PRIMARY KEY,
+    token_hash text NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    last_seen_at timestamptz NOT NULL DEFAULT now()
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS idx_vaults_token ON vaults (token_hash)`,
+  // soft-delete for the nightly reaper; cleared on use, so a late return revives
+  // the vault instead of finding it gone (see server/db/schema.ts)
+  `ALTER TABLE vaults ADD COLUMN IF NOT EXISTS deleted_at timestamptz`,
+  // the reaper's scan: live vaults, oldest-seen first
+  `CREATE INDEX IF NOT EXISTS idx_vaults_stale ON vaults (last_seen_at) WHERE deleted_at IS NULL`,
+
+  // A vault's folders — see server/db/schema.ts for why they're a table and not a
+  // label on the item. Name is unique per vault so capture can find-or-create by a
+  // list folder's name without accumulating duplicates.
+  `CREATE TABLE IF NOT EXISTS vault_folders (
+    id serial PRIMARY KEY,
+    vault_id integer NOT NULL,
+    name text NOT NULL,
+    sort_order integer NOT NULL DEFAULT 0,
+    sort_by text,
+    created_at timestamptz NOT NULL DEFAULT now()
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS idx_vault_folder_name ON vault_folders (vault_id, name)`,
+
+  `CREATE TABLE IF NOT EXISTS vault_items (
+    id serial PRIMARY KEY,
+    vault_id integer NOT NULL,
+    norm_key text NOT NULL,
+    brand text,
+    name text NOT NULL,
+    variant text,
+    common_name text,
+    weight_mg bigint NOT NULL DEFAULT 0,
+    classification text,
+    catalog_item_id integer,
+    product_url text,
+    folder_id integer,
+    times_seen integer NOT NULL DEFAULT 1,
+    last_used_at timestamptz NOT NULL DEFAULT now(),
+    removed_at timestamptz,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now()
+  )`,
+  // the upsert target — one row per piece of gear per vault
+  `ALTER TABLE vault_items ADD COLUMN IF NOT EXISTS folder_id integer`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS idx_vault_identity ON vault_items (vault_id, norm_key)`,
+  // /vault's browse order and the autocomplete's candidate pool: live rows,
+  // most-recently-used first
+  `CREATE INDEX IF NOT EXISTS idx_vault_recent ON vault_items (vault_id, last_used_at DESC) WHERE removed_at IS NULL`,
+  // classification is a closed set; a check keeps a bad write out of the table
+  // rather than relying on every caller. Added separately (and tolerantly) because
+  // ADD CONSTRAINT has no IF NOT EXISTS on older engines.
+  `DO $$ BEGIN
+     ALTER TABLE vault_items ADD CONSTRAINT vault_classification_ck
+       CHECK (classification IS NULL OR classification IN ('base','worn','consumable'));
+   EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+];

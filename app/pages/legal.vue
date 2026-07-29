@@ -20,82 +20,88 @@ useHead({
     <main id="main-content" tabindex="-1" class="wrap page">
       <div class="prose">
         <h1 class="t-title">Legal</h1>
-        <p class="t-sm t-muted">Last updated 17 July 2026</p>
+        <p class="t-sm t-muted">Last updated 29 July 2026</p>
         <p>
-          How Mahonia handles your data, and the terms for using it — written to be read, not to trap
-          you. Jump to <a href="#privacy">Privacy</a> or <a href="#terms">Terms</a>.
+          How Mahonia handles your data, and the terms for using it. Jump to
+          <a href="#privacy">Privacy</a> or <a href="#terms">Terms</a>.
         </p>
 
         <!-- ================= Privacy ================= -->
         <h2 id="privacy" class="legal__break">Privacy</h2>
         <p>
-          Mahonia is a tool for making and sharing packing lists, made by one person. There are no
-          accounts, no advertising, and I don’t sell your data. This page describes what Mahonia stores,
-          what it sends over the network and when, and where to ask questions. If anything here is
-          unclear, email <a :href="`mailto:${CONTACT_EMAIL}`">{{ CONTACT_EMAIL }}</a>.
+          Mahonia is made by one person. No accounts, no advertising, and I don’t sell your data. If
+          anything here is unclear, email <a :href="`mailto:${CONTACT_EMAIL}`">{{ CONTACT_EMAIL }}</a>.
         </p>
 
         <h3>Where your data lives</h3>
         <p>
-          The lists you create (titles, folders, items, notes, and any weights) are saved on your
-          device in your browser’s storage, and synced to the server as you build them. As soon as a
-          list has real content (a first item, a first weight) it’s stored on the server under an
-          unguessable private link. That sync is what lets the same edit link open your list on
-          another device, and it’s why the editor says “Synced” from the start. An empty draft you
-          never add anything to is never sent anywhere.
+          Your list titles, folders, items, notes and weights are saved in your browser, and synced
+          to the server once a list has real content. An empty draft you never add anything to is
+          never sent anywhere.
         </p>
         <p>
-          A synced list is private by default: it isn’t listed anywhere on the site, search engines
-          are asked not to index it, and only someone you give the link to can open it. Its contents
-          stay on the server until you delete the list. Publishing is a separate, explicit step that
-          puts a list in the public feed, and public means public: anyone can read it until you
-          unpublish or delete it.
+          A synced list is private: unlisted, not indexed, and openable only by someone you give the
+          link to. Publishing is a separate, explicit step. Public means public: anyone can read it
+          until you unpublish or delete it.
+        </p>
+        <p>
+          Your <strong>gear vault</strong> works the same way: stored under its own unguessable link,
+          holding names, brands and weights, with no account attached and nothing that identifies
+          you. Gear reaches it when you add something to a list yourself, or import or copy a list.
+          Opening a list someone shared with you doesn’t put their gear in your vault. A vault
+          belongs to the browser holding its link. Open that link on a second device and the two
+          vaults are combined, not swapped.
         </p>
 
         <h3>What Mahonia collects in the background</h3>
-        <p>
-          Running the site touches a little technical data, kept to the minimum needed:
-        </p>
         <ul>
           <li>
-            <strong>Request data.</strong> Your IP address and basic request details are processed
-            briefly to serve pages, apply rate limits, and stop abuse. The hosting provider keeps
-            standard short-lived server logs.
+            <strong>Request data.</strong> Your IP address and basic request details, processed
+            briefly to serve pages, apply rate limits, and stop abuse. The host keeps standard
+            short-lived logs.
           </li>
           <li>
-            <strong>Aggregate analytics.</strong> Cookieless, privacy-preserving counts of page
-            views and performance. No advertising cookies, no cross-site tracking, no profile.
+            <strong>Analytics.</strong> Cookieless, aggregate counts of page views and performance.
+            No advertising cookies, no cross-site tracking, no profile.
           </li>
         </ul>
         <p>
-          Mahonia never asks for your name, email, password, payment details, or precise location.
+          Mahonia never asks for your name, email, password, payment details, or location.
         </p>
 
         <h3>The services Mahonia relies on</h3>
         <p>
-          A few service providers run the plumbing on my behalf. They’re all US-based, so if you’re
-          outside the US your data may be processed there.
+          Three US-based providers run the plumbing, so your data may be processed there:
+          <strong>Vercel</strong> (hosting, delivery, analytics), <strong>Neon</strong> (the
+          database), <strong>Upstash</strong> (rate limiting).
         </p>
-        <ul>
-          <li><strong>Vercel</strong>: hosting, content delivery, and the aggregate analytics.</li>
-          <li><strong>Neon</strong>: the database where your synced lists are stored.</li>
-          <li><strong>Upstash</strong>: the store used for rate limiting.</li>
-        </ul>
 
         <h3>Keeping and deleting your data</h3>
-        <p>
-          Because there are no accounts, you’re in control of removing things yourself:
-        </p>
+        <p>There are no accounts, so removing things is in your hands:</p>
         <ul>
-          <li>Open “Your lists” to see every list saved on this device.</li>
-          <li>There, “Remove from device” takes a list off this browser (the list itself stays online for anyone with its link); “Delete” removes the list from the server for everyone.</li>
+          <li>
+            “Your lists” shows every list saved on this device. “Remove from device” takes one off
+            this browser (it stays online for anyone with the link); “Delete” removes it from the
+            server for everyone.
+          </li>
+          <li>
+            In your gear vault, “Remove” takes a piece of gear out and keeps it out. “Forget this
+            gear vault on this device” drops the link from this browser without touching the vault.
+          </li>
           <li>
             For anything else, including a copy or deletion of a shared list, email
-            <a :href="`mailto:${CONTACT_EMAIL}`">{{ CONTACT_EMAIL }}</a> and I’ll sort it out.
+            <a :href="`mailto:${CONTACT_EMAIL}`">{{ CONTACT_EMAIL }}</a>.
           </li>
         </ul>
         <p>
-          No system is perfectly secure, so please don’t put sensitive personal information into a
+          Some things are also cleaned up automatically. A list that never got past a single item and
+          hasn’t been edited in a long time is removed, as is a gear vault that hasn’t been used in a
+          long time. Using a vault’s link keeps it, and brings it back even after it’s been marked
+          for removal. Anything removed this way is held for a grace period before it’s gone for
+          good. If you’ve lost something, email me and I’ll see what can be recovered.
+        </p>
+        <p>
+          No system is perfectly secure. Please don’t put sensitive personal information into a
           list.
         </p>
 
@@ -108,78 +114,72 @@ useHead({
 
         <h3>Children</h3>
         <p>
-          Mahonia isn’t directed at children under 13 and doesn’t knowingly collect data from them. If
-          you believe a child has provided data through Mahonia, email me and I’ll remove it.
+          Mahonia isn’t directed at children under 13 and doesn’t knowingly collect data from them.
+          If you believe a child has provided data through Mahonia, email me and I’ll remove it.
         </p>
 
         <h3>Changes to this policy</h3>
-        <p>
-          Material changes to this policy will be reflected here with an updated date.
-        </p>
+        <p>Material changes will be reflected here with an updated date.</p>
 
         <!-- ================= Terms ================= -->
         <h2 id="terms" class="legal__break">Terms of Use</h2>
         <p>
-          These terms cover your use of Mahonia. They’re written to be readable, not to trap you. Mahonia
-          is made by one person, it’s free, and it has no accounts. By using it you agree to what’s
-          below. If you don’t agree, that’s completely fine. Just don’t use it.
+          By using Mahonia you agree to what’s below. If you don’t agree, don’t use it.
         </p>
 
         <h3>What Mahonia is</h3>
         <p>
-          Mahonia is a free tool for making and sharing packing lists. A list’s private edit link is
-          the only key to changing it; a separate read-only link lets others view it, and you can
-          publish a list to a public feed.
+          A free tool for making and sharing packing lists. A list’s private edit link is the only
+          key to changing it; a separate read-only link lets others view it; publishing puts it in a
+          public feed.
         </p>
 
         <h3>The edit link is your responsibility</h3>
         <p>
           Anyone who has a list’s edit link can change that list. Keep it private and save it
-          somewhere safe. If you lose it and haven’t saved it elsewhere, I can’t recover edit access
-          for you.
+          somewhere safe. If you lose it, I can’t recover edit access for you.
         </p>
 
         <h3>Your content is yours</h3>
         <p>
-          You keep ownership of the lists you create. By sharing or publishing one, you give me
-          permission to store and display it so the feature works, and that permission ends when you
-          remove the content. You’re responsible for what you put in your lists and for having the
-          right to share it. Public means public: a published or shared list can be read by anyone
-          with the link, so don’t share anything you wouldn’t want out in the open.
+          You keep ownership of the lists you create. Sharing or publishing one gives me permission
+          to store and display it so the feature works, and that permission ends when you remove the
+          content. You’re responsible for what you put in your lists and for having the right to
+          share it. Public means public, so don’t share anything you wouldn’t want out in the open.
         </p>
 
         <h3>Fair use of Mahonia</h3>
         <p>
-          Please don’t use Mahonia to break the law, infringe others’ rights, post abusive or deceptive
-          content, impersonate people, or attack, overload, or scrape the service. Public lists can
-          be flagged with the “Report list” action in the ⋯ menu; to report a problem or request a takedown, email
-          <a :href="`mailto:${CONTACT_EMAIL}`">{{ CONTACT_EMAIL }}</a> with enough detail to find the
-          content. I may remove content or limit access, including pulling lists off the public feed,
-          especially in response to reports.
+          Please don’t use Mahonia to break the law, infringe others’ rights, post abusive or
+          deceptive content, impersonate people, or attack, overload, or scrape the service. Public
+          lists can be flagged with “Report list” in the ⋯ menu; to report a problem or request a
+          takedown, email <a :href="`mailto:${CONTACT_EMAIL}`">{{ CONTACT_EMAIL }}</a> with enough
+          detail to find the content. I may remove content or limit access, including pulling lists
+          off the public feed.
         </p>
 
         <h3>It’s free and provided “as is”</h3>
         <p>
-          Mahonia is offered free of charge and may change, pause, or shut down at any time, and isn’t
-          guaranteed to keep your data forever, so keep your own backups of anything important (the
-          editor can export your list). It’s provided <strong>as is</strong> and
-          <strong>as available</strong>, with no warranties of any kind, to the fullest extent the
-          law allows. Weights, the catalog, and totals may be wrong or out of date, so don’t rely on
-          Mahonia for anything safety-critical. Verify your own kit before you head out.
+          Mahonia may change, pause, or shut down at any time, and isn’t guaranteed to keep your data
+          forever. Keep your own backups of anything important; the editor can export your list.
+          It’s provided <strong>as is</strong> and <strong>as available</strong>, with no warranties
+          of any kind and no guarantee of availability, accuracy, or fitness for any particular
+          purpose, to the fullest extent the law allows. Weights, the catalog, and totals may be
+          wrong or out of date. Don’t rely on Mahonia for anything safety-critical, and verify your
+          own kit before you head out.
         </p>
 
         <h3>Limitation of liability</h3>
         <p>
           To the fullest extent permitted by law, I’m not liable for any indirect, incidental, or
           consequential damages, or for any loss of data, arising from your use of (or inability to
-          use) Mahonia. As a free service, it comes with no guarantee of availability, accuracy, or
-          fitness for any particular purpose.
+          use) Mahonia.
         </p>
 
         <h3>Changes to these terms</h3>
         <p>
-          These terms may change as Mahonia grows. Material changes will be reflected here with a new
-          date. Continuing to use Mahonia after a change means you accept the updated terms.
+          These terms may change. Material changes will be reflected here with a new date, and
+          continuing to use Mahonia after a change means you accept the updated terms.
         </p>
 
         <h3>Governing law</h3>

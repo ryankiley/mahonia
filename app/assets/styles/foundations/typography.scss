@@ -39,3 +39,16 @@ body {
 .t-muted {
   color: var(--ink-2);
 }
+
+// The "·" that separates a gear name from its variant ("Rapide SL Pillow · One
+// size"). It's punctuation, not content, so it sits a step below even the faint
+// variant text beside it — otherwise the eye stops on a mid-height dot on its way
+// along the name.
+//
+// Opacity rather than a new colour token: the dot has to recede from whatever ink
+// its neighbour carries (--ink-3 in a row, --paper on the inverted toast), and it
+// must not reach for --ink-ghost, which is spoken for by the list-title
+// placeholder and sits far below the AA floor on purpose.
+.sep {
+  opacity: 0.55;
+}

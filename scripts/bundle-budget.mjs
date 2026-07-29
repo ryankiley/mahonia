@@ -3,7 +3,7 @@
 //
 // THE RATCHET IS FIRST LOAD — the JS/CSS a visitor to the editor actually
 // downloads, read from the assets the prerendered /e references. Everything else
-// in _nuxt (the /vault, /account, /changelog, /legal route chunks, the lazy modals
+// in _nuxt (the /vault, /account, /about, /legal route chunks, the lazy modals
 // and panes) is counted only against a deliberately loose TOTAL backstop.
 //
 // It used to gate on the sum of every built file, and that measured the wrong
@@ -33,7 +33,7 @@ import { brotliCompressSync, gzipSync, constants } from "node:zlib";
 // code changed, just the framework we ship.
 //
 // NOT a bump, but the reason current dropped ~2.4 KB: content/changelog.json used to be a
-// module-scope import in app/pages/changelog.vue, so every entry was bundled into that
+// module-scope import in the changelog page, so every entry was bundled into that
 // route's client chunk. It's served from server/api/changelog.get.ts now (the page is
 // prerendered, so the read happens at build time). That matters beyond the one-off saving
 // — the house rule is a changelog entry per user-facing PR, so the old shape grew what
@@ -68,11 +68,46 @@ import { brotliCompressSync, gzipSync, constants } from "node:zlib";
 // infrastructure rather than as one feature — it exists to be reused, and the second and
 // third consumer cost almost nothing on top of this. 138 restores the ~1 KB headroom.
 //
-// FIRST LOAD, the ratchet. 121.8 KB at the time this split landed; 126 keeps the
-// ~1 KB of working headroom the anchors above were always meant to carry, plus a
-// little for the re-baselining. This is the number to argue about — it is what a
-// visitor pays to open the app.
-const FIRST_LOAD_BUDGET_KB = 126;
+// FIRST LOAD, the ratchet. 118.6 KB with the vault; 120 keeps the working headroom.
+//
+// RE-ANCHORED 130→120, and NOT because anything got smaller: the measurement was
+// wrong. firstLoadAssets() counted every /_nuxt ref in the prerendered /e HTML,
+// including rel="prefetch" — 15 files, ~11 KB brotli, among them VaultPane.css,
+// ImportModal.css and CatalogCorrectionModal.css. Prefetch is fetched at idle, after
+// interactive; it is not what a visitor waits on. Counting it contradicted this
+// file's own header and inverted the incentive the split exists to create — a lazy
+// pane earned nothing on the ratchet, and growing one was billed to first load
+// anyway. See firstLoadAssets() for the fix.
+//
+// The anchor moves with the yardstick so the gate stays exactly as tight as it was:
+// 130 sat ~1.2% above the 128.5 it was measuring, and 120 sits ~1.2% above the 118.6
+// it measures now. Same ~1.4 KB of working headroom, same trip-wire, real number.
+// Nothing about the shipped bundle changed in this commit — the two figures are the
+// same build measured two ways.
+//
+// Bumped 126→130 for the vault. This is the honest price of it: +6.7 KB on the hot
+// path, paid by every visitor whether or not they ever open a vault, because
+// useVaultToken, useVaultSearch and the vault rows in the item autocomplete all land
+// in the editor chunk — the input offers your own gear alongside the catalog, so that
+// part can't be lazy. Everything else IS: /vault is a route chunk, VaultPane and
+// shared/vault.ts are dynamically imported, and the old whole-output gate would have
+// charged another 4.6 KB for exactly that splitting. If the vault should cost the hot
+// path less, the lever is the autocomplete integration, not the page.
+//
+// 120→123 on merging main in. Measured 121.1 KB, and the ~2.5 KB since 118.6 is
+// mostly the framework: main brought nuxt 4.5.1 and a dependency refresh (#154,
+// #155), which land in the entry chunk. The vault work added to this branch since
+// — the "which gear is mine" chooser and the merge-another-vault form — is a lazy
+// modal and a route chunk respectively; what reaches first load from them is the
+// small amount of controller state in useGearList/useVault that the editor already
+// pulls in. Same ~1.2% headroom rule as the re-anchor above.
+//
+// NOTE main independently wrote this same first-load split (8d63e65) and landed on
+// 126, measuring 121.8. That number is NOT comparable: it was measured with the
+// broader firstLoadAssets() that counts rel="prefetch". This branch's narrower
+// reading is the one kept, so the anchor is re-derived from what it actually
+// measures rather than carried over.
+const FIRST_LOAD_BUDGET_KB = 123;
 // TOTAL of every built file, the backstop. Deliberately slack: its job is to catch
 // a route chunk ballooning or a heavy dep landing somewhere unnoticed, NOT to price
 // ordinary feature work. Set well clear of current (137.1) so it only speaks up when
@@ -98,17 +133,39 @@ const brotli = (buf) =>
 const kb = (n) => (n / 1024).toFixed(1);
 
 /**
- * The assets the editor's first load pulls — read from the prerendered /e HTML
- * (its <script>/<link> refs), which is exactly what the browser fetches before the
- * app is interactive. Falls back to null if the page isn't in the build output, in
- * which case the first-load gate is skipped rather than guessed at.
+ * The assets the editor's first load pulls — read from the prerendered /e HTML,
+ * which is exactly what the browser fetches before the app is interactive.
+ *
+ * BLOCKING REFS ONLY. The HTML points at files in two quite different voices:
+ * <script src>, rel="modulepreload" and rel="stylesheet" mean "I can't start
+ * without this"; rel="prefetch" means "fetch this at idle, later, in case it's
+ * wanted". Only the first kind is first load.
+ *
+ * This used to be one regex over the whole document, which counted both — 15
+ * prefetched files, ~11 KB brotli, among them VaultPane.css, ImportModal.css and
+ * CatalogCorrectionModal.css. That contradicted this file's own header (lazy panes
+ * and modals belong to the TOTAL backstop) and, worse, inverted the incentive the
+ * split exists to create: making the vault pane lazy is supposed to move its weight
+ * off the ratchet, but with its prefetch still counted it earned nothing, and every
+ * KB the lazy pane grew was billed to first load anyway.
+ *
+ * Falls back to null if the page isn't in the build output, in which case the
+ * first-load gate is skipped rather than guessed at.
  */
 function firstLoadAssets() {
   const html = [".output/public/e/index.html", ".vercel/output/static/e/index.html"]
     .filter(existsSync)
     .map((f) => readFileSync(f, "utf8"))[0];
   if (!html) return null;
-  return new Set([...html.matchAll(/\/_nuxt\/([A-Za-z0-9_.-]+\.(?:js|css))/g)].map((m) => m[1]));
+  const assets = new Set();
+  const add = (href) => href && assets.add(href);
+  const asset = (tag) => (tag.match(/\/_nuxt\/([A-Za-z0-9_.-]+\.(?:js|css))/) || [])[1];
+  for (const [tag] of html.matchAll(/<script\b[^>]*\bsrc=[^>]*>/g)) add(asset(tag));
+  for (const [tag] of html.matchAll(/<link\b[^>]*>/g)) {
+    const rel = (tag.match(/\brel="([^"]+)"/) || [])[1] || "";
+    if (rel === "modulepreload" || rel === "stylesheet" || rel === "preload") add(asset(tag));
+  }
+  return assets;
 }
 
 const files = readdirSync(dir).filter((f) => /\.(js|css)$/.test(f));

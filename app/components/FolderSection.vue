@@ -228,10 +228,6 @@ function toggleCollapsed() {
 
 <style scoped lang="scss">
 /* de-outlined: no card box — the heading + the colored dot + whitespace separate folders */
-.folder {
-  position: relative;
-  padding: 0;
-}
 .folder.folder--dragging {
   opacity: 0.4;
 }
@@ -253,34 +249,19 @@ function toggleCollapsed() {
   bottom: calc(-0.5 * var(--space-7));
 }
 /* same column template as ItemRow so the remove + grip line up with item controls */
-.folder__head {
-  display: grid;
-  grid-template-columns: var(--item-cols);
-  gap: var(--item-gap);
-  align-items: baseline;
-  margin-bottom: var(--space-1);
-}
+/* packing mode drops the folder's trailing actions, so the header's grid narrows
+   to match the packing item rows */
 .folder__head--packed {
   grid-template-columns: var(--item-cols-pack);
 }
-/* the name sits flush at the page edge (aligned with item names); the collapse
-   chevron sits just to its right; remove + grip are the trailing columns */
-.folder__title {
-  grid-column: 1 / 5;
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-1);
-  min-width: 0;
-}
-/* the collapse chevron button (base + coarse-pointer tap target) is the shared
-   folder atom — atoms/folder.scss. The editor's only extra: the ChevronDown glyph
-   sits ~5px inside its own box (the `v` occupies the middle of a 20px viewbox), so
-   a small negative margin trims that dead space so it optically hugs the name.
-   Safe only because .folder__name hugs its text (field-sizing:content) — the input
-   no longer adds variable slack per name. */
+/* The editor's only extra on the shared collapse button: the ChevronDown glyph sits
+   ~5px inside its own box (the `v` occupies the middle of a 20px viewbox), so a
+   small negative margin trims that dead space and it optically hugs the name. Safe
+   only because .folder__name hugs its text (field-sizing:content). */
 .folder__collapse {
   margin-left: -1px;
 }
+
 /* the collapse machinery (.folder__body 1fr↔0fr, .folder__bodyinner clip + fade,
    the .folder__chev rotate) is the shared folder atom — atoms/folder.scss */
 .folder__bodyinner {
@@ -303,16 +284,6 @@ function toggleCollapsed() {
 .folder__bodyinner.is-overlay-open {
   overflow: visible;
 }
-/* size to the typed text so the chevron hugs the name (not the full column) — the
-   cap/truncation + name type come from the shared folder atom. min-width is a small
-   floor ONLY so a *cleared* name stays clickable (folders are always created with a
-   name) — 4ch floored the box wider than short names like "Pack", stranding the
-   chevron a variable distance from the text; 2ch lets every real name hug tightly. */
-.folder__name {
-  width: auto;
-  field-sizing: content;
-  min-width: 2ch;
-}
 /* packing/checklist mode disables the name input (it's read-only there). Browsers
    grey disabled inputs out (UA -webkit-text-fill-color), so pin it back to full ink —
    the folder name should read the same as it does in edit mode. */
@@ -320,96 +291,6 @@ function toggleCollapsed() {
   color: var(--ink);
   -webkit-text-fill-color: var(--ink);
   opacity: 1;
-}
-/* remove + grip share the trailing actions cluster — evenly spaced + aligned
-   with the item actions cluster below (both end at the grid edge) */
-.folder__actions {
-  grid-column: 5;
-  justify-self: end;
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-}
-.folder__del,
-.folder__grip {
-  color: var(--ink-3);
-  transition: color var(--dur) var(--ease);
-}
-.folder__del:hover,
-.folder__grip:hover {
-  color: var(--ink);
-}
-/* sort control — a quiet glyph (the active mode's arrow) with a transparent native
-   <select> laid over it for the picker + full keyboard access, matching the item
-   rows' classification selector. Sized like the icon buttons beside it so the
-   three-glyph cluster (sort · remove · grip) lines up with the item actions below. */
-.folder__sortwrap {
-  position: relative;
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: flex-end;
-  width: var(--icon-btn);
-  min-height: var(--icon-btn);
-  color: var(--ink-3);
-  transition: color var(--dur) var(--ease), opacity var(--dur) var(--ease);
-}
-.folder__sortwrap:hover {
-  color: var(--ink);
-}
-/* a non-manual sort keeps the glyph lit (like the note button when a note exists),
-   so a sorted folder reads as sorted at a glance — even collapsed */
-.folder__sortwrap.is-active {
-  color: var(--ink-2);
-}
-.folder__sortwrap.is-active:hover {
-  color: var(--ink);
-}
-.folder__sorticon {
-  pointer-events: none;
-}
-.folder__sortsel {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  opacity: 0;
-  cursor: pointer;
-}
-/* touch: .btn--icon grows to a --tap (44px) target on coarse pointers (controls.scss),
-   so the sort control has to match — left at its desktop --icon-btn width, its box is
-   12px narrower than the delete/grip beside it, which shoves the folder's delete out of
-   line with the item rows' delete below. Match the width AND height (the overlaid
-   select is the actual tap target, and the sibling buttons already set the cluster
-   height on wide touch viewports; the ≤$bp-stack block later re-squashes phones) and
-   bump the glyph like the sibling .btn--icon svg, so the cluster lines up column-for-column. */
-@media (pointer: coarse) {
-  .folder__sortwrap {
-    width: var(--tap);
-    min-height: var(--tap);
-  }
-  .folder__sorticon {
-    width: var(--icon-touch);
-    height: var(--icon-touch);
-  }
-}
-/* right-align both controls + pull the grip's layout box left so its gap matches
-   the item rows below (the flush shift is otherwise invisible to layout) */
-.folder__actions .btn--icon {
-  justify-content: flex-end;
-}
-.folder__grip {
-  cursor: grab;
-  touch-action: none;
-  /* reorder dots flush to the right edge — the visible glyph, not just the tap
-     target (matches the item rows); the empty overshoot falls into the gutter */
-  justify-content: flex-end;
-  margin-left: -9px;
-}
-.folder__grip svg {
-  transform: translateX(33.333%);
-}
-.folder__grip:active {
-  cursor: grabbing;
 }
 
 /* desktop (mouse): clean header at rest — the remove control (and the sort control
