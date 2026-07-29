@@ -518,6 +518,27 @@ function onCorrected(res: { status: string; itemName?: string }) {
         :totals="totals"
         @set-unit="(u) => c.setUnit(u)"
       />
+      <!-- Whose gear is this? An edit link you hold is either your own list on a
+           second device or one a friend shared, and nothing in the link says which
+           — so rather than guess, ask once and remember. Nothing has reached the
+           vault at this point; the answer is what decides, and dismissing IS
+           answering.
+           INLINE, after the weight chart: it's a question about THIS list, and a
+           panel floating over the page overstates a thing you can ignore. No lede
+           — the reason we're asking is our problem, not something to make you read. -->
+      <Prompt
+        :show="!!vaultPrompt"
+        variant="inline"
+        dismiss-label="Don’t add this list’s gear to my gear vault"
+        @dismiss="c.answerVaultPrompt(false)"
+      >
+        <template #icon><Vault :size="15" :stroke-width="2" /></template>
+        Add to your gear vault?
+        <template #action>
+          <button class="btn btn--quiet editor__vaultadd" @click="c.answerVaultPrompt(true)">Add</button>
+        </template>
+      </Prompt>
+
       <!-- packing progress: slides+fades in on entering packing (grid-rows 1fr↔0fr,
            the shared reveal recipe) so the folders below ease down instead of jumping -->
       <Transition name="packbar">
@@ -603,25 +624,6 @@ function onCorrected(res: { status: string; itemName?: string }) {
       </div>
       <div v-else-if="toast" class="toast t-sm">{{ toast }}</div>
     </Transition>
-
-    <!-- Whose gear is this? An edit link you hold is either your own list on a
-         second device or one a friend shared, and nothing in the link says which —
-         so rather than guess, ask once and remember. Nothing has reached the vault
-         at this point; the answer is what decides, and dismissing IS answering.
-         No lede: the reason we're asking is our problem, not something to make you
-         read. The question is the whole message. -->
-    <Prompt
-      :show="!!vaultPrompt"
-      dismiss-label="Don’t add this list’s gear to my vault"
-      @dismiss="c.answerVaultPrompt(false)"
-    >
-      Add this gear to your vault?
-      <template #action>
-        <button class="undobar__btn t-sm" @click="c.answerVaultPrompt(true)">
-          <Vault :size="14" /> Add
-        </button>
-      </template>
-    </Prompt>
 
     <!-- the pane arrives from the edge it lives on; motion is in VaultPane's own
          styles, next to the geometry that decides which edge that is -->
@@ -804,6 +806,13 @@ function onCorrected(res: { status: string; itemName?: string }) {
 .editor__introlink:hover,
 .editor__introlink:focus-visible {
   text-decoration: underline;
+}
+/* the inline vault ask's affirmative — quiet like the rest of the banner, and
+   deepening to full ink on hover the way every under-link on the site does */
+.editor__vaultadd {
+  flex: none;
+  color: var(--ink);
+  font-weight: 600;
 }
 /* packing progress — one quiet line between the totals and the checklist. The
    count is the info; "Clear checks" sits beside it in the site's under-link

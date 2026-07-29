@@ -65,7 +65,7 @@ const { confirm: askConfirm } = useDialogs();
 async function forgetVault() {
   if (
     !(await askConfirm({
-      title: "Forget this vault here?",
+      title: "Forget this gear vault here?",
       message:
         "Your gear stays where it is, and the link still opens it. This browser just stops holding it — so keep the link if you want it back.",
       confirmLabel: "Forget",
@@ -373,7 +373,7 @@ async function deleteFolder(f: VaultFolder) {
     !(await askConfirm({
       title: `Delete “${f.name}”?`,
       message: held
-        ? `The ${held} ${held === 1 ? "piece" : "pieces"} of gear in it stay in your vault — they just won’t be filed under anything.`
+        ? `The ${held} ${held === 1 ? "piece" : "pieces"} of gear in it stay in your gear vault — they just won’t be filed under anything.`
         : "The folder goes; nothing else changes.",
       confirmLabel: "Delete folder",
     }))
@@ -719,7 +719,7 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
             </button>
             <div v-if="showRemoved" class="vault__removedbody">
               <p class="t-sm t-muted">
-                Removed gear stays out of your vault and out of the suggestions, even if it's
+                Removed gear stays out of your gear vault and out of the suggestions, even if it's
                 still in a list. Put a piece back and it's yours again.
               </p>
               <ul class="vault__list">
@@ -758,7 +758,7 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
               :aria-expanded="showTransfer"
               @click="showTransfer = !showTransfer"
             >
-              {{ showTransfer ? "Hide the link" : "Open this vault on another device" }}
+              {{ showTransfer ? "Hide the link" : "Open this gear vault on another device" }}
             </button>
             <div v-if="showTransfer" class="vault__transferbody">
               <p class="t-sm t-muted">
@@ -784,7 +784,7 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
                 again.
               </p>
               <button type="button" class="btn btn--quiet vault__forget" @click="forgetVault">
-                Forget this vault on this device
+                Forget this gear vault on this device
               </button>
             </div>
           </div>

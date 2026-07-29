@@ -59,10 +59,10 @@ useHead({
           account attached to it, and nothing in it identifies you.
         </p>
         <p>
-          Opening a list someone shared with you doesn’t put their gear in your vault. Gear reaches
+          Opening a list someone shared with you doesn’t put their gear in your gear vault. Gear reaches
           it when you add it to a list yourself, or when you import or copy a list into your own.
-          A vault belongs to the browser holding its link, so a second device has its own until you
-          open your vault’s link there too.
+          A gear vault belongs to the browser holding its link, so a second device has its own until
+          you open your vault’s link there too.
         </p>
 
         <h3>What Mahonia collects in the background</h3>
@@ -102,7 +102,7 @@ useHead({
         <ul>
           <li>Open “Your lists” to see every list saved on this device.</li>
           <li>There, “Remove from device” takes a list off this browser (the list itself stays online for anyone with its link); “Delete” removes the list from the server for everyone.</li>
-          <li>In your gear vault, “Remove” takes a piece of gear out and keeps it out — it won’t be picked up again from your lists. “Forget this vault on this device” drops the link from this browser without touching the vault itself.</li>
+          <li>In your gear vault, “Remove” takes a piece of gear out and keeps it out — it won’t be picked up again from your lists. “Forget this gear vault on this device” drops the link from this browser without touching the vault itself.</li>
           <li>
             For anything else, including a copy or deletion of a shared list, email
             <a :href="`mailto:${CONTACT_EMAIL}`">{{ CONTACT_EMAIL }}</a> and I’ll sort it out.

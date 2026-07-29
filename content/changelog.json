@@ -18,7 +18,8 @@
       "The vault slides in when you open it beside a list, instead of appearing all at once.",
       "Vault search now forgives typos and matches on gear type, like the item search does — and bolds what you typed.",
       "The vault is now called your gear vault, everywhere it's named.",
-      "Gear rows in the vault use icons for their actions instead of a word."
+      "Gear rows in the vault use icons for their actions instead of a word.",
+      "The vault prompt now sits inline under the weight chart, and slides away when dismissed."
     ],
     "fixed": [
       "Long gear names in the vault no longer swallow the brand or knock a row out of line.",
