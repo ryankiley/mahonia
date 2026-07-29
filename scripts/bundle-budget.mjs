@@ -93,7 +93,21 @@ import { brotliCompressSync, gzipSync, constants } from "node:zlib";
 // shared/vault.ts are dynamically imported, and the old whole-output gate would have
 // charged another 4.6 KB for exactly that splitting. If the vault should cost the hot
 // path less, the lever is the autocomplete integration, not the page.
-const FIRST_LOAD_BUDGET_KB = 120;
+//
+// 120→123 on merging main in. Measured 121.1 KB, and the ~2.5 KB since 118.6 is
+// mostly the framework: main brought nuxt 4.5.1 and a dependency refresh (#154,
+// #155), which land in the entry chunk. The vault work added to this branch since
+// — the "which gear is mine" chooser and the merge-another-vault form — is a lazy
+// modal and a route chunk respectively; what reaches first load from them is the
+// small amount of controller state in useGearList/useVault that the editor already
+// pulls in. Same ~1.2% headroom rule as the re-anchor above.
+//
+// NOTE main independently wrote this same first-load split (8d63e65) and landed on
+// 126, measuring 121.8. That number is NOT comparable: it was measured with the
+// broader firstLoadAssets() that counts rel="prefetch". This branch's narrower
+// reading is the one kept, so the anchor is re-derived from what it actually
+// measures rather than carried over.
+const FIRST_LOAD_BUDGET_KB = 123;
 // TOTAL of every built file, the backstop. Deliberately slack: its job is to catch
 // a route chunk ballooning or a heavy dep landing somewhere unnoticed, NOT to price
 // ordinary feature work. Set well clear of current (137.1) so it only speaks up when
