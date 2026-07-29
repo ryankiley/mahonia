@@ -18,6 +18,11 @@ export const VAULT_DDL: string[] = [
     last_seen_at timestamptz NOT NULL DEFAULT now()
   )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_vaults_token ON vaults (token_hash)`,
+  // soft-delete for the nightly reaper; cleared on use, so a late return revives
+  // the vault instead of finding it gone (see server/db/schema.ts)
+  `ALTER TABLE vaults ADD COLUMN IF NOT EXISTS deleted_at timestamptz`,
+  // the reaper's scan: live vaults, oldest-seen first
+  `CREATE INDEX IF NOT EXISTS idx_vaults_stale ON vaults (last_seen_at) WHERE deleted_at IS NULL`,
 
   // A vault's folders — see server/db/schema.ts for why they're a table and not a
   // label on the item. Name is unique per vault so capture can find-or-create by a

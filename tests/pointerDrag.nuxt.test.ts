@@ -1,0 +1,229 @@
+// @vitest-environment nuxt
+//
+// The shared drag scaffold. It has no tests and four callers — the editor's item
+// rows and folders, the in-editor vault pane, and /vault — so a change here moves
+// every drag-to-reorder gesture on the site at once. It needs a DOM (window
+// listeners, elementFromPoint, pointer capture) but no Nuxt app; it's on the nuxt
+// environment because that's where this repo keeps its DOM tests.
+//
+// Two of the cases below are regressions that actually shipped and had to be
+// found by hand:
+//   • `within` was a hardcoded `.editor__body`. On /vault that element doesn't
+//     exist, so `outside` computed true on every move and EVERY drag silently
+//     cancelled at the drop — no error, no indicator, nothing.
+//   • reset() runs BEFORE commit() on release, so a hook that clears the caller's
+//     pending target in onReset destroyed the payload commit was about to use.
+//     target() is therefore read first, deliberately.
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createPointerDrag } from "~/utils/pointerDrag";
+
+// happy-dom has no layout, so elementFromPoint returns null and getBoundingClientRect
+// is all zeroes. Both are stubbed per-test: the scaffold's decisions are ABOUT those
+// two readings, so faking them is faking the input, not the logic.
+let hitEl: HTMLElement | null = null;
+beforeEach(() => {
+  hitEl = null;
+  document.body.innerHTML = "";
+  document.elementFromPoint = (() => hitEl) as typeof document.elementFromPoint;
+  // jsdom/happy-dom don't implement pointer capture; the scaffold already treats a
+  // throw as "unsupported", and these assert the surrounding behaviour either way
+  document.documentElement.setPointerCapture = vi.fn();
+  document.documentElement.releasePointerCapture = vi.fn();
+});
+afterEach(() => {
+  document.body.innerHTML = "";
+});
+
+/** A surface element whose vertical band is [top, bottom]. */
+function surface(selectorClass: string, top: number, bottom: number): HTMLElement {
+  const el = document.createElement("div");
+  el.className = selectorClass;
+  el.getBoundingClientRect = (() => ({ top, bottom, left: 0, right: 500, width: 500, height: bottom - top })) as never;
+  document.body.appendChild(el);
+  return el;
+}
+
+const down = (pointerId = 1) => new PointerEvent("pointerdown", { pointerId, clientX: 10, clientY: 50 });
+const move = (clientY: number, pointerId = 1) =>
+  new PointerEvent("pointermove", { pointerId, clientX: 10, clientY, bubbles: true });
+const up = (pointerId = 1) => new PointerEvent("pointerup", { pointerId, bubbles: true });
+
+/** A drag wired to a fixed target, with the calls it made recorded. */
+function harness(opts: { within?: string; target?: () => unknown } = {}) {
+  const calls = { commit: [] as [string, unknown][], reset: 0, start: 0, tracked: [] as (HTMLElement | null)[] };
+  const drag = createPointerDrag<unknown>({
+    track: (_ev, el) => void calls.tracked.push(el),
+    target: opts.target ?? (() => "drop-target"),
+    commit: (id, t) => void calls.commit.push([id, t]),
+    onStart: () => void calls.start++,
+    onReset: () => void calls.reset++,
+    within: opts.within,
+  });
+  return { drag, calls };
+}
+
+describe("createPointerDrag", () => {
+  it("commits to the last target on a release inside the surface", () => {
+    surface("editor__body", 0, 400);
+    const { drag, calls } = harness({ within: ".editor__body" });
+
+    drag.start("row-1", down());
+    window.dispatchEvent(move(200));
+    window.dispatchEvent(up());
+
+    expect(calls.commit).toEqual([["row-1", "drop-target"]]);
+    expect(drag.dragId.value).toBeNull();
+  });
+
+  // The /vault regression. A surface selector that matches nothing must mean "no
+  // band to escape from", NOT "always outside" — the latter cancels every drop.
+  it("commits when the named surface isn't on the page at all", () => {
+    const { drag, calls } = harness({ within: ".not-on-this-page" });
+
+    drag.start("row-1", down());
+    window.dispatchEvent(move(200));
+    window.dispatchEvent(up());
+
+    expect(calls.commit).toEqual([["row-1", "drop-target"]]);
+  });
+
+  it("cancels a release that escaped above or below the surface", () => {
+    surface("editor__body", 100, 300);
+    const { drag, calls } = harness({ within: ".editor__body" });
+
+    drag.start("row-1", down());
+    window.dispatchEvent(move(40)); // up over the sticky topbar
+    window.dispatchEvent(up());
+    expect(calls.commit).toEqual([]);
+
+    drag.start("row-2", down());
+    window.dispatchEvent(move(900)); // down past the footer
+    window.dispatchEvent(up());
+    expect(calls.commit).toEqual([]);
+  });
+
+  // Dragging a row rightward off its own edge is how nesting works, so the
+  // horizontal margin must stay a valid drop — only a VERTICAL escape cancels.
+  it("treats the side margins as inside", () => {
+    surface("editor__body", 0, 400);
+    const { drag, calls } = harness({ within: ".editor__body" });
+
+    drag.start("row-1", down());
+    window.dispatchEvent(new PointerEvent("pointermove", { pointerId: 1, clientX: 4000, clientY: 200 }));
+    window.dispatchEvent(up());
+
+    expect(calls.commit).toEqual([["row-1", "drop-target"]]);
+  });
+
+  // reset() runs before commit() so the caller's onReset can clear its own state.
+  // That means target() has to be read FIRST — a hook that stores its payload in
+  // the state onReset clears would otherwise commit nothing.
+  it("reads the target before reset clears the caller's state", () => {
+    surface("editor__body", 0, 400);
+    // a caller whose onReset wipes its own pending target, as /vault's did
+    let pendingTarget: string | null = "the-payload";
+    const order: string[] = [];
+    const drag = createPointerDrag<string>({
+      track: () => {},
+      target: () => {
+        order.push("target");
+        return pendingTarget;
+      },
+      commit: (id, t) => order.push(`commit:${id}:${t}`),
+      onReset: () => {
+        order.push("reset");
+        pendingTarget = null;
+      },
+      within: ".editor__body",
+    });
+
+    drag.start("row-1", down());
+    window.dispatchEvent(move(200));
+    window.dispatchEvent(up());
+
+    expect(order).toEqual(["target", "reset", "commit:row-1:the-payload"]);
+  });
+
+  it("commits nothing when there is no target", () => {
+    surface("editor__body", 0, 400);
+    const { drag, calls } = harness({ within: ".editor__body", target: () => null });
+
+    drag.start("row-1", down());
+    window.dispatchEvent(move(200));
+    window.dispatchEvent(up());
+
+    expect(calls.commit).toEqual([]);
+    expect(calls.reset).toBe(1);
+  });
+
+  it("aborts on Escape without committing", () => {
+    surface("editor__body", 0, 400);
+    const { drag, calls } = harness({ within: ".editor__body" });
+
+    drag.start("row-1", down());
+    window.dispatchEvent(move(200));
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+
+    expect(calls.commit).toEqual([]);
+    expect(drag.dragId.value).toBeNull();
+    // ...and the listeners really are gone — a later release must not commit
+    window.dispatchEvent(up());
+    expect(calls.commit).toEqual([]);
+  });
+
+  it("aborts on pointercancel — the touch gesture the OS steals", () => {
+    surface("editor__body", 0, 400);
+    const { drag, calls } = harness({ within: ".editor__body" });
+
+    drag.start("row-1", down());
+    window.dispatchEvent(new PointerEvent("pointercancel", { pointerId: 1 }));
+
+    expect(calls.commit).toEqual([]);
+    expect(drag.dragId.value).toBeNull();
+  });
+
+  // On touch the window listeners hear EVERY pointer. A second finger tapping
+  // elsewhere would otherwise commit the drag wherever the indicator happens to
+  // sit, or cancel it, while finger one is still holding the row.
+  it("ignores a second finger's up, move and cancel", () => {
+    surface("editor__body", 0, 400);
+    const { drag, calls } = harness({ within: ".editor__body" });
+
+    drag.start("row-1", down(1));
+    window.dispatchEvent(move(200, 1));
+    const trackedBefore = calls.tracked.length;
+
+    window.dispatchEvent(move(999, 2)); // other finger, way outside
+    expect(calls.tracked.length).toBe(trackedBefore); // not tracked
+    window.dispatchEvent(new PointerEvent("pointercancel", { pointerId: 2 }));
+    expect(drag.dragId.value).toBe("row-1"); // still dragging
+    window.dispatchEvent(up(2));
+    expect(calls.commit).toEqual([]); // and it didn't commit
+
+    window.dispatchEvent(up(1)); // the real finger releases
+    expect(calls.commit).toEqual([["row-1", "drop-target"]]);
+  });
+
+  it("does not stack listeners when a second drag starts mid-gesture", () => {
+    surface("editor__body", 0, 400);
+    const { drag, calls } = harness({ within: ".editor__body" });
+
+    drag.start("row-1", down());
+    drag.start("row-2", down()); // re-entrant pickup
+    window.dispatchEvent(move(200));
+    window.dispatchEvent(up());
+
+    // exactly one commit, for the SECOND row — not one per attached listener set
+    expect(calls.commit).toEqual([["row-2", "drop-target"]]);
+  });
+
+  it("locks text selection while dragging and releases it after", () => {
+    surface("editor__body", 0, 400);
+    const { drag } = harness({ within: ".editor__body" });
+
+    drag.start("row-1", down());
+    expect(document.body.style.userSelect).toBe("none");
+    window.dispatchEvent(up());
+    expect(document.body.style.userSelect).toBe("");
+  });
+});

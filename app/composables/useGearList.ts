@@ -5,7 +5,7 @@ import { colorKeyForName, nextFolderColor, STARTER_FOLDERS } from "~~/shared/cat
 import { editLinkPath } from "~~/shared/links";
 import { DRAFT_KEY, localKey, rebaseOnto } from "~~/shared/localList";
 import type { Folder, Item, ListSnapshot, Unit } from "~~/shared/types";
-import type { VaultEntry } from "~~/shared/vault";
+import type { VaultCapture, VaultEntry } from "~~/shared/vault";
 import { bySortOrder, computeTotals, itemsInFolder, nextSortOrder, parseWeightInput, siblingItems } from "~~/shared/weights";
 
 // Editor controller (one list open at a time → module singleton). Mutations are
@@ -49,6 +49,8 @@ function create() {
   // and hasn't been answered for. The editor shows it as a toast; nothing is
   // captured until it's answered, and the answer is remembered per list.
   const vaultPrompt = ref<{ title: string } | null>(null);
+  // the rows the chooser is offering, or null when it's closed
+  const vaultPicker = ref<VaultCapture[] | null>(null);
   let teardownListeners: (() => void) | undefined;
 
   // on-device durability + connectivity awareness. The connectivity ref + watcher
@@ -698,12 +700,47 @@ function create() {
     });
   }
 
-  /** Answer the prompt. "yes" captures what's already on screen, not just what you
-   *  touch next — you said this list is yours, so its gear is too. */
-  function answerVaultPrompt(yes: boolean) {
+  /**
+   * Answer the prompt.
+   *
+   * "No" is final and needs nothing else. "Yes" opens the chooser rather than
+   * taking the list wholesale: the only lists that ever ask are ones you didn't
+   * start, and on a trip you planned together the tent is yours and the stove
+   * isn't. All-or-nothing forces a wrong answer whichever way you go.
+   */
+  async function answerVaultPrompt(yes: boolean) {
     vaultPrompt.value = null;
-    setVaultDecisionFor(editToken, yes ? "yes" : "no");
-    if (yes) captureIfMine();
+    if (!yes) return setVaultDecisionFor(editToken, "no");
+    const s = snapshot.value;
+    const caps = s ? await vault.buildCaptures(s.items, s.folders) : [];
+    // nothing to choose between — record the answer and take the (empty) set, so
+    // an empty chooser never appears and the question doesn't come back
+    if (caps.length < 2) {
+      setVaultDecisionFor(editToken, "yes");
+      return captureIfMine();
+    }
+    vaultPicker.value = caps;
+  }
+
+  /** Confirm the chooser: `keep` is the normKeys ticked. Everything else is
+   *  recorded as not-yours FOR THIS LIST, so later edits don't re-offer it. */
+  function confirmVaultPicker(keep: string[]) {
+    const offered = vaultPicker.value ?? [];
+    vaultPicker.value = null;
+    const kept = new Set(keep);
+    setVaultExclusionsFor(
+      editToken,
+      offered.filter((c) => !kept.has(c.normKey)).map((c) => c.normKey),
+    );
+    setVaultDecisionFor(editToken, "yes");
+    captureIfMine();
+  }
+
+  /** Back out of the chooser. Deliberately records NOTHING: you opened it to
+   *  decide and didn't, so the question is still open and the banner returns on
+   *  the next edit. */
+  function cancelVaultPicker() {
+    vaultPicker.value = null;
   }
 
   // Enter in a row's name opens the NEXT row right below it (todo-list flow):
@@ -1019,6 +1056,7 @@ function create() {
     load, startDraft, dispose, rotate,
     setMeta, setUnit, addFolder, updateFolder, removeFolder, moveFolderBefore,
     vaultPrompt, answerVaultPrompt,
+    vaultPicker, confirmVaultPicker, cancelVaultPicker,
     addBlankItem, addBlankItemAfter, addVaultItem, discardEmpty, updateItem, removeItem, setItemWeight, moveItem,
     addChild, nestItem, unnest,
     pendingBlankId, pendingUndo, undoRemove, holdUndo, releaseUndo,

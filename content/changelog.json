@@ -9,7 +9,9 @@
       "Folders in your gear vault: gear files itself under the list folder it came from, and you can rename, sort, reorder and delete them.",
       "Drag gear between folders in your vault.",
       "When you edit a list you didn't start, Mahonia asks once whether its gear belongs in your vault.",
-      "Opening a gear vault link on a device that already has gear now combines the two, instead of leaving one of them behind."
+      "Opening a gear vault link on a device that already has gear now combines the two, instead of leaving one of them behind.",
+      "Bring another device's gear vault into this one by pasting its link, without leaving the vault you're on.",
+      "Choosing Add on a list you didn't start now lets you pick which gear is yours, instead of taking all of it."
     ],
     "changed": [
       "Gear already in the open list shows as \"Already added\" in the vault, so nothing lands twice.",

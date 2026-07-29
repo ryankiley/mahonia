@@ -114,6 +114,57 @@ async function copyTransfer() {
   clearTimeout(copyTimer);
   copyTimer = setTimeout(() => (copied.value = false), 2000);
 }
+
+// ---- bringing another device's vault here --------------------------------
+// The other direction, and the answer to drift. Opening a transfer link merges
+// and then SWAPS you to that vault — fine when you're setting up a new device,
+// wrong when you just want the gear your phone collected while you were away from
+// the laptop. Two devices that both keep collecting pull apart, and without this
+// the only way back together is to swap one of them wholesale.
+//
+// Same endpoint as arriving from a link, with the two capabilities the other way
+// round: this device's token authorises (vaultFetch's header), and the pasted one
+// names the source. The pasted vault is left exactly as it was, so this is safe to
+// run from either device — or from both.
+const mergeInLink = ref("");
+const mergingIn = ref(false);
+const mergeInMsg = ref("");
+
+/** A pasted transfer link or a bare token — the token is the fragment, and people
+ *  paste whichever of the two they happen to have. */
+function tokenFromLink(raw: string): string {
+  const s = raw.trim();
+  const hash = s.indexOf("#");
+  return (hash >= 0 ? s.slice(hash + 1) : s).trim();
+}
+
+async function mergeIn() {
+  const from = tokenFromLink(mergeInLink.value);
+  if (!from || mergingIn.value) return;
+  if (from === token.value) {
+    mergeInMsg.value = "That’s this device’s own link — there’s nothing to bring over.";
+    return;
+  }
+  mergingIn.value = true;
+  mergeInMsg.value = "";
+  try {
+    const res = await vaultFetch<{ merged: number }>("/api/vault/adopt", {
+      method: "POST",
+      body: { fromToken: from },
+    });
+    mergeInLink.value = "";
+    // merged: 0 covers both "that vault is empty" and "that token resolves to
+    // nothing" — the endpoint deliberately doesn't distinguish them, and neither
+    // does this: either way there was nothing to bring.
+    mergeInMsg.value = res.merged
+      ? `Merged ${res.merged} ${res.merged === 1 ? "piece" : "pieces"} of gear in. That vault is unchanged.`
+      : "Nothing to bring over — that vault is empty, or the link isn’t one.";
+    await loadVault();
+  } catch {
+    mergeInMsg.value = "Couldn’t merge that vault. Check the link and your connection.";
+  }
+  mergingIn.value = false;
+}
 onBeforeUnmount(() => clearTimeout(copyTimer));
 
 const { confirm: askConfirm } = useDialogs();
@@ -859,6 +910,33 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
                 can't be recovered — though a fresh vault refills itself as you open your lists
                 again.
               </p>
+
+              <!-- the other direction: pull another device's gear in without
+                   leaving the vault this device is on. Opening a link swaps you
+                   over; this doesn't, which is what makes two devices that both
+                   kept collecting reconcilable. -->
+              <form class="vault__mergein" @submit.prevent="mergeIn">
+                <label class="t-sm t-muted" for="vault-mergein">
+                  Collected gear on another device? Paste its link to bring that gear here. The
+                  other vault is left as it is.
+                </label>
+                <div class="vault__linkrow">
+                  <input
+                    id="vault-mergein"
+                    v-model="mergeInLink"
+                    class="field vault__linkfield"
+                    type="text"
+                    autocomplete="off"
+                    spellcheck="false"
+                    placeholder="Paste a gear vault link"
+                  />
+                  <button type="submit" class="btn" :disabled="!mergeInLink.trim() || mergingIn">
+                    {{ mergingIn ? "Merging…" : "Merge" }}
+                  </button>
+                </div>
+                <p v-if="mergeInMsg" class="t-sm t-muted" role="status">{{ mergeInMsg }}</p>
+              </form>
+
               <button type="button" class="btn btn--quiet vault__forget" @click="forgetVault">
                 Forget this gear vault on this device
               </button>
@@ -1222,6 +1300,16 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
   flex: 1;
   min-width: 0;
   font-variant-numeric: tabular-nums;
+}
+/* the merge-in form: the same column rhythm as the rest of the disclosure, with a
+   hairline above so it reads as the OTHER direction rather than more of the same
+   "here's your link" block */
+.vault__mergein {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--line);
 }
 .vault__forget {
   align-self: flex-start;

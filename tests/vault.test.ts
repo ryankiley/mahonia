@@ -1,8 +1,9 @@
 import { PGlite } from "@electric-sql/pglite";
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { beforeEach, describe, expect, it } from "vitest";
 import * as schema from "../server/db/schema";
+import { vaults } from "../server/db/schema";
 import { VAULT_DDL } from "../server/utils/vaultSchema";
 import {
   applyVaultFolderOp,
@@ -11,6 +12,8 @@ import {
   listVaultFolders,
   listVaultItems,
   mergeVaults,
+  purgeDeletedVaults,
+  reapAbandonedVaults,
   removeVaultItem,
   restoreVaultItem,
   searchVaultItems,
@@ -529,5 +532,77 @@ describe("mergeVaults — carrying a device's gear onto a transfer link", () => 
 
     expect(await mergeVaults(db as any, LAPTOP, PHONE)).toBe(250);
     expect(await listVaultItems(db as any, LAPTOP)).toHaveLength(250);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// the nightly reaper
+// ---------------------------------------------------------------------------
+describe("vault reaping — bounding a table nothing else ever shrinks", () => {
+  let db: DB;
+  const ago = (days: number) => new Date(Date.now() - days * 86_400_000);
+
+  // a vault row + one piece of gear in it, last seen `days` ago
+  async function seedVault(days: number): Promise<number> {
+    const [row] = await db
+      .insert(vaults)
+      .values({ tokenHash: `hash-${days}-${Math.round(Math.random() * 1e9)}`, lastSeenAt: ago(days) })
+      .returning();
+    await captureVaultItems(db as any, row!.id, [
+      { normKey: "", name: `Thing ${row!.id}`, brand: "Maker", weightMg: 100 } as any,
+    ]);
+    return row!.id;
+  }
+
+  beforeEach(async () => {
+    db = await freshDb();
+  });
+
+  it("soft-deletes a vault past the stale window and leaves a fresh one alone", async () => {
+    const stale = await seedVault(200);
+    const fresh = await seedVault(3);
+
+    expect(await reapAbandonedVaults(db as any)).toEqual({ vaultsReaped: 1 });
+    const rows = await db.select().from(vaults);
+    expect(rows.find((r) => r.id === stale)!.deletedAt).not.toBeNull();
+    expect(rows.find((r) => r.id === fresh)!.deletedAt).toBeNull();
+    // SOFT — the gear is still there, which is what makes the revive possible
+    expect(await listVaultItems(db as any, stale)).toHaveLength(1);
+  });
+
+  it("does not purge inside the grace window", async () => {
+    const id = await seedVault(200);
+    await reapAbandonedVaults(db as any);
+    expect(await purgeDeletedVaults(db as any)).toEqual({ vaultsPurged: 0 });
+    expect(await db.select().from(vaults)).toHaveLength(1);
+  });
+
+  it("purges past the grace, taking the gear and folders with it", async () => {
+    const id = await seedVault(400);
+    await applyVaultFolderOp(db as any, id, { t: "add", name: "Shelter" });
+    await db.update(vaults).set({ deletedAt: ago(120) }).where(eq(vaults.id, id));
+
+    expect(await purgeDeletedVaults(db as any)).toEqual({ vaultsPurged: 1 });
+    expect(await db.select().from(vaults)).toHaveLength(0);
+    // no orphans left behind — there's no DB-level FK doing this for us
+    expect(await listVaultItems(db as any, id)).toHaveLength(0);
+    expect(await listVaultFolders(db as any, id)).toHaveLength(0);
+  });
+
+  it("leaves another vault's gear alone when it purges one", async () => {
+    const doomed = await seedVault(400);
+    const keeper = await seedVault(1);
+    await db.update(vaults).set({ deletedAt: ago(120) }).where(eq(vaults.id, doomed));
+
+    await purgeDeletedVaults(db as any);
+    expect(await listVaultItems(db as any, keeper)).toHaveLength(1);
+  });
+
+  it("batches, so one run can't issue an unbounded write", async () => {
+    await seedVault(200);
+    await seedVault(200);
+    await seedVault(200);
+    expect(await reapAbandonedVaults(db as any, { limit: 2 })).toEqual({ vaultsReaped: 2 });
+    expect(await reapAbandonedVaults(db as any, { limit: 2 })).toEqual({ vaultsReaped: 1 });
   });
 });

@@ -17,11 +17,13 @@ import * as schema from "../server/db/schema";
 import { vaults } from "../server/db/schema";
 import { VAULT_DDL } from "../server/utils/vaultSchema";
 import { sha256Hex } from "../server/utils/tokens";
+import { touchVaultByToken } from "../server/utils/vaultAuth";
 import {
   applyVaultFolderOp,
   captureVaultItems,
   listVaultFolders,
   listVaultItems,
+  reapAbandonedVaults,
   removeVaultItem,
 } from "../server/utils/vaultRepo";
 import { vaultNormKey } from "../shared/vault";
@@ -194,5 +196,38 @@ describe("vault isolation — one vault can never reach another's gear", () => {
     });
     expect((await listVaultFolders(db as never, mine)).map((f) => f.name)).toEqual(["B", "A"]);
     expect((await listVaultFolders(db as never, theirs)).map((f) => f.name)).toEqual(["Theirs"]);
+  });
+});
+
+// The safety net under the nightly reaper. Vaults are reaped by AGE, and there's no
+// account and no email behind one — so the reap is a soft-delete, and coming back
+// has to be enough to undo it. If this stops holding, the reaper quietly becomes a
+// way to lose a vault you still had the link to.
+describe("vault revive — a reaped vault comes back by being used", () => {
+  let db: DB;
+  beforeEach(async () => {
+    db = await freshDb();
+  });
+
+  it("clears the soft-delete on the next request that resolves the token", async () => {
+    const id = await mint(db, "tok-revive");
+    await db.update(vaults).set({ deletedAt: new Date() }).where(sql`id = ${id}`);
+
+    expect(await touchVaultByToken(db as any, "tok-revive")).toBe(id);
+    const [row] = await db.select().from(vaults).where(sql`id = ${id}`);
+    expect(row!.deletedAt).toBeNull();
+  });
+
+  it("bumps last_seen_at, which is what keeps a live vault out of the reaper", async () => {
+    const id = await mint(db, "tok-bump");
+    await db.update(vaults).set({ lastSeenAt: new Date(Date.now() - 300 * 86_400_000) }).where(sql`id = ${id}`);
+
+    await touchVaultByToken(db as any, "tok-bump");
+    expect(await reapAbandonedVaults(db as any)).toEqual({ vaultsReaped: 0 });
+  });
+
+  it("still refuses a token that resolves to nothing", async () => {
+    await mint(db, "tok-real");
+    expect(await touchVaultByToken(db as any, "tok-not-real")).toBeNull();
   });
 });

@@ -313,6 +313,11 @@ export const vaults = pgTable(
     // bumped on use, so an abandoned vault can be reaped on the same schedule as
     // an abandoned list rather than accumulating forever
     lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+    // Soft-delete, set by the reaper and cleared by requireVault — so a vault whose
+    // link resurfaces after the stale window is REVIVED by being used rather than
+    // being already gone. There's no account and no email here: a hard reap would
+    // be unrecoverable for someone who kept the link in a note and came back late.
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
   },
   (t) => [uniqueIndex("idx_vaults_token").on(t.tokenHash)],
 );

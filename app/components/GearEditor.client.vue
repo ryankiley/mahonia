@@ -21,6 +21,7 @@ const totals = c.totals;
 const status = c.status;
 const pendingUndo = c.pendingUndo;
 const vaultPrompt = c.vaultPrompt;
+const vaultPicker = c.vaultPicker;
 
 // First-run / returning-user helper: an untouched draft (not yet saved to the
 // server, no named item — the starter draft ships one blank row) shows a one-line
@@ -538,6 +539,16 @@ function onCorrected(res: { status: string; itemName?: string }) {
           <button class="btn btn--quiet editor__vaultadd" @click="c.answerVaultPrompt(true)">Add</button>
         </template>
       </Prompt>
+
+      <!-- ...and "Add" opens the chooser, because a list you didn't start is
+           usually part yours and part theirs. Lazy: it's reachable only from the
+           banner above, which most lists never show. -->
+      <LazyVaultPickerModal
+        :caps="vaultPicker"
+        :unit="snapshot.displayUnit"
+        @confirm="(keep) => c.confirmVaultPicker(keep)"
+        @cancel="c.cancelVaultPicker()"
+      />
 
       <!-- packing progress: slides+fades in on entering packing (grid-rows 1fr↔0fr,
            the shared reveal recipe) so the folders below ease down instead of jumping -->

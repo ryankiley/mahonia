@@ -3,8 +3,8 @@
 // ordering is identical whichever engine is underneath, exactly as the catalog
 // does it.
 
-import { and, asc, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
-import { vaultFolders, vaultItems } from "../db/schema";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, lt, sql } from "drizzle-orm";
+import { vaultFolders, vaultItems, vaults } from "../db/schema";
 import type { useVaultDb } from "./db";
 import {
   VAULT_CAPTURE_MAX,
@@ -364,6 +364,86 @@ export async function restoreVaultItem(db: Db, vaultId: number, id: number): Pro
     // no-arg .returning() — the neon-http | PGlite union's only shared overload
     .returning();
   return done.length > 0;
+}
+
+// ---------------------------------------------------------------------------
+// the nightly reaper
+// ---------------------------------------------------------------------------
+// Vaults are minted lazily and never signed out of, so without this they only ever
+// accumulate: every abandoned device, every vault merged away from (mergeVaults
+// deliberately leaves the source intact), every browser that captured once and
+// never came back. `last_seen_at` is bumped by requireVault on EVERY vault request
+// — capture included, which for anyone actively building lists is constant — so
+// "not seen in months" is a strong signal and not a proxy for "quiet lately".
+//
+// Two stages, the shape lists already use (see listRepo): soft-delete first, hard
+// delete only after a grace window. That matters more here than it does for a
+// list: there is no account and no email behind a vault, so a hard reap would be
+// unrecoverable for someone who kept the link in a note and came back late. Inside
+// the grace, using the link is enough — requireVault clears deleted_at.
+
+/** Untouched for this long and a vault is presumed abandoned. Much longer than a
+ *  list's 30: a list is reaped for being EMPTY as well as stale, whereas a full
+ *  vault is exactly what someone might return to after a season off. */
+export const VAULT_REAP_STALE_DAYS = Math.max(1, Number(process.env.VAULT_REAP_STALE_DAYS) || 180);
+/** How long a soft-deleted vault stays revivable — the same 90 days a list gets. */
+export const VAULT_PURGE_GRACE_DAYS = Math.max(
+  1,
+  Number(process.env.VAULT_PURGE_GRACE_DAYS) || 90,
+);
+const VAULT_REAP_BATCH_MAX = 10_000;
+
+function batchLimit(n: number | undefined): number {
+  return Math.max(1, Math.min(VAULT_REAP_BATCH_MAX, Math.floor(n ?? 5_000)));
+}
+
+/** Soft-delete vaults not seen in `staleDays`. Batched, so one run can never issue
+ *  an unbounded write — a backlog just drains over successive nights. */
+export async function reapAbandonedVaults(
+  db: Db,
+  opts?: { staleDays?: number; limit?: number },
+): Promise<{ vaultsReaped: number }> {
+  const staleDays = Math.max(1, Math.floor(opts?.staleDays ?? VAULT_REAP_STALE_DAYS));
+  const cutoff = new Date(Date.now() - staleDays * 86_400_000);
+  const candidates = await db
+    .select({ id: vaults.id })
+    .from(vaults)
+    .where(and(isNull(vaults.deletedAt), lt(vaults.lastSeenAt, cutoff)))
+    .limit(batchLimit(opts?.limit));
+  if (!candidates.length) return { vaultsReaped: 0 };
+
+  // no-arg .returning() — the neon-http | PGlite union's only shared overload
+  const done = await db
+    .update(vaults)
+    .set({ deletedAt: new Date() })
+    .where(inArray(vaults.id, candidates.map((c) => c.id)))
+    .returning();
+  return { vaultsReaped: done.length };
+}
+
+/** Hard-delete vaults soft-deleted more than `graceDays` ago, with their gear and
+ *  folders. This is the stage that actually reclaims the storage. */
+export async function purgeDeletedVaults(
+  db: Db,
+  opts?: { graceDays?: number; limit?: number },
+): Promise<{ vaultsPurged: number }> {
+  const graceDays = Math.max(1, Math.floor(opts?.graceDays ?? VAULT_PURGE_GRACE_DAYS));
+  const cutoff = new Date(Date.now() - graceDays * 86_400_000);
+  const doomed = await db
+    .select({ id: vaults.id })
+    .from(vaults)
+    .where(and(isNotNull(vaults.deletedAt), lt(vaults.deletedAt, cutoff)))
+    .limit(batchLimit(opts?.limit));
+  if (!doomed.length) return { vaultsPurged: 0 };
+  const ids = doomed.map((r) => r.id);
+
+  // children first — there's no DB-level FK here (same as lists → snapshots), so
+  // the cascade is manual, and doing it in this order means a run that dies partway
+  // leaves orphaned NOTHING: the vault row is the last thing to go.
+  await db.delete(vaultItems).where(inArray(vaultItems.vaultId, ids));
+  await db.delete(vaultFolders).where(inArray(vaultFolders.vaultId, ids));
+  await db.delete(vaults).where(inArray(vaults.id, ids));
+  return { vaultsPurged: ids.length };
 }
 
 /** The folder verbs /vault offers, as one small tagged union — see

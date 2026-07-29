@@ -12,10 +12,15 @@
 // IndexedDB store), and drive the real singleton through the real sequence.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
-import { createError } from "h3";
+import { createError, readBody } from "h3";
 import { localKey, type LocalListRecord } from "~~/shared/localList";
 import type { Folder, Item, ListSnapshot } from "~~/shared/types";
-import { resetVaultCapture, useVaultCapture, vaultDecisionFor } from "~/composables/useVault";
+import {
+  resetVaultCapture,
+  setVaultDecisionFor,
+  useVaultCapture,
+  vaultDecisionFor,
+} from "~/composables/useVault";
 
 // ---- the on-device store, in memory ------------------------------------------
 // Stands in for useLocalListStore's IndexedDB. Deep-copies on write exactly as the
@@ -37,6 +42,32 @@ mockNuxtImport("useLocalListStore", () => () => ({
 // method throws), and the vault's per-list decision lives there. A Map-backed stub
 // is what the browser actually gives us, and it makes the store clearable between
 // tests — which Node's, notably, is not.
+// navigator.sendBeacon — the ONLY way a pending capture gets out as the page goes
+// away (an in-flight fetch is routinely killed on unload). Spied rather than
+// stubbed away, because what the beacon CARRIES is the thing worth asserting.
+const beacons: { url: string; body: unknown }[] = [];
+let beaconWorks = true;
+Object.defineProperty(navigator, "sendBeacon", {
+  configurable: true,
+  writable: true,
+  value: (url: string, blob: Blob) => {
+    // Blob.text() is async and flush() is deliberately synchronous, so read the
+    // payload the same way the endpoint would rather than awaiting here
+    beacons.push({ url, body: JSON.parse((blob as unknown as { _text?: string })._text ?? "null") });
+    return beaconWorks;
+  },
+});
+// happy-dom's Blob doesn't expose its parts synchronously; capture them on construction
+const RealBlob = globalThis.Blob;
+class TextCapturingBlob extends RealBlob {
+  _text: string;
+  constructor(parts: BlobPart[], options?: BlobPropertyBag) {
+    super(parts, options);
+    this._text = parts.map(String).join("");
+  }
+}
+globalThis.Blob = TextCapturingBlob as unknown as typeof Blob;
+
 const storage = new Map<string, string>();
 vi.stubGlobal("localStorage", {
   getItem: (k: string) => storage.get(k) ?? null,
@@ -72,8 +103,13 @@ registerEndpoint("/api/edit/changes", () => ({ version: 1 })); // the live-sync 
 registerEndpoint("/api/catalog/use", () => ({})); // fire-and-forget ranking ping
 
 let captureCalls = 0;
-registerEndpoint("/api/vault/capture", { method: "POST", handler: () => {
+// what each capture actually carried — the picker tests assert on the ROWS, not
+// just that a write happened
+let captureBodies: { name: string }[][] = [];
+registerEndpoint("/api/vault/capture", { method: "POST", handler: async (event) => {
   captureCalls++;
+  const body = await readBody<{ items?: { name: string }[] }>(event);
+  captureBodies.push(body?.items ?? []);
   return { vaultToken: "test-vault-token" };
 } });
 
@@ -226,6 +262,7 @@ describe("useGearList — whose gear is this?", () => {
     records.clear();
     mutateCalls = 0;
     captureCalls = 0;
+    captureBodies = [];
     storage.clear(); // the decision store
     resetVaultCapture(); // the capture memo is module-scoped
     listResponse = withGear([gear()]);
@@ -287,7 +324,9 @@ describe("useGearList — whose gear is this?", () => {
     c.updateItem("i1", { qty: 2 });
     await vi.waitFor(() => expect(c.vaultPrompt.value).not.toBeNull());
 
-    c.answerVaultPrompt(true);
+    // one row, so no chooser — but answering is async now (it has to build the
+    // capture set before it knows whether there's anything to choose between)
+    await c.answerVaultPrompt(true);
     expect(c.vaultPrompt.value).toBeNull();
     expect(vaultDecisionFor(TOKEN)).toBe("yes");
 
@@ -349,6 +388,107 @@ describe("useGearList — whose gear is this?", () => {
     expect(draft.vaultPrompt.value).toBeNull();
   });
 
+  // Answering "Add" on a shared list opens the chooser rather than taking the lot:
+  // on a trip planned together the tent is yours and the stove isn't, and
+  // all-or-nothing forces a wrong answer whichever way you go.
+  it("offers a chooser instead of taking the whole list", async () => {
+    listResponse = withGear([gear(), gear({ id: "i2", name: "Kakwa 55", brand: "Durston" })]);
+    const c = useGearList();
+    await c.load(TOKEN);
+    c.updateItem("i1", { qty: 2 });
+    await vi.waitFor(() => expect(c.vaultPrompt.value).not.toBeNull());
+
+    await c.answerVaultPrompt(true);
+    await vi.waitFor(() => expect(c.vaultPicker.value).not.toBeNull());
+    expect(c.vaultPicker.value!.map((r) => r.name).sort()).toEqual(["Duplex", "Kakwa 55"]);
+    // still nothing decided and nothing sent — opening the chooser is not answering
+    expect(vaultDecisionFor(TOKEN)).toBe("ask");
+    expect(captureCalls).toBe(0);
+  });
+
+  it("captures only what was ticked, and never re-offers the rest", async () => {
+    listResponse = withGear([gear(), gear({ id: "i2", name: "Kakwa 55", brand: "Durston" })]);
+    const c = useGearList();
+    await c.load(TOKEN);
+    c.updateItem("i1", { qty: 2 });
+    await vi.waitFor(() => expect(c.vaultPrompt.value).not.toBeNull());
+    await c.answerVaultPrompt(true);
+    await vi.waitFor(() => expect(c.vaultPicker.value).not.toBeNull());
+
+    const mine = c.vaultPicker.value!.find((r) => r.name === "Duplex")!;
+    c.confirmVaultPicker([mine.normKey]);
+    expect(vaultDecisionFor(TOKEN)).toBe("yes");
+
+    await vi.waitFor(() => expect(captureCalls).toBe(1), { timeout: 8_000, interval: 50 });
+    expect(captureBodies.at(-1)!.map((r) => r.name)).toEqual(["Duplex"]);
+
+    // and the declined row stays declined. Capture re-reads the WHOLE list on every
+    // edit, so without the exclusion the Kakwa would arrive on the next keystroke —
+    // and note the assertion is that it never goes at all, not that a second write
+    // happens: the capture set is unchanged, so the fingerprint gate correctly
+    // suppresses the write entirely.
+    c.updateItem("i2", { qty: 3 });
+    await new Promise((r) => setTimeout(r, 5_000)); // past the 4s capture debounce
+    expect(captureBodies.flat().map((r) => r.name)).toEqual(["Duplex"]);
+  });
+
+  // Gear you add to a shared list AFTER choosing is the gear most likely to be
+  // yours — an allow-list would have silently excluded it forever.
+  it("still captures gear added after the choice", async () => {
+    listResponse = withGear([gear(), gear({ id: "i2", name: "Kakwa 55", brand: "Durston" })]);
+    const c = useGearList();
+    await c.load(TOKEN);
+    c.updateItem("i1", { qty: 2 });
+    await vi.waitFor(() => expect(c.vaultPrompt.value).not.toBeNull());
+    await c.answerVaultPrompt(true);
+    await vi.waitFor(() => expect(c.vaultPicker.value).not.toBeNull());
+    c.confirmVaultPicker([c.vaultPicker.value!.find((r) => r.name === "Duplex")!.normKey]);
+    await vi.waitFor(() => expect(captureCalls).toBe(1), { timeout: 8_000, interval: 50 });
+
+    c.updateItem("i2", { name: "Nitecore NB10000" });
+    await vi.waitFor(() => {
+      expect(captureBodies.at(-1)!.map((r) => r.name).sort()).toEqual([
+        "Duplex",
+        "Nitecore NB10000",
+      ]);
+    }, { timeout: 8_000, interval: 50 });
+  });
+
+  // Backing out is not an answer. The question has to come back, or a stray click
+  // on Add silently ends the conversation for that list.
+  it("records nothing when the chooser is cancelled", async () => {
+    listResponse = withGear([gear(), gear({ id: "i2", name: "Kakwa 55", brand: "Durston" })]);
+    const c = useGearList();
+    await c.load(TOKEN);
+    c.updateItem("i1", { qty: 2 });
+    await vi.waitFor(() => expect(c.vaultPrompt.value).not.toBeNull());
+    await c.answerVaultPrompt(true);
+    await vi.waitFor(() => expect(c.vaultPicker.value).not.toBeNull());
+
+    c.cancelVaultPicker();
+    expect(c.vaultPicker.value).toBeNull();
+    expect(vaultDecisionFor(TOKEN)).toBe("ask");
+
+    c.updateItem("i1", { qty: 3 });
+    await vi.waitFor(() => expect(c.vaultPrompt.value).not.toBeNull());
+    expect(captureCalls).toBe(0);
+  });
+
+  // One row is not a choice. A dialog to tick the single thing you just said yes to
+  // is a click that can only be answered one way.
+  it("skips the chooser when there is only one piece of gear", async () => {
+    listResponse = withGear([gear()]);
+    const c = useGearList();
+    await c.load(TOKEN);
+    c.updateItem("i1", { qty: 2 });
+    await vi.waitFor(() => expect(c.vaultPrompt.value).not.toBeNull());
+
+    await c.answerVaultPrompt(true);
+    expect(c.vaultPicker.value).toBeNull();
+    expect(vaultDecisionFor(TOKEN)).toBe("yes");
+    await vi.waitFor(() => expect(captureCalls).toBe(1), { timeout: 8_000, interval: 50 });
+  });
+
   // A list that arrived WHOLE — imported from LighterPack, cloned from a public
   // list — captures at the moment it's created, because nothing else would ever
   // offer it. Recording the answer there is what stops the very next keystroke
@@ -362,5 +502,91 @@ describe("useGearList — whose gear is this?", () => {
     c.updateItem("i1", { qty: 2 });
     await new Promise((r) => setTimeout(r, 50));
     expect(c.vaultPrompt.value).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// the last-chance flush
+// ---------------------------------------------------------------------------
+// Capture is debounced 4s so typing a name is one write instead of one per
+// keystroke — which means the common case (edit a list, close the tab) lands
+// INSIDE the debounce with the rows still queued. pagehide is the only hook that
+// reliably fires when mobile Safari backgrounds a tab, and a beacon is the only
+// send that survives the document going away.
+describe("useGearList — getting a pending capture out as the page goes away", () => {
+  beforeEach(() => {
+    records.clear();
+    mutateCalls = 0;
+    captureCalls = 0;
+    captureBodies = [];
+    beacons.length = 0;
+    beaconWorks = true;
+    storage.clear();
+    resetVaultCapture();
+    listResponse = withGear([gear()]);
+  });
+  afterEach(() => {
+    useGearList().dispose();
+  });
+
+  it("beacons the queued rows on pagehide, well inside the debounce", async () => {
+    const c = useGearList();
+    await c.load(TOKEN);
+    setVaultDecisionFor(TOKEN, "yes"); // a list already known to be mine
+    c.updateItem("i1", { qty: 2 });
+    // let sync()'s dynamic import resolve and queue the rows, but nowhere near 4s
+    await new Promise((r) => setTimeout(r, 200));
+
+    window.dispatchEvent(new Event("pagehide"));
+
+    expect(beacons).toHaveLength(1);
+    expect(beacons[0]!.url).toBe("/api/vault/capture");
+    expect((beacons[0]!.body as { items: { name: string }[] }).items.map((i) => i.name)).toEqual([
+      "Duplex",
+    ]);
+  });
+
+  // Belt and braces: having beaconed the rows, the debounce must not then send
+  // them a second time if the page turns out to still be alive (a backgrounded
+  // tab that comes back).
+  it("does not also POST what it already beaconed", async () => {
+    const c = useGearList();
+    await c.load(TOKEN);
+    setVaultDecisionFor(TOKEN, "yes");
+    c.updateItem("i1", { qty: 2 });
+    await new Promise((r) => setTimeout(r, 200));
+    window.dispatchEvent(new Event("pagehide"));
+
+    await new Promise((r) => setTimeout(r, 5_000)); // past the 4s debounce
+    expect(captureCalls).toBe(0);
+  });
+
+  // A beacon the browser refuses (queue full, payload over the ~64KB cap) must
+  // leave the rows queued, or the edits are lost with no retry anywhere.
+  it("keeps the rows queued when the browser refuses the beacon", async () => {
+    beaconWorks = false;
+    const c = useGearList();
+    await c.load(TOKEN);
+    setVaultDecisionFor(TOKEN, "yes");
+    c.updateItem("i1", { qty: 2 });
+    await new Promise((r) => setTimeout(r, 200));
+    window.dispatchEvent(new Event("pagehide"));
+
+    expect(beacons).toHaveLength(1); // it was attempted
+    // ...and the debounced POST still goes, because nothing was cleared
+    await vi.waitFor(() => expect(captureCalls).toBe(1), { timeout: 8_000, interval: 50 });
+    expect(captureBodies.at(-1)!.map((r) => r.name)).toEqual(["Duplex"]);
+  });
+
+  // The unanswered case: nothing has been queued, so there is nothing to send —
+  // and a beacon here would be exactly the silent leak the prompt exists to stop.
+  it("beacons nothing for a list whose question is still open", async () => {
+    const c = useGearList();
+    await c.load(TOKEN);
+    c.updateItem("i1", { qty: 2 });
+    await vi.waitFor(() => expect(c.vaultPrompt.value).not.toBeNull());
+
+    window.dispatchEvent(new Event("pagehide"));
+    expect(beacons).toEqual([]);
   });
 });

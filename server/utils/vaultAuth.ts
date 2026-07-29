@@ -58,15 +58,30 @@ export async function requireVault(
   if (!token) throw createError({ statusCode: 401, statusMessage: "Missing vault capability" });
 
   const db = await useVaultDb();
+  const vaultId = await touchVaultByToken(db, token);
+  if (vaultId == null) throw createError({ statusCode: 401, statusMessage: "Unknown vault" });
+  return { db, vaultId };
+}
+
+/**
+ * Resolve a token AND mark the vault as used: bump last_seen_at, and clear any
+ * soft-delete the reaper had set.
+ *
+ * That second half is the REVIVE, and it's the safety net under the whole reaper:
+ * a vault whose link resurfaces inside the purge grace comes back simply by being
+ * used. There is no separate restore path to remember to call, because the one
+ * statement every vault request already runs does it.
+ *
+ * Split out of requireVault so the rule can be tested without an H3Event — it's
+ * the part with actual behaviour in it; what's left up there is error handling.
+ */
+export async function touchVaultByToken(db: Db, token: string): Promise<number | null> {
   const rows = await db
     .update(vaults)
-    .set({ lastSeenAt: sql`now()` })
+    .set({ lastSeenAt: sql`now()`, deletedAt: null })
     .where(eq(vaults.tokenHash, sha256Hex(token)))
     .returning();
-
-  const row = rows[0];
-  if (!row) throw createError({ statusCode: 401, statusMessage: "Unknown vault" });
-  return { db, vaultId: row.id };
+  return rows[0]?.id ?? null;
 }
 
 /**

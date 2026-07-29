@@ -2,7 +2,7 @@
 // and offering it back the next time you build one.
 
 import type { Folder, Item } from "~~/shared/types";
-import type { VaultEntry } from "~~/shared/vault";
+import type { VaultCapture, VaultEntry } from "~~/shared/vault";
 
 // ---------------------------------------------------------------------------
 // capture
@@ -38,6 +38,39 @@ export function setVaultDecisionFor(editToken: string, decision: "yes" | "no"): 
   if (!editToken) return;
   try {
     localStorage.setItem(DECISION_KEY(editToken), decision);
+  } catch {
+    /* storage blocked — the choice holds for this session only */
+  }
+}
+
+// "Yes" is rarely the whole truth on a list you shared. On a trip you planned
+// together you brought the tent and they brought the stove, and the vault is
+// meant to be YOUR gear — so answering Add opens a chooser, and what you leave
+// unticked is remembered as not-yours FOR THIS LIST.
+//
+// An exclusion list rather than an allow list, deliberately: the set you're
+// declining is a fact about gear that's in the list today, whereas an allow list
+// would silently exclude everything you add tomorrow — and gear you add to a list
+// yourself is exactly the gear most likely to be yours.
+const EXCLUDE_KEY = (editToken: string) => `gear.vault.not.${editToken}`;
+
+/** The normKeys this device said were somebody else's, for this list. */
+export function vaultExclusionsFor(editToken: string): Set<string> {
+  if (!import.meta.client || !editToken) return new Set();
+  try {
+    const raw = localStorage.getItem(EXCLUDE_KEY(editToken));
+    const parsed = raw ? JSON.parse(raw) : null;
+    return new Set(Array.isArray(parsed) ? parsed.filter((k): k is string => typeof k === "string") : []);
+  } catch {
+    return new Set(); // unreadable or malformed — capture everything rather than nothing
+  }
+}
+
+export function setVaultExclusionsFor(editToken: string, normKeys: string[]): void {
+  if (!editToken) return;
+  try {
+    if (normKeys.length) localStorage.setItem(EXCLUDE_KEY(editToken), JSON.stringify(normKeys));
+    else localStorage.removeItem(EXCLUDE_KEY(editToken));
   } catch {
     /* storage blocked — the choice holds for this session only */
   }
@@ -97,7 +130,13 @@ export function useVaultCapture() {
       let built: { caps: unknown[]; fingerprint: string } | null = null;
       try {
         const { captureFromList, captureFingerprint } = await import("~~/shared/vault");
-        const caps = captureFromList(items, folders);
+        const all = captureFromList(items, folders);
+        if (!all.length) return;
+        // Gear declined in the chooser stays declined on every later edit — this is
+        // what makes "only the tent is mine" a standing answer rather than a
+        // one-off, since capture otherwise re-offers the whole list every time.
+        const declined = vaultExclusionsFor(opts.editToken ?? "");
+        const caps = declined.size ? all.filter((c) => !declined.has(c.normKey)) : all;
         if (!caps.length) return;
         // The decision is consulted HERE, after the capture set is built, so a list
         // with nothing vault-worthy in it never raises the question. Asking whether
@@ -215,7 +254,25 @@ export function useVaultCapture() {
     sync(snapshot.items, snapshot.folders ?? [], { editToken });
   }
 
-  return { sync, captureNewList, bindFlushOnLeave };
+  /**
+   * The capture rows a list would contribute, for the chooser to show.
+   *
+   * Same builder the automatic path uses — the chooser must offer exactly what
+   * would otherwise have been taken, or the tick boxes are describing something
+   * else. Behind the same dynamic import, so asking for the list is what pulls the
+   * chunk rather than the editor carrying it.
+   */
+  async function buildCaptures(items: Item[], folders: Folder[] = []): Promise<VaultCapture[]> {
+    if (!import.meta.client) return [];
+    try {
+      const { captureFromList } = await import("~~/shared/vault");
+      return captureFromList(items, folders);
+    } catch {
+      return [];
+    }
+  }
+
+  return { sync, buildCaptures, captureNewList, bindFlushOnLeave };
 }
 
 /** Reset the capture memo — called when a device switches vaults, so
