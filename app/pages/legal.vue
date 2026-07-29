@@ -20,7 +20,7 @@ useHead({
     <main id="main-content" tabindex="-1" class="wrap page">
       <div class="prose">
         <h1 class="t-title">Legal</h1>
-        <p class="t-sm t-muted">Last updated 28 July 2026</p>
+        <p class="t-sm t-muted">Last updated 29 July 2026</p>
         <p>
           How Mahonia handles your data, and the terms for using it — written to be read, not to trap
           you. Jump to <a href="#privacy">Privacy</a> or <a href="#terms">Terms</a>.
@@ -62,7 +62,8 @@ useHead({
           Opening a list someone shared with you doesn’t put their gear in your gear vault. Gear reaches
           it when you add it to a list yourself, or when you import or copy a list into your own.
           A gear vault belongs to the browser holding its link, so a second device has its own until
-          you open your vault’s link there too.
+          you open your vault’s link there too — and when that happens the two are combined, rather
+          than one replacing the other.
         </p>
 
         <h3>What Mahonia collects in the background</h3>
@@ -108,6 +109,14 @@ useHead({
             <a :href="`mailto:${CONTACT_EMAIL}`">{{ CONTACT_EMAIL }}</a> and I’ll sort it out.
           </li>
         </ul>
+        <p>
+          A little is also cleaned up automatically, so abandoned data doesn’t sit here forever. A
+          list that never got past a single item and hasn’t been edited in a long time is removed. A
+          gear vault that hasn’t been used in a long time is too — though using its link at any point
+          keeps it, and will bring it back even after it’s been marked for removal. Anything removed
+          this way is held for a further grace period before it’s deleted for good; if something has
+          gone that you wanted, email me and I’ll see what can be recovered.
+        </p>
         <p>
           No system is perfectly secure, so please don’t put sensitive personal information into a
           list.
