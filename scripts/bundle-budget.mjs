@@ -68,7 +68,22 @@ import { brotliCompressSync, gzipSync, constants } from "node:zlib";
 // infrastructure rather than as one feature — it exists to be reused, and the second and
 // third consumer cost almost nothing on top of this. 138 restores the ~1 KB headroom.
 //
-// FIRST LOAD, the ratchet. 128.5 KB with the vault; 130 keeps the working headroom.
+// FIRST LOAD, the ratchet. 118.6 KB with the vault; 120 keeps the working headroom.
+//
+// RE-ANCHORED 130→120, and NOT because anything got smaller: the measurement was
+// wrong. firstLoadAssets() counted every /_nuxt ref in the prerendered /e HTML,
+// including rel="prefetch" — 15 files, ~11 KB brotli, among them VaultPane.css,
+// ImportModal.css and CatalogCorrectionModal.css. Prefetch is fetched at idle, after
+// interactive; it is not what a visitor waits on. Counting it contradicted this
+// file's own header and inverted the incentive the split exists to create — a lazy
+// pane earned nothing on the ratchet, and growing one was billed to first load
+// anyway. See firstLoadAssets() for the fix.
+//
+// The anchor moves with the yardstick so the gate stays exactly as tight as it was:
+// 130 sat ~1.2% above the 128.5 it was measuring, and 120 sits ~1.2% above the 118.6
+// it measures now. Same ~1.4 KB of working headroom, same trip-wire, real number.
+// Nothing about the shipped bundle changed in this commit — the two figures are the
+// same build measured two ways.
 //
 // Bumped 126→130 for the vault. This is the honest price of it: +6.7 KB on the hot
 // path, paid by every visitor whether or not they ever open a vault, because
@@ -78,7 +93,7 @@ import { brotliCompressSync, gzipSync, constants } from "node:zlib";
 // shared/vault.ts are dynamically imported, and the old whole-output gate would have
 // charged another 4.6 KB for exactly that splitting. If the vault should cost the hot
 // path less, the lever is the autocomplete integration, not the page.
-const FIRST_LOAD_BUDGET_KB = 130;
+const FIRST_LOAD_BUDGET_KB = 120;
 // TOTAL of every built file, the backstop. Deliberately slack: its job is to catch
 // a route chunk ballooning or a heavy dep landing somewhere unnoticed, NOT to price
 // ordinary feature work. Set well clear of current (137.1) so it only speaks up when
@@ -104,17 +119,39 @@ const brotli = (buf) =>
 const kb = (n) => (n / 1024).toFixed(1);
 
 /**
- * The assets the editor's first load pulls — read from the prerendered /e HTML
- * (its <script>/<link> refs), which is exactly what the browser fetches before the
- * app is interactive. Falls back to null if the page isn't in the build output, in
- * which case the first-load gate is skipped rather than guessed at.
+ * The assets the editor's first load pulls — read from the prerendered /e HTML,
+ * which is exactly what the browser fetches before the app is interactive.
+ *
+ * BLOCKING REFS ONLY. The HTML points at files in two quite different voices:
+ * <script src>, rel="modulepreload" and rel="stylesheet" mean "I can't start
+ * without this"; rel="prefetch" means "fetch this at idle, later, in case it's
+ * wanted". Only the first kind is first load.
+ *
+ * This used to be one regex over the whole document, which counted both — 15
+ * prefetched files, ~11 KB brotli, among them VaultPane.css, ImportModal.css and
+ * CatalogCorrectionModal.css. That contradicted this file's own header (lazy panes
+ * and modals belong to the TOTAL backstop) and, worse, inverted the incentive the
+ * split exists to create: making the vault pane lazy is supposed to move its weight
+ * off the ratchet, but with its prefetch still counted it earned nothing, and every
+ * KB the lazy pane grew was billed to first load anyway.
+ *
+ * Falls back to null if the page isn't in the build output, in which case the
+ * first-load gate is skipped rather than guessed at.
  */
 function firstLoadAssets() {
   const html = [".output/public/e/index.html", ".vercel/output/static/e/index.html"]
     .filter(existsSync)
     .map((f) => readFileSync(f, "utf8"))[0];
   if (!html) return null;
-  return new Set([...html.matchAll(/\/_nuxt\/([A-Za-z0-9_.-]+\.(?:js|css))/g)].map((m) => m[1]));
+  const assets = new Set();
+  const add = (href) => href && assets.add(href);
+  const asset = (tag) => (tag.match(/\/_nuxt\/([A-Za-z0-9_.-]+\.(?:js|css))/) || [])[1];
+  for (const [tag] of html.matchAll(/<script\b[^>]*\bsrc=[^>]*>/g)) add(asset(tag));
+  for (const [tag] of html.matchAll(/<link\b[^>]*>/g)) {
+    const rel = (tag.match(/\brel="([^"]+)"/) || [])[1] || "";
+    if (rel === "modulepreload" || rel === "stylesheet" || rel === "preload") add(asset(tag));
+  }
+  return assets;
 }
 
 const files = readdirSync(dir).filter((f) => /\.(js|css)$/.test(f));

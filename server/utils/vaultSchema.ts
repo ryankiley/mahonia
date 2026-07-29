@@ -14,10 +14,6 @@ export const VAULT_DDL: string[] = [
   `CREATE TABLE IF NOT EXISTS vaults (
     id serial PRIMARY KEY,
     token_hash text NOT NULL,
-    -- the currency this vault's gear costs are recorded in (null = the default).
-    -- Per VAULT, not per item: /vault shows a running total, and summing mixed
-    -- currencies would be arithmetic on incomparable numbers.
-    currency text,
     created_at timestamptz NOT NULL DEFAULT now(),
     last_seen_at timestamptz NOT NULL DEFAULT now()
   )`,
@@ -35,8 +31,6 @@ export const VAULT_DDL: string[] = [
     classification text,
     catalog_item_id integer,
     product_url text,
-    price_cents integer,
-    currency text,
     times_seen integer NOT NULL DEFAULT 1,
     last_used_at timestamptz NOT NULL DEFAULT now(),
     removed_at timestamptz,

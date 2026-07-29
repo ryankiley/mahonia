@@ -252,8 +252,6 @@ function selectVault(v: VaultEntry) {
     weightMg: v.weightMg,
     catalogItemId: v.catalogItemId,
     classification: v.classification,
-    priceCents: v.priceCents,
-    currency: v.currency,
     fromVault: true,
   });
   setDraftQuiet(props.clearOnCommit ? "" : itemDisplayName(v.brand, v.name, v.variant));

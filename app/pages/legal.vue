@@ -20,7 +20,7 @@ useHead({
     <main id="main-content" tabindex="-1" class="wrap page">
       <div class="prose">
         <h1 class="t-title">Legal</h1>
-        <p class="t-sm t-muted">Last updated 26 July 2026</p>
+        <p class="t-sm t-muted">Last updated 28 July 2026</p>
         <p>
           How Mahonia handles your data, and the terms for using it — written to be read, not to trap
           you. Jump to <a href="#privacy">Privacy</a> or <a href="#terms">Terms</a>.
@@ -55,7 +55,7 @@ useHead({
         <p>
           Your <strong>vault</strong> — the gear remembered from the lists you build — works the
           same way. It’s stored under its own unguessable link, and that link is the only thing
-          that opens it. It holds gear: names, brands, weights, and what you paid if you record it.
+          that opens it. It holds gear: names, brands and weights.
           There’s no account attached to it, and nothing in it identifies you.
         </p>
 

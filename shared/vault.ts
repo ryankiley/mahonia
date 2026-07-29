@@ -44,8 +44,6 @@ export interface VaultCapture {
   classification?: Classification;
   catalogItemId?: number;
   productUrl?: string;
-  priceCents?: number;
-  currency?: string;
 }
 
 /** A stored vault row as the API returns it. */
@@ -130,8 +128,6 @@ function captureFromItem(item: Item, hasChildren: boolean): VaultCapture | null 
     classification: item.classification ?? undefined,
     catalogItemId: typeof item.catalogItemId === "number" ? item.catalogItemId : undefined,
     productUrl: trim(item.productUrl, 2000),
-    priceCents: typeof item.priceCents === "number" ? item.priceCents : undefined,
-    currency: trim(item.currency, 8),
   };
 }
 

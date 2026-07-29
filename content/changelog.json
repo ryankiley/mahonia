@@ -7,7 +7,9 @@
     ],
     "changed": [
       "Gear already in the open list shows as \"Already added\" in the vault, so nothing lands twice.",
-      "About and What's new are one page now."
+      "About and What's new are one page now.",
+      "Change the weight unit from the vault's total, the same way you do on a list.",
+      "Removing gear from your vault now offers an undo, like removing an item from a list."
     ],
     "fixed": [
       "Long gear names in the vault no longer swallow the brand or knock a row out of line."
@@ -15,9 +17,6 @@
   },
   {
     "date": "2026-07-27",
-    "added": [
-      "Pick the currency your gear costs are recorded in, on the vault page."
-    ],
     "changed": [
       "The trail link's card shows the destination without the https:// and www., so more of the address fits.",
       "In the editor, tapping a trail link now opens its card instead of leaving the page — the link itself is in the card. On a shared list it still goes straight there.",
@@ -37,7 +36,6 @@
       "Copying a list as Markdown includes the carried weight too.",
       "Your vault: gear you put in a list is remembered in one place, ready to pull into the next list without retyping. No account — the vault is yours by link, like a list.",
       "Add gear from your vault without typing: a panel beside the list you're building, with everything you own a click away.",
-      "Record what each piece of gear cost, in your vault. It travels with the item into any list you add it to.",
       "Open your vault on another device with a link, the same way you already move a list."
     ],
     "changed": [

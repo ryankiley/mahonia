@@ -53,7 +53,7 @@ function suppliedToken(event: H3Event, fallback?: string): string {
 export async function requireVault(
   event: H3Event,
   bodyToken?: string,
-): Promise<{ db: Db; vaultId: number; currency: string | null }> {
+): Promise<{ db: Db; vaultId: number }> {
   const token = suppliedToken(event, bodyToken);
   if (!token) throw createError({ statusCode: 401, statusMessage: "Missing vault capability" });
 
@@ -66,7 +66,7 @@ export async function requireVault(
 
   const row = rows[0];
   if (!row) throw createError({ statusCode: 401, statusMessage: "Unknown vault" });
-  return { db, vaultId: row.id, currency: row.currency };
+  return { db, vaultId: row.id };
 }
 
 /**

@@ -127,16 +127,6 @@ describe("vault isolation — one vault can never reach another's gear", () => {
     expect(await listVaultItems(db as never, theirs)).toHaveLength(1);
   });
 
-  it("refuses to price a row belonging to another vault", async () => {
-    await captureVaultItems(db as never, theirs, [cap("Quilt")]);
-    const row = (await listVaultItems(db as never, theirs))[0]!;
-
-    expect(await setVaultItemPrice(db as never, mine, row.id, 12_300, "USD")).toBe(false);
-    // `?? null` because the repo maps an unset price to undefined — what's being
-    // asserted is "no price was recorded", not which of the two spellings it uses
-    expect((await listVaultItems(db as never, theirs))[0]!.priceCents ?? null).toBeNull();
-  });
-
   it("scopes a removal to the vault that asked for it", async () => {
     await captureVaultItems(db as never, mine, [cap("Duplex")]);
     await captureVaultItems(db as never, theirs, [cap("Duplex")]);

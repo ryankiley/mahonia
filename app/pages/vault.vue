@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { Trash2 } from "@lucide/vue";
+import { ChevronDown, Trash2, Undo2 } from "@lucide/vue";
 import type { Unit } from "~~/shared/types";
 import type { VaultEntry } from "~~/shared/vault";
 import { formatWeightAuto, itemDisplayName } from "~~/shared/weights";
-import { CURRENCIES, DEFAULT_CURRENCY, formatMoney, normalizeCurrency, parseMoneyInput } from "~~/shared/money";
 
 // The vault — every piece of gear you've put in a list, in one place, so building
 // the next list is picking rather than retyping.
@@ -19,23 +18,6 @@ useHead({
 });
 
 const { token, hasVault, setToken, forget, vaultFetch } = useVaultToken();
-
-// The currency this vault records costs in — comes back with the gear rather than
-// from a second request, and is changed by the picker beside the unit toggle.
-// Changing it RE-LABELS what's stored; it converts nothing, because there are no
-// rates here and inventing one would be worse than showing the figure you typed.
-const currency = ref<string>(DEFAULT_CURRENCY);
-async function setCurrency(e: Event) {
-  const next = (e.target as HTMLSelectElement).value;
-  const prior = currency.value;
-  currency.value = next; // optimistic: the totals re-label immediately
-  try {
-    await vaultFetch("/api/vault/currency", { method: "POST", body: { currency: next } });
-  } catch {
-    currency.value = prior;
-    loadError.value = "Couldn’t change the currency. Try again?";
-  }
-}
 
 // ---- arriving from a transfer link ---------------------------------------
 // /vault#<token> is how a vault reaches a second device. The token rides in the
@@ -95,9 +77,8 @@ async function loadVault() {
   loading.value = true;
   loadError.value = "";
   try {
-    const res = await vaultFetch<{ items: VaultEntry[]; currency: string | null }>("/api/vault/list");
+    const res = await vaultFetch<{ items: VaultEntry[] }>("/api/vault/list");
     items.value = res.items || [];
-    currency.value = normalizeCurrency(res.currency);
   } catch {
     loadError.value = "Couldn’t load your vault. Check your connection and try again.";
   }
@@ -119,70 +100,6 @@ const filtered = computed(() => {
 });
 
 const totalMg = computed(() => filtered.value.reduce((sum, i) => sum + i.weightMg, 0));
-
-// ---- cost ----------------------------------------------------------------
-// What a thing cost belongs with the GEAR, not with any one list — otherwise it
-// gets retyped into every list the item appears in. Editing is inline and commits
-// on blur or Enter; there's no save button because there's one field.
-const totalCents = computed(() =>
-  filtered.value.reduce((sum, i) => sum + (i.priceCents ?? 0), 0),
-);
-const pricedCount = computed(() => filtered.value.filter((i) => i.priceCents != null).length);
-const costLabel = (cents: number) => formatMoney(cents, currency.value);
-
-// Which row's cost is being typed into. At rest a cost reads as MONEY ("$699");
-// under the caret it's the plain number you'd actually type. Same split the
-// editor's weight field uses — a formatted string is for reading, not editing.
-const editingPrice = ref<number | null>(null);
-const rawPrice = (entry: VaultEntry) =>
-  entry.priceCents != null ? (entry.priceCents / 100).toFixed(2) : "";
-const priceValue = (entry: VaultEntry) =>
-  editingPrice.value === entry.id
-    ? rawPrice(entry)
-    : entry.priceCents != null
-      ? costLabel(entry.priceCents)
-      : "";
-
-function onPriceFocus(entry: VaultEntry, e: Event) {
-  editingPrice.value = entry.id;
-  const el = e.target as HTMLInputElement;
-  el.value = rawPrice(entry);
-  el.select();
-}
-
-async function onPrice(entry: VaultEntry, e: Event) {
-  const el = e.target as HTMLInputElement;
-  const raw = el.value.trim();
-  const next = raw ? parseMoneyInput(raw) : null;
-  // unparseable text is not a clear — put the old value back rather than silently
-  // wiping a price because someone typed a stray character
-  if (raw && next == null) {
-    editingPrice.value = null;
-    el.value = priceValue(entry);
-    return;
-  }
-  if (next === (entry.priceCents ?? null)) {
-    editingPrice.value = null;
-    el.value = priceValue(entry);
-    return;
-  }
-  const prior = entry.priceCents;
-  // optimistic: the row shows the new figure (and the total moves) immediately
-  entry.priceCents = next ?? undefined;
-  editingPrice.value = null;
-  el.value = priceValue(entry);
-  try {
-    const res = await vaultFetch<{ ok: boolean }>("/api/vault/update", {
-      method: "POST",
-      body: { id: entry.id, priceCents: next },
-    });
-    if (!res.ok) throw new Error("rejected");
-  } catch {
-    entry.priceCents = prior;
-    el.value = priceValue(entry);
-    loadError.value = "Couldn’t save that price. Try again?";
-  }
-}
 
 // ---- units ---------------------------------------------------------------
 // The vault has no list to inherit a unit from, so it takes its default from the
@@ -285,54 +202,33 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
               placeholder="Search your gear…"
               aria-label="Search your gear"
             />
-            <div class="vault__units" role="group" aria-label="Weight units">
-              <button
-                type="button"
-                class="btn btn--quiet"
-                :class="{ 'is-on': system === 'metric' }"
-                :aria-pressed="system === 'metric'"
-                @click="setSystem('metric')"
-              >g</button>
-              <button
-                type="button"
-                class="btn btn--quiet"
-                :class="{ 'is-on': system === 'imperial' }"
-                :aria-pressed="system === 'imperial'"
-                @click="setSystem('imperial')"
-              >oz</button>
-            </div>
-            <!-- sits with the unit toggle: both answer "how do I read the figures
-                 here", and neither changes what's stored. Only shown once something
-                 has a price — an empty vault has no figures to label. -->
-            <select
-              v-if="pricedCount > 0"
-              class="field vault__currency"
-              aria-label="Currency"
-              :value="currency"
-              @change="setCurrency"
-            >
-              <option v-for="c in CURRENCIES" :key="c" :value="c">{{ c }}</option>
-            </select>
           </div>
 
           <p v-if="loadError" class="t-sm vault__error">{{ loadError }}</p>
-
-          <p v-if="undoable" class="t-sm vault__undo">
-            Removed “{{ itemDisplayName(undoable.brand, undoable.name, undoable.variant) }}”.
-            <button type="button" class="btn btn--quiet" @click="undoRemove">Undo</button>
-          </p>
 
           <p v-if="loading" class="t-muted vault__empty">Loading your gear…</p>
 
           <template v-else-if="filtered.length">
             <p class="t-sm t-muted vault__count">
               {{ filtered.length }} {{ filtered.length === 1 ? "item" : "items" }} ·
-              {{ weightLabel(totalMg) }}<template v-if="totalCents > 0"> · {{ costLabel(totalCents) }}</template>
-              <!-- say so when the total only covers part of the vault, rather than
-                   letting it read as the cost of everything -->
-              <template v-if="totalCents > 0 && pricedCount < filtered.length">
-                <span class="vault__partial"> ({{ pricedCount }} of {{ filtered.length }} priced)</span>
-              </template>
+              <!-- The total IS the unit control, the same object the editor's
+                   TotalsBar puts up: figure, chevron, and a transparent native
+                   select laid over the pair. A separate g/oz toggle sat off in the
+                   search bar, away from the only number it governed. -->
+              <span class="vault__total">
+                {{ weightLabel(totalMg) }}
+                <ChevronDown class="vault__chev" :size="14" :stroke-width="2.25" aria-hidden="true" />
+                <select
+                  class="vault__unitsel"
+                  title="Change unit"
+                  aria-label="Weight unit"
+                  :value="system"
+                  @change="setSystem(($event.target as HTMLSelectElement).value as 'metric' | 'imperial')"
+                >
+                  <option value="metric">g</option>
+                  <option value="imperial">oz</option>
+                </select>
+              </span>
             </p>
             <ul class="vault__list">
               <li v-for="entry in filtered" :key="entry.id" class="vault__row">
@@ -345,19 +241,6 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
                   <p v-if="entry.commonName" class="t-sm t-muted vault__meta">{{ entry.commonName }}</p>
                 </div>
                 <span class="t-num vault__weight">{{ weightLabel(entry.weightMg) }}</span>
-                <span class="vault__cost">
-                  <input
-                    class="field t-num vault__costinput"
-                    type="text"
-                    inputmode="decimal"
-                    :value="priceValue(entry)"
-                    placeholder="—"
-                    :aria-label="`Cost of ${itemDisplayName(entry.brand, entry.name, entry.variant)}`"
-                    @focus="onPriceFocus(entry, $event)"
-                    @change="onPrice(entry, $event)"
-                    @keydown.enter="($event.target as HTMLInputElement).blur()"
-                  />
-                </span>
                 <button
                   type="button"
                   class="btn btn--quiet vault__remove"
@@ -434,6 +317,23 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
         </template>
       </ClientOnly>
     </main>
+
+    <!-- Removal lands as the site's undo toast, the same object the editor puts up
+         when you remove an item — same surface, same "Removed <thing> · Undo"
+         shape, same place on screen. It was an inline line in the content flow,
+         which pushed the list down as it appeared and read as a status message
+         rather than as an action you still have. The 10s window is unchanged; it
+         just lives somewhere you don't have to be scrolled to the top to see. -->
+    <Transition name="toast">
+      <div v-if="undoable" class="toast undobar">
+        <span class="t-sm">
+          Removed <strong>{{ itemDisplayName(undoable.brand, undoable.name, undoable.variant) }}</strong>
+        </span>
+        <button class="undobar__btn t-sm" @click="undoRemove">
+          <Undo2 :size="14" /> Undo
+        </button>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -487,36 +387,43 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
   min-width: 0;
   max-width: 32ch;
 }
-.vault__units {
-  display: flex;
-  gap: var(--space-1);
-  margin-left: auto;
+/* The total, doubling as the unit control — the editor's .totals__amount recipe at
+   this page's smaller type: a relative box holding the figure and its chevron, with
+   an invisible native select stretched over both. The select is what's actually
+   operated (so it keeps the platform's own picker and its keyboard behaviour); the
+   figure and chevron are only what you see. */
+.vault__total {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-px);
+  color: var(--ink-2);
 }
-/* sized to its content, not the field's full width, and quiet like the unit toggle
-   beside it — it's a label for the numbers, not a form field to fill in */
-.vault__currency {
-  width: auto;
-  min-height: 0;
+.vault__chev {
+  flex: none;
   color: var(--ink-3);
-  font-size: var(--text-chrome);
+  transition: color var(--dur) var(--ease);
 }
-/* the selected unit is the only chrome that carries weight here — everything else
-   on the page is monochrome text, so "on" is a deepened ink, not a fill */
-.vault__units .is-on {
+.vault__total:hover {
   color: var(--ink);
-  text-decoration: underline;
-  text-decoration-color: var(--ink-2);
-  text-underline-offset: 3px;
+}
+/* :has, not a sibling combinator — the select is laid over the pair and comes
+   AFTER the chevron in the DOM, so `+` would never match it. The editor's version
+   has no focus cue at all; keyboard users deserve the same hint the pointer gets. */
+.vault__total:hover .vault__chev,
+.vault__total:has(.vault__unitsel:focus-visible) .vault__chev {
+  color: var(--ink);
+}
+.vault__unitsel {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  border: 0;
+  opacity: 0; /* invisible — the figure + chevron are the visible affordance */
+  cursor: pointer;
 }
 .vault__count {
   margin-bottom: var(--space-2);
-}
-.vault__undo {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-2);
-  margin-bottom: var(--space-3);
-  color: var(--ink);
 }
 /* de-outlined rows, separated by hairlines — matches "Your lists" */
 .vault__list {
@@ -578,45 +485,6 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
   min-width: 5rem;
   text-align: right;
 }
-/* A DEFINITE width, not a min-width: the child is a text input, whose intrinsic
-   width (the default `size` of ~20 characters) is far wider than 6rem and wins
-   against a min-, so the column was taking ~11rem and squeezing the name beside
-   it. Fixed here so the costs line up in a column like the weights do. */
-.vault__cost {
-  flex: none;
-  display: inline-flex;
-  justify-content: flex-end;
-  width: 6rem;
-}
-/* .field is borderless by design, but a column of bare em dashes reads as "no data
-   recorded" rather than "type what you paid here" — there was nothing to say the
-   cell was a field at all until the pointer happened to cross it.
-   So the EMPTY state carries a dashed rule: the standing convention for a blank
-   waiting to be filled, and distinct enough from a solid hairline that it doesn't
-   read as another row divider. A priced row keeps the quiet borderless treatment —
-   the figure speaks for itself — and picks the rule up only on hover/focus. */
-.vault__costinput {
-  width: 100%;
-  text-align: right;
-  color: var(--ink-2);
-  border-bottom: 1px solid transparent;
-}
-.vault__costinput:placeholder-shown {
-  border-bottom-style: dashed;
-  border-bottom-color: var(--line-2);
-}
-.vault__costinput:hover {
-  border-bottom-style: solid;
-  border-bottom-color: var(--line-2);
-}
-.vault__costinput:focus {
-  color: var(--ink);
-  border-bottom-style: solid;
-  border-bottom-color: var(--ink-2);
-}
-.vault__partial {
-  color: var(--ink-3);
-}
 .vault__remove {
   flex: none;
   display: inline-flex;
@@ -669,10 +537,7 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
     max-width: none;
     flex-basis: 100%;
   }
-  .vault__units {
-    margin-left: 0;
-  }
-  /* name on its own line, weight + cost + remove beneath — nothing cramped */
+  /* name on its own line, weight + remove beneath — nothing cramped */
   .vault__row {
     flex-wrap: wrap;
     gap: var(--space-2);
@@ -684,16 +549,7 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
     min-width: 0;
     text-align: left;
   }
-  .vault__cost {
-    min-width: 5rem;
-    justify-content: flex-start;
-  }
-  .vault__costinput {
-    text-align: left;
-    /* always visible on touch: there's no hover to reveal the affordance */
-    border-bottom-color: var(--line);
-  }
-  .vault__remove {
+    .vault__remove {
     margin-left: auto;
   }
 }

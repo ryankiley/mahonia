@@ -10,6 +10,6 @@ export default defineEventHandler(async (event) => {
   setHeader(event, "X-Robots-Tag", "noindex");
   setHeader(event, "Cache-Control", "private, no-store");
   await rateLimit(event, "vault-read");
-  const { db, vaultId, currency } = await requireVault(event);
-  return { items: await listVaultItems(db, vaultId), currency };
+  const { db, vaultId } = await requireVault(event);
+  return { items: await listVaultItems(db, vaultId) };
 });

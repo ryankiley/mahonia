@@ -14,7 +14,6 @@ import {
   type VaultEntry,
 } from "../../shared/vault";
 import type { Classification } from "../../shared/types";
-import { PRICE_CENTS_MAX } from "../../shared/money";
 import { itemDisplayName } from "../../shared/weights";
 import { SIM_THRESHOLD, foldForSearch, matchTier, trigramScore } from "../../shared/catalogSearch";
 
@@ -46,8 +45,6 @@ function toEntry(row: Row): VaultEntry {
       : undefined,
     catalogItemId: row.catalogItemId ?? undefined,
     productUrl: row.productUrl ?? undefined,
-    priceCents: row.priceCents ?? undefined,
-    currency: row.currency ?? undefined,
     timesSeen: row.timesSeen,
     lastUsedAt: new Date(row.lastUsedAt).toISOString(),
     createdAt: new Date(row.createdAt).toISOString(),
@@ -71,7 +68,6 @@ function sanitize(caps: VaultCapture[]): VaultCapture[] {
         ? c.classification
         : undefined,
       catalogItemId: Number.isInteger(c.catalogItemId) ? c.catalogItemId : undefined,
-      priceCents: Number.isInteger(c.priceCents) ? c.priceCents : undefined,
     });
   }
   return [...out.values()];
@@ -127,8 +123,6 @@ export async function captureVaultItems(
         classification: c.classification ?? null,
         catalogItemId: c.catalogItemId ?? null,
         productUrl: c.productUrl ?? null,
-        priceCents: c.priceCents ?? null,
-        currency: c.currency ?? null,
         timesSeen: 1,
         lastUsedAt: now,
         updatedAt: now,
@@ -145,8 +139,6 @@ export async function captureVaultItems(
         classification: sql`coalesce(excluded.classification, ${vaultItems.classification})`,
         catalogItemId: sql`coalesce(excluded.catalog_item_id, ${vaultItems.catalogItemId})`,
         productUrl: sql`coalesce(excluded.product_url, ${vaultItems.productUrl})`,
-        priceCents: sql`coalesce(excluded.price_cents, ${vaultItems.priceCents})`,
-        currency: sql`coalesce(excluded.currency, ${vaultItems.currency})`,
         timesSeen: sql`${vaultItems.timesSeen} + 1`,
         lastUsedAt: now,
         updatedAt: now,
@@ -196,40 +188,6 @@ export async function removeVaultItem(db: Db, vaultId: number, id: number): Prom
     .where(
       and(eq(vaultItems.id, id), eq(vaultItems.vaultId, vaultId), isNull(vaultItems.removedAt)),
     )
-    // no-arg .returning() — the neon-http | PGlite union's only shared overload
-    .returning();
-  return done.length > 0;
-}
-
-/**
- * Set (or clear, with null) what a piece of gear cost.
- *
- * Clamped to a sane range here rather than trusted from the client, so a
- * hand-crafted request can't put a number in the vault that makes every total
- * unreadable. Scoped by vaultId inside the WHERE — an id belonging to another
- * account matches nothing rather than being checked afterwards.
- */
-export async function setVaultItemPrice(
-  db: Db,
-  vaultId: number,
-  id: number,
-  priceCents: number | null,
-  currency?: string,
-): Promise<boolean> {
-  const value =
-    priceCents == null ? null : Math.min(PRICE_CENTS_MAX, Math.max(0, Math.round(priceCents)));
-  // Stamp the account's currency alongside the figure. This is the moment it's
-  // known — a price typed into the vault is in the currency the vault is showing —
-  // and storing it on the row is what lets the amount travel into a list, and an
-  // export, still meaning something.
-  const done = await db
-    .update(vaultItems)
-    .set({
-      priceCents: value,
-      currency: value == null ? null : currency ?? null,
-      updatedAt: new Date(),
-    })
-    .where(and(eq(vaultItems.id, id), eq(vaultItems.vaultId, vaultId)))
     // no-arg .returning() — the neon-http | PGlite union's only shared overload
     .returning();
   return done.length > 0;

@@ -952,26 +952,4 @@ function onCorrected(res: { status: string; itemName?: string }) {
 /* the toast base + its enter/leave motion now live in the shared .toast atom
    (controls.scss), used by the read views' menu too; the undo bar just adds its
    inner layout on top of that pill. */
-.undobar {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-}
-.undobar__btn {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  padding: 0;
-  background: none;
-  border: 0;
-  color: var(--paper);
-  font-weight: 600;
-  /* soft underline, matching the site's --underline house style — but the toast is
-     inverted (paper text on ink), so soften the PAPER rather than using --ink-3
-     (which would vanish on the dark toast). Translucent paper stays legible + quiet. */
-  text-decoration: underline;
-  text-decoration-color: color-mix(in srgb, var(--paper) 55%, transparent);
-  text-underline-offset: 2px;
-  cursor: pointer;
-}
 </style>

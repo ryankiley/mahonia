@@ -309,10 +309,6 @@ export const vaults = pgTable(
     // sha256(vaultToken) hex — the capability; the raw token never lands here,
     // exactly as with lists.edit_token_hash
     tokenHash: text("token_hash").notNull(),
-    // The currency this vault's gear costs are in. One per VAULT rather than per
-    // item: /vault shows a running total, and summing mixed currencies would be
-    // arithmetic on incomparable numbers. Null = the default (USD).
-    currency: text("currency"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     // bumped on use, so an abandoned vault can be reaped on the same schedule as
     // an abandoned list rather than accumulating forever
@@ -352,8 +348,6 @@ export const vaultItems = pgTable(
     classification: text("classification"), // base|worn|consumable (null = unset)
     catalogItemId: integer("catalog_item_id"), // set when the row came from a catalog pick
     productUrl: text("product_url"),
-    priceCents: integer("price_cents"),
-    currency: text("currency"),
     // how many distinct captures have landed here — ranks the autocomplete, the
     // vault's analogue of catalog_items.usage_count
     timesSeen: integer("times_seen").notNull().default(1),

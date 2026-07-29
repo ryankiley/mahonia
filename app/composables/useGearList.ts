@@ -651,11 +651,6 @@ function create() {
       // explicitly would pin the row against a later change to that default
       classification: entry.classification && entry.classification !== "base" ? entry.classification : null,
       catalogItemId: entry.catalogItemId,
-      // what you paid rides along, so a list can total its cost without the price
-      // being retyped into every list the item appears in. The currency is stamped
-      // on the vault row when the price is set, so it travels with the figure.
-      priceCents: entry.priceCents,
-      currency: entry.priceCents != null ? entry.currency : undefined,
       sortOrder: nextSortOrder(snapshot.value.items, folderId),
     };
     dispatch({ t: "addItem", item });
