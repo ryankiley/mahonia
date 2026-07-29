@@ -23,7 +23,7 @@ export function useCopyList() {
       );
       // a clone arrives whole (no ops), so this is the one moment its gear can
       // reach your vault — and it IS yours now, unlike a list someone shared
-      useVaultCapture().captureNewList(res.snapshot);
+      useVaultCapture().captureNewList(res.snapshot, res.editToken);
       const token = useMyLists().registerCreated(res, totalMg);
       await navigateTo(editLinkPath(res.snapshot.shareCode, token));
       return true;

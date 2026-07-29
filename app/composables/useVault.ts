@@ -87,7 +87,11 @@ export function useVaultCapture() {
    * a vault into being (the endpoint mints one and returns its token), so gating on
    * having a token would mean never getting one.
    */
-  function sync(items: Item[], folders: Folder[] = []): void {
+  function sync(
+    items: Item[],
+    folders: Folder[] = [],
+    opts: { editToken?: string; onAsk?: () => void } = {},
+  ): void {
     if (!import.meta.client) return;
     void (async () => {
       let built: { caps: unknown[]; fingerprint: string } | null = null;
@@ -95,6 +99,13 @@ export function useVaultCapture() {
         const { captureFromList, captureFingerprint } = await import("~~/shared/vault");
         const caps = captureFromList(items, folders);
         if (!caps.length) return;
+        // The decision is consulted HERE, after the capture set is built, so a list
+        // with nothing vault-worthy in it never raises the question. Asking whether
+        // to add gear when there is no gear is a question whose answer changes
+        // nothing — and it burned the one chance to ask about that list.
+        const decision = vaultDecisionFor(opts.editToken ?? "");
+        if (decision === "no") return;
+        if (decision === "ask") return opts.onAsk?.();
         built = { caps, fingerprint: captureFingerprint(caps) };
       } catch {
         return; // chunk fetch failed (offline before the SW cached it) — skip
@@ -192,8 +203,16 @@ export function useVaultCapture() {
    * never asked for one. Creation is unambiguous: this device made this list, from
    * this data, just now.
    */
-  function captureNewList(snapshot: { items: Item[]; folders?: Folder[] }): void {
-    sync(snapshot.items, snapshot.folders ?? []);
+  function captureNewList(
+    snapshot: { items: Item[]; folders?: Folder[] },
+    editToken: string,
+  ): void {
+    // Recording the answer, not just capturing: you made this list, so its gear is
+    // yours and the editor must never go on to ask about it. Without this an
+    // imported or cloned list captured once here and then, on your very next edit,
+    // asked whether the gear you had just imported was really yours.
+    setVaultDecisionFor(editToken, "yes");
+    sync(snapshot.items, snapshot.folders ?? [], { editToken });
   }
 
   return { sync, captureNewList, bindFlushOnLeave };

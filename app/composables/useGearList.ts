@@ -175,6 +175,10 @@ function create() {
     inFlight = false;
     isEditing = false;
     remoteMissing = false;
+    // the vault question is about THIS list — an unanswered one must not ride
+    // along to the next list opened (where it would ask about the wrong gear,
+    // and spend that list's one chance to ask)
+    vaultPrompt.value = null;
     clearTimeout(flushTimer);
     snapshot.value = null;
     status.value = "loading";
@@ -304,6 +308,7 @@ function create() {
     inFlight = false;
     isEditing = false;
     remoteMissing = false;
+    vaultPrompt.value = null; // see load() — a draft is yours, and never asks
     clearTimeout(flushTimer);
     installListeners();
     const folders: Folder[] = STARTER_FOLDERS.map((p, i) => ({
@@ -685,13 +690,12 @@ function create() {
    */
   function captureIfMine() {
     if (!snapshot.value) return;
-    const decision = vaultDecisionFor(editToken);
-    if (decision === "no") return;
-    if (decision === "ask") {
-      vaultPrompt.value = { title: snapshot.value.title || "this list" };
-      return;
-    }
-    vault.sync(snapshot.value.items, snapshot.value.folders);
+    // The decision lives in sync(), which asks only once it knows there is gear
+    // worth asking about — see useVault.
+    vault.sync(snapshot.value.items, snapshot.value.folders, {
+      editToken,
+      onAsk: () => (vaultPrompt.value = { title: snapshot.value?.title || "this list" }),
+    });
   }
 
   /** Answer the prompt. "yes" captures what's already on screen, not just what you
