@@ -1,7 +1,7 @@
 import { defineEventHandler, setHeader } from "h3";
 import { rateLimit } from "../../utils/rateLimit";
 import { requireVault } from "../../utils/vaultAuth";
-import { listRemovedVaultItems, listVaultItems } from "../../utils/vaultRepo";
+import { listRemovedVaultItems, listVaultFolders, listVaultItems } from "../../utils/vaultRepo";
 
 // The /vault page's read: every live row, most-recently-used first.
 // `private, no-store` — this is one person's gear; nothing between us and them
@@ -15,9 +15,10 @@ export default defineEventHandler(async (event) => {
   // it behind a disclosure so a removal has a way back; the editor's pane reads
   // `items` and ignores it. One endpoint rather than a second auth + rate-limit
   // path for a list that is almost always empty.
-  const [items, removed] = await Promise.all([
+  const [items, removed, folders] = await Promise.all([
     listVaultItems(db, vaultId),
     listRemovedVaultItems(db, vaultId),
+    listVaultFolders(db, vaultId),
   ]);
-  return { items, removed };
+  return { items, removed, folders };
 });

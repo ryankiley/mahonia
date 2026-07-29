@@ -193,7 +193,7 @@ function create() {
       // from LighterPack, cloned from someone's public list, or simply built on
       // another device — dispatches no ops here, so opening it is the only moment
       // its gear can reach the vault.
-      vault.sync(merged.items);
+      vault.sync(merged.items, merged.folders);
       // one-time cleanup: early water rows were named "Water · 1 L"; the volume now
       // lives in the qty (litres) field, so the name should just be "Water"
       for (const it of merged.items) {
@@ -391,7 +391,7 @@ function create() {
     // Every mutation funnels through here, whatever made it — typing, a catalog
     // pick, a drag, an undo — so this one call captures gear from all of them
     // without each call site having to remember to.
-    vault.sync(snapshot.value.items);
+    vault.sync(snapshot.value.items, snapshot.value.folders);
     // Draft (no token yet): keep edits local until there's real content, then create
     // the list once. While that create is in flight, queue ops for the post-create flush.
     if (!editToken) {

@@ -319,6 +319,32 @@ export const vaults = pgTable(
 
 export type VaultRow = typeof vaults.$inferSelect;
 
+/**
+ * A vault's folders. Its own table rather than a text label on the item, because
+ * these carry state of their own — an order you can drag, and a per-folder item
+ * sort — which a label has nowhere to keep. Name is unique per vault so capture can
+ * find-or-create by the list folder's name without ending up with three "Shelter"s.
+ *
+ * Deliberately NOT a mirror of the list Folder type: colorKey and
+ * defaultClassification are facts about how a LIST presents and classifies its
+ * rows, and a vault row carries its own classification already.
+ */
+export const vaultFolders = pgTable(
+  "vault_folders",
+  {
+    id: serial("id").primaryKey(),
+    vaultId: integer("vault_id").notNull(),
+    name: text("name").notNull(),
+    // drag order on /vault; ties break on id so the order is always total
+    sortOrder: integer("sort_order").notNull().default(0),
+    // manual|name|heaviest|lightest — null reads as manual, matching FolderSort
+    sortBy: text("sort_by"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("idx_vault_folder_name").on(t.vaultId, t.name)],
+);
+
+
 // Relational, not JSONB (unlike a list's content): the vault is QUERIED — fuzzy
 // autocomplete while building a list, sorted browsing on /vault — which is the
 // same reason catalog_items is a real table.
@@ -348,6 +374,9 @@ export const vaultItems = pgTable(
     classification: text("classification"), // base|worn|consumable (null = unset)
     catalogItemId: integer("catalog_item_id"), // set when the row came from a catalog pick
     productUrl: text("product_url"),
+    // The holder's grouping. Null = unfiled, which is also every row's starting
+    // state and where a row lands again if its folder is deleted.
+    folderId: integer("folder_id"),
     // how many distinct captures have landed here — ranks the autocomplete, the
     // vault's analogue of catalog_items.usage_count
     timesSeen: integer("times_seen").notNull().default(1),

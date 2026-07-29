@@ -19,6 +19,19 @@ export const VAULT_DDL: string[] = [
   )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_vaults_token ON vaults (token_hash)`,
 
+  // A vault's folders — see server/db/schema.ts for why they're a table and not a
+  // label on the item. Name is unique per vault so capture can find-or-create by a
+  // list folder's name without accumulating duplicates.
+  `CREATE TABLE IF NOT EXISTS vault_folders (
+    id serial PRIMARY KEY,
+    vault_id integer NOT NULL,
+    name text NOT NULL,
+    sort_order integer NOT NULL DEFAULT 0,
+    sort_by text,
+    created_at timestamptz NOT NULL DEFAULT now()
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS idx_vault_folder_name ON vault_folders (vault_id, name)`,
+
   `CREATE TABLE IF NOT EXISTS vault_items (
     id serial PRIMARY KEY,
     vault_id integer NOT NULL,
@@ -31,6 +44,7 @@ export const VAULT_DDL: string[] = [
     classification text,
     catalog_item_id integer,
     product_url text,
+    folder_id integer,
     times_seen integer NOT NULL DEFAULT 1,
     last_used_at timestamptz NOT NULL DEFAULT now(),
     removed_at timestamptz,
@@ -38,6 +52,7 @@ export const VAULT_DDL: string[] = [
     updated_at timestamptz NOT NULL DEFAULT now()
   )`,
   // the upsert target — one row per piece of gear per vault
+  `ALTER TABLE vault_items ADD COLUMN IF NOT EXISTS folder_id integer`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_vault_identity ON vault_items (vault_id, norm_key)`,
   // /vault's browse order and the autocomplete's candidate pool: live rows,
   // most-recently-used first

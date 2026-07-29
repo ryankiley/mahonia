@@ -3,14 +3,15 @@
 // ordering is identical whichever engine is underneath, exactly as the catalog
 // does it.
 
-import { and, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
-import { vaultItems } from "../db/schema";
+import { and, asc, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
+import { vaultFolders, vaultItems } from "../db/schema";
 import type { useVaultDb } from "./db";
 import {
   VAULT_CAPTURE_MAX,
   vaultNormKey,
   type VaultCapture,
   type VaultEntry,
+  type VaultFolder,
 } from "../../shared/vault";
 import type { Classification } from "../../shared/types";
 import { itemDisplayName } from "../../shared/weights";
@@ -45,6 +46,7 @@ function toEntry(row: Row): VaultEntry {
       : undefined,
     catalogItemId: row.catalogItemId ?? undefined,
     productUrl: row.productUrl ?? undefined,
+    folderId: row.folderId ?? undefined,
     timesSeen: row.timesSeen,
     lastUsedAt: new Date(row.lastUsedAt).toISOString(),
     createdAt: new Date(row.createdAt).toISOString(),
@@ -109,6 +111,12 @@ export async function captureVaultItems(
   // Safe as a single statement precisely because sanitize() deduped by normKey:
   // Postgres rejects an ON CONFLICT DO UPDATE that would touch the same row twice
   // within one command, so the dedup isn't just tidiness, it's load-bearing.
+  // Resolve the list-folder NAMES this capture carries to vault folder ids,
+  // creating any that don't exist yet. One statement for the whole set;
+  // onConflictDoNothing makes it idempotent, so a replayed capture (the offline
+  // queue, a flaky connection) neither duplicates a folder nor errors.
+  const folderId = await ensureFolders(db, vaultId, clean.map((c) => c.folder));
+
   await db
     .insert(vaultItems)
     .values(
@@ -123,6 +131,7 @@ export async function captureVaultItems(
         classification: c.classification ?? null,
         catalogItemId: c.catalogItemId ?? null,
         productUrl: c.productUrl ?? null,
+        folderId: (c.folder && folderId.get(c.folder)) || null,
         timesSeen: 1,
         lastUsedAt: now,
         updatedAt: now,
@@ -139,12 +148,43 @@ export async function captureVaultItems(
         classification: sql`coalesce(excluded.classification, ${vaultItems.classification})`,
         catalogItemId: sql`coalesce(excluded.catalog_item_id, ${vaultItems.catalogItemId})`,
         productUrl: sql`coalesce(excluded.product_url, ${vaultItems.productUrl})`,
+        // FIRST filing wins. Coalesce, not overwrite: the same gear sits in
+        // "Shelter" in one list and "Big 3" in another, and a capture must not
+        // reshuffle a vault you've already arranged. Moving it is a deliberate act
+        // on /vault, and it stays put afterwards.
+        folderId: sql`coalesce(${vaultItems.folderId}, excluded.folder_id)`,
         timesSeen: sql`${vaultItems.timesSeen} + 1`,
         lastUsedAt: now,
         updatedAt: now,
       },
     });
   return clean.length;
+}
+
+/**
+ * Map the folder names in a capture to vault folder ids, creating the missing ones.
+ * New folders land after the existing ones, in the order the names first appear.
+ */
+async function ensureFolders(
+  db: Db,
+  vaultId: number,
+  names: (string | undefined)[],
+): Promise<Map<string, number>> {
+  const wanted = [...new Set(names.filter((n): n is string => !!n))];
+  if (!wanted.length) return new Map();
+  const [{ max } = { max: 0 }] = await db
+    .select({ max: sql<number>`coalesce(max(${vaultFolders.sortOrder}), 0)` })
+    .from(vaultFolders)
+    .where(eq(vaultFolders.vaultId, vaultId));
+  await db
+    .insert(vaultFolders)
+    .values(wanted.map((name, i) => ({ vaultId, name, sortOrder: Number(max) + i + 1 })))
+    .onConflictDoNothing({ target: [vaultFolders.vaultId, vaultFolders.name] });
+  const rows = await db
+    .select({ id: vaultFolders.id, name: vaultFolders.name })
+    .from(vaultFolders)
+    .where(eq(vaultFolders.vaultId, vaultId));
+  return new Map(rows.map((r) => [r.name, r.id]));
 }
 
 /** Every live row in a user's vault, most-recently-used first — the /vault page's
@@ -157,6 +197,20 @@ export async function listVaultItems(db: Db, vaultId: number): Promise<VaultEntr
     .orderBy(desc(vaultItems.lastUsedAt))
     .limit(POOL_LIMIT);
   return rows.map(toEntry);
+}
+
+/** A vault's folders in drag order (id breaks a tie, so the order is total). */
+export async function listVaultFolders(db: Db, vaultId: number): Promise<VaultFolder[]> {
+  const rows = await db
+    .select()
+    .from(vaultFolders)
+    .where(eq(vaultFolders.vaultId, vaultId))
+    .orderBy(asc(vaultFolders.sortOrder), asc(vaultFolders.id));
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    sortBy: (r.sortBy as VaultFolder["sortBy"]) ?? undefined,
+  }));
 }
 
 /**
@@ -226,3 +280,114 @@ export async function restoreVaultItem(db: Db, vaultId: number, id: number): Pro
   return done.length > 0;
 }
 
+/** The folder verbs /vault offers, as one small tagged union — see
+ *  server/api/vault/folders.post.ts for why they share a route. */
+export type VaultFolderOp =
+  | { t: "add"; name: string }
+  | { t: "rename"; id: number; name: string }
+  | { t: "remove"; id: number }
+  | { t: "sort"; id: number; sortBy: string | null }
+  | { t: "reorder"; ids: number[] }
+  /** null folderId = unfile it */
+  | { t: "move"; itemId: number; folderId: number | null };
+
+const FOLDER_SORTS = new Set(["manual", "name", "heaviest", "lightest"]);
+const FOLDER_NAME_MAX = 120;
+
+/**
+ * Apply one folder op, always scoped to the caller's vault.
+ *
+ * Every WHERE carries vaultId alongside the id, so an id from another vault
+ * matches nothing rather than being checked and rejected — no existence oracle,
+ * and no path where a missing scope leaks a row.
+ */
+export async function applyVaultFolderOp(
+  db: Db,
+  vaultId: number,
+  op: VaultFolderOp,
+): Promise<boolean> {
+  switch (op.t) {
+    case "add": {
+      const name = (op.name ?? "").trim().slice(0, FOLDER_NAME_MAX);
+      if (!name) return false;
+      const [{ max } = { max: 0 }] = await db
+        .select({ max: sql<number>`coalesce(max(${vaultFolders.sortOrder}), 0)` })
+        .from(vaultFolders)
+        .where(eq(vaultFolders.vaultId, vaultId));
+      // a name that already exists is a no-op, not an error — the folder you asked
+      // for is there either way
+      const done = await db
+        .insert(vaultFolders)
+        .values({ vaultId, name, sortOrder: Number(max) + 1 })
+        .onConflictDoNothing({ target: [vaultFolders.vaultId, vaultFolders.name] })
+        .returning();
+      return done.length > 0;
+    }
+    case "rename": {
+      const name = (op.name ?? "").trim().slice(0, FOLDER_NAME_MAX);
+      if (!name) return false;
+      const done = await db
+        .update(vaultFolders)
+        .set({ name })
+        .where(and(eq(vaultFolders.id, op.id), eq(vaultFolders.vaultId, vaultId)))
+        .returning();
+      return done.length > 0;
+    }
+    case "remove": {
+      // The GEAR survives — deleting a folder unfiles what was in it rather than
+      // taking it with it. A folder is a label here, not a container, and losing
+      // gear because you tidied a heading would be indefensible.
+      await db
+        .update(vaultItems)
+        .set({ folderId: null, updatedAt: new Date() })
+        .where(and(eq(vaultItems.folderId, op.id), eq(vaultItems.vaultId, vaultId)));
+      const done = await db
+        .delete(vaultFolders)
+        .where(and(eq(vaultFolders.id, op.id), eq(vaultFolders.vaultId, vaultId)))
+        .returning();
+      return done.length > 0;
+    }
+    case "sort": {
+      const sortBy = op.sortBy && FOLDER_SORTS.has(op.sortBy) ? op.sortBy : null;
+      const done = await db
+        .update(vaultFolders)
+        .set({ sortBy })
+        .where(and(eq(vaultFolders.id, op.id), eq(vaultFolders.vaultId, vaultId)))
+        .returning();
+      return done.length > 0;
+    }
+    case "reorder": {
+      const ids = (op.ids ?? []).filter((n) => Number.isInteger(n)).slice(0, 200);
+      if (!ids.length) return false;
+      // sequential rather than one CASE statement: a vault has a handful of
+      // folders, and the readable version is worth more than the round trips here
+      for (const [i, id] of ids.entries()) {
+        await db
+          .update(vaultFolders)
+          .set({ sortOrder: i + 1 })
+          .where(and(eq(vaultFolders.id, id), eq(vaultFolders.vaultId, vaultId)));
+      }
+      return true;
+    }
+    case "move": {
+      if (!Number.isInteger(op.itemId)) return false;
+      // a folderId from another vault would file gear under a heading you can't
+      // see, so it's verified in the same scope before being written
+      if (op.folderId != null) {
+        const owner = await db
+          .select({ id: vaultFolders.id })
+          .from(vaultFolders)
+          .where(and(eq(vaultFolders.id, op.folderId), eq(vaultFolders.vaultId, vaultId)));
+        if (!owner.length) return false;
+      }
+      const done = await db
+        .update(vaultItems)
+        .set({ folderId: op.folderId ?? null, updatedAt: new Date() })
+        .where(and(eq(vaultItems.id, op.itemId), eq(vaultItems.vaultId, vaultId)))
+        .returning();
+      return done.length > 0;
+    }
+    default:
+      return false;
+  }
+}

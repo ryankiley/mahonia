@@ -31,8 +31,9 @@ const SHORT_MAX = 120;
 /**
  * A piece of gear as the client offers it up for capture — the subset of a list
  * Item that describes the GEAR rather than its role in one particular list.
- * Deliberately omits qty, folderId, sortOrder, packed and wornQty: those are facts
- * about a list, not about the thing you own.
+ * Deliberately omits qty, sortOrder, packed and wornQty: those are facts about a
+ * list, not about the thing you own. Folder is the exception, and carried by NAME
+ * rather than by the list's folder id — see the field below.
  */
 export interface VaultCapture {
   normKey: string;
@@ -44,10 +45,28 @@ export interface VaultCapture {
   classification?: Classification;
   catalogItemId?: number;
   productUrl?: string;
+  /** The NAME of the list folder this gear sat in, so a vault fills itself
+   *  organised instead of arriving as one flat pile. A name, not an id: list
+   *  folder ids are per-list, and the same "Shelter" in two lists should mean one
+   *  vault folder. The server files a row on FIRST capture only, so a later list
+   *  that groups differently can't reshuffle what you've already filed. */
+  folder?: string;
+}
+
+/** A vault folder as the API returns it. Deliberately smaller than a list Folder:
+ *  no colorKey, no defaultClassification — those describe how a LIST presents and
+ *  classifies rows, and a vault row already carries its own classification. */
+export interface VaultFolder {
+  id: number;
+  name: string;
+  /** manual | name | heaviest | lightest — absent reads as manual, like FolderSort */
+  sortBy?: "manual" | "name" | "heaviest" | "lightest";
 }
 
 /** A stored vault row as the API returns it. */
 export interface VaultEntry extends VaultCapture {
+  /** which vault folder it's filed under; absent = unfiled */
+  folderId?: number;
   id: number;
   /** How many distinct captures have landed on this row — a "how often do I pack
    *  this" signal that ranks the autocomplete, like the catalog's usage_count. */
@@ -108,7 +127,11 @@ function isWaterRow(item: Item): boolean {
 
 /** Project a list Item onto the gear it describes. Returns null when the row isn't
  *  vault-worthy, so callers can map-and-filter in one pass. */
-function captureFromItem(item: Item, hasChildren: boolean): VaultCapture | null {
+function captureFromItem(
+  item: Item,
+  hasChildren: boolean,
+  folderName?: string,
+): VaultCapture | null {
   if (!isVaultWorthy(item, hasChildren)) return null;
   const name = trim(item.name, NAME_MAX);
   if (!name) return null;
@@ -128,6 +151,7 @@ function captureFromItem(item: Item, hasChildren: boolean): VaultCapture | null 
     classification: item.classification ?? undefined,
     catalogItemId: typeof item.catalogItemId === "number" ? item.catalogItemId : undefined,
     productUrl: trim(item.productUrl, 2000),
+    folder: trim(folderName, SHORT_MAX),
   };
 }
 
@@ -138,12 +162,21 @@ function captureFromItem(item: Item, hasChildren: boolean): VaultCapture | null 
  * separate rows is still one bottle in your vault. The LAST occurrence wins, so a
  * row you've just corrected beats an older duplicate above it.
  */
-export function captureFromList(items: Item[]): VaultCapture[] {
+export function captureFromList(
+  items: Item[],
+  folders: { id: string; name: string }[] = [],
+): VaultCapture[] {
   const parents = new Set<string>();
   for (const i of items) if (i.parentId) parents.add(i.parentId);
+  // folder id → name, so each row can carry the name of the group it sat in
+  const folderName = new Map(folders.map((f) => [f.id, f.name]));
   const byKey = new Map<string, VaultCapture>();
   for (const item of items) {
-    const cap = captureFromItem(item, parents.has(item.id));
+    const cap = captureFromItem(
+      item,
+      parents.has(item.id),
+      item.folderId ? folderName.get(item.folderId) : undefined,
+    );
     if (cap) byKey.set(cap.normKey, cap);
   }
   return [...byKey.values()].slice(0, VAULT_CAPTURE_MAX);
@@ -158,7 +191,7 @@ export function captureFromList(items: Item[]): VaultCapture[] {
 export function captureFingerprint(caps: VaultCapture[]): string {
   return caps
     .map((c) =>
-      [c.normKey, c.weightMg, c.classification ?? "", c.catalogItemId ?? "", c.commonName ?? ""].join(
+      [c.normKey, c.weightMg, c.classification ?? "", c.catalogItemId ?? "", c.commonName ?? "", c.folder ?? ""].join(
         "",
       ),
     )

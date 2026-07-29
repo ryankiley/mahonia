@@ -1,7 +1,7 @@
 // The vault's two client jobs: quietly remembering the gear you put in a list,
 // and offering it back the next time you build one.
 
-import type { Item } from "~~/shared/types";
+import type { Folder, Item } from "~~/shared/types";
 import type { VaultEntry } from "~~/shared/vault";
 
 // ---------------------------------------------------------------------------
@@ -52,13 +52,13 @@ export function useVaultCapture() {
    * a vault into being (the endpoint mints one and returns its token), so gating on
    * having a token would mean never getting one.
    */
-  function sync(items: Item[]): void {
+  function sync(items: Item[], folders: Folder[] = []): void {
     if (!import.meta.client) return;
     void (async () => {
       let built: { caps: unknown[]; fingerprint: string } | null = null;
       try {
         const { captureFromList, captureFingerprint } = await import("~~/shared/vault");
-        const caps = captureFromList(items);
+        const caps = captureFromList(items, folders);
         if (!caps.length) return;
         built = { caps, fingerprint: captureFingerprint(caps) };
       } catch {
