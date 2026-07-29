@@ -45,6 +45,10 @@ function create() {
   // each backfill, so a fourth one added later inherits the rule instead of
   // reintroducing the leak.
   let hydrating = false;
+  // Raised when gear would reach the vault from a list this device didn't create
+  // and hasn't been answered for. The editor shows it as a toast; nothing is
+  // captured until it's answered, and the answer is remembered per list.
+  const vaultPrompt = ref<{ title: string } | null>(null);
   let teardownListeners: (() => void) | undefined;
 
   // on-device durability + connectivity awareness. The connectivity ref + watcher
@@ -374,6 +378,7 @@ function create() {
       // register the write capability + put the token in the URL WITHOUT routing
       // (replaceState, so the editor's hash watcher doesn't dispose/reload us)
       const token = useMyLists().registerCreated(res, totals.value?.totalMg ?? 0);
+      setVaultDecisionFor(token, "yes"); // you built it; it's yours without asking
       // pretty path (/e/{shareCode}#{token}) so the URL is share-ready immediately;
       // replaceState (not routing) so the hash watcher doesn't dispose/reload us
       if (typeof history !== "undefined")
@@ -404,7 +409,7 @@ function create() {
     // Every mutation funnels through here, whatever made it — typing, a catalog
     // pick, a drag, an undo — so this one call captures gear from all of them
     // without each call site having to remember to.
-    if (!hydrating) vault.sync(snapshot.value.items, snapshot.value.folders);
+    if (!hydrating) captureIfMine();
     // Draft (no token yet): keep edits local until there's real content, then create
     // the list once. While that create is in flight, queue ops for the post-create flush.
     if (!editToken) {
@@ -669,6 +674,34 @@ function create() {
     dispatch({ t: "addItem", item });
     return id;
   }
+  /**
+   * Offer this list's gear to the vault, if it's ours to offer.
+   *
+   * A draft (no token yet) is yours by definition. A list this device CREATED —
+   * built, imported or cloned — recorded "yes" at that moment. Anything else is an
+   * edit link you hold, which is either your own list on a second device or a
+   * friend's, and the link cannot say which. So the first time gear would move, ask
+   * once and remember; until it's answered, nothing is captured.
+   */
+  function captureIfMine() {
+    if (!snapshot.value) return;
+    const decision = vaultDecisionFor(editToken);
+    if (decision === "no") return;
+    if (decision === "ask") {
+      vaultPrompt.value = { title: snapshot.value.title || "this list" };
+      return;
+    }
+    vault.sync(snapshot.value.items, snapshot.value.folders);
+  }
+
+  /** Answer the prompt. "yes" captures what's already on screen, not just what you
+   *  touch next — you said this list is yours, so its gear is too. */
+  function answerVaultPrompt(yes: boolean) {
+    vaultPrompt.value = null;
+    setVaultDecisionFor(editToken, yes ? "yes" : "no");
+    if (yes) captureIfMine();
+  }
+
   // Enter in a row's name opens the NEXT row right below it (todo-list flow):
   // the same blank-row machinery as "Add an item", but positioned after the
   // source row instead of at the folder's end, so mid-list entry stays in place.
@@ -981,6 +1014,7 @@ function create() {
     get epoch() { return epoch; },
     load, startDraft, dispose, rotate,
     setMeta, setUnit, addFolder, updateFolder, removeFolder, moveFolderBefore,
+    vaultPrompt, answerVaultPrompt,
     addBlankItem, addBlankItemAfter, addVaultItem, discardEmpty, updateItem, removeItem, setItemWeight, moveItem,
     addChild, nestItem, unnest,
     pendingBlankId, pendingUndo, undoRemove, holdUndo, releaseUndo,

@@ -20,6 +20,7 @@ const snapshot = c.snapshot;
 const totals = c.totals;
 const status = c.status;
 const pendingUndo = c.pendingUndo;
+const vaultPrompt = c.vaultPrompt;
 
 // First-run / returning-user helper: an untouched draft (not yet saved to the
 // server, no named item — the starter draft ships one blank row) shows a one-line
@@ -489,32 +490,25 @@ function onCorrected(res: { status: string; itemName?: string }) {
     </header>
 
     <main v-if="snapshot && totals" id="main-content" tabindex="-1" class="wrap editor__body">
-      <!-- Returning-user pointer back to saved lists, on a fresh empty draft only. The
-           marketing lede that used to sit here is gone: the ghosted title now says what
-           this page is, and a pitch above it just crowded the thing you came to do.
-           A corner snackbar rather than a line in the flow: it's an aside about OTHER
-           lists, and in the column it pushed the title of the one you came to write
-           down the page. Hidden while the vault pane is open — on a phone that pane is
-           a bottom sheet and the two would land on top of each other. -->
-      <Transition name="toast">
-        <div v-if="showIntro" class="toast toast--corner editor__intro" role="status">
-          <span class="editor__introtext">
-            <span class="editor__introlede">Pick up where you left off.</span>
-            <NuxtLink to="/mine" class="editor__introlink">
-              Your {{ savedCount }} saved {{ savedCount === 1 ? "list" : "lists" }} →
-            </NuxtLink>
-          </span>
-          <button
-            type="button"
-            class="editor__introclose"
-            aria-label="Dismiss"
-            title="Dismiss"
-            @click="dismissIntro"
-          >
-            <X :size="14" />
-          </button>
-        </div>
-      </Transition>
+      <!-- Returning-user pointer back to saved lists, on a fresh empty draft only.
+           The marketing lede that used to sit here is gone: the ghosted title now
+           says what this page is, and a pitch above it just crowded the thing you
+           came to do. A corner prompt rather than a line in the flow — it's an
+           aside about OTHER lists, and in the column it pushed the title of the one
+           you came to write down the page. Hidden while the vault pane is open: on
+           a phone that pane is a bottom sheet and the two would collide. -->
+      <Prompt
+        :show="showIntro"
+        lede="Pick up where you left off."
+        dismiss-label="Dismiss"
+        class="editor__intro"
+        @dismiss="dismissIntro"
+      >
+        <NuxtLink to="/mine" class="editor__introlink">
+          Your {{ savedCount }} saved {{ savedCount === 1 ? "list" : "lists" }} →
+        </NuxtLink>
+      </Prompt>
+
       <!-- The list name is a page title, not a toolbar field: large, borderless, with a
            ghosted placeholder, at the top of the content — matching what the two read
            views have always done (ReadonlyListView's h1). -->
@@ -609,6 +603,25 @@ function onCorrected(res: { status: string; itemName?: string }) {
       </div>
       <div v-else-if="toast" class="toast t-sm">{{ toast }}</div>
     </Transition>
+
+    <!-- Whose gear is this? An edit link you hold is either your own list on a
+         second device or one a friend shared, and nothing in the link says which —
+         so rather than guess, ask once and remember. Nothing has reached the vault
+         at this point; the answer is what decides, and dismissing IS answering.
+         No lede: the reason we're asking is our problem, not something to make you
+         read. The question is the whole message. -->
+    <Prompt
+      :show="!!vaultPrompt"
+      dismiss-label="Don’t add this list’s gear to my vault"
+      @dismiss="c.answerVaultPrompt(false)"
+    >
+      Add this gear to your vault?
+      <template #action>
+        <button class="undobar__btn t-sm" @click="c.answerVaultPrompt(true)">
+          <Vault :size="14" /> Add
+        </button>
+      </template>
+    </Prompt>
 
     <!-- the pane arrives from the edge it lives on; motion is in VaultPane's own
          styles, next to the geometry that decides which edge that is -->
@@ -788,37 +801,9 @@ function onCorrected(res: { status: string; itemName?: string }) {
 /* First-run pointer back to saved lists. Recedes once the list has content, and
    the close button retires it for good. Placement + surface are the shared
    .toast--corner atom; only what's INSIDE the snackbar lives here. */
-/* .toast already sets `color: var(--paper)` for the whole surface, and the reset
-   gives buttons and links `color: inherit` + no chrome — so everything below is
-   only the geometry and the two quiet steps down in emphasis. */
-.editor__introtext {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-px);
-}
-/* The lede is the quieter half: it explains, the link acts. Stepped back with
-   opacity rather than a dimmer token — the ink/paper pair inverts with the colour
-   scheme, and the --ink-N ramp doesn't exist in reverse for text ON ink. */
-.editor__introlede {
-  opacity: 0.72;
-}
 .editor__introlink:hover,
 .editor__introlink:focus-visible {
   text-decoration: underline;
-}
-/* the dismiss sits apart from the text block and centred against it */
-.editor__introclose {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  margin-left: auto;
-  padding: var(--space-1);
-  opacity: 0.72;
-}
-.editor__introclose:hover,
-.editor__introclose:focus-visible {
-  opacity: 1;
 }
 /* packing progress — one quiet line between the totals and the checklist. The
    count is the info; "Clear checks" sits beside it in the site's under-link

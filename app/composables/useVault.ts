@@ -8,6 +8,41 @@ import type { VaultEntry } from "~~/shared/vault";
 // capture
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// whose gear is this?
+// ---------------------------------------------------------------------------
+// A list you MADE is unambiguously yours, and its gear goes to your vault without
+// asking. An edit link you merely hold is not: it's your own list opened on a
+// second device, or one a friend sent you, and nothing in the link tells the two
+// apart. Rather than guess — and quietly copy a stranger's kit into your locker —
+// the editor asks once per list and remembers the answer.
+//
+// Per LIST, keyed by its edit token (already this device's IndexedDB key for the
+// list, so no new exposure). Device-local: it's a judgement about your own vault,
+// never sent anywhere.
+const DECISION_KEY = (editToken: string) => `gear.vault.for.${editToken}`;
+
+export type VaultDecision = "yes" | "no" | "ask";
+
+export function vaultDecisionFor(editToken: string): VaultDecision {
+  if (!import.meta.client || !editToken) return "yes"; // a draft is yours by definition
+  try {
+    const v = localStorage.getItem(DECISION_KEY(editToken));
+    return v === "yes" || v === "no" ? v : "ask";
+  } catch {
+    return "ask";
+  }
+}
+
+export function setVaultDecisionFor(editToken: string, decision: "yes" | "no"): void {
+  if (!editToken) return;
+  try {
+    localStorage.setItem(DECISION_KEY(editToken), decision);
+  } catch {
+    /* storage blocked — the choice holds for this session only */
+  }
+}
+
 /** How long the editor must be idle before a capture goes out. Long enough that
  *  typing an item name is one write rather than one per keystroke; short enough
  *  that a list closed shortly after editing has already been captured. */
