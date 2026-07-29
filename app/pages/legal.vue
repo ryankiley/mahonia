@@ -53,7 +53,7 @@ useHead({
         </p>
 
         <p>
-          Your <strong>vault</strong> — the gear remembered from the lists you build — works the
+          Your <strong>gear vault</strong> — the gear remembered from the lists you build — works the
           same way. It’s stored under its own unguessable link, and that link is the only thing
           that opens it. It holds gear: names, brands and weights.
           There’s no account attached to it, and nothing in it identifies you.
@@ -96,7 +96,7 @@ useHead({
         <ul>
           <li>Open “Your lists” to see every list saved on this device.</li>
           <li>There, “Remove from device” takes a list off this browser (the list itself stays online for anyone with its link); “Delete” removes the list from the server for everyone.</li>
-          <li>In your vault, “Remove” takes a piece of gear out and keeps it out — it won’t be picked up again from your lists. “Forget this vault on this device” drops the link from this browser without touching the vault itself.</li>
+          <li>In your gear vault, “Remove” takes a piece of gear out and keeps it out — it won’t be picked up again from your lists. “Forget this vault on this device” drops the link from this browser without touching the vault itself.</li>
           <li>
             For anything else, including a copy or deletion of a shared list, email
             <a :href="`mailto:${CONTACT_EMAIL}`">{{ CONTACT_EMAIL }}</a> and I’ll sort it out.

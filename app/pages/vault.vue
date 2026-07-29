@@ -13,7 +13,7 @@ import { formatWeightAuto, itemDisplayName } from "~~/shared/weights";
 //
 // noindex: it's one person's possessions and there is nothing here for a crawler.
 useHead({
-  title: "Your vault — Mahonia",
+  title: "Gear vault — Mahonia",
   meta: [{ name: "robots", content: "noindex" }],
 });
 
@@ -86,7 +86,7 @@ async function loadVault() {
     const res = await vaultFetch<{ items: VaultEntry[] }>("/api/vault/list");
     items.value = res.items || [];
   } catch {
-    loadError.value = "Couldn’t load your vault. Check your connection and try again.";
+    loadError.value = "Couldn’t load your gear vault. Check your connection and try again.";
   }
   loading.value = false;
 }
@@ -183,14 +183,14 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
 
     <main id="main-content" tabindex="-1" class="wrap page">
       <div class="vault__head">
-        <h1 class="t-title">Your vault</h1>
+        <h1 class="t-title">Gear vault</h1>
         <p class="t-sm t-muted vault__sub">Every piece of gear you’ve put in a list, in one place.</p>
       </div>
 
       <ClientOnly>
         <!-- no vault yet: nothing to sign up for, just an explanation -->
         <div v-if="!hasVault" class="vault__auth">
-          <p class="vault__sentline">Your vault fills itself.</p>
+          <p class="vault__sentline">Your gear vault fills itself.</p>
           <p class="t-sm t-muted">
             Add gear to a list and it lands here — weights, brands and all — ready to pull into
             the next list without retyping. There’s nothing to sign up for.
@@ -266,7 +266,7 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
                   type="button"
                   class="btn btn--quiet vault__remove"
                   :disabled="removing === entry.id"
-                  :aria-label="`Remove ${itemDisplayName(entry.brand, entry.name, entry.variant)} from your vault`"
+                  :aria-label="`Remove ${itemDisplayName(entry.brand, entry.name, entry.variant)} from your gear vault`"
                   @click="remove(entry)"
                 >
                   <Trash2 :size="14" aria-hidden="true" /> Remove
@@ -281,7 +281,7 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
 
           <div v-else class="vault__empty">
             <p class="t-muted">
-              Your vault is empty. Add gear to a list and it’ll show up here on its own.
+              Your gear vault is empty. Add gear to a list and it’ll show up here on its own.
             </p>
             <NuxtLink to="/e" class="btn btn--primary">Create a list</NuxtLink>
           </div>
@@ -301,7 +301,7 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
             </button>
             <div v-if="showTransfer" class="vault__transferbody">
               <p class="t-sm t-muted">
-                This link <em>is</em> your vault — anyone with it can see and change your gear, so
+                This link <em>is</em> your gear vault — anyone with it can see and change your gear, so
                 send it only to yourself. Open it on another device and that device holds the
                 vault too.
               </p>
@@ -310,7 +310,7 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
                   class="field vault__linkfield"
                   :value="transferUrl"
                   readonly
-                  aria-label="Link to this vault"
+                  aria-label="Link to this gear vault"
                   @focus="($event.target as HTMLInputElement).select()"
                 />
                 <button type="button" class="btn" @click="copyTransfer">

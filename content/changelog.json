@@ -12,7 +12,8 @@
       "Change the weight unit from the vault's total, the same way you do on a list.",
       "Removing gear from your vault now offers an undo, like removing an item from a list.",
       "The vault slides in when you open it beside a list, instead of appearing all at once.",
-      "Vault search now forgives typos and matches on gear type, like the item search does — and bolds what you typed."
+      "Vault search now forgives typos and matches on gear type, like the item search does — and bolds what you typed.",
+      "The vault is now called your gear vault, everywhere it's named."
     ],
     "fixed": [
       "Long gear names in the vault no longer swallow the brand or knock a row out of line.",

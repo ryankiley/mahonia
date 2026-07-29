@@ -9,14 +9,17 @@ const year = new Date().getFullYear();
   <footer class="foot">
     <div class="wrap foot__inner">
       <nav class="foot__nav" aria-label="Footer">
+        <!-- "Gear vault" is the thing's name, so it needs no possessive and doesn't
+             repeat the "Your" beside it — which is what made an earlier
+             "Your lists / Your vault" pair read as a set apart from About and Legal.
+             /mine keeps its original label.
+             The vault link is unconditional, not gated on holding one: the footer is
+             server-rendered on the read views and hasVault is a localStorage read, so
+             a conditional link would either mismatch on hydration or flicker. /vault
+             explains itself to someone who has none, exactly as /mine does with no
+             lists. -->
         <NuxtLink to="/mine" class="foot__link t-sm">Your lists</NuxtLink>
-        <!-- Beside "Your lists" because it's the same kind of thing: the other
-             device-local surface that is yours. Unconditional, not gated on holding a
-             vault — the footer is server-rendered on the read views, and hasVault is
-             a localStorage read, so a conditional link would either mismatch on
-             hydration or flicker. /vault explains itself to someone who has none,
-             exactly as /mine does with no lists. -->
-        <NuxtLink to="/vault" class="foot__link t-sm">Your vault</NuxtLink>
+        <NuxtLink to="/vault" class="foot__link t-sm">Gear vault</NuxtLink>
         <NuxtLink to="/about" class="foot__link t-sm">About</NuxtLink>
         <NuxtLink to="/legal" class="foot__link t-sm">Legal</NuxtLink>
       </nav>

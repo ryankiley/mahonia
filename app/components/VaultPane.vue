@@ -115,7 +115,7 @@ async function load() {
     const res = await vaultFetch<{ items: VaultEntry[] }>("/api/vault/list");
     items.value = res.items || [];
   } catch {
-    loadError.value = "Couldn’t load your vault.";
+    loadError.value = "Couldn’t load your gear vault.";
   }
   loading.value = false;
 }
@@ -271,7 +271,7 @@ onKeyStroke("Escape", () => emit("close"));
     :class="{ 'vp--sized': hasVault }"
     data-vault-pane
     role="dialog"
-    aria-label="Your vault"
+    aria-label="Gear vault"
   >
     <!-- the split divider. Desktop only (CSS); on a phone the sheet spans the
          gutters and there is nothing to drag. -->
@@ -280,7 +280,7 @@ onKeyStroke("Escape", () => emit("close"));
       role="separator"
       aria-orientation="vertical"
       tabindex="0"
-      aria-label="Resize the vault pane"
+      aria-label="Resize the gear vault"
       :aria-valuenow="width"
       :aria-valuemin="288"
       :aria-valuemax="720"
@@ -289,11 +289,11 @@ onKeyStroke("Escape", () => emit("close"));
       @keydown="onResizeKey"
     />
     <header class="vp__head">
-      <h2 class="t-label vp__title">Your vault</h2>
+      <h2 class="t-label vp__title">Gear vault</h2>
       <button
         type="button"
         class="btn btn--icon btn--ghost"
-        aria-label="Close the vault"
+        aria-label="Close the gear vault"
         title="Close"
         @click="emit('close')"
       >
@@ -307,7 +307,7 @@ onKeyStroke("Escape", () => emit("close"));
         Every piece of gear you add to a list is kept here, ready to drop into the next one.
         Nothing to set up — it fills itself as you build.
       </p>
-      <NuxtLink to="/vault" class="btn btn--primary">Open your vault</NuxtLink>
+      <NuxtLink to="/vault" class="btn btn--primary">Open your gear vault</NuxtLink>
     </div>
 
     <template v-else>
@@ -396,7 +396,7 @@ onKeyStroke("Escape", () => emit("close"));
       <p v-else-if="query" class="t-sm t-muted vp__note">Nothing here matches “{{ query }}”.</p>
       <div v-else class="vp__empty">
         <p class="t-sm t-muted">
-          Your vault is empty. Add gear to this list and it’ll collect itself here.
+          Your gear vault is empty. Add gear to this list and it’ll collect itself here.
         </p>
       </div>
     </template>

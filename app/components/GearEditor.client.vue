@@ -438,11 +438,11 @@ function onCorrected(res: { status: string; itemName?: string }) {
                way this one does. It keeps the aria-label on the button (the
                accessible NAME) and adds the visible description. Nothing changes on
                touch — <Tooltip> declines to open where there's no hover. -->
-          <Tooltip text="Your vault" preferred-placement="bottom">
+          <Tooltip text="Gear vault" preferred-placement="bottom">
             <button
               class="btn btn--icon btn--ghost editor__vault"
               :class="{ 'is-on': vaultOpen }"
-              aria-label="Your vault"
+              aria-label="Gear vault"
               :aria-expanded="vaultOpen"
               @click="vaultOpen = !vaultOpen"
             >
