@@ -18,7 +18,7 @@ import {
   isVaultWorthy,
   vaultNormKey,
 } from "../shared/vault";
-import { rankVaultRows } from "../server/utils/vaultRepo";
+import { rankVaultRows } from "../shared/vaultSearch";
 import type { Item } from "../shared/types";
 
 type DB = ReturnType<typeof drizzle>;

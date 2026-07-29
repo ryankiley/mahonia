@@ -155,6 +155,17 @@ button svg {
 .field:focus {
   outline: none;
 }
+/* Kill the platform's own search affordances. type="search" earns the semantics
+   (a clear role, the right virtual keyboard, Escape-to-clear on some platforms),
+   but WebKit dresses it with a cancel button that is a filled BLUE circle-x —
+   the only colour anywhere in the chrome, on a site whose one rule is that colour
+   belongs to the data viz and nothing else (tokens.scss). Safari also reserves
+   space for a results decoration that never renders. Drop both; the semantics stay. */
+input[type="search"]::-webkit-search-cancel-button,
+input[type="search"]::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+}
 .field::placeholder {
   color: var(--ink-3);
 }

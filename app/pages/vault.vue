@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChevronDown, Trash2, Undo2 } from "@lucide/vue";
+import { ChevronDown, CircleX, Trash2, Undo2 } from "@lucide/vue";
 import type { Unit } from "~~/shared/types";
 import type { VaultEntry } from "~~/shared/vault";
 import { formatWeightAuto, itemDisplayName } from "~~/shared/weights";
@@ -71,6 +71,12 @@ const items = ref<VaultEntry[]>([]);
 const loading = ref(false);
 const loadError = ref("");
 const query = ref("");
+const searchEl = useTemplateRef<HTMLInputElement>("searchEl");
+// clearing returns you to the field, not to nowhere — you cleared it to type again
+function clearQuery() {
+  query.value = "";
+  searchEl.value?.focus();
+}
 
 async function loadVault() {
   if (!hasVault.value) return;
@@ -195,13 +201,28 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
         <!-- the gear -->
         <div v-else>
           <div class="vault__bar">
-            <input
-              v-model="query"
-              class="field vault__search"
-              type="search"
-              placeholder="Search gear…"
-              aria-label="Search gear"
-            />
+            <div class="vault__searchwrap">
+              <input
+                ref="searchEl"
+                v-model="query"
+                class="field vault__search"
+                type="search"
+                placeholder="Search gear…"
+                aria-label="Search gear"
+              />
+              <!-- our own clear, in the site's ink — WebKit's native one is a filled
+                   blue circle-x (suppressed in atoms/controls.scss) -->
+              <button
+                v-if="query"
+                type="button"
+                class="vault__clear"
+                aria-label="Clear search"
+                title="Clear search"
+                @click="clearQuery"
+              >
+                <CircleX :size="15" :stroke-width="2" />
+              </button>
+            </div>
           </div>
 
           <p v-if="loadError" class="t-sm vault__error">{{ loadError }}</p>
@@ -382,10 +403,32 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
   gap: var(--space-3);
   margin-bottom: var(--space-4);
 }
-.vault__search {
+.vault__searchwrap {
+  position: relative;
+  display: flex;
+  align-items: center;
   flex: 1 1 auto;
   min-width: 0;
   max-width: 32ch;
+}
+.vault__search {
+  width: 100%;
+  /* room for the clear button, so a long query doesn't run under it */
+  padding-right: var(--space-5);
+}
+/* on the field, not beside it — see .vp__clear */
+.vault__clear {
+  position: absolute;
+  right: 0;
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+  color: var(--ink-3);
+  transition: color var(--dur) var(--ease);
+}
+.vault__clear:hover,
+.vault__clear:focus-visible {
+  color: var(--ink);
 }
 /* The total, doubling as the unit control — the editor's .totals__amount recipe at
    this page's smaller type: a relative box holding the figure and its chevron, with

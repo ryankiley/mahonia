@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { Check, Plus, X } from "@lucide/vue";
+import { Check, CircleX, Plus, X } from "@lucide/vue";
 import type { VaultEntry } from "~~/shared/vault";
 import { vaultNormKey } from "~~/shared/vault";
+import { rankVaultRows } from "~~/shared/vaultSearch";
+import { highlightParts } from "~~/shared/catalogSearch";
 import { formatWeight, itemDisplayName } from "~~/shared/weights";
 
 // The vault, alongside the list you're building — a floating palette you keep open
@@ -126,17 +128,33 @@ onMounted(() => {
 });
 watch(hasVault, () => load());
 
-// Plain substring filter over the already-loaded set — no request per keystroke.
-// Literal rather than fuzzy on purpose: you're scanning a list you can see, and a
-// ranked reshuffle under your eyes is disorienting. Fuzzy belongs in the
-// autocomplete, where the list isn't visible until you type.
+// The SAME fuzzy ranker the item autocomplete uses on this gear (shared/vaultSearch),
+// run over the already-loaded set — no request per keystroke.
+//
+// It used to be a literal substring filter, on the argument that you're scanning a
+// list you can see and a reshuffle under your eyes is disorienting. The reshuffle
+// part still holds; "literal" didn't. A vault is a hundred-odd rows, so you type
+// rather than scan, and a substring match answers a typo with an empty panel —
+// "katabatik" finding nothing while the autocomplete two inches away finds it is
+// the vault being harder to search than the catalog.
+//
+// No limit: the ranker caps at VAULT_SEARCH_LIMIT for a menu that must not push the
+// catalog off-screen, but this panel IS the list — showing six of a hundred matches
+// would hide gear you own.
 const filtered = computed(() => {
-  const q = query.value.trim().toLowerCase();
+  const q = query.value.trim();
   if (!q) return items.value;
-  return items.value.filter((i) =>
-    `${i.brand ?? ""} ${i.name} ${i.variant ?? ""} ${i.commonName ?? ""}`.toLowerCase().includes(q),
-  );
+  return rankVaultRows(items.value, q, Number.POSITIVE_INFINITY);
 });
+// bold the characters that overlap what's been typed — the same helper, and so the
+// same emphasis, as the autocomplete's rows
+const hl = (text: string) => highlightParts(text, query.value);
+
+// clearing returns you to the field, not to nowhere — you cleared it to type again
+function clearQuery() {
+  query.value = "";
+  searchEl.value?.focus();
+}
 
 // The gear the open list already holds, keyed by the SAME identity rule the vault
 // uses — so "Zpacks Duplex" in the list matches the vault row whatever the spacing
@@ -245,7 +263,16 @@ onKeyStroke("Escape", () => emit("close"));
 </script>
 
 <template>
-  <aside class="popover vp" data-vault-pane role="dialog" aria-label="Your vault">
+  <!-- vp--sized once there's a vault to browse: that's the state whose height has
+       to hold still while you filter it. The signed-out explainer is a short block
+       of prose and sizes to itself. -->
+  <aside
+    class="popover vp"
+    :class="{ 'vp--sized': hasVault }"
+    data-vault-pane
+    role="dialog"
+    aria-label="Your vault"
+  >
     <!-- the split divider. Desktop only (CSS); on a phone the sheet spans the
          gutters and there is nothing to drag. -->
     <div
@@ -285,14 +312,29 @@ onKeyStroke("Escape", () => emit("close"));
 
     <template v-else>
       <div class="vp__controls">
-        <input
-          ref="searchEl"
-          v-model="query"
-          class="field vp__search"
-          type="search"
-          placeholder="Search gear…"
-          aria-label="Search gear"
-        />
+        <!-- our own clear, not the platform's: WebKit's cancel button is a filled
+             blue circle-x, the only colour in the chrome (suppressed in
+             atoms/controls.scss). This is the same glyph in the site's ink. -->
+        <div class="vp__searchwrap">
+          <input
+            ref="searchEl"
+            v-model="query"
+            class="field vp__search"
+            type="search"
+            placeholder="Search gear…"
+            aria-label="Search gear"
+          />
+          <button
+            v-if="query"
+            type="button"
+            class="vp__clear"
+            aria-label="Clear search"
+            title="Clear search"
+            @click="clearQuery"
+          >
+            <CircleX :size="15" :stroke-width="2" />
+          </button>
+        </div>
         <label v-if="folders.length" class="vp__target">
           <span class="t-sm t-muted">Add to</span>
           <select v-model="targetFolderId" class="field vp__select" aria-label="Folder to add into">
@@ -323,8 +365,12 @@ onKeyStroke("Escape", () => emit("close"));
           >
             <span class="vp__main">
               <span class="vp__name">
-                <span v-if="entry.brand" class="vp__brand">{{ entry.brand }}</span>
-                <span>{{ entry.name }}</span>
+                <span v-if="entry.brand" class="vp__brand"
+                  ><span v-for="(p, pi) in hl(entry.brand)" :key="pi" :class="{ 'vp__hl': p.on }">{{ p.t }}</span></span
+                >
+                <span
+                  ><span v-for="(p, pi) in hl(entry.name)" :key="pi" :class="{ 'vp__hl': p.on }">{{ p.t }}</span></span
+                >
                 <span v-if="entry.variant" class="vp__variant">· {{ entry.variant }}</span>
               </span>
               <!-- the row can't be added again, so it says so plainly. A COUNT was
@@ -464,9 +510,32 @@ onKeyStroke("Escape", () => emit("close"));
 }
 /* .field is borderless by design; inside a floating panel it needs an edge to read
    as an input at all — the same bottom rule the sign-in field uses */
+.vp__searchwrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
 .vp__search {
   width: 100%;
   border-bottom: 1px solid var(--line);
+  /* room for the clear button, so a long query doesn't run under it */
+  padding-right: var(--space-5);
+}
+/* Sits ON the field rather than beside it: the rule under the input is the field's
+   whole visible boundary, and a sibling button would either break that line or push
+   the input narrower whenever a query exists (a field that resizes as you type). */
+.vp__clear {
+  position: absolute;
+  right: 0;
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+  color: var(--ink-3);
+  transition: color var(--dur) var(--ease);
+}
+.vp__clear:hover,
+.vp__clear:focus-visible {
+  color: var(--ink);
 }
 .vp__search:focus {
   border-bottom-color: var(--ink-2);
@@ -496,6 +565,17 @@ onKeyStroke("Escape", () => emit("close"));
 .vp__note,
 .vp__error {
   padding-block: var(--space-2);
+}
+/* The sheet holds its height while you filter (see .vp--sized), so a one-line
+   "nothing matches" was left pinned to the top of a mostly-empty panel. Centre it
+   in the space the rows would have occupied — flex:1 claims that space, and the
+   note sits in the middle of it. */
+.vp__note {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
 }
 .vp__error {
   color: var(--ink);
@@ -585,6 +665,12 @@ onKeyStroke("Escape", () => emit("close"));
   margin-right: 0.4ch;
   color: var(--ink-2);
 }
+/* the characters that overlap what you've typed read bold — the same emphasis, from
+   the same helper, as the autocomplete's rows (.ac__hl) */
+.vp__hl {
+  font-weight: 700;
+  color: var(--ink);
+}
 .vp__variant {
   margin-left: 0.4ch;
   font-style: italic;
@@ -643,7 +729,18 @@ onKeyStroke("Escape", () => emit("close"));
     bottom: var(--space-3);
     left: var(--space-3);
     width: auto;
-    max-height: min(28rem, 55dvh);
+    max-height: min(27.5rem, 55dvh);
+  }
+  /* A FIXED height, not a max, once there's gear to browse. As a max, the sheet
+     shrank to fit whatever the filter left — so typing into the search resized the
+     surface under your thumb, and clearing it snapped it back. The rows move; the
+     thing holding them shouldn't. (Desktop needs no equivalent: the column is
+     pinned top and bottom, so it's already a fixed height.)
+     27.5rem = 440px, on the 8px grid. The dvh clamp still wins on a short phone —
+     the sheet must not eat the list it sits beside — so the height is fixed per
+     device rather than always literally 440. */
+  .vp--sized {
+    height: min(27.5rem, 55dvh);
   }
   /* nothing to resize when the sheet spans the gutters */
   .vp__resize {

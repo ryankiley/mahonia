@@ -10,6 +10,13 @@ const year = new Date().getFullYear();
     <div class="wrap foot__inner">
       <nav class="foot__nav" aria-label="Footer">
         <NuxtLink to="/mine" class="foot__link t-sm">Your lists</NuxtLink>
+        <!-- Beside "Your lists" because it's the same kind of thing: the other
+             device-local surface that is yours. Unconditional, not gated on holding a
+             vault — the footer is server-rendered on the read views, and hasVault is
+             a localStorage read, so a conditional link would either mismatch on
+             hydration or flicker. /vault explains itself to someone who has none,
+             exactly as /mine does with no lists. -->
+        <NuxtLink to="/vault" class="foot__link t-sm">Your vault</NuxtLink>
         <NuxtLink to="/about" class="foot__link t-sm">About</NuxtLink>
         <NuxtLink to="/legal" class="foot__link t-sm">Legal</NuxtLink>
       </nav>
