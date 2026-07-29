@@ -3,7 +3,7 @@
 // ordering is identical whichever engine is underneath, exactly as the catalog
 // does it.
 
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { vaultItems } from "../db/schema";
 import type { useVaultDb } from "./db";
 import {
@@ -155,6 +155,26 @@ export async function listVaultItems(db: Db, vaultId: number): Promise<VaultEntr
     .from(vaultItems)
     .where(and(eq(vaultItems.vaultId, vaultId), isNull(vaultItems.removedAt)))
     .orderBy(desc(vaultItems.lastUsedAt))
+    .limit(POOL_LIMIT);
+  return rows.map(toEntry);
+}
+
+/**
+ * The tombstoned rows — what "Remove" put away, most recently removed first.
+ *
+ * They need somewhere to be seen. Capture deliberately never clears a tombstone
+ * (see captureVaultItems), which is what stops every list still holding the gear
+ * from resurrecting it — but it also means removal is otherwise PERMANENT, with
+ * nothing but the undo toast's few seconds to take it back. This is the way back:
+ * one deliberate click, rather than the vault trying to guess from a capture
+ * whether you meant to re-add something.
+ */
+export async function listRemovedVaultItems(db: Db, vaultId: number): Promise<VaultEntry[]> {
+  const rows = await db
+    .select()
+    .from(vaultItems)
+    .where(and(eq(vaultItems.vaultId, vaultId), isNotNull(vaultItems.removedAt)))
+    .orderBy(desc(vaultItems.updatedAt))
     .limit(POOL_LIMIT);
   return rows.map(toEntry);
 }

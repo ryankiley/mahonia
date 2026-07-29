@@ -68,6 +68,12 @@ async function forgetVault() {
 
 // ---- the gear ------------------------------------------------------------
 const items = ref<VaultEntry[]>([]);
+// What "Remove" put away. Capture never resurrects a tombstoned row — that's what
+// stops every list still holding the gear from undoing your removal — so without
+// somewhere to see them, removal would be permanent past the undo toast's few
+// seconds. This is the way back, and it's deliberate rather than guessed.
+const removed = ref<VaultEntry[]>([]);
+const showRemoved = ref(false);
 const loading = ref(false);
 const loadError = ref("");
 const query = ref("");
@@ -83,8 +89,9 @@ async function loadVault() {
   loading.value = true;
   loadError.value = "";
   try {
-    const res = await vaultFetch<{ items: VaultEntry[] }>("/api/vault/list");
+    const res = await vaultFetch<{ items: VaultEntry[]; removed: VaultEntry[] }>("/api/vault/list");
     items.value = res.items || [];
+    removed.value = res.removed || [];
   } catch {
     loadError.value = "Couldn’t load your gear vault. Check your connection and try again.";
   }
@@ -92,7 +99,30 @@ async function loadVault() {
 }
 // load once we know whether this device holds a vault, and again if that changes
 // (a transfer link adopted above, or another tab minting one)
-watch(hasVault, (v) => (v ? loadVault() : (items.value = [])), { immediate: true });
+watch(
+  hasVault,
+  (v) => {
+    if (v) return void loadVault();
+    items.value = [];
+    removed.value = [];
+  },
+  { immediate: true },
+);
+
+// Put a removed piece of gear back. Same endpoint the undo toast uses — restoring
+// is restoring, whether you do it two seconds later or two months.
+async function putBack(entry: VaultEntry) {
+  restoring.value = entry.id;
+  loadError.value = "";
+  try {
+    await vaultFetch("/api/vault/remove", { method: "POST", body: { id: entry.id, restore: true } });
+    await loadVault();
+  } catch {
+    loadError.value = "Couldn’t put that back. Check your connection and try again.";
+  }
+  restoring.value = null;
+}
+const restoring = ref<number | null>(null);
 
 // Plain substring filter, not the trigram ranker: this is a list you're LOOKING
 // at, so narrowing it should be literal and predictable. Fuzzy matching belongs in
@@ -284,6 +314,51 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
               Your gear vault is empty. Add gear to a list and it’ll show up here on its own.
             </p>
             <NuxtLink to="/e" class="btn btn--primary">Create a list</NuxtLink>
+          </div>
+
+          <!-- The way back from Remove. Behind a disclosure, and only when there IS
+               something removed: it's a repair affordance, not part of browsing your
+               gear, and an always-visible "Removed (0)" would be clutter on the
+               common case. Capture deliberately can't undo a removal for you, so
+               this is the one place a removal is reversible after the undo toast
+               has gone. -->
+          <div v-if="removed.length" class="vault__removed">
+            <button
+              type="button"
+              class="btn btn--quiet vault__disclose"
+              :aria-expanded="showRemoved"
+              @click="showRemoved = !showRemoved"
+            >
+              {{ showRemoved ? "Hide removed gear" : `Removed gear (${removed.length})` }}
+            </button>
+            <div v-if="showRemoved" class="vault__removedbody">
+              <p class="t-sm t-muted">
+                Removed gear stays out of your vault and out of the suggestions, even if it's
+                still in a list. Put a piece back and it's yours again.
+              </p>
+              <ul class="vault__list">
+                <li v-for="entry in removed" :key="entry.id" class="vault__row">
+                  <div class="vault__main">
+                    <p class="vault__name">
+                      <span v-if="entry.brand" class="vault__brand">{{ entry.brand }}</span>
+                      <span>{{ entry.name }}</span>
+                      <span v-if="entry.variant" class="vault__variant">· {{ entry.variant }}</span>
+                    </p>
+                    <p v-if="entry.commonName" class="t-sm t-muted vault__meta">{{ entry.commonName }}</p>
+                  </div>
+                  <span class="t-num vault__weight">{{ weightLabel(entry.weightMg) }}</span>
+                  <button
+                    type="button"
+                    class="btn btn--quiet vault__remove"
+                    :disabled="restoring === entry.id"
+                    :aria-label="`Put ${itemDisplayName(entry.brand, entry.name, entry.variant)} back in your gear vault`"
+                    @click="putBack(entry)"
+                  >
+                    <Undo2 :size="14" aria-hidden="true" /> Put back
+                  </button>
+                </li>
+              </ul>
+            </div>
           </div>
 
           <!-- The link IS the vault. This is the only place it's shown, and it's
@@ -544,6 +619,27 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
    link it reveals is a capability, so nothing about this should invite a casual
    click; it sits below the gear, under a hairline, like the "Your account" link it
    replaced. */
+/* the removed-gear disclosure sits above the transfer one, both quiet footers to
+   the page proper — same hairline seam, so they read as a pair of asides */
+.vault__removed {
+  margin-top: var(--space-7);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--line);
+}
+.vault__removedbody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+/* the rows are the same object as the live ones, just dimmed — they're out of the
+   vault, and the page shouldn't offer them with the same weight as gear you have */
+.vault__removedbody .vault__row {
+  opacity: 0.6;
+}
+.vault__removedbody .vault__row:hover {
+  opacity: 1;
+}
 .vault__transfer {
   margin-top: var(--space-7);
   padding-top: var(--space-4);

@@ -4,7 +4,8 @@
     "added": [
       "Drag gear straight from your vault onto the folder you want it in, instead of picking the folder first.",
       "Your vault sits beside the list you're building and can be resized to whatever width suits you.",
-      "Reach your vault from the footer of any page."
+      "Reach your vault from the footer of any page.",
+      "Gear you've removed from your vault is listed under \"Removed gear\", so you can put a piece back."
     ],
     "changed": [
       "Gear already in the open list shows as \"Already added\" in the vault, so nothing lands twice.",
