@@ -610,7 +610,11 @@ function onCorrected(res: { status: string; itemName?: string }) {
       <div v-else-if="toast" class="toast t-sm">{{ toast }}</div>
     </Transition>
 
-    <LazyVaultPane v-if="vaultOpen" v-model:width="vaultWidth" @close="vaultOpen = false" />
+    <!-- the pane arrives from the edge it lives on; motion is in VaultPane's own
+         styles, next to the geometry that decides which edge that is -->
+    <Transition name="vaultpane">
+      <LazyVaultPane v-if="vaultOpen" v-model:width="vaultWidth" @close="vaultOpen = false" />
+    </Transition>
 
     <LazyCatalogCorrectionModal v-if="correctionEverOpened" @done="onCorrected" />
     <LazyImportModal v-if="importEverOpened" :open="importOpen" @close="importOpen = false" />

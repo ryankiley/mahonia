@@ -199,8 +199,8 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
               v-model="query"
               class="field vault__search"
               type="search"
-              placeholder="Search your gear…"
-              aria-label="Search your gear"
+              placeholder="Search gear…"
+              aria-label="Search gear"
             />
           </div>
 

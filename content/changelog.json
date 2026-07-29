@@ -9,7 +9,8 @@
       "Gear already in the open list shows as \"Already added\" in the vault, so nothing lands twice.",
       "About and What's new are one page now.",
       "Change the weight unit from the vault's total, the same way you do on a list.",
-      "Removing gear from your vault now offers an undo, like removing an item from a list."
+      "Removing gear from your vault now offers an undo, like removing an item from a list.",
+      "The vault slides in when you open it beside a list, instead of appearing all at once."
     ],
     "fixed": [
       "Long gear names in the vault no longer swallow the brand or knock a row out of line."

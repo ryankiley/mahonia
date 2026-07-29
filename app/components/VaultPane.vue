@@ -290,8 +290,8 @@ onKeyStroke("Escape", () => emit("close"));
           v-model="query"
           class="field vp__search"
           type="search"
-          placeholder="Search your gear…"
-          aria-label="Search your gear"
+          placeholder="Search gear…"
+          aria-label="Search gear"
         />
         <label v-if="folders.length" class="vp__target">
           <span class="t-sm t-muted">Add to</span>
@@ -648,6 +648,47 @@ onKeyStroke("Escape", () => emit("close"));
   /* nothing to resize when the sheet spans the gutters */
   .vp__resize {
     display: none;
+  }
+}
+
+/* ---- entrance ------------------------------------------------------------
+   Pairs with <Transition name="vaultpane"> in GearEditor. The pane comes in from
+   the edge it actually sits on — inward from the right as a desktop column, up
+   from the bottom as a phone sheet — so the motion reads as the panel arriving
+   from off-screen rather than as a card materialising in place.
+   No scale: the menus and toasts scale because they're small objects popping out
+   of a control, but a full-height panel scaling looks like the page zooming.
+   Distance is deliberately short (--space-3). It's an orientation cue, not a
+   reveal — the pane is opened on purpose, and anything longer gets in the way of
+   the thing you opened it to do.
+   Entrance leads with opacity on the quicker --dur while the travel settles on the
+   spring; the exit is faster and flatter, the same asymmetry .menu and .toast use.
+   (The global prefers-reduced-motion rule in main.scss flattens both.) */
+.vaultpane-enter-active {
+  transition:
+    opacity var(--dur) var(--ease),
+    transform var(--dur-slow) var(--ease-spring);
+}
+.vaultpane-leave-active {
+  transition:
+    opacity calc(var(--dur) * 0.6) var(--ease),
+    transform calc(var(--dur) * 0.6) var(--ease);
+}
+.vaultpane-enter-from {
+  opacity: 0;
+  transform: translateX(var(--space-3));
+}
+.vaultpane-leave-to {
+  opacity: 0;
+  transform: translateX(var(--space-2));
+}
+@media (max-width: $bp-full) {
+  /* the sheet's edge is the bottom one */
+  .vaultpane-enter-from {
+    transform: translateY(var(--space-3));
+  }
+  .vaultpane-leave-to {
+    transform: translateY(var(--space-2));
   }
 }
 </style>
