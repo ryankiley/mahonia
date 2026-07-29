@@ -6,7 +6,8 @@
       "Your vault sits beside the list you're building and can be resized to whatever width suits you.",
       "Reach your vault from the footer of any page.",
       "Gear you've removed from your vault is listed under \"Removed gear\", so you can put a piece back.",
-      "Folders in your gear vault: gear files itself under the list folder it came from, and you can rename, sort, reorder and delete them."
+      "Folders in your gear vault: gear files itself under the list folder it came from, and you can rename, sort, reorder and delete them.",
+      "Drag gear between folders in your vault."
     ],
     "changed": [
       "Gear already in the open list shows as \"Already added\" in the vault, so nothing lands twice.",

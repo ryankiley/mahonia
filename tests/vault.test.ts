@@ -5,12 +5,13 @@ import { beforeEach, describe, expect, it } from "vitest";
 import * as schema from "../server/db/schema";
 import { VAULT_DDL } from "../server/utils/vaultSchema";
 import {
+  applyVaultFolderOp,
   captureVaultItems,
+  listVaultFolders,
   listVaultItems,
   removeVaultItem,
   restoreVaultItem,
   searchVaultItems,
-  setVaultItemPrice,
 } from "../server/utils/vaultRepo";
 import {
   captureFingerprint,
@@ -316,3 +317,92 @@ describe("vault search", () => {
   });
 });
 
+// The rules that make a vault fill itself organised instead of arriving as one flat
+// pile — and the one that stops it being rearranged behind your back.
+describe("vault folders", () => {
+  let db: DB;
+  const VAULT = 1;
+  beforeEach(async () => {
+    db = await freshDb();
+  });
+
+  const cap = (name: string, folder?: string) => ({
+    normKey: vaultNormKey("Zpacks", name, null),
+    brand: "Zpacks",
+    name,
+    weightMg: 500_000,
+    ...(folder ? { folder } : {}),
+  }) as any;
+
+  it("creates a folder from the list folder a capture names, and files the gear in it", async () => {
+    await captureVaultItems(db as any, VAULT, [cap("Duplex", "Shelter"), cap("Quilt", "Sleep")]);
+
+    const folders = await listVaultFolders(db as any, VAULT);
+    expect(folders.map((f) => f.name)).toEqual(["Shelter", "Sleep"]);
+
+    const rows = await listVaultItems(db as any, VAULT);
+    const byName = new Map(rows.map((r) => [r.name, r.folderId]));
+    expect(byName.get("Duplex")).toBe(folders[0]!.id);
+    expect(byName.get("Quilt")).toBe(folders[1]!.id);
+  });
+
+  it("reuses one folder for the same name, however many lists send it", async () => {
+    await captureVaultItems(db as any, VAULT, [cap("Duplex", "Shelter")]);
+    await captureVaultItems(db as any, VAULT, [cap("Quilt", "Shelter")]);
+    // "Shelter" in two lists is ONE vault folder — the name is the identity
+    expect(await listVaultFolders(db as any, VAULT)).toHaveLength(1);
+  });
+
+  it("FIRST filing wins — a later list can't reshuffle a vault you've arranged", async () => {
+    await captureVaultItems(db as any, VAULT, [cap("Duplex", "Shelter")]);
+    const shelter = (await listVaultFolders(db as any, VAULT))[0]!;
+
+    // the same gear, captured from a list that groups it differently
+    await captureVaultItems(db as any, VAULT, [cap("Duplex", "Big 3")]);
+
+    // the new folder exists (another list really does use it) but the row stays put
+    expect((await listVaultFolders(db as any, VAULT)).map((f) => f.name)).toEqual(["Shelter", "Big 3"]);
+    expect((await listVaultItems(db as any, VAULT))[0]!.folderId).toBe(shelter.id);
+  });
+
+  it("a capture with no folder leaves an already-filed row where it is", async () => {
+    await captureVaultItems(db as any, VAULT, [cap("Duplex", "Shelter")]);
+    const shelter = (await listVaultFolders(db as any, VAULT))[0]!;
+    await captureVaultItems(db as any, VAULT, [cap("Duplex")]); // ungrouped list row
+    expect((await listVaultItems(db as any, VAULT))[0]!.folderId).toBe(shelter.id);
+  });
+
+  it("deleting a folder UNFILES its gear rather than taking it along", async () => {
+    await captureVaultItems(db as any, VAULT, [cap("Duplex", "Shelter"), cap("Quilt", "Shelter")]);
+    const shelter = (await listVaultFolders(db as any, VAULT))[0]!;
+
+    expect(await applyVaultFolderOp(db as any, VAULT, { t: "remove", id: shelter.id })).toBe(true);
+
+    // a folder is a heading, not a container — losing gear because you tidied one
+    // would be indefensible
+    const rows = await listVaultItems(db as any, VAULT);
+    expect(rows).toHaveLength(2);
+    expect(rows.every((r) => r.folderId === undefined)).toBe(true);
+    expect(await listVaultFolders(db as any, VAULT)).toHaveLength(0);
+  });
+
+  it("rename keeps the gear filed, and reorder is what the drag commits", async () => {
+    await captureVaultItems(db as any, VAULT, [cap("Duplex", "Shelter")]);
+    const shelter = (await listVaultFolders(db as any, VAULT))[0]!;
+    await applyVaultFolderOp(db as any, VAULT, { t: "rename", id: shelter.id, name: "Tents" });
+    expect((await listVaultItems(db as any, VAULT))[0]!.folderId).toBe(shelter.id);
+
+    await applyVaultFolderOp(db as any, VAULT, { t: "add", name: "Cook" });
+    const ids = (await listVaultFolders(db as any, VAULT)).map((f) => f.id);
+    await applyVaultFolderOp(db as any, VAULT, { t: "reorder", ids: [ids[1]!, ids[0]!] });
+    expect((await listVaultFolders(db as any, VAULT)).map((f) => f.name)).toEqual(["Cook", "Tents"]);
+  });
+
+  it("refuses a sort it doesn't recognise rather than storing it", async () => {
+    await applyVaultFolderOp(db as any, VAULT, { t: "add", name: "Shelter" });
+    const f = (await listVaultFolders(db as any, VAULT))[0]!;
+    await applyVaultFolderOp(db as any, VAULT, { t: "sort", id: f.id, sortBy: "sideways" });
+    // an unknown verb falls back to the default rather than reaching the client
+    expect((await listVaultFolders(db as any, VAULT))[0]!.sortBy).toBeUndefined();
+  });
+});

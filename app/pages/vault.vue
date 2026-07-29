@@ -277,10 +277,82 @@ const folderDrag = createPointerDrag<number>({
     draggingFolder.value = null;
     folderDrop.value = null;
   },
+  within: ".vault__page",
 });
 function startFolderDrag(id: number, ev: PointerEvent) {
   draggingFolder.value = id;
   folderDrag.start(String(id), ev);
+}
+
+// Drag a piece of gear into another folder. Same scaffold, a separate gesture: a
+// folder drag reorders headings, this one re-files a row, and one `track` trying to
+// mean both would have to guess from the grab point which you meant.
+//
+// The drop target is the FOLDER, not a slot within it: a vault folder's order is
+// its sortBy, so there is no position to aim at — unlike the list, where dropping
+// between two rows is the whole point.
+const draggingItem = ref<number | null>(null);
+// number = a folder, null = unfiled, undefined = not over a drop target
+const itemDrop = ref<number | null | undefined>(undefined);
+const itemDrag = createPointerDrag<number | null>({
+  track(ev, el) {
+    const over = el?.closest("[data-vault-folder]") as HTMLElement | null;
+    // off every section (the page margins, the header) — hold the last target so a
+    // wobble mid-drag doesn't drop the indicator
+    if (!over) return;
+    const attr = over.getAttribute("data-vault-folder");
+    itemDrop.value = attr ? Number(attr) : null; // "" is the unfiled section
+  },
+  target: () => (itemDrop.value === undefined ? null : itemDrop.value),
+  commit: (dragId, folderId) => {
+    const itemId = Number(dragId);
+    const from = items.value.find((i) => i.id === itemId)?.folderId ?? null;
+    if (from === folderId) return; // dropped where it already was
+    void folderOp({ t: "move", itemId, folderId });
+  },
+  onStart() {
+    itemDrop.value = undefined;
+  },
+  onReset() {
+    draggingItem.value = null;
+    itemDrop.value = undefined;
+  },
+  within: ".vault__page",
+});
+// Grab a row anywhere — unlike the pane's rows these aren't click targets, so
+// there's nothing to tell the gesture apart from and no handle to add. A small
+// travel threshold still separates a drag from a stray press, and a press that
+// starts on a control (the folder picker, the bin) is left alone.
+const DRAG_THRESHOLD = 5;
+let rowPress: { x: number; y: number; pointerId: number; id: number } | null = null;
+function endRowPress() {
+  rowPress = null;
+  window.removeEventListener("pointermove", onRowPressMove);
+  window.removeEventListener("pointerup", endRowPress);
+  window.removeEventListener("pointercancel", endRowPress);
+}
+function onRowPressMove(ev: PointerEvent) {
+  if (!rowPress || ev.pointerId !== rowPress.pointerId) return;
+  if (Math.hypot(ev.clientX - rowPress.x, ev.clientY - rowPress.y) < DRAG_THRESHOLD) return;
+  const id = rowPress.id;
+  endRowPress();
+  startItemDrag(id, ev);
+}
+function onRowPointerDown(id: number, ev: PointerEvent) {
+  if (ev.button !== 0) return;
+  // a select or a button owns its own press
+  if ((ev.target as HTMLElement).closest("select, button")) return;
+  endRowPress();
+  rowPress = { x: ev.clientX, y: ev.clientY, pointerId: ev.pointerId, id };
+  window.addEventListener("pointermove", onRowPressMove);
+  window.addEventListener("pointerup", endRowPress);
+  window.addEventListener("pointercancel", endRowPress);
+}
+onBeforeUnmount(endRowPress);
+
+function startItemDrag(id: number, ev: PointerEvent) {
+  draggingItem.value = id;
+  itemDrag.start(String(id), ev);
 }
 
 const newFolder = ref("");
@@ -384,7 +456,7 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
       <NuxtLink to="/e" class="btn btn--link">Create a list</NuxtLink>
     </SiteTopbar>
 
-    <main id="main-content" tabindex="-1" class="wrap page">
+    <main id="main-content" tabindex="-1" class="wrap page vault__page">
       <div class="vault__head">
         <h1 class="t-title">Gear vault</h1>
         <p class="t-sm t-muted vault__sub">Every piece of gear you’ve put in a list, in one place.</p>
@@ -467,6 +539,10 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
               :class="{
                 'folder--dragging': section.folder && draggingFolder === section.folder.id,
                 'folder--drop-before': section.folder && draggingFolder !== null && folderDrop === section.folder.id,
+                'folder--drop-into':
+                  draggingItem !== null &&
+                  itemDrop !== undefined &&
+                  itemDrop === (section.folder ? section.folder.id : null),
               }"
               :data-vault-folder="section.folder ? section.folder.id : ''"
               :data-collapsed="section.folder && collapsed[section.folder.id] ? true : null"
@@ -545,7 +621,13 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
                     Nothing filed here yet.
                   </p>
                   <ul v-else class="vault__list">
-                    <li v-for="entry in section.entries" :key="entry.id" class="vault__row">
+                    <li
+                      v-for="entry in section.entries"
+                      :key="entry.id"
+                      class="vault__row"
+                      :class="{ 'vault__row--dragging': draggingItem === entry.id }"
+                      @pointerdown="onRowPointerDown(entry.id, $event)"
+                    >
                       <div class="vault__main">
                         <p class="vault__name">
                           <span v-if="entry.brand" class="vault__brand">{{ entry.brand }}</span>
@@ -938,6 +1020,16 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
 /* the lifted folder + its drop line, the same two states the editor shows (its own
    copies stay scoped there because they also cover the item-drag pass) */
 .folder--dragging {
+  opacity: 0.4;
+}
+/* the folder a dragged row will land in — a tint rather than an insertion line,
+   because a vault folder has no slot to aim at (its order is its sortBy) */
+.folder--drop-into {
+  background: var(--paper-2);
+  border-radius: var(--radius-2);
+  box-shadow: 0 0 0 var(--space-2) var(--paper-2);
+}
+.vault__row--dragging {
   opacity: 0.4;
 }
 .folder--drop-before::before {
