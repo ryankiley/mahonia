@@ -7,8 +7,10 @@ import { VAULT_DDL } from "../server/utils/vaultSchema";
 import {
   applyVaultFolderOp,
   captureVaultItems,
+  listRemovedVaultItems,
   listVaultFolders,
   listVaultItems,
+  mergeVaults,
   removeVaultItem,
   restoreVaultItem,
   searchVaultItems,
@@ -404,5 +406,128 @@ describe("vault folders", () => {
     await applyVaultFolderOp(db as any, VAULT, { t: "sort", id: f.id, sortBy: "sideways" });
     // an unknown verb falls back to the default rather than reaching the client
     expect((await listVaultFolders(db as any, VAULT))[0]!.sortBy).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// merging two vaults — what a transfer link runs before it swaps a device over
+// ---------------------------------------------------------------------------
+describe("mergeVaults — carrying a device's gear onto a transfer link", () => {
+  let db: DB;
+  const PHONE = 1; // the vault this device had been collecting into
+  const LAPTOP = 2; // the vault whose link was just opened
+
+  const cap = (over: Record<string, unknown> = {}) => ({
+    normKey: "",
+    name: "Duplex",
+    brand: "Zpacks",
+    weightMg: 539_000,
+    ...over,
+  }) as any;
+
+  beforeEach(async () => {
+    db = await freshDb();
+  });
+
+  it("brings gear the destination has never seen", async () => {
+    await captureVaultItems(db as any, PHONE, [cap({ name: "Duplex" })]);
+    await captureVaultItems(db as any, LAPTOP, [cap({ name: "Kakwa 55", brand: "Durston" })]);
+
+    expect(await mergeVaults(db as any, LAPTOP, PHONE)).toBe(1);
+    const names = (await listVaultItems(db as any, LAPTOP)).map((e) => e.name).sort();
+    expect(names).toEqual(["Duplex", "Kakwa 55"]);
+    // and the source is left intact — merging is a copy, not a move, so a link
+    // still in someone's hands keeps working
+    expect(await listVaultItems(db as any, PHONE)).toHaveLength(1);
+  });
+
+  it("folds the same gear onto one row instead of duplicating it", async () => {
+    await captureVaultItems(db as any, PHONE, [cap({ weightMg: 540_000 })]);
+    await captureVaultItems(db as any, LAPTOP, [cap({ weightMg: 539_000 })]);
+
+    await mergeVaults(db as any, LAPTOP, PHONE);
+    const rows = await listVaultItems(db as any, LAPTOP);
+    expect(rows).toHaveLength(1);
+    // capture's rule: a real weight wins, so the reweighing carried over
+    expect(rows[0]!.weightMg).toBe(540_000);
+  });
+
+  it("re-files gear under the destination's folder of the same name", async () => {
+    await captureVaultItems(db as any, PHONE, [cap({ folder: "Shelter" })]);
+    await captureVaultItems(db as any, LAPTOP, [cap({ name: "Kakwa 55", folder: "Shelter" })]);
+
+    await mergeVaults(db as any, LAPTOP, PHONE);
+    // ONE "Shelter", not two — folders merge by name, since ids are per-vault
+    const folders = await listVaultFolders(db as any, LAPTOP);
+    expect(folders.map((f) => f.name)).toEqual(["Shelter"]);
+    const rows = await listVaultItems(db as any, LAPTOP);
+    expect(rows).toHaveLength(2);
+    expect(new Set(rows.map((r) => r.folderId))).toEqual(new Set([folders[0]!.id]));
+  });
+
+  // Capture only ever creates the folders its own rows name, so an item-driven
+  // merge silently drops a heading you'd made but not filled — structure you built
+  // by hand, lost by using the feature that carries your vault between devices.
+  it("carries a folder that has no gear in it yet", async () => {
+    await captureVaultItems(db as any, PHONE, [cap({ folder: "Shelter" })]);
+    await applyVaultFolderOp(db as any, PHONE, { t: "add", name: "Winter kit" });
+
+    await mergeVaults(db as any, LAPTOP, PHONE);
+    expect((await listVaultFolders(db as any, LAPTOP)).map((f) => f.name).sort()).toEqual([
+      "Shelter",
+      "Winter kit",
+    ]);
+  });
+
+  it("does not resurrect what the destination removed", async () => {
+    await captureVaultItems(db as any, PHONE, [cap()]);
+    await captureVaultItems(db as any, LAPTOP, [cap()]);
+    const id = (await listVaultItems(db as any, LAPTOP))[0]!.id;
+    await removeVaultItem(db as any, LAPTOP, id);
+
+    await mergeVaults(db as any, LAPTOP, PHONE);
+    // the same rule that stops a list still holding the gear from undoing a removal
+    expect(await listVaultItems(db as any, LAPTOP)).toHaveLength(0);
+  });
+
+  it("does not carry the source's removals across", async () => {
+    await captureVaultItems(db as any, PHONE, [cap(), cap({ name: "Kakwa 55" })]);
+    const gone = (await listVaultItems(db as any, PHONE)).find((e) => e.name === "Duplex")!;
+    await removeVaultItem(db as any, PHONE, gone.id);
+
+    expect(await mergeVaults(db as any, LAPTOP, PHONE)).toBe(1);
+    expect((await listVaultItems(db as any, LAPTOP)).map((e) => e.name)).toEqual(["Kakwa 55"]);
+    // not brought as a tombstone either — that would suppress gear the destination
+    // has live, which is nobody's intent
+    expect(await listRemovedVaultItems(db as any, LAPTOP)).toHaveLength(0);
+  });
+
+  it("is idempotent — adopting the same link twice changes nothing", async () => {
+    await captureVaultItems(db as any, PHONE, [cap(), cap({ name: "Kakwa 55" })]);
+    await mergeVaults(db as any, LAPTOP, PHONE);
+    const first = await listVaultItems(db as any, LAPTOP);
+    await mergeVaults(db as any, LAPTOP, PHONE);
+    const second = await listVaultItems(db as any, LAPTOP);
+    expect(second.map((e) => e.normKey).sort()).toEqual(first.map((e) => e.normKey).sort());
+    expect(second).toHaveLength(2);
+  });
+
+  it("merging a vault into itself is a no-op, not a self-inflicted rewrite", async () => {
+    await captureVaultItems(db as any, PHONE, [cap()]);
+    expect(await mergeVaults(db as any, PHONE, PHONE)).toBe(0);
+    expect(await listVaultItems(db as any, PHONE)).toHaveLength(1);
+  });
+
+  // sanitize() truncates at VAULT_CAPTURE_MAX rather than erroring, so a source
+  // bigger than one capture batch would lose its tail silently — the exact failure
+  // this function exists to prevent.
+  it("carries a vault larger than one capture batch, all of it", async () => {
+    const many = Array.from({ length: 250 }, (_, i) => cap({ name: `Thing ${i}`, brand: "Maker" }));
+    await captureVaultItems(db as any, PHONE, many.slice(0, 200));
+    await captureVaultItems(db as any, PHONE, many.slice(200));
+    expect(await listVaultItems(db as any, PHONE)).toHaveLength(250);
+
+    expect(await mergeVaults(db as any, LAPTOP, PHONE)).toBe(250);
+    expect(await listVaultItems(db as any, LAPTOP)).toHaveLength(250);
   });
 });

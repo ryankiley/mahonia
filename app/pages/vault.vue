@@ -10,6 +10,7 @@ import {
   GripVertical,
   Trash2,
   Undo2,
+  Vault,
 } from "@lucide/vue";
 import type { Unit } from "~~/shared/types";
 import type { VaultEntry, VaultFolder } from "~~/shared/vault";
@@ -35,15 +36,69 @@ const { token, hasVault, setToken, forget, vaultFetch } = useVaultToken();
 // FRAGMENT, which browsers never send to the server — the same reason a list's
 // edit token lives there. Adopt it, then strip it from the address bar so it isn't
 // left sitting in history or in a screenshot of the URL.
-onMounted(() => {
-  const fromLink = location.hash.replace(/^#/, "").trim();
-  if (!fromLink) return;
-  if (fromLink !== token.value) {
+//
+// If this browser ALREADY holds a vault, the two are merged before the swap. It
+// used to just point the browser at the new one, which left the gear this device
+// had been collecting in a vault nobody had a link to any more — lost by using the
+// feature whose whole job is carrying your gear between devices. Merging also makes
+// the honest case work: collect gear on your phone, collect gear on your laptop,
+// then put them together.
+const merged = ref(0); // pieces folded in, for the confirmation toast
+const adopting = ref(false);
+const adoptFailed = ref(""); // the link we couldn't merge — kept so retry needs no re-paste
+
+async function adopt(fromLink: string) {
+  const mine = token.value;
+  if (fromLink === mine) return;
+  // nothing here to lose: take the link and go, no round trip
+  if (!mine) {
     setToken(fromLink);
     resetVaultCapture(); // don't inherit the previous vault's "already sent"
+    return;
   }
+  adopting.value = true;
+  adoptFailed.value = "";
+  try {
+    // authorised as the INCOMING vault, naming the outgoing one — this is the one
+    // vault call whose capability isn't the token we currently hold, so it can't go
+    // through vaultFetch
+    const res = await $fetch<{ merged: number }>("/api/vault/adopt", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${fromLink}` },
+      body: { fromToken: mine },
+    });
+    setToken(fromLink);
+    resetVaultCapture();
+    merged.value = res?.merged ?? 0;
+    if (merged.value) setTimeout(() => (merged.value = 0), 6000);
+    // hasVault was already true, so the watch that normally loads on arrival won't
+    // fire on a swap — read the vault we just moved to by hand
+    await loadVault();
+  } catch {
+    // Offline, rate-limited, or a link that no longer resolves. Hold the swap: a
+    // device that keeps the vault it has is recoverable, one that swapped without
+    // merging is exactly the loss this exists to prevent.
+    adoptFailed.value = fromLink;
+  } finally {
+    adopting.value = false;
+  }
+}
+
+function takeLinkFromHash() {
+  const fromLink = location.hash.replace(/^#/, "").trim();
+  // strip first, unconditionally — a failed merge keeps the token in `adoptFailed`
+  // for the retry button, so it never has to sit in the address bar to stay usable
   history.replaceState(null, "", location.pathname + location.search);
-});
+  if (fromLink) void adopt(fromLink);
+}
+
+onMounted(takeLinkFromHash);
+// ...and again if the fragment changes without a remount. Pasting a transfer link
+// into the address bar while ALREADY on /vault is a hash-only navigation: the
+// browser doesn't reload and Vue doesn't re-run setup, so an onMounted-only reader
+// let the link land on the page and do nothing at all — the one failure mode with
+// no error and no feedback.
+useWindowEvent("hashchange", takeLinkFromHash);
 
 // ---- handing the link to another device ----------------------------------
 const transferUrl = computed(() =>
@@ -463,6 +518,27 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
       </div>
 
       <ClientOnly>
+        <!-- A transfer link that couldn't be merged. The swap was HELD (see adopt()),
+             so this device still has its own gear and the link is still good — which
+             makes this a retry, not a failure to report. The token is kept in
+             `adoptFailed` rather than the address bar, so the button works without
+             the link being pasted again. -->
+        <Prompt
+          :show="!!adoptFailed"
+          variant="inline"
+          lede="Nothing was lost."
+          dismiss-label="Don’t merge this device’s gear"
+          @dismiss="adoptFailed = ''"
+        >
+          <template #icon><Vault :size="15" :stroke-width="2" /></template>
+          Couldn’t merge this device’s gear into the vault you opened.
+          <template #action>
+            <button class="btn btn--quiet" :disabled="adopting" @click="adopt(adoptFailed)">
+              {{ adopting ? "Merging…" : "Try again" }}
+            </button>
+          </template>
+        </Prompt>
+
         <!-- no vault yet: nothing to sign up for, just an explanation -->
         <div v-if="!hasVault" class="vault__auth">
           <p class="vault__sentline">Your gear vault fills itself.</p>
@@ -806,6 +882,12 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
          which pushed the list down as it appeared and read as a status message
          rather than as an action you still have. The 10s window is unchanged; it
          just lives somewhere you don't have to be scrolled to the top to see. -->
+    <!-- ONE toast surface, so a merge landing while an undo is still live can't
+         stack two boxes on the same corner. Undo wins the tie: it's the only one
+         with an expiring action behind it. Merging a transfer link belongs here
+         rather than in a Prompt because it's something that HAPPENED — reported,
+         then gone. The retry above is a question you answer, which is why that one
+         is an inline Prompt and these aren't. -->
     <Transition name="toast">
       <div v-if="undoable" class="toast undobar">
         <span class="t-sm">
@@ -814,6 +896,11 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
         <button class="undobar__btn t-sm" @click="undoRemove">
           <Undo2 :size="14" /> Undo
         </button>
+      </div>
+      <div v-else-if="adopting" class="toast t-sm">Merging this device’s gear…</div>
+      <div v-else-if="merged" class="toast t-sm">
+        Merged <strong>{{ merged }}</strong> {{ merged === 1 ? "piece" : "pieces" }} of gear from
+        this device into the vault you opened.
       </div>
     </Transition>
   </div>

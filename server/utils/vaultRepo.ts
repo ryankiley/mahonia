@@ -187,6 +187,92 @@ async function ensureFolders(
   return new Map(rows.map((r) => [r.name, r.id]));
 }
 
+/**
+ * Fold one vault's gear into another, and report how many pieces came across.
+ *
+ * This is what a transfer link runs before it swaps a device over. Without it,
+ * opening the link on a device that had already been collecting gear pointed the
+ * browser at the OTHER vault and left its own behind — still on disk, but with no
+ * link to it and nothing in the UI that mentioned it. The gear was, for all
+ * practical purposes, gone. A vault you can lose by using the feature meant to
+ * spread it across your devices is the wrong shape.
+ *
+ * DIRECTION is source → destination, where the destination is the vault whose link
+ * you just opened. That's the one you named as yours, and it may already be shared
+ * with other devices; the local one is the stray. So every device you transfer to
+ * converges on a single vault, rather than each swap picking a new winner.
+ *
+ * THE MERGE RULES ARE CAPTURE'S — deliberately. "Which copy is the truth?" was
+ * already answered field by field in captureVaultItems, and a second set of answers
+ * here would be a second thing to keep right. Three consequences worth naming:
+ *
+ *  • A tombstone in the DESTINATION survives. Gear you removed there stays removed
+ *    even if the source still has it live — the same rule that stops every list
+ *    holding an item from resurrecting it.
+ *  • Tombstones in the SOURCE are simply not carried (live rows only). Bringing them
+ *    across as live would resurrect what you removed; bringing them as tombstones
+ *    would suppress gear the destination has live. Neither is what you asked for.
+ *  • `times_seen` increments rather than summing, so a merged row reads as seen once
+ *    more instead of the true total. It ranks the autocomplete and nothing else, and
+ *    a bespoke statement to fix it would cost the reuse this function is built on.
+ *
+ * Idempotent: the identity index is (vault_id, norm_key), so adopting the same link
+ * twice merges the same rows onto themselves.
+ */
+export async function mergeVaults(
+  db: Db,
+  destVaultId: number,
+  sourceVaultId: number,
+): Promise<number> {
+  if (destVaultId === sourceVaultId) return 0;
+  // Folders FIRST, and all of them — including any holding no gear. Capture only
+  // ever creates the folders its own rows name, so leaving this to the item pass
+  // would quietly drop a heading you'd made but not filled yet. Ensured in the
+  // source's own order, so the arrangement arrives looking like the one you left.
+  const sourceFolders = await db
+    .select({ name: vaultFolders.name })
+    .from(vaultFolders)
+    .where(eq(vaultFolders.vaultId, sourceVaultId))
+    .orderBy(asc(vaultFolders.sortOrder), asc(vaultFolders.id));
+  await ensureFolders(db, destVaultId, sourceFolders.map((f) => f.name));
+
+  // the folder NAME, not its id: ids are per-vault, and capture already resolves a
+  // name to a folder in the destination (creating it if needed), so filing survives
+  // the move for free
+  const rows = await db
+    .select({ item: vaultItems, folderName: vaultFolders.name })
+    .from(vaultItems)
+    .leftJoin(vaultFolders, eq(vaultItems.folderId, vaultFolders.id))
+    .where(and(eq(vaultItems.vaultId, sourceVaultId), isNull(vaultItems.removedAt)))
+    .orderBy(desc(vaultItems.lastUsedAt))
+    .limit(POOL_LIMIT);
+  if (!rows.length) return 0;
+
+  const caps: VaultCapture[] = rows.map(({ item, folderName }) => ({
+    normKey: item.normKey, // re-derived by sanitize() regardless
+    brand: item.brand ?? undefined,
+    name: item.name,
+    variant: item.variant ?? undefined,
+    commonName: item.commonName ?? undefined,
+    weightMg: Number(item.weightMg),
+    classification: CLASSIFICATIONS.includes(item.classification as Classification)
+      ? (item.classification as Classification)
+      : undefined,
+    catalogItemId: item.catalogItemId ?? undefined,
+    productUrl: item.productUrl ?? undefined,
+    folder: folderName ?? undefined,
+  }));
+
+  // POOL_LIMIT (1000) is above VAULT_CAPTURE_MAX (200), and sanitize() TRUNCATES at
+  // the cap rather than erroring — so a big vault merged in one call would lose the
+  // tail silently. Chunked, because losing gear is the exact failure this function
+  // exists to prevent.
+  let merged = 0;
+  for (let i = 0; i < caps.length; i += VAULT_CAPTURE_MAX)
+    merged += await captureVaultItems(db, destVaultId, caps.slice(i, i + VAULT_CAPTURE_MAX));
+  return merged;
+}
+
 /** Every live row in a user's vault, most-recently-used first — the /vault page's
  *  read. Small by nature, so it's one unpaginated query. */
 export async function listVaultItems(db: Db, vaultId: number): Promise<VaultEntry[]> {

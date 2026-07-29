@@ -8,7 +8,8 @@
       "Gear you've removed from your vault is listed under \"Removed gear\", so you can put a piece back.",
       "Folders in your gear vault: gear files itself under the list folder it came from, and you can rename, sort, reorder and delete them.",
       "Drag gear between folders in your vault.",
-      "When you edit a list you didn't start, Mahonia asks once whether its gear belongs in your vault."
+      "When you edit a list you didn't start, Mahonia asks once whether its gear belongs in your vault.",
+      "Opening a gear vault link on a device that already has gear now combines the two, instead of leaving one of them behind."
     ],
     "changed": [
       "Gear already in the open list shows as \"Already added\" in the vault, so nothing lands twice.",

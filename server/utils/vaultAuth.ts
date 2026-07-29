@@ -70,6 +70,30 @@ export async function requireVault(
 }
 
 /**
+ * Resolve a token to a vault id, or null — WITHOUT throwing, and without bumping
+ * last_seen_at.
+ *
+ * For the one caller that holds a token it does not need to be authorised BY: the
+ * adopt merge, whose authority comes from the destination vault in the header and
+ * which names the source vault in its body. A stale source token there is an
+ * ordinary outcome (you forgot this device's vault, or already merged it), not a
+ * 401 — requireVault's throw would turn a no-op into an error the page has to
+ * explain.
+ *
+ * NOT a way around requireVault: it returns an id to code that has already proved
+ * possession of something. Nothing routes user input straight into it.
+ */
+export async function findVaultByToken(db: Db, token: string): Promise<number | null> {
+  const clean = (token ?? "").trim();
+  if (!clean) return null;
+  const rows = await db
+    .select({ id: vaults.id })
+    .from(vaults)
+    .where(eq(vaults.tokenHash, sha256Hex(clean)));
+  return rows[0]?.id ?? null;
+}
+
+/**
  * Mint a brand-new vault and hand back its raw token — the only time that value
  * exists server-side. The caller returns it to the client exactly once; after this
  * the database holds nothing that can reconstruct it.
