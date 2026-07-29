@@ -430,7 +430,7 @@ function highlightParts(text: string): { t: string; on: boolean }[] {
                 :class="{ 'ac__hl': p.on }"
               >{{ p.t }}</span>
             </span>
-            <span v-if="opt.vault.variant" class="ac__variant">· {{ opt.vault.variant }}</span>
+            <span v-if="opt.vault.variant" class="ac__variant"><span class="sep">·</span> {{ opt.vault.variant }}</span>
           </span>
           <span class="ac__metaright">
             <span class="t-num ac__w">{{ formatWeight(opt.vault.weightMg, unit, { withUnit: false }) }} <span class="t-muted">{{ unit }}</span></span>
@@ -454,7 +454,7 @@ function highlightParts(text: string): { t: string; on: boolean }[] {
                 :class="{ 'ac__hl': p.on }"
               >{{ p.t }}</span>
             </span>
-            <span v-if="opt.result.variant" class="ac__variant">· {{ opt.result.variant }}</span>
+            <span v-if="opt.result.variant" class="ac__variant"><span class="sep">·</span> {{ opt.result.variant }}</span>
             <span v-if="!opt.result.verified" class="ac__community" title="community-contributed, unverified">· community</span>
           </span>
           <span class="ac__metaright">

@@ -5,7 +5,8 @@
       "Drag gear straight from your vault onto the folder you want it in, instead of picking the folder first.",
       "Your vault sits beside the list you're building and can be resized to whatever width suits you.",
       "Reach your vault from the footer of any page.",
-      "Gear you've removed from your vault is listed under \"Removed gear\", so you can put a piece back."
+      "Gear you've removed from your vault is listed under \"Removed gear\", so you can put a piece back.",
+      "Folders in your gear vault: gear files itself under the list folder it came from, and you can rename, sort, reorder and delete them."
     ],
     "changed": [
       "Gear already in the open list shows as \"Already added\" in the vault, so nothing lands twice.",
@@ -14,7 +15,8 @@
       "Removing gear from your vault now offers an undo, like removing an item from a list.",
       "The vault slides in when you open it beside a list, instead of appearing all at once.",
       "Vault search now forgives typos and matches on gear type, like the item search does — and bolds what you typed.",
-      "The vault is now called your gear vault, everywhere it's named."
+      "The vault is now called your gear vault, everywhere it's named.",
+      "Gear rows in the vault use icons for their actions instead of a word."
     ],
     "fixed": [
       "Long gear names in the vault no longer swallow the brand or knock a row out of line.",

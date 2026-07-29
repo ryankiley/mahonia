@@ -371,7 +371,7 @@ onKeyStroke("Escape", () => emit("close"));
                 <span
                   ><span v-for="(p, pi) in hl(entry.name)" :key="pi" :class="{ 'vp__hl': p.on }">{{ p.t }}</span></span
                 >
-                <span v-if="entry.variant" class="vp__variant">· {{ entry.variant }}</span>
+                <span v-if="entry.variant" class="vp__variant"><span class="sep">·</span> {{ entry.variant }}</span>
               </span>
               <!-- the row can't be added again, so it says so plainly. A COUNT was
                    the right label when a second copy was allowed; now that one row
