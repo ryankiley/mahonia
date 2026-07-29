@@ -330,12 +330,15 @@ export default defineNuxtConfig({
     "/e/**": { isr: 60 },
     // pure-static pages → build-time prerender (CDN-served, zero invocations)
     "/about": { prerender: true },
-    "/changelog": { prerender: true },
     "/legal": { prerender: true },
-    // Privacy + Terms were merged into /legal (two sections) — keep the old URLs
-    // working with a permanent redirect (bookmarks, external links, llms.txt history)
+    // Privacy + Terms were merged into /legal (two sections), and What's new into
+    // /about the same way — keep the old URLs working with a permanent redirect
+    // (bookmarks, external links, llms.txt history). No #hash on the changelog
+    // redirect: a fragment never reaches the server, so it can't be preserved
+    // through one; /about carries the "Jump to What's new" link instead.
     "/privacy": { redirect: { to: "/legal", statusCode: 301 } },
     "/terms": { redirect: { to: "/legal", statusCode: 301 } },
+    "/changelog": { redirect: { to: "/about", statusCode: 301 } },
     // "Your lists" is a device-local read-out (localStorage) — prerender the shell,
     // the list fills in client-side; noindex (set per-page)
     "/mine": { prerender: true },

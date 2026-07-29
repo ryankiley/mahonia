@@ -261,10 +261,7 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
     <main id="main-content" tabindex="-1" class="wrap page">
       <div class="vault__head">
         <h1 class="t-title">Your vault</h1>
-        <p class="t-sm t-muted vault__sub">
-          Every piece of gear you’ve put in a list, in one place — so the next list is picking,
-          not retyping.
-        </p>
+        <p class="t-sm t-muted vault__sub">Every piece of gear you’ve put in a list, in one place.</p>
       </div>
 
       <ClientOnly>
@@ -545,23 +542,31 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
   flex-direction: column;
   gap: var(--space-px);
 }
+/* ONE ellipsized run — the same treatment the vault pane gives this line, and for
+   the same reasons. Shrinking the three parts as separate flex items made a long row
+   spend three ellipses to say one thing ("Mountain Hardw… Ghost Whisperer UL Hoo… ·
+   Men's…"), and squeezed the brand — the shortest, most identifying part — down to a
+   sliver that still held its box and its gap, so that row's name started a few pixels
+   in and sat out of line with the column.
+   Plain inline text truncates once, at the end: every row begins in the same place,
+   the brand always survives whole, and what yields is the variant and then the tail
+   of the model, which is where the redundancy is. */
 .vault__name {
-  display: flex;
-  align-items: baseline;
-  gap: 0.4ch;
-  min-width: 0;
-  color: var(--ink);
-}
-.vault__name > span {
+  display: block;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: var(--ink);
 }
+/* the gaps are margins, not the whitespace between the tags — Vue's compiler
+   condenses a newline between elements away entirely */
 .vault__brand {
+  margin-right: 0.4ch;
   color: var(--ink-2);
 }
 .vault__variant {
+  margin-left: 0.4ch;
   font-style: italic;
   color: var(--ink-3);
 }
@@ -573,25 +578,40 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
   min-width: 5rem;
   text-align: right;
 }
+/* A DEFINITE width, not a min-width: the child is a text input, whose intrinsic
+   width (the default `size` of ~20 characters) is far wider than 6rem and wins
+   against a min-, so the column was taking ~11rem and squeezing the name beside
+   it. Fixed here so the costs line up in a column like the weights do. */
 .vault__cost {
   flex: none;
   display: inline-flex;
   justify-content: flex-end;
-  min-width: 6rem;
+  width: 6rem;
 }
-/* .field is borderless by design; here the rule only appears on hover/focus, so a
-   column of empty costs reads as quiet placeholders rather than a wall of boxes */
+/* .field is borderless by design, but a column of bare em dashes reads as "no data
+   recorded" rather than "type what you paid here" — there was nothing to say the
+   cell was a field at all until the pointer happened to cross it.
+   So the EMPTY state carries a dashed rule: the standing convention for a blank
+   waiting to be filled, and distinct enough from a solid hairline that it doesn't
+   read as another row divider. A priced row keeps the quiet borderless treatment —
+   the figure speaks for itself — and picks the rule up only on hover/focus. */
 .vault__costinput {
   width: 100%;
   text-align: right;
   color: var(--ink-2);
   border-bottom: 1px solid transparent;
 }
+.vault__costinput:placeholder-shown {
+  border-bottom-style: dashed;
+  border-bottom-color: var(--line-2);
+}
 .vault__costinput:hover {
-  border-bottom-color: var(--line);
+  border-bottom-style: solid;
+  border-bottom-color: var(--line-2);
 }
 .vault__costinput:focus {
   color: var(--ink);
+  border-bottom-style: solid;
   border-bottom-color: var(--ink-2);
 }
 .vault__partial {

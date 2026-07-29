@@ -19,7 +19,63 @@ import { formatWeight, itemDisplayName } from "~~/shared/weights";
 // downloads it, which is what keeps it off the editor's bundle budget.
 const emit = defineEmits<{ close: [] }>();
 
+// Split-pane width, owned by the editor (which also needs it, to inset the list out
+// from under the pane) and adjusted from the divider below. Desktop only — on a
+// phone the pane is a bottom sheet and there is no width to negotiate.
+const width = defineModel<number>("width", { required: true });
+
+// A pointer drag on the divider. Deliberately NOT the shared createPointerDrag
+// scaffold: that one exists to resolve a drop TARGET among the list's rows and
+// commits on release. This has no target and no commit — it just tracks x — so
+// borrowing it would mean stubbing out most of what it does (and paying for its
+// elementFromPoint hit on every move).
+//
+// The width lands on an INHERITED custom property on the editor root, so each write
+// restyles the whole editor subtree and reflows it. One write per frame is all that
+// can be seen, so the moves coalesce through rAF instead of writing per event.
+let endResize = () => {};
+function startResize(ev: PointerEvent) {
+  ev.preventDefault();
+  (ev.currentTarget as HTMLElement).setPointerCapture?.(ev.pointerId);
+  // the viewport can't change mid-drag, so read it once rather than forcing layout
+  // on every move
+  const vw = window.innerWidth;
+  let frame = 0;
+  let pendingX = ev.clientX;
+  const onMove = (e: PointerEvent) => {
+    pendingX = e.clientX;
+    frame ||= requestAnimationFrame(() => {
+      frame = 0;
+      width.value = clampVaultWidth(vw - pendingX);
+    });
+  };
+  // named, so removeEventListener gets the SAME reference that was registered
+  const stop = () => {
+    cancelAnimationFrame(frame);
+    window.removeEventListener("pointermove", onMove);
+    window.removeEventListener("pointerup", stop);
+    window.removeEventListener("pointercancel", stop);
+    document.body.style.userSelect = "";
+    endResize = () => {};
+  };
+  endResize = stop;
+  document.body.style.userSelect = "none";
+  window.addEventListener("pointermove", onMove);
+  window.addEventListener("pointerup", stop);
+  window.addEventListener("pointercancel", stop);
+}
+// the divider is a real separator, so the arrow keys have to move it — a pointer
+// drag can't be the only way to size a pane
+function onResizeKey(ev: KeyboardEvent) {
+  const step = ev.shiftKey ? 64 : 16;
+  if (ev.key === "ArrowLeft") width.value = clampVaultWidth(width.value + step);
+  else if (ev.key === "ArrowRight") width.value = clampVaultWidth(width.value - step);
+  else return;
+  ev.preventDefault();
+}
+
 const c = useGearList();
+const dnd = useItemDnd();
 const { hasVault, vaultFetch } = useVaultToken();
 
 const items = ref<VaultEntry[]>([]);
@@ -82,36 +138,129 @@ const filtered = computed(() => {
   );
 });
 
-// How many of each piece of gear the open list already holds, keyed by the SAME
-// identity rule the vault uses — so "Zpacks Duplex" in the list matches the vault
-// row whatever the spacing or case. Recomputed from the live snapshot, so it
-// updates the moment something is added (here or by typing).
-const inListCounts = computed(() => {
-  const counts = new Map<string, number>();
+// The gear the open list already holds, keyed by the SAME identity rule the vault
+// uses — so "Zpacks Duplex" in the list matches the vault row whatever the spacing
+// or case. Recomputed from the live snapshot, so it updates the moment something is
+// added (here or by typing).
+const inList = computed(() => {
+  const keys = new Set<string>();
   for (const item of c.snapshot.value?.items ?? []) {
     const key = vaultNormKey(item.brand, item.name, item.variant);
-    if (key) counts.set(key, (counts.get(key) ?? 0) + 1);
+    if (key) keys.add(key);
   }
-  return counts;
+  return keys;
 });
+// Gear the list already holds can't be added again — the row goes to an "Already
+// added" state instead. Wanting two of something is a QUANTITY, which the list row
+// owns (its "1 ×" field); a second identical row would split one thing's weight
+// across two lines and read as an oversight.
+const isInList = (entry: VaultEntry) => inList.value.has(entry.normKey);
 
-// brief per-row acknowledgement, so adding several in a row is legible. One id, not
-// a set: adds are one-at-a-time clicks, so only the latest can be mid-acknowledgement.
-const justAdded = ref<number | null>(null);
-let addTimer: ReturnType<typeof setTimeout> | undefined;
-function add(entry: VaultEntry) {
-  c.addVaultItem(entry, targetFolderId.value);
-  justAdded.value = entry.id;
-  clearTimeout(addTimer);
-  addTimer = setTimeout(() => (justAdded.value = null), 1400);
+// Grab a row ANYWHERE to drag it into a folder — no handle. The row is also a click
+// target (quick-add to the "Add to" folder), so the two gestures have to be told
+// apart, and they are told apart differently by input type:
+//
+//  • mouse/pen — by DISTANCE. A press that travels past a few pixels was a drag; one
+//    that doesn't was a click. There's nothing else a horizontal mouse press means.
+//  • touch — by TIME first. A finger that moves is almost always scrolling this list,
+//    so distance alone would hijack every swipe. A short hold arms the drag; a swipe
+//    that starts before the hold elapses is left to the browser as a scroll (which
+//    then cancels the press outright).
+//
+// Deliberately not `touch-action: none` on the rows for the same reason: the list
+// has 100+ entries and scrolling it must stay the default reading of a swipe.
+const DRAG_THRESHOLD = 5;
+const TOUCH_HOLD_MS = 250;
+// One object for the gesture in flight. `armedAt` is the timestamp the drag becomes
+// available from — 0 for a mouse (immediately), now + the hold for a finger — which
+// is the whole hold rule as a comparison at move time, with no timer to run or clear.
+let press: { x: number; y: number; pointerId: number; armedAt: number; entry: VaultEntry } | null = null;
+// the entry whose press turned into a drag, so the click that follows pointerup is
+// swallowed instead of adding the thing a second time
+let draggedEntryId: number | null = null;
+
+function endPress() {
+  press = null;
+  window.removeEventListener("pointermove", onPressMove);
+  window.removeEventListener("pointerup", endPress);
+  window.removeEventListener("pointercancel", endPress);
 }
-onBeforeUnmount(() => clearTimeout(addTimer));
+
+function onPressMove(ev: PointerEvent) {
+  if (!press || ev.pointerId !== press.pointerId) return;
+  if (Math.hypot(ev.clientX - press.x, ev.clientY - press.y) < DRAG_THRESHOLD) return;
+  // moved before the hold elapsed → this is a scroll, not a drag; stand down
+  if (ev.timeStamp < press.armedAt) return endPress();
+  const entry = press.entry;
+  endPress();
+  draggedEntryId = entry.id;
+  // the pane owns what a drop MEANS — it creates the row and enforces its own
+  // one-per-list rule; the gesture only resolves where the pointer let go
+  dnd.startInsert((folderId, beforeId) => {
+    if (isInList(entry)) return;
+    const id = c.addVaultItem(entry, folderId);
+    if (id && beforeId) c.moveItem(id, folderId, beforeId, null);
+  }, ev);
+}
+
+function onRowPointerDown(entry: VaultEntry, ev: PointerEvent) {
+  if (ev.button !== 0 || isInList(entry)) return;
+  endPress();
+  press = {
+    x: ev.clientX,
+    y: ev.clientY,
+    pointerId: ev.pointerId,
+    armedAt: ev.pointerType === "touch" ? ev.timeStamp + TOUCH_HOLD_MS : 0,
+    entry,
+  };
+  window.addEventListener("pointermove", onPressMove);
+  window.addEventListener("pointerup", endPress);
+  window.addEventListener("pointercancel", endPress);
+}
+
+function onRowClick(entry: VaultEntry) {
+  // the click that trails a drag's pointerup would otherwise add it all over again
+  if (draggedEntryId === entry.id) {
+    draggedEntryId = null;
+    return;
+  }
+  add(entry);
+}
+
+function add(entry: VaultEntry) {
+  if (isInList(entry)) return;
+  c.addVaultItem(entry, targetFolderId.value);
+}
+
+// The pane can unmount mid-gesture — Escape closes it, and a drop can land it in a
+// state the parent tears down — so both pointer loops are stopped here rather than
+// only on their own pointerup. Otherwise their window listeners outlive the
+// component and keep its whole setup scope (the full vault array) reachable.
+onBeforeUnmount(() => {
+  endPress();
+  endResize();
+});
 
 onKeyStroke("Escape", () => emit("close"));
 </script>
 
 <template>
-  <aside class="popover vp" role="dialog" aria-label="Your vault">
+  <aside class="popover vp" data-vault-pane role="dialog" aria-label="Your vault">
+    <!-- the split divider. Desktop only (CSS); on a phone the sheet spans the
+         gutters and there is nothing to drag. -->
+    <div
+      class="vp__resize"
+      role="separator"
+      aria-orientation="vertical"
+      tabindex="0"
+      aria-label="Resize the vault pane"
+      :aria-valuenow="width"
+      :aria-valuemin="288"
+      :aria-valuemax="720"
+      title="Drag to resize"
+      @pointerdown="startResize"
+      @keydown="onResizeKey"
+    />
     <header class="vp__head">
       <h2 class="t-label vp__title">Your vault</h2>
       <button
@@ -156,28 +305,42 @@ onKeyStroke("Escape", () => emit("close"));
       <p v-else-if="loading" class="t-sm t-muted vp__note">Loading your gear…</p>
 
       <ul v-else-if="filtered.length" class="vp__list">
-        <li v-for="entry in filtered" :key="entry.id" class="vp__row">
+        <li v-for="entry in filtered" :key="entry.id">
+          <!-- Click adds to the "Add to" folder; press and drag puts it in whichever
+               folder you let go over. See onRowPointerDown for how the two are told
+               apart. Keyboard users are not stranded — the select + click IS that path. -->
           <button
             type="button"
             class="vp__add"
-            :aria-label="`Add ${itemDisplayName(entry.brand, entry.name, entry.variant)} to the list`"
-            @click="add(entry)"
+            :disabled="isInList(entry)"
+            :aria-label="
+              isInList(entry)
+                ? `${itemDisplayName(entry.brand, entry.name, entry.variant)} is already in this list`
+                : `Add ${itemDisplayName(entry.brand, entry.name, entry.variant)} to the list`
+            "
+            @pointerdown="onRowPointerDown(entry, $event)"
+            @click="onRowClick(entry)"
           >
             <span class="vp__main">
               <span class="vp__name">
                 <span v-if="entry.brand" class="vp__brand">{{ entry.brand }}</span>
-                <span class="vp__model">{{ entry.name }}</span>
+                <span>{{ entry.name }}</span>
                 <span v-if="entry.variant" class="vp__variant">· {{ entry.variant }}</span>
               </span>
-              <!-- a quiet count when the open list already holds this thing, so a
-                   second pair of socks is a deliberate choice rather than a slip -->
-              <span v-if="inListCounts.get(entry.normKey)" class="t-sm vp__inlist">
-                {{ inListCounts.get(entry.normKey) }} in this list
-              </span>
+              <!-- the row can't be added again, so it says so plainly. A COUNT was
+                   the right label when a second copy was allowed; now that one row
+                   per piece of gear is the rule, the number was answering a question
+                   nobody can act on. -->
+              <span v-if="isInList(entry)" class="t-sm vp__inlist">Already added</span>
             </span>
             <span class="t-num t-sm vp__w">{{ formatWeight(entry.weightMg, unit, { withUnit: false }) }}<span class="t-muted"> {{ unit }}</span></span>
             <span class="vp__icon" aria-hidden="true">
-              <Check v-if="justAdded === entry.id" :size="15" :stroke-width="2.2" class="vp__added" />
+              <Check
+                v-if="isInList(entry)"
+                :size="15"
+                :stroke-width="2.2"
+                class="vp__added"
+              />
               <Plus v-else :size="15" :stroke-width="2" />
             </span>
           </button>
@@ -215,15 +378,62 @@ onKeyStroke("Escape", () => emit("close"));
      13. Expressed as grid steps rather than a magic 72px so it stays on the same
      4/8 rhythm as everything else. */
   top: calc(var(--space-7) + var(--space-5));
-  right: var(--space-4);
   z-index: var(--z-float);
   display: flex;
   flex-direction: column;
-  width: min(23rem, calc(100vw - 2 * var(--space-4)));
-  max-height: min(38rem, calc(100dvh - var(--space-7) - var(--space-5) - var(--space-4)));
-  /* the popover edge inset — the same value .menu__list and .ac__menu use, so a
-     row's hover tint sits at an identical margin from the card edge in all three */
-  padding: var(--space-2);
+  /* A split pane in LAYOUT — the editor insets its own column by this width (see
+     .editor--split), so the two share the screen instead of one covering the other
+     — but still a floating card in APPEARANCE: the .popover surface's radius and
+     lift are kept, and it sits in from the viewport edges rather than flush against
+     them. The width is the editor's --vault-w, which the divider drags. */
+  right: var(--space-4);
+  bottom: var(--space-4);
+  width: var(--vault-w);
+  /* Inline padding only — the same split .ac__menu makes. The VERTICAL breathing
+     room lives inside the scroller below (where it scrolls with the content), so
+     the last row travels all the way to the card's edge instead of stopping 8px
+     short at a padding ledge and reading as cut off. */
+  padding: 0 var(--space-2);
+  /* clip the full-bleed rows (and the scrollbar's extremes) to the radius */
+  overflow: hidden;
+}
+/* The divider: a hit area straddling the seam, wider than the 1px line it drags so
+   it can actually be grabbed. It INKS on hover/focus rather than sitting there as a
+   visible bar — the border already draws the seam, and a permanent handle would be
+   chrome on a panel that's mostly list. */
+.vp__resize {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 9px;
+  transform: translateX(-50%);
+  cursor: col-resize;
+  touch-action: none;
+  background: transparent;
+}
+/* A short pill at the vertical middle rather than a full-height rule: the seam is
+   already drawn by the pane's border, and a second floor-to-ceiling line beside it
+   read as a double edge. This marks the one spot you grab and nothing else. */
+.vp__resize::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 3px;
+  height: 28px;
+  transform: translate(-50%, -50%);
+  border-radius: var(--radius-pill);
+  background: var(--ink-3);
+  opacity: 0;
+  transition: opacity var(--dur) var(--ease);
+}
+.vp__resize:hover::after,
+.vp__resize:focus-visible::after {
+  opacity: 1;
+}
+.vp__resize:focus-visible {
+  outline: none;
 }
 /* the rows carry their own --space-2 inline padding, so the header and controls
    need the same inset to line up with them rather than hugging the card edge */
@@ -239,6 +449,8 @@ onKeyStroke("Escape", () => emit("close"));
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
+  /* the card no longer carries block padding (see .vp) — the top of it lives here */
+  padding-block-start: var(--space-2);
   margin-bottom: var(--space-2);
 }
 .vp__title {
@@ -259,6 +471,8 @@ onKeyStroke("Escape", () => emit("close"));
 .vp__search:focus {
   border-bottom-color: var(--ink-2);
 }
+/* the hand stays on the select alone — "Add to" is the label naming it, not a
+   thing you click, and pointing at prose invites a click that does nothing */
 .vp__target {
   display: flex;
   align-items: center;
@@ -270,9 +484,14 @@ onKeyStroke("Escape", () => emit("close"));
   flex: none;
   white-space: nowrap;
 }
+/* Sized to the folder name, not stretched across the panel. Stretching parked the
+   chevron against the far edge, so "Add to", the name and the arrow read as three
+   separate things instead of one control you click. */
 .vp__select {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
+  width: auto;
+  cursor: pointer;
 }
 .vp__note,
 .vp__error {
@@ -284,14 +503,23 @@ onKeyStroke("Escape", () => emit("close"));
 .vp__list {
   list-style: none;
   margin: 0;
-  padding: 0;
+  /* the card's bottom breathing room, inside the scroller so it scrolls with the
+     rows rather than sitting under them as a ledge that clips the last one */
+  padding: 0 0 var(--space-2);
   overflow-y: auto;
+  /* never a horizontal bar — the same rule .ac__menu carries: overflow-y alone
+     computes overflow-x to auto, so with classic (always-shown) scrollbars the
+     vertical bar narrows the rows and any sub-pixel x-overflow paints a horizontal
+     track across the bottom, stealing height from the list. Width pressure is the
+     names' ellipses' job, never a scrollbar's. */
+  overflow-x: hidden;
   overscroll-behavior: contain; /* reaching the end must not scroll the list behind */
   scrollbar-width: thin;
   scrollbar-color: var(--line-2) transparent;
 }
 /* the whole row is the button — a small "+" target would be a poor tap area on the
-   one surface built for adding many things quickly */
+   one surface built for adding many things quickly, and the row is also the drag
+   handle (see onRowPointerDown) */
 .vp__add {
   width: 100%;
   display: flex;
@@ -309,9 +537,17 @@ onKeyStroke("Escape", () => emit("close"));
   color: inherit;
   font: inherit;
 }
-.vp__add:hover,
+.vp__add:hover:not(:disabled),
 .vp__add:focus-visible {
   background: var(--popover-hover);
+}
+/* Already in the list: the row recedes rather than disappearing — seeing that you
+   already packed it is the useful part — but it stops offering itself. Dimmed as a
+   whole (name, weight and tick together) so it reads as one inactive row instead of
+   a live row with a greyed label; no hover tint and no grab cursor to match. */
+.vp__add:disabled {
+  cursor: default;
+  opacity: 0.45;
 }
 .vp__main {
   flex: 1 1 auto;
@@ -320,31 +556,37 @@ onKeyStroke("Escape", () => emit("close"));
   flex-direction: column;
   gap: var(--space-px);
 }
+/* ONE ellipsized run, not three flex items each clipping itself.
+   Shrinking them individually had two faults. A long row squeezed the brand down to
+   a two-pixel sliver that still held its box and its 0.4ch gap, so that row's name
+   started a few pixels in and sat out of line with the column; and the brand — the
+   shortest, most identifying part, and the one you scan down the list for — was the
+   first thing spent.
+   Plain inline text can do neither: the line truncates once, at its end, so every
+   row begins at exactly the same place and the brand always survives whole. It also
+   yields in the right order for free — the variant goes first, then the tail of the
+   model, which is where the redundancy is.
+   (Not a middle elision — "Sm…l" — for the brand: that's JS-only in CSS, and a
+   word with its middle removed is harder to recognise than one cut cleanly at the
+   end. Keeping the brand intact and cutting elsewhere gets the same information for
+   nothing.) */
 .vp__name {
-  display: flex;
-  align-items: baseline;
-  gap: 0.4ch;
-  min-width: 0;
-  color: var(--ink);
-}
-/* same shrink order as the autocomplete: variant yields first, then brand, and the
-   model name (the distinguishing part) clings on longest */
-.vp__name > span {
+  display: block;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: var(--ink);
 }
+/* The gaps are margins, not the whitespace between the tags: Vue's compiler
+   condenses a newline between elements away entirely, so relying on it ran the
+   brand into the name ("SmartwoolHike Classic…"). Same 0.4ch the flex `gap` used. */
 .vp__brand {
-  flex: 0 100 auto;
+  margin-right: 0.4ch;
   color: var(--ink-2);
 }
-.vp__model {
-  flex: 0 1 auto;
-  min-width: 6ch;
-}
 .vp__variant {
-  flex: 0 1000 auto;
+  margin-left: 0.4ch;
   font-style: italic;
   color: var(--ink-3);
 }
@@ -355,10 +597,17 @@ onKeyStroke("Escape", () => emit("close"));
   flex: none;
   color: var(--ink-2);
 }
+/* Pinned to the FIRST line, not centred on the row. An "Already added" row is two
+   lines tall, and centring across both dropped the tick below the weight sitting on
+   line one beside it. A one-line-tall box (1lh = the computed line-height, so it
+   can't drift from the type) centres the glyph on that line instead, and the two
+   agree whether or not the second line is there. */
 .vp__icon {
   flex: none;
   display: inline-flex;
-  align-self: center;
+  align-items: center;
+  align-self: flex-start;
+  height: 1lh;
   color: var(--ink-3);
 }
 .vp__add:hover .vp__icon {
@@ -381,7 +630,6 @@ onKeyStroke("Escape", () => emit("close"));
 @media (pointer: coarse) {
   .vp {
     top: calc(var(--space-7) + var(--space-6));
-    max-height: min(38rem, calc(100dvh - var(--space-7) - var(--space-6) - var(--space-4)));
   }
 }
 
@@ -396,6 +644,10 @@ onKeyStroke("Escape", () => emit("close"));
     left: var(--space-3);
     width: auto;
     max-height: min(28rem, 55dvh);
+  }
+  /* nothing to resize when the sheet spans the gutters */
+  .vp__resize {
+    display: none;
   }
 }
 </style>

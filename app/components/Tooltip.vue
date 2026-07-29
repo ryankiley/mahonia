@@ -90,7 +90,17 @@ function hide() {
 // `position: fixed` popup, and mouseout isn't reliably dispatched without pointer
 // movement. Dismiss rather than re-position: the pointer has effectively left the
 // thing being described. Capture, so a scroll inside any nested scroller counts too.
-useWindowEvent("scroll", () => isVisible.value && hide(), { passive: true, capture: true });
+//
+// Bound only WHILE a tooltip is open. At most one ever is, but every <Tooltip> in the
+// tree is an instance — the editor's toolbar alone has five — and a capture-phase
+// scroll listener fires for every scroller on the page, including the vault pane's
+// hundred-row list. Registering per-instance meant paying that whole set on every
+// scroll frame to do nothing.
+watch(isVisible, (open) => {
+  if (open) window.addEventListener("scroll", hide, { passive: true, capture: true });
+  else window.removeEventListener("scroll", hide, { capture: true });
+});
+onScopeDispose(() => window.removeEventListener("scroll", hide, { capture: true }));
 </script>
 
 <template>

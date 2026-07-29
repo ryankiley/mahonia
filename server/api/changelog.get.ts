@@ -4,13 +4,13 @@ import { sortReleases, type ChangelogRelease } from "../../shared/changelog";
 
 // The "What's new" feed, served rather than imported.
 //
-// content/changelog.json used to be a module-scope `import` in app/pages/changelog.vue,
+// content/changelog.json used to be a module-scope `import` in the page that renders it,
 // which bundled every entry into that route's CLIENT chunk (~3 KB brotli and climbing).
 // It only ever grows: the house rule is an entry per user-facing PR, so the JS a build
 // emits crept upward on changes that ship no code at all — and it counted against the
-// bundle budget even though nobody but a /changelog visitor downloads it.
+// bundle budget even though nobody but a visitor to that page downloads it.
 //
-// Reading it here keeps it in the server bundle. /changelog is prerendered, so Nitro
+// Reading it here keeps it in the server bundle. /about is prerendered, so Nitro
 // calls this at BUILD time and bakes the result into the page's HTML + payload: no
 // function invocation for a normal visit, and the client chunk carries the renderer
 // only, never the content. Mirrors /changes, which already reads its feed this way.

@@ -1,8 +1,8 @@
 // The "What's new" changelog — the framework-agnostic type + ordering for the
 // site's product changelog. The entries live in content/changelog.json (the one
-// source of truth, updated as part of each user-facing PR); the page
-// app/pages/changelog.vue renders them and scripts/changelog.mjs appends to
-// them. Pure, so it unit-tests without Nuxt or a database.
+// source of truth, updated as part of each user-facing PR); the "What's new"
+// section of app/pages/about.vue renders them and scripts/changelog.mjs appends
+// to them. Pure, so it unit-tests without Nuxt or a database.
 //
 // Entries are hand-written per PR — never auto-generated. A changelog-reminder
 // comment nudges a user-facing PR that's missing one, but nothing scrapes the PR

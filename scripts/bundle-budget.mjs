@@ -3,7 +3,7 @@
 //
 // THE RATCHET IS FIRST LOAD — the JS/CSS a visitor to the editor actually
 // downloads, read from the assets the prerendered /e references. Everything else
-// in _nuxt (the /vault, /account, /changelog, /legal route chunks, the lazy modals
+// in _nuxt (the /vault, /account, /about, /legal route chunks, the lazy modals
 // and panes) is counted only against a deliberately loose TOTAL backstop.
 //
 // It used to gate on the sum of every built file, and that measured the wrong
@@ -33,7 +33,7 @@ import { brotliCompressSync, gzipSync, constants } from "node:zlib";
 // code changed, just the framework we ship.
 //
 // NOT a bump, but the reason current dropped ~2.4 KB: content/changelog.json used to be a
-// module-scope import in app/pages/changelog.vue, so every entry was bundled into that
+// module-scope import in the changelog page, so every entry was bundled into that
 // route's client chunk. It's served from server/api/changelog.get.ts now (the page is
 // prerendered, so the read happens at build time). That matters beyond the one-off saving
 // — the house rule is a changelog entry per user-facing PR, so the old shape grew what

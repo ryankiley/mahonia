@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Backpack, Boxes, Ellipsis, Share2, SquareCheck, Undo2 } from "@lucide/vue";
+import { Backpack, Ellipsis, Share2, SquareCheck, Undo2, Vault, X } from "@lucide/vue";
 import { editLinkPath } from "~~/shared/links";
 import type { Item } from "~~/shared/types";
 import { bySortOrder, groupItemsByFolder, groupItemsByParent, ungroupedTopLevel } from "~~/shared/weights";
@@ -33,6 +33,28 @@ const isFirstRun = computed(() => {
   if (!s || s.shareCode) return false;
   return !s.items.some((i) => i.name.trim());
 });
+// Dismissal STICKS across drafts: this is a signpost for someone who already knows
+// where their lists are, so re-offering it on every new list is the nagging the
+// close button is there to stop. The editor is client-only, so localStorage is safe
+// to read at setup without an SSR mismatch.
+// a write can throw on quota or in private mode; the preference just doesn't
+// outlive the session then, which is never worth failing the interaction over
+function remember(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    /* not worth reporting */
+  }
+}
+const INTRO_DISMISSED_KEY = "gear.intro.dismissed.v1";
+const introDismissed = ref(localStorage.getItem(INTRO_DISMISSED_KEY) === "1");
+function dismissIntro() {
+  introDismissed.value = true;
+  remember(INTRO_DISMISSED_KEY, "1");
+}
+const showIntro = computed(
+  () => isFirstRun.value && savedCount.value > 0 && !introDismissed.value && !vaultOpen.value,
+);
 
 // Reflect the list's given name in the tab title AND the page's social/preview
 // metadata, matching the read views (/l, /s): a named list carries its name; an
@@ -100,6 +122,12 @@ const packed = ref(false);
 // The vault palette. Closed by default and only ever opened deliberately, so the
 // pane's chunk (and the vault read behind it) costs nothing until it's wanted.
 const vaultOpen = ref(false);
+// Split-pane width, remembered: how much of the screen you're willing to give the
+// vault is a working preference, not a per-session one. The pane clamps the value
+// it writes back, so a hand-edited or stale figure can't wedge the panel off-screen.
+const VAULT_W_KEY = "gear.vault.width.v1";
+const vaultWidth = ref(clampVaultWidth(Number(localStorage.getItem(VAULT_W_KEY))));
+watch(vaultWidth, (w) => remember(VAULT_W_KEY, String(w)));
 // packing progress — rows checked / rows total (a row is one check, whatever its qty)
 const packProgress = computed(() => {
   const items = snapshot.value?.items ?? [];
@@ -358,7 +386,11 @@ function onCorrected(res: { status: string; itemName?: string }) {
 </script>
 
 <template>
-  <div class="editor" :class="{ 'editor--centered': !(snapshot && totals) }">
+  <div
+    class="editor"
+    :class="{ 'editor--centered': !(snapshot && totals), 'editor--split': vaultOpen }"
+    :style="{ '--vault-w': `${vaultWidth}px` }"
+  >
     <!-- the editor's page heading — visually the title input carries it, but a
          real (hidden) h1 gives AT users a page title on this client-only view -->
     <h1 class="visually-hidden">{{ listName ? `${listName} — pack list` : "New pack list — Mahonia" }}</h1>
@@ -373,64 +405,75 @@ function onCorrected(res: { status: string; itemName?: string }) {
             <!-- one pill tracks between the two segments (damped --ease, never overshoot —
                  a tracking indicator must not leave its track); the icons sit above it -->
             <span class="modetoggle__pill" :class="{ 'is-packing': packed }" aria-hidden="true" />
-            <button
-              type="button"
-              class="modetoggle__opt"
-              :class="{ 'is-active': !packed }"
-              title="Editing"
-              aria-label="Editing mode"
-              :aria-pressed="!packed"
-              @click="packed = false"
-            >
-              <Backpack :size="16" :stroke-width="2" />
-            </button>
-            <button
-              type="button"
-              class="modetoggle__opt"
-              :class="{ 'is-active': packed }"
-              title="Packing"
-              aria-label="Packing mode"
-              :aria-pressed="packed"
-              @click="packed = true"
-            >
-              <SquareCheck :size="16" :stroke-width="2" />
-            </button>
+            <Tooltip text="Editing" preferred-placement="bottom">
+              <button
+                type="button"
+                class="modetoggle__opt"
+                :class="{ 'is-active': !packed }"
+                aria-label="Editing mode"
+                :aria-pressed="!packed"
+                @click="packed = false"
+              >
+                <Backpack :size="16" :stroke-width="2" />
+              </button>
+            </Tooltip>
+            <Tooltip text="Packing" preferred-placement="bottom">
+              <button
+                type="button"
+                class="modetoggle__opt"
+                :class="{ 'is-active': packed }"
+                aria-label="Packing mode"
+                :aria-pressed="packed"
+                @click="packed = true"
+              >
+                <SquareCheck :size="16" :stroke-width="2" />
+              </button>
+            </Tooltip>
           </div>
           <!-- the vault palette: pick from gear you already own instead of typing
                each name. Lazy — the pane and the shared vault module it pulls in
                are their own chunk, downloaded the first time it's opened. -->
-          <button
-            class="btn btn--icon btn--ghost editor__vault"
-            :class="{ 'is-on': vaultOpen }"
-            title="Add from your vault"
-            aria-label="Add from your vault"
-            :aria-expanded="vaultOpen"
-            @click="vaultOpen = !vaultOpen"
-          >
-            <Boxes :size="16" />
-          </button>
-          <button
-            class="btn btn--icon btn--ghost editor__share"
-            title="Copy read-only link"
-            aria-label="Copy read-only link"
-            @click="copyShare"
-          >
-            <Share2 :size="16" />
-          </button>
+          <!-- the site's own tooltip, not the native `title`: the browser's takes a
+               second to appear, can't be styled, and doesn't respect the column the
+               way this one does. It keeps the aria-label on the button (the
+               accessible NAME) and adds the visible description. Nothing changes on
+               touch — <Tooltip> declines to open where there's no hover. -->
+          <Tooltip text="Your vault" preferred-placement="bottom">
+            <button
+              class="btn btn--icon btn--ghost editor__vault"
+              :class="{ 'is-on': vaultOpen }"
+              aria-label="Your vault"
+              :aria-expanded="vaultOpen"
+              @click="vaultOpen = !vaultOpen"
+            >
+              <Vault :size="16" />
+            </button>
+          </Tooltip>
+          <Tooltip text="Copy read-only link" preferred-placement="bottom">
+            <button
+              class="btn btn--icon btn--ghost editor__share"
+              aria-label="Copy read-only link"
+              @click="copyShare"
+            >
+              <Share2 :size="16" />
+            </button>
+          </Tooltip>
           <div ref="menuRef" class="menu">
             <!-- a custom popover of real <button>s (was a native <select>): the
                  clipboard items need a direct click gesture, which a <select> change
                  isn't on iOS Safari. The kebab toggles it; each item runs on click. -->
-            <button
-              type="button"
-              class="btn btn--icon btn--ghost menu__btn"
-              aria-label="More actions"
-              aria-haspopup="true"
-              :aria-expanded="menuOpen"
-              @click="toggleMenu"
-            >
-              <Ellipsis :size="16" />
-            </button>
+            <Tooltip text="More actions" preferred-placement="bottom">
+              <button
+                type="button"
+                class="btn btn--icon btn--ghost menu__btn"
+                aria-label="More actions"
+                aria-haspopup="true"
+                :aria-expanded="menuOpen"
+                @click="toggleMenu"
+              >
+                <Ellipsis :size="16" />
+              </button>
+            </Tooltip>
             <Transition name="menu">
               <ul v-if="menuOpen" class="popover menu__list" role="menu" aria-label="More actions">
                 <!-- no "Your lists" here — the footer already carries that link.
@@ -448,12 +491,30 @@ function onCorrected(res: { status: string; itemName?: string }) {
     <main v-if="snapshot && totals" id="main-content" tabindex="-1" class="wrap editor__body">
       <!-- Returning-user pointer back to saved lists, on a fresh empty draft only. The
            marketing lede that used to sit here is gone: the ghosted title now says what
-           this page is, and a pitch above it just crowded the thing you came to do. -->
-      <div v-if="isFirstRun && savedCount" class="editor__intro">
-        <NuxtLink to="/mine" class="btn btn--link editor__introlink">
-          Your {{ savedCount }} saved {{ savedCount === 1 ? "list" : "lists" }} →
-        </NuxtLink>
-      </div>
+           this page is, and a pitch above it just crowded the thing you came to do.
+           A corner snackbar rather than a line in the flow: it's an aside about OTHER
+           lists, and in the column it pushed the title of the one you came to write
+           down the page. Hidden while the vault pane is open — on a phone that pane is
+           a bottom sheet and the two would land on top of each other. -->
+      <Transition name="toast">
+        <div v-if="showIntro" class="toast toast--corner editor__intro" role="status">
+          <span class="editor__introtext">
+            <span class="editor__introlede">Pick up where you left off.</span>
+            <NuxtLink to="/mine" class="editor__introlink">
+              Your {{ savedCount }} saved {{ savedCount === 1 ? "list" : "lists" }} →
+            </NuxtLink>
+          </span>
+          <button
+            type="button"
+            class="editor__introclose"
+            aria-label="Dismiss"
+            title="Dismiss"
+            @click="dismissIntro"
+          >
+            <X :size="14" />
+          </button>
+        </div>
+      </Transition>
       <!-- The list name is a page title, not a toolbar field: large, borderless, with a
            ghosted placeholder, at the top of the content — matching what the two read
            views have always done (ReadonlyListView's h1). -->
@@ -549,20 +610,42 @@ function onCorrected(res: { status: string; itemName?: string }) {
       <div v-else-if="toast" class="toast t-sm">{{ toast }}</div>
     </Transition>
 
-    <LazyVaultPane v-if="vaultOpen" @close="vaultOpen = false" />
+    <LazyVaultPane v-if="vaultOpen" v-model:width="vaultWidth" @close="vaultOpen = false" />
 
     <LazyCatalogCorrectionModal v-if="correctionEverOpened" @done="onCorrected" />
     <LazyImportModal v-if="importEverOpened" :open="importOpen" @close="importOpen = false" />
   </div>
 </template>
 
-<style scoped>
+<style scoped lang="scss">
 /* column shell so the slim legal footer pins to the bottom on the short
    (empty / missing) states and sits below the list on long ones */
 .editor {
   display: flex;
   flex-direction: column;
   min-height: 100svh;
+}
+/* Split view: the vault occupies the right of the screen, so the editor's CONTENT
+   gives up that width rather than sitting underneath it. Padding on the content
+   blocks (not a margin on .wrap) keeps .wrap's centring intact — it re-centres
+   inside the narrower space, which is what makes this read as two panes and not as
+   a page shoved sideways.
+   Applied to main + footer and NOT to .editor itself, so the sticky topbar keeps
+   spanning the full viewport: it's the site's bar, not the list column's, and
+   stopping it short of the vault made it look like a second panel had been cut out
+   of the page. Desktop only — below $bp-full the pane is a bottom sheet that
+   overlays by design, and the list needs its full width. */
+@media (min-width: $bp-full + 1px) {
+  .editor--split {
+    padding-right: calc(var(--vault-w) + 2 * var(--space-4));
+  }
+  /* ...then the topbar breaks back out to the full viewport. It can't simply be left
+     unpadded: main IS the .wrap (centred, max-width --measure), so padding it would
+     only eat its own content box and never move the column. The inset has to be on
+     the shell, and the bar opts out of it. */
+  .editor--split > .topbar {
+    margin-right: calc(-1 * (var(--vault-w) + 2 * var(--space-4)));
+  }
 }
 .editor > main {
   flex: 1 0 auto;
@@ -698,12 +781,40 @@ function onCorrected(res: { status: string; itemName?: string }) {
      the read views already give the same seam (.view is a --space-6 column). */
   gap: var(--space-5);
 }
-/* first-run pointer back to saved lists. Recedes once the list has content. */
-.editor__intro {
+/* First-run pointer back to saved lists. Recedes once the list has content, and
+   the close button retires it for good. Placement + surface are the shared
+   .toast--corner atom; only what's INSIDE the snackbar lives here. */
+/* .toast already sets `color: var(--paper)` for the whole surface, and the reset
+   gives buttons and links `color: inherit` + no chrome — so everything below is
+   only the geometry and the two quiet steps down in emphasis. */
+.editor__introtext {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-1);
+  gap: var(--space-px);
+}
+/* The lede is the quieter half: it explains, the link acts. Stepped back with
+   opacity rather than a dimmer token — the ink/paper pair inverts with the colour
+   scheme, and the --ink-N ramp doesn't exist in reverse for text ON ink. */
+.editor__introlede {
+  opacity: 0.72;
+}
+.editor__introlink:hover,
+.editor__introlink:focus-visible {
+  text-decoration: underline;
+}
+/* the dismiss sits apart from the text block and centred against it */
+.editor__introclose {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  padding: var(--space-1);
+  opacity: 0.72;
+}
+.editor__introclose:hover,
+.editor__introclose:focus-visible {
+  opacity: 1;
 }
 /* packing progress — one quiet line between the totals and the checklist. The
    count is the info; "Clear checks" sits beside it in the site's under-link

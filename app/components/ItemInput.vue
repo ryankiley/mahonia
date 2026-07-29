@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Boxes, Droplet } from "@lucide/vue";
+import { Droplet, Vault } from "@lucide/vue";
 import type { EffectScope } from "vue";
 import type { Unit } from "~~/shared/types";
 import { formatWeight, itemDisplayName } from "~~/shared/weights";
@@ -416,7 +416,7 @@ function highlightParts(text: string): { t: string; on: boolean }[] {
           <span class="ac__name">
             <!-- the same glyph as the editor toolbar's vault button, so one mark
                  means one thing across both surfaces and reads before the text does -->
-            <Boxes class="ac__mineicon" :size="14" :stroke-width="2" aria-hidden="true" />
+            <Vault class="ac__mineicon" :size="14" :stroke-width="2" aria-hidden="true" />
             <span class="visually-hidden">From your vault: </span>
             <span v-if="opt.vault.brand" class="ac__brand">
               <span

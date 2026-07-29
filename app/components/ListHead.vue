@@ -645,7 +645,10 @@ onClickOutside(trailEl, () => {
      the ratio above actually govern the height. */
   line-height: 1.25;
   padding: var(--space-1) var(--space-2);
-  border: 1px solid transparent;
+  /* No outline, at rest or focused (the reset already gives inputs none — the old
+     `1px solid transparent` was opting back IN so a focus ring could ink it). The
+     fill IS the field here; a ring on top said the same thing twice, and the site's
+     own inputs carry no border at all — the caret carries focus. */
   /* smaller than the panel's own corner — derived, so it tracks --radius-3 */
   border-radius: calc(var(--radius-3) - var(--space-1));
   background: var(--paper-2);
@@ -655,12 +658,8 @@ onClickOutside(trailEl, () => {
   font-size: 1rem;
   font-family: inherit;
 }
-/* the reference rings the focused field in its brand blue. Mahonia's chrome is
-   monochrome by rule (tokens.scss: the only colour on the site is the data viz), so the
-   ring is ink — same affordance, house palette. */
 .head__panelinput:focus {
   outline: none;
-  border-color: var(--ink-3);
 }
 .head__panelinput + .head__panellabel {
   margin-block-start: var(--space-4);

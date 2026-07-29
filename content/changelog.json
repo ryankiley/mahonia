@@ -1,6 +1,23 @@
 [
   {
+    "date": "2026-07-28",
+    "added": [
+      "Drag gear straight from your vault onto the folder you want it in, instead of picking the folder first.",
+      "Your vault sits beside the list you're building and can be resized to whatever width suits you."
+    ],
+    "changed": [
+      "Gear already in the open list shows as \"Already added\" in the vault, so nothing lands twice.",
+      "About and What's new are one page now."
+    ],
+    "fixed": [
+      "Long gear names in the vault no longer swallow the brand or knock a row out of line."
+    ]
+  },
+  {
     "date": "2026-07-27",
+    "added": [
+      "Pick the currency your gear costs are recorded in, on the vault page."
+    ],
     "changed": [
       "The trail link's card shows the destination without the https:// and www., so more of the address fits.",
       "In the editor, tapping a trail link now opens its card instead of leaving the page — the link itself is in the card. On a shared list it still goes straight there.",
@@ -10,9 +27,6 @@
       "A long list name now wraps onto more lines instead of scrolling sideways out of view.",
       "On a phone, the trail link's card now sits on its own line, so the trail's name isn't cut short and Edit stays reachable.",
       "The toolbar's controls no longer drift to the left on a brand-new list."
-    ],
-    "added": [
-      "Pick the currency your gear costs are recorded in, on the vault page."
     ]
   },
   {
