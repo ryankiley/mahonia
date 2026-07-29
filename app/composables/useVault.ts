@@ -144,7 +144,24 @@ export function useVaultCapture() {
     });
   }
 
-  return { sync, bindFlushOnLeave };
+  /**
+   * Capture a list that arrived WHOLE — imported from LighterPack, or cloned from
+   * someone's public list. Its gear reaches the client in one server response
+   * rather than through ops, so nothing else would ever offer it to the vault.
+   *
+   * Called at the moment of creation rather than from the editor's load(), even
+   * though load() is one hook and this is two call sites. Capturing on OPEN cannot
+   * tell your own list opened on a second device from an edit link a friend sent
+   * you — both are just a token this browser holds — so it quietly copied other
+   * people's gear into your vault, and minted a vault for a collaborator who had
+   * never asked for one. Creation is unambiguous: this device made this list, from
+   * this data, just now.
+   */
+  function captureNewList(snapshot: { items: Item[]; folders?: Folder[] }): void {
+    sync(snapshot.items, snapshot.folders ?? []);
+  }
+
+  return { sync, captureNewList, bindFlushOnLeave };
 }
 
 /** Reset the capture memo — called when a device switches vaults, so

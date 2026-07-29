@@ -53,10 +53,16 @@ useHead({
         </p>
 
         <p>
-          Your <strong>gear vault</strong> — the gear remembered from the lists you build — works the
-          same way. It’s stored under its own unguessable link, and that link is the only thing
-          that opens it. It holds gear: names, brands and weights.
-          There’s no account attached to it, and nothing in it identifies you.
+          Your <strong>gear vault</strong> — the gear remembered from the lists you build and edit
+          on this device — works the same way. It’s stored under its own unguessable link, and that
+          link is the only thing that opens it. It holds gear: names, brands and weights. There’s no
+          account attached to it, and nothing in it identifies you.
+        </p>
+        <p>
+          Opening a list someone shared with you doesn’t put their gear in your vault. Gear reaches
+          it when you add it to a list yourself, or when you import or copy a list into your own.
+          A vault belongs to the browser holding its link, so a second device has its own until you
+          open your vault’s link there too.
         </p>
 
         <h3>What Mahonia collects in the background</h3>

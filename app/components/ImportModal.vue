@@ -66,6 +66,9 @@ async function createFrom(
       },
     });
     emit("close");
+    // an import arrives whole (no ops) — capture it here, where the device knows
+    // it just created this list from data you supplied
+    useVaultCapture().captureNewList(res.snapshot);
     router.push(editLinkPath(res.snapshot.shareCode, myLists.registerCreated(res)));
   } catch {
     error.value = "Import failed. Check the file and try again.";

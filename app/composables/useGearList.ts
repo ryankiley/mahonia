@@ -37,6 +37,14 @@ function create() {
   let remoteMissing = false;
   // bumped on every load/dispose so in-flight responses for a previous list are ignored
   let epoch = 0;
+  // True while load() runs its one-time backfills (water names, folder colours,
+  // stranded children). Those go through dispatch like any edit — which is right for
+  // persistence, and wrong for the vault: they fire on OPEN, so a list someone
+  // shared with you would capture its owner's whole gear set into your vault the
+  // moment a single legacy folder needed a colour. Suppressed here rather than at
+  // each backfill, so a fourth one added later inherits the rule instead of
+  // reintroducing the leak.
+  let hydrating = false;
   let teardownListeners: (() => void) | undefined;
 
   // on-device durability + connectivity awareness. The connectivity ref + watcher
@@ -189,11 +197,15 @@ function create() {
       snapshot.value = merged;
       status.value = pending.length ? "saving" : "synced";
       registerOpened(); // server confirmed the token → remember this list in "Your lists"
-      // Capture on OPEN as well as on edit: a list that arrived whole — imported
-      // from LighterPack, cloned from someone's public list, or simply built on
-      // another device — dispatches no ops here, so opening it is the only moment
-      // its gear can reach the vault.
-      vault.sync(merged.items, merged.folders);
+      // NO capture on open. It used to happen here, to catch a list that arrived
+      // whole (imported, cloned) and dispatches no ops — but an edit link is an
+      // edit link, and this hook could not tell YOUR list opened on a second device
+      // from one a friend shared with you. So opening a shared list copied its
+      // owner's gear into the opener's vault, and minted a vault for someone who
+      // had never asked for one. The whole-list cases capture at the moment they're
+      // CREATED instead (useVaultCapture().captureNewList), where the device knows
+      // it made the thing; everything else still captures as you edit.
+      hydrating = true;
       // one-time cleanup: early water rows were named "Water · 1 L"; the volume now
       // lives in the qty (litres) field, so the name should just be "Water"
       for (const it of merged.items) {
@@ -226,6 +238,7 @@ function create() {
       }
       for (const p of stranded)
         dispatch({ t: "moveItem", id: p.id, folderId: p.folderId, sortOrder: p.sortOrder });
+      hydrating = false;
       // Upgrade a legacy bare /e#{token} URL to the share-ready pretty path
       // (/e/{shareCode}#{token}) once the share code is known. Pre-#54 lists —
       // every bookmark and my-lists entry from before the pretty links shipped —
@@ -391,7 +404,7 @@ function create() {
     // Every mutation funnels through here, whatever made it — typing, a catalog
     // pick, a drag, an undo — so this one call captures gear from all of them
     // without each call site having to remember to.
-    vault.sync(snapshot.value.items, snapshot.value.folders);
+    if (!hydrating) vault.sync(snapshot.value.items, snapshot.value.folders);
     // Draft (no token yet): keep edits local until there's real content, then create
     // the list once. While that create is in flight, queue ops for the post-create flush.
     if (!editToken) {

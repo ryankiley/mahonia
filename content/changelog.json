@@ -21,7 +21,8 @@
     ],
     "fixed": [
       "Long gear names in the vault no longer swallow the brand or knock a row out of line.",
-      "The vault panel keeps its height while you filter it, instead of collapsing as results narrow."
+      "The vault panel keeps its height while you filter it, instead of collapsing as results narrow.",
+      "Opening a list someone shared with you no longer copies their gear into your vault."
     ]
   },
   {
