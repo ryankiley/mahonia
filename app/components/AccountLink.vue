@@ -25,6 +25,11 @@ import { KeyRound } from "@lucide/vue";
 // the CDN.
 const { signedIn, hasSessionHint } = useSession();
 
+// Not on /account itself — a control whose only job is to bring you here is noise
+// once you've arrived, and signed out it read as "Sign in" pointing at the sign-in
+// page you're already looking at.
+const onAccountPage = computed(() => useRoute().path === "/account");
+
 // The hint alone decides the wording — it carries no capability, and being wrong
 // costs one 401 on a page the person asked for anyway. Waiting for the session to
 // resolve would make the label change under the cursor on every load.
@@ -36,6 +41,7 @@ watch(signedIn, (yes) => (known.value = yes || hasSessionHint()));
 <template>
   <ClientOnly>
     <NuxtLink
+      v-if="!onAccountPage"
       to="/account"
       class="btn btn--link acctlink"
       :title="known ? 'Your account' : 'Sign in'"

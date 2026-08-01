@@ -180,15 +180,18 @@ async function onSignOut() {
 <template>
   <div>
     <SiteTopbar>
-      <NuxtLink to="/vault" class="btn btn--link">Your vault</NuxtLink>
+      <!-- Signed out this pointed at /vault, which has nothing to show and sends
+           you straight back here — a loop. There's nothing else this page needs in
+           the bar, so it holds only the wordmark until there's a vault to go to. -->
+      <ClientOnly>
+        <NuxtLink v-if="signedIn" to="/vault" class="btn btn--link">Your vault</NuxtLink>
+      </ClientOnly>
     </SiteTopbar>
 
     <main id="main-content" tabindex="-1" class="wrap page">
       <h1 class="t-title acct__head">Your account</h1>
 
       <ClientOnly>
-        <!-- Centred and narrow: signed out there is exactly one thing to do here,
-             so the page shouldn't read as a form with a column of chrome beside it. -->
         <!-- Centred and narrow: signed out there is exactly one thing to do here,
              so the page shouldn't read as a form with a column of chrome beside it. -->
         <div v-if="loaded && !signedIn" class="acct__empty">
@@ -359,6 +362,35 @@ async function onSignOut() {
 }
 /* one rhythm for every block: a hairline above, the same padding below it. The
    sections differ in content, never in spacing. */
+/* Centred only when the signed-out column is what's below it — asked of the page's
+   own structure rather than re-deriving the session state up here, so the two can't
+   disagree. Signed in the page is a left-aligned stack of sections, where a centred
+   heading would float free of everything under it. */
+.page:has(.acct__empty) .acct__head {
+  text-align: center;
+}
+/* CONTAINED on the signed-out screen only. The underline treatment above suits a
+   field sitting in a row of other content; here the field is stacked between two
+   full-width pill buttons, and a bare underline reads as a gap in that stack
+   rather than a control in it. Same height, radius and padding as the buttons, so
+   the three stack as one object — and the text starts on the left like any other
+   input, rather than centred with the prose. */
+.acct__empty .acct__input {
+  width: 100%;
+  min-height: 40px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--paper);
+  text-align: left;
+}
+.acct__empty .acct__input::placeholder {
+  color: var(--ink-3);
+}
+.acct__empty .acct__input:focus {
+  border-color: var(--ink-2);
+}
+
 /* Signed out there is exactly one thing to do, so the column centres and narrows
    rather than sitting left in a full-width page beside empty space. */
 .acct__empty {
@@ -417,10 +449,6 @@ async function onSignOut() {
 .acct__empty .acct__alt:hover {
   background: var(--paper-3);
   color: var(--ink);
-}
-.acct__empty .acct__input {
-  width: 100%;
-  text-align: center;
 }
 .acct__signup {
   display: flex;
