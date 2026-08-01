@@ -2,6 +2,7 @@ import { createError, defineEventHandler, setHeader } from "h3";
 import { createList } from "../../utils/listRepo";
 import { readJsonBodyCapped } from "../../utils/http";
 import { rateLimit } from "../../utils/rateLimit";
+import { resolveSession } from "../../utils/authSession";
 import type { ListData, Unit } from "../../../shared/types";
 import { UNITS } from "../../../shared/types";
 
@@ -35,8 +36,15 @@ export default defineEventHandler(async (event) => {
       ? body.data
       : undefined;
 
+  // Stamp the maker, if there is one. Best-effort and deliberately non-fatal: a
+  // list is still made by someone with no account at all, and a session lookup
+  // that fails must not cost them the list. Stamped ONCE here and never re-pointed
+  // — see createList's authorUserId for why claiming can't rewrite authorship.
+  const author = await resolveSession(event).catch(() => null);
+
   try {
     const { editToken, snapshot } = await createList({
+      authorUserId: author?.id,
       title,
       description,
       displayUnit,

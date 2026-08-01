@@ -3,8 +3,8 @@
 // leaves this module.
 
 import { createError } from "h3";
-import { and, desc, eq, inArray, isNotNull, isNull, lt, lte, sql } from "drizzle-orm";
-import { catalogItems, lists, listSnapshots, type ListRow } from "../db/schema";
+import { and, desc, eq, inArray, isNotNull, isNull, lt, lte, notInArray, sql } from "drizzle-orm";
+import { listClaims, catalogItems, listSnapshots, lists, type ListRow, users } from "../db/schema";
 import {
   applyOps,
   MAX_FOLDERS,
@@ -25,7 +25,7 @@ import { UNITS } from "../../shared/types";
 import type { ListData, ListSnapshot, ListState, Totals, Unit } from "../../shared/types";
 import { isLikelySpam } from "../../shared/discovery";
 import { displayHost, normalizeTrailLabel, normalizeTrailUrl, safeUrl } from "../../shared/trailLink";
-import { ensureSnapshotSchema, ensureTrailFaviconSchema, useDb } from "./db";
+import { ensureSnapshotSchema, ensureTrailFaviconSchema, useAccountDb, useDb } from "./db";
 import { getFavicon, warmFavicon } from "./trailFavicon";
 import { ensureCatalogSchema } from "./catalog";
 import { randomEditToken, randomShareCode, randomSlug, sha256Hex } from "./tokens";
@@ -458,12 +458,42 @@ export async function restoreSnapshotByEditToken(
   throw createError({ statusCode: 409, statusMessage: "Restore contention — retry" });
 }
 
+/**
+ * Resolve a list's maker to the name shown under its title on the read views.
+ *
+ * Only a display name the account CHOSE is ever surfaced — never the email, never
+ * a fallback derived from it. An account with no display name stays anonymous,
+ * which is the default and the setting most people will leave alone.
+ *
+ * Attached at read time rather than denormalized onto the row so that renaming
+ * yourself renames you everywhere at once, including on lists made years ago.
+ */
+export async function attachAuthorName(
+  db: Db,
+  snap: ListSnapshot,
+  authorUserId: number | null,
+): Promise<ListSnapshot> {
+  if (authorUserId == null) return snap;
+  const rows = await db
+    .select({ displayName: users.displayName })
+    .from(users)
+    .where(eq(users.id, authorUserId))
+    .limit(1);
+  const name = rows[0]?.displayName?.trim();
+  if (name) snap.authorName = name;
+  return snap;
+}
+
 export async function getByShareCode(code: string): Promise<ListSnapshot | null> {
   const c = normShareCode(code);
   if (!c) return null;
   const db = await useDb();
   const rows = await db.select().from(lists).where(liveOnly(lists.shareCode, c)).limit(1);
-  return rows[0] ? hydrateForRead(db, rowToSnapshot(rows[0])) : null;
+  if (!rows[0]) return null;
+  // the byline belongs to the READ views only — /s and /l, not the editor, where
+  // you are the author and being told so is noise
+  const snap = await hydrateForRead(db, rowToSnapshot(rows[0]));
+  return attachAuthorName(db, snap, rows[0].authorUserId);
 }
 
 export async function getByEditToken(editToken: string): Promise<ListSnapshot | null> {
@@ -490,6 +520,11 @@ export async function createList(init?: {
   trailUrl?: string;
   trailLabel?: string;
   data?: ListData;
+  /** The signed-in maker, when there is one — stamped ONCE at creation, for the
+   *  byline on the read views. Absent for the (still entirely normal) no-account
+   *  case, and never re-pointed later: an edit link is shared, so "who else holds
+   *  this" is a different question from "who wrote it". */
+  authorUserId?: number;
 }): Promise<{ editToken: string; snapshot: ListSnapshot }> {
   const db = await useDb();
   const editToken = randomEditToken();
@@ -522,6 +557,7 @@ export async function createList(init?: {
           displayUnit,
           data,
           ...weightColumns(totals),
+          authorUserId: init?.authorUserId ?? null,
           version: 1,
         })
         .returning();
@@ -764,8 +800,37 @@ export async function purgeDeletedLists(
   return { purged: ids.length };
 }
 
-export async function rotateEditToken(editToken: string): Promise<string | null> {
-  const db = await useDb();
+/**
+ * Revoke the current edit token and issue a new one.
+ *
+ * ROTATION IS A REVOCATION, so it also drops the account claims on this list.
+ * Without that, anyone who had claimed the list would keep full write access
+ * through their session after the owner rotated to cut off a leaked link — the one
+ * mechanism the product has for taking access back would silently not work against
+ * exactly the people it exists to stop. See server/utils/claimRepo.ts for what a
+ * claim is: a saved capability, which is why revoking the capability must revoke it.
+ *
+ * This is also what makes it safe to OFFER claiming at all. Opening an edit link
+ * on a new device is indistinguishable, server-side, from being sent someone
+ * else's — so claiming has to be a question the human answers, and a wrong answer
+ * has to be undoable by the owner. This is that undo.
+ *
+ * Two claims survive, and only two:
+ *  • `keepUserId` — whoever is doing the rotating. They're already being handed the
+ *    new token, so dropping their claim would only lock them out of their own action.
+ *  • the list's `author_user_id` — the person who made it. Otherwise a holder of a
+ *    shared link could rotate and strip the creator's access, which is the reverse
+ *    of what this endpoint is for.
+ */
+export async function rotateEditHash(
+  editHash: string,
+  keepUserId?: number,
+  db?: Db,
+): Promise<string | null> {
+  // useAccountDb, not useDb: list_claims lives in the account schema, and on Neon
+  // that's ensured on first use rather than migrated. Injectable like the other repo
+  // functions here, so tests can drive a throwaway database.
+  const d = db ?? (await useAccountDb());
   const next = randomEditToken();
   // One atomic UPDATE keyed on the OLD token (not find-by-token then update-by-id):
   // when two rotates race — owner vs leaked-token holder, or the owner's own two
@@ -773,10 +838,25 @@ export async function rotateEditToken(editToken: string): Promise<string | null>
   // a token that was already overwritten (a silent, permanent lockout: the token is
   // the only credential). `liveOnly` keeps the active/not-deleted gate.
   // no-arg .returning() — the neon-http | PGlite union's only shared overload.
-  const updated = await db
+  const updated = await d
     .update(lists)
     .set({ editTokenHash: sha256Hex(next), updatedAt: new Date() })
-    .where(liveOnly(lists.editTokenHash, sha256Hex(editToken)))
+    .where(liveOnly(lists.editTokenHash, editHash))
     .returning();
-  return updated[0] ? next : null;
+  const row = updated[0];
+  if (!row) return null;
+
+  const spare = [keepUserId, row.authorUserId].filter((id): id is number => typeof id === "number");
+  await d
+    .delete(listClaims)
+    .where(
+      spare.length
+        ? and(eq(listClaims.listId, row.id), notInArray(listClaims.userId, spare))
+        : eq(listClaims.listId, row.id),
+    );
+  return next;
+}
+
+export async function rotateEditToken(editToken: string, keepUserId?: number): Promise<string | null> {
+  return rotateEditHash(sha256Hex(editToken), keepUserId);
 }

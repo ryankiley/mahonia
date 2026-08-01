@@ -33,6 +33,12 @@ export function randomEditToken(): string {
   return randomBytes(32).toString("base64url");
 }
 
+/** A high-entropy opaque secret — session tokens, magic links, passkey flow ids.
+ *  Same generator as an edit token; named for intent so call sites read clearly. */
+export function randomSecret(): string {
+  return randomEditToken();
+}
+
 export function sha256Hex(input: string): string {
   return createHash("sha256").update(input).digest("hex");
 }

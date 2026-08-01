@@ -48,6 +48,13 @@ const trail = computed(() => parseTrailLink(props.list?.trailUrl, props.list?.tr
       <slot name="head">
         <h1 class="t-title view__title">{{ list.title }}</h1>
       </slot>
+      <!-- The byline. Lives here rather than in either page's #head slot so /s and
+           /l both get it — /l overrides only the heading block, the same reason the
+           trail link sits here. Shown ONLY when the maker set a display name: an
+           account is anonymous by default and nothing derives a name from an email.
+           Above the edited-at meta line because it's about the list, not its
+           freshness. -->
+      <p v-if="list.authorName" class="view__byline">by {{ list.authorName }}</p>
       <p v-if="$slots.status || editedAt != null" class="view__meta">
         <span v-if="$slots.status" class="view__status"><slot name="status" /></span>
         <!-- the relative time is a client concern (avoids an SSR/hydration time
@@ -128,6 +135,13 @@ const trail = computed(() => parseTrailLink(props.list?.trailUrl, props.list?.tr
 }
 /* status · edited — one quiet line. flex so a #status icon (the /l globe) sits on the
    text baseline, with a drawn middle-dot between the pieces */
+/* One step up from the meta line's ink: a name is content, where "edited 3m ago"
+   is status. Still quiet enough to sit under the title without competing with it. */
+.view__byline {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: var(--text-sm);
+}
 .view__meta {
   margin: 0;
   display: flex;

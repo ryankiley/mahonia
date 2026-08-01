@@ -19,9 +19,10 @@ import { formatWeightAuto, itemDisplayName } from "~~/shared/weights";
 // The vault — every piece of gear you've put in a list, in one place, so building
 // the next list is picking rather than retyping.
 //
-// Owned by a LINK, like everything else here: no account, no sign-in. This page is
-// also where that link is handed to you, since it's the one thing you have to keep
-// to carry the vault to another device.
+// Owned by your ACCOUNT — the one part of Mahonia that asks you to sign in. Lists
+// stay link-owned and always will; a vault is different because it's the durable
+// record of what you own, and the thing you'd most hate to lose to a cleared
+// browser. Signing in on another device is what carrying it there means now.
 //
 // noindex: it's one person's possessions and there is nothing here for a crawler.
 useHead({
@@ -29,159 +30,8 @@ useHead({
   meta: [{ name: "robots", content: "noindex" }],
 });
 
-const { token, hasVault, setToken, forget, vaultFetch } = useVaultToken();
-
-// ---- arriving from a transfer link ---------------------------------------
-// /vault#<token> is how a vault reaches a second device. The token rides in the
-// FRAGMENT, which browsers never send to the server — the same reason a list's
-// edit token lives there. Adopt it, then strip it from the address bar so it isn't
-// left sitting in history or in a screenshot of the URL.
-//
-// If this browser ALREADY holds a vault, the two are merged before the swap. It
-// used to just point the browser at the new one, which left the gear this device
-// had been collecting in a vault nobody had a link to any more — lost by using the
-// feature whose whole job is carrying your gear between devices. Merging also makes
-// the honest case work: collect gear on your phone, collect gear on your laptop,
-// then put them together.
-const merged = ref(0); // pieces folded in, for the confirmation toast
-const adopting = ref(false);
-const adoptFailed = ref(""); // the link we couldn't merge — kept so retry needs no re-paste
-
-async function adopt(fromLink: string) {
-  const mine = token.value;
-  if (fromLink === mine) return;
-  // nothing here to lose: take the link and go, no round trip
-  if (!mine) {
-    setToken(fromLink);
-    resetVaultCapture(); // don't inherit the previous vault's "already sent"
-    return;
-  }
-  adopting.value = true;
-  adoptFailed.value = "";
-  try {
-    // authorised as the INCOMING vault, naming the outgoing one — this is the one
-    // vault call whose capability isn't the token we currently hold, so it can't go
-    // through vaultFetch
-    const res = await $fetch<{ merged: number }>("/api/vault/adopt", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${fromLink}` },
-      body: { fromToken: mine },
-    });
-    setToken(fromLink);
-    resetVaultCapture();
-    merged.value = res?.merged ?? 0;
-    if (merged.value) setTimeout(() => (merged.value = 0), 6000);
-    // hasVault was already true, so the watch that normally loads on arrival won't
-    // fire on a swap — read the vault we just moved to by hand
-    await loadVault();
-  } catch {
-    // Offline, rate-limited, or a link that no longer resolves. Hold the swap: a
-    // device that keeps the vault it has is recoverable, one that swapped without
-    // merging is exactly the loss this exists to prevent.
-    adoptFailed.value = fromLink;
-  } finally {
-    adopting.value = false;
-  }
-}
-
-function takeLinkFromHash() {
-  const fromLink = location.hash.replace(/^#/, "").trim();
-  // strip first, unconditionally — a failed merge keeps the token in `adoptFailed`
-  // for the retry button, so it never has to sit in the address bar to stay usable
-  history.replaceState(null, "", location.pathname + location.search);
-  if (fromLink) void adopt(fromLink);
-}
-
-onMounted(takeLinkFromHash);
-// ...and again if the fragment changes without a remount. Pasting a transfer link
-// into the address bar while ALREADY on /vault is a hash-only navigation: the
-// browser doesn't reload and Vue doesn't re-run setup, so an onMounted-only reader
-// let the link land on the page and do nothing at all — the one failure mode with
-// no error and no feedback.
-useWindowEvent("hashchange", takeLinkFromHash);
-
-// ---- handing the link to another device ----------------------------------
-const transferUrl = computed(() =>
-  token.value && import.meta.client ? `${location.origin}/vault#${token.value}` : "",
-);
-const showTransfer = ref(false);
-const copied = ref(false);
-let copyTimer: ReturnType<typeof setTimeout> | undefined;
-
-async function copyTransfer() {
-  if (!(await copyText(transferUrl.value))) return;
-  copied.value = true;
-  clearTimeout(copyTimer);
-  copyTimer = setTimeout(() => (copied.value = false), 2000);
-}
-
-// ---- bringing another device's vault here --------------------------------
-// The other direction, and the answer to drift. Opening a transfer link merges
-// and then SWAPS you to that vault — fine when you're setting up a new device,
-// wrong when you just want the gear your phone collected while you were away from
-// the laptop. Two devices that both keep collecting pull apart, and without this
-// the only way back together is to swap one of them wholesale.
-//
-// Same endpoint as arriving from a link, with the two capabilities the other way
-// round: this device's token authorises (vaultFetch's header), and the pasted one
-// names the source. The pasted vault is left exactly as it was, so this is safe to
-// run from either device — or from both.
-const mergeInLink = ref("");
-const mergingIn = ref(false);
-const mergeInMsg = ref("");
-
-/** A pasted transfer link or a bare token — the token is the fragment, and people
- *  paste whichever of the two they happen to have. */
-function tokenFromLink(raw: string): string {
-  const s = raw.trim();
-  const hash = s.indexOf("#");
-  return (hash >= 0 ? s.slice(hash + 1) : s).trim();
-}
-
-async function mergeIn() {
-  const from = tokenFromLink(mergeInLink.value);
-  if (!from || mergingIn.value) return;
-  if (from === token.value) {
-    mergeInMsg.value = "That’s this device’s own link — there’s nothing to bring over.";
-    return;
-  }
-  mergingIn.value = true;
-  mergeInMsg.value = "";
-  try {
-    const res = await vaultFetch<{ merged: number }>("/api/vault/adopt", {
-      method: "POST",
-      body: { fromToken: from },
-    });
-    mergeInLink.value = "";
-    // merged: 0 covers both "that vault is empty" and "that token resolves to
-    // nothing" — the endpoint deliberately doesn't distinguish them, and neither
-    // does this: either way there was nothing to bring.
-    mergeInMsg.value = res.merged
-      ? `Merged ${res.merged} ${res.merged === 1 ? "piece" : "pieces"} of gear in. That vault is unchanged.`
-      : "Nothing to bring over — that vault is empty, or the link isn’t one.";
-    await loadVault();
-  } catch {
-    mergeInMsg.value = "Couldn’t merge that vault. Check the link and your connection.";
-  }
-  mergingIn.value = false;
-}
-onBeforeUnmount(() => clearTimeout(copyTimer));
-
+const { hasVault, vaultFetch } = useVaultAccess();
 const { confirm: askConfirm } = useDialogs();
-async function forgetVault() {
-  if (
-    !(await askConfirm({
-      title: "Forget this gear vault here?",
-      message:
-        "Your gear stays where it is, and the link still opens it. This browser just stops holding it — so keep the link if you want it back.",
-      confirmLabel: "Forget",
-    }))
-  )
-    return;
-  forget();
-  items.value = [];
-  resetVaultCapture();
-}
 
 // ---- the gear ------------------------------------------------------------
 const items = ref<VaultEntry[]>([]);
@@ -220,8 +70,8 @@ async function loadVault() {
   }
   loading.value = false;
 }
-// load once we know whether this device holds a vault, and again if that changes
-// (a transfer link adopted above, or another tab minting one)
+// load once we know whether there's a vault to load, and again when that flips —
+// signing in or out mid-session, which the session plugin's watcher drives
 watch(
   hasVault,
   (v) => {
@@ -569,35 +419,24 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
       </div>
 
       <ClientOnly>
-        <!-- A transfer link that couldn't be merged. The swap was HELD (see adopt()),
-             so this device still has its own gear and the link is still good — which
-             makes this a retry, not a failure to report. The token is kept in
-             `adoptFailed` rather than the address bar, so the button works without
-             the link being pasted again. -->
-        <Prompt
-          :show="!!adoptFailed"
-          variant="inline"
-          lede="Nothing was lost."
-          dismiss-label="Don’t merge this device’s gear"
-          @dismiss="adoptFailed = ''"
-        >
-          <template #icon><Vault :size="15" :stroke-width="2" /></template>
-          Couldn’t merge this device’s gear into the vault you opened.
-          <template #action>
-            <button class="btn btn--quiet" :disabled="adopting" @click="adopt(adoptFailed)">
-              {{ adopting ? "Merging…" : "Try again" }}
-            </button>
-          </template>
-        </Prompt>
 
-        <!-- no vault yet: nothing to sign up for, just an explanation -->
+        <!-- Signed out. The one place on the site that asks for an account, so it
+             says why rather than just presenting a form: a vault is worth keeping,
+             and keeping it is the thing a link couldn't do. Lists are pointedly
+             mentioned as still needing nothing, because that's the promise people
+             came for and this page shouldn't read as it being withdrawn. -->
         <div v-if="!hasVault" class="vault__auth">
           <p class="vault__sentline">Your gear vault fills itself.</p>
           <p class="t-sm t-muted">
             Add gear to a list and it lands here — weights, brands and all — ready to pull into
-            the next list without retyping. There’s nothing to sign up for.
+            the next list without retyping.
           </p>
-          <NuxtLink to="/e" class="btn btn--primary">Start a list</NuxtLink>
+          <p class="t-sm t-muted">
+            The vault is the one thing that asks you to sign in, because it's meant to outlast a
+            cleared browser and follow you between devices. Building and sharing lists still needs
+            no account at all.
+          </p>
+          <NuxtLink to="/account" class="btn btn--primary">Sign in</NuxtLink>
         </div>
 
         <!-- the gear -->
@@ -874,80 +713,12 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
             </div>
           </div>
 
-          <!-- The link IS the vault. This is the only place it's shown, and it's
-               behind a disclosure rather than on screen by default: it's a
-               capability, so it shouldn't be sitting in a screenshot or over
-               someone's shoulder while they browse their own gear. -->
-          <div class="vault__transfer">
-            <button
-              type="button"
-              class="btn btn--quiet vault__disclose"
-              :aria-expanded="showTransfer"
-              @click="showTransfer = !showTransfer"
-            >
-              {{ showTransfer ? "Hide the link" : "Open this gear vault on another device" }}
-            </button>
-            <div v-if="showTransfer" class="vault__transferbody">
-              <p class="t-sm t-muted">
-                This link <em>is</em> your gear vault — anyone with it can see and change your gear, so
-                send it only to yourself. Open it on another device and that device holds the
-                vault too.
-              </p>
-              <div class="vault__linkrow">
-                <input
-                  class="field vault__linkfield"
-                  :value="transferUrl"
-                  readonly
-                  aria-label="Link to this gear vault"
-                  @focus="($event.target as HTMLInputElement).select()"
-                />
-                <button type="button" class="btn" @click="copyTransfer">
-                  {{ copied ? "Copied" : "Copy" }}
-                </button>
-              </div>
-              <p class="t-sm t-muted">
-                Keep it somewhere you'll find it. There's no account and no email, so a lost link
-                can't be recovered — though a fresh vault refills itself as you open your lists
-                again.
-              </p>
-
-              <!-- the other direction: pull another device's gear in without
-                   leaving the vault this device is on. Opening a link swaps you
-                   over; this doesn't, which is what makes two devices that both
-                   kept collecting reconcilable. -->
-              <form class="vault__mergein" @submit.prevent="mergeIn">
-                <label class="t-sm t-muted" for="vault-mergein">
-                  Collected gear on another device? Paste its link to bring that gear here. The
-                  other vault is left as it is.
-                </label>
-                <div class="vault__linkrow">
-                  <input
-                    id="vault-mergein"
-                    v-model="mergeInLink"
-                    class="field vault__linkfield"
-                    type="text"
-                    autocomplete="off"
-                    spellcheck="false"
-                    placeholder="Paste a gear vault link"
-                  />
-                  <button type="submit" class="btn" :disabled="!mergeInLink.trim() || mergingIn">
-                    {{ mergingIn ? "Merging…" : "Merge" }}
-                  </button>
-                </div>
-                <p v-if="mergeInMsg" class="t-sm t-muted" role="status">{{ mergeInMsg }}</p>
-              </form>
-
-              <button type="button" class="btn btn--quiet vault__forget" @click="forgetVault">
-                Forget this gear vault on this device
-              </button>
-            </div>
-          </div>
         </div>
 
-        <!-- No third branch: with accounts there was a "still resolving the
-             session" state to sit in, but the vault token is read from
-             localStorage synchronously at setup, so on the client we always know
-             which of the two above applies. The #fallback below covers SSR. -->
+        <!-- The signed-out branch above doubles as the "still resolving" state:
+             the session is fetched after hydration, so hasVault is briefly false
+             for someone who IS signed in. That resolves to the gear in a moment
+             and the sign-in copy is honest in the meantime. #fallback covers SSR. -->
         <template #fallback>
           <p class="t-muted vault__empty">Loading…</p>
         </template>
@@ -960,12 +731,7 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
          which pushed the list down as it appeared and read as a status message
          rather than as an action you still have. The 10s window is unchanged; it
          just lives somewhere you don't have to be scrolled to the top to see. -->
-    <!-- ONE toast surface, so a merge landing while an undo is still live can't
-         stack two boxes on the same corner. Undo wins the tie: it's the only one
-         with an expiring action behind it. Merging a transfer link belongs here
-         rather than in a Prompt because it's something that HAPPENED — reported,
-         then gone. The retry above is a question you answer, which is why that one
-         is an inline Prompt and these aren't. -->
+
     <Transition name="toast">
       <div v-if="undoable" class="toast undobar">
         <span class="t-sm">
@@ -974,11 +740,6 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
         <button class="undobar__btn t-sm" @click="undoRemove">
           <Undo2 :size="14" /> Undo
         </button>
-      </div>
-      <div v-else-if="adopting" class="toast t-sm">Merging this device’s gear…</div>
-      <div v-else-if="merged" class="toast t-sm">
-        Merged <strong>{{ merged }}</strong> {{ merged === 1 ? "piece" : "pieces" }} of gear from
-        this device into the vault you opened.
       </div>
     </Transition>
   </div>
@@ -1170,7 +931,7 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
   align-items: flex-start;
   gap: var(--space-4);
 }
-/* the transfer disclosure — a quiet footer affordance, not a call to action. The
+/* the quiet footer disclosures — affordances, not calls to action. The
    link it reveals is a capability, so nothing about this should invite a casual
    click; it sits below the gear, under a hairline, like the "Your account" link it
    replaced. */
@@ -1257,7 +1018,7 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
   flex: 0 1 22ch;
 }
 
-/* the removed-gear disclosure sits above the transfer one, both quiet footers to
+/* the removed-gear disclosure sits as a quiet footer to
    the page proper — same hairline seam, so they read as a pair of asides */
 .vault__removed {
   margin-top: var(--space-7);
@@ -1278,18 +1039,6 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
 .vault__removedbody .vault__row:hover {
   opacity: 1;
 }
-.vault__transfer {
-  margin-top: var(--space-7);
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--line);
-}
-.vault__transferbody {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  margin-top: var(--space-3);
-  max-width: 44rem;
-}
 .vault__linkrow {
   display: flex;
   gap: var(--space-2);
@@ -1300,19 +1049,6 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
   flex: 1;
   min-width: 0;
   font-variant-numeric: tabular-nums;
-}
-/* the merge-in form: the same column rhythm as the rest of the disclosure, with a
-   hairline above so it reads as the OTHER direction rather than more of the same
-   "here's your link" block */
-.vault__mergein {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--line);
-}
-.vault__forget {
-  align-self: flex-start;
 }
 
 @media (max-width: $bp-stack) {

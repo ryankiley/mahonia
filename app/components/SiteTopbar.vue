@@ -15,6 +15,9 @@ defineProps<{
     <div class="wrap topbar__inner" :class="{ 'topbar__inner--compact': compact }">
       <NuxtLink to="/" class="t-label brand">Mahonia</NuxtLink>
       <slot />
+      <!-- After the page's own chrome, so a page's action stays the prominent one.
+           Renders nothing at all for anyone without an account — see AccountLink. -->
+      <AccountLink class="topbar__account" />
     </div>
   </header>
 </template>

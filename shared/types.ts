@@ -95,6 +95,11 @@ export interface ListSnapshot extends ListMeta, ListData {
   // "edited Nm ago" line. Authoritative (reflects a collaborator's edit the poll
   // pulls in), unlike a device-local clock. Absent on a never-server-saved draft.
   updatedAt?: string;
+  // The maker's chosen display name, when they made the list signed in AND set
+  // one. Present only on the READ views — a byline is for people looking at
+  // someone else's list. Absent means anonymous, which is the default and stays
+  // the default: an account with no display name is never identified.
+  authorName?: string;
   // public-feed metadata (only populated on the public read view / publish flow)
   tripType?: string;
   season?: string;
@@ -113,6 +118,18 @@ export interface ListState extends ListMeta, ListData {
 /** localStorage "My Lists" registry entry (no login). */
 export interface MyListEntry {
   editToken: string;
+  // How this list got here. "created" = this browser made, imported or cloned it;
+  // "opened" = it arrived via someone else's edit link.
+  //
+  // This decides whether signing in ATTACHES the list to your account
+  // automatically. Only your own lists should — quietly claiming a list someone
+  // shared with you is a surprise, and it would outlive the owner's ability to
+  // revoke the link.
+  //
+  // Absent on entries that predate the field. Those are treated as "created",
+  // which is the right guess for the overwhelming majority and is safe because
+  // rotating a list's link clears other accounts' claims.
+  origin?: "created" | "opened";
   shareCode: string;
   slug: string;
   title: string;

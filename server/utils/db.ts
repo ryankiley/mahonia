@@ -7,6 +7,7 @@ import * as schema from "../db/schema";
 import { CATALOG_DDL, ensureCatalogSchema } from "./catalog";
 import { CANDIDATES_DDL } from "./candidates";
 import { VAULT_DDL } from "./vaultSchema";
+import { ACCOUNT_DDL } from "./accountSchema";
 import { memoizedEnsure } from "./memoize";
 
 type Db = Awaited<ReturnType<typeof build>>;
@@ -109,6 +110,9 @@ export const LISTS_DDL: string[] = [
   `ALTER TABLE lists ADD COLUMN IF NOT EXISTS last_snapshot_at timestamptz`,
   `ALTER TABLE lists ADD COLUMN IF NOT EXISTS trail_url text`,
   `ALTER TABLE lists ADD COLUMN IF NOT EXISTS trail_label text`,
+  // the byline on the read views — who MADE the list (set once at creation, never
+  // re-pointed by a claim); resolves to that account's optional display name
+  `ALTER TABLE lists ADD COLUMN IF NOT EXISTS author_user_id integer`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_lists_edit_token ON lists(edit_token_hash) WHERE deleted_at IS NULL`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_lists_share_code ON lists(share_code) WHERE deleted_at IS NULL`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_lists_slug ON lists(public_slug) WHERE deleted_at IS NULL`,
@@ -198,6 +202,26 @@ export async function useVaultDb(): Promise<Db> {
   return db;
 }
 
+/** Idempotently create the OPTIONAL account tables (memoized). Separate from the
+ *  vault's ensure on purpose: the vault works with no account at all, so a visitor
+ *  who never signs in must never pay for this DDL. Every auth endpoint reaches its
+ *  connection through useAccountDb() below, so it can't be forgotten. */
+export const ensureAccountSchema = memoizedEnsure(async (db: Db) => {
+  for (const stmt of ACCOUNT_DDL) await db.execute(sql.raw(stmt));
+});
+/** Reset the ensure-memo — for tests that spin up a fresh database. */
+export function _resetAccountEnsured(): void {
+  ensureAccountSchema.reset();
+}
+
+/** The shared DB with the account schema ensured — the account layer's
+ *  counterpart to useVaultDb(), for the same reason and with the same memoization. */
+export async function useAccountDb(): Promise<Db> {
+  const db = await useDb();
+  await ensureAccountSchema(db);
+  return db;
+}
+
 const DDL = [
   ...LISTS_DDL,
   // catalog_items (Phase 2) — single-sourced in server/utils/catalog.ts so the
@@ -208,6 +232,7 @@ const DDL = [
   ...SNAPSHOTS_DDL,
   ...TRAIL_FAVICONS_DDL,
   ...VAULT_DDL,
+  ...ACCOUNT_DDL,
 ];
 
 async function ensureSchema(db: Db) {

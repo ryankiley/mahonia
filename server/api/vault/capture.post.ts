@@ -13,14 +13,17 @@ import { VAULT_CAPTURE_MAX, type VaultCapture } from "../../../shared/vault";
 // request re-upserts the same rows and changes nothing but `times_seen`, so the
 // offline queue and a flaky connection need no reconciliation logic.
 //
-// This is the ONE endpoint that will mint a vault, and only when the request
-// carries no token at all — a vault comes into being the first time you have gear
-// worth remembering, the same way a list isn't created until it has real content.
-// When that happens the freshly minted token comes back as `vaultToken`, the only
-// time that value ever leaves the server; the client stores it and sends it from
-// then on. A token that IS present but unknown is a 401, not a fresh mint —
-// silently handing back a different vault would strand whatever the holder thought
-// they had.
+// This is the ONE endpoint that will mint a vault, and only for a signed-in
+// caller who doesn't have one yet — a vault comes into being the first time you
+// have gear worth remembering, the same way a list isn't created until it has real
+// content. Nothing comes back but a count: the vault is identified by the account,
+// so there is no capability to hand out and nothing for the client to store.
+//
+// A signed-out capture is refused rather than dropped: there is no owner to file
+// the gear under, and inventing an anonymous vault would put it somewhere nobody
+// could reach again. That refusal is silent by design — capture runs in the
+// background while you build a list, and it must never surface an error over the
+// list you're actually working on.
 export default defineEventHandler(async (event) => {
   setHeader(event, "X-Robots-Tag", "noindex");
   setHeader(event, "Cache-Control", "private, no-store");
@@ -28,7 +31,7 @@ export default defineEventHandler(async (event) => {
 
   // 200 rows of gear with their optional URLs — generous for the cap above, still
   // far below the platform body limit
-  const body = await readJsonBodyCapped<{ items?: unknown; vaultToken?: unknown }>(event, 256_000);
+  const body = await readJsonBodyCapped<{ items?: unknown }>(event, 256_000);
   const items = Array.isArray(body?.items)
     ? (body.items.filter((i) => i && typeof i === "object") as VaultCapture[]).slice(
         0,
@@ -39,10 +42,11 @@ export default defineEventHandler(async (event) => {
   // is open but empty never brings a vault into existence.
   if (!items.length) return { ok: true, captured: 0 };
 
-  // the body token is the beacon path's only way to authenticate — see
-  // suppliedToken() in vaultAuth for why this one endpoint accepts it
-  const bodyToken = typeof body?.vaultToken === "string" ? body.vaultToken : undefined;
-  const { db, vaultId, mintedToken } = await resolveOrMintVault(event, bodyToken);
+  // The beacon carries no header — `navigator.sendBeacon` can't set one — but it
+  // is same-origin, so the session cookie rides along and IS the capability. That
+  // is the whole reason this endpoint needed a body token under link ownership and
+  // doesn't now.
+  const { db, vaultId } = await resolveOrMintVault(event);
   const captured = await captureVaultItems(db, vaultId, items);
-  return { ok: true, captured, ...(mintedToken ? { vaultToken: mintedToken } : {}) };
+  return { ok: true, captured };
 });

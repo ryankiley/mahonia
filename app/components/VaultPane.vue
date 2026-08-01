@@ -78,7 +78,7 @@ function onResizeKey(ev: KeyboardEvent) {
 
 const c = useGearList();
 const dnd = useItemDnd();
-const { hasVault, vaultFetch } = useVaultToken();
+const { hasVault, vaultFetch } = useVaultAccess();
 
 const items = ref<VaultEntry[]>([]);
 const loading = ref(true);

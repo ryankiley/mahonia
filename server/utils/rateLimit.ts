@@ -1,5 +1,6 @@
 import type { H3Event } from "h3";
 import { createError, getRequestHeader, getRequestIP } from "h3";
+import { sha256Hex } from "./tokens";
 
 /**
  * Resolve the client IP for rate limiting.
@@ -158,6 +159,20 @@ export const RATE_LIMITS = {
   "vault-search": 240,
   "vault-read": 120,
   "vault-write": 60,
+  // --- the optional account layer ---------------------------------------------
+  // Sign-in is the tight one: it sends mail, and the same action is limited BOTH
+  // per-IP and per-email (see rateLimitSubject) because neither alone stops both
+  // a sprayer and a mailbomber.
+  "auth-request": 5,
+  "auth-verify": 20,
+  "auth-me": 120,
+  "passkey": 30,
+  // Its own bucket, far tighter than "passkey": every other passkey route needs a
+  // session first, so they're gated by already having an account. This one is
+  // reachable by anyone and writes a row in `users`.
+  "passkey-signup": 5,
+  "account": 30,
+  "list-claim": 60,
   // the admin gate itself (see requireAdmin) — throttled against brute force
   "admin": 30,
 } as const satisfies Record<string, number>;
@@ -173,5 +188,19 @@ export type RateLimitAction = keyof typeof RATE_LIMITS;
 export async function rateLimit(event: H3Event, action: RateLimitAction): Promise<void> {
   const ip = getClientIp(event) || "unknown";
   const over = await consumeRateLimit(useKv(), `rl:${action}:${ip}`, RATE_LIMITS[action], WINDOW_MS, Date.now());
+  if (over) throw createError({ statusCode: 429, statusMessage: "Too many requests" });
+}
+
+/**
+ * Limit by a SUBJECT rather than by IP — the same budget, keyed on who the request
+ * is about instead of where it came from.
+ *
+ * Exists for sign-in: a per-IP limit stops one machine spraying many addresses,
+ * but not a distributed pool mailbombing one person's inbox. The subject is hashed
+ * so the KV store never holds a raw email.
+ */
+export async function rateLimitSubject(action: RateLimitAction, subject: string): Promise<void> {
+  const key = `rl:${action}:s:${sha256Hex(subject)}`;
+  const over = await consumeRateLimit(useKv(), key, RATE_LIMITS[action], WINDOW_MS, Date.now());
   if (over) throw createError({ statusCode: 429, statusMessage: "Too many requests" });
 }
