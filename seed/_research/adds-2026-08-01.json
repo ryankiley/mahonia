@@ -1,0 +1,29 @@
+{
+  "_comment": "Requested adds 2026-08-01. Each weight is the MAKER's published spec, at the size the maker publishes it for — CAYL specs one size per product (here M), so the variant records that size rather than a size the spec doesn't cover. Two requested items were dropped, not estimated: CAYL Rip Stretch Vent Pants (CAYL publishes no weight for it, and no retailer republishes one) and a size-XL row for the CAYL Trail Air Jacket (CAYL publishes only the 134 g S-size figure already carried by windthrow-sweep-2026-07-19.json). Patagonia's 4.4-oz NetPlus figure is the FABRIC weight, not the hat's — the hat's own spec is 115 g.",
+  "rows": [
+    {
+      "brand": "CAYL",
+      "name": "6 Pocket Hiking Pants",
+      "variant": "M",
+      "category_hint": "clothing",
+      "common_name": "hiking pants",
+      "weight_value": 253,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://cayl.co.kr/product/6-pocket-hiking-pants-black/1744/",
+      "quote": "weight: 253 g (M size)"
+    },
+    {
+      "brand": "Patagonia",
+      "name": "Quandary Brimmer",
+      "variant": "",
+      "category_hint": "clothing",
+      "common_name": "sun hat",
+      "weight_value": 115,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.idahomountaintouring.com/products/quandary-brimmer",
+      "quote": "Weight: 115 g (4.05 oz)"
+    }
+  ]
+}
