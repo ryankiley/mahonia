@@ -18,7 +18,7 @@ useHead({
   meta: [{ name: "robots", content: "noindex" }],
 });
 
-const { user, signedIn, loaded, refresh, signOut, saveProfile } = useSession();
+const { user, signedIn, loaded, refresh, requestLink, signOut, saveProfile } = useSession();
 const { confirm: askConfirm } = useDialogs();
 const pk = usePasskeys();
 // whether this browser can do WebAuthn at all — resolved on mount, so the
@@ -28,6 +28,50 @@ onMounted(() => {
   refresh();
   canPasskey.value = passkeysSupported();
 });
+
+// ---- signed out: two jobs, one page ---------------------------------------
+// Signing in and creating an account are NOT the same task and don't share copy.
+// Signing in should be one tap and needs no explanation; creating asks for an
+// address and owes you a reason. So the surface has a mode, and defaults to
+// signing in — after launch that's the overwhelmingly common reason to be here.
+const mode = ref<"signin" | "create">("signin");
+
+// ---- signing in ----------------------------------------------------------
+const signingIn = ref(false);
+const signinNote = ref("");
+async function signInWithPasskey() {
+  signingIn.value = true;
+  signinNote.value = "";
+  const r = await pk.signIn();
+  signingIn.value = false;
+  if (r === "ok") return;
+  signinNote.value =
+    r === "unsupported"
+      ? "This browser can’t use passkeys. Ask for a link instead."
+      : r === "cancelled"
+        ? ""
+        : "No passkey matched. Ask for a link instead, or create an account.";
+}
+
+const linkEmail = ref("");
+const linkSending = ref(false);
+const linkNote = ref("");
+async function sendLink() {
+  const email = linkEmail.value.trim();
+  if (!email || linkSending.value) return;
+  linkSending.value = true;
+  linkNote.value = "";
+  const r = await requestLink(email);
+  linkSending.value = false;
+  // "sent" is the same answer for a known and an unknown address — the endpoint
+  // deliberately can't tell you which, so neither can this.
+  linkNote.value =
+    r === "sent"
+      ? `Check ${email} for a link.`
+      : r === "unavailable"
+        ? "Sign-in links aren’t set up on this deployment yet."
+        : "Couldn’t send that. Check the address and try again.";
+}
 
 // ---- creating an account -------------------------------------------------
 const signupEmail = ref("");
@@ -145,8 +189,54 @@ async function onSignOut() {
       <ClientOnly>
         <!-- Centred and narrow: signed out there is exactly one thing to do here,
              so the page shouldn't read as a form with a column of chrome beside it. -->
+        <!-- Centred and narrow: signed out there is exactly one thing to do here,
+             so the page shouldn't read as a form with a column of chrome beside it. -->
         <div v-if="loaded && !signedIn" class="acct__empty">
-          <template v-if="canPasskey">
+          <!-- SIGN IN. A passkey is one tap and nothing typed, so it leads; the
+               link is the fallback for a device that doesn't hold one yet. -->
+          <template v-if="mode === 'signin'">
+            <button
+              v-if="canPasskey"
+              type="button"
+              class="btn btn--primary acct__wide"
+              :disabled="signingIn"
+              @click="signInWithPasskey"
+            >
+              <KeyRound :size="15" :stroke-width="2" />
+              {{ signingIn ? "Waiting for your device…" : "Sign in with a passkey" }}
+            </button>
+            <p v-if="signinNote" class="t-sm acct__note">{{ signinNote }}</p>
+
+            <form class="acct__signup" @submit.prevent="sendLink">
+              <input
+                v-model="linkEmail"
+                class="field acct__input"
+                type="email"
+                autocomplete="email"
+                placeholder="you@example.com"
+                aria-label="Email address"
+              />
+              <button
+                type="submit"
+                class="btn"
+                :class="canPasskey ? 'acct__alt' : 'btn--primary'"
+                :disabled="linkSending || !linkEmail.trim()"
+              >
+                {{ linkSending ? "Sending…" : "Email me a link" }}
+              </button>
+            </form>
+            <p v-if="linkNote" class="t-sm acct__note">{{ linkNote }}</p>
+
+            <p class="t-sm t-muted">
+              New here?
+              <button type="button" class="acct__switch" @click="mode = 'create'">
+                Create an account
+              </button>
+            </p>
+          </template>
+
+          <!-- CREATE. Needs an address, and owes a reason for asking. -->
+          <template v-else>
             <form class="acct__signup" @submit.prevent="createWithPasskey">
               <input
                 v-model="signupEmail"
@@ -159,7 +249,7 @@ async function onSignOut() {
               <button
                 type="submit"
                 class="btn btn--primary"
-                :disabled="creating || !signupEmail.trim()"
+                :disabled="creating || !signupEmail.trim() || !canPasskey"
               >
                 <KeyRound :size="15" :stroke-width="2" />
                 {{ creating ? "Waiting for your device…" : "Create account with a passkey" }}
@@ -170,14 +260,14 @@ async function onSignOut() {
               you lose your devices.
             </p>
             <p v-if="createNote" class="t-sm acct__note">{{ createNote }}</p>
+
+            <p class="t-sm t-muted">
+              Already have one?
+              <button type="button" class="acct__switch" @click="mode = 'signin'">
+                Sign in
+              </button>
+            </p>
           </template>
-          <NuxtLink
-            to="/vault"
-            class="btn"
-            :class="canPasskey ? 'acct__alt' : 'btn--primary'"
-          >
-            Sign in with a link
-          </NuxtLink>
         </div>
 
         <div v-else-if="loaded && signedIn" class="acct__body">
@@ -279,6 +369,22 @@ async function onSignOut() {
 /* The secondary action. The system is deliberately de-outlined (see
    atoms/controls.scss), so this gets a quiet FILL rather than a border — it reads
    as a button at rest without introducing the one device that file rules out. */
+.acct__empty .acct__wide {
+  width: 100%;
+}
+/* A mode switch, not a navigation — it swaps the form in place, so it's a button
+   that reads as a link rather than an anchor that goes nowhere. */
+.acct__switch {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: var(--ink);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
 .acct__empty .acct__alt {
   width: 100%;
   background: var(--paper-2);

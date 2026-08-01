@@ -436,7 +436,7 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
             cleared browser and follow you between devices. Building and sharing lists still needs
             no account at all.
           </p>
-          <NuxtLink to="/account" class="btn btn--primary">Sign in</NuxtLink>
+          <NuxtLink to="/account" class="btn btn--primary">Sign in or create an account</NuxtLink>
         </div>
 
         <!-- the gear -->
