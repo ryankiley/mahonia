@@ -207,6 +207,11 @@ async function onSignOut() {
             </button>
             <p v-if="signinNote" class="t-sm acct__note">{{ signinNote }}</p>
 
+            <!-- These are ALTERNATIVES, not steps — the rule says so where stacked
+                 buttons alone would read as a sequence. The one place this page
+                 draws a line at all; see atoms/controls.scss on borders being rare. -->
+            <p v-if="canPasskey" class="acct__or"><span>or</span></p>
+
             <form class="acct__signup" @submit.prevent="sendLink">
               <input
                 v-model="linkEmail"
@@ -371,6 +376,25 @@ async function onSignOut() {
    as a button at rest without introducing the one device that file rules out. */
 .acct__empty .acct__wide {
   width: 100%;
+}
+/* "or" sitting in a hairline. The rule is drawn with a flex child either side
+   rather than a pseudo-element on the text, so it centres correctly whatever the
+   word's width and needs no background-matching trick to punch the gap. */
+.acct__or {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  margin: 0;
+  color: var(--ink-3);
+  font-size: var(--text-sm);
+}
+.acct__or::before,
+.acct__or::after {
+  content: "";
+  flex: 1 1 auto;
+  height: 1px;
+  background: var(--line);
 }
 /* A mode switch, not a navigation — it swaps the form in place, so it's a button
    that reads as a link rather than an anchor that goes nowhere. */
