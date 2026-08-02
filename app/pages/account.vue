@@ -213,7 +213,7 @@ async function onSignOut() {
             <!-- These are ALTERNATIVES, not steps — the rule says so where stacked
                  buttons alone would read as a sequence. The one place this page
                  draws a line at all; see atoms/controls.scss on borders being rare. -->
-            <p v-if="canPasskey" class="acct__or"><span>or</span></p>
+            <p v-if="canPasskey" class="acct__or"><span>or sign in with a link</span></p>
 
             <form class="acct__signup" @submit.prevent="sendLink">
               <input
