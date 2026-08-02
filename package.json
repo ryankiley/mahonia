@@ -27,6 +27,7 @@
     "@electric-sql/pglite": "^0.5.3",
     "@lucide/vue": "^1.17.0",
     "@neondatabase/serverless": "^1.1.0",
+    "@simplewebauthn/server": "^13.3.2",
     "@upstash/redis": "^1.37.0",
     "@vercel/analytics": "^2.0.1",
     "drizzle-orm": "^0.45.2",

@@ -64,6 +64,13 @@ export const lists = pgTable(
     // report). Distinct from `status`: a flagged list stays active, so the OWNER
     // keeps edit + share access — only public discovery is withheld.
     flagged: boolean("flagged").notNull().default(false),
+    // The byline on the read views — who MADE the list.
+    //
+    // Set ONCE at creation and never re-pointed by claiming: an edit link is
+    // shared, so "who else holds this" is a different question from "who wrote
+    // it", and letting a claim rewrite authorship would let anyone with the link
+    // put their name on someone else's list.
+    authorUserId: integer("author_user_id"),
     // optional recovery (generated phrase only); not used yet
     claimPhraseHash: text("claim_phrase_hash"),
     // when this list was last auto-snapshotted (drives the snapshot throttle from
@@ -306,20 +313,24 @@ export const vaults = pgTable(
   {
     // internal id — NEVER exposed in a URL or API response
     id: serial("id").primaryKey(),
-    // sha256(vaultToken) hex — the capability; the raw token never lands here,
-    // exactly as with lists.edit_token_hash
-    tokenHash: text("token_hash").notNull(),
+    // The owner. A vault belongs to an ACCOUNT, unlike a list, which belongs to
+    // whoever holds its edit link — see requireVault for why the two differ.
+    //
+    // Nullable only so the column can be added to a table that already has rows;
+    // every vault minted since is owned. A row left null is an orphan from the
+    // link-owned era and is unreachable by design.
+    userId: integer("user_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     // bumped on use, so an abandoned vault can be reaped on the same schedule as
     // an abandoned list rather than accumulating forever
     lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
     // Soft-delete, set by the reaper and cleared by requireVault — so a vault whose
-    // link resurfaces after the stale window is REVIVED by being used rather than
-    // being already gone. There's no account and no email here: a hard reap would
-    // be unrecoverable for someone who kept the link in a note and came back late.
+    // owner comes back after the stale window is REVIVED by being used rather than
+    // being already gone.
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
   },
-  (t) => [uniqueIndex("idx_vaults_token").on(t.tokenHash)],
+  // one vault per account; also the conflict target for lazy minting
+  (t) => [uniqueIndex("idx_vaults_user").on(t.userId)],
 );
 
 export type VaultRow = typeof vaults.$inferSelect;
@@ -406,3 +417,160 @@ export const vaultItems = pgTable(
 );
 
 export type VaultItemRow = typeof vaultItems.$inferSelect;
+
+// ---------------------------------------------------------------------------
+// THE OPTIONAL ACCOUNT LAYER
+//
+// Nothing below is required to use Mahonia. A list opens by its edit link and a
+// vault by its vault link, both unchanged. An account does one job: it REMEMBERS
+// those links, so they don't have to be carried between devices by hand.
+//
+// Identity is an email address and nothing else — no password to hash, leak or
+// reset, because sign-in is a single-use emailed link. A passkey is added later,
+// to an account already signed in, and stores only a PUBLIC key.
+// ---------------------------------------------------------------------------
+//
+// Identity is an email address and nothing else — no name, no password, no
+// profile. Sign-in is a single-use emailed link, so there is no password to
+// hash, leak, or reset, and the row below is the entire footprint of an account.
+// ---------------------------------------------------------------------------
+export const users = pgTable(
+  "users",
+  {
+    id: serial("id").primaryKey(),
+    // stored already-lowercased (normalizeEmail) so the unique index is the
+    // case-insensitive one users expect without needing citext
+    // Required, on every signup path. The passkey identifies you; this is the way
+    // BACK IN when every authenticator is gone — see accountSchema.ts.
+    email: text("email").notNull(),
+    // OPTIONAL, and the only thing about an account that is ever public. Set it and
+    // your public lists carry a byline; leave it and they stay anonymous, which is
+    // the default. Deliberately not derived from the email — an address is private
+    // and must never be shown to anyone but its owner.
+    displayName: text("display_name"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("idx_users_email").on(t.email)],
+);
+
+export type UserRow = typeof users.$inferSelect;
+
+// A pending magic link. Short-lived and single-use: `consumedAt` is stamped the
+// moment it's redeemed, so a link forwarded or replayed from an inbox is inert.
+// Only the sha256 of the token is stored — a database read can't mint a sign-in.
+export const authTokens = pgTable(
+  "auth_tokens",
+  {
+    id: serial("id").primaryKey(),
+    tokenHash: text("token_hash").notNull(),
+    userId: integer("user_id").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    consumedAt: timestamp("consumed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("idx_auth_tokens_hash").on(t.tokenHash),
+    // the sweep that reaps expired/consumed links
+    index("idx_auth_tokens_expiry").on(t.expiresAt),
+  ],
+);
+
+// A signed-in browser. The cookie carries a high-entropy random value; like the
+// edit token and the magic link, only its sha256 is stored, so the session table
+// is not a set of usable credentials. Sliding expiry (see authSession.ts).
+export const sessions = pgTable(
+  "sessions",
+  {
+    id: serial("id").primaryKey(),
+    tokenHash: text("token_hash").notNull(),
+    userId: integer("user_id").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("idx_sessions_hash").on(t.tokenHash),
+    // "sign out everywhere" + the expiry sweep
+    index("idx_sessions_user").on(t.userId),
+    index("idx_sessions_expiry").on(t.expiresAt),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// credentials — passkeys (WebAuthn).
+//
+// The second way into an account, and the better one: a passkey is bound to this
+// site's origin, so it can't be phished, and signing in is a fingerprint or a PIN
+// instead of a round trip through an inbox. The magic link stays as the way to
+// GET a passkey in the first place (and to recover if you lose your devices), so
+// the two are complements rather than alternatives.
+//
+// Nothing secret is stored here. A passkey's private half never leaves the
+// authenticator; `public_key` is what verifies its signatures, and is useless to
+// an attacker who steals it. That makes this table strictly less sensitive than a
+// password hash would be.
+// ---------------------------------------------------------------------------
+export const credentials = pgTable(
+  "credentials",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id").notNull(),
+    // base64url, as WebAuthn hands it to us — the authenticator's handle for this key
+    credentialId: text("credential_id").notNull(),
+    publicKey: text("public_key").notNull(), // base64url COSE key
+    // The authenticator's signature counter. Some authenticators keep one and it
+    // must never go backwards (a decrease means a cloned key); many modern
+    // passkeys report a constant 0, which is normal and not a red flag.
+    counter: bigint("counter", { mode: "number" }).notNull().default(0),
+    transports: text("transports"), // JSON array: how to reach this key (usb, internal, hybrid…)
+    // whether the key can be found without naming the account first — what makes
+    // "sign in with a passkey" work with no email typed at all
+    discoverable: boolean("discoverable").notNull().default(false),
+    label: text("label"), // human-set name, so a list of keys is meaningful
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+  },
+  (t) => [
+    // a credential id is globally unique; the unique index is also what stops the
+    // same key being registered twice
+    uniqueIndex("idx_credentials_credential_id").on(t.credentialId),
+    index("idx_credentials_user").on(t.userId),
+  ],
+);
+
+export type CredentialRow = typeof credentials.$inferSelect;
+
+// ---------------------------------------------------------------------------
+// list_claims — "this account holds this list", so lists follow you off the
+// device that made them.
+//
+// NOT an ownership column on `lists`. An edit link is a SHARED capability by
+// design: you can hand it to a walking partner and you both edit. A single
+// `lists.user_id` would make the first person to sign in the owner and quietly
+// demote everyone else, which is a change to how lists work — and nobody asked
+// for that. A join table says only what's true: several accounts may each hold
+// the same list, exactly as several browsers may each hold its token.
+//
+// A claim stores NO SECRET. It doesn't need to: `lists.edit_token_hash` is
+// already the lookup key for every edit path, so a claim + the list row is
+// enough to authorise, and the raw token is never written down anywhere. Two
+// consequences fall out for free: rotating a list's edit token doesn't break its
+// claims (the hash is re-read from the row each time), and a database dump still
+// yields no usable write capability.
+// ---------------------------------------------------------------------------
+export const listClaims = pgTable(
+  "list_claims",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id").notNull(),
+    listId: integer("list_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    // claiming the same list twice is a no-op, not a second row
+    uniqueIndex("idx_list_claims_identity").on(t.userId, t.listId),
+    // "my lists" for a signed-in user
+    index("idx_list_claims_user").on(t.userId),
+  ],
+);

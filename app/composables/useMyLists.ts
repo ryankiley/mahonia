@@ -48,8 +48,12 @@ export function useMyLists() {
   const entries = _entries;
 
   function upsert(e: MyListEntry) {
+    // preserve a stronger origin: a list you made and later reopen through its own
+    // link must not be downgraded to "opened" by that reopen
+    const prior = entries.value.find((x) => x.editToken === e.editToken);
+    const origin = prior?.origin === "created" ? "created" : (e.origin ?? prior?.origin);
     const next = entries.value.filter((x) => x.editToken !== e.editToken);
-    next.push(e);
+    next.push({ ...e, origin });
     entries.value = next;
   }
 
@@ -88,8 +92,10 @@ export function useMyLists() {
   function registerCreated(
     res: { editToken: string; snapshot: ListSnapshot },
     totalMg = 0,
+    origin: "created" | "opened" = "created",
   ): string {
     upsert({
+      origin,
       editToken: res.editToken,
       shareCode: res.snapshot.shareCode,
       slug: res.snapshot.slug,

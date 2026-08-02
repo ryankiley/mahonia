@@ -1,6 +1,6 @@
 import { defineEventHandler, getQuery, setHeader } from "h3";
 import { rateLimit } from "../../utils/rateLimit";
-import { bearer, requireVault } from "../../utils/vaultAuth";
+import { requireVault } from "../../utils/vaultAuth";
 import { searchVaultItems } from "../../utils/vaultRepo";
 
 // Autocomplete against your own gear — the "pull from the vault" half of the
@@ -19,7 +19,6 @@ export default defineEventHandler(async (event) => {
   setHeader(event, "Cache-Control", "private, no-store");
   await rateLimit(event, "vault-search");
 
-  if (!bearer(event)) return { results: [] };
   const { db, vaultId } = await requireVault(event);
 
   const raw = getQuery(event).q;

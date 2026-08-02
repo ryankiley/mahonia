@@ -47,9 +47,7 @@ function when(iso: string) {
 
 <template>
   <div>
-    <SiteTopbar>
-      <span class="t-sm t-muted">Catalog changes</span>
-    </SiteTopbar>
+    <SiteTopbar label="Catalog changes" />
 
     <main id="main-content" tabindex="-1" class="wrap chg">
       <header class="chg__head">

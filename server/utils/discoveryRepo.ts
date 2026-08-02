@@ -26,7 +26,7 @@ import {
 } from "../../shared/discovery";
 import type { ListSnapshot } from "../../shared/types";
 import { useDb } from "./db";
-import { findByEditToken, hydrateForRead, rowToSnapshot } from "./listRepo";
+import { attachAuthorName, findByEditToken, hydrateForRead, rowToSnapshot } from "./listRepo";
 
 type Db = Awaited<ReturnType<typeof useDb>>;
 
@@ -143,8 +143,11 @@ export async function getPublicBySlug(slug: string, db?: Db): Promise<ListSnapsh
     .limit(1);
   // hydrate like every listRepo snapshot read — the indexable /l page must show
   // the same current catalog names (and trail-link favicon) as /s and the editor,
-  // not the add-time ones
-  return rows[0] ? hydrateForRead(d, rowToPublicView(rows[0])) : null;
+  // not the add-time ones — plus the byline, which names this list's author, not
+  // whoever happens to be viewing it
+  if (!rows[0]) return null;
+  const snap = await hydrateForRead(d, rowToPublicView(rows[0]));
+  return attachAuthorName(d, snap, rows[0].authorUserId);
 }
 
 /** Best-effort "most-viewed" signal. Never throws into the read path. */

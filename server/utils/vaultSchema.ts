@@ -13,11 +13,21 @@ export const VAULT_DDL: string[] = [
   // lists.edit_token_hash works. No users table, no sessions, no email.
   `CREATE TABLE IF NOT EXISTS vaults (
     id serial PRIMARY KEY,
-    token_hash text NOT NULL,
+    user_id integer,
     created_at timestamptz NOT NULL DEFAULT now(),
     last_seen_at timestamptz NOT NULL DEFAULT now()
   )`,
-  `CREATE UNIQUE INDEX IF NOT EXISTS idx_vaults_token ON vaults (token_hash)`,
+  // Ownership moved from a link to an account. Both statements are idempotent and
+  // run on an existing table: the ADD gives pre-account rows a null owner, and the
+  // DROP retires the token. A vault that was link-owned therefore becomes
+  // unreachable rather than being reassigned — there is no honest way to guess
+  // whose it was, and inventing an owner would hand someone else's gear to whoever
+  // signed in first.
+  `ALTER TABLE vaults ADD COLUMN IF NOT EXISTS user_id integer`,
+  `ALTER TABLE vaults DROP COLUMN IF EXISTS token_hash`,
+  // one vault per account — also the conflict target that makes lazy minting safe
+  // against two concurrent captures (see mintVault in vaultAuth.ts)
+  `CREATE UNIQUE INDEX IF NOT EXISTS idx_vaults_user ON vaults (user_id)`,
   // soft-delete for the nightly reaper; cleared on use, so a late return revives
   // the vault instead of finding it gone (see server/db/schema.ts)
   `ALTER TABLE vaults ADD COLUMN IF NOT EXISTS deleted_at timestamptz`,

@@ -106,7 +106,7 @@ let pending: { items: unknown[]; fingerprint: string } | null = null;
  * bundle is budgeted).
  */
 export function useVaultCapture() {
-  const { token, setToken, vaultFetch } = useVaultToken();
+  const { vaultFetch } = useVaultAccess();
 
   /**
    * Note a change to the list.
@@ -161,13 +161,10 @@ export function useVaultCapture() {
     const sending = pending;
     if (!sending) return;
     try {
-      const res = await vaultFetch<{ vaultToken?: string }>("/api/vault/capture", {
+      await vaultFetch("/api/vault/capture", {
         method: "POST",
         body: { items: sending.items },
       });
-      // first capture on this device — the server minted a vault and this is the
-      // only time its token is ever sent to us
-      if (res?.vaultToken) setToken(res.vaultToken);
       lastFingerprint = sending.fingerprint;
       // only clear if nothing newer arrived while this was in flight
       if (pending?.fingerprint === sending.fingerprint) pending = null;
@@ -187,19 +184,16 @@ export function useVaultCapture() {
    * after the page is gone. The JSON blob's content type keeps the endpoint's body
    * reader happy.
    *
-   * The token goes in the BODY here, not a header — a beacon can't set one. The
-   * capture endpoint accepts it there for exactly this reason; see suppliedToken()
-   * in server/utils/vaultAuth.ts. A beacon that mints a vault can't tell us the new
-   * token (nothing is listening by then), so that capture lands and the next edit
-   * mints again — which is why the mint path is the debounced fetch above, and the
-   * beacon is the last-resort backstop.
+   * A beacon can't set headers, which under link ownership meant the capture
+   * endpoint had to accept its capability in the body. It doesn't any more: a
+   * beacon is same-origin, so the session cookie goes along by itself and this is
+   * just the items.
    */
   function flush(): void {
     if (!import.meta.client || !pending || !navigator.sendBeacon) return;
-    const blob = new Blob(
-      [JSON.stringify({ items: pending.items, ...(token.value ? { vaultToken: token.value } : {}) })],
-      { type: "application/json" },
-    );
+    const blob = new Blob([JSON.stringify({ items: pending.items })], {
+      type: "application/json",
+    });
     if (navigator.sendBeacon("/api/vault/capture", blob)) {
       lastFingerprint = pending.fingerprint;
       pending = null;
@@ -296,7 +290,7 @@ export function resetVaultCapture(): void {
  * trigram code — this composable is a fetch and a timer.
  */
 export function useVaultSearch() {
-  const { hasVault, vaultFetch } = useVaultToken();
+  const { hasVault, vaultFetch } = useVaultAccess();
   const results = ref<VaultEntry[]>([]);
   let searchTimer: ReturnType<typeof setTimeout> | undefined;
   let controller: AbortController | undefined;

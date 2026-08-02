@@ -165,8 +165,16 @@ function create() {
   // stay touch, so a list you removed mid-session isn't silently re-added.
   function registerOpened() {
     if (!snapshot.value || !editToken) return;
-    // registerCreated owns the snapshot→MyListEntry mapping — one source of truth
-    useMyLists().registerCreated({ editToken, snapshot: snapshot.value }, totals.value?.totalMg ?? 0);
+    // registerCreated owns the snapshot→MyListEntry mapping — one source of truth.
+    // Marked "opened", because this is the path where a list arrives via a link
+    // someone SENT you: signing in must not quietly attach it to your account.
+    // upsert keeps a prior "created" if you made this list yourself and are merely
+    // reopening it, so your own lists aren't downgraded by coming back to them.
+    useMyLists().registerCreated(
+      { editToken, snapshot: snapshot.value },
+      totals.value?.totalMg ?? 0,
+      "opened",
+    );
   }
 
   async function load(token: string) {
