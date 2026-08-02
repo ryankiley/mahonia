@@ -365,9 +365,12 @@ async function onSignOut() {
 /* Centred only when the signed-out column is what's below it — asked of the page's
    own structure rather than re-deriving the session state up here, so the two can't
    disagree. Signed in the page is a left-aligned stack of sections, where a centred
-   heading would float free of everything under it. */
+   heading would float free of everything under it.
+   The margin drops with it: the column below sets its own top spacing, and the two
+   were stacking into one very large gap. ONE spacer owns this gap, and it's this one. */
 .page:has(.acct__empty) .acct__head {
   text-align: center;
+  margin-bottom: var(--space-5);
 }
 /* CONTAINED on the signed-out screen only. The underline treatment above suits a
    field sitting in a row of other content; here the field is stacked between two
@@ -400,7 +403,7 @@ async function onSignOut() {
   gap: var(--space-4);
   max-width: 26rem;
   margin-inline: auto;
-  padding-block: var(--space-5) var(--space-6);
+  padding-block: 0 var(--space-6);
   text-align: center;
 }
 /* The secondary action. The system is deliberately de-outlined (see
