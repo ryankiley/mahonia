@@ -486,6 +486,21 @@ function onCorrected(res: { status: string; itemName?: string }) {
               </ul>
             </Transition>
           </div>
+          <!-- Sign in / your account — the SAME control SiteTopbar hands every other
+               page, in the same trailing position, so the bar the editor hand-rolls
+               doesn't quietly drop the one affordance the rest of the site has. It's
+               needed most here: "/" redirects to /e, so this is the landing page, and
+               the only route to an account from it was the footer.
+               No <Tooltip>, unlike the four buttons before it. AccountMenu is two
+               controls, not one — a "Sign in" text link when signed out, the key icon
+               when signed in — and a single tooltip can't describe both. The link
+               already says what it is, and the icon carries aria-label="Your account".
+               Tooltipping only the icon would mean reaching into the shared component
+               and putting one on every page that renders it.
+               Wrapped in a span rather than classed directly: AccountMenu's root is a
+               <ClientOnly> around that v-if/v-else pair, so there's no single root for
+               a class to fall through to. The span is what takes flex: none. -->
+          <span class="editor__acct"><AccountMenu /></span>
         </template>
       </div>
     </header>
@@ -712,8 +727,15 @@ function onCorrected(res: { status: string; itemName?: string }) {
 /* the icon cluster is rigid so it can't be nudged by anything that joins the row */
 .editor__share,
 .editor__vault,
+.editor__acct,
 .menu {
   flex: none;
+}
+/* the wrapper is only there to be a flex item (see the template), so it must not
+   add a box of its own between the kebab and the control inside it */
+.editor__acct {
+  display: inline-flex;
+  align-items: center;
 }
 /* editing/packing toggle — a light container with two icon options + a tracking pill */
 .modetoggle {
@@ -792,11 +814,18 @@ function onCorrected(res: { status: string; itemName?: string }) {
 .editor__share {
   color: var(--ink-2);
 }
-/* the popover's look + open/close come from the shared .menu atom (controls.scss);
-   the editor only nudges the trailing cluster (toggle · share · kebab) right into the
-   gutter so the kebab lines up with the item rows' drag handle below. The title group
-   (flex:1) absorbs the freed space, so the cluster reflows as a unit. */
-.menu {
+/* The popover's look + open/close come from the shared .menu atom (controls.scss).
+   What the editor adds is one nudge: the trailing cluster is pulled right into the
+   gutter so the LAST icon lines up with the item rows' drag handle below. The title
+   group (flex:1) absorbs the freed space, so the cluster reflows as a unit.
+   It rides on whatever ends the cluster, which is now the account control and not the
+   kebab — 13px is the padding between an icon button's edge and its 16px glyph, so
+   the correction belongs to the icon that actually sits against the gutter.
+   Only when that control is the icon, though: signed out it's a "Sign in" text link,
+   whose glyph box IS its text box, and pulling that out would hang the words past the
+   column edge. AccountMenu decides its own shape from the session hint, so :has() is
+   how this side reads which one arrived. */
+.editor__acct:has(.menu) {
   margin-right: -13px;
 }
 .editor__body {

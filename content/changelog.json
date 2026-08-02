@@ -1,6 +1,9 @@
 [
   {
     "date": "2026-08-02",
+    "added": [
+      "Reach your account from the toolbar while you're editing a list — sign in, open your gear vault, or sign out without leaving the page."
+    ],
     "fixed": [
       "On a phone, swiping the gear vault sheet now scrolls the gear inside it instead of the list behind it."
     ]
