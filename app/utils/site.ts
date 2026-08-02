@@ -7,8 +7,10 @@
 // utils/editorSeo.ts for exactly that reason).
 
 // Public contact / takedown address. Doubles as the Terms abuse address.
-// Swap here if Mahonia gets a dedicated inbox.
-export const CONTACT_EMAIL = "ryanekiley@gmail.com";
+// A Cloudflare Email Routing alias that forwards to a real inbox, so the published
+// address belongs to the project rather than to a person — and can be repointed
+// without touching the legal pages.
+export const CONTACT_EMAIL = "hello@mahonia.app";
 
 // Canonical production origin. Used where a request-derived origin doesn't
 // exist or lies: PRERENDERED routes (the build crawler's request origin is

@@ -94,10 +94,10 @@ useHead({
             leaves the vault where it is, ready for the next time you sign in.
           </li>
           <li>
-            To delete your account — the address, the display name, the passkeys and the vault —
-            email <a :href="`mailto:${CONTACT_EMAIL}`">{{ CONTACT_EMAIL }}</a> from the address it
-            was created with, and I’ll remove it. Your lists are unaffected: they belong to their
-            edit links, not to the account.
+            “Delete account” on your account page removes your email, display name, passkeys and
+            your gear vault, straight away and without asking me. It asks separately whether to
+            delete your lists; by default they stay, because they belong to their edit links rather
+            than to your account.
           </li>
           <li>
             For anything else, including a copy or deletion of a shared list, email
