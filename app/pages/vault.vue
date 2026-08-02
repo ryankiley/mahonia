@@ -427,8 +427,7 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
              read as it being withdrawn. -->
         <div v-if="!hasVault" class="vault__auth">
           <p class="vault__sentline">
-            Your vault needs an account, so it survives a cleared browser and follows you between
-            devices. Lists still don’t.
+            Your vault needs an account, so it follows you between devices.
           </p>
           <NuxtLink to="/account" class="btn btn--primary">Sign in</NuxtLink>
         </div>
