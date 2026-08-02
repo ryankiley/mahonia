@@ -250,6 +250,50 @@ function add(entry: VaultEntry) {
   c.addVaultItem(entry, targetFolderId.value);
 }
 
+// ---- the sheet answers the scroll that lands on it ------------------------
+//
+// On a phone the pane is a bottom sheet floating over the list, and a fixed box's
+// scroll chain runs straight to the viewport — so a swipe that didn't reach a
+// scroller fell THROUGH the sheet and scrolled the page instead. Swiping the
+// header, the search row, or a list too short to scroll moved the list behind the
+// panel, which reads as a hole in the page rather than a surface on it.
+//
+// `overscroll-behavior: contain` on the rows can't cover this on its own. It stops
+// the chain at a scroller's ENDS — which is why swiping past the last row already
+// stays put — but a gesture that never reached a scroller at all is not its
+// business: the chrome above the rows, and a row list with nothing to scroll
+// because the vault is empty or the filter left two matches.
+//
+// So the sheet decides for itself. A one-finger drag goes to the rows while they
+// can still travel that way, and is swallowed otherwise; the page keeps its scroll
+// position until you put a finger OUTSIDE the sheet, which is the half of it that
+// already worked. Two fingers are left alone, so pinch-zoom over the sheet still
+// zooms.
+const listEl = useTemplateRef<HTMLElement>("listEl");
+let touchStartY = 0;
+
+function onSheetTouchStart(ev: TouchEvent) {
+  touchStartY = ev.touches[0]?.clientY ?? 0;
+}
+
+function onSheetTouchMove(ev: TouchEvent) {
+  if (ev.touches.length !== 1) return; // a pinch, not a scroll
+  const list = listEl.value;
+  // Touch events retarget to wherever the gesture STARTED for its whole life, so
+  // this stays true of a drag that has since wandered off the rows — which is what
+  // a row being dragged out to a folder is.
+  if (list && ev.target instanceof Node && list.contains(ev.target)) {
+    // travel left in the direction the finger is going: up the screen (dy < 0)
+    // scrolls toward the end of the list, down scrolls back toward its top
+    const dy = (ev.touches[0]?.clientY ?? 0) - touchStartY;
+    const room = dy < 0 ? list.scrollHeight - list.clientHeight - list.scrollTop : list.scrollTop;
+    if (room > 0.5) return; // the rows can take it — leave the scroll to the browser
+  }
+  // Once the browser has committed to a scroll the move stops being cancellable.
+  // The FIRST move of a gesture always is, and that's the one that decides.
+  if (ev.cancelable) ev.preventDefault();
+}
+
 // The pane can unmount mid-gesture — Escape closes it, and a drop can land it in a
 // state the parent tears down — so both pointer loops are stopped here rather than
 // only on their own pointerup. Otherwise their window listeners outlive the
@@ -266,12 +310,17 @@ onKeyStroke("Escape", () => emit("close"));
   <!-- vp--sized once there's a vault to browse: that's the state whose height has
        to hold still while you filter it. The signed-out explainer is a short block
        of prose and sizes to itself. -->
+  <!-- touchmove takes NO .passive modifier: preventDefault is the whole point of it
+       (see onSheetTouchMove), and the passive-by-default intervention covers only
+       window/document/body, so a bare listener here can still cancel. -->
   <aside
     class="popover vp"
     :class="{ 'vp--sized': hasVault }"
     data-vault-pane
     role="dialog"
     aria-label="Gear vault"
+    @touchstart.passive="onSheetTouchStart"
+    @touchmove="onSheetTouchMove"
   >
     <!-- the split divider. Desktop only (CSS); on a phone the sheet spans the
          gutters and there is nothing to drag. -->
@@ -346,7 +395,7 @@ onKeyStroke("Escape", () => emit("close"));
       <p v-if="loadError" class="t-sm vp__error">{{ loadError }}</p>
       <p v-else-if="loading" class="t-sm t-muted vp__note">Loading your gear…</p>
 
-      <ul v-else-if="filtered.length" class="vp__list">
+      <ul v-else-if="filtered.length" ref="listEl" class="vp__list">
         <li v-for="entry in filtered" :key="entry.id">
           <!-- Click adds to the "Add to" folder; press and drag puts it in whichever
                folder you let go over. See onRowPointerDown for how the two are told

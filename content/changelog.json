@@ -1,5 +1,11 @@
 [
   {
+    "date": "2026-08-02",
+    "fixed": [
+      "On a phone, swiping the gear vault sheet now scrolls the gear inside it instead of the list behind it."
+    ]
+  },
+  {
     "date": "2026-08-01",
     "added": [
       "Create an account with a passkey — your face, fingerprint or screen lock, no password to pick.",
