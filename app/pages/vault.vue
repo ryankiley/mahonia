@@ -413,9 +413,12 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
     </SiteTopbar>
 
     <main id="main-content" tabindex="-1" class="wrap page vault__page">
+      <!-- The sentence IS the heading. "Gear vault" was being said twice — once
+           here and once in the top bar's label — and of the two this is the one
+           that tells you something. Still an h1, so the page keeps exactly one and
+           the document outline is intact; the bar carries the page's name. -->
       <div class="vault__head">
-        <h1 class="t-title">Gear vault</h1>
-        <p class="t-sm t-muted vault__sub">Every piece of gear you’ve put in a list, in one place.</p>
+        <h1 class="t-title vault__sub">Every piece of gear you’ve put in a list, in one place.</h1>
       </div>
 
       <ClientOnly>
@@ -762,15 +765,18 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
   gap: var(--space-4);
   max-width: 34rem;
   margin-inline: auto;
-  padding-block: var(--space-5) var(--space-6);
+  padding-block: 0 var(--space-6);
   text-align: center;
 }
-/* the heading block comes along, asked of the page's own structure rather than
-   re-deriving the session state up there (see /account for the same trick) */
+/* The heading block comes along, asked of the page's own structure rather than
+   re-deriving the session state up there (see /account for the same trick).
+   Its margin shrinks too: the column below sets its own top spacing, and the two
+   were stacking into one 56px gap. ONE spacer owns it, and it's this one. */
 .page:has(.vault__auth) .vault__head {
   text-align: center;
   max-width: 34rem;
   margin-inline: auto;
+  margin-bottom: var(--space-4);
 }
 /* the shared .field is deliberately borderless (it sits inside list rows, where a
    box would be noise). On a standalone sign-in form there's nothing to show where
