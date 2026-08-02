@@ -236,6 +236,12 @@ $bp-full: 1024px !default;
      --tap — a retune of --tap keeps the rhythm instead of needing every paired
      margin-block literal hand-updated. */
   --tap-pull: calc((1.45rem - var(--tap)) / 2);
+  /* The vault pane's height as a PHONE bottom sheet. Two components need the same
+     figure and neither owns the other: VaultPane sizes itself by it, and the editor's
+     mode FAB lifts over the sheet by it. 27.5rem = 440px, on the 8px grid; the dvh
+     clamp wins on a short phone, so the sheet never eats the list it sits beside.
+     Unused above $bp-full, where the pane is a side column with no fixed height. */
+  --vault-sheet-h: min(27.5rem, 55dvh);
   /* field height — .field's min-height, mirrored by the add affordances and the
      packing-row height calc so toggling modes never jumps the row height */
   --field-h: 36px;

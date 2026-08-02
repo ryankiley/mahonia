@@ -403,35 +403,8 @@ function onCorrected(res: { status: string; itemName?: string }) {
                title vacated when it became a page title. It takes the free width, which
                is what pins the icon cluster to the trailing edge. -->
           <SyncStatus class="topbar__status" />
-          <div class="modetoggle" role="group" aria-label="View mode">
-            <!-- one pill tracks between the two segments (damped --ease, never overshoot —
-                 a tracking indicator must not leave its track); the icons sit above it -->
-            <span class="modetoggle__pill" :class="{ 'is-packing': packed }" aria-hidden="true" />
-            <Tooltip text="Editing" preferred-placement="bottom">
-              <button
-                type="button"
-                class="modetoggle__opt"
-                :class="{ 'is-active': !packed }"
-                aria-label="Editing mode"
-                :aria-pressed="!packed"
-                @click="packed = false"
-              >
-                <Backpack :size="16" :stroke-width="2" />
-              </button>
-            </Tooltip>
-            <Tooltip text="Packing" preferred-placement="bottom">
-              <button
-                type="button"
-                class="modetoggle__opt"
-                :class="{ 'is-active': packed }"
-                aria-label="Packing mode"
-                :aria-pressed="packed"
-                @click="packed = true"
-              >
-                <SquareCheck :size="16" :stroke-width="2" />
-              </button>
-            </Tooltip>
-          </div>
+          <!-- the editing/packing toggle used to sit here; it's a floating action in
+               the lower right now (.modefab, near the toasts at the end of this file) -->
           <!-- the vault palette: pick from gear you already own instead of typing
                each name. Lazy — the pane and the shared vault module it pulls in
                are their own chunk, downloaded the first time it's opened. -->
@@ -460,6 +433,20 @@ function onCorrected(res: { status: string; itemName?: string }) {
               <Share2 :size="16" />
             </button>
           </Tooltip>
+          <!-- Sign in / your account — the SAME control SiteTopbar hands every other
+               page, so the bar the editor hand-rolls doesn't quietly drop the one
+               affordance the rest of the site has. It's needed most here: "/" redirects
+               to /e, so this is the landing page, and the only route to an account from
+               it was the footer.
+               BEFORE the kebab, not after: "more actions" ends a toolbar, and an icon
+               parked to its right reads as having escaped the overflow menu.
+               No <Tooltip>, unlike the buttons around it. AccountMenu is two controls,
+               not one — a door icon signed out, the passkey signed in — and one tooltip
+               can't name both; each carries its own aria-label + title instead.
+               Wrapped in a span rather than classed directly: AccountMenu's root is a
+               <ClientOnly> around a v-if/v-else pair, so there's no single root for a
+               class to fall through to. The span is what takes flex: none. -->
+          <span class="editor__acct"><AccountMenu /></span>
           <div ref="menuRef" class="menu">
             <!-- a custom popover of real <button>s (was a native <select>): the
                  clipboard items need a direct click gesture, which a <select> change
@@ -486,21 +473,6 @@ function onCorrected(res: { status: string; itemName?: string }) {
               </ul>
             </Transition>
           </div>
-          <!-- Sign in / your account — the SAME control SiteTopbar hands every other
-               page, in the same trailing position, so the bar the editor hand-rolls
-               doesn't quietly drop the one affordance the rest of the site has. It's
-               needed most here: "/" redirects to /e, so this is the landing page, and
-               the only route to an account from it was the footer.
-               No <Tooltip>, unlike the four buttons before it. AccountMenu is two
-               controls, not one — a "Sign in" text link when signed out, the key icon
-               when signed in — and a single tooltip can't describe both. The link
-               already says what it is, and the icon carries aria-label="Your account".
-               Tooltipping only the icon would mean reaching into the shared component
-               and putting one on every page that renders it.
-               Wrapped in a span rather than classed directly: AccountMenu's root is a
-               <ClientOnly> around that v-if/v-else pair, so there's no single root for
-               a class to fall through to. The span is what takes flex: none. -->
-          <span class="editor__acct"><AccountMenu /></span>
         </template>
       </div>
     </header>
@@ -634,6 +606,43 @@ function onCorrected(res: { status: string; itemName?: string }) {
 
     <SiteFooter />
 
+    <!-- Editing ⇄ packing, as a floating action rather than a toolbar segment. It was
+         the widest thing in the bar (94px on a phone) and the bar had run out of room;
+         it's also the control you reach for most, which is an argument for the thumb's
+         corner rather than the top edge.
+         Stacked, not side by side: a vertical pill in the corner keeps its footprint
+         one icon wide, so it covers less of the list behind it. The indicator is the
+         same tracking pill the toolbar used, travelling on Y instead of X.
+         Rendered only alongside a list (same v-if as the bar's controls) — there is no
+         mode to switch on the loading and missing states. -->
+    <div v-if="snapshot && totals" class="modefab" role="group" aria-label="View mode">
+      <!-- one pill tracks between the two segments (damped --ease, never overshoot —
+           a tracking indicator must not leave its track); the icons sit above it -->
+      <span class="modefab__pill" :class="{ 'is-packing': packed }" aria-hidden="true" />
+      <button
+        type="button"
+        class="modefab__opt"
+        :class="{ 'is-active': !packed }"
+        aria-label="Editing mode"
+        title="Editing"
+        :aria-pressed="!packed"
+        @click="packed = false"
+      >
+        <Backpack :size="16" :stroke-width="2" />
+      </button>
+      <button
+        type="button"
+        class="modefab__opt"
+        :class="{ 'is-active': packed }"
+        aria-label="Packing mode"
+        title="Packing"
+        :aria-pressed="packed"
+        @click="packed = true"
+      >
+        <SquareCheck :size="16" :stroke-width="2" />
+      </button>
+    </div>
+
     <Transition name="toast">
       <div
         v-if="pendingUndo"
@@ -669,6 +678,28 @@ function onCorrected(res: { status: string; itemName?: string }) {
   display: flex;
   flex-direction: column;
   min-height: 100svh;
+  /* The mode FAB's outside height — two segments, the gap between them, and the
+     container's padding either side. Published here rather than measured, because the
+     corner PROMPT has to clear a control it isn't inside; deriving it from --icon-btn
+     keeps the two in step if the segment box is ever retuned. */
+  --modefab-h: calc(2 * var(--icon-btn) + 3 * var(--space-px));
+  --modefab-w: calc(var(--icon-btn) + 2 * var(--space-px));
+}
+/* The FAB floats over the page's bottom-right corner, and the page column runs under it
+   at every width the column isn't narrower than the viewport. Reserve the button's
+   height (plus its gutter twice — once below it, once between it and the content) at the
+   end of the shell so the footer's links can always clear it: without this "Legal" sits
+   behind the button on a phone, and the copyright does at 768.
+   Not on the centred states — the FAB doesn't render there (no list, no mode to switch),
+   and the reserve would drag their optical centre up the page. */
+.editor:not(.editor--centered) {
+  padding-bottom: calc(var(--modefab-h) + 2 * var(--space-4));
+}
+@media (pointer: coarse) {
+  .editor {
+    --modefab-h: calc(2 * var(--tap) + 3 * var(--space-px));
+    --modefab-w: calc(var(--tap) + 2 * var(--space-px));
+  }
 }
 /* Split view: the vault occupies the right of the screen, so the editor's CONTENT
    gives up that width rather than sitting underneath it. Padding on the content
@@ -737,69 +768,105 @@ function onCorrected(res: { status: string; itemName?: string }) {
   display: inline-flex;
   align-items: center;
 }
-/* editing/packing toggle — a light container with two icon options + a tracking pill */
-.modetoggle {
-  position: relative;
-  flex: none;
-  display: inline-flex;
+/* ---- the mode FAB ---------------------------------------------------------
+   Editing ⇄ packing, floating in the lower right instead of riding the toolbar.
+   Same two segments and the same tracking pill as before, turned on their side: a
+   vertical pill is one icon wide, so a control that now sits OVER the list covers
+   as little of it as it can. */
+.modefab {
+  position: fixed;
+  right: var(--space-4);
+  bottom: var(--space-4);
+  /* Under the toasts, the dialogs and the vault pane (--z-float), over the sticky
+     topbar and the menus hanging off it. It's page furniture: it should never be the
+     thing covering a message, and anything the person just opened outranks it. */
+  z-index: var(--z-menu);
+  display: flex;
+  flex-direction: column;
   gap: var(--space-px);
   padding: var(--space-px);
-  background: var(--paper-2);
   border-radius: var(--radius-pill);
+  /* The toolbar version needed no surface — it sat on the bar's own paper. This one
+     floats over the list, so it takes the same lifted surface + soft shadow the other
+     floating objects wear (.popover, the vault pane), and the 1px transparent OUTLINE
+     that keeps an edge under forced-colors, where shadows are stripped. An outline,
+     not a border: a border would sit inside the box and pinch the pill's geometry. */
+  outline: 1px solid transparent;
+  background: var(--surface-float);
+  box-shadow: var(--shadow-soft);
 }
 /* the active tint lives on ONE pill that slides between segments (was a per-segment
-   background crossfade). width/translate are percentage-based so it tracks the wider
+   background crossfade). height/translate are percentage-based so it tracks the taller
    coarse-pointer segments too. damped --ease — overshoot would let it leave the track. */
-.modetoggle__pill {
+.modefab__pill {
   position: absolute;
-  top: var(--space-px);
-  bottom: var(--space-px);
   left: var(--space-px);
-  width: calc((100% - 3 * var(--space-px)) / 2); /* one segment: (inner − gap) / 2 */
+  right: var(--space-px);
+  top: var(--space-px);
+  height: calc((100% - 3 * var(--space-px)) / 2); /* one segment: (inner − gap) / 2 */
   border-radius: var(--radius-pill);
   background: color-mix(in oklab, var(--ink) 12%, transparent);
   pointer-events: none;
   transition: transform var(--dur) var(--ease);
   will-change: transform;
 }
-.modetoggle__pill.is-packing {
-  transform: translateX(calc(100% + var(--space-px))); /* over segment 2: own width + gap */
+.modefab__pill.is-packing {
+  transform: translateY(calc(100% + var(--space-px))); /* over segment 2: own height + gap */
 }
-.modetoggle__opt {
+.modefab__opt {
   position: relative; /* sits above the pill */
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: var(--icon-btn);
-  height: 28px;
+  height: var(--icon-btn);
   border-radius: var(--radius-pill);
   color: var(--ink-3);
   cursor: pointer;
   transition: color var(--dur) var(--ease);
   /* Pin a standing compositing layer. These buttons overlap the pill, so when the
      pill's transform animates, Safari promotes them for the run and demotes them
-     after — re-rasterising each (at a fractional flex x) to the pixel grid, so the
-     icon jumps ~1px per toggle. A static translateZ(0) holds one layer through and
-     after the run; will-change is droppable here since the button's own transform
-     never animates. Invisible in Chromium (keeps layers warm). Icons only, no text,
-     so no glyph-blur cost. See concepts/webkit-relayers-on-animation-boundaries. */
+     after — re-rasterising each to the pixel grid, so the icon jumps ~1px per toggle.
+     A static translateZ(0) holds one layer through and after the run; will-change is
+     droppable here since the button's own transform never animates. Invisible in
+     Chromium (keeps layers warm). Icons only, no text, so no glyph-blur cost.
+     See concepts/webkit-relayers-on-animation-boundaries. */
   transform: translateZ(0);
 }
-.modetoggle__opt:hover {
+.modefab__opt:hover {
   color: var(--ink-2);
 }
-.modetoggle__opt.is-active {
+.modefab__opt.is-active {
   color: var(--ink);
 }
 /* touch: each segment becomes a proper tap target (matches the --tap icon buttons) */
 @media (pointer: coarse) {
-  .modetoggle__opt {
+  .modefab__opt {
     width: var(--tap);
-    height: 40px;
+    height: var(--tap);
   }
-  .modetoggle__opt svg {
+  .modefab__opt svg {
     width: var(--icon-touch);
     height: var(--icon-touch);
+  }
+}
+/* The vault pane lands in this same corner, so the button steps aside rather than
+   sitting on it — and it steps aside differently by shape, because the pane does.
+   Desktop: the pane is a right-hand column, so move LEFT of it, by exactly the inset
+   .editor--split gives the content. */
+@media (min-width: $bp-full + 1px) {
+  .editor--split .modefab {
+    right: calc(var(--vault-w) + 2 * var(--space-4));
+  }
+}
+/* Phone: the pane is a bottom sheet spanning the gutters, so there is no sideways to
+   go — lift over it instead. --vault-sheet-h is the sheet's own height, shared from
+   tokens so the two can't drift; the gutter is counted twice (under the sheet, and
+   between the sheet and this). Hiding it instead would have been simpler and worse:
+   the toolbar toggle was reachable with the pane open, and this must be too. */
+@media (max-width: $bp-full) {
+  .editor--split .modefab {
+    bottom: calc(var(--vault-sheet-h) + 2 * var(--space-3));
   }
 }
 .editor__vault {
@@ -814,18 +881,13 @@ function onCorrected(res: { status: string; itemName?: string }) {
 .editor__share {
   color: var(--ink-2);
 }
-/* The popover's look + open/close come from the shared .menu atom (controls.scss).
-   What the editor adds is one nudge: the trailing cluster is pulled right into the
-   gutter so the LAST icon lines up with the item rows' drag handle below. The title
-   group (flex:1) absorbs the freed space, so the cluster reflows as a unit.
-   It rides on whatever ends the cluster, which is now the account control and not the
-   kebab — 13px is the padding between an icon button's edge and its 16px glyph, so
-   the correction belongs to the icon that actually sits against the gutter.
-   Only when that control is the icon, though: signed out it's a "Sign in" text link,
-   whose glyph box IS its text box, and pulling that out would hang the words past the
-   column edge. AccountMenu decides its own shape from the session hint, so :has() is
-   how this side reads which one arrived. */
-.editor__acct:has(.menu) {
+/* the popover's look + open/close come from the shared .menu atom (controls.scss);
+   the editor only nudges the trailing cluster right into the gutter so the kebab lines
+   up with the item rows' drag handle below (13px = an icon button's padding around its
+   16px glyph). The title group (flex:1) absorbs the freed space, so the cluster reflows
+   as a unit. It belongs to whatever ENDS the row, which is the kebab again now that the
+   account control sits before it. */
+.menu {
   margin-right: -13px;
 }
 .editor__body {
@@ -846,6 +908,36 @@ function onCorrected(res: { status: string; itemName?: string }) {
 .editor__introlink:hover,
 .editor__introlink:focus-visible {
   text-decoration: underline;
+}
+/* The .toast--corner atom parks this in the bottom-right, which is where the mode FAB
+   now lives — so stack it directly above, rather than on it. Same gutter on each side
+   of the gap, so the prompt, the gap and the button read as one column.
+   (The two are already mutually exclusive with the vault pane open: showIntro is false
+   while it is, and this prompt sits on the sheet's side of the screen.) */
+.editor__intro {
+  bottom: calc(var(--space-4) + var(--modefab-h) + var(--space-3));
+}
+/* the atom drops to the --space-3 gutter on a phone; follow it down */
+@media (max-width: $bp-stack) {
+  .editor__intro {
+    bottom: calc(var(--space-3) + var(--modefab-h) + var(--space-3));
+  }
+}
+/* The toast is the other thing that lands in the bottom of the screen, and the FAB is
+   permanent furniture there now. Two answers, because the toast has room in one case
+   and none in the other: on a wide screen it's centred with width to spare, so it only
+   has to stay narrow enough to leave the corner alone (a long list name in "Removed X"
+   is what would otherwise reach it). On a phone it spans the gutters and has no width
+   to give up, so it stacks ABOVE the button instead.
+   Scoped to the editor's own toast — /vault wears the same atom and has no FAB. */
+.editor > .toast {
+  max-width: calc(100% - 2 * (var(--space-4) + var(--modefab-w) + var(--space-3)));
+}
+@media (max-width: $bp-stack) {
+  .editor > .toast {
+    max-width: calc(100% - 2 * var(--space-4));
+    bottom: calc(var(--space-5) + var(--modefab-h) + var(--space-3));
+  }
 }
 /* the inline vault ask's affirmative — quiet like the rest of the banner, and
    deepening to full ink on hover the way every under-link on the site does */

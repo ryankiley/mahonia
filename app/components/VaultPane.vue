@@ -778,18 +778,18 @@ onKeyStroke("Escape", () => emit("close"));
     bottom: var(--space-3);
     left: var(--space-3);
     width: auto;
-    max-height: min(27.5rem, 55dvh);
+    max-height: var(--vault-sheet-h);
   }
   /* A FIXED height, not a max, once there's gear to browse. As a max, the sheet
      shrank to fit whatever the filter left — so typing into the search resized the
      surface under your thumb, and clearing it snapped it back. The rows move; the
      thing holding them shouldn't. (Desktop needs no equivalent: the column is
      pinned top and bottom, so it's already a fixed height.)
-     27.5rem = 440px, on the 8px grid. The dvh clamp still wins on a short phone —
-     the sheet must not eat the list it sits beside — so the height is fixed per
-     device rather than always literally 440. */
+     The figure itself is --vault-sheet-h, in tokens: the editor's mode FAB lifts over
+     this sheet by exactly this much, and a height duplicated in two files is a height
+     that drifts. */
   .vp--sized {
-    height: min(27.5rem, 55dvh);
+    height: var(--vault-sheet-h);
   }
   /* nothing to resize when the sheet spans the gutters */
   .vp__resize {

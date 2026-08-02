@@ -1,13 +1,23 @@
 <script setup lang="ts">
-import { KeyRound } from "@lucide/vue";
+import { KeyRound, LogIn } from "@lucide/vue";
 
 // The account affordance in the top bar. Two shapes, because signed in and signed
 // out are different jobs:
 //
-//   signed out — a plain "Sign in" link. One destination, so a menu would be a
-//                dropdown with a single item in it.
+//   signed out — a LINK, straight to /account. One destination, so a menu would be
+//                a dropdown with a single item in it.
 //   signed in  — a menu, because there are now three things you might want and
 //                only one of them (your vault) deserves the bar's limited room.
+//
+// A DIFFERENT icon each way, not one glyph in two states: LogIn (a door you step
+// through) when there's no account yet, KeyRound (the passkey that opens it) once
+// there is. The two jobs read apart at a glance, which is the point — you should be
+// able to tell whether you're signed in without opening anything.
+//
+// Signed out was these words, "Sign in", until the editor's bar ran out of room for
+// them: text is 60px against an icon's 44, and that difference clipped the toolbar
+// below 350px. An icon costs a little discoverability and buys a bar that fits every
+// phone; the aria-label still says "Sign in", so nothing is lost to a screen reader.
 //
 // Deliberately NOT an avatar. An account stores an optional display name and an
 // email; there is no photo and never will be, so an avatar renders as a circle
@@ -59,9 +69,11 @@ const onVault = computed(() => route.path === "/vault");
       v-if="!known"
       v-show="!onAccount"
       to="/account"
-      class="btn btn--link acct__signin"
+      class="btn btn--icon btn--ghost acct__signin"
+      aria-label="Sign in"
+      title="Sign in"
     >
-      Sign in
+      <LogIn :size="16" />
     </NuxtLink>
 
     <div v-else ref="menuRef" class="menu">
@@ -101,7 +113,9 @@ const onVault = computed(() => route.path === "/vault");
 <style scoped>
 /* the .menu / .popover / .menu__item atoms are shared (atoms/controls.scss), so
    this opens and looks exactly like the editor kebab and the read views' menu */
+/* the signed-in kebab gets its colour from .menu__btn; the signed-out link is a
+   plain icon button, so it takes the same quiet ink to match */
 .acct__signin {
-  white-space: nowrap;
+  color: var(--ink-2);
 }
 </style>

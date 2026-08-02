@@ -4,6 +4,10 @@
     "added": [
       "Reach your account from the toolbar while you're editing a list — sign in, open your gear vault, or sign out without leaving the page."
     ],
+    "changed": [
+      "Editing and packing modes now switch from a floating button in the lower right, instead of a toolbar toggle.",
+      "The account button in the toolbar now shows a door when you're signed out and a key when you're signed in, so you can tell at a glance."
+    ],
     "fixed": [
       "On a phone, swiping the gear vault sheet now scrolls the gear inside it instead of the list behind it."
     ]
