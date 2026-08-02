@@ -228,13 +228,22 @@ function normShareCode(raw: string): string | null {
   return CROCKFORD_RE.test(c) ? c : null;
 }
 
-// The "is this token holder allowed to touch this live, non-deleted list" lookup.
+// The "is this holder allowed to touch this live, non-deleted list" lookup.
 // Exported so discoveryRepo shares the exact same capability gate (no drift).
-export async function findByEditToken(editToken: string, db?: Db): Promise<ListRow | null> {
+//
+// Split hash-first for the same reason rotateEditHash is: a SESSION's route to a
+// list arrives as a hash, never as a token. claimRepo.claimedEditHash resolves a
+// claim to `lists.edit_token_hash` precisely so a signed-in request can act on a
+// list the browser doesn't hold the link for — and the server can't hash its way
+// there, because it never had the raw value either.
+export async function findByEditHash(editHash: string, db?: Db): Promise<ListRow | null> {
   const d = db ?? (await useDb());
-  const hash = sha256Hex(editToken);
-  const rows = await d.select().from(lists).where(liveOnly(lists.editTokenHash, hash)).limit(1);
+  const rows = await d.select().from(lists).where(liveOnly(lists.editTokenHash, editHash)).limit(1);
   return rows[0] ?? null;
+}
+
+export async function findByEditToken(editToken: string, db?: Db): Promise<ListRow | null> {
+  return findByEditHash(sha256Hex(editToken), db);
 }
 
 // ---- snapshots (vandalism recovery for the shared-edit-link model) ----

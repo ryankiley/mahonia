@@ -3,7 +3,7 @@ import { verifyRegistrationResponse } from "@simplewebauthn/server";
 import {
   MAGIC_LINK_TTL_MS,
   createAccount,
-  deleteAccount,
+  deleteAccountRow,
   issueMagicToken,
   startSession,
 } from "../../../utils/authSession";
@@ -98,7 +98,7 @@ export default defineEventHandler(async (event) => {
     // leaving an unreachable row behind — the write is one statement and there is
     // nothing else pointing at the account yet, so the delete is always safe.
     console.error("[passkey signup] credential already registered", e);
-    await deleteAccount(db, user.id).catch((err) =>
+    await deleteAccountRow(db, user.id).catch((err) =>
       console.error("[passkey signup] could not roll back orphaned account", err),
     );
     return { ok: false as const, reason: "invalid" as const };

@@ -85,10 +85,18 @@ async function createWithPasskey() {
   const r = await pk.signUp(email);
   creating.value = false;
   if (r === "ok") return;
+  if (r === "taken") {
+    // Creating can't sign you in — the ceremony makes a NEW credential, and letting
+    // it attach to an existing account would let anyone who knows your address add
+    // their own passkey to it. So it switches you instead of leaving you to find
+    // the toggle, and carries the address across so it isn't typed twice.
+    linkEmail.value = email;
+    mode.value = "signin";
+    signinNote.value = "You already have an account — sign in with your passkey, or ask for a link.";
+    return;
+  }
   createNote.value =
-    r === "taken"
-      ? "That address already has an account. Sign in with a link instead."
-      : r === "bad-email"
+    r === "bad-email"
         ? "That doesn’t look like an email address."
         : r === "unsupported"
           ? "This browser can’t make a passkey. Use a sign-in link instead."
@@ -165,6 +173,61 @@ function deviceLabel(): string {
   if (/Windows/.test(ua)) return "Windows PC";
   if (/Linux/.test(ua)) return "Linux";
   return "This device";
+}
+
+// ---- deleting the account ------------------------------------------------
+const deleting = ref(false);
+const deleteNote = ref("");
+// The confirmation, shown after the account is gone and the page has flipped back
+// to the signed-out screen. Longer-lived than the usual toast (8s, not the undo
+// bar's few): there is nothing to act on, and it's the only acknowledgement that an
+// irreversible thing succeeded.
+const gone = ref("");
+async function deleteAccount() {
+  // Two questions, not one. The account going is what was asked for; the lists are
+  // a separate, more destructive thing that must be opted into rather than swept
+  // along — they belong to their edit links and outlive the account by default.
+  if (
+    !(await askConfirm({
+      title: "Delete your account?",
+      message:
+        "Your email, display name, passkeys and your whole gear vault go, and can't be brought back. Your lists are NOT deleted — they belong to their edit links, and any link you've kept still opens them.",
+      confirmLabel: "Delete account",
+    }))
+  )
+    return;
+
+  const alsoLists = await askConfirm({
+    title: "Delete your lists too?",
+    message:
+      "Also delete the lists saved to this account. Anyone you've shared a link with loses access as well. Choose Keep to leave them exactly as they are.",
+    confirmLabel: "Delete them too",
+    cancelLabel: "Keep my lists",
+  });
+
+  deleting.value = true;
+  deleteNote.value = "";
+  try {
+    const res = await $fetch<{ listsDeleted: number }>("/api/account/delete", {
+      method: "POST",
+      body: { deleteLists: alsoLists },
+    });
+    resetVaultCapture();
+    useClaimedLists().resetClaimMark();
+    // Stay here rather than navigating away. The page re-renders as the signed-out
+    // screen on its own once the session has gone, so the confirmation lands on the
+    // thing that actually changed — and a toast that outlived a route change would
+    // need app-wide plumbing this is the only caller for.
+    await refresh(true);
+    const n = res?.listsDeleted ?? 0;
+    gone.value = n
+      ? `Account deleted, along with ${n} ${n === 1 ? "list" : "lists"}.`
+      : "Account deleted. Your lists are untouched.";
+    setTimeout(() => (gone.value = ""), 8000);
+  } catch {
+    deleteNote.value = "Couldn't delete the account. Try again?";
+  }
+  deleting.value = false;
 }
 
 async function onSignOut() {
@@ -263,14 +326,10 @@ async function onSignOut() {
                 {{ creating ? "Waiting for your device…" : "Create account with a passkey" }}
               </button>
             </form>
-            <p class="t-sm t-muted acct__aside">
-              Your face, fingerprint or screen lock. The address is only how you get back in if
-              you lose your devices.
-            </p>
             <p v-if="createNote" class="t-sm acct__note">{{ createNote }}</p>
 
             <p class="t-sm t-muted">
-              Already have one?
+              Already have an account?
               <button type="button" class="acct__switch" @click="mode = 'signin'">
                 Sign in
               </button>
@@ -282,10 +341,7 @@ async function onSignOut() {
           <section class="acct__section">
             <h2 class="t-label acct__label">Email</h2>
             <p class="acct__value">{{ user?.email }}</p>
-            <p class="t-sm t-muted">
-              The only thing an account stores about you. Lose every device and a link sent here
-              is how you get back to your gear.
-            </p>
+            <p class="t-sm t-muted">How you get back in if you lose your devices.</p>
           </section>
 
           <section class="acct__section">
@@ -304,8 +360,7 @@ async function onSignOut() {
               </button>
             </form>
             <p class="t-sm t-muted">
-              Shown on lists you share or publish. Leave it empty and they stay anonymous —
-              your email is never shown to anyone.
+              Shown on lists you share. Leave it empty to stay anonymous.
             </p>
             <p v-if="nameNote" class="t-sm acct__note">{{ nameNote }}</p>
           </section>
@@ -327,14 +382,30 @@ async function onSignOut() {
               </li>
             </ul>
             <p class="t-sm t-muted">
-              Sign in with your fingerprint or screen lock instead of waiting for an email. The
-              email link always keeps working, so removing them all locks nothing.
+              Sign in with your fingerprint or screen lock. A link always works too, so removing
+              them all locks nothing.
             </p>
             <p v-if="pkNote" class="t-sm acct__note">{{ pkNote }}</p>
           </section>
 
           <section class="acct__section">
             <button type="button" class="btn btn--quiet acct__signout" @click="onSignOut">Sign out</button>
+          </section>
+
+          <section class="acct__section">
+            <h2 class="t-label acct__label">Delete your account</h2>
+            <p class="t-sm t-muted">
+              Your account and gear vault, for good. Your lists are kept unless you say otherwise.
+            </p>
+            <button
+              type="button"
+              class="btn btn--quiet acct__danger"
+              :disabled="deleting"
+              @click="deleteAccount"
+            >
+              {{ deleting ? "Deleting…" : "Delete account" }}
+            </button>
+            <p v-if="deleteNote" class="t-sm acct__note">{{ deleteNote }}</p>
           </section>
         </div>
 
@@ -345,6 +416,10 @@ async function onSignOut() {
         </template>
       </ClientOnly>
     </main>
+
+    <Transition name="toast">
+      <div v-if="gone" class="toast t-sm" role="status">{{ gone }}</div>
+    </Transition>
   </div>
 </template>
 
@@ -460,10 +535,6 @@ async function onSignOut() {
   gap: var(--space-3);
   width: 100%;
 }
-.acct__aside {
-  margin: 0;
-  max-width: 46ch;
-}
 .acct__section {
   display: flex;
   flex-direction: column;
@@ -521,6 +592,16 @@ async function onSignOut() {
 }
 /* the section is a flex COLUMN, so a bare button stretches and its label centres —
    pull it back to the left edge every other line sits on */
+/* The one destructive control on the page. Colour is otherwise reserved for data
+   viz (see atoms/controls.scss), so this borrows the warn token rather than
+   inventing a red — enough to make it read as different in kind from Sign out
+   directly above it, without shouting at someone who's only scrolling past. */
+.acct__danger {
+  color: var(--warn, #8b5a24);
+}
+.acct__danger:hover {
+  background: var(--paper-3);
+}
 .acct__signout {
   align-self: flex-start;
 }

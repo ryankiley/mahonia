@@ -88,6 +88,15 @@ const emit = defineEmits<{ dismiss: [] }>();
 .prompt {
   gap: var(--space-4);
 }
+/* .toast's padding is tuned for the undo bar: ONE line of text, so 8px above and
+   below sits right. A Prompt puts a two-line stack in the same box (lede over the
+   message), and at 8px that stack reads as touching the edges — the inline variant
+   already uses 12px for exactly the same content. Match them, and only for
+   prompts: `.toast.prompt` so the plain undo toast keeps its own tighter box
+   rather than being loosened by association. */
+.toast.prompt {
+  padding-block: var(--space-3);
+}
 /* The toast transition translates -50% on X — it centres a fixed element on the
    viewport, and on an inline banner it would slide the thing half its own width
    sideways as it arrives. So the inline variant gets its own: a plain fade and a

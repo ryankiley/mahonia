@@ -121,11 +121,14 @@ export async function createAccount(db: Db, email: string): Promise<SessionUser>
   return { id: row.id, email: row.email };
 }
 
-/** Remove an account row. Used for exactly one thing: rolling back a passkey
- *  signup whose credential failed to save, where the alternative is an account
- *  nothing can ever sign into. Not a user-facing "delete my account" — that would
- *  also have to clear claims, sessions and the vault. */
-export async function deleteAccount(db: Db, userId: number): Promise<void> {
+/** Remove an account ROW and nothing else. Used for exactly one thing: rolling
+ *  back a passkey signup whose credential failed to save, where the alternative is
+ *  an account nothing can ever sign into.
+ *
+ *  Deliberately NOT called deleteAccount — accountRepo exports that, and every file
+ *  in server/utils is auto-imported into one namespace, so two exports sharing a
+ *  name means one silently wins and callers get whichever the resolver picked. */
+export async function deleteAccountRow(db: Db, userId: number): Promise<void> {
   await db.delete(users).where(eq(users.id, userId));
 }
 
