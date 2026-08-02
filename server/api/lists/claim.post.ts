@@ -6,7 +6,7 @@ import {
   claimLists,
   listClaimedLists,
 } from "../../utils/claimRepo";
-import { useAccountDb } from "../../utils/db";
+import { useAccountDb, useVaultDb } from "../../utils/db";
 import { readJsonBodyCapped } from "../../utils/http";
 import { rateLimit } from "../../utils/rateLimit";
 
@@ -32,7 +32,12 @@ export default defineEventHandler(async (event) => {
     ? (body.editTokens.filter((t) => typeof t === "string") as string[]).slice(0, CLAIM_BATCH_MAX)
     : [];
 
+  // useVaultDb as well as useAccountDb: the backfill below writes vault rows, and on
+  // Neon the vault tables are ensured on first use rather than migrated. Without
+  // this the write would throw into the swallowed catch and the backfill would
+  // silently never happen on a cold instance.
   const db = await useAccountDb();
+  await useVaultDb();
   const claimed = editTokens.length ? await claimLists(db, user.id, editTokens) : 0;
 
   // Rebuild the vault from every list this account holds, not just the ones that

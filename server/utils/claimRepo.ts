@@ -12,6 +12,7 @@ import { listClaims, lists } from "../db/schema";
 import type { useAccountDb } from "./db";
 import { findByEditToken } from "./listRepo";
 import { captureVaultItems } from "./vaultRepo";
+import { mintVault, touchVaultByUser } from "./vaultAuth";
 import { VAULT_CAPTURE_MAX, captureFromList, type VaultCapture } from "../../shared/vault";
 import type { Unit } from "../../shared/types";
 
@@ -155,12 +156,25 @@ export async function backfillVaultFromClaims(db: Db, userId: number): Promise<n
   }
   if (!byKey.size) return 0;
 
+  // Resolve the ACCOUNT to its VAULT before writing anything.
+  //
+  // This is the whole reason the resolution happens in here rather than at the call
+  // site: captureVaultItems takes a vaultId, this function is handed a userId, and
+  // both are plain `number`. Passing the wrong one compiles, and `vault_items` has
+  // no foreign key on `vault_id` — so the rows land in whatever vault happens to
+  // share that id, which is somebody else's. A caller cannot make that mistake if
+  // it never gets to choose.
+  //
+  // Mints on demand: signing in on a new device is exactly when someone has claims
+  // but no vault row yet, and that is the case this function exists to serve.
+  const vaultId = (await touchVaultByUser(db, userId)) ?? (await mintVault(db, userId));
+
   // chunked to the per-call cap so a large collection isn't silently truncated by
   // the sanitizer's slice
   const all = [...byKey.values()];
   let written = 0;
   for (let i = 0; i < all.length && i < VAULT_BACKFILL_MAX; i += VAULT_CAPTURE_MAX) {
-    written += await captureVaultItems(db, userId, all.slice(i, i + VAULT_CAPTURE_MAX));
+    written += await captureVaultItems(db, vaultId, all.slice(i, i + VAULT_CAPTURE_MAX));
   }
   return written;
 }
