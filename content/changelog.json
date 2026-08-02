@@ -1,6 +1,9 @@
 [
   {
     "date": "2026-08-02",
+    "changed": [
+      "On a phone, the trail link's card now opens when you press the link name, instead of sitting under the title all the time."
+    ],
     "fixed": [
       "On a phone, swiping the gear vault sheet now scrolls the gear inside it instead of the list behind it."
     ]

@@ -10,9 +10,10 @@ import { copyText } from "~/utils/clipboard";
 // One row sits under the title holding either "Add trail link" or the link itself, so
 // the affordance occupies exactly the slot its result will — adding a link swaps the row
 // in place rather than moving it. The affordance is revealed on hover (the Notion "Add
-// icon / Add cover" idiom); hovering a resolved link raises a card with the destination
-// and its actions. The title lives in here rather than beside it so DOM order matches
-// visual order and tab order follows the eye.
+// icon / Add cover" idiom); a resolved link raises a card with the destination and its
+// actions — on hover where there's a pointer that hovers, on a press on the name
+// everywhere (see `pinned`). ONE card, one layout, every device. The title lives in here
+// rather than beside it so DOM order matches visual order and tab order follows the eye.
 const props = defineProps<{ snapshot: ListSnapshot }>();
 
 const c = useGearList();
@@ -20,9 +21,11 @@ const c = useGearList();
 // full set, reached only by hovering an existing link, so naming it stays a deliberate
 // second step rather than a second thing to fill in.
 const mode = ref<"add" | "edit" | null>(null);
-// Whether the link card is held open. On a fine pointer it also appears on hover; this
-// is what a CLICK on the name does, and it's what makes the card reachable at all on a
-// touch device, where there is no hover to reveal it.
+// Whether the link card is held open. This is what a PRESS on the name does, and it's
+// the only way in on a touch device, where there is no hover to reveal it. A fine
+// pointer gets hover on top of it, not instead of it — the card is one surface with two
+// ways to ask for it, rather than a floating card on the desktop and a second permanent
+// in-flow layout on the phone.
 const pinned = ref(false);
 const open = computed(() => mode.value !== null);
 const fieldsId = useId();
@@ -219,11 +222,11 @@ onClickOutside(trailEl, () => {
           <span class="head__name">{{ link.name }}</span>
         </button>
 
-        <!-- Notion's link card: the destination in full, then the actions on it. Shown
-             on hover (and on keyboard focus) rather than sitting in the layout, because
-             the link is the content and Edit/Remove are only ever wanted deliberately.
-             On a coarse pointer there IS no hover, so the media query below drops this
-             back into the flow permanently — otherwise a phone could never reach it. -->
+        <!-- Notion's link card: the destination in full, then the actions on it. Asked
+             for — by hover, by a press on the name, or by keyboard focus — rather than
+             sitting in the layout, because the link is the content and Edit/Remove are
+             only ever wanted deliberately. The press is what carries a phone, which has
+             no hover; it means one card at every pointer instead of two layouts. -->
         <span v-if="!open" class="head__card popover" :class="{ 'is-pinned': pinned }">
           <img
             v-if="icon"
@@ -414,41 +417,69 @@ onClickOutside(trailEl, () => {
   display: inline-flex;
   align-items: baseline;
   min-width: 0;
-  /* On a phone the card is IN FLOW (see below), and side by side with the name the two
-     split the row — the name got the smaller half and ellipsed to "Timberline Tra…"
-     while the card showed a URL that was itself truncated. Neither was readable, and
-     the name is the content. Wrapping lets the card drop to its own line and gives the
-     name the full width; on a fine pointer the card is absolutely positioned, so this
-     has nothing to act on and is inert. */
-  flex-wrap: wrap;
-  row-gap: var(--space-2);
-  /* takes the whole row so the wrapped card's 100% basis has something real to resolve
-     against — inline-flex alone sizes to the NAME, and the card then measured wider
-     than the phone. The fine-pointer branch puts this back to content-sized, where the
-     card floats and the anchor shouldn't claim a full row. */
-  flex: 1 1 100%;
+  /* content-sized: the card floats out of flow at every pointer, so the anchor is only
+     ever as wide as the name it holds and never claims the whole row */
+  flex: 0 1 auto;
 }
-/* The link card. DEFAULT (coarse pointer / no hover) is in-flow and permanent: a phone
-   has no hover, so a reveal-on-hover card would put Edit and Remove out of reach
-   entirely. Fine pointers get the floating version below. */
+/* The link card — Notion's: the destination in full, then the actions on it. It FLOATS
+   under the link at every pointer type, and it is hidden until asked for. What asks for
+   it differs by pointer, and only that: a hover where there is one, a press on the name
+   where there isn't (`pinned`, in the script — a press works on a fine pointer too).
+   It used to sit permanently in the flow on a coarse pointer, on the reasoning that a
+   phone has no hover to reveal it — but that put a URL, a copy button and Edit under
+   every title on every phone, permanently, to serve a panel you open rarely. A press
+   reveals it, which is the gesture a touch device has, and the phone gets the same
+   surface the desktop does rather than a second layout to keep in step. */
 .head__card {
+  position: absolute;
+  top: 100%;
+  inset-inline-start: 0;
+  /* menu layer, not --z-float: this is a popover of actions, and it should sit under
+     the toast/dialog surfaces rather than competing with them */
+  z-index: var(--z-menu);
   display: inline-flex;
   align-items: center;
   /* wider than the icon-to-its-own-text step: the glyph belongs to the URL it acts on,
      "Edit" is a separate control */
   gap: var(--space-2);
   min-width: 0;
-  /* Full width once it has wrapped onto its own line, so the URL gets the room the
-     name was taking from it rather than ellipsing at both ends. SHRINK IS 1, not 0:
-     with 0 the card can't go below its content and the URL's intrinsic width pushed
-     it (and the Edit button) clean off the side of the phone. */
-  flex: 1 1 100%;
+  /* out of flow, so it sizes to its CONTENT, bounded by `max-width: 100%` — which is
+     the page column, since .head__trail is the containing block. Content-sized but
+     never past the screen edge. The URL inside carries the shrinking (see below). */
+  flex: 0 0 auto;
+  width: max-content;
   max-width: 100%;
   margin-inline-start: 0;
+  /* --radius-3 is the small-card step; inner surfaces derive from it with calc() so a
+     nested curve can never end up rounder than the box holding it. */
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-3);
+  /* A 1px ring plus a TIGHT drop, measured off the reference. --shadow-soft is built
+     for big anchored menus — its 48px second layer reads mushy under a 32px card, and
+     it deliberately carries no ring ("the shadow alone defines the edge"), which is
+     exactly what leaves a small surface looking soft-edged. Local override only; the
+     token is right for what it was written for. */
+  box-shadow:
+    0 0 0 1px var(--line-2),
+    0 4px 12px -2px rgb(0 0 0 / 0.08);
   font-size: var(--text-chrome);
   /* tight leading, not the inherited 1.5 — the card's height is content + padding, and
      1.5 alone pushed it past the reference's 32px */
   line-height: 1.2;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity var(--dur) var(--ease),
+    visibility var(--dur) var(--ease);
+}
+/* A press on the name pins it open, and keyboard focus reveals it — both at every
+   pointer type, so a phone and a tabbing user can reach Edit and Remove. Hover is the
+   fine-pointer addition, further down. */
+.head__anchor:focus-within .head__card,
+.head__card.is-pinned {
+  opacity: 1;
+  visibility: visible;
 }
 /* muted, not full ink — measured off the reference, where the URL sits at the faint step
    and the ACTION beside it carries the emphasis. (I'd darkened this on a guess; the real
@@ -467,7 +498,8 @@ onClickOutside(trailEl, () => {
    and 32ch it takes what the row can spare — the whole line on a phone, a comfortable
    measure on a desktop — and ellipsises at either end. 12ch is the floor because below
    that the text stops identifying anything; with the card's chrome it still fits the
-   narrowest phone. ONE rule for both pointer branches. */
+   narrowest phone — the card floats there too, so this is the rule that keeps it inside
+   a 320px screen rather than a second, in-flow layout. */
 .head__cardurl {
   flex: 1 1 auto;
   min-width: 12ch;
@@ -526,49 +558,11 @@ onClickOutside(trailEl, () => {
    hiding them would leave phone users with no way to reach the field at all. Opacity,
    not display, so nothing reflows as the affordance comes and goes. */
 @media (hover: hover) and (pointer: fine) {
-  /* the card lifts out of the flow and floats under the link, revealed on hover.
-     top:100% with no gap keeps its box FLUSH to the link's, so travelling down into it
-     never crosses dead space and dismisses the thing you were reaching for — the card's
-     own padding supplies the visual offset instead. */
-  .head__card {
-    position: absolute;
-    top: 100%;
-    inset-inline-start: 0;
-    /* menu layer, not --z-float: this is a popover of actions, and it should sit under
-       the toast/dialog surfaces rather than competing with them */
-    z-index: var(--z-menu);
-    margin-inline-start: 0;
-    /* Undo the wrapped-on-its-own-line sizing the coarse-pointer default sets. Floating,
-       the card is out of flow and sizes to its CONTENT, bounded by the base rule's
-       `max-width: 100%` — which is the page column, since .head__trail is the
-       containing block. Content-sized but never past the screen edge. */
-    flex: 0 0 auto;
-    width: max-content;
-    /* --radius-3 is the small-card step; inner surfaces derive from it with calc() so a
-       nested curve can never end up rounder than the box holding it. */
-    padding: var(--space-2) var(--space-3);
-    border-radius: var(--radius-3);
-    /* A 1px ring plus a TIGHT drop, measured off the reference. --shadow-soft is built
-       for big anchored menus — its 48px second layer reads mushy under a 32px card, and
-       it deliberately carries no ring ("the shadow alone defines the edge"), which is
-       exactly what leaves a small surface looking soft-edged. Local override only; the
-       token is right for what it was written for. */
-    box-shadow:
-      0 0 0 1px var(--line-2),
-      0 4px 12px -2px rgb(0 0 0 / 0.08);
-    white-space: nowrap;
-    opacity: 0;
-    visibility: hidden;
-    transition:
-      opacity var(--dur) var(--ease),
-      visibility var(--dur) var(--ease);
-  }
-  .head__anchor {
-    flex: 0 1 auto;
-  }
-  .head__anchor:hover .head__card,
-  .head__anchor:focus-within .head__card,
-  .head__card.is-pinned {
+  /* Hover is this pointer's EXTRA way in — the card itself, and the press that pins it,
+     are the base rules above. top:100% with no gap keeps the card's box FLUSH to the
+     link's, so travelling down into it never crosses dead space and dismisses the thing
+     you were reaching for; the card's own padding supplies the visual offset. */
+  .head__anchor:hover .head__card {
     opacity: 1;
     visibility: visible;
   }
