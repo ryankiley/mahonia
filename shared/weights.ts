@@ -118,14 +118,6 @@ export function lineMg(item: Pick<Item, "qty" | "unitWeightMg">): number {
   return Math.max(0, item.qty) * Math.max(0, item.unitWeightMg);
 }
 
-/** An item's nested children (items nested directly under it), in sortOrder. */
-export function childrenOf<T extends { parentId?: string | null; sortOrder: number }>(
-  items: readonly T[],
-  parentId: string,
-): T[] {
-  return items.filter((i) => i.parentId === parentId).sort(bySortOrder);
-}
-
 /**
  * A row's GROUP line weight for DISPLAY: the item's own line plus its children's lines.
  * Totals never use this (they sum each item's OWN line, so a parent + its kids aren't
@@ -228,22 +220,13 @@ export function compareItemsBy(sortBy: FolderSort | undefined, a: Item, b: Item)
   }
 }
 
-/** A folder's TOP-LEVEL items in its chosen sort order (nested children render under
- *  their parent, so they're excluded here). Shared by the exporters so every surface
- *  (editor, share views, Markdown/CSV) orders a folder identically. */
-export function sortedFolderItems(items: readonly Item[], folder: Folder): Item[] {
-  return items
-    .filter((i) => i.folderId === folder.id && i.parentId == null)
-    .sort((a, b) => compareItemsBy(folder.sortBy, a, b));
-}
-
 /**
  * Group TOP-LEVEL items by folder id (ungrouped + nested children excluded), each group
  * ordered by its folder's `sortBy` (manual = sortOrder). One O(items) pass, built once
- * per snapshot — so per-folder consumers (one FolderSection per folder) don't each
- * re-filter and re-sort the whole item array on every edit. Children are rendered by
- * their parent row (via childrenOf), not as folder rows. Pass `folders` to honor
- * per-folder sorts; omit it and every group falls back to manual sortOrder.
+ * per snapshot — so per-folder consumers (one FolderSection per folder, the exporters'
+ * sections) don't each re-filter and re-sort the whole item array. Children are rendered
+ * by their parent row (via groupItemsByParent), not as folder rows. Pass `folders` to
+ * honor per-folder sorts; omit it and every group falls back to manual sortOrder.
  */
 export function groupItemsByFolder(
   items: readonly Item[],
@@ -263,10 +246,10 @@ export function groupItemsByFolder(
 }
 
 /**
- * Group nested children by their parent id, each group in sortOrder (matching
- * childrenOf). One O(items) pass, built once per snapshot at the view root and
- * threaded to the rows — so each row doesn't re-scan the whole item array for its
- * children on every render (O(rows × items) across a list).
+ * Group nested children by their parent id, each group in sortOrder. One O(items)
+ * pass, built once per snapshot at the view root and threaded to the rows — so each
+ * row doesn't re-scan the whole item array for its children on every render
+ * (O(rows × items) across a list).
  */
 export function groupItemsByParent<T extends { parentId?: string | null; sortOrder: number }>(
   items: readonly T[],
@@ -401,6 +384,13 @@ export function formatWeight(
     maximumFractionDigits: decimals,
   });
   return withUnit ? `${num} ${unit}` : num;
+}
+
+/** The weight system a display unit belongs to — the summary surfaces derive this
+ *  from a list's `displayUnit` to feed `formatWeightAuto`, so a total reads in the
+ *  same system (metric/imperial) the list uses. Absent/unknown reads as metric. */
+export function systemForUnit(unit?: Unit): "metric" | "imperial" {
+  return unit === "oz" || unit === "lb" ? "imperial" : "metric";
 }
 
 /**

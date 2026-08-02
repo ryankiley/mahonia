@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { Trash2 } from "@lucide/vue";
 import { editLinkPath } from "~~/shared/links";
-import type { MyListEntry, Unit } from "~~/shared/types";
-import { formatWeightAuto } from "~~/shared/weights";
+import type { MyListEntry } from "~~/shared/types";
+import { formatWeightAuto, systemForUnit } from "~~/shared/weights";
 
 // "Your lists" — the no-login stand-in for an account. It's a read-out of the
 // device-local registry useMyLists already keeps (the edit tokens this browser
@@ -27,8 +27,7 @@ const displayTitle = (t: string) => {
 };
 // summarise the total in the list's own unit system (imperial lists → lb/oz),
 // falling back to metric auto for legacy entries that predate the stored unit
-const systemOf = (u?: Unit) => (u === "oz" || u === "lb" ? "imperial" : "metric");
-const totalLabel = (e: MyListEntry) => formatWeightAuto(e.totalMg, { system: systemOf(e.displayUnit) });
+const totalLabel = (e: MyListEntry) => formatWeightAuto(e.totalMg, { system: systemForUnit(e.displayUnit) });
 
 const busy = ref<string | null>(null); // editToken mid-delete
 const error = ref("");
@@ -108,9 +107,6 @@ async function deleteList(e: MyListEntry) {
 </template>
 
 <style scoped lang="scss">
-.page {
-  padding-block: var(--space-5) var(--space-9);
-}
 .mine__head {
   display: flex;
   flex-direction: column;

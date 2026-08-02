@@ -277,6 +277,16 @@ export function resetVaultCapture(): void {
   pending = null;
 }
 
+/** Drop BOTH per-account device memos — the capture fingerprint above and the
+ *  claim mark — so the next person to sign in on this device starts clean rather
+ *  than inheriting "already sent" / "already claimed". The one teardown call for
+ *  every way an account leaves a device: sign out (menu + account page),
+ *  sign-out-everywhere, account deletion. */
+export function resetAccountMemos(): void {
+  resetVaultCapture();
+  useClaimedLists().resetClaimMark();
+}
+
 // ---------------------------------------------------------------------------
 // search
 // ---------------------------------------------------------------------------

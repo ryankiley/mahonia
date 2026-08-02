@@ -124,7 +124,7 @@ export type ListRow = typeof lists.$inferSelect;
 // loaded into the constructor, which we don't touch), so the extension + GIN
 // trigram index are created at runtime ONLY on Neon by `ensureCatalogSchema()`
 // in server/utils/catalog.ts; on PGlite the search endpoint falls back to the
-// shared JS trigram ranker `searchCatalogLocal` (shared/catalogSearch.ts) — the
+// shared JS trigram ranker `rankCandidates` (shared/catalogSearch.ts) — the
 // same ranking the offline client uses, so recall can't drift. The GIN index
 // declared below is schema-fidelity metadata only: it is never run by the
 // raw-DDL `ensureSchema()` path the live app uses, and the Neon query filters +
@@ -294,18 +294,16 @@ export const trailFavicons = pgTable("trail_favicons", {
 });
 
 // ---------------------------------------------------------------------------
-// vaults + vault_items — your own gear locker, owned by a LINK.
+// vaults + vault_items — your own gear locker, owned by an ACCOUNT.
 //
-// The identity here is deliberately the same primitive a list already uses: an
-// unguessable token, stored only as sha256, that grants capability by possession.
-// There is no account, no email, and no user row — a vault is a thing you hold a
-// link to, exactly like a list. That keeps one mental model in the product ("a
-// link owns a thing") instead of introducing a second one, and it keeps Mahonia
-// holding no personal data.
+// A vault originally used the same primitive a list still does — an unguessable
+// link, held as sha256 — but a durable personal record is the wrong thing to
+// gate behind an unrecoverable secret, so ownership moved to the signed-in user
+// (the full argument lives in server/utils/vaultAuth.ts; the migration in
+// vaultSchema.ts). Lists stay link-owned.
 //
-// The cost is stated plainly in the UI: lose the link and you lose the vault. That
-// is survivable in a way it wouldn't be for a list, because a vault is DERIVED —
-// it accumulates from the lists you build (see captureFromList in shared/vault.ts),
+// Losing access is survivable either way, because a vault is DERIVED — it
+// accumulates from the lists you build (see captureFromList in shared/vault.ts),
 // so a fresh vault refills itself as you open your lists again.
 // ---------------------------------------------------------------------------
 export const vaults = pgTable(
@@ -333,7 +331,6 @@ export const vaults = pgTable(
   (t) => [uniqueIndex("idx_vaults_user").on(t.userId)],
 );
 
-export type VaultRow = typeof vaults.$inferSelect;
 
 /**
  * A vault's folders. Its own table rather than a text label on the item, because
@@ -416,14 +413,14 @@ export const vaultItems = pgTable(
   ],
 );
 
-export type VaultItemRow = typeof vaultItems.$inferSelect;
 
 // ---------------------------------------------------------------------------
 // THE OPTIONAL ACCOUNT LAYER
 //
-// Nothing below is required to use Mahonia. A list opens by its edit link and a
-// vault by its vault link, both unchanged. An account does one job: it REMEMBERS
-// those links, so they don't have to be carried between devices by hand.
+// Nothing below is required to make and share lists — a list opens by its edit
+// link, unchanged. An account does two jobs: it REMEMBERS list links (claims), so
+// they don't have to be carried between devices by hand, and it OWNS your vault,
+// the one thing on the site that outgrew link ownership (see vaultAuth.ts).
 //
 // Identity is an email address and nothing else — no password to hash, leak or
 // reset, because sign-in is a single-use emailed link. A passkey is added later,
@@ -454,7 +451,6 @@ export const users = pgTable(
   (t) => [uniqueIndex("idx_users_email").on(t.email)],
 );
 
-export type UserRow = typeof users.$inferSelect;
 
 // A pending magic link. Short-lived and single-use: `consumedAt` is stamped the
 // moment it's redeemed, so a link forwarded or replayed from an inbox is inert.
@@ -539,7 +535,6 @@ export const credentials = pgTable(
   ],
 );
 
-export type CredentialRow = typeof credentials.$inferSelect;
 
 // ---------------------------------------------------------------------------
 // list_claims — "this account holds this list", so lists follow you off the

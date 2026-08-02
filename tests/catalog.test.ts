@@ -6,7 +6,6 @@ import * as schema from "../server/db/schema";
 import { MG_PER_UNIT } from "../shared/weights";
 import {
   csvToCatalogRows,
-  parseCsv,
   serializeCsv,
   specToMg,
 } from "../scripts/catalogCsv";
@@ -68,32 +67,8 @@ describe("specToMg — cited spec → integer milligrams", () => {
   });
 });
 
-describe("parseCsv — hand-rolled RFC4180-ish", () => {
-  it("parses a simple grid", () => {
-    expect(parseCsv("a,b,c\n1,2,3\n")).toEqual([
-      ["a", "b", "c"],
-      ["1", "2", "3"],
-    ]);
-  });
-  it("handles quoted fields with embedded commas", () => {
-    expect(parseCsv('name,note\n"Duplex, DCF",light\n')).toEqual([
-      ["name", "note"],
-      ["Duplex, DCF", "light"],
-    ]);
-  });
-  it("handles escaped double-quotes", () => {
-    expect(parseCsv('a\n"he said ""hi"""\n')).toEqual([["a"], ['he said "hi"']]);
-  });
-  it("handles CRLF and a missing trailing newline", () => {
-    expect(parseCsv("a,b\r\n1,2")).toEqual([
-      ["a", "b"],
-      ["1", "2"],
-    ]);
-  });
-  it("preserves commas/newlines inside quotes", () => {
-    expect(parseCsv('x\n"line1\nline2"\n')).toEqual([["x"], ["line1\nline2"]]);
-  });
-});
+// parseCsv itself is covered in tests/csv.test.ts — the catalog pipeline shares
+// the list importer's parser (shared/exporters/csv), so it isn't re-tested here.
 
 describe("serializeCsv + csvToCatalogRows round-trip", () => {
   const csv = serializeCsv(

@@ -2,7 +2,8 @@
   {
     "date": "2026-08-02",
     "fixed": [
-      "On a phone, swiping the gear vault sheet now scrolls the gear inside it instead of the list behind it."
+      "On a phone, swiping the gear vault sheet now scrolls the gear inside it instead of the list behind it.",
+      "An imported list now shows its pack weight on Your lists right away, instead of after the first edit."
     ]
   },
   {

@@ -9,7 +9,7 @@
 
 import { and, eq, gt, isNull, lt, or, sql } from "drizzle-orm";
 import type { H3Event } from "h3";
-import { createError, deleteCookie, getCookie, setCookie } from "h3";
+import { createError, deleteCookie, getCookie, getRequestURL, setCookie } from "h3";
 import { authTokens, sessions, users } from "../db/schema";
 import { useAccountDb } from "./db";
 import { randomSecret, sha256Hex } from "./tokens";
@@ -164,6 +164,19 @@ export async function issueMagicToken(db: Db, userId: number): Promise<string> {
     expiresAt: new Date(Date.now() + MAGIC_LINK_TTL_MS),
   });
   return token;
+}
+
+/**
+ * The email-ready callback link + human-phrased TTL for a just-issued magic
+ * token. The URL points back at the origin that served THIS request, so previews
+ * and local dev mail themselves working links without configuration (the same
+ * request-derived-origin approach the sitemap uses). One builder, so the sign-in
+ * and passkey-signup senders can't drift on the URL shape or the phrasing.
+ */
+export function magicLinkFor(event: H3Event, token: string): { url: string; expiresIn: string } {
+  const url = new URL("/auth/callback", getRequestURL(event).origin);
+  url.searchParams.set("t", token);
+  return { url: url.toString(), expiresIn: `${Math.round(MAGIC_LINK_TTL_MS / 60_000)} minutes` };
 }
 
 /**

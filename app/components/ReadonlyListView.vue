@@ -129,7 +129,6 @@ const trail = computed(() => parseTrailLink(props.list?.trailUrl, props.list?.tr
 /* the page-title step, matching the editor's title input — a shared link and the editor
    must render the list's name the same size, or /s reads as a different document */
 .view__title {
-  font-family: var(--font);
   font-size: var(--text-page-title);
   font-weight: 700;
 }

@@ -17,12 +17,10 @@ export default defineEventHandler(async (event) => {
   const id = lighterpackId(typeof body?.url === "string" ? body.url : "");
   if (!id) throw createError({ statusCode: 400, statusMessage: "Not a LighterPack share link" });
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 10_000);
   let csv: string;
   try {
     const res = await fetch(`https://lighterpack.com/csv/${id}`, {
-      signal: controller.signal,
+      signal: AbortSignal.timeout(10_000),
       redirect: "error", // /csv responds directly — no redirects to follow (no escape hatch)
       headers: { accept: "text/csv,text/plain,*/*" },
     });
@@ -33,8 +31,6 @@ export default defineEventHandler(async (event) => {
   } catch (e) {
     if ((e as { statusCode?: number }).statusCode) throw e;
     throw createError({ statusCode: 502, statusMessage: "Couldn’t reach LighterPack" });
-  } finally {
-    clearTimeout(timer);
   }
 
   const data = csvToListData(csv);

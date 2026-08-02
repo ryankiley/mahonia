@@ -47,7 +47,4 @@ const dev = import.meta.dev;
 </template>
 
 <style scoped>
-.page {
-  padding-block: var(--space-5) var(--space-9);
-}
 </style>

@@ -48,10 +48,6 @@ export async function existingCredentialIds(db: Db, userId: number): Promise<str
   return rows.map((r) => r.credentialId);
 }
 
-export async function countPasskeys(db: Db, userId: number): Promise<number> {
-  return (await existingCredentialIds(db, userId)).length;
-}
-
 export async function savePasskey(
   db: Db,
   input: {

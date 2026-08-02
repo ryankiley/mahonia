@@ -1,7 +1,7 @@
 // Markdown export — pure string building, ~0 KB, no deps. Pastes cleanly into
 // Apple Notes. Shared by the client (copy/download) and later the server.
 
-import type { ListSnapshot } from "../types";
+import type { ListData, ListMeta } from "../types";
 import { carriedIsDistinct, computeTotals, effectiveClassification, formatWeight, itemDisplayName, lineMg, rowDisplayMg, splitWornQty } from "../weights";
 import { exportSections } from "./rows";
 
@@ -9,7 +9,7 @@ import { exportSections } from "./rows";
 const withCommon = (name: string, commonName?: string) =>
   commonName ? `${name} — ${commonName}` : name;
 
-export function listToMarkdown(list: ListSnapshot): string {
+export function listToMarkdown(list: ListMeta & ListData): string {
   const u = list.displayUnit;
   const totals = computeTotals(list);
   const out: string[] = [];

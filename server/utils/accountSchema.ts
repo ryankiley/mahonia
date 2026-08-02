@@ -6,9 +6,9 @@
 // production, where there's no build-time migration step and the schema is ensured
 // on first use). See server/db/schema.ts for what each table is for.
 //
-// Nothing here is required to use Mahonia. A list is opened by its edit link and a
-// vault by its vault link, both unchanged — an account only ever REMEMBERS
-// capabilities you already hold, so that you don't have to keep the links yourself.
+// Nothing here is required to make and share lists — a list is opened by its edit
+// link, unchanged. An account REMEMBERS list capabilities you already hold (so you
+// don't have to keep the links yourself) and OWNS your vault (see vaultAuth.ts).
 
 export const ACCOUNT_DDL: string[] = [
   `CREATE TABLE IF NOT EXISTS users (

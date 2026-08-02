@@ -23,6 +23,12 @@
     max(var(--space-4), env(safe-area-inset-right));
 }
 
+// The standard page body: every non-editor `<main class="wrap page">` shares this
+// vertical rhythm (it was the same scoped rule re-typed on each page).
+.page {
+  padding-block: var(--space-5) var(--space-9);
+}
+
 // Long-form reading column — legal pages, any prose. One measure, calm rhythm,
 // the app's single type family. Inline links opt into a hairline underline
 // (the reset strips link affordance by default).

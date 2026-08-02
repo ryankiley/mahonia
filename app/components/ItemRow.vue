@@ -639,7 +639,7 @@ function dismissFix() {
           <span class="item__classlabel">{{ effClassLabel }}</span>
           <ChevronDown class="item__classchev" :size="14" :stroke-width="2" aria-hidden="true" />
           <select
-            class="item__classsel"
+            class="selectover"
             :value="classValue"
             :title="classTitle"
             aria-label="Classification"
@@ -965,7 +965,7 @@ function dismissFix() {
   inset: 0;
   appearance: none;
   margin: 0;
-  border-radius: 4px;
+  border-radius: var(--radius-1);
   cursor: pointer;
 }
 .item__boxicon {
@@ -1054,16 +1054,8 @@ function dismissFix() {
   color: var(--ink-2);
   white-space: nowrap;
 }
-/* transparent native select over the label + chevron: the visible label hugs the
-   chevron tight (a styled <select> sizes to its widest option, leaving a big gap),
-   while the real select keeps full keyboard + native-picker behaviour */
-.item__classsel {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  opacity: 0;
-  cursor: pointer;
-}
+/* the classification select is a .selectover (controls.scss) — the shared
+   transparent-native-select-over-a-label recipe */
 .item__classchev {
   flex: none;
   align-self: center;
@@ -1499,13 +1491,8 @@ function dismissFix() {
     --row-gap: var(--space-1) var(--space-3); /* row-gap · column-gap */
     min-height: 0; /* drop the desktop tall single-row min-height */
   }
-  /* checkbox in the left column, aligned to the title line (not centred across the
-     whole two-line cell) — it sits beside the name, centred to that first row */
-  .item__box {
-    grid-column: 1;
-    grid-row: 1;
-    align-self: center;
-  }
+  /* the checkbox wrapper auto-places into the first column's first row, centred by
+     its base align-self — beside the name, aligned to the title line, no rule needed */
   /* same box metrics as the editing fields (padding + line-height) so a checklist
      row is the exact same height as its editing counterpart — no shift on toggle */
   .item__cname {

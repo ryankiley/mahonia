@@ -61,7 +61,7 @@ const showCarried = computed(() => carriedIsDistinct(props.totals));
           </span>
           <!-- transparent native select over the number: tap the total to change units -->
           <select
-            class="totals__unitsel"
+            class="selectover"
             title="Change unit"
             aria-label="Weight unit"
             :value="list.displayUnit"
@@ -156,14 +156,6 @@ const showCarried = computed(() => carriedIsDistinct(props.totals));
 }
 .totals__amount:hover .totals__chev {
   color: var(--ink);
-}
-.totals__unitsel {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  border: 0;
-  opacity: 0; /* invisible — the number + chevron are the visible affordance */
-  cursor: pointer;
 }
 .totals__breakdown {
   /* one step up from --space-4 — the display-size figure above has a lot of optical

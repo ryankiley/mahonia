@@ -57,10 +57,10 @@ export function seasonLabel(slug: string | null | undefined): string | undefined
 
 // ---------------------------------------------------------------------------
 // Public addresses. Slugs look like `{slug}-{6 crockford}`, lowercased. The
-// shape rule lives HERE, once — the repo and every endpoint that validates a
-// slug before a KV key or DB round-trip import it (three copies used to drift).
+// shape rule lives HERE, once — every endpoint that validates a slug before a
+// KV key or DB round-trip goes through normalizeSlug (three copies used to drift).
 // ---------------------------------------------------------------------------
-export const SLUG_RE = /^[a-z0-9-]{1,80}$/;
+const SLUG_RE = /^[a-z0-9-]{1,80}$/;
 
 /** A raw slug value → its normalized (trimmed, lowercased) form, or null. */
 export function normalizeSlug(raw: unknown): string | null {

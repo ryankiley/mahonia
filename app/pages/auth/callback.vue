@@ -20,7 +20,9 @@ useHead({
 const route = useRoute();
 const { refresh } = useSession();
 
-type State = "working" | "done" | "invalid" | "error";
+// "working" also covers the post-verify moment: navigateTo fires immediately on
+// success, so a distinct success state would never be seen.
+type State = "working" | "invalid" | "error";
 const state = ref<State>("working");
 
 async function verify() {
@@ -43,7 +45,6 @@ async function verify() {
     // re-read the session so the rest of the app sees the new cookie, then hand
     // the user straight to the thing they signed in for
     await refresh(true);
-    state.value = "done";
     await navigateTo("/vault", { replace: true });
   } catch {
     // network or rate limit — distinct from a bad token, and worth retrying
@@ -58,7 +59,7 @@ onMounted(verify);
   <div>
     <SiteTopbar />
     <main id="main-content" tabindex="-1" class="wrap page">
-      <template v-if="state === 'working' || state === 'done'">
+      <template v-if="state === 'working'">
         <h1 class="t-title">Signing you in…</h1>
         <p class="t-muted cb__line">One moment.</p>
       </template>
@@ -85,7 +86,6 @@ onMounted(verify);
 
 <style scoped>
 .page {
-  padding-block: var(--space-5) var(--space-9);
   display: flex;
   flex-direction: column;
   align-items: flex-start;

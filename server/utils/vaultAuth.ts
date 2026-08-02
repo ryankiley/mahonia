@@ -52,7 +52,8 @@ export async function requireVault(event: H3Event): Promise<{ db: Db; vaultId: n
 
   const db = await useVaultDb();
   const vaultId = await touchVaultByUser(db, user.id);
-  if (vaultId == null) throw createError({ statusCode: 401, statusMessage: "No vault yet" });
+  // same status AND message as above — the collapse the doc comment promises
+  if (vaultId == null) throw createError({ statusCode: 401, statusMessage: "Sign in to use your vault" });
   return { db, vaultId };
 }
 

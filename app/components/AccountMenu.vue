@@ -33,17 +33,14 @@ const menuRef = useTemplateRef<HTMLElement>("menuRef");
 // same close behaviour as the editor kebab and ReadonlyMenu: the action itself, an
 // outside tap, or Escape
 onClickOutside(menuRef, () => (open.value = false));
-useWindowEvent("keydown", (e) => {
-  if (e.key === "Escape" && open.value) open.value = false;
+onKeyStroke("Escape", () => {
+  if (open.value) open.value = false;
 });
 
 async function onSignOut() {
   open.value = false;
   await signOut();
-  // drop both per-account memos so the next person to sign in on this device
-  // starts clean rather than inheriting "already sent" / "already claimed"
-  resetVaultCapture();
-  useClaimedLists().resetClaimMark();
+  resetAccountMemos();
   await navigateTo("/e");
 }
 
@@ -69,7 +66,7 @@ const onVault = computed(() => route.path === "/vault");
         type="button"
         class="btn btn--icon btn--ghost menu__btn"
         aria-label="Your account"
-        aria-haspopup="true"
+        aria-haspopup="menu"
         :aria-expanded="open"
         @click="open = !open"
       >

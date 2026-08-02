@@ -2,7 +2,7 @@
 import { Square, SquareCheck } from "@lucide/vue";
 import type { Unit } from "~~/shared/types";
 import type { VaultCapture } from "~~/shared/vault";
-import { formatWeightAuto, itemDisplayName } from "~~/shared/weights";
+import { formatWeightAuto, itemDisplayName, systemForUnit } from "~~/shared/weights";
 
 // "Which of these is yours?" — shown when you answer Add on a list you didn't
 // start. The only lists that ever ask are shared ones, and on a trip planned
@@ -19,9 +19,7 @@ import { formatWeightAuto, itemDisplayName } from "~~/shared/weights";
 const { caps, unit } = defineProps<{ caps: VaultCapture[] | null; unit?: Unit }>();
 const emit = defineEmits<{ confirm: [string[]]; cancel: [] }>();
 
-const system = computed<"metric" | "imperial">(() =>
-  unit === "oz" || unit === "lb" ? "imperial" : "metric",
-);
+const system = computed(() => systemForUnit(unit));
 
 // Ticked by default: you did just say yes. The chooser is here to let you take
 // something OUT, which is the rarer and more deliberate act.
@@ -164,7 +162,7 @@ const groups = computed(() => {
   inset: 0;
   appearance: none;
   margin: 0;
-  border-radius: 4px;
+  border-radius: var(--radius-1);
   cursor: pointer;
 }
 .vpick__boxicon {

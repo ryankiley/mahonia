@@ -221,9 +221,10 @@ const liveOnly = (col: typeof lists.editTokenHash | typeof lists.shareCode, val:
   and(eq(col, val), eq(lists.status, "active"), isNull(lists.deletedAt));
 
 // Enforce the advertised case-insensitive Crockford contract + reject malformed
-// codes before any DB round-trip.
+// codes before any DB round-trip. Exported so claimRepo applies the exact same
+// normalization to caller-named codes (two inline copies used to ride along).
 const CROCKFORD_RE = /^[0-9ABCDEFGHJKMNPQRSTVWXYZ]{12}$/;
-function normShareCode(raw: string): string | null {
+export function normShareCode(raw: string): string | null {
   const c = (raw || "").toUpperCase().replace(/[IL]/g, "1").replace(/O/g, "0");
   return CROCKFORD_RE.test(c) ? c : null;
 }

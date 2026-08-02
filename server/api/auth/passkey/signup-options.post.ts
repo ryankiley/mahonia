@@ -3,7 +3,7 @@ import { generateRegistrationOptions } from "@simplewebauthn/server";
 import {
   RP_NAME,
   newAccountHandle,
-  passkeysConfigured,
+  requirePasskeys,
   rpIdFor,
   startChallenge,
 } from "../../../utils/passkeys";
@@ -41,10 +41,7 @@ export default defineEventHandler(async (event) => {
   setHeader(event, "Cache-Control", "private, no-store");
   await rateLimit(event, "passkey-signup");
 
-  if (!passkeysConfigured()) {
-    console.error("[passkey signup] no shared KV configured — passkey signup is unavailable");
-    throw createError({ statusCode: 503, statusMessage: "Passkeys unavailable" });
-  }
+  requirePasskeys();
 
   const body = await readJsonBodyCapped<{ email?: unknown }>(event, 2_000);
   const email = normalizeEmail(body?.email);

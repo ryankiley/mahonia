@@ -11,8 +11,7 @@
 // same gear when their brand + name + variant fold to the same string.
 
 import { foldForSearch } from "./catalogSearch";
-import type { Classification, Item } from "./types";
-import { itemDisplayName } from "./weights";
+import type { Classification, FolderSort, Item } from "./types";
 
 /** Max vault suggestions returned to the autocomplete. Deliberately smaller than
  *  the catalog's SEARCH_LIMIT: the vault renders ABOVE the catalog results in the
@@ -59,8 +58,8 @@ export interface VaultCapture {
 export interface VaultFolder {
   id: number;
   name: string;
-  /** manual | name | heaviest | lightest — absent reads as manual, like FolderSort */
-  sortBy?: "manual" | "name" | "heaviest" | "lightest";
+  /** absent reads as manual — the same sort vocabulary as a list folder */
+  sortBy?: FolderSort;
 }
 
 /** A stored vault row as the API returns it. */
@@ -198,6 +197,3 @@ export function captureFingerprint(caps: VaultCapture[]): string {
     .sort()
     .join("");
 }
-
-/** A vault row as the ranker needs it — the entry plus nothing else; timesSeen is
- *  already on VaultEntry and stands in for the catalog's usage_count. */

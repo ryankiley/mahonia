@@ -11,8 +11,6 @@ import type { CatalogCsvRow } from "./catalogCsv";
 import { isVariantRedundant, normalizeVariant, normKey, RANGE_G } from "../shared/catalogQuality";
 import { GEAR_TYPE_ALIASES } from "./gearTypes";
 
-export { RANGE_G }; // relocated to shared/catalogQuality; re-exported for existing importers
-
 export interface Finding {
   level: "error" | "warning";
   code: string;

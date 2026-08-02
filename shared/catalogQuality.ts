@@ -54,7 +54,7 @@ export function classificationToCategory(c: string | null | undefined): string {
 
 // Generic gear nouns that are NOT branded products — a bare one of these (even
 // corroborated) must never become a catalog row ("tent", "snacks", "water bottle").
-export const GENERIC_GEAR_TERMS = new Set<string>([
+const GENERIC_GEAR_TERMS = new Set<string>([
   "tent", "tents", "tarp", "tarps", "shelter", "bivy", "footprint", "groundsheet",
   "pack", "backpack", "daypack", "bag", "dry bag", "stuff sack", "fanny pack", "hip pack",
   "quilt", "sleeping bag", "sleeping pad", "pad", "pillow", "liner",

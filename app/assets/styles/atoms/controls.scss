@@ -216,6 +216,20 @@ input[type="search"]::-webkit-search-decoration {
   background: var(--paper-2);
 }
 
+// Transparent native <select> laid over a hand-drawn label/glyph: the quiet
+// affordance keeps full keyboard + native-picker behaviour while the visible text
+// hugs its chevron (a styled <select> sizes to its widest option). Shared by the
+// folder sort, the item classification and the totals unit controls — one recipe,
+// so the trick can't drift. The positioned parent supplies the box; opacity keeps
+// the real control hoverable/clickable/focusable where visibility would not.
+.selectover {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
 // .popover — the ONE floating-menu surface (autocomplete + kebab share it, so the
 // recipe can't drift): bright lifted background, decisively rounded, soft shadow.
 // The 1px TRANSPARENT edge is load-bearing: forced-colors (Windows High

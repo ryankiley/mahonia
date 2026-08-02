@@ -1,4 +1,5 @@
 import type { Item } from "./types";
+import { isWaterName } from "./water";
 import { itemDisplayName } from "./weights";
 
 // Build a Google web-search URL for a free-text query. Used by the read-only
@@ -20,7 +21,7 @@ export function itemSearchName(item: Pick<Item, "brand" | "name">): string {
 // water rows ("Water" — its amount is a volume, not a product) and unnamed rows.
 export function itemSearchUrl(item: Pick<Item, "brand" | "name">): string | null {
   const query = itemSearchName(item);
-  if (!query || /^water$/i.test(item.name.trim())) return null;
+  if (!query || isWaterName(item.name)) return null;
   return webSearchUrl(query);
 }
 

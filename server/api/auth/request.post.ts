@@ -1,8 +1,8 @@
-import { createError, defineEventHandler, getRequestURL, setHeader } from "h3";
+import { createError, defineEventHandler, setHeader } from "h3";
 import {
-  MAGIC_LINK_TTL_MS,
   findOrCreateUser,
   issueMagicToken,
+  magicLinkFor,
   normalizeEmail,
   sweepExpiredAuth,
 } from "../../utils/authSession";
@@ -51,16 +51,7 @@ export default defineEventHandler(async (event) => {
     const db = await useAccountDb();
     const user = await findOrCreateUser(db, email);
     const token = await issueMagicToken(db, user.id);
-    // The link points back at the origin that served this request, so previews and
-    // local dev mail themselves working links without configuration — the same
-    // request-derived-origin approach the sitemap uses.
-    const url = new URL("/auth/callback", getRequestURL(event).origin);
-    url.searchParams.set("t", token);
-    await sendMagicLink({
-      to: email,
-      url: url.toString(),
-      expiresIn: `${Math.round(MAGIC_LINK_TTL_MS / 60_000)} minutes`,
-    });
+    await sendMagicLink({ to: email, ...magicLinkFor(event, token) });
     // Opportunistic housekeeping on a rare, tightly-limited path: keeps expired
     // sessions and spent links from accumulating without needing a cron of their
     // own. Never allowed to fail the sign-in it rode in on.

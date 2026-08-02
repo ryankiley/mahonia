@@ -11,6 +11,7 @@ import { rateLimit } from "../../../utils/rateLimit";
 // available, which is exactly why it stays as the account's root of trust.
 export default defineEventHandler(async (event) => {
   setHeader(event, "X-Robots-Tag", "noindex");
+  setHeader(event, "Cache-Control", "private, no-store");
   await rateLimit(event, "passkey");
   const user = await requireUser(event);
   const body = await readJsonBodyCapped<{ id?: unknown }>(event, 2_000);

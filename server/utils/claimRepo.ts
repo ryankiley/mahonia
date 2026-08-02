@@ -10,7 +10,7 @@
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { listClaims, lists } from "../db/schema";
 import type { useAccountDb } from "./db";
-import { findByEditToken } from "./listRepo";
+import { findByEditToken, normShareCode } from "./listRepo";
 import { captureVaultItems } from "./vaultRepo";
 import { mintVault, touchVaultByUser } from "./vaultAuth";
 import { VAULT_CAPTURE_MAX, captureFromList, type VaultCapture } from "../../shared/vault";
@@ -195,8 +195,8 @@ export async function claimedEditHash(
   userId: number,
   shareCode: string,
 ): Promise<string | null> {
-  const code = (shareCode || "").toUpperCase().replace(/[IL]/g, "1").replace(/O/g, "0");
-  if (!/^[0-9ABCDEFGHJKMNPQRSTVWXYZ]{12}$/.test(code)) return null;
+  const code = normShareCode(shareCode);
+  if (!code) return null;
   const rows = await db
     .select({ editTokenHash: lists.editTokenHash })
     .from(lists)
@@ -220,8 +220,8 @@ export async function claimedEditHash(
  * can't unclaim another's.
  */
 export async function unclaimList(db: Db, userId: number, shareCode: string): Promise<boolean> {
-  const code = (shareCode || "").toUpperCase().replace(/[IL]/g, "1").replace(/O/g, "0");
-  if (!/^[0-9ABCDEFGHJKMNPQRSTVWXYZ]{12}$/.test(code)) return false;
+  const code = normShareCode(shareCode);
+  if (!code) return false;
   const target = await db
     .select({ id: lists.id })
     .from(lists)

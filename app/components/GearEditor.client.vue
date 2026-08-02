@@ -167,8 +167,7 @@ watch(pendingUndo, (u) => {
 const importOpen = ref(false);
 const menuOpen = ref(false);
 const menuRef = useTemplateRef<HTMLElement>("menuRef");
-const toast = ref("");
-let toastTimer: ReturnType<typeof setTimeout> | undefined;
+const { toast, flash } = useFlash();
 
 // "Add folder" becomes an inline text field on tap; it only creates the folder
 // (and shows the next "Add folder") once you commit — enter or click away.
@@ -216,7 +215,6 @@ watch(
   { immediate: true },
 );
 onBeforeUnmount(() => {
-  clearTimeout(toastTimer);
   c.dispose(ownedEpoch);
 });
 
@@ -247,11 +245,6 @@ function onFocusIn(ev: FocusEvent) {
 useWindowEvent("focusin", onFocusIn); // auto-removes on unmount
 onBeforeUnmount(() => clearTimeout(focusScrollTimer));
 
-function flash(msg: string) {
-  toast.value = msg;
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => (toast.value = ""), 2000);
-}
 // Clipboard writes fire from real button clicks (the ⋯ menu items + the share
 // button), so the async Clipboard API has the user gesture iOS Safari demands. The
 // async-first write + synchronous execCommand fallback lives in the shared copyText()
@@ -277,8 +270,8 @@ const { warmExporters, copyMarkdown, downloadCsv, downloadJson } = useListExport
 // need a direct user gesture, and a <select> change isn't one on iOS Safari, so the
 // copy silently failed there. Close on the action itself, an outside tap, or Escape.
 onClickOutside(menuRef, () => (menuOpen.value = false));
-useWindowEvent("keydown", (e) => {
-  if (e.key === "Escape" && menuOpen.value) menuOpen.value = false;
+onKeyStroke("Escape", () => {
+  if (menuOpen.value) menuOpen.value = false;
 });
 function toggleMenu() {
   menuOpen.value = !menuOpen.value;
@@ -469,7 +462,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
                 type="button"
                 class="btn btn--icon btn--ghost menu__btn"
                 aria-label="More actions"
-                aria-haspopup="true"
+                aria-haspopup="menu"
                 :aria-expanded="menuOpen"
                 @click="toggleMenu"
               >
@@ -918,7 +911,6 @@ function onCorrected(res: { status: string; itemName?: string }) {
   padding: 0;
   background: none;
   border: 0;
-  font-family: var(--font);
   font-size: var(--text-title);
   font-weight: 600;
   letter-spacing: -0.02em;

@@ -1,9 +1,9 @@
 import { createError, defineEventHandler, setHeader } from "h3";
 import { generateRegistrationOptions } from "@simplewebauthn/server";
 import { requireUser } from "../../../utils/authSession";
-import { countPasskeys, existingCredentialIds, MAX_PASSKEYS_PER_USER } from "../../../utils/credentialRepo";
+import { existingCredentialIds, MAX_PASSKEYS_PER_USER } from "../../../utils/credentialRepo";
 import { useAccountDb } from "../../../utils/db";
-import { RP_NAME, passkeysConfigured, rpIdFor, startChallenge } from "../../../utils/passkeys";
+import { RP_NAME, requirePasskeys, rpIdFor, startChallenge } from "../../../utils/passkeys";
 import { rateLimit } from "../../../utils/rateLimit";
 
 // Step 1 of adding a passkey: hand the browser the challenge and parameters for
@@ -15,17 +15,13 @@ export default defineEventHandler(async (event) => {
   setHeader(event, "Cache-Control", "private, no-store");
   await rateLimit(event, "passkey");
   const user = await requireUser(event);
-  // A shared challenge store is a hard requirement, not a nicety — see
-  // passkeysConfigured(). Refuse up front rather than failing at verify with
-  // nothing to explain it.
-  if (!passkeysConfigured()) {
-    console.error("[passkey] no shared KV configured (KV_REST_API_URL / KV_REST_API_TOKEN) — passkeys are unavailable");
-    throw createError({ statusCode: 503, statusMessage: "Passkeys unavailable" });
-  }
+  requirePasskeys();
 
   const db = await useAccountDb();
 
-  if ((await countPasskeys(db, user.id)) >= MAX_PASSKEYS_PER_USER) {
+  // One SELECT serves both jobs: the cap check here and excludeCredentials below.
+  const existingIds = await existingCredentialIds(db, user.id);
+  if (existingIds.length >= MAX_PASSKEYS_PER_USER) {
     throw createError({ statusCode: 409, statusMessage: "Too many passkeys" });
   }
 
@@ -47,7 +43,7 @@ export default defineEventHandler(async (event) => {
     attestationType: "none", // we don't need to know which make of key it is
     // don't offer to create a second key on an authenticator that already holds
     // one for this account
-    excludeCredentials: (await existingCredentialIds(db, user.id)).map((id) => ({ id })),
+    excludeCredentials: existingIds.map((id) => ({ id })),
     authenticatorSelection: {
       // REQUIRED, matching signup-options. Sign-in is usernameless — signin-options
       // sends no allowCredentials — so the browser can only offer a key it can

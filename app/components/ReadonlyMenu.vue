@@ -17,19 +17,12 @@ const menuRef = useTemplateRef<HTMLElement>("menuRef");
 
 // tiny toast for the copy actions (a link/markdown copy is otherwise invisible); the
 // downloads also confirm here, alongside the browser's own download chrome
-const toast = ref("");
-let toastTimer: ReturnType<typeof setTimeout> | undefined;
-function flash(msg: string) {
-  toast.value = msg;
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => (toast.value = ""), 2000);
-}
-onBeforeUnmount(() => clearTimeout(toastTimer));
+const { toast, flash } = useFlash();
 
 // close on the action itself, an outside tap, or Escape (mirrors the editor kebab)
 onClickOutside(menuRef, () => (menuOpen.value = false));
-useWindowEvent("keydown", (e) => {
-  if (e.key === "Escape" && menuOpen.value) menuOpen.value = false;
+onKeyStroke("Escape", () => {
+  if (menuOpen.value) menuOpen.value = false;
 });
 
 // the three export actions + their chunk warm-up live in useListExports, shared
@@ -92,7 +85,7 @@ async function copyLink() {
   const url = typeof location !== "undefined" ? location.href : "";
   if (await copyText(url)) return flash("Link copied");
   // blocked clipboard → show the link selectable instead of dead-ending
-  showLinkFallback(url, "Copy this link");
+  showLinkFallback(url);
 }
 </script>
 
@@ -102,7 +95,7 @@ async function copyLink() {
       type="button"
       class="btn btn--icon btn--ghost menu__btn"
       aria-label="More actions"
-      aria-haspopup="true"
+      aria-haspopup="menu"
       :aria-expanded="menuOpen"
       @click="toggleMenu"
     >

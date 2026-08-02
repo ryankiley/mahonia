@@ -49,7 +49,7 @@ function when(iso: string) {
   <div>
     <SiteTopbar label="Catalog changes" />
 
-    <main id="main-content" tabindex="-1" class="wrap chg">
+    <main id="main-content" tabindex="-1" class="wrap page chg">
       <header class="chg__head">
         <h1 class="t-title">Recent catalog changes</h1>
         <p class="t-sm t-muted">
@@ -85,7 +85,6 @@ function when(iso: string) {
 
 <style scoped lang="scss">
 .chg {
-  padding-block: var(--space-5) var(--space-9);
   display: flex;
   flex-direction: column;
   gap: var(--space-5);

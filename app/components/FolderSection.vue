@@ -173,7 +173,7 @@ function toggleCollapsed() {
         <div class="folder__sortwrap" :class="{ 'is-active': isSorted }">
           <component :is="sortIcon" class="folder__sorticon" :size="16" :stroke-width="2" aria-hidden="true" />
           <select
-            class="folder__sortsel"
+            class="selectover"
             :value="sortBy"
             :title="`Sort items — ${SORT_META[sortBy].label}`"
             :aria-label="`Sort items in ${folder.name || 'folder'}`"

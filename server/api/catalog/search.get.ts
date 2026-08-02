@@ -1,4 +1,5 @@
-import { defineEventHandler, getQuery, setHeader } from "h3";
+import { defineEventHandler, setHeader } from "h3";
+import { readQueryString } from "../../utils/http";
 import { searchCatalog } from "../../utils/catalog";
 import { useCatalogDb } from "../../utils/db";
 import { rateLimit } from "../../utils/rateLimit";
@@ -24,8 +25,7 @@ export default defineEventHandler(async (event) => {
   setHeader(event, "X-Robots-Tag", "noindex");
   setHeader(event, "Cache-Control", "public, max-age=2, s-maxage=10");
 
-  const raw = getQuery(event).q;
-  const q = (Array.isArray(raw) ? raw[0] : raw ?? "").toString().slice(0, 100);
+  const q = readQueryString(event, "q", 100);
 
   const db = await useCatalogDb();
   const results = await searchCatalog(db, q, SEARCH_LIMIT);

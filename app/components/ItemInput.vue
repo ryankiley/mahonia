@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Droplet, Vault } from "@lucide/vue";
 import type { EffectScope } from "vue";
+import { highlightParts } from "~~/shared/catalogSearch";
 import type { Unit } from "~~/shared/types";
 import { formatWeight, itemDisplayName } from "~~/shared/weights";
 import { formatVolume, parseVolumeMl, waterMgFromMl } from "~~/shared/water";
@@ -324,31 +325,10 @@ function onKeydown(e: KeyboardEvent) {
   }
 }
 
-// Split a suggestion into matched / unmatched runs against what's been typed, so
-// the overlap reads bold — the standard typeahead affordance. Each whitespace
-// token of the query is matched independently (so "hyperl wind" bolds both),
-// case-insensitively. No exact overlap (a purely fuzzy hit) → one plain run.
-function highlightParts(text: string): { t: string; on: boolean }[] {
-  const q = draft.value.trim().toLowerCase();
-  const tokens = q ? q.split(/\s+/).filter((t) => t.length > 1) : [];
-  if (!tokens.length) return [{ t: text, on: false }];
-  const lower = text.toLowerCase();
-  const hit = new Array(text.length).fill(false);
-  for (const tok of tokens) {
-    let from = 0;
-    for (let idx = lower.indexOf(tok, from); idx !== -1; idx = lower.indexOf(tok, from)) {
-      for (let i = idx; i < idx + tok.length; i++) hit[i] = true;
-      from = idx + tok.length;
-    }
-  }
-  const parts: { t: string; on: boolean }[] = [];
-  for (let i = 0; i < text.length; i++) {
-    const last = parts[parts.length - 1];
-    if (last && last.on === hit[i]) last.t += text[i];
-    else parts.push({ t: text[i]!, on: hit[i] });
-  }
-  return parts;
-}
+// Bold the matched runs of a suggestion against what's been typed — the shared
+// highlighter beside the ranker (see its docstring), the same one VaultPane uses,
+// bound to this input's draft.
+const hl = (text: string) => highlightParts(text, draft.value);
 </script>
 
 <template>
@@ -418,14 +398,14 @@ function highlightParts(text: string): { t: string; on: boolean }[] {
             <span class="visually-hidden">From your vault: </span>
             <span v-if="opt.vault.brand" class="ac__brand">
               <span
-                v-for="(p, pi) in highlightParts(opt.vault.brand)"
+                v-for="(p, pi) in hl(opt.vault.brand)"
                 :key="pi"
                 :class="{ 'ac__hl': p.on }"
               >{{ p.t }}</span>
             </span>
             <span class="ac__model">
               <span
-                v-for="(p, pi) in highlightParts(opt.vault.name)"
+                v-for="(p, pi) in hl(opt.vault.name)"
                 :key="pi"
                 :class="{ 'ac__hl': p.on }"
               >{{ p.t }}</span>
@@ -442,14 +422,14 @@ function highlightParts(text: string): { t: string; on: boolean }[] {
           <span class="ac__name">
             <span v-if="opt.result.brand" class="ac__brand">
               <span
-                v-for="(p, pi) in highlightParts(opt.result.brand)"
+                v-for="(p, pi) in hl(opt.result.brand)"
                 :key="pi"
                 :class="{ 'ac__hl': p.on }"
               >{{ p.t }}</span>
             </span>
             <span class="ac__model">
               <span
-                v-for="(p, pi) in highlightParts(opt.result.name)"
+                v-for="(p, pi) in hl(opt.result.name)"
                 :key="pi"
                 :class="{ 'ac__hl': p.on }"
               >{{ p.t }}</span>

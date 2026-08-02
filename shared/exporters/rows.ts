@@ -6,7 +6,7 @@
 // views render. Empty sections are included; exporters skip or flatten them.
 
 import type { Item, ListData } from "../types";
-import { bySortOrder, groupItemsByParent, sortedFolderItems, ungroupedTopLevel } from "../weights";
+import { bySortOrder, groupItemsByFolder, groupItemsByParent, ungroupedTopLevel } from "../weights";
 
 export interface ExportSection {
   name: string;
@@ -14,12 +14,14 @@ export interface ExportSection {
 }
 
 export function exportSections(list: Pick<ListData, "folders" | "items">): ExportSection[] {
-  // one children-by-parent pass for the whole list, not a per-row childrenOf scan
+  // one children-by-parent pass + one by-folder pass for the whole list — the same
+  // batched grouping the editor and share views render from
   const byParent = groupItemsByParent(list.items);
+  const byFolder = groupItemsByFolder(list.items, list.folders);
   const row = (item: Item) => ({ item, children: byParent.get(item.id) ?? [] });
   const sections: ExportSection[] = [...list.folders].sort(bySortOrder).map((f) => ({
     name: f.name,
-    rows: sortedFolderItems(list.items, f).map(row),
+    rows: (byFolder.get(f.id) ?? []).map(row),
   }));
   sections.push({
     // ungroupedTopLevel is the one shared "not in any folder" predicate the editor

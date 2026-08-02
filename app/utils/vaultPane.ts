@@ -7,7 +7,7 @@
 // Keep this file IMPORT-FREE for the same reason (see app/utils/site.ts).
 
 /** Starting width, in px. 368 = 23rem. */
-export const VAULT_W_DEFAULT = 368;
+const VAULT_W_DEFAULT = 368;
 const VAULT_W_MIN = 288;
 const VAULT_W_MAX = 720;
 

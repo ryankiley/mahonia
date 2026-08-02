@@ -13,6 +13,7 @@ import { rateLimit } from "../../utils/rateLimit";
 // action that already exists and keeps its confirmation dialog.
 export default defineEventHandler(async (event) => {
   setHeader(event, "X-Robots-Tag", "noindex");
+  setHeader(event, "Cache-Control", "private, no-store");
   await rateLimit(event, "list-claim");
   const user = await requireUser(event);
 

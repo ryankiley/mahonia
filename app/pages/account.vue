@@ -212,8 +212,7 @@ async function deleteAccount() {
       method: "POST",
       body: { deleteLists: alsoLists },
     });
-    resetVaultCapture();
-    useClaimedLists().resetClaimMark();
+    resetAccountMemos();
     // Stay here rather than navigating away. The page re-renders as the signed-out
     // screen on its own once the session has gone, so the confirmation lands on the
     // thing that actually changed — and a toast that outlived a route change would
@@ -245,8 +244,7 @@ async function onSignOutEverywhere() {
   signingOutAll.value = true;
   try {
     await $fetch("/api/auth/signout-all", { method: "POST" });
-    resetVaultCapture();
-    useClaimedLists().resetClaimMark();
+    resetAccountMemos();
     await navigateTo("/account");
     await refresh(true);
   } catch {
@@ -257,10 +255,7 @@ async function onSignOutEverywhere() {
 
 async function onSignOut() {
   await signOut();
-  // drop both per-account memos so the next person to sign in on this device
-  // starts clean rather than inheriting "already sent" / "already claimed"
-  resetVaultCapture();
-  useClaimedLists().resetClaimMark();
+  resetAccountMemos();
   await navigateTo("/vault");
 }
 </script>
@@ -450,9 +445,6 @@ async function onSignOut() {
 </template>
 
 <style scoped lang="scss">
-.page {
-  padding-block: var(--space-5) var(--space-9);
-}
 .acct__head {
   margin-bottom: var(--space-6);
 }

@@ -1,4 +1,4 @@
-import { createError, readRawBody, type H3Event } from "h3";
+import { createError, getQuery, readRawBody, type H3Event } from "h3";
 
 /**
  * Read a JSON body with a hard size cap on the ACTUAL bytes received rather
@@ -20,4 +20,15 @@ export async function readJsonBodyCapped<T>(event: H3Event, maxBytes: number): P
   } catch {
     return {} as T;
   }
+}
+
+/**
+ * One string query param, length-capped — the body-cap discipline applied to the
+ * query string. A repeated param (?q=a&q=b) takes the first value; anything
+ * absent or non-string becomes "". Shared by the search endpoints so the cap and
+ * the array-collapse rule can't drift between them.
+ */
+export function readQueryString(event: H3Event, name: string, maxLength: number): string {
+  const raw = getQuery(event)[name];
+  return (Array.isArray(raw) ? raw[0] : raw ?? "").toString().slice(0, maxLength);
 }

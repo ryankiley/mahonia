@@ -12,9 +12,8 @@ import {
   Undo2,
   Vault,
 } from "@lucide/vue";
-import type { Unit } from "~~/shared/types";
 import type { VaultEntry, VaultFolder } from "~~/shared/vault";
-import { formatWeightAuto, itemDisplayName } from "~~/shared/weights";
+import { formatWeightAuto, itemDisplayName, systemForUnit } from "~~/shared/weights";
 
 // The vault — every piece of gear you've put in a list, in one place, so building
 // the next list is picking rather than retyping.
@@ -351,11 +350,8 @@ onMounted(() => {
     return;
   }
   const recent = [...useMyLists().entries.value].sort((a, b) => b.lastOpened - a.lastOpened)[0];
-  system.value = unitSystem(recent?.displayUnit);
+  system.value = systemForUnit(recent?.displayUnit);
 });
-function unitSystem(u?: Unit): "metric" | "imperial" {
-  return u === "oz" || u === "lb" ? "imperial" : "metric";
-}
 function setSystem(next: "metric" | "imperial") {
   system.value = next;
   try {
@@ -390,17 +386,14 @@ async function remove(entry: VaultEntry) {
   removing.value = null;
 }
 
+// The undo toast is just putBack with the toast dismissed first — same endpoint,
+// same recovery copy (see putBack's comment).
 async function undoRemove() {
   const entry = undoable.value;
   if (!entry) return;
   undoable.value = null;
   clearTimeout(undoTimer);
-  try {
-    await vaultFetch("/api/vault/remove", { method: "POST", body: { id: entry.id, restore: true } });
-    await loadVault();
-  } catch {
-    loadError.value = "Couldn’t put that back. Check your connection and try again.";
-  }
+  await putBack(entry);
 }
 onBeforeUnmount(() => clearTimeout(undoTimer));
 
@@ -557,7 +550,7 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
                       aria-hidden="true"
                     />
                     <select
-                      class="folder__sortsel"
+                      class="selectover"
                       :value="section.folder.sortBy ?? 'manual'"
                       :title="`Sort gear — ${SORT_META[section.folder.sortBy ?? 'manual'].label}`"
                       :aria-label="`Sort gear in ${section.folder.name}`"
@@ -742,9 +735,6 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
 </template>
 
 <style scoped lang="scss">
-.page {
-  padding-block: var(--space-5) var(--space-9);
-}
 .vault__head {
   display: flex;
   flex-direction: column;

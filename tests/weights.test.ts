@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  childrenOf,
   compareItemsBy,
   computeTotals,
   effectiveClassification,
@@ -12,8 +11,8 @@ import {
   groupLineMg,
   nextSortOrder,
   parseWeightInput,
-  sortedFolderItems,
   splitWornQty,
+  systemForUnit,
   toMg,
   ungroupedTopLevel,
 } from "../shared/weights";
@@ -278,6 +277,16 @@ describe("formatWeightAuto (magnitude-promoted, for comparison surfaces)", () =>
   });
 });
 
+describe("systemForUnit — a list's displayUnit picks the system its totals read in", () => {
+  it("maps imperial units to imperial, everything else (incl. absent) to metric", () => {
+    expect(systemForUnit("oz")).toBe("imperial");
+    expect(systemForUnit("lb")).toBe("imperial");
+    expect(systemForUnit("g")).toBe("metric");
+    expect(systemForUnit("kg")).toBe("metric");
+    expect(systemForUnit(undefined)).toBe("metric");
+  });
+});
+
 describe("nextSortOrder — new items append at the folder's bottom", () => {
   it("is 0 for an empty folder", () => {
     expect(nextSortOrder([], "f1")).toBe(0);
@@ -376,20 +385,22 @@ describe("groupItemsByFolder honors each folder's sortBy", () => {
   });
 });
 
-describe("sortedFolderItems", () => {
-  it("returns just this folder's items in its chosen order", () => {
+describe("groupItemsByFolder with folders", () => {
+  it("orders each group by its folder's chosen sort", () => {
     const f: Folder = { id: "f1", name: "f1", defaultClassification: "base", sortBy: "name", sortOrder: 0 };
     const items = [
       item({ id: "c", folderId: "f1", name: "Cook pot", sortOrder: 0 }),
       item({ id: "a", folderId: "f1", name: "Axe", sortOrder: 1 }),
       item({ id: "other", folderId: "f2", name: "Zzz", sortOrder: 0 }),
     ];
-    expect(sortedFolderItems(items, f).map((i) => i.id)).toEqual(["a", "c"]);
+    const byFolder = groupItemsByFolder(items, [f]);
+    expect(byFolder.get("f1")!.map((i) => i.id)).toEqual(["a", "c"]);
+    expect(byFolder.get("f2")!.map((i) => i.id)).toEqual(["other"]);
   });
 });
 
 describe("nesting (a nested item is just an item with a parentId)", () => {
-  it("childrenOf returns the item's children in sortOrder; groupLineMg = own + children", () => {
+  it("groupItemsByParent returns the item's children in sortOrder; groupLineMg = own + children", () => {
     const items = [
       item({ id: "tent", folderId: "f1", unitWeightMg: 0 }), // a pure container
       item({ id: "fly", folderId: "f1", parentId: "tent", unitWeightMg: 720_000, sortOrder: 1 }),
@@ -397,8 +408,9 @@ describe("nesting (a nested item is just an item with a parentId)", () => {
       item({ id: "stakes", folderId: "f1", parentId: "tent", unitWeightMg: 12_000, qty: 8, sortOrder: 2 }),
       item({ id: "solo", folderId: "f1", unitWeightMg: 5_000 }),
     ];
-    expect(childrenOf(items, "tent").map((i) => i.id)).toEqual(["inner", "fly", "stakes"]);
-    expect(childrenOf(items, "solo")).toEqual([]);
+    const byParent = groupItemsByParent(items);
+    expect(byParent.get("tent")!.map((i) => i.id)).toEqual(["inner", "fly", "stakes"]);
+    expect(byParent.has("solo")).toBe(false);
     // 0 (own) + 840k + 720k + 8×12k = 1,656,000
     expect(groupLineMg(items[0]!, items)).toBe(1_656_000);
   });
@@ -440,18 +452,16 @@ describe("nesting (a nested item is just an item with a parentId)", () => {
     expect(t.baseMg).toBe(30_000);
   });
 
-  it("groupItemsByFolder / sortedFolderItems return TOP-LEVEL rows only (children render nested)", () => {
-    const f: Folder = { id: "f1", name: "f1", defaultClassification: "base", sortOrder: 0 };
+  it("groupItemsByFolder returns TOP-LEVEL rows only (children render nested)", () => {
     const items = [
       item({ id: "tent", folderId: "f1", sortOrder: 0 }),
       item({ id: "fly", folderId: "f1", parentId: "tent", sortOrder: 0 }),
       item({ id: "pack", folderId: "f1", sortOrder: 1 }),
     ];
     expect(groupItemsByFolder(items).get("f1")!.map((i) => i.id)).toEqual(["tent", "pack"]);
-    expect(sortedFolderItems(items, f).map((i) => i.id)).toEqual(["tent", "pack"]);
   });
 
-  it("groupItemsByParent matches childrenOf: children under their parent id, in sortOrder", () => {
+  it("groupItemsByParent: children under their parent id, in sortOrder", () => {
     const items = [
       item({ id: "tent", folderId: "f1", sortOrder: 0 }),
       item({ id: "fly", folderId: "f1", parentId: "tent", sortOrder: 1 }),
@@ -464,7 +474,6 @@ describe("nesting (a nested item is just an item with a parentId)", () => {
     expect(map.get("tent")!.map((i) => i.id)).toEqual(["inner", "fly"]);
     expect(map.get("cook")!.map((i) => i.id)).toEqual(["pot"]);
     expect(map.has("solo")).toBe(false); // leaves get no entry (rows fall back to a shared [])
-    expect(map.get("tent")).toEqual(childrenOf(items, "tent"));
   });
 });
 

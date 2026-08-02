@@ -1,5 +1,10 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 
+// The generic title/tagline + canonical origin live in app/utils/site.ts (an
+// import-free module, so it's safe to evaluate here at config time) — one source
+// for the static head below and the app's own surfaces.
+import { CANONICAL_ORIGIN, GENERIC_DESC, GENERIC_TITLE } from "./app/utils/site";
+
 // Content-Security-Policy — defense-in-depth for a public, anyone-can-write app.
 // `'unsafe-inline'` is required for script + style: Nuxt SSR/prerender emits inline
 // bootstrap/payload scripts and Vue `:style` produces inline styles, and there's no
@@ -234,7 +239,7 @@ export default defineNuxtConfig({
   app: {
     head: {
       htmlAttrs: { lang: "en" },
-      title: "Mahonia — pack lists, weighed",
+      title: GENERIC_TITLE,
       meta: [
         { charset: "utf-8" },
         {
@@ -252,31 +257,24 @@ export default defineNuxtConfig({
         // the page's --paper in each mode.
         { name: "theme-color", media: "(prefers-color-scheme: light)", content: "#ffffff" },
         { name: "theme-color", media: "(prefers-color-scheme: dark)", content: "#000000" },
-        {
-          name: "description",
-          content:
-            "Make a packing list, see what it weighs, share it. No login.",
-        },
+        { name: "description", content: GENERIC_DESC },
         // Social card. The editor (the landing page) is `ssr: false`, so runtime
         // useSeoMeta can't reach crawlers there — this static set is what unfurls the
         // bare domain. og:image MUST be absolute and the editor shell has no request
-        // context, so the canonical prod host is pinned here (the one place we hard-set
-        // a URL; sitemap/SSR routes still derive the host from the request). SSR routes
-        // (/s, /l) override og:title/description per-list via their own useSeoMeta.
+        // context, so CANONICAL_ORIGIN supplies the host (sitemap/SSR routes still
+        // derive theirs from the live request). SSR routes (/s, /l) override
+        // og:title/description per-list via their own useSeoMeta.
         { property: "og:type", content: "website" },
         { property: "og:site_name", content: "Mahonia" },
-        { property: "og:title", content: "Mahonia — pack lists, weighed" },
-        {
-          property: "og:description",
-          content: "Make a packing list, see what it weighs, share it. No login.",
-        },
-        { property: "og:image", content: "https://mahonia.app/og.jpg" },
+        { property: "og:title", content: GENERIC_TITLE },
+        { property: "og:description", content: GENERIC_DESC },
+        { property: "og:image", content: `${CANONICAL_ORIGIN}/og.jpg` },
         { property: "og:image:width", content: "1200" },
         { property: "og:image:height", content: "630" },
         { property: "og:image:type", content: "image/jpeg" },
         { property: "og:image:alt", content: "Mahonia — Oregon grape in flower and fruit" },
         { name: "twitter:card", content: "summary_large_image" },
-        { name: "twitter:image", content: "https://mahonia.app/og.jpg" },
+        { name: "twitter:image", content: `${CANONICAL_ORIGIN}/og.jpg` },
       ],
       link: [
         // Icon set (files in public/). The SVG is the primary favicon (vector,

@@ -2,8 +2,8 @@
 import { csvToListData } from "~~/shared/exporters/csv";
 import { jsonToListImport } from "~~/shared/exporters/json";
 import { lighterpackId } from "~~/shared/lighterpack";
-import { editLinkPath } from "~~/shared/links";
 import type { ListData, ListSnapshot, Unit } from "~~/shared/types";
+import { computeTotals } from "~~/shared/weights";
 
 // "Import a list" dialog — mint a NEW list from a LighterPack share link, a
 // pasted CSV, a JSON backup (the menus' "Download JSON"), or an uploaded file,
@@ -13,9 +13,6 @@ import type { ListData, ListSnapshot, Unit } from "~~/shared/types";
 // This is the importer the old home page used to host.
 const props = defineProps<{ open: boolean }>();
 const emit = defineEmits<{ close: [] }>();
-
-const router = useRouter();
-const myLists = useMyLists();
 
 const text = ref("");
 const importing = ref(false);
@@ -66,10 +63,9 @@ async function createFrom(
       },
     });
     emit("close");
-    // an import arrives whole (no ops) — capture it here, where the device knows
-    // it just created this list from data you supplied
-    useVaultCapture().captureNewList(res.snapshot, res.editToken);
-    router.push(editLinkPath(res.snapshot.shareCode, myLists.registerCreated(res)));
+    // the shared whole-list tail (vault capture + registry + navigate) — with the
+    // imported total, so "Your lists" shows its weight before the editor's first sync
+    await enterCreatedList(res, computeTotals(data).totalMg);
   } catch {
     error.value = "Import failed. Check the file and try again.";
   } finally {
@@ -182,7 +178,6 @@ function onFile(e: Event) {
    body is scoped here */
 .import__text {
   width: 100%;
-  font-family: var(--font);
   font-size: var(--text-sm);
   /* the menus' language, not a hairline box: quiet tinted well, rounded like a
      popover item (radius-4 − space-2, the same concentric step the menus use) */

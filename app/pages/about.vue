@@ -151,9 +151,6 @@ const lastUpdated = computed(() => {
 </template>
 
 <style scoped lang="scss">
-.page {
-  padding-block: var(--space-5) var(--space-9);
-}
 .log {
   /* the section's own top rule + air, since .prose above it ends flush */
   margin-block-start: var(--space-8);

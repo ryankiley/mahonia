@@ -18,3 +18,10 @@ export const CONTACT_EMAIL = "hello@mahonia.app";
 // HTML) and the static social-card fallback in nuxt.config. SSR routes keep
 // deriving their origin from the live request (portable across deploy hosts).
 export const CANONICAL_ORIGIN = "https://mahonia.app";
+
+// The generic site title + tagline — the <head> defaults in nuxt.config (which
+// imports this file: it's import-free, so it's safe at config-eval time) and the
+// editor's fallback card copy (utils/editorSeo.ts). One place, so the static
+// social card and the client-side tab title can't drift apart.
+export const GENERIC_TITLE = "Mahonia — pack lists, weighed";
+export const GENERIC_DESC = "Make a packing list, see what it weighs, share it. No login.";

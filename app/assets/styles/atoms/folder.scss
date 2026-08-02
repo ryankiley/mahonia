@@ -193,13 +193,6 @@
 .folder__sorticon {
   pointer-events: none;
 }
-.folder__sortsel {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  opacity: 0;
-  cursor: pointer;
-}
 /* touch: .btn--icon grows to a --tap (44px) target on coarse pointers (controls.scss),
    so the sort control has to match — left at its desktop --icon-btn width, its box is
    12px narrower than the delete/grip beside it, which shoves the folder's delete out of

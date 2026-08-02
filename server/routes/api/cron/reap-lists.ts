@@ -14,9 +14,8 @@ import { refreshStaleFavicons } from "../../../utils/trailFavicon";
 //              snapshots) to reclaim the storage; the grace window keeps a reap
 //              reversible until then.
 //   3. VAULTS — the same two stages for gear vaults, which are minted lazily and
-//              never signed out of, so nothing else would ever bound their growth
-//              (and mergeVaults deliberately leaves the source behind). Longer
-//              windows than a list gets; see reapAbandonedVaults for why, and for
+//              never signed out of, so nothing else would ever bound their growth.
+//              Longer windows than a list gets; see reapAbandonedVaults for why, and for
 //              why using a link inside the grace revives the vault.
 //   4. FAVICONS — re-fetch trail-link favicons older than a month, oldest first and
 //              batch-capped (see server/utils/trailFavicon.ts). Rides along here

@@ -8,9 +8,9 @@
 // on first use). See server/db/schema.ts for what each table is for.
 
 export const VAULT_DDL: string[] = [
-  // A vault is owned by a LINK, not an account: token_hash is sha256 of the token
-  // the holder keeps, and possession is the whole authorisation model — exactly as
-  // lists.edit_token_hash works. No users table, no sessions, no email.
+  // A vault is owned by an ACCOUNT (user_id → users.id; the whole authorisation
+  // rule lives in vaultAuth.ts). The CREATE reflects today's shape; the ALTERs
+  // below carry a pre-account table over to it.
   `CREATE TABLE IF NOT EXISTS vaults (
     id serial PRIMARY KEY,
     user_id integer,

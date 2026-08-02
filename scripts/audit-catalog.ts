@@ -21,14 +21,15 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { csvToCatalogRows, specToMg, WEIGHT_SOURCES, type SpecUnit } from "./catalogCsv";
-import { RANGE_G, runCatalogChecks } from "./catalogChecks";
+import { runCatalogChecks } from "./catalogChecks";
+import { RANGE_G } from "../shared/catalogQuality";
 import { readResearchFiles, type ResearchRow } from "./research";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const researchDir = join(here, "..", "seed", "_research");
 
 // Plausible per-category weight ranges (RANGE_G) are single-sourced in
-// catalogChecks.ts so the CLI audit and the gating test agree exactly.
+// shared/catalogQuality.ts so the CLI audit and the gating test agree exactly.
 
 /** All gram-equivalent figures mentioned in a quote (kg converted to g).
  *  Handles thousands separators ("1,790 g" is 1790, not 790). */

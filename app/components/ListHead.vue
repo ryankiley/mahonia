@@ -332,7 +332,6 @@ onClickOutside(trailEl, () => {
 }
 .head__title {
   width: 100%;
-  font-family: var(--font);
   /* the page-title step — a document title, not a section heading. Well above the 16px
      threshold that triggers iOS Safari's focus-zoom, so .field's literal-1rem
      workaround (controls.scss) doesn't apply here. */
@@ -374,7 +373,9 @@ onClickOutside(trailEl, () => {
 .head__link {
   display: inline-flex;
   align-items: baseline;
-  gap: var(--space-2);
+  /* the mark and the name are one object — --space-1, matching the read views
+     (whose comment records that --space-2 let the icon drift off the text) */
+  gap: var(--space-1);
   min-width: 0;
   /* it's a <button> (see the template note), so the UA's chrome has to go — it should
      read as the line of text it looks like, not as a control */

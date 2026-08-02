@@ -30,6 +30,9 @@ on:
       - seed/catalog.csv
       - scripts/seed-catalog.ts
       - scripts/catalogCsv.ts
+      # search_terms is DERIVED at parse time (not a CSV column) — a change to the
+      # derivation must reseed too, or prod keeps stale search terms
+      - shared/searchTerms.ts
   # manual re-run (e.g. after setting the secret, or to force a resync)
   workflow_dispatch: {}
 
@@ -62,7 +65,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version-file: ".nvmrc"
           cache: npm
 
       - run: npm ci

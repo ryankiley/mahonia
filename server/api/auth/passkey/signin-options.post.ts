@@ -1,6 +1,6 @@
-import { createError, defineEventHandler, setHeader } from "h3";
+import { defineEventHandler, setHeader } from "h3";
 import { generateAuthenticationOptions } from "@simplewebauthn/server";
-import { passkeysConfigured, rpIdFor, startChallenge } from "../../../utils/passkeys";
+import { requirePasskeys, rpIdFor, startChallenge } from "../../../utils/passkeys";
 import { rateLimit } from "../../../utils/rateLimit";
 
 // Step 1 of signing in with a passkey: issue a challenge.
@@ -15,13 +15,7 @@ export default defineEventHandler(async (event) => {
   setHeader(event, "X-Robots-Tag", "noindex");
   setHeader(event, "Cache-Control", "private, no-store");
   await rateLimit(event, "passkey");
-  // A shared challenge store is a hard requirement, not a nicety — see
-  // passkeysConfigured(). Refuse up front rather than failing at verify with
-  // nothing to explain it.
-  if (!passkeysConfigured()) {
-    console.error("[passkey] no shared KV configured (KV_REST_API_URL / KV_REST_API_TOKEN) — passkeys are unavailable");
-    throw createError({ statusCode: 503, statusMessage: "Passkeys unavailable" });
-  }
+  requirePasskeys();
 
   const options = await generateAuthenticationOptions({
     rpID: rpIdFor(event),

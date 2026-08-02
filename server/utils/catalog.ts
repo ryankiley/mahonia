@@ -26,7 +26,6 @@ import {
   SEARCH_LIMIT,
   SIM_THRESHOLD,
   rankCandidates,
-  searchCatalogLocal,
   type CatalogSearchResult,
   type LocalCatalogRow,
 } from "../../shared/catalogSearch";
@@ -166,7 +165,7 @@ export async function searchCatalog(
   }
 
   // PGlite: load the bounded active catalog and rank in JS — the SAME ranking the
-  // offline client uses (searchCatalogLocal is the shared source of truth).
+  // offline client uses (rankCandidates is the shared source of truth).
   const d = db as unknown as {
     select: () => {
       from: (t: typeof catalogItems) => {
@@ -175,7 +174,7 @@ export async function searchCatalog(
     };
   };
   const rows = await d.select().from(catalogItems).where(eq(catalogItems.status, "active"));
-  return searchCatalogLocal(rows as unknown as LocalCatalogRow[], q, limit);
+  return rankCandidates(rows as unknown as LocalCatalogRow[], q, limit);
 }
 
 /**

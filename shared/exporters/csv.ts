@@ -1,7 +1,7 @@
 // CSV export + import — hand-rolled (no deps). Round-trips with our own export
 // and ingests LighterPack's "Export to CSV" output (flexible header detection).
 
-import type { Item, ListData, ListSnapshot, Unit } from "../types";
+import type { Item, ListData, ListMeta, Unit } from "../types";
 import { nextFolderColor } from "../categories";
 import { effectiveClassification, fromMg, itemDisplayName, splitWornQty, toMg, UNIT_ALIASES } from "../weights";
 import { exportSections } from "./rows";
@@ -27,12 +27,12 @@ const truthy = (v: string | undefined) =>
 // so our own round-trip is lossless.
 const FORMULA_LEAD = /^[=+\-@\t\r]/;
 const guardFormula = (s: string) => (FORMULA_LEAD.test(s) ? `'${s}` : s);
-export function stripFormulaGuard(s: string): string {
+function stripFormulaGuard(s: string): string {
   return s.length > 1 && s[0] === "'" && FORMULA_LEAD.test(s.slice(1)) ? s.slice(1) : s;
 }
 
 // ---- export ----
-export function listToCsv(list: ListSnapshot): string {
+export function listToCsv(list: ListMeta & ListData): string {
   const u = list.displayUnit;
   const esc = (v: unknown) => {
     const s = guardFormula(String(v ?? ""));

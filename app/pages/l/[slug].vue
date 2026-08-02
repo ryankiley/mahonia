@@ -66,7 +66,6 @@ useHead(() => ({
    THIS page's scoped content, out of reach of ReadonlyListView's scoped copy
    (which styles only its own /s fallback heading) */
 .view__title {
-  font-family: var(--font);
   font-size: var(--text-page-title);
   font-weight: 700;
 }
