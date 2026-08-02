@@ -2,6 +2,7 @@ import { defineEventHandler, setHeader } from "h3";
 import { verifyRegistrationResponse } from "@simplewebauthn/server";
 import { requireUser } from "../../../utils/authSession";
 import { savePasskey } from "../../../utils/credentialRepo";
+import { canSendEmail, sendPasskeyAddedNotice } from "../../../utils/email";
 import { useAccountDb } from "../../../utils/db";
 import { readJsonBodyCapped } from "../../../utils/http";
 import { originFor, rpIdFor, takeChallenge } from "../../../utils/passkeys";
@@ -61,6 +62,16 @@ export default defineEventHandler(async (event) => {
     // the unique index on credential_id — this key is already registered, which is
     // a no-op rather than an error worth showing
     return { ok: true as const, duplicate: true };
+  }
+
+  // Tell the owner. Best-effort and never allowed to fail the registration it rode
+  // in on: a passkey that saved but whose notice didn't send is a strictly better
+  // outcome than the reverse.
+  if (user.email && canSendEmail()) {
+    await sendPasskeyAddedNotice(
+      user.email,
+      typeof body?.label === "string" ? body.label : null,
+    ).catch((e) => console.error("[passkey notice]", e));
   }
 
   return { ok: true as const };

@@ -319,6 +319,27 @@ export async function endSession(event: H3Event): Promise<void> {
 }
 
 /**
+ * End EVERY session this account has, on every device, including this one.
+ *
+ * The missing half of "remove this passkey". Removing a credential stops it being
+ * used to sign in AGAIN, but any session it already started keeps working for its
+ * full 90 days — so the action a person reaches for when they think someone else
+ * got in doesn't actually put them out. This does.
+ *
+ * Deliberately takes the caller's own session too, rather than sparing it. Sparing
+ * it means deciding the current device is the trustworthy one, which is exactly
+ * the assumption someone in this situation can't safely make. Signing back in is
+ * one tap with a passkey.
+ */
+export async function endAllSessions(event: H3Event, userId: number): Promise<number> {
+  const db = await useAccountDb();
+  const gone = await db.delete(sessions).where(eq(sessions.userId, userId)).returning();
+  deleteCookie(event, SESSION_COOKIE, { path: "/" });
+  deleteCookie(event, SESSION_HINT_COOKIE, { path: "/" });
+  return gone.length;
+}
+
+/**
  * Drop expired sessions and spent magic links. Cheap, index-backed, and safe to
  * run repeatedly — called opportunistically from the link-request path (a rare,
  * heavily rate-limited endpoint) so the two tables can't grow without bound

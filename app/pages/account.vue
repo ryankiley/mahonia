@@ -230,6 +230,31 @@ async function deleteAccount() {
   deleting.value = false;
 }
 
+// ---- signing out everywhere ----------------------------------------------
+const signingOutAll = ref(false);
+async function onSignOutEverywhere() {
+  if (
+    !(await askConfirm({
+      title: "Sign out everywhere?",
+      message:
+        "Ends every session on every device, including this one. Do this if you think someone else has access — removing a passkey alone doesn't end the sessions it already started.",
+      confirmLabel: "Sign out everywhere",
+    }))
+  )
+    return;
+  signingOutAll.value = true;
+  try {
+    await $fetch("/api/auth/signout-all", { method: "POST" });
+    resetVaultCapture();
+    useClaimedLists().resetClaimMark();
+    await navigateTo("/account");
+    await refresh(true);
+  } catch {
+    pkNote.value = "Couldn't sign out everywhere. Try again?";
+  }
+  signingOutAll.value = false;
+}
+
 async function onSignOut() {
   await signOut();
   // drop both per-account memos so the next person to sign in on this device
@@ -383,6 +408,14 @@ async function onSignOut() {
 
           <section class="acct__section">
             <button type="button" class="btn btn--quiet acct__signout" @click="onSignOut">Sign out</button>
+            <button
+              type="button"
+              class="btn btn--quiet acct__signout"
+              :disabled="signingOutAll"
+              @click="onSignOutEverywhere"
+            >
+              {{ signingOutAll ? "Signing out…" : "Sign out everywhere" }}
+            </button>
           </section>
 
           <section class="acct__section">

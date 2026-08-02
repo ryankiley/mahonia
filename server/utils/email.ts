@@ -167,3 +167,51 @@ export async function sendMagicLink({
     throw new Error(`Resend responded ${res.status}: ${detail.slice(0, 500)}`);
   }
 }
+
+/**
+ * Tell someone a passkey was added to their account.
+ *
+ * The only security-relevant change an account can undergo that the owner might
+ * not have made. A passkey can only be added from inside a live session, so this
+ * doesn't stop an attacker who already has one — it's the thing that lets the
+ * OWNER find out, which is the difference between a bad afternoon and never
+ * knowing. Deliberately has no "undo" link: the safe action is to go and look at
+ * the passkey list yourself, not to click something in an email you didn't expect.
+ *
+ * Best-effort by contract — the caller must never let this fail the request it
+ * rode in on. Adding a passkey succeeding and the notice failing is fine; the
+ * reverse is not.
+ */
+export async function sendPasskeyAddedNotice(to: string, label: string | null): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY;
+  const which = label ? `“${label}”` : "A new passkey";
+  const lead = `${which} was added to your Mahonia account.`;
+  const closing =
+    "If that was you, there's nothing to do. If it wasn't, open your account page and remove it — and remove any passkey you don't recognise while you're there.";
+  const text = [lead, "", closing].join("\n");
+
+  if (!apiKey) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("RESEND_API_KEY is not set — cannot send the passkey notice");
+    }
+    console.info(`\n[auth] Passkey notice for ${to} (no RESEND_API_KEY, printed instead):\n${lead}\n`);
+    return;
+  }
+
+  const res = await fetch(RESEND_ENDPOINT, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      from: fromAddress(),
+      to: [to],
+      subject: "A passkey was added to your Mahonia account",
+      html: [`<p>${esc(lead)}</p>`, `<p>${esc(closing)}</p>`].join("\n"),
+      text,
+      headers: { "X-Entity-Ref-ID": randomSecret() },
+    }),
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`Resend responded ${res.status}: ${detail.slice(0, 500)}`);
+  }
+}

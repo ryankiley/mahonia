@@ -418,7 +418,7 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
            that tells you something. Still an h1, so the page keeps exactly one and
            the document outline is intact; the bar carries the page's name. -->
       <div class="vault__head">
-        <h1 class="t-title vault__sub">Every piece of gear you’ve put in a list, in one place.</h1>
+        <h1 class="t-title vault__sub">All your gear, in one place.</h1>
       </div>
 
       <ClientOnly>
@@ -430,7 +430,7 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
              read as it being withdrawn. -->
         <div v-if="!hasVault" class="vault__auth">
           <p class="vault__sentline">
-            Your vault needs an account, so it follows you between devices.
+            Your vault needs an account, so you can reach it from any device.
           </p>
           <NuxtLink to="/account" class="btn btn--primary">Sign in</NuxtLink>
         </div>

@@ -70,6 +70,20 @@ useHead({
           name, payment details, or location, and a display name is shown only if you set one.
         </p>
 
+        <h3>What you type can improve the shared catalog</h3>
+        <p>
+          When you type a piece of gear that isn’t already in Mahonia’s catalog, the brand, name
+          and weight are noted. If the same item is typed on <strong>three or more different
+          lists</strong>, it’s added to the public catalog with the median weight, so everyone
+          gets a suggestion instead of typing it again. Only branded products qualify — generic
+          words like “tent” or “snacks” never make it in.
+        </p>
+        <p>
+          Nothing that identifies you goes with it: not your list, not your account, not your
+          email. What travels is the product and the weight, and the result is a catalog entry
+          indistinguishable from any other.
+        </p>
+
         <h3>The services Mahonia relies on</h3>
         <p>
           Four US-based providers run the plumbing, so your data may be processed there:
@@ -89,7 +103,8 @@ useHead({
           </li>
           <li>
             In your gear vault, “Remove” takes a piece of gear out and keeps it out. Signing out
-            leaves the vault where it is, ready for the next time you sign in.
+            leaves the vault where it is, ready for the next time you sign in. “Sign out
+            everywhere” ends every session on every device, if you ever need it.
           </li>
           <li>
             “Delete account” on your account page removes your email, display name, passkeys and
@@ -103,11 +118,13 @@ useHead({
           </li>
         </ul>
         <p>
-          Some things are also cleaned up automatically. A list that never got past a single item and
-          hasn’t been edited in a long time is removed, as is a gear vault that hasn’t been used in a
-          long time. Signing in keeps it, and brings it back even after it’s been marked
-          for removal. Anything removed this way is held for a grace period before it’s gone for
-          good. If you’ve lost something, email me and I’ll see what can be recovered.
+          Some things are also cleaned up automatically, and the timings are exact rather than
+          vague. A list that never got past a single item and hasn’t been edited for
+          <strong>30 days</strong> is marked for removal; a gear vault untouched for
+          <strong>180 days</strong> is treated the same way. Either is then held for
+          <strong>90 days</strong> before it’s deleted for good, and using it again during that
+          window brings it straight back — for a vault, signing in is enough. If you’ve lost
+          something, email me and I’ll see what can be recovered.
         </p>
         <p>
           No system is perfectly secure. Please don’t put sensitive personal information into a
