@@ -116,6 +116,9 @@ export default defineEventHandler(async (event) => {
         to: stored.email,
         url: url.toString(),
         expiresIn: `${Math.round(MAGIC_LINK_TTL_MS / 60_000)} minutes`,
+        // not a sign-in link — they're already signed in, and this is the address
+        // confirmation. See MagicLinkEmail.purpose.
+        purpose: "welcome",
       });
     } catch (e) {
       console.error("[passkey signup] confirmation email failed", e);

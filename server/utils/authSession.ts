@@ -222,10 +222,10 @@ function isSecureRequest(event: H3Event): boolean {
  * needs. Every mutating vault endpoint is a POST, so Lax alone carries the CSRF
  * defence here.
  */
-export async function startSession(event: H3Event, db: Db, userId: number): Promise<void> {
-  const token = randomSecret();
-  const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
-  await db.insert(sessions).values({ tokenHash: sha256Hex(token), userId, expiresAt });
+/** Write both cookies with one expiry. Split out because sign-in and the sliding
+ *  refresh both set them, and a difference between the two would be invisible
+ *  until someone was logged out early. */
+function setSessionCookies(event: H3Event, token: string, expiresAt: Date): void {
   setCookie(event, SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
@@ -241,6 +241,13 @@ export async function startSession(event: H3Event, db: Db, userId: number): Prom
     path: "/",
     expires: expiresAt,
   });
+}
+
+export async function startSession(event: H3Event, db: Db, userId: number): Promise<void> {
+  const token = randomSecret();
+  const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
+  await db.insert(sessions).values({ tokenHash: sha256Hex(token), userId, expiresAt });
+  setSessionCookies(event, token, expiresAt);
 }
 
 /**
@@ -270,9 +277,10 @@ export async function resolveSession(event: H3Event): Promise<SessionUser | null
   const row = rows[0];
   if (!row) return null;
   if (now.getTime() - new Date(row.lastUsedAt).getTime() > SESSION_REFRESH_AFTER_MS) {
+    const expiresAt = new Date(now.getTime() + SESSION_TTL_MS);
     await db
       .update(sessions)
-      .set({ lastUsedAt: now, expiresAt: new Date(now.getTime() + SESSION_TTL_MS) })
+      .set({ lastUsedAt: now, expiresAt })
       .where(eq(sessions.id, row.sessionId))
       .catch(() => {});
     await db
@@ -280,6 +288,12 @@ export async function resolveSession(event: H3Event): Promise<SessionUser | null
       .set({ lastSeenAt: now })
       .where(eq(users.id, row.id))
       .catch(() => {});
+    // AND RE-SET THE COOKIES. Sliding the row alone slides nothing the user can
+    // feel: the browser still drops the cookie 90 days after SIGN-IN, so someone
+    // who uses Mahonia every week is signed out on day 90 while holding a session
+    // the server considers perfectly valid — and the hint cookie expires with it,
+    // so the app doesn't even ask.
+    setSessionCookies(event, raw, expiresAt);
   }
   return { id: row.id, email: row.email };
 }
