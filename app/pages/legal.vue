@@ -13,9 +13,7 @@ useHead({
 
 <template>
   <div>
-    <SiteTopbar>
-      <span class="t-sm t-muted">Legal</span>
-    </SiteTopbar>
+    <SiteTopbar label="Legal" />
 
     <main id="main-content" tabindex="-1" class="wrap page">
       <div class="prose">

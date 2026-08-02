@@ -59,9 +59,7 @@ const lastUpdated = computed(() => {
 
 <template>
   <div>
-    <SiteTopbar>
-      <span class="t-sm t-muted">About</span>
-    </SiteTopbar>
+    <SiteTopbar label="About" />
 
     <main id="main-content" tabindex="-1" class="wrap page">
       <div class="prose">

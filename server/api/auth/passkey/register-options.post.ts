@@ -49,9 +49,13 @@ export default defineEventHandler(async (event) => {
     // one for this account
     excludeCredentials: (await existingCredentialIds(db, user.id)).map((id) => ({ id })),
     authenticatorSelection: {
-      // a DISCOVERABLE credential is what lets "sign in with a passkey" work with
-      // no email typed first — the whole appeal, so ask for it
-      residentKey: "preferred",
+      // REQUIRED, matching signup-options. Sign-in is usernameless — signin-options
+      // sends no allowCredentials — so the browser can only offer a key it can
+      // discover on its own. "preferred" let an authenticator hand back a
+      // non-discoverable credential, which this page would then confirm with "you
+      // can sign in with it from now on" and which would never appear at sign-in.
+      // Silent, permanent, and with no fallback path that could surface it.
+      residentKey: "required",
       userVerification: "preferred",
     },
   });

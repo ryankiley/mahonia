@@ -7,6 +7,9 @@
 defineProps<{
   // read views pack the brand + label tighter (gap-2 vs the default gap-3)
   compact?: boolean;
+  // A section name — the bar's other shape. /about, /legal and /changes each wrote
+  // the same muted span; this is that one pattern, named once.
+  label?: string;
 }>();
 </script>
 
@@ -14,10 +17,15 @@ defineProps<{
   <header class="topbar">
     <div class="wrap topbar__inner" :class="{ 'topbar__inner--compact': compact }">
       <NuxtLink to="/" class="t-label brand">Mahonia</NuxtLink>
-      <slot />
-      <!-- After the page's own chrome, so a page's action stays the prominent one.
-           Renders nothing at all for anyone without an account — see AccountLink. -->
-      <AccountLink class="topbar__account" />
+      <span v-if="label" class="t-sm t-muted">{{ label }}</span>
+      <!-- One trailing group rather than each child racing for margin-left:auto.
+           With the account control always present, a per-child auto margin on the
+           slotted button pushed the two apart instead of keeping them together. -->
+      <span class="topbar__trail">
+        <slot />
+        <!-- last, so a page's own action stays the prominent one -->
+        <AccountMenu />
+      </span>
     </div>
   </header>
 </template>
@@ -45,8 +53,11 @@ defineProps<{
 .brand {
   color: var(--ink);
 }
-/* a slotted action (the "Make your own" button) floats to the trailing edge */
-:slotted(.btn) {
+/* the page's action and the account control travel together at the trailing edge */
+.topbar__trail {
   margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
 }
 </style>

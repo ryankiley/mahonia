@@ -408,7 +408,7 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
 
 <template>
   <div>
-    <SiteTopbar>
+    <SiteTopbar label="Gear vault">
       <NuxtLink to="/e" class="btn btn--link">Create a list</NuxtLink>
     </SiteTopbar>
 
@@ -420,23 +420,17 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
 
       <ClientOnly>
 
-        <!-- Signed out. The one place on the site that asks for an account, so it
-             says why rather than just presenting a form: a vault is worth keeping,
-             and keeping it is the thing a link couldn't do. Lists are pointedly
-             mentioned as still needing nothing, because that's the promise people
-             came for and this page shouldn't read as it being withdrawn. -->
+        <!-- Signed out. The subtitle above already says what a vault IS, so this
+             only has to answer the question that subtitle raises — why this one
+             thing wants an account — and get out of the way. Lists are named
+             because that's the promise people came for, and this page must not
+             read as it being withdrawn. -->
         <div v-if="!hasVault" class="vault__auth">
-          <p class="vault__sentline">Your gear vault fills itself.</p>
-          <p class="t-sm t-muted">
-            Add gear to a list and it lands here — weights, brands and all — ready to pull into
-            the next list without retyping.
+          <p class="vault__sentline">
+            Your vault needs an account, so it survives a cleared browser and follows you between
+            devices. Lists still don’t.
           </p>
-          <p class="t-sm t-muted">
-            The vault is the one thing that asks you to sign in, because it's meant to outlast a
-            cleared browser and follow you between devices. Building and sharing lists still needs
-            no account at all.
-          </p>
-          <NuxtLink to="/account" class="btn btn--primary">Sign in or create an account</NuxtLink>
+          <NuxtLink to="/account" class="btn btn--primary">Sign in</NuxtLink>
         </div>
 
         <!-- the gear -->
@@ -758,11 +752,26 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
 .vault__sub {
   max-width: 56ch;
 }
+/* Signed out there is one thing to do, so the column centres and narrows — the
+   same shape /account uses for the same reason. Signed in the page is a wide,
+   left-aligned list of gear, which is why this is scoped to the signed-out block
+   rather than the page. */
 .vault__auth {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  max-width: 44ch;
+  align-items: center;
+  gap: var(--space-4);
+  max-width: 34rem;
+  margin-inline: auto;
+  padding-block: var(--space-5) var(--space-6);
+  text-align: center;
+}
+/* the heading block comes along, asked of the page's own structure rather than
+   re-deriving the session state up there (see /account for the same trick) */
+.page:has(.vault__auth) .vault__head {
+  text-align: center;
+  max-width: 34rem;
+  margin-inline: auto;
 }
 /* the shared .field is deliberately borderless (it sits inside list rows, where a
    box would be noise). On a standalone sign-in form there's nothing to show where

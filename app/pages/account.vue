@@ -242,14 +242,7 @@ async function onSignOut() {
 
 <template>
   <div>
-    <SiteTopbar>
-      <!-- Signed out this pointed at /vault, which has nothing to show and sends
-           you straight back here — a loop. There's nothing else this page needs in
-           the bar, so it holds only the wordmark until there's a vault to go to. -->
-      <ClientOnly>
-        <NuxtLink v-if="signedIn" to="/vault" class="btn btn--link">Your vault</NuxtLink>
-      </ClientOnly>
-    </SiteTopbar>
+    <SiteTopbar />
 
     <main id="main-content" tabindex="-1" class="wrap page">
       <h1 class="t-title acct__head">Your account</h1>
