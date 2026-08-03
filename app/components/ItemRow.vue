@@ -875,6 +875,20 @@ function dismissFix() {
                (whose figure is the sum of children that may each read differently). -->
           <span class="item__unitwrap">
             <span class="t-sm t-muted item__unit">{{ rowUnit }}</span>
+            <!-- The mark that says "this is a control". Without it the unit was a
+                 transparent select over text that looked exactly like a caption, so
+                 the picker was only ever found by accident. Same chevron the total's
+                 unit carries, at row scale — one vocabulary for one gesture.
+                 12/2 renders an exact 1px stroke (12 ÷ 24 × 2), the small-size
+                 counterpart to the total's 16/2.25 = 1.5px. -->
+            <HugeiconsIcon
+              v-if="!isWater && !isParent"
+              :icon="ChevronDownIcon"
+              class="item__unitchev"
+              :size="12"
+              :stroke-width="2"
+              aria-hidden="true"
+            />
             <select
               v-if="!isWater && !isParent"
               class="item__unitsel"
@@ -1454,9 +1468,29 @@ function dismissFix() {
   position: relative;
   flex: none;
   display: inline-flex;
+  /* centres the chevron ON the unit's text rather than letting it stretch. The wrap
+     still contributes the unit's own baseline upward, so the number and its unit stay
+     on one line with the rest of the row. */
+  align-items: center;
 }
 .item__unit {
   flex: none;
+}
+/* Quiet by default — one of these sits on every row, and a column of hard chevrons
+   would shout louder than the weights they belong to. --ink-3 is the same step the
+   row's other passive marks use; it lifts on hover so pointing at the row confirms
+   the thing is live. */
+.item__unitchev {
+  flex: none;
+  color: var(--ink-3);
+  transition: color var(--dur) var(--ease);
+}
+/* :has(), not a sibling combinator — the select is rendered AFTER the chevron, so
+   `~` from it reaches nothing. Keyboard focus has to light the mark too, or the
+   affordance exists for pointers only. */
+.item:hover .item__unitchev,
+.item__unitwrap:has(.item__unitsel:focus-visible) .item__unitchev {
+  color: var(--ink-2);
 }
 /* transparent native select over the unit text — the same construction the total's
    unit picker uses. The label stays the only thing drawn; this just makes it a
@@ -2018,6 +2052,35 @@ function dismissFix() {
     grid-column: 2 / -1;
     grid-row: 3;
     margin-top: 0;
+  }
+}
+
+/* The narrowest phones (iPhone SE and friends), and ONLY on a touch pointer.
+ *
+ * The meta line is nowrap by design — two lines per row, never three. That holds at
+ * 375 with room to spare, but it cannot hold at 320 once .btn--icon grows to --tap:
+ * the line then wants 323px inside a 288px content box, and the trailing grip ends up
+ * ~19px past the screen. Measured, not guessed.
+ *
+ * Two 44px toggles (92px) and three 44px actions (143px) are most of that, and none of
+ * it is padding to reclaim — shrinking either is exactly the touch target the coarse
+ * query exists to protect. So the line is allowed to wrap here, and the actions
+ * cluster drops beneath the numbers rather than off the edge of the phone. A third
+ * line on a 320px screen is a worse row than two; an unreachable delete button is not
+ * a row at all.
+ *
+ * pointer: coarse is part of the condition on purpose — a 320px-wide DESKTOP window
+ * keeps 32px icons, still fits on one line, and should not be given the phone layout.
+ */
+@media (max-width: 360px) and (pointer: coarse) {
+  .item__meta {
+    flex-wrap: wrap;
+    row-gap: var(--space-1);
+  }
+  /* margin-left:auto already pushes it right; with wrap enabled that also makes it
+     take the full second line rather than sitting under the qty column */
+  .item__actions {
+    margin-left: auto;
   }
 }
 </style>
