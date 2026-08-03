@@ -230,5 +230,35 @@ export function csvToListData(text: string, defaultUnit: Unit = "g"): ListData {
     });
     folderCount.set(fId, (folderCount.get(fId) ?? 0) + 1);
   }
+
+  // Tell the LIST's unit apart from a per-row choice.
+  //
+  // Our own export writes a Unit cell on every row — `entryUnit ?? displayUnit` — so
+  // after a round-trip every row names a unit and the naive reading was that every row
+  // had chosen one. A plain gram list exported and re-imported came back with all its
+  // rows pinned to "g", and the totals bar's unit switcher then moved the headline
+  // figure while every row stayed in grams. Nobody had asked for that on any row.
+  //
+  // The unit that appears on MOST rows is the list's; the ones that differ are the
+  // deliberate ones. That is exactly the shape the exporter produces, and it is also
+  // true of a LighterPack file, where a single-unit export means the list's unit.
+  // A row keeps its entryUnit only by disagreeing with the crowd.
+  // A tie is NOT a majority: on a two-row file with one gram row and one ounce row,
+  // neither unit is evidence of the list's own, and dropping whichever happened to be
+  // counted first would throw away the deliberate one. Only a unit that outnumbers
+  // every other counts as the list's.
+  const tally = new Map<string, number>();
+  for (const it of items) if (it.entryUnit) tally.set(it.entryUnit, (tally.get(it.entryUnit) ?? 0) + 1);
+  let dominant: string | undefined;
+  let best = 0;
+  let runnerUp = 0;
+  for (const [u, n] of tally) {
+    if (n > best) ((runnerUp = best), (best = n), (dominant = u));
+    else if (n > runnerUp) runnerUp = n;
+  }
+  if (dominant && best > runnerUp) {
+    for (const it of items) if (it.entryUnit === dominant) delete it.entryUnit;
+  }
+
   return { folders, items };
 }

@@ -397,7 +397,7 @@ onKeyStroke("Escape", () => emit("close"));
       <h2 class="t-label vp__title">Gear vault</h2>
       <button
         type="button"
-        class="btn btn--icon btn--ghost"
+        class="btn btn--icon btn--ghost btn--flush-end"
         aria-label="Close the gear vault"
         title="Close"
         @click="emit('close')"
@@ -724,11 +724,29 @@ onKeyStroke("Escape", () => emit("close"));
   display: flex;
   align-items: center;
 }
+/* CONTAINED, not a hairline rule. Search is the one control you reach for in this
+   panel, and an underline reads as a caption with a line under it rather than a box
+   you can type in. Same tinted well the import dialog uses (border 0, --paper-2,
+   radius-4 − space-2 — the concentric step the menus keep), so the two typing
+   surfaces in the app look like the same kind of thing. Focus deepens the ground by a
+   step; house style carries focus on the caret, not a ring. */
 .vp__search {
   width: 100%;
-  border-bottom: 1px solid var(--line);
+  border: 0;
+  background: var(--paper-2);
+  border-radius: calc(var(--radius-4) - var(--space-2));
+  padding-inline: var(--space-3);
   /* room for the clear button, so a long query doesn't run under it */
   padding-right: var(--space-5);
+  color: var(--ink);
+  transition: background var(--dur) var(--ease);
+}
+.vp__search::placeholder {
+  color: var(--ink-3);
+}
+.vp__search:focus {
+  outline: none;
+  background: color-mix(in oklab, var(--ink) 4%, var(--paper-2));
 }
 /* Sits ON the field rather than beside it: the rule under the input is the field's
    whole visible boundary, and a sibling button would either break that line or push

@@ -300,11 +300,21 @@ function startItemDrag(id: number, ev: PointerEvent) {
   itemDrag.start(String(id), ev);
 }
 
-const newFolder = ref("");
+// "Add folder" is a quiet label that becomes an inline field on press, and commits on
+// enter or on clicking away — the same affordance (and the same words) the editor uses
+// at the foot of its folder list. It used to be a permanently-open input with an "Add"
+// button beside it, which read as an empty form the page was waiting on rather than an
+// action you could take.
+const addingFolder = ref(false);
+const newFolderRef = useTemplateRef<HTMLInputElement>("newFolderRef");
+function openAddFolder() {
+  addingFolder.value = true;
+  nextTick(() => newFolderRef.value?.focus());
+}
 function addFolder() {
-  const name = newFolder.value.trim();
+  const name = newFolderRef.value?.value.trim();
+  addingFolder.value = false;
   if (!name) return;
-  newFolder.value = "";
   void folderOp({ t: "add", name });
 }
 function renameFolder(f: VaultFolder, e: Event) {
@@ -632,16 +642,21 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
 
             <!-- new folders are made here rather than by a button that invents an
                  "Untitled folder" you then have to find and rename -->
-            <form v-if="!query" class="vault__addfolder" @submit.prevent="addFolder">
+            <div v-if="!query" class="vault__addfolder">
               <input
-                v-model="newFolder"
-                class="field vault__addfolderinput"
-                placeholder="New folder…"
+                v-if="addingFolder"
+                ref="newFolderRef"
+                class="vault__addfolderinput"
+                placeholder="Folder name"
                 aria-label="New folder name"
                 autocorrect="off"
+                spellcheck="false"
+                @keydown.enter.prevent="addFolder"
+                @keydown.esc="addingFolder = false"
+                @blur="addFolder"
               />
-              <button v-if="newFolder.trim()" type="submit" class="btn">Add</button>
-            </form>
+              <button v-else type="button" class="vault__addfolderbtn" @click="openAddFolder">Add folder</button>
+            </div>
           </template>
 
           <div v-else-if="query" class="vault__empty">
@@ -774,12 +789,23 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
    to click, so give it the same bottom rule the editor's title field carries —
 /* the passkey path, as a sentence rather than a second black button — it inherits
    the surrounding muted prose and only deepens on hover, like every other inline
-/* same treatment for the gear search, which is the other standalone field here */
+/* CONTAINED, matching the pane's search (VaultPane .vp__search) and the import
+   dialog's box: this is a control you type in, and a hairline underline reads as a
+   caption rule instead. The auth field above keeps the underline treatment — it is a
+   single question on an otherwise empty page, not a tool in a working surface. */
 .vault__search {
-  border-bottom: 1px solid var(--line);
+  border: 0;
+  background: var(--paper-2);
+  border-radius: calc(var(--radius-4) - var(--space-2));
+  color: var(--ink);
+  transition: background var(--dur) var(--ease);
+}
+.vault__search::placeholder {
+  color: var(--ink-3);
 }
 .vault__search:focus {
-  border-bottom-color: var(--ink-2);
+  outline: none;
+  background: color-mix(in oklab, var(--ink) 4%, var(--paper-2));
 }
 .vault__sentline {
   color: var(--ink);
@@ -805,6 +831,7 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
 }
 .vault__search {
   width: 100%;
+  padding-inline: var(--space-3);
   /* room for the clear button, so a long query doesn't run under it */
   padding-right: var(--space-5);
 }
@@ -1012,15 +1039,45 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
 /* making a folder is typing its name — no button that invents an "Untitled folder"
    for you to hunt down and rename */
 .vault__addfolder {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
   margin-top: var(--space-6);
   padding-top: var(--space-4);
   border-top: 1px solid var(--line);
+  /* the seam belongs to the page, not to the label sitting on it — inline-flex would
+     otherwise draw the rule only as wide as the words */
+  align-self: stretch;
+}
+/* label + inline field share the folder-name type, label dimmer — the same pair of
+   rules the editor's .editor__addfolderbtn / .editor__addfolderinput carry, so the
+   two "Add folder"s are the same affordance in both places */
+.vault__addfolderbtn,
+.vault__addfolderinput {
+  padding: 0;
+  background: none;
+  border: 0;
+  font-family: var(--font);
+  font-size: var(--text-title);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.vault__addfolderbtn {
+  color: var(--ink-3);
+  cursor: pointer;
+  transition: color var(--dur) var(--ease);
+}
+.vault__addfolderbtn:hover {
+  color: var(--ink);
 }
 .vault__addfolderinput {
-  flex: 0 1 22ch;
+  color: var(--ink);
+  min-width: 12rem;
+}
+.vault__addfolderinput:focus {
+  outline: none;
+}
+.vault__addfolderinput::placeholder {
+  color: var(--ink-3);
 }
 
 /* the removed-gear disclosure sits as a quiet footer to

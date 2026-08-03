@@ -215,6 +215,14 @@ $bp-full: 1024px !default;
   --z-autocomplete: 30;
   --z-float: 50; /* toasts + dialog overlays */
   --z-lifted: 50; /* the row mid-drag */
+  /* An anchored panel that has to clear the SIDE PANE. The sharing panel hangs off
+     the topbar, and --z-menu put it under the vault pane (--z-float): open the pane
+     first and the panel you just asked for appeared behind it, cropped.
+     Above --z-float, and safely so: the panel closes on any outside click
+     (onClickOutside in GearEditor), so it cannot still be open when a dialog's scrim
+     goes up — there is no case where this floats over a modal. Below --z-tooltip,
+     which must still describe the controls inside it. */
+  --z-panel: 55;
   /* the hover tooltip — the TOP layer, and deliberately above --z-float rather than
      level with it: a tooltip describes a control, and that control can itself live
      inside a dialog or a popover, so it has to clear everything it can annotate */
@@ -257,6 +265,19 @@ $bp-full: 1024px !default;
      gutter overshoot) so every row's data columns line up regardless of its icon count. */
   --item-col-actions: calc(5 * var(--icon-btn) + 4 * var(--space-1) - 9px);
   --item-cols: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-class) var(--item-col-actions); /* edit: name · qty(+L) · weight+unit · class · actions */
+
+  /* The same reservation, measured in TOUCH buttons. Everything above assumes the
+     32px --icon-btn chrome, but @media (pointer: coarse) grows every .btn--icon to
+     --tap — and that query has no width bound, so a touch laptop or a tablet in
+     landscape takes it while still WIDER than $bp-stack and still on this grid.
+     Five 44px buttons need 227px; the track reserved 167px, and the overflow was not
+     a clipped edge but a real overlap: the trailing icons sat on top of the
+     classification toggles, so a tap meant to hit "Consumable" landed on "Nesting".
+     Re-derived from --tap rather than widened by a magic number, so the two stay in
+     step if either size ever moves. */
+  @media (pointer: coarse) {
+    --item-col-actions: calc(5 * var(--tap) + 4 * var(--space-1) - 9px);
+  }
   /* the read/share views' two data tracks, named so the read row, the folder header
      and the packing row all measure them identically (they used to be inlined in
      --item-cols-ro, which --item-cols-pack then nested — sharing them by value here

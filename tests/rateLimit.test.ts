@@ -2,6 +2,7 @@ import type { H3Event } from "h3";
 import { describe, expect, it } from "vitest";
 import {
   consumeRateLimit,
+  rateLimitScope,
   getClientIp,
   tallyDistinctReport,
   type KvStorage,
@@ -115,5 +116,44 @@ describe("tallyDistinctReport — distinct-reporter threshold (IP-deduped)", () 
     await tallyDistinctReport(kv, "one", "ipA", 2, W);
     const other = await tallyDistinctReport(kv, "two", "ipA", 2, W);
     expect(other.distinct).toBe(1); // "two" didn't inherit "one"'s reporter
+  });
+});
+
+// A limit is only as good as the thing it counts. Keying on a whole IPv6 address
+// counted ADDRESSES, and a residential connection is routed a /64 — so any limit here
+// (sign-in links, reports, and the anonymous endpoint that opens public GitHub issues)
+// could be walked around by binding a new source address per request.
+describe("rateLimitScope", () => {
+  it("keeps an IPv4 address whole", () => {
+    // no /64 to speak of, and truncating would bucket a whole carrier NAT together
+    expect(rateLimitScope("203.0.113.7")).toBe("203.0.113.7");
+    expect(rateLimitScope("10.0.0.1")).toBe("10.0.0.1");
+  });
+
+  it("collapses every address in one /64 to a single bucket", () => {
+    const a = rateLimitScope("2001:db8:1234:5678:0:0:0:1");
+    const b = rateLimitScope("2001:db8:1234:5678:ffff:ffff:ffff:ffff");
+    const c = rateLimitScope("2001:db8:1234:5678::dead:beef");
+    expect(a).toBe(b);
+    expect(b).toBe(c);
+  });
+
+  it("still separates DIFFERENT /64s", () => {
+    expect(rateLimitScope("2001:db8:1234:5678::1"))
+      .not.toBe(rateLimitScope("2001:db8:1234:9999::1"));
+  });
+
+  it("expands a compressed run so the prefix is the real one", () => {
+    // "2001:db8::1" is 2001:0db8:0000:0000:...:0001 — its /64 is 2001:db8:0:0
+    expect(rateLimitScope("2001:db8::1")).toBe(rateLimitScope("2001:db8:0:0:5:6:7:8"));
+    expect(rateLimitScope("::1")).toBe(rateLimitScope("0:0:0:0::9"));
+  });
+
+  it("unwraps an IPv4-mapped address rather than scoping it as v6", () => {
+    expect(rateLimitScope("::ffff:203.0.113.7")).toBe("203.0.113.7");
+  });
+
+  it("ignores a scope id", () => {
+    expect(rateLimitScope("fe80::1%eth0")).toBe(rateLimitScope("fe80::2"));
   });
 });

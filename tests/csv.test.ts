@@ -201,6 +201,17 @@ describe("CSV: per-row entry units", () => {
     expect(duplex.unitWeightMg).toBeCloseTo(538000, -2);
   });
 
+  it("does not pin every row when the whole file names ONE unit", () => {
+    // Our export writes a Unit cell on every row, so a plain gram list came back with
+    // every row carrying entryUnit "g" — after which the totals bar's unit switcher
+    // moved the headline figure and left every row in grams. A unit shared by all the
+    // rows is the LIST's, not a choice made on any of them.
+    const s = snap(); // displayUnit "g", no row has an entryUnit
+    const data = csvToListData(listToCsv(s));
+    expect(data.items.length).toBeGreaterThan(1);
+    for (const it of data.items) expect(it.entryUnit).toBeUndefined();
+  });
+
   it("leaves entryUnit unset when the file names no unit", () => {
     // a unitless CSV made no choice — pinning every row to the fallback would
     // invent one, and the list's own unit already covers it

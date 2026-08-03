@@ -10,7 +10,7 @@ const NO_ITEMS: ItemT[] = [];
 import { HugeiconsIcon } from "@hugeicons/vue";
 import { ChevronDownIcon } from "@hugeicons/core-free-icons";
 import type { Item, ListSnapshot } from "~~/shared/types";
-import { effectiveClassification, formatWeight, rowDisplayMg } from "~~/shared/weights";
+import { effectiveClassification, formatKcal, formatWeight, rowDisplayMg } from "~~/shared/weights";
 import { itemQtyLabel } from "~~/shared/water";
 
 // The share views' row (/s + /l): name (a web-search link via <ItemName search>),
@@ -40,6 +40,28 @@ const isParent = computed(() => children.value.length > 0);
 // a group shows its total (own + children); a leaf shows its own line weight
 // (`children` holds exactly this row's children, so the sum is O(children))
 const rowWeightMg = computed(() => rowDisplayMg(props.item, children.value));
+// The unit the row was TYPED in, exactly as the editor and the packing view resolve it
+// (ItemRow's rowUnit). Without this the same row read "32.5 oz" to the person who wrote
+// it and "920 g" to everyone they shared it with — the feature is that a row keeps the
+// unit you typed, and a shared list is still that row.
+// A GROUP falls back to the list's unit for the same reason it does in the editor: its
+// figure is the sum of children that may each have been typed differently, so there is
+// no one entry unit to honour.
+const rowUnit = computed(() =>
+  isParent.value ? props.list.displayUnit : (props.item.entryUnit ?? props.list.displayUnit),
+);
+
+// The LINE's calories, on the same terms as the line's weight beside it: kcal is stored
+// per unit, so this is kcal × qty. The totals bar already shows the list's calorie
+// figure to a reader; without this the rows it was added up from stayed silent, and a
+// shared food list could show "2,430 kcal" with nothing saying where it came from.
+// Gated on the EFFECTIVE class, the same condition computeTotals counts under, so what
+// a reader can see and what the total counted never disagree.
+const lineKcal = computed(() =>
+  effClass.value === "consumable" && props.item.kcal
+    ? props.item.kcal * (props.item.qty || 0)
+    : 0,
+);
 // nested groups start CLOSED in a shared list — it reads compact (the group total is
 // shown; expand to see the members). Local + per-view, NEVER persisted, matching
 // ReadonlyFolderSection (the owner's editor collapse can't bleed into the share).
@@ -50,7 +72,7 @@ const collapsed = ref(true);
   <div class="ro-wrap">
     <div class="item-row item item--ro">
       <span class="item__roname" :class="{ 'item__roname--group': isParent }">
-        <span class="item__ronametext"><ItemName :item="item" :group="isParent" search /><span v-if="effClass !== 'base'" class="t-sm item__class"> · {{ effClass }}</span></span>
+        <span class="item__ronametext"><ItemName :item="item" :group="isParent" search /><span v-if="effClass !== 'base'" class="t-sm item__class"> · {{ effClass }}</span><span v-if="lineKcal" class="t-sm item__class"> · {{ formatKcal(lineKcal) }} kcal</span></span>
         <!-- collapse a group of nested items — trails the name like the folder chevron.
              The name text truncates so a long group name never shoves the chevron off. -->
         <button
@@ -71,7 +93,7 @@ const collapsed = ref(true);
            weight ~1000 g heavy. A visually-hidden delimiter keeps them apart for those
            readers with no visual change (position:absolute → takes no grid cell). -->
       <span class="visually-hidden"> · </span>
-      <span class="t-num item__roweight"><template v-if="rowWeightMg > 0">{{ formatWeight(rowWeightMg, list.displayUnit, { withUnit: false }) }}<span class="t-muted item__wunit">{{ list.displayUnit }}</span></template><template v-else>—</template></span>
+      <span class="t-num item__roweight"><template v-if="rowWeightMg > 0">{{ formatWeight(rowWeightMg, rowUnit, { withUnit: false }) }}<span class="t-muted item__wunit">{{ rowUnit }}</span></template><template v-else>—</template></span>
       <!-- the sub-line: the gear type (a quiet upright label, "Tent"/"Trail runners") with the
            owner's note trailing it inline in the italic caption voice. Either may be absent;
            with no common name the note shows alone, exactly as it did before this field. -->

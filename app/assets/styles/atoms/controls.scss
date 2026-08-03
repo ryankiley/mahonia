@@ -509,6 +509,31 @@ input[type="search"]::-webkit-search-decoration {
   }
 }
 
+// An icon button parked at a panel's TRAILING edge — the close × on the vault pane,
+// the sharing panel, and anything else that grows this shape.
+//
+// The button is a 32px box around a 16px mark, so half the difference (8px) is
+// invisible padding. Inset the BOX by the panel's padding and the MARK lands 8px
+// further in than the title on the other side — the panel reads lopsided, and the ×
+// looks like it missed its corner. Nothing is misaligned in the box model; the thing
+// the eye measures is the glyph.
+//
+// So pull the button out by exactly that padding, and let the glyph carry the
+// alignment. Same move, and the same reasoning, as the topbar's -13px gutter nudge
+// that lines the last icon up with the item rows' drag handle.
+//
+// The pull is derived from the two sizes rather than typed as a number, so it stays
+// right on a coarse pointer, where the rule below grows the box to --tap and the mark
+// to --icon-touch and a hardcoded -8px would be 6px short.
+.btn--flush-end {
+  margin-inline-end: calc((16px - var(--icon-btn)) / 2);
+}
+@media (pointer: coarse) {
+  .btn--flush-end {
+    margin-inline-end: calc((var(--icon-touch) - var(--tap)) / 2);
+  }
+}
+
 // Touch devices: icon buttons hit the --tap minimum tap target (Apple HIG) and
 // their glyphs grow to --icon-touch so they don't read as tiny on a phone.
 // Desktop keeps the dense --icon-btn chrome — a mouse is precise and doesn't

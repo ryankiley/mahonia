@@ -38,7 +38,16 @@ const viewM = computed(() => cursor.value.m);
 
 function step(by: number) {
   const m = viewM.value + by;
-  cursor.value = { ...cursor.value, y: viewY.value + Math.floor(m / 12), m: ((m % 12) + 12) % 12 };
+  const y = viewY.value + Math.floor(m / 12);
+  const mm = ((m % 12) + 12) % 12;
+  cursor.value = { ...cursor.value, y, m: mm };
+  // Carry the tab stop into the month now on screen. `focused` is what gives ONE cell
+  // tabindex="0"; leave it pointing at a day the grid no longer renders and every cell
+  // gets -1, which drops the whole grid out of the tab order. Clamp the day so
+  // 31 January → February lands on the 28th/29th rather than nowhere.
+  const days = new Date(y, mm + 1, 0).getDate();
+  const p = parts(focused.value);
+  focused.value = iso(y, mm, Math.min(p ? p.d : 1, days));
 }
 
 // Monday-first, matching the en-GB formatting the range label uses. JS weeks start
@@ -78,16 +87,51 @@ function pick(v: string) {
 // ---- keyboard ----
 // The grid is one tab stop (roving tabindex); arrows move a day at a time and cross
 // month boundaries by re-cursoring, so a range never needs the mouse.
-const focused = ref<string>(props.start ?? today);
+// Seeded with the SAME precedence the cursor uses above. Seeding from `start` alone
+// left an end-only range (start cleared, end kept) opening on the end's month with
+// the tab stop pointing at today in some other month — no rendered cell claimed
+// tabindex="0", so the grid could not be tabbed into at all.
+const focused = ref<string>(props.start ?? props.end ?? today);
+const gridEl = useTemplateRef<HTMLElement>("gridEl");
+
+/**
+ * Move the roving tab stop AND the real DOM focus together.
+ *
+ * Updating `focused` alone was half a roving tabindex: it moved which cell claims
+ * tabindex="0", but setting tabindex="-1" on the element that currently holds focus
+ * does not blur it. Focus stayed on the day you started from while the tab stop walked
+ * away — so the ring never moved, and Enter fired the ORIGINAL day's handler. Crossing
+ * a month boundary made that actively wrong rather than merely inert: the cells were
+ * keyed by index, so Vue patched the still-focused button in place and it came back
+ * showing a different date, which Enter then committed.
+ *
+ * Cells are keyed by their iso date now (see the template), so a month change replaces
+ * nodes instead of repainting them, and the focus call below lands on the day named.
+ */
+async function moveFocus(v: string) {
+  focused.value = v;
+  const p = parts(v)!;
+  cursor.value = { y: p.y, m: p.m, d: p.d };
+  await nextTick();
+  gridEl.value?.querySelector<HTMLElement>(`[data-iso="${v}"]`)?.focus();
+}
+
 function onKey(e: KeyboardEvent) {
   const delta = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 }[e.key];
   if (delta == null) return;
   e.preventDefault();
   const p = parts(focused.value)!;
   const n = new Date(p.y, p.m, p.d + delta);
-  focused.value = iso(n.getFullYear(), n.getMonth(), n.getDate());
-  cursor.value = { y: n.getFullYear(), m: n.getMonth(), d: n.getDate() };
+  void moveFocus(iso(n.getFullYear(), n.getMonth(), n.getDate()));
 }
+
+// The picker focuses ITSELF rather than being focused from outside. ListHead opens this
+// behind a Lazy async component, so its own `await nextTick()` runs a tick before the
+// grid exists and the cell lookup there found nothing on the very first open — the
+// keyboard did nothing at all until you had opened the popover once before.
+onMounted(() => {
+  gridEl.value?.querySelector<HTMLElement>('[role="gridcell"][tabindex="0"]')?.focus();
+});
 </script>
 
 <template>
@@ -114,14 +158,17 @@ function onKey(e: KeyboardEvent) {
       </button>
     </div>
 
-    <div class="cal__grid" role="grid" :aria-label="monthLabel" @keydown="onKey">
+    <div ref="gridEl" class="cal__grid" role="grid" :aria-label="monthLabel" @keydown="onKey">
       <span v-for="(w, i) in WEEKDAYS" :key="i" class="t-sm t-muted cal__wd" aria-hidden="true">{{ w }}</span>
-      <template v-for="(c, i) in cells" :key="i">
+      <!-- keyed by DATE, not index: a month change must replace these nodes, not
+           repaint them in place under whatever still holds focus -->
+      <template v-for="(c, i) in cells" :key="c ? c.iso : `pad-${i}`">
         <span v-if="!c" class="cal__pad" />
         <button
           v-else
           type="button"
           role="gridcell"
+          :data-iso="c.iso"
           class="cal__day t-num"
           :class="{
             'is-start': c.iso === start,
@@ -131,7 +178,7 @@ function onKey(e: KeyboardEvent) {
           }"
           :aria-selected="c.iso === start || c.iso === end"
           :tabindex="c.iso === focused ? 0 : -1"
-          @click="pick(c.iso); focused = c.iso"
+          @click="pick(c.iso); moveFocus(c.iso)"
         >
           {{ c.d }}
         </button>
@@ -193,6 +240,14 @@ function onKey(e: KeyboardEvent) {
 .cal__day:hover {
   background: var(--paper-2);
   color: var(--ink);
+}
+/* The grid is one tab stop and the arrows walk it, so the focused day has to be
+   visible — without a cue you are moving an invisible caret around a month. Only on
+   :focus-visible, so a mouse click doesn't leave a ring behind. */
+.cal__day:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: -2px;
+  border-radius: var(--radius-1);
 }
 /* today is MARKED, not selected — a ring rather than a fill, so it can't be mistaken
    for one end of the range */

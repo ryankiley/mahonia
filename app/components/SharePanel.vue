@@ -123,7 +123,7 @@ function changeLabel(i: number): string {
       <h2 class="t-label share__title">Sharing</h2>
       <button
         type="button"
-        class="btn btn--icon btn--ghost"
+        class="btn btn--icon btn--ghost btn--flush-end"
         aria-label="Close sharing"
         @click="emit('close')"
       >
@@ -236,7 +236,8 @@ function changeLabel(i: number): string {
   position: absolute;
   top: calc(100% + var(--space-1));
   right: 0;
-  z-index: var(--z-menu);
+  /* clears the vault pane — see --z-panel */
+  z-index: var(--z-panel);
   width: min(22rem, calc(100vw - 2 * var(--space-4)));
   padding: var(--space-3);
   display: grid;

@@ -6,8 +6,9 @@
       "Rows now keep the unit you typed, whatever the list's unit is.",
       "Save any item to your gear vault straight from its row.",
       "Save a whole category to your vault and drop it into a new list.",
-      "Send feedback from anywhere in the app, from the link in the footer.",
-      "Give a list its trip dates."
+      "Send feedback from anywhere in the app — the footer link, or the editor's actions menu.",
+      "Give a list its trip dates.",
+      "Shared lists now show the calories on each food item, not just the total."
     ],
     "changed": [
       "Worn and consumable are now two toggles on the row, each opening its own small panel.",
@@ -18,13 +19,18 @@
       "List and folder names now show when they can be edited.",
       "On a phone, saving an item to your gear vault has moved into the row's ⋯ menu, so the row's controls fit.",
       "On a phone, the trail link's card now opens when you press the link name, instead of sitting under the title all the time.",
-      "Each row's weight unit now shows a small arrow, so you can see it can be changed."
+      "Each row's weight unit now shows a small arrow, so you can see it can be changed.",
+      "The gear vault's search and “Add folder” now look and work like the editor's."
     ],
     "fixed": [
       "On a phone, swiping the gear vault sheet now scrolls the gear inside it instead of the list behind it.",
       "Ungrouped items now sit the same distance from their heading as items in a folder.",
       "On a phone, the trip date picker and the sharing panel now open fully on screen.",
-      "On the narrowest phones, a row's buttons now wrap onto their own line instead of running off the edge."
+      "On the narrowest phones, a row's buttons now wrap onto their own line instead of running off the edge.",
+      "Arrow keys now move through the trip date picker, and picking commits the day you landed on.",
+      "Importing a CSV no longer locks every row to a single unit.",
+      "Weights line up in a column on a shared list, whatever unit each row is in.",
+      "On a touch tablet, a row's buttons no longer overlap the worn and consumable toggles."
     ]
   },
   {

@@ -345,6 +345,11 @@ async function cloneList() {
 //
 // One table drives the markup AND the dispatch, so an action can't exist in one
 // without the other (a string-keyed lookup would let a typo no-op).
+// Same everOpened guard the other lazy dialogs use, so the chunk is fetched by the
+// first open rather than by loading the editor.
+const feedbackOpen = ref(false);
+const feedbackEverOpened = ref(false);
+
 const MENU_ACTIONS = [
   { label: "Create a list", run: () => newList() },
   { label: "Duplicate this list", run: cloneList },
@@ -353,6 +358,11 @@ const MENU_ACTIONS = [
   // a single item is a click that reveals nothing you couldn't have been shown. It
   // also forced a label long enough to set the whole menu's width.
   { label: "Import a list…", run: () => { importOpen.value = true; } },
+  // Feedback is reachable from the footer on every page, but the editor is where
+  // people actually spend their time and where a long list puts that footer far below
+  // the fold — by the time you have something to say about a row, the link is a scroll
+  // away. The toolbar is in reach from anywhere in the list.
+  { label: "Send feedback…", run: () => { feedbackEverOpened.value = true; feedbackOpen.value = true; } },
 ];
 const MENU_SECTIONS = [
   {
@@ -750,6 +760,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
 
     <LazyCatalogCorrectionModal v-if="correctionEverOpened" @done="onCorrected" />
     <LazyImportModal v-if="importEverOpened" :open="importOpen" @close="importOpen = false" />
+    <LazyFeedbackModal v-if="feedbackEverOpened" :open="feedbackOpen" @close="feedbackOpen = false" />
   </div>
 </template>
 
