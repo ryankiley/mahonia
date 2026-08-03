@@ -1,11 +1,28 @@
 [
   {
     "date": "2026-08-02",
+    "added": [
+      "Track calories on food and fuel, and see the total for your list.",
+      "Rows now keep the unit you typed, whatever the list's unit is.",
+      "Save any item to your gear vault straight from its row.",
+      "Save a whole category to your vault and drop it into a new list.",
+      "Send feedback from anywhere in the app, from the link in the footer.",
+      "Give a list its trip dates."
+    ],
     "changed": [
+      "Worn and consumable are now two toggles on the row, each opening its own small panel.",
+      "Row actions now stay visible instead of appearing only on hover.",
+      "Sharing now lives in one panel — both links, replacing the edit link, and recent changes.",
+      "Export options group together in the actions menu.",
+      "Icons have a new, rounder look.",
+      "List and folder names now show when they can be edited.",
+      "On a phone, saving an item to your gear vault has moved into the row's ⋯ menu, so the row's controls fit.",
       "On a phone, the trail link's card now opens when you press the link name, instead of sitting under the title all the time."
     ],
     "fixed": [
-      "On a phone, swiping the gear vault sheet now scrolls the gear inside it instead of the list behind it."
+      "On a phone, swiping the gear vault sheet now scrolls the gear inside it instead of the list behind it.",
+      "Ungrouped items now sit the same distance from their heading as items in a folder.",
+      "On a phone, the trip date picker and the sharing panel now open fully on screen."
     ]
   },
   {

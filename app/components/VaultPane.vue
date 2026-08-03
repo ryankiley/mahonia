@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { Check, CircleX, Plus, X } from "@lucide/vue";
-import type { VaultEntry } from "~~/shared/vault";
+import { HugeiconsIcon } from "@hugeicons/vue";
+import { Add01Icon, Cancel01Icon, CheckIcon, CircleXIcon } from "@hugeicons/core-free-icons";
+import type { VaultEntry, VaultFolder } from "~~/shared/vault";
 import { vaultNormKey } from "~~/shared/vault";
 import { rankVaultRows } from "~~/shared/vaultSearch";
 import { highlightParts } from "~~/shared/catalogSearch";
@@ -19,7 +20,7 @@ import { formatWeight, itemDisplayName } from "~~/shared/weights";
 // Rendered via <LazyVaultPane v-if>, so this component AND the shared vault module
 // it imports are a separate chunk — someone who never opens the pane never
 // downloads it, which is what keeps it off the editor's bundle budget.
-const emit = defineEmits<{ close: [] }>();
+const emit = defineEmits<{ close: []; added: [string] }>();
 
 // Split-pane width, owned by the editor (which also needs it, to inset the list out
 // from under the pane) and adjusted from the divider below. Desktop only — on a
@@ -81,9 +82,21 @@ const dnd = useItemDnd();
 const { hasVault, vaultFetch } = useVaultAccess();
 
 const items = ref<VaultEntry[]>([]);
+// The vault's own folders — gear is filed into them by the NAME of the list folder
+// it was captured from, so they are already the categories you build with. The pane
+// used to drop them on the floor and show one flat list; the Categories tab below is
+// what gets a whole "Cook kit" back out in one go.
+const vaultFolders = ref<VaultFolder[]>([]);
+const tab = ref<"items" | "categories">("items");
 const loading = ref(true);
 const loadError = ref("");
-const query = ref("");
+// one query ref per tab: switching back to a tab you were searching shouldn't hand
+// you its results filtered by a term you typed for the other one
+const queries = ref<{ items: string; categories: string }>({ items: "", categories: "" });
+const query = computed({
+  get: () => queries.value[tab.value],
+  set: (v: string) => (queries.value[tab.value] = v),
+});
 const searchEl = useTemplateRef<HTMLInputElement>("searchEl");
 
 // Where an added item lands. Defaults to the first folder and remembers your
@@ -112,8 +125,9 @@ async function load() {
   loading.value = true;
   loadError.value = "";
   try {
-    const res = await vaultFetch<{ items: VaultEntry[] }>("/api/vault/list");
+    const res = await vaultFetch<{ items: VaultEntry[]; folders?: VaultFolder[] }>("/api/vault/list");
     items.value = res.items || [];
+    vaultFolders.value = res.folders || [];
   } catch {
     loadError.value = "Couldn’t load your gear vault.";
   }
@@ -154,6 +168,48 @@ const hl = (text: string) => highlightParts(text, query.value);
 function clearQuery() {
   query.value = "";
   searchEl.value?.focus();
+}
+
+// ---- categories ----
+// A vault folder plus the gear filed under it. Built from the SAME loaded rows the
+// Items tab shows, so nothing is fetched twice and the two tabs can never disagree
+// about what the vault holds.
+const categories = computed(() => {
+  const byFolder = new Map<number, VaultEntry[]>();
+  for (const e of items.value) {
+    if (e.folderId == null) continue; // unfiled gear lives on the Items tab only
+    const bucket = byFolder.get(e.folderId);
+    if (bucket) bucket.push(e);
+    else byFolder.set(e.folderId, [e]);
+  }
+  return vaultFolders.value
+    .map((f) => {
+      const entries = byFolder.get(f.id) ?? [];
+      return {
+        id: f.id,
+        name: f.name,
+        entries,
+        weightMg: entries.reduce((sum, e) => sum + e.weightMg, 0),
+        // every piece of it is already on the list — the same rule the item rows
+        // use, resolved for the whole set so the button can say so
+        allInList: entries.length > 0 && entries.every((e) => inList.value.has(e.normKey)),
+      };
+    })
+    // an empty vault folder is a filing artefact, not a template worth offering
+    .filter((c) => c.entries.length > 0);
+});
+
+// name-only match: a category has no brand/variant to fuzzy-rank, and the set is
+// small enough to scan
+const filteredCategories = computed(() => {
+  const q = query.value.trim().toLowerCase();
+  if (!q) return categories.value;
+  return categories.value.filter((c) => c.name.toLowerCase().includes(q));
+});
+
+function addCategory(cat: { name: string; entries: VaultEntry[] }) {
+  const id = c.addVaultFolder(cat.name, cat.entries);
+  if (id) emit("added", cat.name);
 }
 
 // The gear the open list already holds, keyed by the SAME identity rule the vault
@@ -346,20 +402,48 @@ onKeyStroke("Escape", () => emit("close"));
         title="Close"
         @click="emit('close')"
       >
-        <X :size="16" />
+        <HugeiconsIcon :icon="Cancel01Icon" :size="16" :stroke-width="2" />
       </button>
     </header>
 
-    <!-- signed out: the pane explains itself rather than sitting empty -->
+    <!-- Signed out, so this is a sign-in prompt and nothing else.
+         It used to describe the vault in the present tense ("every piece of gear you
+         add is kept here", "nothing to set up") while the reader had no vault and the
+         button underneath was asking them to go and set one up. Both halves were
+         false at the only moment anyone reads this.
+         It also pointed at /vault, which signed out renders this same prompt again —
+         two hops to reach one button. Same sentence and same action as that page now,
+         because it is the same question being asked twice. -->
     <div v-if="!hasVault" class="vp__empty">
       <p class="t-sm t-muted">
-        Every piece of gear you add to a list is kept here, ready to drop into the next one.
-        Nothing to set up — it fills itself as you build.
+        Your vault holds the gear you use, ready to drop into your next list.
+        It needs an account, so you can reach it from any device.
       </p>
-      <NuxtLink to="/vault" class="btn btn--primary">Open your gear vault</NuxtLink>
+      <NuxtLink to="/account" class="btn btn--primary">Sign in</NuxtLink>
     </div>
 
     <template v-else>
+      <!-- Items / Categories. Both tabs read the SAME loaded rows — one is the gear,
+           the other is the sets you've built out of it — so switching costs nothing
+           and the two can't disagree. The search below belongs to whichever is open,
+           which is what keeps the panel self-sufficient: finding gear never reaches
+           out into the editor's chrome. -->
+      <div class="vp__tabs" role="tablist" aria-label="Vault view">
+        <button
+          v-for="t in (['items', 'categories'] as const)"
+          :key="t"
+          type="button"
+          role="tab"
+          class="vp__tab"
+          :class="{ 'is-active': tab === t }"
+          :aria-selected="tab === t"
+          @click="tab = t"
+        >
+          {{ t === "items" ? "Items" : "Categories" }}
+          <span class="vp__tabcount t-num">{{ t === "items" ? items.length : categories.length }}</span>
+        </button>
+      </div>
+
       <div class="vp__controls">
         <!-- our own clear, not the platform's: WebKit's cancel button is a filled
              blue circle-x, the only colour in the chrome (suppressed in
@@ -370,8 +454,8 @@ onKeyStroke("Escape", () => emit("close"));
             v-model="query"
             class="field vp__search"
             type="search"
-            placeholder="Search gear…"
-            aria-label="Search gear"
+            :placeholder="tab === 'items' ? 'Search gear…' : 'Search categories…'"
+            :aria-label="tab === 'items' ? 'Search gear' : 'Search categories'"
           />
           <button
             v-if="query"
@@ -381,10 +465,12 @@ onKeyStroke("Escape", () => emit("close"));
             title="Clear search"
             @click="clearQuery"
           >
-            <CircleX :size="15" :stroke-width="2" />
+            <HugeiconsIcon :icon="CircleXIcon" :size="15" :stroke-width="2" />
           </button>
         </div>
-        <label v-if="folders.length" class="vp__target">
+        <!-- the destination picker is meaningless on Categories — a cloned category
+             brings its own folder with it -->
+        <label v-if="folders.length && tab === 'items'" class="vp__target">
           <span class="t-sm t-muted">Add to</span>
           <select v-model="targetFolderId" class="field vp__select" aria-label="Folder to add into">
             <option v-for="f in folders" :key="f.id" :value="f.id">{{ f.name }}</option>
@@ -395,7 +481,38 @@ onKeyStroke("Escape", () => emit("close"));
       <p v-if="loadError" class="t-sm vp__error">{{ loadError }}</p>
       <p v-else-if="loading" class="t-sm t-muted vp__note">Loading your gear…</p>
 
-      <ul v-else-if="filtered.length" ref="listEl" class="vp__list">
+      <!-- CATEGORIES: a whole set, added in one go. No drag here — a category brings
+           its own folder, so there is no destination to aim at, and the click is the
+           entire interaction. -->
+      <ul v-else-if="tab === 'categories' && filteredCategories.length" class="vp__list">
+        <li v-for="cat in filteredCategories" :key="cat.id">
+          <button
+            type="button"
+            class="vp__add"
+            :disabled="cat.allInList"
+            :aria-label="
+              cat.allInList
+                ? `Every item in ${cat.name} is already in this list`
+                : `Add the ${cat.name} category to the list`
+            "
+            @click="addCategory(cat)"
+          >
+            <span class="vp__main">
+              <span class="vp__name">{{ cat.name }}</span>
+              <span class="t-sm vp__inlist">
+                {{ cat.allInList ? "Already added" : `${cat.entries.length} item${cat.entries.length === 1 ? "" : "s"}` }}
+              </span>
+            </span>
+            <span class="t-num t-sm vp__w">{{ formatWeight(cat.weightMg, unit, { withUnit: false }) }}<span class="t-muted"> {{ unit }}</span></span>
+            <span class="vp__icon" aria-hidden="true">
+              <HugeiconsIcon :icon="CheckIcon" v-if="cat.allInList" :size="15" :stroke-width="2.2" class="vp__added" />
+              <HugeiconsIcon :icon="Add01Icon" v-else :size="15" :stroke-width="2" />
+            </span>
+          </button>
+        </li>
+      </ul>
+
+      <ul v-else-if="tab === 'items' && filtered.length" ref="listEl" class="vp__list">
         <li v-for="entry in filtered" :key="entry.id">
           <!-- Click adds to the "Add to" folder; press and drag puts it in whichever
                folder you let go over. See onRowPointerDown for how the two are told
@@ -430,19 +547,25 @@ onKeyStroke("Escape", () => emit("close"));
             </span>
             <span class="t-num t-sm vp__w">{{ formatWeight(entry.weightMg, unit, { withUnit: false }) }}<span class="t-muted"> {{ unit }}</span></span>
             <span class="vp__icon" aria-hidden="true">
-              <Check
-                v-if="isInList(entry)"
+              <HugeiconsIcon :icon="CheckIcon" v-if="isInList(entry)"
                 :size="15"
                 :stroke-width="2.2"
-                class="vp__added"
-              />
-              <Plus v-else :size="15" :stroke-width="2" />
+                class="vp__added" />
+              <HugeiconsIcon :icon="Add01Icon" v-else :size="15" :stroke-width="2" />
             </span>
           </button>
         </li>
       </ul>
 
       <p v-else-if="query" class="t-sm t-muted vp__note">Nothing here matches “{{ query }}”.</p>
+      <!-- the two tabs fail differently: an empty vault has no gear yet, an empty
+           Categories tab has gear that was never filed into one -->
+      <div v-else-if="tab === 'categories'" class="vp__empty">
+        <p class="t-sm t-muted">
+          No categories yet. Gear files itself under the folder you add it to, so build a
+          list with folders and they’ll show up here to reuse.
+        </p>
+      </div>
       <div v-else class="vp__empty">
         <p class="t-sm t-muted">
           Your gear vault is empty. Add gear to this list and it’ll collect itself here.
@@ -533,11 +656,48 @@ onKeyStroke("Escape", () => emit("close"));
 /* the rows carry their own --space-2 inline padding, so the header and controls
    need the same inset to line up with them rather than hugging the card edge */
 .vp__head,
+.vp__tabs,
 .vp__controls,
 .vp__note,
 .vp__error,
 .vp__empty {
   padding-inline: var(--space-2);
+}
+/* Items / Categories — a segmented pair, not a link row: they switch what this panel
+   IS looking at, so the active one takes a filled ground rather than an underline.
+   Same quiet-grey chip the row toggles use, so "selected" reads the same everywhere. */
+.vp__tabs {
+  display: flex;
+  gap: var(--space-1);
+  margin-bottom: var(--space-2);
+}
+.vp__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--popover-item-radius);
+  background: transparent;
+  font: inherit;
+  font-size: var(--text-sm);
+  color: var(--ink-3);
+  cursor: pointer;
+  transition:
+    background var(--dur) var(--ease),
+    color var(--dur) var(--ease);
+}
+.vp__tab:hover {
+  color: var(--ink);
+}
+.vp__tab.is-active {
+  background: var(--paper-3);
+  color: var(--ink);
+}
+/* the count rides at --ink-3 even on the active tab: it's a quantity, not the label,
+   and matching the label's weight made the two read as one long word */
+.vp__tabcount {
+  color: var(--ink-3);
 }
 .vp__head {
   display: flex;
@@ -756,7 +916,11 @@ onKeyStroke("Escape", () => emit("close"));
   flex-direction: column;
   align-items: flex-start;
   gap: var(--space-3);
-  padding: var(--space-2) 0 var(--space-3);
+  /* padding-BLOCK, not the shorthand: this block also matches the shared
+     padding-inline rule above, and a `padding: x 0 y` shorthand silently zeroes the
+     inline half of it — which left the empty state's text one full step to the left
+     of the header above it and the rows below it. */
+  padding-block: var(--space-2) var(--space-3);
 }
 
 /* A coarse pointer grows the mode toggle (28px → 40px), so the topbar grows with

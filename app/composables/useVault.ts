@@ -266,7 +266,64 @@ export function useVaultCapture() {
     }
   }
 
-  return { sync, buildCaptures, captureNewList, bindFlushOnLeave };
+  /**
+   * Bank ONE row, because its own button was pressed.
+   *
+   * Everything else here is the automatic path: debounced, deduped against a
+   * fingerprint, and gated on a consent question because capture happens without
+   * anyone asking for it. A press is none of those things — it is the answer to
+   * that question, for that row, right now. So this sends immediately and skips the
+   * fingerprint memo (the row may already be in it from an earlier automatic pass,
+   * and the press must still visibly do something). It answers for that row ONLY —
+   * see the note below the POST.
+   *
+   * It still goes through captureFromList, so the identity and worthiness rules in
+   * shared/vault are the SAME ones the automatic path uses. Passing the whole list
+   * alongside is what lets isVaultWorthy see that a row has children — a group is a
+   * container, not gear, and one row on its own can't tell.
+   *
+   * Reports WHY it didn't work, not just that it didn't. The two failures need
+   * different words — a row with no weight is something you can fix on the row, a
+   * missing vault is something you fix by signing in — and a single boolean would
+   * make the caller guess, which is how you end up telling someone to add a weight
+   * to a row that already has one.
+   */
+  async function captureOne(
+    item: Item,
+    allItems: Item[],
+    folders: Folder[],
+    editToken: string,
+  ): Promise<"saved" | "unworthy" | "failed"> {
+    if (!import.meta.client) return "failed";
+    let caps: VaultCapture[];
+    try {
+      const { captureFromList } = await import("~~/shared/vault");
+      // the folder list is passed so the row lands filed, not in a flat pile
+      caps = captureFromList([item], folders);
+    } catch {
+      return "failed"; // chunk fetch failed (offline before the SW cached it)
+    }
+    // a parent is a container, not gear; captureFromList can't see that from one item
+    if (!caps.length || allItems.some((i) => i.parentId === item.id)) return "unworthy";
+    try {
+      await vaultFetch("/api/vault/capture", { method: "POST", body: { items: caps } });
+    } catch {
+      return "failed";
+    }
+    // DELIBERATELY does not set the list-wide decision, tempting though it looks.
+    // Pressing save on ONE row says "this piece of gear is mine". It says nothing
+    // about the other forty, which on a list opened from someone else's edit link
+    // are quite likely theirs — and "yes" here is the same flag captureNewList sets,
+    // so the next keystroke would POST the whole list. That is the exact leak the
+    // consent gate exists to stop. The question stays open; the prompt still comes.
+    //
+    // the automatic path's memo is now stale — it would otherwise treat the next
+    // edit as "already stored" and skip a genuine change
+    lastFingerprint = "";
+    return "saved";
+  }
+
+  return { sync, buildCaptures, captureNewList, captureOne, bindFlushOnLeave };
 }
 
 /** Reset the capture memo — called when a device switches vaults, so

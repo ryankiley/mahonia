@@ -149,3 +149,62 @@ describe("LighterPack CSV import", () => {
     expect(data.items[0]?.unitWeightMg).toBe(toMg(1.2, "kg"));
   });
 });
+
+describe("CSV: calories", () => {
+  it("round-trips kcal on a consumable row", () => {
+    const s = snap();
+    s.folders.push({ id: "f3", name: "Food", defaultClassification: "consumable", sortOrder: 2 });
+    s.items.push({ id: "i4", folderId: "f3", name: "Bars", unitWeightMg: 60000, qty: 4, classification: null, kcal: 250, sortOrder: 0 });
+    const csv = listToCsv(s);
+    expect(csv.split("\n")[0]).toContain("Kcal");
+    const bars = csvToListData(csv).items.find((i) => i.name === "Bars")!;
+    expect(bars.kcal).toBe(250);
+  });
+
+  it("does not export kcal from a row that isn't consumable", () => {
+    // it's carried in the data (so re-promoting restores it) but it isn't true of
+    // the row as exported, and computeTotals wouldn't count it either
+    const s = snap();
+    s.items[0]!.kcal = 999;
+    const bodyRow = listToCsv(s).split("\n").find((r) => r.startsWith("Shelter"))!;
+    expect(bodyRow.endsWith(",")).toBe(true);
+  });
+
+  it("imports a CSV with no Kcal column at all (the LighterPack case)", () => {
+    const data = csvToListData("Item Name,Weight,Unit,Consumable\nBars,60,g,1");
+    expect(data.items[0]?.kcal).toBeUndefined();
+    expect(data.items[0]?.unitWeightMg).toBe(60000);
+  });
+
+  it("accepts 'Calories' as a header alias", () => {
+    const data = csvToListData("Item Name,Weight,Unit,Consumable,Calories\nBars,60,g,1,250");
+    expect(data.items[0]?.kcal).toBe(250);
+  });
+});
+
+describe("CSV: per-row entry units", () => {
+  it("exports each row in the unit it reads in, not the list's", () => {
+    const s = snap(); // displayUnit "g"
+    s.items[0]!.entryUnit = "oz";
+    const row = listToCsv(s).split("\n").find((r) => r.includes("Zpacks Duplex"))!;
+    const cols = row.split(",");
+    expect(cols[6]).toBe("oz"); // Unit column
+    expect(Number(cols[5])).toBeCloseTo(538000 / 28349.523125, 2);
+  });
+
+  it("round-trips the entry unit through the existing Unit column", () => {
+    const s = snap();
+    s.items[0]!.entryUnit = "oz";
+    const duplex = csvToListData(listToCsv(s)).items.find((i) => i.name === "Zpacks Duplex")!;
+    expect(duplex.entryUnit).toBe("oz");
+    // and the weight survives the g → oz → g trip within rounding
+    expect(duplex.unitWeightMg).toBeCloseTo(538000, -2);
+  });
+
+  it("leaves entryUnit unset when the file names no unit", () => {
+    // a unitless CSV made no choice — pinning every row to the fallback would
+    // invent one, and the list's own unit already covers it
+    const data = csvToListData("Item Name,Weight\nSpork,18");
+    expect(data.items[0]?.entryUnit).toBeUndefined();
+  });
+});

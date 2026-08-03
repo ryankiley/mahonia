@@ -135,6 +135,56 @@ button svg {
   display: block;
 }
 
+// Switch — a two-state control for a setting that takes effect immediately, used
+// inside popovers where a labelled row reads better than another icon. Always a
+// real <button role="switch"> with aria-checked, never a checkbox: the popovers it
+// lives in are dismissed on outside click, and a checkbox's implicit label/for
+// pairing would put a second focus stop in a surface that holds one or two controls.
+//
+// MONOCHROME, like the rest of the chrome: on = ink ground, off = a faint well. The
+// reference this borrows from uses green for "on"; colour here belongs to the data
+// viz only (see tokens.scss), and ink-vs-empty carries the same two states without
+// spending the one signal the category bar owns.
+.switch {
+  flex: none;
+  position: relative;
+  inline-size: 28px;
+  block-size: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--paper-3);
+  cursor: pointer;
+  transition: background var(--dur) var(--ease);
+}
+.switch[aria-checked="true"] {
+  background: var(--ink);
+}
+// the knob — inset by 2px at both ends, so its travel is the track minus its own
+// width; expressed in calc() rather than a literal so the track can be resized in
+// one place without re-deriving the offset
+.switch::after {
+  content: "";
+  position: absolute;
+  inset-block-start: 2px;
+  inset-inline-start: 2px;
+  inline-size: 12px;
+  block-size: 12px;
+  border-radius: 50%;
+  background: var(--paper);
+  transition: translate var(--dur) var(--ease);
+}
+.switch[aria-checked="true"]::after {
+  translate: calc(28px - 12px - 2px * 2) 0;
+}
+// the label + switch pair, so every popover that uses one lines them up identically
+.switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
 // Fields — read as plain text; the active field gets a quiet background tint on
 // focus (NOT an underline — that read as one of the row divider lines).
 .field {
@@ -288,6 +338,25 @@ input[type="search"]::-webkit-search-decoration {
   color: var(--ink-3);
   cursor: default;
 }
+// ── MOTION: three families, one vocabulary ───────────────────────────────────
+// Every animated surface in the app draws its timing from the SAME tokens (--dur,
+// --ease, --ease-spring in tokens.scss), so nothing has its own idea of how fast
+// the interface moves and reduced-motion is one kill-switch. What differs between
+// families is the TRANSFORM, and it differs on purpose — a scrim that popped from a
+// corner would be as wrong as a menu that merely faded.
+//
+//   .menu     anchored popovers: the ⋯ menus, the sharing panel, a row's worn and
+//             consumable popovers, the dates panel, the autocomplete. Pops from the
+//             trigger corner. Reach for this by default — if a surface hangs off a
+//             control, it is a menu.
+//   .reveal   in-flow disclosures: a row's note, the ⋯ menu's Export section, the
+//             sharing panel's activity log. Slides the row open (1fr↔0fr) because
+//             the content is PART of the page, not over it.
+//   .ovl      modal scrims (atoms/dialog.scss), with .dlg rising inside them.
+//
+// A fourth family should be a deliberate decision, not a component inventing one.
+// ─────────────────────────────────────────────────────────────────────────────
+
 // pops in from the trigger corner: quick fade + slight rise, spring on enter
 .menu-enter-active {
   transition:
@@ -453,4 +522,45 @@ input[type="search"]::-webkit-search-decoration {
     width: var(--icon-touch);
     height: var(--icon-touch);
   }
+}
+
+// Disclosure slide — a grid whose single row animates 1fr↔0fr.
+//
+// NOT height:auto↔0: Safari has no interpolate-size, so that just snaps there. The
+// inner child clips. reduced-motion is handled globally by the duration kill-switch.
+//
+// Lives here rather than in a component because three surfaces now disclose the same
+// way: an item row's note, the editor menu's Export section, and the sharing panel's
+// activity log. It was scoped to ItemRow, so the other two silently got the class
+// names and none of the transition — a disclosure that snapped instead of sliding.
+.reveal {
+  display: grid;
+  grid-template-rows: 1fr;
+  /* Any offset a variant carries must COLLAPSE with the height. A margin still
+     applies to a box that has animated to 0fr, so the row lands off by it and then
+     snaps when the node is removed. Owned here as a hook rather than patched per
+     variant: "the offset retires" is the invariant, not "the offset is negative". */
+  margin-top: var(--reveal-offset, 0);
+}
+.reveal > * {
+  min-height: 0;
+  overflow: hidden;
+}
+.reveal-enter-active,
+.reveal-leave-active {
+  transition:
+    grid-template-rows var(--dur) var(--ease),
+    margin-top var(--dur) var(--ease),
+    opacity var(--dur) var(--ease);
+}
+/* the content also rises a touch as it fades, so it reads as lifting into place
+   rather than just being unveiled */
+.reveal-enter-active > *,
+.reveal-leave-active > * {
+  transition: transform var(--dur) var(--ease);
+}
+.reveal-enter-from,
+.reveal-leave-to {
+  grid-template-rows: 0fr;
+  opacity: 0;
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyOps, normalizeItem, type Op } from "../shared/ops";
+import { applyOps, normalizeCalendarDate, normalizeItem, type Op } from "../shared/ops";
 import type { Item, ListState } from "../shared/types";
 
 const base = (): ListState => ({
@@ -378,3 +378,152 @@ describe("nesting (parentId)", () => {
   });
 });
 
+describe("kcal", () => {
+  const withItem = (over: Partial<Item> = {}) => {
+    const s = base();
+    applyOps(s, [
+      {
+        t: "addItem",
+        item: { id: "i1", folderId: "f1", name: "Bars", unitWeightMg: 1000, qty: 1, classification: "consumable", sortOrder: 0, ...over } as Item,
+      },
+    ]);
+    return s;
+  };
+
+  it("stores a whole, positive value", () => {
+    const s = withItem();
+    applyOps(s, [{ t: "updateItem", id: "i1", patch: { kcal: 250.6 } }]);
+    expect(s.items[0]!.kcal).toBe(251);
+  });
+
+  it("treats 0 and negatives as ABSENT, not as a stored zero", () => {
+    // absent reads as "not filled in"; a stored 0 would read as the claim "this
+    // food has no calories"
+    const s = withItem({ kcal: 250 } as Partial<Item>);
+    applyOps(s, [{ t: "updateItem", id: "i1", patch: { kcal: 0 } }]);
+    expect(s.items[0]!.kcal).toBeUndefined();
+    applyOps(s, [{ t: "updateItem", id: "i1", patch: { kcal: -5 } }]);
+    expect(s.items[0]!.kcal).toBeUndefined();
+  });
+
+  it("clears on an explicit null", () => {
+    const s = withItem({ kcal: 250 } as Partial<Item>);
+    applyOps(s, [{ t: "updateItem", id: "i1", patch: { kcal: null } }]);
+    expect(s.items[0]!.kcal).toBeUndefined();
+  });
+
+  it("ignores a non-numeric value rather than corrupting the field", () => {
+    const s = withItem({ kcal: 250 } as Partial<Item>);
+    applyOps(s, [{ t: "updateItem", id: "i1", patch: { kcal: "lots" } as never }]);
+    expect(s.items[0]!.kcal).toBe(250);
+  });
+
+  it("survives normalizeItem (addItem + the JSON import path)", () => {
+    expect(normalizeItem({ id: "a", kcal: 250 } as unknown as Item).kcal).toBe(250);
+    expect(normalizeItem({ id: "a", kcal: 0 } as unknown as Item).kcal).toBeUndefined();
+    expect(normalizeItem({ id: "a" } as unknown as Item).kcal).toBeUndefined();
+  });
+});
+
+describe("entryUnit", () => {
+  const withItem = (over: Partial<Item> = {}) => {
+    const s = base();
+    applyOps(s, [
+      {
+        t: "addItem",
+        item: { id: "i1", folderId: "f1", name: "Stakes", unitWeightMg: 1000, qty: 1, classification: null, sortOrder: 0, ...over } as Item,
+      },
+    ]);
+    return s;
+  };
+
+  it("accepts a real unit", () => {
+    const s = withItem();
+    applyOps(s, [{ t: "updateItem", id: "i1", patch: { entryUnit: "oz" } }]);
+    expect(s.items[0]!.entryUnit).toBe("oz");
+  });
+
+  it("rejects anything that isn't a unit — it renders as a label", () => {
+    const s = withItem({ entryUnit: "oz" } as Partial<Item>);
+    applyOps(s, [{ t: "updateItem", id: "i1", patch: { entryUnit: "<script>" } as never }]);
+    expect(s.items[0]!.entryUnit).toBe("oz");
+  });
+
+  it("clears on an explicit null, dropping the row back to the list's unit", () => {
+    const s = withItem({ entryUnit: "oz" } as Partial<Item>);
+    applyOps(s, [{ t: "updateItem", id: "i1", patch: { entryUnit: null } }]);
+    expect(s.items[0]!.entryUnit).toBeUndefined();
+  });
+
+  it("survives normalizeItem", () => {
+    expect(normalizeItem({ id: "a", entryUnit: "lb" } as unknown as Item).entryUnit).toBe("lb");
+    expect(normalizeItem({ id: "a", entryUnit: "stone" } as unknown as Item).entryUnit).toBeUndefined();
+  });
+});
+
+
+describe("trip dates", () => {
+  const set = (patch: Record<string, string>) => {
+    const s = base();
+    applyOps(s, [{ t: "setMeta", patch } as Op]);
+    return s;
+  };
+
+  it("stores a calendar date", () => {
+    expect(set({ startDate: "2026-08-04" }).startDate).toBe("2026-08-04");
+  });
+
+  it("clears on an empty string", () => {
+    const s = base();
+    applyOps(s, [{ t: "setMeta", patch: { startDate: "2026-08-04" } } as Op]);
+    applyOps(s, [{ t: "setMeta", patch: { startDate: "" } } as Op]);
+    expect(s.startDate).toBeUndefined();
+  });
+
+  it("rejects a date that doesn't exist", () => {
+    // the shape regex alone would accept this; Date would then roll it into March
+    // and the trip would silently move
+    expect(set({ startDate: "2026-02-31" }).startDate).toBeUndefined();
+    expect(set({ startDate: "2026-13-01" }).startDate).toBeUndefined();
+  });
+
+  it("rejects anything that isn't YYYY-MM-DD", () => {
+    expect(set({ startDate: "4 Aug 2026" }).startDate).toBeUndefined();
+    expect(set({ startDate: "2026-8-4" }).startDate).toBeUndefined();
+    expect(set({ startDate: "2026-08-04T10:00:00Z" }).startDate).toBeUndefined();
+    // a half-typed value must not persist and read as real downstream
+    expect(set({ startDate: "2026-0" }).startDate).toBeUndefined();
+  });
+
+  it("keeps a leap day in a leap year and drops it otherwise", () => {
+    expect(set({ startDate: "2028-02-29" }).startDate).toBe("2028-02-29");
+    expect(set({ startDate: "2026-02-29" }).startDate).toBeUndefined();
+  });
+
+  // The rule is exported because a date reaches storage three ways — a setMeta op, a
+  // draft's first save through createList, and a JSON backup restore. They were
+  // separate copies; a drift between them would mean a date that saves on one path
+  // and vanishes on another, which is the worst version of this bug to debug.
+  describe("normalizeCalendarDate (the one rule all three paths use)", () => {
+    it("returns the date when it is real", () => {
+      expect(normalizeCalendarDate("2026-08-04")).toBe("2026-08-04");
+      expect(normalizeCalendarDate("2028-02-29")).toBe("2028-02-29");
+    });
+
+    it("returns undefined for everything else", () => {
+      expect(normalizeCalendarDate("2026-02-31")).toBeUndefined();
+      expect(normalizeCalendarDate("2026-8-4")).toBeUndefined();
+      expect(normalizeCalendarDate("")).toBeUndefined();
+      expect(normalizeCalendarDate(undefined)).toBeUndefined();
+      expect(normalizeCalendarDate(null)).toBeUndefined();
+      expect(normalizeCalendarDate(20260804)).toBeUndefined();
+      expect(normalizeCalendarDate({ startDate: "2026-08-04" })).toBeUndefined();
+    });
+
+    it("agrees with the reducer, which is the whole point of sharing it", () => {
+      for (const v of ["2026-08-04", "2026-02-31", "2026-8-4", "2028-02-29", "nope"]) {
+        expect(set({ startDate: v }).startDate).toBe(normalizeCalendarDate(v));
+      }
+    });
+  });
+});

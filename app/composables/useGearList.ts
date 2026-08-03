@@ -6,7 +6,8 @@ import { editLinkPath } from "~~/shared/links";
 import { DRAFT_KEY, localKey, rebaseOnto } from "~~/shared/localList";
 import type { Folder, Item, ListSnapshot, Unit } from "~~/shared/types";
 import type { VaultCapture, VaultEntry } from "~~/shared/vault";
-import { bySortOrder, computeTotals, itemsInFolder, nextSortOrder, parseWeightInput, siblingItems } from "~~/shared/weights";
+import { vaultNormKey } from "~~/shared/vault";
+import { bySortOrder, computeTotals, entryUnitFromInput, itemsInFolder, nextSortOrder, parseWeightInput, siblingItems } from "~~/shared/weights";
 
 // Editor controller (one list open at a time → module singleton). Mutations are
 // applied optimistically via the SAME op-reducer the server uses, queued, and
@@ -375,9 +376,12 @@ function create() {
         body: {
           title: s.title,
           displayUnit: s.displayUnit,
-          // a trail link added to the draft must survive its first save
+          // a trail link added to the draft must survive its first save — and so
+          // must the dates, which sit in the same meta row and are set the same way
           trailUrl: s.trailUrl,
           trailLabel: s.trailLabel,
+          startDate: s.startDate,
+          endDate: s.endDate,
           data: { folders: s.folders, items: s.items },
         },
       });
@@ -591,16 +595,54 @@ function create() {
   }
 
   // ---- convenience mutators ----
-  const setMeta = (
-    patch: Partial<{
-      title: string;
-      description: string;
-      displayUnit: Unit;
-      trailUrl: string;
-      trailLabel: string;
-    }>,
-  ) => dispatch({ t: "setMeta", patch });
+  // The patch type is READ OFF the op rather than restated here. It was a hand-copied
+  // duplicate of the same field list, so adding a meta field to the reducer left this
+  // wrapper rejecting it — which is exactly what happened when trip dates landed.
+  const setMeta = (patch: Extract<Op, { t: "setMeta" }>["patch"]) =>
+    dispatch({ t: "setMeta", patch });
   const setUnit = (displayUnit: Unit) => setMeta({ displayUnit });
+
+  /**
+   * Clone a whole vault folder into the list — a category template.
+   *
+   * The vault already files gear by the NAME of the list folder it came from, so a
+   * "Cook kit" you built once is already a set; this is the missing direction, which
+   * is getting the set back out. Reuses addFolder + addVaultItem rather than building
+   * items here, so the naming/colour rules and the pinned-override rules each stay in
+   * one place.
+   *
+   * Gear the list already holds is skipped, matching the pane's per-row rule: wanting
+   * two of something is a quantity, and a second identical row would split one thing's
+   * weight across two lines.
+   *
+   * Returns the new folder's id, or "" if there was nothing to add — the caller
+   * shouldn't be left with an empty folder it didn't ask for.
+   */
+  function addVaultFolder(name: string, entries: VaultEntry[]): string {
+    if (!snapshot.value || !entries.length) return "";
+    const held = new Set(
+      snapshot.value.items
+        .map((i) => vaultNormKey(i.brand, i.name, i.variant))
+        .filter(Boolean),
+    );
+    const fresh = entries.filter((e) => !held.has(e.normKey));
+    if (!fresh.length) return "";
+
+    const folders = snapshot.value.folders;
+    const id = uid();
+    dispatch({
+      t: "addFolder",
+      folder: {
+        id,
+        name,
+        colorKey: colorKeyForName(name, folders.map((f) => f.colorKey ?? "other")),
+        defaultClassification: "base",
+        sortOrder: folders.length,
+      },
+    });
+    for (const entry of fresh) addVaultItem(entry, id);
+    return id;
+  }
 
   function addFolder(name = "New folder") {
     const folders = snapshot.value?.folders ?? [];
@@ -698,6 +740,15 @@ function create() {
    * friend's, and the link cannot say which. So the first time gear would move, ask
    * once and remember; until it's answered, nothing is captured.
    */
+  /** Bank one row on demand — see useVault.captureOne for why it bypasses the
+   *  debounce and the consent prompt that the automatic path is built around. */
+  async function saveItemToVault(id: string): Promise<"saved" | "unworthy" | "failed"> {
+    const snap = snapshot.value;
+    const item = snap?.items.find((i) => i.id === id);
+    if (!snap || !item) return "failed";
+    return vault.captureOne(item, snap.items, snap.folders, editToken);
+  }
+
   function captureIfMine() {
     if (!snapshot.value) return;
     // The decision lives in sync(), which asks only once it knows there is gear
@@ -802,9 +853,28 @@ function create() {
   }
   function setItemWeight(id: string, raw: string) {
     if (!snapshot.value) return;
-    if (raw.trim() === "") return updateItem(id, { unitWeightMg: 0, weightOverridden: true });
-    const mg = parseWeightInput(raw, snapshot.value.displayUnit);
-    if (mg !== null) updateItem(id, { unitWeightMg: mg, weightOverridden: true });
+    // clearing the weight clears the remembered unit with it — an empty field has
+    // named nothing, and leaving a stale "oz" behind would relabel the next entry
+    if (raw.trim() === "")
+      return updateItem(id, { unitWeightMg: 0, weightOverridden: true, entryUnit: null });
+
+    // The unit this row is currently READING in — the one printed beside the field.
+    // It has to be the parse default, not the list's: on a row showing "3.8 oz",
+    // typing a bare "4.2" means 4.2 ounces. Defaulting to the list unit there would
+    // silently reinterpret the number as grams and the row would jump.
+    const current = snapshot.value.items.find((i) => i.id === id)?.entryUnit;
+    const readingIn = current ?? snapshot.value.displayUnit;
+
+    const mg = parseWeightInput(raw, readingIn);
+    if (mg === null) return;
+    updateItem(id, {
+      unitWeightMg: mg,
+      weightOverridden: true,
+      // naming a unit re-labels the row; a bare number (or a compound, which names
+      // no single unit) leaves the label exactly as it was — so arrow-stepping and
+      // editing just the digits both keep the row in the unit you chose.
+      entryUnit: entryUnitFromInput(raw) ?? current ?? null,
+    });
   }
 
   // ---- nesting (a nested item is just a normal item carrying a parentId) ----
@@ -1065,7 +1135,7 @@ function create() {
     setMeta, setUnit, addFolder, updateFolder, removeFolder, moveFolderBefore,
     vaultPrompt, answerVaultPrompt,
     vaultPicker, confirmVaultPicker, cancelVaultPicker,
-    addBlankItem, addBlankItemAfter, addVaultItem, discardEmpty, updateItem, removeItem, setItemWeight, moveItem,
+    addBlankItem, addBlankItemAfter, addVaultItem, addVaultFolder, saveItemToVault, discardEmpty, updateItem, removeItem, setItemWeight, moveItem,
     addChild, nestItem, unnest,
     pendingBlankId, pendingUndo, undoRemove, holdUndo, releaseUndo,
   };

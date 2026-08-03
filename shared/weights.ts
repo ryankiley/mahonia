@@ -103,6 +103,38 @@ export function parseWeightInput(
   return matched ? Math.round(mg) : null;
 }
 
+/**
+ * Which unit did the typist actually NAME? Companion to parseWeightInput, which
+ * answers "how much" and deliberately throws this away.
+ *
+ * Returns a unit only when the input names EXACTLY ONE. Three cases, three answers:
+ *  • "3.8 oz"        → "oz"  — an explicit choice; the row should read back in it
+ *  • "820"           → null  — no choice made, so the list's own unit applies
+ *  • "2 lb 3 oz"     → null  — a compound has no single unit to read back in, and
+ *                              its sum is the point; forcing one would misreport
+ *                              the entry as much as picking the wrong one
+ *
+ * Null therefore means "no opinion", never "invalid" — callers fall back to the
+ * list's displayUnit, which is what every row did before entryUnit existed.
+ */
+export function entryUnitFromInput(raw: string): Unit | null {
+  if (raw == null) return null;
+  const text = String(raw).trim().toLowerCase();
+  if (!text) return null;
+  const seen = new Set<Unit>();
+  // same shape as parseWeightInput's scanner, so the two can't disagree about what
+  // counts as a unit word
+  const re = /(-?[\d][\d.,]*)\s*([a-z]+)?/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    const word = m[2];
+    if (!word) continue;
+    const unit = UNIT_ALIASES[word];
+    if (unit) seen.add(unit);
+  }
+  return seen.size === 1 ? [...seen][0]! : null;
+}
+
 /** An item's effective classification = its own, else its folder's default. */
 export function effectiveClassification(
   item: Pick<Item, "classification" | "folderId">,
@@ -319,6 +351,8 @@ export function computeTotals(list: ListData): Totals {
   let wornMg = 0;
   let consumableMg = 0;
   let hasWeights = false;
+  let kcalTotal = 0;
+  let hasKcal = false;
 
   // one lookup table instead of a folders.find() per item — keeps the rollup
   // O(items + folders) (it recomputes on every edit)
@@ -336,8 +370,17 @@ export function computeTotals(list: ListData): Totals {
       (item.folderId ? folderById.get(item.folderId)?.defaultClassification : undefined) ??
       "base";
     if (cls === "worn") wornMg += line;
-    else if (cls === "consumable") consumableMg += line;
-    else {
+    else if (cls === "consumable") {
+      consumableMg += line;
+      // gated on the EFFECTIVE class, the same condition that makes the field
+      // reachable in the editor — so what's counted is exactly what's editable
+      // (see Item.kcal). A kcal left behind on a row since demoted to base is
+      // carried in the data but contributes nothing until it's consumable again.
+      if (item.kcal != null && item.kcal > 0) {
+        hasKcal = true;
+        kcalTotal += item.kcal * Math.max(0, item.qty);
+      }
+    } else {
       // a base line can carry a worn split (e.g. 3 pairs of socks, 1 worn) —
       // move that portion into worn; the remainder stays in the derived base
       const wq = splitWornQty(item, cls);
@@ -355,6 +398,8 @@ export function computeTotals(list: ListData): Totals {
     carriedMg: totalMg - wornMg,
     itemCount: list.items.length,
     hasWeights,
+    kcalTotal,
+    hasKcal,
   };
 }
 
@@ -401,6 +446,18 @@ export function formatWeight(
     maximumFractionDigits: decimals,
   });
   return withUnit ? `${num} ${unit}` : num;
+}
+
+/**
+ * Format a calorie count. Lives here rather than in the component so it inherits
+ * NUM_LOCALE — kcal renders on the read-only share views too, and an ambient locale
+ * would give it the same SSR/hydration mismatch the note above describes.
+ *
+ * Whole numbers only: kcal is never meaningfully fractional, and the underlying
+ * field is already clamped to an integer.
+ */
+export function formatKcal(kcal: number): string {
+  return Math.round(kcal).toLocaleString(NUM_LOCALE, { maximumFractionDigits: 0 });
 }
 
 /**

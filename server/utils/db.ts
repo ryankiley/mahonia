@@ -110,6 +110,8 @@ export const LISTS_DDL: string[] = [
   `ALTER TABLE lists ADD COLUMN IF NOT EXISTS last_snapshot_at timestamptz`,
   `ALTER TABLE lists ADD COLUMN IF NOT EXISTS trail_url text`,
   `ALTER TABLE lists ADD COLUMN IF NOT EXISTS trail_label text`,
+  `ALTER TABLE lists ADD COLUMN IF NOT EXISTS start_date text`,
+  `ALTER TABLE lists ADD COLUMN IF NOT EXISTS end_date text`,
   // the byline on the read views — who MADE the list (set once at creation, never
   // re-pointed by a claim); resolves to that account's optional display name
   `ALTER TABLE lists ADD COLUMN IF NOT EXISTS author_user_id integer`,

@@ -177,3 +177,43 @@ describe("reverse-delta chain (capture + reconstruct + prune)", () => {
     expect(reconstructChainAt(chain, 0)).toBeNull();
   });
 });
+
+describe("trip dates survive the snapshot chain", () => {
+  // Regression: the chain carried only title/description/displayUnit/trail*, so
+  // restoring ANY recovery point reconstructed a state with no dates — and the
+  // restore write then put NULL over the live columns. Silent, unrecoverable loss
+  // of a field the user had set.
+  it("round-trips through the full-snapshot form", () => {
+    const s = state({ startDate: "2026-08-04", endDate: "2026-08-10" });
+    const back = fullSnapToState(stateToFullSnap(s));
+    expect(back.startDate).toBe("2026-08-04");
+    expect(back.endDate).toBe("2026-08-10");
+  });
+
+  it("leaves a dateless list dateless (undefined, never an empty string)", () => {
+    const back = fullSnapToState(stateToFullSnap(state()));
+    expect(back.startDate).toBeUndefined();
+    expect(back.endDate).toBeUndefined();
+  });
+
+  it("records a date that was ADDED between base and target", () => {
+    const diff = diffListState(state(), state({ startDate: "2026-08-04" }));
+    expect(diff.meta?.startDate).toBe("2026-08-04");
+    expect(applyListDiff(state(), diff).startDate).toBe("2026-08-04");
+  });
+
+  it("records a date that was REMOVED, so a restore can't resurrect it", () => {
+    const diff = diffListState(state({ startDate: "2026-08-04" }), state());
+    expect(diff.meta?.startDate).toBe(""); // the clear sentinel
+    const applied = applyListDiff(state({ startDate: "2026-08-04" }), diff);
+    expect(applied.startDate).toBeUndefined(); // the KEY is dropped, not blanked
+  });
+
+  it("says nothing about dates that didn't change", () => {
+    const a = state({ startDate: "2026-08-04", endDate: "2026-08-10" });
+    const diff = diffListState(a, state({ startDate: "2026-08-04", endDate: "2026-08-10", title: "Renamed" }));
+    expect(diff.meta?.startDate).toBeUndefined();
+    expect(diff.meta?.endDate).toBeUndefined();
+    expect(diff.meta?.title).toBe("Renamed");
+  });
+});

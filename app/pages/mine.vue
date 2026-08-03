@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { Trash2 } from "@lucide/vue";
+import { HugeiconsIcon } from "@hugeicons/vue";
+import { Delete02Icon } from "@hugeicons/core-free-icons";
 import { editLinkPath } from "~~/shared/links";
 import type { MyListEntry, Unit } from "~~/shared/types";
 import { formatWeightAuto } from "~~/shared/weights";
@@ -88,7 +89,7 @@ async function deleteList(e: MyListEntry) {
             <div class="mine__actions">
               <button type="button" class="btn btn--quiet" @click="removeFromDevice(e)">Remove from device</button>
               <button type="button" class="btn btn--quiet mine__delete" :disabled="busy === e.editToken" @click="deleteList(e)">
-                <Trash2 :size="14" aria-hidden="true" /> Delete
+                <HugeiconsIcon :icon="Delete02Icon" :size="14" aria-hidden="true" :stroke-width="2" /> Delete
               </button>
             </div>
           </li>

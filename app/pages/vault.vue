@@ -1,17 +1,6 @@
 <script setup lang="ts">
-import {
-  ArrowDown10,
-  ArrowDownAZ,
-  ArrowDownUp,
-  ArrowUp01,
-  ChevronDown,
-  CircleX,
-  Folder as FolderIcon,
-  GripVertical,
-  Trash2,
-  Undo2,
-  Vault,
-} from "@lucide/vue";
+import { HugeiconsIcon } from "@hugeicons/vue";
+import { ArrowUpDownIcon, ChevronDownIcon, CircleXIcon, Delete02Icon, FolderIcon, GripVerticalIcon, SortingAZ01Icon, SortingNineOneIcon, SortingOneNineIcon, Undo02Icon } from "@hugeicons/core-free-icons";
 import type { Unit } from "~~/shared/types";
 import type { VaultEntry, VaultFolder } from "~~/shared/vault";
 import { formatWeightAuto, itemDisplayName } from "~~/shared/weights";
@@ -182,11 +171,11 @@ function toggleCollapsed(id: number) {
 // the editor's SORT_META verbatim — same glyph family, same labels, so a folder
 // sorted "Heaviest first" reads identically on both surfaces
 type VaultSort = NonNullable<VaultFolder["sortBy"]>;
-const SORT_META: Record<VaultSort, { label: string; icon: typeof ArrowDownUp }> = {
-  manual: { label: "Manual order", icon: ArrowDownUp },
-  name: { label: "Name (A–Z)", icon: ArrowDownAZ },
-  heaviest: { label: "Heaviest first", icon: ArrowDown10 },
-  lightest: { label: "Lightest first", icon: ArrowUp01 },
+const SORT_META: Record<VaultSort, { label: string; icon: typeof ArrowUpDownIcon }> = {
+  manual: { label: "Manual order", icon: ArrowUpDownIcon },
+  name: { label: "Name (A–Z)", icon: SortingAZ01Icon },
+  heaviest: { label: "Heaviest first", icon: SortingNineOneIcon },
+  lightest: { label: "Lightest first", icon: SortingOneNineIcon },
 };
 const SORT_ORDER: VaultSort[] = ["manual", "name", "heaviest", "lightest"];
 
@@ -457,7 +446,7 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
                 title="Clear search"
                 @click="clearQuery"
               >
-                <CircleX :size="15" :stroke-width="2" />
+                <HugeiconsIcon :icon="CircleXIcon" :size="15" :stroke-width="2" />
               </button>
             </div>
           </div>
@@ -475,7 +464,7 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
                    search bar, away from the only number it governed. -->
               <span class="vault__total">
                 {{ weightLabel(totalMg) }}
-                <ChevronDown class="vault__chev" :size="14" :stroke-width="2.25" aria-hidden="true" />
+                <HugeiconsIcon :icon="ChevronDownIcon" class="vault__chev" :size="14" :stroke-width="2.25" aria-hidden="true" />
                 <select
                   class="vault__unitsel"
                   title="Change unit"
@@ -530,12 +519,10 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
                     :aria-label="`${collapsed[section.folder.id] ? 'Expand' : 'Collapse'} ${section.folder.name}`"
                     @click="toggleCollapsed(section.folder.id)"
                   >
-                    <ChevronDown
-                      class="folder__chev"
+                    <HugeiconsIcon :icon="ChevronDownIcon" class="folder__chev"
                       :class="{ 'is-collapsed': collapsed[section.folder.id] }"
                       :size="20"
-                      :stroke-width="2"
-                    />
+                      :stroke-width="2" />
                   </button>
                 </div>
 
@@ -546,11 +533,15 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
                     :aria-label="`Remove ${section.folder.name}`"
                     @click="deleteFolder(section.folder)"
                   >
-                    <Trash2 :size="16" />
+                    <HugeiconsIcon :icon="Delete02Icon" :size="16" :stroke-width="2" />
                   </button>
                   <div class="folder__sortwrap" :class="{ 'is-active': (section.folder.sortBy ?? 'manual') !== 'manual' }">
-                    <component
-                      :is="SORT_META[section.folder.sortBy ?? 'manual'].icon"
+                    <!-- :icon, NOT <component :is>. A hugeicons icon is path data
+                         rather than a component, so :is renders a comment node and the
+                         glyph vanishes. FolderSection.vue carries the same note; this
+                         second copy of SORT_META needs the same treatment. -->
+                    <HugeiconsIcon
+                      :icon="SORT_META[section.folder.sortBy ?? 'manual'].icon"
                       class="folder__sorticon"
                       :size="16"
                       :stroke-width="2"
@@ -572,7 +563,7 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
                     :aria-label="`Reorder ${section.folder.name}`"
                     @pointerdown="startFolderDrag(section.folder.id, $event)"
                   >
-                    <GripVertical :size="16" />
+                    <HugeiconsIcon :icon="GripVerticalIcon" :size="16" :stroke-width="2" />
                   </button>
                 </div>
               </header>
@@ -608,7 +599,7 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
                            select still names every destination when you open it,
                            and it's the keyboard and touch path for moving gear. -->
                       <div class="vault__movewrap">
-                        <FolderIcon class="vault__moveicon" :size="15" :stroke-width="2" aria-hidden="true" />
+                        <HugeiconsIcon :icon="FolderIcon" class="vault__moveicon" :size="15" :stroke-width="2" aria-hidden="true" />
                         <select
                           class="vault__movesel"
                           :value="entry.folderId ?? ''"
@@ -631,7 +622,7 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
                         :aria-label="`Remove ${itemDisplayName(entry.brand, entry.name, entry.variant)} from your gear vault`"
                         @click="remove(entry)"
                       >
-                        <Trash2 :size="15" aria-hidden="true" />
+                        <HugeiconsIcon :icon="Delete02Icon" :size="15" aria-hidden="true" :stroke-width="2" />
                       </button>
                     </li>
                   </ul>
@@ -702,7 +693,7 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
                     :aria-label="`Put ${itemDisplayName(entry.brand, entry.name, entry.variant)} back in your gear vault`"
                     @click="putBack(entry)"
                   >
-                    <Undo2 :size="14" aria-hidden="true" /> Put back
+                    <HugeiconsIcon :icon="Undo02Icon" :size="14" aria-hidden="true" :stroke-width="2" /> Put back
                   </button>
                 </li>
               </ul>
@@ -734,7 +725,7 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
           Removed <strong>{{ itemDisplayName(undoable.brand, undoable.name, undoable.variant) }}</strong>
         </span>
         <button class="undobar__btn t-sm" @click="undoRemove">
-          <Undo2 :size="14" /> Undo
+          <HugeiconsIcon :icon="Undo02Icon" :size="14" :stroke-width="2" /> Undo
         </button>
       </div>
     </Transition>

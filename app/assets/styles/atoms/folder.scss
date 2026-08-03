@@ -120,9 +120,14 @@
   position: relative;
   padding: 0;
 }
+/* The header's columns are fed in as --head-cols, the same contract .item-row signs
+   with --row-cols (atoms/item.scss): each mode supplies only what legitimately
+   differs. The read view previously re-declared this whole rule to change that ONE
+   line, which meant the shared bits existed twice — a retune of the margin here
+   silently didn't reach /s and /l. */
 .folder__head {
   display: grid;
-  grid-template-columns: var(--item-cols);
+  grid-template-columns: var(--head-cols, var(--item-cols));
   gap: var(--item-gap);
   align-items: baseline;
   margin-bottom: var(--space-1);
@@ -244,7 +249,7 @@
    editor: /vault has no checklist. */
 @media (max-width: t.$bp-stack) {
   .folder__head {
-    grid-template-columns: 1fr auto;
+    --head-cols: 1fr auto;
   }
   .folder__title {
     grid-column: 1;

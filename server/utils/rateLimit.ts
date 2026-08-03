@@ -163,6 +163,10 @@ export const RATE_LIMITS = {
   // Sign-in is the tight one: it sends mail, and the same action is limited BOTH
   // per-IP and per-email (see rateLimitSubject) because neither alone stops both
   // a sprayer and a mailbomber.
+  // Anonymous and it writes to a PUBLIC issue tracker, so this is the tightest
+  // bucket in the app — the same figure as sign-in, for the same reason: there is
+  // no account gate in front of it, and each request has an outward-facing effect.
+  "feedback": 5,
   "auth-request": 5,
   "auth-verify": 20,
   "auth-me": 120,

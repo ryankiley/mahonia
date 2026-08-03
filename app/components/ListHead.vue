@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { Copy, Globe, Trash2 } from "@lucide/vue";
+import { HugeiconsIcon } from "@hugeicons/vue";
+import { Calendar03Icon, Copy01Icon, Delete02Icon, Edit02Icon, GlobeIcon, Location01Icon } from "@hugeicons/core-free-icons";
 import { displayUrl, parseTrailLink, safeUrl } from "~~/shared/trailLink";
 import type { ListSnapshot } from "~~/shared/types";
 import { copyText } from "~/utils/clipboard";
@@ -121,9 +122,38 @@ async function copyLink() {
   emit("toast", (await copyText(link.value.href)) ? "Trail link copied" : "Copy failed");
 }
 
+// ---- trip dates ----
+// The second thing in the meta row. Deliberately two optional calendar dates and
+// nothing else — no days, no itinerary, no waypoints. The July audit rejected trip
+// planning and this does not reopen it; it answers "when was this trip" for a list
+// you come back to a year later, which the list otherwise cannot say.
+const datesOpen = ref(false);
+const datesEl = useTemplateRef<HTMLElement>("datesEl");
+const dateLabel = computed(() => formatDateRange(props.snapshot.startDate, props.snapshot.endDate));
+
+async function openDates() {
+  datesOpen.value = true;
+  mode.value = null; // the trail panel and this one share the row; never both
+  await nextTick();
+  // the grid owns one tab stop (roving tabindex), so focus lands on a day
+  datesEl.value?.querySelector<HTMLElement>('[role="gridcell"][tabindex="0"]')?.focus();
+}
+// One write for both ends. The picker hands back the whole span rather than firing
+// per field, so a click that begins a new range clears the old end in the SAME op —
+// two separate setMeta calls would leave a moment where the end predates the start.
+function commitDates(next: { start?: string; end?: string }) {
+  c.setMeta({ startDate: next.start ?? "", endDate: next.end ?? "" });
+}
+function clearDates() {
+  c.setMeta({ startDate: "", endDate: "" });
+  datesOpen.value = false;
+}
+onClickOutside(datesEl, () => (datesOpen.value = false));
+
 async function openFields(next: "add" | "edit") {
   mode.value = next;
   pinned.value = false;
+  datesOpen.value = false;
   await nextTick();
   document.getElementById(`${fieldsId}-url`)?.focus();
 }
@@ -157,25 +187,49 @@ onClickOutside(trailEl, () => {
          sideways inside its box and you could only ever read the start of it. Rows is 1
          and it grows to fit (see autoGrow); Enter commits rather than inserting a
          newline, so the value stays the single line of text it is. -->
-    <textarea
-      ref="titleEl"
-      class="field head__title"
-      rows="1"
-      :value="snapshot.title"
-      placeholder="List name"
-      aria-label="List name"
-      autocorrect="off"
-      spellcheck="false"
-      @input="fit"
-      @keydown.enter.prevent="($event.target as HTMLTextAreaElement).blur()"
-      @change="c.setMeta({ title: ($event.target as HTMLTextAreaElement).value })"
-    />
+    <!-- The pencil is a HINT, not a mode. The field stays live — you can click the
+         text and type, exactly as before — but nothing on screen said so, and a
+         borderless title reads as a heading. Revealed on hover in a slot that is
+         always reserved, so nothing reflows when it appears. aria-hidden with no tab
+         stop: a <textarea> already announces itself as editable, so the icon is
+         decoration for the eye only. -->
+    <div class="head__titlewrap">
+      <textarea
+        ref="titleEl"
+        class="field head__title"
+        rows="1"
+        :value="snapshot.title"
+        placeholder="List name"
+        aria-label="List name"
+        autocorrect="off"
+        spellcheck="false"
+        @input="fit"
+        @keydown.enter.prevent="($event.target as HTMLTextAreaElement).blur()"
+        @change="c.setMeta({ title: ($event.target as HTMLTextAreaElement).value })"
+      />
+      <HugeiconsIcon
+        :icon="Edit02Icon"
+        class="head__pencil"
+        :size="16"
+        :stroke-width="2"
+        aria-hidden="true"
+      />
+    </div>
 
     <!-- One row under the title, holding either the affordance or its result — the
          "Add trail link" button occupies exactly the slot the link will, so adding one
          swaps the contents in place instead of moving the row across the title. The
          edit panel anchors to this row, so the link stays visible above it. -->
     <p ref="trailEl" class="head__trail">
+      <!-- The affordance and the link it produces share this slot, which is the whole
+           point of the row. `out-in` so the two never overlap on a one-line row: the
+           old leaves, the new arrives on the beat, and the row's min-height holds the
+           line through the gap so nothing reflows.
+           Its own name, not `menu`: this is an IN-FLOW content swap, not a surface
+           hanging off a control — but it spends the same --dur/--ease as everything
+           else, so it reads as the same interface moving. See the motion note in
+           atoms/controls.scss. -->
+      <Transition name="trailswap" mode="out-in">
       <button
         v-if="!link"
         type="button"
@@ -187,7 +241,10 @@ onClickOutside(trailEl, () => {
         <!-- 14 = the small icon tier, the size every other inline-with-text icon uses.
              Same glyph the link's own fallback mark uses, so the affordance and what it
              produces read as one thing. -->
-        <Globe :size="14" :stroke-width="2" aria-hidden="true" />
+        <!-- a PIN, not the globe: this affordance is about the place you're going.
+             The two globes below are different — they're the fallback mark for a site
+             with no favicon, standing in for "a website", which a pin would misstate. -->
+        <HugeiconsIcon :icon="Location01Icon" :size="14" :stroke-width="2" aria-hidden="true" />
         Add trail link
       </button>
 
@@ -218,7 +275,7 @@ onClickOutside(trailEl, () => {
             width="16"
             height="16"
           />
-          <Globe v-else class="head__icon head__icon--fallback" :size="16" :stroke-width="2" aria-hidden="true" />
+          <HugeiconsIcon :icon="GlobeIcon" v-else class="head__icon head__icon--fallback" :size="16" :stroke-width="2" aria-hidden="true" />
           <span class="head__name">{{ link.name }}</span>
         </button>
 
@@ -236,7 +293,7 @@ onClickOutside(trailEl, () => {
             width="14"
             height="14"
           />
-          <Globe v-else class="head__cardicon head__icon--fallback" :size="14" :stroke-width="2" aria-hidden="true" />
+          <HugeiconsIcon :icon="GlobeIcon" v-else class="head__cardicon head__icon--fallback" :size="14" :stroke-width="2" aria-hidden="true" />
           <a
             class="head__cardurl"
             :href="link.href"
@@ -257,7 +314,7 @@ onClickOutside(trailEl, () => {
                  than the thing it imitates. 1.75, not 1.5: at 14 the lighter stroke went
                  a touch spindly beside the text it sits in, and this is the smallest step
                  that reads as the same weight. -->
-            <Copy :size="14" :stroke-width="1.75" aria-hidden="true" />
+            <HugeiconsIcon :icon="Copy01Icon" :size="14" :stroke-width="1.75" aria-hidden="true" />
           </button>
           <!-- no Remove here: the card mirrors Notion's, where removal lives one level
                in, behind Edit (the fields row below carries it). Keeping a destructive
@@ -275,6 +332,41 @@ onClickOutside(trailEl, () => {
             Edit
           </button>
         </span>
+      </span>
+      </Transition>
+
+      <!-- DATES. Same shape as the trail affordance beside it: the button occupies the
+           slot its result will, so setting a date swaps the contents in place rather
+           than growing the row. -->
+      <span ref="datesEl" class="head__dates">
+        <button
+          type="button"
+          class="btn btn--quiet head__add head__datesbtn"
+          :aria-expanded="datesOpen"
+          @click="datesOpen ? (datesOpen = false) : openDates()"
+        >
+          <HugeiconsIcon :icon="Calendar03Icon" :size="14" :stroke-width="2" aria-hidden="true" />
+          {{ dateLabel || "Add dates" }}
+        </button>
+        <Transition name="menu">
+          <span v-if="datesOpen" class="popover head__datespanel" role="dialog" aria-label="Trip dates">
+            <!-- Lazy: ListHead is on the editor's first load, but a month grid is
+                 only ever seen by someone who opened this popover. It's already
+                 behind the v-if, so deferring the CHUNK too costs nothing — the
+                 fetch starts on the same click that reveals it. -->
+            <LazyDateRangePicker
+              :start="snapshot.startDate"
+              :end="snapshot.endDate"
+              @update="commitDates"
+            />
+            <!-- the resolved span, restated in the same words the row shows — so the
+                 grid's two filled cells and the label you'll be left with agree -->
+            <p v-if="dateLabel" class="t-sm t-muted head__datesummary">{{ dateLabel }}</p>
+            <button v-if="dateLabel" type="button" class="btn btn--quiet head__dateclear" @click="clearDates">
+              Clear
+            </button>
+          </span>
+        </Transition>
       </span>
 
       <!-- The edit panel, anchored under the row so the link stays visible above it (as
@@ -318,7 +410,7 @@ onClickOutside(trailEl, () => {
           />
           <hr class="head__paneldiv" />
           <button type="button" class="menu__item head__panelremove" @click="remove">
-            <Trash2 :size="16" :stroke-width="1.5" aria-hidden="true" />
+            <HugeiconsIcon :icon="Delete02Icon" :size="16" :stroke-width="1.5" aria-hidden="true" />
             Remove link
           </button>
         </template>
@@ -327,12 +419,70 @@ onClickOutside(trailEl, () => {
   </div>
 </template>
 
-<style scoped>
+<!-- lang="scss" for $bp-stack (injected into every scss block by nuxt.config's
+     additionalData). This block was plain CSS, where `@media (max-width: $bp-stack)`
+     is not a parse error you get told about — the browser simply drops the whole rule
+     and the mobile fix below silently does nothing. Every other media query here is a
+     capability query (hover/pointer), which is why it had never come up. -->
+<style scoped lang="scss">
 .head {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
 }
+/* The title and its hint share a row; the icon sits after the text rather than over
+   it, so it can never cover a character of a long name.
+   CENTERED on the first line, not on the whole box: a title that wraps to two lines
+   would otherwise drag the hint to the middle of the block, away from the words it
+   belongs to. `align-items: baseline` can't do it either — the textarea's baseline is
+   its LAST line. So the hint is centred against one line's height, set below. */
+.head__titlewrap {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+/* Reserved at rest rather than appearing: `visibility` keeps the box in layout, so
+   revealing the hint moves nothing. (opacity would do the same, but this also takes
+   it out of the a11y tree for free.) */
+.head__pencil {
+  flex: none;
+  /* Centred on the title's CAP HEIGHT, not its line box.
+     Centring on the line box put this 4.4px high, because a title's ink sits low in
+     its box: the face's ascent is 0.969em but its caps are only 0.705em, and the
+     leading is split evenly above and below. So the optical centre of the word is
+     well under the box's middle.
+     Cap height, not the rendered glyphs — measuring actual ink would move the hint
+     the moment you typed a "y".
+     From the wrapper's top:  .field's padding-top
+                            + half-leading (1.2 - 0.969 - 0.219) / 2 = 0.006em
+                            + ascent 0.969em
+                            - half the cap height 0.352em      = 0.62em to the centre
+                            - half the 16px glyph
+     em can't be used directly (it would resolve against this SVG's inherited 16px,
+     not the title's 32px), so the title's own token is multiplied explicitly. */
+  margin-top: calc(var(--space-1) + 0.62 * var(--text-page-title) - 8px);
+  align-self: flex-start;
+  color: var(--ink-3);
+  visibility: hidden;
+  transition: color var(--dur) var(--ease);
+}
+.head__titlewrap:hover .head__pencil,
+.head__titlewrap:focus-within .head__pencil {
+  visibility: visible;
+}
+.head__titlewrap:focus-within .head__pencil {
+  color: var(--ink-2);
+}
+/* a coarse pointer has no hover to reveal it with, and a permanently-visible hint
+   next to every title is clutter — so on touch the field simply stays as it was */
+@media (hover: none) {
+  .head__pencil {
+    display: none;
+  }
+}
+/* width:100% is the FALLBACK. Where field-sizing works the box shrinks to its text
+   (see the rule at the end of this block), which is what puts the hover pencil beside
+   the title instead of stranded at the far edge of the column. */
 .head__title {
   width: 100%;
   font-family: var(--font);
@@ -355,6 +505,15 @@ onClickOutside(trailEl, () => {
      works — see the note there for why only one of the two may ever be live. */
   field-sizing: content;
 }
+/* Only where the engine actually sizes to content — otherwise width:auto on a plain
+   textarea collapses it to its `cols` default (~20 characters). Guarded by @supports
+   for the same reason the script's fit() is guarded by CSS.supports. */
+@supports (field-sizing: content) {
+  .head__title {
+    width: auto;
+    max-width: 100%;
+  }
+}
 /* much lighter than .field's --ink-3 default: at 32px bold, --ink-3 reads as a real
    title someone typed rather than as an empty field. See --ink-ghost in tokens.scss
    for why going under the AA floor is sound here specifically. */
@@ -370,7 +529,10 @@ onClickOutside(trailEl, () => {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: var(--space-2);
+  /* --space-4, not --space-2: this row used to hold ONE affordance, where a tight gap
+     only had to separate an icon from its label. It now holds two independent ones
+     (trail, dates) and at 8px they read as a single run-on phrase. */
+  gap: var(--space-4);
   min-width: 0;
   min-height: 1.5em;
 }
@@ -566,23 +728,14 @@ onClickOutside(trailEl, () => {
     opacity: 1;
     visibility: visible;
   }
-  /* opacity only — the transition list lives on the base rule (see the note there) */
-  .head__add {
-    opacity: 0;
-  }
-  /* the whole title block is the reveal target, not the button itself — the affordance
-     comes up as the pointer approaches the title, so it's found without having to land
-     on invisible text first */
-  .head:hover .head__add {
-    opacity: 1;
-  }
 }
-/* keyboard focus always reveals, at every pointer type — outside the media query so a
-   tabbing user is never left with an invisible control. focus-within on the block covers
-   the button's own focus too, so it doesn't need its own selector. */
-.head:focus-within .head__add {
-  opacity: 1;
-}
+/* The meta affordances used to hide until the title block was hovered — the Notion
+   "Add cover" idiom. That was defensible when there was ONE of them and the row was
+   otherwise empty; with trail and dates side by side, the row is a real part of the
+   header, and a header that appears only when pointed at is a header you don't know
+   you have. They rest at --ink-3 and darken on hover instead, so the block is still
+   quiet without being blank. (This also retires the touch/keyboard carve-outs the
+   reveal needed: nothing to reveal, nothing to except.) */
 /* The edit panel — a floating form anchored under the link, so the link stays visible
    above it while you change where it points. */
 .head__panel {
@@ -695,5 +848,73 @@ onClickOutside(trailEl, () => {
   padding: var(--space-2);
   font-size: var(--text-chrome);
   line-height: 1.2;
+}
+
+/* dates — a sibling of the trail affordance in the same meta row, so it needs its
+   own positioning context for the panel below (the row's belongs to the trail one) */
+.head__dates {
+  position: relative;
+  display: inline-flex;
+}
+/* the affordance itself borrows .head__add wholesale (hover reveal, colour, ease);
+   only the resolved state differs — a set date is content, not an invitation, so it
+   holds full-time at the same weight the trail link's name does */
+.head__datesbtn {
+  gap: var(--space-1);
+}
+.head__datespanel {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  left: 0;
+  z-index: var(--z-menu);
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  width: max-content;
+}
+.head__datesummary {
+  margin: 0;
+}
+/* The month grid is a fixed 260px panel, and "Add dates" is the SECOND affordance in
+   this row — so on a phone it opens around x=139 and runs 24px past the right edge,
+   taking Sunday's whole column off-screen with it. A date you cannot tap is not a
+   picker.
+   Below 720px the panel resolves against .head__trail instead (already positioned,
+   since it anchors the trail edit panel) so it starts at the row's left edge and has
+   the full content width to sit in. `top` then measures from the row rather than the
+   button, which on a wrapped two-line row is the more predictable of the two anyway.
+   The desktop anchoring is untouched. */
+@media (max-width: $bp-stack) {
+  .head__dates {
+    position: static;
+  }
+}
+.head__dateclear {
+  justify-self: start;
+  color: var(--ink-3);
+}
+.head__dateclear:hover {
+  color: var(--ink);
+}
+
+/* The trail affordance → link swap. Short and small: this is one line inside a page
+   header, and anything longer reads as the header being unstable. Same tokens as
+   every other family (see the motion note in atoms/controls.scss); reduced-motion is
+   handled globally by the duration kill-switch. */
+.trailswap-enter-active,
+.trailswap-leave-active {
+  transition:
+    opacity var(--dur) var(--ease),
+    translate var(--dur) var(--ease);
+}
+/* the link RISES into place — it is the result of an action, so it comes up from
+   under the line rather than dropping onto it */
+.trailswap-enter-from {
+  opacity: 0;
+  translate: 0 var(--space-1);
+}
+.trailswap-leave-to {
+  opacity: 0;
+  translate: 0 calc(-1 * var(--space-px));
 }
 </style>

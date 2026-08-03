@@ -44,6 +44,12 @@ export const lists = pgTable(
     // normalized); trail_label overrides the name derived from the URL's path
     trailUrl: text("trail_url"),
     trailLabel: text("trail_label"),
+    // when the trip is. TEXT holding `YYYY-MM-DD`, not a date/timestamptz column: a
+    // trip's dates are calendar dates, and a timestamp type would drag a timezone
+    // into a value that has none — round-tripping "Aug 4" into "Aug 3" for anyone
+    // west of UTC. The reducer validates the shape (shared/ops.ts).
+    startDate: text("start_date"),
+    endDate: text("end_date"),
     // folders + items (the op-reducer's state)
     data: jsonb("data").$type<ListData>().notNull(),
     // cached rollups (feed sort only; recomputed on every write)

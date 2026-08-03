@@ -15,6 +15,8 @@ import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import { createError, readBody } from "h3";
 import { localKey, type LocalListRecord } from "~~/shared/localList";
 import type { Folder, Item, ListSnapshot } from "~~/shared/types";
+import type { VaultEntry } from "~~/shared/vault";
+import { vaultNormKey } from "~~/shared/vault";
 import {
   resetVaultCapture,
   setVaultDecisionFor,
@@ -588,5 +590,98 @@ describe("useGearList — getting a pending capture out as the page goes away", 
 
     window.dispatchEvent(new Event("pagehide"));
     expect(beacons).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Category templates — cloning a whole vault folder back into a list.
+//
+// Driven through the live controller rather than a extracted helper because the
+// behaviour under test is a COMPOSITION: addVaultFolder mints a folder, then leans
+// on addVaultItem for every row, and the rules worth pinning (which rows are
+// skipped, where they land, what a no-op does) only exist once those two run
+// together against a real snapshot.
+// ---------------------------------------------------------------------------
+describe("useGearList — addVaultFolder", () => {
+  const entry = (over: Partial<VaultEntry> & { normKey: string; name: string }): VaultEntry => ({
+    id: 1,
+    weightMg: 100_000,
+    timesSeen: 1,
+    lastUsedAt: "",
+    createdAt: "",
+    ...over,
+  });
+
+  beforeEach(() => {
+    records.clear();
+    storage.clear();
+    resetVaultCapture();
+    // a list that already HOLDS something, so the "already added" rule has a case
+    listResponse = withGear([gear()]);
+  });
+  afterEach(() => {
+    useGearList().dispose();
+  });
+
+  it("creates one folder and files every entry into it", async () => {
+    const c = useGearList();
+    await c.load(TOKEN);
+    const before = c.snapshot.value!.folders.length;
+
+    const id = c.addVaultFolder("Cook kit", [
+      entry({ normKey: "pot", name: "Pot", weightMg: 120_000 }),
+      entry({ normKey: "stove", name: "Stove", weightMg: 80_000 }),
+    ]);
+
+    expect(id).not.toBe("");
+    const snap = c.snapshot.value!;
+    expect(snap.folders).toHaveLength(before + 1);
+    const folder = snap.folders.find((f) => f.id === id)!;
+    expect(folder.name).toBe("Cook kit");
+    // base is the folder default — a template must not pin a classification the
+    // vault row didn't carry
+    expect(folder.defaultClassification).toBe("base");
+
+    const landed = snap.items.filter((i) => i.folderId === id);
+    expect(landed.map((i) => i.name).sort()).toEqual(["Pot", "Stove"]);
+    expect(landed.map((i) => i.unitWeightMg).sort((a, b) => a - b)).toEqual([80_000, 120_000]);
+  });
+
+  it("skips gear the list already holds, matching the per-row rule", async () => {
+    const c = useGearList();
+    await c.load(TOKEN);
+    // the fixture list carries a Duplex; adding a category containing it must not
+    // split one thing's weight across two rows
+    const held = c.snapshot.value!.items[0]!;
+    const id = c.addVaultFolder("Shelter", [
+      entry({ normKey: vaultNormKey(held.brand, held.name, held.variant), name: held.name }),
+      entry({ normKey: "stakes", name: "Stakes" }),
+    ]);
+
+    const landed = c.snapshot.value!.items.filter((i) => i.folderId === id);
+    expect(landed.map((i) => i.name)).toEqual(["Stakes"]);
+  });
+
+  it("adds nothing at all when every entry is already held", async () => {
+    const c = useGearList();
+    await c.load(TOKEN);
+    const held = c.snapshot.value!.items[0]!;
+    const folders = c.snapshot.value!.folders.length;
+
+    const id = c.addVaultFolder("Shelter", [
+      entry({ normKey: vaultNormKey(held.brand, held.name, held.variant), name: held.name }),
+    ]);
+
+    // an empty folder the user didn't ask for is worse than doing nothing
+    expect(id).toBe("");
+    expect(c.snapshot.value!.folders).toHaveLength(folders);
+  });
+
+  it("is a no-op for an empty category", async () => {
+    const c = useGearList();
+    await c.load(TOKEN);
+    const folders = c.snapshot.value!.folders.length;
+    expect(c.addVaultFolder("Empty", [])).toBe("");
+    expect(c.snapshot.value!.folders).toHaveLength(folders);
   });
 });

@@ -7,7 +7,8 @@ const NO_ITEMS: ItemT[] = [];
 </script>
 
 <script setup lang="ts">
-import { ChevronDown } from "@lucide/vue";
+import { HugeiconsIcon } from "@hugeicons/vue";
+import { ChevronDownIcon } from "@hugeicons/core-free-icons";
 import type { Item, ListSnapshot } from "~~/shared/types";
 import { effectiveClassification, formatWeight, rowDisplayMg } from "~~/shared/weights";
 import { itemQtyLabel } from "~~/shared/water";
@@ -60,7 +61,7 @@ const collapsed = ref(true);
           :title="collapsed ? 'Expand group' : 'Collapse group'"
           @click="collapsed = !collapsed"
         >
-          <ChevronDown class="item__nestchev" :class="{ 'is-collapsed': collapsed }" :size="16" :stroke-width="2" />
+          <HugeiconsIcon :icon="ChevronDownIcon" class="item__nestchev" :class="{ 'is-collapsed': collapsed }" :size="16" :stroke-width="2" />
         </button>
       </span>
       <span class="t-num t-sm t-muted item__roqty">{{ itemQtyLabel(item, effClass) }}</span>
@@ -101,8 +102,10 @@ const collapsed = ref(true);
   /* the grid scaffold (display / columns / align / gap) is the shared .item-row base
      (atoms/item.scss); the read row only feeds it the read column token. baseline align
      is the base default, so nothing else to set here.
-     vertical padding comes from the row wrapper (.folder__items > * / .ro-nest > *) so the
-     rule lines between items sit at a consistent rhythm. */
+     vertical padding comes from the row wrapper (.folder__items > *) so the rule lines
+     between top-level items sit at a consistent rhythm. NESTED rows are spaced instead
+     by .nest-block's own gap (atoms/item.scss) — deliberately, so a nested group reads
+     as one quiet block rather than as more ruled rows. */
   --row-cols: var(--item-cols-ro);
   /* ROW gap 0, column gap the shared --item-gap: the sub-line below the name is a grid
      row here, so the row gap IS the caption gap — and any of it puts the sub-line

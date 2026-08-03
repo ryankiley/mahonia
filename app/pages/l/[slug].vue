@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { Globe } from "@lucide/vue";
+import { HugeiconsIcon } from "@hugeicons/vue";
+import { GlobeIcon } from "@hugeicons/core-free-icons";
 import type { ListSnapshot } from "~~/shared/types";
 
 const route = useRoute();
@@ -41,7 +42,7 @@ useHead(() => ({
       @set-unit="(u) => (unit = u)"
     >
       <!-- 14 = the small icon tier, the size every other inline-with-text icon uses -->
-      <template #status><Globe :size="14" :stroke-width="2" /> Public list</template>
+      <template #status><HugeiconsIcon :icon="GlobeIcon" :size="14" :stroke-width="2" /> Public list</template>
 
       <template #head>
         <div class="view__head">

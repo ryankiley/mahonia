@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { Droplet, Vault } from "@lucide/vue";
+import { HugeiconsIcon } from "@hugeicons/vue";
+import { DropletIcon, SafeBoxIcon } from "@hugeicons/core-free-icons";
 import type { EffectScope } from "vue";
 import type { Unit } from "~~/shared/types";
 import { formatWeight, itemDisplayName } from "~~/shared/weights";
@@ -401,7 +402,7 @@ function highlightParts(text: string): { t: string; on: boolean }[] {
       >
         <template v-if="'water' in opt">
           <span class="ac__name">
-            <Droplet class="ac__watericon" :size="14" :stroke-width="2" aria-hidden="true" />{{ opt.water.label }}
+            <HugeiconsIcon :icon="DropletIcon" class="ac__watericon" :size="14" :stroke-width="2" aria-hidden="true" />{{ opt.water.label }}
           </span>
           <span class="ac__metaright">
             <span class="t-num ac__w">{{ formatWeight(opt.water.weightMg, unit, { withUnit: false }) }} <span class="t-muted">{{ unit }}</span></span>
@@ -414,7 +415,7 @@ function highlightParts(text: string): { t: string; on: boolean }[] {
           <span class="ac__name">
             <!-- the same glyph as the editor toolbar's vault button, so one mark
                  means one thing across both surfaces and reads before the text does -->
-            <Vault class="ac__mineicon" :size="14" :stroke-width="2" aria-hidden="true" />
+            <HugeiconsIcon :icon="SafeBoxIcon" class="ac__mineicon" :size="14" :stroke-width="2" aria-hidden="true" />
             <span class="visually-hidden">From your vault: </span>
             <span v-if="opt.vault.brand" class="ac__brand">
               <span

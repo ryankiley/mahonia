@@ -107,7 +107,54 @@ import { brotliCompressSync, gzipSync, constants } from "node:zlib";
 // broader firstLoadAssets() that counts rel="prefetch". This branch's narrower
 // reading is the one kept, so the anchor is re-derived from what it actually
 // measures rather than carried over.
-const FIRST_LOAD_BUDGET_KB = 123;
+// 123→125 for per-row calories + remembered entry units. Measured 123.1 KB, i.e.
+// the row work costs ~0.1 KB on the hot path, which is what it should cost: the
+// only new first-load code is the kcal popover's markup and the entryUnit reads in
+// ItemRow, both inside a chunk the editor already pulls. computeTotals gained two
+// accumulators in a loop it already ran; formatKcal is six lines beside
+// formatWeight. The headroom above the measurement is the usual ~1.2% rule, not
+// room budgeted for anything in particular.
+//
+// 125→128 for the row's vault button and the always-visible action cluster.
+// Measured 125.9 KB. The ~2.2 KB since the last anchor is three things, all of them
+// row-level and so unavoidably on the editor's first load: two more Lucide glyphs
+// (Vault + Check), the <Tooltip> now wrapped around the row's icon buttons (the
+// component was already in the graph — this is the extra instances), and
+// captureOne's call path in useGearList. shared/vault itself is NOT here: captureOne
+// reaches it through the same dynamic import the automatic capture uses, which is
+// what keeps the vault module off this number. Same ~1.2% headroom rule.
+//
+// 128→130 for "Send feedback". Measured 128.4 KB. The dialog itself is NOT in this
+// number — it's a LazyFeedbackModal behind an everOpened guard, so the markup, the
+// POST and its copy stay in their own chunk. What lands here is the footer's trigger
+// and the two refs guarding it, and the footer is the one component on every routed
+// page, so anything it gains is first-load by definition. ~0.5 KB is the honest
+// price of an entry point that has to be reachable from everywhere.
+//
+// 130→133 for the lucide → hugeicons swap. Measured 130.6 KB, i.e. +2.2 KB, which
+// lines up with the +1.9 KB the 2026-07-22 preview measured for the same swap: their
+// path data is curve-heavy, so each glyph costs more than lucide's. Both packages
+// tree-shake per-glyph, so this is the price of 32 drawings, not of a library.
+// The swap reverses that preview's "lucide stays" call — see the wiki note, which
+// has been corrected.
+//
+// 133→135 for the editor's row and meta-row work. Measured 133.3 KB, i.e. +2.7 KB
+// since the icon anchor, and all of it is on the hot path for the honest reason:
+// it IS the row. The classification select became two toggle buttons with a popover
+// each (the worn split, and calories), the row grew a unit selector and a nesting
+// menu, its actions stopped being hover-hidden, and the meta row gained the dates
+// affordance and the title pencil. New glyphs across both (Shirt, Cookie,
+// Calculator, Edit02, Location01, Calendar03, Copy01, and the two account marks)
+// are the largest single share, at hugeicons' curve-heavy per-glyph rate.
+//
+// What is deliberately NOT in this number: the sharing panel, the feedback dialog,
+// the import dialog, the catalog-correction popover, the vault pane, and the date
+// picker's month grid. All six are Lazy behind an open guard, which is the rule this
+// gate exists to reward. DateRangePicker was the one that nearly wasn't — ListHead
+// is first-load, so a statically-imported calendar shipped to every visitor who
+// never opened it. Making it Lazy is where 0.8 of the overage went; the gate caught
+// it, which is the gate working. Same ~1.2% headroom rule as the anchors above.
+const FIRST_LOAD_BUDGET_KB = 135;
 // TOTAL of every built file, the backstop. Deliberately slack: its job is to catch
 // a route chunk ballooning or a heavy dep landing somewhere unnoticed, NOT to price
 // ordinary feature work. Set well clear of current (137.1) so it only speaks up when

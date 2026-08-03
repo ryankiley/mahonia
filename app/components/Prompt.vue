@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { X } from "@lucide/vue";
+import { HugeiconsIcon } from "@hugeicons/vue";
+import { Cancel01Icon } from "@hugeicons/core-free-icons";
 
 // A persistent corner prompt carrying ONE decision.
 //
@@ -53,7 +54,7 @@ const emit = defineEmits<{ dismiss: [] }>();
       </span>
       <slot name="action" />
       <button type="button" class="prompt__close" :aria-label="dismissLabel" :title="dismissLabel" @click="emit('dismiss')">
-        <X :size="15" :stroke-width="2" />
+        <HugeiconsIcon :icon="Cancel01Icon" :size="15" :stroke-width="2" />
       </button>
     </div>
 
@@ -73,7 +74,7 @@ const emit = defineEmits<{ dismiss: [] }>();
           </span>
           <slot name="action" />
           <button type="button" class="prompt__close" :aria-label="dismissLabel" :title="dismissLabel" @click="emit('dismiss')">
-            <X :size="15" :stroke-width="2" />
+            <HugeiconsIcon :icon="Cancel01Icon" :size="15" :stroke-width="2" />
           </button>
         </div>
       </div>

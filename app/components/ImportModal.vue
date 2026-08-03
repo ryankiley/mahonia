@@ -44,6 +44,8 @@ async function createFrom(
     displayUnit?: Unit;
     trailUrl?: string;
     trailLabel?: string;
+    startDate?: string;
+    endDate?: string;
   },
 ) {
   // a folders-only JSON backup is still a real restore; an empty CSV is not
@@ -62,6 +64,8 @@ async function createFrom(
         displayUnit: meta?.displayUnit,
         trailUrl: meta?.trailUrl,
         trailLabel: meta?.trailLabel,
+        startDate: meta?.startDate,
+        endDate: meta?.endDate,
         data,
       },
     });
@@ -140,10 +144,12 @@ function onFile(e: Event) {
 <template>
   <BaseModal :open="open" label="Import a list" @close="emit('close')">
     <p class="t-label">Import a list</p>
+    <!-- The controls below already say the rest: the placeholder shows the link and
+         CSV shapes, and the file picker's accept filter covers JSON. This only has
+         to carry the part nothing else does — that an import ARRIVES as a new list
+         rather than merging into the one you're looking at. -->
     <p class="t-sm t-muted dlg__lede">
-      Paste a LighterPack share link, a CSV (LighterPack’s “Export to CSV” or any
-      spreadsheet), or choose a file. A JSON backup from “Download JSON” restores
-      the full list. It becomes a new list.
+      Paste a LighterPack link or CSV, or choose a file. It becomes a new list.
     </p>
 
     <textarea

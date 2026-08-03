@@ -1,7 +1,12 @@
 <script setup lang="ts">
-import { ArrowDown10, ArrowDownAZ, ArrowDownUp, ArrowUp01, ChevronDown, GripVertical, Trash2 } from "@lucide/vue";
+import { HugeiconsIcon } from "@hugeicons/vue";
+import { ArrowUpDownIcon, ChevronDownIcon, Delete02Icon, GripVerticalIcon, SortingAZ01Icon, SortingNineOneIcon, SortingOneNineIcon } from "@hugeicons/core-free-icons";
 import type { Folder, FolderSort, Item, ListSnapshot } from "~~/shared/types";
 import { bySortOrder } from "~~/shared/weights";
+
+// a row can raise a transient message (banking gear to the vault); the folder just
+// passes it through to the editor, which owns the toast
+defineEmits<{ toast: [string] }>();
 
 // The editor's folder — editable by default, a checklist in packing mode. The
 // share views (/s + /l) render ReadonlyFolderSection instead, so this component
@@ -59,11 +64,16 @@ function onOverlayToggle(open: boolean) {
 // numeric (weight) sorts; the weight arrow flips (down = heaviest/descending, up =
 // lightest/ascending) so the two weight modes are distinguishable at 16px, where the
 // digit order alone (1-0 vs 0-1) isn't.
-const SORT_META: Record<FolderSort, { label: string; icon: typeof ArrowDownUp }> = {
-  manual: { label: "Manual order", icon: ArrowDownUp },
-  name: { label: "Name (A–Z)", icon: ArrowDownAZ },
-  heaviest: { label: "Heaviest first", icon: ArrowDown10 },
-  lightest: { label: "Lightest first", icon: ArrowUp01 },
+// `typeof ArrowUpDownIcon`, keeping the shape the lucide version used. A hugeicons
+// icon is PATH DATA rather than a component — and the exported data is readonly, so
+// the package's own mutable IconArray doesn't accept it. Borrowing the type from one
+// of the four icons is both exact and self-maintaining. It is also why the template
+// can't use <component :is>; see the note there.
+const SORT_META: Record<FolderSort, { label: string; icon: typeof ArrowUpDownIcon }> = {
+  manual: { label: "Manual order", icon: ArrowUpDownIcon },
+  name: { label: "Name (A–Z)", icon: SortingAZ01Icon },
+  heaviest: { label: "Heaviest first", icon: SortingNineOneIcon },
+  lightest: { label: "Lightest first", icon: SortingOneNineIcon },
 };
 const SORT_ORDER: FolderSort[] = ["manual", "name", "heaviest", "lightest"];
 const sortBy = computed<FolderSort>(() => props.folder.sortBy ?? "manual");
@@ -156,7 +166,7 @@ function toggleCollapsed() {
           :title="collapsed ? 'Expand folder' : 'Collapse folder'"
           @click="toggleCollapsed"
         >
-          <ChevronDown class="folder__chev" :class="{ 'is-collapsed': collapsed }" :size="20" :stroke-width="2" />
+          <HugeiconsIcon :icon="ChevronDownIcon" class="folder__chev" :class="{ 'is-collapsed': collapsed }" :size="20" :stroke-width="2" />
         </button>
       </div>
       <!-- trailing actions read left→right: delete · sort · reorder-grip (grip stays
@@ -168,10 +178,13 @@ function toggleCollapsed() {
           aria-label="Remove folder"
           @click="c.removeFolder(folder.id)"
         >
-          <Trash2 :size="16" />
+          <HugeiconsIcon :icon="Delete02Icon" :size="16" :stroke-width="2" />
         </button>
         <div class="folder__sortwrap" :class="{ 'is-active': isSorted }">
-          <component :is="sortIcon" class="folder__sorticon" :size="16" :stroke-width="2" aria-hidden="true" />
+          <!-- :icon, NOT <component :is>. An icon here is path data rather than a
+               component, so :is would try to render an array and fail; the one
+               renderer takes the varying icon as a prop instead. -->
+          <HugeiconsIcon :icon="sortIcon" class="folder__sorticon" :size="16" :stroke-width="2" aria-hidden="true" />
           <select
             class="folder__sortsel"
             :value="sortBy"
@@ -191,7 +204,7 @@ function toggleCollapsed() {
           @pointerdown="fdnd.start(folder.id, $event)"
           @keydown="onGripKey"
         >
-          <GripVertical :size="16" />
+          <HugeiconsIcon :icon="GripVerticalIcon" :size="16" :stroke-width="2" />
         </button>
       </div>
     </header>
@@ -213,6 +226,7 @@ function toggleCollapsed() {
             :prev-id="items[i - 1]?.id ?? null"
             :packed="packed"
             @overlay-toggle="onOverlayToggle"
+            @toast="$emit('toast', $event)"
           />
         </TransitionGroup>
 
@@ -252,7 +266,7 @@ function toggleCollapsed() {
 /* packing mode drops the folder's trailing actions, so the header's grid narrows
    to match the packing item rows */
 .folder__head--packed {
-  grid-template-columns: var(--item-cols-pack);
+  --head-cols: var(--item-cols-pack);
 }
 /* The editor's only extra on the shared collapse button: the ChevronDown glyph sits
    ~5px inside its own box (the `v` occupies the middle of a 20px viewbox), so a
@@ -315,14 +329,14 @@ function toggleCollapsed() {
 
 @media (max-width: $bp-stack) {
   .folder__head {
-    grid-template-columns: 1fr auto;
+    --head-cols: 1fr auto;
   }
   /* keep packing mode matching the checklist COLUMNS so the folder total stays aligned
      with item weights on mobile too (the checklist ROW itself restacks to
      `auto auto 1fr` here — the header keeps the desktop columns and just needs the
      same right-hand weight track) */
   .folder__head--packed {
-    grid-template-columns: var(--item-cols-pack);
+    --head-cols: var(--item-cols-pack);
   }
   .folder__title {
     grid-column: 1;
@@ -390,4 +404,5 @@ function toggleCollapsed() {
 }
 /* the add button itself (.folder__addbtn) is the shared add-affordance atom, shared with
    a nested group's own add row — atoms/item.scss */
+
 </style>

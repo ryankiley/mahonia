@@ -41,8 +41,11 @@ export function listToCsv(list: ListSnapshot): string {
   const folderName = (id: string | null) =>
     list.folders.find((f) => f.id === id)?.name ?? "";
 
+  // Kcal is APPENDED, never inserted: the importer maps columns by header name
+  // (see idx() below), but third-party tooling reading our export positionally
+  // would break if an existing column shifted.
   const out = [
-    "Category,Item Name,Gear Type,Brand,Qty,Weight,Unit,Worn,Consumable,Price,URL,Description,Worn Qty",
+    "Category,Item Name,Gear Type,Brand,Qty,Weight,Unit,Worn,Consumable,Price,URL,Description,Worn Qty,Kcal",
   ];
   // rows follow what the app shows (exportSections): folders in their order, each
   // folder's items in its chosen sort, then any ungrouped items — so a re-import of a
@@ -57,7 +60,12 @@ export function listToCsv(list: ListSnapshot): string {
   );
   for (const it of ordered) {
     const cls = effectiveClassification(it, list.folders);
-    const w = it.unitWeightMg > 0 ? +fromMg(it.unitWeightMg, u).toFixed(u === "g" ? 0 : 3) : "";
+    // Each row exports in the unit it READS in, not the list's. The Unit column is
+    // already per-row and the importer already honours it per-row, so this is what
+    // makes a row typed in ounces come back as ounces instead of being flattened to
+    // the list's unit on every round-trip.
+    const ru = it.entryUnit ?? u;
+    const w = it.unitWeightMg > 0 ? +fromMg(it.unitWeightMg, ru).toFixed(ru === "g" ? 0 : 3) : "";
     // the split gets its OWN column: the boolean Worn column can't carry a count
     // (a split row must not import back as fully worn)
     const wq = splitWornQty(it, cls);
@@ -70,13 +78,17 @@ export function listToCsv(list: ListSnapshot): string {
         esc(it.brand ?? ""),
         it.qty,
         w,
-        it.unitWeightMg > 0 ? u : "",
+        it.unitWeightMg > 0 ? ru : "",
         cls === "worn" ? "1" : "",
         cls === "consumable" ? "1" : "",
         it.priceCents != null ? (it.priceCents / 100).toFixed(2) : "",
         esc(it.productUrl ?? ""),
         esc(it.description ?? ""),
         wq > 0 ? wq : "",
+        // only meaningful on a consumable row, and that's the only place it's
+        // counted (see computeTotals) — so a stale value on a demoted row isn't
+        // exported as though it still applied
+        cls === "consumable" && it.kcal ? it.kcal : "",
       ].join(","),
     );
   }
@@ -138,6 +150,11 @@ export function csvToListData(text: string, defaultUnit: Unit = "g"): ListData {
   // canonical-URL affiliate tagging.
   const iUrl = idx(["url", "link", "product url"]);
   const iDesc = idx(["desc", "description", "notes", "note"]);
+  // Calories, unlike Price, ARE kept — this is our own column and the field is
+  // visible and editable in the app, so dropping it would lose real user data on
+  // every export/import round-trip. Absent (a LighterPack CSV, or one of ours from
+  // before the column existed) → idx returns -1 and every row reads undefined.
+  const iKcal = idx(["kcal", "calories", "cal"]);
   const nameCol = iName >= 0 ? iName : 0;
 
   const folders: ListData["folders"] = [];
@@ -184,6 +201,13 @@ export function csvToListData(text: string, defaultUnit: Unit = "g"): ListData {
     const wornQtyVal = iWornQty >= 0 && classification === null
       ? Math.round(parseFloat(row[iWornQty] || "") || 0)
       : 0;
+    // Only remember a unit the file actually NAMED. With no Unit column,
+    // normalizeUnit returns the fallback — recording that would pin every row of a
+    // unitless CSV to a unit nobody chose, and the list's own unit already covers it.
+    const namedUnit = iUnit >= 0 && (row[iUnit] ?? "").trim() ? unit : undefined;
+    // kcal only rides along on rows this import classes as consumable, matching
+    // where the app lets it be edited and counted
+    const kcalNum = iKcal >= 0 ? Math.round(parseFloat((row[iKcal] || "").replace(/,/g, "")) || 0) : 0;
 
     items.push({
       id: uid(),
@@ -195,9 +219,11 @@ export function csvToListData(text: string, defaultUnit: Unit = "g"): ListData {
       commonNameOverridden: gearType ? true : undefined,
       brand: cell(iBrand),
       unitWeightMg,
+      entryUnit: unitWeightMg > 0 ? namedUnit : undefined,
       qty,
       wornQty: wornQtyVal > 0 ? Math.min(wornQtyVal, qty) : undefined,
       classification,
+      kcal: classification === "consumable" && kcalNum > 0 ? kcalNum : undefined,
       description: cell(iDesc),
       productUrl: cell(iUrl),
       sortOrder: folderCount.get(fId) ?? 0,

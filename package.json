@@ -25,7 +25,8 @@
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.3",
-    "@lucide/vue": "^1.17.0",
+    "@hugeicons/core-free-icons": "^4.2.3",
+    "@hugeicons/vue": "^1.0.7",
     "@neondatabase/serverless": "^1.1.0",
     "@simplewebauthn/server": "^13.3.2",
     "@upstash/redis": "^1.37.0",
