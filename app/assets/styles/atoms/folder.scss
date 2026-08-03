@@ -85,7 +85,7 @@
   text-overflow: ellipsis;
   font-weight: 600;
   font-size: var(--text-title);
-  letter-spacing: -0.02em;
+  letter-spacing: var(--track-tight);
 }
 
 /* rule lines between items — a quiet spec-sheet rhythm; padding here (not on the

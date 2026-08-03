@@ -1056,7 +1056,7 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
   font-family: var(--font);
   font-size: var(--text-title);
   font-weight: 600;
-  letter-spacing: -0.02em;
+  letter-spacing: var(--track-tight);
 }
 .vault__addfolderbtn {
   color: var(--ink-3);

@@ -242,7 +242,7 @@ useHead({
 .prose h3 {
   font-size: var(--text-title);
   font-weight: 600;
-  letter-spacing: -0.02em;
+  letter-spacing: var(--track-tight);
   margin-top: var(--space-4);
 }
 </style>

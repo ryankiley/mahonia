@@ -15,7 +15,7 @@ body {
   font-size: var(--text-title);
   font-weight: 600;
   line-height: var(--leading-tight);
-  letter-spacing: -0.02em;
+  letter-spacing: var(--track-tight);
 }
 
 // Small label — sentence case (no all-caps).
@@ -32,7 +32,7 @@ body {
 // Tabular figures for data — aligned columns, same family.
 .t-num {
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
+  letter-spacing: var(--track-tight);
 }
 
 // Secondary text color (the only de-emphasis level).

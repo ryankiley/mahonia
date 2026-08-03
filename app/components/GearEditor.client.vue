@@ -1108,7 +1108,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
   font-family: var(--font);
   font-size: var(--text-title);
   font-weight: 600;
-  letter-spacing: -0.02em;
+  letter-spacing: var(--track-tight);
 }
 .editor__addfolderbtn {
   color: var(--ink-3);

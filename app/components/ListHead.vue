@@ -493,7 +493,7 @@ onClickOutside(trailEl, () => {
   font-size: var(--text-page-title);
   font-weight: 700;
   line-height: 1.2;
-  letter-spacing: -0.02em;
+  letter-spacing: var(--track-tight);
   /* textarea defaults that have to go for it to read as a title rather than a control:
      no drag handle, no scrollbar (it's sized to its content, so there's nothing to
      scroll), and no min-height from .field — one line at this size is already taller

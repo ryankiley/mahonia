@@ -124,8 +124,6 @@ export function isBrandedTypedItem(p: {
 //     → "M's 9, W's 10") — it's a transcription artifact from manufacturer quotes,
 //     never a canonical separator
 
-const SIZE_TOKEN = /^W?(XS|S|M|L|XL|XXL|XXXL)$/i;
-const isSizeTok = (s: string) => SIZE_TOKEN.test(s.trim());
 // crude "looks like a measured value": has a digit AND a unit-ish char (letter, ", ')
 const hasNumUnit = (s: string) => /\d/.test(s) && /[a-zA-Z"']/.test(s);
 

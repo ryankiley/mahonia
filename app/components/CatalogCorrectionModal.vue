@@ -80,7 +80,7 @@ async function onSubmit() {
 .dlg__item {
   font-size: var(--text-title);
   font-weight: 600;
-  letter-spacing: -0.02em;
+  letter-spacing: var(--track-tight);
 }
 .dlg__field em {
   font-style: normal;
