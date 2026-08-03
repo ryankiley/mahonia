@@ -48,7 +48,7 @@ a fresh checkout is a working app rather than a broken one:
 | Unset variable | What happens locally |
 | --- | --- |
 | `RESEND_API_KEY` | Sign-in links print to the server console instead of being emailed. |
-| `GITHUB_FEEDBACK_TOKEN` / `_REPO` | "Send feedback" prints to the console and reports back that it wasn't filed. |
+| `GITHUB_FEEDBACK_TOKEN` / `_REPO` | "Send feedback" (in the editor's actions menu) prints to the console and reports back that it wasn't filed. |
 
 Both fail **loudly in production** rather than quietly accepting input that goes nowhere.
 
