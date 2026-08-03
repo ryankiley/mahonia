@@ -24,9 +24,12 @@ export const VAULT_SEARCH_LIMIT = 6;
 export const VAULT_CAPTURE_MAX = 200;
 
 /** Field caps, applied on the way in so an oversized list row can't bloat a vault
- *  row. Mirrors the reducer's own clamping intent (shared/ops.ts). */
-const NAME_MAX = 200;
-const SHORT_MAX = 120;
+ *  row. Mirrors the reducer's own clamping intent (shared/ops.ts). Exported so the
+ *  server's sanitize (vaultRepo) clamps a direct POST to the same bounds the
+ *  client applies — one set of numbers, not two. */
+export const VAULT_NAME_MAX = 200;
+export const VAULT_SHORT_MAX = 120;
+export const VAULT_URL_MAX = 2000;
 
 /**
  * A piece of gear as the client offers it up for capture — the subset of a list
@@ -133,10 +136,10 @@ function captureFromItem(
   folderName?: string,
 ): VaultCapture | null {
   if (!isVaultWorthy(item, hasChildren)) return null;
-  const name = trim(item.name, NAME_MAX);
+  const name = trim(item.name, VAULT_NAME_MAX);
   if (!name) return null;
-  const brand = trim(item.brand, SHORT_MAX);
-  const variant = trim(item.variant, SHORT_MAX);
+  const brand = trim(item.brand, VAULT_SHORT_MAX);
+  const variant = trim(item.variant, VAULT_SHORT_MAX);
   const normKey = vaultNormKey(brand, name, variant);
   if (!normKey) return null;
   return {
@@ -144,14 +147,14 @@ function captureFromItem(
     brand,
     name,
     variant,
-    commonName: trim(item.commonName, SHORT_MAX),
+    commonName: trim(item.commonName, VAULT_SHORT_MAX),
     weightMg: Math.max(0, Math.round(item.unitWeightMg)),
     // null means "inherit the folder default" — a fact about the list, not the
     // gear, so it's dropped rather than guessed at
     classification: item.classification ?? undefined,
     catalogItemId: typeof item.catalogItemId === "number" ? item.catalogItemId : undefined,
-    productUrl: trim(item.productUrl, 2000),
-    folder: trim(folderName, SHORT_MAX),
+    productUrl: trim(item.productUrl, VAULT_URL_MAX),
+    folder: trim(folderName, VAULT_SHORT_MAX),
   };
 }
 
@@ -198,6 +201,3 @@ export function captureFingerprint(caps: VaultCapture[]): string {
     .sort()
     .join("");
 }
-
-/** A vault row as the ranker needs it — the entry plus nothing else; timesSeen is
- *  already on VaultEntry and stands in for the catalog's usage_count. */

@@ -112,8 +112,8 @@ export function useSession() {
     }
   }
 
-  /** Patch the account's settings. Both fields are optional, so a caller changes
-   *  one without restating the other; the shared state adopts whatever comes back. */
+  /** Patch the account's one setting (the display name); the shared state adopts
+   *  whatever comes back. */
   async function saveProfile(patch: { displayName?: string }): Promise<boolean> {
     try {
       const res = await $fetch<{ ok: boolean; displayName: string | null }>(

@@ -32,13 +32,10 @@ import { resolveSession } from "./authSession";
 type Db = Awaited<ReturnType<typeof useVaultDb>>;
 
 /**
- * Resolve the signed-in user's vault, or 401.
- *
- * Two distinct cases collapse into one response on purpose: "you aren't signed
- * in" and "you're signed in but have no vault yet" are the same answer to a
- * caller — there is nothing here for you — and the client's job in both cases is
- * to show the empty state. Only capture distinguishes them, because only capture
- * creates.
+ * Resolve the signed-in user's vault, or 401 — for the WRITES (folder ops,
+ * remove/restore), which need an existing vault to act on. Reads go through
+ * resolveVaultForRead below, where "no vault yet" is a normal state, not an
+ * error.
  *
  * `last_seen_at` is bumped on every resolve so an abandoned vault can be reaped on
  * the same schedule as an abandoned list, instead of accumulating forever. That
@@ -54,6 +51,28 @@ export async function requireVault(event: H3Event): Promise<{ db: Db; vaultId: n
   const vaultId = await touchVaultByUser(db, user.id);
   if (vaultId == null) throw createError({ statusCode: 401, statusMessage: "No vault yet" });
   return { db, vaultId };
+}
+
+/**
+ * Resolve the signed-in user's vault for a READ, or null when there is nothing
+ * to read yet.
+ *
+ * Vaults are minted lazily on first capture, and /vault is where sign-in lands —
+ * so a fresh account arriving with no vault row is the NORMAL first visit, and
+ * the read endpoints answer it with their empty shape. A 401 here read as a
+ * connection error in the client and put an error banner over the empty state
+ * the page was trying to show. Signed-out still 401s: that one IS an auth
+ * failure, and the clients don't call these endpoints signed out anyway.
+ */
+export async function resolveVaultForRead(
+  event: H3Event,
+): Promise<{ db: Db; vaultId: number } | null> {
+  const user = await resolveSession(event);
+  if (!user) throw createError({ statusCode: 401, statusMessage: "Sign in to use your vault" });
+
+  const db = await useVaultDb();
+  const vaultId = await touchVaultByUser(db, user.id);
+  return vaultId == null ? null : { db, vaultId };
 }
 
 /**
