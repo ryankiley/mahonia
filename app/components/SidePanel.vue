@@ -190,12 +190,26 @@ onKeyStroke("Escape", () => {
 
 // ---- your lists -----------------------------------------------------------
 const my = useMyLists();
-// Most-recently-opened first — the order /mine uses. In practice the list you're
-// editing sits at the top and stays there, because the controller touches its entry
-// on every sync; opening an older one from here lifts it to the top on its first
-// save. One rule ("the one you're in is first"), applied consistently, rather than a
-// frozen order that would disagree with /mine.
-const lists = computed(() => [...my.entries.value].sort((a, b) => b.lastOpened - a.lastOpened));
+// BY NAME, and deliberately not by most-recently-opened the way /mine sorts.
+//
+// Recency ordering here had a nasty tell: the controller touches an entry's
+// lastOpened on its first sync, so clicking the fourth row navigated and then, a
+// beat later, hoisted that row to the top — the list reshuffling under the cursor at
+// the moment you committed to a click. A switcher whose rows move is one you stop
+// trusting, and you end up reading every row every time instead of reaching.
+//
+// The two surfaces sort differently because they do different jobs. /mine is a
+// management view that SHOWS you "2 hours ago", so recency there is data you can see
+// and act on, and you leave the page rather than clicking within it. This is a
+// switcher, where a row's position is muscle memory and stability is worth more than
+// freshness. Alphabetical gets that without inventing hidden state — no frozen
+// ordering to explain, nothing that can disagree with the registry.
+//
+// Numeric collation so "Trip 2" comes before "Trip 10" rather than after it.
+const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
+const lists = computed(() =>
+  [...my.entries.value].sort((a, b) => collator.compare(savedListTitle(a.title), savedListTitle(b.title))),
+);
 
 const editPath = (e: MyListEntry) => editLinkPath(e.shareCode, e.editToken);
 // Guarded on the prop being set, not just equal: an unsaved draft has no share code
