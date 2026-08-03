@@ -89,46 +89,88 @@ function fromCredential(cred: PublicKeyCredential): Record<string, unknown> {
 
 export type PasskeyResult = "ok" | "cancelled" | "unsupported" | "failed";
 
+/** Where a ceremony stopped, so each flow can map it to its own vocabulary. */
+type CeremonyEnd =
+  | { at: "options"; error: unknown } // the *-options request failed
+  | { at: "authenticator" } // the OS prompt was dismissed, or the authenticator refused
+  | { at: "verify" } // the *-verify request failed
+  | { at: "done"; res: { ok: boolean; reason?: string } }; // the server's verdict, unmapped
+
+/**
+ * The ceremony every flow shares: fetch challenge options from the server, hand
+ * them (as real binary) to the authenticator, POST the signed result back.
+ * Register, sign-up and sign-in used to spell this skeleton out in full three
+ * times, drifting only in endpoints and error vocabulary. What stays per-flow is
+ * exactly that — which routes, create vs get, and what each failure is CALLED
+ * (sign-up's "taken", the session refresh on success) — mapped by each caller
+ * from the stop-point this returns.
+ *
+ * The verify response is typed concretely, not as a generic: the three routes
+ * share one shape (`reason` is only ever set by signup-verify), and a generic
+ * here makes nitro's typed $fetch defer its route-match conditional, which blows
+ * TS's comparison stack in whatever file the checker visits next.
+ */
+async function ceremony(flow: {
+  options: string;
+  /** sent with the options request (sign-up's email); no body at all when absent */
+  body?: Record<string, unknown>;
+  /** create mints a new credential (register, sign-up); get asserts one (sign-in) */
+  kind: "create" | "get";
+  verify: string;
+  /** merged into the verify body (register's label) */
+  extra?: Record<string, unknown>;
+}): Promise<CeremonyEnd> {
+  let flowId: string;
+  let options: Record<string, unknown>;
+  try {
+    const res = await $fetch<{ flowId: string; options: Record<string, unknown> }>(flow.options, {
+      method: "POST",
+      body: flow.body, // undefined = no body at all — ofetch skips a falsy body
+    });
+    flowId = res.flowId;
+    options = res.options;
+  } catch (e) {
+    return { at: "options", error: e };
+  }
+
+  let cred: PublicKeyCredential | null;
+  try {
+    cred = (await (flow.kind === "create"
+      ? navigator.credentials.create({ publicKey: toCreateOptions(options) })
+      : navigator.credentials.get({ publicKey: toRequestOptions(options) }))) as PublicKeyCredential | null;
+  } catch {
+    // The user dismissed the OS prompt, or the authenticator refused. Not an
+    // error to shout about — they simply chose not to.
+    return { at: "authenticator" };
+  }
+  if (!cred) return { at: "authenticator" };
+
+  try {
+    const res = await $fetch<{ ok: boolean; reason?: string }>(flow.verify, {
+      method: "POST",
+      body: { flowId, response: fromCredential(cred), ...flow.extra },
+    });
+    return { at: "done", res };
+  } catch {
+    return { at: "verify" };
+  }
+}
+
 export function usePasskeys() {
   const { refresh } = useSession();
 
   /** Add a passkey to the account you're already signed in to. */
   async function register(label?: string): Promise<PasskeyResult> {
     if (!passkeysSupported()) return "unsupported";
-    let flowId: string;
-    let options: Record<string, unknown>;
-    try {
-      const res = await $fetch<{ flowId: string; options: Record<string, unknown> }>(
-        "/api/auth/passkey/register-options",
-        { method: "POST" },
-      );
-      flowId = res.flowId;
-      options = res.options;
-    } catch {
-      return "failed";
-    }
-
-    let cred: PublicKeyCredential | null;
-    try {
-      cred = (await navigator.credentials.create({
-        publicKey: toCreateOptions(options),
-      })) as PublicKeyCredential | null;
-    } catch {
-      // The user dismissed the OS prompt, or the authenticator refused. Not an
-      // error to shout about — they simply chose not to.
-      return "cancelled";
-    }
-    if (!cred) return "cancelled";
-
-    try {
-      const res = await $fetch<{ ok: boolean }>("/api/auth/passkey/register-verify", {
-        method: "POST",
-        body: { flowId, response: fromCredential(cred), label },
-      });
-      return res.ok ? "ok" : "failed";
-    } catch {
-      return "failed";
-    }
+    const end = await ceremony({
+      options: "/api/auth/passkey/register-options",
+      kind: "create",
+      verify: "/api/auth/passkey/register-verify",
+      extra: { label },
+    });
+    if (end.at === "authenticator") return "cancelled";
+    if (end.at !== "done") return "failed";
+    return end.res.ok ? "ok" : "failed";
   }
 
   /**
@@ -146,45 +188,25 @@ export function usePasskeys() {
    */
   async function signUp(email: string): Promise<PasskeyResult | "taken" | "bad-email"> {
     if (!passkeysSupported()) return "unsupported";
-    let flowId: string;
-    let options: Record<string, unknown>;
-    try {
-      const res = await $fetch<{ flowId: string; options: Record<string, unknown> }>(
-        "/api/auth/passkey/signup-options",
-        { method: "POST", body: { email } },
-      );
-      flowId = res.flowId;
-      options = res.options;
-    } catch (e) {
-      const status = (e as { statusCode?: number })?.statusCode;
+    const end = await ceremony({
+      options: "/api/auth/passkey/signup-options",
+      body: { email },
+      kind: "create",
+      verify: "/api/auth/passkey/signup-verify",
+    });
+    if (end.at === "options") {
+      const status = (end.error as { statusCode?: number })?.statusCode;
       if (status === 409) return "taken";
       if (status === 400) return "bad-email";
       return "failed";
     }
-
-    let cred: PublicKeyCredential | null;
-    try {
-      cred = (await navigator.credentials.create({
-        publicKey: toCreateOptions(options),
-      })) as PublicKeyCredential | null;
-    } catch {
-      return "cancelled";
-    }
-    if (!cred) return "cancelled";
-
-    try {
-      const res = await $fetch<{ ok: boolean; reason?: string }>(
-        "/api/auth/passkey/signup-verify",
-        { method: "POST", body: { flowId, response: fromCredential(cred) } },
-      );
-      if (!res.ok) return res.reason === "taken" ? "taken" : "failed";
-      // the session cookie is already set — this pulls the user into app state so
-      // the vault and the "add a way back in" prompt both light up without a reload
-      await refresh();
-      return "ok";
-    } catch {
-      return "failed";
-    }
+    if (end.at === "authenticator") return "cancelled";
+    if (end.at !== "done") return "failed";
+    if (!end.res.ok) return end.res.reason === "taken" ? "taken" : "failed";
+    // the session cookie is already set — this pulls the user into app state so
+    // the vault and the "add a way back in" prompt both light up without a reload
+    await refresh();
+    return "ok";
   }
 
   /** Sign in with a passkey — no email typed. The browser offers whichever
@@ -192,40 +214,15 @@ export function usePasskeys() {
    *  account. */
   async function signIn(): Promise<PasskeyResult> {
     if (!passkeysSupported()) return "unsupported";
-    let flowId: string;
-    let options: Record<string, unknown>;
-    try {
-      const res = await $fetch<{ flowId: string; options: Record<string, unknown> }>(
-        "/api/auth/passkey/signin-options",
-        { method: "POST" },
-      );
-      flowId = res.flowId;
-      options = res.options;
-    } catch {
-      return "failed";
-    }
-
-    let cred: PublicKeyCredential | null;
-    try {
-      cred = (await navigator.credentials.get({
-        publicKey: toRequestOptions(options),
-      })) as PublicKeyCredential | null;
-    } catch {
-      return "cancelled";
-    }
-    if (!cred) return "cancelled";
-
-    try {
-      const res = await $fetch<{ ok: boolean }>("/api/auth/passkey/signin-verify", {
-        method: "POST",
-        body: { flowId, response: fromCredential(cred) },
-      });
-      if (!res.ok) return "failed";
-      await refresh(true); // adopt the new session app-wide
-      return "ok";
-    } catch {
-      return "failed";
-    }
+    const end = await ceremony({
+      options: "/api/auth/passkey/signin-options",
+      kind: "get",
+      verify: "/api/auth/passkey/signin-verify",
+    });
+    if (end.at === "authenticator") return "cancelled";
+    if (end.at !== "done" || !end.res.ok) return "failed";
+    await refresh(true); // adopt the new session app-wide
+    return "ok";
   }
 
   async function list(): Promise<PasskeySummary[]> {

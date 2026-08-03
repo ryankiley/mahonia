@@ -1,9 +1,11 @@
-// Shared pointer-drag scaffolding for the two drag-to-reorder gestures (item
-// rows + folders). Owns the LIFECYCLE — listener attach/detach, explicit pointer
-// capture, the text-selection lock, Escape/pointercancel aborts, and the
-// outside-the-editor release-to-cancel — while each caller keeps only its own
-// drop-target math and commit. One copy, so the gesture plumbing can't drift
-// between the two.
+// Shared pointer-drag scaffolding for the site's drag-to-reorder gestures (the
+// editor's item rows + folders, the vault pane, /vault). createPointerDrag owns
+// a drag's LIFECYCLE — listener attach/detach, explicit pointer capture, the
+// text-selection lock, Escape/pointercancel aborts, and the outside-the-surface
+// release-to-cancel — while each caller keeps only its own drop-target math and
+// commit. createPressArm below owns the step BEFORE that: deciding whether a
+// press on a row is a drag at all. One copy of each, so the gesture plumbing
+// can't drift between surfaces.
 
 export interface PointerDragHooks<T> {
   /** Update the caller's drop target from the pointer. `el` is the current
@@ -142,4 +144,77 @@ export function createPointerDrag<T>(hooks: PointerDragHooks<T>) {
   }
 
   return { dragId, start, reset };
+}
+
+// ---------------------------------------------------------------------------
+// A press that BECOMES a drag. Both vault surfaces let you grab a row anywhere —
+// the row is the whole target, so there's no grip to hang the gesture on — which
+// means every press needs the same scaffold to decide what it was: a record of
+// where it started, window-level move/up/cancel listeners, and a travel
+// threshold before the drag is armed and handed off. This owns that arming;
+// what the drag then IS (createPointerDrag above on /vault, the editor's insert
+// gesture in the pane) stays with the caller, in onDrag.
+
+export interface PressArmOptions<T> {
+  /** px of pointer travel that separates a drag from a stray press */
+  threshold: number;
+  /** Touch only: how long a finger must hold before movement means "drag". A
+   *  finger that moves straight away is almost always scrolling the list, so
+   *  distance alone would hijack every swipe — a short hold arms the drag, and a
+   *  swipe that starts before it elapses is left to the browser as a scroll.
+   *  Omit where distance alone is the right reading for every pointer. */
+  touchHoldMs?: number;
+  /** CSS selector — a press starting inside a match is left alone, because that
+   *  element owns its own press (a select, a button). */
+  exclude?: string;
+  /** The press travelled far enough: start the actual drag. Called with the
+   *  arming move event, after the press record and listeners are already torn
+   *  down — so a re-entrant press inside the handler starts clean. */
+  onDrag: (payload: T, ev: PointerEvent) => void;
+}
+
+export function createPressArm<T>(opts: PressArmOptions<T>) {
+  // One object for the gesture in flight. `armedAt` is the timestamp the drag
+  // becomes available from — 0 for a mouse (immediately), now + the hold for a
+  // finger — which is the whole hold rule as a comparison at move time, with no
+  // timer to run or clear.
+  let press: { x: number; y: number; pointerId: number; armedAt: number; payload: T } | null = null;
+
+  function end() {
+    press = null;
+    window.removeEventListener("pointermove", onMove);
+    window.removeEventListener("pointerup", end);
+    window.removeEventListener("pointercancel", end);
+  }
+
+  function onMove(ev: PointerEvent) {
+    if (!press || ev.pointerId !== press.pointerId) return;
+    if (Math.hypot(ev.clientX - press.x, ev.clientY - press.y) < opts.threshold) return;
+    // moved before the hold elapsed → this is a scroll, not a drag; stand down
+    if (ev.timeStamp < press.armedAt) return end();
+    const payload = press.payload;
+    end();
+    opts.onDrag(payload, ev);
+  }
+
+  /** The caller's pointerdown handler. A non-primary button, or a press on an
+   *  excluded control, never arms. */
+  function start(payload: T, ev: PointerEvent) {
+    if (ev.button !== 0) return;
+    if (opts.exclude && (ev.target as HTMLElement).closest(opts.exclude)) return;
+    end();
+    press = {
+      x: ev.clientX,
+      y: ev.clientY,
+      pointerId: ev.pointerId,
+      armedAt: opts.touchHoldMs && ev.pointerType === "touch" ? ev.timeStamp + opts.touchHoldMs : 0,
+      payload,
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", end);
+    window.addEventListener("pointercancel", end);
+  }
+
+  // `end` doubles as the unmount teardown — the press must not outlive its rows
+  return { start, end };
 }

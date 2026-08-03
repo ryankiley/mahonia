@@ -265,35 +265,17 @@ const itemDrag = createPointerDrag<number | null>({
   within: ".vault__page",
 });
 // Grab a row anywhere — unlike the pane's rows these aren't click targets, so
-// there's nothing to tell the gesture apart from and no handle to add. A small
-// travel threshold still separates a drag from a stray press, and a press that
-// starts on a control (the folder picker, the bin) is left alone.
-const DRAG_THRESHOLD = 5;
-let rowPress: { x: number; y: number; pointerId: number; id: number } | null = null;
-function endRowPress() {
-  rowPress = null;
-  window.removeEventListener("pointermove", onRowPressMove);
-  window.removeEventListener("pointerup", endRowPress);
-  window.removeEventListener("pointercancel", endRowPress);
-}
-function onRowPressMove(ev: PointerEvent) {
-  if (!rowPress || ev.pointerId !== rowPress.pointerId) return;
-  if (Math.hypot(ev.clientX - rowPress.x, ev.clientY - rowPress.y) < DRAG_THRESHOLD) return;
-  const id = rowPress.id;
-  endRowPress();
-  startItemDrag(id, ev);
-}
-function onRowPointerDown(id: number, ev: PointerEvent) {
-  if (ev.button !== 0) return;
-  // a select or a button owns its own press
-  if ((ev.target as HTMLElement).closest("select, button")) return;
-  endRowPress();
-  rowPress = { x: ev.clientX, y: ev.clientY, pointerId: ev.pointerId, id };
-  window.addEventListener("pointermove", onRowPressMove);
-  window.addEventListener("pointerup", endRowPress);
-  window.addEventListener("pointercancel", endRowPress);
-}
-onBeforeUnmount(endRowPress);
+// there's nothing to tell the gesture apart from and no handle to add (and no
+// touch hold either: with no click to protect, travel alone is the reading).
+// The shared press-arm scaffold separates a drag from a stray press by a small
+// travel threshold, and a press that starts on a control (the folder picker,
+// the bin) is left alone.
+const rowPress = createPressArm<number>({
+  threshold: 5,
+  exclude: "select, button", // a select or a button owns its own press
+  onDrag: startItemDrag,
+});
+onBeforeUnmount(rowPress.end);
 
 function startItemDrag(id: number, ev: PointerEvent) {
   draggingItem.value = id;
@@ -589,13 +571,13 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
                       :key="entry.id"
                       class="vault__row"
                       :class="{ 'vault__row--dragging': draggingItem === entry.id }"
-                      @pointerdown="onRowPointerDown(entry.id, $event)"
+                      @pointerdown="rowPress.start(entry.id, $event)"
                     >
-                      <div class="vault__main">
-                        <p class="vault__name">
-                          <span v-if="entry.brand" class="vault__brand">{{ entry.brand }}</span>
+                      <div class="gear__main">
+                        <p class="gear__name">
+                          <span v-if="entry.brand" class="gear__brand">{{ entry.brand }}</span>
                           <span>{{ entry.name }}</span>
-                          <span v-if="entry.variant" class="vault__variant"><span class="sep">·</span> {{ entry.variant }}</span>
+                          <span v-if="entry.variant" class="gear__variant"><span class="sep">·</span> {{ entry.variant }}</span>
                         </p>
                         <p v-if="entry.commonName" class="t-sm t-muted vault__meta">{{ entry.commonName }}</p>
                       </div>
@@ -692,11 +674,11 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
               </p>
               <ul class="vault__list">
                 <li v-for="entry in removed" :key="entry.id" class="vault__row">
-                  <div class="vault__main">
-                    <p class="vault__name">
-                      <span v-if="entry.brand" class="vault__brand">{{ entry.brand }}</span>
+                  <div class="gear__main">
+                    <p class="gear__name">
+                      <span v-if="entry.brand" class="gear__brand">{{ entry.brand }}</span>
                       <span>{{ entry.name }}</span>
-                      <span v-if="entry.variant" class="vault__variant"><span class="sep">·</span> {{ entry.variant }}</span>
+                      <span v-if="entry.variant" class="gear__variant"><span class="sep">·</span> {{ entry.variant }}</span>
                     </p>
                     <p v-if="entry.commonName" class="t-sm t-muted vault__meta">{{ entry.commonName }}</p>
                   </div>
@@ -901,41 +883,9 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
 .vault__row + .vault__row {
   border-top: 1px solid var(--line);
 }
-.vault__main {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-px);
-}
-/* ONE ellipsized run — the same treatment the vault pane gives this line, and for
-   the same reasons. Shrinking the three parts as separate flex items made a long row
-   spend three ellipses to say one thing ("Mountain Hardw… Ghost Whisperer UL Hoo… ·
-   Men's…"), and squeezed the brand — the shortest, most identifying part — down to a
-   sliver that still held its box and its gap, so that row's name started a few pixels
-   in and sat out of line with the column.
-   Plain inline text truncates once, at the end: every row begins in the same place,
-   the brand always survives whole, and what yields is the variant and then the tail
-   of the model, which is where the redundancy is. */
-.vault__name {
-  display: block;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--ink);
-}
-/* the gaps are margins, not the whitespace between the tags — Vue's compiler
-   condenses a newline between elements away entirely */
-.vault__brand {
-  margin-right: 0.4ch;
-  color: var(--ink-2);
-}
-.vault__variant {
-  margin-left: 0.4ch;
-  font-style: italic;
-  color: var(--ink-3);
-}
+/* the name cell (.gear__main / .gear__name / .gear__brand / .gear__variant) comes
+   from atoms/gear.scss — shared with the vault pane, which used to hand-mirror
+   these rules. Only the page's own mobile stack below touches it. */
 .vault__weight {
   flex: none;
   color: var(--ink-2);
@@ -1124,7 +1074,7 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
     flex-wrap: wrap;
     gap: var(--space-2);
   }
-  .vault__main {
+  .gear__main {
     flex-basis: 100%;
   }
   .vault__weight {

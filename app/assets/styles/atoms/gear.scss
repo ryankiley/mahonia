@@ -1,0 +1,54 @@
+// The gear-name cell — how a piece of gear states its identity anywhere a vault
+// entry is listed: /vault's rows (live and removed alike) and the editor's vault
+// pane. A flexible cell holding one name line — dimmed brand, model, italic
+// variant behind a middot — with room for a meta line stacked under it. These
+// rules used to live as hand-mirrored scoped copies on both surfaces
+// (.vault__* / .vp__*), each commented with a pointer at the other; one copy
+// here is what actually keeps them from drifting. Callers keep only what's
+// theirs: the pane's typed-match highlighting, the page's mobile stack.
+
+/* the row's flexible cell — the name line plus an optional meta line under it;
+   min-width:0 so the line inside can actually ellipsize */
+.gear__main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-px);
+}
+
+/* ONE ellipsized run, not three flex items each clipping itself.
+   Shrinking them individually had two faults. A long row squeezed the brand down
+   to a two-pixel sliver that still held its box and its 0.4ch gap, so that row's
+   name started a few pixels in and sat out of line with the column; and the
+   brand — the shortest, most identifying part, and the one you scan down the
+   list for — was the first thing spent.
+   Plain inline text can do neither: the line truncates once, at its end, so
+   every row begins at exactly the same place and the brand always survives
+   whole. It also yields in the right order for free — the variant goes first,
+   then the tail of the model, which is where the redundancy is.
+   (Not a middle elision — "Sm…l" — for the brand: that's JS-only in CSS, and a
+   word with its middle removed is harder to recognise than one cut cleanly at
+   the end. Keeping the brand intact and cutting elsewhere gets the same
+   information for nothing.) */
+.gear__name {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink);
+}
+
+/* The gaps are margins, not the whitespace between the tags: Vue's compiler
+   condenses a newline between elements away entirely, so relying on it ran the
+   brand into the name ("SmartwoolHike Classic…"). Same 0.4ch a flex `gap` gave. */
+.gear__brand {
+  margin-right: 0.4ch;
+  color: var(--ink-2);
+}
+.gear__variant {
+  margin-left: 0.4ch;
+  font-style: italic;
+  color: var(--ink-3);
+}

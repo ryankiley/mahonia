@@ -232,64 +232,41 @@ const isInList = (entry: VaultEntry) => inList.value.has(entry.normKey);
 
 // Grab a row ANYWHERE to drag it into a folder — no handle. The row is also a click
 // target (quick-add to the "Add to" folder), so the two gestures have to be told
-// apart, and they are told apart differently by input type:
+// apart, and the shared press-arm scaffold tells them apart differently by input
+// type:
 //
 //  • mouse/pen — by DISTANCE. A press that travels past a few pixels was a drag; one
 //    that doesn't was a click. There's nothing else a horizontal mouse press means.
-//  • touch — by TIME first. A finger that moves is almost always scrolling this list,
-//    so distance alone would hijack every swipe. A short hold arms the drag; a swipe
-//    that starts before the hold elapses is left to the browser as a scroll (which
-//    then cancels the press outright).
+//  • touch — by TIME first (the touchHoldMs arming). A finger that moves is almost
+//    always scrolling this list, so distance alone would hijack every swipe. A short
+//    hold arms the drag; a swipe that starts before the hold elapses is left to the
+//    browser as a scroll (which then cancels the press outright).
 //
 // Deliberately not `touch-action: none` on the rows for the same reason: the list
 // has 100+ entries and scrolling it must stay the default reading of a swipe.
-const DRAG_THRESHOLD = 5;
-const TOUCH_HOLD_MS = 250;
-// One object for the gesture in flight. `armedAt` is the timestamp the drag becomes
-// available from — 0 for a mouse (immediately), now + the hold for a finger — which
-// is the whole hold rule as a comparison at move time, with no timer to run or clear.
-let press: { x: number; y: number; pointerId: number; armedAt: number; entry: VaultEntry } | null = null;
+
 // the entry whose press turned into a drag, so the click that follows pointerup is
 // swallowed instead of adding the thing a second time
 let draggedEntryId: number | null = null;
 
-function endPress() {
-  press = null;
-  window.removeEventListener("pointermove", onPressMove);
-  window.removeEventListener("pointerup", endPress);
-  window.removeEventListener("pointercancel", endPress);
-}
-
-function onPressMove(ev: PointerEvent) {
-  if (!press || ev.pointerId !== press.pointerId) return;
-  if (Math.hypot(ev.clientX - press.x, ev.clientY - press.y) < DRAG_THRESHOLD) return;
-  // moved before the hold elapsed → this is a scroll, not a drag; stand down
-  if (ev.timeStamp < press.armedAt) return endPress();
-  const entry = press.entry;
-  endPress();
-  draggedEntryId = entry.id;
-  // the pane owns what a drop MEANS — it creates the row and enforces its own
-  // one-per-list rule; the gesture only resolves where the pointer let go
-  dnd.startInsert((folderId, beforeId) => {
-    if (isInList(entry)) return;
-    const id = c.addVaultItem(entry, folderId);
-    if (id && beforeId) c.moveItem(id, folderId, beforeId, null);
-  }, ev);
-}
+const rowPress = createPressArm<VaultEntry>({
+  threshold: 5,
+  touchHoldMs: 250,
+  onDrag(entry, ev) {
+    draggedEntryId = entry.id;
+    // the pane owns what a drop MEANS — it creates the row and enforces its own
+    // one-per-list rule; the gesture only resolves where the pointer let go
+    dnd.startInsert((folderId, beforeId) => {
+      if (isInList(entry)) return;
+      const id = c.addVaultItem(entry, folderId);
+      if (id && beforeId) c.moveItem(id, folderId, beforeId, null);
+    }, ev);
+  },
+});
 
 function onRowPointerDown(entry: VaultEntry, ev: PointerEvent) {
-  if (ev.button !== 0 || isInList(entry)) return;
-  endPress();
-  press = {
-    x: ev.clientX,
-    y: ev.clientY,
-    pointerId: ev.pointerId,
-    armedAt: ev.pointerType === "touch" ? ev.timeStamp + TOUCH_HOLD_MS : 0,
-    entry,
-  };
-  window.addEventListener("pointermove", onPressMove);
-  window.addEventListener("pointerup", endPress);
-  window.addEventListener("pointercancel", endPress);
+  if (isInList(entry)) return;
+  rowPress.start(entry, ev);
 }
 
 function onRowClick(entry: VaultEntry) {
@@ -355,7 +332,7 @@ function onSheetTouchMove(ev: TouchEvent) {
 // only on their own pointerup. Otherwise their window listeners outlive the
 // component and keep its whole setup scope (the full vault array) reachable.
 onBeforeUnmount(() => {
-  endPress();
+  rowPress.end();
   endResize();
 });
 
@@ -497,8 +474,8 @@ onKeyStroke("Escape", () => emit("close"));
             "
             @click="addCategory(cat)"
           >
-            <span class="vp__main">
-              <span class="vp__name">{{ cat.name }}</span>
+            <span class="gear__main">
+              <span class="gear__name">{{ cat.name }}</span>
               <span class="t-sm vp__inlist">
                 {{ cat.allInList ? "Already added" : `${cat.entries.length} item${cat.entries.length === 1 ? "" : "s"}` }}
               </span>
@@ -529,15 +506,15 @@ onKeyStroke("Escape", () => emit("close"));
             @pointerdown="onRowPointerDown(entry, $event)"
             @click="onRowClick(entry)"
           >
-            <span class="vp__main">
-              <span class="vp__name">
-                <span v-if="entry.brand" class="vp__brand"
+            <span class="gear__main">
+              <span class="gear__name">
+                <span v-if="entry.brand" class="gear__brand"
                   ><span v-for="(p, pi) in hl(entry.brand)" :key="pi" :class="{ 'vp__hl': p.on }">{{ p.t }}</span></span
                 >
                 <span
                   ><span v-for="(p, pi) in hl(entry.name)" :key="pi" :class="{ 'vp__hl': p.on }">{{ p.t }}</span></span
                 >
-                <span v-if="entry.variant" class="vp__variant"><span class="sep">·</span> {{ entry.variant }}</span>
+                <span v-if="entry.variant" class="gear__variant"><span class="sep">·</span> {{ entry.variant }}</span>
               </span>
               <!-- the row can't be added again, so it says so plainly. A COUNT was
                    the right label when a second copy was allowed; now that one row
@@ -856,52 +833,14 @@ onKeyStroke("Escape", () => emit("close"));
   cursor: default;
   opacity: 0.45;
 }
-.vp__main {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-px);
-}
-/* ONE ellipsized run, not three flex items each clipping itself.
-   Shrinking them individually had two faults. A long row squeezed the brand down to
-   a two-pixel sliver that still held its box and its 0.4ch gap, so that row's name
-   started a few pixels in and sat out of line with the column; and the brand — the
-   shortest, most identifying part, and the one you scan down the list for — was the
-   first thing spent.
-   Plain inline text can do neither: the line truncates once, at its end, so every
-   row begins at exactly the same place and the brand always survives whole. It also
-   yields in the right order for free — the variant goes first, then the tail of the
-   model, which is where the redundancy is.
-   (Not a middle elision — "Sm…l" — for the brand: that's JS-only in CSS, and a
-   word with its middle removed is harder to recognise than one cut cleanly at the
-   end. Keeping the brand intact and cutting elsewhere gets the same information for
-   nothing.) */
-.vp__name {
-  display: block;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--ink);
-}
-/* The gaps are margins, not the whitespace between the tags: Vue's compiler
-   condenses a newline between elements away entirely, so relying on it ran the
-   brand into the name ("SmartwoolHike Classic…"). Same 0.4ch the flex `gap` used. */
-.vp__brand {
-  margin-right: 0.4ch;
-  color: var(--ink-2);
-}
+/* the name cell (.gear__main / .gear__name / .gear__brand / .gear__variant) comes
+   from atoms/gear.scss — shared with /vault's rows, which used to hand-mirror
+   these rules. Only the typed-match emphasis is the pane's own: */
 /* the characters that overlap what you've typed read bold — the same emphasis, from
    the same helper, as the autocomplete's rows (.ac__hl) */
 .vp__hl {
   font-weight: 700;
   color: var(--ink);
-}
-.vp__variant {
-  margin-left: 0.4ch;
-  font-style: italic;
-  color: var(--ink-3);
 }
 .vp__inlist {
   color: var(--ink-3);
