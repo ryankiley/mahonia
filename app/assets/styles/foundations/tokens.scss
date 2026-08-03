@@ -199,10 +199,18 @@ $bp-full: 1024px !default;
   /* ---- elevation: one floating-surface drop, shared so the lifted row + the toast
      read at the same height and can't drift apart ---- */
   --shadow-pop: 0 10px 24px -10px rgba(0, 0, 0, 0.35);
-  /* soft float for anchored surfaces (the autocomplete + kebab) — no border, no
-     ring: the shadow alone defines the edge in light mode, the elevated
-     --surface-float tone carries it in dark (a shadow on #000 is invisible) */
-  --shadow-soft: 0 4px 12px rgba(0, 0, 0, 0.07), 0 20px 48px -8px rgba(0, 0, 0, 0.2);
+  /* Soft float for anchored surfaces — the autocomplete, the kebab menus, the
+     editor's side panel. No border, no ring: the shadow alone defines the edge in
+     light mode, the elevated --surface-float tone carries it in dark (a shadow on
+     #000 is invisible).
+     ONE value across every size, deliberately (Ryan: "maybe it can be one thing").
+     The obvious refinement is a pair scaled to the surface — a small drop for a
+     menu, a diffuse one for a full-height panel — but the honest reading was that
+     the old value was simply too heavy at BOTH ends, not mis-sized: a 0.2-alpha
+     48px layer that read mushy under a 32px card and looked like weather under a
+     panel. Lighter and pulled tighter, it works at both, and the system keeps one
+     number instead of a fork nobody has to remember which side of. */
+  --shadow-soft: 0 1px 3px rgba(0, 0, 0, 0.04), 0 12px 28px -10px rgba(0, 0, 0, 0.13);
   /* floating-menu surface: bright white in light (NOT the grey paper-2 — popovers
      should read crisp, lifted off the page), a clearly-elevated grey in dark */
   --surface-float: light-dark(#ffffff, #1f1f1f);
@@ -242,6 +250,15 @@ $bp-full: 1024px !default;
   /* icon-button box — the dense desktop chrome. The fixed actions track below
      multiplies it, so resizing the button here resizes the track with it. */
   --icon-btn: 32px;
+  /* The editor side panel COLLAPSED — one icon button plus its gutters, derived
+     rather than typed so the strip can't fall out of step with the button it
+     exists to hold. (Its open width is a user preference, not a token: the editor
+     persists it and hands it down as --panel-w, and the panel's divider drags it.
+     Bounds live in app/utils/sidePanel.ts.)
+     Two sides need this: the panel sizes itself by it, and the editor insets its
+     whole shell by it. --space-2 gutters, not --space-3, so the glyph's optical
+     left lands on the same --space-4 the toolbar's text above it sits on. */
+  --panel-w-min: calc(var(--icon-btn) + 2 * var(--space-2));
   /* touch targets — the ~44px Apple-HIG minimum box + the enlarged glyph,
      consumed by every `@media (pointer: coarse)` icon-button override */
   --tap: 44px;
@@ -281,6 +298,11 @@ $bp-full: 1024px !default;
      step if either size ever moves. */
   @media (pointer: coarse) {
     --item-col-actions: calc(5 * var(--tap) + 4 * var(--space-1) - 9px);
+    /* Same story one control at a time: the collapsed rail is sized to hold an
+       icon button, and on a touch laptop that button is --tap wide. Left at the
+       --icon-btn figure the strip would clip its own switch — the one thing it
+       exists to keep reachable. Tighter gutters so the strip doesn't get fat. */
+    --panel-w-min: calc(var(--tap) + 2 * var(--space-2));
   }
   /* the read/share views' two data tracks, named so the read row, the folder header
      and the packing row all measure them identically (they used to be inlined in

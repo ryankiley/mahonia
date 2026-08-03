@@ -154,13 +154,38 @@ import { brotliCompressSync, gzipSync, constants } from "node:zlib";
 // is first-load, so a statically-imported calendar shipped to every visitor who
 // never opened it. Making it Lazy is where 0.8 of the overage went; the gate caught
 // it, which is the gate working. Same ~1.2% headroom rule as the anchors above.
-const FIRST_LOAD_BUDGET_KB = 135;
+//
+// Bumped 135→137 for the editor's side panel — your lists and your gear vault as two
+// tabs of one surface, down the left edge. Measured both ways against the same build:
+// 133.4 before, 135.6 after, so +2.2 KB brotli.
+//
+// Two thirds of that is the NAV, which is new and is first-load by definition: it's on
+// screen at first paint for anyone with a saved list, so making it Lazy would show as
+// the nav popping in on every load. The rest is the vault's SHELL moving onto the hot
+// path — the resize divider and the bottom sheet's touch guard used to ride in the lazy
+// pane chunk, and they now belong to a panel that is always mounted.
+//
+// What is deliberately still NOT in this number: the vault's BODY. VaultBrowser (and
+// shared/vault behind it) stays a separate chunk, fetched the first time its tab is
+// opened, which is why the total barely moved. That split is the whole reason the merge
+// is two components rather than one — folding the browser into the shell would have put
+// the vault on every visitor's first load, and most visitors have no account.
+// 137 restores the ~1 KB working headroom the anchors above carry.
+const FIRST_LOAD_BUDGET_KB = 137;
 // TOTAL of every built file, the backstop. Deliberately slack: its job is to catch
 // a route chunk ballooning or a heavy dep landing somewhere unnoticed, NOT to price
-// ordinary feature work. Set well clear of current (137.1) so it only speaks up when
+// ordinary feature work. Set well clear of current so it only speaks up when
 // something has genuinely gone wrong. If you find yourself bumping this one often,
 // something is being shipped to every page that shouldn't be.
-const TOTAL_BUDGET_KB = 180;
+//
+// Bumped 180→186 to RE-ANCHOR, not to make room: current had crept to 179.9 against
+// 180, and a backstop with 0.1 KB of slack is not slack — it would have failed on the
+// next trivial change and been raised reflexively, which is the exact failure the
+// first-load anchor's own note warns about. Nothing here grew unexpectedly; the side
+// panel's work is almost entirely a MOVE between existing chunks (the vault's shell
+// onto the hot path, its body staying lazy), which is why this number barely shifted
+// while the ratchet above moved 2.2. 186 restores a real gap.
+const TOTAL_BUDGET_KB = 186;
 const MAX_CHUNK_BUDGET_KB = 72; // largest single chunk, brotli (the framework runtime)
 
 // First build output that exists: node-server, Vercel preset, or static generate.

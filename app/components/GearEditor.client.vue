@@ -55,9 +55,49 @@ function dismissIntro() {
   introDismissed.value = true;
   remember(INTRO_DISMISSED_KEY, "1");
 }
+// ...and it stands down when the side panel is showing your lists, which is the
+// same signpost made permanent: a prompt pointing at "your 4 saved lists" while
+// all four are listed down the left edge is the app telling you where something
+// is while showing it to you.
 const showIntro = computed(
-  () => isFirstRun.value && savedCount.value > 0 && !introDismissed.value && !vaultOpen.value,
+  () =>
+    isFirstRun.value &&
+    savedCount.value > 0 &&
+    !introDismissed.value &&
+    !(panelOpen.value && panelTab.value === "lists"),
 );
+
+// The side panel: your lists and your gear vault, two tabs of one surface.
+// Desktop-only as a persistent thing — SidePanel hides its collapsed strip below
+// $bp-full, where it becomes the vault's bottom sheet and nothing else.
+//
+// Open/closed is a working preference, so it's remembered. The DEFAULT is
+// conditional, because an empty panel is screen spent saying you have nothing:
+// someone opening Mahonia for the first time gets the collapsed strip, and the
+// panel is there on their next visit, once there's a list in it to switch to.
+// Read once at setup, so registering THIS list mid-session can't slide a panel
+// out from under the cursor.
+const PANEL_OPEN_KEY = "gear.panel.open.v1";
+const storedPanel = localStorage.getItem(PANEL_OPEN_KEY);
+const panelOpen = ref(storedPanel === null ? savedCount.value > 0 : storedPanel === "1");
+watch(panelOpen, (o) => remember(PANEL_OPEN_KEY, o ? "1" : "0"));
+// NOT remembered, and deliberately: "lists" is the panel's resting state, and the
+// vault tab pulls a chunk and a request. Landing on it because you were there
+// last week would spend both on someone who opened the editor to write a list.
+// It's also what keeps the phone honest — the sheet only appears once something
+// sets this to "vault", which only the toolbar's vault button does.
+const panelTab = ref<"lists" | "vault">("lists");
+// The toolbar's vault button is a shortcut TO A TAB, not a second open/close: it
+// takes you to the vault wherever you were, and folds the panel away when you're
+// already there. (The panel's own switch, inside it, is what collapses the rest
+// of the time — see SidePanel.)
+function toggleVault() {
+  if (panelOpen.value && panelTab.value === "vault") panelOpen.value = false;
+  else {
+    panelTab.value = "vault";
+    panelOpen.value = true;
+  }
+}
 
 // Reflect the list's given name in the tab title AND the page's social/preview
 // metadata, matching the read views (/l, /s): a named list carries its name; an
@@ -122,15 +162,12 @@ const NO_ITEMS: Item[] = [];
 
 const packed = ref(false);
 
-// The vault palette. Closed by default and only ever opened deliberately, so the
-// pane's chunk (and the vault read behind it) costs nothing until it's wanted.
-const vaultOpen = ref(false);
-// Split-pane width, remembered: how much of the screen you're willing to give the
-// vault is a working preference, not a per-session one. The pane clamps the value
-// it writes back, so a hand-edited or stale figure can't wedge the panel off-screen.
-const VAULT_W_KEY = "gear.vault.width.v1";
-const vaultWidth = ref(clampVaultWidth(Number(localStorage.getItem(VAULT_W_KEY))));
-watch(vaultWidth, (w) => remember(VAULT_W_KEY, String(w)));
+// Panel width, remembered: how much of the screen you're willing to give the panel
+// is a working preference, not a per-session one. The panel clamps the value it
+// writes back, so a hand-edited or stale figure can't wedge it off-screen.
+const PANEL_W_KEY = "gear.panel.width.v1";
+const panelWidth = ref(clampPanelWidth(Number(localStorage.getItem(PANEL_W_KEY))));
+watch(panelWidth, (w) => remember(PANEL_W_KEY, String(w)));
 // packing progress — rows checked / rows total (a row is one check, whatever its qty)
 const packProgress = computed(() => {
   const items = snapshot.value?.items ?? [];
@@ -443,14 +480,24 @@ function onCorrected(res: { status: string; itemName?: string }) {
 <template>
   <div
     class="editor"
-    :class="{ 'editor--centered': !(snapshot && totals), 'editor--split': vaultOpen }"
-    :style="{ '--vault-w': `${vaultWidth}px` }"
+    :class="{
+      'editor--centered': !(snapshot && totals),
+      'editor--paneled': panelOpen,
+    }"
+    :style="{ '--panel-w': `${panelWidth}px` }"
   >
     <!-- the editor's page heading — visually the title input carries it, but a
          real (hidden) h1 gives AT users a page title on this client-only view -->
     <h1 class="visually-hidden">{{ listName ? `${listName} — pack list` : "New pack list — Mahonia" }}</h1>
     <header class="topbar">
-      <div class="wrap topbar__inner">
+      <!-- wrap--full: the bar is the APP's chrome, not the list's, so it runs the
+           width of the window. Capped at --measure its icons stopped ~90px short
+           of the screen edge on a wide window, and the two floating panels either
+           side of it had nothing to line up with. -->
+      <div class="wrap wrap--full topbar__inner">
+        <!-- No rail switch here: the rail owns it, in both its states (see
+             SidePanel). This bar carries tools for the list you're looking at;
+             navigation between lists, and making a new one, belong to the nav. -->
         <template v-if="snapshot">
           <!-- sync state + last-edit time, on the bar's leading edge — the space the
                title vacated when it became a page title. It takes the free width, which
@@ -496,10 +543,10 @@ function onCorrected(res: { status: string; itemName?: string }) {
           <Tooltip text="Gear vault" preferred-placement="bottom">
             <button
               class="btn btn--icon btn--ghost editor__vault"
-              :class="{ 'is-on': vaultOpen }"
+              :class="{ 'is-on': panelOpen && panelTab === 'vault' }"
               aria-label="Gear vault"
-              :aria-expanded="vaultOpen"
-              @click="vaultOpen = !vaultOpen"
+              :aria-expanded="panelOpen && panelTab === 'vault'"
+              @click="toggleVault"
             >
               <HugeiconsIcon :icon="SafeBoxIcon" :size="16" :stroke-width="2" />
             </button>
@@ -725,7 +772,9 @@ function onCorrected(res: { status: string; itemName?: string }) {
       <p class="t-muted">Loading…</p>
     </main>
 
-    <SiteFooter />
+    <!-- lists-in-nav: the side panel carries "Your lists", so the footer drops it —
+         at desktop widths only, since that's where the panel exists (see SiteFooter) -->
+    <SiteFooter lists-in-nav />
 
     <Transition name="toast">
       <div
@@ -744,19 +793,25 @@ function onCorrected(res: { status: string; itemName?: string }) {
       <div v-else-if="toast" class="toast t-sm">{{ toast }}</div>
     </Transition>
 
-    <!-- the pane arrives from the edge it lives on; motion is in VaultPane's own
-         styles, next to the geometry that decides which edge that is -->
-    <Transition name="vaultpane">
-      <!-- adding a whole category lands a folder plus N rows further down the page
-           than the pane you clicked in, so it gets a toast — a single item's row
-           answers for itself in place ("Already added"), a set doesn't -->
-      <LazyVaultPane
-        v-if="vaultOpen"
-        v-model:width="vaultWidth"
-        @close="vaultOpen = false"
-        @added="(name: string) => flash(`Added ${name}`)"
-      />
-    </Transition>
+    <!-- The side panel: your lists and your gear vault, two tabs of one surface.
+         Always mounted on desktop — collapsing narrows it to a strip rather than
+         removing it, which is what keeps its own switch reachable. Not Lazy: the
+         shell is a few hundred bytes and it's on screen at first paint, so a chunk
+         fetched after paint would show as the nav popping in on every load. The
+         VAULT half of it is lazy, inside (see SidePanel).
+         Adding a whole category lands a folder plus N rows further down the page
+         than the panel you clicked in, so it gets a toast — a single item's row
+         answers for itself in place ("Already added"), a set doesn't. -->
+    <SidePanel
+      v-model:width="panelWidth"
+      :open="panelOpen"
+      :tab="panelTab"
+      :current-share-code="snapshot?.shareCode ?? null"
+      @toggle="panelOpen = !panelOpen"
+      @select-tab="(t) => (panelTab = t)"
+      @new-list="newList()"
+      @added="(name: string) => flash(`Added ${name}`)"
+    />
 
     <LazyCatalogCorrectionModal v-if="correctionEverOpened" @done="onCorrected" />
     <LazyImportModal v-if="importEverOpened" :open="importOpen" @close="importOpen = false" />
@@ -782,16 +837,31 @@ function onCorrected(res: { status: string; itemName?: string }) {
    stopping it short of the vault made it look like a second panel had been cut out
    of the page. Desktop only — below $bp-full the pane is a bottom sheet that
    overlays by design, and the list needs its full width. */
+/* The side panel takes the left edge, and the editor's CONTENT gives up that width
+   rather than sitting underneath it. Padding on the shell (not a margin on .wrap)
+   keeps .wrap's centring intact — it re-centres inside the narrower space, which is
+   what makes this read as two columns and not as a page shoved sideways.
+   The TOPBAR breaks back out over it, because the bar is the app's chrome and not
+   the list column's: it spans the window, and the panel floats below it.
+   Unconditional, because the panel is — collapsed it's still a strip holding its own
+   switch, so the shell is always inset by one of its two widths. The inset SNAPS
+   between them while the panel animates across (see the note on .panel).
+   Desktop only — below $bp-full the panel is a bottom sheet that overlays by design,
+   and the list needs its full width. */
 @media (min-width: $bp-full + 1px) {
-  .editor--split {
-    padding-right: calc(var(--vault-w) + 2 * var(--space-4));
+  /* collapsed the strip is flush to the window edge, so the gutter is single */
+  .editor {
+    padding-left: calc(var(--panel-w-min) + var(--space-4));
   }
-  /* ...then the topbar breaks back out to the full viewport. It can't simply be left
-     unpadded: main IS the .wrap (centred, max-width --measure), so padding it would
-     only eat its own content box and never move the column. The inset has to be on
-     the shell, and the bar opts out of it. */
-  .editor--split > .topbar {
-    margin-right: calc(-1 * (var(--vault-w) + 2 * var(--space-4)));
+  .editor > .topbar {
+    margin-left: calc(-1 * (var(--panel-w-min) + var(--space-4)));
+  }
+  /* open it's a floating card inset by --space-4, so the gutter is doubled */
+  .editor--paneled {
+    padding-left: calc(var(--panel-w) + 2 * var(--space-4));
+  }
+  .editor--paneled > .topbar {
+    margin-left: calc(-1 * (var(--panel-w) + 2 * var(--space-4)));
   }
 }
 .editor > main {

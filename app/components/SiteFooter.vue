@@ -8,6 +8,12 @@ const year = new Date().getFullYear();
 // footer is a legal line: four places to go and a copyright. A dialog launcher styled
 // to pass as a link in that row was the odd one out, and "send feedback" belongs
 // beside the thing you'd be reporting on rather than under it.
+
+// Set by the editor, which carries "Your lists" in its side nav. DESKTOP ONLY, in
+// the styles below — the nav isn't rendered under $bp-full, where this row is then
+// the only route to /mine, and /mine owns deleting a list. A phone would otherwise
+// be left with no way to reach it but typing the URL.
+const { listsInNav = false } = defineProps<{ listsInNav?: boolean }>();
 </script>
 
 <template>
@@ -23,7 +29,11 @@ const year = new Date().getFullYear();
              a conditional link would either mismatch on hydration or flicker. /vault
              explains itself to someone who has none, exactly as /mine does with no
              lists. -->
-        <NuxtLink to="/mine" class="foot__link t-sm">Your lists</NuxtLink>
+        <NuxtLink
+          to="/mine"
+          class="foot__link t-sm"
+          :class="{ 'foot__link--in-nav': listsInNav }"
+        >Your lists</NuxtLink>
         <NuxtLink to="/vault" class="foot__link t-sm">Gear vault</NuxtLink>
         <NuxtLink to="/about" class="foot__link t-sm">About</NuxtLink>
         <NuxtLink to="/legal" class="foot__link t-sm">Legal</NuxtLink>
@@ -34,14 +44,19 @@ const year = new Date().getFullYear();
   </footer>
 </template>
 
-<style scoped>
+<style scoped lang="scss">
 .foot {
-  border-top: 1px solid var(--line);
   /* the single content→footer gap, site-wide — matches the inter-folder rhythm
      (--space-7). Page containers add no bottom padding, so this isn't doubled. */
   margin-top: var(--space-7);
 }
+/* The rule is on the INNER column, not the outer block: it marks where the page's
+   content ends, so it should measure the content — not run the width of whatever
+   shell the page happens to sit in. In the editor that shell now reaches from the
+   side nav to the window edge, and a hairline spanning all of it was drawing a line
+   under two things (the list, and the empty margin beside it) to end one. */
 .foot__inner {
+  border-top: 1px solid var(--line);
   padding-block: var(--space-5);
   display: flex;
   flex-wrap: wrap;
@@ -71,5 +86,13 @@ const year = new Date().getFullYear();
   /* no margin-left:auto + no forced wrap — .foot__nav's flex-grow pins this to the
      row's end, and natural flex-wrap drops it to its own left-aligned line when needed */
   flex: 0 1 auto;
+}
+/* Where the editor's side nav is on screen, the footer stops repeating its first
+   link. Below the nav's breakpoint the link comes back, because there it's the only
+   route to /mine — see the note in the script. */
+@media (min-width: $bp-full + 1px) {
+  .foot__link--in-nav {
+    display: none;
+  }
 }
 </style>

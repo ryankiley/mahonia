@@ -16,8 +16,17 @@ import { flushPromises, mount } from "@vue/test-utils";
 import Tooltip from "~/components/Tooltip.vue";
 
 type Rect = { top: number; bottom: number; left: number; right: number; width: number; height: number };
-const rect = (r: Partial<Rect>): DOMRect =>
-  ({ top: 0, bottom: 0, left: 0, right: 0, width: 0, height: 0, x: 0, y: 0, toJSON: () => ({}), ...r }) as DOMRect;
+const rect = (r: Partial<Rect>): DOMRect => {
+  const box = { top: 0, bottom: 0, left: 0, right: 0, width: 0, height: 0, x: 0, y: 0, toJSON: () => ({}), ...r };
+  // Fill a far edge a fixture didn't state but implied. Only the vertical placements
+  // existed at first and they never read `right`, so the fixtures below give left +
+  // width and stop — which silently handed the side placements a right edge of 0.
+  // Derived, not defaulted: `wrap` states left AND right with no width, and that has
+  // to keep winning.
+  if (r.right === undefined && r.width) box.right = box.left + r.width;
+  if (r.bottom === undefined && r.height) box.bottom = box.top + r.height;
+  return box as DOMRect;
+};
 
 // The three boxes the component measures. `wrap` is the page column it clamps to —
 // the real `.wrap` (main.scss) is a centred max-width block with a --space-4 gutter,
@@ -129,6 +138,43 @@ describe("Tooltip positioning", () => {
     // centred would be 988; clamped to 1084 − 160 = 924, still well inside the
     // viewport — which is the point of clamping to the column rather than the window
     expect(tip.style.left).toBe("924px");
+  });
+
+  // "right" exists for a control in a narrow column of its own — the editor's
+  // collapsed side panel is a 48px strip of stacked buttons, where a tooltip BELOW
+  // one lands on the next and reads as describing that instead.
+  it("opens beside the trigger when asked, centred on it", async () => {
+    geom.trigger = { top: 400, bottom: 424, left: 8, width: 32, height: 24 };
+    mountTooltip({ text: "Your lists", preferredPlacement: "right" }, false);
+    const tip = (await hover())!;
+
+    expect(tip.dataset.placement).toBe("right");
+    expect(tip.style.left).toBe("48px"); // trigger right 40 + 8 (offset)
+    // centred on the trigger's middle (412) — the popup is the same 24px tall
+    expect(tip.style.top).toBe("400px");
+  });
+
+  it("flips a right-preferred tooltip to the left when the window can't hold it", async () => {
+    // hard against the right edge: 100 (popup) + 8 (offset) + 12 (padding) won't fit
+    geom.trigger = { top: 400, bottom: 424, left: 1120, width: 32, height: 24 };
+    mountTooltip({ text: "Your lists", preferredPlacement: "right" }, false);
+    const tip = (await hover())!;
+
+    expect(tip.dataset.placement).toBe("left");
+    expect(tip.style.left).toBe("1012px"); // 1120 − 100 − 8
+  });
+
+  // The side placements clamp to the WINDOW, not the page column: their whole job is
+  // to sit outside the column the trigger belongs to, so a column clamp would push
+  // the popup back over the button it describes.
+  it("keeps a beside-tooltip on screen at the viewport floor", async () => {
+    geom.trigger = { top: 780, bottom: 804, left: 8, width: 32, height: 24 };
+    geom.tooltip = { width: 100, height: 60 };
+    mountTooltip({ text: "Your lists", preferredPlacement: "right" }, false);
+    const tip = (await hover())!;
+
+    // centred would be 762, running 22px past the floor; clamped to 800 − 12 − 60
+    expect(tip.style.top).toBe("728px");
   });
 
   it("falls back to a viewport clamp outside any page column", async () => {

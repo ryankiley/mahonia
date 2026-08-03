@@ -1,81 +1,33 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "@hugeicons/vue";
-import { Add01Icon, Cancel01Icon, CheckIcon, CircleXIcon } from "@hugeicons/core-free-icons";
+import { Add01Icon, CheckIcon, CircleXIcon } from "@hugeicons/core-free-icons";
 import type { VaultEntry, VaultFolder } from "~~/shared/vault";
 import { vaultNormKey } from "~~/shared/vault";
 import { rankVaultRows } from "~~/shared/vaultSearch";
 import { highlightParts } from "~~/shared/catalogSearch";
 import { formatWeight, itemDisplayName } from "~~/shared/weights";
 
-// The vault, alongside the list you're building — a floating palette you keep open
-// and pick from, rather than typing each item's name into the autocomplete one at a
-// time. The autocomplete is still the fast path when you know what you want; this
-// is for the "what do I own?" pass at the start of a list.
+// The vault's BODY — the gear you own, browsable and pickable, rendered inside the
+// editor's side panel as its "Gear vault" tab. It used to be a whole pane (its own
+// fixed positioning, head, close button, resize divider and bottom-sheet behaviour);
+// that shell now belongs to SidePanel, which the lists nav shares, and only what's
+// specific to browsing gear is left here.
 //
-// Deliberately NON-MODAL: no backdrop, no focus trap, and the list stays fully
-// interactive underneath. Packing is a back-and-forth (add a thing, look at what
-// the total did, add another), and a modal would make you close and reopen for
-// every glance. Escape closes it, since that's what a floating layer should honour.
+// The `vp__` class prefix is kept from when this WAS the pane. It still reads as
+// "the vault's own markup", and renaming forty selectors mid-restructure would have
+// bought nothing but risk.
 //
-// Rendered via <LazyVaultPane v-if>, so this component AND the shared vault module
-// it imports are a separate chunk — someone who never opens the pane never
-// downloads it, which is what keeps it off the editor's bundle budget.
-const emit = defineEmits<{ close: []; added: [string] }>();
-
-// Split-pane width, owned by the editor (which also needs it, to inset the list out
-// from under the pane) and adjusted from the divider below. Desktop only — on a
-// phone the pane is a bottom sheet and there is no width to negotiate.
-const width = defineModel<number>("width", { required: true });
-
-// A pointer drag on the divider. Deliberately NOT the shared createPointerDrag
-// scaffold: that one exists to resolve a drop TARGET among the list's rows and
-// commits on release. This has no target and no commit — it just tracks x — so
-// borrowing it would mean stubbing out most of what it does (and paying for its
-// elementFromPoint hit on every move).
+// Deliberately NON-MODAL, still: no backdrop, no focus trap, and the list stays
+// fully interactive beside it. Packing is a back-and-forth (add a thing, look at
+// what the total did, add another), and a modal would make you close and reopen for
+// every glance.
 //
-// The width lands on an INHERITED custom property on the editor root, so each write
-// restyles the whole editor subtree and reflows it. One write per frame is all that
-// can be seen, so the moves coalesce through rAF instead of writing per event.
-let endResize = () => {};
-function startResize(ev: PointerEvent) {
-  ev.preventDefault();
-  (ev.currentTarget as HTMLElement).setPointerCapture?.(ev.pointerId);
-  // the viewport can't change mid-drag, so read it once rather than forcing layout
-  // on every move
-  const vw = window.innerWidth;
-  let frame = 0;
-  let pendingX = ev.clientX;
-  const onMove = (e: PointerEvent) => {
-    pendingX = e.clientX;
-    frame ||= requestAnimationFrame(() => {
-      frame = 0;
-      width.value = clampVaultWidth(vw - pendingX);
-    });
-  };
-  // named, so removeEventListener gets the SAME reference that was registered
-  const stop = () => {
-    cancelAnimationFrame(frame);
-    window.removeEventListener("pointermove", onMove);
-    window.removeEventListener("pointerup", stop);
-    window.removeEventListener("pointercancel", stop);
-    document.body.style.userSelect = "";
-    endResize = () => {};
-  };
-  endResize = stop;
-  document.body.style.userSelect = "none";
-  window.addEventListener("pointermove", onMove);
-  window.addEventListener("pointerup", stop);
-  window.addEventListener("pointercancel", stop);
-}
-// the divider is a real separator, so the arrow keys have to move it — a pointer
-// drag can't be the only way to size a pane
-function onResizeKey(ev: KeyboardEvent) {
-  const step = ev.shiftKey ? 64 : 16;
-  if (ev.key === "ArrowLeft") width.value = clampVaultWidth(width.value + step);
-  else if (ev.key === "ArrowRight") width.value = clampVaultWidth(width.value - step);
-  else return;
-  ev.preventDefault();
-}
+// Rendered via <LazyVaultBrowser>, so this component AND the shared vault module it
+// imports stay a separate chunk. That matters more now than it did as a pane: the
+// panel around it is on screen at first paint, so if this rode along with it the
+// vault would be on the editor's first load for everyone, including the majority who
+// have no account.
+const emit = defineEmits<{ added: [string] }>();
 
 const c = useGearList();
 const dnd = useItemDnd();
@@ -283,106 +235,24 @@ function add(entry: VaultEntry) {
   c.addVaultItem(entry, targetFolderId.value);
 }
 
-// ---- the sheet answers the scroll that lands on it ------------------------
-//
-// On a phone the pane is a bottom sheet floating over the list, and a fixed box's
-// scroll chain runs straight to the viewport — so a swipe that didn't reach a
-// scroller fell THROUGH the sheet and scrolled the page instead. Swiping the
-// header, the search row, or a list too short to scroll moved the list behind the
-// panel, which reads as a hole in the page rather than a surface on it.
-//
-// `overscroll-behavior: contain` on the rows can't cover this on its own. It stops
-// the chain at a scroller's ENDS — which is why swiping past the last row already
-// stays put — but a gesture that never reached a scroller at all is not its
-// business: the chrome above the rows, and a row list with nothing to scroll
-// because the vault is empty or the filter left two matches.
-//
-// So the sheet decides for itself. A one-finger drag goes to the rows while they
-// can still travel that way, and is swallowed otherwise; the page keeps its scroll
-// position until you put a finger OUTSIDE the sheet, which is the half of it that
-// already worked. Two fingers are left alone, so pinch-zoom over the sheet still
-// zooms.
-const listEl = useTemplateRef<HTMLElement>("listEl");
-let touchStartY = 0;
+// The bottom sheet's touch guard lives in SidePanel now — it has to answer swipes
+// on the panel's own chrome as well as on these rows, and that chrome is the shell's.
+// The rows carry `data-panel-scroller` so the shell can find the scroller without
+// reaching in for a ref.
 
-function onSheetTouchStart(ev: TouchEvent) {
-  touchStartY = ev.touches[0]?.clientY ?? 0;
-}
-
-function onSheetTouchMove(ev: TouchEvent) {
-  if (ev.touches.length !== 1) return; // a pinch, not a scroll
-  const list = listEl.value;
-  // Touch events retarget to wherever the gesture STARTED for its whole life, so
-  // this stays true of a drag that has since wandered off the rows — which is what
-  // a row being dragged out to a folder is.
-  if (list && ev.target instanceof Node && list.contains(ev.target)) {
-    // travel left in the direction the finger is going: up the screen (dy < 0)
-    // scrolls toward the end of the list, down scrolls back toward its top
-    const dy = (ev.touches[0]?.clientY ?? 0) - touchStartY;
-    const room = dy < 0 ? list.scrollHeight - list.clientHeight - list.scrollTop : list.scrollTop;
-    if (room > 0.5) return; // the rows can take it — leave the scroll to the browser
-  }
-  // Once the browser has committed to a scroll the move stops being cancellable.
-  // The FIRST move of a gesture always is, and that's the one that decides.
-  if (ev.cancelable) ev.preventDefault();
-}
-
-// The pane can unmount mid-gesture — Escape closes it, and a drop can land it in a
-// state the parent tears down — so both pointer loops are stopped here rather than
-// only on their own pointerup. Otherwise their window listeners outlive the
-// component and keep its whole setup scope (the full vault array) reachable.
-onBeforeUnmount(() => {
-  rowPress.end();
-  endResize();
-});
-
-onKeyStroke("Escape", () => emit("close"));
+// This can unmount mid-gesture — switching tabs, or a drop landing the editor in a
+// state the parent tears down — so the press loop is stopped here rather than only
+// on its own pointerup. Otherwise its window listeners outlive the component and
+// keep the whole setup scope (the full vault array) reachable.
+onBeforeUnmount(() => rowPress.end());
 </script>
 
 <template>
-  <!-- vp--sized once there's a vault to browse: that's the state whose height has
-       to hold still while you filter it. The signed-out explainer is a short block
-       of prose and sizes to itself. -->
-  <!-- touchmove takes NO .passive modifier: preventDefault is the whole point of it
-       (see onSheetTouchMove), and the passive-by-default intervention covers only
-       window/document/body, so a bare listener here can still cancel. -->
-  <aside
-    class="popover vp"
-    :class="{ 'vp--sized': hasVault }"
-    data-vault-pane
-    role="dialog"
-    aria-label="Gear vault"
-    @touchstart.passive="onSheetTouchStart"
-    @touchmove="onSheetTouchMove"
-  >
-    <!-- the split divider. Desktop only (CSS); on a phone the sheet spans the
-         gutters and there is nothing to drag. -->
-    <div
-      class="vp__resize"
-      role="separator"
-      aria-orientation="vertical"
-      tabindex="0"
-      aria-label="Resize the gear vault"
-      :aria-valuenow="width"
-      :aria-valuemin="288"
-      :aria-valuemax="720"
-      title="Drag to resize"
-      @pointerdown="startResize"
-      @keydown="onResizeKey"
-    />
-    <header class="vp__head">
-      <h2 class="t-label vp__title">Gear vault</h2>
-      <button
-        type="button"
-        class="btn btn--icon btn--ghost btn--flush-end"
-        aria-label="Close the gear vault"
-        title="Close"
-        @click="emit('close')"
-      >
-        <HugeiconsIcon :icon="Cancel01Icon" :size="16" :stroke-width="2" />
-      </button>
-    </header>
-
+  <!-- vp--sized once there's a vault to browse: that's the state whose height has to
+       hold still while you filter it (the shell's sheet is a fixed height on a phone,
+       so this fills it). The signed-out explainer is a short block of prose and sizes
+       to itself. -->
+  <div class="vb" :class="{ 'vp--sized': hasVault }">
     <!-- Signed out, so this is a sign-in prompt and nothing else.
          It used to describe the vault in the present tense ("every piece of gear you
          add is kept here", "nothing to set up") while the reader had no vault and the
@@ -392,9 +262,16 @@ onKeyStroke("Escape", () => emit("close"));
          two hops to reach one button. Same sentence and same action as that page now,
          because it is the same question being asked twice. -->
     <div v-if="!hasVault" class="vp__empty">
+      <!-- One sentence: what it is, and the one thing it asks for that the rest of
+           the app never does. The "but" is doing the work — it names the trade-off
+           without a second sentence explaining it, and the button underneath says
+           what to do about it. (Was two full sentences, which is a wall in a 368px
+           column and longer than the thing it describes.)
+           WORD FOR WORD the /vault page's prompt. It is the same question asked in
+           two places, and answering it twice in two voices is how a product starts
+           sounding like two products. Change one, change both. -->
       <p class="t-sm t-muted">
-        Your vault holds the gear you use, ready to drop into your next list.
-        It needs an account, so you can reach it from any device.
+        Your gear is one pick away on every list, but it needs an account.
       </p>
       <NuxtLink to="/account" class="btn btn--primary">Sign in</NuxtLink>
     </div>
@@ -461,7 +338,7 @@ onKeyStroke("Escape", () => emit("close"));
       <!-- CATEGORIES: a whole set, added in one go. No drag here — a category brings
            its own folder, so there is no destination to aim at, and the click is the
            entire interaction. -->
-      <ul v-else-if="tab === 'categories' && filteredCategories.length" class="vp__list">
+      <ul v-else-if="tab === 'categories' && filteredCategories.length" data-panel-scroller class="vp__list">
         <li v-for="cat in filteredCategories" :key="cat.id">
           <button
             type="button"
@@ -489,7 +366,7 @@ onKeyStroke("Escape", () => emit("close"));
         </li>
       </ul>
 
-      <ul v-else-if="tab === 'items' && filtered.length" ref="listEl" class="vp__list">
+      <ul v-else-if="tab === 'items' && filtered.length" data-panel-scroller class="vp__list">
         <li v-for="entry in filtered" :key="entry.id">
           <!-- Click adds to the "Add to" folder; press and drag puts it in whichever
                folder you let go over. See onRowPointerDown for how the two are told
@@ -549,90 +426,23 @@ onKeyStroke("Escape", () => emit("close"));
         </p>
       </div>
     </template>
-  </aside>
+  </div>
 </template>
 
 <style scoped lang="scss">
-/* Desktop: a floating column pinned to the right, clear of the sticky topbar and
-   never taller than the viewport. Its own scroller, so the page behind keeps its
-   own scroll position while you work through the vault. */
-/* The SURFACE (lifted background, radius, soft shadow, forced-colors edge) comes
-   from the shared .popover atom — the same one the autocomplete and kebab menus
-   wear, so this panel can't drift from them. It also hands down
-   --popover-item-radius and --popover-hover, which the rows below consume, so the
-   concentric corner and the hover tint stay pinned to this surface's geometry.
-   Everything here is position + size only.
-
-   Desktop: a floating column pinned to the right, clear of the sticky topbar and
-   never taller than the viewport. Its own scroller, so the page behind keeps its
-   scroll position while you work through the vault. */
-.vp {
-  position: fixed;
-  /* Clear of the editor's sticky topbar, which MEASURES 61px (space-3 padding-block
-     either side of a 28px mode toggle, plus its hairline) — 48px overlapped it by
-     13. Expressed as grid steps rather than a magic 72px so it stays on the same
-     4/8 rhythm as everything else. */
-  top: calc(var(--space-7) + var(--space-5));
-  z-index: var(--z-float);
+/* The body fills whatever the shell gives it and owns its own scroller, so the page
+   behind keeps its scroll position while you work through the vault. Position, size,
+   surface and elevation are all SidePanel's — this file is what's inside.
+   The .popover custom properties the rows consume (--popover-item-radius,
+   --popover-hover) are inherited from that shell, which wears the atom. */
+.vb {
   display: flex;
   flex-direction: column;
-  /* A split pane in LAYOUT — the editor insets its own column by this width (see
-     .editor--split), so the two share the screen instead of one covering the other
-     — but still a floating card in APPEARANCE: the .popover surface's radius and
-     lift are kept, and it sits in from the viewport edges rather than flush against
-     them. The width is the editor's --vault-w, which the divider drags. */
-  right: var(--space-4);
-  bottom: var(--space-4);
-  width: var(--vault-w);
-  /* Inline padding only — the same split .ac__menu makes. The VERTICAL breathing
-     room lives inside the scroller below (where it scrolls with the content), so
-     the last row travels all the way to the card's edge instead of stopping 8px
-     short at a padding ledge and reading as cut off. */
-  padding: 0 var(--space-2);
-  /* clip the full-bleed rows (and the scrollbar's extremes) to the radius */
-  overflow: hidden;
+  min-height: 0; /* a flex child that scrolls must be allowed to shrink past content */
+  flex: 1 1 auto;
 }
-/* The divider: a hit area straddling the seam, wider than the 1px line it drags so
-   it can actually be grabbed. It INKS on hover/focus rather than sitting there as a
-   visible bar — the border already draws the seam, and a permanent handle would be
-   chrome on a panel that's mostly list. */
-.vp__resize {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 9px;
-  transform: translateX(-50%);
-  cursor: col-resize;
-  touch-action: none;
-  background: transparent;
-}
-/* A short pill at the vertical middle rather than a full-height rule: the seam is
-   already drawn by the pane's border, and a second floor-to-ceiling line beside it
-   read as a double edge. This marks the one spot you grab and nothing else. */
-.vp__resize::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 3px;
-  height: 28px;
-  transform: translate(-50%, -50%);
-  border-radius: var(--radius-pill);
-  background: var(--ink-3);
-  opacity: 0;
-  transition: opacity var(--dur) var(--ease);
-}
-.vp__resize:hover::after,
-.vp__resize:focus-visible::after {
-  opacity: 1;
-}
-.vp__resize:focus-visible {
-  outline: none;
-}
-/* the rows carry their own --space-2 inline padding, so the header and controls
-   need the same inset to line up with them rather than hugging the card edge */
-.vp__head,
+/* the rows carry their own --space-2 inline padding, so the controls need the same
+   inset to line up with them rather than hugging the card edge */
 .vp__tabs,
 .vp__controls,
 .vp__note,
@@ -675,18 +485,6 @@ onKeyStroke("Escape", () => emit("close"));
    and matching the label's weight made the two read as one long word */
 .vp__tabcount {
   color: var(--ink-3);
-}
-.vp__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-  /* the card no longer carries block padding (see .vp) — the top of it lives here */
-  padding-block-start: var(--space-2);
-  margin-bottom: var(--space-2);
-}
-.vp__title {
-  color: var(--ink);
 }
 .vp__controls {
   display: flex;
@@ -857,94 +655,54 @@ onKeyStroke("Escape", () => emit("close"));
 .vp__added {
   color: var(--ink);
 }
+/* CENTRED in the panel, both ways. These states have no rows to align to — they're
+   a sentence about why the panel is empty — so left-aligning them at the top left
+   them hanging off the corner of a tall card with nothing under them. Taking the
+   free height (flex: 1) and centring in it makes the message the content of the
+   panel rather than a note at the top of an empty one.
+   A measure, because a centred line that runs the panel's full width is hard to
+   come back from at the start of each line. */
 .vp__empty {
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
+  justify-content: center;
   gap: var(--space-3);
   /* padding-BLOCK, not the shorthand: this block also matches the shared
      padding-inline rule above, and a `padding: x 0 y` shorthand silently zeroes the
      inline half of it — which left the empty state's text one full step to the left
      of the header above it and the rows below it. */
   padding-block: var(--space-2) var(--space-3);
+  text-align: center;
+}
+/* `balance`, not the tooltip's `pretty`: pretty only protects the LAST line, which
+   still leaves the two above it ragged, and centred text makes a ragged edge read as
+   a mistake. balance evens every line, so a short block can't end on a single stranded
+   word — which is what "any device." was doing. It's capped at a handful of lines in
+   every engine that implements it, and these blocks are two or three; unsupported
+   engines just wrap normally. */
+.vp__empty p {
+  max-width: 30ch;
+  text-wrap: balance;
 }
 
 /* A coarse pointer grows the mode toggle (28px → 40px), so the topbar grows with
    it — follow it down. Only reachable on a touch screen WIDER than $bp-full (the
    pane is a bottom sheet below that), i.e. a touch laptop. */
-@media (pointer: coarse) {
-  .vp {
-    top: calc(var(--space-7) + var(--space-6));
-  }
-}
-
-/* Phone: a bottom sheet instead of a side column — a 23rem panel floating over a
-   375px screen would cover the list it's meant to sit beside. Capped at half the
-   viewport so the rows you're adding to stay visible above it. */
+/* The sheet holds a FIXED height once there's gear to browse. As a bare max on the
+   shell it shrank to fit whatever the filter left — so typing into the search
+   resized the surface under your thumb, and clearing it snapped it back. The rows
+   move; the thing holding them shouldn't.
+   Expressed as a floor here and a ceiling on the shell (--sheet-h, which the shell
+   also sets — so the pair can't drift), which between them pin the height exactly
+   while still letting the SIGNED-OUT explainer size to its own two sentences: it
+   never takes .vp--sized, so only the ceiling applies to it.
+   Desktop needs no equivalent — the panel is pinned top and bottom there, so it's
+   already a fixed height. */
 @media (max-width: $bp-full) {
-  .vp {
-    top: auto;
-    right: var(--space-3);
-    bottom: var(--space-3);
-    left: var(--space-3);
-    width: auto;
-    max-height: min(27.5rem, 55dvh);
-  }
-  /* A FIXED height, not a max, once there's gear to browse. As a max, the sheet
-     shrank to fit whatever the filter left — so typing into the search resized the
-     surface under your thumb, and clearing it snapped it back. The rows move; the
-     thing holding them shouldn't. (Desktop needs no equivalent: the column is
-     pinned top and bottom, so it's already a fixed height.)
-     27.5rem = 440px, on the 8px grid. The dvh clamp still wins on a short phone —
-     the sheet must not eat the list it sits beside — so the height is fixed per
-     device rather than always literally 440. */
   .vp--sized {
-    height: min(27.5rem, 55dvh);
-  }
-  /* nothing to resize when the sheet spans the gutters */
-  .vp__resize {
-    display: none;
-  }
-}
-
-/* ---- entrance ------------------------------------------------------------
-   Pairs with <Transition name="vaultpane"> in GearEditor. The pane comes in from
-   the edge it actually sits on — inward from the right as a desktop column, up
-   from the bottom as a phone sheet — so the motion reads as the panel arriving
-   from off-screen rather than as a card materialising in place.
-   No scale: the menus and toasts scale because they're small objects popping out
-   of a control, but a full-height panel scaling looks like the page zooming.
-   Distance is deliberately short (--space-3). It's an orientation cue, not a
-   reveal — the pane is opened on purpose, and anything longer gets in the way of
-   the thing you opened it to do.
-   Entrance leads with opacity on the quicker --dur while the travel settles on the
-   spring; the exit is faster and flatter, the same asymmetry .menu and .toast use.
-   (The global prefers-reduced-motion rule in main.scss flattens both.) */
-.vaultpane-enter-active {
-  transition:
-    opacity var(--dur) var(--ease),
-    transform var(--dur-slow) var(--ease-spring);
-}
-.vaultpane-leave-active {
-  transition:
-    opacity calc(var(--dur) * 0.6) var(--ease),
-    transform calc(var(--dur) * 0.6) var(--ease);
-}
-.vaultpane-enter-from {
-  opacity: 0;
-  transform: translateX(var(--space-3));
-}
-.vaultpane-leave-to {
-  opacity: 0;
-  transform: translateX(var(--space-2));
-}
-@media (max-width: $bp-full) {
-  /* the sheet's edge is the bottom one */
-  .vaultpane-enter-from {
-    transform: translateY(var(--space-3));
-  }
-  .vaultpane-leave-to {
-    transform: translateY(var(--space-2));
+    min-height: var(--sheet-h);
   }
 }
 </style>

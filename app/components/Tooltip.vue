@@ -11,7 +11,16 @@
 // up with aria-describedby.
 const { text, preferredPlacement = "top", disabled = false } = defineProps<{
   text: string;
-  preferredPlacement?: "top" | "bottom";
+  /**
+   * Which side to open on, space permitting; each flips to its opposite when the
+   * preferred side can't hold the popup.
+   *
+   * "right"/"left" exist for a control in a NARROW COLUMN of its own — the editor's
+   * collapsed side panel is a 48px strip, where a tooltip below the button covers
+   * the next button down and reads as belonging to it. Beside the strip there is
+   * nothing but gutter.
+   */
+  preferredPlacement?: "top" | "bottom" | "right" | "left";
   /**
    * Suppress the tooltip while its trigger has already said the same thing another
    * way — a toggle that has opened its own popover, say. Two floating surfaces off
@@ -25,7 +34,7 @@ const { text, preferredPlacement = "top", disabled = false } = defineProps<{
 const triggerRef = useTemplateRef<HTMLElement>("triggerRef");
 const tooltipRef = useTemplateRef<HTMLElement>("tooltipRef");
 const isVisible = ref(false);
-const placement = ref<"top" | "bottom">(preferredPlacement);
+const placement = ref<"top" | "bottom" | "right" | "left">(preferredPlacement);
 const tooltipId = useId();
 // only the two computed values — `position: fixed` and `pointer-events: none` are
 // constant, so they live in the stylesheet with the rest of the popup's looks
@@ -67,6 +76,34 @@ function positionTooltip() {
   // offset dimensions are the untransformed layout box, which is what we want.
   const { offsetWidth: width, offsetHeight: height } = tooltipRef.value;
   const bounds = getHorizontalBounds();
+
+  // BESIDE the trigger. Same shape as the vertical case one axis over: flip to the
+  // other side when the preferred one can't hold the popup, then centre on the
+  // trigger along the free axis and clamp that to the viewport.
+  //
+  // The horizontal clamp is the VIEWPORT here, not getHorizontalBounds()'s page
+  // column: a side tooltip's whole job is to sit outside the column its trigger
+  // belongs to (the collapsed panel's strip is 48px wide), so clamping it back into
+  // that column would push it over the button it describes.
+  if (preferredPlacement === "right" || preferredPlacement === "left") {
+    const needed = width + OFFSET + EDGE_PADDING;
+    const room = preferredPlacement === "right"
+      ? window.innerWidth - trigger.right
+      : trigger.left;
+    placement.value = room < needed
+      ? (preferredPlacement === "right" ? "left" : "right")
+      : preferredPlacement;
+
+    const top = Math.min(
+      trigger.top + trigger.height / 2 - height / 2,
+      window.innerHeight - EDGE_PADDING - height,
+    );
+    tooltipStyle.value = {
+      left: `${placement.value === "right" ? trigger.right + OFFSET : trigger.left - width - OFFSET}px`,
+      top: `${Math.max(EDGE_PADDING, top)}px`,
+    };
+    return;
+  }
 
   // Flip to the other side only when the preferred one can't hold the popup.
   const needed = height + OFFSET + EDGE_PADDING;

@@ -23,12 +23,22 @@
   max-width: 280px;
   transform-origin: center;
   // How far the enter/leave states travel, and in which direction — flipped by
-  // placement so the motion always reads as coming OUT of the trigger. As a custom
-  // property, the transform itself is written once below instead of once per side.
-  --tooltip-rise: 6px;
+  // placement so the motion always reads as coming OUT of the trigger. Two axes, so
+  // the side placements travel sideways; the transform itself is still written once
+  // below rather than once per side.
+  --tooltip-rise-x: 0px;
+  --tooltip-rise-y: 6px;
 }
 .tooltip[data-placement="bottom"] {
-  --tooltip-rise: -6px;
+  --tooltip-rise-y: -6px;
+}
+.tooltip[data-placement="right"] {
+  --tooltip-rise-x: -6px;
+  --tooltip-rise-y: 0px;
+}
+.tooltip[data-placement="left"] {
+  --tooltip-rise-x: 6px;
+  --tooltip-rise-y: 0px;
 }
 
 // Inverted ink — the one surface here that flips the page's own colours, so a
@@ -65,5 +75,5 @@
 .tooltip-enter-from,
 .tooltip-leave-to {
   opacity: 0;
-  transform: translateY(var(--tooltip-rise)) scale(0.96);
+  transform: translate(var(--tooltip-rise-x), var(--tooltip-rise-y)) scale(0.96);
 }

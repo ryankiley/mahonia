@@ -695,7 +695,7 @@ function create() {
     pendingBlankId.value = id;
     return id;
   }
-  // Add a piece of gear straight from the vault — the VaultPane's one write.
+  // Add a piece of gear straight from the vault — the vault browser's one write.
   //
   // A complete row lands in one dispatch, NOT a blank row that is then patched: a
   // half-built row that briefly exists would trip the pending-blank focus machinery

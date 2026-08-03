@@ -24,6 +24,18 @@
     max(var(--space-4), env(safe-area-inset-right));
 }
 
+/* The same gutter, no measure — for CHROME that should run the width of the
+   window rather than sit in the reading column. The editor's toolbar takes it:
+   capped at --measure its icons stopped ~90px short of the screen edge on a wide
+   window, so the bar read as belonging to the list rather than to the app, and
+   the two floating panels either side of it had nothing to line up with.
+   Only the bar. A page's CONTENT still wants the measure — that's the whole
+   point of --measure — so this is deliberately not something .wrap does by
+   default. */
+.wrap--full {
+  max-width: none;
+}
+
 // Long-form reading column — legal pages, any prose. One measure, calm rhythm,
 // the app's single type family. Inline links opt into a hairline underline
 // (the reset strips link affordance by default).

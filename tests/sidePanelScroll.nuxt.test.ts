@@ -1,7 +1,13 @@
 // @vitest-environment nuxt
 //
-// The vault pane's touch guard — which gesture the sheet keeps and which it hands
-// to the browser. On a phone the pane is a bottom sheet floating over the list, and
+// The side panel's touch guard — which gesture the sheet keeps and which it hands
+// to the browser. The guard moved from VaultPane to SidePanel when the lists nav and
+// the vault became two tabs of one surface: it has to answer swipes on the panel's
+// own chrome as well as on the rows, and that chrome is the shell's. It finds the
+// scroller by `[data-panel-scroller]`, so it covers whichever tab is showing; these
+// cases drive it through the vault tab, which is the only one a phone ever sees.
+//
+// On a phone the panel is a bottom sheet floating over the list, and
 // a fixed box's scroll chain runs straight to the viewport, so anything the sheet
 // doesn't answer for itself scrolls the PAGE behind it. The regression this pins is
 // exactly that: swiping the sheet's header, its search row, or a row list too short
@@ -16,7 +22,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { flushPromises, mount } from "@vue/test-utils";
 import { mockNuxtImport } from "@nuxt/test-utils/runtime";
-import VaultPane from "~/components/VaultPane.vue";
+import SidePanel from "~/components/SidePanel.vue";
+import VaultBrowser from "~/components/VaultBrowser.vue";
 
 const entry = (id: number) => ({
   id,
@@ -47,13 +54,26 @@ mockNuxtImport("useItemDnd", () => () => ({ startInsert: vi.fn() }));
 
 let wrapper: ReturnType<typeof mount> | undefined;
 
-/** Mount the pane with its gear loaded, and hand back its root + row list. */
+/**
+ * Mount the panel open on its vault tab with the gear loaded, and hand back its
+ * root + row list.
+ *
+ * `LazyVaultBrowser` is a Nuxt auto-import, resolved by the app's component
+ * registry — which a bare mount() of one component doesn't set up, so the tab body
+ * silently rendered as nothing and every row case failed on a null list. Handing
+ * the REAL browser in under that name keeps the test honest (real rows, real
+ * scroller) while skipping a resolution step that isn't what's under test.
+ */
 async function openPane() {
-  wrapper = mount(VaultPane, { props: { width: 368 }, attachTo: document.body });
+  wrapper = mount(SidePanel, {
+    props: { width: 368, open: true, tab: "vault", currentShareCode: null },
+    global: { components: { LazyVaultBrowser: VaultBrowser } },
+    attachTo: document.body,
+  });
   await flushPromises();
   await nextTick();
   const pane = wrapper.element as HTMLElement;
-  return { pane, list: pane.querySelector<HTMLElement>(".vp__list") };
+  return { pane, list: pane.querySelector<HTMLElement>("[data-panel-scroller]") };
 }
 
 /** Give an element a scroll range happy-dom would otherwise report as zero. */
@@ -84,7 +104,7 @@ function swipe(from: Element, dy: number, fingers = 1): boolean {
   return send("touchmove", 500 + dy).defaultPrevented;
 }
 
-describe("the vault sheet's touch guard", () => {
+describe("the side panel sheet's touch guard", () => {
   beforeEach(() => {
     rowCount = 30;
   });
@@ -97,7 +117,7 @@ describe("the vault sheet's touch guard", () => {
 
   it("swallows a swipe on the header, which has nothing to scroll", async () => {
     const { pane } = await openPane();
-    expect(swipe(pane.querySelector(".vp__head")!, -120)).toBe(true);
+    expect(swipe(pane.querySelector(".sp__head")!, -120)).toBe(true);
   });
 
   it("swallows a swipe on the search row", async () => {
@@ -141,6 +161,6 @@ describe("the vault sheet's touch guard", () => {
   // Cancelling a two-finger move would take pinch-zoom with it.
   it("leaves a two-finger gesture alone", async () => {
     const { pane } = await openPane();
-    expect(swipe(pane.querySelector(".vp__head")!, -120, 2)).toBe(false);
+    expect(swipe(pane.querySelector(".sp__head")!, -120, 2)).toBe(false);
   });
 });

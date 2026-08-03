@@ -1,5 +1,14 @@
 [
   {
+    "date": "2026-08-03",
+    "added": [
+      "On a wide screen, the editor keeps your saved lists in a panel on the left, so moving between them is one click. Collapse it to a strip when you want the room."
+    ],
+    "changed": [
+      "The gear vault moved from the right of the editor into that same left panel, as a tab beside your lists."
+    ]
+  },
+  {
     "date": "2026-08-02",
     "added": [
       "Track calories on food and fuel, and see the total for your list.",

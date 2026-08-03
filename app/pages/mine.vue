@@ -2,8 +2,7 @@
 import { HugeiconsIcon } from "@hugeicons/vue";
 import { Delete02Icon } from "@hugeicons/core-free-icons";
 import { editLinkPath } from "~~/shared/links";
-import type { MyListEntry, Unit } from "~~/shared/types";
-import { formatWeightAuto } from "~~/shared/weights";
+import type { MyListEntry } from "~~/shared/types";
 
 // "Your lists" — the no-login stand-in for an account. It's a read-out of the
 // device-local registry useMyLists already keeps (the edit tokens this browser
@@ -22,14 +21,11 @@ const lists = computed(() => [...my.entries.value].sort((a, b) => b.lastOpened -
 const { confirm: askConfirm } = useDialogs();
 
 const editPath = (e: MyListEntry) => editLinkPath(e.shareCode, e.editToken);
-const displayTitle = (t: string) => {
-  const n = t?.trim();
-  return n && n !== "Untitled list" ? n : "Untitled list";
-};
-// summarise the total in the list's own unit system (imperial lists → lb/oz),
-// falling back to metric auto for legacy entries that predate the stored unit
-const systemOf = (u?: Unit) => (u === "oz" || u === "lb" ? "imperial" : "metric");
-const totalLabel = (e: MyListEntry) => formatWeightAuto(e.totalMg, { system: systemOf(e.displayUnit) });
+// name + total come from app/utils/listSummary — the editor's lists rail renders
+// the same pair, and the unit fallback for legacy entries is subtle enough that
+// two copies of it would eventually disagree
+const displayTitle = savedListTitle;
+const totalLabel = savedListTotal;
 
 const busy = ref<string | null>(null); // editToken mid-delete
 const error = ref("");
