@@ -10,7 +10,7 @@
 import { and, eq, gt, isNull, lt, or, sql } from "drizzle-orm";
 import type { H3Event } from "h3";
 import { createError, deleteCookie, getCookie, setCookie } from "h3";
-import { authTokens, sessions, users } from "../db/schema";
+import { authTokens, credentials, sessions, users } from "../db/schema";
 import { useAccountDb } from "./db";
 import { randomSecret, sha256Hex } from "./tokens";
 
@@ -54,6 +54,14 @@ export interface SessionUser {
   email: string;
 }
 
+/** A user just returned by redeeming a magic link, which is the one moment the
+ *  address-verification state matters — see `claimUnverifiedAccount`. Everything
+ *  else in the app only ever needs `SessionUser`. */
+export interface RedeemedUser extends SessionUser {
+  /** Whether anyone had proved they hold this address BEFORE this redemption. */
+  emailVerified: boolean;
+}
+
 /**
  * Normalize an email to its storage form: trimmed and lowercased. This IS the
  * identity — `Ryan@Example.com` and `ryan@example.com` are one account — so it
@@ -84,10 +92,17 @@ export async function findOrCreateUser(db: Db, email: string): Promise<SessionUs
   if (existing[0]) return existing[0];
   // ON CONFLICT DO NOTHING + re-read: two link requests racing for the same new
   // address would otherwise fail one of them on the unique index.
+  //
+  // emailVerified: true — this row can only ever be reached through the inbox.
+  // Requesting a link isn't itself proof of holding one, but the row this creates
+  // carries no passkey and no session, and `createAccount` never upserts, so a
+  // later passkey signup for the same address is refused by the unique index. The
+  // flag's only job is gating the eviction below, and there is nothing here to
+  // evict. See accountSchema.ts.
   // no-arg .returning() — the neon-http | PGlite union's only shared overload
   const inserted = await db
     .insert(users)
-    .values({ email })
+    .values({ email, emailVerified: true })
     .onConflictDoNothing({ target: users.email })
     .returning();
   const fresh = inserted[0];
@@ -113,9 +128,17 @@ export async function findOrCreateUser(db: Db, email: string): Promise<SessionUs
  * Throws on the unique index if the address was taken between the check in
  * signup-options and here. Called only AFTER the ceremony verifies, so a row is
  * never created on the strength of an unverified request.
+ *
+ * THE ADDRESS IS UNVERIFIED, and the row says so. Nothing on this path proves the
+ * person enrolling the passkey can read the inbox they typed — that's the whole
+ * point of the route, which trades the inbox round trip for a signup with no
+ * waiting. `emailVerified: false` is what makes the trade safe: the first link
+ * redeemed against this address evicts the passkey. Set explicitly rather than
+ * left to the column default, because it's a security property and it should be
+ * readable here.
  */
 export async function createAccount(db: Db, email: string): Promise<SessionUser> {
-  const inserted = await db.insert(users).values({ email }).returning();
+  const inserted = await db.insert(users).values({ email, emailVerified: false }).returning();
   const row = inserted[0];
   if (!row) throw new Error("could not create account");
   return { id: row.id, email: row.email };
@@ -177,7 +200,7 @@ export async function issueMagicToken(db: Db, userId: number): Promise<string> {
  * database lets them, which it does not — the loser updates zero rows and gets
  * null. A read-then-write would have a window where both pass.
  */
-export async function consumeMagicToken(db: Db, rawToken: string): Promise<SessionUser | null> {
+export async function consumeMagicToken(db: Db, rawToken: string): Promise<RedeemedUser | null> {
   if (!rawToken) return null;
   const now = new Date();
   const claimed = await db
@@ -195,11 +218,51 @@ export async function consumeMagicToken(db: Db, rawToken: string): Promise<Sessi
   const userId = claimed[0]?.userId;
   if (userId == null) return null;
   const row = await db
-    .select({ id: users.id, email: users.email })
+    .select({ id: users.id, email: users.email, emailVerified: users.emailVerified })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
   return row[0] ?? null;
+}
+
+/**
+ * Hand an unverified account to the person who just proved they hold its address,
+ * and evict everyone who was there first.
+ *
+ * THE HOLE THIS CLOSES. Passkey signup takes an address from an unauthenticated
+ * body and attaches a credential to it, so anyone can sign up as
+ * someone@else.com and leave a discoverable passkey on that account. Because
+ * `findOrCreateUser` resolves by address, the real owner's later sign-in lands
+ * them in that same row — inside an account a stranger can re-open at will, with
+ * their vault, their claimed lists and their address in it. Account
+ * pre-hijacking, the unverified-email variant.
+ *
+ * WHY EVICTING EVERYTHING IS THE RIGHT PRICE. Whoever redeems a link sent to an
+ * address IS that address's owner; that is the only thing an emailed link can
+ * prove, and it's exactly the thing in question here. So every passkey and every
+ * session predating this moment was created by someone who had not proved it, and
+ * goes. An attacker who never held the inbox can never reach this code at all.
+ *
+ * WHAT IT COSTS THE INNOCENT CASE, honestly: someone who signed up with a passkey
+ * and does hold the address loses that passkey if they redeem a link — the code
+ * cannot tell the two people apart, which is the whole problem. That is why the
+ * welcome mail names the consequence and doesn't ask them to click (email.ts);
+ * the link in it is there for the other reader. The account is never at stake
+ * either way — whoever holds the address is signed in at the end of this, and a
+ * passkey takes one tap to add again.
+ *
+ * ORDER: evict first, flip last. A failure part-way then leaves the account still
+ * unverified, so the next link redoes the eviction — whereas flipping first and
+ * failing would leave a verified account still carrying a stranger's passkey, with
+ * nothing left to try again.
+ */
+export async function claimUnverifiedAccount(db: Db, userId: number): Promise<void> {
+  await db.delete(credentials).where(eq(credentials.userId, userId));
+  // Sessions too, not just the passkeys: removing a credential stops it signing
+  // in AGAIN, but a session it already started keeps working for 90 days. Same
+  // reasoning as endAllSessions.
+  await db.delete(sessions).where(eq(sessions.userId, userId));
+  await db.update(users).set({ emailVerified: true }).where(eq(users.id, userId));
 }
 
 /** Whether to set the `Secure` cookie attribute. Off on plain-HTTP localhost

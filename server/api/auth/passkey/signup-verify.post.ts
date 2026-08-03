@@ -30,8 +30,15 @@ import { rateLimit } from "../../../utils/rateLimit";
 //
 // A confirmation link goes out afterwards and is deliberately not awaited by the
 // signup's success: the account is usable the moment the passkey verifies, and a
-// mail provider having a bad minute must not cost someone their signup. The link's
-// job is to prove the inbox is reachable, which matters later, not now.
+// mail provider having a bad minute must not cost someone their signup.
+//
+// THE LINK IS ALSO THE UNDO. The address here is unverified — anyone can type
+// anyone's — so the account is created unverified, and redeeming this link is what
+// settles who the address belongs to: it removes every passkey and session older
+// than itself (claimUnverifiedAccount). For the person who just signed up that
+// would take away the key they just made, so the mail says so plainly and doesn't
+// ask them to click; for someone whose address a stranger typed in, it's the whole
+// remedy. See the welcome copy in email.ts.
 export default defineEventHandler(async (event) => {
   setHeader(event, "X-Robots-Tag", "noindex");
   setHeader(event, "Cache-Control", "private, no-store");

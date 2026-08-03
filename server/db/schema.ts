@@ -454,6 +454,13 @@ export const users = pgTable(
     // the default. Deliberately not derived from the email — an address is private
     // and must never be shown to anyone but its owner.
     displayName: text("display_name"),
+    // Whether anyone has ever proved they hold this address. False for an account
+    // made by passkey signup, where the address is only a claim until a link sent
+    // to it comes back; true for one made by the magic-link path, where the round
+    // trip through the inbox is the signup. Redeeming a link for an account still
+    // sitting at false evicts every passkey and session older than that link —
+    // see accountSchema.ts for why, and authSession.ts for the eviction itself.
+    emailVerified: boolean("email_verified").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
   },
