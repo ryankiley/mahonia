@@ -116,6 +116,10 @@ $bp-full: 1024px !default;
   --leading-tight: 1.15; /* the one heading size (.t-title) — cap-height rows */
   --leading-normal: 1.5; /* body prose, item names + notes — multi-line reading */
 
+  /* the type system's one non-default tracking (.t-title, .t-num, buttons) —
+     tokenized so the tight track retunes in one place, not a dozen literals */
+  --track-tight: -0.02em;
+
   /* ---- caption tuck — the negative top-margin that pulls an item's note up under
      its name so the two read as one unit. ONE token so the editor row (.reveal--note)
      and the packing row (.item__csub) can't drift. It cancels the dead space a caption

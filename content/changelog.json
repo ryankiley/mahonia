@@ -23,7 +23,9 @@
       "Each row's weight unit now shows a small arrow, so you can see it can be changed.",
       "The gear vault's search and “Add folder” now look and work like the editor's.",
       "Trip dates now read as \"September 6–9, 2026\".",
-      "Send feedback moved out of the footer, into the ⋯ menu on the list you're looking at."
+      "Send feedback moved out of the footer, into the ⋯ menu on the list you're looking at.",
+      "Recent changes in the sharing panel now slides open like the app's other disclosures.",
+      "The sharing panel's Copy button is filled instead of outlined, matching the rest of the chrome."
     ],
     "fixed": [
       "On a phone, swiping the gear vault sheet now scrolls the gear inside it instead of the list behind it.",
@@ -33,7 +35,11 @@
       "Arrow keys now move through the trip date picker, and picking commits the day you landed on.",
       "Importing a CSV no longer locks every row to a single unit.",
       "Weights line up in a column on a shared list, whatever unit each row is in.",
-      "On a touch tablet, a row's buttons no longer overlap the worn and consumable toggles."
+      "On a touch tablet, a row's buttons no longer overlap the worn and consumable toggles.",
+      "Your gear vault now opens to its empty state on a brand-new account, instead of a connection error.",
+      "\"Get a new link\" on an expired sign-in link now takes you to the sign-in form.",
+      "The clear-search, dismiss, and move-to-folder controls are easier to tap on a phone.",
+      "Delete account now reads in the site's own ink, clear in dark mode too."
     ]
   },
   {

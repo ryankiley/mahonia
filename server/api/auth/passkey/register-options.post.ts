@@ -3,7 +3,7 @@ import { generateRegistrationOptions } from "@simplewebauthn/server";
 import { requireUser } from "../../../utils/authSession";
 import { countPasskeys, existingCredentialIds, MAX_PASSKEYS_PER_USER } from "../../../utils/credentialRepo";
 import { useAccountDb } from "../../../utils/db";
-import { RP_NAME, passkeysConfigured, rpIdFor, startChallenge } from "../../../utils/passkeys";
+import { RP_NAME, requirePasskeysConfigured, rpIdFor, startChallenge } from "../../../utils/passkeys";
 import { rateLimit } from "../../../utils/rateLimit";
 
 // Step 1 of adding a passkey: hand the browser the challenge and parameters for
@@ -15,13 +15,7 @@ export default defineEventHandler(async (event) => {
   setHeader(event, "Cache-Control", "private, no-store");
   await rateLimit(event, "passkey");
   const user = await requireUser(event);
-  // A shared challenge store is a hard requirement, not a nicety — see
-  // passkeysConfigured(). Refuse up front rather than failing at verify with
-  // nothing to explain it.
-  if (!passkeysConfigured()) {
-    console.error("[passkey] no shared KV configured (KV_REST_API_URL / KV_REST_API_TOKEN) — passkeys are unavailable");
-    throw createError({ statusCode: 503, statusMessage: "Passkeys unavailable" });
-  }
+  requirePasskeysConfigured();
 
   const db = await useAccountDb();
 

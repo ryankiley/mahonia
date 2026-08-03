@@ -154,7 +154,7 @@ function onFile(e: Event) {
 
     <textarea
       v-model="text"
-      class="field import__text"
+      class="field well import__text"
       rows="5"
       placeholder="https://lighterpack.com/r/… or a CSV like Category,Item Name,Qty,Weight,Unit,Worn,Consumable…"
     />
@@ -186,29 +186,15 @@ function onFile(e: Event) {
 <style scoped>
 /* overlay + dialog shell live in atoms/dialog.scss; only the import-specific
    body is scoped here */
+/* the tint is the shared .well atom (controls.scss) */
 .import__text {
   width: 100%;
   font-family: var(--font);
   font-size: var(--text-sm);
-  /* the menus' language, not a hairline box: quiet tinted well, rounded like a
-     popover item (radius-4 − space-2, the same concentric step the menus use) */
-  border: 0;
-  background: var(--paper-2);
-  border-radius: calc(var(--radius-4) - var(--space-2));
   padding: var(--space-3);
   /* no resize: the native grip drew a square notch over the rounded corner, and
      the box scrolls anyway (the dialog is fixed-width, rows are fixed) */
   resize: none;
-  color: var(--ink);
-  transition: background var(--dur) var(--ease);
-}
-.import__text::placeholder {
-  color: var(--ink-3);
-}
-/* focus deepens the well a step (the caret carries focus, house-style — no ring) */
-.import__text:focus {
-  outline: none;
-  background: color-mix(in oklab, var(--ink) 4%, var(--paper-2));
 }
 .import__err {
   color: var(--ink);

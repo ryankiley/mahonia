@@ -3,9 +3,11 @@ import { eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { beforeEach, describe, expect, it } from "vitest";
 import * as schema from "../server/db/schema";
-import { vaults } from "../server/db/schema";
+import { vaultFolders, vaultItems, vaults } from "../server/db/schema";
 import { VAULT_DDL } from "../server/utils/vaultSchema";
 import {
+  VAULT_FOLDERS_MAX,
+  VAULT_ITEMS_MAX,
   applyVaultFolderOp,
   captureVaultItems,
   listRemovedVaultItems,
@@ -237,6 +239,19 @@ describe("vault capture — the upsert's merge rules", () => {
     await captureVaultItems(db as any, 2, [cap({ weightMg: 100_000 })]);
     expect((await listVaultItems(db as any, 1))[0]!.weightMg).toBe(539_000);
     expect((await listVaultItems(db as any, 2))[0]!.weightMg).toBe(100_000);
+  });
+
+  it("caps and types a direct POST's fields — an oversized folder name can't error the capture", async () => {
+    await captureVaultItems(db as any, VAULT, [
+      cap({ brand: "B".repeat(500), folder: "F".repeat(5_000), productUrl: 123 }),
+    ]);
+    const row = (await listVaultItems(db as any, VAULT))[0]!;
+    expect(row.brand!.length).toBe(120);
+    expect(row.productUrl).toBeUndefined();
+    const folders = await listVaultFolders(db as any, VAULT);
+    expect(folders).toHaveLength(1);
+    expect(folders[0]!.name.length).toBe(120);
+    expect(row.folderId).toBe(folders[0]!.id);
   });
 
   it("drops rows that don't normalize (no name)", async () => {
@@ -480,5 +495,87 @@ describe("vault reaping — bounding a table nothing else ever shrinks", () => {
     await seedVault(200);
     expect(await reapAbandonedVaults(db as any, { limit: 2 })).toEqual({ vaultsReaped: 2 });
     expect(await reapAbandonedVaults(db as any, { limit: 2 })).toEqual({ vaultsReaped: 1 });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ceilings — a vault's growth is bounded
+// ---------------------------------------------------------------------------
+describe("vault ceilings", () => {
+  let db: DB;
+  const VAULT = 1;
+  beforeEach(async () => {
+    db = await freshDb();
+  });
+
+  const cap = (over: Record<string, unknown> = {}) => ({
+    normKey: vaultNormKey("Zpacks", "Duplex", null),
+    brand: "Zpacks",
+    name: "Duplex",
+    weightMg: 539_000,
+    ...over,
+  }) as any;
+
+  const itemCount = async () =>
+    Number(
+      (await db.select({ n: sql<number>`count(*)` }).from(vaultItems).where(eq(vaultItems.vaultId, VAULT)))[0]!.n,
+    );
+
+  it("at the item ceiling, updates still land but new keys are dropped", async () => {
+    const now = new Date();
+    await db.insert(vaultItems).values(
+      Array.from({ length: VAULT_ITEMS_MAX }, (_, i) => ({
+        vaultId: VAULT,
+        normKey: vaultNormKey(null, `Seed ${i}`, null),
+        name: `Seed ${i}`,
+        weightMg: 1,
+        timesSeen: 1,
+        lastUsedAt: now,
+        updatedAt: now,
+      })),
+    );
+    await captureVaultItems(db as any, VAULT, [
+      cap({ brand: undefined, name: "Seed 0", weightMg: 999 }), // update — rides free
+      cap({ name: "Brand New Thing" }), // new key — over the ceiling, dropped
+    ]);
+    expect(await itemCount()).toBe(VAULT_ITEMS_MAX);
+    const seed0 = await db
+      .select()
+      .from(vaultItems)
+      .where(eq(vaultItems.normKey, vaultNormKey(null, "Seed 0", null)));
+    expect(Number(seed0[0]!.weightMg)).toBe(999);
+  });
+
+  it("capture stops minting folders at the ceiling; the gear still lands, unfiled", async () => {
+    await db.insert(vaultFolders).values(
+      Array.from({ length: VAULT_FOLDERS_MAX }, (_, i) => ({
+        vaultId: VAULT,
+        name: `F${i}`,
+        sortOrder: i + 1,
+      })),
+    );
+    await captureVaultItems(db as any, VAULT, [cap({ folder: "One Folder Too Many" })]);
+    const folders = await listVaultFolders(db as any, VAULT);
+    expect(folders).toHaveLength(VAULT_FOLDERS_MAX);
+    expect((await listVaultItems(db as any, VAULT))[0]!.folderId).toBeUndefined();
+
+    // a folder that already exists still files its gear, ceiling or not
+    await captureVaultItems(db as any, VAULT, [
+      cap({ name: "Neoair", brand: "Therm-a-Rest", folder: "F0" }),
+    ]);
+    const neo = (await listVaultItems(db as any, VAULT)).find((r) => r.name === "Neoair")!;
+    expect(neo.folderId).toBe(folders.find((f) => f.name === "F0")!.id);
+  });
+
+  it("a deliberate folder add refuses quietly at the ceiling", async () => {
+    await db.insert(vaultFolders).values(
+      Array.from({ length: VAULT_FOLDERS_MAX }, (_, i) => ({
+        vaultId: VAULT,
+        name: `F${i}`,
+        sortOrder: i + 1,
+      })),
+    );
+    expect(await applyVaultFolderOp(db as any, VAULT, { t: "add", name: "Overflow" })).toBe(false);
+    expect(await listVaultFolders(db as any, VAULT)).toHaveLength(VAULT_FOLDERS_MAX);
   });
 });

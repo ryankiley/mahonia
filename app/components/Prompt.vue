@@ -54,7 +54,7 @@ const emit = defineEmits<{ dismiss: [] }>();
       </span>
       <slot name="action" />
       <button type="button" class="prompt__close" :aria-label="dismissLabel" :title="dismissLabel" @click="emit('dismiss')">
-        <HugeiconsIcon :icon="Cancel01Icon" :size="15" :stroke-width="2" />
+        <HugeiconsIcon :icon="Cancel01Icon" :size="16" :stroke-width="2" />
       </button>
     </div>
 
@@ -74,7 +74,7 @@ const emit = defineEmits<{ dismiss: [] }>();
           </span>
           <slot name="action" />
           <button type="button" class="prompt__close" :aria-label="dismissLabel" :title="dismissLabel" @click="emit('dismiss')">
-            <HugeiconsIcon :icon="Cancel01Icon" :size="15" :stroke-width="2" />
+            <HugeiconsIcon :icon="Cancel01Icon" :size="16" :stroke-width="2" />
           </button>
         </div>
       </div>
@@ -177,5 +177,16 @@ const emit = defineEmits<{ dismiss: [] }>();
 .prompt__close:hover,
 .prompt__close:focus-visible {
   opacity: 1;
+}
+/* touch: the dismiss meets the --tap minimum (the house rule, controls.scss)
+   without growing the prompt — the extra hit area overhangs the box via negative
+   margins, the same trick the folder header uses */
+@media (pointer: coarse) {
+  .prompt__close {
+    min-width: var(--tap);
+    min-height: var(--tap);
+    margin-block: calc((var(--tap) - 24px) / -2);
+    margin-inline-end: calc((var(--tap) - 24px) / -2);
+  }
 }
 </style>

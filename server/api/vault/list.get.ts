@@ -1,6 +1,6 @@
 import { defineEventHandler, setHeader } from "h3";
 import { rateLimit } from "../../utils/rateLimit";
-import { requireVault } from "../../utils/vaultAuth";
+import { resolveVaultForRead } from "../../utils/vaultAuth";
 import { listRemovedVaultItems, listVaultFolders, listVaultItems } from "../../utils/vaultRepo";
 
 // The /vault page's read: every live row, most-recently-used first.
@@ -10,7 +10,11 @@ export default defineEventHandler(async (event) => {
   setHeader(event, "X-Robots-Tag", "noindex");
   setHeader(event, "Cache-Control", "private, no-store");
   await rateLimit(event, "vault-read");
-  const { db, vaultId } = await requireVault(event);
+  // a fresh account has no vault row until its first capture — that's the empty
+  // vault, not an error (see resolveVaultForRead)
+  const resolved = await resolveVaultForRead(event);
+  if (!resolved) return { items: [], removed: [], folders: [] };
+  const { db, vaultId } = resolved;
   // Both sets in one round trip. `removed` is what "Remove" put away — /vault shows
   // it behind a disclosure so a removal has a way back; the editor's pane reads
   // `items` and ignores it. One endpoint rather than a second auth + rate-limit

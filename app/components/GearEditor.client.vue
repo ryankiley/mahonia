@@ -639,7 +639,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
         dismiss-label="Don’t add this list’s gear to my gear vault"
         @dismiss="c.answerVaultPrompt(false)"
       >
-        <template #icon><HugeiconsIcon :icon="SafeBoxIcon" :size="15" :stroke-width="2" /></template>
+        <template #icon><HugeiconsIcon :icon="SafeBoxIcon" :size="16" :stroke-width="2" /></template>
         Add to your gear vault?
         <template #action>
           <button class="btn btn--quiet editor__vaultadd" @click="c.answerVaultPrompt(true)">Add</button>
@@ -1108,7 +1108,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
   font-family: var(--font);
   font-size: var(--text-title);
   font-weight: 600;
-  letter-spacing: -0.02em;
+  letter-spacing: var(--track-tight);
 }
 .editor__addfolderbtn {
   color: var(--ink-3);

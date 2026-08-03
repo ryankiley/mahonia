@@ -8,6 +8,9 @@ import { vaultFolders, vaultItems, vaults } from "../db/schema";
 import type { useVaultDb } from "./db";
 import {
   VAULT_CAPTURE_MAX,
+  VAULT_NAME_MAX,
+  VAULT_SHORT_MAX,
+  VAULT_URL_MAX,
   vaultNormKey,
   type VaultCapture,
   type VaultEntry,
@@ -25,6 +28,16 @@ type Db = Awaited<ReturnType<typeof useVaultDb>>;
  *  case, and the JS ranker over a few hundred rows is far cheaper than the round
  *  trip that fetched them. */
 const POOL_LIMIT = 1000;
+
+/** Ceiling on TOTAL rows (live + removed) one vault may hold. Twice POOL_LIMIT:
+ *  the reads truncate at 1000 anyway, so rows past that are invisible to their
+ *  own owner — the ceiling bounds junk, not use. Capture drops new keys over the
+ *  cap rather than erroring; updates to existing rows always land. */
+export const VAULT_ITEMS_MAX = 2000;
+
+/** Ceiling on folders per vault, same spirit. Capture stops creating folders at
+ *  the cap (items land unfiled); a deliberate add on /vault refuses quietly. */
+export const VAULT_FOLDERS_MAX = 200;
 
 const CLASSIFICATIONS: Classification[] = ["base", "worn", "consumable"];
 
@@ -53,18 +66,38 @@ function toEntry(row: Row): VaultEntry {
   };
 }
 
+/** A string field off the wire: typed, trimmed, capped — or dropped. The shipped
+ *  client already sends clean values; this is for the direct POST that doesn't. */
+function str(v: unknown, max: number): string | undefined {
+  if (typeof v !== "string") return undefined;
+  const s = v.trim().slice(0, max);
+  return s || undefined;
+}
+
 /** Re-derive the identity server-side rather than trusting the client's normKey —
  *  a forged key could otherwise collide two unrelated items into one row (or dodge
- *  a tombstone). Drops anything that doesn't survive normalization. */
+ *  a tombstone). Drops anything that doesn't survive normalization. Fields are
+ *  rebuilt explicitly (no spread) so nothing rides in untyped or uncapped: the
+ *  caps are the same ones captureFromList applies client-side, and the folder
+ *  name takes the folder table's own cap — an oversized one used to blow the
+ *  btree index limit and 500 the whole capture. */
 function sanitize(caps: VaultCapture[]): VaultCapture[] {
   const out = new Map<string, VaultCapture>();
   for (const c of caps.slice(0, VAULT_CAPTURE_MAX)) {
-    if (typeof c?.name !== "string") continue;
-    const normKey = vaultNormKey(c.brand, c.name, c.variant);
+    const name = str(c?.name, VAULT_NAME_MAX);
+    if (!name) continue;
+    const brand = str(c.brand, VAULT_SHORT_MAX);
+    const variant = str(c.variant, VAULT_SHORT_MAX);
+    const normKey = vaultNormKey(brand, name, variant);
     if (!normKey) continue;
     out.set(normKey, {
-      ...c,
       normKey,
+      name,
+      brand,
+      variant,
+      commonName: str(c.commonName, VAULT_SHORT_MAX),
+      productUrl: str(c.productUrl, VAULT_URL_MAX),
+      folder: str(c.folder, FOLDER_NAME_MAX),
       weightMg: Number.isFinite(c.weightMg) ? Math.max(0, Math.round(c.weightMg)) : 0,
       classification: CLASSIFICATIONS.includes(c.classification as Classification)
         ? c.classification
@@ -100,8 +133,47 @@ export async function captureVaultItems(
   vaultId: number,
   caps: VaultCapture[],
 ): Promise<number> {
-  const clean = sanitize(caps);
+  let clean = sanitize(caps);
   if (!clean.length) return 0;
+
+  // The per-vault ceiling. Updates to rows already in the vault always land —
+  // they add nothing — but new keys stop at VAULT_ITEMS_MAX, silently: capture is
+  // an automatic side effect of editing a list, so refusing loudly would put an
+  // error in front of someone who didn't ask for anything. Counted lazily (one
+  // cheap indexed count) and only disambiguated when the request could actually
+  // cross the line.
+  const [{ n } = { n: 0 }] = await db
+    .select({ n: sql<number>`count(*)` })
+    .from(vaultItems)
+    .where(eq(vaultItems.vaultId, vaultId));
+  const room = VAULT_ITEMS_MAX - Number(n);
+  if (clean.length > room) {
+    const existing = new Set(
+      (
+        await db
+          .select({ k: vaultItems.normKey })
+          .from(vaultItems)
+          .where(
+            and(
+              eq(vaultItems.vaultId, vaultId),
+              inArray(
+                vaultItems.normKey,
+                clean.map((c) => c.normKey),
+              ),
+            ),
+          )
+      ).map((r) => r.k),
+    );
+    let budget = Math.max(0, room);
+    clean = clean.filter((c) => {
+      if (existing.has(c.normKey)) return true;
+      if (budget === 0) return false;
+      budget--;
+      return true;
+    });
+    if (!clean.length) return 0;
+  }
+
   const now = new Date();
   // ONE multi-row statement, not one per item. A 40-item list was 40 sequential
   // round trips, which on Neon's HTTP driver (no pipelining) is the difference
@@ -172,14 +244,24 @@ async function ensureFolders(
 ): Promise<Map<string, number>> {
   const wanted = [...new Set(names.filter((n): n is string => !!n))];
   if (!wanted.length) return new Map();
-  const [{ max } = { max: 0 }] = await db
-    .select({ max: sql<number>`coalesce(max(${vaultFolders.sortOrder}), 0)` })
+  const have = await db
+    .select({ id: vaultFolders.id, name: vaultFolders.name, sortOrder: vaultFolders.sortOrder })
     .from(vaultFolders)
     .where(eq(vaultFolders.vaultId, vaultId));
+  const byName = new Map(have.map((r) => [r.name, r.id]));
+  // Only names that need creating count against the folder ceiling — captures
+  // naming existing folders are idempotent whatever the count. Past the cap the
+  // extra folders simply aren't made and their items land unfiled, which keeps an
+  // automatic path from erroring (a deliberate add on /vault refuses instead).
+  const missing = wanted.filter((n) => !byName.has(n)).slice(0, Math.max(0, VAULT_FOLDERS_MAX - have.length));
+  if (!missing.length) return byName;
+  const max = have.reduce((m, r) => Math.max(m, r.sortOrder), 0);
   await db
     .insert(vaultFolders)
-    .values(wanted.map((name, i) => ({ vaultId, name, sortOrder: Number(max) + i + 1 })))
+    .values(missing.map((name, i) => ({ vaultId, name, sortOrder: max + i + 1 })))
     .onConflictDoNothing({ target: [vaultFolders.vaultId, vaultFolders.name] });
+  // re-read rather than trusting returning(): a racing capture may have created
+  // some of `missing` first, in which case our insert skipped them
   const rows = await db
     .select({ id: vaultFolders.id, name: vaultFolders.name })
     .from(vaultFolders)
@@ -389,10 +471,16 @@ export async function applyVaultFolderOp(
     case "add": {
       const name = (op.name ?? "").trim().slice(0, FOLDER_NAME_MAX);
       if (!name) return false;
-      const [{ max } = { max: 0 }] = await db
-        .select({ max: sql<number>`coalesce(max(${vaultFolders.sortOrder}), 0)` })
+      const [{ max, n } = { max: 0, n: 0 }] = await db
+        .select({
+          max: sql<number>`coalesce(max(${vaultFolders.sortOrder}), 0)`,
+          n: sql<number>`count(*)`,
+        })
         .from(vaultFolders)
         .where(eq(vaultFolders.vaultId, vaultId));
+      // at the ceiling, refuse like the empty-name case — quietly false, the same
+      // "nothing was made" the caller already handles
+      if (Number(n) >= VAULT_FOLDERS_MAX) return false;
       // a name that already exists is a no-op, not an error — the folder you asked
       // for is there either way
       const done = await db

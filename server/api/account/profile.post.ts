@@ -37,12 +37,9 @@ function cleanDisplayName(raw: string): string {
   );
 }
 
-// The account's two settings: the display name — the ONLY part of an account that
-// is ever public, where an empty string clears it and returns you to anonymous —
-
-//
-// Both are optional in the body, so a caller can change one without restating the
-// other; only fields actually present are written.
+// The account's one setting: the display name — the ONLY part of an account that
+// is ever public. An empty string clears it and returns you to anonymous; only a
+// field actually present in the body is written.
 export default defineEventHandler(async (event) => {
   setHeader(event, "X-Robots-Tag", "noindex");
   setHeader(event, "Cache-Control", "private, no-store");
@@ -58,9 +55,6 @@ export default defineEventHandler(async (event) => {
   if (typeof body?.displayName === "string") {
     patch.displayName = cleanDisplayName(body.displayName) || null;
   }
-  // normalizeCurrency narrows to the offered set, so a junk code can never be
-  // stored and later reach Intl (which throws on an invalid one)
-
   const db = await useAccountDb();
   if (Object.keys(patch).length) {
     await db.update(users).set(patch).where(eq(users.id, user.id));

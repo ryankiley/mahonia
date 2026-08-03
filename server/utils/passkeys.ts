@@ -17,7 +17,7 @@
 // keys, which is exactly the isolation WebAuthn intends.
 
 import type { H3Event } from "h3";
-import { getRequestHost, getRequestProtocol } from "h3";
+import { createError, getRequestHost, getRequestProtocol } from "h3";
 import { randomSecret, sha256Hex } from "./tokens";
 import { useKv } from "./rateLimit";
 
@@ -68,6 +68,16 @@ export const RP_NAME = "Mahonia";
 export function passkeysConfigured(): boolean {
   if (process.env.NODE_ENV !== "production") return true; // dev's in-memory KV is one process
   return Boolean(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN);
+}
+
+/** The refusal every passkey endpoint opens with: fail up front, loudly, rather
+ *  than at verify with nothing to explain it. One message to maintain. */
+export function requirePasskeysConfigured(): void {
+  if (passkeysConfigured()) return;
+  console.error(
+    "[passkey] no shared KV configured (KV_REST_API_URL / KV_REST_API_TOKEN) — passkeys are unavailable",
+  );
+  throw createError({ statusCode: 503, statusMessage: "Passkeys unavailable" });
 }
 
 interface StoredChallenge {

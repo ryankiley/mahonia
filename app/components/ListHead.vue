@@ -493,7 +493,7 @@ onClickOutside(trailEl, () => {
   font-size: var(--text-page-title);
   font-weight: 700;
   line-height: 1.2;
-  letter-spacing: -0.02em;
+  letter-spacing: var(--track-tight);
   /* textarea defaults that have to go for it to read as a title rather than a control:
      no drag handle, no scrollbar (it's sized to its content, so there's nothing to
      scroll), and no min-height from .field — one line at this size is already taller
@@ -775,7 +775,7 @@ onClickOutside(trailEl, () => {
   margin-block-end: var(--space-2);
   color: var(--ink-3);
   font-size: var(--text-micro);
-  font-weight: 500;
+  font-weight: 600; /* the type system's one strong weight — no 500 (typography.scss) */
   line-height: 1.2; /* 14.4px — the reference's label box, measured */
 }
 /* filled, unlike the borderless .field used everywhere else: inside a floating panel

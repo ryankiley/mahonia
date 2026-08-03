@@ -1,4 +1,4 @@
-import { createError, defineEventHandler, getRequestURL, setHeader } from "h3";
+import { defineEventHandler, getRequestURL, setHeader } from "h3";
 import { verifyRegistrationResponse } from "@simplewebauthn/server";
 import {
   MAGIC_LINK_TTL_MS,
@@ -11,7 +11,7 @@ import { canSendEmail, sendMagicLink } from "../../../utils/email";
 import { savePasskey } from "../../../utils/credentialRepo";
 import { useAccountDb } from "../../../utils/db";
 import { readJsonBodyCapped } from "../../../utils/http";
-import { originFor, passkeysConfigured, rpIdFor, takeChallenge } from "../../../utils/passkeys";
+import { originFor, requirePasskeysConfigured, rpIdFor, takeChallenge } from "../../../utils/passkeys";
 import { rateLimit } from "../../../utils/rateLimit";
 
 // Step 2 of creating an account with nothing but a passkey: check what the
@@ -37,17 +37,11 @@ export default defineEventHandler(async (event) => {
   setHeader(event, "Cache-Control", "private, no-store");
   await rateLimit(event, "passkey-signup");
 
-  if (!passkeysConfigured()) {
-    console.error("[passkey signup] no shared KV configured — passkey signup is unavailable");
-    throw createError({ statusCode: 503, statusMessage: "Passkeys unavailable" });
-  }
+  requirePasskeysConfigured();
 
   const body = await readJsonBodyCapped<{ flowId?: unknown; response?: unknown }>(event, 32_000);
   const flowId = typeof body?.flowId === "string" ? body.flowId : "";
   const stored = await takeChallenge(flowId);
-  // A signup challenge carries no userId — one that does came from register-options
-  // (adding a key to an existing account) and must not be redeemable here, where it
-  // would mint a second account for someone already signed in.
   // A signup challenge carries an email and no userId. One with a userId came from
   // register-options (adding a key to an existing account) and must not mint a
   // second account here.

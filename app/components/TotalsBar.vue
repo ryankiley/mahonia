@@ -148,7 +148,7 @@ const kcalDisplay = computed(() => formatKcal(props.totals.kcalTotal));
 .totals__big {
   font-size: var(--text-display);
   line-height: 0.95;
-  letter-spacing: -0.02em;
+  letter-spacing: var(--track-tight);
   color: var(--accent);
 }
 /* unit + its dropdown chevron travel together, centered to each other, and the
@@ -162,7 +162,7 @@ const kcalDisplay = computed(() => formatKcal(props.totals.kcalTotal));
   font-size: var(--text-title);
   font-weight: 400;
   color: var(--ink-2);
-  /* half-step between the type system's two trackings: the full -0.02em tight
+  /* half-step between the type system's two trackings: the full --track-tight
      visibly pinches a bare two-letter unit ("oz"), while normal tracking reads
      loose beside the tightly-tracked display figure */
   letter-spacing: -0.01em;

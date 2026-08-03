@@ -71,7 +71,7 @@ async function send() {
         <textarea
           ref="boxRef"
           v-model="message"
-          class="field fb__box"
+          class="field well fb__box"
           :maxlength="MAX"
           rows="5"
           placeholder="What’s on your mind?"
@@ -120,18 +120,13 @@ async function send() {
 .fb__error {
   margin: 0;
 }
-/* .field is borderless in the row grid it was written for; in a dialog it needs an
-   edge to read as something you type into — the same correction the vault pane's
-   search and the calorie popover's number field make. */
+/* .field is borderless in the row grid it was written for; in a dialog the shared
+   .well tint (controls.scss) gives it ground to read as something you type into —
+   a fill, not a hairline box, same as the import dialog's paste box beside it. */
 .fb__box {
   min-height: 7rem;
   padding: var(--space-2);
-  border: 1px solid var(--line-2);
-  border-radius: var(--radius-2);
   resize: vertical;
-}
-.fb__box:focus {
-  border-color: var(--ink-3);
 }
 .fb__meta {
   display: flex;

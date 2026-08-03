@@ -287,7 +287,7 @@ async function onSignOut() {
               :disabled="signingIn"
               @click="signInWithPasskey"
             >
-              <HugeiconsIcon :icon="Key01Icon" :size="15" :stroke-width="2" />
+              <HugeiconsIcon :icon="Key01Icon" :size="16" :stroke-width="2" />
               {{ signingIn ? "Waiting for your device…" : "Sign in with a passkey" }}
             </button>
             <p v-if="signinNote" class="t-sm acct__note">{{ signinNote }}</p>
@@ -341,7 +341,7 @@ async function onSignOut() {
                 class="btn btn--primary"
                 :disabled="creating || !signupEmail.trim() || !canPasskey"
               >
-                <HugeiconsIcon :icon="Key01Icon" :size="15" :stroke-width="2" />
+                <HugeiconsIcon :icon="Key01Icon" :size="16" :stroke-width="2" />
                 {{ creating ? "Waiting for your device…" : "Create account with a passkey" }}
               </button>
             </form>
@@ -539,9 +539,16 @@ async function onSignOut() {
   font: inherit;
   color: var(--ink);
   font-weight: 600;
+  /* the house underline: soft at rest, deepens to --ink-2 — never full ink
+     (tokens.scss, the --underline rule) */
   text-decoration: underline;
+  text-decoration-color: var(--underline);
   text-underline-offset: 2px;
   cursor: pointer;
+}
+.acct__switch:hover,
+.acct__switch:focus-visible {
+  text-decoration-color: var(--ink-2);
 }
 .acct__empty .acct__alt {
   width: 100%;
@@ -606,22 +613,15 @@ async function onSignOut() {
 .acct__row .btn {
   flex: none;
 }
-/* a select is intrinsically sized; keep it narrow rather than letting it span the
-   column like the text field does */
-.acct__select {
-  align-self: flex-start;
-  width: auto;
-  min-width: 8rem;
-  border-bottom: 1px solid var(--line);
-}
 /* the section is a flex COLUMN, so a bare button stretches and its label centres —
    pull it back to the left edge every other line sits on */
-/* The one destructive control on the page. Colour is otherwise reserved for data
-   viz (see atoms/controls.scss), so this borrows the warn token rather than
-   inventing a red — enough to make it read as different in kind from Sign out
-   directly above it, without shouting at someone who's only scrolling past. */
+/* The one destructive control on the page — and still monochrome: chrome colour
+   is reserved for the data viz (tokens.scss), so no red and no warn tint. It
+   steps BACK to secondary ink instead, quieter than the Sign out above it —
+   different in kind without shouting at someone who's only scrolling past; the
+   confirm dialog carries the gravity. */
 .acct__danger {
-  color: var(--warn, #8b5a24);
+  color: var(--ink-2);
 }
 .acct__danger:hover {
   background: var(--paper-3);

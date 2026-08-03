@@ -147,9 +147,8 @@ function sortEntries(entries: VaultEntry[], sortBy: VaultFolder["sortBy"]): Vaul
 // gear.vfold.* rather than the editor's gear.fold.* because a vault folder id (an
 // integer) and a list folder id (a uuid) share a namespace otherwise.
 const collapsed = ref<Record<number, boolean>>({});
-onMounted(() => {
-  for (const f of folders.value) readCollapsed(f.id);
-});
+// folders is [] until the async load assigns it, so the watch covers the first
+// fill and every later change — there's nothing for an onMounted pass to read
 watch(folders, (list) => list.forEach((f) => readCollapsed(f.id)));
 function readCollapsed(id: number) {
   try {
@@ -441,7 +440,7 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
               <input
                 ref="searchEl"
                 v-model="query"
-                class="field vault__search"
+                class="field well vault__search"
                 type="search"
                 placeholder="Search gear…"
                 aria-label="Search gear"
@@ -456,7 +455,7 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
                 title="Clear search"
                 @click="clearQuery"
               >
-                <HugeiconsIcon :icon="CircleXIcon" :size="15" :stroke-width="2" />
+                <HugeiconsIcon :icon="CircleXIcon" :size="16" :stroke-width="2" />
               </button>
             </div>
           </div>
@@ -609,7 +608,7 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
                            select still names every destination when you open it,
                            and it's the keyboard and touch path for moving gear. -->
                       <div class="vault__movewrap">
-                        <HugeiconsIcon :icon="FolderIcon" class="vault__moveicon" :size="15" :stroke-width="2" aria-hidden="true" />
+                        <HugeiconsIcon :icon="FolderIcon" class="vault__moveicon" :size="16" :stroke-width="2" aria-hidden="true" />
                         <select
                           class="vault__movesel"
                           :value="entry.folderId ?? ''"
@@ -632,7 +631,7 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
                         :aria-label="`Remove ${itemDisplayName(entry.brand, entry.name, entry.variant)} from your gear vault`"
                         @click="remove(entry)"
                       >
-                        <HugeiconsIcon :icon="Delete02Icon" :size="15" aria-hidden="true" :stroke-width="2" />
+                        <HugeiconsIcon :icon="Delete02Icon" :size="16" aria-hidden="true" :stroke-width="2" />
                       </button>
                     </li>
                   </ul>
@@ -781,29 +780,10 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
   margin-inline: auto;
   margin-bottom: var(--space-4);
 }
-/* the shared .field is deliberately borderless (it sits inside list rows, where a
-   box would be noise). On a standalone sign-in form there's nothing to show where
-   to click, so give it the same bottom rule the editor's title field carries —
-/* the passkey path, as a sentence rather than a second black button — it inherits
-   the surrounding muted prose and only deepens on hover, like every other inline
-/* CONTAINED, matching the pane's search (VaultPane .vp__search) and the import
-   dialog's box: this is a control you type in, and a hairline underline reads as a
-   caption rule instead. The auth field above keeps the underline treatment — it is a
-   single question on an otherwise empty page, not a tool in a working surface. */
-.vault__search {
-  border: 0;
-  background: var(--paper-2);
-  border-radius: calc(var(--radius-4) - var(--space-2));
-  color: var(--ink);
-  transition: background var(--dur) var(--ease);
-}
-.vault__search::placeholder {
-  color: var(--ink-3);
-}
-.vault__search:focus {
-  outline: none;
-  background: color-mix(in oklab, var(--ink) 4%, var(--paper-2));
-}
+/* the tint itself is the shared .well atom (controls.scss) — CONTAINED, like the
+   pane's search and the import dialog's box. The auth field above keeps the
+   underline treatment: it is a single question on an otherwise empty page, not a
+   tool in a working surface. */
 .vault__sentline {
   color: var(--ink);
 }
@@ -960,11 +940,6 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
   align-items: flex-start;
   gap: var(--space-4);
 }
-/* the quiet footer disclosures — affordances, not calls to action. The
-   link it reveals is a capability, so nothing about this should invite a casual
-   click; it sits below the gear, under a hairline, like the "Your account" link it
-   replaced. */
-
 /* Everything about a folder's LOOK — the header grid, the name field, the collapse
    chevron, the trailing sort · delete · grip cluster, the 1fr↔0fr body — comes from
    atoms/folder.scss, the same rules the editor renders. Only what's specific to a
@@ -1056,7 +1031,7 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
   font-family: var(--font);
   font-size: var(--text-title);
   font-weight: 600;
-  letter-spacing: -0.02em;
+  letter-spacing: var(--track-tight);
 }
 .vault__addfolderbtn {
   color: var(--ink-3);
@@ -1098,16 +1073,24 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
 .vault__removedbody .vault__row:hover {
   opacity: 1;
 }
-.vault__linkrow {
-  display: flex;
-  gap: var(--space-2);
-  align-items: center;
-}
-/* the link is long and must not wrap — it reads as one object you copy whole */
-.vault__linkfield {
-  flex: 1;
-  min-width: 0;
-  font-variant-numeric: tabular-nums;
+/* touch: the hand-rolled icon controls meet the --tap minimum like every
+   .btn--icon does (controls.scss). The clear overlays the field's end, so the
+   bigger box only extends its hit area, not the layout; the move control mirrors
+   the folder header's sortwrap recipe, glyph bump included (atoms/folder.scss). */
+@media (pointer: coarse) {
+  .vault__clear {
+    justify-content: center;
+    min-width: var(--tap);
+    min-height: var(--tap);
+  }
+  .vault__movewrap {
+    width: var(--tap);
+    min-height: var(--tap);
+  }
+  .vault__moveicon {
+    width: var(--icon-touch);
+    height: var(--icon-touch);
+  }
 }
 
 @media (max-width: $bp-stack) {
