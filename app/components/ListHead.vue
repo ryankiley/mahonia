@@ -359,9 +359,10 @@ onClickOutside(trailEl, () => {
               :end="snapshot.endDate"
               @update="commitDates"
             />
-            <!-- the resolved span, restated in the same words the row shows — so the
-                 grid's two filled cells and the label you'll be left with agree -->
-            <p v-if="dateLabel" class="t-sm t-muted head__datesummary">{{ dateLabel }}</p>
+            <!-- No summary line here. The range is already said twice over: the grid
+                 fills its two ends and tints between them, and the affordance this
+                 popover hangs off has swapped its label to the range. A third copy
+                 inside the panel restated what you were looking at. -->
             <button v-if="dateLabel" type="button" class="btn btn--quiet head__dateclear" @click="clearDates">
               Clear
             </button>
@@ -871,9 +872,6 @@ onClickOutside(trailEl, () => {
   gap: var(--space-2);
   padding: var(--space-3);
   width: max-content;
-}
-.head__datesummary {
-  margin: 0;
 }
 /* The month grid is a fixed 260px panel, and "Add dates" is the SECOND affordance in
    this row — so on a phone it opens around x=139 and runs 24px past the right edge,

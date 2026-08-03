@@ -54,7 +54,7 @@ function step(by: number) {
 // Sunday, hence the shift.
 const WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"];
 const monthLabel = computed(() =>
-  new Date(viewY.value, viewM.value, 1).toLocaleDateString("en-GB", { month: "long", year: "numeric" }),
+  new Date(viewY.value, viewM.value, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" }),
 );
 
 /** The cells to render: leading blanks to line up the 1st, then each day. */

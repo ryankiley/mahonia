@@ -70,16 +70,20 @@ export function formatDateRange(start?: string, end?: string): string {
 
   const sameYear = a.getFullYear() === b.getFullYear();
   const sameMonth = sameYear && a.getMonth() === b.getMonth();
-  // en dash, not a hyphen: this is a range, and the two read differently at size
-  if (sameMonth) return `${a.getDate()}–${fmtFull(b)}`;
-  if (sameYear) return `${fmtDayMonth(a)} – ${fmtFull(b)}`;
+  // en dash, not a hyphen: this is a range, and the two read differently at size.
+  // Month-first, so the collapse puts the two DAYS side by side and says the month
+  // and year once: "September 6–9, 2026". Day-first order would have produced
+  // "6–September 9, 2026", which is why this isn't just a locale swap.
+  if (sameMonth) return `${fmtMonthDay(a)}–${b.getDate()}, ${b.getFullYear()}`;
+  if (sameYear) return `${fmtMonthDay(a)} – ${fmtFull(b)}`;
   return `${fmtFull(a)} – ${fmtFull(b)}`;
 }
 
-// Locales pinned, matching the rule in shared/weights.ts: these render in the
-// editor AND on the server-rendered share views, so an ambient locale would
-// hydrate differently from the HTML the edge cached.
+// Locale PINNED, matching the rule in shared/weights.ts: these render in the editor
+// AND on the server-rendered share views, so reading the visitor's own locale would
+// format one way in the cached HTML and another after hydration — a mismatch on every
+// shared page. One fixed locale is the price of server rendering these at all.
 const fmtFull = (d: Date) =>
-  d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-const fmtDayMonth = (d: Date) =>
-  d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+const fmtMonthDay = (d: Date) =>
+  d.toLocaleDateString("en-US", { month: "long", day: "numeric" });

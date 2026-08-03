@@ -45,9 +45,3 @@ const dev = import.meta.dev;
     </main>
   </div>
 </template>
-
-<style scoped>
-.page {
-  padding-block: var(--space-5) var(--space-9);
-}
-</style>
