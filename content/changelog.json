@@ -6,7 +6,7 @@
       "Rows now keep the unit you typed, whatever the list's unit is.",
       "Save any item to your gear vault straight from its row.",
       "Save a whole category to your vault and drop it into a new list.",
-      "Send feedback from anywhere in the app — the footer link, or the editor's actions menu.",
+      "Send feedback about a list from the editor's actions menu.",
       "Give a list its trip dates.",
       "Shared lists now show the calories on each food item, not just the total.",
       "Reach your account from the toolbar while you're editing a list — sign in, open your gear vault, or sign out without leaving the page."
@@ -22,7 +22,8 @@
       "On a phone, the trail link's card now opens when you press the link name, instead of sitting under the title all the time.",
       "Each row's weight unit now shows a small arrow, so you can see it can be changed.",
       "The gear vault's search and “Add folder” now look and work like the editor's.",
-      "Trip dates now read as \"September 6–9, 2026\"."
+      "Trip dates now read as \"September 6–9, 2026\".",
+      "Send feedback moved out of the footer, into the ⋯ menu on the list you're looking at."
     ],
     "fixed": [
       "On a phone, swiping the gear vault sheet now scrolls the gear inside it instead of the list behind it.",

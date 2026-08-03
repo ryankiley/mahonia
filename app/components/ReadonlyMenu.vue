@@ -64,8 +64,19 @@ function runMenu(action: string) {
     case "csv": return void downloadCsv();
     case "json": return void downloadJson();
     case "report": return void reportThis();
+    case "feedback":
+      feedbackEverOpened.value = true;
+      feedbackOpen.value = true;
+      return;
   }
 }
+
+// Feedback used to be a link in the site footer. It moved to where you are when you
+// have something to say — which for a reader is this menu. Distinct from "Report
+// list" below it: that one is about THIS list being spam, this one is about the app.
+// Lazy + everOpened, so a reader who never sends anything pays nothing for it.
+const feedbackOpen = ref(false);
+const feedbackEverOpened = ref(false);
 
 async function reportThis() {
   if (reported.value) return;
@@ -126,6 +137,9 @@ async function copyLink() {
         <li role="none">
           <button type="button" role="menuitem" class="menu__item" @click="runMenu('json')">Download JSON</button>
         </li>
+        <li role="none">
+          <button type="button" role="menuitem" class="menu__item" @click="runMenu('feedback')">Send feedback…</button>
+        </li>
         <!-- moderation, not a read of the list — set off from the copy/export group by a
              hairline, and only for public lists (per the Terms) that aren't yet reported -->
         <li v-if="snapshot.isPublic && !reported" role="none" class="menu__report">
@@ -133,6 +147,8 @@ async function copyLink() {
         </li>
       </ul>
     </Transition>
+
+    <LazyFeedbackModal v-if="feedbackEverOpened" :open="feedbackOpen" @close="feedbackOpen = false" />
 
     <!-- to body so the fixed toast escapes the topbar's stacking/overflow context;
          the pill + its motion come from the shared .toast atom (controls.scss) -->
