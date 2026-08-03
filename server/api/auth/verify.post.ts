@@ -1,5 +1,5 @@
 import { defineEventHandler, setHeader } from "h3";
-import { consumeMagicToken, startSession } from "../../utils/authSession";
+import { claimUnverifiedAccount, consumeMagicToken, startSession } from "../../utils/authSession";
 import { useAccountDb } from "../../utils/db";
 import { readJsonBodyCapped } from "../../utils/http";
 import { rateLimit } from "../../utils/rateLimit";
@@ -30,6 +30,18 @@ export default defineEventHandler(async (event) => {
     // indistinguishable to the client from "your session expired".
     return { ok: false as const, reason: "invalid" as const };
   }
+
+  // THIS is where an address stops being a claim. If nobody had proved they hold
+  // it before now, every passkey and session on the account was put there by
+  // someone who hadn't — including, in the case this exists for, a stranger who
+  // signed up with an address that was never theirs. They go, and they go BEFORE
+  // the new session is started so there is no window where both are live.
+  //
+  // Deliberately not caught: the token is spent either way, and asking for a
+  // fresh link is a far better outcome than signing someone into an account we
+  // just failed to clear out from under them. The flag stays false on a failure,
+  // so the next link tries again.
+  if (!user.emailVerified) await claimUnverifiedAccount(db, user.id);
 
   await startSession(event, db, user.id);
   return { ok: true as const, user: { email: user.email } };

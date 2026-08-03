@@ -39,7 +39,8 @@
       "Your gear vault now opens to its empty state on a brand-new account, instead of a connection error.",
       "\"Get a new link\" on an expired sign-in link now takes you to the sign-in form.",
       "The clear-search, dismiss, and move-to-folder controls are easier to tap on a phone.",
-      "Delete account now reads in the site's own ink, clear in dark mode too."
+      "Delete account now reads in the site's own ink, clear in dark mode too.",
+      "A sign-in link now removes any passkey that was set up on your account before you first signed in, and signs out whoever added it."
     ]
   },
   {

@@ -29,6 +29,29 @@ export const ACCOUNT_DDL: string[] = [
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users (email)`,
   // optional, opt-in, and the only publicly visible part of an account
   `ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name text`,
+  // HAS ANYONE EVER PROVED THEY HOLD THIS INBOX?
+  //
+  // false is the passkey-signup state. That route takes an address from an
+  // unauthenticated body and attaches a credential to it without mailing it
+  // first, so until a link sent there comes back, "this passkey belongs to this
+  // address" is a claim and not a fact. true is every account the magic-link path
+  // made, where the address IS the way in.
+  //
+  // What the flag is FOR is server/api/auth/verify.post.ts: redeeming a link for
+  // a still-unverified account evicts every passkey and session that predates it.
+  // Without that, anyone could sign up with a stranger's address, and the passkey
+  // they left behind would keep opening the account that stranger later signs
+  // into — see claimUnverifiedAccount in authSession.ts.
+  //
+  // ADDED true, DEFAULTED false, and the two halves do different jobs. Rows that
+  // predate this column were written before the distinction existed and can't be
+  // sorted into verified and not, so they're grandfathered rather than having
+  // their owners' passkeys evicted on next sign-in. Everything created from here
+  // on starts false and earns true. (To harden an existing deployment instead,
+  // run `UPDATE users SET email_verified = false WHERE id IN (SELECT user_id FROM
+  // credentials)` once, by hand, knowing it costs those accounts their passkeys.)
+  `ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified boolean NOT NULL DEFAULT true`,
+  `ALTER TABLE users ALTER COLUMN email_verified SET DEFAULT false`,
 
   `CREATE TABLE IF NOT EXISTS auth_tokens (
     id serial PRIMARY KEY,

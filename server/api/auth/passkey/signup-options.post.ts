@@ -29,6 +29,12 @@ import { rateLimit } from "../../../utils/rateLimit";
 // round-trip back in the middle of signup, which is the step this route exists to
 // remove. A confirmation link goes out afterwards.
 //
+// WHAT PAYS FOR THAT is `users.email_verified`, which an account made here starts
+// at false. Anyone can type anyone's address into this endpoint, so until a link
+// sent there comes back, the account is only a claim on the address — and the
+// first link redeemed against it removes every passkey and session that predates
+// it. See claimUnverifiedAccount in authSession.ts.
+//
 // Nothing is created here. This hands out a challenge and an opaque handle; the
 // account appears only if a real authenticator signs that challenge.
 //

@@ -41,10 +41,14 @@ export interface MagicLinkEmail {
   /** How long the link stays valid, already phrased for a human ("15 minutes"). */
   expiresIn: string;
   /**
-   * Why this message exists. "signin" is someone asking to get in; "welcome" is
-   * the confirmation after a passkey signup, where the account ALREADY exists and
-   * the person is already signed in — telling them "here's your sign-in link"
-   * describes something they didn't ask for and have no need of yet.
+   * Why this message exists. "signin" is someone asking to get in.
+   *
+   * "welcome" follows a passkey signup, where the account ALREADY exists and the
+   * person is already signed in — so it isn't a sign-in link, it's a notice that
+   * an account now exists against this address. It has TWO readers and has to
+   * serve both: the person who just signed up, and the person whose address
+   * someone else typed in. For the second, this message is the only warning they
+   * get and the link is how they take the account back.
    */
   purpose?: "signin" | "welcome";
 }
@@ -68,17 +72,31 @@ function body(
 ): { html: string; text: string; subject: string } {
   const safe = esc(url);
   const welcome = purpose === "welcome";
-  // A welcome message confirms the address and offers the link as a spare. A
-  // sign-in message IS the link. Same machinery, different thing happening.
+  // A sign-in message IS the link. A welcome message is a NOTICE, and the link in
+  // it is an undo — see the block above `closing`. Same machinery, two different
+  // things happening, and the welcome copy has to work for two different readers.
   const lead = welcome
-    ? "Your Mahonia account is ready, and this address is how you get back in if you ever lose the devices holding your passkey."
+    ? "A Mahonia account was created with this address, and a passkey was set up on it. If that was you, there's nothing to do. This address is how you get back in if you lose the device holding that passkey."
     : "Here's your sign-in link for Mahonia.";
-  const cta = welcome ? "Sign in from this device too" : "Sign in to Mahonia";
+  // The welcome CTA says what the link DOES, because for one of its two readers
+  // clicking is the wrong move: it would remove the passkey they just enrolled.
+  // "Sign in from this device too", which this used to say, invited exactly that.
+  const cta = welcome ? "Sign in and remove that passkey" : "Sign in to Mahonia";
+  // THE WELCOME COPY IS A SECURITY CONTROL, not a pleasantry. Anyone can start a
+  // passkey signup with anyone's address, so this message is also what a person
+  // gets when a stranger has enrolled a passkey against theirs — and it is the
+  // only warning they will ever get. Telling them to ignore it, which this used to
+  // ("nothing here is yours"), was false under exactly that case and talked them
+  // out of the one action that undoes it. So it names what happened and what
+  // clicking does: see claimUnverifiedAccount in authSession.ts, which is the
+  // promise these sentences are making.
   const closing = welcome
-    ? "If you didn't create a Mahonia account, you can ignore this — the link expires on its own and nothing here is yours."
+    ? "If it wasn't you, someone else set up a passkey with your address. Use the link above. Signing in removes their passkey, signs them out, and leaves the account yours."
     : "If you didn't ask to sign in, you can ignore this — nothing has changed on your account.";
   return {
-    subject: welcome ? "Your Mahonia account" : "Your Mahonia sign-in link",
+    // Says what happened rather than congratulating anyone: the subject line is
+    // what decides whether the person under attack opens this at all.
+    subject: welcome ? "A Mahonia account was created with this address" : "Your Mahonia sign-in link",
     html: [
       `<p>${esc(lead)}</p>`,
       `<p><a href="${safe}">${esc(cta)}</a></p>`,
