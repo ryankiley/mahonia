@@ -96,7 +96,7 @@ const groups = computed(() => {
               <HugeiconsIcon :icon="CheckmarkSquare02Icon" class="vpick__boxicon vpick__boxicon--check" :size="20" :stroke-width="1.33" absolute-stroke-width aria-hidden="true" />
             </span>
             <span class="vpick__name">{{ itemDisplayName(c.brand, c.name, c.variant) }}</span>
-            <span class="t-sm t-muted vpick__weight">{{
+            <span class="t-sm t-muted t-num vpick__weight">{{
               formatWeightAuto(c.weightMg, { system })
             }}</span>
           </label>

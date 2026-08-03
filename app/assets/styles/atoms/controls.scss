@@ -549,6 +549,28 @@ input[type="search"]::-webkit-search-decoration {
   }
 }
 
+// The tinted typing WELL — the contained input for floating and dialog surfaces,
+// where the borderless .field has no row structure to sit in: the import dialog's
+// paste box, both vault searches, the feedback box. A FILL, not a hairline box
+// (de-outlined chrome; the menus' language, rounded radius-4 − space-2, the same
+// concentric step the popovers keep). Focus deepens the ground a step — house
+// style carries focus on the caret, not a ring. Compose with .field; keep width,
+// padding and font local to the surface.
+.well {
+  border: 0;
+  background: var(--paper-2);
+  border-radius: calc(var(--radius-4) - var(--space-2));
+  color: var(--ink);
+  transition: background var(--dur) var(--ease);
+}
+.well::placeholder {
+  color: var(--ink-3);
+}
+.well:focus {
+  outline: none;
+  background: color-mix(in oklab, var(--ink) 4%, var(--paper-2));
+}
+
 // Disclosure slide — a grid whose single row animates 1fr↔0fr.
 //
 // NOT height:auto↔0: Safari has no interpolate-size, so that just snaps there. The

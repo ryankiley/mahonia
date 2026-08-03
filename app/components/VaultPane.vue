@@ -452,7 +452,7 @@ onKeyStroke("Escape", () => emit("close"));
           <input
             ref="searchEl"
             v-model="query"
-            class="field vp__search"
+            class="field well vp__search"
             type="search"
             :placeholder="tab === 'items' ? 'Search gear…' : 'Search categories…'"
             :aria-label="tab === 'items' ? 'Search gear' : 'Search categories'"
@@ -465,7 +465,7 @@ onKeyStroke("Escape", () => emit("close"));
             title="Clear search"
             @click="clearQuery"
           >
-            <HugeiconsIcon :icon="CircleXIcon" :size="15" :stroke-width="2" />
+            <HugeiconsIcon :icon="CircleXIcon" :size="16" :stroke-width="2" />
           </button>
         </div>
         <!-- the destination picker is meaningless on Categories — a cloned category
@@ -505,8 +505,8 @@ onKeyStroke("Escape", () => emit("close"));
             </span>
             <span class="t-num t-sm vp__w">{{ formatWeight(cat.weightMg, unit, { withUnit: false }) }}<span class="t-muted"> {{ unit }}</span></span>
             <span class="vp__icon" aria-hidden="true">
-              <HugeiconsIcon :icon="CheckIcon" v-if="cat.allInList" :size="15" :stroke-width="2.2" class="vp__added" />
-              <HugeiconsIcon :icon="Add01Icon" v-else :size="15" :stroke-width="2" />
+              <HugeiconsIcon :icon="CheckIcon" v-if="cat.allInList" :size="16" :stroke-width="2" class="vp__added" />
+              <HugeiconsIcon :icon="Add01Icon" v-else :size="16" :stroke-width="2" />
             </span>
           </button>
         </li>
@@ -548,10 +548,10 @@ onKeyStroke("Escape", () => emit("close"));
             <span class="t-num t-sm vp__w">{{ formatWeight(entry.weightMg, unit, { withUnit: false }) }}<span class="t-muted"> {{ unit }}</span></span>
             <span class="vp__icon" aria-hidden="true">
               <HugeiconsIcon :icon="CheckIcon" v-if="isInList(entry)"
-                :size="15"
-                :stroke-width="2.2"
+                :size="16"
+                :stroke-width="2"
                 class="vp__added" />
-              <HugeiconsIcon :icon="Add01Icon" v-else :size="15" :stroke-width="2" />
+              <HugeiconsIcon :icon="Add01Icon" v-else :size="16" :stroke-width="2" />
             </span>
           </button>
         </li>
@@ -717,36 +717,19 @@ onKeyStroke("Escape", () => emit("close"));
   gap: var(--space-2);
   margin-bottom: var(--space-2);
 }
-/* .field is borderless by design; inside a floating panel it needs an edge to read
-   as an input at all — the same bottom rule the sign-in field uses */
 .vp__searchwrap {
   position: relative;
   display: flex;
   align-items: center;
 }
-/* CONTAINED, not a hairline rule. Search is the one control you reach for in this
-   panel, and an underline reads as a caption with a line under it rather than a box
-   you can type in. Same tinted well the import dialog uses (border 0, --paper-2,
-   radius-4 − space-2 — the concentric step the menus keep), so the two typing
-   surfaces in the app look like the same kind of thing. Focus deepens the ground by a
-   step; house style carries focus on the caret, not a ring. */
+/* the tint is the shared .well atom (controls.scss) — CONTAINED, not a hairline
+   rule: search is the one control you reach for in this panel, and an underline
+   reads as a caption with a line under it rather than a box you can type in. */
 .vp__search {
   width: 100%;
-  border: 0;
-  background: var(--paper-2);
-  border-radius: calc(var(--radius-4) - var(--space-2));
   padding-inline: var(--space-3);
   /* room for the clear button, so a long query doesn't run under it */
   padding-right: var(--space-5);
-  color: var(--ink);
-  transition: background var(--dur) var(--ease);
-}
-.vp__search::placeholder {
-  color: var(--ink-3);
-}
-.vp__search:focus {
-  outline: none;
-  background: color-mix(in oklab, var(--ink) 4%, var(--paper-2));
 }
 /* Sits ON the field rather than beside it: the rule under the input is the field's
    whole visible boundary, and a sibling button would either break that line or push
@@ -764,8 +747,14 @@ onKeyStroke("Escape", () => emit("close"));
 .vp__clear:focus-visible {
   color: var(--ink);
 }
-.vp__search:focus {
-  border-bottom-color: var(--ink-2);
+/* touch: the clear meets the --tap minimum (controls.scss); it overlays the
+   field's end, so the bigger box only widens its hit area, not the layout */
+@media (pointer: coarse) {
+  .vp__clear {
+    justify-content: center;
+    min-width: var(--tap);
+    min-height: var(--tap);
+  }
 }
 /* the hand stays on the select alone — "Add to" is the label naming it, not a
    thing you click, and pointing at prose invites a click that does nothing */

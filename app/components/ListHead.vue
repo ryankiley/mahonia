@@ -775,7 +775,7 @@ onClickOutside(trailEl, () => {
   margin-block-end: var(--space-2);
   color: var(--ink-3);
   font-size: var(--text-micro);
-  font-weight: 500;
+  font-weight: 600; /* the type system's one strong weight — no 500 (typography.scss) */
   line-height: 1.2; /* 14.4px — the reference's label box, measured */
 }
 /* filled, unlike the borderless .field used everywhere else: inside a floating panel

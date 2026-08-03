@@ -69,7 +69,7 @@ onMounted(verify);
           Sign-in links work once and last 15 minutes. Ask for a fresh one and it’ll be along
           in a moment.
         </p>
-        <NuxtLink to="/vault" class="btn btn--primary cb__action">Get a new link</NuxtLink>
+        <NuxtLink to="/account" class="btn btn--primary cb__action">Get a new link</NuxtLink>
       </template>
 
       <template v-else>

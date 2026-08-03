@@ -182,7 +182,7 @@ function changeLabel(i: number): string {
              its own — it belongs to this link, and giving it equal weight to the two
              copies made replacing your link look like a normal next step -->
         <button type="button" class="btn btn--quiet share__revoke" @click="emit('rotate')">
-          <HugeiconsIcon :icon="Refresh01Icon" :size="13" :stroke-width="2" /> Replace this link
+          <HugeiconsIcon :icon="Refresh01Icon" :size="14" :stroke-width="2" /> Replace this link
         </button>
       </section>
 
@@ -205,21 +205,27 @@ function changeLabel(i: number): string {
             :stroke-width="2"
             aria-hidden="true" />
         </button>
-        <template v-if="activityOpen">
-          <p v-if="activityState === 'loading'" class="t-sm t-muted">Loading…</p>
-          <p v-else-if="activityState === 'error'" class="t-sm t-muted">
-            Couldn’t load recent changes.
-          </p>
-          <p v-else-if="!activity.length" class="t-sm t-muted">No changes recorded yet.</p>
-          <ul v-else class="share__log">
-            <li v-for="(s, i) in activity" :key="s.id" class="share__logrow">
-              <span class="t-sm">{{ changeLabel(i) }}</span>
-              <!-- the count moved to the label where it says something; the trailing
-                   column is just when -->
-              <span class="t-sm t-muted">{{ timeAgo(new Date(s.createdAt).getTime(), now) }}</span>
-            </li>
-          </ul>
-        </template>
+        <!-- slides open like the app's other disclosures — the shared .reveal
+             recipe this surface is named as a consumer of (controls.scss) -->
+        <Transition name="reveal">
+          <div v-if="activityOpen" class="reveal">
+            <div>
+              <p v-if="activityState === 'loading'" class="t-sm t-muted">Loading…</p>
+              <p v-else-if="activityState === 'error'" class="t-sm t-muted">
+                Couldn’t load recent changes.
+              </p>
+              <p v-else-if="!activity.length" class="t-sm t-muted">No changes recorded yet.</p>
+              <ul v-else class="share__log">
+                <li v-for="(s, i) in activity" :key="s.id" class="share__logrow">
+                  <span class="t-sm">{{ changeLabel(i) }}</span>
+                  <!-- the count moved to the label where it says something; the trailing
+                       column is just when -->
+                  <span class="t-sm t-muted">{{ timeAgo(new Date(s.createdAt).getTime(), now) }}</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </Transition>
       </section>
     </template>
   </div>
@@ -303,8 +309,11 @@ function changeLabel(i: number): string {
   font-size: var(--text-sm);
   text-overflow: ellipsis;
 }
-/* Copy is OUTLINED, not quiet: it is the one thing you came to this panel to press,
-   and beside a filled field a bare text button disappeared into it. */
+/* Copy is FILLED a step deeper than the field beside it: it is the one thing you
+   came to this panel to press, and beside the paper-2 field a bare text button
+   disappeared into it — while an outline was a box in a de-outlined chrome
+   (controls.scss). Distinct ground does the separating; hover deepens a step, the
+   same move the .well makes. */
 .share__act {
   flex: none;
   display: inline-flex;
@@ -312,12 +321,14 @@ function changeLabel(i: number): string {
   gap: var(--space-1);
   min-height: var(--icon-btn);
   padding-inline: var(--space-3);
-  border: 1px solid var(--line-2);
+  border: 0;
+  background: var(--paper-3);
   border-radius: var(--popover-item-radius);
   color: var(--ink);
+  transition: background var(--dur) var(--ease);
 }
 .share__act:hover {
-  background: var(--paper-2);
+  background: color-mix(in oklab, var(--ink) 6%, var(--paper-3));
 }
 .share__hint {
   margin: 0;

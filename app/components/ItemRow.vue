@@ -1545,7 +1545,7 @@ function dismissFix() {
   position: absolute;
   top: calc(100% + var(--space-1));
   right: 0;
-  z-index: 20;
+  z-index: var(--z-menu);
   display: grid;
   gap: var(--space-2);
   padding: var(--pop-pad);
