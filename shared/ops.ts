@@ -15,8 +15,14 @@ import { UNITS } from "./types";
 // folderId is excluded: moveItem is the SOLE folder-changing op — it validates the
 // target folder against the list and keeps nested children's folderId in sync,
 // neither of which a bare field patch can do (cleanItemPatch can't see the list).
-export type ItemPatch = Omit<Partial<Item>, "catalogItemId" | "folderId"> & {
+// entryUnit and kcal join catalogItemId in taking an explicit null: both are
+// optional fields the user can turn back OFF, and `undefined` can't express that
+// through a JSON body (it simply vanishes), so null is the wire's way to say
+// "clear this" as distinct from "leave it alone".
+export type ItemPatch = Omit<Partial<Item>, "catalogItemId" | "folderId" | "entryUnit" | "kcal"> & {
   catalogItemId?: number | null;
+  entryUnit?: Unit | null;
+  kcal?: number | null;
 };
 
 export type Op =
@@ -37,10 +43,43 @@ export type Op =
         displayUnit: Unit;
         trailUrl: string;
         trailLabel: string;
+        startDate: string;
+        endDate: string;
       }>;
     };
 
 const CLASSES: Classification[] = ["base", "worn", "consumable"];
+
+// `YYYY-MM-DD`, and a date that actually exists — the regex alone would accept
+// 2026-02-31, which Date normalises to March and would silently move the trip.
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * A trip date, or nothing.
+ *
+ * Exported because a date reaches storage two ways — through a `setMeta` op on a
+ * saved list, and in the body of `POST /api/lists/create` when a DRAFT that already
+ * has dates is first saved (or a JSON backup is restored). Those are different code
+ * paths on different sides of the wire, and they have to agree on what a date is;
+ * one rule, written once, is how they do.
+ */
+export function normalizeCalendarDate(raw: unknown): string | undefined {
+  if (typeof raw !== "string") return undefined;
+  const value = raw.trim();
+  if (!DATE_RE.test(value)) return undefined;
+  // round-trip through Date: if the parts survive, the day exists
+  const d = new Date(`${value}T00:00:00Z`);
+  if (Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== value) return undefined;
+  return value;
+}
+
+function setDate(state: ListState, key: "startDate" | "endDate", raw: string): void {
+  // Anything that isn't a real date CLEARS rather than persists — an unparseable
+  // value is a date nobody can act on, and leaving the old one would be a lie.
+  const value = normalizeCalendarDate(raw);
+  if (!value) return void delete state[key];
+  state[key] = value;
+}
 // The non-default folder sorts. "manual" is the default and stored as ABSENT (see
 // cleanFolderPatch/normalizeFolder), so it isn't in this set — an incoming "manual"
 // (or any unknown value) clears sortBy back to the default rather than persisting it.
@@ -52,6 +91,10 @@ const FOLDER_SORTS: FolderSort[] = ["name", "heaviest", "lightest"];
 export const MAX_ITEMS = 1000;
 export const MAX_FOLDERS = 50;
 export const UNIT_WEIGHT_MAX_MG = 100_000_000; // 100 kg per single unit
+// Per single unit, so the same 2^53 argument holds for the kcal rollup. A day of
+// hard hiking runs 4–5k kcal; 1,000,000 leaves room for a whole resupply entered
+// as one row without ever approaching the bound.
+export const KCAL_MAX = 1_000_000;
 
 // Identity strings are clamped too. Every HUMAN field below is length-capped, but
 // item/folder ids + folderId references are free-form client strings — left
@@ -83,6 +126,20 @@ function cleanItemPatch(patch: ItemPatch): Partial<Item> {
   if (typeof patch.productUrl === "string") out.productUrl = patch.productUrl.slice(0, 2000);
   if (typeof patch.unitWeightMg === "number" && isFinite(patch.unitWeightMg))
     out.unitWeightMg = clampWeight(patch.unitWeightMg);
+  // entryUnit is DISPLAY ONLY (see types.ts) — validated against the unit list so a
+  // hostile op can't put arbitrary text where a unit label renders. null/"" clears
+  // it, dropping the row back to the list's displayUnit.
+  if (patch.entryUnit === null) out.entryUnit = undefined;
+  else if (typeof patch.entryUnit === "string" && UNITS.includes(patch.entryUnit))
+    out.entryUnit = patch.entryUnit;
+  // kcal: whole, non-negative. Anything that isn't a usable number CLEARS the field
+  // rather than storing 0 — a zero would read as "this food has no calories", which
+  // is a claim, where absent reads as "not filled in", which is the truth.
+  if (patch.kcal === null) out.kcal = undefined;
+  else if (typeof patch.kcal === "number" && isFinite(patch.kcal)) {
+    const k = Math.round(patch.kcal);
+    out.kcal = k > 0 ? Math.min(KCAL_MAX, k) : undefined;
+  }
   if (typeof patch.qty === "number" && isFinite(patch.qty))
     out.qty = Math.max(0, Math.min(9999, Math.round(patch.qty)));
   if (typeof patch.wornQty === "number" && isFinite(patch.wornQty)) {
@@ -249,6 +306,12 @@ function applyOp(state: ListState, op: Op): void {
         if (label) state.trailLabel = label;
         else delete state.trailLabel;
       }
+      // Dates are SHAPE-checked, not just clamped. They're rendered and exported, and
+      // a half-typed "2026-0" would otherwise persist and read as a real date
+      // everywhere downstream. Anything that isn't a calendar date clears the field —
+      // there is no partially-valid state worth keeping.
+      if (typeof p.startDate === "string") setDate(state, "startDate", p.startDate);
+      if (typeof p.endDate === "string") setDate(state, "endDate", p.endDate);
       break;
     }
   }
@@ -292,9 +355,20 @@ export function normalizeItem(raw: Item): Item {
     nameOverridden: raw.nameOverridden ? true : undefined,
     unitWeightMg: clampWeight(Number(raw.unitWeightMg) || 0),
     weightOverridden: !!raw.weightOverridden,
+    // display-only, but it must survive normalize or a JSON round-trip (and every
+    // addItem, which also runs through here) would quietly reset each row to the
+    // list's unit — losing a choice the user made, invisibly
+    entryUnit:
+      typeof raw.entryUnit === "string" && UNITS.includes(raw.entryUnit) ? raw.entryUnit : undefined,
     qty,
     wornQty,
     classification,
+    // same clamp as cleanItemPatch: whole, positive, bounded — anything else is
+    // absent rather than zero (see Item.kcal)
+    kcal:
+      typeof raw.kcal === "number" && isFinite(raw.kcal) && Math.round(raw.kcal) > 0
+        ? Math.min(KCAL_MAX, Math.round(raw.kcal))
+        : undefined,
     description: raw.description ? String(raw.description).slice(0, 2000) : undefined,
     productUrl: raw.productUrl ? String(raw.productUrl).slice(0, 2000) : undefined,
     imageUrl: raw.imageUrl ? String(raw.imageUrl).slice(0, 2000) : undefined,

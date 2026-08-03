@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { KeyRound } from "@lucide/vue";
+import { HugeiconsIcon } from "@hugeicons/vue";
+import { Key01Icon } from "@hugeicons/core-free-icons";
 import type { PasskeySummary } from "~/composables/usePasskeys";
 
 // Your account. Deliberately the whole of it: a way back in, an optional display
@@ -286,7 +287,7 @@ async function onSignOut() {
               :disabled="signingIn"
               @click="signInWithPasskey"
             >
-              <KeyRound :size="15" :stroke-width="2" />
+              <HugeiconsIcon :icon="Key01Icon" :size="15" :stroke-width="2" />
               {{ signingIn ? "Waiting for your device…" : "Sign in with a passkey" }}
             </button>
             <p v-if="signinNote" class="t-sm acct__note">{{ signinNote }}</p>
@@ -340,7 +341,7 @@ async function onSignOut() {
                 class="btn btn--primary"
                 :disabled="creating || !signupEmail.trim() || !canPasskey"
               >
-                <KeyRound :size="15" :stroke-width="2" />
+                <HugeiconsIcon :icon="Key01Icon" :size="15" :stroke-width="2" />
                 {{ creating ? "Waiting for your device…" : "Create account with a passkey" }}
               </button>
             </form>
@@ -387,7 +388,7 @@ async function onSignOut() {
             <div class="acct__sectionhead">
               <h2 class="t-label acct__label">Passkeys</h2>
               <button type="button" class="btn btn--quiet acct__add" :disabled="pkBusy" @click="addPasskey">
-                <KeyRound :size="14" aria-hidden="true" /> Add
+                <HugeiconsIcon :icon="Key01Icon" :size="14" aria-hidden="true" :stroke-width="2" /> Add
               </button>
             </div>
             <ul v-if="passkeys.length" class="acct__list">

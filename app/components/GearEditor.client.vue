@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { Backpack, Ellipsis, Share2, SquareCheck, Undo2, Vault, X } from "@lucide/vue";
+import { HugeiconsIcon } from "@hugeicons/vue";
+import { Backpack02Icon, Cancel01Icon, CheckmarkSquare02Icon, ChevronDownIcon, EllipsisIcon, SafeBoxIcon, Share08Icon, Undo02Icon } from "@hugeicons/core-free-icons";
 import { editLinkPath } from "~~/shared/links";
 import type { Item } from "~~/shared/types";
 import { bySortOrder, groupItemsByFolder, groupItemsByParent, ungroupedTopLevel } from "~~/shared/weights";
@@ -280,9 +281,20 @@ onClickOutside(menuRef, () => (menuOpen.value = false));
 useWindowEvent("keydown", (e) => {
   if (e.key === "Escape" && menuOpen.value) menuOpen.value = false;
 });
+
+// the sharing panel — same dismiss contract as the ⋯ menu beside it (outside click,
+// Escape), and the two are mutually exclusive: they sit adjacent in the topbar, and
+// two open popovers over one toolbar read as a glitch
+const shareRef = useTemplateRef<HTMLElement>("shareRef");
+const shareOpen = ref(false);
+onClickOutside(shareRef, () => (shareOpen.value = false));
+useWindowEvent("keydown", (e) => {
+  if (e.key === "Escape" && shareOpen.value) shareOpen.value = false;
+});
+watch(shareOpen, (open) => open && (menuOpen.value = false));
+watch(menuOpen, (open) => open && (shareOpen.value = false));
 function toggleMenu() {
   menuOpen.value = !menuOpen.value;
-  if (menuOpen.value) warmExporters();
 }
 
 function copyShare() {
@@ -322,18 +334,59 @@ async function cloneList() {
   flash(ok ? "List duplicated" : "Couldn’t duplicate. Try again.");
 }
 
-// one table drives the ⋯ menu — its markup AND its dispatch — so an action can't
-// exist in one without the other (a string-keyed lookup would let a typo no-op)
+// The ⋯ menu, now grouped rather than flat.
+//
+// It used to be eight peers in one column: making a list, moving data in and out,
+// and handing out edit access all read as the same kind of thing. The two sharing
+// items moved to the sharing panel; what's left splits into the plain actions and
+// two SECTIONS you open in place — import and export are each a small set of
+// alternatives, and a flat list made you scan six labels to find the one format you
+// wanted. One section open at a time, so the menu never doubles in height.
+//
+// One table drives the markup AND the dispatch, so an action can't exist in one
+// without the other (a string-keyed lookup would let a typo no-op).
+// Same everOpened guard the other lazy dialogs use, so the chunk is fetched by the
+// first open rather than by loading the editor.
+const feedbackOpen = ref(false);
+const feedbackEverOpened = ref(false);
+
 const MENU_ACTIONS = [
   { label: "Create a list", run: () => newList() },
   { label: "Duplicate this list", run: cloneList },
+  // Import stays a plain row. It has exactly ONE entry point — the modal, which
+  // offers the file and the LighterPack link side by side — and a disclosure holding
+  // a single item is a click that reveals nothing you couldn't have been shown. It
+  // also forced a label long enough to set the whole menu's width.
   { label: "Import a list…", run: () => { importOpen.value = true; } },
-  { label: "Copy as Markdown", run: copyMarkdown },
-  { label: "Download CSV", run: downloadCsv },
-  { label: "Download JSON", run: downloadJson },
-  { label: "Copy edit link…", run: copyEditLink },
-  { label: "Rotate edit link…", run: rotate },
+  // Feedback is reachable from the footer on every page, but the editor is where
+  // people actually spend their time and where a long list puts that footer far below
+  // the fold — by the time you have something to say about a row, the link is a scroll
+  // away. The toolbar is in reach from anywhere in the list.
+  { label: "Send feedback…", run: () => { feedbackEverOpened.value = true; feedbackOpen.value = true; } },
 ];
+const MENU_SECTIONS = [
+  {
+    key: "export",
+    label: "Export",
+    items: [
+      { label: "Copy as Markdown", run: copyMarkdown },
+      { label: "Download CSV", run: downloadCsv },
+      { label: "Download JSON", run: downloadJson },
+    ],
+  },
+] as const;
+
+const openSection = ref<string | null>(null);
+function toggleSection(key: string) {
+  openSection.value = openSection.value === key ? null : key;
+  // warm the exporter chunks when the EXPORT section opens, not when the menu does.
+  // Opening ⋯ to duplicate a list shouldn't pull three parsers you never asked for;
+  // opening Export is the first honest signal that one of them is about to run.
+  if (openSection.value === "export") warmExporters();
+}
+// a re-opened menu starts collapsed — the previous session's open section is not a
+// preference, and restoring it would put a different item under the cursor
+watch(menuOpen, (open) => open || (openSection.value = null));
 
 // Start a fresh, empty draft — no server row until something is added. The current
 // list isn't lost: it's auto-saved and lives in "Your lists" behind its own link.
@@ -416,7 +469,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
                 :aria-pressed="!packed"
                 @click="packed = false"
               >
-                <Backpack :size="16" :stroke-width="2" />
+                <HugeiconsIcon :icon="Backpack02Icon" :size="16" :stroke-width="2" />
               </button>
             </Tooltip>
             <Tooltip text="Packing" preferred-placement="bottom">
@@ -428,7 +481,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
                 :aria-pressed="packed"
                 @click="packed = true"
               >
-                <SquareCheck :size="16" :stroke-width="2" />
+                <HugeiconsIcon :icon="CheckmarkSquare02Icon" :size="16" :stroke-width="2" />
               </button>
             </Tooltip>
           </div>
@@ -448,18 +501,44 @@ function onCorrected(res: { status: string; itemName?: string }) {
               :aria-expanded="vaultOpen"
               @click="vaultOpen = !vaultOpen"
             >
-              <Vault :size="16" />
+              <HugeiconsIcon :icon="SafeBoxIcon" :size="16" :stroke-width="2" />
             </button>
           </Tooltip>
-          <Tooltip text="Copy read-only link" preferred-placement="bottom">
-            <button
-              class="btn btn--icon btn--ghost editor__share"
-              aria-label="Copy read-only link"
-              @click="copyShare"
-            >
-              <Share2 :size="16" />
-            </button>
-          </Tooltip>
+          <!-- The account affordance. The editor has its own topbar and never renders
+               SiteTopbar, so until now edit AND checklist mode offered no way to sign
+               in, reach your account, or sign out — on the one screen people spend
+               their time. `compact` gives it the icon shape this glyph row needs. -->
+          <AccountMenu compact />
+          <!-- Sharing is one panel, not an icon plus two buried menu items. The
+               trigger keeps the same glyph and slot it had as a bare copy button. -->
+          <div ref="shareRef" class="menu editor__sharemenu">
+            <Tooltip text="Sharing" preferred-placement="bottom" :disabled="shareOpen">
+              <button
+                type="button"
+                class="btn btn--icon btn--ghost editor__share"
+                :class="{ 'is-on': shareOpen }"
+                aria-label="Sharing"
+                aria-haspopup="dialog"
+                :aria-expanded="shareOpen"
+                @click="shareOpen = !shareOpen"
+              >
+                <HugeiconsIcon :icon="Share08Icon" :size="16" :stroke-width="2" />
+              </button>
+            </Tooltip>
+            <Transition name="menu">
+              <LazySharePanel
+                v-if="shareOpen && snapshot"
+                :snapshot="snapshot"
+                :edit-token="c.editToken"
+                :read-url="snapshot.shareCode ? `${origin()}/s/${snapshot.shareCode}` : ''"
+                :edit-url="c.editToken ? `${origin()}${editLinkPath(snapshot.shareCode, c.editToken)}` : ''"
+                @close="shareOpen = false"
+                @copy-read="copyShare"
+                @copy-edit="copyEditLink"
+                @rotate="rotate"
+              />
+            </Transition>
+          </div>
           <div ref="menuRef" class="menu">
             <!-- a custom popover of real <button>s (was a native <select>): the
                  clipboard items need a direct click gesture, which a <select> change
@@ -473,7 +552,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
                 :aria-expanded="menuOpen"
                 @click="toggleMenu"
               >
-                <Ellipsis :size="16" />
+                <HugeiconsIcon :icon="EllipsisIcon" :size="16" :stroke-width="2" />
               </button>
             </Tooltip>
             <Transition name="menu">
@@ -482,6 +561,33 @@ function onCorrected(res: { status: string; itemName?: string }) {
                      Close BEFORE the action runs, matching the old dispatch order. -->
                 <li v-for="a in MENU_ACTIONS" :key="a.label" role="none">
                   <button type="button" role="menuitem" class="menu__item" @click="menuOpen = false; a.run()">{{ a.label }}</button>
+                </li>
+                <!-- Import / Export expand in place. The section header is not a
+                     menuitem — it opens a group rather than doing anything — so it
+                     carries aria-expanded and its items stay the menuitems. -->
+                <li v-for="s in MENU_SECTIONS" :key="s.key" role="none" class="editor__sect">
+                  <button
+                    type="button"
+                    class="menu__item editor__secthead"
+                    :aria-expanded="openSection === s.key"
+                    @click="toggleSection(s.key)"
+                  >
+                    {{ s.label }}
+                    <HugeiconsIcon :icon="ChevronDownIcon" class="editor__sectchev"
+                      :class="{ 'is-open': openSection === s.key }"
+                      :size="14"
+                      :stroke-width="2"
+                      aria-hidden="true" />
+                  </button>
+                  <Transition name="reveal">
+                    <div v-if="openSection === s.key" class="reveal">
+                  <ul class="editor__sectlist" role="group" :aria-label="s.label">
+                    <li v-for="a in s.items" :key="a.label" role="none">
+                      <button type="button" role="menuitem" class="menu__item editor__sectitem" @click="menuOpen = false; a.run()">{{ a.label }}</button>
+                    </li>
+                  </ul>
+                    </div>
+                  </Transition>
                 </li>
               </ul>
             </Transition>
@@ -533,7 +639,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
         dismiss-label="Don’t add this list’s gear to my gear vault"
         @dismiss="c.answerVaultPrompt(false)"
       >
-        <template #icon><Vault :size="15" :stroke-width="2" /></template>
+        <template #icon><HugeiconsIcon :icon="SafeBoxIcon" :size="15" :stroke-width="2" /></template>
         Add to your gear vault?
         <template #action>
           <button class="btn btn--quiet editor__vaultadd" @click="c.answerVaultPrompt(true)">Add</button>
@@ -574,6 +680,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
           :items="itemsByFolder.get(f.id) ?? NO_ITEMS"
           :children-by-parent="childrenByParent"
           :packed="packed"
+          @toast="flash"
         />
       </div>
       <section v-if="ungrouped.length" class="panel editor__ungrouped">
@@ -588,6 +695,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
           :children-by-parent="childrenByParent"
           :prev-id="ungrouped[i - 1]?.id ?? null"
           :packed="packed"
+          @toast="flash"
         />
       </section>
 
@@ -630,7 +738,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
       >
         <span class="t-sm">Removed <strong>{{ pendingUndo.label }}</strong></span>
         <button class="undobar__btn t-sm" @click="c.undoRemove()">
-          <Undo2 :size="14" /> Undo
+          <HugeiconsIcon :icon="Undo02Icon" :size="14" :stroke-width="2" /> Undo
         </button>
       </div>
       <div v-else-if="toast" class="toast t-sm">{{ toast }}</div>
@@ -639,11 +747,20 @@ function onCorrected(res: { status: string; itemName?: string }) {
     <!-- the pane arrives from the edge it lives on; motion is in VaultPane's own
          styles, next to the geometry that decides which edge that is -->
     <Transition name="vaultpane">
-      <LazyVaultPane v-if="vaultOpen" v-model:width="vaultWidth" @close="vaultOpen = false" />
+      <!-- adding a whole category lands a folder plus N rows further down the page
+           than the pane you clicked in, so it gets a toast — a single item's row
+           answers for itself in place ("Already added"), a set doesn't -->
+      <LazyVaultPane
+        v-if="vaultOpen"
+        v-model:width="vaultWidth"
+        @close="vaultOpen = false"
+        @added="(name: string) => flash(`Added ${name}`)"
+      />
     </Transition>
 
     <LazyCatalogCorrectionModal v-if="correctionEverOpened" @done="onCorrected" />
     <LazyImportModal v-if="importEverOpened" :open="importOpen" @close="importOpen = false" />
+    <LazyFeedbackModal v-if="feedbackEverOpened" :open="feedbackOpen" @close="feedbackOpen = false" />
   </div>
 </template>
 
@@ -792,14 +909,80 @@ function onCorrected(res: { status: string; itemName?: string }) {
 .editor__share {
   color: var(--ink-2);
 }
+/* The sharing panel is ~343px of links and activity hanging off a 32px button that
+   sits near the right end of the bar. `.menu` makes that button the containing block,
+   so `right: 0` put the panel's right edge at the BUTTON's right edge — and on a
+   375px phone its left edge landed at -11, taking the rounded corner and half the
+   padding off-screen.
+   Dropping the wrapper out of the positioning chain on small screens hands the panel
+   the sticky .topbar instead, which spans the viewport. Scoped to this one wrapper on
+   purpose: `.menu` is a shared atom (the row popovers use it too), and making IT
+   static would move every anchored menu in the app. */
+@media (max-width: $bp-stack) {
+  .editor__sharemenu {
+    position: static;
+  }
+}
+/* the sharing panel is open — same held-state treatment the vault toggle uses, so
+   the two topbar popovers signal their state identically */
+.editor__share.is-on {
+  color: var(--ink);
+  background: var(--paper-2);
+}
+/* ⋯ menu sections (Import / Export). The header is a menu row like any other; only
+   the trailing chevron marks it as something that opens rather than does. */
+.editor__sect {
+  display: contents;
+}
+.editor__secthead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+}
+.editor__sectchev {
+  flex: none;
+  color: var(--ink-3);
+  transition: rotate var(--dur) var(--ease);
+}
+.editor__sectchev.is-open {
+  rotate: 180deg;
+}
+.editor__sectlist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+/* The section slides rather than snapping: opening Export added 120px to the menu in
+   one frame, which read as the menu flinching. The recipe is the shared .reveal atom
+   (controls.scss) — nothing needed here but the wrapper in the template. */
+/* the section's items are indented so an open group reads as belonging to its
+   header rather than as more peers appearing in the middle of the menu */
+.editor__sectitem {
+  padding-left: var(--space-5);
+  color: var(--ink-2);
+}
 /* the popover's look + open/close come from the shared .menu atom (controls.scss);
    the editor only nudges the trailing cluster (toggle · share · kebab) right into the
    gutter so the kebab lines up with the item rows' drag handle below. The title group
-   (flex:1) absorbs the freed space, so the cluster reflows as a unit. */
-.menu {
+   (flex:1) absorbs the freed space, so the cluster reflows as a unit.
+
+   Keyed to the LAST .menu, not every one. Sharing now needs a .menu wrapper of its
+   own (it anchors a popover), and a bare `.menu` rule pulled that one 13px right too
+   — which closed the gap to the kebab and opened a matching one before it. Only the
+   element that actually sits in the gutter should reach into it. */
+.menu:last-child {
   margin-right: -13px;
 }
 .editor__body {
+  /* The folder-to-folder rhythm, named once and read twice: .editor__folders uses it
+     as its gap, and .editor__addfolder has to reach the SAME distance from a different
+     starting point. It lives HERE, on their common ancestor, and not on .editor__folders
+     — the two are SIBLINGS, and a custom property inherits down the tree, never
+     sideways, so declaring it there left the other reading an invalid value and
+     collapsing its margin to 0. */
+  --folder-gap: var(--space-7);
   /* no bottom padding: the footer's margin-top is the single content→footer gap
      (matches the inter-folder rhythm), so it isn't doubled up here */
   padding-block: var(--space-4) 0;
@@ -864,7 +1047,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
 .editor__folders {
   display: flex;
   flex-direction: column;
-  gap: var(--space-7);
+  gap: var(--folder-gap);
 }
 /* load reveal: folders cascade in (SPACE10 signature), ~50ms apart.
    fill-mode `backwards` (not `both`): holds the hidden start-state during each
@@ -898,9 +1081,11 @@ function onCorrected(res: { status: string; itemName?: string }) {
   flex-direction: column;
   gap: var(--space-1);
 }
-.editor__ungrouped .t-label {
-  margin-bottom: var(--space-2);
-}
+/* "Ungrouped" is a folder heading in everything but name, so it sits the same
+   --space-1 above its first row that a real folder name does (.folder__head, in the
+   atom). The section's own flex gap already provides exactly that; an extra
+   margin-bottom here put the editor's heading 12px off its rows while the share
+   views' identical heading sat at 4px — the same list, two rhythms. */
 /* reads like a folder heading — same type as a folder name, dimmer, flush-left
    with the folder names above it. Tapping it swaps the label for an inline text
    field. */
@@ -908,9 +1093,11 @@ function onCorrected(res: { status: string; itemName?: string }) {
   align-self: flex-start;
   display: inline-flex;
   align-items: center;
-  /* sit a full folder-gap below the last folder: the body gap is --space-4, so add
-     the remainder to reach --space-7, matching the folder-to-folder rhythm */
-  margin-top: calc(var(--space-7) - var(--space-4));
+  /* sit a full folder-gap below the last folder. This element is a SIBLING of
+     .editor__folders, not a child, so it already carries the body's --space-4 gap and
+     only needs the remainder — but the target is --folder-gap, read from the one
+     declaration above rather than restated. */
+  margin-top: calc(var(--folder-gap) - var(--space-4));
 }
 /* label + inline input share the folder-name type; label is dimmer */
 .editor__addfolderbtn,

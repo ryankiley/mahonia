@@ -9,9 +9,17 @@
 // Wrap the trigger, don't replace it — the accessible NAME still belongs on the
 // control itself (aria-label). This only adds the visible hover description, wired
 // up with aria-describedby.
-const { text, preferredPlacement = "top" } = defineProps<{
+const { text, preferredPlacement = "top", disabled = false } = defineProps<{
   text: string;
   preferredPlacement?: "top" | "bottom";
+  /**
+   * Suppress the tooltip while its trigger has already said the same thing another
+   * way — a toggle that has opened its own popover, say. Two floating surfaces off
+   * one control read as a glitch, and the hover description is the redundant one:
+   * the popover states the setting in full. The accessible name is unaffected; it
+   * lives on the control, not here.
+   */
+  disabled?: boolean;
 }>();
 
 const triggerRef = useTemplateRef<HTMLElement>("triggerRef");
@@ -76,11 +84,20 @@ function positionTooltip() {
 }
 
 async function show() {
-  if (noHover?.matches) return;
+  if (noHover?.matches || disabled) return;
   isVisible.value = true;
   await nextTick();
   positionTooltip();
 }
+
+// dismiss one already on screen when the trigger opens its own surface — the hover
+// that raised it is still live, so nothing else would take it down
+watch(
+  () => disabled,
+  (off) => {
+    if (off) hide();
+  },
+);
 
 function hide() {
   isVisible.value = false;

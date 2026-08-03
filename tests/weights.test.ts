@@ -4,6 +4,7 @@ import {
   compareItemsBy,
   computeTotals,
   effectiveClassification,
+  entryUnitFromInput,
   formatWeight,
   formatWeightAuto,
   fromMg,
@@ -78,6 +79,33 @@ describe("parseWeightInput", () => {
   it("returns null for junk", () => {
     expect(parseWeightInput("")).toBeNull();
     expect(parseWeightInput("stuff sack")).toBeNull();
+  });
+});
+
+describe("entryUnitFromInput — which unit did the typist NAME?", () => {
+  it("returns the named unit", () => {
+    expect(entryUnitFromInput("3.8 oz")).toBe("oz");
+    expect(entryUnitFromInput("1.36kg")).toBe("kg");
+    expect(entryUnitFromInput("820 g")).toBe("g");
+  });
+  it("accepts the same vocabulary the parser does", () => {
+    expect(entryUnitFromInput("2 pounds")).toBe("lb");
+    expect(entryUnitFromInput("500 GRAMS")).toBe("g");
+  });
+  it("returns null for a bare number — no choice was made", () => {
+    expect(entryUnitFromInput("820")).toBeNull();
+    expect(entryUnitFromInput("1,5")).toBeNull();
+  });
+  it("returns null for a compound — no single unit to read back in", () => {
+    // the sum is the point; picking either half would misreport the entry
+    expect(entryUnitFromInput("2 lb 3 oz")).toBeNull();
+  });
+  it("collapses a repeated unit to that one unit", () => {
+    expect(entryUnitFromInput("2 oz 3 oz")).toBe("oz");
+  });
+  it("returns null for junk and empty input", () => {
+    expect(entryUnitFromInput("")).toBeNull();
+    expect(entryUnitFromInput("stuff sack")).toBeNull();
   });
 });
 
@@ -163,6 +191,68 @@ describe("computeTotals: base = total − worn − consumable", () => {
     });
     expect(t.hasWeights).toBe(false);
     expect(t.totalMg).toBe(0);
+  });
+});
+
+describe("computeTotals: calories", () => {
+  const folders = [folder("pack", "base"), folder("food", "consumable")];
+
+  it("sums kcal per UNIT across the line, like weight", () => {
+    const t = computeTotals({
+      folders,
+      items: [item({ id: "bars", folderId: "food", kcal: 250, qty: 4 })],
+    });
+    expect(t.kcalTotal).toBe(1000);
+    expect(t.hasKcal).toBe(true);
+  });
+
+  it("counts a row whose CONSUMABLE class is inherited from its folder", () => {
+    const t = computeTotals({
+      folders,
+      items: [item({ id: "dinner", folderId: "food", kcal: 800 })],
+    });
+    expect(t.kcalTotal).toBe(800);
+  });
+
+  it("ignores kcal left behind on a row that is no longer consumable", () => {
+    // demote a food row to base: its stored kcal stays in the data (so flipping it
+    // back restores it) but must not be counted while the row isn't consumable
+    const t = computeTotals({
+      folders,
+      items: [item({ id: "bar", folderId: "food", classification: "base", kcal: 250 })],
+    });
+    expect(t.kcalTotal).toBe(0);
+    expect(t.hasKcal).toBe(false);
+  });
+
+  it("ignores kcal on a worn row", () => {
+    const t = computeTotals({
+      folders,
+      items: [item({ id: "jacket", folderId: "pack", classification: "worn", kcal: 99 })],
+    });
+    expect(t.kcalTotal).toBe(0);
+  });
+
+  it("reports hasKcal=false when nothing carries a value", () => {
+    const t = computeTotals({
+      folders,
+      items: [item({ id: "food", folderId: "food", unitWeightMg: 500_000 })],
+    });
+    expect(t.hasKcal).toBe(false);
+    expect(t.kcalTotal).toBe(0);
+  });
+
+  it("keeps calories independent of the weight partition", () => {
+    const t = computeTotals({
+      folders,
+      items: [
+        item({ id: "tent", folderId: "pack", unitWeightMg: 820_000 }),
+        item({ id: "bars", folderId: "food", unitWeightMg: 100_000, kcal: 250, qty: 2 }),
+      ],
+    });
+    // the three weight slices still partition the total, untouched by kcal
+    expect(t.baseMg + t.wornMg + t.consumableMg).toBe(t.totalMg);
+    expect(t.kcalTotal).toBe(500);
   });
 });
 

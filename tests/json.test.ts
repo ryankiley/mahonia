@@ -181,3 +181,22 @@ describe("jsonToListImport sanitization", () => {
     expect(gloves.wornQty).toBeUndefined();
   });
 });
+
+describe("JSON export: trip dates", () => {
+  it("round-trips the dates a backup is meant to preserve", () => {
+    // the exporter destructures ListMeta field by field, so a new meta field is
+    // silently dropped unless it is added there too — which is the whole risk
+    const s = snap();
+    s.startDate = "2026-08-04";
+    s.endDate = "2026-08-06";
+    const parsed = jsonToListImport(listToJson(s));
+    expect(parsed?.startDate).toBe("2026-08-04");
+    expect(parsed?.endDate).toBe("2026-08-06");
+  });
+
+  it("drops a date that doesn't exist rather than importing it", () => {
+    const bad = JSON.parse(listToJson(snap()));
+    bad.startDate = "2026-02-31";
+    expect(jsonToListImport(JSON.stringify(bad))?.startDate).toBeUndefined();
+  });
+});

@@ -13,7 +13,7 @@
 import type { Folder, Item, ListData, ListState } from "./types";
 
 export interface ListDiff {
-  meta?: Partial<Pick<ListState, "title" | "description" | "displayUnit" | "trailUrl" | "trailLabel">>;
+  meta?: Partial<Pick<ListState, "title" | "description" | "displayUnit" | "trailUrl" | "trailLabel" | "startDate" | "endDate">>;
   foldersUpsert?: Folder[]; // present in target and new-or-changed vs base
   foldersDel?: string[]; // ids in base, gone in target
   itemsUpsert?: Item[];
@@ -27,6 +27,8 @@ export interface FullSnap {
   displayUnit: string;
   trailUrl?: string | null;
   trailLabel?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
   data: ListData;
 }
 
@@ -36,6 +38,8 @@ export const stateToFullSnap = (s: ListState): FullSnap => ({
   displayUnit: s.displayUnit,
   trailUrl: s.trailUrl ?? null,
   trailLabel: s.trailLabel ?? null,
+  startDate: s.startDate ?? null,
+  endDate: s.endDate ?? null,
   data: { folders: s.folders, items: s.items },
 });
 export const fullSnapToState = (s: FullSnap): ListState => ({
@@ -46,6 +50,8 @@ export const fullSnapToState = (s: FullSnap): ListState => ({
   // round-trip a cleared link back as a present-but-blank field
   trailUrl: s.trailUrl ?? undefined,
   trailLabel: s.trailLabel ?? undefined,
+  startDate: s.startDate ?? undefined,
+  endDate: s.endDate ?? undefined,
   folders: s.data?.folders ?? [],
   items: s.data?.items ?? [],
   version: 0, // not carried by snapshots — the row's own version column is authoritative
@@ -89,6 +95,10 @@ export function diffListState(base: ListState, target: ListState): ListDiff {
   // and target has to be recorded as a change, or restoring would resurrect it.
   if ((base.trailUrl ?? "") !== (target.trailUrl ?? "")) meta.trailUrl = target.trailUrl ?? "";
   if ((base.trailLabel ?? "") !== (target.trailLabel ?? "")) meta.trailLabel = target.trailLabel ?? "";
+  // dates take the same "" clear sentinel: a trip whose dates were removed between
+  // base and target has to record the removal, or a restore resurrects them
+  if ((base.startDate ?? "") !== (target.startDate ?? "")) meta.startDate = target.startDate ?? "";
+  if ((base.endDate ?? "") !== (target.endDate ?? "")) meta.endDate = target.endDate ?? "";
   if (Object.keys(meta).length) diff.meta = meta;
 
   const baseF = new Map(base.folders.map((f) => [f.id, f]));
@@ -126,6 +136,14 @@ export function applyListDiff(base: ListState, diff: ListDiff): ListState {
     if (diff.meta.trailLabel !== undefined) {
       if (diff.meta.trailLabel) out.trailLabel = diff.meta.trailLabel;
       else delete out.trailLabel;
+    }
+    if (diff.meta.startDate !== undefined) {
+      if (diff.meta.startDate) out.startDate = diff.meta.startDate;
+      else delete out.startDate;
+    }
+    if (diff.meta.endDate !== undefined) {
+      if (diff.meta.endDate) out.endDate = diff.meta.endDate;
+      else delete out.endDate;
     }
   }
   out.folders = mergeEntities(out.folders, diff.foldersUpsert, diff.foldersDel);

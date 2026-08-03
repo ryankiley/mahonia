@@ -59,7 +59,10 @@ describe("snapshots — vandalism recovery", () => {
     await applyOpsByEditToken(editToken, [{ t: "updateItem", id: "i1", patch: { name: "Tent v2" } }], db);
     let snaps = await listSnapshotsByEditToken(editToken, db);
     expect(snaps).toHaveLength(1);
-    expect(snaps![0]!.reason).toBe("edit");
+    // `reason` carries a SUMMARY of the batch now, not the constant "edit" — see
+    // shared/changeSummary. This is what the sharing panel renders, so pinning it
+    // here is what stops it silently regressing to a bare "Edited".
+    expect(snaps![0]!.reason).toBe("Renamed 1 item");
     // a second mutate within the throttle window adds no new snapshot
     await applyOpsByEditToken(editToken, [{ t: "updateItem", id: "i1", patch: { name: "Tent v3" } }], db);
     snaps = await listSnapshotsByEditToken(editToken, db);

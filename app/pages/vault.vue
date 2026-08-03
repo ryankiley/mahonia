@@ -1,17 +1,6 @@
 <script setup lang="ts">
-import {
-  ArrowDown10,
-  ArrowDownAZ,
-  ArrowDownUp,
-  ArrowUp01,
-  ChevronDown,
-  CircleX,
-  Folder as FolderIcon,
-  GripVertical,
-  Trash2,
-  Undo2,
-  Vault,
-} from "@lucide/vue";
+import { HugeiconsIcon } from "@hugeicons/vue";
+import { ArrowUpDownIcon, ChevronDownIcon, CircleXIcon, Delete02Icon, FolderIcon, GripVerticalIcon, SortingAZ01Icon, SortingNineOneIcon, SortingOneNineIcon, Undo02Icon } from "@hugeicons/core-free-icons";
 import type { Unit } from "~~/shared/types";
 import type { VaultEntry, VaultFolder } from "~~/shared/vault";
 import { formatWeightAuto, itemDisplayName } from "~~/shared/weights";
@@ -182,11 +171,11 @@ function toggleCollapsed(id: number) {
 // the editor's SORT_META verbatim — same glyph family, same labels, so a folder
 // sorted "Heaviest first" reads identically on both surfaces
 type VaultSort = NonNullable<VaultFolder["sortBy"]>;
-const SORT_META: Record<VaultSort, { label: string; icon: typeof ArrowDownUp }> = {
-  manual: { label: "Manual order", icon: ArrowDownUp },
-  name: { label: "Name (A–Z)", icon: ArrowDownAZ },
-  heaviest: { label: "Heaviest first", icon: ArrowDown10 },
-  lightest: { label: "Lightest first", icon: ArrowUp01 },
+const SORT_META: Record<VaultSort, { label: string; icon: typeof ArrowUpDownIcon }> = {
+  manual: { label: "Manual order", icon: ArrowUpDownIcon },
+  name: { label: "Name (A–Z)", icon: SortingAZ01Icon },
+  heaviest: { label: "Heaviest first", icon: SortingNineOneIcon },
+  lightest: { label: "Lightest first", icon: SortingOneNineIcon },
 };
 const SORT_ORDER: VaultSort[] = ["manual", "name", "heaviest", "lightest"];
 
@@ -311,11 +300,21 @@ function startItemDrag(id: number, ev: PointerEvent) {
   itemDrag.start(String(id), ev);
 }
 
-const newFolder = ref("");
+// "Add folder" is a quiet label that becomes an inline field on press, and commits on
+// enter or on clicking away — the same affordance (and the same words) the editor uses
+// at the foot of its folder list. It used to be a permanently-open input with an "Add"
+// button beside it, which read as an empty form the page was waiting on rather than an
+// action you could take.
+const addingFolder = ref(false);
+const newFolderRef = useTemplateRef<HTMLInputElement>("newFolderRef");
+function openAddFolder() {
+  addingFolder.value = true;
+  nextTick(() => newFolderRef.value?.focus());
+}
 function addFolder() {
-  const name = newFolder.value.trim();
+  const name = newFolderRef.value?.value.trim();
+  addingFolder.value = false;
   if (!name) return;
-  newFolder.value = "";
   void folderOp({ t: "add", name });
 }
 function renameFolder(f: VaultFolder, e: Event) {
@@ -457,7 +456,7 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
                 title="Clear search"
                 @click="clearQuery"
               >
-                <CircleX :size="15" :stroke-width="2" />
+                <HugeiconsIcon :icon="CircleXIcon" :size="15" :stroke-width="2" />
               </button>
             </div>
           </div>
@@ -475,7 +474,7 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
                    search bar, away from the only number it governed. -->
               <span class="vault__total">
                 {{ weightLabel(totalMg) }}
-                <ChevronDown class="vault__chev" :size="14" :stroke-width="2.25" aria-hidden="true" />
+                <HugeiconsIcon :icon="ChevronDownIcon" class="vault__chev" :size="14" :stroke-width="2.25" aria-hidden="true" />
                 <select
                   class="vault__unitsel"
                   title="Change unit"
@@ -530,12 +529,10 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
                     :aria-label="`${collapsed[section.folder.id] ? 'Expand' : 'Collapse'} ${section.folder.name}`"
                     @click="toggleCollapsed(section.folder.id)"
                   >
-                    <ChevronDown
-                      class="folder__chev"
+                    <HugeiconsIcon :icon="ChevronDownIcon" class="folder__chev"
                       :class="{ 'is-collapsed': collapsed[section.folder.id] }"
                       :size="20"
-                      :stroke-width="2"
-                    />
+                      :stroke-width="2" />
                   </button>
                 </div>
 
@@ -546,11 +543,15 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
                     :aria-label="`Remove ${section.folder.name}`"
                     @click="deleteFolder(section.folder)"
                   >
-                    <Trash2 :size="16" />
+                    <HugeiconsIcon :icon="Delete02Icon" :size="16" :stroke-width="2" />
                   </button>
                   <div class="folder__sortwrap" :class="{ 'is-active': (section.folder.sortBy ?? 'manual') !== 'manual' }">
-                    <component
-                      :is="SORT_META[section.folder.sortBy ?? 'manual'].icon"
+                    <!-- :icon, NOT <component :is>. A hugeicons icon is path data
+                         rather than a component, so :is renders a comment node and the
+                         glyph vanishes. FolderSection.vue carries the same note; this
+                         second copy of SORT_META needs the same treatment. -->
+                    <HugeiconsIcon
+                      :icon="SORT_META[section.folder.sortBy ?? 'manual'].icon"
                       class="folder__sorticon"
                       :size="16"
                       :stroke-width="2"
@@ -572,7 +573,7 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
                     :aria-label="`Reorder ${section.folder.name}`"
                     @pointerdown="startFolderDrag(section.folder.id, $event)"
                   >
-                    <GripVertical :size="16" />
+                    <HugeiconsIcon :icon="GripVerticalIcon" :size="16" :stroke-width="2" />
                   </button>
                 </div>
               </header>
@@ -608,7 +609,7 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
                            select still names every destination when you open it,
                            and it's the keyboard and touch path for moving gear. -->
                       <div class="vault__movewrap">
-                        <FolderIcon class="vault__moveicon" :size="15" :stroke-width="2" aria-hidden="true" />
+                        <HugeiconsIcon :icon="FolderIcon" class="vault__moveicon" :size="15" :stroke-width="2" aria-hidden="true" />
                         <select
                           class="vault__movesel"
                           :value="entry.folderId ?? ''"
@@ -631,7 +632,7 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
                         :aria-label="`Remove ${itemDisplayName(entry.brand, entry.name, entry.variant)} from your gear vault`"
                         @click="remove(entry)"
                       >
-                        <Trash2 :size="15" aria-hidden="true" />
+                        <HugeiconsIcon :icon="Delete02Icon" :size="15" aria-hidden="true" :stroke-width="2" />
                       </button>
                     </li>
                   </ul>
@@ -641,16 +642,21 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
 
             <!-- new folders are made here rather than by a button that invents an
                  "Untitled folder" you then have to find and rename -->
-            <form v-if="!query" class="vault__addfolder" @submit.prevent="addFolder">
+            <div v-if="!query" class="vault__addfolder">
               <input
-                v-model="newFolder"
-                class="field vault__addfolderinput"
-                placeholder="New folder…"
+                v-if="addingFolder"
+                ref="newFolderRef"
+                class="vault__addfolderinput"
+                placeholder="Folder name"
                 aria-label="New folder name"
                 autocorrect="off"
+                spellcheck="false"
+                @keydown.enter.prevent="addFolder"
+                @keydown.esc="addingFolder = false"
+                @blur="addFolder"
               />
-              <button v-if="newFolder.trim()" type="submit" class="btn">Add</button>
-            </form>
+              <button v-else type="button" class="vault__addfolderbtn" @click="openAddFolder">Add folder</button>
+            </div>
           </template>
 
           <div v-else-if="query" class="vault__empty">
@@ -702,7 +708,7 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
                     :aria-label="`Put ${itemDisplayName(entry.brand, entry.name, entry.variant)} back in your gear vault`"
                     @click="putBack(entry)"
                   >
-                    <Undo2 :size="14" aria-hidden="true" /> Put back
+                    <HugeiconsIcon :icon="Undo02Icon" :size="14" aria-hidden="true" :stroke-width="2" /> Put back
                   </button>
                 </li>
               </ul>
@@ -734,7 +740,7 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
           Removed <strong>{{ itemDisplayName(undoable.brand, undoable.name, undoable.variant) }}</strong>
         </span>
         <button class="undobar__btn t-sm" @click="undoRemove">
-          <Undo2 :size="14" /> Undo
+          <HugeiconsIcon :icon="Undo02Icon" :size="14" :stroke-width="2" /> Undo
         </button>
       </div>
     </Transition>
@@ -783,12 +789,23 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
    to click, so give it the same bottom rule the editor's title field carries —
 /* the passkey path, as a sentence rather than a second black button — it inherits
    the surrounding muted prose and only deepens on hover, like every other inline
-/* same treatment for the gear search, which is the other standalone field here */
+/* CONTAINED, matching the pane's search (VaultPane .vp__search) and the import
+   dialog's box: this is a control you type in, and a hairline underline reads as a
+   caption rule instead. The auth field above keeps the underline treatment — it is a
+   single question on an otherwise empty page, not a tool in a working surface. */
 .vault__search {
-  border-bottom: 1px solid var(--line);
+  border: 0;
+  background: var(--paper-2);
+  border-radius: calc(var(--radius-4) - var(--space-2));
+  color: var(--ink);
+  transition: background var(--dur) var(--ease);
+}
+.vault__search::placeholder {
+  color: var(--ink-3);
 }
 .vault__search:focus {
-  border-bottom-color: var(--ink-2);
+  outline: none;
+  background: color-mix(in oklab, var(--ink) 4%, var(--paper-2));
 }
 .vault__sentline {
   color: var(--ink);
@@ -814,6 +831,7 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
 }
 .vault__search {
   width: 100%;
+  padding-inline: var(--space-3);
   /* room for the clear button, so a long query doesn't run under it */
   padding-right: var(--space-5);
 }
@@ -1021,15 +1039,45 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
 /* making a folder is typing its name — no button that invents an "Untitled folder"
    for you to hunt down and rename */
 .vault__addfolder {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
   margin-top: var(--space-6);
   padding-top: var(--space-4);
   border-top: 1px solid var(--line);
+  /* the seam belongs to the page, not to the label sitting on it — inline-flex would
+     otherwise draw the rule only as wide as the words */
+  align-self: stretch;
+}
+/* label + inline field share the folder-name type, label dimmer — the same pair of
+   rules the editor's .editor__addfolderbtn / .editor__addfolderinput carry, so the
+   two "Add folder"s are the same affordance in both places */
+.vault__addfolderbtn,
+.vault__addfolderinput {
+  padding: 0;
+  background: none;
+  border: 0;
+  font-family: var(--font);
+  font-size: var(--text-title);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.vault__addfolderbtn {
+  color: var(--ink-3);
+  cursor: pointer;
+  transition: color var(--dur) var(--ease);
+}
+.vault__addfolderbtn:hover {
+  color: var(--ink);
 }
 .vault__addfolderinput {
-  flex: 0 1 22ch;
+  color: var(--ink);
+  min-width: 12rem;
+}
+.vault__addfolderinput:focus {
+  outline: none;
+}
+.vault__addfolderinput::placeholder {
+  color: var(--ink-3);
 }
 
 /* the removed-gear disclosure sits as a quiet footer to

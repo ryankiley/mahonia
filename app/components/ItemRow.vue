@@ -1,5 +1,6 @@
 <script lang="ts">
 import type { Classification, Item as ItemT, Unit } from "~~/shared/types";
+import { UNITS } from "~~/shared/types";
 
 // static per-component tables — module scope so a large list doesn't rebuild
 // them in every row instance
@@ -7,22 +8,18 @@ const STEP_BY_UNIT: Record<Unit, number> = { g: 1, kg: 0.01, oz: 0.1, lb: 0.1 };
 // one stable empty array for every leaf row, so `children` never mints a fresh
 // identity per row per render
 const NO_ITEMS: ItemT[] = [];
-const CLASS_OPTS: { value: Classification; label: string }[] = [
-  { value: "base", label: "Base" },
-  { value: "worn", label: "Worn" },
-  { value: "consumable", label: "Consumable" },
-];
-// generated "N worn" split options stop here (the stored value is always shown
-// even beyond the cap, so clamps/imports can't strand invisible state)
+// offered "N worn" split counts stop here (the stored value is always shown even
+// beyond the cap, so clamps/imports can't strand invisible state)
 const MAX_SPLIT_OPTS = 5;
 </script>
 
 <script setup lang="ts">
-import { ChevronDown, CircleEllipsis, GripVertical, IndentDecrease, IndentIncrease, ListPlus, Square, SquareCheck, StickyNotePlus, StickyNoteX, Trash2, X } from "@lucide/vue";
+import { HugeiconsIcon } from "@hugeicons/vue";
+import { CalculatorIcon, Cancel01Icon, CheckIcon, CheckmarkSquare02Icon, ChevronDownIcon, CircleEllipsisIcon, CookieIcon, Delete02Icon, GripVerticalIcon, ListIndentDecreaseIcon, ListIndentIncreaseIcon, ListPlusIcon, NoteAddIcon, NoteRemoveIcon, SafeBoxIcon, ShirtIcon, SquareIcon } from "@hugeicons/core-free-icons";
 import type { Item, ListSnapshot } from "~~/shared/types";
 import type { ItemPatch } from "~~/shared/ops";
 import type { NameCommit } from "~/composables/useCatalogSearch";
-import { bySortOrder, effectiveClassification, formatWeight, fromMg, groupLineMg, itemDisplayName, parseWeightInput, rowDisplayMg, siblingItems, splitWornQty } from "~~/shared/weights";
+import { bySortOrder, effectiveClassification, entryUnitFromInput, formatKcal, formatWeight, fromMg, groupLineMg, itemDisplayName, parseWeightInput, rowDisplayMg, siblingItems, splitWornQty } from "~~/shared/weights";
 import { isWaterName, itemQtyLabel, waterLiters, waterMgFromMl } from "~~/shared/water";
 
 // The editor's row — editable by default, a checklist row in packing mode. A nested item
@@ -49,8 +46,12 @@ const props = withDefaults(
 // forwarded up to FolderSection so it can lift its collapse clip while this row has a
 // floating overlay open — the name autocomplete, or the mobile ⋯ menu (otherwise an
 // overlay at the folder's bottom is cropped)
-const emit = defineEmits<{ overlayToggle: [boolean] }>();
+const emit = defineEmits<{ overlayToggle: [boolean]; toast: [string] }>();
 const c = useGearList();
+// only to tell "your vault is unreachable" from "you don't have one" when banking a
+// row fails — the button itself is offered either way, since signing in is a
+// reasonable answer to pressing it
+const { hasVault } = useVaultAccess();
 
 // ---- nesting: children render as the SAME row, indented under this one ----
 // A row with children is a "group": its weight column shows the group total (own +
@@ -192,9 +193,21 @@ function onRowBlur(e: FocusEvent) {
 // small to show in the chosen unit renders as "<0.01" (never a wrong "0"); tapping in
 // selects that label so a real number replaces it (onWeightFocus), and onWeight refuses
 // to commit a "<…" label back as a value.
+// The unit THIS row reads in: whatever was typed, else the list's. One computed so
+// the field, its unit label, the arrow-key step and the packed row's static weight
+// can't drift apart — they must all agree, or the number means something different
+// from the label beside it.
+//
+// A GROUP row is excluded on purpose: its figure is the sum of children that may
+// each have been typed in a different unit, so there's no entry unit to honour and
+// the list's own is the only honest choice.
+const rowUnit = computed(() =>
+  isParent.value ? props.list.displayUnit : (props.item.entryUnit ?? props.list.displayUnit),
+);
+
 const weightDisplay = computed(() =>
   props.item.unitWeightMg > 0
-    ? formatWeight(props.item.unitWeightMg, props.list.displayUnit, { withUnit: false })
+    ? formatWeight(props.item.unitWeightMg, rowUnit.value, { withUnit: false })
     : "",
 );
 
@@ -242,6 +255,12 @@ function onWeightFocus(e: Event) {
   const el = e.target as HTMLInputElement;
   if (el.value.trim().startsWith("<")) el.select();
 }
+// Changing the unit RE-EXPRESSES the same weight, it never converts the number: the
+// row holds canonical milligrams, so picking oz just asks for those milligrams in
+// ounces. (Typing "3.8 oz" sets the same field — see setItemWeight.)
+function onRowUnit(e: Event) {
+  c.updateItem(props.item.id, { entryUnit: (e.target as HTMLSelectElement).value as Unit });
+}
 function onQty(e: Event) {
   const el = e.target as HTMLInputElement;
   const q = Math.max(1, Number(el.value) || 1);
@@ -252,7 +271,9 @@ function onQty(e: Event) {
 // tap into the field and increment/decrement without retyping
 function onWeightStep(e: KeyboardEvent, dir: 1 | -1) {
   if (isWater.value || isParent.value) return; // water + group weights are derived, not typed
-  const unit = props.list.displayUnit;
+  // step in the unit the row READS in, not the list's — arrowing on a row showing
+  // "3.8 oz" must move it by an ounce step, or the number jumps unpredictably
+  const unit = rowUnit.value;
   const step = (STEP_BY_UNIT[unit] ?? 1) * (e.shiftKey ? 10 : 1);
   const current = fromMg(props.item.unitWeightMg, unit);
   const next = Math.max(0, Number((current + dir * step).toFixed(unit === "g" ? 0 : 2)));
@@ -328,10 +349,14 @@ function onNameCommit(p: NameCommit) {
       patch.unitWeightMg = p.weightMg;
       patch.weightOverridden = true;
     } else if (p.weight != null) {
-      const mg = parseWeightInput(p.weight, props.list.displayUnit);
+      // parse against the unit the row already reads in (rowUnit), same rule as
+      // setItemWeight — a trailing "4.2" on an oz row is 4.2 ounces
+      const mg = parseWeightInput(p.weight, rowUnit.value);
       if (mg != null) {
         patch.unitWeightMg = mg;
         patch.weightOverridden = true;
+        const named = entryUnitFromInput(p.weight);
+        if (named) patch.entryUnit = named;
       }
     }
   }
@@ -341,46 +366,92 @@ function onNameCommit(p: NameCommit) {
 }
 
 // a base row with multiples can split its count into worn + base (e.g. 3 pairs
-// of socks, 1 worn) — the split lives in the same classification select as
-// generated "N worn · M base" options, so the dense row gains no new control
+// of socks, 1 worn) — see the worn popover below, which is where the count lives
 const activeSplit = computed(() => splitWornQty(props.item, effClass.value)); // 0 = no split
-const classOptions = computed<{ value: string; label: string }[]>(() => {
-  const opts: { value: string; label: string }[] = [...CLASS_OPTS];
-  if (isWater.value || effClass.value === "consumable") return opts;
+
+// ---- classification as two toggles ----
+// Replaces the old three-option <select>. The data model was already shaped for
+// this: `classification` is ONE field with base stored as null, so "worn off and
+// consumable off" IS base — the pair of toggles is a direct rendering of the type,
+// not a second representation of it that could disagree.
+//
+// Mutually exclusive by construction: turning one on turns the other off, because
+// the field can only hold one value. That is also why they are two buttons and not
+// a checkbox pair — checkboxes would imply both could be true.
+const isWorn = computed(() => effClass.value === "worn" || activeSplit.value > 0);
+const isConsumable = computed(() => effClass.value === "consumable");
+
+// base is stored as null — the folder default — EXCEPT where the folder itself
+// defaults to something else, in which case base has to be pinned explicitly or
+// clearing a class would silently re-inherit worn/consumable
+function baseValue(): Classification | null {
+  const folderDefault = effectiveClassification(
+    { classification: null, folderId: props.item.folderId },
+    props.list.folders,
+  );
+  return folderDefault === "base" ? null : "base";
+}
+
+function setClass(next: "worn" | "consumable", on: boolean) {
+  c.updateItem(props.item.id, {
+    classification: on ? next : baseValue(),
+    // a whole-row class makes the split meaningless (the reducer clears it too);
+    // turning worn OFF drops it as well, since the split only describes a base line
+    wornQty: 0,
+  });
+}
+
+// the split: N of qty are worn, the remainder stays base. Only offered on a row
+// with multiples — one of one is just "worn".
+//
+// Picking the ACTIVE count again clears it, the same way pressing a switch that is
+// already on turns it off. Without that the split is a one-way door: worn is off
+// during a split (it is a base line with a worn portion), so the switch above can't
+// undo it and the only way back would be to change the quantity.
+function setSplit(n: number) {
+  c.updateItem(props.item.id, {
+    wornQty: activeSplit.value === n ? 0 : n,
+    classification: baseValue(),
+  });
+}
+
+const splitOptions = computed(() => {
+  // the split refines a BASE line — "some of these are on my body, the rest are in
+  // the pack". A consumable row has no base portion to split, so offering counts
+  // there would silently demote the row to base on the first click. (The old
+  // select carried the same guard.)
+  if (isConsumable.value) return [];
   const counts = new Set<number>();
   for (let n = 1; n <= Math.min(props.item.qty - 1, MAX_SPLIT_OPTS); n++) counts.add(n);
   if (activeSplit.value > 0) counts.add(activeSplit.value);
-  for (const n of [...counts].sort((a, b) => a - b))
-    opts.push({ value: `worn:${n}`, label: `${n} worn · ${Math.max(0, props.item.qty - n)} base` });
-  return opts;
+  return [...counts].sort((a, b) => a - b);
 });
-const classValue = computed(() => (activeSplit.value > 0 ? `worn:${activeSplit.value}` : effClass.value));
-function onClass(e: Event) {
-  const v = (e.target as HTMLSelectElement).value;
-  if (v.startsWith("worn:")) {
-    // the remainder counts as base: keep the null (folder default) convention,
-    // pinning explicit base only when the folder defaults elsewhere
-    const folderDefault = effectiveClassification({ classification: null, folderId: props.item.folderId }, props.list.folders);
-    c.updateItem(props.item.id, {
-      wornQty: Number(v.slice(5)) || 0,
-      classification: folderDefault === "base" ? null : "base",
-    });
-    return;
-  }
-  // folders always default to base, so there's no "Auto" — store base as null (default).
-  // a plain pick also drops any split (wornQty 0 clears; worn/consumable clear in the reducer)
-  c.updateItem(props.item.id, { classification: v === "base" ? null : (v as Classification), wornQty: 0 });
-}
-const effClassLabel = computed(() =>
-  activeSplit.value > 0
-    ? `${activeSplit.value} worn`
-    : (CLASS_OPTS.find((o) => o.value === effClass.value)?.label ?? "Base"),
+
+// Short: these are the icons' NAMES, shown on hover. The popover behind each one
+// carries the explanation, so a sentence here would only wrap the bubble across the
+// row it is trying to describe.
+const wornTitle = computed(() =>
+  activeSplit.value > 0 ? `${activeSplit.value} of ${props.item.qty} worn` : "Worn",
 );
-const classTitle = computed(() =>
+const consumableTitle = "Consumable";
+
+// The ACCESSIBLE name has to carry the STATE as well, which the tooltip text doesn't.
+// These buttons replaced a <select aria-label="Classification">, which announced its
+// value for free ("Worn", "Consumable", "Base"); a bare "Consumable, button" reads
+// identically whether the row is consumable or not, so the only way to learn a row's
+// class would be to open its popover. The visual signal is a grey chip — this is its
+// spoken equivalent.
+//
+// aria-pressed is NOT the answer: these open a dialog rather than toggling on click,
+// so a pressed state would describe something the click doesn't do. The name says it.
+const wornAria = computed(() =>
   activeSplit.value > 0
-    ? `Counts as ${activeSplit.value} worn, ${Math.max(0, props.item.qty - activeSplit.value)} base`
-    : `Counts as ${effClass.value}`,
+    ? `Worn: ${activeSplit.value} of ${props.item.qty}`
+    : isWorn.value
+      ? "Worn: yes"
+      : "Worn: no",
 );
+const consumableAria = computed(() => (isConsumable.value ? "Consumable: yes" : "Consumable: no"));
 
 // the sub-line: the common name shows as an editable field whenever it's set (a catalog
 // pick pre-fills it), the note is opt-in. The button reveals the empty fields so a common
@@ -458,13 +529,170 @@ function onSubBlur(e: FocusEvent) {
 // singleton), and the folder lifts its collapse clip while it's open (overlayToggle).
 const menu = useItemMenu();
 const menuRootRef = useTemplateRef<HTMLElement>("menuRootRef");
-const isMenuOpen = computed(() => menu.openId.value === props.item.id);
+// The singleton holds ONE open id for the whole list, so every popover a row can
+// raise is namespaced off the row id (`<id>:menu`, `<id>:kcal`). That's what makes
+// them mutually exclusive for free — opening the calorie popover closes the ⋯ menu,
+// on this row or any other, with no cross-wiring between them.
+const isMenuOpen = computed(() => menu.openId.value === `${props.item.id}:menu`);
 watch(isMenuOpen, (open) => emit("overlayToggle", open));
 function toggleMenu() {
-  menu.toggle(props.item.id, menuRootRef.value);
+  menu.toggle(`${props.item.id}:menu`, menuRootRef.value);
 }
+
+// ---- the two classification popovers ----
+// Both hang off their own toggle and hold: a switch for the class itself, plus the
+// one detail that only makes sense while it is on (worn → how many of the qty;
+// consumable → calories). Same shape twice, so learning one teaches the other.
+//
+// Namespaced off the row id like the ⋯ menu, so the singleton's single openId makes
+// every popover on every row mutually exclusive with no cross-wiring.
+const wornRootRef = useTemplateRef<HTMLElement>("wornRootRef");
+const isWornOpen = computed(() => menu.openId.value === `${props.item.id}:worn`);
+watch(isWornOpen, (open) => emit("overlayToggle", open));
+const wornAbove = ref(false);
+
+// ---- calories (consumable rows only) ----
+// Served in a popover hung off the classification control rather than given a
+// column: kcal is a fact about food, and food is a minority of a minority of rows.
+// A column would cost every row width to serve a few, which is the trade the
+// classification select already makes by collapsing three states into one control.
+const kcalRootRef = useTemplateRef<HTMLElement>("kcalRootRef");
+const isKcalOpen = computed(() => menu.openId.value === `${props.item.id}:kcal`);
+watch(isKcalOpen, (open) => emit("overlayToggle", open));
+
+// Flip above the trigger when there isn't room below. A list is long and its last
+// rows sit at the viewport floor, where a below-anchored popover opens off-screen —
+// the one place the feature is needed is the one place it would be unreachable.
+// Tooltip.vue solves the same problem but is built around a hover-driven popup
+// teleported to <body>; this popover holds a focusable field and stays in the row,
+// so it measures for itself rather than inheriting that machinery.
+const kcalAbove = ref(false);
+// generous: switch row + label + field + the optional line-total, plus a margin
+const POP_H = 170;
+const POP_EDGE = 8; // breathing room against the viewport edge
+
+// How far the popover must slide right to stay on screen. It hangs off the trigger's
+// RIGHT edge, which is correct on a wide row but walks off the left of a phone, where
+// the stacked layout puts the toggles near the middle of a 375px viewport. Measured
+// rather than handled in CSS: only the trigger's live position can say whether the
+// card fits, and the same open-time measurement already decides the vertical flip.
+const popShift = ref(0);
+
+/** Open (or close) one of the row's classification popovers, flipping it above the
+ *  trigger when the row sits too close to the viewport floor. `focusField` is false
+ *  for the worn popover, whose controls are a switch and a set of buttons — pulling
+ *  focus to the first of those would look like a selection had been made. */
+async function togglePop(
+  kind: "worn" | "kcal",
+  rootRef: HTMLElement | null,
+  above: { value: boolean },
+  isOpen: boolean,
+  focusField: boolean,
+) {
+  const opening = !isOpen;
+  if (opening) {
+    const r = rootRef?.getBoundingClientRect();
+    above.value = !!r && window.innerHeight - r.bottom < POP_H;
+    popShift.value = 0; // measured below, once the card exists
+  }
+  menu.toggle(`${props.item.id}:${kind}`, rootRef);
+  if (!opening) return;
+  await nextTick();
+  // Measure the rendered card rather than trusting a constant: its width is set in
+  // CSS (rem), so a hardcoded pixel twin is wrong the moment the root font size
+  // isn't 16, and it drifts silently if the rule is ever retuned.
+  //
+  // offsetWidth, NOT getBoundingClientRect — the same trap Tooltip.vue documents.
+  // This runs on the tick the card mounts, while the enter transform is still
+  // applied, and a client rect reports the TRANSFORMED box (it measured 2px off).
+  // offsetWidth is the untransformed layout box. The TRIGGER isn't animating, so
+  // its rect is sound, and the card's left edge is the trigger's right minus that
+  // width — which is exactly where the CSS pins it.
+  const card = rootRef?.querySelector<HTMLElement>(".item__pop");
+  const anchor = rootRef?.getBoundingClientRect();
+  if (card && anchor) {
+    const left = anchor.right - card.offsetWidth;
+    if (left < POP_EDGE) popShift.value = POP_EDGE - left;
+  }
+  if (focusField) {
+    // focus the field on open — the popover exists to take one number, so landing
+    // anywhere else would make every use a click plus a tab
+    rootRef?.querySelector<HTMLInputElement>("input")?.focus();
+  }
+}
+
+const toggleWorn = () => togglePop("worn", wornRootRef.value, wornAbove, isWornOpen.value, false);
+const toggleKcal = () => togglePop("kcal", kcalRootRef.value, kcalAbove, isKcalOpen.value, true);
+function onKcal(e: Event) {
+  const el = e.target as HTMLInputElement;
+  const raw = el.value.trim();
+  // "" (and anything unparseable) clears — the reducer treats a non-number as
+  // absent rather than 0, so an emptied field means "not filled in", not "zero
+  // calories". Resync afterwards so a rejected entry doesn't linger in the box.
+  const n = raw === "" ? null : Number(raw);
+  c.updateItem(props.item.id, { kcal: n != null && isFinite(n) ? n : null });
+  el.value = props.item.kcal ? String(props.item.kcal) : "";
+}
+// ---- nesting ----
+// The two actions a row can offer, resolved to whichever apply. Same table-drives-
+// both-markup-and-dispatch shape the editor's ⋯ menu uses, so an action can't exist
+// in one without the other.
+const nestActions = computed(() => {
+  const acts: { label: string; run: () => void }[] = [];
+  // a nested row can't nest further, and a row that already HAS children uses its
+  // own ever-present "Add an item" instead
+  if (!props.nested && !isParent.value) acts.push({ label: "Add a nested item", run: () => c.addChild(props.item.id) });
+  if (props.nested) acts.push({ label: "Move out of the group", run: () => c.unnest(props.item.id) });
+  else if (canIndent.value && props.prevId)
+    acts.push({ label: "Nest under the item above", run: () => c.nestItem(props.item.id, props.prevId!) });
+  return acts;
+});
+const nestRootRef = useTemplateRef<HTMLElement>("nestRootRef");
+const isNestOpen = computed(() => menu.openId.value === `${props.item.id}:nest`);
+watch(isNestOpen, (open) => emit("overlayToggle", open));
+function toggleNestMenu() {
+  menu.toggle(`${props.item.id}:nest`, nestRootRef.value);
+}
+
+// ---- save to vault ----
+// Gear reaches the vault on its own as you build (useVault.sync), which is the right
+// default and the reason the vault fills itself. What it has never had is a way to
+// SAY so: no button, no confirmation, nothing on the row that admits the feature
+// exists. This is that affordance — the same capture, asked for out loud.
+const vaultSaved = ref(false);
+const vaultBusy = ref(false);
+const vaultLabel = computed(() =>
+  vaultSaved.value ? "Saved to your gear vault" : "Save to your gear vault",
+);
+async function onSaveToVault() {
+  if (vaultBusy.value || vaultSaved.value) return;
+  vaultBusy.value = true;
+  const result = await c.saveItemToVault(props.item.id);
+  vaultBusy.value = false;
+  if (result === "saved") return void (vaultSaved.value = true);
+  emit(
+    "toast",
+    result === "unworthy"
+      ? "Give the row a name and a weight first"
+      // the vault belongs to an account, so signed out there is nowhere to put it.
+      // Naming that is the difference between a dead button and a next step.
+      : hasVault.value
+        ? "Couldn’t reach your gear vault — try again in a moment"
+        : "Sign in to keep a gear vault",
+  );
+}
+// a rename or re-weigh makes it a different piece of gear, so the tick stops
+// speaking for it and the row can be banked again
+watch(
+  () => [props.item.name, props.item.brand, props.item.variant, props.item.unitWeightMg],
+  () => (vaultSaved.value = false),
+);
+
 // the same actions the inline icons run, in the order the icons sat: note, then the
-// one nesting action that applies to this row's state (add-nested / nest-up / un-nest)
+// one nesting action that applies to this row's state (add-nested / nest-up / un-nest),
+// then the vault save — which is inline on a desktop row and lives only here on a phone
+// (see the mobile block: the trailing cluster is delete · ⋯ · grip, and a fourth icon
+// pushed the whole line off a 375px screen once touch targets grow to --tap).
 const overflowActions = computed(() => {
   const acts: { label: string; run: () => void }[] = [
     { label: subLabel.value, run: onSubBtn },
@@ -475,6 +703,11 @@ const overflowActions = computed(() => {
     if (canIndent.value)
       acts.push({ label: "Nest under the item above", run: () => props.prevId && c.nestItem(props.item.id, props.prevId) });
   }
+  // Reads its own state, like the inline button's tooltip does — "Saved" is the
+  // whole feedback here, since a menu closes on choosing and there's no tick left
+  // on screen to see.
+  if (!isWater.value)
+    acts.push({ label: vaultLabel.value, run: onSaveToVault });
   return acts;
 });
 function runOverflow(a: { run: () => void }) {
@@ -547,8 +780,8 @@ function dismissFix() {
         <!-- absolute-stroke-width pins the drawn line at ~1.33px — what the surrounding
              16px icons render (2 nominal × 16/24) — so the bigger box doesn't read bolder
              than its row -->
-        <Square class="item__boxicon item__boxicon--empty" :size="20" :stroke-width="1.33" absolute-stroke-width aria-hidden="true" />
-        <SquareCheck class="item__boxicon item__boxicon--check" :size="20" :stroke-width="1.33" absolute-stroke-width aria-hidden="true" />
+        <HugeiconsIcon :icon="SquareIcon" class="item__boxicon item__boxicon--empty" :size="20" :stroke-width="1.33" absolute-stroke-width aria-hidden="true" />
+        <HugeiconsIcon :icon="CheckmarkSquare02Icon" class="item__boxicon item__boxicon--check" :size="20" :stroke-width="1.33" absolute-stroke-width aria-hidden="true" />
       </span>
       <span class="item__cname" :class="{ 'item__cname--group': isParent }"><ItemName :item="item" :group="isParent" /><button
           v-if="isParent"
@@ -558,9 +791,9 @@ function dismissFix() {
           :title="nestCollapsed ? 'Expand group' : 'Collapse group'"
           @mousedown.prevent
           @click.stop.prevent="toggleNest"
-        ><ChevronDown class="item__nestchev" :class="{ 'is-collapsed': nestCollapsed }" :size="16" :stroke-width="2" /></button></span>
+        ><HugeiconsIcon :icon="ChevronDownIcon" class="item__nestchev" :class="{ 'is-collapsed': nestCollapsed }" :size="16" :stroke-width="2" /></button></span>
       <span class="t-num t-sm t-muted item__cqty">{{ itemQtyLabel(item, effClass) }}</span>
-      <span class="t-num item__cweight"><template v-if="rowWeightMg > 0">{{ formatWeight(rowWeightMg, list.displayUnit, { withUnit: false }) }}<span class="t-muted item__wunit">{{ list.displayUnit }}</span></template><template v-else>—</template></span>
+      <span class="t-num item__cweight"><template v-if="rowWeightMg > 0">{{ formatWeight(rowWeightMg, rowUnit, { withUnit: false }) }}<span class="t-muted item__wunit">{{ rowUnit }}</span></template><template v-else>—</template></span>
       <!-- the common name — a quiet sub-line under the product name (what you're checking
            off), aligned to the name column past the checkbox; mirrors the read row -->
       <span v-if="item.commonName" class="t-sm item__csub">{{ item.commonName }}</span>
@@ -593,7 +826,7 @@ function dismissFix() {
           @mousedown.prevent
           @click="toggleNest"
         >
-          <ChevronDown class="item__nestchev" :class="{ 'is-collapsed': nestCollapsed }" :size="16" :stroke-width="2" />
+          <HugeiconsIcon :icon="ChevronDownIcon" class="item__nestchev" :class="{ 'is-collapsed': nestCollapsed }" :size="16" :stroke-width="2" />
         </button>
       </div>
 
@@ -632,21 +865,183 @@ function dismissFix() {
             @keydown.up.prevent="onWeightStep($event, 1)"
             @keydown.down.prevent="onWeightStep($event, -1)"
           />
-          <span class="t-sm t-muted item__unit">{{ list.displayUnit }}</span>
+          <!-- The unit is SELECTABLE, not just typed. Entry units already worked by
+               typing "3.8 oz", but that only helps if you know to try it — the label
+               looked like a caption, so the feature was invisible. Same transparent-
+               native-select idiom the total's unit uses (TotalsBar): the visible text
+               stays exactly as it was, and the real control sits over it keeping the
+               native picker and full keyboard behaviour.
+               Not on water (its weight is derived from a volume) or on a group row
+               (whose figure is the sum of children that may each read differently). -->
+          <span class="item__unitwrap">
+            <span class="t-sm t-muted item__unit">{{ rowUnit }}</span>
+            <!-- The mark that says "this is a control". Without it the unit was a
+                 transparent select over text that looked exactly like a caption, so
+                 the picker was only ever found by accident. Same chevron the total's
+                 unit carries, at row scale — one vocabulary for one gesture.
+                 12/2 renders an exact 1px stroke (12 ÷ 24 × 2), the small-size
+                 counterpart to the total's 16/2.25 = 1.5px. -->
+            <HugeiconsIcon
+              v-if="!isWater && !isParent"
+              :icon="ChevronDownIcon"
+              class="item__unitchev"
+              :size="12"
+              :stroke-width="2"
+              aria-hidden="true"
+            />
+            <select
+              v-if="!isWater && !isParent"
+              class="item__unitsel"
+              :value="rowUnit"
+              :title="`Unit for ${item.name || 'this item'}`"
+              aria-label="Weight unit for this item"
+              @change="onRowUnit"
+            >
+              <option v-for="u in UNITS" :key="u" :value="u">{{ u }}</option>
+            </select>
+          </span>
         </div>
 
-        <div class="item__classwrap">
-          <span class="item__classlabel">{{ effClassLabel }}</span>
-          <ChevronDown class="item__classchev" :size="14" :stroke-width="2" aria-hidden="true" />
-          <select
-            class="item__classsel"
-            :value="classValue"
-            :title="classTitle"
-            aria-label="Classification"
-            @change="onClass"
-          >
-            <option v-for="o in classOptions" :key="o.value" :value="o.value">{{ o.label }}</option>
-          </select>
+        <!-- CLASSIFICATION — two toggles rather than a three-option select. The field
+             holds one value with base stored as null, so "both off" IS base: the pair
+             renders the type directly instead of restating it. Each toggle also opens
+             the one detail that only exists while it is on — worn's split count,
+             consumable's calories — so the row itself gains no third control.
+             Water is excluded from both: its class is fixed and its weight derived. -->
+        <div class="item__classcell">
+          <div v-if="!isWater" ref="wornRootRef" class="menu item__cls">
+            <!-- Tooltip wraps the BUTTON, not the cell: the popover below is anchored
+                 to .item__cls, and putting the wrapper around both would re-anchor it
+                 to a div that only spans the trigger. The accessible name stays on the
+                 control (aria-label) — the tooltip only adds the visible description,
+                 so `title` is dropped to avoid the native bubble doubling it. -->
+            <Tooltip :text="wornTitle" :disabled="isWornOpen" preferred-placement="top">
+              <button
+                class="btn btn--icon btn--ghost menu__btn item__clsbtn"
+                :class="{ 'is-active': isWorn }"
+                type="button"
+                aria-haspopup="dialog"
+                :aria-expanded="isWornOpen"
+                :aria-label="wornAria"
+                @mousedown.prevent
+                @click="toggleWorn"
+              >
+                <HugeiconsIcon :icon="ShirtIcon" :size="16" :stroke-width="2" />
+              </button>
+            </Tooltip>
+            <Transition name="menu">
+              <div
+                v-if="isWornOpen"
+                class="popover item__pop"
+                :class="{ 'is-above': wornAbove }"
+                :style="popShift ? { translate: popShift + 'px 0' } : undefined"
+                role="dialog"
+                aria-label="Worn"
+              >
+                <div class="switch-row">
+                  <span class="t-sm">Worn</span>
+                  <button
+                    class="switch"
+                    type="button"
+                    role="switch"
+                    :aria-checked="isWorn"
+                    aria-label="Worn on your body"
+                    @click="setClass('worn', !isWorn)"
+                  />
+                </div>
+                <!-- the split: only offered on a row with multiples, because one of one
+                     is simply "worn". Buttons rather than a number field — the useful
+                     range is 1..qty-1 and it is nearly always 1. The label matches the
+                     consumable popover's ("kcal each"): a field label naming the value
+                     below it, not a sentence. -->
+                <template v-if="splitOptions.length">
+                  <p class="t-sm t-muted item__poplabel">worn of {{ item.qty }}</p>
+                  <div class="item__splits">
+                    <button
+                      v-for="n in splitOptions"
+                      :key="n"
+                      class="btn btn--quiet item__split"
+                      :class="{ 'is-active': activeSplit === n }"
+                      type="button"
+                      :title="`${n} worn, ${Math.max(0, item.qty - n)} in the pack`"
+                      @click="setSplit(n)"
+                    >
+                      {{ n }}
+                    </button>
+                  </div>
+                  <!-- the resolved split, mirroring the calorie popover's line total:
+                       both popovers end by restating what the row now counts as -->
+                  <p v-if="activeSplit > 0" class="t-sm t-muted item__popline">
+                    {{ activeSplit }} worn · {{ Math.max(0, item.qty - activeSplit) }} packed
+                  </p>
+                </template>
+              </div>
+            </Transition>
+          </div>
+
+          <div v-if="!isWater" ref="kcalRootRef" class="menu item__cls">
+            <Tooltip :text="consumableTitle" :disabled="isKcalOpen" preferred-placement="top">
+              <button
+                class="btn btn--icon btn--ghost menu__btn item__clsbtn"
+                :class="{ 'is-active': isConsumable }"
+                type="button"
+                aria-haspopup="dialog"
+                :aria-expanded="isKcalOpen"
+                :aria-label="consumableAria"
+                @mousedown.prevent
+                @click="toggleKcal"
+              >
+                <HugeiconsIcon :icon="CookieIcon" :size="16" :stroke-width="2" />
+              </button>
+            </Tooltip>
+            <Transition name="menu">
+              <div
+                v-if="isKcalOpen"
+                class="popover item__pop"
+                :class="{ 'is-above': kcalAbove }"
+                :style="popShift ? { translate: popShift + 'px 0' } : undefined"
+                role="dialog"
+                aria-label="Consumable"
+              >
+                <div class="switch-row">
+                  <span class="t-sm">Consumable</span>
+                  <button
+                    class="switch"
+                    type="button"
+                    role="switch"
+                    :aria-checked="isConsumable"
+                    aria-label="Food, fuel or water"
+                    @click="setClass('consumable', !isConsumable)"
+                  />
+                </div>
+                <!-- calories only once the row IS consumable — that is the only state
+                     in which the number is counted, so offering it before would collect
+                     a value the totals ignore -->
+                <template v-if="isConsumable">
+                  <label class="t-sm t-muted item__poplabel" :for="`${item.id}-kcal`">kcal each</label>
+                  <input
+                    :id="`${item.id}-kcal`"
+                    class="field field--num item__popinput"
+                    :value="item.kcal ?? ''"
+                    placeholder="0"
+                    inputmode="numeric"
+                    autocomplete="off"
+                    spellcheck="false"
+                    @change="onKcal"
+                    @keydown.enter="($event.target as HTMLInputElement).blur()"
+                  />
+                  <!-- the line total, so a qty>1 row doesn't make you do it in your
+                       head. The icon marks it as DERIVED — everything above it in this
+                       popover is something you typed, this is the one line the app
+                       worked out. -->
+                  <p v-if="item.kcal && item.qty > 1" class="t-sm t-muted item__popline">
+                    <HugeiconsIcon :icon="CalculatorIcon" class="item__poplineicon" :size="14" aria-hidden="true" :stroke-width="2" />
+                    {{ formatKcal(item.kcal * item.qty) }} kcal for {{ item.qty }}
+                  </p>
+                </template>
+              </div>
+            </Transition>
+          </div>
         </div>
 
         <div class="item__actions">
@@ -656,64 +1051,77 @@ function dismissFix() {
                blank row discards itself before the click can act (e.g. the note
                button would delete the row instead of opening the note field).
                Preventing the default keeps focus where it was; click still fires. -->
-          <!-- add a nested item under this row (icon; a nested row can't nest further).
-               Only on a row that has NO children yet — it's the entry point to START
-               nesting. Once the group exists, its ever-present "Add an item" (below)
-               is where more children get added, so the icon would be redundant. -->
-          <button
-            v-if="!nested && !isParent"
-            class="btn btn--icon btn--ghost item__nest-btn"
-            title="Add a nested item"
-            aria-label="Add a nested item"
-            @mousedown.prevent
-            @click="c.addChild(item.id)"
-          >
-            <ListPlus :size="16" />
-          </button>
-          <!-- nesting: a child un-nests (outdent); a top-level row with a sibling above
-               nests under it (indent). Reparenting is only these actions — never a drag. -->
-          <button
-            v-if="nested"
-            class="btn btn--icon btn--ghost item__nest-btn"
-            title="Un-nest (move out)"
-            aria-label="Un-nest item"
-            @mousedown.prevent
-            @click="c.unnest(item.id)"
-          >
-            <IndentDecrease :size="16" />
-          </button>
-          <button
-            v-else-if="canIndent"
-            class="btn btn--icon btn--ghost item__nest-btn"
-            title="Nest under the item above"
-            aria-label="Nest under the item above"
-            @mousedown.prevent
-            @click="prevId && c.nestItem(item.id, prevId)"
-          >
-            <IndentIncrease :size="16" />
-          </button>
-          <button
-            class="btn btn--icon btn--ghost item__del"
-            title="Remove item"
-            aria-label="Remove item"
-            @mousedown.prevent
-            @click="c.removeItem(item.id)"
-          >
-            <Trash2 :size="16" />
-          </button>
-          <button
-            class="btn btn--icon btn--ghost item__note-btn"
-            :class="{ 'is-active': !!item.description }"
-            :title="subLabel"
-            :aria-label="subLabel"
-            :aria-expanded="subShown"
-            :aria-controls="subId"
-            @mousedown.prevent
-            @click="onSubBtn"
-          >
-            <StickyNoteX v-if="subOpen" :size="16" />
-            <StickyNotePlus v-else :size="16" />
-          </button>
+          <!-- NESTING, under one icon. These were up to two adjacent buttons whose
+               glyphs (list-plus, indent, outdent) are near-identical at 16px, so the
+               cluster read as noise and you had to hover each to learn which was which.
+               One trigger, and the menu SAYS what each action does.
+               Rendered only when there is something to offer — a nested row that can't
+               un-nest, or a parent with nothing to indent under, gets no icon at all
+               rather than a menu that opens empty. -->
+          <div v-if="nestActions.length" ref="nestRootRef" class="menu item__nest">
+            <Tooltip text="Nesting" preferred-placement="top" :disabled="isNestOpen">
+              <button
+                class="btn btn--icon btn--ghost item__nest-btn"
+                type="button"
+                aria-haspopup="menu"
+                :aria-expanded="isNestOpen"
+                aria-label="Nesting"
+                @mousedown.prevent
+                @click="toggleNestMenu"
+              >
+                <HugeiconsIcon :icon="ListIndentIncreaseIcon" :size="16" :stroke-width="2" />
+              </button>
+            </Tooltip>
+            <Transition name="menu">
+              <ul v-if="isNestOpen" class="popover menu__list item__nestlist" role="menu" aria-label="Nesting">
+                <li v-for="a in nestActions" :key="a.label" role="none">
+                  <button type="button" role="menuitem" class="menu__item" @click="menu.close(); a.run()">{{ a.label }}</button>
+                </li>
+              </ul>
+            </Transition>
+          </div>
+          <!-- Save to vault. Capture already happens on its own as you build, so this
+               isn't a new capability — it's the missing affordance for one that had no
+               visible existence. Placed before delete so the destructive action stays
+               last in the cluster. -->
+          <Tooltip :text="vaultLabel" preferred-placement="top">
+            <button
+              class="btn btn--icon btn--ghost item__vault-btn"
+              :class="{ 'is-active': vaultSaved }"
+              type="button"
+              :disabled="vaultBusy"
+              :aria-label="vaultLabel"
+              @mousedown.prevent
+              @click="onSaveToVault"
+            >
+              <HugeiconsIcon :icon="CheckIcon" v-if="vaultSaved" :size="16" :stroke-width="2" />
+              <HugeiconsIcon :icon="SafeBoxIcon" v-else :size="16" :stroke-width="2" />
+            </button>
+          </Tooltip>
+          <Tooltip text="Remove item" preferred-placement="top">
+            <button
+              class="btn btn--icon btn--ghost item__del"
+              aria-label="Remove item"
+              @mousedown.prevent
+              @click="c.removeItem(item.id)"
+            >
+              <HugeiconsIcon :icon="Delete02Icon" :size="16" :stroke-width="2" />
+            </button>
+          </Tooltip>
+          <Tooltip :text="subLabel" preferred-placement="top">
+            <button
+              class="btn btn--icon btn--ghost item__note-btn"
+              :class="{ 'is-active': !!item.description }"
+              :aria-label="subLabel"
+              :aria-expanded="subShown"
+              :aria-controls="subId"
+              @mousedown.prevent
+              @click="onSubBtn"
+            >
+              <HugeiconsIcon :icon="NoteRemoveIcon" v-if="subOpen" :size="16" :stroke-width="2" />
+              <HugeiconsIcon :icon="NoteAddIcon" v-else :size="16" :stroke-width="2" />
+            </button>
+          </Tooltip>
           <!-- mobile overflow: the note + nesting actions collapse in here (delete +
                grip stay inline). Hidden on desktop. Same .menu/.popover atom as the
                editor's ⋯ kebab; one row's menu open at a time (useItemMenu). -->
@@ -727,7 +1135,7 @@ function dismissFix() {
               @mousedown.prevent
               @click="toggleMenu"
             >
-              <CircleEllipsis :size="16" />
+              <HugeiconsIcon :icon="CircleEllipsisIcon" :size="16" :stroke-width="2" />
             </button>
             <Transition name="menu">
               <ul v-if="isMenuOpen" class="popover menu__list item__morelist" role="menu" aria-label="Item actions">
@@ -746,7 +1154,7 @@ function dismissFix() {
             @pointerdown="dnd.start(item.id, $event)"
             @keydown="onGripKey"
           >
-            <GripVertical :size="16" />
+            <HugeiconsIcon :icon="GripVerticalIcon" :size="16" :stroke-width="2" />
           </button>
         </div>
       </div>
@@ -814,7 +1222,7 @@ function dismissFix() {
             aria-label="Dismiss suggestion"
             @click="dismissFix"
           >
-            <X :size="14" />
+            <HugeiconsIcon :icon="Cancel01Icon" :size="14" :stroke-width="2" />
           </button>
         </div>
       </div>
@@ -840,6 +1248,7 @@ function dismissFix() {
           :packed="packed"
           nested
           @overlay-toggle="onChildOverlay"
+          @toast="$emit('toast', $event)"
         />
         <div v-if="isNestAppendTarget" class="item-nest__droptail" aria-hidden="true" />
         <button v-if="!packed" type="button" class="item-nest__add" @mousedown.prevent @click="c.addChild(item.id)">
@@ -905,11 +1314,27 @@ function dismissFix() {
 .item__weight {
   grid-area: weight;
 }
-.item__classwrap {
+/* the cell, not a classification wrapper, is what the grid places — both toggles
+   ride in the same column the word "Consumable" used to occupy.
+   CENTRED, not baseline: the row aligns on the baseline, which lines up the TOPS of
+   a 32px icon button and a 36px field and so leaves every icon sitting 2px high
+   against the numbers. That was invisible while this cell held text (text shares the
+   baseline); with icons in it the 2px reads as a wobble mid-row. Centring resolves
+   the button in the 36px track the fields define, so the glyph lands on the numbers'
+   optical centre. */
+.item__classcell {
   grid-area: class;
+  display: flex;
+  align-self: center;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
 }
+/* same correction for the trailing cluster — it carried the same 2px lift, and
+   fixing only the middle one would leave two icon groups at two heights */
 .item__actions {
   grid-area: actions;
+  align-self: center;
 }
 /* desktop: the wrapper is invisible to layout, so its children act as direct grid
    items in the shared columns. (on mobile it becomes a flex-wrap row — see below) */
@@ -1039,36 +1464,170 @@ function dismissFix() {
 .item__weight .field {
   min-width: 0;
 }
+.item__unitwrap {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+  /* centres the chevron ON the unit's text rather than letting it stretch. The wrap
+     still contributes the unit's own baseline upward, so the number and its unit stay
+     on one line with the rest of the row. */
+  align-items: center;
+}
 .item__unit {
   flex: none;
 }
-.item__classwrap {
-  position: relative;
-  display: inline-flex;
-  align-items: baseline;
-  gap: var(--space-px);
-  min-width: 0;
+/* Quiet by default — one of these sits on every row, and a column of hard chevrons
+   would shout louder than the weights they belong to. --ink-3 is the same step the
+   row's other passive marks use; it lifts on hover so pointing at the row confirms
+   the thing is live. */
+.item__unitchev {
+  flex: none;
+  color: var(--ink-3);
+  transition: color var(--dur) var(--ease);
 }
-.item__classlabel {
-  font-size: var(--text-sm);
+/* :has(), not a sibling combinator — the select is rendered AFTER the chevron, so
+   `~` from it reaches nothing. Keyboard focus has to light the mark too, or the
+   affordance exists for pointers only. */
+.item:hover .item__unitchev,
+.item__unitwrap:has(.item__unitsel:focus-visible) .item__unitchev {
   color: var(--ink-2);
-  white-space: nowrap;
 }
-/* transparent native select over the label + chevron: the visible label hugs the
-   chevron tight (a styled <select> sizes to its widest option, leaving a big gap),
-   while the real select keeps full keyboard + native-picker behaviour */
-.item__classsel {
+/* transparent native select over the unit text — the same construction the total's
+   unit picker uses. The label stays the only thing drawn; this just makes it a
+   control. Sized to the label so it can't widen the weight column. */
+.item__unitsel {
   position: absolute;
   inset: 0;
   width: 100%;
   opacity: 0;
   cursor: pointer;
 }
-.item__classchev {
+/* the two classification toggles. Both --icon-btn wide, so the pair costs 68px of
+   the 108–128px class track the old select needed for the word "Consumable" — the
+   row gets denser, not busier. */
+.item__cls {
+  position: relative;
   flex: none;
-  align-self: center;
+  display: inline-flex;
+  align-items: center;
+}
+.item__clsbtn {
   color: var(--ink-3);
-  pointer-events: none;
+  border-radius: var(--radius-pill);
+}
+.item__clsbtn:hover {
+  color: var(--ink);
+}
+/* ON is a FILLED GROUND, not just darker ink. The reference signals this state with
+   colour, which this codebase reserves for the data viz — and ink-vs-grey alone is
+   the same signal hover already uses, so a toggle would read as merely hovered.
+   A quiet grey chip (--paper-3, the "quiet surfaces, not borders" token) carries the
+   state without an inverted ink chip's weight: these sit in a dense list, and a row
+   of black dots would out-shout the weights, which are what the page is for. */
+.item__clsbtn.is-active,
+.item__clsbtn.is-active:hover {
+  background: var(--paper-3);
+  color: var(--ink);
+}
+/* anchored to the trigger, not the viewport: the point of the popover is that it
+   opens where you were already looking. Right-aligned so it can't push the row's
+   action cluster off a narrow screen. */
+/* ONE popover recipe, worn and consumable both. They hold the same shape — a switch
+   row, then that class's detail — so they share the surface rather than drifting. */
+.item__pop {
+  /* The popover's own padding, and the basis for its inner corners. --popover-item-radius
+     (controls.scss) assumes --space-2 of padding; this surface uses more, so it re-derives
+     the inner radius from its OWN padding rather than inheriting a value that would leave
+     the field's corners rounder than the gap around them. */
+  --pop-pad: var(--space-3);
+  --pop-inner-radius: calc(var(--radius-4) - var(--pop-pad));
+
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  right: 0;
+  z-index: 20;
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--pop-pad);
+  /* one width for both popovers, set by the longest switch row ("Consumable" + the
+     switch) so the two read as the same object rather than two sizes of card. Wide
+     enough that neither detail label wraps — a wrapped label is what made these look
+     like two different components. */
+  width: 13rem;
+}
+/* flipped when the row sits too close to the viewport floor (see togglePop) */
+.item__pop.is-above {
+  top: auto;
+  bottom: calc(100% + var(--space-1));
+}
+/* Every line in the popover starts on the card's padding edge — the switch row, the
+   labels, the field's box and the derived line all share it. An earlier version
+   inset the labels to meet the field's TEXT, which was wrong twice over: the field's
+   number is right-aligned so there is no left text edge to meet, and the field's BOX
+   is the dominant vertical line, so indenting past it just read as two ragged edges. */
+.item__poplabel {
+  margin: 0;
+  line-height: 1;
+  white-space: nowrap;
+}
+/* the split counts — a row of small quiet buttons, the active one lit like the
+   toggles above it, so "which" is answered by the same signal as "whether" */
+.item__splits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.item__split {
+  min-width: var(--icon-btn);
+  min-height: var(--icon-btn);
+  padding-inline: var(--space-2);
+  justify-content: center;
+  border-radius: var(--pop-inner-radius);
+  background: var(--paper-2);
+  color: var(--ink-2);
+}
+.item__split:hover {
+  background: var(--paper-3);
+  color: var(--ink);
+}
+/* the chosen count takes the same quiet-grey chip as an active row toggle, one step
+   deeper — the popover's own ground is already --paper-2, so the resting chip has to
+   sit above it to read as a button at all */
+.item__split.is-active,
+.item__split.is-active:hover {
+  background: var(--ink);
+  color: var(--paper);
+}
+/* .field is deliberately borderless — it lives in the row grid, where a box per cell
+   would be pure noise. On a floating surface that reasoning inverts: with nothing
+   around it the number reads as printed text, not as something you can type into.
+   So the field declares itself here, and only here.
+   A FILL rather than a border does it: --surface-float is the brightest tone on the
+   page, so a well sunk into it reads as "type here" at a glance, where a hairline
+   rectangle has to be looked at to be seen. */
+.item__popinput {
+  width: 100%;
+  min-height: var(--icon-btn);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--pop-inner-radius);
+  background: var(--paper-2);
+}
+/* focus deepens the well and rings it — the caret alone is too quiet once the field
+   has a ground of its own to sit on */
+.item__popinput:focus {
+  background: var(--paper-3);
+  border-color: var(--line-2);
+}
+.item__popline {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+}
+.item__poplineicon {
+  flex: none;
+  color: var(--ink-3);
 }
 /* row controls (note + remove) stay visible at rest; the note button is lit when
    a note exists, and hover just darkens for feedback */
@@ -1087,6 +1646,7 @@ function dismissFix() {
 .item__grip,
 .item__note-btn,
 .item__nest-btn,
+.item__vault-btn,
 .item__del,
 /* the ⋯ overflow (mobile) — override .menu__btn's --ink-2 so it reads at the same
    weight as the delete + grip it sits between */
@@ -1100,9 +1660,19 @@ function dismissFix() {
 .item__grip:hover,
 .item__note-btn:hover,
 .item__nest-btn:hover,
+.item__vault-btn:hover,
 .item__del:hover,
 .item__morebtn:hover {
   color: var(--ink);
+}
+/* banked: the tick holds at full ink so the row keeps saying so, the same way the
+   note button stays lit once a note exists */
+.item__vault-btn.is-active,
+.item__vault-btn.is-active:hover {
+  color: var(--ink);
+}
+.item__vault-btn:disabled {
+  cursor: default;
 }
 /* drag-to-reorder */
 .item-wrap {
@@ -1170,68 +1740,18 @@ function dismissFix() {
   cursor: grabbing;
 }
 
-/* desktop (mouse): keep rows clean — the note + remove controls are hidden at rest
-   and fade in on row hover or keyboard focus. The reorder grip stays visible always
-   (it's the affordance for the row). Opacity only (not display), so revealing never
-   shifts the layout. Touch (hover: none) keeps everything visible. */
-@media (hover: hover) {
-  /* desktop: keep rows clean — remove + note + nest fade in on row hover/focus (the
-     note stays lit when a note exists, but still HIDES at rest like the delete). The
-     grip stays put. `> .item` scopes the reveal to a row's OWN cluster so hovering a
-     parent doesn't reveal every nested child's icons. */
-  .item__del,
-  .item__note-btn:not(.is-active),
-  .item__nest-btn {
-    opacity: 0;
-    transition: opacity var(--dur) var(--ease);
-    /* keep a standing compositing layer so Safari doesn't re-snap the icon ~1px when
-       it creates a layer for the fade on the first hover (same WebKit quirk handled
-       with will-change on .folder__chev) */
-    will-change: opacity;
-  }
-  .item-wrap:hover > .item :is(.item__del, .item__note-btn, .item__nest-btn),
-  .item-wrap:focus-within > .item :is(.item__del, .item__note-btn, .item__nest-btn) {
-    opacity: 1;
-  }
-}
+/* The row's controls used to hide at rest on desktop and fade in on hover, to keep a
+   long list quiet. That reads as an empty row until you point at it: the actions are
+   undiscoverable, and the row's right half visibly re-populates under the cursor as
+   you scan down the list — which is exactly the flicker the reference doesn't have,
+   because it just shows them.
+   They are ghosted (--ink-3) at rest and darken on hover instead, so the row is calm
+   without being blank. Nothing here is opacity-animated any more, which also retires
+   the Safari layer-snap workaround the old rule needed. */
 
-/* smooth disclosure for the note + fix-row — a grid whose one row animates 1fr↔0fr
-   (cross-browser slide; Safari has no interpolate-size, so height:auto↔0 just snaps
-   there). The inner child clips. reduced-motion → the global duration kill-switch
-   makes it instant. */
-.reveal {
-  display: grid;
-  grid-template-rows: 1fr;
-  /* Any offset a variant carries must COLLAPSE with the height. A margin still
-     applies to a box that has animated to 0fr, so the row lands off by it and then
-     snaps when the node is removed — which is exactly what the note's negative tuck
-     did. Owned here as a hook rather than patched per variant: the mobile override
-     below already sets a POSITIVE margin on the same wrapper, so "the tuck is
-     negative" was never the invariant — "the offset retires" is. */
-  margin-top: var(--reveal-offset, 0);
-}
-.reveal > * {
-  min-height: 0;
-  overflow: hidden;
-}
-.reveal-enter-active,
-.reveal-leave-active {
-  transition:
-    grid-template-rows var(--dur) var(--ease),
-    margin-top var(--dur) var(--ease),
-    opacity var(--dur) var(--ease);
-}
-/* the content also rises a touch as it fades — so the note reads as lifting into
-   place, not just unveiling. Synced with the height reveal + the wrapper's fade. */
-.reveal-enter-active > *,
-.reveal-leave-active > * {
-  transition: transform var(--dur) var(--ease);
-}
-.reveal-enter-from,
-.reveal-leave-to {
-  grid-template-rows: 0fr;
-  opacity: 0;
-}
+/* the .reveal recipe now lives in atoms/controls.scss — three surfaces disclose the
+   same way, and while it was scoped here the other two got the class names with none
+   of the transition. Only this row's own VARIANT stays local. */
 .reveal-enter-from,
 .reveal-leave-to {
   --reveal-offset: 0;
@@ -1409,10 +1929,15 @@ function dismissFix() {
     display: flex;
     flex-wrap: nowrap;
     align-items: baseline;
-    /* generous gap BETWEEN the groups (qty · weight · class) so they read as
+    /* Generous gap BETWEEN the groups (qty · weight · class) so they read as
        distinct — each number stays tight to its own ×/unit (see .item__qty gap +
-       the 1ch field min-width); this is the separation between those pairs */
-    gap: var(--space-4);
+       the 1ch field min-width); this is the separation between those pairs.
+       It SHRINKS on the narrowest screens rather than holding at space-4 and
+       overflowing. Once the classification cell became two toggles, a coarse
+       pointer's --tap sizing left this line needing more width than a 375px phone
+       has, and a fixed gap spends on air the controls need. Above ~640px it
+       resolves to space-4 and nothing changes. */
+    gap: clamp(var(--space-2), 2vw, var(--space-4));
   }
   .item__actions {
     margin-left: auto;
@@ -1427,33 +1952,26 @@ function dismissFix() {
     height: var(--tap);
     margin-block: var(--tap-pull);
   }
-  /* mobile trailing cluster = delete · ⋯ · grip. The note + nesting actions move
-     into the ⋯ menu (item__more) so the two-line row isn't crowded; only delete
-     stays inline beside the overflow. */
+  /* mobile trailing cluster = delete · ⋯ · grip. The note, nesting actions and the
+     vault save all move into the ⋯ menu (item__more) so the two-line row isn't
+     crowded; only delete stays inline beside the overflow.
+     The vault button is the one that has to be here rather than merely wanting to
+     be: on a coarse pointer every .btn--icon grows to --tap, so a fourth icon takes
+     the cluster to 187px and the line needs 412px inside a 343px row — the grip ends
+     up ~47px past the edge of a 375px screen. Three is what fits. */
   .item__note-btn,
-  .item__nest-btn {
+  .item__nest-btn,
+  .item__vault-btn {
     display: none;
   }
   .item__more {
     display: inline-flex;
   }
-  /* keep delete visible at rest — the hover:hover reveal above assumes a mouse, but
-     this breakpoint is also hit by touch devices that report hover:hover and by a
-     narrowed desktop window, where a hover you can't perform shouldn't be the only
-     way to reach it. `.item-wrap` prefix lifts specificity past the reveal's
-     `:not(.is-active)`. */
-  .item-wrap .item__del {
-    opacity: 1;
-  }
-  /* the classification label is the only flexible piece — it ellipsizes on very
-     narrow screens so qty/weight/controls keep their place on the single row */
-  .item__classwrap {
-    flex: 0 1 auto;
-    min-width: 0;
-  }
-  .item__classlabel {
-    overflow: hidden;
-    text-overflow: ellipsis;
+  /* the classification cell used to hold a text label that had to ellipsize to keep
+     qty/weight/controls on one line. Two icon toggles are a fixed 68px, so there is
+     nothing left to shrink — it just holds its size beside the other controls. */
+  .item__classcell {
+    flex: none;
   }
   /* the number fields have no grid column to fill on mobile, so give them compact
      explicit widths — otherwise width:100% balloons to the default text-input size
@@ -1534,6 +2052,35 @@ function dismissFix() {
     grid-column: 2 / -1;
     grid-row: 3;
     margin-top: 0;
+  }
+}
+
+/* The narrowest phones (iPhone SE and friends), and ONLY on a touch pointer.
+ *
+ * The meta line is nowrap by design — two lines per row, never three. That holds at
+ * 375 with room to spare, but it cannot hold at 320 once .btn--icon grows to --tap:
+ * the line then wants 323px inside a 288px content box, and the trailing grip ends up
+ * ~19px past the screen. Measured, not guessed.
+ *
+ * Two 44px toggles (92px) and three 44px actions (143px) are most of that, and none of
+ * it is padding to reclaim — shrinking either is exactly the touch target the coarse
+ * query exists to protect. So the line is allowed to wrap here, and the actions
+ * cluster drops beneath the numbers rather than off the edge of the phone. A third
+ * line on a 320px screen is a worse row than two; an unreachable delete button is not
+ * a row at all.
+ *
+ * pointer: coarse is part of the condition on purpose — a 320px-wide DESKTOP window
+ * keeps 32px icons, still fits on one line, and should not be given the phone layout.
+ */
+@media (max-width: 360px) and (pointer: coarse) {
+  .item__meta {
+    flex-wrap: wrap;
+    row-gap: var(--space-1);
+  }
+  /* margin-left:auto already pushes it right; with wrap enabled that also makes it
+     take the full second line rather than sitting under the qty column */
+  .item__actions {
+    margin-left: auto;
   }
 }
 </style>

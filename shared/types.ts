@@ -51,12 +51,26 @@ export interface Item {
   nameOverridden?: boolean;
   unitWeightMg: number; // the user's truth for THIS list, integer milligrams
   weightOverridden?: boolean;
+  // The unit this row's weight was TYPED in — display only. unitWeightMg stays the
+  // one canonical store, so totals, sorting and exports are unaffected; this only
+  // decides which unit the row renders back in. You buy gear labelled in whatever
+  // the maker chose, so a metric list can hold a 3.8 oz stake set and still read in
+  // grams at the bottom. Absent = fall back to the list's displayUnit, which is
+  // exactly how every row behaved before this field existed.
+  entryUnit?: Unit;
   qty: number;
   // of qty units, this many count as WORN; remainder = the row's effective class.
   // Only meaningful when the effective classification is "base" (a refinement of
   // the base line — NOT a second classification field). Absent/0 = no split. 0..qty.
   wornQty?: number;
   classification: Classification | null; // null = inherit folder default
+  // Food energy for ONE unit, whole kcal — the calorie twin of unitWeightMg, so a
+  // line is kcal × qty exactly as it is for weight. Only reachable, and only
+  // counted, on rows whose EFFECTIVE classification is consumable: kcal on a tent
+  // is a typo, and counting a value the row doesn't offer to edit would be a number
+  // with no way back to its source. Flipping a row base → consumable therefore
+  // brings a stored value back, which is what you'd want after a mis-click.
+  kcal?: number;
   description?: string; // optional freeform user text
   productUrl?: string;
   imageUrl?: string;
@@ -83,6 +97,15 @@ export interface ListMeta {
   // from the URL's path, for sites whose URLs are opaque (caltopo.com/m/ABC).
   trailUrl?: string;
   trailLabel?: string;
+  // When the trip is. CALENDAR DATES, not instants: `YYYY-MM-DD`, no time and no
+  // timezone. A trip's dates are the ones written on a permit — they don't shift
+  // because you flew somewhere, which is exactly what storing an instant would do.
+  //
+  // Two optional strings and nothing else. This is NOT a trip planner: there are no
+  // days, no waypoints, no itinerary. See the note in shared/ops.ts's setMeta case
+  // for why the smaller thing was chosen deliberately.
+  startDate?: string;
+  endDate?: string;
 }
 
 /** Canonical wire shape returned by the API and held by the client editor. */
@@ -154,4 +177,12 @@ export interface Totals {
   carriedMg: number;
   itemCount: number;
   hasWeights: boolean;
+  /** Food energy across every CONSUMABLE line — see Item.kcal for why the class
+   *  gates it. Not a slice of the weight partition above; it's a different unit
+   *  entirely, and the UI renders it apart from the three chips for that reason. */
+  kcalTotal: number;
+  /** Does anything carry a calorie value? Mirrors hasWeights: it lets the UI stay
+   *  silent on the overwhelming majority of lists, which will never use kcal, and
+   *  distinguishes "nothing entered" from a genuine zero. */
+  hasKcal: boolean;
 }

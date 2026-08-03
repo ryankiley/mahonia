@@ -103,10 +103,20 @@
   }
 }
 
-/* unit suffix on a weight — an explicit gap from the number so it doesn't crowd
-   ("1200g"); one gap shared by the editing, packing, and read rows */
+/* Unit suffix on a weight — an explicit gap from the number so it doesn't crowd
+   ("1200g"); one gap shared by the editing, packing, and read rows.
+   FIXED SLOT, left-aligned inside it. The cell is right-aligned, so with the unit
+   free to size itself the NUMBER's right edge moved with the unit's width: a column
+   of "539 g" rows with one "32.5 oz" in it had that one number sitting ~1ch left of
+   the rest. Nobody saw it while a list was all one unit; per-row entry units made
+   mixed columns normal, and the ragging with them.
+   2ch fits every unit in UNITS (g, kg, oz, lb), so the number ends in the same place
+   on every row and the pair still hangs off the column's right edge. */
 .item__wunit {
   margin-inline-start: var(--space-1);
+  display: inline-block;
+  inline-size: 2ch;
+  text-align: left;
 }
 
 /* The quiet "Add an item" affordance — ONE recipe for the folder's add row and a nested

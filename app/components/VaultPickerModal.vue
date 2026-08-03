@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { Square, SquareCheck } from "@lucide/vue";
+import { HugeiconsIcon } from "@hugeicons/vue";
+import { CheckmarkSquare02Icon, SquareIcon } from "@hugeicons/core-free-icons";
 import type { Unit } from "~~/shared/types";
 import type { VaultCapture } from "~~/shared/vault";
 import { formatWeightAuto, itemDisplayName } from "~~/shared/weights";
@@ -91,8 +92,8 @@ const groups = computed(() => {
                 :aria-label="`Add ${itemDisplayName(c.brand, c.name, c.variant)} to your gear vault`"
                 @change="toggle(c.normKey)"
               />
-              <Square class="vpick__boxicon vpick__boxicon--empty" :size="20" :stroke-width="1.33" absolute-stroke-width aria-hidden="true" />
-              <SquareCheck class="vpick__boxicon vpick__boxicon--check" :size="20" :stroke-width="1.33" absolute-stroke-width aria-hidden="true" />
+              <HugeiconsIcon :icon="SquareIcon" class="vpick__boxicon vpick__boxicon--empty" :size="20" :stroke-width="1.33" absolute-stroke-width aria-hidden="true" />
+              <HugeiconsIcon :icon="CheckmarkSquare02Icon" class="vpick__boxicon vpick__boxicon--check" :size="20" :stroke-width="1.33" absolute-stroke-width aria-hidden="true" />
             </span>
             <span class="vpick__name">{{ itemDisplayName(c.brand, c.name, c.variant) }}</span>
             <span class="t-sm t-muted vpick__weight">{{

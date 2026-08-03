@@ -30,6 +30,42 @@ export function getClientIp(event: H3Event): string | undefined {
   return getRequestIP(event);
 }
 
+/**
+ * The unit a rate limit should actually count: one CUSTOMER, not one address.
+ *
+ * Keying on the whole IP is right for IPv4, where an address is scarce and shared. It
+ * is close to meaningless for IPv6: a residential connection is routed a /64, so a
+ * script can bind a different source address per request and mint a fresh bucket every
+ * time. Every limit here — sign-in links, reports, and the anonymous feedback endpoint
+ * that opens PUBLIC issues — was bypassable that way by anyone with an ordinary
+ * dual-stack connection.
+ *
+ * So IPv6 collapses to its /64, which is the smallest block an ISP hands to a single
+ * subscriber. IPv4 is kept whole (a /64 has no meaning there, and truncating would
+ * bucket a whole carrier-grade NAT together). IPv4-mapped v6 is unwrapped first, or
+ * "::ffff:1.2.3.4" would be scoped as though it were v6.
+ *
+ * Cost: two devices behind one home router already shared a bucket on IPv4 and now do
+ * on IPv6 too. That is the intended reading of "one client".
+ */
+export function rateLimitScope(ip: string): string {
+  const mapped = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/i.exec(ip);
+  if (mapped) return mapped[1]!;
+  if (!ip.includes(":")) return ip; // IPv4, or anything else we can't parse — as-is
+  const bare = ip.split("%")[0]!; // drop a scope id ("fe80::1%eth0")
+  const halves = bare.split("::");
+  const head = halves[0] ? halves[0].split(":") : [];
+  const tail = halves.length > 1 && halves[1] ? halves[1].split(":") : [];
+  // expand the "::" run so the first four hextets are the real ones
+  const gap = halves.length > 1 ? Math.max(0, 8 - head.length - tail.length) : 0;
+  const full = [...head, ...Array<string>(gap).fill("0"), ...tail];
+  const prefix = full
+    .slice(0, 4)
+    .map((h) => (h || "0").toLowerCase().replace(/^0+(?=.)/, ""))
+    .join(":");
+  return `${prefix}::/64`;
+}
+
 type Bucket = { count: number; resetAt: number };
 
 // The subset of Nitro's `useStorage("kv")` API the limiter touches. Prod binds
@@ -163,6 +199,10 @@ export const RATE_LIMITS = {
   // Sign-in is the tight one: it sends mail, and the same action is limited BOTH
   // per-IP and per-email (see rateLimitSubject) because neither alone stops both
   // a sprayer and a mailbomber.
+  // Anonymous and it writes to a PUBLIC issue tracker, so this is the tightest
+  // bucket in the app — the same figure as sign-in, for the same reason: there is
+  // no account gate in front of it, and each request has an outward-facing effect.
+  "feedback": 5,
   "auth-request": 5,
   "auth-verify": 20,
   "auth-me": 120,
@@ -187,7 +227,9 @@ export type RateLimitAction = keyof typeof RATE_LIMITS;
  */
 export async function rateLimit(event: H3Event, action: RateLimitAction): Promise<void> {
   const ip = getClientIp(event) || "unknown";
-  const over = await consumeRateLimit(useKv(), `rl:${action}:${ip}`, RATE_LIMITS[action], WINDOW_MS, Date.now());
+  // scoped, not raw — see rateLimitScope: a raw v6 address is one of 2^64 a single
+  // subscriber can send from, so the budget has to be per /64
+  const over = await consumeRateLimit(useKv(), `rl:${action}:${rateLimitScope(ip)}`, RATE_LIMITS[action], WINDOW_MS, Date.now());
   if (over) throw createError({ statusCode: 429, statusMessage: "Too many requests" });
 }
 

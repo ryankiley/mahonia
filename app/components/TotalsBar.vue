@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ChevronDown } from "@lucide/vue";
+import { HugeiconsIcon } from "@hugeicons/vue";
+import { ChevronDownIcon } from "@hugeicons/core-free-icons";
 import type { ListSnapshot, Totals, Unit } from "~~/shared/types";
 import { UNITS } from "~~/shared/types";
-import { carriedIsDistinct, formatWeight } from "~~/shared/weights";
+import { carriedIsDistinct, formatKcal, formatWeight } from "~~/shared/weights";
 
 const props = defineProps<{
   list: ListSnapshot;
@@ -41,6 +42,8 @@ const chips = computed(() => {
 // carriedIsDistinct (shared/weights.ts) decides whether it's worth showing — the same
 // call the Markdown export makes, so the two can't drift.
 const showCarried = computed(() => carriedIsDistinct(props.totals));
+
+const kcalDisplay = computed(() => formatKcal(props.totals.kcalTotal));
 </script>
 
 <template>
@@ -57,7 +60,7 @@ const showCarried = computed(() => carriedIsDistinct(props.totals));
             <!-- stroke 2.25, not the app-wide 2: at size 16 it renders an exact
                  1.5px stroke (crisp 3 device px at 2x), so the chevron holds its
                  weight beside the display-size figure -->
-            <ChevronDown class="totals__chev" :size="16" :stroke-width="2.25" />
+            <HugeiconsIcon :icon="ChevronDownIcon" class="totals__chev" :size="16" :stroke-width="2.25" />
           </span>
           <!-- transparent native select over the number: tap the total to change units -->
           <select
@@ -97,6 +100,21 @@ const showCarried = computed(() => carriedIsDistinct(props.totals));
           <span class="chip chip--sum">
             <span class="t-label">Carried</span>
             <span class="t-num">{{ formatWeight(totals.carriedMg, list.displayUnit, { withUnit: false }) }} <span class="t-muted">{{ list.displayUnit }}</span></span>
+          </span>
+        </Tooltip>
+        <!-- calories sit APART from the chips on their left: those three partition the
+             weight, and this is a different quantity entirely — dropping it into the
+             same row would read as a fourth slice of the total. Only appears once
+             something carries a value (hasKcal), so the overwhelming majority of
+             lists, which will never use it, never see it. -->
+        <Tooltip
+          v-if="totals.hasKcal"
+          preferred-placement="bottom"
+          text="Food energy across everything classed as consumable."
+        >
+          <span class="chip chip--alt">
+            <span class="t-label">Calories</span>
+            <span class="t-num">{{ kcalDisplay }} <span class="t-muted">kcal</span></span>
           </span>
         </Tooltip>
       </div>
@@ -189,6 +207,13 @@ const showCarried = computed(() => carriedIsDistinct(props.totals));
    as the ⋯ menu's report row). The gap is --space-5, so the rule sits optically
    centred in it rather than crowding the label. */
 .chip--sum {
+  padding-left: var(--space-5);
+  border-left: 1px solid var(--line);
+}
+/* calories take the same hairline separation as the roll-up, for a related but
+   distinct reason: --sum is a figure derived FROM the partition on its left, this
+   one isn't in that partition at all. Either way it must not read as a fourth slice. */
+.chip--alt {
   padding-left: var(--space-5);
   border-left: 1px solid var(--line);
 }

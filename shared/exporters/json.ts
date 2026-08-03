@@ -6,17 +6,23 @@
 
 import type { Folder, Item, ListData, ListMeta, Unit } from "../types";
 import { UNITS } from "../types";
-import { MAX_FOLDERS, MAX_ITEMS, normalizeFolder, normalizeItem } from "../ops";
+import {
+  MAX_FOLDERS,
+  MAX_ITEMS,
+  normalizeCalendarDate,
+  normalizeFolder,
+  normalizeItem,
+} from "../ops";
 import { normalizeTrailLabel, normalizeTrailUrl } from "../trailLink";
 import { uid } from "../id";
 
 /** The downloaded backup's shape: the list's meta + its full content. */
 export function listToJson(list: ListMeta & ListData): string {
-  const { title, description, displayUnit, trailUrl, trailLabel, folders, items } = list;
+  const { title, description, displayUnit, trailUrl, trailLabel, startDate, endDate, folders, items } = list;
   // trailFaviconDataUrl is deliberately absent — it's a per-host cache the server
   // rebuilds, not part of the list the owner authored.
   return JSON.stringify(
-    { title, description, displayUnit, trailUrl, trailLabel, folders, items },
+    { title, description, displayUnit, trailUrl, trailLabel, startDate, endDate, folders, items },
     null,
     2,
   );
@@ -29,6 +35,8 @@ export interface JsonImport {
   displayUnit?: Unit;
   trailUrl?: string;
   trailLabel?: string;
+  startDate?: string;
+  endDate?: string;
   data: ListData;
 }
 
@@ -117,6 +125,12 @@ export function jsonToListImport(text: string): JsonImport | null {
     // this ends up in a :href on a page strangers open
     trailUrl: normalizeTrailUrl(typeof raw.trailUrl === "string" ? raw.trailUrl : null) ?? undefined,
     trailLabel: normalizeTrailLabel(typeof raw.trailLabel === "string" ? raw.trailLabel : null),
+    // Shape-checked on the way in, like the trail URL beside it and for the same
+    // reason: a hand-edited backup can carry anything, and a malformed date would
+    // render as a real one everywhere downstream. The reducer re-checks on setMeta,
+    // so an invalid value here simply doesn't survive the import either way.
+    startDate: normalizeCalendarDate(raw.startDate),
+    endDate: normalizeCalendarDate(raw.endDate),
     data: { folders, items },
   };
 }

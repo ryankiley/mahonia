@@ -37,3 +37,49 @@ export function timeAgo(ts: number, now: number = Date.now()): string {
       : { year: "numeric", month: "short", day: "numeric" },
   );
 }
+
+/**
+ * Parse a `YYYY-MM-DD` calendar date into a LOCAL Date.
+ *
+ * From the parts, never `new Date(iso)` — that parses bare ISO dates as UTC
+ * midnight, which formats as the DAY BEFORE anywhere west of UTC. A trip starting
+ * "Aug 4" must read as Aug 4 in Portland.
+ */
+function parseCalendarDate(iso: string | undefined): Date | null {
+  const m = iso ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso) : null;
+  return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null;
+}
+
+/**
+ * A trip's dates, as one phrase: "4–6 Aug 2026", "4 Aug 2026", "4 Aug – 2 Sep 2026".
+ *
+ * Collapses whatever the two dates share — a range inside one month prints the
+ * month and year once — because the point of the line is the span, and repeating
+ * "Aug 2026" twice makes the reader do the comparison themselves.
+ *
+ * An open end is legitimate and prints as just the start: you often know when you
+ * leave before you know when you're back.
+ */
+export function formatDateRange(start?: string, end?: string): string {
+  const a = parseCalendarDate(start);
+  const b = parseCalendarDate(end);
+  if (!a && !b) return "";
+  // one date, or only an end — either way there is a single date to print
+  if (!a || !b) return fmtFull(a ?? b!);
+  if (a.getTime() === b.getTime()) return fmtFull(a);
+
+  const sameYear = a.getFullYear() === b.getFullYear();
+  const sameMonth = sameYear && a.getMonth() === b.getMonth();
+  // en dash, not a hyphen: this is a range, and the two read differently at size
+  if (sameMonth) return `${a.getDate()}–${fmtFull(b)}`;
+  if (sameYear) return `${fmtDayMonth(a)} – ${fmtFull(b)}`;
+  return `${fmtFull(a)} – ${fmtFull(b)}`;
+}
+
+// Locales pinned, matching the rule in shared/weights.ts: these render in the
+// editor AND on the server-rendered share views, so an ambient locale would
+// hydrate differently from the HTML the edge cached.
+const fmtFull = (d: Date) =>
+  d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+const fmtDayMonth = (d: Date) =>
+  d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { Ellipsis } from "@lucide/vue";
+import { HugeiconsIcon } from "@hugeicons/vue";
+import { EllipsisIcon } from "@hugeicons/core-free-icons";
 import type { ListSnapshot, Totals } from "~~/shared/types";
 
 // The read-only share views' ⋯ actions menu — the quiet counterpart to the editor's
@@ -106,7 +107,7 @@ async function copyLink() {
       :aria-expanded="menuOpen"
       @click="toggleMenu"
     >
-      <Ellipsis :size="16" />
+      <HugeiconsIcon :icon="EllipsisIcon" :size="16" :stroke-width="2" />
     </button>
     <Transition name="menu">
       <ul v-if="menuOpen" class="popover menu__list" role="menu" aria-label="More actions">

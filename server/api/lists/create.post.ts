@@ -15,6 +15,8 @@ export default defineEventHandler(async (event) => {
     displayUnit?: Unit;
     trailUrl?: string;
     trailLabel?: string;
+    startDate?: string;
+    endDate?: string;
     data?: ListData;
   }>(event, 512_000);
 
@@ -31,6 +33,11 @@ export default defineEventHandler(async (event) => {
   // re-validates the URL; passing it through raw here is safe.)
   const trailUrl = typeof body?.trailUrl === "string" ? body.trailUrl : undefined;
   const trailLabel = typeof body?.trailLabel === "string" ? body.trailLabel : undefined;
+  // Trip dates are the same case exactly: set from the same meta row, on the same
+  // draft, and likewise dropped on first save without this. Also the restore half of
+  // a JSON backup. (createList validates them; raw is fine here too.)
+  const startDate = typeof body?.startDate === "string" ? body.startDate : undefined;
+  const endDate = typeof body?.endDate === "string" ? body.endDate : undefined;
   const data =
     body?.data && Array.isArray(body.data.folders) && Array.isArray(body.data.items)
       ? body.data
@@ -50,6 +57,8 @@ export default defineEventHandler(async (event) => {
       displayUnit,
       trailUrl,
       trailLabel,
+      startDate,
+      endDate,
       data,
     });
     return { editToken, snapshot };

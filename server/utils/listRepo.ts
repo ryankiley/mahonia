@@ -9,6 +9,7 @@ import {
   applyOps,
   MAX_FOLDERS,
   MAX_ITEMS,
+  normalizeCalendarDate,
   normalizeFolder,
   normalizeItem,
   type Op,
@@ -24,6 +25,7 @@ import {
 import { UNITS } from "../../shared/types";
 import type { ListData, ListSnapshot, ListState, Totals, Unit } from "../../shared/types";
 import { isLikelySpam } from "../../shared/discovery";
+import { MAX_SUMMARY_LEN, summarizeOps } from "../../shared/changeSummary";
 import { displayHost, normalizeTrailLabel, normalizeTrailUrl, safeUrl } from "../../shared/trailLink";
 import { ensureSnapshotSchema, ensureTrailFaviconSchema, useAccountDb, useDb } from "./db";
 import { getFavicon, warmFavicon } from "./trailFavicon";
@@ -97,6 +99,8 @@ export function rowToSnapshot(row: ListRow): ListSnapshot {
     description: row.description ?? undefined,
     trailUrl: row.trailUrl ?? undefined,
     trailLabel: row.trailLabel ?? undefined,
+    startDate: row.startDate ?? undefined,
+    endDate: row.endDate ?? undefined,
     displayUnit: row.displayUnit as Unit,
     folders: data.folders ?? [],
     items: data.items ?? [],
@@ -210,6 +214,8 @@ function rowToState(row: ListRow): ListState {
     description: row.description ?? undefined,
     trailUrl: row.trailUrl ?? undefined,
     trailLabel: row.trailLabel ?? undefined,
+    startDate: row.startDate ?? undefined,
+    endDate: row.endDate ?? undefined,
     displayUnit: row.displayUnit as Unit,
     folders: structuredClone(data.folders ?? []),
     items: structuredClone(data.items ?? []),
@@ -443,6 +449,8 @@ export async function restoreSnapshotByEditToken(
         description: s.description ?? null,
         trailUrl: s.trailUrl ?? null,
         trailLabel: s.trailLabel ?? null,
+        startDate: s.startDate ?? null,
+        endDate: s.endDate ?? null,
         displayUnit,
         data,
         ...weightColumns(totals),
@@ -528,6 +536,8 @@ export async function createList(init?: {
   displayUnit?: Unit;
   trailUrl?: string;
   trailLabel?: string;
+  startDate?: string;
+  endDate?: string;
   data?: ListData;
   /** The signed-in maker, when there is one — stamped ONCE at creation, for the
    *  byline on the read views. Absent for the (still entirely normal) no-account
@@ -546,6 +556,10 @@ export async function createList(init?: {
   // re-validated, not just clamped — a create can carry an imported JSON backup's URL
   const trailUrl = normalizeTrailUrl(init?.trailUrl) ?? undefined;
   const trailLabel = normalizeTrailLabel(init?.trailLabel);
+  // same rule the setMeta op applies, so a date set on a draft means the same thing
+  // after the draft is saved as it did before
+  const startDate = normalizeCalendarDate(init?.startDate);
+  const endDate = normalizeCalendarDate(init?.endDate);
   const data = normalizeListData(init?.data);
   const totals = computeTotals(data);
   const displayUnit = init?.displayUnit ?? "g";
@@ -563,6 +577,8 @@ export async function createList(init?: {
           description,
           trailUrl,
           trailLabel,
+          startDate,
+          endDate,
           displayUnit,
           data,
           ...weightColumns(totals),
@@ -658,6 +674,8 @@ export async function applyOpsByEditToken(
         description: state.description ?? null,
         trailUrl: state.trailUrl ?? null,
         trailLabel: state.trailLabel ?? null,
+        startDate: state.startDate ?? null,
+        endDate: state.endDate ?? null,
         displayUnit: state.displayUnit,
         data,
         ...weightColumns(totals),
@@ -671,7 +689,12 @@ export async function applyOpsByEditToken(
 
     if (updated[0]) {
       // pre-edit recovery point (best-effort; only ~once per throttle window)
-      if (doSnapshot) await captureSnapshot(d, row, "edit");
+      // `reason` carries the SUMMARY, not the constant "edit". The panel that reads
+      // these listed five identical "Edited"s, because a recovery point stores no
+      // description of the change — but the ops that caused it are right here, and
+      // they are an exact one. Derived once on write; free to read back.
+      if (doSnapshot)
+        await captureSnapshot(d, row, summarizeOps(ops).slice(0, MAX_SUMMARY_LEN) || "edit");
       // community intake: stage typed (non-catalog) items touched by this batch so
       // the catalog can grow from real use. Best-effort — never break/slow a save.
       try {

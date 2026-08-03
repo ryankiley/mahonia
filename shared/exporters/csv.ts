@@ -41,8 +41,11 @@ export function listToCsv(list: ListSnapshot): string {
   const folderName = (id: string | null) =>
     list.folders.find((f) => f.id === id)?.name ?? "";
 
+  // Kcal is APPENDED, never inserted: the importer maps columns by header name
+  // (see idx() below), but third-party tooling reading our export positionally
+  // would break if an existing column shifted.
   const out = [
-    "Category,Item Name,Gear Type,Brand,Qty,Weight,Unit,Worn,Consumable,Price,URL,Description,Worn Qty",
+    "Category,Item Name,Gear Type,Brand,Qty,Weight,Unit,Worn,Consumable,Price,URL,Description,Worn Qty,Kcal",
   ];
   // rows follow what the app shows (exportSections): folders in their order, each
   // folder's items in its chosen sort, then any ungrouped items — so a re-import of a
@@ -57,7 +60,12 @@ export function listToCsv(list: ListSnapshot): string {
   );
   for (const it of ordered) {
     const cls = effectiveClassification(it, list.folders);
-    const w = it.unitWeightMg > 0 ? +fromMg(it.unitWeightMg, u).toFixed(u === "g" ? 0 : 3) : "";
+    // Each row exports in the unit it READS in, not the list's. The Unit column is
+    // already per-row and the importer already honours it per-row, so this is what
+    // makes a row typed in ounces come back as ounces instead of being flattened to
+    // the list's unit on every round-trip.
+    const ru = it.entryUnit ?? u;
+    const w = it.unitWeightMg > 0 ? +fromMg(it.unitWeightMg, ru).toFixed(ru === "g" ? 0 : 3) : "";
     // the split gets its OWN column: the boolean Worn column can't carry a count
     // (a split row must not import back as fully worn)
     const wq = splitWornQty(it, cls);
@@ -70,13 +78,17 @@ export function listToCsv(list: ListSnapshot): string {
         esc(it.brand ?? ""),
         it.qty,
         w,
-        it.unitWeightMg > 0 ? u : "",
+        it.unitWeightMg > 0 ? ru : "",
         cls === "worn" ? "1" : "",
         cls === "consumable" ? "1" : "",
         it.priceCents != null ? (it.priceCents / 100).toFixed(2) : "",
         esc(it.productUrl ?? ""),
         esc(it.description ?? ""),
         wq > 0 ? wq : "",
+        // only meaningful on a consumable row, and that's the only place it's
+        // counted (see computeTotals) — so a stale value on a demoted row isn't
+        // exported as though it still applied
+        cls === "consumable" && it.kcal ? it.kcal : "",
       ].join(","),
     );
   }
@@ -138,6 +150,11 @@ export function csvToListData(text: string, defaultUnit: Unit = "g"): ListData {
   // canonical-URL affiliate tagging.
   const iUrl = idx(["url", "link", "product url"]);
   const iDesc = idx(["desc", "description", "notes", "note"]);
+  // Calories, unlike Price, ARE kept — this is our own column and the field is
+  // visible and editable in the app, so dropping it would lose real user data on
+  // every export/import round-trip. Absent (a LighterPack CSV, or one of ours from
+  // before the column existed) → idx returns -1 and every row reads undefined.
+  const iKcal = idx(["kcal", "calories", "cal"]);
   const nameCol = iName >= 0 ? iName : 0;
 
   const folders: ListData["folders"] = [];
@@ -184,6 +201,13 @@ export function csvToListData(text: string, defaultUnit: Unit = "g"): ListData {
     const wornQtyVal = iWornQty >= 0 && classification === null
       ? Math.round(parseFloat(row[iWornQty] || "") || 0)
       : 0;
+    // Only remember a unit the file actually NAMED. With no Unit column,
+    // normalizeUnit returns the fallback — recording that would pin every row of a
+    // unitless CSV to a unit nobody chose, and the list's own unit already covers it.
+    const namedUnit = iUnit >= 0 && (row[iUnit] ?? "").trim() ? unit : undefined;
+    // kcal only rides along on rows this import classes as consumable, matching
+    // where the app lets it be edited and counted
+    const kcalNum = iKcal >= 0 ? Math.round(parseFloat((row[iKcal] || "").replace(/,/g, "")) || 0) : 0;
 
     items.push({
       id: uid(),
@@ -195,14 +219,46 @@ export function csvToListData(text: string, defaultUnit: Unit = "g"): ListData {
       commonNameOverridden: gearType ? true : undefined,
       brand: cell(iBrand),
       unitWeightMg,
+      entryUnit: unitWeightMg > 0 ? namedUnit : undefined,
       qty,
       wornQty: wornQtyVal > 0 ? Math.min(wornQtyVal, qty) : undefined,
       classification,
+      kcal: classification === "consumable" && kcalNum > 0 ? kcalNum : undefined,
       description: cell(iDesc),
       productUrl: cell(iUrl),
       sortOrder: folderCount.get(fId) ?? 0,
     });
     folderCount.set(fId, (folderCount.get(fId) ?? 0) + 1);
   }
+
+  // Tell the LIST's unit apart from a per-row choice.
+  //
+  // Our own export writes a Unit cell on every row — `entryUnit ?? displayUnit` — so
+  // after a round-trip every row names a unit and the naive reading was that every row
+  // had chosen one. A plain gram list exported and re-imported came back with all its
+  // rows pinned to "g", and the totals bar's unit switcher then moved the headline
+  // figure while every row stayed in grams. Nobody had asked for that on any row.
+  //
+  // The unit that appears on MOST rows is the list's; the ones that differ are the
+  // deliberate ones. That is exactly the shape the exporter produces, and it is also
+  // true of a LighterPack file, where a single-unit export means the list's unit.
+  // A row keeps its entryUnit only by disagreeing with the crowd.
+  // A tie is NOT a majority: on a two-row file with one gram row and one ounce row,
+  // neither unit is evidence of the list's own, and dropping whichever happened to be
+  // counted first would throw away the deliberate one. Only a unit that outnumbers
+  // every other counts as the list's.
+  const tally = new Map<string, number>();
+  for (const it of items) if (it.entryUnit) tally.set(it.entryUnit, (tally.get(it.entryUnit) ?? 0) + 1);
+  let dominant: string | undefined;
+  let best = 0;
+  let runnerUp = 0;
+  for (const [u, n] of tally) {
+    if (n > best) ((runnerUp = best), (best = n), (dominant = u));
+    else if (n > runnerUp) runnerUp = n;
+  }
+  if (dominant && best > runnerUp) {
+    for (const it of items) if (it.entryUnit === dominant) delete it.entryUnit;
+  }
+
   return { folders, items };
 }

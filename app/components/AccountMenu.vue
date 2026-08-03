@@ -1,5 +1,8 @@
 <script setup lang="ts">
-import { KeyRound } from "@lucide/vue";
+import { HugeiconsIcon } from "@hugeicons/vue";
+// UserRoundKey is a lucide name with no hugeicons twin; UserLock01 is the nearest
+// person-plus-credentials glyph.
+import { UserCircleIcon, UserLock01Icon } from "@hugeicons/core-free-icons";
 
 // The account affordance in the top bar. Two shapes, because signed in and signed
 // out are different jobs:
@@ -18,6 +21,11 @@ import { KeyRound } from "@lucide/vue";
 // and the overwhelming majority of visitors have no account. Reading a cookie that
 // isn't there is free; asking the server would put a round-trip on first paint to
 // be told "no".
+// `compact` is for the EDITOR's toolbar, which is icon-only: there, the signed-out
+// shape has to be an icon too or it lands as the one word in a row of glyphs. The
+// site bar is a text bar and keeps the plain link.
+const { compact = false } = defineProps<{ compact?: boolean }>();
+
 const { signedIn, hasSessionHint, signOut } = useSession();
 const route = useRoute();
 
@@ -55,8 +63,20 @@ const onVault = computed(() => route.path === "/vault");
 
 <template>
   <ClientOnly>
+    <!-- signed out: one destination, so a link and not a menu. Icon in the editor's
+         glyph row, words in the site bar. -->
+    <Tooltip v-if="!known && compact" text="Sign in" preferred-placement="bottom">
+      <NuxtLink
+        v-show="!onAccount"
+        to="/account"
+        class="btn btn--icon btn--ghost acct__signinbtn"
+        aria-label="Sign in"
+      >
+        <HugeiconsIcon :icon="UserLock01Icon" :size="16" :stroke-width="2" />
+      </NuxtLink>
+    </Tooltip>
     <NuxtLink
-      v-if="!known"
+      v-else-if="!known"
       v-show="!onAccount"
       to="/account"
       class="btn btn--link acct__signin"
@@ -65,6 +85,7 @@ const onVault = computed(() => route.path === "/vault");
     </NuxtLink>
 
     <div v-else ref="menuRef" class="menu">
+      <Tooltip text="Your account" preferred-placement="bottom" :disabled="open">
       <button
         type="button"
         class="btn btn--icon btn--ghost menu__btn"
@@ -73,8 +94,13 @@ const onVault = computed(() => route.path === "/vault");
         :aria-expanded="open"
         @click="open = !open"
       >
-        <KeyRound :size="16" />
+        <!-- a person, not a key: the key said "credentials", which is what the
+             SIGNED-OUT state now says with a login glyph. This slot means "you".
+             Still not an avatar — an account here has a name and an email, never a
+             photo, so a circle with initials would promise a profile that isn't. -->
+        <HugeiconsIcon :icon="UserCircleIcon" :size="16" :stroke-width="2" />
       </button>
+      </Tooltip>
       <Transition name="menu">
         <ul v-if="open" class="popover menu__list" role="menu" aria-label="Your account">
           <li v-if="!onVault" role="none">

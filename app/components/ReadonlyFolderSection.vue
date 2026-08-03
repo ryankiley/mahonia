@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ChevronDown } from "@lucide/vue";
+import { HugeiconsIcon } from "@hugeicons/vue";
+import { ChevronDownIcon } from "@hugeicons/core-free-icons";
 import type { Folder, Item, ListSnapshot } from "~~/shared/types";
 
 // The share views' folder (/s + /l): static name + collapse + readonly rows.
@@ -36,7 +37,7 @@ const collapsed = ref(false);
           :title="collapsed ? 'Expand folder' : 'Collapse folder'"
           @click="collapsed = !collapsed"
         >
-          <ChevronDown class="folder__chev" :class="{ 'is-collapsed': collapsed }" :size="20" :stroke-width="2" />
+          <HugeiconsIcon :icon="ChevronDownIcon" class="folder__chev" :class="{ 'is-collapsed': collapsed }" :size="20" :stroke-width="2" />
         </button>
       </div>
     </header>
@@ -61,12 +62,9 @@ const collapsed = ref(false);
   position: relative;
   padding: 0;
 }
+/* only the columns differ from the atom — everything else comes from it */
 .folder__head {
-  display: grid;
-  grid-template-columns: var(--item-cols-ro);
-  gap: var(--item-gap);
-  align-items: baseline;
-  margin-bottom: var(--space-1);
+  --head-cols: var(--item-cols-ro);
 }
 /* just the name + chevron — no trailing actions in the read view, so the title runs
    the WHOLE header row. `1 / -1`, not a counted end line: --item-cols-ro grew a
@@ -96,7 +94,7 @@ const collapsed = ref(false);
   /* no trailing actions in the read view — let the title (name + chevron) run
      the WHOLE row (the atom drops the desktop 50vw name cap here) */
   .folder__head {
-    grid-template-columns: 1fr;
+    --head-cols: 1fr;
   }
   .folder__title {
     grid-column: 1 / -1;

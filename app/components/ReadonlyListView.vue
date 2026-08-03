@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { Globe } from "@lucide/vue";
+import { HugeiconsIcon } from "@hugeicons/vue";
+import { Calendar03Icon, GlobeIcon } from "@hugeicons/core-free-icons";
 import { parseTrailLink } from "~~/shared/trailLink";
 import type { Item, ListSnapshot, Totals, Unit } from "~~/shared/types";
 import { groupItemsByFolder, groupItemsByParent } from "~~/shared/weights";
@@ -40,6 +41,8 @@ const editedAt = computed(() => {
 // The route this list was packed for. Lives here rather than in either page's #head
 // slot so /s and /l both get it — /l overrides only the heading block.
 const trail = computed(() => parseTrailLink(props.list?.trailUrl, props.list?.trailLabel));
+// empty string when the list has no dates, which the v-if reads as absent
+const dateLabel = computed(() => formatDateRange(props.list?.startDate, props.list?.endDate));
 </script>
 
 <template>
@@ -88,9 +91,18 @@ const trail = computed(() => parseTrailLink(props.list?.trailUrl, props.list?.tr
           width="16"
           height="16"
         />
-        <Globe v-else class="view__trailicon view__trailicon--fallback" :size="16" :stroke-width="2" aria-hidden="true" />
+        <HugeiconsIcon :icon="GlobeIcon" v-else class="view__trailicon view__trailicon--fallback" :size="16" :stroke-width="2" aria-hidden="true" />
         <span class="view__trailname">{{ trail.name }}</span>
       </a>
+
+      <!-- the trip's dates, when it has them. Read-only by nature — there is nothing
+           to add here, so unlike the editor there is no affordance, only the fact.
+           Formatted by the SAME helper the editor's label uses, so a shared list reads
+           the dates identically to the list it was shared from. -->
+      <p v-if="dateLabel" class="view__dates">
+        <HugeiconsIcon :icon="Calendar03Icon" :size="14" :stroke-width="2" aria-hidden="true" />
+        <span>{{ dateLabel }}</span>
+      </p>
     </div>
 
     <TotalsBar :list="list" :totals="totals" @set-unit="(u) => $emit('set-unit', u)" />
@@ -167,6 +179,14 @@ const trail = computed(() => parseTrailLink(props.list?.trailUrl, props.list?.tr
 /* the trail link — one quiet line under the title/meta pair. The mark identifies the
    site and the full destination rides on the anchor's title attribute, so the hostname
    isn't repeated in the text. */
+.view__dates {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--ink-3);
+  font-size: var(--text-sm);
+}
 .view__trail {
   display: inline-flex;
   /* baseline so the name sits on the same line as the title/meta above it */
