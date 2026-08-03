@@ -451,9 +451,6 @@ async function onSignOut() {
 </template>
 
 <style scoped lang="scss">
-.page {
-  padding-block: var(--space-5) var(--space-9);
-}
 .acct__head {
   margin-bottom: var(--space-6);
 }

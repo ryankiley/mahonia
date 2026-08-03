@@ -26,6 +26,16 @@
 // Long-form reading column — legal pages, any prose. One measure, calm rhythm,
 // the app's single type family. Inline links opt into a hairline underline
 // (the reset strips link affordance by default).
+/* Every routed page's vertical rhythm: a small step in from the top bar, a generous
+   one before the footer. This lived as an identical `padding-block` in SEVEN scoped
+   blocks (error, about, account, callback, legal, mine, vault) — the same two tokens
+   retyped each time, which is a value nobody could change in one place. `.page` is
+   already the class all of them put on <main>, so it belongs here beside `.wrap`.
+   A page that genuinely differs still overrides it in its own block. */
+.page {
+  padding-block: var(--space-5) var(--space-9);
+}
+
 .prose {
   max-width: 42rem;
   /* CENTRED in the page column, not flush to its left gutter. .wrap is --measure

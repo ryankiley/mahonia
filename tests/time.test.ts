@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { timeAgo } from "../app/utils/time";
+import { formatDateRange, timeAgo } from "../app/utils/time";
 
 // timeAgo is the one relative-time formatter shared by the editor's sync-status
 // line and the "Your lists" registry, so the two phrase elapsed time identically.
@@ -54,5 +54,55 @@ describe("timeAgo", () => {
 
   it("clamps a future timestamp (clock skew) to 'just now'", () => {
     expect(timeAgo(now + 5 * M, now)).toBe("just now");
+  });
+});
+
+// A trip's dates, as the meta row and the shared read pages print them.
+//
+// Month-first, and the collapse puts the two DAYS together with the month and year
+// said once — so the shape of the line changes with what the ends share, not just the
+// words. That is the part worth pinning: a plain locale swap would have produced
+// "6–September 9, 2026" for a range inside one month.
+//
+// The locale is fixed on purpose (see the note beside the formatters): these render in
+// the editor AND in server-rendered HTML, so reading the visitor's locale would format
+// one way in the cached page and another after hydration.
+describe("formatDateRange", () => {
+  it("collapses a range inside one month to two days, month and year once", () => {
+    expect(formatDateRange("2026-09-06", "2026-09-09")).toBe("September 6–9, 2026");
+  });
+
+  it("names both months when the range crosses one, year once", () => {
+    expect(formatDateRange("2026-09-28", "2026-10-03")).toBe("September 28 – October 3, 2026");
+  });
+
+  it("prints both years when the range crosses one", () => {
+    expect(formatDateRange("2026-12-30", "2027-01-02")).toBe("December 30, 2026 – January 2, 2027");
+  });
+
+  it("prints a single date when both ends are the same day", () => {
+    expect(formatDateRange("2026-09-06", "2026-09-06")).toBe("September 6, 2026");
+  });
+
+  it("prints just the start when the end is open", () => {
+    // you often know when you leave before you know when you're back
+    expect(formatDateRange("2026-09-06")).toBe("September 6, 2026");
+    expect(formatDateRange("2026-09-06", "")).toBe("September 6, 2026");
+  });
+
+  it("prints the end alone when only an end is set", () => {
+    expect(formatDateRange(undefined, "2026-09-09")).toBe("September 9, 2026");
+  });
+
+  it("is empty when there are no dates, and ignores unparseable ones", () => {
+    expect(formatDateRange()).toBe("");
+    expect(formatDateRange("", "")).toBe("");
+    expect(formatDateRange("not-a-date", "also-not")).toBe("");
+  });
+
+  it("does not shift a date across a timezone boundary", () => {
+    // calendar dates, not instants — parsed from parts, so the 1st stays the 1st even
+    // when the runner sits west of UTC and `new Date(iso)` would land a day early
+    expect(formatDateRange("2026-09-01", "2026-09-01")).toBe("September 1, 2026");
   });
 });

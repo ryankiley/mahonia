@@ -748,9 +748,6 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
 </template>
 
 <style scoped lang="scss">
-.page {
-  padding-block: var(--space-5) var(--space-9);
-}
 .vault__head {
   display: flex;
   flex-direction: column;

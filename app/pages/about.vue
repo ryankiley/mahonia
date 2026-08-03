@@ -51,7 +51,7 @@ const lastUpdated = computed(() => {
   const iso = releases.value[0]?.date;
   if (!iso) return "";
   return (
-    parseIso(iso)?.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }) ??
+    parseIso(iso)?.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) ??
     iso
   );
 });
@@ -72,10 +72,10 @@ const lastUpdated = computed(() => {
         <!-- ================= About ================= -->
         <h2 id="about">What it is</h2>
         <p>
-          Mahonia is a no-login tool for building, weighing, and sharing packing lists, made by one
-          person. Make a list, see what it weighs, send someone the link. No account, no app, no
-          ads. The grams are optional; build a list with zero weights and the totals just stay
-          quiet.
+          Mahonia is a tool for building, weighing, and sharing packing lists, made by one
+          person. Make a list, see what it weighs, send someone the link. No app, no ads, and no
+          sign-up to make a list — it's yours the moment you start typing. The grams are optional;
+          build a list with zero weights and the totals just stay quiet.
         </p>
 
         <h2>Why “Mahonia”?</h2>
@@ -101,6 +101,20 @@ const lastUpdated = computed(() => {
             sign-up. Nothing shows up publicly unless you choose to publish it.
           </li>
           <li>Weights are backed by a curated, cited gear catalog, but you can override anything.</li>
+          <li>
+            Your <NuxtLink to="/vault">gear vault</NuxtLink> is the one part that asks for an
+            account — a passkey, or a link emailed to you. It fills itself as you build, so the
+            kit you already own is one pick away on the next list, from any device. Lists
+            themselves never need it.
+          </li>
+          <li>
+            A list remembers more than weights: calories on food and fuel, the unit you typed each
+            row in, and the dates of the trip it's for.
+          </li>
+          <li>
+            Flip the same list into a checklist for the night before, and tick things off as they
+            go in the pack.
+          </li>
         </ul>
 
         <h2>Open source</h2>
@@ -151,9 +165,6 @@ const lastUpdated = computed(() => {
 </template>
 
 <style scoped lang="scss">
-.page {
-  padding-block: var(--space-5) var(--space-9);
-}
 .log {
   /* the section's own top rule + air, since .prose above it ends flush */
   margin-block-start: var(--space-8);

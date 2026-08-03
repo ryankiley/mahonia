@@ -85,7 +85,6 @@ onMounted(verify);
 
 <style scoped>
 .page {
-  padding-block: var(--space-5) var(--space-9);
   display: flex;
   flex-direction: column;
   align-items: flex-start;

@@ -18,7 +18,7 @@ useHead({
     <main id="main-content" tabindex="-1" class="wrap page">
       <div class="prose">
         <h1 class="t-title">Legal</h1>
-        <p class="t-sm t-muted">Last updated 1 August 2026</p>
+        <p class="t-sm t-muted">Last updated 2 August 2026</p>
         <p>
           How Mahonia handles your data, and the terms for using it. Jump to
           <a href="#privacy">Privacy</a> or <a href="#terms">Terms</a>.
@@ -228,9 +228,6 @@ useHead({
 </template>
 
 <style scoped>
-.page {
-  padding-block: var(--space-5) var(--space-9);
-}
 /* The two major sections (Privacy / Terms) get a quiet top rule + extra air to
    mark the break — the site's headings are all one size, so the hierarchy comes
    from the rule and spacing, not a bigger font. */
