@@ -160,8 +160,13 @@ async function copyLink() {
               aria-hidden="true"
             />
           </button>
-          <div class="reveal" :class="{ 'is-open': exportOpen }">
-            <div class="reveal__inner">
+          <!-- Transition + v-if, NOT a class: .reveal is a transition recipe (it has
+               no open/closed state of its own and defaults to 1fr), so driving it
+               with a class leaves the section permanently expanded and the chevron
+               spinning over nothing. v-if also takes the collapsed items out of the
+               tab order, which a height-0 box would not. -->
+          <Transition name="reveal">
+            <div v-if="exportOpen" class="reveal">
               <ul class="menu__sectlist" role="group" aria-label="Export">
                 <li role="none">
                   <button type="button" data-row role="menuitem" class="menu__item menu__sectitem" @click="runMenu('markdown')">Copy as Markdown</button>
@@ -174,7 +179,7 @@ async function copyLink() {
                 </li>
               </ul>
             </div>
-          </div>
+          </Transition>
         </li>
         <li role="none">
           <button type="button" data-row role="menuitem" class="menu__item" @click="runMenu('feedback')">Send feedback…</button>
