@@ -9,7 +9,10 @@
       "The toolbar now says when your list was last edited, and only mentions syncing when there's something to say.",
       "The gear vault's sign-in prompt is one line now, and reads the same on the vault page and beside a list.",
       "A folder's controls now stay visible instead of appearing on hover.",
-      "On a shared list, the export formats group under one \"Export\" item, matching the editor."
+      "On a shared list, the export formats group under one \"Export\" item, matching the editor.",
+      "On a shared list, \"Copy this list\" is now \"Duplicate this list\" — the same name the editor uses, and no longer confusable with the clipboard actions beside it.",
+      "On a shared list, signing in is an icon in the top bar like the rest of it, and the ⋯ menu sits at the end.",
+      "The trail link panel asks for a \"URL\"."
     ],
     "fixed": [
       "The gear vault no longer offers to save a list's gear when you're signed out, which spent the one time it asks about that list.",

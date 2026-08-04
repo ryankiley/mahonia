@@ -10,11 +10,12 @@ import { copyText } from "~/utils/clipboard";
 //
 // One row sits under the title holding either "Add trail link" or the link itself, so
 // the affordance occupies exactly the slot its result will — adding a link swaps the row
-// in place rather than moving it. The affordance is revealed on hover (the Notion "Add
-// icon / Add cover" idiom); a resolved link raises a card with the destination and its
-// actions — on hover where there's a pointer that hovers, on a press on the name
-// everywhere (see `pinned`). ONE card, one layout, every device. The title lives in here
-// rather than beside it so DOM order matches visual order and tab order follows the eye.
+// in place rather than moving it. The affordance rests quiet and darkens on hover — it
+// used to hide until hovered, and the note by .head__meta says why that changed. A
+// resolved link raises a card with the destination and its actions: on hover where
+// there's a pointer that hovers, on a press on the name everywhere (see `pinned`). ONE
+// card, one layout, every device. The title lives in here rather than beside it so DOM
+// order matches visual order and tab order follows the eye.
 const props = defineProps<{ snapshot: ListSnapshot }>();
 
 const c = useGearList();
@@ -279,7 +280,7 @@ onClickOutside(trailEl, () => {
           <span class="head__name">{{ link.name }}</span>
         </button>
 
-        <!-- Notion's link card: the destination in full, then the actions on it. Asked
+        <!-- The link card: the destination in full, then the actions on it. Asked
              for — by hover, by a press on the name, or by keyboard focus — rather than
              sitting in the layout, because the link is the content and Edit/Remove are
              only ever wanted deliberately. The press is what carries a phone, which has
@@ -306,22 +307,20 @@ onClickOutside(trailEl, () => {
             aria-label="Copy link"
             @click="copyLink"
           >
-            <!-- 14, tracking the card's own type: the reference runs its glyphs at the
-                 same size as the text beside them (12/12), so this holds that 1:1 ratio
-                 at 14. 16 is the size for marks beside 16px text (the link row) and reads
-                 oversized in here. Stroke drops to 1.5 — the reference's icons are FILLED
-                 paths (stroke:none), so a stroked outline at the house's 2 reads heavier
-                 than the thing it imitates. 1.75, not 1.5: at 14 the lighter stroke went
-                 a touch spindly beside the text it sits in, and this is the smallest step
-                 that reads as the same weight. -->
+            <!-- 14, tracking the card's own type: a glyph sits at the size of the text
+                 beside it, 1:1. 16 is the size for marks beside 16px text (the link row)
+                 and reads oversized in here. The stroke drops below the house's 2 as
+                 well — at 14 a 2-weight outline carries more ink than the words it sits
+                 among, so it stops reading as their equal. 1.75 and not 1.5: the lighter
+                 stroke went spindly, and this is the smallest step back that matches. -->
             <HugeiconsIcon :icon="Copy01Icon" :size="14" :stroke-width="1.75" aria-hidden="true" />
           </button>
-          <!-- no Remove here: the card mirrors Notion's, where removal lives one level
-               in, behind Edit (the fields row below carries it). Keeping a destructive
-               action out of a surface that appears on hover is also just safer. -->
-          <!-- measured: the reference runs 6px gaps between the mark, the URL and the
-               copy glyph, then opens to 12px before "Edit" — the icon belongs to the URL
-               it acts on; the word is a separate control. -->
+          <!-- no Remove here: removal lives one level in, behind Edit (the fields row
+               below carries it). Keeping a destructive action out of a surface that
+               appears on hover is also just safer. -->
+          <!-- 6px gaps between the mark, the URL and the copy glyph, then 12px before
+               "Edit" — the icon belongs to the URL it acts on, so it sits with it; the
+               word is a separate control and takes the wider gap. -->
           <button
             type="button"
             class="btn btn--quiet head__cardbtn head__cardedit"
@@ -370,8 +369,8 @@ onClickOutside(trailEl, () => {
         </Transition>
       </span>
 
-      <!-- The edit panel, anchored under the row so the link stays visible above it (as
-           in Notion). No "Done": the inputs commit on change (blur/Enter) like every
+      <!-- The edit panel, anchored under the row so the link stays visible above it.
+           No "Done": the inputs commit on change (blur/Enter) like every
            other field in the editor, so a confirm button would only be confirming
            something already saved. Focus leaving the panel closes it. -->
       <span
@@ -382,7 +381,10 @@ onClickOutside(trailEl, () => {
         @focusout="onFocusOut"
         @keyup.escape="mode = null"
       >
-        <label class="head__panellabel" :for="`${fieldsId}-url`">Page or URL</label>
+        <!-- "URL", not "Page or URL" — that offered a choice that doesn't exist. There
+             is no page to pick here: this field is type="url" with an https://
+             placeholder, and a URL is the only thing it has ever taken. -->
+        <label class="head__panellabel" :for="`${fieldsId}-url`">URL</label>
         <input
           :id="`${fieldsId}-url`"
           class="head__panelinput"
@@ -584,7 +586,7 @@ onClickOutside(trailEl, () => {
      ever as wide as the name it holds and never claims the whole row */
   flex: 0 1 auto;
 }
-/* The link card — Notion's: the destination in full, then the actions on it. It FLOATS
+/* The link card: the destination in full, then the actions on it. It FLOATS
    under the link at every pointer type, and it is hidden until asked for. What asks for
    it differs by pointer, and only that: a hover where there is one, a press on the name
    where there isn't (`pinned`, in the script — a press works on a fine pointer too).
@@ -617,7 +619,7 @@ onClickOutside(trailEl, () => {
      nested curve can never end up rounder than the box holding it. */
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-3);
-  /* A 1px ring plus a TIGHT drop, measured off the reference. --shadow-soft is built
+  /* A 1px ring plus a TIGHT drop. --shadow-soft is built
      for big anchored menus — its 48px second layer reads mushy under a 32px card, and
      it deliberately carries no ring ("the shadow alone defines the edge"), which is
      exactly what leaves a small surface looking soft-edged. Local override only; the
@@ -627,7 +629,7 @@ onClickOutside(trailEl, () => {
     0 4px 12px -2px rgb(0 0 0 / 0.08);
   font-size: var(--text-chrome);
   /* tight leading, not the inherited 1.5 — the card's height is content + padding, and
-     1.5 alone pushed it past the reference's 32px */
+     1.5 alone pushed it past the 32px that squares it with the row's icon buttons */
   line-height: 1.2;
   white-space: nowrap;
   opacity: 0;
@@ -644,12 +646,12 @@ onClickOutside(trailEl, () => {
   opacity: 1;
   visibility: visible;
 }
-/* muted, not full ink — measured off the reference, where the URL sits at the faint step
-   and the ACTION beside it carries the emphasis. (I'd darkened this on a guess; the real
-   thing is the other way round.) */
+/* muted, not full ink — the URL is what you're confirming, not what you act on, so the
+   ACTION beside it takes the emphasis. (Darkening it was a guess; it wants to be the
+   other way round.) */
 /* block, not the browser's default inline: an inline <img> sits on the text baseline and
-   reserves descender space under it, which was making the card 34px against the
-   reference's 32 */
+   reserves descender space under it, which was making the card 34px rather than the 32
+   that squares it with the icon buttons in the row above (--icon-btn) */
 .head__cardicon {
   flex: none;
   display: block;
@@ -730,8 +732,8 @@ onClickOutside(trailEl, () => {
     visibility: visible;
   }
 }
-/* The meta affordances used to hide until the title block was hovered — the Notion
-   "Add cover" idiom. That was defensible when there was ONE of them and the row was
+/* The meta affordances used to hide until the title block was hovered.
+   That was defensible when there was ONE of them and the row was
    otherwise empty; with trail and dates side by side, the row is a real part of the
    header, and a header that appears only when pointed at is a header you don't know
    you have. They rest at --ink-3 and darken on hover instead, so the block is still
@@ -746,10 +748,12 @@ onClickOutside(trailEl, () => {
   z-index: var(--z-menu);
   display: flex;
   flex-direction: column;
-  /* no flex gap — every gap here is set explicitly below, because the reference's rhythm
-     isn't uniform (13 label→field, 18 field→label, 12 field→rule) */
+  /* no flex gap — every gap here is set explicitly below, because the rhythm ISN'T
+     uniform: a label belongs to the field under it, so those two sit tight while the
+     gap between one field and the next label opens up to separate the pairs */
   gap: 0;
-  /* 330px and a 12px inset, measured off the reference */
+  /* 330px: wide enough that an ordinary URL reads without wrapping, narrow enough that
+     the panel still sits over the row as a popover rather than becoming a column */
   width: min(20.625rem, 100%);
   /* Uniform. The Remove row pulls ITSELF into this padding (below) rather than the panel
      thinning its floor — in "add" mode there is no Remove row, and a thinned floor left
@@ -767,8 +771,8 @@ onClickOutside(trailEl, () => {
     0 14px 28px -6px rgb(0 0 0 / 0.2);
   text-align: start;
 }
-/* 12px + medium weight, both measured off the reference — the smaller of the two chrome
-   steps, so the labels stay subordinate to the 14px fields and row beneath them. A label
+/* 12px + medium weight — the smaller of the two chrome steps, so the labels stay
+   subordinate to the fields and row beneath them. A label
    belongs to the field UNDER it, so it sits closer to that field (8) than the field above
    sits to it (16, set on the adjacent-sibling rule below). */
 .head__panellabel {
@@ -776,7 +780,7 @@ onClickOutside(trailEl, () => {
   color: var(--ink-3);
   font-size: var(--text-micro);
   font-weight: 600; /* the type system's one strong weight — no 500 (typography.scss) */
-  line-height: 1.2; /* 14.4px — the reference's label box, measured */
+  line-height: 1.2; /* 14.4px — a tight box, so the label reads as attached to its field */
 }
 /* filled, unlike the borderless .field used everywhere else: inside a floating panel
    there's no surrounding structure to imply where the input begins, so the fill IS the
@@ -784,8 +788,8 @@ onClickOutside(trailEl, () => {
    for one. */
 .head__panelinput {
   width: 100%;
-  /* 2em — the reference's fields are 28px at 14px type, exactly twice the font size.
-     --field-h (36px) came out visibly taller because this input is locked to 16px (see
+  /* 2em — a field twice the height of its own type, which is the proportion a compact
+     field wants. --field-h (36px) came out visibly taller because this input is locked to 16px (see
      below); expressing it as a ratio keeps the proportion instead of the pixel. */
   min-height: 2em;
   /* the inherited 1.5 leading (24px here) plus padding and border already exceeds 2em,
@@ -801,8 +805,8 @@ onClickOutside(trailEl, () => {
   border-radius: calc(var(--radius-3) - var(--space-1));
   background: var(--paper-2);
   color: var(--ink);
-  /* stays at 16px while the labels above drop to 12px: the reference uses 14px here, but
-     anything under 16px makes iOS Safari zoom the page on focus (atoms/controls.scss) */
+  /* stays at 16px while the labels above drop to 12px: 14 would sit better with them,
+     but anything under 16px makes iOS Safari zoom the page on focus (atoms/controls.scss) */
   font-size: 1rem;
   font-family: inherit;
 }
@@ -833,8 +837,8 @@ onClickOutside(trailEl, () => {
      --popover-item-radius to its own corner — see there. */
   display: flex;
   align-items: center;
-  /* 12px — the one figure both measurements of the reference agreed on: its label starts
-     at x40 with the panel's content edge at x12, leaving a 16px glyph and a 12px gap */
+  /* 12px — a 16px glyph on the panel's 12px content edge leaves the label starting at
+     x40, which is where every other label in the panel starts */
   gap: var(--space-3);
   /* The highlight bleeds a full step past the content on each side, leaving it inset
      just 4px from the panel's edge rather than 8 — a menu row should read as spanning

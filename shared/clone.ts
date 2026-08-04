@@ -6,7 +6,7 @@ import type { Folder, Item, ListSnapshot } from "./types";
  * copy shares nothing with the source), folder→item and parent→child links
  * remapped, and packed state reset (a copy is a list to pack, not a record of
  * what was packed). Shared by the editor's "Duplicate this list" and the read
- * views' "Copy this list" so the two can't drift.
+ * views' "Duplicate this list" so the two can't drift.
  */
 export function cloneListData(
   src: Pick<ListSnapshot, "folders" | "items">,

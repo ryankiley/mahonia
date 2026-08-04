@@ -4,7 +4,7 @@ import type { ListSnapshot } from "~~/shared/types";
 
 // The one create-a-copy path: mint an independent list from a snapshot, register
 // it in this browser's "my lists", and land in its editor. Used by the editor's
-// "Duplicate this list" and the read views' "Copy this list" — the read pages pull
+// "Duplicate this list" and the read views' identical item — the read pages pull
 // only this thin module (clone + links + the registry), never the editor graph.
 export function useCopyList() {
   const copying = ref(false);

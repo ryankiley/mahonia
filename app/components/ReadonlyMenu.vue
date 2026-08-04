@@ -134,7 +134,14 @@ async function copyLink() {
           <span ref="plateRef" class="menu__plate" :class="{ 'is-placing': placing }" />
         </li>
         <li role="none">
-          <button type="button" data-row role="menuitem" class="menu__item" :disabled="copying" @click="runMenu('copy')">Copy this list</button>
+          <!-- NOT "Copy this list". Two of this menu's other items are clipboard
+               actions ("Copy link", "Copy as Markdown"), and this one is the odd one
+               out: it mints an independent list, registers it in this browser and
+               navigates you into its editor. Three items opening with the same verb,
+               one of which takes you off the page, is a menu you have to read twice.
+               Matches the editor's kebab word-for-word — one action, one name, so
+               nobody has to learn that "duplicate" here is "copy" there. -->
+          <button type="button" data-row role="menuitem" class="menu__item" :disabled="copying" @click="runMenu('copy')">Duplicate this list</button>
         </li>
         <li role="none">
           <button type="button" data-row role="menuitem" class="menu__item" @click="runMenu('link')">Copy link</button>
