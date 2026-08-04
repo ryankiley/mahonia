@@ -13,7 +13,8 @@
     ],
     "fixed": [
       "The gear vault no longer offers to save a list's gear when you're signed out, which spent the one time it asks about that list.",
-      "On a phone, an item's gear type now sits tight under its row instead of floating below it."
+      "On a phone, an item's gear type now sits tight under its row instead of floating below it.",
+      "The footer no longer offers a gear vault link when you're signed out."
     ]
   },
   {

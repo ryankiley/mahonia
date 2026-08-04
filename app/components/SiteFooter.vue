@@ -15,6 +15,23 @@ const year = new Date().getFullYear();
 // drop them at every width too.
 const { inToolbar = false } = defineProps<{ inToolbar?: boolean }>();
 
+// "Gear vault" is signed-in chrome; "Your lists" is not. The asymmetry is the
+// product's, not a hedge: lists need no account and live in a device-local
+// registry, so a signed-out visitor is exactly the person who might have some —
+// while the vault IS the account (see useSession: it's the only reason accounts
+// exist). Offering a stranger "your" vault on a friend's shared list points at
+// something that cannot exist yet.
+//
+// Gated on the HINT COOKIE, not on `signedIn`. Nothing on a read view ever calls
+// useSession().fetch() — AccountMenu, the only session reader in the topbar,
+// deliberately doesn't — so `signedIn` is false on /s and /l even for someone
+// signed in, which is the one case this must get right. The hint carries no
+// capability; being wrong costs a link to a page that explains itself.
+const { signedIn, hasSessionHint } = useSession();
+const known = ref(false);
+onMounted(() => (known.value = hasSessionHint() || signedIn.value));
+watch(signedIn, (yes) => (known.value = yes || hasSessionHint()));
+
 // No feedback trigger here any more — it lives in the editor's actions menu. The
 // footer is a legal line: four places to go and a copyright. A dialog launcher styled
 // to pass as a link in that row was the odd one out, and "send feedback" belongs
@@ -29,13 +46,12 @@ const { inToolbar = false } = defineProps<{ inToolbar?: boolean }>();
              repeat the "Your" beside it — which is what made an earlier
              "Your lists / Your vault" pair read as a set apart from About and Legal.
              /mine keeps its original label.
-             The vault link is unconditional, not gated on holding one: the footer is
-             server-rendered on the read views and hasVault is a localStorage read, so
-             a conditional link would either mismatch on hydration or flicker. /vault
-             explains itself to someone who has none, exactly as /mine does with no
-             lists. -->
+             The vault link appears only for an account (see `known` above); /mine is
+             unconditional, since lists never needed one. Neither is gated on whether
+             you HOLD lists or gear — both pages explain themselves when empty, and
+             that read is device-local, so gating on it would flicker for no gain. -->
         <NuxtLink v-if="!inToolbar" to="/mine" class="foot__link t-sm">Your lists</NuxtLink>
-        <NuxtLink v-if="!inToolbar" to="/vault" class="foot__link t-sm">Gear vault</NuxtLink>
+        <NuxtLink v-if="!inToolbar && known" to="/vault" class="foot__link t-sm">Gear vault</NuxtLink>
         <NuxtLink to="/about" class="foot__link t-sm">About</NuxtLink>
         <NuxtLink to="/legal" class="foot__link t-sm">Legal</NuxtLink>
       </nav>
