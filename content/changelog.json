@@ -10,7 +10,8 @@
       "The gear vault's sign-in prompt is one line now, and reads the same on the vault page and beside a list."
     ],
     "fixed": [
-      "The gear vault no longer offers to save a list's gear when you're signed out, which spent the one time it asks about that list."
+      "The gear vault no longer offers to save a list's gear when you're signed out, which spent the one time it asks about that list.",
+      "On a phone, an item's gear type now sits tight under its row instead of floating below it."
     ]
   },
   {
