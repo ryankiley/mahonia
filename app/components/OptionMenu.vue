@@ -86,10 +86,11 @@ function pick(key: string) {
                  a component, so :is would try to render an array and fail. -->
             <HugeiconsIcon v-if="o.icon" :icon="o.icon" class="optmenu__icon" :size="14" :stroke-width="2" aria-hidden="true" />
             <span class="optmenu__label">{{ o.label }}</span>
+            <!-- rendered on EVERY row and hidden rather than dropped — see the style -->
             <HugeiconsIcon
-              v-if="o.key === current"
               :icon="CheckIcon"
               class="optmenu__check"
+              :class="{ 'is-on': o.key === current }"
               :size="14"
               :stroke-width="2"
               aria-hidden="true"
@@ -144,8 +145,19 @@ function pick(key: string) {
   flex: 1 1 auto;
   text-align: start;
 }
+/* The check occupies a column on every row, visible only on the current one.
+   Dropping it from the others made the CHECKED row the widest — so it set the menu's
+   width, leaving its own label no slack to grow into, and the check ended up hugging
+   its text while every other row had a trailing gutter. Reserving the space makes all
+   rows the same width and puts the mark in one column.
+   Hidden, not transparent: aria-hidden already keeps it out of the accessibility tree,
+   and aria-current on the row is what actually says "this one". */
 .optmenu__check {
   flex: none;
   color: var(--ink-3);
+  visibility: hidden;
+}
+.optmenu__check.is-on {
+  visibility: visible;
 }
 </style>
