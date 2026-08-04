@@ -143,7 +143,7 @@ function onFile(e: Event) {
 
 <template>
   <BaseModal :open="open" label="Import a list" @close="emit('close')">
-    <p class="t-label">Import a list</p>
+    <h2 class="t-label">Import a list</h2>
     <!-- The controls below already say the rest: the placeholder shows the link and
          CSV shapes, and the file picker's accept filter covers JSON. This only has
          to carry the part nothing else does — that an import ARRIVES as a new list

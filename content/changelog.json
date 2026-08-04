@@ -3,6 +3,16 @@
     "date": "2026-08-04",
     "added": [
       "Copy your list as plain text — one run of names, ready to paste into a comment or a post where formatting doesn't survive. It ends with your base and total weight, and the read-only link."
+    ],
+    "changed": [
+      "Every picker — units, folder sorting, and moving gear between folders — now opens the app's own menu instead of your device's dropdown.",
+      "The trail link panel now matches the other floating panels.",
+      "The account, sharing and gear vault panels now share one header — same title, same close button in the same place.",
+      "Section labels in the sharing and account panels are smaller than the panel's own title, so the two read as different things."
+    ],
+    "fixed": [
+      "A menu near the left edge of the page no longer opens off-screen.",
+      "An item's unit is easier to tap on a phone."
     ]
   },
   {
@@ -19,7 +29,11 @@
       "On a shared list, \"Copy this list\" is now \"Duplicate this list\" — the same name the editor uses, and no longer confusable with the clipboard actions beside it.",
       "On a shared list, signing in is an icon in the top bar like the rest of it, and the ⋯ menu sits at the end.",
       "The trail link panel asks for a \"URL\".",
-      "The footer no longer links to the page you're already on."
+      "The footer no longer links to the page you're already on.",
+      "Signing in opens over the page you're on, so you never lose your list.",
+      "The sign-in dialog says \"Sign in\" rather than \"Your account\" when you don't have one yet.",
+      "Deleting your account now asks once, with a checkbox for your lists, instead of two questions in a row.",
+      "The account's fields and buttons are contained, and Delete account is red."
     ],
     "fixed": [
       "The gear vault no longer offers to save a list's gear when you're signed out, which spent the one time it asks about that list.",

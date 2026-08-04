@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "@hugeicons/vue";
-import { ChevronDownIcon } from "@hugeicons/core-free-icons";
+import { CheckIcon, ChevronDownIcon } from "@hugeicons/core-free-icons";
 import type { ListSnapshot, Totals, Unit } from "~~/shared/types";
 import { UNITS } from "~~/shared/types";
 import { carriedIsDistinct, formatKcal, formatWeight } from "~~/shared/weights";
@@ -44,6 +44,10 @@ const chips = computed(() => {
 const showCarried = computed(() => carriedIsDistinct(props.totals));
 
 const kcalDisplay = computed(() => formatKcal(props.totals.kcalTotal));
+
+// the four units as OptionMenu rows — the abbreviation IS the label here, since it's
+// what the figure beside it is already showing
+const UNIT_OPTIONS = UNITS.map((u) => ({ key: u, label: u }));
 </script>
 
 <template>
@@ -53,26 +57,29 @@ const kcalDisplay = computed(() => formatKcal(props.totals.kcalTotal));
         <!-- no "Total" label: the big figure makes it implicit. the figure starts
              zeroed (not a placeholder line) so nothing reflows when the first
              weighted item lands — the number just counts up. -->
-        <div class="totals__amount">
-          <AnimatedCount class="t-num totals__big" :value="formatWeight(totals.totalMg, list.displayUnit, { withUnit: false })" />
-          <span class="totals__uc" aria-hidden="true">
-            <span class="totals__unit">{{ list.displayUnit }}</span>
-            <!-- stroke 2.25, not the app-wide 2: at size 16 it renders an exact
-                 1.5px stroke (crisp 3 device px at 2x), so the chevron holds its
-                 weight beside the display-size figure -->
-            <HugeiconsIcon :icon="ChevronDownIcon" class="totals__chev" :size="16" :stroke-width="2.25" />
-          </span>
-          <!-- transparent native select over the number: tap the total to change units -->
-          <select
-            class="totals__unitsel"
-            title="Change unit"
-            aria-label="Weight unit"
-            :value="list.displayUnit"
-            @change="emit('set-unit', ($event.target as HTMLSelectElement).value as Unit)"
-          >
-            <option v-for="u in UNITS" :key="u" :value="u">{{ u }}</option>
-          </select>
-        </div>
+        <!-- The whole total is the trigger — tapping the number to change units is the
+             affordance, and it survives the swap. What changes is what opens: OUR
+             picker instead of a transparent native <select> laid over the figure. -->
+        <OptionMenu
+          class="totals__amount"
+          align="baseline"
+          :options="UNIT_OPTIONS"
+          :current="list.displayUnit"
+          label="Weight unit"
+          title="Change unit"
+          @pick="(u) => emit('set-unit', u as Unit)"
+        >
+          <template #trigger="{ open }">
+            <AnimatedCount class="t-num totals__big" :value="formatWeight(totals.totalMg, list.displayUnit, { withUnit: false })" />
+            <span class="totals__uc" aria-hidden="true">
+              <span class="totals__unit">{{ list.displayUnit }}</span>
+              <!-- stroke 2.25, not the app-wide 2: at size 16 it renders an exact
+                   1.5px stroke (crisp 3 device px at 2x), so the chevron holds its
+                   weight beside the display-size figure -->
+              <HugeiconsIcon :icon="ChevronDownIcon" class="totals__chev" :class="{ 'is-open': open }" :size="16" :stroke-width="2.25" />
+            </span>
+          </template>
+        </OptionMenu>
       </div>
     </div>
 
@@ -139,12 +146,11 @@ const kcalDisplay = computed(() => formatKcal(props.totals.kcalTotal));
   flex-direction: column;
   gap: var(--space-1);
 }
-.totals__amount {
-  position: relative;
-  display: inline-flex;
-  align-items: baseline;
-  gap: var(--space-2);
-}
+/* OptionMenu supplies the trigger button (bare — this is a display figure that happens
+   to be pressable, not a control that looks like one) and .menu supplies the
+   positioning. The unit and chevron sit on the big figure's BASELINE, asked for with
+   the `align` prop: a class here could not reach that button, since scoped styles stop
+   at the component boundary. */
 .totals__big {
   font-size: var(--text-display);
   line-height: 0.95;
@@ -172,16 +178,29 @@ const kcalDisplay = computed(() => formatKcal(props.totals.kcalTotal));
   color: var(--ink-3);
   transition: color var(--dur) var(--ease);
 }
-.totals__amount:hover .totals__chev {
+.totals__amount:hover .totals__chev,
+.totals__amount:focus-within .totals__chev {
   color: var(--ink);
 }
-.totals__unitsel {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  border: 0;
-  opacity: 0; /* invisible — the number + chevron are the visible affordance */
-  cursor: pointer;
+/* the chevron turns over with the menu, like every other disclosure in the app */
+.totals__chev.is-open {
+  rotate: 180deg;
+}
+.totals__unitmenu {
+  min-width: 7rem;
+}
+.totals__unititem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.totals__unitname {
+  flex: 1 1 auto;
+  text-align: start;
+}
+.totals__unitcheck {
+  flex: none;
+  color: var(--ink-3);
 }
 .totals__breakdown {
   /* one step up from --space-4 — the display-size figure above has a lot of optical

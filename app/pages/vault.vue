@@ -384,6 +384,22 @@ async function undoRemove() {
 }
 onBeforeUnmount(() => clearTimeout(undoTimer));
 
+
+// Sign in without losing the vault behind it — the account opens over this page.
+const { open: openAccount } = useAccountModal();
+// the shape SortMenu takes — see FolderSection, which renders the same control
+const SORT_OPTIONS = SORT_ORDER.map((key) => ({ key, label: SORT_META[key].label, icon: SORT_META[key].icon }));
+// the vault stores a SYSTEM, not a unit — one choice with two faces
+const UNIT_OPTIONS = [
+  { key: "metric", label: "Grams (g)" },
+  { key: "imperial", label: "Ounces (oz)" },
+];
+// every destination a row can move to. "" is Unfiled, which is a real destination
+// here rather than an empty state — the vault keeps unfiled gear.
+const folderOptions = computed(() => [
+  { key: "", label: "Unfiled" },
+  ...folders.value.map((f) => ({ key: String(f.id), label: f.name })),
+]);
 </script>
 
 <template>
@@ -416,7 +432,7 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
           <p class="vault__sentline">
             Your gear is one pick away on every list, but it needs an account.
           </p>
-          <NuxtLink to="/account" class="btn btn--primary">Sign in</NuxtLink>
+          <button type="button" class="btn btn--primary" @click="openAccount">Sign in</button>
         </div>
 
         <!-- the gear -->
@@ -454,23 +470,22 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
             <p class="t-sm t-muted vault__count">
               {{ filtered.length }} {{ filtered.length === 1 ? "item" : "items" }} ·
               <!-- The total IS the unit control, the same object the editor's
-                   TotalsBar puts up: figure, chevron, and a transparent native
-                   select laid over the pair. A separate g/oz toggle sat off in the
-                   search bar, away from the only number it governed. -->
-              <span class="vault__total">
-                {{ weightLabel(totalMg) }}
-                <HugeiconsIcon :icon="ChevronDownIcon" class="vault__chev" :size="14" :stroke-width="2.25" aria-hidden="true" />
-                <select
-                  class="vault__unitsel"
-                  title="Change unit"
-                  aria-label="Weight unit"
-                  :value="system"
-                  @change="setSystem(($event.target as HTMLSelectElement).value as 'metric' | 'imperial')"
-                >
-                  <option value="metric">g</option>
-                  <option value="imperial">oz</option>
-                </select>
-              </span>
+                   TotalsBar puts up: figure and chevron, opening the app's own picker.
+                   A separate g/oz toggle sat off in the search bar, away from the only
+                   number it governed. -->
+              <OptionMenu
+                class="vault__total"
+                :options="UNIT_OPTIONS"
+                :current="system"
+                label="Weight unit"
+                title="Change unit"
+                @pick="(k) => setSystem(k as 'metric' | 'imperial')"
+              >
+                <template #trigger="{ open }">
+                  {{ weightLabel(totalMg) }}
+                  <HugeiconsIcon :icon="ChevronDownIcon" class="vault__chev" :class="{ 'is-open': open }" :size="14" :stroke-width="2.25" aria-hidden="true" />
+                </template>
+              </OptionMenu>
             </p>
             <!-- The editor's folder, class for class — the header grid, the
                  collapse chevron, the trailing sort · delete · grip cluster and the
@@ -530,28 +545,23 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
                   >
                     <HugeiconsIcon :icon="Delete02Icon" :size="16" :stroke-width="2" />
                   </button>
-                  <div class="folder__sortwrap" :class="{ 'is-active': (section.folder.sortBy ?? 'manual') !== 'manual' }">
-                    <!-- :icon, NOT <component :is>. A hugeicons icon is path data
-                         rather than a component, so :is renders a comment node and the
-                         glyph vanishes. FolderSection.vue carries the same note; this
-                         second copy of SORT_META needs the same treatment. -->
-                    <HugeiconsIcon
-                      :icon="SORT_META[section.folder.sortBy ?? 'manual'].icon"
-                      class="folder__sorticon"
-                      :size="16"
-                      :stroke-width="2"
-                      aria-hidden="true"
-                    />
-                    <select
-                      class="folder__sortsel"
-                      :value="section.folder.sortBy ?? 'manual'"
-                      :title="`Sort gear — ${SORT_META[section.folder.sortBy ?? 'manual'].label}`"
-                      :aria-label="`Sort gear in ${section.folder.name}`"
-                      @change="folderOp({ t: 'sort', id: section.folder.id, sortBy: ($event.target as HTMLSelectElement).value })"
-                    >
-                      <option v-for="key in SORT_ORDER" :key="key" :value="key">{{ SORT_META[key].label }}</option>
-                    </select>
-                  </div>
+                  <!-- the shared sort picker, same control the editor's folder headers
+                       render. `!` on section.folder in @pick: the enclosing div is
+                       v-if="section.folder", but that narrowing doesn't survive into an
+                       arrow function's scope. -->
+                  <OptionMenu
+                    class="folder__sortwrap"
+                    :class="{ 'is-active': (section.folder.sortBy ?? 'manual') !== 'manual' }"
+                    trigger-class="btn btn--icon btn--ghost"
+                    :options="SORT_OPTIONS"
+                    :current="section.folder.sortBy ?? 'manual'"
+                    :label="`Sort gear in ${section.folder.name}`"
+                    @pick="(k) => folderOp({ t: 'sort', id: section.folder!.id, sortBy: k })"
+                  >
+                    <template #trigger="{ active }">
+                      <HugeiconsIcon :icon="active?.icon" class="folder__sorticon" :size="16" :stroke-width="2" aria-hidden="true" />
+                    </template>
+                  </OptionMenu>
                   <button
                     class="btn btn--icon btn--ghost folder__grip"
                     title="Drag to reorder folder"
@@ -593,19 +603,19 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
                            "Cook kit"; the heading already says where you are. The
                            select still names every destination when you open it,
                            and it's the keyboard and touch path for moving gear. -->
-                      <div class="vault__movewrap">
-                        <HugeiconsIcon :icon="FolderIcon" class="vault__moveicon" :size="16" :stroke-width="2" aria-hidden="true" />
-                        <select
-                          class="vault__movesel"
-                          :value="entry.folderId ?? ''"
-                          :title="`Move ${itemDisplayName(entry.brand, entry.name, entry.variant)} to a folder`"
-                          :aria-label="`Folder for ${itemDisplayName(entry.brand, entry.name, entry.variant)}`"
-                          @change="folderOp({ t: 'move', itemId: entry.id, folderId: ($event.target as HTMLSelectElement).value ? Number(($event.target as HTMLSelectElement).value) : null })"
-                        >
-                          <option value="">Unfiled</option>
-                          <option v-for="f in folders" :key="f.id" :value="f.id">{{ f.name }}</option>
-                        </select>
-                      </div>
+                      <OptionMenu
+                        class="vault__movewrap"
+                        trigger-class="btn btn--icon btn--ghost"
+                        :options="folderOptions"
+                        :current="String(entry.folderId ?? '')"
+                        :label="`Folder for ${itemDisplayName(entry.brand, entry.name, entry.variant)}`"
+                        :title="`Move ${itemDisplayName(entry.brand, entry.name, entry.variant)} to a folder`"
+                        @pick="(k) => folderOp({ t: 'move', itemId: entry.id, folderId: k ? Number(k) : null })"
+                      >
+                        <template #trigger>
+                          <HugeiconsIcon :icon="FolderIcon" class="vault__moveicon" :size="16" :stroke-width="2" aria-hidden="true" />
+                        </template>
+                      </OptionMenu>
                       <!-- glyph only, like every other row action on the site: the
                            word was the widest thing in the row and said what the
                            bin already says. The label lives on aria-label + title. -->
@@ -840,16 +850,8 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
    AFTER the chevron in the DOM, so `+` would never match it. The editor's version
    has no focus cue at all; keyboard users deserve the same hint the pointer gets. */
 .vault__total:hover .vault__chev,
-.vault__total:has(.vault__unitsel:focus-visible) .vault__chev {
+.vault__total:focus-within .vault__chev {
   color: var(--ink);
-}
-.vault__unitsel {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  border: 0;
-  opacity: 0; /* invisible — the figure + chevron are the visible affordance */
-  cursor: pointer;
 }
 .vault__count {
   margin-bottom: var(--space-2);
@@ -939,9 +941,8 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
 .vault__folderempty {
   padding-block: var(--space-2);
 }
-/* the folder header's .folder__sortwrap recipe, at row scale: a glyph that shows
-   the control exists, with the real <select> laid transparently over it so the
-   platform picker and full keyboard access come for free */
+/* the folder header's sort control at row scale: a glyph that shows the control
+   exists, opening the app's own picker (OptionMenu) */
 .vault__movewrap {
   position: relative;
   flex: none;
@@ -958,13 +959,6 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
 }
 .vault__moveicon {
   pointer-events: none;
-}
-.vault__movesel {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  opacity: 0;
-  cursor: pointer;
 }
 /* making a folder is typing its name — no button that invents an "Untitled folder"
    for you to hunt down and rename */

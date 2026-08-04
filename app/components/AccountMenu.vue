@@ -62,39 +62,40 @@ async function onSignOut() {
 const onAccount = computed(() => route.path === "/account");
 const onVault = computed(() => route.path === "/vault");
 
-// Signing in is a toll, not a destination — so note where we were before paying it.
-// fullPath carries the query AND the hash, which matters: an editor URL keeps its edit
-// token in the fragment, and dropping it would land you on a list you can't edit.
-// Stored locally rather than passed as ?next= — see useReturnTo for why that would
-// leak the token.
-const { remember } = useReturnTo();
-const rememberHere = () => remember(route.fullPath);
+// The account opens OVER the page now, so there's nowhere to come back from and
+// nothing to remember. useReturnTo still earns its keep for the magic link, which
+// leaves the browser entirely and returns in a new tab — see /auth/callback.
+const { open: openAccount } = useAccountModal();
 </script>
 
 <template>
   <ClientOnly>
-    <!-- signed out: one destination, so a link and not a menu. Icon in the editor's
-         glyph row, words in the site bar. -->
+    <!-- signed out: one thing to do, so a single control and not a menu. Icon in the
+         editor's glyph row, words in the site bar.
+         BUTTONS, not links: this opens a dialog over the page, it doesn't go anywhere.
+         (It was a NuxtLink to /account, and @click.prevent does NOT stop NuxtLink's own
+         navigation — it opened the modal AND left the page.) The classes stay, since
+         print.scss hides both shapes by name. -->
     <Tooltip v-if="!known && compact" text="Sign in" preferred-placement="bottom">
-      <NuxtLink
+      <button
         v-show="!onAccount"
-        to="/account"
+        type="button"
         class="btn btn--icon btn--ghost acct__signinbtn"
         aria-label="Sign in"
-        @click="rememberHere"
+        @click="openAccount"
       >
         <HugeiconsIcon :icon="UserLock01Icon" :size="16" :stroke-width="2" />
-      </NuxtLink>
+      </button>
     </Tooltip>
-    <NuxtLink
+    <button
       v-else-if="!known"
       v-show="!onAccount"
-      to="/account"
+      type="button"
       class="btn btn--link acct__signin"
-      @click="rememberHere"
+      @click="openAccount"
     >
       Sign in
-    </NuxtLink>
+    </button>
 
     <div v-else ref="menuRef" class="menu">
       <Tooltip text="Your account" preferred-placement="bottom" :disabled="open">
@@ -126,9 +127,9 @@ const rememberHere = () => remember(route.fullPath);
             </NuxtLink>
           </li>
           <li v-if="!onAccount" role="none">
-            <NuxtLink to="/account" data-row role="menuitem" class="menu__item" @click="open = false">
+            <button type="button" data-row role="menuitem" class="menu__item" @click="open = false; openAccount()">
               Your account
-            </NuxtLink>
+            </button>
           </li>
           <li role="none">
             <button type="button" data-row role="menuitem" class="menu__item" @click="onSignOut">

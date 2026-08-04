@@ -52,12 +52,24 @@ $bp-full: 1024px !default;
      full-strength ink — interactive links may deepen to --ink-2, never to --ink ---- */
   --underline: var(--ink-3);
 
-  /* ---- chrome is MONOCHROME — controls/state/primary all read as ink; the only
-     colour on the site is the data viz (the category bar + dots, --cat-* below).
-     See wiki: concepts/monochrome-chrome-colour-from-content. The primary action
-     is inverted ink (ink ground, paper text). ---- */
+  /* ---- chrome is MONOCHROME — controls/state/primary all read as ink; colour on
+     this site is the data viz (the category bar + dots, --cat-* below) and ONE
+     exception, --danger just below. See wiki:
+     concepts/monochrome-chrome-colour-from-content. The primary action is inverted
+     ink (ink ground, paper text). ---- */
   --accent: var(--ink);
   --accent-ink: var(--paper);
+
+  /* ---- the ONE coloured control. Deleting an account takes the gear vault with it
+     and cannot be undone; it is the only irreversible action in the app, and the only
+     place where reading the button wrong costs something you can't get back. The
+     monochrome rule holds everywhere else — a destructive control that merely steps
+     back to secondary ink, which is what this was, looks the same as a quiet one.
+     Its own token and NOT --cat-firstaid, close as the hue is: a category is content
+     and this is chrome, so renaming a category must never restyle a delete button.
+     ---- */
+  --danger: light-dark(oklch(0.55 0.22 25), oklch(0.62 0.21 25));
+  --danger-ink: #ffffff;
 
   /* ---- category palette — LOUD + UNEXPECTED: the only colour on the site is the
      data viz, so it's pushed to electric, non-natural hues (volt green / hot pink /

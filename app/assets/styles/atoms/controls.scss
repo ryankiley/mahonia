@@ -313,6 +313,15 @@ input[type="search"]::-webkit-search-decoration {
   // the surface itself comes from .popover (shared with the autocomplete)
   transform-origin: top right;
 }
+// Anchored to the LEADING edge instead. The default hangs a menu off its anchor's
+// right, which is right for the ⋯ and account menus at the end of a toolbar — but a
+// trigger near the left of the page (the editor's total, whose menu is wider than the
+// figure) then extends leftward off the screen. Opt in where the anchor is on the left.
+.menu__list--start {
+  right: auto;
+  left: 0;
+  transform-origin: top left;
+}
 .menu__item {
   // block so a <NuxtLink>/<a> item fills the row like the <button> items do —
   // an inline anchor ignores width:100%, shrinking the padding + hover box to the text
@@ -702,4 +711,55 @@ input[type="search"]::-webkit-search-decoration {
 .reveal-leave-to {
   grid-template-rows: 0fr;
   opacity: 0;
+}
+
+// ---- Checkbox -------------------------------------------------------------
+// A native checkbox, made invisible, with two icons stacked under it: an empty
+// square and a checked one, cross-fading. The native control keeps every bit of
+// behaviour that matters (label association, focus, Space, the accessibility tree)
+// and gives up only its paint — which it has to, because a bare checkbox renders in
+// the BROWSER'S BLUE, the one colour this design never shows (tokens.scss: colour
+// belongs to the data viz).
+//
+// Lifted out of VaultPickerModal when the delete-account dialog needed the same
+// thing. The ink is inherited, so a row can darken its own box on hover by setting
+// `color` on an ancestor rule.
+.check {
+  position: relative;
+  align-self: center;
+  width: 20px;
+  height: 20px;
+  flex: none;
+  display: grid;
+  place-content: center;
+}
+.check__box {
+  position: absolute;
+  inset: 0;
+  appearance: none;
+  margin: 0;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.check__icon {
+  grid-area: 1 / 1;
+  pointer-events: none;
+  color: var(--ink-3);
+  transition: color var(--dur) var(--ease);
+}
+.check__icon--check {
+  opacity: 0;
+  color: var(--ink);
+  transform: scale(0.5);
+  transition:
+    transform var(--dur) var(--ease-spring),
+    opacity calc(var(--dur) * 0.6) var(--ease);
+}
+.check__box:checked ~ .check__icon--empty {
+  opacity: 0;
+  transition: opacity calc(var(--dur) * 0.6) var(--ease);
+}
+.check__box:checked ~ .check__icon--check {
+  opacity: 1;
+  transform: scale(1);
 }

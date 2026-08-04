@@ -62,7 +62,7 @@ const groups = computed(() => {
 <template>
   <BaseModal :open="!!caps" label="Choose which gear is yours" @close="emit('cancel')">
     <template v-if="caps">
-      <p class="t-label">Add to your gear vault</p>
+      <h2 class="t-label">Add to your gear vault</h2>
       <p class="t-sm t-muted dlg__lede">
         You didn’t start this list, so some of it may not be your gear. Untick anything that
         isn’t — you can change it later on the gear vault page.
@@ -84,16 +84,16 @@ const groups = computed(() => {
                  same Square/SquareCheck the packing rows use. A bare checkbox here
                  renders as the browser's blue, which is the one bit of chrome this
                  design never shows. -->
-            <span class="vpick__boxwrap">
+            <span class="check">
               <input
                 type="checkbox"
-                class="vpick__box"
+                class="check__box"
                 :checked="keep.has(c.normKey)"
                 :aria-label="`Add ${itemDisplayName(c.brand, c.name, c.variant)} to your gear vault`"
                 @change="toggle(c.normKey)"
               />
-              <HugeiconsIcon :icon="SquareIcon" class="vpick__boxicon vpick__boxicon--empty" :size="20" :stroke-width="1.33" absolute-stroke-width aria-hidden="true" />
-              <HugeiconsIcon :icon="CheckmarkSquare02Icon" class="vpick__boxicon vpick__boxicon--check" :size="20" :stroke-width="1.33" absolute-stroke-width aria-hidden="true" />
+              <HugeiconsIcon :icon="SquareIcon" class="check__icon check__icon--empty" :size="20" :stroke-width="1.33" absolute-stroke-width aria-hidden="true" />
+              <HugeiconsIcon :icon="CheckmarkSquare02Icon" class="check__icon check__icon--check" :size="20" :stroke-width="1.33" absolute-stroke-width aria-hidden="true" />
             </span>
             <span class="vpick__name">{{ itemDisplayName(c.brand, c.name, c.variant) }}</span>
             <span class="t-sm t-muted t-num vpick__weight">{{
@@ -151,47 +151,8 @@ const groups = computed(() => {
 /* checkbox — the ItemRow recipe (atoms would be better, but the two are far enough
    apart in markup that hoisting them isn't a clean win yet): invisible native input
    over a Square/SquareCheck pair */
-.vpick__boxwrap {
-  position: relative;
-  align-self: center;
-  width: 20px;
-  height: 20px;
-  flex: none;
-  display: grid;
-  place-content: center;
-}
-.vpick__box {
-  position: absolute;
-  inset: 0;
-  appearance: none;
-  margin: 0;
-  border-radius: 4px;
-  cursor: pointer;
-}
-.vpick__boxicon {
-  grid-area: 1 / 1;
-  pointer-events: none;
-  color: var(--ink-3);
-  transition: color var(--dur) var(--ease);
-}
-.vpick__row:hover .vpick__boxicon {
+.vpick__row:hover .check__icon {
   color: var(--ink);
-}
-.vpick__boxicon--check {
-  opacity: 0;
-  color: var(--ink);
-  transform: scale(0.5);
-  transition:
-    transform var(--dur) var(--ease-spring),
-    opacity calc(var(--dur) * 0.6) var(--ease);
-}
-.vpick__box:checked ~ .vpick__boxicon--empty {
-  opacity: 0;
-  transition: opacity calc(var(--dur) * 0.6) var(--ease);
-}
-.vpick__box:checked ~ .vpick__boxicon--check {
-  opacity: 1;
-  transform: scale(1);
 }
 .vpick__name {
   min-width: 0;
