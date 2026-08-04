@@ -407,10 +407,14 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
              only has to answer the question that subtitle raises — why this one
              thing wants an account — and get out of the way. Lists are named
              because that's the promise people came for, and this page must not
-             read as it being withdrawn. -->
+             read as it being withdrawn.
+             WORD FOR WORD the vault pane's own prompt (VaultPane). It is the same
+             question asked in two places, and answering it twice in two voices is
+             how a product starts sounding like two products. Change one, change
+             both. -->
         <div v-if="!hasVault" class="vault__auth">
           <p class="vault__sentline">
-            Your vault needs an account, so you can reach it from any device.
+            Your gear is one pick away on every list, but it needs an account.
           </p>
           <NuxtLink to="/account" class="btn btn--primary">Sign in</NuxtLink>
         </div>
@@ -766,8 +770,12 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
    pane's search and the import dialog's box. The auth field above keeps the
    underline treatment: it is a single question on an otherwise empty page, not a
    tool in a working surface. */
+/* balance, as the vault pane's copy of this sentence takes: it's centred, so a
+   ragged right edge reads as a mistake rather than as rag, and at a narrow window
+   the last word would otherwise strand on its own line. */
 .vault__sentline {
   color: var(--ink);
+  text-wrap: balance;
 }
 .vault__error {
   color: var(--ink);

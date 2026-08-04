@@ -5,7 +5,8 @@
       "Switch between your lists from the editor's toolbar, without leaving the one you're in."
     ],
     "changed": [
-      "The toolbar now says when your list was last edited, and only mentions syncing when there's something to say."
+      "The toolbar now says when your list was last edited, and only mentions syncing when there's something to say.",
+      "The gear vault's sign-in prompt is one line now, and reads the same on the vault page and beside a list."
     ]
   },
   {
