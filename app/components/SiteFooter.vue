@@ -36,12 +36,15 @@ const year = new Date().getFullYear();
 
 <style scoped>
 .foot {
-  border-top: 1px solid var(--line);
   /* the single content→footer gap, site-wide — matches the inter-folder rhythm
      (--space-7). Page containers add no bottom padding, so this isn't doubled. */
   margin-top: var(--space-7);
 }
+/* The rule is on the INNER column, not the outer block: it marks where the page's
+   content ends, so it should measure the content — not run the width of whatever
+   shell the page happens to sit in. */
 .foot__inner {
+  border-top: 1px solid var(--line);
   padding-block: var(--space-5);
   display: flex;
   flex-wrap: wrap;

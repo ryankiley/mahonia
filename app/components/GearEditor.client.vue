@@ -167,6 +167,10 @@ watch(pendingUndo, (u) => {
 });
 const importOpen = ref(false);
 const menuOpen = ref(false);
+// the travelling wash shared with the other menus (see useMenuPlate). Section
+// HEADERS deliberately carry no [data-row] — they open a group rather than doing
+// something, so the wash shouldn't claim them as a destination.
+const { plateRef: kebabPlateRef, listRef: kebabListRef, placing: kebabPlacing, on: kebabPlateOn } = useMenuPlate();
 const menuRef = useTemplateRef<HTMLElement>("menuRef");
 const toast = ref("");
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
@@ -451,6 +455,18 @@ function onCorrected(res: { status: string; itemName?: string }) {
     <h1 class="visually-hidden">{{ listName ? `${listName} — pack list` : "New pack list — Mahonia" }}</h1>
     <header class="topbar">
       <div class="wrap topbar__inner">
+        <!-- The list switcher, holding the bar's LEADING edge. A word rather than a
+             glyph, so it doesn't join the icon cluster at the other end and so it's
+             discoverable without hovering; the count answers "do I have others?"
+             before you open it. Outside the v-if, because it's a way OUT of a list
+             that failed to load. Hides itself below two lists (see ListMenu). -->
+        <ListMenu
+          class="editor__lists"
+          :current-share-code="snapshot?.shareCode ?? null"
+          :hint="showIntro"
+          @new-list="newList()"
+          @dismiss-hint="dismissIntro"
+        />
         <template v-if="snapshot">
           <!-- sync state + last-edit time, on the bar's leading edge — the space the
                title vacated when it became a page title. It takes the free width, which
@@ -556,11 +572,15 @@ function onCorrected(res: { status: string; itemName?: string }) {
               </button>
             </Tooltip>
             <Transition name="menu">
-              <ul v-if="menuOpen" class="popover menu__list" role="menu" aria-label="More actions">
+              <ul v-if="menuOpen" ref="kebabListRef" class="popover menu__list" role="menu" aria-label="More actions" v-on="kebabPlateOn">
+                <!-- the travelling wash (atoms/controls.scss + useMenuPlate) -->
+                <li role="none" aria-hidden="true">
+                  <span ref="kebabPlateRef" class="menu__plate" :class="{ 'is-placing': kebabPlacing }" />
+                </li>
                 <!-- no "Your lists" here — the footer already carries that link.
                      Close BEFORE the action runs, matching the old dispatch order. -->
                 <li v-for="a in MENU_ACTIONS" :key="a.label" role="none">
-                  <button type="button" role="menuitem" class="menu__item" @click="menuOpen = false; a.run()">{{ a.label }}</button>
+                  <button type="button" data-row role="menuitem" class="menu__item" @click="menuOpen = false; a.run()">{{ a.label }}</button>
                 </li>
                 <!-- Import / Export expand in place. The section header is not a
                      menuitem — it opens a group rather than doing anything — so it
@@ -583,7 +603,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
                     <div v-if="openSection === s.key" class="reveal">
                   <ul class="editor__sectlist" role="group" :aria-label="s.label">
                     <li v-for="a in s.items" :key="a.label" role="none">
-                      <button type="button" role="menuitem" class="menu__item editor__sectitem" @click="menuOpen = false; a.run()">{{ a.label }}</button>
+                      <button type="button" data-row role="menuitem" class="menu__item editor__sectitem" @click="menuOpen = false; a.run()">{{ a.label }}</button>
                     </li>
                   </ul>
                     </div>
@@ -597,25 +617,6 @@ function onCorrected(res: { status: string; itemName?: string }) {
     </header>
 
     <main v-if="snapshot && totals" id="main-content" tabindex="-1" class="wrap editor__body">
-      <!-- Returning-user pointer back to saved lists, on a fresh empty draft only.
-           The marketing lede that used to sit here is gone: the ghosted title now
-           says what this page is, and a pitch above it just crowded the thing you
-           came to do. A corner prompt rather than a line in the flow — it's an
-           aside about OTHER lists, and in the column it pushed the title of the one
-           you came to write down the page. Hidden while the vault pane is open: on
-           a phone that pane is a bottom sheet and the two would collide. -->
-      <Prompt
-        :show="showIntro"
-        lede="Pick up where you left off."
-        dismiss-label="Dismiss"
-        class="editor__intro"
-        @dismiss="dismissIntro"
-      >
-        <NuxtLink to="/mine" class="editor__introlink">
-          Your {{ savedCount }} saved {{ savedCount === 1 ? "list" : "lists" }} →
-        </NuxtLink>
-      </Prompt>
-
       <!-- The list name is a page title, not a toolbar field: large, borderless, with a
            ghosted placeholder, at the top of the content — matching what the two read
            views have always done (ReadonlyListView's h1). -->
@@ -994,13 +995,8 @@ function onCorrected(res: { status: string; itemName?: string }) {
      the read views already give the same seam (.view is a --space-6 column). */
   gap: var(--space-5);
 }
-/* First-run pointer back to saved lists. Recedes once the list has content, and
-   the close button retires it for good. Placement + surface are the shared
-   .toast--corner atom; only what's INSIDE the snackbar lives here. */
-.editor__introlink:hover,
-.editor__introlink:focus-visible {
-  text-decoration: underline;
-}
+/* the first-run pointer moved out of the column and onto the list switcher it
+   points at — it lives in ListMenu now, tethered to that control */
 /* the inline vault ask's affirmative — quiet like the rest of the banner, and
    deepening to full ink on hover the way every under-link on the site does */
 .editor__vaultadd {

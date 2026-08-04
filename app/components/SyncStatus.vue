@@ -42,9 +42,20 @@ const stateWord = computed(() => {
     case "error":
       return "Not saved";
     case "synced":
-      // saved to the server → its last-write time; a draft with content but no
-      // server time yet is held on device; an untouched empty list says nothing
-      return editedAt.value != null ? "Synced" : hasContent.value ? "Saved on device" : "";
+      // NOTHING, once it's safely on the server — the time suffix below carries on
+      // alone, so the resting line reads "edited 4 minutes ago" rather than
+      // "Synced · edited 4 minutes ago".
+      //
+      // "Synced" is a word that is almost always true, in the most valuable spot in
+      // the toolbar, saying nothing you can act on. The timestamp beside it is the
+      // half that's actually information. Dropping the state word at rest lets the
+      // bar's leading edge hold one thing at a time — the list switcher when all is
+      // well, a real state when there is one — and everything below still speaks up
+      // the moment there IS news: syncing, offline, not saved, no longer online.
+      //
+      // A draft with content but no server time yet still says so: "saved on device"
+      // is news (it's NOT on the server), which is exactly the test this applies.
+      return editedAt.value != null ? "" : hasContent.value ? "Saved on device" : "";
     case "missing":
       // the server no longer knows this list (deleted or reaped) but the local
       // copy is intact — say so honestly instead of claiming a sync state
@@ -53,13 +64,16 @@ const stateWord = computed(() => {
       return ""; // idle
   }
 });
+// No leading "·" when the state word has stood down — it would open the line with a
+// dangling separator. The dot only joins two things when there are two.
 const timeSuffix = computed(() =>
   status.value === "synced" && editedAt.value != null
-    ? ` · edited ${timeAgo(editedAt.value, now.value.getTime())}`
+    ? `${stateWord.value ? " · " : ""}edited ${timeAgo(editedAt.value, now.value.getTime())}`
     : "",
 );
 
-const shown = computed(() => stateWord.value !== "");
+// Either half can carry the line now that the resting state drops its word.
+const shown = computed(() => stateWord.value !== "" || timeSuffix.value !== "");
 </script>
 
 <template>

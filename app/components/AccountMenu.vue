@@ -37,6 +37,8 @@ onMounted(() => (known.value = hasSessionHint() || signedIn.value));
 watch(signedIn, (yes) => (known.value = yes || hasSessionHint()));
 
 const open = ref(false);
+// the travelling wash shared with the other menus (see useMenuPlate)
+const { plateRef, listRef, placing, on: plateOn } = useMenuPlate();
 const menuRef = useTemplateRef<HTMLElement>("menuRef");
 // same close behaviour as the editor kebab and ReadonlyMenu: the action itself, an
 // outside tap, or Escape
@@ -102,19 +104,24 @@ const onVault = computed(() => route.path === "/vault");
       </button>
       </Tooltip>
       <Transition name="menu">
-        <ul v-if="open" class="popover menu__list" role="menu" aria-label="Your account">
+        <ul v-if="open" ref="listRef" class="popover menu__list" role="menu" aria-label="Your account" v-on="plateOn">
+          <!-- the travelling wash (atoms/controls.scss + useMenuPlate). role="none"
+               so a decorative element can't read as a menu item. -->
+          <li role="none" aria-hidden="true">
+            <span ref="plateRef" class="menu__plate" :class="{ 'is-placing': placing }" />
+          </li>
           <li v-if="!onVault" role="none">
-            <NuxtLink to="/vault" role="menuitem" class="menu__item" @click="open = false">
+            <NuxtLink to="/vault" data-row role="menuitem" class="menu__item" @click="open = false">
               Your gear vault
             </NuxtLink>
           </li>
           <li v-if="!onAccount" role="none">
-            <NuxtLink to="/account" role="menuitem" class="menu__item" @click="open = false">
+            <NuxtLink to="/account" data-row role="menuitem" class="menu__item" @click="open = false">
               Your account
             </NuxtLink>
           </li>
           <li role="none">
-            <button type="button" role="menuitem" class="menu__item" @click="onSignOut">
+            <button type="button" data-row role="menuitem" class="menu__item" @click="onSignOut">
               Sign out
             </button>
           </li>
