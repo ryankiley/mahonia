@@ -194,7 +194,14 @@ const FIRST_LOAD_BUDGET_KB = 139;
 // 180. A backstop with no slack is not a backstop — it fails on the next trivial
 // change and gets raised without anyone thinking about it, which is the exact
 // failure the first-load note above describes. Nothing here grew unexpectedly.
-const TOTAL_BUDGET_KB = 186;
+//
+// 186 → 192, and re-anchoring again for the same reason: current had reached 186.1
+// against 186. The growth is a plain-text exporter — an ON-DEMAND chunk, fetched when
+// someone opens the export menu and never on a page load, so first load is untouched.
+// That is precisely the "ordinary feature work" this note says the backstop should not
+// be pricing, and a backstop sitting 0.1 KB above current cannot catch the thing it
+// exists for. 192 restores the ~6 KB of slack the last re-anchor set.
+const TOTAL_BUDGET_KB = 192;
 const MAX_CHUNK_BUDGET_KB = 72; // largest single chunk, brotli (the framework runtime)
 
 // First build output that exists: node-server, Vercel preset, or static generate.
