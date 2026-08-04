@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "@hugeicons/vue";
-import { Add01Icon, Cancel01Icon, CheckIcon, CircleXIcon } from "@hugeicons/core-free-icons";
+import { Add01Icon, Cancel01Icon, CheckIcon, ChevronDownIcon, CircleXIcon } from "@hugeicons/core-free-icons";
 import type { VaultEntry, VaultFolder } from "~~/shared/vault";
 import { vaultNormKey } from "~~/shared/vault";
 import { rankVaultRows } from "~~/shared/vaultSearch";
@@ -340,6 +340,8 @@ onKeyStroke("Escape", () => emit("close"));
 
 // Sign in without losing the vault behind it — the account opens over this page.
 const { open: openAccount } = useAccountModal();
+// folder ids are STRINGS in the editor (the vault page's are numeric rows) — no cast
+const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, label: f.name })));
 </script>
 
 <template>
@@ -456,12 +458,24 @@ const { open: openAccount } = useAccountModal();
         </div>
         <!-- the destination picker is meaningless on Categories — a cloned category
              brings its own folder with it -->
-        <label v-if="folders.length && tab === 'items'" class="vp__target">
+        <div v-if="folders.length && tab === 'items'" class="vp__target">
           <span class="t-sm t-muted">Add to</span>
-          <select v-model="targetFolderId" class="field vp__select" aria-label="Folder to add into">
-            <option v-for="f in folders" :key="f.id" :value="f.id">{{ f.name }}</option>
-          </select>
-        </label>
+          <!-- the last native dropdown in the app, converted with the rest: it wasn't
+               the transparent-overlay pattern, just an ordinary <select>, which left it
+               the one control that opened an OS list instead of ours -->
+          <OptionMenu
+            class="vp__select"
+            :options="targetOptions"
+            :current="targetFolderId ?? ''"
+            label="Folder to add into"
+            @pick="(k) => (targetFolderId = k)"
+          >
+            <template #trigger="{ active, open }">
+              <span class="vp__targetname">{{ active?.label }}</span>
+              <HugeiconsIcon :icon="ChevronDownIcon" class="vp__targetchev" :class="{ 'is-open': open }" :size="14" :stroke-width="2" aria-hidden="true" />
+            </template>
+          </OptionMenu>
+        </div>
       </div>
 
       <p v-if="loadError" class="t-sm vp__error">{{ loadError }}</p>
@@ -761,8 +775,15 @@ const { open: openAccount } = useAccountModal();
 .vp__select {
   flex: 0 1 auto;
   min-width: 0;
-  width: auto;
-  cursor: pointer;
+}
+.vp__targetname {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vp__targetchev {
+  flex: none;
+  color: var(--ink-3);
 }
 .vp__note,
 .vp__error {

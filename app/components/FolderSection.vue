@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "@hugeicons/vue";
-import { ArrowUpDownIcon, ChevronDownIcon, Delete02Icon, GripVerticalIcon, SortingAZ01Icon, SortingNineOneIcon, SortingOneNineIcon } from "@hugeicons/core-free-icons";
+import { ArrowUpDownIcon, CheckIcon, ChevronDownIcon, Delete02Icon, GripVerticalIcon, SortingAZ01Icon, SortingNineOneIcon, SortingOneNineIcon } from "@hugeicons/core-free-icons";
 import type { Folder, FolderSort, Item, ListSnapshot } from "~~/shared/types";
 import { bySortOrder } from "~~/shared/weights";
 
@@ -79,8 +79,10 @@ const SORT_ORDER: FolderSort[] = ["manual", "name", "heaviest", "lightest"];
 const sortBy = computed<FolderSort>(() => props.folder.sortBy ?? "manual");
 const isSorted = computed(() => sortBy.value !== "manual");
 const sortIcon = computed(() => SORT_META[sortBy.value].icon);
-function onSort(e: Event) {
-  c.updateFolder(props.folder.id, { sortBy: (e.target as HTMLSelectElement).value as FolderSort });
+// the shape SortMenu takes — the same four modes, now declared once per caller
+const SORT_OPTIONS = SORT_ORDER.map((key) => ({ key, label: SORT_META[key].label, icon: SORT_META[key].icon }));
+function onSort(key: FolderSort) {
+  c.updateFolder(props.folder.id, { sortBy: key });
 }
 
 // drag-to-reorder folders via the grip handle (a drop line shows where it lands)
@@ -180,21 +182,24 @@ function toggleCollapsed() {
         >
           <HugeiconsIcon :icon="Delete02Icon" :size="16" :stroke-width="2" />
         </button>
-        <div class="folder__sortwrap" :class="{ 'is-active': isSorted }">
-          <!-- :icon, NOT <component :is>. An icon here is path data rather than a
-               component, so :is would try to render an array and fail; the one
-               renderer takes the varying icon as a prop instead. -->
-          <HugeiconsIcon :icon="sortIcon" class="folder__sorticon" :size="16" :stroke-width="2" aria-hidden="true" />
-          <select
-            class="folder__sortsel"
-            :value="sortBy"
-            :title="`Sort items — ${SORT_META[sortBy].label}`"
-            :aria-label="`Sort items in ${folder.name || 'folder'}`"
-            @change="onSort"
-          >
-            <option v-for="key in SORT_ORDER" :key="key" :value="key">{{ SORT_META[key].label }}</option>
-          </select>
-        </div>
+        <!-- the shared sort picker (SortMenu) — the editor's folder headers and the
+             vault's both use it, so the control exists once. `is-active` lights the
+             glyph when a non-manual sort is on, which is how a sorted folder reads as
+             sorted at a glance even when collapsed. -->
+        <OptionMenu
+          class="folder__sortwrap"
+          :class="{ 'is-active': isSorted }"
+          trigger-class="btn btn--icon btn--ghost"
+          :options="SORT_OPTIONS"
+          :current="sortBy"
+          :label="`Sort items in ${folder.name || 'folder'}`"
+          :title="`Sort items — ${SORT_META[sortBy].label}`"
+          @pick="(k) => onSort(k as FolderSort)"
+        >
+          <template #trigger="{ active }">
+            <HugeiconsIcon :icon="active?.icon" class="folder__sorticon" :size="16" :stroke-width="2" aria-hidden="true" />
+          </template>
+        </OptionMenu>
         <!-- drag via pointerdown; arrow keys give the focused grip the reordering
              its label promises (a drag needs a pointer) -->
         <button
