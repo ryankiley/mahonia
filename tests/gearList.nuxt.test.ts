@@ -29,6 +29,16 @@ import {
 // real one does (it JSON round-trips to strip Vue's reactive proxy), so a test can
 // never accidentally assert against a live reference to the controller's own state.
 const records = new Map<string, LocalListRecord>();
+// The vault only ASKS someone who has one — the prompt is an offer to put gear
+// somewhere, and signed out there is nowhere. These cases are about the question
+// itself, so they're run as a holder of a vault; the signed-out path has its own
+// case at the end of the file.
+mockNuxtImport("useVaultAccess", () => () => ({
+  hasVault: ref(true),
+  vaultFetch: <T,>(url: string, opts?: Parameters<typeof $fetch>[1]) =>
+    $fetch(url, { ...opts, credentials: "same-origin" }) as Promise<T>,
+}));
+
 mockNuxtImport("useLocalListStore", () => () => ({
   get: async (key: string) => records.get(key),
   set: async (key: string, record: LocalListRecord) => {

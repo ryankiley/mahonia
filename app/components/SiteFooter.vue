@@ -4,6 +4,17 @@
 // copyright; contact lives on the About page, not here. Monochrome chrome.
 const year = new Date().getFullYear();
 
+// `inToolbar` is set by the EDITOR, which carries "Your lists" (the switcher) and
+// "Gear vault" in its own top bar. Repeating them three inches below is a second
+// copy of a control you can already see. Deliberately a prop rather than a route
+// check: the footer shouldn't know which pages exist, and a page that later grows
+// its own toolbar can say so the same way.
+//
+// NOT viewport-conditional, unlike an earlier attempt with a desktop-only side
+// panel: both toolbar affordances are present at every width, so the footer can
+// drop them at every width too.
+const { inToolbar = false } = defineProps<{ inToolbar?: boolean }>();
+
 // No feedback trigger here any more — it lives in the editor's actions menu. The
 // footer is a legal line: four places to go and a copyright. A dialog launcher styled
 // to pass as a link in that row was the odd one out, and "send feedback" belongs
@@ -23,8 +34,8 @@ const year = new Date().getFullYear();
              a conditional link would either mismatch on hydration or flicker. /vault
              explains itself to someone who has none, exactly as /mine does with no
              lists. -->
-        <NuxtLink to="/mine" class="foot__link t-sm">Your lists</NuxtLink>
-        <NuxtLink to="/vault" class="foot__link t-sm">Gear vault</NuxtLink>
+        <NuxtLink v-if="!inToolbar" to="/mine" class="foot__link t-sm">Your lists</NuxtLink>
+        <NuxtLink v-if="!inToolbar" to="/vault" class="foot__link t-sm">Gear vault</NuxtLink>
         <NuxtLink to="/about" class="foot__link t-sm">About</NuxtLink>
         <NuxtLink to="/legal" class="foot__link t-sm">Legal</NuxtLink>
       </nav>

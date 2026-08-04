@@ -641,7 +641,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
         @dismiss="c.answerVaultPrompt(false)"
       >
         <template #icon><HugeiconsIcon :icon="SafeBoxIcon" :size="16" :stroke-width="2" /></template>
-        Add to your gear vault?
+        Add this list’s gear to your vault?
         <template #action>
           <button class="btn btn--quiet editor__vaultadd" @click="c.answerVaultPrompt(true)">Add</button>
         </template>
@@ -726,7 +726,10 @@ function onCorrected(res: { status: string; itemName?: string }) {
       <p class="t-muted">Loading…</p>
     </main>
 
-    <SiteFooter />
+    <!-- in-toolbar: this page carries BOTH footer destinations in its own top bar —
+         the list switcher and the gear vault — so the footer stops repeating them.
+         Every other page keeps them, because nothing up there carries them. -->
+    <SiteFooter in-toolbar />
 
     <Transition name="toast">
       <div

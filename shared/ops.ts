@@ -25,13 +25,25 @@ export type ItemPatch = Omit<Partial<Item>, "catalogItemId" | "folderId" | "entr
   kcal?: number | null;
 };
 
+// `quiet` marks an op the EDITOR performed on your behalf rather than one you'd say
+// you did: a blank row tidying itself away on blur, a nesting container dissolving
+// as its name moves onto its child, a row being indented. The reducer ignores it
+// entirely — it changes no state and carries no capability — and the change summary
+// skips it, so the history reads as gestures a person made.
+//
+// It's on the wire because the summary is derived SERVER-side, and the server cannot
+// tell these apart from the op alone: all three arrive as `{ t: "removeItem", id }`.
+// Both tests you'd reach for collide — "the row had no content" misses the container
+// (it carries the gear's name), and "the row had children" catches a deliberate
+// delete of a parent, which cascades. The client knows which gesture it was; nothing
+// else can.
 export type Op =
   | { t: "addItem"; item: Item }
   | { t: "updateItem"; id: string; patch: ItemPatch }
-  | { t: "removeItem"; id: string }
+  | { t: "removeItem"; id: string; quiet?: true }
   // moveItem reorders + reparents in one op. parentId: undefined = leave nesting as-is
   // (a plain reorder); null = top-level; a string = nest under that item.
-  | { t: "moveItem"; id: string; folderId: string | null; sortOrder: number; parentId?: string | null }
+  | { t: "moveItem"; id: string; folderId: string | null; sortOrder: number; parentId?: string | null; quiet?: true }
   | { t: "addFolder"; folder: Folder }
   | { t: "updateFolder"; id: string; patch: Partial<Folder> }
   | { t: "removeFolder"; id: string }

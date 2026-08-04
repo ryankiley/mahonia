@@ -830,7 +830,9 @@ function create() {
       snapshot.value?.items.some((c) => c.parentId === id) // has nested children
     ) return;
     if (pendingBlankId.value === id) pendingBlankId.value = null;
-    dispatch({ t: "removeItem", id });
+    // quiet: nothing was ever typed here, so "Removed 1 item" in the history would
+    // be describing a row that never existed as far as anyone is concerned
+    dispatch({ t: "removeItem", id, quiet: true });
   }
   function updateItem(id: string, patch: ItemPatch) {
     // any real edit means this row is no longer an untouched blank to clean up
@@ -968,7 +970,9 @@ function create() {
       // back to live-resolve; a hand-typed row's label is the user's, so keep it pinned
       patch: { commonName: container.name, commonNameOverridden: child.catalogItemId == null },
     });
-    dispatch({ t: "removeItem", id: containerId });
+    // quiet: un-nesting is a shape change, not a deletion — the gear didn't go
+    // anywhere, its name just moved back onto the row above
+    dispatch({ t: "removeItem", id: containerId, quiet: true });
   }
   // Add a blank child under `parentId` and focus it — the same blank-row machinery as
   // addBlankItem, positioned as the parent's last child (it inherits the parent's folder).
@@ -1043,12 +1047,18 @@ function create() {
     let idx = beforeId == null ? target.length : target.findIndex((s) => s.id === beforeId);
     if (idx < 0) idx = target.length;
     const ordered = [...target.slice(0, idx), it, ...target.slice(idx)];
+    // Which of these is worth reading later? Only a change of FOLDER. Re-ordering
+    // rows and nesting one under another are shape, not content — "Moved 1 item"
+    // for an indent tells you nothing you'd act on — so both go out quiet and the
+    // history keeps "Moved Sawyer Squeeze to Water" for the one that means something.
+    const changedFolder = it.folderId !== folderId;
     ordered.forEach((item, i) => {
       if (item.id === id) {
         if (item.folderId !== folderId || (item.parentId ?? null) !== parentId || item.sortOrder !== i)
-          dispatch({ t: "moveItem", id, folderId, parentId, sortOrder: i });
+          dispatch({ t: "moveItem", id, folderId, parentId, sortOrder: i, ...(changedFolder ? {} : { quiet: true as const }) });
       } else if (item.sortOrder !== i) {
-        dispatch({ t: "moveItem", id: item.id, folderId, sortOrder: i });
+        // a sibling shuffled up or down to make room — never news
+        dispatch({ t: "moveItem", id: item.id, folderId, sortOrder: i, quiet: true });
       }
     });
     if (formerParentId && formerParentId !== parentId) unwrapEmptied(formerParentId, id);

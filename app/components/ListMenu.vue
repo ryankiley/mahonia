@@ -203,6 +203,13 @@ watch(open, (o) => o && filterable.value && nextTick(() => fieldRef.value?.focus
   align-items: center;
   gap: var(--space-1);
   padding: var(--space-1) var(--space-2);
+  /* Pull the BOX left by its own inline padding, so the WORD starts on the page
+     gutter — flush with the list title and the folder headings below it, which have
+     no padding to offset. Without this the label sits 8px inside everything it's
+     stacked above, which reads as a wonky first line rather than as a control.
+     The hover ground still extends past it, which is what the padding is for.
+     Same move as .btn--flush-end at the bar's other end. */
+  margin-left: calc(-1 * var(--space-2));
   border: 0;
   border-radius: var(--radius-pill);
   background: transparent;

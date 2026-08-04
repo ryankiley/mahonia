@@ -106,7 +106,9 @@ let pending: { items: unknown[]; fingerprint: string } | null = null;
  * bundle is budgeted).
  */
 export function useVaultCapture() {
-  const { vaultFetch } = useVaultAccess();
+  // hasVault as well as the fetch: capture must not ASK someone who has no vault
+  // (see sync below), and the two come from the same place.
+  const { hasVault, vaultFetch } = useVaultAccess();
 
   /**
    * Note a change to the list.
@@ -144,7 +146,12 @@ export function useVaultCapture() {
         // nothing — and it burned the one chance to ask about that list.
         const decision = vaultDecisionFor(opts.editToken ?? "");
         if (decision === "no") return;
-        if (decision === "ask") return opts.onAsk?.();
+        // Only ask someone who HAS a vault to ask about. Signed out there is nothing
+        // to add gear to, and the prompt offered one anyway: "Add" recorded the
+        // decision as yes and then 401'd, spending the single question this list
+        // gets. Leaving it unanswered is right — the question fires properly the
+        // first time you edit this list with an account.
+        if (decision === "ask") return hasVault.value ? opts.onAsk?.() : undefined;
         built = { caps, fingerprint: captureFingerprint(caps) };
       } catch {
         return; // chunk fetch failed (offline before the SW cached it) — skip
