@@ -64,7 +64,7 @@ export interface RedeemedUser extends SessionUser {
 
 /**
  * Normalize an email to its storage form: trimmed and lowercased. This IS the
- * identity — `Ryan@Example.com` and `ryan@example.com` are one account — so it
+ * identity — `Alex@Example.com` and `alex@example.com` are one account — so it
  * runs on every read and write path, never just at signup.
  *
  * Validation is deliberately loose (one @, something either side, no whitespace):

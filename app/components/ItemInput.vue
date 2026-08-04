@@ -499,7 +499,8 @@ const hl = (text: string) => highlightParts(text, draft.value);
      same vars keeps the fold mid-row past the 1920px anchor where the type (and
      the rows) scale fluidly. The dvh cap keeps it on-screen on small devices
      (dvh tracks the collapsing mobile URL bar; vh line = older-browser fallback). */
-  /* +2px: eye-tuned crop point (Ryan) — a hair more of the fold row's glyphs */
+  /* +2px: an eye-tuned crop point rather than a derived one — a hair more of the fold
+     row's glyphs, which is what makes the cut read as a fold and not a clip */
   max-height: min(calc(10.5 * (2 * var(--space-2) + 1.5 * var(--text-sm)) + var(--space-2) + 2px), 55vh);
   max-height: min(calc(10.5 * (2 * var(--space-2) + 1.5 * var(--text-sm)) + var(--space-2) + 2px), 50dvh);
   overflow-y: auto;
@@ -516,7 +517,9 @@ const hl = (text: string) => highlightParts(text, draft.value);
 }
 @media (max-width: $bp-stack) {
   /* span the row's own edges — the content column — so the menu keeps the site's
-     margins rather than bleeding to the viewport (per Ryan: never touch the edges) */
+     margins rather than bleeding to the viewport. Nothing in this app runs to the
+     viewport edge; a surface that does reads as a system sheet rather than part of
+     the page. */
   .ac__menu {
     left: 0;
     right: 0;

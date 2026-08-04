@@ -58,7 +58,7 @@ onMounted(() => {
   /* §6 "Rung 2": rest at blur(0) (never `none`, so the filter context persists) AND
      force a standing GPU layer with translateZ(0). iOS Safari often won't RENDER a
      filter animation at all unless the element is composited; Rung 1 (blur-at-rest
-     alone) left the blur invisible on Ryan's iPhone. The layer is baked into the
+     alone) left the blur invisible on real iOS hardware. The layer is baked into the
      keyframe transforms too (a static transform here is overwritten while `transform`
      animates), so it persists through and after the run. */
   filter: blur(0);

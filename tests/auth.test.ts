@@ -26,7 +26,7 @@ async function freshDb(): Promise<DB> {
 
 describe("normalizeEmail — the identity rule", () => {
   it("lowercases and trims, so one person is one account", () => {
-    expect(normalizeEmail("  Ryan@Example.COM ")).toBe("ryan@example.com");
+    expect(normalizeEmail("  Alex@Example.COM ")).toBe("alex@example.com");
   });
 
   it("rejects what obviously isn't an address", () => {
