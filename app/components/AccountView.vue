@@ -617,7 +617,12 @@ async function onSignOut() {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  padding-block: var(--space-5);
+  /* --space-4, not --space-5. A section's own rows sit 8px apart, and at --space-5 the
+     gap around each hairline measured 49px — six times the internal spacing, which
+     reads as six unrelated cards rather than one surface with parts. --space-4 puts it
+     at roughly 4:1: still unmistakably a break, without the modal running to 829px and
+     scrolling on a phone for content that nearly fits. */
+  padding-block: var(--space-4);
 }
 .acct__section + .acct__section {
   border-top: 1px solid var(--line);
