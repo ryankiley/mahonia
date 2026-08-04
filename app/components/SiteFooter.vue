@@ -32,6 +32,14 @@ const known = ref(false);
 onMounted(() => (known.value = hasSessionHint() || signedIn.value));
 watch(signedIn, (yes) => (known.value = yes || hasSessionHint()));
 
+// Never link to the page you're already on — it reads as an action and does nothing,
+// and in a four-link row it costs one of the four. AccountMenu has applied this to its
+// own two destinations from the start; the footer simply never got it, so /about
+// offered "About" and /mine offered "Your lists". Compared on `path`, not fullPath, so
+// a query or hash on the current page doesn't make the self-link reappear.
+const route = useRoute();
+const here = (p: string) => route.path === p;
+
 // No feedback trigger here any more — it lives in the editor's actions menu. The
 // footer is a legal line: four places to go and a copyright. A dialog launcher styled
 // to pass as a link in that row was the odd one out, and "send feedback" belongs
@@ -50,10 +58,10 @@ watch(signedIn, (yes) => (known.value = yes || hasSessionHint()));
              unconditional, since lists never needed one. Neither is gated on whether
              you HOLD lists or gear — both pages explain themselves when empty, and
              that read is device-local, so gating on it would flicker for no gain. -->
-        <NuxtLink v-if="!inToolbar" to="/mine" class="foot__link t-sm">Your lists</NuxtLink>
-        <NuxtLink v-if="!inToolbar && known" to="/vault" class="foot__link t-sm">Gear vault</NuxtLink>
-        <NuxtLink to="/about" class="foot__link t-sm">About</NuxtLink>
-        <NuxtLink to="/legal" class="foot__link t-sm">Legal</NuxtLink>
+        <NuxtLink v-if="!inToolbar && !here('/mine')" to="/mine" class="foot__link t-sm">Your lists</NuxtLink>
+        <NuxtLink v-if="!inToolbar && known && !here('/vault')" to="/vault" class="foot__link t-sm">Gear vault</NuxtLink>
+        <NuxtLink v-if="!here('/about')" to="/about" class="foot__link t-sm">About</NuxtLink>
+        <NuxtLink v-if="!here('/legal')" to="/legal" class="foot__link t-sm">Legal</NuxtLink>
       </nav>
 
       <p class="t-sm t-muted foot__copy">© {{ year }} Mahonia</p>

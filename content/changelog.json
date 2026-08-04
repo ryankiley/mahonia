@@ -12,12 +12,15 @@
       "On a shared list, the export formats group under one \"Export\" item, matching the editor.",
       "On a shared list, \"Copy this list\" is now \"Duplicate this list\" — the same name the editor uses, and no longer confusable with the clipboard actions beside it.",
       "On a shared list, signing in is an icon in the top bar like the rest of it, and the ⋯ menu sits at the end.",
-      "The trail link panel asks for a \"URL\"."
+      "The trail link panel asks for a \"URL\".",
+      "The footer no longer links to the page you're already on."
     ],
     "fixed": [
       "The gear vault no longer offers to save a list's gear when you're signed out, which spent the one time it asks about that list.",
       "On a phone, an item's gear type now sits tight under its row instead of floating below it.",
-      "The footer no longer offers a gear vault link when you're signed out."
+      "The footer no longer offers a gear vault link when you're signed out.",
+      "Signing in now returns you to the list you were on, instead of leaving you on the account page.",
+      "A shared list no longer prints the top bar's buttons."
     ]
   },
   {

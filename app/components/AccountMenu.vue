@@ -61,6 +61,14 @@ async function onSignOut() {
 // nothing. Applies to both shapes.
 const onAccount = computed(() => route.path === "/account");
 const onVault = computed(() => route.path === "/vault");
+
+// Signing in is a toll, not a destination — so note where we were before paying it.
+// fullPath carries the query AND the hash, which matters: an editor URL keeps its edit
+// token in the fragment, and dropping it would land you on a list you can't edit.
+// Stored locally rather than passed as ?next= — see useReturnTo for why that would
+// leak the token.
+const { remember } = useReturnTo();
+const rememberHere = () => remember(route.fullPath);
 </script>
 
 <template>
@@ -73,6 +81,7 @@ const onVault = computed(() => route.path === "/vault");
         to="/account"
         class="btn btn--icon btn--ghost acct__signinbtn"
         aria-label="Sign in"
+        @click="rememberHere"
       >
         <HugeiconsIcon :icon="UserLock01Icon" :size="16" :stroke-width="2" />
       </NuxtLink>
@@ -82,6 +91,7 @@ const onVault = computed(() => route.path === "/vault");
       v-show="!onAccount"
       to="/account"
       class="btn btn--link acct__signin"
+      @click="rememberHere"
     >
       Sign in
     </NuxtLink>
