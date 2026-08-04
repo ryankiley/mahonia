@@ -2,7 +2,12 @@
   {
     "date": "2026-08-04",
     "changed": [
-      "Every picker — units, folder sorting, and moving gear between folders — now opens the app's own menu instead of your device's dropdown."
+      "Every picker — units, folder sorting, and moving gear between folders — now opens the app's own menu instead of your device's dropdown.",
+      "The trail link panel now matches the other floating panels."
+    ],
+    "fixed": [
+      "A menu near the left edge of the page no longer opens off-screen.",
+      "An item's unit is easier to tap on a phone."
     ]
   },
   {

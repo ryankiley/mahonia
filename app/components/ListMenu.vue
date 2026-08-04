@@ -165,10 +165,11 @@ watch(open, (o) => o && filterable.value && nextTick(() => fieldRef.value?.focus
             @click="close"
           >
             <span class="lm__name">{{ savedListTitle(e.title) }}</span>
+            <!-- on EVERY row, hidden rather than dropped — see the style -->
             <HugeiconsIcon
-              v-if="isCurrent(e)"
               :icon="CheckIcon"
               class="lm__check"
+              :class="{ 'is-on': isCurrent(e) }"
               :size="14"
               :stroke-width="2"
               aria-hidden="true"
@@ -307,10 +308,22 @@ watch(open, (o) => o && filterable.value && nextTick(() => fieldRef.value?.focus
    other row could get, and the two states couldn't be told apart.
    One ground, one meaning: the plate owns every fill in this menu, and "current" is
    said with the same check the vault uses for gear that's already in your list. */
+/* The mark takes a column on every row, shown only on the current one. Dropped from
+   the others, the CHECKED row became the widest — so it set the panel's width, leaving
+   its own margin-left:auto no free space to push the mark into, and the check sat
+   against the name while every other row had a trailing gutter going spare. (Rarely
+   visible here, because list names vary and the current one is seldom the longest —
+   which is exactly why it would have surfaced on someone else's lists, not mine.)
+   Hidden, not transparent: aria-hidden keeps it out of the accessibility tree either
+   way, and aria-current on the row is what says which one you're in. */
 .lm__check {
   flex: none;
   margin-left: auto;
   color: var(--ink-3);
+  visibility: hidden;
+}
+.lm__check.is-on {
+  visibility: visible;
 }
 .lm__empty {
   padding: var(--space-2) var(--space-3);

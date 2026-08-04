@@ -618,15 +618,13 @@ onClickOutside(trailEl, () => {
   /* --radius-3 is the small-card step; inner surfaces derive from it with calc() so a
      nested curve can never end up rounder than the box holding it. */
   padding: var(--space-2) var(--space-3);
+  /* --radius-3 stays: this card is ~32px tall, and --radius-4 on that is the lozenge
+     the token's own note warns about. The SHADOW no longer diverges — the local ring
+     and tight drop were there because --shadow-soft had a 48px spread that read mushy
+     at this size, and it hasn't since the token became one value for every surface. */
   border-radius: var(--radius-3);
-  /* A 1px ring plus a TIGHT drop. --shadow-soft is built
-     for big anchored menus — its 48px second layer reads mushy under a 32px card, and
-     it deliberately carries no ring ("the shadow alone defines the edge"), which is
-     exactly what leaves a small surface looking soft-edged. Local override only; the
-     token is right for what it was written for. */
-  box-shadow:
-    0 0 0 1px var(--line-2),
-    0 4px 12px -2px rgb(0 0 0 / 0.08);
+  /* the item radius still repins, because the corner still differs from the atom's */
+  --popover-item-radius: calc(var(--radius-3) - var(--space-1));
   font-size: var(--text-chrome);
   /* tight leading, not the inherited 1.5 — the card's height is content + padding, and
      1.5 alone pushed it past the 32px that squares it with the row's icon buttons */
@@ -759,16 +757,15 @@ onClickOutside(trailEl, () => {
      thinning its floor — in "add" mode there is no Remove row, and a thinned floor left
      the lone URL field crammed against the bottom edge with a full step above it. */
   padding: var(--space-3);
-  border-radius: var(--radius-3);
-  /* .popover pins --popover-item-radius to its own (larger) corner; this panel overrides
-     that corner, so it repins the item radius too — otherwise .menu__item rows inside
-     would curve more than the box holding them. */
-  --popover-item-radius: calc(var(--radius-3) - var(--space-1));
-  /* same reasoning as the card: ring + a contained drop, rather than --shadow-soft's
-     ringless 48px spread */
-  box-shadow:
-    0 0 0 1px var(--line-2),
-    0 14px 28px -6px rgb(0 0 0 / 0.2);
+  /* The atom's corner and shadow, unmodified. This used to take --radius-3 and a local
+     ring-plus-drop, on the reasoning that --shadow-soft was "built for big anchored
+     menus" with a 48px spread. That stopped being true when the token was rewritten to
+     one value for every size — it is a 28px layer now — so the override was carrying a
+     divergence for a reason that no longer existed, and this panel sat visibly apart
+     from the date picker beside it, which is the same kind of surface at the same size.
+     Dropping the corner override also retires the --popover-item-radius repin that
+     existed only to keep rows from curving more than the box holding them. */
+  border-radius: var(--radius-4);
   text-align: start;
 }
 /* 12px + medium weight — the smaller of the two chrome steps, so the labels stay

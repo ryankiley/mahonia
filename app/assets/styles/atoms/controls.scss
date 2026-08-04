@@ -313,6 +313,15 @@ input[type="search"]::-webkit-search-decoration {
   // the surface itself comes from .popover (shared with the autocomplete)
   transform-origin: top right;
 }
+// Anchored to the LEADING edge instead. The default hangs a menu off its anchor's
+// right, which is right for the ⋯ and account menus at the end of a toolbar — but a
+// trigger near the left of the page (the editor's total, whose menu is wider than the
+// figure) then extends leftward off the screen. Opt in where the anchor is on the left.
+.menu__list--start {
+  right: auto;
+  left: 0;
+  transform-origin: top left;
+}
 .menu__item {
   // block so a <NuxtLink>/<a> item fills the row like the <button> items do —
   // an inline anchor ignores width:100%, shrinking the padding + hover box to the text

@@ -1484,6 +1484,19 @@ function dismissFix() {
 .item__unit {
   flex: none;
 }
+/* The unit trigger's hit area. The bare glyph-and-caption is ~29×24, well under the
+   44px target, and it was that small before too — the transparent <select> it replaced
+   filled this same content-sized wrapper, so the small target predates the picker.
+   --tap-pull is the row's own idiom (see .item__fixdismiss): grow the box to --tap on
+   touch, then pull the overshoot back out of layout so the line keeps its rhythm.
+   :deep() because the button lives inside OptionMenu — a class passed through a prop
+   carries no scope id, which is the trap that dropped the total off its baseline. */
+@media (pointer: coarse) {
+  .item__unitwrap :deep(.optmenu__btn) {
+    min-height: var(--tap);
+    margin-block: var(--tap-pull);
+  }
+}
 /* Quiet by default — one of these sits on every row, and a column of hard chevrons
    would shout louder than the weights they belong to. --ink-3 is the same step the
    row's other passive marks use; it lifts on hover so pointing at the row confirms
