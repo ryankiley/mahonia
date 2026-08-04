@@ -53,8 +53,21 @@ const label = computed(() => (signedIn.value ? "Your account" : "Sign in"));
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
+  /* the optical nudge the panels carry too: a line of type sits lower inside its box
+     than a padding value suggests (half-leading plus the gap above the cap), so a
+     header aligned by the box alone reads as more inset at the top than at the sides */
   margin-top: calc(-1 * var(--space-1));
   margin-bottom: var(--space-2);
+}
+/* The close button is --icon-btn (32px) tall against a 19.2px line of type, so left
+   alone it SETS the header's height and centring pushes the title ~6px down — which is
+   what made the top read as more padded than the sides even though .dlg insets both by
+   --space-5. Pull the box back onto the text line so the title sits on the card's
+   padding edge and the row is as tall as its type.
+   Same shape as --tap-pull (tokens.scss), derived from the box size rather than typed,
+   so a retune of --icon-btn keeps the rhythm. */
+.acctmodal__head .btn--icon {
+  margin-block: calc((1.45rem - var(--icon-btn)) / 2);
 }
 .acctmodal__title {
   color: var(--ink);
