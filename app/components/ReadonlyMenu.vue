@@ -40,12 +40,17 @@ useWindowEvent("keydown", (e) => {
   if (e.key === "Escape" && menuOpen.value) menuOpen.value = false;
 });
 
-// the three export actions + their chunk warm-up live in useListExports, shared
+// the four export actions + their chunk warm-up live in useListExports, shared
 // with the editor's kebab so the copy + error handling can't drift (the exporters
-// stay on-demand chunks, out of the read view's initial payload)
-const { warmExporters, copyMarkdown, downloadCsv, downloadJson } = useListExports(
+// stay on-demand chunks, out of the read view's initial payload).
+//
+// The link the plain-text copy appends is THIS PAGE — the same URL "Copy link" below
+// hands out, whether that's /s/{code} or a public /l/{slug}. A read view never holds an
+// edit token, so unlike the editor there's nothing here to leak.
+const { warmExporters, copyPlainText, copyMarkdown, downloadCsv, downloadJson } = useListExports(
   () => props.snapshot,
   flash,
+  () => (typeof location !== "undefined" ? location.href : ""),
 );
 function toggleMenu() {
   menuOpen.value = !menuOpen.value;
@@ -67,6 +72,7 @@ function runMenu(action: string) {
   switch (action) {
     case "copy": return void copyThis();
     case "link": return void copyLink();
+    case "text": return void copyPlainText();
     case "markdown": return void copyMarkdown();
     case "csv": return void downloadCsv();
     case "json": return void downloadJson();
@@ -175,6 +181,12 @@ async function copyLink() {
           <Transition name="reveal">
             <div v-if="exportOpen" class="reveal">
               <ul class="menu__sectlist" role="group" aria-label="Export">
+                <!-- First, because it's the one people reach for most: it's the format
+                     a comment box actually accepts. Markdown below it is the same idea
+                     for somewhere that renders it. -->
+                <li role="none">
+                  <button type="button" data-row role="menuitem" class="menu__item menu__sectitem" @click="runMenu('text')">Copy as plain text</button>
+                </li>
                 <li role="none">
                   <button type="button" data-row role="menuitem" class="menu__item menu__sectitem" @click="runMenu('markdown')">Copy as Markdown</button>
                 </li>

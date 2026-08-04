@@ -270,11 +270,18 @@ async function copy(text: string, msg: string, linkFallbackTitle?: string) {
 }
 const origin = () => (typeof location !== "undefined" ? location.origin : "");
 
-// the three export actions + their chunk warm-up live in useListExports, shared
-// with the read views' ⋯ menu so the copy + error handling can't drift
-const { warmExporters, copyMarkdown, downloadCsv, downloadJson } = useListExports(
+// the four export actions + their chunk warm-up live in useListExports, shared
+// with the read views' ⋯ menu so the copy + error handling can't drift.
+//
+// The share URL the plain-text copy appends is the READ-ONLY link — explicitly, not
+// location.href, which here is /e/{code}#{token}. That token is edit access, and this
+// action's whole purpose is pasting the result somewhere public.
+const { warmExporters, copyPlainText, copyMarkdown, downloadCsv, downloadJson } = useListExports(
   () => snapshot.value,
   flash,
+  // a draft has no share code yet — no link rather than a broken one (same guard
+  // copyShare() makes before offering to copy it)
+  () => (snapshot.value?.shareCode ? `${origin()}/s/${snapshot.value.shareCode}` : ""),
 );
 
 // the ⋯ actions menu is a custom popover of real <button>s (was a native <select>).
@@ -373,6 +380,10 @@ const MENU_SECTIONS = [
     key: "export",
     label: "Export",
     items: [
+      // First, because it's the one people reach for most: it's the format a comment
+      // box actually accepts. Markdown below it is the same idea for somewhere that
+      // renders it (Apple Notes, a README, a forum that takes it).
+      { label: "Copy as plain text", run: copyPlainText },
       { label: "Copy as Markdown", run: copyMarkdown },
       { label: "Download CSV", run: downloadCsv },
       { label: "Download JSON", run: downloadJson },
