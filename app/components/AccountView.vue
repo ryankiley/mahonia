@@ -631,15 +631,16 @@ async function onSignOut() {
 .acct__section:last-child {
   padding-bottom: 0;
 }
-/* The same step the sharing panel takes: a section label sits BELOW the surface's
-   title rather than beside it. These were t-label like the title, separated only by a
-   shade of ink, which reads as a list of equal headings. --text-micro is the tier the
-   tokens describe as "the small labels sitting above its fields", and each of these
-   names the value or control under it. */
+/* NOT the sharing panel's --text-micro field label, though both sit under a t-label
+   title. Sharing's labels name an INPUT directly beneath them, so a small quiet label
+   reads as attached to its control. These name a SECTION of prose — at 12px they came
+   out smaller and fainter than the paragraph they introduce, which puts the heading
+   below its own body text.
+   The contrast this surface needs is structural rather than typographic: the sections
+   are already separated by hairlines (see .acct__section), which is the work sharing
+   was asking its type to do alone. */
 .acct__label {
-  color: var(--ink-3);
-  font-size: var(--text-micro);
-  line-height: 1.2;
+  color: var(--ink-2);
 }
 .acct__value {
   color: var(--ink);
