@@ -33,3 +33,26 @@ export function itemSearchUrl(item: Pick<Item, "brand" | "name">): string | null
 export function editLinkPath(shareCode: string | null | undefined, token: string): string {
   return shareCode ? `/e/${shareCode}#${token}` : `/e#${token}`;
 }
+
+// Is this a path we're willing to send someone to after signing in?
+//
+// The SECURITY BOUNDARY for the return-to-where-you-were redirect (app/composables/
+// useReturnTo.ts). Lives here, beside editLinkPath, because it's pure and because the
+// two are the same subject: what a link in this app is allowed to be.
+//
+// Same-origin RELATIVE paths only. "//evil.com" is the one that catches people — a
+// browser reads a protocol-relative URL as absolute, so a leading-slash test alone
+// waves it straight through to another origin. Backslashes are rejected outright
+// because some engines normalise them to forward slashes, which turns "/\evil.com"
+// into the same attack.
+//
+// Applied on the way OUT of storage, not just on the way in: the value round-trips
+// through localStorage, where anything on the device could have edited it.
+export function isSafeReturnPath(p: unknown): p is string {
+  return (
+    typeof p === "string" &&
+    p.startsWith("/") &&
+    !p.startsWith("//") &&
+    !p.includes("\\")
+  );
+}

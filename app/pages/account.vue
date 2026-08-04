@@ -45,7 +45,11 @@ async function signInWithPasskey() {
   signinNote.value = "";
   const r = await pk.signIn();
   signingIn.value = false;
-  if (r === "ok") return;
+  // Back to whatever you were doing. This used to just return, leaving you on the
+  // settings page you never came here to read — with no list navigation in the site
+  // bar to get out with. /vault is the fallback: it's the one thing an account is
+  // FOR, so it's the right landing when there's nowhere to go back to.
+  if (r === "ok") return await useReturnTo().resume("/vault");
   signinNote.value =
     r === "unsupported"
       ? "This browser can’t use passkeys. Ask for a link instead."
