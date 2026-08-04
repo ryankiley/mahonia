@@ -184,7 +184,7 @@ onClickOutside(trailEl, () => {
 <template>
   <div class="head">
     <!-- A TEXTAREA, not an input: a list name is a page title and long ones must wrap.
-         An <input> is single-line by definition — "Ryan's Summer Daypack 2026" scrolled
+         An <input> is single-line by definition — "Sierra High Route — September 2026" scrolled
          sideways inside its box and you could only ever read the start of it. Rows is 1
          and it grows to fit (see autoGrow); Enter commits rather than inserting a
          newline, so the value stays the single line of text it is. -->

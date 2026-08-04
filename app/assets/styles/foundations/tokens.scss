@@ -25,7 +25,7 @@ $bp-full: 1024px !default;
 :root {
   color-scheme: light dark;
 
-  /* ---- surfaces: pure black & white (Ryan: "none of these off whites").
+  /* ---- surfaces: pure black & white, no off-whites.
      main paper is true #fff / #000; raised surfaces use a hair of NEUTRAL grey
      (no warm tint) only where elevation needs to read. ---- */
   --paper: light-dark(#ffffff, #000000);
@@ -97,8 +97,8 @@ $bp-full: 1024px !default;
      so the number outranks the name. */
   --text-page-title: max(2rem, 1.667vw);
   --text-display: max(4rem, 3.333vw); /* 64px — the live total */
-  /* the small tier was removed (Ryan: "the small one needs to go") — kept as an
-     alias = base so existing `var(--text-sm)` consumers don't break */
+  /* the small tier was removed — kept as an alias = base so existing
+     `var(--text-sm)` consumers don't break */
   --text-sm: var(--text-base);
   /* ---- CHROME ONLY — two steps for text that annotates the app rather than being its
      content: a popover's own text, and the toolbar's status line. Neither is a revival of
@@ -203,7 +203,7 @@ $bp-full: 1024px !default;
      lists menu. No border, no ring: the shadow alone defines the edge in light
      mode, the elevated --surface-float tone carries it in dark (a shadow on #000
      is invisible).
-     ONE value across every size, deliberately (Ryan: "maybe it can be one thing").
+     ONE value across every size, deliberately.
      The obvious refinement is a pair scaled to the surface — a small drop for a
      menu, a diffuse one for a tall panel — but the honest reading was that the old
      value was simply too heavy at BOTH ends, not mis-sized: a 0.2-alpha 48px layer
