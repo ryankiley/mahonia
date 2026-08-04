@@ -1518,9 +1518,9 @@ function dismissFix() {
 .item__clsbtn:hover {
   color: var(--ink);
 }
-/* ON is a FILLED GROUND, not just darker ink. The reference signals this state with
-   colour, which this codebase reserves for the data viz — and ink-vs-grey alone is
-   the same signal hover already uses, so a toggle would read as merely hovered.
+/* ON is a FILLED GROUND, not just darker ink. Colour would be the obvious signal, but
+   this codebase reserves it for the data viz — and ink-vs-grey alone is the same signal
+   hover already uses, so a toggle would read as merely hovered.
    A quiet grey chip (--paper-3, the "quiet surfaces, not borders" token) carries the
    state without an inverted ink chip's weight: these sit in a dense list, and a row
    of black dots would out-shout the weights, which are what the page is for. */
@@ -1743,8 +1743,8 @@ function dismissFix() {
 /* The row's controls used to hide at rest on desktop and fade in on hover, to keep a
    long list quiet. That reads as an empty row until you point at it: the actions are
    undiscoverable, and the row's right half visibly re-populates under the cursor as
-   you scan down the list — which is exactly the flicker the reference doesn't have,
-   because it just shows them.
+   as you scan down the list. A row that simply shows its controls has no flicker to
+   have.
    They are ghosted (--ink-3) at rest and darken on hover instead, so the row is calm
    without being blank. Nothing here is opacity-animated any more, which also retires
    the Safari layer-snap workaround the old rule needed. */

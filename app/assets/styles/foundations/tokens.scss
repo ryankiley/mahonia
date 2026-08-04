@@ -151,10 +151,10 @@ $bp-full: 1024px !default;
      the toast, the vault row's hover. NOT dialogs — atoms/dialog.scss uses --radius-4,
      which is what a surface floating over a scrim should take. */
   --radius-2: 8px;
-  /* small floating CARDS (the trail-link hover card + its edit panel). 8px is visibly
-     squarer than the reference and 20px turns a 32px card into a lozenge, so this sits
-     between them. The reference measures 10px; 12 keeps the 4px grid the rest of this
-     file is built on and is indistinguishable at this size. Nested surfaces derive from
+  /* small floating CARDS (the trail-link hover card + its edit panel). 8px reads squarer
+     than a card this size wants, and 20px turns a 32px card into a lozenge, so this sits
+     between them — and 12 keeps the 4px grid the rest of this file is built on. Nested
+     surfaces derive from
      it with calc() rather than hard-coding, so an inner curve can never end up rounder
      than the box holding it. */
   --radius-3: 12px;
