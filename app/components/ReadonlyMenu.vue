@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "@hugeicons/vue";
-import { EllipsisIcon } from "@hugeicons/core-free-icons";
+import { ChevronDownIcon, EllipsisIcon } from "@hugeicons/core-free-icons";
 import type { ListSnapshot, Totals } from "~~/shared/types";
 
 // The read-only share views' ⋯ actions menu — the quiet counterpart to the editor's
@@ -14,6 +14,11 @@ const props = defineProps<{
 }>();
 
 const menuOpen = ref(false);
+// Export opens in place. A re-opened menu starts collapsed — the previous session's
+// open section is not a preference, and restoring it would put a different item
+// under the cursor.
+const exportOpen = ref(false);
+watch(menuOpen, (open) => open || (exportOpen.value = false));
 // the travelling wash shared with the other menus (see useMenuPlate)
 const { plateRef, listRef, placing, on: plateOn } = useMenuPlate();
 const menuRef = useTemplateRef<HTMLElement>("menuRef");
@@ -134,14 +139,42 @@ async function copyLink() {
         <li role="none">
           <button type="button" data-row role="menuitem" class="menu__item" @click="runMenu('link')">Copy link</button>
         </li>
-        <li role="none">
-          <button type="button" data-row role="menuitem" class="menu__item" @click="runMenu('markdown')">Copy as Markdown</button>
-        </li>
-        <li role="none">
-          <button type="button" data-row role="menuitem" class="menu__item" @click="runMenu('csv')">Download CSV</button>
-        </li>
-        <li role="none">
-          <button type="button" data-row role="menuitem" class="menu__item" @click="runMenu('json')">Download JSON</button>
+        <!-- Export folds into a disclosure, as it already does in the editor's ⋯ —
+             three formats you'd otherwise scan past to reach the thing you came for,
+             and only one of them is ever the one you want. Same .menu__sect atom, so
+             the two menus can't drift. -->
+        <li role="none" class="menu__sect">
+          <button
+            type="button"
+            class="menu__item menu__secthead"
+            :aria-expanded="exportOpen"
+            @click="exportOpen = !exportOpen"
+          >
+            Export
+            <HugeiconsIcon
+              :icon="ChevronDownIcon"
+              class="menu__sectchev"
+              :class="{ 'is-open': exportOpen }"
+              :size="14"
+              :stroke-width="2"
+              aria-hidden="true"
+            />
+          </button>
+          <div class="reveal" :class="{ 'is-open': exportOpen }">
+            <div class="reveal__inner">
+              <ul class="menu__sectlist" role="group" aria-label="Export">
+                <li role="none">
+                  <button type="button" data-row role="menuitem" class="menu__item menu__sectitem" @click="runMenu('markdown')">Copy as Markdown</button>
+                </li>
+                <li role="none">
+                  <button type="button" data-row role="menuitem" class="menu__item menu__sectitem" @click="runMenu('csv')">Download CSV</button>
+                </li>
+                <li role="none">
+                  <button type="button" data-row role="menuitem" class="menu__item menu__sectitem" @click="runMenu('json')">Download JSON</button>
+                </li>
+              </ul>
+            </div>
+          </div>
         </li>
         <li role="none">
           <button type="button" data-row role="menuitem" class="menu__item" @click="runMenu('feedback')">Send feedback…</button>

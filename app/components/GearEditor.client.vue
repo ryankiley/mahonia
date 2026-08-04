@@ -585,15 +585,15 @@ function onCorrected(res: { status: string; itemName?: string }) {
                 <!-- Import / Export expand in place. The section header is not a
                      menuitem — it opens a group rather than doing anything — so it
                      carries aria-expanded and its items stay the menuitems. -->
-                <li v-for="s in MENU_SECTIONS" :key="s.key" role="none" class="editor__sect">
+                <li v-for="s in MENU_SECTIONS" :key="s.key" role="none" class="menu__sect">
                   <button
                     type="button"
-                    class="menu__item editor__secthead"
+                    class="menu__item menu__secthead"
                     :aria-expanded="openSection === s.key"
                     @click="toggleSection(s.key)"
                   >
                     {{ s.label }}
-                    <HugeiconsIcon :icon="ChevronDownIcon" class="editor__sectchev"
+                    <HugeiconsIcon :icon="ChevronDownIcon" class="menu__sectchev"
                       :class="{ 'is-open': openSection === s.key }"
                       :size="14"
                       :stroke-width="2"
@@ -601,9 +601,9 @@ function onCorrected(res: { status: string; itemName?: string }) {
                   </button>
                   <Transition name="reveal">
                     <div v-if="openSection === s.key" class="reveal">
-                  <ul class="editor__sectlist" role="group" :aria-label="s.label">
+                  <ul class="menu__sectlist" role="group" :aria-label="s.label">
                     <li v-for="a in s.items" :key="a.label" role="none">
-                      <button type="button" data-row role="menuitem" class="menu__item editor__sectitem" @click="menuOpen = false; a.run()">{{ a.label }}</button>
+                      <button type="button" data-row role="menuitem" class="menu__item menu__sectitem" @click="menuOpen = false; a.run()">{{ a.label }}</button>
                     </li>
                   </ul>
                     </div>
@@ -941,40 +941,8 @@ function onCorrected(res: { status: string; itemName?: string }) {
   color: var(--ink);
   background: var(--paper-2);
 }
-/* ⋯ menu sections (Import / Export). The header is a menu row like any other; only
-   the trailing chevron marks it as something that opens rather than does. */
-.editor__sect {
-  display: contents;
-}
-.editor__secthead {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  width: 100%;
-}
-.editor__sectchev {
-  flex: none;
-  color: var(--ink-3);
-  transition: rotate var(--dur) var(--ease);
-}
-.editor__sectchev.is-open {
-  rotate: 180deg;
-}
-.editor__sectlist {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-/* The section slides rather than snapping: opening Export added 120px to the menu in
-   one frame, which read as the menu flinching. The recipe is the shared .reveal atom
-   (controls.scss) — nothing needed here but the wrapper in the template. */
-/* the section's items are indented so an open group reads as belonging to its
-   header rather than as more peers appearing in the middle of the menu */
-.editor__sectitem {
-  padding-left: var(--space-5);
-  color: var(--ink-2);
-}
+/* the ⋯ menu's Export section is the shared .menu__sect disclosure (controls.scss),
+   which the read views' menu uses too */
 /* the popover's look + open/close come from the shared .menu atom (controls.scss);
    the editor only nudges the trailing cluster (toggle · share · kebab) right into the
    gutter so the kebab lines up with the item rows' drag handle below. The title group

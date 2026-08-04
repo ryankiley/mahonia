@@ -7,7 +7,9 @@
     ],
     "changed": [
       "The toolbar now says when your list was last edited, and only mentions syncing when there's something to say.",
-      "The gear vault's sign-in prompt is one line now, and reads the same on the vault page and beside a list."
+      "The gear vault's sign-in prompt is one line now, and reads the same on the vault page and beside a list.",
+      "A folder's controls now stay visible instead of appearing on hover.",
+      "On a shared list, the export formats group under one \"Export\" item, matching the editor."
     ],
     "fixed": [
       "The gear vault no longer offers to save a list's gear when you're signed out, which spent the one time it asks about that list.",
