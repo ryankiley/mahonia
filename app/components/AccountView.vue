@@ -18,7 +18,10 @@ import type { PasskeySummary } from "~/composables/usePasskeys";
 // nothing else. On the PAGE there is no context behind it, so finishing has to take
 // you somewhere — back where you came from, or the vault. Same component, one prop,
 // rather than two copies that answer this differently.
-const { inModal = false } = defineProps<{ inModal?: boolean }>();
+// `hideHeading`: the modal draws the title itself, in a header row that also carries
+// the close button — so the panel must not draw a second one. On the page there is no
+// such row and this stays false.
+const { inModal = false, hideHeading = false } = defineProps<{ inModal?: boolean; hideHeading?: boolean }>();
 const emit = defineEmits<{ done: [] }>();
 // Say what this surface is FOR right now. Signed out it is a sign-in dialog, and
 // titling it "Your account" describes something you don't have yet — the one thing
@@ -308,7 +311,7 @@ async function onSignOut() {
 
 <template>
   <div class="acct" :class="{ 'acct--modal': inModal }">
-    <h1 class="t-title acct__head">{{ heading }}</h1>
+    <h1 v-if="!hideHeading" class="t-title acct__head">{{ heading }}</h1>
 
     <ClientOnly>
       <!-- Centred and narrow: signed out there is exactly one thing to do here,

@@ -62,7 +62,7 @@ const groups = computed(() => {
 <template>
   <BaseModal :open="!!caps" label="Choose which gear is yours" @close="emit('cancel')">
     <template v-if="caps">
-      <p class="t-label">Add to your gear vault</p>
+      <h2 class="t-label">Add to your gear vault</h2>
       <p class="t-sm t-muted dlg__lede">
         You didn’t start this list, so some of it may not be your gear. Untick anything that
         isn’t — you can change it later on the gear vault page.

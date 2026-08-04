@@ -3,7 +3,8 @@
     "date": "2026-08-04",
     "changed": [
       "Every picker — units, folder sorting, and moving gear between folders — now opens the app's own menu instead of your device's dropdown.",
-      "The trail link panel now matches the other floating panels."
+      "The trail link panel now matches the other floating panels.",
+      "The account, sharing and gear vault panels now share one header — same title, same close button in the same place."
     ],
     "fixed": [
       "A menu near the left edge of the page no longer opens off-screen.",

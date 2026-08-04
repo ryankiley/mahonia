@@ -47,8 +47,14 @@
    applied where the dialog is now the measure.
    Opt-in via :has(), the same way .menu__plate attaches — no prop to thread through
    BaseModal for one caller's width. */
-.dlg:has(> .acct) {
+.dlg:has(> .acct),
+.dlg:has(> .acctmodal__head) {
   max-width: 26rem;
+  /* The panels this one sits beside — sharing, the vault — inset their contents by
+     --space-3, and at the atom's --space-5 the account read as the padded one of the
+     three. Scoped to this dialog: the form-shaped modals (import, feedback, the
+     confirms) keep the roomier default, which suits a short body with an actions row. */
+  padding: var(--space-3);
 }
 .dlg__field {
   display: flex;

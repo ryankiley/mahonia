@@ -20,7 +20,7 @@ watch(
 <template>
   <div>
     <BaseModal :open="confirmState.open" :label="confirmState.title || 'Confirm'" @close="settleConfirm(false)">
-      <p v-if="confirmState.title" class="t-label">{{ confirmState.title }}</p>
+      <h2 v-if="confirmState.title" class="t-label">{{ confirmState.title }}</h2>
       <p class="t-sm t-muted dlg__lede">{{ confirmState.message }}</p>
       <!-- the optional second decision, asked here rather than in a follow-up dialog -->
       <label v-if="confirmState.checkboxLabel" class="dlg__opt">
@@ -41,7 +41,7 @@ watch(
     </BaseModal>
 
     <BaseModal :open="linkState.open" :label="linkState.title" @close="closeLinkFallback">
-      <p class="t-label">{{ linkState.title }}</p>
+      <h2 class="t-label">{{ linkState.title }}</h2>
       <p class="t-sm t-muted dlg__lede">Copying isn’t available here. Select the link below and copy it.</p>
       <input ref="linkInput" class="field dlg__linkfield" :value="linkState.url" readonly @focus="linkInput?.select()" />
       <div class="dlg__actions">

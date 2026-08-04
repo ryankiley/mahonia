@@ -268,7 +268,10 @@ function changeLabel(i: number): string {
   gap: var(--space-2);
   margin: calc(-1 * var(--space-1)) 0 0;
   padding-bottom: var(--space-2);
-  border-bottom: 1px solid var(--line);
+  /* No rule under the title. This was the only panel header carrying one — the vault
+     pane, which is the same header at the same size with the same close button, has
+     never had it, so the two read as different kinds of surface for no reason. The
+     gap does the separating. */
 }
 .share__title {
   color: var(--ink);
