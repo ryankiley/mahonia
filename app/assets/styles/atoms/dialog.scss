@@ -29,6 +29,26 @@
   border-radius: var(--radius-4);
   box-shadow: var(--shadow-soft);
   outline: 1px solid transparent;
+  /* A tall dialog scrolls ITSELF rather than running off the viewport. .ovl is
+     inset:0 with its own padding, so 100% here is the screen minus that gutter.
+     Short dialogs are untouched — a max-height only binds once the content passes
+     it — but the account's signed-in state is five sections and a passkey list,
+     which on a phone is taller than the screen. Without this it simply clipped,
+     with the last section (delete your account) unreachable. */
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* The account is NARROWER than the shared 30rem. Its widest state is a column of
+   full-width controls — a passkey button, an email field, a submit — and at 30rem
+   those stretch into bands. /account had already reached this conclusion for the
+   same markup (.acct__empty caps itself at 26rem in the page); this is that number,
+   applied where the dialog is now the measure.
+   Opt-in via :has(), the same way .menu__plate attaches — no prop to thread through
+   BaseModal for one caller's width. */
+.dlg:has(> .acct) {
+  max-width: 26rem;
 }
 .dlg__field {
   display: flex;
@@ -40,6 +60,21 @@
 }
 // trailing-aligned buttons closing every dialog body — part of the shared shell,
 // so it lives here beside .dlg rather than in one caller's scoped styles
+/* an in-dialog choice: box, then its label and an optional line of consequence */
+.dlg__opt {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  cursor: pointer;
+}
+.dlg__opttext {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.dlg__opthint {
+  display: block;
+}
 .dlg__actions {
   display: flex;
   justify-content: flex-end;

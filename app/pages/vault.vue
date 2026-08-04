@@ -384,6 +384,9 @@ async function undoRemove() {
 }
 onBeforeUnmount(() => clearTimeout(undoTimer));
 
+
+// Sign in without losing the vault behind it — the account opens over this page.
+const { open: openAccount } = useAccountModal();
 </script>
 
 <template>
@@ -416,7 +419,7 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
           <p class="vault__sentline">
             Your gear is one pick away on every list, but it needs an account.
           </p>
-          <NuxtLink to="/account" class="btn btn--primary">Sign in</NuxtLink>
+          <button type="button" class="btn btn--primary" @click="openAccount">Sign in</button>
         </div>
 
         <!-- the gear -->

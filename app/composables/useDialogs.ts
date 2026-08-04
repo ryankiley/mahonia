@@ -15,11 +15,21 @@ interface ConfirmOptions {
   // destructive actions read the confirm as the emphasised (primary) button and
   // say so in its label; the chrome is monochrome, so wording carries the weight.
   danger?: boolean;
+  // An optional second decision, asked INSIDE the same dialog rather than as a
+  // follow-up one. Deleting an account used to ask twice — "delete your account?"
+  // then "delete your lists too?" — and a second modal appearing after you have
+  // already committed reads as a step you didn't finish rather than a choice.
+  // Read the answer from `confirmState.checked` after the promise resolves true.
+  checkbox?: { label: string; hint?: string; default?: boolean };
 }
 
-interface ConfirmState extends Required<Omit<ConfirmOptions, "danger">> {
+interface ConfirmState extends Required<Omit<ConfirmOptions, "danger" | "checkbox">> {
   open: boolean;
   danger: boolean;
+  checkboxLabel: string;
+  checkboxHint: string;
+  /** The checkbox's answer. Only meaningful when checkboxLabel is set. */
+  checked: boolean;
 }
 
 const confirmState = reactive<ConfirmState>({
@@ -29,6 +39,9 @@ const confirmState = reactive<ConfirmState>({
   confirmLabel: "Confirm",
   cancelLabel: "Cancel",
   danger: false,
+  checkboxLabel: "",
+  checkboxHint: "",
+  checked: false,
 });
 let confirmResolve: ((ok: boolean) => void) | null = null;
 
@@ -47,6 +60,11 @@ export function useDialogs() {
       confirmLabel: opts.confirmLabel ?? (opts.danger ? "Delete" : "Confirm"),
       cancelLabel: opts.cancelLabel ?? "Cancel",
       danger: opts.danger ?? false,
+      checkboxLabel: opts.checkbox?.label ?? "",
+      checkboxHint: opts.checkbox?.hint ?? "",
+      // reset every time — a box left ticked by a previous dialog must never carry
+      // into an unrelated one, least of all a destructive one
+      checked: opts.checkbox?.default ?? false,
     });
     return new Promise<boolean>((res) => (confirmResolve = res));
   }
