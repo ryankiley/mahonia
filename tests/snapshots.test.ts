@@ -62,7 +62,13 @@ describe("snapshots — vandalism recovery", () => {
     // `reason` carries a SUMMARY of the batch now, not the constant "edit" — see
     // shared/changeSummary. This is what the sharing panel renders, so pinning it
     // here is what stops it silently regressing to a bare "Edited".
-    expect(snaps![0]!.reason).toBe("Renamed 1 item");
+    //
+    // It NAMES the row, which is only possible because this path hands the summary
+    // the list as it stood before the ops were applied. Pinned end-to-end here (not
+    // just in changeSummary's own unit tests) because the pre-edit state has to be
+    // copied per-row: applyOps updates in place, so passing the live array would
+    // compare the new name against itself and quietly report nothing at all.
+    expect(snaps![0]!.reason).toBe("Renamed Tent → Tent v2");
     // a second mutate within the throttle window adds no new snapshot
     await applyOpsByEditToken(editToken, [{ t: "updateItem", id: "i1", patch: { name: "Tent v3" } }], db);
     snaps = await listSnapshotsByEditToken(editToken, db);

@@ -632,6 +632,19 @@ export async function applyOpsByEditToken(
     if (!row) return null;
 
     const state = rowToState(row);
+    // The list AS IT STANDS, kept before applyOps mutates it — this is what lets the
+    // change summary below name things. An op is only `{ id }`, so a removal has
+    // nothing to name itself with once applied; here the row is still present.
+    //
+    // The ROWS are copied, not just the arrays. applyOps updates in place
+    // (`Object.assign(it, patch)`), so an array of the same references would have
+    // reported the post-edit name as the pre-edit one — every rename would compare
+    // equal to itself and be dismissed as a cosmetic tidy-up, and the summary would
+    // come out empty. One level is enough: nothing nested is read here.
+    const before = {
+      items: state.items.map((i) => ({ ...i })),
+      folders: state.folders.map((f) => ({ ...f })),
+    };
     applyOps(state, ops);
     const data: ListData = { folders: state.folders, items: state.items };
     const totals = computeTotals(data);
@@ -694,7 +707,7 @@ export async function applyOpsByEditToken(
       // description of the change — but the ops that caused it are right here, and
       // they are an exact one. Derived once on write; free to read back.
       if (doSnapshot)
-        await captureSnapshot(d, row, summarizeOps(ops).slice(0, MAX_SUMMARY_LEN) || "edit");
+        await captureSnapshot(d, row, summarizeOps(ops, before).slice(0, MAX_SUMMARY_LEN) || "edit");
       // community intake: stage typed (non-catalog) items touched by this batch so
       // the catalog can grow from real use. Best-effort — never break/slow a save.
       try {
