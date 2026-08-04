@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { HugeiconsIcon } from "@hugeicons/vue";
+import { CheckIcon, ChevronDownIcon } from "@hugeicons/core-free-icons";
 import { editLinkPath } from "~~/shared/links";
 import type { MyListEntry } from "~~/shared/types";
 
@@ -12,10 +14,12 @@ import type { MyListEntry } from "~~/shared/types";
 // right. Your lists aren't a library; they're links this browser remembers, which
 // is closer to a history than to a filing cabinet.
 //
-// THE TRIGGER IS A WORD, not a glyph. "4 lists" is discoverable in a way a chevron
+// THE TRIGGER IS A WORD, not a glyph. "4 lists" is discoverable in a way an icon
 // isn't, it adds nothing to the toolbar's icon cluster at the other end, and the
 // count does double duty — it answers "do I have others?" before you open anything,
-// which is the returning-user question in the first place.
+// which is the returning-user question in the first place. (The chevron beside it is
+// the app's dropdown mark, not the label: the word is what you read, the chevron is
+// what says it opens.)
 //
 // Built on the app's own .menu atom (trigger, .menu__list surface, .menu__item
 // rows, the travelling .menu__plate) rather than a private set of styles, so it
@@ -106,7 +110,14 @@ watch(open, (o) => o && filterable.value && nextTick(() => fieldRef.value?.focus
       @click="open = !open"
     >
       {{ all.length }} lists
-      <span class="lm__chev" aria-hidden="true">▾</span>
+      <HugeiconsIcon
+        :icon="ChevronDownIcon"
+        class="lm__chev"
+        :class="{ 'is-open': open }"
+        :size="14"
+        :stroke-width="2"
+        aria-hidden="true"
+      />
     </button>
 
     <!-- The pointer, tethered to the trigger. Opening the menu takes it down: it
@@ -152,7 +163,17 @@ watch(open, (o) => o && filterable.value && nextTick(() => fieldRef.value?.focus
             :aria-current="isCurrent(e) ? 'page' : undefined"
             :title="savedListTitle(e.title)"
             @click="close"
-          >{{ savedListTitle(e.title) }}</NuxtLink>
+          >
+            <span class="lm__name">{{ savedListTitle(e.title) }}</span>
+            <HugeiconsIcon
+              v-if="isCurrent(e)"
+              :icon="CheckIcon"
+              class="lm__check"
+              :size="14"
+              :stroke-width="2"
+              aria-hidden="true"
+            />
+          </NuxtLink>
         </div>
 
         <p v-if="!shown.length" class="lm__empty">No lists match “{{ query }}”.</p>
@@ -199,9 +220,15 @@ watch(open, (o) => o && filterable.value && nextTick(() => fieldRef.value?.focus
   background: var(--paper-2);
   color: var(--ink);
 }
+/* the app's dropdown mark, and it turns over when the menu is open — the same
+   rotate the ⋯ menu's section headers and the sharing panel's disclosure use */
 .lm__chev {
-  font-size: 0.8em;
+  flex: none;
   color: var(--ink-3);
+  transition: rotate var(--dur) var(--ease);
+}
+.lm__chev.is-open {
+  rotate: 180deg;
 }
 
 /* the atom anchors menus to the RIGHT (they hang off trailing-edge icons); this
@@ -243,16 +270,40 @@ watch(open, (o) => o && filterable.value && nextTick(() => fieldRef.value?.focus
   overflow-y: auto;
   overscroll-behavior: contain;
 }
-/* one line of type and nothing else — the weight lives on the list itself, and
-   beside a name it competed with the one thing you scan a switcher for */
+/* The plate matches its ROWS, and where those rows live decides the inset.
+   The atom's default assumes the plate is a direct child of .menu__list — an
+   absolutely-positioned box resolves against its container's PADDING box, so it
+   insets by --space-2 to come back to where the rows actually are. This menu wraps
+   its rows in a scroller that's already inside that padding, so the same inset
+   applies it twice and the wash lands 16px narrower than the row it's lighting. */
+.lm__rows .menu__plate {
+  left: 0;
+  right: 0;
+}
+/* one line of type and a mark — the weight lives on the list itself, and beside a
+   name it competed with the one thing you scan a switcher for */
 .lm__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.lm__name {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* The one you're in: a ground, not the travelling wash. That one belongs to the
-   pointer, and two washes would argue about which row is "on". */
-.lm__row.is-current {
-  background: var(--paper-3);
+/* THE ONE YOU'RE IN IS A CHECK, not a ground.
+   It was a --paper-3 fill, which put two meanings on one property: the travelling
+   plate marks where the POINTER is, and this marked where you ARE. Hovering the
+   current row stacked the plate's translucent ink over that fill and composited a
+   third, darker tone — so the row you were already on read as more hovered than any
+   other row could get, and the two states couldn't be told apart.
+   One ground, one meaning: the plate owns every fill in this menu, and "current" is
+   said with the same check the vault uses for gear that's already in your list. */
+.lm__check {
+  flex: none;
+  margin-left: auto;
+  color: var(--ink-3);
 }
 .lm__empty {
   padding: var(--space-2) var(--space-3);

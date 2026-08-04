@@ -810,18 +810,22 @@ function onCorrected(res: { status: string; itemName?: string }) {
   align-items: center;
   gap: var(--space-2);
   padding-block: var(--space-3);
-  /* NOT vestigial, and it can't be dropped in favour of the status line's flex:1
-     below: SyncStatus renders conditionally (it says nothing on an untouched draft),
-     and with no status there is no flexible item, so the icon cluster fell back to
-     the leading edge. This is what holds it trailing in that case. */
-  justify-content: flex-end;
+  /* Leading edge, and the TOOL CLUSTER pushes itself right (see .modetoggle below).
+     This used to be justify-content: flex-end, holding the icons trailing by
+     shoving everything — a workaround for the bar's only flexible item being
+     CONDITIONAL: SyncStatus says nothing on an untouched draft, so with no
+     flex:1 anywhere the cluster fell back to the leading edge.
+     That workaround broke the moment something needed to STAY at the leading edge:
+     with nothing to take up the slack, the list switcher was carried right along
+     with the icons and landed in the middle of the bar. An auto margin on the
+     cluster does the same job without depending on a sibling existing. */
 }
-/* The bar's flexible item WHEN PRESENT — it takes the free width so the rigid icon
-   cluster stays at the trailing edge and doesn't drift as the words change length.
-   (The title did this job before it became a page title below.) min-width:0 lets it
-   shrink so its own ellipsis fires rather than squeezing the controls. */
+/* Sizes to its own words and shrinks if it must (min-width:0 lets its ellipsis
+   fire) — but does NOT grow. The cluster's auto margin below eats the free space
+   first, and a `flex: 1` here would then resolve its 0% basis against nothing left
+   and collapse the line to a sliver. */
 .topbar__status {
-  flex: 1;
+  flex: 0 1 auto;
   min-width: 0;
 }
 /* The title block (name + trail link) belongs to ListHead.vue — it owns its own layout
@@ -837,6 +841,10 @@ function onCorrected(res: { status: string; itemName?: string }) {
 .modetoggle {
   position: relative;
   flex: none;
+  /* WHERE THE BAR SPLITS. Everything from here rightward is tools for the list;
+     everything left of it is what list you're looking at. The auto margin holds
+     that split without relying on a sibling being present — see .topbar__inner. */
+  margin-left: auto;
   display: inline-flex;
   gap: var(--space-px);
   padding: var(--space-px);
