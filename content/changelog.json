@@ -15,7 +15,9 @@
       "The trail link panel asks for a \"URL\".",
       "The footer no longer links to the page you're already on.",
       "Signing in opens over the page you're on, so you never lose your list.",
-      "The sign-in dialog says \"Sign in\" rather than \"Your account\" when you don't have one yet."
+      "The sign-in dialog says \"Sign in\" rather than \"Your account\" when you don't have one yet.",
+      "Deleting your account now asks once, with a checkbox for your lists, instead of two questions in a row.",
+      "The account's fields and buttons are contained, and Delete account is red."
     ],
     "fixed": [
       "The gear vault no longer offers to save a list's gear when you're signed out, which spent the one time it asks about that list.",

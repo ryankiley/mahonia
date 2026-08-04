@@ -28,9 +28,13 @@ useSeoMeta({
   <NuxtLayout>
     <NuxtPage />
   </NuxtLayout>
-  <AppDialogs />
   <!-- One app-wide mount, like AppDialogs: any component can open the account without
        wiring its own overlay. Lazy + everOpened, so a visit that never opens it pays
        nothing for the panel, the passkey ceremony or the delete flow. -->
   <LazyAccountModal v-if="accountModal.everOpened" />
+  <!-- LAST, and that's load-bearing. Every overlay shares one --z-float, so paint
+       order decides which is on top — and a confirm can be raised from inside another
+       modal (delete-account is raised from the account modal). Anything mounted after
+       AppDialogs would cover the question it was asked to answer. -->
+  <AppDialogs />
 </template>

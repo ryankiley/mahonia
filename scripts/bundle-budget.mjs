@@ -167,7 +167,23 @@ import { brotliCompressSync, gzipSync, constants } from "node:zlib";
 // paying once here. 137 restores the ~1 KB working headroom the anchors carry;
 // 135.0 against a 135 budget is the zero-slack state this file's own note warns
 // gets raised reflexively on the next trivial change.
-const FIRST_LOAD_BUDGET_KB = 137;
+//
+// 137 → 139 for the ACCOUNT MODAL. Measured 135.5 on main before, 137.1 after, so
+// +1.6 KB brotli. Almost none of that is the account itself — AccountView, the passkey
+// ceremony and the delete flow are behind <LazyAccountModal v-if="everOpened">, so a
+// visit that never opens it downloads none of them. What lands on first load is the
+// part that has to: the singleton + the mount in app.vue, and GLOBAL CSS — the .check
+// atom (a native checkbox wearing the house icons, now shared by the delete dialog and
+// VaultPickerModal), the dialog's option row, .dlg's max-height/scroll, and --danger.
+//
+// A lazy <BaseCheckbox> was tried to keep the two icons off first load and made it
+// WORSE — 137.3 — because the extra async chunk costs more than the icons it defers.
+// Reverted; recording it so the next person doesn't repeat it.
+//
+// 139 and not 138, for the same reason the last note gives: 137.1 against 137 is the
+// zero-slack state this file warns about, and it is what just happened. ~1.9 KB of
+// working headroom is the point, not tracking current.
+const FIRST_LOAD_BUDGET_KB = 139;
 // TOTAL of every built file, the backstop. Deliberately slack: its job is to catch
 // a route chunk ballooning or a heavy dep landing somewhere unnoticed, NOT to price
 // ordinary feature work. Set well clear of current (137.1) so it only speaks up when

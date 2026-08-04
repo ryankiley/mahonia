@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { HugeiconsIcon } from "@hugeicons/vue";
+import { CheckmarkSquare02Icon, SquareIcon } from "@hugeicons/core-free-icons";
 // The single mount point for the app-wide confirm + copy-link-fallback dialogs
 // (state in useDialogs). Rendered once in app.vue so every page — including the
 // layout-less editor — shares one instance. Both reuse BaseModal (scrim, rise,
@@ -20,6 +22,18 @@ watch(
     <BaseModal :open="confirmState.open" :label="confirmState.title || 'Confirm'" @close="settleConfirm(false)">
       <p v-if="confirmState.title" class="t-label">{{ confirmState.title }}</p>
       <p class="t-sm t-muted dlg__lede">{{ confirmState.message }}</p>
+      <!-- the optional second decision, asked here rather than in a follow-up dialog -->
+      <label v-if="confirmState.checkboxLabel" class="dlg__opt">
+        <span class="check">
+          <input v-model="confirmState.checked" type="checkbox" class="check__box" />
+          <HugeiconsIcon :icon="SquareIcon" class="check__icon check__icon--empty" :size="20" :stroke-width="1.33" absolute-stroke-width aria-hidden="true" />
+          <HugeiconsIcon :icon="CheckmarkSquare02Icon" class="check__icon check__icon--check" :size="20" :stroke-width="1.33" absolute-stroke-width aria-hidden="true" />
+        </span>
+        <span class="dlg__opttext">
+          {{ confirmState.checkboxLabel }}
+          <span v-if="confirmState.checkboxHint" class="t-sm t-muted dlg__opthint">{{ confirmState.checkboxHint }}</span>
+        </span>
+      </label>
       <div class="dlg__actions">
         <button class="btn btn--ghost" @click="settleConfirm(false)">{{ confirmState.cancelLabel }}</button>
         <button class="btn btn--primary" @click="settleConfirm(true)">{{ confirmState.confirmLabel }}</button>

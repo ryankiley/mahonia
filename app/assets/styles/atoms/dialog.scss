@@ -60,6 +60,21 @@
 }
 // trailing-aligned buttons closing every dialog body — part of the shared shell,
 // so it lives here beside .dlg rather than in one caller's scoped styles
+/* an in-dialog choice: box, then its label and an optional line of consequence */
+.dlg__opt {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  cursor: pointer;
+}
+.dlg__opttext {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.dlg__opthint {
+  display: block;
+}
 .dlg__actions {
   display: flex;
   justify-content: flex-end;

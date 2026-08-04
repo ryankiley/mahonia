@@ -50,7 +50,7 @@ async function finish(fallback: string) {
 // the account; see the page.
 
 const { user, signedIn, loaded, refresh, requestLink, signOut, saveProfile } = useSession();
-const { confirm: askConfirm } = useDialogs();
+const { confirm: askConfirm, confirmState } = useDialogs();
 const pk = usePasskeys();
 // whether this browser can do WebAuthn at all — resolved on mount, so the
 // signed-out view offers the passkey door only where it actually opens
@@ -219,26 +219,29 @@ const deleteNote = ref("");
 // irreversible thing succeeded.
 const gone = ref("");
 async function deleteAccount() {
-  // Two questions, not one. The account going is what was asked for; the lists are
-  // a separate, more destructive thing that must be opted into rather than swept
-  // along — they belong to their edit links and outlive the account by default.
+  // ONE dialog, two decisions. It used to ask twice — "delete your account?" then
+  // "delete your lists too?" — and a second modal arriving after you'd already
+  // committed read as a step you hadn't finished rather than a choice you were being
+  // offered. The lists still have to be opted INTO: they belong to their edit links
+  // and outlive the account by default, so the box starts unticked and the quiet
+  // path keeps them.
   if (
     !(await askConfirm({
       title: "Delete your account?",
       message:
-        "Your email, display name, passkeys and your whole gear vault go, and can't be brought back. Your lists are NOT deleted — they belong to their edit links, and any link you've kept still opens them.",
+        "Your email, display name, passkeys and your whole gear vault go, and can't be brought back.",
       confirmLabel: "Delete account",
+      checkbox: {
+        label: "Delete my lists too",
+        // Says what TICKING it does. A hint that explains the unticked state reads
+        // backwards under a box you're deciding whether to tick, and this is the
+        // consequence people don't anticipate: the lists aren't only yours.
+        hint: "Anyone you've shared a link with loses access too.",
+      },
     }))
   )
     return;
-
-  const alsoLists = await askConfirm({
-    title: "Delete your lists too?",
-    message:
-      "Also delete the lists saved to this account. Anyone you've shared a link with loses access as well. Choose Keep to leave them exactly as they are.",
-    confirmLabel: "Delete them too",
-    cancelLabel: "Keep my lists",
-  });
+  const alsoLists = confirmState.checked;
 
   deleting.value = true;
   deleteNote.value = "";
@@ -408,7 +411,7 @@ async function onSignOut() {
                 placeholder="Optional"
                 aria-label="Display name"
               />
-              <button type="submit" class="btn btn--quiet" :disabled="!nameDirty || nameSaving">
+              <button type="submit" class="btn btn--ghost acct__btn" :disabled="!nameDirty || nameSaving">
                 {{ nameSaving ? "Saving…" : "Save" }}
               </button>
             </form>
@@ -442,10 +445,10 @@ async function onSignOut() {
           </section>
 
           <section class="acct__section">
-            <button type="button" class="btn btn--quiet acct__signout" @click="onSignOut">Sign out</button>
+            <button type="button" class="btn btn--ghost acct__btn acct__signout" @click="onSignOut">Sign out</button>
             <button
               type="button"
-              class="btn btn--quiet acct__signout"
+              class="btn btn--ghost acct__btn acct__signout"
               :disabled="signingOutAll"
               @click="onSignOutEverywhere"
             >
@@ -456,11 +459,12 @@ async function onSignOut() {
           <section class="acct__section">
             <h2 class="t-label acct__label">Delete your account</h2>
             <p class="t-sm t-muted">
-              Your account and gear vault, for good. Your lists are kept unless you say otherwise.
+              Your email, passkeys and gear vault go for good. Your lists stay — they belong
+              to their edit links, and any link you’ve shared still opens them.
             </p>
             <button
               type="button"
-              class="btn btn--quiet acct__danger"
+              class="btn btn--ghost acct__btn acct__danger"
               :disabled="deleting"
               @click="deleteAccount"
             >
@@ -508,17 +512,11 @@ async function onSignOut() {
    input, rather than centred with the prose. */
 .acct__empty .acct__input {
   width: 100%;
-  min-height: 40px;
-  padding: 0 var(--space-4);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-pill);
-  background: var(--paper);
-  text-align: left;
 }
-.acct__empty .acct__input::placeholder {
+.acct__input::placeholder {
   color: var(--ink-3);
 }
-.acct__empty .acct__input:focus {
+.acct__input:focus {
   border-color: var(--ink-2);
 }
 
@@ -624,6 +622,12 @@ async function onSignOut() {
 .acct__section:first-child {
   padding-top: 0;
 }
+/* the missing half of the rule above. The block rhythm is for the space BETWEEN
+   sections; at either end the container's own padding already provides it, and in the
+   dialog the two stacked to 44px under the last control against 24px above the first. */
+.acct__section:last-child {
+  padding-bottom: 0;
+}
 .acct__label {
   color: var(--ink-2);
 }
@@ -646,12 +650,21 @@ async function onSignOut() {
   align-items: center;
   gap: var(--space-3);
 }
-/* .field is borderless by design (it lives in list rows); a standalone form field
-   needs the bottom rule the editor's title field uses to read as editable */
+/* CONTAINED, and the same container for both fields on this surface. .field is
+   borderless by design — it lives in list rows, where the row's own structure says
+   where the field is. Here there is no such structure, and in the modal there is even
+   less: a floating panel has nothing around a control to imply its edges, so the
+   container IS the affordance. (The signed-out email field already looked like this;
+   the display name was a bottom rule, so the same surface had two kinds of input.) */
 .acct__input {
   flex: 1 1 auto;
   min-width: 0;
-  border-bottom: 1px solid var(--line);
+  min-height: 40px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--paper);
+  text-align: left;
 }
 .acct__input:focus {
   border-bottom-color: var(--ink-2);
@@ -661,19 +674,46 @@ async function onSignOut() {
 }
 /* the section is a flex COLUMN, so a bare button stretches and its label centres —
    pull it back to the left edge every other line sits on */
-/* The one destructive control on the page — and still monochrome: chrome colour
-   is reserved for the data viz (tokens.scss), so no red and no warn tint. It
-   steps BACK to secondary ink instead, quieter than the Sign out above it —
-   different in kind without shouting at someone who's only scrolling past; the
-   confirm dialog carries the gravity. */
-.acct__danger {
-  color: var(--ink-2);
+/* The one destructive control in the app, and the one coloured one — see --danger in
+   tokens.scss for why this is the single exception to monochrome chrome. It used to
+   step BACK to secondary ink, on the reasoning that the confirm dialog carried the
+   gravity; the trouble is that a delete button rendered quieter than the Sign out
+   above it reads as the less consequential of the two, which is exactly backwards. */
+/* Compound, so it beats .acct__btn's container fill — both are single-class rules and
+   .acct__btn is declared after this one, so source order would otherwise win. */
+.acct__btn.acct__danger {
+  background: var(--danger);
+  border-color: transparent;
+  color: var(--danger-ink);
 }
-.acct__danger:hover {
-  background: var(--paper-3);
+.acct__btn.acct__danger:hover {
+  background: var(--danger);
+  border-color: transparent;
+  filter: brightness(1.08);
 }
-.acct__signout {
+/* CONTAINED, by the same recipe as .acct__input above — one container language for
+   every control on this surface.
+   It recedes to --paper with a hairline rather than sitting on a raised fill, and it
+   has to: --surface-float and --paper-3 are the SAME value (#1f1f1f) in dark, so the
+   .btn atom's resting/hover fill is literally invisible inside a dialog. Going darker
+   than the surface is the only fill that reads here, and the hairline carries light
+   mode, where --surface-float and --paper are both #fff.
+   flex-start because the section is a flex column: a stretched button centres its
+   label away from the line every other row starts on. */
+.acct__btn {
   align-self: flex-start;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--paper);
+}
+.acct__btn:hover {
+  /* a step TOWARD the surface, visible in both modes — see above for why the atom's
+     own --paper-3 hover can't be */
+  background: var(--paper-2);
+  border-color: var(--line-2);
+}
+.acct__btn:disabled {
+  background: transparent;
 }
 .acct__note {
   color: var(--ink);
