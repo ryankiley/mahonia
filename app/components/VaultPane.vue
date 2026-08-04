@@ -337,6 +337,9 @@ onBeforeUnmount(() => {
 });
 
 onKeyStroke("Escape", () => emit("close"));
+
+// Sign in without losing the vault behind it — the account opens over this page.
+const { open: openAccount } = useAccountModal();
 </script>
 
 <template>
@@ -402,7 +405,7 @@ onKeyStroke("Escape", () => emit("close"));
       <p class="t-sm t-muted">
         Your gear is one pick away on every list, but it needs an account.
       </p>
-      <NuxtLink to="/account" class="btn btn--primary">Sign in</NuxtLink>
+      <button type="button" class="btn btn--primary" @click="openAccount">Sign in</button>
     </div>
 
     <template v-else>

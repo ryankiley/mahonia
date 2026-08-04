@@ -1,4 +1,5 @@
 <script setup lang="ts">
+const { state: accountModal } = useAccountModal();
 // The social-card IMAGE, request-derived so SSR routes (/s, /l) reference their
 // own deploy host — portable like the sitemap, no hardcoded URL. unhead dedupes
 // this over the static fallback in nuxt.config wherever SSR runs.
@@ -28,4 +29,8 @@ useSeoMeta({
     <NuxtPage />
   </NuxtLayout>
   <AppDialogs />
+  <!-- One app-wide mount, like AppDialogs: any component can open the account without
+       wiring its own overlay. Lazy + everOpened, so a visit that never opens it pays
+       nothing for the panel, the passkey ceremony or the delete flow. -->
+  <LazyAccountModal v-if="accountModal.everOpened" />
 </template>

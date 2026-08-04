@@ -13,7 +13,9 @@
       "On a shared list, \"Copy this list\" is now \"Duplicate this list\" — the same name the editor uses, and no longer confusable with the clipboard actions beside it.",
       "On a shared list, signing in is an icon in the top bar like the rest of it, and the ⋯ menu sits at the end.",
       "The trail link panel asks for a \"URL\".",
-      "The footer no longer links to the page you're already on."
+      "The footer no longer links to the page you're already on.",
+      "Signing in opens over the page you're on, so you never lose your list.",
+      "The sign-in dialog says \"Sign in\" rather than \"Your account\" when you don't have one yet."
     ],
     "fixed": [
       "The gear vault no longer offers to save a list's gear when you're signed out, which spent the one time it asks about that list.",
