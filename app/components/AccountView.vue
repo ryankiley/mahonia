@@ -631,8 +631,15 @@ async function onSignOut() {
 .acct__section:last-child {
   padding-bottom: 0;
 }
+/* The same step the sharing panel takes: a section label sits BELOW the surface's
+   title rather than beside it. These were t-label like the title, separated only by a
+   shade of ink, which reads as a list of equal headings. --text-micro is the tier the
+   tokens describe as "the small labels sitting above its fields", and each of these
+   names the value or control under it. */
 .acct__label {
-  color: var(--ink-2);
+  color: var(--ink-3);
+  font-size: var(--text-micro);
+  line-height: 1.2;
 }
 .acct__value {
   color: var(--ink);
