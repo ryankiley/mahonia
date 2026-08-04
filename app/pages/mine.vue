@@ -22,10 +22,9 @@ const lists = computed(() => [...my.entries.value].sort((a, b) => b.lastOpened -
 const { confirm: askConfirm } = useDialogs();
 
 const editPath = (e: MyListEntry) => editLinkPath(e.shareCode, e.editToken);
-const displayTitle = (t: string) => {
-  const n = t?.trim();
-  return n && n !== "Untitled list" ? n : "Untitled list";
-};
+// shared with the editor's list switcher (app/utils/listSummary.ts), so the two
+// can't disagree about what an untitled list is called
+const displayTitle = savedListTitle;
 // summarise the total in the list's own unit system (imperial lists → lb/oz),
 // falling back to metric auto for legacy entries that predate the stored unit
 const systemOf = (u?: Unit) => (u === "oz" || u === "lb" ? "imperial" : "metric");

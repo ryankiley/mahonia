@@ -392,9 +392,15 @@ onKeyStroke("Escape", () => emit("close"));
          two hops to reach one button. Same sentence and same action as that page now,
          because it is the same question being asked twice. -->
     <div v-if="!hasVault" class="vp__empty">
+      <!-- One sentence: what it is, and the one thing it asks for that the rest of
+           the app never does. The "but" is doing the work — it names the trade-off
+           without a second sentence explaining it, and the button underneath says
+           what to do about it.
+           WORD FOR WORD the /vault page's prompt. It is the same question asked in
+           two places, and answering it twice in two voices is how a product starts
+           sounding like two products. Change one, change both. -->
       <p class="t-sm t-muted">
-        Your vault holds the gear you use, ready to drop into your next list.
-        It needs an account, so you can reach it from any device.
+        Your gear is one pick away on every list, but it needs an account.
       </p>
       <NuxtLink to="/account" class="btn btn--primary">Sign in</NuxtLink>
     </div>
@@ -857,16 +863,28 @@ onKeyStroke("Escape", () => emit("close"));
 .vp__added {
   color: var(--ink);
 }
+/* CENTRED in the pane, both ways. These states have no rows to align to — they're
+   a sentence about why the pane is empty — so left-aligning them at the top left
+   them hanging off the corner of a tall card with nothing under them. */
 .vp__empty {
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
   gap: var(--space-3);
   /* padding-BLOCK, not the shorthand: this block also matches the shared
      padding-inline rule above, and a `padding: x 0 y` shorthand silently zeroes the
      inline half of it — which left the empty state's text one full step to the left
      of the header above it and the rows below it. */
   padding-block: var(--space-2) var(--space-3);
+}
+/* balance, not the tooltip's pretty: pretty only protects the LAST line, and centred
+   text makes a ragged edge read as a mistake. A short block can't strand a word. */
+.vp__empty p {
+  max-width: 30ch;
+  text-wrap: balance;
 }
 
 /* A coarse pointer grows the mode toggle (28px → 40px), so the topbar grows with

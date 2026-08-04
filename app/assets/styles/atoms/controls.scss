@@ -329,6 +329,55 @@ input[type="search"]::-webkit-search-decoration {
   cursor: pointer;
   transition: background var(--dur) var(--ease);
 }
+// ── the travelling plate ─────────────────────────────────────────────────────
+// ONE wash that MOVES between rows, rather than a background painted on each. A
+// menu is a short list of near-identical rows, and a tint that travels tells you
+// where you came from as well as where you are — it reads as a single thing being
+// pointed, which a per-row background can't.
+//
+// Opt-in: a menu gets it by rendering `<span class="menu__plate">` as the list's
+// first child, marking its rows `[data-row]`, and wiring useMenuPlate() (which
+// carries the two measurement traps — scaled cards and the first placement).
+// Without those the rows keep their own :hover below and nothing changes.
+.menu__plate {
+  position: absolute;
+  left: var(--space-2);
+  right: var(--space-2);
+  top: 0;
+  z-index: 0;
+  height: 0;
+  border-radius: var(--popover-item-radius);
+  background: var(--popover-hover);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform var(--dur) var(--ease),
+    height var(--dur) var(--ease),
+    opacity calc(var(--dur) * 0.6) var(--ease);
+}
+.menu__plate.is-on {
+  opacity: 1;
+}
+// placed, not travelled — the first landing after the pointer arrives
+.menu__plate.is-placing {
+  transition: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .menu__plate {
+    transition: opacity 1ms;
+  }
+}
+// the rows sit above it
+.menu__list:has(.menu__plate) .menu__item {
+  position: relative;
+  z-index: 1;
+}
+// ...and give up their own tint, or two washes argue about which row is "on".
+// :has() scopes this to menus that actually opted in, so every other menu in the
+// app keeps the per-row hover exactly as it was.
+.menu__list:has(.menu__plate) .menu__item:hover {
+  background: none;
+}
 .menu__item:hover,
 .menu__item:focus-visible {
   background: var(--popover-hover);

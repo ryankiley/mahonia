@@ -199,10 +199,17 @@ $bp-full: 1024px !default;
   /* ---- elevation: one floating-surface drop, shared so the lifted row + the toast
      read at the same height and can't drift apart ---- */
   --shadow-pop: 0 10px 24px -10px rgba(0, 0, 0, 0.35);
-  /* soft float for anchored surfaces (the autocomplete + kebab) — no border, no
-     ring: the shadow alone defines the edge in light mode, the elevated
-     --surface-float tone carries it in dark (a shadow on #000 is invisible) */
-  --shadow-soft: 0 4px 12px rgba(0, 0, 0, 0.07), 0 20px 48px -8px rgba(0, 0, 0, 0.2);
+  /* Soft float for anchored surfaces — the autocomplete, the kebab menus, the
+     lists menu. No border, no ring: the shadow alone defines the edge in light
+     mode, the elevated --surface-float tone carries it in dark (a shadow on #000
+     is invisible).
+     ONE value across every size, deliberately (Ryan: "maybe it can be one thing").
+     The obvious refinement is a pair scaled to the surface — a small drop for a
+     menu, a diffuse one for a tall panel — but the honest reading was that the old
+     value was simply too heavy at BOTH ends, not mis-sized: a 0.2-alpha 48px layer
+     that read mushy under a 32px card and looked like weather under a panel.
+     Lighter and pulled tighter, it works at both. */
+  --shadow-soft: 0 1px 3px rgba(0, 0, 0, 0.04), 0 12px 28px -10px rgba(0, 0, 0, 0.13);
   /* floating-menu surface: bright white in light (NOT the grey paper-2 — popovers
      should read crisp, lifted off the page), a clearly-elevated grey in dark */
   --surface-float: light-dark(#ffffff, #1f1f1f);

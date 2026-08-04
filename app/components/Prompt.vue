@@ -142,7 +142,13 @@ const emit = defineEmits<{ dismiss: [] }>();
   max-width: 100%;
   padding: var(--space-3) var(--space-4);
   background: var(--paper-2);
-  border-radius: var(--radius-2);
+  /* --radius-4, not the in-flow --radius-2 this started with: the block hugs its
+     sentence (width: max-content), so at one line it's a ~48px lozenge, and 8px on
+     that reads as a rectangle someone forgot to round. Deliberately NOT --radius-pill
+     either — the max-width above lets the sentence wrap on a narrow screen, and a
+     pill on a two-line box becomes a stadium with the text pinched in its middle.
+     At one line 20px is within 2px of a true pill anyway; at two it stays a card. */
+  border-radius: var(--radius-4);
   color: var(--ink-2);
   font-size: var(--text-sm);
 }

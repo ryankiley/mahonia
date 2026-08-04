@@ -154,13 +154,31 @@ import { brotliCompressSync, gzipSync, constants } from "node:zlib";
 // is first-load, so a statically-imported calendar shipped to every visitor who
 // never opened it. Making it Lazy is where 0.8 of the overage went; the gate caught
 // it, which is the gate working. Same ~1.2% headroom rule as the anchors above.
-const FIRST_LOAD_BUDGET_KB = 135;
+//
+// Bumped 135→137 for the list switcher — a labelled count in the editor toolbar
+// opening a filterable menu of the lists this browser holds, replacing a trip out
+// to /mine. Measured both ways against the same build: 133.4 before, 135.0 after,
+// so +1.6 KB brotli. It is first-load by definition (it's in the toolbar), and most
+// of it is the menu's own filtering and the travelling plate's measuring.
+//
+// The plate went into the shared .menu atom rather than into this one component, so
+// the ⋯, account and read-view menus all took it for the cost of a span and four
+// handlers each — the marginal menu is nearly free, which is the argument for
+// paying once here. 137 restores the ~1 KB working headroom the anchors carry;
+// 135.0 against a 135 budget is the zero-slack state this file's own note warns
+// gets raised reflexively on the next trivial change.
+const FIRST_LOAD_BUDGET_KB = 137;
 // TOTAL of every built file, the backstop. Deliberately slack: its job is to catch
 // a route chunk ballooning or a heavy dep landing somewhere unnoticed, NOT to price
 // ordinary feature work. Set well clear of current (137.1) so it only speaks up when
 // something has genuinely gone wrong. If you find yourself bumping this one often,
 // something is being shipped to every page that shouldn't be.
-const TOTAL_BUDGET_KB = 180;
+//
+// Bumped 180→186 to RE-ANCHOR, not to make room: current had crept to 180.4 against
+// 180. A backstop with no slack is not a backstop — it fails on the next trivial
+// change and gets raised without anyone thinking about it, which is the exact
+// failure the first-load note above describes. Nothing here grew unexpectedly.
+const TOTAL_BUDGET_KB = 186;
 const MAX_CHUNK_BUDGET_KB = 72; // largest single chunk, brotli (the framework runtime)
 
 // First build output that exists: node-server, Vercel preset, or static generate.

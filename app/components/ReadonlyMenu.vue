@@ -14,6 +14,8 @@ const props = defineProps<{
 }>();
 
 const menuOpen = ref(false);
+// the travelling wash shared with the other menus (see useMenuPlate)
+const { plateRef, listRef, placing, on: plateOn } = useMenuPlate();
 const menuRef = useTemplateRef<HTMLElement>("menuRef");
 
 // tiny toast for the copy actions (a link/markdown copy is otherwise invisible); the
@@ -121,29 +123,33 @@ async function copyLink() {
       <HugeiconsIcon :icon="EllipsisIcon" :size="16" :stroke-width="2" />
     </button>
     <Transition name="menu">
-      <ul v-if="menuOpen" class="popover menu__list" role="menu" aria-label="More actions">
-        <li role="none">
-          <button type="button" role="menuitem" class="menu__item" :disabled="copying" @click="runMenu('copy')">Copy this list</button>
+      <ul v-if="menuOpen" ref="listRef" class="popover menu__list" role="menu" aria-label="More actions" v-on="plateOn">
+        <!-- the travelling wash (atoms/controls.scss + useMenuPlate) -->
+        <li role="none" aria-hidden="true">
+          <span ref="plateRef" class="menu__plate" :class="{ 'is-placing': placing }" />
         </li>
         <li role="none">
-          <button type="button" role="menuitem" class="menu__item" @click="runMenu('link')">Copy link</button>
+          <button type="button" data-row role="menuitem" class="menu__item" :disabled="copying" @click="runMenu('copy')">Copy this list</button>
         </li>
         <li role="none">
-          <button type="button" role="menuitem" class="menu__item" @click="runMenu('markdown')">Copy as Markdown</button>
+          <button type="button" data-row role="menuitem" class="menu__item" @click="runMenu('link')">Copy link</button>
         </li>
         <li role="none">
-          <button type="button" role="menuitem" class="menu__item" @click="runMenu('csv')">Download CSV</button>
+          <button type="button" data-row role="menuitem" class="menu__item" @click="runMenu('markdown')">Copy as Markdown</button>
         </li>
         <li role="none">
-          <button type="button" role="menuitem" class="menu__item" @click="runMenu('json')">Download JSON</button>
+          <button type="button" data-row role="menuitem" class="menu__item" @click="runMenu('csv')">Download CSV</button>
         </li>
         <li role="none">
-          <button type="button" role="menuitem" class="menu__item" @click="runMenu('feedback')">Send feedback…</button>
+          <button type="button" data-row role="menuitem" class="menu__item" @click="runMenu('json')">Download JSON</button>
+        </li>
+        <li role="none">
+          <button type="button" data-row role="menuitem" class="menu__item" @click="runMenu('feedback')">Send feedback…</button>
         </li>
         <!-- moderation, not a read of the list — set off from the copy/export group by a
              hairline, and only for public lists (per the Terms) that aren't yet reported -->
         <li v-if="snapshot.isPublic && !reported" role="none" class="menu__report">
-          <button type="button" role="menuitem" class="menu__item" @click="runMenu('report')">Report list</button>
+          <button type="button" data-row role="menuitem" class="menu__item" @click="runMenu('report')">Report list</button>
         </li>
       </ul>
     </Transition>
