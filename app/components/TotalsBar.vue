@@ -62,6 +62,7 @@ const UNIT_OPTIONS = UNITS.map((u) => ({ key: u, label: u }));
              picker instead of a transparent native <select> laid over the figure. -->
         <OptionMenu
           class="totals__amount"
+          trigger-class="totals__unitbtn"
           :options="UNIT_OPTIONS"
           :current="list.displayUnit"
           label="Weight unit"
@@ -145,9 +146,14 @@ const UNIT_OPTIONS = UNITS.map((u) => ({ key: u, label: u }));
   flex-direction: column;
   gap: var(--space-1);
 }
-/* OptionMenu supplies the trigger button (bare by default — this is a display figure
-   that happens to be pressable, not a control that looks like one) and .menu supplies
-   the positioning. Nothing left to declare here. */
+/* OptionMenu supplies the trigger button (bare — this is a display figure that happens
+   to be pressable, not a control that looks like one) and .menu supplies the
+   positioning. The one thing this trigger overrides is the alignment: the unit and its
+   chevron have to sit on the big figure's BASELINE, where OptionMenu centres by default
+   for the icon-only triggers. */
+.totals__unitbtn {
+  align-items: baseline;
+}
 .totals__big {
   font-size: var(--text-display);
   line-height: 0.95;

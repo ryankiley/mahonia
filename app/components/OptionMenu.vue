@@ -114,7 +114,11 @@ function pick(key: string) {
    how a sorted folder reads as sorted even collapsed. */
 .optmenu__btn {
   display: inline-flex;
-  align-items: baseline;
+  /* CENTRE by default. Baseline is right for a trigger built from type — the total,
+     where the unit has to sit on the big figure's baseline — but it is wrong for an
+     icon-only one, where it lifted the glyph 8px above the trash and grip beside it.
+     The type-based triggers ask for baseline through `triggerClass`. */
+  align-items: center;
   gap: var(--space-2);
   padding: 0;
   border: 0;
