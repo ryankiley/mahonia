@@ -169,20 +169,24 @@
 .folder__grip:hover {
   color: var(--ink);
 }
-/* sort control — a quiet glyph (the active mode's arrow) with a transparent native
-   <select> laid over it for the picker + full keyboard access, matching the item
-   rows' classification selector. Sized like the icon buttons beside it so the
-   three-glyph cluster (sort · remove · grip) lines up with the item actions below. */
+/* sort control — a quiet glyph (the active mode's arrow) that opens the app's own
+   popover. It used to be a transparent native <select> laid over the glyph; the
+   behaviour was free but the list it opened was the OS's, the one surface here that
+   didn't look like the rest. .menu carries the positioning now (atoms/controls.scss).
+   Sized like the icon buttons beside it so the three-glyph cluster (sort · remove ·
+   grip) lines up with the item actions below. */
 .folder__sortwrap {
-  position: relative;
   flex: none;
   display: inline-flex;
   align-items: center;
   justify-content: flex-end;
-  width: var(--icon-btn);
-  min-height: var(--icon-btn);
   color: var(--ink-3);
   transition: color var(--dur) var(--ease), opacity var(--dur) var(--ease);
+}
+/* the trigger carries the box now — .btn--icon already gives it --icon-btn square and
+   the --tap growth on coarse pointers, so the wrapper stops declaring both */
+.folder__sortbtn {
+  color: inherit;
 }
 .folder__sortwrap:hover {
   color: var(--ink);
@@ -198,25 +202,31 @@
 .folder__sorticon {
   pointer-events: none;
 }
-.folder__sortsel {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  opacity: 0;
-  cursor: pointer;
+/* the menu itself: a row is glyph · label · check, with the label taking the slack so
+   the check lands on the trailing edge (the same shape ListMenu's rows use) */
+.folder__sortmenu {
+  min-width: 12rem;
+}
+.folder__sortitem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.folder__sortlabel {
+  flex: 1 1 auto;
+  text-align: start;
+}
+.folder__sortcheck {
+  flex: none;
+  color: var(--ink-3);
 }
 /* touch: .btn--icon grows to a --tap (44px) target on coarse pointers (controls.scss),
    so the sort control has to match — left at its desktop --icon-btn width, its box is
    12px narrower than the delete/grip beside it, which shoves the folder's delete out of
-   line with the item rows' delete below. Match the width AND height (the overlaid
-   select is the actual tap target, and the sibling buttons already set the cluster
-   height on wide touch viewports; the ≤$bp-stack block later re-squashes phones) and
-   bump the glyph like the sibling .btn--icon svg, so the cluster lines up column-for-column. */
+   line with the item rows' delete below. The trigger is a real .btn--icon now, so it
+   takes that growth from the atom itself and only the glyph needs bumping to match the
+   sibling .btn--icon svg. */
 @media (pointer: coarse) {
-  .folder__sortwrap {
-    width: var(--tap);
-    min-height: var(--tap);
-  }
   .folder__sorticon {
     width: var(--icon-touch);
     height: var(--icon-touch);

@@ -1,5 +1,11 @@
 [
   {
+    "date": "2026-08-04",
+    "changed": [
+      "Every picker — units, folder sorting, and moving gear between folders — now opens the app's own menu instead of your device's dropdown."
+    ]
+  },
+  {
     "date": "2026-08-03",
     "added": [
       "Switch between your lists from the editor's toolbar, without leaving the one you're in.",

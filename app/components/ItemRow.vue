@@ -11,6 +11,9 @@ const NO_ITEMS: ItemT[] = [];
 // offered "N worn" split counts stop here (the stored value is always shown even
 // beyond the cap, so clamps/imports can't strand invisible state)
 const MAX_SPLIT_OPTS = 5;
+// the four units as OptionMenu rows — the abbreviation is the label, matching the
+// figure it sits beside (see TotalsBar, which builds the same list)
+const UNIT_OPTIONS = UNITS.map((u) => ({ key: u, label: u }));
 </script>
 
 <script setup lang="ts">
@@ -258,8 +261,8 @@ function onWeightFocus(e: Event) {
 // Changing the unit RE-EXPRESSES the same weight, it never converts the number: the
 // row holds canonical milligrams, so picking oz just asks for those milligrams in
 // ounces. (Typing "3.8 oz" sets the same field — see setItemWeight.)
-function onRowUnit(e: Event) {
-  c.updateItem(props.item.id, { entryUnit: (e.target as HTMLSelectElement).value as Unit });
+function onRowUnit(u: Unit) {
+  c.updateItem(props.item.id, { entryUnit: u });
 }
 function onQty(e: Event) {
   const el = e.target as HTMLInputElement;
@@ -873,33 +876,38 @@ function dismissFix() {
                native picker and full keyboard behaviour.
                Not on water (its weight is derived from a volume) or on a group row
                (whose figure is the sum of children that may each read differently). -->
-          <span class="item__unitwrap">
+          <!-- Water and group rows show the unit as plain text: water's weight is
+               derived from a volume, and a group's figure is the sum of children that
+               may each read differently, so neither has a unit to pick. -->
+          <span v-if="isWater || isParent" class="item__unitwrap">
             <span class="t-sm t-muted item__unit">{{ rowUnit }}</span>
-            <!-- The mark that says "this is a control". Without it the unit was a
-                 transparent select over text that looked exactly like a caption, so
-                 the picker was only ever found by accident. Same chevron the total's
-                 unit carries, at row scale — one vocabulary for one gesture.
-                 12/2 renders an exact 1px stroke (12 ÷ 24 × 2), the small-size
-                 counterpart to the total's 16/2.25 = 1.5px. -->
-            <HugeiconsIcon
-              v-if="!isWater && !isParent"
-              :icon="ChevronDownIcon"
-              class="item__unitchev"
-              :size="12"
-              :stroke-width="2"
-              aria-hidden="true"
-            />
-            <select
-              v-if="!isWater && !isParent"
-              class="item__unitsel"
-              :value="rowUnit"
-              :title="`Unit for ${item.name || 'this item'}`"
-              aria-label="Weight unit for this item"
-              @change="onRowUnit"
-            >
-              <option v-for="u in UNITS" :key="u" :value="u">{{ u }}</option>
-            </select>
           </span>
+          <OptionMenu
+            v-else
+            class="item__unitwrap"
+            :options="UNIT_OPTIONS"
+            :current="rowUnit"
+            label="Weight unit for this item"
+            :title="`Unit for ${item.name || 'this item'}`"
+            @pick="(u) => onRowUnit(u as Unit)"
+          >
+            <template #trigger="{ open }">
+              <span class="t-sm t-muted item__unit">{{ rowUnit }}</span>
+              <!-- The mark that says "this is a control". Without it the unit was text
+                   that looked exactly like a caption, so the picker was only ever found
+                   by accident. Same chevron the total's unit carries, at row scale —
+                   one vocabulary for one gesture. 12/2 renders an exact 1px stroke
+                   (12 ÷ 24 × 2), the small-size counterpart to the total's 16/2.25. -->
+              <HugeiconsIcon
+                :icon="ChevronDownIcon"
+                class="item__unitchev"
+                :class="{ 'is-open': open }"
+                :size="12"
+                :stroke-width="2"
+                aria-hidden="true"
+              />
+            </template>
+          </OptionMenu>
         </div>
 
         <!-- CLASSIFICATION — two toggles rather than a three-option select. The field
@@ -1489,19 +1497,12 @@ function dismissFix() {
    `~` from it reaches nothing. Keyboard focus has to light the mark too, or the
    affordance exists for pointers only. */
 .item:hover .item__unitchev,
-.item__unitwrap:has(.item__unitsel:focus-visible) .item__unitchev {
+.item__unitwrap:focus-within .item__unitchev {
   color: var(--ink-2);
 }
 /* transparent native select over the unit text — the same construction the total's
    unit picker uses. The label stays the only thing drawn; this just makes it a
    control. Sized to the label so it can't widen the weight column. */
-.item__unitsel {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  opacity: 0;
-  cursor: pointer;
-}
 /* the two classification toggles. Both --icon-btn wide, so the pair costs 68px of
    the 108–128px class track the old select needed for the word "Consumable" — the
    row gets denser, not busier. */
