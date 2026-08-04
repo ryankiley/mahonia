@@ -1,6 +1,6 @@
 // Pointer-based drag-to-reorder AND re-nest for item rows. Mouse + touch (Pointer
 // Events). Vertical drag picks the slot; HORIZONTAL drag changes nesting, the
-// Workflowy/Notion model: drag right past a threshold to nest under the row above,
+// the outliner model: drag right past a threshold to nest under the row above,
 // drag left to pop back out to top level. The threshold is measured from where the
 // gesture STARTED (not an absolute x), so it works no matter where on the row you
 // grab. Rows expose `data-item-id` + `data-parent` (absent/null = top-level),

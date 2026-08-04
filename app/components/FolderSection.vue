@@ -307,25 +307,16 @@ function toggleCollapsed() {
   opacity: 1;
 }
 
-/* desktop (mouse): clean header at rest — the remove control (and the sort control
-   while it's on the default Manual) fade in on hover or focus; the reorder grip stays
-   visible always, and a folder on a NON-default sort keeps its lit glyph so the state
-   is legible without hovering. Touch (hover: none) keeps everything visible. */
-@media (hover: hover) {
-  .folder__del,
-  .folder__sortwrap:not(.is-active) {
-    opacity: 0;
-    /* standing compositing layer so Safari doesn't re-snap the glyph ~1px when it
-       makes a layer for the first hover fade (same quirk handled on .folder__chev) */
-    will-change: opacity;
-  }
-  .folder__head:hover .folder__del,
-  .folder__head:focus-within .folder__del,
-  .folder__head:hover .folder__sortwrap,
-  .folder__head:focus-within .folder__sortwrap {
-    opacity: 1;
-  }
-}
+/* A folder's controls are ALWAYS visible, on every pointer.
+   They used to fade in on hover — a clean header at rest, with only the grip and a
+   non-default sort glyph standing. The item rows made the opposite call and it
+   held: an affordance you have to discover by sweeping the pointer over the thing
+   is one most people never learn is there, and the header is where a folder is
+   renamed, sorted, reordered and removed. Touch had them permanently anyway, so
+   the hover branch was also the only place the two pointer types disagreed about
+   what the app can do.
+   The controls are already quiet enough to sit there: --ink-3 glyphs that deepen
+   on hover, which is the affordance doing its job rather than announcing itself. */
 
 @media (max-width: $bp-stack) {
   .folder__head {

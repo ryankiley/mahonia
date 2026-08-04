@@ -23,8 +23,20 @@ defineProps<{
            slotted button pushed the two apart instead of keeping them together. -->
       <span class="topbar__trail">
         <slot />
-        <!-- last, so a page's own action stays the prominent one -->
-        <AccountMenu />
+        <!-- last, so a page's own action stays the prominent one.
+             `compact` FORWARDS: it's the read views' flag, and their trailing group is
+             a glyph row (the ⋯ menu) behind one text action. Left unforwarded, the bar
+             was inconsistent with itself — signed in it drew the account glyph, signed
+             out it drew the word "Sign in", so the same corner changed shape on a state
+             that has nothing to do with shape. AccountMenu already carries the icon
+             variant for exactly this; it was simply unreachable here. The plain word
+             stays on /about, /legal, /mine and friends, which don't pass compact. -->
+        <AccountMenu :compact="compact" />
+        <!-- After the account control, for the one thing that outranks it at the end
+             of a bar: an overflow ⋯. The editor already ends this way (vault, account,
+             share, ⋯), so a bar that put ⋯ mid-row read as a different bar. It isn't a
+             competing action — it's the end-cap, and it's where a hand goes looking. -->
+        <slot name="end" />
       </span>
     </div>
   </header>
@@ -58,6 +70,15 @@ defineProps<{
   margin-left: auto;
   display: inline-flex;
   align-items: center;
-  gap: var(--space-3);
+  /* the editor's icon rhythm, so the two bars share one spacing */
+  gap: var(--space-2);
+}
+/* A word ends flush at its last letter; an icon button carries --space-2 of padding
+   INSIDE its 32px box. One uniform gap therefore reads uneven — with 8px, two glyphs
+   sit 24px apart while a word sits 16px from the glyph beside it, which is what you
+   see rather than what the CSS says. The word gets the difference back, so every gap
+   in the row is 24px of actual air. */
+.topbar__trail :slotted(.btn--link) {
+  margin-right: var(--space-2);
 }
 </style>

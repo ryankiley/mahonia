@@ -329,6 +329,49 @@ input[type="search"]::-webkit-search-decoration {
   cursor: pointer;
   transition: background var(--dur) var(--ease);
 }
+// ── a section INSIDE a menu ──────────────────────────────────────────────────
+// A group of related items that opens in place, rather than a flat run of peers.
+// The editor's ⋯ grew one for Export (three formats you'd otherwise scan past to
+// reach the thing you came for); the read views' ⋯ has the same three. Lifted here
+// on the second consumer rather than copied into it.
+//
+// The header is a menu row like any other — only the trailing chevron marks it as
+// something that OPENS rather than does. `display: contents` so the <li> wrapping a
+// header + its list doesn't become a box between them.
+.menu__sect {
+  display: contents;
+}
+.menu__secthead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+}
+.menu__sectchev {
+  flex: none;
+  color: var(--ink-3);
+  transition: rotate var(--dur) var(--ease);
+}
+.menu__sectchev.is-open {
+  rotate: 180deg;
+}
+.menu__sectlist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+// The section SLIDES rather than snapping: opening Export added 120px to the menu in
+// one frame, which read as the menu flinching. The recipe is the shared .reveal atom
+// below — nothing needed but the wrapper in the template.
+//
+// Items are indented, so an open group reads as belonging to its header rather than
+// as more peers appearing in the middle of the menu.
+.menu__sectitem {
+  padding-left: var(--space-5);
+  color: var(--ink-2);
+}
+
 // ── the travelling plate ─────────────────────────────────────────────────────
 // ONE wash that MOVES between rows, rather than a background painted on each. A
 // menu is a short list of near-identical rows, and a tint that travels tells you

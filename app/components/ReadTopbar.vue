@@ -1,9 +1,8 @@
 <script setup lang="ts">
+// The read views' top bar: the site bar, packed compact, carrying the one thing a
+// reader is most likely to want (a list of their own) and the ⋯ of everything else.
 import type { ListSnapshot, Totals } from "~~/shared/types";
 
-// The read views' topbar chrome — "Make your own" plus the ⋯ menu — shared by
-// /s/[code] and /l/[slug] so the block (and its print-hidden .topbar__actions
-// class, targeted globally by print.scss) exists in exactly one place.
 defineProps<{
   snapshot: ListSnapshot | null;
   totals: Totals | null;
@@ -12,20 +11,12 @@ defineProps<{
 
 <template>
   <SiteTopbar compact>
-    <span class="topbar__actions">
-      <NuxtLink to="/" class="btn btn--link">Make your own</NuxtLink>
+    <NuxtLink to="/" class="btn btn--link">Make your own</NuxtLink>
+    <!-- ⋯ goes in #end so it lands after the account glyph, matching the editor's
+         bar (vault, account, share, ⋯). The reader's one text action keeps the
+         lead; the two glyphs close the row. -->
+    <template #end>
       <ReadonlyMenu v-if="snapshot" :snapshot="snapshot" :totals="totals" />
-    </span>
+    </template>
   </SiteTopbar>
 </template>
-
-<style scoped>
-/* "Make your own" + the ⋯ menu travel together at the trailing edge (the wrapper
-   takes the auto margin the topbar would otherwise give each .btn, spreading them) */
-.topbar__actions {
-  margin-left: auto;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-</style>

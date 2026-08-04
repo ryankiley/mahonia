@@ -1518,9 +1518,9 @@ function dismissFix() {
 .item__clsbtn:hover {
   color: var(--ink);
 }
-/* ON is a FILLED GROUND, not just darker ink. The reference signals this state with
-   colour, which this codebase reserves for the data viz — and ink-vs-grey alone is
-   the same signal hover already uses, so a toggle would read as merely hovered.
+/* ON is a FILLED GROUND, not just darker ink. Colour would be the obvious signal, but
+   this codebase reserves it for the data viz — and ink-vs-grey alone is the same signal
+   hover already uses, so a toggle would read as merely hovered.
    A quiet grey chip (--paper-3, the "quiet surfaces, not borders" token) carries the
    state without an inverted ink chip's weight: these sit in a dense list, and a row
    of black dots would out-shout the weights, which are what the page is for. */
@@ -1743,8 +1743,8 @@ function dismissFix() {
 /* The row's controls used to hide at rest on desktop and fade in on hover, to keep a
    long list quiet. That reads as an empty row until you point at it: the actions are
    undiscoverable, and the row's right half visibly re-populates under the cursor as
-   you scan down the list — which is exactly the flicker the reference doesn't have,
-   because it just shows them.
+   as you scan down the list. A row that simply shows its controls has no flicker to
+   have.
    They are ghosted (--ink-3) at rest and darken on hover instead, so the row is calm
    without being blank. Nothing here is opacity-animated any more, which also retires
    the Safari layer-snap workaround the old rule needed. */
@@ -1917,11 +1917,24 @@ function dismissFix() {
     padding-block: 2px;
     line-height: 1.3;
   }
-  /* the caption sits under the compact meta line here (not a tall 36px field), so
-     the desktop negative pull would overlap — a small positive gap instead. Through
-     the same hook, so it collapses on close exactly as the negative tuck does. */
+  /* The caption sits under the META line here rather than under the name field, so
+     the desktop tuck (sized for a 36px field) is the wrong correction — but a small
+     positive gap was the wrong one too, and in the same direction.
+     The meta row is as tall as its icon BUTTONS, not as its text: 32px of control
+     against a ~25px field, and 44 against 25 once a coarse pointer grows them. So
+     the caption already begins a control's worth of dead space below the "2 × 540 g"
+     it belongs under, and the 2px was adding to that rather than cancelling it.
+     Pull back by half the difference — the same correction, and the same reasoning,
+     as --tap-pull makes for a touch box on a text line. Through the same hook, so it
+     still collapses on close exactly as the negative tuck does. */
   .reveal--note {
-    --reveal-offset: var(--space-px);
+    --reveal-offset: calc((1.45rem - var(--icon-btn)) / 2);
+  }
+  @media (pointer: coarse) {
+    /* the buttons are --tap here, so the overhang is bigger and already tokenized */
+    .reveal--note {
+      --reveal-offset: var(--tap-pull);
+    }
   }
   /* one line only — qty · weight · class on the left, controls on the right — so a
      row is never more than two lines (name + this) and icons never land on a third */

@@ -36,8 +36,8 @@ const chips = computed(() => {
 // "Carried" — base + consumable, the weight actually on your back. The three chips
 // above partition the total, so this is the one figure here that's a ROLL-UP of two of
 // them rather than a slice, and it's the number you check against what a pack carries
-// comfortably. LighterPack shows the slices and the skin-out total and leaves you to
-// add two of them in your head.
+// comfortably. A breakdown that shows only the slices and the skin-out total leaves
+// you to add two of them in your head.
 //
 // carriedIsDistinct (shared/weights.ts) decides whether it's worth showing — the same
 // call the Markdown export makes, so the two can't drift.
