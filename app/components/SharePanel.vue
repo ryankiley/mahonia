@@ -267,8 +267,9 @@ function changeLabel(i: number): string {
   justify-content: space-between;
   gap: var(--space-2);
   margin: calc(-1 * var(--space-1)) 0 0;
-  padding-bottom: var(--space-2);
-  border-bottom: 1px solid var(--line);
+  /* No rule under the title, and no padding under it either — the padding was there to
+     hold the title off that rule. The vault pane, which is the same header at the same
+     size with the same close button, never had either. The card's own gap separates. */
 }
 .share__title {
   color: var(--ink);
@@ -281,8 +282,17 @@ function changeLabel(i: number): string {
   display: grid;
   gap: var(--space-1);
 }
+/* A STEP DOWN from the panel title, which it used to match exactly — same size, same
+   weight, same ink — so the panel read as a list of equal headings with no way to tell
+   which one named the whole surface.
+   --text-micro is the tier the tokens already describe as "the small labels sitting
+   above its fields", and that is what these are: each one names the input beneath it.
+   Same treatment as .head__panellabel in the trail-link panel, so the two panels label
+   their fields the same way. */
 .share__subtitle {
-  color: var(--ink);
+  color: var(--ink-3);
+  font-size: var(--text-micro);
+  line-height: 1.2;
 }
 .share__inputrow {
   display: flex;

@@ -44,7 +44,7 @@ async function onSubmit() {
 <template>
   <BaseModal :open="!!target" label="Fix catalog weight" @close="close()">
     <template v-if="target">
-      <p class="t-label">Fix catalog weight</p>
+      <h2 class="t-label">Fix catalog weight</h2>
       <p class="dlg__item">{{ target.itemName }}</p>
       <p class="t-sm t-muted dlg__lede">
         Catalog lists {{ formatWeight(target.catalogWeightMg, target.displayUnit) }}. Suggest the

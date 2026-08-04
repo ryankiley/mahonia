@@ -18,7 +18,10 @@ import type { PasskeySummary } from "~/composables/usePasskeys";
 // nothing else. On the PAGE there is no context behind it, so finishing has to take
 // you somewhere — back where you came from, or the vault. Same component, one prop,
 // rather than two copies that answer this differently.
-const { inModal = false } = defineProps<{ inModal?: boolean }>();
+// `hideHeading`: the modal draws the title itself, in a header row that also carries
+// the close button — so the panel must not draw a second one. On the page there is no
+// such row and this stays false.
+const { inModal = false, hideHeading = false } = defineProps<{ inModal?: boolean; hideHeading?: boolean }>();
 const emit = defineEmits<{ done: [] }>();
 // Say what this surface is FOR right now. Signed out it is a sign-in dialog, and
 // titling it "Your account" describes something you don't have yet — the one thing
@@ -308,7 +311,7 @@ async function onSignOut() {
 
 <template>
   <div class="acct" :class="{ 'acct--modal': inModal }">
-    <h1 class="t-title acct__head">{{ heading }}</h1>
+    <h1 v-if="!hideHeading" class="t-title acct__head">{{ heading }}</h1>
 
     <ClientOnly>
       <!-- Centred and narrow: signed out there is exactly one thing to do here,
@@ -614,7 +617,12 @@ async function onSignOut() {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  padding-block: var(--space-5);
+  /* --space-4, not --space-5. A section's own rows sit 8px apart, and at --space-5 the
+     gap around each hairline measured 49px — six times the internal spacing, which
+     reads as six unrelated cards rather than one surface with parts. --space-4 puts it
+     at roughly 4:1: still unmistakably a break, without the modal running to 829px and
+     scrolling on a phone for content that nearly fits. */
+  padding-block: var(--space-4);
 }
 .acct__section + .acct__section {
   border-top: 1px solid var(--line);
@@ -628,6 +636,14 @@ async function onSignOut() {
 .acct__section:last-child {
   padding-bottom: 0;
 }
+/* NOT the sharing panel's --text-micro field label, though both sit under a t-label
+   title. Sharing's labels name an INPUT directly beneath them, so a small quiet label
+   reads as attached to its control. These name a SECTION of prose — at 12px they came
+   out smaller and fainter than the paragraph they introduce, which puts the heading
+   below its own body text.
+   The contrast this surface needs is structural rather than typographic: the sections
+   are already separated by hairlines (see .acct__section), which is the work sharing
+   was asking its type to do alone. */
 .acct__label {
   color: var(--ink-2);
 }

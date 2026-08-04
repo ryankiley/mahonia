@@ -47,7 +47,8 @@
    applied where the dialog is now the measure.
    Opt-in via :has(), the same way .menu__plate attaches — no prop to thread through
    BaseModal for one caller's width. */
-.dlg:has(> .acct) {
+.dlg:has(> .acct),
+.dlg:has(> .acctmodal__head) {
   max-width: 26rem;
 }
 .dlg__field {
