@@ -25,6 +25,18 @@ const props = defineProps<{
   /** styling hook for the trigger button; the caller owns how its trigger looks */
   triggerClass?: string;
   title?: string;
+  /**
+   * How the trigger's own contents line up. "center" suits an icon or a plain word;
+   * "baseline" is for a trigger built from TYPE — the editor's total, where the unit
+   * and chevron have to sit on the big figure's baseline.
+   *
+   * A PROP and not a class the caller passes through `triggerClass`, because a class
+   * can't carry the caller's scoped styles across a component boundary: the button
+   * only ever gets THIS component's data-v attribute, so `.totals__unitbtn { … }` in
+   * TotalsBar's scoped block silently matched nothing and the unit fell off its
+   * baseline. Anything that must actually restyle this button belongs here.
+   */
+  align?: "center" | "baseline";
 }>();
 const emit = defineEmits<{ pick: [key: string] }>();
 
@@ -32,6 +44,10 @@ const open = ref(false);
 const rootRef = useTemplateRef<HTMLElement>("rootRef");
 // the travelling wash shared with every other menu (useMenuPlate)
 const { plateRef, listRef, placing, on: plateOn } = useMenuPlate();
+// which edge to hang from, measured rather than declared — see useMenuPlacement.
+// On open, because a menu can't change width while it's up.
+const { atStart, place } = useMenuPlacement(listRef);
+watch(open, (o) => o && nextTick(place));
 
 onClickOutside(rootRef, () => (open.value = false));
 useWindowEvent("keydown", (e) => {
@@ -50,7 +66,7 @@ function pick(key: string) {
     <button
       type="button"
       class="optmenu__btn"
-      :class="triggerClass"
+      :class="[triggerClass, { 'optmenu__btn--baseline': align === 'baseline' }]"
       :title="title"
       :aria-label="label"
       aria-haspopup="menu"
@@ -66,6 +82,7 @@ function pick(key: string) {
         v-if="open"
         ref="listRef"
         class="popover menu__list optmenu__list"
+        :class="{ 'menu__list--start': atStart }"
         role="menu"
         :aria-label="label"
         v-on="plateOn"
@@ -127,6 +144,9 @@ function pick(key: string) {
   font: inherit;
   text-align: start;
   cursor: pointer;
+}
+.optmenu__btn--baseline {
+  align-items: baseline;
 }
 .optmenu__list {
   min-width: 7rem;
