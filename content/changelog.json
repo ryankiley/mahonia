@@ -1,6 +1,9 @@
 [
   {
     "date": "2026-08-04",
+    "added": [
+      "Copy your list as plain text — one run of names, ready to paste into a comment or a post where formatting doesn't survive. It ends with your base and total weight, and the read-only link."
+    ],
     "changed": [
       "Every picker — units, folder sorting, and moving gear between folders — now opens the app's own menu instead of your device's dropdown.",
       "The trail link panel now matches the other floating panels.",
