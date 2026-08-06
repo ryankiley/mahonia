@@ -530,9 +530,9 @@ onClickOutside(trailEl, closeTrail);
         <p class="head__gpx t-sm">
           <label class="head__gpxbtn">
             <input type="file" accept=".gpx,.kml,.tcx,.geojson,.json,application/gpx+xml,application/vnd.google-earth.kml+xml,application/geo+json,application/json,text/xml" @change="onGpx" />
-            {{ gpxBusy ? "Reading…" : snapshot.trailProfile ? "Replace the GPX" : "Add a GPX instead" }}
+            {{ gpxBusy ? "Reading…" : snapshot.trailProfile ? "Replace map file" : "Import map file" }}
           </label>
-          <span class="head__gpxnote">reads the distance and the shape of the climb — it never leaves your browser</span>
+          <span class="head__gpxnote">GPX, KML, TCX or GeoJSON — reads the distance and the shape of the climb, and never leaves your browser</span>
         </p>
         <p v-if="gpxError" class="head__gpxerr t-sm">{{ gpxError }}</p>
 
@@ -1020,6 +1020,14 @@ onClickOutside(trailEl, closeTrail);
 /* The distance field wraps its input, so the sibling rule above can't reach the label
    that follows it. Same spacing, stated for the wrapper. */
 .head__distrow + .head__panellabel {
+  margin-block-start: var(--space-4);
+}
+/* And the same again for the file row, which sits BETWEEN the URL field and the title's
+   label and so breaks the adjacency the rule above depends on — the label was arriving
+   with no space above it at all. Third statement of one spacing; if a fourth thing ever
+   lands between a field and a label, this wants to become a rule about the panel's
+   children rather than another pair. */
+.head__gpx + .head__panellabel {
   margin-block-start: var(--space-4);
 }
 /* Number and unit on one line, the unit taking only what it needs. NOT absolutely
