@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "@hugeicons/vue";
-import { ArrowUpRight01Icon, Backpack02Icon, Calendar03Icon, GlobeIcon, Route02Icon, RouteIcon } from "@hugeicons/core-free-icons";
+import { ArrowUpRight01Icon, Calendar03Icon, GlobeIcon, RouteIcon } from "@hugeicons/core-free-icons";
 import { parseTrailLink } from "~~/shared/trailLink";
 import { dayClimbs, parseProfile } from "~~/shared/profile";
 import { dayLabel } from "~~/shared/tripDay";
@@ -63,24 +63,11 @@ const dateLabel = computed(() => formatDateRange(props.list?.startDate, props.li
 // see somebody's pack, not to be told what the walk would cost THEM against a number they
 // may never have set. The route's shape is a fact about the route; an estimate is a fact
 // about a person, and this page is about neither of the two people involved.
-/**
- * Which half of a shared list you're reading.
- *
- * Device-local and DELIBERATELY not persisted, following the unit picker on these same
- * pages: a share link is usually opened once, by somebody who did not make the list, and
- * a remembered preference from another list would decide what they see before they have
- * looked at anything.
- *
- * "gear" is the default AND the server-rendered state. That matters beyond taste: /l is
- * indexable, and a crawler runs no JavaScript — so whichever mode this starts in is the
- * one that gets indexed and the one that appears before hydration. The gear is what a
- * pack list is.
- */
-const view = ref<"gear" | "trip">("gear");
-const VIEW_MODES = [
-  { key: "gear", label: "Gear", icon: Backpack02Icon },
-  { key: "trip", label: "Trip", icon: Route02Icon },
-] as const;
+// Which half of the list is on screen. The CONTROL is in the sticky header (ReadTopbar,
+// via SiteTopbar's #below row) so it stays under the toolbar as you scroll; this file
+// only reads the value. See useReadView for why that state is shared rather than passed.
+const view = useReadView();
+onMounted(resetReadView);
 
 const days = computed(() => props.list?.days ?? []);
 const distanceUnit = computed(() =>
@@ -173,22 +160,6 @@ const asHeight = (m: number) =>
         <span>{{ dateLabel }}</span>
       </p>
     </div>
-
-    <!-- WHICH VIEW, and only when there is a choice to make.
-         Two modes, not the editor's three. Packing is absent on purpose and it is not an
-         oversight: a tick is the owner's list data, a viewer holds no edit token, and
-         every checkbox here would either fail or write to somebody else's list. (It is
-         not even on the wire any more — see rowToSnapshot.)
-         A list with no trip keeps exactly the page it had before this existed: one mode
-         is not a choice, and a switcher offering it would be furniture. -->
-    <ModeBar
-      v-if="hasTrip"
-      class="view__modes"
-      :modes="VIEW_MODES"
-      :current="view"
-      label="View"
-      @pick="(k) => (view = k as 'gear' | 'trip')"
-    />
 
     <TotalsBar :list="list" :totals="totals" @set-unit="(u) => $emit('set-unit', u)" />
     <!-- The trip, between what it weighs and what's in it: the pack's total is the
@@ -335,11 +306,6 @@ const asHeight = (m: number) =>
    — the list scans as one block instead of drifting apart. */
 /* The trip block. Quiet by construction — it sits between the totals and the gear, and
    the gear is what a reader came for. */
-/* Matches the editor's .editor__modes: tucked under the header it belongs to, with a
-   full step beneath before the content it governs. */
-.view__modes {
-  margin: var(--space-3) 0 var(--space-4);
-}
 .view__trip {
   margin-top: var(--space-6);
 }

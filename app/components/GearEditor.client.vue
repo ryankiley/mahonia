@@ -634,6 +634,16 @@ function onCorrected(res: { status: string; itemName?: string }) {
           </div>
         </template>
       </div>
+      <!-- WHICH VIEW OF THIS LIST — a second row of the same sticky header, so it is
+           always right under the toolbar and always reachable. It is a row of its own
+           rather than a seat in the row above because that row has no width left: it
+           measures 338px of its 343px budget on a 375px phone, and words need ~207px
+           against the 116px three icons took. Down here the full column is available.
+           Outside the tool row's v-if for the same reason ListMenu is: a list that
+           failed to load still has a page you can be looking at. -->
+      <div v-if="snapshot" class="wrap editor__modesrow">
+        <ModeBar :modes="MODES" :current="mode" label="View mode" @pick="(k) => (mode = k as EditorMode)" />
+      </div>
     </header>
 
     <main v-if="snapshot && totals" id="main-content" tabindex="-1" class="wrap editor__body">
@@ -641,16 +651,6 @@ function onCorrected(res: { status: string; itemName?: string }) {
            ghosted placeholder, at the top of the content — matching what the two read
            views have always done (ReadonlyListView's h1). -->
       <ListHead :snapshot="snapshot" @toast="flash" />
-      <!-- WHICH VIEW OF THIS LIST. Under the title and above everything it governs, so
-           the control sits next to its own consequence rather than in the chrome — and
-           so it has room for words. See ModeBar for why it left the topbar. -->
-      <ModeBar
-        class="editor__modes"
-        :modes="MODES"
-        :current="mode"
-        label="View mode"
-        @pick="(k) => (mode = k as EditorMode)"
-      />
       <!-- The totals bar stands down while planning: that view has its own headline (the
            route's distance), and two display-size figures on one screen would make you
            choose which one the page is about. The pack's weight isn't lost — it rides in
@@ -886,11 +886,12 @@ function onCorrected(res: { status: string; itemName?: string }) {
    fire) — but does NOT grow. The cluster's auto margin below eats the free space
    first, and a `flex: 1` here would then resolve its 0% basis against nothing left
    and collapse the line to a sliver. */
-/* The switcher's own breathing room. It reads as this page's section header — close
-   under the title it belongs to, with a full step beneath before the content it governs,
-   so the gap says "everything below is what this chose". */
-.editor__modes {
-  margin: var(--space-3) 0 var(--space-4);
+/* The switcher's row. Sits inside the sticky header, so it travels: the whole bar is
+   one object that stays at the top edge, and switching view never means scrolling back
+   up to find the control. Its own hairline is the header's (below), so this row only
+   owns its padding. */
+.editor__modesrow {
+  padding-bottom: var(--space-2);
 }
 .topbar__status {
   flex: 0 1 auto;
