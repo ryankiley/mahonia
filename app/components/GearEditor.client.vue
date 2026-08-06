@@ -634,19 +634,15 @@ function onCorrected(res: { status: string; itemName?: string }) {
           </div>
         </template>
       </div>
-      <!-- WHICH VIEW OF THIS LIST — a second row of the same sticky header, so it is
-           always right under the toolbar and always reachable. It is a row of its own
-           rather than a seat in the row above because that row has no width left: it
-           measures 338px of its 343px budget on a 375px phone, and words need ~207px
-           against the 116px three icons took. Down here the full column is available.
-           Outside the tool row's v-if for the same reason ListMenu is: a list that
-           failed to load still has a page you can be looking at. -->
-      <div v-if="snapshot" class="wrap editor__modesrow">
-        <ModeBar :modes="MODES" :current="mode" label="View mode" @pick="(k) => (mode = k as EditorMode)" />
-      </div>
     </header>
 
     <main v-if="snapshot && totals" id="main-content" tabindex="-1" class="wrap editor__body">
+      <!-- WHICH VIEW OF THIS LIST. First thing under the toolbar, and part of the PAGE
+           rather than the chrome: it scrolls away with everything else. A row of its own
+           rather than a seat in the bar above, because that row has no width left — it
+           measures 338px of its 343px budget on a 375px phone, and words need ~207px
+           against the 116px three icons took. -->
+      <ModeBar class="editor__modes" :modes="MODES" :current="mode" label="View mode" @pick="(k) => (mode = k as EditorMode)" />
       <!-- The list name is a page title, not a toolbar field: large, borderless, with a
            ghosted placeholder, at the top of the content — matching what the two read
            views have always done (ReadonlyListView's h1). -->
@@ -886,14 +882,22 @@ function onCorrected(res: { status: string; itemName?: string }) {
    fire) — but does NOT grow. The cluster's auto margin below eats the free space
    first, and a `flex: 1` here would then resolve its 0% basis against nothing left
    and collapse the line to a sliver. */
-/* The switcher's row. Sits inside the sticky header, so it travels: the whole bar is
-   one object that stays at the top edge, and switching view never means scrolling back
-   up to find the control. Its own hairline is the header's (below), so this row only
-   owns its padding. */
-.editor__modesrow {
-  padding-bottom: var(--space-2);
+/* Directly under the toolbar and above the list's title, with a full step beneath before
+   the content it governs. Not sticky: it belongs to the page, not the chrome. */
+.editor__modes {
+  margin-bottom: var(--space-4);
 }
 .topbar__status {
+  /* WHERE THE BAR SPLITS. Everything after this acts ON the list; everything before it
+     says which list you are looking at.
+     The auto margin used to live on the mode toggle, which held this seat until it moved
+     into the page. It could not simply move to the next element: the vault and share
+     buttons are wrapped by <Tooltip>, so a class on the BUTTON lands on the wrapper's
+     child and the flex item it needed to be on is the wrapper. Putting it here instead
+     works whatever the cluster is made of — and works even on an untouched draft, where
+     SyncStatus renders empty, because an auto margin on a zero-width item still eats the
+     free space before it. */
+  margin-right: auto;
   flex: 0 1 auto;
   min-width: 0;
 }
@@ -906,17 +910,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
 .menu {
   flex: none;
 }
-/* WHERE THE BAR SPLITS. Everything from here rightward acts ON the list; everything left
-   of it says which list you are looking at.
-   The auto margin used to live on the mode toggle, which sat in this seat until it moved
-   into the page body — so it moves to whatever is now first in the tool cluster rather
-   than being deleted with it. It has to be an auto margin and not justify-content: the
-   bar's only flexible item is CONDITIONAL (SyncStatus says nothing on an untouched
-   draft), and with no flex:1 anywhere the cluster would otherwise fall back to the
-   leading edge. */
-.editor__vault {
-  margin-left: auto;
-}
+
 /* on = the pane is open: the icon takes full ink and a soft ground, so the button
    reads as a held state rather than a hover */
 .editor__vault.is-on {

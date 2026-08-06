@@ -38,32 +38,59 @@ const props = defineProps<{
   label: string;
 }>();
 
-defineEmits<{ pick: [key: string] }>();
+const emit = defineEmits<{ pick: [key: string] }>();
 
-const index = computed(() => Math.max(0, props.modes.findIndex((m) => m.key === props.current)));
+const opts = useTemplateRef<HTMLButtonElement[]>("opts");
+
+/**
+ * Arrows move the selection, the way a radio group does — and the way the design system's
+ * segmented control does, whose comment is the reason the tabindex above is roving:
+ * "A radiogroup is one tab stop and the arrows move inside it — that's the whole reason
+ * the arrows exist. With every option tabbable, Tab walked the three views instead of the
+ * page, and the arrows were a second way to do what Tab already did."
+ *
+ * Selection follows focus, which is correct here because switching view is free and
+ * instant; the pattern only needs decoupling when activating a choice is expensive.
+ */
+function onKey(e: KeyboardEvent) {
+  if (!/^Arrow(Left|Right|Up|Down)$/.test(e.key)) return;
+  const i = props.modes.findIndex((m) => m.key === props.current);
+  if (i < 0) return;
+  e.preventDefault();
+  const step = /Left|Up/.test(e.key) ? -1 : 1;
+  const next = props.modes[(i + step + props.modes.length) % props.modes.length]!;
+  emit("pick", next.key);
+  // focus follows the selection, or the next arrow press starts from the old option
+  nextTick(() => opts.value?.[(i + step + props.modes.length) % props.modes.length]?.focus());
+}
 </script>
 
 <template>
   <!--
-    role="group" + aria-pressed, NOT a tablist, and the reason is structural rather than
-    stylistic: in the editor two of these modes render the SAME subtree. Editing and
-    packing differ by one prop that adds a checkbox column to the rows; only planning
-    swaps the panel. A conforming tablist would need two tabs pointing `aria-controls` at
-    one panel, which is a false statement in ARIA. The house agrees — the editor's own
-    switcher was already role="group", and ItemRow writes down the rule this follows:
-    aria-pressed is right exactly when the click toggles the state, which here it does.
+    A RADIOGROUP, matching the design system's segmented control (.ds-seg) rather than
+    inventing a pattern for the same job. Its rule: "Tabs navigate; this selects. So it is
+    a radiogroup, and the value is one you would submit." That is exactly this — the modes
+    are one value with three settings, not three destinations.
+    Not a tablist for the same reason, and for a structural one besides: in the editor two
+    of these modes render the SAME subtree (editing and packing differ by one prop that
+    adds a checkbox column), so two tabs would have to point aria-controls at one panel.
   -->
-  <div class="modebar" role="group" :aria-label="label" :style="{ '--seg-count': modes.length }">
-    <!-- one tint slides between segments rather than a background per segment; damped
-         --ease, because an indicator that overshoots leaves its own track -->
-    <span class="modebar__pill" :style="{ '--seg-index': index }" aria-hidden="true" />
+  <div
+    class="modebar"
+    role="radiogroup"
+    :aria-label="label"
+    @keydown="onKey"
+  >
     <button
       v-for="m in modes"
       :key="m.key"
       type="button"
+      ref="opts"
       class="modebar__opt"
       :class="{ 'is-active': m.key === current }"
-      :aria-pressed="m.key === current"
+      role="radio"
+      :aria-checked="m.key === current"
+      :tabindex="m.key === current ? 0 : -1"
       @click="$emit('pick', m.key)"
     >
       <HugeiconsIcon :icon="m.icon" :size="16" :stroke-width="2" aria-hidden="true" />
@@ -73,91 +100,83 @@ const index = computed(() => Math.max(0, props.modes.findIndex((m) => m.key === 
 </template>
 
 <style scoped lang="scss">
-// $bp-stack is injected globally (nuxt.config.ts `additionalData`) — no @use needed.
+// PORTED FROM THE DESIGN SYSTEM's menubar (.ds-menubar / .ds-menubar__item), not
+// re-derived. Its rules, verbatim, with only the token names mapped onto this app's:
+//
+//   --foreground-primary   → --ink
+//   --foreground-secondary → --ink-3
+//   --wash-hover    5%     → the same 5%
+//   --wash-selected 8%     → the same 8%
+//   --control-1     24px   → the same 24px
+//   --radius-2             → --radius-2 (both are the 8px step)
+//   --t-caption-*          → --text-chrome, the app's one chrome size
+//   --duration-fast/--ease-out → --dur / --ease
+//
+// `corner-shape: superellipse()` is dropped: it is a Chrome-only property that the
+// design system opts into and this app has never used anywhere.
+//
+// FLAT BY DEFAULT, because this is chrome — a menubar lives at the top edge as part of
+// the frame, not as a card floating over the document. WRAPS, because "as many items as
+// needed" is the requirement and nowrap would push the last of them out of reach.
 .modebar {
-  position: relative;
-  display: grid;
-  // EQUAL segments, and this is load-bearing rather than tidy: the sliding pill's width
-  // and travel are 1/N arithmetic over the container, so unequal labels would put the
-  // tint under the wrong word. A grid of equal fractions is what makes that arithmetic
-  // true, where the icon-only version got it for free from three identical squares.
-  grid-auto-flow: column;
-  grid-auto-columns: 1fr;
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: var(--space-px);
-  padding: var(--space-px);
-  background: var(--paper-2);
-  border-radius: var(--radius-pill);
-  // full width on a phone — the words are the point, and a centred pill in a wide column
-  // reads as a stray control rather than as this section's own header
-  width: 100%;
-
-  @media (min-width: $bp-stack) {
-    // …but never a banner. Past the point where the labels fit comfortably it stops
-    // growing and sits at the leading edge, where a reader's eye already is.
-    width: auto;
-    justify-self: start;
-    grid-auto-columns: minmax(max-content, 1fr);
-  }
-}
-
-.modebar__pill {
-  position: absolute;
-  top: var(--space-px);
-  bottom: var(--space-px);
-  left: var(--space-px);
-  // One segment. The gaps are (N + 1) × --space-px — N − 1 between the segments plus the
-  // padding either side — so the arithmetic is written once for however many there are.
-  width: calc((100% - (var(--seg-count) + 1) * var(--space-px)) / var(--seg-count));
-  border-radius: var(--radius-pill);
-  background: color-mix(in oklab, var(--ink) 12%, transparent);
-  pointer-events: none;
-  // percentages resolve against the pill's OWN width — one segment — so each step is one
-  // segment plus one gap
-  transform: translateX(calc(var(--seg-index, 0) * (100% + var(--space-px))));
-  transition: transform var(--dur) var(--ease);
-  will-change: transform;
+  padding: var(--space-1);
+  border-radius: var(--radius-3);
+  background: transparent;
+  box-shadow: none;
+  color: var(--ink);
+  // the row's own padding would otherwise indent it past the title beneath it
+  margin-left: calc((var(--space-1) + var(--space-2)) * -1);
 }
 
 .modebar__opt {
-  position: relative; // above the pill
+  appearance: none;
+  border: 0;
+  background: none;
+  cursor: pointer;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
   gap: var(--space-1);
-  min-height: var(--tap);
-  padding-inline: var(--space-3);
-  border-radius: var(--radius-pill);
-  color: var(--ink-3);
-  font: inherit;
+  height: 24px; // --control-1
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-2);
+  font-family: inherit;
   font-size: var(--text-chrome);
-  cursor: pointer;
+  color: var(--ink-3);
   white-space: nowrap;
-  transition: color var(--dur) var(--ease);
-  // Pin a standing compositing layer. These sit over the pill, so when its transform
-  // animates Safari promotes them for the run and demotes them after — re-rasterising
-  // each to the pixel grid, which jumps the label ~1px per switch. See
-  // concepts/webkit-relayers-on-animation-boundaries.
-  transform: translateZ(0);
+  transition:
+    background-color var(--dur) var(--ease),
+    color var(--dur) var(--ease);
 }
 
+// The wash matters: without a plate, a pointer crossing the bar changes the word's colour
+// and leaves no target under it. --wash-hover (5%) sits under the selected state's 8%, so
+// pointing and choosing stay two steps rather than one.
 .modebar__opt:hover {
-  color: var(--ink-2);
-}
-
-.modebar__opt.is-active {
+  background: color-mix(in oklab, var(--ink) 5%, transparent);
   color: var(--ink);
 }
 
-// The icon is decoration once there's a word beside it — it goes first at every width,
-// and the word is what carries the meaning. On the narrowest phones the pair no longer
-// fits three across, and the WORD is what stays: an unlabelled icon here is exactly the
-// state this component was made to leave.
+.modebar__opt:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: -2px;
+}
+
+// SELECTED IS A STATE, not a hover that happens to be stuck — it keeps its wash whether
+// the pointer is on it or not, because the bar has to say which view you are in.
+.modebar__opt.is-active {
+  background: color-mix(in oklab, var(--ink) 8%, transparent);
+  color: var(--ink);
+}
+
+// The icons are this app's addition, not the design system's — its menubar is words only.
+// They go first at every width and vanish before the word does.
 @media (max-width: 380px) {
   .modebar__opt svg {
     display: none;
-  }
-  .modebar__opt {
-    padding-inline: var(--space-2);
   }
 }
 </style>

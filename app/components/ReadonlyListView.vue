@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "@hugeicons/vue";
-import { ArrowUpRight01Icon, Calendar03Icon, GlobeIcon, RouteIcon } from "@hugeicons/core-free-icons";
+import { ArrowUpRight01Icon, Backpack02Icon, Calendar03Icon, GlobeIcon, Route02Icon, RouteIcon } from "@hugeicons/core-free-icons";
 import { parseTrailLink } from "~~/shared/trailLink";
 import { dayClimbs, parseProfile } from "~~/shared/profile";
 import { dayLabel } from "~~/shared/tripDay";
@@ -63,11 +63,14 @@ const dateLabel = computed(() => formatDateRange(props.list?.startDate, props.li
 // see somebody's pack, not to be told what the walk would cost THEM against a number they
 // may never have set. The route's shape is a fact about the route; an estimate is a fact
 // about a person, and this page is about neither of the two people involved.
-// Which half of the list is on screen. The CONTROL is in the sticky header (ReadTopbar,
-// via SiteTopbar's #below row) so it stays under the toolbar as you scroll; this file
-// only reads the value. See useReadView for why that state is shared rather than passed.
+// Which half of the list is on screen. Shared state rather than a local ref only because
+// it must reset per list — see useReadView.
 const view = useReadView();
 onMounted(resetReadView);
+const VIEW_MODES = [
+  { key: "gear", label: "Gear", icon: Backpack02Icon },
+  { key: "trip", label: "Trip", icon: Route02Icon },
+] as const;
 
 const days = computed(() => props.list?.days ?? []);
 const distanceUnit = computed(() =>
@@ -103,6 +106,18 @@ const asHeight = (m: number) =>
 
 <template>
   <main v-if="list && totals" id="main-content" tabindex="-1" class="wrap view">
+    <!-- WHICH VIEW, and only when there is a choice to make. Two modes, not the editor's
+         three: packing is impossible here, because a tick is the owner's list data and a
+         viewer holds no edit token. A list with no trip keeps exactly the page it had
+         before this existed — one mode is not a choice. -->
+    <ModeBar
+      v-if="hasTrip"
+      class="view__modes"
+      :modes="VIEW_MODES"
+      :current="view"
+      label="View"
+      @pick="(k) => (view = k as 'gear' | 'trip')"
+    />
     <div class="view__header">
       <slot name="head">
         <h1 class="t-title view__title">{{ list.title }}</h1>
@@ -306,6 +321,10 @@ const asHeight = (m: number) =>
    — the list scans as one block instead of drifting apart. */
 /* The trip block. Quiet by construction — it sits between the totals and the gear, and
    the gear is what a reader came for. */
+/* Under the toolbar, above the title, scrolling with the page. Matches .editor__modes. */
+.view__modes {
+  margin-bottom: var(--space-4);
+}
 .view__trip {
   margin-top: var(--space-6);
 }

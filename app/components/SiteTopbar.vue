@@ -39,13 +39,6 @@ defineProps<{
         <slot name="end" />
       </span>
     </div>
-    <!-- A SECOND ROW, for a control that governs the page rather than acting on it.
-         Empty on every page that doesn't fill it, so the bar is unchanged there. It sits
-         inside the sticky header on purpose: a view switcher you have to scroll back up
-         to reach is a switcher you stop using. -->
-    <div v-if="$slots.below" class="wrap topbar__below">
-      <slot name="below" />
-    </div>
   </header>
 </template>
 
@@ -89,9 +82,4 @@ defineProps<{
   margin-right: var(--space-2);
 }
 
-/* The second row owns only its own bottom padding — the header's hairline is already
-   below it, so this row must not draw one of its own. */
-.topbar__below {
-  padding-bottom: var(--space-2);
-}
 </style>
