@@ -296,3 +296,35 @@ export function segmentClimbs(
   }
   return out.map((s) => ({ ascentM: Math.round(s.ascentM), descentM: Math.round(s.descentM) }));
 }
+
+
+/**
+ * Each day's climb and drop, ready to show — segmentClimbs plus the magnitude correction,
+ * in one place because TWO views need the identical number.
+ *
+ * SHAPE from the profile, MAGNITUDE from the full track. The stored profile is resampled,
+ * which is plenty to draw with and too coarse to measure with: it smooths away some of the
+ * real undulation, so proportions survive it and totals don't. `routeAscentM` is the climb
+ * measured across the whole track, and the correction is scaled from the WHOLE profile —
+ * not by forcing the days to sum to it, which would hand a part-written itinerary every
+ * foot of the trip's ascent.
+ *
+ * Without a stored total (a profile from an older list) the shares stand as they are
+ * rather than being invented.
+ */
+export function dayClimbs(
+  profile: readonly number[],
+  dayDistancesM: readonly number[],
+  routeM: number | undefined,
+  routeAscentM: number | undefined,
+): { ascentM: number; descentM: number }[] {
+  if (!profile.length) return [];
+  const parts = segmentClimbs(profile, dayDistancesM, routeM || undefined);
+  const wholeProfileClimb = segmentClimbs(profile, [1]).reduce((s, x) => s + x.ascentM, 0);
+  if (!routeAscentM || !(wholeProfileClimb > 0)) return parts;
+  const scale = routeAscentM / wholeProfileClimb;
+  return parts.map((x) => ({
+    ascentM: Math.round(x.ascentM * scale),
+    descentM: Math.round(x.descentM * scale),
+  }));
+}

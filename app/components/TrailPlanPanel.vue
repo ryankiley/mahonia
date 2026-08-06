@@ -3,8 +3,9 @@ import { HugeiconsIcon } from "@hugeicons/vue";
 import { ArrowUpRight01Icon, ChevronDownIcon, Clock01Icon, Delete02Icon, Fire02Icon, HelpCircleIcon, RouteIcon } from "@hugeicons/core-free-icons";
 import type { ListSnapshot, Totals } from "~~/shared/types";
 import { burnDownMg, estimateDay } from "~~/shared/tripPlan";
-import { parseProfile, segmentClimbs } from "~~/shared/gpx";
+import { dayClimbs, parseProfile } from "~~/shared/gpx";
 import { MAX_DAYS } from "~~/shared/ops";
+import { dayLabel } from "~~/shared/tripDay";
 import { isWaterName } from "~~/shared/water";
 import { lineMg, effectiveClassification, formatWeight } from "~~/shared/weights";
 import {
@@ -185,28 +186,10 @@ const dayDistancesM = computed(() => days.value.map((d) => d?.distanceM ?? 0));
 
 const UNIT_OPTIONS = DISPLAY_DISTANCE_UNITS.map((u) => ({ key: u, label: u }));
 
-/**
- * What a day is CALLED when you haven't named it — "Monday, Day 2" once the trip has
- * dates, "Day 2" before that.
- *
- * The weekday is the thing people actually plan against ("the big climb is Tuesday"), and
- * the app already knows it: the count comes from the dates, so day i IS start + i.
- *
- * Parsed at T00:00:00Z and read back in UTC, matching how the dates are stored — a
- * local-midnight Date would name the wrong weekday for anyone west of UTC.
- */
-function dayOrdinal(i: number): string {
-  const n = `Day ${i + 1}`;
-  const start = props.snapshot.startDate;
-  if (!start) return n;
-  const ms = Date.parse(`${start}T00:00:00Z`);
-  if (Number.isNaN(ms)) return n;
-  const weekday = new Date(ms + i * 86_400_000).toLocaleDateString("en-US", {
-    weekday: "long",
-    timeZone: "UTC",
-  });
-  return `${weekday}, ${n}`;
-}
+// Naming a day lives in shared/tripDay.ts — a shared list shows the itinerary too, and
+// the two views must agree on what a day is called.
+const dayOrdinal = (i: number) => dayLabel(i, props.snapshot.startDate);
+
 const BODY_UNIT_OPTIONS = BODY_WEIGHT_UNITS.map((u) => ({ key: u, label: u }));
 
 // Days collapse the way folders do, and remember it the same way — per id, in
@@ -244,32 +227,14 @@ function toggleDay(id: string) {
  * only fills the gap. That's the same rule the trail's own distance follows, and it means
  * a GPX can't overwrite something somebody entered deliberately.
  */
-const derivedClimbs = computed(() => {
-  if (!profile.value.length) return [];
-  // The route's own length is the denominator for the day shares — without it a
-  // half-written itinerary is stretched across the whole profile (see segmentClimbs).
-  const routeM = props.snapshot.trailDistanceM || undefined;
-  const parts = segmentClimbs(profile.value, dayDistancesM.value, routeM);
-  const trueTotal = props.snapshot.trailAscentM;
-  // SHAPE from the profile, MAGNITUDE from the full track. 240 samples is plenty to draw
-  // with and too coarse to measure with — measured off the profile alone, a real 3,123 m
-  // loop reads low, because resampling smooths away some of the undulation. Proportions
-  // survive that; totals don't. Without a stored total (a profile from an older list) the
-  // shares stand as they are rather than being invented.
-  //
-  // The correction is a property of the RESAMPLING, so it's measured across the WHOLE
-  // profile — NOT by making the days sum to the route's climb. The days need not cover
-  // the route: with 10 of 40 miles assigned, forcing their total to the route's handed a
-  // quarter of the walk every foot of the trip's ascent, which is how a 10-mile Day 1
-  // came to report the same 5,272 ft as the 39.7-mile route it sits on.
-  const wholeProfileClimb = segmentClimbs(profile.value, [1]).reduce((s, x) => s + x.ascentM, 0);
-  if (!trueTotal || !(wholeProfileClimb > 0)) return parts;
-  const scale = trueTotal / wholeProfileClimb;
-  return parts.map((x) => ({
-    ascentM: Math.round(x.ascentM * scale),
-    descentM: Math.round(x.descentM * scale),
-  }));
-});
+const derivedClimbs = computed(() =>
+  dayClimbs(
+    profile.value,
+    dayDistancesM.value,
+    props.snapshot.trailDistanceM,
+    props.snapshot.trailAscentM,
+  ),
+);
 // A derived climb is the day's SHARE of the route, so it only says anything once the day
 // has a share to take. Without this a day you haven't given a distance to reads "0 ft" —
 // which is a measurement, and states flat ground where there is only an unanswered
@@ -333,6 +298,7 @@ const distanceValue = (m: number | undefined) =>
         :options="UNIT_OPTIONS"
         :current="distanceUnit"
         label="Distance unit"
+        :trigger-label="`${headlineValue} ${distanceUnit}, change distance unit`"
         title="Change unit"
         @pick="(u) => c.setMeta({ trailDistanceUnit: u })"
       >

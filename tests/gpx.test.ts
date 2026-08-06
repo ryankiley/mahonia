@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PROFILE_SAMPLES, gpxStats, haversineM, parseProfile, profileToString, segmentClimbs, type TrackPoint } from "../shared/gpx";
+import { PROFILE_SAMPLES, dayClimbs, gpxStats, haversineM, parseProfile, profileToString, segmentClimbs, type TrackPoint } from "../shared/gpx";
 
 // A track that walks due east along a parallel, so the distances are easy to reason
 // about: at the equator 0.001° of longitude is ~111 m.
@@ -216,5 +216,40 @@ describe("segmentClimbs — a day's climb, read off the route", () => {
       { ascentM: 0, descentM: 0 },
       { ascentM: 0, descentM: 0 },
     ]);
+  });
+});
+
+describe("dayClimbs — shape from the profile, magnitude from the full track", () => {
+  // The editor and the shared view both call this, so they cannot disagree about what a
+  // day climbed. It is also where the branch's worst bug lived, twice over.
+  const steady = Array.from({ length: 240 }, (_, i) => 1000 + i * 10);
+
+  it("scales the days to the track's real climb without inventing coverage", () => {
+    // days cover the whole route: their climbs should add up to about the stored total
+    const parts = dayClimbs(steady, [2000, 2000], 4000, 3000);
+    const sum = parts.reduce((s, p) => s + p.ascentM, 0);
+    expect(sum).toBeGreaterThan(3000 * 0.9);
+    expect(sum).toBeLessThan(3000 * 1.1);
+  });
+
+  it("does NOT hand a quarter of the route the whole trip's climb", () => {
+    // The bug: the correction forced the days to sum to the route's stored ascent, so an
+    // itinerary covering a quarter of the walk reported all of its climb. On screen a
+    // 10-mile Day 1 read the same 5,272 ft as the 39.7-mile route it sat on.
+    const parts = dayClimbs(steady, [1000, 0, 0, 0], 4000, 3000);
+    expect(parts[0]!.ascentM).toBeGreaterThan(0);
+    expect(parts[0]!.ascentM).toBeLessThan(3000 * 0.45);
+    expect(parts[1]!.ascentM).toBe(0);
+  });
+
+  it("leaves the shares alone when the track's total isn't stored", () => {
+    // an older list has a profile but no full-resolution figure to correct against —
+    // better an uncorrected reading than an invented one
+    const uncorrected = segmentClimbs(steady, [2000, 2000], 4000);
+    expect(dayClimbs(steady, [2000, 2000], 4000, undefined)).toEqual(uncorrected);
+  });
+
+  it("is empty without a profile, rather than zeroes that look like measurements", () => {
+    expect(dayClimbs([], [1000, 1000], 2000, 500)).toEqual([]);
   });
 });
