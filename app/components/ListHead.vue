@@ -105,7 +105,24 @@ function commitUrl(e: Event) {
 }
 
 function commitLabel(e: Event) {
-  c.setMeta({ trailLabel: (e.target as HTMLInputElement).value.trim() });
+  const el = e.target as HTMLInputElement;
+  c.setMeta({ trailLabel: el.value });
+  el.value = props.snapshot.trailLabel ?? ""; // resync — see commitTitle
+}
+
+// The title field is uncontrolled (:value + @change), so it keeps showing what was
+// typed unless it's told otherwise. Usually the tidied value differs from the old one
+// and Vue re-patches on its own; the case that needs this line is when it DOESN'T —
+// retyping "Ryan's Timberline" over a stored "Ryan’s Timberline" tidies to exactly
+// what's already in state, nothing reactive changes, and the straight apostrophe
+// stays on screen looking saved. Same resync ItemRow's weight and qty fields do.
+// autoGrow runs after, because a collapsed run of spaces can shorten the line enough
+// to free a row.
+function commitTitle(e: Event) {
+  const el = e.target as HTMLTextAreaElement;
+  c.setMeta({ title: el.value });
+  el.value = props.snapshot.title;
+  fit();
 }
 
 function remove() {
@@ -206,7 +223,7 @@ onClickOutside(trailEl, () => {
         spellcheck="false"
         @input="fit"
         @keydown.enter.prevent="($event.target as HTMLTextAreaElement).blur()"
-        @change="c.setMeta({ title: ($event.target as HTMLTextAreaElement).value })"
+        @change="commitTitle"
       />
       <HugeiconsIcon
         :icon="Edit02Icon"

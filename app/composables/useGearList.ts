@@ -1,5 +1,5 @@
 import type { ItemPatch, Op } from "~~/shared/ops";
-import { applyOps } from "~~/shared/ops";
+import { applyOps, tidyListText } from "~~/shared/ops";
 import { uid } from "~~/shared/id";
 import { colorKeyForName, nextFolderColor, STARTER_FOLDERS } from "~~/shared/categories";
 import { editLinkPath } from "~~/shared/links";
@@ -200,7 +200,11 @@ function create() {
     const local = await store.get(localKey(token));
     if (myEpoch !== epoch) return; // a newer load() superseded this one
     if (local) {
-      snapshot.value = local.snapshot;
+      // Backfilled on the way in, matching what the server does on the way out
+      // (rowToSnapshot). This copy is the FIRST paint and, offline, the only one — an
+      // old list cached before the tidy existed would otherwise show straight
+      // apostrophes until the network answered, then visibly re-spell itself.
+      snapshot.value = tidyListText(local.snapshot);
       pending = local.pending ?? [];
       status.value = pending.length ? "saving" : "synced";
       syncRegistry();
@@ -350,7 +354,7 @@ function create() {
     // Async (IndexedDB), so the fresh starter paints first and is replaced if found.
     store.get(DRAFT_KEY).then((local) => {
       if (myEpoch !== epoch || editToken || !local) return;
-      snapshot.value = local.snapshot;
+      snapshot.value = tidyListText(local.snapshot); // same backfill as the token path
       pending = local.pending ?? [];
       status.value = "synced";
       // a restored draft that already has real content resumes its create attempt

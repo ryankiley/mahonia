@@ -6,6 +6,7 @@ import { vaultNormKey } from "~~/shared/vault";
 import { rankVaultRows } from "~~/shared/vaultSearch";
 import { highlightParts } from "~~/shared/catalogSearch";
 import { formatWeight, itemDisplayName } from "~~/shared/weights";
+import { foldApostrophes } from "~~/shared/tidyText";
 
 // The vault, alongside the list you're building — a floating palette you keep open
 // and pick from, rather than typing each item's name into the autocomplete one at a
@@ -202,9 +203,10 @@ const categories = computed(() => {
 // name-only match: a category has no brand/variant to fuzzy-rank, and the set is
 // small enough to scan
 const filteredCategories = computed(() => {
-  const q = query.value.trim().toLowerCase();
+  // folded both sides — category names come from folder names, which are stored tidied
+  const q = foldApostrophes(query.value.trim().toLowerCase());
   if (!q) return categories.value;
-  return categories.value.filter((c) => c.name.toLowerCase().includes(q));
+  return categories.value.filter((c) => foldApostrophes(c.name.toLowerCase()).includes(q));
 });
 
 function addCategory(cat: { name: string; entries: VaultEntry[] }) {

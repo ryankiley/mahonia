@@ -5,6 +5,7 @@ import type { EffectScope } from "vue";
 import type { Unit } from "~~/shared/types";
 import { formatWeight, itemDisplayName } from "~~/shared/weights";
 import { highlightParts } from "~~/shared/catalogSearch";
+import { tidyText } from "~~/shared/tidyText";
 import { formatVolume, parseVolumeMl, waterMgFromMl } from "~~/shared/water";
 import type { CatalogResult, NameCommit } from "~/composables/useCatalogSearch";
 import type { VaultEntry } from "~~/shared/vault";
@@ -231,7 +232,10 @@ function selectResult(r: CatalogResult) {
   });
   // self-improving ranking: tell the catalog this item was used (fire-and-forget)
   $fetch("/api/catalog/use", { method: "POST", body: { ids: [r.id] } }).catch(() => {});
-  setDraftQuiet(props.clearOnCommit ? "" : itemDisplayName(r.brand, r.name, r.variant));
+  // tidied, because picking with Enter never unfocuses the field and the props.initial
+  // watcher only syncs an UNfocused one — so the straight spelling would sit in the box
+  // while state already held the curly one, until a blur happened to heal it
+  setDraftQuiet(props.clearOnCommit ? "" : tidyText(itemDisplayName(r.brand, r.name, r.variant)));
   close();
 }
 function selectWater(w: WaterSug) {
@@ -256,7 +260,7 @@ function selectVault(v: VaultEntry) {
     classification: v.classification,
     fromVault: true,
   });
-  setDraftQuiet(props.clearOnCommit ? "" : itemDisplayName(v.brand, v.name, v.variant));
+  setDraftQuiet(props.clearOnCommit ? "" : tidyText(itemDisplayName(v.brand, v.name, v.variant)));
   close();
 }
 function selectOption(opt: AcOption) {
@@ -267,14 +271,23 @@ function selectOption(opt: AcOption) {
 function commitFree() {
   const raw = draft.value.trim();
   if (!raw) return;
-  // editing an unchanged name shouldn't emit a redundant update
-  if (!props.clearOnCommit && raw === props.initial.trim()) return close();
+  // Editing an unchanged name shouldn't emit a redundant update. Compared on the
+  // TIDIED form — the same pass the reducer applies on the way in (shared/tidyText) —
+  // so retyping "Ryan's" over a stored "Ryan’s" is correctly read as no change. The
+  // field is then put back to the stored spelling explicitly, because on this branch
+  // nothing reactive changes and the props.initial watcher has nothing to fire on.
+  if (!props.clearOnCommit && tidyText(raw) === tidyText(props.initial)) {
+    setDraftQuiet(props.initial);
+    return close();
+  }
   const m = raw.match(WEIGHT_TAIL);
-  const name = (m ? raw.slice(0, m.index) : raw).trim();
+  const name = tidyText(m ? raw.slice(0, m.index) : raw);
   if (!name) return;
   // a trailing weight in the typed name ("Tent 540 g") rides along
   const weight = m ? m[1] : undefined;
   emit("commit", { name, weight });
+  // the TIDIED name, not the typed one — this field has to show what got stored, and
+  // Enter commits without ever unfocusing, so the watcher can't do it here either
   setDraftQuiet(props.clearOnCommit ? "" : name);
   close();
 }
@@ -330,7 +343,13 @@ function onKeydown(e: KeyboardEvent) {
 // affordance. This used to be a local 24-line copy of shared/catalogSearch's
 // highlightParts, differing only in reading `draft` from scope instead of taking it
 // as an argument; the vault pane already wraps the shared one exactly this way.
-const hl = (text: string) => highlightParts(text, draft.value);
+// Tidied before it's split, so the menu spells a suggestion the way the row it creates
+// will. The catalog is served verbatim from the DB (straight apostrophes, as the seed
+// CSV has them) while the reducer stores the curled form, so without this the name
+// visibly changes at the moment you pick it — the one instant the user is looking
+// straight at it. The parts are built over the tidied string and the parts are what
+// render, so the highlight offsets stay correct by construction.
+const hl = (text: string) => highlightParts(tidyText(text), draft.value);
 </script>
 
 <template>
@@ -436,7 +455,7 @@ const hl = (text: string) => highlightParts(text, draft.value);
                 :class="{ 'ac__hl': p.on }"
               >{{ p.t }}</span>
             </span>
-            <span v-if="opt.result.variant" class="ac__variant"><span class="sep">·</span> {{ opt.result.variant }}</span>
+            <span v-if="opt.result.variant" class="ac__variant"><span class="sep">·</span> {{ tidyText(opt.result.variant) }}</span>
             <span v-if="!opt.result.verified" class="ac__community" title="community-contributed, unverified">· community</span>
           </span>
           <span class="ac__metaright">
