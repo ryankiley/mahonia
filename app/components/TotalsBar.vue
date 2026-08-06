@@ -260,11 +260,8 @@ const UNIT_OPTIONS = UNITS.map((u) => ({ key: u, label: u }));
      carry are teleported to <body>.) */
   overflow: hidden;
 }
-.chip {
-  display: inline-flex;
-  flex-direction: column;
-  gap: var(--space-px);
-}
+/* the stacked label-over-figure shape now lives in atoms/chip.scss — what stays here is
+   only what's about THIS row: which chips are set apart, and how. */
 /* the roll-up chip reads as a different KIND of figure from the slices beside it —
    a hairline + the row's own gap sets it apart without a heavy divider (same idiom
    as the ⋯ menu's report row). Calories take the same hairline for a related but

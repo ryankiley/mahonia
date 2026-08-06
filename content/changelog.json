@@ -11,7 +11,8 @@
     ],
     "changed": [
       "Your body weight is now remembered on your device instead of saved with each list, so you set it once and every trip uses it — and it never leaves your browser at all.",
-      "The elevation profile's distance scale now shows more marks on a wider window, and the grade you read off the chart always matches the shading beneath it."
+      "The elevation profile's distance scale now shows more marks on a wider window, and the grade you read off the chart always matches the shading beneath it.",
+      "A day now shows its descent alongside its climb, the trip's figures line up in columns down the list, and the route's total descent only appears when it differs from the climb."
     ]
   },
   {

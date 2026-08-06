@@ -1,0 +1,17 @@
+// A labelled figure — a caption over a number.
+//
+// The shape the totals bar has always used for "Base 1.2 kg", and the one the planning
+// view uses for "Moving ~4 h 20". It became an atom the third time it was restated: it
+// lived scoped inside TotalsBar, was copied into TrailPlanPanel with a comment saying
+// "if the two ever need to move together they belong in an atom", and then the elevation
+// profile needed it too. Three is when that stops being a hypothetical.
+//
+// Deliberately ONLY the stacking. Everything else those components do to their chips —
+// the totals bar's hairline separators, the row gaps, which chips sit where — stays with
+// them, because it is about the arrangement of a particular row rather than about what a
+// chip is. This is the one thing all three agree on, so it is the only thing here.
+.chip {
+  display: inline-flex;
+  flex-direction: column;
+  gap: var(--space-px);
+}

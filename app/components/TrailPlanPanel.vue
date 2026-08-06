@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "@hugeicons/vue";
-import { ArrowUpRight01Icon, ChevronDownIcon, Clock01Icon, Delete02Icon, Fire02Icon, HelpCircleIcon, RouteIcon } from "@hugeicons/core-free-icons";
+import { ArrowDownRight01Icon, ArrowUpRight01Icon, ChevronDownIcon, Clock01Icon, Delete02Icon, Fire02Icon, HelpCircleIcon, RouteIcon } from "@hugeicons/core-free-icons";
 import type { ListSnapshot, Totals } from "~~/shared/types";
 import { burnDownMg, estimateDay } from "~~/shared/tripPlan";
 import { dayClimbs, parseProfile } from "~~/shared/gpx";
@@ -143,6 +143,25 @@ const headlineM = computed(() =>
 // to a picker still reading "km" — an 800-metre walk shown as 800 kilometres. The unit
 // here is a control the reader chose, so the number has to stay in it.
 const headlineValue = computed(() => distanceHeadline(headlineM.value, distanceUnit.value));
+/**
+ * The ROUTE's climb, exact.
+ *
+ * Not ascentValue, which rounds feet to the nearest 10. That rounding is right for the
+ * day fields, where the store is integer metres and an editable figure would otherwise
+ * round-trip 690 into 689; it is wrong here, where the figure is read-only, measured
+ * across the full track, and sits beside a chart whose spoken description states it
+ * exactly. 10,250 next to 10,246 is the same number disagreeing with itself.
+ */
+const routeHeight = (m: number | undefined) =>
+  m == null ? "" : (distanceUnit.value === "mi" ? Math.round(m / 0.3048) : Math.round(m)).toLocaleString();
+
+/** Whether the route's drop is its own fact, or the climb restated (which a loop guarantees). */
+const routeDescentDiffers = computed(
+  () =>
+    props.snapshot.trailDescentM != null &&
+    props.snapshot.trailAscentM != null &&
+    props.snapshot.trailDescentM !== props.snapshot.trailAscentM,
+);
 const totalAscentM = computed(() => days.value.reduce((s, d) => s + (d?.ascentM ?? 0), 0));
 
 /**
@@ -367,12 +386,25 @@ const distanceValue = (m: number | undefined) =>
       :total-distance-m="headlineM"
       :ascent-m="snapshot.trailAscentM"
       :descent-m="snapshot.trailDescentM"
+      :facts="false"
     />
     <!-- Only the figures nothing else on the page states. The day COUNT and the
          miles-per-day average both left with the same reasoning: the date range names the
          days and every row carries its own distance, so a chip restating either was
          summarising a summary. -->
     <div class="plan__chips">
+      <!-- The ROUTE's climb, beside the estimates derived from it. Not the sum of the
+           days' typed ascents, which is a different and usually smaller number — this is
+           what the whole walk climbs. -->
+      <span v-if="snapshot.trailAscentM" class="chip">
+        <span class="t-label">Climb</span>
+        <span class="t-num">{{ routeHeight(snapshot.trailAscentM) }} <span class="t-muted">{{ ascentUnit }}</span></span>
+      </span>
+      <!-- only when it is a DIFFERENT fact — on a loop it equals the climb by definition -->
+      <span v-if="routeDescentDiffers" class="chip">
+        <span class="t-label">Descent</span>
+        <span class="t-num">{{ routeHeight(snapshot.trailDescentM) }} <span class="t-muted">{{ ascentUnit }}</span></span>
+      </span>
       <span v-if="totalAscentM > 0" class="chip">
         <span class="t-label">Climb</span>
         <span class="t-num">{{ ascentValue(totalAscentM) }} <span class="t-muted">{{ ascentUnit }}</span></span>
@@ -463,11 +495,19 @@ const distanceValue = (m: number | undefined) =>
               @change="commitAscent(d?.id ?? ensureDay(i), $event)"
             />
             <span class="t-muted">{{ ascentUnit }}</span>
-            <Tooltip v-if="climbIsDerived(i)" text="Read off the GPX — this day's share of the route's climb. Type over it to set your own." preferred-placement="top">
+            <Tooltip v-if="climbIsDerived(i)" text="This day's share of the route's climb. Type over it to set your own." preferred-placement="top">
               <button type="button" class="plan__why" aria-label="Where this climb comes from">
                 <HugeiconsIcon :icon="HelpCircleIcon" :size="14" :stroke-width="2" aria-hidden="true" />
               </button>
             </Tooltip>
+          </span>
+
+          <!-- The day's DROP, read off the route beside its climb. Not typeable, unlike the
+               two above: nothing in the app writes a day's descent by hand, and a field
+               that only ever shows a derived number should look like what it is. -->
+          <span v-if="descentFor(i) != null" class="plan__cell plan__cell--est">
+            <HugeiconsIcon :icon="ArrowDownRight01Icon" class="plan__gl" :size="16" :stroke-width="2" aria-hidden="true" />
+            <span class="t-num">{{ ascentValue(descentFor(i)) }} <span class="t-muted">{{ ascentUnit }}</span></span>
           </span>
 
           <!-- Read-only, and worked out rather than measured — so it carries the `~` AND
@@ -476,7 +516,7 @@ const distanceValue = (m: number | undefined) =>
           <span class="plan__cell plan__cell--est">
             <HugeiconsIcon :icon="Clock01Icon" class="plan__gl" :size="16" :stroke-width="2" aria-hidden="true" />
             <span class="t-num">{{ estimates[i] ? `~${formatHours(estimates[i]!.hours)}` : "—" }}</span>
-            <Tooltip v-if="estimates[i]" text="Moving time, not elapsed time — breaks aren't in it. Speed comes from the day's own gradient: about 5 km/h on the flat, slower as it steepens, slightly faster on a gentle descent. Then 1% slower per kg of pack, using the weight this list actually holds that morning. Pace, terrain and weather all vary — plan with it, don't schedule by it." preferred-placement="top">
+            <Tooltip v-if="estimates[i]" text="Walking time only — no breaks. Pace follows the gradient and the weight of your pack." preferred-placement="top">
               <button type="button" class="plan__why" aria-label="How the moving time is worked out">
                 <HugeiconsIcon :icon="HelpCircleIcon" :size="14" :stroke-width="2" aria-hidden="true" />
               </button>
@@ -486,7 +526,7 @@ const distanceValue = (m: number | undefined) =>
           <span class="plan__cell plan__cell--est">
             <HugeiconsIcon :icon="Fire02Icon" class="plan__gl" :size="16" :stroke-width="2" aria-hidden="true" />
             <span class="t-num">{{ estimates[i] ? `~${roundKcal(estimates[i]!.totalKcal).toLocaleString()}` : "—" }}</span>
-            <Tooltip v-if="estimates[i]" :text="`Walking and resting for the day, at ${formatBodyWeight(bodyG, bodyUnit)}${bodyIsDefault ? ' — assumed, set yours below' : ''}. Good to about ±20%.`" preferred-placement="top">
+            <Tooltip v-if="estimates[i]" :text="`Walking and resting, at ${formatBodyWeight(bodyG, bodyUnit)}${bodyIsDefault ? ' (assumed)' : ''}. Good to about ±20%.`" preferred-placement="top">
               <button type="button" class="plan__why" aria-label="How the calories are worked out">
                 <HugeiconsIcon :icon="HelpCircleIcon" :size="14" :stroke-width="2" aria-hidden="true" />
               </button>
@@ -606,15 +646,6 @@ const distanceValue = (m: number | undefined) =>
   flex-wrap: wrap;
   gap: var(--space-5);
 }
-/* The totals bar's chip shape, restated. `.chip` is scoped to that component, so this
-   can't borrow it — and shouldn't reach across the boundary to try. Same geometry, so a
-   figure reads the same wherever it appears; if the two ever need to move together they
-   belong in an atom, which is a bigger change than this panel should make. */
-.plan__chips .chip {
-  display: inline-flex;
-  flex-direction: column;
-  gap: var(--space-px);
-}
 .plan__note {
   margin: 0;
   color: var(--ink-3);
@@ -674,17 +705,28 @@ const distanceValue = (m: number | undefined) =>
   margin-left: auto;
 }
 /* the row's data, as glyph-and-figure pairs — an item row's grammar at day scale */
+/* The day's figures line up DOWN the list, not just across one row.
+ *
+ * Fixed cell widths rather than a grid: every day is its own element, so separate grids
+ * wouldn't share columns, and `subgrid` would mean restructuring the list into one grid
+ * that the headers and pack bars also live in. A width per kind of figure gets the columns
+ * for a fraction of the change, and these figures are bounded — a day is at most three
+ * digits of distance and five of climb, which is what the widths are sized from.
+ */
 .plan__data {
   margin-top: var(--space-2);
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: var(--space-2) var(--space-5);
+  gap: var(--space-2) var(--space-3);
 }
 .plan__cell {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
+  /* the column. Wide enough for the longest real figure plus its unit and a (?), so a
+     row never pushes the ones beside it out of line */
+  min-width: 7.5rem;
   /* .field pads its box for a comfortable tap target; inside a glyph-and-figure pair
      that padding reads as a stray gap, and the cell's own gap already spaces them */
   --field-pad-inline: 0;
@@ -751,19 +793,19 @@ const distanceValue = (m: number | undefined) =>
    which is right in the item grid where weights form a column — here the figures sit in
    a flex row behind their own glyph, so a fixed box just parked a gap between the icon
    and its number. Nothing lines up vertically for that alignment to serve. */
+/* Sized to its CONTENT, with the column width living on the cell instead.
+ *
+ * The fixed width belongs one level up. Put on the input, it padded short values out to
+ * the widest — "3130" in a 5ch box left a space before "ft", breaking the number away
+ * from its own unit. On the cell, the slack lands at the END of the column where it is
+ * just spacing, and the figure and its unit stay a single object. */
 .plan__num {
   padding-inline: 0;
   width: auto;
   field-sizing: content;
-  /* The floor is a TAP TARGET, and an empty field is the only one that needs it. Applied
-     unconditionally it padded every short value instead — "10" sat 2 characters wide in a
-     2.5ch box and pushed a visible gap between the number and its unit. */
-  min-width: 0;
+  min-width: 2ch;
   max-width: 7ch;
   text-align: left;
-}
-.plan__num:placeholder-shown {
-  min-width: 2.5ch;
 }
 .plan__pack {
   display: inline-flex;

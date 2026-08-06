@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "@hugeicons/vue";
-import { ArrowDownRight01Icon, ArrowUpRight01Icon } from "@hugeicons/core-free-icons";
 import { categoryColor, nextFolderColor } from "~~/shared/categories";
 import { formatDistance, type DisplayDistanceUnit } from "~~/shared/trailDistance";
 import { GRADE_HARD_PCT, GRADE_MODERATE_PCT, gradeRuns, gradeSeries, gradeSpread } from "~~/shared/gpx";
@@ -33,6 +32,16 @@ const props = defineProps<{
   /** the route's climb and drop, at FULL track resolution — see ListMeta.trailAscentM */
   ascentM?: number;
   descentM?: number;
+  /**
+   * Whether to print the climb/descent figures beneath the chart.
+   *
+   * A page that already has a row of chips wants these IN it rather than stacked above it,
+   * and a chart can't render into its parent's row. So the composing page decides: the
+   * planning view turns this off and carries them among its own figures; the shared view
+   * has no such row and lets the chart do it. The chart draws the shape either way — this
+   * file's header has always said the numbers beside it are the page's job.
+   */
+  facts?: boolean;
 }>();
 
 // A unitless drawing space. X is 0–1000, Y is 0–200, and CSS decides the physical size —
@@ -53,6 +62,10 @@ const lo = computed(() => Math.min(...props.profile));
 const hi = computed(() => Math.max(...props.profile));
 // WHERE the extremes are, not just what they are — the scrubber names them in place.
 // First occurrence: a plateau at the summit has one summit as far as a label is concerned.
+/** Whether the drop is its own fact, or just the climb restated (which a loop guarantees). */
+const descentDiffers = computed(
+  () => props.descentM != null && props.ascentM != null && props.descentM !== props.ascentM,
+);
 const hiIdx = computed(() => props.profile.indexOf(hi.value));
 const loIdx = computed(() => props.profile.indexOf(lo.value));
 // A flat route would divide by zero and, worse, draw a line through the middle of a box
@@ -488,14 +501,17 @@ const id = useId();
          container is, so no height is measurable from the picture — these carry it in
          figures instead, which is the same division of labour the numbers above the chart
          already make. aria-hidden: <desc> says all of it, and better. -->
-    <p class="tprofile__facts t-sm" aria-hidden="true">
-      <span v-if="ascentM" class="tprofile__fact">
-        <HugeiconsIcon :icon="ArrowUpRight01Icon" :size="14" :stroke-width="2" />
-        {{ asHeight(ascentM) }} {{ heightUnit }}
+    <p v-if="facts !== false" class="tprofile__facts">
+      <span v-if="ascentM" class="chip">
+        <span class="t-label">Climb</span>
+        <span class="t-num">{{ asHeight(ascentM) }} <span class="t-muted">{{ heightUnit }}</span></span>
       </span>
-      <span v-if="descentM" class="tprofile__fact">
-        <HugeiconsIcon :icon="ArrowDownRight01Icon" :size="14" :stroke-width="2" />
-        {{ asHeight(descentM) }} {{ heightUnit }}
+      <!-- The descent only when it is a DIFFERENT fact. On a loop it equals the climb by
+           definition, and two figures carrying one fact is one figure too many; where they
+           differ, the gap between them IS the net height change, which is worth seeing. -->
+      <span v-if="descentDiffers" class="chip">
+        <span class="t-label">Descent</span>
+        <span class="t-num">{{ asHeight(descentM ?? 0) }} <span class="t-muted">{{ heightUnit }}</span></span>
       </span>
     </p>
   </figure>
@@ -567,13 +583,13 @@ const id = useId();
     display: block;
   }
 }
+/* The route's own figures, in the same chip the trip's estimates use — they answer the
+   same kind of question and were reading as a different class of thing. */
 .tprofile__facts {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-1) var(--space-4);
-  margin: var(--space-1) 0 0;
-  color: var(--ink-3);
-  font-variant-numeric: tabular-nums;
+  gap: var(--space-1) var(--space-5);
+  margin: var(--space-3) 0 0;
 }
 .tprofile__fact {
   display: inline-flex;
