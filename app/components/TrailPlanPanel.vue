@@ -261,9 +261,14 @@ const derivedClimbs = computed(() => {
     descentM: Math.round(x.descentM * scale),
   }));
 });
-const climbFor = (i: number) => days.value[i]?.ascentM ?? derivedClimbs.value[i]?.ascentM;
-const climbIsDerived = (i: number) =>
-  days.value[i]?.ascentM == null && derivedClimbs.value[i]?.ascentM != null;
+// A derived climb is the day's SHARE of the route, so it only says anything once the day
+// has a share to take. Without this a day you haven't given a distance to reads "0 ft" —
+// which is a measurement, and states flat ground where there is only an unanswered
+// question. Its distance says "—"; its climb has to agree.
+const climbFor = (i: number) =>
+  days.value[i]?.ascentM ??
+  (days.value[i]?.distanceM != null ? derivedClimbs.value[i]?.ascentM : undefined);
+const climbIsDerived = (i: number) => days.value[i]?.ascentM == null && climbFor(i) != null;
 
 async function commitDistance(id: string | null, e: Event) {
   if (!id) { await nextTick(); id = stored.value[stored.value.length - 1]?.id ?? null; if (!id) return; }
@@ -430,7 +435,7 @@ const distanceValue = (m: number | undefined) =>
               inputmode="decimal"
               :value="ascentValue(climbFor(i))"
               :aria-label="`Climb on day ${i + 1}, in ${ascentUnit}`"
-              :placeholder="profile.length ? '—' : '—'"
+              placeholder="—"
               @change="commitAscent(d?.id ?? ensureDay(i), $event)"
             />
             <span class="t-muted">{{ ascentUnit }}</span>
@@ -726,9 +731,15 @@ const distanceValue = (m: number | undefined) =>
   padding-inline: 0;
   width: auto;
   field-sizing: content;
-  min-width: 2.5ch;
+  /* The floor is a TAP TARGET, and an empty field is the only one that needs it. Applied
+     unconditionally it padded every short value instead — "10" sat 2 characters wide in a
+     2.5ch box and pushed a visible gap between the number and its unit. */
+  min-width: 0;
   max-width: 7ch;
   text-align: left;
+}
+.plan__num:placeholder-shown {
+  min-width: 2.5ch;
 }
 .plan__pack {
   display: inline-flex;
