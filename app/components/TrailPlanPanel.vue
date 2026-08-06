@@ -397,12 +397,12 @@ const distanceValue = (m: number | undefined) =>
            days' typed ascents, which is a different and usually smaller number — this is
            what the whole walk climbs. -->
       <span v-if="snapshot.trailAscentM" class="chip">
-        <span class="t-label">Climb</span>
+        <span class="t-label">Elevation gain</span>
         <span class="t-num">{{ routeHeight(snapshot.trailAscentM) }} <span class="t-muted">{{ ascentUnit }}</span></span>
       </span>
       <!-- only when it is a DIFFERENT fact — on a loop it equals the climb by definition -->
       <span v-if="routeDescentDiffers" class="chip">
-        <span class="t-label">Descent</span>
+        <span class="t-label">Elevation loss</span>
         <span class="t-num">{{ routeHeight(snapshot.trailDescentM) }} <span class="t-muted">{{ ascentUnit }}</span></span>
       </span>
       <span v-if="totalAscentM > 0" class="chip">
@@ -490,7 +490,7 @@ const distanceValue = (m: number | undefined) =>
               class="field field--num plan__num"
               inputmode="decimal"
               :value="ascentValue(climbFor(i))"
-              :aria-label="`Climb on day ${i + 1}, in ${ascentUnit}`"
+              :aria-label="`Elevation gain on day ${i + 1}, in ${ascentUnit}`"
               placeholder="—"
               @change="commitAscent(d?.id ?? ensureDay(i), $event)"
             />

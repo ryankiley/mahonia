@@ -503,14 +503,14 @@ const id = useId();
          already make. aria-hidden: <desc> says all of it, and better. -->
     <p v-if="facts !== false" class="tprofile__facts">
       <span v-if="ascentM" class="chip">
-        <span class="t-label">Climb</span>
+        <span class="t-label">Elevation gain</span>
         <span class="t-num">{{ asHeight(ascentM) }} <span class="t-muted">{{ heightUnit }}</span></span>
       </span>
       <!-- The descent only when it is a DIFFERENT fact. On a loop it equals the climb by
            definition, and two figures carrying one fact is one figure too many; where they
            differ, the gap between them IS the net height change, which is worth seeing. -->
       <span v-if="descentDiffers" class="chip">
-        <span class="t-label">Descent</span>
+        <span class="t-label">Elevation loss</span>
         <span class="t-num">{{ asHeight(descentM ?? 0) }} <span class="t-muted">{{ heightUnit }}</span></span>
       </span>
     </p>
@@ -600,10 +600,15 @@ const id = useId();
    absence is the whole distinction. It used to also step back in colour, which put a
    figure at body size on 1.35:1 and made it unreadable rather than quiet. It inherits
    --ink-3 from .tprofile__facts like its siblings now. */
+/* Actual dots, not dashes. A zero-length dash with a ROUND cap renders as a circle whose
+   diameter is the stroke width — `2 3` drew stubby rectangles instead, which read as a
+   broken line rather than a dotted one. non-scaling-stroke on the element is what keeps
+   them circular: without it preserveAspectRatio="none" would squash them into ovals. */
 .tprofile__cursor {
   stroke: var(--ink-3);
-  stroke-width: 1;
-  stroke-dasharray: 2 3;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-dasharray: 0 5;
 }
 .tprofile-wrap {
   position: relative;
