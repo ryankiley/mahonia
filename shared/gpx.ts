@@ -226,3 +226,47 @@ export function parseProfile(raw: unknown): number[] {
   }
   return out.length >= 2 ? out : [];
 }
+
+
+/**
+ * Ascent and descent over each stretch of a stored profile, given how the ground is
+ * divided up — so a day's climb can be READ OFF the route rather than typed.
+ *
+ * `shares` are each stretch's distance; only their proportions matter, because the
+ * profile is already sampled evenly by distance. The same smoothing and threshold the
+ * whole-track figure uses, applied once across the profile and then attributed to
+ * stretches — smoothing per stretch would treat every boundary as an edge and lose a
+ * little climb at each one.
+ */
+export function segmentClimbs(
+  profile: readonly number[],
+  shares: readonly number[],
+): { ascentM: number; descentM: number }[] {
+  const total = shares.reduce((s, d) => s + d, 0);
+  if (profile.length < 2 || !shares.length || !(total > 0)) {
+    return shares.map(() => ({ ascentM: 0, descentM: 0 }));
+  }
+  const eased = smooth(profile, SMOOTH_WINDOW);
+  // the sample index each stretch ends at
+  let run = 0;
+  const ends = shares.map((d) => {
+    run += d;
+    return Math.round((run / total) * (eased.length - 1));
+  });
+
+  const out = shares.map(() => ({ ascentM: 0, descentM: 0 }));
+  let seg = 0;
+  let reference = eased[0]!;
+  for (let i = 1; i < eased.length; i++) {
+    while (seg < ends.length - 1 && i > ends[seg]!) seg++;
+    const delta = eased[i]! - reference;
+    if (delta >= ASCENT_THRESHOLD_M) {
+      out[seg]!.ascentM += delta;
+      reference = eased[i]!;
+    } else if (delta <= -ASCENT_THRESHOLD_M) {
+      out[seg]!.descentM += -delta;
+      reference = eased[i]!;
+    }
+  }
+  return out.map((s) => ({ ascentM: Math.round(s.ascentM), descentM: Math.round(s.descentM) }));
+}

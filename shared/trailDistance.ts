@@ -201,6 +201,14 @@ export function normalizeTrailDistanceM(raw: unknown): number | undefined {
   return metres > 0 && metres <= MAX_DISTANCE_M ? metres : undefined;
 }
 
+/** A route's total climb in metres. More than Everest from the sea isn't one. */
+export function normalizeTrailAscentM(raw: unknown): number | undefined {
+  const n = typeof raw === "string" ? Number.parseFloat(raw) : raw;
+  if (typeof n !== "number" || !Number.isFinite(n)) return undefined;
+  const m = Math.round(n);
+  return m > 0 && m <= 30_000 ? m : undefined;
+}
+
 // ---- body weight ----
 // The one input the burn model needs that a gear list doesn't already hold. Same three
 // rules as the distance unit above, for the same reasons: only two units offered (grams

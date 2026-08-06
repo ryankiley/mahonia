@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PROFILE_SAMPLES, gpxStats, haversineM, parseProfile, profileToString, type TrackPoint } from "../shared/gpx";
+import { PROFILE_SAMPLES, gpxStats, haversineM, parseProfile, profileToString, segmentClimbs, type TrackPoint } from "../shared/gpx";
 
 // A track that walks due east along a parallel, so the distances are easy to reason
 // about: at the equator 0.001° of longitude is ~111 m.
@@ -145,5 +145,48 @@ describe("profile storage", () => {
     expect(parseProfile("1000,99999")).toEqual([]); // above the troposphere
     expect(parseProfile("1000,-9999")).toEqual([]); // below the Dead Sea
     expect(parseProfile("1,".repeat(3000))).toEqual([]); // past the stored bound
+  });
+});
+
+describe("segmentClimbs — a day's climb, read off the route", () => {
+  it("attributes the climb to the stretch it happens on", () => {
+    // flat, then a 1,000 m climb, then flat
+    const profile = [
+      ...Array.from({ length: 32 }, () => 1000),
+      ...Array.from({ length: 32 }, (_, i) => 1000 + (i + 1) * 31.25),
+      ...Array.from({ length: 32 }, () => 2000),
+    ];
+    const [a, b, c] = segmentClimbs(profile, [1, 1, 1]);
+    expect(a!.ascentM).toBeLessThan(60);
+    expect(b!.ascentM).toBeGreaterThan(850);
+    expect(c!.ascentM).toBeLessThan(60);
+  });
+
+  it("sums to about the whole track's climb", () => {
+    const profile = Array.from({ length: 96 }, (_, i) => 1000 + Math.sin(i / 6) * 200 + i * 5);
+    const whole = gpxStats(
+      profile.map((ele, i) => ({ lat: 0, lon: i * 0.001, ele })),
+    )!.ascentM;
+    const parts = segmentClimbs(profile, [1, 1, 1, 1]).reduce((s, x) => s + x.ascentM, 0);
+    // not identical — the whole-track pass has its own edge effects — but close
+    expect(parts).toBeGreaterThan(whole * 0.9);
+    expect(parts).toBeLessThan(whole * 1.1);
+  });
+
+  it("weights by each stretch's share of the ground, not by count", () => {
+    // the climb is all in the first tenth
+    const profile = [
+      ...Array.from({ length: 10 }, (_, i) => 1000 + i * 100),
+      ...Array.from({ length: 86 }, () => 1900),
+    ];
+    const [first, second] = segmentClimbs(profile, [10, 90]);
+    expect(first!.ascentM).toBeGreaterThan(second!.ascentM);
+  });
+
+  it("has nothing to say without a profile", () => {
+    expect(segmentClimbs([], [1, 1])).toEqual([
+      { ascentM: 0, descentM: 0 },
+      { ascentM: 0, descentM: 0 },
+    ]);
   });
 });

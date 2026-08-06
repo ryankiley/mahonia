@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "@hugeicons/vue";
-import { ChevronDownIcon, Delete02Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
+import { ArrowUpRight01Icon, ChevronDownIcon, Clock01Icon, Delete02Icon, Fire02Icon, HelpCircleIcon, RouteIcon } from "@hugeicons/core-free-icons";
 import type { ListSnapshot, Totals } from "~~/shared/types";
 import { burnDownMg, estimateDay } from "~~/shared/tripPlan";
-import { parseProfile } from "~~/shared/gpx";
+import { parseProfile, segmentClimbs } from "~~/shared/gpx";
 import { isWaterName } from "~~/shared/water";
 import { lineMg, effectiveClassification, formatWeight } from "~~/shared/weights";
 import {
@@ -32,20 +32,39 @@ const props = defineProps<{ snapshot: ListSnapshot; totals: Totals }>();
 const c = useGearList();
 const uid = useId();
 
-const days = computed(() => [...(props.snapshot.days ?? [])].sort((a, b) => a.sortOrder - b.sortOrder));
+const stored = computed(() => [...(props.snapshot.days ?? [])].sort((a, b) => a.sortOrder - b.sortOrder));
+
+/**
+ * The days of the trip. The DATES already say how many there are, so the itinerary takes
+ * its length from them rather than asking you to count the same thing twice.
+ *
+ * Rows past the stored ones are GHOSTS — real rows you can read and type into, with no
+ * entity behind them yet. They materialise on first edit (see `ensureDay`), which is what
+ * keeps setting dates from writing a pile of empty days into the list, and keeps a plan
+ * you never touched from being something the reducer has to carry.
+ *
+ * `Math.max` rather than the dates alone: a trip can outgrow its dates, and an itinerary
+ * someone actually built must never be truncated by a date field.
+ */
+const days = computed(() => {
+  const dated = tripDays(props.snapshot.startDate, props.snapshot.endDate) ?? 0;
+  const n = Math.max(stored.value.length, dated);
+  return Array.from({ length: n }, (_, i) => stored.value[i] ?? null);
+});
+
+/** A ghost row becoming real. Returns the id to patch. */
+function ensureDay(i: number): string | null {
+  const existing = stored.value[i];
+  if (existing) return existing.id;
+  // fill any gap before it too, so sortOrder stays the position in the trip
+  for (let k = stored.value.length; k <= i; k++) c.addDay();
+  return null; // the patch lands on the next tick, once the op has applied
+}
 const distanceUnit = computed(() =>
   resolveDistanceUnit(props.snapshot.trailDistanceUnit, props.snapshot.displayUnit),
 );
 
-// What the dates say, against what the itinerary says. These are two different claims and
-// the panel reports the disagreement rather than quietly reconciling it — silently
-// trusting one would make the other field look broken.
-const datedDays = computed(() => tripDays(props.snapshot.startDate, props.snapshot.endDate));
-const dayCountMismatch = computed(
-  () => datedDays.value != null && days.value.length > 0 && datedDays.value !== days.value.length,
-);
-
-const totalDistanceM = computed(() => days.value.reduce((s, d) => s + (d.distanceM ?? 0), 0));
+const totalDistanceM = computed(() => days.value.reduce((s, d) => s + (d?.distanceM ?? 0), 0));
 // The days are the plan, so they're the source — but before any day is filled in, the
 // route's own distance is the honest total, and it's already on the trail link. Falling
 // back to it means the headline says something true from the first moment rather than
@@ -60,7 +79,7 @@ const perDayDistance = computed(() =>
     ? formatDistance(Math.round(headlineM.value / days.value.length), distanceUnit.value)
     : null,
 );
-const totalAscentM = computed(() => days.value.reduce((s, d) => s + (d.ascentM ?? 0), 0));
+const totalAscentM = computed(() => days.value.reduce((s, d) => s + (d?.ascentM ?? 0), 0));
 
 /**
  * Consumable weight that actually DEPLETES — everything classed consumable, minus water.
@@ -107,10 +126,10 @@ function commitBody(e: Event) {
 // a tooltip would not, and a number that loses its mark gets quoted back as a fact.
 const estimates = computed(() =>
   days.value.map((d, i) =>
-    d.distanceM
+    d?.distanceM
       ? estimateDay({
           distanceM: d.distanceM,
-          ascentM: d.ascentM ?? 0,
+          ascentM: climbFor(i) ?? 0,
           descentM: d.descentM,
           bodyKg: bodyG.value / 1000,
           loadKg: (packMg.value[i] ?? 0) / 1e6,
@@ -139,7 +158,7 @@ const profile = computed(() => parseProfile(props.snapshot.trailProfile));
 // with no distance yet still takes an even slice, so the picture doesn't lurch as the
 // itinerary is filled in.
 const dayDistancesM = computed(() => {
-  const stated = days.value.map((d) => d.distanceM ?? 0);
+  const stated = days.value.map((d) => d?.distanceM ?? 0);
   const total = stated.reduce((s, d) => s + d, 0);
   if (total > 0) return stated;
   const each = headlineM.value / Math.max(1, days.value.length);
@@ -147,18 +166,78 @@ const dayDistancesM = computed(() => {
 });
 
 const UNIT_OPTIONS = DISPLAY_DISTANCE_UNITS.map((u) => ({ key: u, label: u }));
+const BODY_UNIT_OPTIONS = BODY_WEIGHT_UNITS.map((u) => ({ key: u, label: u }));
 
-function commitDistance(id: string, e: Event) {
+// Days collapse the way folders do, and remember it the same way — per id, in
+// localStorage, never in the list. A plan you come back to should open the way you left
+// it, and a long itinerary is exactly the thing you want to fold up.
+const collapsed = ref<Record<string, boolean>>({});
+onMounted(() => {
+  const next: Record<string, boolean> = {};
+  // stored days only — a ghost has no id to remember a collapse against
+  for (const d of stored.value) {
+    try {
+      if (localStorage.getItem(`gear.day.${d.id}`) === "1") next[d.id] = true;
+    } catch {
+      /* private mode / no storage — default expanded, like a folder */
+    }
+  }
+  collapsed.value = next;
+});
+function toggleDay(id: string) {
+  const now = !collapsed.value[id];
+  collapsed.value = { ...collapsed.value, [id]: now };
+  try {
+    if (now) localStorage.setItem(`gear.day.${id}`, "1");
+    else localStorage.removeItem(`gear.day.${id}`);
+  } catch {
+    /* not worth reporting */
+  }
+}
+
+/**
+ * Each day's climb, READ OFF the profile rather than typed — the route already knows it,
+ * so asking twice is asking for a disagreement.
+ *
+ * A typed value still wins: `ascentM` on the day is the override, and the derived figure
+ * only fills the gap. That's the same rule the trail's own distance follows, and it means
+ * a GPX can't overwrite something somebody entered deliberately.
+ */
+const derivedClimbs = computed(() => {
+  if (!profile.value.length) return [];
+  const parts = segmentClimbs(profile.value, dayDistancesM.value);
+  const fromProfile = parts.reduce((s, x) => s + x.ascentM, 0);
+  const trueTotal = props.snapshot.trailAscentM;
+  // SHAPE from the profile, MAGNITUDE from the full track. 96 samples is plenty to draw
+  // with and far too coarse to measure with — measured off the profile alone, a real
+  // 3,123 m loop reads about 1,600, because resampling smooths away half the undulation.
+  // Proportions survive that; totals don't. Without a stored total (a profile from an
+  // older list) the shares stand as they are rather than being invented.
+  if (!trueTotal || !(fromProfile > 0)) return parts;
+  const scale = trueTotal / fromProfile;
+  return parts.map((x) => ({
+    ascentM: Math.round(x.ascentM * scale),
+    descentM: Math.round(x.descentM * scale),
+  }));
+});
+const climbFor = (i: number) => days.value[i]?.ascentM ?? derivedClimbs.value[i]?.ascentM;
+const climbIsDerived = (i: number) =>
+  days.value[i]?.ascentM == null && derivedClimbs.value[i]?.ascentM != null;
+
+async function commitDistance(id: string | null, e: Event) {
+  if (!id) { await nextTick(); id = stored.value[stored.value.length - 1]?.id ?? null; if (!id) return; }
   const raw = (e.target as HTMLInputElement).value.trim();
   c.updateDay(id, { distanceM: raw ? (parseDistanceM(raw, distanceUnit.value) ?? undefined) : undefined });
 }
-function commitAscent(id: string, e: Event) {
+async function commitAscent(id: string | null, e: Event) {
+  if (!id) { await nextTick(); id = stored.value[stored.value.length - 1]?.id ?? null; if (!id) return; }
   const raw = (e.target as HTMLInputElement).value.trim();
   // Ascent is a HEIGHT, so it reads in metres or feet — never in the km/mi the distance
   // beside it uses. Same parser; the fallback unit is what differs.
   c.updateDay(id, { ascentM: raw ? (parseDistanceM(raw, distanceUnit.value === "mi" ? "ft" : "m") ?? undefined) : undefined });
 }
-function commitLabel(id: string, e: Event) {
+async function commitLabel(id: string | null, e: Event) {
+  if (!id) { await nextTick(); id = stored.value[stored.value.length - 1]?.id ?? null; if (!id) return; }
   c.updateDay(id, { label: (e.target as HTMLInputElement).value.trim() });
 }
 
@@ -237,11 +316,6 @@ const distanceValue = (m: number | undefined) =>
       </span>
     </div>
 
-    <p v-if="dayCountMismatch" class="plan__note t-sm">
-      Your dates cover {{ datedDays }} {{ datedDays === 1 ? "day" : "days" }}, and there
-      {{ days.length === 1 ? "is" : "are" }} {{ days.length }} here.
-    </p>
-
     <!-- Empty state names what's missing rather than showing an empty table. -->
     <p v-if="!days.length" class="plan__note t-sm">
       Break the trip into days to see what each one asks of you, and what the pack weighs
@@ -249,67 +323,116 @@ const distanceValue = (m: number | undefined) =>
     </p>
 
     <ol v-else class="plan__days">
-      <li v-for="(d, i) in days" :key="d.id" class="plan__day">
-        <span class="plan__n t-label">Day {{ i + 1 }}</span>
-        <input
-          class="plan__label"
-          :value="d.label ?? ''"
-          :placeholder="`Day ${i + 1}`"
-          :aria-label="`Name for day ${i + 1}`"
-          @change="commitLabel(d.id, $event)"
-        />
-        <span class="plan__field">
+      <li v-for="(d, i) in days" :key="d?.id ?? `ghost-${i}`" class="plan__day">
+        <!-- The heading takes the FOLDER treatment — a day groups a stretch of the walk
+             the way a folder groups gear, so it reads at the same level and gets the same
+             editable-name affordance. -->
+        <header class="plan__dayhead">
+          <!-- Unnamed, the placeholder IS the name — "Day 3" and nothing else, because a
+               number is what an unnamed day is called. Name it and the ordinal doesn't
+               leave; it steps back and follows, so the position in the trip is never lost
+               to a name. ONE type size throughout: only the colour changes, so a rename
+               doesn't reflow the row. -->
           <input
-            class="plan__num"
-            inputmode="decimal"
-            :value="distanceValue(d.distanceM)"
-            :aria-label="`Distance on day ${i + 1}, in ${distanceUnit}`"
-            placeholder="—"
-            @change="commitDistance(d.id, $event)"
+            class="field plan__name"
+            :value="d?.label ?? ''"
+            :placeholder="`Day ${i + 1}`"
+            :aria-label="`Name for day ${i + 1}`"
+            autocorrect="off"
+            spellcheck="false"
+            @change="commitLabel(d?.id ?? ensureDay(i), $event)"
           />
-          <span class="t-muted plan__unit">{{ distanceUnit }}</span>
-        </span>
-        <span class="plan__field">
-          <input
-            class="plan__num"
-            inputmode="decimal"
-            :value="ascentValue(d.ascentM)"
-            :aria-label="`Climb on day ${i + 1}, in ${ascentUnit}`"
-            placeholder="—"
-            @change="commitAscent(d.id, $event)"
-          />
-          <span class="t-muted plan__unit">{{ ascentUnit }}</span>
-        </span>
+          <span v-if="d?.label" class="plan__ordinal" aria-hidden="true">Day {{ i + 1 }}</span>
+          <button
+            type="button"
+            class="plan__collapse plan__collapse--tight"
+            :aria-expanded="!collapsed[d?.id ?? '']"
+            :aria-label="`${collapsed[d?.id ?? ''] ? 'Expand' : 'Collapse'} ${d?.label || `day ${i + 1}`}`"
+            @click="d && toggleDay(d.id)"
+          >
+            <HugeiconsIcon :icon="ChevronDownIcon" class="plan__chev2" :class="{ 'is-collapsed': collapsed[d?.id ?? ''] }" :size="20" :stroke-width="2" />
+          </button>
+          <button
+            type="button"
+            class="btn btn--icon btn--ghost plan__del plan__del--end"
+            :title="`Remove day ${i + 1}`"
+            :aria-label="`Remove day ${i + 1}`"
+            @click="d && c.removeDay(d.id)"
+          >
+            <HugeiconsIcon :icon="Delete02Icon" :size="16" :stroke-width="1.5" />
+          </button>
+        </header>
 
-        <!-- Modelled, so both carry the tilde. The mark is on the NUMBER rather than in a
-             footnote because it has to survive being copied out of here. -->
-        <span class="plan__est t-num" :title="estimates[i] ? 'Moving time — Tobler\'s hiking function on this day\'s own distance and climb, plus 1% per kg of pack. Breaks are not in it.' : ''">
-          {{ estimates[i] ? `~${formatHours(estimates[i]!.hours)}` : "—" }}
-        </span>
-        <span class="plan__est t-num" :title="estimates[i] ? `Walking and resting for the day, at ${formatBodyWeight(bodyG, bodyUnit)}${bodyIsDefault ? ' (assumed)' : ''}. Good to about ±20%.` : ''">
-          {{ estimates[i] ? `~${roundKcal(estimates[i]!.totalKcal).toLocaleString()}` : "—" }}
-        </span>
-
-        <!-- The burn-down. One bar per day, NOT a line: a line would draw a segment
-             between two days and so assert the pack's weight at noon, which nothing here
-             knows. Read down the column it is the curve, with no invented point.
-             aria-hidden because the figure is already text beside it — a role="img" here
-             would make a screen reader say the same number twice. -->
-        <span class="plan__pack">
-          <span class="plan__bar" aria-hidden="true">
-            <span class="plan__barfill" :style="{ width: `${(packMg[i]! / heaviestMg) * 100}%` }" />
+        <!-- The data reads as one line of glyph-and-figure pairs, the way an item row
+             does: what you TYPE first, then what follows from it. -->
+        <div v-if="!collapsed[d?.id ?? '']" class="plan__data">
+          <span class="plan__cell">
+            <HugeiconsIcon :icon="RouteIcon" class="plan__gl" :size="14" :stroke-width="2" aria-hidden="true" />
+            <input
+              class="field field--num plan__num"
+              inputmode="decimal"
+              :value="distanceValue(d?.distanceM)"
+              :aria-label="`Distance on day ${i + 1}, in ${distanceUnit}`"
+              placeholder="—"
+              @change="commitDistance(d?.id ?? ensureDay(i), $event)"
+            />
+            <span class="t-muted">{{ distanceUnit }}</span>
           </span>
-          <span class="t-num plan__packnum">{{ formatWeight(packMg[i] ?? 0, snapshot.displayUnit) }}</span>
-        </span>
 
-        <button
-          type="button"
-          class="btn btn--quiet plan__remove"
-          :aria-label="`Remove day ${i + 1}`"
-          @click="c.removeDay(d.id)"
-        >
-          <HugeiconsIcon :icon="Delete02Icon" :size="16" :stroke-width="1.5" aria-hidden="true" />
-        </button>
+          <!-- Climb comes off the GPX when there is one, and is muted to say so. Typing
+               over it makes it yours, and the value stops being derived. -->
+          <span class="plan__cell" :class="{ 'is-derived': climbIsDerived(i) }">
+            <HugeiconsIcon :icon="ArrowUpRight01Icon" class="plan__gl" :size="14" :stroke-width="2" aria-hidden="true" />
+            <input
+              class="field field--num plan__num"
+              inputmode="decimal"
+              :value="ascentValue(climbFor(i))"
+              :aria-label="`Climb on day ${i + 1}, in ${ascentUnit}`"
+              :placeholder="profile.length ? '—' : '—'"
+              @change="commitAscent(d?.id ?? ensureDay(i), $event)"
+            />
+            <span class="t-muted">{{ ascentUnit }}</span>
+            <Tooltip v-if="climbIsDerived(i)" text="Read off the GPX — this day's share of the route's climb. Type over it to set your own." preferred-placement="top">
+              <button type="button" class="plan__why" aria-label="Where this climb comes from">
+                <HugeiconsIcon :icon="HelpCircleIcon" :size="13" :stroke-width="2" aria-hidden="true" />
+              </button>
+            </Tooltip>
+          </span>
+
+          <!-- Read-only, and worked out rather than measured — so it carries the `~` AND
+               a (?) you can actually reach. A bare title= is invisible to a phone and to
+               a keyboard; Tooltip is the app's own affordance and answers both. -->
+          <span class="plan__cell plan__cell--est">
+            <HugeiconsIcon :icon="Clock01Icon" class="plan__gl" :size="14" :stroke-width="2" aria-hidden="true" />
+            <span class="t-num">{{ estimates[i] ? `~${formatHours(estimates[i]!.hours)}` : "—" }}</span>
+            <Tooltip v-if="estimates[i]" text="Moving time, from this day's own distance and climb plus 1% per kg of pack. Breaks aren't in it." preferred-placement="top">
+              <button type="button" class="plan__why" aria-label="How the moving time is worked out">
+                <HugeiconsIcon :icon="HelpCircleIcon" :size="13" :stroke-width="2" aria-hidden="true" />
+              </button>
+            </Tooltip>
+          </span>
+
+          <span class="plan__cell plan__cell--est">
+            <HugeiconsIcon :icon="Fire02Icon" class="plan__gl" :size="14" :stroke-width="2" aria-hidden="true" />
+            <span class="t-num">{{ estimates[i] ? `~${roundKcal(estimates[i]!.totalKcal).toLocaleString()}` : "—" }}</span>
+            <Tooltip v-if="estimates[i]" :text="`Walking and resting for the day, at ${formatBodyWeight(bodyG, bodyUnit)}${bodyIsDefault ? ' — assumed, set yours below' : ''}. Good to about ±20%.`" preferred-placement="top">
+              <button type="button" class="plan__why" aria-label="How the calories are worked out">
+                <HugeiconsIcon :icon="HelpCircleIcon" :size="13" :stroke-width="2" aria-hidden="true" />
+              </button>
+            </Tooltip>
+          </span>
+
+          <!-- The pack that morning. One bar per day, NOT a line: a line would assert the
+               weight at noon, which nothing here knows. Read down the column it is the
+               curve, with no invented point. aria-hidden because the figure is text
+               beside it, and a role="img" would say the number twice. -->
+          <span class="plan__pack">
+            <span class="plan__bar" aria-hidden="true">
+              <span class="plan__barfill" :style="{ width: `${(packMg[i]! / heaviestMg) * 100}%` }" />
+            </span>
+            <span class="t-num plan__packnum">{{ formatWeight(packMg[i] ?? 0, snapshot.displayUnit) }}</span>
+          </span>
+        </div>
       </li>
     </ol>
 
@@ -325,13 +448,27 @@ const distanceValue = (m: number | undefined) =>
       <span class="plan__field">
         <input
           :id="`${uid}-body`"
-          class="plan__num plan__bodynum"
+          class="field field--num plan__num plan__bodynum"
           inputmode="decimal"
           :value="bodyFieldValue"
           :placeholder="bodyWeightFieldValue(DEFAULT_BODY_G, bodyUnit)"
           @change="commitBody"
         />
-        <span class="t-muted plan__unit">{{ bodyUnit }}</span>
+        <!-- kg or lb, pickable — the third field to take the same three rules (two units
+             only, absent follows the list's weight unit, the stored grams never move).
+             A body in ounces is not a thing anyone wants to read. -->
+        <OptionMenu
+          :options="BODY_UNIT_OPTIONS"
+          :current="bodyUnit"
+          label="Body weight unit"
+          title="Change unit"
+          @pick="(u) => c.setMeta({ bodyWeightUnit: u })"
+        >
+          <template #trigger="{ open }">
+            <span class="t-muted">{{ bodyUnit }}</span>
+            <HugeiconsIcon :icon="ChevronDownIcon" class="plan__chev" :class="{ 'is-open': open }" :size="12" :stroke-width="2" />
+          </template>
+        </OptionMenu>
       </span>
       <span v-if="bodyIsDefault" class="plan__assumed">
         assuming {{ formatBodyWeight(DEFAULT_BODY_G, bodyUnit) }} — set yours and these change
@@ -342,10 +479,9 @@ const distanceValue = (m: number | undefined) =>
       on rough ground or at a pace that isn't average.
     </p>
 
-    <button type="button" class="plan__add" @click="c.addDay()">
-      <HugeiconsIcon :icon="PlusSignIcon" :size="14" :stroke-width="2" aria-hidden="true" />
-      Add a day
-    </button>
+    <div class="plan__addwrap">
+      <button type="button" class="plan__add" @click="c.addDay()">Add a day</button>
+    </div>
   </section>
 </template>
 
@@ -418,50 +554,135 @@ const distanceValue = (m: number | undefined) =>
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--folder-gap, var(--space-6));
 }
-/* The row echoes an item row's shape — a 1fr name and fixed data tracks — so the two
-   read as the same kind of object seen from a different angle. */
-.plan__day {
-  display: grid;
-  grid-template-columns: auto 1fr 5.5rem 5.5rem 4.5rem 5rem 9rem var(--icon-btn);
-  align-items: center;
+/* A day is a folder-shaped thing: a name you can edit at title size, its own actions,
+   then its contents underneath. Same rhythm, so the two read as siblings. */
+.plan__dayhead {
+  display: flex;
+  align-items: baseline;
   gap: var(--space-2);
 }
 .plan__n {
-  white-space: nowrap;
-}
-.plan__label,
-.plan__num {
-  min-width: 0;
-  padding: var(--space-1) var(--space-2);
-  border: 0;
-  border-radius: var(--radius-2);
-  background: var(--paper-2);
-  color: inherit;
-  font: inherit;
-}
-.plan__num {
-  width: 100%;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-.plan__field {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-1);
-  min-width: 0;
-}
-.plan__unit {
   flex: none;
+  color: var(--ink-3);
 }
-.plan__pack {
+.plan__name {
+  flex: 0 1 auto;
+  /* .field is width:100%, which would push the chevron to the far edge and detach it from
+     the name it folds. Size to the CONTENT instead, the way the title does — the native
+     property where it exists, with a modest fallback width elsewhere so the field is
+     still comfortably clickable when it's empty and showing only "Day 3". */
+  width: 11ch;
+  field-sizing: content;
+  min-width: 6ch;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: var(--font);
+  font-size: var(--text-title);
+  font-weight: 600;
+  letter-spacing: var(--track-tight);
+  color: var(--ink);
+}
+/* the chevron rides with the NAME, as a folder's does — it belongs to the thing it
+   folds, not to the row's trailing actions */
+.plan__collapse--tight {
+  margin-left: calc(var(--space-2) * -1 + 2px);
+}
+.plan__del {
+  flex: none;
+  color: var(--ink-3);
+}
+/* …and only the delete goes to the far edge */
+.plan__del--end {
+  margin-left: auto;
+}
+/* the row's data, as glyph-and-figure pairs — an item row's grammar at day scale */
+.plan__data {
+  margin-top: var(--space-2);
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+}
+.plan__cell {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--ink-2);
+}
+/* estimates sit a step back from the figures you entered — the `~` carries the claim,
+   this only keeps the eye on what's yours */
+.plan__cell--est {
+  color: var(--ink-3);
+}
+/* a climb read off the GPX rather than typed */
+.plan__cell.is-derived .plan__num {
+  color: var(--ink-3);
+}
+/* the (?) — quiet until wanted, and a real button so it's reachable by keyboard and
+   by touch, unlike the title= it replaces */
+.plan__why {
+  /* the glyph annotates the figure rather than belonging to it, so it sits a full step
+     away — at --space-1 it read as a superscript on the number */
+  margin-left: var(--space-2);
+  display: inline-flex;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-ghost);
+  cursor: help;
+  transition: color var(--dur) var(--ease);
+}
+.plan__why:hover,
+.plan__why:focus-visible {
+  color: var(--ink-3);
+}
+.plan__collapse {
+  flex: none;
+  display: inline-flex;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+.plan__chev2 {
+  transition: transform var(--dur) var(--ease);
+}
+.plan__chev2.is-collapsed {
+  transform: rotate(-90deg);
+}
+/* the ordinal follows a named day at the SAME size — only the colour steps back, so
+   naming a day never reflows its row */
+.plan__ordinal {
+  flex: none;
+  font-size: var(--text-title);
+  font-weight: 600;
+  letter-spacing: var(--track-tight);
+  color: var(--ink-ghost);
+}
+.plan__gl {
+  flex: none;
+  color: var(--ink-3);
+}
+/* .field + .field--num carry the shape (uncontained, no fill, caret-as-focus, the
+   tabular numerals and the iOS 16px rule) — an item row's weight box and this are the
+   same object, so they are the same atom. Only the width is local: a day's figures are
+   short, and .field is width:100%. */
+.plan__num {
+  width: 3.25rem;
   min-width: 0;
 }
-/* the CategoryBar idiom, at row scale — a rail and a proportional fill, no new vocabulary */
+.plan__pack {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 8rem;
+  flex: 1;
+}
 .plan__bar {
   flex: 1;
   min-width: var(--bar-seg-min);
@@ -476,11 +697,28 @@ const distanceValue = (m: number | undefined) =>
   border-radius: var(--radius-pill);
   background: var(--cat-consumable);
 }
-.plan__est {
-  text-align: right;
+.plan__packnum {
+  flex: none;
   font-variant-numeric: tabular-nums;
-  color: var(--ink-2);
-  white-space: nowrap;
+}
+/* the "Add folder" treatment: title-sized, dimmed, inks up on hover */
+.plan__addwrap {
+  align-self: flex-start;
+}
+.plan__add {
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font-family: var(--font);
+  font-size: var(--text-title);
+  font-weight: 600;
+  letter-spacing: var(--track-tight);
+  color: var(--ink-ghost);
+  transition: color var(--dur) var(--ease);
+}
+.plan__add:hover {
+  color: var(--ink-3);
 }
 .plan__est-total {
   margin: 0;

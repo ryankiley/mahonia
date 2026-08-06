@@ -28,7 +28,7 @@ import { UNITS } from "../../shared/types";
 import type { ListData, ListSnapshot, ListState, Totals, Unit } from "../../shared/types";
 import { isLikelySpam } from "../../shared/discovery";
 import { MAX_SUMMARY_LEN, summarizeOps } from "../../shared/changeSummary";
-import { normalizeBodyWeightG, normalizeBodyWeightUnit, normalizeDistanceUnit, normalizeTrailDistanceM } from "../../shared/trailDistance";
+import { normalizeBodyWeightG, normalizeBodyWeightUnit, normalizeDistanceUnit, normalizeTrailAscentM, normalizeTrailDistanceM } from "../../shared/trailDistance";
 import { parseProfile } from "../../shared/gpx";
 import { displayHost, normalizeTrailLabel, normalizeTrailUrl, safeUrl } from "../../shared/trailLink";
 import { ensureSnapshotSchema, ensureTrailFaviconSchema, useAccountDb, useDb } from "./db";
@@ -118,6 +118,7 @@ export function rowToSnapshot(row: ListRow): ListSnapshot {
     trailDistanceM: row.trailDistanceM ?? undefined,
     trailDistanceUnit: normalizeDistanceUnit(row.trailDistanceUnit),
     trailProfile: row.trailProfile ?? undefined,
+    trailAscentM: row.trailAscentM ?? undefined,
     startDate: row.startDate ?? undefined,
     endDate: row.endDate ?? undefined,
     displayUnit: row.displayUnit as Unit,
@@ -237,6 +238,7 @@ function rowToState(row: ListRow): ListState {
     trailDistanceM: row.trailDistanceM ?? undefined,
     trailDistanceUnit: normalizeDistanceUnit(row.trailDistanceUnit),
     trailProfile: row.trailProfile ?? undefined,
+    trailAscentM: row.trailAscentM ?? undefined,
     bodyWeightG: row.bodyWeightG ?? undefined,
     bodyWeightUnit: normalizeBodyWeightUnit(row.bodyWeightUnit),
     startDate: row.startDate ?? undefined,
@@ -478,6 +480,7 @@ export async function restoreSnapshotByEditToken(
         trailDistanceM: s.trailDistanceM ?? null,
         trailDistanceUnit: s.trailDistanceUnit ?? null,
         trailProfile: s.trailProfile ?? null,
+        trailAscentM: s.trailAscentM ?? null,
         bodyWeightG: s.bodyWeightG ?? null,
         bodyWeightUnit: s.bodyWeightUnit ?? null,
         startDate: s.startDate ?? null,
@@ -585,6 +588,7 @@ export async function createList(init?: {
   trailDistanceM?: number;
   trailDistanceUnit?: string;
   trailProfile?: string;
+  trailAscentM?: number;
   bodyWeightG?: number;
   bodyWeightUnit?: string;
   startDate?: string;
@@ -610,6 +614,7 @@ export async function createList(init?: {
   const trailDistanceM = normalizeTrailDistanceM(init?.trailDistanceM);
   const trailDistanceUnit = normalizeDistanceUnit(init?.trailDistanceUnit);
   const trailProfile = parseProfile(init?.trailProfile).join(",") || undefined;
+  const trailAscentM = normalizeTrailAscentM(init?.trailAscentM);
   const bodyWeightG = normalizeBodyWeightG(init?.bodyWeightG);
   const bodyWeightUnit = normalizeBodyWeightUnit(init?.bodyWeightUnit);
   // same rule the setMeta op applies, so a date set on a draft means the same thing
@@ -636,6 +641,7 @@ export async function createList(init?: {
           trailDistanceM,
           trailDistanceUnit,
           trailProfile,
+          trailAscentM,
           bodyWeightG,
           bodyWeightUnit,
           startDate,
@@ -752,6 +758,7 @@ export async function applyOpsByEditToken(
         trailDistanceM: state.trailDistanceM ?? null,
         trailDistanceUnit: state.trailDistanceUnit ?? null,
         trailProfile: state.trailProfile ?? null,
+        trailAscentM: state.trailAscentM ?? null,
         bodyWeightG: state.bodyWeightG ?? null,
         bodyWeightUnit: state.bodyWeightUnit ?? null,
         startDate: state.startDate ?? null,

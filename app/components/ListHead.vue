@@ -110,7 +110,7 @@ function commitUrl(e: Event) {
   c.setMeta({ trailUrl: value });
   // clearing the URL clears the label too — a label with no link is unreachable state,
   // and so is a distance with no route to be the length of
-  if (!value) c.setMeta({ trailLabel: "", trailDistanceM: "", trailProfile: "" });
+  if (!value) c.setMeta({ trailLabel: "", trailDistanceM: "", trailProfile: "", trailAscentM: "" });
 }
 
 function commitLabel(e: Event) {
@@ -148,6 +148,8 @@ async function onGpx(e: Event) {
     c.setMeta({
       trailDistanceM: stats.distanceM,
       trailProfile: profileToString(stats.profile) ?? "",
+      // measured across the FULL track, not the 96-sample profile — see trailAscentM
+      trailAscentM: stats.ascentM,
     });
   } catch {
     gpxError.value = "Couldn't read a route out of that file.";
@@ -198,7 +200,7 @@ function commitDistance(e: Event) {
 
 function remove() {
   // the distance describes the ROUTE, so it goes with the link rather than outliving it
-  c.setMeta({ trailUrl: "", trailLabel: "", trailDistanceM: "", trailProfile: "" });
+  c.setMeta({ trailUrl: "", trailLabel: "", trailDistanceM: "", trailProfile: "", trailAscentM: "" });
   mode.value = null;
 }
 

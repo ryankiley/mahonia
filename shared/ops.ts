@@ -5,6 +5,7 @@
 // version counter only signals "you're behind, refetch", not "rejected".
 
 import { parseProfile } from "./gpx";
+import { normalizeTrailAscentM } from "./trailDistance";
 import { normalizeBodyWeightG, normalizeBodyWeightUnit, normalizeDistanceUnit, normalizeTrailDistanceM } from "./trailDistance";
 import { normalizeTrailLabel, normalizeTrailUrl } from "./trailLink";
 import type { Classification, Folder, FolderSort, Item, ListState, TripDay, Unit } from "./types";
@@ -68,6 +69,7 @@ export type Op =
         trailDistanceM: number | string;
         trailDistanceUnit: string;
         trailProfile: string;
+        trailAscentM: number | string;
         bodyWeightG: number | string;
         bodyWeightUnit: string;
         startDate: string;
@@ -425,6 +427,11 @@ function applyOp(state: ListState, op: Op): void {
         const prof = parseProfile(p.trailProfile);
         if (prof.length) state.trailProfile = prof.join(",");
         else delete state.trailProfile;
+      }
+      if (typeof p.trailAscentM === "number" || typeof p.trailAscentM === "string") {
+        const m = normalizeTrailAscentM(p.trailAscentM);
+        if (m) state.trailAscentM = m;
+        else delete state.trailAscentM;
       }
       if (typeof p.bodyWeightG === "number" || typeof p.bodyWeightG === "string") {
         const g = normalizeBodyWeightG(p.bodyWeightG);

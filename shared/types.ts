@@ -161,7 +161,12 @@ export interface ListMeta {
   // The route's shape: elevations in metres, comma-joined, evenly spaced by distance.
   // Read off a GPX in the browser; see shared/gpx.ts. Belongs to the ROUTE, so it clears
   // with the link, like the distance does.
-  trailProfile?: string;
+ trailProfile?: string;
+  // The whole route's climb, in metres, at FULL track resolution. The stored profile is
+  // only 96 samples, which is plenty to draw with and far too coarse to measure with —
+  // it smooths away about half the real undulation. So per-day climb takes its SHAPE
+  // from the profile and its MAGNITUDE from this.
+  trailAscentM?: number;
   bodyWeightG?: number;
   bodyWeightUnit?: BodyWeightUnit;
   // When the trip is. CALENDAR DATES, not instants: `YYYY-MM-DD`, no time and no

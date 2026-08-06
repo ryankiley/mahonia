@@ -18,6 +18,7 @@ export default defineEventHandler(async (event) => {
     trailDistanceM?: number;
     trailDistanceUnit?: string;
     trailProfile?: string;
+    trailAscentM?: number;
     bodyWeightG?: number;
     bodyWeightUnit?: string;
     startDate?: string;
@@ -45,6 +46,7 @@ export default defineEventHandler(async (event) => {
   // the route's shape and the walker, set on a DRAFT before the list exists server-side —
   // without these they are silently lost the moment that draft is first saved
   const trailProfile = typeof body?.trailProfile === "string" ? body.trailProfile : undefined;
+  const trailAscentM = typeof body?.trailAscentM === "number" ? body.trailAscentM : undefined;
   const bodyWeightG = typeof body?.bodyWeightG === "number" ? body.bodyWeightG : undefined;
   const bodyWeightUnit =
     typeof body?.bodyWeightUnit === "string" ? body.bodyWeightUnit : undefined;
@@ -75,6 +77,7 @@ export default defineEventHandler(async (event) => {
       trailDistanceM,
       trailDistanceUnit,
       trailProfile,
+      trailAscentM,
       bodyWeightG,
       bodyWeightUnit,
       startDate,

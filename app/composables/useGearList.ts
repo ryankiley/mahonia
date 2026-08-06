@@ -383,6 +383,7 @@ function create() {
           trailDistanceM: s.trailDistanceM,
           trailDistanceUnit: s.trailDistanceUnit,
           trailProfile: s.trailProfile,
+          trailAscentM: s.trailAscentM,
           bodyWeightG: s.bodyWeightG,
           bodyWeightUnit: s.bodyWeightUnit,
           startDate: s.startDate,
