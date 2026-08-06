@@ -385,8 +385,15 @@ const ascentValue = (m: number | undefined) => {
   if (distanceUnit.value !== "mi") return String(Math.round(m));
   return String(Math.round(m / 0.3048 / 10) * 10);
 };
-const distanceValue = (m: number | undefined) =>
-  m == null ? "" : String(Number((m / (distanceUnit.value === "mi" ? 1609.344 : 1000)).toFixed(2)));
+const distanceValue = (m: number | undefined) => {
+  if (m == null) return "";
+  const n = Number((m / (distanceUnit.value === "mi" ? 1609.344 : 1000)).toFixed(2));
+  // At least one decimal, so "9.0" and "9.8" are the same width and the unit sits hard
+  // against the figure instead of drifting a character away on whole numbers. PADDED, not
+  // rounded — 9.85 keeps both places, because this field round-trips through the store and
+  // forcing one decimal would quietly turn it into 9.9 the next time it saved.
+  return Number.isInteger(n) ? n.toFixed(1) : String(n);
+};
 </script>
 
 <template>
@@ -838,6 +845,16 @@ const distanceValue = (m: number | undefined) =>
 }
 .plan__gl {
   flex: none;
+  color: var(--ink-3);
+}
+/* Units and other trailing small text take --ink-3, the lesser ink.
+ *
+ * NOT `.t-muted`, which is --ink-2 and therefore DARKER — beside a derived figure (also
+ * --ink-3) it made the unit louder than the number it qualifies, which is backwards. One
+ * token for every unit on the panel, so "ft" reads the same weight wherever it appears. */
+.plan__cell .t-muted,
+.plan__chips .t-muted,
+.plan__assume .t-muted {
   color: var(--ink-3);
 }
 /* mirrored, not a second icon — see the template */

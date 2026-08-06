@@ -585,6 +585,10 @@ const id = useId();
 }
 /* The route's own figures, in the same chip the trip's estimates use — they answer the
    same kind of question and were reading as a different class of thing. */
+/* the same lesser ink the panel gives its units — see the note there on why not .t-muted */
+.tprofile__facts .t-muted {
+  color: var(--ink-3);
+}
 .tprofile__facts {
   display: flex;
   flex-wrap: wrap;
