@@ -255,6 +255,15 @@ const UNIT_OPTIONS = DISPLAY_DISTANCE_UNITS.map((u) => ({ key: u, label: u }));
 // the two views must agree on what a day is called.
 const dayOrdinal = (i: number) => dayLabel(i, props.snapshot.startDate);
 
+/** Hand lengths in the icon set's 24-unit box; the minute hand reads longer, as on a face. */
+const MINUTE_HAND = 5;
+const HOUR_HAND = 3.4;
+
+/** A point on the dial, clockwise from twelve, as an SVG coordinate pair. */
+function polar(angle: number, length: number): string {
+  return `${(12 + length * Math.sin(angle)).toFixed(2)} ${(12 - length * Math.cos(angle)).toFixed(2)}`;
+}
+
 /**
  * A clock face whose hands read the estimate beside it.
  *
@@ -267,15 +276,22 @@ const dayOrdinal = (i: number) => dayLabel(i, props.snapshot.startDate);
  * because a face with both hands straight up reads as no time at all.
  */
 function clockIcon(hours: number) {
-  const h = ((Math.round(hours) + 11) % 12) + 1; // 1–12, never 0
-  const angle = (h % 12) * 30 * (Math.PI / 180); // clockwise from twelve
-  const x = (12 + 4 * Math.sin(angle)).toFixed(2);
-  const y = (12 - 4 * Math.cos(angle)).toFixed(2);
+  // Nearest HALF hour, so a 4 h 39 day reads half past four rather than rounding to five
+  // and losing the difference between it and a 4 h 05 one. Never fewer than one half —
+  // both hands straight up reads as no time at all rather than as a short day.
+  const halves = Math.max(1, Math.round(hours * 2));
+  const onHalf = halves % 2 === 1;
+  const h = (halves / 2) % 12 || 12; // 12 rather than 0 at the wrap
+  const rad = (deg: number) => deg * (Math.PI / 180);
+  // The hour hand CREEPS with the minutes — at half past it sits between the two hours,
+  // which is what a real face does and what makes the half-hour variants read as halves
+  // rather than as a minute hand that came loose.
+  const hour = polar(rad((h % 12) * 30), HOUR_HAND);
+  const minute = polar(onHalf ? rad(180) : 0, MINUTE_HAND);
   return [
     ["circle", { cx: "12", cy: "12", r: "10", stroke: "currentColor", strokeWidth: "1.5", key: "0" }],
-    // minute hand straight up, hour hand at the estimate — the pair reads as "about N hours"
     ["path", {
-      d: `M12 6V12L${x} ${y}`,
+      d: `M${minute}L12 12L${hour}`,
       stroke: "currentColor",
       strokeLinecap: "round",
       strokeLinejoin: "round",
