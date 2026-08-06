@@ -18,7 +18,7 @@ const UNIT_OPTIONS = UNITS.map((u) => ({ key: u, label: u }));
 
 <script setup lang="ts">
 import { HugeiconsIcon } from "@hugeicons/vue";
-import { CalculatorIcon, Cancel01Icon, CheckIcon, CheckmarkSquare02Icon, ChevronDownIcon, CircleEllipsisIcon, CookieIcon, Delete02Icon, GripVerticalIcon, ListIndentDecreaseIcon, ListIndentIncreaseIcon, ListPlusIcon, NoteAddIcon, NoteRemoveIcon, SafeBoxIcon, ShirtIcon, SquareIcon } from "@hugeicons/core-free-icons";
+import { CalculateIcon, Cancel01Icon, CheckIcon, CheckmarkSquare02Icon, ChevronDownIcon, CircleEllipsisIcon, CookieIcon, Delete02Icon, GripVerticalIcon, ListIndentDecreaseIcon, ListIndentIncreaseIcon, ListPlusIcon, NoteAddIcon, NoteRemoveIcon, SafeBoxIcon, ShirtIcon, SquareIcon } from "@hugeicons/core-free-icons";
 import type { Item, ListSnapshot } from "~~/shared/types";
 import type { ItemPatch } from "~~/shared/ops";
 import type { NameCommit } from "~/composables/useCatalogSearch";
@@ -1043,7 +1043,7 @@ function dismissFix() {
                        popover is something you typed, this is the one line the app
                        worked out. -->
                   <p v-if="item.kcal && item.qty > 1" class="t-sm t-muted item__popline">
-                    <HugeiconsIcon :icon="CalculatorIcon" class="item__poplineicon" :size="14" aria-hidden="true" :stroke-width="2" />
+                    <HugeiconsIcon :icon="CalculateIcon" class="item__poplineicon" :size="14" aria-hidden="true" :stroke-width="2" />
                     {{ formatKcal(item.kcal * item.qty) }} kcal for {{ item.qty }}
                   </p>
                 </template>
