@@ -183,7 +183,22 @@ import { brotliCompressSync, gzipSync, constants } from "node:zlib";
 // 139 and not 138, for the same reason the last note gives: 137.1 against 137 is the
 // zero-slack state this file warns about, and it is what just happened. ~1.9 KB of
 // working headroom is the point, not tracking current.
-const FIRST_LOAD_BUDGET_KB = 139;
+//
+// 139 → 142 for a dependency update — the same shape as the nuxt 4.4.8→4.5.0 note at the
+// top of this file, and no app code changed. `npm update` inside the existing semver
+// ranges; measured both lockfiles against the same tree: 138.7 before, 139.7 after, so
+// +1.0 KB brotli. Nearly all of it is one chunk, the Nuxt entry (+2.3 KB raw / +0.7 KB
+// brotli), which is where unhead 3.2.3→3.3.1 and devalue 5.8.2→5.9.0 land. vue 3.5.40→
+// 3.5.41 and vite 8.1.5→8.2.0 moved the runtime and the chunking by ~0.1 KB each.
+//
+// There is nothing to shave here — it is vendor runtime arriving through a routine bump,
+// and the alternative was pinning a transitive dep to hold a number, which buys 1 KB and
+// owes a revisit. Worth being honest that the gate was ALREADY at zero slack before this:
+// 138.7 against 139, spent by the plain-text exporter, so the +1.0 KB is what tipped a
+// budget that had no room left rather than the whole story. 142 re-anchors with the ~2 KB
+// of working headroom the notes above keep arguing for, so the next heavy dep still trips
+// the gate and ordinary work doesn't.
+const FIRST_LOAD_BUDGET_KB = 142;
 // TOTAL of every built file, the backstop. Deliberately slack: its job is to catch
 // a route chunk ballooning or a heavy dep landing somewhere unnoticed, NOT to price
 // ordinary feature work. Set well clear of current (137.1) so it only speaks up when
