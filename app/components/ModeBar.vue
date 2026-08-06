@@ -58,10 +58,11 @@ function onKey(e: KeyboardEvent) {
   if (i < 0) return;
   e.preventDefault();
   const step = /Left|Up/.test(e.key) ? -1 : 1;
-  const next = props.modes[(i + step + props.modes.length) % props.modes.length]!;
-  emit("pick", next.key);
+  // wraps at both ends, so the arrows never dead-end on the first or last view
+  const at = (i + step + props.modes.length) % props.modes.length;
+  emit("pick", props.modes[at]!.key);
   // focus follows the selection, or the next arrow press starts from the old option
-  nextTick(() => opts.value?.[(i + step + props.modes.length) % props.modes.length]?.focus());
+  nextTick(() => opts.value?.[at]?.focus());
 }
 </script>
 

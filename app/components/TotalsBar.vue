@@ -2,7 +2,6 @@
 import { HugeiconsIcon } from "@hugeicons/vue";
 import { CheckIcon, ChevronDownIcon } from "@hugeicons/core-free-icons";
 import type { ListSnapshot, Totals, Unit } from "~~/shared/types";
-import { UNITS } from "~~/shared/types";
 import { carriedIsDistinct, formatKcal, formatWeight } from "~~/shared/weights";
 import { KCAL_PER_DAY_GENEROUS, KCAL_PER_DAY_LIGHT, foodPlan } from "~~/shared/foodPlan";
 
@@ -83,9 +82,6 @@ const planTip = computed(() => {
       : `People commonly plan ${formatKcal(KCAL_PER_DAY_LIGHT)}–${formatKcal(KCAL_PER_DAY_GENEROUS)} kcal a day for walking with a pack.`;
   return p.perDayDistance ? `${span} ${p.perDayDistance} a day. ${band}` : `${span} ${band}`;
 });
-
-// the four units as OptionMenu rows — the abbreviation IS the label here, since it's
-// what the figure beside it is already showing
 </script>
 
 <template>

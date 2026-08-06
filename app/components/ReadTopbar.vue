@@ -7,7 +7,6 @@ defineProps<{
   snapshot: ListSnapshot | null;
   totals: Totals | null;
 }>();
-
 </script>
 
 <template>

@@ -156,40 +156,23 @@ export function diffListState(base: ListState, target: ListState): ListDiff {
   if ((base.endDate ?? "") !== (target.endDate ?? "")) meta.endDate = target.endDate ?? "";
   if (Object.keys(meta).length) diff.meta = meta;
 
-  const baseF = new Map(base.folders.map((f) => [f.id, f]));
-  const foldersUpsert = target.folders.filter((f) => !baseF.has(f.id) || !same(baseF.get(f.id), f));
-  const targetFIds = new Set(target.folders.map((f) => f.id));
-  const foldersDel = base.folders.filter((f) => !targetFIds.has(f.id)).map((f) => f.id);
-  if (foldersUpsert.length) diff.foldersUpsert = clone(foldersUpsert);
-  if (foldersDel.length) diff.foldersDel = foldersDel;
+  const folders = diffEntities(base.folders, target.folders);
+  if (folders.upsert.length) diff.foldersUpsert = clone(folders.upsert);
+  if (folders.del.length) diff.foldersDel = folders.del;
 
-  const baseI = new Map(base.items.map((i) => [i.id, i]));
-  const itemsUpsert = target.items.filter((i) => !baseI.has(i.id) || !same(baseI.get(i.id), i));
-  const targetIIds = new Set(target.items.map((i) => i.id));
-  const itemsDel = base.items.filter((i) => !targetIIds.has(i.id)).map((i) => i.id);
-  if (itemsUpsert.length) diff.itemsUpsert = clone(itemsUpsert);
-  if (itemsDel.length) diff.itemsDel = itemsDel;
+  const items = diffEntities(base.items, target.items);
+  if (items.upsert.length) diff.itemsUpsert = clone(items.upsert);
+  if (items.del.length) diff.itemsDel = items.del;
 
-  // Days, the same entity-level shape — coerced on BOTH sides, because a snapshot taken
-  // before days existed has no array at all and a restore must not throw on it.
-  const baseDays = base.days ?? [];
-  const targetDays = target.days ?? [];
-  const baseD = new Map(baseDays.map((d) => [d.id, d]));
-  const daysUpsert = targetDays.filter((d) => !baseD.has(d.id) || !same(baseD.get(d.id), d));
-  const targetDIds = new Set(targetDays.map((d) => d.id));
-  const daysDel = baseDays.filter((d) => !targetDIds.has(d.id)).map((d) => d.id);
-  if (daysUpsert.length) diff.daysUpsert = clone(daysUpsert);
-  if (daysDel.length) diff.daysDel = daysDel;
+  // Days and waypoints, coerced on BOTH sides: a snapshot taken before either existed has
+  // no array at all, and a restore must not throw on it.
+  const days = diffEntities(base.days ?? [], target.days ?? []);
+  if (days.upsert.length) diff.daysUpsert = clone(days.upsert);
+  if (days.del.length) diff.daysDel = days.del;
 
-  // Waypoints, same shape again, and coerced on both sides for the same reason.
-  const baseWps = base.waypoints ?? [];
-  const targetWps = target.waypoints ?? [];
-  const baseW = new Map(baseWps.map((w) => [w.id, w]));
-  const wpsUpsert = targetWps.filter((w) => !baseW.has(w.id) || !same(baseW.get(w.id), w));
-  const targetWIds = new Set(targetWps.map((w) => w.id));
-  const wpsDel = baseWps.filter((w) => !targetWIds.has(w.id)).map((w) => w.id);
-  if (wpsUpsert.length) diff.waypointsUpsert = clone(wpsUpsert);
-  if (wpsDel.length) diff.waypointsDel = wpsDel;
+  const waypoints = diffEntities(base.waypoints ?? [], target.waypoints ?? []);
+  if (waypoints.upsert.length) diff.waypointsUpsert = clone(waypoints.upsert);
+  if (waypoints.del.length) diff.waypointsDel = waypoints.del;
 
   return diff;
 }
@@ -254,6 +237,26 @@ export function applyListDiff(base: ListState, diff: ListDiff): ListState {
   out.days = mergeEntities(out.days ?? [], diff.daysUpsert, diff.daysDel);
   out.waypoints = mergeEntities(out.waypoints ?? [], diff.waypointsUpsert, diff.waypointsDel);
   return out;
+}
+
+/**
+ * One list of entities, diffed: what to upsert, and which ids went away.
+ *
+ * All four lists take the identical treatment — the rule at the top of this file is about
+ * ENTITIES, not about folders — and mergeEntities below is already one function for all
+ * four on the way back in. This is that symmetry on the way out; four hand-copied versions
+ * of it is four places for the next list to arrive with a subtly different one.
+ */
+function diffEntities<T extends { id: string }>(
+  baseArr: readonly T[],
+  targetArr: readonly T[],
+): { upsert: T[]; del: string[] } {
+  const byId = new Map(baseArr.map((e) => [e.id, e]));
+  const targetIds = new Set(targetArr.map((e) => e.id));
+  return {
+    upsert: targetArr.filter((e) => !byId.has(e.id) || !same(byId.get(e.id), e)),
+    del: baseArr.filter((e) => !targetIds.has(e.id)).map((e) => e.id),
+  };
 }
 
 // Apply deletes + upserts by id. Upserts replace in place (preserving order) or

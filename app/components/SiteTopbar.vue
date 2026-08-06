@@ -81,5 +81,4 @@ defineProps<{
 .topbar__trail :slotted(.btn--link) {
   margin-right: var(--space-2);
 }
-
 </style>
