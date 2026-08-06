@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { GRADE_HARD_PCT, GRADE_MODERATE_PCT, PROFILE_SAMPLES, dayClimbs, gpxStats, gradeRuns, gradeSpread, haversineM, parseProfile, profileToString, segmentClimbs, type TrackPoint } from "../shared/gpx";
+import { Window } from "happy-dom";
+import { GRADE_HARD_PCT, GRADE_MODERATE_PCT, PROFILE_SAMPLES, dayClimbs, geoJsonPoints, gpxPoints, gpxStats, gradeRuns, gradeSpread, haversineM, parseProfile, profileToString, segmentClimbs, type TrackPoint } from "../shared/gpx";
 
 // A track that walks due east along a parallel, so the distances are easy to reason
 // about: at the equator 0.001° of longitude is ~111 m.
@@ -325,5 +326,88 @@ describe("gradeRuns — how hard the ground is", () => {
     // same word is how a chart starts disagreeing with its own tooltip.
     expect(GRADE_HARD_PCT).toBe(10);
     expect(GRADE_MODERATE_PCT).toBeLessThan(GRADE_HARD_PCT);
+  });
+});
+
+// Other people's route files.
+//
+// A route is a route; which app exported it is not the walker's problem. All four formats
+// land on the same TrackPoint[], so everything downstream — distance, climb, the profile,
+// the estimates — is untouched by which one arrived. That is the property worth pinning:
+// not that each parser works, but that they AGREE.
+
+// happy-dom's parser, because this file otherwise runs without a DOM. The fixtures below
+// carry their real XML NAMESPACES — every exporter emits them, and a parser that only
+// worked on namespace-free XML would pass here and fail on every actual file.
+const parser = new (new Window().DOMParser)();
+const xml = (s: string) => parser.parseFromString(s, "application/xml") as unknown as Document;
+
+/** the same three points, as each format writes them */
+const GPX = `<gpx xmlns="http://www.topografix.com/GPX/1/1" version="1.1"><trk><trkseg>
+  <trkpt lat="45.33" lon="-121.71"><ele>1800</ele></trkpt>
+  <trkpt lat="45.34" lon="-121.70"><ele>1850</ele></trkpt>
+  <trkpt lat="45.35" lon="-121.69"><ele>1900</ele></trkpt>
+</trkseg></trk></gpx>`;
+
+// KML puts LON FIRST, which is the one thing about the format that bites
+const KML = `<kml xmlns="http://www.opengis.net/kml/2.2"><Document><Placemark><LineString><coordinates>
+  -121.71,45.33,1800 -121.70,45.34,1850 -121.69,45.35,1900
+</coordinates></LineString></Placemark></Document></kml>`;
+
+const TCX = `<TrainingCenterDatabase xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2"><Activities><Activity><Lap><Track>
+  <Trackpoint><Position><LatitudeDegrees>45.33</LatitudeDegrees><LongitudeDegrees>-121.71</LongitudeDegrees></Position><AltitudeMeters>1800</AltitudeMeters></Trackpoint>
+  <Trackpoint><Position><LatitudeDegrees>45.34</LatitudeDegrees><LongitudeDegrees>-121.70</LongitudeDegrees></Position><AltitudeMeters>1850</AltitudeMeters></Trackpoint>
+  <Trackpoint><Position><LatitudeDegrees>45.35</LatitudeDegrees><LongitudeDegrees>-121.69</LongitudeDegrees></Position><AltitudeMeters>1900</AltitudeMeters></Trackpoint>
+</Track></Lap></Activity></Activities></TrainingCenterDatabase>`;
+
+const GEOJSON = {
+  type: "FeatureCollection",
+  features: [{ type: "Feature", geometry: { type: "LineString",
+    coordinates: [[-121.71, 45.33, 1800], [-121.70, 45.34, 1850], [-121.69, 45.35, 1900]] } }],
+};
+
+describe("reading a route out of somebody else's file", () => {
+  it("reads all four formats to the same points", () => {
+    const fromGpx = gpxPoints(xml(GPX));
+    for (const other of [gpxPoints(xml(KML)), gpxPoints(xml(TCX)), geoJsonPoints(GEOJSON)]) {
+      expect(other).toEqual(fromGpx);
+    }
+    expect(fromGpx).toHaveLength(3);
+    expect(fromGpx[0]).toEqual({ lat: 45.33, lon: -121.71, ele: 1800 });
+  });
+
+  it("gets LON and LAT the right way round in KML", () => {
+    // the failure this guards is silent and total: swap them and Mount Hood lands in
+    // Kazakhstan, with a perfectly plausible-looking distance
+    const [first] = gpxPoints(xml(KML));
+    expect(first!.lat).toBeCloseTo(45.33, 5);
+    expect(first!.lon).toBeCloseTo(-121.71, 5);
+  });
+
+  it("produces identical stats whichever format arrived", () => {
+    const stats = [GPX, KML, TCX].map((s) => gpxStats(gpxPoints(xml(s))));
+    stats.push(gpxStats(geoJsonPoints(GEOJSON)));
+    for (const s of stats) expect(s).toEqual(stats[0]);
+    expect(stats[0]!.distanceM).toBeGreaterThan(0);
+  });
+
+  it("takes a bare LineString, a Feature, or a FeatureCollection", () => {
+    const line = { type: "LineString", coordinates: [[-121.71, 45.33], [-121.70, 45.34]] };
+    expect(geoJsonPoints(line)).toHaveLength(2);
+    expect(geoJsonPoints({ type: "Feature", geometry: line })).toHaveLength(2);
+    expect(geoJsonPoints({ type: "FeatureCollection", features: [{ type: "Feature", geometry: line }] })).toHaveLength(2);
+    expect(geoJsonPoints({ type: "MultiLineString", coordinates: [line.coordinates, line.coordinates] })).toHaveLength(4);
+  });
+
+  it("carries elevation when it's there and copes when it isn't", () => {
+    const flat = { type: "LineString", coordinates: [[-121.71, 45.33], [-121.70, 45.34]] };
+    expect(geoJsonPoints(flat).every((p) => p.ele === undefined)).toBe(true);
+  });
+
+  it("yields nothing rather than a partial line for junk", () => {
+    expect(geoJsonPoints(null)).toEqual([]);
+    expect(geoJsonPoints({ type: "Point", coordinates: [-121.71, 45.33] })).toEqual([]);
+    expect(geoJsonPoints({ type: "LineString", coordinates: [["a", "b"], [1]] })).toEqual([]);
+    expect(gpxPoints(xml(`<kml xmlns="http://www.opengis.net/kml/2.2"><Document/></kml>`))).toEqual([]);
   });
 });

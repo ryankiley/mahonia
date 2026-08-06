@@ -115,6 +115,12 @@ export function haversineM(a: TrackPoint, b: TrackPoint): number {
  * someone dropping a file in has no reason to care which they exported.
  */
 export function gpxPoints(doc: Document): TrackPoint[] {
+  // GPX first, then the other XML dialects that carry the same thing under other names.
+  // A route is a route; which app exported it is not the walker's problem.
+  const kml = kmlPoints(doc);
+  if (kml.length) return kml;
+  const tcx = tcxPoints(doc);
+  if (tcx.length) return tcx;
   const nodes = doc.querySelectorAll("trkpt, rtept");
   const out: TrackPoint[] = [];
   for (const n of nodes) {
@@ -125,6 +131,80 @@ export function gpxPoints(doc: Document): TrackPoint[] {
     const ele = eleText != null ? Number(eleText) : Number.NaN;
     out.push(Number.isFinite(ele) ? { lat, lon, ele } : { lat, lon });
   }
+  return out;
+}
+
+/**
+ * KML / Google Earth. Coordinates arrive as whitespace-separated `lon,lat[,ele]` triples
+ * inside `<coordinates>`, which is the one thing about this format worth knowing: the
+ * order is LON FIRST, the opposite of every other format here and of how anybody says it.
+ *
+ * Every `<coordinates>` block is read and concatenated — a KML track is often split across
+ * several `<LineString>`s, and stitching them is the same concession gpxPoints already
+ * makes for multi-segment tracks.
+ */
+function kmlPoints(doc: Document): TrackPoint[] {
+  const out: TrackPoint[] = [];
+  for (const block of doc.querySelectorAll("coordinates")) {
+    for (const triple of (block.textContent ?? "").trim().split(/\s+/)) {
+      if (!triple) continue;
+      const [lon, lat, ele] = triple.split(",").map(Number);
+      if (!Number.isFinite(lat!) || !Number.isFinite(lon!)) continue;
+      out.push(Number.isFinite(ele!) ? { lat: lat!, lon: lon!, ele: ele! } : { lat: lat!, lon: lon! });
+    }
+  }
+  return out;
+}
+
+/**
+ * TCX / Garmin Training Center. Lat and lon are child ELEMENTS rather than attributes, and
+ * elevation is `<AltitudeMeters>` — the same data as a GPX trackpoint wearing longer names.
+ */
+function tcxPoints(doc: Document): TrackPoint[] {
+  const out: TrackPoint[] = [];
+  for (const n of doc.querySelectorAll("Trackpoint")) {
+    const lat = Number(n.querySelector("LatitudeDegrees")?.textContent);
+    const lon = Number(n.querySelector("LongitudeDegrees")?.textContent);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+    const ele = Number(n.querySelector("AltitudeMeters")?.textContent);
+    out.push(Number.isFinite(ele) ? { lat, lon, ele } : { lat, lon });
+  }
+  return out;
+}
+
+/**
+ * GeoJSON, which is JSON rather than XML and so never reaches a DOMParser.
+ *
+ * Reads LineString and MultiLineString, and the geometry inside a Feature or a
+ * FeatureCollection — the four shapes a route is realistically exported as. Positions are
+ * `[lon, lat, ele?]`, lon first again.
+ *
+ * Refuses rather than salvages, like everything else that takes a file here: a member that
+ * isn't a pair of finite numbers is skipped, and a document with no recognisable geometry
+ * yields nothing rather than a partial line.
+ */
+export function geoJsonPoints(raw: unknown): TrackPoint[] {
+  const out: TrackPoint[] = [];
+  const addLine = (coords: unknown) => {
+    if (!Array.isArray(coords)) return;
+    for (const pos of coords) {
+      if (!Array.isArray(pos)) continue;
+      const [lon, lat, ele] = pos as number[];
+      if (typeof lat !== "number" || typeof lon !== "number") continue;
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+      out.push(typeof ele === "number" && Number.isFinite(ele) ? { lat, lon, ele } : { lat, lon });
+    }
+  };
+  const walk = (node: unknown, depth = 0) => {
+    if (!node || typeof node !== "object" || depth > 6) return;
+    const n = node as Record<string, unknown>;
+    if (n.type === "LineString") addLine(n.coordinates);
+    else if (n.type === "MultiLineString" && Array.isArray(n.coordinates)) n.coordinates.forEach(addLine);
+    if (n.geometry) walk(n.geometry, depth + 1);
+    if (Array.isArray(n.features)) n.features.forEach((f) => walk(f, depth + 1));
+    if (Array.isArray(n.geometries)) n.geometries.forEach((g) => walk(g, depth + 1));
+  };
+  walk(raw);
   return out;
 }
 

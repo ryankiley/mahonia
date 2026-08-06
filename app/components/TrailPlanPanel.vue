@@ -935,9 +935,19 @@ const distanceValue = (m: number | undefined) => {
 .plan__add:hover {
   color: var(--ink);
 }
-/* an estimate chip reads a step back from the measured ones beside it */
-.plan__chips .chip--est {
+/* EVERY chip reads at the same weight, measured or estimated.
+ *
+ * The estimates used to step back a tone from the figures beside them, on the reasoning
+ * that one kind is measured and the other worked out. That distinction is now carried by
+ * the words — "Estimated time", "Estimated burn" — which says it better than a shade
+ * does, and leaves the row reading as one set of figures rather than two classes of
+ * citizen. `--est` survives only as a hook for anything that needs the difference.
+ *
+ * Tabular numerals go too: they exist to make a COLUMN of figures line up, and these sit
+ * in a row where nothing is above or below anything. Proportional digits set better. */
+.plan__chips .chip .t-num {
   color: var(--ink-3);
+  font-variant-numeric: normal;
 }
 .plan__assume,
 .plan__accuracy {

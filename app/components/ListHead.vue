@@ -9,7 +9,7 @@ import {
   resolveDistanceUnit,
 } from "~~/shared/trailDistance";
 import { displayUrl, parseTrailLink, safeUrl } from "~~/shared/trailLink";
-import { MAX_GPX_BYTES, gpxPoints, gpxStats, profileToString } from "~~/shared/gpx";
+import { MAX_GPX_BYTES, geoJsonPoints, gpxPoints, gpxStats, profileToString } from "~~/shared/gpx";
 import type { ListSnapshot } from "~~/shared/types";
 import { copyText } from "~/utils/clipboard";
 
@@ -141,9 +141,21 @@ async function onGpx(e: Event) {
   }
   gpxBusy.value = true;
   try {
-    const doc = new DOMParser().parseFromString(await file.text(), "application/xml");
-    if (doc.querySelector("parsererror")) throw new Error("not xml");
-    const stats = gpxStats(gpxPoints(doc));
+    const text = await file.text();
+    // JSON or XML, decided by the CONTENT rather than the extension — a file saved as
+    // .txt or renamed by a share sheet is still the route it was, and the first
+    // non-space character tells us which family it belongs to more reliably than a name.
+    const first = text.trimStart()[0];
+    let points;
+    if (first === "{" || first === "[") {
+      points = geoJsonPoints(JSON.parse(text));
+    } else {
+      const doc = new DOMParser().parseFromString(text, "application/xml");
+      if (doc.querySelector("parsererror")) throw new Error("not xml");
+      // gpxPoints reads GPX, KML and TCX — same track, different dialects
+      points = gpxPoints(doc);
+    }
+    const stats = gpxStats(points);
     if (!stats) throw new Error("no track");
     c.setMeta({
       trailDistanceM: stats.distanceM,
@@ -517,7 +529,7 @@ onClickOutside(trailEl, closeTrail);
 
         <p class="head__gpx t-sm">
           <label class="head__gpxbtn">
-            <input type="file" accept=".gpx,application/gpx+xml,text/xml" @change="onGpx" />
+            <input type="file" accept=".gpx,.kml,.tcx,.geojson,.json,application/gpx+xml,application/vnd.google-earth.kml+xml,application/geo+json,application/json,text/xml" @change="onGpx" />
             {{ gpxBusy ? "Reading…" : snapshot.trailProfile ? "Replace the GPX" : "Add a GPX instead" }}
           </label>
           <span class="head__gpxnote">reads the distance and the shape of the climb — it never leaves your browser</span>
