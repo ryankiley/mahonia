@@ -214,7 +214,17 @@ const UNIT_OPTIONS = UNITS.map((u) => ({ key: u, label: u }));
 .totals__chips {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-5);
+  /* per axis, because only one of them is a gap between CHIPS. Across a line, --space-5
+     is the trench the roll-up's rule sits in. Down the page it is the distance between
+     two lines of the same little table, and each chip is already a two-line stack, so
+     one flat --space-5 there set the wrapped line adrift as its own block. */
+  gap: var(--space-3) var(--space-5);
+  /* clips the hairlines below when they fall outside this box — which is exactly the
+     case where a separated chip STARTS a wrapped line. A rule there separates the
+     chip from the page edge rather than from anything, and the line break has already
+     done the separating. (Safe to clip: the chips are text, and the tooltips they
+     carry are teleported to <body>.) */
+  overflow: hidden;
 }
 .chip {
   display: inline-flex;
@@ -223,17 +233,35 @@ const UNIT_OPTIONS = UNITS.map((u) => ({ key: u, label: u }));
 }
 /* the roll-up chip reads as a different KIND of figure from the slices beside it —
    a hairline + the row's own gap sets it apart without a heavy divider (same idiom
-   as the ⋯ menu's report row). The gap is --space-5, so the rule sits optically
-   centred in it rather than crowding the label. */
-.chip--sum {
-  padding-left: var(--space-5);
-  border-left: 1px solid var(--line);
+   as the ⋯ menu's report row). Calories take the same hairline for a related but
+   distinct reason: --sum is a figure derived FROM the partition on its left, --alt
+   isn't in that partition at all. Either way it must not read as a fourth slice.
+   The trench the rule sits in — --space-5 either side, so it reads as centred rather
+   than crowding the label — is built ENTIRELY out of space that a line break throws
+   away: the row's own gap, plus a margin on the chip before it. A phone wraps this
+   row, and space belonging to the separated chip (padding, or a start margin) came
+   with it: "Carried" arrived at the head of the second line with a rule against the
+   page edge and its label indented from the "Base" above it, dividing it from
+   nothing. A gap exists only BETWEEN chips on a line, and a trailing margin at the
+   end of a line is invisible, so both halves of the trench simply vanish at the wrap
+   and the chip starts flush. */
+.totals__chips > *:has(+ * > .chip--sum),
+.totals__chips > *:has(+ * > .chip--alt) {
+  margin-inline-end: var(--space-5);
 }
-/* calories take the same hairline separation as the roll-up, for a related but
-   distinct reason: --sum is a figure derived FROM the partition on its left, this
-   one isn't in that partition at all. Either way it must not read as a fourth slice. */
+/* the rule itself hangs OUTSIDE the chip, centred in that trench — a border on the
+   chip's own edge would ride into the page margin at a line break. Out there it is
+   past .totals__chips' content edge, which is what the clip above is for. */
+.chip--sum,
 .chip--alt {
-  padding-left: var(--space-5);
-  border-left: 1px solid var(--line);
+  position: relative;
+}
+.chip--sum::before,
+.chip--alt::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: calc(-1 * var(--space-5));
+  border-inline-start: 1px solid var(--line);
 }
 </style>

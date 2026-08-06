@@ -3,13 +3,20 @@
     "date": "2026-08-05",
     "changed": [
       "On a phone, removing an item now lives in the row's ⋯ menu with the note, nesting and gear vault actions; the row keeps the ⋯ and the drag handle.",
-      "On a phone, a list's trip dates now sit tight under its trail link, so the title, trail and dates read as one block."
+      "On a phone, a list's trip dates now sit tight under its trail link, so the title, trail and dates read as one block.",
+      "A shared list now marks worn and consumable items with the same two icons the editor uses, instead of spelling the word after the name."
     ],
     "fixed": [
       "On a phone, an item's worn and consumable icons sat below the weight beside them; every icon on the row now lines up with the numbers.",
       "On a phone, the worn and consumable icons now sit in the same place on every row, instead of moving left and right with each item's weight.",
       "Opening a row's ⋯ menu no longer nudges every other row in that folder sideways.",
-      "On a narrow phone, an item's drag handle no longer runs off the edge of the screen when its weight is long or it sits inside a group."
+      "On a narrow phone, an item's drag handle no longer runs off the edge of the screen when its weight is long or it sits inside a group.",
+      "On a shared list, each item's amount and weight now sit at the right edge of the row, in line with the totals above, instead of stopping short of it.",
+      "On a phone, the weight summary's second line no longer starts with a stray divider, and sits closer to the line above it.",
+      "A heavy item's weight no longer breaks between the number and its unit, and stays in the same column as every other weight on the widest and narrowest windows.",
+      "An item that splits its count into worn and packed no longer runs into the weight beside it.",
+      "An item with no weight lines its dash up with the numbers above and below it.",
+      "In the folder breakdown, a long folder name now keeps its colour dot on the first line and its weight at the end of the name, instead of stranding both."
     ]
   },
   {

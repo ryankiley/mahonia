@@ -118,6 +118,52 @@
   inline-size: 2ch;
   text-align: left;
 }
+/* …and the pair never breaks between them. The gap above is a real space, so a
+   weight that outgrows its track wrapped instead: at a ~1000px window the app's
+   heaviest line, "100,000 g", put its unit on a second line and stood the row 24px
+   taller than every other row in the folder. Overflowing the track by the couple of
+   pixels it is short is the lesser fault — the track's own gap absorbs them, and the
+   figure stays one figure. Same reasoning as the amount cell's nowrap beside it,
+   which keeps "1.75 L" whole. */
+.item__roweight,
+.item__cweight {
+  white-space: nowrap;
+}
+
+/* A worn SPLIT spells its count out in the amount cell — "×12 · 11 worn" where the
+   track was measured for "×999" — and the overflow ran under the weight beside it.
+   The whole PAGE COLUMN widens its amount track when a list holds one, not the row
+   that holds it: every row is its own grid, so widening just that row would slide its
+   weight and class out of line with all the others, trading a collision for a wobble
+   down the column. Lists with no split (nearly all of them) keep the tight track and
+   give the name the width instead. */
+.wrap:has(.item__qty--split) {
+  @include t.item-cols(t.fluid-track(88px, 108px));
+}
+
+/* The CLASSIFICATION CHIP — the lit ground that says a row is worn or consumable.
+   In the editor it is the ON state of a toggle button; in the share views it is a
+   static mark. Same picture either way, so the paint lives here rather than in two
+   scoped blocks: a quiet grey chip (--paper-3, the "quiet surfaces, not borders"
+   token) carrying the state without an inverted ink chip's weight — these sit in a
+   dense list, and a row of black dots would out-shout the weights, which are what
+   the page is for. Colour would be the obvious signal, but this codebase reserves it
+   for the data viz.
+   background-clip pins the ground to the CONTENT box, which is how it stays
+   --icon-btn across every pointer: a coarse one grows the editor's button to --tap
+   for the thumb, and a 44px disc drawn in a ~25px text line reaches the rules above
+   and below the row. Same idiom as --tap-pull: grow the box, not the picture.
+   The :hover twin is a HOLD, not a hover style: the editor's chip is a .btn--icon,
+   and that atom clears the ground on hover (controls.scss) at the same specificity.
+   Same declarations, later in the cascade — so pointing at a lit toggle doesn't
+   blink its state off. */
+.item__mark,
+.item__mark:hover {
+  background: var(--paper-3);
+  background-clip: content-box;
+  border-radius: var(--radius-pill);
+  color: var(--ink);
+}
 
 /* The quiet "Add an item" affordance — ONE recipe for the folder's add row and a nested
    group's alike, which were hand-copied from each other (right down to needing the mobile
