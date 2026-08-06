@@ -9,13 +9,14 @@ import {
   resolveDistanceUnit,
 } from "~~/shared/trailDistance";
 import { displayUrl, parseTrailLink, safeUrl } from "~~/shared/trailLink";
+import { MAX_GPX_BYTES, gpxPoints, gpxStats, profileToString } from "~~/shared/gpx";
 import type { ListSnapshot } from "~~/shared/types";
 import { copyText } from "~/utils/clipboard";
 
 // The editor's title block: the list's name as a page title, with an optional link to
 // the route it was packed for.
 //
-// One row sits under the title holding either "Add trail link" or the link itself, so
+// One row sits under the title holding either "Add a trail" or the link itself, so
 // the affordance occupies exactly the slot its result will — adding a link swaps the row
 // in place rather than moving it. The affordance rests quiet and darkens on hover — it
 // used to hide until hovered, and the note by .head__meta says why that changed. A
@@ -109,11 +110,50 @@ function commitUrl(e: Event) {
   c.setMeta({ trailUrl: value });
   // clearing the URL clears the label too — a label with no link is unreachable state,
   // and so is a distance with no route to be the length of
-  if (!value) c.setMeta({ trailLabel: "", trailDistanceM: "" });
+  if (!value) c.setMeta({ trailLabel: "", trailDistanceM: "", trailProfile: "" });
 }
 
 function commitLabel(e: Event) {
   c.setMeta({ trailLabel: (e.target as HTMLInputElement).value.trim() });
+}
+
+// ---- the other way in: a GPX ----
+// Read here in the browser. No upload and no request — the site's CSP is
+// `connect-src 'self'`, so sending it anywhere isn't an option that exists, which makes
+// "it never leaves your browser" a fact rather than a promise.
+//
+// It FILLS IN the route's distance and shape; it does not take them over. The distance
+// stays an editable field afterwards, so a mangled track can't quietly rewrite a number
+// somebody typed — the same conservatism trailLink.ts applies to deriving names.
+const gpxError = ref("");
+const gpxBusy = ref(false);
+async function onGpx(e: Event) {
+  const input = e.target as HTMLInputElement;
+  const file = input.files?.[0];
+  input.value = ""; // so choosing the same file twice still fires a change
+  if (!file) return;
+  gpxError.value = "";
+  // Checked BEFORE reading. DOMParser on a 30 MB string blocks the main thread for
+  // seconds; declining is cheaper than a worker, and honest.
+  if (file.size > MAX_GPX_BYTES) {
+    gpxError.value = "That file is too big to read here.";
+    return;
+  }
+  gpxBusy.value = true;
+  try {
+    const doc = new DOMParser().parseFromString(await file.text(), "application/xml");
+    if (doc.querySelector("parsererror")) throw new Error("not xml");
+    const stats = gpxStats(gpxPoints(doc));
+    if (!stats) throw new Error("no track");
+    c.setMeta({
+      trailDistanceM: stats.distanceM,
+      trailProfile: profileToString(stats.profile) ?? "",
+    });
+  } catch {
+    gpxError.value = "Couldn't read a route out of that file.";
+  } finally {
+    gpxBusy.value = false;
+  }
 }
 
 // ---- distance ----
@@ -158,7 +198,7 @@ function commitDistance(e: Event) {
 
 function remove() {
   // the distance describes the ROUTE, so it goes with the link rather than outliving it
-  c.setMeta({ trailUrl: "", trailLabel: "", trailDistanceM: "" });
+  c.setMeta({ trailUrl: "", trailLabel: "", trailDistanceM: "", trailProfile: "" });
   mode.value = null;
 }
 
@@ -283,7 +323,7 @@ onClickOutside(trailEl, closeTrail);
     </div>
 
     <!-- One row under the title, holding either the affordance or its result — the
-         "Add trail link" button occupies exactly the slot the link will, so adding one
+         "Add a trail" button occupies exactly the slot the link will, so adding one
          swaps the contents in place instead of moving the row across the title. The
          edit panel anchors to this row, so the link stays visible above it. -->
     <p ref="trailEl" class="head__trail">
@@ -311,7 +351,7 @@ onClickOutside(trailEl, closeTrail);
              The two globes below are different — they're the fallback mark for a site
              with no favicon, standing in for "a website", which a pin would misstate. -->
         <HugeiconsIcon :icon="Location01Icon" :size="14" :stroke-width="2" aria-hidden="true" />
-        Add trail link
+        Add a trail
       </button>
 
       <!-- the resolved link: the site's mark + the trail's name. No hostname — the mark
@@ -450,10 +490,15 @@ onClickOutside(trailEl, closeTrail);
         @focusout="onFocusOut"
         @keyup.escape="mode = null"
       >
-        <!-- "URL", not "Page or URL" — that offered a choice that doesn't exist. There
-             is no page to pick here: this field is type="url" with an https://
-             placeholder, and a URL is the only thing it has ever taken. -->
-        <label class="head__panellabel" :for="`${fieldsId}-url`">URL</label>
+        <!-- TWO ways in now, which is why the affordance above says "Add a trail" rather
+             than naming either of them. A LINK is the common one, so it stays first and
+             unadorned. A GPX is the richer one — it carries the distance and the shape of
+             the climb, which no link can — but it asks you to find a file, so it sits
+             second and says what it gives you rather than what it is.
+             The field itself is still a URL and nothing else: type="url", https://
+             placeholder. "Link", not "Page or URL", which offered a choice that isn't
+             there. -->
+        <label class="head__panellabel" :for="`${fieldsId}-url`">Link</label>
         <input
           :id="`${fieldsId}-url`"
           class="head__panelinput"
@@ -466,6 +511,15 @@ onClickOutside(trailEl, closeTrail);
           @change="commitUrl"
           @keyup.enter="mode = null"
         />
+
+        <p class="head__gpx t-sm">
+          <label class="head__gpxbtn">
+            <input type="file" accept=".gpx,application/gpx+xml,text/xml" @change="onGpx" />
+            {{ gpxBusy ? "Reading…" : snapshot.trailProfile ? "Replace the GPX" : "Add a GPX instead" }}
+          </label>
+          <span class="head__gpxnote">reads the distance and the shape of the climb — it never leaves your browser</span>
+        </p>
+        <p v-if="gpxError" class="head__gpxerr t-sm">{{ gpxError }}</p>
 
         <!-- edit only. On the way IN the single job is pasting a URL; a title box there
              reads as a second thing to fill in, when most links name themselves from the
@@ -980,6 +1034,29 @@ onClickOutside(trailEl, closeTrail);
 }
 /* The rule stops at the panel's INNER edges (measured: x12, w306 inside a 330 panel) —
    it lines up with the fields rather than running wall to wall. */
+.head__gpx {
+  margin: 0;
+  color: var(--ink-3);
+}
+.head__gpxbtn {
+  color: var(--ink-2);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+/* the input is the label's, so the whole phrase is the target and no bare file chrome
+   lands in a panel built out of the app's own fields */
+.head__gpxbtn input {
+  display: none;
+}
+.head__gpxnote {
+  display: block;
+  margin-top: var(--space-px);
+}
+.head__gpxerr {
+  margin: 0;
+  color: var(--ink-2);
+}
 .head__paneldiv {
   width: 100%;
   /* 4 below, not 8: the row underneath already carries 8px of its own padding, and a

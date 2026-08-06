@@ -49,6 +49,7 @@ export const lists = pgTable(
     // "km" | "mi"; null = follow display_unit
     trailDistanceUnit: text("trail_distance_unit"),
     // the walker — NEVER served on a read path, see rowToSnapshot
+    trailProfile: text("trail_profile"),
     bodyWeightG: integer("body_weight_g"),
     bodyWeightUnit: text("body_weight_unit"),
     // when the trip is. TEXT holding `YYYY-MM-DD`, not a date/timestamptz column: a

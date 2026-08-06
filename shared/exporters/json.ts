@@ -21,11 +21,11 @@ import { uid } from "../id";
 
 /** The downloaded backup's shape: the list's meta + its full content. */
 export function listToJson(list: ListMeta & ListData): string {
-  const { title, description, displayUnit, trailUrl, trailLabel, trailDistanceM, trailDistanceUnit, startDate, endDate, folders, items, days } = list;
+  const { title, description, displayUnit, trailUrl, trailLabel, trailDistanceM, trailDistanceUnit, trailProfile, startDate, endDate, folders, items, days } = list;
   // trailFaviconDataUrl is deliberately absent — it's a per-host cache the server
   // rebuilds, not part of the list the owner authored.
   return JSON.stringify(
-    { title, description, displayUnit, trailUrl, trailLabel, trailDistanceM, trailDistanceUnit, startDate, endDate, folders, items, days },
+    { title, description, displayUnit, trailUrl, trailLabel, trailDistanceM, trailDistanceUnit, trailProfile, startDate, endDate, folders, items, days },
     null,
     2,
   );

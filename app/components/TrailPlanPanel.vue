@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "@hugeicons/vue";
-import { Delete02Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
+import { ChevronDownIcon, Delete02Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import type { ListSnapshot, Totals } from "~~/shared/types";
 import { burnDownMg, estimateDay } from "~~/shared/tripPlan";
+import { parseProfile } from "~~/shared/gpx";
 import { isWaterName } from "~~/shared/water";
 import { lineMg, effectiveClassification, formatWeight } from "~~/shared/weights";
 import {
   BODY_WEIGHT_UNITS,
   DEFAULT_BODY_G,
+  DISPLAY_DISTANCE_UNITS,
   bodyWeightFieldValue,
   formatBodyWeight,
   formatDistance,
@@ -131,6 +133,21 @@ const tripKcal = computed(() =>
 );
 const tripHours = computed(() => estimates.value.reduce((s, e) => s + (e?.hours ?? 0), 0));
 
+// ---- the route's shape ----
+const profile = computed(() => parseProfile(props.snapshot.trailProfile));
+// Each day's share of the ground, for cutting the profile into coloured stretches. A day
+// with no distance yet still takes an even slice, so the picture doesn't lurch as the
+// itinerary is filled in.
+const dayDistancesM = computed(() => {
+  const stated = days.value.map((d) => d.distanceM ?? 0);
+  const total = stated.reduce((s, d) => s + d, 0);
+  if (total > 0) return stated;
+  const each = headlineM.value / Math.max(1, days.value.length);
+  return days.value.map(() => each);
+});
+
+const UNIT_OPTIONS = DISPLAY_DISTANCE_UNITS.map((u) => ({ key: u, label: u }));
+
 function commitDistance(id: string, e: Event) {
   const raw = (e.target as HTMLInputElement).value.trim();
   c.updateDay(id, { distanceM: raw ? (parseDistanceM(raw, distanceUnit.value) ?? undefined) : undefined });
@@ -170,9 +187,36 @@ const distanceValue = (m: number | undefined) =>
          least certain number on the page the most typographic mass is the inversion this
          whole panel is built to avoid. -->
     <div class="plan__headline">
-      <AnimatedCount class="t-num plan__big" :value="headlineValue" />
-      <span class="plan__unit-lg" aria-hidden="true">{{ distanceUnit }}</span>
+      <!-- The unit is a PICKER here, as it is on the weight headline in the other two
+           views — the same gesture in the same place, so changing mode changes the number
+           rather than what you can do to it. -->
+      <OptionMenu
+        class="plan__amount"
+        align="baseline"
+        :options="UNIT_OPTIONS"
+        :current="distanceUnit"
+        label="Distance unit"
+        title="Change unit"
+        @pick="(u) => c.setMeta({ trailDistanceUnit: u })"
+      >
+        <template #trigger="{ open }">
+          <AnimatedCount class="t-num plan__big" :value="headlineValue" />
+          <span class="plan__uc" aria-hidden="true">
+            <span class="plan__unit-lg">{{ distanceUnit }}</span>
+            <HugeiconsIcon :icon="ChevronDownIcon" class="plan__chev" :class="{ 'is-open': open }" :size="16" :stroke-width="2.25" />
+          </span>
+        </template>
+      </OptionMenu>
     </div>
+
+    <!-- The route's shape, cut into days. Directly under the figure it belongs to. -->
+    <TrailProfile
+      v-if="profile.length && days.length"
+      :profile="profile"
+      :day-distances-m="dayDistancesM"
+      :distance-unit="distanceUnit"
+      :total-distance-m="headlineM"
+    />
     <p v-if="perDayDistance" class="plan__perday t-sm">
       {{ perDayDistance }} a day across {{ days.length }} {{ days.length === 1 ? "day" : "days" }}
     </p>
@@ -324,8 +368,26 @@ const distanceValue = (m: number | undefined) =>
   line-height: 0.95;
   letter-spacing: var(--track-tight);
 }
+.plan__amount {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+.plan__uc {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-px);
+  color: var(--ink-3);
+}
 .plan__unit-lg {
   color: var(--ink-3);
+}
+.plan__chev {
+  align-self: center;
+  transition: transform var(--dur) var(--ease);
+}
+.plan__chev.is-open {
+  transform: rotate(180deg);
 }
 .plan__perday {
   margin: calc(var(--space-2) * -1) 0 0;

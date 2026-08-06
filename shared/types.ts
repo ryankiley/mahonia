@@ -158,6 +158,10 @@ export interface ListMeta {
   // NOT part of the shared list: it is stripped on every read path that isn't the
   // editor, so a share link never discloses it. See rowToSnapshot in listRepo, which
   // omits it by DEFAULT rather than by remembering to.
+  // The route's shape: elevations in metres, comma-joined, evenly spaced by distance.
+  // Read off a GPX in the browser; see shared/gpx.ts. Belongs to the ROUTE, so it clears
+  // with the link, like the distance does.
+  trailProfile?: string;
   bodyWeightG?: number;
   bodyWeightUnit?: BodyWeightUnit;
   // When the trip is. CALENDAR DATES, not instants: `YYYY-MM-DD`, no time and no

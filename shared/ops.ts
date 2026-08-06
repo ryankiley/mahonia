@@ -4,6 +4,7 @@
 // MERGE: two editors adding different items both succeed with no conflict; the
 // version counter only signals "you're behind, refetch", not "rejected".
 
+import { parseProfile } from "./gpx";
 import { normalizeBodyWeightG, normalizeBodyWeightUnit, normalizeDistanceUnit, normalizeTrailDistanceM } from "./trailDistance";
 import { normalizeTrailLabel, normalizeTrailUrl } from "./trailLink";
 import type { Classification, Folder, FolderSort, Item, ListState, TripDay, Unit } from "./types";
@@ -66,6 +67,7 @@ export type Op =
         // here says "remove", and a number channel alone couldn't express it
         trailDistanceM: number | string;
         trailDistanceUnit: string;
+        trailProfile: string;
         bodyWeightG: number | string;
         bodyWeightUnit: string;
         startDate: string;
@@ -417,6 +419,13 @@ function applyOp(state: ListState, op: Op): void {
       }
       // Same clear-on-unusable rule as everything else here. Note this rides the ordinary
       // op pipeline: it is list state for the OWNER, and only the read paths strip it.
+      if (typeof p.trailProfile === "string") {
+        // parseProfile is the single gate: a hand-edited value, a truncated string or
+        // anything that isn't elevations in metres clears rather than persisting.
+        const prof = parseProfile(p.trailProfile);
+        if (prof.length) state.trailProfile = prof.join(",");
+        else delete state.trailProfile;
+      }
       if (typeof p.bodyWeightG === "number" || typeof p.bodyWeightG === "string") {
         const g = normalizeBodyWeightG(p.bodyWeightG);
         if (g) state.bodyWeightG = g;
