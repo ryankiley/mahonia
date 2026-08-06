@@ -50,7 +50,7 @@ const VB_W = 1000;
 const VB_H = 200;
 // The cursor dot's radius, in viewBox units. Named because it appears twice — the X radius
 // is counter-scaled off it — and the two must never drift apart into an oval.
-const DOT_R = 8;
+const DOT_R = 10;
 // The thresholds come from shared/gpx.ts, the same ones the shading bands by — so the
 // number under the cursor and the colour under the cursor can never disagree about what
 // "steep" means. There used to be a STEEP_PCT here saying 10 as well; two constants

@@ -415,15 +415,21 @@ const distanceValue = (m: number | undefined) =>
         <span class="t-num">{{ formatWeight(totals.carriedMg, snapshot.displayUnit) }}</span>
       </span>
       <!-- The trip's own estimates, up here with the facts they're derived from rather
-           than in a sentence at the foot. They keep the `~` and step back in colour: the
-           chips to their left are measured, these are worked out. -->
+           than in a sentence at the foot. They step back in colour: the chips to their
+           left are measured, these are worked out.
+
+           Their LABELS say "Estimated" rather than the figures carrying a `~`. The mark
+           earns its place on the day rows, where a figure has only a glyph beside it and
+           has to travel with its own caveat — here the word is directly above the number
+           and says it plainly, and "~9 h 08" under a heading reading "Estimated time" is
+           the same warning twice. -->
       <span v-if="tripHours > 0" class="chip chip--est">
-        <span class="t-label">Moving</span>
-        <span class="t-num">~{{ formatHours(tripHours) }}</span>
+        <span class="t-label">Estimated time</span>
+        <span class="t-num">{{ formatHours(tripHours) }}</span>
       </span>
       <span v-if="tripHours > 0" class="chip chip--est">
-        <span class="t-label">Burn</span>
-        <span class="t-num">~{{ roundKcal(tripKcal).toLocaleString() }} <span class="t-muted">kcal</span></span>
+        <span class="t-label">Estimated burn</span>
+        <span class="t-num">{{ roundKcal(tripKcal).toLocaleString() }} <span class="t-muted">kcal</span></span>
       </span>
     </div>
 
