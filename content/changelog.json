@@ -17,6 +17,9 @@
       "The elevation profile's distance scale now shows more marks on a wider window, and the grade you read off the chart always matches the shading beneath it.",
       "A day now shows its descent alongside its climb, the trip's figures line up in columns down the list, and the route's total descent only appears when it differs from the climb.",
       "The trail panel's file button now reads \"Import map file\" and names the formats it takes."
+    ],
+    "fixed": [
+      "On a phone, a weight like 0.68 lb no longer has its last digit clipped, and a water row's figure lines up with the rows above it."
     ]
   },
   {

@@ -52,7 +52,10 @@ const row = (over: Partial<ListRow> = {}) =>
     endDate: null,
     data: {
       folders: [],
-      items: [],
+      items: [
+        { id: "i1", name: "Tent", qty: 1, sortOrder: 0, packed: true },
+        { id: "i2", name: "Stove", qty: 1, sortOrder: 1, packed: false },
+      ],
       days: [],
       waypoints: [{ id: "w1", kind: "camp", alongM: 6_200, label: "Cairn Basin" }],
     },
@@ -84,6 +87,17 @@ describe("a route never rides a read path", () => {
     expect(json).not.toContain(GEOMETRY);
     expect(json).not.toContain("Cairn Basin");
     expect(json).not.toContain("6200");
+  });
+
+  it("and neither does the owner's packing progress", () => {
+    // A tick is not a property of the gear — it is how far along somebody is with their
+    // own packing, and it was riding every share link unrendered but plainly in the
+    // payload. The ITEMS stay public; only the tick goes.
+    const snap = rowToSnapshot(row());
+    expect(snap.items).toHaveLength(2);
+    expect(snap.items.map((i) => i.name)).toEqual(["Tent", "Stove"]);
+    for (const item of snap.items) expect("packed" in item).toBe(false);
+    expect(JSON.stringify(snap)).not.toContain("packed");
   });
 
   it("the days beside them are still public, which is the point of the asymmetry", () => {
@@ -133,6 +147,18 @@ describe("…but the OWNER still gets it back", () => {
     // becomes a habit. Exactly two assignments, both inside the wrapper.
     expect(src.match(/\.routeGeometry\s*=/g) ?? []).toHaveLength(1);
     expect(src.match(/snap\.waypoints\s*=/g) ?? []).toHaveLength(1);
+
+  });
+
+  it("re-attaches the packed tick WITHOUT clobbering the hydrated items", () => {
+    // The owner path is withOwnerOnly(await hydrateForRead(rowToSnapshot(row)), row), so
+    // the items reaching this wrapper have already had their catalog names trickled down.
+    // Assigning row.data.items over the top restores the tick and silently reverts every
+    // renamed catalogue product — on the owner's view only, which is the hardest place to
+    // notice it. Match by id and copy the one field.
+    const body = bodyOf("withOwnerOnly");
+    expect(body).not.toMatch(/snap\.items\s*=\s*\(\(row\.data/);
+    expect(body).toMatch(/snap\.items\s*=\s*snap\.items\.map/);
   });
 
   it("a restore WRITES the geometry, unlike the field this wrapper replaced", () => {

@@ -143,7 +143,17 @@ export function rowToSnapshot(row: ListRow): ListSnapshot {
     endDate: row.endDate ?? undefined,
     displayUnit: row.displayUnit as Unit,
     folders: data.folders ?? [],
-    items: data.items ?? [],
+    // WITHOUT `packed`. A tick is not a property of the gear, it is a record of how far
+    // along the owner is with their own packing — and it was riding every share link,
+    // unrendered but plainly in the payload, so a stranger could read which half of
+    // somebody's kit was already in the bag. Nothing on a read path has ever displayed
+    // it (checked: neither ReadonlyListView nor ReadonlyFolderSection reads the field),
+    // so this removes something only a network tab could see.
+    //
+    // Stripped HERE rather than at each read path, for the reason the two fields below
+    // give: every read starts from this function, so omitting it is the only version
+    // that fails closed. withOwnerOnly puts the real items back.
+    items: (data.items ?? []).map(({ packed: _packed, ...rest }) => rest),
     days: data.days ?? [],
     // The ASYMMETRY with days is deliberate and load-bearing. Every other entity in
     // `data` is public; waypoints are not, so this must NOT forward them — and
@@ -598,6 +608,20 @@ export async function getByShareCode(code: string): Promise<ListSnapshot | null>
 function withOwnerOnly(snap: ListSnapshot, row: ListRow): ListSnapshot {
   snap.routeGeometry = row.routeGeometry ?? undefined;
   snap.waypoints = ((row.data ?? {}) as ListData).waypoints ?? [];
+  // The packed ticks back onto the items, MATCHED BY ID rather than by replacing the
+  // array. That distinction is the whole of this comment: the owner path is
+  // `withOwnerOnly(await hydrateForRead(db, rowToSnapshot(row)), row)`, so by the time
+  // this runs the items have already had their catalog names trickled down
+  // (hydrateCatalogNames). Assigning `row.data.items` over the top would restore the tick
+  // and silently undo that refresh — every renamed catalogue product reverting to the
+  // name baked in when it was added, on the owner's view only.
+  const ticks = new Map(
+    (((row.data ?? {}) as ListData).items ?? []).map((i) => [i.id, i.packed]),
+  );
+  snap.items = snap.items.map((i) => {
+    const packed = ticks.get(i.id);
+    return packed == null ? i : { ...i, packed };
+  });
   return snap;
 }
 
