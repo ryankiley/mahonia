@@ -15,7 +15,10 @@ import { displayUrl, parseTrailLink, safeUrl } from "~~/shared/trailLink";
 // path, which is the easy way to undo this without noticing.
 import { profileToString } from "~~/shared/profile";
 import { routeGeometryFromPoints } from "~~/shared/polyline";
-import type { ListSnapshot } from "~~/shared/types";
+// Types only, so this import is erased at build and does NOT drag the reader onto the
+// first load the way a value import would.
+import type { FilePin } from "~~/shared/gpx";
+import type { ListSnapshot, WaypointKind } from "~~/shared/types";
 import { copyText } from "~/utils/clipboard";
 
 // The editor's title block: the list's name as a page title, with an optional link to
@@ -137,6 +140,73 @@ function commitLabel(e: Event) {
 // somebody typed — the same conservatism trailLink.ts applies to deriving names.
 const gpxError = ref("");
 const gpxBusy = ref(false);
+
+/**
+ * The two pins every route already has.
+ *
+ * Placed WITH the route rather than by hand, because the geometry knows where they are —
+ * asking someone to drop a marker on the start of a line they just imported is asking them
+ * to restate the file. They are ordinary waypoints afterwards: movable, renameable,
+ * deletable, because a trailhead is sometimes not where the track begins. You parked
+ * somewhere else; the recording started mid-approach.
+ *
+ * On a LOOP there is one, not two. The ends are the same place, so a second marker sits on
+ * top of the first and reads as a rendering fault rather than as a fact about the walk.
+ */
+async function placeEnds(geometry: string) {
+  const { cumulativeM, decodePolyline, isLoop } = await import("~~/shared/polyline");
+  const line = decodePolyline(geometry);
+  if (line.length < 2) return;
+  c.addWaypoint(0, "trailhead");
+  if (isLoop(line)) return;
+  const total = cumulativeM(line).at(-1) ?? 0;
+  if (total > 0) c.addWaypoint(Math.round(total), "end");
+}
+
+/**
+ * Pins the file offered, held until someone says yes.
+ *
+ * `kindOf` rides along rather than being re-imported: it comes out of the same lazy chunk
+ * the file was read with, and by the time this is confirmed that chunk is already loaded.
+ */
+const pending = ref<{
+  geometry: string;
+  pins: FilePin[];
+  kindOf: (p: Pick<FilePin, "sym" | "name">) => WaypointKind;
+} | null>(null);
+
+/** How close two pins have to be before the second one is just the first one again. */
+const PIN_DEDUP_M = 60;
+
+async function confirmPins() {
+  const p = pending.value;
+  pending.value = null;
+  if (!p) return;
+  const { cumulativeM, decodePolyline, nearestAlongM } = await import("~~/shared/polyline");
+  const line = decodePolyline(p.geometry);
+  if (line.length < 2) return;
+  const total = cumulativeM(line).at(-1) ?? 0;
+  // Every pin PROJECTS onto the line, because a waypoint is a distance along the route and
+  // not a coordinate. A water source 200 m off-trail is recorded where you'd leave the
+  // trail for it, which is the useful place to be told about it.
+  const taken = (props.snapshot.waypoints ?? []).map((w) => w.alongM);
+  for (const pin of p.pins) {
+    const alongM = nearestAlongM(line, pin);
+    if (alongM < 0 || alongM > total) continue;
+    // Don't re-place the ends we just placed ourselves, and don't stack two pins a person
+    // would read as one. Checked against what's ALREADY there, so it holds for a second
+    // import onto an existing set too.
+    if (taken.some((t) => Math.abs(t - alongM) < PIN_DEDUP_M)) continue;
+    taken.push(alongM);
+    c.addWaypoint(alongM, p.kindOf(pin));
+    // The label is a separate op because addWaypoint mints the id — see useGearList. The
+    // reducer sorts by alongM, so the pin just added is findable by the position we gave it.
+    if (pin.name) {
+      const made = (c.snapshot.value?.waypoints ?? []).find((w) => w.alongM === alongM);
+      if (made) c.updateWaypoint(made.id, { label: pin.name.slice(0, 120) });
+    }
+  }
+}
 async function onGpx(e: Event) {
   const input = e.target as HTMLInputElement;
   const file = input.files?.[0];
@@ -149,9 +219,8 @@ async function onGpx(e: Event) {
     // lines of XML dialects, a zip decoder and GeoJSON that would otherwise ride the
     // first load of every packing list. `gpxBusy` is already true, so the fetch shows as
     // "Reading…" like the parse it precedes.
-    const { MAX_GPX_BYTES, geoJsonPoints, gpxPoints, gpxStats, kmzToKml } = await import(
-      "~~/shared/gpx"
-    );
+    const { MAX_GPX_BYTES, filePins, geoJsonPoints, gpxPoints, gpxStats, kmzToKml, pinKind } =
+      await import("~~/shared/gpx");
     // Checked BEFORE reading. DOMParser on a 30 MB string blocks the main thread for
     // seconds; declining is cheaper than a worker, and honest. (After the import rather
     // than before it only because the limit lives with the reader — a chunk fetch is not
@@ -173,6 +242,7 @@ async function onGpx(e: Event) {
     // non-space character tells us which family it belongs to more reliably than a name.
     const first = text.trimStart()[0];
     let points;
+    let pins: FilePin[] = [];
     if (first === "{" || first === "[") {
       points = geoJsonPoints(JSON.parse(text));
     } else {
@@ -180,18 +250,29 @@ async function onGpx(e: Event) {
       if (doc.querySelector("parsererror")) throw new Error("not xml");
       // gpxPoints reads GPX, KML and TCX — same track, different dialects
       points = gpxPoints(doc);
+      // The pins the file carried, read SEPARATELY from the track and deliberately not
+      // applied yet — see confirmPins. gpxPoints never touches <wpt>, and that separation
+      // is load-bearing: a KML's marker placemarks once inflated a 39.8-mile trail to 58.5.
+      pins = filePins(doc);
     }
     const stats = gpxStats(points);
     if (!stats) throw new Error("no track");
+    const geometry = routeGeometryFromPoints(points) ?? "";
     c.setMeta({
       trailDistanceM: stats.distanceM,
       trailProfile: profileToString(stats.profile) ?? "",
       // the route's SHAPE, simplified to fit its budget — see shared/polyline.ts
-      routeGeometry: routeGeometryFromPoints(points) ?? "",
+      routeGeometry: geometry,
       // measured across the FULL track, not the stored profile — see trailAscentM
       trailAscentM: stats.ascentM,
       trailDescentM: stats.descentM,
     });
+    // The ends come with the route, because the geometry already knows where they are and
+    // nobody should have to place by hand the two pins every route has.
+    if (geometry) placeEnds(geometry);
+    // Everything else the file offered is an OFFER. A track can carry thousands of pins;
+    // fifty is not glanceable and undoing them is fifty taps, so it waits for a yes.
+    pending.value = geometry && pins.length ? { geometry, pins, kindOf: pinKind } : null;
   } catch {
     gpxError.value = "Couldn't read a route out of that file.";
   } finally {
@@ -570,6 +651,16 @@ onClickOutside(trailEl, closeTrail);
           </Tooltip>
         </p>
         <p v-if="gpxError" class="head__gpxerr t-sm">{{ gpxError }}</p>
+        <!-- An OFFER, not an import. The route is already in by the time this appears —
+             this is only the pins the file also carried, and they wait because a file can
+             hold thousands and undoing them would be one tap each. Phrased with the count
+             so the answer is informed: "add 11" is a different question from "add 400". -->
+        <p v-if="pending" class="head__gpxerr t-sm">
+          That file also has {{ pending.pins.length }}
+          {{ pending.pins.length === 1 ? "marked place" : "marked places" }}.
+          <button type="button" class="head__gpxyes" @click="confirmPins">Add them</button>
+          <button type="button" class="head__gpxno" @click="pending = null">No thanks</button>
+        </p>
 
         <!-- edit only. On the way IN the single job is pasting a URL; a title box there
              reads as a second thing to fill in, when most links name themselves from the
@@ -1129,6 +1220,35 @@ onClickOutside(trailEl, closeTrail);
 .head__gpxerr {
   margin: 0;
   color: var(--ink-2);
+}
+/* The two answers to the pins offer. Text buttons rather than real ones: this sits inside
+   a sentence in a quiet panel, and a pair of chrome buttons here would outweigh the
+   "Import map file" affordance that caused it. Same treatment as head__gpxbtn, which is
+   the other thing in this panel you click to make something happen. */
+.head__gpxyes,
+.head__gpxno {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color var(--dur) var(--ease);
+}
+.head__gpxyes {
+  margin-left: var(--space-1);
+  color: var(--ink);
+}
+.head__gpxno {
+  margin-left: var(--space-2);
+  color: var(--ink-3);
+}
+.head__gpxyes:hover,
+.head__gpxyes:focus-visible,
+.head__gpxno:hover,
+.head__gpxno:focus-visible {
+  color: var(--ink);
 }
 .head__paneldiv {
   width: 100%;

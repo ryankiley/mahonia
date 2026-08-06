@@ -2,26 +2,38 @@
 
 // The one host this site talks to besides itself: the basemap under a planned route.
 //
-// It draws TERRAIN AND NOTHING ELSE — hillshaded relief, no roads, no labels, no place
-// names. That was the deciding property over a full topographic style: a topo map is
-// dense with information the app isn't making a claim about, and it competes with the
-// one mark that matters, which is the route. On bare relief the day colours are the only
-// content on the map, which is the same rule the rest of the site follows — chrome is
-// monochrome, colour is the data.
+// Settled by putting the same walk on eight of them, live and side by side, rather than by
+// reasoning about it. Three were rejected for what they showed:
 //
-// It also needs no account and no API key, so there is nothing to leak in the client and
-// nothing to rotate. Swapping provider is this constant plus the tile URL and attribution
-// in RouteMap.client.vue.
+//   - Bare hillshade is beautiful and says NOTHING — no water, no trails, no names. A map
+//     with no information on it is a texture.
+//   - A street map has no relief at all, so a mountain reads as a blank.
+//   - A satellite image shows real ground cover and no elevation, names or trails.
 //
-// TRIPWIRE: these tiles are free to use WITH ATTRIBUTION, which is why the map keeps
-// Leaflet's attribution control and must never style it away. Esri can change access to
-// an unkeyed endpoint at any time, so the failure mode to design for is refusal, not a
-// bill — RouteMap drops the tile layer after repeated errors and keeps drawing the route
-// on plain ground. If that ever becomes permanent, OpenTopoMap
-// (https://tile.opentopomap.org, {z}/{x}/{y}.png) is the documented fallback: free, no
-// key, contours — but non-commercial only and capped near 400k tiles a month, so if the
-// site ever takes advertising that option closes too.
-const TILE_ORIGIN = "https://server.arcgisonline.com";
+// OpenTopoMap is the densest option and it won on the thing that actually matters up a
+// mountain: contours you can count, every stream, every named glacier and spur, and the
+// trails themselves. It is drawn for walking, which none of the others are.
+//
+// What that costs is legibility, and it is paid for in RouteMap rather than by choosing a
+// quieter map: the route is drawn with a white casing under it so it stays the loudest
+// mark on a busy ground. Note the collision that made that necessary — this style draws
+// paths in MAGENTA, which is within a few degrees of the hue day 2 wears.
+//
+// No account and no API key, so there is nothing to leak in the client and nothing to
+// rotate. Swapping provider is this constant plus the tile URL and attribution in
+// RouteMap.client.vue — and the alternatives that keep coming up (MapTiler, Tracestrack)
+// all want an account, a public key, a monthly ceiling and their own branding, which is
+// four new constraints in exchange for one. Esri's unkeyed topo is the closest same-shape
+// fallback (server.arcgisonline.com, World_Topo_Map/MapServer/tile/{z}/{y}/{x} — note the
+// AXIS ORDER differs), quieter but with no trails on it.
+//
+// TRIPWIRE, and this one is live rather than hypothetical: OpenTopoMap is free for
+// NON-COMMERCIAL use and restricted above roughly 400k tiles a month. That fits today —
+// legal.vue says "No advertising, and I don't sell your data" — but if either fact
+// changes, the basemap must be revisited BEFORE it ships, not after a block. The same
+// policy is why the tile layer caps maxZoom at 17, keeps the attribution control, and
+// never fetches a tile it isn't about to draw.
+const TILE_ORIGIN = "https://tile.opentopomap.org";
 
 // Content-Security-Policy — defense-in-depth for a public, anyone-can-write app.
 // `'unsafe-inline'` is required for script + style: Nuxt SSR/prerender emits inline

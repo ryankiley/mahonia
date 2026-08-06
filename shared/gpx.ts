@@ -17,6 +17,7 @@
 // climbs per day, grade bands — lives in profile.ts precisely so this file can stay off
 // that path. Import FROM profile.ts freely; never make profile.ts import from here.
 import { ASCENT_THRESHOLD_M, PROFILE_SAMPLES, SMOOTH_WINDOW, smooth } from "./profile";
+import type { WaypointKind } from "./types";
 
 /** One point off the track. `ele` is often absent — plenty of tracks carry no elevation. */
 export interface TrackPoint {
@@ -76,6 +77,117 @@ export function gpxPoints(doc: Document): TrackPoint[] {
     const eleText = localText(n, "ele");
     const ele = eleText != null ? Number(eleText) : Number.NaN;
     out.push(Number.isFinite(ele) ? { lat, lon, ele } : { lat, lon });
+  }
+  return out;
+}
+
+/** A pin the file already carried, before it is projected onto the route. */
+export interface FilePin {
+  lat: number;
+  lon: number;
+  name?: string;
+  /** the exporter's own category — `<sym>` in GPX, the KML placemark's style id */
+  sym?: string;
+}
+
+/**
+ * What a pin's words mean, case-folded and matched loosely.
+ *
+ * Deliberately a SUBSTRING match, because there is no registry: `<sym>` is free text and
+ * every exporter writes its own. Real values for one idea include "Water Source", "water",
+ * "Drinking Water" and "spring", and matching whole strings would recognise almost none of
+ * them.
+ *
+ * Order matters — first hit wins — and the specific sits above the general, or "trailhead
+ * parking" lands on the parking rule when it should land on the trailhead one. Anything
+ * unrecognised becomes a landmark rather than being dropped: the position is the part that
+ * was hard to come by, and the kind is one tap to correct.
+ */
+const PIN_KINDS: [RegExp, WaypointKind][] = [
+  [/trail\s*head/, "trailhead"],
+  // `lodging`, NOT `lodge` — measured against the real Timberline export, where the route
+  // starts at Timberline Lodge. A named lodge is a building you walk past or start from,
+  // and calling it a campsite is a confident wrong answer where "landmark" is a quiet
+  // right-enough one.
+  [/camp|tent|shelter|hut|lodging|bivou?ac/, "camp"],
+  [/water|spring|drink|well|creek|stream|faucet|spigot/, "water"],
+  [/parking|car\s*park|trail\s*lot/, "trailhead"],
+];
+
+/**
+ * Whether a `sym` is this pin's category or just a list of every category the exporter has.
+ *
+ * AllTrails' KML writes `styleUrl` as the WHOLE enumeration — a single string reading
+ * `#generic,summit,valley,mountainpass,water,food,danger,firstaid,…` on every placemark,
+ * identically. A substring match against that says "water" for every pin on the route,
+ * confidently and wrongly, which is worse than saying nothing.
+ *
+ * So a value naming several categories at once is treated as naming none of them. The
+ * numbers are loose on purpose: a genuine sym is one or two words ("Water Source",
+ * "Campground"), and nothing legitimate needs four commas.
+ */
+const looksEnumerated = (s: string) => s.length > 40 || (s.match(/,/g)?.length ?? 0) >= 3;
+
+/**
+ * A pin's kind, from whatever the file gave us.
+ *
+ * `sym` first when it is a real per-pin value, then the NAME — and the name matters more
+ * than it looks. The exporter people actually use writes no `<sym>` at all in GPX and an
+ * enumeration in KML, so on real files the name is the only signal there is: "Good Camp
+ * Area", "Elk Cove Camp" and "Cairn Basin Shelter" are all obviously camps to a reader and
+ * would otherwise all arrive as landmarks.
+ */
+export function pinKind(pin: Pick<FilePin, "sym" | "name">): WaypointKind {
+  const sym = (pin.sym ?? "").toLowerCase();
+  if (sym && !looksEnumerated(sym)) {
+    for (const [re, kind] of PIN_KINDS) if (re.test(sym)) return kind;
+  }
+  const name = (pin.name ?? "").toLowerCase();
+  if (name) {
+    for (const [re, kind] of PIN_KINDS) if (re.test(name)) return kind;
+  }
+  return "landmark";
+}
+
+/**
+ * The pins a file carries, which are NOT the track.
+ *
+ * A `<wpt>` is a sibling of `<trk>`, not part of it — which is exactly why gpxPoints reads
+ * `trkpt`/`rtept` and never `wpt`. Reading them into the route was a real bug earlier on
+ * this branch: a KML export's twelve marker placemarks inflated a 39.8-mile trail to 58.5,
+ * because a pin off in a car park is a coordinate but not a step anyone walks.
+ *
+ * So they come back separately, and the caller decides. They stay OFF by default because a
+ * file can carry thousands: fifty pins is not glanceable, and undoing them is fifty taps.
+ */
+export function filePins(doc: Document): FilePin[] {
+  const out: FilePin[] = [];
+  for (const n of byLocalName(doc, "wpt")) {
+    const lat = Number(n.getAttribute("lat"));
+    const lon = Number(n.getAttribute("lon"));
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+    out.push({
+      lat,
+      lon,
+      name: localText(n, "name")?.trim() || undefined,
+      sym: localText(n, "sym")?.trim() || undefined,
+    });
+  }
+  if (out.length) return out;
+  // KML says the same thing with a Placemark holding a Point. Only those — a Placemark
+  // wrapping a LineString is the ROUTE, and picking it up here would put a pin on it.
+  for (const pm of byLocalName(doc, "Placemark")) {
+    const point = [...pm.getElementsByTagName("*")].find((el) => el.localName.toLowerCase() === "point");
+    if (!point) continue;
+    const raw = localText(point, "coordinates")?.trim();
+    const [lon, lat] = (raw ?? "").split(",").map(Number);
+    if (!Number.isFinite(lat!) || !Number.isFinite(lon!)) continue;
+    out.push({
+      lat: lat!,
+      lon: lon!,
+      name: localText(pm, "name")?.trim() || undefined,
+      sym: localText(pm, "styleUrl")?.trim() || undefined,
+    });
   }
   return out;
 }

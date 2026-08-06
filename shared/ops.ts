@@ -503,6 +503,18 @@ function applyOp(state: ListState, op: Op): void {
         // rather than clamping it, and returns its own canonical re-encoding so a
         // hand-edited value can't round-trip in a shape this codec didn't produce.
         const geo = normalizeRouteGeometry(p.routeGeometry);
+        // THE WAYPOINTS GO WITH IT. A waypoint is a distance along THIS route — "water at
+        // 6.2 miles" describes the Timberline and describes nothing at all once the
+        // Wildwood is loaded in its place. Left alone they don't error; they silently
+        // re-point at whatever is now 6.2 miles in, which is a confident wrong answer of
+        // the worst kind, because it looks like a pin somebody placed.
+        //
+        // Only on a real CHANGE, so re-saving the same route keeps its pins — an
+        // unconditional clear would empty them on any autosave that happened to carry the
+        // geometry. And in the reducer rather than at the call sites, because there are
+        // three of those already (import, clear the link, remove the trail) and the next
+        // one to be added is the one that would forget.
+        if (geo !== state.routeGeometry) state.waypoints = [];
         if (geo) state.routeGeometry = geo;
         else delete state.routeGeometry;
       }

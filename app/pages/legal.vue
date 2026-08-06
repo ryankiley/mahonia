@@ -115,11 +115,12 @@ useHead({
         </p>
         <p>
           One more, and only on one screen. When a list has a route, the planning view draws it on
-          a terrain map, and those map images come from <strong>Esri</strong>. Loading an image
-          tells that server your rough map position and that the request came from mahonia.app —
-          never which list you’re looking at, because the browser is told to send the site’s
-          address and nothing further. It’s the only request Mahonia makes to anyone else, it only
-          happens on a list that has a route, and the map’s code isn’t even downloaded otherwise.
+          a topographic map, and those map images come from <strong>OpenTopoMap</strong>, a
+          volunteer project built on OpenStreetMap data. Loading an image tells that server your
+          rough map position and that the request came from mahonia.app — never which list you’re
+          looking at, because the browser is told to send the site’s address and nothing further.
+          It’s the only request Mahonia makes to anyone else, it only happens on a list that has a
+          route, and the map’s code isn’t even downloaded otherwise.
         </p>
 
         <h3>Keeping and deleting your data</h3>

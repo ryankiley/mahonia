@@ -87,35 +87,47 @@ describe("what using someone else's tiles obliges", () => {
     expect(routeMap).toMatch(/referrerPolicy:\s*"origin"/);
   });
 
-  it("caps maxZoom where the elevation data actually stops", () => {
-    // Past this the tiles are enlarging pixels rather than showing more ground, and most
-    // tiles in a session come from zooming in — so the cap is both honest and cheap.
-    expect(routeMap).toMatch(/maxZoom:\s*16\b/);
+  it("caps maxZoom at the provider's own ceiling", () => {
+    // Most tiles in a session come from zooming in, so this is the cheapest way to stay a
+    // light user of infrastructure that is donated rather than sold.
+    expect(routeMap).toMatch(/maxZoom:\s*17\b/);
   });
 
   it("keeps attribution, which is a licence requirement and not decoration", () => {
+    // CC-BY-SA, so this one is a condition of use rather than a courtesy.
     expect(routeMap).toMatch(/attribution:/);
-    expect(routeMap).toMatch(/Esri/);
+    expect(routeMap).toMatch(/OpenStreetMap/);
+    expect(routeMap).toMatch(/OpenTopoMap/);
     // …and never styles it away
     expect(routeMap).not.toMatch(/\.leaflet-control-attribution[^{]*\{[^}]*display:\s*none/);
   });
 
-  it("uses the ArcGIS axis order, not the OSM one", () => {
-    // This service numbers tiles {z}/{y}/{x}. Swapped, it still returns 200s — it just
-    // returns tiles of somewhere else, which no error handler would ever catch.
-    expect(routeMap).toMatch(/tile\/\{z\}\/\{y\}\/\{x\}/);
+  it("uses the OSM axis order, not the ArcGIS one", () => {
+    // This provider numbers tiles {z}/{x}/{y}; the documented fallback numbers them
+    // {z}/{y}/{x}. Swapped, either still returns 200s — just tiles of somewhere else,
+    // which no error handler would ever catch.
+    expect(routeMap).toMatch(/\{z\}\/\{x\}\/\{y\}\.png/);
+  });
+
+  it("draws the route over a casing, because this basemap is a busy one", () => {
+    // The style draws paths in magenta, a few degrees off the hue day 2 wears. Without a
+    // white line under the colour the route stops being findable exactly where the map has
+    // the most detail on it.
+    expect(routeMap).toMatch(/routemap__casing/);
+    expect(routeMap).toMatch(/color:\s*"#ffffff"/);
   });
 
   it("never prefetches — the offline story is the fallback, not a tile cache", () => {
     expect(routeMap).not.toMatch(/prefetch|preload|bulk/i);
   });
 
-  it("the terms tripwire sits next to the thing it governs", () => {
-    // Free WITH ATTRIBUTION, from an unkeyed endpoint that could close at any time. The
-    // note has to be where someone changing the provider will read it.
+  it("the non-commercial tripwire sits next to the thing it governs", () => {
+    // These tiles are free for non-commercial use only. If the site ever takes advertising
+    // the basemap has to be revisited BEFORE that ships — so the note has to be where
+    // someone changing either fact will read it.
     expect(config).toMatch(/TRIPWIRE/);
     expect(config.slice(config.indexOf("TRIPWIRE"), config.indexOf("const TILE_ORIGIN"))).toMatch(
-      /attribution/i,
+      /non-commercial/i,
     );
   });
 });

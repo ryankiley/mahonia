@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { dayColorSequence } from "~~/shared/categories";
-import { decodePolyline, sliceAlong, type LatLon } from "~~/shared/polyline";
+import { cumulativeM, decodePolyline, pointAlong, sliceAlong, type LatLon } from "~~/shared/polyline";
 
 // Where the route actually goes — the other half of the elevation profile's answer.
 //
@@ -39,6 +39,7 @@ let L: Leaflet | null = null;
 let map: import("leaflet").Map | null = null;
 let tiles: import("leaflet").TileLayer | null = null;
 let legs: import("leaflet").Polyline[] = [];
+let arrows: import("leaflet").Marker[] = [];
 let ro: ResizeObserver | null = null;
 
 const points = computed<LatLon[]>(() => decodePolyline(props.geometry));
@@ -65,6 +66,130 @@ const dayLegs = computed(() => {
 });
 
 /**
+ * How often a direction mark appears along the route.
+ *
+ * A line says where the walk goes and says nothing about which way round it is walked —
+ * which on a LOOP is the entire question, because the two answers put your climb on
+ * different days. So the route carries a few chevrons.
+ *
+ * FEW is the design. One every kilometre would trace the line in arrowheads and turn a
+ * mark that reads as terrain into a mark that reads as a diagram, so the count is fixed
+ * and the SPACING follows the route's length: about a dozen across whatever the route is,
+ * never closer together than 1.5 km on a short one. A 64 km loop gets thirteen, a 6 km
+ * afternoon gets two, and neither looks busy.
+ */
+const ARROW_COUNT = 13;
+const ARROW_MIN_GAP_M = 1500;
+/** How far either side of a chevron the heading is measured over. */
+const ARROW_LOOK_M = 60;
+
+/** The day that owns a given distance along the route, or -1 for ground no day claims. */
+function dayAt(alongM: number): number {
+  let run = 0;
+  for (let i = 0; i < props.dayDistancesM.length; i++) {
+    run += props.dayDistancesM[i]!;
+    if (alongM <= run) return i;
+  }
+  return -1;
+}
+
+/**
+ * The direction marks: position, screen angle, and the colour of the day they fall in.
+ *
+ * The angle is measured in LAYER space rather than from a compass bearing, which is both
+ * simpler and exactly right — it asks Leaflet where these two points actually land on
+ * screen, so it cannot disagree with the line it is sitting on whatever the projection is
+ * doing. (Web Mercator is conformal, so the angle holds as you zoom; only Leaflet moving
+ * the marker matters, and it does that itself.)
+ */
+function arrowMarks() {
+  const line = points.value;
+  if (!map || line.length < 2) return [];
+  const total = cumulativeM(line).at(-1) ?? 0;
+  if (!(total > 0)) return [];
+  const gap = Math.max(total / ARROW_COUNT, ARROW_MIN_GAP_M);
+  const colors = dayColorSequence(props.dayDistancesM.length);
+  const out: { at: LatLon; deg: number; color: string }[] = [];
+  // offset by half a gap so no chevron lands on the trailhead or the finish, where the
+  // route's own end markers already are
+  for (let d = gap / 2; d < total; d += gap) {
+    const at = pointAlong(line, d);
+    // A step either side, so the angle is the local direction of travel. Wide enough to
+    // span a stored segment (~125 m at the simplification cap) rather than sampling inside
+    // one, which would make the chevron chase a single switchback.
+    const back = pointAlong(line, Math.max(0, d - ARROW_LOOK_M));
+    const fwd = pointAlong(line, Math.min(total, d + ARROW_LOOK_M));
+    if (!at || !back || !fwd) continue;
+    // `project`, NOT `latLngToLayerPoint` — the latter rounds to whole pixels, and at
+    // whole-route zoom these two points are a fraction of a pixel apart, so every angle
+    // collapsed onto a multiple of 45°. The chevrons still pointed roughly the right way,
+    // which is exactly why it would have survived a look.
+    const a = map.project([back.lat, back.lon]);
+    const b = map.project([fwd.lat, fwd.lon]);
+    if (a.x === b.x && a.y === b.y) continue;
+    const day = dayAt(d);
+    out.push({
+      at,
+      // screen y grows downward, which is already what a CSS rotation expects
+      deg: (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI,
+      color: day === -1 ? "var(--ink-3)" : (colors[day] ?? "var(--cat-other)"),
+    });
+  }
+  return out;
+}
+
+/**
+ * Whether the person looking at this has moved the map themselves.
+ *
+ * Until they have, the view is ours to manage and the whole route should stay in frame.
+ * The moment they pan or zoom, it is theirs and we stop touching it — re-framing under
+ * somebody who has just zoomed in on a col is the rudest thing a map can do.
+ */
+let touched = false;
+/** Set while WE are moving the map, so our own framing doesn't read as a gesture. */
+let framing = false;
+
+/** Put the whole TRACK in view — not the legs, which would crop the ground no day claims. */
+function frame() {
+  if (!map || !L) return;
+  framing = true;
+  const all = points.value.map((p) => [p.lat, p.lon] as [number, number]);
+  // `animate: false` is what makes the flag above sufficient: the move happens inside this
+  // call and fires its events here, rather than landing after the flag is cleared.
+  if (all.length) map.fitBounds(L.latLngBounds(all), { padding: [16, 16], animate: false });
+  else map.setView([0, 0], 2, { animate: false });
+  framing = false;
+}
+
+/**
+ * Draw the direction marks.
+ *
+ * `interactive: false` matters: these sit ON the route, and a chevron that swallowed a
+ * click would put a dead spot every few kilometres along the one thing you are meant to be
+ * able to click.
+ */
+function renderArrows() {
+  if (!map || !L) return;
+  for (const m of arrows) m.remove();
+  arrows = arrowMarks().map((mark) =>
+    L!.marker([mark.at.lat, mark.at.lon], {
+      interactive: false,
+      keyboard: false,
+      // The markup is entirely ours — no list content reaches it — so building it as a
+      // string is safe here in a way it would not be for a waypoint's label.
+      icon: L!.divIcon({
+        className: "routemap__arrow",
+        html: `<i style="transform:rotate(${mark.deg.toFixed(1)}deg);color:${mark.color}"></i>`,
+        iconSize: [14, 14],
+        // the CENTRE, not a pin's tip: the mark means "the route runs this way through
+        // this point", so it has to sit on the line rather than hang off it
+        iconAnchor: [7, 7],
+      }),
+    }).addTo(map!),
+  );
+}
+
+/**
  * Draw (or redraw) one line per day.
  *
  * Leaflet's default renderer is SVG, which is why the route can wear the app's own tokens
@@ -74,7 +199,32 @@ const dayLegs = computed(() => {
 function renderLegs() {
   if (!map || !L) return;
   for (const line of legs) line.remove();
-  legs = dayLegs.value.map((leg) => {
+  legs = [];
+  // The CASING first, so every coloured leg is drawn on top of it.
+  //
+  // Standard cartography, and here it is load-bearing rather than decorative: the basemap
+  // is a topographic sheet with its own contours, streams and paths, and it draws paths in
+  // MAGENTA — within a few degrees of the hue day 2 wears. Without a casing the route
+  // stops being findable exactly where the map is most detailed, which is the ground you
+  // most wanted to look at. A white line under the colour keeps the route the loudest mark
+  // on any ground, and costs one extra polyline per day.
+  for (const leg of dayLegs.value) {
+    legs.push(
+      L!.polyline(
+        leg.points.map((p) => [p.lat, p.lon] as [number, number]),
+        {
+          weight: 7,
+          opacity: 1,
+          color: "#ffffff",
+          interactive: false,
+          lineCap: "round",
+          lineJoin: "round",
+          className: "routemap__casing",
+        },
+      ).addTo(map!),
+    );
+  }
+  for (const leg of dayLegs.value) {
     const line = L!.polyline(
       leg.points.map((p) => [p.lat, p.lon] as [number, number]),
       { weight: 4, opacity: 1, lineCap: "round", lineJoin: "round", className: "routemap__leg" },
@@ -90,8 +240,8 @@ function renderLegs() {
     const el = line.getElement() as SVGElement | null;
     if (el) el.style.stroke = leg.color;
     else if (import.meta.dev) console.warn("[RouteMap] leg drawn before the map had a view");
-    return line;
-  });
+    legs.push(line);
+  }
 }
 
 async function draw() {
@@ -120,29 +270,27 @@ async function draw() {
   //
   // Days don't have to cover the whole route, so this frames the TRACK rather than the
   // legs — fitting to the legs would crop the ground nobody has planned yet.
-  const all = points.value.map((p) => [p.lat, p.lon] as [number, number]);
-  if (all.length) map.fitBounds(L.latLngBounds(all), { padding: [16, 16] });
-  else map.setView([0, 0], 2);
+  frame();
 
-  // Hillshaded relief and nothing else — no roads, no labels, no place names. See
-  // TILE_ORIGIN in nuxt.config.ts for why bare terrain beat a full topographic style.
+  // A walking map: contours, every stream, named glaciers and spurs, and the trails
+  // themselves. See TILE_ORIGIN in nuxt.config.ts for the eight that were compared.
   //
-  // NOTE THE AXIS ORDER: this is an ArcGIS tile service, which numbers tiles {z}/{y}/{x},
-  // the opposite of the OSM-style {z}/{x}/{y} every other provider uses. Swapped, it
-  // still returns 200s — just tiles of somewhere else entirely.
-  tiles = L.tileLayer(`${tileOrigin}/ArcGIS/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}`, {
-    // The site sends `Referrer-Policy: no-referrer`, and tile providers commonly use the
-    // Referer to enforce their usage policy — an <img> never sends `Origin` either, so
-    // without this the tiles can be refused. "origin" sends `https://mahonia.app/` and
-    // nothing more: no path, so no share code.
+  // NOTE THE AXIS ORDER: {z}/{x}/{y}, the OSM convention. ArcGIS services — including the
+  // documented fallback — number tiles {z}/{y}/{x} instead, and swapped they still return
+  // 200s, just tiles of somewhere else entirely.
+  tiles = L.tileLayer(`${tileOrigin}/{z}/{x}/{y}.png`, {
+    // The site sends `Referrer-Policy: no-referrer`, and this provider's usage policy
+    // requires a valid Referer — an <img> never sends `Origin` either, so without this the
+    // tiles are refused or we are silently in breach. "origin" sends `https://mahonia.app/`
+    // and nothing more: no path, so no share code.
     referrerPolicy: "origin",
-    // The service itself goes to 23, but it is derived from a ~10–30 m elevation model,
-    // so past here it is enlarging pixels rather than showing more ground. Stopping
-    // where the data stops is also the cheapest way to stay a light user.
-    maxZoom: 16,
+    // OpenTopoMap's own ceiling, and the cheapest way to stay a light user of free
+    // community infrastructure — most tiles in a session come from zooming in, not panning.
+    maxZoom: 17,
     // A licence requirement, not decoration. It must never be styled away.
     attribution:
-      'Terrain &copy; <a href="https://www.esri.com">Esri</a> — Sources: Esri, USGS, NASA, NGA, CGIAR',
+      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, ' +
+      '&copy; <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA)',
   });
 
   // If the tiles don't come — offline, or the provider having a bad day — drop them and
@@ -158,9 +306,25 @@ async function draw() {
   tiles.addTo(map);
 
   renderLegs();
+  renderArrows();
+
+  // Any move that wasn't ours is theirs — drag, wheel, the +/− buttons, a keyboard arrow.
+  // Watching the outcome rather than the input is what makes that list complete without
+  // enumerating it.
+  map.on("moveend zoomend", () => {
+    if (!framing) touched = true;
+  });
 
   map.invalidateSize();
-  ro = new ResizeObserver(() => map?.invalidateSize());
+  ro = new ResizeObserver(() => {
+    if (!map) return;
+    map.invalidateSize();
+    // A map framed at one height is cropped at another, and this one is inside a panel
+    // that opens, a page that reflows and a window that resizes. invalidateSize alone
+    // keeps the centre and the zoom, so the route quietly loses its ends — re-frame while
+    // the view is still ours.
+    if (!touched) frame();
+  });
   ro.observe(host.value);
 }
 
@@ -169,13 +333,18 @@ onMounted(draw);
 // Recut the legs when the itinerary changes. Only the lines are rebuilt, never the map —
 // re-creating it would throw away the pan and zoom, which is the one piece of state here
 // that belongs to the person looking at it.
-watch(dayLegs, renderLegs);
+watch(dayLegs, () => {
+  renderLegs();
+  // the chevrons carry the day colours too, so they follow the same cut
+  renderArrows();
+});
 
 onBeforeUnmount(() => {
   ro?.disconnect();
   map?.remove();
   map = null;
   legs = [];
+  arrows = [];
 });
 </script>
 
@@ -239,11 +408,52 @@ onBeforeUnmount(() => {
   color: var(--ink-3);
 }
 
-.routemap__leg {
-  // the day's colour arrives as inline style (see paint()); this is the shape of the mark
+.routemap__leg,
+.routemap__casing {
+  // the day's colour arrives as inline style (see renderLegs); this is the shape of the mark
   fill: none;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+.routemap__casing {
+  // it exists to be under the colour, never to be hit — a click belongs to the leg on top
+  pointer-events: none;
+}
+
+// Which way round the walk goes.
+//
+// Leaflet's divIcon ships a white box with a border by default, which would put a little
+// card behind every chevron; both are cleared here rather than fought with later.
+.routemap__arrow {
+  background: none;
+  border: 0;
+  // it sits ON the line, and the line is what you click to place a pin
+  pointer-events: none;
+}
+
+// The chevron itself. No asset and no icon component — this chunk is already the heaviest
+// thing the app lazy-loads — and it inherits `color`, so the day's colour arrives the same
+// way the leg's does.
+//
+// A clip-path rather than the usual two-borders-rotated-45° trick, and that is a
+// correctness choice rather than a stylistic one: this shape points along +x AS DRAWN, so
+// the inline `transform` is the ONLY rotation involved. The border version needs a
+// standing +45° correction, which has to live either in a second CSS property — `rotate`
+// and `transform` are separate properties whose composition is easy to assume and hard to
+// verify, and `getComputedStyle().transform` doesn't even report the pair — or as a magic
+// number in the JavaScript. Both were wrong here before this: every chevron rendered at
+// its own angle, none of them the route's.
+.routemap__arrow i {
+  display: block;
+  width: 13px;
+  height: 11px;
+  margin: 1.5px 0.5px;
+  background: currentcolor;
+  clip-path: polygon(0 0, 100% 50%, 0 100%, 42% 50%);
+  // a white halo, so a chevron stays legible where it sits on top of its own line rather
+  // than merging into it. Flat white, not a token: the basemap under this never goes dark
+  // (see color-scheme on .routemap), so there is no second case to answer for.
+  filter: drop-shadow(0 0 1.5px #fff) drop-shadow(0 0 1px #fff);
 }
 
 // Leaflet's own chrome, brought into the app's language. Attribution stays legible on

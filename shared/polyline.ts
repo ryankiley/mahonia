@@ -35,6 +35,26 @@ export interface LatLon {
   lon: number;
 }
 
+/**
+ * How close a route's two ends have to be before it's the same place twice.
+ *
+ * 50 m is deliberately generous. A loop is walked, not computed: the track restarts at
+ * whichever bit of the car park the GPS reacquired in, and a there-and-back doubles the
+ * last hundred metres of trail without meaning to. Both should read as "you finish where
+ * you started". A tighter threshold calls a genuine loop a point-to-point and stacks two
+ * markers a few metres apart, which reads as a rendering fault rather than a fact.
+ *
+ * The cost of being wrong the other way is one deletable pin, so this errs loose.
+ */
+export const LOOP_CLOSE_M = 50;
+
+/** Whether the route ends where it began — so a loop gets ONE end marker, not two on top
+ *  of each other. */
+export function isLoop(points: readonly LatLon[]): boolean {
+  if (points.length < 3) return false;
+  return approxM(points[0]!, points[points.length - 1]!) <= LOOP_CLOSE_M;
+}
+
 function encodeSigned(value: number, out: string[]): void {
   let v = value < 0 ? ~(value << 1) : value << 1;
   while (v >= 0x20) {
