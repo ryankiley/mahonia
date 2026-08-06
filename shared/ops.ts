@@ -4,6 +4,7 @@
 // MERGE: two editors adding different items both succeed with no conflict; the
 // version counter only signals "you're behind, refetch", not "rejected".
 
+import { normalizeDistanceUnit, normalizeTrailDistanceM } from "./trailDistance";
 import { normalizeTrailLabel, normalizeTrailUrl } from "./trailLink";
 import type { Classification, Folder, FolderSort, Item, ListState, Unit } from "./types";
 import { UNITS } from "./types";
@@ -55,6 +56,10 @@ export type Op =
         displayUnit: Unit;
         trailUrl: string;
         trailLabel: string;
+        // metres, or "" to clear — the empty string is how every clearable meta field
+        // here says "remove", and a number channel alone couldn't express it
+        trailDistanceM: number | string;
+        trailDistanceUnit: string;
         startDate: string;
         endDate: string;
       }>;
@@ -317,6 +322,22 @@ function applyOp(state: ListState, op: Op): void {
         const label = normalizeTrailLabel(p.trailLabel);
         if (label) state.trailLabel = label;
         else delete state.trailLabel;
+      }
+      // Metres, bounded and integer-ised by the normalizer. Anything that isn't a
+      // usable distance CLEARS, on the same reasoning as the dates below: a route
+      // length of "0" or "abc" is not a partially-valid state worth carrying.
+      if (typeof p.trailDistanceM === "number" || typeof p.trailDistanceM === "string") {
+        const metres = normalizeTrailDistanceM(p.trailDistanceM);
+        if (metres) state.trailDistanceM = metres;
+        else delete state.trailDistanceM;
+      }
+      // Anything that isn't one of the two units clears back to ABSENT, which means
+      // "follow the weight unit" — the default, not a blank. Same shape as a folder's
+      // "manual" sort: the default is stored by not being stored.
+      if (typeof p.trailDistanceUnit === "string") {
+        const unit = normalizeDistanceUnit(p.trailDistanceUnit);
+        if (unit) state.trailDistanceUnit = unit;
+        else delete state.trailDistanceUnit;
       }
       // Dates are SHAPE-checked, not just clamped. They're rendered and exported, and
       // a half-typed "2026-0" would otherwise persist and read as a real date

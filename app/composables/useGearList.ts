@@ -380,6 +380,8 @@ function create() {
           // must the dates, which sit in the same meta row and are set the same way
           trailUrl: s.trailUrl,
           trailLabel: s.trailLabel,
+          trailDistanceM: s.trailDistanceM,
+          trailDistanceUnit: s.trailDistanceUnit,
           startDate: s.startDate,
           endDate: s.endDate,
           data: { folders: s.folders, items: s.items },

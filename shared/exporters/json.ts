@@ -13,16 +13,17 @@ import {
   normalizeFolder,
   normalizeItem,
 } from "../ops";
+import { normalizeDistanceUnit, normalizeTrailDistanceM, type DisplayDistanceUnit } from "../trailDistance";
 import { normalizeTrailLabel, normalizeTrailUrl } from "../trailLink";
 import { uid } from "../id";
 
 /** The downloaded backup's shape: the list's meta + its full content. */
 export function listToJson(list: ListMeta & ListData): string {
-  const { title, description, displayUnit, trailUrl, trailLabel, startDate, endDate, folders, items } = list;
+  const { title, description, displayUnit, trailUrl, trailLabel, trailDistanceM, trailDistanceUnit, startDate, endDate, folders, items } = list;
   // trailFaviconDataUrl is deliberately absent — it's a per-host cache the server
   // rebuilds, not part of the list the owner authored.
   return JSON.stringify(
-    { title, description, displayUnit, trailUrl, trailLabel, startDate, endDate, folders, items },
+    { title, description, displayUnit, trailUrl, trailLabel, trailDistanceM, trailDistanceUnit, startDate, endDate, folders, items },
     null,
     2,
   );
@@ -35,6 +36,8 @@ export interface JsonImport {
   displayUnit?: Unit;
   trailUrl?: string;
   trailLabel?: string;
+  trailDistanceM?: number;
+  trailDistanceUnit?: DisplayDistanceUnit;
   startDate?: string;
   endDate?: string;
   data: ListData;
@@ -125,6 +128,10 @@ export function jsonToListImport(text: string): JsonImport | null {
     // this ends up in a :href on a page strangers open
     trailUrl: normalizeTrailUrl(typeof raw.trailUrl === "string" ? raw.trailUrl : null) ?? undefined,
     trailLabel: normalizeTrailLabel(typeof raw.trailLabel === "string" ? raw.trailLabel : null),
+    // re-validated for the same reason: a hand-edited backup can carry a negative,
+    // a string or an absurd number, and the normalizer is the one rule for all of them
+    trailDistanceM: normalizeTrailDistanceM(raw.trailDistanceM),
+    trailDistanceUnit: normalizeDistanceUnit(raw.trailDistanceUnit),
     // Shape-checked on the way in, like the trail URL beside it and for the same
     // reason: a hand-edited backup can carry anything, and a malformed date would
     // render as a real one everywhere downstream. The reducer re-checks on setMeta,

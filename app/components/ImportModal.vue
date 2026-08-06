@@ -44,6 +44,8 @@ async function createFrom(
     displayUnit?: Unit;
     trailUrl?: string;
     trailLabel?: string;
+    trailDistanceM?: number;
+    trailDistanceUnit?: string;
     startDate?: string;
     endDate?: string;
   },
@@ -64,6 +66,8 @@ async function createFrom(
         displayUnit: meta?.displayUnit,
         trailUrl: meta?.trailUrl,
         trailLabel: meta?.trailLabel,
+        trailDistanceM: meta?.trailDistanceM,
+        trailDistanceUnit: meta?.trailDistanceUnit,
         startDate: meta?.startDate,
         endDate: meta?.endDate,
         data,

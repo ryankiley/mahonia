@@ -10,10 +10,11 @@
 // and over-including an unchanged entity is harmless (it just re-sets the same
 // value), so the diff can never silently lose a change.
 
+import { normalizeDistanceUnit } from "./trailDistance";
 import type { Folder, Item, ListData, ListState } from "./types";
 
 export interface ListDiff {
-  meta?: Partial<Pick<ListState, "title" | "description" | "displayUnit" | "trailUrl" | "trailLabel" | "startDate" | "endDate">>;
+  meta?: Partial<Pick<ListState, "title" | "description" | "displayUnit" | "trailUrl" | "trailLabel" | "trailDistanceM" | "trailDistanceUnit" | "startDate" | "endDate">>;
   foldersUpsert?: Folder[]; // present in target and new-or-changed vs base
   foldersDel?: string[]; // ids in base, gone in target
   itemsUpsert?: Item[];
@@ -27,6 +28,8 @@ export interface FullSnap {
   displayUnit: string;
   trailUrl?: string | null;
   trailLabel?: string | null;
+  trailDistanceM?: number | null;
+  trailDistanceUnit?: string | null;
   startDate?: string | null;
   endDate?: string | null;
   data: ListData;
@@ -38,6 +41,8 @@ export const stateToFullSnap = (s: ListState): FullSnap => ({
   displayUnit: s.displayUnit,
   trailUrl: s.trailUrl ?? null,
   trailLabel: s.trailLabel ?? null,
+  trailDistanceM: s.trailDistanceM ?? null,
+  trailDistanceUnit: s.trailDistanceUnit ?? null,
   startDate: s.startDate ?? null,
   endDate: s.endDate ?? null,
   data: { folders: s.folders, items: s.items },
@@ -50,6 +55,8 @@ export const fullSnapToState = (s: FullSnap): ListState => ({
   // round-trip a cleared link back as a present-but-blank field
   trailUrl: s.trailUrl ?? undefined,
   trailLabel: s.trailLabel ?? undefined,
+  trailDistanceM: s.trailDistanceM ?? undefined,
+  trailDistanceUnit: normalizeDistanceUnit(s.trailDistanceUnit),
   startDate: s.startDate ?? undefined,
   endDate: s.endDate ?? undefined,
   folders: s.data?.folders ?? [],
@@ -95,6 +102,17 @@ export function diffListState(base: ListState, target: ListState): ListDiff {
   // and target has to be recorded as a change, or restoring would resurrect it.
   if ((base.trailUrl ?? "") !== (target.trailUrl ?? "")) meta.trailUrl = target.trailUrl ?? "";
   if ((base.trailLabel ?? "") !== (target.trailLabel ?? "")) meta.trailLabel = target.trailLabel ?? "";
+  // 0 is this field's clear sentinel — the numeric equivalent of the "" above. A real
+  // distance is always positive (normalizeTrailDistanceM rejects the rest), so 0 can
+  // only ever mean "removed", and it keeps the key a number rather than widening the
+  // diff's type to carry a string that means nothing else.
+  if ((base.trailDistanceM ?? 0) !== (target.trailDistanceM ?? 0)) meta.trailDistanceM = target.trailDistanceM ?? 0;
+  // back to the "" sentinel: this one is a string, and "" (→ absent → follow the
+  // weight unit) is a state a list can genuinely return to, so the removal has to
+  // survive a restore just like a cleared link does
+  if ((base.trailDistanceUnit ?? "") !== (target.trailDistanceUnit ?? "")) {
+    meta.trailDistanceUnit = target.trailDistanceUnit ?? ("" as never);
+  }
   // dates take the same "" clear sentinel: a trip whose dates were removed between
   // base and target has to record the removal, or a restore resurrects them
   if ((base.startDate ?? "") !== (target.startDate ?? "")) meta.startDate = target.startDate ?? "";
@@ -136,6 +154,16 @@ export function applyListDiff(base: ListState, diff: ListDiff): ListState {
     if (diff.meta.trailLabel !== undefined) {
       if (diff.meta.trailLabel) out.trailLabel = diff.meta.trailLabel;
       else delete out.trailLabel;
+    }
+    // 0 clears, exactly as "" does above
+    if (diff.meta.trailDistanceM !== undefined) {
+      if (diff.meta.trailDistanceM) out.trailDistanceM = diff.meta.trailDistanceM;
+      else delete out.trailDistanceM;
+    }
+    if (diff.meta.trailDistanceUnit !== undefined) {
+      const unit = normalizeDistanceUnit(diff.meta.trailDistanceUnit);
+      if (unit) out.trailDistanceUnit = unit;
+      else delete out.trailDistanceUnit;
     }
     if (diff.meta.startDate !== undefined) {
       if (diff.meta.startDate) out.startDate = diff.meta.startDate;

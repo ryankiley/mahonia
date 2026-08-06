@@ -95,8 +95,17 @@ onClickOutside(rootRef, close);
 useWindowEvent("keydown", (e) => {
   if (e.key === "Escape" && open.value) close();
 });
-// opened to find something, so the keyboard should already be where you'd type
-watch(open, (o) => o && filterable.value && nextTick(() => fieldRef.value?.focus()));
+watch(open, (o) => {
+  if (!o) return;
+  // Opening RETIRES the pointer, rather than only hiding it. `v-if="!open"` in the
+  // template took it off screen for exactly as long as the menu was up — close the
+  // menu and it came back, still pointing at a control you had just used. The prop
+  // is owned upstairs and persisted there (gear.intro.dismissed.v1), so telling the
+  // parent is the only thing that actually ends it.
+  emit("dismiss-hint");
+  // opened to find something, so the keyboard should already be where you'd type
+  if (filterable.value) nextTick(() => fieldRef.value?.focus());
+});
 </script>
 
 <template>

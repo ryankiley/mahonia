@@ -1,5 +1,9 @@
 // Domain types shared by the client editor, the op-reducer, and the server/DB.
 
+// The one import here. trailDistance.ts imports nothing, so this can't cycle, and
+// re-declaring `"km" | "mi"` in two files is how the two quietly drift apart.
+import type { DisplayDistanceUnit } from "./trailDistance";
+
 export type Unit = "g" | "kg" | "oz" | "lb";
 
 /** All units in display order — the runtime companion to the `Unit` type. */
@@ -97,6 +101,16 @@ export interface ListMeta {
   // from the URL's path, for sites whose URLs are opaque (caltopo.com/m/ABC).
   trailUrl?: string;
   trailLabel?: string;
+  // How far the route goes, in METRES — typed by the owner, never fetched (the linked
+  // page can't be read server-side; see the note atop shared/trailDistance.ts). A
+  // property of the route, so it belongs to the link and is cleared with it.
+  trailDistanceM?: number;
+  // Which unit that distance READS in, "km" or "mi". Absent = follow displayUnit
+  // (a gram list reads km, an ounce list miles) — the same fall-back Item.entryUnit
+  // makes against the same field, and it's what keeps a list that never thought about
+  // distance consistent with the weight beside it. Present = the owner picked, and the
+  // pick outlives a later change of weight unit. Never affects what's stored.
+  trailDistanceUnit?: DisplayDistanceUnit;
   // When the trip is. CALENDAR DATES, not instants: `YYYY-MM-DD`, no time and no
   // timezone. A trip's dates are the ones written on a permit — they don't shift
   // because you flew somewhere, which is exactly what storing an instant would do.

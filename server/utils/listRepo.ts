@@ -26,6 +26,7 @@ import { UNITS } from "../../shared/types";
 import type { ListData, ListSnapshot, ListState, Totals, Unit } from "../../shared/types";
 import { isLikelySpam } from "../../shared/discovery";
 import { MAX_SUMMARY_LEN, summarizeOps } from "../../shared/changeSummary";
+import { normalizeDistanceUnit, normalizeTrailDistanceM } from "../../shared/trailDistance";
 import { displayHost, normalizeTrailLabel, normalizeTrailUrl, safeUrl } from "../../shared/trailLink";
 import { ensureSnapshotSchema, ensureTrailFaviconSchema, useAccountDb, useDb } from "./db";
 import { getFavicon, warmFavicon } from "./trailFavicon";
@@ -99,6 +100,8 @@ export function rowToSnapshot(row: ListRow): ListSnapshot {
     description: row.description ?? undefined,
     trailUrl: row.trailUrl ?? undefined,
     trailLabel: row.trailLabel ?? undefined,
+    trailDistanceM: row.trailDistanceM ?? undefined,
+    trailDistanceUnit: normalizeDistanceUnit(row.trailDistanceUnit),
     startDate: row.startDate ?? undefined,
     endDate: row.endDate ?? undefined,
     displayUnit: row.displayUnit as Unit,
@@ -214,6 +217,8 @@ function rowToState(row: ListRow): ListState {
     description: row.description ?? undefined,
     trailUrl: row.trailUrl ?? undefined,
     trailLabel: row.trailLabel ?? undefined,
+    trailDistanceM: row.trailDistanceM ?? undefined,
+    trailDistanceUnit: normalizeDistanceUnit(row.trailDistanceUnit),
     startDate: row.startDate ?? undefined,
     endDate: row.endDate ?? undefined,
     displayUnit: row.displayUnit as Unit,
@@ -449,6 +454,8 @@ export async function restoreSnapshotByEditToken(
         description: s.description ?? null,
         trailUrl: s.trailUrl ?? null,
         trailLabel: s.trailLabel ?? null,
+        trailDistanceM: s.trailDistanceM ?? null,
+        trailDistanceUnit: s.trailDistanceUnit ?? null,
         startDate: s.startDate ?? null,
         endDate: s.endDate ?? null,
         displayUnit,
@@ -536,6 +543,8 @@ export async function createList(init?: {
   displayUnit?: Unit;
   trailUrl?: string;
   trailLabel?: string;
+  trailDistanceM?: number;
+  trailDistanceUnit?: string;
   startDate?: string;
   endDate?: string;
   data?: ListData;
@@ -556,6 +565,8 @@ export async function createList(init?: {
   // re-validated, not just clamped — a create can carry an imported JSON backup's URL
   const trailUrl = normalizeTrailUrl(init?.trailUrl) ?? undefined;
   const trailLabel = normalizeTrailLabel(init?.trailLabel);
+  const trailDistanceM = normalizeTrailDistanceM(init?.trailDistanceM);
+  const trailDistanceUnit = normalizeDistanceUnit(init?.trailDistanceUnit);
   // same rule the setMeta op applies, so a date set on a draft means the same thing
   // after the draft is saved as it did before
   const startDate = normalizeCalendarDate(init?.startDate);
@@ -577,6 +588,8 @@ export async function createList(init?: {
           description,
           trailUrl,
           trailLabel,
+          trailDistanceM,
+          trailDistanceUnit,
           startDate,
           endDate,
           displayUnit,
@@ -687,6 +700,8 @@ export async function applyOpsByEditToken(
         description: state.description ?? null,
         trailUrl: state.trailUrl ?? null,
         trailLabel: state.trailLabel ?? null,
+        trailDistanceM: state.trailDistanceM ?? null,
+        trailDistanceUnit: state.trailDistanceUnit ?? null,
         startDate: state.startDate ?? null,
         endDate: state.endDate ?? null,
         displayUnit: state.displayUnit,

@@ -1,6 +1,10 @@
 [
   {
     "date": "2026-08-05",
+    "added": [
+      "Add a hike's distance to its trail link — in miles or kilometres, whichever you prefer — and see it beside the trail's name.",
+      "Lists with calories and trip dates now show what that works out to per day, so you can tell at a glance whether there's enough food in the pack."
+    ],
     "changed": [
       "On a phone, removing an item now lives in the row's ⋯ menu with the note, nesting and gear vault actions; the row keeps the ⋯ and the drag handle.",
       "On a phone, a list's trip dates now sit tight under its trail link, so the title, trail and dates read as one block."
@@ -9,7 +13,9 @@
       "On a phone, an item's worn and consumable icons sat below the weight beside them; every icon on the row now lines up with the numbers.",
       "On a phone, the worn and consumable icons now sit in the same place on every row, instead of moving left and right with each item's weight.",
       "Opening a row's ⋯ menu no longer nudges every other row in that folder sideways.",
-      "On a narrow phone, an item's drag handle no longer runs off the edge of the screen when its weight is long or it sits inside a group."
+      "On a narrow phone, an item's drag handle no longer runs off the edge of the screen when its weight is long or it sits inside a group.",
+      "Opening a list's trip dates now closes the trail link's card, instead of leaving both open on top of each other.",
+      "\"Pick up where you left off\" now goes away for good once you've opened your lists, instead of coming back when you close the menu."
     ]
   },
   {

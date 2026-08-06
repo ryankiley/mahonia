@@ -4,6 +4,7 @@ import { CheckIcon, ChevronDownIcon } from "@hugeicons/core-free-icons";
 import type { ListSnapshot, Totals, Unit } from "~~/shared/types";
 import { UNITS } from "~~/shared/types";
 import { carriedIsDistinct, formatKcal, formatWeight } from "~~/shared/weights";
+import { KCAL_PER_DAY_GENEROUS, KCAL_PER_DAY_LIGHT, foodPlan } from "~~/shared/foodPlan";
 
 const props = defineProps<{
   list: ListSnapshot;
@@ -44,6 +45,29 @@ const chips = computed(() => {
 const showCarried = computed(() => carriedIsDistinct(props.totals));
 
 const kcalDisplay = computed(() => formatKcal(props.totals.kcalTotal));
+
+// Calories PER DAY — the figure that answers "is there enough food in here", which
+// the raw total can't: 9,000 kcal is a feast for a weekend and starvation for a week.
+// Null (and silent) unless the list carries both calories and a date range; see
+// shared/foodPlan.ts for why the arithmetic stops here rather than modelling burn.
+const plan = computed(() => foodPlan(props.totals, props.list));
+const planTip = computed(() => {
+  const p = plan.value;
+  if (!p) return "";
+  const span = `${kcalDisplay.value} kcal across ${p.days} ${p.days === 1 ? "day" : "days"}.`;
+  // Named as a rule of thumb, and phrased as a range rather than a target — the band
+  // is a sanity check on the arithmetic, not a recommendation for a body.
+  //
+  // Deliberately no colour on the chip for a "light" reading. The band is a rule of
+  // thumb, not a verdict on a body — a flat five-mile day on 1,800 kcal is somebody
+  // having a nice time, and painting that red would be the app inventing a certainty
+  // it doesn't have. The number beside the range is the whole signal.
+  const band =
+    p.reading === "typical"
+      ? `That's inside the ${formatKcal(KCAL_PER_DAY_LIGHT)}–${formatKcal(KCAL_PER_DAY_GENEROUS)} kcal a day people commonly plan for walking with a pack.`
+      : `People commonly plan ${formatKcal(KCAL_PER_DAY_LIGHT)}–${formatKcal(KCAL_PER_DAY_GENEROUS)} kcal a day for walking with a pack.`;
+  return p.perDayDistance ? `${span} ${p.perDayDistance} a day. ${band}` : `${span} ${band}`;
+});
 
 // the four units as OptionMenu rows — the abbreviation IS the label here, since it's
 // what the figure beside it is already showing
@@ -122,6 +146,16 @@ const UNIT_OPTIONS = UNITS.map((u) => ({ key: u, label: u }));
           <span class="chip chip--alt">
             <span class="t-label">Calories</span>
             <span class="t-num">{{ kcalDisplay }} <span class="t-muted">kcal</span></span>
+          </span>
+        </Tooltip>
+        <!-- Per day: the same calories divided by the trip's own dates. It sits with
+             the calorie chip rather than behind its own rule — it IS that figure, at
+             the scale that makes it mean something. Needs both halves (kcal and a date
+             range), so it stays absent on the lists that have only one. -->
+        <Tooltip v-if="plan" preferred-placement="bottom" :text="planTip">
+          <span class="chip">
+            <span class="t-label">Per day</span>
+            <span class="t-num">{{ formatKcal(plan.kcalPerDay) }} <span class="t-muted">kcal</span></span>
           </span>
         </Tooltip>
       </div>

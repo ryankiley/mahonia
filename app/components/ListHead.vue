@@ -1,6 +1,13 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "@hugeicons/vue";
-import { Calendar03Icon, Copy01Icon, Delete02Icon, Edit02Icon, GlobeIcon, Location01Icon } from "@hugeicons/core-free-icons";
+import { Calendar03Icon, ChevronDownIcon, Copy01Icon, Delete02Icon, Edit02Icon, GlobeIcon, Location01Icon } from "@hugeicons/core-free-icons";
+import {
+  DISPLAY_DISTANCE_UNITS,
+  distanceFieldValue,
+  formatDistance,
+  parseDistanceM,
+  resolveDistanceUnit,
+} from "~~/shared/trailDistance";
 import { displayUrl, parseTrailLink, safeUrl } from "~~/shared/trailLink";
 import type { ListSnapshot } from "~~/shared/types";
 import { copyText } from "~/utils/clipboard";
@@ -100,16 +107,58 @@ const icon = computed(() => props.snapshot.trailFaviconDataUrl ?? fetchedIcon.va
 function commitUrl(e: Event) {
   const value = (e.target as HTMLInputElement).value.trim();
   c.setMeta({ trailUrl: value });
-  // clearing the URL clears the label too — a label with no link is unreachable state
-  if (!value) c.setMeta({ trailLabel: "" });
+  // clearing the URL clears the label too — a label with no link is unreachable state,
+  // and so is a distance with no route to be the length of
+  if (!value) c.setMeta({ trailLabel: "", trailDistanceM: "" });
 }
 
 function commitLabel(e: Event) {
   c.setMeta({ trailLabel: (e.target as HTMLInputElement).value.trim() });
 }
 
+// ---- distance ----
+// The route's length, typed. It can't be read off the linked page — see the note atop
+// shared/trailDistance.ts — so this is the field that gets it in.
+
+// The owner's pick when they've made one, else the unit the WEIGHT unit implies — a
+// gram list is metric and reads km, an ounce list reads miles. Unset is the common
+// case and stays right on its own; the picker is for the person whose list is in
+// grams but whose trailhead sign is in miles.
+const distanceUnit = computed(() =>
+  resolveDistanceUnit(props.snapshot.trailDistanceUnit, props.snapshot.displayUnit),
+);
+// the two as OptionMenu rows — the abbreviation IS the label, as in the totals bar
+const DISTANCE_UNIT_OPTIONS = DISPLAY_DISTANCE_UNITS.map((u) => ({ key: u, label: u }));
+
+// Re-express the SAME stored metres in the newly chosen unit — the stored value never
+// moves, only how it reads. (Nothing to convert: the field is derived from metres.)
+function pickDistanceUnit(unit: string) {
+  c.setMeta({ trailDistanceUnit: unit });
+}
+// The field shows the bare number; the label beside it carries the unit. Same
+// uncontrolled :value + @change shape as the URL and title above.
+const distanceValue = computed(() =>
+  distanceFieldValue(props.snapshot.trailDistanceM, distanceUnit.value),
+);
+// What the link row shows at rest, beside the name.
+const distanceLabel = computed(() =>
+  props.snapshot.trailDistanceM
+    ? formatDistance(props.snapshot.trailDistanceM, distanceUnit.value)
+    : null,
+);
+
+// A bare "12" means the list's own unit; "7.5 mi" on a metric list still means miles,
+// because the parser reads a unit when one is typed. An unparseable value clears,
+// which is the reducer's rule for this field too.
+function commitDistance(e: Event) {
+  const raw = (e.target as HTMLInputElement).value.trim();
+  const metres = parseDistanceM(raw, distanceUnit.value);
+  c.setMeta({ trailDistanceM: metres ?? "" });
+}
+
 function remove() {
-  c.setMeta({ trailUrl: "", trailLabel: "" });
+  // the distance describes the ROUTE, so it goes with the link rather than outliving it
+  c.setMeta({ trailUrl: "", trailLabel: "", trailDistanceM: "" });
   mode.value = null;
 }
 
@@ -132,9 +181,28 @@ const datesOpen = ref(false);
 const datesEl = useTemplateRef<HTMLElement>("datesEl");
 const dateLabel = computed(() => formatDateRange(props.snapshot.startDate, props.snapshot.endDate));
 
+// THREE surfaces hang off this one row — the trail panel (`mode`), the trail card
+// (`pinned`) and this picker (`datesOpen`) — and they overlap in the same space, so at
+// most one may be up. That's two states on the trail side, which is what the rule kept
+// missing: `openDates` used to clear `mode` alone, so opening the calendar over a
+// pinned card left both on screen, and toggling the card left the calendar up. Closing
+// the trail side is therefore one named thing rather than a line each opener has to
+// remember; every opener below closes the surfaces it isn't.
+function closeTrail() {
+  mode.value = null;
+  pinned.value = false;
+}
+
+// The card is a toggle, so it can't just call an `open` — but it still owes the
+// invariant a closed calendar on the way up.
+function toggleCard() {
+  pinned.value = !pinned.value;
+  if (pinned.value) datesOpen.value = false;
+}
+
 async function openDates() {
   datesOpen.value = true;
-  mode.value = null; // the trail panel and this one share the row; never both
+  closeTrail(); // the trail surfaces and this one share the row; never both
   await nextTick();
   // the grid owns one tab stop (roving tabindex), so focus lands on a day
   datesEl.value?.querySelector<HTMLElement>('[role="gridcell"][tabindex="0"]')?.focus();
@@ -175,10 +243,7 @@ function onFocusOut(e: FocusEvent) {
 // Watched element is the whole ROW, not the panel: the Edit/Add button that opens the
 // panel lives in that row, and targeting the panel alone would let the very click that
 // opens it register as an outside click and close it again.
-onClickOutside(trailEl, () => {
-  mode.value = null;
-  pinned.value = false;
-});
+onClickOutside(trailEl, closeTrail);
 </script>
 
 <template>
@@ -263,7 +328,7 @@ onClickOutside(trailEl, () => {
           type="button"
           class="link head__link"
           :aria-expanded="pinned"
-          @click="pinned = !pinned"
+          @click="toggleCard"
         >
           <!-- every link carries a mark. The site's own once we've cached it; a globe
                until then — some hosts block the fetch outright. Same 16px box either
@@ -278,6 +343,10 @@ onClickOutside(trailEl, () => {
           />
           <HugeiconsIcon :icon="GlobeIcon" v-else class="head__icon head__icon--fallback" :size="16" :stroke-width="2" aria-hidden="true" />
           <span class="head__name">{{ link.name }}</span>
+          <!-- The one fact about the route that isn't in its name. Muted and after the
+               name, so it reads as a detail OF the trail rather than a second link;
+               absent entirely until it's set, like every other optional field here. -->
+          <span v-if="distanceLabel" class="head__dist">{{ distanceLabel }}</span>
         </button>
 
         <!-- The link card: the destination in full, then the actions on it. Asked
@@ -411,6 +480,57 @@ onClickOutside(trailEl, () => {
             @change="commitLabel"
             @keyup.enter="mode = null"
           />
+
+          <!-- Typed, because it cannot be fetched: the linked page answers a
+               server-side GET with 403 and there's no API to ask instead. Anyone
+               pasting a trail link is looking at the number on that page. The unit is
+               in the LABEL rather than a picker — the list already chose metric or
+               imperial, and a bare number is read in that; typing "7.5 mi" anyway
+               still works. -->
+          <!-- "optional" rides in the LABEL, not the placeholder: a placeholder is gone
+               the moment you type, which is exactly when you'd want to know you could
+               have left it empty. The other two fields are optional too, but this is
+               the one that reads as a thing the app needs — it's the only number in
+               here, and a number in a form looks required. -->
+          <label class="head__panellabel" :for="`${fieldsId}-dist`">Distance (optional)</label>
+          <!-- The unit sits INSIDE the field's row rather than in the label, because
+               it's a control and the label isn't. Same chevron-beside-an-abbreviation
+               the totals bar and each item row use — one vocabulary for one gesture. -->
+          <span class="head__distrow">
+            <input
+              :id="`${fieldsId}-dist`"
+              class="head__panelinput head__distinput"
+              inputmode="decimal"
+              autocorrect="off"
+              spellcheck="false"
+              :placeholder="distanceUnit === 'mi' ? '7.5' : '12'"
+              :value="distanceValue"
+              @change="commitDistance"
+              @keyup.enter="mode = null"
+            />
+            <OptionMenu
+              class="head__distunit"
+              :options="DISTANCE_UNIT_OPTIONS"
+              :current="distanceUnit"
+              label="Distance unit"
+              title="Change distance unit"
+              @pick="pickDistanceUnit"
+            >
+              <template #trigger="{ open }">
+                <span class="t-sm t-muted">{{ distanceUnit }}</span>
+                <!-- 12/2 = an exact 1px stroke, the small-size counterpart to the
+                     total's 16/2.25 — matching ItemRow's per-row unit chevron. -->
+                <HugeiconsIcon
+                  :icon="ChevronDownIcon"
+                  class="head__distchev"
+                  :class="{ 'is-open': open }"
+                  :size="12"
+                  :stroke-width="2"
+                  aria-hidden="true"
+                />
+              </template>
+            </OptionMenu>
+          </span>
           <hr class="head__paneldiv" />
           <button type="button" class="menu__item head__panelremove" @click="remove">
             <HugeiconsIcon :icon="Delete02Icon" :size="16" :stroke-width="1.5" aria-hidden="true" />
@@ -578,6 +698,14 @@ onClickOutside(trailEl, () => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+/* The distance rides after the name as a detail of it. `flex: none` so a long trail
+   name ellipses (the rule above) instead of squeezing the number out — the name is
+   the thing you can afford to lose characters from, since the card carries the URL
+   in full and this is four characters that are useless truncated. */
+.head__dist {
+  flex: none;
+  color: var(--ink-3);
 }
 .head__anchor {
   /* deliberately NOT a positioning context: the floating card below is absolute, and
@@ -819,6 +947,36 @@ onClickOutside(trailEl, () => {
 }
 .head__panelinput + .head__panellabel {
   margin-block-start: var(--space-4);
+}
+/* The distance field wraps its input, so the sibling rule above can't reach the label
+   that follows it. Same spacing, stated for the wrapper. */
+.head__distrow + .head__panellabel {
+  margin-block-start: var(--space-4);
+}
+/* Number and unit on one line, the unit taking only what it needs. NOT absolutely
+   positioned inside the field: OptionMenu's button is behind a component boundary, so
+   a scoped rule here can't reach it (its own comment says why) — and it already
+   carries the button reset this needs. Only the ROOT takes this file's scoped
+   attribute, which is why .head__distunit is the only hook, and the chevron is styled
+   freely because it's slot content and therefore mine. */
+.head__distrow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.head__distinput {
+  flex: 1;
+  min-width: 0;
+}
+.head__distunit {
+  flex: none;
+}
+.head__distchev {
+  color: var(--ink-3);
+  transition: transform var(--dur) var(--ease);
+}
+.head__distchev.is-open {
+  transform: rotate(180deg);
 }
 /* The rule stops at the panel's INNER edges (measured: x12, w306 inside a 330 panel) —
    it lines up with the fields rather than running wall to wall. */
