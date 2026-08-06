@@ -54,12 +54,15 @@ const dateLabel = computed(() => formatDateRange(props.list?.startDate, props.li
 // saw four days of food and no days.
 //
 // FACTS ONLY. The days carry their distance and their climb, and deliberately not the
-// moving time or the calorie figure the editor shows beside them. Those are computed
-// against the owner's body weight, which is the one field a shared list never carries
-// (see withOwnerOnly) — so reproducing them here would mean quietly substituting an
-// assumed walker and handing a stranger a confident number about a body that isn't
-// theirs and isn't the owner's. The route's shape is a fact about the route; an estimate
-// is a fact about a person.
+// moving time or the calorie figure the editor shows beside them.
+//
+// The reason has changed shape but not direction. It used to be that those figures were
+// computed against the OWNER's body weight, which a shared list never carried. Body
+// weight now lives on the reader's own device, so this view could compute them against
+// whoever is looking — and still shouldn't, unprompted. A stranger opening a link came to
+// see somebody's pack, not to be told what the walk would cost THEM against a number they
+// may never have set. The route's shape is a fact about the route; an estimate is a fact
+// about a person, and this page is about neither of the two people involved.
 const days = computed(() => props.list?.days ?? []);
 const distanceUnit = computed(() =>
   resolveDistanceUnit(props.list?.trailDistanceUnit, props.list?.displayUnit ?? "g"),

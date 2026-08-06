@@ -20,8 +20,6 @@ export default defineEventHandler(async (event) => {
     trailProfile?: string;
     trailAscentM?: number;
     trailDescentM?: number;
-    bodyWeightG?: number;
-    bodyWeightUnit?: string;
     startDate?: string;
     endDate?: string;
     data?: ListData;
@@ -44,14 +42,11 @@ export default defineEventHandler(async (event) => {
   const trailDistanceM = typeof body?.trailDistanceM === "number" ? body.trailDistanceM : undefined;
   const trailDistanceUnit =
     typeof body?.trailDistanceUnit === "string" ? body.trailDistanceUnit : undefined;
-  // the route's shape and the walker, set on a DRAFT before the list exists server-side —
-  // without these they are silently lost the moment that draft is first saved
+  // the route's shape, set on a DRAFT before the list exists server-side — without these
+  // it is silently lost the moment that draft is first saved
   const trailProfile = typeof body?.trailProfile === "string" ? body.trailProfile : undefined;
   const trailAscentM = typeof body?.trailAscentM === "number" ? body.trailAscentM : undefined;
   const trailDescentM = typeof body?.trailDescentM === "number" ? body.trailDescentM : undefined;
-  const bodyWeightG = typeof body?.bodyWeightG === "number" ? body.bodyWeightG : undefined;
-  const bodyWeightUnit =
-    typeof body?.bodyWeightUnit === "string" ? body.bodyWeightUnit : undefined;
   // Trip dates are the same case exactly: set from the same meta row, on the same
   // draft, and likewise dropped on first save without this. Also the restore half of
   // a JSON backup. (createList validates them; raw is fine here too.)
@@ -81,8 +76,6 @@ export default defineEventHandler(async (event) => {
       trailProfile,
       trailAscentM,
       trailDescentM,
-      bodyWeightG,
-      bodyWeightUnit,
       startDate,
       endDate,
       data,

@@ -28,7 +28,7 @@ import { UNITS } from "../../shared/types";
 import type { ListData, ListSnapshot, ListState, Totals, Unit } from "../../shared/types";
 import { isLikelySpam } from "../../shared/discovery";
 import { MAX_SUMMARY_LEN, summarizeOps } from "../../shared/changeSummary";
-import { normalizeBodyWeightG, normalizeBodyWeightUnit, normalizeDistanceUnit, normalizeTrailAscentM, normalizeTrailDistanceM } from "../../shared/trailDistance";
+import { normalizeDistanceUnit, normalizeTrailAscentM, normalizeTrailDistanceM } from "../../shared/trailDistance";
 import { parseProfile } from "../../shared/gpx";
 import { displayHost, normalizeTrailLabel, normalizeTrailUrl, safeUrl } from "../../shared/trailLink";
 import { ensureSnapshotSchema, ensureTrailFaviconSchema, useAccountDb, useDb } from "./db";
@@ -241,8 +241,6 @@ function rowToState(row: ListRow): ListState {
     trailProfile: row.trailProfile ?? undefined,
     trailAscentM: row.trailAscentM ?? undefined,
     trailDescentM: row.trailDescentM ?? undefined,
-    bodyWeightG: row.bodyWeightG ?? undefined,
-    bodyWeightUnit: normalizeBodyWeightUnit(row.bodyWeightUnit),
     startDate: row.startDate ?? undefined,
     endDate: row.endDate ?? undefined,
     displayUnit: row.displayUnit as Unit,
@@ -484,14 +482,6 @@ export async function restoreSnapshotByEditToken(
         trailProfile: s.trailProfile ?? null,
         trailAscentM: s.trailAscentM ?? null,
         trailDescentM: s.trailDescentM ?? null,
-        // bodyWeightG / bodyWeightUnit are deliberately NOT written here.
-        //
-        // They are a property of the WALKER, not of the list's content, so a recovery
-        // point has no business carrying them and the snapshot chain doesn't — which
-        // means `s` can never have them and writing `?? null` reliably erased the live
-        // value on every restore. Not writing the columns is both the fix and the more
-        // private answer: body weight stays out of stored snapshot copies entirely, and
-        // restoring an old version of a list leaves it exactly as it was.
         startDate: s.startDate ?? null,
         endDate: s.endDate ?? null,
         displayUnit,
@@ -511,10 +501,7 @@ export async function restoreSnapshotByEditToken(
       // would let a contended retry storm prune the whole recovery window with
       // post-vandalism states, which is the one scenario snapshots exist for.
       await captureSnapshot(d, row, "before restore");
-      // Owner path: restore is edit-token gated, so the response has to carry the
-      // owner-only fields back. rowToSnapshot alone fails closed by design (see
-      // withOwnerOnly), and closed is the wrong answer when the caller IS the owner.
-      return withOwnerOnly(rowToSnapshot(updated[0]), updated[0]);
+      return rowToSnapshot(updated[0]);
     }
     // version moved under us — retry against the latest
   }
@@ -559,25 +546,10 @@ export async function getByShareCode(code: string): Promise<ListSnapshot | null>
   return attachAuthorName(db, snap, rows[0].authorUserId);
 }
 
-/**
- * Attach the fields the OWNER may see and a viewer may not.
- *
- * rowToSnapshot deliberately omits body weight, so every read path starts without it and
- * has to ask. That's the wrong way round from how it looks — but it's the only shape that
- * fails CLOSED: /s (getByShareCode), /l (rowToPublicView) and the public feed all build on
- * rowToSnapshot, and any read path added later will too. Opt-in means forgetting leaks
- * nothing; opt-out means forgetting leaks a body weight.
- */
-function withOwnerOnly(snap: ListSnapshot, row: ListRow): ListSnapshot {
-  snap.bodyWeightG = row.bodyWeightG ?? undefined;
-  snap.bodyWeightUnit = normalizeBodyWeightUnit(row.bodyWeightUnit);
-  return snap;
-}
-
 export async function getByEditToken(editToken: string): Promise<ListSnapshot | null> {
   const db = await useDb();
   const row = await findByEditToken(editToken, db);
-  return row ? withOwnerOnly(await hydrateForRead(db, rowToSnapshot(row)), row) : null;
+  return row ? await hydrateForRead(db, rowToSnapshot(row)) : null;
 }
 
 export async function versionByEditToken(editToken: string): Promise<number | null> {
@@ -602,8 +574,6 @@ export async function createList(init?: {
   trailProfile?: string;
   trailAscentM?: number;
   trailDescentM?: number;
-  bodyWeightG?: number;
-  bodyWeightUnit?: string;
   startDate?: string;
   endDate?: string;
   data?: ListData;
@@ -629,8 +599,6 @@ export async function createList(init?: {
   const trailProfile = parseProfile(init?.trailProfile).join(",") || undefined;
   const trailAscentM = normalizeTrailAscentM(init?.trailAscentM);
   const trailDescentM = normalizeTrailAscentM(init?.trailDescentM);
-  const bodyWeightG = normalizeBodyWeightG(init?.bodyWeightG);
-  const bodyWeightUnit = normalizeBodyWeightUnit(init?.bodyWeightUnit);
   // same rule the setMeta op applies, so a date set on a draft means the same thing
   // after the draft is saved as it did before
   const startDate = normalizeCalendarDate(init?.startDate);
@@ -657,8 +625,6 @@ export async function createList(init?: {
           trailProfile,
           trailAscentM,
           trailDescentM,
-          bodyWeightG,
-          bodyWeightUnit,
           startDate,
           endDate,
           displayUnit,
@@ -671,9 +637,7 @@ export async function createList(init?: {
       // same warm as the mutate path — a list created WITH a trail link (a saved draft,
       // or a JSON-backup import) must get its mark too, not wait for the nightly sweep
       warmFavicon(db, trailUrl);
-      // Owner path — the creator gets their own list back, body weight included, or a
-      // draft that had one loses it the moment it is first saved.
-      return { editToken, snapshot: withOwnerOnly(rowToSnapshot(inserted[0]!), inserted[0]!) };
+      return { editToken, snapshot: rowToSnapshot(inserted[0]!) };
     } catch (e) {
       if ((e as { code?: string })?.code === "23505" && attempt < 4) continue;
       throw e;
@@ -777,8 +741,6 @@ export async function applyOpsByEditToken(
         trailProfile: state.trailProfile ?? null,
         trailAscentM: state.trailAscentM ?? null,
         trailDescentM: state.trailDescentM ?? null,
-        bodyWeightG: state.bodyWeightG ?? null,
-        bodyWeightUnit: state.bodyWeightUnit ?? null,
         startDate: state.startDate ?? null,
         endDate: state.endDate ?? null,
         displayUnit: state.displayUnit,
@@ -824,11 +786,7 @@ export async function applyOpsByEditToken(
       // mutate response, and warmFavicon swallows its own failures.
       if (state.trailUrl !== row.trailUrl) warmFavicon(d, state.trailUrl);
       // catalog names only — see hydrateForRead on why the favicon stays off the write path
-      //
-      // withOwnerOnly is NOT optional here. This is the autosave echo, and the client
-      // adopts it wholesale: without it every single save handed the editor back a list
-      // with no body weight, quietly emptying the field the user had just set.
-      return withOwnerOnly(await hydrateCatalogNames(d, rowToSnapshot(updated[0])), updated[0]);
+      return hydrateCatalogNames(d, rowToSnapshot(updated[0]));
     }
     // version moved under us — retry against the latest
   }

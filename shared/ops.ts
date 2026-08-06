@@ -5,8 +5,7 @@
 // version counter only signals "you're behind, refetch", not "rejected".
 
 import { parseProfile } from "./gpx";
-import { normalizeTrailAscentM } from "./trailDistance";
-import { normalizeBodyWeightG, normalizeBodyWeightUnit, normalizeDistanceUnit, normalizeTrailDistanceM } from "./trailDistance";
+import { normalizeDistanceUnit, normalizeTrailAscentM, normalizeTrailDistanceM } from "./trailDistance";
 import { normalizeTrailLabel, normalizeTrailUrl } from "./trailLink";
 import type { Classification, Folder, FolderSort, Item, ListState, TripDay, Unit } from "./types";
 import { UNITS } from "./types";
@@ -71,8 +70,6 @@ export type Op =
         trailProfile: string;
         trailAscentM: number | string;
         trailDescentM: number | string;
-        bodyWeightG: number | string;
-        bodyWeightUnit: string;
         startDate: string;
         endDate: string;
       }>;
@@ -438,16 +435,6 @@ function applyOp(state: ListState, op: Op): void {
         const m = normalizeTrailAscentM(p.trailDescentM);
         if (m) state.trailDescentM = m;
         else delete state.trailDescentM;
-      }
-      if (typeof p.bodyWeightG === "number" || typeof p.bodyWeightG === "string") {
-        const g = normalizeBodyWeightG(p.bodyWeightG);
-        if (g) state.bodyWeightG = g;
-        else delete state.bodyWeightG;
-      }
-      if (typeof p.bodyWeightUnit === "string") {
-        const u = normalizeBodyWeightUnit(p.bodyWeightUnit);
-        if (u) state.bodyWeightUnit = u;
-        else delete state.bodyWeightUnit;
       }
       // Dates are SHAPE-checked, not just clamped. They're rendered and exported, and
       // a half-typed "2026-0" would otherwise persist and read as a real date

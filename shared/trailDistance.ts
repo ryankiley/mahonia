@@ -231,10 +231,18 @@ export function normalizeTrailAscentM(raw: unknown): number | undefined {
 }
 
 // ---- body weight ----
-// The one input the burn model needs that a gear list doesn't already hold. Same three
-// rules as the distance unit above, for the same reasons: only two units offered (grams
-// and ounces are absurd for a body), absent follows the list's own weight unit, and the
-// stored grams never move — the unit is display and entry only.
+// The one input the burn model needs that a gear list doesn't already hold — and the only
+// thing the app knows about a PERSON rather than about their gear.
+//
+// It belongs to the walker, not to a list, so it is not stored on one. It lives on the
+// device (app/composables/useBodyWeight.ts), the way the vault's metric/imperial choice
+// does: one setting, remembered, applying to every list you open here. That also means it
+// never reaches the server at all, which is a stronger privacy claim than the fail-closed
+// column it replaces — there is nothing to strip from a read path, because there is
+// nothing there.
+//
+// Two units only; grams and ounces are absurd for a body. The stored grams never move —
+// the unit is display and entry only.
 
 export const BODY_WEIGHT_UNITS = ["kg", "lb"] as const;
 export type BodyWeightUnit = (typeof BODY_WEIGHT_UNITS)[number];
@@ -250,19 +258,15 @@ export const DEFAULT_BODY_G = 70_000;
 const MIN_BODY_G = 20_000;
 const MAX_BODY_G = 400_000;
 
-// NOT flipped to match the distance default above: "82 kg" and "12 miles" is a normal
-// pair of sentences for one person to say, where "12 km" and "180 lb" is not. Body weight
-// keeps following the list's own weight unit, and is pickable either way.
-export function bodyWeightUnitFor(displayUnit: string): BodyWeightUnit {
+// NOT flipped to match the distance default above: "82 kg" and "12 miles" is a normal pair
+// of sentences for one person to say, where "12 km" and "180 lb" is not. So an unset body
+// unit follows the weight system the device already works in, rather than the distance one.
+export function bodyWeightUnitFor(displayUnit: string | undefined): BodyWeightUnit {
   return displayUnit === "oz" || displayUnit === "lb" ? "lb" : "kg";
 }
 
 export function normalizeBodyWeightUnit(raw: unknown): BodyWeightUnit | undefined {
   return BODY_WEIGHT_UNITS.includes(raw as BodyWeightUnit) ? (raw as BodyWeightUnit) : undefined;
-}
-
-export function resolveBodyWeightUnit(explicit: string | undefined, displayUnit: string): BodyWeightUnit {
-  return normalizeBodyWeightUnit(explicit) ?? bodyWeightUnitFor(displayUnit);
 }
 
 /** A raw body weight → grams, or undefined. Bare numbers read in the given unit. */

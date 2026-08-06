@@ -2,7 +2,7 @@
 
 // The one import here. trailDistance.ts imports nothing, so this can't cycle, and
 // re-declaring `"km" | "mi"` in two files is how the two quietly drift apart.
-import type { BodyWeightUnit, DisplayDistanceUnit } from "./trailDistance";
+import type { DisplayDistanceUnit } from "./trailDistance";
 
 export type Unit = "g" | "kg" | "oz" | "lb";
 
@@ -164,12 +164,10 @@ export interface ListMeta {
   trailAscentM?: number;
   /** and what it gives back — same full-resolution caveat as the climb above */
   trailDescentM?: number;
-  // The walker, for the burn estimates — grams, with "kg" | "lb" deciding how it reads.
-  // NOT part of the shared list: it is stripped on every read path that isn't the
-  // editor, so a share link never discloses it. See rowToSnapshot in listRepo, which
-  // omits it by DEFAULT rather than by remembering to.
-  bodyWeightG?: number;
-  bodyWeightUnit?: BodyWeightUnit;
+  // Body weight is NOT here, and that is the design. It belongs to the walker rather
+  // than to a list, so it lives on the device (app/composables/useBodyWeight.ts) and
+  // never reaches the server at all — which is a stronger guarantee than the
+  // strip-on-read column it replaces, because there is nothing to strip.
   // When the trip is. CALENDAR DATES, not instants: `YYYY-MM-DD`, no time and no
   // timezone. A trip's dates are the ones written on a permit — they don't shift
   // because you flew somewhere, which is exactly what storing an instant would do.

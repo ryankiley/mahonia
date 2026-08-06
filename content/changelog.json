@@ -7,6 +7,9 @@
       "Give a day a distance and it works out that day's climb from the route, roughly how long it will take to walk, and roughly what it will burn — with your pack's weight that morning, which drops as you eat.",
       "Run your cursor along the elevation profile to read the distance, height and gradient at any point on the route, with each day's stretch in its own colour.",
       "Set your body weight — in kilograms or pounds — to sharpen the calorie estimates. It stays private to you and is never on a shared list."
+    ],
+    "changed": [
+      "Your body weight is now remembered on your device instead of saved with each list, so you set it once and every trip uses it — and it never leaves your browser at all."
     ]
   },
   {

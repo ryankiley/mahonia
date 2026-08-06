@@ -8,6 +8,7 @@ import { MAX_DAYS } from "~~/shared/ops";
 import { dayLabel } from "~~/shared/tripDay";
 import { isWaterName } from "~~/shared/water";
 import { lineMg, effectiveClassification, formatWeight } from "~~/shared/weights";
+import type { BodyWeightUnit } from "~~/shared/trailDistance";
 import {
   BODY_WEIGHT_UNITS,
   DEFAULT_BODY_G,
@@ -18,7 +19,6 @@ import {
   formatDistance,
   parseBodyWeightG,
   parseDistanceM,
-  resolveBodyWeightUnit,
   resolveDistanceUnit,
 } from "~~/shared/trailDistance";
 import { tripDays } from "~~/shared/foodPlan";
@@ -126,20 +126,24 @@ const packMg = computed(() => burnDownMg(props.totals.carriedMg, burnableMg.valu
 const heaviestMg = computed(() => Math.max(1, ...packMg.value));
 
 // ---- the walker ----
+// Set once per DEVICE, not per list — a body weight belongs to the person, not to the
+// trip, so re-entering it on every list was asking the wrong question. See
+// useBodyWeight: it never reaches the server, which is why nothing here has to be
+// stripped from a read path.
+//
 // Optional, with a STATED default. `isDefault` is what keeps that honest: the control
 // reads "assuming 70 kg" until someone sets one, rather than sitting pre-filled with 70,
 // because a pre-filled field looks like something you already confirmed.
-const bodyUnit = computed(() =>
-  resolveBodyWeightUnit(props.snapshot.bodyWeightUnit, props.snapshot.displayUnit),
-);
-const bodyG = computed(() => props.snapshot.bodyWeightG ?? DEFAULT_BODY_G);
-const bodyIsDefault = computed(() => props.snapshot.bodyWeightG == null);
+const body = useBodyWeight(props.snapshot.displayUnit);
+const bodyUnit = body.unit;
+const bodyG = body.value;
+const bodyIsDefault = body.isDefault;
 const bodyFieldValue = computed(() =>
-  props.snapshot.bodyWeightG ? bodyWeightFieldValue(props.snapshot.bodyWeightG, bodyUnit.value) : "",
+  body.stored.value ? bodyWeightFieldValue(body.stored.value, bodyUnit.value) : "",
 );
 function commitBody(e: Event) {
   const raw = (e.target as HTMLInputElement).value.trim();
-  c.setMeta({ bodyWeightG: raw ? (parseBodyWeightG(raw, bodyUnit.value) ?? "") : "" });
+  body.set(raw ? parseBodyWeightG(raw, bodyUnit.value) : null);
 }
 
 // ---- per-day estimates ----
@@ -479,14 +483,14 @@ const distanceValue = (m: number | undefined) =>
           @change="commitBody"
         />
         <!-- kg or lb, pickable — the third field to take the same three rules (two units
-             only, absent follows the list's weight unit, the stored grams never move).
-             A body in ounces is not a thing anyone wants to read. -->
+             only, absent follows the weight system this device works in, the stored
+             grams never move). A body in ounces is not a thing anyone wants to read. -->
         <OptionMenu
           :options="BODY_UNIT_OPTIONS"
           :current="bodyUnit"
           label="Body weight unit"
           title="Change unit"
-          @pick="(u) => c.setMeta({ bodyWeightUnit: u })"
+          @pick="(u) => body.setUnit(u as BodyWeightUnit)"
         >
           <template #trigger="{ open }">
             <span class="t-muted">{{ bodyUnit }}</span>

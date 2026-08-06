@@ -385,8 +385,6 @@ function create() {
           trailProfile: s.trailProfile,
           trailAscentM: s.trailAscentM,
           trailDescentM: s.trailDescentM,
-          bodyWeightG: s.bodyWeightG,
-          bodyWeightUnit: s.bodyWeightUnit,
           startDate: s.startDate,
           endDate: s.endDate,
           data: { folders: s.folders, items: s.items, days: s.days ?? [] },

@@ -1,74 +1,68 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { rowToSnapshot } from "../server/utils/listRepo";
 import { listToJson } from "../shared/exporters/json";
-import type { ListRow } from "../server/db/schema";
 import type { ListMeta, ListData } from "../shared/types";
 
-// Body weight is the one field on a list that a viewer must never see. It is health-
-// adjacent, and a list travels by URL — a read link, an edit link, the public feed, a
-// JSON backup someone emails around.
+// Body weight is the most personal thing this app has ever been told, and it is now the
+// one thing it deliberately refuses to store.
 //
-// The protection is ARCHITECTURAL: rowToSnapshot omits it, and only the editor's own
-// read path adds it back. These tests exist because that is exactly the kind of guarantee
-// that rots quietly — the field is optional, so every one of those paths compiles just
-// fine whether or not it leaks.
+// It used to be a column on `lists`, kept off read paths by an opt-in wrapper that every
+// new read path had to remember to call. That shape failed the way opt-in shapes fail:
+// three separate OWNER paths forgot the wrapper, and because the field is optional they
+// all type-checked and shipped — one of them emptying the field on every autosave.
+//
+// So it moved to the device (app/composables/useBodyWeight.ts). There is no column, no
+// op, no field on ListMeta, and no server file that has ever heard of it. The guarantee
+// is no longer "we strip it on the way out" but "there is no way in" — which is not a
+// promise about behaviour, it's a fact about what the code can do.
+//
+// These tests defend an ABSENCE, because an absence is exactly the kind of guarantee that
+// erodes the first time someone adds a convenient column.
 
-const row = (over: Partial<ListRow> = {}) =>
-  ({
-    id: 1,
-    publicSlug: "trip-a1b2c3",
-    editTokenHash: "hash",
-    shareCode: "ABC123",
-    title: "Trip",
-    description: null,
-    displayUnit: "g",
-    trailUrl: null,
-    trailLabel: null,
-    trailDistanceM: 12_070,
-    trailDistanceUnit: "km",
-    bodyWeightG: 82_000,
-    bodyWeightUnit: "kg",
-    startDate: null,
-    endDate: null,
-    data: { folders: [], items: [], days: [] },
-    baseWeightMg: 0,
-    wornWeightMg: 0,
-    consumableWeightMg: 0,
-    totalWeightMg: 0,
-    itemCount: 0,
-    isPublic: false,
-    version: 1,
-    updatedAt: new Date("2026-08-05T00:00:00Z"),
-    ...over,
-  }) as unknown as ListRow;
+const ROOT = new URL("..", import.meta.url).pathname;
 
-describe("body weight never rides a read path", () => {
-  it("rowToSnapshot omits it, even though the row has it", () => {
-    const snap = rowToSnapshot(row());
-    expect(snap.bodyWeightG).toBeUndefined();
-    expect(snap.bodyWeightUnit).toBeUndefined();
-    // …while the rest of the trail meta is right there, so this isn't passing by accident
-    expect(snap.trailDistanceM).toBe(12_070);
+/** Every source file under a directory, minus build output. */
+function sources(dir: string, out: string[] = []): string[] {
+  for (const name of readdirSync(join(ROOT, dir))) {
+    if (name === "node_modules" || name === ".nuxt" || name === ".output" || name === "dist") continue;
+    const rel = `${dir}/${name}`;
+    if (statSync(join(ROOT, rel)).isDirectory()) sources(rel, out);
+    else if (/\.(ts|vue)$/.test(name)) out.push(rel);
+  }
+  return out;
+}
+
+/** Comments may discuss it; code may not carry it. */
+const withoutComments = (src: string) =>
+  src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "").replace(/<!--[\s\S]*?-->/g, "");
+
+describe("body weight never reaches the server", () => {
+  it("appears nowhere in server/", () => {
+    // The strongest form of the guarantee: not "it is stripped" but "there is nothing to
+    // strip". A new column, an endpoint field, or a helpful passthrough all fail here.
+    const offenders = sources("server").filter((f) =>
+      /bodyWeight|body_weight/i.test(withoutComments(readFileSync(join(ROOT, f), "utf8"))),
+    );
+    expect(offenders).toEqual([]);
   });
 
-  it("has no such key at all — not merely undefined", () => {
-    // `JSON.stringify` is what actually reaches a browser, and a present-but-undefined
-    // key would vanish there too. Checking `in` catches the weaker version of the fix.
-    const snap = rowToSnapshot(row());
-    expect("bodyWeightG" in snap).toBe(false);
-    expect("bodyWeightUnit" in snap).toBe(false);
-    expect(JSON.stringify(snap)).not.toContain("82000");
-    expect(JSON.stringify(snap)).not.toContain("bodyWeight");
+  it("is not a field on the list's shared types, reducer, or snapshot chain", () => {
+    // These are the wire. A field here would ride an op to the server whether or not a
+    // column existed to receive it.
+    for (const f of ["shared/types.ts", "shared/ops.ts", "shared/snapshotDiff.ts", "shared/clone.ts"]) {
+      const code = withoutComments(readFileSync(join(ROOT, f), "utf8"));
+      expect(code, `${f} must not carry body weight`).not.toMatch(/bodyWeight/);
+    }
   });
 
   it("stays out of a JSON backup", () => {
-    // a backup is a file people mail to each other
+    // A backup is a file people mail to each other. listToJson builds by destructuring
+    // named fields, so this also catches the field being reintroduced upstream.
     const list = {
       title: "Trip",
       displayUnit: "g",
       bodyWeightG: 82_000,
-      bodyWeightUnit: "kg",
       folders: [],
       items: [],
       days: [],
@@ -78,54 +72,11 @@ describe("body weight never rides a read path", () => {
     expect(json).not.toContain("82000");
   });
 
-  it("is still absent when the row carries no body weight — the null case", () => {
-    const snap = rowToSnapshot(row({ bodyWeightG: null, bodyWeightUnit: null } as Partial<ListRow>));
-    expect("bodyWeightG" in snap).toBe(false);
-  });
-});
-
-// The OTHER half of the invariant, and the half whose absence let three real bugs ship.
-//
-// Everything above proves body weight doesn't leak. None of it proves the owner still
-// GETS it — and because rowToSnapshot fails closed, an owner path that forgets
-// withOwnerOnly is silently wrong rather than loudly wrong. Three did: create, restore,
-// and the autosave echo, which handed the editor back a list with no body weight on every
-// single save and emptied the field the user had just filled in.
-//
-// This reads the source because the real thing needs a database. That's a fair trade: the
-// failure mode is a call site that forgot a wrapper, and a call site that forgot a wrapper
-// is exactly what source can see.
-describe("…but the owner still gets it back", () => {
-  const src = readFileSync(new URL("../server/utils/listRepo.ts", import.meta.url), "utf8");
-
-  // every function that answers an edit token or mints a list — i.e. talks to an owner
-  const OWNER_PATHS = [
-    "getByEditToken",
-    "createList",
-    "applyOpsByEditToken",
-    "restoreSnapshotByEditToken",
-  ];
-
-  const bodyOf = (name: string) => {
-    const start = src.search(new RegExp(`(export )?(async )?function ${name}\\b`));
-    expect(start, `${name} not found in listRepo.ts`).toBeGreaterThan(-1);
-    // to the start of the next top-level declaration, which is close enough to a body
-    const rest = src.slice(start + 1);
-    const end = rest.search(/\n(export )?(async )?function /);
-    return end === -1 ? rest : rest.slice(0, end);
-  };
-
-  it.each(OWNER_PATHS)("%s carries the owner-only fields", (name) => {
-    const body = bodyOf(name);
-    expect(body).toContain("rowToSnapshot");
-    expect(body).toContain("withOwnerOnly");
-  });
-
-  it("and withOwnerOnly is the only thing that ever sets them", () => {
-    // If a second place starts writing bodyWeightG onto a snapshot, the guarantee stops
-    // being one line and starts being a habit. Assignments in this file should be the
-    // two inside withOwnerOnly and nowhere else.
-    const assignments = src.match(/\.bodyWeight(G|Unit)\s*=/g) ?? [];
-    expect(assignments).toHaveLength(2);
+  it("is described accurately where a reader will actually look", () => {
+    // The privacy page makes a claim about this in prose. If the storage location changes
+    // again, that paragraph becomes wrong and someone has to be made to notice.
+    const legal = withoutComments(readFileSync(join(ROOT, "app/pages/legal.vue"), "utf8"));
+    expect(legal).toMatch(/body weight/i);
+    expect(legal).toMatch(/device|browser/i);
   });
 });

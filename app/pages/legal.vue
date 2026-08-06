@@ -44,13 +44,13 @@ useHead({
           until you unpublish or delete it.
         </p>
         <p>
-          <strong>Body weight</strong> is the one exception, and it is treated differently on
-          purpose. Planning a trip lets you enter your body weight so the calorie estimates mean
-          something; it is optional, and everything else on the planning view works without it. It
-          is saved with your list so it is there next time, but it is never included when a list is
-          read by anyone else — not on a share link, not on a published list, not in the public
-          feed, and not in a JSON backup you download or send on. If you would rather not store it
-          at all, clear the field and the estimates fall back to a stated assumption.
+          <strong>Body weight</strong> is treated differently from everything else here, and more
+          carefully. Planning a trip lets you enter it so the calorie estimates mean something; it
+          is optional, and the rest of the planning view works without it. It is saved
+          <strong>on this device only</strong> — it is never sent to the server, so it cannot
+          appear on a share link, a published list, the public feed, or a JSON backup, and it does
+          not follow you to another device. Clear the field and the estimates fall back to a stated
+          assumption.
         </p>
         <p>
           Your <strong>gear vault</strong> is the one part that needs an account. It holds names,
@@ -77,8 +77,8 @@ useHead({
           passkey you add. There is no password to store, because there are no passwords — you sign
           in with a passkey or with a link sent to that address. Mahonia never asks for your real
           name, payment details, or location, and a display name is shown only if you set one. The
-          one thing it does ask about you — optionally, for trip planning — is body weight, covered
-          above.
+          one thing it asks about you — optionally, for trip planning — is your body weight, and
+          that never leaves your device; see above.
         </p>
 
         <h3>What you type can improve the shared catalog</h3>

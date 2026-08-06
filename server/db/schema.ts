@@ -52,9 +52,6 @@ export const lists = pgTable(
     trailProfile: text("trail_profile"),
     trailAscentM: integer("trail_ascent_m"),
     trailDescentM: integer("trail_descent_m"),
-    // the WALKER — never served on a read path, see rowToSnapshot/withOwnerOnly
-    bodyWeightG: integer("body_weight_g"),
-    bodyWeightUnit: text("body_weight_unit"),
     // when the trip is. TEXT holding `YYYY-MM-DD`, not a date/timestamptz column: a
     // trip's dates are calendar dates, and a timestamp type would drag a timezone
     // into a value that has none — round-tripping "Aug 4" into "Aug 3" for anyone
