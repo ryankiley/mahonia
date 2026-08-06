@@ -6,10 +6,25 @@ import { UNITS } from "~~/shared/types";
 import { carriedIsDistinct, formatKcal, formatWeight } from "~~/shared/weights";
 import { KCAL_PER_DAY_GENEROUS, KCAL_PER_DAY_LIGHT, foodPlan } from "~~/shared/foodPlan";
 
-const props = defineProps<{
-  list: ListSnapshot;
-  totals: Totals;
-}>();
+const props = withDefaults(
+  defineProps<{
+    list: ListSnapshot;
+    totals: Totals;
+    /**
+     * Whether to draw the big figure.
+     *
+     * The editor turns it OFF, because it renders one Headline of its own above all three
+     * views — the same element whether you are looking at weight or distance, so the
+     * number changes without the figure unmounting and re-counting. The read views keep
+     * it, having no such switcher and only one number to show.
+     *
+     * Same shape as TrailProfile's `facts`: the composing page decides, because only it
+     * knows what else is on screen.
+     */
+    headline?: boolean;
+  }>(),
+  { headline: true },
+);
 
 const emit = defineEmits<{
   "set-unit": [Unit];
@@ -77,7 +92,7 @@ const UNIT_OPTIONS = UNITS.map((u) => ({ key: u, label: u }));
 <template>
   <div class="totals">
     <div class="totals__main">
-      <div class="totals__headline">
+      <div v-if="props.headline" class="totals__headline">
         <!-- no "Total" label: the big figure makes it implicit. the figure starts
              zeroed (not a placeholder line) so nothing reflows when the first
              weighted item lands — the number just counts up. -->

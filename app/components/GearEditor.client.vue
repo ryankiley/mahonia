@@ -2,6 +2,9 @@
 import { HugeiconsIcon } from "@hugeicons/vue";
 import { Backpack02Icon, Cancel01Icon, CheckmarkSquare02Icon, ChevronDownIcon, EllipsisIcon, Route02Icon, SafeBoxIcon, Share08Icon, Undo02Icon } from "@hugeicons/core-free-icons";
 import { editLinkPath } from "~~/shared/links";
+import { DISPLAY_DISTANCE_UNITS, tripHeadline } from "~~/shared/trailDistance";
+import { formatWeight } from "~~/shared/weights";
+import { UNITS, type Unit } from "~~/shared/types";
 import type { Item } from "~~/shared/types";
 import { bySortOrder, groupItemsByFolder, groupItemsByParent, ungroupedTopLevel } from "~~/shared/weights";
 
@@ -139,6 +142,39 @@ function storedMode(): EditorMode {
 const mode = ref<EditorMode>(storedMode());
 watch(mode, (m) => remember(MODE_KEY, m));
 const packed = computed(() => mode.value === "pack");
+
+/**
+ * What the big number is, per view.
+ *
+ * Planning is about the walk, so it shows the route's distance; the other two are about
+ * the pack, so they show its weight. One object rather than four scattered computeds,
+ * because every field here has to change together — a value from one view beside a unit
+ * picker from another is a control that lies about what it will do.
+ */
+// One list each, built once — the pickers are fixed sets, not per-render arrays.
+const WEIGHT_UNIT_OPTIONS = UNITS.map((u) => ({ key: u, label: u }));
+const DISTANCE_UNIT_OPTIONS = DISPLAY_DISTANCE_UNITS.map((u) => ({ key: u, label: u }));
+
+const headline = computed(() => {
+  if (mode.value === "plan") {
+    const trip = tripHeadline(snapshot.value ?? {});
+    return {
+      value: trip.value,
+      unit: trip.unit as string,
+      options: DISTANCE_UNIT_OPTIONS,
+      label: "Distance unit",
+      pick: (u: string) => c.setMeta({ trailDistanceUnit: u }),
+    };
+  }
+  const unit = snapshot.value?.displayUnit ?? "g";
+  return {
+    value: formatWeight(totals.value?.totalMg ?? 0, unit, { withUnit: false }),
+    unit: unit as string,
+    options: WEIGHT_UNIT_OPTIONS,
+    label: "Weight unit",
+    pick: (u: string) => c.setUnit(u as Unit),
+  };
+});
 /**
  * The three views, named the way a person would say them.
  *
@@ -651,8 +687,23 @@ function onCorrected(res: { status: string; itemName?: string }) {
            route's distance), and two display-size figures on one screen would make you
            choose which one the page is about. The pack's weight isn't lost — it rides in
            the plan's chips, and per day in the burn-down column. -->
+      <!-- THE PAGE'S ONE BIG NUMBER, and one ELEMENT for all three views. It used to be
+           two — the weight inside TotalsBar, the distance inside TrailPlanPanel — so
+           switching to planning unmounted one and mounted the other, and the figure
+           jumped and re-counted every time. Here it stays put and only the value under it
+           changes, which is also what lets the count tween between modes. -->
+      <Headline
+        class="editor__headline"
+        :value="headline.value"
+        :unit="headline.unit"
+        :options="headline.options"
+        :label="headline.label"
+        title="Change unit"
+        @pick="headline.pick"
+      />
       <TotalsBar
         v-if="mode !== 'plan'"
+        :headline="false"
         :list="snapshot"
         :totals="totals"
         @set-unit="(u) => c.setUnit(u)"
@@ -887,6 +938,11 @@ function onCorrected(res: { status: string; itemName?: string }) {
    No margin of its own — the bar already carries 4px of its own padding, and the title
    below it brings its own leading. A step on top of those two read as a gap somebody
    forgot to close. */
+/* The big figure sits between the switcher and whatever that switcher chose. Its own
+   space, because it belongs to neither — it is the page's headline in all three views. */
+.editor__headline {
+  margin-bottom: var(--space-4);
+}
 .editor__modes {
   margin-bottom: var(--space-1);
 }

@@ -15,7 +15,7 @@ import {
   DISPLAY_DISTANCE_UNITS,
   bodyWeightFieldValue,
   formatBodyWeight,
-  distanceHeadline,
+  tripHeadline,
   formatDistance,
   parseBodyWeightG,
   parseDistanceM,
@@ -142,7 +142,10 @@ const headlineM = computed(() =>
 // below a kilometre, so stripping a trailing unit off it left a bare "800" standing next
 // to a picker still reading "km" — an 800-metre walk shown as 800 kilometres. The unit
 // here is a control the reader chose, so the number has to stay in it.
-const headlineValue = computed(() => distanceHeadline(headlineM.value, distanceUnit.value));
+// The big figure itself is the editor's now (one Headline across all three views); this
+// panel still needs the same number for the chart beneath it, so both read it from the
+// one function rather than each deriving it.
+const headlineValue = computed(() => tripHeadline(props.snapshot).value);
 /**
  * The ROUTE's climb, exact.
  *
@@ -406,29 +409,9 @@ const distanceValue = (m: number | undefined) => {
          default. When the burn estimates land they stay small on purpose; giving the
          least certain number on the page the most typographic mass is the inversion this
          whole panel is built to avoid. -->
-    <div class="plan__headline">
-      <!-- The unit is a PICKER here, as it is on the weight headline in the other two
-           views — the same gesture in the same place, so changing mode changes the number
-           rather than what you can do to it. -->
-      <OptionMenu
-        class="plan__amount"
-        align="baseline"
-        :options="UNIT_OPTIONS"
-        :current="distanceUnit"
-        label="Distance unit"
-        :trigger-label="`${headlineValue} ${distanceUnit}, change distance unit`"
-        title="Change unit"
-        @pick="(u) => c.setMeta({ trailDistanceUnit: u })"
-      >
-        <template #trigger="{ open }">
-          <AnimatedCount class="t-num plan__big" :value="headlineValue" />
-          <span class="plan__uc" aria-hidden="true">
-            <span class="plan__unit-lg">{{ distanceUnit }}</span>
-            <HugeiconsIcon :icon="ChevronDownIcon" class="plan__chev" :class="{ 'is-open': open }" :size="20" :stroke-width="2" />
-          </span>
-        </template>
-      </OptionMenu>
-    </div>
+    <!-- The big distance used to live here. It is one Headline in GearEditor now, shared
+         with the weight the other two views show — the same element, so switching view
+         changes the number without the figure unmounting and re-counting under you. -->
 
     <!-- The route's shape, cut into days. Directly under the figure it belongs to. -->
     <TrailProfile
@@ -673,45 +656,6 @@ const distanceValue = (m: number | undefined) => {
   flex-direction: column;
   gap: var(--space-4);
   padding-block: var(--space-4);
-}
-/* The weight headline's geometry, so the two views' big figures sit in the same place
-   and switching mode swaps the number rather than moving it. */
-.plan__headline {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-2);
-}
-.plan__big {
-  font-size: var(--text-display);
-  line-height: 0.95;
-  letter-spacing: var(--track-tight);
-}
-.plan__amount {
-  display: inline-flex;
-  align-items: baseline;
-  gap: var(--space-2);
-}
-.plan__uc {
-  display: inline-flex;
-  align-items: baseline;
-  gap: var(--space-px);
-  color: var(--ink-3);
-}
-/* the unit reads at the folder-name size with the folder's chevron beside it, rather
-   than the caption scale the weight headline uses — a unit you can CHANGE should look
-   like the other things you can change, and 20/2 is the chevron every folder carries */
-.plan__unit-lg {
-  font-size: var(--text-title);
-  font-weight: 600;
-  letter-spacing: var(--track-tight);
-  color: var(--ink-3);
-}
-.plan__chev {
-  align-self: center;
-  transition: transform var(--dur) var(--ease);
-}
-.plan__chev.is-open {
-  transform: rotate(180deg);
 }
 .plan__chips {
   display: flex;

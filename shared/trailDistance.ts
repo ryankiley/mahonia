@@ -305,3 +305,28 @@ export function bodyWeightFieldValue(grams: number | undefined, unit: BodyWeight
   if (!grams) return "";
   return String(Math.round(grams / G_PER_BODY_UNIT[unit]));
 }
+
+/**
+ * The trip's headline distance and the unit it reads in — the figure planning mode puts
+ * at the top of the page.
+ *
+ * Shared because TWO components need the same answer: the planning panel, which draws the
+ * route beneath it, and the editor, which draws the big figure itself so that one element
+ * serves all three views. Working it out twice is how the two would start to disagree,
+ * and a headline that disagrees with the chart under it is worse than either number.
+ *
+ * The MAX, not the route alone: an itinerary can legitimately add up to more than the
+ * straight-line route — a side trip, an out-and-back to water — and a figure somebody
+ * typed must never be quietly discarded in favour of one read off a file.
+ */
+export function tripHeadline(list: {
+  trailDistanceM?: number;
+  trailDistanceUnit?: string;
+  displayUnit?: string;
+  days?: { distanceM?: number }[];
+}): { value: string; unit: DisplayDistanceUnit; metres: number } {
+  const unit = resolveDistanceUnit(list.trailDistanceUnit, (list.displayUnit as never) ?? "g");
+  const typed = (list.days ?? []).reduce((s, d) => s + (d?.distanceM ?? 0), 0);
+  const metres = Math.max(list.trailDistanceM ?? 0, typed);
+  return { value: distanceHeadline(metres, unit), unit, metres };
+}
