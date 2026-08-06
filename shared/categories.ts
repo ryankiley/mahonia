@@ -156,3 +156,20 @@ export function categoryColor(colorKey: string): string {
   // any value already persisted before that clamp existed.
   return /^[a-z0-9-]+$/.test(colorKey) ? `var(--cat-${colorKey}, var(--cat-other))` : "var(--cat-other)";
 }
+
+/**
+ * The colours a trip's days are drawn in — day 1 first, in the palette's own order.
+ *
+ * Shared rather than restated because two different marks now claim to speak the same
+ * language: the elevation profile's ridge and the map's route line. "Day 1 is that pink"
+ * only holds if both derive it the same way, and a copied four-line loop is exactly the
+ * kind of thing that survives one refactor and not the second.
+ */
+export function dayColorSequence(count: number): string[] {
+  const used: string[] = [];
+  return Array.from({ length: Math.max(0, count) }, () => {
+    const key = nextFolderColor(used);
+    used.push(key);
+    return categoryColor(key);
+  });
+}

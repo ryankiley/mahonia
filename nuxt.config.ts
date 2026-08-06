@@ -1,19 +1,56 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 
+// The one host this site talks to besides itself: the basemap under a planned route.
+//
+// It draws TERRAIN AND NOTHING ELSE — hillshaded relief, no roads, no labels, no place
+// names. That was the deciding property over a full topographic style: a topo map is
+// dense with information the app isn't making a claim about, and it competes with the
+// one mark that matters, which is the route. On bare relief the day colours are the only
+// content on the map, which is the same rule the rest of the site follows — chrome is
+// monochrome, colour is the data.
+//
+// It also needs no account and no API key, so there is nothing to leak in the client and
+// nothing to rotate. Swapping provider is this constant plus the tile URL and attribution
+// in RouteMap.client.vue.
+//
+// TRIPWIRE: these tiles are free to use WITH ATTRIBUTION, which is why the map keeps
+// Leaflet's attribution control and must never style it away. Esri can change access to
+// an unkeyed endpoint at any time, so the failure mode to design for is refusal, not a
+// bill — RouteMap drops the tile layer after repeated errors and keeps drawing the route
+// on plain ground. If that ever becomes permanent, OpenTopoMap
+// (https://tile.opentopomap.org, {z}/{x}/{y}.png) is the documented fallback: free, no
+// key, contours — but non-commercial only and capped near 400k tiles a month, so if the
+// site ever takes advertising that option closes too.
+const TILE_ORIGIN = "https://server.arcgisonline.com";
+
 // Content-Security-Policy — defense-in-depth for a public, anyone-can-write app.
 // `'unsafe-inline'` is required for script + style: Nuxt SSR/prerender emits inline
 // bootstrap/payload scripts and Vue `:style` produces inline styles, and there's no
 // per-request nonce for prerendered static files. Everything else is same-origin —
 // Vercel Analytics injects `/_vercel/insights` (self), and the PWA service worker,
-// fonts, and images are all served from our own origin — so no external hosts are
-// allowed (this also backstops the folder-colorKey `url()` beacon).
+// fonts, and images are all served from our own origin.
+//
+// ONE exception, and deliberately only one: map tiles are `<img>`, so the basemap costs
+// exactly one host in `img-src` and nothing else. `connect-src` stays `'self'` — which
+// is the load-bearing half, and why place search (if it ever lands) must be proxied
+// through our own server rather than called from the browser.
+//
+// `script-src` stays same-origin too, and that is not a style preference: the edit
+// capability for a list lives in the URL fragment, and any third-party script in the
+// page can read `location.hash`. A CDN <script> would be a capability leak, which is
+// why Leaflet is bundled rather than linked.
+//
+// On the folder-colorKey `url()` beacon this used to backstop: the surface is now one
+// extra host wide, and that is immaterial. A beacon that can only fire at a tile CDN
+// tells an attacker nothing, because they cannot read its logs. The two real guards —
+// SAFE_COLOR_KEY in the reducer and the re-check in categoryColor() — are untouched.
 const CSP = [
   "default-src 'self'",
   "base-uri 'none'",
   "object-src 'none'",
   "frame-ancestors 'none'",
   "form-action 'self'",
-  "img-src 'self' data: blob:",
+  `img-src 'self' data: blob: ${TILE_ORIGIN}`,
   "font-src 'self'",
   "style-src 'self' 'unsafe-inline'",
   "script-src 'self' 'unsafe-inline'",
@@ -24,7 +61,16 @@ const CSP = [
 
 const SECURITY_HEADERS = {
   "Content-Security-Policy": CSP,
-  "Referrer-Policy": "no-referrer", // keep the URL-fragment edit token out of the Referer
+  // Keep the share code in `/e/{code}` out of the Referer. NOT the edit token — the
+  // token lives in the fragment, and fragments are never sent in Referer by spec, so
+  // this header was never what protected it. What it protects is the PATH.
+  //
+  // Map tiles are the one thing that opts partway back in, because tile providers
+  // commonly authenticate or enforce their usage policy by Referer and would otherwise
+  // refuse us: the tile layer sets `referrerPolicy: "origin"`, so a tile request carries
+  // `https://mahonia.app/` and nothing else — no path, no share code. Strictly less than
+  // the site's own outbound links already leak.
+  "Referrer-Policy": "no-referrer",
   "X-Content-Type-Options": "nosniff",
   "X-Frame-Options": "DENY", // legacy clickjacking guard (frame-ancestors covers modern browsers)
 };
@@ -52,6 +98,9 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       offline: process.env.NUXT_PUBLIC_OFFLINE !== "false",
+      // The map reads its host from here rather than hardcoding it, so the tile URL
+      // and the CSP that permits it can never drift apart — one constant feeds both.
+      tileOrigin: TILE_ORIGIN,
     },
   },
 

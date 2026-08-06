@@ -441,6 +441,18 @@ const distanceValue = (m: number | undefined) => {
       :descent-m="snapshot.trailDescentM"
       :facts="false"
     />
+    <!-- Where that shape actually is. Directly under the profile, in the same day
+         colours, so the two marks read as one answer rather than two charts.
+
+         `Lazy` + `v-if` is the whole cost control: Leaflet and its stylesheet are a
+         separate ~45 KB chunk that is only REQUESTED when a list has a route. A packing
+         list with no GPX never downloads a byte of it, which is the right default for a
+         feature secondary to the actual job here. -->
+    <LazyRouteMap
+      v-if="snapshot.routeGeometry"
+      :geometry="snapshot.routeGeometry"
+      :day-distances-m="dayDistancesM"
+    />
     <!-- Only the figures nothing else on the page states. The day COUNT and the
          miles-per-day average both left with the same reasoning: the date range names the
          days and every row carries its own distance, so a chip restating either was

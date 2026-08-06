@@ -246,6 +246,32 @@ export function pointAlong(points: readonly LatLon[], alongM: number): LatLon | 
   return { lat: a.lat + (b.lat - a.lat) * f, lon: a.lon + (b.lon - a.lon) * f };
 }
 
+/**
+ * The stretch of route between two distances, with both ends interpolated.
+ *
+ * The map draws one line per day, and the days have to MEET: cutting at the nearest stored
+ * point instead would leave a gap of up to the sampling interval — around 125 m at the
+ * simplification cap, which at whole-route zoom is a visible dropout in the middle of the
+ * line. So both ends are exact points, and consecutive legs share their endpoint.
+ *
+ * Returns fewer than two points for an empty span, which the caller reads as "draw nothing"
+ * — a day with no distance typed yet has no stretch to colour.
+ */
+export function sliceAlong(points: readonly LatLon[], fromM: number, toM: number): LatLon[] {
+  if (points.length < 2 || !(toM > fromM)) return [];
+  const cum = cumulativeM(points);
+  const total = cum[cum.length - 1]!;
+  const lo = Math.max(0, Math.min(total, fromM));
+  const hi = Math.max(0, Math.min(total, toM));
+  if (!(hi > lo)) return [];
+  const head = pointAlong(points, lo);
+  const tail = pointAlong(points, hi);
+  if (!head || !tail) return [];
+  // the stored points strictly inside the span; the ends are interpolated, not snapped
+  const inner = points.filter((_, i) => cum[i]! > lo && cum[i]! < hi);
+  return [head, ...inner, tail];
+}
+
 /** The nearest point ON the route to a coordinate, as a distance along it. Placement uses
  *  this so a pin can only ever sit on the line. */
 export function nearestAlongM(points: readonly LatLon[], at: LatLon): number {

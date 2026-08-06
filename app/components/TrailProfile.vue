@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "@hugeicons/vue";
-import { categoryColor, nextFolderColor } from "~~/shared/categories";
+import { dayColorSequence } from "~~/shared/categories";
 import { formatDistance, type DisplayDistanceUnit } from "~~/shared/trailDistance";
 import { GRADE_HARD_PCT, GRADE_MODERATE_PCT, gradeRuns, gradeSeries, gradeSpread } from "~~/shared/gpx";
 
@@ -103,15 +103,9 @@ const dayOfSample = computed(() => {
   });
 });
 
-/** One colour per day, from the palette built so consecutive picks sit far apart. */
-const dayColors = computed(() => {
-  const used: string[] = [];
-  return props.dayDistancesM.map(() => {
-    const key = nextFolderColor(used);
-    used.push(key);
-    return categoryColor(key);
-  });
-});
+/** One colour per day, from the palette built so consecutive picks sit far apart. Shared
+ *  with the route map, so a day is the same colour on both marks. */
+const dayColors = computed(() => dayColorSequence(props.dayDistancesM.length));
 
 /**
  * The gap between the day line and the difficulty beneath it, in viewBox units.
