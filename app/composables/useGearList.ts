@@ -4,7 +4,7 @@ import { uid } from "~~/shared/id";
 import { colorKeyForName, nextFolderColor, STARTER_FOLDERS } from "~~/shared/categories";
 import { editLinkPath } from "~~/shared/links";
 import { DRAFT_KEY, localKey, rebaseOnto } from "~~/shared/localList";
-import type { Folder, Item, ListSnapshot, Unit } from "~~/shared/types";
+import type { Folder, Item, ListSnapshot, TripDay, Unit } from "~~/shared/types";
 import type { VaultCapture, VaultEntry } from "~~/shared/vault";
 import { vaultNormKey } from "~~/shared/vault";
 import { bySortOrder, computeTotals, entryUnitFromInput, itemsInFolder, nextSortOrder, parseWeightInput, siblingItems } from "~~/shared/weights";
@@ -669,6 +669,26 @@ function create() {
       if (f.sortOrder !== idx) updateFolder(f.id, { sortOrder: idx });
     });
   }
+  // ---- trip days ----
+  // Thin, unlike the folder helpers above: a day has no colour to allocate, no items to
+  // carry with it, and nothing pointing at it, so there is no cascade to write and no
+  // undo to offer — a removed day is two numbers, and re-typing them costs less than the
+  // toast would. Reordering is a sortOrder patch, exactly as it is for folders.
+  function addDay() {
+    const days = snapshot.value?.days ?? [];
+    dispatch({ t: "addDay", day: { id: uid(), sortOrder: days.length } });
+  }
+  const updateDay = (id: string, patch: Partial<TripDay>) => dispatch({ t: "updateDay", id, patch });
+  function removeDay(id: string) {
+    dispatch({ t: "removeDay", id });
+    // close the gap so the numbering a person reads ("Day 3") stays the position in the
+    // trip rather than drifting from it
+    const rest = (snapshot.value?.days ?? []).slice().sort(bySortOrder);
+    rest.forEach((d, i) => {
+      if (d.sortOrder !== i) dispatch({ t: "updateDay", id: d.id, patch: { sortOrder: i } });
+    });
+  }
+
   function removeFolder(id: string) {
     const folder = snapshot.value?.folders.find((f) => f.id === id);
     // parents before children so nesting re-links on undo (addItem drops a child whose
@@ -1145,6 +1165,7 @@ function create() {
     get epoch() { return epoch; },
     load, startDraft, dispose, rotate,
     setMeta, setUnit, addFolder, updateFolder, removeFolder, moveFolderBefore,
+    addDay, updateDay, removeDay,
     vaultPrompt, answerVaultPrompt,
     vaultPicker, confirmVaultPicker, cancelVaultPicker,
     addBlankItem, addBlankItemAfter, addVaultItem, addVaultFolder, saveItemToVault, discardEmpty, updateItem, removeItem, setItemWeight, moveItem,

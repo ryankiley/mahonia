@@ -665,7 +665,12 @@ function onCorrected(res: { status: string; itemName?: string }) {
            ghosted placeholder, at the top of the content — matching what the two read
            views have always done (ReadonlyListView's h1). -->
       <ListHead :snapshot="snapshot" @toast="flash" />
+      <!-- The totals bar stands down while planning: that view has its own headline (the
+           route's distance), and two display-size figures on one screen would make you
+           choose which one the page is about. The pack's weight isn't lost — it rides in
+           the plan's chips, and per day in the burn-down column. -->
       <TotalsBar
+        v-if="mode !== 'plan'"
         :list="snapshot"
         :totals="totals"
         @set-unit="(u) => c.setUnit(u)"
@@ -716,7 +721,22 @@ function onCorrected(res: { status: string; itemName?: string }) {
           </div>
         </div>
       </Transition>
-      <div class="editor__folders">
+
+      <!-- The plan. Lazy on purpose: the panel pulls in the trip model, and planning is a
+           mode most visits never enter — it has no business on the editor's first load.
+           Same reveal recipe as the pack bar above, so the folders ease rather than jump. -->
+      <Transition name="packbar">
+        <div v-if="mode === 'plan' && snapshot && totals" class="packbar-reveal">
+          <LazyTrailPlanPanel :snapshot="snapshot" :totals="totals" />
+        </div>
+      </Transition>
+
+      <!-- The gear stands down while you plan. Planning asks a different question of the
+           same list — how the trip breaks into days and what the pack weighs on each — and
+           the answer is above; the rows underneath would just be a long scroll between you
+           and it. Same move packing mode makes, which swaps the rows rather than adding to
+           them. -->
+      <div v-if="mode !== 'plan'" class="editor__folders">
         <FolderSection
           v-for="f in sortedFolders"
           :key="f.id"
@@ -728,7 +748,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
           @toast="flash"
         />
       </div>
-      <section v-if="ungrouped.length" class="panel editor__ungrouped">
+      <section v-if="ungrouped.length && mode !== 'plan'" class="panel editor__ungrouped">
         <p class="t-label">Ungrouped</p>
         <!-- prev-id follows this section's render order, so the indent affordance
              points at the row actually shown above -->
