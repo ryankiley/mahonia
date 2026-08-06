@@ -4,6 +4,7 @@ import { applyListDiff, diffListState, fullSnapToState, stateToFullSnap } from "
 import { cloneListData } from "../shared/clone";
 import { jsonToListImport, listToJson } from "../shared/exporters/json";
 import { summarizeOps } from "../shared/changeSummary";
+import { tripDays } from "../shared/foodPlan";
 import type { ListState, TripDay } from "../shared/types";
 
 const state = (over: Partial<ListState> = {}): ListState => ({
@@ -181,5 +182,59 @@ describe("change summary", () => {
     ).toBe("Added 2 days");
     expect(summarizeOps([{ t: "removeDay", id: "a" }], ctx)).toBe("Removed 1 day");
     expect(summarizeOps([{ t: "updateDay", id: "a", patch: { distanceM: 1000 } }], ctx)).toBe("Edited 1 day");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Moving a trip must not disturb what's IN it.
+//
+// The dates are the one control for how many days a trip has. That only works if
+// restaging the same trip to a different week is free — and it is, structurally, because
+// a TripDay carries no date. It has a position and nothing else, so the calendar decides
+// HOW MANY days there are and the entities hold WHAT is in each one. These pin that
+// separation, because the obvious "improvement" — hanging a date on each day — is what
+// would break it.
+// ---------------------------------------------------------------------------
+
+describe("staggering a trip to different dates", () => {
+  it("keeps the same number of days when the range shifts by a fortnight", () => {
+    expect(tripDays("2026-08-10", "2026-08-13")).toBe(4);
+    expect(tripDays("2026-08-24", "2026-08-27")).toBe(4);
+  });
+
+  it("survives a shift across a month boundary", () => {
+    expect(tripDays("2026-08-30", "2026-09-02")).toBe(4);
+  });
+
+  it("survives a shift across a year boundary", () => {
+    expect(tripDays("2026-12-30", "2027-01-02")).toBe(4);
+  });
+
+  it("survives a shift over a DST change", () => {
+    // US DST ends 2026-11-01. Calendar dates don't have an opinion about clocks, and this
+    // is why they're stored as text rather than instants.
+    expect(tripDays("2026-10-30", "2026-11-02")).toBe(4);
+  });
+
+  it("counts the same span identically wherever the reader is", () => {
+    const tz = process.env.TZ;
+    try {
+      for (const zone of ["UTC", "America/Los_Angeles", "Pacific/Kiritimati", "Asia/Tokyo"]) {
+        process.env.TZ = zone;
+        expect(tripDays("2026-08-10", "2026-08-13")).toBe(4);
+      }
+    } finally {
+      process.env.TZ = tz;
+    }
+  });
+
+  it("lengthening by one day is exactly one more day", () => {
+    // what "Add a day" does: push the end out by one
+    expect(tripDays("2026-08-10", "2026-08-13")).toBe(4);
+    expect(tripDays("2026-08-10", "2026-08-14")).toBe(5);
+  });
+
+  it("shortening by one day is exactly one fewer", () => {
+    expect(tripDays("2026-08-10", "2026-08-12")).toBe(3);
   });
 });

@@ -46,8 +46,16 @@ const stored = computed(() => [...(props.snapshot.days ?? [])].sort((a, b) => a.
  * keeps setting dates from writing a pile of empty days into the list, and keeps a plan
  * you never touched from being something the reducer has to carry.
  *
- * `Math.max` rather than the dates alone: a trip can outgrow its dates, and an itinerary
- * someone actually built must never be truncated by a date field.
+ * THE DATES DECIDE. A trip is however many days its calendar says, and that is the one
+ * control for it — so lengthening the range adds a day and shortening it takes one away.
+ *
+ * Shortening never destroys anything. The TripDay entities stay in the list whether or not
+ * the range currently reaches them, so pulling the end date back and pushing it out again
+ * brings the distances back exactly as they were. Only the number SHOWN follows the dates.
+ *
+ * Without dates at all there is nothing to count from, so a dateless list falls back to
+ * however many days it has been given directly — which is also what every list written
+ * before this behaved like.
  */
 const days = computed(() => {
   const dated = tripDays(props.snapshot.startDate, props.snapshot.endDate) ?? 0;
@@ -56,9 +64,48 @@ const days = computed(() => {
   // the rows past 60 rendered and accepted typing while the reducer silently dropped
   // their addDay, so every one of those edits landed on day 60 instead. A row you can
   // type into that isn't the row you're typing into is worse than no row.
-  const n = Math.min(MAX_DAYS, Math.max(stored.value.length, dated));
+  const n = Math.min(MAX_DAYS, dated || stored.value.length);
   return Array.from({ length: n }, (_, i) => stored.value[i] ?? null);
 });
+
+/**
+ * One more day on the trip — by moving the END DATE, when there is one.
+ *
+ * The alternative, appending a TripDay, quietly created a second source of truth: the
+ * calendar said four days and the list said five, and nothing on screen explained which
+ * was right. Extending the range keeps one answer to "how long is this trip".
+ */
+function addDay() {
+  const end = props.snapshot.endDate;
+  const start = props.snapshot.startDate;
+  if (!end || !start) return void c.addDay();
+  if (days.value.length >= MAX_DAYS) return;
+  const next = new Date(Date.parse(`${end}T00:00:00Z`) + 86_400_000);
+  c.setMeta({ endDate: next.toISOString().slice(0, 10) });
+}
+
+/**
+ * One fewer day — the mirror of addDay, and it has to move the calendar too or the two
+ * controls immediately disagree about how long the trip is.
+ *
+ * The removed day's ROW is dropped and everything after it shifts up, which is what a
+ * person means by deleting the second day of four. Then the range shortens by one, because
+ * a four-day itinerary on a five-day calendar is the inconsistency this whole change is
+ * for. A dateless list just loses the entity.
+ */
+function removeDay(i: number) {
+  const d = stored.value[i];
+  if (d) c.removeDay(d.id);
+  const start = props.snapshot.startDate;
+  const end = props.snapshot.endDate;
+  if (!start || !end) return;
+  // pull the END back, never the start: a trip's first day is the one thing about its
+  // dates a person is sure of, and moving it would silently reschedule the whole walk
+  const next = new Date(Date.parse(`${end}T00:00:00Z`) - 86_400_000);
+  const iso = next.toISOString().slice(0, 10);
+  // a one-day trip has nothing left to shorten; clear the range rather than invert it
+  c.setMeta(iso < start ? { startDate: "", endDate: "" } : { endDate: iso });
+}
 
 /** A ghost row becoming real. Returns the id to patch. */
 function ensureDay(i: number): string | null {
@@ -381,7 +428,7 @@ const distanceValue = (m: number | undefined) =>
             class="btn btn--icon btn--ghost plan__del plan__del--end"
             :title="`Remove day ${i + 1}`"
             :aria-label="`Remove day ${i + 1}`"
-            @click="d && c.removeDay(d.id)"
+            @click="removeDay(i)"
           >
             <HugeiconsIcon :icon="Delete02Icon" :size="16" :stroke-width="1.5" />
           </button>
@@ -498,8 +545,12 @@ const distanceValue = (m: number | undefined) =>
          number is worse than no mark at all. -->
     <p v-if="tripHours > 0" class="plan__accuracy t-sm">~ is worked out, not measured.</p>
 
+    <!-- Adds a day to the CALENDAR, not a loose row beside it. The date range is the one
+         place a trip's length is set, so this pushes the end date out by one rather than
+         creating a day the dates don't know about. A list with no dates has no range to
+         extend, so it still gets a plain day. -->
     <div class="plan__addwrap">
-      <button type="button" class="plan__add" @click="c.addDay()">Add a day</button>
+      <button type="button" class="plan__add" @click="addDay">Add a day</button>
     </div>
   </section>
 </template>
