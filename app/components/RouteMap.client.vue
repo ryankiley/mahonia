@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { dayColorSequence } from "~~/shared/categories";
 import { cumulativeM, decodePolyline, nearestAlongM, pointAlong, sliceAlong, type LatLon } from "~~/shared/polyline";
+import { HugeiconsIcon } from "@hugeicons/vue";
+import { ArrowExpand02Icon, ArrowShrink02Icon } from "@hugeicons/core-free-icons";
+import { waypointKindMeta } from "~/utils/waypointKinds";
 
 // Where the route actually goes — the other half of the elevation profile's answer.
 //
@@ -225,16 +228,37 @@ function renderArrows() {
   );
 }
 
-/** What each kind of pin looks like. Water, camp and landmark are CONTENT, so they take
- *  category hues; the route's own two ends are properties of the ROUTE rather than
- *  categories of thing, so they take ink and differ by being hollow. */
-const PIN_COLOR: Record<string, string> = {
-  water: "var(--cat-water)",
-  camp: "var(--cat-shelter)",
-  landmark: "var(--cat-clothing)",
-  trailhead: "var(--ink)",
-  end: "var(--ink)",
-};
+/**
+ * A Hugeicon as an SVG STRING.
+ *
+ * Leaflet's divIcon takes HTML, not a component, so the glyph can't be rendered by
+ * <HugeiconsIcon> the way it is everywhere else in the app — it has to be serialised. The
+ * icon data is a plain `[tag, attrs][]` array from the bundled package, which is why this
+ * is a dozen lines rather than a dependency.
+ *
+ * The per-path `stroke-width` is DROPPED and set once on the <svg>. The set draws in a
+ * 24-unit box at 1.5, which scales to a 0.7px hairline at pin size — invisible against
+ * contour lines. Setting it here lets the paths inherit a weight chosen for the size
+ * they're actually drawn at.
+ */
+/** The disc. Big enough to hold a legible glyph, small enough not to bury the terrain. */
+const PIN_PX = 22;
+const PIN_GLYPH_PX = 13;
+const PIN_GLYPH_STROKE = 2.25;
+function iconSvg(icon: unknown): string {
+  const parts = (icon as [string, Record<string, string>][] | undefined) ?? [];
+  const body = parts
+    .map(([tag, attrs]) => {
+      const a = Object.entries(attrs ?? {})
+        // `key` is Vue's list hint and strokeWidth is set on the parent; neither is SVG
+        .filter(([k]) => k !== "key" && k !== "strokeWidth")
+        .map(([k, v]) => `${k.replace(/[A-Z]/g, (ch) => `-${ch.toLowerCase()}`)}="${String(v).replace(/[<>&"]/g, "")}"`)
+        .join(" ");
+      return `<${tag} ${a}/>`;
+    })
+    .join("");
+  return `<svg viewBox="0 0 24 24" width="${PIN_GLYPH_PX}" height="${PIN_GLYPH_PX}" fill="none" stroke-width="${PIN_GLYPH_STROKE}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
+}
 
 /**
  * Draw the pins.
@@ -252,18 +276,25 @@ function renderPins() {
   pins = (props.waypoints ?? []).flatMap((w) => {
     const at = pointAlong(line, w.alongM);
     if (!at) return [];
+    const meta = waypointKindMeta(w.kind);
     const marker = L!.marker([at.lat, at.lon], {
       keyboard: false,
       icon: L!.divIcon({
         className: "routemap__pin",
-        html: `<i style="--pin:${PIN_COLOR[w.kind] ?? PIN_COLOR.landmark}"></i>`,
-        iconSize: [14, 14],
+        // The GLYPH inside the disc, not a bare dot. Five colours alone asked the reader
+        // to hold a legend in their head that the map has nowhere to print — a droplet
+        // says "water" without one, and it still says it to somebody who can't separate
+        // the blue from the violet.
+        html: `<i style="--pin:${meta.color}">${iconSvg(meta.icon)}</i>`,
+        iconSize: [PIN_PX, PIN_PX],
         // the CENTRE: the pin means "this point on the line", so it sits ON it rather
         // than hanging off it the way a teardrop marker would
-        iconAnchor: [7, 7],
+        iconAnchor: [PIN_PX / 2, PIN_PX / 2],
       }),
     }).addTo(map!);
-    if (w.label) marker.bindTooltip(document.createTextNode(w.label) as never, { direction: "top" });
+    // The name if it has one, the KIND if it doesn't — an unnamed pin is the normal case
+    // (three taps, three water sources), and "Water" beats an empty tooltip.
+    marker.bindTooltip(document.createTextNode(w.label || meta.label) as never, { direction: "top" });
     return [marker];
   });
 }
@@ -363,6 +394,51 @@ function onWheel(e: WheelEvent) {
   // re-centring on every step would walk the thing you're aiming at off the screen.
   map.setZoomAround(map.mouseEventToContainerPoint(e), map.getZoom() + steps);
 }
+
+/**
+ * The map filling the window.
+ *
+ * A 320px strip is fine for reading the shape of a walk and poor for PLACING on it: at
+ * whole-route zoom a day's leg is a couple of centimetres of switchbacks, and a fingertip
+ * covers a mile of it. Expanding is what makes the tap accurate, so it belongs next to the
+ * gesture rather than in a menu.
+ *
+ * A FIXED OVERLAY, not the Fullscreen API. Real fullscreen takes over the display and
+ * leaves the page behind it unreachable — including the day rows this map is being placed
+ * from — and it's the one browser mode where an escape hatch can be genuinely hard to
+ * find on a laptop. A fixed panel keeps the app's own chrome available and the app's own
+ * Escape working, which is what the overlay slot below is for.
+ */
+const expanded = ref(false);
+
+// On the WINDOW, not the figure: Leaflet moves focus around inside its own container and
+// a keydown on the map's SVG doesn't reliably reach an ancestor handler. Escape has to
+// work wherever the focus happens to be, because it is the way out.
+function onKeydown(e: KeyboardEvent) {
+  if (e.key === "Escape") expanded.value = false;
+}
+
+watch(expanded, async (on) => {
+  // the page behind must not scroll under the panel — a map you drag would otherwise take
+  // the document with it the moment a gesture missed
+  document.body.style.overflow = on ? "hidden" : "";
+  if (on) window.addEventListener("keydown", onKeydown);
+  else window.removeEventListener("keydown", onKeydown);
+  await nextTick();
+  if (!map) return;
+  // Leaflet reads its container's size once. Going from a 320px strip to the whole window
+  // without telling it leaves the tiles laid out for the old box: a quarter-covered map
+  // with grey where the rest should be.
+  map.invalidateSize();
+  // Re-frame only while the view is still ours. Someone who has zoomed into a col wants
+  // that col bigger, not the whole route back.
+  if (!touched) frame();
+});
+
+onBeforeUnmount(() => {
+  document.body.style.overflow = "";
+  window.removeEventListener("keydown", onKeydown);
+});
 
 async function draw() {
   if (!host.value) return;
@@ -516,8 +592,32 @@ onBeforeUnmount(() => {
 
     Which looked exactly like the map disappearing the instant you armed a waypoint.
   -->
-  <figure class="routemap" :class="{ 'is-bare': failed, 'is-armed': !!armedRange }">
+  <figure
+    class="routemap"
+    :class="{ 'is-bare': failed, 'is-armed': !!armedRange, 'is-expanded': expanded }"
+  >
     <div ref="host" class="routemap__canvas" />
+    <!-- The controls that have to stay reachable with the map over the page. Rendered
+         only when expanded: below, the day rows are right there on the page and a second
+         copy of their affordance would be two places to press for one thing. -->
+    <div v-if="expanded" class="routemap__overlay">
+      <slot name="overlay" />
+    </div>
+    <button
+      type="button"
+      class="routemap__expand"
+      :aria-pressed="expanded"
+      :aria-label="expanded ? 'Shrink the map back into the page' : 'Expand the map to fill the window'"
+      :title="expanded ? 'Shrink the map' : 'Expand the map'"
+      @click="expanded = !expanded"
+    >
+      <HugeiconsIcon
+        :icon="expanded ? ArrowShrink02Icon : ArrowExpand02Icon"
+        :size="16"
+        :stroke-width="2"
+        aria-hidden="true"
+      />
+    </button>
     <figcaption class="routemap__note">
       <span v-if="failed">Map tiles couldn't load — the route is still drawn.</span>
       <!-- The zoom hint is about a KEY, so it only exists where there are keys. It is
@@ -569,6 +669,79 @@ onBeforeUnmount(() => {
 
 }
 
+.routemap {
+  // the anchor for the expand button and the overlay, which both sit over the canvas
+  position: relative;
+  margin: 0;
+}
+
+/* EXPANDED: the map takes the window.
+   Fixed rather than the Fullscreen API — see the comment on `expanded`. The z-index sits
+   above the page and below nothing else the app puts up, because while this is open it IS
+   the page. */
+.routemap.is-expanded {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal, 100);
+  margin: 0;
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  background: var(--paper);
+}
+.routemap.is-expanded .routemap__canvas {
+  flex: 1;
+  height: auto;
+}
+/* the caption is a footnote at strip size and a distraction at window size — the gesture
+   it names still works, and by now you have used it */
+.routemap.is-expanded .routemap__note {
+  display: none;
+}
+
+/* The expanded map's own controls, floating over the terrain rather than pushing it down:
+   the point of expanding is the map being big. */
+.routemap__overlay {
+  position: absolute;
+  // clear of Leaflet's zoom buttons (top-left) and the expand button (top-right)
+  left: 50%;
+  translate: -50% 0;
+  top: calc(var(--space-3) + var(--space-2));
+  z-index: 500;
+  max-width: calc(100% - 140px);
+}
+
+/* Bottom-right: the two top corners are Leaflet's (zoom) and the bottom-left is the
+   attribution, which is a licence requirement and must never be covered. */
+.routemap__expand {
+  position: absolute;
+  right: var(--space-2);
+  bottom: var(--space-2);
+  z-index: 500;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-1);
+  // Leaflet's own controls are white-on-map in both themes because the basemap stays
+  // light; this matches them rather than the app's dark chrome.
+  background: #fff;
+  color: #333;
+  cursor: pointer;
+  box-shadow: 0 1px 4px #0000001f;
+}
+.routemap__expand:hover {
+  background: #f4f4f4;
+}
+.routemap.is-expanded .routemap__expand {
+  right: calc(var(--space-3) + var(--space-2));
+  bottom: calc(var(--space-3) + var(--space-2));
+}
+
 // tiles gone: plain ground, so the line is still readable
 .routemap.is-bare .routemap__canvas {
   background: light-dark(oklch(0.95 0.01 250), oklch(0.95 0.01 250));
@@ -600,15 +773,19 @@ onBeforeUnmount(() => {
 }
 
 .routemap__pin i {
-  display: block;
-  width: 11px;
-  height: 11px;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
   border-radius: 50%;
   background: var(--pin);
-  // the same white casing the route wears, for the same reason — a dot the colour of a
-  // contour line is a dot nobody finds
+  // the same white casing the route wears, for the same reason — a mark the colour of a
+  // contour line is a mark nobody finds
   border: 2px solid #fff;
   box-shadow: 0 0 0 1px #00000026;
+  // the glyph reads as a hole punched in the disc; white against every category hue, and
+  // white on ink for the route's two ends
+  color: #fff;
 }
 // Leaflet's divIcon ships a white box with a border; both are cleared or every pin
 // renders inside a little card.

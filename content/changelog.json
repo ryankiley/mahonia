@@ -11,14 +11,17 @@
       "Routes can now be read from Google Earth KML, Garmin TCX and GeoJSON files as well as GPX — whichever your mapping app exports.",
       "Map files can now be read as Google Earth KMZ and GeoRSS as well as GPX, KML, TCX and GeoJSON.",
       "A route imported from a map file is now drawn on the terrain it crosses, in the same colours the days wear on the elevation profile. The map is yours alone — it never appears on a shared or published list.",
-      "Mark what's on a route — water, a camp, a landmark — from the day you'll reach it on: tap the map and the pin drops on that day's stretch, with its distance beside it. Pins move between days by themselves as you change how far each day walks."
+      "Mark what's on a route — water, a camp, a landmark — from the day you'll reach it on: tap the map and the pin drops on that day's stretch, with its distance beside it. Pins move between days by themselves as you change how far each day walks.",
+      "The map opens full screen for placing, with a bar of the trip's days across the top so you can pick which day the next pin lands in without leaving it.",
+      "Each pin on the map now carries its own mark — a droplet for water, a tent for a camp — and its row names the kind in words."
     ],
     "changed": [
       "Your body weight is now remembered on your device instead of saved with each list, so you set it once and every trip uses it — and it never leaves your browser at all.",
       "The elevation profile's distance scale now shows more marks on a wider window, and the grade you read off the chart always matches the shading beneath it.",
       "A day now shows its descent alongside its climb, the trip's figures line up in columns down the list, and the route's total descent only appears when it differs from the climb.",
       "The trail panel's file button now reads \"Import map file\" and names the formats it takes.",
-      "Switching between Editing, Packing and Planning now uses a labelled bar under the list's title instead of three icons in the toolbar, and shared lists get one too — Gear or Trip."
+      "Switching between Editing, Packing and Planning now uses a labelled bar under the list's title instead of three icons in the toolbar, and shared lists get one too — Gear or Trip.",
+      "Hold ⌘ or Ctrl and scroll, or pinch on a trackpad, to zoom the route map."
     ],
     "fixed": [
       "On a phone, a weight like 0.68 lb no longer has its last digit clipped, and a water row's figure lines up with the rows above it.",

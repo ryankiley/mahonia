@@ -5,6 +5,7 @@ import type { ListSnapshot, Totals, Waypoint } from "~~/shared/types";
 import { burnDownMg, estimateDay } from "~~/shared/tripPlan";
 import { dayClimbs, parseProfile } from "~~/shared/profile";
 import { MAX_DAYS } from "~~/shared/ops";
+import { dayColorSequence } from "~~/shared/categories";
 import { dayLabel } from "~~/shared/tripDay";
 import { isWaterName } from "~~/shared/water";
 import { lineMg, effectiveClassification, formatWeight } from "~~/shared/weights";
@@ -250,6 +251,10 @@ const profile = computed(() => parseProfile(props.snapshot.trailProfile));
 // that tail grey (see TrailProfile). Enter 4 miles of a 20-mile route and the first 4 are
 // your Day 1; the other 16 are not yet anybody's, and colouring them would say otherwise.
 const dayDistancesM = computed(() => days.value.map((d) => d?.distanceM ?? 0));
+
+// The colours the days wear on the chart and on the map's legs — read from the one
+// sequence all three use, so a chip can't say "Day 2" in a colour day 2 isn't drawn in.
+const dayColors = computed(() => dayColorSequence(days.value.length));
 
 // ---- the pins ----
 /**
@@ -534,7 +539,42 @@ const distanceValue = (m: number | undefined) => {
       :waypoints="waypoints"
       :armed-range="armedRange"
       @place="onPlace"
-    />
+    >
+      <!-- Only while the map fills the window, where the day rows are behind it and out
+           of reach. Same `arming` ref the rows drive, so this is a second SURFACE for one
+           piece of state, never a second copy of it — and the map dims to whichever is
+           chosen either way. -->
+      <template #overlay>
+        <div class="plan__armbar" role="radiogroup" aria-label="Day to place a waypoint on">
+          <button
+            v-for="(d, i) in dayDistancesM"
+            v-show="d > 0"
+            :key="i"
+            type="button"
+            class="plan__armchip"
+            :class="{ 'is-on': arming === i }"
+            role="radio"
+            :aria-checked="arming === i"
+            @click="arming = arming === i ? null : i"
+          >
+            <span class="plan__armdot" :style="{ background: dayColors[i] }" aria-hidden="true" />
+            Day {{ i + 1 }}
+          </button>
+          <button
+            v-if="hasRest"
+            type="button"
+            class="plan__armchip"
+            :class="{ 'is-on': arming === 'rest' }"
+            role="radio"
+            :aria-checked="arming === 'rest'"
+            @click="arming = arming === 'rest' ? null : 'rest'"
+          >
+            <span class="plan__armdot plan__armdot--rest" aria-hidden="true" />
+            Rest
+          </button>
+        </div>
+      </template>
+    </LazyRouteMap>
     <!-- Only the figures nothing else on the page states. The day COUNT and the
          miles-per-day average both left with the same reasoning: the date range names the
          days and every row carries its own distance, so a chip restating either was
@@ -1075,6 +1115,54 @@ const distanceValue = (m: number | undefined) => {
 }
 .plan__bodynum {
   width: 4rem;
+}
+
+/* The day picker that floats over the expanded map. White-on-map like Leaflet's own
+   controls, because the basemap stays light in both themes — see RouteMap. */
+.plan__armbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-px);
+  padding: var(--space-1);
+  border-radius: var(--radius-2);
+  background: #fff;
+  box-shadow: 0 1px 4px #0000001f;
+}
+.plan__armchip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: 26px;
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-1);
+  background: none;
+  font-family: inherit;
+  font-size: var(--text-chrome);
+  color: #555;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.plan__armchip:hover {
+  background: #0000000d;
+  color: #111;
+}
+/* armed is a STATE, and it has to hold its plate whether the pointer is on it or not —
+   it is the only thing on screen saying which day the next tap lands in */
+.plan__armchip.is-on {
+  background: #00000014;
+  color: #111;
+  font-weight: 600;
+}
+.plan__armdot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+/* the unclaimed stretch has no day colour, because it is nobody's */
+.plan__armdot--rest {
+  background: #9a9a9a;
 }
 
 /* A day's pins, sitting under its figures the way a folder's items sit under its name —
