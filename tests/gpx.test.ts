@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { Window } from "happy-dom";
-import { GRADE_HARD_PCT, GRADE_MODERATE_PCT, PROFILE_SAMPLES, dayClimbs, geoJsonPoints, gpxPoints, gpxStats, gradeRuns, gradeSpread, haversineM, kmzToKml, parseProfile, profileToString, segmentClimbs, type TrackPoint } from "../shared/gpx";
+import { geoJsonPoints, gpxPoints, gpxStats, haversineM, kmzToKml, type TrackPoint } from "../shared/gpx";
+import { GRADE_HARD_PCT, GRADE_MODERATE_PCT, PROFILE_SAMPLES, dayClimbs, gradeRuns, gradeSpread, parseProfile, profileToString, segmentClimbs } from "../shared/profile";
 
 // A track that walks due east along a parallel, so the distances are easy to reason
 // about: at the equator 0.001° of longitude is ~111 m.

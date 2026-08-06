@@ -2,7 +2,7 @@
 import { HugeiconsIcon } from "@hugeicons/vue";
 import { dayColorSequence } from "~~/shared/categories";
 import { formatDistance, type DisplayDistanceUnit } from "~~/shared/trailDistance";
-import { GRADE_HARD_PCT, GRADE_MODERATE_PCT, gradeRuns, gradeSeries, gradeSpread } from "~~/shared/gpx";
+import { GRADE_HARD_PCT, GRADE_MODERATE_PCT, gradeRuns, gradeSeries, gradeSpread } from "~~/shared/profile";
 
 // The route's shape, cut into days.
 //

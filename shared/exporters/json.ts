@@ -30,7 +30,7 @@ import {
   normalizeTrailDistanceM,
   type DisplayDistanceUnit,
 } from "../trailDistance";
-import { parseProfile, profileToString } from "../gpx";
+import { parseProfile, profileToString } from "../profile";
 import { normalizeTrailLabel, normalizeTrailUrl } from "../trailLink";
 import { normalizeRouteGeometry } from "../polyline";
 import { uid } from "../id";

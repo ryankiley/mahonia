@@ -53,6 +53,16 @@ useHead({
           assumption.
         </p>
         <p>
+          Your <strong>route</strong> gets the same care. Importing a map file stores the line the
+          trail follows, and that is the only geography Mahonia keeps — a recorded track often
+          starts where you parked, which is sometimes where you live. So it is
+          <strong>yours alone</strong>: it never appears on a share link, a published list or the
+          public feed, not even in the page’s hidden data. Anyone you share with sees the
+          distance, the climb and the shape of the elevation, which carry no coordinates at all.
+          Your own JSON backup does include it, because that file is yours and the route is the one
+          thing you couldn’t type again from memory.
+        </p>
+        <p>
           Your <strong>gear vault</strong> is the one part that needs an account. It holds names,
           brands and weights, and belongs to you rather than to a browser — so signing in on another
           device brings it with you, and clearing this one doesn’t lose it. Gear reaches it when you
@@ -103,6 +113,14 @@ useHead({
           passkey needs), <strong>Resend</strong> (sending sign-in links — it therefore handles
           your email address).
         </p>
+        <p>
+          One more, and only on one screen. When a list has a route, the planning view draws it on
+          a terrain map, and those map images come from <strong>Esri</strong>. Loading an image
+          tells that server your rough map position and that the request came from mahonia.app —
+          never which list you’re looking at, because the browser is told to send the site’s
+          address and nothing further. It’s the only request Mahonia makes to anyone else, it only
+          happens on a list that has a route, and the map’s code isn’t even downloaded otherwise.
+        </p>
 
         <h3>Keeping and deleting your data</h3>
         <p>Removing things is mostly in your hands:</p>
@@ -146,7 +164,15 @@ useHead({
         <ul>
           <li>No passwords, no advertising. Lists need no account at all.</li>
           <li>No selling your data and no cross-site tracking.</li>
-          <li>No advertising cookies, tracking pixels, or third-party trackers.</li>
+          <li>
+            No advertising cookies, tracking pixels, or third-party trackers. The map tiles above
+            are the only thing loaded from another company, and they’re pictures of terrain, not
+            trackers.
+          </li>
+          <li>
+            No asking where you are. The map shows your route, never you — there is no “find me”
+            button, and Mahonia never requests location permission.
+          </li>
         </ul>
 
         <h3>Children</h3>

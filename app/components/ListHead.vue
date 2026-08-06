@@ -9,7 +9,11 @@ import {
   resolveDistanceUnit,
 } from "~~/shared/trailDistance";
 import { displayUrl, parseTrailLink, safeUrl } from "~~/shared/trailLink";
-import { MAX_GPX_BYTES, geoJsonPoints, gpxPoints, gpxStats, kmzToKml, profileToString } from "~~/shared/gpx";
+// shared/gpx is deliberately absent here — it is reached through `await import()` in
+// onGpx, so the file reader isn't on the first load of a list nobody imports into. Not
+// even MAX_GPX_BYTES: one named import is enough to drag the whole module back onto that
+// path, which is the easy way to undo this without noticing.
+import { profileToString } from "~~/shared/profile";
 import { routeGeometryFromPoints } from "~~/shared/polyline";
 import type { ListSnapshot } from "~~/shared/types";
 import { copyText } from "~/utils/clipboard";
@@ -123,6 +127,11 @@ function commitLabel(e: Event) {
 // `connect-src 'self'`, so sending it anywhere isn't an option that exists, which makes
 // "it never leaves your browser" a fact rather than a promise.
 //
+// The map added ONE host to `img-src`, and that leaves this untouched: `img-src` governs
+// where pictures may be fetched FROM, while `connect-src` is what would have to loosen
+// before any bytes could be sent OUT. It is still `'self'`, and tests/csp.test.ts fails
+// if that ever stops being true.
+//
 // It FILLS IN the route's distance and shape; it does not take them over. The distance
 // stays an editable field afterwards, so a mangled track can't quietly rewrite a number
 // somebody typed — the same conservatism trailLink.ts applies to deriving names.
@@ -134,14 +143,23 @@ async function onGpx(e: Event) {
   input.value = ""; // so choosing the same file twice still fires a change
   if (!file) return;
   gpxError.value = "";
-  // Checked BEFORE reading. DOMParser on a 30 MB string blocks the main thread for
-  // seconds; declining is cheaper than a worker, and honest.
-  if (file.size > MAX_GPX_BYTES) {
-    gpxError.value = "That file is too big to read here.";
-    return;
-  }
   gpxBusy.value = true;
   try {
+    // The reader arrives HERE, on the one interaction that needs it — several hundred
+    // lines of XML dialects, a zip decoder and GeoJSON that would otherwise ride the
+    // first load of every packing list. `gpxBusy` is already true, so the fetch shows as
+    // "Reading…" like the parse it precedes.
+    const { MAX_GPX_BYTES, geoJsonPoints, gpxPoints, gpxStats, kmzToKml } = await import(
+      "~~/shared/gpx"
+    );
+    // Checked BEFORE reading. DOMParser on a 30 MB string blocks the main thread for
+    // seconds; declining is cheaper than a worker, and honest. (After the import rather
+    // than before it only because the limit lives with the reader — a chunk fetch is not
+    // the expensive part, the parse is.)
+    if (file.size > MAX_GPX_BYTES) {
+      gpxError.value = "That file is too big to read here.";
+      return;
+    }
     // A KMZ is a zip, so it has to be unwrapped before anything can read it. Sniffed by
     // its "PK" signature rather than its name, like the format check below.
     const head = new Uint8Array(await file.slice(0, 2).arrayBuffer());

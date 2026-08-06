@@ -31,7 +31,7 @@ import type { ListData, ListSnapshot, ListState, Totals, Unit } from "../../shar
 import { isLikelySpam } from "../../shared/discovery";
 import { MAX_SUMMARY_LEN, summarizeOps } from "../../shared/changeSummary";
 import { normalizeDistanceUnit, normalizeTrailAscentM, normalizeTrailDistanceM } from "../../shared/trailDistance";
-import { parseProfile } from "../../shared/gpx";
+import { parseProfile } from "../../shared/profile";
 import { normalizeRouteGeometry } from "../../shared/polyline";
 import { displayHost, normalizeTrailLabel, normalizeTrailUrl, safeUrl } from "../../shared/trailLink";
 import { ensureSnapshotSchema, ensureTrailFaviconSchema, useAccountDb, useDb } from "./db";

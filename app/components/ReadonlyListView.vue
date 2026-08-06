@@ -2,7 +2,7 @@
 import { HugeiconsIcon } from "@hugeicons/vue";
 import { ArrowUpRight01Icon, Calendar03Icon, GlobeIcon, RouteIcon } from "@hugeicons/core-free-icons";
 import { parseTrailLink } from "~~/shared/trailLink";
-import { dayClimbs, parseProfile } from "~~/shared/gpx";
+import { dayClimbs, parseProfile } from "~~/shared/profile";
 import { dayLabel } from "~~/shared/tripDay";
 import { formatDistance, resolveDistanceUnit } from "~~/shared/trailDistance";
 import type { Item, ListSnapshot, Totals, Unit } from "~~/shared/types";

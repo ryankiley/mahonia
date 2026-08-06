@@ -198,7 +198,34 @@ import { brotliCompressSync, gzipSync, constants } from "node:zlib";
 // budget that had no room left rather than the whole story. 142 re-anchors with the ~2 KB
 // of working headroom the notes above keep arguing for, so the next heavy dep still trips
 // the gate and ordinary work doesn't.
-const FIRST_LOAD_BUDGET_KB = 142;
+// 142 → 151, and this one needs its two causes kept apart, because the visible change is
+// a map and the map is not what spent the budget.
+//
+// Measured both ways against the same tree and the same node_modules, as the notes above
+// require — a second worktree at the commit before the map work, built with the same
+// lockfile: 147.0 before, 148.3 after. So the whole route map costs +1.3 KB on the
+// ratchet, and the gate was ALREADY 5.0 KB over at 147.0 before a line of it was written.
+// That overage is trail planning itself — the panel, the profile, grade shading, the day
+// rows — landing over several commits with no build run between them. It is real work and
+// it belongs on the first load; it just never got priced, and attributing it to the map
+// now would make the record wrong in a way nobody could untangle later.
+//
+// +1.3 KB is what a map costs because almost none of it is here. Leaflet is a dynamic
+// import behind a `v-if` on a list having a route, so it is a 36.5 KB chunk that a plain
+// packing list never requests — TOTAL pays for it, which is the whole reason these are two
+// numbers. What DOES land is the waypoint ops and the polyline codec: the reducer runs on
+// both client and server, so it has to be complete for op replay, and normalizeRouteGeometry
+// re-encodes canonically and therefore pulls the decoder with it.
+//
+// Paid for in part by splitting shared/gpx.ts: reading a map file — XML dialects, a zip
+// decoder, GeoJSON — is several hundred lines that only run when somebody picks a file,
+// yet the reducer's `parseProfile` import put all of it on the first load of every packing
+// list. The arithmetic moved to shared/profile.ts and ListHead reaches the reader through
+// `await import()`. Worth 1.1 KB, and worth more as a rule than as a number: nothing that
+// only runs on one interaction belongs on the load before it.
+//
+// 151 keeps the ~2 KB of working headroom these notes keep arguing for.
+const FIRST_LOAD_BUDGET_KB = 151;
 // TOTAL of every built file, the backstop. Deliberately slack: its job is to catch
 // a route chunk ballooning or a heavy dep landing somewhere unnoticed, NOT to price
 // ordinary feature work. Set well clear of current (137.1) so it only speaks up when
@@ -216,8 +243,27 @@ const FIRST_LOAD_BUDGET_KB = 142;
 // That is precisely the "ordinary feature work" this note says the backstop should not
 // be pricing, and a backstop sitting 0.1 KB above current cannot catch the thing it
 // exists for. 192 restores the ~6 KB of slack the last re-anchor set.
-const TOTAL_BUDGET_KB = 192;
-const MAX_CHUNK_BUDGET_KB = 72; // largest single chunk, brotli (the framework runtime)
+// 192 → 258, and unlike the re-anchors above this one is buying something specific.
+//
+// Same two-build measurement: 204.3 before the map work, 251.8 after. Two thirds of that
+// +47.5 KB is Leaflet and its stylesheet, and every byte is in an async chunk the editor's
+// HTML does not reference — a list with no route never asks for it. This is exactly the
+// split these two numbers exist to express: a feature that costs the ratchet almost
+// nothing and the backstop a lot is one that only its users download, which is the right
+// shape for a map inside a packing-list app.
+//
+// It also means the backstop stops being able to say much about the map, so the thing that
+// actually polices it is MAX_CHUNK below. Note the 204.3 was already 12.3 KB over 192 for
+// the same unpriced-planning-work reason the first-load note gives.
+//
+// 258 restores the ~6 KB of slack the last two re-anchors set.
+const TOTAL_BUDGET_KB = 258;
+// Largest single chunk, brotli. LOAD-BEARING, and the one number here that should not move
+// to accommodate a dependency: it is what a heavy map library fails. MapLibre GL ships as a
+// single ~200 KB brotli chunk and was ruled out on this line alone — a dep that needs the
+// budget tripled is precisely what the budget is for. Leaflet lands at 36.5 KB, half of it,
+// which is why it was the one that could be taken. Unchanged by the map work.
+const MAX_CHUNK_BUDGET_KB = 72;
 
 // First build output that exists: node-server, Vercel preset, or static generate.
 const CANDIDATE_DIRS = [
