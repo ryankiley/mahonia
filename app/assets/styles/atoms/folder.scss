@@ -13,6 +13,15 @@
    Safari has no interpolate-size, so height:auto↔0 would just snap there). The inner
    needs min-height:0 to collapse below content size + overflow:hidden to clip the
    reveal. */
+/* min-width:0 is the same rule on the other axis, and it is not optional here. A grid
+   item's automatic minimum size is its MIN-CONTENT size, which the overflow:hidden
+   below happens to suppress — so the moment anything lifts that clip (a row's open
+   overlay, a drag passing through: .is-overlay-open / .is-dragpass in FolderSection)
+   the implicit column re-measures against the widest row and the whole folder grows
+   to it. One row wider than the column (a long weight on a narrow phone) would then
+   drag every OTHER row out with it, ~19px past the screen edge, for as long as a menu
+   stayed open. The rows are what should be fixed, but the folder must not be a
+   multiplier for it: this pins the track to the column either way. */
 .folder__body {
   display: grid;
   grid-template-rows: 1fr;
@@ -23,6 +32,7 @@
 }
 .folder__bodyinner {
   min-height: 0;
+  min-width: 0;
   overflow: hidden;
   opacity: 1;
   transition: opacity var(--dur) var(--ease);

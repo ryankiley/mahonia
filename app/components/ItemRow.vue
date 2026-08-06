@@ -693,9 +693,10 @@ watch(
 
 // the same actions the inline icons run, in the order the icons sat: note, then the
 // one nesting action that applies to this row's state (add-nested / nest-up / un-nest),
-// then the vault save — which is inline on a desktop row and lives only here on a phone
-// (see the mobile block: the trailing cluster is delete · ⋯ · grip, and a fourth icon
-// pushed the whole line off a 375px screen once touch targets grow to --tap).
+// then the vault save, and last the removal — the last three of which are inline on a
+// desktop row and live only here on a phone (see the mobile block: the trailing cluster
+// is ⋯ · grip, because the icons are --tap wide there and the line has no room for the
+// row's numbers beside more than two of them).
 const overflowActions = computed(() => {
   const acts: { label: string; run: () => void }[] = [
     { label: subLabel.value, run: onSubBtn },
@@ -711,6 +712,11 @@ const overflowActions = computed(() => {
   // on screen to see.
   if (!isWater.value)
     acts.push({ label: vaultLabel.value, run: onSaveToVault });
+  // LAST, the way the destructive icon sat last in the desktop cluster — a menu is a
+  // list you read top to bottom, so the one irreversible entry belongs at the end of
+  // it rather than under the thumb. Same words as the icon it replaces ("Remove item",
+  // its aria-label and its tooltip), so the action has one name wherever it appears.
+  acts.push({ label: "Remove item", run: () => c.removeItem(props.item.id) });
   return acts;
 });
 function runOverflow(a: { run: () => void }) {
@@ -1537,11 +1543,25 @@ function dismissFix() {
    hover already uses, so a toggle would read as merely hovered.
    A quiet grey chip (--paper-3, the "quiet surfaces, not borders" token) carries the
    state without an inverted ink chip's weight: these sit in a dense list, and a row
-   of black dots would out-shout the weights, which are what the page is for. */
+   of black dots would out-shout the weights, which are what the page is for.
+   background-clip pins the chip to the CONTENT box, which is how it stays --icon-btn
+   across every pointer: a coarse one grows the button to --tap for the thumb, and a
+   44px disc drawn in a ~25px text line reaches the rules above and below the row —
+   the state started touching the list's hairlines. The touch target keeps its full
+   size (see the padding below); only the drawn chip holds at the size it has always
+   been on a pointer row. Same idiom as --tap-pull: grow the box, not the picture. */
 .item__clsbtn.is-active,
 .item__clsbtn.is-active:hover {
   background: var(--paper-3);
+  background-clip: content-box;
   color: var(--ink);
+}
+@media (pointer: coarse) {
+  /* the overshoot, as padding, so the chip's content box stays --icon-btn while the
+     button stays --tap. box-sizing is border-box, so this costs the row no width. */
+  .item__clsbtn {
+    padding: calc((var(--tap) - var(--icon-btn)) / 2);
+  }
 }
 /* anchored to the trigger, not the viewport: the point of the popover is that it
    opens where you were already looking. Right-aligned so it can't push the row's
@@ -1916,11 +1936,20 @@ function dismissFix() {
   .item__name {
     width: 100%;
   }
-  /* on the two-line mobile layout, indent the nested block so its content lands on
-     the parent's WEIGHT column (one qty-column + gap in from the row edge) — the
-     nested rows read as hanging under the weight above, not floating mid-name */
+  /* The nested block's own inset (--space-4 of margin + --space-4 of padding either
+     side of the thread line, .nest-block in atoms/item.scss) is most of what says
+     "one level down"; this only tunes the outer half.
+     It used to add --space-5, on the reasoning that a child should hang under the
+     parent's WEIGHT rather than mid-name — but the mobile row has no weight COLUMN to
+     hang from (the field is field-sizing: content, so it starts at a different x on
+     every row), so that was aiming at a mark which isn't there, and it left a phone
+     MORE indented than a desktop, 41px against 33px, on the screen with the least
+     width to spare. A step down to --space-3 reads as the same nesting — the thread
+     line and its padding are the signal, and the child's name still clears the
+     parent's — and hands the 12px back to the child's own row, which is the row on
+     the page that runs out of width first. */
   .item-nest {
-    margin-left: var(--space-5);
+    margin-left: var(--space-3);
   }
   /* tighter text boxes so the name and its meta line sit close as one unit — the
      default 36px field min-height, with vertically-centred text, left a big visual
@@ -1964,8 +1993,9 @@ function dismissFix() {
        resolves to space-4 and nothing changes. */
     gap: clamp(var(--space-2), 2vw, var(--space-4));
   }
+  /* right-anchored, but by the classification cell's auto margin rather than its own
+     — see .item__classcell below, which is what pushes this pair of clusters right */
   .item__actions {
-    margin-left: auto;
     flex: none;
     align-self: center;
   }
@@ -1987,16 +2017,32 @@ function dismissFix() {
     height: var(--tap);
     margin-block: var(--tap-pull);
   }
-  /* mobile trailing cluster = delete · ⋯ · grip. The note, nesting actions and the
-     vault save all move into the ⋯ menu (item__more) so the two-line row isn't
-     crowded; only delete stays inline beside the overflow.
-     The vault button is the one that has to be here rather than merely wanting to
-     be: on a coarse pointer every .btn--icon grows to --tap, so a fourth icon takes
-     the cluster to 187px and the line needs 412px inside a 343px row — the grip ends
-     up ~47px past the edge of a 375px screen. Three is what fits. */
-  .item__note-btn,
-  .item__nest-btn,
-  .item__vault-btn {
+  /* mobile trailing cluster = ⋯ · grip. Everything else the row can do — the note, the
+     nesting actions, the vault save and the removal — moves into the ⋯ menu, which
+     names each one in words rather than asking a 16px glyph to.
+     It is width that decides how many stay: on a coarse pointer every .btn--icon grows
+     to --tap, so each inline icon costs 48px of a line that also has to carry the qty,
+     the weight and the two classification toggles. Delete was the last one held back —
+     and it was the difference between a row that fits and a row that doesn't. Keeping
+     it inline, a NESTED row (indented --space-5) needed ~421px of viewport for a
+     four-figure weight, so "1 × 1,588 g" one level down ran its grip off the side of
+     every iPhone but the largest; at 375 even a top-level six-figure weight went ~15px
+     over. Two icons is what the line can hold, and the drag grip and the menu that
+     carries everything else are the two that have to be reachable.
+     Hide each departed one's BOX, not just the button in it. Three of them sit inside a
+     <Tooltip>, which renders a .tooltip-trigger wrapper, and the nesting menu has its
+     own .menu div — hiding only the button leaves those wrappers as zero-width flex
+     items, and a zero-width flex item still takes its share of the cluster's gap. That
+     was four phantom 4px gaps inside a cluster whose visible content is two buttons,
+     and the nesting one is CONDITIONAL (a group row offers no nest action), so the
+     cluster came out 4px narrower on group rows than on the rest — enough to knock
+     those rows out of the column the classification cell now rides. :has() is what
+     reaches a wrapper from the hidden button inside it; the alternative is a class per
+     Tooltip, which is markup spent on saying what the button already says. */
+  .item__nest,
+  .item__actions .tooltip-trigger:has(.item__note-btn),
+  .item__actions .tooltip-trigger:has(.item__vault-btn),
+  .item__actions .tooltip-trigger:has(.item__del) {
     display: none;
   }
   .item__more {
@@ -2004,9 +2050,22 @@ function dismissFix() {
   }
   /* the classification cell used to hold a text label that had to ellipsize to keep
      qty/weight/controls on one line. Two icon toggles are a fixed 68px, so there is
-     nothing left to shrink — it just holds its size beside the other controls. */
+     nothing left to shrink — it just holds its size beside the other controls.
+     THE AUTO MARGIN LIVES HERE, not on .item__actions. The weight field is
+     field-sizing: content, so anything that simply follows it starts at a different x
+     on every row: "--" vs "12,250" swung these two toggles ~39px down a list while the
+     right-anchored actions held still, so the tap targets you reach for most never
+     formed a column. Pushing the cell right instead parks it against the actions —
+     both clusters then ride the row's right edge, on every row, and the desktop grid's
+     fixed class track (tokens.scss) gets its mobile equivalent. It costs no width: the
+     free space it eats is the slack the widest row in the list doesn't have anyway.
+     It must be the ONLY auto margin on the line — a second one splits the free space
+     between them and the drift comes straight back at half size. (The ≤360px coarse
+     block re-declares it on .item__actions because there the cluster wraps onto a line
+     of its own, where the two margins can't meet.) */
   .item__classcell {
     flex: none;
+    margin-left: auto;
   }
   /* the number fields have no grid column to fill on mobile, so give them compact
      explicit widths — otherwise width:100% balloons to the default text-input size
@@ -2111,11 +2170,16 @@ function dismissFix() {
   .item__meta {
     flex-wrap: wrap;
     row-gap: var(--space-1);
-  }
-  /* margin-left:auto already pushes it right; with wrap enabled that also makes it
-     take the full second line rather than sitting under the qty column */
-  .item__actions {
-    margin-left: auto;
+    /* Right-aligns the actions once they drop to a line of their own — there is no
+       classification cell down there to carry the auto margin that does it everywhere
+       else (.item__classcell, above).
+       justify-content rather than a second margin-left:auto, because not every row
+       wraps at this width: a short one still fits on one line, and there two auto
+       margins would SPLIT the free space between them and put back half the drift this
+       whole block is meant to remove. justify-content can't do that — an auto margin
+       consumes the free space before it is consulted, so it stays inert on any line
+       that has one and takes charge only on the line that doesn't. */
+    justify-content: flex-end;
   }
 }
 </style>
