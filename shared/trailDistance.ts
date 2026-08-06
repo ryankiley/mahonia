@@ -136,12 +136,19 @@ export function parseDistanceM(raw: string, fallbackUnit: DistanceUnit = "km"): 
 }
 
 /**
- * The distance unit implied by the weight unit a list already shows. A list in grams
- * is a metric list; a list in ounces is not. This is the DEFAULT, not the answer —
- * see resolveDistanceUnit.
+ * The distance unit a list reads in before anyone picks one: MILES.
+ *
+ * This used to follow the weight unit — grams meant kilometres — which was tidy and
+ * wrong in practice. The app's default weight unit is grams because that's the useful
+ * unit for gear, and it does not follow that the person weighing gear in grams measures
+ * a trail in kilometres; plenty do exactly the opposite. Trail signs, guidebooks and
+ * the pages people paste from all say miles for most of this app's users.
+ *
+ * `displayUnit` is still the argument so the rule has somewhere to live if it ever needs
+ * to vary again, and the explicit pick (resolveDistanceUnit) still overrides this.
  */
-export function distanceUnitFor(displayUnit: string): DisplayDistanceUnit {
-  return displayUnit === "oz" || displayUnit === "lb" ? "mi" : "km";
+export function distanceUnitFor(_displayUnit: string): DisplayDistanceUnit {
+  return "mi";
 }
 
 /** A stored distance unit, or undefined when it isn't one of the two. */
@@ -229,6 +236,9 @@ export const DEFAULT_BODY_G = 70_000;
 const MIN_BODY_G = 20_000;
 const MAX_BODY_G = 400_000;
 
+// NOT flipped to match the distance default above: "82 kg" and "12 miles" is a normal
+// pair of sentences for one person to say, where "12 km" and "180 lb" is not. Body weight
+// keeps following the list's own weight unit, and is pickable either way.
 export function bodyWeightUnitFor(displayUnit: string): BodyWeightUnit {
   return displayUnit === "oz" || displayUnit === "lb" ? "lb" : "kg";
 }

@@ -106,11 +106,10 @@ describe("parseDistanceM — pasted off the trail page", () => {
 });
 
 describe("distanceUnitFor", () => {
-  it("is implied by the list's weight unit", () => {
-    expect(distanceUnitFor("g")).toBe("km");
-    expect(distanceUnitFor("kg")).toBe("km");
-    expect(distanceUnitFor("oz")).toBe("mi");
-    expect(distanceUnitFor("lb")).toBe("mi");
+  it("is miles, whatever the list weighs gear in", () => {
+    // grams is the useful unit for GEAR; it says nothing about how someone measures a
+    // trail, and most of this app's trail signs and pasted pages say miles
+    for (const u of ["g", "kg", "oz", "lb"]) expect(distanceUnitFor(u)).toBe("mi");
   });
 });
 
@@ -137,19 +136,20 @@ describe("resolveDistanceUnit", () => {
     expect(resolveDistanceUnit("km", "lb")).toBe("km");
   });
 
-  it("falls back to the weight unit when nothing was picked", () => {
-    expect(resolveDistanceUnit(undefined, "g")).toBe("km");
+  it("falls back to miles when nothing was picked", () => {
+    expect(resolveDistanceUnit(undefined, "g")).toBe("mi");
     expect(resolveDistanceUnit(undefined, "oz")).toBe("mi");
   });
 
   it("falls back rather than trusting a junk value", () => {
     expect(resolveDistanceUnit("furlongs", "oz")).toBe("mi");
-    expect(resolveDistanceUnit("", "g")).toBe("km");
+    expect(resolveDistanceUnit("", "g")).toBe("mi");
   });
 
-  it("a pick outlives a later change of weight unit; an unset one follows it", () => {
-    expect(resolveDistanceUnit("km", "oz")).toBe("km"); // picked km, switched to ounces
-    expect(resolveDistanceUnit(undefined, "oz")).toBe("mi"); // never picked → follows
+  it("a pick outlives a later change of weight unit", () => {
+    expect(resolveDistanceUnit("km", "oz")).toBe("km"); // picked km, and it stays km
+    expect(resolveDistanceUnit("km", "g")).toBe("km");
+    expect(resolveDistanceUnit(undefined, "g")).toBe("mi"); // never picked → the default
   });
 });
 

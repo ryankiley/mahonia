@@ -62,10 +62,22 @@ describe("foodPlan", () => {
     expect(plan).toMatchObject({ days: 5, kcalPerDay: 600, reading: "light" });
   });
 
-  it("spreads a distance over the days, in the list's own unit", () => {
-    const metric = foodPlan(
+  it("spreads a distance over the days, in the unit the list reads in", () => {
+    // miles is the default now, whatever the list weighs gear in
+    const byDefault = foodPlan(
       totals(9000),
       meta({ startDate: "2026-08-04", endDate: "2026-08-06", trailDistanceM: 30_000 }),
+    );
+    expect(byDefault?.perDayDistance).toBe("6.2 mi");
+
+    const metric = foodPlan(
+      totals(9000),
+      meta({
+        startDate: "2026-08-04",
+        endDate: "2026-08-06",
+        trailDistanceM: 30_000,
+        trailDistanceUnit: "km",
+      }),
     );
     expect(metric?.perDayDistance).toBe("10 km");
 

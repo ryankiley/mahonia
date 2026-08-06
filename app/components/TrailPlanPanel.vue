@@ -337,6 +337,17 @@ const distanceValue = (m: number | undefined) =>
         <span class="t-label">Carried</span>
         <span class="t-num">{{ formatWeight(totals.carriedMg, snapshot.displayUnit) }}</span>
       </span>
+      <!-- The trip's own estimates, up here with the facts they're derived from rather
+           than in a sentence at the foot. They keep the `~` and step back in colour: the
+           chips to their left are measured, these are worked out. -->
+      <span v-if="tripHours > 0" class="chip chip--est">
+        <span class="t-label">Moving</span>
+        <span class="t-num">~{{ formatHours(tripHours) }}</span>
+      </span>
+      <span v-if="tripHours > 0" class="chip chip--est">
+        <span class="t-label">Burn</span>
+        <span class="t-num">~{{ roundKcal(tripKcal).toLocaleString() }} <span class="t-muted">kcal</span></span>
+      </span>
     </div>
 
     <!-- Empty state names what's missing rather than showing an empty table. -->
@@ -391,7 +402,7 @@ const distanceValue = (m: number | undefined) =>
              does: what you TYPE first, then what follows from it. -->
         <div v-if="!collapsed[d?.id ?? '']" class="plan__data">
           <span class="plan__cell">
-            <HugeiconsIcon :icon="RouteIcon" class="plan__gl" :size="14" :stroke-width="2" aria-hidden="true" />
+            <HugeiconsIcon :icon="RouteIcon" class="plan__gl" :size="16" :stroke-width="2" aria-hidden="true" />
             <input
               class="field field--num plan__num"
               inputmode="decimal"
@@ -406,7 +417,7 @@ const distanceValue = (m: number | undefined) =>
           <!-- Climb comes off the GPX when there is one, and is muted to say so. Typing
                over it makes it yours, and the value stops being derived. -->
           <span class="plan__cell" :class="{ 'is-derived': climbIsDerived(i) }">
-            <HugeiconsIcon :icon="ArrowUpRight01Icon" class="plan__gl" :size="14" :stroke-width="2" aria-hidden="true" />
+            <HugeiconsIcon :icon="ArrowUpRight01Icon" class="plan__gl" :size="16" :stroke-width="2" aria-hidden="true" />
             <input
               class="field field--num plan__num"
               inputmode="decimal"
@@ -418,7 +429,7 @@ const distanceValue = (m: number | undefined) =>
             <span class="t-muted">{{ ascentUnit }}</span>
             <Tooltip v-if="climbIsDerived(i)" text="Read off the GPX — this day's share of the route's climb. Type over it to set your own." preferred-placement="top">
               <button type="button" class="plan__why" aria-label="Where this climb comes from">
-                <HugeiconsIcon :icon="HelpCircleIcon" :size="13" :stroke-width="2" aria-hidden="true" />
+                <HugeiconsIcon :icon="HelpCircleIcon" :size="14" :stroke-width="2" aria-hidden="true" />
               </button>
             </Tooltip>
           </span>
@@ -427,21 +438,21 @@ const distanceValue = (m: number | undefined) =>
                a (?) you can actually reach. A bare title= is invisible to a phone and to
                a keyboard; Tooltip is the app's own affordance and answers both. -->
           <span class="plan__cell plan__cell--est">
-            <HugeiconsIcon :icon="Clock01Icon" class="plan__gl" :size="14" :stroke-width="2" aria-hidden="true" />
+            <HugeiconsIcon :icon="Clock01Icon" class="plan__gl" :size="16" :stroke-width="2" aria-hidden="true" />
             <span class="t-num">{{ estimates[i] ? `~${formatHours(estimates[i]!.hours)}` : "—" }}</span>
             <Tooltip v-if="estimates[i]" text="Moving time, from this day's own distance and climb plus 1% per kg of pack. Breaks aren't in it." preferred-placement="top">
               <button type="button" class="plan__why" aria-label="How the moving time is worked out">
-                <HugeiconsIcon :icon="HelpCircleIcon" :size="13" :stroke-width="2" aria-hidden="true" />
+                <HugeiconsIcon :icon="HelpCircleIcon" :size="14" :stroke-width="2" aria-hidden="true" />
               </button>
             </Tooltip>
           </span>
 
           <span class="plan__cell plan__cell--est">
-            <HugeiconsIcon :icon="Fire02Icon" class="plan__gl" :size="14" :stroke-width="2" aria-hidden="true" />
+            <HugeiconsIcon :icon="Fire02Icon" class="plan__gl" :size="16" :stroke-width="2" aria-hidden="true" />
             <span class="t-num">{{ estimates[i] ? `~${roundKcal(estimates[i]!.totalKcal).toLocaleString()}` : "—" }}</span>
             <Tooltip v-if="estimates[i]" :text="`Walking and resting for the day, at ${formatBodyWeight(bodyG, bodyUnit)}${bodyIsDefault ? ' — assumed, set yours below' : ''}. Good to about ±20%.`" preferred-placement="top">
               <button type="button" class="plan__why" aria-label="How the calories are worked out">
-                <HugeiconsIcon :icon="HelpCircleIcon" :size="13" :stroke-width="2" aria-hidden="true" />
+                <HugeiconsIcon :icon="HelpCircleIcon" :size="14" :stroke-width="2" aria-hidden="true" />
               </button>
             </Tooltip>
           </span>
@@ -459,11 +470,6 @@ const distanceValue = (m: number | undefined) =>
         </div>
       </li>
     </ol>
-
-    <p v-if="tripHours > 0" class="plan__est-total t-sm">
-      About <strong class="t-num">~{{ formatHours(tripHours) }}</strong> moving and
-      <strong class="t-num">~{{ roundKcal(tripKcal).toLocaleString() }} kcal</strong> over the trip.
-    </p>
 
     <!-- The assumption, never silent. It sits with the estimates it feeds rather than in
          a footnote, and it retires its own "assuming" the moment a real number is set. -->
@@ -496,10 +502,12 @@ const distanceValue = (m: number | undefined) =>
       </span>
       <span v-if="bodyIsDefault" class="plan__assumed">assumed</span>
     </p>
-    <!-- One line, not a paragraph. The `~` on each figure is what carries the claim;
-         this only says what the mark means, once. The detail lives in the (?) beside the
-         figures, where it's asked for rather than recited. -->
-    <p v-if="tripHours > 0" class="plan__accuracy t-sm">~ worked out, not measured — about ±20%.</p>
+    <!-- What the MARK means, and nothing else. The ±20% and the model behind it live in
+         the (?) beside each figure, where they're asked for — repeating them here was the
+         same sentence twice. But the tilde still has to be explained somewhere you can't
+         miss: a tooltip is discovered, not read, and an unexplained character stuck to a
+         number is worse than no mark at all. -->
+    <p v-if="tripHours > 0" class="plan__accuracy t-sm">~ is worked out, not measured.</p>
 
     <div class="plan__addwrap">
       <button type="button" class="plan__add" @click="c.addDay()">Add a day</button>
@@ -635,7 +643,13 @@ const distanceValue = (m: number | undefined) =>
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
+  /* .field pads its box for a comfortable tap target; inside a glyph-and-figure pair
+     that padding reads as a stray gap, and the cell's own gap already spaces them */
+  --field-pad-inline: 0;
   color: var(--ink-2);
+  /* the editor's row size — .field pins its inputs to a literal 1rem for the iOS
+     zoom rule, and the text beside them has to sit on the same line as those */
+  font-size: var(--text-base);
 }
 /* estimates sit a step back from the figures you entered — the `~` carries the claim,
    this only keeps the eye on what's yours */
@@ -696,9 +710,17 @@ const distanceValue = (m: number | undefined) =>
    tabular numerals and the iOS 16px rule) — an item row's weight box and this are the
    same object, so they are the same atom. Only the width is local: a day's figures are
    short, and .field is width:100%. */
+/* Sized to CONTENT, and left-aligned. `.field--num` right-aligns inside a fixed box,
+   which is right in the item grid where weights form a column — here the figures sit in
+   a flex row behind their own glyph, so a fixed box just parked a gap between the icon
+   and its number. Nothing lines up vertically for that alignment to serve. */
 .plan__num {
-  width: 3.25rem;
-  min-width: 0;
+  padding-inline: 0;
+  width: auto;
+  field-sizing: content;
+  min-width: 2.5ch;
+  max-width: 7ch;
+  text-align: left;
 }
 .plan__pack {
   display: inline-flex;
@@ -744,9 +766,9 @@ const distanceValue = (m: number | undefined) =>
 .plan__add:hover {
   color: var(--ink-3);
 }
-.plan__est-total {
-  margin: 0;
-  color: var(--ink-2);
+/* an estimate chip reads a step back from the measured ones beside it */
+.plan__chips .chip--est {
+  color: var(--ink-3);
 }
 .plan__assume,
 .plan__accuracy {
