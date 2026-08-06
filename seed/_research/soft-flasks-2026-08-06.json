@@ -1,0 +1,161 @@
+{
+  "_comment": "Soft flasks (the collapsible running/fastpacking flask), 2026-08-06. Requested from the Black Diamond Distance Flask 500 ml, then extended to the same item from other brands ALREADY in the catalog — the catalog previously carried soft flasks from CNOC only. Every weight is the maker's published spec for the EMPTY flask; where the maker's own site blocks fetching (Salomon, Osprey) the spec is taken from a retailer republishing it verbatim. Two requested-adjacent items were dropped rather than estimated: CamelBak's Quick Stow Flask (CamelBak publishes no weight, and retailers disagree — 37 g vs 55 g 'with mouthpiece'), and Nathan's Soft Flask with ExoSpine (Nathan publishes a weight only for the ExoDraw handheld, and that figure is the flask PLUS its handheld carrier, not the flask). Pa'lante's item is named 'water bottle' by Pa'lante, but it is a 500 ml soft collapsible bottle with a bite valve — the same object as the rest of this batch — so it takes the 'soft flask' gear type rather than 'water bottle'.",
+  "rows": [
+    {
+      "brand": "Black Diamond",
+      "name": "Distance Flask",
+      "variant": "500ml",
+      "category_hint": "water",
+      "common_name": "soft flask",
+      "weight_value": 42,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://blackdiamondequipment.com/products/distance-flask-500-ml",
+      "quote": "Weight: 42 g"
+    },
+    {
+      "brand": "HydraPak",
+      "name": "SoftFlask Speed",
+      "variant": "500ml",
+      "category_hint": "water",
+      "common_name": "soft flask",
+      "weight_value": 46,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.hydrapak.com/products/softflask%E2%84%A2-speed-500ml",
+      "quote": "46 g / 1.6 oz"
+    },
+    {
+      "brand": "HydraPak",
+      "name": "UltraFlask Speed",
+      "variant": "500ml",
+      "category_hint": "water",
+      "common_name": "soft flask",
+      "weight_value": 42,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.hydrapak.com/products/ultraflask-speed",
+      "quote": "42 g / 1.4 oz"
+    },
+    {
+      "brand": "HydraPak",
+      "name": "PocketFlask",
+      "variant": "500ml",
+      "category_hint": "water",
+      "common_name": "soft flask",
+      "weight_value": 32,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.hydrapak.com/products/pocketflask%E2%84%A2-500ml",
+      "quote": "32 g / 1.1 oz"
+    },
+    {
+      "brand": "HydraPak",
+      "name": "SkyFlask Speed IT",
+      "variant": "500ml",
+      "category_hint": "water",
+      "common_name": "soft flask",
+      "weight_value": 77,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.hydrapak.com/products/skyflask%E2%84%A2-speed-it-500ml",
+      "quote": "77 g / 2.7 oz"
+    },
+    {
+      "brand": "Salomon",
+      "name": "Soft Flask",
+      "variant": "500ml, 42mm",
+      "category_hint": "water",
+      "common_name": "soft flask",
+      "weight_value": 31,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.runningwarehouse.com/Salomon_Soft_Flask_500ml_17oz_42/descpage-SASF422.html",
+      "quote": "Weight: 31 grams"
+    },
+    {
+      "brand": "Salomon",
+      "name": "Soft Flask",
+      "variant": "250ml, 28mm",
+      "category_hint": "water",
+      "common_name": "soft flask",
+      "weight_value": 20,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.runningwarehouse.com/Salomon_Soft_Flask_250ml_8oz_28/descpage-SASF252.html",
+      "quote": "Weight: 20 grams"
+    },
+    {
+      "brand": "Ultimate Direction",
+      "name": "Body Bottle 500",
+      "variant": "",
+      "category_hint": "water",
+      "common_name": "soft flask",
+      "weight_value": 35,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://ultimatedirection.com/body-bottle-500/",
+      "quote": "Weight: 1.2 oz / 35 g"
+    },
+    {
+      "brand": "Ultimate Direction",
+      "name": "Body Bottle 500 S",
+      "variant": "",
+      "category_hint": "water",
+      "common_name": "soft flask",
+      "weight_value": 40,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://ultimatedirection.com/body-bottle-500-s/",
+      "quote": "Weight: 1.4 oz / 40 g"
+    },
+    {
+      "brand": "Ultimate Direction",
+      "name": "Body Bottle 450 Insulated",
+      "variant": "",
+      "category_hint": "water",
+      "common_name": "soft flask",
+      "weight_value": 51,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://ultimatedirection.com/body-bottle-450-insulated/",
+      "quote": "Weight: 1.8 oz / 51.0 g"
+    },
+    {
+      "brand": "Osprey",
+      "name": "Hydraulics Soft Flask",
+      "variant": "500ml",
+      "category_hint": "water",
+      "common_name": "soft flask",
+      "weight_value": 33,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://wanderlustoutfitters.com/product/osprey/hydraulics-500ml-soft-flask/",
+      "quote": "Weight: 1.16 oz 33 g"
+    },
+    {
+      "brand": "Pa'lante",
+      "name": "Water Bottle",
+      "variant": "500ml",
+      "category_hint": "water",
+      "common_name": "soft flask",
+      "weight_value": 39.3,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://palantepacks.com/products/water-bottle",
+      "quote": "weight:  39.3g"
+    },
+    {
+      "brand": "Raidlight",
+      "name": "EasyFlask Tube",
+      "variant": "600ml",
+      "category_hint": "water",
+      "common_name": "soft flask",
+      "weight_value": 50,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://raidlight.com/en/products/easyflask-tube-600ml",
+      "quote": "Weight: 50g"
+    }
+  ]
+}
