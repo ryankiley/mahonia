@@ -1,5 +1,15 @@
 [
   {
+    "date": "2026-08-06",
+    "added": [
+      "Lists now have a third view, Planning, alongside editing and packing: lay the trip out day by day and see what each day asks of you.",
+      "Drop a GPX file on a trail link and the route's length, climb and descent fill themselves in, and its elevation profile is drawn under the distance. The file never leaves your browser.",
+      "Give a day a distance and it works out that day's climb from the route, roughly how long it will take to walk, and roughly what it will burn — with your pack's weight that morning, which drops as you eat.",
+      "Run your cursor along the elevation profile to read the distance, height and gradient at any point on the route, with each day's stretch in its own colour.",
+      "Set your body weight — in kilograms or pounds — to sharpen the calorie estimates. It stays private to you and is never on a shared list."
+    ]
+  },
+  {
     "date": "2026-08-05",
     "added": [
       "Add a hike's distance to its trail link — in miles or kilometres, whichever you prefer — and see it beside the trail's name.",

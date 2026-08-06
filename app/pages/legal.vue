@@ -18,7 +18,7 @@ useHead({
     <main id="main-content" tabindex="-1" class="wrap page">
       <div class="prose">
         <h1 class="t-title">Legal</h1>
-        <p class="t-sm t-muted">Last updated 2 August 2026</p>
+        <p class="t-sm t-muted">Last updated 6 August 2026</p>
         <p>
           How Mahonia handles your data, and the terms for using it. Jump to
           <a href="#privacy">Privacy</a> or <a href="#terms">Terms</a>.
@@ -44,6 +44,15 @@ useHead({
           until you unpublish or delete it.
         </p>
         <p>
+          <strong>Body weight</strong> is the one exception, and it is treated differently on
+          purpose. Planning a trip lets you enter your body weight so the calorie estimates mean
+          something; it is optional, and everything else on the planning view works without it. It
+          is saved with your list so it is there next time, but it is never included when a list is
+          read by anyone else — not on a share link, not on a published list, not in the public
+          feed, and not in a JSON backup you download or send on. If you would rather not store it
+          at all, clear the field and the estimates fall back to a stated assumption.
+        </p>
+        <p>
           Your <strong>gear vault</strong> is the one part that needs an account. It holds names,
           brands and weights, and belongs to you rather than to a browser — so signing in on another
           device brings it with you, and clearing this one doesn’t lose it. Gear reaches it when you
@@ -67,7 +76,9 @@ useHead({
           An account holds an email address, an optional display name, and the public half of any
           passkey you add. There is no password to store, because there are no passwords — you sign
           in with a passkey or with a link sent to that address. Mahonia never asks for your real
-          name, payment details, or location, and a display name is shown only if you set one.
+          name, payment details, or location, and a display name is shown only if you set one. The
+          one thing it does ask about you — optionally, for trip planning — is body weight, covered
+          above.
         </p>
 
         <h3>What you type can improve the shared catalog</h3>
