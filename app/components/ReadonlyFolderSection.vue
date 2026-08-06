@@ -67,9 +67,9 @@ const collapsed = ref(false);
   --head-cols: var(--item-cols-ro);
 }
 /* just the name + chevron — no trailing actions in the read view, so the title runs
-   the WHOLE header row. `1 / -1`, not a counted end line: --item-cols-ro grew a
-   trailing spacer column (tokens.scss), and a hardcoded `1 / 4` would have quietly
-   stopped short of the new last column. */
+   the WHOLE header row. `1 / -1`, not a counted end line: --item-cols-ro has both
+   gained and lost a trailing track over time (tokens.scss), and a hardcoded end line
+   would have quietly stopped short of the last column each time. */
 .folder__title {
   grid-column: 1 / -1;
   display: flex;

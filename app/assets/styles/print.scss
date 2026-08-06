@@ -84,9 +84,13 @@
     break-after: avoid;
   }
 
-  // the page's only colour (category bar + legend swatches) and the checklist's
-  // filled checkboxes survive the browser's ink-saving background stripping
+  // the page's only colour (category bar + legend swatches), the checklist's filled
+  // checkboxes, and the worn/consumable chip survive the browser's ink-saving
+  // background stripping. All three are a FILLED GROUND carrying state — strip the
+  // fill and the mark is gone, not merely paler: a lit classification toggle would
+  // print as the same bare glyph as an unlit one.
   .item__box,
+  .item__mark,
   .catbar__seg,
   .swatch {
     -webkit-print-color-adjust: exact;

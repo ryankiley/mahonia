@@ -801,8 +801,12 @@ function dismissFix() {
           @mousedown.prevent
           @click.stop.prevent="toggleNest"
         ><HugeiconsIcon :icon="ChevronDownIcon" class="item__nestchev" :class="{ 'is-collapsed': nestCollapsed }" :size="16" :stroke-width="2" /></button></span>
-      <span class="t-num t-sm t-muted item__cqty">{{ itemQtyLabel(item, effClass) }}</span>
-      <span class="t-num item__cweight"><template v-if="rowWeightMg > 0">{{ formatWeight(rowWeightMg, rowUnit, { withUnit: false }) }}<span class="t-muted item__wunit">{{ rowUnit }}</span></template><template v-else>—</template></span>
+      <!-- `item__qty--split` widens the amount track for the whole page column when any
+           row in the list spells out a worn split ("×12 · 11 worn") — atoms/item.scss -->
+      <span class="t-num t-sm t-muted item__cqty" :class="{ 'item__qty--split': activeSplit }">{{ itemQtyLabel(item, effClass) }}</span>
+      <!-- the empty unit slot keeps the zero placeholder in the number's place rather
+           than out at the cell's edge — same as the read row's -->
+      <span class="t-num item__cweight"><template v-if="rowWeightMg > 0">{{ formatWeight(rowWeightMg, rowUnit, { withUnit: false }) }}<span class="t-muted item__wunit">{{ rowUnit }}</span></template><template v-else>—<span class="item__wunit" /></template></span>
       <!-- the common name — a quiet sub-line under the product name (what you're checking
            off), aligned to the name column past the checkbox; mirrors the read row -->
       <span v-if="item.commonName" class="t-sm item__csub">{{ item.commonName }}</span>
@@ -932,7 +936,7 @@ function dismissFix() {
             <Tooltip :text="wornTitle" :disabled="isWornOpen" preferred-placement="top">
               <button
                 class="btn btn--icon btn--ghost menu__btn item__clsbtn"
-                :class="{ 'is-active': isWorn }"
+                :class="{ 'item__mark': isWorn }"
                 type="button"
                 aria-haspopup="dialog"
                 :aria-expanded="isWornOpen"
@@ -997,7 +1001,7 @@ function dismissFix() {
             <Tooltip :text="consumableTitle" :disabled="isKcalOpen" preferred-placement="top">
               <button
                 class="btn btn--icon btn--ghost menu__btn item__clsbtn"
-                :class="{ 'is-active': isConsumable }"
+                :class="{ 'item__mark': isConsumable }"
                 type="button"
                 aria-haspopup="dialog"
                 :aria-expanded="isKcalOpen"
@@ -1531,29 +1535,20 @@ function dismissFix() {
   display: inline-flex;
   align-items: center;
 }
-.item__clsbtn {
+/* ON is a FILLED GROUND, not just darker ink — the shared `.item__mark` chip
+   (atoms/item.scss), which the share views' rows draw as a static mark, so the two
+   views can't drift on what "worn" looks like. Ink-vs-grey alone would be the same
+   signal hover already uses, so a toggle would read as merely hovered.
+   The OFF ink is scoped to the off state (`:not`) rather than stated flat: a scoped
+   rule carries its component's attribute, so a flat `.item__clsbtn` would outrank
+   the shared chip's own colour and leave a lit toggle drawn in --ink-3. */
+.item__clsbtn:not(.item__mark) {
   color: var(--ink-3);
+}
+.item__clsbtn {
   border-radius: var(--radius-pill);
 }
 .item__clsbtn:hover {
-  color: var(--ink);
-}
-/* ON is a FILLED GROUND, not just darker ink. Colour would be the obvious signal, but
-   this codebase reserves it for the data viz — and ink-vs-grey alone is the same signal
-   hover already uses, so a toggle would read as merely hovered.
-   A quiet grey chip (--paper-3, the "quiet surfaces, not borders" token) carries the
-   state without an inverted ink chip's weight: these sit in a dense list, and a row
-   of black dots would out-shout the weights, which are what the page is for.
-   background-clip pins the chip to the CONTENT box, which is how it stays --icon-btn
-   across every pointer: a coarse one grows the button to --tap for the thumb, and a
-   44px disc drawn in a ~25px text line reaches the rules above and below the row —
-   the state started touching the list's hairlines. The touch target keeps its full
-   size (see the padding below); only the drawn chip holds at the size it has always
-   been on a pointer row. Same idiom as --tap-pull: grow the box, not the picture. */
-.item__clsbtn.is-active,
-.item__clsbtn.is-active:hover {
-  background: var(--paper-3);
-  background-clip: content-box;
   color: var(--ink);
 }
 @media (pointer: coarse) {
