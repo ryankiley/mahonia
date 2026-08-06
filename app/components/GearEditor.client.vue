@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "@hugeicons/vue";
-import { Backpack02Icon, Cancel01Icon, CheckmarkSquare02Icon, ChevronDownIcon, EllipsisIcon, SafeBoxIcon, Share08Icon, Undo02Icon } from "@hugeicons/core-free-icons";
+import { Backpack02Icon, Cancel01Icon, CheckmarkSquare02Icon, ChevronDownIcon, EllipsisIcon, Route02Icon, SafeBoxIcon, Share08Icon, Undo02Icon } from "@hugeicons/core-free-icons";
 import { editLinkPath } from "~~/shared/links";
 import type { Item } from "~~/shared/types";
 import { bySortOrder, groupItemsByFolder, groupItemsByParent, ungroupedTopLevel } from "~~/shared/weights";
@@ -120,7 +120,28 @@ const itemsByFolder = computed(() => {
 const childrenByParent = computed(() => groupItemsByParent(snapshot.value?.items ?? []));
 const NO_ITEMS: Item[] = [];
 
-const packed = ref(false);
+// Which of the three views of this list you're in. Was a single `packed` boolean; it
+// couldn't hold a third state, and every alternative to widening it meant teaching the
+// row components about a mode they don't care about.
+//
+// `packed` survives as a COMPUTED, so the prop threaded down to FolderSection and ItemRow
+// keeps its exact old contract — a row still only ever asks "am I a checklist row?", and
+// stays ignorant that planning exists. That's what keeps this change to this file.
+export type EditorMode = "edit" | "pack" | "plan";
+const MODE_ORDER: EditorMode[] = ["edit", "pack", "plan"];
+// Unlike the other gear.*.v1 preferences this one is genuinely new behaviour: mode used
+// to reset on reload. Planning is somewhere you WORK across sittings, so it stays put.
+const MODE_KEY = "gear.mode.v1";
+function storedMode(): EditorMode {
+  const m = localStorage.getItem(MODE_KEY) as EditorMode | null;
+  return m && MODE_ORDER.includes(m) ? m : "edit";
+}
+const mode = ref<EditorMode>(storedMode());
+watch(mode, (m) => remember(MODE_KEY, m));
+const packed = computed(() => mode.value === "pack");
+// Where the sliding pill sits — an index, so the CSS does the arithmetic once for three
+// segments instead of carrying a class per state.
+const modeIndex = computed(() => MODE_ORDER.indexOf(mode.value));
 
 // The vault palette. Closed by default and only ever opened deliberately, so the
 // pane's chunk (and the vault read behind it) costs nothing until it's wanted.
@@ -486,15 +507,15 @@ function onCorrected(res: { status: string; itemName?: string }) {
           <div class="modetoggle" role="group" aria-label="View mode">
             <!-- one pill tracks between the two segments (damped --ease, never overshoot —
                  a tracking indicator must not leave its track); the icons sit above it -->
-            <span class="modetoggle__pill" :class="{ 'is-packing': packed }" aria-hidden="true" />
+            <span class="modetoggle__pill" :style="{ '--seg-index': modeIndex }" aria-hidden="true" />
             <Tooltip text="Editing" preferred-placement="bottom">
               <button
                 type="button"
                 class="modetoggle__opt"
-                :class="{ 'is-active': !packed }"
+                :class="{ 'is-active': mode === 'edit' }"
                 aria-label="Editing mode"
-                :aria-pressed="!packed"
-                @click="packed = false"
+                :aria-pressed="mode === 'edit'"
+                @click="mode = 'edit'"
               >
                 <HugeiconsIcon :icon="Backpack02Icon" :size="16" :stroke-width="2" />
               </button>
@@ -503,12 +524,24 @@ function onCorrected(res: { status: string; itemName?: string }) {
               <button
                 type="button"
                 class="modetoggle__opt"
-                :class="{ 'is-active': packed }"
+                :class="{ 'is-active': mode === 'pack' }"
                 aria-label="Packing mode"
-                :aria-pressed="packed"
-                @click="packed = true"
+                :aria-pressed="mode === 'pack'"
+                @click="mode = 'pack'"
               >
                 <HugeiconsIcon :icon="CheckmarkSquare02Icon" :size="16" :stroke-width="2" />
+              </button>
+            </Tooltip>
+            <Tooltip text="Planning" preferred-placement="bottom">
+              <button
+                type="button"
+                class="modetoggle__opt"
+                :class="{ 'is-active': mode === 'plan' }"
+                aria-label="Planning mode"
+                :aria-pressed="mode === 'plan'"
+                @click="mode = 'plan'"
+              >
+                <HugeiconsIcon :icon="Route02Icon" :size="16" :stroke-width="2" />
               </button>
             </Tooltip>
           </div>
@@ -711,7 +744,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
         />
       </section>
 
-      <div v-if="!packed" class="editor__addfolder">
+      <div v-if="mode === 'edit'" class="editor__addfolder">
         <input
           v-if="addingFolder"
           ref="newFolderRef"
@@ -824,6 +857,15 @@ function onCorrected(res: { status: string; itemName?: string }) {
   align-items: center;
   gap: var(--space-2);
   padding-block: var(--space-3);
+  /* On a phone the cluster is six controls at the 44px touch floor plus the switcher,
+     and it did not fit 375px even with two mode segments — it was ~17px over before a
+     third was added, which clipped the ⋯ menu off the trailing edge entirely.
+     The gap is the only slack that costs nothing: --tap is the HIG minimum and every
+     other candidate is a control's hit area. Halving it here buys 20px without shrinking
+     a single target. (.lm__word gives up the rest.) */
+  @media (max-width: $bp-stack) {
+    gap: var(--space-1);
+  }
   /* Leading edge, and the TOOL CLUSTER pushes itself right (see .modetoggle below).
      This used to be justify-content: flex-end, holding the icons trailing by
      shoving everything — a workaround for the bar's only flexible item being
@@ -853,6 +895,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
 }
 /* editing/packing toggle — a light container with two icon options + a tracking pill */
 .modetoggle {
+  --seg-count: 3;
   position: relative;
   flex: none;
   /* WHERE THE BAR SPLITS. Everything from here rightward is tools for the list;
@@ -873,15 +916,19 @@ function onCorrected(res: { status: string; itemName?: string }) {
   top: var(--space-px);
   bottom: var(--space-px);
   left: var(--space-px);
-  width: calc((100% - 3 * var(--space-px)) / 2); /* one segment: (inner − gap) / 2 */
+  /* One segment. The gaps are (N + 1) × --space-px — N − 1 between the segments plus the
+     padding either side — so the arithmetic is written once for however many there are
+     rather than re-derived each time one is added. */
+  width: calc((100% - (var(--seg-count) + 1) * var(--space-px)) / var(--seg-count));
   border-radius: var(--radius-pill);
   background: color-mix(in oklab, var(--ink) 12%, transparent);
   pointer-events: none;
+  /* --seg-index comes from the component. Percentages resolve against the pill's OWN
+     width — one segment — so each step is one segment plus one gap. This replaced a class
+     per state, which needed a new rule every time a mode was added. */
+  transform: translateX(calc(var(--seg-index, 0) * (100% + var(--space-px))));
   transition: transform var(--dur) var(--ease);
   will-change: transform;
-}
-.modetoggle__pill.is-packing {
-  transform: translateX(calc(100% + var(--space-px))); /* over segment 2: own width + gap */
 }
 .modetoggle__opt {
   position: relative; /* sits above the pill */
@@ -914,6 +961,20 @@ function onCorrected(res: { status: string; itemName?: string }) {
   .modetoggle__opt {
     width: var(--tap);
     height: 40px;
+  }
+  /* …except on a phone, where three of them plus the tool cluster no longer fit 375px
+     and the ⋯ menu fell off the trailing edge (see .topbar__inner — the bar was already
+     ~17px over with TWO segments). The carve-out lives here, inside the rule that grants
+     the width, rather than as a later override that would silently out-specify it.
+     Why this control and not a --tap elsewhere: the segments are CONTIGUOUS, so a miss
+     lands on a neighbour rather than on nothing, and the cost is switching to the wrong
+     view — visible at once and undone by one tap. On a delete button --tap is not
+     negotiable. If this ever feels tight, move a TRAILING icon into the ⋯ menu (the
+     house's answer to a crowded phone row) rather than shaving this again. */
+  @media (max-width: $bp-stack) {
+    .modetoggle__opt {
+      width: 36px;
+    }
   }
   .modetoggle__opt svg {
     width: var(--icon-touch);
