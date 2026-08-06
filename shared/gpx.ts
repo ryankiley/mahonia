@@ -241,13 +241,21 @@ function georssPoints(doc: Document): TrackPoint[] {
  * inside `<coordinates>`, which is the one thing about this format worth knowing: the
  * order is LON FIRST, the opposite of every other format here and of how anybody says it.
  *
- * Every `<coordinates>` block is read and concatenated — a KML track is often split across
- * several `<LineString>`s, and stitching them is the same concession gpxPoints already
- * makes for multi-segment tracks.
+ * Only the coordinates belonging to a LINE are read. A KML carries `<coordinates>` for
+ * every placemark in the document, and a real export is full of them: AllTrails' Timberline
+ * file has twelve blocks — the 3,483-point track, and eleven single-point markers for
+ * trailheads and features. Concatenating all twelve stitched each marker into the route and
+ * turned a 39.8-mile loop into 58.5, which is the kind of wrong that looks plausible.
+ *
+ * Several LineStrings ARE joined, because a KML track is often split into segments — the
+ * same concession gpxPoints makes for multi-segment tracks. A `<Point>` never is.
  */
 function kmlPoints(doc: Document): TrackPoint[] {
   const out: TrackPoint[] = [];
+  const LINES = new Set(["linestring", "linearring", "track"]);
   for (const block of byLocalName(doc, "coordinates")) {
+    // a marker's coordinates hang off <Point>; only a line's are route geometry
+    if (!LINES.has(block.parentElement?.localName.toLowerCase() ?? "")) continue;
     for (const triple of (block.textContent ?? "").trim().split(/\s+/)) {
       if (!triple) continue;
       const [lon, lat, ele] = triple.split(",").map(Number);

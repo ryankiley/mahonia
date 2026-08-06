@@ -484,3 +484,41 @@ describe("GeoRSS", () => {
     expect(gpxPoints(xml(feed))).toHaveLength(1);
   });
 });
+
+describe("a KML full of markers", () => {
+  // THE BUG THIS EXISTS FOR, found only by trying a real export. AllTrails' Timberline KML
+  // carries twelve <coordinates> blocks: the 3,483-point track, and eleven single-point
+  // markers for trailheads and viewpoints. Reading all twelve stitched every marker into
+  // the route and turned a 39.8-mile loop into 58.5 — wrong in the most believable way,
+  // since nothing about the number looks broken.
+  const REAL_SHAPE = `<kml xmlns="http://www.opengis.net/kml/2.2"><Document>
+    <Placemark><name>Trailhead</name><Point><coordinates>-121.7113,45.3313,1820</coordinates></Point></Placemark>
+    <Placemark><name>Viewpoint</name><Point><coordinates>-121.6500,45.4000,2100</coordinates></Point></Placemark>
+    <Placemark><name>Timberline Trail</name><LineString><coordinates>
+      -121.71,45.33,1800 -121.70,45.34,1850 -121.69,45.35,1900
+    </coordinates></LineString></Placemark>
+  </Document></kml>`;
+
+  it("reads the line and ignores every marker", () => {
+    const pts = gpxPoints(xml(REAL_SHAPE));
+    expect(pts).toHaveLength(3);
+    // the markers sit far off the track; if either leaked in, the first point moves
+    expect(pts[0]).toEqual({ lat: 45.33, lon: -121.71, ele: 1800 });
+    expect(pts.some((p) => p.lon === -121.65)).toBe(false);
+  });
+
+  it("does not inflate the distance with a marker's leg", () => {
+    const withMarkers = gpxStats(gpxPoints(xml(REAL_SHAPE)))!;
+    const lineOnly = gpxStats(gpxPoints(xml(KML)))!;
+    expect(withMarkers.distanceM).toBe(lineOnly.distanceM);
+  });
+
+  it("still joins a track split across several LineStrings", () => {
+    // segments ARE concatenated — that's the same concession the GPX reader makes
+    const split = `<kml xmlns="http://www.opengis.net/kml/2.2"><Document>
+      <Placemark><LineString><coordinates>-121.71,45.33,1800 -121.70,45.34,1850</coordinates></LineString></Placemark>
+      <Placemark><LineString><coordinates>-121.69,45.35,1900 -121.68,45.36,1950</coordinates></LineString></Placemark>
+    </Document></kml>`;
+    expect(gpxPoints(xml(split))).toHaveLength(4);
+  });
+});
