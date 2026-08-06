@@ -3,7 +3,7 @@ import { HugeiconsIcon } from "@hugeicons/vue";
 import { ArrowDownRight01Icon, ArrowUpRight01Icon } from "@hugeicons/core-free-icons";
 import { categoryColor, nextFolderColor } from "~~/shared/categories";
 import { formatDistance, type DisplayDistanceUnit } from "~~/shared/trailDistance";
-import { gradeRuns, gradeSpread } from "~~/shared/gpx";
+import { GRADE_HARD_PCT, GRADE_MODERATE_PCT, gradeRuns, gradeSpread } from "~~/shared/gpx";
 
 // The route's shape, cut into days.
 //
@@ -42,10 +42,12 @@ const VB_H = 200;
 // The cursor dot's radius, in viewBox units. Named because it appears twice — the X radius
 // is counter-scaled off it — and the two must never drift apart into an oval.
 const DOT_R = 8;
-// Where a grade stops being a number and starts being a fact about the day. 10% is the
-// rough point at which a hiker stops walking and starts climbing (or braking) — below it
-// the gradient is background, above it it's the reason a mile takes what it takes.
-const STEEP_PCT = 10;
+// The thresholds come from shared/gpx.ts, the same ones the shading bands by — so the
+// number under the cursor and the colour under the cursor can never disagree about what
+// "steep" means. There used to be a STEEP_PCT here saying 10 as well; two constants
+// holding one idea is how a chart starts contradicting its own tooltip.
+const bandOf = (pct: number) =>
+  Math.abs(pct) >= GRADE_HARD_PCT ? "hard" : Math.abs(pct) >= GRADE_MODERATE_PCT ? "moderate" : "easy";
 
 const lo = computed(() => Math.min(...props.profile));
 const hi = computed(() => Math.max(...props.profile));
@@ -423,7 +425,10 @@ const id = useId();
            isn't. Steep is steep — a 15% descent is hard on the knees the way a 15% climb
            is hard on the lungs — so both take the same mark, and everything gentler is
            just a number. -->
-      <span :class="{ 'is-steep': Math.abs(hover.grade) >= STEEP_PCT }">{{ readGrade(hover.grade) }}</span>
+      <!-- Banded on the ROUNDED grade, the one actually on screen. Banding the raw value
+           printed "10%" in the moderate colour whenever the true grade was 9.6 — the
+           number and its own colour disagreeing, which is worse than either being off. -->
+      <span :class="`is-${bandOf(Math.round(hover.grade))}`">{{ readGrade(hover.grade) }}</span>
     </div>
 
     <figcaption class="tprofile__scale t-sm" aria-hidden="true">
@@ -537,9 +542,19 @@ const id = useId();
   font-variant-numeric: tabular-nums;
   pointer-events: none;
 }
-/* the app's one alert hue, used here for MAGNITUDE rather than direction */
-.tprofile__read .is-steep {
-  color: var(--cat-firstaid);
+/* The SAME hues the shading uses, so the number and the band under the cursor agree —
+   but not the same tokens, and that is deliberate rather than sloppy.
+   
+   --cat-* are validated as FILLS at ~3:1, and as text on --paper-2 in light mode the red
+   measures 4.21:1 against AA's 4.5. So light mode drops the lightness at the same hue
+   angle: the correlation a reader perceives is the HUE (it's the red one, it's the orange
+   one), and lightness is free to move to clear the contrast floor. Dark mode already
+   passes, so it stays near the fill values. */
+.tprofile__read .is-hard {
+  color: light-dark(oklch(0.5 0.22 25), oklch(0.68 0.25 25));
+}
+.tprofile__read .is-moderate {
+  color: light-dark(oklch(0.52 0.14 62), oklch(0.8 0.18 62));
 }
 .tprofile__dot {
   fill: var(--ink);
@@ -569,9 +584,14 @@ const id = useId();
   fill: var(--ink-3);
   opacity: 0.1;
 }
+/* Orange for moderate, red for hard — adjacent hues, so the separation has to come from
+   somewhere other than hue alone. It comes from WEIGHT: moderate sits noticeably lighter
+   than hard, so the two read apart even for someone who can't tell the hues apart at all.
+   Hue 62 rather than the palette's 50 for the same reason — every degree away from red's
+   25 is a degree of separation bought cheaply. */
 .tprofile__fill.is-moderate {
-  fill: var(--cat-worn);
-  opacity: 0.26;
+  fill: oklch(0.72 0.17 62);
+  opacity: 0.22;
 }
 /* Red for hard, and the SAME red the hover readout marks a steep grade with — one idea,
    one hue. Yellow for moderate rather than orange: --cat-pack sits 28° from this in hue
@@ -579,7 +599,7 @@ const id = useId();
    difficulty signal is exactly the wrong place to ask someone to tell those apart. */
 .tprofile__fill.is-hard {
   fill: var(--cat-firstaid);
-  opacity: 0.3;
+  opacity: 0.34;
 }
 /* the day boundary, cut in paper — 1px regardless of how the viewBox is stretched */
 .tprofile__cut {
