@@ -532,10 +532,17 @@ onClickOutside(trailEl, () => {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  /* --space-4, not --space-2: this row used to hold ONE affordance, where a tight gap
-     only had to separate an icon from its label. It now holds two independent ones
-     (trail, dates) and at 8px they read as a single run-on phrase. */
-  gap: var(--space-4);
+  /* Two gaps, because the two axes are answering different questions.
+     ACROSS: --space-4, not --space-2. This row used to hold ONE affordance, where a
+     tight gap only had to separate an icon from its label. It now holds two
+     independent ones (trail, dates) and at 8px they read as a single run-on phrase.
+     DOWN: --space-1, the step the title already sits above this row by. The row wraps,
+     so on a phone the dates take a line of their own — and a single `gap` spent the
+     across-value there too, dropping the dates 16px under a link that is itself 4px
+     under the title. Same two facts about the trip, one stacked four times further
+     from it than the other. A wrap is a line break in one stack of meta, not a gap
+     between two things standing side by side. */
+  gap: var(--space-1) var(--space-4);
   min-width: 0;
   min-height: 1.5em;
 }

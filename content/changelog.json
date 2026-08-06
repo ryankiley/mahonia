@@ -1,8 +1,15 @@
 [
   {
     "date": "2026-08-05",
+    "changed": [
+      "On a phone, removing an item now lives in the row's ⋯ menu with the note, nesting and gear vault actions; the row keeps the ⋯ and the drag handle.",
+      "On a phone, a list's trip dates now sit tight under its trail link, so the title, trail and dates read as one block."
+    ],
     "fixed": [
-      "On a phone, an item's worn and consumable icons sat below the weight beside them; every icon on the row now lines up with the numbers."
+      "On a phone, an item's worn and consumable icons sat below the weight beside them; every icon on the row now lines up with the numbers.",
+      "On a phone, the worn and consumable icons now sit in the same place on every row, instead of moving left and right with each item's weight.",
+      "Opening a row's ⋯ menu no longer nudges every other row in that folder sideways.",
+      "On a narrow phone, an item's drag handle no longer runs off the edge of the screen when its weight is long or it sits inside a group."
     ]
   },
   {
