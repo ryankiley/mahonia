@@ -977,6 +977,7 @@ Zpacks,Cooking Pot Stuff Sack,Stuff sack,,cook,3600,manufacturer,https://zpacks.
 Zpacks,Titanium Trail Spoon,Spoon,,cook,11100,manufacturer,https://zpacks.com/products/zpacks-titanium-trail-spoon
 Aquamira,Water Treatment Drops,Water treatment,1 oz,water,85049,measured,https://www.cleverhiker.com/backpacking/aquamira-water-purification-drops-review/
 Aquatabs,Water Purification Tablets,Water treatment,Sleeve of 10,water,2000,manufacturer,https://www.garagegrowngear.com/products/aqua-tabs
+Black Diamond,Distance Flask,Soft flask,500ml,water,42000,manufacturer,https://blackdiamondequipment.com/products/distance-flask-500-ml
 CamelBak,Chute Mag Bottle,Water bottle,1L Tritan,water,192777,measured,https://www.packhacker.com/travel-gear/camelbak/chute-mag-1l-bottle/
 CamelBak,Crux Reservoir,Water reservoir,3L,water,235000,manufacturer,https://www.excelsports.com/camelbak-crux-3l-reservoir
 CNOC,Hydriam Collapsible Flask,Soft flask,"500ml, 28mm",water,25500,manufacturer,https://www.garagegrowngear.com/products/500ml-hydriam-collapsible-flask-by-cnoc-outdoors
@@ -1004,7 +1005,11 @@ Grayl,GeoPress Purifier Bottle,Water filter,24 fl oz,water,450757,manufacturer,h
 Grayl,GeoPress Ti,Water filter,24 fl oz,water,570000,manufacturer,https://grayl.com/products/24oz-geopress-ti-purifier-black-edition
 Grayl,UltraPress Purifier Bottle,Water filter,16.9 fl oz,water,309010,manufacturer,https://grayl.com/pages/ul-specs
 HydraPak,Flux Collapsible Bottle,Water bottle,1.5L,water,122000,manufacturer,https://www.hydrapak.com/products/flux%E2%84%A2-1-5l
+HydraPak,PocketFlask,Soft flask,500ml,water,32000,manufacturer,https://www.hydrapak.com/products/pocketflask%E2%84%A2-500ml
 HydraPak,Seeker Water Bag,Water reservoir,3L,water,92000,manufacturer,https://www.hydrapak.com/products/seeker-3-liter-2021
+HydraPak,SkyFlask Speed IT,Soft flask,500ml,water,77000,manufacturer,https://www.hydrapak.com/products/skyflask%E2%84%A2-speed-it-500ml
+HydraPak,SoftFlask Speed,Soft flask,500ml,water,46000,manufacturer,https://www.hydrapak.com/products/softflask%E2%84%A2-speed-500ml
+HydraPak,UltraFlask Speed,Soft flask,500ml,water,42000,manufacturer,https://www.hydrapak.com/products/ultraflask-speed
 HydroBlu,Versa Flow Water Filter,Water filter,,water,57000,manufacturer,https://www.garagegrowngear.com/products/versa-flow-lightweight-water-filter-by-hydroblu
 Igneous,NOBO Bottle,Water bottle,"1L, HDPE",water,65000,manufacturer,https://igneousgear.com/products/nobo-bottle
 Katadyn,BeFree AC,Water filter,1.0L,water,75000,measured,https://www.test4outside.com/en/produit/katadyn-befree-filtre-ac-1-0l/
@@ -1025,6 +1030,8 @@ One Bottle Hydration,Magnetic Tube Clip,Tube clip,,water,14000,manufacturer,http
 One Bottle Hydration,Wide Mouth Flip-Top Lid,Bottle cap,,water,32000,manufacturer,https://www.garagegrowngear.com/products/wide-mouth-flip-top-lid-by-one-bottle-hydration
 Osprey,Hydraulics Reservoir,Water reservoir,2L,water,208652,manufacturer,https://appoutdoors.com/products/hydraulics-2l-reservoir.json
 Osprey,Hydraulics Reservoir,Water reservoir,3L,water,235868,manufacturer,https://appoutdoors.com/products/hydraulics-3l-reservoir.json
+Osprey,Hydraulics Soft Flask,Soft flask,500ml,water,33000,manufacturer,https://wanderlustoutfitters.com/product/osprey/hydraulics-500ml-soft-flask/
+Pa'lante,Water Bottle,Soft flask,500ml,water,39300,manufacturer,https://palantepacks.com/products/water-bottle
 Platypus,GravityWorks Water Filter System,Water filter,4L,water,326020,manufacturer,https://cascadedesigns.com/products/gravityworks-water-filter-system
 Platypus,Hoser Reservoir,Water reservoir,2L,water,102058,manufacturer,https://cascadedesigns.com/products/hoser-reservoir
 Platypus,Platy 2L Collapsible Bottle,Water bottle,,water,37000,manufacturer,https://www.garagegrowngear.com/products/platy-2l-bottle-collapsible-bottle-by-platypus
@@ -1033,6 +1040,9 @@ Platypus,QuickDraw Filter,Water filter,,water,82000,manufacturer,https://www.gar
 Platypus,QuickDraw Microfilter,Water filter,,water,82214,manufacturer,https://cascadedesigns.com/products/quickdraw-filter
 Platypus,QuickDraw Microfilter,Water filter,Filter only,water,68039,manufacturer,https://cascadedesigns.com/products/quickdraw-filter
 Platypus,SoftBottle,Water bottle,1L,water,29000,manufacturer,https://cascadedesigns.com/products/softbottle
+Raidlight,EasyFlask Tube,Soft flask,600ml,water,50000,manufacturer,https://raidlight.com/en/products/easyflask-tube-600ml
+Salomon,Soft Flask,Soft flask,"250ml, 28mm",water,20000,manufacturer,https://www.runningwarehouse.com/Salomon_Soft_Flask_250ml_8oz_28/descpage-SASF252.html
+Salomon,Soft Flask,Soft flask,"500ml, 42mm",water,31000,manufacturer,https://www.runningwarehouse.com/Salomon_Soft_Flask_500ml_17oz_42/descpage-SASF422.html
 Sawyer,Micro Squeeze Water Filter,Water filter,,water,56699,manufacturer,https://www.sawyer.com/product/micro-squeeze-water-filtration-system
 Sawyer,Micro Squeeze Water Filtration System with CNOC Premium 750ml Pouch,Water filter,,water,96000,manufacturer,https://www.garagegrowngear.com/products/micro-squeeze-water-filtration-system-with-cnoc-premium-470l-pouch-by-sawyer
 Sawyer,MINI Water Filter,Water filter,,water,39000,measured,https://faroutguides.com/sawyer-mini-micro-and-squeeze-compared/
@@ -1041,6 +1051,9 @@ Sawyer,Squeeze Water Filtration System with CNOC Premium 1L Bottle,Water filter,
 Sawyer,Squeeze Water Filtration System with CNOC Premium 2L Bladder,Water filter,,water,167000,manufacturer,https://www.garagegrowngear.com/products/squeeze-water-filtration-system-with-cnoc-premium-2l-bladder-by-sawyer
 SilverAnt,Titanium 800ml Screw Top Clip Bottle,Water bottle,,water,167000,manufacturer,https://www.garagegrowngear.com/products/titanium-800ml-screw-top-clip-bottle-by-silverant
 Snow Peak,Titanium Aurora Bottle,Water bottle,800ml,water,147418,manufacturer,https://www.snowpeak.com/products/ti-aurora-bottle
+Ultimate Direction,Body Bottle 450 Insulated,Soft flask,,water,51000,manufacturer,https://ultimatedirection.com/body-bottle-450-insulated/
+Ultimate Direction,Body Bottle 500,Soft flask,,water,35000,manufacturer,https://ultimatedirection.com/body-bottle-500/
+Ultimate Direction,Body Bottle 500 S,Soft flask,,water,40000,manufacturer,https://ultimatedirection.com/body-bottle-500-s/
 3FULGEAR,Minimalist Rain Pant Legs,Rain chaps,Large,clothing,90000,manufacturer,https://www.garagegrowngear.com/products/minimalist-rain-pants-by-3fulgear
 3FULGEAR,Minimalist Rain Pant Legs,Rain chaps,Medium,clothing,79000,manufacturer,https://www.garagegrowngear.com/products/minimalist-rain-pants-by-3fulgear
 3FULGEAR,Rain Poncho,Poncho,Large,clothing,246000,manufacturer,https://www.garagegrowngear.com/products/rain-poncho-by-3fulgear
