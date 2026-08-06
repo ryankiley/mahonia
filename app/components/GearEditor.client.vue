@@ -2,9 +2,9 @@
 import { HugeiconsIcon } from "@hugeicons/vue";
 import { Backpack02Icon, Cancel01Icon, CheckmarkSquare02Icon, ChevronDownIcon, EllipsisIcon, Route02Icon, SafeBoxIcon, Share08Icon, Undo02Icon } from "@hugeicons/core-free-icons";
 import { editLinkPath } from "~~/shared/links";
-import { DISPLAY_DISTANCE_UNITS, tripHeadline } from "~~/shared/trailDistance";
+import { tripHeadline } from "~~/shared/trailDistance";
 import { formatWeight } from "~~/shared/weights";
-import { UNITS, type Unit } from "~~/shared/types";
+import type { Unit } from "~~/shared/types";
 import type { Item } from "~~/shared/types";
 import { bySortOrder, groupItemsByFolder, groupItemsByParent, ungroupedTopLevel } from "~~/shared/weights";
 
@@ -151,10 +151,6 @@ const packed = computed(() => mode.value === "pack");
  * because every field here has to change together — a value from one view beside a unit
  * picker from another is a control that lies about what it will do.
  */
-// One list each, built once — the pickers are fixed sets, not per-render arrays.
-const WEIGHT_UNIT_OPTIONS = UNITS.map((u) => ({ key: u, label: u }));
-const DISTANCE_UNIT_OPTIONS = DISPLAY_DISTANCE_UNITS.map((u) => ({ key: u, label: u }));
-
 const headline = computed(() => {
   if (mode.value === "plan") {
     const trip = tripHeadline(snapshot.value ?? {});

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { dayColorSequence } from "~~/shared/categories";
-import { cumulativeM, decodePolyline, pointAlong, sliceAlong, type LatLon } from "~~/shared/polyline";
+import { cumulativeM, decodePolyline, nearestAlongM, pointAlong, sliceAlong, type LatLon } from "~~/shared/polyline";
 
 // Where the route actually goes — the other half of the elevation profile's answer.
 //
@@ -24,7 +24,13 @@ const props = defineProps<{
   geometry: string;
   /** each day's distance in metres, in order; the same cuts the elevation profile makes */
   dayDistancesM: number[];
+  /** the pins on this route. Owner-only data — this component only ever renders on /e. */
+  waypoints?: { id: string; kind: string; alongM: number; label?: string }[];
+  /** placing mode: the line becomes the only valid target and a tap drops a pin */
+  armed?: boolean;
 }>();
+
+const emit = defineEmits<{ place: [alongM: number] }>();
 
 const host = ref<HTMLElement | null>(null);
 const failed = ref(false);
@@ -40,6 +46,7 @@ let map: import("leaflet").Map | null = null;
 let tiles: import("leaflet").TileLayer | null = null;
 let legs: import("leaflet").Polyline[] = [];
 let arrows: import("leaflet").Marker[] = [];
+let pins: import("leaflet").Marker[] = [];
 let ro: ResizeObserver | null = null;
 
 const points = computed<LatLon[]>(() => decodePolyline(props.geometry));
@@ -189,6 +196,49 @@ function renderArrows() {
   );
 }
 
+/** What each kind of pin looks like. Water, camp and landmark are CONTENT, so they take
+ *  category hues; the route's own two ends are properties of the ROUTE rather than
+ *  categories of thing, so they take ink and differ by being hollow. */
+const PIN_COLOR: Record<string, string> = {
+  water: "var(--cat-water)",
+  camp: "var(--cat-shelter)",
+  landmark: "var(--cat-clothing)",
+  trailhead: "var(--ink)",
+  end: "var(--ink)",
+};
+
+/**
+ * Draw the pins.
+ *
+ * A waypoint stores only a DISTANCE, so its position is walked out of the polyline here —
+ * which is the whole reason no coordinate is ever stored for one.
+ *
+ * The label goes on with textContent, never into the divIcon's html. That html is set as
+ * innerHTML, and a label is text somebody typed on a list anyone with the link can open.
+ */
+function renderPins() {
+  if (!map || !L) return;
+  for (const m of pins) m.remove();
+  const line = points.value;
+  pins = (props.waypoints ?? []).flatMap((w) => {
+    const at = pointAlong(line, w.alongM);
+    if (!at) return [];
+    const marker = L!.marker([at.lat, at.lon], {
+      keyboard: false,
+      icon: L!.divIcon({
+        className: "routemap__pin",
+        html: `<i style="--pin:${PIN_COLOR[w.kind] ?? PIN_COLOR.landmark}"></i>`,
+        iconSize: [14, 14],
+        // the CENTRE: the pin means "this point on the line", so it sits ON it rather
+        // than hanging off it the way a teardrop marker would
+        iconAnchor: [7, 7],
+      }),
+    }).addTo(map!);
+    if (w.label) marker.bindTooltip(document.createTextNode(w.label) as never, { direction: "top" });
+    return [marker];
+  });
+}
+
 /**
  * Draw (or redraw) one line per day.
  *
@@ -307,12 +357,23 @@ async function draw() {
 
   renderLegs();
   renderArrows();
+  renderPins();
 
   // Any move that wasn't ours is theirs — drag, wheel, the +/− buttons, a keyboard arrow.
   // Watching the outcome rather than the input is what makes that list complete without
   // enumerating it.
   map.on("moveend zoomend", () => {
     if (!framing) touched = true;
+  });
+
+  // PLACING. Bound to the map rather than to the legs, for two reasons: a 4px stroke is a
+  // poor target on a phone, and the legs only cover days that have a distance typed — so
+  // leg-only targets would leave the unplanned remainder of the route unclickable. The
+  // click is projected onto the line, so a loose tap still lands where the route is.
+  map.on("click", (e: { latlng: { lat: number; lng: number } }) => {
+    if (!props.armed) return;
+    // `lon`, not Leaflet's `lng` — the app's own LatLon shape
+    emit("place", nearestAlongM(points.value, { lat: e.latlng.lat, lon: e.latlng.lng }));
   });
 
   map.invalidateSize();
@@ -333,6 +394,8 @@ onMounted(draw);
 // Recut the legs when the itinerary changes. Only the lines are rebuilt, never the map —
 // re-creating it would throw away the pan and zoom, which is the one piece of state here
 // that belongs to the person looking at it.
+watch(() => props.waypoints, renderPins, { deep: true });
+
 watch(dayLegs, () => {
   renderLegs();
   // the chevrons carry the day colours too, so they follow the same cut
@@ -345,12 +408,13 @@ onBeforeUnmount(() => {
   map = null;
   legs = [];
   arrows = [];
+  pins = [];
 });
 </script>
 
 <template>
   <figure class="routemap">
-    <div ref="host" class="routemap__canvas" :class="{ 'is-bare': failed }" />
+    <div ref="host" class="routemap__canvas" :class="{ 'is-bare': failed, 'is-armed': armed }" />
     <figcaption class="routemap__note">
       <span v-if="failed">Map tiles couldn't load — the route is still drawn.</span>
       <!-- The zoom hint is about a KEY, so it only exists where there are keys. It is
@@ -418,6 +482,32 @@ onBeforeUnmount(() => {
   .routemap__hint {
     display: none;
   }
+}
+
+// ARMED: the route is the only thing worth aiming at, so the cursor says so and the
+// casing widens to make the line an easier target. A deliberate mode rather than
+// tap-anywhere, because the map is also a pan surface and a stray pin from a
+// mis-registered drag would be maddening on touch.
+.routemap__canvas.is-armed {
+  cursor: crosshair;
+}
+
+.routemap__pin i {
+  display: block;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--pin);
+  // the same white casing the route wears, for the same reason — a dot the colour of a
+  // contour line is a dot nobody finds
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px #00000026;
+}
+// Leaflet's divIcon ships a white box with a border; both are cleared or every pin
+// renders inside a little card.
+.routemap__pin {
+  background: none;
+  border: 0;
 }
 
 .routemap__leg,

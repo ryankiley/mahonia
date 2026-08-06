@@ -86,7 +86,6 @@ const planTip = computed(() => {
 
 // the four units as OptionMenu rows — the abbreviation IS the label here, since it's
 // what the figure beside it is already showing
-const UNIT_OPTIONS = UNITS.map((u) => ({ key: u, label: u }));
 </script>
 
 <template>
@@ -102,7 +101,7 @@ const UNIT_OPTIONS = UNITS.map((u) => ({ key: u, label: u }));
         <OptionMenu
           class="totals__amount"
           align="baseline"
-          :options="UNIT_OPTIONS"
+          :options="WEIGHT_UNIT_OPTIONS"
           :current="list.displayUnit"
           label="Weight unit"
           title="Change unit"

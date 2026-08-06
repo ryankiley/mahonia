@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "@hugeicons/vue";
-import { ChevronDownIcon, Delete02Icon, Fire02Icon, HelpCircleIcon, RouteIcon, Stairs01Icon } from "@hugeicons/core-free-icons";
-import type { ListSnapshot, Totals } from "~~/shared/types";
+import { ChevronDownIcon, Delete02Icon, DropletIcon, Fire02Icon, Flag02Icon, Flag03Icon, HelpCircleIcon, Location01Icon, RouteIcon, Stairs01Icon, TentIcon } from "@hugeicons/core-free-icons";
+import type { ListSnapshot, Totals, WaypointKind } from "~~/shared/types";
 import { burnDownMg, estimateDay } from "~~/shared/tripPlan";
 import { dayClimbs, parseProfile } from "~~/shared/profile";
 import { MAX_DAYS } from "~~/shared/ops";
@@ -122,6 +122,34 @@ function ensureDay(i: number): string | null {
 const distanceUnit = computed(() =>
   resolveDistanceUnit(props.snapshot.trailDistanceUnit, props.snapshot.displayUnit),
 );
+
+/**
+ * The pins, in ROUTE ORDER — which is the only order they have. A waypoint carries no
+ * sortOrder because its distance along the line already answers "which comes first", and
+ * a stored order could disagree with the map.
+ */
+const waypoints = computed(() =>
+  [...(props.snapshot.waypoints ?? [])].sort((a, b) => a.alongM - b.alongM),
+);
+/** Placing mode. Off by default: the map is a pan surface too, and a pin dropped by a
+ *  mis-registered drag is worse than one more tap to ask for. */
+const arming = ref(false);
+function onPlace(alongM: number) {
+  c.addWaypoint(alongM);
+  // one tap, one pin — drop three water sources in three taps, then name them
+}
+const KIND_LABEL: Record<string, string> = {
+  water: "Water", camp: "Camp", landmark: "Landmark", trailhead: "Trailhead", end: "End",
+};
+const KIND_ICON: Record<string, unknown> = {
+  water: DropletIcon, camp: TentIcon, landmark: Location01Icon,
+  trailhead: Flag02Icon, end: Flag03Icon,
+};
+// Only the three you PLACE. Trailhead and end come with the route and are singular by
+// nature, so offering them here would let a route grow five finishes.
+const WAYPOINT_KIND_OPTIONS = (["water", "camp", "landmark"] as const).map((k) => ({
+  key: k, label: KIND_LABEL[k]!,
+}));
 
 const totalDistanceM = computed(() => days.value.reduce((s, d) => s + (d?.distanceM ?? 0), 0));
 // The bigger of the route's own length and what the days add up to.
@@ -252,7 +280,6 @@ const profile = computed(() => parseProfile(props.snapshot.trailProfile));
 // your Day 1; the other 16 are not yet anybody's, and colouring them would say otherwise.
 const dayDistancesM = computed(() => days.value.map((d) => d?.distanceM ?? 0));
 
-const UNIT_OPTIONS = DISPLAY_DISTANCE_UNITS.map((u) => ({ key: u, label: u }));
 
 // Naming a day lives in shared/tripDay.ts — a shared list shows the itinerary too, and
 // the two views must agree on what a day is called.
@@ -304,7 +331,6 @@ function clockIcon(hours: number) {
   ];
 }
 
-const BODY_UNIT_OPTIONS = BODY_WEIGHT_UNITS.map((u) => ({ key: u, label: u }));
 
 // Days collapse the way folders do, and remember it the same way — per id, in
 // localStorage, never in the list. A plan you come back to should open the way you left
@@ -435,7 +461,45 @@ const distanceValue = (m: number | undefined) => {
       v-if="snapshot.routeGeometry"
       :geometry="snapshot.routeGeometry"
       :day-distances-m="dayDistancesM"
+      :waypoints="waypoints"
+      :armed="arming"
+      @place="onPlace"
     />
+    <!-- PLACING IS SPATIAL, DESCRIBING IS TEXTUAL. Arming the map and tapping the line is
+         how a pin gets its position; what it IS gets set in its row below, not in a popup
+         over the terrain you are trying to look at. -->
+    <div v-if="snapshot.routeGeometry" class="plan__wps">
+      <button type="button" class="btn btn--quiet plan__wpadd" @click="arming = !arming">
+        {{ arming ? "Tap the route to place it" : "Add a waypoint" }}
+      </button>
+      <ol v-if="waypoints.length" class="plan__wplist">
+        <li v-for="w in waypoints" :key="w.id" class="plan__wp">
+          <OptionMenu
+            class="plan__wpkind"
+            :options="WAYPOINT_KIND_OPTIONS"
+            :current="w.kind"
+            label="What is here"
+            @pick="(k) => c.updateWaypoint(w.id, { kind: k as WaypointKind })"
+          >
+            <template #trigger>
+              <HugeiconsIcon :icon="KIND_ICON[w.kind]" :size="16" :stroke-width="2" aria-hidden="true" />
+            </template>
+          </OptionMenu>
+          <input
+            class="field plan__wpname"
+            :value="w.label ?? ''"
+            :placeholder="KIND_LABEL[w.kind] ?? 'Landmark'"
+            maxlength="120"
+            :aria-label="`Name for the ${(KIND_LABEL[w.kind] ?? 'waypoint').toLowerCase()} at ${formatDistance(w.alongM, distanceUnit)}`"
+            @change="(e) => c.updateWaypoint(w.id, { label: (e.target as HTMLInputElement).value.trim() })"
+          />
+          <span class="t-sm t-muted plan__wpat">{{ formatDistance(w.alongM, distanceUnit) }}</span>
+          <button type="button" class="btn btn--icon btn--ghost" :aria-label="`Remove the ${(KIND_LABEL[w.kind] ?? 'waypoint').toLowerCase()}`" @click="c.removeWaypoint(w.id)">
+            <HugeiconsIcon :icon="Delete02Icon" :size="16" :stroke-width="2" />
+          </button>
+        </li>
+      </ol>
+    </div>
     <!-- Only the figures nothing else on the page states. The day COUNT and the
          miles-per-day average both left with the same reasoning: the date range names the
          days and every row carries its own distance, so a chip restating either was
@@ -619,7 +683,7 @@ const distanceValue = (m: number | undefined) => {
              only, absent follows the weight system this device works in, the stored
              grams never move). A body in ounces is not a thing anyone wants to read. -->
         <OptionMenu
-          :options="BODY_UNIT_OPTIONS"
+          :options="BODY_WEIGHT_UNIT_OPTIONS"
           :current="bodyUnit"
           label="Body weight unit"
           title="Change unit"
@@ -922,5 +986,42 @@ const distanceValue = (m: number | undefined) => {
 }
 .plan__bodynum {
   width: 4rem;
+}
+
+/* The waypoint list. Rows rather than a dialog over the map — the same inline shape the
+   item rows use, for the same reason: what a thing IS gets typed beside it, not in a
+   panel covering the thing you are looking at. */
+.plan__wps {
+  margin-top: var(--space-3);
+}
+.plan__wpadd {
+  padding-inline: 0;
+}
+.plan__wplist {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.plan__wp {
+  display: grid;
+  /* icon · name · distance · remove — the name takes the slack, everything else is its
+     own content, so the distances form a column down the list */
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--space-2);
+}
+.plan__wpkind {
+  display: inline-flex;
+  color: var(--ink-2);
+}
+.plan__wpname {
+  min-width: 0;
+}
+.plan__wpat {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 </style>
