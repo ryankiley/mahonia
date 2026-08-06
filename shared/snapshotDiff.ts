@@ -14,7 +14,7 @@ import { normalizeDistanceUnit } from "./trailDistance";
 import type { Folder, Item, ListData, ListState, TripDay } from "./types";
 
 export interface ListDiff {
-  meta?: Partial<Pick<ListState, "title" | "description" | "displayUnit" | "trailUrl" | "trailLabel" | "trailDistanceM" | "trailDistanceUnit" | "startDate" | "endDate">>;
+  meta?: Partial<Pick<ListState, "title" | "description" | "displayUnit" | "trailUrl" | "trailLabel" | "trailDistanceM" | "trailDistanceUnit" | "trailProfile" | "trailAscentM" | "trailDescentM" | "startDate" | "endDate">>;
   foldersUpsert?: Folder[]; // present in target and new-or-changed vs base
   foldersDel?: string[]; // ids in base, gone in target
   itemsUpsert?: Item[];
@@ -32,6 +32,12 @@ export interface FullSnap {
   trailLabel?: string | null;
   trailDistanceM?: number | null;
   trailDistanceUnit?: string | null;
+  // The route read off a GPX. It has to ride the chain like everything else: it is the
+  // one field here the owner cannot retype from memory, so losing it on a restore means
+  // finding the original file again.
+  trailProfile?: string | null;
+  trailAscentM?: number | null;
+  trailDescentM?: number | null;
   startDate?: string | null;
   endDate?: string | null;
   data: ListData;
@@ -45,6 +51,9 @@ export const stateToFullSnap = (s: ListState): FullSnap => ({
   trailLabel: s.trailLabel ?? null,
   trailDistanceM: s.trailDistanceM ?? null,
   trailDistanceUnit: s.trailDistanceUnit ?? null,
+  trailProfile: s.trailProfile ?? null,
+  trailAscentM: s.trailAscentM ?? null,
+  trailDescentM: s.trailDescentM ?? null,
   startDate: s.startDate ?? null,
   endDate: s.endDate ?? null,
   data: { folders: s.folders, items: s.items, days: s.days ?? [] },
@@ -59,6 +68,9 @@ export const fullSnapToState = (s: FullSnap): ListState => ({
   trailLabel: s.trailLabel ?? undefined,
   trailDistanceM: s.trailDistanceM ?? undefined,
   trailDistanceUnit: normalizeDistanceUnit(s.trailDistanceUnit),
+  trailProfile: s.trailProfile ?? undefined,
+  trailAscentM: s.trailAscentM ?? undefined,
+  trailDescentM: s.trailDescentM ?? undefined,
   startDate: s.startDate ?? undefined,
   endDate: s.endDate ?? undefined,
   folders: s.data?.folders ?? [],
@@ -115,6 +127,18 @@ export function diffListState(base: ListState, target: ListState): ListDiff {
   // survive a restore just like a cleared link does
   if ((base.trailDistanceUnit ?? "") !== (target.trailDistanceUnit ?? "")) {
     meta.trailDistanceUnit = target.trailDistanceUnit ?? ("" as never);
+  }
+  // the route's shape takes the same clear sentinels — "" for the profile string, 0 for
+  // the two heights. The reducer only ever deletes these keys (never stores an empty
+  // profile or a zero climb), so a falsy value here can only mean "removed".
+  if ((base.trailProfile ?? "") !== (target.trailProfile ?? "")) {
+    meta.trailProfile = target.trailProfile ?? "";
+  }
+  if ((base.trailAscentM ?? 0) !== (target.trailAscentM ?? 0)) {
+    meta.trailAscentM = target.trailAscentM ?? 0;
+  }
+  if ((base.trailDescentM ?? 0) !== (target.trailDescentM ?? 0)) {
+    meta.trailDescentM = target.trailDescentM ?? 0;
   }
   // dates take the same "" clear sentinel: a trip whose dates were removed between
   // base and target has to record the removal, or a restore resurrects them
@@ -178,6 +202,18 @@ export function applyListDiff(base: ListState, diff: ListDiff): ListState {
       const unit = normalizeDistanceUnit(diff.meta.trailDistanceUnit);
       if (unit) out.trailDistanceUnit = unit;
       else delete out.trailDistanceUnit;
+    }
+    if (diff.meta.trailProfile !== undefined) {
+      if (diff.meta.trailProfile) out.trailProfile = diff.meta.trailProfile;
+      else delete out.trailProfile;
+    }
+    if (diff.meta.trailAscentM !== undefined) {
+      if (diff.meta.trailAscentM) out.trailAscentM = diff.meta.trailAscentM;
+      else delete out.trailAscentM;
+    }
+    if (diff.meta.trailDescentM !== undefined) {
+      if (diff.meta.trailDescentM) out.trailDescentM = diff.meta.trailDescentM;
+      else delete out.trailDescentM;
     }
     if (diff.meta.startDate !== undefined) {
       if (diff.meta.startDate) out.startDate = diff.meta.startDate;

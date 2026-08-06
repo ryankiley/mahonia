@@ -178,6 +178,48 @@ describe("reverse-delta chain (capture + reconstruct + prune)", () => {
   });
 });
 
+describe("the route's shape survives the snapshot chain", () => {
+  // Regression, and the same one the dates had a year of tests for: the chain carried
+  // only the trail's URL/label/distance, so restoring ANY recovery point reconstructed a
+  // state with no profile — and the restore write then put NULL over the live columns.
+  //
+  // Worse than the dates, because a GPX profile is the one field on a list the owner
+  // cannot retype. Losing it means finding the original file again, and the "before
+  // restore" snapshot can't help: it has the identical hole.
+  const gpx = { trailProfile: "1000,1200,1100,1400", trailAscentM: 500, trailDescentM: 400 };
+
+  it("round-trips through the full-snapshot form", () => {
+    const back = fullSnapToState(stateToFullSnap(state(gpx)));
+    expect(back.trailProfile).toBe("1000,1200,1100,1400");
+    expect(back.trailAscentM).toBe(500);
+    expect(back.trailDescentM).toBe(400);
+  });
+
+  it("leaves a list with no GPX alone (undefined, never an empty string or a zero)", () => {
+    const back = fullSnapToState(stateToFullSnap(state()));
+    expect(back.trailProfile).toBeUndefined();
+    expect(back.trailAscentM).toBeUndefined();
+    expect(back.trailDescentM).toBeUndefined();
+  });
+
+  it("records a GPX that was ADDED between base and target", () => {
+    const diff = diffListState(state(), state(gpx));
+    expect(diff.meta?.trailProfile).toBe("1000,1200,1100,1400");
+    expect(diff.meta?.trailAscentM).toBe(500);
+    expect(applyListDiff(state(), diff).trailProfile).toBe("1000,1200,1100,1400");
+  });
+
+  it("records a GPX that was REMOVED, rather than resurrecting it", () => {
+    // the falsy sentinels: "" for the profile, 0 for the heights
+    const diff = diffListState(state(gpx), state());
+    expect(diff.meta?.trailProfile).toBe("");
+    expect(diff.meta?.trailAscentM).toBe(0);
+    const out = applyListDiff(state(gpx), diff);
+    expect("trailProfile" in out).toBe(false);
+    expect("trailAscentM" in out).toBe(false);
+  });
+});
+
 describe("trip dates survive the snapshot chain", () => {
   // Regression: the chain carried only title/description/displayUnit/trail*, so
   // restoring ANY recovery point reconstructed a state with no dates — and the

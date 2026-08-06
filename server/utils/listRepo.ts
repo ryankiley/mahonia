@@ -484,8 +484,14 @@ export async function restoreSnapshotByEditToken(
         trailProfile: s.trailProfile ?? null,
         trailAscentM: s.trailAscentM ?? null,
         trailDescentM: s.trailDescentM ?? null,
-        bodyWeightG: s.bodyWeightG ?? null,
-        bodyWeightUnit: s.bodyWeightUnit ?? null,
+        // bodyWeightG / bodyWeightUnit are deliberately NOT written here.
+        //
+        // They are a property of the WALKER, not of the list's content, so a recovery
+        // point has no business carrying them and the snapshot chain doesn't — which
+        // means `s` can never have them and writing `?? null` reliably erased the live
+        // value on every restore. Not writing the columns is both the fix and the more
+        // private answer: body weight stays out of stored snapshot copies entirely, and
+        // restoring an old version of a list leaves it exactly as it was.
         startDate: s.startDate ?? null,
         endDate: s.endDate ?? null,
         displayUnit,
@@ -505,7 +511,10 @@ export async function restoreSnapshotByEditToken(
       // would let a contended retry storm prune the whole recovery window with
       // post-vandalism states, which is the one scenario snapshots exist for.
       await captureSnapshot(d, row, "before restore");
-      return rowToSnapshot(updated[0]);
+      // Owner path: restore is edit-token gated, so the response has to carry the
+      // owner-only fields back. rowToSnapshot alone fails closed by design (see
+      // withOwnerOnly), and closed is the wrong answer when the caller IS the owner.
+      return withOwnerOnly(rowToSnapshot(updated[0]), updated[0]);
     }
     // version moved under us — retry against the latest
   }
@@ -662,7 +671,9 @@ export async function createList(init?: {
       // same warm as the mutate path — a list created WITH a trail link (a saved draft,
       // or a JSON-backup import) must get its mark too, not wait for the nightly sweep
       warmFavicon(db, trailUrl);
-      return { editToken, snapshot: rowToSnapshot(inserted[0]!) };
+      // Owner path — the creator gets their own list back, body weight included, or a
+      // draft that had one loses it the moment it is first saved.
+      return { editToken, snapshot: withOwnerOnly(rowToSnapshot(inserted[0]!), inserted[0]!) };
     } catch (e) {
       if ((e as { code?: string })?.code === "23505" && attempt < 4) continue;
       throw e;
@@ -813,7 +824,11 @@ export async function applyOpsByEditToken(
       // mutate response, and warmFavicon swallows its own failures.
       if (state.trailUrl !== row.trailUrl) warmFavicon(d, state.trailUrl);
       // catalog names only — see hydrateForRead on why the favicon stays off the write path
-      return hydrateCatalogNames(d, rowToSnapshot(updated[0]));
+      //
+      // withOwnerOnly is NOT optional here. This is the autosave echo, and the client
+      // adopts it wholesale: without it every single save handed the editor back a list
+      // with no body weight, quietly emptying the field the user had just set.
+      return withOwnerOnly(await hydrateCatalogNames(d, rowToSnapshot(updated[0])), updated[0]);
     }
     // version moved under us — retry against the latest
   }

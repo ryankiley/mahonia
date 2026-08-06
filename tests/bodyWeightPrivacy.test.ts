@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { rowToSnapshot } from "../server/utils/listRepo";
 import { listToJson } from "../shared/exporters/json";
@@ -80,5 +81,51 @@ describe("body weight never rides a read path", () => {
   it("is still absent when the row carries no body weight — the null case", () => {
     const snap = rowToSnapshot(row({ bodyWeightG: null, bodyWeightUnit: null } as Partial<ListRow>));
     expect("bodyWeightG" in snap).toBe(false);
+  });
+});
+
+// The OTHER half of the invariant, and the half whose absence let three real bugs ship.
+//
+// Everything above proves body weight doesn't leak. None of it proves the owner still
+// GETS it — and because rowToSnapshot fails closed, an owner path that forgets
+// withOwnerOnly is silently wrong rather than loudly wrong. Three did: create, restore,
+// and the autosave echo, which handed the editor back a list with no body weight on every
+// single save and emptied the field the user had just filled in.
+//
+// This reads the source because the real thing needs a database. That's a fair trade: the
+// failure mode is a call site that forgot a wrapper, and a call site that forgot a wrapper
+// is exactly what source can see.
+describe("…but the owner still gets it back", () => {
+  const src = readFileSync(new URL("../server/utils/listRepo.ts", import.meta.url), "utf8");
+
+  // every function that answers an edit token or mints a list — i.e. talks to an owner
+  const OWNER_PATHS = [
+    "getByEditToken",
+    "createList",
+    "applyOpsByEditToken",
+    "restoreSnapshotByEditToken",
+  ];
+
+  const bodyOf = (name: string) => {
+    const start = src.search(new RegExp(`(export )?(async )?function ${name}\\b`));
+    expect(start, `${name} not found in listRepo.ts`).toBeGreaterThan(-1);
+    // to the start of the next top-level declaration, which is close enough to a body
+    const rest = src.slice(start + 1);
+    const end = rest.search(/\n(export )?(async )?function /);
+    return end === -1 ? rest : rest.slice(0, end);
+  };
+
+  it.each(OWNER_PATHS)("%s carries the owner-only fields", (name) => {
+    const body = bodyOf(name);
+    expect(body).toContain("rowToSnapshot");
+    expect(body).toContain("withOwnerOnly");
+  });
+
+  it("and withOwnerOnly is the only thing that ever sets them", () => {
+    // If a second place starts writing bodyWeightG onto a snapshot, the guarantee stops
+    // being one line and starts being a habit. Assignments in this file should be the
+    // two inside withOwnerOnly and nowhere else.
+    const assignments = src.match(/\.bodyWeight(G|Unit)\s*=/g) ?? [];
+    expect(assignments).toHaveLength(2);
   });
 });
