@@ -21,6 +21,7 @@
 import { foldForSearch } from "./catalogSearch";
 import type { Folder, Item } from "./types";
 import { itemDisplayName } from "./weights";
+import { tidyText } from "./tidyText";
 import type { Op } from "./ops";
 
 /** Longer than this and it stops being a label. */
@@ -141,11 +142,16 @@ export function summarizeOps(ops: readonly Op[], before?: SummaryBefore): string
           // otherwise adding a size reads as a rename, and swapping the maker
           // doesn't read as anything at all.
           const beforeLabel = was ? itemDisplayName(was.brand, was.name, was.variant) : "";
+          // The patch's fields are read through the SAME tidy the reducer will apply
+          // (shared/tidyText), because this label is quoted verbatim into the stored
+          // history. Reading the patch raw made the summary say
+          // «Renamed Ryan’s tent → Ryan's  big   tent» — the right of that arrow is a
+          // string that exists nowhere in the list and never did.
           const afterLabel = was
             ? itemDisplayName(
-                p.brand !== undefined ? p.brand : was.brand,
-                p.name !== undefined ? p.name : was.name,
-                p.variant !== undefined ? p.variant : was.variant,
+                p.brand !== undefined ? tidyText(p.brand) : was.brand,
+                p.name !== undefined ? tidyText(p.name) : was.name,
+                p.variant !== undefined ? tidyText(p.variant) : was.variant,
               )
             : "";
           if (beforeLabel && isCosmetic(beforeLabel, afterLabel)) break; // a tidy-up, not news

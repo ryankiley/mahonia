@@ -21,6 +21,8 @@
 // own label. Every heuristic below therefore prefers to decline rather than to invent
 // a title — a wrong name is worse than no name.
 
+import { tidyText } from "./tidyText";
+
 /** A stored trail URL resolved into the three pieces a view renders. */
 export interface TrailLink {
   /** normalized, guaranteed http(s) — safe to bind to :href */
@@ -108,7 +110,9 @@ export function normalizeTrailUrl(raw: string | null | undefined): string | null
 
 /** A raw trail label → its stored form, or undefined when it's blank. */
 export function normalizeTrailLabel(raw: string | null | undefined): string | undefined {
-  const label = raw?.trim().slice(0, MAX_TRAIL_LABEL_LEN);
+  // tidyText rather than a bare trim: this is a typed name like any other ("Ryan's
+  // loop"), and it renders beside the list title, which gets the same pass.
+  const label = tidyText(raw?.slice(0, MAX_TRAIL_LABEL_LEN) ?? "");
   return label || undefined;
 }
 

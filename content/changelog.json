@@ -1,5 +1,11 @@
 [
   {
+    "date": "2026-08-06",
+    "changed": [
+      "Names are tidied when you commit them: stray spaces collapse, and an apostrophe in a possessive or a brand curls to match the rest of the page. Feet and inches are left exactly as typed. Lists and gear you already had are tidied too, so everything reads the same way."
+    ]
+  },
+  {
     "date": "2026-08-05",
     "changed": [
       "On a phone, removing an item now lives in the row's ⋯ menu with the note, nesting and gear vault actions; the row keeps the ⋯ and the drag handle.",

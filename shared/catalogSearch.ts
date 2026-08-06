@@ -4,6 +4,7 @@
 // results rank identically to production. Pure + framework-agnostic (unit-tested).
 
 import { itemDisplayName } from "./weights";
+import { foldApostrophes } from "./tidyText";
 
 /** The shared text fold: NFD → strip diacritics → lowercase → non-alphanumerics
  *  collapse to single spaces → trim. Diacritics fold to their base letter (ä→a, ū→u)
@@ -231,10 +232,16 @@ export function mergeCatalogRows(
  * and the vault's own search) and a second copy would be free to drift.
  */
 export function highlightParts(text: string, rawQuery: string): { t: string; on: boolean }[] {
-  const q = (rawQuery ?? "").trim().toLowerCase();
+  // Apostrophes folded on BOTH sides, and the offsets still index `text` — the fold is
+  // 1:1 on characters, so position i in `lower` is position i in `text`. Rows are
+  // stored tidied ("Arc’teryx") while the keyboard types "arc'te", and this is a
+  // literal indexOf: without the fold the row still RANKS (the trigram fold ignores
+  // punctuation) and still appears, but arrives with nothing bolded, which reads as
+  // "this isn't the match you asked for".
+  const q = foldApostrophes((rawQuery ?? "").trim().toLowerCase());
   const tokens = q ? q.split(/\s+/).filter((t) => t.length > 1) : [];
   if (!tokens.length) return [{ t: text, on: false }];
-  const lower = text.toLowerCase();
+  const lower = foldApostrophes(text.toLowerCase());
   const hit = new Array(text.length).fill(false);
   for (const tok of tokens) {
     let from = 0;
