@@ -26,8 +26,17 @@ const props = defineProps<{
   dayDistancesM: number[];
   /** the pins on this route. Owner-only data — this component only ever renders on /e. */
   waypoints?: { id: string; kind: string; alongM: number; label?: string }[];
-  /** placing mode: the line becomes the only valid target and a tap drops a pin */
-  armed?: boolean;
+  /**
+   * Placing mode, and WHICH STRETCH is being placed on — a day's leg, or the ground no
+   * day claims. Null is off.
+   *
+   * A range rather than a boolean because the affordance lives in a day: pressing "Add a
+   * waypoint" on day 3 has to put the pin in day 3, the way "Add an item" in a folder puts
+   * the item in that folder. So the armed stretch is the only lit part of the route and a
+   * tap is clamped into it — a tap that lands elsewhere is a mis-tap, and clamping to the
+   * near end is the forgiving reading of it rather than a surprise.
+   */
+  armedRange?: { fromM: number; toM: number } | null;
 }>();
 
 const emit = defineEmits<{ place: [alongM: number] }>();
@@ -62,15 +71,35 @@ const points = computed<LatLon[]>(() => decodePolyline(props.geometry));
  */
 const dayLegs = computed(() => {
   const colors = dayColorSequence(props.dayDistancesM.length);
-  const out: { points: LatLon[]; color: string; day: number }[] = [];
+  const out: { points: LatLon[]; color: string; day: number; fromM: number; toM: number }[] = [];
   let run = 0;
   props.dayDistancesM.forEach((d, i) => {
-    const leg = sliceAlong(points.value, run, run + d);
-    run += d;
-    if (leg.length >= 2) out.push({ points: leg, color: colors[i] ?? "var(--cat-other)", day: i + 1 });
+    const fromM = run;
+    const toM = run + d;
+    const leg = sliceAlong(points.value, fromM, toM);
+    run = toM;
+    if (leg.length >= 2) {
+      out.push({ points: leg, color: colors[i] ?? "var(--cat-other)", day: i + 1, fromM, toM });
+    }
   });
   return out;
 });
+
+/**
+ * How far a stretch stands down while another one is armed.
+ *
+ * Faded, never hidden: the rest of the route is still the context that tells you WHERE the
+ * armed stretch is, and a line that vanished would leave a coloured fragment floating on a
+ * contour sheet. Low enough that the target is unmistakable, high enough that the shape of
+ * the walk survives.
+ */
+const DIM = 0.25;
+
+/** Whether a stretch of the route is outside the armed one, and so should stand down. */
+function isDimmed(fromM: number, toM: number): boolean {
+  const a = props.armedRange;
+  return !!a && (toM <= a.fromM || fromM >= a.toM);
+}
 
 /**
  * How often a direction mark appears along the route.
@@ -264,7 +293,9 @@ function renderLegs() {
         leg.points.map((p) => [p.lat, p.lon] as [number, number]),
         {
           weight: 7,
-          opacity: 1,
+          // the casing stands down WITH its leg, or a dimmed stretch reads as a white
+          // line drawn over the terrain rather than as a quietened part of the route
+          opacity: isDimmed(leg.fromM, leg.toM) ? DIM : 1,
           color: "#ffffff",
           interactive: false,
           lineCap: "round",
@@ -277,7 +308,13 @@ function renderLegs() {
   for (const leg of dayLegs.value) {
     const line = L!.polyline(
       leg.points.map((p) => [p.lat, p.lon] as [number, number]),
-      { weight: 4, opacity: 1, lineCap: "round", lineJoin: "round", className: "routemap__leg" },
+      {
+        weight: 4,
+        opacity: isDimmed(leg.fromM, leg.toM) ? DIM : 1,
+        lineCap: "round",
+        lineJoin: "round",
+        className: "routemap__leg",
+      },
     ).addTo(map!);
     line.bindTooltip(`Day ${leg.day}`, { direction: "top", sticky: true });
     // Leaflet sets stroke as a PRESENTATION ATTRIBUTE, and no browser resolves `var()`
@@ -294,6 +331,39 @@ function renderLegs() {
   }
 }
 
+/**
+ * Zoom on ⌘/Ctrl + wheel — and, for free, on a trackpad pinch.
+ *
+ * The pinch is not a separate gesture to handle: macOS and Windows both report a trackpad
+ * pinch as a wheel event with `ctrlKey` set, which is the very convention this gate is
+ * built on. So one rule covers "hold the key and scroll" on a mouse and "pinch" on a
+ * trackpad, and the caption only has to explain the one that needs explaining.
+ *
+ * `preventDefault` is what stops the BROWSER zooming the whole page out from under the
+ * map on that same event — which is why the listener has to be non-passive.
+ */
+let wheelAcc = 0;
+/** Roughly one zoom step per mouse notch, and a pinch that answers within a few frames. */
+const WHEEL_PER_ZOOM = 60;
+/** A wheel reporting LINES rather than pixels; about a line of text. */
+const LINE_PX = 16;
+
+function onWheel(e: WheelEvent) {
+  if (!map) return;
+  // No modifier: the page scrolls, as it would over any other part of the page. This is
+  // the whole reason the gate exists — a map that ate the scroll would trap the reader.
+  if (!e.ctrlKey && !e.metaKey) return;
+  e.preventDefault();
+  wheelAcc += -e.deltaY * (e.deltaMode === 1 ? LINE_PX : 1);
+  const steps = Math.trunc(wheelAcc / WHEEL_PER_ZOOM);
+  if (!steps) return;
+  // keep the remainder, so a slow pinch accumulates instead of being rounded away
+  wheelAcc -= steps * WHEEL_PER_ZOOM;
+  // AROUND THE POINTER, not the centre: you zoom towards the col you are looking at, and
+  // re-centring on every step would walk the thing you're aiming at off the screen.
+  map.setZoomAround(map.mouseEventToContainerPoint(e), map.getZoom() + steps);
+}
+
 async function draw() {
   if (!host.value) return;
   // Leaflet reads the container's size at construction. TrailPlanPanel lives behind a
@@ -307,11 +377,17 @@ async function draw() {
 
   map = L.map(host.value, {
     // The map is inside a scrolling page. Wheel-zoom here would eat the page scroll every
-    // time the cursor crossed it, so zooming is the buttons or a deliberate ctrl/⌘ + wheel.
+    // time the cursor crossed it, so zooming is the buttons or a deliberate ctrl/⌘ + wheel
+    // — which is `onWheel` below, because Leaflet's own handler has no modifier gate: it
+    // is all scrolls or none. Off here, ours there.
     scrollWheelZoom: false,
     zoomControl: true,
     attributionControl: true,
   });
+
+  // The caption under the map promised this and nothing delivered it: with Leaflet's
+  // handler off, holding ⌘ did the same as not holding it, which is nothing.
+  host.value.addEventListener("wheel", onWheel, { passive: false });
 
   // A VIEW BEFORE ANY LAYER. Leaflet's Map.addLayer returns early while `_loaded` is
   // false, deferring onAdd — so a layer added before the view exists has no DOM element
@@ -371,9 +447,14 @@ async function draw() {
   // leg-only targets would leave the unplanned remainder of the route unclickable. The
   // click is projected onto the line, so a loose tap still lands where the route is.
   map.on("click", (e: { latlng: { lat: number; lng: number } }) => {
-    if (!props.armed) return;
+    const range = props.armedRange;
+    if (!range) return;
     // `lon`, not Leaflet's `lng` — the app's own LatLon shape
-    emit("place", nearestAlongM(points.value, { lat: e.latlng.lat, lon: e.latlng.lng }));
+    const at = nearestAlongM(points.value, { lat: e.latlng.lat, lon: e.latlng.lng });
+    // CLAMPED to the armed stretch. The affordance that armed this belongs to a day, so
+    // the pin has to land in that day — a tap on a dimmed leg is a mis-tap, and pulling it
+    // to the near end of the lit one is the forgiving reading rather than a refusal.
+    emit("place", Math.min(range.toM, Math.max(range.fromM, at)));
   });
 
   map.invalidateSize();
@@ -402,8 +483,15 @@ watch(dayLegs, () => {
   renderArrows();
 });
 
+// Arming lights ONE stretch and stands the rest down, so the legs have to be redrawn when
+// it changes. Legs only — the chevrons keep their colours, because which way the route is
+// walked is still true of the parts you are not aiming at.
+watch(() => props.armedRange, renderLegs);
+
 onBeforeUnmount(() => {
   ro?.disconnect();
+  // ours, not Leaflet's — map.remove() only unbinds what Leaflet itself attached
+  host.value?.removeEventListener("wheel", onWheel);
   map?.remove();
   map = null;
   legs = [];
@@ -413,8 +501,23 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <figure class="routemap">
-    <div ref="host" class="routemap__canvas" :class="{ 'is-bare': failed, 'is-armed': armed }" />
+  <!--
+    THE STATE CLASSES GO ON THE FIGURE, NEVER ON THE MAP CONTAINER — and this is not a
+    style preference, it is the only shape that works.
+
+    Vue patches a `:class` binding by writing the element's whole class attribute from
+    what the template declares. Leaflet, meanwhile, adds SEVEN classes of its own to the
+    container it initialises (`leaflet-container`, `leaflet-touch`, `leaflet-retina`, the
+    grab and zoom ones) and its entire stylesheet is scoped under them. So a `:class` on
+    that same element is fine until the moment it changes — at which point Vue rewrites
+    the attribute, Leaflet's classes vanish, and every rule that positions the panes goes
+    with them. The panes collapse to zero width, the reset's `max-width: 100%` then
+    resolves against nothing, and the tiles and the route measure 0px wide.
+
+    Which looked exactly like the map disappearing the instant you armed a waypoint.
+  -->
+  <figure class="routemap" :class="{ 'is-bare': failed, 'is-armed': !!armedRange }">
+    <div ref="host" class="routemap__canvas" />
     <figcaption class="routemap__note">
       <span v-if="failed">Map tiles couldn't load — the route is still drawn.</span>
       <!-- The zoom hint is about a KEY, so it only exists where there are keys. It is
@@ -464,10 +567,11 @@ onBeforeUnmount(() => {
   z-index: 0;
   isolation: isolate;
 
-  // tiles gone: plain ground, so the line is still readable
-  &.is-bare {
-    background: light-dark(oklch(0.95 0.01 250), oklch(0.95 0.01 250));
-  }
+}
+
+// tiles gone: plain ground, so the line is still readable
+.routemap.is-bare .routemap__canvas {
+  background: light-dark(oklch(0.95 0.01 250), oklch(0.95 0.01 250));
 }
 
 .routemap__note {
@@ -484,11 +588,14 @@ onBeforeUnmount(() => {
   }
 }
 
-// ARMED: the route is the only thing worth aiming at, so the cursor says so and the
-// casing widens to make the line an easier target. A deliberate mode rather than
+// ARMED: one stretch of the route is the only thing worth aiming at, so the cursor says
+// so and everything else on the line stands down (see DIM). A deliberate mode rather than
 // tap-anywhere, because the map is also a pan surface and a stray pin from a
 // mis-registered drag would be maddening on touch.
-.routemap__canvas.is-armed {
+//
+// Descendant selector, not `.routemap__canvas.is-armed` — the class is on the figure. See
+// the template for why it has to be.
+.routemap.is-armed .routemap__canvas {
   cursor: crosshair;
 }
 

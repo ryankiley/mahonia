@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "@hugeicons/vue";
-import { ChevronDownIcon, Delete02Icon, DropletIcon, Fire02Icon, Flag02Icon, Flag03Icon, HelpCircleIcon, Location01Icon, RouteIcon, Stairs01Icon, TentIcon } from "@hugeicons/core-free-icons";
-import type { ListSnapshot, Totals, WaypointKind } from "~~/shared/types";
+import { ChevronDownIcon, Delete02Icon, Fire02Icon, HelpCircleIcon, RouteIcon, Stairs01Icon } from "@hugeicons/core-free-icons";
+import type { ListSnapshot, Totals, Waypoint } from "~~/shared/types";
 import { burnDownMg, estimateDay } from "~~/shared/tripPlan";
 import { dayClimbs, parseProfile } from "~~/shared/profile";
 import { MAX_DAYS } from "~~/shared/ops";
@@ -16,7 +16,6 @@ import {
   bodyWeightFieldValue,
   formatBodyWeight,
   tripHeadline,
-  formatDistance,
   parseBodyWeightG,
   parseDistanceM,
   resolveDistanceUnit,
@@ -122,34 +121,6 @@ function ensureDay(i: number): string | null {
 const distanceUnit = computed(() =>
   resolveDistanceUnit(props.snapshot.trailDistanceUnit, props.snapshot.displayUnit),
 );
-
-/**
- * The pins, in ROUTE ORDER — which is the only order they have. A waypoint carries no
- * sortOrder because its distance along the line already answers "which comes first", and
- * a stored order could disagree with the map.
- */
-const waypoints = computed(() =>
-  [...(props.snapshot.waypoints ?? [])].sort((a, b) => a.alongM - b.alongM),
-);
-/** Placing mode. Off by default: the map is a pan surface too, and a pin dropped by a
- *  mis-registered drag is worse than one more tap to ask for. */
-const arming = ref(false);
-function onPlace(alongM: number) {
-  c.addWaypoint(alongM);
-  // one tap, one pin — drop three water sources in three taps, then name them
-}
-const KIND_LABEL: Record<string, string> = {
-  water: "Water", camp: "Camp", landmark: "Landmark", trailhead: "Trailhead", end: "End",
-};
-const KIND_ICON: Record<string, unknown> = {
-  water: DropletIcon, camp: TentIcon, landmark: Location01Icon,
-  trailhead: Flag02Icon, end: Flag03Icon,
-};
-// Only the three you PLACE. Trailhead and end come with the route and are singular by
-// nature, so offering them here would let a route grow five finishes.
-const WAYPOINT_KIND_OPTIONS = (["water", "camp", "landmark"] as const).map((k) => ({
-  key: k, label: KIND_LABEL[k]!,
-}));
 
 const totalDistanceM = computed(() => days.value.reduce((s, d) => s + (d?.distanceM ?? 0), 0));
 // The bigger of the route's own length and what the days add up to.
@@ -280,6 +251,105 @@ const profile = computed(() => parseProfile(props.snapshot.trailProfile));
 // your Day 1; the other 16 are not yet anybody's, and colouring them would say otherwise.
 const dayDistancesM = computed(() => days.value.map((d) => d?.distanceM ?? 0));
 
+// ---- the pins ----
+/**
+ * Where each day's stretch begins and ends along the route.
+ *
+ * The same cut the elevation chart and the map's legs make — days laid end to end from the
+ * start — so a pin, a coloured leg and a coloured stretch of chart all answer "which day
+ * is this" identically. A blank day is zero-width, which is the point: it owns no ground
+ * until it has a distance, and so it can hold no pins.
+ */
+const dayRanges = computed(() => {
+  let run = 0;
+  return dayDistancesM.value.map((d) => {
+    const fromM = run;
+    run += d;
+    return { fromM, toM: run };
+  });
+});
+
+/** Ground past the last assigned day — still on the route, not yet anybody's. */
+const restFromM = computed(() => dayRanges.value.at(-1)?.toM ?? 0);
+const restRange = computed(() => ({ fromM: restFromM.value, toM: props.snapshot.trailDistanceM ?? 0 }));
+const hasRest = computed(() => restRange.value.toM > restRange.value.fromM + 1);
+
+/**
+ * The pins, in ROUTE ORDER — which is the only order they have. A waypoint carries no
+ * sortOrder because its distance along the line already answers "which comes first", and
+ * a stored order could disagree with the map.
+ */
+const waypoints = computed(() =>
+  [...(props.snapshot.waypoints ?? [])].sort((a, b) => a.alongM - b.alongM),
+);
+
+/**
+ * The pins sorted into the days that contain them — a DERIVED grouping, never a stored one.
+ *
+ * A waypoint has no dayId on purpose: `removeDay` has no cascade because nothing else
+ * references a day, and adding the first reference would break that. Chainage answers the
+ * same question for free, and it stays right when the boundaries move — retype day 2's
+ * distance and the pins redistribute, exactly as the chart's colours do.
+ */
+const grouped = computed(() => {
+  const byDay: Waypoint[][] = dayRanges.value.map(() => []);
+  const rest: Waypoint[] = [];
+  // HALF-OPEN, [fromM, toM) — a pin on a boundary belongs to the day that STARTS there,
+  // not the one that ends there. Days share those boundaries exactly, and the closed
+  // version put a pin placed at the head of day 3 into day 2's list: the arithmetic was
+  // right and the answer was still the wrong day to a reader. The zero-width test keeps a
+  // blank day (which owns no ground at all) from swallowing the start of the route.
+  const dayFor = (alongM: number) => {
+    const i = dayRanges.value.findIndex(
+      (r) => r.toM > r.fromM && alongM >= r.fromM && alongM < r.toM,
+    );
+    if (i >= 0) return i;
+    // The one place the half-open rule needs help: the very end of the last day is a
+    // boundary with nothing after it to hand the pin to, and the finish of a walk plainly
+    // belongs to the day you finish on — not to leftover ground.
+    if (restFromM.value > 0 && alongM === restFromM.value) {
+      return dayRanges.value.findLastIndex((r) => r.toM > r.fromM);
+    }
+    return -1;
+  };
+  for (const w of waypoints.value) {
+    const i = dayFor(w.alongM);
+    if (i >= 0) byDay[i]!.push(w);
+    else rest.push(w);
+  }
+  return { byDay, rest };
+});
+
+/**
+ * Which stretch is armed for placing — a day index, or "rest" for the unclaimed ground.
+ *
+ * Off by default: the map is a pan surface too, and a pin dropped by a mis-registered drag
+ * is worse than one more tap to ask for. Arming from a DAY is what makes this the same
+ * gesture as "Add an item" in a folder — the thing you add lands in the thing you asked
+ * from, which is why the tap is clamped to that day's stretch rather than going wherever
+ * the finger landed.
+ */
+const arming = ref<number | "rest" | null>(null);
+const armedRange = computed(() => {
+  if (arming.value === null) return null;
+  if (arming.value === "rest") return restRange.value;
+  const r = dayRanges.value[arming.value];
+  if (!r) return null;
+  // A METRE SHORT of the boundary, and only for a day.
+  //
+  // The map clamps a stray tap to the near end of the armed stretch; the grouping above
+  // is half-open. Clamping to `toM` exactly would therefore park the pin on the first
+  // metre of the NEXT day — arming day 3, tapping wide and watching the row appear under
+  // day 4. A metre is far below anything the route can resolve (the geometry is
+  // simplified to ~125 m between stored points), so it costs nothing real and it makes
+  // the two rules agree. "Rest" keeps its full range: the route's end is nobody's
+  // boundary.
+  return { fromM: r.fromM, toM: Math.max(r.fromM, r.toM - 1) };
+});
+function onPlace(alongM: number) {
+  c.addWaypoint(alongM);
+  // stays armed: one tap, one pin — drop three water sources in three taps, then name them
+}
 
 // Naming a day lives in shared/tripDay.ts — a shared list shows the itinerary too, and
 // the two views must agree on what a day is called.
@@ -462,44 +532,9 @@ const distanceValue = (m: number | undefined) => {
       :geometry="snapshot.routeGeometry"
       :day-distances-m="dayDistancesM"
       :waypoints="waypoints"
-      :armed="arming"
+      :armed-range="armedRange"
       @place="onPlace"
     />
-    <!-- PLACING IS SPATIAL, DESCRIBING IS TEXTUAL. Arming the map and tapping the line is
-         how a pin gets its position; what it IS gets set in its row below, not in a popup
-         over the terrain you are trying to look at. -->
-    <div v-if="snapshot.routeGeometry" class="plan__wps">
-      <button type="button" class="btn btn--quiet plan__wpadd" @click="arming = !arming">
-        {{ arming ? "Tap the route to place it" : "Add a waypoint" }}
-      </button>
-      <ol v-if="waypoints.length" class="plan__wplist">
-        <li v-for="w in waypoints" :key="w.id" class="plan__wp">
-          <OptionMenu
-            class="plan__wpkind"
-            :options="WAYPOINT_KIND_OPTIONS"
-            :current="w.kind"
-            label="What is here"
-            @pick="(k) => c.updateWaypoint(w.id, { kind: k as WaypointKind })"
-          >
-            <template #trigger>
-              <HugeiconsIcon :icon="KIND_ICON[w.kind]" :size="16" :stroke-width="2" aria-hidden="true" />
-            </template>
-          </OptionMenu>
-          <input
-            class="field plan__wpname"
-            :value="w.label ?? ''"
-            :placeholder="KIND_LABEL[w.kind] ?? 'Landmark'"
-            maxlength="120"
-            :aria-label="`Name for the ${(KIND_LABEL[w.kind] ?? 'waypoint').toLowerCase()} at ${formatDistance(w.alongM, distanceUnit)}`"
-            @change="(e) => c.updateWaypoint(w.id, { label: (e.target as HTMLInputElement).value.trim() })"
-          />
-          <span class="t-sm t-muted plan__wpat">{{ formatDistance(w.alongM, distanceUnit) }}</span>
-          <button type="button" class="btn btn--icon btn--ghost" :aria-label="`Remove the ${(KIND_LABEL[w.kind] ?? 'waypoint').toLowerCase()}`" @click="c.removeWaypoint(w.id)">
-            <HugeiconsIcon :icon="Delete02Icon" :size="16" :stroke-width="2" />
-          </button>
-        </li>
-      </ol>
-    </div>
     <!-- Only the figures nothing else on the page states. The day COUNT and the
          miles-per-day average both left with the same reasoning: the date range names the
          days and every row carries its own distance, so a chip restating either was
@@ -663,8 +698,62 @@ const distanceValue = (m: number | undefined) => {
             <span class="t-num plan__packnum">{{ formatWeight(packMg[i] ?? 0, snapshot.displayUnit, { withUnit: false }) }} <span class="t-muted">{{ snapshot.displayUnit }}</span></span>
           </span>
         </div>
+
+        <!-- The pins on THIS day's stretch, and how you add one — the place in a day that
+             "Add an item" holds in a folder, and deliberately the same gesture: arming
+             from here clamps the tap to this day's leg, so what you add lands in the day
+             you asked from rather than wherever the finger came down.
+
+             Only a day with a distance gets it. A blank day owns no ground — its climb
+             already reads "—" for exactly this reason — and an add button that could never
+             produce a row under it is worse than no button at all. -->
+        <div
+          v-if="!collapsed[d?.id ?? ''] && snapshot.routeGeometry && dayDistancesM[i]"
+          class="plan__wps"
+        >
+          <ol v-if="grouped.byDay[i]?.length" class="plan__wplist">
+            <WaypointRow
+              v-for="w in grouped.byDay[i]"
+              :key="w.id"
+              :waypoint="w"
+              :distance-unit="distanceUnit"
+            />
+          </ol>
+          <button type="button" class="folder__addbtn" @click="arming = arming === i ? null : i">
+            {{ arming === i ? "Tap the route to place it" : "Add a waypoint" }}
+          </button>
+        </div>
       </li>
     </ol>
+
+    <!-- The ground no day has claimed: the grey tail on the chart above, which is real
+         route and holds pins like any other stretch.
+         It is also where everything lands before an itinerary exists — on a fresh GPX no
+         day has a distance yet, so this IS the route, and it says so. -->
+    <div
+      v-if="snapshot.routeGeometry && (hasRest || grouped.rest.length)"
+      class="plan__rest"
+    >
+      <h2 class="plan__restname">{{ restFromM > 0 ? "Rest of the route" : "The route" }}</h2>
+      <div class="plan__wps">
+        <ol v-if="grouped.rest.length" class="plan__wplist">
+          <WaypointRow
+            v-for="w in grouped.rest"
+            :key="w.id"
+            :waypoint="w"
+            :distance-unit="distanceUnit"
+          />
+        </ol>
+        <button
+          v-if="hasRest"
+          type="button"
+          class="folder__addbtn"
+          @click="arming = arming === 'rest' ? null : 'rest'"
+        >
+          {{ arming === "rest" ? "Tap the route to place it" : "Add a waypoint" }}
+        </button>
+      </div>
+    </div>
 
     <!-- The assumption, never silent. It sits with the estimates it feeds rather than in
          a footnote, and it retires its own "assuming" the moment a real number is set. -->
@@ -988,40 +1077,43 @@ const distanceValue = (m: number | undefined) => {
   width: 4rem;
 }
 
-/* The waypoint list. Rows rather than a dialog over the map — the same inline shape the
-   item rows use, for the same reason: what a thing IS gets typed beside it, not in a
-   panel covering the thing you are looking at. */
+/* A day's pins, sitting under its figures the way a folder's items sit under its name —
+   and taking the folder's add row verbatim (.folder__addbtn is the shared atom), because
+   "Add a waypoint" here and "Add an item" there are the same affordance in the same place
+   doing the same job. The rule line comes with it: the pins read as the day's contents
+   rather than as a second block stuck to the bottom of it. */
 .plan__wps {
   margin-top: var(--space-3);
-}
-.plan__wpadd {
-  padding-inline: 0;
+  border-top: 1px solid var(--line);
+  padding-top: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  align-items: flex-start;
 }
 .plan__wplist {
   list-style: none;
-  margin: var(--space-2) 0 0;
+  margin: 0;
   padding: 0;
+  align-self: stretch;
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
 }
-.plan__wp {
-  display: grid;
-  /* icon · name · distance · remove — the name takes the slack, everything else is its
-     own content, so the distances form a column down the list */
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
-  align-items: center;
-  gap: var(--space-2);
+/* The unclaimed stretch is a day-shaped thing without being a day, so it takes the day's
+   spacing and its heading size but never its figures — there is nothing to estimate about
+   ground nobody has planned. */
+.plan__rest {
+  margin-top: var(--folder-gap, var(--space-6));
 }
-.plan__wpkind {
-  display: inline-flex;
-  color: var(--ink-2);
-}
-.plan__wpname {
-  min-width: 0;
-}
-.plan__wpat {
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
+.plan__restname {
+  margin: 0;
+  padding-block: var(--space-1);
+  line-height: 1.5;
+  font-size: var(--text-title);
+  font-weight: 600;
+  letter-spacing: var(--track-tight);
+  /* a step back from a day's heading: this names the ground left over, not a plan */
+  color: var(--ink-3);
 }
 </style>

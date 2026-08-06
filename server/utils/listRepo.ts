@@ -779,7 +779,17 @@ export async function applyOpsByEditToken(
       days: (state.days ?? []).map((d) => ({ ...d })),
     };
     applyOps(state, ops);
-    const data: ListData = { folders: state.folders, items: state.items, days: state.days ?? [] };
+    // EVERY entity the reducer holds, or the autosave quietly deletes the ones missed
+    // here — this object IS what gets written to the row, so a key left off is a key
+    // erased on the next keystroke batch. `waypoints` was exactly that: the reducer
+    // placed the pin, this line dropped it, and the echo came back without it, so a
+    // waypoint survived until the first save and then vanished.
+    const data: ListData = {
+      folders: state.folders,
+      items: state.items,
+      days: state.days ?? [],
+      waypoints: state.waypoints ?? [],
+    };
     const totals = computeTotals(data);
 
     // The publish-time link-spam gate must survive publishing: a setMeta on an
