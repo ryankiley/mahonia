@@ -4,7 +4,7 @@
 // MERGE: two editors adding different items both succeed with no conflict; the
 // version counter only signals "you're behind, refetch", not "rejected".
 
-import { normalizeDistanceUnit, normalizeTrailDistanceM } from "./trailDistance";
+import { normalizeBodyWeightG, normalizeBodyWeightUnit, normalizeDistanceUnit, normalizeTrailDistanceM } from "./trailDistance";
 import { normalizeTrailLabel, normalizeTrailUrl } from "./trailLink";
 import type { Classification, Folder, FolderSort, Item, ListState, TripDay, Unit } from "./types";
 import { UNITS } from "./types";
@@ -66,6 +66,8 @@ export type Op =
         // here says "remove", and a number channel alone couldn't express it
         trailDistanceM: number | string;
         trailDistanceUnit: string;
+        bodyWeightG: number | string;
+        bodyWeightUnit: string;
         startDate: string;
         endDate: string;
       }>;
@@ -412,6 +414,18 @@ function applyOp(state: ListState, op: Op): void {
         const unit = normalizeDistanceUnit(p.trailDistanceUnit);
         if (unit) state.trailDistanceUnit = unit;
         else delete state.trailDistanceUnit;
+      }
+      // Same clear-on-unusable rule as everything else here. Note this rides the ordinary
+      // op pipeline: it is list state for the OWNER, and only the read paths strip it.
+      if (typeof p.bodyWeightG === "number" || typeof p.bodyWeightG === "string") {
+        const g = normalizeBodyWeightG(p.bodyWeightG);
+        if (g) state.bodyWeightG = g;
+        else delete state.bodyWeightG;
+      }
+      if (typeof p.bodyWeightUnit === "string") {
+        const u = normalizeBodyWeightUnit(p.bodyWeightUnit);
+        if (u) state.bodyWeightUnit = u;
+        else delete state.bodyWeightUnit;
       }
       // Dates are SHAPE-checked, not just clamped. They're rendered and exported, and
       // a half-typed "2026-0" would otherwise persist and read as a real date

@@ -112,6 +112,8 @@ export const LISTS_DDL: string[] = [
   `ALTER TABLE lists ADD COLUMN IF NOT EXISTS trail_label text`,
   `ALTER TABLE lists ADD COLUMN IF NOT EXISTS trail_distance_m integer`,
   `ALTER TABLE lists ADD COLUMN IF NOT EXISTS trail_distance_unit text`,
+  `ALTER TABLE lists ADD COLUMN IF NOT EXISTS body_weight_g integer`,
+  `ALTER TABLE lists ADD COLUMN IF NOT EXISTS body_weight_unit text`,
   `ALTER TABLE lists ADD COLUMN IF NOT EXISTS start_date text`,
   `ALTER TABLE lists ADD COLUMN IF NOT EXISTS end_date text`,
   // the byline on the read views — who MADE the list (set once at creation, never

@@ -2,10 +2,20 @@
 import { HugeiconsIcon } from "@hugeicons/vue";
 import { Delete02Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import type { ListSnapshot, Totals } from "~~/shared/types";
-import { burnDownMg } from "~~/shared/tripPlan";
+import { burnDownMg, estimateDay } from "~~/shared/tripPlan";
 import { isWaterName } from "~~/shared/water";
 import { lineMg, effectiveClassification, formatWeight } from "~~/shared/weights";
-import { formatDistance, parseDistanceM, resolveDistanceUnit } from "~~/shared/trailDistance";
+import {
+  BODY_WEIGHT_UNITS,
+  DEFAULT_BODY_G,
+  bodyWeightFieldValue,
+  formatBodyWeight,
+  formatDistance,
+  parseBodyWeightG,
+  parseDistanceM,
+  resolveBodyWeightUnit,
+  resolveDistanceUnit,
+} from "~~/shared/trailDistance";
 import { tripDays } from "~~/shared/foodPlan";
 
 // Planning mode's body: the trip broken into days, and what the pack weighs on each.
@@ -18,6 +28,7 @@ import { tripDays } from "~~/shared/foodPlan";
 const props = defineProps<{ snapshot: ListSnapshot; totals: Totals }>();
 
 const c = useGearList();
+const uid = useId();
 
 const days = computed(() => [...(props.snapshot.days ?? [])].sort((a, b) => a.sortOrder - b.sortOrder));
 const distanceUnit = computed(() =>
@@ -70,6 +81,55 @@ const packMg = computed(() => burnDownMg(props.totals.carriedMg, burnableMg.valu
 // One denominator down the whole column, so the bars are comparable to each other rather
 // than each row being its own 100% — the mistake that would make a burn-down look flat.
 const heaviestMg = computed(() => Math.max(1, ...packMg.value));
+
+// ---- the walker ----
+// Optional, with a STATED default. `isDefault` is what keeps that honest: the control
+// reads "assuming 70 kg" until someone sets one, rather than sitting pre-filled with 70,
+// because a pre-filled field looks like something you already confirmed.
+const bodyUnit = computed(() =>
+  resolveBodyWeightUnit(props.snapshot.bodyWeightUnit, props.snapshot.displayUnit),
+);
+const bodyG = computed(() => props.snapshot.bodyWeightG ?? DEFAULT_BODY_G);
+const bodyIsDefault = computed(() => props.snapshot.bodyWeightG == null);
+const bodyFieldValue = computed(() =>
+  props.snapshot.bodyWeightG ? bodyWeightFieldValue(props.snapshot.bodyWeightG, bodyUnit.value) : "",
+);
+function commitBody(e: Event) {
+  const raw = (e.target as HTMLInputElement).value.trim();
+  c.setMeta({ bodyWeightG: raw ? (parseBodyWeightG(raw, bodyUnit.value) ?? "") : "" });
+}
+
+// ---- per-day estimates ----
+// Everything here is MODELLED, and the `~` in the template says so on every figure. The
+// mark isn't decoration: it survives copy-paste and the text exporters, where a colour or
+// a tooltip would not, and a number that loses its mark gets quoted back as a fact.
+const estimates = computed(() =>
+  days.value.map((d, i) =>
+    d.distanceM
+      ? estimateDay({
+          distanceM: d.distanceM,
+          ascentM: d.ascentM ?? 0,
+          descentM: d.descentM,
+          bodyKg: bodyG.value / 1000,
+          loadKg: (packMg.value[i] ?? 0) / 1e6,
+        })
+      : null,
+  ),
+);
+/** "4 h 20" — hours and minutes, never a decimal. Nobody walks for 4.33 hours. */
+function formatHours(h: number): string {
+  const mins = Math.round(h * 60);
+  const hh = Math.floor(mins / 60);
+  const mm = mins % 60;
+  return hh ? `${hh} h ${String(mm).padStart(2, "0")}` : `${mm} min`;
+}
+// Rounded to the nearest 100. The model admits ±20%; a figure ending in 7 would claim a
+// precision it does not have.
+const roundKcal = (k: number) => Math.round(k / 100) * 100;
+const tripKcal = computed(() =>
+  estimates.value.reduce((s, e) => s + (e?.totalKcal ?? 0), 0),
+);
+const tripHours = computed(() => estimates.value.reduce((s, e) => s + (e?.hours ?? 0), 0));
 
 function commitDistance(id: string, e: Event) {
   const raw = (e.target as HTMLInputElement).value.trim();
@@ -177,6 +237,15 @@ const distanceValue = (m: number | undefined) =>
           <span class="t-muted plan__unit">{{ ascentUnit }}</span>
         </span>
 
+        <!-- Modelled, so both carry the tilde. The mark is on the NUMBER rather than in a
+             footnote because it has to survive being copied out of here. -->
+        <span class="plan__est t-num" :title="estimates[i] ? 'Moving time — Tobler\'s hiking function on this day\'s own distance and climb, plus 1% per kg of pack. Breaks are not in it.' : ''">
+          {{ estimates[i] ? `~${formatHours(estimates[i]!.hours)}` : "—" }}
+        </span>
+        <span class="plan__est t-num" :title="estimates[i] ? `Walking and resting for the day, at ${formatBodyWeight(bodyG, bodyUnit)}${bodyIsDefault ? ' (assumed)' : ''}. Good to about ±20%.` : ''">
+          {{ estimates[i] ? `~${roundKcal(estimates[i]!.totalKcal).toLocaleString()}` : "—" }}
+        </span>
+
         <!-- The burn-down. One bar per day, NOT a line: a line would draw a segment
              between two days and so assert the pack's weight at noon, which nothing here
              knows. Read down the column it is the curve, with no invented point.
@@ -199,6 +268,35 @@ const distanceValue = (m: number | undefined) =>
         </button>
       </li>
     </ol>
+
+    <p v-if="tripHours > 0" class="plan__est-total t-sm">
+      About <strong class="t-num">~{{ formatHours(tripHours) }}</strong> moving and
+      <strong class="t-num">~{{ roundKcal(tripKcal).toLocaleString() }} kcal</strong> over the trip.
+    </p>
+
+    <!-- The assumption, never silent. It sits with the estimates it feeds rather than in
+         a footnote, and it retires its own "assuming" the moment a real number is set. -->
+    <p v-if="tripHours > 0" class="plan__assume t-sm">
+      <label :for="`${uid}-body`">Your weight</label>
+      <span class="plan__field">
+        <input
+          :id="`${uid}-body`"
+          class="plan__num plan__bodynum"
+          inputmode="decimal"
+          :value="bodyFieldValue"
+          :placeholder="bodyWeightFieldValue(DEFAULT_BODY_G, bodyUnit)"
+          @change="commitBody"
+        />
+        <span class="t-muted plan__unit">{{ bodyUnit }}</span>
+      </span>
+      <span v-if="bodyIsDefault" class="plan__assumed">
+        assuming {{ formatBodyWeight(DEFAULT_BODY_G, bodyUnit) }} — set yours and these change
+      </span>
+    </p>
+    <p v-if="tripHours > 0" class="plan__accuracy t-sm">
+      ~ marks a figure worked out rather than measured. Good to about ±20%, and further off
+      on rough ground or at a pace that isn't average.
+    </p>
 
     <button type="button" class="plan__add" @click="c.addDay()">
       <HugeiconsIcon :icon="PlusSignIcon" :size="14" :stroke-width="2" aria-hidden="true" />
@@ -264,7 +362,7 @@ const distanceValue = (m: number | undefined) =>
    read as the same kind of object seen from a different angle. */
 .plan__day {
   display: grid;
-  grid-template-columns: auto 1fr 5.5rem 5.5rem 9rem var(--icon-btn);
+  grid-template-columns: auto 1fr 5.5rem 5.5rem 4.5rem 5rem 9rem var(--icon-btn);
   align-items: center;
   gap: var(--space-2);
 }
@@ -315,6 +413,34 @@ const distanceValue = (m: number | undefined) =>
   height: 100%;
   border-radius: var(--radius-pill);
   background: var(--cat-consumable);
+}
+.plan__est {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.plan__est-total {
+  margin: 0;
+  color: var(--ink-2);
+}
+.plan__assume,
+.plan__accuracy {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  color: var(--ink-3);
+}
+.plan__accuracy {
+  max-width: 56ch;
+}
+.plan__assumed {
+  color: var(--ink-3);
+}
+.plan__bodynum {
+  width: 4rem;
 }
 .plan__packnum {
   flex: none;

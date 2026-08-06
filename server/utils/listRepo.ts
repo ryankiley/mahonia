@@ -28,7 +28,7 @@ import { UNITS } from "../../shared/types";
 import type { ListData, ListSnapshot, ListState, Totals, Unit } from "../../shared/types";
 import { isLikelySpam } from "../../shared/discovery";
 import { MAX_SUMMARY_LEN, summarizeOps } from "../../shared/changeSummary";
-import { normalizeDistanceUnit, normalizeTrailDistanceM } from "../../shared/trailDistance";
+import { normalizeBodyWeightUnit, normalizeDistanceUnit, normalizeTrailDistanceM } from "../../shared/trailDistance";
 import { displayHost, normalizeTrailLabel, normalizeTrailUrl, safeUrl } from "../../shared/trailLink";
 import { ensureSnapshotSchema, ensureTrailFaviconSchema, useAccountDb, useDb } from "./db";
 import { getFavicon, warmFavicon } from "./trailFavicon";
@@ -234,6 +234,8 @@ function rowToState(row: ListRow): ListState {
     trailLabel: row.trailLabel ?? undefined,
     trailDistanceM: row.trailDistanceM ?? undefined,
     trailDistanceUnit: normalizeDistanceUnit(row.trailDistanceUnit),
+    bodyWeightG: row.bodyWeightG ?? undefined,
+    bodyWeightUnit: normalizeBodyWeightUnit(row.bodyWeightUnit),
     startDate: row.startDate ?? undefined,
     endDate: row.endDate ?? undefined,
     displayUnit: row.displayUnit as Unit,
@@ -472,6 +474,8 @@ export async function restoreSnapshotByEditToken(
         trailLabel: s.trailLabel ?? null,
         trailDistanceM: s.trailDistanceM ?? null,
         trailDistanceUnit: s.trailDistanceUnit ?? null,
+        bodyWeightG: s.bodyWeightG ?? null,
+        bodyWeightUnit: s.bodyWeightUnit ?? null,
         startDate: s.startDate ?? null,
         endDate: s.endDate ?? null,
         displayUnit,
@@ -536,10 +540,25 @@ export async function getByShareCode(code: string): Promise<ListSnapshot | null>
   return attachAuthorName(db, snap, rows[0].authorUserId);
 }
 
+/**
+ * Attach the fields the OWNER may see and a viewer may not.
+ *
+ * rowToSnapshot deliberately omits body weight, so every read path starts without it and
+ * has to ask. That's the wrong way round from how it looks — but it's the only shape that
+ * fails CLOSED: /s (getByShareCode), /l (rowToPublicView) and the public feed all build on
+ * rowToSnapshot, and any read path added later will too. Opt-in means forgetting leaks
+ * nothing; opt-out means forgetting leaks a body weight.
+ */
+function withOwnerOnly(snap: ListSnapshot, row: ListRow): ListSnapshot {
+  snap.bodyWeightG = row.bodyWeightG ?? undefined;
+  snap.bodyWeightUnit = normalizeBodyWeightUnit(row.bodyWeightUnit);
+  return snap;
+}
+
 export async function getByEditToken(editToken: string): Promise<ListSnapshot | null> {
   const db = await useDb();
   const row = await findByEditToken(editToken, db);
-  return row ? hydrateForRead(db, rowToSnapshot(row)) : null;
+  return row ? withOwnerOnly(await hydrateForRead(db, rowToSnapshot(row)), row) : null;
 }
 
 export async function versionByEditToken(editToken: string): Promise<number | null> {
@@ -719,6 +738,8 @@ export async function applyOpsByEditToken(
         trailLabel: state.trailLabel ?? null,
         trailDistanceM: state.trailDistanceM ?? null,
         trailDistanceUnit: state.trailDistanceUnit ?? null,
+        bodyWeightG: state.bodyWeightG ?? null,
+        bodyWeightUnit: state.bodyWeightUnit ?? null,
         startDate: state.startDate ?? null,
         endDate: state.endDate ?? null,
         displayUnit: state.displayUnit,

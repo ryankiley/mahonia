@@ -48,6 +48,9 @@ export const lists = pgTable(
     trailDistanceM: integer("trail_distance_m"),
     // "km" | "mi"; null = follow display_unit
     trailDistanceUnit: text("trail_distance_unit"),
+    // the walker — NEVER served on a read path, see rowToSnapshot
+    bodyWeightG: integer("body_weight_g"),
+    bodyWeightUnit: text("body_weight_unit"),
     // when the trip is. TEXT holding `YYYY-MM-DD`, not a date/timestamptz column: a
     // trip's dates are calendar dates, and a timestamp type would drag a timezone
     // into a value that has none — round-tripping "Aug 4" into "Aug 3" for anyone

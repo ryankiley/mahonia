@@ -2,7 +2,7 @@
 
 // The one import here. trailDistance.ts imports nothing, so this can't cycle, and
 // re-declaring `"km" | "mi"` in two files is how the two quietly drift apart.
-import type { DisplayDistanceUnit } from "./trailDistance";
+import type { BodyWeightUnit, DisplayDistanceUnit } from "./trailDistance";
 
 export type Unit = "g" | "kg" | "oz" | "lb";
 
@@ -154,6 +154,12 @@ export interface ListMeta {
   // distance consistent with the weight beside it. Present = the owner picked, and the
   // pick outlives a later change of weight unit. Never affects what's stored.
   trailDistanceUnit?: DisplayDistanceUnit;
+  // The walker, for the burn estimates — grams, with "kg" | "lb" deciding how it reads.
+  // NOT part of the shared list: it is stripped on every read path that isn't the
+  // editor, so a share link never discloses it. See rowToSnapshot in listRepo, which
+  // omits it by DEFAULT rather than by remembering to.
+  bodyWeightG?: number;
+  bodyWeightUnit?: BodyWeightUnit;
   // When the trip is. CALENDAR DATES, not instants: `YYYY-MM-DD`, no time and no
   // timezone. A trip's dates are the ones written on a permit — they don't shift
   // because you flew somewhere, which is exactly what storing an instant would do.

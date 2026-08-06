@@ -200,3 +200,72 @@ export function normalizeTrailDistanceM(raw: unknown): number | undefined {
   const metres = Math.round(n);
   return metres > 0 && metres <= MAX_DISTANCE_M ? metres : undefined;
 }
+
+// ---- body weight ----
+// The one input the burn model needs that a gear list doesn't already hold. Same three
+// rules as the distance unit above, for the same reasons: only two units offered (grams
+// and ounces are absurd for a body), absent follows the list's own weight unit, and the
+// stored grams never move — the unit is display and entry only.
+
+export const BODY_WEIGHT_UNITS = ["kg", "lb"] as const;
+export type BodyWeightUnit = (typeof BODY_WEIGHT_UNITS)[number];
+
+const G_PER_BODY_UNIT = { kg: 1000, lb: 453.59237 } as const;
+
+// 70 kg, the figure the load-carriage literature is usually stated against. It is a
+// STATED assumption, never a silent one: the UI says "assuming 70 kg" until someone
+// sets their own, because a pre-filled field looks like something you confirmed.
+export const DEFAULT_BODY_G = 70_000;
+// Bounds, not opinions: past these it isn't a person, and the model's validated range is
+// nowhere near either end.
+const MIN_BODY_G = 20_000;
+const MAX_BODY_G = 400_000;
+
+export function bodyWeightUnitFor(displayUnit: string): BodyWeightUnit {
+  return displayUnit === "oz" || displayUnit === "lb" ? "lb" : "kg";
+}
+
+export function normalizeBodyWeightUnit(raw: unknown): BodyWeightUnit | undefined {
+  return BODY_WEIGHT_UNITS.includes(raw as BodyWeightUnit) ? (raw as BodyWeightUnit) : undefined;
+}
+
+export function resolveBodyWeightUnit(explicit: string | undefined, displayUnit: string): BodyWeightUnit {
+  return normalizeBodyWeightUnit(explicit) ?? bodyWeightUnitFor(displayUnit);
+}
+
+/** A raw body weight → grams, or undefined. Bare numbers read in the given unit. */
+export function parseBodyWeightG(raw: string, fallbackUnit: BodyWeightUnit): number | null {
+  if (raw == null) return null;
+  const s = String(raw).trim().toLowerCase().replace(",", ".");
+  const m = s.match(/^(\d*\.?\d+)\s*([a-z. ]*)$/);
+  if (!m) return null;
+  const n = Number.parseFloat(m[1]!);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  const u = m[2]!.replace(/[. ]/g, "");
+  let perG: number | undefined;
+  if (u === "") perG = G_PER_BODY_UNIT[fallbackUnit];
+  else if (u === "kg" || u.startsWith("kilo")) perG = G_PER_BODY_UNIT.kg;
+  else if (u === "lb" || u === "lbs" || u.startsWith("pound")) perG = G_PER_BODY_UNIT.lb;
+  else return null;
+  const grams = Math.round(n * perG);
+  return grams >= MIN_BODY_G && grams <= MAX_BODY_G ? grams : null;
+}
+
+export function normalizeBodyWeightG(raw: unknown): number | undefined {
+  const n = typeof raw === "string" ? Number.parseFloat(raw) : raw;
+  if (typeof n !== "number" || !Number.isFinite(n)) return undefined;
+  const g = Math.round(n);
+  return g >= MIN_BODY_G && g <= MAX_BODY_G ? g : undefined;
+}
+
+/** "70 kg" / "154 lb" — one canonical number rendered in whichever unit is in play. */
+export function formatBodyWeight(grams: number, unit: BodyWeightUnit): string {
+  const n = grams / G_PER_BODY_UNIT[unit];
+  return `${Math.round(n)} ${unit}`;
+}
+
+/** The bare number an input shows, the round-trip partner of parseBodyWeightG. */
+export function bodyWeightFieldValue(grams: number | undefined, unit: BodyWeightUnit): string {
+  if (!grams) return "";
+  return String(Math.round(grams / G_PER_BODY_UNIT[unit]));
+}
