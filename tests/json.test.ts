@@ -200,3 +200,38 @@ describe("JSON export: trip dates", () => {
     expect(jsonToListImport(JSON.stringify(bad))?.startDate).toBeUndefined();
   });
 });
+
+describe("JSON export: the route read off a GPX", () => {
+  // Regression: listToJson was extended with the profile and its climb figures while
+  // jsonToListImport was not, so a backup exported the route's shape and then threw it
+  // away on the way back in. Silent, and worst for the one field nobody can retype — it
+  // came off a file the owner may no longer have.
+  it("round-trips the profile and its climb", () => {
+    const s = snap();
+    s.trailProfile = "1000,1200,1150,1400";
+    s.trailAscentM = 500;
+    s.trailDescentM = 400;
+    const parsed = jsonToListImport(listToJson(s));
+    expect(parsed?.trailProfile).toBe("1000,1200,1150,1400");
+    expect(parsed?.trailAscentM).toBe(500);
+    expect(parsed?.trailDescentM).toBe(400);
+  });
+
+  it("refuses a hand-edited profile that isn't one", () => {
+    // a backup is a file people edit; parseProfile is the single rule for what a profile
+    // is, and junk must import as nothing rather than render as terrain
+    const bad = JSON.parse(listToJson(snap()));
+    bad.trailProfile = "1000,not-a-number,1400";
+    expect(jsonToListImport(JSON.stringify(bad))?.trailProfile).toBeUndefined();
+
+    const absurd = JSON.parse(listToJson(snap()));
+    absurd.trailProfile = "1000,99999,1400";
+    expect(jsonToListImport(JSON.stringify(absurd))?.trailProfile).toBeUndefined();
+  });
+
+  it("leaves a list with no GPX with no GPX", () => {
+    const parsed = jsonToListImport(listToJson(snap()));
+    expect(parsed?.trailProfile).toBeUndefined();
+    expect(parsed?.trailAscentM).toBeUndefined();
+  });
+});

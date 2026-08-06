@@ -4,6 +4,7 @@ import { ArrowUpRight01Icon, ChevronDownIcon, Clock01Icon, Delete02Icon, Fire02I
 import type { ListSnapshot, Totals } from "~~/shared/types";
 import { burnDownMg, estimateDay } from "~~/shared/tripPlan";
 import { parseProfile, segmentClimbs } from "~~/shared/gpx";
+import { MAX_DAYS } from "~~/shared/ops";
 import { isWaterName } from "~~/shared/water";
 import { lineMg, effectiveClassification, formatWeight } from "~~/shared/weights";
 import {
@@ -12,6 +13,7 @@ import {
   DISPLAY_DISTANCE_UNITS,
   bodyWeightFieldValue,
   formatBodyWeight,
+  distanceHeadline,
   formatDistance,
   parseBodyWeightG,
   parseDistanceM,
@@ -48,7 +50,12 @@ const stored = computed(() => [...(props.snapshot.days ?? [])].sort((a, b) => a.
  */
 const days = computed(() => {
   const dated = tripDays(props.snapshot.startDate, props.snapshot.endDate) ?? 0;
-  const n = Math.max(stored.value.length, dated);
+  // Clamped to the reducer's own ceiling. Nothing stops a date picker describing a
+  // two-year trip — setDate validates each end and never compares them — and without this
+  // the rows past 60 rendered and accepted typing while the reducer silently dropped
+  // their addDay, so every one of those edits landed on day 60 instead. A row you can
+  // type into that isn't the row you're typing into is worse than no row.
+  const n = Math.min(MAX_DAYS, Math.max(stored.value.length, dated));
   return Array.from({ length: n }, (_, i) => stored.value[i] ?? null);
 });
 
@@ -56,6 +63,10 @@ const days = computed(() => {
 function ensureDay(i: number): string | null {
   const existing = stored.value[i];
   if (existing) return existing.id;
+  // belt and braces with the clamp above: never ask for a day the reducer will refuse,
+  // because the caller's fallback is "patch the last stored day" and that would write the
+  // value onto the wrong day entirely
+  if (i >= MAX_DAYS) return null;
   // fill any gap before it too, so sortOrder stays the position in the trip
   for (let k = stored.value.length; k <= i; k++) c.addDay();
   return null; // the patch lands on the next tick, once the op has applied
@@ -80,9 +91,12 @@ const headlineM = computed(() =>
   Math.max(props.snapshot.trailDistanceM ?? 0, totalDistanceM.value),
 );
 // The bare number; the unit sits beside it at caption size, as the weight headline does.
-const headlineValue = computed(() =>
-  formatDistance(headlineM.value, distanceUnit.value).replace(/\s*(km|mi|m)$/, ""),
-);
+//
+// distanceHeadline, NOT formatDistance-and-strip-the-unit. formatDistance drops to metres
+// below a kilometre, so stripping a trailing unit off it left a bare "800" standing next
+// to a picker still reading "km" — an 800-metre walk shown as 800 kilometres. The unit
+// here is a control the reader chose, so the number has to stay in it.
+const headlineValue = computed(() => distanceHeadline(headlineM.value, distanceUnit.value));
 const perDayDistance = computed(() =>
   headlineM.value > 0 && days.value.length > 0
     ? formatDistance(Math.round(headlineM.value / days.value.length), distanceUnit.value)
@@ -139,7 +153,7 @@ const estimates = computed(() =>
       ? estimateDay({
           distanceM: d.distanceM,
           ascentM: climbFor(i) ?? 0,
-          descentM: d.descentM,
+          descentM: descentFor(i),
           bodyKg: bodyG.value / 1000,
           loadKg: (packMg.value[i] ?? 0) / 1e6,
         })
@@ -266,6 +280,13 @@ const climbFor = (i: number) =>
   days.value[i]?.ascentM ??
   (days.value[i]?.distanceM != null ? derivedClimbs.value[i]?.ascentM : undefined);
 const climbIsDerived = (i: number) => days.value[i]?.ascentM == null && climbFor(i) != null;
+// The matching descent. Nothing in the app writes TripDay.descentM — there is no field
+// for it — so without this every day fell back to estimateDay's default of "descends
+// exactly what it climbs", while the real figure sat unused in derivedClimbs one line
+// above. On a route that ends lower than it starts, that default is simply wrong.
+const descentFor = (i: number) =>
+  days.value[i]?.descentM ??
+  (days.value[i]?.distanceM != null ? derivedClimbs.value[i]?.descentM : undefined);
 
 async function commitDistance(id: string | null, e: Event) {
   if (!id) { await nextTick(); id = stored.value[stored.value.length - 1]?.id ?? null; if (!id) return; }

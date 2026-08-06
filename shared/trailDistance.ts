@@ -187,6 +187,18 @@ export function formatDistance(metres: number, unit: DisplayDistanceUnit): strin
 }
 
 /**
+ * The distance as a bare number in the unit ASKED FOR, to one decimal — for a headline
+ * that carries its own unit control beside it.
+ *
+ * formatDistance is the wrong tool there and quietly so: below a kilometre it drops to
+ * metres, which is right in prose ("800 m", what a trailhead sign says) and wrong beside
+ * a picker that is still displaying "km". This never changes unit under the caller.
+ */
+export function distanceHeadline(metres: number, unit: DisplayDistanceUnit): string {
+  return String(Number((metres / M_PER_UNIT[unit]).toFixed(1)));
+}
+
+/**
  * The stored distance as the bare number its input shows ("7.5"), or "" at zero —
  * the round-trip partner of parseDistanceM, mirroring waterLiters in water.ts.
  */

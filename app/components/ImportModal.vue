@@ -46,6 +46,9 @@ async function createFrom(
     trailLabel?: string;
     trailDistanceM?: number;
     trailDistanceUnit?: string;
+    trailProfile?: string;
+    trailAscentM?: number;
+    trailDescentM?: number;
     startDate?: string;
     endDate?: string;
   },
@@ -68,6 +71,10 @@ async function createFrom(
         trailLabel: meta?.trailLabel,
         trailDistanceM: meta?.trailDistanceM,
         trailDistanceUnit: meta?.trailDistanceUnit,
+        // the route read off a GPX — the export writes it, so the restore has to send it
+        trailProfile: meta?.trailProfile,
+        trailAscentM: meta?.trailAscentM,
+        trailDescentM: meta?.trailDescentM,
         startDate: meta?.startDate,
         endDate: meta?.endDate,
         data,

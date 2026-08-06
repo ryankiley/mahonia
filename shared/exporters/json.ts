@@ -1,8 +1,15 @@
 // JSON export + import — the menus' "Download JSON" and its restore path in the
 // import dialog. Unlike CSV, the export carries the list at FULL fidelity
 // (catalog links, override flags, packed state, folder colors/defaults, worn
-// splits), so a downloaded file is a real backup: importing it reproduces the
-// list exactly, modulo re-minted ids and renumbered sortOrders.
+// splits, the trip's days and the route read off a GPX), so a downloaded file is a real
+// backup: importing it reproduces the list exactly, modulo re-minted ids and renumbered
+// sortOrders.
+//
+// That claim is only true while BOTH halves move together. Every field added to
+// listToJson has to be read back by jsonToListImport and forwarded by whatever creates
+// the list, or the backup quietly becomes lossy in exactly the way this comment denies.
+// Body weight is the one deliberate omission, and it is deliberate in both directions:
+// see tests/bodyWeightPrivacy.test.ts.
 
 import type { Folder, Item, ListData, ListMeta, TripDay, Unit } from "../types";
 import { UNITS } from "../types";
@@ -15,7 +22,13 @@ import {
   normalizeFolder,
   normalizeItem,
 } from "../ops";
-import { normalizeDistanceUnit, normalizeTrailDistanceM, type DisplayDistanceUnit } from "../trailDistance";
+import {
+  normalizeDistanceUnit,
+  normalizeTrailAscentM,
+  normalizeTrailDistanceM,
+  type DisplayDistanceUnit,
+} from "../trailDistance";
+import { parseProfile, profileToString } from "../gpx";
 import { normalizeTrailLabel, normalizeTrailUrl } from "../trailLink";
 import { uid } from "../id";
 
@@ -40,6 +53,9 @@ export interface JsonImport {
   trailLabel?: string;
   trailDistanceM?: number;
   trailDistanceUnit?: DisplayDistanceUnit;
+  trailProfile?: string;
+  trailAscentM?: number;
+  trailDescentM?: number;
   startDate?: string;
   endDate?: string;
   data: ListData;
@@ -144,6 +160,16 @@ export function jsonToListImport(text: string): JsonImport | null {
     // a string or an absurd number, and the normalizer is the one rule for all of them
     trailDistanceM: normalizeTrailDistanceM(raw.trailDistanceM),
     trailDistanceUnit: normalizeDistanceUnit(raw.trailDistanceUnit),
+    // The route's shape. listToJson writes these, so not reading them back made the
+    // backup lossy in the one way the header promises it isn't — and lossy for the field
+    // an owner cannot retype, since it came off a GPX file they may no longer have.
+    //
+    // Round-tripped through parseProfile rather than trusted: a hand-edited backup can
+    // carry any string here, and parseProfile is the one rule for what a profile is
+    // (bounded length, finite metres, at least two samples).
+    trailProfile: profileToString(parseProfile(raw.trailProfile)),
+    trailAscentM: normalizeTrailAscentM(raw.trailAscentM),
+    trailDescentM: normalizeTrailAscentM(raw.trailDescentM),
     // Shape-checked on the way in, like the trail URL beside it and for the same
     // reason: a hand-edited backup can carry anything, and a malformed date would
     // render as a real one everywhere downstream. The reducer re-checks on setMeta,

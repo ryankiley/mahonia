@@ -79,10 +79,19 @@ const TOBLER_PEAK_SLOPE = 0.05;
  * function has no load term of its own, so this rides on top as a separate, honest
  * multiplier rather than being smuggled into the curve.
  */
+/** See toblerSpeedMs: a floor that keeps an absurd gradient finite rather than Infinite. */
+const MIN_SPEED_MS = 0.01;
+
 export function toblerSpeedMs(slope: number, loadKg = 0): number {
   const kmh = TOBLER_MAX_KMH * Math.exp(-TOBLER_DECAY * Math.abs(slope + TOBLER_PEAK_SLOPE));
   const penalty = 1 + 0.01 * Math.max(0, loadKg);
-  return (kmh / 3.6) / penalty;
+  // Floored, because the exponential underflows to exactly 0 on absurd input and the
+  // callers divide by this: a day claiming 106 m of climb per metre walked produced an
+  // Infinite duration and then a NaN calorie figure (0 × Infinity), which spread to the
+  // trip totals and put "NaN" on screen. Nothing upstream rejects that day — distance and
+  // climb are validated separately and never against each other — so the floor lives
+  // here. 0.01 m/s is 36 m an hour: still nonsense, but nonsense that stays a number.
+  return Math.max(MIN_SPEED_MS, (kmh / 3.6) / penalty);
 }
 
 /**
