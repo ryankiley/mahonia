@@ -41,6 +41,10 @@ const VB_H = 200;
 // The cursor dot's radius, in viewBox units. Named because it appears twice — the X radius
 // is counter-scaled off it — and the two must never drift apart into an oval.
 const DOT_R = 8;
+// Where a grade stops being a number and starts being a fact about the day. 10% is the
+// rough point at which a hiker stops walking and starts climbing (or braking) — below it
+// the gradient is background, above it it's the reason a mile takes what it takes.
+const STEEP_PCT = 10;
 
 const lo = computed(() => Math.min(...props.profile));
 const hi = computed(() => Math.max(...props.profile));
@@ -270,7 +274,12 @@ const id = useId();
     >
       <span>{{ formatDistance(hover.distanceM, distanceUnit) }}</span>
       <span>{{ asHeight(hover.ele) }} {{ heightUnit }}</span>
-      <span :class="{ 'is-up': hover.grade > 0.5, 'is-down': hover.grade < -0.5 }">{{ hover.grade > 0 ? "+" : "" }}{{ hover.grade.toFixed(1) }}%</span>
+      <!-- ONE colour, and only when the grade is worth noticing. Up and down were two
+           different hues, which quietly claimed that direction is the thing to read; it
+           isn't. Steep is steep — a 15% descent is hard on the knees the way a 15% climb
+           is hard on the lungs — so both take the same mark, and everything gentler is
+           just a number. -->
+      <span :class="{ 'is-steep': Math.abs(hover.grade) >= STEEP_PCT }">{{ hover.grade > 0 ? "+" : "" }}{{ hover.grade.toFixed(1) }}%</span>
     </div>
 
     <figcaption class="tprofile__scale t-sm" aria-hidden="true">
@@ -372,13 +381,9 @@ const id = useId();
   font-variant-numeric: tabular-nums;
   pointer-events: none;
 }
-/* the sign is the one thing here worth colouring: a grade's direction is read before its
-   magnitude, and these are the classification hues the app already owns */
-.tprofile__read .is-up {
+/* the app's one alert hue, used here for MAGNITUDE rather than direction */
+.tprofile__read .is-steep {
   color: var(--cat-firstaid);
-}
-.tprofile__read .is-down {
-  color: var(--cat-water);
 }
 .tprofile__dot {
   fill: var(--ink);
