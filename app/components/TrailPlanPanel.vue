@@ -166,6 +166,29 @@ const dayDistancesM = computed(() => {
 });
 
 const UNIT_OPTIONS = DISPLAY_DISTANCE_UNITS.map((u) => ({ key: u, label: u }));
+
+/**
+ * What a day is CALLED when you haven't named it — "Monday, Day 2" once the trip has
+ * dates, "Day 2" before that.
+ *
+ * The weekday is the thing people actually plan against ("the big climb is Tuesday"), and
+ * the app already knows it: the count comes from the dates, so day i IS start + i.
+ *
+ * Parsed at T00:00:00Z and read back in UTC, matching how the dates are stored — a
+ * local-midnight Date would name the wrong weekday for anyone west of UTC.
+ */
+function dayOrdinal(i: number): string {
+  const n = `Day ${i + 1}`;
+  const start = props.snapshot.startDate;
+  if (!start) return n;
+  const ms = Date.parse(`${start}T00:00:00Z`);
+  if (Number.isNaN(ms)) return n;
+  const weekday = new Date(ms + i * 86_400_000).toLocaleDateString("en-US", {
+    weekday: "long",
+    timeZone: "UTC",
+  });
+  return `${weekday}, ${n}`;
+}
 const BODY_UNIT_OPTIONS = BODY_WEIGHT_UNITS.map((u) => ({ key: u, label: u }));
 
 // Days collapse the way folders do, and remember it the same way — per id, in
@@ -336,13 +359,14 @@ const distanceValue = (m: number | undefined) =>
           <input
             class="field plan__name"
             :value="d?.label ?? ''"
-            :placeholder="`Day ${i + 1}`"
+            :placeholder="dayOrdinal(i)"
             :aria-label="`Name for day ${i + 1}`"
+            :size="Math.max(6, (d?.label || dayOrdinal(i)).length)"
             autocorrect="off"
             spellcheck="false"
             @change="commitLabel(d?.id ?? ensureDay(i), $event)"
           />
-          <span v-if="d?.label" class="plan__ordinal" aria-hidden="true">Day {{ i + 1 }}</span>
+          <span v-if="d?.label" class="plan__ordinal" aria-hidden="true">{{ dayOrdinal(i) }}</span>
           <button
             type="button"
             class="plan__collapse plan__collapse--tight"
@@ -470,14 +494,12 @@ const distanceValue = (m: number | undefined) =>
           </template>
         </OptionMenu>
       </span>
-      <span v-if="bodyIsDefault" class="plan__assumed">
-        assuming {{ formatBodyWeight(DEFAULT_BODY_G, bodyUnit) }} — set yours and these change
-      </span>
+      <span v-if="bodyIsDefault" class="plan__assumed">assumed</span>
     </p>
-    <p v-if="tripHours > 0" class="plan__accuracy t-sm">
-      ~ marks a figure worked out rather than measured. Good to about ±20%, and further off
-      on rough ground or at a pace that isn't average.
-    </p>
+    <!-- One line, not a paragraph. The `~` on each figure is what carries the claim;
+         this only says what the mark means, once. The detail lives in the (?) beside the
+         figures, where it's asked for rather than recited. -->
+    <p v-if="tripHours > 0" class="plan__accuracy t-sm">~ worked out, not measured — about ±20%.</p>
 
     <div class="plan__addwrap">
       <button type="button" class="plan__add" @click="c.addDay()">Add a day</button>
@@ -573,10 +595,12 @@ const distanceValue = (m: number | undefined) =>
      the name it folds. Size to the CONTENT instead, the way the title does — the native
      property where it exists, with a modest fallback width elsewhere so the field is
      still comfortably clickable when it's empty and showing only "Day 3". */
-  width: 11ch;
+  width: auto;
   field-sizing: content;
-  min-width: 6ch;
-  max-width: 100%;
+  max-width: min(40ch, 50vw);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   padding: 0;
   border: 0;
   background: none;
@@ -745,25 +769,6 @@ const distanceValue = (m: number | undefined) =>
 .plan__packnum {
   flex: none;
   font-variant-numeric: tabular-nums;
-}
-.plan__remove {
-  color: var(--ink-3);
-}
-.plan__add {
-  align-self: flex-start;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--ink-3);
-  cursor: pointer;
-  font: inherit;
-  transition: color var(--dur) var(--ease);
-}
-.plan__add:hover {
-  color: var(--ink);
 }
 /* On a phone the six-track grid can't hold; the row becomes two lines with the
    measurements sharing the second, which is the same concession an item row makes. */
