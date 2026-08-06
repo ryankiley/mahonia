@@ -11,12 +11,12 @@ import { isWaterName } from "~~/shared/water";
 import { lineMg, effectiveClassification, formatWeight } from "~~/shared/weights";
 import type { BodyWeightUnit } from "~~/shared/trailDistance";
 import {
-  BODY_WEIGHT_UNITS,
   DEFAULT_BODY_G,
-  DISPLAY_DISTANCE_UNITS,
+  M_PER_UNIT,
   bodyWeightFieldValue,
   formatBodyWeight,
-  tripHeadline,
+  heightUnitFor,
+  heightValue,
   parseBodyWeightG,
   parseDistanceM,
   resolveDistanceUnit,
@@ -133,19 +133,13 @@ const totalDistanceM = computed(() => days.value.reduce((s, d) => s + (d?.distan
 // But `max`, not the route alone: an itinerary can legitimately add up to more than the
 // straight-line route — a side trip, an out-and-back to water — and a figure a person
 // typed must never be quietly discarded in favour of one read off a file.
+// NOT tripHeadline(snapshot).metres, though the arithmetic looks identical. That sums the
+// list's STORED days; this sums the days the calendar currently shows. They differ on a
+// list whose date range was shortened, because the entities behind the hidden days survive
+// (see `days`) — and the chart below has to be scaled to the ground it actually draws.
 const headlineM = computed(() =>
   Math.max(props.snapshot.trailDistanceM ?? 0, totalDistanceM.value),
 );
-// The bare number; the unit sits beside it at caption size, as the weight headline does.
-//
-// distanceHeadline, NOT formatDistance-and-strip-the-unit. formatDistance drops to metres
-// below a kilometre, so stripping a trailing unit off it left a bare "800" standing next
-// to a picker still reading "km" — an 800-metre walk shown as 800 kilometres. The unit
-// here is a control the reader chose, so the number has to stay in it.
-// The big figure itself is the editor's now (one Headline across all three views); this
-// panel still needs the same number for the chart beneath it, so both read it from the
-// one function rather than each deriving it.
-const headlineValue = computed(() => tripHeadline(props.snapshot).value);
 /**
  * The ROUTE's climb, exact.
  *
@@ -156,7 +150,7 @@ const headlineValue = computed(() => tripHeadline(props.snapshot).value);
  * exactly. 10,250 next to 10,246 is the same number disagreeing with itself.
  */
 const routeHeight = (m: number | undefined) =>
-  m == null ? "" : (distanceUnit.value === "mi" ? Math.round(m / 0.3048) : Math.round(m)).toLocaleString();
+  m == null ? "" : heightValue(m, distanceUnit.value);
 
 /** Whether the route's drop is its own fact, or the climb restated (which a loop guarantees). */
 const routeDescentDiffers = computed(
@@ -491,19 +485,21 @@ async function commitAscent(id: string | null, e: Event) {
   c.updateDay(id, { ascentM: raw ? (parseDistanceM(raw, distanceUnit.value === "mi" ? "ft" : "m") ?? undefined) : undefined });
 }
 
-const ascentUnit = computed(() => (distanceUnit.value === "mi" ? "ft" : "m"));
+const ascentUnit = computed(() => heightUnitFor(distanceUnit.value));
 // Metres round-trip exactly; FEET don't, because the store is integer metres — type 690
 // and it comes back 689. Rounding display feet to the nearest 10 hides an artefact that
 // isn't a real disagreement, and it's the more honest figure besides: consumer elevation
 // is noisy to ±5–10 m, so a climb quoted to the foot claims precision nothing has.
 const ascentValue = (m: number | undefined) => {
   if (m == null) return "";
+  // String, NOT heightValue — heightValue groups for reading ("7,316") and this is a field
+  // value that has to parse back. Same conversion, different presentation.
   if (distanceUnit.value !== "mi") return String(Math.round(m));
-  return String(Math.round(m / 0.3048 / 10) * 10);
+  return String(Math.round(m / M_PER_UNIT.ft / 10) * 10);
 };
 const distanceValue = (m: number | undefined) => {
   if (m == null) return "";
-  const n = Number((m / (distanceUnit.value === "mi" ? 1609.344 : 1000)).toFixed(2));
+  const n = Number((m / M_PER_UNIT[distanceUnit.value]).toFixed(2));
   // At least one decimal, so "9.0" and "9.8" are the same width and the unit sits hard
   // against the figure instead of drifting a character away on whole numbers. PADDED, not
   // rounded — 9.85 keeps both places, because this field round-trips through the store and

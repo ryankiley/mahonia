@@ -63,6 +63,11 @@ let ro: ResizeObserver | null = null;
 
 const points = computed<LatLon[]>(() => decodePolyline(props.geometry));
 
+// ONE sequence, read by the legs and by the chevrons alike. Computed twice it was two
+// calls that happened to agree — and a chevron in a colour its own leg isn't drawn in is
+// the exact bug that costs nothing to make impossible.
+const colors = computed(() => dayColorSequence(props.dayDistancesM.length));
+
 /**
  * The route cut into days, each with the colour that day wears on the elevation chart.
  *
@@ -73,7 +78,6 @@ const points = computed<LatLon[]>(() => decodePolyline(props.geometry));
  * there.
  */
 const dayLegs = computed(() => {
-  const colors = dayColorSequence(props.dayDistancesM.length);
   const out: { points: LatLon[]; color: string; day: number; fromM: number; toM: number }[] = [];
   let run = 0;
   props.dayDistancesM.forEach((d, i) => {
@@ -82,7 +86,7 @@ const dayLegs = computed(() => {
     const leg = sliceAlong(points.value, fromM, toM);
     run = toM;
     if (leg.length >= 2) {
-      out.push({ points: leg, color: colors[i] ?? "var(--cat-other)", day: i + 1, fromM, toM });
+      out.push({ points: leg, color: colors.value[i] ?? "var(--cat-other)", day: i + 1, fromM, toM });
     }
   });
   return out;
@@ -147,7 +151,6 @@ function arrowMarks() {
   const total = cumulativeM(line).at(-1) ?? 0;
   if (!(total > 0)) return [];
   const gap = Math.max(total / ARROW_COUNT, ARROW_MIN_GAP_M);
-  const colors = dayColorSequence(props.dayDistancesM.length);
   const out: { at: LatLon; deg: number; color: string }[] = [];
   // offset by half a gap so no chevron lands on the trailhead or the finish, where the
   // route's own end markers already are
@@ -171,7 +174,7 @@ function arrowMarks() {
       at,
       // screen y grows downward, which is already what a CSS rotation expects
       deg: (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI,
-      color: day === -1 ? "var(--ink-3)" : (colors[day] ?? "var(--cat-other)"),
+      color: day === -1 ? "var(--ink-3)" : (colors.value[day] ?? "var(--cat-other)"),
     });
   }
   return out;
