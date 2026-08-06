@@ -161,6 +161,32 @@ const hoverIdx = ref<number | null>(null);
 const aspect = ref(1);
 const wrapRef = useTemplateRef<HTMLElement>("wrapRef");
 
+/**
+ * Touch needs THREE things a mouse doesn't, and the chart read as broken without them —
+ * it only tracked when the finger happened to be right on the line.
+ *
+ * 1. The gesture has to be ours. `touch-action` defaults to `auto`, so the browser treats
+ *    a drag as a possible page scroll, waits, and then fires `pointercancel` — the readout
+ *    dies mid-scrub. The CSS claims horizontal movement and leaves `pan-y` alone, so a
+ *    vertical swipe still scrolls the page: you can read the route without trapping the
+ *    reader on a 56px-tall element.
+ * 2. First contact has to read. There is no hover on touch, so `pointermove` alone means
+ *    the first thing a tap does is nothing.
+ * 3. The scrub has to survive leaving the box. The chart is short and a finger wanders;
+ *    capturing the pointer keeps the reading alive until release instead of dropping out
+ *    the moment it strays above the ridge.
+ */
+function onDown(e: PointerEvent) {
+  if (e.pointerType !== "mouse") {
+    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+  }
+  onMove(e);
+}
+// A mouse never presses to read, so a release must not clear what hovering is still showing.
+function onRelease(e: PointerEvent) {
+  if (e.pointerType !== "mouse") hoverIdx.value = null;
+}
+
 function onMove(e: PointerEvent) {
   const el = wrapRef.value?.querySelector("svg");
   if (!el) return;
@@ -207,6 +233,9 @@ const id = useId();
     class="tprofile-wrap"
     @pointermove="onMove"
     @pointerleave="onLeave"
+    @pointerdown="onDown"
+    @pointerup="onRelease"
+    @pointercancel="onRelease"
   >
     <svg
       class="tprofile"
@@ -356,6 +385,10 @@ const id = useId();
 .tprofile-wrap {
   position: relative;
   cursor: crosshair;
+  /* Horizontal movement belongs to the chart, vertical still scrolls the page. Without
+     this the browser holds every touch-drag open as a possible scroll and then cancels the
+     pointer stream, which is what made scrubbing feel like it only worked over the line. */
+  touch-action: pan-y;
 }
 /* Tracks the cursor along the chart, centred on it, and clamped by the translate so the
    ends stay inside the figure instead of hanging off the column. pointer-events:none or

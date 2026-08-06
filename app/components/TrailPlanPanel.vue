@@ -277,10 +277,6 @@ async function commitAscent(id: string | null, e: Event) {
   // beside it uses. Same parser; the fallback unit is what differs.
   c.updateDay(id, { ascentM: raw ? (parseDistanceM(raw, distanceUnit.value === "mi" ? "ft" : "m") ?? undefined) : undefined });
 }
-async function commitLabel(id: string | null, e: Event) {
-  if (!id) { await nextTick(); id = stored.value[stored.value.length - 1]?.id ?? null; if (!id) return; }
-  c.updateDay(id, { label: (e.target as HTMLInputElement).value.trim() });
-}
 
 const ascentUnit = computed(() => (distanceUnit.value === "mi" ? "ft" : "m"));
 // Metres round-trip exactly; FEET don't, because the store is integer metres — type 690
@@ -379,30 +375,21 @@ const distanceValue = (m: number | undefined) =>
     <ol v-else class="plan__days">
       <li v-for="(d, i) in days" :key="d?.id ?? `ghost-${i}`" class="plan__day">
         <!-- The heading takes the FOLDER treatment — a day groups a stretch of the walk
-             the way a folder groups gear, so it reads at the same level and gets the same
-             editable-name affordance. -->
+             the way a folder groups gear, so it reads at the same level. Unlike a folder
+             it is NOT renameable: a day is already named by the trip, and the calendar
+             names it better than a typed string would. "Monday, Day 2" is what a person
+             says out loud, and it stays correct when the dates move.
+
+             `label` survives on TripDay and setDayLabel still exists — the field round-
+             trips through export and import untouched. What's gone is the affordance, not
+             the data, so naming can come back without a migration. -->
         <header class="plan__dayhead">
-          <!-- Unnamed, the placeholder IS the name — "Day 3" and nothing else, because a
-               number is what an unnamed day is called. Name it and the ordinal doesn't
-               leave; it steps back and follows, so the position in the trip is never lost
-               to a name. ONE type size throughout: only the colour changes, so a rename
-               doesn't reflow the row. -->
-          <input
-            class="field plan__name"
-            :value="d?.label ?? ''"
-            :placeholder="dayOrdinal(i)"
-            :aria-label="`Name for day ${i + 1}`"
-            :size="Math.max(6, (d?.label || dayOrdinal(i)).length)"
-            autocorrect="off"
-            spellcheck="false"
-            @change="commitLabel(d?.id ?? ensureDay(i), $event)"
-          />
-          <span v-if="d?.label" class="plan__ordinal" aria-hidden="true">{{ dayOrdinal(i) }}</span>
+          <h2 class="plan__name">{{ dayOrdinal(i) }}</h2>
           <button
             type="button"
             class="plan__collapse plan__collapse--tight"
             :aria-expanded="!collapsed[d?.id ?? '']"
-            :aria-label="`${collapsed[d?.id ?? ''] ? 'Expand' : 'Collapse'} ${d?.label || `day ${i + 1}`}`"
+            :aria-label="`${collapsed[d?.id ?? ''] ? 'Expand' : 'Collapse'} ${dayOrdinal(i)}`"
             @click="d && toggleDay(d.id)"
           >
             <HugeiconsIcon :icon="ChevronDownIcon" class="plan__chev2" :class="{ 'is-collapsed': collapsed[d?.id ?? ''] }" :size="20" :stroke-width="2" />
@@ -612,33 +599,37 @@ const distanceValue = (m: number | undefined) =>
   flex-direction: column;
   gap: var(--folder-gap, var(--space-6));
 }
-/* A day is a folder-shaped thing: a name you can edit at title size, its own actions,
-   then its contents underneath. Same rhythm, so the two read as siblings. */
+/* A day is a folder-shaped thing: a heading at title size, its own actions, then its
+   contents underneath. Same rhythm, so the two read as siblings — the one difference is
+   that this heading is written by the calendar rather than typed. */
 .plan__dayhead {
   display: flex;
   align-items: baseline;
-  gap: var(--space-2);
+  /* .folder__head's gap and its 4px to the body, not near-misses of them — the two
+     headers sit in the same column one mode apart, and an 8px gap here read as a
+     different rhythm rather than a different view. */
+  gap: var(--space-4);
+  margin-bottom: var(--space-1);
 }
 .plan__n {
   flex: none;
   color: var(--ink-3);
 }
+/* Sized to its text so the chevron stays hugged against it rather than being pushed to
+   the column's far edge — the same reason the folder title does it. */
 .plan__name {
   flex: 0 1 auto;
-  /* .field is width:100%, which would push the chevron to the far edge and detach it from
-     the name it folds. Size to the CONTENT instead, the way the title does — the native
-     property where it exists, with a modest fallback width elsewhere so the field is
-     still comfortably clickable when it's empty and showing only "Day 3". */
-  width: auto;
-  field-sizing: content;
-  max-width: min(40ch, 50vw);
+  min-width: 0;
+  margin: 0;
+  /* A folder's name is an <input>, which builds a 41px box out of a 33px line and 4px
+     of padding. This is a heading and would otherwise sit at 26px, putting every day
+     header 15px shorter than every folder header in the same column. Matching the box
+     is what makes the two modes feel like one page. */
+  padding-block: var(--space-1);
+  line-height: 1.5;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  padding: 0;
-  border: 0;
-  background: none;
-  font-family: var(--font);
   font-size: var(--text-title);
   font-weight: 600;
   letter-spacing: var(--track-tight);
@@ -719,15 +710,6 @@ const distanceValue = (m: number | undefined) =>
 .plan__chev2.is-collapsed {
   transform: rotate(-90deg);
 }
-/* the ordinal follows a named day at the SAME size — only the colour steps back, so
-   naming a day never reflows its row */
-.plan__ordinal {
-  flex: none;
-  font-size: var(--text-title);
-  font-weight: 600;
-  letter-spacing: var(--track-tight);
-  color: var(--ink-ghost);
-}
 .plan__gl {
   flex: none;
   color: var(--ink-3);
@@ -773,9 +755,12 @@ const distanceValue = (m: number | undefined) =>
   flex: none;
   font-variant-numeric: tabular-nums;
 }
-/* the "Add folder" treatment: title-sized, dimmed, inks up on hover */
+/* Literally the "Add folder" treatment — same type, same inks, same distance from the
+   run of things above it. .editor__addfolder reaches --space-7 from a --space-4 parent
+   gap and this has the identical arithmetic to do, so it does it the identical way. */
 .plan__addwrap {
   align-self: flex-start;
+  margin-top: calc(var(--space-7) - var(--space-4));
 }
 .plan__add {
   padding: 0;
@@ -786,11 +771,12 @@ const distanceValue = (m: number | undefined) =>
   font-size: var(--text-title);
   font-weight: 600;
   letter-spacing: var(--track-tight);
-  color: var(--ink-ghost);
+  color: var(--ink-3);
   transition: color var(--dur) var(--ease);
 }
+/* full ink on hover, the house treatment for a quiet text action */
 .plan__add:hover {
-  color: var(--ink-3);
+  color: var(--ink);
 }
 /* an estimate chip reads a step back from the measured ones beside it */
 .plan__chips .chip--est {
@@ -813,23 +799,5 @@ const distanceValue = (m: number | undefined) =>
 }
 .plan__bodynum {
   width: 4rem;
-}
-.plan__packnum {
-  flex: none;
-  font-variant-numeric: tabular-nums;
-}
-/* On a phone the six-track grid can't hold; the row becomes two lines with the
-   measurements sharing the second, which is the same concession an item row makes. */
-@media (max-width: $bp-stack) {
-  .plan__day {
-    grid-template-columns: auto 1fr var(--icon-btn);
-    row-gap: var(--space-1);
-  }
-  .plan__field {
-    grid-column: 2 / 3;
-  }
-  .plan__pack {
-    grid-column: 2 / 4;
-  }
 }
 </style>
