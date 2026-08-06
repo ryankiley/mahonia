@@ -384,7 +384,7 @@ function create() {
           trailDistanceUnit: s.trailDistanceUnit,
           startDate: s.startDate,
           endDate: s.endDate,
-          data: { folders: s.folders, items: s.items },
+          data: { folders: s.folders, items: s.items, days: s.days ?? [] },
         },
       });
       if (myEpoch !== epoch) return;

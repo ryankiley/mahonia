@@ -7,9 +7,11 @@ import { and, desc, eq, inArray, isNotNull, isNull, lt, lte, notInArray, sql } f
 import { listClaims, catalogItems, listSnapshots, lists, type ListRow, users } from "../db/schema";
 import {
   applyOps,
+  MAX_DAYS,
   MAX_FOLDERS,
   MAX_ITEMS,
   normalizeCalendarDate,
+  normalizeDay,
   normalizeFolder,
   normalizeItem,
   type Op,
@@ -85,7 +87,19 @@ function normalizeListData(raw?: Partial<ListData>): ListData {
   // a nested child rides in its parent's folder (the shared/types invariant the
   // reducer keeps on addItem/moveItem) — parents' folderIds are already healed above
   for (const it of items) if (it.parentId) it.folderId = byId.get(it.parentId)!.folderId;
-  return { folders, items };
+  // Days need only the dedupe + cap: nothing references a day, so there are no dangling
+  // pointers to heal. sortOrder is renumbered from the incoming order so a hand-edited
+  // file with gaps or ties still imports in a sane sequence, the same treatment the JSON
+  // importer gives folders.
+  const days: NonNullable<ListData["days"]> = [];
+  const dayIds = new Set<string>();
+  for (const d of (raw?.days ?? []).slice(0, MAX_DAYS).map(normalizeDay)) {
+    if (dayIds.has(d.id)) continue;
+    dayIds.add(d.id);
+    days.push(d);
+  }
+  days.sort((a, b) => a.sortOrder - b.sortOrder).forEach((d, i) => (d.sortOrder = i));
+  return { folders, items, days };
 }
 
 // trailFaviconDataUrl is NOT set here — it lives in a separate per-host table and is
@@ -107,6 +121,7 @@ export function rowToSnapshot(row: ListRow): ListSnapshot {
     displayUnit: row.displayUnit as Unit,
     folders: data.folders ?? [],
     items: data.items ?? [],
+    days: data.days ?? [],
     version: row.version,
     isPublic: row.isPublic,
     // ISO string for the wire; the driver hands back a Date (neon/PGlite) or, in
@@ -224,6 +239,7 @@ function rowToState(row: ListRow): ListState {
     displayUnit: row.displayUnit as Unit,
     folders: structuredClone(data.folders ?? []),
     items: structuredClone(data.items ?? []),
+    days: structuredClone(data.days ?? []),
     version: row.version,
   };
 }
@@ -657,9 +673,10 @@ export async function applyOpsByEditToken(
     const before = {
       items: state.items.map((i) => ({ ...i })),
       folders: state.folders.map((f) => ({ ...f })),
+      days: (state.days ?? []).map((d) => ({ ...d })),
     };
     applyOps(state, ops);
-    const data: ListData = { folders: state.folders, items: state.items };
+    const data: ListData = { folders: state.folders, items: state.items, days: state.days ?? [] };
     const totals = computeTotals(data);
 
     // The publish-time link-spam gate must survive publishing: a setMeta on an

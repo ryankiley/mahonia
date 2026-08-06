@@ -6,7 +6,7 @@
 
 import { normalizeDistanceUnit, normalizeTrailDistanceM } from "./trailDistance";
 import { normalizeTrailLabel, normalizeTrailUrl } from "./trailLink";
-import type { Classification, Folder, FolderSort, Item, ListState, Unit } from "./types";
+import type { Classification, Folder, FolderSort, Item, ListState, TripDay, Unit } from "./types";
 import { UNITS } from "./types";
 
 // updateItem's patch: Partial<Item> plus `catalogItemId: null` as an explicit
@@ -48,6 +48,12 @@ export type Op =
   | { t: "addFolder"; folder: Folder }
   | { t: "updateFolder"; id: string; patch: Partial<Folder> }
   | { t: "removeFolder"; id: string }
+  // Days follow the FOLDER ops, not the item ones: three, with reorder riding as a
+  // sortOrder patch on updateDay. There is no moveDay for the same reason there is no
+  // moveFolder — a day has no container to move between, only an order.
+  | { t: "addDay"; day: TripDay }
+  | { t: "updateDay"; id: string; patch: Partial<TripDay> }
+  | { t: "removeDay"; id: string }
   | {
       t: "setMeta";
       patch: Partial<{
@@ -107,6 +113,15 @@ const FOLDER_SORTS: FolderSort[] = ["name", "heaviest", "lightest"];
 // bigint(mode:number) columns (MAX_ITEMS × qtyMax × UNIT_WEIGHT_MAX_MG < 2^53).
 export const MAX_ITEMS = 1000;
 export const MAX_FOLDERS = 50;
+// Past this an itinerary stops being something a person hand-enters, and the per-day
+// model stops being the right tool for the trip. A bound on row size, like the two above,
+// not an opinion about how long a walk should be.
+export const MAX_DAYS = 60;
+// A day's bounds are NOT the route's. 100 km is longer than any single day on foot, and
+// 10,000 m of climb is more than Everest from the sea — generous for a real day, and far
+// enough below a float that misbehaves to keep the jsonb honest.
+export const MAX_DAY_DISTANCE_M = 100_000;
+export const MAX_DAY_ASCENT_M = 10_000;
 export const UNIT_WEIGHT_MAX_MG = 100_000_000; // 100 kg per single unit
 // Per single unit, so the same 2^53 argument holds for the kcal rollup. A day of
 // hard hiking runs 4–5k kcal; 1,000,000 leaves room for a whole resupply entered
@@ -199,6 +214,45 @@ function cleanFolderPatch(patch: Partial<Folder>): Partial<Folder> {
     out.sortBy = FOLDER_SORTS.includes(patch.sortBy as FolderSort) ? (patch.sortBy as FolderSort) : undefined;
   if (typeof patch.sortOrder === "number" && isFinite(patch.sortOrder)) out.sortOrder = patch.sortOrder;
   return out;
+}
+
+// A day's optional metres. Absent stays absent and a zero CLEARS, on the same reasoning
+// as Item.kcal: a zero would read as "this day covers no ground", which is a claim, where
+// absent reads as "not filled in". A day that genuinely covers no ground says so with
+// `rest`, which is why that flag exists.
+function cleanDayMetres(raw: unknown, max: number): number | undefined {
+  const n = typeof raw === "string" ? Number.parseFloat(raw) : raw;
+  if (typeof n !== "number" || !Number.isFinite(n)) return undefined;
+  const m = Math.round(n);
+  return m > 0 && m <= max ? m : undefined;
+}
+
+function cleanDayPatch(patch: Partial<TripDay>): Partial<TripDay> {
+  const out: Partial<TripDay> = {};
+  if (typeof patch.label === "string") out.label = patch.label.slice(0, 120) || undefined;
+  // `in` rather than a truthiness test: these are all clearable, and an explicit
+  // undefined/0/"" has to be able to erase a value, not be skipped as "nothing sent".
+  if ("distanceM" in patch) out.distanceM = cleanDayMetres(patch.distanceM, MAX_DAY_DISTANCE_M);
+  if ("ascentM" in patch) out.ascentM = cleanDayMetres(patch.ascentM, MAX_DAY_ASCENT_M);
+  if ("descentM" in patch) out.descentM = cleanDayMetres(patch.descentM, MAX_DAY_ASCENT_M);
+  // only `true` survives; false/absent clears the flag rather than storing a redundant
+  // "this is not a rest day", exactly as a folder's "manual" sort clears rather than persists
+  if ("rest" in patch) out.rest = patch.rest === true ? true : undefined;
+  if (typeof patch.sortOrder === "number" && isFinite(patch.sortOrder)) out.sortOrder = patch.sortOrder;
+  return out;
+}
+
+/** A raw day → its stored form. Same contract as normalizeFolder/normalizeItem. */
+export function normalizeDay(raw: TripDay): TripDay {
+  return {
+    id: String(raw.id).slice(0, MAX_ID_LEN),
+    sortOrder: Number(raw.sortOrder) || 0,
+    label: raw.label ? String(raw.label).slice(0, 120) : undefined,
+    distanceM: cleanDayMetres(raw.distanceM, MAX_DAY_DISTANCE_M),
+    ascentM: cleanDayMetres(raw.ascentM, MAX_DAY_ASCENT_M),
+    descentM: cleanDayMetres(raw.descentM, MAX_DAY_ASCENT_M),
+    rest: raw.rest === true ? true : undefined,
+  };
 }
 
 /** Apply a single op in place. Unknown/invalid ops are ignored (no throw). */
@@ -303,6 +357,26 @@ function applyOp(state: ListState, op: Op): void {
     case "removeFolder":
       state.folders = state.folders.filter((f) => f.id !== op.id);
       state.items = state.items.filter((i) => i.folderId !== op.id);
+      break;
+    case "addDay":
+      if (
+        op.day &&
+        typeof op.day.id === "string" &&
+        (state.days?.length ?? 0) < MAX_DAYS &&
+        !state.days?.some((d) => d.id === op.day.id)
+      )
+        (state.days ??= []).push(normalizeDay(op.day));
+      break;
+    case "updateDay": {
+      const d = state.days?.find((x) => x.id === op.id);
+      if (d) Object.assign(d, cleanDayPatch(op.patch || {}));
+      break;
+    }
+    case "removeDay":
+      // No cascade, unlike removeFolder — nothing else references a day. Items belong to
+      // folders, and deliberately not to days: gear is packed for a trip, not for a
+      // Tuesday, and pinning it to one would make deleting a day delete your tent.
+      if (state.days) state.days = state.days.filter((d) => d.id !== op.id);
       break;
     case "setMeta": {
       const p = op.patch || {};
