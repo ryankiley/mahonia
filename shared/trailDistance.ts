@@ -11,9 +11,10 @@
 // entry unit is a display concern. Distance is a property of the ROUTE, so it lives
 // on the trail link rather than on the list — clearing the link clears it too.
 //
-// This is not the first step of a trip planner. There is no elevation, no gradient,
-// no per-day itinerary, and deliberately no burn model: see the note in
-// shared/foodPlan.ts for why the arithmetic stops where it does.
+// This file is only the LENGTH. Elevation, gradient, the per-day itinerary and the burn
+// model all exist now and all live elsewhere — shared/gpx.ts reads the route's shape,
+// shared/tripPlan.ts turns it into time and calories. What stays out of here is anything
+// that needs more than a number and a unit.
 
 /** Metres per distance unit. */
 const M_PER_UNIT = {
@@ -159,14 +160,15 @@ export function normalizeDistanceUnit(raw: unknown): DisplayDistanceUnit | undef
 }
 
 /**
- * The unit a list's distance actually reads in: the owner's explicit pick, else the
- * one the weight unit implies.
+ * The unit a list's distance actually reads in: the owner's explicit pick, else miles.
  *
- * Absent means "follow the weight unit", which is exactly how the field behaved
- * before it was pickable — the same shape Item.entryUnit uses against displayUnit,
- * and for the same reason. It also keeps the two honest cases apart: a metric list
- * whose owner has never thought about distance FOLLOWS the weight unit when they
- * later switch to ounces, while one who deliberately chose km stays in km.
+ * The fallback USED to follow the weight unit, on the reasoning that a gram list is a
+ * metric list. It doesn't any more — distanceUnitFor returns miles regardless — because
+ * the two choices turned out not to travel together: plenty of people weigh a pack in
+ * grams and walk in miles, and having the distance flip units because someone switched
+ * to ounces was a surprise rather than a convenience.
+ *
+ * An explicit pick still wins and is still remembered, which is the part that matters.
  */
 export function resolveDistanceUnit(
   explicit: string | undefined,

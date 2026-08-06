@@ -46,12 +46,13 @@ export const lists = pgTable(
     trailLabel: text("trail_label"),
     // route length in metres — typed, not fetched (shared/trailDistance.ts)
     trailDistanceM: integer("trail_distance_m"),
-    // "km" | "mi"; null = follow display_unit
+    // "km" | "mi"; null = miles (shared/trailDistance.ts)
     trailDistanceUnit: text("trail_distance_unit"),
-    // the walker — NEVER served on a read path, see rowToSnapshot
+    // the route's shape, read off a GPX — public, like the rest of the trail meta
     trailProfile: text("trail_profile"),
     trailAscentM: integer("trail_ascent_m"),
     trailDescentM: integer("trail_descent_m"),
+    // the WALKER — never served on a read path, see rowToSnapshot/withOwnerOnly
     bodyWeightG: integer("body_weight_g"),
     bodyWeightUnit: text("body_weight_unit"),
     // when the trip is. TEXT holding `YYYY-MM-DD`, not a date/timestamptz column: a

@@ -148,7 +148,7 @@ async function onGpx(e: Event) {
     c.setMeta({
       trailDistanceM: stats.distanceM,
       trailProfile: profileToString(stats.profile) ?? "",
-      // measured across the FULL track, not the 96-sample profile — see trailAscentM
+      // measured across the FULL track, not the stored profile — see trailAscentM
       trailAscentM: stats.ascentM,
       trailDescentM: stats.descentM,
     });
@@ -540,10 +540,10 @@ onClickOutside(trailEl, closeTrail);
 
           <!-- Typed, because it cannot be fetched: the linked page answers a
                server-side GET with 403 and there's no API to ask instead. Anyone
-               pasting a trail link is looking at the number on that page. The unit is
-               in the LABEL rather than a picker — the list already chose metric or
-               imperial, and a bare number is read in that; typing "7.5 mi" anyway
-               still works. -->
+               pasting a trail link is looking at the number on that page.
+               A bare number is read in the unit the picker beside it shows; typing
+               "7.5 mi" into a list set to km still works, because the parser reads a
+               unit off the value and prefers it to the picker's. -->
           <!-- "optional" rides in the LABEL, not the placeholder: a placeholder is gone
                the moment you type, which is exactly when you'd want to know you could
                have left it empty. The other two fields are optional too, but this is

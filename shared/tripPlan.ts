@@ -75,7 +75,8 @@ const TOBLER_PEAK_SLOPE = 0.05;
  * Walking speed on a given slope, in m/s. `slope` is rise/run and SIGNED: 0.1 is a 10%
  * climb, −0.1 a 10% descent.
  *
- * `loadKg` applies Naismith's pack penalty — 1% slower per kilogram carried. Tobler's
+ * `loadKg` — the pack carried through the day (its midpoint weight, see burnDownMg) —
+ * applies Naismith's pack penalty — 1% slower per kilogram carried. Tobler's
  * function has no load term of its own, so this rides on top as a separate, honest
  * multiplier rather than being smuggled into the curve.
  */
@@ -247,7 +248,11 @@ export function estimateDay(opts: {
 }
 
 /**
- * The pack's weight at the START of each of `days` days, in milligrams.
+ * The pack's weight at the MIDDLE of each of `days` days, in milligrams.
+ *
+ * The midpoint, not the trailhead figure — see the note on the loop below. A day is spent
+ * getting from one to the next, so the weight it is actually walked under is the average
+ * of its ends, and the start-of-day figure over-reads every day's effort.
  *
  * The pack is heaviest at the trailhead and lightest at the end, because you eat it. This
  * is the figure a static "pack weight" gets wrong, and the one the app is unusually well

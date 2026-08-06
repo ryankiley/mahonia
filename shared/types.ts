@@ -148,27 +148,26 @@ export interface ListMeta {
   // page can't be read server-side; see the note atop shared/trailDistance.ts). A
   // property of the route, so it belongs to the link and is cleared with it.
   trailDistanceM?: number;
-  // Which unit that distance READS in, "km" or "mi". Absent = follow displayUnit
-  // (a gram list reads km, an ounce list miles) — the same fall-back Item.entryUnit
-  // makes against the same field, and it's what keeps a list that never thought about
-  // distance consistent with the weight beside it. Present = the owner picked, and the
-  // pick outlives a later change of weight unit. Never affects what's stored.
+  // Which unit that distance READS in, "km" or "mi". Absent = miles; present = the owner
+  // picked, and the pick is remembered. It used to fall back to the weight unit, on the
+  // reasoning that a gram list is a metric list — see resolveDistanceUnit for why that
+  // turned out to be wrong. Never affects what's stored.
   trailDistanceUnit?: DisplayDistanceUnit;
+  // The route's shape: elevations in metres, comma-joined, evenly spaced by distance.
+  // Read off a GPX in the browser; see shared/gpx.ts. Belongs to the ROUTE, so it clears
+  // with the link, like the distance does.
+  trailProfile?: string;
+  // The whole route's climb, in metres, at FULL track resolution. The stored profile is
+  // resampled, which is plenty to draw with and too coarse to measure with — it smooths
+  // away some of the real undulation. So per-day climb takes its SHAPE from the profile
+  // and its MAGNITUDE from this.
+  trailAscentM?: number;
+  /** and what it gives back — same full-resolution caveat as the climb above */
+  trailDescentM?: number;
   // The walker, for the burn estimates — grams, with "kg" | "lb" deciding how it reads.
   // NOT part of the shared list: it is stripped on every read path that isn't the
   // editor, so a share link never discloses it. See rowToSnapshot in listRepo, which
   // omits it by DEFAULT rather than by remembering to.
-  // The route's shape: elevations in metres, comma-joined, evenly spaced by distance.
-  // Read off a GPX in the browser; see shared/gpx.ts. Belongs to the ROUTE, so it clears
-  // with the link, like the distance does.
- trailProfile?: string;
-  // The whole route's climb, in metres, at FULL track resolution. The stored profile is
-  // only 96 samples, which is plenty to draw with and far too coarse to measure with —
-  // it smooths away about half the real undulation. So per-day climb takes its SHAPE
-  // from the profile and its MAGNITUDE from this.
-  trailAscentM?: number;
-  /** and what it gives back — same full-resolution caveat as the climb above */
-  trailDescentM?: number;
   bodyWeightG?: number;
   bodyWeightUnit?: BodyWeightUnit;
   // When the trip is. CALENDAR DATES, not instants: `YYYY-MM-DD`, no time and no

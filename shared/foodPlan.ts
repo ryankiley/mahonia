@@ -5,17 +5,21 @@
 // number with no scale — 9,000 kcal is a feast for a weekend and starvation for a
 // week. Per DAY, the same number reads instantly. That's the whole feature.
 //
-// WHAT THIS DELIBERATELY DOESN'T DO. The obvious next step is a burn model —
-// Pandolf's load-carriage equation is the one the field uses, and Mahonia is unusually
-// well placed for it because the pack weight it needs is already computed exactly
-// rather than typed in. It isn't here, because Pandolf also needs body weight,
-// walking pace and gradient, and this app has none of the three. Defaulting them
-// (a 70 kg hiker, 1.1 m/s, a 5% grade) would turn three guesses into one confident
-// kcal figure, and a confident wrong number is worse than an honest ratio — the same
-// rule trailLink.ts follows when it declines to invent a name.
+// WHAT THIS FILE DOESN'T DO — and where it went instead.
 //
-// So everything below is arithmetic on numbers the owner actually entered. The
-// comparison band is named as a rule of thumb and nothing more.
+// This used to say a burn model wasn't here, because one needs body weight, pace and
+// gradient and the app had none of the three. It has all three now: the planning view
+// asks for body weight, the route's profile supplies the gradient, and pace is derived
+// from that gradient rather than assumed. The model lives in shared/tripPlan.ts.
+//
+// The reasoning that kept it out is still the reasoning that governs it: the figures are
+// marked as estimates wherever they appear, the body weight is stated in the tooltip so a
+// reader knows what it was computed against, and the default is labelled as assumed
+// rather than presented as known. A confident wrong number is still worse than an honest
+// ratio — the same rule trailLink.ts follows when it declines to invent a name.
+//
+// What stays here is the ratio: arithmetic on numbers the owner actually entered, with
+// the comparison band named as a rule of thumb and nothing more.
 
 import type { ListMeta, Totals } from "./types";
 import { formatDistance, resolveDistanceUnit } from "./trailDistance";

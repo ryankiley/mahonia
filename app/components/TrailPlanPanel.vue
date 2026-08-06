@@ -76,16 +76,14 @@ const distanceUnit = computed(() =>
 );
 
 const totalDistanceM = computed(() => days.value.reduce((s, d) => s + (d?.distanceM ?? 0), 0));
-// The days are the plan, so they're the source — but before any day is filled in, the
-// route's own distance is the honest total, and it's already on the trail link. Falling
-// back to it means the headline says something true from the first moment rather than
-// sitting at zero until the itinerary is typed.
-// The ROUTE's own length leads, and the days are shares of it — that's what leaves a
-// remainder for the unfilled ones to divide. Taking the sum of the days instead meant the
-// route's total shrank to whatever had been typed so far, so there was never anything
-// left to share and every blank day drew as zero.
-// `max`, not the route alone: an itinerary can legitimately add up to more than the
-// straight-line route (a side trip, an out-and-back to water), and the figure a person
+// The bigger of the route's own length and what the days add up to.
+//
+// The route leads, because it says something true from the first moment rather than
+// sitting at zero until an itinerary is typed, and because the days are shares OF it —
+// which is what leaves a remainder for the unassigned stretch (see dayDistancesM).
+//
+// But `max`, not the route alone: an itinerary can legitimately add up to more than the
+// straight-line route — a side trip, an out-and-back to water — and a figure a person
 // typed must never be quietly discarded in favour of one read off a file.
 const headlineM = computed(() =>
   Math.max(props.snapshot.trailDistanceM ?? 0, totalDistanceM.value),
@@ -403,9 +401,9 @@ const distanceValue = (m: number | undefined) =>
              names it better than a typed string would. "Monday, Day 2" is what a person
              says out loud, and it stays correct when the dates move.
 
-             `label` survives on TripDay and setDayLabel still exists — the field round-
-             trips through export and import untouched. What's gone is the affordance, not
-             the data, so naming can come back without a migration. -->
+             `label` survives on TripDay, and updateDay still accepts it, so the field
+             round-trips through export and import untouched. What's gone is the
+             affordance, not the data: naming can come back without a migration. -->
         <header class="plan__dayhead">
           <h2 class="plan__name">{{ dayOrdinal(i) }}</h2>
           <button
@@ -633,10 +631,6 @@ const distanceValue = (m: number | undefined) =>
      different rhythm rather than a different view. */
   gap: var(--space-4);
   margin-bottom: var(--space-1);
-}
-.plan__n {
-  flex: none;
-  color: var(--ink-3);
 }
 /* Sized to its text so the chevron stays hugged against it rather than being pushed to
    the column's far edge — the same reason the folder title does it. */
