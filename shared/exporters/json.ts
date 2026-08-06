@@ -175,18 +175,16 @@ export function jsonToListImport(text: string): JsonImport | null {
     // a string or an absurd number, and the normalizer is the one rule for all of them
     trailDistanceM: normalizeTrailDistanceM(raw.trailDistanceM),
     trailDistanceUnit: normalizeDistanceUnit(raw.trailDistanceUnit),
-    // The route's shape. listToJson writes these, so not reading them back made the
-    // backup lossy in the one way the header promises it isn't — and lossy for the field
-    // an owner cannot retype, since it came off a GPX file they may no longer have.
-    //
+    // The route's SHAPE. listToJson writes it, so not reading it back made the backup
+    // lossy in the one way the header promises it isn't — and lossy for the field an
+    // owner cannot retype, since it came off a GPX file they may no longer have. It
+    // rides the backup DELIBERATELY, where body weight deliberately doesn't: a backup is
+    // the owner downloading their own list. Safe by construction on the read views —
+    // their "Download JSON" runs on the public snapshot, which has no geometry to write.
+    routeGeometry: normalizeRouteGeometry(raw.routeGeometry),
     // Round-tripped through parseProfile rather than trusted: a hand-edited backup can
     // carry any string here, and parseProfile is the one rule for what a profile is
     // (bounded length, finite metres, at least two samples).
-    // The route's SHAPE. It rides the backup DELIBERATELY, where body weight deliberately
-    // doesn't — a backup is the owner downloading their own list, and this is the one
-    // field they cannot retype. Safe by construction on the read views: their
-    // "Download JSON" runs on the public snapshot, which has no geometry to write.
-    routeGeometry: normalizeRouteGeometry(raw.routeGeometry),
     trailProfile: profileToString(parseProfile(raw.trailProfile)),
     trailAscentM: normalizeTrailAscentM(raw.trailAscentM),
     trailDescentM: normalizeTrailAscentM(raw.trailDescentM),

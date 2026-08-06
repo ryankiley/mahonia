@@ -4,8 +4,7 @@ import { Backpack02Icon, Cancel01Icon, CheckmarkSquare02Icon, ChevronDownIcon, E
 import { editLinkPath } from "~~/shared/links";
 import { tripHeadline } from "~~/shared/trailDistance";
 import { formatWeight } from "~~/shared/weights";
-import type { Unit } from "~~/shared/types";
-import type { Item } from "~~/shared/types";
+import type { Item, Unit } from "~~/shared/types";
 import { bySortOrder, groupItemsByFolder, groupItemsByParent, ungroupedTopLevel } from "~~/shared/weights";
 
 // The whole editor surface (its own sticky topbar + flex shell + the shared
@@ -911,11 +910,11 @@ function onCorrected(res: { status: string; itemName?: string }) {
      third was added, which clipped the ⋯ menu off the trailing edge entirely.
      The gap is the only slack that costs nothing: --tap is the HIG minimum and every
      other candidate is a control's hit area. Halving it here buys 20px without shrinking
-     a single target. (.lm__word gives up the rest.) */
+     a single target. */
   @media (max-width: $bp-stack) {
     gap: var(--space-1);
   }
-  /* Leading edge, and the TOOL CLUSTER pushes itself right (see .editor__vault below).
+  /* Leading edge, and the TOOL CLUSTER pushes itself right (see .topbar__status below).
      This used to be justify-content: flex-end, holding the icons trailing by
      shoving everything — a workaround for the bar's only flexible item being
      CONDITIONAL: SyncStatus says nothing on an untouched draft, so with no
@@ -926,22 +925,9 @@ function onCorrected(res: { status: string; itemName?: string }) {
      cluster does the same job without depending on a sibling existing. */
 }
 /* Sizes to its own words and shrinks if it must (min-width:0 lets its ellipsis
-   fire) — but does NOT grow. The cluster's auto margin below eats the free space
-   first, and a `flex: 1` here would then resolve its 0% basis against nothing left
-   and collapse the line to a sliver. */
-/* Directly under the toolbar and above the list's title. Not sticky: it belongs to the
-   page, not the chrome.
-   No margin of its own — the bar already carries 4px of its own padding, and the title
-   below it brings its own leading. A step on top of those two read as a gap somebody
-   forgot to close. */
-/* The big figure sits between the switcher and whatever that switcher chose. Its own
-   space, because it belongs to neither — it is the page's headline in all three views. */
-.editor__headline {
-  margin-bottom: var(--space-4);
-}
-.editor__modes {
-  margin-bottom: var(--space-1);
-}
+   fire) — but does NOT grow. Its own auto margin eats the free space first, and a
+   `flex: 1` here would then resolve its 0% basis against nothing left and collapse the
+   line to a sliver. */
 .topbar__status {
   /* WHERE THE BAR SPLITS. Everything after this acts ON the list; everything before it
      says which list you are looking at.
@@ -955,6 +941,19 @@ function onCorrected(res: { status: string; itemName?: string }) {
   margin-right: auto;
   flex: 0 1 auto;
   min-width: 0;
+}
+/* Directly under the toolbar and above the list's title. Not sticky: it belongs to the
+   page, not the chrome.
+   Only the one step below it — the bar already carries 4px of its own padding, and the
+   title below brings its own leading. A full step on top of those two read as a gap
+   somebody forgot to close. */
+.editor__modes {
+  margin-bottom: var(--space-1);
+}
+/* The big figure sits between the switcher and whatever that switcher chose. Its own
+   space, because it belongs to neither — it is the page's headline in all three views. */
+.editor__headline {
+  margin-bottom: var(--space-4);
 }
 /* The title block (name + trail link) belongs to ListHead.vue — it owns its own layout
    so the hover affordance, the title, and the link keep one DOM order. */
