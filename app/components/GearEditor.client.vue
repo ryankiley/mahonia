@@ -139,9 +139,22 @@ function storedMode(): EditorMode {
 const mode = ref<EditorMode>(storedMode());
 watch(mode, (m) => remember(MODE_KEY, m));
 const packed = computed(() => mode.value === "pack");
-// Where the sliding pill sits — an index, so the CSS does the arithmetic once for three
-// segments instead of carrying a class per state.
-const modeIndex = computed(() => MODE_ORDER.indexOf(mode.value));
+/**
+ * The three views, named the way a person would say them.
+ *
+ * WORDS, where these used to be three icons with tooltips. A tooltip is not an answer on
+ * a phone — <Tooltip> declines to open where there is no hover — so the marks had to be
+ * learned by pressing them. The icons stay as the leading glyph, which is what makes the
+ * pair recognisable at a glance once the word has been read once.
+ *
+ * MODE_ORDER stays the source of truth for what a stored value may be; this array is what
+ * the control renders, in the same order, so the sliding indicator's index matches.
+ */
+const MODES = [
+  { key: "edit", label: "Editing", icon: Backpack02Icon },
+  { key: "pack", label: "Packing", icon: CheckmarkSquare02Icon },
+  { key: "plan", label: "Planning", icon: Route02Icon },
+] as const satisfies readonly { key: EditorMode; label: string; icon: unknown }[];
 
 // The vault palette. Closed by default and only ever opened deliberately, so the
 // pane's chunk (and the vault read behind it) costs nothing until it's wanted.
@@ -504,47 +517,10 @@ function onCorrected(res: { status: string; itemName?: string }) {
                title vacated when it became a page title. It takes the free width, which
                is what pins the icon cluster to the trailing edge. -->
           <SyncStatus class="topbar__status" />
-          <div class="modetoggle" role="group" aria-label="View mode">
-            <!-- one pill tracks between the two segments (damped --ease, never overshoot —
-                 a tracking indicator must not leave its track); the icons sit above it -->
-            <span class="modetoggle__pill" :style="{ '--seg-index': modeIndex }" aria-hidden="true" />
-            <Tooltip text="Editing" preferred-placement="bottom">
-              <button
-                type="button"
-                class="modetoggle__opt"
-                :class="{ 'is-active': mode === 'edit' }"
-                aria-label="Editing mode"
-                :aria-pressed="mode === 'edit'"
-                @click="mode = 'edit'"
-              >
-                <HugeiconsIcon :icon="Backpack02Icon" :size="16" :stroke-width="2" />
-              </button>
-            </Tooltip>
-            <Tooltip text="Packing" preferred-placement="bottom">
-              <button
-                type="button"
-                class="modetoggle__opt"
-                :class="{ 'is-active': mode === 'pack' }"
-                aria-label="Packing mode"
-                :aria-pressed="mode === 'pack'"
-                @click="mode = 'pack'"
-              >
-                <HugeiconsIcon :icon="CheckmarkSquare02Icon" :size="16" :stroke-width="2" />
-              </button>
-            </Tooltip>
-            <Tooltip text="Planning" preferred-placement="bottom">
-              <button
-                type="button"
-                class="modetoggle__opt"
-                :class="{ 'is-active': mode === 'plan' }"
-                aria-label="Planning mode"
-                :aria-pressed="mode === 'plan'"
-                @click="mode = 'plan'"
-              >
-                <HugeiconsIcon :icon="Route02Icon" :size="16" :stroke-width="2" />
-              </button>
-            </Tooltip>
-          </div>
+          <!-- The view switcher used to sit here. It moved into the page body (see
+               ModeBar): the bar had no room for words, and no seat for it at all on the
+               read views. What is left in the bar is what acts ON a list rather than
+               what shows one. -->
           <!-- the vault palette: pick from gear you already own instead of typing
                each name. Lazy — the pane and the shared vault module it pulls in
                are their own chunk, downloaded the first time it's opened. -->
@@ -665,6 +641,16 @@ function onCorrected(res: { status: string; itemName?: string }) {
            ghosted placeholder, at the top of the content — matching what the two read
            views have always done (ReadonlyListView's h1). -->
       <ListHead :snapshot="snapshot" @toast="flash" />
+      <!-- WHICH VIEW OF THIS LIST. Under the title and above everything it governs, so
+           the control sits next to its own consequence rather than in the chrome — and
+           so it has room for words. See ModeBar for why it left the topbar. -->
+      <ModeBar
+        class="editor__modes"
+        :modes="MODES"
+        :current="mode"
+        label="View mode"
+        @pick="(k) => (mode = k as EditorMode)"
+      />
       <!-- The totals bar stands down while planning: that view has its own headline (the
            route's distance), and two display-size figures on one screen would make you
            choose which one the page is about. The pack's weight isn't lost — it rides in
@@ -886,7 +872,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
   @media (max-width: $bp-stack) {
     gap: var(--space-1);
   }
-  /* Leading edge, and the TOOL CLUSTER pushes itself right (see .modetoggle below).
+  /* Leading edge, and the TOOL CLUSTER pushes itself right (see .editor__vault below).
      This used to be justify-content: flex-end, holding the icons trailing by
      shoving everything — a workaround for the bar's only flexible item being
      CONDITIONAL: SyncStatus says nothing on an untouched draft, so with no
@@ -900,6 +886,12 @@ function onCorrected(res: { status: string; itemName?: string }) {
    fire) — but does NOT grow. The cluster's auto margin below eats the free space
    first, and a `flex: 1` here would then resolve its 0% basis against nothing left
    and collapse the line to a sliver. */
+/* The switcher's own breathing room. It reads as this page's section header — close
+   under the title it belongs to, with a full step beneath before the content it governs,
+   so the gap says "everything below is what this chose". */
+.editor__modes {
+  margin: var(--space-3) 0 var(--space-4);
+}
 .topbar__status {
   flex: 0 1 auto;
   min-width: 0;
@@ -913,96 +905,16 @@ function onCorrected(res: { status: string; itemName?: string }) {
 .menu {
   flex: none;
 }
-/* editing/packing toggle — a light container with two icon options + a tracking pill */
-.modetoggle {
-  --seg-count: 3;
-  position: relative;
-  flex: none;
-  /* WHERE THE BAR SPLITS. Everything from here rightward is tools for the list;
-     everything left of it is what list you're looking at. The auto margin holds
-     that split without relying on a sibling being present — see .topbar__inner. */
-  margin-left: auto;
-  display: inline-flex;
-  gap: var(--space-px);
-  padding: var(--space-px);
-  background: var(--paper-2);
-  border-radius: var(--radius-pill);
-}
-/* the active tint lives on ONE pill that slides between segments (was a per-segment
-   background crossfade). width/translate are percentage-based so it tracks the wider
-   coarse-pointer segments too. damped --ease — overshoot would let it leave the track. */
-.modetoggle__pill {
-  position: absolute;
-  top: var(--space-px);
-  bottom: var(--space-px);
-  left: var(--space-px);
-  /* One segment. The gaps are (N + 1) × --space-px — N − 1 between the segments plus the
-     padding either side — so the arithmetic is written once for however many there are
-     rather than re-derived each time one is added. */
-  width: calc((100% - (var(--seg-count) + 1) * var(--space-px)) / var(--seg-count));
-  border-radius: var(--radius-pill);
-  background: color-mix(in oklab, var(--ink) 12%, transparent);
-  pointer-events: none;
-  /* --seg-index comes from the component. Percentages resolve against the pill's OWN
-     width — one segment — so each step is one segment plus one gap. This replaced a class
-     per state, which needed a new rule every time a mode was added. */
-  transform: translateX(calc(var(--seg-index, 0) * (100% + var(--space-px))));
-  transition: transform var(--dur) var(--ease);
-  will-change: transform;
-}
-.modetoggle__opt {
-  position: relative; /* sits above the pill */
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--icon-btn);
-  height: 28px;
-  border-radius: var(--radius-pill);
-  color: var(--ink-3);
-  cursor: pointer;
-  transition: color var(--dur) var(--ease);
-  /* Pin a standing compositing layer. These buttons overlap the pill, so when the
-     pill's transform animates, Safari promotes them for the run and demotes them
-     after — re-rasterising each (at a fractional flex x) to the pixel grid, so the
-     icon jumps ~1px per toggle. A static translateZ(0) holds one layer through and
-     after the run; will-change is droppable here since the button's own transform
-     never animates. Invisible in Chromium (keeps layers warm). Icons only, no text,
-     so no glyph-blur cost. See concepts/webkit-relayers-on-animation-boundaries. */
-  transform: translateZ(0);
-}
-.modetoggle__opt:hover {
-  color: var(--ink-2);
-}
-.modetoggle__opt.is-active {
-  color: var(--ink);
-}
-/* touch: each segment becomes a proper tap target (matches the --tap icon buttons) */
-@media (pointer: coarse) {
-  .modetoggle__opt {
-    width: var(--tap);
-    height: 40px;
-  }
-  /* …except on a phone, where three of them plus the tool cluster no longer fit 375px
-     and the ⋯ menu fell off the trailing edge (see .topbar__inner — the bar was already
-     ~17px over with TWO segments). The carve-out lives here, inside the rule that grants
-     the width, rather than as a later override that would silently out-specify it.
-     Why this control and not a --tap elsewhere: the segments are CONTIGUOUS, so a miss
-     lands on a neighbour rather than on nothing, and the cost is switching to the wrong
-     view — visible at once and undone by one tap. On a delete button --tap is not
-     negotiable. If this ever feels tight, move a TRAILING icon into the ⋯ menu (the
-     house's answer to a crowded phone row) rather than shaving this again. */
-  @media (max-width: $bp-stack) {
-    .modetoggle__opt {
-      width: 36px;
-    }
-  }
-  .modetoggle__opt svg {
-    width: var(--icon-touch);
-    height: var(--icon-touch);
-  }
-}
+/* WHERE THE BAR SPLITS. Everything from here rightward acts ON the list; everything left
+   of it says which list you are looking at.
+   The auto margin used to live on the mode toggle, which sat in this seat until it moved
+   into the page body — so it moves to whatever is now first in the tool cluster rather
+   than being deleted with it. It has to be an auto margin and not justify-content: the
+   bar's only flexible item is CONDITIONAL (SyncStatus says nothing on an untouched
+   draft), and with no flex:1 anywhere the cluster would otherwise fall back to the
+   leading edge. */
 .editor__vault {
-  color: var(--ink-2);
+  margin-left: auto;
 }
 /* on = the pane is open: the icon takes full ink and a soft ground, so the button
    reads as a held state rather than a hover */
