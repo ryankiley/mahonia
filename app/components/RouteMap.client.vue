@@ -352,8 +352,12 @@ onBeforeUnmount(() => {
   <figure class="routemap">
     <div ref="host" class="routemap__canvas" :class="{ 'is-bare': failed }" />
     <figcaption class="routemap__note">
-      <template v-if="failed">Map tiles couldn't load — the route is still drawn.</template>
-      <template v-else>Hold ⌘ or Ctrl while scrolling to zoom.</template>
+      <span v-if="failed">Map tiles couldn't load — the route is still drawn.</span>
+      <!-- The zoom hint is about a KEY, so it only exists where there are keys. It is
+           hidden on a coarse pointer rather than dropped, because a touch laptop has
+           both — and pinch works there whether or not the line is shown. The failure
+           message above is not hidden with it: that one is true on every device. -->
+      <span v-else class="routemap__hint">Hold ⌘ or Ctrl while scrolling to zoom.</span>
     </figcaption>
   </figure>
 </template>
@@ -406,6 +410,14 @@ onBeforeUnmount(() => {
   margin-top: var(--space-1);
   font-size: var(--fs-xs);
   color: var(--ink-3);
+}
+/* Touch has no ⌘ and no wheel — the sentence names a gesture that does not exist there,
+   and pinch-zoom needs no instructions. Removing the line also removes the caption's
+   whole box on the surface with the least room for it. */
+@media (pointer: coarse) {
+  .routemap__hint {
+    display: none;
+  }
 }
 
 .routemap__leg,
