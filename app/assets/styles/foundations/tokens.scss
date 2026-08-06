@@ -22,6 +22,18 @@ $bp-full: 1024px !default;
   @return clamp(#{$min}, calc(#{$min} + (100vw - #{$bp-stack}) * #{math.div($max - $min, 1px)} / #{math.div($bp-full - $bp-stack, 1px)}), #{$max});
 }
 
+// The read/share + packing column TEMPLATES, as a mixin rather than two plain tokens:
+// one LIST can want a different amount track from another (a worn split spells itself
+// out there — "×12 · 11 worn" — where "×999" is the normal measure), and a custom
+// property's var()s are substituted where the property is DECLARED, so overriding a
+// track further down the tree cannot reach a template declared on :root. Instantiated
+// twice: once below for the default, once in atoms/item.scss for the split case. Why
+// each track is what it is lives at the :root include.
+@mixin item-cols($qty) {
+  --item-cols-ro: minmax(0, 1fr) #{$qty} var(--item-col-weight-ro) var(--icon-btn);
+  --item-cols-pack: auto 1fr #{$qty} var(--item-col-weight-ro);
+}
+
 :root {
   color-scheme: light dark;
 
@@ -254,13 +266,21 @@ $bp-full: 1024px !default;
   /* ---- layout ---- */
   /* fluid like the type tokens: 1024px floor, growing past the same 1920px
      anchor (1024/1920 ≈ 53.33vw) so the column keeps its character measure as
-     the type scales instead of getting proportionally narrower */
+     the type scales instead of getting proportionally narrower.
+     Both halves of that ratio are the same 0.833vw the type tokens use, so the column
+     is 64 base characters wide at EVERY width. Nothing in it needs a px bound of its
+     own to stop it spreading — a 2560px row holds exactly the text a 1280px row does,
+     in bigger type. */
   --measure: max(64rem, 53.33vw);
 
   /* ---- component primitives — shared structure so duplicated values can't drift ---- */
   /* icon-button box — the dense desktop chrome. The fixed actions track below
      multiplies it, so resizing the button here resizes the track with it. */
   --icon-btn: 32px;
+  /* the category colour dot (.swatch, atoms/controls.scss) — the ONE colour mark in
+     the app. Named because the category legend hangs its wrapped lines off exactly
+     this width (CategoryBar), so the two must move together. */
+  --swatch: 10px;
   /* touch targets — the ~44px Apple-HIG minimum box + the enlarged glyph,
      consumed by every `@media (pointer: coarse)` icon-button override */
   --tap: 44px;
@@ -270,6 +290,12 @@ $bp-full: 1024px !default;
      --tap — a retune of --tap keeps the rhythm instead of needing every paired
      margin-block literal hand-updated. */
   --tap-pull: calc((1.45rem - var(--tap)) / 2);
+  /* the same pull one size down, for an --icon-btn-sized box on a text line: the read
+     row's classification chip is drawn at button size (it is the same chip the editor's
+     toggle lights) but sits in a row of plain text, where it would otherwise stand the
+     line 8px taller than an unmarked row's and push the caption under it down with it.
+     Grow the picture, not the line. */
+  --icon-pull: calc((1.45rem - var(--icon-btn)) / 2);
   /* field height — .field's min-height, mirrored by the add affordances and the
      packing-row height calc so toggling modes never jumps the row height */
   --field-h: 36px;
@@ -307,25 +333,37 @@ $bp-full: 1024px !default;
      keeps that no-drift guarantee while letting the two templates differ where they
      genuinely should, below) */
   --item-col-qty-ro: #{fluid-track(36px, 44px)};
-  --item-col-weight-ro: #{fluid-track(80px, 96px)};
-  /* read/share: name · qty · weight · SPACER. The name track is CAPPED (not a bare
-     1fr) and a trailing 1fr absorbs what's left. With an uncapped name the two data
-     columns rode the right margin, so on a wide window ~800px of dead row sat
-     between "Tent" and its weight and the eye lost the pairing — the same defect the
-     mobile override already fixes by stacking qty+weight under the name
-     (ReadonlyItemRow). Cap the NAME, not the row: every row stays on one shared
-     template so the columns still align down the list (each row is its own grid, so
-     a max-content name would let every row disagree), and the row stays full-width
-     so the hairlines and the folder header still span the whole column. */
-  --item-cols-ro: minmax(0, 36rem) var(--item-col-qty-ro) var(--item-col-weight-ro) 1fr;
-  /* packing/checklist: a checkbox gutter, then the read data tracks — but the name
-     stays an UNCAPPED 1fr, so the weight keeps riding the row's right edge. This one
-     is a mode of the EDITOR (you toggle editing↔packing in place), and the editing
-     row's weight is also right-anchored — capping here would slide the weight
-     sideways on every toggle, the horizontal twin of the row-height jump the
-     .item--check min-height comment guards against. The share views have no such
-     toggle, so they take the tighter measure above. */
-  --item-cols-pack: auto 1fr var(--item-col-qty-ro) var(--item-col-weight-ro);
+  /* The em floor is the WIDEST line the app can state, measured in the type it will be
+     set in: "100,000 g" — the 100 kg cap, plus the gap and the 2ch unit slot — is 5.4em
+     wide. The px track alone was short of it at both ends of the range. Under 815px it
+     was ~3px short, and that one row's number came to rest right of every other number
+     in the column, the exact raggedness .item__wunit exists to prevent. Past 1920px it
+     was short by 14px and rising, because fluid-track() stops growing at 1024 while
+     --text-base keeps going (0.833vw) — a track frozen in pixels under type that isn't.
+     In em it holds at any type size, and max() lets the px track lead where it's
+     already wider. */
+  --item-col-weight-ro: max(#{fluid-track(80px, 96px)}, 5.4em);
+  /* read/share: name · qty · weight · class. The name takes what's left, so the data
+     rides the row's right edge — same as the editing and packing rows, and flush with
+     the totals bar and the folder rules above it.
+     Nothing bounds how far the numbers travel from the name. It used to: a 36rem cap on
+     the name track with a trailing 1fr swallowing the rest, guarding against a wide
+     window stranding a weight far from what it weighs. But the page column is 64 base
+     characters at every width (--measure, above), so that distance is a constant in the
+     only unit that matters, and the cap only ever spent width — on a 1280 window it
+     parked ~240px of dead row after the weight and left the column ragged against rules
+     running the full width, and it pushed a NESTED row's numbers an indent right of its
+     parent's.
+     The class track is ONE chip wide (a row is worn or consumable, never both) —
+     the editor reserves two because both of its toggles are always drawn.
+     PACKING/CHECKLIST (the second template the mixin writes): a checkbox gutter, then
+     the same data tracks, the name again taking the rest. Nothing bounds it the way
+     ReadonlyItemRow bounds the read row — that one is a mode of the EDITOR (you toggle
+     editing↔packing in place), whose rows follow the page column at any width, and a
+     bound on one of the two would slide the weight sideways on every toggle, the
+     horizontal twin of the row-height jump the .item--check min-height comment guards
+     against. */
+  @include item-cols(var(--item-col-qty-ro));
   --item-cols-mobile: 1fr 44px 92px; /* name · qty · weight (controls + grip on row 2) */
   --item-gap: var(--space-4); /* column gap shared by item rows, folder headers + the add row (keeps weights aligned) — 16px so the data columns breathe */
   /* category sparkline (the one data-viz mark — CategoryBar) */

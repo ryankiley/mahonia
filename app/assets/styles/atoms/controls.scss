@@ -252,8 +252,8 @@ input[type="search"]::-webkit-search-decoration {
 // Category colour chip — the ONE colour mark (data viz). A round dot now (softer
 // than a square), same size everywhere (the bar legend + folder headings).
 .swatch {
-  width: 10px;
-  height: 10px;
+  width: var(--swatch);
+  height: var(--swatch);
   flex: none;
   border-radius: var(--radius-pill);
 }
