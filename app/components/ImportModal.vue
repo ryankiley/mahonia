@@ -49,6 +49,7 @@ async function createFrom(
     trailProfile?: string;
     trailAscentM?: number;
     trailDescentM?: number;
+    routeGeometry?: string;
     startDate?: string;
     endDate?: string;
   },
@@ -75,6 +76,7 @@ async function createFrom(
         trailProfile: meta?.trailProfile,
         trailAscentM: meta?.trailAscentM,
         trailDescentM: meta?.trailDescentM,
+        routeGeometry: meta?.routeGeometry,
         startDate: meta?.startDate,
         endDate: meta?.endDate,
         data,

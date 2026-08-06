@@ -10,6 +10,7 @@ import {
 } from "~~/shared/trailDistance";
 import { displayUrl, parseTrailLink, safeUrl } from "~~/shared/trailLink";
 import { MAX_GPX_BYTES, geoJsonPoints, gpxPoints, gpxStats, kmzToKml, profileToString } from "~~/shared/gpx";
+import { routeGeometryFromPoints } from "~~/shared/polyline";
 import type { ListSnapshot } from "~~/shared/types";
 import { copyText } from "~/utils/clipboard";
 
@@ -110,7 +111,7 @@ function commitUrl(e: Event) {
   c.setMeta({ trailUrl: value });
   // clearing the URL clears the label too — a label with no link is unreachable state,
   // and so is a distance with no route to be the length of
-  if (!value) c.setMeta({ trailLabel: "", trailDistanceM: "", trailProfile: "", trailAscentM: "", trailDescentM: "" });
+  if (!value) c.setMeta({ trailLabel: "", trailDistanceM: "", trailProfile: "", trailAscentM: "", trailDescentM: "", routeGeometry: "" });
 }
 
 function commitLabel(e: Event) {
@@ -167,6 +168,8 @@ async function onGpx(e: Event) {
     c.setMeta({
       trailDistanceM: stats.distanceM,
       trailProfile: profileToString(stats.profile) ?? "",
+      // the route's SHAPE, simplified to fit its budget — see shared/polyline.ts
+      routeGeometry: routeGeometryFromPoints(points) ?? "",
       // measured across the FULL track, not the stored profile — see trailAscentM
       trailAscentM: stats.ascentM,
       trailDescentM: stats.descentM,
@@ -220,7 +223,7 @@ function commitDistance(e: Event) {
 
 function remove() {
   // the distance describes the ROUTE, so it goes with the link rather than outliving it
-  c.setMeta({ trailUrl: "", trailLabel: "", trailDistanceM: "", trailProfile: "", trailAscentM: "", trailDescentM: "" });
+  c.setMeta({ trailUrl: "", trailLabel: "", trailDistanceM: "", trailProfile: "", trailAscentM: "", trailDescentM: "", routeGeometry: "" });
   mode.value = null;
 }
 

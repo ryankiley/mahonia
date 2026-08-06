@@ -10,10 +10,12 @@ import {
   MAX_DAYS,
   MAX_FOLDERS,
   MAX_ITEMS,
+  MAX_WAYPOINTS,
   normalizeCalendarDate,
   normalizeDay,
   normalizeFolder,
   normalizeItem,
+  normalizeWaypoint,
   type Op,
 } from "../../shared/ops";
 import { computeTotals } from "../../shared/weights";
@@ -30,6 +32,7 @@ import { isLikelySpam } from "../../shared/discovery";
 import { MAX_SUMMARY_LEN, summarizeOps } from "../../shared/changeSummary";
 import { normalizeDistanceUnit, normalizeTrailAscentM, normalizeTrailDistanceM } from "../../shared/trailDistance";
 import { parseProfile } from "../../shared/gpx";
+import { normalizeRouteGeometry } from "../../shared/polyline";
 import { displayHost, normalizeTrailLabel, normalizeTrailUrl, safeUrl } from "../../shared/trailLink";
 import { ensureSnapshotSchema, ensureTrailFaviconSchema, useAccountDb, useDb } from "./db";
 import { getFavicon, warmFavicon } from "./trailFavicon";
@@ -100,7 +103,23 @@ function normalizeListData(raw?: Partial<ListData>): ListData {
     days.push(d);
   }
   days.sort((a, b) => a.sortOrder - b.sortOrder).forEach((d, i) => (d.sortOrder = i));
-  return { folders, items, days };
+  // Waypoints, same dedupe and cap. WITHOUT this a snapshot restore drops every one of
+  // them — the reconstructed data goes through here on its way to the row, and anything
+  // this function doesn't carry simply isn't written.
+  //
+  // No sortOrder to renumber: a waypoint's place on the route IS its order. Sorted by
+  // alongM so the stored order matches the walk, and normalizeWaypoint returns null for
+  // anything that isn't a placed pin, which is dropped rather than repaired.
+  const waypoints: NonNullable<ListData["waypoints"]> = [];
+  const wpIds = new Set<string>();
+  for (const wp of (raw?.waypoints ?? []).slice(0, MAX_WAYPOINTS)) {
+    const w = normalizeWaypoint(wp);
+    if (!w || wpIds.has(w.id)) continue;
+    wpIds.add(w.id);
+    waypoints.push(w);
+  }
+  waypoints.sort((a, b) => a.alongM - b.alongM);
+  return { folders, items, days, waypoints };
 }
 
 // trailFaviconDataUrl is NOT set here — it lives in a separate per-host table and is
@@ -126,6 +145,16 @@ export function rowToSnapshot(row: ListRow): ListSnapshot {
     folders: data.folders ?? [],
     items: data.items ?? [],
     days: data.days ?? [],
+    // The ASYMMETRY with days is deliberate and load-bearing. Every other entity in
+    // `data` is public; waypoints are not, so this must NOT forward them — and
+    // routeGeometry is absent entirely rather than undefined. withOwnerOnly puts both
+    // back for the four paths that answer an edit token.
+    //
+    // A waypoint is only a distance, which discloses nothing on its own; combined with
+    // the geometry it resolves to a precise point, so the two travel together or not at
+    // all. A recorded track also starts where the walker parked, which is frequently
+    // where they live.
+    waypoints: [],
     version: row.version,
     isPublic: row.isPublic,
     // ISO string for the wire; the driver hands back a Date (neon/PGlite) or, in
@@ -241,12 +270,14 @@ function rowToState(row: ListRow): ListState {
     trailProfile: row.trailProfile ?? undefined,
     trailAscentM: row.trailAscentM ?? undefined,
     trailDescentM: row.trailDescentM ?? undefined,
+    routeGeometry: row.routeGeometry ?? undefined,
     startDate: row.startDate ?? undefined,
     endDate: row.endDate ?? undefined,
     displayUnit: row.displayUnit as Unit,
     folders: structuredClone(data.folders ?? []),
     items: structuredClone(data.items ?? []),
     days: structuredClone(data.days ?? []),
+    waypoints: structuredClone(data.waypoints ?? []),
     version: row.version,
   };
 }
@@ -482,6 +513,11 @@ export async function restoreSnapshotByEditToken(
         trailProfile: s.trailProfile ?? null,
         trailAscentM: s.trailAscentM ?? null,
         trailDescentM: s.trailDescentM ?? null,
+        // WRITTEN here, unlike body weight was. Geometry rides the snapshot chain because
+        // it is a property of the LIST, and it is the one field the owner cannot retype —
+        // it came off a file they may no longer have. Leaving it out of the write would
+        // NULL it on every restore, which is the exact bug trailProfile already had.
+        routeGeometry: s.routeGeometry ?? null,
         startDate: s.startDate ?? null,
         endDate: s.endDate ?? null,
         displayUnit,
@@ -501,7 +537,7 @@ export async function restoreSnapshotByEditToken(
       // would let a contended retry storm prune the whole recovery window with
       // post-vandalism states, which is the one scenario snapshots exist for.
       await captureSnapshot(d, row, "before restore");
-      return rowToSnapshot(updated[0]);
+      return withOwnerOnly(rowToSnapshot(updated[0]), updated[0]);
     }
     // version moved under us — retry against the latest
   }
@@ -546,10 +582,29 @@ export async function getByShareCode(code: string): Promise<ListSnapshot | null>
   return attachAuthorName(db, snap, rows[0].authorUserId);
 }
 
+/**
+ * Attach the fields the OWNER may see and a viewer may not.
+ *
+ * rowToSnapshot omits the route's geometry and its waypoints, so every read path starts
+ * without them and has to ask. That is the wrong way round from how it reads — but it is
+ * the only shape that fails CLOSED: /s (getByShareCode), /l (rowToPublicView) and the
+ * public feed all build on rowToSnapshot, and any read path added later will too. Opt-in
+ * means forgetting leaks nothing; opt-out means forgetting publishes somebody's route.
+ *
+ * This wrapper existed once before, for body weight, and three owner paths forgot to call
+ * it — which is why tests/waypointPrivacy.test.ts asserts BOTH halves: that a viewer never
+ * gets these, and that all four owner paths do.
+ */
+function withOwnerOnly(snap: ListSnapshot, row: ListRow): ListSnapshot {
+  snap.routeGeometry = row.routeGeometry ?? undefined;
+  snap.waypoints = ((row.data ?? {}) as ListData).waypoints ?? [];
+  return snap;
+}
+
 export async function getByEditToken(editToken: string): Promise<ListSnapshot | null> {
   const db = await useDb();
   const row = await findByEditToken(editToken, db);
-  return row ? await hydrateForRead(db, rowToSnapshot(row)) : null;
+  return row ? withOwnerOnly(await hydrateForRead(db, rowToSnapshot(row)), row) : null;
 }
 
 export async function versionByEditToken(editToken: string): Promise<number | null> {
@@ -574,6 +629,7 @@ export async function createList(init?: {
   trailProfile?: string;
   trailAscentM?: number;
   trailDescentM?: number;
+  routeGeometry?: string;
   startDate?: string;
   endDate?: string;
   data?: ListData;
@@ -599,6 +655,7 @@ export async function createList(init?: {
   const trailProfile = parseProfile(init?.trailProfile).join(",") || undefined;
   const trailAscentM = normalizeTrailAscentM(init?.trailAscentM);
   const trailDescentM = normalizeTrailAscentM(init?.trailDescentM);
+  const routeGeometry = normalizeRouteGeometry(init?.routeGeometry);
   // same rule the setMeta op applies, so a date set on a draft means the same thing
   // after the draft is saved as it did before
   const startDate = normalizeCalendarDate(init?.startDate);
@@ -625,6 +682,7 @@ export async function createList(init?: {
           trailProfile,
           trailAscentM,
           trailDescentM,
+          routeGeometry,
           startDate,
           endDate,
           displayUnit,
@@ -637,7 +695,9 @@ export async function createList(init?: {
       // same warm as the mutate path — a list created WITH a trail link (a saved draft,
       // or a JSON-backup import) must get its mark too, not wait for the nightly sweep
       warmFavicon(db, trailUrl);
-      return { editToken, snapshot: rowToSnapshot(inserted[0]!) };
+      // owner path — the creator gets their own route back, or a draft that had one
+      // loses it the moment it is first saved
+      return { editToken, snapshot: withOwnerOnly(rowToSnapshot(inserted[0]!), inserted[0]!) };
     } catch (e) {
       if ((e as { code?: string })?.code === "23505" && attempt < 4) continue;
       throw e;
@@ -741,6 +801,7 @@ export async function applyOpsByEditToken(
         trailProfile: state.trailProfile ?? null,
         trailAscentM: state.trailAscentM ?? null,
         trailDescentM: state.trailDescentM ?? null,
+        routeGeometry: state.routeGeometry ?? null,
         startDate: state.startDate ?? null,
         endDate: state.endDate ?? null,
         displayUnit: state.displayUnit,
@@ -786,7 +847,10 @@ export async function applyOpsByEditToken(
       // mutate response, and warmFavicon swallows its own failures.
       if (state.trailUrl !== row.trailUrl) warmFavicon(d, state.trailUrl);
       // catalog names only — see hydrateForRead on why the favicon stays off the write path
-      return hydrateCatalogNames(d, rowToSnapshot(updated[0]));
+      // withOwnerOnly is NOT optional here. This is the autosave echo and the client
+      // adopts it wholesale: without it every save hands the editor back a list with no
+      // route, wiping the geometry out of the live state between keystrokes.
+      return withOwnerOnly(await hydrateCatalogNames(d, rowToSnapshot(updated[0])), updated[0]);
     }
     // version moved under us — retry against the latest
   }

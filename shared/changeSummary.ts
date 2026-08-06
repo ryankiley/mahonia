@@ -77,6 +77,7 @@ export function summarizeOps(ops: readonly Op[], before?: SummaryBefore): string
 
   let added = 0, removed = 0, foldersAdded = 0, foldersRemoved = 0;
   let daysAdded = 0, daysRemoved = 0, daysEdited = 0;
+  let wpsAdded = 0, wpsRemoved = 0, wpsEdited = 0;
   let renamed = 0, swapped = 0, reweighed = 0, reclassified = 0, moved = 0, packed = 0;
   let meta = 0, other = 0;
 
@@ -132,6 +133,15 @@ export function summarizeOps(ops: readonly Op[], before?: SummaryBefore): string
         break;
       case "updateDay":
         daysEdited++;
+        break;
+      case "addWaypoint":
+        wpsAdded++;
+        break;
+      case "removeWaypoint":
+        wpsRemoved++;
+        break;
+      case "updateWaypoint":
+        wpsEdited++;
         break;
       case "setMeta":
         meta++;
@@ -216,6 +226,11 @@ export function summarizeOps(ops: readonly Op[], before?: SummaryBefore): string
   if (daysAdded && !daysRemoved) return `Added ${plural(daysAdded, "day")}`;
   if (daysRemoved) return `Removed ${plural(daysRemoved, "day")}`;
   if (daysEdited && !added && !removed) return `Edited ${plural(daysEdited, "day")}`;
+  // Below the days, because a recovery point is most often reached for after losing gear
+  // or an itinerary; a moved pin is the smaller thing to have lost.
+  if (wpsAdded && !wpsRemoved) return `Added ${plural(wpsAdded, "waypoint")}`;
+  if (wpsRemoved) return `Removed ${plural(wpsRemoved, "waypoint")}`;
+  if (wpsEdited && !added && !removed) return `Edited ${plural(wpsEdited, "waypoint")}`;
 
   // then the single-intent edits
   const labelEdits = renamed + swapped + reweighed + reclassified;

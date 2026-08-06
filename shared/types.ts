@@ -123,6 +123,39 @@ export interface TripDay {
   rest?: true;
 }
 
+/** The kinds of thing worth marking on a route. */
+export const WAYPOINT_KINDS = ["water", "camp", "landmark", "trailhead", "end"] as const;
+export type WaypointKind = (typeof WAYPOINT_KINDS)[number];
+
+/**
+ * A point worth knowing about, ON the route.
+ *
+ * It stores a DISTANCE ALONG the line, not a coordinate — and that one decision is why
+ * this type is four fields instead of seven. Placement is constrained to the route, so a
+ * waypoint's position IS "how far in"; lat and lon are derived from the geometry when it
+ * comes time to draw. The only coordinates in the database stay the route's own.
+ *
+ * It also means route order is the only order there is, so there's no `sortOrder` to keep
+ * in step with anything, and a waypoint can never end up in the middle of a lake because
+ * a drag on a phone registered forty metres off.
+ *
+ * Five kinds, and two of them are a different KIND of kind. Water, camp and landmark are
+ * things you FIND — a route may have many of each or none. Trailhead and end are the
+ * route's own extremities: exactly one of each, or one in total on a loop, and both are
+ * placed automatically when a file is read because the geometry already knows where they
+ * are. They stay ordinary waypoints afterwards, because a trailhead is sometimes not where
+ * the track starts — you parked elsewhere, or the file begins mid-approach.
+ */
+export interface Waypoint {
+  id: string; // client-generated, like Folder, Item and TripDay
+  kind: WaypointKind;
+  /** metres from the start of the route. THE position, not an annotation on one. */
+  alongM: number;
+  /** the owner's own name — "spring, 40m off trail on the left" */
+  label?: string;
+  note?: string;
+}
+
 /** The JSONB payload + the mutable content the op-reducer operates on. */
 export interface ListData {
   folders: Folder[];
@@ -133,6 +166,15 @@ export interface ListData {
    * takes `?? []` rather than assuming an array. Absent and empty mean the same thing.
    */
   days?: TripDay[];
+  /**
+   * Marks on the route. OPTIONAL and `?? []`-coerced everywhere, exactly like `days` —
+   * every list written before this has no key at all.
+   *
+   * NOT public. A waypoint is only a distance, which is meaningless on its own; combined
+   * with `routeGeometry` it resolves to a precise point, so the two are one privacy object
+   * and travel together. See rowToSnapshot, which omits both.
+   */
+  waypoints?: Waypoint[];
 }
 
 export interface ListMeta {
@@ -164,6 +206,17 @@ export interface ListMeta {
   trailAscentM?: number;
   /** and what it gives back — same full-resolution caveat as the climb above */
   trailDescentM?: number;
+  /**
+   * The route's SHAPE, as an encoded polyline — the app's first stored geography.
+   *
+   * Different in kind from everything above it. A length, a climb and 240 elevation
+   * samples carry no position; a recorded track starts where the person parked, which is
+   * frequently where they live. So this never rides a read path (see rowToSnapshot) and
+   * is bounded hard on the way in (see shared/polyline.ts).
+   *
+   * Belongs to the ROUTE, so it clears with the link like the distance does.
+   */
+  routeGeometry?: string;
   // Body weight is NOT here, and that is the design. It belongs to the walker rather
   // than to a list, so it lives on the device (app/composables/useBodyWeight.ts) and
   // never reaches the server at all — which is a stronger guarantee than the

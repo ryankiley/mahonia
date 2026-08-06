@@ -7,8 +7,9 @@
 import { parseProfile } from "./gpx";
 import { normalizeDistanceUnit, normalizeTrailAscentM, normalizeTrailDistanceM } from "./trailDistance";
 import { normalizeTrailLabel, normalizeTrailUrl } from "./trailLink";
-import type { Classification, Folder, FolderSort, Item, ListState, TripDay, Unit } from "./types";
-import { UNITS } from "./types";
+import type { Classification, Folder, FolderSort, Item, ListState, TripDay, Unit, Waypoint } from "./types";
+import { UNITS, WAYPOINT_KINDS } from "./types";
+import { normalizeRouteGeometry } from "./polyline";
 
 // updateItem's patch: Partial<Item> plus `catalogItemId: null` as an explicit
 // "unlink" — a free rename turns a linked item into a custom one, and the old
@@ -55,6 +56,11 @@ export type Op =
   | { t: "addDay"; day: TripDay }
   | { t: "updateDay"; id: string; patch: Partial<TripDay> }
   | { t: "removeDay"; id: string }
+  // Waypoints follow the day ops exactly. No moveWaypoint and no sortOrder patch: a
+  // waypoint's position on the route IS its order, so there is nothing to reorder.
+  | { t: "addWaypoint"; waypoint: Waypoint }
+  | { t: "updateWaypoint"; id: string; patch: Partial<Waypoint> }
+  | { t: "removeWaypoint"; id: string }
   | {
       t: "setMeta";
       patch: Partial<{
@@ -68,6 +74,8 @@ export type Op =
         trailDistanceM: number | string;
         trailDistanceUnit: string;
         trailProfile: string;
+        // the encoded polyline, or "" to clear — same sentinel as trailProfile above
+        routeGeometry: string;
         trailAscentM: number | string;
         trailDescentM: number | string;
         startDate: string;
@@ -121,6 +129,9 @@ export const MAX_FOLDERS = 50;
 // model stops being the right tool for the trip. A bound on row size, like the two above,
 // not an opinion about how long a walk should be.
 export const MAX_DAYS = 60;
+// A bound on row size, like the caps above, and not an opinion about how many springs a
+// route may have. 100 pins is far past what anyone hand-places on one walk.
+export const MAX_WAYPOINTS = 100;
 // A day's bounds are NOT the route's. 100 km is longer than any single day on foot, and
 // 10,000 m of climb is more than Everest from the sea — generous for a real day, and far
 // enough below a float that misbehaves to keep the jsonb honest.
@@ -259,6 +270,47 @@ export function normalizeDay(raw: TripDay): TripDay {
   };
 }
 
+/** Metres along the route. Clamped rather than dropped: unlike a day's distance, a
+ *  waypoint with no position is not a waypoint, so `addWaypoint` rejects it outright. */
+function cleanAlongM(raw: unknown): number | undefined {
+  const n = typeof raw === "string" ? Number(raw) : raw;
+  if (typeof n !== "number" || !Number.isFinite(n) || n < 0) return undefined;
+  // the longest route the geometry can describe, with room to spare
+  return Math.min(Math.round(n), 1_000_000);
+}
+
+/**
+ * A waypoint from the wire, or null when it isn't one.
+ *
+ * Returns NULL rather than a repaired object, unlike normalizeDay — a day with nothing
+ * filled in is a normal, meaningful state, where a waypoint without a position on the
+ * route is not a partially-placed pin, it is not a pin.
+ */
+export function normalizeWaypoint(raw: Waypoint): Waypoint | null {
+  const alongM = cleanAlongM(raw?.alongM);
+  if (alongM == null || typeof raw?.id !== "string" || !raw.id) return null;
+  return {
+    id: String(raw.id).slice(0, MAX_ID_LEN),
+    kind: WAYPOINT_KINDS.includes(raw.kind) ? raw.kind : "landmark",
+    alongM,
+    label: raw.label ? String(raw.label).slice(0, 120) : undefined,
+    note: raw.note ? String(raw.note).slice(0, 500) : undefined,
+  };
+}
+
+/** `in`-based like cleanDayPatch, so clearing a label reaches the reducer as a clear. */
+function cleanWaypointPatch(patch: Partial<Waypoint>): Partial<Waypoint> {
+  const out: Partial<Waypoint> = {};
+  if ("kind" in patch) out.kind = WAYPOINT_KINDS.includes(patch.kind!) ? patch.kind : "landmark";
+  if ("alongM" in patch) {
+    const m = cleanAlongM(patch.alongM);
+    if (m != null) out.alongM = m; // a patch can move a pin, never un-place it
+  }
+  if ("label" in patch) out.label = patch.label ? String(patch.label).slice(0, 120) : undefined;
+  if ("note" in patch) out.note = patch.note ? String(patch.note).slice(0, 500) : undefined;
+  return out;
+}
+
 /** Apply a single op in place. Unknown/invalid ops are ignored (no throw). */
 function applyOp(state: ListState, op: Op): void {
   switch (op?.t) {
@@ -382,6 +434,25 @@ function applyOp(state: ListState, op: Op): void {
       // Tuesday, and pinning it to one would make deleting a day delete your tent.
       if (state.days) state.days = state.days.filter((d) => d.id !== op.id);
       break;
+    case "addWaypoint": {
+      const wp = op.waypoint && normalizeWaypoint(op.waypoint);
+      if (
+        wp &&
+        (state.waypoints?.length ?? 0) < MAX_WAYPOINTS &&
+        !state.waypoints?.some((w) => w.id === wp.id)
+      )
+        (state.waypoints ??= []).push(wp);
+      break;
+    }
+    case "updateWaypoint": {
+      const w = state.waypoints?.find((x) => x.id === op.id);
+      if (w) Object.assign(w, cleanWaypointPatch(op.patch || {}));
+      break;
+    }
+    case "removeWaypoint":
+      // no cascade, for the same reason removeDay has none — nothing references a waypoint
+      if (state.waypoints) state.waypoints = state.waypoints.filter((w) => w.id !== op.id);
+      break;
     case "setMeta": {
       const p = op.patch || {};
       if (typeof p.title === "string") state.title = p.title.slice(0, 200);
@@ -425,6 +496,15 @@ function applyOp(state: ListState, op: Op): void {
         const prof = parseProfile(p.trailProfile);
         if (prof.length) state.trailProfile = prof.join(",");
         else delete state.trailProfile;
+      }
+      if (typeof p.routeGeometry === "string") {
+        // normalizeRouteGeometry is the single gate, like parseProfile above: it bounds
+        // the string AND the decoded point count, refuses an out-of-range coordinate
+        // rather than clamping it, and returns its own canonical re-encoding so a
+        // hand-edited value can't round-trip in a shape this codec didn't produce.
+        const geo = normalizeRouteGeometry(p.routeGeometry);
+        if (geo) state.routeGeometry = geo;
+        else delete state.routeGeometry;
       }
       if (typeof p.trailAscentM === "number" || typeof p.trailAscentM === "string") {
         const m = normalizeTrailAscentM(p.trailAscentM);

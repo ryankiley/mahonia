@@ -11,16 +11,18 @@
 // Body weight is the one deliberate omission, and it is deliberate in both directions:
 // see tests/bodyWeightPrivacy.test.ts.
 
-import type { Folder, Item, ListData, ListMeta, TripDay, Unit } from "../types";
+import type { Folder, Item, ListData, ListMeta, TripDay, Unit, Waypoint } from "../types";
 import { UNITS } from "../types";
 import {
   MAX_DAYS,
   MAX_FOLDERS,
   MAX_ITEMS,
+  MAX_WAYPOINTS,
   normalizeCalendarDate,
   normalizeDay,
   normalizeFolder,
   normalizeItem,
+  normalizeWaypoint,
 } from "../ops";
 import {
   normalizeDistanceUnit,
@@ -30,15 +32,16 @@ import {
 } from "../trailDistance";
 import { parseProfile, profileToString } from "../gpx";
 import { normalizeTrailLabel, normalizeTrailUrl } from "../trailLink";
+import { normalizeRouteGeometry } from "../polyline";
 import { uid } from "../id";
 
 /** The downloaded backup's shape: the list's meta + its full content. */
 export function listToJson(list: ListMeta & ListData): string {
-  const { title, description, displayUnit, trailUrl, trailLabel, trailDistanceM, trailDistanceUnit, trailProfile, trailAscentM, trailDescentM, startDate, endDate, folders, items, days } = list;
+  const { title, description, displayUnit, trailUrl, trailLabel, trailDistanceM, trailDistanceUnit, trailProfile, trailAscentM, trailDescentM, routeGeometry, startDate, endDate, folders, items, days, waypoints } = list;
   // trailFaviconDataUrl is deliberately absent — it's a per-host cache the server
   // rebuilds, not part of the list the owner authored.
   return JSON.stringify(
-    { title, description, displayUnit, trailUrl, trailLabel, trailDistanceM, trailDistanceUnit, trailProfile, trailAscentM, trailDescentM, startDate, endDate, folders, items, days },
+    { title, description, displayUnit, trailUrl, trailLabel, trailDistanceM, trailDistanceUnit, trailProfile, trailAscentM, trailDescentM, routeGeometry, startDate, endDate, folders, items, days, waypoints },
     null,
     2,
   );
@@ -56,6 +59,7 @@ export interface JsonImport {
   trailProfile?: string;
   trailAscentM?: number;
   trailDescentM?: number;
+  routeGeometry?: string;
   startDate?: string;
   endDate?: string;
   data: ListData;
@@ -133,6 +137,17 @@ export function jsonToListImport(text: string): JsonImport | null {
   // Days: re-minted ids and renumbered order, like folders. Nothing points at a day, so
   // there is no reference map to rebuild — but a backup written before days existed has
   // no array here at all, which is why this coerces rather than assuming one.
+  // Waypoints, same treatment as days: re-minted ids, re-validated rather than trusted.
+  // No sortOrder to renumber — route order is the only order — so they sort by alongM,
+  // and normalizeWaypoint drops anything that isn't a placed pin.
+  const waypoints = (Array.isArray(raw.waypoints) ? raw.waypoints : [])
+    .filter(isRecord)
+    .slice(0, MAX_WAYPOINTS)
+    .map((w) => normalizeWaypoint(w as unknown as Waypoint))
+    .filter((w): w is Waypoint => w != null)
+    .map((w) => ({ ...w, id: uid() }))
+    .sort((a, b) => a.alongM - b.alongM);
+
   const days = (Array.isArray(raw.days) ? raw.days : [])
     .filter(isRecord)
     .slice(0, MAX_DAYS)
@@ -167,6 +182,11 @@ export function jsonToListImport(text: string): JsonImport | null {
     // Round-tripped through parseProfile rather than trusted: a hand-edited backup can
     // carry any string here, and parseProfile is the one rule for what a profile is
     // (bounded length, finite metres, at least two samples).
+    // The route's SHAPE. It rides the backup DELIBERATELY, where body weight deliberately
+    // doesn't — a backup is the owner downloading their own list, and this is the one
+    // field they cannot retype. Safe by construction on the read views: their
+    // "Download JSON" runs on the public snapshot, which has no geometry to write.
+    routeGeometry: normalizeRouteGeometry(raw.routeGeometry),
     trailProfile: profileToString(parseProfile(raw.trailProfile)),
     trailAscentM: normalizeTrailAscentM(raw.trailAscentM),
     trailDescentM: normalizeTrailAscentM(raw.trailDescentM),
@@ -176,6 +196,6 @@ export function jsonToListImport(text: string): JsonImport | null {
     // so an invalid value here simply doesn't survive the import either way.
     startDate: normalizeCalendarDate(raw.startDate),
     endDate: normalizeCalendarDate(raw.endDate),
-    data: { folders, items, days },
+    data: { folders, items, days, waypoints },
   };
 }

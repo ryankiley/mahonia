@@ -4,7 +4,7 @@ import { uid } from "~~/shared/id";
 import { colorKeyForName, nextFolderColor, STARTER_FOLDERS } from "~~/shared/categories";
 import { editLinkPath } from "~~/shared/links";
 import { DRAFT_KEY, localKey, rebaseOnto } from "~~/shared/localList";
-import type { Folder, Item, ListSnapshot, TripDay, Unit } from "~~/shared/types";
+import type { Folder, Item, ListSnapshot, TripDay, Unit, Waypoint, WaypointKind } from "~~/shared/types";
 import type { VaultCapture, VaultEntry } from "~~/shared/vault";
 import { vaultNormKey } from "~~/shared/vault";
 import { bySortOrder, computeTotals, entryUnitFromInput, itemsInFolder, nextSortOrder, parseWeightInput, siblingItems } from "~~/shared/weights";
@@ -385,9 +385,10 @@ function create() {
           trailProfile: s.trailProfile,
           trailAscentM: s.trailAscentM,
           trailDescentM: s.trailDescentM,
+          routeGeometry: s.routeGeometry,
           startDate: s.startDate,
           endDate: s.endDate,
-          data: { folders: s.folders, items: s.items, days: s.days ?? [] },
+          data: { folders: s.folders, items: s.items, days: s.days ?? [], waypoints: s.waypoints ?? [] },
         },
       });
       if (myEpoch !== epoch) return;
@@ -682,6 +683,15 @@ function create() {
     dispatch({ t: "addDay", day: { id: uid(), sortOrder: days.length } });
   }
   const updateDay = (id: string, patch: Partial<TripDay>) => dispatch({ t: "updateDay", id, patch });
+  /** A pin at a distance along the route. No sortOrder — route order is the only order. */
+  function addWaypoint(alongM: number, kind: WaypointKind = "landmark") {
+    dispatch({ t: "addWaypoint", waypoint: { id: uid(), kind, alongM } });
+  }
+  const updateWaypoint = (id: string, patch: Partial<Waypoint>) =>
+    dispatch({ t: "updateWaypoint", id, patch });
+  // No renumbering afterwards, unlike removeDay: nothing about a waypoint's identity comes
+  // from its position in the array, so removing one leaves the rest exactly as they were.
+  const removeWaypoint = (id: string) => dispatch({ t: "removeWaypoint", id });
   function removeDay(id: string) {
     dispatch({ t: "removeDay", id });
     // close the gap so the numbering a person reads ("Day 3") stays the position in the
@@ -1169,6 +1179,7 @@ function create() {
     load, startDraft, dispose, rotate,
     setMeta, setUnit, addFolder, updateFolder, removeFolder, moveFolderBefore,
     addDay, updateDay, removeDay,
+    addWaypoint, updateWaypoint, removeWaypoint,
     vaultPrompt, answerVaultPrompt,
     vaultPicker, confirmVaultPicker, cancelVaultPicker,
     addBlankItem, addBlankItemAfter, addVaultItem, addVaultFolder, saveItemToVault, discardEmpty, updateItem, removeItem, setItemWeight, moveItem,

@@ -11,16 +11,18 @@
 // value), so the diff can never silently lose a change.
 
 import { normalizeDistanceUnit } from "./trailDistance";
-import type { Folder, Item, ListData, ListState, TripDay } from "./types";
+import type { Folder, Item, ListData, ListState, TripDay, Waypoint } from "./types";
 
 export interface ListDiff {
-  meta?: Partial<Pick<ListState, "title" | "description" | "displayUnit" | "trailUrl" | "trailLabel" | "trailDistanceM" | "trailDistanceUnit" | "trailProfile" | "trailAscentM" | "trailDescentM" | "startDate" | "endDate">>;
+  meta?: Partial<Pick<ListState, "title" | "description" | "displayUnit" | "trailUrl" | "trailLabel" | "trailDistanceM" | "trailDistanceUnit" | "trailProfile" | "trailAscentM" | "trailDescentM" | "routeGeometry" | "startDate" | "endDate">>;
   foldersUpsert?: Folder[]; // present in target and new-or-changed vs base
   foldersDel?: string[]; // ids in base, gone in target
   itemsUpsert?: Item[];
   itemsDel?: string[];
   daysUpsert?: TripDay[];
   daysDel?: string[];
+  waypointsUpsert?: Waypoint[];
+  waypointsDel?: string[];
 }
 
 /** A full snapshot payload (the legacy/anchor form — meta + reducer content). */
@@ -38,6 +40,8 @@ export interface FullSnap {
   trailProfile?: string | null;
   trailAscentM?: number | null;
   trailDescentM?: number | null;
+  // the one field an owner cannot retype — it came off a file they may no longer have
+  routeGeometry?: string | null;
   startDate?: string | null;
   endDate?: string | null;
   data: ListData;
@@ -54,9 +58,10 @@ export const stateToFullSnap = (s: ListState): FullSnap => ({
   trailProfile: s.trailProfile ?? null,
   trailAscentM: s.trailAscentM ?? null,
   trailDescentM: s.trailDescentM ?? null,
+  routeGeometry: s.routeGeometry ?? null,
   startDate: s.startDate ?? null,
   endDate: s.endDate ?? null,
-  data: { folders: s.folders, items: s.items, days: s.days ?? [] },
+  data: { folders: s.folders, items: s.items, days: s.days ?? [], waypoints: s.waypoints ?? [] },
 });
 export const fullSnapToState = (s: FullSnap): ListState => ({
   title: s.title,
@@ -71,11 +76,13 @@ export const fullSnapToState = (s: FullSnap): ListState => ({
   trailProfile: s.trailProfile ?? undefined,
   trailAscentM: s.trailAscentM ?? undefined,
   trailDescentM: s.trailDescentM ?? undefined,
+  routeGeometry: s.routeGeometry ?? undefined,
   startDate: s.startDate ?? undefined,
   endDate: s.endDate ?? undefined,
   folders: s.data?.folders ?? [],
   items: s.data?.items ?? [],
   days: s.data?.days ?? [],
+  waypoints: s.data?.waypoints ?? [],
   version: 0, // not carried by snapshots — the row's own version column is authoritative
 });
 
@@ -140,6 +147,9 @@ export function diffListState(base: ListState, target: ListState): ListDiff {
   if ((base.trailDescentM ?? 0) !== (target.trailDescentM ?? 0)) {
     meta.trailDescentM = target.trailDescentM ?? 0;
   }
+  if ((base.routeGeometry ?? "") !== (target.routeGeometry ?? "")) {
+    meta.routeGeometry = target.routeGeometry ?? "";
+  }
   // dates take the same "" clear sentinel: a trip whose dates were removed between
   // base and target has to record the removal, or a restore resurrects them
   if ((base.startDate ?? "") !== (target.startDate ?? "")) meta.startDate = target.startDate ?? "";
@@ -170,6 +180,16 @@ export function diffListState(base: ListState, target: ListState): ListDiff {
   const daysDel = baseDays.filter((d) => !targetDIds.has(d.id)).map((d) => d.id);
   if (daysUpsert.length) diff.daysUpsert = clone(daysUpsert);
   if (daysDel.length) diff.daysDel = daysDel;
+
+  // Waypoints, same shape again, and coerced on both sides for the same reason.
+  const baseWps = base.waypoints ?? [];
+  const targetWps = target.waypoints ?? [];
+  const baseW = new Map(baseWps.map((w) => [w.id, w]));
+  const wpsUpsert = targetWps.filter((w) => !baseW.has(w.id) || !same(baseW.get(w.id), w));
+  const targetWIds = new Set(targetWps.map((w) => w.id));
+  const wpsDel = baseWps.filter((w) => !targetWIds.has(w.id)).map((w) => w.id);
+  if (wpsUpsert.length) diff.waypointsUpsert = clone(wpsUpsert);
+  if (wpsDel.length) diff.waypointsDel = wpsDel;
 
   return diff;
 }
@@ -215,6 +235,10 @@ export function applyListDiff(base: ListState, diff: ListDiff): ListState {
       if (diff.meta.trailDescentM) out.trailDescentM = diff.meta.trailDescentM;
       else delete out.trailDescentM;
     }
+    if (diff.meta.routeGeometry !== undefined) {
+      if (diff.meta.routeGeometry) out.routeGeometry = diff.meta.routeGeometry;
+      else delete out.routeGeometry;
+    }
     if (diff.meta.startDate !== undefined) {
       if (diff.meta.startDate) out.startDate = diff.meta.startDate;
       else delete out.startDate;
@@ -228,6 +252,7 @@ export function applyListDiff(base: ListState, diff: ListDiff): ListState {
   out.items = mergeEntities(out.items, diff.itemsUpsert, diff.itemsDel);
   // `?? []` because `base` may predate days entirely — mergeEntities would iterate undefined
   out.days = mergeEntities(out.days ?? [], diff.daysUpsert, diff.daysDel);
+  out.waypoints = mergeEntities(out.waypoints ?? [], diff.waypointsUpsert, diff.waypointsDel);
   return out;
 }
 
