@@ -119,6 +119,7 @@ export function rowToSnapshot(row: ListRow): ListSnapshot {
     trailDistanceUnit: normalizeDistanceUnit(row.trailDistanceUnit),
     trailProfile: row.trailProfile ?? undefined,
     trailAscentM: row.trailAscentM ?? undefined,
+    trailDescentM: row.trailDescentM ?? undefined,
     startDate: row.startDate ?? undefined,
     endDate: row.endDate ?? undefined,
     displayUnit: row.displayUnit as Unit,
@@ -239,6 +240,7 @@ function rowToState(row: ListRow): ListState {
     trailDistanceUnit: normalizeDistanceUnit(row.trailDistanceUnit),
     trailProfile: row.trailProfile ?? undefined,
     trailAscentM: row.trailAscentM ?? undefined,
+    trailDescentM: row.trailDescentM ?? undefined,
     bodyWeightG: row.bodyWeightG ?? undefined,
     bodyWeightUnit: normalizeBodyWeightUnit(row.bodyWeightUnit),
     startDate: row.startDate ?? undefined,
@@ -481,6 +483,7 @@ export async function restoreSnapshotByEditToken(
         trailDistanceUnit: s.trailDistanceUnit ?? null,
         trailProfile: s.trailProfile ?? null,
         trailAscentM: s.trailAscentM ?? null,
+        trailDescentM: s.trailDescentM ?? null,
         bodyWeightG: s.bodyWeightG ?? null,
         bodyWeightUnit: s.bodyWeightUnit ?? null,
         startDate: s.startDate ?? null,
@@ -589,6 +592,7 @@ export async function createList(init?: {
   trailDistanceUnit?: string;
   trailProfile?: string;
   trailAscentM?: number;
+  trailDescentM?: number;
   bodyWeightG?: number;
   bodyWeightUnit?: string;
   startDate?: string;
@@ -615,6 +619,7 @@ export async function createList(init?: {
   const trailDistanceUnit = normalizeDistanceUnit(init?.trailDistanceUnit);
   const trailProfile = parseProfile(init?.trailProfile).join(",") || undefined;
   const trailAscentM = normalizeTrailAscentM(init?.trailAscentM);
+  const trailDescentM = normalizeTrailAscentM(init?.trailDescentM);
   const bodyWeightG = normalizeBodyWeightG(init?.bodyWeightG);
   const bodyWeightUnit = normalizeBodyWeightUnit(init?.bodyWeightUnit);
   // same rule the setMeta op applies, so a date set on a draft means the same thing
@@ -642,6 +647,7 @@ export async function createList(init?: {
           trailDistanceUnit,
           trailProfile,
           trailAscentM,
+          trailDescentM,
           bodyWeightG,
           bodyWeightUnit,
           startDate,
@@ -759,6 +765,7 @@ export async function applyOpsByEditToken(
         trailDistanceUnit: state.trailDistanceUnit ?? null,
         trailProfile: state.trailProfile ?? null,
         trailAscentM: state.trailAscentM ?? null,
+        trailDescentM: state.trailDescentM ?? null,
         bodyWeightG: state.bodyWeightG ?? null,
         bodyWeightUnit: state.bodyWeightUnit ?? null,
         startDate: state.startDate ?? null,

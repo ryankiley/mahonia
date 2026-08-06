@@ -29,8 +29,19 @@ export interface GpxStats {
   pointCount: number;
 }
 
-/** How many samples the stored profile keeps. ~1 per 3–4 px at the panel's width. */
-export const PROFILE_SAMPLES = 96;
+/**
+ * How many samples the stored profile keeps.
+ *
+ * Raised from 96: that was chosen to DRAW with, and it drew fine, but it flattened real
+ * terrain — a 3,123 m loop measured only 1,608 m of climb off it, and hovering the chart
+ * for a grade needs finer ground than a sample every 700 m. At 240 a 64 km route samples
+ * every ~270 m, which is about where a hiker would say the gradient changed.
+ *
+ * The elevations stored here are RAW, never smoothed. Smoothing exists only inside the
+ * ascent arithmetic, where summing noise is the failure; the drawn shape has no business
+ * being tidied, and a smoothed profile would invent terrain between samples.
+ */
+export const PROFILE_SAMPLES = 240;
 
 /**
  * Getting the ascent right is the whole difficulty of this file, and it takes TWO steps,
@@ -211,7 +222,9 @@ export function profileToString(profile: readonly number[]): string | undefined 
   return profile.map((n) => Math.round(n)).join(",");
 }
 
-const MAX_PROFILE_LEN = 1024;
+// 240 samples of up to 4 digits plus separators, with room to spare. Still nothing
+// against a list's JSONB, and still a hard bound on what a hand-edited value can be.
+const MAX_PROFILE_LEN = 2048;
 
 /** A stored profile back into numbers, refusing anything that isn't one. */
 export function parseProfile(raw: unknown): number[] {

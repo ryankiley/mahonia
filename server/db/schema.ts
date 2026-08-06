@@ -51,6 +51,7 @@ export const lists = pgTable(
     // the walker — NEVER served on a read path, see rowToSnapshot
     trailProfile: text("trail_profile"),
     trailAscentM: integer("trail_ascent_m"),
+    trailDescentM: integer("trail_descent_m"),
     bodyWeightG: integer("body_weight_g"),
     bodyWeightUnit: text("body_weight_unit"),
     // when the trip is. TEXT holding `YYYY-MM-DD`, not a date/timestamptz column: a

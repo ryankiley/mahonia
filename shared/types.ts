@@ -167,6 +167,8 @@ export interface ListMeta {
   // it smooths away about half the real undulation. So per-day climb takes its SHAPE
   // from the profile and its MAGNITUDE from this.
   trailAscentM?: number;
+  /** and what it gives back — same full-resolution caveat as the climb above */
+  trailDescentM?: number;
   bodyWeightG?: number;
   bodyWeightUnit?: BodyWeightUnit;
   // When the trip is. CALENDAR DATES, not instants: `YYYY-MM-DD`, no time and no

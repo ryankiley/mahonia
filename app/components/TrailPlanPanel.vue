@@ -69,7 +69,16 @@ const totalDistanceM = computed(() => days.value.reduce((s, d) => s + (d?.distan
 // route's own distance is the honest total, and it's already on the trail link. Falling
 // back to it means the headline says something true from the first moment rather than
 // sitting at zero until the itinerary is typed.
-const headlineM = computed(() => totalDistanceM.value || props.snapshot.trailDistanceM || 0);
+// The ROUTE's own length leads, and the days are shares of it — that's what leaves a
+// remainder for the unfilled ones to divide. Taking the sum of the days instead meant the
+// route's total shrank to whatever had been typed so far, so there was never anything
+// left to share and every blank day drew as zero.
+// `max`, not the route alone: an itinerary can legitimately add up to more than the
+// straight-line route (a side trip, an out-and-back to water), and the figure a person
+// typed must never be quietly discarded in favour of one read off a file.
+const headlineM = computed(() =>
+  Math.max(props.snapshot.trailDistanceM ?? 0, totalDistanceM.value),
+);
 // The bare number; the unit sits beside it at caption size, as the weight headline does.
 const headlineValue = computed(() =>
   formatDistance(headlineM.value, distanceUnit.value).replace(/\s*(km|mi|m)$/, ""),
@@ -159,10 +168,19 @@ const profile = computed(() => parseProfile(props.snapshot.trailProfile));
 // itinerary is filled in.
 const dayDistancesM = computed(() => {
   const stated = days.value.map((d) => d?.distanceM ?? 0);
-  const total = stated.reduce((s, d) => s + d, 0);
-  if (total > 0) return stated;
-  const each = headlineM.value / Math.max(1, days.value.length);
-  return days.value.map(() => each);
+  const statedTotal = stated.reduce((s, d) => s + d, 0);
+  const open = stated.filter((d) => !d).length;
+  // A day you haven't filled in yet takes an even share of what's LEFT of the route —
+  // not zero. Zero was the bug: with one day entered and three blank, the three collapsed
+  // to no width and the whole profile drew as a single segment, so filling in the
+  // itinerary made the picture worse before it made it better.
+  // Blank days stay ZERO here on purpose. The ground you haven't assigned to a day isn't
+  // shared out among the blank ones — it's simply unassigned, and the chart draws it grey
+  // (see TrailProfile). Enter 4 miles of a 20-mile route and the first 4 are your Day 1;
+  // the other 16 are not yet anybody's, and colouring them would say otherwise.
+  void open;
+  void statedTotal;
+  return stated;
 });
 
 const UNIT_OPTIONS = DISPLAY_DISTANCE_UNITS.map((u) => ({ key: u, label: u }));
@@ -305,7 +323,7 @@ const distanceValue = (m: number | undefined) =>
           <AnimatedCount class="t-num plan__big" :value="headlineValue" />
           <span class="plan__uc" aria-hidden="true">
             <span class="plan__unit-lg">{{ distanceUnit }}</span>
-            <HugeiconsIcon :icon="ChevronDownIcon" class="plan__chev" :class="{ 'is-open': open }" :size="16" :stroke-width="2.25" />
+            <HugeiconsIcon :icon="ChevronDownIcon" class="plan__chev" :class="{ 'is-open': open }" :size="20" :stroke-width="2" />
           </span>
         </template>
       </OptionMenu>
@@ -318,6 +336,8 @@ const distanceValue = (m: number | undefined) =>
       :day-distances-m="dayDistancesM"
       :distance-unit="distanceUnit"
       :total-distance-m="headlineM"
+      :ascent-m="snapshot.trailAscentM"
+      :descent-m="snapshot.trailDescentM"
     />
     <p v-if="perDayDistance" class="plan__perday t-sm">
       {{ perDayDistance }} a day across {{ days.length }} {{ days.length === 1 ? "day" : "days" }}
@@ -440,7 +460,7 @@ const distanceValue = (m: number | undefined) =>
           <span class="plan__cell plan__cell--est">
             <HugeiconsIcon :icon="Clock01Icon" class="plan__gl" :size="16" :stroke-width="2" aria-hidden="true" />
             <span class="t-num">{{ estimates[i] ? `~${formatHours(estimates[i]!.hours)}` : "—" }}</span>
-            <Tooltip v-if="estimates[i]" text="Moving time, from this day's own distance and climb plus 1% per kg of pack. Breaks aren't in it." preferred-placement="top">
+            <Tooltip v-if="estimates[i]" text="Moving time, not elapsed time — breaks aren't in it. Speed comes from the day's own gradient: about 5 km/h on the flat, slower as it steepens, slightly faster on a gentle descent. Then 1% slower per kg of pack, using the weight this list actually holds that morning. Pace, terrain and weather all vary — plan with it, don't schedule by it." preferred-placement="top">
               <button type="button" class="plan__why" aria-label="How the moving time is worked out">
                 <HugeiconsIcon :icon="HelpCircleIcon" :size="14" :stroke-width="2" aria-hidden="true" />
               </button>
@@ -545,7 +565,13 @@ const distanceValue = (m: number | undefined) =>
   gap: var(--space-px);
   color: var(--ink-3);
 }
+/* the unit reads at the folder-name size with the folder's chevron beside it, rather
+   than the caption scale the weight headline uses — a unit you can CHANGE should look
+   like the other things you can change, and 20/2 is the chevron every folder carries */
 .plan__unit-lg {
+  font-size: var(--text-title);
+  font-weight: 600;
+  letter-spacing: var(--track-tight);
   color: var(--ink-3);
 }
 .plan__chev {

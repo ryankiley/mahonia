@@ -19,6 +19,7 @@ export default defineEventHandler(async (event) => {
     trailDistanceUnit?: string;
     trailProfile?: string;
     trailAscentM?: number;
+    trailDescentM?: number;
     bodyWeightG?: number;
     bodyWeightUnit?: string;
     startDate?: string;
@@ -47,6 +48,7 @@ export default defineEventHandler(async (event) => {
   // without these they are silently lost the moment that draft is first saved
   const trailProfile = typeof body?.trailProfile === "string" ? body.trailProfile : undefined;
   const trailAscentM = typeof body?.trailAscentM === "number" ? body.trailAscentM : undefined;
+  const trailDescentM = typeof body?.trailDescentM === "number" ? body.trailDescentM : undefined;
   const bodyWeightG = typeof body?.bodyWeightG === "number" ? body.bodyWeightG : undefined;
   const bodyWeightUnit =
     typeof body?.bodyWeightUnit === "string" ? body.bodyWeightUnit : undefined;
@@ -78,6 +80,7 @@ export default defineEventHandler(async (event) => {
       trailDistanceUnit,
       trailProfile,
       trailAscentM,
+      trailDescentM,
       bodyWeightG,
       bodyWeightUnit,
       startDate,

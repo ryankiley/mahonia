@@ -70,6 +70,7 @@ export type Op =
         trailDistanceUnit: string;
         trailProfile: string;
         trailAscentM: number | string;
+        trailDescentM: number | string;
         bodyWeightG: number | string;
         bodyWeightUnit: string;
         startDate: string;
@@ -432,6 +433,11 @@ function applyOp(state: ListState, op: Op): void {
         const m = normalizeTrailAscentM(p.trailAscentM);
         if (m) state.trailAscentM = m;
         else delete state.trailAscentM;
+      }
+      if (typeof p.trailDescentM === "number" || typeof p.trailDescentM === "string") {
+        const m = normalizeTrailAscentM(p.trailDescentM);
+        if (m) state.trailDescentM = m;
+        else delete state.trailDescentM;
       }
       if (typeof p.bodyWeightG === "number" || typeof p.bodyWeightG === "string") {
         const g = normalizeBodyWeightG(p.bodyWeightG);
