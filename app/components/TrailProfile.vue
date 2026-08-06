@@ -3,7 +3,7 @@ import { HugeiconsIcon } from "@hugeicons/vue";
 import { ArrowDownRight01Icon, ArrowUpRight01Icon } from "@hugeicons/core-free-icons";
 import { categoryColor, nextFolderColor } from "~~/shared/categories";
 import { formatDistance, type DisplayDistanceUnit } from "~~/shared/trailDistance";
-import { GRADE_HARD_PCT, GRADE_MODERATE_PCT, gradeRuns, gradeSpread } from "~~/shared/gpx";
+import { GRADE_HARD_PCT, GRADE_MODERATE_PCT, gradeRuns, gradeSeries, gradeSpread } from "~~/shared/gpx";
 
 // The route's shape, cut into days.
 //
@@ -294,23 +294,34 @@ function onMove(e: PointerEvent) {
 }
 const onLeave = () => (hoverIdx.value = null);
 
-/** The metres of route one sample covers — the run behind every grade below. */
-const sampleRunM = computed(() =>
-  props.profile.length > 1 ? props.totalDistanceM / (props.profile.length - 1) : 0,
+/**
+ * The SAME grade series the shading bands, computed once and read by index.
+ *
+ * Not a second calculation that happens to agree — the same numbers. The readout used to
+ * difference the raw profile and could report −19% over a stretch the shading had painted
+ * as easy, because the shading reads a smoothed series. Two defensible answers to one
+ * question is still a contradiction on screen.
+ */
+const grades = computed(() => gradeSeries(props.profile, props.totalDistanceM));
+
+/**
+ * Evenly spaced marks along the route, always an odd count so the midpoint is one of them.
+ *
+ * Nine, thinned by CSS to five or three as the column narrows — 3, 5 and 9 NEST (0,4,8 is
+ * inside 0,2,4,6,8 is inside all nine), so 0, the midpoint and the end survive every step
+ * down. Seven would have been the obvious next rung and doesn't nest with nine, which is
+ * why the sequence skips it: a tick that appears at one width and vanishes at another
+ * reads as a glitch.
+ */
+const scaleTicks = computed(() =>
+  Array.from({ length: 9 }, (_, i) => Math.round((props.totalDistanceM * i) / 8)),
 );
 
 const hover = computed(() => {
   const i = hoverIdx.value;
   if (i == null || !props.profile.length) return null;
   const ele = props.profile[Math.min(i, props.profile.length - 1)]!;
-  // Grade across the samples EITHER SIDE, not the one ahead: a central difference is
-  // steadier on noisy ground and doesn't lurch at the last point. At the ends it falls
-  // back to the one neighbour that exists.
-  const a = props.profile[Math.max(0, i - 1)]!;
-  const b = props.profile[Math.min(props.profile.length - 1, i + 1)]!;
-  const spanSamples = Math.min(props.profile.length - 1, i + 1) - Math.max(0, i - 1);
-  const run = sampleRunM.value * spanSamples;
-  const grade = run > 0 ? ((b - a) / run) * 100 : 0;
+  const grade = grades.value[Math.min(i, grades.value.length - 1)] ?? 0;
   return {
     x: (i / (props.profile.length - 1)) * VB_W,
     distanceM: Math.round((i / (props.profile.length - 1)) * props.totalDistanceM),
@@ -431,10 +442,11 @@ const id = useId();
       <span :class="`is-${bandOf(Math.round(hover.grade))}`">{{ readGrade(hover.grade) }}</span>
     </div>
 
+    <!-- NINE ticks are always rendered and CSS chooses how many to show, so there is no
+         resize listener and no layout read — the count is a question about available
+         width, which is the one question CSS is better at than we are. -->
     <figcaption class="tprofile__scale t-sm" aria-hidden="true">
-      <span>0 {{ distanceUnit }}</span>
-      <span>{{ formatDistance(Math.round(totalDistanceM / 2), distanceUnit) }}</span>
-      <span>{{ formatDistance(totalDistanceM, distanceUnit) }}</span>
+      <span v-for="(m, i) in scaleTicks" :key="i">{{ i === 0 ? `0 ${distanceUnit}` : formatDistance(m, distanceUnit) }}</span>
     </figcaption>
 
     <!-- What the shape can't be read off it. The vertical exaggeration is whatever the
@@ -457,7 +469,7 @@ const id = useId();
   </figure>
 </template>
 
-<style scoped>
+<style scoped lang="scss">
 /* Stretches to its container and takes its height from CSS — the viewBox does the rest.
    Vertical exaggeration is therefore whatever the container is.
 
@@ -487,6 +499,31 @@ const id = useId();
   margin-top: var(--space-1);
   color: var(--ink-3);
   font-variant-numeric: tabular-nums;
+}
+/* Three on a phone, five from the stacking breakpoint, nine only on a genuinely wide
+   window. The shown subsets are evenly spaced by INDEX, which is what lets space-between
+   keep them evenly spaced by DISTANCE at every count.
+
+   Nine is deliberately gated well above $bp-full rather than at it. The reading column
+   caps around 70rem, so past that the chart stops widening and nine labels fit
+   arithmetically (~70px of clearance) while reading as clutter — a scale is a frame of
+   reference, and one that needs scanning has stopped being one. Five is the practical
+   maximum on almost every window; nine is there for the very wide ones. */
+.tprofile__scale span {
+  display: none;
+}
+.tprofile__scale span:nth-child(4n + 1) {
+  display: block;
+}
+@media (min-width: $bp-stack) {
+  .tprofile__scale span:nth-child(2n + 1) {
+    display: block;
+  }
+}
+@media (min-width: 1600px) {
+  .tprofile__scale span {
+    display: block;
+  }
 }
 .tprofile__facts {
   display: flex;

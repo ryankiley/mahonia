@@ -96,11 +96,6 @@ const headlineM = computed(() =>
 // to a picker still reading "km" — an 800-metre walk shown as 800 kilometres. The unit
 // here is a control the reader chose, so the number has to stay in it.
 const headlineValue = computed(() => distanceHeadline(headlineM.value, distanceUnit.value));
-const perDayDistance = computed(() =>
-  headlineM.value > 0 && days.value.length > 0
-    ? formatDistance(Math.round(headlineM.value / days.value.length), distanceUnit.value)
-    : null,
-);
 const totalAscentM = computed(() => days.value.reduce((s, d) => s + (d?.ascentM ?? 0), 0));
 
 /**
@@ -326,15 +321,11 @@ const distanceValue = (m: number | undefined) =>
       :ascent-m="snapshot.trailAscentM"
       :descent-m="snapshot.trailDescentM"
     />
-    <p v-if="perDayDistance" class="plan__perday t-sm">
-      {{ perDayDistance }} a day across {{ days.length }} {{ days.length === 1 ? "day" : "days" }}
-    </p>
-
+    <!-- Only the figures nothing else on the page states. The day COUNT and the
+         miles-per-day average both left with the same reasoning: the date range names the
+         days and every row carries its own distance, so a chip restating either was
+         summarising a summary. -->
     <div class="plan__chips">
-      <span class="chip">
-        <span class="t-label">Days</span>
-        <span class="t-num">{{ days.length }}</span>
-      </span>
       <span v-if="totalAscentM > 0" class="chip">
         <span class="t-label">Climb</span>
         <span class="t-num">{{ ascentValue(totalAscentM) }} <span class="t-muted">{{ ascentUnit }}</span></span>
@@ -558,10 +549,6 @@ const distanceValue = (m: number | undefined) =>
 }
 .plan__chev.is-open {
   transform: rotate(180deg);
-}
-.plan__perday {
-  margin: calc(var(--space-2) * -1) 0 0;
-  color: var(--ink-3);
 }
 .plan__chips {
   display: flex;

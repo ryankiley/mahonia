@@ -382,25 +382,44 @@ function bandFor(gradePct: number): GradeBand {
  * (which is private to this file), and both the shading and anything else that wants to
  * say "how much of this route is steep" must agree on one answer.
  */
+/**
+ * The grade at every sample, as a percentage — ONE series, so everything that talks about
+ * steepness is talking about the same numbers.
+ *
+ * This exists because the shading and the hover readout disagreed on screen: the readout
+ * differenced the RAW profile and reported −19% at a point the shading had banded as easy,
+ * because the shading was reading a smoothed series. Both were defensible and the pair was
+ * incoherent. A reader pointing at a stretch and being told two different things about it
+ * is worse than either answer being slightly off.
+ *
+ * Central difference over the smoothed series: steadier on noisy ground than looking one
+ * sample ahead, and it doesn't lurch at the ends, where it falls back to the one neighbour
+ * that exists.
+ */
+export function gradeSeries(profile: readonly number[], totalDistanceM: number): number[] {
+  if (profile.length < 2 || !(totalDistanceM > 0)) return [];
+  const runM = totalDistanceM / (profile.length - 1);
+  if (!(runM > 0)) return [];
+  const eased = smooth(profile, GRADE_WINDOW);
+  return eased.map((_, i) => {
+    const lo = Math.max(0, i - 1);
+    const hi = Math.min(eased.length - 1, i + 1);
+    const run = runM * (hi - lo);
+    return run > 0 ? ((eased[hi]! - eased[lo]!) / run) * 100 : 0;
+  });
+}
+
 export function gradeRuns(
   profile: readonly number[],
   totalDistanceM: number,
 ): { from: number; to: number; band: GradeBand }[] {
-  if (profile.length < 2 || !(totalDistanceM > 0)) return [];
-  const eased = smooth(profile, GRADE_WINDOW);
-  const runM = totalDistanceM / (profile.length - 1);
-  if (!(runM > 0)) return [];
-
-  // Central difference, matching the hover readout: steadier on noisy ground than looking
-  // one sample ahead, and it doesn't lurch at the ends, where it falls back to the one
-  // neighbour that exists.
-  const bandAt = (i: number): GradeBand => {
-    const lo = Math.max(0, i - 1);
-    const hi = Math.min(eased.length - 1, i + 1);
-    const rise = eased[hi]! - eased[lo]!;
-    const run = runM * (hi - lo);
-    return bandFor(run > 0 ? (rise / run) * 100 : 0);
-  };
+  const grades = gradeSeries(profile, totalDistanceM);
+  if (!grades.length) return [];
+  // Banded on the ROUNDED grade, because that is the number a reader can see. The readout
+  // prints "10%" for a true 9.6, and if the fill banded the raw value the label and the
+  // ground beneath it would disagree at every threshold — the same incoherence one level
+  // down from the one gradeSeries exists to fix.
+  const bandAt = (i: number): GradeBand => bandFor(Math.round(grades[i]!));
 
   const out: { from: number; to: number; band: GradeBand }[] = [];
   let start = 0;
