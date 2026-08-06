@@ -712,7 +712,8 @@ const id = useId();
   stroke-width: 1;
 }
 .tprofile__ridge {
-  stroke-width: 1.5;
+  /* non-scaling-stroke means this is real pixels, so it holds at any container size */
+  stroke-width: 2;
   stroke-linejoin: round;
   stroke-linecap: round;
 }

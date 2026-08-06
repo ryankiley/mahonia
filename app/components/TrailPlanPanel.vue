@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "@hugeicons/vue";
-import { ArrowDownRight01Icon, ArrowUpRight01Icon, ChevronDownIcon, Delete02Icon, Fire02Icon, HelpCircleIcon, RouteIcon } from "@hugeicons/core-free-icons";
+import { ChevronDownIcon, Delete02Icon, Fire02Icon, HelpCircleIcon, RouteIcon, Stairs01Icon } from "@hugeicons/core-free-icons";
 import type { ListSnapshot, Totals } from "~~/shared/types";
 import { burnDownMg, estimateDay } from "~~/shared/tripPlan";
 import { dayClimbs, parseProfile } from "~~/shared/gpx";
@@ -537,7 +537,7 @@ const distanceValue = (m: number | undefined) =>
           <!-- Climb comes off the GPX when there is one, and is muted to say so. Typing
                over it makes it yours, and the value stops being derived. -->
           <span class="plan__cell" :class="{ 'is-derived': climbIsDerived(i) }">
-            <HugeiconsIcon :icon="ArrowUpRight01Icon" class="plan__gl" :size="16" :stroke-width="2" aria-hidden="true" />
+            <HugeiconsIcon :icon="Stairs01Icon" class="plan__gl" :size="16" :stroke-width="2" aria-hidden="true" />
             <input
               class="field field--num plan__num"
               inputmode="decimal"
@@ -547,18 +547,16 @@ const distanceValue = (m: number | undefined) =>
               @change="commitAscent(d?.id ?? ensureDay(i), $event)"
             />
             <span class="t-muted">{{ ascentUnit }}</span>
-            <Tooltip v-if="climbIsDerived(i)" text="This day's share of the route's climb. Type over it to set your own." preferred-placement="top">
-              <button type="button" class="plan__why" aria-label="Where this climb comes from">
-                <HugeiconsIcon :icon="HelpCircleIcon" :size="14" :stroke-width="2" aria-hidden="true" />
-              </button>
-            </Tooltip>
           </span>
 
           <!-- The day's DROP, read off the route beside its climb. Not typeable, unlike the
                two above: nothing in the app writes a day's descent by hand, and a field
                that only ever shows a derived number should look like what it is. -->
           <span v-if="descentFor(i) != null" class="plan__cell plan__cell--est">
-            <HugeiconsIcon :icon="ArrowDownRight01Icon" class="plan__gl" :size="16" :stroke-width="2" aria-hidden="true" />
+            <!-- the same staircase, mirrored: it climbs left-to-right, so its reflection
+                 descends. One glyph for one idea, and the pair reads as a matched set in a
+                 way two different arrows never did. -->
+            <HugeiconsIcon :icon="Stairs01Icon" class="plan__gl plan__gl--down" :size="16" :stroke-width="2" aria-hidden="true" />
             <span class="t-num">{{ ascentValue(descentFor(i)) }} <span class="t-muted">{{ ascentUnit }}</span></span>
           </span>
 
@@ -704,7 +702,12 @@ const distanceValue = (m: number | undefined) =>
   max-width: 46ch;
 }
 .plan__days {
-  margin: 0;
+  /* The itinerary starts a --folder-gap below the figures, the same distance one folder
+     sits from the next in the editor — and the same distance the days keep between
+     themselves, which was already true and made the 16px above the first one look like a
+     mistake. Reached from the panel's own --space-4 gap, the identical arithmetic
+     .editor__addfolder does for exactly this reason. */
+  margin: calc(var(--folder-gap, var(--space-6)) - var(--space-4)) 0 0;
   padding: 0;
   list-style: none;
   display: flex;
@@ -836,6 +839,10 @@ const distanceValue = (m: number | undefined) =>
 .plan__gl {
   flex: none;
   color: var(--ink-3);
+}
+/* mirrored, not a second icon — see the template */
+.plan__gl--down {
+  transform: scaleX(-1);
 }
 /* .field + .field--num carry the shape (uncontained, no fill, caret-as-focus, the
    tabular numerals and the iOS 16px rule) — an item row's weight box and this are the
