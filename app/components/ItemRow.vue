@@ -1932,23 +1932,21 @@ function dismissFix() {
     line-height: 1.3;
   }
   /* The caption sits under the META line here rather than under the name field, so
-     the desktop tuck (sized for a 36px field) is the wrong correction — but a small
-     positive gap was the wrong one too, and in the same direction.
-     The meta row is as tall as its icon BUTTONS, not as its text: 32px of control
-     against a ~25px field, and 44 against 25 once a coarse pointer grows them. So
-     the caption already begins a control's worth of dead space below the "2 × 540 g"
-     it belongs under, and the 2px was adding to that rather than cancelling it.
-     Pull back by half the difference — the same correction, and the same reasoning,
-     as --tap-pull makes for a touch box on a text line. Through the same hook, so it
-     still collapses on close exactly as the negative tuck does. */
+     the desktop tuck (sized for a 36px field's dead space) is the wrong correction:
+     there is no dead space left to cancel. Every touch box on this line is pulled back
+     onto it (see .item__classcell / .item__actions below), so the meta row is now as
+     tall as its TEXT — a 24.8px field box — and its bottom edge already sits directly
+     under the "2 × 540 g" the caption belongs to. So this is a GAP, not a tuck — and
+     it's the row's own gap: --space-1 is what .item already puts between the name and
+     the meta line, and what .item__subfields puts between the gear type and the note.
+     Three text lines, one rhythm. (Zero is wrong for the same reason a tuck is: with
+     no margin the caption's line sits 8.4px under the meta's against the 12.8px above
+     it, and that third line reads as belonging to the row below.) Still routed through
+     this hook, so the offset retires with the height on close.
+     It used to pull back by half the button overhang, which is what that dead space
+     measured while the classification toggles stood 44px tall in a 25px line. */
   .reveal--note {
-    --reveal-offset: calc((1.45rem - var(--icon-btn)) / 2);
-  }
-  @media (pointer: coarse) {
-    /* the buttons are --tap here, so the overhang is bigger and already tokenized */
-    .reveal--note {
-      --reveal-offset: var(--tap-pull);
-    }
+    --reveal-offset: var(--space-1);
   }
   /* one line only — qty · weight · class on the left, controls on the right — so a
      row is never more than two lines (name + this) and icons never land on a third */
@@ -1973,8 +1971,18 @@ function dismissFix() {
   }
   /* the --tap tap targets keep their size but overflow the (shorter) text line via
      negative margins, so the icons don't inflate the row and push the two text
-     lines apart */
-  .item__actions .btn--icon {
+     lines apart.
+     BOTH icon groups on this line, not just the trailing one. The classification cell
+     held a text label when this rule was written; once it became two --tap buttons it
+     stood 44px tall inside a ~25px text line, and the flex line grew to fit it. The
+     numbers are baseline-aligned so they stayed at the top of that taller line while
+     everything centred in it — the toggles AND the trailing icons — sank ~10px below
+     them. Pulling the toggles back onto the line is what lands every glyph on the
+     numbers' optical centre, and it gives back the editing↔packing height parity
+     .item--check is built around: the inflated line made an edit row 19px taller than
+     the checklist row it toggles into, so the list jumped on every mode switch. */
+  .item__actions .btn--icon,
+  .item__classcell .btn--icon {
     min-height: 0;
     height: var(--tap);
     margin-block: var(--tap-pull);
