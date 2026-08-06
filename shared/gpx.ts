@@ -16,7 +16,7 @@
 // packing list. The arithmetic the reducer and the charts need — parsing a stored profile,
 // climbs per day, grade bands — lives in profile.ts precisely so this file can stay off
 // that path. Import FROM profile.ts freely; never make profile.ts import from here.
-import { ASCENT_THRESHOLD_M, PROFILE_SAMPLES, SMOOTH_WINDOW, smooth } from "./profile";
+import { PROFILE_SAMPLES, totalClimb } from "./profile";
 import type { WaypointKind } from "./types";
 
 /** One point off the track. `ele` is often absent — plenty of tracks carry no elevation. */
@@ -433,21 +433,11 @@ export function gpxStats(points: readonly TrackPoint[]): GpxStats | null {
   if (withEle.length) {
     minEleM = Math.min(...withEle);
     maxEleM = Math.max(...withEle);
-    // Hysteresis: `reference` is the last elevation we committed a change from. A move is
-    // only real once it clears the threshold, and then the reference jumps to it — so a
-    // long steady climb still accumulates fully, while jitter around a level never does.
-    const eased = smooth(withEle, SMOOTH_WINDOW);
-    let reference = eased[0]!;
-    for (const ele of eased) {
-      const delta = ele - reference;
-      if (delta >= ASCENT_THRESHOLD_M) {
-        ascentM += delta;
-        reference = ele;
-      } else if (delta <= -ASCENT_THRESHOLD_M) {
-        descentM += -delta;
-        reference = ele;
-      }
-    }
+    // Smoothed and thresholded rather than summed — profile.ts owns that pairing and the
+    // calibration behind it. Measured across the FULL track here, which is the whole
+    // reason the figure is stored separately from the resampled profile below: the
+    // resampling smooths away real undulation, so it draws well and measures badly.
+    ({ ascentM, descentM } = totalClimb(withEle));
     profile = resampleByDistance(cumulative, withEle, PROFILE_SAMPLES);
   }
 

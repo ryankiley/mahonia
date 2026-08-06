@@ -16,8 +16,15 @@
 // shared/tripPlan.ts turns it into time and calories. What stays out of here is anything
 // that needs more than a number and a unit.
 
-/** Metres per distance unit. */
-const M_PER_UNIT = {
+/**
+ * Metres per distance unit.
+ *
+ * Exported because the readouts do their own rounding — a figure under a moving cursor
+ * wants a fixed width where a printed one wants its trailing zero gone — and each of them
+ * was retyping 1609.344 and 0.3048 to get there. The rounding is theirs; the conversion
+ * factor is one number and belongs in one place.
+ */
+export const M_PER_UNIT = {
   m: 1,
   km: 1000,
   mi: 1609.344,
@@ -198,6 +205,35 @@ export function formatDistance(metres: number, unit: DisplayDistanceUnit): strin
  */
 export function distanceHeadline(metres: number, unit: DisplayDistanceUnit): string {
   return String(Number((metres / M_PER_UNIT[unit]).toFixed(1)));
+}
+
+/**
+ * The unit a HEIGHT reads in beside a distance in `unit`: feet on a miles list, metres on
+ * a kilometres one, which is how the two systems are actually spoken — nobody says "12
+ * miles and 900 metres of climb".
+ *
+ * Here rather than in each component because four of them ask the same question (the
+ * profile, the plan's chips, its day rows, and the shared view's itinerary) and a height
+ * labelled "m" beside a distance in miles is the kind of disagreement one of them would
+ * eventually drift into on its own.
+ */
+export function heightUnitFor(unit: DisplayDistanceUnit): "ft" | "m" {
+  return unit === "mi" ? "ft" : "m";
+}
+
+/**
+ * A height in metres as the bare number heightUnitFor asks for, grouped for reading
+ * ("7,316"). The unit word is the caller's, because most of them draw it as its own
+ * element in a lesser ink.
+ *
+ * `step` is in the DISPLAY unit and the caller's to choose: a figure printed once can be
+ * exact, while one rewritten under a moving cursor has to hold still, and an editable
+ * field has to round-trip through a store that only keeps metres. What must not vary is
+ * the conversion, which is why that part lives here.
+ */
+export function heightValue(metres: number, unit: DisplayDistanceUnit, step = 1): string {
+  const v = unit === "mi" ? metres / M_PER_UNIT.ft : metres;
+  return (Math.round(v / step) * step).toLocaleString();
 }
 
 /**

@@ -157,6 +157,20 @@ export function segmentClimbs(
 
 
 /**
+ * Ascent and descent over a whole series of elevations: the smoothing and the threshold
+ * above, run end to end with nothing divided up.
+ *
+ * Shared with the file reader, which measures the same two numbers across a full track
+ * rather than across a stored profile — it kept its own copy of this loop, which is two
+ * places for the calibration above to be half-changed. The arithmetic is the same either
+ * way; only the length of the series differs.
+ */
+export function totalClimb(elevations: readonly number[]): { ascentM: number; descentM: number } {
+  return segmentClimbs(elevations, [1])[0] ?? { ascentM: 0, descentM: 0 };
+}
+
+
+/**
  * Each day's climb and drop, ready to show — segmentClimbs plus the magnitude correction,
  * in one place because TWO views need the identical number.
  *
@@ -178,7 +192,7 @@ export function dayClimbs(
 ): { ascentM: number; descentM: number }[] {
   if (!profile.length) return [];
   const parts = segmentClimbs(profile, dayDistancesM, routeM || undefined);
-  const wholeProfileClimb = segmentClimbs(profile, [1]).reduce((s, x) => s + x.ascentM, 0);
+  const wholeProfileClimb = totalClimb(profile).ascentM;
   if (!routeAscentM || !(wholeProfileClimb > 0)) return parts;
   const scale = routeAscentM / wholeProfileClimb;
   return parts.map((x) => ({
@@ -224,22 +238,21 @@ const GRADE_WINDOW = 11;
 
 export type GradeBand = "easy" | "moderate" | "hard";
 
-/** Direction-agnostic: a 15% descent is hard on the knees the way a 15% climb is on the lungs. */
-function bandFor(gradePct: number): GradeBand {
+/**
+ * Which band a grade falls in. Direction-agnostic: a 15% descent is hard on the knees the
+ * way a 15% climb is on the lungs.
+ *
+ * Exported because the hover readout colours a single grade with it. That used to be a
+ * second two-branch copy of the thresholds inside the chart, which is one edit away from a
+ * tooltip that disagrees with the ground it is pointing at.
+ */
+export function gradeBandFor(gradePct: number): GradeBand {
   const g = Math.abs(gradePct);
   if (g >= GRADE_HARD_PCT) return "hard";
   if (g >= GRADE_MODERATE_PCT) return "moderate";
   return "easy";
 }
 
-/**
- * The profile cut into runs of like difficulty — `[from, to]` sample indices, inclusive,
- * each meeting the next so a renderer can draw them without a hairline of paper between.
- *
- * Lives here rather than in the component because it is arithmetic, it needs `smooth()`
- * (which is private to this file), and both the shading and anything else that wants to
- * say "how much of this route is steep" must agree on one answer.
- */
 /**
  * The grade at every sample, as a percentage — ONE series, so everything that talks about
  * steepness is talking about the same numbers.
@@ -267,6 +280,14 @@ export function gradeSeries(profile: readonly number[], totalDistanceM: number):
   });
 }
 
+/**
+ * The profile cut into runs of like difficulty — `[from, to]` sample indices, inclusive,
+ * each meeting the next so a renderer can draw them without a hairline of paper between.
+ *
+ * Lives here rather than in the component because it is arithmetic, it needs `smooth()`
+ * (which is private to this file), and both the shading and anything else that wants to
+ * say "how much of this route is steep" must agree on one answer.
+ */
 export function gradeRuns(
   profile: readonly number[],
   totalDistanceM: number,
@@ -277,7 +298,7 @@ export function gradeRuns(
   // prints "10%" for a true 9.6, and if the fill banded the raw value the label and the
   // ground beneath it would disagree at every threshold — the same incoherence one level
   // down from the one gradeSeries exists to fix.
-  const bandAt = (i: number): GradeBand => bandFor(Math.round(grades[i]!));
+  const bandAt = (i: number): GradeBand => gradeBandFor(Math.round(grades[i]!));
 
   const out: { from: number; to: number; band: GradeBand }[] = [];
   let start = 0;

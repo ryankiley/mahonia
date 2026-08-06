@@ -147,12 +147,16 @@ export function normalizeRouteGeometry(raw: unknown): string | undefined {
   return encodePolyline(points);
 }
 
+/** Metres in one degree of latitude. The two measurements below both scale by it, and
+ *  they have to agree or a perpendicular distance stops matching the length it's judged
+ *  against. */
+const M_PER_DEG = 111_320;
+
 /** Metres between two points — the flat-earth approximation, which is exact enough at the
  *  scale a simplification tolerance cares about and far cheaper than haversine per candidate. */
 function approxM(a: LatLon, b: LatLon): number {
-  const mPerDeg = 111_320;
-  const dx = (b.lon - a.lon) * mPerDeg * Math.cos(((a.lat + b.lat) / 2) * (Math.PI / 180));
-  const dy = (b.lat - a.lat) * mPerDeg;
+  const dx = (b.lon - a.lon) * M_PER_DEG * Math.cos(((a.lat + b.lat) / 2) * (Math.PI / 180));
+  const dy = (b.lat - a.lat) * M_PER_DEG;
   return Math.hypot(dx, dy);
 }
 
@@ -160,14 +164,13 @@ function approxM(a: LatLon, b: LatLon): number {
 function perpM(p: LatLon, a: LatLon, b: LatLon): number {
   const ab = approxM(a, b);
   if (ab === 0) return approxM(p, a);
-  const mPerDeg = 111_320;
-  const k = Math.cos(((a.lat + b.lat) / 2) * (Math.PI / 180)) * mPerDeg;
+  const k = Math.cos(((a.lat + b.lat) / 2) * (Math.PI / 180)) * M_PER_DEG;
   const ax = a.lon * k;
-  const ay = a.lat * mPerDeg;
+  const ay = a.lat * M_PER_DEG;
   const bx = b.lon * k;
-  const by = b.lat * mPerDeg;
+  const by = b.lat * M_PER_DEG;
   const px = p.lon * k;
-  const py = p.lat * mPerDeg;
+  const py = p.lat * M_PER_DEG;
   const t = Math.max(0, Math.min(1, ((px - ax) * (bx - ax) + (py - ay) * (by - ay)) / (ab * ab)));
   return Math.hypot(px - (ax + t * (bx - ax)), py - (ay + t * (by - ay)));
 }

@@ -2,7 +2,6 @@
 import { HugeiconsIcon } from "@hugeicons/vue";
 import { Calendar03Icon, ChevronDownIcon, Copy01Icon, Delete02Icon, Edit02Icon, GlobeIcon, HelpCircleIcon, Location01Icon } from "@hugeicons/core-free-icons";
 import {
-  DISPLAY_DISTANCE_UNITS,
   distanceFieldValue,
   formatDistance,
   parseDistanceM,
@@ -111,14 +110,25 @@ watch(
 );
 const icon = computed(() => props.snapshot.trailFaviconDataUrl ?? fetchedIcon.value);
 
+// Everything that describes the route the link pointed AT, cleared. A label with no link
+// is unreachable state, and so is a distance, a profile or a line with no route to be the
+// shape of. One object because two copies of this list is how the next field added here
+// gets cleared on one path and left behind on the other.
+const CLEARS_WITH_LINK = {
+  trailLabel: "",
+  trailDistanceM: "",
+  trailProfile: "",
+  trailAscentM: "",
+  trailDescentM: "",
+  routeGeometry: "",
+} as const;
+
 // Commits on @change (blur/Enter), the uncontrolled :value pattern the title uses — not
 // per keystroke, so a half-typed URL never reaches the reducer (which would reject it).
 function commitUrl(e: Event) {
   const value = (e.target as HTMLInputElement).value.trim();
   c.setMeta({ trailUrl: value });
-  // clearing the URL clears the label too — a label with no link is unreachable state,
-  // and so is a distance with no route to be the length of
-  if (!value) c.setMeta({ trailLabel: "", trailDistanceM: "", trailProfile: "", trailAscentM: "", trailDescentM: "", routeGeometry: "" });
+  if (!value) c.setMeta({ ...CLEARS_WITH_LINK });
 }
 
 function commitLabel(e: Event) {
@@ -284,15 +294,14 @@ async function onGpx(e: Event) {
 // The route's length, typed. It can't be read off the linked page — see the note atop
 // shared/trailDistance.ts — so this is the field that gets it in.
 
-// The owner's pick when they've made one, else the unit the WEIGHT unit implies — a
-// gram list is metric and reads km, an ounce list reads miles. Unset is the common
-// case and stays right on its own; the picker is for the person whose list is in
-// grams but whose trailhead sign is in miles.
+// The owner's pick when they've made one, else miles — see resolveDistanceUnit for why
+// the fallback stopped following the weight unit. The picker is for the person whose
+// trailhead sign is in kilometres.
 const distanceUnit = computed(() =>
   resolveDistanceUnit(props.snapshot.trailDistanceUnit, props.snapshot.displayUnit),
 );
-// the two as OptionMenu rows — the abbreviation IS the label, as in the totals bar
-const DISTANCE_UNIT_OPTIONS = DISPLAY_DISTANCE_UNITS.map((u) => ({ key: u, label: u }));
+// the two as OptionMenu rows: DISTANCE_UNIT_OPTIONS, from app/utils/unitOptions.ts, which
+// is where every picker in the app now takes its rows from
 
 // Re-express the SAME stored metres in the newly chosen unit — the stored value never
 // moves, only how it reads. (Nothing to convert: the field is derived from metres.)
@@ -322,7 +331,7 @@ function commitDistance(e: Event) {
 
 function remove() {
   // the distance describes the ROUTE, so it goes with the link rather than outliving it
-  c.setMeta({ trailUrl: "", trailLabel: "", trailDistanceM: "", trailProfile: "", trailAscentM: "", trailDescentM: "", routeGeometry: "" });
+  c.setMeta({ trailUrl: "", ...CLEARS_WITH_LINK });
   mode.value = null;
 }
 
@@ -337,10 +346,12 @@ async function copyLink() {
 }
 
 // ---- trip dates ----
-// The second thing in the meta row. Deliberately two optional calendar dates and
-// nothing else — no days, no itinerary, no waypoints. The July audit rejected trip
-// planning and this does not reopen it; it answers "when was this trip" for a list
-// you come back to a year later, which the list otherwise cannot say.
+// The second thing in the meta row: two optional calendar dates, and only those. It
+// answers "when was this trip" for a list you come back to a year later, which the list
+// otherwise cannot say.
+// The itinerary those dates now imply is NOT here — planning mode owns the days, the
+// waypoints and the estimates (see TrailPlanPanel). This row stays the two ends of the
+// range, which is the one fact about a trip that belongs beside its title.
 const datesOpen = ref(false);
 const datesEl = useTemplateRef<HTMLElement>("datesEl");
 const dateLabel = computed(() => formatDateRange(props.snapshot.startDate, props.snapshot.endDate));
@@ -1184,6 +1195,8 @@ onClickOutside(trailEl, closeTrail);
 /* The rule stops at the panel's INNER edges (measured: x12, w306 inside a 330 panel) —
    it lines up with the fields rather than running wall to wall. */
 .head__gpx {
+  display: flex;
+  align-items: center;
   margin: 0;
   color: var(--ink-3);
 }
@@ -1212,10 +1225,6 @@ onClickOutside(trailEl, closeTrail);
 .head__gpxwhy:hover,
 .head__gpxwhy:focus-visible {
   color: var(--ink);
-}
-.head__gpx {
-  display: flex;
-  align-items: center;
 }
 .head__gpxerr {
   margin: 0;

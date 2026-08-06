@@ -4,7 +4,7 @@ import { ArrowUpRight01Icon, Backpack02Icon, Calendar03Icon, GlobeIcon, Route02I
 import { parseTrailLink } from "~~/shared/trailLink";
 import { dayClimbs, parseProfile } from "~~/shared/profile";
 import { dayLabel } from "~~/shared/tripDay";
-import { formatDistance, resolveDistanceUnit } from "~~/shared/trailDistance";
+import { formatDistance, heightUnitFor, heightValue, resolveDistanceUnit } from "~~/shared/trailDistance";
 import type { Item, ListSnapshot, Totals, Unit } from "~~/shared/types";
 import { groupItemsByFolder, groupItemsByParent } from "~~/shared/weights";
 
@@ -96,12 +96,13 @@ const routeM = computed(() =>
 // it had before any of this existed.
 const hasTrip = computed(() => days.value.length > 0 || profile.value.length > 0);
 // feet rounded to the nearest 10, as the editor does: the store is integer metres, so a
-// climb quoted to the foot claims a precision the measurement never had
+// climb quoted to the foot claims a precision the measurement never had. The conversion
+// and the unit word are shared/trailDistance.ts's — only the rounding is this view's.
 const tripId = useId();
-const asHeight = (m: number) =>
-  distanceUnit.value === "mi"
-    ? `${(Math.round(m / 0.3048 / 10) * 10).toLocaleString()} ft`
-    : `${Math.round(m).toLocaleString()} m`;
+const asHeight = (m: number) => {
+  const unit = distanceUnit.value;
+  return `${heightValue(m, unit, unit === "mi" ? 10 : 1)} ${heightUnitFor(unit)}`;
+};
 </script>
 
 <template>

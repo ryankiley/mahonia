@@ -1,8 +1,18 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "@hugeicons/vue";
 import { dayColorSequence } from "~~/shared/categories";
-import { formatDistance, type DisplayDistanceUnit } from "~~/shared/trailDistance";
-import { GRADE_HARD_PCT, GRADE_MODERATE_PCT, gradeRuns, gradeSeries, gradeSpread } from "~~/shared/profile";
+import {
+  M_PER_UNIT,
+  formatDistance,
+  heightUnitFor,
+  heightValue,
+  type DisplayDistanceUnit,
+} from "~~/shared/trailDistance";
+// gradeBandFor is the function the SHADING bands by, not a second copy of its two
+// thresholds — so the number under the cursor and the colour under the cursor can never
+// disagree about what "steep" means. There used to be a STEEP_PCT in this file saying 10
+// as well; two constants holding one idea is how a chart starts contradicting its tooltip.
+import { gradeBandFor, gradeRuns, gradeSeries, gradeSpread } from "~~/shared/profile";
 
 // The route's shape, cut into days.
 //
@@ -51,21 +61,15 @@ const VB_H = 200;
 // The cursor dot's radius, in viewBox units. Named because it appears twice — the X radius
 // is counter-scaled off it — and the two must never drift apart into an oval.
 const DOT_R = 10;
-// The thresholds come from shared/gpx.ts, the same ones the shading bands by — so the
-// number under the cursor and the colour under the cursor can never disagree about what
-// "steep" means. There used to be a STEEP_PCT here saying 10 as well; two constants
-// holding one idea is how a chart starts contradicting its own tooltip.
-const bandOf = (pct: number) =>
-  Math.abs(pct) >= GRADE_HARD_PCT ? "hard" : Math.abs(pct) >= GRADE_MODERATE_PCT ? "moderate" : "easy";
 
 const lo = computed(() => Math.min(...props.profile));
 const hi = computed(() => Math.max(...props.profile));
-// WHERE the extremes are, not just what they are — the scrubber names them in place.
-// First occurrence: a plateau at the summit has one summit as far as a label is concerned.
 /** Whether the drop is its own fact, or just the climb restated (which a loop guarantees). */
 const descentDiffers = computed(
   () => props.descentM != null && props.ascentM != null && props.descentM !== props.ascentM,
 );
+// WHERE the extremes are, not just what they are — the scrubber names them in place.
+// First occurrence: a plateau at the summit has one summit as far as a label is concerned.
 const hiIdx = computed(() => props.profile.indexOf(hi.value));
 const loIdx = computed(() => props.profile.indexOf(lo.value));
 // A flat route would divide by zero and, worse, draw a line through the middle of a box
@@ -202,18 +206,16 @@ const description = computed(() => {
 });
 
 /**
- * Heights read in feet on a miles list and metres on a kilometres one, which is how the
- * two systems are actually spoken — nobody says "12 miles and 900 metres of climb".
+ * Heights read in feet on a miles list and metres on a kilometres one — the rule lives in
+ * shared/trailDistance.ts, because the plan's chips and the shared view's itinerary print
+ * the same figures and must reach the same answer.
  *
  * The high and low come from the PROFILE rather than being stored, unlike the climb: a
  * peak is a sampled elevation, and resampling keeps those. It's the cumulative gain that
  * a coarse profile destroys, because that sums every wiggle.
  */
-const heightUnit = computed(() => (props.distanceUnit === "mi" ? "ft" : "m"));
-const asHeight = (m: number) =>
-  props.distanceUnit === "mi"
-    ? Math.round(m / 0.3048).toLocaleString()
-    : Math.round(m).toLocaleString();
+const heightUnit = computed(() => heightUnitFor(props.distanceUnit));
+const asHeight = (m: number) => heightValue(m, props.distanceUnit);
 
 /**
  * The same three figures, formatted to be READ WHILE MOVING.
@@ -236,15 +238,10 @@ const asHeight = (m: number) =>
  *
  * Nothing here changes what is measured — only how many of its digits are asserted.
  */
-const readDistance = (m: number) => {
-  const per = props.distanceUnit === "mi" ? 1609.344 : 1000;
-  return `${(m / per).toFixed(1)} ${props.distanceUnit}`;
-};
-const readHeight = (m: number) => {
-  const step = props.distanceUnit === "mi" ? 10 : 5;
-  const v = props.distanceUnit === "mi" ? m / 0.3048 : m;
-  return (Math.round(v / step) * step).toLocaleString();
-};
+const readDistance = (m: number) =>
+  `${(m / M_PER_UNIT[props.distanceUnit]).toFixed(1)} ${props.distanceUnit}`;
+const readHeight = (m: number) =>
+  heightValue(m, props.distanceUnit, props.distanceUnit === "mi" ? 10 : 5);
 const readGrade = (pct: number) => {
   // Sign from the ROUNDED value, not the raw one: taking it from the raw grade printed
   // "−0%" for anything between −0.5 and 0, which asserts a direction and then denies it.
@@ -446,9 +443,9 @@ const id = useId();
     </svg>
     <!-- The scale, in HTML rather than <text> inside the SVG: preserveAspectRatio="none"
          stretches glyphs horizontally, so any label drawn in there would distort with the
-         container. Three marks only — the ends and the middle. A profile is a silhouette
-         for recognition, and a full axis would invite reading distances off the shape,
-         which the vertical exaggeration makes untrue. -->
+         container. A handful of marks only — three on a phone, seven at full width (see
+         the CSS). A profile is a silhouette for recognition, and a full axis would invite
+         reading distances off the shape, which the vertical exaggeration makes untrue. -->
     <!-- The readout FOLLOWS the pointer rather than rewriting the scale below. Swapping
          those figures meant the numbers you were reading changed under you while the ones
          you wanted appeared somewhere else entirely; a label at the cursor is read where
@@ -481,12 +478,12 @@ const id = useId();
       <!-- Banded on the ROUNDED grade, the one actually on screen. Banding the raw value
            printed "10%" in the moderate colour whenever the true grade was 9.6 — the
            number and its own colour disagreeing, which is worse than either being off. -->
-      <span :class="`is-${bandOf(Math.round(hover.grade))}`">{{ readGrade(hover.grade) }}</span>
+      <span :class="`is-${gradeBandFor(Math.round(hover.grade))}`">{{ readGrade(hover.grade) }}</span>
     </div>
 
-    <!-- NINE ticks are always rendered and CSS chooses how many to show, so there is no
-         resize listener and no layout read — the count is a question about available
-         width, which is the one question CSS is better at than we are. -->
+    <!-- All twenty-five ticks are always rendered and CSS chooses how many to show, so
+         there is no resize listener and no layout read — the count is a question about
+         available width, which is the one question CSS is better at than we are. -->
     <figcaption class="tprofile__scale t-sm" aria-hidden="true">
       <span v-for="(m, i) in scaleTicks" :key="i">{{ i === 0 ? `0 ${distanceUnit}` : formatDistance(m, distanceUnit) }}</span>
     </figcaption>
@@ -589,15 +586,6 @@ const id = useId();
   gap: var(--space-1) var(--space-5);
   margin: var(--space-3) 0 0;
 }
-.tprofile__fact {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-}
-/* The range carries no arrow, because it is a span rather than a movement — and that
-   absence is the whole distinction. It used to also step back in colour, which put a
-   figure at body size on 1.35:1 and made it unreadable rather than quiet. It inherits
-   --ink-3 from .tprofile__facts like its siblings now. */
 /* Actual dots, not dashes. A zero-length dash with a ROUND cap renders as a circle whose
    diameter is the stroke width — `2 3` drew stubby rectangles instead, which read as a
    broken line rather than a dotted one. non-scaling-stroke on the element is what keeps
