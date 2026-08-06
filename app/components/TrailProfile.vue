@@ -51,6 +51,10 @@ const bandOf = (pct: number) =>
 
 const lo = computed(() => Math.min(...props.profile));
 const hi = computed(() => Math.max(...props.profile));
+// WHERE the extremes are, not just what they are — the scrubber names them in place.
+// First occurrence: a plateau at the summit has one summit as far as a label is concerned.
+const hiIdx = computed(() => props.profile.indexOf(hi.value));
+const loIdx = computed(() => props.profile.indexOf(lo.value));
 // A flat route would divide by zero and, worse, draw a line through the middle of a box
 // implying a range it doesn't have. Give it a floor and it sits low and calm instead.
 const span = computed(() => Math.max(1, hi.value - lo.value));
@@ -305,24 +309,43 @@ const onLeave = () => (hoverIdx.value = null);
 const grades = computed(() => gradeSeries(props.profile, props.totalDistanceM));
 
 /**
- * Evenly spaced marks along the route, always an odd count so the midpoint is one of them.
+ * Evenly spaced marks along the route. CSS decides how many are shown; this just supplies
+ * the full set.
  *
- * Nine, thinned by CSS to five or three as the column narrows — 3, 5 and 9 NEST (0,4,8 is
- * inside 0,2,4,6,8 is inside all nine), so 0, the midpoint and the end survive every step
- * down. Seven would have been the obvious next rung and doesn't nest with nine, which is
- * why the sequence skips it: a tick that appears at one width and vanishes at another
- * reads as a glitch.
+ * TWENTY-FIVE, and the number is doing work. Every count shown has to contain the start,
+ * the midpoint and the end, and each has to be a subset of the next so no mark ever
+ * appears at one width and vanishes at another — which means the counts must all divide
+ * the same span. 24 divides by 12, 6 and 4, so 3, 5 and 7 marks all fall out of one array
+ * and all include index 0, 12 and 24.
+ *
+ * Rendering 9 instead (the first thing I tried) only offered 3, 5 and 9, because 8 has no
+ * factor giving seven. That forced a jump from 5 straight to 9, which was too dense for
+ * the column — and the column is the real constraint: it caps at ~85rem, so the chart is
+ * 1333px wide on a 2560px monitor and exactly as wide on a 3440px one. There is no width
+ * to grow into, so the top rung has to be chosen to look right at that one size.
  */
 const scaleTicks = computed(() =>
-  Array.from({ length: 9 }, (_, i) => Math.round((props.totalDistanceM * i) / 8)),
+  Array.from({ length: 25 }, (_, i) => Math.round((props.totalDistanceM * i) / 24)),
 );
 
 const hover = computed(() => {
-  const i = hoverIdx.value;
-  if (i == null || !props.profile.length) return null;
+  const raw = hoverIdx.value;
+  if (raw == null || !props.profile.length) return null;
+  // SNAPS to the summit and the low point when you come within a sample of them.
+  //
+  // A tolerance was needed either way — at 240 samples across the column a single index is
+  // a ~5px target, and a label nobody can land on is decoration. But tolerating without
+  // snapping meant the readout said "highest" while showing a NEIGHBOUR's elevation:
+  // 7,290 ft on a 7,316 ft summit, the label contradicting its own number. Snapping fixes
+  // that and buys the nicer behaviour anyway — the two points worth finding on a profile
+  // are slightly magnetic.
+  const near = (idx: number) => Math.abs(raw - idx) <= 1;
+  const extreme = near(hiIdx.value) ? "highest" : near(loIdx.value) ? "lowest" : null;
+  const i = extreme === "highest" ? hiIdx.value : extreme === "lowest" ? loIdx.value : raw;
   const ele = props.profile[Math.min(i, props.profile.length - 1)]!;
   const grade = grades.value[Math.min(i, grades.value.length - 1)] ?? 0;
   return {
+    extreme,
     x: (i / (props.profile.length - 1)) * VB_W,
     distanceM: Math.round((i / (props.profile.length - 1)) * props.totalDistanceM),
     ele,
@@ -430,7 +453,19 @@ const id = useId();
       aria-hidden="true"
     >
       <span>{{ readDistance(hover.distanceM) }}</span>
-      <span>{{ readHeight(hover.ele) }} {{ heightUnit }}</span>
+      <span>
+        <!-- Rounded while scrubbing, EXACT at a named extreme. The rounding exists to stop
+             the last digit flickering as the cursor moves; at the summit the precise
+             figure is the entire reason the label is there, and "7,290 ft highest" on a
+             7,316 ft summit is the label contradicting itself. -->
+        {{ hover.extreme ? asHeight(hover.ele) : readHeight(hover.ele) }} {{ heightUnit }}
+        <!-- The high and low points are named WHERE THEY ARE rather than as a standing
+             figure beside the chart. "3,284–7,316 ft" told you the range and not one thing
+             about the route; scrubbing onto the summit and being told it's the summit
+             attaches the number to the ground it describes. The range is still spoken in
+             full by <desc>, so nothing is lost to a reader who can't scrub. -->
+        <span v-if="hover.extreme" class="tprofile__extreme">{{ hover.extreme }}</span>
+      </span>
       <!-- ONE colour, and only when the grade is worth noticing. Up and down were two
            different hues, which quietly claimed that direction is the thing to read; it
            isn't. Steep is steep — a 15% descent is hard on the knees the way a 15% climb
@@ -461,9 +496,6 @@ const id = useId();
       <span v-if="descentM" class="tprofile__fact">
         <HugeiconsIcon :icon="ArrowDownRight01Icon" :size="14" :stroke-width="2" />
         {{ asHeight(descentM) }} {{ heightUnit }}
-      </span>
-      <span class="tprofile__fact tprofile__fact--range">
-        {{ asHeight(lo) }}–{{ asHeight(hi) }} {{ heightUnit }}
       </span>
     </p>
   </figure>
@@ -500,28 +532,38 @@ const id = useId();
   color: var(--ink-3);
   font-variant-numeric: tabular-nums;
 }
-/* Three on a phone, five from the stacking breakpoint, nine only on a genuinely wide
-   window. The shown subsets are evenly spaced by INDEX, which is what lets space-between
-   keep them evenly spaced by DISTANCE at every count.
+/* Three on a phone, five from the stacking breakpoint, seven on a full-width column.
+   Each rule RESETS before selecting, because the subsets aren't cumulative — every fourth
+   of 25 doesn't contain every sixth — so letting the narrower rule survive would union the
+   two into a set that isn't evenly spaced.
 
-   Nine is deliberately gated well above $bp-full rather than at it. The reading column
-   caps around 70rem, so past that the chart stops widening and nine labels fit
-   arithmetically (~70px of clearance) while reading as clutter — a scale is a frame of
-   reference, and one that needs scanning has stopped being one. Five is the practical
-   maximum on almost every window; nine is there for the very wide ones. */
+   Seven and not nine: the shown marks are evenly spaced by INDEX, which is what lets
+   space-between keep them evenly spaced by DISTANCE, and at the column's capped 1333px
+   nine sits ~148px apart where seven sits ~190px. Nine fits and reads as clutter — a scale
+   is a frame of reference, and one you have to scan has stopped being one. */
 .tprofile__scale span {
   display: none;
 }
-.tprofile__scale span:nth-child(4n + 1) {
+.tprofile__scale span:nth-child(12n + 1) {
   display: block;
 }
+/* `:nth-child(n)` and not a bare `span` for the reset: it matches everything just the
+   same, but at the SAME specificity as the selection rules it has to clear. A plain
+   element selector loses to them, so the breakpoints unioned instead of replacing and the
+   marks came out unevenly spaced — 0, 6.6, 10, 13.3 — which is worse than too many. */
 @media (min-width: $bp-stack) {
-  .tprofile__scale span:nth-child(2n + 1) {
+  .tprofile__scale span:nth-child(n) {
+    display: none;
+  }
+  .tprofile__scale span:nth-child(6n + 1) {
     display: block;
   }
 }
-@media (min-width: 1600px) {
-  .tprofile__scale span {
+@media (min-width: $bp-full) {
+  .tprofile__scale span:nth-child(n) {
+    display: none;
+  }
+  .tprofile__scale span:nth-child(4n + 1) {
     display: block;
   }
 }
@@ -587,6 +629,11 @@ const id = useId();
    angle: the correlation a reader perceives is the HUE (it's the red one, it's the orange
    one), and lightness is free to move to clear the contrast floor. Dark mode already
    passes, so it stays near the fill values. */
+/* the label steps back from the figure it qualifies — it's an annotation, not a reading */
+.tprofile__extreme {
+  margin-left: var(--space-1);
+  color: var(--ink-3);
+}
 .tprofile__read .is-hard {
   color: light-dark(oklch(0.5 0.22 25), oklch(0.68 0.25 25));
 }
