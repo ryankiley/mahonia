@@ -94,12 +94,28 @@ const dayColors = computed(() => {
   });
 });
 
+/**
+ * The gap between the day line and the difficulty beneath it, in viewBox units.
+ *
+ * The two encodings are separate claims — which day this is, and how hard it is — and they
+ * were touching, which made the fill read as part of the line rather than as the ground
+ * under it. A sliver of paper between them is what says "these are two things".
+ *
+ * viewBox units, so it scales with the container the way everything else in this drawing
+ * does; at the chart's usual height it lands around 2–3 real pixels.
+ */
+const RIDGE_GAP = 7;
+
 /** The polyline through a run of samples, and the same run closed down to the baseline. */
 function pathsFor(idx: readonly number[]) {
   const pts = idx.map((i) => `${x(i).toFixed(1)},${y(props.profile[i]!).toFixed(1)}`);
+  // the fill starts BELOW the ridge, clamped so a low point can't push it past the floor
+  const under = idx.map(
+    (i) => `${x(i).toFixed(1)},${Math.min(VB_H, y(props.profile[i]!) + RIDGE_GAP).toFixed(1)}`,
+  );
   return {
     ridge: `M${pts.join("L")}`,
-    fill: `M${x(idx[0]!).toFixed(1)},${VB_H}L${pts.join("L")}L${x(idx[idx.length - 1]!).toFixed(1)},${VB_H}Z`,
+    fill: `M${x(idx[0]!).toFixed(1)},${VB_H}L${under.join("L")}L${x(idx[idx.length - 1]!).toFixed(1)},${VB_H}Z`,
   };
 }
 
@@ -540,24 +556,22 @@ const id = useId();
  * the alternative costs a gradient definition per run.
  *
  * Easy ground takes no hue at all. Colour that fires everywhere isn't a signal. */
+/* Solid, not a gradient.
+ *
+ * A fade was the first instinct and the wrong one at this size: the chart is 56–96px tall,
+ * so a gradient spends most of its range on pixels that aren't there and leaves the hue
+ * too weak to band by. A flat wash reads as ground, which is what it is.
+ *
+ * Easy ground is filled too, in the quietest ink there is. Left unfilled it put paper-
+ * coloured gaps between the coloured runs and the surface broke into slivers — the absence
+ * of difficulty has to be drawn for the presence of it to read. */
 .tprofile__fill {
-  /* The hue is densest AT THE RIDGE and gone by the baseline, which means the gradient
-     has to be anchored to each run's own box — anchored to the viewBox instead, colour
-     peaked at the top of the chart and a steep stretch down in a canyon got almost none.
-     fill-box costs a little consistency between a tall run and a short one; view-box
-     costs the thing the shading is for. */
-  mask-image: linear-gradient(to bottom, #000 0%, #000 25%, transparent 100%);
-  mask-origin: fill-box;
-  mask-clip: fill-box;
-  /* Easy ground is filled too, in the quietest ink there is. Leaving it unfilled put
-     white gaps between the coloured runs, which broke the surface into slivers — the
-     absence of difficulty still has to be drawn for the presence of it to read. */
   fill: var(--ink-3);
-  opacity: 0.14;
+  opacity: 0.1;
 }
 .tprofile__fill.is-moderate {
   fill: var(--cat-worn);
-  opacity: 0.4;
+  opacity: 0.26;
 }
 /* Red for hard, and the SAME red the hover readout marks a steep grade with — one idea,
    one hue. Yellow for moderate rather than orange: --cat-pack sits 28° from this in hue
@@ -565,7 +579,7 @@ const id = useId();
    difficulty signal is exactly the wrong place to ask someone to tell those apart. */
 .tprofile__fill.is-hard {
   fill: var(--cat-firstaid);
-  opacity: 0.45;
+  opacity: 0.3;
 }
 /* the day boundary, cut in paper — 1px regardless of how the viewBox is stretched */
 .tprofile__cut {
