@@ -121,15 +121,117 @@ export function gpxPoints(doc: Document): TrackPoint[] {
   if (kml.length) return kml;
   const tcx = tcxPoints(doc);
   if (tcx.length) return tcx;
-  const nodes = doc.querySelectorAll("trkpt, rtept");
+  const georss = georssPoints(doc);
+  if (georss.length) return georss;
+  const nodes = [...byLocalName(doc, "trkpt"), ...byLocalName(doc, "rtept")];
   const out: TrackPoint[] = [];
   for (const n of nodes) {
     const lat = Number(n.getAttribute("lat"));
     const lon = Number(n.getAttribute("lon"));
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
-    const eleText = n.querySelector("ele")?.textContent;
+    const eleText = localText(n, "ele");
     const ele = eleText != null ? Number(eleText) : Number.NaN;
     out.push(Number.isFinite(ele) ? { lat, lon, ele } : { lat, lon });
+  }
+  return out;
+}
+
+/**
+ * Elements by LOCAL name, ignoring any namespace prefix.
+ *
+ * `querySelectorAll("line")` does not match `<georss:line>` in an XML document — a CSS
+ * type selector matches the qualified name, and a prefixed element doesn't have the one
+ * you asked for. Plenty of real files prefix their elements (`kml:coordinates`,
+ * `georss:line`), so every reader below goes through this rather than through a selector
+ * that happens to work on whichever export you tried first.
+ */
+function byLocalName(doc: Document, name: string): Element[] {
+  const want = name.toLowerCase();
+  return [...doc.getElementsByTagName("*")].filter((el) => el.localName.toLowerCase() === want);
+}
+
+/** The text of the first descendant with this local name. */
+function localText(el: Element, name: string): string | null {
+  const want = name.toLowerCase();
+  for (const child of el.getElementsByTagName("*")) {
+    if (child.localName.toLowerCase() === want) return child.textContent;
+  }
+  return null;
+}
+
+/**
+ * KMZ — a KML in a zip, which is what Google Earth saves by default.
+ *
+ * Unzipped here rather than with a library: `DecompressionStream` is built into the
+ * browser, so this costs no dependency and, more to the point, keeps the promise the rest
+ * of this file makes. A zip library would be the first thing in the read path that isn't
+ * a built-in, and "your file never leaves your browser" is only worth saying while nothing
+ * in the chain could send it anywhere.
+ *
+ * Reads the CENTRAL DIRECTORY rather than the local headers. A local header is allowed to
+ * carry zeroes for the sizes and defer them to a data descriptor after the payload, which
+ * is exactly what streaming zip writers emit — parsing those first would work on files
+ * made by one tool and fail on another. The central directory always has the real numbers.
+ */
+export async function kmzToKml(buffer: ArrayBuffer): Promise<string | null> {
+  const view = new DataView(buffer);
+  const bytes = new Uint8Array(buffer);
+  if (bytes[0] !== 0x50 || bytes[1] !== 0x4b) return null; // not "PK"
+
+  // End of central directory, scanned backwards — it sits at the end, after a comment
+  // whose length nothing else tells us.
+  let eocd = -1;
+  for (let i = buffer.byteLength - 22; i >= 0 && i > buffer.byteLength - 65_557; i--) {
+    if (view.getUint32(i, true) === 0x06054b50) {
+      eocd = i;
+      break;
+    }
+  }
+  if (eocd < 0) return null;
+
+  const count = view.getUint16(eocd + 10, true);
+  let at = view.getUint32(eocd + 16, true);
+  for (let i = 0; i < count; i++) {
+    if (view.getUint32(at, true) !== 0x02014b50) return null;
+    const method = view.getUint16(at + 10, true);
+    const compressed = view.getUint32(at + 20, true);
+    const nameLen = view.getUint16(at + 28, true);
+    const extraLen = view.getUint16(at + 30, true);
+    const commentLen = view.getUint16(at + 32, true);
+    const localAt = view.getUint32(at + 42, true);
+    const name = new TextDecoder().decode(bytes.subarray(at + 46, at + 46 + nameLen));
+    at += 46 + nameLen + extraLen + commentLen;
+    if (!/\.kml$/i.test(name)) continue;
+
+    // the local header repeats the name and extra fields at its own lengths
+    if (view.getUint32(localAt, true) !== 0x04034b50) return null;
+    const dataAt =
+      localAt + 30 + view.getUint16(localAt + 26, true) + view.getUint16(localAt + 28, true);
+    const payload = bytes.subarray(dataAt, dataAt + compressed);
+    if (method === 0) return new TextDecoder().decode(payload); // stored
+    if (method !== 8) return null; // anything but deflate is beyond what a KMZ should be
+    const stream = new Blob([payload]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+    return await new Response(stream).text();
+  }
+  return null;
+}
+
+/**
+ * GeoRSS, which wraps a track in a feed. Coordinates are a flat, space-separated
+ * `lat lon lat lon …` run inside `<georss:line>` or `<georss:polygon>` — LAT first here,
+ * the opposite of KML, which is the sort of detail that makes a silent mess of a route.
+ */
+function georssPoints(doc: Document): TrackPoint[] {
+  const out: TrackPoint[] = [];
+  for (const node of [...byLocalName(doc, "line"), ...byLocalName(doc, "polygon")]) {
+    const nums = (node.textContent ?? "").trim().split(/[\s,]+/).map(Number);
+    for (let i = 0; i + 1 < nums.length; i += 2) {
+      const lat = nums[i]!;
+      const lon = nums[i + 1]!;
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+      if (Math.abs(lat) > 90 || Math.abs(lon) > 180) continue;
+      out.push({ lat, lon });
+    }
   }
   return out;
 }
@@ -145,7 +247,7 @@ export function gpxPoints(doc: Document): TrackPoint[] {
  */
 function kmlPoints(doc: Document): TrackPoint[] {
   const out: TrackPoint[] = [];
-  for (const block of doc.querySelectorAll("coordinates")) {
+  for (const block of byLocalName(doc, "coordinates")) {
     for (const triple of (block.textContent ?? "").trim().split(/\s+/)) {
       if (!triple) continue;
       const [lon, lat, ele] = triple.split(",").map(Number);
@@ -162,11 +264,11 @@ function kmlPoints(doc: Document): TrackPoint[] {
  */
 function tcxPoints(doc: Document): TrackPoint[] {
   const out: TrackPoint[] = [];
-  for (const n of doc.querySelectorAll("Trackpoint")) {
-    const lat = Number(n.querySelector("LatitudeDegrees")?.textContent);
-    const lon = Number(n.querySelector("LongitudeDegrees")?.textContent);
+  for (const n of byLocalName(doc, "Trackpoint")) {
+    const lat = Number(localText(n, "LatitudeDegrees"));
+    const lon = Number(localText(n, "LongitudeDegrees"));
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
-    const ele = Number(n.querySelector("AltitudeMeters")?.textContent);
+    const ele = Number(localText(n, "AltitudeMeters"));
     out.push(Number.isFinite(ele) ? { lat, lon, ele } : { lat, lon });
   }
   return out;

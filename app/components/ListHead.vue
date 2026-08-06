@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "@hugeicons/vue";
-import { Calendar03Icon, ChevronDownIcon, Copy01Icon, Delete02Icon, Edit02Icon, GlobeIcon, Location01Icon } from "@hugeicons/core-free-icons";
+import { Calendar03Icon, ChevronDownIcon, Copy01Icon, Delete02Icon, Edit02Icon, GlobeIcon, HelpCircleIcon, Location01Icon } from "@hugeicons/core-free-icons";
 import {
   DISPLAY_DISTANCE_UNITS,
   distanceFieldValue,
@@ -9,7 +9,7 @@ import {
   resolveDistanceUnit,
 } from "~~/shared/trailDistance";
 import { displayUrl, parseTrailLink, safeUrl } from "~~/shared/trailLink";
-import { MAX_GPX_BYTES, geoJsonPoints, gpxPoints, gpxStats, profileToString } from "~~/shared/gpx";
+import { MAX_GPX_BYTES, geoJsonPoints, gpxPoints, gpxStats, kmzToKml, profileToString } from "~~/shared/gpx";
 import type { ListSnapshot } from "~~/shared/types";
 import { copyText } from "~/utils/clipboard";
 
@@ -141,7 +141,14 @@ async function onGpx(e: Event) {
   }
   gpxBusy.value = true;
   try {
-    const text = await file.text();
+    // A KMZ is a zip, so it has to be unwrapped before anything can read it. Sniffed by
+    // its "PK" signature rather than its name, like the format check below.
+    const head = new Uint8Array(await file.slice(0, 2).arrayBuffer());
+    const text =
+      head[0] === 0x50 && head[1] === 0x4b
+        ? ((await kmzToKml(await file.arrayBuffer())) ?? "")
+        : await file.text();
+    if (!text) throw new Error("empty");
     // JSON or XML, decided by the CONTENT rather than the extension — a file saved as
     // .txt or renamed by a share sheet is still the route it was, and the first
     // non-space character tells us which family it belongs to more reliably than a name.
@@ -529,10 +536,17 @@ onClickOutside(trailEl, closeTrail);
 
         <p class="head__gpx t-sm">
           <label class="head__gpxbtn">
-            <input type="file" accept=".gpx,.kml,.tcx,.geojson,.json,application/gpx+xml,application/vnd.google-earth.kml+xml,application/geo+json,application/json,text/xml" @change="onGpx" />
+            <input type="file" accept=".gpx,.kml,.kmz,.tcx,.geojson,.json,.xml,application/gpx+xml,application/vnd.google-earth.kml+xml,application/vnd.google-earth.kmz,application/geo+json,application/json,text/xml" @change="onGpx" />
             {{ gpxBusy ? "Reading…" : snapshot.trailProfile ? "Replace map file" : "Import map file" }}
           </label>
-          <span class="head__gpxnote">GPX, KML, TCX or GeoJSON — reads the distance and the shape of the climb, and never leaves your browser</span>
+          <Tooltip
+            text="GPX, KML, KMZ, TCX, GeoJSON or GeoRSS. Reads the route's distance and the shape of its climb — the file is read here in your browser and never uploaded."
+            preferred-placement="bottom"
+          >
+            <button type="button" class="head__gpxwhy" aria-label="Which map files can be read">
+              <HugeiconsIcon :icon="HelpCircleIcon" :size="14" :stroke-width="2" aria-hidden="true" />
+            </button>
+          </Tooltip>
         </p>
         <p v-if="gpxError" class="head__gpxerr t-sm">{{ gpxError }}</p>
 
@@ -1072,9 +1086,24 @@ onClickOutside(trailEl, closeTrail);
 .head__gpxbtn input {
   display: none;
 }
-.head__gpxnote {
-  display: block;
-  margin-top: var(--space-px);
+/* the (?) that replaced a line of caveats — same quiet treatment the planning rows use */
+.head__gpxwhy {
+  display: inline-flex;
+  margin-left: var(--space-1);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-3);
+  cursor: help;
+  transition: color var(--dur) var(--ease);
+}
+.head__gpxwhy:hover,
+.head__gpxwhy:focus-visible {
+  color: var(--ink);
+}
+.head__gpx {
+  display: flex;
+  align-items: center;
 }
 .head__gpxerr {
   margin: 0;

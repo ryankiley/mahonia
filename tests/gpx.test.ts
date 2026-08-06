@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Window } from "happy-dom";
-import { GRADE_HARD_PCT, GRADE_MODERATE_PCT, PROFILE_SAMPLES, dayClimbs, geoJsonPoints, gpxPoints, gpxStats, gradeRuns, gradeSpread, haversineM, parseProfile, profileToString, segmentClimbs, type TrackPoint } from "../shared/gpx";
+import { GRADE_HARD_PCT, GRADE_MODERATE_PCT, PROFILE_SAMPLES, dayClimbs, geoJsonPoints, gpxPoints, gpxStats, gradeRuns, gradeSpread, haversineM, kmzToKml, parseProfile, profileToString, segmentClimbs, type TrackPoint } from "../shared/gpx";
 
 // A track that walks due east along a parallel, so the distances are easy to reason
 // about: at the equator 0.001° of longitude is ~111 m.
@@ -409,5 +409,78 @@ describe("reading a route out of somebody else's file", () => {
     expect(geoJsonPoints({ type: "Point", coordinates: [-121.71, 45.33] })).toEqual([]);
     expect(geoJsonPoints({ type: "LineString", coordinates: [["a", "b"], [1]] })).toEqual([]);
     expect(gpxPoints(xml(`<kml xmlns="http://www.opengis.net/kml/2.2"><Document/></kml>`))).toEqual([]);
+  });
+});
+
+describe("KMZ — a KML in a zip", () => {
+  /** A real zip, built here rather than mocked, so the central-directory walk is
+   *  genuinely exercised. `method` 0 is stored; 8 would be deflate. */
+  function zip(name: string, body: string): ArrayBuffer {
+    const enc = new TextEncoder();
+    const nameB = enc.encode(name);
+    const data = enc.encode(body);
+    const local = 30 + nameB.length;
+    const central = 46 + nameB.length;
+    const buf = new Uint8Array(local + data.length + central + 22);
+    const dv = new DataView(buf.buffer);
+    let o = 0;
+    dv.setUint32(o, 0x04034b50, true);            // local header
+    dv.setUint16(o + 8, 0, true);                  // stored
+    dv.setUint32(o + 18, data.length, true);       // compressed size
+    dv.setUint32(o + 22, data.length, true);       // uncompressed size
+    dv.setUint16(o + 26, nameB.length, true);
+    buf.set(nameB, o + 30);
+    buf.set(data, o + local);
+    const cdAt = local + data.length;
+    o = cdAt;
+    dv.setUint32(o, 0x02014b50, true);            // central directory
+    dv.setUint16(o + 10, 0, true);
+    dv.setUint32(o + 20, data.length, true);
+    dv.setUint16(o + 28, nameB.length, true);
+    dv.setUint32(o + 42, 0, true);                 // local header offset
+    buf.set(nameB, o + 46);
+    o = cdAt + central;
+    dv.setUint32(o, 0x06054b50, true);            // end of central directory
+    dv.setUint16(o + 8, 1, true);                  // entries on this disk
+    dv.setUint16(o + 10, 1, true);                 // entries total
+    dv.setUint32(o + 16, cdAt, true);              // where the directory starts
+    return buf.buffer;
+  }
+
+  it("pulls the KML out and reads the route in it", async () => {
+    const kml = await kmzToKml(zip("doc.kml", KML));
+    expect(kml).toContain("coordinates");
+    expect(gpxPoints(xml(kml!))).toHaveLength(3);
+  });
+
+  it("finds the KML wherever it sits in the archive", async () => {
+    // Google Earth writes doc.kml at the root; other tools nest it
+    expect(await kmzToKml(zip("files/route.kml", KML))).toContain("coordinates");
+  });
+
+  it("declines anything that isn't a zip, rather than guessing", async () => {
+    expect(await kmzToKml(new TextEncoder().encode("<gpx/>").buffer)).toBeNull();
+    expect(await kmzToKml(new ArrayBuffer(0))).toBeNull();
+  });
+
+  it("declines a zip with no KML in it", async () => {
+    expect(await kmzToKml(zip("readme.txt", "not a route"))).toBeNull();
+  });
+});
+
+describe("GeoRSS", () => {
+  it("reads a lat-lon run, LAT first — the opposite of KML", () => {
+    const feed = `<feed xmlns="http://www.w3.org/2005/Atom" xmlns:georss="http://www.georss.org/georss">
+      <entry><georss:line>45.33 -121.71 45.34 -121.70 45.35 -121.69</georss:line></entry></feed>`;
+    const pts = gpxPoints(xml(feed));
+    expect(pts).toHaveLength(3);
+    expect(pts[0]!.lat).toBeCloseTo(45.33, 5);
+    expect(pts[0]!.lon).toBeCloseTo(-121.71, 5);
+  });
+
+  it("drops a pair that can't be a coordinate", () => {
+    const feed = `<feed xmlns:georss="http://www.georss.org/georss">
+      <georss:line>999 -121.71 45.34 -121.70</georss:line></feed>`;
+    expect(gpxPoints(xml(feed))).toHaveLength(1);
   });
 });
