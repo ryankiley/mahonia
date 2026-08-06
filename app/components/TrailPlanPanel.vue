@@ -465,7 +465,10 @@ const distanceValue = (m: number | undefined) => {
       <!-- the pack, kept in view because the totals bar stands down in this mode -->
       <span v-if="totals.carriedMg > 0" class="chip">
         <span class="t-label">Carried</span>
-        <span class="t-num">{{ formatWeight(totals.carriedMg, snapshot.displayUnit) }}</span>
+        <!-- the unit as its own element, the way the totals bar does it: baked into the
+             formatted string it can't take the lesser ink, so "lb" sat at full weight
+             beside every other unit on the panel stepping back -->
+        <span class="t-num">{{ formatWeight(totals.carriedMg, snapshot.displayUnit, { withUnit: false }) }} <span class="t-muted">{{ snapshot.displayUnit }}</span></span>
       </span>
       <!-- The trip's own estimates, up here with the facts they're derived from rather
            than in a sentence at the foot. They step back in colour: the chips to their
@@ -598,7 +601,7 @@ const distanceValue = (m: number | undefined) => {
             <span class="plan__bar" aria-hidden="true">
               <span class="plan__barfill" :style="{ width: `${(packMg[i]! / heaviestMg) * 100}%` }" />
             </span>
-            <span class="t-num plan__packnum">{{ formatWeight(packMg[i] ?? 0, snapshot.displayUnit) }}</span>
+            <span class="t-num plan__packnum">{{ formatWeight(packMg[i] ?? 0, snapshot.displayUnit, { withUnit: false }) }} <span class="t-muted">{{ snapshot.displayUnit }}</span></span>
           </span>
         </div>
       </li>
@@ -854,6 +857,7 @@ const distanceValue = (m: number | undefined) => {
  * token for every unit on the panel, so "ft" reads the same weight wherever it appears. */
 .plan__cell .t-muted,
 .plan__chips .t-muted,
+.plan__pack .t-muted,
 .plan__assume .t-muted {
   color: var(--ink-3);
 }
