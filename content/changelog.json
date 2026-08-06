@@ -4,7 +4,8 @@
     "changed": [
       "On a phone, removing an item now lives in the row's ⋯ menu with the note, nesting and gear vault actions; the row keeps the ⋯ and the drag handle.",
       "On a phone, a list's trip dates now sit tight under its trail link, so the title, trail and dates read as one block.",
-      "A shared list now marks worn and consumable items with the same two icons the editor uses, instead of spelling the word after the name."
+      "A shared list now marks worn and consumable items with the same two icons the editor uses, instead of spelling the word after the name.",
+      "The trip date picker now starts its weeks on Sunday, tracks the day under your cursor with a highlight that glides between days, and centres its Clear button under the calendar."
     ],
     "fixed": [
       "On a phone, an item's worn and consumable icons sat below the weight beside them; every icon on the row now lines up with the numbers.",
@@ -16,7 +17,8 @@
       "A heavy item's weight no longer breaks between the number and its unit, and stays in the same column as every other weight on the widest and narrowest windows.",
       "An item that splits its count into worn and packed no longer runs into the weight beside it.",
       "An item with no weight lines its dash up with the numbers above and below it.",
-      "In the folder breakdown, a long folder name now keeps its colour dot on the first line and its weight at the end of the name, instead of stranding both."
+      "In the folder breakdown, a long folder name now keeps its colour dot on the first line and its weight at the end of the name, instead of stranding both.",
+      "Trip dates in between the two dates you picked now read as selected, instead of nearly vanishing into the panel in dark mode."
     ]
   },
   {

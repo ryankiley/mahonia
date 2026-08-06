@@ -895,9 +895,22 @@ onClickOutside(trailEl, () => {
     position: static;
   }
 }
+/* Centred across the grid, not flush to the panel's edge. `justify-self: start` put
+   this label's first letter on the panel's content edge — but nothing in the calendar
+   above it starts there: every glyph in the grid is CENTRED in a 32px column, so the
+   word sat about half a cell left of the column of numbers and read as overhanging.
+   Stretching it and letting .btn's own flexbox centre the label lines it up with the
+   month name at the other end of the panel, which is the only other full-width row
+   here. Given the day cells' height + corner so a hover reads as one of the panel's
+   controls rather than as bare text. */
 .head__dateclear {
-  justify-self: start;
+  justify-self: stretch;
+  block-size: var(--icon-btn);
+  border-radius: var(--radius-2);
   color: var(--ink-3);
+}
+.head__dateclear:hover {
+  background: var(--popover-hover);
 }
 .head__dateclear:hover {
   color: var(--ink);
