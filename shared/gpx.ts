@@ -328,3 +328,102 @@ export function dayClimbs(
     descentM: Math.round(x.descentM * scale),
   }));
 }
+
+
+// ---- how hard the ground is ----
+
+/**
+ * Where a grade stops being a number and becomes a fact about the day.
+ *
+ * Published trail standards converge on these: moderate around 6–10%, hard above 10%
+ * (Boulder's trail-grade standards, NPS Shenandoah, and the usual backpacking guides).
+ * HARD is 10 deliberately — TrailProfile's hover readout already calls 10% steep, and one
+ * definition beats two that drift apart.
+ *
+ * Those figures describe a trail's AVERAGE grade, though, and a profile samples the
+ * instantaneous one, which is always steeper. That is why the series is smoothed first
+ * (below) rather than banded raw: smoothing pulls a sample back toward the local average
+ * the published numbers are actually about, and stops ±5–10 m of GPS noise painting a flat
+ * walk as alternating red and grey confetti.
+ */
+export const GRADE_MODERATE_PCT = 6;
+export const GRADE_HARD_PCT = 10;
+
+/**
+ * A WIDER window than the ascent arithmetic uses, and deliberately so.
+ *
+ * SMOOTH_WINDOW is tuned for one job: totalling climb to within half a percent of the
+ * published figure. Banding wants something different — a stretch of trail long enough to
+ * be worth calling steep. At 5 samples the real Timberline export bands into 51 runs over
+ * 39.8 miles, one every three-quarters of a mile, which draws as a barcode rather than as
+ * terrain and says nothing a walker could act on.
+ *
+ * 11 samples is ~2 km on a 40-mile route: about the length of a climb people talk about
+ * ("the haul out of the canyon"), and much closer to the AVERAGE grade the published
+ * difficulty bands are actually derived from.
+ */
+const GRADE_WINDOW = 11;
+
+export type GradeBand = "easy" | "moderate" | "hard";
+
+/** Direction-agnostic: a 15% descent is hard on the knees the way a 15% climb is on the lungs. */
+function bandFor(gradePct: number): GradeBand {
+  const g = Math.abs(gradePct);
+  if (g >= GRADE_HARD_PCT) return "hard";
+  if (g >= GRADE_MODERATE_PCT) return "moderate";
+  return "easy";
+}
+
+/**
+ * The profile cut into runs of like difficulty — `[from, to]` sample indices, inclusive,
+ * each meeting the next so a renderer can draw them without a hairline of paper between.
+ *
+ * Lives here rather than in the component because it is arithmetic, it needs `smooth()`
+ * (which is private to this file), and both the shading and anything else that wants to
+ * say "how much of this route is steep" must agree on one answer.
+ */
+export function gradeRuns(
+  profile: readonly number[],
+  totalDistanceM: number,
+): { from: number; to: number; band: GradeBand }[] {
+  if (profile.length < 2 || !(totalDistanceM > 0)) return [];
+  const eased = smooth(profile, GRADE_WINDOW);
+  const runM = totalDistanceM / (profile.length - 1);
+  if (!(runM > 0)) return [];
+
+  // Central difference, matching the hover readout: steadier on noisy ground than looking
+  // one sample ahead, and it doesn't lurch at the ends, where it falls back to the one
+  // neighbour that exists.
+  const bandAt = (i: number): GradeBand => {
+    const lo = Math.max(0, i - 1);
+    const hi = Math.min(eased.length - 1, i + 1);
+    const rise = eased[hi]! - eased[lo]!;
+    const run = runM * (hi - lo);
+    return bandFor(run > 0 ? (rise / run) * 100 : 0);
+  };
+
+  const out: { from: number; to: number; band: GradeBand }[] = [];
+  let start = 0;
+  let current = bandAt(0);
+  for (let i = 1; i < profile.length; i++) {
+    const b = bandAt(i);
+    if (b === current) continue;
+    out.push({ from: start, to: i, band: current }); // `to: i`, so runs share a sample
+    start = i;
+    current = b;
+  }
+  out.push({ from: start, to: profile.length - 1, band: current });
+  return out;
+}
+
+/** How much of the route falls in each band, in metres — for the spoken description. */
+export function gradeSpread(
+  profile: readonly number[],
+  totalDistanceM: number,
+): Record<GradeBand, number> {
+  const spread: Record<GradeBand, number> = { easy: 0, moderate: 0, hard: 0 };
+  if (profile.length < 2) return spread;
+  const per = totalDistanceM / (profile.length - 1);
+  for (const r of gradeRuns(profile, totalDistanceM)) spread[r.band] += (r.to - r.from) * per;
+  return spread;
+}

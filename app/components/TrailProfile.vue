@@ -3,6 +3,7 @@ import { HugeiconsIcon } from "@hugeicons/vue";
 import { ArrowDownRight01Icon, ArrowUpRight01Icon } from "@hugeicons/core-free-icons";
 import { categoryColor, nextFolderColor } from "~~/shared/categories";
 import { formatDistance, type DisplayDistanceUnit } from "~~/shared/trailDistance";
+import { gradeRuns, gradeSpread } from "~~/shared/gpx";
 
 // The route's shape, cut into days.
 //
@@ -93,11 +94,28 @@ const dayColors = computed(() => {
   });
 });
 
-/** A filled area and a ridge per day, sharing a sample at each boundary so there's no gap. */
-const segments = computed(() => {
+/** The polyline through a run of samples, and the same run closed down to the baseline. */
+function pathsFor(idx: readonly number[]) {
+  const pts = idx.map((i) => `${x(i).toFixed(1)},${y(props.profile[i]!).toFixed(1)}`);
+  return {
+    ridge: `M${pts.join("L")}`,
+    fill: `M${x(idx[0]!).toFixed(1)},${VB_H}L${pts.join("L")}L${x(idx[idx.length - 1]!).toFixed(1)},${VB_H}Z`,
+  };
+}
+
+/**
+ * TWO encodings on one mark, on two different marks so they can't muddy each other.
+ *
+ * The RIDGE carries the day — the same palette the itinerary uses, at full opacity, so
+ * "which day is this" is answered by a line you can actually see rather than by a 22%
+ * wash. The FILL carries how hard the ground is. They're separate lists on purpose: a
+ * day owns one contiguous stretch, while grade flips band many times inside it, so
+ * intersecting them would produce a segment per crossing of two unrelated boundaries.
+ */
+const dayRuns = computed(() => {
   if (props.profile.length < 2 || !props.dayDistancesM.length) return [];
   const owner = dayOfSample.value;
-  const out: { fill: string; ridge: string; color: string; index: number }[] = [];
+  const out: { ridge: string; color: string; index: number }[] = [];
   // one pass per day, then a final pass for the unassigned tail (-1)
   for (const d of [...props.dayDistancesM.map((_, i) => i), -1]) {
     const idx: number[] = [];
@@ -105,10 +123,8 @@ const segments = computed(() => {
     // reach back one sample so adjacent days meet rather than leaving a hairline of paper
     if (idx.length && idx[0]! > 0) idx.unshift(idx[0]! - 1);
     if (idx.length < 2) continue;
-    const pts = idx.map((i) => `${x(i).toFixed(1)},${y(props.profile[i]!).toFixed(1)}`);
     out.push({
-      ridge: `M${pts.join("L")}`,
-      fill: `M${x(idx[0]!).toFixed(1)},${VB_H}L${pts.join("L")}L${x(idx[idx.length - 1]!).toFixed(1)},${VB_H}Z`,
+      ridge: pathsFor(idx).ridge,
       // unassigned ground is grey — a quiet surface, not a category colour, because it
       // is precisely the part of the route that has no day to belong to yet
       color: d === -1 ? "var(--ink-3)" : (dayColors.value[d] ?? "var(--cat-other)"),
@@ -116,6 +132,24 @@ const segments = computed(() => {
     });
   }
   return out;
+});
+
+/** Where one day ends and the next begins — the sample index of each boundary. */
+const dayCuts = computed(() => {
+  const owner = dayOfSample.value;
+  const cuts: number[] = [];
+  for (let i = 1; i < owner.length; i++) if (owner[i] !== owner[i - 1]) cuts.push(i);
+  return cuts;
+});
+
+/** Runs of like difficulty, filled — easy ground takes no hue at all. */
+const gradeFills = computed(() => {
+  if (props.profile.length < 2 || !(props.totalDistanceM > 0)) return [];
+  return gradeRuns(props.profile, props.totalDistanceM).map((r, i) => {
+    const idx: number[] = [];
+    for (let k = r.from; k <= r.to; k++) idx.push(k);
+    return { fill: pathsFor(idx).fill, band: r.band, key: i };
+  });
 });
 
 // The spoken version carries the facts the shape encodes — a profile has no legend, so
@@ -128,7 +162,14 @@ const description = computed(() => {
   const len = formatDistance(props.totalDistanceM, props.distanceUnit);
   const n = props.dayDistancesM.length;
   const climb = props.ascentM ? ` ${asHeight(props.ascentM)} ${heightUnit.value} of climb and ${asHeight(props.descentM ?? 0)} ${heightUnit.value} of descent.` : "";
-  return `Elevation profile: ${len}, ${range}, across ${n} ${n === 1 ? "day" : "days"}.${climb}`;
+  // The shading is the only place difficulty is stated, and a profile has no legend and
+  // no <text> — so the spoken version has to carry it in figures. Proportions, not colour
+  // names: "6.2 mi of it steep" is the fact; "red" is how it happens to be drawn.
+  const spread = gradeSpread(props.profile, props.totalDistanceM);
+  const hard = spread.hard > 0 ? `${formatDistance(Math.round(spread.hard), props.distanceUnit)} of it steep going` : "";
+  const mod = spread.moderate > 0 ? `${formatDistance(Math.round(spread.moderate), props.distanceUnit)} moderate` : "";
+  const going = [hard, mod].filter(Boolean).join(" and ");
+  return `Elevation profile: ${len}, ${range}, across ${n} ${n === 1 ? "day" : "days"}.${climb}${going ? ` ${going}.` : ""}`;
 });
 
 /**
@@ -265,7 +306,7 @@ const id = useId();
 
 <template>
   <figure
-    v-if="segments.length"
+    v-if="dayRuns.length"
     ref="wrapRef"
     class="tprofile-wrap"
     @pointermove="onMove"
@@ -283,19 +324,40 @@ const id = useId();
     >
       <title :id="`${id}-t`">Elevation profile</title>
       <desc :id="`${id}-d`">{{ description }}</desc>
-      <g v-for="s in segments" :key="s.index">
-        <path :d="s.fill" :fill="s.color" class="tprofile__fill" />
-        <!-- vector-effect is MANDATORY here: with preserveAspectRatio="none" the stroke
-             scales anisotropically, giving a fat horizontal ridge and a hairline vertical
-             one. This is the single easiest thing to get wrong in this file. -->
-        <path
-          :d="s.ridge"
-          :stroke="s.color"
-          class="tprofile__ridge"
-          fill="none"
-          vector-effect="non-scaling-stroke"
-        />
-      </g>
+      <!-- Difficulty first, underneath: the fills are the ground, the ridges are the
+           itinerary drawn on top of it. -->
+      <path
+        v-for="g in gradeFills"
+        :key="`g${g.key}`"
+        :d="g.fill"
+        class="tprofile__fill"
+        :class="`is-${g.band}`"
+      />
+      <!-- A 1px cut at each day boundary, in paper — the same trick CategoryBar uses with
+           a --space-px gap, so adjacent stretches always read as distinct. Sized by
+           non-scaling-stroke, or the stretched viewBox would make it a fat smear. -->
+      <line
+        v-for="cut in dayCuts"
+        :key="`c${cut}`"
+        :x1="x(cut)"
+        :x2="x(cut)"
+        y1="0"
+        :y2="VB_H"
+        class="tprofile__cut"
+        vector-effect="non-scaling-stroke"
+      />
+      <!-- vector-effect is MANDATORY here: with preserveAspectRatio="none" the stroke
+           scales anisotropically, giving a fat horizontal ridge and a hairline vertical
+           one. This is the single easiest thing to get wrong in this file. -->
+      <path
+        v-for="s in dayRuns"
+        :key="s.index"
+        :d="s.ridge"
+        :stroke="s.color"
+        class="tprofile__ridge"
+        fill="none"
+        vector-effect="non-scaling-stroke"
+      />
       <!-- The cursor's own position on the route. A <line>, which is inside this file's
            stated ceiling of title/desc/path/line; non-scaling-stroke for the same reason
            the ridge needs it, or with preserveAspectRatio="none" a vertical rule renders
@@ -376,10 +438,18 @@ const id = useId();
 
 <style scoped>
 /* Stretches to its container and takes its height from CSS — the viewBox does the rest.
-   Vertical exaggeration is therefore whatever the container is, which is normal for a
-   profile and the reason this mark may never carry a slope-derived CLAIM: no gradient
-   shading, no "steepest kilometre". It is a silhouette for recognition; the numbers
-   beside it carry the facts. */
+   Vertical exaggeration is therefore whatever the container is.
+
+   This USED to say the mark may never carry a slope-derived claim — no gradient shading,
+   no "steepest kilometre" — and it now does carry one, so here is the reversal and its
+   reasoning rather than a silently deleted rule.
+
+   The original argument was that a container-dependent vertical scale makes slope
+   unreadable off the silhouette. That is still true, and it is an argument against asking
+   the EYE to judge steepness from the shape. It is not an argument against colouring a
+   grade the code has computed from the data: the shading doesn't ask you to measure the
+   picture, it states a figure the picture happens to sit under. What stays banned is any
+   claim the geometry alone would have to support. */
 .tprofile-wrap {
   margin: 0;
 }
@@ -461,8 +531,46 @@ const id = useId();
   stroke-width: 2;
   vector-effect: non-scaling-stroke;
 }
+/* The ground's difficulty, strongest at the ridge and gone by the baseline.
+ *
+ * A MASK rather than a <linearGradient>, so the element ceiling at the top of this file
+ * stands: no <defs>, no new SVG element, just CSS on a path that already existed. The
+ * fade is relative to each run's own box, so it's densest at that stretch's high point
+ * rather than tracking the ridge exactly — close enough to read as "under the line", and
+ * the alternative costs a gradient definition per run.
+ *
+ * Easy ground takes no hue at all. Colour that fires everywhere isn't a signal. */
 .tprofile__fill {
-  opacity: 0.22;
+  /* The hue is densest AT THE RIDGE and gone by the baseline, which means the gradient
+     has to be anchored to each run's own box — anchored to the viewBox instead, colour
+     peaked at the top of the chart and a steep stretch down in a canyon got almost none.
+     fill-box costs a little consistency between a tall run and a short one; view-box
+     costs the thing the shading is for. */
+  mask-image: linear-gradient(to bottom, #000 0%, #000 25%, transparent 100%);
+  mask-origin: fill-box;
+  mask-clip: fill-box;
+  /* Easy ground is filled too, in the quietest ink there is. Leaving it unfilled put
+     white gaps between the coloured runs, which broke the surface into slivers — the
+     absence of difficulty still has to be drawn for the presence of it to read. */
+  fill: var(--ink-3);
+  opacity: 0.14;
+}
+.tprofile__fill.is-moderate {
+  fill: var(--cat-worn);
+  opacity: 0.4;
+}
+/* Red for hard, and the SAME red the hover readout marks a steep grade with — one idea,
+   one hue. Yellow for moderate rather than orange: --cat-pack sits 28° from this in hue
+   at a similar lightness, which is a classic red/green-deficient confusion pair, and a
+   difficulty signal is exactly the wrong place to ask someone to tell those apart. */
+.tprofile__fill.is-hard {
+  fill: var(--cat-firstaid);
+  opacity: 0.45;
+}
+/* the day boundary, cut in paper — 1px regardless of how the viewBox is stretched */
+.tprofile__cut {
+  stroke: var(--paper);
+  stroke-width: 1;
 }
 .tprofile__ridge {
   stroke-width: 1.5;

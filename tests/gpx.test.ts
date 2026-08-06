@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PROFILE_SAMPLES, dayClimbs, gpxStats, haversineM, parseProfile, profileToString, segmentClimbs, type TrackPoint } from "../shared/gpx";
+import { GRADE_HARD_PCT, GRADE_MODERATE_PCT, PROFILE_SAMPLES, dayClimbs, gpxStats, gradeRuns, gradeSpread, haversineM, parseProfile, profileToString, segmentClimbs, type TrackPoint } from "../shared/gpx";
 
 // A track that walks due east along a parallel, so the distances are easy to reason
 // about: at the equator 0.001° of longitude is ~111 m.
@@ -251,5 +251,79 @@ describe("dayClimbs — shape from the profile, magnitude from the full track", 
 
   it("is empty without a profile, rather than zeroes that look like measurements", () => {
     expect(dayClimbs([], [1000, 1000], 2000, 500)).toEqual([]);
+  });
+});
+
+describe("gradeRuns — how hard the ground is", () => {
+  // 240 samples over 10 km, so one sample is ~42 m and a 1 m rise per sample is ~2.4%.
+  const over10km = (risePerSample: number) =>
+    Array.from({ length: 240 }, (_, i) => 1000 + i * risePerSample);
+  const bandsOf = (profile: number[]) => new Set(gradeRuns(profile, 10_000).map((r) => r.band));
+
+  it("calls flat ground easy", () => {
+    expect(bandsOf(over10km(0))).toEqual(new Set(["easy"]));
+  });
+
+  it("calls a sustained steep climb hard", () => {
+    // ~10 m per 42 m sample ≈ 24%
+    expect(bandsOf(over10km(10))).toEqual(new Set(["hard"]));
+  });
+
+  it("bands a DESCENT the same as the equivalent climb", () => {
+    // the whole direction-agnostic argument: steep is steep
+    const up = gradeRuns(over10km(10), 10_000);
+    const down = gradeRuns(over10km(-10), 10_000);
+    expect(down.map((r) => r.band)).toEqual(up.map((r) => r.band));
+  });
+
+  it("puts a gentle grade in the moderate band, not the hard one", () => {
+    // ~3 m per 42 m sample ≈ 7%, between the two thresholds.
+    //
+    // Asserted on the LONGEST run rather than the whole set: `smooth` is edge-clamped, so
+    // the first and last couple of samples average against repeats of themselves and read
+    // fractionally flatter. That costs two samples out of 240 at each end and is the same
+    // edge behaviour the ascent arithmetic already accepts — worth pinning as expected
+    // rather than pretending the bands are uniform.
+    const runs = gradeRuns(over10km(3), 10_000);
+    const longest = runs.reduce((a, b) => (b.to - b.from > a.to - a.from ? b : a));
+    expect(longest.band).toBe("moderate");
+    expect(longest.to - longest.from).toBeGreaterThan(200);
+    expect(bandsOf(over10km(3)).has("hard")).toBe(false);
+  });
+
+  it("covers the whole profile with runs that meet, leaving no gap", () => {
+    const runs = gradeRuns(over10km(6), 10_000);
+    expect(runs[0]!.from).toBe(0);
+    expect(runs[runs.length - 1]!.to).toBe(239);
+    // each run starts where the last ended, so the drawn fills share a sample
+    for (let i = 1; i < runs.length; i++) expect(runs[i]!.from).toBe(runs[i - 1]!.to);
+  });
+
+  it("does NOT shatter into confetti on noisy but flat ground", () => {
+    // THE reason the series is smoothed first. ±6 m of GPS jitter on level ground is a
+    // huge instantaneous grade at 42 m spacing; unsmoothed this bands as hundreds of
+    // alternating runs and paints a flat walk in stripes.
+    const jittery = Array.from({ length: 240 }, (_, i) => 1000 + (i % 2 ? 6 : 0));
+    const runs = gradeRuns(jittery, 10_000);
+    expect(runs.length).toBeLessThan(10);
+  });
+
+  it("is empty rather than guessing when there's no distance to divide by", () => {
+    expect(gradeRuns(over10km(5), 0)).toEqual([]);
+    expect(gradeRuns([1000], 10_000)).toEqual([]);
+  });
+
+  it("gradeSpread accounts for the whole route", () => {
+    const spread = gradeSpread(over10km(3), 10_000);
+    const total = spread.easy + spread.moderate + spread.hard;
+    expect(total).toBeGreaterThan(9_900);
+    expect(total).toBeLessThanOrEqual(10_001);
+  });
+
+  it("keeps the hard threshold equal to the readout's idea of steep", () => {
+    // TrailProfile's hover readout marks a grade steep at 10%. Two definitions of the
+    // same word is how a chart starts disagreeing with its own tooltip.
+    expect(GRADE_HARD_PCT).toBe(10);
+    expect(GRADE_MODERATE_PCT).toBeLessThan(GRADE_HARD_PCT);
   });
 });
