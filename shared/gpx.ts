@@ -245,17 +245,27 @@ export function parseProfile(raw: unknown): number[] {
  * Ascent and descent over each stretch of a stored profile, given how the ground is
  * divided up — so a day's climb can be READ OFF the route rather than typed.
  *
- * `shares` are each stretch's distance; only their proportions matter, because the
- * profile is already sampled evenly by distance. The same smoothing and threshold the
- * whole-track figure uses, applied once across the profile and then attributed to
- * stretches — smoothing per stretch would treat every boundary as an edge and lose a
- * little climb at each one.
+ * `shares` are each stretch's distance and `routeM` is how long the whole route is. BOTH
+ * are needed, and the second is the one it is tempting to leave out: normalising the
+ * shares against their OWN sum silently stretches a half-written itinerary across the
+ * entire profile. Enter 10 miles of a 40-mile route on day 1 and day 1's stretch ends at
+ * the last sample, so it is credited with every metre of climb on the route — a day's
+ * climb that happens to equal the trip's, which reads plausible and is nonsense.
+ *
+ * Ground no day has claimed stays UNCLAIMED. Nothing past the last day's end is
+ * attributed to anybody, which is the same thing the chart says by drawing that tail grey.
+ *
+ * The same smoothing and threshold the whole-track figure uses, applied once across the
+ * profile and then attributed to stretches — smoothing per stretch would treat every
+ * boundary as an edge and lose a little climb at each one.
  */
 export function segmentClimbs(
   profile: readonly number[],
   shares: readonly number[],
+  routeM?: number,
 ): { ascentM: number; descentM: number }[] {
-  const total = shares.reduce((s, d) => s + d, 0);
+  const stated = shares.reduce((s, d) => s + d, 0);
+  const total = routeM != null && routeM > stated ? routeM : stated;
   if (profile.length < 2 || !shares.length || !(total > 0)) {
     return shares.map(() => ({ ascentM: 0, descentM: 0 }));
   }
@@ -270,7 +280,10 @@ export function segmentClimbs(
   const out = shares.map(() => ({ ascentM: 0, descentM: 0 }));
   let seg = 0;
   let reference = eased[0]!;
-  for (let i = 1; i < eased.length; i++) {
+  // Stop at the last day's end, not the profile's. Running on would sweep every unclaimed
+  // metre past it into whichever stretch happened to be last.
+  const lastEnd = ends[ends.length - 1] ?? eased.length - 1;
+  for (let i = 1; i <= lastEnd; i++) {
     while (seg < ends.length - 1 && i > ends[seg]!) seg++;
     const delta = eased[i]! - reference;
     if (delta >= ASCENT_THRESHOLD_M) {

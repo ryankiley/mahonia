@@ -69,14 +69,42 @@ describe("gpxStats — ascent, and the noise that would ruin it", () => {
   });
 
   it("counts a climb that arrives in small steps, once it clears the threshold", () => {
-    // 1 m per point: below the threshold individually, but the reference doesn't move
-    // until it's cleared, so the climb still accumulates rather than vanishing
-    // 90 exactly: nine commits of 10 m, with the trailing 10 m never clearing the
-    // threshold. Under-reads by a step at the end, which is the right direction to be
-    // wrong — it can't invent climb that isn't there.
+    // 1 m per point: below the threshold on its own, but the reference doesn't move until
+    // a step is committed, so the climb accumulates rather than vanishing. It lands just
+    // under the full 100 m — the hysteresis leaves whatever hasn't yet cleared the
+    // threshold uncounted at the end, which is the right direction to be wrong: it can
+    // under-read real ground, never invent ground that isn't there. Asserted as a band,
+    // because the exact shortfall is a property of the threshold and the smoothing window
+    // rather than anything this test is pinning down.
     const s = gpxStats(eastward(101, (i) => 1000 + i))!;
     expect(s.ascentM).toBeGreaterThanOrEqual(90);
     expect(s.ascentM).toBeLessThanOrEqual(100);
+  });
+
+  it("does not credit a part-written itinerary with the whole route's climb", () => {
+    // THE BUG THIS EXISTS FOR: shares were normalised against their own sum, so one day
+    // covering a quarter of the route had its stretch run to the last sample and took
+    // every metre of climb on it. On screen a 10-mile Day 1 reported the same 5,272 ft as
+    // the 39.7-mile route it sat on, which is wrong in the most believable way possible.
+    const s = gpxStats(eastward(241, (i) => 1000 + i * 10))!;
+    const whole = segmentClimbs(s.profile, [1])[0]!.ascentM;
+    // one day holding a quarter of the route, three not filled in yet
+    const parts = segmentClimbs(s.profile, [1000, 0, 0, 0], 4000);
+    expect(parts[0]!.ascentM).toBeGreaterThan(0);
+    expect(parts[0]!.ascentM).toBeLessThan(whole * 0.4);
+    // and the ground nobody claimed goes to nobody — least of all the last day
+    expect(parts[1]!.ascentM).toBe(0);
+    expect(parts[3]!.ascentM).toBe(0);
+  });
+
+  it("still splits evenly when the days do cover the route", () => {
+    const s = gpxStats(eastward(241, (i) => 1000 + i * 10))!;
+    const halves = segmentClimbs(s.profile, [2000, 2000], 4000);
+    expect(halves[0]!.ascentM).toBeGreaterThan(0);
+    // a steady climb divides about evenly; generous band, the point is neither half is
+    // starved or handed the lot
+    expect(halves[1]!.ascentM / halves[0]!.ascentM).toBeGreaterThan(0.8);
+    expect(halves[1]!.ascentM / halves[0]!.ascentM).toBeLessThan(1.25);
   });
 
   it("separates up from down", () => {

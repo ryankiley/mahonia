@@ -163,25 +163,13 @@ const tripHours = computed(() => estimates.value.reduce((s, e) => s + (e?.hours 
 
 // ---- the route's shape ----
 const profile = computed(() => parseProfile(props.snapshot.trailProfile));
-// Each day's share of the ground, for cutting the profile into coloured stretches. A day
-// with no distance yet still takes an even slice, so the picture doesn't lurch as the
-// itinerary is filled in.
-const dayDistancesM = computed(() => {
-  const stated = days.value.map((d) => d?.distanceM ?? 0);
-  const statedTotal = stated.reduce((s, d) => s + d, 0);
-  const open = stated.filter((d) => !d).length;
-  // A day you haven't filled in yet takes an even share of what's LEFT of the route —
-  // not zero. Zero was the bug: with one day entered and three blank, the three collapsed
-  // to no width and the whole profile drew as a single segment, so filling in the
-  // itinerary made the picture worse before it made it better.
-  // Blank days stay ZERO here on purpose. The ground you haven't assigned to a day isn't
-  // shared out among the blank ones — it's simply unassigned, and the chart draws it grey
-  // (see TrailProfile). Enter 4 miles of a 20-mile route and the first 4 are your Day 1;
-  // the other 16 are not yet anybody's, and colouring them would say otherwise.
-  void open;
-  void statedTotal;
-  return stated;
-});
+// Each day's share of the ground, for cutting the profile into coloured stretches.
+//
+// A blank day is ZERO, not an even slice of what's left. Ground you haven't assigned to a
+// day isn't shared out among the blank ones — it's simply unassigned, and the chart draws
+// that tail grey (see TrailProfile). Enter 4 miles of a 20-mile route and the first 4 are
+// your Day 1; the other 16 are not yet anybody's, and colouring them would say otherwise.
+const dayDistancesM = computed(() => days.value.map((d) => d?.distanceM ?? 0));
 
 const UNIT_OPTIONS = DISPLAY_DISTANCE_UNITS.map((u) => ({ key: u, label: u }));
 
@@ -246,16 +234,25 @@ function toggleDay(id: string) {
  */
 const derivedClimbs = computed(() => {
   if (!profile.value.length) return [];
-  const parts = segmentClimbs(profile.value, dayDistancesM.value);
-  const fromProfile = parts.reduce((s, x) => s + x.ascentM, 0);
+  // The route's own length is the denominator for the day shares — without it a
+  // half-written itinerary is stretched across the whole profile (see segmentClimbs).
+  const routeM = props.snapshot.trailDistanceM || undefined;
+  const parts = segmentClimbs(profile.value, dayDistancesM.value, routeM);
   const trueTotal = props.snapshot.trailAscentM;
-  // SHAPE from the profile, MAGNITUDE from the full track. 96 samples is plenty to draw
-  // with and far too coarse to measure with — measured off the profile alone, a real
-  // 3,123 m loop reads about 1,600, because resampling smooths away half the undulation.
-  // Proportions survive that; totals don't. Without a stored total (a profile from an
-  // older list) the shares stand as they are rather than being invented.
-  if (!trueTotal || !(fromProfile > 0)) return parts;
-  const scale = trueTotal / fromProfile;
+  // SHAPE from the profile, MAGNITUDE from the full track. 240 samples is plenty to draw
+  // with and too coarse to measure with — measured off the profile alone, a real 3,123 m
+  // loop reads low, because resampling smooths away some of the undulation. Proportions
+  // survive that; totals don't. Without a stored total (a profile from an older list) the
+  // shares stand as they are rather than being invented.
+  //
+  // The correction is a property of the RESAMPLING, so it's measured across the WHOLE
+  // profile — NOT by making the days sum to the route's climb. The days need not cover
+  // the route: with 10 of 40 miles assigned, forcing their total to the route's handed a
+  // quarter of the walk every foot of the trip's ascent, which is how a 10-mile Day 1
+  // came to report the same 5,272 ft as the 39.7-mile route it sits on.
+  const wholeProfileClimb = segmentClimbs(profile.value, [1]).reduce((s, x) => s + x.ascentM, 0);
+  if (!trueTotal || !(wholeProfileClimb > 0)) return parts;
+  const scale = trueTotal / wholeProfileClimb;
   return parts.map((x) => ({
     ascentM: Math.round(x.ascentM * scale),
     descentM: Math.round(x.descentM * scale),
