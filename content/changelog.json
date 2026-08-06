@@ -1,5 +1,11 @@
 [
   {
+    "date": "2026-08-05",
+    "fixed": [
+      "On a phone, an item's worn and consumable icons sat below the weight beside them; every icon on the row now lines up with the numbers."
+    ]
+  },
+  {
     "date": "2026-08-04",
     "added": [
       "Copy your list as plain text — one run of names, ready to paste into a comment or a post where formatting doesn't survive. It ends with your base and total weight, and the read-only link."
