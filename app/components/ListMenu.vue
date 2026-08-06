@@ -118,7 +118,7 @@ watch(open, (o) => {
       :aria-expanded="open"
       @click="open = !open"
     >
-      {{ all.length }}<span class="lm__word"> lists</span>
+      {{ all.length }}<span class="lm__word"> packs</span>
       <HugeiconsIcon
         :icon="ChevronDownIcon"
         class="lm__chev"
@@ -239,16 +239,12 @@ watch(open, (o) => {
 }
 /* the app's dropdown mark, and it turns over when the menu is open — the same
    rotate the ⋯ menu's section headers and the sharing panel's disclosure use */
-/* The WORD goes on a phone, the count and chevron stay. The component's header argues
-   for a word over a glyph, and this keeps that argument intact where it matters — a
-   number with a dropdown arrow still reads as "there are others", where an icon alone
-   would not. It's the topbar that forces this: with three mode segments the tool cluster
-   no longer fits 375px, and every other candidate is a tap target the house protects. */
-@media (max-width: $bp-stack) {
-  .lm__word {
-    display: none;
-  }
-}
+/* The word STAYS on a phone now. It used to be hidden below $bp-stack, and the comment
+   here said why: "It's the topbar that forces this: with three mode segments the tool
+   cluster no longer fits 375px." Those segments have left the bar — the view switcher is
+   a row in the page now — which gave back ~116px, and the word costs ~30 of it. The
+   component's header argues for a word over a glyph; this is that argument no longer
+   having to be conceded on the surface where it matters most. */
 .lm__chev {
   flex: none;
   color: var(--ink-3);

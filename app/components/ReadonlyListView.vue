@@ -321,9 +321,11 @@ const asHeight = (m: number) =>
    — the list scans as one block instead of drifting apart. */
 /* The trip block. Quiet by construction — it sits between the totals and the gear, and
    the gear is what a reader came for. */
-/* Under the toolbar, above the title, scrolling with the page. Matches .editor__modes. */
+/* Under the toolbar, above the title, scrolling with the page. Matches .editor__modes,
+   including leaning on the bar's own padding and the title's leading rather than adding
+   a step of its own. */
 .view__modes {
-  margin-bottom: var(--space-4);
+  margin-bottom: var(--space-1);
 }
 .view__trip {
   margin-top: var(--space-6);

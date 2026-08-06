@@ -882,10 +882,13 @@ function onCorrected(res: { status: string; itemName?: string }) {
    fire) — but does NOT grow. The cluster's auto margin below eats the free space
    first, and a `flex: 1` here would then resolve its 0% basis against nothing left
    and collapse the line to a sliver. */
-/* Directly under the toolbar and above the list's title, with a full step beneath before
-   the content it governs. Not sticky: it belongs to the page, not the chrome. */
+/* Directly under the toolbar and above the list's title. Not sticky: it belongs to the
+   page, not the chrome.
+   No margin of its own — the bar already carries 4px of its own padding, and the title
+   below it brings its own leading. A step on top of those two read as a gap somebody
+   forgot to close. */
 .editor__modes {
-  margin-bottom: var(--space-4);
+  margin-bottom: var(--space-1);
 }
 .topbar__status {
   /* WHERE THE BAR SPLITS. Everything after this acts ON the list; everything before it
