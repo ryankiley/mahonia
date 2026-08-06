@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "@hugeicons/vue";
-import { ArrowDownRight01Icon, ArrowUpRight01Icon, ChevronDownIcon, Clock01Icon, Delete02Icon, Fire02Icon, HelpCircleIcon, RouteIcon } from "@hugeicons/core-free-icons";
+import { ArrowDownRight01Icon, ArrowUpRight01Icon, ChevronDownIcon, Delete02Icon, Fire02Icon, HelpCircleIcon, RouteIcon } from "@hugeicons/core-free-icons";
 import type { ListSnapshot, Totals } from "~~/shared/types";
 import { burnDownMg, estimateDay } from "~~/shared/tripPlan";
 import { dayClimbs, parseProfile } from "~~/shared/gpx";
@@ -254,6 +254,36 @@ const UNIT_OPTIONS = DISPLAY_DISTANCE_UNITS.map((u) => ({ key: u, label: u }));
 // Naming a day lives in shared/tripDay.ts — a shared list shows the itinerary too, and
 // the two views must agree on what a day is called.
 const dayOrdinal = (i: number) => dayLabel(i, props.snapshot.startDate);
+
+/**
+ * A clock face whose hands read the estimate beside it.
+ *
+ * Hugeicons' free set has no hour family — Clock01…05 all carry the identical hand path
+ * (`M12 8V12L14 14`, ten past twelve) and differ only in the dial, so none of them can be
+ * picked to match a duration. The icon prop takes a plain array though, so the hand is
+ * computed here against the same 24-unit box the rest of the set draws in.
+ *
+ * Rounded to the nearest hour, and 12 rather than 0 for anything under half an hour,
+ * because a face with both hands straight up reads as no time at all.
+ */
+function clockIcon(hours: number) {
+  const h = ((Math.round(hours) + 11) % 12) + 1; // 1–12, never 0
+  const angle = (h % 12) * 30 * (Math.PI / 180); // clockwise from twelve
+  const x = (12 + 4 * Math.sin(angle)).toFixed(2);
+  const y = (12 - 4 * Math.cos(angle)).toFixed(2);
+  return [
+    ["circle", { cx: "12", cy: "12", r: "10", stroke: "currentColor", strokeWidth: "1.5", key: "0" }],
+    // minute hand straight up, hour hand at the estimate — the pair reads as "about N hours"
+    ["path", {
+      d: `M12 6V12L${x} ${y}`,
+      stroke: "currentColor",
+      strokeLinecap: "round",
+      strokeLinejoin: "round",
+      strokeWidth: "1.5",
+      key: "1",
+    }],
+  ];
+}
 
 const BODY_UNIT_OPTIONS = BODY_WEIGHT_UNITS.map((u) => ({ key: u, label: u }));
 
@@ -520,7 +550,7 @@ const distanceValue = (m: number | undefined) =>
                a (?) you can actually reach. A bare title= is invisible to a phone and to
                a keyboard; Tooltip is the app's own affordance and answers both. -->
           <span class="plan__cell plan__cell--est">
-            <HugeiconsIcon :icon="Clock01Icon" class="plan__gl" :size="16" :stroke-width="2" aria-hidden="true" />
+            <HugeiconsIcon :icon="clockIcon(estimates[i]!.hours)" class="plan__gl" :size="16" :stroke-width="2" aria-hidden="true" />
             <span class="t-num">{{ estimates[i] ? `~${formatHours(estimates[i]!.hours)}` : "—" }}</span>
             <Tooltip v-if="estimates[i]" text="Walking time only — no breaks. Pace follows the gradient and the weight of your pack." preferred-placement="top">
               <button type="button" class="plan__why" aria-label="How the moving time is worked out">
