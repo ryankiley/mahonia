@@ -82,10 +82,53 @@ export interface Item {
   sortOrder: number;
 }
 
+/**
+ * One day of a trip: how far it goes and how much it climbs.
+ *
+ * A day carries the SHAPE of the walking, not its schedule. There is no date on it and no
+ * time of day — the list's startDate/endDate already say when the trip is, and a day's
+ * position in it is `sortOrder`. Putting a date here would let the two disagree.
+ *
+ * Everything but the id and the order is optional, because a half-filled itinerary is a
+ * normal state: you know Tuesday is the big climb long before you know Thursday's mileage.
+ * Absent means "not filled in", and readers must treat it that way rather than as zero.
+ */
+export interface TripDay {
+  id: string; // client-generated, like Folder and Item
+  sortOrder: number;
+  /** the owner's own name for it — "Over Muir Pass", "Resupply at Reds" */
+  label?: string;
+  /** metres walked */
+  distanceM?: number;
+  /** metres climbed */
+  ascentM?: number;
+  /**
+   * Metres descended. Absent = however much this day climbed, which is exactly right for
+   * an out-and-back or a loop, and wrong only for a point-to-point ending at a different
+   * height. Kept as its own field because the energy model branches on the SIGN of a
+   * grade, so "how much did it come back down" is a real input, not a detail.
+   */
+  descentM?: number;
+  /**
+   * A deliberate zero, as distinct from an empty field.
+   *
+   * `distanceM: 0` can't say this: the normalizer drops a zero distance, on the same
+   * reasoning as Item.kcal — a zero would be a claim, where absent reads as "not filled
+   * in". A rest day IS a claim, so it gets its own flag.
+   */
+  rest?: true;
+}
+
 /** The JSONB payload + the mutable content the op-reducer operates on. */
 export interface ListData {
   folders: Folder[];
   items: Item[];
+  /**
+   * The itinerary, when there is one. OPTIONAL, and every reader coerces it: lists
+   * written before this existed have no `days` key at all, so anything reaching for it
+   * takes `?? []` rather than assuming an array. Absent and empty mean the same thing.
+   */
+  days?: TripDay[];
 }
 
 export interface ListMeta {

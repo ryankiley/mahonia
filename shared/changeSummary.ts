@@ -76,6 +76,7 @@ export function summarizeOps(ops: readonly Op[], before?: SummaryBefore): string
   };
 
   let added = 0, removed = 0, foldersAdded = 0, foldersRemoved = 0;
+  let daysAdded = 0, daysRemoved = 0, daysEdited = 0;
   let renamed = 0, swapped = 0, reweighed = 0, reclassified = 0, moved = 0, packed = 0;
   let meta = 0, other = 0;
 
@@ -123,6 +124,15 @@ export function summarizeOps(ops: readonly Op[], before?: SummaryBefore): string
         if (n && to) movedPhrases.push(`${n} to ${to}`);
         break;
       }
+      case "addDay":
+        daysAdded++;
+        break;
+      case "removeDay":
+        daysRemoved++;
+        break;
+      case "updateDay":
+        daysEdited++;
+        break;
       case "setMeta":
         meta++;
         break;
@@ -201,6 +211,11 @@ export function summarizeOps(ops: readonly Op[], before?: SummaryBefore): string
   if (added && removed) return `Added ${added}, removed ${removed}`;
   if (foldersAdded && !foldersRemoved) return `Added ${one(folderNames, foldersAdded, "folder")}`;
   if (foldersRemoved) return `Removed ${one(folderNames, foldersRemoved, "folder")}`;
+  // A day is to the trip what a folder is to the list — a structural change, so it reads
+  // at the same level rather than falling through to a generic "Edited the list".
+  if (daysAdded && !daysRemoved) return `Added ${plural(daysAdded, "day")}`;
+  if (daysRemoved) return `Removed ${plural(daysRemoved, "day")}`;
+  if (daysEdited && !added && !removed) return `Edited ${plural(daysEdited, "day")}`;
 
   // then the single-intent edits
   const labelEdits = renamed + swapped + reweighed + reclassified;

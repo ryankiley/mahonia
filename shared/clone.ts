@@ -1,5 +1,5 @@
 import { uid } from "./id";
-import type { Folder, Item, ListSnapshot } from "./types";
+import type { Folder, Item, ListSnapshot, TripDay } from "./types";
 
 /**
  * The payload for an independent copy of a list: fresh ids everywhere (so the
@@ -9,8 +9,8 @@ import type { Folder, Item, ListSnapshot } from "./types";
  * views' "Duplicate this list" so the two can't drift.
  */
 export function cloneListData(
-  src: Pick<ListSnapshot, "folders" | "items">,
-): { folders: Folder[]; items: Item[] } {
+  src: Pick<ListSnapshot, "folders" | "items" | "days">,
+): { folders: Folder[]; items: Item[]; days: TripDay[] } {
   const idMap = new Map<string, string>();
   const folders = src.folders.map((f) => {
     const nid = uid();
@@ -33,5 +33,10 @@ export function cloneListData(
     parentId: i.parentId ? (itemIdMap.get(i.parentId) ?? null) : null,
     packed: false,
   }));
-  return { folders, items };
+  // Days come along — the itinerary is part of the plan you're copying, not a record of
+  // what happened, so unlike `packed` there is nothing here to reset. Fresh ids all the
+  // same: the copy must share nothing with its source. Nothing references a day, so
+  // there is no map to keep.
+  const days = (src.days ?? []).map((d) => ({ ...d, id: uid() }));
+  return { folders, items, days };
 }

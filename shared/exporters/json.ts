@@ -4,12 +4,14 @@
 // splits), so a downloaded file is a real backup: importing it reproduces the
 // list exactly, modulo re-minted ids and renumbered sortOrders.
 
-import type { Folder, Item, ListData, ListMeta, Unit } from "../types";
+import type { Folder, Item, ListData, ListMeta, TripDay, Unit } from "../types";
 import { UNITS } from "../types";
 import {
+  MAX_DAYS,
   MAX_FOLDERS,
   MAX_ITEMS,
   normalizeCalendarDate,
+  normalizeDay,
   normalizeFolder,
   normalizeItem,
 } from "../ops";
@@ -18,11 +20,11 @@ import { uid } from "../id";
 
 /** The downloaded backup's shape: the list's meta + its full content. */
 export function listToJson(list: ListMeta & ListData): string {
-  const { title, description, displayUnit, trailUrl, trailLabel, startDate, endDate, folders, items } = list;
+  const { title, description, displayUnit, trailUrl, trailLabel, startDate, endDate, folders, items, days } = list;
   // trailFaviconDataUrl is deliberately absent — it's a per-host cache the server
   // rebuilds, not part of the list the owner authored.
   return JSON.stringify(
-    { title, description, displayUnit, trailUrl, trailLabel, startDate, endDate, folders, items },
+    { title, description, displayUnit, trailUrl, trailLabel, startDate, endDate, folders, items, days },
     null,
     2,
   );
@@ -109,6 +111,16 @@ export function jsonToListImport(text: string): JsonImport | null {
   const topLevel = new Set(items.filter((i) => i.parentId == null).map((i) => i.id));
   for (const it of items) if (it.parentId && !topLevel.has(it.parentId)) it.parentId = null;
 
+  // Days: re-minted ids and renumbered order, like folders. Nothing points at a day, so
+  // there is no reference map to rebuild — but a backup written before days existed has
+  // no array here at all, which is why this coerces rather than assuming one.
+  const days = (Array.isArray(raw.days) ? raw.days : [])
+    .filter(isRecord)
+    .slice(0, MAX_DAYS)
+    .map((d) => normalizeDay(d as unknown as TripDay))
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .map((d, i) => ({ ...d, id: uid(), sortOrder: i }));
+
   return {
     // clamps mirror setMeta's (the server re-clamps on create regardless)
     title:
@@ -131,6 +143,6 @@ export function jsonToListImport(text: string): JsonImport | null {
     // so an invalid value here simply doesn't survive the import either way.
     startDate: normalizeCalendarDate(raw.startDate),
     endDate: normalizeCalendarDate(raw.endDate),
-    data: { folders, items },
+    data: { folders, items, days },
   };
 }

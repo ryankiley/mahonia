@@ -10,7 +10,7 @@
 // and over-including an unchanged entity is harmless (it just re-sets the same
 // value), so the diff can never silently lose a change.
 
-import type { Folder, Item, ListData, ListState } from "./types";
+import type { Folder, Item, ListData, ListState, TripDay } from "./types";
 
 export interface ListDiff {
   meta?: Partial<Pick<ListState, "title" | "description" | "displayUnit" | "trailUrl" | "trailLabel" | "startDate" | "endDate">>;
@@ -18,6 +18,8 @@ export interface ListDiff {
   foldersDel?: string[]; // ids in base, gone in target
   itemsUpsert?: Item[];
   itemsDel?: string[];
+  daysUpsert?: TripDay[];
+  daysDel?: string[];
 }
 
 /** A full snapshot payload (the legacy/anchor form — meta + reducer content). */
@@ -40,7 +42,7 @@ export const stateToFullSnap = (s: ListState): FullSnap => ({
   trailLabel: s.trailLabel ?? null,
   startDate: s.startDate ?? null,
   endDate: s.endDate ?? null,
-  data: { folders: s.folders, items: s.items },
+  data: { folders: s.folders, items: s.items, days: s.days ?? [] },
 });
 export const fullSnapToState = (s: FullSnap): ListState => ({
   title: s.title,
@@ -54,6 +56,7 @@ export const fullSnapToState = (s: FullSnap): ListState => ({
   endDate: s.endDate ?? undefined,
   folders: s.data?.folders ?? [],
   items: s.data?.items ?? [],
+  days: s.data?.days ?? [],
   version: 0, // not carried by snapshots — the row's own version column is authoritative
 });
 
@@ -115,6 +118,17 @@ export function diffListState(base: ListState, target: ListState): ListDiff {
   if (itemsUpsert.length) diff.itemsUpsert = clone(itemsUpsert);
   if (itemsDel.length) diff.itemsDel = itemsDel;
 
+  // Days, the same entity-level shape — coerced on BOTH sides, because a snapshot taken
+  // before days existed has no array at all and a restore must not throw on it.
+  const baseDays = base.days ?? [];
+  const targetDays = target.days ?? [];
+  const baseD = new Map(baseDays.map((d) => [d.id, d]));
+  const daysUpsert = targetDays.filter((d) => !baseD.has(d.id) || !same(baseD.get(d.id), d));
+  const targetDIds = new Set(targetDays.map((d) => d.id));
+  const daysDel = baseDays.filter((d) => !targetDIds.has(d.id)).map((d) => d.id);
+  if (daysUpsert.length) diff.daysUpsert = clone(daysUpsert);
+  if (daysDel.length) diff.daysDel = daysDel;
+
   return diff;
 }
 
@@ -148,6 +162,8 @@ export function applyListDiff(base: ListState, diff: ListDiff): ListState {
   }
   out.folders = mergeEntities(out.folders, diff.foldersUpsert, diff.foldersDel);
   out.items = mergeEntities(out.items, diff.itemsUpsert, diff.itemsDel);
+  // `?? []` because `base` may predate days entirely — mergeEntities would iterate undefined
+  out.days = mergeEntities(out.days ?? [], diff.daysUpsert, diff.daysDel);
   return out;
 }
 
