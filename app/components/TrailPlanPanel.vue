@@ -380,7 +380,19 @@ function polar(angle: number, length: number): string {
  * Rounded to the nearest hour, and 12 rather than 0 for anything under half an hour,
  * because a face with both hands straight up reads as no time at all.
  */
-function clockIcon(hours: number) {
+function clockIcon(hours: number | undefined) {
+  // NO HANDS when there is no estimate, and this is the whole reason the parameter is
+  // optional. A day with no distance has no estimate — `estimates[i]` is null, which the
+  // figure beside this already knew, because it prints "—". This did not: it read
+  // `.hours` off the null and threw during render, taking the panel with it. A blank
+  // itinerary is the DEFAULT state of a trip whose dates are set and whose distances
+  // aren't, so that was every new plan.
+  //
+  // An empty dial rather than no icon: the cell still shows "—", and dropping the glyph
+  // would pull the column out of line with every other row. A face with no hands states
+  // no time, which is exactly the claim.
+  const dial = ["circle", { cx: "12", cy: "12", r: "10", stroke: "currentColor", strokeWidth: "1.5", key: "0" }];
+  if (hours == null) return [dial];
   // Nearest HALF hour, so a 4 h 39 day reads half past four rather than rounding to five
   // and losing the difference between it and a 4 h 05 one. Never fewer than one half —
   // both hands straight up reads as no time at all rather than as a short day.
@@ -394,7 +406,7 @@ function clockIcon(hours: number) {
   const hour = polar(rad((h % 12) * 30), HOUR_HAND);
   const minute = polar(onHalf ? rad(180) : 0, MINUTE_HAND);
   return [
-    ["circle", { cx: "12", cy: "12", r: "10", stroke: "currentColor", strokeWidth: "1.5", key: "0" }],
+    dial,
     ["path", {
       d: `M${minute}L12 12L${hour}`,
       stroke: "currentColor",
@@ -708,7 +720,7 @@ const distanceValue = (m: number | undefined) => {
                a (?) you can actually reach. A bare title= is invisible to a phone and to
                a keyboard; Tooltip is the app's own affordance and answers both. -->
           <span class="plan__cell plan__cell--est">
-            <HugeiconsIcon :icon="clockIcon(estimates[i]!.hours)" class="plan__gl" :size="16" :stroke-width="2" aria-hidden="true" />
+            <HugeiconsIcon :icon="clockIcon(estimates[i]?.hours)" class="plan__gl" :size="16" :stroke-width="2" aria-hidden="true" />
             <span class="t-num">{{ estimates[i] ? `~${formatHours(estimates[i]!.hours)}` : "—" }}</span>
             <Tooltip v-if="estimates[i]" text="Walking time only — no breaks. Pace follows the gradient and the weight of your pack." preferred-placement="top">
               <button type="button" class="plan__why" aria-label="How the moving time is worked out">
