@@ -111,7 +111,7 @@ const segments = computed(() => {
       fill: `M${x(idx[0]!).toFixed(1)},${VB_H}L${pts.join("L")}L${x(idx[idx.length - 1]!).toFixed(1)},${VB_H}Z`,
       // unassigned ground is grey — a quiet surface, not a category colour, because it
       // is precisely the part of the route that has no day to belong to yet
-      color: d === -1 ? "var(--ink-ghost)" : (dayColors.value[d] ?? "var(--cat-other)"),
+      color: d === -1 ? "var(--ink-3)" : (dayColors.value[d] ?? "var(--cat-other)"),
       index: d,
     });
   }
@@ -144,6 +144,43 @@ const asHeight = (m: number) =>
   props.distanceUnit === "mi"
     ? Math.round(m / 0.3048).toLocaleString()
     : Math.round(m).toLocaleString();
+
+/**
+ * The same three figures, formatted to be READ WHILE MOVING.
+ *
+ * Scrubbing is a continuous gesture and the readout was rewriting itself faster than
+ * anyone can take a number off it. Three separate causes, and only one of them was
+ * decimals:
+ *
+ * 1. The strings changed WIDTH. formatDistance strips a trailing zero, so "9.9 mi"
+ *    became "10 mi" — one character narrower — and the whole label, which is centred on
+ *    the cursor, jumped sideways at the moment you crossed 10. Fixed decimals keep the
+ *    width constant so only the digits move.
+ * 2. Elevation was quoted TO THE FOOT. Consumer GPS elevation is noisy to ±5–10 m, and
+ *    the day rows already round feet to the nearest 10 for exactly this reason — the
+ *    hover readout was the one place still claiming a precision nothing has, and it
+ *    flickered through four digits a sample to do it.
+ * 3. Grade at one decimal is mostly noise. It is a difference between two neighbouring
+ *    samples, so its last digit is the least stable number on screen and the one the eye
+ *    is drawn to. Whole percent says the same thing and holds still.
+ *
+ * Nothing here changes what is measured — only how many of its digits are asserted.
+ */
+const readDistance = (m: number) => {
+  const per = props.distanceUnit === "mi" ? 1609.344 : 1000;
+  return `${(m / per).toFixed(1)} ${props.distanceUnit}`;
+};
+const readHeight = (m: number) => {
+  const step = props.distanceUnit === "mi" ? 10 : 5;
+  const v = props.distanceUnit === "mi" ? m / 0.3048 : m;
+  return (Math.round(v / step) * step).toLocaleString();
+};
+const readGrade = (pct: number) => {
+  // Sign from the ROUNDED value, not the raw one: taking it from the raw grade printed
+  // "−0%" for anything between −0.5 and 0, which asserts a direction and then denies it.
+  const v = Math.round(pct);
+  return `${v > 0 ? "+" : v < 0 ? "−" : ""}${Math.abs(v)}%`;
+};
 
 /**
  * Reading a point off the chart.
@@ -301,14 +338,14 @@ const id = useId();
       :style="{ '--at': `${(hover.x / VB_W) * 100}%` }"
       aria-hidden="true"
     >
-      <span>{{ formatDistance(hover.distanceM, distanceUnit) }}</span>
-      <span>{{ asHeight(hover.ele) }} {{ heightUnit }}</span>
+      <span>{{ readDistance(hover.distanceM) }}</span>
+      <span>{{ readHeight(hover.ele) }} {{ heightUnit }}</span>
       <!-- ONE colour, and only when the grade is worth noticing. Up and down were two
            different hues, which quietly claimed that direction is the thing to read; it
            isn't. Steep is steep — a 15% descent is hard on the knees the way a 15% climb
            is hard on the lungs — so both take the same mark, and everything gentler is
            just a number. -->
-      <span :class="{ 'is-steep': Math.abs(hover.grade) >= STEEP_PCT }">{{ hover.grade > 0 ? "+" : "" }}{{ hover.grade.toFixed(1) }}%</span>
+      <span :class="{ 'is-steep': Math.abs(hover.grade) >= STEEP_PCT }">{{ readGrade(hover.grade) }}</span>
     </div>
 
     <figcaption class="tprofile__scale t-sm" aria-hidden="true">
@@ -373,10 +410,10 @@ const id = useId();
   align-items: center;
   gap: var(--space-1);
 }
-/* the range is a span, not a movement — no arrow to give it, so it steps back instead */
-.tprofile__fact--range {
-  color: var(--ink-ghost);
-}
+/* The range carries no arrow, because it is a span rather than a movement — and that
+   absence is the whole distinction. It used to also step back in colour, which put a
+   figure at body size on 1.35:1 and made it unreadable rather than quiet. It inherits
+   --ink-3 from .tprofile__facts like its siblings now. */
 .tprofile__cursor {
   stroke: var(--ink-3);
   stroke-width: 1;

@@ -34,9 +34,19 @@ const tooltipStyle = ref({ left: "0px", top: "0px" });
 const OFFSET = 8;
 const EDGE_PADDING = 12;
 
-// Tooltips are a hover affordance: a touch-only device fires an emulated
-// mouseenter/focus on tap but no reliable mouseleave, leaving one stuck on screen.
-// Queried once — the answer can't change for the life of the page.
+// Tooltips began as a hover-only affordance: a touch device fires an emulated mouseenter
+// on tap but no reliable mouseleave, so one raised that way stays stuck on screen. That
+// guard is still right for HOVER — and it was wrong as a guard on the whole component.
+//
+// It meant the text was reachable by mouse and by nothing else. Focus never opened one
+// either (see the template: `focus` does not bubble, so a listener on the wrapper never
+// heard the button inside it), which left every tooltip in the app mouse-only. Harmless
+// on a toolbar icon that repeats a visible label; not harmless on the planning view's (?)
+// buttons, whose entire job is to explain where an estimate came from and which exist
+// precisely for the people least likely to be holding a mouse.
+//
+// So: hover still refuses to open on a touch device, focus always opens, and a tap
+// toggles. Queried once — the answer can't change for the life of the page.
 const noHover = import.meta.client ? window.matchMedia("(hover: none)") : null;
 
 // The horizontal content-edges (post-padding) of the closest `.wrap` ancestor of
@@ -83,11 +93,43 @@ function positionTooltip() {
   };
 }
 
-async function show() {
-  if (noHover?.matches || disabled) return;
+async function open() {
+  if (disabled) return;
   isVisible.value = true;
   await nextTick();
   positionTooltip();
+}
+
+/** Hover — refuses on a touch device, where there is no reliable way back down. */
+function show() {
+  if (noHover?.matches) return;
+  void open();
+}
+
+/**
+ * Focus — always opens, including on a touch device, because a keyboard attached to a
+ * tablet reports `hover: none` and its user still has to be able to read this.
+ * `focusin`, not `focus`, in the template: only the former bubbles from the trigger.
+ */
+function showFromFocus() {
+  void open();
+}
+
+/**
+ * Tap — a toggle, which is the only shape that works without a mouseleave. Bound
+ * unconditionally but inert wherever hover exists, so a click on a trigger that is
+ * already showing its tooltip on hover doesn't blink it off.
+ */
+function toggle() {
+  if (!noHover?.matches) return;
+  if (isVisible.value) hide();
+  else void open();
+}
+
+// Tap-to-open needs a tap-to-close that isn't the trigger. Bound only while one is open,
+// like the scroll dismissal below and for the same reason.
+function dismissOutside(e: Event) {
+  if (!triggerRef.value?.contains(e.target as Node)) hide();
 }
 
 // dismiss one already on screen when the trigger opens its own surface — the hover
@@ -113,11 +155,19 @@ function hide() {
 // scroll listener fires for every scroller on the page, including the vault pane's
 // hundred-row list. Registering per-instance meant paying that whole set on every
 // scroll frame to do nothing.
-watch(isVisible, (open) => {
-  if (open) window.addEventListener("scroll", hide, { passive: true, capture: true });
-  else window.removeEventListener("scroll", hide, { capture: true });
+watch(isVisible, (visible) => {
+  if (visible) {
+    window.addEventListener("scroll", hide, { passive: true, capture: true });
+    document.addEventListener("pointerdown", dismissOutside, true);
+  } else {
+    window.removeEventListener("scroll", hide, { capture: true });
+    document.removeEventListener("pointerdown", dismissOutside, true);
+  }
 });
-onScopeDispose(() => window.removeEventListener("scroll", hide, { capture: true }));
+onScopeDispose(() => {
+  window.removeEventListener("scroll", hide, { capture: true });
+  document.removeEventListener("pointerdown", dismissOutside, true);
+});
 </script>
 
 <template>
@@ -127,8 +177,10 @@ onScopeDispose(() => window.removeEventListener("scroll", hide, { capture: true 
     :aria-describedby="isVisible ? tooltipId : undefined"
     @mouseenter="show"
     @mouseleave="hide"
-    @focus="show"
-    @blur="hide"
+    @focusin="showFromFocus"
+    @focusout="hide"
+    @click="toggle"
+    @keydown.escape="hide"
   >
     <slot />
 

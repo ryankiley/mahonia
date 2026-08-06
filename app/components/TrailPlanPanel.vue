@@ -670,13 +670,17 @@ const distanceValue = (m: number | undefined) =>
   padding: 0;
   border: 0;
   background: none;
-  color: var(--ink-ghost);
+  color: var(--ink-3);
   cursor: help;
   transition: color var(--dur) var(--ease);
 }
 .plan__why:hover,
 .plan__why:focus-visible {
-  color: var(--ink-3);
+  /* full ink, the house treatment for a quiet action. The resting state is --ink-3 and
+     NOT --ink-ghost: the ghost token's own definition says not to reuse it below the
+     page-title size, and at 14px it made the only sign an explanation exists a 1.35:1
+     smudge — invisible to exactly the reader who needed the explanation. */
+  color: var(--ink);
 }
 .plan__collapse {
   flex: none;
