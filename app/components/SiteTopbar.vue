@@ -30,7 +30,7 @@ defineProps<{
              out it drew the word "Sign in", so the same corner changed shape on a state
              that has nothing to do with shape. AccountMenu already carries the icon
              variant for exactly this; it was simply unreachable here. The plain word
-             stays on /about, /legal, /mine and friends, which don't pass compact. -->
+             stays on /about, /legal and friends, which don't pass compact. -->
         <AccountMenu :compact="compact" />
         <!-- After the account control, for the one thing that outranks it at the end
              of a bar: an overflow ⋯. The editor already ends this way (vault, account,

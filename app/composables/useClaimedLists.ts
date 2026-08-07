@@ -5,7 +5,8 @@
 // answer different questions: the registry is "what does this browser hold the
 // edit link for", which still works signed-out and offline; this is "what does
 // this account hold", which survives a cleared browser and a new device. A list
-// usually appears in both, and /mine merges them.
+// usually appears in both. Nothing merges them for display today — the retired
+// /mine page never did either, despite this comment once claiming it.
 
 import type { Unit } from "~~/shared/types";
 
@@ -64,7 +65,7 @@ export function useClaimedLists() {
     // ONLY lists this browser made. A list opened from someone else's edit link is
     // not swept up here: quietly attaching it to your account is a surprise, and a
     // claim is meant to be a private bookmark rather than a second, invisible way
-    // in. /mine offers to save one explicitly. (Entries predating `origin` count as
+    // in. (Entries predating `origin` count as
     // created — the right guess for nearly all of them, and safe now that rotating
     // a list's link clears other accounts' claims.)
     const editTokens = useMyLists()

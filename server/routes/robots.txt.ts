@@ -13,6 +13,9 @@ export default defineEventHandler((event) => {
     "Allow: /",
     "Disallow: /e",
     "Disallow: /s/",
+    // /mine is a 301 to /e now (the page retired into the editor's switcher). The
+    // rule stays: it stops a crawler walking the redirect rather than leaving it to
+    // be turned away at the other end.
     "Disallow: /mine",
     "Disallow: /api/",
     "",

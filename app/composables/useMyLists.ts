@@ -37,11 +37,12 @@ function storageEntries(): Ref<MyListEntry[]> {
     // later mutation updates the screen and nothing else.
     //
     // That is how a list became impossible to get rid of. The editor calls
-    // useMyLists() first; /mine is only reachable by leaving the editor, which
-    // unmounts it and takes the watcher with it. "Remove from device" then dropped
-    // the row on screen, wrote nothing, and the next load read the old registry
-    // back. "Delete" was worse: the server delete went through, so the list was
-    // really gone, and the row it left behind pointed at a dead list forever.
+    // useMyLists() first; the "Your lists" page (since retired) was only reachable by
+    // leaving the editor, which unmounts it and takes the watcher with it. "Remove
+    // from device" then dropped the row on screen, wrote nothing, and the next load
+    // read the old registry back. "Delete" was worse: the server delete went through,
+    // so the list was really gone, and the row it left behind pointed at a dead list
+    // forever. Both actions live in the editor now, which is where the writer is.
     effectScope(true).run(() => {
       watch(entries, (v) => {
         try {
@@ -112,7 +113,7 @@ export function useMyLists() {
    *
    * Called when the server has just 404'd this token — it is dead, rotated away or
    * deleted. That alone says nothing: a list you really did delete keeps its row
-   * until you clear it on /mine, and the on-device copy stays readable here. But if
+   * until something clears it, and the on-device copy stays readable here. But if
    * the registry holds ANOTHER row for the SAME list, this one is the leftover half
    * of a rotate, and the live row beside it is the list. Drop it.
    *
