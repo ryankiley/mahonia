@@ -392,19 +392,6 @@ const id = useId();
         class="tprofile__fill"
         :class="`is-${g.band}`"
       />
-      <!-- A 1px cut at each day boundary, in paper — the same trick CategoryBar uses with
-           a --space-px gap, so adjacent stretches always read as distinct. Sized by
-           non-scaling-stroke, or the stretched viewBox would make it a fat smear. -->
-      <line
-        v-for="cut in dayCuts"
-        :key="`c${cut}`"
-        :x1="x(cut)"
-        :x2="x(cut)"
-        y1="0"
-        :y2="VB_H"
-        class="tprofile__cut"
-        vector-effect="non-scaling-stroke"
-      />
       <!-- vector-effect is MANDATORY here: with preserveAspectRatio="none" the stroke
            scales anisotropically, giving a fat horizontal ridge and a hairline vertical
            one. This is the single easiest thing to get wrong in this file. -->
@@ -415,6 +402,24 @@ const id = useId();
         :stroke="s.color"
         class="tprofile__ridge"
         fill="none"
+        vector-effect="non-scaling-stroke"
+      />
+      <!-- The cut at each day boundary, in paper — the same trick CategoryBar uses with a
+           --space-px gap, so adjacent stretches always read as distinct. Sized by
+           non-scaling-stroke, or the stretched viewBox would make it a fat smear.
+
+           AFTER THE RIDGES, and that is the whole of it. Drawn before them it cut the
+           shading and the day lines ran straight over the gap, so the fills separated and
+           the thing you actually follow — the coloured line — did not. Paint order is the
+           only thing that decides which marks a paper-coloured stroke can erase. -->
+      <line
+        v-for="cut in dayCuts"
+        :key="`c${cut}`"
+        :x1="x(cut)"
+        :x2="x(cut)"
+        y1="0"
+        :y2="VB_H"
+        class="tprofile__cut"
         vector-effect="non-scaling-stroke"
       />
       <!-- THE DOT FIRST, THE LINE OVER IT. The dot wears a paper-coloured casing so it
@@ -743,9 +748,15 @@ const id = useId();
   opacity: 0.34;
 }
 /* the day boundary, cut in paper — 1px regardless of how the viewBox is stretched */
+/* THE GAP BETWEEN DAYS, and it is a real gap rather than a rule.
+   A 1px cut was a hairline you had to look for — enough to prove the boundary exists, not
+   enough to make four days read as four things. This is paper-coloured, so widening the
+   stroke widens the GAP: the fills either side are pushed apart by exactly this much, and
+   the day colours stop touching. Four, because at two the shading still met across it on a
+   steep run where both sides are the same band. */
 .tprofile__cut {
   stroke: var(--paper);
-  stroke-width: 1;
+  stroke-width: 4;
 }
 .tprofile__ridge {
   /* non-scaling-stroke means this is real pixels, so it holds at any container size */

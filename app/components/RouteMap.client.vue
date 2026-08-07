@@ -1208,6 +1208,7 @@ onBeforeUnmount(() => {
   // in the mark, doing the job of telling two water sources from two camps at a glance.
   background: #fff;
   color: var(--pin);
+  position: relative;
   // round everywhere except the bottom-left, which the rotation below swings to the
   // bottom — one corner left square is the whole teardrop
   border-radius: 50% 50% 50% 0;
@@ -1219,9 +1220,30 @@ onBeforeUnmount(() => {
     scale var(--dur) var(--ease),
     box-shadow var(--dur) var(--ease);
 }
+// A LIGHT DISC UNDER THE MARK, filling the drop's round head.
+//
+// The white drop reads as one flat shape against pale ground — a contour sheet has plenty
+// of near-white in it — and the glyph floats in the middle of it with nothing holding it.
+// A quiet disc gives the mark a seat: it separates the symbol from the drop's own edge, and
+// it puts a second tone in the pin so the head reads as round rather than as a blob with a
+// point on it. Light enough that the white rim survives all the way round.
+//
+// No counter-rotation: a circle is the one shape the drop's -45° cannot disturb.
+.routemap__pin i::before {
+  content: "";
+  position: absolute;
+  inset: 14%;
+  border-radius: 50%;
+  background: #ececec;
+}
 // the drop is rotated, so the mark inside it has to be turned back or every glyph sits at
-// 45° — a tent pitched on its side
+// 45° — a tent pitched on its side.
+//
+// `position: relative` is not cosmetic: the disc above is absolutely positioned, and a
+// positioned element paints over a static sibling whatever the source order says. Without
+// this the seat covers the mark it was meant to sit under.
 .routemap__pin i > svg {
+  position: relative;
   rotate: 45deg;
 }
 // LIFTED: the hold registered and the pin is now following the route.
@@ -1263,6 +1285,7 @@ onBeforeUnmount(() => {
   height: 100%;
   background: #fff;
   color: #1c1c1c;
+  position: relative;
   border-radius: 50% 50% 50% 0;
   rotate: -45deg;
   box-shadow: -1px 1px 3px #00000059;
@@ -1270,7 +1293,18 @@ onBeforeUnmount(() => {
     scale var(--dur) var(--ease),
     box-shadow var(--dur) var(--ease);
 }
+// the same seat the waypoints wear — a camp is the same kind of mark on the map, so it
+// gets the same construction and differs only by the ink of its glyph
+.routemap__bound i::before {
+  content: "";
+  position: absolute;
+  inset: 14%;
+  border-radius: 50%;
+  background: #ececec;
+}
 .routemap__bound i > svg {
+  // over the seat, not under it — see the waypoint pin for why this has to be positioned
+  position: relative;
   rotate: 45deg;
 }
 .routemap__bound.is-lifted i {

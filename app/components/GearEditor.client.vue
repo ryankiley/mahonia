@@ -685,7 +685,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
       <!-- The list name is a page title, not a toolbar field: large, borderless, with a
            ghosted placeholder, at the top of the content — matching what the two read
            views have always done (ReadonlyListView's h1). -->
-      <ListHead :snapshot="snapshot" @toast="flash" />
+      <ListHead :snapshot="snapshot" :distance-is-headline="mode === 'plan'" @toast="flash" />
       <!-- The totals bar stands down while planning: that view has its own headline (the
            route's distance), and two display-size figures on one screen would make you
            choose which one the page is about. The pack's weight isn't lost — it rides in

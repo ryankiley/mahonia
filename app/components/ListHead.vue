@@ -31,7 +31,21 @@ import { copyText } from "~/utils/clipboard";
 // there's a pointer that hovers, on a press on the name everywhere (see `pinned`). ONE
 // card, one layout, every device. The title lives in here rather than beside it so DOM
 // order matches visual order and tab order follows the eye.
-const props = defineProps<{ snapshot: ListSnapshot }>();
+const props = withDefaults(
+  defineProps<{
+    snapshot: ListSnapshot;
+    /**
+     * Whether the page's big number is already this route's LENGTH.
+     *
+     * Planning's headline is the distance at display size, so repeating it here as a
+     * caption on the trail link is the same fact twice, six inches apart. The other two
+     * views headline the pack's WEIGHT, and there the trail's length is the only place it
+     * appears at all — so this is hidden by mode rather than deleted.
+     */
+    distanceIsHeadline?: boolean;
+  }>(),
+  { distanceIsHeadline: false },
+);
 
 const c = useGearList();
 // null = at rest. "add" is a single URL box — the one job on the way in. "edit" is the
@@ -315,7 +329,7 @@ const distanceValue = computed(() =>
 );
 // What the link row shows at rest, beside the name.
 const distanceLabel = computed(() =>
-  props.snapshot.trailDistanceM
+  props.snapshot.trailDistanceM && !props.distanceIsHeadline
     ? formatDistance(props.snapshot.trailDistanceM, distanceUnit.value)
     : null,
 );
