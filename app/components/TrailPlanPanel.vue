@@ -875,10 +875,6 @@ const distanceValue = (m: number | undefined) => {
                  would mean deleting the day. Its NAME is the day's own `label`, a field
                  that survived the removal of day naming and has been waiting for a use. -->
             <li v-if="campOf(i) != null" class="plan__camp">
-              <span class="plan__campkind">
-                <HugeiconsIcon :icon="TentIcon" :size="16" :stroke-width="2" aria-hidden="true" />
-                <span class="plan__campname">Camp</span>
-              </span>
               <input
                 class="field plan__campfield"
                 :value="d?.label ?? ''"
@@ -887,10 +883,16 @@ const distanceValue = (m: number | undefined) => {
                 :aria-label="`Name for the camp at the end of day ${i + 1}`"
                 @change="(e) => d && c.updateDay(d.id, { label: (e.target as HTMLInputElement).value.trim() })"
               />
-              <span class="plan__campat">
-                <span class="t-sm plan__coord">{{ coordOf(campOf(i)!) }}</span>
-                <span class="t-sm t-muted">{{ formatDistancePadded(campOf(i)!, distanceUnit) }}</span>
+              <span class="plan__campkind">
+                <HugeiconsIcon :icon="TentIcon" :size="16" :stroke-width="2" aria-hidden="true" />
+                <span class="plan__campname">Camp</span>
               </span>
+              <span class="t-sm plan__coord">{{ coordOf(campOf(i)!) }}</span>
+              <span class="t-sm t-muted plan__campdist">{{ formatDistancePadded(campOf(i)!, distanceUnit) }}</span>
+              <!-- the delete column, left empty: a camp is the end of a day, and removing
+                   it would mean removing the day. The cell stays so every other column in
+                   the list still lines up through this row. -->
+              <span aria-hidden="true" />
             </li>
           </ol>
           <!-- the add row, carrying the same rule and the same padding as a row above it,
@@ -1313,11 +1315,12 @@ const distanceValue = (m: number | undefined) => {
 .plan__wpadd.is-first {
   border-top: 0;
 }
-/* The night. Same columns as a waypoint row so the two line up down the day, with the
-   trailing action cell left empty — there is nothing to delete here. */
+/* The night, on the SAME grid as a waypoint row — see --wprow-cols below. Its own
+   template only lined it up with itself, which put its distance somewhere the pins' never
+   was. The trailing action cell is empty; there is nothing to delete here. */
 .plan__camp {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: var(--wprow-cols);
   align-items: center;
   gap: var(--space-2);
 }
@@ -1336,19 +1339,11 @@ const distanceValue = (m: number | undefined) => {
 .plan__campfield {
   min-width: 0;
 }
-/* ONE LINE, not a stack. A row is a row: a figure set beneath it reads as a caption
-   hanging off the row rather than as another of its columns, and it doubles the row's
-   height for something nobody scans by.
-   The coordinate goes BEFORE the distance so the distances still form a column down the
-   list, hard against the delete button, which is what makes them comparable at all. */
-.plan__campat {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-2);
+.plan__coord,
+.plan__campdist {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  /* clears the waypoint rows' delete column, so every distance sits in one line */
-  margin-right: calc(var(--icon-btn, 28px) + var(--space-2));
+  text-align: right;
 }
 /* one size across the row — the step back is ink, not type size. Set smaller, a
    coordinate reads as an annotation on the row rather than one of its cells, and a row
@@ -1357,6 +1352,25 @@ const distanceValue = (m: number | undefined) => {
   color: var(--ink-3);
 }
 .plan__wplist {
+  /* ONE COLUMN SET for every row in the day — the pins and the night alike. Declared here
+     rather than in either row so neither can drift from the other: kind, name, coordinate,
+     distance and the delete button each line up straight down the list, which is the only
+     thing that makes a distance comparable to the one above it.
+     Custom properties pierce scoped styles, so WaypointRow reads this from its own file. */
+  /* FIXED at both ends, not `auto`. Every row is its own grid, so an `auto` column sizes
+     to that row's own content and nothing lines up between them: the camp's single tent
+     resolved to 62px against the pins' three buttons at 100, and the whole list stepped in
+     and out. The two icon columns are the ones whose contents differ, so they are the ones
+     that have to be told a width. The rest can stay content-sized — the name takes the
+     slack, and the coordinate and distance are tabular text of a fixed shape.
+     NAME FIRST. It is what you read the row by, so it takes the left edge where the eye
+     lands; the kind toggles are what you set once and then stop looking at. */
+  --wprow-cols:
+    minmax(0, 1fr)
+    calc(var(--icon-btn, 32px) * 3 + var(--space-px) * 2)
+    auto
+    auto
+    var(--icon-btn, 32px);
   list-style: none;
   margin: 0;
   padding: 0;

@@ -34,6 +34,17 @@ const spokenAt = computed(() => formatDistance(props.waypoint.alongM, props.dist
 
 <template>
   <li class="wprow">
+    <!-- Unnamed is the normal case, not an omission: three water sources dropped in three
+         taps are already useful, and the placeholder says what the pin is so an empty
+         field never reads as a blank row. -->
+    <input
+      class="field wprow__name"
+      :value="waypoint.label ?? ''"
+      :placeholder="meta.label"
+      maxlength="120"
+      :aria-label="`Name for the ${spoken} at ${spokenAt}`"
+      @change="(e) => c.updateWaypoint(waypoint.id, { label: (e.target as HTMLInputElement).value.trim() })"
+    />
     <!--
       THREE TOGGLES, not a menu — the gear row's own convention for exactly this shape of
       choice. An item's classification is a small closed set rendered as icon buttons with
@@ -62,27 +73,16 @@ const spokenAt = computed(() => formatDistance(props.waypoint.alongM, props.dist
         </button>
       </Tooltip>
     </div>
-    <!-- Unnamed is the normal case, not an omission: three water sources dropped in three
-         taps are already useful, and the placeholder says what the pin is so an empty
-         field never reads as a blank row. -->
-    <input
-      class="field wprow__name"
-      :value="waypoint.label ?? ''"
-      :placeholder="meta.label"
-      maxlength="120"
-      :aria-label="`Name for the ${spoken} at ${spokenAt}`"
-      @change="(e) => c.updateWaypoint(waypoint.id, { label: (e.target as HTMLInputElement).value.trim() })"
-    />
     <!-- Distance from the START OF THE ROUTE, not from the start of the day. It is the
          pin's actual stored position, it is what the map's own readouts use, and it stays
          the same number when the day boundaries move around it. -->
-    <span class="wprow__at">
-      <!-- The coordinate leads, a step quieter: it answers "where exactly", asked once
-           when you are copying it somewhere else, where the distance is what you scan the
-           list by — so the distance keeps the column against the delete button. -->
-      <span v-if="coord" class="t-sm wprow__coord">{{ coord }}</span>
-      <span class="t-sm t-muted">{{ at }}</span>
-    </span>
+    <!-- Coordinate and distance are TWO CELLS, not one packed together. In one cell their
+         widths add up differently on every row, so neither lines up with the row above —
+         and a column that doesn't line up is just text at the end of a line. The coordinate
+         leads, a step quieter: it answers "where exactly", asked once when you are copying
+         it somewhere else, where the distance is what you scan the list by. -->
+    <span class="t-sm wprow__coord">{{ coord }}</span>
+    <span class="t-sm t-muted wprow__dist">{{ at }}</span>
     <button
       type="button"
       class="btn btn--icon btn--ghost"
@@ -95,11 +95,13 @@ const spokenAt = computed(() => formatDistance(props.waypoint.alongM, props.dist
 </template>
 
 <style scoped lang="scss">
+/* THE DAY'S COLUMNS, shared with the camp row beside it — the list sets --wprow-cols so
+   every row in a day is cut the same way and kind, name, coordinate, distance and the
+   delete button each line up down the list. A row with its own template only lines up with
+   itself, which is how the camp ended up three columns wide against the pins' four. */
 .wprow {
   display: grid;
-  /* kind · name · distance · remove — the name takes the slack, everything else is its
-     own content, so the distances form a column down the list */
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-columns: var(--wprow-cols);
   align-items: center;
   gap: var(--space-2);
 }
@@ -117,17 +119,11 @@ const spokenAt = computed(() => formatDistance(props.waypoint.alongM, props.dist
 .wprow__name {
   min-width: 0;
 }
-.wprow__at {
-  /* ONE LINE, not a stack. A row is a row: something set beneath it reads as a caption
-     hanging off the row rather than as another of its columns, and it doubles the row's
-     height for a figure nobody scans by.
-     The coordinate goes BEFORE the distance so the distances still form a column down the
-     list, hard against the delete button, which is what makes them comparable at all. */
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-2);
+.wprow__coord,
+.wprow__dist {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  text-align: right;
 }
 /* ONE SIZE ACROSS THE ROW. The coordinate was a step smaller, which made it read as an
    annotation on the row rather than as one of its columns — and a row whose cells are set
