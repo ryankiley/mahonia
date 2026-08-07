@@ -280,7 +280,13 @@ input[type="search"]::-webkit-search-decoration {
 // tint stay pinned to this surface's geometry.
 .popover {
   --popover-item-radius: calc(var(--radius-4) - var(--space-2));
-  --popover-hover: color-mix(in oklab, var(--ink) 8%, transparent);
+  // HOW MUCH INK a surface takes to show it's the one you're on, as an AMOUNT
+  // rather than a colour — so something that isn't drawn in plain ink can mix the
+  // same number with its own (the ⋯ menu's destructive row washes red from this).
+  // Lifted from the design system's --wash-* tokens, which make the same split for
+  // the same reason.
+  --popover-wash: 8%;
+  --popover-hover: color-mix(in oklab, var(--ink) var(--popover-wash), transparent);
   outline: 1px solid transparent;
   border-radius: var(--radius-4);
   background: var(--surface-float);
@@ -399,13 +405,23 @@ input[type="search"]::-webkit-search-decoration {
   z-index: 0;
   height: 0;
   border-radius: var(--popover-item-radius);
-  background: var(--popover-hover);
+  // NOT var(--popover-hover), though it resolves to the same thing by default.
+  // That property is declared on .popover, so the var() inside it is substituted
+  // THERE and the finished colour inherits down — an inline --hov-ink on this
+  // element could never reach it. Mixing here is what lets the plate take a hue
+  // the row hands it (useMenuPlate); unset, it is plain ink at the same amount.
+  background: color-mix(in oklab, var(--hov-ink, var(--ink)) var(--popover-wash), transparent);
   opacity: 0;
   pointer-events: none;
   transition:
     transform var(--dur) var(--ease),
     height var(--dur) var(--ease),
-    opacity calc(var(--dur) * 0.6) var(--ease);
+    opacity calc(var(--dur) * 0.6) var(--ease),
+    // ...and the HUE eases too, so travelling onto a destructive row bleeds red
+    // into the wash instead of swapping colour mid-slide. Faster than the travel
+    // (it rides opacity's timing): the wash should have arrived at its colour by
+    // the time the plate lands, not still be catching up.
+    background calc(var(--dur) * 0.6) var(--ease);
 }
 .menu__plate.is-on {
   opacity: 1;

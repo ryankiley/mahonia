@@ -72,11 +72,18 @@ $bp-full: 1024px !default;
   --accent: var(--ink);
   --accent-ink: var(--paper);
 
-  /* ---- the ONE coloured control. Deleting an account takes the gear vault with it
-     and cannot be undone; it is the only irreversible action in the app, and the only
-     place where reading the button wrong costs something you can't get back. The
-     monochrome rule holds everywhere else — a destructive control that merely steps
-     back to secondary ink, which is what this was, looks the same as a quiet one.
+  /* ---- the colour the chrome spends on DESTRUCTION, and the only thing it spends
+     it on. Reading one of these wrong costs something you can't get back, and a
+     destructive control that merely steps back to secondary ink — which is what
+     these were — looks the same as a quiet one.
+     It was "the ONE coloured control", meaning account deletion alone. Deleting a
+     LIST joined it (2026-08-07, the editor's ⋯ menu): the argument was never about
+     accounts, it was about irreversibility, and a list delete is irreversible to
+     everyone holding the link. What keeps this from spreading is that the test is
+     the CONSEQUENCE and not the verb — removing an item offers an undo, removing a
+     folder keeps its gear, and neither takes colour.
+     Colour is worth nothing here if it's everywhere; the monochrome rule
+     (concepts/monochrome-chrome-colour-from-content) still holds for the rest.
      Its own token and NOT --cat-firstaid, close as the hue is: a category is content
      and this is chrome, so renaming a category must never restyle a delete button.
      ---- */

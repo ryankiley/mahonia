@@ -721,13 +721,15 @@ function onCorrected(res: { status: string; itemName?: string }) {
                      above it: everything there makes, copies or moves a list, and this
                      one ends it — the same reason ListMenu rules "New list" off its list
                      of lists. A rule earns its keep between two KINDS of thing.
-                     Quiet ink and a trash glyph rather than a colour, because the chrome
-                     is monochrome — the same call /mine makes to tell its destructive
-                     remove from its harmless one. -->
+                     Red, and red at rest rather than only under the pointer — the
+                     colour is there to be read before you reach for it. It is the
+                     port of the design system's .ds-menu__item--danger, down to the
+                     plate washing the row in its own hue (see the style). -->
                 <li v-if="canDelete" role="none" class="editor__menufoot">
                   <button
                     type="button"
                     data-row
+                    data-row-hue
                     role="menuitem"
                     class="menu__item editor__delete"
                     @click="menuOpen = false; deleteThisList()"
@@ -1117,21 +1119,25 @@ function onCorrected(res: { status: string; itemName?: string }) {
   padding-top: var(--space-1);
   border-top: 1px solid var(--line);
 }
-/* Quiet by default and full ink on approach: destructive, but not something to be
-   drawn to. It sits a tone below its neighbours (--ink-3, the tone .share__revoke
-   takes for replacing an edit link) and comes up to --ink when the plate arrives, so
-   it reads as deliberate rather than as a warning you have to keep dismissing.
+/* THE ONE COLOURED ROW IN THE CHROME. It was --ink-3 with the trash glyph doing the
+   distinguishing, on the monochrome rule in tokens.scss; it now spends --danger, and
+   the token's comment has been widened to say so rather than left asserting a rule
+   this breaks.
+   The colour is here to be read BEFORE you touch it — a row that only turns red once
+   you're on it has already let you arrive. That is the design system's argument for
+   .ds-menu__item--danger, and this is its port.
+   [data-row-hue] in the markup is what opts this row into the plate washing it in
+   its OWN hue rather than the neutral one (useMenuPlate reads the colour straight
+   off this declaration), so every other menu in the app is untouched.
+   No hover deepen. The wash is the state — moving the ink as well would say two
+   things about one event, and there is nowhere darker for red to go that doesn't
+   read as a different colour.
    flex, because .menu__item is display:block — the glyph needs a row. */
 .editor__delete {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  color: var(--ink-3);
-  transition: color var(--dur) var(--ease);
-}
-.editor__delete:hover,
-.editor__delete:focus-visible {
-  color: var(--ink);
+  color: var(--danger);
 }
 /* the popover's look + open/close come from the shared .menu atom (controls.scss);
    the editor only nudges the trailing cluster (toggle · share · kebab) right into the
