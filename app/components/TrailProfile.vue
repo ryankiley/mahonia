@@ -414,19 +414,12 @@ const id = useId();
         fill="none"
         vector-effect="non-scaling-stroke"
       />
-      <!-- The cursor's own position on the route. A <line>, which is inside this file's
-           stated ceiling of title/desc/path/line; non-scaling-stroke for the same reason
-           the ridge needs it, or with preserveAspectRatio="none" a vertical rule renders
-           as a hairline while a horizontal one renders fat. -->
-      <line
-        v-if="hover"
-        :x1="hover.x"
-        :x2="hover.x"
-        y1="0"
-        :y2="VB_H"
-        class="tprofile__cursor"
-        vector-effect="non-scaling-stroke"
-      />
+      <!-- THE DOT FIRST, THE LINE OVER IT. The dot wears a paper-coloured casing so it
+           reads against the ridge it sits on, and painted last that casing rubbed out the
+           length of dotted line it covered — the cursor appeared to stop dead a few pixels
+           short of the route and pick up again below. Drawn underneath, the casing still
+           separates the dot from the line it marks and the cursor stays one unbroken run.
+           -->
       <!-- Where the cursor meets the route. Radii are in viewBox units on a box stretched
            by preserveAspectRatio="none", so a <circle> would render as an ellipse. The
            screen radii are rx·(W/VB_W) and ry·(H/VB_H); setting them equal gives
@@ -439,6 +432,19 @@ const id = useId();
         :rx="DOT_R * (VB_W / VB_H) / aspect"
         :ry="DOT_R"
         class="tprofile__dot"
+      />
+      <!-- The cursor's own position on the route. A <line>, which is inside this file's
+           stated ceiling of title/desc/path/line; non-scaling-stroke for the same reason
+           the ridge needs it, or with preserveAspectRatio="none" a vertical rule renders
+           as a hairline while a horizontal one renders fat. -->
+      <line
+        v-if="hover"
+        :x1="hover.x"
+        :x2="hover.x"
+        y1="0"
+        :y2="VB_H"
+        class="tprofile__cursor"
+        vector-effect="non-scaling-stroke"
       />
     </svg>
     <!-- The scale, in HTML rather than <text> inside the SVG: preserveAspectRatio="none"
@@ -591,7 +597,12 @@ const id = useId();
    broken line rather than a dotted one. non-scaling-stroke on the element is what keeps
    them circular: without it preserveAspectRatio="none" would squash them into ovals. */
 .tprofile__cursor {
-  stroke: var(--ink-3);
+  /* --ink-2, not --ink-3. The cursor crosses two backgrounds: bare paper above the ridge
+     and the grade shading below it. At --ink-3 the upper half read clearly and the lower
+     half disappeared into the fill, so the line looked like it stopped dead at the route —
+     the same complaint as a clipped line, from the opposite cause. One step darker carries
+     it across both without turning a hairline guide into a rule. */
+  stroke: var(--ink-2);
   stroke-width: 2;
   stroke-linecap: round;
   stroke-dasharray: 0 5;
