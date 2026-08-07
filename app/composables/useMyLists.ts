@@ -29,12 +29,27 @@ function storageEntries(): Ref<MyListEntry[]> {
   const entries = ref<MyListEntry[]>([]);
   if (import.meta.client) {
     entries.value = readEntries();
-    watch(entries, (v) => {
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(v));
-      } catch {
-        // storage full/blocked — keep the in-memory registry working
-      }
+    // A DETACHED scope, for the same reason useGearList's controller has one: the
+    // ref above is a module singleton, but the first useMyLists() call comes from
+    // whichever component mounts first — so a bare watch() registers in THAT
+    // component's effect scope and Vue stops it on that component's unmount. The
+    // registry then goes on living in memory with no writer behind it, and every
+    // later mutation updates the screen and nothing else.
+    //
+    // That is how a list became impossible to get rid of. The editor calls
+    // useMyLists() first; /mine is only reachable by leaving the editor, which
+    // unmounts it and takes the watcher with it. "Remove from device" then dropped
+    // the row on screen, wrote nothing, and the next load read the old registry
+    // back. "Delete" was worse: the server delete went through, so the list was
+    // really gone, and the row it left behind pointed at a dead list forever.
+    effectScope(true).run(() => {
+      watch(entries, (v) => {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(v));
+        } catch {
+          // storage full/blocked — keep the in-memory registry working
+        }
+      });
     });
     window.addEventListener("storage", (e) => {
       if (e.key === STORAGE_KEY) entries.value = readEntries();
