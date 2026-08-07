@@ -82,7 +82,7 @@ export function setVaultExclusionsFor(editToken: string, normKeys: string[]): vo
  * die together.
  *
  * For a list that has been DELETED, and only that. Deliberately not part of
- * useMyLists.forget(), which also backs "Remove from device" on /mine: there the
+ * useMyLists.forget(), which also backs "Forget this list" in the editor: there the
  * list is still online and its edit link may well bring it back, so "no, that gear
  * isn't mine" is an answer worth keeping — clearing it would re-ask a question
  * already answered. A deleted list's answer is the one that's definitively dead,

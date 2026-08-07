@@ -9,12 +9,13 @@
       "Switching between the gear, packing and planning views is instant on a long list.",
       "Deleting a list from the editor's ⋯ menu now reads in red, so it's clear which row is the destructive one before you reach it.",
       "Each action in the editor's ⋯ menu now carries an icon, so the menu can be scanned by shape as well as read.",
-      "Your gear vault is now called My gear, everywhere it's named."
+      "Your gear vault is now called My gear, everywhere it's named.",
+      "\"Your lists\" is no longer a separate page — your lists live in the editor's switcher, and forgetting or deleting one is in its ⋯ menu. Old links redirect."
     ],
     "fixed": [
       "A pack whose edit link had been rotated could show up twice in the list switcher, both rows marked as the one you're in and one of them a link that no longer worked. It now appears once, and the stale row clears itself the next time you open that pack.",
-      "Removing or deleting a list from \"Your lists\" now sticks — it no longer comes back the next time you open the page.",
-      "Renaming a list now shows up in your lists straight away — the switcher and Your lists no longer keep the old name, including when you rename and leave the list in one move.",
+      "Forgetting or deleting a list now sticks — it no longer turns up again in the list switcher.",
+      "Renaming a list now shows up in the list switcher straight away, including when you rename and leave the list in one move.",
       "The browser tab shows a list's new name the moment you refresh, instead of the name it was carrying a minute ago.",
       "Renaming a row to a different piece of gear no longer leaves the old product's catalog weight behind, so the row stops offering to \"fix\" the new item's catalog entry with a weight that was never its own.",
       "Typing a list's name while the list is still loading no longer loses the start of it — \"South Sister Summit\" stays whole instead of saving as \"Summit\".",

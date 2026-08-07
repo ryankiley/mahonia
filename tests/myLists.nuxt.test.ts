@@ -10,10 +10,12 @@
 // The registry ref is a module singleton but useMyLists() is called from ordinary
 // components, so the FIRST caller's effect scope used to own the watcher — and
 // Vue stops a scope's watchers when it's disposed. In the app that first caller is
-// the editor, and /mine is only reachable by leaving the editor: by the time you
-// pressed "Remove from device" the writer was already gone, so the row left the
-// screen, localStorage kept the entry, and the next load handed it back. A list
-// you could not get rid of.
+// the editor, and the "Your lists" page (since retired) was only reachable by
+// leaving it: by the time you pressed "Remove from device" the writer was already
+// gone, so the row left the screen, localStorage kept the entry, and the next load
+// handed it back. A list you could not get rid of. Both actions live in the editor
+// now, which is the scope that owns the watcher — but the fix below is what makes
+// that safe rather than incidental.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mockNuxtImport } from "@nuxt/test-utils/runtime";
 import type { MyListEntry } from "~~/shared/types";

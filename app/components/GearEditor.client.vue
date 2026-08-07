@@ -424,7 +424,7 @@ async function cloneList() {
 
 // THE TWO WAYS TO STOP HAVING THIS LIST.
 //
-// /mine owned both, which made getting rid of a list a trip you took while staring
+// A separate page owned both, which made getting rid of a list a trip you took while staring
 // straight at the thing you wanted gone: leave the editor, find its row on another
 // page, act there. Both now live here, one above the other, because they are the
 // same question asked at two strengths — does this leave MY device, or does it leave

@@ -8,12 +8,18 @@ import { foldApostrophes } from "~~/shared/tidyText";
 // The editor's list switcher: a labelled count in the toolbar that opens a
 // filterable menu of the lists this browser holds.
 //
-// It replaces a page. /mine still exists and still owns MANAGING lists (forget on
-// this device vs delete for everyone — a confirm dialog needs room to explain the
-// difference), but getting BETWEEN lists is a different job with a different
-// frequency, and routing it through a destination was the thing that never sat
+// It replaced a page, and that page is now gone. /mine held the lists AND the two
+// ways to stop having one; those actions moved to the editor's ⋯ menu (Forget /
+// Delete), which left the page holding nothing this doesn't do better, so it retired
+// to a 301. Getting BETWEEN lists is a different job with a different frequency from
+// acting on one, and routing it through a destination was the thing that never sat
 // right. Your lists aren't a library; they're links this browser remembers, which
 // is closer to a history than to a filing cabinet.
+//
+// The one thing that page did better: acting on a list you are NOT in was one click
+// there, and is navigate-then-act here. Judged not worth carrying a page for —
+// cleanup is rare, and duplicating the ⋯ menu's actions onto these rows would blur
+// what a switcher is for.
 //
 // THE TRIGGER IS A WORD, not a glyph. "4 lists" is discoverable in a way an icon
 // isn't, it adds nothing to the toolbar's icon cluster at the other end, and the
@@ -48,9 +54,10 @@ const emit = defineEmits<{ "new-list": []; "dismiss-hint": [] }>();
 
 const my = useMyLists();
 
-// BY NAME. Recency is right for /mine, which shows you "2 hours ago" and which you
-// leave rather than click within; this is a switcher, where a row's position is
-// muscle memory and a list that reshuffles as you use it is one you stop trusting.
+// BY NAME. Recency suits a page you read and leave, which is what the retired /mine
+// was — it showed you "2 hours ago" beside each row. This is a switcher, where a
+// row's position is muscle memory and a list that reshuffles as you use it is one
+// you stop trusting.
 // Numeric collation, so "Trip 2" precedes "Trip 10".
 const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
 const all = computed(() =>

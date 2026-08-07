@@ -12,7 +12,7 @@ describe("isSafeReturnPath — the post-sign-in redirect guard", () => {
       "/vault",
       "/s/WC98FBTG153E",
       "/e/ABC123#tok_secret", // the editor's token lives in the fragment
-      "/mine?sort=name",
+      "/changes?sort=name",
       "/l/sierra-high-route",
     ]) {
       expect(isSafeReturnPath(p), p).toBe(true);

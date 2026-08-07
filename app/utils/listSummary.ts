@@ -1,11 +1,13 @@
 // How a saved-list entry names itself wherever it's shown as a row rather than
-// opened. Two surfaces render it — the "Your lists" page (/mine) and the editor's
-// list switcher — and both have to agree on what an untitled list is called, or the
-// same list appears under two names depending on where you're looking at it.
+// opened. One surface renders it now — the editor's list switcher — but it stays its
+// own function rather than folding into that component: the editor's confirm dialogs
+// name a list the same way ("Forget “Untitled list”…"), and a list that answered to
+// two different names depending on whether you were switching to it or deleting it
+// would be worse than the duplication.
 //
-// The TOTAL is deliberately not here. /mine shows one because it's a management
-// view with room for it; the switcher doesn't, because beside a name it competed
-// with the one thing you scan a switcher for.
+// The TOTAL is deliberately not here. The retired /mine page showed one because it
+// was a management view with room for it; a switcher doesn't, because beside a name
+// it competed with the one thing you scan a switcher for.
 
 /** An untitled list still needs a name in a list of names. */
 export function savedListTitle(title: string): string {
