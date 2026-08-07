@@ -244,6 +244,19 @@ function frame() {
  * 320px map is only a few centimetres of switchbacks.
  */
 const PIN_PX = 30;
+/**
+ * How far down the box the drop's POINT actually falls.
+ *
+ * The teardrop is a square turned 45° (see the CSS), so what reads as its tip is the
+ * bottom corner of that rotation — half the box down, plus half the rotated diagonal.
+ * On a 30px box that is 36.2, not 30: the drop hangs 6px BELOW the bottom edge of its
+ * own icon box, because a rotated square does not fit inside the square it started as.
+ *
+ * Anchoring at PIN_PX, the box's bottom edge, therefore put every pin's point six pixels
+ * below the metre of route it marks — tens of metres at the zoom you place one at, and
+ * the exact opposite of what the anchor comments claim.
+ */
+const PIN_TIP_PX = PIN_PX / 2 + (PIN_PX * Math.SQRT2) / 2;
 const PIN_GLYPH_PX = 17;
 const PIN_GLYPH_STROKE = 2;
 function iconSvg(icon: unknown): string {
@@ -429,7 +442,7 @@ function renderBounds() {
         html: `<i>${iconSvg(camp.icon)}</i>`,
         iconSize: [PIN_PX, PIN_PX],
         // the tip, as a waypoint's is — the point is the metre of route it marks
-        iconAnchor: [PIN_PX / 2, PIN_PX],
+        iconAnchor: [PIN_PX / 2, PIN_TIP_PX],
       }),
     }).addTo(map);
     // No tooltip, for the same reason the waypoints lost theirs: it named what the tent
@@ -468,10 +481,11 @@ function renderPins() {
         // the blue from the violet.
         html: `<i style="--pin:${meta.color}">${iconSvg(meta.icon)}</i>`,
         iconSize: [PIN_PX, PIN_PX],
-        // THE TIP, not the centre. The drop's point is the claim — it lands on the metre
-        // of route the pin stores, and the body of the mark sits above it out of the way
-        // of the line it is pointing at.
-        iconAnchor: [PIN_PX / 2, PIN_PX],
+        // THE TIP, not the centre and not the box's bottom edge. The drop's point is the
+        // claim — it lands on the metre of route the pin stores, and the body of the mark
+        // sits above it out of the way of the line it is pointing at. See PIN_TIP_PX for
+        // why the tip is not simply the bottom of the icon box.
+        iconAnchor: [PIN_PX / 2, PIN_TIP_PX],
       }),
     }).addTo(map!);
     // NO TOOLTIP. It said what the pin's own glyph already says and what its row says

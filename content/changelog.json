@@ -40,7 +40,8 @@
       "A shared list no longer carries the owner's packing tick-offs in its data.",
       "Clearing a day's distance or climb now sticks, instead of coming back the moment the list saved.",
       "Calorie estimates were too high for heavier walkers — resting energy was billed per kilogram, which over-charged anyone above about 65 kg, and a night's sleep was charged at the same rate as an evening in camp.",
-      "Waypoint rows now fit a phone screen: the name gets its own line, and the coordinate and distance sit at either end of the one below it instead of overlapping the buttons beside them."
+      "Waypoint rows now fit a phone screen: the name gets its own line, and the coordinate and distance sit at either end of the one below it instead of overlapping the buttons beside them.",
+      "Map pins now point exactly at the spot on the route they mark, rather than a little below it."
     ]
   },
   {
