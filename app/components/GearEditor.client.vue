@@ -17,6 +17,7 @@ import { bySortOrder, groupItemsByFolder, groupItemsByParent, ungroupedTopLevel 
 const c = useGearList();
 const router = useRouter();
 const my = useMyLists();
+const session = useSession();
 // app-wide dialogs (replace native confirm()/the copy dead-end) — see useDialogs
 const { confirm: askConfirm, showLinkFallback } = useDialogs();
 
@@ -26,6 +27,10 @@ const status = c.status;
 const pendingUndo = c.pendingUndo;
 const vaultPrompt = c.vaultPrompt;
 const vaultPicker = c.vaultPicker;
+// whether the open list is a CLAIMED one (session + share code, no edit token on
+// this device) — the reactive flag the chrome gates on, since c.editToken is a
+// plain getter nothing can track
+const openedByCode = c.openedByCode;
 
 // First-run / returning-user helper: an untouched draft (not yet saved to the
 // server, no named item — the starter draft ships one blank row) shows a one-line
@@ -273,27 +278,37 @@ const route = useRoute();
 // no-op when the session is no longer ours, instead of tearing down the newer
 // instance's in-flight load (which stranded the editor on "Loading…").
 let ownedEpoch: number | undefined;
-// Tear down whatever session this instance owns and start the one `token` names (or a
+// Tear down whatever session this instance owns and start the one `cap` names (or a
 // fresh draft when it names none), re-capturing the epoch. The ordering is the whole
 // point — see the note above — so it lives in ONE place, called by the route watcher
 // and by newList's in-place reset alike.
-function startSession(token?: string) {
+function startSession(cap?: { token?: string; code?: string }) {
   c.dispose(ownedEpoch);
-  if (token) c.load(token);
+  if (cap?.token || cap?.code) c.load(cap);
   else c.startDraft();
   ownedEpoch = c.epoch; // load()/startDraft() mint their epoch synchronously
 }
 // Drive load off the reactive hash so back/forward + same-route nav between two
 // of your lists dispose+reload correctly (the editor singleton holds one list).
+// The route's CODE param joins the source: a claimed list opened from the switcher
+// is /e/{code} with no fragment at all, so switching between two claimed lists
+// moves only the param.
 watch(
-  () => route.hash,
-  (h) => {
+  () => [route.hash, route.params.code] as const,
+  ([h, codeParam]) => {
     // decode HERE, not inside startSession: a malformed hash ("#%") throws, and that
     // throw must land before the dispose, exactly as it always has.
     // first run: ownedEpoch is undefined → dispose is unconditional, clearing (and
     // flushing) whatever session a previous page instance left behind
     const token = decodeURIComponent((h || "").replace(/^#/, ""));
-    startSession(token); // no token = a fresh, unsaved draft (persists on first real content)
+    if (token) return startSession({ token });
+    // No token, but a code in the path: a claimed list — IF a session plausibly
+    // exists (the hint cookie; the fetch itself is what proves it). For everyone
+    // else /e/{code} without a fragment stays what it always was — a truncated
+    // link landing on a fresh draft — rather than a doomed request per visit.
+    const code = typeof codeParam === "string" ? codeParam : "";
+    if (code && session.hasSessionHint()) return startSession({ code });
+    startSession(); // a fresh, unsaved draft (persists on first real content)
   },
   { immediate: true },
 );
@@ -391,6 +406,10 @@ function copyShare() {
   copy(`${origin()}/s/${snapshot.value.shareCode}`, "Read-only link copied", "Read-only link");
 }
 async function copyEditLink() {
+  // a claimed open holds no edit link to copy — the server only ever stored its
+  // hash, so this device can't produce one without rotating (which mints a new one)
+  if (!c.editToken && c.claimCode)
+    return flash("This device doesn’t hold the edit link — replace it in Sharing to get one");
   if (!c.editToken) return flash("Add an item first to get an edit link");
   if (!(await askConfirm({
     title: "Copy edit link",
@@ -495,8 +514,11 @@ async function forgetThisList() {
 }
 
 async function deleteThisList() {
+  // one capability or the other — a claimed open deletes through the session
+  // (see useClaimedLists.deleteClaimed), a held link through the token path
   const token = c.editToken;
-  if (!token) return;
+  const code = token ? "" : c.claimCode;
+  if (!token && !code) return;
   if (!(await askConfirm({
     title: "Delete this list",
     message: `Delete “${savedListTitle(snapshot.value?.title ?? "")}” for everyone? Anyone with the link will lose it, and this can’t be undone.`,
@@ -511,11 +533,14 @@ async function deleteThisList() {
   c.dispose(ownedEpoch);
   // Straight into a fresh draft: you came here to work on a list, and the one you
   // were on is gone. `replace`, so Back doesn't return to it.
-  if (await my.deleteList(token)) return newList({ replace: true });
+  const deleted = token
+    ? await my.deleteList(token)
+    : await useClaimedLists().deleteClaimed(code);
+  if (deleted) return newList({ replace: true });
   // Offline, or the server refused: nothing was deleted, so put the editor back where
-  // it was. The teardown above wrote the list to this device, so reopening the token
-  // restores both the snapshot and whatever hadn't drained out of the queue.
-  startSession(token);
+  // it was. The teardown above wrote the list to this device, so reopening the
+  // capability restores both the snapshot and whatever hadn't drained out of the queue.
+  startSession(token ? { token } : { code });
   flash("Couldn’t delete that list. Check your connection and try again.");
 }
 
@@ -545,7 +570,11 @@ const missingEntry = computed(() =>
 const missingMessage = computed(() =>
   missingEntry.value
     ? `“${savedListTitle(missingEntry.value.title)}” can’t be opened anymore. It may have been deleted, or its edit link changed.`
-    : "This list isn’t in this browser, or the link is invalid.",
+    : openedByCode.value
+      // a claimed open that 404'd/401'd: the list left the account's reach, or the
+      // session did — the two things a person can actually check from here
+      ? "This list couldn’t be opened from your account. It may have been deleted, or you may need to sign in again on this device."
+      : "This list isn’t in this browser, or the link is invalid.",
 );
 async function forgetMissingList() {
   // capture before dispose() blanks c.editToken (which empties missingEntry too)
@@ -766,6 +795,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
                 v-if="shareOpen && snapshot"
                 :snapshot="snapshot"
                 :edit-token="c.editToken"
+                :auth-headers="c.authHeaders()"
                 :read-url="snapshot.shareCode ? `${origin()}/s/${snapshot.shareCode}` : ''"
                 :edit-url="c.editToken ? `${origin()}${editLinkPath(snapshot.shareCode, c.editToken)}` : ''"
                 @close="shareOpen = false"
@@ -847,8 +877,12 @@ function onCorrected(res: { status: string; itemName?: string }) {
                   <!-- Gentler first. The two escalate — off this device, then off the
                        internet — and reading them in that order is what makes the
                        second one land as the bigger of the pair rather than as
-                       another way to do the first. -->
+                       another way to do the first.
+                       Forget is a device act — it drops this browser's registry row
+                       and copy — so a claimed open (which has neither) doesn't offer
+                       it; Delete works either way in (session or token). -->
                   <button
+                    v-if="!openedByCode"
                     type="button"
                     data-row
                     role="menuitem"

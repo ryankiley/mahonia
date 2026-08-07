@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
 import { CheckIcon, ChevronDownIcon } from "@hugeicons/core-free-icons";
-import { editLinkPath } from "~~/shared/links";
-import type { MyListEntry } from "~~/shared/types";
+import { mergeSwitcherRows, type SwitcherRow } from "~~/shared/switcher";
 import { foldApostrophes } from "~~/shared/tidyText";
 
 // The editor's list switcher: a labelled count in the toolbar that opens a
@@ -53,6 +52,9 @@ const { currentShareCode, hint = false } = defineProps<{
 const emit = defineEmits<{ "new-list": []; "dismiss-hint": [] }>();
 
 const my = useMyLists();
+// The account's half of "your lists" — what makes a list made on the Mac show up
+// here on the phone. Signed out it's empty and the menu reads exactly as before.
+const claimed = useClaimedLists();
 
 // BY NAME. Recency suits a page you read and leave, which is what the retired /mine
 // was — it showed you "2 hours ago" beside each row. This is a switcher, where a
@@ -60,8 +62,13 @@ const my = useMyLists();
 // you stop trusting.
 // Numeric collation, so "Trip 2" precedes "Trip 10".
 const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
+// One row per list, from BOTH sources: this browser's registry, plus the lists
+// attached to the signed-in account that this browser holds no link for (those
+// open via /e/{code} on the session — see shared/switcher.ts for the merge rule).
 const all = computed(() =>
-  [...my.entries.value].sort((a, b) => collator.compare(savedListTitle(a.title), savedListTitle(b.title))),
+  mergeSwitcherRows(my.entries.value, claimed.lists.value).sort((a, b) =>
+    collator.compare(savedListTitle(a.title), savedListTitle(b.title)),
+  ),
 );
 
 // Below two the count would be a lie worth avoiding: "1 list" while you're looking
@@ -89,10 +96,9 @@ const shown = computed(() => {
   );
 });
 
-const editPath = (e: MyListEntry) => editLinkPath(e.shareCode, e.editToken);
 // Guarded on the prop being set, not just equal: an unsaved draft has no share code
 // and neither does a legacy entry, and "" === "" would mark a row at random.
-const isCurrent = (e: MyListEntry) => !!currentShareCode && e.shareCode === currentShareCode;
+const isCurrent = (e: SwitcherRow) => !!currentShareCode && e.shareCode === currentShareCode;
 
 // the travelling wash — see useMenuPlate for the two measurement traps it carries
 const { plateRef, listRef, placing, on: plateOn } = useMenuPlate();
@@ -115,6 +121,11 @@ watch(open, (o) => {
   // is owned upstairs and persisted there (gear.intro.dismissed.v1), so telling the
   // parent is the only thing that actually ends it.
   emit("dismiss-hint");
+  // Re-read the account's lists on every open — this is the moment a list made on
+  // another device has to be here, and the fetch is small, private and no-store.
+  // In-place update: whatever was showing stays showing until the answer lands,
+  // and signed-out it resolves to empty without a request.
+  void claimed.refresh();
   // opened to find something, so the keyboard should already be where you'd type
   if (filterable.value) nextTick(() => fieldRef.value?.focus());
 });
@@ -175,8 +186,8 @@ watch(open, (o) => {
           <span ref="plateRef" class="menu__plate" :class="{ 'is-placing': placing }" aria-hidden="true" />
           <NuxtLink
             v-for="e in shown"
-            :key="e.editToken"
-            :to="editPath(e)"
+            :key="e.key"
+            :to="e.to"
             data-row
             role="menuitem"
             class="menu__item lm__row"
