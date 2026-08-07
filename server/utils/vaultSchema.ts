@@ -57,6 +57,7 @@ export const VAULT_DDL: string[] = [
     common_name text,
     weight_mg bigint NOT NULL DEFAULT 0,
     classification text,
+    kcal integer,
     catalog_item_id integer,
     product_url text,
     folder_id integer,
@@ -68,6 +69,9 @@ export const VAULT_DDL: string[] = [
   )`,
   // the upsert target — one row per piece of gear per vault
   `ALTER TABLE vault_items ADD COLUMN IF NOT EXISTS folder_id integer`,
+  // kcal — food energy per unit. ALTER so existing vaults gain it (the CREATE
+  // above is a no-op once the table exists), the same way folder_id arrived.
+  `ALTER TABLE vault_items ADD COLUMN IF NOT EXISTS kcal integer`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_vault_identity ON vault_items (vault_id, norm_key)`,
   // /vault's browse order and the autocomplete's candidate pool: live rows,
   // most-recently-used first

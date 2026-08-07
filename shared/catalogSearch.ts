@@ -79,6 +79,11 @@ export interface CatalogSearchResult {
   // The catalog's default common name → pre-fills the picked item's commonName.
   // Not used for ranking.
   commonName?: string | null;
+  // The row's catalog category ("shelter" … "consumable"). Carried so a pick can
+  // pre-classify the food/fuel rows as consumable — the catalog already knows a
+  // Clif bar isn't base weight, and without this the row lands on the folder
+  // default and quietly counts toward base. Not used for ranking.
+  categoryHint?: string | null;
 }
 
 /** A catalog row as needed for local ranking: the result shape plus the usage count
@@ -178,6 +183,7 @@ export function rankCandidates(
       verified: Boolean(row.verified),
       searchTerms: row.searchTerms ?? null,
       commonName: row.commonName ?? null,
+      categoryHint: row.categoryHint ?? null,
     }));
 }
 

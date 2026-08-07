@@ -156,7 +156,7 @@ export async function searchCatalog(
     // by loading the whole active table), so fetching all gated rows is cheap and
     // makes Neon ≡ PGlite ≡ offline by construction.
     const res = await d.execute(sql`
-      select id, brand, name, variant, weight_mg, weight_source, verified, usage_count, search_terms, common_name
+      select id, brand, name, variant, weight_mg, weight_source, verified, usage_count, search_terms, common_name, category_hint
       from catalog_items
       where status = 'active'
         and word_similarity(unaccent(${q}), unaccent(coalesce(brand,'') || ' ' || name || ' ' || coalesce(search_terms,''))) >= ${SIM_THRESHOLD}
@@ -214,6 +214,7 @@ function normalizeRows(res: unknown): LocalCatalogRow[] {
     usageCount: Number(r.usage_count),
     searchTerms: (r.search_terms as string | null) ?? null,
     commonName: (r.common_name as string | null) ?? null,
+    categoryHint: (r.category_hint as string | null) ?? null,
   }));
 }
 

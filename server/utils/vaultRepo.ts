@@ -17,6 +17,7 @@ import {
   type VaultFolder,
 } from "../../shared/vault";
 import type { Classification } from "../../shared/types";
+import { KCAL_MAX } from "../../shared/ops";
 import { itemDisplayName } from "../../shared/weights";
 import { foldForSearch } from "../../shared/catalogSearch";
 import { tidyText } from "../../shared/tidyText";
@@ -68,6 +69,7 @@ function toEntry(row: Row): VaultEntry {
     classification: CLASSIFICATIONS.includes(row.classification as Classification)
       ? (row.classification as Classification)
       : undefined,
+    kcal: row.kcal ?? undefined,
     catalogItemId: row.catalogItemId ?? undefined,
     productUrl: row.productUrl ?? undefined,
     folderId: row.folderId ?? undefined,
@@ -84,6 +86,15 @@ function toEntry(row: Row): VaultEntry {
 function str(v: unknown, max: number): string | undefined {
   if (typeof v !== "string") return undefined;
   return tidyText(v.slice(0, max)) || undefined;
+}
+
+/** kcal off the wire: a positive whole number under the reducer's own ceiling, or
+ *  absent — the same bounds shared/ops applies to a list row, so a direct POST
+ *  can't store a value the editor could never have produced. */
+function kcalOf(v: unknown): number | undefined {
+  if (typeof v !== "number" || !Number.isFinite(v)) return undefined;
+  const k = Math.round(v);
+  return k > 0 ? Math.min(KCAL_MAX, k) : undefined;
 }
 
 /** Re-derive the identity server-side rather than trusting the client's normKey —
@@ -114,6 +125,7 @@ function sanitize(caps: VaultCapture[]): VaultCapture[] {
       classification: CLASSIFICATIONS.includes(c.classification as Classification)
         ? c.classification
         : undefined,
+      kcal: kcalOf(c.kcal),
       catalogItemId: Number.isInteger(c.catalogItemId) ? c.catalogItemId : undefined,
     });
   }
@@ -131,8 +143,8 @@ function sanitize(caps: VaultCapture[]): VaultCapture[] {
  *  • weight — last write wins, EXCEPT that a zero never overwrites a real weight.
  *    Re-weighing your quilt in any list should update the vault; adding a catalog
  *    item whose weight you haven't filled in yet should not erase what you knew.
- *  • common name / classification / catalog link — coalesce: a capture that
- *    carries the field sets it, one that doesn't leaves what's there. These
+ *  • common name / classification / kcal / catalog link — coalesce: a capture
+ *    that carries the field sets it, one that doesn't leaves what's there. These
  *    accumulate rather than flip-flop as the same gear appears in different lists.
  *  • removed_at — UNTOUCHED. Capture is automatic, so if it cleared the tombstone
  *    every list still holding the item would resurrect it and "remove" would mean
@@ -213,6 +225,7 @@ export async function captureVaultItems(
         commonName: c.commonName ?? null,
         weightMg: c.weightMg,
         classification: c.classification ?? null,
+        kcal: c.kcal ?? null,
         catalogItemId: c.catalogItemId ?? null,
         productUrl: c.productUrl ?? null,
         folderId: (c.folder && folderId.get(c.folder)) || null,
@@ -230,6 +243,7 @@ export async function captureVaultItems(
         commonName: sql`coalesce(excluded.common_name, ${vaultItems.commonName})`,
         weightMg: sql`case when excluded.weight_mg > 0 then excluded.weight_mg else ${vaultItems.weightMg} end`,
         classification: sql`coalesce(excluded.classification, ${vaultItems.classification})`,
+        kcal: sql`coalesce(excluded.kcal, ${vaultItems.kcal})`,
         catalogItemId: sql`coalesce(excluded.catalog_item_id, ${vaultItems.catalogItemId})`,
         productUrl: sql`coalesce(excluded.product_url, ${vaultItems.productUrl})`,
         // FIRST filing wins. Coalesce, not overwrite: the same gear sits in

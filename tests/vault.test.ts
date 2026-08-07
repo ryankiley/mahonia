@@ -119,6 +119,13 @@ describe("captureFromList", () => {
     expect(caps[0]).not.toHaveProperty("packed");
     expect(caps[0]).not.toHaveProperty("sortOrder");
   });
+
+  it("carries the calories entered for a food row", () => {
+    const caps = captureFromList([item({ classification: "consumable", kcal: 250 })]);
+    expect(caps[0]!.kcal).toBe(250);
+    // never-entered stays absent — zero would be a claim (see Item.kcal)
+    expect(captureFromList([item()])[0]!.kcal).toBeUndefined();
+  });
 });
 
 describe("captureFingerprint — the gate that stops needless writes", () => {
@@ -147,6 +154,12 @@ describe("captureFingerprint — the gate that stops needless writes", () => {
     const after = captureFingerprint(
       captureFromList([item({ productUrl: "https://zpacks.com/duplex" })]),
     );
+    expect(after).not.toBe(before);
+  });
+
+  it("changes when the calories change — a re-counted bar is worth re-sending", () => {
+    const before = captureFingerprint(captureFromList([item({ kcal: 250 })]));
+    const after = captureFingerprint(captureFromList([item({ kcal: 400 })]));
     expect(after).not.toBe(before);
   });
 });
@@ -237,6 +250,23 @@ describe("vault capture — the upsert's merge rules", () => {
     const row = (await listVaultItems(db as any, VAULT))[0]!;
     expect(row.commonName).toBe("tent");
     expect(row.catalogItemId).toBe(7);
+  });
+
+  it("remembers calories, keeps them through a capture that has none, takes a re-count", async () => {
+    await captureVaultItems(db as any, VAULT, [cap({ kcal: 250 })]);
+    await captureVaultItems(db as any, VAULT, [cap()]); // carries no kcal → keeps 250
+    expect((await listVaultItems(db as any, VAULT))[0]!.kcal).toBe(250);
+    await captureVaultItems(db as any, VAULT, [cap({ kcal: 400 })]);
+    expect((await listVaultItems(db as any, VAULT))[0]!.kcal).toBe(400);
+  });
+
+  it("types and bounds a direct POST's kcal like the editor would", async () => {
+    // a string is dropped, not coerced — the editor could never have sent it
+    await captureVaultItems(db as any, VAULT, [cap({ kcal: "9000" })]);
+    expect((await listVaultItems(db as any, VAULT))[0]!.kcal).toBeUndefined();
+    // an absurd number lands at the reducer's own ceiling
+    await captureVaultItems(db as any, VAULT, [cap({ kcal: 99_000_000 })]);
+    expect((await listVaultItems(db as any, VAULT))[0]!.kcal).toBe(1_000_000);
   });
 
   it("re-derives the identity, so a forged normKey can't collide two items", async () => {

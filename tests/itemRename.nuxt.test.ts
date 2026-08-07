@@ -207,6 +207,21 @@ describe("renaming a row to a different piece of gear", () => {
     expect(w.find('input[aria-label="Weight"]').element.value).toBe("545");
     w.unmount();
   });
+
+  it("a vault pick brings back the calories the vault remembers", async () => {
+    const w = mountRow(catalogPicked);
+    await rename(w, fromVault({ name: "Trail Mix", classification: "consumable", kcal: 640 }));
+    expect(row().classification).toBe("consumable");
+    expect(row().kcal).toBe(640);
+    w.unmount();
+  });
+
+  it("a vault pick with no calories leaves the row's own alone", async () => {
+    const w = mountRow({ ...catalogPicked, classification: "consumable", kcal: 250 });
+    await rename(w, fromVault({ name: "Trail Mix", classification: "consumable" }));
+    expect(row().kcal).toBe(250);
+    w.unmount();
+  });
 });
 
 // The same rename driven through the REAL input — typing, waiting out the debounce,
@@ -304,6 +319,54 @@ describe("renaming through the live autocomplete", () => {
     vaultHits.push({ ...vaultHit });
     await typeAndPick(w, "Duplex");
     expect(w.find(".item__fixrow").exists()).toBe(false);
+    vi.useRealTimers();
+    w.unmount();
+  });
+
+  // The classification leg. The catalog's consumable category is the one that maps
+  // onto a row's classification (food/fuel is never base weight); every other
+  // category stays silent, because the catalog can't know how YOU carry a thing —
+  // and silence must also mean "leave what's set", or re-picking a worn row would
+  // quietly flip it back to base.
+  it("a consumable-category pick arrives classified consumable", async () => {
+    vi.useFakeTimers();
+    const w = mountRow(catalogPicked);
+    catalogHits.push({
+      id: 300, brand: "Clif", name: "Energy Bar", variant: "single bar",
+      weightMg: 68_000, verified: true, categoryHint: "consumable",
+    });
+    await typeAndPick(w, "Energy");
+    expect(row().classification).toBe("consumable");
+    expect(row().catalogItemId).toBe(300);
+    vi.useRealTimers();
+    w.unmount();
+  });
+
+  it("a non-consumable pick leaves the classification exactly as it was", async () => {
+    vi.useFakeTimers();
+    // an explicitly WORN row renamed to a shelter-category product must stay worn
+    const w = mountRow({ ...catalogPicked, classification: "worn" });
+    catalogHits.push({ ...catalogHit, categoryHint: "shelter" });
+    await typeAndPick(w, "UltaMid");
+    expect(row().classification).toBe("worn");
+    vi.useRealTimers();
+    w.unmount();
+  });
+
+  it("a free-typed 'water' lands consumable via the blur commit", async () => {
+    vi.useFakeTimers();
+    // type "water" and click away WITHOUT picking the water suggestion — the
+    // commitFree path, which used to leave the litres row on the folder default
+    const w = mountRow(catalogPicked);
+    const field = w.find<HTMLInputElement>('input[role="combobox"]');
+    await field.trigger("focus");
+    field.element.value = "water";
+    await field.trigger("input");
+    await vi.advanceTimersByTimeAsync(200);
+    await flushPromises();
+    await leaveField(w);
+    expect(row().name).toBe("water");
+    expect(row().classification).toBe("consumable");
     vi.useRealTimers();
     w.unmount();
   });

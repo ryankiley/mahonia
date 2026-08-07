@@ -46,6 +46,11 @@ export interface VaultCapture {
   commonName?: string;
   weightMg: number;
   classification?: Classification;
+  /** Food energy for ONE unit, whole kcal — the calorie twin of weightMg. A fact
+   *  about the food itself (a bar is 250 kcal in any list), so it belongs to the
+   *  gear the way weight does: captured here, it comes back pre-filled the next
+   *  time the same food is picked. Absent = never entered, mirroring Item.kcal. */
+  kcal?: number;
   catalogItemId?: number;
   productUrl?: string;
   /** The NAME of the list folder this gear sat in, so a vault fills itself
@@ -152,6 +157,9 @@ function captureFromItem(
     // null means "inherit the folder default" — a fact about the list, not the
     // gear, so it's dropped rather than guessed at
     classification: item.classification ?? undefined,
+    // carried whenever entered — the row's class may hide the value today, but the
+    // value itself never stops being true of the food (see Item.kcal)
+    kcal: typeof item.kcal === "number" && item.kcal > 0 ? Math.round(item.kcal) : undefined,
     catalogItemId: typeof item.catalogItemId === "number" ? item.catalogItemId : undefined,
     productUrl: trim(item.productUrl, VAULT_URL_MAX),
     folder: trim(folderName, VAULT_SHORT_MAX),
@@ -206,6 +214,7 @@ export function captureFingerprint(caps: VaultCapture[]): string {
         c.variant ?? "",
         c.weightMg,
         c.classification ?? "",
+        c.kcal ?? "",
         c.catalogItemId ?? "",
         c.commonName ?? "",
         c.productUrl ?? "",

@@ -405,6 +405,9 @@ export const vaultItems = pgTable(
     commonName: text("common_name"),
     weightMg: bigint("weight_mg", { mode: "number" }).notNull().default(0),
     classification: text("classification"), // base|worn|consumable (null = unset)
+    // Food energy per unit, whole kcal — the calorie twin of weight_mg, so the
+    // trail food you pack every trip comes back with its calories. Null = unknown.
+    kcal: integer("kcal"),
     catalogItemId: integer("catalog_item_id"), // set when the row came from a catalog pick
     productUrl: text("product_url"),
     // The holder's grouping. Null = unfiled, which is also every row's starting

@@ -916,6 +916,8 @@ function create() {
       // "base" is stored as null — it IS the folder default, and storing it
       // explicitly would pin the row against a later change to that default
       classification: entry.classification && entry.classification !== "base" ? entry.classification : null,
+      // the calories the vault remembers for this food, like the weight above
+      kcal: entry.kcal,
       catalogItemId: entry.catalogItemId,
       sortOrder: nextSortOrder(snapshot.value.items, folderId),
     };

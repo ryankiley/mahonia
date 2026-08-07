@@ -93,8 +93,14 @@ describe("searchCatalogLocal", () => {
       verified: true,
       searchTerms: null,
       commonName: null,
+      categoryHint: null,
     });
     expect("usageCount" in (r as object)).toBe(false);
+  });
+
+  it("carries categoryHint through, so a pick can pre-classify consumables", () => {
+    const [r] = searchCatalogLocal([row({ categoryHint: "consumable" })], "duplex");
+    expect(r?.categoryHint).toBe("consumable");
   });
 
   it("matches a category noun via search_terms when the name lacks it", () => {
