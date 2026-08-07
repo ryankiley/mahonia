@@ -16,6 +16,7 @@
       "Renaming a list now shows up in your lists straight away — the switcher and Your lists no longer keep the old name, including when you rename and leave the list in one move.",
       "The browser tab shows a list's new name the moment you refresh, instead of the name it was carrying a minute ago.",
       "Renaming a row to a different piece of gear no longer leaves the old product's catalog weight behind, so the row stops offering to \"fix\" the new item's catalog entry with a weight that was never its own.",
+      "Typing a list's name while the list is still loading no longer loses the start of it — \"South Sister Summit\" stays whole instead of saving as \"Summit\".",
       "Correcting how a piece of gear is spelled — or its product link — now reaches My gear straight away, instead of waiting for the next weight or name change to carry it along."
     ]
   },
