@@ -1,4 +1,5 @@
 import { DirectionRight02Icon, DropletIcon, RacingFlagIcon, TentIcon } from "@hugeicons/core-free-icons";
+import type { IconNode } from "./hugeicon";
 import type { WaypointKind } from "~~/shared/types";
 
 /**
@@ -17,7 +18,7 @@ import type { WaypointKind } from "~~/shared/types";
  * All five avoid red, amber and orange: the elevation profile spends exactly those on
  * grade severity, and a waypoint will appear on that chart eventually.
  */
-export const WAYPOINT_KIND_META: Record<WaypointKind, { label: string; icon: unknown; color: string }> = {
+export const WAYPOINT_KIND_META: Record<WaypointKind, { label: string; icon: IconNode; color: string }> = {
   water: { label: "Water", icon: DropletIcon, color: "var(--cat-water)" },
   camp: { label: "Camp", icon: TentIcon, color: "var(--cat-shelter)" },
   // A SIGNPOST, not a map pin. Location01 is the "you are here" marker every map draws —

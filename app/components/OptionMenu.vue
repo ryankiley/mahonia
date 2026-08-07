@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "~/utils/hugeicon";
+import { HugeiconsIcon, type IconNode } from "~/utils/hugeicon";
 import { CheckIcon } from "@hugeicons/core-free-icons";
 
 // Pick one of a few things — the app's answer to a native <select>.
@@ -14,7 +14,7 @@ import { CheckIcon } from "@hugeicons/core-free-icons";
 // caption-sized unit. So the trigger is a slot and everything else lives here: the
 // popover, the travelling plate, the check on the current row, outside-tap and Escape.
 // The button itself stays in this component so aria-haspopup/expanded can't drift.
-type Option = { key: string; label: string; icon?: unknown };
+type Option = { key: string; label: string; icon?: IconNode };
 
 const props = defineProps<{
   options: readonly Option[];

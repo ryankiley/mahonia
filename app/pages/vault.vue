@@ -565,8 +565,12 @@ const folderOptions = computed(() => [
                     :label="`Sort gear in ${section.folder.name}`"
                     @pick="(k) => folderOp({ t: 'sort', id: section.folder!.id, sortBy: k })"
                   >
-                    <template #trigger="{ active }">
-                      <HugeiconsIcon :icon="active?.icon" class="folder__sorticon" :size="16" :stroke-width="2" aria-hidden="true" />
+                    <!-- SORT_META, not the slot's `active?.icon`: `active` is a find
+                         over the options so its icon is a maybe, and the icon prop
+                         doesn't take one. `!` for the same reason @pick's — a slot is
+                         an arrow function's scope too. -->
+                    <template #trigger>
+                      <HugeiconsIcon :icon="SORT_META[section.folder!.sortBy ?? 'manual'].icon" class="folder__sorticon" :size="16" :stroke-width="2" aria-hidden="true" />
                     </template>
                   </OptionMenu>
                   <button

@@ -29,22 +29,12 @@ const props = withDefaults(
 );
 const c = useGearList();
 
-// drag-to-reorder: this folder is a drop zone; show a tail line when an item is
-// being dragged to the end of it (no specific row targeted)
-const dnd = useItemDnd();
-const isAppendTarget = computed(
-  () =>
-    dnd.dragId.value != null &&
-    dnd.drop.value?.folderId === props.folder.id &&
-    // a nested sibling's append (parentId set, beforeId null) lands at the end of
-    // its GROUP, mid-folder — that spot gets ItemRow's .item-nest__droptail, not
-    // this whole-folder tail line
-    dnd.drop.value?.parentId == null &&
-    dnd.drop.value?.beforeId == null,
-);
 // while an item is being dragged, the source folder's body must let the lifted row
 // translate out of its bounds — so the collapse clip (overflow:hidden) is lifted for
 // the duration. A collapse animation never runs mid-drag, so dropping the clip is safe.
+// (The drop-zone logic itself — the append droptail — lives with the rows, in
+// FolderRows; this component only owns the clip.)
+const dnd = useItemDnd();
 const anyItemDrag = computed(() => dnd.dragId.value != null);
 
 // a row's floating overlay (the name-autocomplete dropdown, or the mobile ⋯ actions
@@ -109,14 +99,6 @@ function onGripKey(e: KeyboardEvent) {
   // so repeat presses work (the section is keyed by id, so the ref persists)
   const grip = e.currentTarget as HTMLElement;
   nextTick(() => grip.focus());
-}
-
-// "Add an item" drops a real, empty row into the folder (with every control a
-// normal row has) and focuses it — you just start typing. Catalog autocomplete +
-// water volumes still work in the row's own name field; an abandoned empty row
-// removes itself.
-function addBlank() {
-  c.addBlankItem(props.folder.id);
 }
 
 // collapse: the chevron shows/hides the folder body, persisted per folder id so a
@@ -211,8 +193,10 @@ function toggleCollapsed() {
           :title="`Sort items — ${SORT_META[sortBy].label}`"
           @pick="(k) => onSort(k as FolderSort)"
         >
-          <template #trigger="{ active }">
-            <HugeiconsIcon :icon="active?.icon" class="folder__sorticon" :size="16" :stroke-width="2" aria-hidden="true" />
+          <!-- sortIcon, not the slot's `active?.icon`: `active` is a find over the
+               options so its icon is a maybe, and the icon prop doesn't take one -->
+          <template #trigger>
+            <HugeiconsIcon :icon="sortIcon" class="folder__sorticon" :size="16" :stroke-width="2" aria-hidden="true" />
           </template>
         </OptionMenu>
         <!-- drag via pointerdown; arrow keys give the focused grip the reordering
@@ -234,31 +218,20 @@ function toggleCollapsed() {
          Chromium-only. The chevron rotates in sync. -->
     <div class="folder__body">
       <div class="folder__bodyinner" :class="{ 'is-dragpass': anyItemDrag && !collapsed, 'is-overlay-open': overlayCount > 0 }">
-        <TransitionGroup name="item" tag="div" class="folder__items">
-          <!-- prev-id is the DISPLAY-order predecessor (items is already in this
-               folder's sort order) — it drives each row's indent affordance -->
-          <!-- No :packed — the row swap is CSS off the editor body's data-mode (see
-               atoms/item.scss). As a prop it made every mode switch re-render every
-               row; without it the rows bail out of this folder's re-render entirely
-               (their props are unchanged), which is what makes switching instant. -->
-          <ItemRow
-            v-for="(it, i) in items"
-            :key="it.id"
-            :list="list"
-            :item="it"
-            :children-by-parent="childrenByParent"
-            :prev-id="items[i - 1]?.id ?? null"
-            @overlay-toggle="onOverlayToggle"
-            @toast="$emit('toast', $event)"
-          />
-        </TransitionGroup>
-
-        <div v-if="isAppendTarget" class="folder__droptail" aria-hidden="true" />
-
-        <!-- same: CSS-hidden in packing (atoms/folder.scss), so no mount per switch -->
-        <div class="folder__add" :class="{ 'folder__add--first': !items.length }">
-          <button type="button" class="folder__addbtn" @click="addBlank">Add an item</button>
-        </div>
+        <!-- The rows live one component down — a RENDER boundary, not a visual one
+             (FolderRows is a fragment; the DOM here is unchanged). This header
+             re-renders on every mode switch (`packed` is real: the name input's
+             disabled state, the grid), and before the split that re-render also
+             re-created every row vnode. FolderRows takes no mode-shaped props, so
+             a switch leaves its whole subtree untouched. -->
+        <FolderRows
+          :list="list"
+          :folder="folder"
+          :items="items"
+          :children-by-parent="childrenByParent"
+          @overlay-toggle="onOverlayToggle"
+          @toast="$emit('toast', $event)"
+        />
       </div>
     </div>
   </section>
@@ -381,43 +354,7 @@ function toggleCollapsed() {
 }
 /* the item rule-line rhythm (.folder__items > *) and the mobile name/row
    tightening are the shared folder atom — atoms/folder.scss */
-/* drag-to-reorder: insertion line when dropping at the end of this folder */
-.folder__droptail {
-  height: var(--space-px);
-  background: var(--ink);
-  margin: var(--space-1) 0;
-}
-/* a newly added item fades in where it lands — no vertical slide, so the name you
-   just clicked into doesn't jump under the cursor (initial load stays static) */
-.item-enter-active {
-  transition: opacity var(--dur) var(--ease);
-}
-.item-enter-from {
-  opacity: 0;
-}
-/* (no item leave transition: removal goes through useGearList's dispatch(), which
-   splices the item out in place before the re-render, so TransitionGroup never holds
-   the leaving vnode — a CSS leave can't engage. Deletes stay instant by design, paired
-   with the undo toast as the real "undo a delete" affordance.) */
-/* the add affordance is the next row in the list rhythm: the SAME top padding
-   (--space-2, matching .folder__items > *) + the rule line between items, so the
-   "Add an item" text lands at the same distance below its divider as an item name
-   below theirs — it reads as the next row, not a separate block. (Was --space-3,
-   4px too much, which floated it a touch clear of the list.) */
-.folder__add {
-  border-top: 1px solid var(--line);
-  padding-top: var(--space-2);
-  margin-top: 0;
-}
-/* when the folder is EMPTY the add row is the FIRST row, so it drops the rule line —
-   a first row never carries a divider under the folder name (same as .folder__items >
-   *:first-child), and it keeps the name line-free through the 0→1 add instead of the
-   line jumping down under the new item. The --space-2 padding still lands the text
-   where a first item would sit. */
-.folder__add--first {
-  border-top: 0;
-}
-/* the add button itself (.folder__addbtn) is the shared add-affordance atom, shared with
-   a nested group's own add row — atoms/item.scss */
-
+/* the rows' own chrome — the droptail, the add row, the new-item fade — moved to
+   FolderRows with the elements it styles: they carry that component's scope id now,
+   so rules here couldn't reach them. */
 </style>

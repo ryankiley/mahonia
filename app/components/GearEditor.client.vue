@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "~/utils/hugeicon";
+import { HugeiconsIcon, type IconNode } from "~/utils/hugeicon";
 import { Backpack02Icon, Cancel01Icon, CheckmarkSquare02Icon, ChevronDownIcon, Copy01Icon, Delete02Icon, EllipsisIcon, FileExportIcon, FileImportIcon, Message01Icon, NoteAddIcon, RemoveCircleIcon, Route02Icon, SafeBoxIcon, Share08Icon, Undo02Icon } from "@hugeicons/core-free-icons";
 import { editLinkPath } from "~~/shared/links";
 import { tripHeadline } from "~~/shared/trailDistance";
@@ -197,7 +197,7 @@ const MODES = [
   { key: "edit", label: "Gear", icon: Backpack02Icon },
   { key: "pack", label: "Packing", icon: CheckmarkSquare02Icon },
   { key: "plan", label: "Planning", icon: Route02Icon },
-] as const satisfies readonly { key: EditorMode; label: string; icon: unknown }[];
+] as const satisfies readonly { key: EditorMode; label: string; icon: IconNode }[];
 
 // The vault palette. Closed by default and only ever opened deliberately, so the
 // pane's chunk (and the vault read behind it) costs nothing until it's wanted.
@@ -445,6 +445,14 @@ const isSaved = computed(() => !!snapshot.value?.shareCode);
 // and the one with no server call at all — useMyLists.forget() clears the registry
 // entry and this list's on-device copy, and that is the whole of it.
 //
+// "Leave the list standing" is only true while its token is alive. This menu also
+// renders in the "No longer online · saved on device" state — the server 404'd the
+// token but a local copy kept the editor standing — and there the on-device copy IS
+// the list as far as this browser can reach: forgetting discards it, unsynced edits
+// and all, and what's discarded may be all that's left. Same act, two different
+// losses; the dialog has always been where the difference between these rows is
+// explained, so the dialog (not the row) is what changes.
+//
 // It MUST navigate away, which is not cosmetic. load() re-registers a list it opens
 // (registerOpened, so a link someone sent you is remembered), so a reload while still
 // sitting on /e/{code}#{token} would put the entry straight back and the forget would
@@ -452,17 +460,36 @@ const isSaved = computed(() => !!snapshot.value?.shareCode);
 async function forgetThisList() {
   const token = c.editToken;
   if (!token) return;
+  // Captured before the await: the poll could 404 mid-dialog, and the act should
+  // match the message the user actually read, not a state that moved under it.
+  // Status, not a new remoteMissing getter — "missing" with the editor rendered is
+  // exactly the dead-token-with-copy state, and it keeps the dialog agreeing with
+  // the chrome: it turns frank on the same beat SyncStatus says "No longer online".
+  const dead = status.value === "missing";
+  const title = savedListTitle(snapshot.value?.title ?? "");
   if (!(await askConfirm({
     title: "Forget this list",
-    // Honest about the cost: the list survives, but this browser is the only thing
-    // that was holding the way back into it unless the edit link was saved elsewhere.
-    message: `Forget “${savedListTitle(snapshot.value?.title ?? "")}” on this device? The list stays online for anyone with its link, but you’ll need its edit link to open it again.`,
+    // Honest about the cost in both states: alive, the list survives and only this
+    // browser's way back into it is what's being dropped; dead, the copy being
+    // dropped is the thing itself.
+    message: dead
+      ? `Forget “${title}”? Its link stopped working, so the copy saved on this device may be all that’s left — forgetting discards it.`
+      : `Forget “${title}” on this device? The list stays online for anyone with its link, but you’ll need its edit link to open it again.`,
     confirmLabel: "Forget",
+    // marked the way the delete's dialog is: dead, this costs something no link
+    // can recover. (Today the dialog renders danger monochrome, like everything
+    // in the chrome — the flag records the severity, and any styling AppDialogs
+    // ever gives danger will pick this up with the delete's.)
+    danger: dead,
   }))) return;
   // Same ordering rule the delete below turns on, for the same reason: teardown
   // writes this list's on-device copy, so forgetting first would leave that copy
   // behind under a token the registry no longer holds.
   c.dispose(ownedEpoch);
+  // A dead token's vault decision can never be asked again once the copy is gone —
+  // it goes the way deleteList and forgetMissingList send it. A live list's stays:
+  // its edit link may well bring the list back (see clearVaultDecisionFor).
+  if (dead) clearVaultDecisionFor(token);
   my.forget(token);
   newList({ replace: true });
 }
@@ -490,6 +517,53 @@ async function deleteThisList() {
   // restores both the snapshot and whatever hadn't drained out of the queue.
   startSession(token);
   flash("Couldn’t delete that list. Check your connection and try again.");
+}
+
+// FORGET, FROM THE DEAD END. The pair above needs a loaded list — the ⋯ menu only
+// renders with a snapshot. But the switcher can hold a row whose token the server has
+// stopped answering (the list deleted, or its link rotated, from another device)
+// while this browser kept no local copy. Opening that row lands on the missing state
+// below, which offered nothing but "Create a list" — so the dead row survived every
+// visit and went on leading back here, unremovable from the one page that knows it's
+// dead. The dead end now names the list it couldn't open and offers to forget it:
+// the only act left that means anything for a row like that.
+//
+// Registry lookup by the token load() just tried. c.editToken is a plain getter no
+// computed can track, but every change to it moves `status` (load → "loading",
+// dispose → "idle"), so the status gate keeps this computed honest. forgetSuperseded
+// runs in the same breath the 404 sets the status — a rotate leftover with a live
+// sibling row is gone before this state ever renders — so a row found here is the
+// list's ONLY row, and forgetting it is not covered by any self-heal.
+const missingEntry = computed(() =>
+  status.value === "missing"
+    ? my.entries.value.find((x) => x.editToken === c.editToken)
+    : undefined,
+);
+// With a row in hand the page can say WHICH list refused to open, instead of the
+// generic line — which read as a shrug when the list was sitting right there in the
+// switcher, plainly "in this browser" in every sense the visitor cares about.
+const missingMessage = computed(() =>
+  missingEntry.value
+    ? `“${savedListTitle(missingEntry.value.title)}” can’t be opened anymore. It may have been deleted, or its edit link changed.`
+    : "This list isn’t in this browser, or the link is invalid.",
+);
+async function forgetMissingList() {
+  // capture before dispose() blanks c.editToken (which empties missingEntry too)
+  const entry = missingEntry.value;
+  if (!entry) return;
+  if (!(await askConfirm({
+    title: "Forget this list",
+    message: `Forget “${savedListTitle(entry.title)}”? Its link no longer works — this only removes it from your lists on this device.`,
+    confirmLabel: "Forget",
+  }))) return;
+  // Same teardown-first order as the pair above. Nothing here can write it back
+  // (no snapshot, so writeLocal no-ops) — kept for the pattern, not a live hazard.
+  c.dispose(ownedEpoch);
+  // Unlike forgetThisList: this token is dead server-side, so the vault decision
+  // keyed by it can never be asked again. It goes the way deleteList sends it.
+  clearVaultDecisionFor(entry.editToken);
+  my.forget(entry.editToken);
+  newList({ replace: true });
 }
 
 // The ⋯ menu, now grouped rather than flat.
@@ -884,20 +958,25 @@ function onCorrected(res: { status: string; itemName?: string }) {
       />
 
       <!-- packing progress: slides+fades in on entering packing (grid-rows 1fr↔0fr,
-           the shared reveal recipe) so the folders below ease down instead of jumping -->
-      <Transition name="packbar">
-        <div v-if="packed && packProgress.total" class="packbar-reveal">
-          <div class="packbar t-sm">
-            <span class="t-num" aria-live="polite">{{ packProgress.done }} of {{ packProgress.total }} packed</span>
-            <button
-              v-if="packProgress.done"
-              type="button"
-              class="btn btn--quiet packbar__clear"
-              @click="clearChecks"
-            >Clear checks</button>
-          </div>
+           the shared reveal recipe) so the folders below ease down instead of jumping.
+           The slide is keyed on data-mode in CSS (same shape as the folder collapse),
+           NOT a <Transition> — a Vue Transition's LEAVE forces a synchronous reflow
+           mid-patch, and on a mode switch that reflow lands on a tree the data-mode
+           flip just dirtied wholesale: it was the entire remaining packing→gear stall
+           (~45ms on a 150-row list) after the rows and folder chrome stopped
+           re-rendering. The browser now runs the same slide at frame time for free.
+           v-if only on the DATA condition (an empty list has no bar in any mode). -->
+      <div v-if="packProgress.total" class="packbar-reveal">
+        <div class="packbar t-sm">
+          <span class="t-num" aria-live="polite">{{ packProgress.done }} of {{ packProgress.total }} packed</span>
+          <button
+            v-if="packProgress.done"
+            type="button"
+            class="btn btn--quiet packbar__clear"
+            @click="clearChecks"
+          >Clear checks</button>
         </div>
-      </Transition>
+      </div>
 
       <!-- The plan. Lazy on purpose: the panel pulls in the trip model, and planning is a
            mode most visits never enter — it has no business on the editor's first load.
@@ -974,8 +1053,11 @@ function onCorrected(res: { status: string; itemName?: string }) {
     </main>
 
     <main v-else-if="status === 'missing'" id="main-content" tabindex="-1" class="wrap editor__missing">
-      <p class="t-muted">This list isn’t in this browser, or the link is invalid.</p>
+      <p class="t-muted">{{ missingMessage }}</p>
       <button class="btn btn--primary" @click="newList({ replace: true })">Create a list</button>
+      <!-- quiet, under the primary: the way forward stays the page's loudest offer,
+           and retiring the row that led here is the calm cleanup beside it -->
+      <button v-if="missingEntry" class="btn btn--quiet" @click="forgetMissingList">Forget this list</button>
     </main>
 
     <main v-else id="main-content" tabindex="-1" class="wrap editor__missing">
@@ -1300,6 +1382,27 @@ function onCorrected(res: { status: string; itemName?: string }) {
   /* the body's --space-4 gap reads roomier before a bare text line than before
      the folder blocks — tuck it up toward the totals it annotates */
   margin-top: calc(-1 * var(--space-2));
+  /* the slide, driven by the mode attribute below rather than by enter/leave
+     classes — see the template comment. margin-top rides the transition so the
+     collapsed state can contribute EXACTLY 0px to the flow (matching the old
+     unmounted state) without snapping the tuck at either end. visibility is
+     discrete: it holds through the fade-out and flips at the end, taking the
+     hidden bar (and its Clear button) out of the tab order and the
+     accessibility tree exactly as unmounting did. */
+  transition:
+    grid-template-rows var(--dur) var(--ease),
+    opacity var(--dur) var(--ease),
+    margin-top var(--dur) var(--ease),
+    visibility 0s linear var(--dur);
+}
+.editor__body:not([data-mode="pack"]) .packbar-reveal {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  margin-top: 0;
+  visibility: hidden;
+}
+.editor__body[data-mode="pack"] .packbar-reveal {
+  transition-delay: 0s; /* visibility flips visible immediately on entering packing */
 }
 .packbar-reveal > * {
   min-height: 0;
@@ -1310,17 +1413,6 @@ function onCorrected(res: { status: string; itemName?: string }) {
   align-items: baseline;
   gap: var(--space-4);
   color: var(--ink-2);
-}
-.packbar-enter-active,
-.packbar-leave-active {
-  transition:
-    grid-template-rows var(--dur) var(--ease),
-    opacity var(--dur) var(--ease);
-}
-.packbar-enter-from,
-.packbar-leave-to {
-  grid-template-rows: 0fr;
-  opacity: 0;
 }
 /* .packbar__clear kept as the print-hide hook (see print.scss); its button styling
    comes from the shared .btn--quiet */
