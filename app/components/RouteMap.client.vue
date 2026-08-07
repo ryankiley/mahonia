@@ -432,7 +432,9 @@ function renderBounds() {
         iconAnchor: [PIN_PX / 2, PIN_PX],
       }),
     }).addTo(map);
-    marker.bindTooltip(document.createTextNode(`End of day ${b.index + 1}`) as never, { direction: "top" });
+    // No tooltip, for the same reason the waypoints lost theirs: it named what the tent
+    // already says and covered the ground around the thing being pointed at. Which day it
+    // ends is in the row below, beside the distance and the coordinate.
     const el = marker.getElement();
     el?.addEventListener("pointerdown", (e) =>
       onGrab(e as PointerEvent, {
@@ -472,9 +474,12 @@ function renderPins() {
         iconAnchor: [PIN_PX / 2, PIN_PX],
       }),
     }).addTo(map!);
-    // The name if it has one, the KIND if it doesn't — an unnamed pin is the normal case
-    // (three taps, three water sources), and "Water" beats an empty tooltip.
-    marker.bindTooltip(document.createTextNode(w.label || meta.label) as never, { direction: "top" });
+    // NO TOOLTIP. It said what the pin's own glyph already says and what its row says
+    // again, and it did so by covering the terrain around the thing you were pointing at —
+    // on a map, the label was worth less than the ground it hid. Hovering grows the drop
+    // instead (see the CSS): enough to answer "am I on it", which is the only question a
+    // hover on a 30px target actually has. The popup on CLICK still carries the name, the
+    // distance and the coordinate, for when you want them.
     const el = marker.getElement();
     el?.addEventListener("pointerdown", (e) =>
       onGrab(e as PointerEvent, {
@@ -1249,6 +1254,14 @@ onBeforeUnmount(() => {
 // LIFTED: the hold registered and the pin is now following the route.
 // It has to be unmistakable — the whole risk of a press-and-hold is not knowing whether it
 // took, and a pin that moves without ever looking picked up reads as a bug.
+// HOVER: the drop grows a little. The whole job is answering "am I on it" before you
+// press, which is the only thing a hover on a 30px target is asked. Smaller than the
+// lifted state below, so picking one up still reads as a further step and not as more of
+// the same.
+.routemap__pin:hover i,
+.routemap__bound:hover i {
+  scale: 1.15;
+}
 .routemap__pin.is-lifted i {
   scale: 1.35;
   box-shadow: -2px 2px 8px #0000008c;

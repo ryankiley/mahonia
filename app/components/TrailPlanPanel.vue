@@ -810,7 +810,7 @@ const distanceValue = (m: number | undefined) => {
           <!-- The day's DROP, read off the route beside its climb. Not typeable, unlike the
                two above: nothing in the app writes a day's descent by hand, and a field
                that only ever shows a derived number should look like what it is. -->
-          <span v-if="descentFor(i) != null" class="plan__cell plan__cell--est">
+          <span v-if="descentFor(i) != null" class="plan__cell plan__cell--est plan__cell--pair">
             <!-- the same staircase, mirrored: it climbs left-to-right, so its reflection
                  descends. One glyph for one idea, and the pair reads as a matched set in a
                  way two different arrows never did. -->
@@ -1101,6 +1101,15 @@ const distanceValue = (m: number | undefined) => {
    this only keeps the eye on what's yours */
 .plan__cell--est {
   color: var(--ink-3);
+}
+/* The DROP sits against the CLIMB, not in a column of its own.
+   Every other cell holds a different kind of fact, so the fixed width above lines them up
+   down the list. These two are one fact read twice — up and down over the same ground,
+   drawn as a staircase and its own reflection — and a 7.5rem column between them read as
+   two unrelated figures that happened to be adjacent. Dropping the width lets the pair
+   close to the row's own gap, so they read as a pair. */
+.plan__cell--pair {
+  min-width: 0;
 }
 /* a climb read off the GPX rather than typed */
 .plan__cell.is-derived .plan__num {
