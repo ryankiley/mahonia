@@ -29,8 +29,8 @@ const itemsByFolder = computed(() => groupItemsByFolder(props.list?.items ?? [],
 const childrenByParent = computed(() => groupItemsByParent(props.list?.items ?? []));
 const NO_ITEMS: Item[] = [];
 
-// Quiet meta line under the title — the page's read-only status (a #status slot:
-// "Read-only" / "Public list") joined with the list's last-edit time into one text
+// Quiet meta line under the title — the maker's name, the page's status where it has
+// one (a #status slot: /l's "Public list"), and the list's last-edit time, as one text
 // object. The time is the read-only twin of the editor's SyncStatus suffix: no sync
 // words (the viewer isn't writing), just the last server write via the shared
 // timeAgo(), so a share link tells the reader how fresh the list is. Ticks silently.
@@ -123,57 +123,66 @@ const asHeight = (m: number) => {
       <slot name="head">
         <h1 class="t-title view__title">{{ list.title }}</h1>
       </slot>
-      <!-- The byline. Lives here rather than in either page's #head slot so /s and
-           /l both get it — /l overrides only the heading block, the same reason the
-           trail link sits here. Shown ONLY when the maker set a display name: an
-           account is anonymous by default and nothing derives a name from an email.
-           Above the edited-at meta line because it's about the list, not its
-           freshness. -->
-      <p v-if="list.authorName" class="view__byline">by {{ list.authorName }}</p>
-      <p v-if="$slots.status || editedAt != null" class="view__meta">
+      <!-- Who, what, how fresh — one quiet line. The byline leads (shown ONLY when the
+           maker set a display name: an account is anonymous by default and nothing
+           derives a name from an email), then the page's status (a #status slot, which
+           only /l fills — "Public list"), then the last edit. It lives here rather than
+           in either page's #head slot so /s and /l both get it — /l overrides only the
+           heading block, the same reason the trail link sits here. Dots only ever
+           appear BETWEEN two pieces that are present. -->
+      <p v-if="list.authorName || $slots.status || editedAt != null" class="view__meta">
+        <span v-if="list.authorName" class="view__byline">by {{ list.authorName }}</span>
+        <span v-if="list.authorName && $slots.status" class="view__dot" aria-hidden="true">•</span>
         <span v-if="$slots.status" class="view__status"><slot name="status" /></span>
         <!-- the relative time is a client concern (avoids an SSR/hydration time
              mismatch on the indexable /l page); the dot only shows once it does -->
         <ClientOnly>
           <template v-if="editedAt != null">
-            <span v-if="$slots.status" class="view__dot" aria-hidden="true">•</span>
+            <span v-if="list.authorName || $slots.status" class="view__dot" aria-hidden="true">•</span>
             <span>Edited {{ timeAgo(editedAt, now.getTime()) }}</span>
           </template>
         </ClientOnly>
       </p>
-      <!-- nofollow ugc: /l is indexable and this is a viewer-submitted outbound link,
-           so without it the public feed reads as a link farm. The favicon is a data:
-           URL (fetched server-side, cached per host), so no third-party request leaves
-           the viewer's browser and img-src stays 'self' data:. -->
-      <a
-        v-if="trail"
-        class="link view__trail"
-        :href="trail.href"
-        :title="trail.href"
-        target="_blank"
-        rel="nofollow ugc noopener noreferrer"
-      >
-        <!-- every link carries a mark: the site's own once cached, a globe otherwise
-             (some hosts block the fetch outright). Same 16px box either way. -->
-        <img
-          v-if="list.trailFaviconDataUrl"
-          class="view__trailicon"
-          :src="list.trailFaviconDataUrl"
-          alt=""
-          width="16"
-          height="16"
-        />
-        <HugeiconsIcon :icon="GlobeIcon" v-else class="view__trailicon view__trailicon--fallback" :size="16" :stroke-width="2" aria-hidden="true" />
-        <span class="view__trailname">{{ trail.name }}</span>
-      </a>
 
-      <!-- the trip's dates, when it has them. Read-only by nature — there is nothing
-           to add here, so unlike the editor there is no affordance, only the fact.
-           Formatted by the SAME helper the editor's label uses, so a shared list reads
-           the dates identically to the list it was shared from. -->
-      <p v-if="dateLabel" class="view__dates">
-        <HugeiconsIcon :icon="Calendar03Icon" :size="14" :stroke-width="2" aria-hidden="true" />
-        <span>{{ dateLabel }}</span>
+      <!-- Where and when: the route the list was packed for, and the trip's dates. One
+           line wherever there's room — each is icon-led, so they read as two facts side
+           by side without a separator between them. A narrow phone wraps them onto two
+           lines rather than squeezing the trail name down to an ellipsis. -->
+      <p v-if="trail || dateLabel" class="view__where">
+        <!-- nofollow ugc: /l is indexable and this is a viewer-submitted outbound link,
+             so without it the public feed reads as a link farm. The favicon is a data:
+             URL (fetched server-side, cached per host), so no third-party request leaves
+             the viewer's browser and img-src stays 'self' data:. -->
+        <a
+          v-if="trail"
+          class="link view__trail"
+          :href="trail.href"
+          :title="trail.href"
+          target="_blank"
+          rel="nofollow ugc noopener noreferrer"
+        >
+          <!-- every link carries a mark: the site's own once cached, a globe otherwise
+               (some hosts block the fetch outright). Same 16px box either way. -->
+          <img
+            v-if="list.trailFaviconDataUrl"
+            class="view__trailicon"
+            :src="list.trailFaviconDataUrl"
+            alt=""
+            width="16"
+            height="16"
+          />
+          <HugeiconsIcon :icon="GlobeIcon" v-else class="view__trailicon view__trailicon--fallback" :size="16" :stroke-width="2" aria-hidden="true" />
+          <span class="view__trailname">{{ trail.name }}</span>
+        </a>
+
+        <!-- the trip's dates, when it has them. Read-only by nature — there is nothing
+             to add here, so unlike the editor there is no affordance, only the fact.
+             Formatted by the SAME helper the editor's label uses, so a shared list reads
+             the dates identically to the list it was shared from. -->
+        <span v-if="dateLabel" class="view__dates">
+          <HugeiconsIcon :icon="Calendar03Icon" :size="14" :stroke-width="2" aria-hidden="true" />
+          <span>{{ dateLabel }}</span>
+        </span>
       </p>
     </div>
 
@@ -233,8 +242,9 @@ const asHeight = (m: number) => {
   flex-direction: column;
   gap: var(--space-6);
 }
-/* the title/head block and its trailing "Edited …" line, kept tight (--space-1) so
-   the name + its status/time read as one unit, one --space-6 step off TotalsBar */
+/* the title/head block and the two quiet lines under it (who + status + edited, then
+   route + dates), kept tight (--space-1) so the name and everything about it read as
+   one unit, one --space-6 step off TotalsBar */
 .view__header {
   display: flex;
   flex-direction: column;
@@ -247,15 +257,9 @@ const asHeight = (m: number) => {
   font-size: var(--text-page-title);
   font-weight: 700;
 }
-/* status · edited — one quiet line. flex so a #status icon (the /l globe) sits on the
-   text baseline, with a drawn middle-dot between the pieces */
-/* One step up from the meta line's ink: a name is content, where "edited 3m ago"
-   is status. Still quiet enough to sit under the title without competing with it. */
-.view__byline {
-  margin: 0;
-  color: var(--ink-2);
-  font-size: var(--text-sm);
-}
+/* by · status · edited — one quiet line. flex so a #status icon (the /l globe) sits on
+   the text baseline, with a drawn middle-dot between the pieces, wrapping only once a
+   phone runs out of room (a desktop holds all three easily). */
 .view__meta {
   margin: 0;
   display: flex;
@@ -264,6 +268,11 @@ const asHeight = (m: number) => {
   gap: var(--space-2);
   color: var(--ink-3);
   font-size: var(--text-sm);
+}
+/* One step up from the rest of the line's ink: a name is content, where "edited 3m ago"
+   is status. Still quiet enough to sit under the title without competing with it. */
+.view__byline {
+  color: var(--ink-2);
 }
 .view__status {
   display: inline-flex;
@@ -278,33 +287,38 @@ const asHeight = (m: number) => {
   line-height: 1;
   margin-inline: -2px;
 }
-/* the trail link — one quiet line under the title/meta pair. The mark identifies the
-   site and the full destination rides on the anchor's title attribute, so the hostname
-   isn't repeated in the text. */
-.view__dates {
+/* route + dates on one row. The column gap is wide enough (--space-4, the gap between a
+   day and its figures below) that two icon-led facts don't need a dot between them; the
+   row gap is the tight one, for when a phone puts the dates on their own line. */
+.view__where {
   margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-4);
+  font-size: var(--text-sm);
+}
+/* the trail link. The mark identifies the site and the full destination rides on the
+   anchor's title attribute, so the hostname isn't repeated in the text. It's the piece
+   that gives way when the row is tight: shrink (and ellipsis) before the dates do. */
+.view__trail {
+  display: inline-flex;
+  align-items: center;
+  /* the mark and the name are one object — --space-2 let the icon drift off the text */
+  gap: var(--space-1);
+  min-width: 0;
+}
+.view__dates {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
+  /* a fact, not a target — never squeezed to make room for a long trail name */
+  flex: none;
   color: var(--ink-3);
-  font-size: var(--text-sm);
 }
-.view__trail {
-  display: inline-flex;
-  /* baseline so the name sits on the same line as the title/meta above it */
-  align-items: baseline;
-  /* the mark and the name are one object — --space-2 let the icon drift off the text */
-  gap: var(--space-1);
-  align-self: flex-start;
-  max-width: 100%;
-  min-width: 0;
-  font-size: var(--text-sm);
-}
-/* the icon is the one thing that isn't type: baseline-aligning a replaced element sits
-   its bottom edge on the baseline, riding visibly high next to the text */
+/* the mark never gives way — a shrinking row eats the name, never the icon */
 .view__trailicon {
   flex: none;
-  align-self: center;
   border-radius: 2px;
 }
 /* a stand-in, not the site's mark — a step lighter than the link text beside it */
