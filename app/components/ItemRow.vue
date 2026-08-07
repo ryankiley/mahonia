@@ -321,7 +321,9 @@ function onNameCommit(p: NameCommit) {
     }
     // catalogWeightMgAtLink is deliberately NOT set: it's the baseline for the
     // "the catalog's weight changed" nudge, and your own weight is not that
-    // baseline — stamping it here would compare the catalog against you.
+    // baseline — stamping it here would compare the catalog against you. The row
+    // ends up with no baseline at all, not the PREVIOUS product's: the reducer
+    // drops a baseline whose link has moved (shared/ops, updateItem).
     if (!props.item.commonNameOverridden && p.commonName) {
       patch.commonName = p.commonName;
       patch.commonNameOverridden = true;

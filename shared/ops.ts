@@ -410,7 +410,23 @@ function applyOp(state: ListState, op: Op): void {
     case "updateItem": {
       const it = state.items.find((i) => i.id === op.id);
       if (it) {
-        Object.assign(it, cleanItemPatch(op.patch || {}));
+        const linkedTo = it.catalogItemId;
+        const patch = cleanItemPatch(op.patch || {});
+        Object.assign(it, patch);
+        // catalogWeightMgAtLink describes the product named by catalogItemId — it is
+        // the baseline the "the catalog's weight changed" nudge measures against. So
+        // it can only outlive a RE-LINK if the same patch stamps a fresh one.
+        //
+        // A catalog pick does stamp one. A pick from your own VAULT deliberately
+        // doesn't (its weight is yours, not the catalog's — see ItemRow.onNameCommit),
+        // and without this the previous product's spec weight stayed behind: rename a
+        // linked 688 g tent to a 545 g quilt you own and the row read "Catalog: 688 g ·
+        // suggest a fix", offering to correct the QUILT's catalog entry to the tent's
+        // weight. Lives here, not in the row, because the pair is a fact about the
+        // item — every path that re-links (an import, another client, the raw API)
+        // owes the same invariant.
+        if (it.catalogItemId !== linkedTo && typeof patch.catalogWeightMgAtLink !== "number")
+          it.catalogWeightMgAtLink = undefined;
         // Normalize the worn/base split after ANY patch (needs the item's current
         // qty + classification, which cleanItemPatch can't see). A split only reads
         // as a GENUINE PARTIAL of a base line with ≥2 units, so:

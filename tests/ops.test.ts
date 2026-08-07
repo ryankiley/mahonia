@@ -67,6 +67,33 @@ describe("op reducer", () => {
     expect(s.items[0].catalogWeightMgAtLink).toBe(19000);
   });
 
+  it("re-linking to a different product drops a link weight the patch doesn't replace", () => {
+    const s = base();
+    applyOps(s, [
+      { t: "addItem", item: { id: "i1", folderId: "f1", name: "Lanshan 1 Pro Tent", brand: "3FULGEAR", unitWeightMg: 688000, qty: 1, classification: null, sortOrder: 0, catalogItemId: 1, catalogWeightMgAtLink: 688000 } },
+    ]);
+    // A pick from the holder's own vault: it carries the link (provenance) and THEIR
+    // weight, but no link baseline — their weight isn't the catalog's. The tent's
+    // 688 g must not stay behind as the new product's supposed catalog weight, or the
+    // row nudges you to "fix" the quilt's catalog entry to a tent's weight.
+    applyOps(s, [
+      { t: "updateItem", id: "i1", patch: { name: "Duplex", brand: "Zpacks", catalogItemId: 200, unitWeightMg: 545000, weightOverridden: true, nameOverridden: true } },
+    ]);
+    expect(s.items[0].catalogItemId).toBe(200);
+    expect(s.items[0].unitWeightMg).toBe(545000);
+    expect(s.items[0].catalogWeightMgAtLink).toBeUndefined();
+    // Re-picking the SAME product doesn't disturb the baseline — nothing was re-linked,
+    // so the nudge still has the right product to measure against.
+    applyOps(s, [
+      { t: "updateItem", id: "i1", patch: { catalogItemId: 200, catalogWeightMgAtLink: 520000 } },
+      { t: "updateItem", id: "i1", patch: { catalogItemId: 200, unitWeightMg: 530000 } },
+    ]);
+    expect(s.items[0].catalogWeightMgAtLink).toBe(520000);
+    // and an edit that never mentions the link leaves it alone
+    applyOps(s, [{ t: "updateItem", id: "i1", patch: { qty: 2 } }]);
+    expect(s.items[0].catalogWeightMgAtLink).toBe(520000);
+  });
+
   it("commonName + commonNameOverridden carry through; '' clears the name, flag stays", () => {
     const s = base();
     applyOps(s, [
