@@ -111,10 +111,17 @@ describe("what using someone else's tiles obliges", () => {
 
   it("draws the route over a casing, because this basemap is a busy one", () => {
     // The style draws paths in magenta, a few degrees off the hue day 2 wears. Without a
-    // white line under the colour the route stops being findable exactly where the map has
-    // the most detail on it.
+    // second stroke under the colour the route stops being findable exactly where the map
+    // has the most detail on it.
+    //
+    // The casing used to be white and is now a darker shade of the leg's own colour, so
+    // this asserts that the two strokes DIFFER rather than naming either one — the
+    // obligation is that the route has an edge, not that the edge is any particular
+    // colour, and pinning the colour made a legibility rule fail on a palette change.
     expect(routeMap).toMatch(/routemap__casing/);
-    expect(routeMap).toMatch(/color:\s*"#ffffff"/);
+    expect(routeMap).toMatch(/casingFor\(/);
+    expect(routeMap).toMatch(/color:\s*casingFor\(leg\.color\)/);
+    expect(routeMap).toMatch(/stroke\s*=\s*fillFor\(leg\.color\)/);
   });
 
   it("never prefetches — the offline story is the fallback, not a tile cache", () => {

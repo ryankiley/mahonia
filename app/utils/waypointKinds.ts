@@ -1,4 +1,4 @@
-import { DropletIcon, Flag02Icon, Flag03Icon, Location01Icon, TentIcon } from "@hugeicons/core-free-icons";
+import { DirectionRight02Icon, DropletIcon, Flag02Icon, Flag03Icon, TentIcon } from "@hugeicons/core-free-icons";
 import type { WaypointKind } from "~~/shared/types";
 
 /**
@@ -20,7 +20,10 @@ import type { WaypointKind } from "~~/shared/types";
 export const WAYPOINT_KIND_META: Record<WaypointKind, { label: string; icon: unknown; color: string }> = {
   water: { label: "Water", icon: DropletIcon, color: "var(--cat-water)" },
   camp: { label: "Camp", icon: TentIcon, color: "var(--cat-shelter)" },
-  landmark: { label: "Landmark", icon: Location01Icon, color: "var(--cat-clothing)" },
+  // A SIGNPOST, not a map pin. Location01 is the "you are here" marker every map draws —
+  // inside a pin on a map it says the same thing twice, and says nothing about what is
+  // actually there. A signpost is a thing you pass on a walk.
+  landmark: { label: "Landmark", icon: DirectionRight02Icon, color: "var(--cat-clothing)" },
   trailhead: { label: "Trailhead", icon: Flag02Icon, color: "var(--ink)" },
   end: { label: "End", icon: Flag03Icon, color: "var(--ink)" },
 };
