@@ -1,5 +1,5 @@
 import type { DayPatch, ItemPatch, Op } from "~~/shared/ops";
-import { applyOps, tidyListText } from "~~/shared/ops";
+import { applyOps, seedRouteEnds, tidyListText } from "~~/shared/ops";
 import { uid } from "~~/shared/id";
 import { colorKeyForName, nextFolderColor, STARTER_FOLDERS } from "~~/shared/categories";
 import { editLinkPath } from "~~/shared/links";
@@ -691,6 +691,27 @@ function create() {
   function addWaypoint(alongM: number, kind: WaypointKind = "landmark") {
     dispatch({ t: "addWaypoint", waypoint: { id: uid(), kind, alongM } });
   }
+  /**
+   * The route's two ends, for a list whose geometry predates them.
+   *
+   * seedRouteEnds fires when the geometry CHANGES (see the reducer's setMeta), so a route
+   * imported before this existed has no trailhead and no finish — and no way to grow one,
+   * because neither kind is placeable by hand, on purpose. This fills the gap from the
+   * geometry the list is already holding, reusing the seeder's own fixed ids so a second
+   * call adds nothing and a loop stays a loop.
+   *
+   * NOT in the reducer. A reducer replays ops and has to give the same answer every time;
+   * a rule that invents a waypoint whenever it notices one missing would write a different
+   * history depending on when it happened to run.
+   */
+  function ensureRouteEnds() {
+    const geo = snapshot.value?.routeGeometry;
+    if (!geo) return;
+    const have = new Set((snapshot.value?.waypoints ?? []).map((w) => w.id));
+    for (const w of seedRouteEnds(geo)) {
+      if (!have.has(w.id)) dispatch({ t: "addWaypoint", waypoint: w });
+    }
+  }
   const updateWaypoint = (id: string, patch: Partial<Waypoint>) =>
     dispatch({ t: "updateWaypoint", id, patch });
   // No renumbering afterwards, unlike removeDay: nothing about a waypoint's identity comes
@@ -1183,7 +1204,7 @@ function create() {
     load, startDraft, dispose, rotate,
     setMeta, setUnit, addFolder, updateFolder, removeFolder, moveFolderBefore,
     addDay, updateDay, removeDay,
-    addWaypoint, updateWaypoint, removeWaypoint,
+    addWaypoint, updateWaypoint, removeWaypoint, ensureRouteEnds,
     vaultPrompt, answerVaultPrompt,
     vaultPicker, confirmVaultPicker, cancelVaultPicker,
     addBlankItem, addBlankItemAfter, addVaultItem, addVaultFolder, saveItemToVault, discardEmpty, updateItem, removeItem, setItemWeight, moveItem,

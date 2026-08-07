@@ -352,6 +352,35 @@ const grouped = computed(() => {
  * the finger landed.
  */
 const arming = ref<number | "rest" | null>(null);
+
+/**
+ * How far along the route the elevation chart's cursor is, passed straight to the map.
+ *
+ * The two marks draw the same walk twice — once as a shape, once as a place — and until
+ * now you had to hold a spot on one of them in your head while looking for it on the
+ * other. A profile can't tell you WHERE its steep mile is, and a map can't tell you which
+ * of its bends is the climb. Tracing one and watching the other answers both.
+ *
+ * It lives here rather than in either component because neither owns it: the chart knows
+ * the distance and nothing about the ground, the map knows the ground and has no cursor.
+ * The panel already holds the pair, so it holds the one number that joins them — the same
+ * chainage a waypoint is stored in, which is why nothing has to be converted.
+ *
+ * NOT persisted, and deliberately: it is where a pointer is this second.
+ */
+const traceM = ref<number | null>(null);
+
+// A route imported before the trailhead existed carries no start pin, and neither end is
+// a kind you can place by hand — so without this those lists could never grow one. Fires
+// when the geometry first arrives, which covers a list being opened and a route being
+// dropped on it alike; a second run adds nothing (see ensureRouteEnds).
+watch(
+  () => props.snapshot.routeGeometry,
+  (geo) => {
+    if (geo) c.ensureRouteEnds();
+  },
+  { immediate: true },
+);
 const armedRange = computed(() => {
   if (arming.value === null) return null;
   if (arming.value === "rest") return restRange.value;
@@ -681,6 +710,7 @@ const distanceValue = (m: number | undefined) => {
       :ascent-m="snapshot.trailAscentM"
       :descent-m="snapshot.trailDescentM"
       :facts="false"
+      @trace="traceM = $event"
     />
     <!-- Where that shape actually is. Directly under the profile, in the same day
          colours, so the two marks read as one answer rather than two charts.
@@ -694,6 +724,7 @@ const distanceValue = (m: number | undefined) => {
       :geometry="snapshot.routeGeometry"
       :day-distances-m="dayDistancesM"
       :waypoints="waypoints"
+      :trace-m="traceM"
       :armed-range="armedRange"
       @place="onPlace"
       :distance-unit="distanceUnit"

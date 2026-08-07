@@ -17,7 +17,8 @@
       "Press and hold a pin on the map to pick it up, then slide it along the route to move it. It re-files itself under whichever day it lands in.",
       "Tap a pin on the map to name it or remove it, without hunting for its row.",
       "Drag the tent handle where one day ends on the map and the two days either side trade miles — the trip's total never changes.",
-      "Each day now lists where it ends — the camp — with the distance in, and you can name it."
+      "Each day now lists where it ends — the camp — with the distance in, and you can name it.",
+      "Trace the elevation profile and a dot follows on the map below, so you can see where a climb or a descent actually is on the ground."
     ],
     "changed": [
       "Your body weight is now remembered on your device instead of saved with each list, so you set it once and every trip uses it — and it never leaves your browser at all.",
@@ -43,7 +44,8 @@
       "Clearing a day's distance or climb now sticks, instead of coming back the moment the list saved.",
       "Calorie estimates were too high for heavier walkers — resting energy was billed per kilogram, which over-charged anyone above about 65 kg, and a night's sleep was charged at the same rate as an evening in camp.",
       "Waypoint rows now fit a phone screen: the name gets its own line, and the coordinate and distance sit at either end of the one below it instead of overlapping the buttons beside them.",
-      "Map pins now point exactly at the spot on the route they mark, rather than a little below it."
+      "Map pins now point exactly at the spot on the route they mark, rather than a little below it.",
+      "Routes imported before trailheads existed now get their start pin, and the route's own start and finish can no longer be turned into something else or deleted by mistake."
     ]
   },
   {

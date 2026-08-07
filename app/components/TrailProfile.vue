@@ -54,6 +54,19 @@ const props = defineProps<{
   facts?: boolean;
 }>();
 
+/**
+ * WHERE ON THE ROUTE THE CURSOR IS, for anything drawing that same route alongside.
+ *
+ * A DISTANCE, not a coordinate — which is the only thing this chart actually knows. It has
+ * no geography at all: it holds elevations sampled evenly by distance and has never seen a
+ * latitude. The map has the geography and no readout. So each says the half it is sure of
+ * and they meet on chainage, which is the same currency a waypoint is stored in.
+ *
+ * Null when nothing is being traced, so a listener can clear rather than having to guess
+ * from a stale value.
+ */
+const emit = defineEmits<{ trace: [alongM: number | null] }>();
+
 // A unitless drawing space. X is 0–1000, Y is 0–200, and CSS decides the physical size —
 // so there is no measurement, no ResizeObserver and no re-path on resize.
 const VB_W = 1000;
@@ -398,6 +411,13 @@ const hover = computed(() => {
     grade,
   };
 });
+
+// Fired from a WATCHER, not written into the readout above: the parent is being told the
+// pointer moved, which is an event, and `hover` is a computed that must stay free of side
+// effects or it fires again for every reader that touches it. Watching the distance alone
+// also means the snap to a summit (see `hover`) reaches the map for free — the chart and
+// the ground agree about which point is being read, including when it magnetises.
+watch(() => hover.value?.distanceM ?? null, (alongM) => emit("trace", alongM));
 
 const id = useId();
 </script>

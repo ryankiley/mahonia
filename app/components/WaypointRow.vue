@@ -24,6 +24,21 @@ const props = defineProps<{
 const c = useGearList();
 
 const meta = computed(() => waypointKindMeta(props.waypoint.kind));
+/**
+ * The route's own two ends, which are not the same sort of thing as a pin you dropped.
+ *
+ * They are properties of the ROUTE — where the track starts and where it stops — the way
+ * the camp is a property of the day that ends there, and they get the camp's treatment:
+ * their mark, and nothing to press. Offering the kind toggles here let you turn a
+ * trailhead into a water source, which is not a thing a trailhead can become; offering
+ * delete was worse, because the route grows its ends back from the geometry (see
+ * ensureRouteEnds) and the button was quietly a lie.
+ *
+ * Still MOVABLE, on the map, by the same press-and-hold every pin answers to — which is
+ * the case the plan wanted delete for anyway: you parked somewhere the track doesn't
+ * start, so you drag the flag to where you actually left the car.
+ */
+const isRouteEnd = computed(() => props.waypoint.kind === "trailhead" || props.waypoint.kind === "end");
 /** For the screen-reader names, where the label reads mid-sentence. */
 const spoken = computed(() => meta.value.label.toLowerCase());
 /** Padded, because these form a column down the day — see formatDistancePadded. */
@@ -58,7 +73,19 @@ const spokenAt = computed(() => formatDistance(props.waypoint.alongM, props.dist
       without needing the word beside it. The name field's placeholder still carries the
       word for anyone who wants it spelled out.
     -->
-    <div class="wprow__kind" role="group" :aria-label="`Kind of the ${spoken} at ${spokenAt}`">
+    <!-- The route's end wears its mark and offers nothing — see isRouteEnd. Boxed to a
+         toggle's width so the flag lands on the pixel the first toggle's glyph does, the
+         same trick the camp row plays. -->
+    <span
+      v-if="isRouteEnd"
+      class="wprow__fixedkind"
+      role="img"
+      :aria-label="meta.label"
+      :style="{ color: meta.color }"
+    >
+      <HugeiconsIcon :icon="meta.icon" :size="16" :stroke-width="2" aria-hidden="true" />
+    </span>
+    <div v-else class="wprow__kind" role="group" :aria-label="`Kind of the ${spoken} at ${spokenAt}`">
       <Tooltip v-for="k in WAYPOINT_KIND_OPTIONS" :key="k.key" :text="k.label" preferred-placement="top">
         <button
           type="button"
@@ -83,7 +110,10 @@ const spokenAt = computed(() => formatDistance(props.waypoint.alongM, props.dist
          it somewhere else, where the distance is what you scan the list by. -->
     <span class="t-sm wprow__coord">{{ coord }}</span>
     <span class="t-sm wprow__dist">{{ at }}</span>
+    <!-- the cell stays either way, empty for the route's ends, so every column above and
+         below still lines up through this row -->
     <button
+      v-if="!isRouteEnd"
       type="button"
       class="btn btn--icon btn--ghost wprow__del"
       :aria-label="`Remove the ${spoken} at ${spokenAt}`"
@@ -91,6 +121,7 @@ const spokenAt = computed(() => formatDistance(props.waypoint.alongM, props.dist
     >
       <HugeiconsIcon :icon="Delete02Icon" :size="16" :stroke-width="2" />
     </button>
+    <span v-else class="wprow__del" aria-hidden="true" />
   </li>
 </template>
 
@@ -120,6 +151,16 @@ const spokenAt = computed(() => formatDistance(props.waypoint.alongM, props.dist
 }
 .wprow__del {
   grid-area: del;
+  /* the empty twin has no button box to size it, and the column has to hold open */
+  width: var(--wprow-btn, var(--icon-btn, 32px));
+}
+/* one toggle's box, so a fixed kind's glyph sits where a chosen toggle's glyph sits */
+.wprow__fixedkind {
+  grid-area: kind;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--wprow-btn, var(--icon-btn, 32px));
 }
 /* quiet until chosen; .item__mark supplies the plate and the inline style the hue */
 .wprow__kindbtn {

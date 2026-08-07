@@ -43,6 +43,15 @@ const props = defineProps<{
   armedRange?: { fromM: number; toM: number } | null;
   /** how a pin's distance reads in its popup — the reader's own choice, not the file's */
   distanceUnit?: DisplayDistanceUnit;
+  /**
+   * Where the elevation chart's cursor is, as a distance along this route. Null when
+   * nothing is being traced.
+   *
+   * A distance rather than a coordinate because that is all the chart has — it holds
+   * elevations and has never seen a latitude. Walking the polyline to a point is this
+   * component's job, and it is the same walk a waypoint's own position takes.
+   */
+  traceM?: number | null;
 }>();
 
 const emit = defineEmits<{
@@ -76,6 +85,8 @@ let tiles: import("leaflet").TileLayer | null = null;
 let legs: import("leaflet").Polyline[] = [];
 let pins: import("leaflet").Marker[] = [];
 let bounds: import("leaflet").Marker[] = [];
+// ONE marker, kept and moved rather than a list rebuilt — see renderTrace.
+let trace: import("leaflet").Marker | null = null;
 let ro: ResizeObserver | null = null;
 
 const points = computed<LatLon[]>(() => decodePolyline(props.geometry));
@@ -244,6 +255,8 @@ function frame() {
  * 320px map is only a few centimetres of switchbacks.
  */
 const PIN_PX = 30;
+/** The traced dot. Smaller than a pin: it is a reading, not a thing somebody placed. */
+const TRACE_PX = 12;
 /**
  * How far down the box the drop's POINT actually falls.
  *
@@ -461,6 +474,46 @@ function renderBounds() {
     el?.addEventListener("click", suppressPlaceOnce);
     bounds.push(marker);
   }
+}
+
+/**
+ * The chart's cursor, shown on the ground.
+ *
+ * MOVED, not rebuilt. Every other mark here is torn down and re-added when its data
+ * changes, which is fine for things that change when you edit them — this one changes on
+ * every pointermove, and re-creating a marker sixty times a second thrashes the DOM and
+ * makes the dot flicker. setLatLng moves the element that is already there.
+ *
+ * interactive: false is load-bearing rather than tidy. This dot sits ON the route line,
+ * which is the tap target for placing a pin, and it follows a pointer that is somewhere
+ * else entirely — over the chart. An interactive marker here would swallow taps meant for
+ * the route at whatever spot the reader last hovered, which is a bug nobody would connect
+ * back to the chart.
+ */
+function renderTrace() {
+  if (!map || !L) return;
+  const at = props.traceM == null ? null : pointAlong(points.value, props.traceM);
+  if (!at) {
+    trace?.remove();
+    trace = null;
+    return;
+  }
+  if (trace) {
+    trace.setLatLng([at.lat, at.lon]);
+    return;
+  }
+  trace = L.marker([at.lat, at.lon], {
+    keyboard: false,
+    interactive: false,
+    icon: L.divIcon({
+      className: "routemap__trace",
+      html: "",
+      iconSize: [TRACE_PX, TRACE_PX],
+      // its CENTRE, unlike a pin's tip — this is a dot marking a point, not a drop
+      // hanging above one
+      iconAnchor: [TRACE_PX / 2, TRACE_PX / 2],
+    }),
+  }).addTo(map);
 }
 
 function renderPins() {
@@ -855,6 +908,8 @@ async function draw() {
   renderLegs();
   
   renderPins();
+  // in case the pointer was already on the chart while the map was still loading
+  renderTrace();
   renderBounds();
 
   // Any move that wasn't ours is theirs — drag, wheel, the +/− buttons, a keyboard arrow.
@@ -905,6 +960,7 @@ onMounted(draw);
 // Recut the legs when the itinerary changes. Only the lines are rebuilt, never the map —
 // re-creating it would throw away the pan and zoom, which is the one piece of state here
 // that belongs to the person looking at it.
+watch(() => props.traceM, renderTrace);
 watch(() => props.waypoints, renderPins, { deep: true });
 
 watch(boundaries, renderBounds, { deep: true });
@@ -1346,6 +1402,26 @@ onBeforeUnmount(() => {
 .routemap__pin {
   background: none;
   border: 0;
+}
+
+/* THE CHART'S CURSOR, ON THE GROUND.
+   The same mark the profile draws at the same moment — ink with a paper ring — because it
+   IS the same mark: one reading shown twice, once on the shape and once on the place. Made
+   of the light-theme values rather than tokens, like everything else drawn over this
+   basemap, which stays light in both themes.
+   No transition. It follows a pointer, and easing a dot toward where the finger already is
+   reads as lag rather than as polish. */
+.routemap__trace {
+  /* Leaflet's divIcon ships a white ground and a grey border — cleared here as it is for
+     the pins, or the dot renders inside a little card. */
+  border: 0;
+  border-radius: 50%;
+  background: #1c1c1c;
+  /* the ring separates it from the day colour it sits on; the shadow lifts it off the
+     contours, the same two jobs the pins' own casing does */
+  box-shadow:
+    0 0 0 2px #fff,
+    0 1px 3px #00000059;
 }
 
 .routemap__leg,
