@@ -1,3 +1,41 @@
+<script lang="ts">
+// Tooltips began as a hover-only affordance: a touch device fires an emulated mouseenter
+// on tap but no reliable mouseleave, so one raised that way stays stuck on screen. That
+// guard is still right for HOVER — and it was wrong as a guard on the whole component.
+//
+// It meant the text was reachable by mouse and by nothing else. Focus never opened one
+// either (see the template: `focus` does not bubble, so a listener on the wrapper never
+// heard the button inside it), which left every tooltip in the app mouse-only. Harmless
+// on a toolbar icon that repeats a visible label; not harmless on the planning view's (?)
+// buttons, whose entire job is to explain where an estimate came from and which exist
+// precisely for the people least likely to be holding a mouse.
+//
+// So: hover still refuses to open on a touch device, focus always opens, and a tap
+// toggles.
+//
+// MODULE scope, not per instance. The query is a property of the DEVICE, so one
+// MediaQueryList answers for the whole page — and the editor mounts a tooltip on nearly
+// every row control, so a 150-item list was calling matchMedia ~900 times to learn the
+// same fact. Resolved lazily on first use so importing the component never touches
+// `window` (it renders on the server too). `.matches` is still read live at each call,
+// so a device that gains a pointer mid-session is picked up exactly as before.
+//
+// Keyed on `window.matchMedia` itself, because what's memoised is a HANDLE to that API:
+// if the function is ever replaced the old MediaQueryList is stale and has to be
+// re-derived. Costs one reference compare per call, and keeps the probe honest under a
+// stubbed matchMedia (see tests/tooltip.nuxt.test.ts, which swaps it mid-suite).
+let hoverlessMq: MediaQueryList | null = null;
+let hoverlessFrom: unknown;
+function isHoverless(): boolean {
+  if (!import.meta.client) return false;
+  if (hoverlessFrom !== window.matchMedia) {
+    hoverlessFrom = window.matchMedia;
+    hoverlessMq = window.matchMedia("(hover: none)");
+  }
+  return hoverlessMq?.matches ?? false;
+}
+</script>
+
 <script setup lang="ts">
 // The simple hover tooltip, ported from the portfolio's <Tooltip> with its
 // positioning logic intact: a fixed-position popup teleported to <body>, flipped
@@ -34,20 +72,8 @@ const tooltipStyle = ref({ left: "0px", top: "0px" });
 const OFFSET = 8;
 const EDGE_PADDING = 12;
 
-// Tooltips began as a hover-only affordance: a touch device fires an emulated mouseenter
-// on tap but no reliable mouseleave, so one raised that way stays stuck on screen. That
-// guard is still right for HOVER — and it was wrong as a guard on the whole component.
-//
-// It meant the text was reachable by mouse and by nothing else. Focus never opened one
-// either (see the template: `focus` does not bubble, so a listener on the wrapper never
-// heard the button inside it), which left every tooltip in the app mouse-only. Harmless
-// on a toolbar icon that repeats a visible label; not harmless on the planning view's (?)
-// buttons, whose entire job is to explain where an estimate came from and which exist
-// precisely for the people least likely to be holding a mouse.
-//
-// So: hover still refuses to open on a touch device, focus always opens, and a tap
-// toggles. Queried once — the answer can't change for the life of the page.
-const noHover = import.meta.client ? window.matchMedia("(hover: none)") : null;
+// Whether hover exists is a device fact, so it lives at module scope above rather than
+// being re-queried by every instance — see isHoverless().
 
 // The horizontal content-edges (post-padding) of the closest `.wrap` ancestor of
 // the trigger, so the tooltip clamps to the actual rendered page column rather than
@@ -102,7 +128,7 @@ async function open() {
 
 /** Hover — refuses on a touch device, where there is no reliable way back down. */
 function show() {
-  if (noHover?.matches) return;
+  if (isHoverless()) return;
   void open();
 }
 
@@ -121,7 +147,7 @@ function showFromFocus() {
  * already showing its tooltip on hover doesn't blink it off.
  */
 function toggle() {
-  if (!noHover?.matches) return;
+  if (!isHoverless()) return;
   if (isVisible.value) hide();
   else void open();
 }

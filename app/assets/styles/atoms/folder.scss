@@ -170,6 +170,16 @@
   align-items: center;
   gap: var(--space-1);
 }
+/* packing hides the folder's editing chrome — the actions cluster and the add row.
+   CSS off the editor body's data-mode rather than the v-ifs these used to be, for the
+   same reason as the item-row faces (atoms/item.scss): mounting fourteen of these
+   clusters back was most of what a packing→gear switch still paid once the rows
+   stopped re-rendering. Editor-scoped: the share views' folder headers render no
+   .editor__body, so this can't touch them. */
+.editor__body[data-mode="pack"] .folder__actions,
+.editor__body[data-mode="pack"] .folder__add {
+  display: none;
+}
 .folder__del,
 .folder__grip {
   color: var(--ink-3);

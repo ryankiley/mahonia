@@ -1,5 +1,11 @@
 [
   {
+    "date": "2026-08-07",
+    "changed": [
+      "Switching between the gear, packing and planning views is quicker on a long list."
+    ]
+  },
+  {
     "date": "2026-08-06",
     "added": [
       "Lists now have a third view, Planning, alongside editing and packing: lay the trip out day by day and see what each day asks of you.",

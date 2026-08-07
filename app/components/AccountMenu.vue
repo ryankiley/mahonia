@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "@hugeicons/vue";
+import { HugeiconsIcon } from "~/utils/hugeicon";
 // UserRoundKey is a lucide name with no hugeicons twin; UserLock01 is the nearest
 // person-plus-credentials glyph.
 import { UserCircleIcon, UserLock01Icon } from "@hugeicons/core-free-icons";

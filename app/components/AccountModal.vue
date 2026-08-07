@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "@hugeicons/vue";
+import { HugeiconsIcon } from "~/utils/hugeicon";
 import { Cancel01Icon } from "@hugeicons/core-free-icons";
 // The account, centred over whatever you were doing.
 //

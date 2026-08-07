@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "@hugeicons/vue";
+import { HugeiconsIcon } from "~/utils/hugeicon";
 import { ArrowUpDownIcon, CheckIcon, ChevronDownIcon, Delete02Icon, GripVerticalIcon, SortingAZ01Icon, SortingNineOneIcon, SortingOneNineIcon } from "@hugeicons/core-free-icons";
 import type { Folder, FolderSort, Item, ListSnapshot } from "~~/shared/types";
 import { bySortOrder } from "~~/shared/weights";
@@ -184,7 +184,11 @@ function toggleCollapsed() {
       </div>
       <!-- trailing actions read left→right: delete · sort · reorder-grip (grip stays
            flush at the edge, matching the item rows) -->
-      <div v-if="!packed" class="folder__actions">
+      <!-- hidden in packing by the mode CSS (atoms/folder.scss), not a v-if: these
+           fourteen clusters (sort menu, delete, grip, their tooltips) were the last
+           thing still MOUNTING on every packing→gear switch after the rows stopped —
+           ~240ms of the switch was rebuilding folder chrome. -->
+      <div class="folder__actions">
         <button
           class="btn btn--icon btn--ghost folder__del"
           title="Remove folder"
@@ -233,6 +237,10 @@ function toggleCollapsed() {
         <TransitionGroup name="item" tag="div" class="folder__items">
           <!-- prev-id is the DISPLAY-order predecessor (items is already in this
                folder's sort order) — it drives each row's indent affordance -->
+          <!-- No :packed — the row swap is CSS off the editor body's data-mode (see
+               atoms/item.scss). As a prop it made every mode switch re-render every
+               row; without it the rows bail out of this folder's re-render entirely
+               (their props are unchanged), which is what makes switching instant. -->
           <ItemRow
             v-for="(it, i) in items"
             :key="it.id"
@@ -240,7 +248,6 @@ function toggleCollapsed() {
             :item="it"
             :children-by-parent="childrenByParent"
             :prev-id="items[i - 1]?.id ?? null"
-            :packed="packed"
             @overlay-toggle="onOverlayToggle"
             @toast="$emit('toast', $event)"
           />
@@ -248,7 +255,8 @@ function toggleCollapsed() {
 
         <div v-if="isAppendTarget" class="folder__droptail" aria-hidden="true" />
 
-        <div v-if="!packed" class="folder__add" :class="{ 'folder__add--first': !items.length }">
+        <!-- same: CSS-hidden in packing (atoms/folder.scss), so no mount per switch -->
+        <div class="folder__add" :class="{ 'folder__add--first': !items.length }">
           <button type="button" class="folder__addbtn" @click="addBlank">Add an item</button>
         </div>
       </div>

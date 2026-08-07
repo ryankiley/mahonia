@@ -7,7 +7,7 @@ const NO_ITEMS: ItemT[] = [];
 </script>
 
 <script setup lang="ts">
-import { HugeiconsIcon } from "@hugeicons/vue";
+import { HugeiconsIcon } from "~/utils/hugeicon";
 import { ChevronDownIcon, CookieIcon, ShirtIcon } from "@hugeicons/core-free-icons";
 import type { Item, ListSnapshot } from "~~/shared/types";
 import { effectiveClassification, formatKcal, formatWeight, rowDisplayMg, splitWornQty } from "~~/shared/weights";

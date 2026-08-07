@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "@hugeicons/vue";
+import { HugeiconsIcon } from "~/utils/hugeicon";
 import { CheckIcon } from "@hugeicons/core-free-icons";
 
 // Pick one of a few things — the app's answer to a native <select>.

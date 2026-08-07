@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "@hugeicons/vue";
+import { HugeiconsIcon } from "~/utils/hugeicon";
 import { ChevronDownIcon, Delete02Icon, Fire02Icon, HelpCircleIcon, RacingFlagIcon, RouteIcon, Stairs01Icon, TentIcon } from "@hugeicons/core-free-icons";
 import type { ListSnapshot, Totals, Waypoint } from "~~/shared/types";
 import { burnDownMg, estimateDay } from "~~/shared/tripPlan";

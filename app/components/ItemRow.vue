@@ -8,6 +8,42 @@ const STEP_BY_UNIT: Record<Unit, number> = { g: 1, kg: 0.01, oz: 0.1, lb: 0.1 };
 // one stable empty array for every leaf row, so `children` never mints a fresh
 // identity per row per render
 const NO_ITEMS: ItemT[] = [];
+// Per-item nest-collapse, read through a module-level cache rather than straight off
+// localStorage. Storage is synchronous, and every row reads its own key on mount — so a
+// mode switch, which remounts the whole list, was paying one blocking read per row for an
+// answer that only this app ever writes. Cached on first read and kept in step by
+// setNestCollapsed, so the value is still exactly what's on disk.
+const nestCollapsedCache = new Map<string, boolean>();
+function nestCollapsedFor(key: string): boolean {
+  let v = nestCollapsedCache.get(key);
+  if (v === undefined) {
+    try {
+      v = localStorage.getItem(key) === "1";
+    } catch {
+      v = false; // private mode / no storage — default expanded
+    }
+    nestCollapsedCache.set(key, v);
+  }
+  return v;
+}
+function setNestCollapsed(key: string, on: boolean) {
+  nestCollapsedCache.set(key, on);
+  try {
+    localStorage.setItem(key, on ? "1" : "0");
+  } catch {
+    /* ignore */
+  }
+}
+// A cache that never re-read would out-live the truth: `storage` fires in the OTHER
+// tabs, so the same list open twice would keep showing its own stale collapse state on
+// the next remount. Dropping the entry sends the next read back to disk — which is
+// exactly what happened before the cache existed.
+if (import.meta.client) {
+  window.addEventListener("storage", (e) => {
+    if (e.key?.startsWith("gear.nest.")) nestCollapsedCache.delete(e.key);
+    else if (e.key === null) nestCollapsedCache.clear(); // storage.clear() in another tab
+  });
+}
 // offered "N worn" split counts stop here (the stored value is always shown even
 // beyond the cap, so clamps/imports can't strand invisible state)
 const MAX_SPLIT_OPTS = 5;
@@ -17,7 +53,7 @@ const UNIT_OPTIONS = UNITS.map((u) => ({ key: u, label: u }));
 </script>
 
 <script setup lang="ts">
-import { HugeiconsIcon } from "@hugeicons/vue";
+import { HugeiconsIcon } from "~/utils/hugeicon";
 import { CalculateIcon, Cancel01Icon, CheckIcon, CheckmarkSquare02Icon, ChevronDownIcon, CircleEllipsisIcon, CookieIcon, Delete02Icon, GripVerticalIcon, ListIndentDecreaseIcon, ListIndentIncreaseIcon, ListPlusIcon, NoteAddIcon, NoteRemoveIcon, SafeBoxIcon, ShirtIcon, SquareIcon } from "@hugeicons/core-free-icons";
 import type { Item, ListSnapshot } from "~~/shared/types";
 import type { ItemPatch } from "~~/shared/ops";
@@ -41,10 +77,14 @@ const props = withDefaults(
     // (null = first row) — drives the indent affordance + its nest target, so a
     // name/weight-sorted folder indents under the row you actually see above
     prevId?: string | null;
-    packed?: boolean;
+    // NO `packed` prop — deliberately. Which face of the row shows (checklist vs
+    // editable) is decided by CSS off the editor body's data-mode (atoms/item.scss);
+    // as a prop, every mode switch re-rendered every row on the page. Handlers that
+    // need the mode read useEditorMode at CALL time, which registers no reactive
+    // dependency — see that composable's header.
     nested?: boolean;
   }>(),
-  { prevId: null, packed: false, nested: false },
+  { prevId: null, nested: false },
 );
 // forwarded up to FolderSection so it can lift its collapse clip while this row has a
 // floating overlay open — the name autocomplete, or the mobile ⋯ menu (otherwise an
@@ -55,6 +95,11 @@ const c = useGearList();
 // row fails — the button itself is offered either way, since signing in is a
 // reasonable answer to pressing it
 const { hasVault } = useVaultAccess();
+
+// The two mount latches (each row face mounts the first time its mode is entered and
+// then stays, CSS-hidden elsewhere) and the mode itself, for event handlers only —
+// neither `mode` nor anything else here changes per switch in a way this row renders.
+const { mode: editorMode, everEdit, everPacked } = useEditorMode();
 
 // ---- nesting: children render as the SAME row, indented under this one ----
 // A row with children is a "group": its weight column shows the group total (own +
@@ -69,20 +114,14 @@ const isParent = computed(() => children.value.length > 0);
 // a parent row; packing mode always shows children (you're checking them off).
 const NEST_KEY = `gear.nest.${props.item.id}`;
 const nestCollapsed = ref(false);
+// Still adopted on MOUNT rather than at setup, so the first paint is unchanged — this
+// only swaps where the value comes from (see nestCollapsedFor above).
 onMounted(() => {
-  try {
-    nestCollapsed.value = localStorage.getItem(NEST_KEY) === "1";
-  } catch {
-    /* private mode / no storage — default expanded */
-  }
+  nestCollapsed.value = nestCollapsedFor(NEST_KEY);
 });
 function toggleNest() {
   nestCollapsed.value = !nestCollapsed.value;
-  try {
-    localStorage.setItem(NEST_KEY, nestCollapsed.value ? "1" : "0");
-  } catch {
-    /* ignore */
-  }
+  setNestCollapsed(NEST_KEY, nestCollapsed.value);
 }
 // the group total shown on a parent's read-only weight column (bare number, list
 // unit) — `children` holds exactly this row's children, so the sum is O(children)
@@ -180,8 +219,9 @@ const wrapRef = useTemplateRef<HTMLElement>("wrapRef");
 const isPendingBlank = computed(() => c.pendingBlankId.value === props.item.id);
 function onRowBlur(e: FocusEvent) {
   // packing mode shares the row wrapper but has no editable fields — a checkbox
-  // blur must never discard a (still-unnamed) row
-  if (props.packed) return;
+  // blur must never discard a (still-unnamed) row. Read at call time: a handler
+  // read of the mode ref registers no reactive dependency (see useEditorMode).
+  if (editorMode.value === "pack") return;
   const next = e.relatedTarget as Node | null;
   if (wrapRef.value?.contains(next)) return; // focus moved within the row — keep
   // focus left the window entirely (alt-tab / app switch) rather than moving
@@ -741,10 +781,11 @@ function runOverflow(a: { run: () => void }) {
 // "Fix for everyone": only offered once the user's weight diverges from the
 // catalog value they linked — i.e. they think the canonical spec is wrong.
 // A plain free-typed override (no catalog link) never nags.
+// (Its old `!packed` term moved to CSS with the rest of the mode gating — packing
+// hides the whole under-row reveal; atoms/item.scss.)
 const correction = useCatalogCorrection();
 const showFix = computed(
   () =>
-    !props.packed &&
     props.item.catalogItemId != null &&
     props.item.catalogWeightMgAtLink != null &&
     props.item.unitWeightMg > 0 &&
@@ -779,15 +820,18 @@ function dismissFix() {
     :style="isDragging ? { '--drag-dy': dnd.dy.value + 'px' } : undefined"
     @focusout="onRowBlur"
   >
-    <!-- editing↔packing swap: the entering row content fades in (heights match across
-         modes now, so nothing reflows) while the leaving content is dropped instantly —
-         a crossfade would ghost, since the name sits at a different x in each mode.
-         Its single child is the v-if/v-else pair: packing / checklist (a big tap target —
-         check off the item; name + line weight only) vs the editable row below. Keep any
-         explanatory comments OUT of the <Transition> body — a comment node between its
-         open tag and the v-if is counted as a second child by Vue's template compiler. -->
-    <Transition name="rowmode">
-      <label v-if="packed" class="item-row item item--check" :class="{ 'item--done': item.packed }">
+    <!-- editing↔packing swap, decided by CSS rather than by this component. Which face
+         shows follows the editor body's data-mode (atoms/item.scss); the fade the old
+         <Transition> gave the entering face is a CSS animation there, gated on the
+         body's is-rowswitching beat so it plays exactly when a switch happens and not
+         when a row appears for any other reason. What this template decides is only
+         whether each face has ever been NEEDED (the useEditorMode latches): a face
+         mounts the first time its mode is entered and then stays for the page's life,
+         display:none'd in the other modes. So a mode switch mounts nothing, unmounts
+         nothing, and re-renders nothing here — flipping one body attribute is the
+         entire act. The checklist face never mounts for a list that never enters
+         packing mode, and a list OPENED in packing builds no edit faces either. -->
+      <label v-if="everPacked" class="item-row item item--check" :class="{ 'item--done': item.packed }">
       <!-- checkbox visuals come from the icon set (Square empty / SquareCheck checked —
            the same glyph as the header's packing toggle, and the two share an identical
            outer square so the swap reads as the tick appearing); the real <input> stays
@@ -826,7 +870,7 @@ function dismissFix() {
       <span v-if="item.commonName" class="t-sm item__csub">{{ item.commonName }}</span>
     </label>
 
-    <div v-else class="item-row item">
+    <div v-if="everEdit" class="item-row item">
       <!-- editable row (default) -->
       <!-- focusin (it bubbles, unlike focus) rather than binding ItemInput's own input:
            the name cell is the whole "what is this item" affordance, so landing anywhere
@@ -1208,16 +1252,15 @@ function dismissFix() {
       </div>
     </div>
 
-    </Transition>
-
     <!-- sub-line: the common name (a quiet upright label) and, under it, the freeform note;
          both single-line live-text fields, appearing once either has content or the details
          button is clicked. Editing only: the checklist row shows a saved gear type as plain
-         text (.item__csub) and no note at all — nothing there is editable.
+         text (.item__csub) and no note at all — nothing there is editable. (The "editing
+         only" half is CSS now — packing hides every under-row reveal; atoms/item.scss.)
          The .reveal wrapper is a grid whose row animates 1fr↔0fr (Safari-safe slide); the two
          inputs share one inner child so that single-child slide stays clean. -->
     <Transition name="reveal">
-      <div v-if="!packed && subShown" :id="subId" class="reveal reveal--note">
+      <div v-if="subShown" :id="subId" class="reveal reveal--note">
         <div class="item__subfields">
           <!-- the gear-type field's placeholder is EXAMPLES ONLY, no concept noun: it sits
                directly under the product name, so the contrast (a specific product / the
@@ -1293,13 +1336,14 @@ function dismissFix() {
           :list="list"
           :item="child"
           :children-by-parent="childrenByParent"
-          :packed="packed"
           nested
           @overlay-toggle="onChildOverlay"
           @toast="$emit('toast', $event)"
         />
         <div v-if="isNestAppendTarget" class="item-nest__droptail" aria-hidden="true" />
-        <button v-if="!packed" type="button" class="item-nest__add" @mousedown.prevent @click="c.addChild(item.id)">
+        <!-- hidden in packing by the mode CSS (atoms/item.scss), not a v-if — the row
+             must not re-render on a mode switch, and this button is part of the row -->
+        <button type="button" class="item-nest__add" @mousedown.prevent @click="c.addChild(item.id)">
           Add an item
         </button>
       </div>
@@ -1828,20 +1872,9 @@ function dismissFix() {
 .reveal-leave-to > * {
   transform: translateY(0.4em);
 }
-/* editing↔packing row swap: fade the entering content in; drop the leaving content
-   out of flow instantly (display:none) so the two never stack — the row keeps its
-   height (both modes are --field-h now), so there's no reflow to smooth, only the
-   content-change to soften. reduced-motion → the global --dur kill-switch makes it
-   instant. */
-.rowmode-enter-active {
-  transition: opacity calc(var(--dur) * 0.9) var(--ease);
-}
-.rowmode-enter-from {
-  opacity: 0;
-}
-.rowmode-leave-active {
-  display: none;
-}
+/* the editing↔packing row swap lives in atoms/item.scss now — it keys off the editor
+   body's data-mode, which no scoped block can see, and the fade that used to be a
+   <Transition> here is the rowmode-fade animation there. */
 /* the note tucks up under the name (into the 36px field's dead space); the offset
    lives on the wrapper, not the input, so the grid track sizing stays clean.
    Cancelling that dead space puts the caption's line box flush under the name's — the
