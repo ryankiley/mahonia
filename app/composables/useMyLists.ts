@@ -47,14 +47,36 @@ export function useMyLists() {
   if (!_entries) _entries = storageEntries();
   const entries = _entries;
 
+  // ONE ROW PER LIST. The registry is stored per edit token, but a token is a
+  // capability, not an identity — the list is the SHARE CODE. Rotating a list's link
+  // mints a second token for the same list, so matching on the token alone left both
+  // rows standing whenever the rotate's `forget` didn't reach localStorage (a second
+  // tab's stale write clobbering it, or storage rejecting it). What you saw then was
+  // the same pack twice in the switcher, both rows marked as the one you're in, one
+  // of them a link the server had already killed — and no way to tell which.
+  //
+  // Every caller here is holding a token the server has just accepted (create, clone,
+  // import, a confirmed open, a rotate), so the incoming entry is the live one: it
+  // claims the share code, and any older row for that list steps aside. That makes
+  // the duplicate self-healing — open the list once and the leftover is gone.
+  //
+  // Non-empty codes only: entries from before pretty links (#54) have none, and
+  // "" === "" would collapse every one of them into a single row.
   function upsert(e: MyListEntry) {
-    // preserve a stronger origin: a list you made and later reopen through its own
-    // link must not be downgraded to "opened" by that reopen
-    const prior = entries.value.find((x) => x.editToken === e.editToken);
-    const origin = prior?.origin === "created" ? "created" : (e.origin ?? prior?.origin);
-    const next = entries.value.filter((x) => x.editToken !== e.editToken);
-    next.push({ ...e, origin });
-    entries.value = next;
+    const isSameList = (x: MyListEntry) =>
+      x.editToken === e.editToken || (!!e.shareCode && x.shareCode === e.shareCode);
+    // Preserve a stronger origin: a list you made and later reopen through its own
+    // link must not be downgraded to "opened" by that reopen — and reading across
+    // EVERY row being replaced means a rotate can't launder it away either, which
+    // would quietly stop the list being attached to your account on sign-in.
+    const prior = entries.value.filter(isSameList);
+    const origin = prior.some((x) => x.origin === "created")
+      ? "created"
+      : // the first row that HAS one, not simply the first row: with two being
+        // replaced their array order is incidental, and inheriting an absent origin
+        // over a present "opened" would quietly make a shared list claimable
+        (e.origin ?? prior.find((x) => x.origin)?.origin);
+    entries.value = [...entries.value.filter((x) => !isSameList(x)), { ...e, origin }];
   }
 
   function touch(editToken: string, patch: Partial<MyListEntry>) {
@@ -68,6 +90,39 @@ export function useMyLists() {
     // drop this list's on-device snapshot/queue too (rotate re-keys; explicit
     // removal cleans up) so a forgotten token leaves nothing behind in IndexedDB
     useLocalListStore().del(editToken);
+  }
+
+  /**
+   * The other side of the share-code claim in `upsert`.
+   *
+   * Called when the server has just 404'd this token — it is dead, rotated away or
+   * deleted. That alone says nothing: a list you really did delete keeps its row
+   * until you clear it on /mine, and the on-device copy stays readable here. But if
+   * the registry holds ANOTHER row for the SAME list, this one is the leftover half
+   * of a rotate, and the live row beside it is the list. Drop it.
+   *
+   * With `upsert` healing from the live side and this from the dead one, either of
+   * two identical-looking rows clears the duplicate — which matters, because from
+   * the switcher there is no way to tell them apart.
+   *
+   * Unlike `forget`, the on-device copy STAYS. The ROW is what's broken; the copy
+   * under a dead token can hold edits that never reached the server (a second tab
+   * that kept editing after the rotate), and the page that opened it is still
+   * showing them — "No longer online · saved on device" is a promise to keep.
+   *
+   * Returns whether a row was dropped.
+   */
+  function forgetSuperseded(editToken: string): boolean {
+    const mine = entries.value.find((x) => x.editToken === editToken);
+    // no row, or a legacy entry with no share code — nothing that can be proven
+    // superseded, since "" === "" is not "the same list"
+    if (!mine?.shareCode) return false;
+    const hasLiveRow = entries.value.some(
+      (x) => x.editToken !== editToken && x.shareCode === mine.shareCode,
+    );
+    if (!hasLiveRow) return false;
+    entries.value = entries.value.filter((x) => x.editToken !== editToken);
+    return true;
   }
 
   // Delete the list on the server (soft-delete — it drops out of every lookup at
@@ -108,5 +163,5 @@ export function useMyLists() {
     return res.editToken;
   }
 
-  return { entries, upsert, touch, forget, deleteList, registerCreated };
+  return { entries, upsert, touch, forget, forgetSuperseded, deleteList, registerCreated };
 }
