@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { HugeiconsIcon, type IconNode } from "~/utils/hugeicon";
 import { Backpack02Icon, Cancel01Icon, CheckmarkSquare02Icon, ChevronDownIcon, Copy01Icon, Delete02Icon, EllipsisIcon, FileExportIcon, FileImportIcon, Message01Icon, NoteAddIcon, RemoveCircleIcon, Route02Icon, SafeBoxIcon, Share08Icon, Undo02Icon } from "@hugeicons/core-free-icons";
-import { editLinkPath } from "~~/shared/links";
+import { editLinkPath, normalizeShareCode } from "~~/shared/links";
 import { tripHeadline } from "~~/shared/trailDistance";
 import { formatWeight } from "~~/shared/weights";
 import type { Item, Unit } from "~~/shared/types";
@@ -306,7 +306,10 @@ watch(
     // exists (the hint cookie; the fetch itself is what proves it). For everyone
     // else /e/{code} without a fragment stays what it always was — a truncated
     // link landing on a fresh draft — rather than a doomed request per visit.
-    const code = typeof codeParam === "string" ? codeParam : "";
+    // Normalized HERE as well as in load(): a path segment that can't be a share
+    // code at all (/e/garbage) falls through to the draft for the signed-in too,
+    // instead of spending a request to be told 401.
+    const code = normalizeShareCode(typeof codeParam === "string" ? codeParam : "");
     if (code && session.hasSessionHint()) return startSession({ code });
     startSession(); // a fresh, unsaved draft (persists on first real content)
   },
