@@ -25,7 +25,8 @@
       "A list that can't reach the server now says \"Not saved\" and holds still, instead of flickering between that and \"Syncing…\" while it retries — and it retries with a growing pause rather than every second.",
       "The editor's toolbar icons sit at the right edge again on a list that hasn't been edited yet, instead of bunching up beside the pack switcher.",
       "Forgetting a list that’s no longer online now warns that the copy saved on this device may be all that’s left, instead of claiming the list stays online.",
-      "Water rows no longer offer a Save to My Gear button. Pressing it could only ever answer with an error — water is a volume you carry, not gear that gets saved."
+      "Water rows no longer offer a Save to My Gear button. Pressing it could only ever answer with an error — water is a volume you carry, not gear that gets saved.",
+      "On a phone, switching to packing mode no longer shows each item twice — the checklist row and the editing row underneath it."
     ]
   },
   {
