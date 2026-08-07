@@ -6,8 +6,9 @@ import type { VaultEntry, VaultFolder } from "~~/shared/vault";
 import { formatWeightAuto, itemDisplayName } from "~~/shared/weights";
 import { foldApostrophes } from "~~/shared/tidyText";
 
-// The vault — every piece of gear you've put in a list, in one place, so building
-// the next list is picking rather than retyping.
+// "My gear" — every piece of gear you've put in a list, in one place, so building
+// the next list is picking rather than retyping. That's the name the chrome uses
+// everywhere; "vault" survives as the internal word (routes, API, schema, classes).
 //
 // Owned by your ACCOUNT — the one part of Mahonia that asks you to sign in. Lists
 // stay link-owned and always will; a vault is different because it's the durable
@@ -16,7 +17,7 @@ import { foldApostrophes } from "~~/shared/tidyText";
 //
 // noindex: it's one person's possessions and there is nothing here for a crawler.
 useHead({
-  title: "Gear vault — Mahonia",
+  title: "My gear — Mahonia",
   meta: [{ name: "robots", content: "noindex" }],
 });
 
@@ -56,7 +57,7 @@ async function loadVault() {
     removed.value = res.removed || [];
     folders.value = res.folders || [];
   } catch {
-    loadError.value = "Couldn’t load your gear vault. Check your connection and try again.";
+    loadError.value = "Couldn’t load your gear. Check your connection and try again.";
   }
   loading.value = false;
 }
@@ -315,7 +316,7 @@ async function deleteFolder(f: VaultFolder) {
     !(await askConfirm({
       title: `Delete “${f.name}”?`,
       message: held
-        ? `The ${held} ${held === 1 ? "piece" : "pieces"} of gear in it stay in your gear vault — they just won’t be filed under anything.`
+        ? `The ${held} ${held === 1 ? "piece" : "pieces"} of gear in it stay in My gear — they just won’t be filed under anything.`
         : "The folder goes; nothing else changes.",
       confirmLabel: "Delete folder",
     }))
@@ -410,12 +411,12 @@ const folderOptions = computed(() => [
 
 <template>
   <div>
-    <SiteTopbar label="Gear vault">
+    <SiteTopbar label="My gear">
       <NuxtLink to="/e" class="btn btn--link">Create a list</NuxtLink>
     </SiteTopbar>
 
     <main id="main-content" tabindex="-1" class="wrap page vault__page">
-      <!-- The sentence IS the heading. "Gear vault" was being said twice — once
+      <!-- The sentence IS the heading. "My gear" was being said twice — once
            here and once in the top bar's label — and of the two this is the one
            that tells you something. Still an h1, so the page keeps exactly one and
            the document outline is intact; the bar carries the page's name. -->
@@ -630,7 +631,7 @@ const folderOptions = computed(() => [
                         class="btn btn--icon btn--ghost vault__remove"
                         :disabled="removing === entry.id"
                         :title="`Remove ${itemDisplayName(entry.brand, entry.name, entry.variant)}`"
-                        :aria-label="`Remove ${itemDisplayName(entry.brand, entry.name, entry.variant)} from your gear vault`"
+                        :aria-label="`Remove ${itemDisplayName(entry.brand, entry.name, entry.variant)} from My gear`"
                         @click="remove(entry)"
                       >
                         <HugeiconsIcon :icon="Delete02Icon" :size="16" aria-hidden="true" :stroke-width="2" />
@@ -666,7 +667,7 @@ const folderOptions = computed(() => [
 
           <div v-else class="vault__empty">
             <p class="t-muted">
-              Your gear vault is empty. Add gear to a list and it’ll show up here on its own.
+              No gear saved yet. Add gear to a list and it’ll show up here on its own.
             </p>
             <NuxtLink to="/e" class="btn btn--primary">Create a list</NuxtLink>
           </div>
@@ -688,7 +689,7 @@ const folderOptions = computed(() => [
             </button>
             <div v-if="showRemoved" class="vault__removedbody">
               <p class="t-sm t-muted">
-                Removed gear stays out of your gear vault and out of the suggestions, even if it's
+                Removed gear stays out of My gear and out of the suggestions, even if it's
                 still in a list. Put a piece back and it's yours again.
               </p>
               <ul class="vault__list">
@@ -706,7 +707,7 @@ const folderOptions = computed(() => [
                     type="button"
                     class="btn btn--quiet vault__remove"
                     :disabled="restoring === entry.id"
-                    :aria-label="`Put ${itemDisplayName(entry.brand, entry.name, entry.variant)} back in your gear vault`"
+                    :aria-label="`Put ${itemDisplayName(entry.brand, entry.name, entry.variant)} back in My gear`"
                     @click="putBack(entry)"
                   >
                     <HugeiconsIcon :icon="Undo02Icon" :size="14" aria-hidden="true" :stroke-width="2" /> Put back

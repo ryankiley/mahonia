@@ -19,7 +19,7 @@ export const ACCOUNT_DDL: string[] = [
   )`,
   // REQUIRED, including on the passkey signup path. The passkey is what identifies
   // you; the address is the only way back in when every authenticator is lost, and
-  // a gear vault is exactly the thing that can't be rebuilt from memory. Making it
+  // a vault is exactly the thing that can't be rebuilt from memory. Making it
   // optional put every account one lost phone away from being unrecoverable, and
   // made `email` nullable across code that reasonably assumed otherwise.
   //

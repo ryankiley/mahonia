@@ -13,7 +13,7 @@ import { refreshStaleFavicons } from "../../../utils/trailFavicon";
 //   2. PURGE — hard-delete rows soft-deleted past LIST_PURGE_GRACE_DAYS (+ their
 //              snapshots) to reclaim the storage; the grace window keeps a reap
 //              reversible until then.
-//   3. VAULTS — the same two stages for gear vaults, which are minted lazily and
+//   3. VAULTS — the same two stages for vaults, which are minted lazily and
 //              never signed out of, so nothing else would ever bound their growth.
 //              Longer
 //              windows than a list gets; see reapAbandonedVaults for why, and for

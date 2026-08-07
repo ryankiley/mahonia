@@ -679,7 +679,7 @@ function toggleNestMenu() {
 const vaultSaved = ref(false);
 const vaultBusy = ref(false);
 const vaultLabel = computed(() =>
-  vaultSaved.value ? "Saved to your gear vault" : "Save to your gear vault",
+  vaultSaved.value ? "Saved to My gear" : "Save to My gear",
 );
 async function onSaveToVault() {
   if (vaultBusy.value || vaultSaved.value) return;
@@ -694,8 +694,8 @@ async function onSaveToVault() {
       // the vault belongs to an account, so signed out there is nowhere to put it.
       // Naming that is the difference between a dead button and a next step.
       : hasVault.value
-        ? "Couldn’t reach your gear vault — try again in a moment"
-        : "Sign in to keep a gear vault",
+        ? "Couldn’t reach My gear — try again in a moment"
+        : "Sign in to keep your gear",
   );
 }
 // a rename or re-weigh makes it a different piece of gear, so the tick stops

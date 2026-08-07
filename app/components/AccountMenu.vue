@@ -123,7 +123,7 @@ const { open: openAccount } = useAccountModal();
           </li>
           <li v-if="!onVault" role="none">
             <NuxtLink to="/vault" data-row role="menuitem" class="menu__item" @click="open = false">
-              Your gear vault
+              My gear
             </NuxtLink>
           </li>
           <li v-if="!onAccount" role="none">
