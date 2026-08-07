@@ -140,7 +140,7 @@ const NO_ITEMS: Item[] = [];
 // `packed` survives as a COMPUTED, so the prop threaded down to FolderSection keeps its
 // exact old contract — the folder chrome still only ever asks "am I a checklist?", and
 // stays ignorant that planning exists.
-const { mode, switching: modeSwitching } = useEditorMode();
+const { mode, everPlan, switching: modeSwitching } = useEditorMode();
 const packed = computed(() => mode.value === "pack");
 
 /**
@@ -213,6 +213,15 @@ const vaultOpen = ref(false);
 const VAULT_W_KEY = "gear.vault.width.v1";
 const vaultWidth = ref(clampVaultWidth(Number(localStorage.getItem(VAULT_W_KEY))));
 watch(vaultWidth, (w) => remember(VAULT_W_KEY, String(w)));
+// The width lands on the editor root as an inherited custom property — but written
+// imperatively, NOT as a template :style binding: only CSS consumes this value, and a
+// binding made every change re-render this whole component for a style write. During a
+// divider drag VaultPane writes the SAME property on the same element per frame (see
+// startResize there) and commits the ref once on release, so a resize renders nothing.
+const editorRef = ref<HTMLElement | null>(null);
+watchPostEffect(() => {
+  editorRef.value?.style.setProperty("--vault-w", `${vaultWidth.value}px`);
+});
 // packing progress — rows checked / rows total (a row is one check, whatever its qty)
 const packProgress = computed(() => {
   const items = snapshot.value?.items ?? [];
@@ -720,9 +729,9 @@ function onCorrected(res: { status: string; itemName?: string }) {
 
 <template>
   <div
+    ref="editorRef"
     class="editor"
     :class="{ 'editor--centered': !(snapshot && totals), 'editor--split': vaultOpen }"
-    :style="{ '--vault-w': `${vaultWidth}px` }"
   >
     <!-- the editor's page heading — visually the title input carries it, but a
          real (hidden) h1 gives AT users a page title on this client-only view -->
@@ -956,8 +965,12 @@ function onCorrected(res: { status: string; itemName?: string }) {
         title="Change unit"
         @pick="headline.pick"
       />
+      <!-- v-show, not v-if: presence is constant, visibility follows the mode — so
+           leaving planning doesn't rebuild the bar (it's stateless, but its remount rode
+           every plan exit's flush). display:none skips it in layout and the a11y tree
+           exactly as absence did, and the flex gap collapses with it. -->
       <TotalsBar
-        v-if="mode !== 'plan'"
+        v-show="mode !== 'plan'"
         :headline="false"
         :list="snapshot"
         :totals="totals"
@@ -1017,16 +1030,20 @@ function onCorrected(res: { status: string; itemName?: string }) {
 
       <!-- The plan. Lazy on purpose: the panel pulls in the trip model, and planning is a
            mode most visits never enter — it has no business on the editor's first load.
+           The everPlan latch keeps that laziness while ending the rebuild: the panel
+           mounts on the FIRST entry into planning and then stays, and every switch after
+           that is the data-mode CSS reveal below — the same move the rows and the pack
+           bar make, for the same reason (a Vue Transition's leave forces a synchronous
+           reflow mid-patch, and unmounting rebuilt the whole panel per visit). Staying
+           mounted is also what lets the route map keep its pan and zoom across switches.
 
            Its OWN reveal, not the pack bar's, though the slide is the same. That recipe
            clips its child permanently, which is right for a one-line bar and wrong here:
            the elevation chart's hover readout is positioned above the chart's own box, so
            a standing clip cut the reading off. This one clips only while it moves. -->
-      <Transition name="planreveal">
-        <div v-if="mode === 'plan' && snapshot && totals" class="planreveal">
-          <LazyTrailPlanPanel :snapshot="snapshot" :totals="totals" />
-        </div>
-      </Transition>
+      <div v-if="everPlan && snapshot && totals" class="planreveal">
+        <LazyTrailPlanPanel :snapshot="snapshot" :totals="totals" />
+      </div>
 
       <!-- The gear stands down while you plan. Planning asks a different question of the
            same list — how the trip breaks into days and what the pack weighs on each — and
@@ -1248,29 +1265,48 @@ function onCorrected(res: { status: string; itemName?: string }) {
   margin-bottom: 0;
 }
 
-/* The plan's reveal: the pack bar's slide without its standing clip — see the template. */
+/* The plan's reveal: the pack bar's slide without its standing clip — see the template.
+   Keyed on the body's data-mode like the pack bar, not on enter/leave classes. The
+   at-rest hidden state is display:none — the panel leaves layout, paint, the a11y tree
+   AND the body's flex gap exactly as unmounting did — and the slide still runs both
+   ways because display rides the transition as a discrete property: entering flips it
+   to grid at the transition's start, leaving holds grid until the fade lands. Browsers
+   without allow-discrete just snap between the same two correct states. */
+/* both display gates carry !important — the #210 lesson: a mode gate on a latched
+   element competes with every later layout rule on it, and importance is what holds
+   that line (transitions still outrank importance in the cascade, so the discrete
+   display animation above is unaffected) */
 .planreveal {
-  display: grid;
+  display: none !important;
   grid-template-rows: 1fr;
+  transition:
+    grid-template-rows var(--dur) var(--ease),
+    opacity var(--dur) var(--ease),
+    display var(--dur) allow-discrete;
+}
+.editor__body[data-mode="plan"] .planreveal {
+  display: grid !important;
+}
+.editor__body:not([data-mode="plan"]) .planreveal {
+  grid-template-rows: 0fr;
+  opacity: 0;
 }
 .planreveal > * {
   min-height: 0;
 }
-/* the clip exists ONLY while the rows are moving, which is the only time it is needed */
-.planreveal-enter-active > *,
-.planreveal-leave-active > * {
+/* the clip exists ONLY while the rows are moving, which is the only time it is needed —
+   the switch beat (is-rowswitching, 250ms) comfortably covers the 200ms slide */
+.editor__body.is-rowswitching .planreveal > * {
   overflow: hidden;
 }
-.planreveal-enter-active,
-.planreveal-leave-active {
-  transition:
-    grid-template-rows var(--dur) var(--ease),
-    opacity var(--dur) var(--ease);
-}
-.planreveal-enter-from,
-.planreveal-leave-to {
-  grid-template-rows: 0fr;
-  opacity: 0;
+/* entering plays the same 0fr→1fr slide the old <Transition> enter played. Gated on the
+   switch beat so a page LOADED in planning mounts at rest — the old no-`appear`
+   behavior — while a real switch (beat active) starts from the collapsed state. */
+@starting-style {
+  .editor__body.is-rowswitching[data-mode="plan"] .planreveal {
+    grid-template-rows: 0fr;
+    opacity: 0;
+  }
 }
 /* The title block (name + trail link) belongs to ListHead.vue — it owns its own layout
    so the hover affordance, the title, and the link keep one DOM order. */

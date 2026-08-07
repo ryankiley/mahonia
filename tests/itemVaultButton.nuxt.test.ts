@@ -1,16 +1,18 @@
 // @vitest-environment nuxt
 //
-// The row's "Save to My Gear" button, in the state where it must NOT act: a list
-// whose gear the automatic capture path already banks (the vault answer is yes).
-// Offering to save what's saved is a placebo — the button's press "succeeded"
-// while changing nothing — so on a covered row it stands down: aria-disabled, its
-// words flipped to "Already in My Gear", and its click a no-op.
+// The row's "Save to My Gear" button, which renders only while pressing it could
+// do the thing it names. Two states hide it: a row that isn't yet gear (unnamed /
+// unweighed — nothing to save), and a row the automatic capture path already
+// banks (the vault answer is yes — offering to save what's saved is a placebo).
+// In both, the button isn't dimmed, it's GONE: no inline icon, no ⋯-menu entry.
+// A worthy row failing any covered gate keeps it as a live action, because
+// pressing it is then the only way the row gets banked.
 //
-// Nuxt environment because the decision under test is what the ROW renders: which
-// label, which ARIA state, and whether a press still reaches the controller. The
-// condition spans the controller's mirror (vaultAuto / vaultDeclined), the session
-// (hasVault), and the row's own worthiness — gearList.nuxt.test.ts proves the
-// mirror tracks the stored answer; this file proves the button obeys the mirror.
+// Nuxt environment because the decision under test is what the ROW renders:
+// whether the button exists at all, and whether a press reaches the controller.
+// The condition spans the controller's mirror (vaultAuto / vaultDeclined), the
+// session (hasVault), and the row's own worthiness — gearList.nuxt.test.ts proves
+// the mirror tracks the stored answer; this file proves the row obeys the mirror.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mockNuxtImport } from "@nuxt/test-utils/runtime";
 import { mount } from "@vue/test-utils";
@@ -83,26 +85,15 @@ describe("the save button on a list the automatic capture already covers", () =>
     saveItemToVault.mockClear();
   });
 
-  it("stands down — aria-disabled, 'Already in My Gear', and a dead click", async () => {
+  it("vanishes — no inline icon, no ⋯-menu entry — once the automatic path has the row", async () => {
     vaultAuto.value = true;
     const w = mountRow(gear());
-    const btn = vaultBtn(w);
-    expect(btn.attributes("aria-disabled")).toBe("true");
-    expect(btn.attributes("aria-label")).toBe("Already in My Gear");
-    // aria-disabled, NOT disabled: the button stays focusable so the tooltip —
-    // the whole explanation — remains reachable without a mouse
-    expect(btn.attributes("disabled")).toBeUndefined();
-
-    await btn.trigger("click");
-    expect(saveItemToVault).not.toHaveBeenCalled();
-
-    // the mobile ⋯ menu carries the same state as a disabled row, since a
-    // phone has no tooltip to say it with
+    expect(vaultBtn(w).exists()).toBe(false);
+    // the ⋯ menu follows the same disclosure rule (it used to keep a disabled
+    // "Already in My Gear" line)
     await w.find(".item__morebtn").trigger("click");
-    const entry = w
-      .findAll(".item__morelist .menu__item")
-      .find((b) => b.text() === "Already in My Gear")!;
-    expect(entry.attributes("disabled")).toBeDefined();
+    const labels = w.findAll(".item__morelist .menu__item").map((b) => b.text());
+    expect(labels.some((l) => l.includes("My Gear"))).toBe(false);
     w.unmount();
   });
 
@@ -112,7 +103,7 @@ describe("the save button on a list the automatic capture already covers", () =>
     vaultDeclined.value = new Set([vaultNormKey(item.brand, item.name, item.variant)]);
     const w = mountRow(item);
     const btn = vaultBtn(w);
-    expect(btn.attributes("aria-disabled")).toBeUndefined();
+    expect(btn.exists()).toBe(true);
     expect(btn.attributes("aria-label")).toBe("Save to My Gear");
     // pressing it is the one way a declined row gets banked
     await btn.trigger("click");
@@ -120,12 +111,21 @@ describe("the save button on a list the automatic capture already covers", () =>
     w.unmount();
   });
 
-  it("claims nothing for a row capture wouldn't take", () => {
-    vaultAuto.value = true;
+  it("waits for the row to become gear — a new item carries no icon, finishing it brings one", async () => {
     // no weight and no catalog link — isVaultWorthy says "still a half-typed
-    // thought", so the automatic path skips it and "already in" would be a lie
+    // thought". There is nothing to save, so there is no button to press; the
+    // old always-there button's only outcome here was a toast telling you to
+    // finish the row it sat on.
     const w = mountRow(gear({ unitWeightMg: 0 }));
-    expect(vaultBtn(w).attributes("aria-disabled")).toBeUndefined();
+    expect(vaultBtn(w).exists()).toBe(false);
+    await w.find(".item__morebtn").trigger("click");
+    const labels = w.findAll(".item__morelist .menu__item").map((b) => b.text());
+    expect(labels.some((l) => l.includes("My Gear"))).toBe(false);
+
+    // the weight lands → the row is gear → the button arrives (this is the beat
+    // the reveal animation plays on)
+    await w.setProps({ item: gear({ unitWeightMg: 539_000 }) });
+    expect(vaultBtn(w).exists()).toBe(true);
     expect(vaultBtn(w).attributes("aria-label")).toBe("Save to My Gear");
     w.unmount();
   });
@@ -144,11 +144,11 @@ describe("the save button on a list the automatic capture already covers", () =>
     w.unmount();
   });
 
-  it("claims nothing signed out — there is no vault for the gear to already be in", () => {
+  it("still offers itself signed out — there is no vault for the gear to already be in", () => {
     vaultAuto.value = true;
     hasVault.value = false;
     const w = mountRow(gear());
-    expect(vaultBtn(w).attributes("aria-disabled")).toBeUndefined();
+    expect(vaultBtn(w).exists()).toBe(true);
     w.unmount();
   });
 
@@ -159,6 +159,17 @@ describe("the save button on a list the automatic capture already covers", () =>
     await btn.trigger("click");
     expect(saveItemToVault).toHaveBeenCalledOnce();
     await vi.waitFor(() => expect(vaultBtn(w).attributes("aria-label")).toBe("Saved to My Gear"));
+    w.unmount();
+  });
+
+  it("sits at the cluster's left edge, before the nesting menu", () => {
+    // the trailing cluster is right-aligned, so the one icon that comes and goes
+    // per row must sit at the OPEN edge — ahead of nesting — or its absence would
+    // shuffle the constant icons from row to row
+    const w = mountRow(gear());
+    const btn = vaultBtn(w).element;
+    const nest = w.find(".item__nest-btn").element;
+    expect(btn.compareDocumentPosition(nest) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     w.unmount();
   });
 });
