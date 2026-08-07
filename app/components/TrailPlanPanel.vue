@@ -857,7 +857,10 @@ const distanceValue = (m: number | undefined) => {
           v-if="!collapsed[d?.id ?? ''] && snapshot.routeGeometry && dayDistancesM[i]"
           class="plan__wps"
         >
-          <ol v-if="grouped.byDay[i]?.length" class="plan__wplist">
+          <!-- ONE list, pins and the night together, because the hairlines between them
+               are the thing that makes this read as a day's contents rather than as two
+               stacked blocks — and a rule can only run between siblings. -->
+          <ol v-if="grouped.byDay[i]?.length || campOf(i) != null" class="plan__wplist">
             <WaypointRow
               v-for="w in grouped.byDay[i]"
               :key="w.id"
@@ -865,15 +868,13 @@ const distanceValue = (m: number | undefined) => {
               :distance-unit="distanceUnit"
               :coord="coordOf(w.alongM)"
             />
-          </ol>
-          <!-- The night comes LAST, because that is the order you meet them in: you pass
-               the spring and the col, and then you arrive. Above the pins it read as a
-               heading for them rather than as the end of the day they belong to.
-               Not deletable and not re-kindable, because it isn't a pin — deleting it would
-               mean deleting the day. Its NAME is the day's own `label`, a field that
-               survived the removal of day naming and has been waiting for a use. -->
-          <ul v-if="campOf(i) != null" class="plan__wplist">
-            <li class="plan__camp">
+            <!-- The night comes LAST, because that is the order you meet them in: you pass
+                 the spring and the col, and then you arrive. Above the pins it read as a
+                 heading for them rather than as the end of the day they belong to.
+                 Not deletable and not re-kindable, because it isn't a pin — deleting it
+                 would mean deleting the day. Its NAME is the day's own `label`, a field
+                 that survived the removal of day naming and has been waiting for a use. -->
+            <li v-if="campOf(i) != null" class="plan__camp">
               <span class="plan__campkind">
                 <HugeiconsIcon :icon="TentIcon" :size="16" :stroke-width="2" aria-hidden="true" />
                 <span class="plan__campname">Camp</span>
@@ -891,10 +892,15 @@ const distanceValue = (m: number | undefined) => {
                 <span class="t-sm t-muted">{{ formatDistancePadded(campOf(i)!, distanceUnit) }}</span>
               </span>
             </li>
-          </ul>
-          <button type="button" class="folder__addbtn" @click="arming = arming === i ? null : i">
-            {{ arming === i ? "Tap the route to place it" : "Add a waypoint" }}
-          </button>
+          </ol>
+          <!-- the add row, carrying the same rule and the same padding as a row above it,
+               so it reads as the NEXT row rather than a button parked under a list —
+               exactly what .folder__add does under a folder's items -->
+          <div class="plan__wpadd" :class="{ 'is-first': !grouped.byDay[i]?.length && campOf(i) == null }">
+            <button type="button" class="folder__addbtn" @click="arming = arming === i ? null : i">
+              {{ arming === i ? "Tap the route to place it" : "Add a waypoint" }}
+            </button>
+          </div>
         </div>
       </li>
     </ol>
@@ -1283,12 +1289,29 @@ const distanceValue = (m: number | undefined) => {
    rather than as a second block stuck to the bottom of it. */
 .plan__wps {
   margin-top: var(--space-3);
-  border-top: 1px solid var(--line);
-  padding-top: var(--space-2);
+  /* NO gap and no padding of its own: the rows carry their own rhythm below, exactly as a
+     folder's items do. A gap here would sit on top of that and make every rule line float
+     between two bands of space instead of dividing two rows. */
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
-  align-items: flex-start;
+}
+/* THE GEAR LIST'S RHYTHM, verbatim (.folder__items > * in atoms/folder.scss): --space-2
+   above and below each row, a hairline between siblings and never above the first. These
+   are the same kind of list doing the same kind of job one mode over, and they were set at
+   a different density — a --space-1 stack with no rules, which read as a cluster of chips
+   rather than as a list you scan down. */
+.plan__wplist > *,
+.plan__wpadd {
+  padding-block: var(--space-2);
+}
+.plan__wplist > * + *,
+.plan__wpadd {
+  border-top: 1px solid var(--line);
+}
+/* …and when the day has no pins yet, the add row IS the first row, so it drops its rule —
+   the same exception .folder__add--first makes for an empty folder. */
+.plan__wpadd.is-first {
+  border-top: 0;
 }
 /* The night. Same columns as a waypoint row so the two line up down the day, with the
    trailing action cell left empty — there is nothing to delete here. */
@@ -1340,7 +1363,8 @@ const distanceValue = (m: number | undefined) => {
   align-self: stretch;
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  /* no gap — the rows' own padding-block is the rhythm, so the rule lines land between
+     two rows rather than floating in the middle of a space */
 }
 /* The unclaimed stretch is a day-shaped thing without being a day, so it takes the day's
    spacing and its heading size but never its figures — there is nothing to estimate about
