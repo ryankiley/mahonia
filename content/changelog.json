@@ -37,7 +37,8 @@
     "fixed": [
       "On a phone, a weight like 0.68 lb no longer has its last digit clipped, and a water row's figure lines up with the rows above it.",
       "A shared list no longer carries the owner's packing tick-offs in its data.",
-      "Clearing a day's distance or climb now sticks, instead of coming back the moment the list saved."
+      "Clearing a day's distance or climb now sticks, instead of coming back the moment the list saved.",
+      "Calorie estimates were too high for heavier walkers — resting energy was billed per kilogram, which over-charged anyone above about 65 kg, and a night's sleep was charged at the same rate as an evening in camp."
     ]
   },
   {

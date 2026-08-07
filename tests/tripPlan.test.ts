@@ -203,9 +203,34 @@ describe("estimateDay", () => {
 });
 
 describe("restingKcal", () => {
-  it("is proportional to time and body weight", () => {
-    expect(restingKcal(70, 12)).toBeCloseTo(70 * 1.4 * 12, 5);
+  // This suite used to assert `70 * 1.4 * hours` exactly, under the heading "proportional
+  // to time and body weight". That heading was the bug: metabolic rate is NOT proportional
+  // to mass, and billing it that way over-fed heavy walkers by a quarter while looking
+  // right for a 70 kg one. The assertions below are the properties that replace it.
+  it("rises with mass, but SUB-linearly — the whole reason the flat rule was wrong", () => {
     expect(restingKcal(90, 12)).toBeGreaterThan(restingKcal(70, 12));
+    // double the walker, well under double the energy: the marginal kilogram is cheap
+    expect(restingKcal(140, 12)).toBeLessThan(restingKcal(70, 12) * 1.7);
+  });
+
+  it("charges a 70 kg walker's CAMP HOUR what the old flat rule charged, to within a per cent", () => {
+    // The old constant was 1 MET — derived from one 70 kg man — times a 1.4 activity
+    // factor. Schofield at 70 kg gives 0.93 kcal/kg/hr, and the camp factor brings it back
+    // to 1.397, so the walker the old rule was tuned on barely moves and everyone heavier
+    // stops being over-fed.
+    //
+    // The marginal hour, not a 12-hour total: a total also carries the sleep split, which
+    // is a separate correction and legitimately lowers the figure at every weight. Asserting
+    // the total conflated the two and this test failed on its own first run for that reason.
+    const marginalCampHour = restingKcal(70, 13) - restingKcal(70, 12);
+    expect(marginalCampHour).toBeCloseTo(70 * 1.4, 0);
+  });
+
+  it("charges a night less than an evening in camp", () => {
+    // the first 8 hours are sleep at PAR 1.0; anything past that is camp at 1.5
+    const night = restingKcal(70, 8);
+    const nightPlusFour = restingKcal(70, 12);
+    expect(nightPlusFour - night).toBeGreaterThan((night / 8) * 4);
   });
 
   it("can't be asked for more than a day, or for a negative one", () => {

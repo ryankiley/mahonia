@@ -103,9 +103,19 @@ export function toblerSpeedMs(slope: number, loadKg = 0): number {
  *
  * Note what the descent branch does NOT have: a grade term. Below level it is a flat 0.73
  * multiplier on the level cost, so every descent costs the same whatever its steepness.
- * That is the model as published (and it was only validated to −6°). It understates the
- * real cost of a steep descent, where braking is genuinely hard work — a known limit,
- * stated here rather than papered over with a coefficient we'd have invented.
+ * That is the model as published, and it was only validated to −6°.
+ *
+ * WHICH WAY THAT ERRS DEPENDS ON THE GRADE, and this comment used to get it backwards. It
+ * said the flat multiplier understates a steep descent. It does — past about −25°, where
+ * braking really is hard work. But between roughly −5% and −20%, which is nearly every
+ * descent anyone walks, it OVERSTATES: Minetti's measured cost of walking puts the
+ * descent-to-level ratio near 0.4–0.6 through that band, against this 0.73. On a
+ * descent-heavy day that is worth something like a tenth of the walking energy.
+ *
+ * Left as published rather than patched. Replacing 0.73 with a grade-dependent curve means
+ * blending two models, and this file's whole posture is to ship a published equation with
+ * its limits written down rather than a hybrid we invented. The limit is now written down
+ * in the direction it actually points.
  */
 export function walkingVo2(opts: {
   speedMs: number;
@@ -128,9 +138,14 @@ export function walkingVo2(opts: {
   return 3.05 + 0.73 * gravitational * wt * (3.28 + 2.66 * s2);
 }
 
-// A litre of oxygen releases about 5 kcal burning mixed fuel. Standard, and the step the
-// model itself doesn't take — it stops at oxygen.
-const KCAL_PER_L_O2 = 5;
+// A litre of oxygen releases this much, burning the mix a walking body actually burns —
+// the step the model itself doesn't take, since it stops at oxygen.
+//
+// 4.83, not 5. Five is the round number for carbohydrate alone, and implies a respiratory
+// exchange ratio near 0.96 — sprinting, not walking. The source paper picks 20.1 J/mL for
+// exactly this activity and then measures RER 0.83 in its own subjects, which is 20.2 J/mL
+// = 4.83 kcal/L. The round number was a flat 4% on every walking calorie.
+const KCAL_PER_L_O2 = 4.83;
 
 /** Walking energy for one stretch, in kcal. Mass is what turns mL/kg/min into mL/min. */
 export function walkingKcal(
@@ -142,17 +157,65 @@ export function walkingKcal(
 }
 
 /**
+/**
+ * Basal rate, kcal per hour, from body mass alone.
+ *
+ * SCHOFIELD'S WEIGHT-ONLY FORM, and the intercept is the entire point. This used to be a
+ * flat 1 kcal per kg per hour, which is not a rule of thumb — it is the definition of one
+ * MET, derived from a single 70 kg man. Metabolic rate does not scale linearly with mass;
+ * it goes roughly as M^0.75, so the marginal kilogram costs about 10 kcal a day, not the
+ * 24 a per-kg rule bills for it.
+ *
+ * The error is therefore a function of the walker. Against Mifflin-St Jeor the old rule
+ * was about right at 70 kg and 26% high at 102 kg — so the app quietly over-fed heavier
+ * people and nobody could see it, because the figure looked the same shape either way.
+ * This form is within a few per cent across the range: 0.93 kcal/kg/hr at 70 kg, 0.77 at
+ * 102 kg.
+ *
+ * Still weight-only, which is the property the old comment was right to protect:
+ * Mifflin-St Jeor needs age, sex and height, and this app has none of the three and
+ * shouldn't ask. Schofield's sex-neutral 30–60 band needs exactly what we already have.
+ */
+const SCHOFIELD_PER_KG = 10.15;
+const SCHOFIELD_INTERCEPT = 854;
+export function basalKcalPerHour(bodyKg: number): number {
+  return (SCHOFIELD_PER_KG * bodyKg + SCHOFIELD_INTERCEPT) / 24;
+}
+
+/**
+ * How much above basal each kind of non-walking hour costs.
+ *
+ * SLEEP IS NOT CAMP. The old code billed one undifferentiated block at 1.4 — a whole day
+ * of it, sleep included — which charged eight hours of lying still at the rate of pitching
+ * a tent. FAO/WHO/UNU put sleep at 1.0; measured overnight rate runs a few per cent BELOW
+ * basal, so 1.0 is already generous.
+ *
+ * And 1.4 was the wrong number even for the waking hours: FAO's 1.40 is a WHOLE-DAY
+ * sedentary PAL, walking and all. Applied to hours the walk has already been removed from
+ * and billed separately, it counted part of the effort twice. 1.5 is the awake-and-pottering
+ * figure, which is what making camp actually is.
+ */
+const SLEEP_PAR = 1.0;
+const CAMP_PAR = 1.5;
+/** A night, in hours. Not asked for — nobody wants a sleep field in a packing app. */
+const SLEEP_HOURS = 8;
+
+/**
  * Resting energy for the hours NOT spent walking, in kcal.
  *
- * Deliberately not Mifflin-St Jeor, which is the usual choice: it needs age, sex and
- * height, and this app has none of the three and shouldn't ask. This is the
- * body-weight-only rule of thumb — roughly 1 kcal per kg per hour, lifted by a light
- * activity factor for a day that involves making camp rather than lying still. It uses
- * exactly the input we already have and invents nothing further.
+ * Split into sleep and camp, because they are not the same hour and billing them at one
+ * rate was worth several hundred calories a day on its own.
+ *
+ * The whole term dominates the estimate — on a 3½ hour day it is roughly twice the walking
+ * energy — which is why the two corrections here move the day's figure far more than
+ * anything in the walking model does.
  */
 export function restingKcal(bodyKg: number, hours: number): number {
   if (!(bodyKg > 0)) return 0;
-  return bodyKg * 1.4 * Math.max(0, Math.min(24, hours));
+  const total = Math.max(0, Math.min(24, hours));
+  const asleep = Math.min(SLEEP_HOURS, total);
+  const awake = total - asleep;
+  return basalKcalPerHour(bodyKg) * (asleep * SLEEP_PAR + awake * CAMP_PAR);
 }
 
 /** One leg of a day: a distance walked at a single signed slope. */
