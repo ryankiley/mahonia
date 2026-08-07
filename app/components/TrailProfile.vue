@@ -754,24 +754,15 @@ const id = useId();
   stroke-width: 2;
   vector-effect: non-scaling-stroke;
 }
-/* The ground's difficulty, strongest at the ridge and gone by the baseline.
- *
- * A MASK rather than a <linearGradient>, so the element ceiling at the top of this file
- * stands: no <defs>, no new SVG element, just CSS on a path that already existed. The
- * fade is relative to each run's own box, so it's densest at that stretch's high point
- * rather than tracking the ridge exactly — close enough to read as "under the line", and
- * the alternative costs a gradient definition per run.
- *
- * Easy ground takes no hue at all. Colour that fires everywhere isn't a signal. */
 /* Solid, not a gradient.
  *
  * A fade was the first instinct and the wrong one at this size: the chart is 56–96px tall,
  * so a gradient spends most of its range on pixels that aren't there and leaves the hue
  * too weak to band by. A flat wash reads as ground, which is what it is.
  *
- * Easy ground is filled too, in the quietest ink there is. Left unfilled it put paper-
- * coloured gaps between the coloured runs and the surface broke into slivers — the absence
- * of difficulty has to be drawn for the presence of it to read. */
+ * It is also the cheap way to keep the element ceiling at the top of this file standing:
+ * a flat fill is CSS on a path that already existed, where a fade wants either a <defs>
+ * with a <linearGradient> per run or a mask — both of which were tried and dropped. */
 /* EASY GROUND TAKES NOTHING. It was a 10% ink wash, which is a colour — and a colour that
    fires on most of a route is not a signal, it is a background. Shading is a severity
    claim; the claim on easy ground is that there isn't one. Drawn as nothing, the amber and

@@ -149,6 +149,11 @@ const packed = computed(() => mode.value === "pack");
  * the pack, so they show its weight. One object rather than four scattered computeds,
  * because every field here has to change together — a value from one view beside a unit
  * picker from another is a control that lies about what it will do.
+ *
+ * `triggerLabel` is the SPOKEN version of the whole trigger, and it is not the same string
+ * as `label`: the trigger draws the page's biggest figure, and an aria-label of "Distance
+ * unit" on it replaces that figure rather than qualifying it, so the number went unspoken.
+ * The menu it opens keeps the plain `label` — see OptionMenu's triggerLabel.
  */
 const headline = computed(() => {
   if (mode.value === "plan") {
@@ -158,15 +163,18 @@ const headline = computed(() => {
       unit: trip.unit as string,
       options: DISTANCE_UNIT_OPTIONS,
       label: "Distance unit",
+      triggerLabel: `${trip.value} ${trip.unit}, change unit`,
       pick: (u: string) => c.setMeta({ trailDistanceUnit: u }),
     };
   }
   const unit = snapshot.value?.displayUnit ?? "g";
+  const value = formatWeight(totals.value?.totalMg ?? 0, unit, { withUnit: false });
   return {
-    value: formatWeight(totals.value?.totalMg ?? 0, unit, { withUnit: false }),
+    value,
     unit: unit as string,
     options: WEIGHT_UNIT_OPTIONS,
     label: "Weight unit",
+    triggerLabel: `${value} ${unit}, change unit`,
     pick: (u: string) => c.setUnit(u as Unit),
   };
 });
@@ -701,6 +709,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
         :unit="headline.unit"
         :options="headline.options"
         :label="headline.label"
+        :trigger-label="headline.triggerLabel"
         title="Change unit"
         @pick="headline.pick"
       />

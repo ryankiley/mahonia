@@ -266,8 +266,9 @@ export interface DayEstimate {
 }
 
 /**
- * Estimate one day. `loadKg` is the pack at the START of the day — the caller works that
- * out from the burn-down, because only it knows what has been eaten.
+ * Estimate one day. `loadKg` is the pack at the MIDDLE of the day (see burnDownMg) — the
+ * caller works that out from the burn-down, because only it knows what has been eaten.
+ * The start-of-day figure is the over-read burnDownMg's midpoint exists to avoid.
  *
  * Returns null when there's nothing to estimate. A day with no distance is not a
  * zero-calorie day; it's a day nobody described, and saying "0" about it would be a

@@ -61,11 +61,15 @@ const spokenAt = computed(() => formatDistance(props.waypoint.alongM, props.dist
       @change="(e) => c.updateWaypoint(waypoint.id, { label: (e.target as HTMLInputElement).value.trim() })"
     />
     <!--
-      THREE TOGGLES, not a menu — the gear row's own convention for exactly this shape of
+      TWO TOGGLES, not a menu — the gear row's own convention for exactly this shape of
       choice. An item's classification is a small closed set rendered as icon buttons with
-      the chosen one marked, and so is this: water, camp or landmark. It costs one tap
+      the chosen one marked, and so is this: water or landmark. It costs one tap
       where the menu cost two, and the alternatives are visible rather than hidden behind a
       trigger, which is what makes a small set worth showing at all.
+
+      Camp is NOT offered, though it is a real kind a pin can be — see
+      PLACEABLE_WAYPOINT_KINDS for the argument: the itinerary already draws a camp at each
+      day boundary, so a hand-placed one would put two kinds of camp on one map.
 
       The mark is .item__mark, the same atom, so the "this one is on" plate is one recipe
       wherever it appears. What is added here is HUE: the chosen glyph lights in its own
@@ -141,8 +145,8 @@ const spokenAt = computed(() => formatDistance(props.waypoint.alongM, props.dist
      --space-1 there keeps the name and its readings reading as one row. */
   gap: var(--space-1) var(--wprow-gap, var(--space-2));
 }
-/* the three sit tight against each other, as the gear row's classification pair does —
-   they are one control with three settings, not three separate actions */
+/* the two sit tight against each other, as the gear row's classification pair does —
+   they are one control with two settings, not two separate actions */
 .wprow__kind {
   grid-area: kind;
   display: inline-flex;

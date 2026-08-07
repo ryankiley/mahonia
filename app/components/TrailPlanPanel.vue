@@ -188,7 +188,8 @@ const burnableMg = computed(() => {
  * scanning one column doesn't want a seventh figure that turns it into a table.
  *
  * This survives because the ESTIMATE still needs it: what a day costs depends on what you
- * are carrying that morning.
+ * are carrying across it — the midpoint, not the morning's load, which would over-read
+ * every day.
  */
 const packMg = computed(() => burnDownMg(props.totals.carriedMg, burnableMg.value, days.value.length));
 
@@ -1214,9 +1215,6 @@ const distanceValue = (m: number | undefined) => {
   /* the column. Wide enough for the longest real figure plus its unit and a (?), so a
      row never pushes the ones beside it out of line */
   min-width: 7.5rem;
-  /* .field pads its box for a comfortable tap target; inside a glyph-and-figure pair
-     that padding reads as a stray gap, and the cell's own gap already spaces them */
-  --field-pad-inline: 0;
   color: var(--ink-2);
   /* the editor's row size — .field pins its inputs to a literal 1rem for the iOS
      zoom rule, and the text beside them has to sit on the same line as those */

@@ -293,6 +293,15 @@ function cleanDayPatch(patch: DayPatch): Partial<TripDay> {
 }
 
 /**
+ * The two ids seedRouteEnds hands out, in route order: start, then finish.
+ *
+ * Exported because they are an IDENTITY and not an implementation detail — anything that
+ * has to recognise the route's own ends among a list of pins (ensureRouteEnds, the JSON
+ * importer) matches on these, so they cannot be spelled out twice and drift apart.
+ */
+export const ROUTE_END_IDS = ["wp-start", "wp-end"] as const;
+
+/**
  * The pins a route arrives with: where it starts, and where it finishes.
  *
  * A track's first and last points ARE these, so nobody should have to drop them by hand —
@@ -313,10 +322,10 @@ export function seedRouteEnds(geo: string): Waypoint[] {
   if (!geo) return [];
   const pts = decodePolyline(geo);
   if (pts.length < 2) return [];
-  const out: Waypoint[] = [{ id: "wp-start", kind: "trailhead", alongM: 0 }];
+  const out: Waypoint[] = [{ id: ROUTE_END_IDS[0], kind: "trailhead", alongM: 0 }];
   if (!isLoop(pts)) {
     const end = cumulativeM(pts).at(-1) ?? 0;
-    if (end > 0) out.push({ id: "wp-end", kind: "end", alongM: Math.round(end) });
+    if (end > 0) out.push({ id: ROUTE_END_IDS[1], kind: "end", alongM: Math.round(end) });
   }
   return out;
 }

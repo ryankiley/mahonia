@@ -183,28 +183,6 @@ const gpxError = ref("");
 const gpxBusy = ref(false);
 
 /**
- * The two pins every route already has.
- *
- * Placed WITH the route rather than by hand, because the geometry knows where they are —
- * asking someone to drop a marker on the start of a line they just imported is asking them
- * to restate the file. They are ordinary waypoints afterwards: movable, renameable,
- * deletable, because a trailhead is sometimes not where the track begins. You parked
- * somewhere else; the recording started mid-approach.
- *
- * On a LOOP there is one, not two. The ends are the same place, so a second marker sits on
- * top of the first and reads as a rendering fault rather than as a fact about the walk.
- */
-async function placeEnds(geometry: string) {
-  const { cumulativeM, decodePolyline, isLoop } = await import("~~/shared/polyline");
-  const line = decodePolyline(geometry);
-  if (line.length < 2) return;
-  c.addWaypoint(0, "trailhead");
-  if (isLoop(line)) return;
-  const total = cumulativeM(line).at(-1) ?? 0;
-  if (total > 0) c.addWaypoint(Math.round(total), "end");
-}
-
-/**
  * Pins the file offered, held until someone says yes.
  *
  * `kindOf` rides along rather than being re-imported: it comes out of the same lazy chunk
@@ -234,9 +212,9 @@ async function confirmPins() {
   for (const pin of p.pins) {
     const alongM = nearestAlongM(line, pin);
     if (alongM < 0 || alongM > total) continue;
-    // Don't re-place the ends we just placed ourselves, and don't stack two pins a person
-    // would read as one. Checked against what's ALREADY there, so it holds for a second
-    // import onto an existing set too.
+    // Don't re-place the ends the reducer seeded with the route, and don't stack two pins
+    // a person would read as one. Checked against what's ALREADY there, so it holds for a
+    // second import onto an existing set too.
     if (taken.some((t) => Math.abs(t - alongM) < PIN_DEDUP_M)) continue;
     taken.push(alongM);
     c.addWaypoint(alongM, p.kindOf(pin));
@@ -308,9 +286,14 @@ async function onGpx(e: Event) {
       trailAscentM: stats.ascentM,
       trailDescentM: stats.descentM,
     });
-    // The ends come with the route, because the geometry already knows where they are and
-    // nobody should have to place by hand the two pins every route has.
-    if (geometry) placeEnds(geometry);
+    // The ends come with the route, and NOTHING HERE PLACES THEM. The reducer's setMeta
+    // reseeds them from the geometry whenever it changes (see seedRouteEnds), with fixed
+    // ids, which is what makes a repeat import idempotent. This file used to add them a
+    // second time straight after the setMeta above; because addWaypoint mints a fresh id
+    // and the reducer dedupes on id alone, that produced two trailheads and two finishes
+    // stacked on the same two metres — in the plan's list and on the map — and another
+    // pair on every re-import of the same file. If a call is ever needed here again it is
+    // c.ensureRouteEnds(), which dedupes on those fixed ids.
     // Everything else the file offered is an OFFER. A track can carry thousands of pins;
     // fifty is not glanceable and undoing them is fifty taps, so it waits for a yes.
     pending.value = geometry && pins.length ? { geometry, pins, kindOf: pinKind } : null;

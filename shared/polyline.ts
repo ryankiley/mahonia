@@ -175,10 +175,20 @@ function approxM(a: LatLon, b: LatLon): number {
   return Math.hypot(dx, dy);
 }
 
-/** Perpendicular distance from `p` to the segment `a`–`b`, in metres. */
-function perpM(p: LatLon, a: LatLon, b: LatLon): number {
+/**
+ * Perpendicular distance from `p` to the segment `a`–`b`, in metres — AND `t`, the clamped
+ * fraction along that segment where the foot of the perpendicular lands.
+ *
+ * Both fall out of the same dot product, so both are returned rather than left for a caller
+ * to re-derive. That is not tidiness. nearestAlongM used to work the along-segment position
+ * out separately, from the straight-line distance a→p, which is the HYPOTENUSE of this
+ * projection and the offset — so every point that wasn't already on the line was pushed
+ * forward along the route by up to its own distance from it, and never back. A tap 60 m
+ * wide of the route recorded a pin up to 60 m further along than the ground you tapped.
+ */
+function perpM(p: LatLon, a: LatLon, b: LatLon): { distM: number; t: number } {
   const ab = approxM(a, b);
-  if (ab === 0) return approxM(p, a);
+  if (ab === 0) return { distM: approxM(p, a), t: 0 };
   const k = Math.cos(((a.lat + b.lat) / 2) * (Math.PI / 180)) * M_PER_DEG;
   const ax = a.lon * k;
   const ay = a.lat * M_PER_DEG;
@@ -187,7 +197,7 @@ function perpM(p: LatLon, a: LatLon, b: LatLon): number {
   const px = p.lon * k;
   const py = p.lat * M_PER_DEG;
   const t = Math.max(0, Math.min(1, ((px - ax) * (bx - ax) + (py - ay) * (by - ay)) / (ab * ab)));
-  return Math.hypot(px - (ax + t * (bx - ax)), py - (ay + t * (by - ay)));
+  return { distM: Math.hypot(px - (ax + t * (bx - ax)), py - (ay + t * (by - ay))), t };
 }
 
 /**
@@ -209,7 +219,7 @@ function simplify(points: readonly LatLon[], toleranceM: number): LatLon[] {
     let worst = 0;
     let at = -1;
     for (let i = lo + 1; i < hi; i++) {
-      const d = perpM(points[i]!, points[lo]!, points[hi]!);
+      const d = perpM(points[i]!, points[lo]!, points[hi]!).distM;
       if (d > worst) {
         worst = d;
         at = i;
@@ -318,15 +328,13 @@ export function nearestAlongM(points: readonly LatLon[], at: LatLon): number {
   let best = 0;
   let bestD = Infinity;
   for (let i = 0; i < points.length - 1; i++) {
-    const a = points[i]!;
-    const b = points[i + 1]!;
-    const d = perpM(at, a, b);
-    if (d < bestD) {
-      bestD = d;
-      // project onto the segment for the along-distance, not just the segment start
-      const segLen = approxM(a, b);
-      const t = segLen > 0 ? Math.max(0, Math.min(1, approxM(a, at) / segLen)) : 0;
-      best = cum[i]! + segLen * t;
+    const { distM, t } = perpM(at, points[i]!, points[i + 1]!);
+    if (distM < bestD) {
+      bestD = distM;
+      // `t` is perpM's OWN projection, reused rather than re-derived — see the note there
+      // for what re-deriving it from the distance a→at cost. The segment's length comes
+      // off `cum`, which is built from the same approxM, so the two can't disagree.
+      best = cum[i]! + (cum[i + 1]! - cum[i]!) * t;
     }
   }
   return Math.round(best);

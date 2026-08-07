@@ -23,6 +23,7 @@ import {
   normalizeFolder,
   normalizeItem,
   normalizeWaypoint,
+  ROUTE_END_IDS,
 } from "../ops";
 import {
   normalizeDistanceUnit,
@@ -73,9 +74,10 @@ const isRecord = (v: unknown): v is Record<string, unknown> =>
  * text isn't JSON or isn't our shape (an object with `folders` + `items`
  * arrays), so callers can fall back to CSV. Content is sanitized through the
  * SAME reducer helpers the server runs on create (normalizeFolder/
- * normalizeItem) — the client never trusts a file, even its own export. All ids
+ * normalizeItem) — the client never trusts a file, even its own export. Ids
  * are re-minted: a backup's ids are foreign strings, and duplicates must not
- * survive into the new list (they'd break op targeting). folderId references
+ * survive into the new list (they'd break op targeting). The route's two ends
+ * are the one exception — see ROUTE_END_IDS below. folderId references
  * are re-pointed through the old→new map (dangling → null, like addItem's
  * coercion), and sortOrder is renumbered from the backup's ordering, so a
  * hand-edited file with gaps or ties still imports sanely.
@@ -140,12 +142,27 @@ export function jsonToListImport(text: string): JsonImport | null {
   // Waypoints, same treatment as days: re-minted ids, re-validated rather than trusted.
   // No sortOrder to renumber — route order is the only order — so they sort by alongM,
   // and normalizeWaypoint drops anything that isn't a placed pin.
+  //
+  // TWO IDS SURVIVE, and they are the reason this isn't a plain uid() map. The route's own
+  // ends carry seedRouteEnds' FIXED ids, which is the only thing that makes them
+  // recognisable as the route's ends rather than as pins somebody dropped. Re-minting them
+  // left a restored backup with a trailhead and a finish nobody could match, so
+  // ensureRouteEnds read the pair as missing and added a second one of each — two stacked
+  // markers on the first list opened after a restore. Kept on the FIRST occurrence only: a
+  // hand-edited file can repeat them, and a duplicate id breaks op targeting.
+  const seenEndIds = new Set<string>();
   const waypoints = (Array.isArray(raw.waypoints) ? raw.waypoints : [])
     .filter(isRecord)
     .slice(0, MAX_WAYPOINTS)
     .map((w) => normalizeWaypoint(w as unknown as Waypoint))
     .filter((w): w is Waypoint => w != null)
-    .map((w) => ({ ...w, id: uid() }))
+    .map((w) => {
+      if ((ROUTE_END_IDS as readonly string[]).includes(w.id) && !seenEndIds.has(w.id)) {
+        seenEndIds.add(w.id);
+        return w;
+      }
+      return { ...w, id: uid() };
+    })
     .sort((a, b) => a.alongM - b.alongM);
 
   const days = (Array.isArray(raw.days) ? raw.days : [])
