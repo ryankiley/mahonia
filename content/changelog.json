@@ -33,7 +33,8 @@
       "Setting what a waypoint is now takes one tap on the kind you want, the way an item's type works in Gear.",
       "Camp is no longer something you pick — every day's end draws one, and the pins you place are water or a landmark.",
       "The elevation chart now leaves easy ground unshaded, breaks cleanly between days, and keeps its difficulty shading readable at the route's low points.",
-      "The elevation profile now leaves a real gap between one day and the next, on the shading as well as the line."
+      "The elevation profile now leaves a real gap between one day and the next, on the shading as well as the line.",
+      "A day's climb and its drop now sit together as one pair, and the figures after them line up down the list."
     ],
     "fixed": [
       "On a phone, a weight like 0.68 lb no longer has its last digit clipped, and a water row's figure lines up with the rows above it.",

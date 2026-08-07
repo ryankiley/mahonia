@@ -793,8 +793,16 @@ const distanceValue = (m: number | undefined) => {
           </span>
 
           <!-- Climb comes off the GPX when there is one, and is muted to say so. Typing
-               over it makes it yours, and the value stops being derived. -->
-          <span class="plan__cell" :class="{ 'is-derived': climbIsDerived(i) }">
+               over it makes it yours, and the value stops being derived.
+
+               THE DROP RIDES IN THIS CELL, not in one of its own. Up and down over the same
+               ground is one fact read twice, and while the drop had its own cell the climb
+               still held a 7.5rem column in front of it — so a short climb left forty-odd
+               pixels of nothing between the two halves of a pair, wider than the gap
+               between unrelated columns. Sharing the cell puts them a hair apart and hands
+               the column back to the figures after them, which the drop's own variable
+               width had been shunting around anyway. -->
+          <span class="plan__cell plan__cell--climb" :class="{ 'is-derived': climbIsDerived(i) }">
             <HugeiconsIcon :icon="Stairs01Icon" class="plan__gl" :size="16" :stroke-width="2" aria-hidden="true" />
             <input
               class="field field--num plan__num"
@@ -805,17 +813,15 @@ const distanceValue = (m: number | undefined) => {
               @change="commitAscent(d?.id ?? ensureDay(i), $event)"
             />
             <span class="t-muted">{{ ascentUnit }}</span>
-          </span>
-
-          <!-- The day's DROP, read off the route beside its climb. Not typeable, unlike the
-               two above: nothing in the app writes a day's descent by hand, and a field
-               that only ever shows a derived number should look like what it is. -->
-          <span v-if="descentFor(i) != null" class="plan__cell plan__cell--est plan__cell--pair">
-            <!-- the same staircase, mirrored: it climbs left-to-right, so its reflection
-                 descends. One glyph for one idea, and the pair reads as a matched set in a
-                 way two different arrows never did. -->
-            <HugeiconsIcon :icon="Stairs01Icon" class="plan__gl plan__gl--down" :size="16" :stroke-width="2" aria-hidden="true" />
-            <span class="t-num">{{ ascentValue(descentFor(i)) }} <span class="t-muted">{{ ascentUnit }}</span></span>
+            <!-- Not typeable, unlike the two above: nothing in the app writes a day's
+                 descent by hand, and a figure that is only ever derived should look like
+                 what it is. The same staircase, mirrored: it climbs left-to-right, so its
+                 reflection descends. One glyph for one idea, and the pair reads as a
+                 matched set in a way two different arrows never did. -->
+            <span v-if="descentFor(i) != null" class="plan__drop">
+              <HugeiconsIcon :icon="Stairs01Icon" class="plan__gl plan__gl--down" :size="16" :stroke-width="2" aria-hidden="true" />
+              <span class="t-num">{{ ascentValue(descentFor(i)) }} <span class="t-muted">{{ ascentUnit }}</span></span>
+            </span>
           </span>
 
           <!-- Read-only, and worked out rather than measured — so it carries the `~` AND
@@ -1102,14 +1108,26 @@ const distanceValue = (m: number | undefined) => {
 .plan__cell--est {
   color: var(--ink-3);
 }
-/* The DROP sits against the CLIMB, not in a column of its own.
-   Every other cell holds a different kind of fact, so the fixed width above lines them up
-   down the list. These two are one fact read twice — up and down over the same ground,
-   drawn as a staircase and its own reflection — and a 7.5rem column between them read as
-   two unrelated figures that happened to be adjacent. Dropping the width lets the pair
-   close to the row's own gap, so they read as a pair. */
-.plan__cell--pair {
-  min-width: 0;
+/* THE CLIMB AND ITS DROP SHARE ONE CELL, so they share one column.
+   Every other cell holds a different kind of fact, and the fixed width lines those up down
+   the list. These two are one fact read twice — up and down over the same ground, drawn as
+   a staircase and its own reflection. Giving the drop a cell of its own was not enough on
+   its own: the climb kept its full 7.5rem in front of it, so "970 ft" left some forty
+   pixels of nothing before the drop's glyph — a wider gap than the one between columns
+   holding unrelated figures, which is precisely backwards.
+   Wide enough for five digits of climb, the pair's own gap, and five of drop. */
+.plan__cell--climb {
+  min-width: 10rem;
+}
+/* A HAIR, not a column: narrower than the --space-3 between real columns, so the eye reads
+   these two as one thing. --space-1 on top of the cell's own --space-1 between its parts. */
+.plan__drop {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: var(--space-1);
+  /* derived, like every other estimate on the row */
+  color: var(--ink-3);
 }
 /* a climb read off the GPX rather than typed */
 .plan__cell.is-derived .plan__num {
