@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "~/utils/hugeicon";
+import { HugeiconsIcon, type IconChild, type IconNode } from "~/utils/hugeicon";
 import { ChevronDownIcon, Delete02Icon, Fire02Icon, HelpCircleIcon, RacingFlagIcon, RouteIcon, Stairs01Icon, TentIcon } from "@hugeicons/core-free-icons";
 import type { ListSnapshot, Totals, Waypoint } from "~~/shared/types";
 import { burnDownMg, estimateDay } from "~~/shared/tripPlan";
@@ -530,7 +530,7 @@ function polar(angle: number, length: number): string {
  * Rounded to the nearest hour, and 12 rather than 0 for anything under half an hour,
  * because a face with both hands straight up reads as no time at all.
  */
-function clockIcon(hours: number | undefined) {
+function clockIcon(hours: number | undefined): IconNode {
   // NO HANDS when there is no estimate, and this is the whole reason the parameter is
   // optional. A day with no distance has no estimate — `estimates[i]` is null, which the
   // figure beside this already knew, because it prints "—". This did not: it read
@@ -541,7 +541,7 @@ function clockIcon(hours: number | undefined) {
   // An empty dial rather than no icon: the cell still shows "—", and dropping the glyph
   // would pull the column out of line with every other row. A face with no hands states
   // no time, which is exactly the claim.
-  const dial = ["circle", { cx: "12", cy: "12", r: "10", stroke: "currentColor", strokeWidth: "1.5", key: "0" }];
+  const dial: IconChild = ["circle", { cx: "12", cy: "12", r: "10", stroke: "currentColor", strokeWidth: "1.5", key: "0" }];
   if (hours == null) return [dial];
   // Nearest HALF hour, so a 4 h 39 day reads half past four rather than rounding to five
   // and losing the difference between it and a 4 h 05 one. Never fewer than one half —
