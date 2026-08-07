@@ -27,7 +27,8 @@
       "Switching between Gear, Packing and Planning now uses a labelled bar under the list's title instead of three icons in the toolbar, and shared lists get one too — Gear or Trip.",
       "Hold ⌘ or Ctrl and scroll, or pinch on a trackpad, to zoom the route map.",
       "The map now opens and closes with the terrain growing out of its place on the page, and the trip's figures sit the same distance under the big number in all three views.",
-      "Walking times now read as a range — \"4–4.5 hr\" rather than \"4 h 11\" — since the estimate is only good to about a fifth either way."
+      "Walking times now read as a range — \"4–4.5 hr\" rather than \"4 h 11\" — since the estimate is only good to about a fifth either way.",
+      "Map pins are now white drops with the mark in colour, the day lines carry a darker edge of their own hue, and the end of each day shows as a camp you can drag."
     ],
     "fixed": [
       "On a phone, a weight like 0.68 lb no longer has its last digit clipped, and a water row's figure lines up with the rows above it.",

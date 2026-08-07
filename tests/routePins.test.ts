@@ -175,8 +175,12 @@ describe("pins belong to the route they were placed on", () => {
     // over, it silently means whatever is now 6.2 miles in — which looks exactly like a
     // pin somebody placed.
     const s = applyOps(state(), [...withPins, { t: "setMeta", patch: { routeGeometry: B } }]);
-    expect(s.waypoints).toEqual([]);
+    expect(s.waypoints!.some((w) => w.id === "w1")).toBe(false);
     expect(s.routeGeometry).toBe(B);
+    // What IS there is the new route's own two ends, seeded by the same branch that
+    // cleared the old pins — so this asserts the placed pin is gone, not that the list is
+    // empty, which stopped being the same statement when routes started arriving with ends.
+    expect(s.waypoints!.map((w) => w.id)).toEqual(["wp-start", "wp-end"]);
   });
 
   it("clearing the route clears them too", () => {
@@ -189,12 +193,11 @@ describe("pins belong to the route they were placed on", () => {
     // The geometry rides ordinary setMeta patches, so an unconditional clear would empty
     // the pins on any autosave that happened to carry it.
     const s = applyOps(state(), [...withPins, { t: "setMeta", patch: { routeGeometry: A } }]);
-    expect(s.waypoints).toHaveLength(1);
-    expect(s.waypoints![0]!.id).toBe("w1");
+    expect(s.waypoints!.some((w) => w.id === "w1")).toBe(true);
   });
 
   it("and a patch that says nothing about the route leaves them alone", () => {
     const s = applyOps(state(), [...withPins, { t: "setMeta", patch: { title: "Renamed" } }]);
-    expect(s.waypoints).toHaveLength(1);
+    expect(s.waypoints!.some((w) => w.id === "w1")).toBe(true);
   });
 });

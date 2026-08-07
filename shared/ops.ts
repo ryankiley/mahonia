@@ -9,7 +9,7 @@ import { normalizeDistanceUnit, normalizeTrailAscentM, normalizeTrailDistanceM }
 import { normalizeTrailLabel, normalizeTrailUrl } from "./trailLink";
 import type { Classification, Folder, FolderSort, Item, ListState, TripDay, Unit, Waypoint } from "./types";
 import { UNITS, WAYPOINT_KINDS } from "./types";
-import { normalizeRouteGeometry } from "./polyline";
+import { cumulativeM, decodePolyline, isLoop, normalizeRouteGeometry } from "./polyline";
 
 // updateItem's patch: Partial<Item> plus `catalogItemId: null` as an explicit
 // "unlink" — a free rename turns a linked item into a custom one, and the old
@@ -276,6 +276,35 @@ function cleanDayPatch(patch: DayPatch): Partial<TripDay> {
   return out;
 }
 
+/**
+ * The pins a route arrives with: where it starts, and where it finishes.
+ *
+ * A track's first and last points ARE these, so nobody should have to drop them by hand —
+ * they appear with the route. They are ordinary waypoints afterwards, movable and
+ * deletable, because a trailhead is often not where the track starts: you parked somewhere
+ * else, or the recording begins mid-approach.
+ *
+ * FIXED IDS, and that is not laziness. This reducer runs on the client and again on the
+ * server, and both must produce the same list — a generated id would give the same pin two
+ * identities and the merge would carry both. Ids only need to be unique within one list,
+ * which these are.
+ *
+ * ON A LOOP, ONE PIN. If the finish is within LOOP_CLOSE_M of the start it is the same
+ * place, and two markers stacked on one spot reads as a rendering bug rather than as a
+ * fact about the walk.
+ */
+export function seedRouteEnds(geo: string): Waypoint[] {
+  if (!geo) return [];
+  const pts = decodePolyline(geo);
+  if (pts.length < 2) return [];
+  const out: Waypoint[] = [{ id: "wp-start", kind: "trailhead", alongM: 0 }];
+  if (!isLoop(pts)) {
+    const end = cumulativeM(pts).at(-1) ?? 0;
+    if (end > 0) out.push({ id: "wp-end", kind: "end", alongM: Math.round(end) });
+  }
+  return out;
+}
+
 /** A raw day → its stored form. Same contract as normalizeFolder/normalizeItem. */
 export function normalizeDay(raw: TripDay): TripDay {
   return {
@@ -533,7 +562,7 @@ function applyOp(state: ListState, op: Op): void {
         // geometry. And in the reducer rather than at the call sites, because there are
         // three of those already (import, clear the link, remove the trail) and the next
         // one to be added is the one that would forget.
-        if (geo !== state.routeGeometry) state.waypoints = [];
+        if (geo !== state.routeGeometry) state.waypoints = seedRouteEnds(geo ?? "");
         if (geo) state.routeGeometry = geo;
         else delete state.routeGeometry;
       }

@@ -167,6 +167,27 @@ const boundaries = computed(() => {
   return out;
 });
 
+/**
+ * A leg's casing: its own colour, taken down toward black.
+ *
+ * `color-mix` in oklab rather than a hand-picked second palette — oklab is perceptually
+ * even, so one mix ratio darkens every hue by the same apparent amount instead of turning
+ * the yellows muddy and leaving the blues untouched. And it reads the leg's token, so a
+ * change to the day palette carries here for free.
+ */
+const casingFor = (color: string) => `color-mix(in oklab, ${color} 45%, #0b0b0b)`;
+
+/**
+ * The leg's own fill: the same hue, LIFTED.
+ *
+ * The two strokes have to be told apart at 4px against a sheet with its own colours in it,
+ * and a casing only slightly darker than its fill reads as one soft-edged line rather than
+ * a line with an edge. Taking the inside up as the outside goes down opens the gap from
+ * both directions, so the route keeps a crisp edge without the casing going so black that
+ * the day's colour stops being legible in it.
+ */
+const fillFor = (color: string) => `color-mix(in oklab, ${color} 82%, #ffffff)`;
+
 /** Whether a stretch of the route is outside the armed one, and so should stand down. */
 function isDimmed(fromM: number, toM: number): boolean {
   const a = props.armedRange;
@@ -396,7 +417,8 @@ function renderBounds() {
         className: "routemap__bound",
         html: `<i>${iconSvg(camp.icon)}</i>`,
         iconSize: [PIN_PX, PIN_PX],
-        iconAnchor: [PIN_PX / 2, PIN_PX / 2],
+        // the tip, as a waypoint's is — the point is the metre of route it marks
+        iconAnchor: [PIN_PX / 2, PIN_PX],
       }),
     }).addTo(map);
     marker.bindTooltip(document.createTextNode(`End of day ${b.index + 1}`) as never, { direction: "top" });
@@ -433,9 +455,10 @@ function renderPins() {
         // the blue from the violet.
         html: `<i style="--pin:${meta.color}">${iconSvg(meta.icon)}</i>`,
         iconSize: [PIN_PX, PIN_PX],
-        // the CENTRE: the pin means "this point on the line", so it sits ON it rather
-        // than hanging off it the way a teardrop marker would
-        iconAnchor: [PIN_PX / 2, PIN_PX / 2],
+        // THE TIP, not the centre. The drop's point is the claim — it lands on the metre
+        // of route the pin stores, and the body of the mark sits above it out of the way
+        // of the line it is pointing at.
+        iconAnchor: [PIN_PX / 2, PIN_PX],
       }),
     }).addTo(map!);
     // The name if it has one, the KIND if it doesn't — an unnamed pin is the normal case
@@ -484,8 +507,16 @@ function renderLegs() {
   // is a topographic sheet with its own contours, streams and paths, and it draws paths in
   // MAGENTA — within a few degrees of the hue day 2 wears. Without a casing the route
   // stops being findable exactly where the map is most detailed, which is the ground you
-  // most wanted to look at. A white line under the colour keeps the route the loudest mark
-  // on any ground, and costs one extra polyline per day.
+  // most wanted to look at.
+  //
+  // A DARKER SHADE OF THE DAY'S OWN COLOUR, not white. White separated the route from the
+  // sheet and cost the day its edge: the leg read as a coloured line laid inside a white
+  // one, two marks where there is one thing. Darkening the same hue keeps the whole stroke
+  // belonging to its day — the edge is the day, in shadow — and it separates just as well,
+  // because what a contour line needs distinguishing from is a VALUE, not a colour.
+  //
+  // Done in oklab off the leg's own token, so it follows the palette rather than a second
+  // list of nine colours that would drift the first time one of them changed.
   for (const leg of dayLegs.value) {
     legs.push(
       L!.polyline(
@@ -495,7 +526,7 @@ function renderLegs() {
           // the casing stands down WITH its leg, or a dimmed stretch reads as a white
           // line drawn over the terrain rather than as a quietened part of the route
           opacity: isDimmed(leg.fromM, leg.toM) ? DIM : 1,
-          color: "#ffffff",
+          color: casingFor(leg.color),
           interactive: false,
           lineCap: "round",
           lineJoin: "round",
@@ -524,7 +555,7 @@ function renderLegs() {
     // doesn't exist yet and the day's colour goes nowhere, which looks like a palette
     // bug rather than an ordering one — so say so out loud rather than drawing it wrong.
     const el = line.getElement() as SVGElement | null;
-    if (el) el.style.stroke = leg.color;
+    if (el) el.style.stroke = fillFor(leg.color);
     else if (import.meta.dev) console.warn("[RouteMap] leg drawn before the map had a view");
     legs.push(line);
   }
@@ -1133,32 +1164,54 @@ onBeforeUnmount(() => {
   cursor: crosshair;
 }
 
+// A TEARDROP, solid, with a shadow — and none of that is decoration.
+//
+// The disc-with-a-white-ring said "a thing is near here". A teardrop has a POINT, and the
+// point is the answer: it lands on the metre of route the pin actually stores, where a
+// circle only ever centred on it. That is why the anchor below moved to the tip.
+//
+// Solid rather than outlined, because the ring was doing the job a shadow does better. A
+// 2px white halo separates a mark from the contour lines under it and nothing more; a
+// shadow lifts it off the sheet, so the pin reads as sitting ON the terrain rather than
+// being drawn into it. On a topographic basemap already full of thin coloured lines, that
+// difference is what makes a pin findable without hunting.
 .routemap__pin i {
   display: grid;
   place-items: center;
   width: 100%;
   height: 100%;
-  border-radius: 50%;
-  background: var(--pin);
-  // the same white casing the route wears, for the same reason — a mark the colour of a
-  // contour line is a mark nobody finds
-  border: 2px solid #fff;
-  box-shadow: 0 0 0 1px #00000026;
-  // the glyph reads as a hole punched in the disc; white against every category hue, and
-  // white on ink for the route's two ends
-  color: #fff;
+  // WHITE, with the colour in the GLYPH.
+  //
+  // The other way round — a solid category hue with a white mark punched out — made the
+  // pin a colour first and a thing second, and on a topographic sheet already carrying
+  // magenta paths and green woodland that is one more coloured blob to sort out. A white
+  // drop is the same shape on every ground, so what you actually read is the symbol: a
+  // droplet means water before you have decided which blue it was. The hue is still there,
+  // in the mark, doing the job of telling two water sources from two camps at a glance.
+  background: #fff;
+  color: var(--pin);
+  // round everywhere except the bottom-left, which the rotation below swings to the
+  // bottom — one corner left square is the whole teardrop
+  border-radius: 50% 50% 50% 0;
+  rotate: -45deg;
+  // the shadow is what lifts it off the sheet now that there is no ring; without one a
+  // white drop on a pale contour is a hole rather than a pin
+  box-shadow: -1px 1px 3px #00000059;
   transition:
     scale var(--dur) var(--ease),
     box-shadow var(--dur) var(--ease);
+}
+// the drop is rotated, so the mark inside it has to be turned back or every glyph sits at
+// 45° — a tent pitched on its side
+.routemap__pin i > svg {
+  rotate: 45deg;
 }
 // LIFTED: the hold registered and the pin is now following the route.
 // It has to be unmistakable — the whole risk of a press-and-hold is not knowing whether it
 // took, and a pin that moves without ever looking picked up reads as a bug.
 .routemap__pin.is-lifted i {
   scale: 1.35;
-  box-shadow:
-    0 3px 8px #00000059,
-    0 0 0 1px #00000026;
+  box-shadow: -2px 2px 8px #0000008c;
 }
 .routemap__pin {
   cursor: grab;
@@ -1181,25 +1234,30 @@ onBeforeUnmount(() => {
   cursor: grab;
   touch-action: none;
 }
+// THE SAME DROP AS A WAYPOINT, because on the map it is one: the end of a day is a camp,
+// and a reader shouldn't have to know which of these the itinerary drew and which somebody
+// placed. What still separates them is the glyph's ink — a boundary is the itinerary
+// talking, so it takes ink where a placed pin takes its category's hue.
 .routemap__bound i {
   display: grid;
   place-items: center;
   width: 100%;
   height: 100%;
-  border-radius: 50%;
   background: #fff;
-  border: 2px solid #1c1c1c;
-  box-shadow: 0 0 0 1px #ffffffb3;
   color: #1c1c1c;
+  border-radius: 50% 50% 50% 0;
+  rotate: -45deg;
+  box-shadow: -1px 1px 3px #00000059;
   transition:
     scale var(--dur) var(--ease),
     box-shadow var(--dur) var(--ease);
 }
+.routemap__bound i > svg {
+  rotate: 45deg;
+}
 .routemap__bound.is-lifted i {
   scale: 1.35;
-  box-shadow:
-    0 3px 8px #00000059,
-    0 0 0 1px #ffffffb3;
+  box-shadow: -2px 2px 8px #0000008c;
 }
 .routemap__bound.is-lifted {
   cursor: grabbing;
