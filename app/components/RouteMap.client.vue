@@ -231,10 +231,21 @@ function frame() {
  * contour lines. Setting it here lets the paths inherit a weight chosen for the size
  * they're actually drawn at.
  */
-/** The disc. Big enough to hold a legible glyph, small enough not to bury the terrain. */
-const PIN_PX = 22;
-const PIN_GLYPH_PX = 13;
-const PIN_GLYPH_STROKE = 2.25;
+/**
+ * The drop. Big enough to hold a legible glyph, small enough not to bury the terrain.
+ *
+ * 22px was sized for a coloured disc, where the fill did the finding and the glyph was a
+ * detail you read once you had found it. Inverting that — white drop, coloured mark — put
+ * the whole job on the glyph, and a 13px mark on a sheet of contour lines and place names
+ * is not a mark, it is a smudge. 30 gives the symbol room to be a droplet or a tent rather
+ * than a dark blob, which is the entire reason for drawing one.
+ *
+ * Not larger: two pins a few hundred metres apart have to stay two pins, and a route on a
+ * 320px map is only a few centimetres of switchbacks.
+ */
+const PIN_PX = 30;
+const PIN_GLYPH_PX = 17;
+const PIN_GLYPH_STROKE = 2;
 function iconSvg(icon: unknown): string {
   const parts = (icon as [string, Record<string, string>][] | undefined) ?? [];
   const body = parts

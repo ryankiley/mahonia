@@ -6,6 +6,7 @@ import { burnDownMg, estimateDay } from "~~/shared/tripPlan";
 import { dayClimbs, parseProfile } from "~~/shared/profile";
 import { MAX_DAYS } from "~~/shared/ops";
 import { dayColorSequence } from "~~/shared/categories";
+import { decodePolyline, formatLatLon, pointAlong } from "~~/shared/polyline";
 import { dayLabel } from "~~/shared/tripDay";
 import { isWaterName } from "~~/shared/water";
 import { lineMg, effectiveClassification, formatWeight } from "~~/shared/weights";
@@ -16,6 +17,7 @@ import {
   bodyWeightFieldValue,
   formatBodyWeight,
   formatDistance,
+  formatDistancePadded,
   heightUnitFor,
   heightValue,
   parseBodyWeightG,
@@ -178,11 +180,17 @@ const burnableMg = computed(() => {
   return Math.max(0, props.totals.consumableMg - water);
 });
 
-/** The pack at the middle of each day, heaviest first. */
+/**
+ * The pack at the middle of each day, heaviest first.
+ *
+ * No longer DRAWN — the per-day bar and figure came off the row. They restated the trip's
+ * "Carried" chip once per day with a burn-down nobody had asked to see, and a row read by
+ * scanning one column doesn't want a seventh figure that turns it into a table.
+ *
+ * This survives because the ESTIMATE still needs it: what a day costs depends on what you
+ * are carrying that morning.
+ */
 const packMg = computed(() => burnDownMg(props.totals.carriedMg, burnableMg.value, days.value.length));
-// One denominator down the whole column, so the bars are comparable to each other rather
-// than each row being its own 100% — the mistake that would make a burn-down look flat.
-const heaviestMg = computed(() => Math.max(1, ...packMg.value));
 
 // ---- the walker ----
 // Set once per DEVICE, not per list — a body weight belongs to the person, not to the
@@ -403,6 +411,26 @@ const campOf = (i: number): number | null => {
   const last = !dayDistancesM.value.some((d, k) => k > i && d > 0);
   if (last && !(hasRest.value)) return null;
   return r.toM;
+};
+
+/**
+ * WHERE a point on the route actually is, worked out rather than looked up.
+ *
+ * A waypoint stores a DISTANCE and no coordinate, which is the single decision the whole
+ * privacy design rests on: the array on its own says "camp at 6.2 miles" and discloses no
+ * place at all. Only the route resolves it, and the route is owner-only.
+ *
+ * So this derives — it does not store. Showing a coordinate costs nothing; keeping one
+ * would put a second copy of the most sensitive field in the list into `data`, where every
+ * read path that already strips the geometry would have to strip it too, and would
+ * eventually forget.
+ */
+const routePoints = computed(() =>
+  props.snapshot.routeGeometry ? decodePolyline(props.snapshot.routeGeometry) : [],
+);
+const coordOf = (alongM: number) => {
+  const at = routePoints.value.length ? pointAlong(routePoints.value, alongM) : null;
+  return at ? formatLatLon(at) : "";
 };
 
 function onPlace(alongM: number) {
@@ -811,16 +839,6 @@ const distanceValue = (m: number | undefined) => {
             </Tooltip>
           </span>
 
-          <!-- The pack that morning. One bar per day, NOT a line: a line would assert the
-               weight at noon, which nothing here knows. Read down the column it is the
-               curve, with no invented point. aria-hidden because the figure is text
-               beside it, and a role="img" would say the number twice. -->
-          <span class="plan__pack">
-            <span class="plan__bar" aria-hidden="true">
-              <span class="plan__barfill" :style="{ width: `${(packMg[i]! / heaviestMg) * 100}%` }" />
-            </span>
-            <span class="t-num plan__packnum">{{ formatWeight(packMg[i] ?? 0, snapshot.displayUnit, { withUnit: false }) }} <span class="t-muted">{{ snapshot.displayUnit }}</span></span>
-          </span>
         </div>
 
         <!-- The pins on THIS day's stretch, and how you add one — the place in a day that
@@ -835,11 +853,21 @@ const distanceValue = (m: number | undefined) => {
           v-if="!collapsed[d?.id ?? ''] && snapshot.routeGeometry && dayDistancesM[i]"
           class="plan__wps"
         >
-          <!-- The night, first: it is the end of the day the rows above it describe, and
-               the thing on the map you can actually move. Not deletable and not
-               re-kindable, because it isn't a pin — deleting it would mean deleting the
-               day. Its NAME is the day's own `label`, a field that survived the removal of
-               day naming and has been waiting for a use. -->
+          <ol v-if="grouped.byDay[i]?.length" class="plan__wplist">
+            <WaypointRow
+              v-for="w in grouped.byDay[i]"
+              :key="w.id"
+              :waypoint="w"
+              :distance-unit="distanceUnit"
+              :coord="coordOf(w.alongM)"
+            />
+          </ol>
+          <!-- The night comes LAST, because that is the order you meet them in: you pass
+               the spring and the col, and then you arrive. Above the pins it read as a
+               heading for them rather than as the end of the day they belong to.
+               Not deletable and not re-kindable, because it isn't a pin — deleting it would
+               mean deleting the day. Its NAME is the day's own `label`, a field that
+               survived the removal of day naming and has been waiting for a use. -->
           <ul v-if="campOf(i) != null" class="plan__wplist">
             <li class="plan__camp">
               <span class="plan__campkind">
@@ -854,17 +882,12 @@ const distanceValue = (m: number | undefined) => {
                 :aria-label="`Name for the camp at the end of day ${i + 1}`"
                 @change="(e) => d && c.updateDay(d.id, { label: (e.target as HTMLInputElement).value.trim() })"
               />
-              <span class="t-sm t-muted plan__campat">{{ formatDistance(campOf(i)!, distanceUnit) }}</span>
+              <span class="plan__campat">
+                <span class="t-sm plan__coord">{{ coordOf(campOf(i)!) }}</span>
+                <span class="t-sm t-muted">{{ formatDistancePadded(campOf(i)!, distanceUnit) }}</span>
+              </span>
             </li>
           </ul>
-          <ol v-if="grouped.byDay[i]?.length" class="plan__wplist">
-            <WaypointRow
-              v-for="w in grouped.byDay[i]"
-              :key="w.id"
-              :waypoint="w"
-              :distance-unit="distanceUnit"
-            />
-          </ol>
           <button type="button" class="folder__addbtn" @click="arming = arming === i ? null : i">
             {{ arming === i ? "Tap the route to place it" : "Add a waypoint" }}
           </button>
@@ -888,6 +911,7 @@ const distanceValue = (m: number | undefined) => {
             :key="w.id"
             :waypoint="w"
             :distance-unit="distanceUnit"
+            :coord="coordOf(w.alongM)"
           />
         </ol>
         <button
@@ -1114,7 +1138,7 @@ const distanceValue = (m: number | undefined) => {
  * token for every unit on the panel, so "ft" reads the same weight wherever it appears. */
 .plan__cell .t-muted,
 .plan__chips .t-muted,
-.plan__pack .t-muted,
+.plan__camp .t-muted,
 .plan__assume .t-muted {
   color: var(--ink-3);
 }
@@ -1143,31 +1167,6 @@ const distanceValue = (m: number | undefined) => {
   min-width: 2ch;
   max-width: 7ch;
   text-align: left;
-}
-.plan__pack {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-width: 8rem;
-  flex: 1;
-}
-.plan__bar {
-  flex: 1;
-  min-width: var(--bar-seg-min);
-  height: var(--bar-h);
-  border-radius: var(--radius-pill);
-  background: var(--paper-3);
-  overflow: hidden;
-}
-.plan__barfill {
-  display: block;
-  height: 100%;
-  border-radius: var(--radius-pill);
-  background: var(--cat-consumable);
-}
-.plan__packnum {
-  flex: none;
-  font-variant-numeric: tabular-nums;
 }
 /* Literally the "Add folder" treatment — same type, same inks, same distance from the
    run of things above it. .editor__addfolder reaches --space-7 from a --space-4 parent
@@ -1310,11 +1309,25 @@ const distanceValue = (m: number | undefined) => {
 .plan__campfield {
   min-width: 0;
 }
+/* ONE LINE, not a stack. A row is a row: a figure set beneath it reads as a caption
+   hanging off the row rather than as another of its columns, and it doubles the row's
+   height for something nobody scans by.
+   The coordinate goes BEFORE the distance so the distances still form a column down the
+   list, hard against the delete button, which is what makes them comparable at all. */
 .plan__campat {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   /* clears the waypoint rows' delete column, so every distance sits in one line */
   margin-right: calc(var(--icon-btn, 28px) + var(--space-2));
+}
+/* one size across the row — the step back is ink, not type size. Set smaller, a
+   coordinate reads as an annotation on the row rather than one of its cells, and a row
+   whose cells sit at two sizes has no baseline to follow. */
+.plan__coord {
+  color: var(--ink-3);
 }
 .plan__wplist {
   list-style: none;
