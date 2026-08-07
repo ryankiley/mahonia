@@ -57,6 +57,9 @@ mockNuxtImport("useGearList", () => () => ({
   nestItem: () => {},
   unnest: () => {},
   saveItemToVault: () => Promise.resolve(),
+  // the row's "already banked" state — off, so these cases exercise a live button
+  vaultAuto: ref(false),
+  vaultDeclined: ref(new Set<string>()),
 }));
 
 function blankList(): ListSnapshot {

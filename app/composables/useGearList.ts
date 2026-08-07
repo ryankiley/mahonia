@@ -65,6 +65,19 @@ function create() {
   const vaultPrompt = ref<{ title: string } | null>(null);
   // the rows the chooser is offering, or null when it's closed
   const vaultPicker = ref<VaultCapture[] | null>(null);
+  // Whether the AUTOMATIC capture path is on for this list (the stored answer is
+  // "yes"), and which rows the chooser declined. The stored truth lives in
+  // localStorage, which nothing can react to — so it's mirrored into refs here,
+  // re-read by refreshVaultCover() at every point the answer (or the token it's
+  // keyed by) changes. ItemRow renders against these: a row the automatic path
+  // already banks shows its save button as already banked rather than offering
+  // to do what's done.
+  const vaultAuto = ref(false);
+  const vaultDeclined = ref<ReadonlySet<string>>(new Set());
+  function refreshVaultCover() {
+    vaultAuto.value = vaultDecisionFor(editToken) === "yes";
+    vaultDeclined.value = vaultExclusionsFor(editToken);
+  }
   let teardownListeners: (() => void) | undefined;
 
   // on-device durability + connectivity awareness. The connectivity ref + watcher
@@ -259,6 +272,7 @@ function create() {
     // along to the next list opened (where it would ask about the wrong gear,
     // and spend that list's one chance to ask)
     vaultPrompt.value = null;
+    refreshVaultCover(); // ...and the rows must render against THIS list's answer
     clearTimeout(flushTimer);
     clearTimeout(retryTimer); // a backoff must not fire into the session that replaced this one
     flushFailures = 0;
@@ -410,6 +424,7 @@ function create() {
     isEditing = false;
     remoteMissing = false;
     vaultPrompt.value = null; // see load() — a draft is yours, and never asks
+    refreshVaultCover(); // a draft's answer IS yes (no token → yours by definition)
     clearTimeout(flushTimer);
     clearTimeout(retryTimer); // a backoff must not fire into the session that replaced this one
     flushFailures = 0;
@@ -498,6 +513,7 @@ function create() {
       // (replaceState, so the editor's hash watcher doesn't dispose/reload us)
       const token = useMyLists().registerCreated(res, totals.value?.totalMg ?? 0);
       setVaultDecisionFor(token, "yes"); // you built it; it's yours without asking
+      refreshVaultCover(); // the answer moved onto the new token; keep the mirror true
       // pretty path (/e/{shareCode}#{token}) so the URL is share-ready immediately;
       // replaceState (not routing) so the hash watcher doesn't dispose/reload us
       if (typeof history !== "undefined")
@@ -944,13 +960,17 @@ function create() {
    */
   async function answerVaultPrompt(yes: boolean) {
     vaultPrompt.value = null;
-    if (!yes) return setVaultDecisionFor(editToken, "no");
+    if (!yes) {
+      setVaultDecisionFor(editToken, "no");
+      return refreshVaultCover();
+    }
     const s = snapshot.value;
     const caps = s ? await vault.buildCaptures(s.items, s.folders) : [];
     // nothing to choose between — record the answer and take the (empty) set, so
     // an empty chooser never appears and the question doesn't come back
     if (caps.length < 2) {
       setVaultDecisionFor(editToken, "yes");
+      refreshVaultCover();
       return captureIfMine();
     }
     vaultPicker.value = caps;
@@ -967,6 +987,7 @@ function create() {
       offered.filter((c) => !kept.has(c.normKey)).map((c) => c.normKey),
     );
     setVaultDecisionFor(editToken, "yes");
+    refreshVaultCover();
     captureIfMine();
   }
 
@@ -1253,6 +1274,23 @@ function create() {
       // behaves from now on exactly as if the link had been opened directly.
       claimCode = "";
       openedByCode.value = false;
+      // The vault answer rides along. It's keyed by the token, but it answers a
+      // question about the GEAR ("is this list's gear mine?"), and a rotate is the
+      // owner cycling a leaked link on a list they've already answered for. Losing
+      // the answer here meant the prompt re-asked and capture paused until it was
+      // re-answered — for no new reason. The exclusions are half of that answer
+      // ("only the tent is mine"), so they carry too. The old token's keys then
+      // go: the token is dead server-side, and nothing else ever cleared these
+      // (only deleteList does), so every rotate used to strand a pair for good.
+      // A claimed open rotates with old = "" — vaultDecisionFor("") answers "yes"
+      // (a claimed list is yours, the same rule capture follows), so the fresh
+      // token inherits that and the ""-keyed clears below are no-ops.
+      const decision = vaultDecisionFor(old);
+      if (decision !== "ask") setVaultDecisionFor(editToken, decision);
+      const declined = vaultExclusionsFor(old);
+      if (declined.size) setVaultExclusionsFor(editToken, [...declined]);
+      clearVaultDecisionFor(old);
+      refreshVaultCover(); // mirror the carried answer onto the rows
       const my = useMyLists();
       const prev = my.entries.value.find((e) => e.editToken === old);
       // always persist the NEW token, even if the old registry entry was missing,
@@ -1338,6 +1376,7 @@ function create() {
     addWaypoint, updateWaypoint, removeWaypoint, ensureRouteEnds,
     vaultPrompt, answerVaultPrompt,
     vaultPicker, confirmVaultPicker, cancelVaultPicker,
+    vaultAuto, vaultDeclined,
     addBlankItem, addBlankItemAfter, addVaultItem, addVaultFolder, saveItemToVault, discardEmpty, updateItem, removeItem, setItemWeight, moveItem,
     addChild, nestItem, unnest,
     pendingBlankId, pendingUndo, undoRemove, holdUndo, releaseUndo,
