@@ -102,7 +102,7 @@ const lastUpdated = computed(() => {
           </li>
           <li>Weights are backed by a curated, cited gear catalog, but you can override anything.</li>
           <li>
-            <NuxtLink to="/vault">My gear</NuxtLink> is the one part that asks for an
+            <NuxtLink to="/vault">My Gear</NuxtLink> is the one part that asks for an
             account — a passkey, or a link emailed to you. It fills itself as you build, so the
             kit you already own is one pick away on the next list, from any device. Lists
             themselves never need it.
