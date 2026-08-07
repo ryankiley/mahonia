@@ -2,7 +2,8 @@
   {
     "date": "2026-08-07",
     "added": [
-      "Delete a list from the editor's ⋯ menu, instead of leaving it to find the list on another page."
+      "Delete a list from the editor's ⋯ menu, instead of leaving it to find the list on another page.",
+      "Forget a list from the editor's ⋯ menu: it leaves this device but stays online for anyone holding its link."
     ],
     "changed": [
       "Deleting a list from the editor's ⋯ menu now reads in red, so it's clear which row is the destructive one before you reach it."

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "@hugeicons/vue";
-import { Backpack02Icon, Cancel01Icon, CheckmarkSquare02Icon, ChevronDownIcon, Delete02Icon, EllipsisIcon, Route02Icon, SafeBoxIcon, Share08Icon, Undo02Icon } from "@hugeicons/core-free-icons";
+import { Backpack02Icon, Cancel01Icon, CheckmarkSquare02Icon, ChevronDownIcon, Delete02Icon, EllipsisIcon, RemoveCircleIcon, Route02Icon, SafeBoxIcon, Share08Icon, Undo02Icon } from "@hugeicons/core-free-icons";
 import { editLinkPath } from "~~/shared/links";
 import { tripHeadline } from "~~/shared/trailDistance";
 import { formatWeight } from "~~/shared/weights";
@@ -426,21 +426,50 @@ async function cloneList() {
   flash(ok ? "List duplicated" : "Couldn’t duplicate. Try again.");
 }
 
-// DELETING THE LIST YOU'RE LOOKING AT.
+// THE TWO WAYS TO STOP HAVING THIS LIST.
 //
-// /mine owned this alone until now, which made getting rid of a list a trip you
-// took while staring straight at the thing you wanted gone: leave the editor, find
-// its row on another page, delete it there. That page keeps the job — it shows every
-// list at once and has the room to set "Remove from device" beside "Delete for
-// everyone", a distinction a menu row can't hold — but in here there is only ONE
-// list and only one of those two meanings is worth having, so this row is the
-// destructive one and the dialog says so in the same words /mine uses.
+// /mine owned both, which made getting rid of a list a trip you took while staring
+// straight at the thing you wanted gone: leave the editor, find its row on another
+// page, act there. Both now live here, one above the other, because they are the
+// same question asked at two strengths — does this leave MY device, or does it leave
+// the WORLD — and the answer reads better as a pair than as two pages.
+//
+// A menu row was said to be too small to hold that distinction; what actually holds
+// it is the dialog, which has always been where the difference was explained. The
+// rows only have to be told apart at a glance, and they are: one is red and throws
+// the list away, the other is plain and takes it off a shelf.
 //
 // Off on an unsaved draft. shareCode is the reactive stand-in for "has a server
 // row": it and the edit token are set in the same breath (createFromDraft), and
 // c.editToken is a plain getter that no computed can track. A draft is not yet a
 // list — "Create a list" above is what replaces one.
-const canDelete = computed(() => !!snapshot.value?.shareCode);
+const isSaved = computed(() => !!snapshot.value?.shareCode);
+
+// FORGET: drop this device's claim, leave the list standing. The gentler of the two
+// and the one with no server call at all — useMyLists.forget() clears the registry
+// entry and this list's on-device copy, and that is the whole of it.
+//
+// It MUST navigate away, which is not cosmetic. load() re-registers a list it opens
+// (registerOpened, so a link someone sent you is remembered), so a reload while still
+// sitting on /e/{code}#{token} would put the entry straight back and the forget would
+// silently undo itself.
+async function forgetThisList() {
+  const token = c.editToken;
+  if (!token) return;
+  if (!(await askConfirm({
+    title: "Forget this list",
+    // Honest about the cost: the list survives, but this browser is the only thing
+    // that was holding the way back into it unless the edit link was saved elsewhere.
+    message: `Forget “${savedListTitle(snapshot.value?.title ?? "")}” on this device? The list stays online for anyone with its link, but you’ll need its edit link to open it again.`,
+    confirmLabel: "Forget",
+  }))) return;
+  // Same ordering rule the delete below turns on, for the same reason: teardown
+  // writes this list's on-device copy, so forgetting first would leave that copy
+  // behind under a token the registry no longer holds.
+  c.dispose(ownedEpoch);
+  my.forget(token);
+  newList({ replace: true });
+}
 
 async function deleteThisList() {
   const token = c.editToken;
@@ -457,8 +486,8 @@ async function deleteThisList() {
   // copy of a deleted list in IndexedDB under a token the registry no longer holds.
   // This way the last edits still reach the server while there's a row to take them.
   c.dispose(ownedEpoch);
-  // Straight into a fresh draft rather than back to /mine: you came here to work on a
-  // list, and the one you were on is gone. `replace`, so Back doesn't return to it.
+  // Straight into a fresh draft: you came here to work on a list, and the one you
+  // were on is gone. `replace`, so Back doesn't return to it.
   if (await my.deleteList(token)) return newList({ replace: true });
   // Offline, or the server refused: nothing was deleted, so put the editor back where
   // it was. The teardown above wrote the list to this device, so reopening the token
@@ -725,13 +754,27 @@ function onCorrected(res: { status: string; itemName?: string }) {
                      colour is there to be read before you reach for it. It is the
                      port of the design system's .ds-menu__item--danger, down to the
                      plate washing the row in its own hue (see the style). -->
-                <li v-if="canDelete" role="none" class="editor__menufoot">
+                <li v-if="isSaved" role="none" class="editor__menufoot">
+                  <!-- Gentler first. The two escalate — off this device, then off the
+                       internet — and reading them in that order is what makes the
+                       second one land as the bigger of the pair rather than as
+                       another way to do the first. -->
+                  <button
+                    type="button"
+                    data-row
+                    role="menuitem"
+                    class="menu__item editor__footact"
+                    @click="menuOpen = false; forgetThisList()"
+                  >
+                    <HugeiconsIcon :icon="RemoveCircleIcon" :size="14" :stroke-width="2" aria-hidden="true" />
+                    Forget this list
+                  </button>
                   <button
                     type="button"
                     data-row
                     data-row-hue
                     role="menuitem"
-                    class="menu__item editor__delete"
+                    class="menu__item editor__footact editor__delete"
                     @click="menuOpen = false; deleteThisList()"
                   >
                     <HugeiconsIcon :icon="Delete02Icon" :size="14" :stroke-width="2" aria-hidden="true" />
@@ -1131,12 +1174,19 @@ function onCorrected(res: { status: string; itemName?: string }) {
    off this declaration), so every other menu in the app is untouched.
    No hover deepen. The wash is the state — moving the ink as well would say two
    things about one event, and there is nowhere darker for red to go that doesn't
-   read as a different colour.
-   flex, because .menu__item is display:block — the glyph needs a row. */
-.editor__delete {
+   read as a different colour. */
+/* Both foot rows share the glyph column, so the pair lines up and the ONLY thing
+   that differs between them is the word and the colour. flex, because .menu__item is
+   display:block — the glyph needs a row. */
+.editor__footact {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+}
+/* ...and forgetting stays in plain ink. It is not a lesser action — it takes the
+   default row colour, not the quiet one — it just isn't the irreversible one, and
+   red is what this menu reserves for that. */
+.editor__delete {
   color: var(--danger);
 }
 /* the popover's look + open/close come from the shared .menu atom (controls.scss);
