@@ -82,10 +82,10 @@ const spokenAt = computed(() => formatDistance(props.waypoint.alongM, props.dist
          leads, a step quieter: it answers "where exactly", asked once when you are copying
          it somewhere else, where the distance is what you scan the list by. -->
     <span class="t-sm wprow__coord">{{ coord }}</span>
-    <span class="t-sm t-muted wprow__dist">{{ at }}</span>
+    <span class="t-sm wprow__dist">{{ at }}</span>
     <button
       type="button"
-      class="btn btn--icon btn--ghost"
+      class="btn btn--icon btn--ghost wprow__del"
       :aria-label="`Remove the ${spoken} at ${spokenAt}`"
       @click="c.removeWaypoint(waypoint.id)"
     >
@@ -102,34 +102,53 @@ const spokenAt = computed(() => formatDistance(props.waypoint.alongM, props.dist
 .wprow {
   display: grid;
   grid-template-columns: var(--wprow-cols);
+  /* the list decides the arrangement — one line wide, two lines narrow */
+  grid-template-areas: var(--wprow-areas, "name kind coord dist del");
   align-items: center;
-  gap: var(--space-2);
+  /* Both gaps come from the list too, for the same reason the columns do. The row gap only
+     comes into play once the list stacks the name onto its own line on a narrow screen;
+     --space-1 there keeps the name and its readings reading as one row. */
+  gap: var(--space-1) var(--wprow-gap, var(--space-2));
 }
 /* the three sit tight against each other, as the gear row's classification pair does —
    they are one control with three settings, not three separate actions */
 .wprow__kind {
+  grid-area: kind;
   display: inline-flex;
   align-items: center;
   gap: var(--space-px);
+}
+.wprow__del {
+  grid-area: del;
 }
 /* quiet until chosen; .item__mark supplies the plate and the inline style the hue */
 .wprow__kindbtn {
   color: var(--ink-3);
 }
+/* The list decides where these land — one line on a wide screen, two on a narrow one —
+   so the pins and the night beneath them always wrap the same way. */
 .wprow__name {
   min-width: 0;
+  grid-area: name;
 }
+/* ONE SIZE AND ONE INK across the row's readings. They were set apart twice over — the
+   coordinate a step smaller, then the distance a step darker — and neither difference was
+   carrying a claim. These two cells are the same kind of thing said two ways: where the pin
+   is. Ranking one above the other only breaks the baseline the column is read down. */
 .wprow__coord,
 .wprow__dist {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   text-align: right;
-}
-/* ONE SIZE ACROSS THE ROW. The coordinate was a step smaller, which made it read as an
-   annotation on the row rather than as one of its columns — and a row whose cells are set
-   at two sizes has no baseline anyone can follow. It still steps back, but in INK only:
-   colour separates importance without breaking the line. */
-.wprow__coord {
   color: var(--ink-3);
+}
+.wprow__coord {
+  grid-area: coord;
+  /* stretched on one line, where text-align does the aligning; shrunk to its text and
+     pushed left once the row wraps, so the two readings sit at opposite ends of it */
+  justify-self: var(--wprow-coord-justify, stretch);
+}
+.wprow__dist {
+  grid-area: dist;
 }
 </style>

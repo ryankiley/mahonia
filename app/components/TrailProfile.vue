@@ -12,7 +12,7 @@ import {
 // thresholds — so the number under the cursor and the colour under the cursor can never
 // disagree about what "steep" means. There used to be a STEEP_PCT in this file saying 10
 // as well; two constants holding one idea is how a chart starts contradicting its tooltip.
-import { gradeBandFor, gradeRuns, gradeSeries, gradeSpread } from "~~/shared/profile";
+import { type GradeBand, gradeBandFor, gradeRuns, gradeSeries, gradeSpread } from "~~/shared/profile";
 
 // The route's shape, cut into days.
 //
@@ -187,22 +187,44 @@ const dayRuns = computed(() => {
   return out;
 });
 
-/** Where one day ends and the next begins — the sample index of each boundary. */
-const dayCuts = computed(() => {
-  const owner = dayOfSample.value;
-  const cuts: number[] = [];
-  for (let i = 1; i < owner.length; i++) if (owner[i] !== owner[i - 1]) cuts.push(i);
-  return cuts;
-});
-
-/** Runs of like difficulty, filled — easy ground takes no hue at all. */
+/**
+ * Runs of like difficulty, filled — easy ground takes no hue at all.
+ *
+ * BROKEN AT THE DAY BOUNDARIES TOO, and that break IS the gap between days.
+ *
+ * It used to be one unbroken set of fills with a paper-coloured line ruled over the top,
+ * which is a drawing of a gap rather than a gap: the shading ran straight through the
+ * boundary and a stroke the colour of the page hid that it had. That only holds while the
+ * page is exactly the colour the stroke claims and while nothing is painted over it
+ * afterwards — and the fill fades toward the baseline, so a solid rule stood in it heavier
+ * than the hole it was standing in for.
+ *
+ * Now a fill stops where its day stops, the way the ridge above it already did, and what
+ * separates two days is one sample of untouched paper on both marks at once.
+ *
+ * Grade runs still SHARE a sample where two bands meet (see gradeRuns), so a change of
+ * difficulty inside a day stays joined. Only the day boundary opens.
+ */
 const gradeFills = computed(() => {
   if (props.profile.length < 2 || !(props.totalDistanceM > 0)) return [];
-  return gradeRuns(props.profile, props.totalDistanceM).map((r, i) => {
-    const idx: number[] = [];
-    for (let k = r.from; k <= r.to; k++) idx.push(k);
-    return { fill: pathsFor(idx).fill, band: r.band, key: i };
-  });
+  const owner = dayOfSample.value;
+  const out: { fill: string; band: GradeBand; key: number }[] = [];
+  for (const r of gradeRuns(props.profile, props.totalDistanceM)) {
+    let idx: number[] = [];
+    // two samples minimum: one sample is a path with no width to it
+    const flush = () => {
+      if (idx.length > 1) out.push({ fill: pathsFor(idx).fill, band: r.band, key: out.length });
+      idx = [];
+    };
+    for (let k = r.from; k <= r.to; k++) {
+      // the first sample of a new day opens a new piece — the sample before it belongs to
+      // the day that just ended, and joining the two would draw across the break
+      if (idx.length && owner[k] !== owner[k - 1]) flush();
+      idx.push(k);
+    }
+    flush();
+  }
+  return out;
 });
 
 // The spoken version carries the facts the shape encodes — a profile has no legend, so
@@ -421,24 +443,11 @@ const id = useId();
         fill="none"
         vector-effect="non-scaling-stroke"
       />
-      <!-- The cut at each day boundary, in paper — the same trick CategoryBar uses with a
-           --space-px gap, so adjacent stretches always read as distinct. Sized by
-           non-scaling-stroke, or the stretched viewBox would make it a fat smear.
-
-           AFTER THE RIDGES, and that is the whole of it. Drawn before them it cut the
-           shading and the day lines ran straight over the gap, so the fills separated and
-           the thing you actually follow — the coloured line — did not. Paint order is the
-           only thing that decides which marks a paper-coloured stroke can erase. -->
-      <line
-        v-for="cut in dayCuts"
-        :key="`c${cut}`"
-        :x1="x(cut)"
-        :x2="x(cut)"
-        y1="0"
-        :y2="VB_H"
-        class="tprofile__cut"
-        vector-effect="non-scaling-stroke"
-      />
+      <!-- Nothing is drawn AT the day boundary. There used to be a paper-coloured rule
+           here, and a rule the colour of the page is a gap only for as long as nobody
+           paints over it and the page never changes colour. Both marks now stop where the
+           day stops (see dayRuns and gradeFills), so the boundary is a hole in the drawing
+           rather than a stroke standing in for one. -->
       <!-- THE DOT FIRST, THE LINE OVER IT. The dot wears a paper-coloured casing so it
            reads against the ridge it sits on, and painted last that casing rubbed out the
            length of dotted line it covered — the cursor appeared to stop dead a few pixels
@@ -766,21 +775,6 @@ const id = useId();
 .tprofile__fill.is-hard {
   fill: var(--cat-firstaid);
   opacity: 0.34;
-}
-/* the day boundary, cut in paper — 1px regardless of how the viewBox is stretched */
-/* THE GAP BETWEEN DAYS, and it is a real gap rather than a rule.
-   A 1px cut was a hairline you had to look for — enough to prove the boundary exists, not
-   enough to make four days read as four things. This is paper-coloured, so widening the
-   stroke widens the GAP: the fills either side are pushed apart by exactly this much, and
-   the day colours stop touching. Four, because at two the shading still met across it on a
-   steep run where both sides are the same band. */
-.tprofile__cut {
-  stroke: var(--paper);
-  /* NARROW, now that the ridges no longer overlap it. A wide cut was only ever hiding
-     the fact that each day's run started one sample early and reached past its own
-     boundary (see dayRuns) — the colours are cut where they actually end now, so this only
-     has to be the gap itself. */
-  stroke-width: 3;
 }
 .tprofile__ridge {
   /* non-scaling-stroke means this is real pixels, so it holds at any container size */

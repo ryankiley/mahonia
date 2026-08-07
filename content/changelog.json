@@ -32,13 +32,15 @@
       "The trip's time figure is now labelled \"Walking time\", since it counts time on your feet and not the days the trip takes.",
       "Setting what a waypoint is now takes one tap on the kind you want, the way an item's type works in Gear.",
       "Camp is no longer something you pick — every day's end draws one, and the pins you place are water or a landmark.",
-      "The elevation chart now leaves easy ground unshaded, breaks cleanly between days, and keeps its difficulty shading readable at the route's low points."
+      "The elevation chart now leaves easy ground unshaded, breaks cleanly between days, and keeps its difficulty shading readable at the route's low points.",
+      "The elevation profile now leaves a real gap between one day and the next, on the shading as well as the line."
     ],
     "fixed": [
       "On a phone, a weight like 0.68 lb no longer has its last digit clipped, and a water row's figure lines up with the rows above it.",
       "A shared list no longer carries the owner's packing tick-offs in its data.",
       "Clearing a day's distance or climb now sticks, instead of coming back the moment the list saved.",
-      "Calorie estimates were too high for heavier walkers — resting energy was billed per kilogram, which over-charged anyone above about 65 kg, and a night's sleep was charged at the same rate as an evening in camp."
+      "Calorie estimates were too high for heavier walkers — resting energy was billed per kilogram, which over-charged anyone above about 65 kg, and a night's sleep was charged at the same rate as an evening in camp.",
+      "Waypoint rows now fit a phone screen: the name gets its own line, and the coordinate and distance sit at either end of the one below it instead of overlapping the buttons beside them."
     ]
   },
   {

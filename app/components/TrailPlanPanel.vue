@@ -892,11 +892,11 @@ const distanceValue = (m: number | undefined) => {
                 <HugeiconsIcon :icon="TentIcon" :size="16" :stroke-width="2" aria-hidden="true" />
               </span>
               <span class="t-sm plan__coord">{{ coordOf(campOf(i)!) }}</span>
-              <span class="t-sm t-muted plan__campdist">{{ formatDistancePadded(campOf(i)!, distanceUnit) }}</span>
+              <span class="t-sm plan__campdist">{{ formatDistancePadded(campOf(i)!, distanceUnit) }}</span>
               <!-- the delete column, left empty: a camp is the end of a day, and removing
                    it would mean removing the day. The cell stays so every other column in
                    the list still lines up through this row. -->
-              <span aria-hidden="true" />
+              <span class="plan__campdel" aria-hidden="true" />
             </li>
           </ol>
           <!-- the add row, carrying the same rule and the same padding as a row above it,
@@ -1163,7 +1163,6 @@ const distanceValue = (m: number | undefined) => {
  * token for every unit on the panel, so "ft" reads the same weight wherever it appears. */
 .plan__cell .t-muted,
 .plan__chips .t-muted,
-.plan__camp .t-muted,
 .plan__assume .t-muted {
   color: var(--ink-3);
 }
@@ -1334,34 +1333,56 @@ const distanceValue = (m: number | undefined) => {
 .plan__camp {
   display: grid;
   grid-template-columns: var(--wprow-cols);
+  /* the list decides the arrangement — one line wide, two lines narrow */
+  grid-template-areas: var(--wprow-areas, "name kind coord dist del");
   align-items: center;
-  gap: var(--space-2);
+  /* row gap only matters once the row wraps to two lines — see the stack below. --space-1
+     rather than the column gap, so the name and its readings still read as ONE row and not
+     as two rows that happen to be adjacent. */
+  gap: var(--space-1) var(--wprow-gap, var(--space-2));
 }
 /* One icon-button's box, aligned to the start of the kind column, so the tent lands on the
    same pixel as the first toggle's glyph in the rows above it. */
 .plan__campkind {
+  grid-area: kind;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: var(--icon-btn, 32px);
+  /* the same box a kind toggle wears, whichever pointer is in use, so the tent's glyph
+     lands on the pixel the first toggle's glyph lands on in the rows above */
+  width: var(--wprow-btn, var(--icon-btn, 32px));
   /* ink, not a category hue — it is the itinerary talking, the same thing the handle on
      the map says by being paper-filled rather than solid */
   color: var(--ink-3);
 }
 .plan__campfield {
   min-width: 0;
+  grid-area: name;
 }
+/* the delete column, standing empty — see the template. It still has to hold the column
+   open, and at the width a button would be, or every cell before it shifts on this row. */
+.plan__campdel {
+  grid-area: del;
+  width: var(--wprow-btn, var(--icon-btn, 32px));
+}
+/* One size and one ink, matching a waypoint row's two readings exactly — see WaypointRow.
+   Both cells answer the same question, so ranking one above the other with size or colour
+   only breaks the baseline the column is read down. */
 .plan__coord,
 .plan__campdist {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   text-align: right;
-}
-/* one size across the row — the step back is ink, not type size. Set smaller, a
-   coordinate reads as an annotation on the row rather than one of its cells, and a row
-   whose cells sit at two sizes has no baseline to follow. */
-.plan__coord {
   color: var(--ink-3);
+}
+.plan__coord {
+  grid-area: coord;
+  /* stretched on one line, where text-align does the aligning; shrunk to its text and
+     pushed left once the row wraps, so the two readings sit at opposite ends */
+  justify-self: var(--wprow-coord-justify, stretch);
+}
+.plan__campdist {
+  grid-area: dist;
 }
 .plan__wplist {
   /* ONE COLUMN SET for every row in the day — the pins and the night alike. Declared here
@@ -1377,12 +1398,31 @@ const distanceValue = (m: number | undefined) => {
      slack, and the coordinate and distance are tabular text of a fixed shape.
      NAME FIRST. It is what you read the row by, so it takes the left edge where the eye
      lands; the kind toggles are what you set once and then stop looking at. */
+  /* THE TRACK FOLLOWS THE POINTER, because the buttons in it do. An icon button is
+     --icon-btn under a mouse and --tap under a thumb (controls.scss grows it for the
+     44px target). Pinned at --icon-btn, these tracks were 32px boxes holding 44px
+     buttons — and a grid track narrower than its content doesn't clip it, it lets it
+     paint over the neighbour. The delete button hung off the end of the row and the
+     second kind toggle sat on top of the coordinate. */
+  --wprow-btn: var(--icon-btn, 32px);
   --wprow-cols:
     minmax(0, 1fr)
-    calc(var(--icon-btn, 32px) * 2 + var(--space-px))
+    calc(var(--wprow-btn) * 2 + var(--space-px))
     auto
     auto
-    var(--icon-btn, 32px);
+    var(--wprow-btn);
+  /* Named even here, where the order is just the source order, because a cell asks for its
+     area BY NAME in both files — and an area name with nothing to resolve against doesn't
+     quietly fall back to auto placement, it invents an implicit track per cell. Naming the
+     one-line arrangement too is what keeps the narrow one (below) a change of ARRANGEMENT
+     rather than a change of mechanism. */
+  --wprow-areas: "name kind coord dist del";
+  /* WIDER THAN THE ROW'S OTHER SPACING, and it comes out of slack the name column has in
+     abundance — at this width the name is a 1fr track with hundreds of pixels spare while
+     the coordinate, the distance and the delete button are pressed into a block at the
+     right edge. Eight pixels between two numbers reads as one number that happens to have
+     a space in it. */
+  --wprow-gap: var(--space-5);
   list-style: none;
   margin: 0;
   padding: 0;
@@ -1391,6 +1431,39 @@ const distanceValue = (m: number | undefined) => {
   flex-direction: column;
   /* no gap — the rows' own padding-block is the rhythm, so the rule lines land between
      two rows rather than floating in the middle of a space */
+}
+/* A thumb gets the bigger boxes, so the row gets the bigger tracks. */
+@media (pointer: coarse) {
+  .plan__wplist {
+    --wprow-btn: var(--tap);
+  }
+}
+/* TWO LINES, and the split is by KIND of thing rather than by what happens to fit.
+   In one line the name is the column that pays for every other one: at 375px it had
+   collapsed to TEN PIXELS — a field you cannot see, let alone type in — while the
+   coordinate beside it kept its full 171.
+   So the first line is what the row IS and what you can do to it: the name, its kind, and
+   the delete button. The second is what you READ off it: where the pin sits, and how far
+   along it is. Pushed to opposite ends of their line, because they are two facts and not
+   one string; sat side by side at the end of a line they read as a single run of digits.
+   The alternative — name alone on top, all four cells beneath — does not fit. Four cells
+   plus their gaps need about 373px of the 356 a phone has, which is how the collision got
+   here in the first place. */
+@media (max-width: $bp-stack) {
+  .plan__wplist {
+    --wprow-cols:
+      minmax(0, 1fr)
+      calc(var(--wprow-btn) * 2 + var(--space-px))
+      var(--wprow-btn);
+    --wprow-areas:
+      "name kind del"
+      "coord dist dist";
+    /* left edge, against the distance's right — the air between them IS the separation */
+    --wprow-coord-justify: start;
+    /* back to the tighter gap: the slack that paid for --space-5 above is what the name is
+       using now, and at this width the row has none to spare */
+    --wprow-gap: var(--space-2);
+  }
 }
 /* The unclaimed stretch is a day-shaped thing without being a day, so it takes the day's
    spacing and its heading size but never its figures — there is nothing to estimate about
