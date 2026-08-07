@@ -50,8 +50,13 @@ function create() {
   // STAYS mounted, hidden by CSS in the other modes — so a switch stops tearing down
   // and rebuilding 150 subtrees, and a list opened straight into packing mode never
   // builds edit rows it hasn't shown. false → true exactly once, never back.
+  // everPlan does the same for the whole plan panel: entering planning mounts it once
+  // (keeping the panel lazy for the visits that never plan), and every later switch is
+  // a CSS reveal — which is also what lets the route map keep its pan and zoom across
+  // switches instead of being rebuilt from scratch each time.
   const everEdit = ref(mode.value === "edit");
   const everPacked = ref(mode.value === "pack");
+  const everPlan = ref(mode.value === "plan");
 
   // True for a beat after each switch. The CSS fade (atoms/item.scss) is gated on this
   // so it plays exactly when the old <Transition> enter played — on a mode switch — and
@@ -63,12 +68,13 @@ function create() {
   watch(mode, (m) => {
     if (m === "edit") everEdit.value = true;
     else if (m === "pack") everPacked.value = true;
+    else if (m === "plan") everPlan.value = true;
     switching.value = true;
     clearTimeout(switchTimer);
     switchTimer = setTimeout(() => (switching.value = false), SWITCH_ANIM_MS);
   });
 
-  return { mode, everEdit, everPacked, switching };
+  return { mode, everEdit, everPacked, everPlan, switching };
 }
 
 export function useEditorMode() {

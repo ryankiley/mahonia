@@ -15,7 +15,8 @@
       "When a list's gear is already reaching My Gear on its own, each row's save button reads \"Already in My Gear\" and goes quiet, instead of offering to save what's already saved.",
       "When a list's gear is already reaching My Gear on its own, each row's save button now steps aside entirely instead of sitting dimmed, and shines back into place when saving would do something again.",
       "The save button now sits first in a row's trailing icons, left of nesting, so the icons every row shares hold a steady column whether or not it's offered.",
-      "A brand-new row no longer offers Save to My Gear before there's anything to save — the button arrives once the row has a name and a weight or a catalog pick."
+      "A brand-new row no longer offers Save to My Gear before there's anything to save — the button arrives once the row has a name and a weight or a catalog pick.",
+      "Coming back to the planning view is instant, and it keeps where you left it — the map's position, folded days — instead of starting over each visit."
     ],
     "fixed": [
       "A pack whose edit link had been rotated could show up twice in the list switcher, both rows marked as the one you're in and one of them a link that no longer worked. It now appears once, and the stale row clears itself the next time you open that pack.",

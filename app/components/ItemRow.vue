@@ -862,7 +862,6 @@ function dismissFix() {
     :data-item-id="item.id"
     :data-parent="item.parentId || null"
     :class="{ 'is-dragging': isDragging, 'is-drop-before': isDropBefore, 'is-nest-parent': isNestParent }"
-    :style="isDragging ? { '--drag-dy': dnd.dy.value + 'px' } : undefined"
     @focusout="onRowBlur"
   >
     <!-- editing↔packing swap, decided by CSS rather than by this component. Which face
