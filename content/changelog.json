@@ -13,7 +13,8 @@
       "A route imported from a map file is now drawn on the terrain it crosses, in the same colours the days wear on the elevation profile. The map is yours alone — it never appears on a shared or published list.",
       "Mark what's on a route — water, a camp, a landmark — from the day you'll reach it on: tap the map and the pin drops on that day's stretch, with its distance beside it. Pins move between days by themselves as you change how far each day walks.",
       "The map opens full screen for placing, with a bar of the trip's days across the top so you can pick which day the next pin lands in without leaving it.",
-      "Each pin on the map now carries its own mark — a droplet for water, a tent for a camp — and its row names the kind in words."
+      "Each pin on the map now carries its own mark — a droplet for water, a tent for a camp — and its row names the kind in words.",
+      "Press and hold a pin on the map to pick it up, then slide it along the route to move it. It re-files itself under whichever day it lands in."
     ],
     "changed": [
       "Your body weight is now remembered on your device instead of saved with each list, so you set it once and every trip uses it — and it never leaves your browser at all.",

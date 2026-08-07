@@ -547,6 +547,7 @@ const distanceValue = (m: number | undefined) => {
       :waypoints="waypoints"
       :armed-range="armedRange"
       @place="onPlace"
+      @move="(m) => c.updateWaypoint(m.id, { alongM: m.alongM })"
     >
       <!-- Only while the map fills the window, where the day rows are behind it and out
            of reach. Same `arming` ref the rows drive, so this is a second SURFACE for one

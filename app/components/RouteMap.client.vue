@@ -42,7 +42,11 @@ const props = defineProps<{
   armedRange?: { fromM: number; toM: number } | null;
 }>();
 
-const emit = defineEmits<{ place: [alongM: number] }>();
+const emit = defineEmits<{
+  place: [alongM: number];
+  /** a pin dropped somewhere new, as one op at the end of the gesture */
+  move: [at: { id: string; alongM: number }];
+}>();
 
 const host = ref<HTMLElement | null>(null);
 const failed = ref(false);
@@ -264,6 +268,132 @@ function iconSvg(icon: unknown): string {
 }
 
 /**
+ * MOVING A PIN: press and hold, then slide.
+ *
+ * Not a plain drag, and not Leaflet's own `draggable` marker option, because this map is
+ * also a pan surface: a plain drag beginning on a 22px disc is far more often somebody
+ * moving the MAP than somebody moving the pin, and getting that wrong silently relocates a
+ * water source. The hold is the statement of intent — the same gesture that means "pick
+ * this up" everywhere else on a touchscreen.
+ *
+ * Leaflet's handler couldn't do it anyway: its Marker.Drag binds on mousedown, so enabling
+ * it once a hold has already elapsed picks up nothing, and the person would have to let go
+ * and start again. Doing the move here also buys the thing that makes it feel right — the
+ * pin follows the ROUTE, not the finger.
+ */
+/** How long a press has to hold still before the pin lifts. */
+const LIFT_MS = 400;
+/** How far it may wander in that time before it counts as a pan instead of a hold. */
+const LIFT_SLOP_PX = 10;
+/** How much of the route either side of the pin a single move step may reach. */
+const LIFT_WINDOW_M = 3000;
+
+let lift: { el: HTMLElement; marker: import("leaflet").Marker; id: string; alongM: number } | null = null;
+/** Set through the pointerup that ends a move, so the click it generates can't place a
+ *  NEW pin on an armed map. The gesture already did its job. */
+let justMoved = false;
+
+function onPinDown(e: PointerEvent, marker: import("leaflet").Marker, w: { id: string; alongM: number }) {
+  if (e.button > 0 || lift) return;
+  const el = e.currentTarget as HTMLElement;
+  const x0 = e.clientX;
+  const y0 = e.clientY;
+
+  // On the WINDOW rather than the pin, and deliberately not captured yet: a pan that
+  // happens to start on a pin has to keep working, and capturing here would take the
+  // moves away from Leaflet before we know which gesture this is.
+  const watch = (m: PointerEvent) => {
+    if (Math.hypot(m.clientX - x0, m.clientY - y0) > LIFT_SLOP_PX) stop();
+  };
+  const stop = () => {
+    clearTimeout(timer);
+    window.removeEventListener("pointermove", watch);
+    window.removeEventListener("pointerup", stop);
+    window.removeEventListener("pointercancel", stop);
+  };
+  const timer = setTimeout(() => {
+    stop();
+    beginLift(el, marker, w, e.pointerId);
+  }, LIFT_MS);
+
+  window.addEventListener("pointermove", watch);
+  window.addEventListener("pointerup", stop);
+  window.addEventListener("pointercancel", stop);
+}
+
+function beginLift(
+  el: HTMLElement,
+  marker: import("leaflet").Marker,
+  w: { id: string; alongM: number },
+  pointerId: number,
+) {
+  if (!map) return;
+  lift = { el, marker, id: w.id, alongM: w.alongM };
+  el.classList.add("is-lifted");
+  // the map must hold still while the pin moves, or both travel at once
+  map.dragging.disable();
+  try {
+    el.setPointerCapture(pointerId);
+  } catch {
+    /* the pointer may already be gone; the window listeners below still finish the job */
+  }
+  // the small confirmation that the hold registered, where the hardware offers one
+  navigator.vibrate?.(10);
+  window.addEventListener("pointermove", onLiftMove);
+  window.addEventListener("pointerup", endLift);
+  window.addEventListener("pointercancel", endLift);
+}
+
+/**
+ * The pin follows the ROUTE, not the pointer.
+ *
+ * A waypoint's position is a distance along the line and cannot be anything else, so the
+ * drag projects onto the line at every step rather than letting the pin off it and
+ * snapping back at the end. What you see while moving is what gets stored — no jump on
+ * release, and no way to ask for a position the model can't hold.
+ */
+function onLiftMove(e: PointerEvent) {
+  if (!lift || !map) return;
+  e.preventDefault();
+  const p = map.mouseEventToLatLng(e as unknown as MouseEvent);
+  // ONLY THE STRETCH NEAR WHERE THE PIN ALREADY IS, and on a loop this is the whole
+  // difference between a drag and a teleport. "Nearest point on the route" is genuinely
+  // ambiguous at a loop's seam — the first mile and the last one are the same ground — so
+  // nudging a pin at mile 3 could snap it to mile 36. Measured on the real Timberline: a
+  // 70px drag moved a pin 33 miles.
+  //
+  // The window travels WITH the pin, because lift.alongM updates on every move. So a
+  // continuous drag can still walk a pin the length of the route; what it can't do is
+  // jump there, which is the only thing that was ever a mistake.
+  const from = Math.max(0, lift.alongM - LIFT_WINDOW_M);
+  const near = sliceAlong(points.value, from, lift.alongM + LIFT_WINDOW_M);
+  if (near.length < 2) return;
+  const alongM = from + nearestAlongM(near, { lat: p.lat, lon: p.lng });
+  const at = pointAlong(points.value, alongM);
+  if (!at) return;
+  lift.alongM = alongM;
+  lift.marker.setLatLng([at.lat, at.lon]);
+}
+
+function endLift() {
+  const l = lift;
+  lift = null;
+  window.removeEventListener("pointermove", onLiftMove);
+  window.removeEventListener("pointerup", endLift);
+  window.removeEventListener("pointercancel", endLift);
+  map?.dragging.enable();
+  if (!l) return;
+  l.el.classList.remove("is-lifted");
+  justMoved = true;
+  // cleared after the click that follows this pointerup has been and gone
+  setTimeout(() => (justMoved = false), 0);
+  // ONE op for the whole gesture, committed on the drop — the codebase's own rule for
+  // anything continuous. Live commits would be a hundred ops and a hundred autosaves for
+  // one drag, and every one of them a separate undo.
+  emit("move", { id: l.id, alongM: l.alongM });
+}
+
+/**
  * Draw the pins.
  *
  * A waypoint stores only a DISTANCE, so its position is walked out of the polyline here —
@@ -298,6 +428,7 @@ function renderPins() {
     // The name if it has one, the KIND if it doesn't — an unnamed pin is the normal case
     // (three taps, three water sources), and "Water" beats an empty tooltip.
     marker.bindTooltip(document.createTextNode(w.label || meta.label) as never, { direction: "top" });
+    marker.getElement()?.addEventListener("pointerdown", (e) => onPinDown(e as PointerEvent, marker, w));
     return [marker];
   });
 }
@@ -528,6 +659,9 @@ async function draw() {
   map.on("click", (e: { latlng: { lat: number; lng: number } }) => {
     const range = props.armedRange;
     if (!range) return;
+    // The pointerup that finishes a move generates a click here too. Without this, moving
+    // a pin on an armed map dropped a second one on top of it.
+    if (justMoved) return;
     // `lon`, not Leaflet's `lng` — the app's own LatLon shape
     const at = nearestAlongM(points.value, { lat: e.latlng.lat, lon: e.latlng.lng });
     // CLAMPED to the armed stretch. The affordance that armed this belongs to a day, so
@@ -599,28 +733,38 @@ onBeforeUnmount(() => {
     class="routemap"
     :class="{ 'is-bare': failed, 'is-armed': !!armedRange, 'is-expanded': expanded }"
   >
-    <div ref="host" class="routemap__canvas" />
-    <!-- The controls that have to stay reachable with the map over the page. Rendered
-         only when expanded: below, the day rows are right there on the page and a second
-         copy of their affordance would be two places to press for one thing. -->
-    <div v-if="expanded" class="routemap__overlay">
-      <slot name="overlay" />
+    <!-- The frame is what anything floating over the map is positioned against. It has to
+         be its own element: the FIGURE also contains the caption below, so a control
+         anchored to the figure's bottom edge landed under the map rather than on it. -->
+    <div class="routemap__frame">
+      <div ref="host" class="routemap__canvas" />
+      <!-- The controls that have to stay reachable with the map over the page. Rendered
+           only when expanded: below, the day rows are right there on the page and a second
+           copy of their affordance would be two places to press for one thing. -->
+      <div v-if="expanded" class="routemap__overlay">
+        <slot name="overlay" />
+      </div>
+      <!-- TOP RIGHT, and the corner is not a free choice: Leaflet's zoom sits top left and
+           its ATTRIBUTION sits bottom right. That attribution is a licence requirement —
+           OpenStreetMap's data credit and OpenTopoMap's own — so it is the one thing on
+           this map that must never be covered. Bottom left is the only other corner and
+           it reads as an afterthought. -->
+      <button
+        type="button"
+        class="routemap__expand"
+        :aria-pressed="expanded"
+        :aria-label="expanded ? 'Shrink the map back into the page' : 'Expand the map to fill the window'"
+        :title="expanded ? 'Shrink the map' : 'Expand the map'"
+        @click="expanded = !expanded"
+      >
+        <HugeiconsIcon
+          :icon="expanded ? ArrowShrink02Icon : ArrowExpand02Icon"
+          :size="16"
+          :stroke-width="2"
+          aria-hidden="true"
+        />
+      </button>
     </div>
-    <button
-      type="button"
-      class="routemap__expand"
-      :aria-pressed="expanded"
-      :aria-label="expanded ? 'Shrink the map back into the page' : 'Expand the map to fill the window'"
-      :title="expanded ? 'Shrink the map' : 'Expand the map'"
-      @click="expanded = !expanded"
-    >
-      <HugeiconsIcon
-        :icon="expanded ? ArrowShrink02Icon : ArrowExpand02Icon"
-        :size="16"
-        :stroke-width="2"
-        aria-hidden="true"
-      />
-    </button>
     <figcaption class="routemap__note">
       <span v-if="failed">Map tiles couldn't load — the route is still drawn.</span>
       <!-- The zoom hint is about a KEY, so it only exists where there are keys. It is
@@ -628,6 +772,11 @@ onBeforeUnmount(() => {
            both — and pinch works there whether or not the line is shown. The failure
            message above is not hidden with it: that one is true on every device. -->
       <span v-else class="routemap__hint">Hold ⌘ or Ctrl while scrolling to zoom.</span>
+      <!-- A press-and-hold nobody is told about is not a gesture, it is a secret. Only
+           once there is a pin to try it on, because until then it names something that
+           isn't on screen. Not inside the hint above: that one is about a KEY and is
+           hidden on touch, where this is most useful. -->
+      <span v-if="!failed && waypoints?.length"> Press and hold a pin to move it along the route.</span>
     </figcaption>
   </figure>
 </template>
@@ -673,9 +822,13 @@ onBeforeUnmount(() => {
 }
 
 .routemap {
-  // the anchor for the expand button and the overlay, which both sit over the canvas
-  position: relative;
   margin: 0;
+}
+
+// the anchor for anything drawn OVER the map — never the figure, which is taller
+.routemap__frame {
+  position: relative;
+  display: flex;
 }
 
 /* EXPANDED: the map takes the window.
@@ -693,9 +846,18 @@ onBeforeUnmount(() => {
   gap: var(--space-2);
   background: var(--paper);
 }
-.routemap.is-expanded .routemap__canvas {
+.routemap.is-expanded .routemap__frame {
   flex: 1;
+  // without this the frame refuses to shrink below its content and the map runs off the
+  // bottom of the window — the standard flex-child min-height trap
+  min-height: 0;
+}
+.routemap.is-expanded .routemap__canvas {
   height: auto;
+}
+.routemap__canvas {
+  flex: 1;
+  min-width: 0;
 }
 /* the caption is a footnote at strip size and a distraction at window size — the gesture
    it names still works, and by now you have used it */
@@ -715,12 +877,11 @@ onBeforeUnmount(() => {
   max-width: calc(100% - 140px);
 }
 
-/* Bottom-right: the two top corners are Leaflet's (zoom) and the bottom-left is the
-   attribution, which is a licence requirement and must never be covered. */
+/* see the template for why this corner */
 .routemap__expand {
   position: absolute;
   right: var(--space-2);
-  bottom: var(--space-2);
+  top: var(--space-2);
   z-index: 500;
   display: inline-flex;
   align-items: center;
@@ -739,10 +900,6 @@ onBeforeUnmount(() => {
 }
 .routemap__expand:hover {
   background: #f4f4f4;
-}
-.routemap.is-expanded .routemap__expand {
-  right: calc(var(--space-3) + var(--space-2));
-  bottom: calc(var(--space-3) + var(--space-2));
 }
 
 // tiles gone: plain ground, so the line is still readable
@@ -789,6 +946,28 @@ onBeforeUnmount(() => {
   // the glyph reads as a hole punched in the disc; white against every category hue, and
   // white on ink for the route's two ends
   color: #fff;
+  transition:
+    scale var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease);
+}
+// LIFTED: the hold registered and the pin is now following the route.
+// It has to be unmistakable — the whole risk of a press-and-hold is not knowing whether it
+// took, and a pin that moves without ever looking picked up reads as a bug.
+.routemap__pin.is-lifted i {
+  scale: 1.35;
+  box-shadow:
+    0 3px 8px #00000059,
+    0 0 0 1px #00000026;
+}
+.routemap__pin {
+  cursor: grab;
+  // BROWSER scrolling only — Leaflet pans with its own JS handlers, so a drag that starts
+  // on a pin still moves the map. What this stops is the page scrolling out from under a
+  // hold, which would make the gesture impossible on a phone.
+  touch-action: none;
+}
+.routemap__pin.is-lifted {
+  cursor: grabbing;
 }
 // Leaflet's divIcon ships a white box with a border; both are cleared or every pin
 // renders inside a little card.
