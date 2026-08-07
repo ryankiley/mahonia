@@ -28,7 +28,7 @@ useHead({
         <h2 id="privacy" class="legal__break">Privacy</h2>
         <p>
           Mahonia is made by one person. No advertising, and I don’t sell your data. Lists need no
-          account; “My gear” does, and the account holds your email and nothing else. If
+          account; “My Gear” does, and the account holds your email and nothing else. If
           anything here is unclear, email <a :href="`mailto:${CONTACT_EMAIL}`">{{ CONTACT_EMAIL }}</a>.
         </p>
 
@@ -63,7 +63,7 @@ useHead({
           thing you couldn’t type again from memory.
         </p>
         <p>
-          <strong>My gear</strong>, your saved gear, is the one part that needs an account. It holds names,
+          <strong>My Gear</strong>, your saved gear, is the one part that needs an account. It holds names,
           brands and weights, and belongs to you rather than to a browser — so signing in on another
           device brings it with you, and clearing this one doesn’t lose it. Gear reaches it when you
           add something to a list yourself, or import or copy a list. Opening a list someone shared
@@ -132,7 +132,7 @@ useHead({
             server for everyone.
           </li>
           <li>
-            In “My gear”, “Remove” takes a piece of gear out and keeps it out. Signing out
+            In “My Gear”, “Remove” takes a piece of gear out and keeps it out. Signing out
             leaves your gear where it is, ready for the next time you sign in. “Sign out
             everywhere” ends every session on every device, if you ever need it.
           </li>

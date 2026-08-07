@@ -60,6 +60,10 @@ import type { ItemPatch } from "~~/shared/ops";
 import type { NameCommit } from "~/composables/useCatalogSearch";
 import { bySortOrder, effectiveClassification, entryUnitFromInput, formatKcal, formatWeight, fromMg, groupLineMg, itemDisplayName, parseWeightInput, rowDisplayMg, siblingItems, splitWornQty } from "~~/shared/weights";
 import { isWaterName, itemQtyLabel, waterLiters, waterMgFromMl } from "~~/shared/water";
+// the same worthiness + identity rules the capture path runs, so "already banked"
+// below can only ever claim what capture would actually take (statically imported
+// like useGearList's own vaultNormKey — this module is in the editor graph already)
+import { isVaultWorthy, vaultNormKey } from "~~/shared/vault";
 
 // The editor's row — editable by default, a checklist row in packing mode. A nested item
 // renders the SAME row with `nested` set (indented, one level only). The share views
@@ -91,9 +95,11 @@ const props = withDefaults(
 // overlay at the folder's bottom is cropped)
 const emit = defineEmits<{ overlayToggle: [boolean]; toast: [string] }>();
 const c = useGearList();
-// only to tell "your vault is unreachable" from "you don't have one" when banking a
-// row fails — the button itself is offered either way, since signing in is a
-// reasonable answer to pressing it
+// two jobs for the vault button: telling "your vault is unreachable" from "you
+// don't have one" when banking a row fails (the button is offered signed out too,
+// since signing in is a reasonable answer to pressing it), and gating vaultCovered
+// below — signed out, nothing reaches a vault automatically, so no row may claim
+// it's already there
 const { hasVault } = useVaultAccess();
 
 // The two mount latches (each row face mounts the first time its mode is entered and
@@ -718,13 +724,34 @@ function toggleNestMenu() {
 // default and the reason the vault fills itself. What it has never had is a way to
 // SAY so: no button, no confirmation, nothing on the row that admits the feature
 // exists. This is that affordance — the same capture, asked for out loud.
+//
+// And when the automatic path already HAS the row, asking out loud is offering to do
+// what's done — so the button stands down: dimmed, inert, its words flipped to state
+// the fact ("Already in My Gear"). That's true exactly when every gate the automatic
+// path runs is open for this row: there's a vault to reach (signed in), this list's
+// answer is yes (c.vaultAuto), the row qualifies (isVaultWorthy — capture's own
+// rule), and the chooser didn't decline it. Fail any one and the button stays an
+// action, because pressing it is then the only way this row gets banked.
+const vaultCovered = computed(
+  () =>
+    hasVault.value &&
+    c.vaultAuto.value &&
+    isVaultWorthy(props.item, isParent.value) &&
+    !c.vaultDeclined.value.has(vaultNormKey(props.item.brand, props.item.name, props.item.variant)),
+);
 const vaultSaved = ref(false);
 const vaultBusy = ref(false);
 const vaultLabel = computed(() =>
-  vaultSaved.value ? "Saved to My gear" : "Save to My gear",
+  vaultCovered.value
+    ? "Already in My Gear"
+    : vaultSaved.value
+      ? "Saved to My Gear"
+      : "Save to My Gear",
 );
 async function onSaveToVault() {
-  if (vaultBusy.value || vaultSaved.value) return;
+  // covered is a state, not an in-flight press — the button is aria-disabled (not
+  // disabled) so the tooltip stays reachable, which leaves the click to arrive here
+  if (vaultBusy.value || vaultSaved.value || vaultCovered.value) return;
   vaultBusy.value = true;
   const result = await c.saveItemToVault(props.item.id);
   vaultBusy.value = false;
@@ -736,7 +763,7 @@ async function onSaveToVault() {
       // the vault belongs to an account, so signed out there is nowhere to put it.
       // Naming that is the difference between a dead button and a next step.
       : hasVault.value
-        ? "Couldn’t reach My gear — try again in a moment"
+        ? "Couldn’t reach My Gear — try again in a moment"
         : "Sign in to keep your gear",
   );
 }
@@ -754,7 +781,7 @@ watch(
 // is ⋯ · grip, because the icons are --tap wide there and the line has no room for the
 // row's numbers beside more than two of them).
 const overflowActions = computed(() => {
-  const acts: { label: string; run: () => void }[] = [
+  const acts: { label: string; run: () => void; disabled?: boolean }[] = [
     { label: subLabel.value, run: onSubBtn },
   ];
   if (props.nested) acts.push({ label: "Un-nest", run: () => c.unnest(props.item.id) });
@@ -765,9 +792,11 @@ const overflowActions = computed(() => {
   }
   // Reads its own state, like the inline button's tooltip does — "Saved" is the
   // whole feedback here, since a menu closes on choosing and there's no tick left
-  // on screen to see.
+  // on screen to see. Covered rows keep the entry but disabled: on a phone this
+  // menu is the only place that admits capture exists, and "Already in My Gear"
+  // is the admission (a tooltip can't carry it here).
   if (!isWater.value)
-    acts.push({ label: vaultLabel.value, run: onSaveToVault });
+    acts.push({ label: vaultLabel.value, run: onSaveToVault, disabled: vaultCovered.value });
   // LAST, the way the destructive icon sat last in the desktop cluster — a menu is a
   // list you read top to bottom, so the one irreversible entry belongs at the end of
   // it rather than under the thumb. Same words as the icon it replaces ("Remove item",
@@ -1177,18 +1206,28 @@ function dismissFix() {
           <!-- Save to vault. Capture already happens on its own as you build, so this
                isn't a new capability — it's the missing affordance for one that had no
                visible existence. Placed before delete so the destructive action stays
-               last in the cluster. -->
-          <Tooltip :text="vaultLabel" preferred-placement="top">
+               last in the cluster.
+               When the automatic path has this row (vaultCovered), the button stands
+               down and the tooltip says why: "Already in My Gear". aria-disabled, NOT
+               disabled — a natively disabled button leaves the tab order and never
+               fires focusin, so the one tooltip whose whole job is to explain would
+               be unreachable by keyboard (see Tooltip's header for that principle);
+               the click no-ops in onSaveToVault instead.
+               Not on water rows, the same rule the ⋯ menu applies: water is never
+               gear (isVaultWorthy), so the button's only possible outcome there was
+               a toast telling you to weigh a row that has a weight. -->
+          <Tooltip v-if="!isWater" :text="vaultLabel" preferred-placement="top">
             <button
               class="btn btn--icon btn--ghost item__vault-btn"
-              :class="{ 'is-active': vaultSaved }"
+              :class="{ 'is-active': vaultSaved && !vaultCovered }"
               type="button"
               :disabled="vaultBusy"
+              :aria-disabled="vaultCovered || undefined"
               :aria-label="vaultLabel"
               @mousedown.prevent
               @click="onSaveToVault"
             >
-              <HugeiconsIcon :icon="CheckIcon" v-if="vaultSaved" :size="16" :stroke-width="2" />
+              <HugeiconsIcon :icon="CheckIcon" v-if="vaultSaved && !vaultCovered" :size="16" :stroke-width="2" />
               <HugeiconsIcon :icon="SafeBoxIcon" v-else :size="16" :stroke-width="2" />
             </button>
           </Tooltip>
@@ -1234,7 +1273,7 @@ function dismissFix() {
             <Transition name="menu">
               <ul v-if="isMenuOpen" class="popover menu__list item__morelist" role="menu" aria-label="Item actions">
                 <li v-for="a in overflowActions" :key="a.label" role="none">
-                  <button type="button" role="menuitem" class="menu__item" @click="runOverflow(a)">{{ a.label }}</button>
+                  <button type="button" role="menuitem" class="menu__item" :disabled="a.disabled" @click="runOverflow(a)">{{ a.label }}</button>
                 </li>
               </ul>
             </Transition>
@@ -1786,6 +1825,18 @@ function dismissFix() {
   color: var(--ink);
 }
 .item__vault-btn:disabled {
+  cursor: default;
+}
+/* covered by the automatic capture: the .btn:disabled recipe (controls.scss)
+   without the attribute — the button is aria-disabled so it keeps hover and
+   focus, which is what lets the tooltip explain the state. The hover darkening
+   above, the ghost wash and the :active dip all stand down with it. */
+.item__vault-btn[aria-disabled="true"],
+.item__vault-btn[aria-disabled="true"]:hover,
+.item__vault-btn[aria-disabled="true"]:active {
+  color: var(--ink-3);
+  background: none;
+  opacity: 0.3;
   cursor: default;
 }
 /* drag-to-reorder */

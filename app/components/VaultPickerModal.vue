@@ -62,10 +62,10 @@ const groups = computed(() => {
 <template>
   <BaseModal :open="!!caps" label="Choose which gear is yours" @close="emit('cancel')">
     <template v-if="caps">
-      <h2 class="t-label">Add to My gear</h2>
+      <h2 class="t-label">Add to My Gear</h2>
       <p class="t-sm t-muted dlg__lede">
         You didn’t start this list, so some of it may not be your gear. Untick anything that
-        isn’t — you can change it later on the My gear page.
+        isn’t — you can change it later on the My Gear page.
       </p>
 
       <div class="vpick__bar">
@@ -89,7 +89,7 @@ const groups = computed(() => {
                 type="checkbox"
                 class="check__box"
                 :checked="keep.has(c.normKey)"
-                :aria-label="`Add ${itemDisplayName(c.brand, c.name, c.variant)} to My gear`"
+                :aria-label="`Add ${itemDisplayName(c.brand, c.name, c.variant)} to My Gear`"
                 @change="toggle(c.normKey)"
               />
               <HugeiconsIcon :icon="SquareIcon" class="check__icon check__icon--empty" :size="20" :stroke-width="1.33" absolute-stroke-width aria-hidden="true" />

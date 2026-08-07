@@ -5,7 +5,7 @@
 const year = new Date().getFullYear();
 
 // `inToolbar` is set by the EDITOR, which carries "Your lists" (the switcher) and
-// "My gear" in its own top bar. Repeating them three inches below is a second
+// "My Gear" in its own top bar. Repeating them three inches below is a second
 // copy of a control you can already see. Deliberately a prop rather than a route
 // check: the footer shouldn't know which pages exist, and a page that later grows
 // its own toolbar can say so the same way.
@@ -15,7 +15,7 @@ const year = new Date().getFullYear();
 // drop them at every width too.
 const { inToolbar = false } = defineProps<{ inToolbar?: boolean }>();
 
-// "My gear" is signed-in chrome, and the last link here that needs a condition.
+// "My Gear" is signed-in chrome, and the last link here that needs a condition.
 // The vault IS the account (see useSession: it's the only reason accounts exist),
 // so offering a stranger "my gear" on a friend's shared list points at something
 // that cannot exist yet. Lists never needed the same gate — they live in a
@@ -55,11 +55,11 @@ const here = (p: string) => route.path === p;
              are the editor's switcher now — and a footer link is the wrong shape for a
              control that lives in a toolbar. Nothing replaces it: every route that
              renders this footer is one click from the editor already.
-             "My gear" is the surface's name, not a possessive stacked on one. It
+             "My Gear" is the surface's name, not a possessive stacked on one. It
              appears only for an account (see `known` above), and isn't gated on
              whether you HOLD any gear — the page explains itself when empty, and that
              read is device-local, so gating on it would flicker for no gain. -->
-        <NuxtLink v-if="!inToolbar && known && !here('/vault')" to="/vault" class="foot__link t-sm">My gear</NuxtLink>
+        <NuxtLink v-if="!inToolbar && known && !here('/vault')" to="/vault" class="foot__link t-sm">My Gear</NuxtLink>
         <NuxtLink v-if="!here('/about')" to="/about" class="foot__link t-sm">About</NuxtLink>
         <NuxtLink v-if="!here('/legal')" to="/legal" class="foot__link t-sm">Legal</NuxtLink>
       </nav>
