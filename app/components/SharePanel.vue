@@ -20,6 +20,10 @@ import type { ListSnapshot } from "~~/shared/types";
 const props = defineProps<{
   snapshot: ListSnapshot;
   editToken: string;
+  /** The capability as request headers — Bearer for a held link, the list-code
+   *  header for a claimed open. Built by the editor (which owns the capability)
+   *  so this panel can't grow a second opinion about auth. */
+  authHeaders: Record<string, string>;
   readUrl: string;
   editUrl: string;
 }>();
@@ -30,9 +34,14 @@ const emit = defineEmits<{
   rotate: [];
 }>();
 
-// A draft has no share code and no token until its first real item lands, so every
-// link here would be broken. Say so once, rather than four disabled rows.
-const isDraft = computed(() => !props.snapshot.shareCode || !props.editToken);
+// A draft has no share code until its first real item lands, so every link here
+// would be broken. Say so once, rather than four disabled rows.
+const isDraft = computed(() => !props.snapshot.shareCode);
+// A CLAIMED open is saved and shareable, but this device holds no edit link to
+// print — the server only ever stored its hash. The edit-link section says so and
+// offers "replace" (a rotate hands this device the fresh link) instead of showing
+// an empty field with a Copy button that copies nothing.
+const holdsEditLink = computed(() => !!props.editToken);
 
 /**
  * Clicking a link field takes the whole link, not a caret.
@@ -70,11 +79,11 @@ const now = ref(Date.now());
 const activityOpen = ref(false);
 
 async function loadActivity() {
-  if (!props.editToken) return;
+  if (isDraft.value) return; // no server row yet — nothing to list
   activityState.value = "loading";
   try {
     const res = await $fetch<{ snapshots: SnapshotMeta[] }>("/api/edit/snapshots", {
-      headers: { Authorization: `Bearer ${props.editToken}` },
+      headers: props.authHeaders,
     });
     activity.value = res.snapshots ?? [];
     now.value = Date.now();
@@ -163,21 +172,31 @@ function changeLabel(i: number): string {
 
       <section class="share__field">
         <h3 class="t-label share__subtitle">Edit link</h3>
-        <div class="share__inputrow">
-          <input
-            class="share__input"
-            :value="editUrl"
-            readonly
-            tabindex="-1"
-            :aria-label="'Edit link'"
-            @focus="selectAll"
-            @click="selectAll"
-          />
-          <button type="button" class="btn btn--quiet share__act" @click="emit('copyEdit')">
-            <HugeiconsIcon :icon="Copy01Icon" :size="14" :stroke-width="2" /> Copy
-          </button>
-        </div>
-        <p class="t-sm t-muted share__hint">Anyone with it can change this list.</p>
+        <template v-if="holdsEditLink">
+          <div class="share__inputrow">
+            <input
+              class="share__input"
+              :value="editUrl"
+              readonly
+              tabindex="-1"
+              :aria-label="'Edit link'"
+              @focus="selectAll"
+              @click="selectAll"
+            />
+            <button type="button" class="btn btn--quiet share__act" @click="emit('copyEdit')">
+              <HugeiconsIcon :icon="Copy01Icon" :size="14" :stroke-width="2" /> Copy
+            </button>
+          </div>
+          <p class="t-sm t-muted share__hint">Anyone with it can change this list.</p>
+        </template>
+        <!-- the claimed-open case: opened from the account, no link held here.
+             Honest about why there's nothing to copy; the replace action below is
+             the way to mint one on this device (and it cuts off the old link, the
+             same trade it has always been). -->
+        <p v-else class="t-sm t-muted share__hint">
+          Opened from your account — this device doesn’t hold the edit link.
+          Replacing it creates a new link here and stops the old one working.
+        </p>
         <!-- revocation is a quiet text link under the thing it revokes, not a row of
              its own — it belongs to this link, and giving it equal weight to the two
              copies made replacing your link look like a normal next step -->

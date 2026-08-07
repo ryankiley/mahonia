@@ -120,12 +120,16 @@ describe("a route never rides a read path", () => {
 describe("…but the OWNER still gets it back", () => {
   const src = readFileSync(`${ROOT}server/utils/listRepo.ts`, "utf8");
 
-  // every function that answers an edit token or mints a list — i.e. talks to an owner
+  // Every function that answers an edit CAPABILITY or mints a list — i.e. talks to
+  // an owner. These are the hash cores: the ByEditToken names are one-line wrappers
+  // that hash and delegate (see listRepo's findByEditHash precedent), so the bodies
+  // this test reads — and the owner-only guarantee — live here, and the same body
+  // now serves both ways in (bearer token, or session + claimed code via editAuth).
   const OWNER_PATHS = [
-    "getByEditToken",
+    "getByEditHash",
     "createList",
-    "applyOpsByEditToken",
-    "restoreSnapshotByEditToken",
+    "applyOpsByEditHash",
+    "restoreSnapshotByEditHash",
   ];
 
   const bodyOf = (name: string) => {
@@ -166,7 +170,7 @@ describe("…but the OWNER still gets it back", () => {
     // chain. Geometry is the opposite case: it rides the chain, it is the one field an
     // owner cannot retype, and omitting the write would NULL it on every restore — the
     // exact bug trailProfile already had.
-    expect(bodyOf("restoreSnapshotByEditToken")).toMatch(/routeGeometry:\s*s\.routeGeometry/);
+    expect(bodyOf("restoreSnapshotByEditHash")).toMatch(/routeGeometry:\s*s\.routeGeometry/);
   });
 
   it("normalizeListData carries waypoints, or a restore drops every one", () => {

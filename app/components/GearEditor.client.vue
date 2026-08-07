@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { HugeiconsIcon, type IconNode } from "~/utils/hugeicon";
 import { Backpack02Icon, Cancel01Icon, CheckmarkSquare02Icon, ChevronDownIcon, Copy01Icon, Delete02Icon, EllipsisIcon, FileExportIcon, FileImportIcon, Message01Icon, NoteAddIcon, RemoveCircleIcon, Route02Icon, SafeBoxIcon, Share08Icon, Undo02Icon } from "@hugeicons/core-free-icons";
-import { editLinkPath } from "~~/shared/links";
+import { editLinkPath, normalizeShareCode } from "~~/shared/links";
 import { tripHeadline } from "~~/shared/trailDistance";
 import { formatWeight } from "~~/shared/weights";
 import type { Item, Unit } from "~~/shared/types";
@@ -17,6 +17,7 @@ import { bySortOrder, groupItemsByFolder, groupItemsByParent, ungroupedTopLevel 
 const c = useGearList();
 const router = useRouter();
 const my = useMyLists();
+const session = useSession();
 // app-wide dialogs (replace native confirm()/the copy dead-end) — see useDialogs
 const { confirm: askConfirm, showLinkFallback } = useDialogs();
 
@@ -26,6 +27,10 @@ const status = c.status;
 const pendingUndo = c.pendingUndo;
 const vaultPrompt = c.vaultPrompt;
 const vaultPicker = c.vaultPicker;
+// whether the open list is a CLAIMED one (session + share code, no edit token on
+// this device) — the reactive flag the chrome gates on, since c.editToken is a
+// plain getter nothing can track
+const openedByCode = c.openedByCode;
 
 // First-run / returning-user helper: an untouched draft (not yet saved to the
 // server, no named item — the starter draft ships one blank row) shows a one-line
@@ -135,7 +140,7 @@ const NO_ITEMS: Item[] = [];
 // `packed` survives as a COMPUTED, so the prop threaded down to FolderSection keeps its
 // exact old contract — the folder chrome still only ever asks "am I a checklist?", and
 // stays ignorant that planning exists.
-const { mode, switching: modeSwitching } = useEditorMode();
+const { mode, everPlan, switching: modeSwitching } = useEditorMode();
 const packed = computed(() => mode.value === "pack");
 
 /**
@@ -208,6 +213,15 @@ const vaultOpen = ref(false);
 const VAULT_W_KEY = "gear.vault.width.v1";
 const vaultWidth = ref(clampVaultWidth(Number(localStorage.getItem(VAULT_W_KEY))));
 watch(vaultWidth, (w) => remember(VAULT_W_KEY, String(w)));
+// The width lands on the editor root as an inherited custom property — but written
+// imperatively, NOT as a template :style binding: only CSS consumes this value, and a
+// binding made every change re-render this whole component for a style write. During a
+// divider drag VaultPane writes the SAME property on the same element per frame (see
+// startResize there) and commits the ref once on release, so a resize renders nothing.
+const editorRef = ref<HTMLElement | null>(null);
+watchPostEffect(() => {
+  editorRef.value?.style.setProperty("--vault-w", `${vaultWidth.value}px`);
+});
 // packing progress — rows checked / rows total (a row is one check, whatever its qty)
 const packProgress = computed(() => {
   const items = snapshot.value?.items ?? [];
@@ -273,27 +287,40 @@ const route = useRoute();
 // no-op when the session is no longer ours, instead of tearing down the newer
 // instance's in-flight load (which stranded the editor on "Loading…").
 let ownedEpoch: number | undefined;
-// Tear down whatever session this instance owns and start the one `token` names (or a
+// Tear down whatever session this instance owns and start the one `cap` names (or a
 // fresh draft when it names none), re-capturing the epoch. The ordering is the whole
 // point — see the note above — so it lives in ONE place, called by the route watcher
 // and by newList's in-place reset alike.
-function startSession(token?: string) {
+function startSession(cap?: { token?: string; code?: string }) {
   c.dispose(ownedEpoch);
-  if (token) c.load(token);
+  if (cap?.token || cap?.code) c.load(cap);
   else c.startDraft();
   ownedEpoch = c.epoch; // load()/startDraft() mint their epoch synchronously
 }
 // Drive load off the reactive hash so back/forward + same-route nav between two
 // of your lists dispose+reload correctly (the editor singleton holds one list).
+// The route's CODE param joins the source: a claimed list opened from the switcher
+// is /e/{code} with no fragment at all, so switching between two claimed lists
+// moves only the param.
 watch(
-  () => route.hash,
-  (h) => {
+  () => [route.hash, route.params.code] as const,
+  ([h, codeParam]) => {
     // decode HERE, not inside startSession: a malformed hash ("#%") throws, and that
     // throw must land before the dispose, exactly as it always has.
     // first run: ownedEpoch is undefined → dispose is unconditional, clearing (and
     // flushing) whatever session a previous page instance left behind
     const token = decodeURIComponent((h || "").replace(/^#/, ""));
-    startSession(token); // no token = a fresh, unsaved draft (persists on first real content)
+    if (token) return startSession({ token });
+    // No token, but a code in the path: a claimed list — IF a session plausibly
+    // exists (the hint cookie; the fetch itself is what proves it). For everyone
+    // else /e/{code} without a fragment stays what it always was — a truncated
+    // link landing on a fresh draft — rather than a doomed request per visit.
+    // Normalized HERE as well as in load(): a path segment that can't be a share
+    // code at all (/e/garbage) falls through to the draft for the signed-in too,
+    // instead of spending a request to be told 401.
+    const code = normalizeShareCode(typeof codeParam === "string" ? codeParam : "");
+    if (code && session.hasSessionHint()) return startSession({ code });
+    startSession(); // a fresh, unsaved draft (persists on first real content)
   },
   { immediate: true },
 );
@@ -391,6 +418,10 @@ function copyShare() {
   copy(`${origin()}/s/${snapshot.value.shareCode}`, "Read-only link copied", "Read-only link");
 }
 async function copyEditLink() {
+  // a claimed open holds no edit link to copy — the server only ever stored its
+  // hash, so this device can't produce one without rotating (which mints a new one)
+  if (!c.editToken && c.claimCode)
+    return flash("This device doesn’t hold the edit link — replace it in Sharing to get one");
   if (!c.editToken) return flash("Add an item first to get an edit link");
   if (!(await askConfirm({
     title: "Copy edit link",
@@ -495,8 +526,11 @@ async function forgetThisList() {
 }
 
 async function deleteThisList() {
+  // one capability or the other — a claimed open deletes through the session
+  // (see useClaimedLists.deleteClaimed), a held link through the token path
   const token = c.editToken;
-  if (!token) return;
+  const code = token ? "" : c.claimCode;
+  if (!token && !code) return;
   if (!(await askConfirm({
     title: "Delete this list",
     message: `Delete “${savedListTitle(snapshot.value?.title ?? "")}” for everyone? Anyone with the link will lose it, and this can’t be undone.`,
@@ -511,11 +545,14 @@ async function deleteThisList() {
   c.dispose(ownedEpoch);
   // Straight into a fresh draft: you came here to work on a list, and the one you
   // were on is gone. `replace`, so Back doesn't return to it.
-  if (await my.deleteList(token)) return newList({ replace: true });
+  const deleted = token
+    ? await my.deleteList(token)
+    : await useClaimedLists().deleteClaimed(code);
+  if (deleted) return newList({ replace: true });
   // Offline, or the server refused: nothing was deleted, so put the editor back where
-  // it was. The teardown above wrote the list to this device, so reopening the token
-  // restores both the snapshot and whatever hadn't drained out of the queue.
-  startSession(token);
+  // it was. The teardown above wrote the list to this device, so reopening the
+  // capability restores both the snapshot and whatever hadn't drained out of the queue.
+  startSession(token ? { token } : { code });
   flash("Couldn’t delete that list. Check your connection and try again.");
 }
 
@@ -545,7 +582,11 @@ const missingEntry = computed(() =>
 const missingMessage = computed(() =>
   missingEntry.value
     ? `“${savedListTitle(missingEntry.value.title)}” can’t be opened anymore. It may have been deleted, or its edit link changed.`
-    : "This list isn’t in this browser, or the link is invalid.",
+    : openedByCode.value
+      // a claimed open that 404'd/401'd: the list left the account's reach, or the
+      // session did — the two things a person can actually check from here
+      ? "This list couldn’t be opened from your account. It may have been deleted, or you may need to sign in again on this device."
+      : "This list isn’t in this browser, or the link is invalid.",
 );
 async function forgetMissingList() {
   // capture before dispose() blanks c.editToken (which empties missingEntry too)
@@ -688,9 +729,9 @@ function onCorrected(res: { status: string; itemName?: string }) {
 
 <template>
   <div
+    ref="editorRef"
     class="editor"
     :class="{ 'editor--centered': !(snapshot && totals), 'editor--split': vaultOpen }"
-    :style="{ '--vault-w': `${vaultWidth}px` }"
   >
     <!-- the editor's page heading — visually the title input carries it, but a
          real (hidden) h1 gives AT users a page title on this client-only view -->
@@ -766,6 +807,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
                 v-if="shareOpen && snapshot"
                 :snapshot="snapshot"
                 :edit-token="c.editToken"
+                :auth-headers="c.authHeaders()"
                 :read-url="snapshot.shareCode ? `${origin()}/s/${snapshot.shareCode}` : ''"
                 :edit-url="c.editToken ? `${origin()}${editLinkPath(snapshot.shareCode, c.editToken)}` : ''"
                 @close="shareOpen = false"
@@ -847,8 +889,12 @@ function onCorrected(res: { status: string; itemName?: string }) {
                   <!-- Gentler first. The two escalate — off this device, then off the
                        internet — and reading them in that order is what makes the
                        second one land as the bigger of the pair rather than as
-                       another way to do the first. -->
+                       another way to do the first.
+                       Forget is a device act — it drops this browser's registry row
+                       and copy — so a claimed open (which has neither) doesn't offer
+                       it; Delete works either way in (session or token). -->
                   <button
+                    v-if="!openedByCode"
                     type="button"
                     data-row
                     role="menuitem"
@@ -919,8 +965,12 @@ function onCorrected(res: { status: string; itemName?: string }) {
         title="Change unit"
         @pick="headline.pick"
       />
+      <!-- v-show, not v-if: presence is constant, visibility follows the mode — so
+           leaving planning doesn't rebuild the bar (it's stateless, but its remount rode
+           every plan exit's flush). display:none skips it in layout and the a11y tree
+           exactly as absence did, and the flex gap collapses with it. -->
       <TotalsBar
-        v-if="mode !== 'plan'"
+        v-show="mode !== 'plan'"
         :headline="false"
         :list="snapshot"
         :totals="totals"
@@ -980,16 +1030,20 @@ function onCorrected(res: { status: string; itemName?: string }) {
 
       <!-- The plan. Lazy on purpose: the panel pulls in the trip model, and planning is a
            mode most visits never enter — it has no business on the editor's first load.
+           The everPlan latch keeps that laziness while ending the rebuild: the panel
+           mounts on the FIRST entry into planning and then stays, and every switch after
+           that is the data-mode CSS reveal below — the same move the rows and the pack
+           bar make, for the same reason (a Vue Transition's leave forces a synchronous
+           reflow mid-patch, and unmounting rebuilt the whole panel per visit). Staying
+           mounted is also what lets the route map keep its pan and zoom across switches.
 
            Its OWN reveal, not the pack bar's, though the slide is the same. That recipe
            clips its child permanently, which is right for a one-line bar and wrong here:
            the elevation chart's hover readout is positioned above the chart's own box, so
            a standing clip cut the reading off. This one clips only while it moves. -->
-      <Transition name="planreveal">
-        <div v-if="mode === 'plan' && snapshot && totals" class="planreveal">
-          <LazyTrailPlanPanel :snapshot="snapshot" :totals="totals" />
-        </div>
-      </Transition>
+      <div v-if="everPlan && snapshot && totals" class="planreveal">
+        <LazyTrailPlanPanel :snapshot="snapshot" :totals="totals" />
+      </div>
 
       <!-- The gear stands down while you plan. Planning asks a different question of the
            same list — how the trip breaks into days and what the pack weighs on each — and
@@ -1211,29 +1265,48 @@ function onCorrected(res: { status: string; itemName?: string }) {
   margin-bottom: 0;
 }
 
-/* The plan's reveal: the pack bar's slide without its standing clip — see the template. */
+/* The plan's reveal: the pack bar's slide without its standing clip — see the template.
+   Keyed on the body's data-mode like the pack bar, not on enter/leave classes. The
+   at-rest hidden state is display:none — the panel leaves layout, paint, the a11y tree
+   AND the body's flex gap exactly as unmounting did — and the slide still runs both
+   ways because display rides the transition as a discrete property: entering flips it
+   to grid at the transition's start, leaving holds grid until the fade lands. Browsers
+   without allow-discrete just snap between the same two correct states. */
+/* both display gates carry !important — the #210 lesson: a mode gate on a latched
+   element competes with every later layout rule on it, and importance is what holds
+   that line (transitions still outrank importance in the cascade, so the discrete
+   display animation above is unaffected) */
 .planreveal {
-  display: grid;
+  display: none !important;
   grid-template-rows: 1fr;
+  transition:
+    grid-template-rows var(--dur) var(--ease),
+    opacity var(--dur) var(--ease),
+    display var(--dur) allow-discrete;
+}
+.editor__body[data-mode="plan"] .planreveal {
+  display: grid !important;
+}
+.editor__body:not([data-mode="plan"]) .planreveal {
+  grid-template-rows: 0fr;
+  opacity: 0;
 }
 .planreveal > * {
   min-height: 0;
 }
-/* the clip exists ONLY while the rows are moving, which is the only time it is needed */
-.planreveal-enter-active > *,
-.planreveal-leave-active > * {
+/* the clip exists ONLY while the rows are moving, which is the only time it is needed —
+   the switch beat (is-rowswitching, 250ms) comfortably covers the 200ms slide */
+.editor__body.is-rowswitching .planreveal > * {
   overflow: hidden;
 }
-.planreveal-enter-active,
-.planreveal-leave-active {
-  transition:
-    grid-template-rows var(--dur) var(--ease),
-    opacity var(--dur) var(--ease);
-}
-.planreveal-enter-from,
-.planreveal-leave-to {
-  grid-template-rows: 0fr;
-  opacity: 0;
+/* entering plays the same 0fr→1fr slide the old <Transition> enter played. Gated on the
+   switch beat so a page LOADED in planning mounts at rest — the old no-`appear`
+   behavior — while a real switch (beat active) starts from the collapsed state. */
+@starting-style {
+  .editor__body.is-rowswitching[data-mode="plan"] .planreveal {
+    grid-template-rows: 0fr;
+    opacity: 0;
+  }
 }
 /* The title block (name + trail link) belongs to ListHead.vue — it owns its own layout
    so the hover affordance, the title, and the link keep one DOM order. */

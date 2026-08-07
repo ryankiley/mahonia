@@ -5,9 +5,11 @@
 // answer different questions: the registry is "what does this browser hold the
 // edit link for", which still works signed-out and offline; this is "what does
 // this account hold", which survives a cleared browser and a new device. A list
-// usually appears in both. Nothing merges them for display today — the retired
-// /mine page never did either, despite this comment once claiming it.
+// usually appears in both. The list switcher merges the two for display — one row
+// per list, device rows winning the collision (shared/switcher.ts).
 
+import { LIST_CODE_HEADER } from "~~/shared/links";
+import { claimedLocalKey } from "~~/shared/localList";
 import type { Unit } from "~~/shared/types";
 
 export interface ClaimedList {
@@ -117,6 +119,36 @@ export function useClaimedLists() {
     }
   }
 
+  /** Mirror an edit made THROUGH a claimed open onto its row here, so the switcher
+   *  reads the new title/total straight away instead of one refetch later — the
+   *  claimed-side twin of useMyLists().touch(). In-memory only: the server already
+   *  holds the truth (the edit just saved to it), and the next refresh re-reads it. */
+  function touchByCode(
+    shareCode: string,
+    patch: Partial<Pick<ClaimedList, "title" | "version" | "totalMg" | "displayUnit">>,
+  ): void {
+    lists.value = lists.value.map((l) => (l.shareCode === shareCode ? { ...l, ...patch } : l));
+  }
+
+  /** Delete a claimed list via the session (no edit token on this device — the
+   *  code names it, the cookie proves it; see server/utils/editAuth). Same 404
+   *  contract as useMyLists().deleteList: already-gone counts as done, any other
+   *  failure leaves everything standing so the user can retry. */
+  async function deleteClaimed(shareCode: string): Promise<boolean> {
+    try {
+      await $fetch("/api/edit/delete", {
+        method: "POST",
+        headers: { [LIST_CODE_HEADER]: shareCode },
+      });
+    } catch (e) {
+      if ((e as { statusCode?: number })?.statusCode !== 404) return false;
+    }
+    lists.value = lists.value.filter((l) => l.shareCode !== shareCode);
+    // drop the claimed open's on-device copy too — the list is gone for good
+    useLocalListStore().del(claimedLocalKey(shareCode));
+    return true;
+  }
+
   /** Detach a list from the account. The list itself is untouched — anyone holding
    *  its edit link, this user included, can still open it. */
   async function unclaim(shareCode: string): Promise<boolean> {
@@ -145,5 +177,15 @@ export function useClaimedLists() {
     loaded.value = false;
   }
 
-  return { lists, loaded, refresh, claimDeviceLists, claimOne, unclaim, resetClaimMark };
+  return {
+    lists,
+    loaded,
+    refresh,
+    claimDeviceLists,
+    claimOne,
+    touchByCode,
+    deleteClaimed,
+    unclaim,
+    resetClaimMark,
+  };
 }

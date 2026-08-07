@@ -37,20 +37,36 @@ const width = defineModel<number>("width", { required: true });
 // The width lands on an INHERITED custom property on the editor root, so each write
 // restyles the whole editor subtree and reflows it. One write per frame is all that
 // can be seen, so the moves coalesce through rAF instead of writing per event.
+// The per-frame write is IMPERATIVE — straight onto the editor root's style, plus
+// the divider's aria-valuenow — because only CSS (and AT) consume it mid-drag.
+// Routing it through the `width` model instead re-rendered this whole pane AND the
+// editor every frame just to deliver a number to a style attribute. The model commits
+// once, on release, which is also when the editor persists it.
 let endResize = () => {};
 function startResize(ev: PointerEvent) {
   ev.preventDefault();
-  (ev.currentTarget as HTMLElement).setPointerCapture?.(ev.pointerId);
+  const divider = ev.currentTarget as HTMLElement;
+  try {
+    divider.setPointerCapture?.(ev.pointerId);
+  } catch {
+    /* pointer already gone (or synthetic) — plain window listeners still track it */
+  }
+  // the pane lives inside the editor root that owns --vault-w
+  const editorEl = divider.closest(".editor") as HTMLElement | null;
   // the viewport can't change mid-drag, so read it once rather than forcing layout
   // on every move
   const vw = window.innerWidth;
   let frame = 0;
   let pendingX = ev.clientX;
+  let moved = false;
   const onMove = (e: PointerEvent) => {
     pendingX = e.clientX;
+    moved = true;
     frame ||= requestAnimationFrame(() => {
       frame = 0;
-      width.value = clampVaultWidth(vw - pendingX);
+      const w = clampVaultWidth(vw - pendingX);
+      editorEl?.style.setProperty("--vault-w", `${w}px`);
+      divider.setAttribute("aria-valuenow", String(w));
     });
   };
   // named, so removeEventListener gets the SAME reference that was registered
@@ -61,6 +77,9 @@ function startResize(ev: PointerEvent) {
     window.removeEventListener("pointercancel", stop);
     document.body.style.userSelect = "";
     endResize = () => {};
+    // commit once — a press that never moved must not nudge the width by the
+    // divider-center offset (the old per-frame flow only wrote after a move too)
+    if (moved) width.value = clampVaultWidth(vw - pendingX);
   };
   endResize = stop;
   document.body.style.userSelect = "none";

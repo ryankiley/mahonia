@@ -22,15 +22,17 @@
 
 import type { H3Event } from "h3";
 import { createError, getHeader } from "h3";
+import { LIST_CODE_HEADER } from "../../shared/links";
 import { resolveSession } from "./authSession";
 import { claimedEditHash } from "./claimRepo";
 import { useVaultDb } from "./db";
 import { sha256Hex } from "./tokens";
 
-/** The header naming which claimed list a session-authorised request means. Not a
- *  secret — the share code is the public read link — so it's safe in a header that
- *  proxies may log, unlike the edit token (which is why THAT one is a Bearer). */
-export const LIST_CODE_HEADER = "x-list-code";
+// The header naming which claimed list a session-authorised request means lives in
+// shared/links (LIST_CODE_HEADER) — the client sends it, this file reads it, and a
+// shared constant is what keeps the two spellings from drifting. Not a secret —
+// the share code is the public read link — so it's safe in a header that proxies
+// may log, unlike the edit token (which is why THAT one is a Bearer).
 
 /**
  * Resolve the caller's write capability to a list, as an `edit_token_hash`.

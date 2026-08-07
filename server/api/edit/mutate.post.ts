@@ -1,6 +1,6 @@
 import { createError, defineEventHandler, setHeader } from "h3";
-import { applyOpsByEditToken } from "../../utils/listRepo";
-import { requireEditToken } from "../../utils/auth";
+import { applyOpsByEditHash } from "../../utils/listRepo";
+import { requireEditHash } from "../../utils/editAuth";
 import { readJsonBodyCapped } from "../../utils/http";
 import { rateLimit } from "../../utils/rateLimit";
 import type { Op } from "../../../shared/ops";
@@ -8,7 +8,7 @@ import type { Op } from "../../../shared/ops";
 export default defineEventHandler(async (event) => {
   setHeader(event, "X-Robots-Tag", "noindex");
   await rateLimit(event, "mutate");
-  const token = requireEditToken(event);
+  const hash = await requireEditHash(event);
   const body = await readJsonBodyCapped<{ ops?: Op[] }>(event, 512_000);
   const ops = Array.isArray(body?.ops) ? body.ops : [];
   if (!ops.length) throw createError({ statusCode: 400, statusMessage: "No ops" });
@@ -22,7 +22,7 @@ export default defineEventHandler(async (event) => {
   // and anything larger hits the 512KB body cap above anyway (~60-150 B/op).
   if (ops.length > 4000) throw createError({ statusCode: 400, statusMessage: "Too many ops" });
 
-  const snapshot = await applyOpsByEditToken(token, ops);
+  const snapshot = await applyOpsByEditHash(hash, ops);
   if (!snapshot) throw createError({ statusCode: 404, statusMessage: "Not found" });
   return { snapshot };
 });

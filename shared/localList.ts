@@ -20,6 +20,14 @@ export const DRAFT_KEY = "__draft__";
 /** IndexedDB key for a list: its edit token, or the draft slot before first save. */
 export const localKey = (editToken: string): string => editToken || DRAFT_KEY;
 
+/** IndexedDB key for a CLAIMED open — a list reached by share code + session, with
+ *  no edit token on this device. Prefixed so it can never collide with a token
+ *  (tokens are base64url and never contain ":"). A device that later opens the
+ *  same list's edit link gets a separate record under the token, which is fine:
+ *  the claimed record simply goes quiet, and re-opening by claim drains any queue
+ *  it was still holding. */
+export const claimedLocalKey = (shareCode: string): string => `code:${shareCode}`;
+
 /**
  * Rebase un-acked local ops onto the authoritative server snapshot — the same
  * merge the editor's flush() does, but returning a fresh object so the server

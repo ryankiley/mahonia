@@ -47,9 +47,12 @@ let singleton: ReturnType<typeof create> | undefined;
 
 function create() {
   const drop = ref<DropTarget | null>(null);
-  // live vertical offset of the lifted row from where it was picked up, so the dragged
-  // item visibly tracks the pointer (the "carry" feel) instead of just dimming. Pixels.
-  const dy = ref(0);
+  // The lifted row's wrap element for the gesture in flight. Its vertical offset from
+  // the pickup point (the "carry" feel) is written straight onto it as --drag-dy every
+  // move — an imperative style write, not a ref: only the row's own CSS transform
+  // consumes it, and routing it through reactivity re-rendered the whole dragged row
+  // per pointermove just to deliver a number to a style attribute.
+  let dragEl: HTMLElement | null = null;
   let startY = 0;
   let startX = 0;
   // the insert commit for the gesture in flight, when it came from outside the list.
@@ -92,7 +95,7 @@ function create() {
 
   const drag = createPointerDrag<DropTarget>({
     track(ev, el, dragId) {
-      dy.value = ev.clientY - startY;
+      dragEl?.style.setProperty("--drag-dy", `${ev.clientY - startY}px`);
 
       // ---- inserting from outside: no row to reorder, so no nesting and no sibling
       // flow. Land it at a top-level slot in whatever folder is under the pointer. ----
@@ -180,11 +183,14 @@ function create() {
       drop.value = null;
       startY = ev.clientY;
       startX = ev.clientX;
-      dy.value = 0;
+      // an inserting drag has no row in the list to lift; a reorder starts on the
+      // row's own grip, so the wrap is always an ancestor of the press target
+      dragEl = pendingInsert ? null : ((ev.target as HTMLElement).closest?.<HTMLElement>(".item-wrap") ?? null);
     },
     onReset() {
       drop.value = null;
-      dy.value = 0;
+      dragEl?.style.removeProperty("--drag-dy");
+      dragEl = null;
       pendingInsert = undefined;
     },
   });
@@ -199,7 +205,7 @@ function create() {
     drag.start(INSERT_SOURCE, ev);
   }
 
-  return { dragId: drag.dragId, drop, dy, start: drag.start, startInsert, reset: drag.reset };
+  return { dragId: drag.dragId, drop, start: drag.start, startInsert, reset: drag.reset };
 }
 
 export function useItemDnd() {

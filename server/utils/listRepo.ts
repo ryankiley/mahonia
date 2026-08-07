@@ -457,13 +457,13 @@ export interface SnapshotMeta {
   itemCount: number;
 }
 
-/** List a list's recovery points (newest first), edit-token-gated. */
-export async function listSnapshotsByEditToken(
-  editToken: string,
+/** List a list's recovery points (newest first), capability-gated (see editAuth). */
+export async function listSnapshotsByEditHash(
+  editHash: string,
   db?: Db,
 ): Promise<SnapshotMeta[] | null> {
   const d = db ?? (await useDb());
-  const row = await findByEditToken(editToken, d);
+  const row = await findByEditHash(editHash, d);
   if (!row) return null;
   await ensureSnapshotSchema(d);
   // partial select: this listing never reads the `snapshot` JSONB (the largest
@@ -489,6 +489,13 @@ export async function listSnapshotsByEditToken(
   }));
 }
 
+export async function listSnapshotsByEditToken(
+  editToken: string,
+  db?: Db,
+): Promise<SnapshotMeta[] | null> {
+  return listSnapshotsByEditHash(sha256Hex(editToken), db);
+}
+
 /**
  * Restore a list to one of its snapshots (edit-token-gated). The overwritten
  * pre-restore state is snapshotted ("before restore") so a restore is itself
@@ -496,13 +503,13 @@ export async function listSnapshotsByEditToken(
  * null when the token or snapshot id doesn't resolve to THIS caller's list (→ 404,
  * no cross-list oracle).
  */
-export async function restoreSnapshotByEditToken(
-  editToken: string,
+export async function restoreSnapshotByEditHash(
+  editHash: string,
   snapshotId: number,
   db?: Db,
 ): Promise<ListSnapshot | null> {
   const d = db ?? (await useDb());
-  const owner = await findByEditToken(editToken, d);
+  const owner = await findByEditHash(editHash, d);
   if (!owner) return null;
   await ensureSnapshotSchema(d);
   // verify the snapshot is THIS caller's list (no cross-list oracle), then
@@ -542,7 +549,7 @@ export async function restoreSnapshotByEditToken(
   // be silently lost — and snapshot the overwritten state, so that edit is itself
   // recoverable.
   for (let attempt = 0; attempt < 5; attempt++) {
-    const row = await findByEditToken(editToken, d);
+    const row = await findByEditHash(editHash, d);
     if (!row) return null;
     const updated = await d
       .update(lists)
@@ -599,6 +606,14 @@ export async function restoreSnapshotByEditToken(
     // version moved under us — retry against the latest
   }
   throw createError({ statusCode: 409, statusMessage: "Restore contention — retry" });
+}
+
+export async function restoreSnapshotByEditToken(
+  editToken: string,
+  snapshotId: number,
+  db?: Db,
+): Promise<ListSnapshot | null> {
+  return restoreSnapshotByEditHash(sha256Hex(editToken), snapshotId, db);
 }
 
 /**
@@ -672,21 +687,32 @@ function withOwnerOnly(snap: ListSnapshot, row: ListRow): ListSnapshot {
   return snap;
 }
 
-export async function getByEditToken(editToken: string): Promise<ListSnapshot | null> {
+// Hash-first like findByEditHash, and for the same reason: the edit endpoints now
+// take EITHER the bearer token or a session + claimed share code (see editAuth),
+// and both arrive here as the hash. The ByEditToken names stay as wrappers so
+// non-endpoint callers and the tests keep reading in the capability they hold.
+export async function getByEditHash(editHash: string): Promise<ListSnapshot | null> {
   const db = await useDb();
-  const row = await findByEditToken(editToken, db);
+  const row = await findByEditHash(editHash, db);
   return row ? withOwnerOnly(await hydrateForRead(db, rowToSnapshot(row)), row) : null;
 }
 
-export async function versionByEditToken(editToken: string): Promise<number | null> {
+export async function getByEditToken(editToken: string): Promise<ListSnapshot | null> {
+  return getByEditHash(sha256Hex(editToken));
+}
+
+export async function versionByEditHash(editHash: string): Promise<number | null> {
   const db = await useDb();
-  const hash = sha256Hex(editToken);
   const rows = await db
     .select({ version: lists.version })
     .from(lists)
-    .where(liveOnly(lists.editTokenHash, hash))
+    .where(liveOnly(lists.editTokenHash, editHash))
     .limit(1);
   return rows[0]?.version ?? null;
+}
+
+export async function versionByEditToken(editToken: string): Promise<number | null> {
+  return versionByEditHash(sha256Hex(editToken));
 }
 
 export async function createList(init?: {
@@ -794,13 +820,17 @@ export async function createList(init?: {
  * (so a mistaken delete is admin-recoverable for `LIST_PURGE_GRACE_DAYS`). Returns
  * false if the token resolves to nothing (already deleted / never existed) → 404.
  */
-export async function softDeleteByEditToken(editToken: string, db?: Db): Promise<boolean> {
+export async function softDeleteByEditHash(editHash: string, db?: Db): Promise<boolean> {
   const d = db ?? (await useDb());
-  const row = await findByEditToken(editToken, d);
+  const row = await findByEditHash(editHash, d);
   if (!row) return false;
   const now = new Date();
   await d.update(lists).set({ deletedAt: now, updatedAt: now }).where(eq(lists.id, row.id));
   return true;
+}
+
+export async function softDeleteByEditToken(editToken: string, db?: Db): Promise<boolean> {
+  return softDeleteByEditHash(sha256Hex(editToken), db);
 }
 
 /**
@@ -809,14 +839,14 @@ export async function softDeleteByEditToken(editToken: string, db?: Db): Promise
  * the latest state (so independent edits both land). Returns the authoritative
  * snapshot, or null if the list doesn't exist (→ 404).
  */
-export async function applyOpsByEditToken(
-  editToken: string,
+export async function applyOpsByEditHash(
+  editHash: string,
   ops: Op[],
   db?: Db,
 ): Promise<ListSnapshot | null> {
   const d = db ?? (await useDb());
   for (let attempt = 0; attempt < 5; attempt++) {
-    const row = await findByEditToken(editToken, d);
+    const row = await findByEditHash(editHash, d);
     if (!row) return null;
 
     const state = rowToState(row);
@@ -947,6 +977,14 @@ export async function applyOpsByEditToken(
   // extreme contention: refuse rather than silently drop the caller's ops.
   // The client's flush() catch re-queues and retries (no ops lost).
   throw createError({ statusCode: 409, statusMessage: "Save contention — retry" });
+}
+
+export async function applyOpsByEditToken(
+  editToken: string,
+  ops: Op[],
+  db?: Db,
+): Promise<ListSnapshot | null> {
+  return applyOpsByEditHash(sha256Hex(editToken), ops, db);
 }
 
 // ---- maintenance: reap near-empty abandoned lists -------------------------

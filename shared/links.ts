@@ -34,6 +34,30 @@ export function editLinkPath(shareCode: string | null | undefined, token: string
   return shareCode ? `/e/${shareCode}#${token}` : `/e#${token}`;
 }
 
+// The editor path for a CLAIMED list — one attached to the signed-in account, on a
+// device that holds no edit token for it. No fragment: the session cookie plus the
+// code in the path are the whole way in (see server/utils/editAuth). Never a
+// capability, so it's safe anywhere the read link is.
+export function claimedEditPath(shareCode: string): string {
+  return `/e/${shareCode}`;
+}
+
+/** The header a session-authorised edit request uses to NAME which claimed list it
+ *  means. Shared because the client sends it and the server reads it — one string,
+ *  or the two halves drift. Not a secret (it's the public read code), unlike the
+ *  edit token, which is why that one travels as a Bearer and this one doesn't. */
+export const LIST_CODE_HEADER = "x-list-code";
+
+// Share codes are Crockford base32, advertised as case-insensitive with the usual
+// confusable folds (I/L→1, O→0). The server normalizes on its side; this is the
+// client's copy of the SAME fold, so a hand-typed /e/{code} URL keys local storage
+// and the request header consistently. Returns "" for anything that can't be a
+// code, which callers treat as "no code here".
+export function normalizeShareCode(raw: string | null | undefined): string {
+  const c = (raw || "").toUpperCase().replace(/[IL]/g, "1").replace(/O/g, "0");
+  return /^[0-9ABCDEFGHJKMNPQRSTVWXYZ]{12}$/.test(c) ? c : "";
+}
+
 // Is this a path we're willing to send someone to after signing in?
 //
 // The SECURITY BOUNDARY for the return-to-where-you-were redirect (app/composables/

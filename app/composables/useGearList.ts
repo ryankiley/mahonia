@@ -2,8 +2,8 @@ import type { DayPatch, ItemPatch, Op } from "~~/shared/ops";
 import { applyOps, seedRouteEnds, tidyListText } from "~~/shared/ops";
 import { uid } from "~~/shared/id";
 import { colorKeyForName, nextFolderColor, STARTER_FOLDERS } from "~~/shared/categories";
-import { editLinkPath } from "~~/shared/links";
-import { DRAFT_KEY, localKey, rebaseOnto } from "~~/shared/localList";
+import { LIST_CODE_HEADER, editLinkPath, normalizeShareCode } from "~~/shared/links";
+import { DRAFT_KEY, claimedLocalKey, localKey, rebaseOnto } from "~~/shared/localList";
 import type { Folder, Item, ListSnapshot, TripDay, Unit, Waypoint, WaypointKind } from "~~/shared/types";
 import type { VaultCapture, VaultEntry } from "~~/shared/vault";
 import { vaultNormKey } from "~~/shared/vault";
@@ -26,6 +26,14 @@ function create() {
   // discards itself if you click away without typing (so the list isn't littered)
   const pendingBlankId = ref<string | null>(null);
   let editToken = "";
+  // The OTHER way into a list: the share code of a CLAIMED one, opened through the
+  // signed-in session instead of an edit link (see server/utils/editAuth). Never
+  // set while editToken is — the token is the stronger claim and always wins.
+  let claimCode = "";
+  // Reactive mirror of "this open holds no token" for the template layer — the
+  // plain getters below can't be tracked, and the chrome needs to hide the
+  // token-only affordances (Forget, the copyable edit link) on a claimed open.
+  const openedByCode = ref(false);
   let pending: Op[] = [];
   let flushTimer: ReturnType<typeof setTimeout> | undefined;
   // The failure path's own timer, kept apart from flushTimer so a backoff already
@@ -85,12 +93,16 @@ function create() {
   const online = scope.run(() => useOnline())!;
   let persistTimer: ReturnType<typeof setTimeout> | undefined;
 
-  // Write the current snapshot + queue to IndexedDB under this list's key (its edit
-  // token, or the draft slot before first save). Best-effort: the store swallows its
-  // own failures, so this never throws into the edit path. No-ops with no snapshot.
+  // The IndexedDB slot this open persists under: the edit token, a code-prefixed
+  // key for a claimed open, or the draft slot before first save.
+  const storeKey = () => (claimCode ? claimedLocalKey(claimCode) : localKey(editToken));
+
+  // Write the current snapshot + queue to IndexedDB under this list's key.
+  // Best-effort: the store swallows its own failures, so this never throws into
+  // the edit path. No-ops with no snapshot.
   function writeLocal() {
     if (!snapshot.value) return;
-    store.set(localKey(editToken), {
+    store.set(storeKey(), {
       snapshot: snapshot.value,
       pending: pending.slice(),
       updatedAt: Date.now(),
@@ -113,7 +125,7 @@ function create() {
         return;
       }
       if (!snapshot.value) return;
-      if (!editToken) {
+      if (!editToken && !claimCode) {
         if (hasRealContent(snapshot.value)) createFromDraft();
       } else if (remoteMissing) {
         status.value = "missing"; // still dead server-side; nothing to drain
@@ -158,8 +170,13 @@ function create() {
     snapshot.value ? computeTotals(snapshot.value) : null,
   );
 
+  // The write capability, as request headers. Two shapes, matching the server's
+  // one gate (editAuth): the bearer token when this device holds the edit link,
+  // else the claimed list's code — the session cookie rides along on its own and
+  // is the part that actually proves anything.
   function authHeaders() {
-    return { Authorization: `Bearer ${editToken}` } as Record<string, string>;
+    if (editToken) return { Authorization: `Bearer ${editToken}` } as Record<string, string>;
+    return { [LIST_CODE_HEADER]: claimCode } as Record<string, string>;
   }
 
   // Keep this list's row in "Your lists" in step with the snapshot. Called after a
@@ -176,12 +193,16 @@ function create() {
   // that list was opened again.
   function syncRegistry() {
     if (!snapshot.value) return;
-    useMyLists().touch(editToken, {
+    const patch = {
       title: snapshot.value.title,
       version: snapshot.value.version,
       totalMg: totals.value?.totalMg ?? 0, // the memoized rollup — no fresh full-list pass
       displayUnit: snapshot.value.displayUnit, // keep the summary in the list's unit system
-    });
+    };
+    if (editToken) useMyLists().touch(editToken, patch);
+    // a claimed open has no registry row — its switcher row reads the account
+    // list, so a rename here has to reach THAT copy to show up in the dropdown
+    else if (claimCode) useClaimedLists().touchByCode(claimCode, patch);
   }
 
   // The gate on that optimistic call. dispatch runs on every keystroke and touch()
@@ -192,8 +213,12 @@ function create() {
   // one here would undo a "Remove from device". Version is deliberately not compared;
   // an optimistic op never moves it, only the server does.
   function registryStale() {
-    if (!snapshot.value || !editToken) return false;
-    const row = useMyLists().entries.value.find((e) => e.editToken === editToken);
+    if (!snapshot.value) return false;
+    const row = editToken
+      ? useMyLists().entries.value.find((e) => e.editToken === editToken)
+      : claimCode
+        ? useClaimedLists().lists.value.find((l) => l.shareCode === claimCode)
+        : undefined;
     if (!row) return false;
     return (
       row.title !== snapshot.value.title ||
@@ -226,10 +251,19 @@ function create() {
     );
   }
 
-  async function load(token: string) {
+  // Open a list this device holds the edit link for ({ token }), or one the
+  // signed-in account has claimed ({ code } — the share code, with the session
+  // cookie as the proof; see server/utils/editAuth). Token wins if both arrive,
+  // matching the server's precedence: it's the more specific claim, and it keeps a
+  // signed-in user's behaviour on a shared link identical to a signed-out user's.
+  async function load(cap: { token?: string; code?: string }) {
     epoch++;
     const myEpoch = epoch;
-    editToken = token;
+    editToken = cap.token ?? "";
+    // normalized so a hand-typed /e/{code} URL and the canonical code the server
+    // returns key the same IndexedDB record and claimed-lists row
+    claimCode = editToken ? "" : normalizeShareCode(cap.code);
+    openedByCode.value = !editToken && !!claimCode;
     pending = [];
     inFlight = false;
     isEditing = false;
@@ -248,7 +282,7 @@ function create() {
 
     // Hydrate from this browser's local copy first — instant paint, and the only
     // thing we can show if the network is down. Restore its un-acked queue too.
-    const local = await store.get(localKey(token));
+    const local = await store.get(storeKey());
     if (myEpoch !== epoch) return; // a newer load() superseded this one
     if (local) {
       // Backfilled on the way in, matching what the server does on the way out
@@ -324,19 +358,25 @@ function create() {
       if (
         typeof location !== "undefined" &&
         location.pathname === "/e" &&
+        editToken &&
         merged.shareCode
       ) {
-        history.replaceState(history.state, "", editLinkPath(merged.shareCode, token));
+        history.replaceState(history.state, "", editLinkPath(merged.shareCode, editToken));
       }
       persistLocal();
       if (pending.length) scheduleFlush();
       startPoll();
     } catch (e: any) {
       if (myEpoch !== epoch) return;
-      if (e?.statusCode === 404) {
-        // The server has no list under this token (deleted, or the link was
-        // rotated). If we still hold a local copy, keep it on screen so the data
-        // is readable/exportable, but don't poll or flush against a dead token —
+      // 404: the server has no list under this capability (deleted, the link
+      // rotated — or, for a claimed open, the claim revoked). 401 on a claimed
+      // open is its sibling: the session lapsed or never covered this code, and
+      // retrying can't fix either. Both land in the same honest dead-end. A
+      // 401 on the TOKEN path stays out of here — a bearer is always presented,
+      // so a 401 there is a server hiccup worth treating as transient.
+      if (e?.statusCode === 404 || (e?.statusCode === 401 && claimCode)) {
+        // If we still hold a local copy, keep it on screen so the data is
+        // readable/exportable, but don't poll or flush against a dead capability —
         // and don't claim "synced": later edits stay device-only (remoteMissing).
         remoteMissing = true;
         status.value = "missing";
@@ -346,7 +386,7 @@ function create() {
         // Only the row goes; the local copy on screen is untouched (see the
         // composable). The live-side heal is upsert's share-code claim, so it
         // takes one visit to either row, whichever you happened to pick.
-        useMyLists().forgetSuperseded(token);
+        if (editToken) useMyLists().forgetSuperseded(editToken);
       } else if (local) {
         // Network failure with a local copy: keep editing, sync when it returns.
         status.value = "offline";
@@ -377,6 +417,8 @@ function create() {
     epoch++;
     const myEpoch = epoch;
     editToken = "";
+    claimCode = "";
+    openedByCode.value = false;
     pending = [];
     inFlight = false;
     isEditing = false;
@@ -428,7 +470,9 @@ function create() {
   // ids), so adopting it doesn't disturb focus or references. Ops typed during the
   // round-trip are queued and flushed right after.
   async function createFromDraft() {
-    if (inFlight || editToken || !snapshot.value) return;
+    // claimCode too: a claimed open is a SAVED list — letting it fall through
+    // here would mint a duplicate of it under a fresh token
+    if (inFlight || editToken || claimCode || !snapshot.value) return;
     // offline: the draft is already persisted locally; create once back online
     if (!online.value) { status.value = "offline"; return; }
     const myEpoch = epoch;
@@ -504,9 +548,11 @@ function create() {
     // pick, a drag, an undo — so this one call captures gear from all of them
     // without each call site having to remember to.
     if (!hydrating) captureIfMine();
-    // Draft (no token yet): keep edits local until there's real content, then create
-    // the list once. While that create is in flight, queue ops for the post-create flush.
-    if (!editToken) {
+    // Draft (no capability yet): keep edits local until there's real content, then
+    // create the list once. While that create is in flight, queue ops for the
+    // post-create flush. A claimed open is NOT a draft — it queues and flushes
+    // below exactly like a token-held list.
+    if (!editToken && !claimCode) {
       if (inFlight) pending.push(op);
       else if (hasRealContent(snapshot.value)) createFromDraft();
       return;
@@ -529,7 +575,7 @@ function create() {
     const myEpoch = epoch;
     // Captured for the orphan-recovery write in the catch — by the time it runs,
     // dispose() may already have cleared both of these.
-    const myToken = editToken;
+    const myKey = storeKey();
     const snapAtFlush = snapshot.value;
     // ≤500 ops per request — the server 400s on oversized batches instead of
     // truncating. A longer queue (offline session) drains across sequential
@@ -579,8 +625,8 @@ function create() {
         // replace it with the server's, making them visibly appear and vanish.
         // Restore them into that record instead, so the next open replays them.
         // (beforeunload doesn't cover this — SPA navigation never fires it.)
-        if (myToken && snapAtFlush) {
-          store.set(localKey(myToken), {
+        if (myKey !== DRAFT_KEY && snapAtFlush) {
+          store.set(myKey, {
             snapshot: snapAtFlush,
             pending: ops,
             updatedAt: Date.now(),
@@ -1223,7 +1269,13 @@ function create() {
         headers: authHeaders(),
       });
       const old = editToken;
+      const oldCode = claimCode;
       editToken = res.editToken;
+      // A rotate hands THIS device the new link whichever way it was holding the
+      // list — so a claimed open graduates to the token path here, and the editor
+      // behaves from now on exactly as if the link had been opened directly.
+      claimCode = "";
+      openedByCode.value = false;
       // The vault answer rides along. It's keyed by the token, but it answers a
       // question about the GEAR ("is this list's gear mine?"), and a rotate is the
       // owner cycling a leaked link on a list they've already answered for. Losing
@@ -1232,6 +1284,9 @@ function create() {
       // ("only the tent is mine"), so they carry too. The old token's keys then
       // go: the token is dead server-side, and nothing else ever cleared these
       // (only deleteList does), so every rotate used to strand a pair for good.
+      // A claimed open rotates with old = "" — vaultDecisionFor("") answers "yes"
+      // (a claimed list is yours, the same rule capture follows), so the fresh
+      // token inherits that and the ""-keyed clears below are no-ops.
       const decision = vaultDecisionFor(old);
       if (decision !== "ask") setVaultDecisionFor(editToken, decision);
       const declined = vaultExclusionsFor(old);
@@ -1254,7 +1309,10 @@ function create() {
               displayUnit: snapshot.value.displayUnit, // keep the unit system through a rotate
             }
           : null);
-      my.forget(old); // also drops the old token's on-device record
+      if (old) my.forget(old); // also drops the old token's on-device record
+      // the claimed open's record re-keys onto the token; leaving the code-keyed
+      // copy behind would resurface pre-rotate state on the next claimed open
+      if (oldCode) store.del(claimedLocalKey(oldCode));
       if (base) my.upsert({ ...base, editToken: res.editToken, lastOpened: Date.now() });
       persistLocal(); // re-key this device's copy onto the new token
       return res.editToken;
@@ -1278,7 +1336,7 @@ function create() {
     // 500-op batch limit (it rejects oversized batches); the remainder is safe in
     // the on-device copy below and drains on the next open. A dead token
     // (remoteMissing) would only 404, so don't bother.
-    if (pending.length && editToken && !remoteMissing) {
+    if (pending.length && (editToken || claimCode) && !remoteMissing) {
       $fetch("/api/edit/mutate", { method: "POST", headers: authHeaders(), body: { ops: pending.slice(0, 500) } }).catch(() => {});
     }
     // capture the latest state on device before teardown — the debounced persist
@@ -1299,6 +1357,8 @@ function create() {
     snapshot.value = null;
     pending = [];
     editToken = "";
+    claimCode = "";
+    openedByCode.value = false;
     inFlight = false;
     isEditing = false;
     remoteMissing = false;
@@ -1308,7 +1368,10 @@ function create() {
   return {
     snapshot, totals, status,
     get editToken() { return editToken; },
+    get claimCode() { return claimCode; },
     get epoch() { return epoch; },
+    openedByCode,
+    authHeaders,
     load, startDraft, dispose, rotate,
     setMeta, setUnit, addFolder, updateFolder, removeFolder, moveFolderBefore,
     addDay, updateDay, removeDay,
