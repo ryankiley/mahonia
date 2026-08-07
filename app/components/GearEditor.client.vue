@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "@hugeicons/vue";
-import { Backpack02Icon, Cancel01Icon, CheckmarkSquare02Icon, ChevronDownIcon, Delete02Icon, EllipsisIcon, RemoveCircleIcon, Route02Icon, SafeBoxIcon, Share08Icon, Undo02Icon } from "@hugeicons/core-free-icons";
+import { Backpack02Icon, Cancel01Icon, CheckmarkSquare02Icon, ChevronDownIcon, Copy01Icon, Delete02Icon, EllipsisIcon, FileExportIcon, FileImportIcon, Message01Icon, NoteAddIcon, RemoveCircleIcon, Route02Icon, SafeBoxIcon, Share08Icon, Undo02Icon } from "@hugeicons/core-free-icons";
 import { editLinkPath } from "~~/shared/links";
 import { tripHeadline } from "~~/shared/trailDistance";
 import { formatWeight } from "~~/shared/weights";
@@ -512,24 +512,34 @@ async function deleteThisList() {
 const feedbackOpen = ref(false);
 const feedbackEverOpened = ref(false);
 
+// EVERY TOP-LEVEL ROW LEADS WITH A GLYPH. It was words alone until the foot grew two
+// rows that needed marks to tell them apart, which left the menu looking like two
+// kinds of list stacked on each other. The design system's ds-menu carries an icon on
+// every row and reserves the bare ones for its NESTED group — so that's the rule here:
+// icons down the top level, nothing on the four Export items, which are indented and
+// read as a group rather than as peers.
+//
+// Import and Export take the mirrored pair deliberately; they are the same door in
+// two directions and the glyphs should say so before the words do.
 const MENU_ACTIONS = [
-  { label: "Create a list", run: () => newList() },
-  { label: "Duplicate this list", run: cloneList },
+  { label: "Create a list", icon: NoteAddIcon, run: () => newList() },
+  { label: "Duplicate this list", icon: Copy01Icon, run: cloneList },
   // Import stays a plain row. It has exactly ONE entry point — the modal, which
   // offers the file and the LighterPack link side by side — and a disclosure holding
   // a single item is a click that reveals nothing you couldn't have been shown. It
   // also forced a label long enough to set the whole menu's width.
-  { label: "Import a list…", run: () => { importOpen.value = true; } },
+  { label: "Import a list…", icon: FileImportIcon, run: () => { importOpen.value = true; } },
   // Feedback is reachable from the footer on every page, but the editor is where
   // people actually spend their time and where a long list puts that footer far below
   // the fold — by the time you have something to say about a row, the link is a scroll
   // away. The toolbar is in reach from anywhere in the list.
-  { label: "Send feedback…", run: () => { feedbackEverOpened.value = true; feedbackOpen.value = true; } },
+  { label: "Send feedback…", icon: Message01Icon, run: () => { feedbackEverOpened.value = true; feedbackOpen.value = true; } },
 ];
 const MENU_SECTIONS = [
   {
     key: "export",
     label: "Export",
+    icon: FileExportIcon,
     items: [
       // First, because it's the one people reach for most: it's the format a comment
       // box actually accepts. Markdown below it is the same idea for somewhere that
@@ -717,7 +727,10 @@ function onCorrected(res: { status: string; itemName?: string }) {
                 <!-- no "Your lists" here — the footer already carries that link.
                      Close BEFORE the action runs, matching the old dispatch order. -->
                 <li v-for="a in MENU_ACTIONS" :key="a.label" role="none">
-                  <button type="button" data-row role="menuitem" class="menu__item" @click="menuOpen = false; a.run()">{{ a.label }}</button>
+                  <button type="button" data-row role="menuitem" class="menu__item" @click="menuOpen = false; a.run()">
+                    <HugeiconsIcon :icon="a.icon" :size="14" :stroke-width="2" aria-hidden="true" />
+                    {{ a.label }}
+                  </button>
                 </li>
                 <!-- Import / Export expand in place. The section header is not a
                      menuitem — it opens a group rather than doing anything — so it
@@ -729,7 +742,10 @@ function onCorrected(res: { status: string; itemName?: string }) {
                     :aria-expanded="openSection === s.key"
                     @click="toggleSection(s.key)"
                   >
-                    {{ s.label }}
+                    <HugeiconsIcon :icon="s.icon" :size="14" :stroke-width="2" aria-hidden="true" />
+                    <!-- the label takes the slack, so the chevron keeps the trailing
+                         edge now that a glyph holds the leading one -->
+                    <span class="editor__sectlabel">{{ s.label }}</span>
                     <HugeiconsIcon :icon="ChevronDownIcon" class="menu__sectchev"
                       :class="{ 'is-open': openSection === s.key }"
                       :size="14"
@@ -1175,13 +1191,30 @@ function onCorrected(res: { status: string; itemName?: string }) {
    No hover deepen. The wash is the state — moving the ink as well would say two
    things about one event, and there is nowhere darker for red to go that doesn't
    read as a different colour. */
-/* Both foot rows share the glyph column, so the pair lines up and the ONLY thing
-   that differs between them is the word and the colour. flex, because .menu__item is
-   display:block — the glyph needs a row. */
-.editor__footact {
+/* ONE GLYPH COLUMN down the whole menu. flex, because .menu__item is display:block —
+   a glyph beside a label needs a row. Scoped, so it reaches this menu's rows and not
+   the switcher's or a gear row's, which lay themselves out differently.
+   The gap wins over .menu__secthead's --space-3 on specificity, which is what keeps
+   the section header's glyph in the same column as every other row's. */
+.menu__list .menu__item {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+}
+/* named once, because two rules have to agree on it — the column the glyphs sit in,
+   and the indent that puts a nested label at the same place a top-level one starts */
+.menu__list {
+  --menu-glyph: 14px;
+}
+.editor__sectlabel {
+  flex: 1 1 auto;
+}
+/* The Export items carry no glyph (the design system's nested rows don't either), so
+   they indent to where the labels above them start rather than to an arbitrary step.
+   Derived from the column, not typed as a number, so changing the icon size can't
+   quietly leave this behind. */
+.menu__list .menu__sectitem {
+  padding-left: calc(var(--space-3) + var(--menu-glyph) + var(--space-2));
 }
 /* ...and forgetting stays in plain ink. It is not a lesser action — it takes the
    default row colour, not the quiet one — it just isn't the irreversible one, and
