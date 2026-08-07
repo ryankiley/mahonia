@@ -4,6 +4,9 @@
     "added": [
       "Delete a list from the editor's ⋯ menu, instead of leaving it to find the list on another page."
     ],
+    "changed": [
+      "Deleting a list from the editor's ⋯ menu now reads in red, so it's clear which row is the destructive one before you reach it."
+    ],
     "fixed": [
       "A pack whose edit link had been rotated could show up twice in the list switcher, both rows marked as the one you're in and one of them a link that no longer worked. It now appears once, and the stale row clears itself the next time you open that pack.",
       "Removing or deleting a list from \"Your lists\" now sticks — it no longer comes back the next time you open the page.",

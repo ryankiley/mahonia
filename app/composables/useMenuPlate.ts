@@ -64,6 +64,27 @@ export function useMenuPlate(): {
     // nested in an <li> still reports its position in that same space
     plate.style.transform = `translateY(${row.offsetTop}px)`;
     plate.style.height = `${row.offsetHeight}px`;
+    // THE PLATE CARRIES THE ROW'S OWN HUE, so a destructive row lights red rather
+    // than in the neutral wash — a grey fill under red text says "a row", and the
+    // point of the colour is that this row isn't one.
+    //
+    // OPT-IN, via [data-row-hue] — the same way [data-row] already says which
+    // elements the plate may land on at all. The design system's ds-menu takes every
+    // row's colour unconditionally, which is right there and wrong here: Mahonia's
+    // rows already vary their ink for HIERARCHY (a section item and the switcher's
+    // "New list" sit at --ink-2), so washing from that would light those rows more
+    // faintly than their neighbours — "less hoverable" rather than "different in
+    // kind". Marking the one row that means it leaves every other menu untouched.
+    //
+    // The COLOUR comes from computed `color`, which is resolved — light-dark()
+    // picked, var() substituted. A custom property would hand over its raw token
+    // stream instead, and the row's own declaration is the honest single source for
+    // "this row's ink" anyway.
+    if (row.hasAttribute("data-row-hue")) {
+      plate.style.setProperty("--hov-ink", getComputedStyle(row).color);
+    } else {
+      plate.style.removeProperty("--hov-ink");
+    }
     if (first) {
       void plate.offsetHeight; // flush, so the placement can't be animated
       placing.value = false;
