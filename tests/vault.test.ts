@@ -1,7 +1,7 @@
 import { PGlite } from "@electric-sql/pglite";
 import { eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import * as schema from "../server/db/schema";
 import { vaultFolders, vaultItems, vaults } from "../server/db/schema";
 import { VAULT_DDL } from "../server/utils/vaultSchema";
@@ -26,7 +26,7 @@ import {
   vaultNormKey,
 } from "../shared/vault";
 import { rankVaultRows } from "../shared/vaultSearch";
-import type { Item } from "../shared/types";
+import type { Item, MyListEntry } from "../shared/types";
 
 type DB = ReturnType<typeof drizzle>;
 async function freshDb(): Promise<DB> {
@@ -577,5 +577,132 @@ describe("vault ceilings", () => {
     );
     expect(await applyVaultFolderOp(db as any, VAULT, { t: "add", name: "Overflow" })).toBe(false);
     expect(await listVaultFolders(db as any, VAULT)).toHaveLength(VAULT_FOLDERS_MAX);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// the per-list decision — the one thing that finally removes it
+// ---------------------------------------------------------------------------
+// Still plain node, like the rest of this file. The decision helpers are localStorage
+// and nothing else, and useMyLists needs only a `window` to hang its cross-tab
+// "storage" listener on — its IndexedDB store no-ops without an `indexedDB`, which
+// node hasn't got, so forget()'s other half looks after itself.
+//
+// The globals are stubbed for THIS block alone rather than at module scope: the
+// suites above run a WASM Postgres, and a `window` in scope is exactly the sort of
+// thing that convinces a library it's in a browser.
+describe("a list's vault decision — cleared when it's deleted, kept when it's forgotten", () => {
+  const store = new Map<string, string>();
+  const TOKEN = "edit-token-abc";
+  // What /api/edit/delete does when it's called. Reassigned per test; a resolve is
+  // the server accepting the delete.
+  let onDelete: () => Promise<unknown> = () => Promise.resolve({});
+  let deleteCalls = 0;
+  let vault: typeof import("../app/composables/useVault");
+  let useMyLists: typeof import("../app/composables/useMyLists").useMyLists;
+
+  beforeAll(async () => {
+    vi.stubGlobal("localStorage", {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => void store.set(k, String(v)),
+      removeItem: (k: string) => void store.delete(k),
+    });
+    vi.stubGlobal("window", { addEventListener: () => {} });
+    vi.stubGlobal("$fetch", (url: string) => {
+      if (url !== "/api/edit/delete") throw new Error(`unexpected fetch: ${url}`);
+      deleteCalls++;
+      return onDelete();
+    });
+    // Imported HERE rather than at the top of the file, and it has to be. Nuxt's
+    // `$fetch` is a MODULE BINDING (#build/fetch.mjs), and that module reads
+    // globalThis once, when it first evaluates. Pull the composables in statically
+    // and that happens before this hook — leaving a stub nothing will ever call and
+    // a deleteList quietly trying the real network, which fails and reads as "the
+    // server refused". Which is also why every helper below is reached through
+    // `vault.`: an unqualified call is silently satisfied by the auto-import, and
+    // that injects exactly the static import this dynamic one exists to avoid.
+    vault = await import("../app/composables/useVault");
+    ({ useMyLists } = await import("../app/composables/useMyLists"));
+  });
+  afterAll(() => vi.unstubAllGlobals());
+
+  const entry = (): MyListEntry => ({
+    origin: "created",
+    editToken: TOKEN,
+    shareCode: "SHARECODE001",
+    slug: "trip-abc123",
+    title: "Trip",
+    totalMg: 0,
+    version: 1,
+    lastOpened: 1,
+  });
+
+  // A list this device holds, with both halves of the decision answered: yes it's
+  // mine, except for the stove — which is what the chooser records when you untick
+  // gear that belongs to whoever you planned the trip with.
+  beforeEach(() => {
+    store.clear();
+    deleteCalls = 0;
+    onDelete = () => Promise.resolve({});
+    const my = useMyLists();
+    for (const e of my.entries.value) my.forget(e.editToken);
+    my.upsert(entry());
+    vault.setVaultDecisionFor(TOKEN, "yes");
+    vault.setVaultExclusionsFor(TOKEN, ["stove"]);
+  });
+
+  it("deleting the list takes its decision with it", async () => {
+    const my = useMyLists();
+    expect(await my.deleteList(TOKEN)).toBe(true);
+    expect(my.entries.value).toEqual([]);
+    expect(store.has(`gear.vault.for.${TOKEN}`)).toBe(false);
+    expect(store.has(`gear.vault.not.${TOKEN}`)).toBe(false);
+  });
+
+  it("a list gone from the server already still gets its decision cleared", async () => {
+    // deleteList treats a 404 as success — the list was deleted elsewhere, so its
+    // answer is just as dead as if this call had done the deleting.
+    onDelete = () => Promise.reject({ statusCode: 404 });
+    const my = useMyLists();
+    expect(await my.deleteList(TOKEN)).toBe(true);
+    expect(store.has(`gear.vault.for.${TOKEN}`)).toBe(false);
+    expect(store.has(`gear.vault.not.${TOKEN}`)).toBe(false);
+  });
+
+  it("a delete that didn't happen leaves the decision alone", async () => {
+    // Offline, or the server refused: the list is still there and the editor puts
+    // itself back. Clearing here would re-ask about a list that never went away.
+    onDelete = () => Promise.reject({ statusCode: 500 });
+    const my = useMyLists();
+    expect(await my.deleteList(TOKEN)).toBe(false);
+    expect(my.entries.value.map((e) => e.editToken)).toEqual([TOKEN]);
+    expect(vault.vaultDecisionFor(TOKEN)).toBe("yes");
+    expect([...vault.vaultExclusionsFor(TOKEN)]).toEqual(["stove"]);
+  });
+
+  it("forgetting a list keeps its decision — the list is still online", () => {
+    // "Remove from device" on /mine. The edit link can bring this list back, and
+    // when it does, the answer you already gave must still stand.
+    const my = useMyLists();
+    my.forget(TOKEN);
+    expect(deleteCalls).toBe(0); // nothing was deleted server-side
+    expect(my.entries.value).toEqual([]);
+    expect(vault.vaultDecisionFor(TOKEN)).toBe("yes");
+    expect([...vault.vaultExclusionsFor(TOKEN)]).toEqual(["stove"]);
+  });
+
+  it("a cleared decision reads as unanswered, not as a no", () => {
+    // The distinction the editor runs on: "no" never asks again, "ask" is the
+    // question still open. A token that comes back around must land on the latter.
+    vault.clearVaultDecisionFor(TOKEN);
+    expect(vault.vaultDecisionFor(TOKEN)).toBe("ask");
+    expect(vault.vaultExclusionsFor(TOKEN).size).toBe(0);
+  });
+
+  it("clears nothing when there's no token to clear for", () => {
+    // A draft has no edit token yet, and `gear.vault.for.` is nobody's key.
+    store.set("gear.vault.for.", "yes");
+    vault.clearVaultDecisionFor("");
+    expect(store.has("gear.vault.for.")).toBe(true);
   });
 });

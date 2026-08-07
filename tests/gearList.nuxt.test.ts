@@ -695,3 +695,68 @@ describe("useGearList — addVaultFolder", () => {
     expect(c.snapshot.value!.folders).toHaveLength(folders);
   });
 });
+
+// ---------------------------------------------------------------------------
+// "Your lists" — the device registry the switcher actually reads
+// ---------------------------------------------------------------------------
+// The list dropdown and /mine render REGISTRY rows, not the open snapshot, so a
+// rename is only as fast as the row behind it. It used to be updated from one
+// place: the reply to a successful flush. In the live controller — the only place
+// this shape exists — that put a debounce and a round trip between typing a name
+// and reading it back, and dispose()'s parting flush made it worse than slow: it
+// sends blind and drops the reply, so a rename typed on the way OUT of the editor
+// never reached the row at all.
+//
+// The path that surfaces it is the ordinary one: duplicate a list, rename the copy
+// to the trail you're actually packing for, open the switcher.
+describe("useGearList — keeping 'Your lists' in step with a rename", () => {
+  const rowFor = (token: string) =>
+    useMyLists().entries.value.find((e) => e.editToken === token);
+
+  beforeEach(async () => {
+    records.clear();
+    mutateCalls = 0;
+    storage.clear();
+    listResponse = snapshotFor("Timberline Trail (copy)"); // as a duplicate arrives
+  });
+  afterEach(() => {
+    useGearList().dispose();
+  });
+
+  it("renames the row without waiting for the server", async () => {
+    const c = useGearList();
+    await c.load(TOKEN);
+    expect(rowFor(TOKEN)?.title).toBe("Timberline Trail (copy)");
+
+    c.setMeta({ title: "Eagle Creek" });
+
+    // Synchronously, with no mutate settled and none even sent yet — the reducer
+    // here is the server's, so the row can be right before the wire agrees.
+    expect(rowFor(TOKEN)?.title).toBe("Eagle Creek");
+    expect(mutateCalls).toBe(0);
+  });
+
+  it("keeps the new name when the editor is left before the flush lands", async () => {
+    const c = useGearList();
+    await c.load(TOKEN);
+    c.setMeta({ title: "Eagle Creek" });
+    await awaitMutateInFlight();
+
+    c.dispose(); // straight back into the switcher to open something else
+
+    expect(rowFor(TOKEN)?.title).toBe("Eagle Creek");
+    settleMutate.resolve({ snapshot: snapshotFor("Eagle Creek", 2) });
+  });
+
+  // touch() is update-only for a reason — "Remove from device" has to stick — and
+  // the optimistic call must not become the thing that quietly re-adds a row.
+  it("does not resurrect a list removed from this device", async () => {
+    const c = useGearList();
+    await c.load(TOKEN);
+    useMyLists().forget(TOKEN);
+
+    c.setMeta({ title: "Eagle Creek" });
+
+    expect(rowFor(TOKEN)).toBeUndefined();
+  });
+});
