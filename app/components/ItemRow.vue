@@ -378,6 +378,9 @@ function onNameCommit(p: NameCommit) {
       patch.priceCents = p.priceCents;
       patch.currency = p.currency;
     }
+    // the vault's remembered calories land like its weight does — this is YOUR
+    // number for the food; absent leaves whatever the row already says
+    if (p.kcal != null) patch.kcal = p.kcal;
   } else if (p.catalogItemId != null) {
     // a catalog pick: store brand/model/variant structured, link, and let
     // live-resolve keep the name fresh ("" clears any prior brand/variant)
@@ -1030,8 +1033,85 @@ function dismissFix() {
              renders the type directly instead of restating it. Each toggle also opens
              the one detail that only exists while it is on — worn's split count,
              consumable's calories — so the row itself gains no third control.
-             Water is excluded from both: its class is fixed and its weight derived. -->
+             CONSUMABLE FIRST, worn second. Water is why: its class is fixed, so its
+             row draws a lit mark instead of a toggle — and only with consumable in
+             the leading slot does that mark land in the same column as every other
+             row's cookie (the worn slot beside it is held open by a ghost below). -->
         <div class="item__classcell">
+          <div v-if="!isWater" ref="kcalRootRef" class="menu item__cls">
+            <Tooltip :text="consumableTitle" :disabled="isKcalOpen" preferred-placement="top">
+              <button
+                class="btn btn--icon btn--ghost menu__btn item__clsbtn"
+                :class="{ 'item__mark': isConsumable }"
+                type="button"
+                aria-haspopup="dialog"
+                :aria-expanded="isKcalOpen"
+                :aria-label="consumableAria"
+                @mousedown.prevent
+                @click="toggleKcal"
+              >
+                <HugeiconsIcon :icon="CookieIcon" :size="16" :stroke-width="2" />
+              </button>
+            </Tooltip>
+            <Transition name="menu">
+              <div
+                v-if="isKcalOpen"
+                class="popover item__pop"
+                :class="{ 'is-above': kcalAbove }"
+                :style="popShift ? { translate: popShift + 'px 0' } : undefined"
+                role="dialog"
+                aria-label="Consumable"
+              >
+                <div class="switch-row">
+                  <span class="t-sm">Consumable</span>
+                  <button
+                    class="switch"
+                    type="button"
+                    role="switch"
+                    :aria-checked="isConsumable"
+                    aria-label="Food, fuel or water"
+                    @click="setClass('consumable', !isConsumable)"
+                  />
+                </div>
+                <!-- calories only once the row IS consumable — that is the only state
+                     in which the number is counted, so offering it before would collect
+                     a value the totals ignore -->
+                <template v-if="isConsumable">
+                  <label class="t-sm t-muted item__poplabel" :for="`${item.id}-kcal`">kcal each</label>
+                  <input
+                    :id="`${item.id}-kcal`"
+                    class="field field--num item__popinput"
+                    :value="item.kcal ?? ''"
+                    placeholder="0"
+                    inputmode="numeric"
+                    autocomplete="off"
+                    spellcheck="false"
+                    @change="onKcal"
+                    @keydown.enter="($event.target as HTMLInputElement).blur()"
+                  />
+                  <!-- the line total, so a qty>1 row doesn't make you do it in your
+                       head. The icon marks it as DERIVED — everything above it in this
+                       popover is something you typed, this is the one line the app
+                       worked out. -->
+                  <p v-if="item.kcal && item.qty > 1" class="t-sm t-muted item__popline">
+                    <HugeiconsIcon :icon="CalculateIcon" class="item__poplineicon" :size="14" aria-hidden="true" :stroke-width="2" />
+                    {{ formatKcal(item.kcal * item.qty) }} kcal for {{ item.qty }}
+                  </p>
+                </template>
+              </div>
+            </Transition>
+          </div>
+          <!-- water's mark, not a toggle: its class can't change and it has no
+               calories to hold, so a switch and a kcal field here would both be
+               controls that lie. The read view draws this same lit cookie. -->
+          <div v-else class="item__cls">
+            <Tooltip text="Consumable" preferred-placement="top">
+              <span class="item__clsfixed item__mark" role="img" aria-label="Consumable">
+                <HugeiconsIcon :icon="CookieIcon" :size="16" :stroke-width="2" />
+              </span>
+            </Tooltip>
+          </div>
+
           <div v-if="!isWater" ref="wornRootRef" class="menu item__cls">
             <!-- Tooltip wraps the BUTTON, not the cell: the popover below is anchored
                  to .item__cls, and putting the wrapper around both would re-anchor it
@@ -1101,69 +1181,14 @@ function dismissFix() {
               </div>
             </Transition>
           </div>
-
-          <div v-if="!isWater" ref="kcalRootRef" class="menu item__cls">
-            <Tooltip :text="consumableTitle" :disabled="isKcalOpen" preferred-placement="top">
-              <button
-                class="btn btn--icon btn--ghost menu__btn item__clsbtn"
-                :class="{ 'item__mark': isConsumable }"
-                type="button"
-                aria-haspopup="dialog"
-                :aria-expanded="isKcalOpen"
-                :aria-label="consumableAria"
-                @mousedown.prevent
-                @click="toggleKcal"
-              >
-                <HugeiconsIcon :icon="CookieIcon" :size="16" :stroke-width="2" />
-              </button>
-            </Tooltip>
-            <Transition name="menu">
-              <div
-                v-if="isKcalOpen"
-                class="popover item__pop"
-                :class="{ 'is-above': kcalAbove }"
-                :style="popShift ? { translate: popShift + 'px 0' } : undefined"
-                role="dialog"
-                aria-label="Consumable"
-              >
-                <div class="switch-row">
-                  <span class="t-sm">Consumable</span>
-                  <button
-                    class="switch"
-                    type="button"
-                    role="switch"
-                    :aria-checked="isConsumable"
-                    aria-label="Food, fuel or water"
-                    @click="setClass('consumable', !isConsumable)"
-                  />
-                </div>
-                <!-- calories only once the row IS consumable — that is the only state
-                     in which the number is counted, so offering it before would collect
-                     a value the totals ignore -->
-                <template v-if="isConsumable">
-                  <label class="t-sm t-muted item__poplabel" :for="`${item.id}-kcal`">kcal each</label>
-                  <input
-                    :id="`${item.id}-kcal`"
-                    class="field field--num item__popinput"
-                    :value="item.kcal ?? ''"
-                    placeholder="0"
-                    inputmode="numeric"
-                    autocomplete="off"
-                    spellcheck="false"
-                    @change="onKcal"
-                    @keydown.enter="($event.target as HTMLInputElement).blur()"
-                  />
-                  <!-- the line total, so a qty>1 row doesn't make you do it in your
-                       head. The icon marks it as DERIVED — everything above it in this
-                       popover is something you typed, this is the one line the app
-                       worked out. -->
-                  <p v-if="item.kcal && item.qty > 1" class="t-sm t-muted item__popline">
-                    <HugeiconsIcon :icon="CalculateIcon" class="item__poplineicon" :size="14" aria-hidden="true" :stroke-width="2" />
-                    {{ formatKcal(item.kcal * item.qty) }} kcal for {{ item.qty }}
-                  </p>
-                </template>
-              </div>
-            </Transition>
+          <!-- the worn SLOT, held open by the icon itself — the unit chevron's ghost
+               recipe. Water can't be worn, but the cell must stay two slots wide:
+               the mobile line right-anchors this cell, so a one-slot cell would pull
+               water's lone mark out of the cookie column it exists to sit in. -->
+          <div v-else class="item__cls" aria-hidden="true">
+            <span class="item__clsfixed item__clsghost">
+              <HugeiconsIcon :icon="ShirtIcon" :size="16" :stroke-width="2" />
+            </span>
           </div>
         </div>
 
@@ -1659,6 +1684,24 @@ function dismissFix() {
   display: inline-flex;
   align-items: center;
 }
+/* Water's fixed consumable mark, and its ghost worn slot: the toggle's exact box —
+   .btn--icon's size, .item__mark's chip — minus the button, because there is
+   nothing to press. Sized like the buttons so the two-slot cell holds its width
+   on water rows and the cookie column runs unbroken through them. */
+.item__clsfixed {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--icon-btn);
+  min-height: var(--icon-btn);
+  border-radius: var(--radius-pill);
+}
+/* visibility, not opacity — the unit chevron's ghost rule: opacity would leave it
+   hoverable, and a tooltip-less shirt lighting under a resting pointer reads as a
+   control nobody can find again. */
+.item__clsghost {
+  visibility: hidden;
+}
 /* ON is a FILLED GROUND, not just darker ink — the shared `.item__mark` chip
    (atoms/item.scss), which the share views' rows draw as a static mark, so the two
    views can't drift on what "worn" looks like. Ink-vs-grey alone would be the same
@@ -1677,8 +1720,11 @@ function dismissFix() {
 }
 @media (pointer: coarse) {
   /* the overshoot, as padding, so the chip's content box stays --icon-btn while the
-     button stays --tap. box-sizing is border-box, so this costs the row no width. */
-  .item__clsbtn {
+     button stays --tap. box-sizing is border-box, so this costs the row no width.
+     The fixed mark and its ghost grow the same way — not for a tap target they
+     don't have, but so a water row's cell measures what every other row's does. */
+  .item__clsbtn,
+  .item__clsfixed {
     padding: calc((var(--tap) - var(--icon-btn)) / 2);
   }
 }
@@ -2132,7 +2178,8 @@ function dismissFix() {
      .item--check is built around: the inflated line made an edit row 19px taller than
      the checklist row it toggles into, so the list jumped on every mode switch. */
   .item__actions .btn--icon,
-  .item__classcell .btn--icon {
+  .item__classcell .btn--icon,
+  .item__classcell .item__clsfixed {
     min-height: 0;
     height: var(--tap);
     margin-block: var(--tap-pull);

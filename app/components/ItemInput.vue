@@ -6,7 +6,7 @@ import type { Unit } from "~~/shared/types";
 import { formatWeight, itemDisplayName } from "~~/shared/weights";
 import { highlightParts } from "~~/shared/catalogSearch";
 import { tidyText } from "~~/shared/tidyText";
-import { formatVolume, parseVolumeMl, waterMgFromMl } from "~~/shared/water";
+import { formatVolume, isWaterName, parseVolumeMl, waterMgFromMl } from "~~/shared/water";
 import type { CatalogResult, NameCommit } from "~/composables/useCatalogSearch";
 import type { VaultEntry } from "~~/shared/vault";
 
@@ -229,6 +229,12 @@ function selectResult(r: CatalogResult) {
     commonName: r.commonName ?? undefined,
     weightMg: r.weightMg,
     catalogItemId: r.id,
+    // The catalog already knows food/fuel is not base weight, so a pick from its
+    // consumable category arrives pre-classified — otherwise a Clif bar dropped in
+    // "Pack" inherits base and quietly pads the base total. Only this one category
+    // maps: the others can't speak for how YOU carry a thing (clothing may be worn
+    // or packed), so they stay on the folder default.
+    classification: r.categoryHint === "consumable" ? "consumable" : undefined,
   });
   // self-improving ranking: tell the catalog this item was used (fire-and-forget)
   $fetch("/api/catalog/use", { method: "POST", body: { ids: [r.id] } }).catch(() => {});
@@ -258,6 +264,7 @@ function selectVault(v: VaultEntry) {
     weightMg: v.weightMg,
     catalogItemId: v.catalogItemId,
     classification: v.classification,
+    kcal: v.kcal,
     fromVault: true,
   });
   setDraftQuiet(props.clearOnCommit ? "" : tidyText(itemDisplayName(v.brand, v.name, v.variant)));
@@ -285,7 +292,11 @@ function commitFree() {
   if (!name) return;
   // a trailing weight in the typed name ("Tent 540 g") rides along
   const weight = m ? m[1] : undefined;
-  emit("commit", { name, weight });
+  // A row named exactly "water" IS the water row wherever it came from: the litres
+  // field takes over on the name alone (see ItemRow), so the classification must
+  // follow too — this is the blur path around the water suggestion, and without it
+  // a tabbed-away "water" would sit in base weight while reading in litres.
+  emit("commit", { name, weight, classification: isWaterName(name) ? "consumable" : undefined });
   // the TIDIED name, not the typed one — this field has to show what got stored, and
   // Enter commits without ever unfocusing, so the watcher can't do it here either
   setDraftQuiet(props.clearOnCommit ? "" : name);
