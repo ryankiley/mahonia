@@ -289,6 +289,13 @@ function create() {
         // and don't claim "synced": later edits stay device-only (remoteMissing).
         remoteMissing = true;
         status.value = "missing";
+        // A dead token whose list ALSO has a live row in the registry is the
+        // leftover half of a rotate — the switcher was showing that pack twice,
+        // both rows marked current, and this is the one that no longer opens.
+        // Only the row goes; the local copy on screen is untouched (see the
+        // composable). The live-side heal is upsert's share-code claim, so it
+        // takes one visit to either row, whichever you happened to pick.
+        useMyLists().forgetSuperseded(token);
       } else if (local) {
         // Network failure with a local copy: keep editing, sync when it returns.
         status.value = "offline";
