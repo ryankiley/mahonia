@@ -153,6 +153,10 @@ export function useMyLists() {
     } catch (e) {
       if ((e as { statusCode?: number })?.statusCode !== 404) return false;
     }
+    // The list is gone for good, so this device's "is this gear mine?" answer for it
+    // is gone with it. Here rather than in forget(), which also backs "Remove from
+    // device" for a list that's still online — see clearVaultDecisionFor.
+    clearVaultDecisionFor(editToken);
     forget(editToken);
     return true;
   }
