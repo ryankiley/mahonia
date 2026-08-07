@@ -222,12 +222,26 @@ const estimates = computed(() =>
       : null,
   ),
 );
-/** "4 h 20" — hours and minutes, never a decimal. Nobody walks for 4.33 hours. */
+/**
+ * "4–4.5 hr" — a BAND, because that is what the model actually knows.
+ *
+ * It used to say "4 h 11". Those minutes were arithmetic, not information: the estimate is
+ * good to about ±20%, so quoting one claimed a precision nothing behind it has, and a
+ * figure that precise gets quoted back as a fact. The calories beside it have always
+ * rounded to the nearest hundred for exactly this reason; the clock was the holdout.
+ *
+ * A half-hour band containing the estimate, which is also the unit people plan in — you
+ * leave at eight and expect to be in camp by one, not by 12:11.
+ *
+ * Under an hour it reads in minutes, because "0–0.5 hr" is not how anyone says twenty
+ * minutes.
+ */
 function formatHours(h: number): string {
-  const mins = Math.round(h * 60);
-  const hh = Math.floor(mins / 60);
-  const mm = mins % 60;
-  return hh ? `${hh} h ${String(mm).padStart(2, "0")}` : `${mm} min`;
+  const lo = Math.floor(h * 2) / 2;
+  const hi = lo + 0.5;
+  if (hi <= 1) return `${lo * 60}–${hi * 60} min`;
+  const n = (v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(1));
+  return `${n(lo)}–${n(hi)} hr`;
 }
 // Rounded to the nearest 100. The model admits ±20%; a figure ending in 7 would claim a
 // precision it does not have.
@@ -777,7 +791,9 @@ const distanceValue = (m: number | undefined) => {
                a keyboard; Tooltip is the app's own affordance and answers both. -->
           <span class="plan__cell plan__cell--est">
             <HugeiconsIcon :icon="clockIcon(estimates[i]?.hours)" class="plan__gl" :size="16" :stroke-width="2" aria-hidden="true" />
-            <span class="t-num">{{ estimates[i] ? `~${formatHours(estimates[i]!.hours)}` : "—" }}</span>
+            <!-- no `~` on this one: the RANGE is the hedge, and "~4–4.5" says it twice.
+                 The calories beside it keep theirs, being a single figure. -->
+            <span class="t-num">{{ estimates[i] ? formatHours(estimates[i]!.hours) : "—" }}</span>
             <Tooltip v-if="estimates[i]" text="Walking time only — no breaks. Pace follows the gradient and the weight of your pack." preferred-placement="top">
               <button type="button" class="plan__why" aria-label="How the moving time is worked out">
                 <HugeiconsIcon :icon="HelpCircleIcon" :size="14" :stroke-width="2" aria-hidden="true" />
