@@ -146,7 +146,24 @@ function commitUrl(e: Event) {
 }
 
 function commitLabel(e: Event) {
-  c.setMeta({ trailLabel: (e.target as HTMLInputElement).value.trim() });
+  const el = e.target as HTMLInputElement;
+  c.setMeta({ trailLabel: el.value });
+  el.value = props.snapshot.trailLabel ?? ""; // resync — see commitTitle
+}
+
+// The title field is uncontrolled (:value + @change), so it keeps showing what was
+// typed unless it's told otherwise. Usually the tidied value differs from the old one
+// and Vue re-patches on its own; the case that needs this line is when it DOESN'T —
+// retyping "Ryan's Timberline" over a stored "Ryan’s Timberline" tidies to exactly
+// what's already in state, nothing reactive changes, and the straight apostrophe
+// stays on screen looking saved. Same resync ItemRow's weight and qty fields do.
+// autoGrow runs after, because a collapsed run of spaces can shorten the line enough
+// to free a row.
+function commitTitle(e: Event) {
+  const el = e.target as HTMLTextAreaElement;
+  c.setMeta({ title: el.value });
+  el.value = props.snapshot.title;
+  fit();
 }
 
 // ---- the other way in: a GPX ----
@@ -460,7 +477,7 @@ onClickOutside(trailEl, closeTrail);
         spellcheck="false"
         @input="fit"
         @keydown.enter.prevent="($event.target as HTMLTextAreaElement).blur()"
-        @change="c.setMeta({ title: ($event.target as HTMLTextAreaElement).value })"
+        @change="commitTitle"
       />
       <HugeiconsIcon
         :icon="Edit02Icon"
@@ -1346,9 +1363,22 @@ onClickOutside(trailEl, closeTrail);
     position: static;
   }
 }
+/* Centred across the grid, not flush to the panel's edge. `justify-self: start` put
+   this label's first letter on the panel's content edge — but nothing in the calendar
+   above it starts there: every glyph in the grid is CENTRED in a 32px column, so the
+   word sat about half a cell left of the column of numbers and read as overhanging.
+   Stretching it and letting .btn's own flexbox centre the label lines it up with the
+   month name at the other end of the panel, which is the only other full-width row
+   here. Given the day cells' height + corner so a hover reads as one of the panel's
+   controls rather than as bare text. */
 .head__dateclear {
-  justify-self: start;
+  justify-self: stretch;
+  block-size: var(--icon-btn);
+  border-radius: var(--radius-2);
   color: var(--ink-3);
+}
+.head__dateclear:hover {
+  background: var(--popover-hover);
 }
 .head__dateclear:hover {
   color: var(--ink);

@@ -5,6 +5,7 @@
 // version counter only signals "you're behind, refetch", not "rejected".
 
 import { parseProfile } from "./profile";
+import { tidyProse, tidyText } from "./tidyText";
 import { normalizeDistanceUnit, normalizeTrailAscentM, normalizeTrailDistanceM } from "./trailDistance";
 import { normalizeTrailLabel, normalizeTrailUrl } from "./trailLink";
 import type { Classification, Folder, FolderSort, Item, ListState, TripDay, Unit, Waypoint } from "./types";
@@ -157,19 +158,34 @@ const SAFE_COLOR_KEY = /^[a-z0-9-]{1,40}$/;
 const clampWeight = (n: number) =>
   Math.max(0, Math.min(UNIT_WEIGHT_MAX_MG, Math.round(n)));
 
+// Every HUMAN-typed string lands here: clamped, then tidied (see tidyText). Doing it
+// in the reducer rather than in the fields means one rule covers paths no component
+// can — a catalog pick, a LighterPack import, a restored JSON backup, and an op
+// arriving at the API from a client that never ran the editor's code at all.
+//
+// Slice BEFORE tidy, not after. tidyText never grows a string, so the result still
+// honours the cap; the order is what stops a cut landing mid-space from leaving the
+// half-word's trailing space behind.
+//
+// URLs deliberately don't come through here — productUrl and imageUrl keep their
+// plain .slice(). A path can legitimately carry an apostrophe (…/mens-jacket vs
+// …/men's-jacket), and curling one rewrites the address to a page that isn't there.
+const cleanText = (raw: string, max: number) => tidyText(raw.slice(0, max));
+
 // Defensive clamps so a malformed op (or hostile client) can't corrupt state.
 function cleanItemPatch(patch: ItemPatch): Partial<Item> {
   const out: Partial<Item> = {};
-  if (typeof patch.name === "string") out.name = patch.name.slice(0, 200);
+  if (typeof patch.name === "string") out.name = cleanText(patch.name, 200);
   // brand/variant: a non-empty string sets it; "" clears it (so a free rename can
-  // drop the catalog-derived brand/variant from a now-custom item)
-  if (typeof patch.brand === "string") out.brand = patch.brand ? patch.brand.slice(0, 120) : undefined;
-  if (typeof patch.variant === "string") out.variant = patch.variant ? patch.variant.slice(0, 120) : undefined;
+  // drop the catalog-derived brand/variant from a now-custom item). The emptiness test
+  // reads the TIDIED value, so an all-whitespace field clears rather than storing " ".
+  if (typeof patch.brand === "string") out.brand = cleanText(patch.brand, 120) || undefined;
+  if (typeof patch.variant === "string") out.variant = cleanText(patch.variant, 120) || undefined;
   // common name: a non-empty string sets it; "" clears it (mirrors brand/variant)
-  if (typeof patch.commonName === "string") out.commonName = patch.commonName ? patch.commonName.slice(0, 120) : undefined;
+  if (typeof patch.commonName === "string") out.commonName = cleanText(patch.commonName, 120) || undefined;
   if (typeof patch.commonNameOverridden === "boolean") out.commonNameOverridden = patch.commonNameOverridden;
   if (typeof patch.nameOverridden === "boolean") out.nameOverridden = patch.nameOverridden;
-  if (typeof patch.description === "string") out.description = patch.description.slice(0, 2000);
+  if (typeof patch.description === "string") out.description = cleanText(patch.description, 2000);
   if (typeof patch.productUrl === "string") out.productUrl = patch.productUrl.slice(0, 2000);
   if (typeof patch.unitWeightMg === "number" && isFinite(patch.unitWeightMg))
     out.unitWeightMg = clampWeight(patch.unitWeightMg);
@@ -218,7 +234,7 @@ function cleanItemPatch(patch: ItemPatch): Partial<Item> {
 
 function cleanFolderPatch(patch: Partial<Folder>): Partial<Folder> {
   const out: Partial<Folder> = {};
-  if (typeof patch.name === "string") out.name = patch.name.slice(0, 120);
+  if (typeof patch.name === "string") out.name = cleanText(patch.name, 120);
   if (typeof patch.colorKey === "string" && SAFE_COLOR_KEY.test(patch.colorKey)) out.colorKey = patch.colorKey;
   if (typeof patch.defaultClassification === "string" && CLASSES.includes(patch.defaultClassification))
     out.defaultClassification = patch.defaultClassification;
@@ -503,8 +519,14 @@ function applyOp(state: ListState, op: Op): void {
       break;
     case "setMeta": {
       const p = op.patch || {};
-      if (typeof p.title === "string") state.title = p.title.slice(0, 200);
-      if (typeof p.description === "string") state.description = p.description.slice(0, 4000);
+      if (typeof p.title === "string") state.title = cleanText(p.title, 200);
+      // tidyProse, not cleanText: the LIST description is the one field that can hold
+      // paragraphs (no editor anywhere — it arrives from a LighterPack import or a JSON
+      // backup), so it gets the apostrophes and the invisibles but keeps every line
+      // break, and a backup still round-trips. An ITEM's description is a real one-line
+      // input and goes through cleanText like the rest — see cleanItemPatch.
+      if (typeof p.description === "string")
+        state.description = tidyProse(p.description.slice(0, 4000));
       if (typeof p.displayUnit === "string" && UNITS.includes(p.displayUnit)) state.displayUnit = p.displayUnit;
       // The trail URL is VALIDATED, not just clamped: it ends up in a :href on a page
       // strangers open, and Vue won't sanitize it. An empty string clears the link;
@@ -617,10 +639,10 @@ export function normalizeItem(raw: Item): Item {
     // the item this is nested under (validated against real, top-level items by the
     // addItem/moveItem reducer cases, which can see the whole list; here we only clamp)
     parentId: typeof raw.parentId === "string" && raw.parentId ? raw.parentId.slice(0, MAX_ID_LEN) : null,
-    name: String(raw.name ?? "").slice(0, 200),
-    brand: raw.brand ? String(raw.brand).slice(0, 120) : undefined,
-    variant: raw.variant ? String(raw.variant).slice(0, 120) : undefined,
-    commonName: raw.commonName ? String(raw.commonName).slice(0, 120) : undefined,
+    name: cleanText(String(raw.name ?? ""), 200),
+    brand: raw.brand ? cleanText(String(raw.brand), 120) || undefined : undefined,
+    variant: raw.variant ? cleanText(String(raw.variant), 120) || undefined : undefined,
+    commonName: raw.commonName ? cleanText(String(raw.commonName), 120) || undefined : undefined,
     commonNameOverridden: raw.commonNameOverridden ? true : undefined,
     nameOverridden: raw.nameOverridden ? true : undefined,
     unitWeightMg: clampWeight(Number(raw.unitWeightMg) || 0),
@@ -639,7 +661,7 @@ export function normalizeItem(raw: Item): Item {
       typeof raw.kcal === "number" && isFinite(raw.kcal) && Math.round(raw.kcal) > 0
         ? Math.min(KCAL_MAX, Math.round(raw.kcal))
         : undefined,
-    description: raw.description ? String(raw.description).slice(0, 2000) : undefined,
+    description: raw.description ? cleanText(String(raw.description), 2000) || undefined : undefined,
     productUrl: raw.productUrl ? String(raw.productUrl).slice(0, 2000) : undefined,
     imageUrl: raw.imageUrl ? String(raw.imageUrl).slice(0, 2000) : undefined,
     priceCents:
@@ -660,10 +682,60 @@ export function normalizeItem(raw: Item): Item {
   };
 }
 
+/**
+ * An already-stored list's text brought up to the current tidy rules, IN PLACE.
+ *
+ * The backfill. cleanText only runs when a field is written, so without this a list
+ * made before the tidy existed keeps every straight apostrophe until someone happens
+ * to retype that exact field — and the moment they retype ONE, the list is visibly
+ * half-and-half: "Ryan’s tent" on the row you touched, "Ryan's pack" on the one you
+ * didn't. Uniformity is the whole point of the feature, so a partial application is
+ * worse than none.
+ *
+ * Called on the READ paths, not by a migration: it is cheap (a regex over a few short
+ * strings per row), it is idempotent, and it needs no deploy-time step or DB access.
+ * Reads on the server go out tidied, so every surface renders the same spelling
+ * immediately; the mutate path reads through here too, so the tidied form is what gets
+ * written back the next time anything on the list changes. The data migrates itself,
+ * at exactly the pace the lists are actually used.
+ *
+ * Deliberately NOT normalizeItem: that clamps and coerces every field and allocates a
+ * new object per row. This touches only the text and only the fields cleanItemPatch
+ * would have touched, so a read can afford to run it every time.
+ */
+export function tidyListText<T extends {
+  title?: string;
+  description?: string;
+  trailLabel?: string;
+  folders: Folder[];
+  items: Item[];
+}>(list: T): T {
+  if (typeof list.title === "string") list.title = cleanText(list.title, 200);
+  // prose, so an imported description keeps its paragraphs — see the setMeta case
+  if (typeof list.description === "string")
+    list.description = tidyProse(list.description.slice(0, 4000));
+  // through its own normalizer, which is where the label's cap and blank rule live
+  if (typeof list.trailLabel === "string") {
+    const label = normalizeTrailLabel(list.trailLabel);
+    if (label) list.trailLabel = label;
+    else delete list.trailLabel;
+  }
+  for (const f of list.folders) f.name = cleanText(f.name ?? "", 120) || "Folder";
+  for (const it of list.items) {
+    it.name = cleanText(it.name ?? "", 200);
+    if (it.brand) it.brand = cleanText(it.brand, 120) || undefined;
+    if (it.variant) it.variant = cleanText(it.variant, 120) || undefined;
+    if (it.commonName) it.commonName = cleanText(it.commonName, 120) || undefined;
+    if (it.description) it.description = cleanText(it.description, 2000) || undefined;
+    // productUrl/imageUrl left alone — an apostrophe in a path is part of the address
+  }
+  return list;
+}
+
 export function normalizeFolder(raw: Folder): Folder {
   return {
     id: String(raw.id).slice(0, MAX_ID_LEN),
-    name: String(raw.name ?? "").slice(0, 120) || "Folder",
+    name: cleanText(String(raw.name ?? ""), 120) || "Folder",
     colorKey: raw.colorKey && SAFE_COLOR_KEY.test(String(raw.colorKey)) ? String(raw.colorKey) : "other",
     defaultClassification: CLASSES.includes(raw.defaultClassification)
       ? raw.defaultClassification

@@ -270,6 +270,20 @@ function onQty(e: Event) {
   c.updateItem(props.item.id, { qty: q });
   el.value = String(q); // resync even when the clamp is a no-op (e.g. 0 / letters)
 }
+// The two sub-fields resync for the same reason the numbers above do — the reducer
+// tidies the text it stores (shared/tidyText), and these are uncontrolled inputs, so
+// when the tidied result matches what's already in state (retyping "Ryan's" over a
+// stored "Ryan’s") no reactive change happens and the field would keep the typed form.
+function onCommonName(e: Event) {
+  const el = e.target as HTMLInputElement;
+  c.updateItem(props.item.id, { commonName: el.value, commonNameOverridden: true });
+  el.value = props.item.commonName ?? "";
+}
+function onNote(e: Event) {
+  const el = e.target as HTMLInputElement;
+  c.updateItem(props.item.id, { description: el.value });
+  el.value = props.item.description ?? "";
+}
 // arrow keys nudge the weight by a unit-appropriate step (Shift = ×10), so you can
 // tap into the field and increment/decrement without retyping
 function onWeightStep(e: KeyboardEvent, dir: 1 | -1) {
@@ -1224,7 +1238,7 @@ function dismissFix() {
             aria-label="Gear type"
             autocorrect="off"
             spellcheck="true"
-            @change="c.updateItem(item.id, { commonName: ($event.target as HTMLInputElement).value, commonNameOverridden: true })"
+            @change="onCommonName"
             @blur="onSubBlur"
           />
           <input
@@ -1236,7 +1250,7 @@ function dismissFix() {
             aria-label="Item note"
             autocorrect="off"
             spellcheck="true"
-            @change="c.updateItem(item.id, { description: ($event.target as HTMLInputElement).value })"
+            @change="onNote"
             @blur="onSubBlur"
           />
         </div>

@@ -132,6 +132,17 @@ onMounted(() => {
     /* private mode / no storage — default expanded */
   }
 });
+// The reducer tidies what it stores (shared/tidyText), so the field has to be told the
+// answer rather than left holding what was typed. This is an uncontrolled input —
+// :value + @change — and when the tidied result EQUALS the value already in state
+// (retyping "Ryan's" over a stored "Ryan’s"), nothing reactive changes, Vue re-patches
+// nothing, and the straight apostrophe sits there looking committed. Same resync, and
+// the same reason, as the weight and qty fields in ItemRow.
+function onName(e: Event) {
+  const el = e.target as HTMLInputElement;
+  c.updateFolder(props.folder.id, { name: el.value });
+  el.value = props.folder.name;
+}
 function toggleCollapsed() {
   collapsed.value = !collapsed.value;
   try {
@@ -159,7 +170,7 @@ function toggleCollapsed() {
           aria-label="Folder name"
           autocorrect="off"
           spellcheck="false"
-          @change="c.updateFolder(folder.id, { name: ($event.target as HTMLInputElement).value })"
+          @change="onName"
         />
         <button
           class="folder__collapse"

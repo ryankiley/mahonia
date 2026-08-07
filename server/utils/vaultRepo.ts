@@ -19,6 +19,7 @@ import {
 import type { Classification } from "../../shared/types";
 import { itemDisplayName } from "../../shared/weights";
 import { foldForSearch } from "../../shared/catalogSearch";
+import { tidyText } from "../../shared/tidyText";
 import { rankVaultRows } from "../../shared/vaultSearch";
 
 type Db = Awaited<ReturnType<typeof useVaultDb>>;
@@ -45,14 +46,24 @@ type Row = typeof vaultItems.$inferSelect;
 
 /** DB row → wire shape: SQL nulls become absent fields, so the client sees the same
  *  optional-property shape the capture side produces. */
+// The vault's backfill, in the one place every read converts a row (the live list, the
+// removed list and the autocomplete all land here). Rows captured before the tidy
+// existed hold straight apostrophes and doubled spaces, and a vault row sits directly
+// beside list rows that are tidied — in the autocomplete menu they are adjacent lines.
+//
+// Display only, and safe to be: identity is `normKey`, which folds through
+// foldForSearch (non-alphanumerics stripped), so "Arc'teryx" and "Arc’teryx" produce
+// the SAME key. Tidying what's shown cannot re-key a row, split one in two, or miss the
+// upsert target. The stored column keeps whatever it had until the next capture
+// rewrites it from an already-tidied list item.
 function toEntry(row: Row): VaultEntry {
   return {
     id: row.id,
     normKey: row.normKey,
-    brand: row.brand ?? undefined,
-    name: row.name,
-    variant: row.variant ?? undefined,
-    commonName: row.commonName ?? undefined,
+    brand: row.brand ? tidyText(row.brand) || undefined : undefined,
+    name: tidyText(row.name),
+    variant: row.variant ? tidyText(row.variant) || undefined : undefined,
+    commonName: row.commonName ? tidyText(row.commonName) || undefined : undefined,
     weightMg: Number(row.weightMg),
     classification: CLASSIFICATIONS.includes(row.classification as Classification)
       ? (row.classification as Classification)
@@ -66,12 +77,13 @@ function toEntry(row: Row): VaultEntry {
   };
 }
 
-/** A string field off the wire: typed, trimmed, capped — or dropped. The shipped
- *  client already sends clean values; this is for the direct POST that doesn't. */
+/** A string field off the wire: typed, capped, tidied — or dropped. The shipped
+ *  client already sends clean values; this is for the direct POST that doesn't.
+ *  tidyText rather than a bare trim, so a hand-rolled POST can't seed the vault with
+ *  text the editor would never have stored (and toEntry would only re-tidy on read). */
 function str(v: unknown, max: number): string | undefined {
   if (typeof v !== "string") return undefined;
-  const s = v.trim().slice(0, max);
-  return s || undefined;
+  return tidyText(v.slice(0, max)) || undefined;
 }
 
 /** Re-derive the identity server-side rather than trusting the client's normKey —
@@ -288,9 +300,13 @@ export async function listVaultFolders(db: Db, vaultId: number): Promise<VaultFo
     .from(vaultFolders)
     .where(eq(vaultFolders.vaultId, vaultId))
     .orderBy(asc(vaultFolders.sortOrder), asc(vaultFolders.id));
+  // tidied on read like the items are (toEntry) — these names are copied from list
+  // folder names, so an old one reads "Men's layers" beside a list showing "Men’s
+  // layers". The stored name is the unique key here, so it is deliberately NOT
+  // rewritten: only what the page renders changes.
   return rows.map((r) => ({
     id: r.id,
-    name: r.name,
+    name: tidyText(r.name),
     sortBy: (r.sortBy as VaultFolder["sortBy"]) ?? undefined,
   }));
 }

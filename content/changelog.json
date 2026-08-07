@@ -34,7 +34,8 @@
       "Camp is no longer something you pick — every day's end draws one, and the pins you place are water or a landmark.",
       "The elevation chart now leaves easy ground unshaded, breaks cleanly between days, and keeps its difficulty shading readable at the route's low points.",
       "The elevation profile now leaves a real gap between one day and the next, on the shading as well as the line.",
-      "A day's climb and its drop now sit together as one pair, and the figures after them line up down the list."
+      "A day's climb and its drop now sit together as one pair, and the figures after them line up down the list.",
+      "Names are tidied when you commit them: stray spaces collapse, and an apostrophe in a possessive or a brand curls to match the rest of the page. Feet and inches are left exactly as typed. Lists and gear you already had are tidied too, so everything reads the same way."
     ],
     "fixed": [
       "On a phone, a weight like 0.68 lb no longer has its last digit clipped, and a water row's figure lines up with the rows above it.",
@@ -54,7 +55,8 @@
     "changed": [
       "On a phone, removing an item now lives in the row's ⋯ menu with the note, nesting and gear vault actions; the row keeps the ⋯ and the drag handle.",
       "On a phone, a list's trip dates now sit tight under its trail link, so the title, trail and dates read as one block.",
-      "A shared list now marks worn and consumable items with the same two icons the editor uses, instead of spelling the word after the name."
+      "A shared list now marks worn and consumable items with the same two icons the editor uses, instead of spelling the word after the name.",
+      "The trip date picker now starts its weeks on Sunday, tracks the day under your cursor with a highlight that glides between days, and centres its Clear button under the calendar."
     ],
     "fixed": [
       "On a phone, an item's worn and consumable icons sat below the weight beside them; every icon on the row now lines up with the numbers.",
@@ -68,7 +70,8 @@
       "A heavy item's weight no longer breaks between the number and its unit, and stays in the same column as every other weight on the widest and narrowest windows.",
       "An item that splits its count into worn and packed no longer runs into the weight beside it.",
       "An item with no weight lines its dash up with the numbers above and below it.",
-      "In the folder breakdown, a long folder name now keeps its colour dot on the first line and its weight at the end of the name, instead of stranding both."
+      "In the folder breakdown, a long folder name now keeps its colour dot on the first line and its weight at the end of the name, instead of stranding both.",
+      "Trip dates in between the two dates you picked now read as selected, instead of nearly vanishing into the panel in dark mode."
     ]
   },
   {

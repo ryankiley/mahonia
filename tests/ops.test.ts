@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyOps, normalizeCalendarDate, normalizeItem, type Op } from "../shared/ops";
+import { applyOps, normalizeCalendarDate, normalizeItem, tidyListText, type Op } from "../shared/ops";
 import type { Item, ListState } from "../shared/types";
 
 const base = (): ListState => ({
@@ -525,5 +525,215 @@ describe("trip dates", () => {
         expect(set({ startDate: v }).startDate).toBe(normalizeCalendarDate(v));
       }
     });
+  });
+});
+
+// The tidy pass itself is covered in tidyText.test.ts. What matters here is that
+// EVERY human-typed field routes through it — the reducer is the single choke point,
+// and a field that skips it stores a different string from the one beside it.
+describe("text tidying reaches every human field", () => {
+  const CURLY = String.fromCharCode(0x2019);
+  const item = (over: Partial<Item> = {}): Item =>
+    ({
+      id: "i1",
+      folderId: "f1",
+      name: "Tent",
+      unitWeightMg: 1,
+      qty: 1,
+      classification: null,
+      sortOrder: 0,
+      ...over,
+    }) as Item;
+
+  it("tidies a list title through setMeta", () => {
+    const s = base();
+    applyOps(s, [{ t: "setMeta", patch: { title: "  Ryan's   Timberline " } } as Op]);
+    expect(s.title).toBe(`Ryan${CURLY}s Timberline`);
+  });
+
+  it("gives the LIST description the apostrophes but keeps its paragraphs", () => {
+    const s = base();
+    applyOps(s, [
+      { t: "setMeta", patch: { description: "First para.\n\nSecond para, Ryan's notes." } } as Op,
+    ]);
+    // curled like the title above it…
+    expect(s.description).toBe(`First para.\n\nSecond para, Ryan${CURLY}s notes.`);
+    // …but the break survives, so a JSON backup still round-trips its structure
+    expect(s.description!.split("\n").length).toBe(3);
+  });
+
+  it("an ITEM description IS a one-line input, so it does tidy", () => {
+    const s = base();
+    applyOps(s, [
+      { t: "addItem", item: item({ description: "  Ryan's  spare \n line " }) } as Op,
+    ]);
+    expect(s.items[0]!.description).toBe(`Ryan${CURLY}s spare line`);
+  });
+
+  it("tidies every text field on an added item", () => {
+    const s = base();
+    applyOps(s, [
+      {
+        t: "addItem",
+        item: item({
+          name: "  Ryan's  tent ",
+          brand: "Arc'teryx",
+          variant: "Men's Regular",
+          commonName: " tent ",
+          description: "Ryan's  spare",
+        }),
+      } as Op,
+    ]);
+    const it0 = s.items[0]!;
+    expect(it0.name).toBe(`Ryan${CURLY}s tent`);
+    expect(it0.brand).toBe(`Arc${CURLY}teryx`);
+    expect(it0.variant).toBe(`Men${CURLY}s Regular`);
+    expect(it0.commonName).toBe("tent");
+    expect(it0.description).toBe(`Ryan${CURLY}s spare`);
+  });
+
+  it("tidies the same fields on updateItem", () => {
+    const s = base();
+    applyOps(s, [
+      { t: "addItem", item: item() } as Op,
+      {
+        t: "updateItem",
+        id: "i1",
+        patch: { name: " Ryan's  tent ", brand: "Arc'teryx", commonName: "  tent  ", description: " a  b " },
+      } as Op,
+    ]);
+    const it0 = s.items[0]!;
+    expect(it0.name).toBe(`Ryan${CURLY}s tent`);
+    expect(it0.brand).toBe(`Arc${CURLY}teryx`);
+    expect(it0.commonName).toBe("tent");
+    expect(it0.description).toBe("a b");
+  });
+
+  it("tidies folder names on add and update", () => {
+    const s = base();
+    applyOps(s, [
+      { t: "addFolder", folder: { id: "f9", name: "  Ryan's   kit ", defaultClassification: "base", sortOrder: 9 } } as Op,
+      { t: "updateFolder", id: "f1", patch: { name: "Men's  layers" } } as Op,
+    ]);
+    expect(s.folders.find((f) => f.id === "f9")!.name).toBe(`Ryan${CURLY}s kit`);
+    expect(s.folders.find((f) => f.id === "f1")!.name).toBe(`Men${CURLY}s layers`);
+  });
+
+  it("does NOT touch a URL — an apostrophe in a path is part of the address", () => {
+    const s = base();
+    applyOps(s, [
+      { t: "addItem", item: item({ productUrl: "https://example.com/men's-jacket" }) } as Op,
+    ]);
+    expect(s.items[0]!.productUrl).toBe("https://example.com/men's-jacket");
+  });
+
+  it("does NOT touch a foot or inch mark anywhere it runs", () => {
+    const s = base();
+    applyOps(s, [
+      { t: "setMeta", patch: { title: `8' x 10" tarp trip` } } as Op,
+      { t: "addItem", item: item({ name: `Guyline 6'`, description: `2" stakes` }) } as Op,
+    ]);
+    expect(s.title).toBe(`8' x 10" tarp trip`);
+    expect(s.items[0]!.name).toBe(`Guyline 6'`);
+    expect(s.items[0]!.description).toBe(`2" stakes`);
+  });
+
+  it("treats a whitespace-only value as blank", () => {
+    const s = base();
+    applyOps(s, [
+      { t: "addItem", item: item({ brand: "   ", commonName: "  " }) } as Op,
+      { t: "addFolder", folder: { id: "f9", name: "   ", defaultClassification: "base", sortOrder: 9 } } as Op,
+    ]);
+    expect(s.items[0]!.brand).toBeUndefined();
+    expect(s.items[0]!.commonName).toBeUndefined();
+    expect(s.folders.find((f) => f.id === "f9")!.name).toBe("Folder");
+  });
+
+  it("clamps before tidying, so a cut that lands mid-space leaves no trailing space", () => {
+    const s = base();
+    // 199 chars, then a space, then more — the 200-char cut falls on the space
+    const long = `${"a".repeat(199)} tail`;
+    applyOps(s, [{ t: "setMeta", patch: { title: long } } as Op]);
+    expect(s.title).toBe("a".repeat(199));
+    expect(s.title.length).toBeLessThanOrEqual(200);
+  });
+});
+
+// The backfill. Text written before the tidy existed has to come out right on READ,
+// or a list made last year renders half-and-half the moment one field is retyped.
+describe("tidyListText — bringing already-stored text up to date", () => {
+  const CURLY = String.fromCharCode(0x2019);
+  const stale = () => ({
+    title: "  Ryan's   Timberline ",
+    trailLabel: "  Ryan's  loop ",
+    displayUnit: "g" as const,
+    version: 3,
+    folders: [
+      { id: "f1", name: "Men's  layers", defaultClassification: "base" as const, sortOrder: 0 },
+      { id: "f2", name: "   ", defaultClassification: "base" as const, sortOrder: 1 },
+    ],
+    items: [
+      {
+        id: "i1", folderId: "f1", name: "  Ryan's  tent ", brand: "Arc'teryx",
+        variant: "Men's  Regular", commonName: " tent ", description: "Ryan's  spare",
+        productUrl: "https://example.com/men's-jacket",
+        unitWeightMg: 1, qty: 1, classification: null, sortOrder: 0,
+      } as unknown as Item,
+      {
+        id: "i2", folderId: null, name: "Guyline 6'", description: `2" stakes`,
+        unitWeightMg: 1, qty: 1, classification: null, sortOrder: 1,
+      } as unknown as Item,
+    ],
+  });
+
+  it("tidies every text field a stale list can hold", () => {
+    const s = tidyListText(stale());
+    expect(s.title).toBe(`Ryan${CURLY}s Timberline`);
+    expect(s.trailLabel).toBe(`Ryan${CURLY}s loop`);
+    expect(s.folders[0]!.name).toBe(`Men${CURLY}s layers`);
+    expect(s.folders[1]!.name).toBe("Folder"); // blank falls back, as on write
+    expect(s.items[0]!.name).toBe(`Ryan${CURLY}s tent`);
+    expect(s.items[0]!.brand).toBe(`Arc${CURLY}teryx`);
+    expect(s.items[0]!.variant).toBe(`Men${CURLY}s Regular`);
+    expect(s.items[0]!.commonName).toBe("tent");
+    expect(s.items[0]!.description).toBe(`Ryan${CURLY}s spare`);
+  });
+
+  it("leaves URLs and measurements alone, exactly as the write path does", () => {
+    const s = tidyListText(stale());
+    expect(s.items[0]!.productUrl).toBe("https://example.com/men's-jacket");
+    expect(s.items[1]!.name).toBe("Guyline 6'");
+    expect(s.items[1]!.description).toBe(`2" stakes`);
+  });
+
+  it("is idempotent, so running it on every read can't drift", () => {
+    const once = tidyListText(stale());
+    const twice = tidyListText(structuredClone(once));
+    expect(twice).toEqual(once);
+  });
+
+  it("agrees field-for-field with what the write path would have stored", () => {
+    // the two must not diverge: a value read back must equal the value a retype
+    // produces, or the backfill would fight the editor forever
+    const backfilled = tidyListText(stale());
+    const written = base();
+    applyOps(written, [
+      { t: "setMeta", patch: { title: "  Ryan's   Timberline " } } as Op,
+      { t: "updateFolder", id: "f1", patch: { name: "Men's  layers" } } as Op,
+    ]);
+    expect(backfilled.title).toBe(written.title);
+    expect(backfilled.folders[0]!.name).toBe(written.folders.find((f) => f.id === "f1")!.name);
+  });
+
+  it("produces no phantom history entry — both sides of the diff move together", () => {
+    // rowToState tidies BEFORE ops apply, so the pre-op state the summary compares
+    // against is already tidied and a punctuation-only backfill reads as no change
+    const before = tidyListText(stale());
+    const after = tidyListText(stale());
+    applyOps(after as unknown as ListState, [
+      { t: "updateItem", id: "i1", patch: { qty: 2 } } as Op,
+    ]);
+    expect(after.items[0]!.name).toBe(before.items[0]!.name); // the rename that never was
+    expect(after.title).toBe(before.title);
   });
 });

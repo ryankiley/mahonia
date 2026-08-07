@@ -1,7 +1,7 @@
 # Mahonia
 
 A gear-list and pack-weight tracker for hikers. Make a packing list, see what it weighs,
-share it — no account, no app.
+share it.
 
 Lists need no sign-up: one is yours the moment you start typing, held by a private
 unguessable link. The **gear vault** is the one part that asks for an account, because

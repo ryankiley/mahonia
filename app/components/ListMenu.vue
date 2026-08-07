@@ -3,6 +3,7 @@ import { HugeiconsIcon } from "@hugeicons/vue";
 import { CheckIcon, ChevronDownIcon } from "@hugeicons/core-free-icons";
 import { editLinkPath } from "~~/shared/links";
 import type { MyListEntry } from "~~/shared/types";
+import { foldApostrophes } from "~~/shared/tidyText";
 
 // The editor's list switcher: a labelled count in the toolbar that opens a
 // filterable menu of the lists this browser holds.
@@ -72,9 +73,13 @@ const fieldRef = useTemplateRef<HTMLInputElement>("fieldRef");
 // .is-out class because its rows are static markup and it needs one that beats the
 // [hidden] UA rule; a v-for over the matches has no such problem.
 const shown = computed(() => {
-  const q = query.value.trim().toLowerCase();
+  // apostrophes folded on both sides — titles are stored tidied, so a list called
+  // "Ryan’s Timberline" has to answer to the straight apostrophe a keyboard types
+  const q = foldApostrophes(query.value.trim().toLowerCase());
   if (!q) return all.value;
-  return all.value.filter((e) => savedListTitle(e.title).toLowerCase().includes(q));
+  return all.value.filter((e) =>
+    foldApostrophes(savedListTitle(e.title).toLowerCase()).includes(q),
+  );
 });
 
 const editPath = (e: MyListEntry) => editLinkPath(e.shareCode, e.editToken);

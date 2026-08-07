@@ -16,6 +16,7 @@ import {
   normalizeFolder,
   normalizeItem,
   normalizeWaypoint,
+  tidyListText,
   type Op,
 } from "../../shared/ops";
 import { computeTotals } from "../../shared/weights";
@@ -33,6 +34,7 @@ import { MAX_SUMMARY_LEN, summarizeOps } from "../../shared/changeSummary";
 import { normalizeDistanceUnit, normalizeTrailAscentM, normalizeTrailDistanceM } from "../../shared/trailDistance";
 import { parseProfile } from "../../shared/profile";
 import { normalizeRouteGeometry } from "../../shared/polyline";
+import { tidyProse, tidyText } from "../../shared/tidyText";
 import { displayHost, normalizeTrailLabel, normalizeTrailUrl, safeUrl } from "../../shared/trailLink";
 import { ensureSnapshotSchema, ensureTrailFaviconSchema, useAccountDb, useDb } from "./db";
 import { getFavicon, warmFavicon } from "./trailFavicon";
@@ -127,7 +129,11 @@ function normalizeListData(raw?: Partial<ListData>): ListData {
 // valid; the link just renders without a mark.
 export function rowToSnapshot(row: ListRow): ListSnapshot {
   const data = (row.data ?? { folders: [], items: [] }) as ListData;
-  return {
+  // Backfilled on the way out (see tidyListText). Rows written before the tidy existed
+  // still hold their straight apostrophes and stray spaces; without this every list
+  // made before it renders half-tidied the moment one field is retyped. Safe to mutate
+  // `data` in place — `row` is a fresh object per query, not a shared cache entry.
+  return tidyListText({
     shareCode: row.shareCode,
     slug: row.publicSlug,
     title: row.title,
@@ -175,7 +181,7 @@ export function rowToSnapshot(row: ListRow): ListSnapshot {
         : row.updatedAt
           ? String(row.updatedAt)
           : undefined,
-  };
+  });
 }
 
 // Trickle-down: for items still linked to a catalog product (and not custom-
@@ -225,12 +231,24 @@ export async function hydrateCatalogNames(db: Db, snap: ListSnapshot): Promise<L
     // variant, commonNameOverridden keeps their gear type. A row can hold one and not the
     // other — a renamed product still tracks the catalog's gear type, and a row with a
     // hand-typed gear type still tracks the catalog's name.
+    // tidied on the way OUT, the same pass the reducer applies on the way in. The
+    // catalog is stored exactly as the seed CSV spells it — "Arc'teryx", "Men's", a
+    // straight apostrophe in all 350-odd of them — and this function overwrites the
+    // row's stored name on EVERY read. Without the tidy here, a catalog pick is saved
+    // curly by the reducer and then re-displayed straight forever, so one list would
+    // render its typed rows "Ryan’s tent" beside its linked rows "Arc'teryx Men's
+    // Beta": the exact mixed spelling the tidy exists to prevent.
+    //
+    // Here rather than in the seed: the catalog is the product's own name and stays
+    // byte-for-byte what the source says. This is a DISPLAY fold, so nothing about
+    // catalog identity, search or dedup moves (foldForSearch strips both marks alike).
+    const brand = c.brand ? tidyText(c.brand) : undefined;
+    const variant = c.variant ? tidyText(c.variant) : undefined;
+    const commonName = c.commonName ? tidyText(c.commonName) : undefined;
     return {
       ...it,
-      ...(it.nameOverridden
-        ? {}
-        : { brand: c.brand ?? undefined, name: c.name, variant: c.variant ?? undefined }),
-      ...(it.commonNameOverridden ? {} : { commonName: c.commonName ?? undefined }),
+      ...(it.nameOverridden ? {} : { brand, name: tidyText(c.name), variant }),
+      ...(it.commonNameOverridden ? {} : { commonName }),
     };
   });
   return snap;
@@ -270,7 +288,18 @@ export async function hydrateForRead(db: Db, snap: ListSnapshot): Promise<ListSn
 
 function rowToState(row: ListRow): ListState {
   const data = (row.data ?? { folders: [], items: [] }) as ListData;
-  return {
+  // Tidied here too, and this is the half that makes the backfill STICK: ops apply on
+  // top of this state and the result is what gets written back, so the first change of
+  // any kind to an old list persists the tidied spelling for the whole list. No
+  // migration step, no bulk rewrite — a list is fixed the next time it's used, and one
+  // never touched again is still displayed correctly by rowToSnapshot.
+  //
+  // The clones happen first: this must not edit `row.data`, which the caller still
+  // holds as the pre-op state for the change summary and the recovery snapshot. A diff
+  // between a tidied before and a tidied after is also what keeps the backfill OUT of
+  // the version history — the punctuation moves on both sides at once, so nothing
+  // reads as an edit the user didn't make.
+  return tidyListText({
     title: row.title,
     description: row.description ?? undefined,
     trailUrl: row.trailUrl ?? undefined,
@@ -289,7 +318,7 @@ function rowToState(row: ListRow): ListState {
     days: structuredClone(data.days ?? []),
     waypoints: structuredClone(data.waypoints ?? []),
     version: row.version,
-  };
+  });
 }
 
 const liveOnly = (col: typeof lists.editTokenHash | typeof lists.shareCode, val: string) =>
@@ -493,7 +522,11 @@ export async function restoreSnapshotByEditToken(
   // be a clamp-bypass back into raw JSONB), and re-validate the unit
   const data = normalizeListData(s);
   const totals = computeTotals(data);
-  const title = (s.title ?? "Untitled list").slice(0, 200);
+  // tidied like createList's, because normalizeListData just tidied every item and
+  // folder name in this same restore. Without it one operation returns an internally
+  // inconsistent list — rows reading "Ryan’s tent" under a title still reading
+  // "  Ryan's   Trip  " — which is the mixed state the tidy exists to remove.
+  const title = tidyText((s.title ?? "").slice(0, 200)) || "Untitled list";
   const displayUnit: Unit = UNITS.includes(s.displayUnit as Unit) ? (s.displayUnit as Unit) : "g";
   // restore writes title/description like a mutate does, so it's the same link-spam
   // vector: publish clean, then restore a link-stuffed earlier snapshot. Re-check
@@ -515,9 +548,23 @@ export async function restoreSnapshotByEditToken(
       .update(lists)
       .set({
         title,
-        description: s.description ?? null,
-        trailUrl: s.trailUrl ?? null,
-        trailLabel: s.trailLabel ?? null,
+        // prose-tidied like every other write path (setMeta, createList)
+        description: s.description ? tidyProse(s.description.slice(0, 4000)) || null : null,
+        // Both through their normalizers, like every other write path. The label is
+        // the one that changed here — it tidies now, and restoring past it was how a
+        // list came back with a tidied title and an untidied link name. The URL is
+        // long-standing hardening this block already claims ("a snapshot must not be
+        // a clamp-bypass back into raw JSONB") but didn't apply: safeUrl is what keeps
+        // a javascript: value out of the :href a stranger clicks on a shared list.
+        trailUrl: normalizeTrailUrl(s.trailUrl) ?? null,
+        trailLabel: normalizeTrailLabel(s.trailLabel) ?? null,
+        // NOT normalized, unlike the three above — and that asymmetry is a merge artefact
+        // rather than a decision. The clamp-bypass argument in that comment is about this
+        // whole block, so these belong behind their normalizers too (parseProfile,
+        // normalizeTrailDistanceM, normalizeDistanceUnit, normalizeTrailAscentM,
+        // normalizeRouteGeometry). Left alone here so the merge stays a merge; doing it
+        // properly means deciding what an unparseable profile restores AS, since
+        // parseProfile returns [] where the others return undefined.
         trailDistanceM: s.trailDistanceM ?? null,
         trailDistanceUnit: s.trailDistanceUnit ?? null,
         trailProfile: s.trailProfile ?? null,
@@ -669,8 +716,17 @@ export async function createList(init?: {
   // `|| `, not `??`: an unnamed draft now arrives with an EMPTY title (the editor shows
   // its ghosted placeholder instead of a literal), and a blank name would otherwise
   // produce a bare "-a1b2c3" slug and an empty row in "Your lists".
-  const title = (init?.title?.trim() || "Untitled list").slice(0, 200);
-  const description = init?.description ? init.description.slice(0, 4000) : undefined;
+  // tidyText, not trim: a draft's title reaches storage HERE rather than through a
+  // setMeta op, so without the same pass a list named on the draft would keep the
+  // straight apostrophe (and the stray spaces) that the identical rename after saving
+  // would have tidied. The `||` fallback still reads the tidied value, so a
+  // whitespace-only title is "Untitled list" and not a bare "-a1b2c3" slug.
+  const title = tidyText(init?.title?.slice(0, 200) ?? "") || "Untitled list";
+  // tidyProse, matching the setMeta case — apostrophes and invisibles yes, line
+  // breaks kept, because this is the one text field that can hold paragraphs
+  const description = init?.description
+    ? tidyProse(init.description.slice(0, 4000)) || undefined
+    : undefined;
   // re-validated, not just clamped — a create can carry an imported JSON backup's URL
   const trailUrl = normalizeTrailUrl(init?.trailUrl) ?? undefined;
   const trailLabel = normalizeTrailLabel(init?.trailLabel);

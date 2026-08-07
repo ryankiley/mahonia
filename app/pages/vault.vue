@@ -4,6 +4,7 @@ import { ArrowUpDownIcon, ChevronDownIcon, CircleXIcon, Delete02Icon, FolderIcon
 import type { Unit } from "~~/shared/types";
 import type { VaultEntry, VaultFolder } from "~~/shared/vault";
 import { formatWeightAuto, itemDisplayName } from "~~/shared/weights";
+import { foldApostrophes } from "~~/shared/tidyText";
 
 // The vault — every piece of gear you've put in a list, in one place, so building
 // the next list is picking rather than retyping.
@@ -90,11 +91,16 @@ const restoring = ref<number | null>(null);
 // Plain substring filter, not the trigram ranker: this is a list you're LOOKING
 // at, so narrowing it should be literal and predictable. Fuzzy matching belongs in
 // the autocomplete, where you're typing a name you can't quite remember.
+// Both sides fold their apostrophes (see foldApostrophes): the rows are stored tidied,
+// so "Ryan’s repair kit" is on screen while the keyboard types "Ryan's", and a literal
+// includes() would answer with nothing.
 const filtered = computed(() => {
-  const q = query.value.trim().toLowerCase();
+  const q = foldApostrophes(query.value.trim().toLowerCase());
   if (!q) return items.value;
   return items.value.filter((i) =>
-    `${i.brand ?? ""} ${i.name} ${i.variant ?? ""} ${i.commonName ?? ""}`.toLowerCase().includes(q),
+    foldApostrophes(
+      `${i.brand ?? ""} ${i.name} ${i.variant ?? ""} ${i.commonName ?? ""}`.toLowerCase(),
+    ).includes(q),
   );
 });
 
