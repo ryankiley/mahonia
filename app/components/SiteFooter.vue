@@ -5,7 +5,7 @@
 const year = new Date().getFullYear();
 
 // `inToolbar` is set by the EDITOR, which carries "Your lists" (the switcher) and
-// "Gear vault" in its own top bar. Repeating them three inches below is a second
+// "My gear" in its own top bar. Repeating them three inches below is a second
 // copy of a control you can already see. Deliberately a prop rather than a route
 // check: the footer shouldn't know which pages exist, and a page that later grows
 // its own toolbar can say so the same way.
@@ -15,7 +15,7 @@ const year = new Date().getFullYear();
 // drop them at every width too.
 const { inToolbar = false } = defineProps<{ inToolbar?: boolean }>();
 
-// "Gear vault" is signed-in chrome; "Your lists" is not. The asymmetry is the
+// "My gear" is signed-in chrome; "Your lists" is not. The asymmetry is the
 // product's, not a hedge: lists need no account and live in a device-local
 // registry, so a signed-out visitor is exactly the person who might have some —
 // while the vault IS the account (see useSession: it's the only reason accounts
@@ -50,8 +50,8 @@ const here = (p: string) => route.path === p;
   <footer class="foot">
     <div class="wrap foot__inner">
       <nav class="foot__nav" aria-label="Footer">
-        <!-- "Gear vault" is the thing's name, so it needs no possessive and doesn't
-             repeat the "Your" beside it — which is what made an earlier
+        <!-- "My gear" is the surface's name, not a possessive stacked on one, so it
+             doesn't repeat the "Your" beside it — which is what made an earlier
              "Your lists / Your vault" pair read as a set apart from About and Legal.
              /mine keeps its original label.
              The vault link appears only for an account (see `known` above); /mine is
@@ -59,7 +59,7 @@ const here = (p: string) => route.path === p;
              you HOLD lists or gear — both pages explain themselves when empty, and
              that read is device-local, so gating on it would flicker for no gain. -->
         <NuxtLink v-if="!inToolbar && !here('/mine')" to="/mine" class="foot__link t-sm">Your lists</NuxtLink>
-        <NuxtLink v-if="!inToolbar && known && !here('/vault')" to="/vault" class="foot__link t-sm">Gear vault</NuxtLink>
+        <NuxtLink v-if="!inToolbar && known && !here('/vault')" to="/vault" class="foot__link t-sm">My gear</NuxtLink>
         <NuxtLink v-if="!here('/about')" to="/about" class="foot__link t-sm">About</NuxtLink>
         <NuxtLink v-if="!here('/legal')" to="/legal" class="foot__link t-sm">Legal</NuxtLink>
       </nav>

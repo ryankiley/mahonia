@@ -656,11 +656,11 @@ function onCorrected(res: { status: string; itemName?: string }) {
                way this one does. It keeps the aria-label on the button (the
                accessible NAME) and adds the visible description. Nothing changes on
                touch — <Tooltip> declines to open where there's no hover. -->
-          <Tooltip text="Gear vault" preferred-placement="bottom">
+          <Tooltip text="My gear" preferred-placement="bottom">
             <button
               class="btn btn--icon btn--ghost editor__vault"
               :class="{ 'is-on': vaultOpen }"
-              aria-label="Gear vault"
+              aria-label="My gear"
               :aria-expanded="vaultOpen"
               @click="vaultOpen = !vaultOpen"
             >
@@ -852,11 +852,11 @@ function onCorrected(res: { status: string; itemName?: string }) {
       <Prompt
         :show="!!vaultPrompt"
         variant="inline"
-        dismiss-label="Don’t add this list’s gear to my gear vault"
+        dismiss-label="Don’t add this list’s gear to My gear"
         @dismiss="c.answerVaultPrompt(false)"
       >
         <template #icon><HugeiconsIcon :icon="SafeBoxIcon" :size="16" :stroke-width="2" /></template>
-        Add this list’s gear to your vault?
+        Add this list’s gear to My gear?
         <template #action>
           <button class="btn btn--quiet editor__vaultadd" @click="c.answerVaultPrompt(true)">Add</button>
         </template>
@@ -961,7 +961,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
     </main>
 
     <!-- in-toolbar: this page carries BOTH footer destinations in its own top bar —
-         the list switcher and the gear vault — so the footer stops repeating them.
+         the list switcher and My gear — so the footer stops repeating them.
          Every other page keeps them, because nothing up there carries them. -->
     <SiteFooter in-toolbar />
 

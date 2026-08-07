@@ -18,7 +18,7 @@ useHead({
     <main id="main-content" tabindex="-1" class="wrap page">
       <div class="prose">
         <h1 class="t-title">Legal</h1>
-        <p class="t-sm t-muted">Last updated 6 August 2026</p>
+        <p class="t-sm t-muted">Last updated 7 August 2026</p>
         <p>
           How Mahonia handles your data, and the terms for using it. Jump to
           <a href="#privacy">Privacy</a> or <a href="#terms">Terms</a>.
@@ -28,7 +28,7 @@ useHead({
         <h2 id="privacy" class="legal__break">Privacy</h2>
         <p>
           Mahonia is made by one person. No advertising, and I don’t sell your data. Lists need no
-          account; a gear vault does, and holds your email and nothing else. If
+          account; “My gear” does, and the account holds your email and nothing else. If
           anything here is unclear, email <a :href="`mailto:${CONTACT_EMAIL}`">{{ CONTACT_EMAIL }}</a>.
         </p>
 
@@ -63,11 +63,11 @@ useHead({
           thing you couldn’t type again from memory.
         </p>
         <p>
-          Your <strong>gear vault</strong> is the one part that needs an account. It holds names,
+          <strong>My gear</strong>, your saved gear, is the one part that needs an account. It holds names,
           brands and weights, and belongs to you rather than to a browser — so signing in on another
           device brings it with you, and clearing this one doesn’t lose it. Gear reaches it when you
           add something to a list yourself, or import or copy a list. Opening a list someone shared
-          with you doesn’t put their gear in your vault.
+          with you doesn’t put their gear into yours.
         </p>
 
         <h3>What Mahonia collects in the background</h3>
@@ -132,13 +132,13 @@ useHead({
             server for everyone.
           </li>
           <li>
-            In your gear vault, “Remove” takes a piece of gear out and keeps it out. Signing out
-            leaves the vault where it is, ready for the next time you sign in. “Sign out
+            In “My gear”, “Remove” takes a piece of gear out and keeps it out. Signing out
+            leaves your gear where it is, ready for the next time you sign in. “Sign out
             everywhere” ends every session on every device, if you ever need it.
           </li>
           <li>
             “Delete account” on your account page removes your email, display name, passkeys and
-            your gear vault, straight away and without asking me. It asks separately whether to
+            your saved gear, straight away and without asking me. It asks separately whether to
             delete your lists; by default they stay, because they belong to their edit links rather
             than to your account.
           </li>
@@ -150,10 +150,10 @@ useHead({
         <p>
           Some things are also cleaned up automatically, and the timings are exact rather than
           vague. A list that never got past a single item and hasn’t been edited for
-          <strong>30 days</strong> is marked for removal; a gear vault untouched for
+          <strong>30 days</strong> is marked for removal; saved gear untouched for
           <strong>180 days</strong> is treated the same way. Either is then held for
           <strong>90 days</strong> before it’s deleted for good, and using it again during that
-          window brings it straight back — for a vault, signing in is enough. If you’ve lost
+          window brings it straight back — for your gear, signing in is enough. If you’ve lost
           something, email me and I’ll see what can be recovered.
         </p>
         <p>
