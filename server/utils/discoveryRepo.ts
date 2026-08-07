@@ -26,7 +26,8 @@ import {
 } from "../../shared/discovery";
 import type { ListSnapshot } from "../../shared/types";
 import { useDb } from "./db";
-import { attachAuthorName, findByEditToken, hydrateForRead, rowToSnapshot } from "./listRepo";
+import { attachAuthorName, findByEditHash, hydrateForRead, rowToSnapshot } from "./listRepo";
+import { sha256Hex } from "./tokens";
 
 type Db = Awaited<ReturnType<typeof useDb>>;
 
@@ -34,8 +35,8 @@ type Db = Awaited<ReturnType<typeof useDb>>;
 // single-sourced so the by-slug reads (getPublicBySlug / bumpView / reportList) and
 // the sitemap can't drift. Returns a FRESH array each call so callers can safely
 // spread + extend it without leaking conditions across requests. (Slug shape
-// validation is shared/discovery's normalizeSlug; the live edit-token lookup is
-// listRepo's findByEditToken — both imported above.)
+// validation is shared/discovery's normalizeSlug; the live edit-capability lookup
+// is listRepo's findByEditHash — both imported above.)
 function publicReadConditions() {
   return [
     eq(lists.isPublic, true),
@@ -70,11 +71,20 @@ function publicState(row: {
   };
 }
 
-/** Current publish state for the editor's modal to prefill. Null → 404. */
-export async function getPublishState(editToken: string, db?: Db): Promise<PublishState | null> {
+/** Current publish state for the editor's modal to prefill. Null → 404.
+ *  Hash-first like listRepo's pairs: the endpoint gate (editAuth) resolves either
+ *  capability — bearer token or session + claimed code — to the same hash. */
+export async function getPublishStateByEditHash(
+  editHash: string,
+  db?: Db,
+): Promise<PublishState | null> {
   const d = db ?? (await useDb());
-  const row = await findByEditToken(editToken, d);
+  const row = await findByEditHash(editHash, d);
   return row ? publicState(row) : null;
+}
+
+export async function getPublishState(editToken: string, db?: Db): Promise<PublishState | null> {
+  return getPublishStateByEditHash(sha256Hex(editToken), db);
 }
 
 /**
@@ -82,13 +92,13 @@ export async function getPublishState(editToken: string, db?: Db): Promise<Publi
  * stamp-once published_at, no resurrecting a moderated list) is decidePublish()
  * in shared/. Only the public address is returned.
  */
-export async function publishList(
-  editToken: string,
+export async function publishListByEditHash(
+  editHash: string,
   input: { isPublic: boolean; tripType?: string | null; season?: string | null },
   db?: Db,
 ): Promise<PublishState | null> {
   const d = db ?? (await useDb());
-  const row = await findByEditToken(editToken, d);
+  const row = await findByEditHash(editHash, d);
   if (!row) return null;
 
   const tripType = normalizeTripType(input.tripType) ?? null;
@@ -115,6 +125,14 @@ export async function publishList(
     .where(eq(lists.id, row.id));
 
   return publicState({ ...row, isPublic: decision.isPublic, flagged, tripType, season });
+}
+
+export async function publishList(
+  editToken: string,
+  input: { isPublic: boolean; tripType?: string | null; season?: string | null },
+  db?: Db,
+): Promise<PublishState | null> {
+  return publishListByEditHash(sha256Hex(editToken), input, db);
 }
 
 // ---------------------------------------------------------------------------

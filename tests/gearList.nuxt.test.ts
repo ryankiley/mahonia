@@ -171,7 +171,7 @@ describe("useGearList — a flush that fails after the editor moved on", () => {
   // not in `pending`, not on disk.
   it("recovers the in-flight ops into that list's on-device record", async () => {
     const c = useGearList();
-    await c.load(TOKEN);
+    await c.load({ token: TOKEN });
     c.setMeta({ title: "Renamed while leaving" });
 
     await awaitMutateInFlight();
@@ -200,7 +200,7 @@ describe("useGearList — a flush that fails after the editor moved on", () => {
   // open and re-apply edits the server already has.
   it("writes nothing back when the in-flight batch actually succeeded", async () => {
     const c = useGearList();
-    await c.load(TOKEN);
+    await c.load({ token: TOKEN });
     c.setMeta({ title: "Renamed while leaving" });
 
     await awaitMutateInFlight();
@@ -218,7 +218,7 @@ describe("useGearList — a flush that fails after the editor moved on", () => {
   // recovery write.
   it("re-queues normally when the failure happens on the list still open", async () => {
     const c = useGearList();
-    await c.load(TOKEN);
+    await c.load({ token: TOKEN });
     c.setMeta({ title: "Renamed in place" });
 
     await awaitMutateInFlight();
@@ -291,7 +291,7 @@ describe("useGearList — whose gear is this?", () => {
 
   it("asks before a single row of someone else's gear reaches the vault", async () => {
     const c = useGearList();
-    await c.load(TOKEN);
+    await c.load({ token: TOKEN });
     c.updateItem("i1", { qty: 2 });
 
     await vi.waitFor(() => expect(c.vaultPrompt.value).not.toBeNull());
@@ -315,7 +315,7 @@ describe("useGearList — whose gear is this?", () => {
       [folder({ colorKey: "other" })], // triggers the colour backfill
     );
     const c = useGearList();
-    await c.load(TOKEN);
+    await c.load({ token: TOKEN });
 
     // the backfills really did run (else this passes for the wrong reason)
     await vi.waitFor(() => {
@@ -331,7 +331,7 @@ describe("useGearList — whose gear is this?", () => {
   it("never asks about a list with no gear in it", async () => {
     listResponse = withGear([gear({ unitWeightMg: 0, brand: undefined, name: "Notes to self" })]);
     const c = useGearList();
-    await c.load(TOKEN);
+    await c.load({ token: TOKEN });
     c.updateItem("i1", { qty: 2 });
 
     await new Promise((r) => setTimeout(r, 50)); // let the dynamic import settle
@@ -341,7 +341,7 @@ describe("useGearList — whose gear is this?", () => {
 
   it("takes yes for an answer, captures, and stops asking", async () => {
     const c = useGearList();
-    await c.load(TOKEN);
+    await c.load({ token: TOKEN });
     c.updateItem("i1", { qty: 2 });
     await vi.waitFor(() => expect(c.vaultPrompt.value).not.toBeNull());
 
@@ -367,7 +367,7 @@ describe("useGearList — whose gear is this?", () => {
   // stray tap lands on Add.
   it("takes dismissal for a no, and holds it across a reload", async () => {
     const c = useGearList();
-    await c.load(TOKEN);
+    await c.load({ token: TOKEN });
     c.updateItem("i1", { qty: 2 });
     await vi.waitFor(() => expect(c.vaultPrompt.value).not.toBeNull());
 
@@ -383,7 +383,7 @@ describe("useGearList — whose gear is this?", () => {
     // reload: a fresh controller on the same list, reading the same store
     c.dispose();
     const reopened = useGearList();
-    await reopened.load(TOKEN);
+    await reopened.load({ token: TOKEN });
     reopened.updateItem("i1", { qty: 4 });
     await new Promise((r) => setTimeout(r, 50));
     expect(reopened.vaultPrompt.value).toBeNull();
@@ -395,7 +395,7 @@ describe("useGearList — whose gear is this?", () => {
   // one chance to ask on a question that was never posed about it.
   it("does not carry an unanswered question onto the next list opened", async () => {
     const c = useGearList();
-    await c.load(TOKEN);
+    await c.load({ token: TOKEN });
     c.updateItem("i1", { qty: 2 });
     await vi.waitFor(() => expect(c.vaultPrompt.value).not.toBeNull());
 
@@ -403,7 +403,7 @@ describe("useGearList — whose gear is this?", () => {
     c.dispose();
     listResponse = withGear([gear({ unitWeightMg: 0, brand: undefined, name: "Notes" })]);
     const mine = useGearList();
-    await mine.load("another-edit-token");
+    await mine.load({ token: "another-edit-token" });
     expect(mine.vaultPrompt.value).toBeNull();
 
     // a brand-new draft is likewise never greeted with someone else's question
@@ -419,7 +419,7 @@ describe("useGearList — whose gear is this?", () => {
   it("offers a chooser instead of taking the whole list", async () => {
     listResponse = withGear([gear(), gear({ id: "i2", name: "Kakwa 55", brand: "Durston" })]);
     const c = useGearList();
-    await c.load(TOKEN);
+    await c.load({ token: TOKEN });
     c.updateItem("i1", { qty: 2 });
     await vi.waitFor(() => expect(c.vaultPrompt.value).not.toBeNull());
 
@@ -434,7 +434,7 @@ describe("useGearList — whose gear is this?", () => {
   it("captures only what was ticked, and never re-offers the rest", async () => {
     listResponse = withGear([gear(), gear({ id: "i2", name: "Kakwa 55", brand: "Durston" })]);
     const c = useGearList();
-    await c.load(TOKEN);
+    await c.load({ token: TOKEN });
     c.updateItem("i1", { qty: 2 });
     await vi.waitFor(() => expect(c.vaultPrompt.value).not.toBeNull());
     await c.answerVaultPrompt(true);
@@ -468,7 +468,7 @@ describe("useGearList — whose gear is this?", () => {
   it("still captures gear added after the choice", async () => {
     listResponse = withGear([gear(), gear({ id: "i2", name: "Kakwa 55", brand: "Durston" })]);
     const c = useGearList();
-    await c.load(TOKEN);
+    await c.load({ token: TOKEN });
     c.updateItem("i1", { qty: 2 });
     await vi.waitFor(() => expect(c.vaultPrompt.value).not.toBeNull());
     await c.answerVaultPrompt(true);
@@ -490,7 +490,7 @@ describe("useGearList — whose gear is this?", () => {
   it("records nothing when the chooser is cancelled", async () => {
     listResponse = withGear([gear(), gear({ id: "i2", name: "Kakwa 55", brand: "Durston" })]);
     const c = useGearList();
-    await c.load(TOKEN);
+    await c.load({ token: TOKEN });
     c.updateItem("i1", { qty: 2 });
     await vi.waitFor(() => expect(c.vaultPrompt.value).not.toBeNull());
     await c.answerVaultPrompt(true);
@@ -510,7 +510,7 @@ describe("useGearList — whose gear is this?", () => {
   it("skips the chooser when there is only one piece of gear", async () => {
     listResponse = withGear([gear()]);
     const c = useGearList();
-    await c.load(TOKEN);
+    await c.load({ token: TOKEN });
     c.updateItem("i1", { qty: 2 });
     await vi.waitFor(() => expect(c.vaultPrompt.value).not.toBeNull());
 
@@ -529,7 +529,7 @@ describe("useGearList — whose gear is this?", () => {
     expect(vaultDecisionFor(TOKEN)).toBe("yes");
 
     const c = useGearList();
-    await c.load(TOKEN);
+    await c.load({ token: TOKEN });
     c.updateItem("i1", { qty: 2 });
     await new Promise((r) => setTimeout(r, 50));
     expect(c.vaultPrompt.value).toBeNull();
@@ -542,7 +542,7 @@ describe("useGearList — whose gear is this?", () => {
   it("carries the vault answer — exclusions included — across a rotate", async () => {
     listResponse = withGear([gear(), gear({ id: "i2", name: "Kakwa 55", brand: "Durston" })]);
     const c = useGearList();
-    await c.load(TOKEN);
+    await c.load({ token: TOKEN });
     c.updateItem("i1", { qty: 2 });
     await vi.waitFor(() => expect(c.vaultPrompt.value).not.toBeNull());
     await c.answerVaultPrompt(true);
@@ -571,7 +571,7 @@ describe("useGearList — whose gear is this?", () => {
   // question stays open, and the prompt still comes.
   it("keeps an unanswered question open across a rotate", async () => {
     const c = useGearList();
-    await c.load(TOKEN);
+    await c.load({ token: TOKEN });
     c.updateItem("i1", { qty: 2 });
     await vi.waitFor(() => expect(c.vaultPrompt.value).not.toBeNull());
 
@@ -608,7 +608,7 @@ describe("useGearList — getting a pending capture out as the page goes away", 
 
   it("beacons the queued rows on pagehide, well inside the debounce", async () => {
     const c = useGearList();
-    await c.load(TOKEN);
+    await c.load({ token: TOKEN });
     setVaultDecisionFor(TOKEN, "yes"); // a list already known to be mine
     c.updateItem("i1", { qty: 2 });
     // let sync()'s dynamic import resolve and queue the rows, but nowhere near 4s
@@ -628,7 +628,7 @@ describe("useGearList — getting a pending capture out as the page goes away", 
   // tab that comes back).
   it("does not also POST what it already beaconed", async () => {
     const c = useGearList();
-    await c.load(TOKEN);
+    await c.load({ token: TOKEN });
     setVaultDecisionFor(TOKEN, "yes");
     c.updateItem("i1", { qty: 2 });
     await new Promise((r) => setTimeout(r, 200));
@@ -643,7 +643,7 @@ describe("useGearList — getting a pending capture out as the page goes away", 
   it("keeps the rows queued when the browser refuses the beacon", async () => {
     beaconWorks = false;
     const c = useGearList();
-    await c.load(TOKEN);
+    await c.load({ token: TOKEN });
     setVaultDecisionFor(TOKEN, "yes");
     c.updateItem("i1", { qty: 2 });
     await new Promise((r) => setTimeout(r, 200));
@@ -659,7 +659,7 @@ describe("useGearList — getting a pending capture out as the page goes away", 
   // and a beacon here would be exactly the silent leak the prompt exists to stop.
   it("beacons nothing for a list whose question is still open", async () => {
     const c = useGearList();
-    await c.load(TOKEN);
+    await c.load({ token: TOKEN });
     c.updateItem("i1", { qty: 2 });
     await vi.waitFor(() => expect(c.vaultPrompt.value).not.toBeNull());
 
@@ -700,7 +700,7 @@ describe("useGearList — addVaultFolder", () => {
 
   it("creates one folder and files every entry into it", async () => {
     const c = useGearList();
-    await c.load(TOKEN);
+    await c.load({ token: TOKEN });
     const before = c.snapshot.value!.folders.length;
 
     const id = c.addVaultFolder("Cook kit", [
@@ -724,7 +724,7 @@ describe("useGearList — addVaultFolder", () => {
 
   it("skips gear the list already holds, matching the per-row rule", async () => {
     const c = useGearList();
-    await c.load(TOKEN);
+    await c.load({ token: TOKEN });
     // the fixture list carries a Duplex; adding a category containing it must not
     // split one thing's weight across two rows
     const held = c.snapshot.value!.items[0]!;
@@ -739,7 +739,7 @@ describe("useGearList — addVaultFolder", () => {
 
   it("adds nothing at all when every entry is already held", async () => {
     const c = useGearList();
-    await c.load(TOKEN);
+    await c.load({ token: TOKEN });
     const held = c.snapshot.value!.items[0]!;
     const folders = c.snapshot.value!.folders.length;
 
@@ -754,7 +754,7 @@ describe("useGearList — addVaultFolder", () => {
 
   it("is a no-op for an empty category", async () => {
     const c = useGearList();
-    await c.load(TOKEN);
+    await c.load({ token: TOKEN });
     const folders = c.snapshot.value!.folders.length;
     expect(c.addVaultFolder("Empty", [])).toBe("");
     expect(c.snapshot.value!.folders).toHaveLength(folders);
@@ -790,7 +790,7 @@ describe("useGearList — keeping 'Your lists' in step with a rename", () => {
 
   it("renames the row without waiting for the server", async () => {
     const c = useGearList();
-    await c.load(TOKEN);
+    await c.load({ token: TOKEN });
     expect(rowFor(TOKEN)?.title).toBe("Timberline Trail (copy)");
 
     c.setMeta({ title: "Eagle Creek" });
@@ -803,7 +803,7 @@ describe("useGearList — keeping 'Your lists' in step with a rename", () => {
 
   it("keeps the new name when the editor is left before the flush lands", async () => {
     const c = useGearList();
-    await c.load(TOKEN);
+    await c.load({ token: TOKEN });
     c.setMeta({ title: "Eagle Creek" });
     await awaitMutateInFlight();
 
@@ -817,7 +817,7 @@ describe("useGearList — keeping 'Your lists' in step with a rename", () => {
   // the optimistic call must not become the thing that quietly re-adds a row.
   it("does not resurrect a list removed from this device", async () => {
     const c = useGearList();
-    await c.load(TOKEN);
+    await c.load({ token: TOKEN });
     useMyLists().forget(TOKEN);
 
     c.setMeta({ title: "Eagle Creek" });

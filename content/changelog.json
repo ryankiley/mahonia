@@ -4,7 +4,8 @@
     "added": [
       "Delete a list from the editor's ⋯ menu, instead of leaving it to find the list on another page.",
       "Forget a list from the editor's ⋯ menu: it leaves this device but stays online for anyone holding its link.",
-      "When a saved list can’t be opened anymore — deleted elsewhere, or its link changed — the page now names it and lets you forget it, so the dead entry doesn’t linger in your lists."
+      "When a saved list can’t be opened anymore — deleted elsewhere, or its link changed — the page now names it and lets you forget it, so the dead entry doesn’t linger in your lists.",
+      "The sharing panel says when a list was opened from your account rather than through its edit link, and replacing the link from there hands this device a fresh one."
     ],
     "changed": [
       "Switching between the gear, packing and planning views is instant on a long list.",
@@ -30,7 +31,8 @@
       "The editor's toolbar icons sit at the right edge again on a list that hasn't been edited yet, instead of bunching up beside the pack switcher.",
       "Forgetting a list that’s no longer online now warns that the copy saved on this device may be all that’s left, instead of claiming the list stays online.",
       "Water rows no longer offer a Save to My Gear button. Pressing it could only ever answer with an error — water is a volume you carry, not gear that gets saved.",
-      "On a phone, switching to packing mode no longer shows each item twice — the checklist row and the editing row underneath it."
+      "On a phone, switching to packing mode no longer shows each item twice — the checklist row and the editing row underneath it.",
+      "A list made while signed in on one device now shows up in the list switcher on your other signed-in devices — and opens there straight from the account, no edit link needed."
     ]
   },
   {
