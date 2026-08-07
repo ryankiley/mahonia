@@ -33,6 +33,23 @@
 // changes, the basemap must be revisited BEFORE it ships, not after a block. The same
 // policy is why the tile layer caps maxZoom at 17, keeps the attribution control, and
 // never fetches a tile it isn't about to draw.
+//
+// WHEN IT TRIPS, THE ANSWER IS MAPBOX'S RASTER TILES API — written down here so the next
+// reader doesn't re-derive it and get it wrong. Mapbox GL JS is disqualified: ~200 KB in
+// one chunk against a 72 KB ceiling, plus WebGL, workers and `connect-src`. Its RASTER
+// endpoint is none of that — it is <img> tiles like these, so Leaflet stays, the bundle
+// stays, and the CSP delta stays exactly one host in `img-src`. 750k tile requests a month
+// free (~15k map opens at ~50 tiles each), then $0.25 per 1,000, and no non-commercial
+// clause. The costs are an account, a public token in the tile URL — restrict it by URL,
+// which works because the layer already sends `referrerPolicy: "origin"` for OpenTopoMap's
+// sake — and a failure mode that becomes a BILL rather than a block. That last one is the
+// reason this isn't the default today.
+//
+// WHAT IS NOT AN OPTION, whatever its cartography or price: anything that puts THIRD-PARTY
+// SCRIPT in the page. Apple MapKit JS is the live example — it must be loaded from Apple's
+// CDN, so it needs `script-src https://…`. A list's edit capability lives in the URL
+// FRAGMENT (`/e/{code}#{token}`), and any script in the page can read `location.hash`.
+// That is a capability leak, not a preference, and no map is worth it.
 const TILE_ORIGIN = "https://tile.opentopomap.org";
 
 // Content-Security-Policy — defense-in-depth for a public, anyone-can-write app.
