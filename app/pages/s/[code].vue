@@ -32,14 +32,15 @@ useHead({
   <div>
     <ReadTopbar :snapshot="snapshot" :totals="totals" />
 
+    <!-- No #status here: a share link carries nothing to edit with, so "Read-only" only
+         ever told the reader what the page already shows. /l keeps its status, because
+         "Public list" says something the page doesn't — that this list is listed. -->
     <ReadonlyListView
       :list="roList"
       :totals="totals"
       :shown-folders="shownFolders"
       :ungrouped="ungrouped"
       @set-unit="(u) => (unit = u)"
-    >
-      <template #status>Read-only</template>
-    </ReadonlyListView>
+    />
   </div>
 </template>
