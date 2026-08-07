@@ -169,8 +169,12 @@ const dayRuns = computed(() => {
   for (const d of [...props.dayDistancesM.map((_, i) => i), -1]) {
     const idx: number[] = [];
     for (let i = 0; i < props.profile.length; i++) if (owner[i] === d) idx.push(i);
-    // reach back one sample so adjacent days meet rather than leaving a hairline of paper
-    if (idx.length && idx[0]! > 0) idx.unshift(idx[0]! - 1);
+    // NO LOOK-BACK. It used to reach back one sample so adjacent days met rather than
+    // leaving a hairline of paper — but the days are cut apart on purpose now, and a run
+    // that starts one sample early is a run that extends PAST its own boundary. That
+    // overlap is what left a sliver of the neighbouring colour showing through the gap,
+    // and widening the cut to hide it only made the gap coarse. Each day draws its own
+    // samples and stops.
     if (idx.length < 2) continue;
     out.push({
       ridge: pathsFor(idx).ridge,
@@ -772,12 +776,11 @@ const id = useId();
    steep run where both sides are the same band. */
 .tprofile__cut {
   stroke: var(--paper);
-  /* Wide enough to clear the RIDGES' OVERLAP, which is why 4 still let a sliver of the
-     neighbouring colour show. Each day's run starts one sample early (see dayRuns — the
-     look-back is what stops a hairline appearing between runs), so a ridge genuinely
-     extends past its own boundary by a sample: about 4 viewBox units at 240 samples, plus
-     half a stroke at each end. 8 covers both sides of that. */
-  stroke-width: 8;
+  /* NARROW, now that the ridges no longer overlap it. A wide cut was only ever hiding
+     the fact that each day's run started one sample early and reached past its own
+     boundary (see dayRuns) — the colours are cut where they actually end now, so this only
+     has to be the gap itself. */
+  stroke-width: 3;
 }
 .tprofile__ridge {
   /* non-scaling-stroke means this is real pixels, so it holds at any container size */
