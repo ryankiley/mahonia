@@ -699,7 +699,7 @@ describe("useGearList — addVaultFolder", () => {
 // ---------------------------------------------------------------------------
 // "Your lists" — the device registry the switcher actually reads
 // ---------------------------------------------------------------------------
-// The list dropdown and /mine render REGISTRY rows, not the open snapshot, so a
+// The list switcher renders REGISTRY rows, not the open snapshot, so a
 // rename is only as fast as the row behind it. It used to be updated from one
 // place: the reply to a successful flush. In the live controller — the only place
 // this shape exists — that put a debounce and a round trip between typing a name

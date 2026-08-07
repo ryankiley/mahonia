@@ -695,7 +695,7 @@ describe("a list's vault decision — cleared when it's deleted, kept when it's 
   });
 
   it("forgetting a list keeps its decision — the list is still online", () => {
-    // "Remove from device" on /mine. The edit link can bring this list back, and
+    // "Forget this list" in the editor. The edit link can bring this list back, and
     // when it does, the answer you already gave must still stand.
     const my = useMyLists();
     my.forget(TOKEN);

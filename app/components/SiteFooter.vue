@@ -15,12 +15,13 @@ const year = new Date().getFullYear();
 // drop them at every width too.
 const { inToolbar = false } = defineProps<{ inToolbar?: boolean }>();
 
-// "My gear" is signed-in chrome; "Your lists" is not. The asymmetry is the
-// product's, not a hedge: lists need no account and live in a device-local
-// registry, so a signed-out visitor is exactly the person who might have some —
-// while the vault IS the account (see useSession: it's the only reason accounts
-// exist). Offering a stranger "your" vault on a friend's shared list points at
-// something that cannot exist yet.
+// "My gear" is signed-in chrome, and the last link here that needs a condition.
+// The vault IS the account (see useSession: it's the only reason accounts exist),
+// so offering a stranger "my gear" on a friend's shared list points at something
+// that cannot exist yet. Lists never needed the same gate — they live in a
+// device-local registry and a signed-out visitor is exactly the person who might
+// have some — which is why they carried none while they were here; they have since
+// left the footer altogether for the editor's switcher.
 //
 // Gated on the HINT COOKIE, not on `signedIn`. Nothing on a read view ever calls
 // useSession().fetch() — AccountMenu, the only session reader in the topbar,
@@ -33,15 +34,15 @@ onMounted(() => (known.value = hasSessionHint() || signedIn.value));
 watch(signedIn, (yes) => (known.value = yes || hasSessionHint()));
 
 // Never link to the page you're already on — it reads as an action and does nothing,
-// and in a four-link row it costs one of the four. AccountMenu has applied this to its
-// own two destinations from the start; the footer simply never got it, so /about
-// offered "About" and /mine offered "Your lists". Compared on `path`, not fullPath, so
-// a query or hash on the current page doesn't make the self-link reappear.
+// and in a short row it costs one of the few. AccountMenu has applied this to its own
+// two destinations from the start; the footer simply never got it, so /about offered
+// "About". Compared on `path`, not fullPath, so a query or hash on the current page
+// doesn't make the self-link reappear.
 const route = useRoute();
 const here = (p: string) => route.path === p;
 
 // No feedback trigger here any more — it lives in the editor's actions menu. The
-// footer is a legal line: four places to go and a copyright. A dialog launcher styled
+// footer is a legal line: a few places to go and a copyright. A dialog launcher styled
 // to pass as a link in that row was the odd one out, and "send feedback" belongs
 // beside the thing you'd be reporting on rather than under it.
 </script>
@@ -50,15 +51,14 @@ const here = (p: string) => route.path === p;
   <footer class="foot">
     <div class="wrap foot__inner">
       <nav class="foot__nav" aria-label="Footer">
-        <!-- "My gear" is the surface's name, not a possessive stacked on one, so it
-             doesn't repeat the "Your" beside it — which is what made an earlier
-             "Your lists / Your vault" pair read as a set apart from About and Legal.
-             /mine keeps its original label.
-             The vault link appears only for an account (see `known` above); /mine is
-             unconditional, since lists never needed one. Neither is gated on whether
-             you HOLD lists or gear — both pages explain themselves when empty, and
-             that read is device-local, so gating on it would flicker for no gain. -->
-        <NuxtLink v-if="!inToolbar && !here('/mine')" to="/mine" class="foot__link t-sm">Your lists</NuxtLink>
+        <!-- "Your lists" used to sit here. The page it pointed at is gone — your lists
+             are the editor's switcher now — and a footer link is the wrong shape for a
+             control that lives in a toolbar. Nothing replaces it: every route that
+             renders this footer is one click from the editor already.
+             "My gear" is the surface's name, not a possessive stacked on one. It
+             appears only for an account (see `known` above), and isn't gated on
+             whether you HOLD any gear — the page explains itself when empty, and that
+             read is device-local, so gating on it would flicker for no gain. -->
         <NuxtLink v-if="!inToolbar && known && !here('/vault')" to="/vault" class="foot__link t-sm">My gear</NuxtLink>
         <NuxtLink v-if="!here('/about')" to="/about" class="foot__link t-sm">About</NuxtLink>
         <NuxtLink v-if="!here('/legal')" to="/legal" class="foot__link t-sm">Legal</NuxtLink>

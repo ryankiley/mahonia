@@ -146,7 +146,7 @@ function create() {
 
   // Keep this list's row in "Your lists" in step with the snapshot. Called after a
   // sync — which is where the server's version number comes from — AND optimistically
-  // from dispatch, because the switcher and /mine read the REGISTRY, not the snapshot.
+  // from dispatch, because the list switcher reads the REGISTRY, not the snapshot.
   // A list you just renamed has to answer to its new name in the dropdown straight
   // away, not one debounce plus a round-trip later; the reducer here is the same one
   // the server runs, so the title we write is already the title it will store.
@@ -472,7 +472,7 @@ function create() {
     // rows re-render, so a keystroke in one folder doesn't repaint every folder.
     applyOps(snapshot.value, [op]);
     persistLocal(); // mirror to IndexedDB so this edit survives a reload/crash
-    // and mirror to the device registry, which is what the switcher and /mine read —
+    // and mirror to the device registry, which is what the list switcher reads —
     // gated, because this runs on every keystroke (see registryStale/syncRegistry)
     if (registryStale()) syncRegistry();
     // Every mutation funnels through here, whatever made it — typing, a catalog

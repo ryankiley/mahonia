@@ -184,7 +184,7 @@ describe("useMyLists.forgetSuperseded — the dead half of a rotate", () => {
   it("leaves a genuinely deleted list's row alone", () => {
     const my = registry();
     // one row for this list — a 404 here means the list is gone, and clearing it is
-    // /mine's job (a confirm dialog explaining "remove" vs "delete"), not ours
+    // the editor's job (a confirm dialog explaining forget vs delete), not ours
     my.entries.value = [entry({ editToken: "only-token" })];
 
     expect(my.forgetSuperseded("only-token")).toBe(false);

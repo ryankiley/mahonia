@@ -429,9 +429,12 @@ export default defineNuxtConfig({
     "/privacy": { redirect: { to: "/legal", statusCode: 301 } },
     "/terms": { redirect: { to: "/legal", statusCode: 301 } },
     "/changelog": { redirect: { to: "/about", statusCode: 301 } },
-    // "Your lists" is a device-local read-out (localStorage) — prerender the shell,
-    // the list fills in client-side; noindex (set per-page)
-    "/mine": { prerender: true },
+    // "Your lists" was a page; it is the editor's switcher now, and the two actions it
+    // owned (forget on this device, delete for everyone) are rows in the editor's ⋯
+    // menu. Redirected rather than dropped: it was linked from the footer of every
+    // page for the app's whole life, so it is in bookmarks and in other people's
+    // links. /e is where the lists now are.
+    "/mine": { redirect: { to: "/e", statusCode: 301 } },
     // the catalog-changes page reads a slow-moving feed — a 10-minute ISR window
     // makes repeat views free without letting it go meaningfully stale
     "/changes": { isr: 600 },
