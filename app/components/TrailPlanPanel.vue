@@ -807,6 +807,26 @@ const distanceValue = (m: number | undefined) => {
         </div>
       </template>
     </LazyRouteMap>
+    <!-- THE DAY COLOURS, keyed — the same treatment the folder colours get under the weight
+         bar in Gear, because it is the same problem: a mark carries colour, and colour that
+         has to be learned from the mark itself is decoration. The map draws a coloured leg
+         and the profile draws a coloured ridge, and until now nothing said which day was
+         which except hovering a leg.
+         Under the MAP rather than the profile, though both use these colours, because one
+         key answers for both and it belongs after the last thing that spends them. -->
+    <ul v-if="snapshot.routeGeometry && days.length" class="daykey">
+      <li v-for="(d, i) in days" :key="d?.id ?? i" class="daykey__item">
+        <span class="swatch" :style="{ background: dayColors[i] }" />
+        <span>Day {{ i + 1 }}</span>
+        <!-- The SAME formatter the day's own row uses, not formatDistance. The two sat a
+             decimal place apart — "8.6 mi" in the key against "8.63 mi" in the row it keys —
+             and one number written two ways reads as two numbers. distanceValue is what the
+             day's field shows, so the key quotes the row rather than recomputing it. -->
+        <span class="t-sm t-muted daykey__dist">
+          {{ distanceValue(dayDistancesM[i]) }} {{ distanceUnit }}
+        </span>
+      </li>
+    </ul>
     <!-- Empty state names what's missing rather than showing an empty table. -->
     <p v-if="!days.length" class="plan__note t-sm">
       Break the trip into days to see what each one asks of you, and what the pack weighs
@@ -1475,6 +1495,35 @@ const distanceValue = (m: number | undefined) => {
 .plan__campfield {
   min-width: 0;
   grid-area: name;
+}
+/* Lifted wholesale from .catbar__legend, deliberately: "the same treatment" means the same
+   spacing and the same hanging indent, not something that merely resembles it. */
+.daykey {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  margin-top: var(--space-3);
+  list-style: none;
+  padding: 0;
+}
+/* TEXT FLOW rather than a flex row, for the reason CategoryBar gives at length: a wrapped
+   entry in a flex row centres its dot against the whole block instead of against the line
+   it belongs to. The hanging indent keeps a wrapped line under the NAME, not under the dot. */
+.daykey__item {
+  padding-inline-start: calc(var(--swatch) + var(--space-2));
+  text-indent: calc(-1 * (var(--swatch) + var(--space-2)));
+}
+.daykey__dist {
+  margin-inline-start: var(--space-2);
+}
+/* The .swatch atom sets a size but not a DISPLAY, and a bare span is inline — where width
+   and height do nothing at all, so the dot rendered at zero. CategoryBar carries this same
+   pair in its own file; the vertical-align is its reasoning too, and it is a length rather
+   than `middle` so the dot centres on the label's cap box instead of sitting ~1.4px low. */
+.daykey .swatch {
+  display: inline-block;
+  vertical-align: 0.04em;
+  margin-inline-end: var(--space-2);
 }
 /* the delete column, standing empty — see the template. It still has to hold the column
    open, and at the width a button would be, or every cell before it shifts on this row. */

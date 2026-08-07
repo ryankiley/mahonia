@@ -19,7 +19,8 @@
       "Drag the tent handle where one day ends on the map and the two days either side trade miles — the trip's total never changes.",
       "Each day now lists where it ends — the camp — with the distance in, and you can name it.",
       "Trace the elevation profile and a dot follows on the map below, so you can see where a climb or a descent actually is on the ground.",
-      "The last day now shows where the walk finishes, with the coordinate beside it, and you can name it the way you name a camp."
+      "The last day now shows where the walk finishes, with the coordinate beside it, and you can name it the way you name a camp.",
+      "A colour key under the map names each day's colour and how far it walks, so the map and the elevation chart can be read without hunting."
     ],
     "changed": [
       "Your body weight is now remembered on your device instead of saved with each list, so you set it once and every trip uses it — and it never leaves your browser at all.",
@@ -38,7 +39,8 @@
       "The elevation profile now leaves a real gap between one day and the next, on the shading as well as the line.",
       "A day's climb and its drop now sit together as one pair, and the figures after them line up down the list.",
       "Names are tidied when you commit them: stray spaces collapse, and an apostrophe in a possessive or a brand curls to match the rest of the page. Feet and inches are left exactly as typed. Lists and gear you already had are tidied too, so everything reads the same way.",
-      "The route's start and finish wear a chequered flag, and camps and route ends are now solid dark pins on the map so they read apart from the water and landmarks you place. A loop shows one mark where it begins and ends, not two."
+      "The route's start and finish wear a chequered flag, and camps and route ends are now solid dark pins on the map so they read apart from the water and landmarks you place. A loop shows one mark where it begins and ends, not two.",
+      "The map's zoom and pin-dragging instructions now sit behind a (?) instead of taking a line under the map permanently."
     ],
     "fixed": [
       "On a phone, a weight like 0.68 lb no longer has its last digit clipped, and a water row's figure lines up with the rows above it.",

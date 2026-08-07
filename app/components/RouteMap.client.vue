@@ -2,7 +2,7 @@
 import { dayColorSequence } from "~~/shared/categories";
 import { cumulativeM, decodePolyline, formatLatLon, nearestAlongM, pointAlong, sliceAlong, type LatLon } from "~~/shared/polyline";
 import { HugeiconsIcon } from "@hugeicons/vue";
-import { ArrowExpand02Icon, ArrowShrink02Icon } from "@hugeicons/core-free-icons";
+import { ArrowExpand02Icon, ArrowShrink02Icon, HelpCircleIcon } from "@hugeicons/core-free-icons";
 import { formatDistance, type DisplayDistanceUnit } from "~~/shared/trailDistance";
 import { waypointKindMeta } from "~/utils/waypointKinds";
 
@@ -268,6 +268,24 @@ function frame() {
  * 320px map is only a few centimetres of switchbacks.
  */
 const PIN_PX = 30;
+/**
+ * What the (?) under the map says.
+ *
+ * The press-and-hold is named only once there is a pin to try it on — until then it
+ * describes something that isn't on screen. The ⌘ line stays either way: it used to be
+ * hidden on a coarse pointer, because a caption naming a key you don't have is noise, but
+ * inside a tooltip nobody opens by accident it costs nothing — and a touch laptop has both
+ * a finger and a ⌘, which the media query was quietly wrong about.
+ */
+const gestures = computed(() =>
+  [
+    "Hold ⌘ or Ctrl while scrolling to zoom.",
+    props.waypoints?.length ? "Press and hold a pin to move it along the route." : "",
+  ]
+    .filter(Boolean)
+    .join(" "),
+);
+
 /** The traced dot. Smaller than a pin: it is a reading, not a thing somebody placed. */
 const TRACE_PX = 12;
 /**
@@ -1099,17 +1117,21 @@ onBeforeUnmount(() => {
       </button>
     </div>
     <figcaption class="routemap__note">
+      <!-- The FAILURE stays in the open. It is not an instruction you go looking for, it
+           is the reason the picture under it looks wrong, and it has to arrive unasked. -->
       <span v-if="failed">Map tiles couldn't load — the route is still drawn.</span>
-      <!-- The zoom hint is about a KEY, so it only exists where there are keys. It is
-           hidden on a coarse pointer rather than dropped, because a touch laptop has
-           both — and pinch works there whether or not the line is shown. The failure
-           message above is not hidden with it: that one is true on every device. -->
-      <span v-else class="routemap__hint">Hold ⌘ or Ctrl while scrolling to zoom.</span>
-      <!-- A press-and-hold nobody is told about is not a gesture, it is a secret. Only
-           once there is a pin to try it on, because until then it names something that
-           isn't on screen. Not inside the hint above: that one is about a KEY and is
-           hidden on touch, where this is most useful. -->
-      <span v-if="!failed && waypoints?.length"> Press and hold a pin to move it along the route.</span>
+      <!-- The GESTURES fold into a (?), the same affordance the estimates use. Two
+           sentences of instruction sat under the map permanently, and a caption you have
+           read once is a caption you stop seeing while it goes on taking a line of the
+           page. Behind a mark you can ask, they are there the day you need them.
+           A real button, so touch and the keyboard reach it too — which matters more here
+           than it does for the estimates, because one of the gestures it explains is the
+           press-and-hold, and touch is exactly where that one is worth knowing. -->
+      <Tooltip v-else :text="gestures" preferred-placement="top">
+        <button type="button" class="btn btn--icon btn--ghost routemap__help" aria-label="How to use this map">
+          <HugeiconsIcon :icon="HelpCircleIcon" :size="14" :stroke-width="2" />
+        </button>
+      </Tooltip>
     </figcaption>
   </figure>
 </template>
@@ -1290,13 +1312,9 @@ onBeforeUnmount(() => {
   font-size: var(--fs-xs);
   color: var(--ink-3);
 }
-/* Touch has no ⌘ and no wheel — the sentence names a gesture that does not exist there,
-   and pinch-zoom needs no instructions. Removing the line also removes the caption's
-   whole box on the surface with the least room for it. */
-@media (pointer: coarse) {
-  .routemap__hint {
-    display: none;
-  }
+/* The (?) sits where the sentence did, and quietly — it is an offer, not a notice. */
+.routemap__help {
+  color: var(--ink-3);
 }
 
 // ARMED: one stretch of the route is the only thing worth aiming at, so the cursor says
