@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "@hugeicons/vue";
-import { Backpack02Icon, Cancel01Icon, CheckmarkSquare02Icon, ChevronDownIcon, EllipsisIcon, Route02Icon, SafeBoxIcon, Share08Icon, Undo02Icon } from "@hugeicons/core-free-icons";
+import { Backpack02Icon, Cancel01Icon, CheckmarkSquare02Icon, ChevronDownIcon, Delete02Icon, EllipsisIcon, Route02Icon, SafeBoxIcon, Share08Icon, Undo02Icon } from "@hugeicons/core-free-icons";
 import { editLinkPath } from "~~/shared/links";
 import { tripHeadline } from "~~/shared/trailDistance";
 import { formatWeight } from "~~/shared/weights";
@@ -426,6 +426,47 @@ async function cloneList() {
   flash(ok ? "List duplicated" : "Couldn’t duplicate. Try again.");
 }
 
+// DELETING THE LIST YOU'RE LOOKING AT.
+//
+// /mine owned this alone until now, which made getting rid of a list a trip you
+// took while staring straight at the thing you wanted gone: leave the editor, find
+// its row on another page, delete it there. That page keeps the job — it shows every
+// list at once and has the room to set "Remove from device" beside "Delete for
+// everyone", a distinction a menu row can't hold — but in here there is only ONE
+// list and only one of those two meanings is worth having, so this row is the
+// destructive one and the dialog says so in the same words /mine uses.
+//
+// Off on an unsaved draft. shareCode is the reactive stand-in for "has a server
+// row": it and the edit token are set in the same breath (createFromDraft), and
+// c.editToken is a plain getter that no computed can track. A draft is not yet a
+// list — "Create a list" above is what replaces one.
+const canDelete = computed(() => !!snapshot.value?.shareCode);
+
+async function deleteThisList() {
+  const token = c.editToken;
+  if (!token) return;
+  if (!(await askConfirm({
+    title: "Delete this list",
+    message: `Delete “${savedListTitle(snapshot.value?.title ?? "")}” for everyone? Anyone with the link will lose it, and this can’t be undone.`,
+    confirmLabel: "Delete",
+    danger: true,
+  }))) return;
+  // CLOSE THE SESSION FIRST, then delete — the order is the whole of it. Teardown
+  // flushes the queue and writes this list's on-device copy; run the other way round,
+  // that write lands after useMyLists.forget() has cleared the record and leaves a
+  // copy of a deleted list in IndexedDB under a token the registry no longer holds.
+  // This way the last edits still reach the server while there's a row to take them.
+  c.dispose(ownedEpoch);
+  // Straight into a fresh draft rather than back to /mine: you came here to work on a
+  // list, and the one you were on is gone. `replace`, so Back doesn't return to it.
+  if (await my.deleteList(token)) return newList({ replace: true });
+  // Offline, or the server refused: nothing was deleted, so put the editor back where
+  // it was. The teardown above wrote the list to this device, so reopening the token
+  // restores both the snapshot and whatever hadn't drained out of the queue.
+  startSession(token);
+  flash("Couldn’t delete that list. Check your connection and try again.");
+}
+
 // The ⋯ menu, now grouped rather than flat.
 //
 // It used to be eight peers in one column: making a list, moving data in and out,
@@ -675,6 +716,25 @@ function onCorrected(res: { status: string; itemName?: string }) {
                   </ul>
                     </div>
                   </Transition>
+                </li>
+                <!-- Deleting this list, last and under a hairline. Not one of the rows
+                     above it: everything there makes, copies or moves a list, and this
+                     one ends it — the same reason ListMenu rules "New list" off its list
+                     of lists. A rule earns its keep between two KINDS of thing.
+                     Quiet ink and a trash glyph rather than a colour, because the chrome
+                     is monochrome — the same call /mine makes to tell its destructive
+                     remove from its harmless one. -->
+                <li v-if="canDelete" role="none" class="editor__menufoot">
+                  <button
+                    type="button"
+                    data-row
+                    role="menuitem"
+                    class="menu__item editor__delete"
+                    @click="menuOpen = false; deleteThisList()"
+                  >
+                    <HugeiconsIcon :icon="Delete02Icon" :size="14" :stroke-width="2" aria-hidden="true" />
+                    Delete this list
+                  </button>
                 </li>
               </ul>
             </Transition>
@@ -1047,6 +1107,32 @@ function onCorrected(res: { status: string; itemName?: string }) {
 }
 /* the ⋯ menu's Export section is the shared .menu__sect disclosure (controls.scss),
    which the read views' menu uses too */
+/* ...and its FOOT holds the one action that ends the list, ruled off from the rest.
+   The rule sits on the <li> rather than on the row, so it spans the same width the
+   travelling plate does (both measure from the popover's padding box) instead of the
+   row's own inset. Same construction as ListMenu's .lm__foot — one hairline, in the
+   one place a menu has two kinds of thing in it. */
+.editor__menufoot {
+  margin-top: var(--space-1);
+  padding-top: var(--space-1);
+  border-top: 1px solid var(--line);
+}
+/* Quiet by default and full ink on approach: destructive, but not something to be
+   drawn to. It sits a tone below its neighbours (--ink-3, the tone .share__revoke
+   takes for replacing an edit link) and comes up to --ink when the plate arrives, so
+   it reads as deliberate rather than as a warning you have to keep dismissing.
+   flex, because .menu__item is display:block — the glyph needs a row. */
+.editor__delete {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--ink-3);
+  transition: color var(--dur) var(--ease);
+}
+.editor__delete:hover,
+.editor__delete:focus-visible {
+  color: var(--ink);
+}
 /* the popover's look + open/close come from the shared .menu atom (controls.scss);
    the editor only nudges the trailing cluster (toggle · share · kebab) right into the
    gutter so the kebab lines up with the item rows' drag handle below. The title group

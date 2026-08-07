@@ -1,5 +1,11 @@
 [
   {
+    "date": "2026-08-07",
+    "added": [
+      "Delete a list from the editor's ⋯ menu, instead of leaving it to find the list on another page."
+    ]
+  },
+  {
     "date": "2026-08-06",
     "added": [
       "Lists now have a third view, Planning, alongside editing and packing: lay the trip out day by day and see what each day asks of you.",
