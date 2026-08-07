@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { dayColorSequence } from "~~/shared/categories";
 import { cumulativeM, decodePolyline, formatLatLon, nearestAlongM, pointAlong, sliceAlong, type LatLon } from "~~/shared/polyline";
-import { HugeiconsIcon } from "~/utils/hugeicon";
+import { HugeiconsIcon, type IconNode } from "~/utils/hugeicon";
 import { ArrowExpand02Icon, ArrowShrink02Icon, HelpCircleIcon } from "@hugeicons/core-free-icons";
 import { formatDistance, type DisplayDistanceUnit } from "~~/shared/trailDistance";
 import { waypointKindMeta } from "~/utils/waypointKinds";
@@ -303,11 +303,10 @@ const TRACE_PX = 12;
 const PIN_TIP_PX = PIN_PX / 2 + (PIN_PX * Math.SQRT2) / 2;
 const PIN_GLYPH_PX = 17;
 const PIN_GLYPH_STROKE = 2;
-function iconSvg(icon: unknown): string {
-  const parts = (icon as [string, Record<string, string>][] | undefined) ?? [];
-  const body = parts
+function iconSvg(icon: IconNode): string {
+  const body = icon
     .map(([tag, attrs]) => {
-      const a = Object.entries(attrs ?? {})
+      const a = Object.entries(attrs)
         // `key` is Vue's list hint and strokeWidth is set on the parent; neither is SVG
         .filter(([k]) => k !== "key" && k !== "strokeWidth")
         .map(([k, v]) => `${k.replace(/[A-Z]/g, (ch) => `-${ch.toLowerCase()}`)}="${String(v).replace(/[<>&"]/g, "")}"`)
