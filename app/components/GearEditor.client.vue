@@ -643,7 +643,10 @@ function onCorrected(res: { status: string; itemName?: string }) {
           <!-- sync state + last-edit time, on the bar's leading edge — the space the
                title vacated when it became a page title. It takes the free width, which
                is what pins the icon cluster to the trailing edge. -->
-          <SyncStatus class="topbar__status" />
+          <!-- The class is on a WRAPPER, not on SyncStatus. This element is what
+               splits the bar, so it has to exist even when the component inside it
+               decides it has nothing to say (an untouched draft) — see the style. -->
+          <div class="topbar__status"><SyncStatus /></div>
           <!-- The view switcher used to sit here. It moved into the page body (see
                ModeBar): the bar had no room for words, and no seat for it at all on the
                read views. What is left in the bar is what acts ON a list rather than
@@ -1076,10 +1079,14 @@ function onCorrected(res: { status: string; itemName?: string }) {
      The auto margin used to live on the mode toggle, which held this seat until it moved
      into the page. It could not simply move to the next element: the vault and share
      buttons are wrapped by <Tooltip>, so a class on the BUTTON lands on the wrapper's
-     child and the flex item it needed to be on is the wrapper. Putting it here instead
-     works whatever the cluster is made of — and works even on an untouched draft, where
-     SyncStatus renders empty, because an auto margin on a zero-width item still eats the
-     free space before it. */
+     child and the flex item it needed to be on is the wrapper. Putting it here works
+     whatever the cluster is made of.
+     A PLAIN <div>, and that is the fix rather than a tidiness. The class used to ride
+     SyncStatus itself, on the reasoning that "an auto margin on a zero-width item still
+     eats the free space before it" — true of a zero-width item, and SyncStatus is not
+     one: it is `v-if="shown"`, so with nothing to report it renders NO ELEMENT, taking
+     this margin with it. On an untouched draft the whole tool cluster then collapsed
+     back against the switcher. The bar's own layout can't be a child's to opt out of. */
   margin-right: auto;
   flex: 0 1 auto;
   min-width: 0;
