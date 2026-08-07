@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "~/utils/hugeicon";
+import { HugeiconsIcon, type IconNode } from "~/utils/hugeicon";
 import { Backpack02Icon, Cancel01Icon, CheckmarkSquare02Icon, ChevronDownIcon, Copy01Icon, Delete02Icon, EllipsisIcon, FileExportIcon, FileImportIcon, Message01Icon, NoteAddIcon, RemoveCircleIcon, Route02Icon, SafeBoxIcon, Share08Icon, Undo02Icon } from "@hugeicons/core-free-icons";
 import { editLinkPath } from "~~/shared/links";
 import { tripHeadline } from "~~/shared/trailDistance";
@@ -197,7 +197,7 @@ const MODES = [
   { key: "edit", label: "Gear", icon: Backpack02Icon },
   { key: "pack", label: "Packing", icon: CheckmarkSquare02Icon },
   { key: "plan", label: "Planning", icon: Route02Icon },
-] as const satisfies readonly { key: EditorMode; label: string; icon: unknown }[];
+] as const satisfies readonly { key: EditorMode; label: string; icon: IconNode }[];
 
 // The vault palette. Closed by default and only ever opened deliberately, so the
 // pane's chunk (and the vault read behind it) costs nothing until it's wanted.

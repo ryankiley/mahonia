@@ -211,8 +211,10 @@ function toggleCollapsed() {
           :title="`Sort items — ${SORT_META[sortBy].label}`"
           @pick="(k) => onSort(k as FolderSort)"
         >
-          <template #trigger="{ active }">
-            <HugeiconsIcon :icon="active?.icon" class="folder__sorticon" :size="16" :stroke-width="2" aria-hidden="true" />
+          <!-- sortIcon, not the slot's `active?.icon`: `active` is a find over the
+               options so its icon is a maybe, and the icon prop doesn't take one -->
+          <template #trigger>
+            <HugeiconsIcon :icon="sortIcon" class="folder__sorticon" :size="16" :stroke-width="2" aria-hidden="true" />
           </template>
         </OptionMenu>
         <!-- drag via pointerdown; arrow keys give the focused grip the reordering

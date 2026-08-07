@@ -27,7 +27,7 @@ import { type FunctionalComponent, h, mergeProps } from "vue";
 // Kept as a FUNCTIONAL component: no instance state, no computeds, no props proxy.
 //
 // Faithfulness matters more than speed here — the markup must not shift, so the details
-// below mirror upstream exactly rather than being tidied. See tests/unit/hugeicon.spec.ts,
+// below mirror upstream exactly rather than being tidied. See tests/hugeicon.nuxt.test.ts,
 // which asserts this renders the same string as @hugeicons/vue for every icon the app uses.
 
 /**
@@ -35,7 +35,7 @@ import { type FunctionalComponent, h, mergeProps } from "vue";
  * Mirrors @hugeicons/core-free-icons' own `IconSvgObject` — including `readonly`, which
  * some of its exports carry, and numeric attribute values, which a few glyphs use.
  */
-type IconChild = readonly [string, { readonly [key: string]: string | number }];
+export type IconChild = readonly [string, { readonly [key: string]: string | number }];
 export type IconNode = readonly IconChild[];
 
 /** Prepared child: the tag, and its attributes already kebab-cased and stroke-stamped. */
@@ -85,20 +85,17 @@ function childrenFor(icon: IconNode, strokeWidth: number | undefined): PreparedC
 
 export interface HugeiconsIconProps {
   /**
-   * DELIBERATELY LOOSE, matching what the call sites were being checked against before.
-   * @hugeicons/vue's published types re-export `./components/HugeiconsIcon.vue`, a file
-   * its package does not ship — so the import resolved to `any` and no prop here was
-   * ever type-checked. Several call sites lean on that (ModeBar types its icon as
-   * `unknown`; TrailPlanPanel hand-builds one), and tightening it is a change to those
-   * components rather than to this one. Kept permissive so the swap stays a drop-in;
-   * the internals below are typed properly.
+   * `IconNode`, not a type borrowed from upstream: @hugeicons/vue's published types
+   * re-export `./components/HugeiconsIcon.vue`, a file its package does not ship, so
+   * its component resolved to `any` and no call site was ever checked against it.
+   * Typing the data shape here is what makes them checkable at all.
    */
-  icon: IconNode | unknown;
+  icon: IconNode;
   size?: number | string;
   strokeWidth?: number;
   /** pin the DRAWN line width regardless of `size` — upstream's absoluteStrokeWidth */
   absoluteStrokeWidth?: boolean;
-  altIcon?: IconNode | unknown;
+  altIcon?: IconNode;
   showAlt?: boolean;
   color?: string;
 }
@@ -112,7 +109,7 @@ export const HugeiconsIcon: FunctionalComponent<HugeiconsIconProps> = (props, { 
       : props.absoluteStrokeWidth
         ? (props.strokeWidth * 24) / size
         : props.strokeWidth;
-  const icon = (props.altIcon && props.showAlt ? props.altIcon : props.icon) as IconNode;
+  const icon = props.altIcon && props.showAlt ? props.altIcon : props.icon;
 
   return h(
     "svg",
