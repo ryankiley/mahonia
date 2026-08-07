@@ -3,7 +3,8 @@
     "date": "2026-08-07",
     "added": [
       "Delete a list from the editor's ⋯ menu, instead of leaving it to find the list on another page.",
-      "Forget a list from the editor's ⋯ menu: it leaves this device but stays online for anyone holding its link."
+      "Forget a list from the editor's ⋯ menu: it leaves this device but stays online for anyone holding its link.",
+      "When a saved list can’t be opened anymore — deleted elsewhere, or its link changed — the page now names it and lets you forget it, so the dead entry doesn’t linger in your lists."
     ],
     "changed": [
       "Deleting a list from the editor's ⋯ menu now reads in red, so it's clear which row is the destructive one before you reach it.",
@@ -18,7 +19,8 @@
       "The browser tab shows a list's new name the moment you refresh, instead of the name it was carrying a minute ago.",
       "Renaming a row to a different piece of gear no longer leaves the old product's catalog weight behind, so the row stops offering to \"fix\" the new item's catalog entry with a weight that was never its own.",
       "Typing a list's name while the list is still loading no longer loses the start of it — \"South Sister Summit\" stays whole instead of saving as \"Summit\".",
-      "Correcting how a piece of gear is spelled — or its product link — now reaches My gear straight away, instead of waiting for the next weight or name change to carry it along."
+      "Correcting how a piece of gear is spelled — or its product link — now reaches My gear straight away, instead of waiting for the next weight or name change to carry it along.",
+      "Forgetting a list that’s no longer online now warns that the copy saved on this device may be all that’s left, instead of claiming the list stays online."
     ]
   },
   {

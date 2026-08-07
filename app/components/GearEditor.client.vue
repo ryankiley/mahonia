@@ -449,6 +449,14 @@ const isSaved = computed(() => !!snapshot.value?.shareCode);
 // and the one with no server call at all — useMyLists.forget() clears the registry
 // entry and this list's on-device copy, and that is the whole of it.
 //
+// "Leave the list standing" is only true while its token is alive. This menu also
+// renders in the "No longer online · saved on device" state — the server 404'd the
+// token but a local copy kept the editor standing — and there the on-device copy IS
+// the list as far as this browser can reach: forgetting discards it, unsynced edits
+// and all, and what's discarded may be all that's left. Same act, two different
+// losses; the dialog has always been where the difference between these rows is
+// explained, so the dialog (not the row) is what changes.
+//
 // It MUST navigate away, which is not cosmetic. load() re-registers a list it opens
 // (registerOpened, so a link someone sent you is remembered), so a reload while still
 // sitting on /e/{code}#{token} would put the entry straight back and the forget would
@@ -456,17 +464,36 @@ const isSaved = computed(() => !!snapshot.value?.shareCode);
 async function forgetThisList() {
   const token = c.editToken;
   if (!token) return;
+  // Captured before the await: the poll could 404 mid-dialog, and the act should
+  // match the message the user actually read, not a state that moved under it.
+  // Status, not a new remoteMissing getter — "missing" with the editor rendered is
+  // exactly the dead-token-with-copy state, and it keeps the dialog agreeing with
+  // the chrome: it turns frank on the same beat SyncStatus says "No longer online".
+  const dead = status.value === "missing";
+  const title = savedListTitle(snapshot.value?.title ?? "");
   if (!(await askConfirm({
     title: "Forget this list",
-    // Honest about the cost: the list survives, but this browser is the only thing
-    // that was holding the way back into it unless the edit link was saved elsewhere.
-    message: `Forget “${savedListTitle(snapshot.value?.title ?? "")}” on this device? The list stays online for anyone with its link, but you’ll need its edit link to open it again.`,
+    // Honest about the cost in both states: alive, the list survives and only this
+    // browser's way back into it is what's being dropped; dead, the copy being
+    // dropped is the thing itself.
+    message: dead
+      ? `Forget “${title}”? Its link stopped working, so the copy saved on this device may be all that’s left — forgetting discards it.`
+      : `Forget “${title}” on this device? The list stays online for anyone with its link, but you’ll need its edit link to open it again.`,
     confirmLabel: "Forget",
+    // marked the way the delete's dialog is: dead, this costs something no link
+    // can recover. (Today the dialog renders danger monochrome, like everything
+    // in the chrome — the flag records the severity, and any styling AppDialogs
+    // ever gives danger will pick this up with the delete's.)
+    danger: dead,
   }))) return;
   // Same ordering rule the delete below turns on, for the same reason: teardown
   // writes this list's on-device copy, so forgetting first would leave that copy
   // behind under a token the registry no longer holds.
   c.dispose(ownedEpoch);
+  // A dead token's vault decision can never be asked again once the copy is gone —
+  // it goes the way deleteList and forgetMissingList send it. A live list's stays:
+  // its edit link may well bring the list back (see clearVaultDecisionFor).
+  if (dead) clearVaultDecisionFor(token);
   my.forget(token);
   newList({ replace: true });
 }
@@ -494,6 +521,53 @@ async function deleteThisList() {
   // restores both the snapshot and whatever hadn't drained out of the queue.
   startSession(token);
   flash("Couldn’t delete that list. Check your connection and try again.");
+}
+
+// FORGET, FROM THE DEAD END. The pair above needs a loaded list — the ⋯ menu only
+// renders with a snapshot. But the switcher can hold a row whose token the server has
+// stopped answering (the list deleted, or its link rotated, from another device)
+// while this browser kept no local copy. Opening that row lands on the missing state
+// below, which offered nothing but "Create a list" — so the dead row survived every
+// visit and went on leading back here, unremovable from the one page that knows it's
+// dead. The dead end now names the list it couldn't open and offers to forget it:
+// the only act left that means anything for a row like that.
+//
+// Registry lookup by the token load() just tried. c.editToken is a plain getter no
+// computed can track, but every change to it moves `status` (load → "loading",
+// dispose → "idle"), so the status gate keeps this computed honest. forgetSuperseded
+// runs in the same breath the 404 sets the status — a rotate leftover with a live
+// sibling row is gone before this state ever renders — so a row found here is the
+// list's ONLY row, and forgetting it is not covered by any self-heal.
+const missingEntry = computed(() =>
+  status.value === "missing"
+    ? my.entries.value.find((x) => x.editToken === c.editToken)
+    : undefined,
+);
+// With a row in hand the page can say WHICH list refused to open, instead of the
+// generic line — which read as a shrug when the list was sitting right there in the
+// switcher, plainly "in this browser" in every sense the visitor cares about.
+const missingMessage = computed(() =>
+  missingEntry.value
+    ? `“${savedListTitle(missingEntry.value.title)}” can’t be opened anymore. It may have been deleted, or its edit link changed.`
+    : "This list isn’t in this browser, or the link is invalid.",
+);
+async function forgetMissingList() {
+  // capture before dispose() blanks c.editToken (which empties missingEntry too)
+  const entry = missingEntry.value;
+  if (!entry) return;
+  if (!(await askConfirm({
+    title: "Forget this list",
+    message: `Forget “${savedListTitle(entry.title)}”? Its link no longer works — this only removes it from your lists on this device.`,
+    confirmLabel: "Forget",
+  }))) return;
+  // Same teardown-first order as the pair above. Nothing here can write it back
+  // (no snapshot, so writeLocal no-ops) — kept for the pattern, not a live hazard.
+  c.dispose(ownedEpoch);
+  // Unlike forgetThisList: this token is dead server-side, so the vault decision
+  // keyed by it can never be asked again. It goes the way deleteList sends it.
+  clearVaultDecisionFor(entry.editToken);
+  my.forget(entry.editToken);
+  newList({ replace: true });
 }
 
 // The ⋯ menu, now grouped rather than flat.
@@ -952,8 +1026,11 @@ function onCorrected(res: { status: string; itemName?: string }) {
     </main>
 
     <main v-else-if="status === 'missing'" id="main-content" tabindex="-1" class="wrap editor__missing">
-      <p class="t-muted">This list isn’t in this browser, or the link is invalid.</p>
+      <p class="t-muted">{{ missingMessage }}</p>
       <button class="btn btn--primary" @click="newList({ replace: true })">Create a list</button>
+      <!-- quiet, under the primary: the way forward stays the page's loudest offer,
+           and retiring the row that led here is the calm cleanup beside it -->
+      <button v-if="missingEntry" class="btn btn--quiet" @click="forgetMissingList">Forget this list</button>
     </main>
 
     <main v-else id="main-content" tabindex="-1" class="wrap editor__missing">
