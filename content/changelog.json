@@ -3,7 +3,8 @@
     "date": "2026-08-07",
     "added": [
       "Delete a list from the editor's ⋯ menu, instead of leaving it to find the list on another page.",
-      "Forget a list from the editor's ⋯ menu: it leaves this device but stays online for anyone holding its link."
+      "Forget a list from the editor's ⋯ menu: it leaves this device but stays online for anyone holding its link.",
+      "When a saved list can’t be opened anymore — deleted elsewhere, or its link changed — the page now names it and lets you forget it, so the dead entry doesn’t linger in your lists."
     ],
     "changed": [
       "Switching between the gear, packing and planning views is instant on a long list.",
@@ -21,7 +22,8 @@
       "Typing a list's name while the list is still loading no longer loses the start of it — \"South Sister Summit\" stays whole instead of saving as \"Summit\".",
       "Correcting how a piece of gear is spelled — or its product link — now reaches My gear straight away, instead of waiting for the next weight or name change to carry it along.",
       "A list that can't reach the server now says \"Not saved\" and holds still, instead of flickering between that and \"Syncing…\" while it retries — and it retries with a growing pause rather than every second.",
-      "The editor's toolbar icons sit at the right edge again on a list that hasn't been edited yet, instead of bunching up beside the pack switcher."
+      "The editor's toolbar icons sit at the right edge again on a list that hasn't been edited yet, instead of bunching up beside the pack switcher.",
+      "Forgetting a list that’s no longer online now warns that the copy saved on this device may be all that’s left, instead of claiming the list stays online."
     ]
   },
   {

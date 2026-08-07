@@ -81,13 +81,16 @@ export function setVaultExclusionsFor(editToken: string, normKeys: string[]): vo
  * exclusions that refine a yes. They're keyed by the same edit token and they
  * die together.
  *
- * For a list that has been DELETED, and only that. Deliberately not part of
- * useMyLists.forget(), which also backs "Forget this list" in the editor: there the
- * list is still online and its edit link may well bring it back, so "no, that gear
- * isn't mine" is an answer worth keeping — clearing it would re-ask a question
- * already answered. A deleted list's answer is the one that's definitively dead,
- * and nothing else ever removed these keys, so every delete used to leave a pair
- * of them behind for good.
+ * For a token that is dead for good, and only that: the list was deleted, or a
+ * forget of a token the server had already stopped answering — from the dead-end
+ * page, or from the ⋯ menu in its "No longer online · saved on device" state.
+ * Deliberately not part of useMyLists.forget() itself, which also backs "Forget
+ * this list" on a list that is still online: there the edit link may well bring
+ * the list back, so "no, that gear isn't mine" is an answer worth keeping —
+ * clearing it would re-ask a question already answered. A dead token's answer is
+ * the one that's definitively unreachable (the keys are found only through the
+ * token), and nothing else ever removed these keys, so every delete used to leave
+ * a pair of them behind for good.
  */
 export function clearVaultDecisionFor(editToken: string): void {
   if (!editToken) return;
