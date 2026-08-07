@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "@hugeicons/vue";
-import { ChevronDownIcon, Delete02Icon } from "@hugeicons/core-free-icons";
+import { Delete02Icon } from "@hugeicons/core-free-icons";
 import type { Waypoint, WaypointKind } from "~~/shared/types";
 import { formatDistance, formatDistancePadded, type DisplayDistanceUnit } from "~~/shared/trailDistance";
-import { WAYPOINT_KIND_OPTIONS, waypointKindMeta } from "~/utils/waypointKinds";
+import { WAYPOINT_KIND_META, WAYPOINT_KIND_OPTIONS, waypointKindMeta } from "~/utils/waypointKinds";
 
 // One pin, described.
 //
@@ -35,43 +35,33 @@ const spokenAt = computed(() => formatDistance(props.waypoint.alongM, props.dist
 <template>
   <li class="wprow">
     <!--
-      THE KIND IS A WORD, not just a glyph.
-      It was icon-only, which made it the one control on the row you could only learn by
-      pressing it — the same mistake the item row wrote down when it put the unit beside
-      its chevron: "without it the unit was text that looked exactly like a caption, so the
-      picker was only ever found by accident." A droplet with no word beside it is worse
-      again, because it looks like a decoration rather than a control at all.
+      THREE TOGGLES, not a menu — the gear row's own convention for exactly this shape of
+      choice. An item's classification is a small closed set rendered as icon buttons with
+      the chosen one marked, and so is this: water, camp or landmark. It costs one tap
+      where the menu cost two, and the alternatives are visible rather than hidden behind a
+      trigger, which is what makes a small set worth showing at all.
+
+      The mark is .item__mark, the same atom, so the "this one is on" plate is one recipe
+      wherever it appears. What is added here is HUE: the chosen glyph lights in its own
+      category colour, the others stay quiet ink, so the row says which kind at a glance
+      without needing the word beside it. The name field's placeholder still carries the
+      word for anyone who wants it spelled out.
     -->
-    <OptionMenu
-      class="wprow__kind"
-      :options="WAYPOINT_KIND_OPTIONS"
-      :current="waypoint.kind"
-      label="What is here"
-      :trigger-label="`Kind of the ${spoken} at ${spokenAt}`"
-      @pick="(k) => c.updateWaypoint(waypoint.id, { kind: k as WaypointKind })"
-    >
-      <template #trigger="{ open }">
-        <HugeiconsIcon
-          :icon="meta.icon"
-          class="wprow__glyph"
-          :style="{ color: meta.color }"
-          :size="16"
-          :stroke-width="2"
-          aria-hidden="true"
-        />
-        <span class="wprow__kindname">{{ meta.label }}</span>
-        <!-- the row-scale chevron, 12/2 for an exact 1px stroke — the same mark and the
-             same size the item row's unit picker carries, so one gesture reads one way -->
-        <HugeiconsIcon
-          :icon="ChevronDownIcon"
-          class="wprow__chev"
-          :class="{ 'is-open': open }"
-          :size="12"
-          :stroke-width="2"
-          aria-hidden="true"
-        />
-      </template>
-    </OptionMenu>
+    <div class="wprow__kind" role="group" :aria-label="`Kind of the ${spoken} at ${spokenAt}`">
+      <Tooltip v-for="k in WAYPOINT_KIND_OPTIONS" :key="k.key" :text="k.label" preferred-placement="top">
+        <button
+          type="button"
+          class="btn btn--icon btn--ghost wprow__kindbtn"
+          :class="{ 'item__mark': waypoint.kind === k.key }"
+          :aria-pressed="waypoint.kind === k.key"
+          :aria-label="k.label"
+          :style="waypoint.kind === k.key ? { color: WAYPOINT_KIND_META[k.key].color } : undefined"
+          @click="c.updateWaypoint(waypoint.id, { kind: k.key as WaypointKind })"
+        >
+          <HugeiconsIcon :icon="k.icon" :size="16" :stroke-width="2" />
+        </button>
+      </Tooltip>
+    </div>
     <!-- Unnamed is the normal case, not an omission: three water sources dropped in three
          taps are already useful, and the placeholder says what the pin is so an empty
          field never reads as a blank row. -->
@@ -113,28 +103,16 @@ const spokenAt = computed(() => formatDistance(props.waypoint.alongM, props.dist
   align-items: center;
   gap: var(--space-2);
 }
+/* the three sit tight against each other, as the gear row's classification pair does —
+   they are one control with three settings, not three separate actions */
 .wprow__kind {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-1);
-  color: var(--ink-2);
+  gap: var(--space-px);
 }
-/* the glyph keeps its category hue — it is the same mark the pin on the map wears, and
-   the pair is how you find a row's pin without reading either */
-.wprow__glyph {
-  flex: none;
-}
-.wprow__kindname {
-  font-size: var(--text-sm);
-  white-space: nowrap;
-}
-.wprow__chev {
-  flex: none;
+/* quiet until chosen; .item__mark supplies the plate and the inline style the hue */
+.wprow__kindbtn {
   color: var(--ink-3);
-  transition: rotate var(--dur) var(--ease);
-}
-.wprow__chev.is-open {
-  rotate: 180deg;
 }
 .wprow__name {
   min-width: 0;

@@ -29,7 +29,8 @@
       "The map now opens and closes with the terrain growing out of its place on the page, and the trip's figures sit the same distance under the big number in all three views.",
       "Walking times now read as a range — \"4–4.5 hr\" rather than \"4 h 11\" — since the estimate is only good to about a fifth either way.",
       "Map pins are now white drops with the mark in colour, the day lines carry a darker edge of their own hue, and the end of each day shows as a camp you can drag.",
-      "The trip's time figure is now labelled \"Walking time\", since it counts time on your feet and not the days the trip takes."
+      "The trip's time figure is now labelled \"Walking time\", since it counts time on your feet and not the days the trip takes.",
+      "Setting what a waypoint is now takes one tap on the kind you want, the way an item's type works in Gear."
     ],
     "fixed": [
       "On a phone, a weight like 0.68 lb no longer has its last digit clipped, and a water row's figure lines up with the rows above it.",
