@@ -2,7 +2,7 @@
 import { HugeiconsIcon } from "@hugeicons/vue";
 import { ChevronDownIcon, Delete02Icon } from "@hugeicons/core-free-icons";
 import type { Waypoint, WaypointKind } from "~~/shared/types";
-import { formatDistance, type DisplayDistanceUnit } from "~~/shared/trailDistance";
+import { formatDistance, formatDistancePadded, type DisplayDistanceUnit } from "~~/shared/trailDistance";
 import { WAYPOINT_KIND_OPTIONS, waypointKindMeta } from "~/utils/waypointKinds";
 
 // One pin, described.
@@ -14,14 +14,22 @@ import { WAYPOINT_KIND_OPTIONS, waypointKindMeta } from "~/utils/waypointKinds";
 //
 // Its own component because these rows appear once per day and once more for the ground no
 // day has claimed, and a row copied across those two places is a row that drifts.
-const props = defineProps<{ waypoint: Waypoint; distanceUnit: DisplayDistanceUnit }>();
+const props = defineProps<{
+  waypoint: Waypoint;
+  distanceUnit: DisplayDistanceUnit;
+  /** where it actually is, worked out from the route by the panel — never stored */
+  coord?: string;
+}>();
 
 const c = useGearList();
 
 const meta = computed(() => waypointKindMeta(props.waypoint.kind));
 /** For the screen-reader names, where the label reads mid-sentence. */
 const spoken = computed(() => meta.value.label.toLowerCase());
-const at = computed(() => formatDistance(props.waypoint.alongM, props.distanceUnit));
+/** Padded, because these form a column down the day — see formatDistancePadded. */
+const at = computed(() => formatDistancePadded(props.waypoint.alongM, props.distanceUnit));
+/** The unpadded reading, for the spoken names where a column means nothing. */
+const spokenAt = computed(() => formatDistance(props.waypoint.alongM, props.distanceUnit));
 </script>
 
 <template>
@@ -39,7 +47,7 @@ const at = computed(() => formatDistance(props.waypoint.alongM, props.distanceUn
       :options="WAYPOINT_KIND_OPTIONS"
       :current="waypoint.kind"
       label="What is here"
-      :trigger-label="`Kind of the ${spoken} at ${at}`"
+      :trigger-label="`Kind of the ${spoken} at ${spokenAt}`"
       @pick="(k) => c.updateWaypoint(waypoint.id, { kind: k as WaypointKind })"
     >
       <template #trigger="{ open }">
@@ -72,17 +80,23 @@ const at = computed(() => formatDistance(props.waypoint.alongM, props.distanceUn
       :value="waypoint.label ?? ''"
       :placeholder="meta.label"
       maxlength="120"
-      :aria-label="`Name for the ${spoken} at ${at}`"
+      :aria-label="`Name for the ${spoken} at ${spokenAt}`"
       @change="(e) => c.updateWaypoint(waypoint.id, { label: (e.target as HTMLInputElement).value.trim() })"
     />
     <!-- Distance from the START OF THE ROUTE, not from the start of the day. It is the
          pin's actual stored position, it is what the map's own readouts use, and it stays
          the same number when the day boundaries move around it. -->
-    <span class="t-sm t-muted wprow__at">{{ at }}</span>
+    <span class="wprow__at">
+      <!-- The coordinate leads, a step quieter: it answers "where exactly", asked once
+           when you are copying it somewhere else, where the distance is what you scan the
+           list by — so the distance keeps the column against the delete button. -->
+      <span v-if="coord" class="t-sm wprow__coord">{{ coord }}</span>
+      <span class="t-sm t-muted">{{ at }}</span>
+    </span>
     <button
       type="button"
       class="btn btn--icon btn--ghost"
-      :aria-label="`Remove the ${spoken} at ${at}`"
+      :aria-label="`Remove the ${spoken} at ${spokenAt}`"
       @click="c.removeWaypoint(waypoint.id)"
     >
       <HugeiconsIcon :icon="Delete02Icon" :size="16" :stroke-width="2" />
@@ -126,7 +140,22 @@ const at = computed(() => formatDistance(props.waypoint.alongM, props.distanceUn
   min-width: 0;
 }
 .wprow__at {
+  /* ONE LINE, not a stack. A row is a row: something set beneath it reads as a caption
+     hanging off the row rather than as another of its columns, and it doubles the row's
+     height for a figure nobody scans by.
+     The coordinate goes BEFORE the distance so the distances still form a column down the
+     list, hard against the delete button, which is what makes them comparable at all. */
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+/* ONE SIZE ACROSS THE ROW. The coordinate was a step smaller, which made it read as an
+   annotation on the row rather than as one of its columns — and a row whose cells are set
+   at two sizes has no baseline anyone can follow. It still steps back, but in INK only:
+   colour separates importance without breaking the line. */
+.wprow__coord {
+  color: var(--ink-3);
 }
 </style>

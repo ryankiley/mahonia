@@ -185,6 +185,22 @@ export function resolveDistanceUnit(
 }
 
 /** A tidy label for a distance in metres: "7.5 mi", "12.1 km", "800 m". */
+/**
+ * The same figure with its decimal ALWAYS shown — "11.0 mi", never "11 mi".
+ *
+ * For distances that form a COLUMN. A whole number that drops its decimal is a character
+ * narrower than the rows above and below it, so the unit slides left and the column stops
+ * being a column. The day fields already pad for exactly this reason; the waypoint rows
+ * sit in the same lists and have to agree.
+ *
+ * Separate from formatDistance rather than an option on it, because most callers want the
+ * shorter reading — a sentence saying "11 mi" should not say "11.0 mi".
+ */
+export function formatDistancePadded(metres: number, unit: DisplayDistanceUnit): string {
+  const n = metres / M_PER_UNIT[unit];
+  return `${n.toFixed(1)} ${unit}`;
+}
+
 export function formatDistance(metres: number, unit: DisplayDistanceUnit): string {
   if (unit === "mi") {
     return `${Number.parseFloat((metres / M_PER_UNIT.mi).toFixed(1))} mi`;

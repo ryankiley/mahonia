@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { dayColorSequence } from "~~/shared/categories";
-import { cumulativeM, decodePolyline, nearestAlongM, pointAlong, sliceAlong, type LatLon } from "~~/shared/polyline";
+import { cumulativeM, decodePolyline, formatLatLon, nearestAlongM, pointAlong, sliceAlong, type LatLon } from "~~/shared/polyline";
 import { HugeiconsIcon } from "@hugeicons/vue";
 import { ArrowExpand02Icon, ArrowShrink02Icon } from "@hugeicons/core-free-icons";
 import { formatDistance, type DisplayDistanceUnit } from "~~/shared/trailDistance";
@@ -714,9 +714,16 @@ function pinPopup(w: { id: string; kind: string; alongM: number; label?: string 
 
   const head = document.createElement("p");
   head.className = "routemap__wphead";
-  head.textContent = props.distanceUnit
-    ? `${meta.label} · ${formatDistance(w.alongM, props.distanceUnit)}`
-    : meta.label;
+  const at = pointAlong(points.value, w.alongM);
+  head.textContent = [
+    meta.label,
+    props.distanceUnit ? formatDistance(w.alongM, props.distanceUnit) : "",
+    // the coordinate belongs here more than anywhere: this popup is what you have open
+    // when you are copying a spring's position into something else
+    at ? formatLatLon(at) : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   const input = document.createElement("input");
   input.className = "routemap__wpname";

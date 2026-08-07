@@ -48,6 +48,21 @@ export interface LatLon {
  */
 export const LOOP_CLOSE_M = 50;
 
+/**
+ * A point as a person would paste it somewhere else: "45.3712, -121.7093".
+ *
+ * FIVE DECIMALS, which is about a metre — the same resolution the stored polyline has, so
+ * this can't imply a precision the geometry doesn't carry. Six would be a centimetre and a
+ * lie; four would be eleven metres and would move a spring off its own bank.
+ *
+ * Plain decimal degrees and a comma, because that is what every other tool takes: paste it
+ * into a phone's maps app, a GPS, a search box. Degrees-minutes-seconds looks more like
+ * navigation and is more work to use.
+ */
+export function formatLatLon(p: LatLon): string {
+  return `${p.lat.toFixed(5)}, ${p.lon.toFixed(5)}`;
+}
+
 /** Whether the route ends where it began — so a loop gets ONE end marker, not two on top
  *  of each other. */
 export function isLoop(points: readonly LatLon[]): boolean {
