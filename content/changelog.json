@@ -31,7 +31,8 @@
       "Map pins are now white drops with the mark in colour, the day lines carry a darker edge of their own hue, and the end of each day shows as a camp you can drag.",
       "The trip's time figure is now labelled \"Walking time\", since it counts time on your feet and not the days the trip takes.",
       "Setting what a waypoint is now takes one tap on the kind you want, the way an item's type works in Gear.",
-      "Camp is no longer something you pick — every day's end draws one, and the pins you place are water or a landmark."
+      "Camp is no longer something you pick — every day's end draws one, and the pins you place are water or a landmark.",
+      "The elevation chart now leaves easy ground unshaded, breaks cleanly between days, and keeps its difficulty shading readable at the route's low points."
     ],
     "fixed": [
       "On a phone, a weight like 0.68 lb no longer has its last digit clipped, and a water row's figure lines up with the rows above it.",

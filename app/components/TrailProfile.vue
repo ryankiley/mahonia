@@ -80,7 +80,20 @@ const loIdx = computed(() => props.profile.indexOf(lo.value));
 const span = computed(() => Math.max(1, hi.value - lo.value));
 
 const x = (i: number) => (i / (props.profile.length - 1)) * VB_W;
-const y = (ele: number) => VB_H - ((ele - lo.value) / span.value) * VB_H * 0.92 - VB_H * 0.04;
+/**
+ * Elevation → y, with FLOOR ROOM under the lowest point.
+ *
+ * The curve used to fill 92% of the box with 4% padding at each end, which put the route's
+ * low point 8 units off the baseline — and the fill hangs BELOW the ridge by RIDGE_GAP, so
+ * at the lowest point there was about one unit of shading left to see. The grade band that
+ * matters most on a climb out of a valley was the one you could not read.
+ *
+ * 80% of the box with 14% beneath leaves 28 units of floor at the low point, which is
+ * enough for the fill to state its band. It costs a little vertical exaggeration — the
+ * curve is slightly flatter — and this chart has never been a mark you read a gradient off
+ * by eye anyway; that is what the scrubber and the shading are for.
+ */
+const y = (ele: number) => VB_H - ((ele - lo.value) / span.value) * VB_H * 0.8 - VB_H * 0.14;
 
 /**
  * The day each sample belongs to, by cumulative distance — so a long day owns more of the
@@ -726,9 +739,12 @@ const id = useId();
  * Easy ground is filled too, in the quietest ink there is. Left unfilled it put paper-
  * coloured gaps between the coloured runs and the surface broke into slivers — the absence
  * of difficulty has to be drawn for the presence of it to read. */
+/* EASY GROUND TAKES NOTHING. It was a 10% ink wash, which is a colour — and a colour that
+   fires on most of a route is not a signal, it is a background. Shading is a severity
+   claim; the claim on easy ground is that there isn't one. Drawn as nothing, the amber and
+   the red become marks you notice rather than two shades of a grey band. */
 .tprofile__fill {
-  fill: var(--ink-3);
-  opacity: 0.1;
+  fill: none;
 }
 /* Orange for moderate, red for hard — adjacent hues, so the separation has to come from
    somewhere other than hue alone. It comes from WEIGHT: moderate sits noticeably lighter
@@ -756,7 +772,12 @@ const id = useId();
    steep run where both sides are the same band. */
 .tprofile__cut {
   stroke: var(--paper);
-  stroke-width: 4;
+  /* Wide enough to clear the RIDGES' OVERLAP, which is why 4 still let a sliver of the
+     neighbouring colour show. Each day's run starts one sample early (see dayRuns — the
+     look-back is what stops a hairline appearing between runs), so a ridge genuinely
+     extends past its own boundary by a sample: about 4 viewBox units at 240 samples, plus
+     half a stroke at each end. 8 covers both sides of that. */
+  stroke-width: 8;
 }
 .tprofile__ridge {
   /* non-scaling-stroke means this is real pixels, so it holds at any container size */
