@@ -53,6 +53,12 @@ const emit = defineEmits<{
   rename: [at: { id: string; label: string }];
   /** a pin deleted from its own popup */
   remove: [id: string];
+  /**
+   * A day boundary dropped somewhere new: day `index` now ends here, and whichever day
+   * follows it starts here. The panel owns the arithmetic — it is the one that knows what
+   * a day is — this only says where the handle came to rest.
+   */
+  boundary: [at: { index: number; alongM: number }];
 }>();
 
 const host = ref<HTMLElement | null>(null);
@@ -69,6 +75,7 @@ let map: import("leaflet").Map | null = null;
 let tiles: import("leaflet").TileLayer | null = null;
 let legs: import("leaflet").Polyline[] = [];
 let pins: import("leaflet").Marker[] = [];
+let bounds: import("leaflet").Marker[] = [];
 let ro: ResizeObserver | null = null;
 
 const points = computed<LatLon[]>(() => decodePolyline(props.geometry));
@@ -111,6 +118,54 @@ const dayLegs = computed(() => {
  * the walk survives.
  */
 const DIM = 0.25;
+
+/** The route's own length — the far end of anything that can be dragged along it. */
+const routeLengthM = computed(() => cumulativeM(points.value).at(-1) ?? 0);
+
+/** The shortest a day may be dragged down to. Below this it stops being a day. */
+const MIN_DAY_M = 200;
+
+/**
+ * WHERE ONE DAY ENDS AND THE NEXT BEGINS — and it is where you sleep, which is why the
+ * handle wears a tent.
+ *
+ * Derived, never stored. A boundary is just the running total through day K, so dragging
+ * one is a way of TYPING TWO NUMBERS AT ONCE: day K gets longer by exactly what day K+1
+ * gives up. Their sum can't change, so nothing before or after the pair moves, and the
+ * itinerary stays the single source of how long the trip is.
+ *
+ * The last one is different in kind: it bounds the final day against the ground nobody has
+ * claimed, so dragging it lengthens or shortens that day alone and the grey tail absorbs
+ * the difference. That is how you say "the route runs on past my plan".
+ *
+ * It is NOT a waypoint, and shouldn't become one on its own. Boundaries move constantly
+ * while a trip is being planned; waypoints are the walker's own marks with their own
+ * lifecycle, and removeDay has no cascade by deliberate design. So this reads as a camp
+ * without being one — until somebody drops a real pin there because they have something to
+ * say about it.
+ */
+const boundaries = computed(() => {
+  const d = props.dayDistancesM;
+  const total = routeLengthM.value;
+  const out: { index: number; alongM: number; minM: number; maxM: number }[] = [];
+  let run = 0;
+  for (let i = 0; i < d.length; i++) {
+    const fromM = run;
+    run += d[i] ?? 0;
+    if (!(d[i]! > 0)) continue;
+    // the next day that owns any ground; blanks in between own none and can't be traded with
+    const nextI = d.findIndex((v, k) => k > i && v > 0);
+    const minM = fromM + MIN_DAY_M;
+    if (nextI < 0) {
+      // the last planned day, against the unclaimed tail
+      if (run < total - MIN_DAY_M && minM < total) out.push({ index: i, alongM: run, minM, maxM: total });
+      continue;
+    }
+    const maxM = run + d[nextI]! - MIN_DAY_M;
+    if (minM < maxM) out.push({ index: i, alongM: run, minM, maxM });
+  }
+  return out;
+});
 
 /** Whether a stretch of the route is outside the armed one, and so should stand down. */
 function isDimmed(fromM: number, toM: number): boolean {
@@ -195,7 +250,17 @@ const LIFT_SLOP_PX = 10;
 /** How much of the route either side of the pin a single move step may reach. */
 const LIFT_WINDOW_M = 3000;
 
-let lift: { el: HTMLElement; marker: import("leaflet").Marker; id: string; alongM: number } | null = null;
+type Lift = {
+  el: HTMLElement;
+  marker: import("leaflet").Marker;
+  alongM: number;
+  /** the stretch of route this thing is allowed to occupy */
+  minM: number;
+  maxM: number;
+  /** one op, or two, at the end of the gesture — never during it */
+  commit: (alongM: number) => void;
+};
+let lift: Lift | null = null;
 /**
  * Set through any gesture that was ABOUT AN EXISTING PIN, so the click it generates can't
  * also place a new one on an armed map. Two of them do this: the pointerup that ends a
@@ -209,7 +274,7 @@ function suppressPlaceOnce() {
   setTimeout(() => (suppressPlace = false), 0);
 }
 
-function onPinDown(e: PointerEvent, marker: import("leaflet").Marker, w: { id: string; alongM: number }) {
+function onGrab(e: PointerEvent, spec: Omit<Lift, "el">) {
   if (e.button > 0 || lift) return;
   const el = e.currentTarget as HTMLElement;
   const x0 = e.clientX;
@@ -229,7 +294,7 @@ function onPinDown(e: PointerEvent, marker: import("leaflet").Marker, w: { id: s
   };
   const timer = setTimeout(() => {
     stop();
-    beginLift(el, marker, w, e.pointerId);
+    beginLift(el, spec, e.pointerId);
   }, LIFT_MS);
 
   window.addEventListener("pointermove", watch);
@@ -237,14 +302,9 @@ function onPinDown(e: PointerEvent, marker: import("leaflet").Marker, w: { id: s
   window.addEventListener("pointercancel", stop);
 }
 
-function beginLift(
-  el: HTMLElement,
-  marker: import("leaflet").Marker,
-  w: { id: string; alongM: number },
-  pointerId: number,
-) {
+function beginLift(el: HTMLElement, spec: Omit<Lift, "el">, pointerId: number) {
   if (!map) return;
-  lift = { el, marker, id: w.id, alongM: w.alongM };
+  lift = { ...spec, el };
   el.classList.add("is-lifted");
   // the map must hold still while the pin moves, or both travel at once
   map.dragging.disable();
@@ -284,7 +344,11 @@ function onLiftMove(e: PointerEvent) {
   const from = Math.max(0, lift.alongM - LIFT_WINDOW_M);
   const near = sliceAlong(points.value, from, lift.alongM + LIFT_WINDOW_M);
   if (near.length < 2) return;
-  const alongM = from + nearestAlongM(near, { lat: p.lat, lon: p.lng });
+  // CLAMPED to what this thing may occupy. A pin may go anywhere on the route; a day
+  // boundary may not cross its neighbours, because a day it dragged past would end before
+  // it began. The window above keeps the drag continuous, this keeps it legal.
+  const raw = from + nearestAlongM(near, { lat: p.lat, lon: p.lng });
+  const alongM = Math.min(lift.maxM, Math.max(lift.minM, raw));
   const at = pointAlong(points.value, alongM);
   if (!at) return;
   lift.alongM = alongM;
@@ -304,7 +368,7 @@ function endLift() {
   // ONE op for the whole gesture, committed on the drop — the codebase's own rule for
   // anything continuous. Live commits would be a hundred ops and a hundred autosaves for
   // one drag, and every one of them a separate undo.
-  emit("move", { id: l.id, alongM: l.alongM });
+  l.commit(l.alongM);
 }
 
 /**
@@ -316,6 +380,41 @@ function endLift() {
  * The label goes on with textContent, never into the divIcon's html. That html is set as
  * innerHTML, and a label is text somebody typed on a list anyone with the link can open.
  */
+/** The day-boundary handles. Same lift gesture as a pin, a different thing to commit. */
+function renderBounds() {
+  if (!map || !L) return;
+  for (const m of bounds) m.remove();
+  bounds = [];
+  const line = points.value;
+  const camp = waypointKindMeta("camp");
+  for (const b of boundaries.value) {
+    const at = pointAlong(line, b.alongM);
+    if (!at) continue;
+    const marker = L.marker([at.lat, at.lon], {
+      keyboard: false,
+      icon: L.divIcon({
+        className: "routemap__bound",
+        html: `<i>${iconSvg(camp.icon)}</i>`,
+        iconSize: [PIN_PX, PIN_PX],
+        iconAnchor: [PIN_PX / 2, PIN_PX / 2],
+      }),
+    }).addTo(map);
+    marker.bindTooltip(document.createTextNode(`End of day ${b.index + 1}`) as never, { direction: "top" });
+    const el = marker.getElement();
+    el?.addEventListener("pointerdown", (e) =>
+      onGrab(e as PointerEvent, {
+        marker,
+        alongM: b.alongM,
+        minM: b.minM,
+        maxM: b.maxM,
+        commit: (alongM) => emit("boundary", { index: b.index, alongM: Math.round(alongM) }),
+      }),
+    );
+    el?.addEventListener("click", suppressPlaceOnce);
+    bounds.push(marker);
+  }
+}
+
 function renderPins() {
   if (!map || !L) return;
   for (const m of pins) m.remove();
@@ -343,7 +442,15 @@ function renderPins() {
     // (three taps, three water sources), and "Water" beats an empty tooltip.
     marker.bindTooltip(document.createTextNode(w.label || meta.label) as never, { direction: "top" });
     const el = marker.getElement();
-    el?.addEventListener("pointerdown", (e) => onPinDown(e as PointerEvent, marker, w));
+    el?.addEventListener("pointerdown", (e) =>
+      onGrab(e as PointerEvent, {
+        marker,
+        alongM: w.alongM,
+        minM: 0,
+        maxM: routeLengthM.value,
+        commit: (alongM) => emit("move", { id: w.id, alongM }),
+      }),
+    );
     // A click on a pin is about THAT pin: it opens the popup. Leaflet still lets it reach
     // the map, which on an armed map dropped a SECOND pin underneath the one you asked
     // about. Not disableClickPropagation — that would take the click the popup needs too.
@@ -680,6 +787,7 @@ async function draw() {
   renderLegs();
   
   renderPins();
+  renderBounds();
 
   // Any move that wasn't ours is theirs — drag, wheel, the +/− buttons, a keyboard arrow.
   // Watching the outcome rather than the input is what makes that list complete without
@@ -731,6 +839,8 @@ onMounted(draw);
 // that belongs to the person looking at it.
 watch(() => props.waypoints, renderPins, { deep: true });
 
+watch(boundaries, renderBounds, { deep: true });
+
 watch(dayLegs, () => {
   renderLegs();
   // the chevrons carry the day colours too, so they follow the same cut
@@ -751,6 +861,7 @@ onBeforeUnmount(() => {
   legs = [];
   
   pins = [];
+  bounds = [];
 });
 </script>
 
@@ -1057,6 +1168,40 @@ onBeforeUnmount(() => {
   touch-action: none;
 }
 .routemap__pin.is-lifted {
+  cursor: grabbing;
+}
+
+/* A DAY BOUNDARY. Wears a tent, because that is what the end of a day is, and reads as a
+   control rather than as data: paper-filled with an ink edge, where a waypoint is a solid
+   category hue. One says "somebody put this here", the other says "your itinerary says
+   this". Same lift gesture either way. */
+.routemap__bound {
+  background: none;
+  border: 0;
+  cursor: grab;
+  touch-action: none;
+}
+.routemap__bound i {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid #1c1c1c;
+  box-shadow: 0 0 0 1px #ffffffb3;
+  color: #1c1c1c;
+  transition:
+    scale var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease);
+}
+.routemap__bound.is-lifted i {
+  scale: 1.35;
+  box-shadow:
+    0 3px 8px #00000059,
+    0 0 0 1px #ffffffb3;
+}
+.routemap__bound.is-lifted {
   cursor: grabbing;
 }
 // Leaflet's divIcon ships a white box with a border; both are cleared or every pin

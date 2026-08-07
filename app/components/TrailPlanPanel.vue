@@ -345,6 +345,35 @@ const armedRange = computed(() => {
   // boundary.
   return { fromM: r.fromM, toM: Math.max(r.fromM, r.toM - 1) };
 });
+/**
+ * A day boundary dropped somewhere new — TWO days rewritten in one gesture.
+ *
+ * Day `index` now ends where the handle landed, and the next day that owns any ground
+ * starts there. Their sum is unchanged, which is what keeps every other day still: this is
+ * a way of trading miles between two neighbours, not of changing how long the trip is.
+ *
+ * Two ops, dispatched together on the drop. Not one per pointer move — a drag would be a
+ * hundred autosaves and a hundred separate undos, which is the rule every continuous
+ * gesture in this app follows.
+ *
+ * The LAST boundary has no neighbour to trade with, so it lengthens or shortens its own
+ * day and the unclaimed tail absorbs the difference. That asymmetry is the point of it.
+ */
+function onBoundary(b: { index: number; alongM: number }) {
+  const from = dayRanges.value[b.index]?.fromM;
+  const id = stored.value[b.index]?.id;
+  if (from == null || !id) return;
+  const len = Math.max(1, Math.round(b.alongM - from));
+  // the next day that owns ground; blanks in between own none and can't give any up
+  const nextI = dayDistancesM.value.findIndex((d, k) => k > b.index && d > 0);
+  const next = nextI >= 0 ? dayRanges.value[nextI] : undefined;
+  const nextId = nextI >= 0 ? stored.value[nextI]?.id : undefined;
+  c.updateDay(id, { distanceM: len });
+  if (next && nextId) {
+    c.updateDay(nextId, { distanceM: Math.max(1, Math.round(next.toM - b.alongM)) });
+  }
+}
+
 function onPlace(alongM: number) {
   c.addWaypoint(alongM);
   // stays armed: one tap, one pin — drop three water sources in three taps, then name them
@@ -606,6 +635,7 @@ const distanceValue = (m: number | undefined) => {
       @place="onPlace"
       :distance-unit="distanceUnit"
       @move="(m) => c.updateWaypoint(m.id, { alongM: m.alongM })"
+      @boundary="onBoundary"
       @rename="(m) => c.updateWaypoint(m.id, { label: m.label })"
       @remove="(id) => c.removeWaypoint(id)"
     >
