@@ -652,13 +652,17 @@ const distanceValue = (m: number | undefined) => {
            than in a sentence at the foot. They step back in colour: the chips to their
            left are measured, these are worked out.
 
-           Their LABELS say "Estimated" rather than the figures carrying a `~`. The mark
-           earns its place on the day rows, where a figure has only a glyph beside it and
-           has to travel with its own caveat — here the word is directly above the number
-           and says it plainly, and "~9 h 08" under a heading reading "Estimated time" is
-           the same warning twice. -->
+           The BURN says "Estimated", because it is a single figure and needs a word to
+           hedge it. The time doesn't: it reads as a range, and a range is already the
+           hedge — "Estimated 17–17.5 hr" says it twice.
+
+           WALKING TIME, not "time". On a four-day hike "time" reads as how long the trip
+           takes, which is four days, not seventeen hours. This figure is time on your
+           feet: it counts no camp, no breaks, no waiting out weather — the tooltip on the
+           day rows has always said so, and the label should not need the tooltip to stop
+           being wrong. -->
       <span v-if="tripHours > 0" class="chip chip--est">
-        <span class="t-label">Estimated time</span>
+        <span class="t-label">Walking time</span>
         <span class="t-num">{{ formatHours(tripHours) }}</span>
       </span>
       <span v-if="tripHours > 0" class="chip chip--est">
