@@ -884,20 +884,25 @@ function onCorrected(res: { status: string; itemName?: string }) {
       />
 
       <!-- packing progress: slides+fades in on entering packing (grid-rows 1fr↔0fr,
-           the shared reveal recipe) so the folders below ease down instead of jumping -->
-      <Transition name="packbar">
-        <div v-if="packed && packProgress.total" class="packbar-reveal">
-          <div class="packbar t-sm">
-            <span class="t-num" aria-live="polite">{{ packProgress.done }} of {{ packProgress.total }} packed</span>
-            <button
-              v-if="packProgress.done"
-              type="button"
-              class="btn btn--quiet packbar__clear"
-              @click="clearChecks"
-            >Clear checks</button>
-          </div>
+           the shared reveal recipe) so the folders below ease down instead of jumping.
+           The slide is keyed on data-mode in CSS (same shape as the folder collapse),
+           NOT a <Transition> — a Vue Transition's LEAVE forces a synchronous reflow
+           mid-patch, and on a mode switch that reflow lands on a tree the data-mode
+           flip just dirtied wholesale: it was the entire remaining packing→gear stall
+           (~45ms on a 150-row list) after the rows and folder chrome stopped
+           re-rendering. The browser now runs the same slide at frame time for free.
+           v-if only on the DATA condition (an empty list has no bar in any mode). -->
+      <div v-if="packProgress.total" class="packbar-reveal">
+        <div class="packbar t-sm">
+          <span class="t-num" aria-live="polite">{{ packProgress.done }} of {{ packProgress.total }} packed</span>
+          <button
+            v-if="packProgress.done"
+            type="button"
+            class="btn btn--quiet packbar__clear"
+            @click="clearChecks"
+          >Clear checks</button>
         </div>
-      </Transition>
+      </div>
 
       <!-- The plan. Lazy on purpose: the panel pulls in the trip model, and planning is a
            mode most visits never enter — it has no business on the editor's first load.
@@ -1300,6 +1305,27 @@ function onCorrected(res: { status: string; itemName?: string }) {
   /* the body's --space-4 gap reads roomier before a bare text line than before
      the folder blocks — tuck it up toward the totals it annotates */
   margin-top: calc(-1 * var(--space-2));
+  /* the slide, driven by the mode attribute below rather than by enter/leave
+     classes — see the template comment. margin-top rides the transition so the
+     collapsed state can contribute EXACTLY 0px to the flow (matching the old
+     unmounted state) without snapping the tuck at either end. visibility is
+     discrete: it holds through the fade-out and flips at the end, taking the
+     hidden bar (and its Clear button) out of the tab order and the
+     accessibility tree exactly as unmounting did. */
+  transition:
+    grid-template-rows var(--dur) var(--ease),
+    opacity var(--dur) var(--ease),
+    margin-top var(--dur) var(--ease),
+    visibility 0s linear var(--dur);
+}
+.editor__body:not([data-mode="pack"]) .packbar-reveal {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  margin-top: 0;
+  visibility: hidden;
+}
+.editor__body[data-mode="pack"] .packbar-reveal {
+  transition-delay: 0s; /* visibility flips visible immediately on entering packing */
 }
 .packbar-reveal > * {
   min-height: 0;
@@ -1310,17 +1336,6 @@ function onCorrected(res: { status: string; itemName?: string }) {
   align-items: baseline;
   gap: var(--space-4);
   color: var(--ink-2);
-}
-.packbar-enter-active,
-.packbar-leave-active {
-  transition:
-    grid-template-rows var(--dur) var(--ease),
-    opacity var(--dur) var(--ease);
-}
-.packbar-enter-from,
-.packbar-leave-to {
-  grid-template-rows: 0fr;
-  opacity: 0;
 }
 /* .packbar__clear kept as the print-hide hook (see print.scss); its button styling
    comes from the shared .btn--quiet */
