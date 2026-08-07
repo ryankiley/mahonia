@@ -190,11 +190,27 @@ export function captureFromList(
  * something a vault row would actually store has changed. Without it, the editor's
  * every-keystroke snapshot would POST the whole list on each pause; with it, a
  * session that adds one item sends once.
+ *
+ * Every field the upsert stores is here — including the SPELLING of
+ * brand/name/variant, not just their folded normKey, because the vault takes the
+ * incoming spelling: fixing "zpacks duplex" to "Zpacks Duplex" is a change worth
+ * sending even though it lands on the same row.
  */
 export function captureFingerprint(caps: VaultCapture[]): string {
   return caps
     .map((c) =>
-      [c.normKey, c.weightMg, c.classification ?? "", c.catalogItemId ?? "", c.commonName ?? "", c.folder ?? ""].join(
+      [
+        c.normKey,
+        c.brand ?? "",
+        c.name,
+        c.variant ?? "",
+        c.weightMg,
+        c.classification ?? "",
+        c.catalogItemId ?? "",
+        c.commonName ?? "",
+        c.productUrl ?? "",
+        c.folder ?? "",
+      ].join(
         "",
       ),
     )
