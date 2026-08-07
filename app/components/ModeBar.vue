@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "@hugeicons/vue";
+import { HugeiconsIcon } from "~/utils/hugeicon";
 
 // Which of a list's views you're looking at.
 //

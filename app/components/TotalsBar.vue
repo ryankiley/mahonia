@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "@hugeicons/vue";
+import { HugeiconsIcon } from "~/utils/hugeicon";
 import { CheckIcon, ChevronDownIcon } from "@hugeicons/core-free-icons";
 import type { ListSnapshot, Totals, Unit } from "~~/shared/types";
 import { carriedIsDistinct, formatKcal, formatWeight } from "~~/shared/weights";

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { dayColorSequence } from "~~/shared/categories";
 import { cumulativeM, decodePolyline, formatLatLon, nearestAlongM, pointAlong, sliceAlong, type LatLon } from "~~/shared/polyline";
-import { HugeiconsIcon } from "@hugeicons/vue";
+import { HugeiconsIcon } from "~/utils/hugeicon";
 import { ArrowExpand02Icon, ArrowShrink02Icon, HelpCircleIcon } from "@hugeicons/core-free-icons";
 import { formatDistance, type DisplayDistanceUnit } from "~~/shared/trailDistance";
 import { waypointKindMeta } from "~/utils/waypointKinds";

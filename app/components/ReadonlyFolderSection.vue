@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "@hugeicons/vue";
+import { HugeiconsIcon } from "~/utils/hugeicon";
 import { ChevronDownIcon } from "@hugeicons/core-free-icons";
 import type { Folder, Item, ListSnapshot } from "~~/shared/types";
 

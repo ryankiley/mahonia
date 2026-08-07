@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "@hugeicons/vue";
+import { HugeiconsIcon } from "~/utils/hugeicon";
 import { ArrowUpRight01Icon, Backpack02Icon, Calendar03Icon, GlobeIcon, Route02Icon, RouteIcon } from "@hugeicons/core-free-icons";
 import { parseTrailLink } from "~~/shared/trailLink";
 import { dayClimbs, parseProfile } from "~~/shared/profile";

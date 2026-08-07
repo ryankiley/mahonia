@@ -6,6 +6,7 @@
       "Forget a list from the editor's ⋯ menu: it leaves this device but stays online for anyone holding its link."
     ],
     "changed": [
+      "Switching between the gear, packing and planning views is instant on a long list.",
       "Deleting a list from the editor's ⋯ menu now reads in red, so it's clear which row is the destructive one before you reach it.",
       "Each action in the editor's ⋯ menu now carries an icon, so the menu can be scanned by shape as well as read.",
       "Your gear vault is now called My gear, everywhere it's named.",

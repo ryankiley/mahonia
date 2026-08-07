@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "@hugeicons/vue";
+import { HugeiconsIcon } from "~/utils/hugeicon";
 import { CheckmarkSquare02Icon, SquareIcon } from "@hugeicons/core-free-icons";
 import type { Unit } from "~~/shared/types";
 import type { VaultCapture } from "~~/shared/vault";

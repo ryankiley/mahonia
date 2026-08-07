@@ -26,6 +26,47 @@
   gap: var(--row-gap, var(--item-gap));
 }
 
+/* ---- which row face the editor's mode shows -----------------------------------
+   The gear↔packing swap, decided HERE and not in ItemRow. Each item renders up to
+   two faces — the editable row and the checklist row (.item--check) — and both stay
+   mounted once seen (ItemRow's useEditorMode latches); the editor body's data-mode
+   picks the visible one. CSS rather than a prop on purpose: as a prop, a mode
+   switch re-rendered every row on the page just to flip which face displayed —
+   ~150 × an ~80-node subtree, a half-second stall on a long list. Flipping one
+   attribute up on the body costs a style recalc and nothing else.
+   Editor-only by scope (.editor__body): the share views render one face and no
+   editor body, the vault pane sits outside it, so neither is touched. display:none
+   keeps the hidden face out of layout, paint and the accessibility tree exactly as
+   not-being-mounted did. The under-row reveals (gear type / note / catalog-fix) and
+   the nested block's "Add an item" are edit-mode furniture, hidden the same way —
+   they used to be v-ifs on the same prop, unmounted for the same cost. */
+.editor__body:not([data-mode="pack"]) .item--check {
+  display: none;
+}
+.editor__body[data-mode="pack"] .item-row:not(.item--check),
+.editor__body[data-mode="pack"] .item-wrap > .reveal,
+.editor__body[data-mode="pack"] .item-nest__add {
+  display: none;
+}
+
+/* the entering face fades in, exactly as the old <Transition name="rowmode"> enter
+   did (opacity from 0, 0.9 × --dur, the shared ease; the leaving face is dropped
+   instantly, so the two never stack). An ANIMATION, not a transition — display can't
+   transition, but flipping display:none→grid restarts an animation, which is
+   precisely the hook wanted here. Gated on .is-rowswitching (a ~250ms beat GearEditor
+   holds up after each switch) so the fade plays on mode switches only — not on
+   initial load, not when the latch first mounts a face, not when a new item's row
+   appears. reduced-motion → the global --dur kill-switch makes it instant. */
+@keyframes rowmode-fade {
+  from {
+    opacity: 0;
+  }
+}
+.editor__body.is-rowswitching[data-mode="pack"] .item--check,
+.editor__body.is-rowswitching:not([data-mode="pack"]) .item-row:not(.item--check) {
+  animation: rowmode-fade calc(var(--dur) * 0.9) var(--ease);
+}
+
 /* nested items — a block indented behind a hairline "thread" line. The WHOLE row
    indents uniformly (via the container), so the name and its number line sit at the
    same indent — which matters most on the two-line mobile layout, where indenting

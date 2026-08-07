@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "@hugeicons/vue";
+import { HugeiconsIcon } from "~/utils/hugeicon";
 import { DropletIcon, SafeBoxIcon } from "@hugeicons/core-free-icons";
 import type { EffectScope } from "vue";
 import type { Unit } from "~~/shared/types";
