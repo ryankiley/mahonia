@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "@hugeicons/vue";
+import { HugeiconsIcon, type IconNode } from "~/utils/hugeicon";
 
 // Which of a list's views you're looking at.
 //
@@ -27,8 +27,8 @@ import { HugeiconsIcon } from "@hugeicons/vue";
 export interface Mode {
   key: string;
   label: string;
-  /** a Hugeicon; the label is what names the control, so this is decoration */
-  icon: unknown;
+  /** the label is what names the control, so this is decoration */
+  icon: IconNode;
 }
 
 const props = defineProps<{

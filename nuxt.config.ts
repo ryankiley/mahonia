@@ -279,6 +279,17 @@ export default defineNuxtConfig({
   },
 
   vite: {
+    // Compile out Vue's Options-API runtime (data()/mixins/computed-object
+    // components). Every component here is <script setup>, and the client's Vue
+    // dependencies are too (vue-router's views, Nuxt's own components; the icon
+    // component is app/utils/hugeicon.ts, functional). The flag is Vue's own
+    // documented tree-shaking switch — a few KB off every page for code nothing
+    // calls. TRIPWIRE: a future dependency that ships an Options-API component
+    // will break loudly at runtime with this off; if one ever must be adopted,
+    // delete this define (the cost is only the bytes coming back).
+    define: {
+      __VUE_OPTIONS_API__: false,
+    },
     // Shared SCSS breakpoint vars, prepended to every SFC `lang="scss"` style
     // block so plain `@media (max-width: $bp-stack)` queries share the tokens'
     // anchors. Sass module scoping keeps this injection out of @use'd files, so

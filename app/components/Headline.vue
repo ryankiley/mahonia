@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "@hugeicons/vue";
+import { HugeiconsIcon } from "~/utils/hugeicon";
 import { ChevronDownIcon } from "@hugeicons/core-free-icons";
 
 // The page's one big number, and the same ELEMENT in every view.

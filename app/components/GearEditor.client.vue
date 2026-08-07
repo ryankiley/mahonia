@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "@hugeicons/vue";
+import { HugeiconsIcon, type IconNode } from "~/utils/hugeicon";
 import { Backpack02Icon, Cancel01Icon, CheckmarkSquare02Icon, ChevronDownIcon, Copy01Icon, Delete02Icon, EllipsisIcon, FileExportIcon, FileImportIcon, Message01Icon, NoteAddIcon, RemoveCircleIcon, Route02Icon, SafeBoxIcon, Share08Icon, Undo02Icon } from "@hugeicons/core-free-icons";
 import { editLinkPath } from "~~/shared/links";
 import { tripHeadline } from "~~/shared/trailDistance";
 import { formatWeight } from "~~/shared/weights";
 import type { Item, Unit } from "~~/shared/types";
+import type { EditorMode } from "~/composables/useEditorMode";
 import { bySortOrder, groupItemsByFolder, groupItemsByParent, ungroupedTopLevel } from "~~/shared/weights";
 
 // The whole editor surface (its own sticky topbar + flex shell + the shared
@@ -126,20 +127,15 @@ const NO_ITEMS: Item[] = [];
 // couldn't hold a third state, and every alternative to widening it meant teaching the
 // row components about a mode they don't care about.
 //
-// `packed` survives as a COMPUTED, so the prop threaded down to FolderSection and ItemRow
-// keeps its exact old contract — a row still only ever asks "am I a checklist row?", and
-// stays ignorant that planning exists. That's what keeps this change to this file.
-export type EditorMode = "edit" | "pack" | "plan";
-const MODE_ORDER: EditorMode[] = ["edit", "pack", "plan"];
-// Unlike the other gear.*.v1 preferences this one is genuinely new behaviour: mode used
-// to reset on reload. Planning is somewhere you WORK across sittings, so it stays put.
-const MODE_KEY = "gear.mode.v1";
-function storedMode(): EditorMode {
-  const m = localStorage.getItem(MODE_KEY) as EditorMode | null;
-  return m && MODE_ORDER.includes(m) ? m : "edit";
-}
-const mode = ref<EditorMode>(storedMode());
-watch(mode, (m) => remember(MODE_KEY, m));
+// The state itself (plus its localStorage persistence) now lives in useEditorMode, a
+// module singleton, because the row swap is CSS-driven off `data-mode` on the body
+// below — see that composable's header for why mode must NOT reach the rows as a prop
+// (as one, every switch re-rendered all ~150 of them).
+//
+// `packed` survives as a COMPUTED, so the prop threaded down to FolderSection keeps its
+// exact old contract — the folder chrome still only ever asks "am I a checklist?", and
+// stays ignorant that planning exists.
+const { mode, switching: modeSwitching } = useEditorMode();
 const packed = computed(() => mode.value === "pack");
 
 /**
@@ -201,7 +197,7 @@ const MODES = [
   { key: "edit", label: "Gear", icon: Backpack02Icon },
   { key: "pack", label: "Packing", icon: CheckmarkSquare02Icon },
   { key: "plan", label: "Planning", icon: Route02Icon },
-] as const satisfies readonly { key: EditorMode; label: string; icon: unknown }[];
+] as const satisfies readonly { key: EditorMode; label: string; icon: IconNode }[];
 
 // The vault palette. Closed by default and only ever opened deliberately, so the
 // pane's chunk (and the vault read behind it) costs nothing until it's wanted.
@@ -717,7 +713,10 @@ function onCorrected(res: { status: string; itemName?: string }) {
           <!-- sync state + last-edit time, on the bar's leading edge — the space the
                title vacated when it became a page title. It takes the free width, which
                is what pins the icon cluster to the trailing edge. -->
-          <SyncStatus class="topbar__status" />
+          <!-- The class is on a WRAPPER, not on SyncStatus. This element is what
+               splits the bar, so it has to exist even when the component inside it
+               decides it has nothing to say (an untouched draft) — see the style. -->
+          <div class="topbar__status"><SyncStatus /></div>
           <!-- The view switcher used to sit here. It moved into the page body (see
                ModeBar): the bar had no room for words, and no seat for it at all on the
                read views. What is left in the bar is what acts ON a list rather than
@@ -878,7 +877,19 @@ function onCorrected(res: { status: string; itemName?: string }) {
       </div>
     </header>
 
-    <main v-if="snapshot && totals" id="main-content" tabindex="-1" class="wrap editor__body">
+    <!-- data-mode drives the gear↔packing row swap in CSS (atoms/item.scss) — the rows
+         themselves never learn the mode, which is what keeps a switch from re-rendering
+         all of them. is-rowswitching gates the entering face's fade to actual switches,
+         so a row appearing for any other reason (a new item, the first mount) doesn't
+         flash the animation. -->
+    <main
+      v-if="snapshot && totals"
+      id="main-content"
+      tabindex="-1"
+      class="wrap editor__body"
+      :class="{ 'is-rowswitching': modeSwitching }"
+      :data-mode="mode"
+    >
       <!-- WHICH VIEW OF THIS LIST. First thing under the toolbar, and part of the PAGE
            rather than the chrome: it scrolls away with everything else. A row of its own
            rather than a seat in the bar above, because that row has no width left — it
@@ -979,8 +990,13 @@ function onCorrected(res: { status: string; itemName?: string }) {
            same list — how the trip breaks into days and what the pack weighs on each — and
            the answer is above; the rows underneath would just be a long scroll between you
            and it. Same move packing mode makes, which swaps the rows rather than adding to
-           them. -->
-      <div v-if="mode !== 'plan'" class="editor__folders">
+           them.
+           v-show, not v-if: hiding is what the design wants, and unmounting was what it
+           quietly cost — coming back from planning rebuilt every row (the same
+           half-second stall the row swap had, for the same reason; see ItemRow's
+           two-Transition comment). display:none takes the rows out of layout, paint
+           and the accessibility tree exactly as absence did. -->
+      <div v-show="mode !== 'plan'" class="editor__folders">
         <FolderSection
           v-for="f in sortedFolders"
           :key="f.id"
@@ -992,7 +1008,10 @@ function onCorrected(res: { status: string; itemName?: string }) {
           @toast="flash"
         />
       </div>
-      <section v-if="ungrouped.length && mode !== 'plan'" class="panel editor__ungrouped">
+      <!-- same split as the folders above: presence follows the DATA (v-if — most lists
+           have no ungrouped rows and shouldn't carry the section), visibility follows
+           the MODE (v-show — so leaving planning doesn't rebuild these rows either) -->
+      <section v-if="ungrouped.length" v-show="mode !== 'plan'" class="panel editor__ungrouped">
         <p class="t-label">Ungrouped</p>
         <!-- prev-id follows this section's render order, so the indent affordance
              points at the row actually shown above -->
@@ -1003,12 +1022,15 @@ function onCorrected(res: { status: string; itemName?: string }) {
           :item="it"
           :children-by-parent="childrenByParent"
           :prev-id="ungrouped[i - 1]?.id ?? null"
-          :packed="packed"
           @toast="flash"
         />
       </section>
 
-      <div v-if="mode === 'edit'" class="editor__addfolder">
+      <!-- v-show, matching the folder chrome: presence is constant, visibility follows
+           the mode, and a switch mounts nothing. (A half-typed folder name can't leak
+           across modes — any pointer or Tab out of the input commits it via blur
+           before the mode can change.) -->
+      <div v-show="mode === 'edit'" class="editor__addfolder">
         <input
           v-if="addingFolder"
           ref="newFolderRef"
@@ -1153,10 +1175,14 @@ function onCorrected(res: { status: string; itemName?: string }) {
      The auto margin used to live on the mode toggle, which held this seat until it moved
      into the page. It could not simply move to the next element: the vault and share
      buttons are wrapped by <Tooltip>, so a class on the BUTTON lands on the wrapper's
-     child and the flex item it needed to be on is the wrapper. Putting it here instead
-     works whatever the cluster is made of — and works even on an untouched draft, where
-     SyncStatus renders empty, because an auto margin on a zero-width item still eats the
-     free space before it. */
+     child and the flex item it needed to be on is the wrapper. Putting it here works
+     whatever the cluster is made of.
+     A PLAIN <div>, and that is the fix rather than a tidiness. The class used to ride
+     SyncStatus itself, on the reasoning that "an auto margin on a zero-width item still
+     eats the free space before it" — true of a zero-width item, and SyncStatus is not
+     one: it is `v-if="shown"`, so with nothing to report it renders NO ELEMENT, taking
+     this margin with it. On an untouched draft the whole tool cluster then collapsed
+     back against the switcher. The bar's own layout can't be a child's to opt out of. */
   margin-right: auto;
   flex: 0 1 auto;
   min-width: 0;

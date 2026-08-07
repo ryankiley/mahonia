@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "@hugeicons/vue";
+import { HugeiconsIcon } from "~/utils/hugeicon";
 import { CheckmarkSquare02Icon, SquareIcon } from "@hugeicons/core-free-icons";
 // The single mount point for the app-wide confirm + copy-link-fallback dialogs
 // (state in useDialogs). Rendered once in app.vue so every page — including the

@@ -10,7 +10,7 @@
 // and has two — VaultPane and /vault, ~470 lines of template between them, with a
 // comment in the page admitting its prompt is copied "WORD FOR WORD" from the pane.
 // Signing in and deleting an account are worse things to keep in sync by hand.
-import { HugeiconsIcon } from "@hugeicons/vue";
+import { HugeiconsIcon } from "~/utils/hugeicon";
 import { Key01Icon } from "@hugeicons/core-free-icons";
 import type { PasskeySummary } from "~/composables/usePasskeys";
 

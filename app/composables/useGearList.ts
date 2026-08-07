@@ -28,6 +28,11 @@ function create() {
   let editToken = "";
   let pending: Op[] = [];
   let flushTimer: ReturnType<typeof setTimeout> | undefined;
+  // The failure path's own timer, kept apart from flushTimer so a backoff already
+  // counting down can be cancelled on teardown rather than firing into a session that
+  // has moved on. Its delay grows with flushFailures, which any successful flush zeroes.
+  let retryTimer: ReturnType<typeof setTimeout> | undefined;
+  let flushFailures = 0;
   let inFlight = false;
   let pollTimer: ReturnType<typeof setInterval> | undefined;
   let isEditing = false;
@@ -221,6 +226,8 @@ function create() {
     // and spend that list's one chance to ask)
     vaultPrompt.value = null;
     clearTimeout(flushTimer);
+    clearTimeout(retryTimer); // a backoff must not fire into the session that replaced this one
+    flushFailures = 0;
     snapshot.value = null;
     status.value = "loading";
     installListeners();
@@ -362,6 +369,8 @@ function create() {
     remoteMissing = false;
     vaultPrompt.value = null; // see load() — a draft is yours, and never asks
     clearTimeout(flushTimer);
+    clearTimeout(retryTimer); // a backoff must not fire into the session that replaced this one
+    flushFailures = 0;
     installListeners();
     const folders: Folder[] = STARTER_FOLDERS.map((p, i) => ({
       id: uid(),
@@ -512,7 +521,13 @@ function create() {
     // rebase below re-applies the remainder onto each merged snapshot.
     const ops = pending.splice(0, 500);
     inFlight = true;
-    status.value = "saving";
+    let failed = false;
+    // DON'T ANNOUNCE A RETRY. Once the line reads "Not saved", flipping it to
+    // "Syncing…" and back for every attempt is a strobe rather than information — the
+    // state worth reporting is "your edits haven't landed", and that stays true until
+    // one does. A failing save used to swap the word (and its full-ink alert colour)
+    // about once a second for as long as the failure lasted.
+    if (status.value !== "error") status.value = "saving";
     try {
       const res = await $fetch<{ snapshot: ListSnapshot }>("/api/edit/mutate", {
         method: "POST",
@@ -530,6 +545,7 @@ function create() {
       // While mid-edit: keep local content AND do NOT advance the local version,
       // so the post-blur poll (since < server version) still delivers the merge.
       status.value = "synced";
+      flushFailures = 0; // anything landing means the next failure starts its backoff fresh
       syncRegistry();
       persistLocal(); // snapshot adopted + queue drained → update the on-device copy
     } catch (e: any) {
@@ -568,11 +584,24 @@ function create() {
       // offline surfaces honestly; a genuine server error keeps the "Not saved" cue
       status.value = online.value ? "error" : "offline";
       persistLocal(); // keep the re-queued ops on device until they land
-      setTimeout(scheduleFlush, 1500);
+      failed = true;
+      // BACK OFF, don't hammer. A server that just refused this batch is unlikely to
+      // want it again in a second, and every open tab doing that turns a blip into
+      // load at exactly the wrong moment. Doubles from 1.5s to a 30s ceiling; the
+      // count resets the moment anything lands, so a one-off blip costs one wait.
+      flushFailures++;
+      const backoff = Math.min(1500 * 2 ** (flushFailures - 1), 30_000);
+      clearTimeout(retryTimer);
+      retryTimer = setTimeout(scheduleFlush, backoff);
     } finally {
       if (myEpoch === epoch) {
         inFlight = false;
-        if (pending.length) scheduleFlush();
+        // ONLY chase the queue when this attempt actually landed. This is what drains
+        // a >500-op backlog across sequential flushes (see the splice above) — but on
+        // the failure path `pending` is never empty, because the catch just re-queued
+        // the batch, so it fired every time and replaced the backoff above with its
+        // own 450ms. That is what made a failing save retry ~1/second forever.
+        if (!failed && pending.length) scheduleFlush();
       }
     }
   }
@@ -1225,6 +1254,8 @@ function create() {
     useFolderDnd().reset();
     stopPoll();
     clearTimeout(flushTimer);
+    clearTimeout(retryTimer); // a backoff must not fire into the session that replaced this one
+    flushFailures = 0;
     clearTimeout(undoTimer);
     pendingUndo.value = null;
     teardownListeners?.();

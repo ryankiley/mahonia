@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "@hugeicons/vue";
+import { HugeiconsIcon } from "~/utils/hugeicon";
 import { Add01Icon, Cancel01Icon, CheckIcon, ChevronDownIcon, CircleXIcon } from "@hugeicons/core-free-icons";
 import type { VaultEntry, VaultFolder } from "~~/shared/vault";
 import { vaultNormKey } from "~~/shared/vault";

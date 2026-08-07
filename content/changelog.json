@@ -7,6 +7,7 @@
       "When a saved list can’t be opened anymore — deleted elsewhere, or its link changed — the page now names it and lets you forget it, so the dead entry doesn’t linger in your lists."
     ],
     "changed": [
+      "Switching between the gear, packing and planning views is instant on a long list.",
       "Deleting a list from the editor's ⋯ menu now reads in red, so it's clear which row is the destructive one before you reach it.",
       "Each action in the editor's ⋯ menu now carries an icon, so the menu can be scanned by shape as well as read.",
       "Your gear vault is now called My gear, everywhere it's named.",
@@ -20,6 +21,8 @@
       "Renaming a row to a different piece of gear no longer leaves the old product's catalog weight behind, so the row stops offering to \"fix\" the new item's catalog entry with a weight that was never its own.",
       "Typing a list's name while the list is still loading no longer loses the start of it — \"South Sister Summit\" stays whole instead of saving as \"Summit\".",
       "Correcting how a piece of gear is spelled — or its product link — now reaches My gear straight away, instead of waiting for the next weight or name change to carry it along.",
+      "A list that can't reach the server now says \"Not saved\" and holds still, instead of flickering between that and \"Syncing…\" while it retries — and it retries with a growing pause rather than every second.",
+      "The editor's toolbar icons sit at the right edge again on a list that hasn't been edited yet, instead of bunching up beside the pack switcher.",
       "Forgetting a list that’s no longer online now warns that the copy saved on this device may be all that’s left, instead of claiming the list stays online."
     ]
   },
