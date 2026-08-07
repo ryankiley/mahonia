@@ -80,6 +80,33 @@ const cardUrl = computed(() => {
 // box can only ever grow, since scrollHeight of an already-tall textarea includes
 // the empty space.
 const titleEl = useTemplateRef<HTMLTextAreaElement>("titleEl");
+
+// The title is a DRAFT while you're in it — the same shape ItemInput gives a gear
+// name, and for the same reason its comment gives: never clobber what the user is
+// actively typing.
+//
+// The field used to bind straight to snapshot.title. That binding is reactive, so
+// REPLACING the snapshot re-patches the textarea's value — and the controller
+// replaces it out from under you in two places that can't be guarded the way
+// flush() and the poll are (`if (!isEditing)`), because both have to install a
+// snapshot to have an editor at all: load() adopts the server's copy over the local
+// one it painted first, and createFromDraft() adopts the list it just created.
+// Neither carries the characters you've typed, because typing isn't an op until it
+// commits — so the box was rewritten mid-word and only what you typed AFTERWARDS
+// survived to be committed on blur. A three-word name came back as its last word.
+//
+// Synced from the snapshot only while the field is NOT focused, so a name that
+// arrives from elsewhere (a collaborator's rename on the poll, the local copy being
+// overtaken by the server's) still updates the heading you aren't touching.
+const titleFocused = ref(false);
+const draftTitle = ref(props.snapshot.title);
+watch(
+  () => props.snapshot.title,
+  (t) => {
+    if (!titleFocused.value) draftTitle.value = t;
+  },
+);
+
 const needsFit = import.meta.client && !CSS.supports("field-sizing", "content");
 function fit() {
   const el = titleEl.value;
@@ -87,12 +114,13 @@ function fit() {
   el.style.height = "auto";
   el.style.height = `${el.scrollHeight}px`;
 }
-// Covers the initial value and any that arrives from OUTSIDE this component — a list
-// loading in, a collaborator's rename on a poll. Also on resize: the wrap point moves
-// with the column, so a title that fits on one line in landscape may need two in
-// portrait.
+// Follows the DRAFT, which is what the box actually shows: the initial value, and any
+// that arrives from OUTSIDE this component — a list loading in, a collaborator's
+// rename on a poll — reach it through the sync above. (Typing is covered by @input.)
+// Also on resize: the wrap point moves with the column, so a title that fits on one
+// line in landscape may need two in portrait.
 if (needsFit) {
-  watch(() => props.snapshot.title, () => nextTick(fit), { immediate: true });
+  watch(draftTitle, () => nextTick(fit), { immediate: true });
   useWindowEvent("resize", fit);
 }
 
@@ -151,18 +179,27 @@ function commitLabel(e: Event) {
   el.value = props.snapshot.trailLabel ?? ""; // resync — see commitTitle
 }
 
-// The title field is uncontrolled (:value + @change), so it keeps showing what was
-// typed unless it's told otherwise. Usually the tidied value differs from the old one
-// and Vue re-patches on its own; the case that needs this line is when it DOESN'T —
-// retyping "Ryan's Timberline" over a stored "Ryan’s Timberline" tidies to exactly
-// what's already in state, nothing reactive changes, and the straight apostrophe
-// stays on screen looking saved. Same resync ItemRow's weight and qty fields do.
+// Commits on @change (blur/Enter) and then puts the STORED spelling back in the box,
+// because the reducer tidies on the way in and the field has to show what got saved.
+// The explicit resync is what covers the case the sync watcher can't: retyping
+// "Ryan's Timberline" over a stored "Ryan’s Timberline" tidies to exactly what's
+// already in state, so nothing reactive fires and the straight apostrophe would sit
+// there looking saved. Assigning the draft rather than el.value, so the field's one
+// source of truth stays the ref. Same resync ItemRow's weight and qty fields do.
 // autoGrow runs after, because a collapsed run of spaces can shorten the line enough
 // to free a row.
 function commitTitle(e: Event) {
   const el = e.target as HTMLTextAreaElement;
   c.setMeta({ title: el.value });
-  el.value = props.snapshot.title;
+  draftTitle.value = props.snapshot.title;
+  fit();
+}
+
+// Typing moves the DRAFT, not the list — the commit is still @change (blur/Enter),
+// as it is for every other text field in the editor. This only keeps the ref level
+// with the box, so an arriving snapshot has something current to be held off by.
+function onTitleInput(e: Event) {
+  draftTitle.value = (e.target as HTMLTextAreaElement).value;
   fit();
 }
 
@@ -453,12 +490,14 @@ onClickOutside(trailEl, closeTrail);
         ref="titleEl"
         class="field head__title"
         rows="1"
-        :value="snapshot.title"
+        :value="draftTitle"
         placeholder="List name"
         aria-label="List name"
         autocorrect="off"
         spellcheck="false"
-        @input="fit"
+        @focus="titleFocused = true"
+        @blur="titleFocused = false"
+        @input="onTitleInput"
         @keydown.enter.prevent="($event.target as HTMLTextAreaElement).blur()"
         @change="commitTitle"
       />

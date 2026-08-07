@@ -130,7 +130,7 @@ async function load() {
     items.value = res.items || [];
     vaultFolders.value = res.folders || [];
   } catch {
-    loadError.value = "Couldn’t load your gear vault.";
+    loadError.value = "Couldn’t load your gear.";
   }
   loading.value = false;
 }
@@ -358,7 +358,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
     :class="{ 'vp--sized': hasVault }"
     data-vault-pane
     role="dialog"
-    aria-label="Gear vault"
+    aria-label="My gear"
     @touchstart.passive="onSheetTouchStart"
     @touchmove="onSheetTouchMove"
   >
@@ -369,7 +369,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
       role="separator"
       aria-orientation="vertical"
       tabindex="0"
-      aria-label="Resize the gear vault"
+      aria-label="Resize the My gear panel"
       :aria-valuenow="width"
       :aria-valuemin="288"
       :aria-valuemax="720"
@@ -378,11 +378,11 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
       @keydown="onResizeKey"
     />
     <header class="vp__head">
-      <h2 class="t-label vp__title">Gear vault</h2>
+      <h2 class="t-label vp__title">My gear</h2>
       <button
         type="button"
         class="btn btn--icon btn--ghost btn--flush-end"
-        aria-label="Close the gear vault"
+        aria-label="Close My gear"
         title="Close"
         @click="emit('close')"
       >
@@ -418,7 +418,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
            and the two can't disagree. The search below belongs to whichever is open,
            which is what keeps the panel self-sufficient: finding gear never reaches
            out into the editor's chrome. -->
-      <div class="vp__tabs" role="tablist" aria-label="Vault view">
+      <div class="vp__tabs" role="tablist" aria-label="My gear view">
         <button
           v-for="t in (['items', 'categories'] as const)"
           :key="t"
@@ -570,7 +570,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
       </div>
       <div v-else class="vp__empty">
         <p class="t-sm t-muted">
-          Your gear vault is empty. Add gear to this list and it’ll collect itself here.
+          No gear saved yet. Add gear to this list and it’ll collect itself here.
         </p>
       </div>
     </template>

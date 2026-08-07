@@ -232,7 +232,7 @@ async function deleteAccount() {
     !(await askConfirm({
       title: "Delete your account?",
       message:
-        "Your email, display name, passkeys and your whole gear vault go, and can't be brought back.",
+        "Your email, display name, passkeys and all your saved gear go, and can't be brought back.",
       confirmLabel: "Delete account",
       checkbox: {
         label: "Delete my lists too",
@@ -462,7 +462,7 @@ async function onSignOut() {
           <section class="acct__section">
             <h2 class="t-label acct__label">Delete your account</h2>
             <p class="t-sm t-muted">
-              Your email, passkeys and gear vault go for good. Your lists stay — they belong
+              Your email, passkeys and saved gear go for good. Your lists stay — they belong
               to their edit links, and any link you’ve shared still opens them.
             </p>
             <button

@@ -47,7 +47,7 @@ async function removeFromDevice(e: MyListEntry) {
 async function deleteList(e: MyListEntry) {
   if (!(await askConfirm({
     title: "Delete for everyone",
-    message: `Delete “${displayTitle(e.title)}” for everyone? Anyone with the link will lose it, and this can't be undone.`,
+    message: `Delete “${displayTitle(e.title)}” for everyone? Anyone with the link will lose it, and this can’t be undone.`,
     confirmLabel: "Delete",
     danger: true,
   }))) return;

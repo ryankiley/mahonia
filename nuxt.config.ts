@@ -406,17 +406,29 @@ export default defineNuxtConfig({
     // Bare /e renders identically for everyone (generic head + a client-only body),
     // so PRERENDER it — the landing route (where "/" redirects) becomes a static
     // file served from the CDN: fastest possible TTFB and zero function invocations
-    // on the site's most-hit route. /e/{shareCode} differs per code, so it gets a
-    // short ISR window instead (collapses repeat opens + crawler bursts on a shared
-    // pretty link; the head tolerates 60 s of staleness — the list BODY is always
-    // live, it loads client-side from the fragment token).
-    // `isr: N` (not `swr: N`): on the Vercel preset, `swr` maps through nitro's
-    // deprecated back-compat path to `{ expiration: false }` — cached until the
-    // NEXT DEPLOY, not for N seconds (verified in nitropack's vercel preset).
-    // `isr: N` writes `{ expiration: N }`, the intended revalidation window; on
-    // non-Vercel targets it's simply inert.
+    // on the site's most-hit route.
+    //
+    // /e/{shareCode} is rendered per request, NOT cached. It used to carry
+    // `isr: 60`, on the reasoning that the head "tolerates 60 s of staleness" —
+    // which was true of the visitor that rule was written for (an unfurl bot, once,
+    // when you paste the link) and false of the one who actually reloads this route.
+    // That's the list's OWNER: rename a list, hit refresh, and the tab came back
+    // wearing the old name, because the cached HTML was minted before the rename.
+    // The body was always right — it loads client-side — so the two disagreed, on
+    // the one surface you can't scroll away from.
+    //
+    // The cost of dropping it is one invocation per open of a capability link, which
+    // is the cheapest traffic on the site: /s/{code} and /l/{slug} carry the PUBLIC
+    // share traffic and are already uncached SSR, so this can't be the expensive
+    // route. Freshness on your own list's name is worth more than collapsing a
+    // burst that, on an edit link, is one bot deep.
+    //
+    // Note this is the ONLY cache in the head's path: /api/s sets s-maxage, but a
+    // server-side useFetch calls that handler in-process and never passes the CDN,
+    // so the SSR render always reads live. (Verified: a browser fetch of /api/s
+    // returned the pre-rename title from stale-while-revalidate while the same
+    // moment's full reload rendered the new one.)
     "/e": { prerender: true },
-    "/e/**": { isr: 60 },
     // pure-static pages → build-time prerender (CDN-served, zero invocations)
     "/about": { prerender: true },
     "/legal": { prerender: true },

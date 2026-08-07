@@ -144,6 +144,18 @@ function create() {
     return { Authorization: `Bearer ${editToken}` } as Record<string, string>;
   }
 
+  // Keep this list's row in "Your lists" in step with the snapshot. Called after a
+  // sync — which is where the server's version number comes from — AND optimistically
+  // from dispatch, because the switcher and /mine read the REGISTRY, not the snapshot.
+  // A list you just renamed has to answer to its new name in the dropdown straight
+  // away, not one debounce plus a round-trip later; the reducer here is the same one
+  // the server runs, so the title we write is already the title it will store.
+  //
+  // dispose() is what makes that more than a latency question. It fires its last
+  // flush blind and discards the response, so a rename made on the way out of the
+  // editor — typed, then straight into the switcher to open another list — reached
+  // the server but never reached the row, and the old name sat in the dropdown until
+  // that list was opened again.
   function syncRegistry() {
     if (!snapshot.value) return;
     useMyLists().touch(editToken, {
@@ -152,6 +164,24 @@ function create() {
       totalMg: totals.value?.totalMg ?? 0, // the memoized rollup — no fresh full-list pass
       displayUnit: snapshot.value.displayUnit, // keep the summary in the list's unit system
     });
+  }
+
+  // The gate on that optimistic call. dispatch runs on every keystroke and touch()
+  // REASSIGNS the registry array (which persists the whole registry), so this asks
+  // first whether anything the row actually shows has moved — for most edits, nothing
+  // has. No row at all — a draft with no token yet, or a list removed from this
+  // device — means nothing to update: touch is update-only by design, and re-adding
+  // one here would undo a "Remove from device". Version is deliberately not compared;
+  // an optimistic op never moves it, only the server does.
+  function registryStale() {
+    if (!snapshot.value || !editToken) return false;
+    const row = useMyLists().entries.value.find((e) => e.editToken === editToken);
+    if (!row) return false;
+    return (
+      row.title !== snapshot.value.title ||
+      row.displayUnit !== snapshot.value.displayUnit ||
+      row.totalMg !== (totals.value?.totalMg ?? 0)
+    );
   }
 
   // Add this list to the device's "Your lists" (upsert, not touch), so a list
@@ -289,6 +319,13 @@ function create() {
         // and don't claim "synced": later edits stay device-only (remoteMissing).
         remoteMissing = true;
         status.value = "missing";
+        // A dead token whose list ALSO has a live row in the registry is the
+        // leftover half of a rotate — the switcher was showing that pack twice,
+        // both rows marked current, and this is the one that no longer opens.
+        // Only the row goes; the local copy on screen is untouched (see the
+        // composable). The live-side heal is upsert's share-code claim, so it
+        // takes one visit to either row, whichever you happened to pick.
+        useMyLists().forgetSuperseded(token);
       } else if (local) {
         // Network failure with a local copy: keep editing, sync when it returns.
         status.value = "offline";
@@ -435,6 +472,9 @@ function create() {
     // rows re-render, so a keystroke in one folder doesn't repaint every folder.
     applyOps(snapshot.value, [op]);
     persistLocal(); // mirror to IndexedDB so this edit survives a reload/crash
+    // and mirror to the device registry, which is what the switcher and /mine read —
+    // gated, because this runs on every keystroke (see registryStale/syncRegistry)
+    if (registryStale()) syncRegistry();
     // Every mutation funnels through here, whatever made it — typing, a catalog
     // pick, a drag, an undo — so this one call captures gear from all of them
     // without each call site having to remember to.
