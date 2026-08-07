@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "@hugeicons/vue";
-import { ChevronDownIcon, Delete02Icon, Fire02Icon, HelpCircleIcon, RouteIcon, Stairs01Icon, TentIcon } from "@hugeicons/core-free-icons";
+import { ChevronDownIcon, Delete02Icon, Fire02Icon, HelpCircleIcon, RacingFlagIcon, RouteIcon, Stairs01Icon, TentIcon } from "@hugeicons/core-free-icons";
 import type { ListSnapshot, Totals, Waypoint } from "~~/shared/types";
 import { burnDownMg, estimateDay } from "~~/shared/tripPlan";
 import { dayClimbs, parseProfile } from "~~/shared/profile";
@@ -434,6 +434,44 @@ function onBoundary(b: { index: number; alongM: number }) {
  * The last day only gets one if the route runs on past it — otherwise its "camp" is the
  * end of the walk, which is somewhere you go home from rather than sleep at.
  */
+/**
+ * Where the LAST day ends — a finish, which is not a camp.
+ *
+ * Every other day ends at a night and campOf draws it. The last one ends at the end of the
+ * walk, and that was the one thing this panel never said: the final day printed its figures
+ * and then nothing at all, because it has no camp and frequently no pins either.
+ *
+ * DERIVED, like the camp beside it, rather than a stored waypoint — and on a loop that is
+ * the whole point. A loop finishes at the trailhead it left, so a stored finish pin would
+ * put two markers on one coordinate, which is exactly what seedRouteEnds refuses to do. A
+ * ROW costs nothing and stacks nothing, and the map still carries one flag.
+ *
+ * Exactly complementary to campOf: a day has a camp or a finish, never both and never
+ * neither — unless there is unclaimed ground after it, in which case the walk does not end
+ * there and neither mark is true.
+ */
+const finishOf = (i: number): number | null => {
+  const r = dayRanges.value[i];
+  if (!r || r.toM <= r.fromM) return null;
+  const last = !dayDistancesM.value.some((d, k) => k > i && d > 0);
+  if (!last || hasRest.value) return null;
+  // A point-to-point route already STORES an end pin, and it files into this day. Saying
+  // the same thing twice in two rows is worse than not saying it — the derived row stands
+  // down and lets the real pin speak. Within a metre, because the two arrive by different
+  // arithmetic: one from the polyline's length, one from the days summed.
+  if (waypoints.value.some((w) => w.kind === "end" && Math.abs(w.alongM - r.toM) <= 1)) return null;
+  return r.toM;
+};
+
+/** The one day that has a finish, for the map — the rows ask per day, the map asks once. */
+const routeFinishM = computed(() => {
+  for (let i = 0; i < dayRanges.value.length; i++) {
+    const m = finishOf(i);
+    if (m != null) return m;
+  }
+  return null;
+});
+
 const campOf = (i: number): number | null => {
   const r = dayRanges.value[i];
   if (!r || r.toM <= r.fromM) return null;
@@ -725,6 +763,7 @@ const distanceValue = (m: number | undefined) => {
       :day-distances-m="dayDistancesM"
       :waypoints="waypoints"
       :trace-m="traceM"
+      :finish-m="routeFinishM"
       :armed-range="armedRange"
       @place="onPlace"
       :distance-unit="distanceUnit"
@@ -897,7 +936,10 @@ const distanceValue = (m: number | undefined) => {
           <!-- ONE list, pins and the night together, because the hairlines between them
                are the thing that makes this read as a day's contents rather than as two
                stacked blocks — and a rule can only run between siblings. -->
-          <ol v-if="grouped.byDay[i]?.length || campOf(i) != null" class="plan__wplist">
+          <ol
+            v-if="grouped.byDay[i]?.length || campOf(i) != null || finishOf(i) != null"
+            class="plan__wplist"
+          >
             <WaypointRow
               v-for="w in grouped.byDay[i]"
               :key="w.id"
@@ -933,6 +975,32 @@ const distanceValue = (m: number | undefined) => {
               <!-- the delete column, left empty: a camp is the end of a day, and removing
                    it would mean removing the day. The cell stays so every other column in
                    the list still lines up through this row. -->
+              <span class="plan__campdel" aria-hidden="true" />
+            </li>
+            <!-- THE FINISH, on the last day only — see finishOf. Same row as the camp,
+                 because it answers the same question ("where does this day leave you"), and
+                 nameless for the same reason it is not deletable: nobody put it there, the
+                 route did. On a loop this is the trailhead again, which is why it is drawn
+                 rather than stored. -->
+            <li v-if="finishOf(i) != null" class="plan__camp">
+              <!-- Named through the DAY's own label, the same field the camp writes — and
+                   free, because a day has exactly one end: if it finishes the walk it has
+                   no camp, so the two can never want that field at once. "Where you end up"
+                   rather than a name typed over "Finish", so an empty row still says what
+                   the row is. -->
+              <input
+                class="field plan__campfield"
+                :value="d?.label ?? ''"
+                placeholder="Where you end up"
+                maxlength="120"
+                :aria-label="`Name for the finish at the end of day ${i + 1}`"
+                @change="(e) => d && c.updateDay(d.id, { label: (e.target as HTMLInputElement).value.trim() })"
+              />
+              <span class="plan__campkind" role="img" aria-label="The end of the route">
+                <HugeiconsIcon :icon="RacingFlagIcon" :size="16" :stroke-width="2" aria-hidden="true" />
+              </span>
+              <span class="t-sm plan__coord">{{ coordOf(finishOf(i)!) }}</span>
+              <span class="t-sm plan__campdist">{{ formatDistancePadded(finishOf(i)!, distanceUnit) }}</span>
               <span class="plan__campdel" aria-hidden="true" />
             </li>
           </ol>

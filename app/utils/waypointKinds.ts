@@ -1,4 +1,4 @@
-import { DirectionRight02Icon, DropletIcon, Flag02Icon, Flag03Icon, TentIcon } from "@hugeicons/core-free-icons";
+import { DirectionRight02Icon, DropletIcon, RacingFlagIcon, TentIcon } from "@hugeicons/core-free-icons";
 import type { WaypointKind } from "~~/shared/types";
 
 /**
@@ -24,8 +24,18 @@ export const WAYPOINT_KIND_META: Record<WaypointKind, { label: string; icon: unk
   // inside a pin on a map it says the same thing twice, and says nothing about what is
   // actually there. A signpost is a thing you pass on a walk.
   landmark: { label: "Landmark", icon: DirectionRight02Icon, color: "var(--cat-clothing)" },
-  trailhead: { label: "Trailhead", icon: Flag02Icon, color: "var(--ink)" },
-  end: { label: "End", icon: Flag03Icon, color: "var(--ink)" },
+  // BOTH ENDS WEAR THE SAME CHEQUERED FLAG, and that is deliberate rather than lazy.
+  //
+  // They were two flags differing only in the number of folds, which asked a reader to tell
+  // a start from a finish by counting pennants on a 17px glyph. What actually separates
+  // them is where they sit — one at zero, one at the far end — and the row beside each says
+  // which in words. A chequered flag reads as "an end of the route" at either end.
+  //
+  // It also settles the LOOP, where the start and the finish are one coordinate: the map
+  // draws the finish over the trailhead there (see RouteMap's finishM), and two marks with
+  // the same glyph overlap invisibly instead of looking like a rendering fault.
+  trailhead: { label: "Trailhead", icon: RacingFlagIcon, color: "var(--ink)" },
+  end: { label: "End", icon: RacingFlagIcon, color: "var(--ink)" },
 };
 
 /** Anything unrecognised reads as a landmark, so a pin always has a glyph and a name. */

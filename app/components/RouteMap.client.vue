@@ -52,6 +52,18 @@ const props = defineProps<{
    * component's job, and it is the same walk a waypoint's own position takes.
    */
   traceM?: number | null;
+  /**
+   * Where the walk ENDS, when the itinerary actually reaches the end of the route — the
+   * same derived fact the last day's row carries (see finishOf in TrailPlanPanel), not a
+   * stored pin.
+   *
+   * Drawn here rather than seeded as a waypoint because on a LOOP the finish is the
+   * trailhead: one coordinate, and two stored pins on it would be two markers stacked on
+   * the same spot. Painted after the pins, so in that case the chequered flag simply sits
+   * over the plain one and the reader sees the one mark that is true of that place — it is
+   * where you start AND where you stop.
+   */
+  finishM?: number | null;
 }>();
 
 const emit = defineEmits<{
@@ -87,6 +99,7 @@ let pins: import("leaflet").Marker[] = [];
 let bounds: import("leaflet").Marker[] = [];
 // ONE marker, kept and moved rather than a list rebuilt — see renderTrace.
 let trace: import("leaflet").Marker | null = null;
+let finish: import("leaflet").Marker | null = null;
 let ro: ResizeObserver | null = null;
 
 const points = computed<LatLon[]>(() => decodePolyline(props.geometry));
@@ -516,6 +529,38 @@ function renderTrace() {
   }).addTo(map);
 }
 
+/** The finish, wearing the same chequered flag its row does. Not draggable: nobody put it
+ *  there, the itinerary did, and it moves when the days do. */
+function renderFinish() {
+  if (!map || !L) return;
+  finish?.remove();
+  finish = null;
+  const at = props.finishM == null ? null : pointAlong(points.value, props.finishM);
+  if (!at) return;
+  // ON A LOOP THERE IS ONE MARK, not two on one spot. The finish of a loop IS its
+  // trailhead — the same coordinate — and that pin is already standing there wearing the
+  // same chequered flag, so a second marker adds a click target and a redraw and nothing a
+  // reader can see.
+  //
+  // Read off seedRouteEnds' own answer rather than re-deciding it: that function is the one
+  // place that judges whether a route closes, and it records the verdict by seeding a start
+  // and NO end. Measuring the two points again here would mean a second threshold, and two
+  // thresholds eventually disagree.
+  const wps = props.waypoints ?? [];
+  if (wps.some((w) => w.kind === "trailhead") && !wps.some((w) => w.kind === "end")) return;
+  const meta = waypointKindMeta("end");
+  finish = L.marker([at.lat, at.lon], {
+    keyboard: false,
+    interactive: false,
+    icon: L.divIcon({
+      className: "routemap__pin routemap__pin--dark",
+      html: `<i style="--pin:${meta.color}">${iconSvg(meta.icon)}</i>`,
+      iconSize: [PIN_PX, PIN_PX],
+      iconAnchor: [PIN_PX / 2, PIN_TIP_PX],
+    }),
+  }).addTo(map);
+}
+
 function renderPins() {
   if (!map || !L) return;
   for (const m of pins) m.remove();
@@ -527,7 +572,10 @@ function renderPins() {
     const marker = L!.marker([at.lat, at.lon], {
       keyboard: false,
       icon: L!.divIcon({
-        className: "routemap__pin",
+        // The route's own two ends invert — see the CSS. They are not a category of thing
+        // found along the walk, they are where it starts and stops, and a solid mark says
+        // that without needing a fifth hue.
+        className: `routemap__pin${w.kind === "trailhead" || w.kind === "end" ? " routemap__pin--dark" : ""}`,
         // The GLYPH inside the disc, not a bare dot. Five colours alone asked the reader
         // to hold a legend in their head that the map has nowhere to print — a droplet
         // says "water" without one, and it still says it to somebody who can't separate
@@ -908,6 +956,8 @@ async function draw() {
   renderLegs();
   
   renderPins();
+  // AFTER the pins — on a loop it paints over the trailhead it shares a spot with
+  renderFinish();
   // in case the pointer was already on the chart while the map was still loading
   renderTrace();
   renderBounds();
@@ -961,7 +1011,10 @@ onMounted(draw);
 // re-creating it would throw away the pan and zoom, which is the one piece of state here
 // that belongs to the person looking at it.
 watch(() => props.traceM, renderTrace);
-watch(() => props.waypoints, renderPins, { deep: true });
+watch(() => props.finishM, renderFinish);
+// the finish redraws with them, so it stays on top of a trailhead it may be sharing a spot
+// with — a re-added pin would otherwise paint over it
+watch(() => props.waypoints, () => { renderPins(); renderFinish(); }, { deep: true });
 
 watch(boundaries, renderBounds, { deep: true });
 
@@ -1366,8 +1419,8 @@ onBeforeUnmount(() => {
   place-items: center;
   width: 100%;
   height: 100%;
-  background: #fff;
-  color: #1c1c1c;
+  background: #1c1c1c;
+  color: #fff;
   position: relative;
   border-radius: 50% 50% 50% 0;
   rotate: -45deg;
@@ -1383,7 +1436,23 @@ onBeforeUnmount(() => {
   position: absolute;
   inset: 14%;
   border-radius: 50%;
-  background: #ececec;
+  background: #333;
+}
+
+/* INVERTED: the itinerary's own marks, and the route's two ends.
+   A white drop with a coloured glyph says "one of the things you will pass" — water, a
+   landmark, a kind of place. These are not that. A camp is where the plan puts you and the
+   ends are where the route begins and stops, and both are statements the ROUTE makes rather
+   than categories of thing. Solid ink says so at a glance and needs no further hue, which
+   matters on a sheet already carrying magenta paths and green woodland.
+   The seat inverts with it — a step OFF the drop rather than a fixed grey, so the head
+   still reads as round instead of as a black blob with a point on it. */
+.routemap__pin--dark i {
+  background: #1c1c1c;
+  color: #fff;
+}
+.routemap__pin--dark i::before {
+  background: #333;
 }
 .routemap__bound i > svg {
   // over the seat, not under it — see the waypoint pin for why this has to be positioned
