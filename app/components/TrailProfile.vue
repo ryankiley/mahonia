@@ -61,6 +61,9 @@ const VB_H = 200;
 // The cursor dot's radius, in viewBox units. Named because it appears twice — the X radius
 // is counter-scaled off it — and the two must never drift apart into an oval.
 const DOT_R = 10;
+/** How near an end the cursor has to be before the readout hangs from that edge instead of
+ *  centring. A fraction of the track, so it costs no measurement — see .tprofile__read. */
+const EDGE_F = 0.15;
 
 const lo = computed(() => Math.min(...props.profile));
 const hi = computed(() => Math.max(...props.profile));
@@ -459,6 +462,7 @@ const id = useId();
     <div
       v-if="hover"
       class="tprofile__read t-sm"
+      :class="{ 'is-start': hover.x / VB_W < EDGE_F, 'is-end': hover.x / VB_W > 1 - EDGE_F }"
       :style="{ '--at': `${(hover.x / VB_W) * 100}%` }"
       aria-hidden="true"
     >
@@ -638,12 +642,11 @@ const id = useId();
   position: absolute;
   /* the chart's own top edge, which the padding above moved down from the box's */
   top: var(--tprofile-head);
-  /* Clamped so the label never hangs off the column at the ends. The CURSOR is not
-     clamped — the line and the dot live in the SVG and keep tracking the pointer all the
-     way to both edges, so what stops at the end of the track is the label, not the
-     reading. 6.5rem is half the label at its widest ("39.7 mi 5,906 ft -12.9%"); 5.5
-     wasn't enough and it overhung the right edge by 8px. Measuring it properly would mean
-     a layout read on every pointer move to fix an inset nobody can perceive. */
+  /* Centred on the cursor, and clamped so the label never hangs off the column. 6.5rem is
+     half the label at its widest ("39.7 mi 5,906 ft -12.9%"); 5.5 wasn't enough and it
+     overhung the right edge by 8px. Measuring it properly would mean a layout read on
+     every pointer move to fix an inset nobody can perceive.
+     Near the ENDS the clamp stops being an inset and becomes a disconnection — see below. */
   left: clamp(6.5rem, var(--at), calc(100% - 6.5rem));
   transform: translate(-50%, calc(-100% - var(--space-1)));
   display: flex;
@@ -655,6 +658,25 @@ const id = useId();
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
   pointer-events: none;
+}
+
+/* AT THE ENDS, THE LABEL CHANGES WHICH EDGE IT HANGS FROM rather than sliding away.
+ *
+ * The cursor is never clamped — the line and the dot track the pointer all the way to both
+ * edges — so at x=0 a centred label was pinned 6.5rem inward while its own line stood at
+ * the far left. Reading and line stopped looking like one object, which is the whole job
+ * of a scrubber: the label had drifted off the thing it describes.
+ *
+ * Centred in the middle, LEFT-aligned to the cursor at the start and RIGHT-aligned at the
+ * finish. The box stays on the page and always touches the line it belongs to. Switched on
+ * a fraction of the track rather than a measured width, so there is still no layout read. */
+.tprofile__read.is-start {
+  left: 0;
+  transform: translate(0, calc(-100% - var(--space-1)));
+}
+.tprofile__read.is-end {
+  left: 100%;
+  transform: translate(-100%, calc(-100% - var(--space-1)));
 }
 /* The SAME hues the shading uses, so the number and the band under the cursor agree —
    but not the same tokens, and that is deliberate rather than sloppy.
