@@ -135,6 +135,20 @@ describe("captureFingerprint — the gate that stops needless writes", () => {
     const after = captureFingerprint(captureFromList([item({ unitWeightMg: 545_000 })]));
     expect(after).not.toBe(before);
   });
+
+  it("changes when only the spelling changes — the vault takes the incoming spelling", () => {
+    const before = captureFingerprint(captureFromList([item({ name: "duplex" })]));
+    const after = captureFingerprint(captureFromList([item({ name: "Duplex" })]));
+    expect(after).not.toBe(before);
+  });
+
+  it("changes when the product URL changes", () => {
+    const before = captureFingerprint(captureFromList([item()]));
+    const after = captureFingerprint(
+      captureFromList([item({ productUrl: "https://zpacks.com/duplex" })]),
+    );
+    expect(after).not.toBe(before);
+  });
 });
 
 // ---------------------------------------------------------------------------
