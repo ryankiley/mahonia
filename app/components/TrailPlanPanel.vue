@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "@hugeicons/vue";
-import { ChevronDownIcon, Delete02Icon, Fire02Icon, HelpCircleIcon, RouteIcon, Stairs01Icon } from "@hugeicons/core-free-icons";
+import { ChevronDownIcon, Delete02Icon, Fire02Icon, HelpCircleIcon, RouteIcon, Stairs01Icon, TentIcon } from "@hugeicons/core-free-icons";
 import type { ListSnapshot, Totals, Waypoint } from "~~/shared/types";
 import { burnDownMg, estimateDay } from "~~/shared/tripPlan";
 import { dayClimbs, parseProfile } from "~~/shared/profile";
@@ -15,6 +15,7 @@ import {
   M_PER_UNIT,
   bodyWeightFieldValue,
   formatBodyWeight,
+  formatDistance,
   heightUnitFor,
   heightValue,
   parseBodyWeightG,
@@ -373,6 +374,22 @@ function onBoundary(b: { index: number; alongM: number }) {
     c.updateDay(nextId, { distanceM: Math.max(1, Math.round(next.toM - b.alongM)) });
   }
 }
+
+/**
+ * Where each day ENDS, as a row of its own — the same point the tent handle marks on the
+ * map, so what you can drag up there has a line down here saying what it is and how far in.
+ *
+ * Derived from the itinerary, exactly as the handle is: no entity, no id, nothing stored.
+ * The last day only gets one if the route runs on past it — otherwise its "camp" is the
+ * end of the walk, which is somewhere you go home from rather than sleep at.
+ */
+const campOf = (i: number): number | null => {
+  const r = dayRanges.value[i];
+  if (!r || r.toM <= r.fromM) return null;
+  const last = !dayDistancesM.value.some((d, k) => k > i && d > 0);
+  if (last && !(hasRest.value)) return null;
+  return r.toM;
+};
 
 function onPlace(alongM: number) {
   c.addWaypoint(alongM);
@@ -802,6 +819,28 @@ const distanceValue = (m: number | undefined) => {
           v-if="!collapsed[d?.id ?? ''] && snapshot.routeGeometry && dayDistancesM[i]"
           class="plan__wps"
         >
+          <!-- The night, first: it is the end of the day the rows above it describe, and
+               the thing on the map you can actually move. Not deletable and not
+               re-kindable, because it isn't a pin — deleting it would mean deleting the
+               day. Its NAME is the day's own `label`, a field that survived the removal of
+               day naming and has been waiting for a use. -->
+          <ul v-if="campOf(i) != null" class="plan__wplist">
+            <li class="plan__camp">
+              <span class="plan__campkind">
+                <HugeiconsIcon :icon="TentIcon" :size="16" :stroke-width="2" aria-hidden="true" />
+                <span class="plan__campname">Camp</span>
+              </span>
+              <input
+                class="field plan__campfield"
+                :value="d?.label ?? ''"
+                placeholder="Where you sleep"
+                maxlength="120"
+                :aria-label="`Name for the camp at the end of day ${i + 1}`"
+                @change="(e) => d && c.updateDay(d.id, { label: (e.target as HTMLInputElement).value.trim() })"
+              />
+              <span class="t-sm t-muted plan__campat">{{ formatDistance(campOf(i)!, distanceUnit) }}</span>
+            </li>
+          </ul>
           <ol v-if="grouped.byDay[i]?.length" class="plan__wplist">
             <WaypointRow
               v-for="w in grouped.byDay[i]"
@@ -1231,6 +1270,35 @@ const distanceValue = (m: number | undefined) => {
   flex-direction: column;
   gap: var(--space-1);
   align-items: flex-start;
+}
+/* The night. Same columns as a waypoint row so the two line up down the day, with the
+   trailing action cell left empty — there is nothing to delete here. */
+.plan__camp {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+}
+.plan__campkind {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  /* ink, not a category hue — it is the itinerary talking, the same thing the handle on
+     the map says by being paper-filled rather than solid */
+  color: var(--ink-3);
+}
+.plan__campname {
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+.plan__campfield {
+  min-width: 0;
+}
+.plan__campat {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  /* clears the waypoint rows' delete column, so every distance sits in one line */
+  margin-right: calc(var(--icon-btn, 28px) + var(--space-2));
 }
 .plan__wplist {
   list-style: none;

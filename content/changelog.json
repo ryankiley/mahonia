@@ -16,7 +16,8 @@
       "Each pin on the map now carries its own mark — a droplet for water, a tent for a camp — and its row names the kind in words.",
       "Press and hold a pin on the map to pick it up, then slide it along the route to move it. It re-files itself under whichever day it lands in.",
       "Tap a pin on the map to name it or remove it, without hunting for its row.",
-      "Drag the tent handle where one day ends on the map and the two days either side trade miles — the trip's total never changes."
+      "Drag the tent handle where one day ends on the map and the two days either side trade miles — the trip's total never changes.",
+      "Each day now lists where it ends — the camp — with the distance in, and you can name it."
     ],
     "changed": [
       "Your body weight is now remembered on your device instead of saved with each list, so you set it once and every trip uses it — and it never leaves your browser at all.",
