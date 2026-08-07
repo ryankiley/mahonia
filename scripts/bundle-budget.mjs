@@ -225,7 +225,24 @@ import { brotliCompressSync, gzipSync, constants } from "node:zlib";
 // only runs on one interaction belongs on the load before it.
 //
 // 151 keeps the ~2 KB of working headroom these notes keep arguing for.
-const FIRST_LOAD_BUDGET_KB = 151;
+//
+// 151 → 154 for the rest of trail planning: the waypoint rows and their kind toggles, the
+// day-boundary handles, the camp each day ends at, the Gear/Packing/Planning bar, and the
+// corrected burn model. 148.3 at the anchor above, 151.2 now — +2.9 KB, measured by this
+// script both times against an unchanged lockfile (nothing has touched package.json since
+// the commit that set 151), so it is a like-for-like reading rather than a fresh two-build
+// run.
+//
+// Worth recording what did NOT have to be paid, because both are the split working:
+// Leaflet is still a 36.5 KB chunk the editor's HTML never references — the ▸ check the
+// map notes ask for still passes — and the planning panel itself is a <LazyTrailPlanPanel>,
+// so the panel's own components are not on this line either. What lands here is the
+// reducer's share: waypoint ops, the boundary arithmetic, the estimator. The reducer runs
+// on both client and server and has to be complete for op replay, so it cannot be deferred
+// the way a panel can.
+//
+// 154 restores the same ~2.8 KB gap 151 carried over its own measurement.
+const FIRST_LOAD_BUDGET_KB = 154;
 // TOTAL of every built file, the backstop. Deliberately slack: its job is to catch
 // a route chunk ballooning or a heavy dep landing somewhere unnoticed, NOT to price
 // ordinary feature work. Set well clear of current (137.1) so it only speaks up when
@@ -257,7 +274,16 @@ const FIRST_LOAD_BUDGET_KB = 151;
 // the same unpriced-planning-work reason the first-load note gives.
 //
 // 258 restores the ~6 KB of slack the last two re-anchors set.
-const TOTAL_BUDGET_KB = 258;
+//
+// 258 → 267, the ordinary-feature-work re-anchor this note keeps describing. 251.8 at the
+// anchor above, 260.5 now. Most of the +8.7 KB is the map chunk growing up: placing a pin,
+// the press-and-hold that lifts one, the day-boundary handles, the popup, full screen. All
+// of it is inside the chunk a list without a route never asks for, which is the shape this
+// backstop is explicitly not supposed to police.
+//
+// MAX_CHUNK is still what actually watches that chunk: 36.5 KB against 72, unmoved by any
+// of it. 267 restores the ~6 KB of slack.
+const TOTAL_BUDGET_KB = 267;
 // Largest single chunk, brotli. LOAD-BEARING, and the one number here that should not move
 // to accommodate a dependency: it is what a heavy map library fails. MapLibre GL ships as a
 // single ~200 KB brotli chunk and was ruled out on this line alone — a dep that needs the
