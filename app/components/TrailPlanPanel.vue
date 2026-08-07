@@ -522,68 +522,11 @@ const distanceValue = (m: number | undefined) => {
          with the weight the other two views show — the same element, so switching view
          changes the number without the figure unmounting and re-counting under you. -->
 
-    <!-- The route's shape, cut into days. Directly under the figure it belongs to. -->
-    <TrailProfile
-      v-if="profile.length && days.length"
-      :profile="profile"
-      :day-distances-m="dayDistancesM"
-      :distance-unit="distanceUnit"
-      :total-distance-m="headlineM"
-      :ascent-m="snapshot.trailAscentM"
-      :descent-m="snapshot.trailDescentM"
-      :facts="false"
-    />
-    <!-- Where that shape actually is. Directly under the profile, in the same day
-         colours, so the two marks read as one answer rather than two charts.
-
-         `Lazy` + `v-if` is the whole cost control: Leaflet and its stylesheet are a
-         separate ~45 KB chunk that is only REQUESTED when a list has a route. A packing
-         list with no GPX never downloads a byte of it, which is the right default for a
-         feature secondary to the actual job here. -->
-    <LazyRouteMap
-      v-if="snapshot.routeGeometry"
-      :geometry="snapshot.routeGeometry"
-      :day-distances-m="dayDistancesM"
-      :waypoints="waypoints"
-      :armed-range="armedRange"
-      @place="onPlace"
-      @move="(m) => c.updateWaypoint(m.id, { alongM: m.alongM })"
-    >
-      <!-- Only while the map fills the window, where the day rows are behind it and out
-           of reach. Same `arming` ref the rows drive, so this is a second SURFACE for one
-           piece of state, never a second copy of it — and the map dims to whichever is
-           chosen either way. -->
-      <template #overlay>
-        <div class="plan__armbar" role="radiogroup" aria-label="Day to place a waypoint on">
-          <button
-            v-for="(d, i) in dayDistancesM"
-            v-show="d > 0"
-            :key="i"
-            type="button"
-            class="plan__armchip"
-            :class="{ 'is-on': arming === i }"
-            role="radio"
-            :aria-checked="arming === i"
-            @click="arming = arming === i ? null : i"
-          >
-            <span class="plan__armdot" :style="{ background: dayColors[i] }" aria-hidden="true" />
-            Day {{ i + 1 }}
-          </button>
-          <button
-            v-if="hasRest"
-            type="button"
-            class="plan__armchip"
-            :class="{ 'is-on': arming === 'rest' }"
-            role="radio"
-            :aria-checked="arming === 'rest'"
-            @click="arming = arming === 'rest' ? null : 'rest'"
-          >
-            <span class="plan__armdot plan__armdot--rest" aria-hidden="true" />
-            Rest
-          </button>
-        </div>
-      </template>
-    </LazyRouteMap>
+    <!-- THE FIGURES ROW, in the seat the totals row holds in the other two views.
+         Flipping between Editing and Planning should look like one number changing and one
+         row of small figures changing under it — not like two different pages. So this is
+         the first thing under the headline in both, and what differs (rows here, a chart
+         and a map there) starts below it. -->
     <!-- Only the figures nothing else on the page states. The day COUNT and the
          miles-per-day average both left with the same reasoning: the date range names the
          days and every row carries its own distance, so a chip restating either was
@@ -632,6 +575,71 @@ const distanceValue = (m: number | undefined) => {
       </span>
     </div>
 
+    <!-- The route's shape, cut into days. Directly under the figure it belongs to. -->
+    <TrailProfile
+      v-if="profile.length && days.length"
+      :profile="profile"
+      :day-distances-m="dayDistancesM"
+      :distance-unit="distanceUnit"
+      :total-distance-m="headlineM"
+      :ascent-m="snapshot.trailAscentM"
+      :descent-m="snapshot.trailDescentM"
+      :facts="false"
+    />
+    <!-- Where that shape actually is. Directly under the profile, in the same day
+         colours, so the two marks read as one answer rather than two charts.
+
+         `Lazy` + `v-if` is the whole cost control: Leaflet and its stylesheet are a
+         separate ~45 KB chunk that is only REQUESTED when a list has a route. A packing
+         list with no GPX never downloads a byte of it, which is the right default for a
+         feature secondary to the actual job here. -->
+    <LazyRouteMap
+      v-if="snapshot.routeGeometry"
+      :geometry="snapshot.routeGeometry"
+      :day-distances-m="dayDistancesM"
+      :waypoints="waypoints"
+      :armed-range="armedRange"
+      @place="onPlace"
+      :distance-unit="distanceUnit"
+      @move="(m) => c.updateWaypoint(m.id, { alongM: m.alongM })"
+      @rename="(m) => c.updateWaypoint(m.id, { label: m.label })"
+      @remove="(id) => c.removeWaypoint(id)"
+    >
+      <!-- Only while the map fills the window, where the day rows are behind it and out
+           of reach. Same `arming` ref the rows drive, so this is a second SURFACE for one
+           piece of state, never a second copy of it — and the map dims to whichever is
+           chosen either way. -->
+      <template #overlay>
+        <div class="plan__armbar" role="radiogroup" aria-label="Day to place a waypoint on">
+          <button
+            v-for="(d, i) in dayDistancesM"
+            v-show="d > 0"
+            :key="i"
+            type="button"
+            class="plan__armchip"
+            :class="{ 'is-on': arming === i }"
+            role="radio"
+            :aria-checked="arming === i"
+            @click="arming = arming === i ? null : i"
+          >
+            <span class="plan__armdot" :style="{ background: dayColors[i] }" aria-hidden="true" />
+            Day {{ i + 1 }}
+          </button>
+          <button
+            v-if="hasRest"
+            type="button"
+            class="plan__armchip"
+            :class="{ 'is-on': arming === 'rest' }"
+            role="radio"
+            :aria-checked="arming === 'rest'"
+            @click="arming = arming === 'rest' ? null : 'rest'"
+          >
+            <span class="plan__armdot plan__armdot--rest" aria-hidden="true" />
+            Rest
+          </button>
+        </div>
+      </template>
+    </LazyRouteMap>
     <!-- Empty state names what's missing rather than showing an empty table. -->
     <p v-if="!days.length" class="plan__note t-sm">
       Break the trip into days to see what each one asks of you, and what the pack weighs

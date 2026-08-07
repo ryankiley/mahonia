@@ -752,9 +752,13 @@ function onCorrected(res: { status: string; itemName?: string }) {
 
       <!-- The plan. Lazy on purpose: the panel pulls in the trip model, and planning is a
            mode most visits never enter — it has no business on the editor's first load.
-           Same reveal recipe as the pack bar above, so the folders ease rather than jump. -->
-      <Transition name="packbar">
-        <div v-if="mode === 'plan' && snapshot && totals" class="packbar-reveal">
+
+           Its OWN reveal, not the pack bar's, though the slide is the same. That recipe
+           clips its child permanently, which is right for a one-line bar and wrong here:
+           the elevation chart's hover readout is positioned above the chart's own box, so
+           a standing clip cut the reading off. This one clips only while it moves. -->
+      <Transition name="planreveal">
+        <div v-if="mode === 'plan' && snapshot && totals" class="planreveal">
           <LazyTrailPlanPanel :snapshot="snapshot" :totals="totals" />
         </div>
       </Transition>
@@ -952,13 +956,38 @@ function onCorrected(res: { status: string; itemName?: string }) {
 }
 /* The big figure sits between the switcher and whatever that switcher chose. Its own
    space, because it belongs to neither — it is the page's headline in all three views. */
-/* The figure sits CLOSE to what it describes.
-   --space-4 below it plus the panel's own --space-4 above put 32px between the number and
-   the first thing it is a number ABOUT — enough that the two read as separate blocks
-   rather than as a figure and its evidence. Half of it here, and the planning panel drops
-   its top padding entirely (see .plan), so the pair is one gap instead of two stacked. */
+/* NO margin of its own. The body is a flex column with a --space-4 gap, so a margin here
+   is a SECOND gap stacked on the first — which is how the number ended up 32px clear of
+   the totals and 48 clear of the elevation chart, two different distances from two
+   different stacks. One gap, the body's, and both views sit the same distance below the
+   figure they belong to. (.totals and .plan drop their own top padding to match.) */
 .editor__headline {
-  margin-bottom: var(--space-2);
+  margin-bottom: 0;
+}
+
+/* The plan's reveal: the pack bar's slide without its standing clip — see the template. */
+.planreveal {
+  display: grid;
+  grid-template-rows: 1fr;
+}
+.planreveal > * {
+  min-height: 0;
+}
+/* the clip exists ONLY while the rows are moving, which is the only time it is needed */
+.planreveal-enter-active > *,
+.planreveal-leave-active > * {
+  overflow: hidden;
+}
+.planreveal-enter-active,
+.planreveal-leave-active {
+  transition:
+    grid-template-rows var(--dur) var(--ease),
+    opacity var(--dur) var(--ease);
+}
+.planreveal-enter-from,
+.planreveal-leave-to {
+  grid-template-rows: 0fr;
+  opacity: 0;
 }
 /* The title block (name + trail link) belongs to ListHead.vue — it owns its own layout
    so the hover affordance, the title, and the link keep one DOM order. */

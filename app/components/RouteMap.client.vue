@@ -3,6 +3,7 @@ import { dayColorSequence } from "~~/shared/categories";
 import { cumulativeM, decodePolyline, nearestAlongM, pointAlong, sliceAlong, type LatLon } from "~~/shared/polyline";
 import { HugeiconsIcon } from "@hugeicons/vue";
 import { ArrowExpand02Icon, ArrowShrink02Icon } from "@hugeicons/core-free-icons";
+import { formatDistance, type DisplayDistanceUnit } from "~~/shared/trailDistance";
 import { waypointKindMeta } from "~/utils/waypointKinds";
 
 // Where the route actually goes — the other half of the elevation profile's answer.
@@ -40,12 +41,18 @@ const props = defineProps<{
    * near end is the forgiving reading of it rather than a surprise.
    */
   armedRange?: { fromM: number; toM: number } | null;
+  /** how a pin's distance reads in its popup — the reader's own choice, not the file's */
+  distanceUnit?: DisplayDistanceUnit;
 }>();
 
 const emit = defineEmits<{
   place: [alongM: number];
   /** a pin dropped somewhere new, as one op at the end of the gesture */
   move: [at: { id: string; alongM: number }];
+  /** a pin named from its own popup, rather than from its row */
+  rename: [at: { id: string; label: string }];
+  /** a pin deleted from its own popup */
+  remove: [id: string];
 }>();
 
 const host = ref<HTMLElement | null>(null);
@@ -61,7 +68,6 @@ let L: Leaflet | null = null;
 let map: import("leaflet").Map | null = null;
 let tiles: import("leaflet").TileLayer | null = null;
 let legs: import("leaflet").Polyline[] = [];
-let arrows: import("leaflet").Marker[] = [];
 let pins: import("leaflet").Marker[] = [];
 let ro: ResizeObserver | null = null;
 
@@ -112,78 +118,6 @@ function isDimmed(fromM: number, toM: number): boolean {
   return !!a && (toM <= a.fromM || fromM >= a.toM);
 }
 
-/**
- * How often a direction mark appears along the route.
- *
- * A line says where the walk goes and says nothing about which way round it is walked —
- * which on a LOOP is the entire question, because the two answers put your climb on
- * different days. So the route carries a few chevrons.
- *
- * FEW is the design. One every kilometre would trace the line in arrowheads and turn a
- * mark that reads as terrain into a mark that reads as a diagram. So this is a CEILING —
- * about a dozen across whatever the route is — and the floor below it is measured on
- * screen, which is what keeps them from piling up when you zoom out.
- */
-const ARROW_COUNT = 13;
-/**
- * The floor, in SCREEN pixels rather than route metres — and that unit is the whole point.
- *
- * A fixed spacing along the route is a different spacing on screen at every zoom. Zoomed
- * out, a 40 km loop is a squiggle two centimetres across, and thirteen chevrons on it land
- * on top of one another: a smear that reads as noise rather than as thirteen marks saying
- * which way round the walk goes. Measuring the gap where the reader actually sees it keeps
- * them the same distance apart whatever the zoom, so the route thins its own marks out as
- * you pull back and offers more of them as you come in.
- */
-const ARROW_MIN_GAP_PX = 130;
-/** How far either side of a chevron the heading is measured over. */
-const ARROW_LOOK_M = 60;
-
-/**
- * The direction marks: where each one sits, and which way it points.
- *
- * The angle is measured in LAYER space rather than from a compass bearing, which is both
- * simpler and exactly right — it asks Leaflet where these two points actually land on
- * screen, so it cannot disagree with the line it is sitting on whatever the projection is
- * doing. (Web Mercator is conformal, so the angle holds as you zoom; only Leaflet moving
- * the marker matters, and it does that itself.)
- */
-function arrowMarks() {
-  const line = points.value;
-  if (!map || line.length < 2) return [];
-  const total = cumulativeM(line).at(-1) ?? 0;
-  if (!(total > 0)) return [];
-  // Metres per pixel at this zoom and this latitude — Web Mercator's own scale, which is
-  // what turns the pixel floor above into a distance along the route.
-  const lat = map.getCenter().lat;
-  const mPerPx = (40_075_016.686 * Math.cos((lat * Math.PI) / 180)) / 2 ** (map.getZoom() + 8);
-  const gap = Math.max(total / ARROW_COUNT, ARROW_MIN_GAP_PX * mPerPx);
-  const out: { at: LatLon; deg: number }[] = [];
-  // offset by half a gap so no chevron lands on the trailhead or the finish, where the
-  // route's own end markers already are
-  for (let d = gap / 2; d < total; d += gap) {
-    const at = pointAlong(line, d);
-    // A step either side, so the angle is the local direction of travel. Wide enough to
-    // span a stored segment (~125 m at the simplification cap) rather than sampling inside
-    // one, which would make the chevron chase a single switchback.
-    const back = pointAlong(line, Math.max(0, d - ARROW_LOOK_M));
-    const fwd = pointAlong(line, Math.min(total, d + ARROW_LOOK_M));
-    if (!at || !back || !fwd) continue;
-    // `project`, NOT `latLngToLayerPoint` — the latter rounds to whole pixels, and at
-    // whole-route zoom these two points are a fraction of a pixel apart, so every angle
-    // collapsed onto a multiple of 45°. The chevrons still pointed roughly the right way,
-    // which is exactly why it would have survived a look.
-    const a = map.project([back.lat, back.lon]);
-    const b = map.project([fwd.lat, fwd.lon]);
-    if (a.x === b.x && a.y === b.y) continue;
-    out.push({
-      at,
-      // screen y grows downward, which is already what a CSS rotation expects
-      deg: (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI,
-    });
-  }
-  return out;
-}
 
 /**
  * Whether the person looking at this has moved the map themselves.
@@ -206,34 +140,6 @@ function frame() {
   if (all.length) map.fitBounds(L.latLngBounds(all), { padding: [16, 16], animate: false });
   else map.setView([0, 0], 2, { animate: false });
   framing = false;
-}
-
-/**
- * Draw the direction marks.
- *
- * `interactive: false` matters: these sit ON the route, and a chevron that swallowed a
- * click would put a dead spot every few kilometres along the one thing you are meant to be
- * able to click.
- */
-function renderArrows() {
-  if (!map || !L) return;
-  for (const m of arrows) m.remove();
-  arrows = arrowMarks().map((mark) =>
-    L!.marker([mark.at.lat, mark.at.lon], {
-      interactive: false,
-      keyboard: false,
-      // The markup is entirely ours — no list content reaches it — so building it as a
-      // string is safe here in a way it would not be for a waypoint's label.
-      icon: L!.divIcon({
-        className: "routemap__arrow",
-        html: `<i style="transform:rotate(${mark.deg.toFixed(1)}deg)"></i>`,
-        iconSize: [14, 14],
-        // the CENTRE, not a pin's tip: the mark means "the route runs this way through
-        // this point", so it has to sit on the line rather than hang off it
-        iconAnchor: [7, 7],
-      }),
-    }).addTo(map!),
-  );
 }
 
 /**
@@ -290,9 +196,18 @@ const LIFT_SLOP_PX = 10;
 const LIFT_WINDOW_M = 3000;
 
 let lift: { el: HTMLElement; marker: import("leaflet").Marker; id: string; alongM: number } | null = null;
-/** Set through the pointerup that ends a move, so the click it generates can't place a
- *  NEW pin on an armed map. The gesture already did its job. */
-let justMoved = false;
+/**
+ * Set through any gesture that was ABOUT AN EXISTING PIN, so the click it generates can't
+ * also place a new one on an armed map. Two of them do this: the pointerup that ends a
+ * move, and the click that opens a pin's popup. Both leave a click behind them, and both
+ * had already said what they meant.
+ */
+let suppressPlace = false;
+/** Suppress through the end of this event turn — long enough for the click that follows. */
+function suppressPlaceOnce() {
+  suppressPlace = true;
+  setTimeout(() => (suppressPlace = false), 0);
+}
 
 function onPinDown(e: PointerEvent, marker: import("leaflet").Marker, w: { id: string; alongM: number }) {
   if (e.button > 0 || lift) return;
@@ -385,9 +300,7 @@ function endLift() {
   map?.dragging.enable();
   if (!l) return;
   l.el.classList.remove("is-lifted");
-  justMoved = true;
-  // cleared after the click that follows this pointerup has been and gone
-  setTimeout(() => (justMoved = false), 0);
+  suppressPlaceOnce();
   // ONE op for the whole gesture, committed on the drop — the codebase's own rule for
   // anything continuous. Live commits would be a hundred ops and a hundred autosaves for
   // one drag, and every one of them a separate undo.
@@ -429,7 +342,20 @@ function renderPins() {
     // The name if it has one, the KIND if it doesn't — an unnamed pin is the normal case
     // (three taps, three water sources), and "Water" beats an empty tooltip.
     marker.bindTooltip(document.createTextNode(w.label || meta.label) as never, { direction: "top" });
-    marker.getElement()?.addEventListener("pointerdown", (e) => onPinDown(e as PointerEvent, marker, w));
+    const el = marker.getElement();
+    el?.addEventListener("pointerdown", (e) => onPinDown(e as PointerEvent, marker, w));
+    // A click on a pin is about THAT pin: it opens the popup. Leaflet still lets it reach
+    // the map, which on an armed map dropped a SECOND pin underneath the one you asked
+    // about. Not disableClickPropagation — that would take the click the popup needs too.
+    el?.addEventListener("click", suppressPlaceOnce);
+    // The popup is built per OPEN, not once here: it has to show the pin's current name and
+    // distance, and both change under it — a pin dragged to a new mile, or renamed in its
+    // row, would otherwise open a popup still describing where it used to be.
+    marker.bindPopup(() => pinPopup(w), { closeButton: true, autoPan: true, minWidth: 180 });
+    marker.on("popupopen", () => {
+      // a popup you have to click into before typing is a popup that wasted the tap
+      (marker.getPopup()?.getElement()?.querySelector("input") as HTMLInputElement | null)?.focus();
+    });
     return [marker];
   });
 }
@@ -545,35 +471,144 @@ function onWheel(e: WheelEvent) {
  * Escape working, which is what the overlay slot below is for.
  */
 const expanded = ref(false);
+/** The frame's element, so the animation can measure where the map actually is. */
+const frameEl = ref<HTMLElement | null>(null);
+/** The hole the frame leaves in the page while it is fixed, so nothing below it jumps. */
+const parkedH = ref(0);
+/** The animated clip. Null once a transition has settled, so nothing is clipped at rest. */
+const clip = ref<string | null>(null);
 
 // On the WINDOW, not the figure: Leaflet moves focus around inside its own container and
 // a keydown on the map's SVG doesn't reliably reach an ancestor handler. Escape has to
 // work wherever the focus happens to be, because it is the way out.
 function onKeydown(e: KeyboardEvent) {
-  if (e.key === "Escape") expanded.value = false;
+  if (e.key === "Escape") setExpanded(false);
 }
 
-watch(expanded, async (on) => {
-  // the page behind must not scroll under the panel — a map you drag would otherwise take
-  // the document with it the moment a gesture missed
-  document.body.style.overflow = on ? "hidden" : "";
-  if (on) window.addEventListener("keydown", onKeydown);
-  else window.removeEventListener("keydown", onKeydown);
+/** Two frames, so the browser paints the starting value before the transition begins. */
+const twoFrames = () =>
+  new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+
+/** Where a given box sits, written as the clip that would reveal exactly it. */
+function insetOf(r: DOMRect): string {
+  const t = Math.round(r.top);
+  const right = Math.round(window.innerWidth - r.right);
+  const b = Math.round(window.innerHeight - r.bottom);
+  const l = Math.round(r.left);
+  return `inset(${t}px ${right}px ${b}px ${l}px round var(--radius-2))`;
+}
+
+/**
+ * Open and close, as the map GROWING OUT OF ITS OWN PLACE on the page.
+ *
+ * Animated with a clip, not with width and height, and that is what makes it affordable:
+ * the frame jumps to full size in one step, so Leaflet is told its new size exactly once,
+ * and what moves is only the window we see it through. Animating the box instead would
+ * mean re-measuring the map every frame — a burst of tile requests for a quarter-second of
+ * motion, at a tile server we are a guest of.
+ *
+ * It also just reads better. The map is revealed rather than stretched, so the terrain
+ * never distorts and the route never slides; it is the same picture, more of it.
+ */
+async function setExpanded(on: boolean) {
+  if (on === expanded.value || !frameEl.value) return;
+  const from = frameEl.value.getBoundingClientRect();
+
+  if (on) {
+    parkedH.value = Math.round(from.height);
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onKeydown);
+    expanded.value = true;
+    await nextTick();
+    // full size FIRST, and told about it once
+    map?.invalidateSize();
+    // Re-frame only while the view is still ours. Someone who has zoomed into a col wants
+    // that col bigger, not the whole route back.
+    if (!touched) frame();
+    clip.value = insetOf(from);
+    await twoFrames();
+    clip.value = "inset(0px round 0px)";
+    return;
+  }
+
+  // CLOSING: the target is where the placeholder is standing NOW, not where the map was
+  // when it opened. The page can be scrolled while the map is over it, and animating back
+  // to a remembered rectangle would fly off to somewhere the map isn't.
+  const back = parkedEl.value?.getBoundingClientRect();
+  clip.value = back ? insetOf(back) : "inset(0px round 0px)";
+  await new Promise<void>((r) => setTimeout(r, EXPAND_MS));
+  expanded.value = false;
+  clip.value = null;
+  document.body.style.overflow = "";
+  window.removeEventListener("keydown", onKeydown);
   await nextTick();
-  if (!map) return;
-  // Leaflet reads its container's size once. Going from a 320px strip to the whole window
-  // without telling it leaves the tiles laid out for the old box: a quarter-covered map
-  // with grey where the rest should be.
-  map.invalidateSize();
-  // Re-frame only while the view is still ours. Someone who has zoomed into a col wants
-  // that col bigger, not the whole route back.
+  map?.invalidateSize();
   if (!touched) frame();
-});
+}
+
+/** Kept in step with the CSS below; a transitionend would miss the reduced-motion case,
+ *  where the transition never runs and so never ends. */
+const EXPAND_MS = 260;
+const parkedEl = ref<HTMLElement | null>(null);
 
 onBeforeUnmount(() => {
   document.body.style.overflow = "";
   window.removeEventListener("keydown", onKeydown);
 });
+
+/**
+ * One pin's own controls, for when the rows are out of reach.
+ *
+ * Which is most of the time that matters: the map fills the window for placing, and the
+ * day rows are behind it. Even on the page, going from a pin you can see to the row that
+ * describes it means finding the right day first. Clicking the thing itself is the shorter
+ * question, and it is the one everybody tries.
+ *
+ * Built as DOM rather than markup because Leaflet's popup takes an element or an HTML
+ * STRING, and a waypoint's name is text somebody typed — `textContent` and `input.value`
+ * can't be anything but text, where a template string is one missed escape from being
+ * markup on a page anyone with the link can open.
+ */
+function pinPopup(w: { id: string; kind: string; alongM: number; label?: string }): HTMLElement {
+  const meta = waypointKindMeta(w.kind);
+  const root = document.createElement("div");
+  root.className = "routemap__wp";
+
+  const head = document.createElement("p");
+  head.className = "routemap__wphead";
+  head.textContent = props.distanceUnit
+    ? `${meta.label} · ${formatDistance(w.alongM, props.distanceUnit)}`
+    : meta.label;
+
+  const input = document.createElement("input");
+  input.className = "routemap__wpname";
+  input.type = "text";
+  input.maxLength = 120;
+  input.value = w.label ?? "";
+  input.placeholder = meta.label;
+  input.setAttribute("aria-label", `Name for the ${meta.label.toLowerCase()}`);
+  // on change, like every other name field in the app — never per keystroke, so a
+  // half-typed word is not an op
+  input.addEventListener("change", () => emit("rename", { id: w.id, label: input.value.trim() }));
+  // Leaflet closes its popup on Escape and treats keys as map shortcuts; typing must not
+  // reach it, or a name containing "-" starts zooming out
+  input.addEventListener("keydown", (e) => {
+    e.stopPropagation();
+    if (e.key === "Enter") map?.closePopup();
+  });
+
+  const del = document.createElement("button");
+  del.type = "button";
+  del.className = "routemap__wpdel";
+  del.textContent = "Remove";
+  del.addEventListener("click", () => {
+    map?.closePopup();
+    emit("remove", w.id);
+  });
+
+  root.append(head, input, del);
+  return root;
+}
 
 async function draw() {
   if (!host.value) return;
@@ -643,7 +678,7 @@ async function draw() {
   tiles.addTo(map);
 
   renderLegs();
-  renderArrows();
+  
   renderPins();
 
   // Any move that wasn't ours is theirs — drag, wheel, the +/− buttons, a keyboard arrow.
@@ -656,7 +691,7 @@ async function draw() {
   // The chevrons are spaced in SCREEN pixels, so their spacing is only correct for the
   // zoom it was computed at — re-cut them whenever that changes. Zoom only: panning moves
   // them with the map, which Leaflet does itself.
-  map.on("zoomend", renderArrows);
+  
 
   // PLACING. Bound to the map rather than to the legs, for two reasons: a 4px stroke is a
   // poor target on a phone, and the legs only cover days that have a distance typed — so
@@ -667,7 +702,7 @@ async function draw() {
     if (!range) return;
     // The pointerup that finishes a move generates a click here too. Without this, moving
     // a pin on an armed map dropped a second one on top of it.
-    if (justMoved) return;
+    if (suppressPlace) return;
     // `lon`, not Leaflet's `lng` — the app's own LatLon shape
     const at = nearestAlongM(points.value, { lat: e.latlng.lat, lon: e.latlng.lng });
     // CLAMPED to the armed stretch. The affordance that armed this belongs to a day, so
@@ -699,7 +734,7 @@ watch(() => props.waypoints, renderPins, { deep: true });
 watch(dayLegs, () => {
   renderLegs();
   // the chevrons carry the day colours too, so they follow the same cut
-  renderArrows();
+  
 });
 
 // Arming lights ONE stretch and stands the rest down, so the legs have to be redrawn when
@@ -714,7 +749,7 @@ onBeforeUnmount(() => {
   map?.remove();
   map = null;
   legs = [];
-  arrows = [];
+  
   pins = [];
 });
 </script>
@@ -742,7 +777,11 @@ onBeforeUnmount(() => {
     <!-- The frame is what anything floating over the map is positioned against. It has to
          be its own element: the FIGURE also contains the caption below, so a control
          anchored to the figure's bottom edge landed under the map rather than on it. -->
-    <div class="routemap__frame">
+    <!-- The hole the frame leaves behind while it is fixed. Without it the page below
+         jumps up the moment the map opens and drops back when it closes, which is the
+         one motion the animation is trying not to have. -->
+    <div v-if="expanded" class="routemap__parked" ref="parkedEl" :style="{ height: `${parkedH}px` }" aria-hidden="true" />
+    <div ref="frameEl" class="routemap__frame" :style="clip ? { clipPath: clip } : undefined">
       <div ref="host" class="routemap__canvas" />
       <!-- The controls that have to stay reachable with the map over the page. Rendered
            only when expanded: below, the day rows are right there on the page and a second
@@ -761,7 +800,7 @@ onBeforeUnmount(() => {
         :aria-pressed="expanded"
         :aria-label="expanded ? 'Shrink the map back into the page' : 'Expand the map to fill the window'"
         :title="expanded ? 'Shrink the map' : 'Expand the map'"
-        @click="expanded = !expanded"
+        @click="setExpanded(!expanded)"
       >
         <HugeiconsIcon
           :icon="expanded ? ArrowShrink02Icon : ArrowExpand02Icon"
@@ -841,25 +880,33 @@ onBeforeUnmount(() => {
    Fixed rather than the Fullscreen API — see the comment on `expanded`. The z-index sits
    above the page and below nothing else the app puts up, because while this is open it IS
    the page. */
-.routemap.is-expanded {
+/* EXPANDED: the FRAME takes the window, and the figure stays exactly where it was.
+   Fixing the figure instead pulled it out of flow and the whole page reflowed around it —
+   see .routemap__parked. Fixed rather than the Fullscreen API; see `expanded`. */
+.routemap.is-expanded .routemap__frame {
   position: fixed;
   inset: 0;
   z-index: var(--z-modal, 100);
-  margin: 0;
   padding: var(--space-3);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
   background: var(--paper);
-}
-.routemap.is-expanded .routemap__frame {
-  flex: 1;
-  // without this the frame refuses to shrink below its content and the map runs off the
-  // bottom of the window — the standard flex-child min-height trap
-  min-height: 0;
 }
 .routemap.is-expanded .routemap__canvas {
   height: auto;
+}
+
+/* The clip is what animates. See setExpanded: the frame is full size from the first frame,
+   so Leaflet is measured once and only the window onto it moves. */
+.routemap__frame {
+  transition: clip-path var(--dur-map-expand) cubic-bezier(0.32, 0.72, 0, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .routemap__frame {
+    transition: none;
+  }
+}
+.routemap {
+  // one place for the duration the script also counts on
+  --dur-map-expand: 260ms;
 }
 .routemap__canvas {
   flex: 1;
@@ -873,6 +920,43 @@ onBeforeUnmount(() => {
 
 /* The expanded map's own controls, floating over the terrain rather than pushing it down:
    the point of expanding is the map being big. */
+/* The popup's own controls, kept plain — it is a name and a delete, over terrain. */
+.routemap__wp {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.routemap__wphead {
+  margin: 0;
+  font-size: var(--text-chrome);
+  color: #666;
+}
+.routemap__wpname {
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid #ccc;
+  border-radius: var(--radius-1);
+  font: inherit;
+  font-size: 1rem; // the iOS zoom floor, as .field has
+  color: #111;
+  background: #fff;
+}
+.routemap__wpdel {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: var(--text-chrome);
+  // the one destructive control on the map, so it says so — every other mark here is ink
+  // or a category hue, and this is neither
+  color: var(--danger, #b3261e);
+  cursor: pointer;
+}
+.routemap__wpdel:hover {
+  text-decoration: underline;
+}
+
 .routemap__overlay {
   position: absolute;
   // clear of Leaflet's zoom buttons (top-left) and the expand button (top-right)
@@ -992,60 +1076,6 @@ onBeforeUnmount(() => {
 .routemap__casing {
   // it exists to be under the colour, never to be hit — a click belongs to the leg on top
   pointer-events: none;
-}
-
-// Which way round the walk goes.
-//
-// Leaflet's divIcon ships a white box with a border by default, which would put a little
-// card behind every chevron; both are cleared here rather than fought with later.
-.routemap__arrow {
-  background: none;
-  border: 0;
-  // it sits ON the line, and the line is what you click to place a pin
-  pointer-events: none;
-}
-
-// The chevron itself. No asset and no icon component — this chunk is already the heaviest
-// thing the app lazy-loads — and it inherits `color`, so the day's colour arrives the same
-// way the leg's does.
-//
-// A clip-path rather than the usual two-borders-rotated-45° trick, and that is a
-// correctness choice rather than a stylistic one: this shape points along +x AS DRAWN, so
-// the inline `transform` is the ONLY rotation involved. The border version needs a
-// standing +45° correction, which has to live either in a second CSS property — `rotate`
-// and `transform` are separate properties whose composition is easy to assume and hard to
-// verify, and `getComputedStyle().transform` doesn't even report the pair — or as a magic
-// number in the JavaScript. Both were wrong here before this: every chevron rendered at
-// its own angle, none of them the route's.
-.routemap__arrow i {
-  display: block;
-  width: 15px;
-  height: 13px;
-  margin: 0.5px;
-  // INK, NOT THE DAY'S COLOUR — and this was the whole reason they were hard to find.
-  //
-  // A chevron sits ON its own leg. Drawn in that leg's colour it was a pink mark on a pink
-  // line: the same hue, the same lightness, separated only by a halo a pixel wide. It read
-  // as a thickening of the line rather than as an arrowhead, and zoomed out, where the
-  // line is all you can see, it vanished into it completely.
-  //
-  // Dark on colour reads at any size, and dark with a white halo reads on bare terrain
-  // too, so one value covers both grounds. Nothing is lost: the day is what the LINE says,
-  // and these only ever had one job, which is which way round the walk goes.
-  //
-  // A literal, like the white halo below and for the same reason — the basemap under this
-  // never goes dark, so there is no second case for a token to answer.
-  background: #1c1c1c;
-  clip-path: polygon(0 0, 100% 50%, 0 100%, 42% 50%);
-  // a white halo, so a chevron stays legible where it sits on top of its own line rather
-  // than merging into it. Flat white, not a token: the basemap under this never goes dark
-  // (see color-scheme on .routemap), so there is no second case to answer for.
-  // Three passes, not two. A drop-shadow halo falls off, so one pass on a 15px mark is a
-  // suggestion rather than an outline — and this sits on a topographic sheet already full
-  // of thin coloured lines, including paths drawn in magenta a few degrees from the colour
-  // day 2 wears. Stacking them builds the halo up to something opaque enough to separate
-  // the chevron from whatever it is standing on.
-  filter: drop-shadow(0 0 1px #fff) drop-shadow(0 0 1px #fff) drop-shadow(0 0 1.5px #fff);
 }
 
 // Leaflet's own chrome, brought into the app's language. Attribution stays legible on

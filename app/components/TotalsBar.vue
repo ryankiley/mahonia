@@ -176,7 +176,20 @@ const planTip = computed(() => {
 
 <style scoped>
 .totals {
-  padding-block: var(--space-2) var(--space-4);
+  /* nothing on TOP: the big number sits directly above this in the editor, and the body's
+     own gap is the whole distance between them. The extra 8px here made "base" and "worn"
+     sit further from the figure than the elevation chart does in planning mode — the same
+     number, two spacings. */
+  padding-block: 0 var(--space-4);
+}
+/* An empty row still costs a row GAP, and this one is empty in the editor: the big figure
+   moved out to GearEditor's shared Headline, so `props.headline` is false there and this
+   wrapper renders with nothing in it. The 24px it was still charging is what put "Base"
+   and "Worn" a row lower than planning's figures — the two views' small print sitting at
+   different heights under the same number. It still holds the headline where one is
+   passed, so this hides it only when there is genuinely nothing to show. */
+.totals__main:empty {
+  display: none;
 }
 .totals__main {
   display: flex;
@@ -255,6 +268,14 @@ const planTip = computed(() => {
   flex-direction: column;
   gap: var(--space-4);
 }
+/* …but only when the figure is actually IN here. In the editor it isn't — it moved out to
+   the shared Headline — so this margin was clearance from something one level up that
+   already keeps its own distance, and the two stacked put "Base" a row below where
+   planning's figures sit under the identical number. */
+.totals__main:empty + .totals__breakdown {
+  margin-top: 0;
+}
+
 .totals__chips {
   display: flex;
   flex-wrap: wrap;

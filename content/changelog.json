@@ -14,7 +14,8 @@
       "Mark what's on a route — water, a camp, a landmark — from the day you'll reach it on: tap the map and the pin drops on that day's stretch, with its distance beside it. Pins move between days by themselves as you change how far each day walks.",
       "The map opens full screen for placing, with a bar of the trip's days across the top so you can pick which day the next pin lands in without leaving it.",
       "Each pin on the map now carries its own mark — a droplet for water, a tent for a camp — and its row names the kind in words.",
-      "Press and hold a pin on the map to pick it up, then slide it along the route to move it. It re-files itself under whichever day it lands in."
+      "Press and hold a pin on the map to pick it up, then slide it along the route to move it. It re-files itself under whichever day it lands in.",
+      "Tap a pin on the map to name it or remove it, without hunting for its row."
     ],
     "changed": [
       "Your body weight is now remembered on your device instead of saved with each list, so you set it once and every trip uses it — and it never leaves your browser at all.",
@@ -22,7 +23,8 @@
       "A day now shows its descent alongside its climb, the trip's figures line up in columns down the list, and the route's total descent only appears when it differs from the climb.",
       "The trail panel's file button now reads \"Import map file\" and names the formats it takes.",
       "Switching between Editing, Packing and Planning now uses a labelled bar under the list's title instead of three icons in the toolbar, and shared lists get one too — Gear or Trip.",
-      "Hold ⌘ or Ctrl and scroll, or pinch on a trackpad, to zoom the route map."
+      "Hold ⌘ or Ctrl and scroll, or pinch on a trackpad, to zoom the route map.",
+      "The map now opens and closes with the terrain growing out of its place on the page, and the trip's figures sit the same distance under the big number in all three views."
     ],
     "fixed": [
       "On a phone, a weight like 0.68 lb no longer has its last digit clipped, and a water row's figure lines up with the rows above it.",

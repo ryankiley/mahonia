@@ -596,9 +596,25 @@ const id = useId();
   stroke-linecap: round;
   stroke-dasharray: 0 5;
 }
+/* An SVG root clips to its viewBox by default, and a stroke is centred on its path — so at
+   x=0 and at the far right, half of every dot fell outside the box and was cut away. The
+   line looked like it came apart exactly at the two ends you can scrub to. Nothing here is
+   drawn beyond the box on purpose, so letting strokes finish is all this does. */
+.tprofile {
+  overflow: visible;
+}
 .tprofile-wrap {
   position: relative;
   cursor: crosshair;
+  /* HEADROOM, and it is hover area as well as space.
+     The reading is drawn above the chart's top edge, so it needs room up there — but the
+     peak of a route touches that edge, and a margin would put the gap OUTSIDE the element
+     that listens for the pointer. Hovering just above the highest point then did nothing,
+     which is the part of the chart you most want to interrogate. Padding is inside the
+     box, so the same space reserves the room and answers the pointer.
+     The readout reads this back (below), so the two can't drift apart. */
+  --tprofile-head: 24px;
+  padding-top: var(--tprofile-head);
   /* Horizontal movement belongs to the chart, vertical still scrolls the page. Without
      this the browser holds every touch-drag open as a possible scroll and then cancels the
      pointer stream, which is what made scrubbing feel like it only worked over the line. */
@@ -609,7 +625,8 @@ const id = useId();
    it would sit under the pointer and fight the very move that positions it. */
 .tprofile__read {
   position: absolute;
-  top: 0;
+  /* the chart's own top edge, which the padding above moved down from the box's */
+  top: var(--tprofile-head);
   /* Clamped so the label never hangs off the column at the ends. The CURSOR is not
      clamped — the line and the dot live in the SVG and keep tracking the pointer all the
      way to both edges, so what stops at the end of the track is the label, not the
