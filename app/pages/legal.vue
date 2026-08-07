@@ -18,7 +18,7 @@ useHead({
     <main id="main-content" tabindex="-1" class="wrap page">
       <div class="prose">
         <h1 class="t-title">Legal</h1>
-        <p class="t-sm t-muted">Last updated 2 August 2026</p>
+        <p class="t-sm t-muted">Last updated 6 August 2026</p>
         <p>
           How Mahonia handles your data, and the terms for using it. Jump to
           <a href="#privacy">Privacy</a> or <a href="#terms">Terms</a>.
@@ -44,6 +44,25 @@ useHead({
           until you unpublish or delete it.
         </p>
         <p>
+          <strong>Body weight</strong> is treated differently from everything else here, and more
+          carefully. Planning a trip lets you enter it so the calorie estimates mean something; it
+          is optional, and the rest of the planning view works without it. It is saved
+          <strong>on this device only</strong> — it is never sent to the server, so it cannot
+          appear on a share link, a published list, the public feed, or a JSON backup, and it does
+          not follow you to another device. Clear the field and the estimates fall back to a stated
+          assumption.
+        </p>
+        <p>
+          Your <strong>route</strong> gets the same care. Importing a map file stores the line the
+          trail follows, and that is the only geography Mahonia keeps — a recorded track often
+          starts where you parked, which is sometimes where you live. So it is
+          <strong>yours alone</strong>: it never appears on a share link, a published list or the
+          public feed, not even in the page’s hidden data. Anyone you share with sees the
+          distance, the climb and the shape of the elevation, which carry no coordinates at all.
+          Your own JSON backup does include it, because that file is yours and the route is the one
+          thing you couldn’t type again from memory.
+        </p>
+        <p>
           Your <strong>gear vault</strong> is the one part that needs an account. It holds names,
           brands and weights, and belongs to you rather than to a browser — so signing in on another
           device brings it with you, and clearing this one doesn’t lose it. Gear reaches it when you
@@ -67,7 +86,9 @@ useHead({
           An account holds an email address, an optional display name, and the public half of any
           passkey you add. There is no password to store, because there are no passwords — you sign
           in with a passkey or with a link sent to that address. Mahonia never asks for your real
-          name, payment details, or location, and a display name is shown only if you set one.
+          name, payment details, or location, and a display name is shown only if you set one. The
+          one thing it asks about you — optionally, for trip planning — is your body weight, and
+          that never leaves your device; see above.
         </p>
 
         <h3>What you type can improve the shared catalog</h3>
@@ -91,6 +112,15 @@ useHead({
           database), <strong>Upstash</strong> (rate limiting, and the short-lived challenge a
           passkey needs), <strong>Resend</strong> (sending sign-in links — it therefore handles
           your email address).
+        </p>
+        <p>
+          One more, and only on one screen. When a list has a route, the planning view draws it on
+          a topographic map, and those map images come from <strong>OpenTopoMap</strong>, a
+          volunteer project built on OpenStreetMap data. Loading an image tells that server your
+          rough map position and that the request came from mahonia.app — never which list you’re
+          looking at, because the browser is told to send the site’s address and nothing further.
+          It’s the only request Mahonia makes to anyone else, it only happens on a list that has a
+          route, and the map’s code isn’t even downloaded otherwise.
         </p>
 
         <h3>Keeping and deleting your data</h3>
@@ -135,7 +165,15 @@ useHead({
         <ul>
           <li>No passwords, no advertising. Lists need no account at all.</li>
           <li>No selling your data and no cross-site tracking.</li>
-          <li>No advertising cookies, tracking pixels, or third-party trackers.</li>
+          <li>
+            No advertising cookies, tracking pixels, or third-party trackers. The map tiles above
+            are the only thing loaded from another company, and they’re pictures of terrain, not
+            trackers.
+          </li>
+          <li>
+            No asking where you are. The map shows your route, never you — there is no “find me”
+            button, and Mahonia never requests location permission.
+          </li>
         </ul>
 
         <h3>Children</h3>

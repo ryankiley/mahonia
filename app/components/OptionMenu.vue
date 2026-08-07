@@ -22,6 +22,18 @@ const props = defineProps<{
   current: string;
   /** the control's accessible name, e.g. "Sort items in Shelter", "Weight unit" */
   label: string;
+  /**
+   * A different accessible name for the TRIGGER, when the trigger draws something a
+   * reader needs to hear.
+   *
+   * `aria-label` on a button replaces its contents, which is right when the trigger is
+   * one abbreviation ("g") and "Weight unit for this item" says more. It is wrong when
+   * the trigger holds a VALUE: the planning view's distance headline announced as
+   * "Distance unit" and the number itself — the largest thing on the page — was never
+   * spoken at all. Callers whose trigger carries a figure pass it here; the menu keeps
+   * the plain `label`, because "39.7 mi, change unit" is a poor name for a list of units.
+   */
+  triggerLabel?: string;
   /** styling hook for the trigger button; the caller owns how its trigger looks */
   triggerClass?: string;
   title?: string;
@@ -68,7 +80,7 @@ function pick(key: string) {
       class="optmenu__btn"
       :class="[triggerClass, { 'optmenu__btn--baseline': align === 'baseline' }]"
       :title="title"
-      :aria-label="label"
+      :aria-label="triggerLabel ?? label"
       aria-haspopup="menu"
       :aria-expanded="open"
       @click="open = !open"

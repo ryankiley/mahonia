@@ -100,8 +100,17 @@ onClickOutside(rootRef, close);
 useWindowEvent("keydown", (e) => {
   if (e.key === "Escape" && open.value) close();
 });
-// opened to find something, so the keyboard should already be where you'd type
-watch(open, (o) => o && filterable.value && nextTick(() => fieldRef.value?.focus()));
+watch(open, (o) => {
+  if (!o) return;
+  // Opening RETIRES the pointer, rather than only hiding it. `v-if="!open"` in the
+  // template took it off screen for exactly as long as the menu was up — close the
+  // menu and it came back, still pointing at a control you had just used. The prop
+  // is owned upstairs and persisted there (gear.intro.dismissed.v1), so telling the
+  // parent is the only thing that actually ends it.
+  emit("dismiss-hint");
+  // opened to find something, so the keyboard should already be where you'd type
+  if (filterable.value) nextTick(() => fieldRef.value?.focus());
+});
 </script>
 
 <template>
@@ -114,7 +123,7 @@ watch(open, (o) => o && filterable.value && nextTick(() => fieldRef.value?.focus
       :aria-expanded="open"
       @click="open = !open"
     >
-      {{ all.length }} lists
+      {{ all.length }}<span class="lm__word"> packs</span>
       <HugeiconsIcon
         :icon="ChevronDownIcon"
         class="lm__chev"
@@ -235,6 +244,12 @@ watch(open, (o) => o && filterable.value && nextTick(() => fieldRef.value?.focus
 }
 /* the app's dropdown mark, and it turns over when the menu is open — the same
    rotate the ⋯ menu's section headers and the sharing panel's disclosure use */
+/* The word STAYS on a phone now. It used to be hidden below $bp-stack, and the comment
+   here said why: "It's the topbar that forces this: with three mode segments the tool
+   cluster no longer fits 375px." Those segments have left the bar — the view switcher is
+   a row in the page now — which gave back ~116px, and the word costs ~30 of it. The
+   component's header argues for a word over a glyph; this is that argument no longer
+   having to be conceded on the surface where it matters most. */
 .lm__chev {
   flex: none;
   color: var(--ink-3);

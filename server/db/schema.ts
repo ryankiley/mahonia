@@ -44,6 +44,17 @@ export const lists = pgTable(
     // normalized); trail_label overrides the name derived from the URL's path
     trailUrl: text("trail_url"),
     trailLabel: text("trail_label"),
+    // route length in metres — typed, not fetched (shared/trailDistance.ts)
+    trailDistanceM: integer("trail_distance_m"),
+    // "km" | "mi"; null = miles (shared/trailDistance.ts)
+    trailDistanceUnit: text("trail_distance_unit"),
+    // the route's shape, read off a GPX — public, like the rest of the trail meta
+    trailProfile: text("trail_profile"),
+    trailAscentM: integer("trail_ascent_m"),
+    trailDescentM: integer("trail_descent_m"),
+    // the route's SHAPE, as an encoded polyline — the app's only stored geography, and
+    // NEVER served on a read path (see rowToSnapshot/withOwnerOnly)
+    routeGeometry: text("route_geometry"),
     // when the trip is. TEXT holding `YYYY-MM-DD`, not a date/timestamptz column: a
     // trip's dates are calendar dates, and a timestamp type would drag a timezone
     // into a value that has none — round-tripping "Aug 4" into "Aug 3" for anyone

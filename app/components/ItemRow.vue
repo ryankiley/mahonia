@@ -905,6 +905,22 @@ function dismissFix() {
                may each read differently, so neither has a unit to pick. -->
           <span v-if="isWater || isParent" class="item__unitwrap">
             <span class="t-sm t-muted item__unit">{{ rowUnit }}</span>
+            <!-- The chevron's SLOT, held open by the chevron itself.
+                 These rows have no unit to pick, so they carry no picker — and without
+                 the mark their cell is 20px narrower than every editable row's. On the
+                 desktop grid that hid inside a fixed column, but the mobile meta line is
+                 a flowing flex row, so those 20px moved the whole pair and a water row's
+                 figure sat out of line with the rows above it.
+                 Rendered rather than padded: a hardcoded width is a second copy of the
+                 chevron's size that goes stale the moment the icon changes. This one
+                 cannot drift, because it IS the icon. -->
+            <HugeiconsIcon
+              :icon="ChevronDownIcon"
+              class="item__unitchev item__unitchev--ghost"
+              :size="12"
+              :stroke-width="2"
+              aria-hidden="true"
+            />
           </span>
           <OptionMenu
             v-else
@@ -1508,6 +1524,15 @@ function dismissFix() {
 .item__unit {
   flex: none;
 }
+/* The reserved chevron on water and group rows — present for layout, invisible to eyes
+ * and to screen readers (aria-hidden at the call site). See the markup for why the slot
+ * is held open by a real icon rather than by a width.
+ *
+ * `visibility: hidden`, not `opacity: 0`: opacity would leave it hoverable and would let
+ * the row's :hover rule light a mark nobody can see. */
+.item__unitchev--ghost {
+  visibility: hidden;
+}
 /* The unit trigger's hit area. The bare glyph-and-caption is ~29×24, well under the
    44px target, and it was that small before too — the transparent <select> it replaced
    filled this same content-sized wrapper, so the small target predates the picker.
@@ -2105,6 +2130,23 @@ function dismissFix() {
       width: auto;
       field-sizing: content;
       min-width: 1ch;
+      /* A hair of slack, and it is not cosmetic: `field-sizing: content` sizes the box
+         to the text's measured width, which rounds DOWN against the glyphs actually
+         rasterised — so the last character loses a sliver and "0.68" renders as "0.6⌐".
+         Measured at 375px: several fields sat at clientWidth 14 against scrollWidth 15,
+         i.e. exactly one pixel short. 1px each side buys the rounding back without
+         moving anything perceptibly, and without a min-width big enough to reintroduce
+         the over-wide boxes this block exists to remove. */
+      padding-inline: 1px;
+    }
+    /* `field-sizing: content` measures the VALUE, and an empty field has none — so it
+       falls back to min-width while still drawing a two-character "--", which then
+       clips. Only the empty state needs the room, so only the empty state is given it:
+       a filled field keeps sizing to its own digits, which is what stops one-digit
+       values sitting in an over-wide box. */
+    .item__qty .field:placeholder-shown,
+    .item__weight .field:placeholder-shown {
+      min-width: 2.4ch;
     }
   }
 

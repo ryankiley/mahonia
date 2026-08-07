@@ -15,6 +15,12 @@ export default defineEventHandler(async (event) => {
     displayUnit?: Unit;
     trailUrl?: string;
     trailLabel?: string;
+    trailDistanceM?: number;
+    trailDistanceUnit?: string;
+    trailProfile?: string;
+    trailAscentM?: number;
+    trailDescentM?: number;
+    routeGeometry?: string;
     startDate?: string;
     endDate?: string;
     data?: ListData;
@@ -33,6 +39,16 @@ export default defineEventHandler(async (event) => {
   // re-validates the URL; passing it through raw here is safe.)
   const trailUrl = typeof body?.trailUrl === "string" ? body.trailUrl : undefined;
   const trailLabel = typeof body?.trailLabel === "string" ? body.trailLabel : undefined;
+  // and the route's length with them — same draft, same row, same silent loss without it
+  const trailDistanceM = typeof body?.trailDistanceM === "number" ? body.trailDistanceM : undefined;
+  const trailDistanceUnit =
+    typeof body?.trailDistanceUnit === "string" ? body.trailDistanceUnit : undefined;
+  // the route's shape, set on a DRAFT before the list exists server-side — without these
+  // it is silently lost the moment that draft is first saved
+  const trailProfile = typeof body?.trailProfile === "string" ? body.trailProfile : undefined;
+  const trailAscentM = typeof body?.trailAscentM === "number" ? body.trailAscentM : undefined;
+  const trailDescentM = typeof body?.trailDescentM === "number" ? body.trailDescentM : undefined;
+  const routeGeometry = typeof body?.routeGeometry === "string" ? body.routeGeometry : undefined;
   // Trip dates are the same case exactly: set from the same meta row, on the same
   // draft, and likewise dropped on first save without this. Also the restore half of
   // a JSON backup. (createList validates them; raw is fine here too.)
@@ -57,6 +73,12 @@ export default defineEventHandler(async (event) => {
       displayUnit,
       trailUrl,
       trailLabel,
+      trailDistanceM,
+      trailDistanceUnit,
+      trailProfile,
+      trailAscentM,
+      trailDescentM,
+      routeGeometry,
       startDate,
       endDate,
       data,

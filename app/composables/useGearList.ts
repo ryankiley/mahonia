@@ -1,10 +1,10 @@
-import type { ItemPatch, Op } from "~~/shared/ops";
-import { applyOps, tidyListText } from "~~/shared/ops";
+import type { DayPatch, ItemPatch, Op } from "~~/shared/ops";
+import { applyOps, seedRouteEnds, tidyListText } from "~~/shared/ops";
 import { uid } from "~~/shared/id";
 import { colorKeyForName, nextFolderColor, STARTER_FOLDERS } from "~~/shared/categories";
 import { editLinkPath } from "~~/shared/links";
 import { DRAFT_KEY, localKey, rebaseOnto } from "~~/shared/localList";
-import type { Folder, Item, ListSnapshot, Unit } from "~~/shared/types";
+import type { Folder, Item, ListSnapshot, TripDay, Unit, Waypoint, WaypointKind } from "~~/shared/types";
 import type { VaultCapture, VaultEntry } from "~~/shared/vault";
 import { vaultNormKey } from "~~/shared/vault";
 import { bySortOrder, computeTotals, entryUnitFromInput, itemsInFolder, nextSortOrder, parseWeightInput, siblingItems } from "~~/shared/weights";
@@ -384,9 +384,15 @@ function create() {
           // must the dates, which sit in the same meta row and are set the same way
           trailUrl: s.trailUrl,
           trailLabel: s.trailLabel,
+          trailDistanceM: s.trailDistanceM,
+          trailDistanceUnit: s.trailDistanceUnit,
+          trailProfile: s.trailProfile,
+          trailAscentM: s.trailAscentM,
+          trailDescentM: s.trailDescentM,
+          routeGeometry: s.routeGeometry,
           startDate: s.startDate,
           endDate: s.endDate,
-          data: { folders: s.folders, items: s.items },
+          data: { folders: s.folders, items: s.items, days: s.days ?? [], waypoints: s.waypoints ?? [] },
         },
       });
       if (myEpoch !== epoch) return;
@@ -671,6 +677,56 @@ function create() {
       if (f.sortOrder !== idx) updateFolder(f.id, { sortOrder: idx });
     });
   }
+  // ---- trip days ----
+  // Thin, unlike the folder helpers above: a day has no colour to allocate, no items to
+  // carry with it, and nothing pointing at it, so there is no cascade to write and no
+  // undo to offer — a removed day is two numbers, and re-typing them costs less than the
+  // toast would. Reordering is a sortOrder patch, exactly as it is for folders.
+  function addDay() {
+    const days = snapshot.value?.days ?? [];
+    dispatch({ t: "addDay", day: { id: uid(), sortOrder: days.length } });
+  }
+  const updateDay = (id: string, patch: DayPatch) => dispatch({ t: "updateDay", id, patch });
+  /** A pin at a distance along the route. No sortOrder — route order is the only order. */
+  function addWaypoint(alongM: number, kind: WaypointKind = "landmark") {
+    dispatch({ t: "addWaypoint", waypoint: { id: uid(), kind, alongM } });
+  }
+  /**
+   * The route's two ends, for a list whose geometry predates them.
+   *
+   * seedRouteEnds fires when the geometry CHANGES (see the reducer's setMeta), so a route
+   * imported before this existed has no trailhead and no finish — and no way to grow one,
+   * because neither kind is placeable by hand, on purpose. This fills the gap from the
+   * geometry the list is already holding, reusing the seeder's own fixed ids so a second
+   * call adds nothing and a loop stays a loop.
+   *
+   * NOT in the reducer. A reducer replays ops and has to give the same answer every time;
+   * a rule that invents a waypoint whenever it notices one missing would write a different
+   * history depending on when it happened to run.
+   */
+  function ensureRouteEnds() {
+    const geo = snapshot.value?.routeGeometry;
+    if (!geo) return;
+    const have = new Set((snapshot.value?.waypoints ?? []).map((w) => w.id));
+    for (const w of seedRouteEnds(geo)) {
+      if (!have.has(w.id)) dispatch({ t: "addWaypoint", waypoint: w });
+    }
+  }
+  const updateWaypoint = (id: string, patch: Partial<Waypoint>) =>
+    dispatch({ t: "updateWaypoint", id, patch });
+  // No renumbering afterwards, unlike removeDay: nothing about a waypoint's identity comes
+  // from its position in the array, so removing one leaves the rest exactly as they were.
+  const removeWaypoint = (id: string) => dispatch({ t: "removeWaypoint", id });
+  function removeDay(id: string) {
+    dispatch({ t: "removeDay", id });
+    // close the gap so the numbering a person reads ("Day 3") stays the position in the
+    // trip rather than drifting from it
+    const rest = (snapshot.value?.days ?? []).slice().sort(bySortOrder);
+    rest.forEach((d, i) => {
+      if (d.sortOrder !== i) dispatch({ t: "updateDay", id: d.id, patch: { sortOrder: i } });
+    });
+  }
+
   function removeFolder(id: string) {
     const folder = snapshot.value?.folders.find((f) => f.id === id);
     // parents before children so nesting re-links on undo (addItem drops a child whose
@@ -1147,6 +1203,8 @@ function create() {
     get epoch() { return epoch; },
     load, startDraft, dispose, rotate,
     setMeta, setUnit, addFolder, updateFolder, removeFolder, moveFolderBefore,
+    addDay, updateDay, removeDay,
+    addWaypoint, updateWaypoint, removeWaypoint, ensureRouteEnds,
     vaultPrompt, answerVaultPrompt,
     vaultPicker, confirmVaultPicker, cancelVaultPicker,
     addBlankItem, addBlankItemAfter, addVaultItem, addVaultFolder, saveItemToVault, discardEmpty, updateItem, removeItem, setItemWeight, moveItem,

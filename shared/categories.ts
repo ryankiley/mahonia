@@ -156,3 +156,39 @@ export function categoryColor(colorKey: string): string {
   // any value already persisted before that clamp existed.
   return /^[a-z0-9-]+$/.test(colorKey) ? `var(--cat-${colorKey}, var(--cat-other))` : "var(--cat-other)";
 }
+
+/**
+ * GREEN IS NOT A DAY COLOUR.
+ *
+ * The folder palette opens on volt green, which is right there — a folder is read against
+ * paper. A day is read against a topographic map, and that map is mostly forest, drawn in
+ * green. Day 1 was landing on the one hue its background already owns, and no amount of
+ * casing fixes a line that is the colour of the thing behind it.
+ *
+ * Spent here rather than only on the map, because the day colours are the one language the
+ * elevation profile and the route line both speak. Dropping green in one place and not the
+ * other would mean day 1 is green on the chart and pink on the map, which is worse than
+ * either colour being wrong.
+ */
+const NOT_A_DAY_COLOUR: readonly string[] = ["shelter"];
+
+/**
+ * The colours a trip's days are drawn in — day 1 first, in the palette's own order.
+ *
+ * Shared rather than restated because two different marks claim to speak the same
+ * language: the elevation profile's ridge and the map's route line. "Day 1 is that pink"
+ * only holds if both derive it the same way, and a copied four-line loop is exactly the
+ * kind of thing that survives one refactor and not the second.
+ *
+ * Seeds the exclusion as already-used rather than filtering the palette, so the days keep
+ * nextFolderColor's own rule that consecutive picks sit far apart in hue — including once
+ * a long trip runs past the named colours into generated ones.
+ */
+export function dayColorSequence(count: number): string[] {
+  const used: string[] = [...NOT_A_DAY_COLOUR];
+  return Array.from({ length: Math.max(0, count) }, () => {
+    const key = nextFolderColor(used);
+    used.push(key);
+    return categoryColor(key);
+  });
+}

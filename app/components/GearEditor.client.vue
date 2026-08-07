@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "@hugeicons/vue";
-import { Backpack02Icon, Cancel01Icon, CheckmarkSquare02Icon, ChevronDownIcon, EllipsisIcon, SafeBoxIcon, Share08Icon, Undo02Icon } from "@hugeicons/core-free-icons";
+import { Backpack02Icon, Cancel01Icon, CheckmarkSquare02Icon, ChevronDownIcon, EllipsisIcon, Route02Icon, SafeBoxIcon, Share08Icon, Undo02Icon } from "@hugeicons/core-free-icons";
 import { editLinkPath } from "~~/shared/links";
-import type { Item } from "~~/shared/types";
+import { tripHeadline } from "~~/shared/trailDistance";
+import { formatWeight } from "~~/shared/weights";
+import type { Item, Unit } from "~~/shared/types";
 import { bySortOrder, groupItemsByFolder, groupItemsByParent, ungroupedTopLevel } from "~~/shared/weights";
 
 // The whole editor surface (its own sticky topbar + flex shell + the shared
@@ -120,7 +122,86 @@ const itemsByFolder = computed(() => {
 const childrenByParent = computed(() => groupItemsByParent(snapshot.value?.items ?? []));
 const NO_ITEMS: Item[] = [];
 
-const packed = ref(false);
+// Which of the three views of this list you're in. Was a single `packed` boolean; it
+// couldn't hold a third state, and every alternative to widening it meant teaching the
+// row components about a mode they don't care about.
+//
+// `packed` survives as a COMPUTED, so the prop threaded down to FolderSection and ItemRow
+// keeps its exact old contract — a row still only ever asks "am I a checklist row?", and
+// stays ignorant that planning exists. That's what keeps this change to this file.
+export type EditorMode = "edit" | "pack" | "plan";
+const MODE_ORDER: EditorMode[] = ["edit", "pack", "plan"];
+// Unlike the other gear.*.v1 preferences this one is genuinely new behaviour: mode used
+// to reset on reload. Planning is somewhere you WORK across sittings, so it stays put.
+const MODE_KEY = "gear.mode.v1";
+function storedMode(): EditorMode {
+  const m = localStorage.getItem(MODE_KEY) as EditorMode | null;
+  return m && MODE_ORDER.includes(m) ? m : "edit";
+}
+const mode = ref<EditorMode>(storedMode());
+watch(mode, (m) => remember(MODE_KEY, m));
+const packed = computed(() => mode.value === "pack");
+
+/**
+ * What the big number is, per view.
+ *
+ * Planning is about the walk, so it shows the route's distance; the other two are about
+ * the pack, so they show its weight. One object rather than four scattered computeds,
+ * because every field here has to change together — a value from one view beside a unit
+ * picker from another is a control that lies about what it will do.
+ *
+ * `triggerLabel` is the SPOKEN version of the whole trigger, and it is not the same string
+ * as `label`: the trigger draws the page's biggest figure, and an aria-label of "Distance
+ * unit" on it replaces that figure rather than qualifying it, so the number went unspoken.
+ * The menu it opens keeps the plain `label` — see OptionMenu's triggerLabel.
+ */
+const headline = computed(() => {
+  if (mode.value === "plan") {
+    const trip = tripHeadline(snapshot.value ?? {});
+    return {
+      value: trip.value,
+      unit: trip.unit as string,
+      options: DISTANCE_UNIT_OPTIONS,
+      label: "Distance unit",
+      triggerLabel: `${trip.value} ${trip.unit}, change unit`,
+      pick: (u: string) => c.setMeta({ trailDistanceUnit: u }),
+    };
+  }
+  const unit = snapshot.value?.displayUnit ?? "g";
+  const value = formatWeight(totals.value?.totalMg ?? 0, unit, { withUnit: false });
+  return {
+    value,
+    unit: unit as string,
+    options: WEIGHT_UNIT_OPTIONS,
+    label: "Weight unit",
+    triggerLabel: `${value} ${unit}, change unit`,
+    pick: (u: string) => c.setUnit(u as Unit),
+  };
+});
+/**
+ * The three views, named the way a person would say them.
+ *
+ * WORDS, where these used to be three icons with tooltips. A tooltip is not an answer on
+ * a phone — <Tooltip> declines to open where there is no hover — so the marks had to be
+ * learned by pressing them. The icons stay as the leading glyph, which is what makes the
+ * pair recognisable at a glance once the word has been read once.
+ *
+ * MODE_ORDER stays the source of truth for what a stored value may be; this array is what
+ * the control renders, in the same order, so the sliding indicator's index matches.
+ */
+// "GEAR", not "Editing". Editing names the mechanic — what the controls let you do —
+// where the other two name the job: packing the bag, planning the walk. This mode's job is
+// deciding what to bring, and the thing you are looking at while you do it is the gear.
+//
+// It also settles the vocabulary across surfaces: the read-only view's own switcher
+// already says Gear / Trip, so one word now means one thing wherever it appears. The cost
+// is that it is a noun beside two gerunds, which was the trade taken deliberately —
+// matching the read view beats matching the suffix.
+const MODES = [
+  { key: "edit", label: "Gear", icon: Backpack02Icon },
+  { key: "pack", label: "Packing", icon: CheckmarkSquare02Icon },
+  { key: "plan", label: "Planning", icon: Route02Icon },
+] as const satisfies readonly { key: EditorMode; label: string; icon: unknown }[];
 
 // The vault palette. Closed by default and only ever opened deliberately, so the
 // pane's chunk (and the vault read behind it) costs nothing until it's wanted.
@@ -483,35 +564,10 @@ function onCorrected(res: { status: string; itemName?: string }) {
                title vacated when it became a page title. It takes the free width, which
                is what pins the icon cluster to the trailing edge. -->
           <SyncStatus class="topbar__status" />
-          <div class="modetoggle" role="group" aria-label="View mode">
-            <!-- one pill tracks between the two segments (damped --ease, never overshoot —
-                 a tracking indicator must not leave its track); the icons sit above it -->
-            <span class="modetoggle__pill" :class="{ 'is-packing': packed }" aria-hidden="true" />
-            <Tooltip text="Editing" preferred-placement="bottom">
-              <button
-                type="button"
-                class="modetoggle__opt"
-                :class="{ 'is-active': !packed }"
-                aria-label="Editing mode"
-                :aria-pressed="!packed"
-                @click="packed = false"
-              >
-                <HugeiconsIcon :icon="Backpack02Icon" :size="16" :stroke-width="2" />
-              </button>
-            </Tooltip>
-            <Tooltip text="Packing" preferred-placement="bottom">
-              <button
-                type="button"
-                class="modetoggle__opt"
-                :class="{ 'is-active': packed }"
-                aria-label="Packing mode"
-                :aria-pressed="packed"
-                @click="packed = true"
-              >
-                <HugeiconsIcon :icon="CheckmarkSquare02Icon" :size="16" :stroke-width="2" />
-              </button>
-            </Tooltip>
-          </div>
+          <!-- The view switcher used to sit here. It moved into the page body (see
+               ModeBar): the bar had no room for words, and no seat for it at all on the
+               read views. What is left in the bar is what acts ON a list rather than
+               what shows one. -->
           <!-- the vault palette: pick from gear you already own instead of typing
                each name. Lazy — the pane and the shared vault module it pulls in
                are their own chunk, downloaded the first time it's opened. -->
@@ -628,11 +684,38 @@ function onCorrected(res: { status: string; itemName?: string }) {
     </header>
 
     <main v-if="snapshot && totals" id="main-content" tabindex="-1" class="wrap editor__body">
+      <!-- WHICH VIEW OF THIS LIST. First thing under the toolbar, and part of the PAGE
+           rather than the chrome: it scrolls away with everything else. A row of its own
+           rather than a seat in the bar above, because that row has no width left — it
+           measures 338px of its 343px budget on a 375px phone, and words need ~207px
+           against the 116px three icons took. -->
+      <ModeBar class="editor__modes" :modes="MODES" :current="mode" label="View mode" @pick="(k) => (mode = k as EditorMode)" />
       <!-- The list name is a page title, not a toolbar field: large, borderless, with a
            ghosted placeholder, at the top of the content — matching what the two read
            views have always done (ReadonlyListView's h1). -->
-      <ListHead :snapshot="snapshot" @toast="flash" />
+      <ListHead :snapshot="snapshot" :distance-is-headline="mode === 'plan'" @toast="flash" />
+      <!-- The totals bar stands down while planning: that view has its own headline (the
+           route's distance), and two display-size figures on one screen would make you
+           choose which one the page is about. The pack's weight isn't lost — it rides in
+           the plan's chips, and per day in the burn-down column. -->
+      <!-- THE PAGE'S ONE BIG NUMBER, and one ELEMENT for all three views. It used to be
+           two — the weight inside TotalsBar, the distance inside TrailPlanPanel — so
+           switching to planning unmounted one and mounted the other, and the figure
+           jumped and re-counted every time. Here it stays put and only the value under it
+           changes, which is also what lets the count tween between modes. -->
+      <Headline
+        class="editor__headline"
+        :value="headline.value"
+        :unit="headline.unit"
+        :options="headline.options"
+        :label="headline.label"
+        :trigger-label="headline.triggerLabel"
+        title="Change unit"
+        @pick="headline.pick"
+      />
       <TotalsBar
+        v-if="mode !== 'plan'"
+        :headline="false"
         :list="snapshot"
         :totals="totals"
         @set-unit="(u) => c.setUnit(u)"
@@ -683,7 +766,26 @@ function onCorrected(res: { status: string; itemName?: string }) {
           </div>
         </div>
       </Transition>
-      <div class="editor__folders">
+
+      <!-- The plan. Lazy on purpose: the panel pulls in the trip model, and planning is a
+           mode most visits never enter — it has no business on the editor's first load.
+
+           Its OWN reveal, not the pack bar's, though the slide is the same. That recipe
+           clips its child permanently, which is right for a one-line bar and wrong here:
+           the elevation chart's hover readout is positioned above the chart's own box, so
+           a standing clip cut the reading off. This one clips only while it moves. -->
+      <Transition name="planreveal">
+        <div v-if="mode === 'plan' && snapshot && totals" class="planreveal">
+          <LazyTrailPlanPanel :snapshot="snapshot" :totals="totals" />
+        </div>
+      </Transition>
+
+      <!-- The gear stands down while you plan. Planning asks a different question of the
+           same list — how the trip breaks into days and what the pack weighs on each — and
+           the answer is above; the rows underneath would just be a long scroll between you
+           and it. Same move packing mode makes, which swaps the rows rather than adding to
+           them. -->
+      <div v-if="mode !== 'plan'" class="editor__folders">
         <FolderSection
           v-for="f in sortedFolders"
           :key="f.id"
@@ -695,7 +797,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
           @toast="flash"
         />
       </div>
-      <section v-if="ungrouped.length" class="panel editor__ungrouped">
+      <section v-if="ungrouped.length && mode !== 'plan'" class="panel editor__ungrouped">
         <p class="t-label">Ungrouped</p>
         <!-- prev-id follows this section's render order, so the indent affordance
              points at the row actually shown above -->
@@ -711,7 +813,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
         />
       </section>
 
-      <div v-if="!packed" class="editor__addfolder">
+      <div v-if="mode === 'edit'" class="editor__addfolder">
         <input
           v-if="addingFolder"
           ref="newFolderRef"
@@ -824,7 +926,16 @@ function onCorrected(res: { status: string; itemName?: string }) {
   align-items: center;
   gap: var(--space-2);
   padding-block: var(--space-3);
-  /* Leading edge, and the TOOL CLUSTER pushes itself right (see .modetoggle below).
+  /* On a phone the cluster is six controls at the 44px touch floor plus the switcher,
+     and it did not fit 375px even with two mode segments — it was ~17px over before a
+     third was added, which clipped the ⋯ menu off the trailing edge entirely.
+     The gap is the only slack that costs nothing: --tap is the HIG minimum and every
+     other candidate is a control's hit area. Halving it here buys 20px without shrinking
+     a single target. */
+  @media (max-width: $bp-stack) {
+    gap: var(--space-1);
+  }
+  /* Leading edge, and the TOOL CLUSTER pushes itself right (see .topbar__status below).
      This used to be justify-content: flex-end, holding the icons trailing by
      shoving everything — a workaround for the bar's only flexible item being
      CONDITIONAL: SyncStatus says nothing on an untouched draft, so with no
@@ -835,12 +946,65 @@ function onCorrected(res: { status: string; itemName?: string }) {
      cluster does the same job without depending on a sibling existing. */
 }
 /* Sizes to its own words and shrinks if it must (min-width:0 lets its ellipsis
-   fire) — but does NOT grow. The cluster's auto margin below eats the free space
-   first, and a `flex: 1` here would then resolve its 0% basis against nothing left
-   and collapse the line to a sliver. */
+   fire) — but does NOT grow. Its own auto margin eats the free space first, and a
+   `flex: 1` here would then resolve its 0% basis against nothing left and collapse the
+   line to a sliver. */
 .topbar__status {
+  /* WHERE THE BAR SPLITS. Everything after this acts ON the list; everything before it
+     says which list you are looking at.
+     The auto margin used to live on the mode toggle, which held this seat until it moved
+     into the page. It could not simply move to the next element: the vault and share
+     buttons are wrapped by <Tooltip>, so a class on the BUTTON lands on the wrapper's
+     child and the flex item it needed to be on is the wrapper. Putting it here instead
+     works whatever the cluster is made of — and works even on an untouched draft, where
+     SyncStatus renders empty, because an auto margin on a zero-width item still eats the
+     free space before it. */
+  margin-right: auto;
   flex: 0 1 auto;
   min-width: 0;
+}
+/* Directly under the toolbar and above the list's title. Not sticky: it belongs to the
+   page, not the chrome.
+   Only the one step below it — the bar already carries 4px of its own padding, and the
+   title below brings its own leading. A full step on top of those two read as a gap
+   somebody forgot to close. */
+.editor__modes {
+  margin-bottom: var(--space-1);
+}
+/* The big figure sits between the switcher and whatever that switcher chose. Its own
+   space, because it belongs to neither — it is the page's headline in all three views. */
+/* NO margin of its own. The body is a flex column with a --space-4 gap, so a margin here
+   is a SECOND gap stacked on the first — which is how the number ended up 32px clear of
+   the totals and 48 clear of the elevation chart, two different distances from two
+   different stacks. One gap, the body's, and both views sit the same distance below the
+   figure they belong to. (.totals and .plan drop their own top padding to match.) */
+.editor__headline {
+  margin-bottom: 0;
+}
+
+/* The plan's reveal: the pack bar's slide without its standing clip — see the template. */
+.planreveal {
+  display: grid;
+  grid-template-rows: 1fr;
+}
+.planreveal > * {
+  min-height: 0;
+}
+/* the clip exists ONLY while the rows are moving, which is the only time it is needed */
+.planreveal-enter-active > *,
+.planreveal-leave-active > * {
+  overflow: hidden;
+}
+.planreveal-enter-active,
+.planreveal-leave-active {
+  transition:
+    grid-template-rows var(--dur) var(--ease),
+    opacity var(--dur) var(--ease);
+}
+.planreveal-enter-from,
+.planreveal-leave-to {
+  grid-template-rows: 0fr;
+  opacity: 0;
 }
 /* The title block (name + trail link) belongs to ListHead.vue — it owns its own layout
    so the hover affordance, the title, and the link keep one DOM order. */
@@ -851,78 +1015,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
 .menu {
   flex: none;
 }
-/* editing/packing toggle — a light container with two icon options + a tracking pill */
-.modetoggle {
-  position: relative;
-  flex: none;
-  /* WHERE THE BAR SPLITS. Everything from here rightward is tools for the list;
-     everything left of it is what list you're looking at. The auto margin holds
-     that split without relying on a sibling being present — see .topbar__inner. */
-  margin-left: auto;
-  display: inline-flex;
-  gap: var(--space-px);
-  padding: var(--space-px);
-  background: var(--paper-2);
-  border-radius: var(--radius-pill);
-}
-/* the active tint lives on ONE pill that slides between segments (was a per-segment
-   background crossfade). width/translate are percentage-based so it tracks the wider
-   coarse-pointer segments too. damped --ease — overshoot would let it leave the track. */
-.modetoggle__pill {
-  position: absolute;
-  top: var(--space-px);
-  bottom: var(--space-px);
-  left: var(--space-px);
-  width: calc((100% - 3 * var(--space-px)) / 2); /* one segment: (inner − gap) / 2 */
-  border-radius: var(--radius-pill);
-  background: color-mix(in oklab, var(--ink) 12%, transparent);
-  pointer-events: none;
-  transition: transform var(--dur) var(--ease);
-  will-change: transform;
-}
-.modetoggle__pill.is-packing {
-  transform: translateX(calc(100% + var(--space-px))); /* over segment 2: own width + gap */
-}
-.modetoggle__opt {
-  position: relative; /* sits above the pill */
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--icon-btn);
-  height: 28px;
-  border-radius: var(--radius-pill);
-  color: var(--ink-3);
-  cursor: pointer;
-  transition: color var(--dur) var(--ease);
-  /* Pin a standing compositing layer. These buttons overlap the pill, so when the
-     pill's transform animates, Safari promotes them for the run and demotes them
-     after — re-rasterising each (at a fractional flex x) to the pixel grid, so the
-     icon jumps ~1px per toggle. A static translateZ(0) holds one layer through and
-     after the run; will-change is droppable here since the button's own transform
-     never animates. Invisible in Chromium (keeps layers warm). Icons only, no text,
-     so no glyph-blur cost. See concepts/webkit-relayers-on-animation-boundaries. */
-  transform: translateZ(0);
-}
-.modetoggle__opt:hover {
-  color: var(--ink-2);
-}
-.modetoggle__opt.is-active {
-  color: var(--ink);
-}
-/* touch: each segment becomes a proper tap target (matches the --tap icon buttons) */
-@media (pointer: coarse) {
-  .modetoggle__opt {
-    width: var(--tap);
-    height: 40px;
-  }
-  .modetoggle__opt svg {
-    width: var(--icon-touch);
-    height: var(--icon-touch);
-  }
-}
-.editor__vault {
-  color: var(--ink-2);
-}
+
 /* on = the pane is open: the icon takes full ink and a soft ground, so the button
    reads as a held state rather than a hover */
 .editor__vault.is-on {

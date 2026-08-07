@@ -10,14 +10,19 @@
 // and over-including an unchanged entity is harmless (it just re-sets the same
 // value), so the diff can never silently lose a change.
 
-import type { Folder, Item, ListData, ListState } from "./types";
+import { normalizeDistanceUnit } from "./trailDistance";
+import type { Folder, Item, ListData, ListState, TripDay, Waypoint } from "./types";
 
 export interface ListDiff {
-  meta?: Partial<Pick<ListState, "title" | "description" | "displayUnit" | "trailUrl" | "trailLabel" | "startDate" | "endDate">>;
+  meta?: Partial<Pick<ListState, "title" | "description" | "displayUnit" | "trailUrl" | "trailLabel" | "trailDistanceM" | "trailDistanceUnit" | "trailProfile" | "trailAscentM" | "trailDescentM" | "routeGeometry" | "startDate" | "endDate">>;
   foldersUpsert?: Folder[]; // present in target and new-or-changed vs base
   foldersDel?: string[]; // ids in base, gone in target
   itemsUpsert?: Item[];
   itemsDel?: string[];
+  daysUpsert?: TripDay[];
+  daysDel?: string[];
+  waypointsUpsert?: Waypoint[];
+  waypointsDel?: string[];
 }
 
 /** A full snapshot payload (the legacy/anchor form — meta + reducer content). */
@@ -27,6 +32,16 @@ export interface FullSnap {
   displayUnit: string;
   trailUrl?: string | null;
   trailLabel?: string | null;
+  trailDistanceM?: number | null;
+  trailDistanceUnit?: string | null;
+  // The route read off a GPX. It has to ride the chain like everything else: it is the
+  // one field here the owner cannot retype from memory, so losing it on a restore means
+  // finding the original file again.
+  trailProfile?: string | null;
+  trailAscentM?: number | null;
+  trailDescentM?: number | null;
+  // the one field an owner cannot retype — it came off a file they may no longer have
+  routeGeometry?: string | null;
   startDate?: string | null;
   endDate?: string | null;
   data: ListData;
@@ -38,9 +53,15 @@ export const stateToFullSnap = (s: ListState): FullSnap => ({
   displayUnit: s.displayUnit,
   trailUrl: s.trailUrl ?? null,
   trailLabel: s.trailLabel ?? null,
+  trailDistanceM: s.trailDistanceM ?? null,
+  trailDistanceUnit: s.trailDistanceUnit ?? null,
+  trailProfile: s.trailProfile ?? null,
+  trailAscentM: s.trailAscentM ?? null,
+  trailDescentM: s.trailDescentM ?? null,
+  routeGeometry: s.routeGeometry ?? null,
   startDate: s.startDate ?? null,
   endDate: s.endDate ?? null,
-  data: { folders: s.folders, items: s.items },
+  data: { folders: s.folders, items: s.items, days: s.days ?? [], waypoints: s.waypoints ?? [] },
 });
 export const fullSnapToState = (s: FullSnap): ListState => ({
   title: s.title,
@@ -50,10 +71,18 @@ export const fullSnapToState = (s: FullSnap): ListState => ({
   // round-trip a cleared link back as a present-but-blank field
   trailUrl: s.trailUrl ?? undefined,
   trailLabel: s.trailLabel ?? undefined,
+  trailDistanceM: s.trailDistanceM ?? undefined,
+  trailDistanceUnit: normalizeDistanceUnit(s.trailDistanceUnit),
+  trailProfile: s.trailProfile ?? undefined,
+  trailAscentM: s.trailAscentM ?? undefined,
+  trailDescentM: s.trailDescentM ?? undefined,
+  routeGeometry: s.routeGeometry ?? undefined,
   startDate: s.startDate ?? undefined,
   endDate: s.endDate ?? undefined,
   folders: s.data?.folders ?? [],
   items: s.data?.items ?? [],
+  days: s.data?.days ?? [],
+  waypoints: s.data?.waypoints ?? [],
   version: 0, // not carried by snapshots — the row's own version column is authoritative
 });
 
@@ -95,25 +124,55 @@ export function diffListState(base: ListState, target: ListState): ListDiff {
   // and target has to be recorded as a change, or restoring would resurrect it.
   if ((base.trailUrl ?? "") !== (target.trailUrl ?? "")) meta.trailUrl = target.trailUrl ?? "";
   if ((base.trailLabel ?? "") !== (target.trailLabel ?? "")) meta.trailLabel = target.trailLabel ?? "";
+  // 0 is this field's clear sentinel — the numeric equivalent of the "" above. A real
+  // distance is always positive (normalizeTrailDistanceM rejects the rest), so 0 can
+  // only ever mean "removed", and it keeps the key a number rather than widening the
+  // diff's type to carry a string that means nothing else.
+  if ((base.trailDistanceM ?? 0) !== (target.trailDistanceM ?? 0)) meta.trailDistanceM = target.trailDistanceM ?? 0;
+  // back to the "" sentinel: this one is a string, and "" (→ absent → follow the
+  // weight unit) is a state a list can genuinely return to, so the removal has to
+  // survive a restore just like a cleared link does
+  if ((base.trailDistanceUnit ?? "") !== (target.trailDistanceUnit ?? "")) {
+    meta.trailDistanceUnit = target.trailDistanceUnit ?? ("" as never);
+  }
+  // the route's shape takes the same clear sentinels — "" for the profile string, 0 for
+  // the two heights. The reducer only ever deletes these keys (never stores an empty
+  // profile or a zero climb), so a falsy value here can only mean "removed".
+  if ((base.trailProfile ?? "") !== (target.trailProfile ?? "")) {
+    meta.trailProfile = target.trailProfile ?? "";
+  }
+  if ((base.trailAscentM ?? 0) !== (target.trailAscentM ?? 0)) {
+    meta.trailAscentM = target.trailAscentM ?? 0;
+  }
+  if ((base.trailDescentM ?? 0) !== (target.trailDescentM ?? 0)) {
+    meta.trailDescentM = target.trailDescentM ?? 0;
+  }
+  if ((base.routeGeometry ?? "") !== (target.routeGeometry ?? "")) {
+    meta.routeGeometry = target.routeGeometry ?? "";
+  }
   // dates take the same "" clear sentinel: a trip whose dates were removed between
   // base and target has to record the removal, or a restore resurrects them
   if ((base.startDate ?? "") !== (target.startDate ?? "")) meta.startDate = target.startDate ?? "";
   if ((base.endDate ?? "") !== (target.endDate ?? "")) meta.endDate = target.endDate ?? "";
   if (Object.keys(meta).length) diff.meta = meta;
 
-  const baseF = new Map(base.folders.map((f) => [f.id, f]));
-  const foldersUpsert = target.folders.filter((f) => !baseF.has(f.id) || !same(baseF.get(f.id), f));
-  const targetFIds = new Set(target.folders.map((f) => f.id));
-  const foldersDel = base.folders.filter((f) => !targetFIds.has(f.id)).map((f) => f.id);
-  if (foldersUpsert.length) diff.foldersUpsert = clone(foldersUpsert);
-  if (foldersDel.length) diff.foldersDel = foldersDel;
+  const folders = diffEntities(base.folders, target.folders);
+  if (folders.upsert.length) diff.foldersUpsert = clone(folders.upsert);
+  if (folders.del.length) diff.foldersDel = folders.del;
 
-  const baseI = new Map(base.items.map((i) => [i.id, i]));
-  const itemsUpsert = target.items.filter((i) => !baseI.has(i.id) || !same(baseI.get(i.id), i));
-  const targetIIds = new Set(target.items.map((i) => i.id));
-  const itemsDel = base.items.filter((i) => !targetIIds.has(i.id)).map((i) => i.id);
-  if (itemsUpsert.length) diff.itemsUpsert = clone(itemsUpsert);
-  if (itemsDel.length) diff.itemsDel = itemsDel;
+  const items = diffEntities(base.items, target.items);
+  if (items.upsert.length) diff.itemsUpsert = clone(items.upsert);
+  if (items.del.length) diff.itemsDel = items.del;
+
+  // Days and waypoints, coerced on BOTH sides: a snapshot taken before either existed has
+  // no array at all, and a restore must not throw on it.
+  const days = diffEntities(base.days ?? [], target.days ?? []);
+  if (days.upsert.length) diff.daysUpsert = clone(days.upsert);
+  if (days.del.length) diff.daysDel = days.del;
+
+  const waypoints = diffEntities(base.waypoints ?? [], target.waypoints ?? []);
+  if (waypoints.upsert.length) diff.waypointsUpsert = clone(waypoints.upsert);
+  if (waypoints.del.length) diff.waypointsDel = waypoints.del;
 
   return diff;
 }
@@ -137,6 +196,32 @@ export function applyListDiff(base: ListState, diff: ListDiff): ListState {
       if (diff.meta.trailLabel) out.trailLabel = diff.meta.trailLabel;
       else delete out.trailLabel;
     }
+    // 0 clears, exactly as "" does above
+    if (diff.meta.trailDistanceM !== undefined) {
+      if (diff.meta.trailDistanceM) out.trailDistanceM = diff.meta.trailDistanceM;
+      else delete out.trailDistanceM;
+    }
+    if (diff.meta.trailDistanceUnit !== undefined) {
+      const unit = normalizeDistanceUnit(diff.meta.trailDistanceUnit);
+      if (unit) out.trailDistanceUnit = unit;
+      else delete out.trailDistanceUnit;
+    }
+    if (diff.meta.trailProfile !== undefined) {
+      if (diff.meta.trailProfile) out.trailProfile = diff.meta.trailProfile;
+      else delete out.trailProfile;
+    }
+    if (diff.meta.trailAscentM !== undefined) {
+      if (diff.meta.trailAscentM) out.trailAscentM = diff.meta.trailAscentM;
+      else delete out.trailAscentM;
+    }
+    if (diff.meta.trailDescentM !== undefined) {
+      if (diff.meta.trailDescentM) out.trailDescentM = diff.meta.trailDescentM;
+      else delete out.trailDescentM;
+    }
+    if (diff.meta.routeGeometry !== undefined) {
+      if (diff.meta.routeGeometry) out.routeGeometry = diff.meta.routeGeometry;
+      else delete out.routeGeometry;
+    }
     if (diff.meta.startDate !== undefined) {
       if (diff.meta.startDate) out.startDate = diff.meta.startDate;
       else delete out.startDate;
@@ -148,7 +233,30 @@ export function applyListDiff(base: ListState, diff: ListDiff): ListState {
   }
   out.folders = mergeEntities(out.folders, diff.foldersUpsert, diff.foldersDel);
   out.items = mergeEntities(out.items, diff.itemsUpsert, diff.itemsDel);
+  // `?? []` because `base` may predate days entirely — mergeEntities would iterate undefined
+  out.days = mergeEntities(out.days ?? [], diff.daysUpsert, diff.daysDel);
+  out.waypoints = mergeEntities(out.waypoints ?? [], diff.waypointsUpsert, diff.waypointsDel);
   return out;
+}
+
+/**
+ * One list of entities, diffed: what to upsert, and which ids went away.
+ *
+ * All four lists take the identical treatment — the rule at the top of this file is about
+ * ENTITIES, not about folders — and mergeEntities below is already one function for all
+ * four on the way back in. This is that symmetry on the way out; four hand-copied versions
+ * of it is four places for the next list to arrive with a subtly different one.
+ */
+function diffEntities<T extends { id: string }>(
+  baseArr: readonly T[],
+  targetArr: readonly T[],
+): { upsert: T[]; del: string[] } {
+  const byId = new Map(baseArr.map((e) => [e.id, e]));
+  const targetIds = new Set(targetArr.map((e) => e.id));
+  return {
+    upsert: targetArr.filter((e) => !byId.has(e.id) || !same(byId.get(e.id), e)),
+    del: baseArr.filter((e) => !targetIds.has(e.id)).map((e) => e.id),
+  };
 }
 
 // Apply deletes + upserts by id. Upserts replace in place (preserving order) or

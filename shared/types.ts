@@ -1,5 +1,9 @@
 // Domain types shared by the client editor, the op-reducer, and the server/DB.
 
+// The one import here. trailDistance.ts imports nothing, so this can't cycle, and
+// re-declaring `"km" | "mi"` in two files is how the two quietly drift apart.
+import type { DisplayDistanceUnit } from "./trailDistance";
+
 export type Unit = "g" | "kg" | "oz" | "lb";
 
 /** All units in display order — the runtime companion to the `Unit` type. */
@@ -82,10 +86,95 @@ export interface Item {
   sortOrder: number;
 }
 
+/**
+ * One day of a trip: how far it goes and how much it climbs.
+ *
+ * A day carries the SHAPE of the walking, not its schedule. There is no date on it and no
+ * time of day — the list's startDate/endDate already say when the trip is, and a day's
+ * position in it is `sortOrder`. Putting a date here would let the two disagree.
+ *
+ * Everything but the id and the order is optional, because a half-filled itinerary is a
+ * normal state: you know Tuesday is the big climb long before you know Thursday's mileage.
+ * Absent means "not filled in", and readers must treat it that way rather than as zero.
+ */
+export interface TripDay {
+  id: string; // client-generated, like Folder and Item
+  sortOrder: number;
+  /** the owner's own name for it — "Over Muir Pass", "Resupply at Reds" */
+  label?: string;
+  /** metres walked */
+  distanceM?: number;
+  /** metres climbed */
+  ascentM?: number;
+  /**
+   * Metres descended. Absent = however much this day climbed, which is exactly right for
+   * an out-and-back or a loop, and wrong only for a point-to-point ending at a different
+   * height. Kept as its own field because the energy model branches on the SIGN of a
+   * grade, so "how much did it come back down" is a real input, not a detail.
+   */
+  descentM?: number;
+  /**
+   * A deliberate zero, as distinct from an empty field.
+   *
+   * `distanceM: 0` can't say this: the normalizer drops a zero distance, on the same
+   * reasoning as Item.kcal — a zero would be a claim, where absent reads as "not filled
+   * in". A rest day IS a claim, so it gets its own flag.
+   */
+  rest?: true;
+}
+
+/** The kinds of thing worth marking on a route. */
+export const WAYPOINT_KINDS = ["water", "camp", "landmark", "trailhead", "end"] as const;
+export type WaypointKind = (typeof WAYPOINT_KINDS)[number];
+
+/**
+ * A point worth knowing about, ON the route.
+ *
+ * It stores a DISTANCE ALONG the line, not a coordinate — and that one decision is why
+ * this type is four fields instead of seven. Placement is constrained to the route, so a
+ * waypoint's position IS "how far in"; lat and lon are derived from the geometry when it
+ * comes time to draw. The only coordinates in the database stay the route's own.
+ *
+ * It also means route order is the only order there is, so there's no `sortOrder` to keep
+ * in step with anything, and a waypoint can never end up in the middle of a lake because
+ * a drag on a phone registered forty metres off.
+ *
+ * Five kinds, and two of them are a different KIND of kind. Water, camp and landmark are
+ * things you FIND — a route may have many of each or none. Trailhead and end are the
+ * route's own extremities: exactly one of each, or one in total on a loop, and both are
+ * placed automatically when a file is read because the geometry already knows where they
+ * are. They stay ordinary waypoints afterwards, because a trailhead is sometimes not where
+ * the track starts — you parked elsewhere, or the file begins mid-approach.
+ */
+export interface Waypoint {
+  id: string; // client-generated, like Folder, Item and TripDay
+  kind: WaypointKind;
+  /** metres from the start of the route. THE position, not an annotation on one. */
+  alongM: number;
+  /** the owner's own name — "spring, 40m off trail on the left" */
+  label?: string;
+  note?: string;
+}
+
 /** The JSONB payload + the mutable content the op-reducer operates on. */
 export interface ListData {
   folders: Folder[];
   items: Item[];
+  /**
+   * The itinerary, when there is one. OPTIONAL, and every reader coerces it: lists
+   * written before this existed have no `days` key at all, so anything reaching for it
+   * takes `?? []` rather than assuming an array. Absent and empty mean the same thing.
+   */
+  days?: TripDay[];
+  /**
+   * Marks on the route. OPTIONAL and `?? []`-coerced everywhere, exactly like `days` —
+   * every list written before this has no key at all.
+   *
+   * NOT public. A waypoint is only a distance, which is meaningless on its own; combined
+   * with `routeGeometry` it resolves to a precise point, so the two are one privacy object
+   * and travel together. See rowToSnapshot, which omits both.
+   */
+  waypoints?: Waypoint[];
 }
 
 export interface ListMeta {
@@ -97,6 +186,41 @@ export interface ListMeta {
   // from the URL's path, for sites whose URLs are opaque (caltopo.com/m/ABC).
   trailUrl?: string;
   trailLabel?: string;
+  // How far the route goes, in METRES — typed by the owner, never fetched (the linked
+  // page can't be read server-side; see the note atop shared/trailDistance.ts). A
+  // property of the route, so it belongs to the link and is cleared with it.
+  trailDistanceM?: number;
+  // Which unit that distance READS in, "km" or "mi". Absent = miles; present = the owner
+  // picked, and the pick is remembered. It used to fall back to the weight unit, on the
+  // reasoning that a gram list is a metric list — see resolveDistanceUnit for why that
+  // turned out to be wrong. Never affects what's stored.
+  trailDistanceUnit?: DisplayDistanceUnit;
+  // The route's shape: elevations in metres, comma-joined, evenly spaced by distance.
+  // Read off a GPX in the browser; see shared/gpx.ts. Belongs to the ROUTE, so it clears
+  // with the link, like the distance does.
+  trailProfile?: string;
+  // The whole route's climb, in metres, at FULL track resolution. The stored profile is
+  // resampled, which is plenty to draw with and too coarse to measure with — it smooths
+  // away some of the real undulation. So per-day climb takes its SHAPE from the profile
+  // and its MAGNITUDE from this.
+  trailAscentM?: number;
+  /** and what it gives back — same full-resolution caveat as the climb above */
+  trailDescentM?: number;
+  /**
+   * The route's SHAPE, as an encoded polyline — the app's first stored geography.
+   *
+   * Different in kind from everything above it. A length, a climb and 240 elevation
+   * samples carry no position; a recorded track starts where the person parked, which is
+   * frequently where they live. So this never rides a read path (see rowToSnapshot) and
+   * is bounded hard on the way in (see shared/polyline.ts).
+   *
+   * Belongs to the ROUTE, so it clears with the link like the distance does.
+   */
+  routeGeometry?: string;
+  // Body weight is NOT here, and that is the design. It belongs to the walker rather
+  // than to a list, so it lives on the device (app/composables/useBodyWeight.ts) and
+  // never reaches the server at all — which is a stronger guarantee than the
+  // strip-on-read column it replaces, because there is nothing to strip.
   // When the trip is. CALENDAR DATES, not instants: `YYYY-MM-DD`, no time and no
   // timezone. A trip's dates are the ones written on a permit — they don't shift
   // because you flew somewhere, which is exactly what storing an instant would do.

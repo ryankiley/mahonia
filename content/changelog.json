@@ -1,12 +1,63 @@
 [
   {
     "date": "2026-08-06",
+    "added": [
+      "Lists now have a third view, Planning, alongside editing and packing: lay the trip out day by day and see what each day asks of you.",
+      "Drop a GPX file on a trail link and the route's length, climb and descent fill themselves in, and its elevation profile is drawn under the distance. The file never leaves your browser.",
+      "Give a day a distance and it works out that day's climb from the route, roughly how long it will take to walk, and roughly what it will burn — with your pack's weight that morning, which drops as you eat.",
+      "Run your cursor along the elevation profile to read the distance, height and gradient at any point on the route, with each day's stretch in its own colour.",
+      "Set your body weight — in kilograms or pounds — to sharpen the calorie estimates. It stays private to you and is never on a shared list.",
+      "The elevation profile now shades how hard the ground is — red where it's steep, yellow where it's moderate — with each day's stretch still drawn in its own colour on the line above it.",
+      "Routes can now be read from Google Earth KML, Garmin TCX and GeoJSON files as well as GPX — whichever your mapping app exports.",
+      "Map files can now be read as Google Earth KMZ and GeoRSS as well as GPX, KML, TCX and GeoJSON.",
+      "A route imported from a map file is now drawn on the terrain it crosses, in the same colours the days wear on the elevation profile. The map is yours alone — it never appears on a shared or published list.",
+      "Mark what's on a route — water, a camp, a landmark — from the day you'll reach it on: tap the map and the pin drops on that day's stretch, with its distance beside it. Pins move between days by themselves as you change how far each day walks.",
+      "The map opens full screen for placing, with a bar of the trip's days across the top so you can pick which day the next pin lands in without leaving it.",
+      "Each pin on the map now carries its own mark — a droplet for water, a tent for a camp — and its row names the kind in words.",
+      "Press and hold a pin on the map to pick it up, then slide it along the route to move it. It re-files itself under whichever day it lands in.",
+      "Tap a pin on the map to name it or remove it, without hunting for its row.",
+      "Drag the tent handle where one day ends on the map and the two days either side trade miles — the trip's total never changes.",
+      "Each day now lists where it ends — the camp — with the distance in, and you can name it.",
+      "Trace the elevation profile and a dot follows on the map below, so you can see where a climb or a descent actually is on the ground.",
+      "The last day now shows where the walk finishes, with the coordinate beside it, and you can name it the way you name a camp.",
+      "A colour key under the map names each day's colour and how far it walks, so the map and the elevation chart can be read without hunting."
+    ],
     "changed": [
-      "Names are tidied when you commit them: stray spaces collapse, and an apostrophe in a possessive or a brand curls to match the rest of the page. Feet and inches are left exactly as typed. Lists and gear you already had are tidied too, so everything reads the same way."
+      "Your body weight is now remembered on your device instead of saved with each list, so you set it once and every trip uses it — and it never leaves your browser at all.",
+      "The elevation profile's distance scale now shows more marks on a wider window, and the grade you read off the chart always matches the shading beneath it.",
+      "A day now shows its descent alongside its climb, the trip's figures line up in columns down the list, and the route's total descent only appears when it differs from the climb.",
+      "The trail panel's file button now reads \"Import map file\" and names the formats it takes.",
+      "Switching between Gear, Packing and Planning now uses a labelled bar under the list's title instead of three icons in the toolbar, and shared lists get one too — Gear or Trip.",
+      "Hold ⌘ or Ctrl and scroll, or pinch on a trackpad, to zoom the route map.",
+      "The map now opens and closes with the terrain growing out of its place on the page, and the trip's figures sit the same distance under the big number in all three views.",
+      "Walking times now read as a range — \"4–4.5 hr\" rather than \"4 h 11\" — since the estimate is only good to about a fifth either way.",
+      "Map pins are now white drops with the mark in colour, the day lines carry a darker edge of their own hue, and the end of each day shows as a camp you can drag.",
+      "The trip's time figure is now labelled \"Walking time\", since it counts time on your feet and not the days the trip takes.",
+      "Setting what a waypoint is now takes one tap on the kind you want, the way an item's type works in Gear.",
+      "Camp is no longer something you pick — every day's end draws one, and the pins you place are water or a landmark.",
+      "The elevation chart now leaves easy ground unshaded, breaks cleanly between days, and keeps its difficulty shading readable at the route's low points.",
+      "The elevation profile now leaves a real gap between one day and the next, on the shading as well as the line.",
+      "A day's climb and its drop now sit together as one pair, and the figures after them line up down the list.",
+      "Names are tidied when you commit them: stray spaces collapse, and an apostrophe in a possessive or a brand curls to match the rest of the page. Feet and inches are left exactly as typed. Lists and gear you already had are tidied too, so everything reads the same way.",
+      "The route's start and finish wear a chequered flag, and camps and route ends are now solid dark pins on the map so they read apart from the water and landmarks you place. A loop shows one mark where it begins and ends, not two.",
+      "The map's zoom and pin-dragging instructions now sit behind a (?) instead of taking a line under the map permanently."
+    ],
+    "fixed": [
+      "On a phone, a weight like 0.68 lb no longer has its last digit clipped, and a water row's figure lines up with the rows above it.",
+      "A shared list no longer carries the owner's packing tick-offs in its data.",
+      "Clearing a day's distance or climb now sticks, instead of coming back the moment the list saved.",
+      "Calorie estimates were too high for heavier walkers — resting energy was billed per kilogram, which over-charged anyone above about 65 kg, and a night's sleep was charged at the same rate as an evening in camp.",
+      "Waypoint rows now fit a phone screen: the name gets its own line, and the coordinate and distance sit at either end of the one below it instead of overlapping the buttons beside them.",
+      "Map pins now point exactly at the spot on the route they mark, rather than a little below it.",
+      "Routes imported before trailheads existed now get their start pin, and the route's own start and finish can no longer be turned into something else or deleted by mistake."
     ]
   },
   {
     "date": "2026-08-05",
+    "added": [
+      "Add a hike's distance to its trail link — in miles or kilometres, whichever you prefer — and see it beside the trail's name.",
+      "Lists with calories and trip dates now show what that works out to per day, so you can tell at a glance whether there's enough food in the pack."
+    ],
     "changed": [
       "On a phone, removing an item now lives in the row's ⋯ menu with the note, nesting and gear vault actions; the row keeps the ⋯ and the drag handle.",
       "On a phone, a list's trip dates now sit tight under its trail link, so the title, trail and dates read as one block.",
@@ -18,6 +69,8 @@
       "On a phone, the worn and consumable icons now sit in the same place on every row, instead of moving left and right with each item's weight.",
       "Opening a row's ⋯ menu no longer nudges every other row in that folder sideways.",
       "On a narrow phone, an item's drag handle no longer runs off the edge of the screen when its weight is long or it sits inside a group.",
+      "Opening a list's trip dates now closes the trail link's card, instead of leaving both open on top of each other.",
+      "\"Pick up where you left off\" now goes away for good once you've opened your lists, instead of coming back when you close the menu.",
       "On a shared list, each item's amount and weight now sit at the right edge of the row, in line with the totals above, instead of stopping short of it.",
       "On a phone, the weight summary's second line no longer starts with a stray divider, and sits closer to the line above it.",
       "A heavy item's weight no longer breaks between the number and its unit, and stays in the same column as every other weight on the widest and narrowest windows.",

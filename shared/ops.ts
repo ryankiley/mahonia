@@ -4,10 +4,13 @@
 // MERGE: two editors adding different items both succeed with no conflict; the
 // version counter only signals "you're behind, refetch", not "rejected".
 
+import { parseProfile } from "./profile";
 import { tidyProse, tidyText } from "./tidyText";
+import { normalizeDistanceUnit, normalizeTrailAscentM, normalizeTrailDistanceM } from "./trailDistance";
 import { normalizeTrailLabel, normalizeTrailUrl } from "./trailLink";
-import type { Classification, Folder, FolderSort, Item, ListState, Unit } from "./types";
-import { UNITS } from "./types";
+import type { Classification, Folder, FolderSort, Item, ListState, TripDay, Unit, Waypoint } from "./types";
+import { UNITS, WAYPOINT_KINDS } from "./types";
+import { cumulativeM, decodePolyline, isLoop, normalizeRouteGeometry } from "./polyline";
 
 // updateItem's patch: Partial<Item> plus `catalogItemId: null` as an explicit
 // "unlink" — a free rename turns a linked item into a custom one, and the old
@@ -48,6 +51,17 @@ export type Op =
   | { t: "addFolder"; folder: Folder }
   | { t: "updateFolder"; id: string; patch: Partial<Folder> }
   | { t: "removeFolder"; id: string }
+  // Days follow the FOLDER ops, not the item ones: three, with reorder riding as a
+  // sortOrder patch on updateDay. There is no moveDay for the same reason there is no
+  // moveFolder — a day has no container to move between, only an order.
+  | { t: "addDay"; day: TripDay }
+  | { t: "updateDay"; id: string; patch: DayPatch }
+  | { t: "removeDay"; id: string }
+  // Waypoints follow the day ops exactly. No moveWaypoint and no sortOrder patch: a
+  // waypoint's position on the route IS its order, so there is nothing to reorder.
+  | { t: "addWaypoint"; waypoint: Waypoint }
+  | { t: "updateWaypoint"; id: string; patch: Partial<Waypoint> }
+  | { t: "removeWaypoint"; id: string }
   | {
       t: "setMeta";
       patch: Partial<{
@@ -56,6 +70,15 @@ export type Op =
         displayUnit: Unit;
         trailUrl: string;
         trailLabel: string;
+        // metres, or "" to clear — the empty string is how every clearable meta field
+        // here says "remove", and a number channel alone couldn't express it
+        trailDistanceM: number | string;
+        trailDistanceUnit: string;
+        trailProfile: string;
+        // the encoded polyline, or "" to clear — same sentinel as trailProfile above
+        routeGeometry: string;
+        trailAscentM: number | string;
+        trailDescentM: number | string;
         startDate: string;
         endDate: string;
       }>;
@@ -103,6 +126,18 @@ const FOLDER_SORTS: FolderSort[] = ["name", "heaviest", "lightest"];
 // bigint(mode:number) columns (MAX_ITEMS × qtyMax × UNIT_WEIGHT_MAX_MG < 2^53).
 export const MAX_ITEMS = 1000;
 export const MAX_FOLDERS = 50;
+// Past this an itinerary stops being something a person hand-enters, and the per-day
+// model stops being the right tool for the trip. A bound on row size, like the two above,
+// not an opinion about how long a walk should be.
+export const MAX_DAYS = 60;
+// A bound on row size, like the caps above, and not an opinion about how many springs a
+// route may have. 100 pins is far past what anyone hand-places on one walk.
+export const MAX_WAYPOINTS = 100;
+// A day's bounds are NOT the route's. 100 km is longer than any single day on foot, and
+// 10,000 m of climb is more than Everest from the sea — generous for a real day, and far
+// enough below a float that misbehaves to keep the jsonb honest.
+export const MAX_DAY_DISTANCE_M = 100_000;
+export const MAX_DAY_ASCENT_M = 10_000;
 export const UNIT_WEIGHT_MAX_MG = 100_000_000; // 100 kg per single unit
 // Per single unit, so the same 2^53 argument holds for the kcal rollup. A day of
 // hard hiking runs 4–5k kcal; 1,000,000 leaves room for a whole resupply entered
@@ -212,6 +247,143 @@ function cleanFolderPatch(patch: Partial<Folder>): Partial<Folder> {
   return out;
 }
 
+// A day's optional metres. Absent stays absent and a zero CLEARS, on the same reasoning
+// as Item.kcal: a zero would read as "this day covers no ground", which is a claim, where
+// absent reads as "not filled in". A day that genuinely covers no ground says so with
+// `rest`, which is why that flag exists.
+function cleanDayMetres(raw: unknown, max: number): number | undefined {
+  const n = typeof raw === "string" ? Number.parseFloat(raw) : raw;
+  if (typeof n !== "number" || !Number.isFinite(n)) return undefined;
+  const m = Math.round(n);
+  return m > 0 && m <= max ? m : undefined;
+}
+
+/**
+ * A day patch AS IT TRAVELS — same fields as TripDay, except the clearable metre figures
+ * also accept "", the sentinel meaning ERASE THIS.
+ *
+ * It has to be a VALUE and not `undefined`, because the patch is JSON on the way to the
+ * server and JSON.stringify drops undefined keys: `{ distanceM: undefined }` serialises to
+ * `{}`, so the `in` test below was false by the time the reducer ran and the clear simply
+ * never happened. It worked locally and was gone on the next echo, which read as the
+ * server rejecting the edit rather than never being told about it.
+ *
+ * Same sentinel setMeta already uses for trailDistanceM and trailAscentM, for the same
+ * reason — and cleanDayMetres already maps "" to undefined, so nothing downstream changes.
+ */
+export type DayPatch = Omit<Partial<TripDay>, "distanceM" | "ascentM" | "descentM"> & {
+  distanceM?: number | "";
+  ascentM?: number | "";
+  descentM?: number | "";
+};
+
+function cleanDayPatch(patch: DayPatch): Partial<TripDay> {
+  const out: Partial<TripDay> = {};
+  if (typeof patch.label === "string") out.label = patch.label.slice(0, 120) || undefined;
+  // `in` rather than a truthiness test: these are all clearable, and an explicit
+  // undefined/0/"" has to be able to erase a value, not be skipped as "nothing sent".
+  if ("distanceM" in patch) out.distanceM = cleanDayMetres(patch.distanceM, MAX_DAY_DISTANCE_M);
+  if ("ascentM" in patch) out.ascentM = cleanDayMetres(patch.ascentM, MAX_DAY_ASCENT_M);
+  if ("descentM" in patch) out.descentM = cleanDayMetres(patch.descentM, MAX_DAY_ASCENT_M);
+  // only `true` survives; false/absent clears the flag rather than storing a redundant
+  // "this is not a rest day", exactly as a folder's "manual" sort clears rather than persists
+  if ("rest" in patch) out.rest = patch.rest === true ? true : undefined;
+  if (typeof patch.sortOrder === "number" && isFinite(patch.sortOrder)) out.sortOrder = patch.sortOrder;
+  return out;
+}
+
+/**
+ * The two ids seedRouteEnds hands out, in route order: start, then finish.
+ *
+ * Exported because they are an IDENTITY and not an implementation detail — anything that
+ * has to recognise the route's own ends among a list of pins (ensureRouteEnds, the JSON
+ * importer) matches on these, so they cannot be spelled out twice and drift apart.
+ */
+export const ROUTE_END_IDS = ["wp-start", "wp-end"] as const;
+
+/**
+ * The pins a route arrives with: where it starts, and where it finishes.
+ *
+ * A track's first and last points ARE these, so nobody should have to drop them by hand —
+ * they appear with the route. They are ordinary waypoints afterwards, movable and
+ * deletable, because a trailhead is often not where the track starts: you parked somewhere
+ * else, or the recording begins mid-approach.
+ *
+ * FIXED IDS, and that is not laziness. This reducer runs on the client and again on the
+ * server, and both must produce the same list — a generated id would give the same pin two
+ * identities and the merge would carry both. Ids only need to be unique within one list,
+ * which these are.
+ *
+ * ON A LOOP, ONE PIN. If the finish is within LOOP_CLOSE_M of the start it is the same
+ * place, and two markers stacked on one spot reads as a rendering bug rather than as a
+ * fact about the walk.
+ */
+export function seedRouteEnds(geo: string): Waypoint[] {
+  if (!geo) return [];
+  const pts = decodePolyline(geo);
+  if (pts.length < 2) return [];
+  const out: Waypoint[] = [{ id: ROUTE_END_IDS[0], kind: "trailhead", alongM: 0 }];
+  if (!isLoop(pts)) {
+    const end = cumulativeM(pts).at(-1) ?? 0;
+    if (end > 0) out.push({ id: ROUTE_END_IDS[1], kind: "end", alongM: Math.round(end) });
+  }
+  return out;
+}
+
+/** A raw day → its stored form. Same contract as normalizeFolder/normalizeItem. */
+export function normalizeDay(raw: TripDay): TripDay {
+  return {
+    id: String(raw.id).slice(0, MAX_ID_LEN),
+    sortOrder: Number(raw.sortOrder) || 0,
+    label: raw.label ? String(raw.label).slice(0, 120) : undefined,
+    distanceM: cleanDayMetres(raw.distanceM, MAX_DAY_DISTANCE_M),
+    ascentM: cleanDayMetres(raw.ascentM, MAX_DAY_ASCENT_M),
+    descentM: cleanDayMetres(raw.descentM, MAX_DAY_ASCENT_M),
+    rest: raw.rest === true ? true : undefined,
+  };
+}
+
+/** Metres along the route. Clamped rather than dropped: unlike a day's distance, a
+ *  waypoint with no position is not a waypoint, so `addWaypoint` rejects it outright. */
+function cleanAlongM(raw: unknown): number | undefined {
+  const n = typeof raw === "string" ? Number(raw) : raw;
+  if (typeof n !== "number" || !Number.isFinite(n) || n < 0) return undefined;
+  // the longest route the geometry can describe, with room to spare
+  return Math.min(Math.round(n), 1_000_000);
+}
+
+/**
+ * A waypoint from the wire, or null when it isn't one.
+ *
+ * Returns NULL rather than a repaired object, unlike normalizeDay — a day with nothing
+ * filled in is a normal, meaningful state, where a waypoint without a position on the
+ * route is not a partially-placed pin, it is not a pin.
+ */
+export function normalizeWaypoint(raw: Waypoint): Waypoint | null {
+  const alongM = cleanAlongM(raw?.alongM);
+  if (alongM == null || typeof raw?.id !== "string" || !raw.id) return null;
+  return {
+    id: String(raw.id).slice(0, MAX_ID_LEN),
+    kind: WAYPOINT_KINDS.includes(raw.kind) ? raw.kind : "landmark",
+    alongM,
+    label: raw.label ? String(raw.label).slice(0, 120) : undefined,
+    note: raw.note ? String(raw.note).slice(0, 500) : undefined,
+  };
+}
+
+/** `in`-based like cleanDayPatch, so clearing a label reaches the reducer as a clear. */
+function cleanWaypointPatch(patch: Partial<Waypoint>): Partial<Waypoint> {
+  const out: Partial<Waypoint> = {};
+  if ("kind" in patch) out.kind = WAYPOINT_KINDS.includes(patch.kind!) ? patch.kind : "landmark";
+  if ("alongM" in patch) {
+    const m = cleanAlongM(patch.alongM);
+    if (m != null) out.alongM = m; // a patch can move a pin, never un-place it
+  }
+  if ("label" in patch) out.label = patch.label ? String(patch.label).slice(0, 120) : undefined;
+  if ("note" in patch) out.note = patch.note ? String(patch.note).slice(0, 500) : undefined;
+  return out;
+}
+
 /** Apply a single op in place. Unknown/invalid ops are ignored (no throw). */
 function applyOp(state: ListState, op: Op): void {
   switch (op?.t) {
@@ -315,6 +487,45 @@ function applyOp(state: ListState, op: Op): void {
       state.folders = state.folders.filter((f) => f.id !== op.id);
       state.items = state.items.filter((i) => i.folderId !== op.id);
       break;
+    case "addDay":
+      if (
+        op.day &&
+        typeof op.day.id === "string" &&
+        (state.days?.length ?? 0) < MAX_DAYS &&
+        !state.days?.some((d) => d.id === op.day.id)
+      )
+        (state.days ??= []).push(normalizeDay(op.day));
+      break;
+    case "updateDay": {
+      const d = state.days?.find((x) => x.id === op.id);
+      if (d) Object.assign(d, cleanDayPatch(op.patch || {}));
+      break;
+    }
+    case "removeDay":
+      // No cascade, unlike removeFolder — nothing else references a day. Items belong to
+      // folders, and deliberately not to days: gear is packed for a trip, not for a
+      // Tuesday, and pinning it to one would make deleting a day delete your tent.
+      if (state.days) state.days = state.days.filter((d) => d.id !== op.id);
+      break;
+    case "addWaypoint": {
+      const wp = op.waypoint && normalizeWaypoint(op.waypoint);
+      if (
+        wp &&
+        (state.waypoints?.length ?? 0) < MAX_WAYPOINTS &&
+        !state.waypoints?.some((w) => w.id === wp.id)
+      )
+        (state.waypoints ??= []).push(wp);
+      break;
+    }
+    case "updateWaypoint": {
+      const w = state.waypoints?.find((x) => x.id === op.id);
+      if (w) Object.assign(w, cleanWaypointPatch(op.patch || {}));
+      break;
+    }
+    case "removeWaypoint":
+      // no cascade, for the same reason removeDay has none — nothing references a waypoint
+      if (state.waypoints) state.waypoints = state.waypoints.filter((w) => w.id !== op.id);
+      break;
     case "setMeta": {
       const p = op.patch || {};
       if (typeof p.title === "string") state.title = cleanText(p.title, 200);
@@ -339,6 +550,62 @@ function applyOp(state: ListState, op: Op): void {
         const label = normalizeTrailLabel(p.trailLabel);
         if (label) state.trailLabel = label;
         else delete state.trailLabel;
+      }
+      // Metres, bounded and integer-ised by the normalizer. Anything that isn't a
+      // usable distance CLEARS, on the same reasoning as the dates below: a route
+      // length of "0" or "abc" is not a partially-valid state worth carrying.
+      if (typeof p.trailDistanceM === "number" || typeof p.trailDistanceM === "string") {
+        const metres = normalizeTrailDistanceM(p.trailDistanceM);
+        if (metres) state.trailDistanceM = metres;
+        else delete state.trailDistanceM;
+      }
+      // Anything that isn't one of the two units clears back to ABSENT, which means
+      // "follow the weight unit" — the default, not a blank. Same shape as a folder's
+      // "manual" sort: the default is stored by not being stored.
+      if (typeof p.trailDistanceUnit === "string") {
+        const unit = normalizeDistanceUnit(p.trailDistanceUnit);
+        if (unit) state.trailDistanceUnit = unit;
+        else delete state.trailDistanceUnit;
+      }
+      // Same clear-on-unusable rule as everything else here. Note this rides the ordinary
+      // op pipeline: it is list state for the OWNER, and only the read paths strip it.
+      if (typeof p.trailProfile === "string") {
+        // parseProfile is the single gate: a hand-edited value, a truncated string or
+        // anything that isn't elevations in metres clears rather than persisting.
+        const prof = parseProfile(p.trailProfile);
+        if (prof.length) state.trailProfile = prof.join(",");
+        else delete state.trailProfile;
+      }
+      if (typeof p.routeGeometry === "string") {
+        // normalizeRouteGeometry is the single gate, like parseProfile above: it bounds
+        // the string AND the decoded point count, refuses an out-of-range coordinate
+        // rather than clamping it, and returns its own canonical re-encoding so a
+        // hand-edited value can't round-trip in a shape this codec didn't produce.
+        const geo = normalizeRouteGeometry(p.routeGeometry);
+        // THE WAYPOINTS GO WITH IT. A waypoint is a distance along THIS route — "water at
+        // 6.2 miles" describes the Timberline and describes nothing at all once the
+        // Wildwood is loaded in its place. Left alone they don't error; they silently
+        // re-point at whatever is now 6.2 miles in, which is a confident wrong answer of
+        // the worst kind, because it looks like a pin somebody placed.
+        //
+        // Only on a real CHANGE, so re-saving the same route keeps its pins — an
+        // unconditional clear would empty them on any autosave that happened to carry the
+        // geometry. And in the reducer rather than at the call sites, because there are
+        // three of those already (import, clear the link, remove the trail) and the next
+        // one to be added is the one that would forget.
+        if (geo !== state.routeGeometry) state.waypoints = seedRouteEnds(geo ?? "");
+        if (geo) state.routeGeometry = geo;
+        else delete state.routeGeometry;
+      }
+      if (typeof p.trailAscentM === "number" || typeof p.trailAscentM === "string") {
+        const m = normalizeTrailAscentM(p.trailAscentM);
+        if (m) state.trailAscentM = m;
+        else delete state.trailAscentM;
+      }
+      if (typeof p.trailDescentM === "number" || typeof p.trailDescentM === "string") {
+        const m = normalizeTrailAscentM(p.trailDescentM);
+        if (m) state.trailDescentM = m;
+        else delete state.trailDescentM;
       }
       // Dates are SHAPE-checked, not just clamped. They're rendered and exported, and
       // a half-typed "2026-0" would otherwise persist and read as a real date

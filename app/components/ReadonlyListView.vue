@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "@hugeicons/vue";
-import { Calendar03Icon, GlobeIcon } from "@hugeicons/core-free-icons";
+import { ArrowUpRight01Icon, Backpack02Icon, Calendar03Icon, GlobeIcon, Route02Icon, RouteIcon } from "@hugeicons/core-free-icons";
 import { parseTrailLink } from "~~/shared/trailLink";
+import { dayClimbs, parseProfile } from "~~/shared/profile";
+import { dayLabel } from "~~/shared/tripDay";
+import { formatDistance, heightUnitFor, heightValue, resolveDistanceUnit } from "~~/shared/trailDistance";
 import type { Item, ListSnapshot, Totals, Unit } from "~~/shared/types";
 import { groupItemsByFolder, groupItemsByParent } from "~~/shared/weights";
 
@@ -43,10 +46,79 @@ const editedAt = computed(() => {
 const trail = computed(() => parseTrailLink(props.list?.trailUrl, props.list?.trailLabel));
 // empty string when the list has no dates, which the v-if reads as absent
 const dateLabel = computed(() => formatDateRange(props.list?.startDate, props.list?.endDate));
+
+// ---- the trip, as the owner planned it ----
+//
+// A planned list that shows only its gear is a list with its plan missing: the itinerary
+// was being SERVED on both read paths and rendered on neither, so everyone but the owner
+// saw four days of food and no days.
+//
+// FACTS ONLY. The days carry their distance and their climb, and deliberately not the
+// moving time or the calorie figure the editor shows beside them.
+//
+// The reason has changed shape but not direction. It used to be that those figures were
+// computed against the OWNER's body weight, which a shared list never carried. Body
+// weight now lives on the reader's own device, so this view could compute them against
+// whoever is looking — and still shouldn't, unprompted. A stranger opening a link came to
+// see somebody's pack, not to be told what the walk would cost THEM against a number they
+// may never have set. The route's shape is a fact about the route; an estimate is a fact
+// about a person, and this page is about neither of the two people involved.
+// Which half of the list is on screen. Shared state rather than a local ref only because
+// it must reset per list — see useReadView.
+const view = useReadView();
+onMounted(resetReadView);
+const VIEW_MODES = [
+  { key: "gear", label: "Gear", icon: Backpack02Icon },
+  { key: "trip", label: "Trip", icon: Route02Icon },
+] as const;
+
+const days = computed(() => props.list?.days ?? []);
+const distanceUnit = computed(() =>
+  resolveDistanceUnit(props.list?.trailDistanceUnit, props.list?.displayUnit ?? "g"),
+);
+const profile = computed(() => parseProfile(props.list?.trailProfile));
+const dayDistancesM = computed(() => days.value.map((d) => d.distanceM ?? 0));
+// the same helper the editor uses, so a shared day reads the climb its owner sees
+const climbs = computed(() =>
+  dayClimbs(
+    profile.value,
+    dayDistancesM.value,
+    props.list?.trailDistanceM,
+    props.list?.trailAscentM,
+  ),
+);
+const climbFor = (i: number) =>
+  days.value[i]?.ascentM ?? (days.value[i]?.distanceM != null ? climbs.value[i]?.ascentM : undefined);
+const routeM = computed(() =>
+  Math.max(props.list?.trailDistanceM ?? 0, dayDistancesM.value.reduce((s, d) => s + d, 0)),
+);
+// Nothing to show is nothing to draw — a list with no days and no route keeps the shape
+// it had before any of this existed.
+const hasTrip = computed(() => days.value.length > 0 || profile.value.length > 0);
+// feet rounded to the nearest 10, as the editor does: the store is integer metres, so a
+// climb quoted to the foot claims a precision the measurement never had. The conversion
+// and the unit word are shared/trailDistance.ts's — only the rounding is this view's.
+const tripId = useId();
+const asHeight = (m: number) => {
+  const unit = distanceUnit.value;
+  return `${heightValue(m, unit, unit === "mi" ? 10 : 1)} ${heightUnitFor(unit)}`;
+};
 </script>
 
 <template>
   <main v-if="list && totals" id="main-content" tabindex="-1" class="wrap view">
+    <!-- WHICH VIEW, and only when there is a choice to make. Two modes, not the editor's
+         three: packing is impossible here, because a tick is the owner's list data and a
+         viewer holds no edit token. A list with no trip keeps exactly the page it had
+         before this existed — one mode is not a choice. -->
+    <ModeBar
+      v-if="hasTrip"
+      class="view__modes"
+      :modes="VIEW_MODES"
+      :current="view"
+      label="View"
+      @pick="(k) => (view = k as 'gear' | 'trip')"
+    />
     <div class="view__header">
       <slot name="head">
         <h1 class="t-title view__title">{{ list.title }}</h1>
@@ -106,8 +178,38 @@ const dateLabel = computed(() => formatDateRange(props.list?.startDate, props.li
     </div>
 
     <TotalsBar :list="list" :totals="totals" @set-unit="(u) => $emit('set-unit', u)" />
+    <!-- The trip, between what it weighs and what's in it: the pack's total is the
+         list's headline fact, then the walk it was packed for, then the gear itself. -->
+    <section v-if="hasTrip && view === 'trip'" class="view__trip" :aria-labelledby="tripId">
+      <h2 :id="tripId" class="view__triph">The trip</h2>
+      <TrailProfile
+        v-if="profile.length && days.length"
+        :profile="profile"
+        :day-distances-m="dayDistancesM"
+        :distance-unit="distanceUnit"
+        :total-distance-m="routeM"
+        :ascent-m="list.trailAscentM"
+        :descent-m="list.trailDescentM"
+      />
+      <ol v-if="days.length" class="view__days">
+        <li v-for="(d, i) in days" :key="d.id" class="view__day">
+          <span class="view__dayname">{{ dayLabel(i, list.startDate) }}</span>
+          <span v-if="d.distanceM" class="view__dayfig">
+            <HugeiconsIcon :icon="RouteIcon" :size="14" :stroke-width="2" aria-hidden="true" />
+            {{ formatDistance(d.distanceM, distanceUnit) }}
+          </span>
+          <!-- `!= null`, not truthiness: a day that genuinely climbs nothing still has a
+               climb to report, and hiding it made a flat or downhill day look like a day
+               whose data was missing. The editor shows the 0; so does this. -->
+          <span v-if="climbFor(i) != null" class="view__dayfig">
+            <HugeiconsIcon :icon="ArrowUpRight01Icon" :size="14" :stroke-width="2" aria-hidden="true" />
+            {{ asHeight(climbFor(i)!) }}
+          </span>
+        </li>
+      </ol>
+    </section>
 
-    <div class="view__folders">
+    <div v-if="view === 'gear'" class="view__folders">
       <ReadonlyFolderSection v-for="f in shownFolders" :key="f.id" :list="list" :folder="f" :items="itemsByFolder.get(f.id) ?? NO_ITEMS" :children-by-parent="childrenByParent" />
       <section v-if="ungrouped.length">
         <p class="t-label view__ungrouped">Ungrouped</p>
@@ -218,6 +320,52 @@ const dateLabel = computed(() => formatDateRange(props.list?.startDate, props.li
 /* read views are denser than the editor (no add-item row or controls per folder),
    so the inter-folder gap is a step tighter here (space-6, vs the editor's space-7)
    — the list scans as one block instead of drifting apart. */
+/* The trip block. Quiet by construction — it sits between the totals and the gear, and
+   the gear is what a reader came for. */
+/* Under the toolbar, above the title, scrolling with the page. Matches .editor__modes,
+   including leaning on the bar's own padding and the title's leading rather than adding
+   a step of its own. */
+.view__modes {
+  margin-bottom: var(--space-1);
+}
+.view__trip {
+  margin-top: var(--space-6);
+}
+.view__triph {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  letter-spacing: var(--track-tight);
+  color: var(--ink-3);
+}
+.view__days {
+  list-style: none;
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+/* name, then its figures — wraps rather than truncating, because a day with a long
+   weekday and two measurements is exactly what a narrow phone gets */
+.view__day {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-4);
+}
+.view__dayname {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.view__dayfig {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
 .view__folders {
   display: flex;
   flex-direction: column;

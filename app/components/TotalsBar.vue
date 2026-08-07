@@ -2,13 +2,28 @@
 import { HugeiconsIcon } from "@hugeicons/vue";
 import { CheckIcon, ChevronDownIcon } from "@hugeicons/core-free-icons";
 import type { ListSnapshot, Totals, Unit } from "~~/shared/types";
-import { UNITS } from "~~/shared/types";
 import { carriedIsDistinct, formatKcal, formatWeight } from "~~/shared/weights";
+import { KCAL_PER_DAY_GENEROUS, KCAL_PER_DAY_LIGHT, foodPlan } from "~~/shared/foodPlan";
 
-const props = defineProps<{
-  list: ListSnapshot;
-  totals: Totals;
-}>();
+const props = withDefaults(
+  defineProps<{
+    list: ListSnapshot;
+    totals: Totals;
+    /**
+     * Whether to draw the big figure.
+     *
+     * The editor turns it OFF, because it renders one Headline of its own above all three
+     * views — the same element whether you are looking at weight or distance, so the
+     * number changes without the figure unmounting and re-counting. The read views keep
+     * it, having no such switcher and only one number to show.
+     *
+     * Same shape as TrailProfile's `facts`: the composing page decides, because only it
+     * knows what else is on screen.
+     */
+    headline?: boolean;
+  }>(),
+  { headline: true },
+);
 
 const emit = defineEmits<{
   "set-unit": [Unit];
@@ -45,15 +60,34 @@ const showCarried = computed(() => carriedIsDistinct(props.totals));
 
 const kcalDisplay = computed(() => formatKcal(props.totals.kcalTotal));
 
-// the four units as OptionMenu rows — the abbreviation IS the label here, since it's
-// what the figure beside it is already showing
-const UNIT_OPTIONS = UNITS.map((u) => ({ key: u, label: u }));
+// Calories PER DAY — the figure that answers "is there enough food in here", which
+// the raw total can't: 9,000 kcal is a feast for a weekend and starvation for a week.
+// Null (and silent) unless the list carries both calories and a date range; see
+// shared/foodPlan.ts for why the arithmetic stops here rather than modelling burn.
+const plan = computed(() => foodPlan(props.totals, props.list));
+const planTip = computed(() => {
+  const p = plan.value;
+  if (!p) return "";
+  const span = `${kcalDisplay.value} kcal across ${p.days} ${p.days === 1 ? "day" : "days"}.`;
+  // Named as a rule of thumb, and phrased as a range rather than a target — the band
+  // is a sanity check on the arithmetic, not a recommendation for a body.
+  //
+  // Deliberately no colour on the chip for a "light" reading. The band is a rule of
+  // thumb, not a verdict on a body — a flat five-mile day on 1,800 kcal is somebody
+  // having a nice time, and painting that red would be the app inventing a certainty
+  // it doesn't have. The number beside the range is the whole signal.
+  const band =
+    p.reading === "typical"
+      ? `That's inside the ${formatKcal(KCAL_PER_DAY_LIGHT)}–${formatKcal(KCAL_PER_DAY_GENEROUS)} kcal a day people commonly plan for walking with a pack.`
+      : `People commonly plan ${formatKcal(KCAL_PER_DAY_LIGHT)}–${formatKcal(KCAL_PER_DAY_GENEROUS)} kcal a day for walking with a pack.`;
+  return p.perDayDistance ? `${span} ${p.perDayDistance} a day. ${band}` : `${span} ${band}`;
+});
 </script>
 
 <template>
   <div class="totals">
     <div class="totals__main">
-      <div class="totals__headline">
+      <div v-if="props.headline" class="totals__headline">
         <!-- no "Total" label: the big figure makes it implicit. the figure starts
              zeroed (not a placeholder line) so nothing reflows when the first
              weighted item lands — the number just counts up. -->
@@ -63,7 +97,7 @@ const UNIT_OPTIONS = UNITS.map((u) => ({ key: u, label: u }));
         <OptionMenu
           class="totals__amount"
           align="baseline"
-          :options="UNIT_OPTIONS"
+          :options="WEIGHT_UNIT_OPTIONS"
           :current="list.displayUnit"
           label="Weight unit"
           title="Change unit"
@@ -124,6 +158,16 @@ const UNIT_OPTIONS = UNITS.map((u) => ({ key: u, label: u }));
             <span class="t-num">{{ kcalDisplay }} <span class="t-muted">kcal</span></span>
           </span>
         </Tooltip>
+        <!-- Per day: the same calories divided by the trip's own dates. It sits with
+             the calorie chip rather than behind its own rule — it IS that figure, at
+             the scale that makes it mean something. Needs both halves (kcal and a date
+             range), so it stays absent on the lists that have only one. -->
+        <Tooltip v-if="plan" preferred-placement="bottom" :text="planTip">
+          <span class="chip">
+            <span class="t-label">Per day</span>
+            <span class="t-num">{{ formatKcal(plan.kcalPerDay) }} <span class="t-muted">kcal</span></span>
+          </span>
+        </Tooltip>
       </div>
       <CategoryBar :list="list" />
     </div>
@@ -132,7 +176,20 @@ const UNIT_OPTIONS = UNITS.map((u) => ({ key: u, label: u }));
 
 <style scoped>
 .totals {
-  padding-block: var(--space-2) var(--space-4);
+  /* nothing on TOP: the big number sits directly above this in the editor, and the body's
+     own gap is the whole distance between them. The extra 8px here made "base" and "worn"
+     sit further from the figure than the elevation chart does in planning mode — the same
+     number, two spacings. */
+  padding-block: 0 var(--space-4);
+}
+/* An empty row still costs a row GAP, and this one is empty in the editor: the big figure
+   moved out to GearEditor's shared Headline, so `props.headline` is false there and this
+   wrapper renders with nothing in it. The 24px it was still charging is what put "Base"
+   and "Worn" a row lower than planning's figures — the two views' small print sitting at
+   different heights under the same number. It still holds the headline where one is
+   passed, so this hides it only when there is genuinely nothing to show. */
+.totals__main:empty {
+  display: none;
 }
 .totals__main {
   display: flex;
@@ -211,6 +268,14 @@ const UNIT_OPTIONS = UNITS.map((u) => ({ key: u, label: u }));
   flex-direction: column;
   gap: var(--space-4);
 }
+/* …but only when the figure is actually IN here. In the editor it isn't — it moved out to
+   the shared Headline — so this margin was clearance from something one level up that
+   already keeps its own distance, and the two stacked put "Base" a row below where
+   planning's figures sit under the identical number. */
+.totals__main:empty + .totals__breakdown {
+  margin-top: 0;
+}
+
 .totals__chips {
   display: flex;
   flex-wrap: wrap;
@@ -226,11 +291,8 @@ const UNIT_OPTIONS = UNITS.map((u) => ({ key: u, label: u }));
      carry are teleported to <body>.) */
   overflow: hidden;
 }
-.chip {
-  display: inline-flex;
-  flex-direction: column;
-  gap: var(--space-px);
-}
+/* the stacked label-over-figure shape now lives in atoms/chip.scss — what stays here is
+   only what's about THIS row: which chips are set apart, and how. */
 /* the roll-up chip reads as a different KIND of figure from the slices beside it —
    a hairline + the row's own gap sets it apart without a heavy divider (same idiom
    as the ⋯ menu's report row). Calories take the same hairline for a related but

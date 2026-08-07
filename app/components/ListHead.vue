@@ -1,14 +1,29 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "@hugeicons/vue";
-import { Calendar03Icon, Copy01Icon, Delete02Icon, Edit02Icon, GlobeIcon, Location01Icon } from "@hugeicons/core-free-icons";
+import { Calendar03Icon, ChevronDownIcon, Copy01Icon, Delete02Icon, Edit02Icon, GlobeIcon, HelpCircleIcon, Location01Icon } from "@hugeicons/core-free-icons";
+import {
+  distanceFieldValue,
+  formatDistance,
+  parseDistanceM,
+  resolveDistanceUnit,
+} from "~~/shared/trailDistance";
 import { displayUrl, parseTrailLink, safeUrl } from "~~/shared/trailLink";
-import type { ListSnapshot } from "~~/shared/types";
+// shared/gpx is deliberately absent here — it is reached through `await import()` in
+// onGpx, so the file reader isn't on the first load of a list nobody imports into. Not
+// even MAX_GPX_BYTES: one named import is enough to drag the whole module back onto that
+// path, which is the easy way to undo this without noticing.
+import { profileToString } from "~~/shared/profile";
+import { routeGeometryFromPoints } from "~~/shared/polyline";
+// Types only, so this import is erased at build and does NOT drag the reader onto the
+// first load the way a value import would.
+import type { FilePin } from "~~/shared/gpx";
+import type { ListSnapshot, WaypointKind } from "~~/shared/types";
 import { copyText } from "~/utils/clipboard";
 
 // The editor's title block: the list's name as a page title, with an optional link to
 // the route it was packed for.
 //
-// One row sits under the title holding either "Add trail link" or the link itself, so
+// One row sits under the title holding either "Add a trail" or the link itself, so
 // the affordance occupies exactly the slot its result will — adding a link swaps the row
 // in place rather than moving it. The affordance rests quiet and darkens on hover — it
 // used to hide until hovered, and the note by .head__meta says why that changed. A
@@ -16,7 +31,21 @@ import { copyText } from "~/utils/clipboard";
 // there's a pointer that hovers, on a press on the name everywhere (see `pinned`). ONE
 // card, one layout, every device. The title lives in here rather than beside it so DOM
 // order matches visual order and tab order follows the eye.
-const props = defineProps<{ snapshot: ListSnapshot }>();
+const props = withDefaults(
+  defineProps<{
+    snapshot: ListSnapshot;
+    /**
+     * Whether the page's big number is already this route's LENGTH.
+     *
+     * Planning's headline is the distance at display size, so repeating it here as a
+     * caption on the trail link is the same fact twice, six inches apart. The other two
+     * views headline the pack's WEIGHT, and there the trail's length is the only place it
+     * appears at all — so this is hidden by mode rather than deleted.
+     */
+    distanceIsHeadline?: boolean;
+  }>(),
+  { distanceIsHeadline: false },
+);
 
 const c = useGearList();
 // null = at rest. "add" is a single URL box — the one job on the way in. "edit" is the
@@ -95,13 +124,25 @@ watch(
 );
 const icon = computed(() => props.snapshot.trailFaviconDataUrl ?? fetchedIcon.value);
 
+// Everything that describes the route the link pointed AT, cleared. A label with no link
+// is unreachable state, and so is a distance, a profile or a line with no route to be the
+// shape of. One object because two copies of this list is how the next field added here
+// gets cleared on one path and left behind on the other.
+const CLEARS_WITH_LINK = {
+  trailLabel: "",
+  trailDistanceM: "",
+  trailProfile: "",
+  trailAscentM: "",
+  trailDescentM: "",
+  routeGeometry: "",
+} as const;
+
 // Commits on @change (blur/Enter), the uncontrolled :value pattern the title uses — not
 // per keystroke, so a half-typed URL never reaches the reducer (which would reject it).
 function commitUrl(e: Event) {
   const value = (e.target as HTMLInputElement).value.trim();
   c.setMeta({ trailUrl: value });
-  // clearing the URL clears the label too — a label with no link is unreachable state
-  if (!value) c.setMeta({ trailLabel: "" });
+  if (!value) c.setMeta({ ...CLEARS_WITH_LINK });
 }
 
 function commitLabel(e: Event) {
@@ -125,8 +166,186 @@ function commitTitle(e: Event) {
   fit();
 }
 
+// ---- the other way in: a GPX ----
+// Read here in the browser. No upload and no request — the site's CSP is
+// `connect-src 'self'`, so sending it anywhere isn't an option that exists, which makes
+// "it never leaves your browser" a fact rather than a promise.
+//
+// The map added ONE host to `img-src`, and that leaves this untouched: `img-src` governs
+// where pictures may be fetched FROM, while `connect-src` is what would have to loosen
+// before any bytes could be sent OUT. It is still `'self'`, and tests/csp.test.ts fails
+// if that ever stops being true.
+//
+// It FILLS IN the route's distance and shape; it does not take them over. The distance
+// stays an editable field afterwards, so a mangled track can't quietly rewrite a number
+// somebody typed — the same conservatism trailLink.ts applies to deriving names.
+const gpxError = ref("");
+const gpxBusy = ref(false);
+
+/**
+ * Pins the file offered, held until someone says yes.
+ *
+ * `kindOf` rides along rather than being re-imported: it comes out of the same lazy chunk
+ * the file was read with, and by the time this is confirmed that chunk is already loaded.
+ */
+const pending = ref<{
+  geometry: string;
+  pins: FilePin[];
+  kindOf: (p: Pick<FilePin, "sym" | "name">) => WaypointKind;
+} | null>(null);
+
+/** How close two pins have to be before the second one is just the first one again. */
+const PIN_DEDUP_M = 60;
+
+async function confirmPins() {
+  const p = pending.value;
+  pending.value = null;
+  if (!p) return;
+  const { cumulativeM, decodePolyline, nearestAlongM } = await import("~~/shared/polyline");
+  const line = decodePolyline(p.geometry);
+  if (line.length < 2) return;
+  const total = cumulativeM(line).at(-1) ?? 0;
+  // Every pin PROJECTS onto the line, because a waypoint is a distance along the route and
+  // not a coordinate. A water source 200 m off-trail is recorded where you'd leave the
+  // trail for it, which is the useful place to be told about it.
+  const taken = (props.snapshot.waypoints ?? []).map((w) => w.alongM);
+  for (const pin of p.pins) {
+    const alongM = nearestAlongM(line, pin);
+    if (alongM < 0 || alongM > total) continue;
+    // Don't re-place the ends the reducer seeded with the route, and don't stack two pins
+    // a person would read as one. Checked against what's ALREADY there, so it holds for a
+    // second import onto an existing set too.
+    if (taken.some((t) => Math.abs(t - alongM) < PIN_DEDUP_M)) continue;
+    taken.push(alongM);
+    c.addWaypoint(alongM, p.kindOf(pin));
+    // The label is a separate op because addWaypoint mints the id — see useGearList. The
+    // reducer sorts by alongM, so the pin just added is findable by the position we gave it.
+    if (pin.name) {
+      const made = (c.snapshot.value?.waypoints ?? []).find((w) => w.alongM === alongM);
+      if (made) c.updateWaypoint(made.id, { label: pin.name.slice(0, 120) });
+    }
+  }
+}
+async function onGpx(e: Event) {
+  const input = e.target as HTMLInputElement;
+  const file = input.files?.[0];
+  input.value = ""; // so choosing the same file twice still fires a change
+  if (!file) return;
+  gpxError.value = "";
+  gpxBusy.value = true;
+  try {
+    // The reader arrives HERE, on the one interaction that needs it — several hundred
+    // lines of XML dialects, a zip decoder and GeoJSON that would otherwise ride the
+    // first load of every packing list. `gpxBusy` is already true, so the fetch shows as
+    // "Reading…" like the parse it precedes.
+    const { MAX_GPX_BYTES, filePins, geoJsonPoints, gpxPoints, gpxStats, kmzToKml, pinKind } =
+      await import("~~/shared/gpx");
+    // Checked BEFORE reading. DOMParser on a 30 MB string blocks the main thread for
+    // seconds; declining is cheaper than a worker, and honest. (After the import rather
+    // than before it only because the limit lives with the reader — a chunk fetch is not
+    // the expensive part, the parse is.)
+    if (file.size > MAX_GPX_BYTES) {
+      gpxError.value = "That file is too big to read here.";
+      return;
+    }
+    // A KMZ is a zip, so it has to be unwrapped before anything can read it. Sniffed by
+    // its "PK" signature rather than its name, like the format check below.
+    const head = new Uint8Array(await file.slice(0, 2).arrayBuffer());
+    const text =
+      head[0] === 0x50 && head[1] === 0x4b
+        ? ((await kmzToKml(await file.arrayBuffer())) ?? "")
+        : await file.text();
+    if (!text) throw new Error("empty");
+    // JSON or XML, decided by the CONTENT rather than the extension — a file saved as
+    // .txt or renamed by a share sheet is still the route it was, and the first
+    // non-space character tells us which family it belongs to more reliably than a name.
+    const first = text.trimStart()[0];
+    let points;
+    let pins: FilePin[] = [];
+    if (first === "{" || first === "[") {
+      points = geoJsonPoints(JSON.parse(text));
+    } else {
+      const doc = new DOMParser().parseFromString(text, "application/xml");
+      if (doc.querySelector("parsererror")) throw new Error("not xml");
+      // gpxPoints reads GPX, KML and TCX — same track, different dialects
+      points = gpxPoints(doc);
+      // The pins the file carried, read SEPARATELY from the track and deliberately not
+      // applied yet — see confirmPins. gpxPoints never touches <wpt>, and that separation
+      // is load-bearing: a KML's marker placemarks once inflated a 39.8-mile trail to 58.5.
+      pins = filePins(doc);
+    }
+    const stats = gpxStats(points);
+    if (!stats) throw new Error("no track");
+    const geometry = routeGeometryFromPoints(points) ?? "";
+    c.setMeta({
+      trailDistanceM: stats.distanceM,
+      trailProfile: profileToString(stats.profile) ?? "",
+      // the route's SHAPE, simplified to fit its budget — see shared/polyline.ts
+      routeGeometry: geometry,
+      // measured across the FULL track, not the stored profile — see trailAscentM
+      trailAscentM: stats.ascentM,
+      trailDescentM: stats.descentM,
+    });
+    // The ends come with the route, and NOTHING HERE PLACES THEM. The reducer's setMeta
+    // reseeds them from the geometry whenever it changes (see seedRouteEnds), with fixed
+    // ids, which is what makes a repeat import idempotent. This file used to add them a
+    // second time straight after the setMeta above; because addWaypoint mints a fresh id
+    // and the reducer dedupes on id alone, that produced two trailheads and two finishes
+    // stacked on the same two metres — in the plan's list and on the map — and another
+    // pair on every re-import of the same file. If a call is ever needed here again it is
+    // c.ensureRouteEnds(), which dedupes on those fixed ids.
+    // Everything else the file offered is an OFFER. A track can carry thousands of pins;
+    // fifty is not glanceable and undoing them is fifty taps, so it waits for a yes.
+    pending.value = geometry && pins.length ? { geometry, pins, kindOf: pinKind } : null;
+  } catch {
+    gpxError.value = "Couldn't read a route out of that file.";
+  } finally {
+    gpxBusy.value = false;
+  }
+}
+
+// ---- distance ----
+// The route's length, typed. It can't be read off the linked page — see the note atop
+// shared/trailDistance.ts — so this is the field that gets it in.
+
+// The owner's pick when they've made one, else miles — see resolveDistanceUnit for why
+// the fallback stopped following the weight unit. The picker is for the person whose
+// trailhead sign is in kilometres.
+const distanceUnit = computed(() =>
+  resolveDistanceUnit(props.snapshot.trailDistanceUnit, props.snapshot.displayUnit),
+);
+// the two as OptionMenu rows: DISTANCE_UNIT_OPTIONS, from app/utils/unitOptions.ts, which
+// is where every picker in the app now takes its rows from
+
+// Re-express the SAME stored metres in the newly chosen unit — the stored value never
+// moves, only how it reads. (Nothing to convert: the field is derived from metres.)
+function pickDistanceUnit(unit: string) {
+  c.setMeta({ trailDistanceUnit: unit });
+}
+// The field shows the bare number; the label beside it carries the unit. Same
+// uncontrolled :value + @change shape as the URL and title above.
+const distanceValue = computed(() =>
+  distanceFieldValue(props.snapshot.trailDistanceM, distanceUnit.value),
+);
+// What the link row shows at rest, beside the name.
+const distanceLabel = computed(() =>
+  props.snapshot.trailDistanceM && !props.distanceIsHeadline
+    ? formatDistance(props.snapshot.trailDistanceM, distanceUnit.value)
+    : null,
+);
+
+// A bare "12" means the list's own unit; "7.5 mi" on a metric list still means miles,
+// because the parser reads a unit when one is typed. An unparseable value clears,
+// which is the reducer's rule for this field too.
+function commitDistance(e: Event) {
+  const raw = (e.target as HTMLInputElement).value.trim();
+  const metres = parseDistanceM(raw, distanceUnit.value);
+  c.setMeta({ trailDistanceM: metres ?? "" });
+}
+
 function remove() {
-  c.setMeta({ trailUrl: "", trailLabel: "" });
+  // the distance describes the ROUTE, so it goes with the link rather than outliving it
+  c.setMeta({ trailUrl: "", ...CLEARS_WITH_LINK });
   mode.value = null;
 }
 
@@ -141,17 +360,38 @@ async function copyLink() {
 }
 
 // ---- trip dates ----
-// The second thing in the meta row. Deliberately two optional calendar dates and
-// nothing else — no days, no itinerary, no waypoints. The July audit rejected trip
-// planning and this does not reopen it; it answers "when was this trip" for a list
-// you come back to a year later, which the list otherwise cannot say.
+// The second thing in the meta row: two optional calendar dates, and only those. It
+// answers "when was this trip" for a list you come back to a year later, which the list
+// otherwise cannot say.
+// The itinerary those dates now imply is NOT here — planning mode owns the days, the
+// waypoints and the estimates (see TrailPlanPanel). This row stays the two ends of the
+// range, which is the one fact about a trip that belongs beside its title.
 const datesOpen = ref(false);
 const datesEl = useTemplateRef<HTMLElement>("datesEl");
 const dateLabel = computed(() => formatDateRange(props.snapshot.startDate, props.snapshot.endDate));
 
+// THREE surfaces hang off this one row — the trail panel (`mode`), the trail card
+// (`pinned`) and this picker (`datesOpen`) — and they overlap in the same space, so at
+// most one may be up. That's two states on the trail side, which is what the rule kept
+// missing: `openDates` used to clear `mode` alone, so opening the calendar over a
+// pinned card left both on screen, and toggling the card left the calendar up. Closing
+// the trail side is therefore one named thing rather than a line each opener has to
+// remember; every opener below closes the surfaces it isn't.
+function closeTrail() {
+  mode.value = null;
+  pinned.value = false;
+}
+
+// The card is a toggle, so it can't just call an `open` — but it still owes the
+// invariant a closed calendar on the way up.
+function toggleCard() {
+  pinned.value = !pinned.value;
+  if (pinned.value) datesOpen.value = false;
+}
+
 async function openDates() {
   datesOpen.value = true;
-  mode.value = null; // the trail panel and this one share the row; never both
+  closeTrail(); // the trail surfaces and this one share the row; never both
   await nextTick();
   // the grid owns one tab stop (roving tabindex), so focus lands on a day
   datesEl.value?.querySelector<HTMLElement>('[role="gridcell"][tabindex="0"]')?.focus();
@@ -192,10 +432,7 @@ function onFocusOut(e: FocusEvent) {
 // Watched element is the whole ROW, not the panel: the Edit/Add button that opens the
 // panel lives in that row, and targeting the panel alone would let the very click that
 // opens it register as an outside click and close it again.
-onClickOutside(trailEl, () => {
-  mode.value = null;
-  pinned.value = false;
-});
+onClickOutside(trailEl, closeTrail);
 </script>
 
 <template>
@@ -235,7 +472,7 @@ onClickOutside(trailEl, () => {
     </div>
 
     <!-- One row under the title, holding either the affordance or its result — the
-         "Add trail link" button occupies exactly the slot the link will, so adding one
+         "Add a trail" button occupies exactly the slot the link will, so adding one
          swaps the contents in place instead of moving the row across the title. The
          edit panel anchors to this row, so the link stays visible above it. -->
     <p ref="trailEl" class="head__trail">
@@ -263,7 +500,7 @@ onClickOutside(trailEl, () => {
              The two globes below are different — they're the fallback mark for a site
              with no favicon, standing in for "a website", which a pin would misstate. -->
         <HugeiconsIcon :icon="Location01Icon" :size="14" :stroke-width="2" aria-hidden="true" />
-        Add trail link
+        Add a trail
       </button>
 
       <!-- the resolved link: the site's mark + the trail's name. No hostname — the mark
@@ -280,7 +517,7 @@ onClickOutside(trailEl, () => {
           type="button"
           class="link head__link"
           :aria-expanded="pinned"
-          @click="pinned = !pinned"
+          @click="toggleCard"
         >
           <!-- every link carries a mark. The site's own once we've cached it; a globe
                until then — some hosts block the fetch outright. Same 16px box either
@@ -295,6 +532,10 @@ onClickOutside(trailEl, () => {
           />
           <HugeiconsIcon :icon="GlobeIcon" v-else class="head__icon head__icon--fallback" :size="16" :stroke-width="2" aria-hidden="true" />
           <span class="head__name">{{ link.name }}</span>
+          <!-- The one fact about the route that isn't in its name. Muted and after the
+               name, so it reads as a detail OF the trail rather than a second link;
+               absent entirely until it's set, like every other optional field here. -->
+          <span v-if="distanceLabel" class="head__dist">{{ distanceLabel }}</span>
         </button>
 
         <!-- The link card: the destination in full, then the actions on it. Asked
@@ -398,10 +639,15 @@ onClickOutside(trailEl, () => {
         @focusout="onFocusOut"
         @keyup.escape="mode = null"
       >
-        <!-- "URL", not "Page or URL" — that offered a choice that doesn't exist. There
-             is no page to pick here: this field is type="url" with an https://
-             placeholder, and a URL is the only thing it has ever taken. -->
-        <label class="head__panellabel" :for="`${fieldsId}-url`">URL</label>
+        <!-- TWO ways in now, which is why the affordance above says "Add a trail" rather
+             than naming either of them. A LINK is the common one, so it stays first and
+             unadorned. A GPX is the richer one — it carries the distance and the shape of
+             the climb, which no link can — but it asks you to find a file, so it sits
+             second and says what it gives you rather than what it is.
+             The field itself is still a URL and nothing else: type="url", https://
+             placeholder. "Link", not "Page or URL", which offered a choice that isn't
+             there. -->
+        <label class="head__panellabel" :for="`${fieldsId}-url`">Link</label>
         <input
           :id="`${fieldsId}-url`"
           class="head__panelinput"
@@ -414,6 +660,32 @@ onClickOutside(trailEl, () => {
           @change="commitUrl"
           @keyup.enter="mode = null"
         />
+
+        <p class="head__gpx t-sm">
+          <label class="head__gpxbtn">
+            <input type="file" accept=".gpx,.kml,.kmz,.tcx,.geojson,.json,.xml,application/gpx+xml,application/vnd.google-earth.kml+xml,application/vnd.google-earth.kmz,application/geo+json,application/json,text/xml" @change="onGpx" />
+            {{ gpxBusy ? "Reading…" : snapshot.trailProfile ? "Replace map file" : "Import map file" }}
+          </label>
+          <Tooltip
+            text="GPX, KML, KMZ, TCX, GeoJSON or GeoRSS. Reads the route's distance and the shape of its climb — the file is read here in your browser and never uploaded."
+            preferred-placement="bottom"
+          >
+            <button type="button" class="head__gpxwhy" aria-label="Which map files can be read">
+              <HugeiconsIcon :icon="HelpCircleIcon" :size="14" :stroke-width="2" aria-hidden="true" />
+            </button>
+          </Tooltip>
+        </p>
+        <p v-if="gpxError" class="head__gpxerr t-sm">{{ gpxError }}</p>
+        <!-- An OFFER, not an import. The route is already in by the time this appears —
+             this is only the pins the file also carried, and they wait because a file can
+             hold thousands and undoing them would be one tap each. Phrased with the count
+             so the answer is informed: "add 11" is a different question from "add 400". -->
+        <p v-if="pending" class="head__gpxerr t-sm">
+          That file also has {{ pending.pins.length }}
+          {{ pending.pins.length === 1 ? "marked place" : "marked places" }}.
+          <button type="button" class="head__gpxyes" @click="confirmPins">Add them</button>
+          <button type="button" class="head__gpxno" @click="pending = null">No thanks</button>
+        </p>
 
         <!-- edit only. On the way IN the single job is pasting a URL; a title box there
              reads as a second thing to fill in, when most links name themselves from the
@@ -428,6 +700,57 @@ onClickOutside(trailEl, () => {
             @change="commitLabel"
             @keyup.enter="mode = null"
           />
+
+          <!-- Typed, because it cannot be fetched: the linked page answers a
+               server-side GET with 403 and there's no API to ask instead. Anyone
+               pasting a trail link is looking at the number on that page.
+               A bare number is read in the unit the picker beside it shows; typing
+               "7.5 mi" into a list set to km still works, because the parser reads a
+               unit off the value and prefers it to the picker's. -->
+          <!-- "optional" rides in the LABEL, not the placeholder: a placeholder is gone
+               the moment you type, which is exactly when you'd want to know you could
+               have left it empty. The other two fields are optional too, but this is
+               the one that reads as a thing the app needs — it's the only number in
+               here, and a number in a form looks required. -->
+          <label class="head__panellabel" :for="`${fieldsId}-dist`">Distance (optional)</label>
+          <!-- The unit sits INSIDE the field's row rather than in the label, because
+               it's a control and the label isn't. Same chevron-beside-an-abbreviation
+               the totals bar and each item row use — one vocabulary for one gesture. -->
+          <span class="head__distrow">
+            <input
+              :id="`${fieldsId}-dist`"
+              class="head__panelinput head__distinput"
+              inputmode="decimal"
+              autocorrect="off"
+              spellcheck="false"
+              :placeholder="distanceUnit === 'mi' ? '7.5' : '12'"
+              :value="distanceValue"
+              @change="commitDistance"
+              @keyup.enter="mode = null"
+            />
+            <OptionMenu
+              class="head__distunit"
+              :options="DISTANCE_UNIT_OPTIONS"
+              :current="distanceUnit"
+              label="Distance unit"
+              title="Change distance unit"
+              @pick="pickDistanceUnit"
+            >
+              <template #trigger="{ open }">
+                <span class="t-sm t-muted">{{ distanceUnit }}</span>
+                <!-- 12/2 = an exact 1px stroke, the small-size counterpart to the
+                     total's 16/2.25 — matching ItemRow's per-row unit chevron. -->
+                <HugeiconsIcon
+                  :icon="ChevronDownIcon"
+                  class="head__distchev"
+                  :class="{ 'is-open': open }"
+                  :size="12"
+                  :stroke-width="2"
+                  aria-hidden="true"
+                />
+              </template>
+            </OptionMenu>
+          </span>
           <hr class="head__paneldiv" />
           <button type="button" class="menu__item head__panelremove" @click="remove">
             <HugeiconsIcon :icon="Delete02Icon" :size="16" :stroke-width="1.5" aria-hidden="true" />
@@ -595,6 +918,14 @@ onClickOutside(trailEl, () => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+/* The distance rides after the name as a detail of it. `flex: none` so a long trail
+   name ellipses (the rule above) instead of squeezing the number out — the name is
+   the thing you can afford to lose characters from, since the card carries the URL
+   in full and this is four characters that are useless truncated. */
+.head__dist {
+  flex: none;
+  color: var(--ink-3);
 }
 .head__anchor {
   /* deliberately NOT a positioning context: the floating card below is absolute, and
@@ -837,8 +1168,111 @@ onClickOutside(trailEl, () => {
 .head__panelinput + .head__panellabel {
   margin-block-start: var(--space-4);
 }
+/* The distance field wraps its input, so the sibling rule above can't reach the label
+   that follows it. Same spacing, stated for the wrapper. */
+.head__distrow + .head__panellabel {
+  margin-block-start: var(--space-4);
+}
+/* And the same again for the file row, which sits BETWEEN the URL field and the title's
+   label and so breaks the adjacency the rule above depends on — the label was arriving
+   with no space above it at all. Third statement of one spacing; if a fourth thing ever
+   lands between a field and a label, this wants to become a rule about the panel's
+   children rather than another pair. */
+.head__gpx + .head__panellabel {
+  margin-block-start: var(--space-4);
+}
+/* Number and unit on one line, the unit taking only what it needs. NOT absolutely
+   positioned inside the field: OptionMenu's button is behind a component boundary, so
+   a scoped rule here can't reach it (its own comment says why) — and it already
+   carries the button reset this needs. Only the ROOT takes this file's scoped
+   attribute, which is why .head__distunit is the only hook, and the chevron is styled
+   freely because it's slot content and therefore mine. */
+.head__distrow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.head__distinput {
+  flex: 1;
+  min-width: 0;
+}
+.head__distunit {
+  flex: none;
+}
+.head__distchev {
+  color: var(--ink-3);
+  transition: transform var(--dur) var(--ease);
+}
+.head__distchev.is-open {
+  transform: rotate(180deg);
+}
 /* The rule stops at the panel's INNER edges (measured: x12, w306 inside a 330 panel) —
    it lines up with the fields rather than running wall to wall. */
+.head__gpx {
+  display: flex;
+  align-items: center;
+  margin: 0;
+  color: var(--ink-3);
+}
+.head__gpxbtn {
+  color: var(--ink-2);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+/* the input is the label's, so the whole phrase is the target and no bare file chrome
+   lands in a panel built out of the app's own fields */
+.head__gpxbtn input {
+  display: none;
+}
+/* the (?) that replaced a line of caveats — same quiet treatment the planning rows use */
+.head__gpxwhy {
+  display: inline-flex;
+  margin-left: var(--space-1);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-3);
+  cursor: help;
+  transition: color var(--dur) var(--ease);
+}
+.head__gpxwhy:hover,
+.head__gpxwhy:focus-visible {
+  color: var(--ink);
+}
+.head__gpxerr {
+  margin: 0;
+  color: var(--ink-2);
+}
+/* The two answers to the pins offer. Text buttons rather than real ones: this sits inside
+   a sentence in a quiet panel, and a pair of chrome buttons here would outweigh the
+   "Import map file" affordance that caused it. Same treatment as head__gpxbtn, which is
+   the other thing in this panel you click to make something happen. */
+.head__gpxyes,
+.head__gpxno {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color var(--dur) var(--ease);
+}
+.head__gpxyes {
+  margin-left: var(--space-1);
+  color: var(--ink);
+}
+.head__gpxno {
+  margin-left: var(--space-2);
+  color: var(--ink-3);
+}
+.head__gpxyes:hover,
+.head__gpxyes:focus-visible,
+.head__gpxno:hover,
+.head__gpxno:focus-visible {
+  color: var(--ink);
+}
 .head__paneldiv {
   width: 100%;
   /* 4 below, not 8: the row underneath already carries 8px of its own padding, and a

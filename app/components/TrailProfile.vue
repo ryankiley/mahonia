@@ -1,0 +1,796 @@
+<script setup lang="ts">
+import { HugeiconsIcon } from "@hugeicons/vue";
+import { dayColorSequence } from "~~/shared/categories";
+import {
+  M_PER_UNIT,
+  formatDistance,
+  heightUnitFor,
+  heightValue,
+  type DisplayDistanceUnit,
+} from "~~/shared/trailDistance";
+// gradeBandFor is the function the SHADING bands by, not a second copy of its two
+// thresholds — so the number under the cursor and the colour under the cursor can never
+// disagree about what "steep" means. There used to be a STEEP_PCT in this file saying 10
+// as well; two constants holding one idea is how a chart starts contradicting its tooltip.
+import { type GradeBand, gradeBandFor, gradeRuns, gradeSeries, gradeSpread } from "~~/shared/profile";
+
+// The route's shape, cut into days.
+//
+// This is the app's FIRST inline SVG, and it is meant to stay the only one. `CategoryBar`
+// covers everything that's a proportion of a whole; a profile isn't — it's a continuous
+// surface sampled hundreds of times, whose meaning is in its slope. A flex track of
+// column bars quantises slope away and costs hundreds of DOM nodes re-laid-out on every
+// keystroke. So: one filled path per day, one ridge line per day, and nothing else.
+//
+// Two ceilings, so this doesn't become a charting layer:
+//   1. The only elements inside are <title>, <desc>, <path>, <line> and <ellipse>. The
+//      last two are the CURSOR — one interaction, not a chart primitive — and the list is
+//      written down here precisely so widening it stays a decision rather than a drift.
+//      (An <ellipse> rather than a <circle> because the box is stretched; see the dot.)
+//   2. No <text>. preserveAspectRatio="none" stretches glyphs — every label lives in HTML.
+//
+// And one policy: M/L only, no bezier smoothing. A smoothed profile invents terrain
+// between samples, which is the same refusal the burn-down makes by not drawing a line
+// between two days.
+const props = defineProps<{
+  /** elevations in metres, evenly spaced BY DISTANCE (see shared/gpx.ts) */
+  profile: number[];
+  /** each day's distance in metres, in order — the cuts along the x axis */
+  dayDistancesM: number[];
+  distanceUnit: DisplayDistanceUnit;
+  totalDistanceM: number;
+  /** the route's climb and drop, at FULL track resolution — see ListMeta.trailAscentM */
+  ascentM?: number;
+  descentM?: number;
+  /**
+   * Whether to print the climb/descent figures beneath the chart.
+   *
+   * A page that already has a row of chips wants these IN it rather than stacked above it,
+   * and a chart can't render into its parent's row. So the composing page decides: the
+   * planning view turns this off and carries them among its own figures; the shared view
+   * has no such row and lets the chart do it. The chart draws the shape either way — this
+   * file's header has always said the numbers beside it are the page's job.
+   */
+  facts?: boolean;
+}>();
+
+/**
+ * WHERE ON THE ROUTE THE CURSOR IS, for anything drawing that same route alongside.
+ *
+ * A DISTANCE, not a coordinate — which is the only thing this chart actually knows. It has
+ * no geography at all: it holds elevations sampled evenly by distance and has never seen a
+ * latitude. The map has the geography and no readout. So each says the half it is sure of
+ * and they meet on chainage, which is the same currency a waypoint is stored in.
+ *
+ * Null when nothing is being traced, so a listener can clear rather than having to guess
+ * from a stale value.
+ */
+const emit = defineEmits<{ trace: [alongM: number | null] }>();
+
+// A unitless drawing space. X is 0–1000, Y is 0–200, and CSS decides the physical size —
+// so there is no measurement, no ResizeObserver and no re-path on resize.
+const VB_W = 1000;
+const VB_H = 200;
+// The cursor dot's radius, in viewBox units. Named because it appears twice — the X radius
+// is counter-scaled off it — and the two must never drift apart into an oval.
+const DOT_R = 10;
+/** How near an end the cursor has to be before the readout hangs from that edge instead of
+ *  centring. A fraction of the track, so it costs no measurement — see .tprofile__read. */
+const EDGE_F = 0.15;
+
+const lo = computed(() => Math.min(...props.profile));
+const hi = computed(() => Math.max(...props.profile));
+/** Whether the drop is its own fact, or just the climb restated (which a loop guarantees). */
+const descentDiffers = computed(
+  () => props.descentM != null && props.ascentM != null && props.descentM !== props.ascentM,
+);
+// WHERE the extremes are, not just what they are — the scrubber names them in place.
+// First occurrence: a plateau at the summit has one summit as far as a label is concerned.
+const hiIdx = computed(() => props.profile.indexOf(hi.value));
+const loIdx = computed(() => props.profile.indexOf(lo.value));
+// A flat route would divide by zero and, worse, draw a line through the middle of a box
+// implying a range it doesn't have. Give it a floor and it sits low and calm instead.
+const span = computed(() => Math.max(1, hi.value - lo.value));
+
+const x = (i: number) => (i / (props.profile.length - 1)) * VB_W;
+/**
+ * Elevation → y, with FLOOR ROOM under the lowest point.
+ *
+ * The curve used to fill 92% of the box with 4% padding at each end, which put the route's
+ * low point 8 units off the baseline — and the fill hangs BELOW the ridge by RIDGE_GAP, so
+ * at the lowest point there was about one unit of shading left to see. The grade band that
+ * matters most on a climb out of a valley was the one you could not read.
+ *
+ * 80% of the box with 14% beneath leaves 28 units of floor at the low point, which is
+ * enough for the fill to state its band. It costs a little vertical exaggeration — the
+ * curve is slightly flatter — and this chart has never been a mark you read a gradient off
+ * by eye anyway; that is what the scrubber and the shading are for.
+ */
+const y = (ele: number) => VB_H - ((ele - lo.value) / span.value) * VB_H * 0.8 - VB_H * 0.14;
+
+/**
+ * The day each sample belongs to, by cumulative distance — so a long day owns more of the
+ * picture than a short one, which is the whole point of cutting it this way.
+ */
+const dayOfSample = computed(() => {
+  // The ROUTE's length is the denominator, not the sum of the days — so a day covering 4
+  // miles of a 20-mile route owns a fifth of the picture, and the sixteen miles nobody has
+  // claimed yet stay visibly unclaimed. Sizing to the sum instead would stretch that one
+  // day across the whole chart and quietly assert a plan that doesn't exist.
+  const total = Math.max(
+    props.totalDistanceM,
+    props.dayDistancesM.reduce((s, d) => s + d, 0),
+  );
+  if (!(total > 0)) return props.profile.map(() => -1);
+  const bounds: number[] = [];
+  let run = 0;
+  for (const d of props.dayDistancesM) {
+    run += d;
+    bounds.push(run / total);
+  }
+  return props.profile.map((_, i) => {
+    const f = i / (props.profile.length - 1);
+    // -1 = past the last assigned day: ground the itinerary hasn't reached
+    const at = bounds.findIndex((b, k) => props.dayDistancesM[k]! > 0 && f <= b + 1e-9);
+    return at;
+  });
+});
+
+/** One colour per day, from the palette built so consecutive picks sit far apart. Shared
+ *  with the route map, so a day is the same colour on both marks. */
+const dayColors = computed(() => dayColorSequence(props.dayDistancesM.length));
+
+/**
+ * The gap between the day line and the difficulty beneath it, in viewBox units.
+ *
+ * The two encodings are separate claims — which day this is, and how hard it is — and they
+ * were touching, which made the fill read as part of the line rather than as the ground
+ * under it. A sliver of paper between them is what says "these are two things".
+ *
+ * viewBox units, so it scales with the container the way everything else in this drawing
+ * does; at the chart's usual height it lands around 2–3 real pixels.
+ */
+const RIDGE_GAP = 7;
+
+/** The polyline through a run of samples, and the same run closed down to the baseline. */
+function pathsFor(idx: readonly number[]) {
+  const pts = idx.map((i) => `${x(i).toFixed(1)},${y(props.profile[i]!).toFixed(1)}`);
+  // the fill starts BELOW the ridge, clamped so a low point can't push it past the floor
+  const under = idx.map(
+    (i) => `${x(i).toFixed(1)},${Math.min(VB_H, y(props.profile[i]!) + RIDGE_GAP).toFixed(1)}`,
+  );
+  return {
+    ridge: `M${pts.join("L")}`,
+    fill: `M${x(idx[0]!).toFixed(1)},${VB_H}L${under.join("L")}L${x(idx[idx.length - 1]!).toFixed(1)},${VB_H}Z`,
+  };
+}
+
+/**
+ * TWO encodings on one mark, on two different marks so they can't muddy each other.
+ *
+ * The RIDGE carries the day — the same palette the itinerary uses, at full opacity, so
+ * "which day is this" is answered by a line you can actually see rather than by a 22%
+ * wash. The FILL carries how hard the ground is. They're separate lists on purpose: a
+ * day owns one contiguous stretch, while grade flips band many times inside it, so
+ * intersecting them would produce a segment per crossing of two unrelated boundaries.
+ */
+const dayRuns = computed(() => {
+  if (props.profile.length < 2 || !props.dayDistancesM.length) return [];
+  const owner = dayOfSample.value;
+  const out: { ridge: string; color: string; index: number }[] = [];
+  // one pass per day, then a final pass for the unassigned tail (-1)
+  for (const d of [...props.dayDistancesM.map((_, i) => i), -1]) {
+    const idx: number[] = [];
+    for (let i = 0; i < props.profile.length; i++) if (owner[i] === d) idx.push(i);
+    // NO LOOK-BACK. It used to reach back one sample so adjacent days met rather than
+    // leaving a hairline of paper — but the days are cut apart on purpose now, and a run
+    // that starts one sample early is a run that extends PAST its own boundary. That
+    // overlap is what left a sliver of the neighbouring colour showing through the gap,
+    // and widening the cut to hide it only made the gap coarse. Each day draws its own
+    // samples and stops.
+    if (idx.length < 2) continue;
+    out.push({
+      ridge: pathsFor(idx).ridge,
+      // unassigned ground is grey — a quiet surface, not a category colour, because it
+      // is precisely the part of the route that has no day to belong to yet
+      color: d === -1 ? "var(--ink-3)" : (dayColors.value[d] ?? "var(--cat-other)"),
+      index: d,
+    });
+  }
+  return out;
+});
+
+/**
+ * Runs of like difficulty, filled — easy ground takes no hue at all.
+ *
+ * BROKEN AT THE DAY BOUNDARIES TOO, and that break IS the gap between days.
+ *
+ * It used to be one unbroken set of fills with a paper-coloured line ruled over the top,
+ * which is a drawing of a gap rather than a gap: the shading ran straight through the
+ * boundary and a stroke the colour of the page hid that it had. That only holds while the
+ * page is exactly the colour the stroke claims and while nothing is painted over it
+ * afterwards — and the fill fades toward the baseline, so a solid rule stood in it heavier
+ * than the hole it was standing in for.
+ *
+ * Now a fill stops where its day stops, the way the ridge above it already did, and what
+ * separates two days is one sample of untouched paper on both marks at once.
+ *
+ * Grade runs still SHARE a sample where two bands meet (see gradeRuns), so a change of
+ * difficulty inside a day stays joined. Only the day boundary opens.
+ */
+const gradeFills = computed(() => {
+  if (props.profile.length < 2 || !(props.totalDistanceM > 0)) return [];
+  const owner = dayOfSample.value;
+  const out: { fill: string; band: GradeBand; key: number }[] = [];
+  for (const r of gradeRuns(props.profile, props.totalDistanceM)) {
+    let idx: number[] = [];
+    // two samples minimum: one sample is a path with no width to it
+    const flush = () => {
+      if (idx.length > 1) out.push({ fill: pathsFor(idx).fill, band: r.band, key: out.length });
+      idx = [];
+    };
+    for (let k = r.from; k <= r.to; k++) {
+      // the first sample of a new day opens a new piece — the sample before it belongs to
+      // the day that just ended, and joining the two would draw across the break
+      if (idx.length && owner[k] !== owner[k - 1]) flush();
+      idx.push(k);
+    }
+    flush();
+  }
+  return out;
+});
+
+// The spoken version carries the facts the shape encodes — a profile has no legend, so
+// this has to be stronger than CategoryBar's bare "Weight by folder". Built from the same
+// formatter the figures above use, so the two can't drift.
+const description = computed(() => {
+  // the SAME formatter the visible row uses — the spoken description and the printed
+  // figures must not disagree about which unit the route is in
+  const range = `from ${asHeight(lo.value)} to ${asHeight(hi.value)} ${heightUnit.value}`;
+  const len = formatDistance(props.totalDistanceM, props.distanceUnit);
+  const n = props.dayDistancesM.length;
+  const climb = props.ascentM ? ` ${asHeight(props.ascentM)} ${heightUnit.value} of climb and ${asHeight(props.descentM ?? 0)} ${heightUnit.value} of descent.` : "";
+  // The shading is the only place difficulty is stated, and a profile has no legend and
+  // no <text> — so the spoken version has to carry it in figures. Proportions, not colour
+  // names: "6.2 mi of it steep" is the fact; "red" is how it happens to be drawn.
+  const spread = gradeSpread(props.profile, props.totalDistanceM);
+  const hard = spread.hard > 0 ? `${formatDistance(Math.round(spread.hard), props.distanceUnit)} of it steep going` : "";
+  const mod = spread.moderate > 0 ? `${formatDistance(Math.round(spread.moderate), props.distanceUnit)} moderate` : "";
+  const going = [hard, mod].filter(Boolean).join(" and ");
+  return `Elevation profile: ${len}, ${range}, across ${n} ${n === 1 ? "day" : "days"}.${climb}${going ? ` ${going}.` : ""}`;
+});
+
+/**
+ * Heights read in feet on a miles list and metres on a kilometres one — the rule lives in
+ * shared/trailDistance.ts, because the plan's chips and the shared view's itinerary print
+ * the same figures and must reach the same answer.
+ *
+ * The high and low come from the PROFILE rather than being stored, unlike the climb: a
+ * peak is a sampled elevation, and resampling keeps those. It's the cumulative gain that
+ * a coarse profile destroys, because that sums every wiggle.
+ */
+const heightUnit = computed(() => heightUnitFor(props.distanceUnit));
+const asHeight = (m: number) => heightValue(m, props.distanceUnit);
+
+/**
+ * The same three figures, formatted to be READ WHILE MOVING.
+ *
+ * Scrubbing is a continuous gesture and the readout was rewriting itself faster than
+ * anyone can take a number off it. Three separate causes, and only one of them was
+ * decimals:
+ *
+ * 1. The strings changed WIDTH. formatDistance strips a trailing zero, so "9.9 mi"
+ *    became "10 mi" — one character narrower — and the whole label, which is centred on
+ *    the cursor, jumped sideways at the moment you crossed 10. Fixed decimals keep the
+ *    width constant so only the digits move.
+ * 2. Elevation was quoted TO THE FOOT. Consumer GPS elevation is noisy to ±5–10 m, and
+ *    the day rows already round feet to the nearest 10 for exactly this reason — the
+ *    hover readout was the one place still claiming a precision nothing has, and it
+ *    flickered through four digits a sample to do it.
+ * 3. Grade at one decimal is mostly noise. It is a difference between two neighbouring
+ *    samples, so its last digit is the least stable number on screen and the one the eye
+ *    is drawn to. Whole percent says the same thing and holds still.
+ *
+ * Nothing here changes what is measured — only how many of its digits are asserted.
+ */
+const readDistance = (m: number) =>
+  `${(m / M_PER_UNIT[props.distanceUnit]).toFixed(1)} ${props.distanceUnit}`;
+const readHeight = (m: number) =>
+  heightValue(m, props.distanceUnit, props.distanceUnit === "mi" ? 10 : 5);
+const readGrade = (pct: number) => {
+  // Sign from the ROUNDED value, not the raw one: taking it from the raw grade printed
+  // "−0%" for anything between −0.5 and 0, which asserts a direction and then denies it.
+  const v = Math.round(pct);
+  return `${v > 0 ? "+" : v < 0 ? "−" : ""}${Math.abs(v)}%`;
+};
+
+/**
+ * Reading a point off the chart.
+ *
+ * The shape can't be measured — the vertical exaggeration is whatever the container is —
+ * so hovering is how a grade or a height becomes readable at all, rather than guessed at
+ * from the silhouette. That's also why this is a POINTER readout and not axis labels: it
+ * answers "what is it here", which the picture genuinely knows, instead of implying the
+ * whole shape can be measured, which it can't.
+ */
+const hoverIdx = ref<number | null>(null);
+// width/height of the rendered box, so the dot can be counter-scaled back to a circle.
+// Measured on hover (and on resize) rather than continuously — it only matters while a
+// dot is on screen, and there is no ResizeObserver anywhere else in this component.
+const aspect = ref(1);
+const wrapRef = useTemplateRef<HTMLElement>("wrapRef");
+
+/**
+ * Touch needs THREE things a mouse doesn't, and the chart read as broken without them —
+ * it only tracked when the finger happened to be right on the line.
+ *
+ * 1. The gesture has to be ours. `touch-action` defaults to `auto`, so the browser treats
+ *    a drag as a possible page scroll, waits, and then fires `pointercancel` — the readout
+ *    dies mid-scrub. The CSS claims horizontal movement and leaves `pan-y` alone, so a
+ *    vertical swipe still scrolls the page: you can read the route without trapping the
+ *    reader on a 56px-tall element.
+ * 2. First contact has to read. There is no hover on touch, so `pointermove` alone means
+ *    the first thing a tap does is nothing.
+ * 3. The scrub has to survive leaving the box. The chart is short and a finger wanders;
+ *    capturing the pointer keeps the reading alive until release instead of dropping out
+ *    the moment it strays above the ridge.
+ */
+function onDown(e: PointerEvent) {
+  if (e.pointerType !== "mouse") {
+    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+  }
+  onMove(e);
+}
+// A mouse never presses to read, so a release must not clear what hovering is still showing.
+function onRelease(e: PointerEvent) {
+  if (e.pointerType !== "mouse") hoverIdx.value = null;
+}
+
+function onMove(e: PointerEvent) {
+  const el = wrapRef.value?.querySelector("svg");
+  if (!el) return;
+  const r = el.getBoundingClientRect();
+  if (!(r.width > 0)) return;
+  aspect.value = r.height > 0 ? r.width / r.height : 1;
+  const f = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+  hoverIdx.value = Math.round(f * (props.profile.length - 1));
+}
+const onLeave = () => (hoverIdx.value = null);
+
+/**
+ * The SAME grade series the shading bands, computed once and read by index.
+ *
+ * Not a second calculation that happens to agree — the same numbers. The readout used to
+ * difference the raw profile and could report −19% over a stretch the shading had painted
+ * as easy, because the shading reads a smoothed series. Two defensible answers to one
+ * question is still a contradiction on screen.
+ */
+const grades = computed(() => gradeSeries(props.profile, props.totalDistanceM));
+
+/**
+ * Evenly spaced marks along the route. CSS decides how many are shown; this just supplies
+ * the full set.
+ *
+ * TWENTY-FIVE, and the number is doing work. Every count shown has to contain the start,
+ * the midpoint and the end, and each has to be a subset of the next so no mark ever
+ * appears at one width and vanishes at another — which means the counts must all divide
+ * the same span. 24 divides by 12, 6 and 4, so 3, 5 and 7 marks all fall out of one array
+ * and all include index 0, 12 and 24.
+ *
+ * Rendering 9 instead (the first thing I tried) only offered 3, 5 and 9, because 8 has no
+ * factor giving seven. That forced a jump from 5 straight to 9, which was too dense for
+ * the column — and the column is the real constraint: it caps at ~85rem, so the chart is
+ * 1333px wide on a 2560px monitor and exactly as wide on a 3440px one. There is no width
+ * to grow into, so the top rung has to be chosen to look right at that one size.
+ */
+const scaleTicks = computed(() =>
+  Array.from({ length: 25 }, (_, i) => Math.round((props.totalDistanceM * i) / 24)),
+);
+
+const hover = computed(() => {
+  const raw = hoverIdx.value;
+  if (raw == null || !props.profile.length) return null;
+  // SNAPS to the summit and the low point when you come within a sample of them.
+  //
+  // A tolerance was needed either way — at 240 samples across the column a single index is
+  // a ~5px target, and a label nobody can land on is decoration. But tolerating without
+  // snapping meant the readout said "highest" while showing a NEIGHBOUR's elevation:
+  // 7,290 ft on a 7,316 ft summit, the label contradicting its own number. Snapping fixes
+  // that and buys the nicer behaviour anyway — the two points worth finding on a profile
+  // are slightly magnetic.
+  const near = (idx: number) => Math.abs(raw - idx) <= 1;
+  const extreme = near(hiIdx.value) ? "highest" : near(loIdx.value) ? "lowest" : null;
+  const i = extreme === "highest" ? hiIdx.value : extreme === "lowest" ? loIdx.value : raw;
+  const ele = props.profile[Math.min(i, props.profile.length - 1)]!;
+  const grade = grades.value[Math.min(i, grades.value.length - 1)] ?? 0;
+  return {
+    extreme,
+    x: (i / (props.profile.length - 1)) * VB_W,
+    distanceM: Math.round((i / (props.profile.length - 1)) * props.totalDistanceM),
+    ele,
+    grade,
+  };
+});
+
+// Fired from a WATCHER, not written into the readout above: the parent is being told the
+// pointer moved, which is an event, and `hover` is a computed that must stay free of side
+// effects or it fires again for every reader that touches it. Watching the distance alone
+// also means the snap to a summit (see `hover`) reaches the map for free — the chart and
+// the ground agree about which point is being read, including when it magnetises.
+watch(() => hover.value?.distanceM ?? null, (alongM) => emit("trace", alongM));
+
+const id = useId();
+</script>
+
+<template>
+  <figure
+    v-if="dayRuns.length"
+    ref="wrapRef"
+    class="tprofile-wrap"
+    @pointermove="onMove"
+    @pointerleave="onLeave"
+    @pointerdown="onDown"
+    @pointerup="onRelease"
+    @pointercancel="onRelease"
+  >
+    <svg
+      class="tprofile"
+      :viewBox="`0 0 ${VB_W} ${VB_H}`"
+      preserveAspectRatio="none"
+      role="img"
+      :aria-labelledby="`${id}-t ${id}-d`"
+    >
+      <title :id="`${id}-t`">Elevation profile</title>
+      <desc :id="`${id}-d`">{{ description }}</desc>
+      <!-- Difficulty first, underneath: the fills are the ground, the ridges are the
+           itinerary drawn on top of it. -->
+      <path
+        v-for="g in gradeFills"
+        :key="`g${g.key}`"
+        :d="g.fill"
+        class="tprofile__fill"
+        :class="`is-${g.band}`"
+      />
+      <!-- vector-effect is MANDATORY here: with preserveAspectRatio="none" the stroke
+           scales anisotropically, giving a fat horizontal ridge and a hairline vertical
+           one. This is the single easiest thing to get wrong in this file. -->
+      <path
+        v-for="s in dayRuns"
+        :key="s.index"
+        :d="s.ridge"
+        :stroke="s.color"
+        class="tprofile__ridge"
+        fill="none"
+        vector-effect="non-scaling-stroke"
+      />
+      <!-- Nothing is drawn AT the day boundary. There used to be a paper-coloured rule
+           here, and a rule the colour of the page is a gap only for as long as nobody
+           paints over it and the page never changes colour. Both marks now stop where the
+           day stops (see dayRuns and gradeFills), so the boundary is a hole in the drawing
+           rather than a stroke standing in for one. -->
+      <!-- THE DOT FIRST, THE LINE OVER IT. The dot wears a paper-coloured casing so it
+           reads against the ridge it sits on, and painted last that casing rubbed out the
+           length of dotted line it covered — the cursor appeared to stop dead a few pixels
+           short of the route and pick up again below. Drawn underneath, the casing still
+           separates the dot from the line it marks and the cursor stays one unbroken run.
+           -->
+      <!-- Where the cursor meets the route. Radii are in viewBox units on a box stretched
+           by preserveAspectRatio="none", so a <circle> would render as an ellipse. The
+           screen radii are rx·(W/VB_W) and ry·(H/VB_H); setting them equal gives
+           rx = ry·(VB_W/VB_H)/(W/H) — hence the counter-scale below. Getting it inverted
+           renders a dot four times wider than tall, which is how this was first written. -->
+      <ellipse
+        v-if="hover"
+        :cx="hover.x"
+        :cy="y(hover.ele)"
+        :rx="DOT_R * (VB_W / VB_H) / aspect"
+        :ry="DOT_R"
+        class="tprofile__dot"
+      />
+      <!-- The cursor's own position on the route. A <line>, which is inside this file's
+           stated ceiling of title/desc/path/line; non-scaling-stroke for the same reason
+           the ridge needs it, or with preserveAspectRatio="none" a vertical rule renders
+           as a hairline while a horizontal one renders fat. -->
+      <line
+        v-if="hover"
+        :x1="hover.x"
+        :x2="hover.x"
+        y1="0"
+        :y2="VB_H"
+        class="tprofile__cursor"
+        vector-effect="non-scaling-stroke"
+      />
+    </svg>
+    <!-- The scale, in HTML rather than <text> inside the SVG: preserveAspectRatio="none"
+         stretches glyphs horizontally, so any label drawn in there would distort with the
+         container. A handful of marks only — three on a phone, seven at full width (see
+         the CSS). A profile is a silhouette for recognition, and a full axis would invite
+         reading distances off the shape, which the vertical exaggeration makes untrue. -->
+    <!-- The readout FOLLOWS the pointer rather than rewriting the scale below. Swapping
+         those figures meant the numbers you were reading changed under you while the ones
+         you wanted appeared somewhere else entirely; a label at the cursor is read where
+         you're already looking, and the scale stays a fixed frame of reference. -->
+    <div
+      v-if="hover"
+      class="tprofile__read t-sm"
+      :class="{ 'is-start': hover.x / VB_W < EDGE_F, 'is-end': hover.x / VB_W > 1 - EDGE_F }"
+      :style="{ '--at': `${(hover.x / VB_W) * 100}%` }"
+      aria-hidden="true"
+    >
+      <span>{{ readDistance(hover.distanceM) }}</span>
+      <span>
+        <!-- Rounded while scrubbing, EXACT at a named extreme. The rounding exists to stop
+             the last digit flickering as the cursor moves; at the summit the precise
+             figure is the entire reason the label is there, and "7,290 ft highest" on a
+             7,316 ft summit is the label contradicting itself. -->
+        {{ hover.extreme ? asHeight(hover.ele) : readHeight(hover.ele) }} {{ heightUnit }}
+        <!-- The high and low points are named WHERE THEY ARE rather than as a standing
+             figure beside the chart. "3,284–7,316 ft" told you the range and not one thing
+             about the route; scrubbing onto the summit and being told it's the summit
+             attaches the number to the ground it describes. The range is still spoken in
+             full by <desc>, so nothing is lost to a reader who can't scrub. -->
+        <span v-if="hover.extreme" class="tprofile__extreme">{{ hover.extreme }}</span>
+      </span>
+      <!-- ONE colour, and only when the grade is worth noticing. Up and down were two
+           different hues, which quietly claimed that direction is the thing to read; it
+           isn't. Steep is steep — a 15% descent is hard on the knees the way a 15% climb
+           is hard on the lungs — so both take the same mark, and everything gentler is
+           just a number. -->
+      <!-- Banded on the ROUNDED grade, the one actually on screen. Banding the raw value
+           printed "10%" in the moderate colour whenever the true grade was 9.6 — the
+           number and its own colour disagreeing, which is worse than either being off. -->
+      <span :class="`is-${gradeBandFor(Math.round(hover.grade))}`">{{ readGrade(hover.grade) }}</span>
+    </div>
+
+    <!-- All twenty-five ticks are always rendered and CSS chooses how many to show, so
+         there is no resize listener and no layout read — the count is a question about
+         available width, which is the one question CSS is better at than we are. -->
+    <figcaption class="tprofile__scale t-sm" aria-hidden="true">
+      <span v-for="(m, i) in scaleTicks" :key="i">{{ i === 0 ? `0 ${distanceUnit}` : formatDistance(m, distanceUnit) }}</span>
+    </figcaption>
+
+    <!-- What the shape can't be read off it. The vertical exaggeration is whatever the
+         container is, so no height is measurable from the picture — these carry it in
+         figures instead, which is the same division of labour the numbers above the chart
+         already make. aria-hidden: <desc> says all of it, and better. -->
+    <p v-if="facts !== false" class="tprofile__facts">
+      <span v-if="ascentM" class="chip">
+        <span class="t-label">Elevation gain</span>
+        <span class="t-num">{{ asHeight(ascentM) }} <span class="t-muted">{{ heightUnit }}</span></span>
+      </span>
+      <!-- The descent only when it is a DIFFERENT fact. On a loop it equals the climb by
+           definition, and two figures carrying one fact is one figure too many; where they
+           differ, the gap between them IS the net height change, which is worth seeing. -->
+      <span v-if="descentDiffers" class="chip">
+        <span class="t-label">Elevation loss</span>
+        <span class="t-num">{{ asHeight(descentM ?? 0) }} <span class="t-muted">{{ heightUnit }}</span></span>
+      </span>
+    </p>
+  </figure>
+</template>
+
+<style scoped lang="scss">
+/* Stretches to its container and takes its height from CSS — the viewBox does the rest.
+   Vertical exaggeration is therefore whatever the container is.
+
+   This USED to say the mark may never carry a slope-derived claim — no gradient shading,
+   no "steepest kilometre" — and it now does carry one, so here is the reversal and its
+   reasoning rather than a silently deleted rule.
+
+   The original argument was that a container-dependent vertical scale makes slope
+   unreadable off the silhouette. That is still true, and it is an argument against asking
+   the EYE to judge steepness from the shape. It is not an argument against colouring a
+   grade the code has computed from the data: the shading doesn't ask you to measure the
+   picture, it states a figure the picture happens to sit under. What stays banned is any
+   claim the geometry alone would have to support. */
+.tprofile-wrap {
+  margin: 0;
+}
+.tprofile {
+  display: block;
+  width: 100%;
+  height: clamp(56px, 9vw, 96px);
+}
+/* the ends sit hard against the mark's own edges, so each figure lines up with the
+   point of the route it names rather than floating near it */
+.tprofile__scale {
+  display: flex;
+  justify-content: space-between;
+  margin-top: var(--space-1);
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+/* Three on a phone, five from the stacking breakpoint, seven on a full-width column.
+   Each rule RESETS before selecting, because the subsets aren't cumulative — every fourth
+   of 25 doesn't contain every sixth — so letting the narrower rule survive would union the
+   two into a set that isn't evenly spaced.
+
+   Seven and not nine: the shown marks are evenly spaced by INDEX, which is what lets
+   space-between keep them evenly spaced by DISTANCE, and at the column's capped 1333px
+   nine sits ~148px apart where seven sits ~190px. Nine fits and reads as clutter — a scale
+   is a frame of reference, and one you have to scan has stopped being one. */
+.tprofile__scale span {
+  display: none;
+}
+.tprofile__scale span:nth-child(12n + 1) {
+  display: block;
+}
+/* `:nth-child(n)` and not a bare `span` for the reset: it matches everything just the
+   same, but at the SAME specificity as the selection rules it has to clear. A plain
+   element selector loses to them, so the breakpoints unioned instead of replacing and the
+   marks came out unevenly spaced — 0, 6.6, 10, 13.3 — which is worse than too many. */
+@media (min-width: $bp-stack) {
+  .tprofile__scale span:nth-child(n) {
+    display: none;
+  }
+  .tprofile__scale span:nth-child(6n + 1) {
+    display: block;
+  }
+}
+@media (min-width: $bp-full) {
+  .tprofile__scale span:nth-child(n) {
+    display: none;
+  }
+  .tprofile__scale span:nth-child(4n + 1) {
+    display: block;
+  }
+}
+/* The route's own figures, in the same chip the trip's estimates use — they answer the
+   same kind of question and were reading as a different class of thing. */
+/* the same lesser ink the panel gives its units — see the note there on why not .t-muted */
+.tprofile__facts .t-muted {
+  color: var(--ink-3);
+}
+.tprofile__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-5);
+  margin: var(--space-3) 0 0;
+}
+/* Actual dots, not dashes. A zero-length dash with a ROUND cap renders as a circle whose
+   diameter is the stroke width — `2 3` drew stubby rectangles instead, which read as a
+   broken line rather than a dotted one. non-scaling-stroke on the element is what keeps
+   them circular: without it preserveAspectRatio="none" would squash them into ovals. */
+.tprofile__cursor {
+  /* --ink-2, not --ink-3. The cursor crosses two backgrounds: bare paper above the ridge
+     and the grade shading below it. At --ink-3 the upper half read clearly and the lower
+     half disappeared into the fill, so the line looked like it stopped dead at the route —
+     the same complaint as a clipped line, from the opposite cause. One step darker carries
+     it across both without turning a hairline guide into a rule. */
+  stroke: var(--ink-2);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-dasharray: 0 5;
+}
+/* An SVG root clips to its viewBox by default, and a stroke is centred on its path — so at
+   x=0 and at the far right, half of every dot fell outside the box and was cut away. The
+   line looked like it came apart exactly at the two ends you can scrub to. Nothing here is
+   drawn beyond the box on purpose, so letting strokes finish is all this does. */
+.tprofile {
+  overflow: visible;
+}
+.tprofile-wrap {
+  position: relative;
+  cursor: crosshair;
+  /* HEADROOM, and it is hover area as well as space.
+     The reading is drawn above the chart's top edge, so it needs room up there — but the
+     peak of a route touches that edge, and a margin would put the gap OUTSIDE the element
+     that listens for the pointer. Hovering just above the highest point then did nothing,
+     which is the part of the chart you most want to interrogate. Padding is inside the
+     box, so the same space reserves the room and answers the pointer.
+     The readout reads this back (below), so the two can't drift apart. */
+  --tprofile-head: 24px;
+  padding-top: var(--tprofile-head);
+  /* Horizontal movement belongs to the chart, vertical still scrolls the page. Without
+     this the browser holds every touch-drag open as a possible scroll and then cancels the
+     pointer stream, which is what made scrubbing feel like it only worked over the line. */
+  touch-action: pan-y;
+}
+/* Tracks the cursor along the chart, centred on it, and clamped by the translate so the
+   ends stay inside the figure instead of hanging off the column. pointer-events:none or
+   it would sit under the pointer and fight the very move that positions it. */
+.tprofile__read {
+  position: absolute;
+  /* the chart's own top edge, which the padding above moved down from the box's */
+  top: var(--tprofile-head);
+  /* Centred on the cursor, and clamped so the label never hangs off the column. 6.5rem is
+     half the label at its widest ("39.7 mi 5,906 ft -12.9%"); 5.5 wasn't enough and it
+     overhung the right edge by 8px. Measuring it properly would mean a layout read on
+     every pointer move to fix an inset nobody can perceive.
+     Near the ENDS the clamp stops being an inset and becomes a disconnection — see below. */
+  left: clamp(6.5rem, var(--at), calc(100% - 6.5rem));
+  transform: translate(-50%, calc(-100% - var(--space-1)));
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-px) var(--space-2);
+  border-radius: var(--radius-2);
+  background: var(--paper-2);
+  color: var(--ink-2);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+/* AT THE ENDS, THE LABEL CHANGES WHICH EDGE IT HANGS FROM rather than sliding away.
+ *
+ * The cursor is never clamped — the line and the dot track the pointer all the way to both
+ * edges — so at x=0 a centred label was pinned 6.5rem inward while its own line stood at
+ * the far left. Reading and line stopped looking like one object, which is the whole job
+ * of a scrubber: the label had drifted off the thing it describes.
+ *
+ * Centred in the middle, LEFT-aligned to the cursor at the start and RIGHT-aligned at the
+ * finish. The box stays on the page and always touches the line it belongs to. Switched on
+ * a fraction of the track rather than a measured width, so there is still no layout read. */
+.tprofile__read.is-start {
+  left: 0;
+  transform: translate(0, calc(-100% - var(--space-1)));
+}
+.tprofile__read.is-end {
+  left: 100%;
+  transform: translate(-100%, calc(-100% - var(--space-1)));
+}
+/* The SAME hues the shading uses, so the number and the band under the cursor agree —
+   but not the same tokens, and that is deliberate rather than sloppy.
+   
+   --cat-* are validated as FILLS at ~3:1, and as text on --paper-2 in light mode the red
+   measures 4.21:1 against AA's 4.5. So light mode drops the lightness at the same hue
+   angle: the correlation a reader perceives is the HUE (it's the red one, it's the orange
+   one), and lightness is free to move to clear the contrast floor. Dark mode already
+   passes, so it stays near the fill values. */
+/* the label steps back from the figure it qualifies — it's an annotation, not a reading */
+.tprofile__extreme {
+  margin-left: var(--space-1);
+  color: var(--ink-3);
+}
+.tprofile__read .is-hard {
+  color: light-dark(oklch(0.5 0.22 25), oklch(0.68 0.25 25));
+}
+.tprofile__read .is-moderate {
+  color: light-dark(oklch(0.52 0.14 62), oklch(0.8 0.18 62));
+}
+.tprofile__dot {
+  fill: var(--ink);
+  stroke: var(--paper);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+/* Solid, not a gradient.
+ *
+ * A fade was the first instinct and the wrong one at this size: the chart is 56–96px tall,
+ * so a gradient spends most of its range on pixels that aren't there and leaves the hue
+ * too weak to band by. A flat wash reads as ground, which is what it is.
+ *
+ * It is also the cheap way to keep the element ceiling at the top of this file standing:
+ * a flat fill is CSS on a path that already existed, where a fade wants either a <defs>
+ * with a <linearGradient> per run or a mask — both of which were tried and dropped. */
+/* EASY GROUND TAKES NOTHING. It was a 10% ink wash, which is a colour — and a colour that
+   fires on most of a route is not a signal, it is a background. Shading is a severity
+   claim; the claim on easy ground is that there isn't one. Drawn as nothing, the amber and
+   the red become marks you notice rather than two shades of a grey band. */
+.tprofile__fill {
+  fill: none;
+}
+/* Orange for moderate, red for hard — adjacent hues, so the separation has to come from
+   somewhere other than hue alone. It comes from WEIGHT: moderate sits noticeably lighter
+   than hard, so the two read apart even for someone who can't tell the hues apart at all.
+   Hue 62 rather than the palette's 50 for the same reason — every degree away from red's
+   25 is a degree of separation bought cheaply. */
+.tprofile__fill.is-moderate {
+  fill: oklch(0.72 0.17 62);
+  opacity: 0.22;
+}
+/* Red for hard, and the SAME red the hover readout marks a steep grade with — one idea,
+   one hue. Yellow for moderate rather than orange: --cat-pack sits 28° from this in hue
+   at a similar lightness, which is a classic red/green-deficient confusion pair, and a
+   difficulty signal is exactly the wrong place to ask someone to tell those apart. */
+.tprofile__fill.is-hard {
+  fill: var(--cat-firstaid);
+  opacity: 0.34;
+}
+.tprofile__ridge {
+  /* non-scaling-stroke means this is real pixels, so it holds at any container size */
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+</style>

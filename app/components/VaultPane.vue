@@ -903,8 +903,12 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   /* padding-BLOCK, not the shorthand: this block also matches the shared
      padding-inline rule above, and a `padding: x 0 y` shorthand silently zeroes the
      inline half of it — which left the empty state's text one full step to the left
-     of the header above it and the rows below it. */
-  padding-block: var(--space-2) var(--space-3);
+     of the header above it and the rows below it.
+     The bottom is deeper than the top and reaches for the safe area, because below
+     $bp-full this panel is a BOTTOM SHEET: 12px left the sign-in button sitting on the
+     sheet's own edge, and on a phone that edge is where the home indicator lives. The
+     max() keeps the desktop panel at a normal step, since env() resolves to 0 there. */
+  padding-block: var(--space-2) max(var(--space-5), env(safe-area-inset-bottom));
 }
 /* balance, not the tooltip's pretty: pretty only protects the LAST line, and centred
    text makes a ragged edge read as a mistake. A short block can't strand a word. */
