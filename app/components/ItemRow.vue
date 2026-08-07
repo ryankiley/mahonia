@@ -60,6 +60,10 @@ import type { ItemPatch } from "~~/shared/ops";
 import type { NameCommit } from "~/composables/useCatalogSearch";
 import { bySortOrder, effectiveClassification, entryUnitFromInput, formatKcal, formatWeight, fromMg, groupLineMg, itemDisplayName, parseWeightInput, rowDisplayMg, siblingItems, splitWornQty } from "~~/shared/weights";
 import { isWaterName, itemQtyLabel, waterLiters, waterMgFromMl } from "~~/shared/water";
+// the same worthiness + identity rules the capture path runs, so "already banked"
+// below can only ever claim what capture would actually take (statically imported
+// like useGearList's own vaultNormKey — this module is in the editor graph already)
+import { isVaultWorthy, vaultNormKey } from "~~/shared/vault";
 
 // The editor's row — editable by default, a checklist row in packing mode. A nested item
 // renders the SAME row with `nested` set (indented, one level only). The share views
@@ -91,9 +95,11 @@ const props = withDefaults(
 // overlay at the folder's bottom is cropped)
 const emit = defineEmits<{ overlayToggle: [boolean]; toast: [string] }>();
 const c = useGearList();
-// only to tell "your vault is unreachable" from "you don't have one" when banking a
-// row fails — the button itself is offered either way, since signing in is a
-// reasonable answer to pressing it
+// two jobs for the vault button: telling "your vault is unreachable" from "you
+// don't have one" when banking a row fails (the button is offered signed out too,
+// since signing in is a reasonable answer to pressing it), and gating vaultCovered
+// below — signed out, nothing reaches a vault automatically, so no row may claim
+// it's already there
 const { hasVault } = useVaultAccess();
 
 // The two mount latches (each row face mounts the first time its mode is entered and
@@ -718,13 +724,47 @@ function toggleNestMenu() {
 // default and the reason the vault fills itself. What it has never had is a way to
 // SAY so: no button, no confirmation, nothing on the row that admits the feature
 // exists. This is that affordance — the same capture, asked for out loud.
+//
+// And the button exists only while pressing it could DO the thing it names —
+// two gates, one on each side of the row's life:
+//  • Not yet gear: a row with no name, or no weight and no catalog link, has
+//    nothing to save (isVaultWorthy — capture's own rule; groups and water are
+//    out the same way). The old always-present button's only outcome there was a
+//    toast telling you to finish the row — so a NEW item shows no icon at all,
+//    and finishing the row is what makes it arrive (the reveal below).
+//  • Already banked: when the automatic path has the row, asking out loud is
+//    offering to do what's done — so the button leaves again. (It used to stay,
+//    dimmed and aria-disabled, reading "Already in My Gear".) Covered is true
+//    exactly when every gate the automatic path runs is open for this worthy row:
+//    there's a vault to reach (signed in), this list's answer is yes
+//    (c.vaultAuto), and the chooser didn't decline it. Fail one of those and the
+//    worthy row keeps its button, because pressing it is then the only way this
+//    row gets banked.
+//
+// Neither gate can race live typing: they read the committed snapshot, and the
+// fields that feed worthiness settle before they commit — the name on
+// enter/blur/pick (ItemInput.commitFree), the weight on change — never per
+// keystroke. So the button arrives once, when the row's facts do, not letter by
+// letter. (On a covered list both gates flip in the same commit, worthy AND
+// covered, so completing a row there never flashes a button it's about to take.)
+const vaultWorthy = computed(() => isVaultWorthy(props.item, isParent.value));
+const vaultCovered = computed(
+  () =>
+    hasVault.value &&
+    c.vaultAuto.value &&
+    vaultWorthy.value &&
+    !c.vaultDeclined.value.has(vaultNormKey(props.item.brand, props.item.name, props.item.variant)),
+);
 const vaultSaved = ref(false);
 const vaultBusy = ref(false);
 const vaultLabel = computed(() =>
-  vaultSaved.value ? "Saved to My gear" : "Save to My gear",
+  vaultSaved.value ? "Saved to My Gear" : "Save to My Gear",
 );
 async function onSaveToVault() {
-  if (vaultBusy.value || vaultSaved.value) return;
+  // a covered row renders no button, but coverage can flip mid-press (the chooser
+  // and the vault answer live outside the row) — the covered guard makes that
+  // beat a no-op instead of a save the automatic path already made
+  if (vaultBusy.value || vaultSaved.value || vaultCovered.value) return;
   vaultBusy.value = true;
   const result = await c.saveItemToVault(props.item.id);
   vaultBusy.value = false;
@@ -736,7 +776,7 @@ async function onSaveToVault() {
       // the vault belongs to an account, so signed out there is nowhere to put it.
       // Naming that is the difference between a dead button and a next step.
       : hasVault.value
-        ? "Couldn’t reach My gear — try again in a moment"
+        ? "Couldn’t reach My Gear — try again in a moment"
         : "Sign in to keep your gear",
   );
 }
@@ -747,11 +787,11 @@ watch(
   () => (vaultSaved.value = false),
 );
 
-// the same actions the inline icons run, in the order the icons sat: note, then the
-// one nesting action that applies to this row's state (add-nested / nest-up / un-nest),
-// then the vault save, and last the removal — the last three of which are inline on a
-// desktop row and live only here on a phone (see the mobile block: the trailing cluster
-// is ⋯ · grip, because the icons are --tap wide there and the line has no room for the
+// the same actions the inline icons run: note first (the most-edited thing here),
+// then the one nesting action that applies to this row's state (add-nested / nest-up /
+// un-nest), then the vault save, and last the removal — all inline on a desktop row
+// and living only here on a phone (see the mobile block: the trailing cluster is
+// ⋯ · grip, because the icons are --tap wide there and the line has no room for the
 // row's numbers beside more than two of them).
 const overflowActions = computed(() => {
   const acts: { label: string; run: () => void }[] = [
@@ -765,8 +805,11 @@ const overflowActions = computed(() => {
   }
   // Reads its own state, like the inline button's tooltip does — "Saved" is the
   // whole feedback here, since a menu closes on choosing and there's no tick left
-  // on screen to see.
-  if (!isWater.value)
+  // on screen to see. Same disclosure rule as the inline icon: no entry until the
+  // row is gear worth saving, none again once the automatic path has it (it used
+  // to stay as a disabled "Already in My Gear" line) — a menu row that can only
+  // say "nothing to do" is an action list advertising a non-action.
+  if (!isWater.value && vaultWorthy.value && !vaultCovered.value)
     acts.push({ label: vaultLabel.value, run: onSaveToVault });
   // LAST, the way the destructive icon sat last in the desktop cluster — a menu is a
   // list you read top to bottom, so the one irreversible entry belongs at the end of
@@ -1144,6 +1187,38 @@ function dismissFix() {
                blank row discards itself before the click can act (e.g. the note
                button would delete the row instead of opening the note field).
                Preventing the default keeps focus where it was; click still fires. -->
+          <!-- Save to vault. Capture already happens on its own as you build, so this
+               isn't a new capability — it's the missing affordance for one that had no
+               visible existence.
+               Rendered only while pressing it would DO something: not before the row
+               is gear worth saving (vaultWorthy — a new item carries no icon; naming
+               and weighing it is what makes this arrive), and not after the automatic
+               path has it (vaultCovered — the button doesn't stand down, it steps
+               out). Same disclosure rule as the nesting menu below, which also only
+               exists while it has an action to offer. It sits FIRST in the cluster,
+               at the open left edge, because it's the one icon here that comes and
+               goes per row: the cluster is right-aligned, so a conditional icon in
+               the middle would shuffle its neighbours from row to row, while out
+               here its absence moves nothing.
+               Not on water rows, the same rule the ⋯ menu applies: water is never
+               gear (isVaultWorthy), so the button's only possible outcome there was
+               a toast telling you to weigh a row that has a weight. -->
+          <Transition name="vaultin">
+            <Tooltip v-if="!isWater && vaultWorthy && !vaultCovered" :text="vaultLabel" preferred-placement="top">
+              <button
+                class="btn btn--icon btn--ghost item__vault-btn"
+                :class="{ 'is-active': vaultSaved }"
+                type="button"
+                :disabled="vaultBusy"
+                :aria-label="vaultLabel"
+                @mousedown.prevent
+                @click="onSaveToVault"
+              >
+                <HugeiconsIcon :icon="CheckIcon" v-if="vaultSaved" :size="16" :stroke-width="2" />
+                <HugeiconsIcon :icon="SafeBoxIcon" v-else :size="16" :stroke-width="2" />
+              </button>
+            </Tooltip>
+          </Transition>
           <!-- NESTING, under one icon. These were up to two adjacent buttons whose
                glyphs (list-plus, indent, outdent) are near-identical at 16px, so the
                cluster read as noise and you had to hover each to learn which was which.
@@ -1173,24 +1248,6 @@ function dismissFix() {
               </ul>
             </Transition>
           </div>
-          <!-- Save to vault. Capture already happens on its own as you build, so this
-               isn't a new capability — it's the missing affordance for one that had no
-               visible existence. Placed before delete so the destructive action stays
-               last in the cluster. -->
-          <Tooltip :text="vaultLabel" preferred-placement="top">
-            <button
-              class="btn btn--icon btn--ghost item__vault-btn"
-              :class="{ 'is-active': vaultSaved }"
-              type="button"
-              :disabled="vaultBusy"
-              :aria-label="vaultLabel"
-              @mousedown.prevent
-              @click="onSaveToVault"
-            >
-              <HugeiconsIcon :icon="CheckIcon" v-if="vaultSaved" :size="16" :stroke-width="2" />
-              <HugeiconsIcon :icon="SafeBoxIcon" v-else :size="16" :stroke-width="2" />
-            </button>
-          </Tooltip>
           <Tooltip text="Remove item" preferred-placement="top">
             <button
               class="btn btn--icon btn--ghost item__del"
@@ -1786,6 +1843,69 @@ function dismissFix() {
 }
 .item__vault-btn:disabled {
   cursor: default;
+}
+/* The save button's coming and going is STATE — the automatic capture releasing a
+   row, or taking it. Arrival gets a little sizzle: the trigger pops in, and a
+   light front sweeps left-to-right through the glyph — a soft-edged mask wipe
+   over the icon held at full ink, whose final frame is the no-mask state, so the
+   sweep ends where rest begins. When the enter class lifts, the button's own
+   color transition (above) settles the lit glyph onto --ink-3 — the SAME token
+   every other icon in the cluster rests at, so a settled row reads as one even
+   set, not a set with one recently-excited member.
+   Leave is a quick quiet fade: the moment belongs to arrival.
+   Everything here is CSS — keyframes, mask, timing; the <Transition> wrapper only
+   gates the standard enter/leave classes, the same idiom as the row's menus. And
+   no `appear`: a fresh row (or page) animates nothing; the shine plays only when
+   an EXISTING row's button comes back, which is the beat that means something
+   ("you can save this now").
+   One duration for both animations, keyed off the ROOT: Vue times the transition
+   from the root element's animation, so a longer sweep on the inner svg would be
+   cut off mid-shine when the class comes off. The pop instead lands early inside
+   the shared window and holds; the sweep starts a beat later (delay +
+   fill backwards) so it runs through a glyph that has already landed. (The global
+   reduced-motion rule in main.scss flattens all of it.) */
+.vaultin-enter-active {
+  animation: vault-pop calc(var(--dur) * 3) var(--ease);
+}
+.vaultin-enter-active .item__vault-btn {
+  color: var(--ink);
+}
+.vaultin-enter-active .item__vault-btn svg {
+  mask-image: linear-gradient(100deg, #000 45%, rgba(0, 0, 0, 0) 65%);
+  mask-size: 250% 100%;
+  mask-repeat: no-repeat;
+  animation: vault-shine calc(var(--dur) * 2.25) var(--ease) calc(var(--dur) * 0.75) backwards;
+}
+@keyframes vault-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  35% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+  60%,
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes vault-shine {
+  from {
+    mask-position: 100% 0;
+  }
+  to {
+    mask-position: 0% 0;
+  }
+}
+.vaultin-leave-active {
+  transition:
+    opacity var(--dur) var(--ease),
+    transform var(--dur) var(--ease);
+}
+.vaultin-leave-to {
+  opacity: 0;
+  transform: scale(0.5);
 }
 /* drag-to-reorder */
 .item-wrap {

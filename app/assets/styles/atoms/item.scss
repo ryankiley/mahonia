@@ -40,13 +40,20 @@
    not-being-mounted did. The under-row reveals (gear type / note / catalog-fix) and
    the nested block's "Add an item" are edit-mode furniture, hidden the same way —
    they used to be v-ifs on the same prop, unmounted for the same cost. */
+/* !important, like print.scss's chrome-off rule and for the same reason: this is a
+   STATE gate, not layout, and it has to beat whatever layout the faces carry. It
+   already lost once — ItemRow's mobile stack (`.item-wrap .item:not(.item--check)`,
+   display:flex) ties this selector's specificity, and component styles load after
+   the atoms, so a phone in packing mode showed every row twice: the checklist face
+   with the edit face still standing under it. Specificity arithmetic can't hold
+   this line (the next scoped face rule re-runs the race); importance ends it. */
 .editor__body:not([data-mode="pack"]) .item--check {
-  display: none;
+  display: none !important;
 }
 .editor__body[data-mode="pack"] .item-row:not(.item--check),
 .editor__body[data-mode="pack"] .item-wrap > .reveal,
 .editor__body[data-mode="pack"] .item-nest__add {
-  display: none;
+  display: none !important;
 }
 
 /* the entering face fades in, exactly as the old <Transition name="rowmode"> enter

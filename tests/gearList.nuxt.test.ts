@@ -22,6 +22,7 @@ import {
   setVaultDecisionFor,
   useVaultCapture,
   vaultDecisionFor,
+  vaultExclusionsFor,
 } from "~/composables/useVault";
 
 // ---- the on-device store, in memory ------------------------------------------
@@ -124,6 +125,11 @@ registerEndpoint("/api/vault/capture", { method: "POST", handler: async (event) 
   captureBodies.push(body?.items ?? []);
   return { vaultToken: "test-vault-token" };
 } });
+
+// The link a rotate mints. A constant, because the one thing the rotate tests
+// need from the endpoint is that the token CHANGES.
+const ROTATED_TOKEN = "rotated-edit-token";
+registerEndpoint("/api/edit/rotate", { method: "POST", handler: () => ({ editToken: ROTATED_TOKEN }) });
 
 // The mutate is left hanging until the test settles it by hand — that pending window
 // IS the bug's window, and controlling it is the whole point.
@@ -233,7 +239,7 @@ describe("useGearList — a flush that fails after the editor moved on", () => {
 });
 
 // ---------------------------------------------------------------------------
-// "Add this list's gear to My gear?"
+// "Add this list's gear to My Gear?"
 // ---------------------------------------------------------------------------
 // Same reason as the suite above: the behaviour under test is not a decision a
 // pure function makes, it's WHEN the live controller raises the question — which
@@ -294,6 +300,9 @@ describe("useGearList — whose gear is this?", () => {
     // is 4s, so this window is well inside it either way, but the guard returns
     // before anything is even queued)
     expect(captureCalls).toBe(0);
+    // the rows' mirror of the answer agrees: unanswered is not covered, so every
+    // row's save button stays a live action
+    expect(c.vaultAuto.value).toBe(false);
   });
 
   // The regression that made the ask worth nothing. load() runs three one-time
@@ -341,6 +350,9 @@ describe("useGearList — whose gear is this?", () => {
     await c.answerVaultPrompt(true);
     expect(c.vaultPrompt.value).toBeNull();
     expect(vaultDecisionFor(TOKEN)).toBe("yes");
+    // ...and the rows learn it the same moment: the automatic path now has this
+    // list, so the save buttons flip to "already banked" without a reload
+    expect(c.vaultAuto.value).toBe(true);
 
     // the capture is debounced 4s behind the answer
     await vi.waitFor(() => expect(captureCalls).toBe(1), { timeout: 8_000, interval: 50 });
@@ -362,6 +374,7 @@ describe("useGearList — whose gear is this?", () => {
     c.answerVaultPrompt(false);
     expect(c.vaultPrompt.value).toBeNull();
     expect(vaultDecisionFor(TOKEN)).toBe("no");
+    expect(c.vaultAuto.value).toBe(false); // no cover claimed for a declined list
 
     c.updateItem("i1", { qty: 3 });
     await new Promise((r) => setTimeout(r, 50));
@@ -430,6 +443,12 @@ describe("useGearList — whose gear is this?", () => {
     const mine = c.vaultPicker.value!.find((r) => r.name === "Duplex")!;
     c.confirmVaultPicker([mine.normKey]);
     expect(vaultDecisionFor(TOKEN)).toBe("yes");
+    // the rows' mirror carries BOTH halves of the choice: the list is covered,
+    // except for the row that was left unticked — its save button stays live,
+    // because pressing it is the one way that row ever gets banked
+    expect(c.vaultAuto.value).toBe(true);
+    expect(c.vaultDeclined.value.has(vaultNormKey("Durston", "Kakwa 55", undefined))).toBe(true);
+    expect(c.vaultDeclined.value.has(mine.normKey)).toBe(false);
 
     await vi.waitFor(() => expect(captureCalls).toBe(1), { timeout: 8_000, interval: 50 });
     expect(captureBodies.at(-1)!.map((r) => r.name)).toEqual(["Duplex"]);
@@ -514,6 +533,52 @@ describe("useGearList — whose gear is this?", () => {
     c.updateItem("i1", { qty: 2 });
     await new Promise((r) => setTimeout(r, 50));
     expect(c.vaultPrompt.value).toBeNull();
+  });
+
+  // The answer is keyed by the edit token, but it's ABOUT the gear — and a rotate
+  // is the owner cycling a leaked link on a list they've already answered for. It
+  // used to stay keyed to the dead token: the prompt re-asked, capture paused
+  // until it was re-answered, and the orphaned keys sat in localStorage for good.
+  it("carries the vault answer — exclusions included — across a rotate", async () => {
+    listResponse = withGear([gear(), gear({ id: "i2", name: "Kakwa 55", brand: "Durston" })]);
+    const c = useGearList();
+    await c.load(TOKEN);
+    c.updateItem("i1", { qty: 2 });
+    await vi.waitFor(() => expect(c.vaultPrompt.value).not.toBeNull());
+    await c.answerVaultPrompt(true);
+    await vi.waitFor(() => expect(c.vaultPicker.value).not.toBeNull());
+    const mine = c.vaultPicker.value!.find((r) => r.name === "Duplex")!;
+    c.confirmVaultPicker([mine.normKey]);
+
+    expect(await c.rotate()).toBe(ROTATED_TOKEN);
+    // both halves of the answer moved onto the new token...
+    expect(vaultDecisionFor(ROTATED_TOKEN)).toBe("yes");
+    expect(vaultExclusionsFor(ROTATED_TOKEN).has(vaultNormKey("Durston", "Kakwa 55", undefined))).toBe(true);
+    // ...the rows' mirror still says covered-except-the-declined-row...
+    expect(c.vaultAuto.value).toBe(true);
+    expect(c.vaultDeclined.value.has(vaultNormKey("Durston", "Kakwa 55", undefined))).toBe(true);
+    // ...and the dead token's keys died with it (cleared reads as never-asked)
+    expect(vaultDecisionFor(TOKEN)).toBe("ask");
+    expect(vaultExclusionsFor(TOKEN).size).toBe(0);
+
+    // the question, being answered, does not come back on the next edit
+    c.updateItem("i1", { qty: 3 });
+    await new Promise((r) => setTimeout(r, 50));
+    expect(c.vaultPrompt.value).toBeNull();
+  });
+
+  // A rotate on a never-answered list carries nothing and invents nothing: the
+  // question stays open, and the prompt still comes.
+  it("keeps an unanswered question open across a rotate", async () => {
+    const c = useGearList();
+    await c.load(TOKEN);
+    c.updateItem("i1", { qty: 2 });
+    await vi.waitFor(() => expect(c.vaultPrompt.value).not.toBeNull());
+
+    // navigating away and rotating from a fresh session ("ask" never recorded)
+    expect(await c.rotate()).toBe(ROTATED_TOKEN);
+    expect(vaultDecisionFor(ROTATED_TOKEN)).toBe("ask");
+    expect(c.vaultAuto.value).toBe(false);
   });
 });
 
