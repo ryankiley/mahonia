@@ -94,6 +94,7 @@ describe("searchCatalogLocal", () => {
       searchTerms: null,
       commonName: null,
       categoryHint: null,
+      kcal: null,
     });
     expect("usageCount" in (r as object)).toBe(false);
   });
@@ -101,6 +102,11 @@ describe("searchCatalogLocal", () => {
   it("carries categoryHint through, so a pick can pre-classify consumables", () => {
     const [r] = searchCatalogLocal([row({ categoryHint: "consumable" })], "duplex");
     expect(r?.categoryHint).toBe("consumable");
+  });
+
+  it("carries kcal through, so a food pick can pre-fill the row's calories", () => {
+    const [r] = searchCatalogLocal([row({ categoryHint: "consumable", kcal: 250 })], "duplex");
+    expect(r?.kcal).toBe(250);
   });
 
   it("matches a category noun via search_terms when the name lacks it", () => {

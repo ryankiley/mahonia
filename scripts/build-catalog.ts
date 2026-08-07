@@ -53,6 +53,7 @@ interface BuiltRow {
   weight_mg: number;
   weight_source: string;
   source_url: string;
+  kcal: number | null;
 }
 
 const identity = (r: { brand: string; name: string; variant: string }) =>
@@ -138,6 +139,31 @@ function main() {
       let category = (row.category_hint ?? "").trim().toLowerCase();
       if (!CATEGORY_ORDER.includes(category)) category = "other";
 
+      // kcal — held to the same citation bar as the weight: a figure with no
+      // kcal_source_url + kcal_quote of its own doesn't build (the weight's quote
+      // cites a spec page, which rarely shows a nutrition panel). Food only:
+      // kcal on a non-consumable row is a data error, not a judgment call.
+      let kcal: number | null = null;
+      if (row.kcal != null) {
+        const k = Number(row.kcal);
+        // 10k ceiling = sanity for a single retail unit (the largest rows here —
+        // multi-serving freeze-dried pouches — sit under 1,500)
+        if (!Number.isInteger(k) || k <= 0 || k > 10_000) {
+          skipped.push(`${file}: ${label} — kcal must be a positive integer ≤ 10000, got "${row.kcal}"`);
+          continue;
+        }
+        if (category !== "consumable") {
+          skipped.push(`${file}: ${label} — kcal on a non-consumable row (${category})`);
+          continue;
+        }
+        const kcalUrl = (row.kcal_source_url ?? "").trim();
+        if (!/^https?:\/\//i.test(kcalUrl) || !(row.kcal_quote ?? "").trim()) {
+          skipped.push(`${file}: ${label} — kcal needs its own kcal_source_url + kcal_quote`);
+          continue;
+        }
+        kcal = k;
+      }
+
       const out: BuiltRow = {
         brand: (row.brand ?? "").trim(),
         name,
@@ -147,6 +173,7 @@ function main() {
         weight_mg: weightMg,
         weight_source: source,
         source_url: url,
+        kcal,
       };
 
       const key = identity(out);
@@ -203,6 +230,7 @@ function main() {
   const byCat = new Map<string, number>();
   for (const r of built) byCat.set(r.category_hint, (byCat.get(r.category_hint) ?? 0) + 1);
   console.log(`\n✓ Wrote ${built.length} rows to seed/catalog.csv`);
+  console.log(`  with kcal:   ${built.filter((r) => r.kcal != null).length}`);
   console.log("  by category:");
   for (const cat of CATEGORY_ORDER) {
     if (byCat.has(cat)) console.log(`    ${cat.padEnd(12)} ${byCat.get(cat)}`);

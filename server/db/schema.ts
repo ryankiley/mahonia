@@ -166,6 +166,9 @@ export const catalogItems = pgTable(
     // the fuzzy match so "tent" finds a "Copper Spur" and "rucksack" a "backpack".
     searchTerms: text("search_terms"),
     weightMg: bigint("weight_mg", { mode: "number" }).notNull(),
+    // Food energy for ONE unit (the calorie twin of weight_mg) — cited research,
+    // food rows only; null everywhere else. A pick pre-fills the row's kcal with it.
+    kcal: integer("kcal"),
     // REQUIRED provenance — forces every row to declare where its weight came from
     weightSource: text("weight_source").notNull(), // manufacturer|measured|community|imported
     sourceUrl: text("source_url"), // the citation (manufacturer spec page preferred)

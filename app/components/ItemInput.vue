@@ -235,6 +235,10 @@ function selectResult(r: CatalogResult) {
     // maps: the others can't speak for how YOU carry a thing (clothing may be worn
     // or packed), so they stay on the folder default.
     classification: r.categoryHint === "consumable" ? "consumable" : undefined,
+    // the catalog's cited per-unit calories ride the pick like its weight does;
+    // only food rows carry one, and those arrive consumable (above) — the one
+    // class where the row's kcal field exists to receive it
+    kcal: r.kcal ?? undefined,
   });
   // self-improving ranking: tell the catalog this item was used (fire-and-forget)
   $fetch("/api/catalog/use", { method: "POST", body: { ids: [r.id] } }).catch(() => {});

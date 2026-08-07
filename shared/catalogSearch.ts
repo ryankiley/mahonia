@@ -84,6 +84,12 @@ export interface CatalogSearchResult {
   // Clif bar isn't base weight, and without this the row lands on the folder
   // default and quietly counts toward base. Not used for ranking.
   categoryHint?: string | null;
+  // Cited per-unit food energy (the calorie twin of weightMg) — food rows only,
+  // null elsewhere. Carried so a pick pre-fills the row's kcal the way weightMg
+  // pre-fills its weight; the rows that have it arrive classified consumable via
+  // categoryHint, which is the only place a row's kcal is reachable or counted.
+  // Not used for ranking.
+  kcal?: number | null;
 }
 
 /** A catalog row as needed for local ranking: the result shape plus the usage count
@@ -184,6 +190,7 @@ export function rankCandidates(
       searchTerms: row.searchTerms ?? null,
       commonName: row.commonName ?? null,
       categoryHint: row.categoryHint ?? null,
+      kcal: row.kcal ?? null,
     }));
 }
 

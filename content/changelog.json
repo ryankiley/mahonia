@@ -6,7 +6,8 @@
       "Forget a list from the editor's ⋯ menu: it leaves this device but stays online for anyone holding its link.",
       "When a saved list can’t be opened anymore — deleted elsewhere, or its link changed — the page now names it and lets you forget it, so the dead entry doesn’t linger in your lists.",
       "Food and fuel picked from the catalog arrive already marked consumable, so a Clif bar never quietly counts toward your base weight.",
-      "My Gear now remembers the calories you've entered for a food, and brings them back the next time you add it to a list."
+      "My Gear now remembers the calories you've entered for a food, and brings them back the next time you add it to a list.",
+      "Food picked from the catalog now arrives with the maker's calories filled in, so the trip's food math starts without any typing."
     ],
     "changed": [
       "Switching between the gear, packing and planning views is instant on a long list.",

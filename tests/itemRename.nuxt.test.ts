@@ -342,6 +342,35 @@ describe("renaming through the live autocomplete", () => {
     w.unmount();
   });
 
+  it("a food pick pre-fills the row's kcal from the catalog", async () => {
+    vi.useFakeTimers();
+    const w = mountRow(catalogPicked);
+    catalogHits.push({
+      id: 301, brand: "Clif", name: "Energy Bar", variant: "single bar",
+      weightMg: 68_000, verified: true, categoryHint: "consumable", kcal: 250,
+    });
+    await typeAndPick(w, "Energy");
+    expect(row().classification).toBe("consumable");
+    expect(row().kcal).toBe(250);
+    vi.useRealTimers();
+    w.unmount();
+  });
+
+  it("a pick without kcal leaves the row's own kcal alone", async () => {
+    vi.useFakeTimers();
+    // a consumable row whose calories the user entered, renamed to a food row the
+    // catalog has no figure for — absent must mean "keep yours", like the vault path
+    const w = mountRow({ ...catalogPicked, classification: "consumable", kcal: 640 });
+    catalogHits.push({
+      id: 302, brand: "Knorr", name: "Rice Sides", variant: "one pouch",
+      weightMg: 161_592, verified: true, categoryHint: "consumable",
+    });
+    await typeAndPick(w, "Rice");
+    expect(row().kcal).toBe(640);
+    vi.useRealTimers();
+    w.unmount();
+  });
+
   it("a non-consumable pick leaves the classification exactly as it was", async () => {
     vi.useFakeTimers();
     // an explicitly WORN row renamed to a shelter-category product must stay worn
