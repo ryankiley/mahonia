@@ -233,7 +233,7 @@ describe("useGearList — a flush that fails after the editor moved on", () => {
 });
 
 // ---------------------------------------------------------------------------
-// "Add this list's gear to your gear vault?"
+// "Add this list's gear to My gear?"
 // ---------------------------------------------------------------------------
 // Same reason as the suite above: the behaviour under test is not a decision a
 // pure function makes, it's WHEN the live controller raises the question — which

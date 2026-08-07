@@ -153,7 +153,7 @@ const options = computed<AcOption[]>(() => {
 
 // Where each SOURCE starts, so the menu can label the two.
 //
-// Your gear and the catalog are different kinds of thing — one carries the weight
+// My gear and the catalog are different kinds of thing — one carries the weight
 // you measured, the other the manufacturer's, and picking one rather than the
 // other changes what the row means. That distinction used to rest on a trailing
 // "· yours", which is the same visual device the rows already use for a variant
@@ -173,7 +173,7 @@ const sectionAt = computed<Map<number, string>>(() => {
     if (catalogAt < 0 && "result" in o) catalogAt = i;
   });
   if (vaultAt < 0 || catalogAt < 0) return map;
-  map.set(vaultAt, "Your gear");
+  map.set(vaultAt, "My gear");
   map.set(catalogAt, "Catalog");
   return map;
 });
@@ -416,7 +416,7 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
             <!-- the same glyph as the editor toolbar's vault button, so one mark
                  means one thing across both surfaces and reads before the text does -->
             <HugeiconsIcon :icon="SafeBoxIcon" class="ac__mineicon" :size="14" :stroke-width="2" aria-hidden="true" />
-            <span class="visually-hidden">From your vault: </span>
+            <span class="visually-hidden">From My gear: </span>
             <span v-if="opt.vault.brand" class="ac__brand">
               <span
                 v-for="(p, pi) in hl(opt.vault.brand)"

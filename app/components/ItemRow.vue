@@ -321,7 +321,9 @@ function onNameCommit(p: NameCommit) {
     }
     // catalogWeightMgAtLink is deliberately NOT set: it's the baseline for the
     // "the catalog's weight changed" nudge, and your own weight is not that
-    // baseline — stamping it here would compare the catalog against you.
+    // baseline — stamping it here would compare the catalog against you. The row
+    // ends up with no baseline at all, not the PREVIOUS product's: the reducer
+    // drops a baseline whose link has moved (shared/ops, updateItem).
     if (!props.item.commonNameOverridden && p.commonName) {
       patch.commonName = p.commonName;
       patch.commonNameOverridden = true;
@@ -679,7 +681,7 @@ function toggleNestMenu() {
 const vaultSaved = ref(false);
 const vaultBusy = ref(false);
 const vaultLabel = computed(() =>
-  vaultSaved.value ? "Saved to your gear vault" : "Save to your gear vault",
+  vaultSaved.value ? "Saved to My gear" : "Save to My gear",
 );
 async function onSaveToVault() {
   if (vaultBusy.value || vaultSaved.value) return;
@@ -694,8 +696,8 @@ async function onSaveToVault() {
       // the vault belongs to an account, so signed out there is nowhere to put it.
       // Naming that is the difference between a dead button and a next step.
       : hasVault.value
-        ? "Couldn’t reach your gear vault — try again in a moment"
-        : "Sign in to keep a gear vault",
+        ? "Couldn’t reach My gear — try again in a moment"
+        : "Sign in to keep your gear",
   );
 }
 // a rename or re-weigh makes it a different piece of gear, so the tick stops

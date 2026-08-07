@@ -21,7 +21,7 @@ import { rateLimit } from "../../../utils/rateLimit";
 //
 // AN ADDRESS IS REQUIRED, and this is where it's checked. Not because it
 // identifies you — the passkey does that — but because it's the only way back in
-// if every authenticator is lost, and a gear vault is precisely the thing you
+// if every authenticator is lost, and a vault is precisely the thing you
 // can't rebuild from memory. Collecting it here rather than after keeps the
 // account from ever existing in an unrecoverable state.
 //

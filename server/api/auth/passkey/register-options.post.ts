@@ -36,7 +36,7 @@ export default defineEventHandler(async (event) => {
     // stable id. Ugly next to a real address, which is the point: it's another
     // quiet argument for attaching one.
     userName: user.email ?? `Mahonia (#${user.id})`,
-    userDisplayName: user.email ?? "Mahonia gear vault",
+    userDisplayName: user.email ?? "Mahonia",
     userID: new TextEncoder().encode(String(user.id)),
     attestationType: "none", // we don't need to know which make of key it is
     // don't offer to create a second key on an authenticator that already holds
