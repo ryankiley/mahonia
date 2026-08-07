@@ -33,12 +33,22 @@ export const waypointKindMeta = (kind: string) =>
   WAYPOINT_KIND_META[kind as WaypointKind] ?? WAYPOINT_KIND_META.landmark;
 
 /**
- * The kinds you can PLACE — the three you find along a route.
+ * The kinds you can PLACE. Two, not five, and not three.
  *
- * Trailhead and end come with the route and are singular by nature: offering them here
- * would let a walk grow five finishes.
+ * Trailhead and end come with the route and are singular by nature — offering them would
+ * let a walk grow five finishes.
+ *
+ * CAMP is excluded for a different reason, and a better one: a camp is where a day ends,
+ * and the itinerary already says where that is. Every day boundary draws one, moves when
+ * you drag the boundary, and disappears when the day does. Letting somebody also place a
+ * loose camp would put two kinds of camp on one map — one that means "day 2 ends here" and
+ * one that means nothing in particular — and the first is the one worth having.
+ *
+ * The KIND survives in the model (see WAYPOINT_KIND_META) because pins imported from a
+ * file can legitimately be camps, and because dropping a stored value is a migration. What
+ * goes is only the ability to choose it by hand.
  */
-export const PLACEABLE_WAYPOINT_KINDS = ["water", "camp", "landmark"] as const;
+export const PLACEABLE_WAYPOINT_KINDS = ["water", "landmark"] as const;
 
 export const WAYPOINT_KIND_OPTIONS = PLACEABLE_WAYPOINT_KINDS.map((k) => ({
   key: k,

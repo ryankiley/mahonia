@@ -883,9 +883,13 @@ const distanceValue = (m: number | undefined) => {
                 :aria-label="`Name for the camp at the end of day ${i + 1}`"
                 @change="(e) => d && c.updateDay(d.id, { label: (e.target as HTMLInputElement).value.trim() })"
               />
-              <span class="plan__campkind">
+              <!-- The tent alone, in the same cell the pins' toggles occupy and boxed to
+                   the same width, so it sits exactly where a toggle's glyph sits. The word
+                   went: the row is a camp because the itinerary made it one, not because
+                   anybody chose it, so naming the kind here was labelling a control that
+                   isn't one. Its title says so for a screen reader. -->
+              <span class="plan__campkind" role="img" :aria-label="`Camp at the end of day ${i + 1}`">
                 <HugeiconsIcon :icon="TentIcon" :size="16" :stroke-width="2" aria-hidden="true" />
-                <span class="plan__campname">Camp</span>
               </span>
               <span class="t-sm plan__coord">{{ coordOf(campOf(i)!) }}</span>
               <span class="t-sm t-muted plan__campdist">{{ formatDistancePadded(campOf(i)!, distanceUnit) }}</span>
@@ -1324,17 +1328,16 @@ const distanceValue = (m: number | undefined) => {
   align-items: center;
   gap: var(--space-2);
 }
+/* One icon-button's box, aligned to the start of the kind column, so the tent lands on the
+   same pixel as the first toggle's glyph in the rows above it. */
 .plan__campkind {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-1);
+  justify-content: center;
+  width: var(--icon-btn, 32px);
   /* ink, not a category hue — it is the itinerary talking, the same thing the handle on
      the map says by being paper-filled rather than solid */
   color: var(--ink-3);
-}
-.plan__campname {
-  font-size: var(--text-sm);
-  white-space: nowrap;
 }
 .plan__campfield {
   min-width: 0;
@@ -1367,7 +1370,7 @@ const distanceValue = (m: number | undefined) => {
      lands; the kind toggles are what you set once and then stop looking at. */
   --wprow-cols:
     minmax(0, 1fr)
-    calc(var(--icon-btn, 32px) * 3 + var(--space-px) * 2)
+    calc(var(--icon-btn, 32px) * 2 + var(--space-px))
     auto
     auto
     var(--icon-btn, 32px);
