@@ -1,4 +1,4 @@
-import type { ItemPatch, Op } from "~~/shared/ops";
+import type { DayPatch, ItemPatch, Op } from "~~/shared/ops";
 import { applyOps } from "~~/shared/ops";
 import { uid } from "~~/shared/id";
 import { colorKeyForName, nextFolderColor, STARTER_FOLDERS } from "~~/shared/categories";
@@ -682,7 +682,7 @@ function create() {
     const days = snapshot.value?.days ?? [];
     dispatch({ t: "addDay", day: { id: uid(), sortOrder: days.length } });
   }
-  const updateDay = (id: string, patch: Partial<TripDay>) => dispatch({ t: "updateDay", id, patch });
+  const updateDay = (id: string, patch: DayPatch) => dispatch({ t: "updateDay", id, patch });
   /** A pin at a distance along the route. No sortOrder — route order is the only order. */
   function addWaypoint(alongM: number, kind: WaypointKind = "landmark") {
     dispatch({ t: "addWaypoint", waypoint: { id: uid(), kind, alongM } });

@@ -475,14 +475,18 @@ const descentFor = (i: number) =>
 async function commitDistance(id: string | null, e: Event) {
   if (!id) { await nextTick(); id = stored.value[stored.value.length - 1]?.id ?? null; if (!id) return; }
   const raw = (e.target as HTMLInputElement).value.trim();
-  c.updateDay(id, { distanceM: raw ? (parseDistanceM(raw, distanceUnit.value) ?? undefined) : undefined });
+  // "" and NOT undefined, for both of these. The patch is JSON on its way to the server
+  // and JSON.stringify drops undefined keys, so clearing a day's distance changed it
+  // locally and was overwritten by the very next echo — it looked like the server refusing
+  // the edit, when the server was never told. See DayPatch.
+  c.updateDay(id, { distanceM: raw ? (parseDistanceM(raw, distanceUnit.value) ?? "") : "" });
 }
 async function commitAscent(id: string | null, e: Event) {
   if (!id) { await nextTick(); id = stored.value[stored.value.length - 1]?.id ?? null; if (!id) return; }
   const raw = (e.target as HTMLInputElement).value.trim();
   // Ascent is a HEIGHT, so it reads in metres or feet — never in the km/mi the distance
   // beside it uses. Same parser; the fallback unit is what differs.
-  c.updateDay(id, { ascentM: raw ? (parseDistanceM(raw, distanceUnit.value === "mi" ? "ft" : "m") ?? undefined) : undefined });
+  c.updateDay(id, { ascentM: raw ? (parseDistanceM(raw, distanceUnit.value === "mi" ? "ft" : "m") ?? "") : "" });
 }
 
 const ascentUnit = computed(() => heightUnitFor(distanceUnit.value));

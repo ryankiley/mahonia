@@ -54,7 +54,7 @@ export type Op =
   // sortOrder patch on updateDay. There is no moveDay for the same reason there is no
   // moveFolder — a day has no container to move between, only an order.
   | { t: "addDay"; day: TripDay }
-  | { t: "updateDay"; id: string; patch: Partial<TripDay> }
+  | { t: "updateDay"; id: string; patch: DayPatch }
   | { t: "removeDay"; id: string }
   // Waypoints follow the day ops exactly. No moveWaypoint and no sortOrder patch: a
   // waypoint's position on the route IS its order, so there is nothing to reorder.
@@ -242,7 +242,26 @@ function cleanDayMetres(raw: unknown, max: number): number | undefined {
   return m > 0 && m <= max ? m : undefined;
 }
 
-function cleanDayPatch(patch: Partial<TripDay>): Partial<TripDay> {
+/**
+ * A day patch AS IT TRAVELS — same fields as TripDay, except the clearable metre figures
+ * also accept "", the sentinel meaning ERASE THIS.
+ *
+ * It has to be a VALUE and not `undefined`, because the patch is JSON on the way to the
+ * server and JSON.stringify drops undefined keys: `{ distanceM: undefined }` serialises to
+ * `{}`, so the `in` test below was false by the time the reducer ran and the clear simply
+ * never happened. It worked locally and was gone on the next echo, which read as the
+ * server rejecting the edit rather than never being told about it.
+ *
+ * Same sentinel setMeta already uses for trailDistanceM and trailAscentM, for the same
+ * reason — and cleanDayMetres already maps "" to undefined, so nothing downstream changes.
+ */
+export type DayPatch = Omit<Partial<TripDay>, "distanceM" | "ascentM" | "descentM"> & {
+  distanceM?: number | "";
+  ascentM?: number | "";
+  descentM?: number | "";
+};
+
+function cleanDayPatch(patch: DayPatch): Partial<TripDay> {
   const out: Partial<TripDay> = {};
   if (typeof patch.label === "string") out.label = patch.label.slice(0, 120) || undefined;
   // `in` rather than a truthiness test: these are all clearable, and an explicit
