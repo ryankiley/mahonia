@@ -22,7 +22,7 @@
       "The elevation profile's distance scale now shows more marks on a wider window, and the grade you read off the chart always matches the shading beneath it.",
       "A day now shows its descent alongside its climb, the trip's figures line up in columns down the list, and the route's total descent only appears when it differs from the climb.",
       "The trail panel's file button now reads \"Import map file\" and names the formats it takes.",
-      "Switching between Editing, Packing and Planning now uses a labelled bar under the list's title instead of three icons in the toolbar, and shared lists get one too — Gear or Trip.",
+      "Switching between Gear, Packing and Planning now uses a labelled bar under the list's title instead of three icons in the toolbar, and shared lists get one too — Gear or Trip.",
       "Hold ⌘ or Ctrl and scroll, or pinch on a trackpad, to zoom the route map.",
       "The map now opens and closes with the terrain growing out of its place on the page, and the trip's figures sit the same distance under the big number in all three views."
     ],

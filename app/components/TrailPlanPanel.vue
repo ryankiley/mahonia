@@ -523,7 +523,7 @@ const distanceValue = (m: number | undefined) => {
          changes the number without the figure unmounting and re-counting under you. -->
 
     <!-- THE FIGURES ROW, in the seat the totals row holds in the other two views.
-         Flipping between Editing and Planning should look like one number changing and one
+         Flipping between Gear and Planning should look like one number changing and one
          row of small figures changing under it — not like two different pages. So this is
          the first thing under the headline in both, and what differs (rows here, a chart
          and a map there) starts below it. -->

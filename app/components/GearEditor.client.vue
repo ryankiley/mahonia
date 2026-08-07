@@ -181,8 +181,16 @@ const headline = computed(() => {
  * MODE_ORDER stays the source of truth for what a stored value may be; this array is what
  * the control renders, in the same order, so the sliding indicator's index matches.
  */
+// "GEAR", not "Editing". Editing names the mechanic — what the controls let you do —
+// where the other two name the job: packing the bag, planning the walk. This mode's job is
+// deciding what to bring, and the thing you are looking at while you do it is the gear.
+//
+// It also settles the vocabulary across surfaces: the read-only view's own switcher
+// already says Gear / Trip, so one word now means one thing wherever it appears. The cost
+// is that it is a noun beside two gerunds, which was the trade taken deliberately —
+// matching the read view beats matching the suffix.
 const MODES = [
-  { key: "edit", label: "Editing", icon: Backpack02Icon },
+  { key: "edit", label: "Gear", icon: Backpack02Icon },
   { key: "pack", label: "Packing", icon: CheckmarkSquare02Icon },
   { key: "plan", label: "Planning", icon: Route02Icon },
 ] as const satisfies readonly { key: EditorMode; label: string; icon: unknown }[];
