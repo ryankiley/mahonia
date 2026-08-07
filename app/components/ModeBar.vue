@@ -141,7 +141,12 @@ function onKey(e: KeyboardEvent) {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  height: 24px; // --control-1
+  // 30px, NOT the design system's 24px --control-1 — the one metric of the port that is
+  // deliberately off. Its menubar is words only; this one puts a 16px icon beside the
+  // word, and 24px leaves 4px of air above and below a mark that needs to sit in its own
+  // space rather than press against the plate's edges. The extra six give the icon room
+  // without making the bar read as buttons.
+  height: 30px;
   padding: 0 var(--space-2);
   border-radius: var(--radius-2);
   font-family: inherit;

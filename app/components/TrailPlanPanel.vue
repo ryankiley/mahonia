@@ -857,7 +857,9 @@ const distanceValue = (m: number | undefined) => {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  padding-block: var(--space-4);
+  /* no padding at the TOP: the headline above already carries the gap, and two of them
+     stacked is what put the chart a whole 48px clear of the number it belongs to */
+  padding-block: 0 var(--space-4);
 }
 .plan__chips {
   display: flex;

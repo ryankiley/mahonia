@@ -120,28 +120,27 @@ function isDimmed(fromM: number, toM: number): boolean {
  * different days. So the route carries a few chevrons.
  *
  * FEW is the design. One every kilometre would trace the line in arrowheads and turn a
- * mark that reads as terrain into a mark that reads as a diagram, so the count is fixed
- * and the SPACING follows the route's length: about a dozen across whatever the route is,
- * never closer together than 1.5 km on a short one. A 64 km loop gets thirteen, a 6 km
- * afternoon gets two, and neither looks busy.
+ * mark that reads as terrain into a mark that reads as a diagram. So this is a CEILING —
+ * about a dozen across whatever the route is — and the floor below it is measured on
+ * screen, which is what keeps them from piling up when you zoom out.
  */
 const ARROW_COUNT = 13;
-const ARROW_MIN_GAP_M = 1500;
+/**
+ * The floor, in SCREEN pixels rather than route metres — and that unit is the whole point.
+ *
+ * A fixed spacing along the route is a different spacing on screen at every zoom. Zoomed
+ * out, a 40 km loop is a squiggle two centimetres across, and thirteen chevrons on it land
+ * on top of one another: a smear that reads as noise rather than as thirteen marks saying
+ * which way round the walk goes. Measuring the gap where the reader actually sees it keeps
+ * them the same distance apart whatever the zoom, so the route thins its own marks out as
+ * you pull back and offers more of them as you come in.
+ */
+const ARROW_MIN_GAP_PX = 130;
 /** How far either side of a chevron the heading is measured over. */
 const ARROW_LOOK_M = 60;
 
-/** The day that owns a given distance along the route, or -1 for ground no day claims. */
-function dayAt(alongM: number): number {
-  let run = 0;
-  for (let i = 0; i < props.dayDistancesM.length; i++) {
-    run += props.dayDistancesM[i]!;
-    if (alongM <= run) return i;
-  }
-  return -1;
-}
-
 /**
- * The direction marks: position, screen angle, and the colour of the day they fall in.
+ * The direction marks: where each one sits, and which way it points.
  *
  * The angle is measured in LAYER space rather than from a compass bearing, which is both
  * simpler and exactly right — it asks Leaflet where these two points actually land on
@@ -154,8 +153,12 @@ function arrowMarks() {
   if (!map || line.length < 2) return [];
   const total = cumulativeM(line).at(-1) ?? 0;
   if (!(total > 0)) return [];
-  const gap = Math.max(total / ARROW_COUNT, ARROW_MIN_GAP_M);
-  const out: { at: LatLon; deg: number; color: string }[] = [];
+  // Metres per pixel at this zoom and this latitude — Web Mercator's own scale, which is
+  // what turns the pixel floor above into a distance along the route.
+  const lat = map.getCenter().lat;
+  const mPerPx = (40_075_016.686 * Math.cos((lat * Math.PI) / 180)) / 2 ** (map.getZoom() + 8);
+  const gap = Math.max(total / ARROW_COUNT, ARROW_MIN_GAP_PX * mPerPx);
+  const out: { at: LatLon; deg: number }[] = [];
   // offset by half a gap so no chevron lands on the trailhead or the finish, where the
   // route's own end markers already are
   for (let d = gap / 2; d < total; d += gap) {
@@ -173,12 +176,10 @@ function arrowMarks() {
     const a = map.project([back.lat, back.lon]);
     const b = map.project([fwd.lat, fwd.lon]);
     if (a.x === b.x && a.y === b.y) continue;
-    const day = dayAt(d);
     out.push({
       at,
       // screen y grows downward, which is already what a CSS rotation expects
       deg: (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI,
-      color: day === -1 ? "var(--ink-3)" : (colors.value[day] ?? "var(--cat-other)"),
     });
   }
   return out;
@@ -225,7 +226,7 @@ function renderArrows() {
       // string is safe here in a way it would not be for a waypoint's label.
       icon: L!.divIcon({
         className: "routemap__arrow",
-        html: `<i style="transform:rotate(${mark.deg.toFixed(1)}deg);color:${mark.color}"></i>`,
+        html: `<i style="transform:rotate(${mark.deg.toFixed(1)}deg)"></i>`,
         iconSize: [14, 14],
         // the CENTRE, not a pin's tip: the mark means "the route runs this way through
         // this point", so it has to sit on the line rather than hang off it
@@ -652,6 +653,11 @@ async function draw() {
     if (!framing) touched = true;
   });
 
+  // The chevrons are spaced in SCREEN pixels, so their spacing is only correct for the
+  // zoom it was computed at — re-cut them whenever that changes. Zoom only: panning moves
+  // them with the map, which Leaflet does itself.
+  map.on("zoomend", renderArrows);
+
   // PLACING. Bound to the map rather than to the legs, for two reasons: a 4px stroke is a
   // poor target on a phone, and the legs only cover days that have a distance typed — so
   // leg-only targets would leave the unplanned remainder of the route unclickable. The
@@ -1013,15 +1019,33 @@ onBeforeUnmount(() => {
 // its own angle, none of them the route's.
 .routemap__arrow i {
   display: block;
-  width: 13px;
-  height: 11px;
-  margin: 1.5px 0.5px;
-  background: currentcolor;
+  width: 15px;
+  height: 13px;
+  margin: 0.5px;
+  // INK, NOT THE DAY'S COLOUR — and this was the whole reason they were hard to find.
+  //
+  // A chevron sits ON its own leg. Drawn in that leg's colour it was a pink mark on a pink
+  // line: the same hue, the same lightness, separated only by a halo a pixel wide. It read
+  // as a thickening of the line rather than as an arrowhead, and zoomed out, where the
+  // line is all you can see, it vanished into it completely.
+  //
+  // Dark on colour reads at any size, and dark with a white halo reads on bare terrain
+  // too, so one value covers both grounds. Nothing is lost: the day is what the LINE says,
+  // and these only ever had one job, which is which way round the walk goes.
+  //
+  // A literal, like the white halo below and for the same reason — the basemap under this
+  // never goes dark, so there is no second case for a token to answer.
+  background: #1c1c1c;
   clip-path: polygon(0 0, 100% 50%, 0 100%, 42% 50%);
   // a white halo, so a chevron stays legible where it sits on top of its own line rather
   // than merging into it. Flat white, not a token: the basemap under this never goes dark
   // (see color-scheme on .routemap), so there is no second case to answer for.
-  filter: drop-shadow(0 0 1.5px #fff) drop-shadow(0 0 1px #fff);
+  // Three passes, not two. A drop-shadow halo falls off, so one pass on a 15px mark is a
+  // suggestion rather than an outline — and this sits on a topographic sheet already full
+  // of thin coloured lines, including paths drawn in magenta a few degrees from the colour
+  // day 2 wears. Stacking them builds the halo up to something opaque enough to separate
+  // the chevron from whatever it is standing on.
+  filter: drop-shadow(0 0 1px #fff) drop-shadow(0 0 1px #fff) drop-shadow(0 0 1.5px #fff);
 }
 
 // Leaflet's own chrome, brought into the app's language. Attribution stays legible on

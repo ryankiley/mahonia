@@ -952,8 +952,13 @@ function onCorrected(res: { status: string; itemName?: string }) {
 }
 /* The big figure sits between the switcher and whatever that switcher chose. Its own
    space, because it belongs to neither — it is the page's headline in all three views. */
+/* The figure sits CLOSE to what it describes.
+   --space-4 below it plus the panel's own --space-4 above put 32px between the number and
+   the first thing it is a number ABOUT — enough that the two read as separate blocks
+   rather than as a figure and its evidence. Half of it here, and the planning panel drops
+   its top padding entirely (see .plan), so the pair is one gap instead of two stacked. */
 .editor__headline {
-  margin-bottom: var(--space-4);
+  margin-bottom: var(--space-2);
 }
 /* The title block (name + trail link) belongs to ListHead.vue — it owns its own layout
    so the hover affordance, the title, and the link keep one DOM order. */
