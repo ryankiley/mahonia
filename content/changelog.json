@@ -1,5 +1,16 @@
 [
   {
+    "date": "2026-08-08",
+    "changed": [
+      "Tapping a control on a phone or tablet no longer raises a tooltip describing the thing you just pressed.",
+      "On a touchscreen, scrolling now closes an open menu instead of leaving it parked over the list."
+    ],
+    "fixed": [
+      "A weight or amount you'd just typed is no longer lost when you press a control on the same row without leaving the field first.",
+      "In the sharing panel's recent changes, the time of a change now stays on one line instead of breaking in half beside a long description."
+    ]
+  },
+  {
     "date": "2026-08-07",
     "added": [
       "Delete a list from the editor's ⋯ menu, instead of leaving it to find the list on another page.",
