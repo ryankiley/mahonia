@@ -159,10 +159,22 @@ function onKey(e: KeyboardEvent) {
 }
 
 // The wash matters: without a plate, a pointer crossing the bar changes the word's colour
-// and leaves no target under it. --wash-hover (5%) sits under the selected state's 8%, so
-// pointing and choosing stay two steps rather than one.
+// and leaves no target under it. It has to sit clearly UNDER the selected state's --lit,
+// so pointing and choosing stay two steps rather than one.
+// Two amounts, matching --lit's own split and for the same reason: sRGB is not
+// symmetric, so one percentage does not buy one step in both themes. A flat 5% used to
+// read 1.12:1 on white and 1.08:1 on black — and once --lit quieted the selected state
+// to 1.16, the light-mode gap fell to 0.039 while dark's stayed at 0.078, i.e. the bar
+// lost half its hierarchy in one theme only. At 3.5/5 the step is 0.076 light, 0.078
+// dark: the same two steps either way.
+// Kept as a color-mix and NOT a token: this is a transient tint that has to work on
+// whatever the bar sits on. (An earlier comment here named a `--wash-hover` token; no
+// such token was ever declared — the value has always been a literal.)
 .modebar__opt:hover {
-  background: color-mix(in oklab, var(--ink) 5%, transparent);
+  background: light-dark(
+    color-mix(in oklab, var(--ink) 3.5%, transparent),
+    color-mix(in oklab, var(--ink) 5%, transparent)
+  );
   color: var(--ink);
 }
 
@@ -171,10 +183,14 @@ function onKey(e: KeyboardEvent) {
   outline-offset: -2px;
 }
 
-// SELECTED IS A STATE, not a hover that happens to be stuck — it keeps its wash whether
+// SELECTED IS A STATE, not a hover that happens to be stuck — it keeps its plate whether
 // the pointer is on it or not, because the bar has to say which view you are in.
+// --lit, the same plate the classification chips wear, so the app has ONE tone meaning
+// "this control is on" rather than a chip at one weight and a mode tab at another. It
+// was an 8% ink wash, which measured 1.19:1 against paper and left this the heaviest
+// small plate on the page.
 .modebar__opt.is-active {
-  background: color-mix(in oklab, var(--ink) 8%, transparent);
+  background: var(--lit);
   color: var(--ink);
 }
 

@@ -43,6 +43,37 @@ $bp-full: 1024px !default;
   --paper: light-dark(#ffffff, #000000);
   --paper-2: light-dark(#f4f4f4, #151515); /* faintly raised */
   --paper-3: light-dark(#eaeaea, #1f1f1f); /* quiet surfaces, not borders */
+  /* ---- the LIT ground: a control that is ON, held as a filled plate rather than as
+     darker ink (the classification chips, the waypoint kind toggles). Its own token and
+     NOT --paper-3, which is what it used to borrow, for two reasons.
+     A ROLE, not a surface: --paper-3 is sized for a panel you read ON TOP of, where the
+     tone is a hint at an edge. This is a 32px disc in an otherwise white row, and the
+     same tone that reads as a whisper under a paragraph reads as a mark at that area —
+     --paper-3 is the tone --line resolves to over paper, so the chip was carrying a
+     hairline's weight as solid fill.
+     And the two modes had drifted: --paper-3 measures 1.20:1 on light paper but 1.27:1
+     on dark, so the dark chip sat heavier than its light twin. These are matched — both
+     1.16:1 on paper — so "on" looks the same in either theme.
+     Light enough to quiet down, dark enough to still be the ONLY thing separating on
+     from hover: .btn--icon clears its ground on hover (atoms/controls.scss), so hover
+     darkens ink alone and the plate is the whole of the on state. Do not take this
+     below ~1.1:1 or a lit toggle reads as merely pointed at.
+     AN AMOUNT OF INK, not a named tone, and that is the load-bearing part. A solid
+     light-dark() pair is only ever right on ONE ground, and this chip does leave --paper:
+     a row painting --paper-2 while it is dragged, and a nesting parent that keeps it.
+     Written as #161616 the dark chip measured 1.009:1 against a dragged row's --paper-2
+     — a 1/255 difference from the thing under it, i.e. gone. That is the same failure
+     the Worn/Consumable SWITCH shipped with (#216): it drew its off track in --paper-3,
+     which resolves to --surface-float's exact value in dark, so the track vanished into
+     the popover. Mixed from ink instead, the plate composites over whatever it lands on
+     — 1.16/1.16 on paper, 1.16/1.26 on --paper-2 — and cannot match its surface.
+     The two percentages differ because sRGB is not symmetric: one alpha does not buy
+     the same contrast on black as on white, which is exactly how the --paper-3 version
+     came to be 1.20 light and 1.27 dark in the first place. ---- */
+  --lit: light-dark(
+    color-mix(in oklab, var(--ink) 6.5%, transparent),
+    color-mix(in oklab, var(--ink) 8.5%, transparent)
+  );
 
   /* ---- ink: neutral grey ramp; primary is true black / white ---- */
   --ink: light-dark(#000000, #ffffff);
