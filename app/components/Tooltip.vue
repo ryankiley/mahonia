@@ -1,17 +1,26 @@
 <script lang="ts">
 // Tooltips began as a hover-only affordance: a touch device fires an emulated mouseenter
 // on tap but no reliable mouseleave, so one raised that way stays stuck on screen. That
-// guard is still right for HOVER — and it was wrong as a guard on the whole component.
+// guard is still right for HOVER — and it was wrong as a guard on the whole component,
+// because it left the text reachable by mouse and by nothing else. So the component grew
+// two more ways in: focus opened one, and a tap toggled one.
 //
-// It meant the text was reachable by mouse and by nothing else. Focus never opened one
-// either (see the template: `focus` does not bubble, so a listener on the wrapper never
-// heard the button inside it), which left every tooltip in the app mouse-only. Harmless
-// on a toolbar icon that repeats a visible label; not harmless on the planning view's (?)
-// buttons, whose entire job is to explain where an estimate came from and which exist
-// precisely for the people least likely to be holding a mouse.
+// TAP-TO-TOGGLE IS GONE. A tooltip is a hover affordance, and on a touch device it was
+// second-guessing a tap that already did something — every one of these wraps a control
+// that acts when you press it, so the tap fired the action AND raised a bubble
+// describing it, over the very row you had just changed. On a phone that bubble is a
+// meaningful slice of the screen, and the ones on the row controls sit exactly where the
+// popover they open wants to be.
 //
-// So: hover still refuses to open on a touch device, focus always opens, and a tap
-// toggles.
+// What survives the change is the part that had a reason: a KEYBOARD focus still opens
+// one, on any device. That was the accessibility argument for reaching past hover in the
+// first place — the planning view's (?) buttons exist to explain where an estimate came
+// from, for the people least likely to be holding a mouse — and it doesn't need touch to
+// work. `:focus-visible` is what separates the two on a tablet, which reports `hover:
+// none` whether or not a keyboard is attached to it (see showFromFocus).
+//
+// So: hover opens where hover exists, keyboard focus always opens, and touch opens
+// nothing.
 //
 // MODULE scope, not per instance. The query is a property of the DEVICE, so one
 // MediaQueryList answers for the whole page — and the editor mounts a tooltip on nearly
@@ -133,29 +142,36 @@ function show() {
 }
 
 /**
- * Focus — always opens, including on a touch device, because a keyboard attached to a
- * tablet reports `hover: none` and its user still has to be able to read this.
- * `focusin`, not `focus`, in the template: only the former bubbles from the trigger.
+ * Did this focus come from the keyboard? `:focus-visible` is the browser's own answer to
+ * exactly that — a button focused by tap or click doesn't match it, a tabbed-to one does
+ * — so there's no heuristic here to keep in step with the platforms.
+ *
+ * Engines without it throw on the selector rather than reporting false, and the safe
+ * side of that guess is the quiet one: this is only ever consulted on a touch device,
+ * where the whole point is to raise nothing.
  */
-function showFromFocus() {
-  void open();
+function isKeyboardFocus(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) return false;
+  try {
+    return target.matches(":focus-visible");
+  } catch {
+    return false;
+  }
 }
 
 /**
- * Tap — a toggle, which is the only shape that works without a mouseleave. Bound
- * unconditionally but inert wherever hover exists, so a click on a trigger that is
- * already showing its tooltip on hover doesn't blink it off.
+ * Focus — always opens where a pointer can hover, and on a touch device only for a
+ * keyboard focus. The test is needed because TAPPING a button focuses it: without it,
+ * everything the retired tap-to-toggle path used to show would simply come back in
+ * through focusin, and removing the click handler would have changed nothing. It also
+ * keeps the case the hover guard alone would cost — a tablet with a keyboard reports
+ * `hover: none`, and its user still has to be able to read this.
+ *
+ * `focusin`, not `focus`, in the template: only the former bubbles from the trigger.
  */
-function toggle() {
-  if (!isHoverless()) return;
-  if (isVisible.value) hide();
-  else void open();
-}
-
-// Tap-to-open needs a tap-to-close that isn't the trigger. Bound only while one is open,
-// like the scroll dismissal below and for the same reason.
-function dismissOutside(e: Event) {
-  if (!triggerRef.value?.contains(e.target as Node)) hide();
+function showFromFocus(e: FocusEvent) {
+  if (isHoverless() && !isKeyboardFocus(e.target)) return;
+  void open();
 }
 
 // dismiss one already on screen when the trigger opens its own surface — the hover
@@ -182,18 +198,10 @@ function hide() {
 // hundred-row list. Registering per-instance meant paying that whole set on every
 // scroll frame to do nothing.
 watch(isVisible, (visible) => {
-  if (visible) {
-    window.addEventListener("scroll", hide, { passive: true, capture: true });
-    document.addEventListener("pointerdown", dismissOutside, true);
-  } else {
-    window.removeEventListener("scroll", hide, { capture: true });
-    document.removeEventListener("pointerdown", dismissOutside, true);
-  }
+  if (visible) window.addEventListener("scroll", hide, { passive: true, capture: true });
+  else window.removeEventListener("scroll", hide, { capture: true });
 });
-onScopeDispose(() => {
-  window.removeEventListener("scroll", hide, { capture: true });
-  document.removeEventListener("pointerdown", dismissOutside, true);
-});
+onScopeDispose(() => window.removeEventListener("scroll", hide, { capture: true }));
 </script>
 
 <template>
@@ -205,7 +213,6 @@ onScopeDispose(() => {
     @mouseleave="hide"
     @focusin="showFromFocus"
     @focusout="hide"
-    @click="toggle"
     @keydown.escape="hide"
   >
     <slot />

@@ -236,10 +236,10 @@ function changeLabel(i: number): string {
               <p v-else-if="!activity.length" class="t-sm t-muted">No changes recorded yet.</p>
               <ul v-else class="share__log">
                 <li v-for="(s, i) in activity" :key="s.id" class="share__logrow">
-                  <span class="t-sm">{{ changeLabel(i) }}</span>
+                  <span class="t-sm share__logwhat">{{ changeLabel(i) }}</span>
                   <!-- the count moved to the label where it says something; the trailing
                        column is just when -->
-                  <span class="t-sm t-muted">{{ timeAgo(new Date(s.createdAt).getTime(), now) }}</span>
+                  <span class="t-sm t-muted share__logwhen">{{ timeAgo(new Date(s.createdAt).getTime(), now) }}</span>
                 </li>
               </ul>
             </div>
@@ -414,10 +414,25 @@ function changeLabel(i: number): string {
   max-height: 11rem;
   overflow-y: auto;
 }
+/* WHAT changed, then WHEN. Both were bare flex items, which let the two columns
+   negotiate for width as equals — so a long entry ("Removed Arc'teryx Sinsola Cinch
+   Cap") squeezed the timestamp until "1 hour ago" broke across two lines, and the
+   right-hand column stopped being a column at all. The split isn't symmetric: the
+   timestamp is a short fixed phrase and the thing you scan down, the label is the part
+   with something to say and the only one that should ever take a second line. */
 .share__logrow {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: var(--space-2);
+}
+/* min-width, because a flex item's is `auto` — it refuses to shrink below its longest
+   word, which is what pushed the overflow onto its neighbour instead of wrapping here */
+.share__logwhat {
+  min-width: 0;
+}
+.share__logwhen {
+  flex: none;
+  white-space: nowrap;
 }
 </style>

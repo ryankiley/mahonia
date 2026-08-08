@@ -145,6 +145,25 @@ button svg {
 // reference this borrows from uses green for "on"; colour here belongs to the data
 // viz only (see tokens.scss), and ink-vs-empty carries the same two states without
 // spending the one signal the category bar owns.
+//
+// It INVERTS between the two states, and that is what makes each one legible: off is
+// an inked knob in an empty well, on is a paper knob in a well of ink. So the knob is
+// always drawn against its own opposite rather than being one fixed colour that has
+// to survive both grounds — which is the trap the first version fell into. It painted
+// the knob --paper and the off track --paper-3, two tokens named for the PAGE, while
+// the only surface this control actually lives on is a popover: in dark mode
+// --paper-3 and --surface-float are both #1f1f1f, so the off track disappeared into
+// the card at 1.00:1 and left a --paper knob reading black-on-near-black at 1.27:1.
+// Light mode failed the same way more quietly (1.20:1 both). The off state was a
+// smudge you had to already know was there.
+//
+// Nothing here is drawn in a paper token any more. The well and the ring are MIXED
+// FROM INK by amount, so they composite over whatever surface the switch is dropped
+// on — page, panel or popover — instead of naming one and hoping. The ring is the
+// piece carrying WCAG 1.4.11: 45% is the least ink that clears 3:1 on every ground in
+// the app (3.3:1 on white, 4.4:1 on the dark popover), and it's what gives the off
+// state a visible extent at all. An inset shadow and not a border — a border would
+// pull the knob's containing block in by 1px and leave the travel below off by two.
 .switch {
   flex: none;
   position: relative;
@@ -153,12 +172,20 @@ button svg {
   padding: 0;
   border: 0;
   border-radius: var(--radius-pill);
-  background: var(--paper-3);
+  background: color-mix(in oklab, var(--ink) 10%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--ink) 45%, transparent);
   cursor: pointer;
-  transition: background var(--dur) var(--ease);
+  transition:
+    background var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease);
 }
+// On, the track is full ink and needs no ring — it's already the highest-contrast
+// shape on the surface (16.5:1 on the dark popover). Held as a TRANSPARENT ring
+// rather than `none` so the shadow keeps its geometry across the state change and
+// only its colour interpolates.
 .switch[aria-checked="true"] {
   background: var(--ink);
+  box-shadow: inset 0 0 0 1px transparent;
 }
 // the knob — inset by 2px at both ends, so its travel is the track minus its own
 // width; expressed in calc() rather than a literal so the track can be resized in
@@ -171,11 +198,17 @@ button svg {
   inline-size: 12px;
   block-size: 12px;
   border-radius: 50%;
-  background: var(--paper);
-  transition: translate var(--dur) var(--ease);
+  // SECONDARY ink, not full: this is the off state and it should read as quiet
+  // without reading as absent. Still 5.2:1 on the well it sits in — the state is
+  // carried by the knob's position, so the knob is the part that has to be seen.
+  background: var(--ink-2);
+  transition:
+    translate var(--dur) var(--ease),
+    background var(--dur) var(--ease);
 }
 .switch[aria-checked="true"]::after {
   translate: calc(28px - 12px - 2px * 2) 0;
+  background: var(--paper);
 }
 // the label + switch pair, so every popover that uses one lines them up identically
 .switch-row {

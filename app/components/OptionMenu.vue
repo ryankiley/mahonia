@@ -62,6 +62,7 @@ const { atStart, place } = useMenuPlacement(listRef);
 watch(open, (o) => o && nextTick(place));
 
 onClickOutside(rootRef, () => (open.value = false));
+onScrollOutside(open, rootRef, () => (open.value = false));
 useWindowEvent("keydown", (e) => {
   if (e.key === "Escape" && open.value) open.value = false;
 });

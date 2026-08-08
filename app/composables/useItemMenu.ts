@@ -47,6 +47,21 @@ function create() {
       // capture: still close when the outside click's own handler stops propagation
       { passive: true, capture: true },
     );
+    // The mobile dismissal — see onScrollOutside (dom.ts) for why it watches the touch
+    // gesture rather than `scroll`. Registered flat alongside the others instead of
+    // through that helper: this is a page-lifetime singleton with no component scope to
+    // hang a teardown on, which is the same reason the listeners above are raw. Nothing
+    // is open until `rootEl` is set, so the closed case costs one early return — and
+    // there is exactly ONE of these for the whole list, which is the point of the
+    // singleton. Drags INSIDE the open surface are scrolling it, not leaving it.
+    window.addEventListener(
+      "touchmove",
+      (e) => {
+        if (!rootEl || e.composedPath().includes(rootEl)) return;
+        close();
+      },
+      { passive: true, capture: true },
+    );
     window.addEventListener("keydown", (e) => {
       if (e.key === "Escape") close();
     });
