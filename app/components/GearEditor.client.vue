@@ -391,8 +391,10 @@ const { warmExporters, copyPlainText, copyMarkdown, downloadCsv, downloadJson } 
 // the ⋯ actions menu is a custom popover of real <button>s (was a native <select>).
 // Each item dispatches from a CLICK — the clipboard actions (markdown, edit link)
 // need a direct user gesture, and a <select> change isn't one on iOS Safari, so the
-// copy silently failed there. Close on the action itself, an outside tap, or Escape.
+// copy silently failed there. Close on the action itself, an outside tap, a scroll
+// gesture on mobile (the toolbar is sticky, so nothing else would), or Escape.
 onClickOutside(menuRef, () => (menuOpen.value = false));
+onScrollOutside(menuOpen, menuRef, () => (menuOpen.value = false));
 useWindowEvent("keydown", (e) => {
   if (e.key === "Escape" && menuOpen.value) menuOpen.value = false;
 });
@@ -403,6 +405,7 @@ useWindowEvent("keydown", (e) => {
 const shareRef = useTemplateRef<HTMLElement>("shareRef");
 const shareOpen = ref(false);
 onClickOutside(shareRef, () => (shareOpen.value = false));
+onScrollOutside(shareOpen, shareRef, () => (shareOpen.value = false));
 useWindowEvent("keydown", (e) => {
   if (e.key === "Escape" && shareOpen.value) shareOpen.value = false;
 });

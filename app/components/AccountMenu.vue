@@ -41,8 +41,9 @@ const open = ref(false);
 const { plateRef, listRef, placing, on: plateOn } = useMenuPlate();
 const menuRef = useTemplateRef<HTMLElement>("menuRef");
 // same close behaviour as the editor kebab and ReadonlyMenu: the action itself, an
-// outside tap, or Escape
+// outside tap, a scroll gesture on mobile, or Escape
 onClickOutside(menuRef, () => (open.value = false));
+onScrollOutside(open, menuRef, () => (open.value = false));
 useWindowEvent("keydown", (e) => {
   if (e.key === "Escape" && open.value) open.value = false;
 });

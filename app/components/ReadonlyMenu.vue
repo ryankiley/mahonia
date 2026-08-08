@@ -34,8 +34,11 @@ function flash(msg: string) {
 }
 onBeforeUnmount(() => clearTimeout(toastTimer));
 
-// close on the action itself, an outside tap, or Escape (mirrors the editor kebab)
+// close on the action itself, an outside tap, a scroll gesture, or Escape (mirrors the
+// editor kebab). The scroll one is mobile's: this hangs off a sticky topbar, so nothing
+// about scrolling would otherwise take it down — see onScrollOutside.
 onClickOutside(menuRef, () => (menuOpen.value = false));
+onScrollOutside(menuOpen, menuRef, () => (menuOpen.value = false));
 useWindowEvent("keydown", (e) => {
   if (e.key === "Escape" && menuOpen.value) menuOpen.value = false;
 });
