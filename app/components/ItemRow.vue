@@ -1178,6 +1178,10 @@ function dismissFix() {
               aria-hidden="true"
             />
           </span>
+          <!-- overlay-toggle forwarded like the name autocomplete's: the menu opens
+               downward, so on the folder's last row it crosses the collapse clip
+               (and a last CHILD row crosses its group's nest clip too — the parent's
+               onChildOverlay lift rides the same event on the way up) -->
           <OptionMenu
             v-else
             class="item__unitwrap"
@@ -1186,6 +1190,7 @@ function dismissFix() {
             label="Weight unit for this item"
             :title="`Unit for ${item.name || 'this item'}`"
             @pick="(u) => onRowUnit(u as Unit)"
+            @overlay-toggle="$emit('overlayToggle', $event)"
           >
             <template #trigger="{ open }">
               <span class="t-sm t-muted item__unit">{{ rowUnit }}</span>
