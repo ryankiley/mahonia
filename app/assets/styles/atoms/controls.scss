@@ -179,6 +179,27 @@ button svg {
     background var(--dur) var(--ease),
     box-shadow var(--dur) var(--ease);
 }
+// THE TARGET, which is a different object from the track. 28×16 is what a switch of
+// this weight should LOOK like, and it is also 8px under the 24×24 floor WCAG 2.5.8
+// sets for a pointer target — and a long way under the --tap every other control in
+// the app grows to on a coarse pointer. The two requirements don't conflict once you
+// stop asking one box to serve both.
+//
+// So the hit area is drawn on its own: a transparent ::before, inset by exactly the
+// shortfall on each axis — 28 + 2×8 and 16 + 2×14 both land on 44. Absolutely
+// positioned, so it costs the layout nothing and the popover's rows keep their
+// rhythm; and it changes nothing about the appearance, which is the whole point.
+// ::before because ::after is the knob.
+//
+// NOT gated to @media (pointer: coarse), unlike the icon buttons. 2.5.8 is about
+// pointer targets and not about touch specifically — 28×16 is a small thing to catch
+// with a mouse too — and unlike a --tap-sized icon button this costs no row width to
+// give away, so there is nothing to buy back on a desktop.
+.switch::before {
+  content: "";
+  position: absolute;
+  inset: -14px -8px;
+}
 // On, the track is full ink and needs no ring — it's already the highest-contrast
 // shape on the surface (16.5:1 on the dark popover). Held as a TRANSPARENT ring
 // rather than `none` so the shadow keeps its geometry across the state change and
@@ -361,6 +382,20 @@ input[type="search"]::-webkit-search-decoration {
   left: 0;
   transform-origin: top left;
 }
+// Hung ABOVE the trigger instead. The vertical half of --start, opted into the same
+// way and for the same reason: the default drops a menu below, which is right until
+// the trigger is near the viewport floor. A row at the bottom of a long list opened
+// its ⋯ menu 144px past the bottom of the screen — so the rows you have to scroll to
+// were the rows whose actions you couldn't reach.
+// Which side is MEASURED per open, never declared by the caller (useMenuPlacement).
+.menu__list--above {
+  top: auto;
+  bottom: calc(100% + var(--space-1));
+  transform-origin: bottom right;
+}
+.menu__list--above.menu__list--start {
+  transform-origin: bottom left;
+}
 .menu__item {
   // block so a <NuxtLink>/<a> item fills the row like the <button> items do —
   // an inline anchor ignores width:100%, shrinking the padding + hover box to the text
@@ -529,6 +564,15 @@ input[type="search"]::-webkit-search-decoration {
 .menu-leave-to {
   opacity: 0;
   transform: translateY(-2px);
+}
+// A menu flipped above its trigger has to arrive from BELOW, or it enters moving
+// away from the thing that opened it — the 4px is the same distance, only its sign
+// follows the side the menu is on (which transform-origin above already does).
+.menu__list--above.menu-enter-from {
+  transform: translateY(4px) scale(0.98);
+}
+.menu__list--above.menu-leave-to {
+  transform: translateY(2px);
 }
 
 // Toast / snackbar — a brief status pill at the bottom edge (the copy confirmations

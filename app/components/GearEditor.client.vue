@@ -331,27 +331,64 @@ onBeforeUnmount(() => {
 
 // On touch, the browser's own "scroll the focused field into view" is flaky — it
 // sometimes no-ops, leaving the field sitting under the keyboard. Force it: once
-// the keyboard has had time to animate up, centre the field in the space that's
-// left. Gated to coarse pointers (desktop clicks shouldn't jump the page) and
-// skips the sticky-header fields, which are always visible anyway.
+// the keyboard has had time to animate up, bring the field into the space that's
+// left. Skips the sticky-header fields, which are always visible anyway.
+//
+// It runs on EVERY pointer type now, and it has to: ItemInput focuses a new row with
+// preventScroll, so the browser no longer reveals a focused field on any device and
+// this is the only thing left that can. The old coarse gate was written when this
+// centred the field — a big unasked-for jump, correctly kept off desktop — but it
+// moves the minimum now, which is precisely what the browser used to do here anyway.
+// Without the gate, holding Enter to add a run of rows keeps each new field on screen
+// on a laptop, which is the case the gate would now break.
+//
+// The DELAY is what stays keyboard-specific: 300ms buys the keyboard time to finish
+// rising so `visualViewport.height` is the real remaining space. There is no keyboard
+// on a fine pointer and nothing to wait for, so it acts on the next tick instead —
+// a 300ms lag on a desktop Enter would read as the page drifting on its own.
+/** Breathing room between a rescued field and the edge it was hiding behind — enough
+ *  that the field reads as "on screen" rather than "just barely on screen". */
+const FOCUS_MARGIN = 12;
 let focusScrollTimer: ReturnType<typeof setTimeout> | undefined;
 function onFocusIn(ev: FocusEvent) {
   const el = ev.target as HTMLElement | null;
   if (!el?.matches?.("input, textarea")) return;
   if (el.closest(".topbar")) return;
-  if (!window.matchMedia("(pointer: coarse)").matches) return;
+  const wait = window.matchMedia("(pointer: coarse)").matches ? 300 : 0;
   clearTimeout(focusScrollTimer);
   focusScrollTimer = setTimeout(() => {
     // Only intervene if the field is ACTUALLY obscured (hidden under the keyboard or
     // scrolled off the top). When iOS's own focus-scroll already made it visible, a
-    // second scrollIntoView is a visible double-reposition. visualViewport.height is
-    // the area left above the keyboard.
-    const vvH = window.visualViewport?.height ?? window.innerHeight;
+    // second scroll is a visible double-reposition.
+    //
+    // Everything here is measured in the VISUAL viewport — the area left above the
+    // keyboard — because that is the space the field has to end up inside. The two
+    // viewports differ by exactly the amount that matters: iOS keeps the LAYOUT
+    // viewport full height when the keyboard is up, and offsets the visual one.
+    // getBoundingClientRect() answers in layout coordinates, so it needs offsetTop
+    // taken off it to say where the field sits on the part of the screen you can see.
+    const vv = window.visualViewport;
+    const vvH = vv?.height ?? window.innerHeight;
+    const vvTop = vv?.offsetTop ?? 0;
     const r = el.getBoundingClientRect();
-    if (r.bottom > vvH || r.top < 0) {
-      el.scrollIntoView({ block: "center", behavior: "smooth" });
-    }
-  }, 300);
+    const top = r.top - vvTop;
+    const bottom = r.bottom - vvTop;
+
+    // Move the LEAST that makes the field visible, not scrollIntoView({block:"center"}).
+    // Centring was measured moving the page 448px to fix an overlap of about 110 — and
+    // it centred in the LAYOUT viewport, the one this function had already decided not
+    // to trust, so with a keyboard up it aimed at the middle of a screen half of which
+    // was keyboard. A minimum move also keeps the row you tapped near where you tapped
+    // it, which is the thing a big jump costs you: after centring, the row you were
+    // working on is somewhere you have to find again.
+    const delta =
+      bottom > vvH - FOCUS_MARGIN
+        ? bottom - (vvH - FOCUS_MARGIN)
+        : top < FOCUS_MARGIN
+          ? top - FOCUS_MARGIN
+          : 0;
+    if (delta) window.scrollBy({ top: delta, behavior: "smooth" });
+  }, wait);
 }
 useWindowEvent("focusin", onFocusIn); // auto-removes on unmount
 onBeforeUnmount(() => clearTimeout(focusScrollTimer));

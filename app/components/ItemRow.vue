@@ -47,6 +47,12 @@ if (import.meta.client) {
 // offered "N worn" split counts stop here (the stored value is always shown even
 // beyond the cap, so clamps/imports can't strand invisible state)
 const MAX_SPLIT_OPTS = 5;
+// The count's own bounds — at least one of something, and no more than the reducer
+// will store (cleanItemPatch caps at 9999, shared/ops). Both ways in go through the
+// same clamp, so the stepper and the typed field can't disagree about the ceiling,
+// and neither can hand the store a number it would silently rewrite underneath them.
+const QTY_MAX = 9999;
+const clampQty = (n: number) => Math.max(1, Math.min(QTY_MAX, Math.round(n)));
 // the four units as OptionMenu rows — the abbreviation is the label, matching the
 // figure it sits beside (see TotalsBar, which builds the same list)
 const UNIT_OPTIONS = UNITS.map((u) => ({ key: u, label: u }));
@@ -54,7 +60,7 @@ const UNIT_OPTIONS = UNITS.map((u) => ({ key: u, label: u }));
 
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { CalculateIcon, Cancel01Icon, CheckIcon, CheckmarkSquare02Icon, ChevronDownIcon, CircleEllipsisIcon, CookieIcon, Delete02Icon, GripVerticalIcon, ListIndentDecreaseIcon, ListIndentIncreaseIcon, ListPlusIcon, NoteAddIcon, NoteRemoveIcon, SafeBoxIcon, ShirtIcon, SquareIcon } from "@hugeicons/core-free-icons";
+import { CalculateIcon, Cancel01Icon, CheckIcon, CheckmarkSquare02Icon, ChevronDownIcon, CircleEllipsisIcon, CookieIcon, Delete02Icon, GripVerticalIcon, ListIndentDecreaseIcon, ListIndentIncreaseIcon, ListPlusIcon, MinusSignIcon, NoteAddIcon, NoteRemoveIcon, PlusSignIcon, SafeBoxIcon, ShirtIcon, SquareIcon } from "@hugeicons/core-free-icons";
 import type { Item, ListSnapshot } from "~~/shared/types";
 import type { ItemPatch } from "~~/shared/ops";
 import type { NameCommit } from "~/composables/useCatalogSearch";
@@ -353,9 +359,39 @@ function onRowUnit(u: Unit) {
 }
 function onQty(e: Event) {
   const el = e.target as HTMLInputElement;
-  const q = Math.max(1, Number(el.value) || 1);
+  const q = clampQty(Number(el.value) || 1);
   c.updateItem(props.item.id, { qty: q });
   el.value = String(q); // resync even when the clamp is a no-op (e.g. 0 / letters)
+}
+// The number pops when the stepper moves it — the SAME motion the big total takes
+// when it changes (the shared `num-pop` keyframe, main.scss; AnimatedCount runs it
+// per character up there). Not that component: this figure is an <input>, so it has
+// no per-character spans to stagger, and at one or two digits a cascade wouldn't
+// read anyway. The element takes the pop whole.
+//
+// A CSS animation has to be RESTARTED rather than re-fired — a class that never left
+// never replays — so: drop it, force a reflow, put it back. The same three steps
+// AnimatedCount takes, for the same reason.
+const qtyFieldRef = useTemplateRef<HTMLInputElement>("qtyFieldRef");
+const qtyPopping = ref(false);
+function popQty() {
+  qtyPopping.value = false;
+  nextTick(() => {
+    void qtyFieldRef.value?.offsetHeight;
+    qtyPopping.value = true;
+  });
+}
+// The stepper: ±1, which is what nearly every change to a count actually is.
+// Clamped rather than guarded on the disabled attribute alone — qty can move under
+// the buttons (an undo, another device's edit landing), so the floor and ceiling
+// have to hold at the moment of the press, not at the moment of the render. A press
+// at either end is then a no-op instead of a commit the reducer would rewrite — and
+// nothing pops, because nothing moved.
+function stepQty(dir: 1 | -1) {
+  const next = clampQty(props.item.qty + dir);
+  if (next === props.item.qty) return;
+  c.updateItem(props.item.id, { qty: next });
+  popQty();
 }
 // The two sub-fields resync for the same reason the numbers above do — the reducer
 // tidies the text it stores (shared/tidyText), and these are uncontrolled inputs, so
@@ -638,12 +674,25 @@ function onSubBlur(e: FocusEvent) {
 // singleton), and the folder lifts its collapse clip while it's open (overlayToggle).
 const menu = useItemMenu();
 const menuRootRef = useTemplateRef<HTMLElement>("menuRootRef");
+// Which sides these two menus hang from, measured per open (useMenuPlacement). Rows
+// are the one place the default was reliably wrong: a list is long, so its LAST rows
+// sit at the viewport floor, and a menu anchored below them opened off the bottom of
+// the screen — 144px past it, measured. The classification popovers beside them have
+// flipped for that since they were written (togglePop); these never learned to.
+const moreListRef = useTemplateRef<HTMLElement>("moreListRef");
+const nestListRef = useTemplateRef<HTMLElement>("nestListRef");
+const { atStart: moreAtStart, above: moreAbove, place: placeMore } = useMenuPlacement(moreListRef);
+const { atStart: nestAtStart, above: nestAbove, place: placeNest } = useMenuPlacement(nestListRef);
 // The singleton holds ONE open id for the whole list, so every popover a row can
 // raise is namespaced off the row id (`<id>:menu`, `<id>:kcal`). That's what makes
 // them mutually exclusive for free — opening the calorie popover closes the ⋯ menu,
 // on this row or any other, with no cross-wiring between them.
 const isMenuOpen = computed(() => menu.openId.value === `${props.item.id}:menu`);
-watch(isMenuOpen, (open) => emit("overlayToggle", open));
+// measured on the tick the list mounts — it has no size to measure before that
+watch(isMenuOpen, (open) => {
+  emit("overlayToggle", open);
+  if (open) nextTick(placeMore);
+});
 function toggleMenu() {
   menu.toggle(`${props.item.id}:menu`, menuRootRef.value);
 }
@@ -758,7 +807,10 @@ const nestActions = computed(() => {
 });
 const nestRootRef = useTemplateRef<HTMLElement>("nestRootRef");
 const isNestOpen = computed(() => menu.openId.value === `${props.item.id}:nest`);
-watch(isNestOpen, (open) => emit("overlayToggle", open));
+watch(isNestOpen, (open) => {
+  emit("overlayToggle", open);
+  if (open) nextTick(placeNest);
+});
 function toggleNestMenu() {
   menu.toggle(`${props.item.id}:nest`, nestRootRef.value);
 }
@@ -995,17 +1047,88 @@ function dismissFix() {
            into a flex-wrap row beneath the full-width name so long names never
            truncate (the name takes the whole row, the rest wraps below) -->
       <div class="item__meta">
-        <div class="item__qty">
-          <input
-            class="field field--num"
-            type="number"
-            :min="isWater ? 0 : 1"
-            :step="isWater ? 'any' : 1"
-            :value="isWater ? litersDisplay : item.qty"
-            :aria-label="isWater ? 'Litres of water' : 'Quantity'"
-            @change="isWater ? onWaterLiters($event) : onQty($event)"
-          />
-          <span class="t-sm t-muted item__unit">{{ isWater ? "L" : "×" }}</span>
+        <!-- QUANTITY — a stepper, not a box to fill in. Every change to a count is
+             ±1 in practice ("take a second gas canister"), and as a bare field that
+             cost a click in, a select-all and a keystroke to move a 1 to a 2.
+             The number is STILL a field, because the tail of the distribution is
+             real — fourteen tent stakes shouldn't be fourteen presses — it just
+             stopped being the only way in. It carries no box of its own: between the
+             two buttons it reads as the stepper's value rather than as a third
+             control (see .item__qty--step).
+             ON THE DESKTOP GRID ONLY. Every part of the row is rendered here and the
+             MODE picks which parts show, the same division the editing↔packing swap
+             makes: a media query can decide this, a prop would re-render every row on
+             every resize. The mobile line is where the ± stand down and the "×" comes
+             back to punctuate the count instead — nine controls already share 343px
+             there, and with no columns to separate them the stepper's + landed
+             against the weight and "− 4 + 540 g" read as one run-on figure. The
+             grid's own columns are what make the same three parts legible up here.
+             WATER is the exception at every width and keeps the plain field: that
+             cell holds LITRES — a continuous measure driving the row's weight, not a
+             count — so ±1 would be both the wrong step and the wrong idea. -->
+        <div class="item__qty" :class="{ 'item__qty--step': !isWater }">
+          <template v-if="isWater">
+            <input
+              class="field field--num"
+              type="number"
+              min="0"
+              step="any"
+              :value="litersDisplay"
+              aria-label="Litres of water"
+              @change="onWaterLiters"
+            />
+            <span class="t-sm t-muted item__unit">L</span>
+          </template>
+          <template v-else>
+            <!-- mousedown.prevent for the reason the action icons carry it: on
+                 macOS Safari/Firefox a button takes no focus on mousedown, so a
+                 press from inside the row's name field blurs the row — and a
+                 pristine blank row discards itself on that blur. Holding focus is
+                 also what lets you press + three times without the caret leaving
+                 the field you were typing in.
+                 The names carry the ITEM, like the grip's and the checkbox's do:
+                 "One more, button" on its own says nothing about what of. -->
+            <button
+              class="btn btn--icon btn--ghost item__qtybtn"
+              type="button"
+              :disabled="item.qty <= 1"
+              :aria-label="`One fewer ${item.name || 'item'}`"
+              @mousedown.prevent
+              @click="stepQty(-1)"
+            >
+              <HugeiconsIcon :icon="MinusSignIcon" :size="16" :stroke-width="2" />
+            </button>
+            <!-- is-popping only ever comes from the STEPPER (popQty). Typing a
+                 number already shows you the number; popping the field on a commit
+                 you are looking at is motion reporting your own keystroke back. -->
+            <input
+              ref="qtyFieldRef"
+              class="field field--num item__qtyfield"
+              :class="{ 'is-popping': qtyPopping }"
+              type="number"
+              min="1"
+              :max="QTY_MAX"
+              step="1"
+              :value="item.qty"
+              aria-label="Quantity"
+              @change="onQty"
+            />
+            <!-- the mobile line's punctuation, hidden on the grid where the columns
+                 do that job (and where a fourth thing wouldn't fit the track). It
+                 trails the number in the markup because that is where it reads —
+                 the + beside it is the one that stands down below $bp-stack. -->
+            <span class="t-sm t-muted item__unit">×</span>
+            <button
+              class="btn btn--icon btn--ghost item__qtybtn"
+              type="button"
+              :disabled="item.qty >= QTY_MAX"
+              :aria-label="`One more ${item.name || 'item'}`"
+              @mousedown.prevent
+              @click="stepQty(1)"
+            >
+              <HugeiconsIcon :icon="PlusSignIcon" :size="16" :stroke-width="2" />
+            </button>
+          </template>
         </div>
 
         <div class="item__weight">
@@ -1119,12 +1242,21 @@ function dismissFix() {
               >
                 <div class="switch-row">
                   <span class="t-sm">Consumable</span>
+                  <!-- The name has to OPEN with the visible label. WCAG 2.5.3 asks
+                       that a control's accessible name contain the text you can see
+                       beside it, and "Food, fuel or water" — good as the gloss is —
+                       shares not one word with the "Consumable" printed next to it.
+                       The cost is real and not theoretical: speech input matches on
+                       the accessible name, so "click Consumable" hit nothing.
+                       The gloss stays, after the label, because it is the sentence
+                       that says what the word means. (The worn switch below needs no
+                       such repair — "Worn on your body" already opens with "Worn".) -->
                   <button
                     class="switch"
                     type="button"
                     role="switch"
                     :aria-checked="isConsumable"
-                    aria-label="Food, fuel or water"
+                    aria-label="Consumable — food, fuel or water"
                     @click="setClass('consumable', !isConsumable)"
                   />
                 </div>
@@ -1308,7 +1440,14 @@ function dismissFix() {
               </button>
             </Tooltip>
             <Transition name="menu">
-              <ul v-if="isNestOpen" class="popover menu__list item__nestlist" role="menu" aria-label="Nesting">
+              <ul
+                v-if="isNestOpen"
+                ref="nestListRef"
+                class="popover menu__list item__nestlist"
+                :class="{ 'menu__list--start': nestAtStart, 'menu__list--above': nestAbove }"
+                role="menu"
+                aria-label="Nesting"
+              >
                 <li v-for="a in nestActions" :key="a.label" role="none">
                   <button type="button" role="menuitem" class="menu__item" @click="menu.close(); a.run()">{{ a.label }}</button>
                 </li>
@@ -1355,7 +1494,14 @@ function dismissFix() {
               <HugeiconsIcon :icon="CircleEllipsisIcon" :size="16" :stroke-width="2" />
             </button>
             <Transition name="menu">
-              <ul v-if="isMenuOpen" class="popover menu__list item__morelist" role="menu" aria-label="Item actions">
+              <ul
+                v-if="isMenuOpen"
+                ref="moreListRef"
+                class="popover menu__list item__morelist"
+                :class="{ 'menu__list--start': moreAtStart, 'menu__list--above': moreAbove }"
+                role="menu"
+                aria-label="Item actions"
+              >
                 <li v-for="a in overflowActions" :key="a.label" role="none">
                   <button type="button" role="menuitem" class="menu__item" @click="runOverflow(a)">{{ a.label }}</button>
                 </li>
@@ -1681,6 +1827,87 @@ function dismissFix() {
 .item__weight .field {
   min-width: 0;
 }
+/* ---- the quantity stepper: − · the number · + ----
+   CENTRED in the row rather than baseline-aligned, the classification cell's fix for
+   the same problem: a flex box whose first child is a button has no text baseline to
+   offer, so the grid would synthesize one from that button's bottom edge and hang the
+   whole stepper off it. Every box on this row is --field-h tall, so centring puts the
+   number's baseline exactly where baseline alignment did.
+   space-between, not a gap: the two buttons take the track's ends, which is what
+   makes a column of them line up down the list while the numbers between them stay
+   centred on their own. */
+.item__qty--step {
+  align-self: center;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0;
+}
+/* the number carries NO box of its own — bare and centred between the buttons, it
+   reads as the stepper's value rather than as a third control sitting between two */
+.item__qty--step .field {
+  flex: 1 1 auto;
+  text-align: center;
+}
+/* the × is the MOBILE line's punctuation only (see the markup): up here the grid's
+   columns already separate the count from the weight, and a fourth part would have
+   to come out of a track sized for three */
+.item__qty--step .item__unit {
+  display: none;
+}
+/* WATER keeps a plain field (litres, not a count) — but it has to keep the stepper's
+   GEOMETRY, or its number sits out at the track's right edge while every other row's
+   sits mid-track, and the column reads ragged. Which is the whole point of a shared
+   track: a number belongs under the number above it.
+   So every row in this column has the SAME three slots — a gutter one ± button wide,
+   the number centred in what's left, a gutter on the right. A water row simply has
+   nothing in the first and its "L" in the last, where the + sits on the rows above. */
+.item__qty:not(.item__qty--step) {
+  gap: 0;
+  padding-left: var(--qty-btn);
+}
+.item__qty:not(.item__qty--step) .field {
+  flex: 1 1 auto;
+  text-align: center;
+}
+.item__qty:not(.item__qty--step) .item__unit {
+  width: var(--qty-btn);
+}
+/* Narrower than --icon-btn (see --qty-btn, tokens.scss): the three parts have to read
+   as ONE control. Colour + hover come from the row's shared quiet-icon rules below,
+   so the ± sit at the same weight as every other glyph on the row. */
+.item__qtybtn {
+  flex: none;
+  width: var(--qty-btn);
+}
+/* A coarse pointer WIDE enough to still be on the grid — a tablet in landscape, a
+   touch laptop. (Below $bp-stack the stepper isn't rendered at all, so this is the
+   only case.) It's the one icon button that doesn't widen to --tap there, because
+   --item-col-qty is derived from --qty-btn: at 44px the track would want 132px, and
+   it would take that from the name column on the widest rows in the app.
+   The HEIGHT still grows, so the target is 24×44 — past the 24×24 floor (WCAG 2.5.8)
+   in both directions, and full height under the finger. The glyph holds at 16px too:
+   .btn--icon grows it to --icon-touch on touch, which in a 24px box leaves the plus
+   with no air around it. */
+@media (pointer: coarse) {
+  .item__qtybtn {
+    width: var(--qty-btn);
+    min-height: var(--tap);
+  }
+  .item__qtybtn svg {
+    width: 16px;
+    height: 16px;
+  }
+}
+/* the pop when the stepper moves the number — the shared `num-pop` keyframe
+   (main.scss), the one the big total takes when it changes. blur(0) at rest, never
+   `none`: the filter context has to persist between runs or WebKit drops it. */
+.item__qtyfield {
+  filter: blur(0);
+  transform: translateZ(0);
+}
+.item__qtyfield.is-popping {
+  animation: num-pop var(--dur-slow) var(--ease-spring) both;
+}
 .item__unitwrap {
   position: relative;
   flex: none;
@@ -1689,6 +1916,17 @@ function dismissFix() {
      still contributes the unit's own baseline upward, so the number and its unit stay
      on one line with the rest of the row. */
   align-items: center;
+  /* The SAME gap `.optmenu__btn` puts between its trigger's parts (both read the one
+     token, so this is a shared value and not a copied number).
+     It is load-bearing on the plain water/group variant, where this element IS the
+     unit-and-chevron box; on the picker variant that box is the button inside, so the
+     declaration is inert there and only one rule is needed for both.
+     Without it the ghost chevron reserved the chevron's WIDTH but not the space the
+     button holds before it, so the two variants' wraps measured 21px and 29px. The
+     chevrons still lined up — they're pinned to the cell's trailing edge — and the
+     "g" did not: it sat 8px right of every editable row's, which put a water or group
+     row's unit out of the column it exists to keep. */
+  gap: var(--space-2);
 }
 .item__unit {
   flex: none;
@@ -1785,6 +2023,25 @@ function dismissFix() {
   .item__clsbtn,
   .item__clsfixed {
     padding: calc((var(--tap) - var(--icon-btn)) / 2);
+  }
+  /* The box the padding above was assuming, which nothing had actually declared.
+     A BUTTON gets it from .btn--icon, whose own coarse rule takes width and
+     min-height to --tap (controls.scss). The fixed mark is a <span> and gets
+     nothing — it stayed pinned at --icon-btn, and since box-sizing is border-box
+     the padding didn't grow it, it just ate 12px out of the 32 the glyph had.
+     Two visible faults, both only on a touch pointer:
+       • 32 wide against the toggles' 44, so a water row's cell measured 68 where
+         every other row's measured 92. Both cells are right-anchored, so the
+         difference came out of the LEADING slot and pushed water's cookie 24px
+         right of the cookie column it exists to sit in — the column the comment
+         above says this rule is here to hold.
+       • --radius-pill over a 32×44 box draws a tall OVAL, not a chip, so a lit
+         water mark was a different shape from a lit toggle.
+     Stated as the same two properties .btn--icon's coarse rule sets, so the mark
+     and the button it stands in for can't measure differently again. */
+  .item__clsfixed {
+    width: var(--tap);
+    min-height: var(--tap);
   }
 }
 /* anchored to the trigger, not the viewport: the point of the popover is that it
@@ -1906,6 +2163,11 @@ function dismissFix() {
 .item__nest-btn,
 .item__vault-btn,
 .item__del,
+/* the qty stepper's ± live in this family too, though they sit in the middle of the
+   row rather than the trailing cluster: they are the same kind of thing (a quiet
+   glyph that darkens under the pointer), and one rule is what keeps them the same
+   weight as the icons across the row from them */
+.item__qtybtn,
 /* the ⋯ overflow (mobile) — override .menu__btn's --ink-2 so it reads at the same
    weight as the delete + grip it sits between */
 .item__morebtn {
@@ -1920,6 +2182,7 @@ function dismissFix() {
 .item__nest-btn:hover,
 .item__vault-btn:hover,
 .item__del:hover,
+.item__qtybtn:hover,
 .item__morebtn:hover {
   color: var(--ink);
 }
@@ -2253,11 +2516,25 @@ function dismissFix() {
   .reveal--note {
     --reveal-offset: var(--space-1);
   }
-  /* one line only — qty · weight · class on the left, controls on the right — so a
-     row is never more than two lines (name + this) and icons never land on a third */
+  /* qty · weight · class on the left, controls on the right. Two lines per row (name
+     + this) is still the target and still what almost every row gets — but the line
+     WRAPS when it genuinely can't hold, rather than running its trailing icons off
+     the side of the phone.
+     It used to be nowrap, with a `max-width: 360px and pointer: coarse` carve-out
+     below that flipped it to wrap — the one width where nowrap was measured to fail.
+     That was the wrong shape for the rule: it named a width, and the answer it gave
+     there ("let it wrap") is the answer at every width where the line doesn't fit.
+     A breakpoint only holds until the next thing joins the line — the gap floor just
+     below moved it once already — and when it stops holding the failure is not a
+     tight row but a grip sitting past the edge of the screen.
+     flex-wrap is self-tuning instead: a row that fits is untouched (wrap does nothing
+     when there is no overflow to resolve), and a row that doesn't drops its actions
+     cluster to a line of its own — exactly what the 360px block did, for the same
+     reason. A third line is a worse row than two; an unreachable grip is not a row
+     at all. */
   .item__meta {
     display: flex;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     align-items: baseline;
     /* Generous gap BETWEEN the groups (qty · weight · class) so they read as
        distinct — each number stays tight to its own ×/unit (see .item__qty gap +
@@ -2266,11 +2543,29 @@ function dismissFix() {
        overflowing. Once the classification cell became two toggles, a coarse
        pointer's --tap sizing left this line needing more width than a 375px phone
        has, and a fixed gap spends on air the controls need. Above ~640px it
-       resolves to space-4 and nothing changes. */
-    gap: clamp(var(--space-2), 2vw, var(--space-4));
+       resolves to space-4 and nothing changes.
+       The FLOOR is --space-3, not --space-2. At 8px the separation between the
+       groups was only 4px more than the separation inside them (a number and its
+       own unit), which is not a difference you can see — "1 × 540 g" read as one
+       run of figures rather than a count and a weight. 12px against 4px is a ratio
+       you can, and it is the one piece of this the grid gets for free from having
+       columns at all. The 4px it costs a 375px line is affordable; below that the
+       line wraps, which it already did. */
+    gap: clamp(var(--space-3), 2vw, var(--space-4));
+    /* but the gap BETWEEN wrapped lines is the row's own rhythm, not the columns'
+       separation — the same --space-1 the name and this line already sit apart by.
+       After the shorthand, which would otherwise set both. */
+    row-gap: var(--space-1);
+    /* Right-aligns the actions on the line the auto margin can't reach: when the
+       cluster wraps to a line of its own there is no classification cell down there
+       to carry it (.item__classcell below is what right-anchors the fitting case).
+       justify-content rather than a second margin-left:auto, because two auto margins
+       SPLIT the free space between them on any row that still fits on one line, which
+       puts back half the drift the first one exists to remove. justify-content can't
+       do that: an auto margin consumes the free space before it is consulted, so this
+       stays inert on a line that has one and takes charge on the line that doesn't. */
+    justify-content: flex-end;
   }
-  /* right-anchored, but by the classification cell's auto margin rather than its own
-     — see .item__classcell below, which is what pushes this pair of clusters right */
   .item__actions {
     flex: none;
     align-self: center;
@@ -2351,11 +2646,42 @@ function dismissFix() {
   .item__weight {
     flex: none;
   }
+  /* THE STEPPER STANDS DOWN HERE, and the count goes back to a plain number and its
+     ×. Nine controls already share this line at 375px, and unlike the grid it has no
+     columns to separate them — so the + landed hard against the weight and
+     "− 4 + 540 g" read as one run-on figure rather than a count and a weight. The ×
+     is what punctuates the count without costing a tap target.
+     display:none, so the buttons leave the accessibility tree with the pixels — a
+     control you cannot see is not one to offer a screen reader either. The field is
+     still a field, so nothing about setting a quantity is lost down here; it is the
+     affordance that's desktop-only, not the capability. */
+  .item__qtybtn {
+    display: none;
+  }
+  .item__qty--step .item__unit {
+    display: block; /* the flex item it already was — restoring, not restyling */
+  }
   /* flush-left on the flowing mobile row — the global right-align is for the desktop
      columns; here it would indent a short value (e.g. "1") from the viewport edge */
-  .item__qty .field,
+  .item-wrap .item__qty .field,
   .item__weight .field {
     text-align: left;
+  }
+  /* and the cell gives back the stepper's geometry with it — both variants, since
+     both are a plain field down here. That reserved button gutter, the zero gap and
+     the sized unit slot exist to hold a COLUMN together; this line has none, and the
+     fields size to their own content, so all three would only spend width the
+     tightest line in the app hasn't got.
+     The .item-wrap prefix here and above (the block's own idiom — see .item-wrap
+     .item .field) is what MATCHES the water rules being undone: those are written
+     `.item__qty:not(.item__qty--step)`, and a bare `.item__qty` is a class short of
+     that, so it lost to them and left a water row still carrying its 24px gutter. */
+  .item-wrap .item__qty {
+    gap: var(--space-1);
+    padding-left: 0;
+  }
+  .item-wrap .item__qty .item__unit {
+    width: auto;
   }
   .item__qty .field {
     width: 2.5em;
@@ -2443,37 +2769,11 @@ function dismissFix() {
   }
 }
 
-/* The narrowest phones (iPhone SE and friends), and ONLY on a touch pointer.
- *
- * The meta line is nowrap by design — two lines per row, never three. That holds at
- * 375 with room to spare, but it cannot hold at 320 once .btn--icon grows to --tap:
- * the line then wants 323px inside a 288px content box, and the trailing grip ends up
- * ~19px past the screen. Measured, not guessed.
- *
- * Two 44px toggles (92px) and three 44px actions (143px) are most of that, and none of
- * it is padding to reclaim — shrinking either is exactly the touch target the coarse
- * query exists to protect. So the line is allowed to wrap here, and the actions
- * cluster drops beneath the numbers rather than off the edge of the phone. A third
- * line on a 320px screen is a worse row than two; an unreachable delete button is not
- * a row at all.
- *
- * pointer: coarse is part of the condition on purpose — a 320px-wide DESKTOP window
- * keeps 32px icons, still fits on one line, and should not be given the phone layout.
+/* The narrowest-phone block that used to live here (max-width: 360px and pointer:
+ * coarse — wrap the meta line, right-align the wrapped actions) is gone: both of its
+ * declarations moved up into the mobile block unconditionally when the quantity
+ * stepper widened the line. A breakpoint was the wrong shape for the rule anyway —
+ * it named the one width at which nowrap was known to fail, and the answer it gave
+ * ("let it wrap") is the answer at every width where it fails. See .item__meta.
  */
-@media (max-width: 360px) and (pointer: coarse) {
-  .item__meta {
-    flex-wrap: wrap;
-    row-gap: var(--space-1);
-    /* Right-aligns the actions once they drop to a line of their own — there is no
-       classification cell down there to carry the auto margin that does it everywhere
-       else (.item__classcell, above).
-       justify-content rather than a second margin-left:auto, because not every row
-       wraps at this width: a short one still fits on one line, and there two auto
-       margins would SPLIT the free space between them and put back half the drift this
-       whole block is meant to remove. justify-content can't do that — an auto margin
-       consumes the free space before it is consulted, so it stays inert on any line
-       that has one and takes charge only on the line that doesn't. */
-    justify-content: flex-end;
-  }
-}
 </style>

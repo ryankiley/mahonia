@@ -66,20 +66,13 @@ onMounted(() => {
 }
 /* .acount__sr → migrated to the shared global .visually-hidden utility
    (app/assets/styles/foundations/reset.scss) */
-@keyframes acount-pop {
-  0% {
-    transform: translateY(0.2em) translateZ(0);
-    opacity: 0;
-    filter: blur(var(--blur-pop));
-  }
-  100% {
-    transform: translateY(0) translateZ(0);
-    opacity: 1;
-    filter: blur(0);
-  }
-}
+/* the keyframe itself → the shared global `num-pop` (app/assets/styles/main.scss).
+   The row's quantity stepper pops its number with the same motion, and a scoped
+   @keyframes is renamed per component — kept here, the two would have been two
+   copies of one idea. The per-character stagger below stays local: it is what
+   makes this the TOTAL's version of the pop. */
 .acount.is-animating .acount__ch {
-  animation: acount-pop var(--dur-slow) var(--ease-spring) both;
+  animation: num-pop var(--dur-slow) var(--ease-spring) both;
   animation-delay: calc(var(--i, 0) * var(--stagger-ch)); /* 0 for the first char */
 }
 @media (prefers-reduced-motion: reduce) {
