@@ -192,11 +192,12 @@
 /* The CLASSIFICATION CHIP — the lit ground that says a row is worn or consumable.
    In the editor it is the ON state of a toggle button; in the share views it is a
    static mark. Same picture either way, so the paint lives here rather than in two
-   scoped blocks: a quiet grey chip (--paper-3, the "quiet surfaces, not borders"
-   token) carrying the state without an inverted ink chip's weight — these sit in a
-   dense list, and a row of black dots would out-shout the weights, which are what
-   the page is for. Colour would be the obvious signal, but this codebase reserves it
-   for the data viz.
+   scoped blocks: a quiet grey chip (--lit, whose whole job is this) carrying the
+   state without an inverted ink chip's weight — these sit in a dense list, and a row
+   of black dots would out-shout the weights, which are what the page is for. Colour
+   would be the obvious signal, but this codebase reserves it for the data viz.
+   It used to take --paper-3 and read heavy for it; see that token for why a surface
+   tone is the wrong thing to borrow for a filled state.
    background-clip pins the ground to the CONTENT box, which is how it stays
    --icon-btn across every pointer: a coarse one grows the editor's button to --tap
    for the thumb, and a 44px disc drawn in a ~25px text line reaches the rules above
@@ -207,7 +208,7 @@
    blink its state off. */
 .item__mark,
 .item__mark:hover {
-  background: var(--paper-3);
+  background: var(--lit);
   background-clip: content-box;
   border-radius: var(--radius-pill);
   color: var(--ink);

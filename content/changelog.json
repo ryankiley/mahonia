@@ -3,7 +3,8 @@
     "date": "2026-08-08",
     "changed": [
       "Tapping a control on a phone or tablet no longer raises a tooltip describing the thing you just pressed.",
-      "On a touchscreen, scrolling now closes an open menu instead of leaving it parked over the list."
+      "On a touchscreen, scrolling now closes an open menu instead of leaving it parked over the list.",
+      "The lit Worn and Consumable marks, and the selected view in the Gear / Packing / Planning bar, now sit a shade lighter — and they hold their shape on a row you're dragging or a row with gear nested under it, where the old tone all but disappeared."
     ],
     "fixed": [
       "A weight or amount you'd just typed is no longer lost when you press a control on the same row without leaving the field first.",
