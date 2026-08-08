@@ -61,7 +61,8 @@
       "A row's ⋯ menu now opens upward when the row sits near the bottom of the screen, instead of opening off the bottom edge where you couldn't reach it.",
       "\"New list\" in the pack switcher now lights up under the pointer and the keyboard, like the lists above it.",
       "On a water row the weight's unit now lines up with every other row's instead of sitting slightly right of the column.",
-      "Adding an item near the bottom of the page no longer throws the page a long way up — it now scrolls just far enough to show the new row."
+      "Adding an item near the bottom of the page no longer throws the page a long way up — it now scrolls just far enough to show the new row.",
+      "The unit menu on a folder's last item no longer gets cut off at the folder's edge."
     ]
   },
   {
