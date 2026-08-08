@@ -65,6 +65,49 @@ export function onClickOutside(
   );
 }
 
+// Dismiss an anchored surface when a touch drag scrolls the page under it — the
+// mobile companion to onClickOutside above. Menus hang off triggers that are often
+// STICKY (the topbar's ⋯ and account controls, the editor toolbar's), so scrolling
+// neither carries them away nor takes them down: the card just sits over the content
+// you were trying to read, and the only way out is to find dead space and tap it. On
+// a phone a menu is a good fraction of the screen, so scrolling past it is the
+// natural gesture and it should mean what it plainly looks like it means.
+//
+// TOUCHMOVE, not scroll. Two reasons, and the second is the one that decided it:
+//   - it IS the mobile predicate, so there's no media query to keep in step with the
+//     rest of the app. A hybrid laptop dismisses when scrolled by finger and not when
+//     scrolled by wheel, which is the behaviour you'd want on it anyway.
+//   - a `scroll` listener fires on scrolls nobody performed. iOS scrolls the page to
+//     clear the on-screen keyboard whenever a field takes focus, and the lists
+//     switcher focuses its filter input the moment it opens — so it would have closed
+//     itself, every time, on the exact device this exists for.
+//
+// Bound only WHILE open, like Tooltip's own scroll dismissal and for the same reason:
+// this fires many times per gesture, and a menu nobody opened shouldn't pay for it.
+// A drag INSIDE the surface is ignored — the switcher's list of lists is its own
+// scroller, and scrolling it is the opposite of leaving.
+export function onScrollOutside(
+  open: Ref<boolean>,
+  // same structural ref shape as onClickOutside, so template refs fit
+  target: { readonly value: HTMLElement | null | undefined },
+  handler: () => void,
+): void {
+  if (!import.meta.client) return;
+  // capture, so a drag over any nested scroller is heard too
+  const opts = { passive: true, capture: true } as const;
+  const onTouchMove = (e: TouchEvent) => {
+    const el = target.value;
+    if (el && e.composedPath().includes(el)) return;
+    handler();
+  };
+  const bind = (on: boolean) => {
+    if (on) window.addEventListener("touchmove", onTouchMove, opts);
+    else window.removeEventListener("touchmove", onTouchMove, opts);
+  };
+  watch(open, bind);
+  onScopeDispose(() => bind(false));
+}
+
 // navigator.onLine as a ref, tracked via the online/offline events. Lives in
 // the editor's sync controller (client-only); a server render reads as online.
 export function useOnline(): Ref<boolean> {

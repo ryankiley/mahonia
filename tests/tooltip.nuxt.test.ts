@@ -148,6 +148,35 @@ describe("Tooltip positioning", () => {
     expect(await hover()).toBeNull();
   });
 
+  // The three ways a finger reaches a trigger, all of which used to raise one: the
+  // emulated mouseenter a tap fires, the tap itself (which used to TOGGLE the popup),
+  // and the focus a tap lands on the button underneath. Every tooltip in the app wraps
+  // a control that already acts when pressed, so on a phone all three were describing
+  // something the same tap had just done.
+  it("raises nothing a touch can reach", async () => {
+    vi.stubGlobal("matchMedia", (q: string) => ({ matches: q === "(hover: none)", media: q }) as MediaQueryList);
+    mountTooltip({ text: "Remove item" });
+
+    for (const ev of ["mouseenter", "click", "focusin"]) {
+      await wrapper!.trigger(ev);
+      await flushPromises();
+      expect(document.body.querySelector(".tooltip"), `${ev} raised one`).toBeNull();
+    }
+  });
+
+  // The reason focus reaches past hover at all: the planning view's (?) buttons explain
+  // where an estimate came from, and a keyboard is exactly how someone who can't hover
+  // gets to them. `hover: false` here is the ordinary desktop case, where the keyboard
+  // test is skipped outright — a tablet-with-keyboard goes through :focus-visible, which
+  // is the browser's own answer and not something this suite can meaningfully stub.
+  it("still opens on focus where a pointer can hover", async () => {
+    mountTooltip({ text: "Remove item" });
+
+    await wrapper!.trigger("focusin");
+    await flushPromises();
+    expect(document.body.querySelector(".tooltip")).not.toBeNull();
+  });
+
   it("dismisses on scroll — a fixed popup would otherwise detach from its anchor", async () => {
     mountTooltip({ text: "Remove item" });
     expect(await hover()).not.toBeNull();
