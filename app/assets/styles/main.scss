@@ -107,6 +107,30 @@
   }
 }
 
+// The FIGURE POP — one keyframe for every number in the app that changes in place:
+// the big total (AnimatedCount runs it per character, with a stagger) and a row's
+// quantity (ItemRow runs it on the whole field when the ± stepper moves it). Global
+// rather than scoped to either, because Vue renames a scoped @keyframes per
+// component — two copies would be two motions for one idea, free to drift.
+//
+// translateZ(0) is baked into BOTH frames on purpose: iOS Safari often won't render
+// a filter animation unless the element is composited, and a static transform on the
+// element is overwritten while `transform` animates, so the layer has to live in the
+// keyframe itself. Consumers rest at `filter: blur(0)` — never `none` — for the same
+// reason: the filter context has to persist between runs.
+@keyframes num-pop {
+  0% {
+    transform: translateY(0.2em) translateZ(0);
+    opacity: 0;
+    filter: blur(var(--blur-pop));
+  }
+  100% {
+    transform: translateY(0) translateZ(0);
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

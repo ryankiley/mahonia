@@ -284,6 +284,14 @@ $bp-full: 1024px !default;
   /* icon-button box — the dense desktop chrome. The fixed actions track below
      multiplies it, so resizing the button here resizes the track with it. */
   --icon-btn: 32px;
+  /* the quantity stepper's ± buttons (ItemRow) — deliberately narrower than
+     --icon-btn, and the ONE icon button that doesn't widen to --tap on touch. The
+     three parts (− number +) have to read as one control rather than two buttons
+     with a number between them, and the mobile meta line is the tightest line in
+     the app. It still clears the 24×24 minimum target (WCAG 2.5.8) in both
+     directions, and the HEIGHT does take --tap on touch — so the thumb gets 24×44.
+     Named here because the qty track below is derived from it. */
+  --qty-btn: 24px;
   /* the category colour dot (.swatch, atoms/controls.scss) — the ONE colour mark in
      the app. Named because the category legend hangs its wrapped lines off exactly
      this width (CategoryBar), so the two must move together. */
@@ -311,7 +319,12 @@ $bp-full: 1024px !default;
      full-size at the ≥$bp-full viewport, compressing linearly down to the
      $bp-stack mobile stack point — so a narrowing window gives the name room
      instead of crushing only the 1fr column while ~280px of metas stand firm. */
-  --item-col-qty: #{fluid-track(48px, 64px)};
+  /* qty holds a STEPPER now, so its track is derived from the parts rather than
+     stated: the two ± buttons, plus a fluid slot for the number between them (28px
+     at the stack point, 44px at full width — three digits and a caret at the wide
+     end, two at the narrow). Stating a flat width instead would go stale the moment
+     --qty-btn is retuned, and the number would be what silently lost the space. */
+  --item-col-qty: calc(2 * var(--qty-btn) + #{fluid-track(28px, 44px)});
   --item-col-weight: #{fluid-track(68px, 88px)};
   --item-col-class: #{fluid-track(108px, 128px)}; /* min fits "Consumable" at 1rem */
   /* actions column is FIXED, not auto: a row shows 4 or 5 trailing icons (the nesting

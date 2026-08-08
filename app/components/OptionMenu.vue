@@ -56,9 +56,9 @@ const open = ref(false);
 const rootRef = useTemplateRef<HTMLElement>("rootRef");
 // the travelling wash shared with every other menu (useMenuPlate)
 const { plateRef, listRef, placing, on: plateOn } = useMenuPlate();
-// which edge to hang from, measured rather than declared — see useMenuPlacement.
-// On open, because a menu can't change width while it's up.
-const { atStart, place } = useMenuPlacement(listRef);
+// which sides to hang from, measured rather than declared — see useMenuPlacement.
+// On open, because a menu can't change size while it's up.
+const { atStart, above, place } = useMenuPlacement(listRef);
 watch(open, (o) => o && nextTick(place));
 
 onClickOutside(rootRef, () => (open.value = false));
@@ -95,7 +95,7 @@ function pick(key: string) {
         v-if="open"
         ref="listRef"
         class="popover menu__list optmenu__list"
-        :class="{ 'menu__list--start': atStart }"
+        :class="{ 'menu__list--start': atStart, 'menu__list--above': above }"
         role="menu"
         :aria-label="label"
         v-on="plateOn"

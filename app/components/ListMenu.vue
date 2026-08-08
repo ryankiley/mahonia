@@ -102,6 +102,17 @@ const isCurrent = (e: SwitcherRow) => !!currentShareCode && e.shareCode === curr
 
 // the travelling wash — see useMenuPlate for the two measurement traps it carries
 const { plateRef, listRef, placing, on: plateOn } = useMenuPlate();
+// A SECOND instance for the footer, which is one row ("New list") and had no hover
+// wash at all — the only row in the card that lit up for neither pointer nor keyboard.
+// It can't share the one above, and the reason is structural rather than an oversight:
+// the plate is positioned by its row's offsetTop inside .lm__rows, which SCROLLS, so
+// the plate has to live in that scroll container to travel with the rows. The footer
+// deliberately sits outside it — a "New list" that scrolled away with forty lists
+// above it would be the wrong control to lose. One plate cannot be in both places.
+// Two instances cost a ref and a span; the alternative — a plain :hover background —
+// would draw the same rectangle a different way and drift from the atom the moment
+// either is retuned.
+const { plateRef: footPlateRef, listRef: footListRef, placing: footPlacing, on: footPlateOn } = useMenuPlate();
 
 function close() {
   open.value = false;
@@ -217,8 +228,9 @@ watch(open, (o) => {
         <!-- New list is an ACTION, not one of your lists, so it sits below a
              hairline — the one place in this card a rule earns its keep, because it
              separates two kinds of thing rather than two instances of one. -->
-        <div class="lm__foot">
-          <button type="button" class="menu__item lm__new" role="menuitem" @click="close(); emit('new-list')">
+        <div ref="footListRef" class="lm__foot" v-on="footPlateOn">
+          <span ref="footPlateRef" class="menu__plate" :class="{ 'is-placing': footPlacing }" aria-hidden="true" />
+          <button type="button" data-row class="menu__item lm__new" role="menuitem" @click="close(); emit('new-list')">
             New list
           </button>
         </div>
@@ -247,7 +259,13 @@ watch(open, (o) => {
      Same move as .btn--flush-end at the bar's other end. */
   margin-left: calc(-1 * var(--space-2));
   border: 0;
-  border-radius: var(--radius-pill);
+  /* --radius-2, the MODE CHIP's corner (.modebar__opt), not the pill every other
+     button in the app wears. This control sits directly above that bar and is read
+     with it — two chips in a column, a few pixels apart — so a pill here against a
+     rounded rectangle there read as two different kinds of thing when they are the
+     same kind: a small labelled chip you press to change what the page is showing.
+     The pill is right for a control standing on its own; this one never does. */
+  border-radius: var(--radius-2);
   background: transparent;
   font: inherit;
   font-size: var(--text-chrome);
@@ -371,9 +389,19 @@ watch(open, (o) => {
   color: var(--ink-3);
 }
 .lm__foot {
+  /* the plate's offsetParent — useMenuPlate positions by offsetTop, so the row's
+     coordinate space has to be this box and not some ancestor's */
+  position: relative;
   margin-top: var(--space-1);
   padding-top: var(--space-1);
   border-top: 1px solid var(--line);
+}
+/* the same full-bleed inset the rows' plate takes (.lm__rows .menu__plate): the atom
+   insets by --space-2 for a plate sitting directly in a .menu__list, and neither of
+   this card's two row areas is that */
+.lm__foot .menu__plate {
+  left: 0;
+  right: 0;
 }
 .lm__new {
   color: var(--ink-2);
