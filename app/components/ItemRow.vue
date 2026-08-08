@@ -237,6 +237,47 @@ function onRowBlur(e: FocusEvent) {
   c.discardEmpty(props.item.id);
 }
 
+/**
+ * Commit whatever number field is being edited before a control in this row acts on it.
+ *
+ * Every button in the row prevents its own mousedown default — see the actions cluster's
+ * comment in the template for why (a click out of a focused field would otherwise blur
+ * the row, and discardEmpty would take a pristine one out from under the click). What
+ * that costs is the blur, and the blur is what fires `change` — which is where onQty and
+ * onWeight commit. So a number you typed and then acted on WITHOUT leaving the field was
+ * never stored: the toggle re-rendered the row, the field repainted from a state that had
+ * never heard about it, and the number you had just typed was simply gone. Reported as
+ * the amount or the weight disappearing when a row is made consumable, which is the
+ * shortest path to it — type a weight, tap the cookie, watch it empty itself — but every
+ * mousedown-prevented control in the row had the same hole, worn and the ⋯ menu included.
+ *
+ * Dispatching the field's own `change` runs the exact commit the blur would have run, and
+ * both handlers resync from state afterwards, so the later real blur re-firing it is a
+ * no-op. Focus stays where it was, which is the whole point of the prevent.
+ *
+ * ON CLICK, CAPTURE — not pointerdown, which is where this started. Committing that early
+ * re-lays the row out mid-gesture: clearing a weight drops the row below vaultWorthy, the
+ * vault icon leaves the actions cluster, every cell shifts, and the button the finger was
+ * on is no longer under it at mouseup — so the tap that triggered the commit then landed
+ * on nothing and the popover never opened. By click the gesture has already resolved.
+ * Capture so this still runs BEFORE the control's own handler; Vue patches the DOM on the
+ * microtask, so nothing has moved by the time that handler runs.
+ *
+ * NUMBER FIELDS ONLY (.field--num — qty, weight, and the popovers' kcal). The name field
+ * commits through the autocomplete's own path (NameCommit), and firing a bare `change`
+ * underneath that would be a second, blinder way to commit a catalog pick.
+ */
+function flushPendingEdit(e: Event) {
+  const active = document.activeElement;
+  if (!(active instanceof HTMLInputElement)) return;
+  // still editing this very field — a resync mid-edit would collapse the caret to the
+  // end, so pressing INTO the field you are already in must change nothing
+  if (active === e.target) return;
+  if (!active.classList.contains("field--num")) return;
+  if (!wrapRef.value?.contains(active)) return; // another row's field is that row's business
+  active.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
 // edit field: the bare number in the list unit (formatWeight is strict, so the shown
 // number stays in that unit — the unit label + parser agree, no rescale). A weight too
 // small to show in the chosen unit renders as "<0.01" (never a wrong "0"); tapping in
@@ -866,6 +907,7 @@ function dismissFix() {
     :data-parent="item.parentId || null"
     :class="{ 'is-dragging': isDragging, 'is-drop-before': isDropBefore, 'is-nest-parent': isNestParent }"
     @focusout="onRowBlur"
+    @click.capture="flushPendingEdit"
   >
     <!-- editing↔packing swap, decided by CSS rather than by this component. Which face
          shows follows the editor body's data-mode (atoms/item.scss); the fade the old
