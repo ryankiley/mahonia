@@ -3,7 +3,8 @@
     "date": "2026-08-08",
     "changed": [
       "Tapping a control on a phone or tablet no longer raises a tooltip describing the thing you just pressed.",
-      "On a touchscreen, scrolling now closes an open menu instead of leaving it parked over the list."
+      "On a touchscreen, scrolling now closes an open menu instead of leaving it parked over the list.",
+      "The lit Worn and Consumable marks, and the selected view in the Gear / Packing / Planning bar, now sit a shade lighter — and they hold their shape on a row you're dragging or a row with gear nested under it, where the old tone all but disappeared."
     ],
     "fixed": [
       "A weight or amount you'd just typed is no longer lost when you press a control on the same row without leaving the field first.",
@@ -33,8 +34,7 @@
       "A brand-new row no longer offers Save to My Gear before there's anything to save — the button arrives once the row has a name and a weight or a catalog pick.",
       "Coming back to the planning view is instant, and it keeps where you left it — the map's position, folded days — instead of starting over each visit.",
       "A shared list's heading is tighter: who made it and when it was last edited now read as one line, with the trail and the dates on the next.",
-      "A shared list no longer labels itself \"Read-only\" — there was never anything on the page to edit.",
-      "The lit Worn and Consumable marks, and the selected view in the Gear / Packing / Planning bar, now sit a shade lighter — and they hold their shape on a row you're dragging or a row with gear nested under it, where the old tone all but disappeared."
+      "A shared list no longer labels itself \"Read-only\" — there was never anything on the page to edit."
     ],
     "fixed": [
       "A pack whose edit link had been rotated could show up twice in the list switcher, both rows marked as the one you're in and one of them a link that no longer worked. It now appears once, and the stale row clears itself the next time you open that pack.",
