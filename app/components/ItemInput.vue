@@ -50,7 +50,26 @@ const inputEl = useTemplateRef<HTMLInputElement>("inputEl");
 const acId = useId();
 const optId = (i: number) => `${acId}-opt-${i}`;
 onMounted(() => {
-  if (props.autofocus) inputEl.value?.focus();
+  // preventScroll, because the BROWSER's idea of where a newly focused field should
+  // sit is not this app's. Focusing scrolls it into view by default, and that is what
+  // moved the page when you pressed "Add an item" — the folder jumped under your
+  // finger before the row had finished arriving. Measured at 18px on a desktop-sized
+  // window with the add button near the bottom edge, and far more on a phone, where
+  // the browser is also making room for the keyboard.
+  //
+  // Nothing is lost by suppressing it: a new row is always inserted next to the
+  // control that made it — a folder's blank goes directly above that folder's "Add an
+  // item", Enter's goes directly under the row you were on, a nested one above the
+  // group's own add row — so the field is on screen by construction, and there is
+  // nothing for a scroll to reveal.
+  //
+  // The one case where something IS hidden is the phone keyboard, and that has its
+  // own handler (GearEditor's onFocusIn): it waits for the keyboard to finish rising,
+  // measures against the VISUAL viewport rather than the layout one, and moves the
+  // least that clears it. With the browser's scroll out of the way that handler is now
+  // the only thing that can move the page, which is the point — one decision, made
+  // once, by the code that knows about the keyboard.
+  if (props.autofocus) inputEl.value?.focus({ preventScroll: true });
 });
 
 // keep an edit field in sync if the item name changes elsewhere (catalog pick,
