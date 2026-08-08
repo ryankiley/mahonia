@@ -74,6 +74,28 @@ $bp-full: 1024px !default;
     color-mix(in oklab, var(--ink) 6.5%, transparent),
     color-mix(in oklab, var(--ink) 8.5%, transparent)
   );
+  /* ---- the WELL: a control that is OFF, held as an empty track for its knob (the
+     Worn/Consumable switch). --lit's counterpart, and the same kind of token for the
+     same reason — an AMOUNT OF INK and not a named tone, because that switch's first
+     version drew this in --paper-3, which is --surface-float's exact value in dark, and
+     the off track vanished into the popover it sits on at 1.00:1.
+     Where --lit has a target, this has a FLOOR. It is the whole of what makes an off
+     switch a visible object, so it carries WCAG 1.4.11 by itself: 43%/35% is the least
+     ink that clears 3:1 on every ground in the app. The binding cases come from
+     opposite ends — --paper-3 in light, where a wash loses contrast against a ground
+     already tinted toward it, and --paper in dark, where black gives the ratio's
+     denominator nothing but its 0.05 floor to work with. Do not lower either number.
+     It REPLACED a 1px ring of 45% ink over a 10% track. That ring was three times the
+     weight of --line-2, the darkest hairline the app owns, so the one control in the
+     app that read as outlined was a switch that was off. A fill carrying the ring's
+     own 3:1 needs no edge drawn around it.
+     Two percentages, like --lit and for the same reason: sRGB is not symmetric, and
+     this pair lands at 3.14:1 light / 3.20:1 dark on the popover both states live on.
+     ---- */
+  --well: light-dark(
+    color-mix(in oklab, var(--ink) 43%, transparent),
+    color-mix(in oklab, var(--ink) 35%, transparent)
+  );
 
   /* ---- ink: neutral grey ramp; primary is true black / white ---- */
   --ink: light-dark(#000000, #ffffff);
@@ -209,14 +231,16 @@ $bp-full: 1024px !default;
      --radius-2, which is the relationship the two drag states want: the row you're
      dragging reads as picked up, the row you'd drop onto only as marked. */
   --radius-1: 4px;
-  /* in-flow surfaces that sit ON the page rather than over it: the lifted drag row,
-     the toast, the vault row's hover. NOT dialogs — atoms/dialog.scss uses --radius-4,
-     which is what a surface floating over a scrim should take. */
+  /* in-flow surfaces that sit ON the page rather than over it: the lifted drag row, the
+     vault row's hover. NOT dialogs — atoms/dialog.scss uses --radius-4, which is what a
+     surface floating over a scrim should take. */
   --radius-2: 8px;
-  /* small floating CARDS (the trail-link hover card + its edit panel). 8px reads squarer
-     than a card this size wants, and 20px turns a 32px card into a lozenge, so this sits
-     between them — and 12 keeps the 4px grid the rest of this file is built on. Nested
-     surfaces derive from
+  /* small floating OBJECTS: the trail-link hover card + its edit panel, and the toast.
+     8px reads squarer than a card this size wants, and 20px turns a 32px card into a
+     lozenge, so this sits between them — and 12 keeps the 4px grid the rest of this file
+     is built on. The toast moved here from --radius-2 because that step is for things
+     that came off the PAGE and keep the page's corner (the lifted row); a toast was
+     never in the flow. Nested surfaces derive from
      it with calc() rather than hard-coding, so an inner curve can never end up rounder
      than the box holding it. */
   --radius-3: 12px;
