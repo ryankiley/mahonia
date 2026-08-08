@@ -50,7 +50,7 @@ const props = defineProps<{
    */
   align?: "center" | "baseline";
 }>();
-const emit = defineEmits<{ pick: [key: string] }>();
+const emit = defineEmits<{ pick: [key: string]; overlayToggle: [boolean] }>();
 
 const open = ref(false);
 const rootRef = useTemplateRef<HTMLElement>("rootRef");
@@ -60,6 +60,26 @@ const { plateRef, listRef, placing, on: plateOn } = useMenuPlate();
 // On open, because a menu can't change size while it's up.
 const { atStart, above, place } = useMenuPlacement(listRef);
 watch(open, (o) => o && nextTick(place));
+
+// The list is position:absolute, so a clipping ancestor crops it — the unit menu on
+// a folder's LAST row opened downward into the collapse clip (overflow:hidden on the
+// folder body) and lost every option past the folder's bottom edge. Ancestors that
+// own such a clip listen for this and lift it while the menu is up, the same
+// overlayToggle contract the name autocomplete keeps (ItemInput → FolderSection).
+// Deduped so the folder's +1/−1 count can't unbalance, and released only at the
+// leave transition's END: releasing at leave start let the returning clip guillotine
+// the exiting menu at t=0 — everything past the fold vanished instantly while the
+// slice inside kept fading (ItemInput documents the same artifact). A leave
+// cancelled by reopening never fires after-leave, and the dedup makes the re-show a
+// no-op — the clip just stays lifted through the blink.
+let lifted = false;
+function setLift(v: boolean) {
+  if (lifted === v) return;
+  lifted = v;
+  emit("overlayToggle", v);
+}
+watch(open, (o) => o && setLift(true));
+onBeforeUnmount(() => setLift(false));
 
 onClickOutside(rootRef, () => (open.value = false));
 onScrollOutside(open, rootRef, () => (open.value = false));
@@ -90,7 +110,7 @@ function pick(key: string) {
            `open` lets it turn a chevron over -->
       <slot name="trigger" :active="active" :open="open" />
     </button>
-    <Transition name="menu">
+    <Transition name="menu" @after-leave="setLift(false)">
       <ul
         v-if="open"
         ref="listRef"
