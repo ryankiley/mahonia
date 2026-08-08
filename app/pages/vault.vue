@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { ArrowUpDownIcon, ChevronDownIcon, CircleXIcon, Delete02Icon, FolderIcon, GripVerticalIcon, SortingAZ01Icon, SortingNineOneIcon, SortingOneNineIcon, Undo02Icon } from "@hugeicons/core-free-icons";
+import { ArrowUpDownIcon, ChevronDownIcon, CircleXIcon, Delete02Icon, FolderIcon, GripVerticalIcon, SortingAZ01Icon, SortingNineOneIcon, SortingOneNineIcon, UndoIcon } from "@hugeicons/core-free-icons";
 import type { Unit } from "~~/shared/types";
 import type { VaultEntry, VaultFolder } from "~~/shared/vault";
 import { formatWeightAuto, itemDisplayName } from "~~/shared/weights";
@@ -714,7 +714,7 @@ const folderOptions = computed(() => [
                     :aria-label="`Put ${itemDisplayName(entry.brand, entry.name, entry.variant)} back in My Gear`"
                     @click="putBack(entry)"
                   >
-                    <HugeiconsIcon :icon="Undo02Icon" :size="14" aria-hidden="true" :stroke-width="2" /> Put back
+                    <HugeiconsIcon :icon="UndoIcon" :size="14" aria-hidden="true" :stroke-width="2" /> Put back
                   </button>
                 </li>
               </ul>
@@ -746,7 +746,7 @@ const folderOptions = computed(() => [
           Removed <strong>{{ itemDisplayName(undoable.brand, undoable.name, undoable.variant) }}</strong>
         </span>
         <button class="undobar__btn t-sm" @click="undoRemove">
-          <HugeiconsIcon :icon="Undo02Icon" :size="14" :stroke-width="2" /> Undo
+          <HugeiconsIcon :icon="UndoIcon" :size="14" :stroke-width="2" /> Undo
         </button>
       </div>
     </Transition>
