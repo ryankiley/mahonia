@@ -844,6 +844,7 @@ Garage Grown Gear,Snap-Cap Bottles,Water bottle,1oz,cook,9000,manufacturer,https
 humangear,GoBite Spin Spoon & Fork,Utensils,,cook,14000,manufacturer,https://www.garagegrowngear.com/products/spin-spoon-fork-gobite-by-humangear
 humangear,GoBite Uno Spoon & Fork,Utensils,Long,cook,18000,manufacturer,https://www.garagegrowngear.com/products/gobite-uno-spoon-fork-by-humangear
 humangear,GoBite Uno Spoon & Fork,Utensils,Regular,cook,15000,manufacturer,https://www.garagegrowngear.com/products/gobite-uno-spoon-fork-by-humangear
+HydraPak,SpeedCup,Cup,200ml,cook,10000,manufacturer,https://www.hydrapak.com/products/speedcup%E2%84%A2-2-pack-2026
 HYKLYF,Genius Sticker,Sticker,,cook,1000,manufacturer,https://www.garagegrowngear.com/products/bottle-genius-sticker-by-hyklyf
 HYKLYF,Pika Bowl,Bowl,,cook,7000,manufacturer,https://www.garagegrowngear.com/products/pika-bowl-by-hyklyf
 Igneous,Bottle Cap & Tether,Bottle cap,,cook,7000,manufacturer,https://www.garagegrowngear.com/products/bottle-cap-tether-by-igneous
@@ -1004,12 +1005,65 @@ Glaceau,Smartwater Bottle,Water bottle,1L,water,39689,measured,https://www.adven
 Grayl,GeoPress Purifier Bottle,Water filter,24 fl oz,water,450757,manufacturer,https://grayl.com/pages/geopress-tech-specs
 Grayl,GeoPress Ti,Water filter,24 fl oz,water,570000,manufacturer,https://grayl.com/products/24oz-geopress-ti-purifier-black-edition
 Grayl,UltraPress Purifier Bottle,Water filter,16.9 fl oz,water,309010,manufacturer,https://grayl.com/pages/ul-specs
+HydraPak,28mm Filter Kit,Water filter,Filter only,water,47000,manufacturer,https://www.hydrapak.com/products/28mm-inline-filter
+HydraPak,42mm Filter Cap,Filter cap,,water,57000,manufacturer,https://www.hydrapak.com/products/42mm-filter-cap
+HydraPak,ArcticFusion Tube,Hose,,water,99000,manufacturer,https://www.hydrapak.com/products/arcticfusion%E2%84%A2-tube
+HydraPak,Camp Tap,Bottle cap,,water,29000,manufacturer,https://www.hydrapak.com/products/camp-tap
+HydraPak,Contour Lumbar Reservoir,Water reservoir,1.5L,water,128000,manufacturer,https://www.hydrapak.com/products/contour%E2%84%A2-lumbar-1-5l
+HydraPak,Contour Reservoir,Water reservoir,2L,water,142000,manufacturer,https://www.hydrapak.com/products/contour%E2%84%A2-2l-reservoir
+HydraPak,Contour Reservoir,Water reservoir,3L,water,155000,manufacturer,https://www.hydrapak.com/products/contour%E2%84%A2-3l-reservoir
+HydraPak,Expedition Water Bag,Water reservoir,8L,water,257000,manufacturer,https://www.hydrapak.com/products/expedition-8-liter
 HydraPak,Flux Collapsible Bottle,Water bottle,1.5L,water,122000,manufacturer,https://www.hydrapak.com/products/flux%E2%84%A2-1-5l
+HydraPak,Flux Collapsible Bottle,Water bottle,1L,water,102000,manufacturer,https://www.hydrapak.com/products/flux%E2%84%A2-1l
+HydraPak,Flux Collapsible Bottle,Water bottle,750ml,water,92000,manufacturer,https://www.hydrapak.com/products/flux%E2%84%A2-750ml-2025
+HydraPak,Flux+ Collapsible Bottle,Water filter,1.5L,water,143000,manufacturer,https://www.hydrapak.com/products/flux-1-5l-filter
+HydraPak,Force DSL Reservoir,Water reservoir,3L,water,183000,manufacturer,https://www.hydrapak.com/products/force%E2%84%A2-dsl-3l
+HydraPak,Force Reservoir,Water reservoir,2L,water,165000,manufacturer,https://www.hydrapak.com/products/force%E2%84%A2-2-l
+HydraPak,Force Reservoir,Water reservoir,3L,water,178000,manufacturer,https://www.hydrapak.com/products/force%E2%84%A2-3-l
+HydraPak,FuelFlask,Soft flask,150ml,water,21000,manufacturer,https://www.hydrapak.com/products/fuelflask-150ml-2-pack
+HydraPak,FuelFlask,Soft flask,250ml,water,24000,manufacturer,https://www.hydrapak.com/products/fuelflask%E2%84%A2-250ml-2-pack
+HydraPak,HydraFlex Tube,Hose,,water,51000,manufacturer,https://www.hydrapak.com/products/hydraflex%E2%84%A2-tube
+HydraPak,HydraFusion Tube,Hose,,water,66000,manufacturer,https://www.hydrapak.com/products/hydrafusion%E2%84%A2-tube
+HydraPak,HydraSleeve Reservoir,Water reservoir,3L,water,308000,manufacturer,https://www.hydrapak.com/products/hydrasleeve-reservoir
+HydraPak,Mountain Stow Collapsible Bottle,Water bottle,350ml,water,34900,manufacturer,https://www.trailrunnerstore.com/products/hydrapak-stow%E2%84%A2-350ml-mountains-limited-edition
+HydraPak,Mountain Stow Collapsible Bottle,Water bottle,500ml,water,45000,manufacturer,https://www.hydrapak.com/products/mountain-stow%E2%84%A2-500ml
+HydraPak,PackFlask,Soft flask,500ml,water,79000,manufacturer,https://www.hydrapak.com/products/packflask%E2%84%A2-500ml
+HydraPak,PackFlask,Soft flask,750ml,water,93000,manufacturer,https://www.hydrapak.com/products/packflask%E2%84%A2-750ml
+HydraPak,PackFlask+,Water filter,750ml,water,116000,manufacturer,https://www.hydrapak.com/products/packflask-%E2%84%A2-750ml
+HydraPak,Pioneer Water Bag,Water reservoir,10L,water,360000,manufacturer,https://www.hydrapak.com/products/pioneer-10l
+HydraPak,Pioneer Water Bag,Water reservoir,6L,water,310000,manufacturer,https://www.hydrapak.com/products/pioneer-6l
 HydraPak,PocketFlask,Soft flask,500ml,water,32000,manufacturer,https://www.hydrapak.com/products/pocketflask%E2%84%A2-500ml
+HydraPak,Recon Clip & Carry Bottle,Water bottle,1L,water,172400,manufacturer,https://www.hydrapak.com/products/recon-clip-carry-32oz-1l
+HydraPak,Recon Clip & Carry Bottle,Water bottle,750ml,water,146400,manufacturer,https://www.hydrapak.com/products/recon%E2%84%A2-clip-carry-25oz-750ml
+HydraPak,Seeker Water Bag,Water reservoir,10L,water,261000,manufacturer,https://www.hydrapak.com/products/seeker%E2%84%A2-10l
+HydraPak,Seeker Water Bag,Water reservoir,2L,water,76000,manufacturer,https://www.hydrapak.com/products/seeker-2-liter-2021
 HydraPak,Seeker Water Bag,Water reservoir,3L,water,92000,manufacturer,https://www.hydrapak.com/products/seeker-3-liter-2021
+HydraPak,Seeker Water Bag,Water reservoir,4L,water,104000,manufacturer,https://www.hydrapak.com/products/seeker%E2%84%A2-4l-2025
+HydraPak,Seeker Water Bag,Water reservoir,6L,water,194000,manufacturer,https://www.valhallatactical.com.au/products/hydrapak-seeker-bottle-6l
+HydraPak,Seeker+ Gravity Filter Kit,Water filter,6L,water,524000,manufacturer,https://www.hydrapak.com/products/seeker-%E2%84%A2-6l-gravity-filter-kit
+HydraPak,Seeker+ Water Bag,Water filter,3L,water,127000,manufacturer,https://bikepacking.com/gear/hydrapak-seeker-filter-review/
+HydraPak,Seeker+ Water Bag,Water filter,6L,water,241000,manufacturer,https://www.hydrapak.com/products/seeker%E2%84%A2-6-l-2
+HydraPak,SkyFlask Made For Hydrogel,Soft flask,350ml,water,64000,manufacturer,https://www.hydrapak.com/products/hydrapak-skyflask-made-for-hydrogel
+HydraPak,SkyFlask Speed,Soft flask,350ml,water,59800,manufacturer,https://www.hydrapak.com/products/skyflask%E2%84%A2-speed-350ml
+HydraPak,SkyFlask Speed,Soft flask,500ml,water,64500,manufacturer,https://www.hydrapak.com/products/skyflask%E2%84%A2-speed-500ml-1
 HydraPak,SkyFlask Speed IT,Soft flask,500ml,water,77000,manufacturer,https://www.hydrapak.com/products/skyflask%E2%84%A2-speed-it-500ml
+HydraPak,SoftFlask,Soft flask,150ml,water,19000,manufacturer,https://www.hydrapak.com/products/softflask%E2%84%A2-150ml-2-pack
+HydraPak,SoftFlask,Soft flask,250ml,water,27000,manufacturer,https://www.hydrapak.com/products/softflask%E2%84%A2-250ml-2-pack
 HydraPak,SoftFlask Speed,Soft flask,500ml,water,46000,manufacturer,https://www.hydrapak.com/products/softflask%E2%84%A2-speed-500ml
+HydraPak,Stow Collapsible Bottle,Water bottle,1L,water,51000,manufacturer,https://www.hydrapak.com/products/stow%E2%84%A2-1l
+HydraPak,Stow Collapsible Bottle,Water bottle,350ml,water,35000,manufacturer,https://www.hydrapak.com/products/stow%E2%84%A2-350ml
+HydraPak,Stow Collapsible Bottle,Water bottle,500ml,water,40000,manufacturer,https://www.hydrapak.com/products/stow%E2%84%A2-500ml
+HydraPak,Tempo Bottle,Water bottle,525ml,water,51000,manufacturer,https://www.hydrapak.com/products/tempo-bottle-3-pack-525ml
+HydraPak,Tempo Pro Bottle,Water bottle,400ml,water,56000,manufacturer,https://www.hydrapak.com/products/tempo-pro-400ml
+HydraPak,Tempo Pro Bottle,Water bottle,525ml,water,62000,manufacturer,https://www.hydrapak.com/products/tempo-pro-525ml
 HydraPak,UltraFlask Speed,Soft flask,500ml,water,42000,manufacturer,https://www.hydrapak.com/products/ultraflask-speed
+HydraPak,UltraFlask+,Water filter,500ml,water,65000,manufacturer,https://www.hydrapak.com/products/ultraflask
+HydraPak,UltraFlask+ Filter Cap,Filter cap,,water,36000,manufacturer,https://www.hydrapak.com/products/ultraflask-filter-cap
+HydraPak,Velocity IT Reservoir,Water reservoir,1.5L,water,169000,manufacturer,https://www.hydrapak.com/products/velocity%E2%84%A2-it-1-5l
+HydraPak,Velocity IT Reservoir,Water reservoir,2L,water,187000,manufacturer,https://www.hydrapak.com/products/velocity%E2%84%A2-it-2l
+HydraPak,Velocity Reservoir,Water reservoir,1.5L,water,125000,manufacturer,https://www.hydrapak.com/products/velocity%E2%84%A2-1-5l
+HydraPak,Velocity Reservoir,Water reservoir,2L,water,130000,manufacturer,https://www.hydrapak.com/products/velocity%E2%84%A2-2l
+HydraPak,Velocity Reservoir,Water reservoir,3L,water,137000,manufacturer,https://www.hydrapak.com/products/velocity%E2%84%A2-3l
 HydroBlu,Versa Flow Water Filter,Water filter,,water,57000,manufacturer,https://www.garagegrowngear.com/products/versa-flow-lightweight-water-filter-by-hydroblu
 Igneous,NOBO Bottle,Water bottle,"1L, HDPE",water,65000,manufacturer,https://igneousgear.com/products/nobo-bottle
 Katadyn,BeFree AC,Water filter,1.0L,water,75000,measured,https://www.test4outside.com/en/produit/katadyn-befree-filtre-ac-1-0l/
@@ -2182,6 +2236,9 @@ Hilltop Packs,Zipper Pouches - Printed,Pouch,Medium,other,10000,manufacturer,htt
 Hilltop Packs,Zipper Pouches - Printed,Pouch,Small,other,7000,manufacturer,https://www.garagegrowngear.com/products/zipper-pouches-printed-by-hilltop-packs
 Holey Hiker,Bidet,Bidet,,other,4000,manufacturer,https://www.garagegrowngear.com/products/holey-hiker-bidet-by-holey-hiker
 humangear,GoPee Personal Urination Device,Pee funnel,,other,30000,manufacturer,https://www.garagegrowngear.com/products/gopee-personal-urination-device-by-humangear
+HydraPak,FuelPak,Snack pouch,Large,other,11000,manufacturer,https://www.hydrapak.com/products/fuelpak-large
+HydraPak,FuelPak,Snack pouch,Small,other,10000,manufacturer,https://www.hydrapak.com/products/fuelpak%E2%84%A2-small
+HydraPak,Rover Dog Bowl,Dog bowl,,other,22500,manufacturer,https://www.hydrapak.com/products/rover-dog-bowl
 HYKLYF,E-Z Key Bear Can Tool,Canister tool,,other,4000,manufacturer,https://www.garagegrowngear.com/products/e-z-key-bear-can-tool-by-hyklyf
 Hyperlite Mountain Gear,Bottle Pocket,Bottle holder,,other,34000,manufacturer,https://www.garagegrowngear.com/products/bottle-pocket-by-hyperlite-mountain-gear
 Hyperlite Mountain Gear,Camera Pod,Camera case,Large,other,104300,manufacturer,https://www.garagegrowngear.com/products/camera-pod-by-hyperlite-mountain-gear
