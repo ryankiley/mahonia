@@ -38,7 +38,8 @@
       "Water rows no longer offer a Save to My Gear button. Pressing it could only ever answer with an error — water is a volume you carry, not gear that gets saved.",
       "On a phone, switching to packing mode no longer shows each item twice — the checklist row and the editing row underneath it.",
       "Typing \"water\" and tapping away now marks the row consumable, the same as choosing the water suggestion — it used to take the folder's default and could land in base weight.",
-      "A list made while signed in on one device now shows up in the list switcher on your other signed-in devices — and opens there straight from the account, no edit link needed."
+      "A list made while signed in on one device now shows up in the list switcher on your other signed-in devices — and opens there straight from the account, no edit link needed.",
+      "The Worn and Consumable switches now read clearly when they're off. In dark mode the off switch was a faint dot on a dark card with no track around it, so there was nothing to tell you it was a switch at all."
     ]
   },
   {
