@@ -1,6 +1,5 @@
 import { PGlite } from "@electric-sql/pglite";
 import { eq, sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/pglite";
 import { describe, expect, it } from "vitest";
 import * as schema from "../server/db/schema";
 import { lists } from "../server/db/schema";
@@ -12,12 +11,11 @@ import {
   restoreSnapshotByEditToken,
 } from "../server/utils/listRepo";
 import type { Item, ListData } from "../shared/types";
+import { createTestDb } from "./helpers/db";
 
 // Fresh in-memory PGlite with the list + snapshot tables (mirrors discovery.test).
 async function freshDb() {
-  const db = drizzle(new PGlite(), { schema });
-  for (const stmt of [...LISTS_DDL, ...SNAPSHOTS_DDL]) await db.execute(sql.raw(stmt));
-  return db;
+  return createTestDb(LISTS_DDL, SNAPSHOTS_DDL);
 }
 
 let seq = 0;
@@ -164,8 +162,7 @@ describe("snapshots — vandalism recovery", () => {
 
   it("bootstraps the snapshots table on first use (Neon request-path)", async () => {
     // build WITHOUT the snapshots DDL — the repo must create it lazily via ensureSnapshotSchema
-    const db = drizzle(new PGlite(), { schema });
-    for (const stmt of LISTS_DDL) await db.execute(sql.raw(stmt));
+    const db = await createTestDb(LISTS_DDL);
     _resetSnapshotEnsured();
     const { editToken } = await seedList(db, { folders: [], items: [item("i1", "X")] });
     expect(await listSnapshotsByEditToken(editToken, db)).toEqual([]);

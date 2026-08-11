@@ -1,6 +1,5 @@
 import { PGlite } from "@electric-sql/pglite";
 import { sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/pglite";
 import { describe, expect, it } from "vitest";
 import * as schema from "../server/db/schema";
 import { lists } from "../server/db/schema";
@@ -26,6 +25,7 @@ import {
   normalizeTripType,
 } from "../shared/discovery";
 import type { ListData } from "../shared/types";
+import { createTestDb } from "./helpers/db";
 
 // ===========================================================================
 // Pure logic (no DB) — this is where the real discovery logic lives + is tested.
@@ -116,9 +116,7 @@ describe("category segments (CategoryBar's data)", () => {
 // ===========================================================================
 
 async function freshDb() {
-  const db = drizzle(new PGlite(), { schema });
-  for (const stmt of LISTS_DDL) await db.execute(sql.raw(stmt));
-  return db;
+  return createTestDb(LISTS_DDL);
 }
 
 let seq = 0;

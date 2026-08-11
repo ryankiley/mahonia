@@ -1,4 +1,3 @@
-import { PGlite } from "@electric-sql/pglite";
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -14,12 +13,11 @@ import {
   touchCredential,
 } from "../server/utils/credentialRepo";
 import { findOrCreateUser } from "../server/utils/authSession";
+import { createTestDb } from "./helpers/db";
 
 type DB = ReturnType<typeof drizzle>;
 async function freshDb(): Promise<DB> {
-  const db = drizzle(new PGlite(), { schema });
-  for (const stmt of ACCOUNT_DDL) await db.execute(sql.raw(stmt));
-  return db;
+  return createTestDb(ACCOUNT_DDL);
 }
 
 const key = (over: Record<string, unknown> = {}) => ({

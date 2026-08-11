@@ -1,4 +1,3 @@
-import { PGlite } from "@electric-sql/pglite";
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -8,12 +7,11 @@ import { ACCOUNT_DDL } from "../server/utils/accountSchema";
 import { claimLists, claimedEditHash, listClaimedLists, unclaimList } from "../server/utils/claimRepo";
 import { findByEditHash, findByEditToken, rotateEditHash } from "../server/utils/listRepo";
 import { randomEditToken, randomShareCode, sha256Hex } from "../server/utils/tokens";
+import { createTestDb } from "./helpers/db";
 
 type DB = ReturnType<typeof drizzle>;
 async function freshDb(): Promise<DB> {
-  const db = drizzle(new PGlite(), { schema });
-  for (const stmt of [...LISTS_DDL, ...ACCOUNT_DDL]) await db.execute(sql.raw(stmt));
-  return db;
+  return createTestDb(LISTS_DDL, ACCOUNT_DDL);
 }
 
 // Insert a list directly — createList() reaches for the shared connection, and

@@ -1,16 +1,14 @@
-import { PGlite } from "@electric-sql/pglite";
 import { eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { beforeEach, describe, expect, it } from "vitest";
 import * as schema from "../server/db/schema";
 import { CATALOG_DDL } from "../server/utils/catalog";
 import { CANDIDATES_DDL, corroborateCatalog, stageCandidates } from "../server/utils/candidates";
+import { createTestDb } from "./helpers/db";
 
 type DB = ReturnType<typeof drizzle>;
 async function freshDb(): Promise<DB> {
-  const db = drizzle(new PGlite(), { schema });
-  for (const stmt of [...CATALOG_DDL, ...CANDIDATES_DDL]) await db.execute(sql.raw(stmt));
-  return db;
+  return createTestDb(CATALOG_DDL, CANDIDATES_DDL);
 }
 // stage the same typed item on N distinct lists
 async function stageOnLists(db: DB, n: number, obs: { brand?: string; name: string; weightMg?: number }) {

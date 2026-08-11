@@ -1,4 +1,3 @@
-import { PGlite } from "@electric-sql/pglite";
 import { eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -16,12 +15,11 @@ import {
 } from "../server/utils/authSession";
 import { countPasskeys, savePasskey } from "../server/utils/credentialRepo";
 import { sha256Hex } from "../server/utils/tokens";
+import { createTestDb } from "./helpers/db";
 
 type DB = ReturnType<typeof drizzle>;
 async function freshDb(): Promise<DB> {
-  const db = drizzle(new PGlite(), { schema });
-  for (const stmt of ACCOUNT_DDL) await db.execute(sql.raw(stmt));
-  return db;
+  return createTestDb(ACCOUNT_DDL);
 }
 
 describe("normalizeEmail — the identity rule", () => {
@@ -171,9 +169,9 @@ describe("an address is only a claim until a link comes back", () => {
     // they're taken as verified; everything after earns it. Reordering them (or
     // dropping the second) would quietly evict the passkeys of every account that
     // already existed, on their next sign-in.
-    const deployed = drizzle(new PGlite(), { schema });
-    for (const stmt of ACCOUNT_DDL.filter((s) => !s.includes("email_verified")))
-      await deployed.execute(sql.raw(stmt));
+    // the schema as it stood BEFORE the column existed — a filtered group is still
+    // just a group as far as the helper is concerned
+    const deployed = await createTestDb(ACCOUNT_DDL.filter((s) => !s.includes("email_verified")));
     // written the way the old code wrote it, with no such column to fill in
     await deployed.execute(sql.raw(`insert into users (email) values ('old@example.com')`));
 

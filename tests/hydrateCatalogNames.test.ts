@@ -1,16 +1,13 @@
-import { PGlite } from "@electric-sql/pglite";
 import { sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/pglite";
 import { describe, expect, it } from "vitest";
 import * as schema from "../server/db/schema";
 import { CATALOG_DDL, ensureCatalogSchema } from "../server/utils/catalog";
 import { hydrateCatalogNames } from "../server/utils/listRepo";
 import type { Item, ListSnapshot } from "../shared/types";
+import { createTestDb } from "./helpers/db";
 
 async function freshDb() {
-  const db = drizzle(new PGlite(), { schema });
-  for (const stmt of CATALOG_DDL) await db.execute(sql.raw(stmt));
-  return db;
+  return createTestDb(CATALOG_DDL);
 }
 
 function snap(items: Partial<Item>[]): ListSnapshot {
@@ -97,7 +94,8 @@ describe("hydrateCatalogNames (trickle-down)", () => {
   it("bootstraps the catalog table on first use (Neon request-path)", async () => {
     // a database where no catalog endpoint has ever run: hydration must ensure
     // the table itself, not 500 every list read until some other endpoint does
-    const db = drizzle(new PGlite(), { schema });
+    // no DDL groups at all — an empty database is the point of this case
+    const db = await createTestDb();
     ensureCatalogSchema.reset();
     const out = await hydrateCatalogNames(db, snap([
       { name: "Copied Thing", catalogItemId: 1 },

@@ -1,6 +1,4 @@
-import { PGlite } from "@electric-sql/pglite";
 import { sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/pglite";
 import { describe, expect, it } from "vitest";
 import * as schema from "../server/db/schema";
 import { VAULT_DDL } from "../server/utils/vaultSchema";
@@ -10,14 +8,14 @@ import {
   searchVaultItems,
 } from "../server/utils/vaultRepo";
 import { vaultNormKey } from "../shared/vault";
+import { createTestDb } from "./helpers/db";
 
 const CURLY = String.fromCharCode(0x2019);
 
 /** A vault holding rows captured BEFORE the tidy shipped — straight apostrophes,
  *  doubled spaces, untrimmed ends, exactly as the old capture wrote them. */
 async function legacyVault() {
-  const db = drizzle(new PGlite(), { schema });
-  for (const stmt of VAULT_DDL) await db.execute(sql.raw(stmt));
+  const db = await createTestDb(VAULT_DDL);
   const [vault] = await db
     .insert(schema.vaults)
     .values({ tokenHash: "h", userId: null })

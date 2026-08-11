@@ -9,7 +9,6 @@
 // The repo-layer scoping is the part worth the most attention: an id from another
 // vault has to match NOTHING, not "match and then get filtered", because the second
 // shape is the one that quietly stops being true when someone adds a query.
-import { PGlite } from "@electric-sql/pglite";
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -26,13 +25,12 @@ import {
   removeVaultItem,
 } from "../server/utils/vaultRepo";
 import { vaultNormKey } from "../shared/vault";
+import { createTestDb } from "./helpers/db";
 
 type DB = ReturnType<typeof drizzle>;
 
 async function freshDb(): Promise<DB> {
-  const db = drizzle(new PGlite(), { schema });
-  for (const stmt of VAULT_DDL) await db.execute(sql.raw(stmt));
-  return db;
+  return createTestDb(VAULT_DDL);
 }
 
 // The mint/resolve pair, exercised at the DB layer. requireVault() itself takes an

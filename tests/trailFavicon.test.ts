@@ -1,10 +1,10 @@
 import { PGlite } from "@electric-sql/pglite";
 import { eq, sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/pglite";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as schema from "../server/db/schema";
 import { trailFavicons } from "../server/db/schema";
 import { TRAIL_FAVICONS_DDL } from "../server/utils/db";
+import { createTestDb } from "./helpers/db";
 import {
   FAVICON_TTL_MS,
   cacheFaviconForHost,
@@ -15,9 +15,7 @@ import {
 
 // Fresh in-memory PGlite with just the favicon cache (mirrors snapshots.test).
 async function freshDb() {
-  const db = drizzle(new PGlite(), { schema });
-  for (const stmt of TRAIL_FAVICONS_DDL) await db.execute(sql.raw(stmt));
-  return db;
+  return createTestDb(TRAIL_FAVICONS_DDL);
 }
 type Db = Awaited<ReturnType<typeof freshDb>>;
 

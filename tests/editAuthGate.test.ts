@@ -9,7 +9,6 @@
 //     code must be indistinguishable from no credential at all (no oracle);
 //   • that the bearer path never touches the database.
 
-import { PGlite } from "@electric-sql/pglite";
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { IncomingMessage, ServerResponse } from "node:http";
@@ -24,12 +23,11 @@ import { SESSION_COOKIE, findOrCreateUser, startSession } from "../server/utils/
 import { claimLists } from "../server/utils/claimRepo";
 import { randomEditToken, sha256Hex } from "../server/utils/tokens";
 import { LIST_CODE_HEADER } from "../shared/links";
+import { createTestDb } from "./helpers/db";
 
 type DB = ReturnType<typeof drizzle>;
 async function freshDb(): Promise<DB> {
-  const db = drizzle(new PGlite(), { schema });
-  for (const stmt of [...LISTS_DDL, ...ACCOUNT_DDL]) await db.execute(sql.raw(stmt));
-  return db;
+  return createTestDb(LISTS_DDL, ACCOUNT_DDL);
 }
 
 // requireEditHash reaches for useVaultDb() and (via resolveSession) useAccountDb();

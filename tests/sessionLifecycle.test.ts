@@ -29,12 +29,11 @@ import {
   startSession,
 } from "../server/utils/authSession";
 import { sha256Hex } from "../server/utils/tokens";
+import { createTestDb } from "./helpers/db";
 
 type DB = ReturnType<typeof drizzle>;
 async function freshDb(): Promise<DB> {
-  const db = drizzle(new PGlite(), { schema });
-  for (const stmt of ACCOUNT_DDL) await db.execute(sql.raw(stmt));
-  return db;
+  return createTestDb(ACCOUNT_DDL);
 }
 
 // resolveSession/endSession/endAllSessions reach for useAccountDb() themselves,
