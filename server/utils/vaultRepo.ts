@@ -3,7 +3,8 @@
 // ordering is identical whichever engine is underneath, exactly as the catalog
 // does it.
 
-import { and, asc, desc, eq, inArray, isNotNull, isNull, lt, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, lt, sql, type SQL } from "drizzle-orm";
+import type { PgColumn } from "drizzle-orm/pg-core";
 import { vaultFolders, vaultItems, vaults } from "../db/schema";
 import type { useVaultDb } from "./db";
 import {
@@ -15,9 +16,10 @@ import {
   type VaultCapture,
   type VaultEntry,
   type VaultFolder,
+  type VaultPinField,
 } from "../../shared/vault";
 import type { Classification } from "../../shared/types";
-import { KCAL_MAX } from "../../shared/ops";
+import { KCAL_MAX, UNIT_WEIGHT_MAX_MG } from "../../shared/ops";
 import { itemDisplayName } from "../../shared/weights";
 import { foldForSearch } from "../../shared/catalogSearch";
 import { tidyText } from "../../shared/tidyText";
@@ -44,6 +46,24 @@ export const VAULT_FOLDERS_MAX = 200;
 const CLASSIFICATIONS: Classification[] = ["base", "worn", "consumable"];
 
 type Row = typeof vaultItems.$inferSelect;
+
+/** Pin token ↔ its column, in ONE table so the read (pinsOf), the write
+ *  (cleanVaultPatch) and the release (unpin) cannot drift apart. */
+const PIN_COLUMN = [
+  ["name", "namePinned"],
+  ["weight", "weightPinned"],
+  ["commonName", "commonNamePinned"],
+  ["classification", "classificationPinned"],
+  ["kcal", "kcalPinned"],
+  ["productUrl", "productUrlPinned"],
+] as const satisfies readonly (readonly [VaultPinField, keyof Row])[];
+
+/** Six booleans in, one small array out — absent when nothing is pinned, the same
+ *  "SQL nulls become absent fields" shape the rest of toEntry produces. */
+function pinsOf(row: Row): VaultPinField[] | undefined {
+  const out = PIN_COLUMN.filter(([, col]) => row[col]).map(([token]) => token);
+  return out.length ? out : undefined;
+}
 
 /** DB row → wire shape: SQL nulls become absent fields, so the client sees the same
  *  optional-property shape the capture side produces. */
@@ -73,6 +93,7 @@ function toEntry(row: Row): VaultEntry {
     catalogItemId: row.catalogItemId ?? undefined,
     productUrl: row.productUrl ?? undefined,
     folderId: row.folderId ?? undefined,
+    pinned: pinsOf(row),
     timesSeen: row.timesSeen,
     lastUsedAt: new Date(row.lastUsedAt).toISOString(),
     createdAt: new Date(row.createdAt).toISOString(),
@@ -87,6 +108,22 @@ function str(v: unknown, max: number): string | undefined {
   if (typeof v !== "string") return undefined;
   return tidyText(v.slice(0, max)) || undefined;
 }
+
+/** A URL off the wire: typed and capped, but NOT tidied. tidyText curls a
+ *  letter-flanked apostrophe, and a path can legitimately carry one
+ *  (…/mens-jacket vs …/men's-jacket) — curling it rewrites the address to a page
+ *  that isn't there. shared/ops.ts exempts productUrl and imageUrl from cleanText
+ *  for exactly this reason; str() below does not, so the gear was curling them. */
+function url(v: unknown): string | undefined {
+  if (typeof v !== "string") return undefined;
+  return v.trim().slice(0, VAULT_URL_MAX) || undefined;
+}
+
+/** A weight off the wire, clamped to the same ceiling the reducer applies to a list
+ *  row (clampWeight in shared/ops). Flooring at zero was not enough: a direct POST
+ *  of 1e19 reached the bigint column and errored the whole multi-row capture, so
+ *  one hostile row took a whole list's gear down with it. */
+const clampWeightMg = (n: number) => Math.max(0, Math.min(UNIT_WEIGHT_MAX_MG, Math.round(n)));
 
 /** kcal off the wire: a positive whole number under the reducer's own ceiling, or
  *  absent — the same bounds shared/ops applies to a list row, so a direct POST
@@ -119,9 +156,9 @@ function sanitize(caps: VaultCapture[]): VaultCapture[] {
       brand,
       variant,
       commonName: str(c.commonName, VAULT_SHORT_MAX),
-      productUrl: str(c.productUrl, VAULT_URL_MAX),
+      productUrl: url(c.productUrl),
       folder: str(c.folder, FOLDER_NAME_MAX),
-      weightMg: Number.isFinite(c.weightMg) ? Math.max(0, Math.round(c.weightMg)) : 0,
+      weightMg: Number.isFinite(c.weightMg) ? clampWeightMg(c.weightMg) : 0,
       classification: CLASSIFICATIONS.includes(c.classification as Classification)
         ? c.classification
         : undefined,
@@ -148,7 +185,11 @@ function sanitize(caps: VaultCapture[]): VaultCapture[] {
  *    accumulate rather than flip-flop as the same gear appears in different lists.
  *  • removed_at — UNTOUCHED. Capture is automatic, so if it cleared the tombstone
  *    every list still holding the item would resurrect it and "remove" would mean
- *    nothing. Only an explicit restore (or re-add from /vault) clears it.
+ *    nothing. Only an explicit restore (or re-add from /gear) clears it.
+ *  • a PINNED field — untouched, whatever the rule above says. Correcting a field
+ *    on /gear is a statement that your value is the truth about your own gear, and
+ *    an automatic write must not argue with a deliberate one. times_seen and
+ *    last_used_at still move: those are facts about USE, not about the gear.
  *
  * Returns how many rows were written, for the caller's response.
  */
@@ -237,20 +278,50 @@ export async function captureVaultItems(
     .onConflictDoUpdate({
       target: [vaultItems.vaultId, vaultItems.normKey],
       set: {
-        brand: sql`excluded.brand`,
-        name: sql`excluded.name`,
-        variant: sql`excluded.variant`,
-        commonName: sql`coalesce(excluded.common_name, ${vaultItems.commonName})`,
-        weightMg: sql`case when excluded.weight_mg > 0 then excluded.weight_mg else ${vaultItems.weightMg} end`,
-        classification: sql`coalesce(excluded.classification, ${vaultItems.classification})`,
-        kcal: sql`coalesce(excluded.kcal, ${vaultItems.kcal})`,
+        // brand/name/variant move as ONE spelling: they fold to the same key either
+        // way, so capture takes the incoming one — unless you've corrected it on
+        // /gear, in which case yours is the truth and no list can talk over it.
+        brand: keepIfPinned(vaultItems.namePinned, vaultItems.brand, sql`excluded.brand`),
+        name: keepIfPinned(vaultItems.namePinned, vaultItems.name, sql`excluded.name`),
+        variant: keepIfPinned(vaultItems.namePinned, vaultItems.variant, sql`excluded.variant`),
+        commonName: keepIfPinned(
+          vaultItems.commonNamePinned,
+          vaultItems.commonName,
+          sql`coalesce(excluded.common_name, ${vaultItems.commonName})`,
+        ),
+        // the zero-guard survives INSIDE the pin: a pinned weight is never touched,
+        // and an unpinned one still refuses to be erased by a weightless capture
+        weightMg: keepIfPinned(
+          vaultItems.weightPinned,
+          vaultItems.weightMg,
+          sql`case when excluded.weight_mg > 0 then excluded.weight_mg else ${vaultItems.weightMg} end`,
+        ),
+        classification: keepIfPinned(
+          vaultItems.classificationPinned,
+          vaultItems.classification,
+          sql`coalesce(excluded.classification, ${vaultItems.classification})`,
+        ),
+        kcal: keepIfPinned(
+          vaultItems.kcalPinned,
+          vaultItems.kcal,
+          sql`coalesce(excluded.kcal, ${vaultItems.kcal})`,
+        ),
+        productUrl: keepIfPinned(
+          vaultItems.productUrlPinned,
+          vaultItems.productUrl,
+          sql`coalesce(excluded.product_url, ${vaultItems.productUrl})`,
+        ),
+        // Not pinnable, and deliberately: both are already first-write-wins, so a
+        // pin would say nothing the coalesce doesn't already say.
         catalogItemId: sql`coalesce(excluded.catalog_item_id, ${vaultItems.catalogItemId})`,
-        productUrl: sql`coalesce(excluded.product_url, ${vaultItems.productUrl})`,
         // FIRST filing wins. Coalesce, not overwrite: the same gear sits in
         // "Shelter" in one list and "Big 3" in another, and a capture must not
         // reshuffle a vault you've already arranged. Moving it is a deliberate act
-        // on /vault, and it stays put afterwards.
+        // on /gear (the folders route's "move"), and it stays put afterwards.
         folderId: sql`coalesce(${vaultItems.folderId}, excluded.folder_id)`,
+        // Usage, not content. A pinned row is still gear a list just reached for,
+        // and the autocomplete ranks on exactly these two — so they are never
+        // guarded, however much of the row you've corrected by hand.
         timesSeen: sql`${vaultItems.timesSeen} + 1`,
         lastUsedAt: now,
         updatedAt: now,
@@ -260,7 +331,18 @@ export async function captureVaultItems(
 }
 
 /**
- * Map the folder names in a capture to vault folder ids, creating the missing ones.
+ * Wrap a merge rule so a PINNED field keeps whatever the gear already holds.
+ *
+ * One helper rather than six hand-written CASEs, so a field cannot be made pinnable
+ * with its guard accidentally left off — the same reason the folder verbs share one
+ * scoped switch instead of six endpoints.
+ */
+function keepIfPinned(flag: PgColumn, keep: PgColumn, rule: SQL): SQL {
+  return sql`case when ${flag} then ${keep} else ${rule} end`;
+}
+
+/**
+ * Map the folder names in a capture to gear folder ids, creating the missing ones.
  * New folders land after the existing ones, in the order the names first appear.
  */
 async function ensureFolders(
@@ -471,8 +553,309 @@ export async function purgeDeletedVaults(
   return { vaultsPurged: ids.length };
 }
 
-/** The folder verbs /vault offers, as one small tagged union — see
- *  server/api/vault/folders.post.ts for why they share a route. */
+// ---------------------------------------------------------------------------
+// the row verbs: add a piece of gear by hand, correct one in place
+// ---------------------------------------------------------------------------
+
+/** The two things you can do to a vault ROW from /gear — see
+ *  server/api/gear/items.post.ts for why they share a route with each other but
+ *  not with the folder verbs. */
+export type VaultItemOp =
+  | {
+      t: "add";
+      brand?: string;
+      name: string;
+      variant?: string;
+      commonName?: string;
+      /** Absent or 0 = not weighed yet, a normal state for gear you've just
+       *  remembered you own. A zero pins nothing — see cleanVaultPatch. */
+      weightMg?: number;
+      classification?: Classification;
+      kcal?: number;
+      productUrl?: string;
+      /** File it as you create it; null = unfiled. Verified in this gear's scope. */
+      folderId?: number | null;
+    }
+  | {
+      t: "edit";
+      id: number;
+      patch: VaultItemPatch;
+      /** Release a pin, so a list can teach the field again. The only way back from
+       *  a pin — without it one correction would freeze a field forever. Applied
+       *  AFTER the patch's own pins, so `{ patch: { weightMg: 545 }, unpin:
+       *  ["weight"] }` reads as "set it, but keep taking my lists' word for it". */
+      unpin?: VaultPinField[];
+    };
+
+/**
+ * A field ABSENT here is untouched; present, it is set AND pinned; null (or a
+ * string that tidies to "") CLEARS it and pins the emptiness — otherwise deleting a
+ * bogus product URL would be undone by the next capture's coalesce. The same
+ * semantics cleanItemPatch gives a list row in shared/ops.
+ *
+ * No folderId: re-filing a row is the folders route's "move" verb, and a second copy
+ * of a scoped write is a second chance to scope it wrong.
+ */
+export interface VaultItemPatch {
+  brand?: string | null;
+  name?: string;
+  variant?: string | null;
+  commonName?: string | null;
+  weightMg?: number;
+  classification?: Classification | null;
+  kcal?: number | null;
+  productUrl?: string | null;
+}
+
+/** The pin flags a deliberate write asserts, returned in the SAME object as the
+ *  values they protect — so a field structurally cannot be written without being
+ *  pinned alongside it. */
+type ItemWrite = Partial<typeof vaultItems.$inferInsert>;
+
+/**
+ * Turn a patch off the wire into a scoped SET, pinning every field it touches.
+ *
+ * Returns null when the patch would leave the row nameless: `name` is NOT NULL, and
+ * the row's whole identity was folded out of it.
+ */
+function cleanVaultPatch(patch: unknown): ItemWrite | null {
+  const p = (patch ?? {}) as Record<string, unknown>;
+  const out: ItemWrite = {};
+
+  // one pin for the three: the stored SPELLING is one decision (VAULT_PIN_FIELDS)
+  let spelled = false;
+  if (typeof p.name === "string") {
+    const name = str(p.name, VAULT_NAME_MAX);
+    if (!name) return null;
+    out.name = name;
+    spelled = true;
+  }
+  if (typeof p.brand === "string" || p.brand === null) {
+    out.brand = str(p.brand, VAULT_SHORT_MAX) ?? null;
+    spelled = true;
+  }
+  if (typeof p.variant === "string" || p.variant === null) {
+    out.variant = str(p.variant, VAULT_SHORT_MAX) ?? null;
+    spelled = true;
+  }
+  if (spelled) out.namePinned = true;
+
+  if (typeof p.commonName === "string" || p.commonName === null) {
+    out.commonName = str(p.commonName, VAULT_SHORT_MAX) ?? null;
+    out.commonNamePinned = true;
+  }
+  if (typeof p.productUrl === "string" || p.productUrl === null) {
+    out.productUrl = url(p.productUrl) ?? null;
+    out.productUrlPinned = true;
+  }
+  if (typeof p.weightMg === "number" && Number.isFinite(p.weightMg)) {
+    const mg = clampWeightMg(p.weightMg);
+    out.weightMg = mg;
+    // Zero is the gear's own sentinel for "not weighed yet", and the merge rule
+    // already refuses to let one overwrite a real weight. Pinning a zero would lock
+    // the row out of ever learning its weight from a list, so clearing UNPINS.
+    out.weightPinned = mg > 0;
+  }
+  if ("classification" in p) {
+    if (p.classification === null) {
+      out.classification = null;
+      out.classificationPinned = true;
+    } else if (CLASSIFICATIONS.includes(p.classification as Classification)) {
+      out.classification = p.classification as Classification;
+      out.classificationPinned = true;
+    }
+    // anything else is ignored rather than stored: the CHECK would reject it, and a
+    // 500 is the wrong answer to one bad field
+  }
+  if ("kcal" in p) {
+    if (p.kcal === null) {
+      out.kcal = null;
+      out.kcalPinned = true;
+    } else if (typeof p.kcal === "number" && Number.isFinite(p.kcal)) {
+      out.kcal = kcalOf(p.kcal) ?? null; // ≤0 reads as "clear", like the reducer's
+      out.kcalPinned = true;
+    }
+  }
+  return out;
+}
+
+/**
+ * Apply one row op, always scoped to the caller's gear.
+ *
+ * Same discipline as applyVaultFolderOp: every WHERE carries vaultId alongside the
+ * id, so an id from another gear matches nothing rather than being checked and
+ * rejected. Returns the row as the client should now see it, or null — and null is
+ * deliberately the one answer for "not yours", "doesn't exist" and "wouldn't
+ * validate", so the endpoint never confirms another gear's row is real.
+ */
+export async function applyVaultItemOp(
+  db: Db,
+  vaultId: number,
+  op: VaultItemOp,
+): Promise<{ item: VaultEntry } | { refused: "duplicate" | "full" } | null> {
+  switch (op?.t) {
+    case "add":
+      return addVaultItem(db, vaultId, op);
+    case "edit":
+      return editVaultItem(db, vaultId, op);
+    default:
+      return null;
+  }
+}
+
+/**
+ * Add a piece of gear nobody's list has carried yet.
+ *
+ * Cannot route through captureVaultItems, and the difference is the point: capture
+ * is an automatic side effect of editing a list, so it can never clear a field, can
+ * never set a weight to zero, and must never lift a tombstone (every list still
+ * holding the gear would resurrect it, and "remove" would mean nothing). Typing a
+ * row in by hand is the opposite of all three — it is you saying so.
+ */
+async function addVaultItem(db: Db, vaultId: number, op: Extract<VaultItemOp, { t: "add" }>) {
+  // Straight through capture's own sanitizer, so a hand-typed row is capped, tidied
+  // and IDENTIFIED by exactly the rules a captured one is. One identity rule, not two.
+  const [clean] = sanitize([
+    { ...op, normKey: "", weightMg: op.weightMg ?? 0, folder: undefined } as VaultCapture,
+  ]);
+  if (!clean) return null;
+
+  // folderId is an ID here, not a name — on /gear you pick a folder, you don't type
+  // one — so it takes the same in-scope check the "move" op does. Filing gear under
+  // a heading its owner can never see would be worse than not filing it at all.
+  if (op.folderId != null) {
+    if (!Number.isInteger(op.folderId)) return null;
+    const owner = await db
+      .select({ id: vaultFolders.id })
+      .from(vaultFolders)
+      .where(and(eq(vaultFolders.id, op.folderId), eq(vaultFolders.vaultId, vaultId)));
+    if (!owner.length) return null;
+  }
+
+  // The ceiling. Counted lazily and disambiguated only when this request could cross
+  // the line, like capture — but a DELIBERATE add REFUSES where capture drops
+  // silently, the same way applyVaultFolderOp's "add" does. Landing on a key the
+  // gear already holds adds no row, so it's allowed at any count.
+  const [{ n } = { n: 0 }] = await db
+    .select({ n: sql<number>`count(*)` })
+    .from(vaultItems)
+    .where(eq(vaultItems.vaultId, vaultId));
+  if (Number(n) >= VAULT_ITEMS_MAX) {
+    const [prior] = await db
+      .select({ id: vaultItems.id })
+      .from(vaultItems)
+      .where(and(eq(vaultItems.vaultId, vaultId), eq(vaultItems.normKey, clean.normKey)));
+    if (!prior) return { refused: "full" as const };
+  }
+
+  const now = new Date();
+  const done = await db
+    .insert(vaultItems)
+    .values({
+      vaultId,
+      normKey: clean.normKey,
+      brand: clean.brand ?? null,
+      name: clean.name,
+      variant: clean.variant ?? null,
+      commonName: clean.commonName ?? null,
+      weightMg: clean.weightMg,
+      classification: clean.classification ?? null,
+      kcal: clean.kcal ?? null,
+      productUrl: clean.productUrl ?? null,
+      folderId: op.folderId ?? null,
+      timesSeen: 1,
+      lastUsedAt: now,
+      updatedAt: now,
+      // Typing it in is choosing it: every field you supplied is yours, and no list
+      // may overwrite it. A zero weight pins nothing — see cleanVaultPatch.
+      namePinned: true,
+      weightPinned: clean.weightMg > 0,
+      commonNamePinned: clean.commonName != null,
+      classificationPinned: clean.classification != null,
+      kcalPinned: clean.kcal != null,
+      productUrlPinned: clean.productUrl != null,
+    })
+    .onConflictDoUpdate({
+      target: [vaultItems.vaultId, vaultItems.normKey],
+      // THE difference from capture, and the whole reason this can't route through
+      // it: an explicit add LIFTS a tombstone. It also means a conflict with a LIVE
+      // row updates nothing and returns nothing — which is how the caller below
+      // tells "you already have this" from "welcome back". Re-adding gear you
+      // already hold should say so, not silently rewrite the row you were looking at.
+      setWhere: isNotNull(vaultItems.removedAt),
+      set: {
+        // An add is an EXPLICIT act, so what you typed wins outright — no pin check
+        // (you ARE the pin) and no coalesce on the fields you actually filled in.
+        brand: sql`excluded.brand`,
+        name: sql`excluded.name`,
+        variant: sql`excluded.variant`,
+        commonName: sql`coalesce(excluded.common_name, ${vaultItems.commonName})`,
+        weightMg: sql`case when excluded.weight_mg > 0 then excluded.weight_mg else ${vaultItems.weightMg} end`,
+        classification: sql`coalesce(excluded.classification, ${vaultItems.classification})`,
+        kcal: sql`coalesce(excluded.kcal, ${vaultItems.kcal})`,
+        productUrl: sql`coalesce(excluded.product_url, ${vaultItems.productUrl})`,
+        // You named a folder → it wins; you didn't → it stays filed where it was.
+        // The REVERSE of capture's coalesce, deliberately: capture is automatic and
+        // must not reshuffle a gear, whereas an add is you doing the filing.
+        folderId: sql`coalesce(excluded.folder_id, ${vaultItems.folderId})`,
+        // pins UNION — an add must never RELEASE one an earlier edit earned
+        namePinned: sql`true`,
+        weightPinned: sql`${vaultItems.weightPinned} or excluded.weight_pinned`,
+        commonNamePinned: sql`${vaultItems.commonNamePinned} or excluded.common_name_pinned`,
+        classificationPinned: sql`${vaultItems.classificationPinned} or excluded.classification_pinned`,
+        kcalPinned: sql`${vaultItems.kcalPinned} or excluded.kcal_pinned`,
+        productUrlPinned: sql`${vaultItems.productUrlPinned} or excluded.product_url_pinned`,
+        removedAt: null,
+        // surfaces at the top of /gear, which orders by last_used_at desc
+        lastUsedAt: now,
+        updatedAt: now,
+        // times_seen is NOT bumped: it counts CAPTURES — it ranks the autocomplete
+        // by how often a LIST reaches for the gear — and typing a row in isn't one.
+      },
+    })
+    .returning();
+  // no row back = the conflict was with a live row and setWhere declined it
+  return done[0] ? { item: toEntry(done[0]) } : { refused: "duplicate" as const };
+}
+
+/**
+ * Correct a row in place.
+ *
+ * NO conflict handling, and none is possible: an edit changes the stored SPELLING
+ * and never re-derives norm_key, so it cannot collide with (vault_id, norm_key). The
+ * key is the gear’s IDENTITY; the spelling is a separate axis the vault has always
+ * treated as overwritable (see captureFingerprint in shared/vault.ts).
+ *
+ * Re-deriving would orphan the row from the list that feeds it — and because capture
+ * runs automatically from every open editor, that list would recreate the row under
+ * its old name within seconds, unprompted. Freezing the key fails only if you go and
+ * edit the list too, which is a second deliberate act.
+ */
+async function editVaultItem(db: Db, vaultId: number, op: Extract<VaultItemOp, { t: "edit" }>) {
+  if (!Number.isInteger(op.id)) return null;
+  const set = cleanVaultPatch(op.patch);
+  if (!set) return null;
+  if (Array.isArray(op.unpin)) {
+    for (const [token, col] of PIN_COLUMN) if (op.unpin.includes(token)) set[col] = false;
+  }
+  if (!Object.keys(set).length) return null;
+
+  // removed_at is untouched: editing a row you can see in the "removed" disclosure
+  // is not the same as asking for it back, and restore is its own verb.
+  // last_used_at and times_seen are untouched too — they mean "a list used this",
+  // and an edit is not a use. Two of /gear's sort orders read them.
+  const done = await db
+    .update(vaultItems)
+    .set({ ...set, updatedAt: new Date() })
+    // ownership is IN the where, not a check on the result — see removeVaultItem
+    .where(and(eq(vaultItems.id, op.id), eq(vaultItems.vaultId, vaultId)))
+    // no-arg .returning() — the neon-http | PGlite union's only shared overload
+    .returning();
+  return done[0] ? { item: toEntry(done[0]) } : null;
+}
+
+/** The folder verbs /gear offers, as one small tagged union — see
+ *  server/api/gear/folders.post.ts for why they share a route. */
 export type VaultFolderOp =
   | { t: "add"; name: string }
   | { t: "rename"; id: number; name: string }

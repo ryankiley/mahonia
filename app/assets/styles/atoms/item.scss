@@ -214,6 +214,26 @@
   color: var(--ink);
 }
 
+/* The STATIC mark — the chip where it is a FACT rather than a toggle: the share
+   views' rows, and /gear's. The editor's chip gets its box from .btn--icon; these
+   have no button to inherit one from, so the box lives here rather than as a
+   hand-copy per surface. It became an atom on the third surface, which is the rule.
+   --icon-btn to LOOK at, pulled back onto the text line it sits in (--icon-pull, the
+   --tap-pull idiom one size down): at its full height the chip stands the row's first
+   line 8px taller than an unmarked row's, which shows up as an uneven rhythm down a
+   list where only some rows are marked. Grow the box, not the picture. A modifier
+   rather than a widening of .item__mark, because the editor's copy is deliberately
+   --tap on a coarse pointer and this must not fight it. */
+.item__mark--static {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--icon-btn);
+  block-size: var(--icon-btn);
+  margin-block: var(--icon-pull);
+}
+
 /* The quiet "Add an item" affordance — ONE recipe for the folder's add row and a nested
    group's alike, which were hand-copied from each other (right down to needing the mobile
    compaction written twice, below). Dim text flush with the item names, sharing the name

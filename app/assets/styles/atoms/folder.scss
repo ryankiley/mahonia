@@ -37,6 +37,19 @@
   opacity: 1;
   transition: opacity var(--dur) var(--ease);
 }
+/* Lift the collapse clip while a row's floating overlay is open — the folder picker,
+   the unit menu, the name autocomplete, the mobile ⋯ — so a dropdown on the folder's
+   LAST row isn't guillotined by it. useMenuPlacement flips against the viewport,
+   which knows nothing about a clip four elements up.
+   HERE and not in a component, because the clip is this atom's: every surface that
+   renders .folder__bodyinner inherits the problem, so it has to inherit the release
+   too. It lived in FolderSection's scoped block, which compiled to a [data-v-*]
+   selector — so the editor was fixed and /gear, rendering the same markup with its
+   own scope id, silently was not. Each surface still owns the COUNTING (how many
+   overlays are open); this is only what the answer does. */
+.folder__bodyinner.is-overlay-open {
+  overflow: visible;
+}
 .folder[data-collapsed] .folder__bodyinner {
   opacity: 0;
 }

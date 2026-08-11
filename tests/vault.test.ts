@@ -5,10 +5,12 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 import * as schema from "../server/db/schema";
 import { vaultFolders, vaultItems, vaults } from "../server/db/schema";
 import { VAULT_DDL } from "../server/utils/vaultSchema";
+import { UNIT_WEIGHT_MAX_MG } from "../shared/ops";
 import {
   VAULT_FOLDERS_MAX,
   VAULT_ITEMS_MAX,
   applyVaultFolderOp,
+  applyVaultItemOp,
   captureVaultItems,
   listRemovedVaultItems,
   listVaultFolders,
@@ -185,7 +187,7 @@ describe("rankVaultRows", () => {
     expect(rankVaultRows(rows, "x-mid 2p")[0]!.id).toBe(2);
   });
 
-  it("finds gear by its GEAR TYPE, not just its product name", () => {
+  it("finds gear by its VAULT TYPE, not just its product name", () => {
     // "stove" has to find your PocketRocket exactly as it finds the catalog's —
     // commonName is the vault's analogue of catalog_items.search_terms, and
     // without it your own gear is harder to search than a stranger's
@@ -621,6 +623,377 @@ describe("vault ceilings", () => {
     );
     expect(await applyVaultFolderOp(db as any, VAULT, { t: "add", name: "Overflow" })).toBe(false);
     expect(await listVaultFolders(db as any, VAULT)).toHaveLength(VAULT_FOLDERS_MAX);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// a gear edit wins — the pin
+// ---------------------------------------------------------------------------
+// The rule these pin down: correcting a field on /gear is a statement that your
+// value is the truth about your own gear, and capture — which runs automatically
+// from every open editor — must not argue with it. The control case matters as much
+// as the rest: an UNEDITED field still takes the newer capture, or the pin would be
+// per-row rather than per-field and the gear would stop learning anything.
+
+/** The one row every block below starts from. */
+const DUPLEX = {
+  normKey: vaultNormKey("Zpacks", "Duplex", null),
+  brand: "Zpacks",
+  name: "Duplex",
+  weightMg: 539_000,
+} as const;
+
+/** The live row, or undefined — every assertion here reads through the same path
+ *  the page does, so a merge rule that only works in SQL doesn't pass. */
+async function only(db: DB, vaultId = 1) {
+  return (await listVaultItems(db as any, vaultId))[0];
+}
+
+describe("a gear edit wins — the pin", () => {
+  let db: DB;
+  const VAULT = 1;
+  let id: number;
+
+  beforeEach(async () => {
+    db = await freshDb();
+    await captureVaultItems(db as any, VAULT, [{ ...DUPLEX } as any]);
+    id = (await only(db))!.id;
+  });
+
+  const edit = (patch: Record<string, unknown>, unpin?: string[]) =>
+    applyVaultItemOp(db as any, VAULT, { t: "edit", id, patch, unpin } as any);
+
+  it("an edited weight survives a capture that disagrees", async () => {
+    await edit({ weightMg: 545_000 });
+    await captureVaultItems(db as any, VAULT, [{ ...DUPLEX, weightMg: 539_000 } as any]);
+    expect((await only(db))!.weightMg).toBe(545_000);
+  });
+
+  it("an UNEDITED weight still takes the newer capture", async () => {
+    // the control: without this the pin could be per-row and nobody would notice
+    await captureVaultItems(db as any, VAULT, [{ ...DUPLEX, weightMg: 512_000 } as any]);
+    expect((await only(db))!.weightMg).toBe(512_000);
+  });
+
+  it("pinning one field leaves the rest open", async () => {
+    // The capture keeps the same spelling on purpose: brand + name + variant ARE the
+    // key, so varying the name here would be a different piece of gear rather than a
+    // second opinion about this one (see "an edited spelling survives" below).
+    await edit({ weightMg: 545_000 });
+    await captureVaultItems(db as any, VAULT, [
+      { ...DUPLEX, weightMg: 100, commonName: "Tent", classification: "base" } as any,
+    ]);
+    const row = (await only(db))!;
+    expect(row.weightMg).toBe(545_000); // pinned
+    expect(row.commonName).toBe("Tent"); // learned
+    expect(row.classification).toBe("base"); // learned
+  });
+
+  it("an edited spelling survives, and the list still lands on the same row", async () => {
+    await edit({ name: "Duplex Flex", brand: "ZPacks" });
+    await captureVaultItems(db as any, VAULT, [{ ...DUPLEX } as any]);
+    const rows = await listVaultItems(db as any, VAULT);
+    expect(rows).toHaveLength(1); // one row, not two
+    expect(rows[0]!.name).toBe("Duplex Flex");
+    expect(rows[0]!.brand).toBe("ZPacks");
+  });
+
+  it("an edit does NOT re-key the row", async () => {
+    // The key is the gear's identity; the spelling is a separate axis. Re-deriving
+    // would orphan the row from the list feeding it, and capture would recreate the
+    // old one within seconds — unprompted.
+    await edit({ name: "Duplex Flex" });
+    expect((await only(db))!.normKey).toBe(DUPLEX.normKey);
+  });
+
+  it("a cleared product URL stays cleared through a capture that carries one", async () => {
+    await edit({ productUrl: null });
+    await captureVaultItems(db as any, VAULT, [
+      { ...DUPLEX, productUrl: "https://zpacks.com/duplex" } as any,
+    ]);
+    expect((await only(db))!.productUrl).toBeUndefined();
+  });
+
+  it("a cleared kcal stays cleared", async () => {
+    await captureVaultItems(db as any, VAULT, [{ ...DUPLEX, kcal: 250 } as any]);
+    await edit({ kcal: null });
+    await captureVaultItems(db as any, VAULT, [{ ...DUPLEX, kcal: 250 } as any]);
+    expect((await only(db))!.kcal).toBeUndefined();
+  });
+
+  it("an edited classification isn't re-flipped by a list", async () => {
+    await edit({ classification: "worn" });
+    await captureVaultItems(db as any, VAULT, [{ ...DUPLEX, classification: "base" } as any]);
+    expect((await only(db))!.classification).toBe("worn");
+  });
+
+  it("capture still bumps timesSeen and lastUsedAt on a fully pinned row", async () => {
+    // usage is not content: the autocomplete ranks on these, and a corrected row is
+    // still gear a list just reached for
+    await edit({ name: "Duplex Flex", weightMg: 545_000, commonName: "Tent", kcal: 1 });
+    const before = (await only(db))!;
+    await captureVaultItems(db as any, VAULT, [{ ...DUPLEX } as any]);
+    const after = (await only(db))!;
+    expect(after.timesSeen).toBe(before.timesSeen + 1);
+    expect(Date.parse(after.lastUsedAt)).toBeGreaterThanOrEqual(Date.parse(before.lastUsedAt));
+  });
+
+  it("a weight edited to zero UN-pins it, so a list can teach it again", async () => {
+    await edit({ weightMg: 545_000 });
+    await edit({ weightMg: 0 });
+    await captureVaultItems(db as any, VAULT, [{ ...DUPLEX, weightMg: 531_000 } as any]);
+    expect((await only(db))!.weightMg).toBe(531_000);
+  });
+
+  it("unpin releases a field", async () => {
+    await edit({ weightMg: 545_000 });
+    await edit({}, ["weight"]);
+    await captureVaultItems(db as any, VAULT, [{ ...DUPLEX, weightMg: 539_000 } as any]);
+    expect((await only(db))!.weightMg).toBe(539_000);
+  });
+
+  it("reports which fields are pinned", async () => {
+    expect((await only(db))!.pinned).toBeUndefined();
+    await edit({ weightMg: 545_000, commonName: "Tent" });
+    expect((await only(db))!.pinned).toEqual(["weight", "commonName"]);
+  });
+
+  it("a capture can't smuggle a pin", async () => {
+    // sanitize() rebuilds every field explicitly with no spread, so a hostile
+    // payload carrying pin flags is dropped rather than honoured
+    await captureVaultItems(db as any, VAULT, [
+      { ...DUPLEX, weightMg: 400_000, pinned: ["weight"], weightPinned: true } as any,
+    ]);
+    await captureVaultItems(db as any, VAULT, [{ ...DUPLEX, weightMg: 410_000 } as any]);
+    expect((await only(db))!.weightMg).toBe(410_000);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// adding gear by hand
+// ---------------------------------------------------------------------------
+describe("adding gear by hand", () => {
+  let db: DB;
+  const VAULT = 1;
+
+  beforeEach(async () => {
+    db = await freshDb();
+  });
+
+  const add = (over: Record<string, unknown> = {}) =>
+    applyVaultItemOp(db as any, VAULT, {
+      t: "add",
+      brand: "Zpacks",
+      name: "Duplex",
+      weightMg: 539_000,
+      ...over,
+    } as any);
+
+  it("adds a row no list ever carried, seen once", async () => {
+    expect(await add()).toMatchObject({ item: { name: "Duplex" } });
+    const row = (await only(db))!;
+    expect(row.weightMg).toBe(539_000);
+    expect(row.timesSeen).toBe(1);
+  });
+
+  it("pins what you typed, so the next capture can't undo it", async () => {
+    await add({ weightMg: 545_000 });
+    await captureVaultItems(db as any, VAULT, [{ ...DUPLEX } as any]);
+    expect((await only(db))!.weightMg).toBe(545_000);
+  });
+
+  it("LIFTS a tombstone, unlike capture", async () => {
+    // the deliberate mirror of "SURVIVES a later capture" above: capture must never
+    // resurrect a removed row, but asking for it back in as many words is exactly
+    // the case the tombstone was always meant to allow
+    await captureVaultItems(db as any, VAULT, [{ ...DUPLEX } as any]);
+    await removeVaultItem(db as any, VAULT, (await only(db))!.id);
+    expect(await listVaultItems(db as any, VAULT)).toHaveLength(0);
+    expect(await add({ weightMg: 545_000 })).toMatchObject({ item: {} });
+    const back = await listVaultItems(db as any, VAULT);
+    expect(back).toHaveLength(1);
+    expect(back[0]!.weightMg).toBe(545_000);
+  });
+
+  it("refuses a duplicate of a LIVE row, and writes nothing", async () => {
+    await add();
+    expect(await add({ weightMg: 999_000 })).toEqual({ refused: "duplicate" });
+    expect((await only(db))!.weightMg).toBe(539_000);
+  });
+
+  it("does not bump timesSeen when it lifts a tombstone", async () => {
+    await captureVaultItems(db as any, VAULT, [{ ...DUPLEX } as any]);
+    await removeVaultItem(db as any, VAULT, (await only(db))!.id);
+    await add();
+    expect((await only(db))!.timesSeen).toBe(1); // the capture's 1, not 2
+  });
+
+  it("files it in a folder you own", async () => {
+    await applyVaultFolderOp(db as any, VAULT, { t: "add", name: "Shelter" });
+    const folder = (await listVaultFolders(db as any, VAULT))[0]!;
+    await add({ folderId: folder.id });
+    expect((await only(db))!.folderId).toBe(folder.id);
+  });
+
+  it("refuses a folder from another gear, and stores nothing", async () => {
+    await applyVaultFolderOp(db as any, 2, { t: "add", name: "Theirs" });
+    const theirs = (await listVaultFolders(db as any, 2))[0]!;
+    expect(await add({ folderId: theirs.id })).toBeNull();
+    expect(await listVaultItems(db as any, VAULT)).toHaveLength(0);
+  });
+
+  it("refuses a nameless add", async () => {
+    expect(await add({ name: "   " })).toBeNull();
+    expect(await listVaultItems(db as any, VAULT)).toHaveLength(0);
+  });
+
+  it("takes a row with no weight yet — you own it, you just haven't weighed it", async () => {
+    await add({ weightMg: undefined });
+    const row = (await only(db))!;
+    expect(row.weightMg).toBe(0);
+    expect(row.pinned).toEqual(["name"]); // a zero weight pins nothing
+  });
+
+  it("REFUSES at the item ceiling, where capture drops silently", async () => {
+    await db.insert(vaultItems).values(
+      Array.from({ length: VAULT_ITEMS_MAX }, (_, i) => ({
+        vaultId: VAULT,
+        normKey: vaultNormKey(null, `Thing ${i}`, null),
+        name: `Thing ${i}`,
+        weightMg: 1,
+      })),
+    );
+    expect(await add()).toEqual({ refused: "full" });
+    // A key the gear already holds gets PAST the ceiling — it would add no row — so
+    // it comes back as the duplicate it is rather than as a full gear.
+    expect(
+      await applyVaultItemOp(db as any, VAULT, { t: "add", name: "Thing 0", weightMg: 2 } as any),
+    ).toEqual({ refused: "duplicate" });
+  });
+
+  it("caps and tidies a hand-typed row exactly as a captured one", async () => {
+    await add({ brand: "B".repeat(500), name: "Ryan's kit", kcal: "9000" });
+    const row = (await only(db))!;
+    expect(row.brand).toHaveLength(120);
+    expect(row.name).toBe("Ryan’s kit");
+    expect(row.kcal).toBeUndefined(); // a string is not a kcal
+  });
+});
+
+// ---------------------------------------------------------------------------
+// editing a vault row
+// ---------------------------------------------------------------------------
+describe("editing a vault row", () => {
+  let db: DB;
+  const VAULT = 1;
+
+  beforeEach(async () => {
+    db = await freshDb();
+  });
+
+  it("an edit can NEVER collide, because the key never moves", async () => {
+    // The property that makes freezing norm_key safe. Two rows whose spellings fold
+    // apart; rename one to exactly the other's spelling and both must survive.
+    await captureVaultItems(db as any, VAULT, [
+      { ...DUPLEX } as any,
+      { normKey: vaultNormKey("Durston", "X-Mid", null), brand: "Durston", name: "X-Mid", weightMg: 900_000 } as any,
+    ]);
+    const rows = await listVaultItems(db as any, VAULT);
+    const xmid = rows.find((r) => r.name === "X-Mid")!;
+    const res = await applyVaultItemOp(db as any, VAULT, {
+      t: "edit",
+      id: xmid.id,
+      patch: { brand: "Zpacks", name: "Duplex" },
+    } as any);
+    expect(res).toMatchObject({ item: {} });
+    const after = await listVaultItems(db as any, VAULT);
+    expect(after).toHaveLength(2);
+    expect(after.map((r) => r.normKey).sort()).toEqual(
+      [DUPLEX.normKey, vaultNormKey("Durston", "X-Mid", null)].sort(),
+    );
+  });
+
+  it("leaves an absent field untouched and clears a null one", async () => {
+    await captureVaultItems(db as any, VAULT, [
+      { ...DUPLEX, commonName: "Tent", productUrl: "https://x.test/a" } as any,
+    ]);
+    const id = (await only(db))!.id;
+    await applyVaultItemOp(db as any, VAULT, {
+      t: "edit",
+      id,
+      patch: { productUrl: null },
+    } as any);
+    const row = (await only(db))!;
+    expect(row.commonName).toBe("Tent"); // absent from the patch
+    expect(row.productUrl).toBeUndefined(); // explicitly cleared
+  });
+
+  it("refuses to blank the name, and changes nothing", async () => {
+    await captureVaultItems(db as any, VAULT, [{ ...DUPLEX } as any]);
+    const id = (await only(db))!.id;
+    expect(
+      await applyVaultItemOp(db as any, VAULT, { t: "edit", id, patch: { name: "  " } } as any),
+    ).toBeNull();
+    expect((await only(db))!.name).toBe("Duplex");
+  });
+
+  it("does not resurrect a tombstoned row — restore is its own verb", async () => {
+    await captureVaultItems(db as any, VAULT, [{ ...DUPLEX } as any]);
+    const id = (await only(db))!.id;
+    await removeVaultItem(db as any, VAULT, id);
+    await applyVaultItemOp(db as any, VAULT, { t: "edit", id, patch: { weightMg: 1 } } as any);
+    expect(await listVaultItems(db as any, VAULT)).toHaveLength(0);
+    expect((await listRemovedVaultItems(db as any, VAULT))[0]!.weightMg).toBe(1);
+  });
+
+  it("leaves lastUsedAt and timesSeen alone — an edit is not a use", async () => {
+    await captureVaultItems(db as any, VAULT, [{ ...DUPLEX } as any]);
+    const before = (await only(db))!;
+    await applyVaultItemOp(db as any, VAULT, {
+      t: "edit",
+      id: before.id,
+      patch: { weightMg: 545_000 },
+    } as any);
+    const after = (await only(db))!;
+    expect(after.timesSeen).toBe(before.timesSeen);
+    expect(after.lastUsedAt).toBe(before.lastUsedAt);
+  });
+
+  it("refuses an unknown op", async () => {
+    expect(await applyVaultItemOp(db as any, VAULT, { t: "nope" } as any)).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// hostile input the new paths share with capture
+// ---------------------------------------------------------------------------
+describe("sanitize — bounds a direct POST can't get past", () => {
+  let db: DB;
+  const VAULT = 1;
+  beforeEach(async () => {
+    db = await freshDb();
+  });
+
+  it("clamps an absurd weight instead of erroring the whole statement", async () => {
+    // weight_mg is a bigint column: 1e19 used to reach it and take the entire
+    // multi-row capture down, so one hostile row killed a whole list's gear.
+    const n = await captureVaultItems(db as any, VAULT, [
+      { ...DUPLEX, weightMg: 1e19 } as any,
+      { normKey: "b", name: "Bag", weightMg: 100 } as any,
+    ]);
+    expect(n).toBe(2);
+    expect((await listVaultItems(db as any, VAULT)).map((r) => r.weightMg).sort((a, b) => a - b)).toEqual([
+      100, UNIT_WEIGHT_MAX_MG,
+    ]);
+  });
+
+  it("caps a product URL but does NOT curl its apostrophes", async () => {
+    // tidyText curls a letter-flanked apostrophe, which in a path rewrites the
+    // address to a page that isn't there — shared/ops exempts URLs for this reason
+    await captureVaultItems(db as any, VAULT, [
+      { ...DUPLEX, productUrl: "https://x.test/men's-jacket" } as any,
+    ]);
+    expect((await only(db))!.productUrl).toBe("https://x.test/men's-jacket");
   });
 });
 
