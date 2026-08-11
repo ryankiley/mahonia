@@ -4,6 +4,12 @@
 .data
 dist
 
+# the changelog archive + content/changelog.d/*.json folded into one file, rebuilt
+# by every pre-hook. Generated, so it is NOT checked in — a committed copy would
+# put every PR back to editing one shared file, which is the conflict the
+# fragment split removes. See shared/changelog.ts.
+content/changelog.generated.json
+
 # deps
 node_modules
 

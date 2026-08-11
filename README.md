@@ -60,8 +60,8 @@ deployed on [Vercel](https://vercel.com).
 ## Changelog
 
 The site's [“What’s new”](https://mahonia.app/about#whats-new) section (on the About page) renders
-[`content/changelog.json`](content/changelog.json) — the one source of truth. When a change is
-user-facing, add a plain one- or two-sentence entry as part of the same PR:
+the changelog. When a change is user-facing, add a plain one- or two-sentence entry as part of
+the same PR:
 
 ```bash
 npm run changelog -- --added "Sort folders by weight."
@@ -71,10 +71,17 @@ npm run changelog -- --fixed "…" --changed "…"
 Entries are grouped Added / Changed / Fixed and describe the observable change, not the
 implementation.
 
+Each run writes its own file under `content/changelog.d/`, so entries from PRs open at the
+same time never collide — [`content/changelog.json`](content/changelog.json) is the settled
+archive, and `npm run changelog:compact` folds fragments into it now and then. The build
+merges the two into `content/changelog.generated.json` (generated, not checked in), which is
+what the page reads.
+
 A PR comment reminds any user-facing PR that's missing an entry — but nothing auto-fills it,
 so the entry is always hand-written (the page stays plain, curated prose). If a PR merges
-without one, the page just omits that change until it's backfilled. Label a PR
-**`skip-changelog`** to silence the reminder for non-user-facing work.
+without one, the page just omits that change until it's backfilled. For non-user-facing work,
+prefix the PR title (`refactor:`, `chore:`, `ci:`, `test:`, `docs:`, `perf:`) or label it
+**`skip-changelog`**.
 
 ## License
 
