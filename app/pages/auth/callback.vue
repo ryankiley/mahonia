@@ -44,10 +44,10 @@ async function verify() {
     // the user straight to the thing they signed in for
     await refresh(true);
     state.value = "done";
-    // Same as the passkey path: back where you started if we still know, /vault if
+    // Same as the passkey path: back where you started if we still know, /gear if
     // not. The magic link usually returns in a new tab, which is exactly why the
     // return path is in localStorage rather than sessionStorage.
-    await useReturnTo().resume("/vault");
+    await useReturnTo().resume("/gear");
   } catch {
     // network or rate limit — distinct from a bad token, and worth retrying
     state.value = "error";

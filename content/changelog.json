@@ -1,5 +1,22 @@
 [
   {
+    "date": "2026-08-10",
+    "added": [
+      "Add a piece of gear to My Gear by hand, without putting it in a list first.",
+      "Edit anything in My Gear in place — weight, name, gear type, calories, product link.",
+      "What you correct in My Gear sticks: your lists stop overwriting a field once you've fixed it there.",
+      "Sort My Gear by weight, by name, or by how often you pack something, and narrow it to one kind of gear."
+    ],
+    "changed": [
+      "My Gear searches the way the item autocomplete does, so a typo still finds your tent.",
+      "My Gear shows every weight in the same unit, so a column of gear reads at a glance.",
+      "My Gear moved out of the site footer — it's in the account menu, and the editor's gear panel opens the full page."
+    ],
+    "fixed": [
+      "In My Gear, the folder menu on a group's last row was cut off by the group's own edge."
+    ]
+  },
+  {
     "date": "2026-08-08",
     "changed": [
       "Tapping a control on a phone or tablet no longer raises a tooltip describing the thing you just pressed.",

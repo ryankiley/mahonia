@@ -311,19 +311,18 @@ export const trailFavicons = pgTable("trail_favicons", {
 });
 
 // ---------------------------------------------------------------------------
-// vaults + vault_items — your own gear locker, owned by a LINK.
+// vaults + vault_items — your own gear locker, owned by an ACCOUNT.
 //
-// The identity here is deliberately the same primitive a list already uses: an
-// unguessable token, stored only as sha256, that grants capability by possession.
-// There is no account, no email, and no user row — a vault is a thing you hold a
-// link to, exactly like a list. That keeps one mental model in the product ("a
-// link owns a thing") instead of introducing a second one, and it keeps Mahonia
-// holding no personal data.
+// The one part of Mahonia that asks you to sign in. Lists stay link-owned, because
+// a link owning a thing is the product's whole mental model — but a vault is the
+// durable record of what you OWN, and the thing you'd most hate to lose to a
+// cleared browser. Signing in on another device is what carries it there; there is
+// no transfer token and no second link to keep.
 //
-// The cost is stated plainly in the UI: lose the link and you lose the vault. That
-// is survivable in a way it wouldn't be for a list, because a vault is DERIVED —
-// it accumulates from the lists you build (see captureFromList in shared/vault.ts),
-// so a fresh vault refills itself as you open your lists again.
+// It was link-owned first, and the cost of that ("lose the link and you lose the
+// gear") is what an account buys out. The migration is in server/utils/vaultSchema
+// — a gear from that era has a null user_id and is unreachable by design, because
+// inventing an owner would hand someone else's gear to whoever signed in first.
 // ---------------------------------------------------------------------------
 export const vaults = pgTable(
   "vaults",
@@ -413,6 +412,16 @@ export const vaultItems = pgTable(
     // The holder's grouping. Null = unfiled, which is also every row's starting
     // state and where a row lands again if its folder is deleted.
     folderId: integer("folder_id"),
+    // The pins — which fields you've corrected by hand on /gear, so capture leaves
+    // them alone (see captureVaultItems and the DDL comment in utils/vaultSchema).
+    // brand/name/variant share one flag: they are one SPELLING of one identity, and
+    // the merge rewrites all three together or none.
+    namePinned: boolean("name_pinned").notNull().default(false),
+    weightPinned: boolean("weight_pinned").notNull().default(false),
+    commonNamePinned: boolean("common_name_pinned").notNull().default(false),
+    classificationPinned: boolean("classification_pinned").notNull().default(false),
+    kcalPinned: boolean("kcal_pinned").notNull().default(false),
+    productUrlPinned: boolean("product_url_pinned").notNull().default(false),
     // how many distinct captures have landed here — ranks the autocomplete, the
     // vault's analogue of catalog_items.usage_count
     timesSeen: integer("times_seen").notNull().default(1),

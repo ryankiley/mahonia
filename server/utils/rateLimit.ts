@@ -189,8 +189,10 @@ export const RATE_LIMITS = {
   "trail-favicon": 30,
   // vault: capture is a debounced background write from an open editor (one per few
   // seconds at worst); search is per-keystroke, like the catalog's, so it carries the
-  // same order of budget. Capture is also the only endpoint that can MINT a vault, so
-  // its budget doubles as the cap on how fast rows can be conjured from nothing.
+  // same order of budget. Capture and a hand-typed add (gear-write) are the two
+  // endpoints that can MINT a gear, so between them these budgets cap how fast rows
+  // can be conjured from nothing. Minting itself is idempotent per account — one
+  // gear per user, enforced by the index — so what they bound is the writes.
   "vault-capture": 60,
   "vault-search": 240,
   "vault-read": 120,

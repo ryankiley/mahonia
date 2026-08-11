@@ -446,6 +446,11 @@ export default defineNuxtConfig({
     // page for the app's whole life, so it is in bookmarks and in other people's
     // links. /e is where the lists now are.
     "/mine": { redirect: { to: "/e", statusCode: 301 } },
+    // "Your gear vault" became "My Gear" in the chrome a while back, but the URL kept
+    // the old name — the one place the retired word was still shown to anyone. The
+    // internal word stays put on purpose (the API is /api/vault/*, the tables are
+    // vault_*, the classes are .vault__*); this is only what people see and share.
+    "/vault": { redirect: { to: "/gear", statusCode: 301 } },
     // the catalog-changes page reads a slow-moving feed — a 10-minute ISR window
     // makes repeat views free without letting it go meaningfully stale
     "/changes": { isr: 600 },

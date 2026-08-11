@@ -71,10 +71,36 @@ export interface VaultFolder {
   sortBy?: "manual" | "name" | "heaviest" | "lightest";
 }
 
-/** A stored vault row as the API returns it. */
+/**
+ * The fields a /gear edit can PIN.
+ *
+ * Editing one is a statement that your value is the truth about your own gear, and
+ * captureVaultItems coalesces around a pinned field instead of overwriting it — the
+ * gear's counterpart to the list Item's weightOverridden / nameOverridden, which
+ * say the same thing to the catalog.
+ *
+ * One token per independent decision, which is why brand/name/variant share `name`:
+ * they are one spelling of one identity, and a capture rewrites all three together
+ * or none. Keeping them apart would let a list revert your corrected variant while
+ * your corrected brand stood, which is not a state anyone asked for.
+ */
+export const VAULT_PIN_FIELDS = [
+  "name",
+  "weight",
+  "commonName",
+  "classification",
+  "kcal",
+  "productUrl",
+] as const;
+export type VaultPinField = (typeof VAULT_PIN_FIELDS)[number];
+
+/** A stored gear row as the API returns it. */
 export interface VaultEntry extends VaultCapture {
   /** which vault folder it's filed under; absent = unfiled */
   folderId?: number;
+  /** Which fields you've corrected by hand, so capture leaves them alone. Absent =
+   *  nothing pinned, which is every row only a list has ever written. */
+  pinned?: VaultPinField[];
   id: number;
   /** How many distinct captures have landed on this row — a "how often do I pack
    *  this" signal that ranks the autocomplete, like the catalog's usage_count. */

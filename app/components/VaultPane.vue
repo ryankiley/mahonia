@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { Add01Icon, Cancel01Icon, CheckIcon, ChevronDownIcon, CircleXIcon } from "@hugeicons/core-free-icons";
+import { ArrowUpRight01Icon, Cancel01Icon, CheckIcon, ChevronDownIcon, CircleXIcon } from "@hugeicons/core-free-icons";
 import type { VaultEntry, VaultFolder } from "~~/shared/vault";
 import { vaultNormKey } from "~~/shared/vault";
 import { rankVaultRows } from "~~/shared/vaultSearch";
@@ -398,6 +398,16 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
     />
     <header class="vp__head">
       <h2 class="t-label vp__title">My Gear</h2>
+      <!-- The way out to the full page, and it lives HERE rather than on the toolbar
+           glyph that opened this. That glyph is a one-press toggle you hit repeatedly
+           while building a list; hanging a menu off it to offer this would tax the
+           frequent action to reach the rare one. You have already asked for your gear
+           by the time you can see this, so "all of it, with room to tidy" is one quiet
+           link away at the moment you'd want it. -->
+      <NuxtLink v-if="hasVault" to="/gear" class="btn btn--quiet vp__open" title="Open My Gear as a full page">
+        Open
+        <HugeiconsIcon :icon="ArrowUpRight01Icon" :size="14" :stroke-width="2" aria-hidden="true" />
+      </NuxtLink>
       <button
         type="button"
         class="btn btn--icon btn--ghost btn--flush-end"
@@ -525,9 +535,12 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
               </span>
             </span>
             <span class="t-num t-sm vp__w">{{ formatWeight(cat.weightMg, unit, { withUnit: false }) }}<span class="t-muted"> {{ unit }}</span></span>
+            <!-- A check when it's IN the list, and nothing when it isn't. The "+" that
+                 used to sit here was the same glyph on every row of a panel whose one
+                 job is adding — it said what the panel already says, forty times. The
+                 column stays reserved so a row gaining its check shifts nothing. -->
             <span class="vp__icon" aria-hidden="true">
               <HugeiconsIcon :icon="CheckIcon" v-if="cat.allInList" :size="16" :stroke-width="2" class="vp__added" />
-              <HugeiconsIcon :icon="Add01Icon" v-else :size="16" :stroke-width="2" />
             </span>
           </button>
         </li>
@@ -572,7 +585,6 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
                 :size="16"
                 :stroke-width="2"
                 class="vp__added" />
-              <HugeiconsIcon :icon="Add01Icon" v-else :size="16" :stroke-width="2" />
             </span>
           </button>
         </li>
@@ -691,6 +703,14 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   display: flex;
   gap: var(--space-1);
   margin-bottom: var(--space-2);
+  /* The tab's LABEL lands on the panel's gutter, not its chip. Everything else down
+     this edge — the title, "Add to", every row name — starts at the content edge; a
+     tab carries its own --space-2 of chip padding on top of the shared inset, so
+     "Items" alone sat 8px further in and the column read as bent. Pull the row back
+     by exactly that padding: the text aligns and the active chip's ground overhangs
+     into the panel's own padding, which is the --tap-pull idiom (grow the box, not
+     the picture). */
+  margin-inline-start: calc(-1 * var(--space-2));
 }
 .vp__tab {
   display: inline-flex;
@@ -730,6 +750,23 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   margin-bottom: var(--space-2);
 }
 .vp__title {
+  color: var(--ink);
+  /* takes the slack so the two trailing controls sit together on the end rather than
+     spreading across the header — space-between would otherwise put "Open" in the
+     middle of it, reading as a third heading */
+  margin-inline-end: auto;
+}
+/* quiet, and a link rather than a button: it navigates, and the glyph says so */
+.vp__open {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--ink-3);
+  transition: color var(--dur) var(--ease);
+}
+.vp__open:hover,
+.vp__open:focus-visible {
   color: var(--ink);
 }
 .vp__controls {
