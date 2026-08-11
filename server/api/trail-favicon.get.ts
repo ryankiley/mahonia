@@ -2,6 +2,7 @@ import { defineEventHandler, getQuery, setHeader } from "h3";
 import { useDb } from "../utils/db";
 import { faviconForUrl } from "../utils/trailFavicon";
 import { rateLimit } from "../utils/rateLimit";
+import { setNoIndex } from "../utils/http";
 
 // A trail site's favicon, by URL. Exists because the EDITOR needs one before a list has
 // a server row: a draft holds its trail link on-device, and the browser can't fetch a
@@ -14,7 +15,7 @@ import { rateLimit } from "../utils/rateLimit";
 // Never an error: an unknown or hostile host answers { dataUrl: null } and the link just
 // renders its globe. A favicon is decoration and must not produce a failure state.
 export default defineEventHandler(async (event) => {
-  setHeader(event, "X-Robots-Tag", "noindex");
+  setNoIndex(event);
   // this endpoint reaches OUT to a caller-named host, so it's rate-limited harder than a
   // plain read — the per-host cache means a real user hits the network once a month
   await rateLimit(event, "trail-favicon");

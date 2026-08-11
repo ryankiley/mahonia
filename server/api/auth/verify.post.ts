@@ -1,7 +1,7 @@
-import { defineEventHandler, setHeader } from "h3";
+import { defineEventHandler } from "h3";
 import { claimUnverifiedAccount, consumeMagicToken, startSession } from "../../utils/authSession";
 import { useAccountDb } from "../../utils/db";
-import { readJsonBodyCapped } from "../../utils/http";
+import { readJsonBodyCapped, setNoIndex } from "../../utils/http";
 import { rateLimit } from "../../utils/rateLimit";
 
 // Redeem a sign-in link and start a session.
@@ -17,7 +17,7 @@ import { rateLimit } from "../../utils/rateLimit";
 // never-existed are the same answer, so the endpoint can't be used to learn
 // anything about tokens it wasn't given.
 export default defineEventHandler(async (event) => {
-  setHeader(event, "X-Robots-Tag", "noindex");
+  setNoIndex(event);
   await rateLimit(event, "auth-verify");
 
   const body = await readJsonBodyCapped<{ token?: unknown }>(event, 2_000);

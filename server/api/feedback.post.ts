@@ -1,6 +1,6 @@
-import { createError, defineEventHandler, setHeader } from "h3";
+import { createError, defineEventHandler } from "h3";
 import { buildFeedbackIssue, isFeedbackRepo, MAX_FEEDBACK_LEN } from "../../shared/feedback";
-import { readJsonBodyCapped } from "../utils/http";
+import { readJsonBodyCapped, setNoIndex } from "../utils/http";
 import { rateLimit } from "../utils/rateLimit";
 
 // "Send feedback" — one textarea, filed as a GitHub issue.
@@ -18,7 +18,7 @@ import { rateLimit } from "../utils/rateLimit";
 const GITHUB_API = "https://api.github.com";
 
 export default defineEventHandler(async (event) => {
-  setHeader(event, "X-Robots-Tag", "noindex");
+  setNoIndex(event);
   await rateLimit(event, "feedback");
 
   const body = await readJsonBodyCapped<{ message?: string }>(event, 4_000);

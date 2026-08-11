@@ -1,5 +1,5 @@
-import { defineEventHandler, setHeader } from "h3";
-import { readJsonBodyCapped } from "../../utils/http";
+import { defineEventHandler } from "h3";
+import { readJsonBodyCapped, setNoIndex, setPrivate } from "../../utils/http";
 import { rateLimit } from "../../utils/rateLimit";
 import { resolveOrMintVault } from "../../utils/vaultAuth";
 import { captureVaultItems } from "../../utils/vaultRepo";
@@ -25,8 +25,8 @@ import { VAULT_CAPTURE_MAX, type VaultCapture } from "../../../shared/vault";
 // background while you build a list, and it must never surface an error over the
 // list you're actually working on.
 export default defineEventHandler(async (event) => {
-  setHeader(event, "X-Robots-Tag", "noindex");
-  setHeader(event, "Cache-Control", "private, no-store");
+  setNoIndex(event);
+  setPrivate(event);
   await rateLimit(event, "vault-capture");
 
   // 200 rows of gear with their optional URLs — generous for the cap above, still

@@ -1,8 +1,8 @@
-import { createError, defineEventHandler, setHeader } from "h3";
+import { createError, defineEventHandler } from "h3";
 import { parseWeightInput } from "../../../shared/weights";
 import { proposeCorrection } from "../../utils/catalog";
 import { useCatalogDb } from "../../utils/db";
-import { readJsonBodyCapped } from "../../utils/http";
+import { readJsonBodyCapped, setNoIndex } from "../../utils/http";
 import { consumeRateLimit, rateLimit, useKv } from "../../utils/rateLimit";
 
 // Beyond the per-IP `catalog-correct` budget, cap edits to a SINGLE catalog row
@@ -15,7 +15,7 @@ const ITEM_EDIT_WINDOW_MS = 60 * 60_000; // 1 hour
 // uncited/community values apply instantly; verified values need a trusted
 // citation to auto-apply, else they're recorded as `proposed`.
 export default defineEventHandler(async (event) => {
-  setHeader(event, "X-Robots-Tag", "noindex");
+  setNoIndex(event);
   await rateLimit(event, "catalog-correct");
 
   const body = await readJsonBodyCapped<{

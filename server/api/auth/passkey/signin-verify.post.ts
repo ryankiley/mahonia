@@ -1,11 +1,11 @@
-import { defineEventHandler, setHeader } from "h3";
+import { defineEventHandler } from "h3";
 import { verifyAuthenticationResponse } from "@simplewebauthn/server";
 import { eq } from "drizzle-orm";
 import { startSession } from "../../../utils/authSession";
 import { findCredential, touchCredential } from "../../../utils/credentialRepo";
 import { useAccountDb } from "../../../utils/db";
 import { users } from "../../../db/schema";
-import { readJsonBodyCapped } from "../../../utils/http";
+import { readJsonBodyCapped, setNoIndex, setPrivate } from "../../../utils/http";
 import { originFor, rpIdFor, takeChallenge } from "../../../utils/passkeys";
 import { rateLimit } from "../../../utils/rateLimit";
 
@@ -20,8 +20,8 @@ import { rateLimit } from "../../../utils/rateLimit";
 // signature and an expired challenge are indistinguishable, so this can't be used
 // to test whether a given credential id exists.
 export default defineEventHandler(async (event) => {
-  setHeader(event, "X-Robots-Tag", "noindex");
-  setHeader(event, "Cache-Control", "private, no-store");
+  setNoIndex(event);
+  setPrivate(event);
   await rateLimit(event, "passkey");
 
   const body = await readJsonBodyCapped<{ flowId?: unknown; response?: unknown }>(event, 32_000);

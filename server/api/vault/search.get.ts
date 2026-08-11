@@ -1,7 +1,8 @@
-import { defineEventHandler, getQuery, setHeader } from "h3";
+import { defineEventHandler, getQuery } from "h3";
 import { rateLimit } from "../../utils/rateLimit";
 import { resolveVaultForRead } from "../../utils/vaultAuth";
 import { searchVaultItems } from "../../utils/vaultRepo";
+import { setNoIndex, setPrivate } from "../../utils/http";
 
 // Autocomplete against your own gear — the "pull from the vault" half of the
 // feature, consumed alongside /api/catalog/search by the item input.
@@ -14,8 +15,8 @@ import { searchVaultItems } from "../../utils/vaultRepo";
 // No shared cache, unlike the catalog search: results belong to one vault, so
 // `s-maxage` would let one person's gear be served to the next.
 export default defineEventHandler(async (event) => {
-  setHeader(event, "X-Robots-Tag", "noindex");
-  setHeader(event, "Cache-Control", "private, no-store");
+  setNoIndex(event);
+  setPrivate(event);
   await rateLimit(event, "vault-search");
 
   const resolved = await resolveVaultForRead(event);

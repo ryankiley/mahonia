@@ -1,7 +1,7 @@
-import { createError, defineEventHandler, setHeader } from "h3";
+import { createError, defineEventHandler } from "h3";
 import { csvToListData } from "../../shared/exporters/csv";
 import { lighterpackId } from "../../shared/lighterpack";
-import { readJsonBodyCapped } from "../utils/http";
+import { readJsonBodyCapped, setNoIndex } from "../utils/http";
 import { rateLimit } from "../utils/rateLimit";
 
 // Import a LighterPack shared list by URL. We ONLY ever fetch lighterpack.com's
@@ -11,7 +11,7 @@ import { rateLimit } from "../utils/rateLimit";
 // ListData; the client creates the list via /api/lists/create (same path as the
 // CSV/file import).
 export default defineEventHandler(async (event) => {
-  setHeader(event, "X-Robots-Tag", "noindex");
+  setNoIndex(event);
   await rateLimit(event, "import");
   const body = await readJsonBodyCapped<{ url?: string }>(event, 4_000);
   const id = lighterpackId(typeof body?.url === "string" ? body.url : "");

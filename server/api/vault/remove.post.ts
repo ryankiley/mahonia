@@ -1,5 +1,5 @@
-import { defineEventHandler, setHeader } from "h3";
-import { readJsonBodyCapped } from "../../utils/http";
+import { defineEventHandler } from "h3";
+import { readJsonBodyCapped, setNoIndex, setPrivate } from "../../utils/http";
 import { rateLimit } from "../../utils/rateLimit";
 import { requireVault } from "../../utils/vaultAuth";
 import { removeVaultItem, restoreVaultItem } from "../../utils/vaultRepo";
@@ -15,8 +15,8 @@ import { removeVaultItem, restoreVaultItem } from "../../utils/vaultRepo";
 // the same answer as an id that doesn't exist, so the endpoint never confirms that
 // another vault's row is real.
 export default defineEventHandler(async (event) => {
-  setHeader(event, "X-Robots-Tag", "noindex");
-  setHeader(event, "Cache-Control", "private, no-store");
+  setNoIndex(event);
+  setPrivate(event);
   await rateLimit(event, "vault-write");
   const { db, vaultId } = await requireVault(event);
 
