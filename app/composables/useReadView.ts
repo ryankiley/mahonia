@@ -19,15 +19,28 @@
  */
 export type ReadView = "gear" | "trip";
 
-const view = ref<ReadView>("gear");
-
+/**
+ * useState, not a module-level ref, and that distinction is load-bearing HERE in a way
+ * it isn't for the dialog singletons.
+ *
+ * A module ref is one variable shared by a long-running server process across every
+ * request it handles. This one backs /s and /l — the SSR'd, indexable pages — so if
+ * anything ever set it during render rather than after mount (seeding it from a query
+ * param or a deep link is the obvious way in), one visitor's tab choice would decide
+ * what the next visitor, or a crawler, was served. Nothing does that today; useState
+ * makes it so nothing can, because the state is scoped to the request.
+ *
+ * Same shape as before — a Ref<ReadView> — so callers are unchanged.
+ */
 export function useReadView() {
-  return view;
+  return useState<ReadView>("read-view", () => "gear");
 }
 
 /** Back to the gear. Called when a read page mounts, so one list's view never decides
  *  the next one's. "gear" is also the SSR state, which matters because /l is indexable
- *  and a crawler runs no JavaScript: whatever this starts as is what gets indexed. */
+ *  and a crawler runs no JavaScript: whatever this starts as is what gets indexed.
+ *  Only ever reached from onMounted, so the useState call above always has a client
+ *  Nuxt context to resolve against. */
 export function resetReadView() {
-  view.value = "gear";
+  useReadView().value = "gear";
 }

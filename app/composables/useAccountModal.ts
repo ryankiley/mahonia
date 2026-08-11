@@ -11,6 +11,15 @@ import { reactive } from "vue";
 // as useDialogs, so any component can open the account without wiring its own overlay.
 // Only ever mutated client-side, so SSR always renders it closed.
 //
+// THAT LAST SENTENCE IS A RULE, not an observation, and it is the only thing keeping
+// this safe. A module-level reactive is one variable shared by a long-running server
+// process across every request it serves. Every mutator here is reached from a click,
+// so the server never touches it — but open this from a `watch`, a `computed`, or
+// plain setup-time logic (auto-opening on a `?signin` query param is the obvious way
+// in) and one visitor's modal state lands in another visitor's SSR'd HTML. If that
+// ever needs to happen, this moves to useState first, the way useReadView already has
+// — that one backs the indexable read pages, so it could not be left on a convention.
+//
 // /account still exists and is not a redirect: a bookmark, a typed URL and the dead
 // magic link's "Get a new link" all arrive with nothing underneath to sit on top of.
 // Both mounts render AccountView, so there is one implementation of the thing itself.
