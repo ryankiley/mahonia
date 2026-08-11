@@ -10,8 +10,7 @@
 // included, which is where the sliding-expiry bug the refresh comment warns
 // about would actually live.
 
-import { PGlite } from "@electric-sql/pglite";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { IncomingMessage, ServerResponse } from "node:http";
 import { Socket } from "node:net";

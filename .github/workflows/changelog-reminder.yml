@@ -8,7 +8,7 @@
 # content/changelog.json archive counts too, which is what changelog:compact does.
 #
 # Opting out takes no trip to the GitHub UI: a conventional PR-title prefix
-# (refactor:, chore:, ci:, test:, docs:, perf:, build:, style:) or [skip-changelog]
+# (refactor:, chore:, ci:, test:, docs:, build:) or [skip-changelog]
 # in the title is enough, and the `skip-changelog` label still works. That matters
 # because most PRs in a refactoring run touch app/ or shared/ without changing one
 # thing a visitor can see, and hand-labelling each one is the tax this avoids.
@@ -47,9 +47,16 @@ jobs:
             // Three ways to say "not user-facing", so none of them needs the web UI:
             // the label, a conventional-commit title prefix, or an explicit marker.
             const title = pr.title ?? "";
+            // NOT `style:` or `perf:`. Both are conventional-commit prefixes for
+            // work that is user-facing in THIS app: a CSS-only change is exactly
+            // what the house rule means by "something a visitor can notice" (the
+            // last three visual PRs all shipped entries), and "the vault list
+            // scrolls smoothly now" is a perf change somebody feels. Skipping them
+            // would drop entries silently, which is the failure this whole flow is
+            // built to avoid — the label is still there for the genuine exceptions.
             const skipped =
               labels.includes("skip-changelog") ||
-              /^(refactor|chore|ci|test|docs|perf|build|style)(\([^)]*\))?!?:/i.test(title.trim()) ||
+              /^(refactor|chore|ci|test|docs|build)(\([^)]*\))?!?:/i.test(title.trim()) ||
               /\[skip[-\s]changelog\]/i.test(title);
 
             const files = await github.paginate(github.rest.pulls.listFiles, {
@@ -98,7 +105,7 @@ jobs:
               "",
               "That writes a new file under `content/changelog.d/`, so it can't conflict with anyone else's entry. Grouped Added / Changed / Fixed, plain and user-facing — it shows up on [/changelog](https://mahonia.app/changelog).",
               "",
-              "Not user-facing (refactor, deps, infra)? Prefix the PR title — `refactor:`, `chore:`, `ci:`, `test:`, `docs:`, `perf:` — or add the **`skip-changelog`** label.",
+              "Not user-facing (refactor, deps, infra)? Prefix the PR title — `refactor:`, `chore:`, `ci:`, `test:`, `docs:`, `build:` — or add the **`skip-changelog`** label. (`style:` and `perf:` deliberately aren't on that list: a CSS change and a speed-up are both things people notice here.)",
               "",
               "_No auto-fill: if this merges without an entry, the page just omits the change until someone backfills it._",
             ].join("\n");

@@ -48,8 +48,33 @@ export function readFragments(): Fragment[] {
   return readdirSync(FRAGMENT_DIR)
     .filter((name) => name.endsWith(".json"))
     .sort()
-    .map((name) => ({
-      name,
-      release: JSON.parse(readFileSync(join(FRAGMENT_DIR, name), "utf8")) as ChangelogRelease,
-    }));
+    .map((name) => ({ name, release: readFragment(name) }));
+}
+
+/**
+ * One fragment, with its filename in any complaint.
+ *
+ * The bare JSON.parse said only "Unexpected token }" — and because the build runs
+ * from `postinstall`, that surfaced as a failed `npm install` with nothing pointing
+ * at which of N files was malformed. A hand-edited or half-merged fragment is the
+ * likely cause, so the message names it and says what to do.
+ */
+function readFragment(name: string): ChangelogRelease {
+  const raw = readFileSync(join(FRAGMENT_DIR, name), "utf8");
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (e) {
+    throw new Error(
+      `content/changelog.d/${name} is not valid JSON (${(e as Error).message}). ` +
+        `Fragments are written by \`npm run changelog\`; if this one was hand-edited or came out of a merge, fix or delete it.`,
+    );
+  }
+  const rel = parsed as ChangelogRelease;
+  // A fragment with no date would merge into a release keyed `undefined` and take
+  // sortReleases down with it, several steps from the cause.
+  if (!rel || typeof rel.date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(rel.date)) {
+    throw new Error(`content/changelog.d/${name} has no valid "date" (expected YYYY-MM-DD).`);
+  }
+  return rel;
 }

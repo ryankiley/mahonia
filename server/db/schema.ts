@@ -123,8 +123,9 @@ export const lists = pgTable(
     index("idx_lists_feed_trip")
       .on(t.tripType, t.publishedAt.desc())
       .where(sql`${t.isPublic} and ${t.status} = 'active' and ${t.deletedAt} is null`),
-    // the nightly reap's scan — abandoned near-empty drafts, oldest first. No feed
-    // index above can serve it: they all require is_public, which reap never filters on.
+    // the nightly reap's scan — abandoned near-empty drafts, over the updated_at
+    // range (the query takes no order). No feed index above can serve it: they all
+    // require is_public, which reap never filters on.
     index("idx_lists_reap")
       .on(t.updatedAt)
       .where(sql`${t.status} = 'active' and ${t.deletedAt} is null and ${t.itemCount} <= 1`),

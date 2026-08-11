@@ -14,7 +14,7 @@
 // territory — so what runs here is exactly the endpoint logic around it, driven
 // through real H3 events (body, cookies, headers) the way a request would.
 
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { IncomingMessage, ServerResponse } from "node:http";
 import { Socket } from "node:net";

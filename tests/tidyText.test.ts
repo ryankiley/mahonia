@@ -137,7 +137,6 @@ describe("tidyText — the regex itself", () => {
   });
 });
 
-
 // Characters that LOOK like debris and are not. Each of these was actually broken by
 // the first version of this file — it stripped U+200C/U+200D the way every "remove
 // invisible characters" snippet does, and collapsed U+3000 because \s matches it.
@@ -185,7 +184,6 @@ describe("tidyText — characters that carry meaning", () => {
     expect(tidyText(`${BOM}Duplex`)).toBe("Duplex");
   });
 });
-
 
 describe("tidyText — the ideographic space is content inside, whitespace at the edges", () => {
   const IDEO = String.fromCharCode(0x3000);

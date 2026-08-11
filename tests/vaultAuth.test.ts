@@ -12,7 +12,6 @@
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { beforeEach, describe, expect, it } from "vitest";
-import * as schema from "../server/db/schema";
 import { vaults } from "../server/db/schema";
 import { VAULT_DDL } from "../server/utils/vaultSchema";
 import { mintVault, touchVaultByUser } from "../server/utils/vaultAuth";

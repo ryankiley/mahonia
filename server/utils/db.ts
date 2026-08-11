@@ -130,8 +130,10 @@ export const LISTS_DDL: string[] = [
   `CREATE INDEX IF NOT EXISTS idx_lists_feed_recent ON lists(published_at DESC) WHERE is_public AND status='active' AND deleted_at IS NULL`,
   // browse-by-trip-type (the default feed): trip then recency
   `CREATE INDEX IF NOT EXISTS idx_lists_feed_trip ON lists(trip_type, published_at DESC) WHERE is_public AND status='active' AND deleted_at IS NULL`,
-  // the nightly reap's scan (reapAbandonedLists): abandoned near-empty drafts, oldest
-  // first. None of the feed indexes above can serve it — they all require is_public,
+  // the nightly reap's scan (reapAbandonedLists): abandoned near-empty drafts. Serves
+  // the `updated_at < cutoff` RANGE — the query takes no order, it just takes the
+  // first `limit` rows the scan yields. None of the feed indexes can serve it — they
+  // all require is_public,
   // which reap never filters on — so without this the sweep is a full table scan that
   // gets slower every day the table grows. The predicate is written to match the
   // query's exactly, so the planner can prove one implies the other. The

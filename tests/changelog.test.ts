@@ -79,6 +79,39 @@ describe("mergeReleases", () => {
     expect(merged[0]).toEqual({ date: "2026-07-01", added: ["one"] });
   });
 
+  it("drops a bullet that arrives twice, so a half-done compaction can't double the page", () => {
+    // changelog:compact writes the archive and then deletes the fragments it folded.
+    // If a delete doesn't happen — Ctrl-C, a read-only directory, an author who
+    // stages the archive but not the deletions — the same sentence arrives from both
+    // sides on the next build. Before this, every bullet rendered twice on /about.
+    const merged = mergeReleases([
+      { date: "2026-07-01", added: ["First settled bullet.", "Second settled bullet."] },
+      { date: "2026-07-01", added: ["First settled bullet."] },
+      { date: "2026-07-01", added: ["Second settled bullet."] },
+    ]);
+    expect(merged).toHaveLength(1);
+    expect(merged[0]?.added).toEqual(["First settled bullet.", "Second settled bullet."]);
+  });
+
+  it("emits one fixed key order however the groups arrived", () => {
+    // Built incrementally, the first release on a date got the canonical order and
+    // later ones appended keys as they turned up — so the archive's on-disk key order
+    // depended on which fragment happened to be written first, and a compaction
+    // round-trip came back reordered.
+    const fixedFirst = mergeReleases([
+      { date: "2026-07-01", fixed: ["f"] },
+      { date: "2026-07-01", changed: ["c"] },
+      { date: "2026-07-01", added: ["a"] },
+    ]);
+    const addedFirst = mergeReleases([
+      { date: "2026-07-01", added: ["a"] },
+      { date: "2026-07-01", changed: ["c"] },
+      { date: "2026-07-01", fixed: ["f"] },
+    ]);
+    expect(Object.keys(fixedFirst[0]!)).toEqual(["date", "added", "changed", "fixed"]);
+    expect(JSON.stringify(fixedFirst)).toBe(JSON.stringify(addedFirst));
+  });
+
   it("does not mutate the input or the releases inside it", () => {
     const input: ChangelogRelease[] = [
       { date: "2026-07-01", added: ["one"] },

@@ -2,6 +2,7 @@ import { ref, type Ref } from "vue";
 import { profileToString } from "~~/shared/profile";
 import { routeGeometryFromPoints } from "~~/shared/polyline";
 import type { FilePin } from "~~/shared/gpx";
+import type { Op } from "~~/shared/ops";
 import type { ListSnapshot, WaypointKind } from "~~/shared/types";
 
 /**
@@ -31,12 +32,19 @@ import type { ListSnapshot, WaypointKind } from "~~/shared/types";
 const PIN_DEDUP_M = 60;
 
 /** The slice of the editor this needs. Narrow on purpose: everything it can reach is
- *  everything it could break, and a route import has no business anywhere else. */
+ *  everything it could break, and a route import has no business anywhere else.
+ *
+ *  `setMeta` takes the REDUCER's own patch type rather than a loose bag. Typing it
+ *  `Record<string, unknown>` compiled — a weak all-optional target accepts it — but
+ *  it turned off excess-property checking at the one call site that matters: a
+ *  mistyped key (`trailAscentMeters`) would have built green, failed the reducer's
+ *  `typeof` guard, and dropped the climb off an imported route with no error
+ *  anywhere. Inline in ListHead that was a compile error, and it is again. */
 interface GpxTarget {
   snapshot: Ref<ListSnapshot | null>;
   addWaypoint: (alongM: number, kind: WaypointKind) => void;
   updateWaypoint: (id: string, patch: { label?: string }) => void;
-  setMeta: (patch: Record<string, unknown>) => void;
+  setMeta: (patch: Extract<Op, { t: "setMeta" }>["patch"]) => void;
 }
 
 export function useGpxImport(snapshot: Ref<ListSnapshot | null>, c: GpxTarget) {

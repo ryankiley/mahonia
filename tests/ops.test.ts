@@ -488,7 +488,6 @@ describe("entryUnit", () => {
   });
 });
 
-
 describe("trip dates", () => {
   const set = (patch: Record<string, string>) => {
     const s = base();

@@ -22,7 +22,8 @@ const RESEND_ENDPOINT = "https://api.resend.com/emails";
  *  say "sending". Without a deadline a provider that accepts the connection and
  *  then stalls holds the serverless function until the PLATFORM's timeout kills it,
  *  which is both far longer and a worse failure: the caller gets nothing to act on.
- *  Matches the ceiling the other outbound calls use (trailFavicon, import, feedback). */
+ *  Matches the 10s the other caller-facing outbound calls use (import, feedback);
+ *  trailFavicon is tighter at 5s, because nothing is waiting on an icon. */
 const SEND_TIMEOUT_MS = 10_000;
 
 /** The one POST both messages make. Single-sourced so the deadline and the

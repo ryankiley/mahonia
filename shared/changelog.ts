@@ -56,29 +56,46 @@ export function sortReleases(releases: ChangelogRelease[]): ChangelogRelease[] {
 // shipped keeps reading the way people saw it, and a later fragment can't quietly
 // rewrite it.
 //
+// IDEMPOTENT on repeated bullets, which is what makes compaction safe to fail
+// halfway. changelog:compact writes the archive and then deletes the fragments it
+// folded in; if a delete doesn't happen — Ctrl-C, a read-only directory, or an
+// author who stages the archive without staging the deletions — the same sentence
+// arrives from both sides on the next build. Dropping the duplicate here means the
+// worst case is a fragment that outlives its fold, rather than every bullet on the
+// page appearing twice. Two genuinely identical bullets on one date were never
+// something to render twice anyway.
+//
 // Pure: sorts and copies, never mutates the input or the releases inside it.
 export function mergeReleases(releases: ChangelogRelease[]): ChangelogRelease[] {
-  const byDate = new Map<string, ChangelogRelease>();
+  const byDate = new Map<string, { title?: string; groups: Record<string, string[]> }>();
 
   for (const rel of releases) {
-    const existing = byDate.get(rel.date);
-    if (!existing) {
-      byDate.set(rel.date, {
-        date: rel.date,
-        ...(rel.title ? { title: rel.title } : {}),
-        ...(rel.added?.length ? { added: [...rel.added] } : {}),
-        ...(rel.changed?.length ? { changed: [...rel.changed] } : {}),
-        ...(rel.fixed?.length ? { fixed: [...rel.fixed] } : {}),
-      });
-      continue;
+    let entry = byDate.get(rel.date);
+    if (!entry) {
+      entry = { groups: { added: [], changed: [], fixed: [] } };
+      byDate.set(rel.date, entry);
     }
-    if (rel.title && !existing.title) existing.title = rel.title;
+    // First title on a date wins — see above.
+    if (rel.title && !entry.title) entry.title = rel.title;
     for (const key of ["added", "changed", "fixed"] as const) {
-      const items = rel[key];
-      if (!items?.length) continue;
-      existing[key] = [...(existing[key] ?? []), ...items];
+      for (const item of rel[key] ?? []) {
+        if (!entry.groups[key]!.includes(item)) entry.groups[key]!.push(item);
+      }
     }
   }
 
-  return sortReleases([...byDate.values()]);
+  // Built in one fixed key order, always. Assembling this incrementally meant the
+  // first release on a date got {date,title,added,changed,fixed} while later ones
+  // appended keys as they arrived, so the archive's on-disk key order depended on
+  // which fragment happened to be written first — a compaction round-trip came back
+  // reordered and every archive diff was noisier than the change in it.
+  const out: ChangelogRelease[] = [...byDate.entries()].map(([date, { title, groups }]) => ({
+    date,
+    ...(title ? { title } : {}),
+    ...(groups.added!.length ? { added: groups.added! } : {}),
+    ...(groups.changed!.length ? { changed: groups.changed! } : {}),
+    ...(groups.fixed!.length ? { fixed: groups.fixed! } : {}),
+  }));
+
+  return sortReleases(out);
 }

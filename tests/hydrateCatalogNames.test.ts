@@ -1,4 +1,3 @@
-import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import * as schema from "../server/db/schema";
 import { CATALOG_DDL, ensureCatalogSchema } from "../server/utils/catalog";

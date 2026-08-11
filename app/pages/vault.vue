@@ -177,7 +177,6 @@ function toggleCollapsed(id: number) {
 // SORT_META / SORT_ORDER come from app/utils/sortOptions, shared with the editor's
 // folders — "Heaviest first" has to read identically on both surfaces, and one
 // table guarantees that where a copied comment only asked for it.
-type VaultSort = NonNullable<VaultFolder["sortBy"]>;
 
 // Every folder change goes through the one ops route, then reloads — a vault is a
 // hundred rows and one small read, so re-reading is simpler and never leaves the

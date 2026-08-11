@@ -1,7 +1,4 @@
-import { PGlite } from "@electric-sql/pglite";
-import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
-import * as schema from "../server/db/schema";
 import { lists } from "../server/db/schema";
 import { LISTS_DDL, SNAPSHOTS_DDL, _resetSnapshotEnsured } from "../server/utils/db";
 import { findByEditToken, softDeleteByEditToken } from "../server/utils/listRepo";

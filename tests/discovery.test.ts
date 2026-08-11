@@ -1,4 +1,3 @@
-import { PGlite } from "@electric-sql/pglite";
 import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import * as schema from "../server/db/schema";

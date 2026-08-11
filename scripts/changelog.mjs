@@ -23,7 +23,7 @@
 // for the page; shared/changelog.ts has the full reasoning.
 
 import { createHash } from "node:crypto";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -64,8 +64,24 @@ for (let i = 0; i < argv.length; i++) {
   }
 }
 
-if (!groups.added.length && !groups.changed.length && !groups.fixed.length && !title) {
-  fail("nothing to add — pass at least one --added / --changed / --fixed (or --title)");
+// Blank bullets are dropped rather than written. `--added "  "` used to pass the
+// check below (length 1) and write `[""]`, which the content gate in
+// tests/changelog.test.ts then failed — the CLI printing ✓ over something that
+// turns the next PR red.
+for (const key of ["added", "changed", "fixed"]) {
+  groups[key] = groups[key].filter((s) => s.length > 0);
+}
+
+// At least one BULLET, not merely one flag. A title-only fragment is a release
+// with nothing in it: the same content gate rejects it, and app/pages/about.vue
+// would render a dated heading with an empty body. --title still works, alongside
+// the bullets it is a headline for.
+if (!groups.added.length && !groups.changed.length && !groups.fixed.length) {
+  fail(
+    title
+      ? "--title is a headline for a batch, so it needs at least one --added / --changed / --fixed beside it"
+      : "nothing to add — pass at least one --added / --changed / --fixed",
+  );
 }
 
 // --- build the fragment: a release object, same shape the page already reads ---
@@ -79,10 +95,19 @@ const body = JSON.stringify(fragment, null, 2) + "\n";
 
 // The filename has to be unique WITHOUT knowing what any other branch is doing —
 // that's the whole point. The date sorts a day's entries together, the slug makes
-// the directory readable at a glance, and the hash of the content itself settles
-// the rest: two branches writing different entries can't collide, and two writing
-// the identical entry produce the identical file, which git merges without a
-// conflict rather than treating as one.
+// the directory readable at a glance, and a hash of the content settles the rest:
+// two branches writing different entries get different names, and two writing the
+// identical entry produce the identical file, which git merges rather than
+// conflicts on.
+//
+// The hash carries the whole burden, because date+slug collide REGULARLY — the
+// slug is six words of one bullet, and this project ships batches of closely
+// related sentences. There is already a same-day pair in the archive whose first
+// six words match ("When a list's gear is already reaching My Gear on its own…").
+// 4 hex chars is 16 bits, which is a coin-flip-scale collision across a few
+// thousand entries and would have silently overwritten one of them; 12 is 48 bits,
+// which is not going to happen. The local guard below can only see this branch, so
+// the hash length is what protects the cross-branch case.
 const first = groups.added[0] ?? groups.changed[0] ?? groups.fixed[0] ?? title;
 const slug =
   first
@@ -93,11 +118,19 @@ const slug =
     .slice(0, 6)
     .join("-")
     .slice(0, 48) || "entry";
-const hash = createHash("sha256").update(body).digest("hex").slice(0, 4);
+const hash = createHash("sha256").update(body).digest("hex").slice(0, 12);
 const name = `${date}-${slug}-${hash}.json`;
+const path = join(DIR, name);
 
 mkdirSync(DIR, { recursive: true });
-writeFileSync(join(DIR, name), body);
+// Never write over an entry that isn't this one. Same content = the same command
+// run twice, so that stays a no-op; different content behind the same name is a
+// hash collision, and losing somebody's sentence to it in silence is the one
+// outcome worth stopping the world for.
+if (existsSync(path) && readFileSync(path, "utf8") !== body) {
+  fail(`${name} already exists with different content — reword the entry slightly and re-run`);
+}
+writeFileSync(path, body);
 
 const count = groups.added.length + groups.changed.length + groups.fixed.length;
 console.log(`✓ changelog: ${count} entr${count === 1 ? "y" : "ies"} on ${date} → content/changelog.d/${name}`);

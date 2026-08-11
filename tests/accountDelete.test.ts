@@ -12,7 +12,6 @@
 // hard way — checking this through a running dev server meant two processes with
 // the same PGlite directory open, and the two views disagreed.)
 
-import { PGlite } from "@electric-sql/pglite";
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { beforeEach, describe, expect, it } from "vitest";

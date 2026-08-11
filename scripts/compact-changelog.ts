@@ -14,7 +14,7 @@
 // touches anymore — so it conflicts with nothing, which is the same property the
 // fragment split bought in the first place (see shared/changelog.ts).
 
-import { rmSync, writeFileSync } from "node:fs";
+import { renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { mergeReleases } from "../shared/changelog";
 import { ARCHIVE_FILE, FRAGMENT_DIR, readArchive, readFragments } from "./changelogSources";
@@ -52,9 +52,29 @@ if (!settled.length) {
 
 // Archive first so a day that already shipped keeps its headline — see mergeReleases.
 const merged = mergeReleases([...readArchive(), ...settled.map((f) => f.release)]);
-writeFileSync(ARCHIVE_FILE, JSON.stringify(merged, null, 2) + "\n");
 
-for (const f of settled) rmSync(join(FRAGMENT_DIR, f.name));
+// Written through a temp file and renamed, so an interrupted run leaves the archive
+// as it was rather than half of it. rename is atomic within a filesystem.
+const tmp = `${ARCHIVE_FILE}.tmp`;
+writeFileSync(tmp, JSON.stringify(merged, null, 2) + "\n");
+renameSync(tmp, ARCHIVE_FILE);
+
+// Deletes come after, and each is allowed to fail on its own: a fragment that
+// outlives its fold is harmless (mergeReleases drops the duplicate), whereas
+// abandoning the loop would leave a longer tail of them behind.
+const stranded: string[] = [];
+for (const f of settled) {
+  try {
+    rmSync(join(FRAGMENT_DIR, f.name), { force: true });
+  } catch {
+    stranded.push(f.name);
+  }
+}
+if (stranded.length) {
+  console.warn(
+    `! changelog: folded but could not delete ${stranded.length} fragment(s) — remove by hand:\n  ${stranded.join("\n  ")}`,
+  );
+}
 
 console.log(
   `✓ changelog: folded ${settled.length} fragment${settled.length === 1 ? "" : "s"} ${all ? "" : `older than ${cutoffIso} `}into the archive (${fragments.length - settled.length} left)`,

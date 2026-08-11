@@ -1,7 +1,5 @@
-import { PGlite } from "@electric-sql/pglite";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import * as schema from "../server/db/schema";
 import { trailFavicons } from "../server/db/schema";
 import { TRAIL_FAVICONS_DDL } from "../server/utils/db";
 import { createTestDb } from "./helpers/db";

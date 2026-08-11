@@ -64,9 +64,19 @@ export async function claimLists(db: Db, userId: number, editTokens: string[]): 
   const rows = await findLiveByEditHashes(tokens.map(sha256Hex), db as never);
   if (!rows.length) return 0;
 
-  // edit_token_hash is uniquely indexed, so a hash resolves to at most one list —
-  // this dedupes the caller repeating a token, not the query.
-  const listIds = [...new Set(rows.map((r) => r.id))];
+  // SORTED, which is the part that matters. Two overlapping claims from the same
+  // account (two tabs, or a retry racing its original) insert overlapping key sets;
+  // if they take those keys in different orders they can wait on each other's
+  // uncommitted rows and deadlock, and because this is now ONE statement a deadlock
+  // rolls the whole batch back rather than one row. A stable order across callers
+  // makes the circular wait impossible. The query has no ORDER BY, so the order it
+  // returns is the planner's business, not something to rely on.
+  //
+  // The Set is belt-and-braces: `inArray` already collapses a repeated token, and
+  // ON CONFLICT DO NOTHING tolerates a repeated pair within one statement (that
+  // restriction belongs to DO UPDATE). It costs nothing and makes the row count
+  // obviously equal to the key count.
+  const listIds = [...new Set(rows.map((r) => r.id))].sort((a, b) => a - b);
 
   // ON CONFLICT DO NOTHING ... RETURNING gives back only the rows actually
   // inserted, so the count still means "newly claimed" and re-claiming stays a

@@ -33,6 +33,9 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-24.04
+    # A full run is ~4 minutes. Anything past 20 is wedged, and a hung job holds
+    # the concurrency slot for six hours by default.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
