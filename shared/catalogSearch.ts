@@ -72,7 +72,7 @@ export interface CatalogSearchResult {
   weightSource: string;
   verified: boolean;
   // Extra searchable words (category noun + locale/synonym aliases) derived at
-  // seed time — see shared/searchTerms.ts. Folded into the trigram target so
+  // seed time — see scripts/searchTerms.ts. Folded into the trigram target so
   // "tent" finds a "Copper Spur" and "rucksack" finds a "backpack". Carried through
   // so the offline cache ranks identically to online. Not shown in the UI.
   searchTerms?: string | null;

@@ -232,6 +232,14 @@ export default defineNuxtConfig({
   // to the in-memory driver rather than instantiating a urlless Upstash client
   // that throws on every request — rate limiting then holds per-instance only,
   // which is degraded but keeps the app serving. Dev always uses in-memory.
+  //
+  // DO NOT "CLEAN UP" @upstash/redis. `driver: "upstash"` below is a string, so
+  // nothing in this repo imports the package — a dependency audit will report it
+  // as having zero references and it looks exactly like dead weight. It isn't:
+  // unstorage declares @upstash/redis as an OPTIONAL peer dependency, so the
+  // direct entry in package.json is the only thing that installs the client this
+  // driver resolves at runtime. Removing it breaks rate limiting in production
+  // only, silently, on the branch no local run ever takes.
   $development: {
     nitro: {
       storage: {

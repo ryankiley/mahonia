@@ -52,11 +52,6 @@
   color: var(--ink);
 }
 
-.btn--sm {
-  min-height: var(--icon-btn);
-  padding: 0 var(--space-2);
-}
-
 .btn--icon {
   min-height: var(--icon-btn);
   width: var(--icon-btn);
@@ -637,14 +632,6 @@ input[type="search"]::-webkit-search-decoration {
   display: flex;
   align-items: center;
   gap: var(--space-4);
-}
-/* a second, lesser action on the same bar — the one you take to decline */
-.undobar__btn--quiet {
-  font-weight: 400;
-  opacity: 0.72;
-}
-.undobar__btn--quiet:hover {
-  opacity: 1;
 }
 .undobar__btn {
   display: inline-flex;

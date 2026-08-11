@@ -203,11 +203,8 @@
   color: var(--ink-3);
   transition: color var(--dur) var(--ease), opacity var(--dur) var(--ease);
 }
-/* the trigger carries the box now — .btn--icon already gives it --icon-btn square and
-   the --tap growth on coarse pointers, so the wrapper stops declaring both */
-.folder__sortbtn {
-  color: inherit;
-}
+/* the trigger carries the box now — OptionMenu's own .btn--icon gives it --icon-btn
+   square and the --tap growth on coarse pointers, so the wrapper declares neither */
 .folder__sortwrap:hover {
   color: var(--ink);
 }
@@ -221,24 +218,6 @@
 }
 .folder__sorticon {
   pointer-events: none;
-}
-/* the menu itself: a row is glyph · label · check, with the label taking the slack so
-   the check lands on the trailing edge (the same shape ListMenu's rows use) */
-.folder__sortmenu {
-  min-width: 12rem;
-}
-.folder__sortitem {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-.folder__sortlabel {
-  flex: 1 1 auto;
-  text-align: start;
-}
-.folder__sortcheck {
-  flex: none;
-  color: var(--ink-3);
 }
 /* touch: .btn--icon grows to a --tap (44px) target on coarse pointers (controls.scss),
    so the sort control has to match — left at its desktop --icon-btn width, its box is

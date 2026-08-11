@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildSearchTerms, deriveNoun } from "../shared/searchTerms";
+import { buildSearchTerms, deriveNoun } from "../scripts/searchTerms";
 
 describe("deriveNoun", () => {
   it("reads a gear noun straight out of the name", () => {
