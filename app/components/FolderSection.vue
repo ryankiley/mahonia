@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { ArrowUpDownIcon, CheckIcon, ChevronDownIcon, Delete02Icon, GripVerticalIcon, SortingAZ01Icon, SortingNineOneIcon, SortingOneNineIcon } from "@hugeicons/core-free-icons";
+import { CheckIcon, ChevronDownIcon, Delete02Icon, GripVerticalIcon } from "@hugeicons/core-free-icons";
 import type { Folder, FolderSort, Item, ListSnapshot } from "~~/shared/types";
 import { bySortOrder } from "~~/shared/weights";
 
@@ -50,22 +50,10 @@ function onOverlayToggle(open: boolean) {
 // views the parent's groupItemsByFolder recomputes each render, so they stay sorted
 // as items change. The control's glyph reflects the active mode (and lights up when
 // it's not manual, so a sorted folder is legible at a glance without opening it).
-// Glyphs read as a matched "sort key" family: A–Z for the name sort, digits for the
-// numeric (weight) sorts; the weight arrow flips (down = heaviest/descending, up =
-// lightest/ascending) so the two weight modes are distinguishable at 16px, where the
-// digit order alone (1-0 vs 0-1) isn't.
-// `typeof ArrowUpDownIcon`, keeping the shape the lucide version used. A hugeicons
-// icon is PATH DATA rather than a component — and the exported data is readonly, so
-// the package's own mutable IconArray doesn't accept it. Borrowing the type from one
-// of the four icons is both exact and self-maintaining. It is also why the template
-// can't use <component :is>; see the note there.
-const SORT_META: Record<FolderSort, { label: string; icon: typeof ArrowUpDownIcon }> = {
-  manual: { label: "Manual order", icon: ArrowUpDownIcon },
-  name: { label: "Name (A–Z)", icon: SortingAZ01Icon },
-  heaviest: { label: "Heaviest first", icon: SortingNineOneIcon },
-  lightest: { label: "Lightest first", icon: SortingOneNineIcon },
-};
-const SORT_ORDER: FolderSort[] = ["manual", "name", "heaviest", "lightest"];
+// SORT_META / SORT_ORDER live in app/utils/sortOptions — My Gear's folders offer
+// the same four modes and have to read the same way. That file carries the glyph
+// reasoning, why `icon` is path data, and why the template can't use
+// <component :is>.
 const sortBy = computed<FolderSort>(() => props.folder.sortBy ?? "manual");
 const isSorted = computed(() => sortBy.value !== "manual");
 const sortIcon = computed(() => SORT_META[sortBy.value].icon);

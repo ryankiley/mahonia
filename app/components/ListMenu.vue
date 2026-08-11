@@ -122,11 +122,7 @@ function close() {
 // outside tap, a scroll gesture on mobile, or Escape. The scroll one ignores drags
 // INSIDE the card, which matters more here than anywhere else — this is the one menu
 // with its own scroller (the list of lists below caps at 15rem).
-onClickOutside(rootRef, close);
-onScrollOutside(open, rootRef, close);
-useWindowEvent("keydown", (e) => {
-  if (e.key === "Escape" && open.value) close();
-});
+useMenuDismiss(open, rootRef, close);
 watch(open, (o) => {
   if (!o) return;
   // Opening RETIRES the pointer, rather than only hiding it. `v-if="!open"` in the

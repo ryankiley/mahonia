@@ -263,8 +263,7 @@ const menuOpen = ref(false);
 // something, so the wash shouldn't claim them as a destination.
 const { plateRef: kebabPlateRef, listRef: kebabListRef, placing: kebabPlacing, on: kebabPlateOn } = useMenuPlate();
 const menuRef = useTemplateRef<HTMLElement>("menuRef");
-const toast = ref("");
-let toastTimer: ReturnType<typeof setTimeout> | undefined;
+const { toast, flash } = useToast();
 
 // "Add folder" becomes an inline text field on tap; it only creates the folder
 // (and shows the next "Add folder") once you commit — enter or click away.
@@ -324,10 +323,8 @@ watch(
   },
   { immediate: true },
 );
-onBeforeUnmount(() => {
-  clearTimeout(toastTimer);
-  c.dispose(ownedEpoch);
-});
+// the toast clears its own timer (useToast)
+onBeforeUnmount(() => c.dispose(ownedEpoch));
 
 // On touch, the browser's own "scroll the focused field into view" is flaky — it
 // sometimes no-ops, leaving the field sitting under the keyboard. Force it: once
@@ -393,11 +390,6 @@ function onFocusIn(ev: FocusEvent) {
 useWindowEvent("focusin", onFocusIn); // auto-removes on unmount
 onBeforeUnmount(() => clearTimeout(focusScrollTimer));
 
-function flash(msg: string) {
-  toast.value = msg;
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => (toast.value = ""), 2000);
-}
 // Clipboard writes fire from real button clicks (the ⋯ menu items + the share
 // button), so the async Clipboard API has the user gesture iOS Safari demands. The
 // async-first write + synchronous execCommand fallback lives in the shared copyText()
@@ -430,22 +422,14 @@ const { warmExporters, copyPlainText, copyMarkdown, downloadCsv, downloadJson } 
 // need a direct user gesture, and a <select> change isn't one on iOS Safari, so the
 // copy silently failed there. Close on the action itself, an outside tap, a scroll
 // gesture on mobile (the toolbar is sticky, so nothing else would), or Escape.
-onClickOutside(menuRef, () => (menuOpen.value = false));
-onScrollOutside(menuOpen, menuRef, () => (menuOpen.value = false));
-useWindowEvent("keydown", (e) => {
-  if (e.key === "Escape" && menuOpen.value) menuOpen.value = false;
-});
+useMenuDismiss(menuOpen, menuRef);
 
 // the sharing panel — same dismiss contract as the ⋯ menu beside it (outside click,
 // Escape), and the two are mutually exclusive: they sit adjacent in the topbar, and
 // two open popovers over one toolbar read as a glitch
 const shareRef = useTemplateRef<HTMLElement>("shareRef");
 const shareOpen = ref(false);
-onClickOutside(shareRef, () => (shareOpen.value = false));
-onScrollOutside(shareOpen, shareRef, () => (shareOpen.value = false));
-useWindowEvent("keydown", (e) => {
-  if (e.key === "Escape" && shareOpen.value) shareOpen.value = false;
-});
+useMenuDismiss(shareOpen, shareRef);
 watch(shareOpen, (open) => open && (menuOpen.value = false));
 watch(menuOpen, (open) => open && (shareOpen.value = false));
 function toggleMenu() {

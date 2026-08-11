@@ -128,3 +128,38 @@ export function useNow(opts: { interval: number }): Ref<Date> {
   }
   return now;
 }
+
+// The three ways an open popover gets dismissed, wired in one call.
+//
+// Every menu in the app wants exactly the same set — an outside click, a scroll
+// gesture, Escape — and each was writing all three out by hand, identically, in
+// six places. The primitives above were always used correctly; it was the
+// COMBINATION that had no home, so "how does a menu close" was six copies of an
+// answer instead of one.
+//
+// The scroll listener is mobile's, and is the one most easily forgotten: these
+// menus hang off sticky chrome, so on a touchscreen nothing about scrolling
+// would otherwise take them down — the menu just rides along, parked over the
+// list. It binds only while open (see onScrollOutside).
+//
+// Escape is bound unconditionally rather than only while open, matching what the
+// call sites did: the guard is on `open` inside the handler, so there is no
+// listener churn per toggle.
+//
+// `onDismiss` is for a menu that has more to put away than the flag — the list
+// switcher also clears the search it was filtered by, so reopening it doesn't
+// start half-scrolled through yesterday's query. Omit it and closing is just the
+// flag, which is what most of them want.
+export function useMenuDismiss(
+  open: Ref<boolean>,
+  // same structural ref shape the primitives take, so template refs fit
+  target: { readonly value: HTMLElement | null | undefined },
+  onDismiss?: () => void,
+): void {
+  const close = onDismiss ?? (() => (open.value = false));
+  onClickOutside(target, () => close());
+  onScrollOutside(open, target, close);
+  useWindowEvent("keydown", (e) => {
+    if (e.key === "Escape" && open.value) close();
+  });
+}
