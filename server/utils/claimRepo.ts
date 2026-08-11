@@ -10,7 +10,8 @@
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { listClaims, lists } from "../db/schema";
 import type { useAccountDb } from "./db";
-import { findByEditToken } from "./listRepo";
+import { findLiveByEditHashes } from "./listRepo";
+import { sha256Hex } from "./tokens";
 import { captureVaultItems } from "./vaultRepo";
 import { mintVault, touchVaultByUser } from "./vaultAuth";
 import { VAULT_CAPTURE_MAX, captureFromList, type VaultCapture } from "../../shared/vault";
@@ -55,19 +56,30 @@ export async function claimLists(db: Db, userId: number, editTokens: string[]): 
     .slice(0, CLAIM_BATCH_MAX);
   if (!tokens.length) return 0;
 
-  let claimed = 0;
-  for (const token of tokens) {
-    const row = await findByEditToken(token, db as never);
-    if (!row) continue;
-    const done = await db
-      .insert(listClaims)
-      .values({ userId, listId: row.id })
-      .onConflictDoNothing({ target: [listClaims.userId, listClaims.listId] })
-      // no-arg .returning() — the neon-http | PGlite union's only shared overload
-      .returning();
-    if (done.length) claimed++;
-  }
-  return claimed;
+  // Two statements for the whole batch, not two per token. Hashing is local and
+  // synchronous, so the only round trips left are the resolve and the insert —
+  // where a registry of 200 tokens used to cost 400 sequential ones, which on
+  // Neon's HTTP driver (no pipelining) is the difference between a sign-in that
+  // lands and one you watch happen.
+  const rows = await findLiveByEditHashes(tokens.map(sha256Hex), db as never);
+  if (!rows.length) return 0;
+
+  // edit_token_hash is uniquely indexed, so a hash resolves to at most one list —
+  // this dedupes the caller repeating a token, not the query.
+  const listIds = [...new Set(rows.map((r) => r.id))];
+
+  // ON CONFLICT DO NOTHING ... RETURNING gives back only the rows actually
+  // inserted, so the count still means "newly claimed" and re-claiming stays a
+  // no-op. Nothing to merge on a conflict — a claim is a bare (user, list) fact —
+  // which is also why this needs none of the same-row-twice care captureVaultItems
+  // takes with DO UPDATE.
+  const done = await db
+    .insert(listClaims)
+    .values(listIds.map((listId) => ({ userId, listId })))
+    .onConflictDoNothing({ target: [listClaims.userId, listClaims.listId] })
+    // no-arg .returning() — the neon-http | PGlite union's only shared overload
+    .returning();
+  return done.length;
 }
 
 /**

@@ -33,6 +33,10 @@ export const VAULT_DDL: string[] = [
   `ALTER TABLE vaults ADD COLUMN IF NOT EXISTS deleted_at timestamptz`,
   // the reaper's scan: live vaults, oldest-seen first
   `CREATE INDEX IF NOT EXISTS idx_vaults_stale ON vaults (last_seen_at) WHERE deleted_at IS NULL`,
+  // the purge's scan (purgeDeletedVaults) walks the OPPOSITE condition — vaults
+  // already soft-deleted, past the grace window — which the index above cannot
+  // serve, being scoped to exactly the rows the purge ignores.
+  `CREATE INDEX IF NOT EXISTS idx_vaults_purge ON vaults (deleted_at) WHERE deleted_at IS NOT NULL`,
 
   // A vault's folders — see server/db/schema.ts for why they're a table and not a
   // label on the item. Name is unique per vault so capture can find-or-create by a
