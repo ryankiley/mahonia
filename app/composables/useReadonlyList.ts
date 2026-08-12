@@ -1,5 +1,6 @@
 import type { Ref } from "vue";
 import { seasonLabel, tripTypeLabel } from "~~/shared/discovery";
+import { OG_IMAGE_HEIGHT, OG_IMAGE_WIDTH, ogCardAlt, ogCardModel } from "~~/shared/ogCard";
 import type { ListSnapshot, Totals, Unit } from "~~/shared/types";
 import { bySortOrder, computeTotals, formatWeightAuto, ungroupedTopLevel } from "~~/shared/weights";
 
@@ -74,11 +75,36 @@ export function useReadonlyListSeo(
     if (totals.value.hasWeights) bits.push(`${formatWeightAuto(totals.value.baseMg)} base weight`);
     return `${snapshot.value.title}, ${copy.noun} (${bits.join(" · ")}). ${copy.cta}`;
   });
+  // The card IMAGE — rendered per list (title, the pack weight big, the
+  // Base/Worn/Consumable breakdown small) by /og/s|/og/l, addressed by the same
+  // capability as the page itself. Absolute like app.vue's static fallback, and
+  // raw request origin is enough here: neither read view is ever prerendered, so
+  // the build crawler's portless localhost origin (the case app.vue guards) can't
+  // occur. While the snapshot is unresolved every getter returns undefined and
+  // unhead keeps the app-level static card — a bad link unfurls as the site.
+  const origin = useRequestURL().origin;
+  const image = computed(() => {
+    if (!snapshot.value || !totals.value) return null;
+    const path =
+      kind === "shared" ? `/og/s/${snapshot.value.shareCode}` : `/og/l/${snapshot.value.slug}`;
+    return {
+      url: `${origin}${path}`,
+      alt: ogCardAlt(ogCardModel(snapshot.value.title, totals.value, snapshot.value.displayUnit)),
+    };
+  });
   useSeoMeta({
     description: () => desc.value,
     ogTitle: () => (snapshot.value ? snapshot.value.title : "Mahonia"),
     ogDescription: () => desc.value,
     ogType: "article",
+    ogImage: () => image.value?.url,
+    ogImageAlt: () => image.value?.alt,
+    ogImageWidth: () => (image.value ? OG_IMAGE_WIDTH : undefined),
+    ogImageHeight: () => (image.value ? OG_IMAGE_HEIGHT : undefined),
+    ogImageType: () => (image.value ? "image/png" : undefined),
+    // app.vue sets a static twitterImage site-wide; without this override the
+    // list pages would keep it and Twitter would ignore the og fallback
+    twitterImage: () => image.value?.url,
   });
   return { facets };
 }

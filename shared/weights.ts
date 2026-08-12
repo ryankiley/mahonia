@@ -341,6 +341,28 @@ export const itemDisplayName = (
 export const carriedIsDistinct = (t: Totals): boolean => t.wornMg > 0 && t.consumableMg > 0;
 
 /**
+ * The classification breakdown, in fixed order, with the judgment calls applied:
+ * only categories that carry weight show (no "Consumable 0 g" noise), and a lone
+ * "Base" chip is dropped — it would equal the headline total and just restate it,
+ * since base is the default class and "it's all base" is the null result. A lone
+ * WORN or CONSUMABLE chip is kept: that one IS a fact the headline doesn't carry
+ * (nothing here counts toward base weight).
+ *
+ * Lives here for the same reason as carriedIsDistinct above: it's a judgment
+ * about the data, and it has two renderers (TotalsBar and the social-card image)
+ * that must agree on it.
+ */
+export function totalsChips(t: Totals): { label: "Base" | "Worn" | "Consumable"; mg: number }[] {
+  const present = [
+    { label: "Base" as const, mg: t.baseMg },
+    { label: "Worn" as const, mg: t.wornMg },
+    { label: "Consumable" as const, mg: t.consumableMg },
+  ].filter((c) => c.mg > 0);
+  if (present.length === 1 && present[0]!.label === "Base") return [];
+  return present;
+}
+
+/**
  * Compute the rollups. base = total − worn − consumable; carried = total − worn
  * (i.e. base + consumable — everything in the pack, nothing on your body).
  * The math keys off effective classification, never folder names, so lists
@@ -468,16 +490,24 @@ export function formatKcal(kcal: number): string {
  */
 export function formatWeightAuto(
   mg: number,
-  opts: { system?: "metric" | "imperial"; withUnit?: boolean } = {},
+  opts: { system?: WeightSystem; withUnit?: boolean } = {},
 ): string {
   const { system = "metric", withUnit = true } = opts;
-  const unit: Unit =
-    system === "imperial"
-      ? mg >= MG_PER_UNIT.lb
-        ? "lb"
-        : "oz"
-      : mg >= MG_PER_UNIT.kg
-        ? "kg"
-        : "g";
-  return formatWeight(mg, unit, { withUnit });
+  return formatWeight(mg, autoUnit(mg, system), { withUnit });
+}
+
+export type WeightSystem = "metric" | "imperial";
+
+/** The measurement system a display unit belongs to — so a surface that only knows
+ *  the list's displayUnit (e.g. the social card) can auto-format in the same system
+ *  the owner edits in, rather than defaulting everyone to metric. */
+export const unitSystem = (unit: Unit): WeightSystem =>
+  unit === "oz" || unit === "lb" ? "imperial" : "metric";
+
+/** The unit formatWeightAuto's magnitude promotion picks — exported so a surface
+ *  that renders the number and its unit as separate elements (the social card's
+ *  big figure) promotes on exactly the same threshold. */
+export function autoUnit(mg: number, system: WeightSystem = "metric"): Unit {
+  if (system === "imperial") return mg >= MG_PER_UNIT.lb ? "lb" : "oz";
+  return mg >= MG_PER_UNIT.kg ? "kg" : "g";
 }

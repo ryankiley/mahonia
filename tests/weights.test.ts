@@ -16,9 +16,10 @@ import {
   sortedFolderItems,
   splitWornQty,
   toMg,
+  totalsChips,
   ungroupedTopLevel,
 } from "../shared/weights";
-import type { Folder, Item } from "../shared/types";
+import type { Folder, Item, Totals } from "../shared/types";
 
 const folder = (
   id: string,
@@ -566,5 +567,49 @@ describe("ungroupedTopLevel — the 'Ungrouped' section's rows", () => {
       item({ id: "homed", folderId: "f1", sortOrder: 0 }),
     ];
     expect(ungroupedTopLevel(items).map((i) => i.id)).toEqual(["loose"]);
+  });
+});
+
+describe("totalsChips — the breakdown TotalsBar and the social card share", () => {
+  const totals = (over: Partial<Totals>): Totals => ({
+    totalMg: 0,
+    baseMg: 0,
+    wornMg: 0,
+    consumableMg: 0,
+    carriedMg: 0,
+    itemCount: 0,
+    hasWeights: false,
+    kcalTotal: 0,
+    hasKcal: false,
+    ...over,
+  });
+
+  it("shows the categories that carry weight, in fixed order", () => {
+    const chips = totalsChips(
+      totals({ baseMg: 6_000_000, wornMg: 1_400_000, consumableMg: 800_000 }),
+    );
+    expect(chips).toEqual([
+      { label: "Base", mg: 6_000_000 },
+      { label: "Worn", mg: 1_400_000 },
+      { label: "Consumable", mg: 800_000 },
+    ]);
+  });
+
+  it("drops zero categories (no 'Consumable 0 g' noise)", () => {
+    const chips = totalsChips(totals({ baseMg: 6_000_000, wornMg: 1_400_000 }));
+    expect(chips.map((c) => c.label)).toEqual(["Base", "Worn"]);
+  });
+
+  it("drops a lone Base chip — it would just restate the headline total", () => {
+    expect(totalsChips(totals({ baseMg: 6_000_000 }))).toEqual([]);
+  });
+
+  it("keeps a lone Worn or Consumable chip — a fact the headline doesn't carry", () => {
+    expect(totalsChips(totals({ wornMg: 500_000 }))).toEqual([
+      { label: "Worn", mg: 500_000 },
+    ]);
+    expect(totalsChips(totals({ consumableMg: 500_000 }))).toEqual([
+      { label: "Consumable", mg: 500_000 },
+    ]);
   });
 });

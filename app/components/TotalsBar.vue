@@ -2,7 +2,7 @@
 import { HugeiconsIcon } from "~/utils/hugeicon";
 import { CheckIcon, ChevronDownIcon } from "@hugeicons/core-free-icons";
 import type { ListSnapshot, Totals, Unit } from "~~/shared/types";
-import { carriedIsDistinct, formatKcal, formatWeight } from "~~/shared/weights";
+import { carriedIsDistinct, formatKcal, formatWeight, totalsChips } from "~~/shared/weights";
 import { KCAL_PER_DAY_GENEROUS, KCAL_PER_DAY_LIGHT, foodPlan } from "~~/shared/foodPlan";
 
 const props = withDefaults(
@@ -29,24 +29,10 @@ const emit = defineEmits<{
   "set-unit": [Unit];
 }>();
 
-// the classification breakdown chips, in fixed order; only categories that carry
-// weight show (no "Consumable 0 g" noise)
-const chips = computed(() => {
-  const present = [
-    { label: "Base", mg: props.totals.baseMg },
-    { label: "Worn", mg: props.totals.wornMg },
-    { label: "Consumable", mg: props.totals.consumableMg },
-  ].filter((c) => c.mg > 0);
-  // A lone "Base" chip equal to the total just restates the headline figure
-  // directly beneath it — the same number twice, three times counting a
-  // single-folder category bar. Base is the default class, so "it's all base" is
-  // the null result and the big number already says it. Drop it.
-  // A lone WORN or CONSUMABLE chip is kept: that one IS a fact about the pack the
-  // headline doesn't carry (nothing here counts toward base weight), and nothing
-  // else on the page states the classification.
-  if (present.length === 1 && present[0]!.label === "Base") return [];
-  return present;
-});
+// the classification breakdown chips — which show (and when a lone "Base" is
+// noise) is a judgment about the data, shared with the social-card image via
+// totalsChips so the two renderings can't drift
+const chips = computed(() => totalsChips(props.totals));
 
 // "Carried" — base + consumable, the weight actually on your back. The three chips
 // above partition the total, so this is the one figure here that's a ROLL-UP of two of
