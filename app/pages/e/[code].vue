@@ -22,7 +22,16 @@ const snap = computed<ListSnapshot | null>(() => data.value?.snapshot ?? null);
 
 // naming rule + description builder live in editorSeo (app/utils/editorSeo.ts), the
 // single source shared with the editor's own client-side tab/share card.
-const seo = computed(() => editorSeo(snap.value?.title, snap.value ? computeTotals(snap.value) : null));
+const totals = computed(() => (snap.value ? computeTotals(snap.value) : null));
+const seo = computed(() => editorSeo(snap.value?.title, totals.value, snap.value?.displayUnit));
+// The card image: an edit link unfurls with the same per-list card as the share
+// link, addressed by the share code this route already resolves through — the
+// secret token in the fragment plays no part.
+useListOgCard(() =>
+  snap.value && totals.value
+    ? { path: `/og/s/${snap.value.shareCode}`, list: snap.value, totals: totals.value }
+    : null,
+);
 useHead({
   title: () => (seo.value.name ? `${seo.value.name} — Mahonia` : "Mahonia"),
   // a capability link, not a page — keep it out of search (og still drives previews)

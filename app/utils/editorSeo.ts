@@ -8,8 +8,8 @@
 // blowing the largest-chunk budget). Here it rides only the /e route chunks,
 // which already include weights.
 
-import type { Totals } from "~~/shared/types";
-import { formatWeightAuto } from "~~/shared/weights";
+import type { Totals, Unit } from "~~/shared/types";
+import { formatWeightAuto, unitSystem } from "~~/shared/weights";
 
 export const GENERIC_TITLE = "Mahonia — pack lists, weighed";
 export const GENERIC_DESC = "Make a packing list, see what it weighs, share it. No login.";
@@ -20,12 +20,16 @@ export const GENERIC_DESC = "Make a packing list, see what it weighs, share it. 
 export function editorSeo(
   title: string | undefined,
   totals: Totals | null,
+  displayUnit?: Unit,
 ): { name: string; desc: string } {
   const t = title?.trim();
   const name = t && t !== "Untitled list" ? t : "";
   if (!name) return { name, desc: GENERIC_DESC };
   if (!totals) return { name, desc: `${name}, a packing list on Mahonia.` };
   const bits = [`${totals.itemCount} items`];
-  if (totals.hasWeights) bits.push(`${formatWeightAuto(totals.baseMg)} base weight`);
+  // owner's system, matching the card image this text unfurls beside — the same
+  // rule the read views' description follows (see ogCardModel's policy note)
+  if (totals.hasWeights)
+    bits.push(`${formatWeightAuto(totals.baseMg, { system: unitSystem(displayUnit) })} base weight`);
   return { name, desc: `${name}, a packing list (${bits.join(" · ")}) on Mahonia.` };
 }

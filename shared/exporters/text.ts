@@ -12,7 +12,7 @@
 // would say out loud, and a heading is the formatting this format exists to shed.
 
 import type { Item, ListSnapshot } from "../types";
-import { computeTotals, formatWeightAuto, itemDisplayName } from "../weights";
+import { computeTotals, formatWeightAuto, itemDisplayName, unitSystem } from "../weights";
 import { exportSections } from "./rows";
 
 /**
@@ -74,7 +74,7 @@ export function listToText(list: ListSnapshot, opts: { shareUrl?: string } = {})
     // and "4,200 g" doesn't. The list's own unit still picks the SYSTEM, so an imperial
     // list stays in oz/lb. Base and total only — those are the two figures the reply to
     // one of these comments always asks for next.
-    const system = list.displayUnit === "oz" || list.displayUnit === "lb" ? "imperial" : "metric";
+    const system = unitSystem(list.displayUnit);
     const base = formatWeightAuto(totals.baseMg, { system });
     tail.push(`Base weight ${base}, ${formatWeightAuto(totals.totalMg, { system })} total`);
   }

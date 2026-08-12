@@ -78,7 +78,9 @@ const showIntro = computed(
 // embeds the share code in its path.
 // naming rule + description builder shared with the /e/[code] SSR head via
 // editorSeo (app/utils/editorSeo.ts), so the two surfaces can't drift
-const seo = computed(() => editorSeo(snapshot.value?.title, totals.value));
+const seo = computed(() =>
+  editorSeo(snapshot.value?.title, totals.value, snapshot.value?.displayUnit),
+);
 const listName = computed(() => seo.value.name);
 useHead({
   title: () =>

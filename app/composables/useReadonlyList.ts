@@ -1,7 +1,13 @@
 import type { Ref } from "vue";
 import { seasonLabel, tripTypeLabel } from "~~/shared/discovery";
 import type { ListSnapshot, Totals, Unit } from "~~/shared/types";
-import { bySortOrder, computeTotals, formatWeightAuto, ungroupedTopLevel } from "~~/shared/weights";
+import {
+  bySortOrder,
+  computeTotals,
+  formatWeightAuto,
+  ungroupedTopLevel,
+  unitSystem,
+} from "~~/shared/weights";
 
 // Shared reactive view-model for the two read-only pages (/s/[code] + /l/[slug]):
 // a viewer-chosen display unit, the rolled-up totals, the unit-reskinned list the
@@ -42,16 +48,21 @@ export function useReadonlyList(snapshot: Ref<ListSnapshot | null>) {
 // Each page keeps its own useHead (noindex on /s, canonical on /l) — that's the one
 // genuinely divergent bit.
 type ReadonlyKind = "shared" | "public";
-const SEO_COPY: Record<ReadonlyKind, { empty: string; noun: string; cta: string }> = {
+const SEO_COPY: Record<
+  ReadonlyKind,
+  { empty: string; noun: string; cta: string; cardPath: (s: ListSnapshot) => string }
+> = {
   shared: {
     empty: "A shared packing list on Mahonia.",
     noun: "a shared packing list",
     cta: "Make your own on Mahonia.",
+    cardPath: (s) => `/og/s/${s.shareCode}`,
   },
   public: {
     empty: "A public packing list on Mahonia.",
     noun: "a public packing list",
     cta: "Browse gear lists on Mahonia.",
+    cardPath: (s) => `/og/l/${s.slug}`,
   },
 };
 
@@ -71,9 +82,22 @@ export function useReadonlyListSeo(
     if (!snapshot.value || !totals.value) return copy.empty;
     const bits = [`${totals.value.itemCount} items`];
     if (facets.value.length) bits.unshift(facets.value.join(", "));
-    if (totals.value.hasWeights) bits.push(`${formatWeightAuto(totals.value.baseMg)} base weight`);
+    // owner's system, matching the card image beside this text — the UNFURL
+    // reads as the owner presents it; only the page starts in grams (the rule
+    // at the top of this file). See ogCardModel for the policy note.
+    if (totals.value.hasWeights)
+      bits.push(
+        `${formatWeightAuto(totals.value.baseMg, { system: unitSystem(snapshot.value.displayUnit) })} base weight`,
+      );
     return `${snapshot.value.title}, ${copy.noun} (${bits.join(" · ")}). ${copy.cta}`;
   });
+  // the card IMAGE — rendered per list by /og/s|/og/l, addressed by the same
+  // capability as the page itself; tag assembly lives in useListOgCard
+  useListOgCard(() =>
+    snapshot.value && totals.value
+      ? { path: copy.cardPath(snapshot.value), list: snapshot.value, totals: totals.value }
+      : null,
+  );
   useSeoMeta({
     description: () => desc.value,
     ogTitle: () => (snapshot.value ? snapshot.value.title : "Mahonia"),

@@ -178,6 +178,25 @@ export async function getPublicBySlug(slug: string, db?: Db): Promise<ListSnapsh
   return attachAuthorName(d, snap, rows[0].authorUserId);
 }
 
+/**
+ * The same public-only lookup for the social-card image (/og/l), WITHOUT the
+ * read-view hydration — the card never draws catalog names, the favicon or the
+ * byline, and none of them can move a total (see getCardByShareCode, its /og/s
+ * twin). Same publicReadConditions predicate, so the card dies with the
+ * listing exactly like the page.
+ */
+export async function getPublicCardBySlug(slug: string, db?: Db): Promise<ListSnapshot | null> {
+  const s = normalizeSlug(slug);
+  if (!s) return null;
+  const d = db ?? (await useDb());
+  const rows = await d
+    .select()
+    .from(lists)
+    .where(and(eq(lists.publicSlug, s), ...publicReadConditions()))
+    .limit(1);
+  return rows[0] ? rowToPublicView(rows[0]) : null;
+}
+
 /** Best-effort "most-viewed" signal. Never throws into the read path. */
 export async function bumpView(slug: string, db?: Db): Promise<void> {
   const s = normalizeSlug(slug);
