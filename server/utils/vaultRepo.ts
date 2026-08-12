@@ -558,7 +558,7 @@ export async function purgeDeletedVaults(
 // ---------------------------------------------------------------------------
 
 /** The two things you can do to a vault ROW from /gear — see
- *  server/api/gear/items.post.ts for why they share a route with each other but
+ *  server/api/vault/items.post.ts for why they share a route with each other but
  *  not with the folder verbs. */
 export type VaultItemOp =
   | {
@@ -855,7 +855,7 @@ async function editVaultItem(db: Db, vaultId: number, op: Extract<VaultItemOp, {
 }
 
 /** The folder verbs /gear offers, as one small tagged union — see
- *  server/api/gear/folders.post.ts for why they share a route. */
+ *  server/api/vault/folders.post.ts for why they share a route. */
 export type VaultFolderOp =
   | { t: "add"; name: string }
   | { t: "rename"; id: number; name: string }

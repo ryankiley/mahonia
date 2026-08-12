@@ -18,7 +18,9 @@ import { WEIGHT_UNIT_OPTIONS } from "~/utils/unitOptions";
 
 // "My Gear" — every piece of gear you've put in a list, in one place, so building
 // the next list is picking rather than retyping. That's the name the chrome uses
-// everywhere; "gear" survives as the internal word (routes, API, schema, classes).
+// everywhere, and /gear the URL people see; "vault" survives as the internal word
+// (the API is /api/vault/*, the tables vault_*, the classes .vault__*) — see the
+// /vault redirect in nuxt.config for that decision.
 //
 // Owned by your ACCOUNT — the one part of Mahonia that asks you to sign in. Lists
 // stay link-owned and always will; a vault is different because it's the durable
@@ -67,7 +69,7 @@ async function loadVault() {
       items: VaultEntry[];
       removed: VaultEntry[];
       folders: VaultFolder[];
-    }>("/api/gear/list");
+    }>("/api/vault/list");
     items.value = res.items || [];
     removed.value = res.removed || [];
     folders.value = res.folders || [];
@@ -95,7 +97,7 @@ async function putBack(entry: VaultEntry) {
   restoring.value = entry.id;
   loadError.value = "";
   try {
-    await vaultFetch("/api/gear/remove", { method: "POST", body: { id: entry.id, restore: true } });
+    await vaultFetch("/api/vault/remove", { method: "POST", body: { id: entry.id, restore: true } });
     await loadVault();
   } catch {
     loadError.value = "Couldn’t put that back. Check your connection and try again.";
@@ -197,7 +199,7 @@ type VaultSort = NonNullable<VaultFolder["sortBy"]>;
 async function folderOp(op: Record<string, unknown>) {
   loadError.value = "";
   try {
-    await vaultFetch("/api/gear/folders", { method: "POST", body: { op } });
+    await vaultFetch("/api/vault/folders", { method: "POST", body: { op } });
     await loadVault();
   } catch {
     loadError.value = "Couldn’t save that change. Check your connection and try again.";
@@ -371,7 +373,7 @@ async function commitAdd(folderId: number | null) {
   addBusy.value = true;
   loadError.value = "";
   try {
-    const res = await vaultFetch<{ ok: boolean; reason?: string }>("/api/gear/items", {
+    const res = await vaultFetch<{ ok: boolean; reason?: string }>("/api/vault/items", {
       method: "POST",
       body: { op: { t: "add", name, weightMg, folderId } },
     });
@@ -472,7 +474,7 @@ async function remove(entry: VaultEntry) {
   removing.value = entry.id;
   loadError.value = "";
   try {
-    await vaultFetch("/api/gear/remove", { method: "POST", body: { id: entry.id } });
+    await vaultFetch("/api/vault/remove", { method: "POST", body: { id: entry.id } });
     items.value = items.value.filter((i) => i.id !== entry.id);
     undoable.value = entry;
     clearTimeout(undoTimer);
@@ -489,7 +491,7 @@ async function undoRemove() {
   undoable.value = null;
   clearTimeout(undoTimer);
   try {
-    await vaultFetch("/api/gear/remove", { method: "POST", body: { id: entry.id, restore: true } });
+    await vaultFetch("/api/vault/remove", { method: "POST", body: { id: entry.id, restore: true } });
     await loadVault();
   } catch {
     loadError.value = "Couldn’t put that back. Check your connection and try again.";
