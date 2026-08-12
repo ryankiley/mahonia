@@ -1268,11 +1268,14 @@ onClickOutside(trailEl, closeTrail);
   border-radius: var(--radius-2);
   color: var(--ink-3);
 }
-.head__dateclear:hover {
-  background: var(--popover-hover);
-}
-.head__dateclear:hover {
-  color: var(--ink);
+/* pointer-gated — it paints (see the note on .btn:hover, controls.scss). The wash
+   and the ink used to sit in two consecutive rules on the identical selector; they
+   are one affordance, so they travel as one block now. */
+@media (hover: hover) and (pointer: fine) {
+  .head__dateclear:hover {
+    background: var(--popover-hover);
+    color: var(--ink);
+  }
 }
 
 /* The trail affordance → link swap. Short and small: this is one line inside a page

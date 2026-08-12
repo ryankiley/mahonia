@@ -170,12 +170,18 @@ function onKey(e: KeyboardEvent) {
 // Kept as a color-mix and NOT a token: this is a transient tint that has to work on
 // whatever the bar sits on. (An earlier comment here named a `--wash-hover` token; no
 // such token was ever declared — the value has always been a literal.)
-.modebar__opt:hover {
-  background: light-dark(
-    color-mix(in oklab, var(--ink) 3.5%, transparent),
-    color-mix(in oklab, var(--ink) 5%, transparent)
-  );
-  color: var(--ink);
+// Pointer-gated — it paints (see the note on .btn:hover, controls.scss). This bar is
+// the one every mode change goes through, so an ungated wash left the option you
+// last tapped lit next to the one actually selected — two "on" states at once, in the
+// one place the app has to be unambiguous about which mode you are in.
+@media (hover: hover) and (pointer: fine) {
+  .modebar__opt:hover {
+    background: light-dark(
+      color-mix(in oklab, var(--ink) 3.5%, transparent),
+      color-mix(in oklab, var(--ink) 5%, transparent)
+    );
+    color: var(--ink);
+  }
 }
 
 .modebar__opt:focus-visible {

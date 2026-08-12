@@ -602,9 +602,12 @@ async function onSignOut() {
   background: var(--paper-2);
   color: var(--ink-2);
 }
-.acct__empty .acct__alt:hover {
-  background: var(--paper-3);
-  color: var(--ink);
+/* pointer-gated — it paints (see the note on .btn:hover, controls.scss) */
+@media (hover: hover) and (pointer: fine) {
+  .acct__empty .acct__alt:hover {
+    background: var(--paper-3);
+    color: var(--ink);
+  }
 }
 .acct__signup {
   display: flex;
@@ -702,10 +705,14 @@ async function onSignOut() {
   border-color: transparent;
   color: var(--danger-ink);
 }
-.acct__btn.acct__danger:hover {
-  background: var(--danger);
-  border-color: transparent;
-  filter: brightness(1.08);
+/* pointer-gated — it paints (see the note on .btn:hover, controls.scss). Still
+   compound inside the query, so it keeps outranking .acct__btn:hover below. */
+@media (hover: hover) and (pointer: fine) {
+  .acct__btn.acct__danger:hover {
+    background: var(--danger);
+    border-color: transparent;
+    filter: brightness(1.08);
+  }
 }
 /* CONTAINED, by the same recipe as .acct__input above — one container language for
    every control on this surface.
@@ -722,11 +729,14 @@ async function onSignOut() {
   border-radius: var(--radius-pill);
   background: var(--paper);
 }
-.acct__btn:hover {
-  /* a step TOWARD the surface, visible in both modes — see above for why the atom's
-     own --paper-3 hover can't be */
-  background: var(--paper-2);
-  border-color: var(--line-2);
+/* pointer-gated — it paints (see the note on .btn:hover, controls.scss) */
+@media (hover: hover) and (pointer: fine) {
+  .acct__btn:hover {
+    /* a step TOWARD the surface, visible in both modes — see above for why the atom's
+       own --paper-3 hover can't be */
+    background: var(--paper-2);
+    border-color: var(--line-2);
+  }
 }
 .acct__btn:disabled {
   background: transparent;

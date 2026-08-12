@@ -22,8 +22,21 @@
     color var(--dur) var(--ease),
     opacity var(--dur) var(--ease);
 }
-.btn:hover {
-  background: var(--paper-3);
+/* HOVER IS POINTER-GATED, HERE AND EVERYWHERE IT PAINTS.
+   iOS leaves :hover latched on the last thing you tapped until you tap something
+   else, so an ungated fill parks a grey pill under the button you just pressed and
+   leaves it there — the app's most-tapped affordance wearing a state nobody asked
+   for. The gate goes on the rules that PAINT (a background, a filter, an opacity):
+   those are what read as stuck. Hovers that only deepen ink are left alone on
+   purpose — a shade darker doesn't announce itself, and gating them would mean
+   duplicating every :focus-visible they share a selector list with, which is a real
+   cost for an invisible win. `pointer: fine` joins `hover: hover` so a hybrid
+   laptop's mouse still gets the affordance (same query as ListHead's link card).
+   :active below stays ungated — that IS the touch feedback, and it can't latch. */
+@media (hover: hover) and (pointer: fine) {
+  .btn:hover {
+    background: var(--paper-3);
+  }
 }
 .btn:active {
   opacity: 0.7;
@@ -38,18 +51,22 @@
   background: var(--accent);
   color: var(--accent-ink);
 }
-.btn--primary:hover {
-  background: var(--accent);
-  filter: brightness(1.05);
+@media (hover: hover) and (pointer: fine) {
+  .btn--primary:hover {
+    background: var(--accent);
+    filter: brightness(1.05);
+  }
 }
 
 // ghost === default now (kept for intent at call sites)
 .btn--ghost {
   color: var(--ink-2);
 }
-.btn--ghost:hover {
-  background: var(--paper-3);
-  color: var(--ink);
+@media (hover: hover) and (pointer: fine) {
+  .btn--ghost:hover {
+    background: var(--paper-3);
+    color: var(--ink);
+  }
 }
 
 .btn--icon {
@@ -504,10 +521,19 @@ input[type="search"]::-webkit-search-decoration {
 .menu__list:has(.menu__plate) .menu__item:hover {
   background: none;
 }
-.menu__item:hover,
+/* Split from :hover, not merged with it: a menu row's wash is the loudest latch in
+   the app (the menu can stay open after the tap, so the row you touched keeps
+   reading as selected), but focus is NOT a pointer state — a keyboard driving a
+   touch device still needs the highlight. So the two travel separately. */
 .menu__item:focus-visible {
   background: var(--popover-hover);
   outline: none;
+}
+@media (hover: hover) and (pointer: fine) {
+  .menu__item:hover {
+    background: var(--popover-hover);
+    outline: none;
+  }
 }
 .menu__item:disabled {
   color: var(--ink-3);

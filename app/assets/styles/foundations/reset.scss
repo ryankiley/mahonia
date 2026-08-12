@@ -129,6 +129,24 @@ textarea {
 button {
   cursor: pointer;
 }
+// Kill double-tap-to-zoom on the controls that get tapped in bursts — the ±
+// quantity steppers (a row's qty is MEANT to take three presses in a row, see
+// ItemRow) and the packing checkboxes. `width=device-width` retired the old 300ms
+// click delay long ago, but double-tap zoom is a separate gesture and still fires:
+// two quick taps on a 40px stepper zoom the page instead of counting to two.
+// Pinch-zoom is untouched, so this costs nothing in accessibility.
+// ELEMENT selectors on purpose — every class-based touch-action in the app (the
+// drag grips' `none`, the elevation chart's `pan-y`) outranks these on specificity
+// alone and keeps its own gesture, whatever the import order. Text fields are
+// deliberately left out: nobody double-taps one to zoom, and double-tap-to-select-
+// a-word is a text interaction worth keeping.
+button,
+[role="button"],
+input[type="checkbox"],
+input[type="radio"],
+select {
+  touch-action: manipulation;
+}
 textarea:not([rows]) {
   min-height: 10em;
 }

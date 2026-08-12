@@ -356,8 +356,13 @@ function changeLabel(i: number): string {
   color: var(--ink);
   transition: background var(--dur) var(--ease);
 }
-.share__act:hover {
-  background: color-mix(in oklab, var(--ink) 6%, var(--paper-3));
+/* pointer-gated — it paints (see the note on .btn:hover, controls.scss). Copying
+   doesn't dismiss the panel, so the deepened chip used to sit there for the rest of
+   the visit, under a finger that had already gone. */
+@media (hover: hover) and (pointer: fine) {
+  .share__act:hover {
+    background: color-mix(in oklab, var(--ink) 6%, var(--paper-3));
+  }
 }
 .share__hint {
   margin: 0;
