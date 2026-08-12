@@ -163,6 +163,44 @@ function cardVnode(m: OgCardModel): Vnode {
   );
 }
 
+// The SITE's own card — what unfurls when there is no list to draw: bare /e, the
+// legal pages, a dead link, and sendOgCard's failure fallback. The M mark large
+// and centered, the wordmark and the one-liner under it. NOT rendered at request
+// time: scripts/render-og-site.ts rasterizes this once into public/og.png (a
+// static file can't fail, which is what a failure fallback must be), and a test
+// re-renders it against the committed bytes so the template and the file can't
+// drift. The one-liner mirrors editorSeo's GENERIC_TITLE, which app code owns.
+const SITE_MARK_SIZE = 264;
+function siteCardVnode(): Vnode {
+  return el(
+    {
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      width: "100%",
+      height: "100%",
+      backgroundColor: PAPER,
+      color: INK,
+      fontFamily: "Inter",
+    },
+    [
+      { type: "img", props: { src: MARK_SRC, width: SITE_MARK_SIZE, height: SITE_MARK_SIZE }, key: null },
+      el({ marginTop: 48, fontWeight: 600, fontSize: 50 }, "Mahonia"),
+      el({ marginTop: 12, fontSize: 31, color: INK_2 }, "Pack lists, weighed."),
+    ],
+  );
+}
+
+export function ogSiteCardSvg(fonts: SatoriOptions["fonts"]): Promise<string> {
+  return satori(siteCardVnode(), { width: OG_IMAGE_WIDTH, height: OG_IMAGE_HEIGHT, fonts });
+}
+
+export async function renderOgSiteCard(fonts: SatoriOptions["fonts"]): Promise<Buffer> {
+  return new Resvg(await ogSiteCardSvg(fonts), { font: { loadSystemFonts: false } })
+    .render()
+    .asPng();
+}
+
 /** The card as SVG — the testable middle step (deterministic string out).
  *  `fonts` stays a parameter as the test seam: the routes load them from Nitro
  *  server assets (ogFonts), the tests from the filesystem. */
@@ -203,12 +241,13 @@ export async function sendOgCard(event: H3Event, list: OgCardSource): Promise<Bu
     return png;
   } catch (e) {
     // The card is best-effort chrome — a render failure falls back to the
-    // static site card rather than a broken unfurl. Logged, because this
-    // otherwise fails silent-and-forever (e.g. a deploy missing the font
-    // assets would 302 every card with zero signal). no-store: never cache
-    // the outage.
+    // static site card (public/og.png, prerendered by scripts/render-og-site.ts:
+    // a committed file, so THIS path cannot fail the same way) rather than a
+    // broken unfurl. Logged, because this otherwise fails silent-and-forever
+    // (e.g. a deploy missing the font assets would 302 every card with zero
+    // signal). no-store: never cache the outage.
     console.error("og card render failed, serving static fallback:", e);
     setHeader(event, "Cache-Control", "no-store");
-    return sendRedirect(event, "/og.jpg", 302);
+    return sendRedirect(event, "/og.png", 302);
   }
 }

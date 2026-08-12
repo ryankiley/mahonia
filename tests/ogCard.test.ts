@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { Resvg } from "@resvg/resvg-js";
 import type { SatoriOptions } from "satori";
 import { DRAWABLE_RANGES, ogCardAlt, ogCardModel, ogCardTitle } from "../shared/ogCard";
-import { ogCardSvg, renderOgCard } from "../server/utils/ogCard";
+import { ogCardSvg, renderOgCard, renderOgSiteCard } from "../server/utils/ogCard";
 import type { Totals, Unit } from "../shared/types";
 import { totals } from "./helpers/totals";
 
@@ -271,5 +271,17 @@ describe("the shipped fonts hold the card's two contracts", () => {
       expect(view.getInt16(hhea! + 6)).toBe(-494); // descender
       expect(view.getUint16(head! + 18)).toBe(2048); // unitsPerEm
     }
+  });
+});
+
+describe("the committed site card (public/og.png)", () => {
+  it("matches the template — `npm run og:site` regenerates it after template or font changes", async () => {
+    // The generic card is a committed static file (CDN-served; also the render
+    // failure fallback, which must not itself be a render). This re-renders the
+    // template and compares bytes, so a template edit that forgets the regen is
+    // a red test here instead of a stale card in every unfurl.
+    const committed = await readFile(new URL("../public/og.png", import.meta.url));
+    const fresh = await renderOgSiteCard(await fontsLoaded);
+    expect(fresh.equals(committed)).toBe(true);
   });
 });
