@@ -9,7 +9,10 @@
       "weight_unit": "oz",
       "weight_source": "manufacturer",
       "source_url": "https://theprobar.com/products/berry-blast-bolt-energy-chew",
-      "quote": "2.1 oz. Pouch (net wt per pouch, same across flavors). User's 'Bolt Energy Chews' = PROBAR BOLT Organic Energy Chews."
+      "quote": "2.1 oz. Pouch (net wt per pouch, same across flavors). User's 'Bolt Energy Chews' = PROBAR BOLT Organic Energy Chews.",
+      "kcal": 180,
+      "kcal_source_url": "https://thefeed.com/products/probar-bolt-chews",
+      "kcal_quote": "Serving Size: 1/2 pack … Servings Per Container: 2 … Calories Per Serving: 90"
     },
     {
       "brand": "Goldwin",

@@ -56,6 +56,7 @@ async function main() {
         variant: row.variant,
         categoryHint: row.categoryHint,
         weightMg: row.weightMg,
+        kcal: row.kcal,
         weightSource: row.weightSource,
         sourceUrl: row.sourceUrl,
         searchTerms: row.searchTerms,
@@ -68,6 +69,7 @@ async function main() {
     const cur = existing[0];
     const changed =
       Number(cur.weightMg) !== row.weightMg ||
+      (cur.kcal ?? null) !== row.kcal ||
       cur.weightSource !== row.weightSource ||
       cur.sourceUrl !== row.sourceUrl ||
       cur.categoryHint !== row.categoryHint ||
@@ -80,6 +82,7 @@ async function main() {
         .update(catalogItems)
         .set({
           weightMg: row.weightMg,
+          kcal: row.kcal,
           weightSource: row.weightSource,
           sourceUrl: row.sourceUrl,
           categoryHint: row.categoryHint,

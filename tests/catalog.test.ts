@@ -143,6 +143,25 @@ describe("serializeCsv + csvToCatalogRows round-trip", () => {
     const bad = "brand,name,variant,category_hint,weight_mg,weight_source,source_url\nX,Y,,pack,0,manufacturer,https://x\n";
     expect(() => csvToCatalogRows(bad)).toThrow(/weight_mg/);
   });
+
+  it("parses kcal when present, null when blank or the column is absent", () => {
+    const withKcal =
+      "brand,name,variant,category_hint,weight_mg,weight_source,source_url,kcal\n" +
+      "Clif,Energy Bar,single bar,consumable,68000,manufacturer,https://x,250\n" +
+      "MSR,IsoPro,110g,consumable,110000,manufacturer,https://x,\n";
+    const rows = csvToCatalogRows(withKcal);
+    expect(rows[0].kcal).toBe(250);
+    expect(rows[1].kcal).toBeNull();
+    // the round-trip fixture above has no kcal column at all — same null
+    expect(csvToCatalogRows(csv)[0].kcal).toBeNull();
+  });
+
+  it("rejects a non-positive or fractional kcal", () => {
+    const bad = (v: string) =>
+      `brand,name,variant,category_hint,weight_mg,weight_source,source_url,kcal\nX,Y,,consumable,100,manufacturer,https://x,${v}\n`;
+    expect(() => csvToCatalogRows(bad("0"))).toThrow(/kcal/);
+    expect(() => csvToCatalogRows(bad("250.5"))).toThrow(/kcal/);
+  });
 });
 
 describe("trigram fuzzy scoring (local PGlite search fallback)", () => {

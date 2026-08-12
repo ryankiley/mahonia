@@ -474,6 +474,10 @@ function onNameCommit(p: NameCommit) {
       patch.commonName = p.commonName ?? "";
       patch.commonNameOverridden = false;
     }
+    // the catalog's cited calories pre-fill like the vault's do: a food pick IS
+    // the product, so its kcal comes along with its weight; absent (any non-food
+    // row) leaves whatever the row already says, same as the vault branch
+    if (p.kcal != null) patch.kcal = p.kcal;
   } else {
     // free text / water / trailing weight → a user-owned custom name: drop the
     // catalog-derived brand/variant AND the catalog link itself — renaming to a
