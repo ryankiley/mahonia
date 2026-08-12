@@ -28,6 +28,34 @@ const INK = "#000000";
 const INK_2 = "#595959";
 const TRACK_TIGHT = "-0.02em"; // --track-tight
 
+// The big figure's two sizes, named because the baseline correction below is a
+// function of their difference.
+const BIG_SIZE = 170;
+const UNIT_SIZE = 54;
+
+// Where the baseline sits inside a satori line box, as the fraction of fontSize
+// between the BASELINE and the BOX BOTTOM at lineHeight 1 — derived from Inter's
+// hhea metrics (ascender 1984, descender −494, unitsPerEm 2048; identical across
+// all four subset faces, asserted by tests/ogCard.test.ts):
+//   content = (asc + desc) / upm = 1.21 em; half-leading = (1 − 1.21) / 2
+//   baseline from top = half-leading + asc / upm = 0.86377 → from bottom 0.13623
+//
+// Needed because satori's `alignItems: baseline` silently degrades to BOX-BOTTOM
+// alignment when the flex items are element children (our wrapper divs) rather
+// than bare text — measured: the unit's baseline landed 0.13623·(170−54) ≈ 16 px
+// below the number's, uniformly across values, units and letter-spacings. So the
+// row bottom-aligns on purpose and the unit is raised by exactly that amount.
+const BASELINE_BOTTOM_SHARE = 0.13623;
+const UNIT_BASELINE_LIFT = Math.round(BASELINE_BOTTOM_SHARE * (BIG_SIZE - UNIT_SIZE));
+
+// public/icon.svg — the Mahonia M — with its <style> block (a dark-mode media
+// query) flattened to a plain fill: the card is always the light theme, and
+// resvg doesn't evaluate media queries anyway. Keep the path in sync with the
+// favicon if the mark is ever redrawn.
+const MARK_SVG = `<svg viewBox="0 0 367 367" xmlns="http://www.w3.org/2000/svg"><path fill="${INK}" transform="translate(26 0)" d="M215.25 367C231 304.086 225.75 209.714 199.5 209.714C183.75 209.714 178.5 246.414 194.25 288.357C173.25 272.629 141.75 272.629 120.75 288.357C136.5 246.414 131.25 209.714 115.5 209.714C89.25 209.714 84 304.086 99.75 367C78.75 346.029 26.25 346.029 5.25 367C21 330.3 47.25 288.357 0 241.171C63 193.986 26.25 89.1286 10.5 52.4286C52.5 52.4286 84 26.2143 99.75 0C110.25 83.8857 136.5 157.286 157.5 157.286C178.5 157.286 204.75 83.8857 215.25 0C231 26.2143 262.5 52.4286 304.5 52.4286C283.5 99.6143 267.75 141.557 315 188.743C262.5 235.929 288.75 309.329 309.75 367C288.75 346.029 236.25 346.029 215.25 367Z"/></svg>`;
+const MARK_SRC = `data:image/svg+xml,${encodeURIComponent(MARK_SVG)}`;
+const MARK_SIZE = 64;
+
 // satori's vnode shape, sans JSX — the element-object form its ReactNode input
 // type expects (`key` included, which is what makes it a ReactElement to TS).
 // Everything is a flex <div>; leaves hold text.
@@ -58,8 +86,23 @@ function cardVnode(m: OgCardModel): Vnode {
       fontFamily: "Inter",
     },
     [
-      // the site bar's brand, same treatment (.t-label .brand): sentence case, 600
-      el({ fontWeight: 600, fontSize: 30 }, "Mahonia"),
+      // the top strip: the site bar's brand on the left, same treatment
+      // (.t-label .brand — sentence case, 600), and the favicon's M mark holding
+      // the opposite corner. flex-start so the mark hangs from the top edge the
+      // way the wordmark sits on it, rather than centering against 30px text.
+      el({ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }, [
+        el({ fontWeight: 600, fontSize: 30 }, "Mahonia"),
+        {
+          type: "img",
+          props: {
+            src: MARK_SRC,
+            width: MARK_SIZE,
+            height: MARK_SIZE,
+            style: { width: MARK_SIZE, height: MARK_SIZE },
+          },
+          key: null,
+        },
+      ]),
       el(
         {
           // block + lineClamp is satori's text-truncation mode: two lines, then "…"
@@ -76,20 +119,29 @@ function cardVnode(m: OgCardModel): Vnode {
         m.title,
       ),
       el({ flexGrow: 1 }),
-      // the big figure — number dominant, unit smaller and muted on its baseline,
-      // exactly TotalsBar's totals__big + totals__unit pairing
-      el({ flexDirection: "row", alignItems: "baseline" }, [
+      // the big figure — number dominant, unit smaller and muted ON ITS BASELINE,
+      // exactly TotalsBar's totals__big + totals__unit pairing. Bottom-aligned
+      // with the unit lifted by the computed correction — see UNIT_BASELINE_LIFT
+      // for why `baseline` itself can't be trusted here.
+      el({ flexDirection: "row", alignItems: "flex-end" }, [
         el(
           {
             fontFamily: "InterDisplay",
-            fontSize: 170,
+            fontSize: BIG_SIZE,
             lineHeight: 1,
             letterSpacing: TRACK_TIGHT,
           },
           m.big.value,
         ),
         el(
-          { marginLeft: 18, fontSize: 54, lineHeight: 1, color: INK_2, letterSpacing: "-0.01em" },
+          {
+            marginLeft: 18,
+            marginBottom: UNIT_BASELINE_LIFT,
+            fontSize: UNIT_SIZE,
+            lineHeight: 1,
+            color: INK_2,
+            letterSpacing: "-0.01em",
+          },
           m.big.unit,
         ),
       ]),
@@ -100,7 +152,7 @@ function cardVnode(m: OgCardModel): Vnode {
             { flexDirection: "row", marginTop: 30 },
             m.chips.map((c, i) =>
               el(
-                { marginLeft: i ? 44 : 0, fontSize: 31 },
+                { marginLeft: i ? 44 : 0, fontSize: 35 },
                 [el({ fontWeight: 600, color: INK_2 }, c.label), el({ marginLeft: 12 }, c.value)],
                 c.label,
               ),
