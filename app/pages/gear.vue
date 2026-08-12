@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { ArrowUpDownIcon, ChartAverageIcon, ChevronDownIcon, CircleXIcon, Clock01Icon, CookieIcon, Delete02Icon, Edit02Icon, FolderIcon, GripVerticalIcon, ShirtIcon, SortingAZ01Icon, SortingNineOneIcon, SortingOneNineIcon, UndoIcon } from "@hugeicons/core-free-icons";
+import { ChartAverageIcon, ChevronDownIcon, CircleXIcon, Clock01Icon, CookieIcon, Delete02Icon, Edit02Icon, FolderIcon, GripVerticalIcon, ShirtIcon, SortingAZ01Icon, SortingNineOneIcon, SortingOneNineIcon, UndoIcon } from "@hugeicons/core-free-icons";
 import type { Unit } from "~~/shared/types";
 import { UNITS } from "~~/shared/types";
 import type { VaultEntry, VaultFolder } from "~~/shared/vault";
@@ -185,16 +185,11 @@ function onOverlayToggle(key: string, open: boolean) {
 }
 const sectionKey = (s: VaultSection) => (s.folder ? String(s.folder.id) : "unfiled");
 
-// the editor's SORT_META verbatim — same glyph family, same labels, so a folder
-// sorted "Heaviest first" reads identically on both surfaces
+// SORT_META / SORT_ORDER come from app/utils/sortOptions, shared with the editor's
+// folders — "Heaviest first" has to read identically on both surfaces, and one table
+// guarantees that where a copied comment only asked for it. (VIEW_OPTIONS below is a
+// different list: the PAGE's own order, which borrows the same glyph family.)
 type VaultSort = NonNullable<VaultFolder["sortBy"]>;
-const SORT_META: Record<VaultSort, { label: string; icon: typeof ArrowUpDownIcon }> = {
-  manual: { label: "Manual order", icon: ArrowUpDownIcon },
-  name: { label: "Name (A–Z)", icon: SortingAZ01Icon },
-  heaviest: { label: "Heaviest first", icon: SortingNineOneIcon },
-  lightest: { label: "Lightest first", icon: SortingOneNineIcon },
-};
-const SORT_ORDER: VaultSort[] = ["manual", "name", "heaviest", "lightest"];
 
 // Every folder change goes through the one ops route, then reloads — a vault is a
 // hundred rows and one small read, so re-reading is simpler and never leaves the

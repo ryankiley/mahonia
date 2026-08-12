@@ -20,5 +20,19 @@ export default defineVitestConfig({
     // The Nuxt-environment file needs the same headroom for its app boot.
     testTimeout: 20_000,
     hookTimeout: 20_000,
+    // CAP THE WORKERS, because the timeout above was only ever half the fix.
+    //
+    // A PGlite instance costs ~494 ms to boot and ~15 ms to take the schema
+    // (measured — see tests/helpers/db.ts), and the suite boots ~96 of them. Those
+    // are CPU-bound WASM starts, so vitest's default of one worker per core makes
+    // them fight each other: on a 10-core machine a full run failed 12 files and
+    // 117 tests, every one of them a 20s timeout in `beforeEach` and not a single
+    // assertion failure, while the same suite at 4 workers passed 77/77 in 121s.
+    // More workers past this point buys no wall-clock and starts inventing
+    // failures, which on a 4-vCPU CI runner would be a red build nobody caused.
+    //
+    // The real fix is fewer boots (one instance per file, schema reset between
+    // cases) — tests/helpers/db.ts is the seam for it and says what it would take.
+    maxWorkers: 4,
   },
 });

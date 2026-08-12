@@ -1,5 +1,5 @@
-import { defineEventHandler, setHeader } from "h3";
-import { readJsonBodyCapped } from "../../utils/http";
+import { defineEventHandler } from "h3";
+import { readJsonBodyCapped, setNoIndex, setPrivate } from "../../utils/http";
 import { rateLimit } from "../../utils/rateLimit";
 import { requireVault } from "../../utils/vaultAuth";
 import { applyVaultFolderOp, type VaultFolderOp } from "../../utils/vaultRepo";
@@ -14,8 +14,8 @@ import { applyVaultFolderOp, type VaultFolderOp } from "../../utils/vaultRepo";
 // vault matches nothing and comes back `{ ok: false }` — the same answer as an id
 // that never existed. No 403, no existence oracle.
 export default defineEventHandler(async (event) => {
-  setHeader(event, "X-Robots-Tag", "noindex");
-  setHeader(event, "Cache-Control", "private, no-store");
+  setNoIndex(event);
+  setPrivate(event);
   await rateLimit(event, "vault-write");
   const { db, vaultId } = await requireVault(event);
 

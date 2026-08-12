@@ -1,10 +1,10 @@
-import { defineEventHandler, setHeader } from "h3";
+import { defineEventHandler } from "h3";
 import { verifyRegistrationResponse } from "@simplewebauthn/server";
 import { requireUser } from "../../../utils/authSession";
 import { savePasskey } from "../../../utils/credentialRepo";
 import { canSendEmail, sendPasskeyAddedNotice } from "../../../utils/email";
 import { useAccountDb } from "../../../utils/db";
-import { readJsonBodyCapped } from "../../../utils/http";
+import { readJsonBodyCapped, setNoIndex, setPrivate } from "../../../utils/http";
 import { originFor, rpIdFor, takeChallenge } from "../../../utils/passkeys";
 import { rateLimit } from "../../../utils/rateLimit";
 
@@ -16,8 +16,8 @@ import { rateLimit } from "../../../utils/rateLimit";
 // request rather than trusted from the body — they're the binding that makes a
 // passkey unphishable, so they can't come from the caller.
 export default defineEventHandler(async (event) => {
-  setHeader(event, "X-Robots-Tag", "noindex");
-  setHeader(event, "Cache-Control", "private, no-store");
+  setNoIndex(event);
+  setPrivate(event);
   await rateLimit(event, "passkey");
   const user = await requireUser(event);
 

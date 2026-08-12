@@ -130,6 +130,20 @@ export const LISTS_DDL: string[] = [
   `CREATE INDEX IF NOT EXISTS idx_lists_feed_recent ON lists(published_at DESC) WHERE is_public AND status='active' AND deleted_at IS NULL`,
   // browse-by-trip-type (the default feed): trip then recency
   `CREATE INDEX IF NOT EXISTS idx_lists_feed_trip ON lists(trip_type, published_at DESC) WHERE is_public AND status='active' AND deleted_at IS NULL`,
+  // the nightly reap's scan (reapAbandonedLists): abandoned near-empty drafts. Serves
+  // the `updated_at < cutoff` RANGE — the query takes no order, it just takes the
+  // first `limit` rows the scan yields. None of the feed indexes can serve it — they
+  // all require is_public,
+  // which reap never filters on — so without this the sweep is a full table scan that
+  // gets slower every day the table grows. The predicate is written to match the
+  // query's exactly, so the planner can prove one implies the other. The
+  // jsonb_array_length guard in the query stays out of it: it is a cheap recheck on
+  // an already-narrow candidate set, not something to index.
+  `CREATE INDEX IF NOT EXISTS idx_lists_reap ON lists(updated_at) WHERE status='active' AND deleted_at IS NULL AND item_count <= 1`,
+  // the second stage (purgeDeletedLists) walks the OPPOSITE condition to every
+  // partial index above: soft-deleted rows past the grace window. `WHERE deleted_at
+  // IS NULL` cannot serve `WHERE deleted_at IS NOT NULL`, so this is its own index.
+  `CREATE INDEX IF NOT EXISTS idx_lists_purge ON lists(deleted_at) WHERE deleted_at IS NOT NULL`,
 ];
 
 // list_snapshots (vandalism-recovery) — single-sourced here. Idempotent + safe on

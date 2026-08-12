@@ -8,7 +8,7 @@ import { resolveSession } from "./authSession";
 /**
  * The ONE place a request becomes a vault id. Every vault endpoint goes through
  * here, so the authorisation rule is written down once and a new endpoint can't
- * invent a looser one — the same discipline `requireEditToken` gives lists.
+ * invent a looser one — the same discipline `requireEditHash` gives lists.
  *
  * A VAULT BELONGS TO AN ACCOUNT. That is the whole rule, and it is deliberately
  * different from a list.

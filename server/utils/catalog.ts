@@ -62,7 +62,7 @@ export const CATALOG_DDL: string[] = [
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now()
   )`,
-  // search_terms — derived noun + locale/synonym aliases (shared/searchTerms.ts),
+  // search_terms — derived noun + locale/synonym aliases (scripts/searchTerms.ts),
   // folded into the fuzzy match. Added via ALTER so existing tables gain it too
   // (CREATE TABLE IF NOT EXISTS above is a no-op once the table exists).
   `ALTER TABLE catalog_items ADD COLUMN IF NOT EXISTS search_terms text`,

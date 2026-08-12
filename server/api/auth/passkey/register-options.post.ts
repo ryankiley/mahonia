@@ -1,18 +1,19 @@
-import { createError, defineEventHandler, setHeader } from "h3";
+import { createError, defineEventHandler } from "h3";
 import { generateRegistrationOptions } from "@simplewebauthn/server";
 import { requireUser } from "../../../utils/authSession";
 import { countPasskeys, existingCredentialIds, MAX_PASSKEYS_PER_USER } from "../../../utils/credentialRepo";
 import { useAccountDb } from "../../../utils/db";
 import { RP_NAME, requirePasskeysConfigured, rpIdFor, startChallenge } from "../../../utils/passkeys";
 import { rateLimit } from "../../../utils/rateLimit";
+import { setNoIndex, setPrivate } from "../../../utils/http";
 
 // Step 1 of adding a passkey: hand the browser the challenge and parameters for
 // the ceremony. Requires a session — you add a passkey to an account you're
 // already in, which is what makes the magic link the root of trust and the passkey
 // a faster door to the same room.
 export default defineEventHandler(async (event) => {
-  setHeader(event, "X-Robots-Tag", "noindex");
-  setHeader(event, "Cache-Control", "private, no-store");
+  setNoIndex(event);
+  setPrivate(event);
   await rateLimit(event, "passkey");
   const user = await requireUser(event);
   requirePasskeysConfigured();

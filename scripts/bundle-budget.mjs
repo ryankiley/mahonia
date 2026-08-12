@@ -242,7 +242,26 @@ import { brotliCompressSync, gzipSync, constants } from "node:zlib";
 // the way a panel can.
 //
 // 154 restores the same ~2.8 KB gap 151 carried over its own measurement.
-const FIRST_LOAD_BUDGET_KB = 154;
+//
+// 154 → 157, and this one is not feature work at all: the gate was ALREADY over when an
+// audit first ran it. 154.5 against 154, on a tree with nothing of the audit's own in it
+// — measured in a second worktree at main, same lockfile, to be sure the audit branch
+// wasn't the cause. Somewhere between the 151.2 reading above and here, ~3.3 KB landed
+// across several commits with no build run between them, which is the same way the 147.0
+// overage in the map notes happened. Nothing in CI ran this script, so nothing said so.
+// The CI workflow added alongside this note is the actual fix; the number below only
+// stops recording a failure nobody caused.
+//
+// What it is, measured two ways against the same tree: @vercel/analytics is 4.7 KB of it.
+// Building with the module removed from nuxt.config's `modules` and changing nothing else
+// gives 149.8; putting it back gives 154.5. That is a real price for page views and Web
+// Vitals on every first load, and it was a deliberate keep once seen — analytics is named
+// in the privacy policy (app/pages/legal.vue) and holds a CSP entry, so dropping it is a
+// product decision, not a cleanup. Recorded here so the 4.7 KB stays a known, chosen cost
+// rather than drifting back into the noise.
+//
+// 157 restores the ~2.5 KB of working headroom every anchor above argues for.
+const FIRST_LOAD_BUDGET_KB = 157;
 // TOTAL of every built file, the backstop. Deliberately slack: its job is to catch
 // a route chunk ballooning or a heavy dep landing somewhere unnoticed, NOT to price
 // ordinary feature work. Set well clear of current (137.1) so it only speaks up when
@@ -283,7 +302,23 @@ const FIRST_LOAD_BUDGET_KB = 154;
 //
 // MAX_CHUNK is still what actually watches that chunk: 36.5 KB against 72, unmoved by any
 // of it. 267 restores the ~6 KB of slack.
-const TOTAL_BUDGET_KB = 267;
+//
+// 267 → 273, and this one is My Gear growing a page of its own (#224): adding and editing
+// gear in place, the item modal, the add row, the view/sort/show menus. Measured the same
+// two ways this note has always asked for — main at that commit builds to 269.0 against
+// 267, before any of the audit branch's own work, which then adds 0.2. So the backstop was
+// already 2.0 KB under water on work that is precisely what it says it must not price: a
+// route people visit deliberately, not something shipped to every page.
+//
+// Worth recording that this is the FIRST bump measured by the CI job landing in the same
+// branch. Every re-anchor above was found by somebody running the script by hand, after the
+// fact; #224 went in with the total already over and nothing said so. That is the gap
+// closing, and the reason the number is honest rather than convenient.
+//
+// FIRST LOAD is untouched by it — 154.5 → 154.8, a third of a KB — because the page is its
+// own route chunk. MAX_CHUNK is unmoved at 36.5 against 72. 273 restores the ~4 KB of slack
+// the re-anchors above keep arguing for.
+const TOTAL_BUDGET_KB = 273;
 // Largest single chunk, brotli. LOAD-BEARING, and the one number here that should not move
 // to accommodate a dependency: it is what a heavy map library fails. MapLibre GL ships as a
 // single ~200 KB brotli chunk and was ruled out on this line alone — a dep that needs the

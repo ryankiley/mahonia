@@ -1,5 +1,5 @@
-import { defineEventHandler, setHeader } from "h3";
-import { readJsonBodyCapped } from "../../utils/http";
+import { defineEventHandler } from "h3";
+import { readJsonBodyCapped, setNoIndex, setPrivate } from "../../utils/http";
 import { rateLimit } from "../../utils/rateLimit";
 import { requireVault, resolveOrMintVault } from "../../utils/vaultAuth";
 import { applyVaultItemOp, type VaultItemOp } from "../../utils/vaultRepo";
@@ -17,8 +17,8 @@ import { applyVaultItemOp, type VaultItemOp } from "../../utils/vaultRepo";
 // because "you already have this" and "your vault is full" are facts about YOUR
 // vault and tell a stranger nothing.
 export default defineEventHandler(async (event) => {
-  setHeader(event, "X-Robots-Tag", "noindex");
-  setHeader(event, "Cache-Control", "private, no-store");
+  setNoIndex(event);
+  setPrivate(event);
   await rateLimit(event, "vault-write");
 
   // Read BEFORE resolving, unlike the folders route: an add may need to MINT the

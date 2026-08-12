@@ -1,4 +1,4 @@
-import { defineEventHandler, getRequestURL, setHeader } from "h3";
+import { defineEventHandler, getRequestURL } from "h3";
 import { verifyRegistrationResponse } from "@simplewebauthn/server";
 import {
   MAGIC_LINK_TTL_MS,
@@ -10,7 +10,7 @@ import {
 import { canSendEmail, sendMagicLink } from "../../../utils/email";
 import { savePasskey } from "../../../utils/credentialRepo";
 import { useAccountDb } from "../../../utils/db";
-import { readJsonBodyCapped } from "../../../utils/http";
+import { readJsonBodyCapped, setNoIndex, setPrivate } from "../../../utils/http";
 import { originFor, requirePasskeysConfigured, rpIdFor, takeChallenge } from "../../../utils/passkeys";
 import { rateLimit } from "../../../utils/rateLimit";
 
@@ -40,8 +40,8 @@ import { rateLimit } from "../../../utils/rateLimit";
 // ask them to click; for someone whose address a stranger typed in, it's the whole
 // remedy. See the welcome copy in email.ts.
 export default defineEventHandler(async (event) => {
-  setHeader(event, "X-Robots-Tag", "noindex");
-  setHeader(event, "Cache-Control", "private, no-store");
+  setNoIndex(event);
+  setPrivate(event);
   await rateLimit(event, "passkey-signup");
 
   requirePasskeysConfigured();

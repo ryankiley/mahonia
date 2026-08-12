@@ -439,7 +439,6 @@ $bp-full: 1024px !default;
      horizontal twin of the row-height jump the .item--check min-height comment guards
      against. */
   @include item-cols(var(--item-col-qty-ro));
-  --item-cols-mobile: 1fr 44px 92px; /* name · qty · weight (controls + grip on row 2) */
   --item-gap: var(--space-4); /* column gap shared by item rows, folder headers + the add row (keeps weights aligned) — 16px so the data columns breathe */
   /* category sparkline (the one data-viz mark — CategoryBar) */
   --bar-h: 6px;

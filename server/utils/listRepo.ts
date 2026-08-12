@@ -277,7 +277,7 @@ export async function attachTrailFavicon(db: Db, snap: ListSnapshot): Promise<Li
  *  (~87 KB base64), and applyOpsByEditToken returns on a 450 ms autosave debounce whose
  *  response the client adopts wholesale and mirrors into IndexedDB — so attaching it
  *  there re-shipped an immutable icon on every keystroke batch. The editor gets its icon
- *  once from getByEditToken, or from /api/trail-favicon while the list is still a draft.
+ *  once from getByEditHash, or from /api/trail-favicon while the list is still a draft.
  *
  *  The two lookups hit different tables and touch different fields, so they run
  *  concurrently rather than paying both latencies in series. */
@@ -348,6 +348,112 @@ export async function findByEditHash(editHash: string, db?: Db): Promise<ListRow
 
 export async function findByEditToken(editToken: string, db?: Db): Promise<ListRow | null> {
   return findByEditHash(sha256Hex(editToken), db);
+}
+
+/**
+ * findByEditHash narrowed to the id — same gate, one column.
+ *
+ * `lists` carries the whole gear list in its `data` JSONB, up to a thousand items,
+ * and several callers of findByEditHash want nothing from the row but proof the
+ * capability resolves and the id to act on. They were paying for the payload to
+ * learn an integer. Same idiom versionByEditHash already uses for `version`.
+ *
+ * Shares `liveOnly`, so the gate itself is still written once and can't drift from
+ * the full-row read.
+ */
+export async function findIdByEditHash(editHash: string, db?: Db): Promise<number | null> {
+  const d = db ?? (await useDb());
+  const rows = await d
+    .select({ id: lists.id })
+    .from(lists)
+    .where(liveOnly(lists.editTokenHash, editHash))
+    .limit(1);
+  return rows[0]?.id ?? null;
+}
+
+/**
+ * findByEditHash narrowed to what the publish flow touches — everything except the
+ * two heavy columns, `data` and `routeGeometry`, neither of which publishing ever
+ * reads or writes.
+ *
+ * One projection serves both the read (the editor's prefill, budgeted at 120/min)
+ * and the write, because they are two views of the same small field set; splitting
+ * them would be two shapes to keep in step for no gain. `Pick<ListRow, …>` rather
+ * than a hand-written type, so a schema change can't leave this quietly lying.
+ */
+export type PublishFields = Pick<
+  ListRow,
+  | "id"
+  | "status"
+  | "publicSlug"
+  | "shareCode"
+  | "isPublic"
+  | "flagged"
+  | "tripType"
+  | "season"
+  | "publishedAt"
+  | "title"
+  | "description"
+>;
+
+export async function findPublishFieldsByEditHash(
+  editHash: string,
+  db?: Db,
+): Promise<PublishFields | null> {
+  const d = db ?? (await useDb());
+  const rows = await d
+    .select({
+      id: lists.id,
+      status: lists.status,
+      publicSlug: lists.publicSlug,
+      shareCode: lists.shareCode,
+      isPublic: lists.isPublic,
+      flagged: lists.flagged,
+      tripType: lists.tripType,
+      season: lists.season,
+      publishedAt: lists.publishedAt,
+      title: lists.title,
+      description: lists.description,
+    })
+    .from(lists)
+    .where(liveOnly(lists.editTokenHash, editHash))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+/**
+ * findByEditHash for MANY hashes at once — same gate, one round trip, two columns.
+ *
+ * Lives here rather than in claimRepo so the "is this list live" condition stays
+ * written exactly once: it shares `liveOnly`, and an inArray in place of the eq is
+ * the only difference.
+ *
+ * Batched because claiming is the one path that resolves capabilities by the
+ * hundred. Row by row it was a full SELECT * per token — the whole JSONB list
+ * payload, fetched only to read an id — and on the neon-http driver, which has no
+ * pipelining, 200 of those are 200 sequential HTTP round trips. Same conversion
+ * captureVaultItems and stageCandidates already made, for the same reason.
+ *
+ * A hash with no live match is simply absent from the result. That preserves the
+ * silence claimLists depends on: the caller learns how many of its tokens resolved,
+ * never which, so a claim request can't be used to test whether a token exists.
+ */
+export async function findLiveByEditHashes(
+  editHashes: string[],
+  db?: Db,
+): Promise<{ id: number; editTokenHash: string }[]> {
+  if (!editHashes.length) return [];
+  const d = db ?? (await useDb());
+  return d
+    .select({ id: lists.id, editTokenHash: lists.editTokenHash })
+    .from(lists)
+    .where(
+      and(
+        inArray(lists.editTokenHash, editHashes),
+        eq(lists.status, "active"),
+        isNull(lists.deletedAt),
+      ),
+    );
 }
 
 // ---- snapshots (vandalism recovery for the shared-edit-link model) ----
@@ -463,8 +569,8 @@ export async function listSnapshotsByEditHash(
   db?: Db,
 ): Promise<SnapshotMeta[] | null> {
   const d = db ?? (await useDb());
-  const row = await findByEditHash(editHash, d);
-  if (!row) return null;
+  const listId = await findIdByEditHash(editHash, d);
+  if (listId === null) return null;
   await ensureSnapshotSchema(d);
   // partial select: this listing never reads the `snapshot` JSONB (the largest
   // column — a full list payload per row), so don't pull it over the wire
@@ -477,7 +583,7 @@ export async function listSnapshotsByEditHash(
       itemCount: listSnapshots.itemCount,
     })
     .from(listSnapshots)
-    .where(eq(listSnapshots.listId, row.id))
+    .where(eq(listSnapshots.listId, listId))
     .orderBy(desc(listSnapshots.createdAt), desc(listSnapshots.id))
     .limit(SNAPSHOT_CAP);
   return rows.map((r) => ({
@@ -509,8 +615,10 @@ export async function restoreSnapshotByEditHash(
   db?: Db,
 ): Promise<ListSnapshot | null> {
   const d = db ?? (await useDb());
-  const owner = await findByEditHash(editHash, d);
-  if (!owner) return null;
+  // id only: the CAS loop below re-reads the full row anyway, and it must, since
+  // the version it writes against has to be read inside the retry.
+  const ownerId = await findIdByEditHash(editHash, d);
+  if (ownerId === null) return null;
   await ensureSnapshotSchema(d);
   // verify the snapshot is THIS caller's list (no cross-list oracle), then
   // reconstruct its full state from the reverse-delta chain
@@ -518,11 +626,11 @@ export async function restoreSnapshotByEditHash(
     await d
       .select({ id: listSnapshots.id })
       .from(listSnapshots)
-      .where(and(eq(listSnapshots.id, snapshotId), eq(listSnapshots.listId, owner.id)))
+      .where(and(eq(listSnapshots.id, snapshotId), eq(listSnapshots.listId, ownerId)))
       .limit(1)
   )[0];
   if (!owns) return null; // unknown id, or not this caller's list
-  const s = await reconstructSnapshotState(d, owner.id, snapshotId);
+  const s = await reconstructSnapshotState(d, ownerId, snapshotId);
   if (!s) return null;
 
   // re-normalize through the SAME reducer helpers (defensive — a snapshot must not
@@ -689,16 +797,15 @@ function withOwnerOnly(snap: ListSnapshot, row: ListRow): ListSnapshot {
 
 // Hash-first like findByEditHash, and for the same reason: the edit endpoints now
 // take EITHER the bearer token or a session + claimed share code (see editAuth),
-// and both arrive here as the hash. The ByEditToken names stay as wrappers so
-// non-endpoint callers and the tests keep reading in the capability they hold.
+// and both arrive here as the hash. A ByEditToken wrapper exists wherever something
+// that isn't an endpoint — a test, mostly — genuinely holds the raw token and would
+// otherwise hash it at the call site. Only where one is actually called: the
+// unused half of the pair went with the hash migration rather than sitting here
+// implying a caller that doesn't exist.
 export async function getByEditHash(editHash: string): Promise<ListSnapshot | null> {
   const db = await useDb();
   const row = await findByEditHash(editHash, db);
   return row ? withOwnerOnly(await hydrateForRead(db, rowToSnapshot(row)), row) : null;
-}
-
-export async function getByEditToken(editToken: string): Promise<ListSnapshot | null> {
-  return getByEditHash(sha256Hex(editToken));
 }
 
 export async function versionByEditHash(editHash: string): Promise<number | null> {
@@ -709,10 +816,6 @@ export async function versionByEditHash(editHash: string): Promise<number | null
     .where(liveOnly(lists.editTokenHash, editHash))
     .limit(1);
   return rows[0]?.version ?? null;
-}
-
-export async function versionByEditToken(editToken: string): Promise<number | null> {
-  return versionByEditHash(sha256Hex(editToken));
 }
 
 export async function createList(init?: {
@@ -822,10 +925,10 @@ export async function createList(init?: {
  */
 export async function softDeleteByEditHash(editHash: string, db?: Db): Promise<boolean> {
   const d = db ?? (await useDb());
-  const row = await findByEditHash(editHash, d);
-  if (!row) return false;
+  const listId = await findIdByEditHash(editHash, d);
+  if (listId === null) return false;
   const now = new Date();
-  await d.update(lists).set({ deletedAt: now, updatedAt: now }).where(eq(lists.id, row.id));
+  await d.update(lists).set({ deletedAt: now, updatedAt: now }).where(eq(lists.id, listId));
   return true;
 }
 
@@ -1146,8 +1249,4 @@ export async function rotateEditHash(
         : eq(listClaims.listId, row.id),
     );
   return next;
-}
-
-export async function rotateEditToken(editToken: string, keepUserId?: number): Promise<string | null> {
-  return rotateEditHash(sha256Hex(editToken), keepUserId);
 }

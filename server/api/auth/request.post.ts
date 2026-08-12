@@ -1,4 +1,4 @@
-import { createError, defineEventHandler, getRequestURL, setHeader } from "h3";
+import { createError, defineEventHandler, getRequestURL } from "h3";
 import {
   MAGIC_LINK_TTL_MS,
   findOrCreateUser,
@@ -8,7 +8,7 @@ import {
 } from "../../utils/authSession";
 import { useAccountDb } from "../../utils/db";
 import { canSendEmail, sendMagicLink } from "../../utils/email";
-import { readJsonBodyCapped } from "../../utils/http";
+import { readJsonBodyCapped, setNoIndex } from "../../utils/http";
 import { rateLimit, rateLimitSubject } from "../../utils/rateLimit";
 
 // Ask for a sign-in link.
@@ -25,7 +25,7 @@ import { rateLimit, rateLimitSubject } from "../../utils/rateLimit";
 // per-EMAIL stops a distributed pool mailbombing one person's inbox. Neither
 // alone is sufficient.
 export default defineEventHandler(async (event) => {
-  setHeader(event, "X-Robots-Tag", "noindex");
+  setNoIndex(event);
   await rateLimit(event, "auth-request");
 
   // A deploy with no mail credentials can't sign anyone in, and the cheerful

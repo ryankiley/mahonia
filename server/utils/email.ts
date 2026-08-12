@@ -16,6 +16,38 @@ import { randomSecret } from "./tokens";
 
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 
+/** How long to wait on Resend before giving up.
+ *
+ *  Every message here rides an interactive request — somebody is watching a button
+ *  say "sending". Without a deadline a provider that accepts the connection and
+ *  then stalls holds the serverless function until the PLATFORM's timeout kills it,
+ *  which is both far longer and a worse failure: the caller gets nothing to act on.
+ *  Matches the 10s the other caller-facing outbound calls use (import, feedback);
+ *  trailFavicon is tighter at 5s, because nothing is waiting on an icon. */
+const SEND_TIMEOUT_MS = 10_000;
+
+/** The one POST both messages make. Single-sourced so the deadline and the
+ *  error handling can't be right in one message and missing in the other —
+ *  which is exactly how the timeout came to be absent from both. */
+async function postToResend(payload: Record<string, unknown>, apiKey: string): Promise<void> {
+  const res = await fetch(RESEND_ENDPOINT, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
+  });
+
+  if (!res.ok) {
+    // Read the provider's message for the server log — never for the response
+    // body, which must not vary with the address that was submitted.
+    const detail = await res.text().catch(() => "");
+    throw new Error(`Resend responded ${res.status}: ${detail.slice(0, 500)}`);
+  }
+}
+
 /** Fallback From, for LOCAL DEV ONLY. Resend rejects a domain you haven't
  *  verified, and a production API key is typically scoped to your own domain — so
  *  falling back to this in production doesn't send from the wrong address, it
@@ -156,34 +188,20 @@ export async function sendMagicLink({
     return;
   }
 
-  const res = await fetch(RESEND_ENDPOINT, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from: fromAddress(),
-      to: [to],
-      subject,
-      html,
-      text,
-      // BREAK THE THREAD. Without a distinct Message-ID, Gmail groups messages
-      // with the same subject from the same sender into one conversation and
-      // collapses the older ones — so the visible link is often a PREVIOUS one,
-      // which is single-use and by then dead. The failure looks like "your links
-      // don't work" and is invisible from the server. A per-message id keeps each
-      // link its own conversation.
-      headers: { "X-Entity-Ref-ID": randomSecret() },
-    }),
-  });
-
-  if (!res.ok) {
-    // Read the provider's message for the server log — never for the response
-    // body, which must not vary with the address that was submitted.
-    const detail = await res.text().catch(() => "");
-    throw new Error(`Resend responded ${res.status}: ${detail.slice(0, 500)}`);
-  }
+  await postToResend({
+    from: fromAddress(),
+    to: [to],
+    subject,
+    html,
+    text,
+    // BREAK THE THREAD. Without a distinct Message-ID, Gmail groups messages
+    // with the same subject from the same sender into one conversation and
+    // collapses the older ones — so the visible link is often a PREVIOUS one,
+    // which is single-use and by then dead. The failure looks like "your links
+    // don't work" and is invisible from the server. A per-message id keeps each
+    // link its own conversation.
+    headers: { "X-Entity-Ref-ID": randomSecret() },
+  }, apiKey);
 }
 
 /**
@@ -216,20 +234,12 @@ export async function sendPasskeyAddedNotice(to: string, label: string | null): 
     return;
   }
 
-  const res = await fetch(RESEND_ENDPOINT, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      from: fromAddress(),
-      to: [to],
-      subject: "A passkey was added to your Mahonia account",
-      html: [`<p>${esc(lead)}</p>`, `<p>${esc(closing)}</p>`].join("\n"),
-      text,
-      headers: { "X-Entity-Ref-ID": randomSecret() },
-    }),
-  });
-  if (!res.ok) {
-    const detail = await res.text().catch(() => "");
-    throw new Error(`Resend responded ${res.status}: ${detail.slice(0, 500)}`);
-  }
+  await postToResend({
+    from: fromAddress(),
+    to: [to],
+    subject: "A passkey was added to your Mahonia account",
+    html: [`<p>${esc(lead)}</p>`, `<p>${esc(closing)}</p>`].join("\n"),
+    text,
+    headers: { "X-Entity-Ref-ID": randomSecret() },
+  }, apiKey);
 }

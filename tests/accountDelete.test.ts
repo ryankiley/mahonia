@@ -12,7 +12,6 @@
 // hard way — checking this through a running dev server meant two processes with
 // the same PGlite directory open, and the two views disagreed.)
 
-import { PGlite } from "@electric-sql/pglite";
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -23,12 +22,11 @@ import { VAULT_DDL } from "../server/utils/vaultSchema";
 import { deleteAccount } from "../server/utils/accountRepo";
 import { claimLists } from "../server/utils/claimRepo";
 import { randomEditToken, randomShareCode, sha256Hex } from "../server/utils/tokens";
+import { createTestDb } from "./helpers/db";
 
 type DB = ReturnType<typeof drizzle>;
 async function freshDb(): Promise<DB> {
-  const db = drizzle(new PGlite(), { schema });
-  for (const stmt of [...LISTS_DDL, ...ACCOUNT_DDL, ...VAULT_DDL]) await db.execute(sql.raw(stmt));
-  return db;
+  return createTestDb(LISTS_DDL, ACCOUNT_DDL, VAULT_DDL);
 }
 
 async function makeUser(db: DB, email: string): Promise<number> {

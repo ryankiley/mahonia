@@ -1,13 +1,13 @@
-import { createError, defineEventHandler, setHeader } from "h3";
+import { createError, defineEventHandler } from "h3";
 import { createList } from "../../utils/listRepo";
-import { readJsonBodyCapped } from "../../utils/http";
+import { readJsonBodyCapped, setNoIndex } from "../../utils/http";
 import { rateLimit } from "../../utils/rateLimit";
 import { resolveSession } from "../../utils/authSession";
 import type { ListData, Unit } from "../../../shared/types";
 import { UNITS } from "../../../shared/types";
 
 export default defineEventHandler(async (event) => {
-  setHeader(event, "X-Robots-Tag", "noindex");
+  setNoIndex(event);
   await rateLimit(event, "create");
   const body = await readJsonBodyCapped<{
     title?: string;

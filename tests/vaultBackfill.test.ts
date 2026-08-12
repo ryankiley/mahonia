@@ -11,7 +11,6 @@
 // them to the RIGHT vault, and to nobody else's". Nothing here asserts a row count
 // without also asserting whose vault it landed in.
 
-import { PGlite } from "@electric-sql/pglite";
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -22,12 +21,11 @@ import { VAULT_DDL } from "../server/utils/vaultSchema";
 import { backfillVaultFromClaims, claimLists } from "../server/utils/claimRepo";
 import { applyVaultItemOp, listVaultItems } from "../server/utils/vaultRepo";
 import { randomEditToken, randomShareCode, sha256Hex } from "../server/utils/tokens";
+import { createTestDb } from "./helpers/db";
 
 type DB = ReturnType<typeof drizzle>;
 async function freshDb(): Promise<DB> {
-  const db = drizzle(new PGlite(), { schema });
-  for (const stmt of [...LISTS_DDL, ...ACCOUNT_DDL, ...VAULT_DDL]) await db.execute(sql.raw(stmt));
-  return db;
+  return createTestDb(LISTS_DDL, ACCOUNT_DDL, VAULT_DDL);
 }
 
 async function makeUser(db: DB, email: string): Promise<number> {

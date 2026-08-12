@@ -1,9 +1,9 @@
-import { defineEventHandler, setHeader } from "h3";
+import { defineEventHandler } from "h3";
 import { eq } from "drizzle-orm";
 import { requireUser } from "../../utils/authSession";
 import { useAccountDb } from "../../utils/db";
 import { users } from "../../db/schema";
-import { readJsonBodyCapped } from "../../utils/http";
+import { readJsonBodyCapped, setNoIndex, setPrivate } from "../../utils/http";
 import { rateLimit } from "../../utils/rateLimit";
 
 /** Cap on a display name. Long enough for a real name or a trail name, short
@@ -41,8 +41,8 @@ function cleanDisplayName(raw: string): string {
 // is ever public. An empty string clears it and returns you to anonymous; only a
 // field actually present in the body is written.
 export default defineEventHandler(async (event) => {
-  setHeader(event, "X-Robots-Tag", "noindex");
-  setHeader(event, "Cache-Control", "private, no-store");
+  setNoIndex(event);
+  setPrivate(event);
   await rateLimit(event, "account");
   const user = await requireUser(event);
 

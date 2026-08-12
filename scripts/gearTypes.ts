@@ -3,7 +3,7 @@
 // A label is generated per catalog row (seed/common-names.json), then normalized HERE so
 // near-duplicates collapse to one term and the vocabulary stays consistent as rows are added.
 //
-// Aligned to the search spine (shared/searchTerms.ts NOUNS) where the concepts overlap, so
+// Aligned to the search spine (scripts/searchTerms.ts NOUNS) where the concepts overlap, so
 // search and display share spellings — but the better DISPLAY term wins when a search noun
 // reads worse ("neck gaiter", not "buff"); search matches via a row's search_terms, never
 // its common name, so the two need only be consistent, not identical.

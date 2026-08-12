@@ -1,9 +1,9 @@
 import { PGlite } from "@electric-sql/pglite";
-import { eq, sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/pglite";
+import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import * as schema from "../server/db/schema";
 import { MG_PER_UNIT } from "../shared/weights";
+import { createTestDb } from "./helpers/db";
 import {
   csvToCatalogRows,
   parseCsv,
@@ -23,9 +23,7 @@ import {
 
 // A fresh in-memory catalog DB (PGlite, no disk) with the catalog DDL applied.
 async function freshCatalogDb() {
-  const db = drizzle(new PGlite(), { schema });
-  for (const stmt of CATALOG_DDL) await db.execute(sql.raw(stmt));
-  return db;
+  return createTestDb(CATALOG_DDL);
 }
 
 describe("specToMg — cited spec → integer milligrams", () => {

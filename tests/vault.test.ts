@@ -1,8 +1,6 @@
-import { PGlite } from "@electric-sql/pglite";
 import { eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import * as schema from "../server/db/schema";
 import { vaultFolders, vaultItems, vaults } from "../server/db/schema";
 import { VAULT_DDL } from "../server/utils/vaultSchema";
 import { UNIT_WEIGHT_MAX_MG } from "../shared/ops";
@@ -29,12 +27,11 @@ import {
 } from "../shared/vault";
 import { rankVaultRows } from "../shared/vaultSearch";
 import type { Item, MyListEntry } from "../shared/types";
+import { createTestDb } from "./helpers/db";
 
 type DB = ReturnType<typeof drizzle>;
 async function freshDb(): Promise<DB> {
-  const db = drizzle(new PGlite(), { schema });
-  for (const stmt of VAULT_DDL) await db.execute(sql.raw(stmt));
-  return db;
+  return createTestDb(VAULT_DDL);
 }
 
 const item = (over: Partial<Item> = {}): Item => ({

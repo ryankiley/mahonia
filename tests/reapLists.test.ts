@@ -1,20 +1,17 @@
-import { PGlite } from "@electric-sql/pglite";
 import { sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/pglite";
 import { describe, expect, it } from "vitest";
-import * as schema from "../server/db/schema";
 import { lists, listSnapshots } from "../server/db/schema";
 import { LISTS_DDL, SNAPSHOTS_DDL, _resetSnapshotEnsured } from "../server/utils/db";
 import { purgeDeletedLists, reapAbandonedLists } from "../server/utils/listRepo";
 import { sha256Hex } from "../server/utils/tokens";
 import type { ListData } from "../shared/types";
+import { createTestDb } from "./helpers/db";
 
 // Repo against a fresh in-memory PGlite (mirrors discovery.test.ts). Creates the
 // snapshots table too (the purge cascades into it), and resets the memoized
 // ensure so purgeDeletedLists's ensureSnapshotSchema runs against THIS db.
 async function freshDb() {
-  const db = drizzle(new PGlite(), { schema });
-  for (const stmt of [...LISTS_DDL, ...SNAPSHOTS_DDL]) await db.execute(sql.raw(stmt));
+  const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL);
   _resetSnapshotEnsured();
   return db;
 }

@@ -1,17 +1,13 @@
-import { PGlite } from "@electric-sql/pglite";
-import { sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/pglite";
 import { describe, expect, it } from "vitest";
-import * as schema from "../server/db/schema";
 import { lists } from "../server/db/schema";
 import { LISTS_DDL, SNAPSHOTS_DDL, _resetSnapshotEnsured } from "../server/utils/db";
 import { findByEditToken, softDeleteByEditToken } from "../server/utils/listRepo";
 import { sha256Hex } from "../server/utils/tokens";
+import { createTestDb } from "./helpers/db";
 
 // Repo against a fresh in-memory PGlite (mirrors reapLists.test / discovery.test).
 async function freshDb() {
-  const db = drizzle(new PGlite(), { schema });
-  for (const stmt of [...LISTS_DDL, ...SNAPSHOTS_DDL]) await db.execute(sql.raw(stmt));
+  const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL);
   _resetSnapshotEnsured();
   return db;
 }

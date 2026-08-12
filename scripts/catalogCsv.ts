@@ -3,7 +3,7 @@
 // these directly (tests/catalog.test.ts) and the build/seed scripts reuse them.
 
 import { MG_PER_UNIT, parseWeightInput } from "../shared/weights";
-import { buildSearchTerms } from "../shared/searchTerms";
+import { buildSearchTerms } from "./searchTerms";
 
 export type SpecUnit = "g" | "kg" | "oz" | "lb";
 
@@ -187,7 +187,7 @@ export interface CatalogCsvRow {
   weightSource: string;
   sourceUrl: string | null;
   // Derived (not a CSV column): the extra words this row is searchable by —
-  // category noun + locale/synonym aliases. See shared/searchTerms.ts.
+  // category noun + locale/synonym aliases. See scripts/searchTerms.ts.
   searchTerms: string | null;
 }
 

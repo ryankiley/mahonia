@@ -1,8 +1,8 @@
-import { defineEventHandler, setHeader } from "h3";
+import { defineEventHandler } from "h3";
 import { requireUser } from "../../utils/authSession";
 import { unclaimList } from "../../utils/claimRepo";
 import { useAccountDb } from "../../utils/db";
-import { readJsonBodyCapped } from "../../utils/http";
+import { readJsonBodyCapped, setNoIndex } from "../../utils/http";
 import { rateLimit } from "../../utils/rateLimit";
 
 // "Remove from my account" — the account-level counterpart of "remove from this
@@ -12,7 +12,7 @@ import { rateLimit } from "../../utils/rateLimit";
 // Deliberately NOT a delete. Deleting a list for everyone is a separate, louder
 // action that already exists and keeps its confirmation dialog.
 export default defineEventHandler(async (event) => {
-  setHeader(event, "X-Robots-Tag", "noindex");
+  setNoIndex(event);
   await rateLimit(event, "list-claim");
   const user = await requireUser(event);
 

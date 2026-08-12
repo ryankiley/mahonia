@@ -10,8 +10,7 @@
 // included, which is where the sliding-expiry bug the refresh comment warns
 // about would actually live.
 
-import { PGlite } from "@electric-sql/pglite";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { IncomingMessage, ServerResponse } from "node:http";
 import { Socket } from "node:net";
@@ -29,12 +28,11 @@ import {
   startSession,
 } from "../server/utils/authSession";
 import { sha256Hex } from "../server/utils/tokens";
+import { createTestDb } from "./helpers/db";
 
 type DB = ReturnType<typeof drizzle>;
 async function freshDb(): Promise<DB> {
-  const db = drizzle(new PGlite(), { schema });
-  for (const stmt of ACCOUNT_DDL) await db.execute(sql.raw(stmt));
-  return db;
+  return createTestDb(ACCOUNT_DDL);
 }
 
 // resolveSession/endSession/endAllSessions reach for useAccountDb() themselves,

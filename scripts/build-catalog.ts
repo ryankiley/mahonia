@@ -21,7 +21,7 @@ import {
 } from "./catalogCsv";
 import { readResearchFiles } from "./research";
 import { normalizeVariant } from "../shared/catalogQuality";
-import { deriveNoun } from "../shared/searchTerms";
+import { deriveNoun } from "./searchTerms";
 import { normalizeGearType } from "./gearTypes";
 
 const here = dirname(fileURLToPath(import.meta.url));

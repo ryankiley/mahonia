@@ -19,7 +19,7 @@ import {
 // through a share link, because it is never sent anywhere. "It stays on your device" is a
 // fact about what the code can do rather than a promise about what it chooses to do.
 //
-// The pattern is the vault's metric/imperial preference (app/pages/vault.vue): a
+// The pattern is My Gear's metric/imperial preference (app/pages/gear.vue): a
 // device-level setting that takes its default from context and remembers an explicit
 // choice from there. Not an account setting — lists need no account, and gating the one
 // number the burn model wants behind a sign-in would make the estimates a feature only

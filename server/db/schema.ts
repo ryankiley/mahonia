@@ -123,6 +123,15 @@ export const lists = pgTable(
     index("idx_lists_feed_trip")
       .on(t.tripType, t.publishedAt.desc())
       .where(sql`${t.isPublic} and ${t.status} = 'active' and ${t.deletedAt} is null`),
+    // the nightly reap's scan — abandoned near-empty drafts, over the updated_at
+    // range (the query takes no order). No feed index above can serve it: they all
+    // require is_public, which reap never filters on.
+    index("idx_lists_reap")
+      .on(t.updatedAt)
+      .where(sql`${t.status} = 'active' and ${t.deletedAt} is null and ${t.itemCount} <= 1`),
+    // the purge's scan — the OPPOSITE condition to every partial index above, so it
+    // needs its own.
+    index("idx_lists_purge").on(t.deletedAt).where(sql`${t.deletedAt} is not null`),
   ],
 );
 
@@ -162,7 +171,7 @@ export const catalogItems = pgTable(
     // shelter|sleep|pack|cook|water|clothing|electronics|firstaid|consumable|other
     categoryHint: text("category_hint"),
     // Extra searchable words (category noun + locale/synonym aliases), derived at
-    // seed time from name + category_hint — see shared/searchTerms.ts. Folded into
+    // seed time from name + category_hint — see scripts/searchTerms.ts. Folded into
     // the fuzzy match so "tent" finds a "Copper Spur" and "rucksack" a "backpack".
     searchTerms: text("search_terms"),
     weightMg: bigint("weight_mg", { mode: "number" }).notNull(),
@@ -301,14 +310,19 @@ export const listSnapshots = pgTable(
 // however many lists link to it — and the refresh sweep walks a handful of hosts instead
 // of thousands of rows. Stored as a data: URL so a strict img-src 'self' data: never has
 // to loosen (see nuxt.config.ts).
-export const trailFavicons = pgTable("trail_favicons", {
-  // hostname, lowercased, www. stripped — matches TrailLink.host
-  host: text("host").primaryKey(),
-  // null = fetched and there wasn't a usable icon. A NEGATIVE row still counts as
-  // fetched: it's what stops a dead host being re-fetched on every subsequent save.
-  dataUrl: text("data_url"),
-  fetchedAt: timestamp("fetched_at", { withTimezone: true }).notNull().defaultNow(),
-});
+export const trailFavicons = pgTable(
+  "trail_favicons",
+  {
+    // hostname, lowercased, www. stripped — matches TrailLink.host
+    host: text("host").primaryKey(),
+    // null = fetched and there wasn't a usable icon. A NEGATIVE row still counts as
+    // fetched: it's what stops a dead host being re-fetched on every subsequent save.
+    dataUrl: text("data_url"),
+    fetchedAt: timestamp("fetched_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  // the refresh sweep's scan: stalest host first (refreshStaleFavicons)
+  (t) => [index("idx_trail_favicons_stale").on(t.fetchedAt)],
+);
 
 // ---------------------------------------------------------------------------
 // vaults + vault_items — your own gear locker, owned by an ACCOUNT.
@@ -345,8 +359,14 @@ export const vaults = pgTable(
     // being already gone.
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
   },
-  // one vault per account; also the conflict target for lazy minting
-  (t) => [uniqueIndex("idx_vaults_user").on(t.userId)],
+  (t) => [
+    // one vault per account; also the conflict target for lazy minting
+    uniqueIndex("idx_vaults_user").on(t.userId),
+    // the reaper's scan: live vaults, oldest-seen first
+    index("idx_vaults_stale").on(t.lastSeenAt).where(sql`${t.deletedAt} is null`),
+    // the purge's scan — the opposite condition, so it can't share the index above
+    index("idx_vaults_purge").on(t.deletedAt).where(sql`${t.deletedAt} is not null`),
+  ],
 );
 
 export type VaultRow = typeof vaults.$inferSelect;

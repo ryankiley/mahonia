@@ -3,6 +3,7 @@ import { searchCatalog } from "../../utils/catalog";
 import { useCatalogDb } from "../../utils/db";
 import { rateLimit } from "../../utils/rateLimit";
 import { SEARCH_LIMIT } from "../../../shared/catalogSearch";
+import { setNoIndex } from "../../utils/http";
 
 // Maps-grade autocomplete for the gear catalog. `?q=` returns up to SEARCH_LIMIT
 // fuzzy matches ordered by the shared relevance-tier cascade (tier → verified →
@@ -21,7 +22,7 @@ export default defineEventHandler(async (event) => {
   // Runs BEFORE the cache headers so a 429 is never cached at the edge. Tunable.
   await rateLimit(event, "catalog-search");
 
-  setHeader(event, "X-Robots-Tag", "noindex");
+  setNoIndex(event);
   setHeader(event, "Cache-Control", "public, max-age=2, s-maxage=10");
 
   const raw = getQuery(event).q;

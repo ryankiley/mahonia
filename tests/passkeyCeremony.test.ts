@@ -14,8 +14,7 @@
 // territory — so what runs here is exactly the endpoint logic around it, driven
 // through real H3 events (body, cookies, headers) the way a request would.
 
-import { PGlite } from "@electric-sql/pglite";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { IncomingMessage, ServerResponse } from "node:http";
 import { Socket } from "node:net";
@@ -29,12 +28,11 @@ import { savePasskey } from "../server/utils/credentialRepo";
 import { startChallenge, takeChallenge } from "../server/utils/passkeys";
 import registerVerify from "../server/api/auth/passkey/register-verify.post";
 import signupVerify from "../server/api/auth/passkey/signup-verify.post";
+import { createTestDb } from "./helpers/db";
 
 type DB = ReturnType<typeof drizzle>;
 async function freshDb(): Promise<DB> {
-  const db = drizzle(new PGlite(), { schema });
-  for (const stmt of ACCOUNT_DDL) await db.execute(sql.raw(stmt));
-  return db;
+  return createTestDb(ACCOUNT_DDL);
 }
 
 // The endpoints reach for useAccountDb() themselves — point it at this file's

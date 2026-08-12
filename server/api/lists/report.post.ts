@@ -1,7 +1,7 @@
-import { defineEventHandler, setHeader } from "h3";
+import { defineEventHandler } from "h3";
 import { normalizeSlug } from "../../../shared/discovery";
 import { reportList } from "../../utils/discoveryRepo";
-import { readJsonBodyCapped } from "../../utils/http";
+import { readJsonBodyCapped, setNoIndex } from "../../utils/http";
 import { sha256Hex } from "../../utils/tokens";
 import {
   getClientIp,
@@ -22,7 +22,7 @@ const REPORT_WINDOW_MS = 14 * 24 * 60 * 60_000; // 14 days to accumulate
 // Answers generically regardless of state, so it reveals nothing about which
 // slugs exist or how close one is to the threshold.
 export default defineEventHandler(async (event) => {
-  setHeader(event, "X-Robots-Tag", "noindex");
+  setNoIndex(event);
   await rateLimit(event, "report");
   const body = await readJsonBodyCapped<{ slug?: string }>(event, 4_000);
   // shared shape rule (shared/discovery) — validated before the slug is used as

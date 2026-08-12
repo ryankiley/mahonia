@@ -26,7 +26,12 @@ import {
 } from "../../shared/discovery";
 import type { ListSnapshot } from "../../shared/types";
 import { useDb } from "./db";
-import { attachAuthorName, findByEditHash, hydrateForRead, rowToSnapshot } from "./listRepo";
+import {
+  attachAuthorName,
+  findPublishFieldsByEditHash,
+  hydrateForRead,
+  rowToSnapshot,
+} from "./listRepo";
 import { sha256Hex } from "./tokens";
 
 type Db = Awaited<ReturnType<typeof useDb>>;
@@ -36,7 +41,8 @@ type Db = Awaited<ReturnType<typeof useDb>>;
 // the sitemap can't drift. Returns a FRESH array each call so callers can safely
 // spread + extend it without leaking conditions across requests. (Slug shape
 // validation is shared/discovery's normalizeSlug; the live edit-capability lookup
-// is listRepo's findByEditHash — both imported above.)
+// is listRepo's findPublishFieldsByEditHash, which shares findByEditHash's exact
+// gate on a narrower projection — both imported above.)
 function publicReadConditions() {
   return [
     eq(lists.isPublic, true),
@@ -79,7 +85,9 @@ export async function getPublishStateByEditHash(
   db?: Db,
 ): Promise<PublishState | null> {
   const d = db ?? (await useDb());
-  const row = await findByEditHash(editHash, d);
+  // narrow read: publish state is a handful of small columns, and this is the
+  // editor's prefill — no reason to drag the list's whole JSONB across for it
+  const row = await findPublishFieldsByEditHash(editHash, d);
   return row ? publicState(row) : null;
 }
 
@@ -98,7 +106,9 @@ export async function publishListByEditHash(
   db?: Db,
 ): Promise<PublishState | null> {
   const d = db ?? (await useDb());
-  const row = await findByEditHash(editHash, d);
+  // same narrow read as the prefill — publishing decides on title/description/
+  // publishedAt/flagged and writes facets; it never touches `data`.
+  const row = await findPublishFieldsByEditHash(editHash, d);
   if (!row) return null;
 
   const tripType = normalizeTripType(input.tripType) ?? null;

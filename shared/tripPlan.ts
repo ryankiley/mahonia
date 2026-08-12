@@ -335,3 +335,101 @@ export function burnDownMg(carriedMg: number, burnableMg: number, days: number):
   // nothing. Half a day's food is the honest average over the hours you're walking.
   return Array.from({ length: days }, (_, i) => Math.round(carriedMg - perDay * (i + 0.5)));
 }
+
+// ---------------------------------------------------------------------------
+// Where each day sits on the route, and what it has to say about itself.
+//
+// These are DECISIONS, not physics — which day gets a camp, when a derived climb
+// is worth showing, when a row should stand down because a real pin already says
+// the same thing. They lived as closures inside TrailPlanPanel, where they were
+// untestable and, until this, untested: the component has no test of its own, and
+// every rule below is one somebody could break without a single case going red.
+// ---------------------------------------------------------------------------
+
+export interface DayRange {
+  fromM: number;
+  toM: number;
+}
+
+/** Cumulative start/end for each day, in order. A day with no distance is a zero-
+ *  width range at wherever the previous day left off, which is what makes it read
+ *  as "unanswered" rather than "at the trailhead". */
+export function dayRanges(dayDistancesM: number[]): DayRange[] {
+  let run = 0;
+  return dayDistancesM.map((d) => {
+    const fromM = run;
+    run += d;
+    return { fromM, toM: run };
+  });
+}
+
+/**
+ * The climb (or descent) to SHOW for a day: the typed figure if there is one, else
+ * the day's derived share of the route.
+ *
+ * The `distanceM != null` guard is the whole point. A derived climb is a day's SHARE
+ * of the route, so it only says anything once the day has a share to take — without
+ * this, a day you haven't given a distance to reads "0 ft", which is a measurement,
+ * and states flat ground where there is only an unanswered question. Its distance
+ * says "—"; its climb has to agree.
+ */
+export function shownHeightM(
+  explicitM: number | null | undefined,
+  distanceM: number | null | undefined,
+  derivedM: number | undefined,
+): number | undefined {
+  return explicitM ?? (distanceM != null ? derivedM : undefined);
+}
+
+/** True when the figure on screen came from the route rather than from the user —
+ *  the app marks a derived climb so it doesn't read as something you typed. */
+export function heightIsDerived(
+  explicitM: number | null | undefined,
+  shownM: number | undefined,
+): boolean {
+  return explicitM == null && shownM != null;
+}
+
+export interface DayEnd {
+  /** `camp` — you sleep here. `finish` — the route ends here. */
+  kind: "camp" | "finish";
+  alongM: number;
+}
+
+/**
+ * How a day ends, if it ends anywhere worth drawing a row for.
+ *
+ * Camp and finish are the same question ("where does this day leave you") with two
+ * answers, which is why one function settles it: the LAST day with any distance
+ * finishes the walk, and every other day camps. "Last" is by distance rather than
+ * index, so a trailing row you added but haven't filled in doesn't steal the finish
+ * from the day that actually ends the walk.
+ *
+ * `hasRest` — ground past the last assigned day — turns the last day back into a
+ * camp, because the route carries on past it and finishing there would be a lie.
+ *
+ * `endPinsAtM` stands the finish row down. A point-to-point route already STORES an
+ * end pin and it files into this day; saying the same thing twice in two rows is
+ * worse than not saying it, so the derived row yields to the real one. Within a
+ * metre, because the two arrive by different arithmetic — one from the polyline's
+ * length, one from the days summed. Takes the whole list and asks whether ANY of
+ * them lands here, rather than trusting there to be exactly one.
+ */
+export function dayEnd(opts: {
+  index: number;
+  ranges: DayRange[];
+  dayDistancesM: number[];
+  hasRest: boolean;
+  endPinsAtM?: readonly number[];
+}): DayEnd | null {
+  const { index, ranges, dayDistancesM, hasRest, endPinsAtM } = opts;
+  const r = ranges[index];
+  // a day with no distance yet occupies no ground, so it ends nowhere
+  if (!r || r.toM <= r.fromM) return null;
+
+  const isLast = !dayDistancesM.some((d, k) => k > index && d > 0);
+  if (!isLast || hasRest) return { kind: "camp", alongM: r.toM };
+
+  if (endPinsAtM?.some((m) => Math.abs(m - r.toM) <= 1)) return null;
+  return { kind: "finish", alongM: r.toM };
+}

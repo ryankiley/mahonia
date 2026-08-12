@@ -1,5 +1,5 @@
 import { defineEventHandler, setHeader } from "h3";
-import changelog from "../../content/changelog.json";
+import changelog from "../../content/changelog.generated.json";
 import { sortReleases, type ChangelogRelease } from "../../shared/changelog";
 
 // The "What's new" feed, served rather than imported.
@@ -14,6 +14,11 @@ import { sortReleases, type ChangelogRelease } from "../../shared/changelog";
 // calls this at BUILD time and bakes the result into the page's HTML + payload: no
 // function invocation for a normal visit, and the client chunk carries the renderer
 // only, never the content. Mirrors /changes, which already reads its feed this way.
+//
+// The import is the GENERATED file — the archive and content/changelog.d/*.json
+// folded into one by scripts/build-changelog.ts, which every `pre` hook runs, so
+// it is always there and always current before this module is loaded. Entries are
+// authored one file per PR; shared/changelog.ts says why.
 //
 // The Added/Changed/Fixed flattening lives here too — dropping empty groups server-side
 // means the template just iterates, and the payload doesn't carry empty arrays.

@@ -25,23 +25,12 @@ const menuRef = useTemplateRef<HTMLElement>("menuRef");
 
 // tiny toast for the copy actions (a link/markdown copy is otherwise invisible); the
 // downloads also confirm here, alongside the browser's own download chrome
-const toast = ref("");
-let toastTimer: ReturnType<typeof setTimeout> | undefined;
-function flash(msg: string) {
-  toast.value = msg;
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => (toast.value = ""), 2000);
-}
-onBeforeUnmount(() => clearTimeout(toastTimer));
+const { toast, flash } = useToast();
 
 // close on the action itself, an outside tap, a scroll gesture, or Escape (mirrors the
 // editor kebab). The scroll one is mobile's: this hangs off a sticky topbar, so nothing
 // about scrolling would otherwise take it down — see onScrollOutside.
-onClickOutside(menuRef, () => (menuOpen.value = false));
-onScrollOutside(menuOpen, menuRef, () => (menuOpen.value = false));
-useWindowEvent("keydown", (e) => {
-  if (e.key === "Escape" && menuOpen.value) menuOpen.value = false;
-});
+useMenuDismiss(menuOpen, menuRef);
 
 // the four export actions + their chunk warm-up live in useListExports, shared
 // with the editor's kebab so the copy + error handling can't drift (the exporters

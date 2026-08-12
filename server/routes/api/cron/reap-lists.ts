@@ -1,9 +1,10 @@
-import { defineEventHandler, setHeader } from "h3";
+import { defineEventHandler } from "h3";
 import { requireCronAuth } from "../../../utils/cronAuth";
 import { useDb, useVaultDb } from "../../../utils/db";
 import { purgeDeletedLists, reapAbandonedLists } from "../../../utils/listRepo";
 import { purgeDeletedVaults, reapAbandonedVaults } from "../../../utils/vaultRepo";
 import { refreshStaleFavicons } from "../../../utils/trailFavicon";
+import { setNoIndex } from "../../../utils/http";
 
 // Nightly list-maintenance job (registered in vercel.json). Three stages:
 //   1. REAP  — soft-delete abandoned lists (<= 1 item, untouched for
@@ -35,7 +36,7 @@ import { refreshStaleFavicons } from "../../../utils/trailFavicon";
 // Auth: requireCronAuth — Bearer $CRON_SECRET (Vercel) or x-admin-token for a
 // manual run; rate-limited, 404 otherwise.
 export default defineEventHandler(async (event) => {
-  setHeader(event, "X-Robots-Tag", "noindex");
+  setNoIndex(event);
   await requireCronAuth(event);
 
   const db = await useDb();

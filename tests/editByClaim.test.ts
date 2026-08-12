@@ -1,5 +1,3 @@
-import { PGlite } from "@electric-sql/pglite";
-import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { beforeEach, describe, expect, it } from "vitest";
 import * as schema from "../server/db/schema";
@@ -14,6 +12,7 @@ import {
 } from "../server/utils/listRepo";
 import { getPublishStateByEditHash, publishListByEditHash } from "../server/utils/discoveryRepo";
 import { randomEditToken, randomShareCode, sha256Hex } from "../server/utils/tokens";
+import { createTestDb } from "./helpers/db";
 
 // The session path END TO END at the repo layer: a claim resolves a share code to
 // the list's edit hash (claimedEditHash), and every edit-shaped operation accepts
@@ -26,9 +25,7 @@ import { randomEditToken, randomShareCode, sha256Hex } from "../server/utils/tok
 
 type DB = ReturnType<typeof drizzle>;
 async function freshDb(): Promise<DB> {
-  const db = drizzle(new PGlite(), { schema });
-  for (const stmt of [...LISTS_DDL, ...ACCOUNT_DDL]) await db.execute(sql.raw(stmt));
-  return db;
+  return createTestDb(LISTS_DDL, ACCOUNT_DDL);
 }
 
 async function makeList(db: DB, title = "Sierra trip") {

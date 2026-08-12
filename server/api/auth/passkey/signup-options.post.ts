@@ -1,4 +1,4 @@
-import { createError, defineEventHandler, setHeader } from "h3";
+import { createError, defineEventHandler } from "h3";
 import { generateRegistrationOptions } from "@simplewebauthn/server";
 import {
   RP_NAME,
@@ -9,7 +9,7 @@ import {
 } from "../../../utils/passkeys";
 import { emailTaken, normalizeEmail } from "../../../utils/authSession";
 import { useAccountDb } from "../../../utils/db";
-import { readJsonBodyCapped } from "../../../utils/http";
+import { readJsonBodyCapped, setNoIndex, setPrivate } from "../../../utils/http";
 import { rateLimit } from "../../../utils/rateLimit";
 
 // Step 1 of creating an account with nothing but a passkey.
@@ -43,8 +43,8 @@ import { rateLimit } from "../../../utils/rateLimit";
 // account. This route is reachable by anyone, and the thing on the far side of it
 // is a row in `users`.
 export default defineEventHandler(async (event) => {
-  setHeader(event, "X-Robots-Tag", "noindex");
-  setHeader(event, "Cache-Control", "private, no-store");
+  setNoIndex(event);
+  setPrivate(event);
   await rateLimit(event, "passkey-signup");
 
   requirePasskeysConfigured();

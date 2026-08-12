@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { CSP, SECURITY_HEADERS, TILE_ORIGIN } from "../config/security";
 
 // The site talks to exactly one host that isn't itself, and this file is the thing that
 // keeps it that way.
@@ -15,22 +16,35 @@ import { describe, expect, it } from "vitest";
 // rather than its exact text: one host, in img-src, and nowhere else.
 
 const ROOT = new URL("..", import.meta.url).pathname;
-const config = readFileSync(`${ROOT}nuxt.config.ts`, "utf8");
+const config = readFileSync(`${ROOT}config/security.ts`, "utf8");
+const nuxtConfig = readFileSync(`${ROOT}nuxt.config.ts`, "utf8");
 const routeMap = readFileSync(`${ROOT}app/components/RouteMap.client.vue`, "utf8");
 
-/** The literal directive strings, with TILE_ORIGIN interpolated as the build does. */
-const directives = (() => {
-  const origin = config.match(/const TILE_ORIGIN = "([^"]+)"/)?.[1];
-  expect(origin, "TILE_ORIGIN must be a single constant").toBeTruthy();
-  const block = config.slice(config.indexOf("const CSP = ["), config.indexOf('].join("; ")'));
-  const found = [...block.matchAll(/["`]([a-z-]+-src|[a-z-]+-ancestors|[a-z-]+-uri|form-action)([^"`]*)["`]/g)];
-  expect(found.length, "parsed no directives — did the CSP block move?").toBeGreaterThan(8);
-  return new Map(found.map((m) => [m[1]!, m[2]!.replace("${TILE_ORIGIN}", origin!).trim()]));
-})();
-
-const TILE_ORIGIN = config.match(/const TILE_ORIGIN = "([^"]+)"/)![1]!;
+/**
+ * The directives, parsed from the REAL policy string.
+ *
+ * This used to regex them out of nuxt.config.ts's source — pulling the array
+ * apart and interpolating TILE_ORIGIN by hand, with an assertion that asked "did
+ * the CSP block move?" when reformatting broke it. Now the values are imported,
+ * so what is under test is the policy the build actually serves, and moving it is
+ * a compile error rather than a silently weaker test.
+ */
+const directives = new Map(
+  CSP.split(";").map((d) => {
+    const [name, ...rest] = d.trim().split(/\s+/);
+    return [name!, rest.join(" ")] as const;
+  }),
+);
 
 describe("the policy still says same-origin everywhere it matters", () => {
+  it("is the policy the routes actually carry, not a second copy of one", () => {
+    // The headers object and the CSP string are one constant feeding another, and
+    // nuxt.config applies that object to "/**". Asserting the wiring here means the
+    // directive tests below are about the served policy rather than a lookalike.
+    expect(SECURITY_HEADERS["Content-Security-Policy"]).toBe(CSP);
+    expect(nuxtConfig).toMatch(/"\/\*\*": \{ headers: SECURITY_HEADERS \}/);
+  });
+
   it("connect-src is 'self' — no fetch, XHR, EventSource or WebSocket leaves the app", () => {
     // The load-bearing half. This is what makes an uploaded GPX unable to go anywhere,
     // and it is why place search has to be proxied through our own server instead of
@@ -72,7 +86,7 @@ describe("the basemap costs exactly one token", () => {
   });
 
   it("the map reads the host from runtimeConfig, so URL and policy cannot drift", () => {
-    expect(config).toMatch(/tileOrigin: TILE_ORIGIN/);
+    expect(nuxtConfig).toMatch(/tileOrigin: TILE_ORIGIN/);
     expect(routeMap).toMatch(/tileOrigin/);
     // and doesn't hardcode a second copy of it
     expect(routeMap).not.toContain(TILE_ORIGIN);

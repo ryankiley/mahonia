@@ -1,0 +1,69 @@
+# The checks a PR has to survive: types, tests, a build, and the bundle ratchet.
+#
+# WHY: all four already existed as npm scripts, and none of them ran anywhere. The
+# repo has 77 test files, a `typecheck` script, and a first-load budget with a
+# hand-kept change-log of every measurement — a genuinely careful set of gates that
+# nothing enforced, so a PR could merge with failing tests, TypeScript errors, or a
+# blown budget and nothing would say so. Vercel's build runs `nuxt build`, which
+# transpiles but does NOT type-check, so the deploy was never the backstop either.
+#
+# That is not hypothetical: when this workflow was written the first-load budget was
+# already over (154.5 KB against 154), from ~3.3 KB that had landed across several
+# commits with no build run between them. Nobody was careless — there was simply
+# nowhere for the number to surface. See scripts/bundle-budget.mjs.
+#
+# This file only REPORTS. Making any of these a merge blocker is a branch-protection
+# setting in the repo's GitHub settings, not something a workflow can declare — a red
+# check here is visible on the PR either way.
+name: CI
+
+on:
+  pull_request:
+
+# one run per PR: a push mid-run makes the older answer irrelevant, and these are
+# minutes of compute
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# reads the code, says nothing back — no comments, no deploys, no secrets
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    # A full run is ~4 minutes. Anything past 20 is wedged, and a hung job holds
+    # the concurrency slot for six hours by default.
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # matches .nvmrc + package.json engines
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      # Ordered cheapest-first so an obvious break reports in a minute rather than
+      # five — but every step runs regardless (`!cancelled()`), because a red
+      # typecheck shouldn't hide whether the tests also fail. One PR, one full
+      # picture, rather than a queue of one-fix-at-a-time pushes.
+      - name: Typecheck
+        if: '!cancelled()'
+        run: npm run typecheck
+
+      - name: Test
+        if: '!cancelled()'
+        run: npm test
+
+      - name: Build
+        if: '!cancelled()'
+        run: npm run build
+
+      # Reads .output, so it has to follow the build.
+      - name: Bundle budget
+        if: '!cancelled()'
+        run: npm run bundle-budget

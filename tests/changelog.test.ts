@@ -1,17 +1,19 @@
-// The "What's new" changelog: unit-test the ordering helper, and gate the
-// committed content/changelog.json so a malformed entry (bad date, empty group,
-// blank bullet) fails `npm test` instead of shipping to the page.
+// The "What's new" changelog: unit-test the ordering and merge helpers, and gate
+// the committed content (archive + every fragment) so a malformed entry (bad
+// date, empty group, blank bullet) fails `npm test` instead of shipping to the
+// page.
+//
+// Reads the SOURCES, not content/changelog.generated.json — the generated file is
+// a build artifact, and a test that only looked at it would pass on a stale build
+// and fail on a clean checkout that hasn't built yet.
 
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { sortReleases, type ChangelogRelease } from "../shared/changelog";
+import { readArchive, readFragments } from "../scripts/changelogSources";
+import { mergeReleases, sortReleases, type ChangelogRelease } from "../shared/changelog";
 
-const root = dirname(dirname(fileURLToPath(import.meta.url)));
-const data = JSON.parse(
-  readFileSync(join(root, "content/changelog.json"), "utf8"),
-) as ChangelogRelease[];
+const archive = readArchive();
+const fragments = readFragments();
+const everything: ChangelogRelease[] = [...archive, ...fragments.map((f) => f.release)];
 
 describe("sortReleases", () => {
   it("orders newest date first", () => {
@@ -34,14 +36,101 @@ describe("sortReleases", () => {
   });
 });
 
-describe("content/changelog.json", () => {
-  it("is a non-empty array", () => {
-    expect(Array.isArray(data)).toBe(true);
-    expect(data.length).toBeGreaterThan(0);
+describe("mergeReleases", () => {
+  it("folds several fragments on one date into a single release, in input order", () => {
+    const merged = mergeReleases([
+      { date: "2026-07-01", added: ["one"] },
+      { date: "2026-07-01", added: ["two"], fixed: ["three"] },
+      { date: "2026-07-01", added: ["four"] },
+    ]);
+    expect(merged).toHaveLength(1);
+    expect(merged[0]?.added).toEqual(["one", "two", "four"]);
+    expect(merged[0]?.fixed).toEqual(["three"]);
+  });
+
+  it("keeps distinct dates apart and sorts them newest first", () => {
+    const merged = mergeReleases([
+      { date: "2026-07-01", added: ["older"] },
+      { date: "2026-07-09", added: ["newer"] },
+      { date: "2026-07-01", added: ["older too"] },
+    ]);
+    expect(merged.map((r) => r.date)).toEqual(["2026-07-09", "2026-07-01"]);
+    expect(merged[1]?.added).toEqual(["older", "older too"]);
+  });
+
+  it("takes the FIRST title on a date, so a shipped headline is not rewritten", () => {
+    const merged = mergeReleases([
+      { date: "2026-07-01", title: "Mahonia is live", added: ["one"] },
+      { date: "2026-07-01", title: "second thoughts", added: ["two"] },
+    ]);
+    expect(merged[0]?.title).toBe("Mahonia is live");
+  });
+
+  it("carries a title through from a fragment when the archive has none", () => {
+    const merged = mergeReleases([
+      { date: "2026-07-01", added: ["one"] },
+      { date: "2026-07-01", title: "Named later", added: ["two"] },
+    ]);
+    expect(merged[0]?.title).toBe("Named later");
+  });
+
+  it("drops empty groups rather than carrying empty arrays onto the page", () => {
+    const merged = mergeReleases([{ date: "2026-07-01", added: ["one"], changed: [], fixed: [] }]);
+    expect(merged[0]).toEqual({ date: "2026-07-01", added: ["one"] });
+  });
+
+  it("drops a bullet that arrives twice, so a half-done compaction can't double the page", () => {
+    // changelog:compact writes the archive and then deletes the fragments it folded.
+    // If a delete doesn't happen — Ctrl-C, a read-only directory, an author who
+    // stages the archive but not the deletions — the same sentence arrives from both
+    // sides on the next build. Before this, every bullet rendered twice on /about.
+    const merged = mergeReleases([
+      { date: "2026-07-01", added: ["First settled bullet.", "Second settled bullet."] },
+      { date: "2026-07-01", added: ["First settled bullet."] },
+      { date: "2026-07-01", added: ["Second settled bullet."] },
+    ]);
+    expect(merged).toHaveLength(1);
+    expect(merged[0]?.added).toEqual(["First settled bullet.", "Second settled bullet."]);
+  });
+
+  it("emits one fixed key order however the groups arrived", () => {
+    // Built incrementally, the first release on a date got the canonical order and
+    // later ones appended keys as they turned up — so the archive's on-disk key order
+    // depended on which fragment happened to be written first, and a compaction
+    // round-trip came back reordered.
+    const fixedFirst = mergeReleases([
+      { date: "2026-07-01", fixed: ["f"] },
+      { date: "2026-07-01", changed: ["c"] },
+      { date: "2026-07-01", added: ["a"] },
+    ]);
+    const addedFirst = mergeReleases([
+      { date: "2026-07-01", added: ["a"] },
+      { date: "2026-07-01", changed: ["c"] },
+      { date: "2026-07-01", fixed: ["f"] },
+    ]);
+    expect(Object.keys(fixedFirst[0]!)).toEqual(["date", "added", "changed", "fixed"]);
+    expect(JSON.stringify(fixedFirst)).toBe(JSON.stringify(addedFirst));
+  });
+
+  it("does not mutate the input or the releases inside it", () => {
+    const input: ChangelogRelease[] = [
+      { date: "2026-07-01", added: ["one"] },
+      { date: "2026-07-01", added: ["two"] },
+    ];
+    mergeReleases(input);
+    expect(input).toHaveLength(2);
+    expect(input[0]?.added).toEqual(["one"]);
+  });
+});
+
+describe("committed changelog content", () => {
+  it("has a non-empty archive", () => {
+    expect(Array.isArray(archive)).toBe(true);
+    expect(archive.length).toBeGreaterThan(0);
   });
 
   it("every release has an ISO date and at least one non-empty entry", () => {
-    for (const rel of data) {
+    for (const rel of everything) {
       expect(rel.date, JSON.stringify(rel)).toMatch(/^\d{4}-\d{2}-\d{2}$/);
       const count = (rel.added?.length ?? 0) + (rel.changed?.length ?? 0) + (rel.fixed?.length ?? 0);
       expect(count, `no entries on ${rel.date}`).toBeGreaterThan(0);
@@ -49,7 +138,7 @@ describe("content/changelog.json", () => {
   });
 
   it("every entry is a non-blank string", () => {
-    for (const rel of data) {
+    for (const rel of everything) {
       for (const group of [rel.added, rel.changed, rel.fixed]) {
         for (const entry of group ?? []) {
           expect(typeof entry).toBe("string");
@@ -57,5 +146,20 @@ describe("content/changelog.json", () => {
         }
       }
     }
+  });
+
+  it("names every fragment for the date it carries, so filename order is date order", () => {
+    for (const f of fragments) {
+      expect(f.name, `${f.name} does not start with its date`).toMatch(
+        new RegExp(`^${f.release.date}-`),
+      );
+    }
+  });
+
+  it("folds cleanly — one release per date, newest first", () => {
+    const merged = mergeReleases(everything);
+    const dates = merged.map((r) => r.date);
+    expect(new Set(dates).size, "a date appears twice after merging").toBe(dates.length);
+    expect([...dates].sort((a, b) => b.localeCompare(a))).toEqual(dates);
   });
 });

@@ -1,11 +1,20 @@
 # Nudges every PR to keep the on-site "What's new" changelog fed. The entries are
 # curated by hand (plain, user-facing — not auto-scraped from commits), so this
 # doesn't write them; it just leaves a sticky reminder comment when a PR looks
-# user-facing (touches app/ or shared/) but doesn't touch content/changelog.json.
+# user-facing (touches app/ or shared/) but adds no changelog entry.
+#
+# An entry is a new file under content/changelog.d/ (see shared/changelog.ts for
+# why it is a file per PR and not a line in a shared one); a PR that edits the
+# content/changelog.json archive counts too, which is what changelog:compact does.
+#
+# Opting out takes no trip to the GitHub UI: a conventional PR-title prefix
+# (refactor:, chore:, ci:, test:, docs:, build:) or [skip-changelog]
+# in the title is enough, and the `skip-changelog` label still works. That matters
+# because most PRs in a refactoring run touch app/ or shared/ without changing one
+# thing a visitor can see, and hand-labelling each one is the tax this avoids.
 #
 # It never blocks a merge (the repo runs no required checks) and clears its own
-# comment once the changelog is updated. Refactors / deps / infra: ignore it, or
-# add the `skip-changelog` label. See scripts/changelog.mjs + README.
+# comment once satisfied. See scripts/changelog.mjs + README.
 #
 # There is no auto-fill: nothing writes the entry for you. If a user-facing PR
 # merges without one, the "What's new" page simply omits that change until it's
@@ -14,7 +23,9 @@ name: Changelog reminder
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, labeled, unlabeled]
+    # `edited` is in the list because the title is now one of the opt-outs —
+    # retitling a PR to `refactor:` has to be able to clear the comment.
+    types: [opened, synchronize, reopened, labeled, unlabeled, edited]
 
 # comment on the PR; read the diff. No code checkout, so no build/secret exposure.
 permissions:
@@ -33,14 +44,31 @@ jobs:
             const { owner, repo } = context.repo;
 
             const labels = pr.labels.map((l) => l.name);
-            const skipped = labels.includes("skip-changelog");
+            // Three ways to say "not user-facing", so none of them needs the web UI:
+            // the label, a conventional-commit title prefix, or an explicit marker.
+            const title = pr.title ?? "";
+            // NOT `style:` or `perf:`. Both are conventional-commit prefixes for
+            // work that is user-facing in THIS app: a CSS-only change is exactly
+            // what the house rule means by "something a visitor can notice" (the
+            // last three visual PRs all shipped entries), and "the gear list
+            // scrolls smoothly now" is a perf change somebody feels. Skipping them
+            // would drop entries silently, which is the failure this whole flow is
+            // built to avoid — the label is still there for the genuine exceptions.
+            const skipped =
+              labels.includes("skip-changelog") ||
+              /^(refactor|chore|ci|test|docs|build)(\([^)]*\))?!?:/i.test(title.trim()) ||
+              /\[skip[-\s]changelog\]/i.test(title);
 
             const files = await github.paginate(github.rest.pulls.listFiles, {
               owner, repo, pull_number: pr.number, per_page: 100,
             });
             const paths = files.map((f) => f.filename);
 
-            const touchedChangelog = paths.includes("content/changelog.json");
+            // A new fragment is the normal way in; an edit to the archive is what
+            // changelog:compact does, and also counts.
+            const touchedChangelog =
+              paths.some((p) => p.startsWith("content/changelog.d/")) ||
+              paths.includes("content/changelog.json");
             // "user-facing" = the surfaces a visitor sees; ignore tests
             const isTest = (p) => p.startsWith("tests/") || p.includes(".test.");
             const userFacing = paths.some(
@@ -67,7 +95,7 @@ jobs:
 
             const body = [
               MARKER,
-              "📝 **Changelog reminder** — this PR touches `app/` or `shared/` but doesn't update `content/changelog.json`.",
+              "📝 **Changelog reminder** — this PR touches `app/` or `shared/` but adds no changelog entry.",
               "",
               "If it changes something people will notice, add a line as part of this PR:",
               "",
@@ -75,9 +103,9 @@ jobs:
               'npm run changelog -- --added "One plain sentence about the change."',
               "```",
               "",
-              "Grouped Added / Changed / Fixed, plain and user-facing — it shows up on [/changelog](https://mahonia.app/changelog).",
+              "That writes a new file under `content/changelog.d/`, so it can't conflict with anyone else's entry. Grouped Added / Changed / Fixed, plain and user-facing — it shows up on [/changelog](https://mahonia.app/changelog).",
               "",
-              "Not user-facing (refactor, deps, infra)? Add the **`skip-changelog`** label.",
+              "Not user-facing (refactor, deps, infra)? Prefix the PR title — `refactor:`, `chore:`, `ci:`, `test:`, `docs:`, `build:` — or add the **`skip-changelog`** label. (`style:` and `perf:` deliberately aren't on that list: a CSS change and a speed-up are both things people notice here.)",
               "",
               "_No auto-fill: if this merges without an entry, the page just omits the change until someone backfills it._",
             ].join("\n");

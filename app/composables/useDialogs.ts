@@ -6,6 +6,15 @@ import { reactive } from "vue";
 // drives a single <AppDialogs> mount (in app.vue), so any component can open a
 // dialog without wiring its own modal. Module-level singleton — the same pattern
 // as useMyLists; only ever mutated client-side, so SSR always renders it closed.
+//
+// That last clause is a RULE and the only thing keeping it safe: a module-level
+// reactive is one variable a long-running server shares across every request. Every
+// mutator here hangs off a click or a promise settled by one, so the server never
+// touches it — but open a dialog from setup-time logic and one visitor's modal is in
+// another's SSR'd HTML. The state could move to useState (useReadView did, because it
+// backs the indexable pages and couldn't rest on a convention); `confirmResolve` below
+// could not, being a live promise resolver, and doesn't need to — it is only ever set
+// on the client, and on the server there is nothing pending to resolve.
 
 interface ConfirmOptions {
   title?: string;

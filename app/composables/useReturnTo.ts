@@ -35,7 +35,7 @@ export function useReturnTo() {
     try {
       localStorage.setItem(KEY, JSON.stringify({ path, at: Date.now() }));
     } catch {
-      // private mode / quota — returning to /vault is a fine outcome, not an error
+      // private mode / quota — returning to /gear is a fine outcome, not an error
     }
   }
 
