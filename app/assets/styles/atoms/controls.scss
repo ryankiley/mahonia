@@ -32,7 +32,19 @@
    duplicating every :focus-visible they share a selector list with, which is a real
    cost for an invisible win. `pointer: fine` joins `hover: hover` so a hybrid
    laptop's mouse still gets the affordance (same query as ListHead's link card).
-   :active below stays ungated — that IS the touch feedback, and it can't latch. */
+   :active below stays ungated — that IS the touch feedback, and it can't latch.
+
+   WRITTEN OUT, NOT A MIXIN, and every gated rule in the app repeats this query
+   character-for-character. That is the thing main.scss warns about — a value nobody
+   can change in one place — so it is a deliberate call, not an oversight. A mixin
+   would have to arrive by two routes (nuxt.config's additionalData reaches SFC style
+   blocks; @use'd files like this one don't see it and would need their own @use),
+   which is exactly the double-maintenance $bp-stack already pays. Breakpoints earn
+   that: they're everywhere and they get retuned. A hover predicate is retuned close
+   to never, and when it is, the query is an exact string — grep
+   "(hover: hover) and (pointer: fine)" finds every site in one pass and one
+   find-and-replace changes them together. Reading the real query at each rule beats
+   an indirection in a stylesheet meant to be read straight through. */
 @media (hover: hover) and (pointer: fine) {
   .btn:hover {
     background: var(--paper-3);
