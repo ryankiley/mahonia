@@ -24,3 +24,25 @@ export function memoizedEnsure<A>(
   };
   return ensure;
 }
+
+/** The same idiom for a once-per-process VALUE (the card renderer's fonts):
+ *  computed on first call, shared by concurrent first callers, and — the part
+ *  worth single-sourcing — RESET on rejection, so a transient cold-start
+ *  failure retries on the next request instead of wedging the instance on a
+ *  cached rejected promise. */
+export function memoizedOnce<T>(run: () => Promise<T>): (() => Promise<T>) & { reset(): void } {
+  let value: Promise<T> | undefined;
+  const once = (): Promise<T> => {
+    if (!value) {
+      value = run().catch((e) => {
+        value = undefined;
+        throw e;
+      });
+    }
+    return value;
+  };
+  once.reset = () => {
+    value = undefined;
+  };
+  return once;
+}

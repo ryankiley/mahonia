@@ -29,6 +29,17 @@ export function setPrivate(event: H3Event): void {
   setHeader(event, "Cache-Control", "private, no-store");
 }
 
+/** The read views' shared edge window: collapses the burst when a share link
+ *  makes the rounds, at the accepted cost of 30 s of staleness on a read-only
+ *  surface. One helper because it's one INVARIANT — the pair a crawler fetches
+ *  (a list's HTML via /api/s | /api/l, then its card image via /og) must go
+ *  stale together, which six copies of a header literal can't promise. The two
+ *  read PAGES (/s, /l) state the same window via useResponseHeader; app code
+ *  can't reach this helper, so those two literals remain. */
+export function setReadEdgeCache(event: H3Event): void {
+  setHeader(event, "Cache-Control", "public, max-age=0, s-maxage=30, stale-while-revalidate=120");
+}
+
 /**
  * The "that didn't resolve" 404 nearly every endpoint throws.
  *

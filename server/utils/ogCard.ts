@@ -16,11 +16,20 @@
 // card is always light, paper being the brand's ground. Faces are Inter (the
 // closest OFL stand-in for the site's system-ui stack — a lambda has no system
 // fonts), with InterDisplay for the two display-size runs, subset into
-// server/assets/fonts (see shared/ogCard.ts's DRAWABLE for the coverage rule).
+// server/assets/fonts (coverage rule: shared/ogCard.ts's DRAWABLE_RANGES).
 
 import satori, { type SatoriOptions } from "satori";
 import { Resvg } from "@resvg/resvg-js";
-import { OG_IMAGE_HEIGHT, OG_IMAGE_WIDTH, type OgCardModel } from "../../shared/ogCard";
+import { sendRedirect, setHeader, type H3Event } from "h3";
+import {
+  OG_IMAGE_HEIGHT,
+  OG_IMAGE_WIDTH,
+  ogCardModel,
+  type OgCardModel,
+  type OgCardSource,
+} from "../../shared/ogCard";
+import { setReadEdgeCache } from "./http";
+import { ogFonts } from "./ogFonts";
 
 // tokens.scss, light values: --paper / --ink / --ink-2
 const PAPER = "#ffffff";
@@ -57,17 +66,18 @@ const MARK_SRC = `data:image/svg+xml,${encodeURIComponent(MARK_SVG)}`;
 const MARK_SIZE = 64;
 
 // satori's vnode shape, sans JSX — the element-object form its ReactNode input
-// type expects (`key` included, which is what makes it a ReactElement to TS).
-// Everything is a flex <div>; leaves hold text.
+// type expects (`key: null` included, which is what makes it a ReactElement to
+// TS; satori itself has no reconciler and never reads it). Everything is a flex
+// <div>; leaves hold text.
 type Vnode = {
-  type: "div";
-  props: { style: Record<string, unknown>; children?: unknown };
-  key: string | null;
+  type: string;
+  props: Record<string, unknown>;
+  key: null;
 };
-const el = (style: Record<string, unknown>, children?: unknown, key: string | null = null): Vnode => ({
+const el = (style: Record<string, unknown>, children?: unknown): Vnode => ({
   type: "div",
   props: { style: { display: "flex", ...style }, children },
-  key,
+  key: null,
 });
 
 function cardVnode(m: OgCardModel): Vnode {
@@ -92,16 +102,7 @@ function cardVnode(m: OgCardModel): Vnode {
       // way the wordmark sits on it, rather than centering against 30px text.
       el({ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }, [
         el({ fontWeight: 600, fontSize: 30 }, "Mahonia"),
-        {
-          type: "img",
-          props: {
-            src: MARK_SRC,
-            width: MARK_SIZE,
-            height: MARK_SIZE,
-            style: { width: MARK_SIZE, height: MARK_SIZE },
-          },
-          key: null,
-        },
+        { type: "img", props: { src: MARK_SRC, width: MARK_SIZE, height: MARK_SIZE }, key: null },
       ]),
       el(
         {
@@ -151,11 +152,10 @@ function cardVnode(m: OgCardModel): Vnode {
         ? el(
             { flexDirection: "row", marginTop: 30 },
             m.chips.map((c, i) =>
-              el(
-                { marginLeft: i ? 44 : 0, fontSize: 35 },
-                [el({ fontWeight: 600, color: INK_2 }, c.label), el({ marginLeft: 12 }, c.value)],
-                c.label,
-              ),
+              el({ marginLeft: i ? 44 : 0, fontSize: 35 }, [
+                el({ fontWeight: 600, color: INK_2 }, c.label),
+                el({ marginLeft: 12 }, c.value),
+              ]),
             ),
           )
         : null,
@@ -163,15 +163,52 @@ function cardVnode(m: OgCardModel): Vnode {
   );
 }
 
-/** The card as SVG — the testable middle step (deterministic string out). */
+/** The card as SVG — the testable middle step (deterministic string out).
+ *  `fonts` stays a parameter as the test seam: the routes load them from Nitro
+ *  server assets (ogFonts), the tests from the filesystem. */
 export function ogCardSvg(m: OgCardModel, fonts: SatoriOptions["fonts"]): Promise<string> {
   return satori(cardVnode(m), { width: OG_IMAGE_WIDTH, height: OG_IMAGE_HEIGHT, fonts });
 }
 
-/** The card as PNG bytes, ready to serve. */
+/** The card as PNG bytes. Skip resvg's default system-font scan: satori has
+ *  already turned every glyph into a <path>, so there is no text left to shape
+ *  and the scan would walk the platform's font directories per render for
+ *  nothing. */
 export async function renderOgCard(
   m: OgCardModel,
   fonts: SatoriOptions["fonts"],
 ): Promise<Buffer> {
-  return new Resvg(await ogCardSvg(m, fonts)).render().asPng();
+  return new Resvg(await ogCardSvg(m, fonts), {
+    font: { loadSystemFonts: false },
+  })
+    .render()
+    .asPng();
+}
+
+/**
+ * The whole response tail the two og routes share: model → fonts → render →
+ * headers, and the one fallback policy. What stays IN the routes is exactly
+ * what differs between them — which repo resolves the list, and whether the
+ * surface is indexable (setNoIndex) — the same division of labor as
+ * setNoIndex/notFound themselves. (This is not the rate-limit-and-headers
+ * wrapper server/utils/http.ts warns against: rateLimit and its ordering stay
+ * at the call sites.)
+ */
+export async function sendOgCard(event: H3Event, list: OgCardSource): Promise<Buffer | void> {
+  try {
+    const png = await renderOgCard(ogCardModel(list), await ogFonts());
+    setHeader(event, "Content-Type", "image/png");
+    // same edge window as the page — the pair a crawler fetches goes stale together
+    setReadEdgeCache(event);
+    return png;
+  } catch (e) {
+    // The card is best-effort chrome — a render failure falls back to the
+    // static site card rather than a broken unfurl. Logged, because this
+    // otherwise fails silent-and-forever (e.g. a deploy missing the font
+    // assets would 302 every card with zero signal). no-store: never cache
+    // the outage.
+    console.error("og card render failed, serving static fallback:", e);
+    setHeader(event, "Cache-Control", "no-store");
+    return sendRedirect(event, "/og.jpg", 302);
+  }
 }

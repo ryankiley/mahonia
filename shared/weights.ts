@@ -499,15 +499,18 @@ export function formatWeightAuto(
 export type WeightSystem = "metric" | "imperial";
 
 /** The measurement system a display unit belongs to — so a surface that only knows
- *  the list's displayUnit (e.g. the social card) can auto-format in the same system
- *  the owner edits in, rather than defaulting everyone to metric. */
-export const unitSystem = (unit: Unit): WeightSystem =>
+ *  the list's displayUnit (the social card, the vault's first-visit default, the
+ *  text exporter) classifies it one way. Absent means metric, matching
+ *  formatWeightAuto's own default. */
+export const unitSystem = (unit: Unit | undefined): WeightSystem =>
   unit === "oz" || unit === "lb" ? "imperial" : "metric";
 
 /** The unit formatWeightAuto's magnitude promotion picks — exported so a surface
  *  that renders the number and its unit as separate elements (the social card's
- *  big figure) promotes on exactly the same threshold. */
-export function autoUnit(mg: number, system: WeightSystem = "metric"): Unit {
+ *  big figure) promotes on exactly the same threshold. No default system: every
+ *  caller has already chosen one (the "metric unless told otherwise" decision
+ *  lives in formatWeightAuto and unitSystem, not here). */
+export function autoUnit(mg: number, system: WeightSystem): Unit {
   if (system === "imperial") return mg >= MG_PER_UNIT.lb ? "lb" : "oz";
   return mg >= MG_PER_UNIT.kg ? "kg" : "g";
 }

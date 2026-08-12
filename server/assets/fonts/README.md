@@ -10,8 +10,12 @@ system fonts); InterDisplay is its optical size for the two display-size runs
 (the list's name, the big figure).
 
 Subset to Latin + Latin-1 + Latin Extended-A + general punctuation + U+2212 +
-U+20AC — the exact ranges shared/ogCard.ts's DRAWABLE strips titles to, so a
-kept character always has a glyph. Regenerate (fontTools) with:
+U+20AC. The subset REQUEST below is broad blocks; the shipped result is their
+intersection with what Inter actually has (format characters and a couple of
+archaic codepoints have no glyph). shared/ogCard.ts's DRAWABLE_RANGES lists
+that intersection exactly, and tests/ogCard.test.ts reads these files' cmaps to
+prove it — so after regenerating, run the tests and re-derive the ranges if
+they moved. Regenerate (fontTools) with:
 
 ```
 python3 -m fontTools.subset Inter-Regular.ttf --output-file=inter-regular.ttf \

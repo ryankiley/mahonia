@@ -19,7 +19,8 @@ import {
   totalsChips,
   ungroupedTopLevel,
 } from "../shared/weights";
-import type { Folder, Item, Totals } from "../shared/types";
+import type { Folder, Item } from "../shared/types";
+import { totals } from "./helpers/totals";
 
 const folder = (
   id: string,
@@ -571,19 +572,6 @@ describe("ungroupedTopLevel — the 'Ungrouped' section's rows", () => {
 });
 
 describe("totalsChips — the breakdown TotalsBar and the social card share", () => {
-  const totals = (over: Partial<Totals>): Totals => ({
-    totalMg: 0,
-    baseMg: 0,
-    wornMg: 0,
-    consumableMg: 0,
-    carriedMg: 0,
-    itemCount: 0,
-    hasWeights: false,
-    kcalTotal: 0,
-    hasKcal: false,
-    ...over,
-  });
-
   it("shows the categories that carry weight, in fixed order", () => {
     const chips = totalsChips(
       totals({ baseMg: 6_000_000, wornMg: 1_400_000, consumableMg: 800_000 }),

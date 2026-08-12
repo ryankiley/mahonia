@@ -763,6 +763,21 @@ export async function getByShareCode(code: string): Promise<ListSnapshot | null>
 }
 
 /**
+ * The same lookup for the social-card image (/og/s), WITHOUT the read-view
+ * hydration. The card draws only the title, the owner's unit and the weight
+ * rollup — hydrateForRead's current catalog names, the trail favicon (a data:
+ * URL of up to ~87 KB) and the author byline are all payload it never renders,
+ * and none of them can move a total. Same capability, same liveOnly predicate.
+ */
+export async function getCardByShareCode(code: string): Promise<ListSnapshot | null> {
+  const c = normShareCode(code);
+  if (!c) return null;
+  const db = await useDb();
+  const rows = await db.select().from(lists).where(liveOnly(lists.shareCode, c)).limit(1);
+  return rows[0] ? rowToSnapshot(rows[0]) : null;
+}
+
+/**
  * Attach the fields the OWNER may see and a viewer may not.
  *
  * rowToSnapshot omits the route's geometry and its waypoints, so every read path starts

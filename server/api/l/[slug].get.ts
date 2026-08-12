@@ -1,7 +1,7 @@
-import { defineEventHandler, getRouterParam, setHeader } from "h3";
+import { defineEventHandler, getRouterParam } from "h3";
 import { bumpView, getPublicBySlug } from "../../utils/discoveryRepo";
 import { rateLimit } from "../../utils/rateLimit";
-import { notFound } from "../../utils/http";
+import { notFound, setReadEdgeCache } from "../../utils/http";
 
 // Public, indexable read view by slug. Resolves ONLY if the list is public;
 // a private/missing slug is a 404 (never 403 — no existence oracle). Unlike
@@ -16,11 +16,7 @@ export default defineEventHandler(async (event) => {
 
   await bumpView(slug);
 
-  // edge-cache the read for a short window (collapses refresh/crawler bursts)
-  setHeader(
-    event,
-    "Cache-Control",
-    "public, max-age=0, s-maxage=30, stale-while-revalidate=120",
-  );
+  // edge-cached like every read surface — see setReadEdgeCache for the window
+  setReadEdgeCache(event);
   return { list };
 });
