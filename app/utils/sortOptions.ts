@@ -8,14 +8,14 @@ import {
 /**
  * How a folder's contents can be ordered — the labels and the glyphs, once.
  *
- * A folder in a list and a folder in My Gear offer the same four modes, and the
- * vault's copy was introduced as "the editor's SORT_META verbatim" with a comment
+ * A folder in a list and a folder in My Gear offer the same four modes, and My
+ * Gear's copy was introduced as "the editor's SORT_META verbatim" with a comment
  * saying why they must match: sorting "Heaviest first" has to read identically on
  * both surfaces or the same gesture starts meaning two things. A comment is a
  * weaker guarantee than one table, and this is the same move app/utils/unitOptions
  * made for the unit pickers.
  *
- * The two surfaces keep their own sort TYPES — a list folder's and a vault
+ * The two surfaces keep their own sort TYPES — a list folder's and a My Gear
  * folder's are declared by different schemas — so the table is keyed by the four
  * literals both narrow to, and each caller indexes it with its own type.
  *

@@ -50,7 +50,7 @@ jobs:
             // NOT `style:` or `perf:`. Both are conventional-commit prefixes for
             // work that is user-facing in THIS app: a CSS-only change is exactly
             // what the house rule means by "something a visitor can notice" (the
-            // last three visual PRs all shipped entries), and "the vault list
+            // last three visual PRs all shipped entries), and "the gear list
             // scrolls smoothly now" is a perf change somebody feels. Skipping them
             // would drop entries silently, which is the failure this whole flow is
             // built to avoid — the label is still there for the genuine exceptions.
