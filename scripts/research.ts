@@ -24,6 +24,12 @@ export interface ResearchRow {
   weight_source?: string;
   source_url?: string | null;
   quote?: string;
+  // Per-unit food energy — food rows only. Carries its OWN citation (the weight's
+  // source_url/quote often cite a spec page with no nutrition panel): kcal without
+  // kcal_source_url + kcal_quote fails the build, same bar the weight is held to.
+  kcal?: number | null;
+  kcal_source_url?: string | null;
+  kcal_quote?: string | null;
 }
 
 /** A parsed research file, or a parse error for it. Rows are `[]` when `parseError`

@@ -69,6 +69,9 @@ export const CATALOG_DDL: string[] = [
   // common_name — the generated default label ("tent", "trekking poles") a pick
   // pre-fills onto a list item. ALTER so existing tables gain it (like search_terms).
   `ALTER TABLE catalog_items ADD COLUMN IF NOT EXISTS common_name text`,
+  // kcal — cited per-unit food energy (food rows only; null elsewhere). ALTER so
+  // existing tables self-migrate, same as search_terms/common_name.
+  `ALTER TABLE catalog_items ADD COLUMN IF NOT EXISTS kcal integer`,
   // identity for idempotent upsert — coalesce so NULL brand/variant compare equal
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_catalog_identity ON catalog_items ((coalesce(brand,'')), name, (coalesce(variant,'')))`,
   // autocomplete ranking: verified first, then most-used
@@ -156,7 +159,7 @@ export async function searchCatalog(
     // by loading the whole active table), so fetching all gated rows is cheap and
     // makes Neon ≡ PGlite ≡ offline by construction.
     const res = await d.execute(sql`
-      select id, brand, name, variant, weight_mg, weight_source, verified, usage_count, search_terms, common_name, category_hint
+      select id, brand, name, variant, weight_mg, weight_source, verified, usage_count, search_terms, common_name, category_hint, kcal
       from catalog_items
       where status = 'active'
         and word_similarity(unaccent(${q}), unaccent(coalesce(brand,'') || ' ' || name || ' ' || coalesce(search_terms,''))) >= ${SIM_THRESHOLD}
@@ -215,6 +218,8 @@ function normalizeRows(res: unknown): LocalCatalogRow[] {
     searchTerms: (r.search_terms as string | null) ?? null,
     commonName: (r.common_name as string | null) ?? null,
     categoryHint: (r.category_hint as string | null) ?? null,
+    // null-guarded: Number(null) is 0, and 0 would read as a claimed calorie count
+    kcal: r.kcal == null ? null : Number(r.kcal),
   }));
 }
 

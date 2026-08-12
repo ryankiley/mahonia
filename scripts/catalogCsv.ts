@@ -16,6 +16,9 @@ export const CATALOG_CSV_HEADERS = [
   "weight_mg",
   "weight_source",
   "source_url",
+  // per-unit food energy — food rows only, blank elsewhere. Last so the
+  // weight/provenance triplet stays contiguous; blank rows just gain a comma.
+  "kcal",
 ] as const;
 
 export const WEIGHT_SOURCES = [
@@ -184,6 +187,10 @@ export interface CatalogCsvRow {
   variant: string | null;
   categoryHint: string | null;
   weightMg: number;
+  // Per-unit food energy (kcal) from the cited research — food rows only. The
+  // kcal citation itself lives on the research row (kcal_source_url/kcal_quote),
+  // not in the CSV: source_url stays the weight's provenance.
+  kcal: number | null;
   weightSource: string;
   sourceUrl: string | null;
   // Derived (not a CSV column): the extra words this row is searchable by —
@@ -205,6 +212,7 @@ export function csvToCatalogRows(text: string): CatalogCsvRow[] {
   const iMg = idx("weight_mg");
   const iSrc = idx("weight_source");
   const iUrl = idx("source_url");
+  const iKcal = idx("kcal");
   if (iName < 0 || iMg < 0 || iSrc < 0) {
     throw new Error("catalog.csv missing required columns (name, weight_mg, weight_source)");
   }
@@ -228,6 +236,11 @@ export function csvToCatalogRows(text: string): CatalogCsvRow[] {
       return t === "" ? null : t;
     };
     const categoryHint = iCat >= 0 ? blankToNull(cells[iCat]) : null;
+    const kcalRaw = iKcal >= 0 ? blankToNull(cells[iKcal]) : null;
+    const kcal = kcalRaw === null ? null : Number(kcalRaw);
+    if (kcal !== null && (!Number.isInteger(kcal) || kcal <= 0)) {
+      throw new Error(`row ${r + 1} (${name}): kcal must be a positive integer when present`);
+    }
     out.push({
       brand: iBrand >= 0 ? blankToNull(cells[iBrand]) : null,
       name,
@@ -235,6 +248,7 @@ export function csvToCatalogRows(text: string): CatalogCsvRow[] {
       variant: iVariant >= 0 ? blankToNull(cells[iVariant]) : null,
       categoryHint,
       weightMg,
+      kcal,
       weightSource,
       sourceUrl: iUrl >= 0 ? blankToNull(cells[iUrl]) : null,
       searchTerms: buildSearchTerms(name, categoryHint),

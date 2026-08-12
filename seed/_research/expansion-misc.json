@@ -111,7 +111,10 @@
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://www.naturevalley.com/products/oats-n-honey-crunchy-granola-bars",
-      "quote": "Each two-bar serving (42g)"
+      "quote": "Each two-bar serving (42g)",
+      "kcal": 190,
+      "kcal_source_url": "https://www.naturevalley.com/products/oats-n-honey-crunchy-granola-bars",
+      "kcal_quote": "Serving size: 2 bar ... Amount per serving Calories 190"
     },
     {
       "brand": "Justin's",
@@ -122,7 +125,10 @@
       "weight_unit": "oz",
       "weight_source": "manufacturer",
       "source_url": "https://www.target.com/p/justin-s-squeeze-pack-classic-almond-butter-1-15oz/-/A-15989040",
-      "quote": "1.15 Ounces"
+      "quote": "1.15 Ounces",
+      "kcal": 220,
+      "kcal_source_url": "https://www.justins.com/products/classic-almond-butter-1-15-oz/",
+      "kcal_quote": "Serving Size 1 Pack (32g) … Calories 220"
     },
     {
       "brand": "RXBAR",
@@ -144,7 +150,10 @@
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://www.skratchlabs.com/products/hydration-sport-drink-mix",
-      "quote": "SDM-LL-22g (Lemon + Lime / Single Serving)"
+      "quote": "SDM-LL-22g (Lemon + Lime / Single Serving)",
+      "kcal": 80,
+      "kcal_source_url": "https://thefeed.com/products/skratch-labs-exercise-hydration-mix",
+      "kcal_quote": "Add one scoop or packet to 12-16 oz. of water … Serving Size: 1 Scoop … Calories 80 … Total Carbohydrate 19g"
     },
     {
       "brand": "Liquid I.V.",
@@ -156,7 +165,10 @@
       "weight_secondary": "16 g",
       "weight_source": "manufacturer",
       "source_url": "https://www.fairwaymarket.com/product/liquid-iv-hydration-multiplier-electrolyte-drink-mix-sticks-056-oz-10-count-id-00810125970535",
-      "quote": "0.56 Ounces x 10 ... serving size 16 gram (one stick)"
+      "quote": "0.56 Ounces x 10 ... serving size 16 gram (one stick)",
+      "kcal": 45,
+      "kcal_source_url": "https://www.wholefoodsmarket.com/product/liquid-iv-watermelon-hydration-multiplier-drink-mix-single-b08pmbdv98",
+      "kcal_quote": "Serving Size 1 stick (16g) … Calories 45"
     },
     {
       "brand": "Mountain House",
@@ -168,7 +180,10 @@
       "weight_secondary": "124 g",
       "weight_source": "manufacturer",
       "source_url": "https://lintonoutdoors.com/mountain-house-biscuits-and-gravy/",
-      "quote": "Net Wt 4.4 oz (124grams)"
+      "quote": "Net Wt 4.4 oz (124grams)",
+      "kcal": 540,
+      "kcal_source_url": "https://mountainhouse.com/products/biscuits-and-gravy-pouch",
+      "kcal_quote": "2 servings per container Serving size 1 cups (62g) dry mix (makes 1 cup prepared) Calories/Per Pouch 540"
     },
     {
       "brand": "Peak Refuel",
@@ -179,7 +194,10 @@
       "weight_unit": "oz",
       "weight_source": "manufacturer",
       "source_url": "https://peakrefuel.com/products/beef-stroganoff",
-      "quote": "Net Weight – 5.00 oz"
+      "quote": "Net Weight – 5.00 oz",
+      "kcal": 810,
+      "kcal_source_url": "https://peakrefuel.com/products/beef-stroganoff",
+      "kcal_quote": "Servings - 2 … Net Weight – 5.00 oz … Calories per Pouch - 810"
     },
     {
       "brand": "Backpacker's Pantry",
@@ -190,7 +208,10 @@
       "weight_unit": "oz",
       "weight_source": "manufacturer",
       "source_url": "https://backpackerspantry.com/products/pad-thai",
-      "quote": "6.2 oz"
+      "quote": "6.2 oz",
+      "kcal": 760,
+      "kcal_source_url": "https://backpackerspantry.com/products/pad-thai",
+      "kcal_quote": "Calories: 760"
     },
     {
       "brand": "ENO",

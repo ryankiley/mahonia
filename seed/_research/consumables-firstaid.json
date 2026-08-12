@@ -64,7 +64,10 @@
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://eu.clifbar.com/en/products/clif-bar-chocolate-chip/",
-      "quote": "Per bar (68g)"
+      "quote": "Per bar (68g)",
+      "kcal": 258,
+      "kcal_source_url": "https://eu.clifbar.com/en/products/clif-bar-chocolate-chip/",
+      "kcal_quote": "Per bar (68g) ... Energy ... 1085kJ / 258kcal"
     },
     {
       "brand": "PROBAR",
@@ -86,7 +89,10 @@
       "weight_unit": "oz",
       "weight_source": "manufacturer",
       "source_url": "https://www.snickers.com/products/chocolate/snickers-singles-size-chocolate-candy-bars-186-oz-bars",
-      "quote": "SNICKERS Singles Size Chocolate Candy Bars, 1.86 oz"
+      "quote": "SNICKERS Singles Size Chocolate Candy Bars, 1.86 oz",
+      "kcal": 250,
+      "kcal_source_url": "https://www.snickers.com/products/chocolate/snickers-singles-size-chocolate-candy-bars-186-oz-bars",
+      "kcal_quote": "Serving Size: 1 bar … Calories: 250"
     },
     {
       "brand": "Knorr",
@@ -97,7 +103,10 @@
       "weight_unit": "oz",
       "weight_source": "manufacturer",
       "source_url": "https://smartlabel.unileverusa.com/041000022784-0001-en-US/index.html",
-      "quote": "NET WT 5.7 oz (161 g)"
+      "quote": "NET WT 5.7 oz (161 g)",
+      "kcal": 600,
+      "kcal_source_url": "https://www.target.com/p/knorr-rice-sides-cheddar-broccoli-rice-mix-5-7oz/-/A-12936134",
+      "kcal_quote": "Serving Size: 64.0 g … Servings Per Container: 2.5 … Calories: 240"
     },
     {
       "brand": "Idahoan",
@@ -108,7 +117,10 @@
       "weight_unit": "oz",
       "weight_source": "manufacturer",
       "source_url": "https://idahoan.com/products/100645",
-      "quote": "Idahoan Classic Mashed, 4 oz (Single Pouch)"
+      "quote": "Idahoan Classic Mashed, 4 oz (Single Pouch)",
+      "kcal": 440,
+      "kcal_source_url": "https://giantfood.com/groceries/rice-pasta-beans/packaged-meals-sides/instant-potatoes/instant-mashed-potatoes-mix/idahoan-classic-mashed-potatoes-4-oz-pkg.html",
+      "kcal_quote": "4 servings per container … Serving Size 0.25 CUP DRY … Calories 110"
     },
     {
       "brand": "Mountain House",
@@ -119,7 +131,10 @@
       "weight_unit": "oz",
       "weight_source": "manufacturer",
       "source_url": "https://lintonoutdoors.com/mountain-house-beef-stroganoff-propak/",
-      "quote": "Net Wt 4.6 oz (131grams)"
+      "quote": "Net Wt 4.6 oz (131grams)",
+      "kcal": 590,
+      "kcal_source_url": "https://mountainhouse.com/products/beef-stroganoff-pro-pak",
+      "kcal_quote": "Serving size 1 package … Calories/Per Pouch 590"
     },
     {
       "brand": "Starbucks",
@@ -141,7 +156,10 @@
       "weight_unit": "oz",
       "weight_source": "manufacturer",
       "source_url": "https://honeystinger.com/products/honey",
-      "quote": "Honey Stinger Organic Energy Waffle Snack, Honey, 1.06 oz"
+      "quote": "Honey Stinger Organic Energy Waffle Snack, Honey, 1.06 oz",
+      "kcal": 150,
+      "kcal_source_url": "https://www.target.com/p/honey-stinger-organic-honey-energy-waffle/-/A-83826203",
+      "kcal_quote": "Serving Size: 1 waffle ... Serving Per Container: 1 ... Calories: 150"
     },
     {
       "brand": "Pop-Tarts",
@@ -152,7 +170,10 @@
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://foods.fatsecret.com/calories-nutrition/kelloggs/pop-tarts-frosted---strawberry/1-pastry",
-      "quote": "2 pastries (96 g), 370 calories, 1 serving per container"
+      "quote": "2 pastries (96 g), 370 calories, 1 serving per container",
+      "kcal": 370,
+      "kcal_source_url": "https://www.target.com/p/pop-tarts-frosted-strawberry-pastries-8ct-13-5oz/-/A-14895483",
+      "kcal_quote": "Serving Size: 96.0 g … Servings Per Container: 4 … Calories: 370"
     },
     {
       "brand": "Clif",
@@ -163,7 +184,10 @@
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://eu.clifbar.com/en/products/clif-bar-crunchy-peanut-butter/",
-      "quote": "Per bar (68g)"
+      "quote": "Per bar (68g)",
+      "kcal": 264,
+      "kcal_source_url": "https://eu.clifbar.com/en/products/clif-bar-crunchy-peanut-butter/",
+      "kcal_quote": "Per bar (68g) ... Energy ... 1111kJ / 264kcal"
     },
     {
       "brand": "Clif",
@@ -174,7 +198,10 @@
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://eu.clifbar.com/en/products/clif-nut-butter-bar-peanut-butter/",
-      "quote": "Per bar (50g)"
+      "quote": "Per bar (50g)",
+      "kcal": 228,
+      "kcal_source_url": "https://eu.clifbar.com/en/products/clif-nut-butter-bar-peanut-butter/",
+      "kcal_quote": "Per bar (50g) ... Energy ... 953kJ / 228kcal"
     },
     {
       "brand": "Clif",
@@ -185,7 +212,10 @@
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://us.britishessentials.com/products/clif-builders-protein-bar-peanut-butter-68g",
-      "quote": "Clif Builders Chocolate Peanut Butter Protein Bar 68g ... Per Bar (68 g)"
+      "quote": "Clif Builders Chocolate Peanut Butter Protein Bar 68g ... Per Bar (68 g)",
+      "kcal": 290,
+      "kcal_source_url": "https://www.target.com/p/clif-builders-protein-bars-chocolate-peanut-butter-20g-protein-6ct/-/A-14358638",
+      "kcal_quote": "Serving Size: 68.0 g ... Serving Per Container: 6 ... Calories: 290"
     },
     {
       "brand": "Skratch Labs",
@@ -196,7 +226,10 @@
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://www.skratchlabs.com/products/energy-chews-sport-fuel",
-      "quote": "Sport Energy Chews - Raspberry - 50g - Single Serving (SKU ECS-RB-50g)"
+      "quote": "Sport Energy Chews - Raspberry - 50g - Single Serving (SKU ECS-RB-50g)",
+      "kcal": 160,
+      "kcal_source_url": "https://www.fleetfeet.com/products/sport-chews-or-singl",
+      "kcal_quote": "Pouch Size: 50g- contains 2, 25g servings … Amount Per Serving: Calories 80"
     },
     {
       "brand": "Peter Rabbit Organics",
@@ -207,7 +240,10 @@
       "weight_unit": "oz",
       "weight_source": "manufacturer",
       "source_url": "https://www.wholefoodsmarket.com/product/peter-rabbit-organics-strawberry-banana-4-oz-b00fbo6b80",
-      "quote": "1 pouch (4oz / 113g)"
+      "quote": "1 pouch (4oz / 113g)",
+      "kcal": 70,
+      "kcal_source_url": "https://www.wholefoodsmarket.com/product/peter-rabbit-organics-strawberry-banana-4-oz-b00fbo6b80",
+      "kcal_quote": "Serving Size 1 pouch (4oz / 113g) … Calories 70"
     },
     {
       "brand": "Leukotape",
