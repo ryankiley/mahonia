@@ -81,10 +81,6 @@ const el = (style: Record<string, unknown>, children?: unknown): Vnode => ({
 });
 
 function cardVnode(m: OgCardModel): Vnode {
-  // Three steps by length, not measurement: satori wraps and (past two lines)
-  // ellipsizes for us, so the size only has to keep short names monumental and
-  // long ones from eating the figure's room.
-  const titleSize = m.title.length <= 18 ? 76 : m.title.length <= 44 ? 60 : 48;
   return el(
     {
       flexDirection: "column",
@@ -96,29 +92,31 @@ function cardVnode(m: OgCardModel): Vnode {
       fontFamily: "Inter",
     },
     [
-      // the top strip: the site bar's brand on the left, same treatment
-      // (.t-label .brand — sentence case, 600), and the favicon's M mark holding
-      // the opposite corner. flex-start so the mark hangs from the top edge the
-      // way the wordmark sits on it, rather than centering against 30px text.
-      el({ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }, [
-        el({ fontWeight: 600, fontSize: 30 }, "Mahonia"),
+      // The top strip: the LIST'S NAME where a wordmark would sit, and the
+      // favicon's M holding the opposite corner — the mark alone carries the
+      // brand here (the unfurl's site_name/domain line already says Mahonia,
+      // and the site card spells it out). One fixed size now that the name is
+      // a label rather than the hero: at 40px the line fits ~45 characters,
+      // and satori's block + lineClamp wraps then ellipsizes past two lines.
+      // flex-start so both hang from the top edge.
+      el({ flexDirection: "row", alignItems: "flex-start" }, [
+        el(
+          {
+            display: "block",
+            lineClamp: 2,
+            flexGrow: 1,
+            marginRight: 48,
+            fontFamily: "InterDisplay",
+            fontWeight: 700,
+            fontSize: 40,
+            lineHeight: 1.15,
+            letterSpacing: TRACK_TIGHT,
+            wordBreak: "break-word",
+          },
+          m.title,
+        ),
         { type: "img", props: { src: MARK_SRC, width: MARK_SIZE, height: MARK_SIZE }, key: null },
       ]),
-      el(
-        {
-          // block + lineClamp is satori's text-truncation mode: two lines, then "…"
-          display: "block",
-          lineClamp: 2,
-          marginTop: 40,
-          fontFamily: "InterDisplay",
-          fontWeight: 700,
-          fontSize: titleSize,
-          lineHeight: 1.1,
-          letterSpacing: TRACK_TIGHT,
-          wordBreak: "break-word",
-        },
-        m.title,
-      ),
       el({ flexGrow: 1 }),
       // the big figure — number dominant, unit smaller and muted ON ITS BASELINE,
       // exactly TotalsBar's totals__big + totals__unit pairing. Bottom-aligned
@@ -150,17 +148,55 @@ function cardVnode(m: OgCardModel): Vnode {
       // Base / Worn / Consumable in smaller text beneath it
       m.chips.length
         ? el(
-            { flexDirection: "row", marginTop: 30 },
+            { flexDirection: "row", marginTop: 32 },
             m.chips.map((c, i) =>
-              el({ marginLeft: i ? 44 : 0, fontSize: 35 }, [
+              el({ marginLeft: i ? 48 : 0, fontSize: 40 }, [
                 el({ fontWeight: 600, color: INK_2 }, c.label),
-                el({ marginLeft: 12 }, c.value),
+                el({ marginLeft: 14 }, c.value),
               ]),
             ),
           )
         : null,
     ],
   );
+}
+
+// The SITE's own card — what unfurls when there is no list to draw: bare /e, the
+// legal pages, a dead link, and sendOgCard's failure fallback. The M mark large
+// and centered, the wordmark and the one-liner under it. NOT rendered at request
+// time: scripts/render-og-site.ts rasterizes this once into public/og.png (a
+// static file can't fail, which is what a failure fallback must be), and a test
+// re-renders it against the committed bytes so the template and the file can't
+// drift. The one-liner mirrors editorSeo's GENERIC_TITLE, which app code owns.
+const SITE_MARK_SIZE = 264;
+function siteCardVnode(): Vnode {
+  return el(
+    {
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      width: "100%",
+      height: "100%",
+      backgroundColor: PAPER,
+      color: INK,
+      fontFamily: "Inter",
+    },
+    [
+      { type: "img", props: { src: MARK_SRC, width: SITE_MARK_SIZE, height: SITE_MARK_SIZE }, key: null },
+      el({ marginTop: 48, fontWeight: 600, fontSize: 50 }, "Mahonia"),
+      el({ marginTop: 14, fontSize: 40, color: INK_2 }, "Pack lists, weighed."),
+    ],
+  );
+}
+
+export function ogSiteCardSvg(fonts: SatoriOptions["fonts"]): Promise<string> {
+  return satori(siteCardVnode(), { width: OG_IMAGE_WIDTH, height: OG_IMAGE_HEIGHT, fonts });
+}
+
+export async function renderOgSiteCard(fonts: SatoriOptions["fonts"]): Promise<Buffer> {
+  return new Resvg(await ogSiteCardSvg(fonts), { font: { loadSystemFonts: false } })
+    .render()
+    .asPng();
 }
 
 /** The card as SVG — the testable middle step (deterministic string out).
@@ -203,12 +239,13 @@ export async function sendOgCard(event: H3Event, list: OgCardSource): Promise<Bu
     return png;
   } catch (e) {
     // The card is best-effort chrome — a render failure falls back to the
-    // static site card rather than a broken unfurl. Logged, because this
-    // otherwise fails silent-and-forever (e.g. a deploy missing the font
-    // assets would 302 every card with zero signal). no-store: never cache
-    // the outage.
+    // static site card (public/og.png, prerendered by scripts/render-og-site.ts:
+    // a committed file, so THIS path cannot fail the same way) rather than a
+    // broken unfurl. Logged, because this otherwise fails silent-and-forever
+    // (e.g. a deploy missing the font assets would 302 every card with zero
+    // signal). no-store: never cache the outage.
     console.error("og card render failed, serving static fallback:", e);
     setHeader(event, "Cache-Control", "no-store");
-    return sendRedirect(event, "/og.jpg", 302);
+    return sendRedirect(event, "/og.png", 302);
   }
 }
