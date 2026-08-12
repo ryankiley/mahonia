@@ -192,11 +192,11 @@
       "name": "Takibi Down Jacket",
       "variant": "Men's M",
       "category_hint": "clothing",
-      "weight_value": 700,
+      "weight_value": 1134,
       "weight_unit": "g",
-      "weight_source": "community",
-      "source_url": "https://unexpected-store.com/products/nanga-takibi-down-jacket",
-      "quote": "No published total weight; community estimate for Men's M (Takibi fire-resistant down)"
+      "weight_source": "manufacturer",
+      "source_url": "https://gsmall.jp/mens/00129/4938101041102/",
+      "quote": "NANGA spec sheet (N1TJ): 羽毛量 155g / 総重量 約1,134 g. Same pair of figures reproduced verbatim by other Japanese retailers (Kojitusanso KSCZEY, Yahoo Shopping). NANGA quotes one weight with no size attached though S-XL are sold; row kept at Men's M. Cross-check: the sibling Aurora Down Jacket is 650 g with 150 g fill, so the aramid TAKIBI shell adds ~480 g over a nylon one."
     },
     {
       "brand": "Veja",
