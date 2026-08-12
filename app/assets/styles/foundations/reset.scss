@@ -140,11 +140,15 @@ button {
 // alone and keeps its own gesture, whatever the import order. Text fields are
 // deliberately left out: nobody double-taps one to zoom, and double-tap-to-select-
 // a-word is a text interaction worth keeping.
+// The list is the tappable elements this app ACTUALLY has, not the generic set: a
+// native <select> would want it too, but every select here was long ago replaced by
+// a popover of real <button>s, and `[role="button"]` matches nothing. Both were in
+// an earlier draft of this rule; `[role="button"]` in particular is an attribute
+// selector carrying class-level specificity, so it was weight that could one day
+// tie with a real class rule while matching nothing at all. Extend the list when a
+// new kind of control actually arrives.
 button,
-[role="button"],
-input[type="checkbox"],
-input[type="radio"],
-select {
+input[type="checkbox"] {
   touch-action: manipulation;
 }
 textarea:not([rows]) {
