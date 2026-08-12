@@ -302,7 +302,23 @@ const FIRST_LOAD_BUDGET_KB = 157;
 //
 // MAX_CHUNK is still what actually watches that chunk: 36.5 KB against 72, unmoved by any
 // of it. 267 restores the ~6 KB of slack.
-const TOTAL_BUDGET_KB = 267;
+//
+// 267 → 273, and this one is My Gear growing a page of its own (#224): adding and editing
+// gear in place, the item modal, the add row, the view/sort/show menus. Measured the same
+// two ways this note has always asked for — main at that commit builds to 269.0 against
+// 267, before any of the audit branch's own work, which then adds 0.2. So the backstop was
+// already 2.0 KB under water on work that is precisely what it says it must not price: a
+// route people visit deliberately, not something shipped to every page.
+//
+// Worth recording that this is the FIRST bump measured by the CI job landing in the same
+// branch. Every re-anchor above was found by somebody running the script by hand, after the
+// fact; #224 went in with the total already over and nothing said so. That is the gap
+// closing, and the reason the number is honest rather than convenient.
+//
+// FIRST LOAD is untouched by it — 154.5 → 154.8, a third of a KB — because the page is its
+// own route chunk. MAX_CHUNK is unmoved at 36.5 against 72. 273 restores the ~4 KB of slack
+// the re-anchors above keep arguing for.
+const TOTAL_BUDGET_KB = 273;
 // Largest single chunk, brotli. LOAD-BEARING, and the one number here that should not move
 // to accommodate a dependency: it is what a heavy map library fails. MapLibre GL ships as a
 // single ~200 KB brotli chunk and was ruled out on this line alone — a dep that needs the

@@ -7,7 +7,7 @@
 // One implementation, so the two can't drift.
 //
 // That last part is the whole point of the extraction. The vault went the other way
-// and has two — VaultPane and /vault, ~470 lines of template between them, with a
+// and has two — VaultPane and /gear, ~470 lines of template between them, with a
 // comment in the page admitting its prompt is copied "WORD FOR WORD" from the pane.
 // Signing in and deleting an account are worse things to keep in sync by hand.
 import { HugeiconsIcon } from "~/utils/hugeicon";
@@ -44,7 +44,7 @@ async function finish(fallback: string) {
 // you, and the address is the way back in when every authenticator is lost. So the
 // email here is a fact, not a slot: there is no unrecoverable state to warn about.
 //
-// It lives here rather than at the bottom of /vault so the vault page can be about
+// It lives here rather than at the bottom of /gear so the vault page can be about
 // gear and nothing else.
 // NO useHead HERE. This is a component with two mounts, and the modal mount renders
 // over some OTHER page — so a head call would retitle that page and, worse, stamp its
@@ -80,9 +80,9 @@ async function signInWithPasskey() {
   signingIn.value = false;
   // Back to whatever you were doing. This used to just return, leaving you on the
   // settings page you never came here to read — with no list navigation in the site
-  // bar to get out with. /vault is the fallback: it's the one thing an account is
+  // bar to get out with. /gear is the fallback: it's the one thing an account is
   // FOR, so it's the right landing when there's nowhere to go back to.
-  if (r === "ok") return await finish("/vault");
+  if (r === "ok") return await finish("/gear");
   signinNote.value =
     r === "unsupported"
       ? "This browser can’t use passkeys. Ask for a link instead."
@@ -304,8 +304,8 @@ async function onSignOut() {
   resetVaultCapture();
   useClaimedLists().resetClaimMark();
   // Signing out of a list you're reading shouldn't also take the list away — in the
-  // modal this just closes. The page has nothing behind it, so it goes to /vault.
-  await finish("/vault");
+  // modal this just closes. The page has nothing behind it, so it goes to /gear.
+  await finish("/gear");
 }
 </script>
 

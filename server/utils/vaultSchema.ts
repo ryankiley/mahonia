@@ -65,6 +65,12 @@ export const VAULT_DDL: string[] = [
     catalog_item_id integer,
     product_url text,
     folder_id integer,
+    name_pinned boolean NOT NULL DEFAULT false,
+    weight_pinned boolean NOT NULL DEFAULT false,
+    common_name_pinned boolean NOT NULL DEFAULT false,
+    classification_pinned boolean NOT NULL DEFAULT false,
+    kcal_pinned boolean NOT NULL DEFAULT false,
+    product_url_pinned boolean NOT NULL DEFAULT false,
     times_seen integer NOT NULL DEFAULT 1,
     last_used_at timestamptz NOT NULL DEFAULT now(),
     removed_at timestamptz,
@@ -76,6 +82,19 @@ export const VAULT_DDL: string[] = [
   // kcal — food energy per unit. ALTER so existing vaults gain it (the CREATE
   // above is a no-op once the table exists), the same way folder_id arrived.
   `ALTER TABLE vault_items ADD COLUMN IF NOT EXISTS kcal integer`,
+  // The pins. A gear EDIT wins over capture: once you correct a field on /gear it
+  // is pinned, and the merge coalesces around it instead of talking over it — the
+  // gear's half of the rule Item.weightOverridden / nameOverridden already give a
+  // list against the catalog. One flag per independent decision, which is why
+  // brand/name/variant share name_pinned: they are one spelling of one identity, and
+  // a capture rewrites all three together or none. ALTERs so existing vaults gain
+  // them, the same way folder_id and kcal arrived. No index — nothing queries a pin.
+  `ALTER TABLE vault_items ADD COLUMN IF NOT EXISTS name_pinned boolean NOT NULL DEFAULT false`,
+  `ALTER TABLE vault_items ADD COLUMN IF NOT EXISTS weight_pinned boolean NOT NULL DEFAULT false`,
+  `ALTER TABLE vault_items ADD COLUMN IF NOT EXISTS common_name_pinned boolean NOT NULL DEFAULT false`,
+  `ALTER TABLE vault_items ADD COLUMN IF NOT EXISTS classification_pinned boolean NOT NULL DEFAULT false`,
+  `ALTER TABLE vault_items ADD COLUMN IF NOT EXISTS kcal_pinned boolean NOT NULL DEFAULT false`,
+  `ALTER TABLE vault_items ADD COLUMN IF NOT EXISTS product_url_pinned boolean NOT NULL DEFAULT false`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_vault_identity ON vault_items (vault_id, norm_key)`,
   // /vault's browse order and the autocomplete's candidate pool: live rows,
   // most-recently-used first

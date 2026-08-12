@@ -19,6 +19,7 @@ import { LISTS_DDL } from "../server/utils/db";
 import { ACCOUNT_DDL } from "../server/utils/accountSchema";
 import { VAULT_DDL } from "../server/utils/vaultSchema";
 import { backfillVaultFromClaims, claimLists } from "../server/utils/claimRepo";
+import { applyVaultItemOp, listVaultItems } from "../server/utils/vaultRepo";
 import { randomEditToken, randomShareCode, sha256Hex } from "../server/utils/tokens";
 import { createTestDb } from "./helpers/db";
 
@@ -147,5 +148,27 @@ describe("rebuilding a vault from claimed lists", () => {
     expect(await backfillVaultFromClaims(db as never, user)).toBe(0);
     // no claims means no gear, and no reason to bring a vault row into existence
     expect(await vaultIdFor(db, user)).toBeNull();
+  });
+
+  it("respects a pinned field — signing in elsewhere can't undo an edit", async () => {
+    // The backfill runs captureVaultItems, so everything the pin protects against a
+    // capture it has to protect against this too. Otherwise correcting a weight on
+    // /gear would hold until the next device you signed in on, which is the one
+    // moment the vault is supposed to prove itself.
+    const user = await makeUser(db, "ryan@example.com");
+    const list = await makeListWithGear(db, "Sierra", "Tent X");
+    await claimLists(db as never, user, [list.editToken]);
+    await backfillVaultFromClaims(db as never, user);
+
+    const gear = (await vaultIdFor(db, user))!;
+    const row = (await listVaultItems(db as never, gear))[0]!;
+    await applyVaultItemOp(db as never, gear, {
+      t: "edit",
+      id: row.id,
+      patch: { weightMg: 480_000 },
+    });
+
+    await backfillVaultFromClaims(db as never, user);
+    expect((await listVaultItems(db as never, gear))[0]!.weightMg).toBe(480_000);
   });
 });

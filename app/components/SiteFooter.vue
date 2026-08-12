@@ -4,34 +4,13 @@
 // copyright; contact lives on the About page, not here. Monochrome chrome.
 const year = new Date().getFullYear();
 
-// `inToolbar` is set by the EDITOR, which carries "Your lists" (the switcher) and
-// "My Gear" in its own top bar. Repeating them three inches below is a second
-// copy of a control you can already see. Deliberately a prop rather than a route
-// check: the footer shouldn't know which pages exist, and a page that later grows
-// its own toolbar can say so the same way.
-//
-// NOT viewport-conditional, unlike an earlier attempt with a desktop-only side
-// panel: both toolbar affordances are present at every width, so the footer can
-// drop them at every width too.
-const { inToolbar = false } = defineProps<{ inToolbar?: boolean }>();
-
-// "My Gear" is signed-in chrome, and the last link here that needs a condition.
-// The vault IS the account (see useSession: it's the only reason accounts exist),
-// so offering a stranger "my gear" on a friend's shared list points at something
-// that cannot exist yet. Lists never needed the same gate — they live in a
-// device-local registry and a signed-out visitor is exactly the person who might
-// have some — which is why they carried none while they were here; they have since
-// left the footer altogether for the editor's switcher.
-//
-// Gated on the HINT COOKIE, not on `signedIn`. Nothing on a read view ever calls
-// useSession().fetch() — AccountMenu, the only session reader in the topbar,
-// deliberately doesn't — so `signedIn` is false on /s and /l even for someone
-// signed in, which is the one case this must get right. The hint carries no
-// capability; being wrong costs a link to a page that explains itself.
-const { signedIn, hasSessionHint } = useSession();
-const known = ref(false);
-onMounted(() => (known.value = hasSessionHint() || signedIn.value));
-watch(signedIn, (yes) => (known.value = yes || hasSessionHint()));
+// The footer reads NO session state, and that is the point of it. It used to, for
+// one link: "My Gear" is signed-in chrome, so it needed the hint cookie to know
+// whether to offer a page that cannot exist for a stranger. With that link gone —
+// a footer is legal-and-colophon chrome, the wrong shelf for one person's own
+// possessions — the whole apparatus goes with it: the session read, the hint
+// fallback for the read views, and the `inToolbar` prop the editor passed to stop
+// the footer repeating its own toolbar. Two links about the site, and a copyright.
 
 // Never link to the page you're already on — it reads as an action and does nothing,
 // and in a short row it costs one of the few. AccountMenu has applied this to its own
@@ -51,15 +30,11 @@ const here = (p: string) => route.path === p;
   <footer class="foot">
     <div class="wrap foot__inner">
       <nav class="foot__nav" aria-label="Footer">
-        <!-- "Your lists" used to sit here. The page it pointed at is gone — your lists
-             are the editor's switcher now — and a footer link is the wrong shape for a
-             control that lives in a toolbar. Nothing replaces it: every route that
-             renders this footer is one click from the editor already.
-             "My Gear" is the surface's name, not a possessive stacked on one. It
-             appears only for an account (see `known` above), and isn't gated on
-             whether you HOLD any gear — the page explains itself when empty, and that
-             read is device-local, so gating on it would flicker for no gain. -->
-        <NuxtLink v-if="!inToolbar && known && !here('/vault')" to="/vault" class="foot__link t-sm">My Gear</NuxtLink>
+        <!-- Two links, and both are about the SITE. "Your lists" used to sit here and
+             went when its page did; "My Gear" followed it for the same reason — a
+             footer is legal-and-colophon chrome, which is the wrong shelf for one
+             person's own possessions. It lives where you use it now: the toolbar
+             glyph in the editor, and the account menu on every other page. -->
         <NuxtLink v-if="!here('/about')" to="/about" class="foot__link t-sm">About</NuxtLink>
         <NuxtLink v-if="!here('/legal')" to="/legal" class="foot__link t-sm">Legal</NuxtLink>
       </nav>

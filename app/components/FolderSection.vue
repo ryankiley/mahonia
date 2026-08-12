@@ -277,12 +277,9 @@ function toggleCollapsed() {
 .folder__bodyinner.is-dragpass {
   overflow: visible;
 }
-/* lift the collapse clip while a row's floating overlay is open (name autocomplete,
-   or the mobile ⋯ menu), so its dropdown (absolute, opens below) isn't cropped when
-   the row sits at the folder's bottom */
-.folder__bodyinner.is-overlay-open {
-  overflow: visible;
-}
+/* the overlay lift (.is-overlay-open) is in atoms/folder.scss now — /gear renders
+   this same .folder__bodyinner and needs the identical release, and a SCOPED rule
+   only ever matched the elements this component rendered */
 /* packing/checklist mode disables the name input (it's read-only there). Browsers
    grey disabled inputs out (UA -webkit-text-fill-color), so pin it back to full ink —
    the folder name should read the same as it does in edit mode. */

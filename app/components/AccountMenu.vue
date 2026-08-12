@@ -57,7 +57,7 @@ async function onSignOut() {
 // Never link to the page you're already on — it reads as an action and does
 // nothing. Applies to both shapes.
 const onAccount = computed(() => route.path === "/account");
-const onVault = computed(() => route.path === "/vault");
+const onVault = computed(() => route.path === "/gear");
 
 // The account opens OVER the page now, so there's nowhere to come back from and
 // nothing to remember. useReturnTo still earns its keep for the magic link, which
@@ -119,7 +119,7 @@ const { open: openAccount } = useAccountModal();
             <span ref="plateRef" class="menu__plate" :class="{ 'is-placing': placing }" />
           </li>
           <li v-if="!onVault" role="none">
-            <NuxtLink to="/vault" data-row role="menuitem" class="menu__item" @click="open = false">
+            <NuxtLink to="/gear" data-row role="menuitem" class="menu__item" @click="open = false">
               My Gear
             </NuxtLink>
           </li>

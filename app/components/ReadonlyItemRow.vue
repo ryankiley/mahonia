@@ -128,13 +128,13 @@ const collapsed = ref(true);
            though the editor gives water no toggles: there the pair is hidden because
            water's class can't be edited, and nothing about a read row is editable. -->
       <span class="item__roclass">
-        <span v-if="isWorn" class="item__mark item__romark" :title="wornTitle">
+        <span v-if="isWorn" class="item__mark item__mark--static item__romark" :title="wornTitle">
           <HugeiconsIcon :icon="ShirtIcon" :size="16" :stroke-width="2" aria-hidden="true" />
           <!-- a SPLIT already reads "×3 · 1 worn" in the amount cell, so a second
                "worn" here would only say it twice -->
           <span v-if="!splitWorn" class="visually-hidden"> · worn</span>
         </span>
-        <span v-else-if="isConsumable" class="item__mark item__romark" title="Consumable">
+        <span v-else-if="isConsumable" class="item__mark item__mark--static item__romark" title="Consumable">
           <HugeiconsIcon :icon="CookieIcon" :size="16" :stroke-width="2" aria-hidden="true" />
           <span class="visually-hidden"> · consumable</span>
         </span>
@@ -222,21 +222,10 @@ const collapsed = ref(true);
   align-self: center;
   align-items: center;
 }
-.item__romark {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  inline-size: var(--icon-btn);
-  block-size: var(--icon-btn);
-  /* …but only --icon-btn to LOOK at. Pulled back onto the text line it sits in
-     (--icon-pull, the --tap-pull idiom one size down): at its full height the chip
-     stood the row's first line 8px taller than an unmarked row's, which showed up
-     twice over — as an uneven rhythm down a list where some rows are marked, and as a
-     caption sitting one gap lower on a marked row than the --row-gap 0 above intends.
-     The overhang lands in the row's own vertical padding, so nothing collides. */
-  margin-block: var(--icon-pull);
-}
+/* …but only --icon-btn to LOOK at, and pulled back onto its text line — both now in
+   .item__mark--static (atoms/item.scss), which /gear's rows share. These three
+   declarations were the second hand-copy of that box; the vault page would have been
+   the third, which is when it stops being a hypothetical. */
 /* the qty/amount label lives in the narrow 44px column; keep it on one line so a water
    row's volume ("1.75 L") never breaks between the number and its "L" unit. */
 .item__roqty {

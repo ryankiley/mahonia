@@ -17,6 +17,7 @@ import { VAULT_DDL } from "../server/utils/vaultSchema";
 import { mintVault, touchVaultByUser } from "../server/utils/vaultAuth";
 import {
   applyVaultFolderOp,
+  applyVaultItemOp,
   captureVaultItems,
   listVaultFolders,
   listVaultItems,
@@ -135,7 +136,62 @@ describe("vault isolation — one vault can never reach another's gear", () => {
     expect(await listVaultItems(db as never, theirs)).toHaveLength(1);
   });
 
-  it("scopes a removal to the vault that asked for it", async () => {
+  it("refuses to edit a row belonging to another gear", async () => {
+    await captureVaultItems(db as never, theirs, [cap("Quilt")]);
+    const row = (await listVaultItems(db as never, theirs))[0]!;
+
+    expect(
+      await applyVaultItemOp(db as never, mine, {
+        t: "edit",
+        id: row.id,
+        patch: { weightMg: 1, name: "Mine now" },
+      }),
+    ).toBeNull();
+    const after = (await listVaultItems(db as never, theirs))[0]!;
+    expect(after.name).toBe(row.name);
+    expect(after.weightMg).toBe(row.weightMg);
+  });
+
+  it("lands a hand-typed add in the asking gear only", async () => {
+    await captureVaultItems(db as never, theirs, [cap("Duplex")]);
+    await applyVaultItemOp(db as never, mine, { t: "add", name: "Duplex", weightMg: 545_000 });
+
+    // same folded key, two rows — an add is scoped exactly as a capture is
+    expect(await listVaultItems(db as never, mine)).toHaveLength(1);
+    expect((await listVaultItems(db as never, mine))[0]!.weightMg).toBe(545_000);
+    expect((await listVaultItems(db as never, theirs))[0]!.weightMg).toBe(100_000);
+  });
+
+  it("won't file a hand-typed add into another gear's folder", async () => {
+    await applyVaultFolderOp(db as never, theirs, { t: "add", name: "Theirs" });
+    const [theirFolder] = await listVaultFolders(db as never, theirs);
+
+    expect(
+      await applyVaultItemOp(db as never, mine, {
+        t: "add",
+        name: "Duplex",
+        weightMg: 1,
+        folderId: theirFolder!.id,
+      }),
+    ).toBeNull();
+    // and nothing was stored — the check runs before the insert, not after
+    expect(await listVaultItems(db as never, mine)).toHaveLength(0);
+  });
+
+  it("a pin in one gear does not protect the identical row in another", async () => {
+    await captureVaultItems(db as never, mine, [cap("Duplex")]);
+    await captureVaultItems(db as never, theirs, [cap("Duplex")]);
+    const row = (await listVaultItems(db as never, mine))[0]!;
+    await applyVaultItemOp(db as never, mine, { t: "edit", id: row.id, patch: { weightMg: 545_000 } });
+
+    await captureVaultItems(db as never, mine, [{ ...cap("Duplex"), weightMg: 900 }]);
+    await captureVaultItems(db as never, theirs, [{ ...cap("Duplex"), weightMg: 900 }]);
+
+    expect((await listVaultItems(db as never, mine))[0]!.weightMg).toBe(545_000);
+    expect((await listVaultItems(db as never, theirs))[0]!.weightMg).toBe(900);
+  });
+
+  it("scopes a removal to the gear that asked for it", async () => {
     await captureVaultItems(db as never, mine, [cap("Duplex")]);
     await captureVaultItems(db as never, theirs, [cap("Duplex")]);
     const row = (await listVaultItems(db as never, mine))[0]!;

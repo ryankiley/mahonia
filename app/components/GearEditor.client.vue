@@ -1145,7 +1145,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
     <!-- in-toolbar: this page carries BOTH footer destinations in its own top bar —
          the list switcher and My Gear — so the footer stops repeating them.
          Every other page keeps them, because nothing up there carries them. -->
-    <SiteFooter in-toolbar />
+    <SiteFooter />
 
     <Transition name="toast">
       <div
