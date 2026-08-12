@@ -2,7 +2,7 @@
 import { HugeiconsIcon, type IconChild, type IconNode } from "~/utils/hugeicon";
 import { ChevronDownIcon, Delete02Icon, Fire02Icon, HelpCircleIcon, RacingFlagIcon, RouteIcon, Stairs01Icon, TentIcon } from "@hugeicons/core-free-icons";
 import type { ListSnapshot, Totals, Waypoint } from "~~/shared/types";
-import { burnDownMg, estimateDay } from "~~/shared/tripPlan";
+import { burnDownMg, dayEnd, dayRanges, estimateDay, heightIsDerived, shownHeightM } from "~~/shared/tripPlan";
 import { dayClimbs, parseProfile } from "~~/shared/profile";
 import { MAX_DAYS } from "~~/shared/ops";
 import { dayColorSequence } from "~~/shared/categories";
@@ -283,17 +283,11 @@ const dayColors = computed(() => dayColorSequence(days.value.length));
  * is this" identically. A blank day is zero-width, which is the point: it owns no ground
  * until it has a distance, and so it can hold no pins.
  */
-const dayRanges = computed(() => {
-  let run = 0;
-  return dayDistancesM.value.map((d) => {
-    const fromM = run;
-    run += d;
-    return { fromM, toM: run };
-  });
-});
+// cumulative from/to per day — shared/tripPlan, so it is tested rather than inlined
+const ranges = computed(() => dayRanges(dayDistancesM.value));
 
 /** Ground past the last assigned day — still on the route, not yet anybody's. */
-const restFromM = computed(() => dayRanges.value.at(-1)?.toM ?? 0);
+const restFromM = computed(() => ranges.value.at(-1)?.toM ?? 0);
 const restRange = computed(() => ({ fromM: restFromM.value, toM: props.snapshot.trailDistanceM ?? 0 }));
 const hasRest = computed(() => restRange.value.toM > restRange.value.fromM + 1);
 
@@ -315,7 +309,7 @@ const waypoints = computed(() =>
  * distance and the pins redistribute, exactly as the chart's colours do.
  */
 const grouped = computed(() => {
-  const byDay: Waypoint[][] = dayRanges.value.map(() => []);
+  const byDay: Waypoint[][] = ranges.value.map(() => []);
   const rest: Waypoint[] = [];
   // HALF-OPEN, [fromM, toM) — a pin on a boundary belongs to the day that STARTS there,
   // not the one that ends there. Days share those boundaries exactly, and the closed
@@ -323,7 +317,7 @@ const grouped = computed(() => {
   // right and the answer was still the wrong day to a reader. The zero-width test keeps a
   // blank day (which owns no ground at all) from swallowing the start of the route.
   const dayFor = (alongM: number) => {
-    const i = dayRanges.value.findIndex(
+    const i = ranges.value.findIndex(
       (r) => r.toM > r.fromM && alongM >= r.fromM && alongM < r.toM,
     );
     if (i >= 0) return i;
@@ -331,7 +325,7 @@ const grouped = computed(() => {
     // boundary with nothing after it to hand the pin to, and the finish of a walk plainly
     // belongs to the day you finish on — not to leftover ground.
     if (restFromM.value > 0 && alongM === restFromM.value) {
-      return dayRanges.value.findLastIndex((r) => r.toM > r.fromM);
+      return ranges.value.findLastIndex((r) => r.toM > r.fromM);
     }
     return -1;
   };
@@ -385,7 +379,7 @@ watch(
 const armedRange = computed(() => {
   if (arming.value === null) return null;
   if (arming.value === "rest") return restRange.value;
-  const r = dayRanges.value[arming.value];
+  const r = ranges.value[arming.value];
   if (!r) return null;
   // A METRE SHORT of the boundary, and only for a day.
   //
@@ -413,13 +407,13 @@ const armedRange = computed(() => {
  * day and the unclaimed tail absorbs the difference. That asymmetry is the point of it.
  */
 function onBoundary(b: { index: number; alongM: number }) {
-  const from = dayRanges.value[b.index]?.fromM;
+  const from = ranges.value[b.index]?.fromM;
   const id = stored.value[b.index]?.id;
   if (from == null || !id) return;
   const len = Math.max(1, Math.round(b.alongM - from));
   // the next day that owns ground; blanks in between own none and can't give any up
   const nextI = dayDistancesM.value.findIndex((d, k) => k > b.index && d > 0);
-  const next = nextI >= 0 ? dayRanges.value[nextI] : undefined;
+  const next = nextI >= 0 ? ranges.value[nextI] : undefined;
   const nextId = nextI >= 0 ? stored.value[nextI]?.id : undefined;
   c.updateDay(id, { distanceM: len });
   if (next && nextId) {
@@ -451,22 +445,25 @@ function onBoundary(b: { index: number; alongM: number }) {
  * neither — unless there is unclaimed ground after it, in which case the walk does not end
  * there and neither mark is true.
  */
+// Camp and finish are one decision with two answers — which day ends where, and
+// whether a stored end pin already says it. shared/tripPlan.dayEnd settles it, and
+// is tested there; these two read the answer off it.
+const endOf = (i: number) =>
+  dayEnd({
+    index: i,
+    ranges: ranges.value,
+    dayDistancesM: dayDistancesM.value,
+    hasRest: hasRest.value,
+    endPinsAtM: waypoints.value.filter((w) => w.kind === "end").map((w) => w.alongM),
+  });
 const finishOf = (i: number): number | null => {
-  const r = dayRanges.value[i];
-  if (!r || r.toM <= r.fromM) return null;
-  const last = !dayDistancesM.value.some((d, k) => k > i && d > 0);
-  if (!last || hasRest.value) return null;
-  // A point-to-point route already STORES an end pin, and it files into this day. Saying
-  // the same thing twice in two rows is worse than not saying it — the derived row stands
-  // down and lets the real pin speak. Within a metre, because the two arrive by different
-  // arithmetic: one from the polyline's length, one from the days summed.
-  if (waypoints.value.some((w) => w.kind === "end" && Math.abs(w.alongM - r.toM) <= 1)) return null;
-  return r.toM;
+  const end = endOf(i);
+  return end?.kind === "finish" ? end.alongM : null;
 };
 
 /** The one day that has a finish, for the map — the rows ask per day, the map asks once. */
 const routeFinishM = computed(() => {
-  for (let i = 0; i < dayRanges.value.length; i++) {
+  for (let i = 0; i < ranges.value.length; i++) {
     const m = finishOf(i);
     if (m != null) return m;
   }
@@ -474,11 +471,8 @@ const routeFinishM = computed(() => {
 });
 
 const campOf = (i: number): number | null => {
-  const r = dayRanges.value[i];
-  if (!r || r.toM <= r.fromM) return null;
-  const last = !dayDistancesM.value.some((d, k) => k > i && d > 0);
-  if (last && !(hasRest.value)) return null;
-  return r.toM;
+  const end = endOf(i);
+  return end?.kind === "camp" ? end.alongM : null;
 };
 
 /**
@@ -617,16 +611,14 @@ const derivedClimbs = computed(() =>
 // which is a measurement, and states flat ground where there is only an unanswered
 // question. Its distance says "—"; its climb has to agree.
 const climbFor = (i: number) =>
-  days.value[i]?.ascentM ??
-  (days.value[i]?.distanceM != null ? derivedClimbs.value[i]?.ascentM : undefined);
-const climbIsDerived = (i: number) => days.value[i]?.ascentM == null && climbFor(i) != null;
+  shownHeightM(days.value[i]?.ascentM, days.value[i]?.distanceM, derivedClimbs.value[i]?.ascentM);
+const climbIsDerived = (i: number) => heightIsDerived(days.value[i]?.ascentM, climbFor(i));
 // The matching descent. Nothing in the app writes TripDay.descentM — there is no field
 // for it — so without this every day fell back to estimateDay's default of "descends
 // exactly what it climbs", while the real figure sat unused in derivedClimbs one line
 // above. On a route that ends lower than it starts, that default is simply wrong.
 const descentFor = (i: number) =>
-  days.value[i]?.descentM ??
-  (days.value[i]?.distanceM != null ? derivedClimbs.value[i]?.descentM : undefined);
+  shownHeightM(days.value[i]?.descentM, days.value[i]?.distanceM, derivedClimbs.value[i]?.descentM);
 
 async function commitDistance(id: string | null, e: Event) {
   if (!id) { await nextTick(); id = stored.value[stored.value.length - 1]?.id ?? null; if (!id) return; }

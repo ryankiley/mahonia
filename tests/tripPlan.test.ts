@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  dayEnd,
+  dayRanges,
+  heightIsDerived,
+  shownHeightM,
   burnDownMg,
   dayLegs,
   estimateDay,
@@ -260,5 +264,134 @@ describe("burnDownMg — the pack gets lighter because you eat it", () => {
 
   it("has nothing to say about zero days", () => {
     expect(burnDownMg(14_000_000, 4_000_000, 0)).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The per-day decision layer. These rules lived as closures inside
+// TrailPlanPanel — a 1648-line component with no test of its own — so every one
+// of them could have been broken without a case going red. They are product
+// decisions, not arithmetic: which day gets a camp, when a derived figure is
+// worth showing, and when a row should stand down because a real pin already
+// says the same thing.
+// ---------------------------------------------------------------------------
+describe("dayRanges", () => {
+  it("runs each day on from where the last one stopped", () => {
+    expect(dayRanges([1000, 2000, 500])).toEqual([
+      { fromM: 0, toM: 1000 },
+      { fromM: 1000, toM: 3000 },
+      { fromM: 3000, toM: 3500 },
+    ]);
+  });
+
+  it("gives a day with no distance a zero-width range where the last one ended", () => {
+    // it has to read as unanswered, not as "back at the trailhead"
+    expect(dayRanges([1000, 0])).toEqual([
+      { fromM: 0, toM: 1000 },
+      { fromM: 1000, toM: 1000 },
+    ]);
+  });
+
+  it("has nothing to say about no days", () => {
+    expect(dayRanges([])).toEqual([]);
+  });
+});
+
+describe("shownHeightM / heightIsDerived", () => {
+  it("prefers what the user typed", () => {
+    expect(shownHeightM(500, 10_000, 800)).toBe(500);
+    expect(heightIsDerived(500, 500)).toBe(false);
+  });
+
+  it("falls back to the route's derived share, and marks it as derived", () => {
+    expect(shownHeightM(null, 10_000, 800)).toBe(800);
+    expect(heightIsDerived(null, 800)).toBe(true);
+  });
+
+  // The rule this whole function exists for: a derived climb is a SHARE of the
+  // route, so it says nothing until the day has a share to take. Showing 0 would
+  // state flat ground where there is only an unanswered question.
+  it("shows nothing for a day that has no distance yet", () => {
+    expect(shownHeightM(null, null, 800)).toBeUndefined();
+    expect(shownHeightM(undefined, undefined, 800)).toBeUndefined();
+    expect(heightIsDerived(null, undefined)).toBe(false);
+  });
+
+  it("still shows a typed figure on a day with no distance", () => {
+    // the user said it; the app doesn't get to withhold it
+    expect(shownHeightM(300, null, undefined)).toBe(300);
+  });
+
+  it("treats a typed zero as an answer, not an absence", () => {
+    expect(shownHeightM(0, 10_000, 800)).toBe(0);
+    expect(heightIsDerived(0, 0)).toBe(false);
+  });
+});
+
+describe("dayEnd", () => {
+  const ranges = (ds: number[]) => dayRanges(ds);
+
+  it("camps every day but the last", () => {
+    const dayDistancesM = [10_000, 12_000, 8_000];
+    expect(dayEnd({ index: 0, ranges: ranges(dayDistancesM), dayDistancesM, hasRest: false }))
+      .toEqual({ kind: "camp", alongM: 10_000 });
+    expect(dayEnd({ index: 1, ranges: ranges(dayDistancesM), dayDistancesM, hasRest: false }))
+      .toEqual({ kind: "camp", alongM: 22_000 });
+  });
+
+  it("finishes the walk on the last day that has any distance", () => {
+    const dayDistancesM = [10_000, 12_000];
+    expect(dayEnd({ index: 1, ranges: ranges(dayDistancesM), dayDistancesM, hasRest: false }))
+      .toEqual({ kind: "finish", alongM: 22_000 });
+  });
+
+  // "Last" is by DISTANCE, not by index — a trailing row you added but haven't
+  // filled in must not steal the finish from the day that ends the walk.
+  it("does not let an empty trailing day steal the finish", () => {
+    const dayDistancesM = [10_000, 12_000, 0];
+    expect(dayEnd({ index: 1, ranges: ranges(dayDistancesM), dayDistancesM, hasRest: false }))
+      .toEqual({ kind: "finish", alongM: 22_000 });
+    // and the empty day itself ends nowhere
+    expect(dayEnd({ index: 2, ranges: ranges(dayDistancesM), dayDistancesM, hasRest: false }))
+      .toBeNull();
+  });
+
+  // Ground past the last assigned day means the route carries on, so calling that
+  // day a finish would be a lie — it goes back to being a camp.
+  it("turns the last day back into a camp when route is left over", () => {
+    const dayDistancesM = [10_000, 12_000];
+    expect(dayEnd({ index: 1, ranges: ranges(dayDistancesM), dayDistancesM, hasRest: true }))
+      .toEqual({ kind: "camp", alongM: 22_000 });
+  });
+
+  // A point-to-point route already stores an end pin that files into this day.
+  // Two rows saying the same thing is worse than one, so the derived row yields.
+  it("stands the finish down when a real end pin already sits there", () => {
+    const dayDistancesM = [10_000, 12_000];
+    expect(dayEnd({ index: 1, ranges: ranges(dayDistancesM), dayDistancesM, hasRest: false, endPinsAtM: [22_000] }))
+      .toBeNull();
+    // within a metre, because the two figures arrive by different arithmetic
+    expect(dayEnd({ index: 1, ranges: ranges(dayDistancesM), dayDistancesM, hasRest: false, endPinsAtM: [22_000.6] }))
+      .toBeNull();
+  });
+
+  // Asks whether ANY end pin lands here rather than trusting there to be one —
+  // the component reads them off a waypoint list it does not control.
+  it("stands down for any end pin that lands here, not just the first", () => {
+    const dayDistancesM = [10_000, 12_000];
+    expect(dayEnd({ index: 1, ranges: ranges(dayDistancesM), dayDistancesM, hasRest: false, endPinsAtM: [4_000, 22_000] }))
+      .toBeNull();
+  });
+
+  it("keeps the finish when the end pin is somewhere else entirely", () => {
+    const dayDistancesM = [10_000, 12_000];
+    expect(dayEnd({ index: 1, ranges: ranges(dayDistancesM), dayDistancesM, hasRest: false, endPinsAtM: [19_000] }))
+      .toEqual({ kind: "finish", alongM: 22_000 });
+  });
+
+  it("ends nowhere for a day with no distance, or an index off the end", () => {
+    const dayDistancesM = [0];
+    expect(dayEnd({ index: 0, ranges: ranges(dayDistancesM), dayDistancesM, hasRest: false })).toBeNull();
+    expect(dayEnd({ index: 9, ranges: ranges([10_000]), dayDistancesM: [10_000], hasRest: false })).toBeNull();
   });
 });
