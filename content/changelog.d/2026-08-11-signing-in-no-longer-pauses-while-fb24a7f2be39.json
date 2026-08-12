@@ -1,0 +1,6 @@
+{
+  "date": "2026-08-11",
+  "fixed": [
+    "Signing in no longer pauses while this device hands over the packs it's holding."
+  ]
+}
