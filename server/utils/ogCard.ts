@@ -101,7 +101,7 @@ function cardVnode(m: OgCardModel): Vnode {
       // the opposite corner. flex-start so the mark hangs from the top edge the
       // way the wordmark sits on it, rather than centering against 30px text.
       el({ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }, [
-        el({ fontWeight: 600, fontSize: 30 }, "Mahonia"),
+        el({ fontWeight: 600, fontSize: 34 }, "Mahonia"),
         { type: "img", props: { src: MARK_SRC, width: MARK_SIZE, height: MARK_SIZE }, key: null },
       ]),
       el(
@@ -150,11 +150,11 @@ function cardVnode(m: OgCardModel): Vnode {
       // Base / Worn / Consumable in smaller text beneath it
       m.chips.length
         ? el(
-            { flexDirection: "row", marginTop: 30 },
+            { flexDirection: "row", marginTop: 32 },
             m.chips.map((c, i) =>
-              el({ marginLeft: i ? 44 : 0, fontSize: 35 }, [
+              el({ marginLeft: i ? 48 : 0, fontSize: 40 }, [
                 el({ fontWeight: 600, color: INK_2 }, c.label),
-                el({ marginLeft: 12 }, c.value),
+                el({ marginLeft: 14 }, c.value),
               ]),
             ),
           )
