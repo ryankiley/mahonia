@@ -81,10 +81,6 @@ const el = (style: Record<string, unknown>, children?: unknown): Vnode => ({
 });
 
 function cardVnode(m: OgCardModel): Vnode {
-  // Three steps by length, not measurement: satori wraps and (past two lines)
-  // ellipsizes for us, so the size only has to keep short names monumental and
-  // long ones from eating the figure's room.
-  const titleSize = m.title.length <= 18 ? 76 : m.title.length <= 44 ? 60 : 48;
   return el(
     {
       flexDirection: "column",
@@ -96,29 +92,31 @@ function cardVnode(m: OgCardModel): Vnode {
       fontFamily: "Inter",
     },
     [
-      // the top strip: the site bar's brand on the left, same treatment
-      // (.t-label .brand — sentence case, 600), and the favicon's M mark holding
-      // the opposite corner. flex-start so the mark hangs from the top edge the
-      // way the wordmark sits on it, rather than centering against 30px text.
-      el({ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }, [
-        el({ fontWeight: 600, fontSize: 34 }, "Mahonia"),
+      // The top strip: the LIST'S NAME where a wordmark would sit, and the
+      // favicon's M holding the opposite corner — the mark alone carries the
+      // brand here (the unfurl's site_name/domain line already says Mahonia,
+      // and the site card spells it out). One fixed size now that the name is
+      // a label rather than the hero: at 40px the line fits ~45 characters,
+      // and satori's block + lineClamp wraps then ellipsizes past two lines.
+      // flex-start so both hang from the top edge.
+      el({ flexDirection: "row", alignItems: "flex-start" }, [
+        el(
+          {
+            display: "block",
+            lineClamp: 2,
+            flexGrow: 1,
+            marginRight: 48,
+            fontFamily: "InterDisplay",
+            fontWeight: 700,
+            fontSize: 40,
+            lineHeight: 1.15,
+            letterSpacing: TRACK_TIGHT,
+            wordBreak: "break-word",
+          },
+          m.title,
+        ),
         { type: "img", props: { src: MARK_SRC, width: MARK_SIZE, height: MARK_SIZE }, key: null },
       ]),
-      el(
-        {
-          // block + lineClamp is satori's text-truncation mode: two lines, then "…"
-          display: "block",
-          lineClamp: 2,
-          marginTop: 40,
-          fontFamily: "InterDisplay",
-          fontWeight: 700,
-          fontSize: titleSize,
-          lineHeight: 1.1,
-          letterSpacing: TRACK_TIGHT,
-          wordBreak: "break-word",
-        },
-        m.title,
-      ),
       el({ flexGrow: 1 }),
       // the big figure — number dominant, unit smaller and muted ON ITS BASELINE,
       // exactly TotalsBar's totals__big + totals__unit pairing. Bottom-aligned
@@ -186,7 +184,7 @@ function siteCardVnode(): Vnode {
     [
       { type: "img", props: { src: MARK_SRC, width: SITE_MARK_SIZE, height: SITE_MARK_SIZE }, key: null },
       el({ marginTop: 48, fontWeight: 600, fontSize: 50 }, "Mahonia"),
-      el({ marginTop: 12, fontSize: 31, color: INK_2 }, "Pack lists, weighed."),
+      el({ marginTop: 14, fontSize: 40, color: INK_2 }, "Pack lists, weighed."),
     ],
   );
 }
