@@ -47,13 +47,12 @@ export default defineEventHandler(async (event) => {
   // the one place this can throw, and losing the reap/purge above to it would be a
   // poor trade for a table that only grows slowly.
   const vaultsDb = await useVaultDb();
-  const vaultMaint = await (async () => ({
-    ...(await reapAbandonedVaults(vaultsDb)),
-    ...(await purgeDeletedVaults(vaultsDb)),
-  }))().catch((e) => {
+  let vaultMaint = { vaultsReaped: 0, vaultsPurged: 0 };
+  try {
+    vaultMaint = { ...(await reapAbandonedVaults(vaultsDb)), ...(await purgeDeletedVaults(vaultsDb)) };
+  } catch (e) {
     console.warn("[cron] vault maintenance failed", (e as Error).message);
-    return { vaultsReaped: 0, vaultsPurged: 0 };
-  });
+  }
   // outbound fetches to third-party hosts — never let a slow or dead one fail the
   // whole maintenance run, which is what keeps the reap/purge above meaningful
   const favicons = await refreshStaleFavicons(db).catch((e) => {

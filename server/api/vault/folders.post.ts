@@ -21,8 +21,8 @@ export default defineEventHandler(async (event) => {
 
   const body = await readJsonBodyCapped<{ op?: unknown }>(event, 4_000);
   const op = body?.op as VaultFolderOp | undefined;
-  if (!op || typeof op !== "object" || typeof (op as { t?: unknown }).t !== "string") {
-    return { ok: false };
-  }
+  // shape checking beyond this belongs to applyVaultFolderOp, whose switch
+  // answers an unknown or missing `t` with false
+  if (!op || typeof op !== "object") return { ok: false };
   return { ok: await applyVaultFolderOp(db, vaultId, op) };
 });

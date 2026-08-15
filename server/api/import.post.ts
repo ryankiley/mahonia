@@ -1,7 +1,7 @@
 import { createError, defineEventHandler } from "h3";
 import { csvToListData } from "../../shared/exporters/csv";
 import { lighterpackId } from "../../shared/lighterpack";
-import { readJsonBodyCapped, setNoIndex } from "../utils/http";
+import { notFound, readJsonBodyCapped, setNoIndex } from "../utils/http";
 import { rateLimit } from "../utils/rateLimit";
 
 // Import a LighterPack shared list by URL. We ONLY ever fetch lighterpack.com's
@@ -26,7 +26,7 @@ export default defineEventHandler(async (event) => {
       redirect: "error", // /csv responds directly — no redirects to follow (no escape hatch)
       headers: { accept: "text/csv,text/plain,*/*" },
     });
-    if (!res.ok) throw createError({ statusCode: 404, statusMessage: "LighterPack list not found" });
+    if (!res.ok) throw notFound("LighterPack list not found");
     const text = await res.text();
     if (text.length > 512_000) throw createError({ statusCode: 413, statusMessage: "List too large" });
     csv = text;

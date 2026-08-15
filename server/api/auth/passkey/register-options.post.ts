@@ -1,7 +1,7 @@
 import { createError, defineEventHandler } from "h3";
 import { generateRegistrationOptions } from "@simplewebauthn/server";
 import { requireUser } from "../../../utils/authSession";
-import { countPasskeys, existingCredentialIds, MAX_PASSKEYS_PER_USER } from "../../../utils/credentialRepo";
+import { existingCredentialIds, MAX_PASSKEYS_PER_USER } from "../../../utils/credentialRepo";
 import { useAccountDb } from "../../../utils/db";
 import { RP_NAME, requirePasskeysConfigured, rpIdFor, startChallenge } from "../../../utils/passkeys";
 import { rateLimit } from "../../../utils/rateLimit";
@@ -20,7 +20,9 @@ export default defineEventHandler(async (event) => {
 
   const db = await useAccountDb();
 
-  if ((await countPasskeys(db, user.id)) >= MAX_PASSKEYS_PER_USER) {
+  // one credential read serves both the cap check and excludeCredentials below
+  const existing = await existingCredentialIds(db, user.id);
+  if (existing.length >= MAX_PASSKEYS_PER_USER) {
     throw createError({ statusCode: 409, statusMessage: "Too many passkeys" });
   }
 
@@ -42,7 +44,7 @@ export default defineEventHandler(async (event) => {
     attestationType: "none", // we don't need to know which make of key it is
     // don't offer to create a second key on an authenticator that already holds
     // one for this account
-    excludeCredentials: (await existingCredentialIds(db, user.id)).map((id) => ({ id })),
+    excludeCredentials: existing.map((id) => ({ id })),
     authenticatorSelection: {
       // REQUIRED, matching signup-options. Sign-in is usernameless — signin-options
       // sends no allowCredentials — so the browser can only offer a key it can

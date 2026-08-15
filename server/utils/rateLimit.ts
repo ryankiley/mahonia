@@ -231,7 +231,13 @@ export async function rateLimit(event: H3Event, action: RateLimitAction): Promis
   const ip = getClientIp(event) || "unknown";
   // scoped, not raw — see rateLimitScope: a raw v6 address is one of 2^64 a single
   // subscriber can send from, so the budget has to be per /64
-  const over = await consumeRateLimit(useKv(), `rl:${action}:${rateLimitScope(ip)}`, RATE_LIMITS[action], WINDOW_MS, Date.now());
+  await enforce(`rl:${action}:${rateLimitScope(ip)}`, action);
+}
+
+/** The shared tail of both limiters: one consume, one 429 — a single place for
+ *  the status line, so the two keyings can't drift in how they refuse. */
+async function enforce(key: string, action: RateLimitAction): Promise<void> {
+  const over = await consumeRateLimit(useKv(), key, RATE_LIMITS[action], WINDOW_MS, Date.now());
   if (over) throw createError({ statusCode: 429, statusMessage: "Too many requests" });
 }
 
@@ -244,7 +250,5 @@ export async function rateLimit(event: H3Event, action: RateLimitAction): Promis
  * so the KV store never holds a raw email.
  */
 export async function rateLimitSubject(action: RateLimitAction, subject: string): Promise<void> {
-  const key = `rl:${action}:s:${sha256Hex(subject)}`;
-  const over = await consumeRateLimit(useKv(), key, RATE_LIMITS[action], WINDOW_MS, Date.now());
-  if (over) throw createError({ statusCode: 429, statusMessage: "Too many requests" });
+  await enforce(`rl:${action}:s:${sha256Hex(subject)}`, action);
 }

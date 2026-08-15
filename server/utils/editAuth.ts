@@ -26,6 +26,7 @@ import { LIST_CODE_HEADER } from "../../shared/links";
 import { resolveSession } from "./authSession";
 import { claimedEditHash } from "./claimRepo";
 import { useVaultDb } from "./db";
+import { bearerToken } from "./http";
 import { sha256Hex } from "./tokens";
 
 // The header naming which claimed list a session-authorised request means lives in
@@ -43,8 +44,7 @@ import { sha256Hex } from "./tokens";
  * an existence oracle.
  */
 export async function requireEditHash(event: H3Event): Promise<string> {
-  const header = getHeader(event, "authorization") || "";
-  const token = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
+  const token = bearerToken(event);
   if (token) return sha256Hex(token);
 
   const code = (getHeader(event, LIST_CODE_HEADER) || "").trim();

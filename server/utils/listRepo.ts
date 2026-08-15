@@ -30,6 +30,7 @@ import {
 import { UNITS } from "../../shared/types";
 import type { ListData, ListSnapshot, ListState, Totals, Unit } from "../../shared/types";
 import { isLikelySpam } from "../../shared/discovery";
+import { normalizeShareCode } from "../../shared/links";
 import { MAX_SUMMARY_LEN, summarizeOps } from "../../shared/changeSummary";
 import { normalizeDistanceUnit, normalizeTrailAscentM, normalizeTrailDistanceM } from "../../shared/trailDistance";
 import { parseProfile } from "../../shared/profile";
@@ -323,14 +324,6 @@ function rowToState(row: ListRow): ListState {
 
 const liveOnly = (col: typeof lists.editTokenHash | typeof lists.shareCode, val: string) =>
   and(eq(col, val), eq(lists.status, "active"), isNull(lists.deletedAt));
-
-// Enforce the advertised case-insensitive Crockford contract + reject malformed
-// codes before any DB round-trip.
-const CROCKFORD_RE = /^[0-9ABCDEFGHJKMNPQRSTVWXYZ]{12}$/;
-function normShareCode(raw: string): string | null {
-  const c = (raw || "").toUpperCase().replace(/[IL]/g, "1").replace(/O/g, "0");
-  return CROCKFORD_RE.test(c) ? c : null;
-}
 
 // The "is this holder allowed to touch this live, non-deleted list" lookup.
 // Exported so discoveryRepo shares the exact same capability gate (no drift).
@@ -750,10 +743,12 @@ export async function attachAuthorName(
   return snap;
 }
 
-/** The one live-row lookup behind /s and its social card — same normalization,
- *  same liveOnly predicate, so the card can't outlive (or outread) the page. */
+/** The one live-row lookup behind /s and its social card — same normalization
+ *  (the client's own normalizeShareCode, so the advertised case-insensitive
+ *  Crockford contract can't drift between the two ends), same liveOnly
+ *  predicate, so the card can't outlive (or outread) the page. */
 async function liveRowByShareCode(code: string): Promise<{ db: Db; row: ListRow } | null> {
-  const c = normShareCode(code);
+  const c = normalizeShareCode(code);
   if (!c) return null;
   const db = await useDb();
   const rows = await db.select().from(lists).where(liveOnly(lists.shareCode, c)).limit(1);

@@ -1,4 +1,5 @@
 import { defineEventHandler, setHeader } from "h3";
+import { setDailyEdgeCache } from "../../utils/http";
 
 // Apple App Site Association — what lets the native iOS app
 // (github.com/ryankiley/mahonia-ios) claim this domain's links.
@@ -25,7 +26,7 @@ export default defineEventHandler((event) => {
   setHeader(event, "Content-Type", "application/json");
   // Apple's CDN re-fetches on its own cadence (hours-to-a-day); a day of edge
   // cache costs nothing and keeps the path off the lambda.
-  setHeader(event, "Cache-Control", "public, max-age=0, s-maxage=86400");
+  setDailyEdgeCache(event);
   return {
     applinks: {
       apps: [],

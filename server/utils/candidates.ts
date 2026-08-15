@@ -203,6 +203,6 @@ export async function corroborateCatalog(db: Db): Promise<CorroborateResult> {
   const purged = await db.delete(catalogCandidates)
     .where(sql`${catalogCandidates.createdAt} < now() - interval '90 days'`)
     .returning();
-  res.purged = Array.isArray(purged) ? purged.length : 0;
+  res.purged = purged.length;
   return res;
 }
