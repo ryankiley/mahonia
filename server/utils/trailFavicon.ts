@@ -18,6 +18,9 @@ import { eq, lt, sql } from "drizzle-orm";
 import { trailFavicons } from "../db/schema";
 import { ensureTrailFaviconSchema, useDb } from "./db";
 import { displayHost, safeUrl } from "../../shared/trailLink";
+// the streaming, cancel-at-the-cap body reader — it started life in this file and
+// now lives beside its sibling readJsonBodyCapped, since /api/import needs it too
+import { readResponseCapped } from "./http";
 import { isResolvedHostSafe, validateExternalUrl } from "./ssrf";
 
 type Db = Awaited<ReturnType<typeof useDb>>;
@@ -89,39 +92,6 @@ async function safeGet(target: URL): Promise<Response | null> {
   return null; // too many redirects
 }
 
-/**
- * Read a body up to `maxBytes`, cancelling past it. Null if empty.
- *
- * `onOversize` decides what hitting the cap MEANS, and the two callers want opposite
- * things. An image over the cap is a reject: half an icon is useless, and the cap exists
- * to keep us from inlining a page asset. HTML over the cap is a truncate: the <head> is
- * at the very start, so the prefix is all we ever wanted — and rejecting instead lost
- * every site whose homepage is bigger than the cap, which is most modern ones.
- */
-async function readCapped(
-  res: Response,
-  maxBytes: number,
-  onOversize: "reject" | "truncate",
-): Promise<Buffer | null> {
-  const reader = res.body?.getReader();
-  if (!reader) return null;
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  for (;;) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    total += value.byteLength;
-    chunks.push(value);
-    // stop pulling either way — we have what we need, or we've decided we don't want it
-    if (total > maxBytes) {
-      await reader.cancel();
-      if (onOversize === "reject") return null;
-      break;
-    }
-  }
-  return total ? Buffer.concat(chunks.map((c) => Buffer.from(c))) : null;
-}
-
 /** Fetch one image URL as a data: URL, or null if it isn't a usable image.
  *  Swallows its OWN errors so a thrown /favicon.ico doesn't abort the HTML fallback. */
 async function imageAsDataUrl(target: URL): Promise<string | null> {
@@ -132,8 +102,9 @@ async function imageAsDataUrl(target: URL): Promise<string | null> {
   // be base64'd into an <img> and render as a broken image on every shared list.
   const contentType = res.headers.get("content-type") ?? "";
   if (!contentType.startsWith("image/")) return null;
-  const buffer = await readCapped(res, MAX_BYTES, "reject");
-  if (!buffer) return null;
+  const read = await readResponseCapped(res, MAX_BYTES, "reject");
+  if (!read.ok || !read.body) return null;
+  const buffer = read.body;
   // strip charset/parameters — `image/vnd.microsoft.icon;charset=UTF-8` is a real response
   return `data:${contentType.split(";")[0]!.trim()};base64,${buffer.toString("base64")}`;
 }
@@ -165,10 +136,10 @@ async function discoverIconUrl(host: string): Promise<URL | null> {
   const res = await safeGet(home).catch(() => null);
   if (!res) return null;
   if (!(res.headers.get("content-type") ?? "").includes("html")) return null;
-  const body = await readCapped(res, MAX_HTML_BYTES, "truncate");
-  if (!body) return null;
+  const read = await readResponseCapped(res, MAX_HTML_BYTES, "truncate");
+  if (!read.ok || !read.body) return null;
   // only <head> matters, and a content-heavy page can be megabytes
-  const html = body.toString("utf8");
+  const html = read.body.toString("utf8");
   const headEnd = html.search(/<\/head>/i);
   const head = headEnd < 0 ? html : html.slice(0, headEnd);
   // Resolve relative hrefs against the page we ACTUALLY landed on, not the one we asked

@@ -2,7 +2,7 @@ import { defineEventHandler } from "h3";
 import { requireUser } from "../../utils/authSession";
 import { unclaimList } from "../../utils/claimRepo";
 import { useAccountDb } from "../../utils/db";
-import { readJsonBodyCapped, setNoIndex } from "../../utils/http";
+import { readJsonBodyCapped, setNoIndex, setPrivate } from "../../utils/http";
 import { rateLimit } from "../../utils/rateLimit";
 
 // "Remove from my account" — the account-level counterpart of "remove from this
@@ -13,6 +13,7 @@ import { rateLimit } from "../../utils/rateLimit";
 // action that already exists and keeps its confirmation dialog.
 export default defineEventHandler(async (event) => {
   setNoIndex(event);
+  setPrivate(event);
   await rateLimit(event, "list-claim");
   const user = await requireUser(event);
 

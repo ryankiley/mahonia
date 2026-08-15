@@ -10,14 +10,29 @@
 // the authenticator (Touch ID, Windows Hello, a YubiKey, a phone), so this table
 // is less sensitive than a password hash — there is nothing in it to crack.
 //
-// RP ID comes from the REQUEST HOST, not configuration. Passkeys are bound to a
-// domain, so a hardcoded value would mean keys registered on a Vercel preview
-// silently failing on production (and vice versa). Deriving it means every
-// deployment — localhost, preview, production — just works, each with its own
-// keys, which is exactly the isolation WebAuthn intends.
+// RP ID comes from the DEPLOYMENT, not from the request. Passkeys are bound to a
+// domain, so a single hardcoded value would mean keys registered on a Vercel
+// preview silently failing on production (and vice versa) — which is why these
+// two helpers exist at all rather than being constants. But the value they
+// resolve to must be a fact about where this code is running, never a header:
+// `expectedOrigin` and `expectedRPID` ARE the binding that makes a passkey
+// unphishable, so a caller who can set `Host` can decide what the ceremony is
+// checked against, and satisfy it from a domain they own.
+//
+// trustedOrigin (server/utils/origin.ts) is that fact — pinned in production,
+// request-derived for localhost and previews, so each deployment still gets its
+// own keys and the isolation WebAuthn intends is unchanged.
+//
+// ONE BEHAVIOUR CHANGE WORTH NAMING: in production the RP ID is now the
+// canonical host even when the request arrived on some other alias (a
+// *.vercel.app deploy URL, say). A ceremony run from such an alias now fails
+// instead of succeeding. That is the better of the two outcomes — it used to
+// enrol a credential bound to a hostname the user will never visit again, which
+// is a passkey that silently never works.
 
 import type { H3Event } from "h3";
-import { createError, getRequestHost, getRequestProtocol } from "h3";
+import { createError } from "h3";
+import { trustedHost, trustedOrigin } from "./origin";
 import { randomSecret, sha256Hex } from "./tokens";
 import { useKv } from "./rateLimit";
 
@@ -25,18 +40,16 @@ import { useKv } from "./rateLimit";
  *  a sensor; a couple of minutes is generous and bounds the challenge store. */
 export const PASSKEY_CHALLENGE_TTL_MS = 3 * 60_000;
 
-/** The Relying Party ID — the registrable domain a passkey is bound to. Derived
- *  from the request host with the port stripped (WebAuthn's rpId is a domain, and
+/** The Relying Party ID — the registrable domain a passkey is bound to. The
+ *  trusted host with the port stripped (WebAuthn's rpId is a domain, and
  *  `localhost:3000` is not one; bare `localhost` is explicitly allowed). */
 export function rpIdFor(event: H3Event): string {
-  return (getRequestHost(event) || "localhost").split(":")[0]!;
+  return trustedHost(event).split(":")[0]!;
 }
 
 /** The exact origin the browser will report, which must match byte-for-byte. */
 export function originFor(event: H3Event): string {
-  const host = getRequestHost(event) || "localhost:3000";
-  const proto = getRequestProtocol(event) || (host.startsWith("localhost") ? "http" : "https");
-  return `${proto}://${host}`;
+  return trustedOrigin(event);
 }
 
 /** An opaque handle for an account that doesn't exist yet — the WebAuthn userID

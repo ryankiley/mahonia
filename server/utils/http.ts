@@ -66,6 +66,57 @@ export function notFound(statusMessage = "Not found") {
  * uniformly. (On Vercel a ~4.5 MB platform limit backstops the buffering
  * itself; this makes the per-endpoint cap authoritative.)
  */
+/** What reading a capped response body produced. `body: null` means the response
+ *  was empty; `ok: false` means it went past the cap and the caller asked to
+ *  reject rather than truncate. Two outcomes rather than one nullable Buffer,
+ *  because "nothing came back" and "too much came back" are different answers
+ *  and /api/import has to tell a caller which one it hit. */
+export type CappedBody = { ok: true; body: Buffer | null } | { ok: false; reason: "oversize" };
+
+/**
+ * Read an OUTBOUND fetch's response body up to `maxBytes`, cancelling the stream
+ * past it — the counterpart of readJsonBodyCapped, which does the same job for a
+ * body somebody sent US.
+ *
+ * The cancel is the point. `await res.text()` runs to completion first and only
+ * then lets you measure it, so a cap applied afterwards bounds what gets PARSED
+ * and not what gets read: a third party answering with a few gigabytes holds the
+ * function until the platform kills it, whatever the check says. Pulling chunks
+ * and calling `reader.cancel()` at the cap is what actually stops the read.
+ *
+ * `onOversize` decides what hitting the cap MEANS, and the callers want opposite
+ * things. An image or a CSV over the cap is a REJECT: half a file is useless.
+ * HTML over the cap is a TRUNCATE, because only <head> is ever read and it's at
+ * the very start — rejecting instead lost every site whose homepage is bigger
+ * than the cap, which is most modern ones.
+ *
+ * Lived in trailFavicon.ts, which is where the streaming was first needed. Moved
+ * here when /api/import turned out to have the same problem and a weaker guard.
+ */
+export async function readResponseCapped(
+  res: Response,
+  maxBytes: number,
+  onOversize: "reject" | "truncate",
+): Promise<CappedBody> {
+  const reader = res.body?.getReader();
+  if (!reader) return { ok: true, body: null };
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    chunks.push(value);
+    // stop pulling either way — we have what we need, or we've decided we don't want it
+    if (total > maxBytes) {
+      await reader.cancel();
+      if (onOversize === "reject") return { ok: false, reason: "oversize" };
+      break;
+    }
+  }
+  return { ok: true, body: total ? Buffer.concat(chunks.map((c) => Buffer.from(c))) : null };
+}
+
 export async function readJsonBodyCapped<T>(event: H3Event, maxBytes: number): Promise<T> {
   const raw = await readRawBody(event, false).catch(() => undefined); // Buffer | undefined
   if (raw && raw.length > maxBytes)

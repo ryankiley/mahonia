@@ -1,4 +1,4 @@
-import { defineEventHandler, getRequestURL } from "h3";
+import { defineEventHandler } from "h3";
 import { verifyRegistrationResponse } from "@simplewebauthn/server";
 import {
   MAGIC_LINK_TTL_MS,
@@ -11,6 +11,7 @@ import { canSendEmail, sendMagicLink } from "../../../utils/email";
 import { savePasskey } from "../../../utils/credentialRepo";
 import { useAccountDb } from "../../../utils/db";
 import { readJsonBodyCapped, setNoIndex, setPrivate } from "../../../utils/http";
+import { trustedOrigin } from "../../../utils/origin";
 import { originFor, requirePasskeysConfigured, rpIdFor, takeChallenge } from "../../../utils/passkeys";
 import { rateLimit } from "../../../utils/rateLimit";
 
@@ -111,7 +112,10 @@ export default defineEventHandler(async (event) => {
   if (canSendEmail()) {
     try {
       const token = await issueMagicToken(db, user.id);
-      const url = new URL("/auth/callback", getRequestURL(event).origin);
+      // trustedOrigin, not the request's — this link is the UNDO for a signup
+      // against an address the signer may not hold, so it is the one thing in
+      // that message that must land on Mahonia. See server/utils/origin.ts.
+      const url = new URL("/auth/callback", trustedOrigin(event));
       url.searchParams.set("t", token);
       await sendMagicLink({
         to: stored.email,
