@@ -1,0 +1,29 @@
+{
+  "_comment": "Requested adds 2026-08-14 — two electronics sold through Apple. Anker publishes no weight for the A1667 anywhere on its own site (the spec table is absent on every locale's product page and on the support/user-guide article), so the power bank's 120 g is cited to the Tech Specs on the Apple listing that sells it. Beats prints \"(total) 77.7g\", which is the case plus ONE earbud; what actually goes in a pack is the case plus both, so the row carries 69 + 2 x 8.7 = 86.4 g — the same per-unit-to-pair convention the footwear rows use. Colour is not a variant on either: the requested links are White (HRWY2LL/A) and Electric Orange (MX743LL/A), and every colourway shares one weight.",
+  "rows": [
+    {
+      "brand": "Anker",
+      "name": "MagGo Power Bank (5K, Slim)",
+      "variant": "A1667",
+      "category_hint": "electronics",
+      "common_name": "power bank",
+      "weight_value": 120,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.apple.com/shop/product/hrwy2ll/a/anker-maggo-power-bank-5k-slim",
+      "quote": "Weight: 4.2 oz. / 120 g"
+    },
+    {
+      "brand": "Beats",
+      "name": "Powerbeats Pro 2",
+      "variant": "",
+      "category_hint": "electronics",
+      "common_name": "earbuds",
+      "weight_value": 86.4,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.apple.com/shop/product/mx743ll/a/powerbeats-pro-2-high-performance-earbuds-electric-orange",
+      "quote": "Weight: (case) 69g (bud) 8.7g (total) 77.7g (the published total is the case plus one bud; case + both buds = 86.4 g)"
+    }
+  ]
+}
