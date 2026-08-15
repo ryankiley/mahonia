@@ -296,10 +296,6 @@ function onRowClick(entry: VaultEntry) {
     draggedEntryId = null;
     return;
   }
-  add(entry);
-}
-
-function add(entry: VaultEntry) {
   if (isInList(entry)) return;
   c.addVaultItem(entry, targetFolderId.value);
 }

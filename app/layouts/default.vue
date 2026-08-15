@@ -49,9 +49,5 @@
 .skip:focus-visible {
   transform: translateY(0);
 }
-@media (prefers-reduced-motion: reduce) {
-  .skip {
-    transition: none;
-  }
-}
+/* reduced-motion is handled by the global duration kill-switch (main.scss) */
 </style>

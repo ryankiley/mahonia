@@ -927,15 +927,6 @@ function create() {
     dispatch({ t: "addItem", item });
     return id;
   }
-  /**
-   * Offer this list's gear to the vault, if it's ours to offer.
-   *
-   * A draft (no token yet) is yours by definition. A list this device CREATED —
-   * built, imported or cloned — recorded "yes" at that moment. Anything else is an
-   * edit link you hold, which is either your own list on a second device or a
-   * friend's, and the link cannot say which. So the first time gear would move, ask
-   * once and remember; until it's answered, nothing is captured.
-   */
   /** Bank one row on demand — see useVault.captureOne for why it bypasses the
    *  debounce and the consent prompt that the automatic path is built around. */
   async function saveItemToVault(id: string): Promise<"saved" | "unworthy" | "failed"> {
@@ -945,6 +936,15 @@ function create() {
     return vault.captureOne(item, snap.items, snap.folders, editToken);
   }
 
+  /**
+   * Offer this list's gear to the vault, if it's ours to offer.
+   *
+   * A draft (no token yet) is yours by definition. A list this device CREATED —
+   * built, imported or cloned — recorded "yes" at that moment. Anything else is an
+   * edit link you hold, which is either your own list on a second device or a
+   * friend's, and the link cannot say which. So the first time gear would move, ask
+   * once and remember; until it's answered, nothing is captured.
+   */
   function captureIfMine() {
     if (!snapshot.value) return;
     // The decision lives in sync(), which asks only once it knows there is gear

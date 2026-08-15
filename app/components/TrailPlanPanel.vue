@@ -16,7 +16,6 @@ import {
   M_PER_UNIT,
   bodyWeightFieldValue,
   formatBodyWeight,
-  formatDistance,
   formatDistancePadded,
   heightUnitFor,
   heightValue,
@@ -430,7 +429,7 @@ function onBoundary(b: { index: number; alongM: number }) {
 /**
  * Where the LAST day ends — a finish, which is not a camp.
  *
- * Every other day ends at a night and campOf draws it. The last one ends at the end of the
+ * Every other day ends at a night and the camp row draws it. The last one ends at the end of the
  * walk, and that was the one thing this panel never said: the final day printed its figures
  * and then nothing at all, because it has no camp and frequently no pins either.
  *
@@ -439,39 +438,28 @@ function onBoundary(b: { index: number; alongM: number }) {
  * put two markers on one coordinate, which is exactly what seedRouteEnds refuses to do. A
  * ROW costs nothing and stacks nothing, and the map still carries one flag.
  *
- * Exactly complementary to campOf: a day has a camp or a finish, never both and never
+ * Exactly complementary to the camp: a day has a camp or a finish, never both and never
  * neither — unless there is unclaimed ground after it, in which case the walk does not end
  * there and neither mark is true.
  */
 // Camp and finish are one decision with two answers — which day ends where, and
 // whether a stored end pin already says it. shared/tripPlan.dayEnd settles it, and
-// is tested there; these two read the answer off it.
-const endOf = (i: number) =>
-  dayEnd({
-    index: i,
-    ranges: ranges.value,
-    dayDistancesM: dayDistancesM.value,
-    hasRest: hasRest.value,
-    endPinsAtM: waypoints.value.filter((w) => w.kind === "end").map((w) => w.alongM),
-  });
-const finishOf = (i: number): number | null => {
-  const end = endOf(i);
-  return end?.kind === "finish" ? end.alongM : null;
-};
+// is tested there; this reads the answer once per day, and the rows (which ask
+// several times each) read this.
+const dayEnds = computed(() =>
+  ranges.value.map((_, i) =>
+    dayEnd({
+      index: i,
+      ranges: ranges.value,
+      dayDistancesM: dayDistancesM.value,
+      hasRest: hasRest.value,
+      endPinsAtM: waypoints.value.filter((w) => w.kind === "end").map((w) => w.alongM),
+    }),
+  ),
+);
 
 /** The one day that has a finish, for the map — the rows ask per day, the map asks once. */
-const routeFinishM = computed(() => {
-  for (let i = 0; i < ranges.value.length; i++) {
-    const m = finishOf(i);
-    if (m != null) return m;
-  }
-  return null;
-});
-
-const campOf = (i: number): number | null => {
-  const end = endOf(i);
-  return end?.kind === "camp" ? end.alongM : null;
-};
+const routeFinishM = computed(() => dayEnds.value.find((e) => e?.kind === "finish")?.alongM ?? null);
 
 /**
  * WHERE a point on the route actually is, worked out rather than looked up.
@@ -618,21 +606,19 @@ const climbIsDerived = (i: number) => heightIsDerived(days.value[i]?.ascentM, cl
 const descentFor = (i: number) =>
   shownHeightM(days.value[i]?.descentM, days.value[i]?.distanceM, derivedClimbs.value[i]?.descentM);
 
-async function commitDistance(id: string | null, e: Event) {
+// One commit for both metre fields. Distance reads in the trip's km/mi; ascent is
+// a HEIGHT and reads in metres or feet, never the km/mi beside it — same parser,
+// the fallback unit is the whole difference.
+async function commitDayMetres(id: string | null, field: "distanceM" | "ascentM", e: Event) {
   if (!id) { await nextTick(); id = stored.value[stored.value.length - 1]?.id ?? null; if (!id) return; }
   const raw = (e.target as HTMLInputElement).value.trim();
-  // "" and NOT undefined, for both of these. The patch is JSON on its way to the server
-  // and JSON.stringify drops undefined keys, so clearing a day's distance changed it
-  // locally and was overwritten by the very next echo — it looked like the server refusing
-  // the edit, when the server was never told. See DayPatch.
-  c.updateDay(id, { distanceM: raw ? (parseDistanceM(raw, distanceUnit.value) ?? "") : "" });
-}
-async function commitAscent(id: string | null, e: Event) {
-  if (!id) { await nextTick(); id = stored.value[stored.value.length - 1]?.id ?? null; if (!id) return; }
-  const raw = (e.target as HTMLInputElement).value.trim();
-  // Ascent is a HEIGHT, so it reads in metres or feet — never in the km/mi the distance
-  // beside it uses. Same parser; the fallback unit is what differs.
-  c.updateDay(id, { ascentM: raw ? (parseDistanceM(raw, distanceUnit.value === "mi" ? "ft" : "m") ?? "") : "" });
+  const unit = field === "distanceM" ? distanceUnit.value : distanceUnit.value === "mi" ? "ft" : "m";
+  // "" and NOT undefined. The patch is JSON on its way to the server and
+  // JSON.stringify drops undefined keys, so clearing a day's figure changed it
+  // locally and was overwritten by the very next echo — it looked like the server
+  // refusing the edit, when the server was never told. See DayPatch.
+  const v = raw ? (parseDistanceM(raw, unit) ?? "") : "";
+  c.updateDay(id, field === "distanceM" ? { distanceM: v } : { ascentM: v });
 }
 
 const ascentUnit = computed(() => heightUnitFor(distanceUnit.value));
@@ -868,7 +854,7 @@ const distanceValue = (m: number | undefined) => {
               :value="distanceValue(d?.distanceM)"
               :aria-label="`Distance on day ${i + 1}, in ${distanceUnit}`"
               placeholder="—"
-              @change="commitDistance(d?.id ?? ensureDay(i), $event)"
+              @change="commitDayMetres(d?.id ?? ensureDay(i), 'distanceM', $event)"
             />
             <span class="t-muted">{{ distanceUnit }}</span>
           </span>
@@ -891,7 +877,7 @@ const distanceValue = (m: number | undefined) => {
               :value="ascentValue(climbFor(i))"
               :aria-label="`Elevation gain on day ${i + 1}, in ${ascentUnit}`"
               placeholder="—"
-              @change="commitAscent(d?.id ?? ensureDay(i), $event)"
+              @change="commitDayMetres(d?.id ?? ensureDay(i), 'ascentM', $event)"
             />
             <span class="t-muted">{{ ascentUnit }}</span>
             <!-- Not typeable, unlike the two above: nothing in the app writes a day's
@@ -948,7 +934,7 @@ const distanceValue = (m: number | undefined) => {
                are the thing that makes this read as a day's contents rather than as two
                stacked blocks — and a rule can only run between siblings. -->
           <ol
-            v-if="grouped.byDay[i]?.length || campOf(i) != null || finishOf(i) != null"
+            v-if="grouped.byDay[i]?.length || dayEnds[i]"
             class="plan__wplist"
           >
             <WaypointRow
@@ -958,67 +944,51 @@ const distanceValue = (m: number | undefined) => {
               :distance-unit="distanceUnit"
               :coord="coordOf(w.alongM)"
             />
-            <!-- The night comes LAST, because that is the order you meet them in: you pass
-                 the spring and the col, and then you arrive. Above the pins it read as a
-                 heading for them rather than as the end of the day they belong to.
-                 Not deletable and not re-kindable, because it isn't a pin — deleting it
-                 would mean deleting the day. Its NAME is the day's own `label`, a field
-                 that survived the removal of day naming and has been waiting for a use. -->
-            <li v-if="campOf(i) != null" class="plan__camp">
+            <!-- ONE row for either kind of day's end, coming LAST because that is the
+                 order you meet them in: you pass the spring and the col, and then you
+                 arrive. A camp (tent) on every day the route runs past — or, on the
+                 last day, THE FINISH (flag), which answers the same question: where
+                 does this day leave you. Neither is deletable or re-kindable, because
+                 it isn't a pin — deleting it would mean deleting the day. On a loop
+                 the finish is the trailhead again, which is why it is drawn rather
+                 than stored.
+                 Both kinds are NAMED through the day's own `label` — free of conflict,
+                 because a day has exactly one end, so the two can never want the field
+                 at once. The placeholder (not a typed-over name) is what says which
+                 kind an empty row is. -->
+            <li v-if="dayEnds[i]" class="plan__camp">
               <input
                 class="field plan__campfield"
                 :value="d?.label ?? ''"
-                placeholder="Where you sleep"
+                :placeholder="dayEnds[i]!.kind === 'camp' ? 'Where you sleep' : 'Where you end up'"
                 maxlength="120"
-                :aria-label="`Name for the camp at the end of day ${i + 1}`"
+                :aria-label="`Name for the ${dayEnds[i]!.kind === 'camp' ? 'camp' : 'finish'} at the end of day ${i + 1}`"
                 @change="(e) => d && c.updateDay(d.id, { label: (e.target as HTMLInputElement).value.trim() })"
               />
-              <!-- The tent alone, in the same cell the pins' toggles occupy and boxed to
+              <!-- The glyph alone, in the same cell the pins' toggles occupy and boxed to
                    the same width, so it sits exactly where a toggle's glyph sits. The word
-                   went: the row is a camp because the itinerary made it one, not because
-                   anybody chose it, so naming the kind here was labelling a control that
-                   isn't one. Its title says so for a screen reader. -->
-              <span class="plan__campkind" role="img" :aria-label="`Camp at the end of day ${i + 1}`">
-                <HugeiconsIcon :icon="TentIcon" :size="16" :stroke-width="2" aria-hidden="true" />
+                   went: the row is a camp (or the finish) because the itinerary made it
+                   one, not because anybody chose it, so naming the kind here was labelling
+                   a control that isn't one. Its label says so for a screen reader. -->
+              <span
+                class="plan__campkind"
+                role="img"
+                :aria-label="dayEnds[i]!.kind === 'camp' ? `Camp at the end of day ${i + 1}` : 'The end of the route'"
+              >
+                <HugeiconsIcon :icon="dayEnds[i]!.kind === 'camp' ? TentIcon : RacingFlagIcon" :size="16" :stroke-width="2" aria-hidden="true" />
               </span>
-              <span class="t-sm plan__coord">{{ coordOf(campOf(i)!) }}</span>
-              <span class="t-sm plan__campdist">{{ formatDistancePadded(campOf(i)!, distanceUnit) }}</span>
-              <!-- the delete column, left empty: a camp is the end of a day, and removing
-                   it would mean removing the day. The cell stays so every other column in
-                   the list still lines up through this row. -->
-              <span class="plan__campdel" aria-hidden="true" />
-            </li>
-            <!-- THE FINISH, on the last day only — see finishOf. Same row as the camp,
-                 because it answers the same question ("where does this day leave you"), and
-                 nameless for the same reason it is not deletable: nobody put it there, the
-                 route did. On a loop this is the trailhead again, which is why it is drawn
-                 rather than stored. -->
-            <li v-if="finishOf(i) != null" class="plan__camp">
-              <!-- Named through the DAY's own label, the same field the camp writes — and
-                   free, because a day has exactly one end: if it finishes the walk it has
-                   no camp, so the two can never want that field at once. "Where you end up"
-                   rather than a name typed over "Finish", so an empty row still says what
-                   the row is. -->
-              <input
-                class="field plan__campfield"
-                :value="d?.label ?? ''"
-                placeholder="Where you end up"
-                maxlength="120"
-                :aria-label="`Name for the finish at the end of day ${i + 1}`"
-                @change="(e) => d && c.updateDay(d.id, { label: (e.target as HTMLInputElement).value.trim() })"
-              />
-              <span class="plan__campkind" role="img" aria-label="The end of the route">
-                <HugeiconsIcon :icon="RacingFlagIcon" :size="16" :stroke-width="2" aria-hidden="true" />
-              </span>
-              <span class="t-sm plan__coord">{{ coordOf(finishOf(i)!) }}</span>
-              <span class="t-sm plan__campdist">{{ formatDistancePadded(finishOf(i)!, distanceUnit) }}</span>
+              <span class="t-sm plan__coord">{{ coordOf(dayEnds[i]!.alongM) }}</span>
+              <span class="t-sm plan__campdist">{{ formatDistancePadded(dayEnds[i]!.alongM, distanceUnit) }}</span>
+              <!-- the delete column, left empty: a day's end is the end of a day, and
+                   removing it would mean removing the day. The cell stays so every other
+                   column in the list still lines up through this row. -->
               <span class="plan__campdel" aria-hidden="true" />
             </li>
           </ol>
           <!-- the add row, carrying the same rule and the same padding as a row above it,
                so it reads as the NEXT row rather than a button parked under a list —
                exactly what .folder__add does under a folder's items -->
-          <div class="plan__wpadd" :class="{ 'is-first': !grouped.byDay[i]?.length && campOf(i) == null }">
+          <div class="plan__wpadd" :class="{ 'is-first': !grouped.byDay[i]?.length && dayEnds[i]?.kind !== 'camp' }">
             <button type="button" class="folder__addbtn" @click="arming = arming === i ? null : i">
               {{ arming === i ? "Tap the route to place it" : "Add a waypoint" }}
             </button>
@@ -1082,7 +1052,7 @@ const distanceValue = (m: number | undefined) => {
         >
           <template #trigger="{ open }">
             <span class="t-muted">{{ bodyUnit }}</span>
-            <HugeiconsIcon :icon="ChevronDownIcon" class="plan__chev" :class="{ 'is-open': open }" :size="12" :stroke-width="2" />
+            <HugeiconsIcon :icon="ChevronDownIcon" :size="12" :stroke-width="2" />
           </template>
         </OptionMenu>
       </span>

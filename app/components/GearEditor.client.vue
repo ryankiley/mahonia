@@ -72,7 +72,6 @@ const showIntro = computed(
 const seo = computed(() =>
   editorSeo(snapshot.value?.title, totals.value, snapshot.value?.displayUnit),
 );
-const listName = computed(() => seo.value.name);
 useHead({
   title: () =>
     !snapshot.value
@@ -752,7 +751,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
   >
     <!-- the editor's page heading — visually the title input carries it, but a
          real (hidden) h1 gives AT users a page title on this client-only view -->
-    <h1 class="visually-hidden">{{ listName ? `${listName} — pack list` : "New pack list — Mahonia" }}</h1>
+    <h1 class="visually-hidden">{{ seo.name ? `${seo.name} — pack list` : "New pack list — Mahonia" }}</h1>
     <header class="topbar">
       <div class="wrap topbar__inner">
         <!-- The list switcher, holding the bar's LEADING edge. A word rather than a

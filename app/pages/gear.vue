@@ -187,7 +187,6 @@ const sectionKey = (s: VaultSection) => (s.folder ? String(s.folder.id) : "unfil
 // folders — "Heaviest first" has to read identically on both surfaces, and one table
 // guarantees that where a copied comment only asked for it. (VIEW_OPTIONS below is a
 // different list: the PAGE's own order, which borrows the same glyph family.)
-type VaultSort = NonNullable<VaultFolder["sortBy"]>;
 
 // Every folder change goes through the one ops route, then reloads — a vault is a
 // hundred rows and one small read, so re-reading is simpler and never leaves the
@@ -482,12 +481,7 @@ async function undoRemove() {
   if (!entry) return;
   undoable.value = null;
   clearTimeout(undoTimer);
-  try {
-    await vaultFetch("/api/vault/remove", { method: "POST", body: { id: entry.id, restore: true } });
-    await loadVault();
-  } catch {
-    loadError.value = "Couldn’t put that back. Check your connection and try again.";
-  }
+  await putBack(entry); // restoring is restoring — same call the Removed section makes
 }
 onBeforeUnmount(() => clearTimeout(undoTimer));
 

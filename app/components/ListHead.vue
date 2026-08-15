@@ -1268,8 +1268,6 @@ onClickOutside(trailEl, closeTrail);
 }
 .head__dateclear:hover {
   background: var(--popover-hover);
-}
-.head__dateclear:hover {
   color: var(--ink);
 }
 
