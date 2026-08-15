@@ -150,14 +150,6 @@ export function lineMg(item: Pick<Item, "qty" | "unitWeightMg">): number {
   return Math.max(0, item.qty) * Math.max(0, item.unitWeightMg);
 }
 
-/** An item's nested children (items nested directly under it), in sortOrder. */
-export function childrenOf<T extends { parentId?: string | null; sortOrder: number }>(
-  items: readonly T[],
-  parentId: string,
-): T[] {
-  return items.filter((i) => i.parentId === parentId).sort(bySortOrder);
-}
-
 /**
  * A row's GROUP line weight for DISPLAY: the item's own line plus its children's lines.
  * Totals never use this (they sum each item's OWN line, so a parent + its kids aren't
@@ -274,7 +266,7 @@ export function sortedFolderItems(items: readonly Item[], folder: Folder): Item[
  * ordered by its folder's `sortBy` (manual = sortOrder). One O(items) pass, built once
  * per snapshot — so per-folder consumers (one FolderSection per folder) don't each
  * re-filter and re-sort the whole item array on every edit. Children are rendered by
- * their parent row (via childrenOf), not as folder rows. Pass `folders` to honor
+ * their parent row (via groupItemsByParent), not as folder rows. Pass `folders` to honor
  * per-folder sorts; omit it and every group falls back to manual sortOrder.
  */
 export function groupItemsByFolder(
@@ -295,8 +287,8 @@ export function groupItemsByFolder(
 }
 
 /**
- * Group nested children by their parent id, each group in sortOrder (matching
- * childrenOf). One O(items) pass, built once per snapshot at the view root and
+ * Group nested children by their parent id, each group in sortOrder. One
+ * O(items) pass, built once per snapshot at the view root and
  * threaded to the rows — so each row doesn't re-scan the whole item array for its
  * children on every render (O(rows × items) across a list).
  */

@@ -14,7 +14,7 @@ export interface ExportSection {
 }
 
 export function exportSections(list: Pick<ListData, "folders" | "items">): ExportSection[] {
-  // one children-by-parent pass for the whole list, not a per-row childrenOf scan
+  // one children-by-parent pass for the whole list, not a per-row scan of every item
   const byParent = groupItemsByParent(list.items);
   const row = (item: Item) => ({ item, children: byParent.get(item.id) ?? [] });
   const sections: ExportSection[] = [...list.folders].sort(bySortOrder).map((f) => ({

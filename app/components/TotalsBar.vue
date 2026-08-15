@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { CheckIcon, ChevronDownIcon } from "@hugeicons/core-free-icons";
+import { ChevronDownIcon } from "@hugeicons/core-free-icons";
 import type { ListSnapshot, Totals, Unit } from "~~/shared/types";
 import { carriedIsDistinct, formatKcal, formatWeight, totalsChips } from "~~/shared/weights";
 import { KCAL_PER_DAY_GENEROUS, KCAL_PER_DAY_LIGHT, foodPlan } from "~~/shared/foodPlan";
