@@ -360,8 +360,12 @@ onMounted(() => {
 /* The pip is masked while it's under the band, so an in-range day answers the pointer
    itself — by DEEPENING. Lightening would read as leaving the range, the one direction
    that means the opposite of what hovering a selected day is doing. */
-.cal__day.is-between:hover {
-  background: color-mix(in oklab, var(--ink) 22%, var(--surface-float));
+/* pointer-gated — it paints (see the note on .btn:hover, controls.scss). Position in
+   the file is unchanged, so it still lands after .is-between and before the ends. */
+@media (hover: hover) and (pointer: fine) {
+  .cal__day.is-between:hover {
+    background: color-mix(in oklab, var(--ink) 22%, var(--surface-float));
+  }
 }
 .cal__day.is-start,
 .cal__day.is-end,

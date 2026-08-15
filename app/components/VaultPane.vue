@@ -898,9 +898,18 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   color: inherit;
   font: inherit;
 }
-.vp__add:hover:not(:disabled),
+/* Split from :hover, not merged with it: focus is not a pointer state and a keyboard
+   driving a touch device still needs the highlight, while the hover twin paints only
+   where hovering is real (see the note on .btn:hover, controls.scss). Worth the two
+   duplicated lines here because the pane STAYS OPEN as you add — an ungated tint sat
+   on the last row you tapped while you went on picking the next one. */
 .vp__add:focus-visible {
   background: var(--popover-hover);
+}
+@media (hover: hover) and (pointer: fine) {
+  .vp__add:hover:not(:disabled) {
+    background: var(--popover-hover);
+  }
 }
 /* Already in the list: the row recedes rather than disappearing — seeing that you
    already packed it is the useful part — but it stops offering itself. Dimmed as a

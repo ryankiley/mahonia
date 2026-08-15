@@ -1505,8 +1505,13 @@ const rowKcal = (e: VaultEntry) => (e.classification === "consumable" && e.kcal 
 .vault__removedbody .vault__row {
   opacity: 0.6;
 }
-.vault__removedbody .vault__row:hover {
-  opacity: 1;
+/* pointer-gated — it paints (see the note on .btn:hover, controls.scss). On touch
+   the removed rows simply stay dimmed, which is the reading they're meant to have;
+   undimming one under a finger that has moved on is the artefact. */
+@media (hover: hover) and (pointer: fine) {
+  .vault__removedbody .vault__row:hover {
+    opacity: 1;
+  }
 }
 /* touch: the hand-rolled icon controls meet the --tap minimum like every
    .btn--icon does (controls.scss). The clear overlays the field's end, so the
