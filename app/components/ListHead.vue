@@ -217,9 +217,7 @@ const { gpxError, gpxBusy, pending, confirmPins, onGpx } = useGpxImport(
 // The owner's pick when they've made one, else miles — see resolveDistanceUnit for why
 // the fallback stopped following the weight unit. The picker is for the person whose
 // trailhead sign is in kilometres.
-const distanceUnit = computed(() =>
-  resolveDistanceUnit(props.snapshot.trailDistanceUnit, props.snapshot.displayUnit),
-);
+const distanceUnit = computed(() => resolveDistanceUnit(props.snapshot.trailDistanceUnit));
 // the two as OptionMenu rows: DISTANCE_UNIT_OPTIONS, from app/utils/unitOptions.ts, which
 // is where every picker in the app now takes its rows from
 

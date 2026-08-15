@@ -75,6 +75,12 @@ function numFromGroup(s: string): number {
   return parseFloat(norm);
 }
 
+// The input scanner both parsers below share: a number (digits with any mix of
+// ',' / '.' separators), optionally followed by a unit word. One definition so
+// parseWeightInput and entryUnitFromInput can never disagree about what counts
+// as a token; a fresh regex per call because /g carries lastIndex state.
+const weightScan = () => /(-?[\d][\d.,]*)\s*([a-z]+)?/g;
+
 export function parseWeightInput(
   raw: string,
   defaultUnit: Unit = "g",
@@ -83,9 +89,8 @@ export function parseWeightInput(
   const text = String(raw).trim().toLowerCase();
   if (!text) return null;
 
-  // number (digits with any mix of ',' / '.' separators), optionally + a unit word;
   // numFromGroup() below decides which separator is the decimal point
-  const re = /(-?[\d][\d.,]*)\s*([a-z]+)?/g;
+  const re = weightScan();
   let mg = 0;
   let matched = false;
   let m: RegExpExecArray | null;
@@ -122,9 +127,7 @@ export function entryUnitFromInput(raw: string): Unit | null {
   const text = String(raw).trim().toLowerCase();
   if (!text) return null;
   const seen = new Set<Unit>();
-  // same shape as parseWeightInput's scanner, so the two can't disagree about what
-  // counts as a unit word
-  const re = /(-?[\d][\d.,]*)\s*([a-z]+)?/g;
+  const re = weightScan();
   let m: RegExpExecArray | null;
   while ((m = re.exec(text)) !== null) {
     const word = m[2];

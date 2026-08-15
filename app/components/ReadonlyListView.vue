@@ -73,9 +73,7 @@ const VIEW_MODES = [
 ] as const;
 
 const days = computed(() => props.list?.days ?? []);
-const distanceUnit = computed(() =>
-  resolveDistanceUnit(props.list?.trailDistanceUnit, props.list?.displayUnit ?? "g"),
-);
+const distanceUnit = computed(() => resolveDistanceUnit(props.list?.trailDistanceUnit));
 const profile = computed(() => parseProfile(props.list?.trailProfile));
 const dayDistancesM = computed(() => days.value.map((d) => d.distanceM ?? 0));
 // the same helper the editor uses, so a shared day reads the climb its owner sees

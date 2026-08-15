@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   distanceFieldValue,
-  distanceUnitFor,
   formatDistance,
   normalizeDistanceUnit,
   normalizeTrailDistanceM,
@@ -105,14 +104,6 @@ describe("parseDistanceM — pasted off the trail page", () => {
   });
 });
 
-describe("distanceUnitFor", () => {
-  it("is miles, whatever the list weighs gear in", () => {
-    // grams is the useful unit for GEAR; it says nothing about how someone measures a
-    // trail, and most of this app's trail signs and pasted pages say miles
-    for (const u of ["g", "kg", "oz", "lb"]) expect(distanceUnitFor(u)).toBe("mi");
-  });
-});
-
 describe("normalizeDistanceUnit", () => {
   it("keeps only the two pickable units", () => {
     expect(normalizeDistanceUnit("km")).toBe("km");
@@ -132,24 +123,20 @@ describe("normalizeDistanceUnit", () => {
 
 describe("resolveDistanceUnit", () => {
   it("prefers the owner's explicit pick", () => {
-    expect(resolveDistanceUnit("mi", "g")).toBe("mi");
-    expect(resolveDistanceUnit("km", "lb")).toBe("km");
+    expect(resolveDistanceUnit("mi")).toBe("mi");
+    expect(resolveDistanceUnit("km")).toBe("km");
   });
 
   it("falls back to miles when nothing was picked", () => {
-    expect(resolveDistanceUnit(undefined, "g")).toBe("mi");
-    expect(resolveDistanceUnit(undefined, "oz")).toBe("mi");
+    // grams is the useful unit for GEAR; it says nothing about how someone measures a
+    // trail, and most of this app's trail signs and pasted pages say miles — so the
+    // default no longer follows the weight unit at all
+    expect(resolveDistanceUnit(undefined)).toBe("mi");
   });
 
   it("falls back rather than trusting a junk value", () => {
-    expect(resolveDistanceUnit("furlongs", "oz")).toBe("mi");
-    expect(resolveDistanceUnit("", "g")).toBe("mi");
-  });
-
-  it("a pick outlives a later change of weight unit", () => {
-    expect(resolveDistanceUnit("km", "oz")).toBe("km"); // picked km, and it stays km
-    expect(resolveDistanceUnit("km", "g")).toBe("km");
-    expect(resolveDistanceUnit(undefined, "g")).toBe("mi"); // never picked → the default
+    expect(resolveDistanceUnit("furlongs")).toBe("mi");
+    expect(resolveDistanceUnit("")).toBe("mi");
   });
 });
 

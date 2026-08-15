@@ -122,9 +122,7 @@ function ensureDay(i: number): string | null {
   for (let k = stored.value.length; k <= i; k++) c.addDay();
   return null; // the patch lands on the next tick, once the op has applied
 }
-const distanceUnit = computed(() =>
-  resolveDistanceUnit(props.snapshot.trailDistanceUnit, props.snapshot.displayUnit),
-);
+const distanceUnit = computed(() => resolveDistanceUnit(props.snapshot.trailDistanceUnit));
 
 const totalDistanceM = computed(() => days.value.reduce((s, d) => s + (d?.distanceM ?? 0), 0));
 // The bigger of the route's own length and what the days add up to.

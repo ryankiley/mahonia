@@ -80,17 +80,6 @@ describe("foodPlan", () => {
       }),
     );
     expect(metric?.perDayDistance).toBe("10 km");
-
-    const imperial = foodPlan(
-      totals(9000),
-      meta({
-        startDate: "2026-08-04",
-        endDate: "2026-08-06",
-        trailDistanceM: 30_000,
-        displayUnit: "oz",
-      }),
-    );
-    expect(imperial?.perDayDistance).toBe("6.2 mi");
   });
 
   it("honours an explicit distance unit over the one the weight unit implies", () => {

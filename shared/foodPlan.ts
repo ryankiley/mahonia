@@ -78,10 +78,7 @@ export interface FoodPlan {
  */
 export function foodPlan(
   totals: Pick<Totals, "kcalTotal" | "hasKcal">,
-  meta: Pick<
-    ListMeta,
-    "startDate" | "endDate" | "displayUnit" | "trailDistanceM" | "trailDistanceUnit"
-  >,
+  meta: Pick<ListMeta, "startDate" | "endDate" | "trailDistanceM" | "trailDistanceUnit">,
 ): FoodPlan | null {
   if (!totals.hasKcal || totals.kcalTotal <= 0) return null;
   const days = tripDays(meta.startDate, meta.endDate);
@@ -97,10 +94,7 @@ export function foodPlan(
 
   const distance = meta.trailDistanceM;
   const perDayDistance = distance
-    ? formatDistance(
-        Math.round(distance / days),
-        resolveDistanceUnit(meta.trailDistanceUnit, meta.displayUnit),
-      )
+    ? formatDistance(Math.round(distance / days), resolveDistanceUnit(meta.trailDistanceUnit))
     : null;
 
   return { days, kcalPerDay, reading, perDayDistance };
