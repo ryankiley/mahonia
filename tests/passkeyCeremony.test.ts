@@ -29,6 +29,7 @@ import { startChallenge, takeChallenge } from "../server/utils/passkeys";
 import registerVerify from "../server/api/auth/passkey/register-verify.post";
 import signupVerify from "../server/api/auth/passkey/signup-verify.post";
 import { createTestDb } from "./helpers/db";
+import { setCookieValue } from "./helpers/http";
 
 type DB = ReturnType<typeof drizzle>;
 async function freshDb(): Promise<DB> {
@@ -91,14 +92,6 @@ function makeEvent(opts: { body?: unknown; cookie?: string } = {}): H3Event {
   }
   req.push(null);
   return createEvent(req, new ServerResponse(req));
-}
-
-/** What the response set a cookie to, or null if it never touched that cookie. */
-function setCookieValue(event: H3Event, name: string): string | null {
-  const header = event.node.res.getHeader("set-cookie");
-  const all = header == null ? [] : Array.isArray(header) ? header : [header];
-  const hit = all.map(String).find((c) => c.startsWith(`${name}=`));
-  return hit ? hit.slice(name.length + 1).split(";")[0]! : null;
 }
 
 const usersWith = (db: DB, email: string) =>

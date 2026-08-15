@@ -9,6 +9,7 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fetchFaviconDataUrl } from "../server/utils/trailFavicon";
+import { imageResponse, stubFetch } from "./helpers/http";
 
 // Per-host DNS, so one suite can hold a public host, a private-resolving host,
 // and a public CDN at once (the shared favicon suite's stub answers one address
@@ -24,43 +25,8 @@ vi.mock("node:dns/promises", () => ({
 
 const PUBLIC_A = "93.184.216.34";
 
-/** Stub fetch AND keep the log of every URL actually requested — the assertions
- *  here are as much about what was never fetched as about what came back. */
-function stubFetch(impl: (url: string) => Partial<Response> | null): string[] {
-  const fetched: string[] = [];
-  vi.stubGlobal("fetch", async (input: string | URL) => {
-    const url = String(input);
-    fetched.push(url);
-    const res = impl(url);
-    if (!res) throw new Error("network down");
-    return res as Response;
-  });
-  return fetched;
-}
-
 function redirectResponse(location: string) {
   return { ok: false, status: 302, headers: new Headers({ location }) };
-}
-
-function imageResponse(bytes: Uint8Array, contentType = "image/png") {
-  return {
-    ok: true,
-    status: 200,
-    headers: new Headers({ "content-type": contentType }),
-    body: {
-      getReader() {
-        let sent = false;
-        return {
-          async read() {
-            if (sent) return { value: undefined, done: true };
-            sent = true;
-            return { value: bytes, done: false };
-          },
-          async cancel() {},
-        };
-      },
-    },
-  };
 }
 
 afterEach(() => {
@@ -77,7 +43,7 @@ describe("safeGet re-vets every redirect hop", () => {
     stubFetch((url) => {
       if (url.startsWith("https://trail.example/"))
         return redirectResponse("https://cdn.example/icon.png");
-      if (url === "https://cdn.example/icon.png") return imageResponse(new Uint8Array([9]));
+      if (url === "https://cdn.example/icon.png") return imageResponse(new Uint8Array([9]), "image/png");
       return null;
     });
 
@@ -108,7 +74,7 @@ describe("safeGet re-vets every redirect hop", () => {
         return redirectResponse("https://internal.example/icon.png");
       // if the walk ever got here, a perfectly valid icon would come back and the
       // expect(null) below would fail — the block has to be the vet, nothing else
-      return imageResponse(new Uint8Array([7]));
+      return imageResponse(new Uint8Array([7]), "image/png");
     });
 
     expect(await fetchFaviconDataUrl("evil.example")).toBeNull();
