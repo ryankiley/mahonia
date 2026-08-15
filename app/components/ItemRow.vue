@@ -28,11 +28,7 @@ function nestCollapsedFor(key: string): boolean {
 }
 function setNestCollapsed(key: string, on: boolean) {
   nestCollapsedCache.set(key, on);
-  try {
-    localStorage.setItem(key, on ? "1" : "0");
-  } catch {
-    /* ignore */
-  }
+  remember(key, on ? "1" : "0");
 }
 // A cache that never re-read would out-live the truth: `storage` fires in the OTHER
 // tabs, so the same list open twice would keep showing its own stale collapse state on

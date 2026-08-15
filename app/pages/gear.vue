@@ -169,11 +169,7 @@ function readCollapsed(id: number) {
 function toggleCollapsed(id: number) {
   const next = !collapsed.value[id];
   collapsed.value[id] = next;
-  try {
-    localStorage.setItem(`gear.vfold.${id}`, next ? "1" : "0");
-  } catch {
-    /* ignore */
-  }
+  remember(`gear.vfold.${id}`, next ? "1" : "0");
 }
 
 // A row's folder picker is absolutely positioned and .folder__bodyinner clips
@@ -453,11 +449,7 @@ onMounted(() => {
 });
 function setUnit(next: Unit) {
   unit.value = next;
-  try {
-    localStorage.setItem(UNIT_KEY, next);
-  } catch {
-    // storage blocked — the choice still holds for this visit
-  }
+  remember(UNIT_KEY, next);
 }
 const weightLabel = (mg: number) => formatWeight(mg, unit.value);
 

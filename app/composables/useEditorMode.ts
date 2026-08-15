@@ -16,6 +16,8 @@
 // Client-only by nature (GearEditor is a .client component); the storage read is
 // guarded anyway so importing this in a server context stays inert.
 
+import { remember } from "../utils/remember";
+
 export type EditorMode = "edit" | "pack" | "plan";
 export const MODE_ORDER: EditorMode[] = ["edit", "pack", "plan"];
 // Unlike the other gear.*.v1 preferences this one is genuinely new behaviour: mode used
@@ -38,13 +40,7 @@ function create() {
     }
   };
   const mode = ref<EditorMode>(import.meta.client ? stored() : "edit");
-  watch(mode, (m) => {
-    try {
-      localStorage.setItem(MODE_KEY, m);
-    } catch {
-      /* a write can throw on quota or in private mode; the preference just doesn't stick */
-    }
-  });
+  watch(mode, (m) => remember(MODE_KEY, m));
 
   // Mount latches. Each row face mounts the first time its mode is entered and then
   // STAYS mounted, hidden by CSS in the other modes — so a switch stops tearing down

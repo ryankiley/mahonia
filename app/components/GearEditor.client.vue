@@ -48,15 +48,6 @@ const isFirstRun = computed(() => {
 // where their lists are, so re-offering it on every new list is the nagging the
 // close button is there to stop. The editor is client-only, so localStorage is safe
 // to read at setup without an SSR mismatch.
-// a write can throw on quota or in private mode; the preference just doesn't
-// outlive the session then, which is never worth failing the interaction over
-function remember(key: string, value: string) {
-  try {
-    localStorage.setItem(key, value);
-  } catch {
-    /* not worth reporting */
-  }
-}
 const INTRO_DISMISSED_KEY = "gear.intro.dismissed.v1";
 const introDismissed = ref(localStorage.getItem(INTRO_DISMISSED_KEY) === "1");
 function dismissIntro() {

@@ -115,11 +115,7 @@ function onName(e: Event) {
 }
 function toggleCollapsed() {
   collapsed.value = !collapsed.value;
-  try {
-    localStorage.setItem(COLLAPSE_KEY, collapsed.value ? "1" : "0");
-  } catch {
-    /* ignore */
-  }
+  remember(COLLAPSE_KEY, collapsed.value ? "1" : "0");
 }
 </script>
 
