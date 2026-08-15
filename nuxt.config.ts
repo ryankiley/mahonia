@@ -211,11 +211,10 @@ export default defineNuxtConfig({
     },
   },
 
-  // Per-route rendering. "/" is a tiny redirect shell: it mints a fresh list and
-  // forwards into the editor (app/pages/index.vue), so it renders identically for
-  // every visitor — ISR caches that prerendered shell, revalidated every 10 min. The
-  // editor stays a pure client island (edit token in the URL fragment, no SSR value).
-  // Everything else (legal pages, the public /l read view) is SSR by default.
+  // Per-route rendering. "/" is a bare redirect into the editor (the rule below —
+  // there is no index page); the editor stays a pure client island (edit token in
+  // the URL fragment, no SSR value). Everything else (legal pages, the public /l
+  // read view) is SSR by default.
   routeRules: {
     // Security headers on EVERY route — including prerendered/static ones. The
     // server middleware only runs for dynamic responses, so prerendered routes
