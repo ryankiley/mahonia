@@ -157,7 +157,6 @@ export function walkingKcal(
 }
 
 /**
-/**
  * Basal rate, kcal per hour, from body mass alone.
  *
  * SCHOFIELD'S WEIGHT-ONLY FORM, and the intercept is the entire point. This used to be a

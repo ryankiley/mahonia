@@ -97,10 +97,6 @@ function hueOf(colorKey: string): number | null {
   return m ? Number(m[1]) % 360 : null;
 }
 
-// Pick a colour for a new folder that contrasts with the ones already in the list:
-// the first curated hue not yet used, or — once all ten are taken — a fresh hue
-// dropped into the widest empty arc of the colour wheel, so colours stay distinct
-// no matter how many folders the list grows to (never repeating, never going grey).
 // Pick a colour for a NEWLY NAMED folder: if its name matches a canonical category
 // (and that hue isn't already taken), use that hue so the colour reads as meaningful;
 // otherwise fall back to the creation-order palette walk. Grey "other" may repeat —
@@ -115,6 +111,10 @@ export function colorKeyForName(name: string, used: readonly string[]): string {
   return nextFolderColor(used);
 }
 
+// Pick a colour for a new folder that contrasts with the ones already in the list:
+// the first curated hue not yet used, or — once all ten are taken — a fresh hue
+// dropped into the widest empty arc of the colour wheel, so colours stay distinct
+// no matter how many folders the list grows to (never repeating, never going grey).
 export function nextFolderColor(used: readonly string[]): string {
   const unused = FOLDER_PALETTE.find((k) => !used.includes(k));
   if (unused) return unused;

@@ -252,7 +252,7 @@ export function highlightParts(text: string, rawQuery: string): { t: string; on:
   // punctuation) and still appears, but arrives with nothing bolded, which reads as
   // "this isn't the match you asked for".
   const q = foldApostrophes((rawQuery ?? "").trim().toLowerCase());
-  const tokens = q ? q.split(/\s+/).filter((t) => t.length > 1) : [];
+  const tokens = q.split(/\s+/).filter((t) => t.length > 1);
   if (!tokens.length) return [{ t: text, on: false }];
   const lower = foldApostrophes(text.toLowerCase());
   const hit = new Array(text.length).fill(false);

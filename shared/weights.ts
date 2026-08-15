@@ -172,7 +172,8 @@ export function groupLineMg(item: Item, items: readonly Item[]): number {
  * children (already filtered), so the group sum is O(children).
  */
 export function rowDisplayMg(item: Item, children: readonly Item[]): number {
-  return children.length > 0 ? groupLineMg(item, children) : lineMg(item);
+  // groupLineMg over zero children IS the own-line case — no branch needed
+  return groupLineMg(item, children);
 }
 
 /** Units of a line that count as worn via the wornQty split.

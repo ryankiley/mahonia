@@ -127,11 +127,10 @@ export function categorySegments(data: ListData): SparkSegment[] {
       continue;
     }
     const folder = folderById.get(item.folderId);
-    const key = folder?.id ?? item.folderId;
-    const existing = byFolder.get(key);
+    const existing = byFolder.get(item.folderId);
     if (existing) existing.mg += mg;
     else
-      byFolder.set(key, {
+      byFolder.set(item.folderId, {
         colorKey: folder?.colorKey ?? "other",
         name: folder?.name ?? "Other",
         mg,

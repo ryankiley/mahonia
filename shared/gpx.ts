@@ -381,11 +381,8 @@ export function geoJsonPoints(raw: unknown): TrackPoint[] {
  * far more points on a slow climb than on a fast descent. Sampling by index therefore
  * compresses the climbs and stretches the descents: it draws the wrong mountain.
  */
-function resampleByDistance(
-  cumulative: number[],
-  elevations: number[],
-  samples: number,
-): number[] {
+function resampleByDistance(cumulative: number[], elevations: number[]): number[] {
+  const samples = PROFILE_SAMPLES;
   const total = cumulative[cumulative.length - 1] ?? 0;
   if (!(total > 0) || elevations.length < 2) return [];
   const out: number[] = [];
@@ -438,7 +435,7 @@ export function gpxStats(points: readonly TrackPoint[]): GpxStats | null {
     // reason the figure is stored separately from the resampled profile below: the
     // resampling smooths away real undulation, so it draws well and measures badly.
     ({ ascentM, descentM } = totalClimb(withEle));
-    profile = resampleByDistance(cumulative, withEle, PROFILE_SAMPLES);
+    profile = resampleByDistance(cumulative, withEle);
   }
 
   return {

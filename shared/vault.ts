@@ -12,7 +12,6 @@
 
 import { foldForSearch } from "./catalogSearch";
 import type { Classification, Item } from "./types";
-import { itemDisplayName } from "./weights";
 
 /** Max vault suggestions returned to the autocomplete. Deliberately smaller than
  *  the catalog's SEARCH_LIMIT: the vault renders ABOVE the catalog results in the
@@ -167,8 +166,8 @@ function captureFromItem(
   folderName?: string,
 ): VaultCapture | null {
   if (!isVaultWorthy(item, hasChildren)) return null;
-  const name = trim(item.name, VAULT_NAME_MAX);
-  if (!name) return null;
+  // non-empty by isVaultWorthy's first test, so no re-guard
+  const name = item.name.trim().slice(0, VAULT_NAME_MAX);
   const brand = trim(item.brand, VAULT_SHORT_MAX);
   const variant = trim(item.variant, VAULT_SHORT_MAX);
   const normKey = vaultNormKey(brand, name, variant);

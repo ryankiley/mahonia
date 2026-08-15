@@ -231,12 +231,12 @@ export function summarizeOps(ops: readonly Op[], before?: SummaryBefore): string
   // at the same level rather than falling through to a generic "Edited the list".
   if (daysAdded && !daysRemoved) return `Added ${plural(daysAdded, "day")}`;
   if (daysRemoved) return `Removed ${plural(daysRemoved, "day")}`;
-  if (daysEdited && !added && !removed) return `Edited ${plural(daysEdited, "day")}`;
+  if (daysEdited) return `Edited ${plural(daysEdited, "day")}`;
   // Below the days, because a recovery point is most often reached for after losing gear
   // or an itinerary; a moved pin is the smaller thing to have lost.
   if (wpsAdded && !wpsRemoved) return `Added ${plural(wpsAdded, "waypoint")}`;
   if (wpsRemoved) return `Removed ${plural(wpsRemoved, "waypoint")}`;
-  if (wpsEdited && !added && !removed) return `Edited ${plural(wpsEdited, "waypoint")}`;
+  if (wpsEdited) return `Edited ${plural(wpsEdited, "waypoint")}`;
 
   // then the single-intent edits
   const labelEdits = renamed + swapped + reweighed + reclassified;
@@ -259,8 +259,8 @@ export function summarizeOps(ops: readonly Op[], before?: SummaryBefore): string
       ? `Moved ${movedPhrases[0]}`
       : `Moved ${plural(moved, "item")}`;
   // packing ticks are their own kind of session and shouldn't read as "edited"
-  if (packed && !labelEdits && !moved) return `Checked off ${plural(packed, "item")}`;
-  if (meta && !labelEdits && !moved && !packed) return "Changed list details";
+  if (packed && !labelEdits) return `Checked off ${plural(packed, "item")}`;
+  if (meta && !labelEdits) return "Changed list details";
 
   // a genuine mixture — say how much, since which is no longer one phrase
   const touched = labelEdits + moved + packed + other;

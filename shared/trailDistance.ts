@@ -104,7 +104,7 @@ type Candidate = { metres: number; unit: DistanceUnit | null };
  *
  * Returns null for anything unparseable, non-positive, or past the bound.
  */
-export function parseDistanceM(raw: string, fallbackUnit: DistanceUnit = "km"): number | null {
+export function parseDistanceM(raw: string, fallbackUnit: DistanceUnit): number | null {
   if (raw == null) return null;
   const s = String(raw).trim().toLowerCase();
   if (!s) return null;
@@ -171,9 +171,8 @@ export function resolveDistanceUnit(explicit: string | undefined): DisplayDistan
   return normalizeDistanceUnit(explicit) ?? "mi";
 }
 
-/** A tidy label for a distance in metres: "7.5 mi", "12.1 km", "800 m". */
 /**
- * The same figure with its decimal ALWAYS shown — "11.0 mi", never "11 mi".
+ * The formatDistance figure with its decimal ALWAYS shown — "11.0 mi", never "11 mi".
  *
  * For distances that form a COLUMN. A whole number that drops its decimal is a character
  * narrower than the rows above and below it, so the unit slides left and the column stops
@@ -188,6 +187,7 @@ export function formatDistancePadded(metres: number, unit: DisplayDistanceUnit):
   return `${n.toFixed(1)} ${unit}`;
 }
 
+/** A tidy label for a distance in metres: "7.5 mi", "12.1 km", "800 m". */
 export function formatDistance(metres: number, unit: DisplayDistanceUnit): string {
   if (unit === "mi") {
     return `${Number.parseFloat((metres / M_PER_UNIT.mi).toFixed(1))} mi`;
@@ -251,9 +251,10 @@ export function normalizeTrailAscentM(raw: unknown): number | undefined {
   return boundedRound(raw, 1, 30_000);
 }
 
-/** The one raw-value → stored-integer rule every normalize* above and below shares:
- *  parse a string if that's what arrived, round, and accept only [min, max]. */
-function boundedRound(raw: unknown, min: number, max: number): number | undefined {
+/** The one raw-value → stored-integer rule every normalize* above and below
+ *  shares (and ops.ts's day metres too): parse a string if that's what arrived,
+ *  round, and accept only [min, max]. */
+export function boundedRound(raw: unknown, min: number, max: number): number | undefined {
   const n = typeof raw === "string" ? Number.parseFloat(raw) : raw;
   if (typeof n !== "number" || !Number.isFinite(n)) return undefined;
   const v = Math.round(n);
