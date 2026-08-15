@@ -30,6 +30,7 @@ import { blankList } from "./helpers/list";
 registerEndpoint("/api/catalog/search", () => ({ results: [] }));
 mockNuxtImport("useVaultAccess", () => () => ({
   hasVault: ref(false),
+  vaultKnown: ref(true),
   vaultFetch: () => Promise.resolve({ results: [] }),
 }));
 

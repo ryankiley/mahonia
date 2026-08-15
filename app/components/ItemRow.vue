@@ -102,7 +102,7 @@ const c = useGearList();
 // since signing in is a reasonable answer to pressing it), and gating vaultCovered
 // below — signed out, nothing reaches a vault automatically, so no row may claim
 // it's already there
-const { hasVault } = useVaultAccess();
+const { hasVault, vaultKnown } = useVaultAccess();
 
 // The two mount latches (each row face mounts the first time its mode is entered and
 // then stays, CSS-hidden elsewhere) and the mode itself, for event handlers only —
@@ -831,10 +831,10 @@ function toggleNestMenu() {
 //    offering to do what's done — so the button leaves again. (It used to stay,
 //    dimmed and aria-disabled, reading "Already in My Gear".) Covered is true
 //    exactly when every gate the automatic path runs is open for this worthy row:
-//    there's a vault to reach (signed in), this list's answer is yes
-//    (c.vaultAuto), and the chooser didn't decline it. Fail one of those and the
-//    worthy row keeps its button, because pressing it is then the only way this
-//    row gets banked.
+//    there's a vault to reach (signed in — or not yet known not to be, see the
+//    computed), this list's answer is yes (c.vaultAuto), and the chooser didn't
+//    decline it. Fail one of those and the worthy row keeps its button, because
+//    pressing it is then the only way this row gets banked.
 //
 // Neither gate can race live typing: they read the committed snapshot, and the
 // fields that feed worthiness settle before they commit — the name on
@@ -845,7 +845,15 @@ function toggleNestMenu() {
 const vaultWorthy = computed(() => isVaultWorthy(props.item, isParent.value));
 const vaultCovered = computed(
   () =>
-    hasVault.value &&
+    // "signed in, or not yet known to be otherwise" — NOT hasVault alone. That ref
+    // is false both for someone signed out and for the moment before
+    // /api/auth/me answers, and only the first of those means the automatic path
+    // can't have banked this row. Reading them as one put the button on every
+    // worthy row of every covered list for the length of that round trip: open a
+    // list you built, and gear that has been in My Gear for weeks offered to be
+    // saved to it. (Whether it then vanished or stayed depended on whether the
+    // session resolved at all — a failed lookup left the wrong answer up for good.)
+    (hasVault.value || !vaultKnown.value) &&
     c.vaultAuto.value &&
     vaultWorthy.value &&
     !c.vaultDeclined.value.has(vaultNormKey(props.item.brand, props.item.name, props.item.variant)),

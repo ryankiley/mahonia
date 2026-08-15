@@ -1,0 +1,6 @@
+{
+  "date": "2026-08-14",
+  "fixed": [
+    "A list you built no longer offers to save gear that is already in My Gear while the page is still working out that you're signed in."
+  ]
+}
