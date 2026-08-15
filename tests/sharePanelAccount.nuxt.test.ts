@@ -1,14 +1,13 @@
 // @vitest-environment nuxt
 //
-// The Sharing panel's "Your account" section — the explicit way a list this
-// browser holds gets attached to the signed-in account.
+// The Sharing panel's "Add to your account" — the one control that attaches a
+// list this browser holds to the signed-in account.
 //
-// The automatic sweep deliberately skips rows marked "opened" (a list someone
-// shared with you must never ride into an account as a side effect), which
-// leaves your own list, held here through its edit link, with no path onto the
-// account at all — the second device then never shows it. This section is that
-// path, so what's under test is when it renders, what it claims, and that it
-// flips to the quiet confirmation the moment the claim lands.
+// It is an ACTION and nothing else: no heading, no status line, no confirmation.
+// A list already on the account says nothing at all here, because a list being
+// safe is the app's premise and reassuring anyone about it invites the doubt.
+// So most of what's under test is when the button is ABSENT — the same "inert
+// controls are absent, not disabled" rule the row's Save-to-My-Gear follows.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mockNuxtImport } from "@nuxt/test-utils/runtime";
 import { flushPromises, mount } from "@vue/test-utils";
@@ -72,10 +71,10 @@ function mountPanel(over: { editToken?: string } = {}) {
   });
 }
 
-const section = (w: ReturnType<typeof mountPanel>) =>
-  w
-    .findAll(".share__field")
-    .find((s) => s.find(".share__subtitle").text().includes("account"));
+// the button, found by its label — the class it shares with "Replace this link"
+// is deliberate (same quiet voice) and so can't identify it
+const addBtn = (w: ReturnType<typeof mountPanel>) =>
+  w.findAll("button").find((b) => b.text().includes("Add to your account"));
 
 beforeEach(() => {
   signedIn.value = true;
@@ -85,62 +84,58 @@ beforeEach(() => {
   refresh.mockClear();
 });
 
-describe("SharePanel — the account section", () => {
-  it("offers Add to your account for a held, unclaimed list", () => {
-    const w = mountPanel();
-    const s = section(w);
-    expect(s).toBeTruthy();
-    expect(s!.text()).toContain("On this device only");
-    expect(s!.find(".share__claim").exists()).toBe(true);
+describe("SharePanel — adding a list to your account", () => {
+  it("offers the action for a held list the account doesn't have", () => {
+    expect(addBtn(mountPanel())).toBeTruthy();
   });
 
-  it("claims with THIS list's edit token, then reads back as on the account", async () => {
+  it("claims with THIS list's edit token, then the button simply leaves", async () => {
     claimOne.mockImplementation(async () => {
       claimedLists.value = [claimedRow(SHARE)]; // what the real claimOne does: adopt the server's set
       return true;
     });
     const w = mountPanel();
-    await section(w)!.find(".share__claim").trigger("click");
+    await addBtn(w)!.trigger("click");
     await flushPromises();
 
     expect(claimOne).toHaveBeenCalledWith("held-token");
-    const s = section(w)!;
-    expect(s.text()).toContain("On your account");
-    expect(s.find(".share__claim").exists()).toBe(false);
+    expect(addBtn(w)).toBeUndefined();
   });
 
-  it("says so, with no button, when the list is already on the account", () => {
+  it("says NOTHING when the list is already on the account", () => {
     claimedLists.value = [claimedRow(SHARE)];
     const w = mountPanel();
-    const s = section(w)!;
-    expect(s.text()).toContain("On your account");
-    expect(s.find(".share__claim").exists()).toBe(false);
+
+    expect(addBtn(w)).toBeUndefined();
+    // and no status line took its place — the whole complaint was being told
+    // that something is saved when there was never a reason to think otherwise
+    expect(w.text()).not.toContain("On your account");
+    expect(w.text()).not.toContain("account");
   });
 
-  it("renders nothing signed out — the panel doesn't sell accounts", () => {
+  it("stays away signed out — the panel doesn't sell accounts", () => {
     signedIn.value = false;
-    expect(section(mountPanel())).toBeUndefined();
+    expect(addBtn(mountPanel())).toBeUndefined();
   });
 
-  it("renders nothing on a claimed open — the edit-link section already says it", () => {
+  it("stays away on a claimed open — the edit-link line already says it", () => {
     // no token held: the claimed-open case, where the capability is the session
-    expect(section(mountPanel({ editToken: "" }))).toBeUndefined();
+    expect(addBtn(mountPanel({ editToken: "" }))).toBeUndefined();
   });
 
-  it("waits for the claim set before deciding — no Add flash on a claimed list", () => {
+  it("waits for the claim set before deciding — no flash on a claimed list", () => {
     claimedLoaded.value = false;
-    expect(section(mountPanel())).toBeUndefined();
+    expect(addBtn(mountPanel())).toBeUndefined();
   });
 
   it("keeps the offer up and says so when the claim doesn't land", async () => {
     claimOne.mockImplementation(async () => false);
     const w = mountPanel();
-    await section(w)!.find(".share__claim").trigger("click");
+    await addBtn(w)!.trigger("click");
     await flushPromises();
 
-    const s = section(w)!;
-    expect(s.find(".share__claim").exists()).toBe(true);
-    expect(s.text()).toContain("try again");
+    expect(addBtn(w)).toBeTruthy();
+    expect(w.text()).toContain("try again");
   });
 
   it("fetches the claim set on open, so a straight-from-link open still knows", () => {
