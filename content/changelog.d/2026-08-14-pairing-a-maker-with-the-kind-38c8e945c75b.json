@@ -1,0 +1,6 @@
+{
+  "date": "2026-08-14",
+  "changed": [
+    "Pairing a maker with the kind of gear now finds items the catalog names only by model — a brand plus \"sleeping pad\" or \"quilt\" turns up the ones whose names never say what they are."
+  ]
+}
