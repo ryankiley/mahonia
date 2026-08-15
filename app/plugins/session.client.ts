@@ -25,8 +25,8 @@ export default defineNuxtPlugin(() => {
   // re-reads the session without reloading the app), so a one-shot call at plugin
   // boot would miss the exact moment it matters most.
   //
-  // The registry's CREATED set is the second source, and it's what makes a list
-  // made mid-session reach the account while the tab is still open. Claiming used
+  // The REGISTRY is the second source, and it's what makes a list made mid-session
+  // reach the account while the tab is still open. Claiming used
   // to happen only at page load — a desktop tab that stays up for days built lists
   // the account never heard about, and the phone's switcher (which reads the
   // account) couldn't show them however often it refreshed. The fingerprint is the
@@ -37,14 +37,14 @@ export default defineNuxtPlugin(() => {
   // already, so signing in on a new device simply finds it. That claim-on-sign-in
   // step only existed while a vault was owned by a link the browser happened to
   // hold.
-  const createdFingerprint = computed(() =>
+  const registryFingerprint = computed(() =>
     useMyLists()
-      .entries.value.filter((e) => e.origin !== "opened") // the same set the claim sends
+      .entries.value // the whole registry — the same set the claim sends, both buckets
       .map((e) => e.editToken)
       .sort()
       .join("|"),
   );
-  watch([session.signedIn, createdFingerprint], ([yes]) => {
+  watch([session.signedIn, registryFingerprint], ([yes]) => {
     if (!yes) return;
     void useClaimedLists().claimDeviceLists();
   });

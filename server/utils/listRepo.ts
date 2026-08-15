@@ -434,11 +434,14 @@ export async function findPublishFieldsByEditHash(
 export async function findLiveByEditHashes(
   editHashes: string[],
   db?: Db,
-): Promise<{ id: number; editTokenHash: string }[]> {
+): Promise<{ id: number; editTokenHash: string; createdAt: Date }[]> {
   if (!editHashes.length) return [];
   const d = db ?? (await useDb());
   return d
-    .select({ id: lists.id, editTokenHash: lists.editTokenHash })
+    // createdAt rides along for the claim rule: a list made before origin tracking
+    // existed carries no trustworthy "how did you get this" mark, and the server is
+    // the only place that still knows which era a list is from (see claimRepo).
+    .select({ id: lists.id, editTokenHash: lists.editTokenHash, createdAt: lists.createdAt })
     .from(lists)
     .where(
       and(

@@ -24,6 +24,28 @@ type Db = Awaited<ReturnType<typeof useAccountDb>>;
  *  registry a person built by hand; anything past this is not a real browser. */
 export const CLAIM_BATCH_MAX = 200;
 
+/**
+ * When the device registry started recording HOW a list got onto a browser.
+ *
+ * `origin` shipped with accounts themselves (commit 20f8a81, "Move the vault into
+ * an account"), so no list made before this instant could have had one recorded —
+ * and the client has always treated those unmarked rows as yours, which is the
+ * right guess for nearly all of them.
+ *
+ * That grandfathering used to be undone by simply REOPENING such a list through
+ * its own edit link: the registry stamped the row "opened" after the fact, and the
+ * sweep below then skipped it forever, so the account never heard about a list the
+ * browser had held all along. The stamp is a guess made too late to mean anything,
+ * and this timestamp is what lets the server ignore it — the browser itself has no
+ * idea when a list was made.
+ *
+ * Deliberately the COMMIT instant rather than the deploy that followed it: erring
+ * early only costs a list the automatic sweep (it can still be added by hand from
+ * the sharing panel), while erring late would grandfather lists whose "opened" mark
+ * is real and attach someone else's list to an account.
+ */
+const ORIGIN_TRACKING_SINCE = new Date("2026-08-02T01:45:17Z");
+
 /** Ceiling on a single backfill. A personal gear collection is dozens of items;
  *  this only bounds the pathological account. */
 const VAULT_BACKFILL_MAX = 1000;
@@ -39,6 +61,9 @@ export interface ClaimedList {
   updatedAt: string;
 }
 
+const isToken = (t: unknown): t is string =>
+  typeof t === "string" && t.length > 0 && t.length <= 200;
+
 /**
  * Claim every list the caller can prove they hold, by presenting its edit token.
  *
@@ -46,23 +71,46 @@ export interface ClaimedList {
  * persists is (user, list), which is why a database dump still contains no write
  * capability for anyone's list.
  *
+ * TWO BUCKETS, because the browser can't always tell whose list it's holding.
+ * `editTokens` are the ones its registry calls yours (made, imported or cloned
+ * here) and are claimed outright. `openedTokens` arrived through an edit link
+ * someone may have SENT you — never claimed on that basis alone, because quietly
+ * attaching a shared list to your account is a surprise. They're claimed only when
+ * the list predates origin tracking (see ORIGIN_TRACKING_SINCE), where the mark
+ * distinguishing the two cases was never recorded in the first place and the app
+ * has always guessed "yours".
+ *
+ * The decision is HERE rather than in the client for the reason the split exists at
+ * all: `lists.created_at` is the deciding fact and only the server has it.
+ *
  * Unresolvable tokens are skipped in silence rather than reported: a device
  * registry accumulates dead entries (deleted lists, rotated links), and a
  * per-token verdict would let a caller test arbitrary tokens for existence.
  * Returns the number newly claimed.
  */
-export async function claimLists(db: Db, userId: number, editTokens: string[]): Promise<number> {
-  const tokens = editTokens
-    .filter((t): t is string => typeof t === "string" && t.length > 0 && t.length <= 200)
-    .slice(0, CLAIM_BATCH_MAX);
-  if (!tokens.length) return 0;
+export async function claimLists(
+  db: Db,
+  userId: number,
+  editTokens: string[],
+  openedTokens: string[] = [],
+): Promise<number> {
+  // Owned first, then the conditional ones fill what's left of the budget: the cap
+  // bounds one request, and a registry big enough to hit it should spend it on the
+  // lists whose ownership isn't in question.
+  const owned = editTokens.filter(isToken).slice(0, CLAIM_BATCH_MAX);
+  const opened = openedTokens.filter(isToken).slice(0, CLAIM_BATCH_MAX - owned.length);
+  if (!owned.length && !opened.length) return 0;
 
   // Two statements for the whole batch, not two per token. Hashing is local and
   // synchronous, so the only round trips left are the resolve and the insert —
   // where a registry of 200 tokens used to cost 400 sequential ones, which on
   // Neon's HTTP driver (no pipelining) is the difference between a sign-in that
   // lands and one you watch happen.
-  const rows = await findLiveByEditHashes(tokens.map(sha256Hex), db as never);
+  const ownedHashes = new Set(owned.map(sha256Hex));
+  const rows = await findLiveByEditHashes(
+    [...ownedHashes, ...opened.map(sha256Hex)],
+    db as never,
+  );
   if (!rows.length) return 0;
 
   // SORTED, which is the part that matters. Two overlapping claims from the same
@@ -77,7 +125,21 @@ export async function claimLists(db: Db, userId: number, editTokens: string[]): 
   // ON CONFLICT DO NOTHING tolerates a repeated pair within one statement (that
   // restriction belongs to DO UPDATE). It costs nothing and makes the row count
   // obviously equal to the key count.
-  const listIds = [...new Set(rows.map((r) => r.id))].sort((a, b) => a - b);
+  const listIds = [
+    ...new Set(
+      rows
+        // the opened-bucket gate: a row that only came back for a token from that
+        // bucket has to be old enough that its "opened" mark could never have been
+        // recorded. A token in BOTH buckets is owned — the outright claim wins.
+        .filter(
+          (r) =>
+            ownedHashes.has(r.editTokenHash) ||
+            new Date(r.createdAt).getTime() < ORIGIN_TRACKING_SINCE.getTime(),
+        )
+        .map((r) => r.id),
+    ),
+  ].sort((a, b) => a - b);
+  if (!listIds.length) return 0;
 
   // ON CONFLICT DO NOTHING ... RETURNING gives back only the rows actually
   // inserted, so the count still means "newly claimed" and re-claiming stays a

@@ -27,10 +27,18 @@ export default defineEventHandler(async (event) => {
   await rateLimit(event, "list-claim");
   const user = await requireUser(event);
 
-  const body = await readJsonBodyCapped<{ editTokens?: unknown }>(event, 64_000);
-  const editTokens = Array.isArray(body?.editTokens)
-    ? (body.editTokens.filter((t) => typeof t === "string") as string[]).slice(0, CLAIM_BATCH_MAX)
-    : [];
+  const body = await readJsonBodyCapped<{ editTokens?: unknown; openedTokens?: unknown }>(
+    event,
+    64_000,
+  );
+  const tokenList = (v: unknown) =>
+    Array.isArray(v) ? (v.filter((t) => typeof t === "string") as string[]).slice(0, CLAIM_BATCH_MAX) : [];
+  const editTokens = tokenList(body?.editTokens);
+  // The lists this browser says arrived via someone else's link. Sent so the SERVER
+  // can judge them — it knows when each list was made, and the browser doesn't —
+  // but claimed only under claimLists' narrower rule, never on the say-so of being
+  // in this array.
+  const openedTokens = tokenList(body?.openedTokens);
 
   // useVaultDb as well as useAccountDb: the backfill below writes vault rows, and on
   // Neon the vault tables are ensured on first use rather than migrated. Without
@@ -38,7 +46,10 @@ export default defineEventHandler(async (event) => {
   // silently never happen on a cold instance.
   const db = await useAccountDb();
   await useVaultDb();
-  const claimed = editTokens.length ? await claimLists(db, user.id, editTokens) : 0;
+  const claimed =
+    editTokens.length || openedTokens.length
+      ? await claimLists(db, user.id, editTokens, openedTokens)
+      : 0;
 
   // Rebuild the vault from every list this account holds, not just the ones that
   // happen to get opened. Without this, signing in on a new device shows your

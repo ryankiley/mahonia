@@ -65,23 +65,32 @@ export function useClaimedLists() {
    */
   async function claimDeviceLists(): Promise<void> {
     if (!import.meta.client || !signedIn.value) return;
-    // ONLY lists this browser made. A list opened from someone else's edit link is
-    // not swept up here: quietly attaching it to your account is a surprise, and a
-    // claim is meant to be a private bookmark rather than a second, invisible way
-    // in. (Entries predating `origin` count as
-    // created — the right guess for nearly all of them, and safe now that rotating
-    // a list's link clears other accounts' claims.)
-    const editTokens = useMyLists()
-      .entries.value.filter((e) => e.origin !== "opened")
-      .map((e) => e.editToken);
-    const mark = deviceFingerprint(editTokens);
+    // The registry, split by what this browser knows about each row. Lists it made
+    // are claimed outright. Lists that arrived through someone else's edit link go
+    // in the second bucket and are NOT claimed for being there — quietly attaching
+    // a shared list to your account is a surprise, and a claim is meant to be a
+    // private bookmark rather than a second, invisible way in.
+    //
+    // They're sent at all because that mark is unreliable in one direction: a list
+    // from before `origin` existed gets stamped "opened" merely by being reopened
+    // through its own link, which used to strand it on this device forever. Only
+    // the server can tell that era apart (it has the list's creation date), so the
+    // decision belongs to it — see server/utils/claimRepo.
+    const entries = useMyLists().entries.value;
+    const editTokens = entries.filter((e) => e.origin !== "opened").map((e) => e.editToken);
+    const openedTokens = entries.filter((e) => e.origin === "opened").map((e) => e.editToken);
+    // Both buckets, so a registry that changes only in its opened rows still
+    // re-runs the sweep. (It also retires every mark written by the version that
+    // fingerprinted one bucket — which is what re-sweeps the lists this bug had
+    // already stranded, without anything to migrate.)
+    const mark = deviceFingerprint([...editTokens, ...openedTokens]);
     let seen = "";
     try {
       seen = localStorage.getItem(CLAIMED_MARK_KEY) ?? "";
     } catch {
       // storage blocked — fall through and claim; it's idempotent
     }
-    if (editTokens.length && mark === seen) {
+    if ((editTokens.length || openedTokens.length) && mark === seen) {
       // nothing new to attach, but we still want the account's own list
       if (!loaded.value) await refresh();
       return;
@@ -89,7 +98,7 @@ export function useClaimedLists() {
     try {
       const res = await $fetch<{ claimed: number; lists: ClaimedList[] }>("/api/lists/claim", {
         method: "POST",
-        body: { editTokens },
+        body: { editTokens, openedTokens },
       });
       lists.value = res.lists || [];
       loaded.value = true;

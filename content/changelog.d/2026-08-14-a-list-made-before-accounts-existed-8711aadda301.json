@@ -1,0 +1,6 @@
+{
+  "date": "2026-08-14",
+  "fixed": [
+    "A list made before accounts existed now joins your account when you sign in, even if you'd reopened it from its edit link — so it turns up on your other devices without you doing anything."
+  ]
+}
