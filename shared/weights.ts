@@ -185,16 +185,6 @@ export function splitWornQty(
   return Math.max(0, Math.min(Math.round(item.wornQty), Math.max(0, item.qty)));
 }
 
-/** Items belonging to a folder (or null = ungrouped), in array order. Includes nested
- *  children (they carry their parent's folderId) — callers that want only top-level rows
- *  pass parentId = null via siblingItems / groupItemsByFolder. */
-export function itemsInFolder<T extends { folderId: string | null }>(
-  items: readonly T[],
-  folderId: string | null,
-): T[] {
-  return items.filter((i) => i.folderId === folderId);
-}
-
 /** Items sharing a "container" — the same folder AND the same parent (null = top-level).
  *  This is the sibling set an item reorders within, and where a new sibling appends. */
 export function siblingItems<T extends { folderId: string | null; parentId?: string | null }>(

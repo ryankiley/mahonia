@@ -7,7 +7,7 @@ import { DRAFT_KEY, claimedLocalKey, localKey, rebaseOnto } from "~~/shared/loca
 import type { Folder, Item, ListSnapshot, TripDay, Unit, Waypoint, WaypointKind } from "~~/shared/types";
 import type { VaultCapture, VaultEntry } from "~~/shared/vault";
 import { vaultNormKey } from "~~/shared/vault";
-import { bySortOrder, computeTotals, entryUnitFromInput, itemsInFolder, nextSortOrder, parseWeightInput, siblingItems } from "~~/shared/weights";
+import { bySortOrder, computeTotals, entryUnitFromInput, nextSortOrder, parseWeightInput, siblingItems } from "~~/shared/weights";
 import { createNesting } from "~/composables/useGearListNesting";
 
 // Editor controller (one list open at a time → module singleton). Mutations are
@@ -862,8 +862,10 @@ function create() {
   function removeFolder(id: string) {
     const folder = snapshot.value?.folders.find((f) => f.id === id);
     // parents before children so nesting re-links on undo (addItem drops a child whose
-    // parent isn't back yet)
-    const items = itemsInFolder(snapshot.value?.items ?? [], id)
+    // parent isn't back yet). Nested children are included — they carry their
+    // parent's folderId — which is exactly what the undo needs to restore.
+    const items = (snapshot.value?.items ?? [])
+      .filter((i) => i.folderId === id)
       .map((i) => ({ ...i }))
       .sort((a, b) => (a.parentId ? 1 : 0) - (b.parentId ? 1 : 0));
     dispatch({ t: "removeFolder", id });
