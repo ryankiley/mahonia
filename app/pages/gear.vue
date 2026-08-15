@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { ChartAverageIcon, ChevronDownIcon, CircleXIcon, Clock01Icon, CookieIcon, Delete02Icon, Edit02Icon, FolderIcon, GripVerticalIcon, ShirtIcon, SortingAZ01Icon, SortingNineOneIcon, SortingOneNineIcon, UndoIcon } from "@hugeicons/core-free-icons";
+import { ChartAverageIcon, ChevronDownIcon, CircleXIcon, Clock01Icon, Delete02Icon, Edit02Icon, FolderIcon, GripVerticalIcon, ShirtIcon, SortingAZ01Icon, SortingNineOneIcon, SortingOneNineIcon, UndoIcon } from "@hugeicons/core-free-icons";
 import type { Unit } from "~~/shared/types";
 import { UNITS } from "~~/shared/types";
 import type { VaultEntry, VaultFolder } from "~~/shared/vault";
@@ -15,6 +15,7 @@ import {
   type VaultView,
 } from "~~/shared/vaultView";
 import { WEIGHT_UNIT_OPTIONS } from "~/utils/unitOptions";
+import { consumableIcon } from "~/utils/itemMarks";
 
 // "My Gear" — every piece of gear you've put in a list, in one place, so building
 // the next list is picking rather than retyping. That's the name the chrome uses
@@ -671,7 +672,7 @@ const rowKcal = (e: VaultEntry) => (e.classification === "consumable" && e.kcal 
                     <span class="visually-hidden">Worn</span>
                   </span>
                   <span v-else-if="entry.classification === 'consumable'" class="item__mark item__mark--static" title="Consumable">
-                    <HugeiconsIcon :icon="CookieIcon" :size="16" :stroke-width="2" aria-hidden="true" />
+                    <HugeiconsIcon :icon="consumableIcon(entry.name)" :size="16" :stroke-width="2" aria-hidden="true" />
                     <span class="visually-hidden">Consumable</span>
                   </span>
                 </span>
@@ -850,7 +851,7 @@ const rowKcal = (e: VaultEntry) => (e.classification === "consumable" && e.kcal 
                             <span class="visually-hidden">Worn</span>
                           </span>
                           <span v-else-if="entry.classification === 'consumable'" class="item__mark item__mark--static" title="Consumable">
-                            <HugeiconsIcon :icon="CookieIcon" :size="16" :stroke-width="2" aria-hidden="true" />
+                            <HugeiconsIcon :icon="consumableIcon(entry.name)" :size="16" :stroke-width="2" aria-hidden="true" />
                             <span class="visually-hidden">Consumable</span>
                           </span>
                         </span>

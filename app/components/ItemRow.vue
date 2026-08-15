@@ -56,7 +56,7 @@ const UNIT_OPTIONS = UNITS.map((u) => ({ key: u, label: u }));
 
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { CalculateIcon, Cancel01Icon, CheckIcon, CheckmarkSquare02Icon, ChevronDownIcon, CircleEllipsisIcon, CookieIcon, Delete02Icon, GripVerticalIcon, ListIndentIncreaseIcon, MinusSignIcon, NoteAddIcon, NoteRemoveIcon, PlusSignIcon, SafeBoxIcon, ShirtIcon, SquareIcon } from "@hugeicons/core-free-icons";
+import { CalculateIcon, Cancel01Icon, CheckIcon, CheckmarkSquare02Icon, ChevronDownIcon, CircleEllipsisIcon, CookieIcon, Delete02Icon, DropletIcon, GripVerticalIcon, ListIndentIncreaseIcon, MinusSignIcon, NoteAddIcon, NoteRemoveIcon, PlusSignIcon, SafeBoxIcon, ShirtIcon, SquareIcon } from "@hugeicons/core-free-icons";
 import type { Item, ListSnapshot } from "~~/shared/types";
 import type { ItemPatch } from "~~/shared/ops";
 import type { NameCommit } from "~/composables/useCatalogSearch";
@@ -1288,11 +1288,14 @@ function dismissFix() {
           </div>
           <!-- water's mark, not a toggle: its class can't change and it has no
                calories to hold, so a switch and a kcal field here would both be
-               controls that lie. The read view draws this same lit cookie. -->
+               controls that lie. A DROPLET rather than the cookie every other
+               consumable wears — same class, same lit chip, same "Consumable" name,
+               but the picture matches the one consumable the app already treats as
+               its own thing. The read view draws the same swap (see consumableIcon). -->
           <div v-else class="item__cls">
             <Tooltip text="Consumable" preferred-placement="top">
               <span class="item__clsfixed item__mark" role="img" aria-label="Consumable">
-                <HugeiconsIcon :icon="CookieIcon" :size="16" :stroke-width="2" />
+                <HugeiconsIcon :icon="DropletIcon" :size="16" :stroke-width="2" />
               </span>
             </Tooltip>
           </div>
@@ -2587,6 +2590,24 @@ function dismissFix() {
     min-height: 0;
     height: var(--tap);
     margin-block: var(--tap-pull);
+  }
+  /* …and then the class cell's two boxes have to be squared back off, because those
+     two PAINT. The rule above grows the height alone, and --radius-pill over the
+     resulting 32×44 draws a tall OVAL — the same fault the coarse rule below the
+     toggles was written to fix, arriving here by the other door.
+     WIDTH plus padding, not padding alone. Padding alone looks like it should work,
+     since .item__mark clips its ground to the CONTENT box (atoms/item.scss) — but a
+     clipped background keeps the border box's corner radii minus the padding PER
+     AXIS, so 6px of block padding took the vertical radius to 10 and left the
+     horizontal at 16: a 32×32 ground with its sides shaved flat. Squaring the border
+     box first is what makes the inset radii equal, and a circle come out.
+     These are the coarse rule's own two values, so a phone — which matches both
+     queries — is already drawing exactly this. What this adds is the narrow DESKTOP
+     window, which until now got the height without the width. */
+  .item__classcell .btn--icon,
+  .item__classcell .item__clsfixed {
+    width: var(--tap);
+    padding: calc((var(--tap) - var(--icon-btn)) / 2);
   }
   /* mobile trailing cluster = ⋯ · grip. Everything else the row can do — the note, the
      nesting actions, the vault save and the removal — moves into the ⋯ menu, which

@@ -8,10 +8,11 @@ const NO_ITEMS: ItemT[] = [];
 
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { ChevronDownIcon, CookieIcon, ShirtIcon } from "@hugeicons/core-free-icons";
+import { ChevronDownIcon, ShirtIcon } from "@hugeicons/core-free-icons";
 import type { Item, ListSnapshot } from "~~/shared/types";
 import { effectiveClassification, formatKcal, formatWeight, rowDisplayMg, splitWornQty } from "~~/shared/weights";
 import { itemQtyLabel } from "~~/shared/water";
+import { consumableIcon } from "~/utils/itemMarks";
 
 // The share views' row (/s + /l): name (a web-search link via <ItemName search>),
 // amount, line weight — and its nested children, rendered the SAME way one level down
@@ -116,7 +117,8 @@ const collapsed = ref(true);
            for the number, so it belongs in the number's place. -->
       <span class="t-num item__roweight"><template v-if="rowWeightMg > 0">{{ formatWeight(rowWeightMg, rowUnit, { withUnit: false }) }}<span class="t-muted item__wunit">{{ rowUnit }}</span></template><template v-else>—<span class="item__wunit" /></template></span>
       <!-- CLASSIFICATION — the editor's own marks, in the column the editor puts them
-           in: a lit shirt for worn, a lit cookie for consumable, the shared .item__mark
+           in: a lit shirt for worn, a lit cookie for consumable (a droplet when the
+           consumable is water — see consumableIcon), the shared .item__mark
            chip (atoms/item.scss). It replaces the word that used to trail the name,
            which hid the class at the end of a name that may be long and may truncate;
            down a column it scans, and a shared list now reads the way the same list
@@ -124,7 +126,7 @@ const collapsed = ref(true);
            The word survives as the mark's hidden label, so flattened text (crawlers,
            LLMs, plain scrapers of this SSR'd share page) still reads "· worn" exactly
            where it always did. Base rows leave the cell empty — same as the editor,
-           where both toggles simply sit unlit. A WATER row does show its cookie here,
+           where both toggles simply sit unlit. A WATER row does show its mark here,
            though the editor gives water no toggles: there the pair is hidden because
            water's class can't be edited, and nothing about a read row is editable. -->
       <span class="item__roclass">
@@ -135,7 +137,7 @@ const collapsed = ref(true);
           <span v-if="!splitWorn" class="visually-hidden"> · worn</span>
         </span>
         <span v-else-if="isConsumable" class="item__mark item__mark--static item__romark" title="Consumable">
-          <HugeiconsIcon :icon="CookieIcon" :size="16" :stroke-width="2" aria-hidden="true" />
+          <HugeiconsIcon :icon="consumableIcon(item.name)" :size="16" :stroke-width="2" aria-hidden="true" />
           <span class="visually-hidden"> · consumable</span>
         </span>
       </span>
