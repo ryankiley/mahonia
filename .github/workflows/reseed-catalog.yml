@@ -30,6 +30,9 @@ on:
       - seed/catalog.csv
       - scripts/seed-catalog.ts
       - scripts/catalogCsv.ts
+      # catalogCsv derives search_terms through this, so an edit here changes
+      # what seeding writes just as surely as an edit to catalogCsv itself
+      - scripts/searchTerms.ts
   # manual re-run (e.g. after setting the secret, or to force a resync)
   workflow_dispatch: {}
 

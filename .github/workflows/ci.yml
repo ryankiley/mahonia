@@ -1,7 +1,7 @@
 # The checks a PR has to survive: types, tests, a build, and the bundle ratchet.
 #
 # WHY: all four already existed as npm scripts, and none of them ran anywhere. The
-# repo has 77 test files, a `typecheck` script, and a first-load budget with a
+# repo has a sizeable test suite, a `typecheck` script, and a first-load budget with a
 # hand-kept change-log of every measurement — a genuinely careful set of gates that
 # nothing enforced, so a PR could merge with failing tests, TypeScript errors, or a
 # blown budget and nothing would say so. Vercel's build runs `nuxt build`, which

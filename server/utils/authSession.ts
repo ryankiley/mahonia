@@ -43,7 +43,7 @@ export const MAGIC_LINK_TTL_MS = 15 * 60_000;
  *  `resolveSession`). Long, because the alternative — re-emailing yourself every
  *  fortnight to see your own gear list — is precisely the friction this app avoids
  *  everywhere else. */
-export const SESSION_TTL_MS = 90 * 24 * 60 * 60_000;
+const SESSION_TTL_MS = 90 * 24 * 60 * 60_000;
 
 /** Only rewrite the expiry when a session is more than a day into its window.
  *  Sliding expiry with no floor would mean a DB write on every single request. */
@@ -370,12 +370,19 @@ export async function requireUser(event: H3Event): Promise<SessionUser> {
   return user;
 }
 
+/** The clear-side twin of setSessionCookies, and for the same reason: both
+ *  cookies drop together, so a sign-out can never leave the hint behind
+ *  claiming a session that's gone. */
+function clearSessionCookies(event: H3Event): void {
+  deleteCookie(event, SESSION_COOKIE, { path: "/" });
+  deleteCookie(event, SESSION_HINT_COOKIE, { path: "/" });
+}
+
 /** Sign out: drop the session row (so the cookie is dead even if it's already been
  *  copied elsewhere) and clear the cookie. */
 export async function endSession(event: H3Event): Promise<void> {
   const raw = getCookie(event, SESSION_COOKIE);
-  deleteCookie(event, SESSION_COOKIE, { path: "/" });
-  deleteCookie(event, SESSION_HINT_COOKIE, { path: "/" });
+  clearSessionCookies(event);
   if (!raw) return;
   const db = await useAccountDb();
   await db.delete(sessions).where(eq(sessions.tokenHash, sha256Hex(raw)));
@@ -397,8 +404,7 @@ export async function endSession(event: H3Event): Promise<void> {
 export async function endAllSessions(event: H3Event, userId: number): Promise<number> {
   const db = await useAccountDb();
   const gone = await db.delete(sessions).where(eq(sessions.userId, userId)).returning();
-  deleteCookie(event, SESSION_COOKIE, { path: "/" });
-  deleteCookie(event, SESSION_HINT_COOKIE, { path: "/" });
+  clearSessionCookies(event);
   return gone.length;
 }
 

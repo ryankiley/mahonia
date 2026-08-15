@@ -160,7 +160,10 @@ function rowToPublicView(row: ListRow): ListSnapshot {
   };
 }
 
-export async function getPublicBySlug(slug: string, db?: Db): Promise<ListSnapshot | null> {
+/** The one public-row lookup behind /l and its social card — same normalization,
+ *  same publicReadConditions predicate, so the card dies with the listing
+ *  exactly like the page. */
+async function publicRowBySlug(slug: string, db?: Db): Promise<{ d: Db; row: ListRow } | null> {
   const s = normalizeSlug(slug);
   if (!s) return null;
   const d = db ?? (await useDb());
@@ -169,32 +172,29 @@ export async function getPublicBySlug(slug: string, db?: Db): Promise<ListSnapsh
     .from(lists)
     .where(and(eq(lists.publicSlug, s), ...publicReadConditions()))
     .limit(1);
+  return rows[0] ? { d, row: rows[0] } : null;
+}
+
+export async function getPublicBySlug(slug: string, db?: Db): Promise<ListSnapshot | null> {
+  const hit = await publicRowBySlug(slug, db);
+  if (!hit) return null;
   // hydrate like every listRepo snapshot read — the indexable /l page must show
   // the same current catalog names (and trail-link favicon) as /s and the editor,
   // not the add-time ones — plus the byline, which names this list's author, not
   // whoever happens to be viewing it
-  if (!rows[0]) return null;
-  const snap = await hydrateForRead(d, rowToPublicView(rows[0]));
-  return attachAuthorName(d, snap, rows[0].authorUserId);
+  const snap = await hydrateForRead(hit.d, rowToPublicView(hit.row));
+  return attachAuthorName(hit.d, snap, hit.row.authorUserId);
 }
 
 /**
  * The same public-only lookup for the social-card image (/og/l), WITHOUT the
  * read-view hydration — the card never draws catalog names, the favicon or the
  * byline, and none of them can move a total (see getCardByShareCode, its /og/s
- * twin). Same publicReadConditions predicate, so the card dies with the
- * listing exactly like the page.
+ * twin).
  */
 export async function getPublicCardBySlug(slug: string, db?: Db): Promise<ListSnapshot | null> {
-  const s = normalizeSlug(slug);
-  if (!s) return null;
-  const d = db ?? (await useDb());
-  const rows = await d
-    .select()
-    .from(lists)
-    .where(and(eq(lists.publicSlug, s), ...publicReadConditions()))
-    .limit(1);
-  return rows[0] ? rowToPublicView(rows[0]) : null;
+  const hit = await publicRowBySlug(slug, db);
+  return hit ? rowToPublicView(hit.row) : null;
 }
 
 /** Best-effort "most-viewed" signal. Never throws into the read path. */

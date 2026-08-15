@@ -28,6 +28,27 @@ export const WEIGHT_SOURCES = [
   "imported",
 ] as const;
 
+/** Membership in the provenance enum — one test instead of a cast-and-includes
+ *  at every call site (the parser, the builder, the auditor, the gating test). */
+export const isWeightSource = (s: string): s is (typeof WEIGHT_SOURCES)[number] =>
+  (WEIGHT_SOURCES as readonly string[]).includes(s);
+
+/** A usable citation: an http(s) URL with something after the scheme. The one
+ *  spelling — two of the four call sites used to accept a bare "https://". */
+export const isCitationUrl = (s: string): boolean => /^https?:\/\/.+/i.test(s);
+
+/** The catalog identity join: brand|name|variant, lowercased. Pre-processing
+ *  (variant normalization, null-folding) stays at each call site — the builder
+ *  and the auditor deliberately feed it differently. */
+export const identityKey = (brand: string, name: string, variant: string): string =>
+  `${brand.toLowerCase()}|${name.toLowerCase()}|${variant.toLowerCase()}`;
+
+/** "" (after trimming) → null, for the CSV's optional columns. */
+const blankToNull = (v: string | undefined) => {
+  const t = (v ?? "").trim();
+  return t === "" ? null : t;
+};
+
 /**
  * Convert a manufacturer's cited spec weight to integer milligrams.
  *
@@ -97,7 +118,7 @@ export function specToMg(
 // --- CSV (RFC 4180-ish): quoted fields, "" escapes, commas/newlines in quotes -
 
 /** Quote a field iff it contains a comma, quote, or newline; double inner quotes. */
-export function csvEscape(field: string): string {
+function csvEscape(field: string): string {
   return /[",\r\n]/.test(field) ? `"${field.replace(/"/g, '""')}"` : field;
 }
 
@@ -228,13 +249,9 @@ export function csvToCatalogRows(text: string): CatalogCsvRow[] {
       throw new Error(`row ${r + 1} (${name}): weight_mg must be a positive integer`);
     }
     const weightSource = (cells[iSrc] ?? "").trim();
-    if (!(WEIGHT_SOURCES as readonly string[]).includes(weightSource)) {
+    if (!isWeightSource(weightSource)) {
       throw new Error(`row ${r + 1} (${name}): invalid weight_source "${weightSource}"`);
     }
-    const blankToNull = (v: string | undefined) => {
-      const t = (v ?? "").trim();
-      return t === "" ? null : t;
-    };
     const categoryHint = iCat >= 0 ? blankToNull(cells[iCat]) : null;
     const kcalRaw = iKcal >= 0 ? blankToNull(cells[iKcal]) : null;
     const kcal = kcalRaw === null ? null : Number(kcalRaw);

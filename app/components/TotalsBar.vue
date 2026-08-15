@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { CheckIcon, ChevronDownIcon } from "@hugeicons/core-free-icons";
+import { ChevronDownIcon } from "@hugeicons/core-free-icons";
 import type { ListSnapshot, Totals, Unit } from "~~/shared/types";
 import { carriedIsDistinct, formatKcal, formatWeight, totalsChips } from "~~/shared/weights";
 import { KCAL_PER_DAY_GENEROUS, KCAL_PER_DAY_LIGHT, foodPlan } from "~~/shared/foodPlan";
@@ -228,22 +228,6 @@ const planTip = computed(() => {
 /* the chevron turns over with the menu, like every other disclosure in the app */
 .totals__chev.is-open {
   rotate: 180deg;
-}
-.totals__unitmenu {
-  min-width: 7rem;
-}
-.totals__unititem {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-.totals__unitname {
-  flex: 1 1 auto;
-  text-align: start;
-}
-.totals__unitcheck {
-  flex: none;
-  color: var(--ink-3);
 }
 .totals__breakdown {
   /* one step up from --space-4 — the display-size figure above has a lot of optical

@@ -10,25 +10,20 @@
 // (jiti ships with Nuxt and resolves the project's extensionless TS imports.)
 
 import { readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import {
   CATALOG_CSV_HEADERS,
+  identityKey,
+  isCitationUrl,
+  isWeightSource,
   serializeCsv,
   specToMg,
-  WEIGHT_SOURCES,
   type SpecUnit,
 } from "./catalogCsv";
+import { CATALOG_CSV, COMMON_NAMES_JSON, RESEARCH_DIR } from "./paths";
 import { readResearchFiles } from "./research";
 import { normalizeVariant } from "../shared/catalogQuality";
 import { deriveNoun } from "./searchTerms";
 import { normalizeGearType } from "./gearTypes";
-
-const here = dirname(fileURLToPath(import.meta.url));
-const root = join(here, "..");
-const researchDir = join(root, "seed", "_research");
-const outPath = join(root, "seed", "catalog.csv");
-const commonNamesPath = join(root, "seed", "common-names.json");
 
 // Canonical category order for a tidy, browsable CSV.
 const CATEGORY_ORDER = [
@@ -57,7 +52,7 @@ interface BuiltRow {
 }
 
 const identity = (r: { brand: string; name: string; variant: string }) =>
-  `${r.brand.toLowerCase()}|${r.name.toLowerCase()}|${r.variant.toLowerCase()}`;
+  identityKey(r.brand, r.name, r.variant);
 
 // The default gear types, keyed by identity. Source of truth for the `common_name` CSV
 // column — HAND-AUTHORED in seed/common-names.json (nothing generates it; it survives
@@ -71,7 +66,7 @@ const identity = (r: { brand: string; name: string; variant: string }) =>
 function loadCommonNames(): Map<string, string> {
   const m = new Map<string, string>();
   try {
-    const arr = JSON.parse(readFileSync(commonNamesPath, "utf8")) as Array<{
+    const arr = JSON.parse(readFileSync(COMMON_NAMES_JSON, "utf8")) as Array<{
       brand?: string;
       name?: string;
       variant?: string;
@@ -102,7 +97,7 @@ function main() {
   const commonNames = loadCommonNames();
   const usedCommonKeys = new Set<string>(); // which map entries actually matched a row
 
-  for (const { file, rows, parseError } of readResearchFiles(researchDir)) {
+  for (const { file, rows, parseError } of readResearchFiles(RESEARCH_DIR)) {
     if (parseError) {
       skipped.push(`${file}: invalid JSON (${parseError})`);
       continue;
@@ -117,13 +112,13 @@ function main() {
 
       // Normalize "measured (OutdoorGearLab)" / "manufacturer (via X)" → the bare
       // enum value; the attribution is already preserved in source_url.
-      const source = (row.weight_source ?? "").trim().toLowerCase().split(/[^a-z]/)[0];
-      if (!(WEIGHT_SOURCES as readonly string[]).includes(source)) {
+      const source = (row.weight_source ?? "").trim().toLowerCase().split(/[^a-z]/)[0] ?? "";
+      if (!isWeightSource(source)) {
         skipped.push(`${file}: ${label} — invalid weight_source "${row.weight_source}"`);
         continue;
       }
       const url = (row.source_url ?? "").trim();
-      if (!/^https?:\/\//i.test(url)) {
+      if (!isCitationUrl(url)) {
         skipped.push(`${file}: ${label} — missing/invalid source_url`);
         continue;
       }
@@ -157,7 +152,7 @@ function main() {
           continue;
         }
         const kcalUrl = (row.kcal_source_url ?? "").trim();
-        if (!/^https?:\/\//i.test(kcalUrl) || !(row.kcal_quote ?? "").trim()) {
+        if (!isCitationUrl(kcalUrl) || !(row.kcal_quote ?? "").trim()) {
           skipped.push(`${file}: ${label} — kcal needs its own kcal_source_url + kcal_quote`);
           continue;
         }
@@ -224,7 +219,7 @@ function main() {
     if (orphaned.length > 10) console.log(`      … and ${orphaned.length - 10} more`);
   }
 
-  writeFileSync(outPath, serializeCsv(CATALOG_CSV_HEADERS, built), "utf8");
+  writeFileSync(CATALOG_CSV, serializeCsv(CATALOG_CSV_HEADERS, built), "utf8");
 
   // Report
   const byCat = new Map<string, number>();

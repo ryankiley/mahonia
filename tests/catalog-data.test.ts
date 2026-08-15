@@ -5,14 +5,12 @@
 // noticing it three turns later.
 
 import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { csvToCatalogRows } from "../scripts/catalogCsv";
+import { csvToCatalogRows, isCitationUrl, isWeightSource } from "../scripts/catalogCsv";
 import { runCatalogChecks } from "../scripts/catalogChecks";
+import { CATALOG_CSV } from "../scripts/paths";
 
-const root = dirname(dirname(fileURLToPath(import.meta.url)));
-const rows = csvToCatalogRows(readFileSync(join(root, "seed/catalog.csv"), "utf8"));
+const rows = csvToCatalogRows(readFileSync(CATALOG_CSV, "utf8"));
 const findings = runCatalogChecks(rows);
 const errors = findings.filter((f) => f.level === "error");
 
@@ -33,9 +31,7 @@ describe("seed/catalog.csv data quality", () => {
 
   it("every row has provenance + a citation URL", () => {
     const bad = rows.filter(
-      (r) =>
-        !["manufacturer", "measured", "community", "imported"].includes(r.weightSource) ||
-        !/^https?:\/\/.+/i.test(r.sourceUrl ?? ""),
+      (r) => !isWeightSource(r.weightSource) || !isCitationUrl(r.sourceUrl ?? ""),
     );
     expect(bad.map((r) => r.name)).toEqual([]);
   });

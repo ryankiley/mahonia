@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon, type IconNode } from "~/utils/hugeicon";
-import { Backpack02Icon, Cancel01Icon, CheckmarkSquare02Icon, ChevronDownIcon, Copy01Icon, Delete02Icon, EllipsisIcon, FileExportIcon, FileImportIcon, Message01Icon, NoteAddIcon, RemoveCircleIcon, Route02Icon, SafeBoxIcon, Share08Icon, UndoIcon } from "@hugeicons/core-free-icons";
+import { Backpack02Icon, CheckmarkSquare02Icon, ChevronDownIcon, Copy01Icon, Delete02Icon, EllipsisIcon, FileExportIcon, FileImportIcon, Message01Icon, NoteAddIcon, RemoveCircleIcon, Route02Icon, SafeBoxIcon, Share08Icon, UndoIcon } from "@hugeicons/core-free-icons";
 import { editLinkPath, normalizeShareCode } from "~~/shared/links";
 import { tripHeadline } from "~~/shared/trailDistance";
 import { formatWeight } from "~~/shared/weights";
@@ -9,10 +9,10 @@ import type { EditorMode } from "~/composables/useEditorMode";
 import { bySortOrder, groupItemsByFolder, groupItemsByParent, ungroupedTopLevel } from "~~/shared/weights";
 
 // The whole editor surface (its own sticky topbar + flex shell + the shared
-// SiteFooter). Rendered by the page routes: /e (bare, ssr:false) and /e/[code]
+// SiteFooter). Rendered by the page routes: /e (bare, prerendered) and /e/[code]
 // (client-only under a server-rendered <head>). It is CLIENT-ONLY — it holds a
 // singleton controller with IndexedDB + window listeners, so it never runs on the
-// server (the /e/[code] page wraps it in <ClientOnly>; /e is ssr:false).
+// server (the .client.vue suffix keeps it out of both pages' SSR/prerender pass).
 
 const c = useGearList();
 const router = useRouter();
@@ -48,15 +48,6 @@ const isFirstRun = computed(() => {
 // where their lists are, so re-offering it on every new list is the nagging the
 // close button is there to stop. The editor is client-only, so localStorage is safe
 // to read at setup without an SSR mismatch.
-// a write can throw on quota or in private mode; the preference just doesn't
-// outlive the session then, which is never worth failing the interaction over
-function remember(key: string, value: string) {
-  try {
-    localStorage.setItem(key, value);
-  } catch {
-    /* not worth reporting */
-  }
-}
 const INTRO_DISMISSED_KEY = "gear.intro.dismissed.v1";
 const introDismissed = ref(localStorage.getItem(INTRO_DISMISSED_KEY) === "1");
 function dismissIntro() {
@@ -81,7 +72,6 @@ const showIntro = computed(
 const seo = computed(() =>
   editorSeo(snapshot.value?.title, totals.value, snapshot.value?.displayUnit),
 );
-const listName = computed(() => seo.value.name);
 useHead({
   title: () =>
     !snapshot.value
@@ -761,7 +751,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
   >
     <!-- the editor's page heading — visually the title input carries it, but a
          real (hidden) h1 gives AT users a page title on this client-only view -->
-    <h1 class="visually-hidden">{{ listName ? `${listName} — pack list` : "New pack list — Mahonia" }}</h1>
+    <h1 class="visually-hidden">{{ seo.name ? `${seo.name} — pack list` : "New pack list — Mahonia" }}</h1>
     <header class="topbar">
       <div class="wrap topbar__inner">
         <!-- The list switcher, holding the bar's LEADING edge. A word rather than a

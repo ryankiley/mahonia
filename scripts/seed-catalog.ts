@@ -11,19 +11,17 @@
 // Honors DATABASE_URL: writes to Neon when set, else local PGlite (.data/pglite).
 
 import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { catalogItems } from "../server/db/schema";
 import { ensureCatalogSchema } from "../server/utils/catalog";
 import { useDb } from "../server/utils/db";
 import { csvToCatalogRows } from "./catalogCsv";
+import { CATALOG_CSV } from "./paths";
 
-const here = dirname(fileURLToPath(import.meta.url));
-const csvPath = join(here, "..", "seed", "catalog.csv");
+
 
 async function main() {
-  const csv = readFileSync(csvPath, "utf8");
+  const csv = readFileSync(CATALOG_CSV, "utf8");
   const rows = csvToCatalogRows(csv);
   console.log(`Loaded ${rows.length} rows from seed/catalog.csv`);
 

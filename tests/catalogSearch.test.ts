@@ -11,8 +11,8 @@ import {
   type LocalCatalogRow,
 } from "../shared/catalogSearch";
 
-// These mirror tests/catalog.test.ts so the extraction to shared/ is provably
-// behaviour-preserving (the server re-exports these same functions).
+// The one home for trigram behaviour: the server re-exports trigramScore from
+// this same module (server/utils/catalog.ts), so covering it here covers both.
 describe("trigrams", () => {
   it("pads each word like pg_trgm (2 leading, 1 trailing)", () => {
     expect(trigrams("cat")).toEqual(new Set(["  c", " ca", "cat", "at "]));
@@ -36,6 +36,9 @@ describe("trigramScore", () => {
   });
   it("scores an unrelated target low", () => {
     expect(trigramScore("duplx", "MSR PocketRocket 2")).toBeLessThan(0.2);
+  });
+  it("is case- and punctuation-insensitive across words", () => {
+    expect(trigramScore("neoair xlite", "Therm-a-Rest NeoAir XLite")).toBeGreaterThan(0.9);
   });
   it("fully matches an accented target typed in plain ASCII (both directions)", () => {
     expect(trigramScore("Fjallraven", "Fjällräven Keb Hike 30")).toBe(1);

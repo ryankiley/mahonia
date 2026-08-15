@@ -5,6 +5,7 @@ import {
   normalizeBodyWeightUnit,
   type BodyWeightUnit,
 } from "~~/shared/trailDistance";
+import { remember } from "../utils/remember";
 
 // Your body weight, for the trip estimates.
 //
@@ -32,17 +33,6 @@ const UNIT_KEY = "gear.bodyweight.unit.v1";
 const grams = ref<number | null>(null);
 const unit = ref<BodyWeightUnit>("kg");
 let loaded = false;
-
-/** A write can throw on quota or in private mode; the setting just doesn't outlive the
- *  session then, which is never worth failing an interaction over. Same as the editor's
- *  own `remember()`. */
-function remember(key: string, value: string) {
-  try {
-    localStorage.setItem(key, value);
-  } catch {
-    /* not worth reporting */
-  }
-}
 
 /**
  * `displayUnit` seeds the UNIT only, and only when nothing has been chosen — a list in

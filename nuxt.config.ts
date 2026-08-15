@@ -169,8 +169,8 @@ export default defineNuxtConfig({
       // own and nothing checks the two agree — an installed app whose name disagrees
       // with its page title is the failure mode. See config/pwa.ts.
       title: "Mahonia — pack lists, weighed",
+      // no charset entry: Nuxt prepends { charset: "utf-8" } itself when none is set
       meta: [
-        { charset: "utf-8" },
         {
           name: "viewport",
           // viewport-fit=cover lets content reach the screen edges (safe-area insets
@@ -191,9 +191,9 @@ export default defineNuxtConfig({
           content:
             "Make a packing list, see what it weighs, share it. No login.",
         },
-        // Social card. The editor (the landing page) is `ssr: false`, so runtime
-        // useSeoMeta can't reach crawlers there — this static set is what unfurls the
-        // bare domain. og:image MUST be absolute and the editor shell has no request
+        // Social card. The editor (the landing page) is prerendered, and this static
+        // set is what unfurls the bare domain for a crawler that reads no further.
+        // og:image MUST be absolute and the prerendered shell has no request
         // context, so the canonical prod host is used here (from shared/site.ts, which
         // is now the one place that host is written down; sitemap/robots still derive
         // theirs from the request, since a forged host there answers only itself). SSR
@@ -225,17 +225,16 @@ export default defineNuxtConfig({
     },
   },
 
-  // Per-route rendering. "/" is a tiny redirect shell: it mints a fresh list and
-  // forwards into the editor (app/pages/index.vue), so it renders identically for
-  // every visitor — ISR caches that prerendered shell, revalidated every 10 min. The
-  // editor stays a pure client island (edit token in the URL fragment, no SSR value).
-  // Everything else (legal pages, the public /l read view) is SSR by default.
+  // Per-route rendering. "/" is a bare redirect into the editor (the rule below —
+  // there is no index page); the editor stays a pure client island (edit token in
+  // the URL fragment, no SSR value). Everything else (legal pages, the public /l
+  // read view) is SSR by default.
   routeRules: {
-    // Security headers on EVERY route — including prerendered/static ones. The
-    // server middleware only runs for dynamic responses, so prerendered routes
-    // (/e, the legal pages) previously shipped with NO security headers; setting
-    // them here (Nitro applies routeRules headers to the prerendered + static
-    // output too) closes that gap and adds the CSP site-wide.
+    // Security headers on EVERY route — including prerendered/static ones. A
+    // server middleware would only run for dynamic responses, leaving prerendered
+    // routes (/e, the legal pages) with NO security headers — which is how they
+    // once shipped; setting them here (Nitro applies routeRules headers to the
+    // prerendered + static output too) closes that gap and adds the CSP site-wide.
     "/**": { headers: SECURITY_HEADERS },
     // opening the site forwards straight into the editor, which starts an unsaved
     // draft — no list row is created until you actually add content

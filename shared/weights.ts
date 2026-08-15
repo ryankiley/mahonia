@@ -75,6 +75,12 @@ function numFromGroup(s: string): number {
   return parseFloat(norm);
 }
 
+// The input scanner both parsers below share: a number (digits with any mix of
+// ',' / '.' separators), optionally followed by a unit word. One definition so
+// parseWeightInput and entryUnitFromInput can never disagree about what counts
+// as a token; a fresh regex per call because /g carries lastIndex state.
+const weightScan = () => /(-?[\d][\d.,]*)\s*([a-z]+)?/g;
+
 export function parseWeightInput(
   raw: string,
   defaultUnit: Unit = "g",
@@ -83,9 +89,8 @@ export function parseWeightInput(
   const text = String(raw).trim().toLowerCase();
   if (!text) return null;
 
-  // number (digits with any mix of ',' / '.' separators), optionally + a unit word;
   // numFromGroup() below decides which separator is the decimal point
-  const re = /(-?[\d][\d.,]*)\s*([a-z]+)?/g;
+  const re = weightScan();
   let mg = 0;
   let matched = false;
   let m: RegExpExecArray | null;
@@ -122,9 +127,7 @@ export function entryUnitFromInput(raw: string): Unit | null {
   const text = String(raw).trim().toLowerCase();
   if (!text) return null;
   const seen = new Set<Unit>();
-  // same shape as parseWeightInput's scanner, so the two can't disagree about what
-  // counts as a unit word
-  const re = /(-?[\d][\d.,]*)\s*([a-z]+)?/g;
+  const re = weightScan();
   let m: RegExpExecArray | null;
   while ((m = re.exec(text)) !== null) {
     const word = m[2];
@@ -150,14 +153,6 @@ export function lineMg(item: Pick<Item, "qty" | "unitWeightMg">): number {
   return Math.max(0, item.qty) * Math.max(0, item.unitWeightMg);
 }
 
-/** An item's nested children (items nested directly under it), in sortOrder. */
-export function childrenOf<T extends { parentId?: string | null; sortOrder: number }>(
-  items: readonly T[],
-  parentId: string,
-): T[] {
-  return items.filter((i) => i.parentId === parentId).sort(bySortOrder);
-}
-
 /**
  * A row's GROUP line weight for DISPLAY: the item's own line plus its children's lines.
  * Totals never use this (they sum each item's OWN line, so a parent + its kids aren't
@@ -177,7 +172,8 @@ export function groupLineMg(item: Item, items: readonly Item[]): number {
  * children (already filtered), so the group sum is O(children).
  */
 export function rowDisplayMg(item: Item, children: readonly Item[]): number {
-  return children.length > 0 ? groupLineMg(item, children) : lineMg(item);
+  // groupLineMg over zero children IS the own-line case — no branch needed
+  return groupLineMg(item, children);
 }
 
 /** Units of a line that count as worn via the wornQty split.
@@ -188,16 +184,6 @@ export function splitWornQty(
 ): number {
   if (cls !== "base" || item.wornQty == null) return 0;
   return Math.max(0, Math.min(Math.round(item.wornQty), Math.max(0, item.qty)));
-}
-
-/** Items belonging to a folder (or null = ungrouped), in array order. Includes nested
- *  children (they carry their parent's folderId) — callers that want only top-level rows
- *  pass parentId = null via siblingItems / groupItemsByFolder. */
-export function itemsInFolder<T extends { folderId: string | null }>(
-  items: readonly T[],
-  folderId: string | null,
-): T[] {
-  return items.filter((i) => i.folderId === folderId);
 }
 
 /** Items sharing a "container" — the same folder AND the same parent (null = top-level).
@@ -274,7 +260,7 @@ export function sortedFolderItems(items: readonly Item[], folder: Folder): Item[
  * ordered by its folder's `sortBy` (manual = sortOrder). One O(items) pass, built once
  * per snapshot — so per-folder consumers (one FolderSection per folder) don't each
  * re-filter and re-sort the whole item array on every edit. Children are rendered by
- * their parent row (via childrenOf), not as folder rows. Pass `folders` to honor
+ * their parent row (via groupItemsByParent), not as folder rows. Pass `folders` to honor
  * per-folder sorts; omit it and every group falls back to manual sortOrder.
  */
 export function groupItemsByFolder(
@@ -295,8 +281,8 @@ export function groupItemsByFolder(
 }
 
 /**
- * Group nested children by their parent id, each group in sortOrder (matching
- * childrenOf). One O(items) pass, built once per snapshot at the view root and
+ * Group nested children by their parent id, each group in sortOrder. One
+ * O(items) pass, built once per snapshot at the view root and
  * threaded to the rows — so each row doesn't re-scan the whole item array for its
  * children on every render (O(rows × items) across a list).
  */

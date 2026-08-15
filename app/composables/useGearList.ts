@@ -7,7 +7,7 @@ import { DRAFT_KEY, claimedLocalKey, localKey, rebaseOnto } from "~~/shared/loca
 import type { Folder, Item, ListSnapshot, TripDay, Unit, Waypoint, WaypointKind } from "~~/shared/types";
 import type { VaultCapture, VaultEntry } from "~~/shared/vault";
 import { vaultNormKey } from "~~/shared/vault";
-import { bySortOrder, computeTotals, entryUnitFromInput, itemsInFolder, nextSortOrder, parseWeightInput, siblingItems } from "~~/shared/weights";
+import { bySortOrder, computeTotals, entryUnitFromInput, nextSortOrder, parseWeightInput, siblingItems } from "~~/shared/weights";
 import { createNesting } from "~/composables/useGearListNesting";
 
 // Editor controller (one list open at a time → module singleton). Mutations are
@@ -862,8 +862,10 @@ function create() {
   function removeFolder(id: string) {
     const folder = snapshot.value?.folders.find((f) => f.id === id);
     // parents before children so nesting re-links on undo (addItem drops a child whose
-    // parent isn't back yet)
-    const items = itemsInFolder(snapshot.value?.items ?? [], id)
+    // parent isn't back yet). Nested children are included — they carry their
+    // parent's folderId — which is exactly what the undo needs to restore.
+    const items = (snapshot.value?.items ?? [])
+      .filter((i) => i.folderId === id)
       .map((i) => ({ ...i }))
       .sort((a, b) => (a.parentId ? 1 : 0) - (b.parentId ? 1 : 0));
     dispatch({ t: "removeFolder", id });
@@ -925,15 +927,6 @@ function create() {
     dispatch({ t: "addItem", item });
     return id;
   }
-  /**
-   * Offer this list's gear to the vault, if it's ours to offer.
-   *
-   * A draft (no token yet) is yours by definition. A list this device CREATED —
-   * built, imported or cloned — recorded "yes" at that moment. Anything else is an
-   * edit link you hold, which is either your own list on a second device or a
-   * friend's, and the link cannot say which. So the first time gear would move, ask
-   * once and remember; until it's answered, nothing is captured.
-   */
   /** Bank one row on demand — see useVault.captureOne for why it bypasses the
    *  debounce and the consent prompt that the automatic path is built around. */
   async function saveItemToVault(id: string): Promise<"saved" | "unworthy" | "failed"> {
@@ -943,6 +936,15 @@ function create() {
     return vault.captureOne(item, snap.items, snap.folders, editToken);
   }
 
+  /**
+   * Offer this list's gear to the vault, if it's ours to offer.
+   *
+   * A draft (no token yet) is yours by definition. A list this device CREATED —
+   * built, imported or cloned — recorded "yes" at that moment. Anything else is an
+   * edit link you hold, which is either your own list on a second device or a
+   * friend's, and the link cannot say which. So the first time gear would move, ask
+   * once and remember; until it's answered, nothing is captured.
+   */
   function captureIfMine() {
     if (!snapshot.value) return;
     // The decision lives in sync(), which asks only once it knows there is gear

@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  childrenOf,
   compareItemsBy,
   computeTotals,
   effectiveClassification,
@@ -481,7 +480,7 @@ describe("sortedFolderItems", () => {
 });
 
 describe("nesting (a nested item is just an item with a parentId)", () => {
-  it("childrenOf returns the item's children in sortOrder; groupLineMg = own + children", () => {
+  it("groupLineMg = own + children", () => {
     const items = [
       item({ id: "tent", folderId: "f1", unitWeightMg: 0 }), // a pure container
       item({ id: "fly", folderId: "f1", parentId: "tent", unitWeightMg: 720_000, sortOrder: 1 }),
@@ -489,8 +488,6 @@ describe("nesting (a nested item is just an item with a parentId)", () => {
       item({ id: "stakes", folderId: "f1", parentId: "tent", unitWeightMg: 12_000, qty: 8, sortOrder: 2 }),
       item({ id: "solo", folderId: "f1", unitWeightMg: 5_000 }),
     ];
-    expect(childrenOf(items, "tent").map((i) => i.id)).toEqual(["inner", "fly", "stakes"]);
-    expect(childrenOf(items, "solo")).toEqual([]);
     // 0 (own) + 840k + 720k + 8×12k = 1,656,000
     expect(groupLineMg(items[0]!, items)).toBe(1_656_000);
   });
@@ -543,7 +540,7 @@ describe("nesting (a nested item is just an item with a parentId)", () => {
     expect(sortedFolderItems(items, f).map((i) => i.id)).toEqual(["tent", "pack"]);
   });
 
-  it("groupItemsByParent matches childrenOf: children under their parent id, in sortOrder", () => {
+  it("groupItemsByParent: children under their parent id, in sortOrder", () => {
     const items = [
       item({ id: "tent", folderId: "f1", sortOrder: 0 }),
       item({ id: "fly", folderId: "f1", parentId: "tent", sortOrder: 1 }),
@@ -556,7 +553,6 @@ describe("nesting (a nested item is just an item with a parentId)", () => {
     expect(map.get("tent")!.map((i) => i.id)).toEqual(["inner", "fly"]);
     expect(map.get("cook")!.map((i) => i.id)).toEqual(["pot"]);
     expect(map.has("solo")).toBe(false); // leaves get no entry (rows fall back to a shared [])
-    expect(map.get("tent")).toEqual(childrenOf(items, "tent"));
   });
 });
 

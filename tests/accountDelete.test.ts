@@ -21,8 +21,7 @@ import { ACCOUNT_DDL } from "../server/utils/accountSchema";
 import { VAULT_DDL } from "../server/utils/vaultSchema";
 import { deleteAccount } from "../server/utils/accountRepo";
 import { claimLists } from "../server/utils/claimRepo";
-import { randomEditToken, randomShareCode, sha256Hex } from "../server/utils/tokens";
-import { createTestDb } from "./helpers/db";
+import { createTestDb, makeList } from "./helpers/db";
 
 type DB = ReturnType<typeof drizzle>;
 async function freshDb(): Promise<DB> {
@@ -32,22 +31,6 @@ async function freshDb(): Promise<DB> {
 async function makeUser(db: DB, email: string): Promise<number> {
   const rows = await db.insert(schema.users).values({ email }).returning();
   return rows[0]!.id;
-}
-
-async function makeList(db: DB, title = "Sierra trip") {
-  const editToken = randomEditToken();
-  const shareCode = randomShareCode();
-  const rows = await db
-    .insert(schema.lists)
-    .values({
-      publicSlug: `${title.toLowerCase().replace(/\W+/g, "-")}-${shareCode.slice(0, 6).toLowerCase()}`,
-      editTokenHash: sha256Hex(editToken),
-      shareCode,
-      title,
-      data: { folders: [], items: [] },
-    })
-    .returning();
-  return { editToken, shareCode, id: rows[0]!.id };
 }
 
 /** A vault with one folder and one piece of gear in it. */

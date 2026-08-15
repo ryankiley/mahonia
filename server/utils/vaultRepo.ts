@@ -20,8 +20,6 @@ import {
 } from "../../shared/vault";
 import type { Classification } from "../../shared/types";
 import { KCAL_MAX, UNIT_WEIGHT_MAX_MG } from "../../shared/ops";
-import { itemDisplayName } from "../../shared/weights";
-import { foldForSearch } from "../../shared/catalogSearch";
 import { tidyText } from "../../shared/tidyText";
 import { rankVaultRows } from "../../shared/vaultSearch";
 
@@ -492,9 +490,9 @@ export async function restoreVaultItem(db: Db, vaultId: number, id: number): Pro
 /** Untouched for this long and a vault is presumed abandoned. Much longer than a
  *  list's 30: a list is reaped for being EMPTY as well as stale, whereas a full
  *  vault is exactly what someone might return to after a season off. */
-export const VAULT_REAP_STALE_DAYS = Math.max(1, Number(process.env.VAULT_REAP_STALE_DAYS) || 180);
+const VAULT_REAP_STALE_DAYS = Math.max(1, Number(process.env.VAULT_REAP_STALE_DAYS) || 180);
 /** How long a soft-deleted vault stays revivable — the same 90 days a list gets. */
-export const VAULT_PURGE_GRACE_DAYS = Math.max(
+const VAULT_PURGE_GRACE_DAYS = Math.max(
   1,
   Number(process.env.VAULT_PURGE_GRACE_DAYS) || 90,
 );

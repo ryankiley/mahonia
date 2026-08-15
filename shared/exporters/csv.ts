@@ -27,7 +27,7 @@ const truthy = (v: string | undefined) =>
 // so our own round-trip is lossless.
 const FORMULA_LEAD = /^[=+\-@\t\r]/;
 const guardFormula = (s: string) => (FORMULA_LEAD.test(s) ? `'${s}` : s);
-export function stripFormulaGuard(s: string): string {
+function stripFormulaGuard(s: string): string {
   return s.length > 1 && s[0] === "'" && FORMULA_LEAD.test(s.slice(1)) ? s.slice(1) : s;
 }
 
@@ -121,7 +121,7 @@ export function parseCsv(text: string): string[][] {
 }
 
 /** Map a CSV (ours or LighterPack's) into ListData. Tolerant of column order/naming. */
-export function csvToListData(text: string, defaultUnit: Unit = "g"): ListData {
+export function csvToListData(text: string): ListData {
   const rows = parseCsv(text);
   if (rows.length < 2) return { folders: [], items: [] };
   const header = rows[0]!.map((h) => h.trim().toLowerCase());
@@ -188,7 +188,7 @@ export function csvToListData(text: string, defaultUnit: Unit = "g"): ListData {
     const gearType = cell(iCommon); // read once — it also decides the override flag below
     const cat = iCat >= 0 ? stripFormulaGuard(row[iCat] ?? "") : "";
     const fId = ensureFolder(cat || "Imported");
-    const unit = normalizeUnit(iUnit >= 0 ? row[iUnit] : undefined, defaultUnit);
+    const unit = normalizeUnit(iUnit >= 0 ? row[iUnit] : undefined, "g");
     const weightNum = iWeight >= 0 ? parseFloat((row[iWeight] || "").replace(/,/g, "")) : 0;
     const unitWeightMg = isFinite(weightNum) && weightNum > 0 ? toMg(weightNum, unit) : 0;
     const qty = iQty >= 0 ? Math.max(1, Math.round(parseFloat(row[iQty] || "") || 1)) : 1;

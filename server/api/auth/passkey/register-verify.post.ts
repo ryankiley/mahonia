@@ -48,6 +48,7 @@ export default defineEventHandler(async (event) => {
   if (!verification.verified || !info) return { ok: false as const, reason: "invalid" as const };
 
   const db = await useAccountDb();
+  const label = typeof body?.label === "string" ? body.label : null;
   try {
     await savePasskey(db, {
       userId: user.id,
@@ -56,7 +57,7 @@ export default defineEventHandler(async (event) => {
       counter: info.credential.counter,
       transports: info.credential.transports ?? null,
       discoverable: Boolean(info.credentialDeviceType === "multiDevice" || info.credentialBackedUp),
-      label: typeof body?.label === "string" ? body.label : null,
+      label,
     });
   } catch {
     // the unique index on credential_id — this key is already registered, which is
@@ -68,10 +69,7 @@ export default defineEventHandler(async (event) => {
   // in on: a passkey that saved but whose notice didn't send is a strictly better
   // outcome than the reverse.
   if (user.email && canSendEmail()) {
-    await sendPasskeyAddedNotice(
-      user.email,
-      typeof body?.label === "string" ? body.label : null,
-    ).catch((e) => console.error("[passkey notice]", e));
+    await sendPasskeyAddedNotice(user.email, label).catch((e) => console.error("[passkey notice]", e));
   }
 
   return { ok: true as const };

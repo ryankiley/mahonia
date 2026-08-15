@@ -35,7 +35,7 @@ import { isIP } from "node:net";
 // IPv4 in dotted-decimal — `isIP` is canonical here and rejects octal
 // (`0177.0.0.1`), hex (`0x7f.0.0.1`), and decimal (`2130706433`) variants by
 // returning 0, so a non-zero result also means the address is well-formed.
-export function isPrivateIPv4(ip: string): boolean {
+function isPrivateIPv4(ip: string): boolean {
   const parts = ip.split(".").map(Number);
   if (parts.length !== 4 || parts.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) {
     return true; // malformed = treat as untrusted
@@ -53,7 +53,7 @@ export function isPrivateIPv4(ip: string): boolean {
   );
 }
 
-export function isPrivateIPv6(ip: string): boolean {
+function isPrivateIPv6(ip: string): boolean {
   const s = ip.toLowerCase().replace(/^\[|\]$/g, "");
   if (s === "::" || s === "::1") return true; // unspecified, loopback
   if (/^fe[89ab][0-9a-f]:/i.test(s)) return true; // fe80::/10 link-local
@@ -93,7 +93,7 @@ function hexPairToDotted(highHex: string, lowHex: string): string {
   return `${(high >> 8) & 0xff}.${high & 0xff}.${(low >> 8) & 0xff}.${low & 0xff}`;
 }
 
-export function isPrivateAddress(host: string): boolean {
+function isPrivateAddress(host: string): boolean {
   const family = isIP(host);
   if (family === 4) return isPrivateIPv4(host);
   if (family === 6) return isPrivateIPv6(host);

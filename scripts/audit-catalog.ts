@@ -18,17 +18,14 @@
 // Run: npm run catalog:audit   (node + jiti, like the other scripts)
 
 import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-import { csvToCatalogRows, specToMg, WEIGHT_SOURCES, type SpecUnit } from "./catalogCsv";
-import { RANGE_G, runCatalogChecks } from "./catalogChecks";
+import { csvToCatalogRows, identityKey, isCitationUrl, isWeightSource, specToMg, type SpecUnit } from "./catalogCsv";
+import { gearLabel, runCatalogChecks } from "./catalogChecks";
+import { CATALOG_CSV, RESEARCH_DIR } from "./paths";
 import { readResearchFiles, type ResearchRow } from "./research";
-
-const here = dirname(fileURLToPath(import.meta.url));
-const researchDir = join(here, "..", "seed", "_research");
+import { RANGE_G } from "../shared/catalogQuality";
 
 // Plausible per-category weight ranges (RANGE_G) are single-sourced in
-// catalogChecks.ts so the CLI audit and the gating test agree exactly.
+// shared/catalogQuality so the CLI audit and the gating test agree exactly.
 
 /** All gram-equivalent figures mentioned in a quote (kg converted to g).
  *  Handles thousands separators ("1,790 g" is 1790, not 790). */
@@ -40,8 +37,6 @@ function gramsInQuote(q: string): number[] {
   return out;
 }
 
-const label = (r: ResearchRow) => `${r.brand ?? ""} ${r.name ?? "?"}${r.variant ? ` [${r.variant}]` : ""}`.trim();
-
 function main() {
   const errors: string[] = [];
   const warns: string[] = [];
@@ -50,22 +45,22 @@ function main() {
   let total = 0;
   let quoteChecked = 0;
 
-  for (const { file, rows, parseError } of readResearchFiles(researchDir)) {
+  for (const { file, rows, parseError } of readResearchFiles(RESEARCH_DIR)) {
     if (parseError) {
       errors.push(`[json] ${file}: ${parseError}`);
       continue;
     }
     for (const r of rows) {
       total++;
-      const where = `${file}: ${label(r)}`;
+      const where = `${file}: ${gearLabel(r)}`;
 
       // hygiene: weight_source
-      if (!(WEIGHT_SOURCES as readonly string[]).includes(r.weight_source ?? "")) {
+      if (!isWeightSource(r.weight_source ?? "")) {
         errors.push(`[source] ${where}: weight_source="${r.weight_source}"`);
       }
       // hygiene: url
       const url = (r.source_url ?? "").trim();
-      if (!/^https?:\/\/.+/i.test(url)) errors.push(`[url] ${where}: bad source_url "${url}"`);
+      if (!isCitationUrl(url)) errors.push(`[url] ${where}: bad source_url "${url}"`);
 
       // compute mg
       let mg: number;
@@ -100,7 +95,7 @@ function main() {
       }
 
       // duplicate identity carrying a different weight
-      const key = `${(r.brand ?? "").toLowerCase()}|${(r.name ?? "").toLowerCase()}|${(r.variant ?? "").toLowerCase()}`;
+      const key = identityKey(r.brand ?? "", r.name ?? "", r.variant ?? "");
       const prev = identity.get(key);
       if (prev) {
         if (Math.abs(prev.g - g) > Math.max(8, 0.02 * g)) {
@@ -118,7 +113,7 @@ function main() {
   // are the same checks the gating vitest test enforces.
   let csvChecked = 0;
   try {
-    const csv = readFileSync(join(here, "..", "seed", "catalog.csv"), "utf8");
+    const csv = readFileSync(CATALOG_CSV, "utf8");
     const csvRows = csvToCatalogRows(csv);
     csvChecked = csvRows.length;
     for (const f of runCatalogChecks(csvRows)) {

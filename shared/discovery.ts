@@ -57,10 +57,11 @@ export function seasonLabel(slug: string | null | undefined): string | undefined
 
 // ---------------------------------------------------------------------------
 // Public addresses. Slugs look like `{slug}-{6 crockford}`, lowercased. The
-// shape rule lives HERE, once — the repo and every endpoint that validates a
-// slug before a KV key or DB round-trip import it (three copies used to drift).
+// shape rule lives HERE, once, inside normalizeSlug — every endpoint that
+// validates a slug before a KV key or DB round-trip goes through it (three
+// copies used to drift).
 // ---------------------------------------------------------------------------
-export const SLUG_RE = /^[a-z0-9-]{1,80}$/;
+const SLUG_RE = /^[a-z0-9-]{1,80}$/;
 
 /** A raw slug value → its normalized (trimmed, lowercased) form, or null. */
 export function normalizeSlug(raw: unknown): string | null {
@@ -126,11 +127,10 @@ export function categorySegments(data: ListData): SparkSegment[] {
       continue;
     }
     const folder = folderById.get(item.folderId);
-    const key = folder?.id ?? item.folderId;
-    const existing = byFolder.get(key);
+    const existing = byFolder.get(item.folderId);
     if (existing) existing.mg += mg;
     else
-      byFolder.set(key, {
+      byFolder.set(item.folderId, {
         colorKey: folder?.colorKey ?? "other",
         name: folder?.name ?? "Other",
         mg,

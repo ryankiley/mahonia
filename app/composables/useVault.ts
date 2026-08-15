@@ -3,6 +3,7 @@
 
 import type { Folder, Item } from "~~/shared/types";
 import type { VaultCapture, VaultEntry } from "~~/shared/vault";
+import { remember } from "../utils/remember";
 
 // ---------------------------------------------------------------------------
 // capture
@@ -35,12 +36,7 @@ export function vaultDecisionFor(editToken: string): VaultDecision {
 }
 
 export function setVaultDecisionFor(editToken: string, decision: "yes" | "no"): void {
-  if (!editToken) return;
-  try {
-    localStorage.setItem(DECISION_KEY(editToken), decision);
-  } catch {
-    /* storage blocked — the choice holds for this session only */
-  }
+  if (editToken) remember(DECISION_KEY(editToken), decision);
 }
 
 // "Yes" is rarely the whole truth on a list you shared. On a trip you planned

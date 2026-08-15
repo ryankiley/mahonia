@@ -30,6 +30,7 @@ import {
 import { UNITS } from "../../shared/types";
 import type { ListData, ListSnapshot, ListState, Totals, Unit } from "../../shared/types";
 import { isLikelySpam } from "../../shared/discovery";
+import { normalizeShareCode } from "../../shared/links";
 import { MAX_SUMMARY_LEN, summarizeOps } from "../../shared/changeSummary";
 import { normalizeDistanceUnit, normalizeTrailAscentM, normalizeTrailDistanceM } from "../../shared/trailDistance";
 import { parseProfile } from "../../shared/profile";
@@ -324,14 +325,6 @@ function rowToState(row: ListRow): ListState {
 const liveOnly = (col: typeof lists.editTokenHash | typeof lists.shareCode, val: string) =>
   and(eq(col, val), eq(lists.status, "active"), isNull(lists.deletedAt));
 
-// Enforce the advertised case-insensitive Crockford contract + reject malformed
-// codes before any DB round-trip.
-const CROCKFORD_RE = /^[0-9ABCDEFGHJKMNPQRSTVWXYZ]{12}$/;
-function normShareCode(raw: string): string | null {
-  const c = (raw || "").toUpperCase().replace(/[IL]/g, "1").replace(/O/g, "0");
-  return CROCKFORD_RE.test(c) ? c : null;
-}
-
 // The "is this holder allowed to touch this live, non-deleted list" lookup.
 // Exported so discoveryRepo shares the exact same capability gate (no drift).
 //
@@ -361,7 +354,7 @@ export async function findByEditToken(editToken: string, db?: Db): Promise<ListR
  * Shares `liveOnly`, so the gate itself is still written once and can't drift from
  * the full-row read.
  */
-export async function findIdByEditHash(editHash: string, db?: Db): Promise<number | null> {
+async function findIdByEditHash(editHash: string, db?: Db): Promise<number | null> {
   const d = db ?? (await useDb());
   const rows = await d
     .select({ id: lists.id })
@@ -750,16 +743,25 @@ export async function attachAuthorName(
   return snap;
 }
 
-export async function getByShareCode(code: string): Promise<ListSnapshot | null> {
-  const c = normShareCode(code);
+/** The one live-row lookup behind /s and its social card — same normalization
+ *  (the client's own normalizeShareCode, so the advertised case-insensitive
+ *  Crockford contract can't drift between the two ends), same liveOnly
+ *  predicate, so the card can't outlive (or outread) the page. */
+async function liveRowByShareCode(code: string): Promise<{ db: Db; row: ListRow } | null> {
+  const c = normalizeShareCode(code);
   if (!c) return null;
   const db = await useDb();
   const rows = await db.select().from(lists).where(liveOnly(lists.shareCode, c)).limit(1);
-  if (!rows[0]) return null;
+  return rows[0] ? { db, row: rows[0] } : null;
+}
+
+export async function getByShareCode(code: string): Promise<ListSnapshot | null> {
+  const hit = await liveRowByShareCode(code);
+  if (!hit) return null;
   // the byline belongs to the READ views only — /s and /l, not the editor, where
   // you are the author and being told so is noise
-  const snap = await hydrateForRead(db, rowToSnapshot(rows[0]));
-  return attachAuthorName(db, snap, rows[0].authorUserId);
+  const snap = await hydrateForRead(hit.db, rowToSnapshot(hit.row));
+  return attachAuthorName(hit.db, snap, hit.row.authorUserId);
 }
 
 /**
@@ -767,14 +769,11 @@ export async function getByShareCode(code: string): Promise<ListSnapshot | null>
  * hydration. The card draws only the title, the owner's unit and the weight
  * rollup — hydrateForRead's current catalog names, the trail favicon (a data:
  * URL of up to ~87 KB) and the author byline are all payload it never renders,
- * and none of them can move a total. Same capability, same liveOnly predicate.
+ * and none of them can move a total.
  */
 export async function getCardByShareCode(code: string): Promise<ListSnapshot | null> {
-  const c = normShareCode(code);
-  if (!c) return null;
-  const db = await useDb();
-  const rows = await db.select().from(lists).where(liveOnly(lists.shareCode, c)).limit(1);
-  return rows[0] ? rowToSnapshot(rows[0]) : null;
+  const hit = await liveRowByShareCode(code);
+  return hit ? rowToSnapshot(hit.row) : null;
 }
 
 /**

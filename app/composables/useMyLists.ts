@@ -1,5 +1,6 @@
 import type { Ref } from "vue";
 import type { ListSnapshot, MyListEntry } from "~~/shared/types";
+import { remember } from "../utils/remember";
 
 // No-login "My Lists": the registry of edit tokens this browser holds. This is
 // the only thing tying a visitor to their lists — clear the browser and they're
@@ -44,13 +45,8 @@ function storageEntries(): Ref<MyListEntry[]> {
     // so the list was really gone, and the row it left behind pointed at a dead list
     // forever. Both actions live in the editor now, which is where the writer is.
     effectScope(true).run(() => {
-      watch(entries, (v) => {
-        try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(v));
-        } catch {
-          // storage full/blocked — keep the in-memory registry working
-        }
-      });
+      // a blocked write keeps the in-memory registry working (see remember)
+      watch(entries, (v) => remember(STORAGE_KEY, JSON.stringify(v)));
     });
     window.addEventListener("storage", (e) => {
       if (e.key === STORAGE_KEY) entries.value = readEntries();

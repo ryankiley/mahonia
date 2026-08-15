@@ -15,6 +15,7 @@ import { sha256Hex } from "./tokens";
 import { captureVaultItems } from "./vaultRepo";
 import { mintVault, touchVaultByUser } from "./vaultAuth";
 import { VAULT_CAPTURE_MAX, captureFromList, type VaultCapture } from "../../shared/vault";
+import { normalizeShareCode } from "../../shared/links";
 import type { Unit } from "../../shared/types";
 
 type Db = Awaited<ReturnType<typeof useAccountDb>>;
@@ -25,7 +26,7 @@ export const CLAIM_BATCH_MAX = 200;
 
 /** Ceiling on a single backfill. A personal gear collection is dozens of items;
  *  this only bounds the pathological account. */
-export const VAULT_BACKFILL_MAX = 1000;
+const VAULT_BACKFILL_MAX = 1000;
 
 /** A claimed list as the client needs it to render "Your lists" and open one. */
 export interface ClaimedList {
@@ -217,8 +218,8 @@ export async function claimedEditHash(
   userId: number,
   shareCode: string,
 ): Promise<string | null> {
-  const code = (shareCode || "").toUpperCase().replace(/[IL]/g, "1").replace(/O/g, "0");
-  if (!/^[0-9ABCDEFGHJKMNPQRSTVWXYZ]{12}$/.test(code)) return null;
+  const code = normalizeShareCode(shareCode);
+  if (!code) return null;
   const rows = await db
     .select({ editTokenHash: lists.editTokenHash })
     .from(lists)
@@ -242,8 +243,8 @@ export async function claimedEditHash(
  * can't unclaim another's.
  */
 export async function unclaimList(db: Db, userId: number, shareCode: string): Promise<boolean> {
-  const code = (shareCode || "").toUpperCase().replace(/[IL]/g, "1").replace(/O/g, "0");
-  if (!/^[0-9ABCDEFGHJKMNPQRSTVWXYZ]{12}$/.test(code)) return false;
+  const code = normalizeShareCode(shareCode);
+  if (!code) return false;
   const target = await db
     .select({ id: lists.id })
     .from(lists)

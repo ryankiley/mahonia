@@ -1,4 +1,5 @@
 import { defineEventHandler, getRequestURL, setHeader } from "h3";
+import { setDailyEdgeCache } from "../utils/http";
 
 // llms.txt — a plain-text map of the site for AI agents / LLM fetchers that would
 // otherwise land on the client-rendered editor shell (/, /e) and read nothing. Points
@@ -7,7 +8,7 @@ import { defineEventHandler, getRequestURL, setHeader } from "h3";
 export default defineEventHandler((event) => {
   const origin = getRequestURL(event).origin;
   setHeader(event, "Content-Type", "text/plain; charset=utf-8");
-  setHeader(event, "Cache-Control", "public, max-age=0, s-maxage=86400");
+  setDailyEdgeCache(event);
   return [
     "# Mahonia",
     "",

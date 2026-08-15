@@ -1,5 +1,6 @@
 import type { H3Event } from "h3";
-import { createError, getHeader } from "h3";
+import { getHeader } from "h3";
+import { notFound } from "./http";
 import { rateLimit } from "./rateLimit";
 import { safeEqual } from "./tokens";
 
@@ -15,6 +16,5 @@ import { safeEqual } from "./tokens";
 export async function requireAdmin(event: H3Event): Promise<void> {
   await rateLimit(event, "admin");
   const provided = getHeader(event, "x-admin-token");
-  if (!safeEqual(provided, process.env.GEAR_ADMIN_TOKEN))
-    throw createError({ statusCode: 404, statusMessage: "Not found" });
+  if (!safeEqual(provided, process.env.GEAR_ADMIN_TOKEN)) throw notFound();
 }

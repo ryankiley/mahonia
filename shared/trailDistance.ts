@@ -93,8 +93,8 @@ type Candidate = { metres: number; unit: DistanceUnit | null };
  * ("Length: 7.5 mi", "7.5 mi • 3,159 ft • Out & back"), because the number is on
  * that page and retyping it is the step worth removing.
  *
- * A bare number is read in the unit the list displays (see distanceUnitFor), which
- * is what makes "12" mean 12 km on a gram list and 12 miles on an ounce one.
+ * A bare number is read in the caller's fallback unit (see resolveDistanceUnit),
+ * which is what makes "12" mean 12 km on a km list and 12 miles elsewhere.
  *
  * WHICH number, when a paste holds several: a stats line pairs a LENGTH in km/mi with
  * a GAIN in m/ft, so a lone km/mi candidate is the length whatever order they came in
@@ -104,7 +104,7 @@ type Candidate = { metres: number; unit: DistanceUnit | null };
  *
  * Returns null for anything unparseable, non-positive, or past the bound.
  */
-export function parseDistanceM(raw: string, fallbackUnit: DistanceUnit = "km"): number | null {
+export function parseDistanceM(raw: string, fallbackUnit: DistanceUnit): number | null {
   if (raw == null) return null;
   const s = String(raw).trim().toLowerCase();
   if (!s) return null;
@@ -143,50 +143,36 @@ export function parseDistanceM(raw: string, fallbackUnit: DistanceUnit = "km"): 
   return metres > 0 && metres <= MAX_DISTANCE_M ? metres : null;
 }
 
-/**
- * The distance unit a list reads in before anyone picks one: MILES.
- *
- * This used to follow the weight unit — grams meant kilometres — which was tidy and
- * wrong in practice. The app's default weight unit is grams because that's the useful
- * unit for gear, and it does not follow that the person weighing gear in grams measures
- * a trail in kilometres; plenty do exactly the opposite. Trail signs, guidebooks and
- * the pages people paste from all say miles for most of this app's users.
- *
- * `displayUnit` is still the argument so the rule has somewhere to live if it ever needs
- * to vary again, and the explicit pick (resolveDistanceUnit) still overrides this.
- */
-export function distanceUnitFor(_displayUnit: string): DisplayDistanceUnit {
-  return "mi";
+/** One of `list`'s members, or undefined for anything else — the shape every
+ *  stored-enum normalizer here takes (unit fields round-trip through storage). */
+function oneOf<T>(list: readonly T[], raw: unknown): T | undefined {
+  return list.includes(raw as T) ? (raw as T) : undefined;
 }
 
 /** A stored distance unit, or undefined when it isn't one of the two. */
 export function normalizeDistanceUnit(raw: unknown): DisplayDistanceUnit | undefined {
-  return DISPLAY_DISTANCE_UNITS.includes(raw as DisplayDistanceUnit)
-    ? (raw as DisplayDistanceUnit)
-    : undefined;
+  return oneOf(DISPLAY_DISTANCE_UNITS, raw);
 }
 
 /**
- * The unit a list's distance actually reads in: the owner's explicit pick, else miles.
+ * The unit a list's distance actually reads in: the owner's explicit pick, else MILES.
  *
  * The fallback USED to follow the weight unit, on the reasoning that a gram list is a
- * metric list. It doesn't any more — distanceUnitFor returns miles regardless — because
- * the two choices turned out not to travel together: plenty of people weigh a pack in
- * grams and walk in miles, and having the distance flip units because someone switched
- * to ounces was a surprise rather than a convenience.
+ * metric list. It doesn't any more, because the two choices turned out not to travel
+ * together: the app's default weight unit is grams because that's the useful unit for
+ * gear, and plenty of people weigh a pack in grams and walk in miles — trail signs,
+ * guidebooks and the pages people paste from all say miles for most of this app's
+ * users. Having the distance flip units because someone switched to ounces was a
+ * surprise rather than a convenience.
  *
  * An explicit pick still wins and is still remembered, which is the part that matters.
  */
-export function resolveDistanceUnit(
-  explicit: string | undefined,
-  displayUnit: string,
-): DisplayDistanceUnit {
-  return normalizeDistanceUnit(explicit) ?? distanceUnitFor(displayUnit);
+export function resolveDistanceUnit(explicit: string | undefined): DisplayDistanceUnit {
+  return normalizeDistanceUnit(explicit) ?? "mi";
 }
 
-/** A tidy label for a distance in metres: "7.5 mi", "12.1 km", "800 m". */
 /**
- * The same figure with its decimal ALWAYS shown — "11.0 mi", never "11 mi".
+ * The formatDistance figure with its decimal ALWAYS shown — "11.0 mi", never "11 mi".
  *
  * For distances that form a COLUMN. A whole number that drops its decimal is a character
  * narrower than the rows above and below it, so the unit slides left and the column stops
@@ -201,6 +187,7 @@ export function formatDistancePadded(metres: number, unit: DisplayDistanceUnit):
   return `${n.toFixed(1)} ${unit}`;
 }
 
+/** A tidy label for a distance in metres: "7.5 mi", "12.1 km", "800 m". */
 export function formatDistance(metres: number, unit: DisplayDistanceUnit): string {
   if (unit === "mi") {
     return `${Number.parseFloat((metres / M_PER_UNIT.mi).toFixed(1))} mi`;
@@ -209,18 +196,6 @@ export function formatDistance(metres: number, unit: DisplayDistanceUnit): strin
   // sign at the trailhead would say.
   if (metres < 1000) return `${Math.round(metres)} m`;
   return `${Number.parseFloat((metres / M_PER_UNIT.km).toFixed(1))} km`;
-}
-
-/**
- * The distance as a bare number in the unit ASKED FOR, to one decimal — for a headline
- * that carries its own unit control beside it.
- *
- * formatDistance is the wrong tool there and quietly so: below a kilometre it drops to
- * metres, which is right in prose ("800 m", what a trailhead sign says) and wrong beside
- * a picker that is still displaying "km". This never changes unit under the caller.
- */
-export function distanceHeadline(metres: number, unit: DisplayDistanceUnit): string {
-  return String(Number((metres / M_PER_UNIT[unit]).toFixed(1)));
 }
 
 /**
@@ -268,18 +243,22 @@ export function distanceFieldValue(metres: number | undefined, unit: DisplayDist
  * exactly as they do for trailUrl).
  */
 export function normalizeTrailDistanceM(raw: unknown): number | undefined {
-  const n = typeof raw === "string" ? Number.parseFloat(raw) : raw;
-  if (typeof n !== "number" || !Number.isFinite(n)) return undefined;
-  const metres = Math.round(n);
-  return metres > 0 && metres <= MAX_DISTANCE_M ? metres : undefined;
+  return boundedRound(raw, 1, MAX_DISTANCE_M);
 }
 
 /** A route's total climb in metres. More than Everest from the sea isn't one. */
 export function normalizeTrailAscentM(raw: unknown): number | undefined {
+  return boundedRound(raw, 1, 30_000);
+}
+
+/** The one raw-value → stored-integer rule every normalize* above and below
+ *  shares (and ops.ts's day metres too): parse a string if that's what arrived,
+ *  round, and accept only [min, max]. */
+export function boundedRound(raw: unknown, min: number, max: number): number | undefined {
   const n = typeof raw === "string" ? Number.parseFloat(raw) : raw;
   if (typeof n !== "number" || !Number.isFinite(n)) return undefined;
-  const m = Math.round(n);
-  return m > 0 && m <= 30_000 ? m : undefined;
+  const v = Math.round(n);
+  return v >= min && v <= max ? v : undefined;
 }
 
 // ---- body weight ----
@@ -318,7 +297,7 @@ export function bodyWeightUnitFor(displayUnit: string | undefined): BodyWeightUn
 }
 
 export function normalizeBodyWeightUnit(raw: unknown): BodyWeightUnit | undefined {
-  return BODY_WEIGHT_UNITS.includes(raw as BodyWeightUnit) ? (raw as BodyWeightUnit) : undefined;
+  return oneOf(BODY_WEIGHT_UNITS, raw);
 }
 
 /** A raw body weight → grams, or undefined. Bare numbers read in the given unit. */
@@ -340,10 +319,7 @@ export function parseBodyWeightG(raw: string, fallbackUnit: BodyWeightUnit): num
 }
 
 export function normalizeBodyWeightG(raw: unknown): number | undefined {
-  const n = typeof raw === "string" ? Number.parseFloat(raw) : raw;
-  if (typeof n !== "number" || !Number.isFinite(n)) return undefined;
-  const g = Math.round(n);
-  return g >= MIN_BODY_G && g <= MAX_BODY_G ? g : undefined;
+  return boundedRound(raw, MIN_BODY_G, MAX_BODY_G);
 }
 
 /** "70 kg" / "154 lb" — one canonical number rendered in whichever unit is in play. */
@@ -374,11 +350,13 @@ export function bodyWeightFieldValue(grams: number | undefined, unit: BodyWeight
 export function tripHeadline(list: {
   trailDistanceM?: number;
   trailDistanceUnit?: string;
-  displayUnit?: string;
   days?: { distanceM?: number }[];
 }): { value: string; unit: DisplayDistanceUnit; metres: number } {
-  const unit = resolveDistanceUnit(list.trailDistanceUnit, (list.displayUnit as never) ?? "g");
+  const unit = resolveDistanceUnit(list.trailDistanceUnit);
   const typed = (list.days ?? []).reduce((s, d) => s + (d?.distanceM ?? 0), 0);
   const metres = Math.max(list.trailDistanceM ?? 0, typed);
-  return { value: distanceHeadline(metres, unit), unit, metres };
+  // Bare number to one decimal, never a unit switch: formatDistance drops below a
+  // kilometre to metres, which is right in prose and wrong beside the headline's
+  // own unit control still saying "km".
+  return { value: String(Number((metres / M_PER_UNIT[unit]).toFixed(1))), unit, metres };
 }

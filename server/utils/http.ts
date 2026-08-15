@@ -1,4 +1,4 @@
-import { createError, readRawBody, setHeader, type H3Event } from "h3";
+import { createError, getHeader, readRawBody, setHeader, type H3Event } from "h3";
 
 /**
  * Keep a response out of search results.
@@ -38,6 +38,20 @@ export function setPrivate(event: H3Event): void {
  *  can't reach this helper, so those two literals remain. */
 export function setReadEdgeCache(event: H3Event): void {
   setHeader(event, "Cache-Control", "public, max-age=0, s-maxage=30, stale-while-revalidate=120");
+}
+
+/** A day of edge cache for the static, same-for-everyone text routes (robots,
+ *  llms.txt, the Apple app-site-association) — the daily counterpart of
+ *  setReadEdgeCache, and one literal instead of three. */
+export function setDailyEdgeCache(event: H3Event): void {
+  setHeader(event, "Cache-Control", "public, max-age=0, s-maxage=86400");
+}
+
+/** The Bearer token on the request, "" when absent — the one reading of the
+ *  Authorization header, shared by the edit-capability and cron gates. */
+export function bearerToken(event: H3Event): string {
+  const header = getHeader(event, "authorization") || "";
+  return header.startsWith("Bearer ") ? header.slice(7).trim() : "";
 }
 
 /**

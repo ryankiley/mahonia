@@ -11,6 +11,7 @@
 import { LIST_CODE_HEADER } from "~~/shared/links";
 import { claimedLocalKey } from "~~/shared/localList";
 import type { Unit } from "~~/shared/types";
+import { remember } from "../utils/remember";
 
 export interface ClaimedList {
   shareCode: string;
@@ -92,11 +93,7 @@ export function useClaimedLists() {
       });
       lists.value = res.lists || [];
       loaded.value = true;
-      try {
-        localStorage.setItem(CLAIMED_MARK_KEY, mark);
-      } catch {
-        // storage blocked — we'll simply claim again next time
-      }
+      remember(CLAIMED_MARK_KEY, mark); // a blocked write just means claiming again next time
     } catch {
       // offline or rate-limited: leave the mark unset so the next load retries
     }

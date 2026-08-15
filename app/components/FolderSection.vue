@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { CheckIcon, ChevronDownIcon, Delete02Icon, GripVerticalIcon } from "@hugeicons/core-free-icons";
+import { ChevronDownIcon, Delete02Icon, GripVerticalIcon } from "@hugeicons/core-free-icons";
 import type { Folder, FolderSort, Item, ListSnapshot } from "~~/shared/types";
 import { bySortOrder } from "~~/shared/weights";
 
@@ -115,11 +115,7 @@ function onName(e: Event) {
 }
 function toggleCollapsed() {
   collapsed.value = !collapsed.value;
-  try {
-    localStorage.setItem(COLLAPSE_KEY, collapsed.value ? "1" : "0");
-  } catch {
-    /* ignore */
-  }
+  remember(COLLAPSE_KEY, collapsed.value ? "1" : "0");
 }
 </script>
 

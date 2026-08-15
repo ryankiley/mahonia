@@ -372,8 +372,6 @@ export const vaults = pgTable(
   ],
 );
 
-export type VaultRow = typeof vaults.$inferSelect;
-
 /**
  * A vault's folders. Its own table rather than a text label on the item, because
  * these carry state of their own — an order you can drag, and a per-folder item
@@ -468,8 +466,6 @@ export const vaultItems = pgTable(
   ],
 );
 
-export type VaultItemRow = typeof vaultItems.$inferSelect;
-
 // ---------------------------------------------------------------------------
 // THE OPTIONAL ACCOUNT LAYER
 //
@@ -477,14 +473,11 @@ export type VaultItemRow = typeof vaultItems.$inferSelect;
 // vault by its vault link, both unchanged. An account does one job: it REMEMBERS
 // those links, so they don't have to be carried between devices by hand.
 //
-// Identity is an email address and nothing else — no password to hash, leak or
-// reset, because sign-in is a single-use emailed link. A passkey is added later,
-// to an account already signed in, and stores only a PUBLIC key.
-// ---------------------------------------------------------------------------
-//
 // Identity is an email address and nothing else — no name, no password, no
 // profile. Sign-in is a single-use emailed link, so there is no password to
 // hash, leak, or reset, and the row below is the entire footprint of an account.
+// A passkey is added later, to an account already signed in, and stores only a
+// PUBLIC key.
 // ---------------------------------------------------------------------------
 export const users = pgTable(
   "users",
@@ -512,8 +505,6 @@ export const users = pgTable(
   },
   (t) => [uniqueIndex("idx_users_email").on(t.email)],
 );
-
-export type UserRow = typeof users.$inferSelect;
 
 // A pending magic link. Short-lived and single-use: `consumedAt` is stamped the
 // moment it's redeemed, so a link forwarded or replayed from an inbox is inert.
@@ -597,8 +588,6 @@ export const credentials = pgTable(
     index("idx_credentials_user").on(t.userId),
   ],
 );
-
-export type CredentialRow = typeof credentials.$inferSelect;
 
 // ---------------------------------------------------------------------------
 // list_claims — "this account holds this list", so lists follow you off the

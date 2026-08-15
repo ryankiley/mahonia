@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { trailFavicons } from "../server/db/schema";
 import { TRAIL_FAVICONS_DDL } from "../server/utils/db";
 import { createTestDb } from "./helpers/db";
+import { imageResponse, stubFetch } from "./helpers/http";
 import {
   FAVICON_TTL_MS,
   cacheFaviconForHost,
@@ -34,36 +35,9 @@ vi.mock("node:dns/promises", () => ({
   lookup: async () => [{ address: "93.184.216.34", family: 4 }],
 }));
 
-// The network is stubbed everywhere below: these tests are about the CACHE rules
-// (what gets refetched, what's kept on failure), not about anyone's favicon.
-function stubFetch(impl: (url: string) => Partial<Response> | null) {
-  vi.stubGlobal("fetch", async (input: string | URL) => {
-    const res = impl(String(input));
-    if (!res) throw new Error("network down");
-    return res as Response;
-  });
-}
-
-function imageResponse(bytes: Uint8Array, contentType = "image/x-icon") {
-  return {
-    ok: true,
-    status: 200,
-    headers: new Headers({ "content-type": contentType }),
-    body: {
-      getReader() {
-        let sent = false;
-        return {
-          async read() {
-            if (sent) return { value: undefined, done: true };
-            sent = true;
-            return { value: bytes, done: false };
-          },
-          async cancel() {},
-        };
-      },
-    },
-  };
-}
+// The network is stubbed everywhere below (helpers/http): these tests are about
+// the CACHE rules (what gets refetched, what's kept on failure), not about
+// anyone's favicon.
 
 function htmlResponse(html: string) {
   return {
@@ -75,7 +49,7 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe("fetchFaviconDataUrl", () => {
   it("returns a data: URL so a strict img-src never has to loosen", async () => {
-    stubFetch(() => imageResponse(new Uint8Array([1, 2, 3])));
+    stubFetch(() => imageResponse(new Uint8Array([1, 2, 3]), "image/x-icon"));
     const out = await fetchFaviconDataUrl("example.com");
     expect(out).toMatch(/^data:image\/x-icon;base64,/);
   });
@@ -154,7 +128,7 @@ describe("fetchFaviconDataUrl", () => {
     const seen: string[] = [];
     stubFetch((url) => {
       seen.push(url);
-      if (url.endsWith("/apple-touch-icon.png")) return imageResponse(new Uint8Array([1]));
+      if (url.endsWith("/apple-touch-icon.png")) return imageResponse(new Uint8Array([1]), "image/x-icon");
       return null; // homepage is blocked, as AllTrails' really is
     });
     await fetchFaviconDataUrl("alltrails.com");
@@ -164,7 +138,7 @@ describe("fetchFaviconDataUrl", () => {
   it("rejects an oversized icon", async () => {
     // komoot.com serves a 112 KB favicon — a page asset masquerading as one, and not
     // worth carrying inline in every SSR response
-    stubFetch(() => imageResponse(new Uint8Array(128 * 1024)));
+    stubFetch(() => imageResponse(new Uint8Array(128 * 1024), "image/x-icon"));
     expect(await fetchFaviconDataUrl("komoot.com")).toBeNull();
   });
 
@@ -175,7 +149,7 @@ describe("fetchFaviconDataUrl", () => {
 
   it("refuses to fetch a private address", async () => {
     // the host comes straight from a user-pasted URL, so this is the SSRF boundary
-    stubFetch(() => imageResponse(new Uint8Array([1])));
+    stubFetch(() => imageResponse(new Uint8Array([1]), "image/x-icon"));
     expect(await fetchFaviconDataUrl("127.0.0.1")).toBeNull();
     expect(await fetchFaviconDataUrl("169.254.169.254")).toBeNull();
     expect(await fetchFaviconDataUrl("localhost")).toBeNull();
@@ -188,7 +162,7 @@ describe("cacheFaviconForHost", () => {
     let calls = 0;
     stubFetch(() => {
       calls++;
-      return imageResponse(new Uint8Array([1, 2, 3]));
+      return imageResponse(new Uint8Array([1, 2, 3]), "image/x-icon");
     });
 
     await cacheFaviconForHost(db, "alltrails.com");
@@ -284,7 +258,7 @@ describe("refreshStaleFavicons", () => {
     for (let i = 0; i < 40; i++) {
       await seed(db, `host${i}.example`, OTHER_ICON, FAVICON_TTL_MS + i * 1000);
     }
-    stubFetch(() => imageResponse(new Uint8Array([1])));
+    stubFetch(() => imageResponse(new Uint8Array([1]), "image/x-icon"));
 
     const result = await refreshStaleFavicons(db);
     expect(result.checked).toBe(25);
@@ -299,7 +273,7 @@ describe("refreshStaleFavicons", () => {
     const order: string[] = [];
     stubFetch((url) => {
       order.push(new URL(url).hostname);
-      return imageResponse(new Uint8Array([1]));
+      return imageResponse(new Uint8Array([1]), "image/x-icon");
     });
 
     await refreshStaleFavicons(db);

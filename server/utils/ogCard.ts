@@ -189,7 +189,7 @@ function siteCardVnode(): Vnode {
   );
 }
 
-export function ogSiteCardSvg(fonts: SatoriOptions["fonts"]): Promise<string> {
+function ogSiteCardSvg(fonts: SatoriOptions["fonts"]): Promise<string> {
   return satori(siteCardVnode(), { width: OG_IMAGE_WIDTH, height: OG_IMAGE_HEIGHT, fonts });
 }
 

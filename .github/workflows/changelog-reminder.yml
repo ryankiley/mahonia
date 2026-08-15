@@ -103,7 +103,7 @@ jobs:
               'npm run changelog -- --added "One plain sentence about the change."',
               "```",
               "",
-              "That writes a new file under `content/changelog.d/`, so it can't conflict with anyone else's entry. Grouped Added / Changed / Fixed, plain and user-facing — it shows up on [/changelog](https://mahonia.app/changelog).",
+              "That writes a new file under `content/changelog.d/`, so it can't conflict with anyone else's entry. Grouped Added / Changed / Fixed, plain and user-facing — it shows up on [What's new](https://mahonia.app/about#whats-new).",
               "",
               "Not user-facing (refactor, deps, infra)? Prefix the PR title — `refactor:`, `chore:`, `ci:`, `test:`, `docs:`, `build:` — or add the **`skip-changelog`** label. (`style:` and `perf:` deliberately aren't on that list: a CSS change and a speed-up are both things people notice here.)",
               "",

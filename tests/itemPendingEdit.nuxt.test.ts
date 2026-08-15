@@ -25,6 +25,7 @@ import ItemRow from "~/components/ItemRow.vue";
 import type { Item, ListSnapshot } from "~~/shared/types";
 import type { ItemPatch } from "~~/shared/ops";
 import { applyOps } from "~~/shared/ops";
+import { blankList } from "./helpers/list";
 
 registerEndpoint("/api/catalog/search", () => ({ results: [] }));
 mockNuxtImport("useVaultAccess", () => () => ({
@@ -54,16 +55,6 @@ mockNuxtImport("useGearList", () => () => ({
   vaultAuto: ref(false),
   vaultDeclined: ref(new Set<string>()),
 }));
-
-function blankList(): ListSnapshot {
-  return {
-    id: "l1",
-    name: "Test",
-    displayUnit: "g",
-    folders: [{ id: "f1", name: "Shelter", sortOrder: 0 }],
-    items: [],
-  } as unknown as ListSnapshot;
-}
 
 // A row mid-build: named and counted, with NO weight yet. That's the state the report
 // came from — an empty weight field means a dropped edit doesn't just revert, it vanishes.

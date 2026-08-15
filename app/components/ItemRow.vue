@@ -28,11 +28,7 @@ function nestCollapsedFor(key: string): boolean {
 }
 function setNestCollapsed(key: string, on: boolean) {
   nestCollapsedCache.set(key, on);
-  try {
-    localStorage.setItem(key, on ? "1" : "0");
-  } catch {
-    /* ignore */
-  }
+  remember(key, on ? "1" : "0");
 }
 // A cache that never re-read would out-live the truth: `storage` fires in the OTHER
 // tabs, so the same list open twice would keep showing its own stale collapse state on
@@ -60,7 +56,7 @@ const UNIT_OPTIONS = UNITS.map((u) => ({ key: u, label: u }));
 
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { CalculateIcon, Cancel01Icon, CheckIcon, CheckmarkSquare02Icon, ChevronDownIcon, CircleEllipsisIcon, CookieIcon, Delete02Icon, GripVerticalIcon, ListIndentDecreaseIcon, ListIndentIncreaseIcon, ListPlusIcon, MinusSignIcon, NoteAddIcon, NoteRemoveIcon, PlusSignIcon, SafeBoxIcon, ShirtIcon, SquareIcon } from "@hugeicons/core-free-icons";
+import { CalculateIcon, Cancel01Icon, CheckIcon, CheckmarkSquare02Icon, ChevronDownIcon, CircleEllipsisIcon, CookieIcon, Delete02Icon, GripVerticalIcon, ListIndentIncreaseIcon, MinusSignIcon, NoteAddIcon, NoteRemoveIcon, PlusSignIcon, SafeBoxIcon, ShirtIcon, SquareIcon } from "@hugeicons/core-free-icons";
 import type { Item, ListSnapshot } from "~~/shared/types";
 import type { ItemPatch } from "~~/shared/ops";
 import type { NameCommit } from "~/composables/useCatalogSearch";
@@ -582,7 +578,6 @@ const splitOptions = computed(() => {
 const wornTitle = computed(() =>
   activeSplit.value > 0 ? `${activeSplit.value} of ${props.item.qty} worn` : "Worn",
 );
-const consumableTitle = "Consumable";
 
 // The ACCESSIBLE name has to carry the STATE as well, which the tooltip text doesn't.
 // These buttons replaced a <select aria-label="Classification">, which announced its
@@ -805,7 +800,7 @@ const nestActions = computed(() => {
   // own ever-present "Add an item" instead
   if (!props.nested && !isParent.value) acts.push({ label: "Add a nested item", run: () => c.addChild(props.item.id) });
   if (props.nested) acts.push({ label: "Move out of the group", run: () => c.unnest(props.item.id) });
-  else if (canIndent.value && props.prevId)
+  else if (canIndent.value)
     acts.push({ label: "Nest under the item above", run: () => c.nestItem(props.item.id, props.prevId!) });
   return acts;
 });
@@ -901,7 +896,7 @@ const overflowActions = computed(() => {
   else {
     if (!isParent.value) acts.push({ label: "Add a nested item", run: () => c.addChild(props.item.id) });
     if (canIndent.value)
-      acts.push({ label: "Nest under the item above", run: () => props.prevId && c.nestItem(props.item.id, props.prevId) });
+      acts.push({ label: "Nest under the item above", run: () => c.nestItem(props.item.id, props.prevId!) });
   }
   // Reads its own state, like the inline button's tooltip does — "Saved" is the
   // whole feedback here, since a menu closes on choosing and there's no tick left
@@ -918,10 +913,6 @@ const overflowActions = computed(() => {
   acts.push({ label: "Remove item", run: () => c.removeItem(props.item.id) });
   return acts;
 });
-function runOverflow(a: { run: () => void }) {
-  menu.close();
-  a.run();
-}
 
 // "Fix for everyone": only offered once the user's weight diverges from the
 // catalog value they linked — i.e. they think the canonical spec is wrong.
@@ -1159,10 +1150,8 @@ function dismissFix() {
                stays exactly as it was, and the real control sits over it keeping the
                native picker and full keyboard behaviour.
                Not on water (its weight is derived from a volume) or on a group row
-               (whose figure is the sum of children that may each read differently). -->
-          <!-- Water and group rows show the unit as plain text: water's weight is
-               derived from a volume, and a group's figure is the sum of children that
-               may each read differently, so neither has a unit to pick. -->
+               (whose figure is the sum of children that may each read differently) —
+               those two show the unit as plain text, with no unit to pick. -->
           <span v-if="isWater || isParent" class="item__unitwrap">
             <span class="t-sm t-muted item__unit">{{ rowUnit }}</span>
             <!-- The chevron's SLOT, held open by the chevron itself.
@@ -1226,7 +1215,7 @@ function dismissFix() {
              row's cookie (the worn slot beside it is held open by a ghost below). -->
         <div class="item__classcell">
           <div v-if="!isWater" ref="kcalRootRef" class="menu item__cls">
-            <Tooltip :text="consumableTitle" :disabled="isKcalOpen" preferred-placement="top">
+            <Tooltip text="Consumable" :disabled="isKcalOpen" preferred-placement="top">
               <button
                 class="btn btn--icon btn--ghost menu__btn item__clsbtn"
                 :class="{ 'item__mark': isConsumable }"
@@ -1422,8 +1411,7 @@ function dismissFix() {
                 @mousedown.prevent
                 @click="onSaveToVault"
               >
-                <HugeiconsIcon :icon="CheckIcon" v-if="vaultSaved" :size="16" :stroke-width="2" />
-                <HugeiconsIcon :icon="SafeBoxIcon" v-else :size="16" :stroke-width="2" />
+                <HugeiconsIcon :icon="vaultSaved ? CheckIcon : SafeBoxIcon" :size="16" :stroke-width="2" />
               </button>
             </Tooltip>
           </Transition>
@@ -1483,8 +1471,7 @@ function dismissFix() {
               @mousedown.prevent
               @click="onSubBtn"
             >
-              <HugeiconsIcon :icon="NoteRemoveIcon" v-if="subOpen" :size="16" :stroke-width="2" />
-              <HugeiconsIcon :icon="NoteAddIcon" v-else :size="16" :stroke-width="2" />
+              <HugeiconsIcon :icon="subOpen ? NoteRemoveIcon : NoteAddIcon" :size="16" :stroke-width="2" />
             </button>
           </Tooltip>
           <!-- mobile overflow: the note + nesting actions collapse in here (delete +
@@ -1512,7 +1499,7 @@ function dismissFix() {
                 aria-label="Item actions"
               >
                 <li v-for="a in overflowActions" :key="a.label" role="none">
-                  <button type="button" role="menuitem" class="menu__item" @click="runOverflow(a)">{{ a.label }}</button>
+                  <button type="button" role="menuitem" class="menu__item" @click="menu.close(); a.run()">{{ a.label }}</button>
                 </li>
               </ul>
             </Transition>

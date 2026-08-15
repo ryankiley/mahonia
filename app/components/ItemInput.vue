@@ -293,6 +293,10 @@ function selectVault(v: VaultEntry) {
   setDraftQuiet(props.clearOnCommit ? "" : tidyText(itemDisplayName(v.brand, v.name, v.variant)));
   close();
 }
+// the one weight cell every option row ends with — three sources, one rendering
+const optWeightMg = (opt: AcOption): number =>
+  "water" in opt ? opt.water.weightMg : "vault" in opt ? opt.vault.weightMg : opt.result.weightMg;
+
 function selectOption(opt: AcOption) {
   if ("water" in opt) selectWater(opt.water);
   else if ("vault" in opt) selectVault(opt.vault);
@@ -397,7 +401,7 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
       :title="draft"
       role="combobox"
       aria-autocomplete="list"
-      :aria-expanded="open && options.length > 0"
+      :aria-expanded="menuVisible"
       :aria-controls="`${acId}-listbox`"
       :aria-activedescendant="active >= 0 ? optId(active) : undefined"
       autocomplete="off"
@@ -414,7 +418,7 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
          <Transition name="menu"> = the kebab menu's pop-in (fade + spring rise),
          so the two floating menus arrive the same way. -->
     <Transition name="menu" @after-leave="setLift(false)">
-    <div v-if="open && options.length" class="popover ac__menu" @mouseleave="active = -1">
+    <div v-if="menuVisible" class="popover ac__menu" @mouseleave="active = -1">
     <ul :id="`${acId}-listbox`" class="ac__list" role="listbox">
       <template
         v-for="(opt, i) in options"
@@ -437,9 +441,6 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
         <template v-if="'water' in opt">
           <span class="ac__name">
             <HugeiconsIcon :icon="DropletIcon" class="ac__watericon" :size="14" :stroke-width="2" aria-hidden="true" />{{ opt.water.label }}
-          </span>
-          <span class="ac__metaright">
-            <span class="t-num ac__w">{{ formatWeight(opt.water.weightMg, unit, { withUnit: false }) }} <span class="t-muted">{{ unit }}</span></span>
           </span>
         </template>
         <!-- your own gear: the same row shape as a catalog hit, marked "yours" the
@@ -467,9 +468,6 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
             </span>
             <span v-if="opt.vault.variant" class="ac__variant"><span class="sep">·</span> {{ opt.vault.variant }}</span>
           </span>
-          <span class="ac__metaright">
-            <span class="t-num ac__w">{{ formatWeight(opt.vault.weightMg, unit, { withUnit: false }) }} <span class="t-muted">{{ unit }}</span></span>
-          </span>
         </template>
         <template v-else>
           <!-- brand shrinks first (its matched prefix + an ellipsis survive), so the
@@ -492,10 +490,11 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
             <span v-if="opt.result.variant" class="ac__variant"><span class="sep">·</span> {{ tidyText(opt.result.variant) }}</span>
             <span v-if="!opt.result.verified" class="ac__community" title="community-contributed, unverified">· community</span>
           </span>
-          <span class="ac__metaright">
-            <span class="t-num ac__w">{{ formatWeight(opt.result.weightMg, unit, { withUnit: false }) }} <span class="t-muted">{{ unit }}</span></span>
-          </span>
         </template>
+        <!-- the weight cell, shared by all three row kinds (it was three copies) -->
+        <span class="ac__metaright">
+          <span class="t-num ac__w">{{ formatWeight(optWeightMg(opt), unit, { withUnit: false }) }} <span class="t-muted">{{ unit }}</span></span>
+        </span>
       </li>
       </template>
     </ul>

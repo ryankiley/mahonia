@@ -11,8 +11,6 @@ import type { CatalogCsvRow } from "./catalogCsv";
 import { isVariantRedundant, normalizeVariant, normKey, RANGE_G } from "../shared/catalogQuality";
 import { GEAR_TYPE_ALIASES } from "./gearTypes";
 
-export { RANGE_G }; // relocated to shared/catalogQuality; re-exported for existing importers
-
 export interface Finding {
   level: "error" | "warning";
   code: string;
@@ -43,8 +41,10 @@ const REVIEW_DOMAINS = [
   "halfwayanywhere.com", "thebigoutside.com", "weightofthing.com", "the-high-route.com",
 ];
 
-const label = (r: CatalogCsvRow) =>
-  `${r.brand ?? ""} ${r.name}${r.variant ? ` [${r.variant}]` : ""}`.trim();
+/** One label for a row in a message: "Brand Name [Variant]". Shared with the
+ *  audit CLI so a row is named the same way wherever it's reported. */
+export const gearLabel = (r: { brand?: string | null; name?: string | null; variant?: string | null }) =>
+  `${r.brand ?? ""} ${r.name ?? "?"}${r.variant ? ` [${r.variant}]` : ""}`.trim();
 
 function hostOf(url: string | null): string | null {
   if (!url) return null;
@@ -77,7 +77,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   // costs every future list that adds this row. build-catalog.ts already fails the
   // build on it; this makes the committed CSV answer for it too.
   for (const r of rows) {
-    if (!r.commonName?.trim()) err("common-name-missing", `${label(r)}: no gear type`);
+    if (!r.commonName?.trim()) err("common-name-missing", `${gearLabel(r)}: no gear type`);
   }
 
   // --- ERROR: a gear type that the drift map should have collapsed -----------
@@ -85,7 +85,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   // hand-edited into the CSV afterwards), so the vocabulary has two words for one thing.
   for (const r of rows) {
     const canon = r.commonName && GEAR_TYPE_ALIASES[r.commonName.trim().toLowerCase()];
-    if (canon) err("common-name-drift", `${label(r)}: gear type "${r.commonName}" → canonical "${canon}"`);
+    if (canon) err("common-name-drift", `${gearLabel(r)}: gear type "${r.commonName}" → canonical "${canon}"`);
   }
 
   // --- ERROR: variant carries research commentary instead of a clean config ---
@@ -94,7 +94,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   for (const r of rows) {
     const v = r.variant ?? "";
     if (v && VARIANT_COMMENTARY.test(v)) {
-      err("variant-commentary", `${label(r)}: variant reads like a note, not a config: "${v}"`);
+      err("variant-commentary", `${gearLabel(r)}: variant reads like a note, not a config: "${v}"`);
     }
   }
 
@@ -167,7 +167,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
     if (prev) {
       const prevExact = `${prev.brand ?? ""}\u0000${prev.name}\u0000${prev.variant ?? ""}`;
       if (prevExact !== exact) {
-        err("case-collision", `${label(r)} collides case-insensitively with ${label(prev)} (normalize casing)`);
+        err("case-collision", `${gearLabel(r)} collides case-insensitively with ${gearLabel(prev)} (normalize casing)`);
       }
     } else {
       byCI.set(ci, r);
@@ -179,14 +179,14 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
     if (r.weightSource !== "manufacturer") continue;
     const host = hostOf(r.sourceUrl);
     if (host && REVIEW_DOMAINS.some((d) => host === d || host.endsWith(`.${d}`))) {
-      warn("provenance", `${label(r)}: weight_source=manufacturer but cited to a review site (${host}) — re-source or mark measured`);
+      warn("provenance", `${gearLabel(r)}: weight_source=manufacturer but cited to a review site (${host}) — re-source or mark measured`);
     }
   }
 
   // --- WARNING: colour-as-attribute in variant ------------------------------
   for (const r of rows) {
     if (r.variant && COLOUR_ATTR.test(r.variant)) {
-      warn("colour-variant", `${label(r)}: variant contains a colour ("${r.variant}") — colour rarely affects weight`);
+      warn("colour-variant", `${gearLabel(r)}: variant contains a colour ("${r.variant}") — colour rarely affects weight`);
     }
   }
 
@@ -195,7 +195,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
     const range = RANGE_G[r.categoryHint ?? "other"] ?? RANGE_G.other;
     const g = r.weightMg / 1000;
     if (g < range[0] || g > range[1]) {
-      warn("plausibility", `${label(r)}: ${g.toFixed(1)} g outside ${r.categoryHint} range ${range[0]}–${range[1]} g`);
+      warn("plausibility", `${gearLabel(r)}: ${g.toFixed(1)} g outside ${r.categoryHint} range ${range[0]}–${range[1]} g`);
     }
   }
 
@@ -208,7 +208,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   // pole sets, and pole bags, none of which take a per-pair unit.
   for (const r of rows) {
     if (/\btrekking\s+poles?\b/i.test(r.name) && !/\bper pair\b/i.test(r.variant ?? "")) {
-      warn("pole-unit", `${label(r)}: trekking poles should state "per pair" (the catalog's single pole-weight convention)`);
+      warn("pole-unit", `${gearLabel(r)}: trekking poles should state "per pair" (the catalog's single pole-weight convention)`);
     }
   }
 
@@ -219,7 +219,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   // "per pair" on anything else is a leftover to drop.
   for (const r of rows) {
     if (/\bper pair\b/i.test(r.variant ?? "") && !POLE_ITEM.test(r.name)) {
-      warn("per-pair-label", `${label(r)}: drop "per pair" — worn-pair apparel is stored as a pair weight without the label`);
+      warn("per-pair-label", `${gearLabel(r)}: drop "per pair" — worn-pair apparel is stored as a pair weight without the label`);
     }
   }
 
@@ -227,14 +227,14 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   for (const r of rows) {
     const v = r.variant ?? "";
     if (v && normalizeVariant(v) !== v) {
-      warn("variant-noncanonical", `${label(r)}: variant "${v}" → canonical "${normalizeVariant(v)}"`);
+      warn("variant-noncanonical", `${gearLabel(r)}: variant "${v}" → canonical "${normalizeVariant(v)}"`);
     }
   }
 
   // --- WARNING: variant just repeats the name (e.g. "Copper Spur HV UL3" + "UL3") -
   for (const r of rows) {
     if (r.variant && isVariantRedundant(r.name, r.variant)) {
-      warn("variant-redundant", `${label(r)}: variant "${r.variant}" already in the name — clear it`);
+      warn("variant-redundant", `${gearLabel(r)}: variant "${r.variant}" already in the name — clear it`);
     }
   }
 

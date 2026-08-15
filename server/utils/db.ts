@@ -206,10 +206,6 @@ export function _resetSnapshotEnsured(): void {
 export const ensureVaultSchema = memoizedEnsure(async (db: Db) => {
   for (const stmt of VAULT_DDL) await db.execute(sql.raw(stmt));
 });
-/** Reset the ensure-memo — for tests that spin up a fresh database. */
-export function _resetVaultEnsured(): void {
-  ensureVaultSchema.reset();
-}
 
 /**
  * The shared DB with the vault schema ensured — the vault's counterpart to
@@ -231,10 +227,6 @@ export async function useVaultDb(): Promise<Db> {
 export const ensureAccountSchema = memoizedEnsure(async (db: Db) => {
   for (const stmt of ACCOUNT_DDL) await db.execute(sql.raw(stmt));
 });
-/** Reset the ensure-memo — for tests that spin up a fresh database. */
-export function _resetAccountEnsured(): void {
-  ensureAccountSchema.reset();
-}
 
 /** The shared DB with the account schema ensured — the account layer's
  *  counterpart to useVaultDb(), for the same reason and with the same memoization. */

@@ -104,9 +104,7 @@ let ro: ResizeObserver | null = null;
 
 const points = computed<LatLon[]>(() => decodePolyline(props.geometry));
 
-// ONE sequence, read by the legs and by the chevrons alike. Computed twice it was two
-// calls that happened to agree — and a chevron in a colour its own leg isn't drawn in is
-// the exact bug that costs nothing to make impossible.
+// ONE sequence for every leg, memoized so a redraw can't re-derive a different palette.
 const colors = computed(() => dayColorSequence(props.dayDistancesM.length));
 
 /**
@@ -971,7 +969,6 @@ async function draw() {
   tiles.addTo(map);
 
   renderLegs();
-  
   renderPins();
   // AFTER the pins — on a loop it paints over the trailhead it shares a spot with
   renderFinish();
@@ -985,11 +982,6 @@ async function draw() {
   map.on("moveend zoomend", () => {
     if (!framing) touched = true;
   });
-
-  // The chevrons are spaced in SCREEN pixels, so their spacing is only correct for the
-  // zoom it was computed at — re-cut them whenever that changes. Zoom only: panning moves
-  // them with the map, which Leaflet does itself.
-  
 
   // PLACING. Bound to the map rather than to the legs, for two reasons: a 4px stroke is a
   // poor target on a phone, and the legs only cover days that have a distance typed — so
@@ -1035,15 +1027,10 @@ watch(() => props.waypoints, () => { renderPins(); renderFinish(); }, { deep: tr
 
 watch(boundaries, renderBounds, { deep: true });
 
-watch(dayLegs, () => {
-  renderLegs();
-  // the chevrons carry the day colours too, so they follow the same cut
-  
-});
+watch(dayLegs, renderLegs);
 
 // Arming lights ONE stretch and stands the rest down, so the legs have to be redrawn when
-// it changes. Legs only — the chevrons keep their colours, because which way the route is
-// walked is still true of the parts you are not aiming at.
+// it changes.
 watch(() => props.armedRange, renderLegs);
 
 onBeforeUnmount(() => {
@@ -1053,7 +1040,6 @@ onBeforeUnmount(() => {
   map?.remove();
   map = null;
   legs = [];
-  
   pins = [];
   bounds = [];
 });
@@ -1140,7 +1126,7 @@ onBeforeUnmount(() => {
 // into), and scoped styles can't reach elements Vue didn't render.
 
 .routemap {
-  margin: var(--space-4) 0 0;
+  margin: 0; // a <figure>, so the UA default has to be put down explicitly
 
   // The one place on the site where the theme does NOT flip.
   //
@@ -1172,11 +1158,6 @@ onBeforeUnmount(() => {
   // popovers and dialogs rather than letting a tile pane sit over a menu.
   z-index: 0;
   isolation: isolate;
-
-}
-
-.routemap {
-  margin: 0;
 }
 
 // the anchor for anything drawn OVER the map — never the figure, which is taller
@@ -1185,13 +1166,11 @@ onBeforeUnmount(() => {
   display: flex;
 }
 
-/* EXPANDED: the map takes the window.
-   Fixed rather than the Fullscreen API — see the comment on `expanded`. The z-index sits
-   above the page and below nothing else the app puts up, because while this is open it IS
-   the page. */
 /* EXPANDED: the FRAME takes the window, and the figure stays exactly where it was.
    Fixing the figure instead pulled it out of flow and the whole page reflowed around it —
-   see .routemap__parked. Fixed rather than the Fullscreen API; see `expanded`. */
+   see .routemap__parked. Fixed rather than the Fullscreen API; see `expanded`. The
+   z-index sits above the page and below nothing else the app puts up, because while
+   this is open it IS the page. */
 .routemap.is-expanded .routemap__frame {
   position: fixed;
   inset: 0;
@@ -1206,12 +1185,8 @@ onBeforeUnmount(() => {
 /* The clip is what animates. See setExpanded: the frame is full size from the first frame,
    so Leaflet is measured once and only the window onto it moves. */
 .routemap__frame {
+  // reduced-motion is handled by the global duration kill-switch (main.scss)
   transition: clip-path var(--dur-map-expand) cubic-bezier(0.32, 0.72, 0, 1);
-}
-@media (prefers-reduced-motion: reduce) {
-  .routemap__frame {
-    transition: none;
-  }
 }
 .routemap {
   // one place for the duration the script also counts on

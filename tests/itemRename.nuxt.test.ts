@@ -24,6 +24,7 @@ import { flushPromises, mount } from "@vue/test-utils";
 import ItemRow from "~/components/ItemRow.vue";
 import ItemInput from "~/components/ItemInput.vue";
 import type { Item, ListSnapshot } from "~~/shared/types";
+import { blankList } from "./helpers/list";
 import type { ItemPatch } from "~~/shared/ops";
 import { applyOps } from "~~/shared/ops";
 import type { NameCommit } from "~/composables/useCatalogSearch";
@@ -61,16 +62,6 @@ mockNuxtImport("useGearList", () => () => ({
   vaultAuto: ref(false),
   vaultDeclined: ref(new Set<string>()),
 }));
-
-function blankList(): ListSnapshot {
-  return {
-    id: "l1",
-    name: "Test",
-    displayUnit: "g",
-    folders: [{ id: "f1", name: "Shelter", sortOrder: 0 }],
-    items: [],
-  } as unknown as ListSnapshot;
-}
 
 // A row as a catalog pick leaves it: linked, the catalog's weight, and the link
 // baseline stamped at the weight it was linked AT.

@@ -6,7 +6,7 @@
 
 import { parseProfile } from "./profile";
 import { tidyProse, tidyText } from "./tidyText";
-import { normalizeDistanceUnit, normalizeTrailAscentM, normalizeTrailDistanceM } from "./trailDistance";
+import { boundedRound, normalizeDistanceUnit, normalizeTrailAscentM, normalizeTrailDistanceM } from "./trailDistance";
 import { normalizeTrailLabel, normalizeTrailUrl } from "./trailLink";
 import type { Classification, Folder, FolderSort, Item, ListState, TripDay, Unit, Waypoint } from "./types";
 import { UNITS, WAYPOINT_KINDS } from "./types";
@@ -136,8 +136,8 @@ export const MAX_WAYPOINTS = 100;
 // A day's bounds are NOT the route's. 100 km is longer than any single day on foot, and
 // 10,000 m of climb is more than Everest from the sea — generous for a real day, and far
 // enough below a float that misbehaves to keep the jsonb honest.
-export const MAX_DAY_DISTANCE_M = 100_000;
-export const MAX_DAY_ASCENT_M = 10_000;
+const MAX_DAY_DISTANCE_M = 100_000;
+const MAX_DAY_ASCENT_M = 10_000;
 export const UNIT_WEIGHT_MAX_MG = 100_000_000; // 100 kg per single unit
 // Per single unit, so the same 2^53 argument holds for the kcal rollup. A day of
 // hard hiking runs 4–5k kcal; 1,000,000 leaves room for a whole resupply entered
@@ -211,10 +211,9 @@ function cleanItemPatch(patch: ItemPatch): Partial<Item> {
   }
   if (patch.classification === null || (typeof patch.classification === "string" && CLASSES.includes(patch.classification)))
     out.classification = patch.classification;
-  // an explicit worn/consumable classification makes the split meaningless —
-  // clear it in the same patch (wins over any wornQty also present)
-  if (out.classification === "worn" || out.classification === "consumable")
-    out.wornQty = undefined;
+  // NO worn/consumable-clears-wornQty rule here: applyOp's updateItem arm runs it
+  // on the merged item (where it can also see qty), so stating it twice only
+  // creates two versions to drift.
   if (typeof patch.weightOverridden === "boolean") out.weightOverridden = patch.weightOverridden;
   // catalog link fields — a number re-links (rename to a catalog pick, or the
   // nudge re-baselining to the current weight); null UNLINKS both fields (free
@@ -247,16 +246,10 @@ function cleanFolderPatch(patch: Partial<Folder>): Partial<Folder> {
   return out;
 }
 
-// A day's optional metres. Absent stays absent and a zero CLEARS, on the same reasoning
-// as Item.kcal: a zero would read as "this day covers no ground", which is a claim, where
-// absent reads as "not filled in". A day that genuinely covers no ground says so with
-// `rest`, which is why that flag exists.
-function cleanDayMetres(raw: unknown, max: number): number | undefined {
-  const n = typeof raw === "string" ? Number.parseFloat(raw) : raw;
-  if (typeof n !== "number" || !Number.isFinite(n)) return undefined;
-  const m = Math.round(n);
-  return m > 0 && m <= max ? m : undefined;
-}
+// A day's optional metres go through trailDistance's boundedRound. Absent stays absent
+// and a zero CLEARS, on the same reasoning as Item.kcal: a zero would read as "this day
+// covers no ground", which is a claim, where absent reads as "not filled in". A day that
+// genuinely covers no ground says so with `rest`, which is why that flag exists.
 
 /**
  * A day patch AS IT TRAVELS — same fields as TripDay, except the clearable metre figures
@@ -269,7 +262,7 @@ function cleanDayMetres(raw: unknown, max: number): number | undefined {
  * server rejecting the edit rather than never being told about it.
  *
  * Same sentinel setMeta already uses for trailDistanceM and trailAscentM, for the same
- * reason — and cleanDayMetres already maps "" to undefined, so nothing downstream changes.
+ * reason — and boundedRound already maps "" to undefined, so nothing downstream changes.
  */
 export type DayPatch = Omit<Partial<TripDay>, "distanceM" | "ascentM" | "descentM"> & {
   distanceM?: number | "";
@@ -282,9 +275,9 @@ function cleanDayPatch(patch: DayPatch): Partial<TripDay> {
   if (typeof patch.label === "string") out.label = patch.label.slice(0, 120) || undefined;
   // `in` rather than a truthiness test: these are all clearable, and an explicit
   // undefined/0/"" has to be able to erase a value, not be skipped as "nothing sent".
-  if ("distanceM" in patch) out.distanceM = cleanDayMetres(patch.distanceM, MAX_DAY_DISTANCE_M);
-  if ("ascentM" in patch) out.ascentM = cleanDayMetres(patch.ascentM, MAX_DAY_ASCENT_M);
-  if ("descentM" in patch) out.descentM = cleanDayMetres(patch.descentM, MAX_DAY_ASCENT_M);
+  if ("distanceM" in patch) out.distanceM = boundedRound(patch.distanceM, 1, MAX_DAY_DISTANCE_M);
+  if ("ascentM" in patch) out.ascentM = boundedRound(patch.ascentM, 1, MAX_DAY_ASCENT_M);
+  if ("descentM" in patch) out.descentM = boundedRound(patch.descentM, 1, MAX_DAY_ASCENT_M);
   // only `true` survives; false/absent clears the flag rather than storing a redundant
   // "this is not a rest day", exactly as a folder's "manual" sort clears rather than persists
   if ("rest" in patch) out.rest = patch.rest === true ? true : undefined;
@@ -336,9 +329,9 @@ export function normalizeDay(raw: TripDay): TripDay {
     id: String(raw.id).slice(0, MAX_ID_LEN),
     sortOrder: Number(raw.sortOrder) || 0,
     label: raw.label ? String(raw.label).slice(0, 120) : undefined,
-    distanceM: cleanDayMetres(raw.distanceM, MAX_DAY_DISTANCE_M),
-    ascentM: cleanDayMetres(raw.ascentM, MAX_DAY_ASCENT_M),
-    descentM: cleanDayMetres(raw.descentM, MAX_DAY_ASCENT_M),
+    distanceM: boundedRound(raw.distanceM, 1, MAX_DAY_DISTANCE_M),
+    ascentM: boundedRound(raw.ascentM, 1, MAX_DAY_ASCENT_M),
+    descentM: boundedRound(raw.descentM, 1, MAX_DAY_ASCENT_M),
     rest: raw.rest === true ? true : undefined,
   };
 }
@@ -363,7 +356,7 @@ export function normalizeWaypoint(raw: Waypoint): Waypoint | null {
   const alongM = cleanAlongM(raw?.alongM);
   if (alongM == null || typeof raw?.id !== "string" || !raw.id) return null;
   return {
-    id: String(raw.id).slice(0, MAX_ID_LEN),
+    id: raw.id.slice(0, MAX_ID_LEN),
     kind: WAYPOINT_KINDS.includes(raw.kind) ? raw.kind : "landmark",
     alongM,
     label: raw.label ? String(raw.label).slice(0, 120) : undefined,
@@ -439,9 +432,7 @@ function applyOp(state: ListState, op: Op): void {
         //    "N worn · 0 base" split with no base remainder
         //  • otherwise a real partial (1 ≤ wornQty ≤ qty−1) stays as-is
         if (it.wornQty != null) {
-          if (it.classification === "worn" || it.classification === "consumable") {
-            it.wornQty = undefined;
-          } else if (it.qty < 2) {
+          if (it.classification === "worn" || it.classification === "consumable" || it.qty < 2) {
             it.wornQty = undefined;
           } else if (it.wornQty >= it.qty) {
             it.classification = "worn";
@@ -524,7 +515,7 @@ function applyOp(state: ListState, op: Op): void {
       if (state.days) state.days = state.days.filter((d) => d.id !== op.id);
       break;
     case "addWaypoint": {
-      const wp = op.waypoint && normalizeWaypoint(op.waypoint);
+      const wp = normalizeWaypoint(op.waypoint);
       if (
         wp &&
         (state.waypoints?.length ?? 0) < MAX_WAYPOINTS &&
@@ -654,6 +645,9 @@ export function normalizeItem(raw: Item): Item {
     if (wornQtyRaw < qty) wornQty = wornQtyRaw;
     else classification = "worn";
   }
+  // same clamp as cleanItemPatch: whole, positive, bounded — anything else is
+  // absent rather than zero (see Item.kcal)
+  const kcal = typeof raw.kcal === "number" && isFinite(raw.kcal) ? Math.round(raw.kcal) : 0;
   return {
     id: String(raw.id).slice(0, MAX_ID_LEN),
     // empty string collapses to null — a real id or nothing. "" is a truthy-looking
@@ -680,12 +674,7 @@ export function normalizeItem(raw: Item): Item {
     qty,
     wornQty,
     classification,
-    // same clamp as cleanItemPatch: whole, positive, bounded — anything else is
-    // absent rather than zero (see Item.kcal)
-    kcal:
-      typeof raw.kcal === "number" && isFinite(raw.kcal) && Math.round(raw.kcal) > 0
-        ? Math.min(KCAL_MAX, Math.round(raw.kcal))
-        : undefined,
+    kcal: kcal > 0 ? Math.min(KCAL_MAX, kcal) : undefined,
     description: raw.description ? cleanText(String(raw.description), 2000) || undefined : undefined,
     productUrl: raw.productUrl ? String(raw.productUrl).slice(0, 2000) : undefined,
     imageUrl: raw.imageUrl ? String(raw.imageUrl).slice(0, 2000) : undefined,

@@ -17,8 +17,6 @@ import {
   proposeCorrection,
   recentChanges,
   revertEdit,
-  trigramScore,
-  trigrams,
 } from "../server/utils/catalog";
 
 // A fresh in-memory catalog DB (PGlite, no disk) with the catalog DDL applied.
@@ -161,27 +159,6 @@ describe("serializeCsv + csvToCatalogRows round-trip", () => {
       `brand,name,variant,category_hint,weight_mg,weight_source,source_url,kcal\nX,Y,,consumable,100,manufacturer,https://x,${v}\n`;
     expect(() => csvToCatalogRows(bad("0"))).toThrow(/kcal/);
     expect(() => csvToCatalogRows(bad("250.5"))).toThrow(/kcal/);
-  });
-});
-
-describe("trigram fuzzy scoring (local PGlite search fallback)", () => {
-  it("scores an exact word match as 1.0", () => {
-    expect(trigramScore("duplex", "Zpacks Duplex")).toBe(1);
-  });
-  it("tolerates a typo: 'duplx' → 'Zpacks Duplex'", () => {
-    expect(trigramScore("duplx", "Zpacks Duplex")).toBeGreaterThan(0.5);
-  });
-  it("scores unrelated text low", () => {
-    expect(trigramScore("duplx", "MSR PocketRocket 2")).toBeLessThan(0.2);
-  });
-  it("is case- and punctuation-insensitive", () => {
-    expect(trigramScore("neoair xlite", "Therm-a-Rest NeoAir XLite")).toBeGreaterThan(0.9);
-  });
-  it("produces padded trigrams per word", () => {
-    expect(trigrams("cat")).toEqual(new Set(["  c", " ca", "cat", "at "]));
-  });
-  it("folds diacritics so a plain query matches an accented name", () => {
-    expect(trigramScore("Fjallraven", "Fjällräven Keb Hike 30")).toBe(1);
   });
 });
 

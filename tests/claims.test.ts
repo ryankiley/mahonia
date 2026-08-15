@@ -6,32 +6,17 @@ import { LISTS_DDL } from "../server/utils/db";
 import { ACCOUNT_DDL } from "../server/utils/accountSchema";
 import { claimLists, claimedEditHash, listClaimedLists, unclaimList } from "../server/utils/claimRepo";
 import { findByEditHash, findByEditToken, rotateEditHash } from "../server/utils/listRepo";
-import { randomEditToken, randomShareCode, sha256Hex } from "../server/utils/tokens";
-import { createTestDb } from "./helpers/db";
+import { randomEditToken, sha256Hex } from "../server/utils/tokens";
+import { createTestDb, makeList as makeListRow } from "./helpers/db";
 
 type DB = ReturnType<typeof drizzle>;
 async function freshDb(): Promise<DB> {
   return createTestDb(LISTS_DDL, ACCOUNT_DDL);
 }
 
-// Insert a list directly — createList() reaches for the shared connection, and
-// these tests want a throwaway database per case.
-async function makeList(db: DB, title = "Sierra trip") {
-  const editToken = randomEditToken();
-  const shareCode = randomShareCode();
-  const rows = await db
-    .insert(schema.lists)
-    .values({
-      publicSlug: `${title.toLowerCase().replace(/\W+/g, "-")}-${shareCode.slice(0, 6).toLowerCase()}`,
-      editTokenHash: sha256Hex(editToken),
-      shareCode,
-      title,
-      data: { folders: [], items: [] },
-      totalWeightMg: 539_000,
-    })
-    .returning();
-  return { editToken, shareCode, id: rows[0]!.id };
-}
+// A list with a weight, so claimed rows have a figure to show.
+const makeList = (db: DB, title = "Sierra trip") =>
+  makeListRow(db, title, { totalWeightMg: 539_000 });
 
 describe("claiming a list onto an account", () => {
   let db: DB;
