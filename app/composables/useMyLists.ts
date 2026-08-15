@@ -84,10 +84,19 @@ export function useMyLists() {
     const prior = entries.value.filter(isSameList);
     const origin = prior.some((x) => x.origin === "created")
       ? "created"
-      : // the first row that HAS one, not simply the first row: with two being
-        // replaced their array order is incidental, and inheriting an absent origin
-        // over a present "opened" would quietly make a shared list claimable
-        (e.origin ?? prior.find((x) => x.origin)?.origin);
+      : e.origin === "opened" && prior.some((x) => !x.origin)
+        ? // A prior row that PREDATES origin tracking stays origin-less through the
+          // reopen. Those rows count as created when sign-in claims the registry
+          // (the right guess for nearly all of them — see useClaimedLists), and
+          // stamping "opened" over one here made that guess unreachable for good:
+          // reopening your own oldest lists through their edit links — the standard
+          // cross-device move before accounts existed — quietly took each one out
+          // of the claim sweep, and the account never heard about it.
+          undefined
+        : // the first row that HAS one, not simply the first row: with two being
+          // replaced their array order is incidental, and inheriting an absent origin
+          // over a present "opened" would quietly make a shared list claimable
+          (e.origin ?? prior.find((x) => x.origin)?.origin);
     entries.value = [...entries.value.filter((x) => !isSameList(x)), { ...e, origin }];
   }
 
