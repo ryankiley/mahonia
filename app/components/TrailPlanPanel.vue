@@ -613,12 +613,17 @@ async function commitDayMetres(id: string | null, field: "distanceM" | "ascentM"
   if (!id) { await nextTick(); id = stored.value[stored.value.length - 1]?.id ?? null; if (!id) return; }
   const raw = (e.target as HTMLInputElement).value.trim();
   const unit = field === "distanceM" ? distanceUnit.value : distanceUnit.value === "mi" ? "ft" : "m";
-  // "" and NOT undefined. The patch is JSON on its way to the server and
-  // JSON.stringify drops undefined keys, so clearing a day's figure changed it
-  // locally and was overwritten by the very next echo — it looked like the server
-  // refusing the edit, when the server was never told. See DayPatch.
-  const v = raw ? (parseDistanceM(raw, unit) ?? "") : "";
-  c.updateDay(id, field === "distanceM" ? { distanceM: v } : { ascentM: v });
+  // "" and NOT undefined, spelled out per field. The patch is JSON on its way to
+  // the server and JSON.stringify drops undefined keys, so clearing a day's figure
+  // changed it locally and was overwritten by the very next echo — it looked like
+  // the server refusing the edit, when the server was never told. See DayPatch;
+  // tests/dayClear.test.ts pins each field's literal to this sentinel shape.
+  c.updateDay(
+    id,
+    field === "distanceM"
+      ? { distanceM: raw ? (parseDistanceM(raw, unit) ?? "") : "" }
+      : { ascentM: raw ? (parseDistanceM(raw, unit) ?? "") : "" },
+  );
 }
 
 const ascentUnit = computed(() => heightUnitFor(distanceUnit.value));
