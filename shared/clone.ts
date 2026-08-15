@@ -20,6 +20,10 @@ export function cloneListData(
   // Two passes (mirrors jsonToListImport) so a child can re-point its parentId even
   // when the parent appears later in the array; a dangling parent degrades to
   // top-level, not a broken link that would render nowhere yet count in totals.
+  // jsonToListImport's FURTHER healing (self-parent guard, deep-nest flatten) is
+  // deliberately absent here: an import is untrusted text, while a clone's source
+  // is an in-app snapshot whose invariants the reducer and the server's
+  // normalizeListData already enforce — there is nothing to heal.
   const itemIdMap = new Map<string, string>();
   const newIds = src.items.map((i) => {
     const nid = uid();

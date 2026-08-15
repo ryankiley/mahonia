@@ -27,7 +27,7 @@ const truthy = (v: string | undefined) =>
 // so our own round-trip is lossless.
 const FORMULA_LEAD = /^[=+\-@\t\r]/;
 const guardFormula = (s: string) => (FORMULA_LEAD.test(s) ? `'${s}` : s);
-export function stripFormulaGuard(s: string): string {
+function stripFormulaGuard(s: string): string {
   return s.length > 1 && s[0] === "'" && FORMULA_LEAD.test(s.slice(1)) ? s.slice(1) : s;
 }
 

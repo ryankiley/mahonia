@@ -118,7 +118,7 @@ export async function consumeRateLimit(
 
 // A per-slug set of distinct reporter fingerprints (hashed IPs), held in the
 // same shared KV store as the rate limiter.
-export interface ReportTally {
+interface ReportTally {
   ips: string[];
 }
 

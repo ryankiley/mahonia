@@ -361,7 +361,7 @@ export async function findByEditToken(editToken: string, db?: Db): Promise<ListR
  * Shares `liveOnly`, so the gate itself is still written once and can't drift from
  * the full-row read.
  */
-export async function findIdByEditHash(editHash: string, db?: Db): Promise<number | null> {
+async function findIdByEditHash(editHash: string, db?: Db): Promise<number | null> {
   const d = db ?? (await useDb());
   const rows = await d
     .select({ id: lists.id })

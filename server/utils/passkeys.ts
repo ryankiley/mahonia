@@ -23,7 +23,7 @@ import { useKv } from "./rateLimit";
 
 /** How long a registration/sign-in ceremony may stay open. The user has to touch
  *  a sensor; a couple of minutes is generous and bounds the challenge store. */
-export const PASSKEY_CHALLENGE_TTL_MS = 3 * 60_000;
+const PASSKEY_CHALLENGE_TTL_MS = 3 * 60_000;
 
 /** The Relying Party ID — the registrable domain a passkey is bound to. Derived
  *  from the request host with the port stripped (WebAuthn's rpId is a domain, and
@@ -65,7 +65,7 @@ export const RP_NAME = "Mahonia";
  * front and reported as a misconfiguration instead of a mysterious failed sign-in.
  * Same env vars nuxt.config tests, so the two can't disagree.
  */
-export function passkeysConfigured(): boolean {
+function passkeysConfigured(): boolean {
   if (process.env.NODE_ENV !== "production") return true; // dev's in-memory KV is one process
   return Boolean(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN);
 }

@@ -43,7 +43,7 @@ export const MAGIC_LINK_TTL_MS = 15 * 60_000;
  *  `resolveSession`). Long, because the alternative — re-emailing yourself every
  *  fortnight to see your own gear list — is precisely the friction this app avoids
  *  everywhere else. */
-export const SESSION_TTL_MS = 90 * 24 * 60 * 60_000;
+const SESSION_TTL_MS = 90 * 24 * 60 * 60_000;
 
 /** Only rewrite the expiry when a session is more than a day into its window.
  *  Sliding expiry with no floor would mean a DB write on every single request. */

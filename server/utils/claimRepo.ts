@@ -25,7 +25,7 @@ export const CLAIM_BATCH_MAX = 200;
 
 /** Ceiling on a single backfill. A personal gear collection is dozens of items;
  *  this only bounds the pathological account. */
-export const VAULT_BACKFILL_MAX = 1000;
+const VAULT_BACKFILL_MAX = 1000;
 
 /** A claimed list as the client needs it to render "Your lists" and open one. */
 export interface ClaimedList {

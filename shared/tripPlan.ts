@@ -57,7 +57,7 @@
  * (asphalt 1.0, grass 1.08, measured at 1.3–1.6 m/s); the rougher ones are the
  * conventional load-carriage figures and are cited as such rather than as measured.
  */
-export const TERRAIN_FACTORS = {
+const TERRAIN_FACTORS = {
   paved: 1.0,
   trail: 1.08,
   rough: 1.2,
@@ -178,7 +178,7 @@ export function walkingKcal(
  */
 const SCHOFIELD_PER_KG = 10.15;
 const SCHOFIELD_INTERCEPT = 854;
-export function basalKcalPerHour(bodyKg: number): number {
+function basalKcalPerHour(bodyKg: number): number {
   return (SCHOFIELD_PER_KG * bodyKg + SCHOFIELD_INTERCEPT) / 24;
 }
 

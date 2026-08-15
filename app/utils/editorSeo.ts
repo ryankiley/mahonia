@@ -12,7 +12,7 @@ import type { Totals, Unit } from "~~/shared/types";
 import { formatWeightAuto, unitSystem } from "~~/shared/weights";
 
 export const GENERIC_TITLE = "Mahonia — pack lists, weighed";
-export const GENERIC_DESC = "Make a packing list, see what it weighs, share it. No login.";
+const GENERIC_DESC = "Make a packing list, see what it weighs, share it. No login.";
 
 // The default "Untitled list" (or empty) is "not named" — an unnamed list keeps
 // the generic card rather than advertising "Untitled list". An empty `name`

@@ -55,8 +55,8 @@ export const PROFILE_SAMPLES = 240;
  * The result is a FILTERED ESTIMATE, not a measurement. Both numbers are choices. Say so
  * wherever the figure is shown.
  */
-export const ASCENT_THRESHOLD_M = 2;
-export const SMOOTH_WINDOW = 5;
+const ASCENT_THRESHOLD_M = 2;
+const SMOOTH_WINDOW = 5;
 
 /** Centred moving average, edge-clamped so the series keeps its length and its ends. */
 export function smooth(values: readonly number[], window: number): number[] {

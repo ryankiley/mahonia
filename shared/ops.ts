@@ -136,8 +136,8 @@ export const MAX_WAYPOINTS = 100;
 // A day's bounds are NOT the route's. 100 km is longer than any single day on foot, and
 // 10,000 m of climb is more than Everest from the sea — generous for a real day, and far
 // enough below a float that misbehaves to keep the jsonb honest.
-export const MAX_DAY_DISTANCE_M = 100_000;
-export const MAX_DAY_ASCENT_M = 10_000;
+const MAX_DAY_DISTANCE_M = 100_000;
+const MAX_DAY_ASCENT_M = 10_000;
 export const UNIT_WEIGHT_MAX_MG = 100_000_000; // 100 kg per single unit
 // Per single unit, so the same 2^53 argument holds for the kcal rollup. A day of
 // hard hiking runs 4–5k kcal; 1,000,000 leaves room for a whole resupply entered

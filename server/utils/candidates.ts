@@ -20,7 +20,7 @@ import { memoizedEnsure } from "./memoize";
 
 type Db = Awaited<ReturnType<typeof import("./db").useDb>>;
 
-export const K_DISTINCT_LISTS = Math.max(2, Number(process.env.CATALOG_MIN_DISTINCT_LISTS) || 3);
+const K_DISTINCT_LISTS = Math.max(2, Number(process.env.CATALOG_MIN_DISTINCT_LISTS) || 3);
 const DEDUP_THRESHOLD = 0.6; // 2x the autocomplete recall floor — bias to a new (recoverable) row
 const MIN_WEIGHTS = 2; // need at least this many corroborating weights to set a community weight
 
@@ -42,7 +42,7 @@ export const CANDIDATES_DDL: string[] = [
   `CREATE INDEX IF NOT EXISTS idx_candidate_open ON catalog_candidates (norm_key) WHERE promoted_into_id IS NULL AND rejected_at IS NULL`,
 ];
 
-export const ensureCandidatesSchema = memoizedEnsure(async (db: unknown) => {
+const ensureCandidatesSchema = memoizedEnsure(async (db: unknown) => {
   const d = db as { execute: (q: unknown) => Promise<unknown> };
   for (const stmt of CANDIDATES_DDL) await d.execute(sql.raw(stmt));
 });
