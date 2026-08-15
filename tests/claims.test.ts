@@ -4,7 +4,13 @@ import { beforeEach, describe, expect, it } from "vitest";
 import * as schema from "../server/db/schema";
 import { LISTS_DDL } from "../server/utils/db";
 import { ACCOUNT_DDL } from "../server/utils/accountSchema";
-import { claimLists, claimedEditHash, listClaimedLists, unclaimList } from "../server/utils/claimRepo";
+import {
+  CLAIM_BATCH_MAX,
+  claimLists,
+  claimedEditHash,
+  listClaimedLists,
+  unclaimList,
+} from "../server/utils/claimRepo";
 import { findByEditHash, findByEditToken, rotateEditHash } from "../server/utils/listRepo";
 import { randomEditToken, sha256Hex } from "../server/utils/tokens";
 import { createTestDb, makeList as makeListRow } from "./helpers/db";
@@ -14,9 +20,13 @@ async function freshDb(): Promise<DB> {
   return createTestDb(LISTS_DDL, ACCOUNT_DDL);
 }
 
-// A list with a weight, so claimed rows have a figure to show.
-const makeList = (db: DB, title = "Sierra trip") =>
-  makeListRow(db, title, { totalWeightMg: 539_000 });
+// A list with a weight, so claimed rows have a figure to show. `extra` forwards to
+// the insert — the claim rule reads `createdAt`, so tests need to set it.
+const makeList = (
+  db: DB,
+  title = "Sierra trip",
+  extra: Partial<typeof schema.lists.$inferInsert> = {},
+) => makeListRow(db, title, { totalWeightMg: 539_000, ...extra });
 
 describe("claiming a list onto an account", () => {
   let db: DB;
@@ -75,6 +85,75 @@ describe("claiming a list onto an account", () => {
       .set({ deletedAt: new Date() })
       .where(sql`id = ${list.id}`);
     expect(await listClaimedLists(db as any, USER)).toHaveLength(0);
+  });
+});
+
+// The second bucket: tokens the browser says arrived via someone else's link.
+//
+// The browser's mark is unreliable in exactly one direction — a list made before
+// `origin` existed gets stamped "opened" just by being reopened through its own
+// edit link, which stranded it on that device forever. Only the server knows which
+// era a list is from, so the rule lives here.
+describe("claimLists — lists opened from a link", () => {
+  let db: DB;
+  const USER = 1;
+  // straddling ORIGIN_TRACKING_SINCE (the 2026-08-02T01:45:17Z commit that added
+  // `origin`), one clear day either side so neither depends on the exact instant
+  const BEFORE_ORIGIN = new Date("2026-07-20T12:00:00Z");
+  const AFTER_ORIGIN = new Date("2026-08-10T12:00:00Z");
+  beforeEach(async () => {
+    db = await freshDb();
+  });
+
+  it("claims one made before origin tracking — the stamp couldn't have been recorded", async () => {
+    const old = await makeList(db, "Loowit traverse", { createdAt: BEFORE_ORIGIN });
+    expect(await claimLists(db as any, USER, [], [old.editToken])).toBe(1);
+    expect((await listClaimedLists(db as any, USER)).map((l) => l.shareCode)).toEqual([
+      old.shareCode,
+    ]);
+  });
+
+  it("leaves a list made since alone — that mark is real, and it may be someone else's", async () => {
+    const shared = await makeList(db, "Someone else's trip", { createdAt: AFTER_ORIGIN });
+    expect(await claimLists(db as any, USER, [], [shared.editToken])).toBe(0);
+    expect(await listClaimedLists(db as any, USER)).toHaveLength(0);
+  });
+
+  it("sorts one bucket from the other in a single mixed call", async () => {
+    const mine = await makeList(db, "Mine", { createdAt: AFTER_ORIGIN });
+    const old = await makeList(db, "Old", { createdAt: BEFORE_ORIGIN });
+    const shared = await makeList(db, "Shared", { createdAt: AFTER_ORIGIN });
+
+    const n = await claimLists(db as any, USER, [mine.editToken], [old.editToken, shared.editToken]);
+
+    expect(n).toBe(2);
+    const held = (await listClaimedLists(db as any, USER)).map((l) => l.shareCode).sort();
+    expect(held).toEqual([mine.shareCode, old.shareCode].sort());
+  });
+
+  it("claims outright when a token is in both buckets — the stronger claim wins", async () => {
+    const list = await makeList(db, "Recent", { createdAt: AFTER_ORIGIN });
+    expect(await claimLists(db as any, USER, [list.editToken], [list.editToken])).toBe(1);
+    expect(await listClaimedLists(db as any, USER)).toHaveLength(1);
+  });
+
+  it("still claims nothing from an empty call", async () => {
+    await makeList(db, "Untouched", { createdAt: BEFORE_ORIGIN });
+    expect(await claimLists(db as any, USER, [], [])).toBe(0);
+    expect(await listClaimedLists(db as any, USER)).toHaveLength(0);
+  });
+
+  it("spends the batch cap on owned lists first", async () => {
+    // one over the cap, all owned, plus an old one that would otherwise qualify
+    const owned = [];
+    for (let i = 0; i < CLAIM_BATCH_MAX; i++) owned.push((await makeList(db, `L${i}`)).editToken);
+    const old = await makeList(db, "Old", { createdAt: BEFORE_ORIGIN });
+
+    const n = await claimLists(db as any, USER, owned, [old.editToken]);
+
+    expect(n).toBe(CLAIM_BATCH_MAX); // the opened one was squeezed out, not the owned
+    const held = await listClaimedLists(db as any, USER);
+    expect(held.map((l) => l.shareCode)).not.toContain(old.shareCode);
   });
 });
 
