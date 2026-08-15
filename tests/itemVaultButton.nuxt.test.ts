@@ -20,14 +20,17 @@ import ItemRow from "~/components/ItemRow.vue";
 import type { Item, ListSnapshot } from "~~/shared/types";
 import { vaultNormKey } from "~~/shared/vault";
 
-// The three dials the covered state reads, reset per test.
+// The dials the covered state reads, reset per test. `vaultKnown` is the session
+// having ANSWERED — false only in the moment before /api/auth/me lands.
 const vaultAuto = ref(false);
 const vaultDeclined = ref<Set<string>>(new Set());
 const hasVault = ref(true);
+const vaultKnown = ref(true);
 const saveItemToVault = vi.fn(() => Promise.resolve("saved" as const));
 
 mockNuxtImport("useVaultAccess", () => () => ({
   hasVault,
+  vaultKnown,
   vaultFetch: () => Promise.resolve({ results: [] }),
 }));
 
@@ -82,6 +85,7 @@ describe("the save button on a list the automatic capture already covers", () =>
     vaultAuto.value = false;
     vaultDeclined.value = new Set();
     hasVault.value = true;
+    vaultKnown.value = true;
     saveItemToVault.mockClear();
   });
 
@@ -149,6 +153,41 @@ describe("the save button on a list the automatic capture already covers", () =>
     hasVault.value = false;
     const w = mountRow(gear());
     expect(vaultBtn(w).exists()).toBe(true);
+    w.unmount();
+  });
+
+  it("waits for the session before calling a covered row uncovered", async () => {
+    // hasVault is false in TWO situations that have nothing in common: signed out,
+    // and the moment before /api/auth/me answers. Reading them as one put the
+    // button on every worthy row of a list you built for the length of that round
+    // trip — gear that had been in My Gear for weeks, offering to be saved to it —
+    // and left it there for good on a lookup that never resolved (offline, a 429,
+    // a blip: refresh() leaves `loaded` false so a later call retries).
+    vaultAuto.value = true;
+    hasVault.value = false;
+    vaultKnown.value = false; // /api/auth/me still in flight
+    const w = mountRow(gear());
+    expect(vaultBtn(w).exists()).toBe(false);
+
+    // ...and the answer, when it lands, is what decides. Signed out really does
+    // mean nothing was banked, so the button arrives.
+    vaultKnown.value = true;
+    await nextTick();
+    expect(vaultBtn(w).exists()).toBe(true);
+    w.unmount();
+  });
+
+  it("costs a signed-in visitor no flash — the answer lands and the row stays bare", async () => {
+    vaultAuto.value = true;
+    hasVault.value = false;
+    vaultKnown.value = false;
+    const w = mountRow(gear());
+    expect(vaultBtn(w).exists()).toBe(false);
+
+    hasVault.value = true; // the session resolves as signed in
+    vaultKnown.value = true;
+    await nextTick();
+    expect(vaultBtn(w).exists()).toBe(false);
     w.unmount();
   });
 

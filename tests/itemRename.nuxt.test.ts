@@ -37,6 +37,7 @@ registerEndpoint("/api/catalog/use", { method: "POST", handler: () => ({ ok: tru
 
 mockNuxtImport("useVaultAccess", () => () => ({
   hasVault: ref(true),
+  vaultKnown: ref(true),
   vaultFetch: () => Promise.resolve({ results: vaultHits }),
 }));
 

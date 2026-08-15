@@ -16,10 +16,27 @@
  * Authorization headers on remove/restore/price findable last time.
  */
 export function useVaultAccess() {
-  const { signedIn } = useSession();
+  const { signedIn, loaded } = useSession();
 
   /** Is there a vault to talk to at all? Signed out, the answer is simply no. */
   const hasVault = computed(() => signedIn.value);
+
+  /**
+   * Whether `hasVault` is an ANSWER yet, or still the `false` it holds by default
+   * while /api/auth/me is in flight.
+   *
+   * The two are worlds apart for anything that reasons about what the vault
+   * ALREADY contains. "Signed out" means nothing was ever captured; "not yet
+   * known" means the page is a few hundred milliseconds early, and treating it as
+   * signed out makes a signed-in visitor's first paint wrong on every load — see
+   * the save button in ItemRow, which offered to save gear that was already saved.
+   *
+   * Costs nothing to wait for: with no session hint cookie, refresh() resolves to
+   * "signed out" synchronously and without a request, so a visitor without an
+   * account is settled before the first row renders. Only someone who plausibly
+   * HAS a vault waits, and only for the round trip that decides it.
+   */
+  const vaultKnown = computed(() => loaded.value);
 
   /**
    * Call a vault endpoint. Same-origin, so the session cookie rides along; the
@@ -30,5 +47,5 @@ export function useVaultAccess() {
     return (await $fetch(url, { ...opts, credentials: "same-origin" })) as T;
   }
 
-  return { hasVault, vaultFetch };
+  return { hasVault, vaultKnown, vaultFetch };
 }
