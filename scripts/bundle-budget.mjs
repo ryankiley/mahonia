@@ -264,7 +264,7 @@ import { brotliCompressSync, gzipSync, constants } from "node:zlib";
 const FIRST_LOAD_BUDGET_KB = 157;
 // TOTAL of every built file, the backstop. Deliberately slack: its job is to catch
 // a route chunk ballooning or a heavy dep landing somewhere unnoticed, NOT to price
-// ordinary feature work. Set well clear of current (137.1) so it only speaks up when
+// ordinary feature work. Set clear of the current total (269.0) so it only speaks up when
 // something has genuinely gone wrong. If you find yourself bumping this one often,
 // something is being shipped to every page that shouldn't be.
 //
@@ -326,11 +326,13 @@ const TOTAL_BUDGET_KB = 273;
 // which is why it was the one that could be taken. Unchanged by the map work.
 const MAX_CHUNK_BUDGET_KB = 72;
 
-// First build output that exists: node-server, Vercel preset, or static generate.
+// First build output that exists: node-server / static generate, or the Vercel
+// preset. (No dist/: that's a Nuxt 2 layout this repo can't produce — and
+// firstLoadAssets below has no dist/ entry, so a dist/ hit would have silently
+// skipped the first-load ratchet.)
 const CANDIDATE_DIRS = [
   ".output/public/_nuxt",
   ".vercel/output/static/_nuxt",
-  "dist/_nuxt",
 ];
 const dir = CANDIDATE_DIRS.find((d) => existsSync(d));
 if (!dir) {
@@ -347,9 +349,9 @@ const kb = (n) => (n / 1024).toFixed(1);
  * which is exactly what the browser fetches before the app is interactive.
  *
  * BLOCKING REFS ONLY. The HTML points at files in two quite different voices:
- * <script src>, rel="modulepreload" and rel="stylesheet" mean "I can't start
- * without this"; rel="prefetch" means "fetch this at idle, later, in case it's
- * wanted". Only the first kind is first load.
+ * <script src>, rel="modulepreload", rel="stylesheet" and rel="preload" mean
+ * "I can't start without this"; rel="prefetch" means "fetch this at idle,
+ * later, in case it's wanted". Only the first kind is first load.
  *
  * This used to be one regex over the whole document, which counted both — 15
  * prefetched files, ~11 KB brotli, among them VaultPane.css, ImportModal.css and
@@ -391,7 +393,7 @@ for (const f of files) {
   totalRaw += buf.length;
   totalBr += br;
   totalGz += gz;
-  rows.push({ f, raw: buf.length, br, gz, first: firstLoad?.has(f) ?? false });
+  rows.push({ f, raw: buf.length, br, first: firstLoad?.has(f) ?? false });
 }
 rows.sort((a, b) => b.br - a.br);
 

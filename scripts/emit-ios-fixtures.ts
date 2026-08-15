@@ -56,12 +56,13 @@ interface Fixture {
   expectedTotals: ReturnType<typeof computeTotals>;
 }
 
-function fixture(name: string, ops: Op[], initial: ListState = freshState()): Fixture {
-  const state = structuredClone(initial);
+function fixture(name: string, ops: Op[]): Fixture {
+  // every fixture starts from the same blank list; the ops are the whole story
+  const state = freshState();
   applyOps(state, ops);
   return {
     name,
-    initialState: initial,
+    initialState: freshState(),
     ops,
     expectedState: canonical(state),
     expectedTotals: computeTotals(state),

@@ -11,8 +11,8 @@ import {
   softDeleteByEditHash,
 } from "../server/utils/listRepo";
 import { getPublishStateByEditHash, publishListByEditHash } from "../server/utils/discoveryRepo";
-import { randomEditToken, randomShareCode, sha256Hex } from "../server/utils/tokens";
-import { createTestDb } from "./helpers/db";
+import { sha256Hex } from "../server/utils/tokens";
+import { createTestDb, makeList as makeListRow } from "./helpers/db";
 
 // The session path END TO END at the repo layer: a claim resolves a share code to
 // the list's edit hash (claimedEditHash), and every edit-shaped operation accepts
@@ -28,29 +28,19 @@ async function freshDb(): Promise<DB> {
   return createTestDb(LISTS_DDL, ACCOUNT_DDL);
 }
 
-async function makeList(db: DB, title = "Sierra trip") {
-  const editToken = randomEditToken();
-  const shareCode = randomShareCode();
-  const rows = await db
-    .insert(schema.lists)
-    .values({
-      publicSlug: `${title.toLowerCase().replace(/\W+/g, "-")}-${shareCode.slice(0, 6).toLowerCase()}`,
-      editTokenHash: sha256Hex(editToken),
-      shareCode,
-      title,
-      data: {
-        folders: [{ id: "f1", name: "Shelter", colorKey: "shelter", defaultClassification: "base", sortOrder: 0 }],
-        items: [
-          { id: "i1", folderId: "f1", name: "Tent", unitWeightMg: 1_000_000, qty: 1, classification: null, sortOrder: 0 },
-          { id: "i2", folderId: "f1", name: "Stake", unitWeightMg: 10_000, qty: 6, classification: null, sortOrder: 1 },
-        ],
-      },
-      itemCount: 2,
-      version: 1,
-    })
-    .returning();
-  return { editToken, shareCode, id: rows[0]!.id };
-}
+// A list with real content, so ops have rows to land on.
+const makeList = (db: DB, title = "Sierra trip") =>
+  makeListRow(db, title, {
+    data: {
+      folders: [{ id: "f1", name: "Shelter", colorKey: "shelter", defaultClassification: "base", sortOrder: 0 }],
+      items: [
+        { id: "i1", folderId: "f1", name: "Tent", unitWeightMg: 1_000_000, qty: 1, classification: null, sortOrder: 0 },
+        { id: "i2", folderId: "f1", name: "Stake", unitWeightMg: 10_000, qty: 6, classification: null, sortOrder: 1 },
+      ],
+    },
+    itemCount: 2,
+    version: 1,
+  });
 
 describe("editing a claimed list through the session-resolved hash", () => {
   let db: DB;

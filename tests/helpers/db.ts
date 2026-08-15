@@ -2,6 +2,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { sql } from "drizzle-orm";
 import * as schema from "../../server/db/schema";
+import { randomEditToken, randomShareCode, sha256Hex } from "../../server/utils/tokens";
 
 /**
  * A throwaway Postgres with the schema already on it.
@@ -40,3 +41,31 @@ export async function createTestDb(...ddlGroups: string[][]): Promise<TestDb> {
 
 /** The handle createTestDb returns — the shape the repos take as their `db`. */
 export type TestDb = ReturnType<typeof drizzle<typeof schema>>;
+
+/**
+ * Insert a list row directly — createList() reaches for the shared connection,
+ * and these suites want a throwaway database per case. Three files each carried
+ * a byte-identical copy of the token/slug/hash preamble, diverging only in the
+ * row's extras; `extra` is that divergence (last-write-wins over the defaults,
+ * including `data`).
+ */
+export async function makeList(
+  db: TestDb,
+  title = "Sierra trip",
+  extra: Partial<typeof schema.lists.$inferInsert> = {},
+) {
+  const editToken = randomEditToken();
+  const shareCode = randomShareCode();
+  const rows = await db
+    .insert(schema.lists)
+    .values({
+      publicSlug: `${title.toLowerCase().replace(/\W+/g, "-")}-${shareCode.slice(0, 6).toLowerCase()}`,
+      editTokenHash: sha256Hex(editToken),
+      shareCode,
+      title,
+      data: { folders: [], items: [] },
+      ...extra,
+    })
+    .returning();
+  return { editToken, shareCode, id: rows[0]!.id };
+}

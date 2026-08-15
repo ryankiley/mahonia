@@ -9,10 +9,10 @@ import type { EditorMode } from "~/composables/useEditorMode";
 import { bySortOrder, groupItemsByFolder, groupItemsByParent, ungroupedTopLevel } from "~~/shared/weights";
 
 // The whole editor surface (its own sticky topbar + flex shell + the shared
-// SiteFooter). Rendered by the page routes: /e (bare, ssr:false) and /e/[code]
+// SiteFooter). Rendered by the page routes: /e (bare, prerendered) and /e/[code]
 // (client-only under a server-rendered <head>). It is CLIENT-ONLY — it holds a
 // singleton controller with IndexedDB + window listeners, so it never runs on the
-// server (the /e/[code] page wraps it in <ClientOnly>; /e is ssr:false).
+// server (the .client.vue suffix keeps it out of both pages' SSR/prerender pass).
 
 const c = useGearList();
 const router = useRouter();
