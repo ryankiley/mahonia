@@ -1,3 +1,15 @@
+SCOPE OF THIS LICENSE
+
+The MIT license below covers the SOURCE CODE in this repository. It does not
+cover the gear catalog data in the seed/ directory — seed/catalog.csv and the
+seed/_research/ source files — which is licensed separately and more narrowly.
+See seed/LICENSE.md. Where the two disagree about seed/, seed/LICENSE.md governs.
+
+For the avoidance of doubt, "the Software" as used below means the source code
+and excludes that data.
+
+----------------------------------------------------------------------
+
 MIT License
 
 Copyright (c) 2026 Ryan Kiley

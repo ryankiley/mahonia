@@ -2,7 +2,9 @@
 
 The curated gear-weight catalog in this directory — `catalog.csv` and the
 `_research/` source files — is **not** covered by the repository's
-[MIT license](../LICENSE), which applies to the source **code** only.
+[MIT license](../LICENSE), which applies to the source **code** only. That file
+carries the matching carve-out, so the two are not in tension: a reader who
+starts at the root LICENSE is pointed here before relying on it.
 
 © 2026 Ryan Kiley. All rights reserved.
 

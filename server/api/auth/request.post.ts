@@ -1,4 +1,4 @@
-import { createError, defineEventHandler, getRequestURL } from "h3";
+import { createError, defineEventHandler } from "h3";
 import {
   MAGIC_LINK_TTL_MS,
   findOrCreateUser,
@@ -9,6 +9,7 @@ import {
 import { useAccountDb } from "../../utils/db";
 import { canSendEmail, sendMagicLink } from "../../utils/email";
 import { readJsonBodyCapped, setNoIndex } from "../../utils/http";
+import { trustedOrigin } from "../../utils/origin";
 import { rateLimit, rateLimitSubject } from "../../utils/rateLimit";
 
 // Ask for a sign-in link.
@@ -51,10 +52,12 @@ export default defineEventHandler(async (event) => {
     const db = await useAccountDb();
     const user = await findOrCreateUser(db, email);
     const token = await issueMagicToken(db, user.id);
-    // The link points back at the origin that served this request, so previews and
-    // local dev mail themselves working links without configuration — the same
-    // request-derived-origin approach the sitemap uses.
-    const url = new URL("/auth/callback", getRequestURL(event).origin);
+    // NOT the origin that served this request. `Host` is a claim by the caller,
+    // and this link is a live credential leaving the building — a forged host
+    // here mails the account's key to whoever asked. trustedOrigin pins
+    // production and keeps the request-derived origin for dev and previews, so
+    // those still mail themselves working links without configuration.
+    const url = new URL("/auth/callback", trustedOrigin(event));
     url.searchParams.set("t", token);
     await sendMagicLink({
       to: email,

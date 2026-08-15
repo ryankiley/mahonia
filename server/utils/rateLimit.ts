@@ -77,12 +77,46 @@ export interface KvStorage {
 }
 
 /**
+ * Whether a SHARED counter store is configured — the same two env vars
+ * nuxt.config.ts tests when it picks a driver, so the two can't disagree.
+ *
+ * Deliberately the same shape as passkeysConfigured(), and the difference
+ * between them is the whole point. Passkeys REFUSE without shared KV, because a
+ * ceremony split across two instances can't complete. Rate limiting keeps
+ * serving, because a limit counted per instance is degraded rather than broken
+ * and refusing would take the whole site down over a throttle.
+ */
+export function rateLimitStoreShared(): boolean {
+  if (process.env.NODE_ENV !== "production") return true; // dev's in-memory KV is one process
+  return Boolean(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN);
+}
+
+// Warn ONCE per instance, not once per request: the fallback is a standing
+// condition, and a line per request would bury the incident it's reporting.
+let warnedAboutStore = false;
+
+/**
  * The shared KV store (Upstash in prod, in-memory in dev — see nuxt.config.ts),
  * as the narrow KvStorage surface. Confines the one unavoidable `as unknown as`
  * cast over Nitro's loosely-typed `useStorage` to a single auditable spot, instead
  * of repeating it at every call site. (`useStorage` is a Nitro auto-import.)
+ *
+ * AND SAYS SO WHEN THE STORE ISN'T SHARED. Without Upstash, nuxt.config falls
+ * back to the in-memory driver and every budget below silently becomes per warm
+ * serverless instance — a number Vercel scales with load. Tolerating that is a
+ * deliberate choice (see rateLimitStoreShared); tolerating it in silence was
+ * not. Nothing in a response differs, so a log line is the only place this can
+ * surface, and the endpoints it protects are the ones that most need it:
+ * `feedback` opens PUBLIC issues anonymously, `auth-request` sends mail to
+ * addresses the caller names, `catalog-correct` writes the catalog everyone reads.
  */
 export function useKv(): KvStorage {
+  if (!warnedAboutStore && !rateLimitStoreShared()) {
+    warnedAboutStore = true;
+    console.error(
+      "[rate-limit] no shared KV configured (KV_REST_API_URL / KV_REST_API_TOKEN) — every budget is now per serverless instance, not global",
+    );
+  }
   return useStorage("kv") as unknown as KvStorage;
 }
 
