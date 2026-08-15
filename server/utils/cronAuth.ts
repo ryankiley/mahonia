@@ -1,5 +1,6 @@
 import type { H3Event } from "h3";
-import { createError, getHeader } from "h3";
+import { getHeader } from "h3";
+import { notFound } from "./http";
 import { rateLimit } from "./rateLimit";
 import { safeEqual } from "./tokens";
 
@@ -21,5 +22,5 @@ export async function requireCronAuth(event: H3Event): Promise<void> {
   const bearer = auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
   const admin = getHeader(event, "x-admin-token") || "";
   const ok = safeEqual(bearer, cronSecret) || safeEqual(admin, adminToken);
-  if (!ok) throw createError({ statusCode: 404, statusMessage: "Not found" });
+  if (!ok) throw notFound();
 }

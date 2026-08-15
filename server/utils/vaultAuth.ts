@@ -31,6 +31,19 @@ import { resolveSession } from "./authSession";
 
 type Db = Awaited<ReturnType<typeof useVaultDb>>;
 
+/** The shared preamble of every resolver below: session or 401, then the vault
+ *  looked up AND touched (see touchVaultByUser). One body, so the 401 wording
+ *  and the last-seen bump can't drift between the three public entry points. */
+async function vaultFor(
+  event: H3Event,
+): Promise<{ db: Db; vaultId: number | null; userId: number }> {
+  const user = await resolveSession(event);
+  if (!user) throw createError({ statusCode: 401, statusMessage: "Sign in to use your vault" });
+
+  const db = await useVaultDb();
+  return { db, vaultId: await touchVaultByUser(db, user.id), userId: user.id };
+}
+
 /**
  * Resolve the signed-in user's vault, or 401 — for the WRITES (folder ops,
  * remove/restore), which need an existing vault to act on. Reads go through
@@ -44,11 +57,7 @@ type Db = Awaited<ReturnType<typeof useVaultDb>>;
  * restore path to remember to call.
  */
 export async function requireVault(event: H3Event): Promise<{ db: Db; vaultId: number }> {
-  const user = await resolveSession(event);
-  if (!user) throw createError({ statusCode: 401, statusMessage: "Sign in to use your vault" });
-
-  const db = await useVaultDb();
-  const vaultId = await touchVaultByUser(db, user.id);
+  const { db, vaultId } = await vaultFor(event);
   if (vaultId == null) throw createError({ statusCode: 401, statusMessage: "No vault yet" });
   return { db, vaultId };
 }
@@ -67,11 +76,7 @@ export async function requireVault(event: H3Event): Promise<{ db: Db; vaultId: n
 export async function resolveVaultForRead(
   event: H3Event,
 ): Promise<{ db: Db; vaultId: number } | null> {
-  const user = await resolveSession(event);
-  if (!user) throw createError({ statusCode: 401, statusMessage: "Sign in to use your vault" });
-
-  const db = await useVaultDb();
-  const vaultId = await touchVaultByUser(db, user.id);
+  const { db, vaultId } = await vaultFor(event);
   return vaultId == null ? null : { db, vaultId };
 }
 
@@ -119,11 +124,7 @@ export async function mintVault(db: Db, userId: number): Promise<number> {
  * could reach again.
  */
 export async function resolveOrMintVault(event: H3Event): Promise<{ db: Db; vaultId: number }> {
-  const user = await resolveSession(event);
-  if (!user) throw createError({ statusCode: 401, statusMessage: "Sign in to use your vault" });
-
-  const db = await useVaultDb();
-  const existing = await touchVaultByUser(db, user.id);
-  if (existing != null) return { db, vaultId: existing };
-  return { db, vaultId: await mintVault(db, user.id) };
+  const { db, vaultId, userId } = await vaultFor(event);
+  if (vaultId != null) return { db, vaultId };
+  return { db, vaultId: await mintVault(db, userId) };
 }

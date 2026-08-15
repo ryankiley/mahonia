@@ -750,16 +750,23 @@ export async function attachAuthorName(
   return snap;
 }
 
-export async function getByShareCode(code: string): Promise<ListSnapshot | null> {
+/** The one live-row lookup behind /s and its social card — same normalization,
+ *  same liveOnly predicate, so the card can't outlive (or outread) the page. */
+async function liveRowByShareCode(code: string): Promise<{ db: Db; row: ListRow } | null> {
   const c = normShareCode(code);
   if (!c) return null;
   const db = await useDb();
   const rows = await db.select().from(lists).where(liveOnly(lists.shareCode, c)).limit(1);
-  if (!rows[0]) return null;
+  return rows[0] ? { db, row: rows[0] } : null;
+}
+
+export async function getByShareCode(code: string): Promise<ListSnapshot | null> {
+  const hit = await liveRowByShareCode(code);
+  if (!hit) return null;
   // the byline belongs to the READ views only — /s and /l, not the editor, where
   // you are the author and being told so is noise
-  const snap = await hydrateForRead(db, rowToSnapshot(rows[0]));
-  return attachAuthorName(db, snap, rows[0].authorUserId);
+  const snap = await hydrateForRead(hit.db, rowToSnapshot(hit.row));
+  return attachAuthorName(hit.db, snap, hit.row.authorUserId);
 }
 
 /**
@@ -767,14 +774,11 @@ export async function getByShareCode(code: string): Promise<ListSnapshot | null>
  * hydration. The card draws only the title, the owner's unit and the weight
  * rollup — hydrateForRead's current catalog names, the trail favicon (a data:
  * URL of up to ~87 KB) and the author byline are all payload it never renders,
- * and none of them can move a total. Same capability, same liveOnly predicate.
+ * and none of them can move a total.
  */
 export async function getCardByShareCode(code: string): Promise<ListSnapshot | null> {
-  const c = normShareCode(code);
-  if (!c) return null;
-  const db = await useDb();
-  const rows = await db.select().from(lists).where(liveOnly(lists.shareCode, c)).limit(1);
-  return rows[0] ? rowToSnapshot(rows[0]) : null;
+  const hit = await liveRowByShareCode(code);
+  return hit ? rowToSnapshot(hit.row) : null;
 }
 
 /**

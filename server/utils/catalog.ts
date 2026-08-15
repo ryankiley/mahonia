@@ -31,10 +31,10 @@ import {
   type LocalCatalogRow,
 } from "../../shared/catalogSearch";
 
-// trigrams/trigramScore live in shared/catalogSearch (single source of truth for
-// the offline client + this server fallback) — re-exported so existing importers
-// (candidates.ts, tests) keep their import path.
-export { trigrams, trigramScore } from "../../shared/catalogSearch";
+// trigramScore lives in shared/catalogSearch (single source of truth for the
+// offline client + this server fallback) — re-exported so its one server-side
+// importer (candidates.ts) keeps its import path.
+export { trigramScore } from "../../shared/catalogSearch";
 
 const isNeon = () => Boolean(process.env.DATABASE_URL);
 
