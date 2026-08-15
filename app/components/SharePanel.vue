@@ -1,6 +1,12 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { Cancel01Icon, ChevronDownIcon, Copy01Icon, Refresh01Icon } from "@hugeicons/core-free-icons";
+import {
+  Cancel01Icon,
+  ChevronDownIcon,
+  Copy01Icon,
+  Refresh01Icon,
+  UserAdd01Icon,
+} from "@hugeicons/core-free-icons";
 import type { ListSnapshot } from "~~/shared/types";
 
 // Everything about who can see or change this list, in ONE place.
@@ -44,29 +50,35 @@ const isDraft = computed(() => !props.snapshot.shareCode);
 const holdsEditLink = computed(() => !!props.editToken);
 
 // ---- the account ----
-// Whether THIS list is on the signed-in account, said out loud — and, when it
-// isn't, the one control that puts it there. The automatic sweep only attaches
-// lists this browser CREATED (a list opened from someone else's link must never
-// ride into an account as a side effect — see useClaimedLists), which leaves a
-// real gap: your own list, opened here through its edit link, that no signed-in
-// browser ever made. It lives on this device, works forever, and your other
-// devices — which read the account — never hear of it. Until this button existed,
-// claimOne was a composable no surface called, and such a list had NO way onto
-// the account at all.
+// ONE ACTION, and only while pressing it would do something. Not a section, not a
+// status line, not a confirmation.
 //
-// Signed out the section doesn't render: the panel answers "who has this list",
-// and "nobody is signed in" isn't an answer worth a sales pitch. A claimed open
-// doesn't render it either — the edit-link section already says "Opened from
-// your account", and saying it twice in one card is noise.
+// This started as a "Your account" block that said which state the list was in.
+// The overwhelmingly common answer is "it's on your account", and saying so
+// answers a question nobody asked — a list being safe is the premise of the app,
+// so reassuring you about it reads as a reason to doubt it. Same rule the row's
+// Save-to-My-Gear button follows: inert controls are absent, not disabled, and a
+// state worth no action is worth no words either.
+//
+// What's left is the rare case that IS actionable: a list this device holds a
+// link for that the account doesn't have. Sign-in sweeps up the lists this
+// browser made, and the server adds anything old enough to predate origin
+// tracking (see claimRepo), so what reaches this button is essentially a list
+// someone shared with you that you want to keep. It sits under "Replace this
+// link" because it belongs to the edit link — the two things you can do about
+// who holds this list.
 const { signedIn } = useSession();
 const claimed = useClaimedLists();
 const claiming = ref(false);
 const claimFailed = ref(false);
 // Gated on `loaded`, not just on the array: before the first fetch answers, an
-// already-claimed list would flash the Add button — offering to do what's done.
-const claimKnown = computed(() => claimed.loaded.value);
-const isClaimed = computed(() =>
-  claimed.lists.value.some((l) => l.shareCode === props.snapshot.shareCode),
+// already-claimed list would flash the button — offering to do what's done.
+const canAddToAccount = computed(
+  () =>
+    holdsEditLink.value &&
+    signedIn.value &&
+    claimed.loaded.value &&
+    !claimed.lists.value.some((l) => l.shareCode === props.snapshot.shareCode),
 );
 
 async function addToAccount() {
@@ -74,8 +86,9 @@ async function addToAccount() {
   claiming.value = true;
   claimFailed.value = false;
   // claimOne folds the server's refreshed claim set into useClaimedLists, so
-  // success flips isClaimed above and this section re-renders as the quiet
-  // "On your account" line — no local success state to hold.
+  // success flips canAddToAccount and the button simply leaves. Nothing takes its
+  // place: the list is on the account, which is what you asked for and what the
+  // absence now means.
   const ok = await useClaimedLists().claimOne(props.editToken);
   claimFailed.value = !ok;
   claiming.value = false;
@@ -249,33 +262,22 @@ function changeLabel(i: number): string {
         <button type="button" class="btn btn--quiet share__revoke" @click="emit('rotate')">
           <HugeiconsIcon :icon="Refresh01Icon" :size="14" :stroke-width="2" /> Replace this link
         </button>
-      </section>
-
-      <!-- THE ACCOUNT'S ANSWER, beside the two links': who has this list includes
-           "your other devices" — or doesn't, and this is the one place that says
-           which, and fixes it. Renders only signed-in, only on a held link, and only
-           once the claim set has actually answered (see claimKnown). -->
-      <section v-if="holdsEditLink && signedIn && claimKnown" class="share__field">
-        <h3 class="t-label share__subtitle">Your account</h3>
-        <p v-if="isClaimed" class="t-sm t-muted share__hint">
-          On your account — it’s in your lists on any device you sign in on.
+        <!-- The other thing you can do about who holds this list, in the same quiet
+             voice as replacing the link — and only while it would do something. A
+             list already on the account says nothing here; see the script. -->
+        <button
+          v-if="canAddToAccount"
+          type="button"
+          class="btn btn--quiet share__revoke"
+          :disabled="claiming"
+          @click="addToAccount"
+        >
+          <HugeiconsIcon :icon="UserAdd01Icon" :size="14" :stroke-width="2" />
+          Add to your account
+        </button>
+        <p v-if="claimFailed" class="t-sm t-muted share__hint" role="alert">
+          That didn’t save — check your connection and try again.
         </p>
-        <template v-else>
-          <p class="t-sm t-muted share__hint">
-            On this device only. Add it to your account and it follows you.
-          </p>
-          <button
-            type="button"
-            class="btn btn--quiet share__act share__claim"
-            :disabled="claiming"
-            @click="addToAccount"
-          >
-            Add to your account
-          </button>
-          <p v-if="claimFailed" class="t-sm t-muted share__hint" role="alert">
-            That didn’t save — check your connection and try again.
-          </p>
-        </template>
       </section>
 
       <!-- ACTIVITY, collapsed. It's reassurance you go looking for, not something you
@@ -439,12 +441,6 @@ function changeLabel(i: number): string {
 }
 .share__hint {
   margin: 0;
-}
-/* the same filled chip as Copy, standing alone: it's this section's one action, and
-   the quiet-text weight (share__revoke) is reserved for the action you're meant to
-   think twice about — adding your own list to your own account isn't that */
-.share__claim {
-  justify-self: start;
 }
 /* Replacing the link is quiet TEXT under the field it replaces. It is destructive
    and rarely wanted; giving it a button's weight beside the copies would have made
