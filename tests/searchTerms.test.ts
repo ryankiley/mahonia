@@ -52,4 +52,27 @@ describe("buildSearchTerms", () => {
     expect(buildSearchTerms("Some Widget", "other")).toBeNull();
     expect(buildSearchTerms("Some Widget", null)).toBeNull();
   });
+
+  it("falls back to the row's gear type when nothing else resolves", () => {
+    // The ambiguous categories the default skips: the row's own "what it is" label
+    // answers what the name couldn't, so a model-named quilt is findable by "quilt".
+    expect(buildSearchTerms("Katabatic Flex", "sleep", "Quilt")).toBe("quilt");
+    expect(buildSearchTerms("Katabatic Flex", "sleep", "Sleeping pad")).toContain("mattress");
+    expect(buildSearchTerms("Some Widget", null, "Water filter")).toBe("water filter");
+  });
+
+  it("keeps the gear type BEHIND the category default (purely additive)", () => {
+    // A model-named shelter row already resolves to 'tent'; consulting its gear type
+    // first would change terms that rows already have, which this fallback must not do.
+    // (So a model-named tarp keeps 'tent' — the cost of staying additive-only.)
+    expect(buildSearchTerms("Durston X-Mid 2", "shelter", "Tarp")).toBe("tent");
+    // …and behind the name, which stays the strongest signal.
+    expect(buildSearchTerms("Hyperlite Flat Tarp", "shelter", "Tent")).toBe("tarp");
+  });
+
+  it("still returns null when the gear type carries no known noun", () => {
+    expect(buildSearchTerms("Some Widget", null, "Doohickey")).toBeNull();
+    expect(buildSearchTerms("Some Widget", null, "")).toBeNull();
+    expect(buildSearchTerms("Some Widget", null, null)).toBeNull();
+  });
 });

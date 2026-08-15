@@ -190,12 +190,29 @@ export function deriveNoun(productName: string): string | null {
 
 /**
  * The space-joined extra search words for a catalog row: its canonical noun (from
- * the name, else a per-category default) plus every alias/locale variant for that
- * noun. Returns null when no noun can be determined (row stays name-searchable
- * only). Stored in catalog_items.search_terms and folded into the fuzzy match.
+ * the name, else a per-category default, else the row's own gear type) plus every
+ * alias/locale variant for that noun. Returns null when no noun can be determined
+ * (row stays name-searchable only). Stored in catalog_items.search_terms and folded
+ * into the fuzzy match.
+ *
+ * `commonName` is the row's hand-authored gear type — literally "what this thing
+ * is", so it's the most direct answer to "what noun would someone type". It resolves
+ * LAST anyway, behind the category default, on purpose: ahead of it, every model-named
+ * shelter/pack row would swap the noun it already has for a different one, and the
+ * point of this fallback is to be purely additive. Only rows that resolve to nothing
+ * today — the model-named gear in the ambiguous categories the default deliberately
+ * skips (sleep = bag/pad/quilt, cook = stove/pot/mug) — gain anything from it.
  */
-export function buildSearchTerms(name: string, categoryHint: string | null): string | null {
-  const noun = deriveNoun(name) ?? (categoryHint ? CATEGORY_DEFAULT_NOUN[categoryHint] : null) ?? null;
+export function buildSearchTerms(
+  name: string,
+  categoryHint: string | null,
+  commonName?: string | null,
+): string | null {
+  const noun =
+    deriveNoun(name) ??
+    (categoryHint ? CATEGORY_DEFAULT_NOUN[categoryHint] : null) ??
+    deriveNoun(commonName ?? "") ??
+    null;
   if (!noun) return null;
   const terms = new Set<string>([noun, ...(ALIASES_BY_CANON[noun] ?? [])]);
   return [...terms].join(" ");

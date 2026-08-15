@@ -258,17 +258,18 @@ export function csvToCatalogRows(text: string): CatalogCsvRow[] {
     if (kcal !== null && (!Number.isInteger(kcal) || kcal <= 0)) {
       throw new Error(`row ${r + 1} (${name}): kcal must be a positive integer when present`);
     }
+    const commonName = iCommon >= 0 ? blankToNull(cells[iCommon]) : null;
     out.push({
       brand: iBrand >= 0 ? blankToNull(cells[iBrand]) : null,
       name,
-      commonName: iCommon >= 0 ? blankToNull(cells[iCommon]) : null,
+      commonName,
       variant: iVariant >= 0 ? blankToNull(cells[iVariant]) : null,
       categoryHint,
       weightMg,
       kcal,
       weightSource,
       sourceUrl: iUrl >= 0 ? blankToNull(cells[iUrl]) : null,
-      searchTerms: buildSearchTerms(name, categoryHint),
+      searchTerms: buildSearchTerms(name, categoryHint, commonName),
     });
   }
   return out;
