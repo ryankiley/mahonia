@@ -1,0 +1,7 @@
+{
+  "date": "2026-08-12",
+  "fixed": [
+    "On a phone, buttons and menu rows no longer stay lit after you tap them — the highlight used to sit on whatever you pressed last until you pressed something else.",
+    "Tapping a quantity's + or − twice in quick succession now counts to two, instead of zooming the page."
+  ]
+}

@@ -1,0 +1,112 @@
+Mahonia — third-party notices
+=============================
+
+Served at https://mahonia.app/licenses.txt
+
+WHY THIS FILE EXISTS. Mahonia bundles its JavaScript dependencies rather than
+loading them from a CDN. That is a security choice, not a packaging one: a list's
+edit capability lives in the URL fragment, and any third-party <script> in the
+page can read location.hash, so a CDN tag would be a capability leak (see
+config/security.ts). The consequence is that the site redistributes those
+libraries' code, and MIT and BSD both require their copyright notices to travel
+with a redistribution.
+
+The minifier strips the banner comments those libraries ship with — Leaflet's
+`/* @preserve */` header does not survive into the built chunks — so this file
+carries the notices instead. It lives in public/, which means it is deployed
+alongside the JavaScript it describes.
+
+MAINTENANCE. Add an entry when a dependency's code starts reaching the BROWSER.
+Server-only packages (satori, resvg-js, @simplewebauthn/server, drizzle-orm, the
+Neon and PGlite drivers, @upstash/redis) are not redistributed by serving this
+site and are deliberately not listed. The Inter subset used by the social-card
+renderer is server-only too, and ships its OFL text at
+server/assets/fonts/LICENSE.txt.
+
+The full dependency graph, with each package's declared license, is in
+package-lock.json.
+
+----------------------------------------------------------------------
+Leaflet — BSD-2-Clause
+https://leafletjs.com
+----------------------------------------------------------------------
+
+Copyright (c) 2010-2023, Volodymyr Agafonkin
+Copyright (c) 2010-2011, CloudMade
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
+
+ 1. Redistributions of source code must retain the above copyright notice, this
+    list of conditions and the following disclaimer.
+
+ 2. Redistributions in binary form must reproduce the above copyright notice,
+    this list of conditions and the following disclaimer in the documentation
+    and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+----------------------------------------------------------------------
+MIT-licensed libraries
+----------------------------------------------------------------------
+
+The following reach the browser and are all under the MIT license, whose text is
+reproduced once below. Their copyright lines:
+
+  Vue                          Copyright (c) 2018-present, Yuxi (Evan) You
+  Vue Router                   Copyright (c) 2019-present Eduardo San Martin Morote
+  Nuxt                         Copyright (c) 2016-present - Nuxt Team
+  @vercel/analytics            Copyright (c) 2026 Vercel, Inc.
+  @hugeicons/core-free-icons   Copyright (c) Hugeicons
+
+Nuxt's client runtime pulls in a number of small MIT- and ISC-licensed helper
+packages from the same ecosystem (h3, unhead, ufo, defu, hookable, and others).
+They are covered by the same terms; package-lock.json lists each one with its
+declared license and its version.
+
+MIT License
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+----------------------------------------------------------------------
+Map data and tiles
+----------------------------------------------------------------------
+
+The topographic basemap under a planned route is served by OpenTopoMap and built
+on OpenStreetMap data, under CC-BY-SA. The credit is rendered on the map itself,
+which is where that license requires it; this entry records it here too.
+
+  © OpenStreetMap contributors — https://www.openstreetmap.org/copyright
+  © OpenTopoMap — https://opentopomap.org
+
+----------------------------------------------------------------------
+Mahonia itself
+----------------------------------------------------------------------
+
+Source code: MIT, © 2026 Ryan Kiley. See LICENSE in the repository.
+The gear catalog data under seed/ is licensed separately — see seed/LICENSE.md.

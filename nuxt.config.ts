@@ -6,6 +6,10 @@
 // instead of regexing them out of this file.
 import { SECURITY_HEADERS, TILE_ORIGIN } from "./config/security";
 import { PWA_OPTIONS } from "./config/pwa";
+// The canonical origin, single-sourced — the server reads the same constant to
+// decide what host a sign-in link may point at (server/utils/origin.ts), so the
+// social card and that decision can't drift onto different domains.
+import { CANONICAL_ORIGIN } from "./shared/site";
 
 export default defineNuxtConfig({
   // Pin date-gated Nuxt/Nitro defaults so builds are reproducible across CI/Vercel
@@ -117,6 +121,15 @@ export default defineNuxtConfig({
     define: {
       __VUE_OPTIONS_API__: false,
     },
+    // NOTE ON LICENSE BANNERS, so the next person doesn't retry what didn't
+    // work. Leaflet ships its BSD-2 copyright in a `/* @preserve */` banner, and
+    // the build strips it — grep .output/public after a build and "Agafonkin"
+    // appears zero times while Leaflet's code is plainly there. Setting
+    // `esbuild: { legalComments: "eof" }` here does NOT bring it back (tried,
+    // rebuilt, still absent): Vite's esbuild option governs the source transform,
+    // not the minify pass that drops it. The notice requirement is met by
+    // public/licenses.txt instead, which is deterministic and covers every
+    // bundled library rather than only the ones that happen to carry a banner.
     // Shared SCSS breakpoint vars, prepended to every SFC `lang="scss"` style
     // block so plain `@media (max-width: $bp-stack)` queries share the tokens'
     // anchors. Sass module scoping keeps this injection out of @use'd files, so
@@ -181,9 +194,10 @@ export default defineNuxtConfig({
         // Social card. The editor (the landing page) is prerendered, and this static
         // set is what unfurls the bare domain for a crawler that reads no further.
         // og:image MUST be absolute and the prerendered shell has no request
-        // context, so the canonical prod host is pinned here (the one place we hard-set
-        // a URL; sitemap/SSR routes still derive the host from the request). SSR routes
-        // (/s, /l) override og:title/description per-list via their own useSeoMeta.
+        // context, so the canonical prod host is used here (from shared/site.ts, which
+        // is now the one place that host is written down; sitemap/robots still derive
+        // theirs from the request, since a forged host there answers only itself). SSR
+        // routes (/s, /l) override og:title/description per-list via their own useSeoMeta.
         { property: "og:type", content: "website" },
         { property: "og:site_name", content: "Mahonia" },
         { property: "og:title", content: "Mahonia — pack lists, weighed" },
@@ -191,13 +205,13 @@ export default defineNuxtConfig({
           property: "og:description",
           content: "Make a packing list, see what it weighs, share it. No login.",
         },
-        { property: "og:image", content: "https://mahonia.app/og.png" },
+        { property: "og:image", content: `${CANONICAL_ORIGIN}/og.png` },
         { property: "og:image:width", content: "1200" },
         { property: "og:image:height", content: "630" },
         { property: "og:image:type", content: "image/png" },
         { property: "og:image:alt", content: "The Mahonia M. Pack lists, weighed." },
         { name: "twitter:card", content: "summary_large_image" },
-        { name: "twitter:image", content: "https://mahonia.app/og.png" },
+        { name: "twitter:image", content: `${CANONICAL_ORIGIN}/og.png` },
       ],
       link: [
         // Icon set (files in public/). The SVG is the primary favicon (vector,

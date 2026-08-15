@@ -1370,9 +1370,14 @@ const distanceValue = (m: number | undefined) => {
   white-space: nowrap;
   cursor: pointer;
 }
-.plan__armchip:hover {
-  background: #0000000d;
-  color: #111;
+/* pointer-gated — it paints (see the note on .btn:hover, controls.scss). The armed
+   state below is the only thing on screen naming the day the next tap lands in, so a
+   latched hover plate beside it would put two chips forward at once. */
+@media (hover: hover) and (pointer: fine) {
+  .plan__armchip:hover {
+    background: #0000000d;
+    color: #111;
+  }
 }
 /* armed is a STATE, and it has to hold its plate whether the pointer is on it or not —
    it is the only thing on screen saying which day the next tap lands in */

@@ -18,7 +18,7 @@ useHead({
     <main id="main-content" tabindex="-1" class="wrap page">
       <div class="prose">
         <h1 class="t-title">Legal</h1>
-        <p class="t-sm t-muted">Last updated 7 August 2026</p>
+        <p class="t-sm t-muted">Last updated 15 August 2026</p>
         <p>
           How Mahonia handles your data, and the terms for using it. Jump to
           <a href="#privacy">Privacy</a> or <a href="#terms">Terms</a>.
@@ -251,6 +251,14 @@ useHead({
           These terms are governed by the laws of the State of Oregon, United States, without regard
           to its conflict-of-laws rules. Nothing here limits any rights you have under the mandatory
           laws of the place you live.
+        </p>
+
+        <h3>Open source, and the code Mahonia borrows</h3>
+        <p>
+          Mahonia’s own code is open source under the MIT license. It also ships a handful of
+          libraries other people wrote — the map, the framework it’s built on — and their
+          licenses ask for credit where the code goes. That credit is at
+          <a href="/licenses.txt">/licenses.txt</a>, along with the map data’s.
         </p>
 
         <!-- ================= Contact ================= -->

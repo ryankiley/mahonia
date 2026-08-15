@@ -2097,9 +2097,12 @@ function dismissFix() {
   background: var(--paper-2);
   color: var(--ink-2);
 }
-.item__split:hover {
-  background: var(--paper-3);
-  color: var(--ink);
+/* pointer-gated — it paints (see the note on .btn:hover, controls.scss) */
+@media (hover: hover) and (pointer: fine) {
+  .item__split:hover {
+    background: var(--paper-3);
+    color: var(--ink);
+  }
 }
 /* the chosen count takes the same quiet-grey chip as an active row toggle, one step
    deeper — the popover's own ground is already --paper-2, so the resting chip has to

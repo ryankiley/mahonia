@@ -272,10 +272,19 @@ watch(open, (o) => {
     background var(--dur) var(--ease),
     color var(--dur) var(--ease);
 }
-.lm__trigger:hover,
+/* Split from :hover, not merged with it: .is-on is the OPEN menu's state and has to
+   paint on every pointer, while the hover twin paints only where hovering is real
+   (see the note on .btn:hover, controls.scss) — otherwise tapping the trigger left
+   the fill sitting there after the menu had already closed. */
 .lm__trigger.is-on {
   background: var(--paper-2);
   color: var(--ink);
+}
+@media (hover: hover) and (pointer: fine) {
+  .lm__trigger:hover {
+    background: var(--paper-2);
+    color: var(--ink);
+  }
 }
 /* the app's dropdown mark, and it turns over when the menu is open — the same
    rotate the ⋯ menu's section headers and the sharing panel's disclosure use */

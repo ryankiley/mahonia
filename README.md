@@ -87,3 +87,11 @@ prefix the PR title (`refactor:`, `chore:`, `ci:`, `test:`, `docs:`, `perf:`) or
 
 Code is [MIT](LICENSE). The gear catalog data under `seed/` is licensed separately — see
 [`seed/LICENSE.md`](seed/LICENSE.md).
+
+Third-party notices for the libraries bundled into the client are in
+[`public/licenses.txt`](public/licenses.txt), served at `/licenses.txt`. The file exists
+because Mahonia bundles its dependencies instead of loading them from a CDN (a CDN
+`<script>` could read a list's edit token out of `location.hash`), which makes serving the
+site a redistribution of that code — and the minifier strips the banner comments those
+libraries ship their copyright in. Add an entry when a dependency's code starts reaching
+the browser; server-only packages aren't redistributed and aren't listed.

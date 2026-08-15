@@ -1,7 +1,7 @@
 import { createError, defineEventHandler } from "h3";
 import { csvToListData } from "../../shared/exporters/csv";
 import { lighterpackId } from "../../shared/lighterpack";
-import { notFound, readJsonBodyCapped, setNoIndex } from "../utils/http";
+import { notFound, readJsonBodyCapped, readResponseCapped, setNoIndex } from "../utils/http";
 import { rateLimit } from "../utils/rateLimit";
 
 // Import a LighterPack shared list by URL. We ONLY ever fetch lighterpack.com's
@@ -27,9 +27,15 @@ export default defineEventHandler(async (event) => {
       headers: { accept: "text/csv,text/plain,*/*" },
     });
     if (!res.ok) throw notFound("LighterPack list not found");
-    const text = await res.text();
-    if (text.length > 512_000) throw createError({ statusCode: 413, statusMessage: "List too large" });
-    csv = text;
+    // Streamed and cancelled AT the cap, not measured after the fact. `res.text()`
+    // runs to completion first, so the old length check bounded what got PARSED
+    // and not what got read — a lighterpack.com having a very bad day (or a
+    // compromised one) could hold this function buffering until the platform
+    // killed it. The host is fixed and redirects are refused, so this was never
+    // attacker-reachable; it's the read itself that had no ceiling.
+    const read = await readResponseCapped(res, 512_000, "reject");
+    if (!read.ok) throw createError({ statusCode: 413, statusMessage: "List too large" });
+    csv = read.body?.toString("utf8") ?? "";
   } catch (e) {
     if ((e as { statusCode?: number }).statusCode) throw e;
     throw createError({ statusCode: 502, statusMessage: "Couldn’t reach LighterPack" });

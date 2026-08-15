@@ -1272,8 +1272,13 @@ onBeforeUnmount(() => {
   cursor: pointer;
   box-shadow: 0 1px 4px #0000001f;
 }
-.routemap__expand:hover {
-  background: #f4f4f4;
+// Pointer-gated — it paints (see the note on .btn:hover, controls.scss). The control
+// sits ON the map, so a latched grey square stayed visible over the tiles for the
+// whole time you then spent panning around.
+@media (hover: hover) and (pointer: fine) {
+  .routemap__expand:hover {
+    background: #f4f4f4;
+  }
 }
 
 // tiles gone: plain ground, so the line is still readable
