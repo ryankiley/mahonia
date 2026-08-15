@@ -106,6 +106,29 @@ describe("useMyLists — a list is its share code, not its edit token", () => {
     expect(my.entries.value.find((e) => e.editToken === "live-token")!.origin).toBe("created");
   });
 
+  it("keeps a pre-origin row claimable through a reopen of its own link", () => {
+    const my = registry();
+    // a registry row from before origin tracking existed (pre-accounts): no
+    // `origin` key at all. The claim sweep counts these as created — the right
+    // guess for nearly all of them (see useClaimedLists.claimDeviceLists).
+    const legacy = entry({ editToken: "old-token" });
+    delete (legacy as Partial<MyListEntry>).origin;
+    my.entries.value = [legacy];
+
+    // the standard cross-device move from the pre-accounts era: open your own
+    // list through its full edit link. load() confirms the token, registerOpened
+    // stamps the upsert "opened" — which must not overwrite the absent origin,
+    // or this list silently leaves the claim sweep and the account never hears
+    // of it (the machine that only reads the account then never shows it).
+    my.upsert(entry({ editToken: "old-token", origin: "opened" }));
+
+    expect(my.entries.value).toHaveLength(1);
+    const row = my.entries.value[0]!;
+    expect(row.origin).toBeUndefined();
+    // the exact filter the claim sweep applies — the row must still pass it
+    expect([row].filter((e) => e.origin !== "opened")).toHaveLength(1);
+  });
+
   it("doesn't duplicate when a rotated list is reopened through registerCreated", () => {
     const my = registry();
     my.entries.value = [entry({ editToken: "dead-token" })];
