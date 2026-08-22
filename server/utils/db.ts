@@ -124,18 +124,25 @@ export const LISTS_DDL: string[] = [
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_lists_edit_token ON lists(edit_token_hash) WHERE deleted_at IS NULL`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_lists_share_code ON lists(share_code) WHERE deleted_at IS NULL`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_lists_slug ON lists(public_slug) WHERE deleted_at IS NULL`,
-  // feed sort: lightest-packs leaderboard (base weight asc)
-  `CREATE INDEX IF NOT EXISTS idx_lists_feed ON lists(base_weight_mg) WHERE is_public AND status='active' AND deleted_at IS NULL`,
-  // feed sort: recent (published_at desc)
-  `CREATE INDEX IF NOT EXISTS idx_lists_feed_recent ON lists(published_at DESC) WHERE is_public AND status='active' AND deleted_at IS NULL`,
-  // browse-by-trip-type (the default feed): trip then recency
-  `CREATE INDEX IF NOT EXISTS idx_lists_feed_trip ON lists(trip_type, published_at DESC) WHERE is_public AND status='active' AND deleted_at IS NULL`,
+  // The public FEED was dropped (2026-08-22): a directory of user-made lists is
+  // thin, near-duplicate content and a permanent moderation job, and sharing already
+  // works without one. These three partial indexes served feed sorts that no query
+  // ever ran — lightest-packs, recency, browse-by-trip-type. Publishing itself stays
+  // (isPublic, /l/{slug}); only the browse-them-all surface is gone.
+  //
+  // There is no migration step in this app — the DDL below is CREATE ... IF NOT
+  // EXISTS, ensured idempotently on first use (see the header). So dropping the
+  // CREATE lines alone would leave the indexes standing on any database that already
+  // ran them, production included. These DROPs are how they actually go. They are
+  // idempotent and cost nothing once the index is gone; remove them on a later pass,
+  // once every deployed database has run them at least once.
+  `DROP INDEX IF EXISTS idx_lists_feed`,
+  `DROP INDEX IF EXISTS idx_lists_feed_recent`,
+  `DROP INDEX IF EXISTS idx_lists_feed_trip`,
   // the nightly reap's scan (reapAbandonedLists): abandoned near-empty drafts. Serves
   // the `updated_at < cutoff` RANGE — the query takes no order, it just takes the
-  // first `limit` rows the scan yields. None of the feed indexes can serve it — they
-  // all require is_public,
-  // which reap never filters on — so without this the sweep is a full table scan that
-  // gets slower every day the table grows. The predicate is written to match the
+  // first `limit` rows the scan yields. Without this the sweep is a full table scan
+  // that gets slower every day the table grows. The predicate is written to match the
   // query's exactly, so the planner can prove one implies the other. The
   // jsonb_array_length guard in the query stays out of it: it is a cheap recheck on
   // an already-narrow candidate set, not something to index.
