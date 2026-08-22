@@ -63,7 +63,9 @@ export const lists = pgTable(
     endDate: text("end_date"),
     // folders + items (the op-reducer's state)
     data: jsonb("data").$type<ListData>().notNull(),
-    // cached rollups (feed sort only; recomputed on every write)
+    // cached rollups, recomputed on every write. Nothing reads them since the feed
+    // indexes went (below); they stay because they're the cheap shape any future
+    // list-of-lists query wants, and computing them is already on the write path.
     baseWeightMg: bigint("base_weight_mg", { mode: "number" }).notNull().default(0),
     wornWeightMg: bigint("worn_weight_mg", { mode: "number" }).notNull().default(0),
     consumableWeightMg: bigint("consumable_weight_mg", { mode: "number" }).notNull().default(0),
@@ -71,15 +73,16 @@ export const lists = pgTable(
     itemCount: integer("item_count").notNull().default(0),
     isPublic: boolean("is_public").notNull().default(false),
     publishedAt: timestamp("published_at", { withTimezone: true }),
-    // public-feed facets (closed enums, normalized in shared/discovery.ts)
+    // facets on a published list (closed enums, normalized in shared/discovery.ts).
+    // They render on /l and in its unfurl; there is no feed to browse them by.
     tripType: text("trip_type"),
     season: text("season"),
     primaryCategory: text("primary_category"),
-    // cheap "most-viewed" signal for the feed; best-effort bumped on public reads
+    // cheap "most-viewed" signal; best-effort bumped on public reads (/l)
     viewCount: integer("view_count").notNull().default(0),
-    // withheld from the public feed pending review (spam heuristic or a user
+    // withheld from public discovery pending review (spam heuristic or a user
     // report). Distinct from `status`: a flagged list stays active, so the OWNER
-    // keeps edit + share access — only public discovery is withheld.
+    // keeps edit + share access — only the public /l address is withheld.
     flagged: boolean("flagged").notNull().default(false),
     // The byline on the read views — who MADE the list.
     //
@@ -111,21 +114,15 @@ export const lists = pgTable(
     uniqueIndex("idx_lists_slug")
       .on(t.publicSlug)
       .where(sql`${t.deletedAt} is null`),
-    // feed sort: lightest-packs leaderboard (base weight asc)
-    index("idx_lists_feed")
-      .on(t.baseWeightMg)
-      .where(sql`${t.isPublic} and ${t.status} = 'active' and ${t.deletedAt} is null`),
-    // feed sort: recent (published_at desc)
-    index("idx_lists_feed_recent")
-      .on(t.publishedAt.desc())
-      .where(sql`${t.isPublic} and ${t.status} = 'active' and ${t.deletedAt} is null`),
-    // browse-by-trip-type (the default feed): trip then recency
-    index("idx_lists_feed_trip")
-      .on(t.tripType, t.publishedAt.desc())
-      .where(sql`${t.isPublic} and ${t.status} = 'active' and ${t.deletedAt} is null`),
+    // NO feed indexes. Three partial indexes used to sit here — a lightest-packs
+    // leaderboard, a recency sort, and browse-by-trip-type — for a public feed that
+    // was never built (there has never been a listPublicFeed query to serve). They
+    // were dropped deliberately: a public directory of user-made lists is thin,
+    // near-duplicate content and a standing moderation job, and sharing already
+    // works without one (`/s/{code}` opens for anyone, no account, with its own
+    // social card). Publishing itself STAYS — see isPublic above.
     // the nightly reap's scan — abandoned near-empty drafts, over the updated_at
-    // range (the query takes no order). No feed index above can serve it: they all
-    // require is_public, which reap never filters on.
+    // range (the query takes no order).
     index("idx_lists_reap")
       .on(t.updatedAt)
       .where(sql`${t.status} = 'active' and ${t.deletedAt} is null and ${t.itemCount} <= 1`),
