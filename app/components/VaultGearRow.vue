@@ -3,6 +3,7 @@ import { HugeiconsIcon } from "~/utils/hugeicon";
 import { Delete02Icon, Edit02Icon, FolderIcon, ShirtIcon, UndoIcon } from "@hugeicons/core-free-icons";
 import type { Unit } from "~~/shared/types";
 import type { VaultEntry } from "~~/shared/vault";
+import { formatPrice } from "~~/shared/money";
 import { formatKcal, formatWeight, itemDisplayName } from "~~/shared/weights";
 import { consumableIcon } from "~/utils/itemMarks";
 
@@ -40,6 +41,17 @@ const displayName = computed(() => itemDisplayName(props.entry.brand, props.entr
 const kcal = computed(() =>
   !props.removed && props.entry.classification === "consumable" && props.entry.kcal ? props.entry.kcal : 0,
 );
+// The sub-line: the short facts about a piece of gear that aren't its weight. The
+// note is not here — it is free text of any length, so it gets its own clamped line
+// below. A removed row shows its type only, like the calories above.
+const meta = computed(() => {
+  const e = props.entry;
+  const parts: string[] = [];
+  if (e.commonName) parts.push(e.commonName);
+  if (!props.removed && e.priceCents != null) parts.push(formatPrice(e.priceCents, e.currency));
+  if (kcal.value) parts.push(`${formatKcal(kcal.value)} kcal`);
+  return parts;
+});
 </script>
 
 <template>
@@ -50,13 +62,18 @@ const kcal = computed(() =>
         <span>{{ entry.name }}</span>
         <span v-if="entry.variant" class="gear__variant"><span class="sep">·</span> {{ entry.variant }}</span>
       </p>
-      <!-- the sub-line: the gear type, with the calories trailing it for food. kcal
-           is stored on every row that ever had one, but only counted on a
-           consumable — so only a consumable shows it. -->
-      <p v-if="entry.commonName || kcal" class="t-sm t-muted vault__meta">
-        <span v-if="entry.commonName">{{ entry.commonName }}</span
-        ><span v-if="entry.commonName && kcal" class="sep"> · </span
-        ><span v-if="kcal">{{ formatKcal(kcal) }} kcal</span>
+      <!-- the sub-line: the gear type, then what it cost, with the calories trailing
+           for food. kcal is stored on every row that ever had one, but only counted
+           on a consumable — so only a consumable shows it. -->
+      <p v-if="meta.length" class="t-sm t-muted vault__meta">
+        <template v-for="(part, i) in meta" :key="i"
+          ><span v-if="i" class="sep"> · </span>{{ part }}</template
+        >
+      </p>
+      <!-- your note, one line and clipped: it can be a paragraph, and a row is not
+           where a paragraph goes. The dialog holds all of it. -->
+      <p v-if="!removed && entry.description" class="t-sm t-muted vault__note" :title="entry.description">
+        {{ entry.description }}
       </p>
     </div>
     <span class="t-num vault__weight">{{ formatWeight(entry.weightMg, unit) }}</span>
@@ -159,6 +176,15 @@ const kcal = computed(() =>
 /* the name cell (.gear__main / .gear__name / .gear__brand / .gear__variant) comes
    from atoms/gear.scss — shared with the gear pane, which used to hand-mirror
    these rules. Only the page's own mobile stack below touches it. */
+/* Your note, on one line and clipped. It is free text of any length and this is a
+   row in a list that can run to hundreds — a two-line note here would set the
+   rhythm of the whole page from its longest row. The full text is the title
+   attribute and the dialog that edits it. */
+.vault__note {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .vault__weight {
   flex: none;
   color: var(--ink-2);

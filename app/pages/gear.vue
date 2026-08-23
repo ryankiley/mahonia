@@ -494,12 +494,64 @@ const folderOptions = computed(() => [
   { key: "", label: "Unfiled" },
   ...folders.value.map((f) => ({ key: String(f.id), label: f.name })),
 ]);
+
+// ---- taking it with you --------------------------------------------------
+// My Gear is the one thing an account holds rather than a link, which makes it the
+// one thing you can't already take with you by copying a URL — and until this, the
+// only account-level data operation was delete.
+//
+// ALL of it, not what the controls have narrowed to: View and Show are how you're
+// looking at your gear, and a file called my-gear that quietly held only the worn
+// half would be a worse answer than no file. `items` is the live gear — what
+// "Remove" put away lives in its own `removed` array (see loadVault) and stays out,
+// which is the answer you'd want from a file called my-gear.
+//
+// The exporter is imported on demand, like the list's four: someone who never
+// exports shouldn't download the code that formats a CSV. Warmed when the menu
+// opens and awaited when a row is pressed — a warmed import() resolves from module
+// cache in a microtask, so the row doesn't sit there while a chunk is fetched.
+// (useListExports warms for the same reason, with a sharper one behind it: its
+// clipboard writes must stay inside iOS Safari's user-gesture window.)
+const exporter = () => import("~~/shared/exporters/vault");
+function warmExport() {
+  void exporter();
+}
+async function exportGear(kind: string) {
+  loadError.value = "";
+  try {
+    const { vaultToCsv, vaultToJson } = await exporter();
+    const gear = { items: items.value, folders: folders.value };
+    if (kind === "json") {
+      downloadFile("my-gear.json", vaultToJson(gear), "application/json");
+    } else {
+      downloadFile("my-gear.csv", vaultToCsv(gear, unit.value), "text/csv");
+    }
+  } catch {
+    // the chunk can fail to load (offline before the SW cached it) — the page's own
+    // error line, rather than a silent no-op on a button you just pressed
+    loadError.value = "Couldn’t build that file. Check your connection and try again.";
+  }
+}
 </script>
 
 <template>
   <div>
-    <SiteTopbar label="My Gear">
+    <!-- compact: the bar's trailing group is now a glyph row behind one text action
+         — the read views' exact shape, which is what the flag is for. Without it the
+         looser gaps ran "Create a list" onto two lines at 375px once the ⋯ arrived,
+         and the account control changed between a word and a glyph with the session. -->
+    <SiteTopbar compact label="My Gear">
       <NuxtLink to="/e" class="btn btn--link">Create a list</NuxtLink>
+      <!-- The bar's end-cap, where every ⋯ on the site sits — after the page's own
+           action and the account control (see SiteTopbar's #end). It holds the
+           export, which is an action on the whole page rather than a way of looking
+           at it, so it doesn't belong beside View and Show.
+           Only while there is gear to export: a menu whose one job is to hand you a
+           file of nothing is a control worth no action, and those are absent here
+           rather than present and inert. -->
+      <template #end>
+        <VaultMenu v-if="items.length" @open="warmExport" @pick="exportGear" />
+      </template>
     </SiteTopbar>
 
     <main id="main-content" tabindex="-1" class="wrap page vault__page">
