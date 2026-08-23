@@ -125,6 +125,29 @@ describe("captureFromList", () => {
     // never-entered stays absent — zero would be a claim (see Item.kcal)
     expect(captureFromList([item()])[0]!.kcal).toBeUndefined();
   });
+
+  it("carries the note, the price and the picture the row arrived with", () => {
+    // the three the projection used to drop on the floor
+    const caps = captureFromList([
+      item({
+        description: "Seam-sealed 2024",
+        priceCents: 69_900,
+        currency: "USD",
+        imageUrl: "https://example.com/tent.jpg",
+      }),
+    ]);
+    expect(caps[0]!.description).toBe("Seam-sealed 2024");
+    expect(caps[0]!.priceCents).toBe(69_900);
+    expect(caps[0]!.currency).toBe("USD");
+    expect(caps[0]!.imageUrl).toBe("https://example.com/tent.jpg");
+  });
+
+  it("drops a currency with no amount under it", () => {
+    // a unit with nothing to measure — and it would render as one on the row
+    const caps = captureFromList([item({ currency: "USD" })]);
+    expect(caps[0]!.currency).toBeUndefined();
+    expect(caps[0]!.priceCents).toBeUndefined();
+  });
 });
 
 describe("captureFingerprint — the gate that stops needless writes", () => {
@@ -676,6 +699,55 @@ describe("a gear edit wins — the pin", () => {
     expect(row.weightMg).toBe(545_000); // pinned
     expect(row.commonName).toBe("Tent"); // learned
     expect(row.classification).toBe("base"); // learned
+  });
+
+  it("an edited note survives a list that says something else", async () => {
+    await edit({ description: "Mine, size M" });
+    await captureVaultItems(db as any, VAULT, [
+      { ...DUPLEX, description: "Sam carries this" } as any,
+    ]);
+    expect((await only(db))!.description).toBe("Mine, size M");
+  });
+
+  it("an unedited note is written once and then left alone", async () => {
+    // coalesce, not last-write-wins: a list's note is as often about the trip as
+    // about the gear, so the FIRST one stands until you correct it here
+    await captureVaultItems(db as any, VAULT, [{ ...DUPLEX, description: "first" } as any]);
+    await captureVaultItems(db as any, VAULT, [{ ...DUPLEX, description: "second" } as any]);
+    expect((await only(db))!.description).toBe("first");
+  });
+
+  it("an edited price survives, and its currency goes with it", async () => {
+    await edit({ priceCents: 69_900, currency: "GBP" });
+    await captureVaultItems(db as any, VAULT, [
+      { ...DUPLEX, priceCents: 39_900, currency: "USD" } as any,
+    ]);
+    const row = (await only(db))!;
+    expect(row.priceCents).toBe(69_900);
+    expect(row.currency).toBe("GBP");
+  });
+
+  it("clearing the price clears the currency with it", async () => {
+    // one field with two columns — a currency left behind would be the money a
+    // price nobody entered was in
+    await edit({ priceCents: 69_900, currency: "GBP" });
+    await edit({ priceCents: null });
+    const row = (await only(db))!;
+    // toEntry turns SQL nulls into absent fields — the shape the client sees
+    expect(row.priceCents).toBeUndefined();
+    expect(row.currency).toBeUndefined();
+  });
+
+  it("an unpinned currency follows the amount rather than lingering", async () => {
+    await captureVaultItems(db as any, VAULT, [
+      { ...DUPLEX, priceCents: 39_900, currency: "USD" } as any,
+    ]);
+    await captureVaultItems(db as any, VAULT, [
+      { ...DUPLEX, priceCents: 42_000, currency: "CAD" } as any,
+    ]);
+    const row = (await only(db))!;
+    expect(row.priceCents).toBe(42_000);
+    expect(row.currency).toBe("CAD");
   });
 
   it("an edited spelling survives, and the list still lands on the same row", async () => {

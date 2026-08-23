@@ -7,6 +7,7 @@ import { MAX_PEOPLE } from "../ops";
 import { effectivePersonId, personName } from "../people";
 import { effectiveClassification, fromMg, itemDisplayName, splitWornQty, toMg, UNIT_ALIASES } from "../weights";
 import { exportSections } from "./rows";
+import { csvCell, stripFormulaGuard } from "./csvCell";
 import { uid } from "../id";
 
 // Delegate to the shared unit vocabulary (weights.UNIT_ALIASES) so a CSV / LighterPack
@@ -21,25 +22,10 @@ function normalizeUnit(raw: string | undefined, fallback: Unit): Unit {
 const truthy = (v: string | undefined) =>
   !!v && /^(1|true|yes|y|x|worn|consumable)$/i.test(v.trim());
 
-// A leading =, +, -, @, or a control char (tab/CR) makes a spreadsheet treat the
-// cell as a formula/command (CSV injection / DDE) when the export is opened in
-// Excel/Sheets — dangerous because list content can come from another user (a
-// shared edit link, or a LighterPack import). Neutralize by prefixing a single
-// quote, the standard mitigation; stripFormulaGuard() removes it again on import
-// so our own round-trip is lossless.
-const FORMULA_LEAD = /^[=+\-@\t\r]/;
-const guardFormula = (s: string) => (FORMULA_LEAD.test(s) ? `'${s}` : s);
-function stripFormulaGuard(s: string): string {
-  return s.length > 1 && s[0] === "'" && FORMULA_LEAD.test(s.slice(1)) ? s.slice(1) : s;
-}
-
 // ---- export ----
 export function listToCsv(list: ListSnapshot): string {
   const u = list.displayUnit;
-  const esc = (v: unknown) => {
-    const s = guardFormula(String(v ?? ""));
-    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-  };
+  const esc = csvCell;
   const folderName = (id: string | null) =>
     list.folders.find((f) => f.id === id)?.name ?? "";
 

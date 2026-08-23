@@ -288,6 +288,11 @@ function selectVault(v: VaultEntry) {
     catalogItemId: v.catalogItemId,
     classification: v.classification,
     kcal: v.kcal,
+    // the gear's own facts, not the list's — recorded once on /gear and carried
+    // into every list that reaches for it
+    priceCents: v.priceCents,
+    currency: v.currency,
+    productUrl: v.productUrl,
     fromVault: true,
   });
   setDraftQuiet(props.clearOnCommit ? "" : tidyText(itemDisplayName(v.brand, v.name, v.variant)));

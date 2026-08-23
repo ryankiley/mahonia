@@ -966,6 +966,14 @@ function create() {
       classification: entry.classification && entry.classification !== "base" ? entry.classification : null,
       // the calories the vault remembers for this food, like the weight above
       kcal: entry.kcal,
+      // and the rest of what the gear knows about itself: what it cost and where
+      // it came from. The NOTE is deliberately not among them — a vault note is
+      // about the gear ("size M"), a row's note is as often about the trip ("Sam
+      // carries this"), and overwriting the second with the first would lose the
+      // one the list actually needed.
+      priceCents: entry.priceCents,
+      currency: entry.currency,
+      productUrl: entry.productUrl,
       catalogItemId: entry.catalogItemId,
       // same pre-claim as addBlankItem: gear pulled from the vault while narrowed
       // to one person lands in that person's view, not invisibly outside it

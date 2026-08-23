@@ -1,0 +1,11 @@
+{
+  "date": "2026-08-22",
+  "added": [
+    "Give a piece of gear in My Gear a note and what it cost.",
+    "What a piece of gear cost comes with it into every list you add it to, along with its product link.",
+    "Download everything in My Gear as a CSV or a JSON backup, from the ⋯ menu in the top bar."
+  ],
+  "fixed": [
+    "A note written on a list row now travels with the gear into My Gear instead of being left behind."
+  ]
+}
