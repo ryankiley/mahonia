@@ -74,6 +74,45 @@
   animation: rowmode-fade calc(var(--dur) * 0.9) var(--ease);
 }
 
+/* ---- the person filter -----------------------------------------------------------
+   Same architecture as the mode gate above, for the same measured reason: state on
+   the editor body (data-filter-person, absent = everyone), each row tagged with its
+   own derived data (data-person on .item-wrap — the row's EFFECTIVE carrier as a
+   slot index in display order, "u" = unassigned), and the match decided entirely in
+   CSS. Flipping a chip is one attribute write; no row subscribes to it.
+   SLOTS, not ids, because CSS cannot compare one attribute's value against
+   another's — but a closed set can be enumerated statically, and MAX_PEOPLE
+   (shared/ops.ts) bounds it at 12. Raise one, raise the other.
+   :has() keeps a parent visible as CONTEXT when only a nested child matches (the
+   children are DOM-nested inside the parent's wrap, one level only — so for a
+   nested wrap, which contains no wraps, the :not(:has()) term is vacuously true
+   and the rule is a plain match). Inside a kept parent, the other children still
+   hide. Composes with the mode gate: a display:none wrap hides both faces, so
+   packing mode filters identically.
+   !important on the row rule for the mode gate's documented reason — ItemRow's
+   mobile stack ties the specificity race, so importance ends it. The section rules
+   need none (nothing else sets display on .folder / .editor__ungrouped). */
+@each $p in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, "u") {
+  .editor__body[data-filter-person="#{$p}"] {
+    .item-wrap:not([data-person="#{$p}"]):not(:has(.item-wrap[data-person="#{$p}"])) {
+      display: none !important;
+    }
+    /* a folder holding nothing of theirs disappears whole — header, add row, rules —
+       and so does the Ungrouped section. (Also swallows genuinely empty folders
+       while any filter is on, which is the right reading of "their list".) */
+    .editor__folders > .folder:not(:has(.item-wrap[data-person="#{$p}"])),
+    .editor__ungrouped:not(:has(.item-wrap[data-person="#{$p}"])) {
+      display: none;
+    }
+  }
+}
+/* While ANY filter is active, no "Add folder": a fresh folder holds nothing of this
+   person's and would vanish the instant it appeared. Per-folder "Add an item" stays —
+   the controller pre-claims new rows for the filtered person, so they land visible. */
+.editor__body[data-filter-person] .editor__addfolder {
+  display: none !important;
+}
+
 /* nested items — a block indented behind a hairline "thread" line. The WHOLE row
    indents uniformly (via the container), so the name and its number line sit at the
    same indent — which matters most on the two-line mobile layout, where indenting

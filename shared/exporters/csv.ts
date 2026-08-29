@@ -3,6 +3,8 @@
 
 import type { Item, ListData, ListSnapshot, Unit } from "../types";
 import { nextFolderColor } from "../categories";
+import { MAX_PEOPLE } from "../ops";
+import { effectivePersonId, personName } from "../people";
 import { effectiveClassification, fromMg, itemDisplayName, splitWornQty, toMg, UNIT_ALIASES } from "../weights";
 import { exportSections } from "./rows";
 import { uid } from "../id";
@@ -41,12 +43,18 @@ export function listToCsv(list: ListSnapshot): string {
   const folderName = (id: string | null) =>
     list.folders.find((f) => f.id === id)?.name ?? "";
 
-  // Kcal is APPENDED, never inserted: the importer maps columns by header name
-  // (see idx() below), but third-party tooling reading our export positionally
-  // would break if an existing column shifted.
+  // Kcal and Person are APPENDED, never inserted: the importer maps columns by
+  // header name (see idx() below), but third-party tooling reading our export
+  // positionally would break if an existing column shifted.
   const out = [
-    "Category,Item Name,Gear Type,Brand,Qty,Weight,Unit,Worn,Consumable,Price,URL,Description,Worn Qty,Kcal",
+    "Category,Item Name,Gear Type,Brand,Qty,Weight,Unit,Worn,Consumable,Price,URL,Description,Worn Qty,Kcal,Person",
   ];
+  // The EFFECTIVE carrier (a child falls back to its parent's), materialized per
+  // row because the flat CSV loses nesting: a child re-imports as top-level, so
+  // an assignment it only inherited has to be written out or it's gone.
+  const itemById = new Map(list.items.map((i) => [i.id, i]));
+  const carrierOf = (it: Item) =>
+    personName(list.people, effectivePersonId(it, it.parentId ? itemById.get(it.parentId) : null)) ?? "";
   // rows follow what the app shows (exportSections): folders in their order, each
   // folder's items in its chosen sort, then any ungrouped items — so a re-import of a
   // name/weight-sorted list bakes that visible order in (CSV has no sort field; JSON
@@ -89,6 +97,7 @@ export function listToCsv(list: ListSnapshot): string {
         // counted (see computeTotals) — so a stale value on a demoted row isn't
         // exported as though it still applied
         cls === "consumable" && it.kcal ? it.kcal : "",
+        esc(carrierOf(it)),
       ].join(","),
     );
   }
@@ -155,6 +164,9 @@ export function csvToListData(text: string): ListData {
   // every export/import round-trip. Absent (a LighterPack CSV, or one of ours from
   // before the column existed) → idx returns -1 and every row reads undefined.
   const iKcal = idx(["kcal", "calories", "cal"]);
+  // Who carries the row — our own column, kept for the same reason as Kcal.
+  // Absent everywhere but our own exports, so a LighterPack file imports peopleless.
+  const iPerson = idx(["person", "carried by", "carriedby", "assigned to", "assignedto"]);
   const nameCol = iName >= 0 ? iName : 0;
 
   const folders: ListData["folders"] = [];
@@ -169,6 +181,24 @@ export function csvToListData(text: string): ListData {
       folders.push({ id, name: key, colorKey, defaultClassification: "base", sortOrder: folders.length });
     }
     return folderId.get(key)!;
+  };
+
+  // People mirror folders: dedupe by the name as written, colors from the same
+  // palette walk. Rows past the cap import fine, just unassigned — losing an
+  // assignment beats losing the gear.
+  const people: NonNullable<ListData["people"]> = [];
+  const personId = new Map<string, string>();
+  const ensurePerson = (name: string | undefined): string | undefined => {
+    const key = (name ?? "").trim();
+    if (!key) return undefined;
+    if (!personId.has(key)) {
+      if (people.length >= MAX_PEOPLE) return undefined;
+      const id = uid();
+      personId.set(key, id);
+      const colorKey = nextFolderColor(people.map((p) => p.colorKey ?? "other"));
+      people.push({ id, name: key, colorKey, sortOrder: people.length });
+    }
+    return personId.get(key)!;
   };
 
   const items: ListData["items"] = [];
@@ -226,6 +256,7 @@ export function csvToListData(text: string): ListData {
       kcal: classification === "consumable" && kcalNum > 0 ? kcalNum : undefined,
       description: cell(iDesc),
       productUrl: cell(iUrl),
+      personId: ensurePerson(cell(iPerson)),
       sortOrder: folderCount.get(fId) ?? 0,
     });
     folderCount.set(fId, (folderCount.get(fId) ?? 0) + 1);
@@ -260,5 +291,7 @@ export function csvToListData(text: string): ListData {
     for (const it of items) if (it.entryUnit === dominant) delete it.entryUnit;
   }
 
-  return { folders, items };
+  // the key only when the file named anyone — a peopleless import (every
+  // LighterPack file) keeps the exact shape it always produced
+  return people.length ? { folders, items, people } : { folders, items };
 }

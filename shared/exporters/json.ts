@@ -11,17 +11,19 @@
 // Body weight is the one deliberate omission, and it is deliberate in both directions:
 // see tests/bodyWeightPrivacy.test.ts.
 
-import type { Folder, Item, ListData, ListMeta, TripDay, Unit, Waypoint } from "../types";
+import type { Folder, Item, ListData, ListMeta, Person, TripDay, Unit, Waypoint } from "../types";
 import { UNITS } from "../types";
 import {
   MAX_DAYS,
   MAX_FOLDERS,
   MAX_ITEMS,
+  MAX_PEOPLE,
   MAX_WAYPOINTS,
   normalizeCalendarDate,
   normalizeDay,
   normalizeFolder,
   normalizeItem,
+  normalizePerson,
   normalizeWaypoint,
   ROUTE_END_IDS,
 } from "../ops";
@@ -38,11 +40,11 @@ import { uid } from "../id";
 
 /** The downloaded backup's shape: the list's meta + its full content. */
 export function listToJson(list: ListMeta & ListData): string {
-  const { title, description, displayUnit, trailUrl, trailLabel, trailDistanceM, trailDistanceUnit, trailProfile, trailAscentM, trailDescentM, routeGeometry, startDate, endDate, folders, items, days, waypoints } = list;
+  const { title, description, displayUnit, trailUrl, trailLabel, trailDistanceM, trailDistanceUnit, trailProfile, trailAscentM, trailDescentM, routeGeometry, startDate, endDate, folders, items, days, waypoints, people } = list;
   // trailFaviconDataUrl is deliberately absent — it's a per-host cache the server
   // rebuilds, not part of the list the owner authored.
   return JSON.stringify(
-    { title, description, displayUnit, trailUrl, trailLabel, trailDistanceM, trailDistanceUnit, trailProfile, trailAscentM, trailDescentM, routeGeometry, startDate, endDate, folders, items, days, waypoints },
+    { title, description, displayUnit, trailUrl, trailLabel, trailDistanceM, trailDistanceUnit, trailProfile, trailAscentM, trailDescentM, routeGeometry, startDate, endDate, folders, items, days, waypoints, people },
     null,
     2,
   );
@@ -104,6 +106,20 @@ export function jsonToListImport(text: string): JsonImport | null {
       return { ...f, id, sortOrder: i };
     });
 
+  // People before items: the items re-point personId through this map. Same
+  // first-occurrence-wins dedupe as folders, for the same op-targeting reason.
+  const personIdMap = new Map<string, string>();
+  const people = (Array.isArray(raw.people) ? raw.people : [])
+    .filter(isRecord)
+    .slice(0, MAX_PEOPLE)
+    .map((p) => normalizePerson(p as unknown as Person))
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .map((p, i) => {
+      const id = uid();
+      if (!personIdMap.has(p.id)) personIdMap.set(p.id, id);
+      return { ...p, id, sortOrder: i };
+    });
+
   const normalized = raw.items
     .filter(isRecord)
     .slice(0, MAX_ITEMS)
@@ -129,7 +145,9 @@ export function jsonToListImport(text: string): JsonImport | null {
     const key = `${folderId}\u0000${parentId}`;
     const sortOrder = perContainer.get(key) ?? 0;
     perContainer.set(key, sortOrder + 1);
-    return { ...it, id, folderId, parentId, sortOrder };
+    // dangling assignee → unassigned, the same degradation as a dangling folderId
+    const personId = (it.personId && personIdMap.get(it.personId)) || undefined;
+    return { ...it, id, folderId, parentId, personId, sortOrder };
   });
   // enforce one level: if a re-pointed parent is itself nested, flatten its children to
   // top-level (a hand-edited/2-level backup can't smuggle in deeper trees)
@@ -211,6 +229,6 @@ export function jsonToListImport(text: string): JsonImport | null {
     // so an invalid value here simply doesn't survive the import either way.
     startDate: normalizeCalendarDate(raw.startDate),
     endDate: normalizeCalendarDate(raw.endDate),
-    data: { folders, items, days, waypoints },
+    data: { folders, items, days, waypoints, people },
   };
 }

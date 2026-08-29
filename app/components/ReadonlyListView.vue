@@ -5,22 +5,29 @@ import { parseTrailLink } from "~~/shared/trailLink";
 import { dayClimbs, parseProfile } from "~~/shared/profile";
 import { dayLabel } from "~~/shared/tripDay";
 import { formatDistance, heightUnitFor, heightValue, resolveDistanceUnit } from "~~/shared/trailDistance";
-import type { Item, ListSnapshot, Totals, Unit } from "~~/shared/types";
+import type { PersonSelection } from "~~/shared/people";
+import type { Item, ListSnapshot, Person, Totals, Unit } from "~~/shared/types";
 import { groupItemsByFolder, groupItemsByParent } from "~~/shared/weights";
 
 // The shared body for the two read-only pages (/s/[code] + /l/[slug]). Both render
 // the same totals + folder/ungrouped block over the same useReadonlyList view-model
 // (kept in the page); only the head, footer, and missing-state copy differ, so those
 // are slots. This is purely the shared template + .view CSS — no data shaping
-// (beyond the per-folder grouping every ReadonlyFolderSection consumes).
+// (beyond the per-folder grouping every ReadonlyFolderSection consumes; the person
+// filter is already applied to `list.items` by the view-model).
 const props = defineProps<{
   list: ListSnapshot | null;
   totals: Totals | null;
   shownFolders: ListSnapshot["folders"];
   ungrouped: ListSnapshot["items"];
+  // the list's people + the viewer's filter (useReadonlyList) — absent on a
+  // peopleless list, and the chips row simply doesn't render
+  people?: readonly Person[];
+  personFilter?: PersonSelection;
+  showUnassigned?: boolean;
 }>();
 
-defineEmits<{ "set-unit": [Unit] }>();
+defineEmits<{ "set-unit": [Unit]; "pick-person": [PersonSelection] }>();
 
 // one grouping pass for all folders (ReadonlyFolderSection takes its items pre-grouped),
 // each folder ordered by its own sortBy so a shared list reads exactly as the owner's
@@ -215,6 +222,18 @@ const asHeight = (m: number) => {
         </li>
       </ol>
     </section>
+
+    <!-- whose half of the load — the editor's chips, readonly (no manage button).
+         SSR'd like the rest of the page (the names are already in the rows below);
+         the filter itself is client state that starts, and renders, as Everyone. -->
+    <PeopleBar
+      v-if="view === 'gear' && people?.length"
+      :people="people"
+      :selected="personFilter ?? null"
+      :show-unassigned="showUnassigned"
+      readonly
+      @pick="(id) => $emit('pick-person', id)"
+    />
 
     <div v-if="view === 'gear'" class="view__folders">
       <ReadonlyFolderSection v-for="f in shownFolders" :key="f.id" :list="list" :folder="f" :items="itemsByFolder.get(f.id) ?? NO_ITEMS" :children-by-parent="childrenByParent" />

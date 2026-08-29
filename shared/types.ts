@@ -28,6 +28,22 @@ export interface Folder {
   sortOrder: number;
 }
 
+/**
+ * Someone on the trip — a NAME on the list, nothing more.
+ *
+ * Deliberately not an account: the people splitting a load are named by whoever
+ * holds the edit link, the way folders are named, and carry no identity beyond
+ * that. Anyone with the link can filter to any person. If a person is ever
+ * linked to a login it will be an added optional field here, not a rework —
+ * which is why this is an entity with an id rather than a string on the item.
+ */
+export interface Person {
+  id: string; // client-generated, like Folder and Item
+  name: string;
+  colorKey?: string; // same `--cat-*` vocabulary as Folder.colorKey
+  sortOrder: number;
+}
+
 export interface Item {
   id: string; // client-generated
   folderId: string | null;
@@ -83,6 +99,15 @@ export interface Item {
   catalogItemId?: number; // linked catalog entry (set when chosen from autocomplete)
   catalogWeightMgAtLink?: number; // catalog weight at link time → powers the "catalog changed" nudge
   packed?: boolean;
+  /**
+   * Who carries this row — a ListData.people id. Absent = unassigned, EXCEPT on a
+   * nested child, where absent means "whoever carries the parent": the person who
+   * takes the tent takes its poles unless a pole row says otherwise (see
+   * effectivePersonId in shared/people.ts — the one place that rule lives).
+   * Validated against the list's people by the reducer; a dangling id heals to
+   * unassigned rather than pointing at nobody.
+   */
+  personId?: string;
   sortOrder: number;
 }
 
@@ -175,6 +200,17 @@ export interface ListData {
    * and travel together. See rowToSnapshot, which omits both.
    */
   waypoints?: Waypoint[];
+  /**
+   * The people splitting this load. OPTIONAL and `?? []`-coerced everywhere, like
+   * `days` — lists written before this have no key at all.
+   *
+   * PUBLIC, unlike `waypoints`: who carries what is list content the same way
+   * folders are (the whole point is showing Matt his half over a share link), so
+   * rowToSnapshot forwards it on every read path. The names are whatever the
+   * owner typed — first names in practice — and renaming or removing a person is
+   * always one edit away.
+   */
+  people?: Person[];
 }
 
 export interface ListMeta {

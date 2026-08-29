@@ -8,7 +8,7 @@ import { parseProfile } from "./profile";
 import { tidyProse, tidyText } from "./tidyText";
 import { boundedRound, normalizeDistanceUnit, normalizeTrailAscentM, normalizeTrailDistanceM } from "./trailDistance";
 import { normalizeTrailLabel, normalizeTrailUrl } from "./trailLink";
-import type { Classification, Folder, FolderSort, Item, ListState, TripDay, Unit, Waypoint } from "./types";
+import type { Classification, Folder, FolderSort, Item, ListState, Person, TripDay, Unit, Waypoint } from "./types";
 import { UNITS, WAYPOINT_KINDS } from "./types";
 import { cumulativeM, decodePolyline, isLoop, normalizeRouteGeometry } from "./polyline";
 
@@ -19,14 +19,15 @@ import { cumulativeM, decodePolyline, isLoop, normalizeRouteGeometry } from "./p
 // folderId is excluded: moveItem is the SOLE folder-changing op — it validates the
 // target folder against the list and keeps nested children's folderId in sync,
 // neither of which a bare field patch can do (cleanItemPatch can't see the list).
-// entryUnit and kcal join catalogItemId in taking an explicit null: both are
-// optional fields the user can turn back OFF, and `undefined` can't express that
-// through a JSON body (it simply vanishes), so null is the wire's way to say
+// entryUnit, kcal and personId join catalogItemId in taking an explicit null: all
+// are optional fields the user can turn back OFF, and `undefined` can't express
+// that through a JSON body (it simply vanishes), so null is the wire's way to say
 // "clear this" as distinct from "leave it alone".
-export type ItemPatch = Omit<Partial<Item>, "catalogItemId" | "folderId" | "entryUnit" | "kcal"> & {
+export type ItemPatch = Omit<Partial<Item>, "catalogItemId" | "folderId" | "entryUnit" | "kcal" | "personId"> & {
   catalogItemId?: number | null;
   entryUnit?: Unit | null;
   kcal?: number | null;
+  personId?: string | null;
 };
 
 // `quiet` marks an op the EDITOR performed on your behalf rather than one you'd say
@@ -62,6 +63,11 @@ export type Op =
   | { t: "addWaypoint"; waypoint: Waypoint }
   | { t: "updateWaypoint"; id: string; patch: Partial<Waypoint> }
   | { t: "removeWaypoint"; id: string }
+  // People follow the day ops too: three, reorder riding as a sortOrder patch.
+  // removePerson is the one with a cascade — see its case.
+  | { t: "addPerson"; person: Person }
+  | { t: "updatePerson"; id: string; patch: Partial<Person> }
+  | { t: "removePerson"; id: string }
   | {
       t: "setMeta";
       patch: Partial<{
@@ -133,6 +139,10 @@ export const MAX_DAYS = 60;
 // A bound on row size, like the caps above, and not an opinion about how many springs a
 // route may have. 100 pins is far past what anyone hand-places on one walk.
 export const MAX_WAYPOINTS = 100;
+// People splitting one pack list. Far past any real trail party that still shares a
+// single list, and small enough that the per-person CSS filter can enumerate every
+// slot statically (see atoms/item.scss) — raise one, raise the other.
+export const MAX_PEOPLE = 12;
 // A day's bounds are NOT the route's. 100 km is longer than any single day on foot, and
 // 10,000 m of climb is more than Everest from the sea — generous for a real day, and far
 // enough below a float that misbehaves to keep the jsonb honest.
@@ -226,6 +236,12 @@ function cleanItemPatch(patch: ItemPatch): Partial<Item> {
   if (patch.catalogItemId !== null && typeof patch.catalogWeightMgAtLink === "number" && isFinite(patch.catalogWeightMgAtLink))
     out.catalogWeightMgAtLink = clampWeight(patch.catalogWeightMgAtLink);
   if (typeof patch.packed === "boolean") out.packed = patch.packed;
+  // who carries it: null clears; a string is only clamped here and validated against
+  // the list's people in applyOp's updateItem arm — same division of labor as the
+  // wornQty rule, because this function can't see the list.
+  if (patch.personId === null) out.personId = undefined;
+  else if (typeof patch.personId === "string" && patch.personId)
+    out.personId = patch.personId.slice(0, MAX_ID_LEN);
   if (typeof patch.sortOrder === "number" && isFinite(patch.sortOrder)) out.sortOrder = patch.sortOrder;
   // no folderId branch: a raw op smuggling one in is ignored (see ItemPatch)
   return out;
@@ -242,6 +258,37 @@ function cleanFolderPatch(patch: Partial<Folder>): Partial<Folder> {
   // the field (dropped by JSON.stringify) instead of persisting a redundant "manual".
   if (typeof patch.sortBy === "string")
     out.sortBy = FOLDER_SORTS.includes(patch.sortBy as FolderSort) ? (patch.sortBy as FolderSort) : undefined;
+  if (typeof patch.sortOrder === "number" && isFinite(patch.sortOrder)) out.sortOrder = patch.sortOrder;
+  return out;
+}
+
+/**
+ * A raw person → their stored form. Same contract as normalizeFolder, same guards:
+ * the name cap matches the People manager's field, and colorKey passes SAFE_COLOR_KEY
+ * because it is interpolated into a CSS value on pages strangers open.
+ * Exported for the two other whole-list paths that must agree with the reducer —
+ * the server's normalizeListData and the JSON importer.
+ */
+export function normalizePerson(raw: Person): Person {
+  return {
+    id: String(raw.id).slice(0, MAX_ID_LEN),
+    // never nameless: an all-whitespace name would render an invisible, unclickable
+    // chip, so it falls to a placeholder the owner can see to rename
+    name: cleanText(String(raw.name ?? ""), 60) || "Person",
+    colorKey: raw.colorKey && SAFE_COLOR_KEY.test(String(raw.colorKey)) ? String(raw.colorKey) : "other",
+    sortOrder: Number(raw.sortOrder) || 0,
+  };
+}
+
+function cleanPersonPatch(patch: Partial<Person>): Partial<Person> {
+  const out: Partial<Person> = {};
+  // a rename to nothing is IGNORED rather than stored — unlike brand ("" clears),
+  // a person must keep a name; blurring an emptied field leaves the old one standing
+  if (typeof patch.name === "string") {
+    const name = cleanText(patch.name, 60);
+    if (name) out.name = name;
+  }
+  if (typeof patch.colorKey === "string" && SAFE_COLOR_KEY.test(patch.colorKey)) out.colorKey = patch.colorKey;
   if (typeof patch.sortOrder === "number" && isFinite(patch.sortOrder)) out.sortOrder = patch.sortOrder;
   return out;
 }
@@ -397,6 +444,9 @@ function applyOp(state: ListState, op: Op): void {
           if (parent && parent.parentId == null && parent.id !== it.id) it.folderId = parent.folderId;
           else it.parentId = null;
         }
+        // same heal as folderId: an assignee removed by a concurrent editor (or an
+        // import naming somebody this list doesn't have) coerces to unassigned
+        if (it.personId && !state.people?.some((p) => p.id === it.personId)) it.personId = undefined;
         state.items.push(it);
       }
       break;
@@ -439,6 +489,11 @@ function applyOp(state: ListState, op: Op): void {
             it.wornQty = undefined;
           }
         }
+        // the list-aware half of the personId rule (cleanItemPatch clamps the shape):
+        // an assignment racing a removePerson — an offline queue, a concurrent
+        // editor — lands after the person is gone, and both sides run this same
+        // line, so both converge on unassigned rather than on a name-less id.
+        if (it.personId && !state.people?.some((p) => p.id === it.personId)) it.personId = undefined;
       }
       break;
     }
@@ -532,6 +587,28 @@ function applyOp(state: ListState, op: Op): void {
     case "removeWaypoint":
       // no cascade, for the same reason removeDay has none — nothing references a waypoint
       if (state.waypoints) state.waypoints = state.waypoints.filter((w) => w.id !== op.id);
+      break;
+    case "addPerson":
+      if (
+        op.person &&
+        typeof op.person.id === "string" &&
+        (state.people?.length ?? 0) < MAX_PEOPLE &&
+        !state.people?.some((p) => p.id === op.person.id)
+      )
+        (state.people ??= []).push(normalizePerson(op.person));
+      break;
+    case "updatePerson": {
+      const p = state.people?.find((x) => x.id === op.id);
+      if (p) Object.assign(p, cleanPersonPatch(op.patch || {}));
+      break;
+    }
+    case "removePerson":
+      // Cascade like removeFolder — but the ITEMS SURVIVE, shedding only the
+      // assignment: a person leaving the trip doesn't take the tent off the list,
+      // it puts the tent back up for grabs. (Deleting a folder deletes its items
+      // because they'd have nowhere to render; an unassigned item renders fine.)
+      if (state.people) state.people = state.people.filter((p) => p.id !== op.id);
+      for (const it of state.items) if (it.personId === op.id) it.personId = undefined;
       break;
     case "setMeta": {
       const p = op.patch || {};
@@ -692,6 +769,10 @@ export function normalizeItem(raw: Item): Item {
         ? clampWeight(raw.catalogWeightMgAtLink)
         : undefined,
     packed: !!raw.packed,
+    // clamped only — the reducer's addItem case validates it against the list's
+    // people (this function can't see them). Must survive normalize or every
+    // addItem and every JSON import would quietly strip the assignment.
+    personId: typeof raw.personId === "string" && raw.personId ? raw.personId.slice(0, MAX_ID_LEN) : undefined,
     sortOrder: Number(raw.sortOrder) || 0,
   };
 }
@@ -723,6 +804,7 @@ export function tidyListText<T extends {
   trailLabel?: string;
   folders: Folder[];
   items: Item[];
+  people?: Person[];
 }>(list: T): T {
   if (typeof list.title === "string") list.title = cleanText(list.title, 200);
   // prose, so an imported description keeps its paragraphs — see the setMeta case
@@ -735,6 +817,7 @@ export function tidyListText<T extends {
     else delete list.trailLabel;
   }
   for (const f of list.folders) f.name = cleanText(f.name ?? "", 120) || "Folder";
+  for (const p of list.people ?? []) p.name = cleanText(p.name ?? "", 60) || "Person";
   for (const it of list.items) {
     it.name = cleanText(it.name ?? "", 200);
     if (it.brand) it.brand = cleanText(it.brand, 120) || undefined;

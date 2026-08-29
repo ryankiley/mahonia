@@ -56,9 +56,10 @@ const UNIT_OPTIONS = UNITS.map((u) => ({ key: u, label: u }));
 
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { CalculateIcon, Cancel01Icon, CheckIcon, CheckmarkSquare02Icon, ChevronDownIcon, CircleEllipsisIcon, CookieIcon, Delete02Icon, DropletIcon, GripVerticalIcon, ListIndentIncreaseIcon, MinusSignIcon, NoteAddIcon, NoteRemoveIcon, PlusSignIcon, SafeBoxIcon, ShirtIcon, SquareIcon } from "@hugeicons/core-free-icons";
+import { CalculateIcon, Cancel01Icon, CheckIcon, CheckmarkSquare02Icon, ChevronDownIcon, CircleEllipsisIcon, CookieIcon, Delete02Icon, DropletIcon, GripVerticalIcon, ListIndentIncreaseIcon, MinusSignIcon, NoteAddIcon, NoteRemoveIcon, PlusSignIcon, SafeBoxIcon, ShirtIcon, SquareIcon, UserIcon } from "@hugeicons/core-free-icons";
 import type { Item, ListSnapshot } from "~~/shared/types";
 import type { ItemPatch } from "~~/shared/ops";
+import { personColor, personSlot, sortedPeople } from "~~/shared/people";
 import type { NameCommit } from "~/composables/useCatalogSearch";
 import { bySortOrder, effectiveClassification, entryUnitFromInput, formatKcal, formatWeight, fromMg, groupLineMg, itemDisplayName, parseWeightInput, rowDisplayMg, siblingItems, splitWornQty } from "~~/shared/weights";
 import { isWaterName, itemQtyLabel, waterLiters, waterMgFromMl } from "~~/shared/water";
@@ -89,6 +90,12 @@ const props = withDefaults(
     // need the mode read useEditorMode at CALL time, which registers no reactive
     // dependency — see that composable's header.
     nested?: boolean;
+    // the parent row's EFFECTIVE person, for a nested row to fall back to (the
+    // parent renders its own children, so the one-level inherit rule needs no
+    // global lookup). Fine as a prop where the filter itself isn't: it changes
+    // only when an assignment changes — which re-renders that group anyway —
+    // never on a filter flip.
+    inheritedPersonId?: string;
   }>(),
   { prevId: null, nested: false },
 );
@@ -814,6 +821,48 @@ function toggleNestMenu() {
   menu.toggle(`${props.item.id}:nest`, nestRootRef.value);
 }
 
+// ---- carried by (lists with people only) ----
+// Who takes this row. A menu hung off its own ghost icon (the nesting menu's
+// shape, placement flip included) rather than a third slot in item__classcell —
+// that cell's width is a track the whole page's rows share, and most lists never
+// name anyone. The trigger only exists once the list has people, and it lights
+// with the carrier's own hue: the classification marks' `--lit` plate is an
+// amount of ink, so overriding the custom property tints the same recipe.
+const peopleSorted = computed(() => sortedPeople(props.list.people));
+const hasPeople = computed(() => peopleSorted.value.length > 0);
+// own assignment, else the group's — the shared/people.ts inherit rule, fed here
+// by the parent through the inherited-person-id prop
+const effPersonId = computed(() => props.item.personId ?? props.inheritedPersonId);
+const rowPerson = computed(() => peopleSorted.value.find((p) => p.id === effPersonId.value));
+// The slot the FILTER matches this row on — always stamped ("u" = unassigned) so
+// the CSS never meets a row without the attribute. Derived from row-local data:
+// it changes when an assignment or the people change, never on a filter flip.
+const personSlotAttr = computed(() => {
+  const slot = personSlot(props.list.people, effPersonId.value);
+  return slot == null ? "u" : String(slot);
+});
+const personTitle = computed(() =>
+  rowPerson.value
+    ? props.item.personId
+      ? `Carried by ${rowPerson.value.name}`
+      : `Carried by ${rowPerson.value.name} (with the group)`
+    : "Carried by…",
+);
+const personRootRef = useTemplateRef<HTMLElement>("personRootRef");
+const personListRef = useTemplateRef<HTMLElement>("personListRef");
+const { atStart: personAtStart, above: personAbove, place: placePerson } = useMenuPlacement(personListRef);
+const isPersonOpen = computed(() => menu.openId.value === `${props.item.id}:person`);
+watch(isPersonOpen, (open) => {
+  emit("overlayToggle", open);
+  if (open) nextTick(placePerson);
+});
+function togglePersonMenu() {
+  menu.toggle(`${props.item.id}:person`, personRootRef.value);
+}
+// null clears (the wire's "hand it back"); a nested row cleared this way returns
+// to following its group, which is what the menu's own label for it says
+const setPerson = (personId: string | null) => c.updateItem(props.item.id, { personId });
+
 // ---- save to vault ----
 // Gear reaches the vault on its own as you build (useVault.sync), which is the right
 // default and the reason the vault fills itself. What it has never had is a way to
@@ -955,11 +1004,15 @@ function dismissFix() {
 <template>
   <!-- one wrapper for BOTH modes, so a parent row's nested children render (and are
        checkable) in packing mode too — the packed branch swaps only the row itself -->
+  <!-- data-person: the row's effective carrier as a SLOT ("u" = unassigned), matched
+       by the body's data-filter-person in CSS (atoms/item.scss) — the filter reaches
+       this row only as an ancestor attribute, never as a prop -->
   <div
     ref="wrapRef"
     class="item-wrap"
     :data-item-id="item.id"
     :data-parent="item.parentId || null"
+    :data-person="personSlotAttr"
     :class="{ 'is-dragging': isDragging, 'is-drop-before': isDropBefore, 'is-nest-parent': isNestParent }"
     @focusout="onRowBlur"
     @click.capture="flushPendingEdit"
@@ -994,7 +1047,12 @@ function dismissFix() {
         <HugeiconsIcon :icon="SquareIcon" class="item__boxicon item__boxicon--empty" :size="20" :stroke-width="1.33" absolute-stroke-width aria-hidden="true" />
         <HugeiconsIcon :icon="CheckmarkSquare02Icon" class="item__boxicon item__boxicon--check" :size="20" :stroke-width="1.33" absolute-stroke-width aria-hidden="true" />
       </span>
-      <span class="item__cname" :class="{ 'item__cname--group': isParent }"><ItemName :item="item" :group="isParent" /><button
+      <span class="item__cname" :class="{ 'item__cname--group': isParent }"><ItemName :item="item" :group="isParent" /><!--
+          the carrier, riding the name cell (display-only — this face is a <label>
+          over a checkbox, so a control here would toggle the tick). Only their own
+          claim is tagged: children of a claimed group inherit silently, or a
+          six-item group would say the same name seven times.
+       --><span v-if="rowPerson && item.personId" class="t-sm item__cperson"><span class="swatch item__cperson-dot" :style="{ background: personColor(rowPerson) }" aria-hidden="true" />{{ rowPerson.name }}</span><button
           v-if="isParent"
           class="item__nestcollapse"
           :aria-expanded="!nestCollapsed"
@@ -1426,6 +1484,68 @@ function dismissFix() {
               </button>
             </Tooltip>
           </Transition>
+          <!-- CARRIED BY. Exists only once the list names people (the ⋯ menu carries
+               the same picker on mobile, where this cluster collapses). Sits with the
+               conditional icons at the cluster's open edge for the vault button's
+               reason: its coming and going must shuffle nothing. Lit with the
+               carrier's hue when assigned — the one recipe (--lit) with the hue
+               swapped in, exactly how the waypoint kind buttons add colour. -->
+          <div v-if="hasPeople" ref="personRootRef" class="menu item__person">
+            <Tooltip :text="personTitle" preferred-placement="top" :disabled="isPersonOpen">
+              <button
+                class="btn btn--icon btn--ghost item__person-btn"
+                :class="{ 'item__mark': !!rowPerson }"
+                :style="rowPerson ? { '--lit': `color-mix(in oklab, ${personColor(rowPerson)} 18%, transparent)`, color: personColor(rowPerson) } : undefined"
+                type="button"
+                aria-haspopup="menu"
+                :aria-expanded="isPersonOpen"
+                :aria-label="personTitle"
+                @mousedown.prevent
+                @click="togglePersonMenu"
+              >
+                <HugeiconsIcon :icon="UserIcon" :size="16" :stroke-width="2" />
+              </button>
+            </Tooltip>
+            <Transition name="menu">
+              <ul
+                v-if="isPersonOpen"
+                ref="personListRef"
+                class="popover menu__list item__personlist"
+                :class="{ 'menu__list--start': personAtStart, 'menu__list--above': personAbove }"
+                role="menu"
+                aria-label="Carried by"
+              >
+                <li v-for="p in peopleSorted" :key="p.id" role="none">
+                  <button
+                    type="button"
+                    role="menuitemradio"
+                    class="menu__item item__personpick"
+                    :class="{ 'is-active': item.personId === p.id }"
+                    :aria-checked="item.personId === p.id"
+                    @click="menu.close(); setPerson(item.personId === p.id ? null : p.id)"
+                  >
+                    <span class="swatch" :style="{ background: personColor(p) }" aria-hidden="true" />
+                    {{ p.name }}
+                  </button>
+                </li>
+                <li role="none">
+                  <!-- a nested row handed back follows its group again; a top-level one
+                       is simply unclaimed — the label says which return this is -->
+                  <button
+                    type="button"
+                    role="menuitemradio"
+                    class="menu__item item__personpick"
+                    :class="{ 'is-active': !item.personId }"
+                    :aria-checked="!item.personId"
+                    @click="menu.close(); setPerson(null)"
+                  >
+                    <span class="swatch item__personpick-none" aria-hidden="true" />
+                    {{ nested ? "With the group" : "No one" }}
+                  </button>
+                </li>
+              </ul>
+            </Transition>
+          </div>
           <!-- NESTING, under one icon. These were up to two adjacent buttons whose
                glyphs (list-plus, indent, outdent) are near-identical at 16px, so the
                cluster read as noise and you had to hover each to learn which was which.
@@ -1512,6 +1632,38 @@ function dismissFix() {
                 <li v-for="a in overflowActions" :key="a.label" role="none">
                   <button type="button" role="menuitem" class="menu__item" @click="menu.close(); a.run()">{{ a.label }}</button>
                 </li>
+                <!-- the person picker's mobile seat — the desktop trigger is display:none
+                     here, so its popover would anchor to nothing. Same dispatch, flat
+                     radio entries under a group label. -->
+                <template v-if="hasPeople">
+                  <li role="none" class="t-label item__morelabel" aria-hidden="true">Carried by</li>
+                  <li v-for="p in peopleSorted" :key="p.id" role="none">
+                    <button
+                      type="button"
+                      role="menuitemradio"
+                      class="menu__item item__personpick"
+                      :class="{ 'is-active': item.personId === p.id }"
+                      :aria-checked="item.personId === p.id"
+                      @click="menu.close(); setPerson(item.personId === p.id ? null : p.id)"
+                    >
+                      <span class="swatch" :style="{ background: personColor(p) }" aria-hidden="true" />
+                      {{ p.name }}
+                    </button>
+                  </li>
+                  <li role="none">
+                    <button
+                      type="button"
+                      role="menuitemradio"
+                      class="menu__item item__personpick"
+                      :class="{ 'is-active': !item.personId }"
+                      :aria-checked="!item.personId"
+                      @click="menu.close(); setPerson(null)"
+                    >
+                      <span class="swatch item__personpick-none" aria-hidden="true" />
+                      {{ nested ? "With the group" : "No one" }}
+                    </button>
+                  </li>
+                </template>
               </ul>
             </Transition>
           </div>
@@ -1615,6 +1767,7 @@ function dismissFix() {
           :item="child"
           :children-by-parent="childrenByParent"
           nested
+          :inherited-person-id="effPersonId"
           @overlay-toggle="onChildOverlay"
           @toast="$emit('toast', $event)"
         />
@@ -2171,6 +2324,7 @@ function dismissFix() {
 .item__grip,
 .item__note-btn,
 .item__nest-btn,
+.item__person-btn,
 .item__vault-btn,
 .item__del,
 /* the qty stepper's ± live in this family too, though they sit in the middle of the
@@ -2190,11 +2344,18 @@ function dismissFix() {
 .item__grip:hover,
 .item__note-btn:hover,
 .item__nest-btn:hover,
+.item__person-btn:hover,
 .item__vault-btn:hover,
 .item__del:hover,
 .item__qtybtn:hover,
 .item__morebtn:hover {
   color: var(--ink);
+}
+/* assigned: the trigger holds the carrier's hue at rest (the inline style swaps
+   the plate's --lit and the glyph's ink), so a scan down the cluster says who
+   has what without opening anything — same standing-state rule as the note tick */
+.item__person-btn.item__mark:hover {
+  color: inherit;
 }
 /* banked: the tick holds at full ink so the row keeps saying so, the same way the
    note button stays lit once a note exists */
@@ -2468,6 +2629,41 @@ function dismissFix() {
   display: none;
 }
 
+/* ---- carried by ---- */
+/* the checklist face's carrier tag: rides the name cell inline, quiet ink — the
+   dot carries the identity, the name confirms it */
+.item__cperson {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: var(--space-2);
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+.item__cperson-dot {
+  vertical-align: 0.04em; /* the CategoryBar dot's optical centring */
+}
+/* picker entries: a dot beside each name; the chosen one wears the on-plate */
+.item__personpick {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.item__personpick.is-active {
+  background: var(--lit);
+  color: var(--ink);
+}
+/* the clear entry's hollow dot — "no colour yet", same mark the filter chips use */
+.item__personpick-none {
+  background: transparent;
+  border: 1.5px solid var(--ink-3);
+}
+/* the ⋯ menu's group label above the person entries */
+.item__morelabel {
+  padding: var(--space-2) var(--space-2) var(--space-1);
+  color: var(--ink-3);
+}
+
 @media (max-width: $bp-stack) {
   /* the full-width name gets its own line so long product names never truncate;
      qty · weight · class + the controls reflow into a flex-wrap row beneath it,
@@ -2640,6 +2836,7 @@ function dismissFix() {
      reaches a wrapper from the hidden button inside it; the alternative is a class per
      Tooltip, which is markup spent on saying what the button already says. */
   .item__nest,
+  .item__person,
   .item__actions .tooltip-trigger:has(.item__note-btn),
   .item__actions .tooltip-trigger:has(.item__vault-btn),
   .item__actions .tooltip-trigger:has(.item__del) {

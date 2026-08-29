@@ -19,7 +19,7 @@
 // panel renders it verbatim, rather than each having a half-opinion about phrasing.
 
 import { foldForSearch } from "./catalogSearch";
-import type { Folder, Item } from "./types";
+import type { Folder, Item, Person } from "./types";
 import { itemDisplayName } from "./weights";
 import { tidyText } from "./tidyText";
 import type { Op } from "./ops";
@@ -31,9 +31,14 @@ export const MAX_SUMMARY_LEN = 80;
 export interface SummaryBefore {
   items: readonly Item[];
   folders: readonly Folder[];
+  // optional like the field it names: without it a removePerson still counts,
+  // it just can't say who left
+  people?: readonly Person[];
 }
 
 const plural = (n: number, noun: string) => `${n} ${noun}${n === 1 ? "" : "s"}`;
+// "person" is the one noun here whose plural isn't an s
+const persons = (n: number) => (n === 1 ? "1 person" : `${n} people`);
 
 /**
  * Name one thing, or count several.
@@ -71,6 +76,7 @@ export function summarizeOps(ops: readonly Op[], before?: SummaryBefore): string
 
   const itemsById = new Map((before?.items ?? []).map((i) => [i.id, i]));
   const foldersById = new Map((before?.folders ?? []).map((f) => [f.id, f]));
+  const peopleById = new Map((before?.people ?? []).map((p) => [p.id, p]));
   const labelOf = (id: string) => {
     const it = itemsById.get(id);
     return it ? itemDisplayName(it.brand, it.name, it.variant) : "";
@@ -79,7 +85,8 @@ export function summarizeOps(ops: readonly Op[], before?: SummaryBefore): string
   let added = 0, removed = 0, foldersAdded = 0, foldersRemoved = 0;
   let daysAdded = 0, daysRemoved = 0, daysEdited = 0;
   let wpsAdded = 0, wpsRemoved = 0, wpsEdited = 0;
-  let renamed = 0, swapped = 0, reweighed = 0, reclassified = 0, moved = 0, packed = 0;
+  let peopleAdded = 0, peopleRemoved = 0, peopleEdited = 0;
+  let renamed = 0, swapped = 0, reweighed = 0, reclassified = 0, reassigned = 0, moved = 0, packed = 0;
   let meta = 0, other = 0;
 
   const addedNames: string[] = [];
@@ -88,8 +95,10 @@ export function summarizeOps(ops: readonly Op[], before?: SummaryBefore): string
   const swappedPhrases: string[] = [];
   const reweighedNames: string[] = [];
   const reclassifiedNames: string[] = [];
+  const reassignedPhrases: string[] = [];
   const movedPhrases: string[] = [];
   const folderNames: string[] = [];
+  const personNames: string[] = [];
 
   for (const op of reportable) {
     switch (op.t) {
@@ -143,6 +152,19 @@ export function summarizeOps(ops: readonly Op[], before?: SummaryBefore): string
         break;
       case "updateWaypoint":
         wpsEdited++;
+        break;
+      case "addPerson":
+        peopleAdded++;
+        if (op.person?.name) personNames.push(op.person.name);
+        break;
+      case "removePerson": {
+        peopleRemoved++;
+        const p = peopleById.get(op.id);
+        if (p?.name) personNames.push(p.name);
+        break;
+      }
+      case "updatePerson":
+        peopleEdited++;
         break;
       case "setMeta":
         meta++;
@@ -209,6 +231,15 @@ export function summarizeOps(ops: readonly Op[], before?: SummaryBefore): string
           if (n) reclassifiedNames.push(n);
           break;
         }
+        if (p.personId !== undefined) {
+          reassigned++;
+          const n = labelOf(op.id);
+          // the receiving person, when the batch names one that existed before it —
+          // null (back up for grabs) or a just-added person reads as the bare item
+          const to = typeof p.personId === "string" ? peopleById.get(p.personId)?.name : undefined;
+          if (n) reassignedPhrases.push(to ? `${n} to ${to}` : n);
+          break;
+        }
         if (p.packed !== undefined) {
           packed++;
           break;
@@ -237,9 +268,17 @@ export function summarizeOps(ops: readonly Op[], before?: SummaryBefore): string
   if (wpsAdded && !wpsRemoved) return `Added ${plural(wpsAdded, "waypoint")}`;
   if (wpsRemoved) return `Removed ${plural(wpsRemoved, "waypoint")}`;
   if (wpsEdited) return `Edited ${plural(wpsEdited, "waypoint")}`;
+  // The crew reads at the same structural level as days: who's on the trip is
+  // list shape, not an item edit. "to/from the trip" keeps "Added Matt" from
+  // reading as a gear row named Matt.
+  if (peopleAdded && !peopleRemoved)
+    return `Added ${peopleAdded === 1 && personNames.length === 1 ? personNames[0] : persons(peopleAdded)} to the trip`;
+  if (peopleRemoved)
+    return `Removed ${peopleRemoved === 1 && personNames.length === 1 ? personNames[0] : persons(peopleRemoved)} from the trip`;
+  if (peopleEdited) return `Edited ${persons(peopleEdited)}`;
 
   // then the single-intent edits
-  const labelEdits = renamed + swapped + reweighed + reclassified;
+  const labelEdits = renamed + swapped + reweighed + reclassified + reassigned;
   if (swapped && labelEdits === swapped)
     return swapped === 1 && swappedPhrases.length === 1
       ? `Swapped ${swappedPhrases[0]}`
@@ -254,6 +293,10 @@ export function summarizeOps(ops: readonly Op[], before?: SummaryBefore): string
       : `Changed ${plural(reweighed, "weight")}`;
   if (reclassified && labelEdits === reclassified)
     return `Reclassified ${one(reclassifiedNames, reclassified, "item")}`;
+  if (reassigned && labelEdits === reassigned)
+    return reassigned === 1 && reassignedPhrases.length === 1
+      ? `Reassigned ${reassignedPhrases[0]}`
+      : `Reassigned ${plural(reassigned, "item")}`;
   if (moved && !labelEdits)
     return moved === 1 && movedPhrases.length === 1
       ? `Moved ${movedPhrases[0]}`

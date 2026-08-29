@@ -4,7 +4,8 @@ import { uid } from "~~/shared/id";
 import { colorKeyForName, nextFolderColor, STARTER_FOLDERS } from "~~/shared/categories";
 import { LIST_CODE_HEADER, editLinkPath, normalizeShareCode } from "~~/shared/links";
 import { DRAFT_KEY, claimedLocalKey, localKey, rebaseOnto } from "~~/shared/localList";
-import type { Folder, Item, ListSnapshot, TripDay, Unit, Waypoint, WaypointKind } from "~~/shared/types";
+import { sortedPeople } from "~~/shared/people";
+import type { Folder, Item, ListSnapshot, Person, TripDay, Unit, Waypoint, WaypointKind } from "~~/shared/types";
 import type { VaultCapture, VaultEntry } from "~~/shared/vault";
 import { vaultNormKey } from "~~/shared/vault";
 import { bySortOrder, computeTotals, entryUnitFromInput, nextSortOrder, parseWeightInput, siblingItems } from "~~/shared/weights";
@@ -498,7 +499,7 @@ function create() {
           routeGeometry: s.routeGeometry,
           startDate: s.startDate,
           endDate: s.endDate,
-          data: { folders: s.folders, items: s.items, days: s.days ?? [], waypoints: s.waypoints ?? [] },
+          data: { folders: s.folders, items: s.items, days: s.days ?? [], waypoints: s.waypoints ?? [], people: s.people ?? [] },
         },
       });
       if (myEpoch !== epoch) return;
@@ -859,6 +860,40 @@ function create() {
     });
   }
 
+  // ---- people ----
+  // Thin like the day helpers: nothing to cascade client-side (the reducer's
+  // removePerson clears assignments itself, on both ends of the wire), and no undo
+  // toast — a removed person is one name, and their items stay put, just unclaimed.
+  function addPerson(name: string): string {
+    const people = sortedPeople(snapshot.value?.people);
+    const id = uid();
+    dispatch({
+      t: "addPerson",
+      person: {
+        id,
+        name,
+        // the folder palette walk, over the PEOPLE's used hues — two people get
+        // far-apart colors even on a list whose folders already use half the wheel
+        colorKey: nextFolderColor(people.map((p) => p.colorKey ?? "other")),
+        sortOrder: people.length,
+      },
+    });
+    return id;
+  }
+  const updatePerson = (id: string, patch: Partial<Person>) =>
+    dispatch({ t: "updatePerson", id, patch });
+  function removePerson(id: string) {
+    dispatch({ t: "removePerson", id });
+    // renumber like removeDay, so the chip order a person reads stays gapless
+    const rest = sortedPeople(snapshot.value?.people);
+    rest.forEach((p, i) => {
+      if (p.sortOrder !== i) dispatch({ t: "updatePerson", id: p.id, patch: { sortOrder: i } });
+    });
+    // a filter narrowed to whoever just left now matches nothing — widen it
+    const pf = usePersonFilter();
+    if (pf.selected.value === id) pf.clear();
+  }
+
   function removeFolder(id: string) {
     const folder = snapshot.value?.folders.find((f) => f.id === id);
     // parents before children so nesting re-links on undo (addItem drops a child whose
@@ -885,6 +920,12 @@ function create() {
     const id = uid();
     const sortOrder = nextSortOrder(snapshot.value.items, folderId);
     const item: Item = { id, folderId, name: "", unitWeightMg: 0, qty: 1, classification: null, sortOrder };
+    // Under an active person filter the new row is pre-claimed for that person —
+    // otherwise it would materialize already hidden by the very filter the user is
+    // typing inside. Deliberately not part of discardEmpty's "has content" test:
+    // an abandoned blank still tidies itself away, stamp and all.
+    const personId = usePersonFilter().assignTarget(snapshot.value.people);
+    if (personId) item.personId = personId;
     dispatch({ t: "addItem", item });
     pendingBlankId.value = id;
     return id;
@@ -922,6 +963,9 @@ function create() {
       // the calories the vault remembers for this food, like the weight above
       kcal: entry.kcal,
       catalogItemId: entry.catalogItemId,
+      // same pre-claim as addBlankItem: gear pulled from the vault while narrowed
+      // to one person lands in that person's view, not invisibly outside it
+      personId: usePersonFilter().assignTarget(snapshot.value.people),
       sortOrder: nextSortOrder(snapshot.value.items, folderId),
     };
     dispatch({ t: "addItem", item });
@@ -1207,6 +1251,7 @@ function create() {
     load, startDraft, dispose, rotate,
     setMeta, setUnit, addFolder, updateFolder, removeFolder, moveFolderBefore,
     addDay, updateDay, removeDay,
+    addPerson, updatePerson, removePerson,
     addWaypoint, updateWaypoint, removeWaypoint, ensureRouteEnds,
     vaultPrompt, answerVaultPrompt,
     vaultPicker, confirmVaultPicker, cancelVaultPicker,

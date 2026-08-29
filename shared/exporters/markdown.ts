@@ -2,12 +2,18 @@
 // Apple Notes. Shared by the client (copy/download) and later the server.
 
 import type { ListSnapshot } from "../types";
+import { effectivePersonId, personName } from "../people";
 import { carriedIsDistinct, computeTotals, effectiveClassification, formatWeight, itemDisplayName, lineMg, rowDisplayMg, splitWornQty } from "../weights";
 import { exportSections } from "./rows";
 
 // a product name with its common name trailing after an em dash, when the item has one
 const withCommon = (name: string, commonName?: string) =>
   commonName ? `${name} — ${commonName}` : name;
+
+// the carrier in trailing italics, when there is one — a peopleless list (every
+// list before the feature) produces byte-identical output to what it always did
+const withCarrier = (name: string, carrier?: string) =>
+  carrier ? `${name} *(${carrier})*` : name;
 
 export function listToMarkdown(list: ListSnapshot): string {
   const u = list.displayUnit;
@@ -33,13 +39,23 @@ export function listToMarkdown(list: ListSnapshot): string {
       const w = rowMg > 0 ? formatWeight(rowMg, u) : "—";
       // the product name, with the common name trailing it after an em dash when set
       // ("Altra Lone Peak 9+ — Trail runners") so a pasted list still says what each item is
-      const name = withCommon(itemDisplayName(it.brand, it.name, it.variant), it.commonName);
+      const carrier = personName(list.people, effectivePersonId(it));
+      const name = withCarrier(
+        withCommon(itemDisplayName(it.brand, it.name, it.variant), it.commonName),
+        carrier,
+      );
       const wq = splitWornQty(it, effectiveClassification(it, list.folders));
       out.push(`| ${name} | ${it.qty}${wq > 0 ? ` (${wq} worn)` : ""} | ${w} |`);
       // nested items as indented sub-rows (the row weight above is their total)
       for (const child of kids) {
         const cw = child.unitWeightMg > 0 ? formatWeight(lineMg(child), u) : "—";
-        const cn = withCommon(itemDisplayName(child.brand, child.name, child.variant), child.commonName);
+        // a child names its carrier only when it DIFFERS from the parent's — every
+        // sub-row repeating the name above it would be noise, not information
+        const childCarrier = personName(list.people, effectivePersonId(child, it));
+        const cn = withCarrier(
+          withCommon(itemDisplayName(child.brand, child.name, child.variant), child.commonName),
+          childCarrier === carrier ? undefined : childCarrier,
+        );
         out.push(`| ↳ ${cn} | ${child.qty} | ${cw} |`);
       }
     }

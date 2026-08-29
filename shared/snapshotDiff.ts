@@ -11,7 +11,7 @@
 // value), so the diff can never silently lose a change.
 
 import { normalizeDistanceUnit } from "./trailDistance";
-import type { Folder, Item, ListData, ListState, TripDay, Waypoint } from "./types";
+import type { Folder, Item, ListData, ListState, Person, TripDay, Waypoint } from "./types";
 
 export interface ListDiff {
   meta?: Partial<Pick<ListState, "title" | "description" | "displayUnit" | "trailUrl" | "trailLabel" | "trailDistanceM" | "trailDistanceUnit" | "trailProfile" | "trailAscentM" | "trailDescentM" | "routeGeometry" | "startDate" | "endDate">>;
@@ -23,6 +23,8 @@ export interface ListDiff {
   daysDel?: string[];
   waypointsUpsert?: Waypoint[];
   waypointsDel?: string[];
+  peopleUpsert?: Person[];
+  peopleDel?: string[];
 }
 
 /** A full snapshot payload (the legacy/anchor form — meta + reducer content). */
@@ -61,7 +63,7 @@ export const stateToFullSnap = (s: ListState): FullSnap => ({
   routeGeometry: s.routeGeometry ?? null,
   startDate: s.startDate ?? null,
   endDate: s.endDate ?? null,
-  data: { folders: s.folders, items: s.items, days: s.days ?? [], waypoints: s.waypoints ?? [] },
+  data: { folders: s.folders, items: s.items, days: s.days ?? [], waypoints: s.waypoints ?? [], people: s.people ?? [] },
 });
 export const fullSnapToState = (s: FullSnap): ListState => ({
   title: s.title,
@@ -83,6 +85,7 @@ export const fullSnapToState = (s: FullSnap): ListState => ({
   items: s.data?.items ?? [],
   days: s.data?.days ?? [],
   waypoints: s.data?.waypoints ?? [],
+  people: s.data?.people ?? [],
   version: 0, // not carried by snapshots — the row's own version column is authoritative
 });
 
@@ -174,6 +177,10 @@ export function diffListState(base: ListState, target: ListState): ListDiff {
   if (waypoints.upsert.length) diff.waypointsUpsert = clone(waypoints.upsert);
   if (waypoints.del.length) diff.waypointsDel = waypoints.del;
 
+  const people = diffEntities(base.people ?? [], target.people ?? []);
+  if (people.upsert.length) diff.peopleUpsert = clone(people.upsert);
+  if (people.del.length) diff.peopleDel = people.del;
+
   return diff;
 }
 
@@ -236,6 +243,7 @@ export function applyListDiff(base: ListState, diff: ListDiff): ListState {
   // `?? []` because `base` may predate days entirely — mergeEntities would iterate undefined
   out.days = mergeEntities(out.days ?? [], diff.daysUpsert, diff.daysDel);
   out.waypoints = mergeEntities(out.waypoints ?? [], diff.waypointsUpsert, diff.waypointsDel);
+  out.people = mergeEntities(out.people ?? [], diff.peopleUpsert, diff.peopleDel);
   return out;
 }
 

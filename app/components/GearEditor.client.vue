@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { HugeiconsIcon, type IconNode } from "~/utils/hugeicon";
-import { Backpack02Icon, CheckmarkSquare02Icon, ChevronDownIcon, Copy01Icon, Delete02Icon, EllipsisIcon, FileExportIcon, FileImportIcon, Message01Icon, NoteAddIcon, RemoveCircleIcon, Route02Icon, SafeBoxIcon, Share08Icon, UndoIcon } from "@hugeicons/core-free-icons";
+import { Backpack02Icon, CheckmarkSquare02Icon, ChevronDownIcon, Copy01Icon, Delete02Icon, EllipsisIcon, FileExportIcon, FileImportIcon, Message01Icon, NoteAddIcon, RemoveCircleIcon, Route02Icon, SafeBoxIcon, Share08Icon, UndoIcon, UserGroupIcon } from "@hugeicons/core-free-icons";
 import { editLinkPath, normalizeShareCode } from "~~/shared/links";
 import { tripHeadline } from "~~/shared/trailDistance";
 import { formatWeight } from "~~/shared/weights";
+import { filterItemsForPerson, hasUnassignedTopLevel, personSlot, sortedPeople, UNASSIGNED } from "~~/shared/people";
 import type { Item, Unit } from "~~/shared/types";
 import type { EditorMode } from "~/composables/useEditorMode";
-import { bySortOrder, groupItemsByFolder, groupItemsByParent, ungroupedTopLevel } from "~~/shared/weights";
+import { bySortOrder, computeTotals, groupItemsByFolder, groupItemsByParent, ungroupedTopLevel } from "~~/shared/weights";
 
 // The whole editor surface (its own sticky topbar + flex shell + the shared
 // SiteFooter). Rendered by the page routes: /e (bare, prerendered) and /e/[code]
@@ -135,6 +136,54 @@ const NO_ITEMS: Item[] = [];
 const { mode, everPlan, switching: modeSwitching } = useEditorMode();
 const packed = computed(() => mode.value === "pack");
 
+// ---- people ----
+// The filter itself lives in usePersonFilter (a module singleton, like the mode)
+// so the rows never subscribe to it; everything HERE is the top-level chrome that
+// genuinely changes with it — chips, headline, totals, pack progress.
+const pf = usePersonFilter();
+const people = computed(() => sortedPeople(snapshot.value?.people));
+const peopleOpen = ref(false);
+const hasUnassigned = computed(() => hasUnassignedTopLevel(snapshot.value?.items ?? []));
+// widen a filter whose target stopped resolving: the person was removed (here, or
+// by a collaborator — the poll delivers that as a snapshot change too), the last
+// unclaimed row was claimed (the Unassigned view emptying itself is done, not
+// blank), or the editor moved on to a different list under the same singleton
+watch([people, hasUnassigned, () => snapshot.value?.shareCode], () => {
+  const s = pf.selected.value;
+  if (!s) return;
+  const gone =
+    s === UNASSIGNED
+      ? !people.value.length || !hasUnassigned.value
+      : !people.value.some((p) => p.id === s);
+  if (gone) pf.clear();
+});
+// the slot string the CSS matches on ("0"–"11" or "u"); null removes the
+// attribute entirely, which IS the everyone view — see atoms/item.scss
+const personFilterAttr = computed(() => {
+  const s = pf.selected.value;
+  if (!s) return null;
+  if (s === UNASSIGNED) return "u";
+  const slot = personSlot(snapshot.value?.people, s);
+  return slot == null ? null : String(slot);
+});
+const filteredItems = computed(() =>
+  filterItemsForPerson(snapshot.value?.items ?? [], pf.selected.value),
+);
+// The totals the page SHOWS: the whole list's, or the narrowed person's — same
+// computeTotals either way, just over fewer rows. The SEO description above
+// deliberately keeps the unfiltered `totals`: a share unfurl describes the list,
+// not whichever chip happened to be active.
+const viewTotals = computed(() => {
+  if (!pf.selected.value || !snapshot.value) return totals.value;
+  return computeTotals({ folders: snapshot.value.folders, items: filteredItems.value });
+});
+// the snapshot as TotalsBar should read it while narrowed (its CategoryBar and
+// chips derive from list.items)
+const viewList = computed(() => {
+  if (!pf.selected.value || !snapshot.value) return snapshot.value;
+  return { ...snapshot.value, items: filteredItems.value };
+});
+
 /**
  * What the big number is, per view.
  *
@@ -161,7 +210,8 @@ const headline = computed(() => {
     };
   }
   const unit = snapshot.value?.displayUnit ?? "g";
-  const value = formatWeight(totals.value?.totalMg ?? 0, unit, { withUnit: false });
+  // viewTotals, not totals: narrowed to one person, the big number is THEIR pack
+  const value = formatWeight(viewTotals.value?.totalMg ?? 0, unit, { withUnit: false });
   return {
     value,
     unit: unit as string,
@@ -214,13 +264,17 @@ const editorRef = ref<HTMLElement | null>(null);
 watchPostEffect(() => {
   editorRef.value?.style.setProperty("--vault-w", `${vaultWidth.value}px`);
 });
-// packing progress — rows checked / rows total (a row is one check, whatever its qty)
+// packing progress — rows checked / rows total (a row is one check, whatever its
+// qty). Counts the FILTERED rows, so narrowed to Ryan it reads as his progress —
+// the same rows the checklist below is showing.
 const packProgress = computed(() => {
-  const items = snapshot.value?.items ?? [];
+  const items = filteredItems.value;
   return { done: items.filter((i) => i.packed).length, total: items.length };
 });
 // start the next trip clean: uncheck everything (each row is its own op, so the
-// existing queue/flush machinery — offline, CAS, live-sync — applies unchanged)
+// existing queue/flush machinery — offline, CAS, live-sync — applies unchanged).
+// Scoped to the filtered rows for the same reason the count is: clearing under
+// "Ryan" must not clear Matt's ticks.
 async function clearChecks() {
   if (!snapshot.value) return;
   if (!(await askConfirm({
@@ -229,7 +283,7 @@ async function clearChecks() {
     confirmLabel: "Clear checks",
   }))) return;
   if (!snapshot.value) return; // re-check after the awaited dialog
-  for (const it of snapshot.value.items) if (it.packed) c.updateItem(it.id, { packed: false });
+  for (const it of filteredItems.value) if (it.packed) c.updateItem(it.id, { packed: false });
 }
 // The undo toast holds its dismiss timer while hovered or containing focus, and
 // restarts the window on leave/blur. Two flags (pointer, focus) so releasing one
@@ -651,6 +705,9 @@ const feedbackEverOpened = ref(false);
 const MENU_ACTIONS = [
   { label: "Create a list", icon: NoteAddIcon, run: () => newList() },
   { label: "Duplicate this list", icon: Copy01Icon, run: cloneList },
+  // The way IN to the feature on a list with no people yet — the chips row (and
+  // its own People button) only exists once someone is named.
+  { label: "People…", icon: UserGroupIcon, run: () => { peopleOpen.value = true; } },
   // Import stays a plain row. It has exactly ONE entry point — the modal, which
   // offers the file and the LighterPack link side by side — and a disclosure holding
   // a single item is a click that reveals nothing you couldn't have been shown. It
@@ -944,6 +1001,9 @@ function onCorrected(res: { status: string; itemName?: string }) {
          all of them. is-rowswitching gates the entering face's fade to actual switches,
          so a row appearing for any other reason (a new item, the first mount) doesn't
          flash the animation. -->
+    <!-- data-filter-person narrows the rows to one person the same way data-mode
+         swaps their faces: one body attribute, matched in CSS against each row's
+         own data-person (atoms/item.scss). Absent = everyone. -->
     <main
       v-if="snapshot && totals"
       id="main-content"
@@ -951,6 +1011,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
       class="wrap editor__body"
       :class="{ 'is-rowswitching': modeSwitching }"
       :data-mode="mode"
+      :data-filter-person="personFilterAttr"
     >
       <!-- WHICH VIEW OF THIS LIST. First thing under the toolbar, and part of the PAGE
            rather than the chrome: it scrolls away with everything else. A row of its own
@@ -985,11 +1046,14 @@ function onCorrected(res: { status: string; itemName?: string }) {
            leaving planning doesn't rebuild the bar (it's stateless, but its remount rode
            every plan exit's flush). display:none skips it in layout and the a11y tree
            exactly as absence did, and the flex gap collapses with it. -->
+      <!-- viewList/viewTotals: while narrowed to one person the chips, the bar and
+           the category legend all describe that person's pack (they fall back to
+           the plain snapshot/totals whenever no filter is on). -->
       <TotalsBar
         v-show="mode !== 'plan'"
         :headline="false"
-        :list="snapshot"
-        :totals="totals"
+        :list="viewList ?? snapshot"
+        :totals="viewTotals ?? totals"
         @set-unit="(u) => c.setUnit(u)"
       />
       <!-- Whose gear is this? An edit link you hold is either your own list on a
@@ -1022,6 +1086,24 @@ function onCorrected(res: { status: string; itemName?: string }) {
         @confirm="(keep) => c.confirmVaultPicker(keep)"
         @cancel="c.cancelVaultPicker()"
       />
+
+      <!-- WHO. The chips narrow the list to one person's load — in the gear view
+           and the packing view alike, so it sits above the packbar and stands down
+           only for planning. Rendered only once the list names anyone (the ⋯ menu's
+           "People…" is the way in before that). -->
+      <PeopleBar
+        v-if="people.length"
+        v-show="mode !== 'plan'"
+        class="editor__peoplebar"
+        :people="people"
+        :selected="pf.selected.value"
+        :show-unassigned="hasUnassigned"
+        @pick="(id) => (pf.selected.value = id)"
+        @manage="peopleOpen = true"
+      />
+      <!-- Lazy like the vault picker: most lists never name anyone, and the manager
+           has no business in their first paint. v-if — state resets per open. -->
+      <LazyPeopleModal v-if="peopleOpen" @close="peopleOpen = false" />
 
       <!-- packing progress: slides+fades in on entering packing (grid-rows 1fr↔0fr,
            the shared reveal recipe) so the folders below ease down instead of jumping.

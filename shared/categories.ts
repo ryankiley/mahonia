@@ -37,8 +37,10 @@ export const STARTER_FOLDERS: FolderPreset[] = [
 
 // Assignable hues, ordered so consecutive picks sit far apart on the colour wheel
 // (green→pink→blue→orange→…) — adjacent folders read as clearly distinct. Grey
-// "other" is the neutral fallback, never auto-assigned.
-const FOLDER_PALETTE = [
+// "other" is the neutral fallback, never auto-assigned. Exported for the People
+// manager's swatch row, which offers exactly these ten (people share the folder
+// vocabulary so one token set serves both).
+export const FOLDER_PALETTE = [
   "shelter", // green 132
   "sleep", // pink 350
   "water", // blue 232

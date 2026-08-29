@@ -318,7 +318,18 @@ const FIRST_LOAD_BUDGET_KB = 157;
 // FIRST LOAD is untouched by it — 154.5 → 154.8, a third of a KB — because the page is its
 // own route chunk. MAX_CHUNK is unmoved at 36.5 against 72. 273 restores the ~4 KB of slack
 // the re-anchors above keep arguing for.
-const TOTAL_BUDGET_KB = 273;
+//
+// 273 → 281, the people feature: naming who's on a trip, a "carried by" picker on every
+// row, filter chips on the editor and both read views, and a manage dialog. Measured both
+// ways as ever: main at this commit builds to 269.9 against 273 — 3.1 KB of slack before a
+// line of this work — and the feature adds 5.8 total. Most of it is genuinely shared
+// surface (the chips + row picker render on the editor AND the share pages, which is the
+// point of the feature), so unlike the map chunk it can't all hide off the hot path; the
+// dialog is the part that could be Lazy and is. FIRST LOAD wears its share honestly too,
+// 151.1 → 154.2 against the 157 ratchet, inside the working headroom that number was last
+// re-anchored to keep. MAX_CHUNK unmoved at 36.5 against 72. 281 restores the ~5 KB of
+// slack the re-anchors above keep arguing for.
+const TOTAL_BUDGET_KB = 281;
 // Largest single chunk, brotli. LOAD-BEARING, and the one number here that should not move
 // to accommodate a dependency: it is what a heavy map library fails. MapLibre GL ships as a
 // single ~200 KB brotli chunk and was ruled out on this line alone — a dep that needs the

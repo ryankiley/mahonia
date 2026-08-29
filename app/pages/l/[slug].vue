@@ -17,11 +17,13 @@ const snapshot = computed<ListSnapshot | null>(() => data.value?.list ?? null);
 useResponseHeader("Cache-Control").value =
   "public, max-age=0, s-maxage=30, stale-while-revalidate=120";
 
-const { unit, totals, roList, ungrouped, shownFolders } = useReadonlyList(snapshot);
+const { unit, totals, fullTotals, roList, ungrouped, shownFolders, people, personFilter, showUnassigned } =
+  useReadonlyList(snapshot);
 
 // SEO — indexable (NOT noindex, unlike /s/[code]). Summary shared via useReadonlyListSeo;
 // `facets` comes back for the <head> template below. Only the canonical link differs.
-const { facets } = useReadonlyListSeo(snapshot, totals, "public");
+// fullTotals, not totals: search/unfurls describe the list, not the viewer's filter.
+const { facets } = useReadonlyListSeo(snapshot, fullTotals, "public");
 useHead(() => ({
   title: snapshot.value ? `${snapshot.value.title} — Mahonia` : "List not found — Mahonia",
   link: [{ rel: "canonical", href: `/l/${slug.value}` }],
@@ -39,7 +41,11 @@ useHead(() => ({
       :totals="totals"
       :shown-folders="shownFolders"
       :ungrouped="ungrouped"
+      :people="people"
+      :person-filter="personFilter"
+      :show-unassigned="showUnassigned"
       @set-unit="(u) => (unit = u)"
+      @pick-person="(id) => (personFilter = id)"
     >
       <!-- 14 = the small icon tier, the size every other inline-with-text icon uses -->
       <template #status><HugeiconsIcon :icon="GlobeIcon" :size="14" :stroke-width="2" /> Public list</template>
