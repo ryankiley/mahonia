@@ -6,8 +6,8 @@
 // framework-free, like the rest of shared/.
 
 import { categoryColor } from "./categories";
-import type { Item, Person } from "./types";
-import { bySortOrder } from "./weights";
+import type { Item, ListData, Person } from "./types";
+import { bySortOrder, computeTotals } from "./weights";
 
 /**
  * The filter's third state, beside "a person id" and null-for-everyone: rows
@@ -102,4 +102,27 @@ export function visibleItemsForPerson(items: Item[], selection: PersonSelection)
  */
 export function hasUnassignedTopLevel(items: Item[]): boolean {
   return items.some((it) => it.parentId == null && !it.personId);
+}
+
+/**
+ * Each chip's carry, in milligrams: one entry per person id, plus UNASSIGNED for
+ * the unclaimed bucket — the strict per-person sets through the ordinary
+ * computeTotals, so a chip and the headline it filters to can never disagree.
+ * Zero carries are omitted (a "0 g" suffix on a chip is noise, not a fact).
+ * Written once for the editor's chips and the share views' — the two surfaces
+ * format it in their own display unit.
+ */
+export function carriedTotalsMg(
+  list: Pick<ListData, "folders" | "items" | "people">,
+): Record<string, number> {
+  const out: Record<string, number> = {};
+  const keys = [...(list.people ?? []).map((p) => p.id), UNASSIGNED];
+  for (const key of keys) {
+    const mg = computeTotals({
+      folders: list.folders,
+      items: filterItemsForPerson(list.items, key),
+    }).totalMg;
+    if (mg > 0) out[key] = mg;
+  }
+  return out;
 }

@@ -76,6 +76,10 @@ function containerFor(targetId: string, focusNewGroup: boolean): string {
     unitWeightMg: 0,
     qty: 1,
     classification: null,
+    // the carrier comes along with the slot: the group stands where the product
+    // stood, and a wrap that dropped it would disinherit every later child (and,
+    // under a person filter, make "add a nested item" build an invisible row)
+    personId: target.personId,
     sortOrder: target.sortOrder, // take the product's slot in the folder
   };
   dispatch({ t: "addItem", item: group });
@@ -122,8 +126,15 @@ function unwrapEmptied(containerId: string, childId: string) {
     t: "updateItem",
     id: childId,
     // a catalog-linked row's gear type was the catalog's own default, so hand ownership
-    // back to live-resolve; a hand-typed row's label is the user's, so keep it pinned
-    patch: { commonName: container.name, commonNameOverridden: child.catalogItemId == null },
+    // back to live-resolve; a hand-typed row's label is the user's, so keep it pinned.
+    // The carrier moves back too, when the child was only inheriting it — the wrap
+    // stamped the group with the product's own (see containerFor), but the user may
+    // have reassigned the GROUP since, and deleting it would silently unclaim the row.
+    patch: {
+      commonName: container.name,
+      commonNameOverridden: child.catalogItemId == null,
+      ...(container.personId && !child.personId ? { personId: container.personId } : {}),
+    },
   });
   // quiet: un-nesting is a shape change, not a deletion — the gear didn't go
   // anywhere, its name just moved back onto the row above
@@ -139,6 +150,12 @@ function addChild(parentId: string): string {
   const id = uid();
   const sortOrder = nextSortOrder(snapshot.value!.items, parent.folderId, containerId);
   const item: Item = { id, folderId: parent.folderId, parentId: containerId, name: "", unitWeightMg: 0, qty: 1, classification: null, sortOrder };
+  // addBlankItem's pre-claim, for the one case inheriting doesn't cover: a group
+  // kept on screen only as filter CONTEXT belongs to someone else, so a child
+  // that merely inherited would materialize hidden — with the caret trapped on a
+  // node that can't take it, which also kept discardEmpty from ever firing
+  const claimed = usePersonFilter().assignTarget(snapshot.value?.people);
+  if (claimed && claimed !== parent.personId) item.personId = claimed;
   dispatch({ t: "addItem", item });
   pendingBlankId.value = id; // the blank child is what the user asked for
   return id;

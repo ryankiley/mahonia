@@ -10,6 +10,7 @@ import { boundedRound, normalizeDistanceUnit, normalizeTrailAscentM, normalizeTr
 import { normalizeTrailLabel, normalizeTrailUrl } from "./trailLink";
 import type { Classification, Folder, FolderSort, Item, ListState, Person, TripDay, Unit, Waypoint } from "./types";
 import { UNITS, WAYPOINT_KINDS } from "./types";
+import { UNASSIGNED } from "./people";
 import { cumulativeM, decodePolyline, isLoop, normalizeRouteGeometry } from "./polyline";
 
 // updateItem's patch: Partial<Item> plus `catalogItemId: null` as an explicit
@@ -293,6 +294,16 @@ function cleanPersonPatch(patch: Partial<Person>): Partial<Person> {
   return out;
 }
 
+// An assignee this list doesn't have — removed by a concurrent editor, an offline
+// queue landing after the removePerson it raced, an import naming a stranger —
+// coerces to unassigned. Both item entry points (add + update) run this, and both
+// ends of the wire run the same line, so a race converges on unassigned rather
+// than on a nameless id. The shape half lives in cleanItemPatch, which can't see
+// the list; this is the list-aware half.
+function healPersonId(state: ListState, it: Item): void {
+  if (it.personId && !state.people?.some((p) => p.id === it.personId)) it.personId = undefined;
+}
+
 // A day's optional metres go through trailDistance's boundedRound. Absent stays absent
 // and a zero CLEARS, on the same reasoning as Item.kcal: a zero would read as "this day
 // covers no ground", which is a claim, where absent reads as "not filled in". A day that
@@ -444,9 +455,7 @@ function applyOp(state: ListState, op: Op): void {
           if (parent && parent.parentId == null && parent.id !== it.id) it.folderId = parent.folderId;
           else it.parentId = null;
         }
-        // same heal as folderId: an assignee removed by a concurrent editor (or an
-        // import naming somebody this list doesn't have) coerces to unassigned
-        if (it.personId && !state.people?.some((p) => p.id === it.personId)) it.personId = undefined;
+        healPersonId(state, it); // same heal as the folderId line above
         state.items.push(it);
       }
       break;
@@ -489,11 +498,7 @@ function applyOp(state: ListState, op: Op): void {
             it.wornQty = undefined;
           }
         }
-        // the list-aware half of the personId rule (cleanItemPatch clamps the shape):
-        // an assignment racing a removePerson — an offline queue, a concurrent
-        // editor — lands after the person is gone, and both sides run this same
-        // line, so both converge on unassigned rather than on a name-less id.
-        if (it.personId && !state.people?.some((p) => p.id === it.personId)) it.personId = undefined;
+        healPersonId(state, it);
       }
       break;
     }
@@ -592,6 +597,11 @@ function applyOp(state: ListState, op: Op): void {
       if (
         op.person &&
         typeof op.person.id === "string" &&
+        // the filter's sentinel word is not an id anyone may claim — a crafted
+        // person named by it would hijack the Unassigned chip. Refused, not
+        // re-minted: a fresh uid() here would differ between the client's replay
+        // and the server's, and the two must stay one state.
+        op.person.id !== UNASSIGNED &&
         (state.people?.length ?? 0) < MAX_PEOPLE &&
         !state.people?.some((p) => p.id === op.person.id)
       )

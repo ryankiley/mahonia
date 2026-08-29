@@ -90,22 +90,24 @@ describe("carried by — the row's picker + the filter attribute", () => {
     const w = mountRow([item()]);
     await w.get(".item__person-btn").trigger("click");
     const picks = w.findAll(".item__personpick");
-    // people in display order, then the clear entry
-    expect(picks.map((p) => p.text())).toEqual(["Ryan", "Matt", "No one"]);
+    // people in display order, then the clear entry — one table drives both seats
+    expect(picks.map((p) => p.text())).toEqual(["Ryan", "Matt", "Unassigned"]);
     await picks[1]!.trigger("click");
     expect(snapshot.value.items[0]!.personId).toBe("matt");
     expect(w.get(".item-wrap").attributes("data-person")).toBe("1");
-    // the trigger now wears the on-plate, telling the cluster who has this row
+    // the trigger now wears the on-plate and the carrier's own dot (the glyph
+    // swap — colour lives in a .swatch, chrome stays ink)
     expect(w.get(".item__person-btn").classes()).toContain("item__mark");
+    expect(w.get(".item__person-btn").find(".swatch").exists()).toBe(true);
     w.unmount();
   });
 
-  it("'No one' hands the row back", async () => {
+  it("'Unassigned' hands the row back", async () => {
     const w = mountRow([item({ personId: "ryan" })]);
     expect(w.get(".item-wrap").attributes("data-person")).toBe("0");
     await w.get(".item__person-btn").trigger("click");
     const clear = w.findAll(".item__personpick").at(-1)!;
-    expect(clear.text()).toBe("No one");
+    expect(clear.text()).toBe("Unassigned");
     await clear.trigger("click");
     expect(snapshot.value.items[0]!.personId).toBeUndefined();
     expect(w.get(".item-wrap").attributes("data-person")).toBe("u");
@@ -129,7 +131,7 @@ describe("carried by — the row's picker + the filter attribute", () => {
     expect(w.findAll(".item-wrap")[0]!.attributes("data-person")).toBe("1");
     // a nested row's clear entry says what clearing MEANS one level down
     await w.findAll(".item__person-btn")[1]!.trigger("click");
-    expect(w.findAll(".item__personpick").at(-1)!.text()).toBe("With the group");
+    expect(w.findAll(".item__personpick").at(-1)!.text()).toBe("Whoever carries the group");
     w.unmount();
   });
 
@@ -159,7 +161,7 @@ describe("carried by — the row's picker + the filter attribute", () => {
     em.everPacked.value = true;
     const w = mountRow([item({ personId: "ryan" })]);
     await w.vm.$nextTick();
-    const tag = w.get(".item__cperson");
+    const tag = w.get(".item__carrier");
     expect(tag.text()).toContain("Ryan");
     em.mode.value = "edit";
     w.unmount();

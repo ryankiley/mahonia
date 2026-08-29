@@ -25,9 +25,20 @@ const props = defineProps<{
   people?: readonly Person[];
   personFilter?: PersonSelection;
   showUnassigned?: boolean;
+  /** each chip's carry, pre-formatted in the viewer's unit (useReadonlyList) */
+  chipWeights?: Record<string, string>;
 }>();
 
 defineEmits<{ "set-unit": [Unit]; "pick-person": [PersonSelection] }>();
+
+// the empty filter result gets a sentence (see the block below the folders) —
+// name resolvable only for a real person; the view-model's widen-watcher keeps
+// the Unassigned selection from ever standing empty
+const filteredEmptyName = computed(() => {
+  if (!props.personFilter) return null;
+  if (props.shownFolders.length || props.ungrouped.length) return null;
+  return props.people?.find((p) => p.id === props.personFilter)?.name ?? null;
+});
 
 // one grouping pass for all folders (ReadonlyFolderSection takes its items pre-grouped),
 // each folder ordered by its own sortBy so a shared list reads exactly as the owner's
@@ -225,15 +236,25 @@ const asHeight = (m: number) => {
 
     <!-- whose half of the load — the editor's chips, readonly (no manage button).
          SSR'd like the rest of the page (the names are already in the rows below);
-         the filter itself is client state that starts, and renders, as Everyone. -->
-    <PeopleBar
-      v-if="view === 'gear' && people?.length"
-      :people="people"
-      :selected="personFilter ?? null"
-      :show-unassigned="showUnassigned"
-      readonly
-      @pick="(id) => $emit('pick-person', id)"
-    />
+         the filter itself is client state that starts, and renders, as Everyone.
+         The heading names the block for a first-time viewer — every other block on
+         this page has one, and an unlabelled row of names doesn't say it filters. -->
+    <section v-if="view === 'gear' && people?.length" class="view__people">
+      <p class="t-label view__peopleh">People</p>
+      <PeopleBar
+        :people="people"
+        :selected="personFilter ?? null"
+        :show-unassigned="showUnassigned"
+        :weights="chipWeights"
+        no-manage
+        @pick="(id) => $emit('pick-person', id)"
+      />
+    </section>
+
+    <!-- a filter that matches nothing says so — the chips above are the way back -->
+    <p v-if="view === 'gear' && filteredEmptyName" class="t-sm t-muted">
+      Nothing is {{ filteredEmptyName }}’s yet.
+    </p>
 
     <div v-if="view === 'gear'" class="view__folders">
       <ReadonlyFolderSection v-for="f in shownFolders" :key="f.id" :list="list" :folder="f" :items="itemsByFolder.get(f.id) ?? NO_ITEMS" :children-by-parent="childrenByParent" />
@@ -404,6 +425,15 @@ const asHeight = (m: number) => {
 }
 .view__ungrouped {
   margin-bottom: var(--space-1);
+}
+/* the people block: heading tight to its chips, the pair one unit in the column */
+.view__people {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.view__peopleh {
+  margin: 0;
 }
 .view--missing {
   padding-block: var(--space-9);

@@ -3,7 +3,7 @@ import { HugeiconsIcon } from "~/utils/hugeicon";
 import { Delete02Icon } from "@hugeicons/core-free-icons";
 import { categoryColor, FOLDER_PALETTE } from "~~/shared/categories";
 import { MAX_PEOPLE } from "~~/shared/ops";
-import { personColor, sortedPeople } from "~~/shared/people";
+import { filterItemsForPerson, personColor, sortedPeople } from "~~/shared/people";
 import type { Person } from "~~/shared/types";
 
 // Who's on this trip — the one place people are added, renamed, recolored and
@@ -22,6 +22,10 @@ const atCap = computed(() => people.value.length >= MAX_PEOPLE);
 // ---- add ----
 const draft = ref("");
 const draftEl = useTemplateRef<HTMLInputElement>("draftEl");
+// The whole job on a fresh open is "type Ryan, Enter, type Matt, Enter" — start
+// in the field. BaseModal's own focus move yields to a caller that already
+// placed focus inside (its documented contract), so this wins the race cleanly.
+onMounted(() => draftEl.value?.focus());
 function add() {
   const name = draft.value.trim();
   if (!name || atCap.value) return;
@@ -53,7 +57,15 @@ function setColor(p: Person, colorKey: string) {
 // An ARMED second click instead of a stacked confirm dialog: two modals fight
 // over Escape and the focus trap, and the act is small — the person's items stay,
 // they just go back up for grabs. Arming disarms itself when focus leaves the row.
+// The armed label says what the click costs: the name is the cheap part, the N
+// assignments made one row at a time are the expensive one, and they don't come
+// back with a re-typed name.
 const arming = ref<string | null>(null);
+const carriedCount = (id: string) =>
+  filterItemsForPerson(c.snapshot.value?.items ?? [], id).length;
+// palette membership, for the strip below — an 11th person walks off the ten
+// named hues onto a procedural one, and the strip must still show a selection
+const inPalette = (key?: string) => !!key && (FOLDER_PALETTE as readonly string[]).includes(key);
 function remove(p: Person) {
   if (arming.value !== p.id) {
     arming.value = p.id;
@@ -69,8 +81,9 @@ function remove(p: Person) {
   <BaseModal :open="true" label="People on this trip" @close="emit('close')">
     <h2 class="t-label">People</h2>
     <p class="t-sm t-muted dlg__lede">
-      Name who’s on this trip, then mark who carries each item from the row’s
-      “Carried by” control. Removing a person keeps their items — unassigned.
+      Name who’s on this trip, then mark who carries what as you go down the list.
+      Removing someone keeps their gear — it just goes back up for grabs.
+      Filter to Unassigned to work through what’s left.
     </p>
 
     <ul v-if="people.length" class="ppl__list">
@@ -102,7 +115,7 @@ function remove(p: Person) {
             :aria-label="arming === p.id ? `Really remove ${p.name}` : `Remove ${p.name}`"
             @click="remove(p)"
           >
-            <template v-if="arming === p.id">Remove?</template>
+            <template v-if="arming === p.id">Remove?{{ carriedCount(p.id) ? ` · ${carriedCount(p.id)} item${carriedCount(p.id) === 1 ? "" : "s"}` : "" }}</template>
             <HugeiconsIcon v-else :icon="Delete02Icon" :size="14" :stroke-width="2" aria-hidden="true" />
           </button>
         </div>
@@ -119,6 +132,17 @@ function remove(p: Person) {
           >
             <span class="swatch" :style="{ background: categoryColor(key) }" aria-hidden="true" />
           </button>
+          <!-- an 11th/12th person's auto-color is a procedural hue past the ten named
+               ones — show it as the standing selection, or the strip claims nothing
+               is chosen. Not a button: it IS the current pick, there's nothing to do. -->
+          <span
+            v-if="p.colorKey && !inPalette(p.colorKey)"
+            class="ppl__swatchbtn is-active"
+            role="img"
+            :aria-label="`${p.name}’s current color`"
+          >
+            <span class="swatch" :style="{ background: categoryColor(p.colorKey) }" aria-hidden="true" />
+          </span>
         </div>
       </li>
     </ul>

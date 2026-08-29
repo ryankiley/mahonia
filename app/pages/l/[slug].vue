@@ -17,7 +17,7 @@ const snapshot = computed<ListSnapshot | null>(() => data.value?.list ?? null);
 useResponseHeader("Cache-Control").value =
   "public, max-age=0, s-maxage=30, stale-while-revalidate=120";
 
-const { unit, totals, fullTotals, roList, ungrouped, shownFolders, people, personFilter, showUnassigned } =
+const { unit, totals, fullTotals, roList, ungrouped, shownFolders, people, personFilter, showUnassigned, chipWeights } =
   useReadonlyList(snapshot);
 
 // SEO — indexable (NOT noindex, unlike /s/[code]). Summary shared via useReadonlyListSeo;
@@ -34,7 +34,9 @@ useHead(() => ({
 
 <template>
   <div>
-    <ReadTopbar :snapshot="snapshot" :totals="totals" />
+    <!-- fullTotals, not totals: the topbar's figure (and the weight a Duplicate
+         registers in "Your lists") describes the list, not the viewer's filter -->
+    <ReadTopbar :snapshot="snapshot" :totals="fullTotals" />
 
     <ReadonlyListView
       :list="roList"
@@ -44,6 +46,7 @@ useHead(() => ({
       :people="people"
       :person-filter="personFilter"
       :show-unassigned="showUnassigned"
+      :chip-weights="chipWeights"
       @set-unit="(u) => (unit = u)"
       @pick-person="(id) => (personFilter = id)"
     >

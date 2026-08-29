@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { HugeiconsIcon, type IconNode } from "~/utils/hugeicon";
-import { Backpack02Icon, CheckmarkSquare02Icon, ChevronDownIcon, Copy01Icon, Delete02Icon, EllipsisIcon, FileExportIcon, FileImportIcon, Message01Icon, NoteAddIcon, RemoveCircleIcon, Route02Icon, SafeBoxIcon, Share08Icon, UndoIcon, UserGroupIcon } from "@hugeicons/core-free-icons";
+import { Backpack02Icon, CheckmarkSquare02Icon, ChevronDownIcon, Copy01Icon, Delete02Icon, EllipsisIcon, FileExportIcon, FileImportIcon, Message01Icon, NoteAddIcon, RemoveCircleIcon, Route02Icon, SafeBoxIcon, Share08Icon, UndoIcon } from "@hugeicons/core-free-icons";
 import { editLinkPath, normalizeShareCode } from "~~/shared/links";
 import { tripHeadline } from "~~/shared/trailDistance";
 import { formatWeight } from "~~/shared/weights";
-import { filterItemsForPerson, hasUnassignedTopLevel, personSlot, sortedPeople, UNASSIGNED } from "~~/shared/people";
+import { carriedTotalsMg, filterItemsForPerson, hasUnassignedTopLevel, personName, personSlot, sortedPeople, UNASSIGNED } from "~~/shared/people";
 import type { Item, Unit } from "~~/shared/types";
 import type { EditorMode } from "~/composables/useEditorMode";
 import { bySortOrder, computeTotals, groupItemsByFolder, groupItemsByParent, ungroupedTopLevel } from "~~/shared/weights";
@@ -147,15 +147,22 @@ const hasUnassigned = computed(() => hasUnassignedTopLevel(snapshot.value?.items
 // widen a filter whose target stopped resolving: the person was removed (here, or
 // by a collaborator — the poll delivers that as a snapshot change too), the last
 // unclaimed row was claimed (the Unassigned view emptying itself is done, not
-// blank), or the editor moved on to a different list under the same singleton
+// blank), or the editor moved on to a different list under the same singleton.
+// The ONE owner of this job — removePerson deliberately doesn't reach for it.
 watch([people, hasUnassigned, () => snapshot.value?.shareCode], () => {
   const s = pf.selected.value;
   if (!s) return;
+  const emptied = s === UNASSIGNED && people.value.length > 0 && !hasUnassigned.value;
   const gone =
     s === UNASSIGNED
       ? !people.value.length || !hasUnassigned.value
       : !people.value.some((p) => p.id === s);
-  if (gone) pf.clear();
+  if (gone) {
+    pf.clear();
+    // the row you just claimed vanished and the whole list flooded back — one
+    // sentence keeps that from reading as a glitch
+    if (emptied) flash("Everything’s claimed");
+  }
 });
 // the slot string the CSS matches on ("0"–"11" or "u"); null removes the
 // attribute entirely, which IS the everyone view — see atoms/item.scss
@@ -169,19 +176,42 @@ const personFilterAttr = computed(() => {
 const filteredItems = computed(() =>
   filterItemsForPerson(snapshot.value?.items ?? [], pf.selected.value),
 );
-// The totals the page SHOWS: the whole list's, or the narrowed person's — same
-// computeTotals either way, just over fewer rows. The SEO description above
-// deliberately keeps the unfiltered `totals`: a share unfurl describes the list,
-// not whichever chip happened to be active.
-const viewTotals = computed(() => {
-  if (!pf.selected.value || !snapshot.value) return totals.value;
-  return computeTotals({ folders: snapshot.value.folders, items: filteredItems.value });
+// The list + totals the page SHOWS — the whole list's, or the narrowed person's
+// (same computeTotals, just over fewer rows). One pair, read together by the
+// headline and the totals bar. Non-null exactly when `snapshot` is, so the
+// template's `?? snapshot` is a TS-narrowing crutch, never a runtime fallback.
+// The SEO description above deliberately keeps the unfiltered `totals`: a share
+// unfurl describes the list, not whichever chip happened to be active.
+const view = computed(() => {
+  const s = snapshot.value;
+  if (!s || !pf.selected.value) return { list: s, totals: totals.value };
+  const items = filteredItems.value;
+  return { list: { ...s, items }, totals: computeTotals({ folders: s.folders, items }) };
 });
-// the snapshot as TotalsBar should read it while narrowed (its CategoryBar and
-// chips derive from list.items)
-const viewList = computed(() => {
-  if (!pf.selected.value || !snapshot.value) return snapshot.value;
-  return { ...snapshot.value, items: filteredItems.value };
+// what the big number is OF, said only while it isn't the obvious thing — the
+// headline drops its "no label needed" argument the moment a chip narrows it
+const filterCaption = computed(() => {
+  const s = pf.selected.value;
+  if (!s || mode.value === "plan") return undefined;
+  if (s === UNASSIGNED) return "Unassigned";
+  const name = personName(snapshot.value?.people, s);
+  return name ? `${name}’s pack` : undefined;
+});
+// each chip's carry at a glance — the "divisible by participants" figure,
+// formatted in the list's unit; absent until the list has weights
+const chipWeights = computed<Record<string, string> | undefined>(() => {
+  const s = snapshot.value;
+  if (!s || !totals.value?.hasWeights || !people.value.length) return undefined;
+  const out: Record<string, string> = {};
+  for (const [key, mg] of Object.entries(carriedTotalsMg(s))) out[key] = formatWeight(mg, s.displayUnit);
+  return out;
+});
+// the empty filter result gets a sentence (only a real person can reach it —
+// the watcher above widens an emptied Unassigned view on its own)
+const emptyFilterName = computed(() => {
+  const s = pf.selected.value;
+  if (!s || s === UNASSIGNED || filteredItems.value.length) return null;
+  return personName(snapshot.value?.people, s) ?? null;
 });
 
 /**
@@ -210,8 +240,8 @@ const headline = computed(() => {
     };
   }
   const unit = snapshot.value?.displayUnit ?? "g";
-  // viewTotals, not totals: narrowed to one person, the big number is THEIR pack
-  const value = formatWeight(viewTotals.value?.totalMg ?? 0, unit, { withUnit: false });
+  // view.totals, not totals: narrowed to one person, the big number is THEIR pack
+  const value = formatWeight(view.value.totals?.totalMg ?? 0, unit, { withUnit: false });
   return {
     value,
     unit: unit as string,
@@ -705,9 +735,9 @@ const feedbackEverOpened = ref(false);
 const MENU_ACTIONS = [
   { label: "Create a list", icon: NoteAddIcon, run: () => newList() },
   { label: "Duplicate this list", icon: Copy01Icon, run: cloneList },
-  // The way IN to the feature on a list with no people yet — the chips row (and
-  // its own People button) only exists once someone is named.
-  { label: "People…", icon: UserGroupIcon, run: () => { peopleOpen.value = true; } },
+  // People is NOT here: its door is the "Add people" affordance in ListHead's
+  // meta row (beside the trail + dates it belongs with), and the chips row's own
+  // button once anyone is named. This menu stays list-lifecycle actions.
   // Import stays a plain row. It has exactly ONE entry point — the modal, which
   // offers the file and the LighterPack link side by side — and a disclosure holding
   // a single item is a click that reveals nothing you couldn't have been shown. It
@@ -1004,12 +1034,15 @@ function onCorrected(res: { status: string; itemName?: string }) {
     <!-- data-filter-person narrows the rows to one person the same way data-mode
          swaps their faces: one body attribute, matched in CSS against each row's
          own data-person (atoms/item.scss). Absent = everyone. -->
+    <!-- has-people widens the actions track to its six-icon worst case (the person
+         trigger joined the cluster) — a body class, so peopleless lists keep the
+         narrower track and no row subscribes to anything; see atoms/item.scss -->
     <main
       v-if="snapshot && totals"
       id="main-content"
       tabindex="-1"
       class="wrap editor__body"
-      :class="{ 'is-rowswitching': modeSwitching }"
+      :class="{ 'is-rowswitching': modeSwitching, 'has-people': people.length > 0 }"
       :data-mode="mode"
       :data-filter-person="personFilterAttr"
     >
@@ -1022,7 +1055,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
       <!-- The list name is a page title, not a toolbar field: large, borderless, with a
            ghosted placeholder, at the top of the content — matching what the two read
            views have always done (ReadonlyListView's h1). -->
-      <ListHead :snapshot="snapshot" :distance-is-headline="mode === 'plan'" @toast="flash" />
+      <ListHead :snapshot="snapshot" :distance-is-headline="mode === 'plan'" @toast="flash" @open-people="peopleOpen = true" />
       <!-- The totals bar stands down while planning: that view has its own headline (the
            route's distance), and two display-size figures on one screen would make you
            choose which one the page is about. The pack's weight isn't lost — it rides in
@@ -1039,6 +1072,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
         :options="headline.options"
         :label="headline.label"
         :trigger-label="headline.triggerLabel"
+        :caption="filterCaption"
         title="Change unit"
         @pick="headline.pick"
       />
@@ -1046,14 +1080,14 @@ function onCorrected(res: { status: string; itemName?: string }) {
            leaving planning doesn't rebuild the bar (it's stateless, but its remount rode
            every plan exit's flush). display:none skips it in layout and the a11y tree
            exactly as absence did, and the flex gap collapses with it. -->
-      <!-- viewList/viewTotals: while narrowed to one person the chips, the bar and
-           the category legend all describe that person's pack (they fall back to
-           the plain snapshot/totals whenever no filter is on). -->
+      <!-- view.*: while narrowed to one person the chips, the bar and the category
+           legend all describe that person's pack. The `??` never runs — see the
+           `view` computed — it only narrows the type for the template. -->
       <TotalsBar
         v-show="mode !== 'plan'"
         :headline="false"
-        :list="viewList ?? snapshot"
-        :totals="viewTotals ?? totals"
+        :list="view.list ?? snapshot"
+        :totals="view.totals ?? totals"
         @set-unit="(u) => c.setUnit(u)"
       />
       <!-- Whose gear is this? An edit link you hold is either your own list on a
@@ -1094,13 +1128,19 @@ function onCorrected(res: { status: string; itemName?: string }) {
       <PeopleBar
         v-if="people.length"
         v-show="mode !== 'plan'"
-        class="editor__peoplebar"
         :people="people"
         :selected="pf.selected.value"
         :show-unassigned="hasUnassigned"
+        :weights="chipWeights"
         @pick="(id) => (pf.selected.value = id)"
         @manage="peopleOpen = true"
       />
+      <!-- a filter that matches nothing says so, instead of standing every folder
+           down into a silent blank page — the ListMenu empty-state voice -->
+      <p v-if="emptyFilterName" v-show="mode !== 'plan'" class="t-sm t-muted editor__filterempty">
+        Nothing is {{ emptyFilterName }}’s yet.
+        <button type="button" class="btn btn--quiet editor__filterclear" @click="pf.clear()">Show everyone</button>
+      </p>
       <!-- Lazy like the vault picker: most lists never name anyone, and the manager
            has no business in their first paint. v-if — state resets per open. -->
       <LazyPeopleModal v-if="peopleOpen" @close="peopleOpen = false" />
@@ -1540,6 +1580,17 @@ function onCorrected(res: { status: string; itemName?: string }) {
   flex: none;
   color: var(--ink);
   font-weight: 600;
+}
+/* the empty filter result — one quiet line where the folders would be, the way
+   back beside it (ListMenu's "No lists match" voice) */
+.editor__filterempty {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+.editor__filterclear {
+  flex: none;
 }
 /* packing progress — one quiet line between the totals and the checklist. The
    count is the info; "Clear checks" sits beside it in the site's under-link

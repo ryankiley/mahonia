@@ -97,7 +97,7 @@ const rowPerson = computed(() =>
         <span class="item__ronametext"><ItemName :item="item" :group="isParent" search /><span v-if="lineKcal" class="t-sm item__class"> · {{ formatKcal(lineKcal) }} kcal</span><!--
           who carries it — the dot names the person in colour, the hidden text names
           them for flattened readers of this SSR'd page (the class-mark precedent)
-        --><span v-if="rowPerson" class="t-sm item__roperson"><span class="swatch item__roperson-dot" :style="{ background: personColor(rowPerson) }" aria-hidden="true" />{{ rowPerson.name }}<span class="visually-hidden"> carries this</span></span></span>
+        --><span v-if="rowPerson" class="t-sm item__carrier"><span class="swatch item__carrier-dot" :style="{ background: personColor(rowPerson) }" aria-hidden="true" />{{ rowPerson.name }}<span class="visually-hidden"> carries this</span></span></span>
         <!-- collapse a group of nested items — trails the name like the folder chevron.
              The name text truncates so a long group name never shoves the chevron off. -->
         <button
@@ -265,19 +265,8 @@ const rowPerson = computed(() =>
   color: var(--ink-3);
   font-style: italic;
 }
-/* the carrier tag — quiet ink, dot leading, riding the name line (wraps with it
-   on mobile). Mirrors the editor checklist's .item__cperson. */
-.item__roperson {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  margin-left: var(--space-2);
-  color: var(--ink-3);
-  white-space: nowrap;
-}
-.item__roperson-dot {
-  vertical-align: 0.04em;
-}
+/* the carrier tag is the shared .item__carrier atom (atoms/item.scss) — one
+   recipe for this row and the editor's faces, per that file's header rule */
 /* the nested block's thread-line container is the shared .nest-block atom
    (atoms/item.scss), rendered identically by the editor's ItemRow */
 

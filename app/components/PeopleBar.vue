@@ -20,8 +20,18 @@ const props = defineProps<{
   selected: PersonSelection;
   /** offer the "Unassigned" chip (some top-level row has no one yet) */
   showUnassigned?: boolean;
-  /** hide the trailing manage button (the read views have no one to manage) */
-  readonly?: boolean;
+  /**
+   * Hide the trailing manage button (the read views have no one to manage).
+   * NOT named `readonly`: that word is a Vue auto-import, and a setup-scope
+   * binding by the same name would silently shadow the prop.
+   */
+  noManage?: boolean;
+  /**
+   * Each chip's carry, pre-formatted, keyed by person id (+ the UNASSIGNED
+   * sentinel) — the "divisible by participants" figure at a glance. Absent (or
+   * missing a key) = no suffix, which is a list without weights.
+   */
+  weights?: Record<string, string>;
 }>();
 
 const emit = defineEmits<{ pick: [selection: PersonSelection]; manage: [] }>();
@@ -29,10 +39,18 @@ const emit = defineEmits<{ pick: [selection: PersonSelection]; manage: [] }>();
 // ONE array driving one v-for — not three sibling groups sharing a ref name: a
 // template ref only collects into an array within a single v-for, so the mixed
 // shape left the arrows a ref that held whichever plain chip rendered last.
-const chips = computed<{ key: PersonSelection; label: string; color?: string; hollow?: boolean }[]>(() => [
+const chips = computed<{ key: PersonSelection; label: string; color?: string; hollow?: boolean; weight?: string }[]>(() => [
+  // Everyone carries no figure — the totals bar right above it is that figure
   { key: null, label: "Everyone" },
-  ...props.people.map((p) => ({ key: p.id as PersonSelection, label: p.name, color: personColor(p) })),
-  ...(props.showUnassigned ? [{ key: UNASSIGNED as PersonSelection, label: "Unassigned", hollow: true }] : []),
+  ...props.people.map((p) => ({
+    key: p.id as PersonSelection,
+    label: p.name,
+    color: personColor(p),
+    weight: props.weights?.[p.id],
+  })),
+  ...(props.showUnassigned
+    ? [{ key: UNASSIGNED as PersonSelection, label: "Unassigned", hollow: true, weight: props.weights?.[UNASSIGNED] }]
+    : []),
 ]);
 
 const pick = (key: PersonSelection) => emit("pick", key === props.selected ? null : key);
@@ -71,19 +89,22 @@ function onKey(e: KeyboardEvent) {
         <span
           v-if="c.color || c.hollow"
           class="swatch pplbar__dot"
-          :class="{ 'pplbar__dot--hollow': c.hollow }"
+          :class="{ 'swatch--hollow': c.hollow }"
           :style="c.color ? { background: c.color } : undefined"
           aria-hidden="true"
         />
-        {{ c.label }}
+        {{ c.label }}<!--
+        the chip's carry, quiet beside the name — kept t-num t-muted so the chip
+        still reads as a control, not as one of the totals bar's readout chips
+        --><span v-if="c.weight" class="t-num t-muted pplbar__wt">{{ c.weight }}</span>
       </button>
     </div>
-    <Tooltip v-if="!readonly" text="Add or edit people" preferred-placement="top">
+    <Tooltip v-if="!noManage" text="People on this trip" preferred-placement="top">
       <button
         type="button"
         class="btn btn--icon btn--ghost pplbar__manage"
-        aria-label="Add or edit people"
-        @click="$emit('manage')"
+        aria-label="People on this trip"
+        @click="emit('manage')"
       >
         <HugeiconsIcon :icon="UserGroupIcon" :size="16" :stroke-width="2" aria-hidden="true" />
       </button>
@@ -148,10 +169,10 @@ function onKey(e: KeyboardEvent) {
   border-color: transparent;
   color: var(--ink);
 }
-/* the "no colour yet" bucket's hollow dot */
-.pplbar__dot--hollow {
-  background: transparent;
-  border: 1.5px solid var(--ink-3);
+/* (the hollow "no colour yet" dot is the shared .swatch--hollow atom — controls.scss) */
+/* the carry rides a step off the name, and never turns the chip's ink */
+.pplbar__wt {
+  margin-left: var(--space-2);
 }
 /* the manage button holds the row's trailing edge and doesn't shrink under wrap */
 .pplbar__manage {

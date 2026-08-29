@@ -71,12 +71,18 @@ function create() {
   }
   const idOf = (el: HTMLElement | undefined): string | null => el?.getAttribute("data-item-id") ?? null;
 
-  // top-level rows of a folder (skip nested children, which carry data-parent), minus
-  // the dragged row itself
+  // Top-level rows of a folder (skip nested children, which carry data-parent), minus
+  // the dragged row itself — and minus anything the person filter has display:none'd.
+  // A hidden row can never WIN a slot (its zero-height rect fails slotFor's test),
+  // but it still occupied an index, and the nest candidate below is picked BY index —
+  // so without this a rightward drag could nest under a row nobody can see.
   function topRowsOf(folderEl: HTMLElement, dragId: string): HTMLElement[] {
-    return [...folderEl.querySelectorAll("[data-item-id]")].filter(
-      (r) => r.getAttribute("data-item-id") !== dragId && !r.getAttribute("data-parent"),
-    ) as HTMLElement[];
+    return ([...folderEl.querySelectorAll("[data-item-id]")] as HTMLElement[]).filter(
+      (r) =>
+        r.getAttribute("data-item-id") !== dragId &&
+        !r.getAttribute("data-parent") &&
+        r.getBoundingClientRect().height > 0,
+    );
   }
 
   // the folder under the pointer — normally elementFromPoint's hit, but a rightward
@@ -165,7 +171,14 @@ function create() {
       // nest INTO the row above when dragged right past the threshold — but only a
       // childless row can be nested, only under a real row above it, and not in a
       // sorted folder (slot is moot there). Otherwise land at top level.
-      const nest = dx >= NEST_THRESHOLD && !hasKids && !sorted && candidateId != null;
+      // Not while a person filter is on, either: the visible row above is either
+      // that person's (fine) or a context parent belonging to someone ELSE — and
+      // nesting under that one makes the dragged row inherit them and vanish from
+      // the very view the user is working in. Structure edits stand down under a
+      // filter (the indent menu does the same, in CSS). Read at CALL time — this
+      // is a pointermove handler, so no row grows a reactive subscription.
+      const filterOn = usePersonFilter().selected.value != null;
+      const nest = !filterOn && dx >= NEST_THRESHOLD && !hasKids && !sorted && candidateId != null;
       if (nest) {
         const kids = [...document.querySelectorAll(`[data-parent="${candidateId}"]`)].filter(
           (r) => r.getAttribute("data-item-id") !== dragId,

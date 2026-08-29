@@ -21,6 +21,7 @@ import {
   tidyListText,
   type Op,
 } from "../../shared/ops";
+import { UNASSIGNED } from "../../shared/people";
 import { computeTotals } from "../../shared/weights";
 import {
   diffListState,
@@ -131,7 +132,9 @@ function normalizeListData(raw?: Partial<ListData>): ListData {
   const people: NonNullable<ListData["people"]> = [];
   const personIds = new Set<string>();
   for (const p of (raw?.people ?? []).slice(0, MAX_PEOPLE).map(normalizePerson)) {
-    if (personIds.has(p.id)) continue;
+    // the filter's sentinel word is not an id (the addPerson arm refuses it too);
+    // a crafted create carrying it is dropped here and its items heal below
+    if (personIds.has(p.id) || p.id === UNASSIGNED) continue;
     personIds.add(p.id);
     people.push(p);
   }

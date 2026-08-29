@@ -99,6 +99,7 @@ export function summarizeOps(ops: readonly Op[], before?: SummaryBefore): string
   const movedPhrases: string[] = [];
   const folderNames: string[] = [];
   const personNames: string[] = [];
+  const personRenames: string[] = [];
 
   for (const op of reportable) {
     switch (op.t) {
@@ -163,9 +164,17 @@ export function summarizeOps(ops: readonly Op[], before?: SummaryBefore): string
         if (p?.name) personNames.push(p.name);
         break;
       }
-      case "updatePerson":
+      case "updatePerson": {
         peopleEdited++;
+        // a rename is worth naming, the way an item rename is — recolors and
+        // reorders stay a count (nobody scans history for a hue change)
+        if (typeof op.patch?.name === "string") {
+          const was = peopleById.get(op.id)?.name;
+          const now = tidyText(op.patch.name);
+          if (was && now && was !== now) personRenames.push(`${was} → ${now}`);
+        }
         break;
+      }
       case "setMeta":
         meta++;
         break;
@@ -275,7 +284,10 @@ export function summarizeOps(ops: readonly Op[], before?: SummaryBefore): string
     return `Added ${peopleAdded === 1 && personNames.length === 1 ? personNames[0] : persons(peopleAdded)} to the trip`;
   if (peopleRemoved)
     return `Removed ${peopleRemoved === 1 && personNames.length === 1 ? personNames[0] : persons(peopleRemoved)} from the trip`;
-  if (peopleEdited) return `Edited ${persons(peopleEdited)}`;
+  if (peopleEdited)
+    return peopleEdited === 1 && personRenames.length === 1
+      ? `Renamed ${personRenames[0]}`
+      : `Edited ${persons(peopleEdited)}`;
 
   // then the single-intent edits
   const labelEdits = renamed + swapped + reweighed + reclassified + reassigned;

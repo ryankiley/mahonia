@@ -16,6 +16,7 @@ import { jsonToListImport, listToJson } from "../shared/exporters/json";
 import { listToMarkdown } from "../shared/exporters/markdown";
 import { applyOps, MAX_PEOPLE, normalizePerson, tidyListText, type Op } from "../shared/ops";
 import {
+  carriedTotalsMg,
   effectivePersonId,
   filterItemsForPerson,
   hasUnassignedTopLevel,
@@ -107,6 +108,15 @@ describe("person ops", () => {
       { t: "updatePerson", id: "nope", patch: { name: "X" } },
       { t: "removePerson", id: "nope" },
     ]);
+    expect(s.people).toHaveLength(0);
+  });
+
+  it("refuses the filter's sentinel word as an id — refused, never re-minted", () => {
+    // a crafted person named by the sentinel would hijack the Unassigned chip;
+    // re-minting instead of refusing would give the client's replay and the
+    // server's different ids, and the two must stay one state
+    const s = state();
+    applyOps(s, [{ t: "addPerson", person: person({ id: UNASSIGNED, name: "Impostor" }) }]);
     expect(s.people).toHaveLength(0);
   });
 
@@ -245,6 +255,14 @@ describe("filtering + per-person totals", () => {
     expect(personSlot(people, "ghost")).toBeNull();
     expect(personSlot(people, undefined)).toBeNull();
   });
+
+  it("carriedTotalsMg gives each chip its carry, and no chip a zero", () => {
+    const totalsByChip = carriedTotalsMg({ folders: [], items: gear(), people: crew() });
+    expect(totalsByChip).toEqual({ ryan: 1050, matt: 800, [UNASSIGNED]: 700 });
+    // a person with nothing gets no entry — a "0 g" chip suffix is noise
+    const bare = carriedTotalsMg({ folders: [], items: [], people: crew() });
+    expect(bare).toEqual({});
+  });
 });
 
 describe("round-trips", () => {
@@ -356,6 +374,11 @@ describe("round-trips", () => {
     expect(md).toContain("Spoon *(Ryan)*"); // the exception is worth naming
   });
 
+});
+
+// Not round-trips — standing invariants. The vault one is a privacy-omission
+// canary, sibling in spirit to tests/bodyWeightPrivacy.test.ts.
+describe("standing invariants", () => {
   it("tidyListText tidies person names like folder names", () => {
     const s = state({ people: [person({ name: "Ryan's  brother" })] });
     tidyListText(s);
@@ -390,6 +413,15 @@ describe("change summaries", () => {
     expect(
       summarizeOps([{ t: "updateItem", id: "can", patch: { personId: null } }], before),
     ).toBe("Reassigned Bear Can");
+  });
+
+  it("a rename is worth naming; a recolor stays a count", () => {
+    expect(
+      summarizeOps([{ t: "updatePerson", id: "matt", patch: { name: "Matthew" } }], before),
+    ).toBe("Renamed Matt → Matthew");
+    expect(
+      summarizeOps([{ t: "updatePerson", id: "matt", patch: { colorKey: "water" } }], before),
+    ).toBe("Edited 1 person");
   });
 });
 

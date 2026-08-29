@@ -872,9 +872,14 @@ function create() {
       person: {
         id,
         name,
-        // the folder palette walk, over the PEOPLE's used hues — two people get
-        // far-apart colors even on a list whose folders already use half the wheel
-        colorKey: nextFolderColor(people.map((p) => p.colorKey ?? "other")),
+        // the folder palette walk, seeded with the FOLDERS' hues as well as the
+        // people's: person dots and folder dots are the same swatch two rows apart
+        // (CategoryBar above, chips below), so Ryan taking the Shelter folder's
+        // green would put one color on two meanings. Distinct across both sets.
+        colorKey: nextFolderColor([
+          ...(snapshot.value?.folders ?? []).map((f) => f.colorKey ?? "other"),
+          ...people.map((p) => p.colorKey ?? "other"),
+        ]),
         sortOrder: people.length,
       },
     });
@@ -884,14 +889,13 @@ function create() {
     dispatch({ t: "updatePerson", id, patch });
   function removePerson(id: string) {
     dispatch({ t: "removePerson", id });
-    // renumber like removeDay, so the chip order a person reads stays gapless
+    // renumber like removeDay, so the chip order a person reads stays gapless.
+    // NOT the place that widens a filter aimed at whoever just left — GearEditor's
+    // watcher owns that, and covers a COLLABORATOR's removal arriving by poll too.
     const rest = sortedPeople(snapshot.value?.people);
     rest.forEach((p, i) => {
       if (p.sortOrder !== i) dispatch({ t: "updatePerson", id: p.id, patch: { sortOrder: i } });
     });
-    // a filter narrowed to whoever just left now matches nothing — widen it
-    const pf = usePersonFilter();
-    if (pf.selected.value === id) pf.clear();
   }
 
   function removeFolder(id: string) {

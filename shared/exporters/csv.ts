@@ -195,7 +195,12 @@ export function csvToListData(text: string): ListData {
       if (people.length >= MAX_PEOPLE) return undefined;
       const id = uid();
       personId.set(key, id);
-      const colorKey = nextFolderColor(people.map((p) => p.colorKey ?? "other"));
+      // seeded with the folders' hues too, like the editor's addPerson — one
+      // color, one meaning, even when both sets render side by side
+      const colorKey = nextFolderColor([
+        ...folders.map((f) => f.colorKey ?? "other"),
+        ...people.map((p) => p.colorKey ?? "other"),
+      ]);
       people.push({ id, name: key, colorKey, sortOrder: people.length });
     }
     return personId.get(key)!;
