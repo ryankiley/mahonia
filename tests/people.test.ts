@@ -48,7 +48,7 @@ const state = (over: Partial<ListState> = {}): ListState => ({
 
 const person = (over: Partial<Person> = {}): Person => ({
   id: "p1",
-  name: "Ryan",
+  name: "Sam",
   colorKey: "shelter",
   sortOrder: 0,
   ...over,
@@ -65,31 +65,31 @@ const item = (over: Partial<Item> = {}): Item => ({
   ...over,
 });
 
-const ryan = () => person({ id: "ryan", name: "Ryan", sortOrder: 0 });
-const matt = () => person({ id: "matt", name: "Matt", colorKey: "sleep", sortOrder: 1 });
+const sam = () => person({ id: "sam", name: "Sam", sortOrder: 0 });
+const alex = () => person({ id: "alex", name: "Alex", colorKey: "sleep", sortOrder: 1 });
 
 describe("person ops", () => {
   it("adds, updates and removes", () => {
     const s = state();
-    applyOps(s, [{ t: "addPerson", person: ryan() }]);
+    applyOps(s, [{ t: "addPerson", person: sam() }]);
     expect(s.people).toHaveLength(1);
-    expect(s.people![0]).toMatchObject({ id: "ryan", name: "Ryan" });
+    expect(s.people![0]).toMatchObject({ id: "sam", name: "Sam" });
 
-    applyOps(s, [{ t: "updatePerson", id: "ryan", patch: { name: "Ryan K", colorKey: "water" } }]);
-    expect(s.people![0]).toMatchObject({ name: "Ryan K", colorKey: "water" });
+    applyOps(s, [{ t: "updatePerson", id: "sam", patch: { name: "Sam K", colorKey: "water" } }]);
+    expect(s.people![0]).toMatchObject({ name: "Sam K", colorKey: "water" });
 
-    applyOps(s, [{ t: "removePerson", id: "ryan" }]);
+    applyOps(s, [{ t: "removePerson", id: "sam" }]);
     expect(s.people).toHaveLength(0);
   });
 
   it("refuses a duplicate id, like addFolder does", () => {
     const s = state();
     applyOps(s, [
-      { t: "addPerson", person: ryan() },
-      { t: "addPerson", person: person({ id: "ryan", name: "Impostor" }) },
+      { t: "addPerson", person: sam() },
+      { t: "addPerson", person: person({ id: "sam", name: "Impostor" }) },
     ]);
     expect(s.people).toHaveLength(1);
-    expect(s.people![0]!.name).toBe("Ryan");
+    expect(s.people![0]!.name).toBe("Sam");
   });
 
   it("caps the crew at MAX_PEOPLE", () => {
@@ -123,24 +123,24 @@ describe("person ops", () => {
   it("works on a state that predates people entirely", () => {
     // the shape every existing row has: no `people` key at all
     const s = { title: "T", displayUnit: "g", folders: [], items: [], version: 1 } as unknown as ListState;
-    applyOps(s, [{ t: "addPerson", person: ryan() }]);
+    applyOps(s, [{ t: "addPerson", person: sam() }]);
     expect(s.people).toHaveLength(1);
   });
 
   it("removing a person keeps their items, unassigned — nested ones included", () => {
     const s = state({
-      people: [ryan(), matt()],
+      people: [sam(), alex()],
       items: [
-        item({ id: "a", personId: "ryan" }),
-        item({ id: "b", name: "Cook Kit", personId: "matt", sortOrder: 1 }),
-        item({ id: "c", name: "Pot", parentId: "b", personId: "matt", sortOrder: 0 }),
+        item({ id: "a", personId: "sam" }),
+        item({ id: "b", name: "Cook Kit", personId: "alex", sortOrder: 1 }),
+        item({ id: "c", name: "Pot", parentId: "b", personId: "alex", sortOrder: 0 }),
       ],
     });
-    applyOps(s, [{ t: "removePerson", id: "matt" }]);
+    applyOps(s, [{ t: "removePerson", id: "alex" }]);
     expect(s.items).toHaveLength(3); // the gear survives
     expect(s.items.find((i) => i.id === "b")!.personId).toBeUndefined();
     expect(s.items.find((i) => i.id === "c")!.personId).toBeUndefined();
-    expect(s.items.find((i) => i.id === "a")!.personId).toBe("ryan"); // untouched
+    expect(s.items.find((i) => i.id === "a")!.personId).toBe("sam"); // untouched
   });
 });
 
@@ -156,89 +156,89 @@ describe("normalizePerson + patches", () => {
   });
 
   it("a rename to nothing is ignored, not stored", () => {
-    const s = state({ people: [ryan()] });
-    applyOps(s, [{ t: "updatePerson", id: "ryan", patch: { name: "   " } }]);
-    expect(s.people![0]!.name).toBe("Ryan");
+    const s = state({ people: [sam()] });
+    applyOps(s, [{ t: "updatePerson", id: "sam", patch: { name: "   " } }]);
+    expect(s.people![0]!.name).toBe("Sam");
   });
 
   it("a hostile colorKey patch is dropped", () => {
-    const s = state({ people: [ryan()] });
-    applyOps(s, [{ t: "updatePerson", id: "ryan", patch: { colorKey: "u r l(x)" } }]);
+    const s = state({ people: [sam()] });
+    applyOps(s, [{ t: "updatePerson", id: "sam", patch: { colorKey: "u r l(x)" } }]);
     expect(s.people![0]!.colorKey).toBe("shelter");
   });
 });
 
 describe("personId on items", () => {
   it("assigns and clears through updateItem (null = the wire's clear)", () => {
-    const s = state({ people: [ryan()], items: [item()] });
-    applyOps(s, [{ t: "updateItem", id: "i1", patch: { personId: "ryan" } }]);
-    expect(s.items[0]!.personId).toBe("ryan");
+    const s = state({ people: [sam()], items: [item()] });
+    applyOps(s, [{ t: "updateItem", id: "i1", patch: { personId: "sam" } }]);
+    expect(s.items[0]!.personId).toBe("sam");
     applyOps(s, [{ t: "updateItem", id: "i1", patch: { personId: null } }]);
     expect(s.items[0]!.personId).toBeUndefined();
   });
 
   it("heals a dangling assignee on updateItem — both sides converge after a race", () => {
-    const s = state({ people: [ryan()], items: [item()] });
+    const s = state({ people: [sam()], items: [item()] });
     // a removePerson and an in-flight assignment can land in either order; the
     // reducer runs on both client and server, so both end unassigned
     applyOps(s, [
-      { t: "removePerson", id: "ryan" },
-      { t: "updateItem", id: "i1", patch: { personId: "ryan" } },
+      { t: "removePerson", id: "sam" },
+      { t: "updateItem", id: "i1", patch: { personId: "sam" } },
     ]);
     expect(s.items[0]!.personId).toBeUndefined();
   });
 
   it("heals a dangling assignee on addItem, like a dangling folderId", () => {
-    const s = state({ people: [ryan()] });
+    const s = state({ people: [sam()] });
     applyOps(s, [
-      { t: "addItem", item: item({ id: "ok", personId: "ryan" }) },
+      { t: "addItem", item: item({ id: "ok", personId: "sam" }) },
       { t: "addItem", item: item({ id: "bad", personId: "ghost", sortOrder: 1 }) },
     ]);
-    expect(s.items.find((i) => i.id === "ok")!.personId).toBe("ryan");
+    expect(s.items.find((i) => i.id === "ok")!.personId).toBe("sam");
     expect(s.items.find((i) => i.id === "bad")!.personId).toBeUndefined();
   });
 });
 
 describe("filtering + per-person totals", () => {
-  const crew = () => [ryan(), matt()];
-  // Ryan's can (1 kg), Matt's kit (500 g) with an inheriting pot (300 g) and
-  // Ryan's own spoon (50 g) nested inside Matt's kit, plus an unclaimed tarp.
+  const crew = () => [sam(), alex()];
+  // Sam's can (1 kg), Alex's kit (500 g) with an inheriting pot (300 g) and
+  // Sam's own spoon (50 g) nested inside Alex's kit, plus an unclaimed tarp.
   const gear = (): Item[] => [
-    item({ id: "can", personId: "ryan" }),
-    item({ id: "kit", name: "Cook Kit", personId: "matt", unitWeightMg: 500, sortOrder: 1 }),
+    item({ id: "can", personId: "sam" }),
+    item({ id: "kit", name: "Cook Kit", personId: "alex", unitWeightMg: 500, sortOrder: 1 }),
     item({ id: "pot", name: "Pot", parentId: "kit", unitWeightMg: 300, sortOrder: 0 }),
-    item({ id: "spoon", name: "Spoon", parentId: "kit", personId: "ryan", unitWeightMg: 50, sortOrder: 1 }),
+    item({ id: "spoon", name: "Spoon", parentId: "kit", personId: "sam", unitWeightMg: 50, sortOrder: 1 }),
     item({ id: "tarp", name: "Tarp", unitWeightMg: 700, sortOrder: 2 }),
   ];
 
   it("effectivePersonId: own claim, else the parent's", () => {
-    const kit = item({ id: "kit", personId: "matt" });
-    expect(effectivePersonId(item({ id: "pot" }), kit)).toBe("matt");
-    expect(effectivePersonId(item({ id: "spoon", personId: "ryan" }), kit)).toBe("ryan");
+    const kit = item({ id: "kit", personId: "alex" });
+    expect(effectivePersonId(item({ id: "pot" }), kit)).toBe("alex");
+    expect(effectivePersonId(item({ id: "spoon", personId: "sam" }), kit)).toBe("sam");
     expect(effectivePersonId(item({ id: "tarp" }), null)).toBeUndefined();
   });
 
   it("filterItemsForPerson is strict — the counted set", () => {
     const items = gear();
-    expect(filterItemsForPerson(items, "ryan").map((i) => i.id)).toEqual(["can", "spoon"]);
-    expect(filterItemsForPerson(items, "matt").map((i) => i.id)).toEqual(["kit", "pot"]);
+    expect(filterItemsForPerson(items, "sam").map((i) => i.id)).toEqual(["can", "spoon"]);
+    expect(filterItemsForPerson(items, "alex").map((i) => i.id)).toEqual(["kit", "pot"]);
     expect(filterItemsForPerson(items, UNASSIGNED).map((i) => i.id)).toEqual(["tarp"]);
     expect(filterItemsForPerson(items, null)).toBe(items); // everyone = the list itself
   });
 
   it("visibleItemsForPerson keeps a parent as context around a matching child", () => {
     const items = gear();
-    // Ryan's spoon lives in Matt's kit — the kit stays visible so the spoon has a home
-    expect(visibleItemsForPerson(items, "ryan").map((i) => i.id)).toEqual(["can", "kit", "spoon"]);
-    // …but Matt's view never needed the favor: his kit is his
-    expect(visibleItemsForPerson(items, "matt").map((i) => i.id)).toEqual(["kit", "pot"]);
+    // Sam's spoon lives in Alex's kit — the kit stays visible so the spoon has a home
+    expect(visibleItemsForPerson(items, "sam").map((i) => i.id)).toEqual(["can", "kit", "spoon"]);
+    // …but Alex's view never needed the favor: his kit is his
+    expect(visibleItemsForPerson(items, "alex").map((i) => i.id)).toEqual(["kit", "pot"]);
   });
 
   it("per-person totals are the strict set through the ordinary computeTotals", () => {
     const items = gear();
-    const forRyan = computeTotals({ folders: [], items: filterItemsForPerson(items, "ryan") });
+    const forRyan = computeTotals({ folders: [], items: filterItemsForPerson(items, "sam") });
     expect(forRyan.totalMg).toBe(1050); // can + spoon, never the kit he only visits
-    const forMatt = computeTotals({ folders: [], items: filterItemsForPerson(items, "matt") });
+    const forMatt = computeTotals({ folders: [], items: filterItemsForPerson(items, "alex") });
     expect(forMatt.totalMg).toBe(800); // kit + inheriting pot
   });
 
@@ -248,17 +248,17 @@ describe("filtering + per-person totals", () => {
   });
 
   it("personSlot is the display-order index the CSS filter matches on", () => {
-    const people = [matt(), ryan()]; // array order ≠ sortOrder
-    expect(sortedPeople(people).map((p) => p.id)).toEqual(["ryan", "matt"]);
-    expect(personSlot(people, "ryan")).toBe(0);
-    expect(personSlot(people, "matt")).toBe(1);
+    const people = [alex(), sam()]; // array order ≠ sortOrder
+    expect(sortedPeople(people).map((p) => p.id)).toEqual(["sam", "alex"]);
+    expect(personSlot(people, "sam")).toBe(0);
+    expect(personSlot(people, "alex")).toBe(1);
     expect(personSlot(people, "ghost")).toBeNull();
     expect(personSlot(people, undefined)).toBeNull();
   });
 
   it("carriedTotalsMg gives each chip its carry, and no chip a zero", () => {
     const totalsByChip = carriedTotalsMg({ folders: [], items: gear(), people: crew() });
-    expect(totalsByChip).toEqual({ ryan: 1050, matt: 800, [UNASSIGNED]: 700 });
+    expect(totalsByChip).toEqual({ sam: 1050, alex: 800, [UNASSIGNED]: 700 });
     // a person with nothing gets no entry — a "0 g" chip suffix is noise
     const bare = carriedTotalsMg({ folders: [], items: [], people: crew() });
     expect(bare).toEqual({});
@@ -268,29 +268,29 @@ describe("filtering + per-person totals", () => {
 describe("round-trips", () => {
   const full = () =>
     state({
-      people: [ryan(), matt()],
-      items: [item({ id: "can", personId: "ryan" }), item({ id: "tarp", name: "Tarp", sortOrder: 1 })],
+      people: [sam(), alex()],
+      items: [item({ id: "can", personId: "sam" }), item({ id: "tarp", name: "Tarp", sortOrder: 1 })],
     });
 
   it("survives the full-snapshot round trip", () => {
     const back = fullSnapToState(stateToFullSnap(full()));
     expect(back.people).toHaveLength(2);
-    expect(back.items.find((i) => i.id === "can")!.personId).toBe("ryan");
+    expect(back.items.find((i) => i.id === "can")!.personId).toBe("sam");
   });
 
   it("diffs and re-applies people like every other entity", () => {
     const base = full();
     const target = full();
-    // rename ryan, drop matt, add a third
+    // rename sam, drop alex, add a third
     target.people = [
-      { ...ryan(), name: "Ryan K" },
-      person({ id: "sam", name: "Sam", sortOrder: 2 }),
+      { ...sam(), name: "Sam K" },
+      person({ id: "jo", name: "Jo", sortOrder: 2 }),
     ];
     const diff = diffListState(base, target);
-    expect(diff.peopleUpsert?.map((p) => p.id).sort()).toEqual(["ryan", "sam"]);
-    expect(diff.peopleDel).toEqual(["matt"]);
+    expect(diff.peopleUpsert?.map((p) => p.id).sort()).toEqual(["jo", "sam"]);
+    expect(diff.peopleDel).toEqual(["alex"]);
     const rebuilt = applyListDiff(base, diff);
-    expect(sortedPeople(rebuilt.people).map((p) => p.name)).toEqual(["Ryan K", "Sam"]);
+    expect(sortedPeople(rebuilt.people).map((p) => p.name)).toEqual(["Sam K", "Jo"]);
   });
 
   it("a snapshot diff on states that predate people doesn't invent the key", () => {
@@ -305,11 +305,11 @@ describe("round-trips", () => {
     const copy = cloneListData(src);
     expect(copy.people).toHaveLength(2);
     // every id re-minted…
-    for (const p of copy.people) expect(["ryan", "matt"]).not.toContain(p.id);
+    for (const p of copy.people) expect(["sam", "alex"]).not.toContain(p.id);
     // …and the assignment follows the same person by name
     const can = copy.items[0]!;
     const carrier = copy.people.find((p) => p.id === can.personId);
-    expect(carrier?.name).toBe("Ryan");
+    expect(carrier?.name).toBe("Sam");
     // a dangling source assignment degrades to unassigned
     const wonky = cloneListData({ ...src, items: [item({ personId: "ghost" })] });
     expect(wonky.items[0]!.personId).toBeUndefined();
@@ -322,9 +322,9 @@ describe("round-trips", () => {
     expect(back.data.people).toHaveLength(2);
     const can = back.data.items.find((i) => i.name === "Bear Can")!;
     const carrier = back.data.people!.find((p) => p.id === can.personId);
-    expect(carrier?.name).toBe("Ryan");
+    expect(carrier?.name).toBe("Sam");
     // ids re-minted, so the file's ids never survive into the new list
-    for (const p of back.data.people!) expect(["ryan", "matt"]).not.toContain(p.id);
+    for (const p of back.data.people!) expect(["sam", "alex"]).not.toContain(p.id);
   });
 
   it("a backup written before people existed imports with an empty crew", () => {
@@ -336,7 +336,7 @@ describe("round-trips", () => {
     const snap = {
       ...full(),
       items: [
-        item({ id: "kit", name: "Cook Kit", personId: "matt" }),
+        item({ id: "kit", name: "Cook Kit", personId: "alex" }),
         item({ id: "pot", name: "Pot", parentId: "kit", sortOrder: 1 }),
         item({ id: "tarp", name: "Tarp", sortOrder: 2 }),
       ],
@@ -344,12 +344,12 @@ describe("round-trips", () => {
     const csv = listToCsv(snap);
     expect(csv.split("\n")[0]).toMatch(/,Kcal,Person$/);
     const potLine = csv.split("\n").find((l) => l.includes("Pot"))!;
-    expect(potLine.endsWith(",Matt")).toBe(true); // the child flattens, so its inherited carrier is written out
+    expect(potLine.endsWith(",Alex")).toBe(true); // the child flattens, so its inherited carrier is written out
 
     const back = csvToListData(csv);
-    expect(back.people?.map((p) => p.name).sort()).toEqual(["Matt"]);
+    expect(back.people?.map((p) => p.name).sort()).toEqual(["Alex"]);
     const backPot = back.items.find((i) => i.name === "Pot")!;
-    expect(back.people!.find((p) => p.id === backPot.personId)?.name).toBe("Matt");
+    expect(back.people!.find((p) => p.id === backPot.personId)?.name).toBe("Alex");
     const backTarp = back.items.find((i) => i.name === "Tarp")!;
     expect(backTarp.personId).toBeUndefined();
   });
@@ -363,15 +363,15 @@ describe("round-trips", () => {
     const snap = {
       ...full(),
       items: [
-        item({ id: "kit", name: "Cook Kit", personId: "matt" }),
+        item({ id: "kit", name: "Cook Kit", personId: "alex" }),
         item({ id: "pot", name: "Pot", parentId: "kit", sortOrder: 1 }),
-        item({ id: "spoon", name: "Spoon", parentId: "kit", personId: "ryan", sortOrder: 2 }),
+        item({ id: "spoon", name: "Spoon", parentId: "kit", personId: "sam", sortOrder: 2 }),
       ],
     } as unknown as ListSnapshot;
     const md = listToMarkdown(snap);
-    expect(md).toContain("Cook Kit *(Matt)*");
-    expect(md).not.toContain("Pot *(Matt)*"); // inherits silently
-    expect(md).toContain("Spoon *(Ryan)*"); // the exception is worth naming
+    expect(md).toContain("Cook Kit *(Alex)*");
+    expect(md).not.toContain("Pot *(Alex)*"); // inherits silently
+    expect(md).toContain("Spoon *(Sam)*"); // the exception is worth naming
   });
 
 });
@@ -380,14 +380,14 @@ describe("round-trips", () => {
 // canary, sibling in spirit to tests/bodyWeightPrivacy.test.ts.
 describe("standing invariants", () => {
   it("tidyListText tidies person names like folder names", () => {
-    const s = state({ people: [person({ name: "Ryan's  brother" })] });
+    const s = state({ people: [person({ name: "Sam's  brother" })] });
     tidyListText(s);
-    expect(s.people![0]!.name).toBe("Ryan’s brother");
+    expect(s.people![0]!.name).toBe("Sam’s brother");
   });
 
   it("the vault never captures who carries a thing", () => {
     const caps = captureFromList(
-      [item({ id: "can", name: "Bear Can", brand: "BearVault", personId: "ryan", weightOverridden: true })],
+      [item({ id: "can", name: "Bear Can", brand: "BearVault", personId: "sam", weightOverridden: true })],
       [],
     );
     expect(caps).toHaveLength(1);
@@ -396,20 +396,20 @@ describe("standing invariants", () => {
 });
 
 describe("change summaries", () => {
-  const before = { items: [item({ id: "can" })], folders: [], people: [ryan(), matt()] };
+  const before = { items: [item({ id: "can" })], folders: [], people: [sam(), alex()] };
 
   it("names an added person, at the days' structural level", () => {
-    expect(summarizeOps([{ t: "addPerson", person: matt() }])).toBe("Added Matt to the trip");
+    expect(summarizeOps([{ t: "addPerson", person: alex() }])).toBe("Added Alex to the trip");
   });
 
   it("names a removed person from the before state", () => {
-    expect(summarizeOps([{ t: "removePerson", id: "matt" }], before)).toBe("Removed Matt from the trip");
+    expect(summarizeOps([{ t: "removePerson", id: "alex" }], before)).toBe("Removed Alex from the trip");
   });
 
   it("says who an item went to", () => {
     expect(
-      summarizeOps([{ t: "updateItem", id: "can", patch: { personId: "matt" } }], before),
-    ).toBe("Reassigned Bear Can to Matt");
+      summarizeOps([{ t: "updateItem", id: "can", patch: { personId: "alex" } }], before),
+    ).toBe("Reassigned Bear Can to Alex");
     expect(
       summarizeOps([{ t: "updateItem", id: "can", patch: { personId: null } }], before),
     ).toBe("Reassigned Bear Can");
@@ -417,10 +417,10 @@ describe("change summaries", () => {
 
   it("a rename is worth naming; a recolor stays a count", () => {
     expect(
-      summarizeOps([{ t: "updatePerson", id: "matt", patch: { name: "Matthew" } }], before),
-    ).toBe("Renamed Matt → Matthew");
+      summarizeOps([{ t: "updatePerson", id: "alex", patch: { name: "Alexis" } }], before),
+    ).toBe("Renamed Alex → Alexis");
     expect(
-      summarizeOps([{ t: "updatePerson", id: "matt", patch: { colorKey: "water" } }], before),
+      summarizeOps([{ t: "updatePerson", id: "alex", patch: { colorKey: "water" } }], before),
     ).toBe("Edited 1 person");
   });
 });
@@ -445,11 +445,11 @@ describe("read paths", () => {
 
   it("people + assignments ride every read path — they are list content, like days", () => {
     const snap = rowToSnapshot(
-      row({ people: [ryan()], items: [item({ id: "can", personId: "ryan", packed: true })] }),
+      row({ people: [sam()], items: [item({ id: "can", personId: "sam", packed: true })] }),
     );
     expect(snap.people).toHaveLength(1);
-    expect(snap.people![0]!.name).toBe("Ryan");
-    expect(snap.items[0]!.personId).toBe("ryan");
+    expect(snap.people![0]!.name).toBe("Sam");
+    expect(snap.items[0]!.personId).toBe("sam");
     // …while the tick beside them is still the owner's own business
     expect("packed" in snap.items[0]!).toBe(false);
   });
@@ -479,8 +479,8 @@ describe("persistence — the silent-erasure regression", () => {
     await applyOpsByEditToken(
       editToken,
       [
-        { t: "addPerson", person: ryan() },
-        { t: "updateItem", id: "can", patch: { personId: "ryan" } },
+        { t: "addPerson", person: sam() },
+        { t: "updateItem", id: "can", patch: { personId: "sam" } },
       ],
       db,
     );
@@ -488,7 +488,7 @@ describe("persistence — the silent-erasure regression", () => {
     await applyOpsByEditToken(editToken, [{ t: "updateItem", id: "can", patch: { name: "Bear Can 2" } }], db);
     const data = await readData(db, editToken);
     expect(data.people).toHaveLength(1);
-    expect(data.items[0]!.personId).toBe("ryan");
+    expect(data.items[0]!.personId).toBe("sam");
   });
 
   it("a snapshot restore brings the crew back", async () => {
@@ -496,18 +496,18 @@ describe("persistence — the silent-erasure regression", () => {
     const { editToken } = await makeList(db, "Crew trip", {
       data: {
         folders: [],
-        items: [item({ id: "can", personId: "ryan" })],
-        people: [ryan()],
+        items: [item({ id: "can", personId: "sam" })],
+        people: [sam()],
       },
     });
     // wreck it: the mutate snapshots the pre-edit state (people included) first
-    await applyOpsByEditToken(editToken, [{ t: "removePerson", id: "ryan" }], db);
+    await applyOpsByEditToken(editToken, [{ t: "removePerson", id: "sam" }], db);
     expect((await readData(db, editToken)).people).toHaveLength(0);
     const snaps = await listSnapshotsByEditToken(editToken, db);
     expect(snaps!.length).toBeGreaterThan(0);
     const restored = await restoreSnapshotByEditToken(editToken, snaps![0]!.id, db);
     expect(restored!.people).toHaveLength(1);
-    expect(restored!.people![0]!.name).toBe("Ryan");
-    expect(restored!.items[0]!.personId).toBe("ryan");
+    expect(restored!.people![0]!.name).toBe("Sam");
+    expect(restored!.items[0]!.personId).toBe("sam");
   });
 });

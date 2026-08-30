@@ -101,8 +101,12 @@
        faces quiet down, so its group weight (which still includes hidden
        children) and its checkbox (which the filtered pack count doesn't count)
        read as scaffolding rather than as claims. Direct children only — the
-       matching nested rows live in the sibling .nestcollapse and keep full ink. */
-    .item-wrap:not([data-person="#{$p}"]):has(.item-wrap[data-person="#{$p}"]) > .item-row {
+       matching nested rows live in the sibling .nestcollapse and keep full ink.
+       …and NOT while the row has a surface up: opacity composites onto every
+       descendant and no child can undo it, so without the guard the row's own
+       popovers (the person picker, the nest menu, the name autocomplete)
+       opened at 55% over the page. */
+    .item-wrap:not([data-person="#{$p}"]):has(.item-wrap[data-person="#{$p}"]) > .item-row:not(:has(.menu__list, .ac__menu)) {
       opacity: 0.55;
     }
     /* a folder holding nothing of theirs disappears whole — header, add row, rules —
@@ -139,6 +143,13 @@
    and the same touch-size twin as the tokens it overrides (tokens.scss). */
 .editor__body.has-people {
   --item-col-actions: calc(6 * var(--icon-btn) + 5 * var(--space-1) - 9px);
+  /* the COMPOSITE re-declared too, not just the part: a custom property's var()s
+     substitute where the property is DECLARED (tokens.scss:25-31 — the whole
+     reason item-cols is a mixin), so overriding the part alone left the :root
+     template holding :root's five-icon track and the sixth icon overlapping the
+     classification cell. Declared here, both resolve on this element, and the
+     folder header follows through its var(--head-cols, var(--item-cols)). */
+  --item-cols: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-class) var(--item-col-actions);
   @media (pointer: coarse) {
     --item-col-actions: calc(6 * var(--tap) + 5 * var(--space-1) - 9px);
   }

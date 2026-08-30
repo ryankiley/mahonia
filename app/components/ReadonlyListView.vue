@@ -251,9 +251,10 @@ const asHeight = (m: number) => {
       />
     </section>
 
-    <!-- a filter that matches nothing says so — the chips above are the way back -->
-    <p v-if="view === 'gear' && filteredEmptyName" class="t-sm t-muted">
+    <!-- a filter that matches nothing says so, with the same way back the editor offers -->
+    <p v-if="view === 'gear' && filteredEmptyName" class="t-sm t-muted view__filterempty">
       Nothing is {{ filteredEmptyName }}’s yet.
+      <button type="button" class="btn btn--quiet" @click="$emit('pick-person', null)">Show everyone</button>
     </p>
 
     <div v-if="view === 'gear'" class="view__folders">
@@ -434,6 +435,15 @@ const asHeight = (m: number) => {
 }
 .view__peopleh {
   margin: 0;
+}
+/* the empty filter line — the editor's recipe: wraps so a long name folds the
+   sentence without stranding the button on the first line's baseline */
+.view__filterempty {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-3);
 }
 .view--missing {
   padding-block: var(--space-9);

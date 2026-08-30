@@ -1124,6 +1124,12 @@ function dismissFix() {
         />
         <!-- collapse a group of nested items — trails the name like the folder's
              chevron (the name hugs its text so this sits right after it) -->
+        <!-- the carrier, PHONE-ONLY on this face (see the mobile block): the
+             cluster's dot trigger is display:none in the mobile stack, and without
+             this the one mode that can assign showed no assignment state at all.
+             Desktop stays clean — the trigger's dot already says it. BEFORE the
+             chevron, so all three faces read name · carrier · chevron alike. -->
+        <span v-if="ownPerson" class="t-sm item__carrier item__ecarrier"><span class="swatch item__carrier-dot" :style="{ background: personColor(ownPerson) }" aria-hidden="true" />{{ ownPerson.name }}</span>
         <button
           v-if="isParent"
           class="item__nestcollapse"
@@ -1135,11 +1141,6 @@ function dismissFix() {
         >
           <HugeiconsIcon :icon="ChevronDownIcon" class="item__nestchev" :class="{ 'is-collapsed': nestCollapsed }" :size="16" :stroke-width="2" />
         </button>
-        <!-- the carrier, PHONE-ONLY on this face (see the mobile block): the
-             cluster's dot trigger is display:none in the mobile stack, and without
-             this the one mode that can assign showed no assignment state at all.
-             Desktop stays clean — the trigger's dot already says it. -->
-        <span v-if="ownPerson" class="t-sm item__carrier item__ecarrier"><span class="swatch item__carrier-dot" :style="{ background: personColor(ownPerson) }" aria-hidden="true" />{{ ownPerson.name }}</span>
       </div>
 
       <!-- metadata + controls: display:contents on desktop, so qty/weight/class/
@@ -1667,7 +1668,10 @@ function dismissFix() {
                      as one setting to assistive tech instead of loose siblings. -->
                 <li v-if="peopleSorted.length" role="none">
                   <ul role="group" aria-label="Who carries this" class="item__moregroup">
-                    <li role="none" class="t-label item__morelabel">Who carries this</li>
+                    <!-- aria-hidden: the group's aria-label already names it — role=none
+                         strips the li's semantics but not its TEXT, so without this a
+                         screen reader heard the label twice -->
+                    <li role="none" class="t-label item__morelabel" aria-hidden="true">Who carries this</li>
                     <li v-for="e in personPicks" :key="e.id ?? 'none'" role="none">
                       <button
                         type="button"
@@ -2663,9 +2667,10 @@ function dismissFix() {
   background: var(--lit);
   color: var(--ink);
 }
-/* the ⋯ menu's group label above the person entries */
+/* the ⋯ menu's group label above the person entries — the entries' own inline
+   padding (space-3, controls.scss), so its text sits flush with theirs */
 .item__morelabel {
-  padding: var(--space-2) var(--space-2) var(--space-1);
+  padding: var(--space-2) var(--space-3) var(--space-1);
   color: var(--ink-3);
 }
 .item__moregroup {
@@ -2859,6 +2864,22 @@ function dismissFix() {
      name-line tag, or the one mode that can assign would show none at all */
   .item__ecarrier {
     display: inline-flex;
+  }
+  /* the name cell is a plain BLOCK on a non-group row (only --group is a flex
+     row), so without this the tag dropped to its own line under the field,
+     aligned to nothing — make the cell the baseline row the group variant
+     already is, the field taking the slack, the gap carrying the spacing */
+  .item__name:has(.item__ecarrier) {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-1);
+  }
+  .item__name:has(.item__ecarrier) :deep(.ac) {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .item__name:has(.item__ecarrier) .item__ecarrier {
+    margin-left: 0; /* the flex gap is the spacing here — the atom's margin doubled it */
   }
   /* the classification cell used to hold a text label that had to ellipsize to keep
      qty/weight/controls on one line. Two icon toggles are a fixed 68px, so there is

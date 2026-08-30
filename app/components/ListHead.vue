@@ -261,7 +261,7 @@ function remove() {
 const emit = defineEmits<{ toast: [message: string]; openPeople: [] }>();
 
 // the crew, as the affordance's own label once anyone is named — "Add people"
-// swaps to "Ryan, Matt" the way "Add dates" swaps to the range
+// swaps to the names the way "Add dates" swaps to the range
 const peopleLabel = computed(() =>
   sortedPeople(props.snapshot.people).map((p) => p.name).join(", "),
 );
@@ -547,6 +547,7 @@ onClickOutside(trailEl, closeTrail);
       <button
         type="button"
         class="btn btn--quiet head__add head__peoplebtn"
+        aria-haspopup="dialog"
         @click="emit('openPeople')"
       >
         <HugeiconsIcon :icon="UserGroupIcon" :size="14" :stroke-width="2" aria-hidden="true" />

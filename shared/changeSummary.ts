@@ -170,7 +170,9 @@ export function summarizeOps(ops: readonly Op[], before?: SummaryBefore): string
         // reorders stay a count (nobody scans history for a hue change)
         if (typeof op.patch?.name === "string") {
           const was = peopleById.get(op.id)?.name;
-          const now = tidyText(op.patch.name);
+          // sliced to the reducer's own cap, so the line quotes the name the
+          // list actually stored, not the untrimmed one the patch carried
+          const now = tidyText(op.patch.name.slice(0, 60));
           if (was && now && was !== now) personRenames.push(`${was} → ${now}`);
         }
         break;
@@ -278,8 +280,8 @@ export function summarizeOps(ops: readonly Op[], before?: SummaryBefore): string
   if (wpsRemoved) return `Removed ${plural(wpsRemoved, "waypoint")}`;
   if (wpsEdited) return `Edited ${plural(wpsEdited, "waypoint")}`;
   // The crew reads at the same structural level as days: who's on the trip is
-  // list shape, not an item edit. "to/from the trip" keeps "Added Matt" from
-  // reading as a gear row named Matt.
+  // list shape, not an item edit. "to/from the trip" keeps "Added Sam" from
+  // reading as a gear row named Sam.
   if (peopleAdded && !peopleRemoved)
     return `Added ${peopleAdded === 1 && personNames.length === 1 ? personNames[0] : persons(peopleAdded)} to the trip`;
   if (peopleRemoved)

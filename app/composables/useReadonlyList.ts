@@ -31,7 +31,7 @@ export function useReadonlyList(snapshot: Ref<ListSnapshot | null>) {
   // regardless of the unit the owner happens to edit in. The viewer can still
   // toggle the unit locally (below); that choice is never persisted.
   const unit = ref<Unit>("g");
-  // Who the viewer is narrowed to (Matt opening the link taps himself) — viewer
+  // Who the viewer is narrowed to (a friend opening the link taps themselves) — viewer
   // state like `unit`, so never persisted, and reset when the page moves on to a
   // different list under the same component instance.
   const personFilter = ref<PersonSelection>(null);

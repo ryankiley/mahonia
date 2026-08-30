@@ -49,8 +49,8 @@ mockNuxtImport("useGearList", () => () => ({
   vaultDeclined: ref(new Set<string>()),
 }));
 
-const ryan: Person = { id: "ryan", name: "Ryan", colorKey: "shelter", sortOrder: 0 };
-const matt: Person = { id: "matt", name: "Matt", colorKey: "sleep", sortOrder: 1 };
+const sam: Person = { id: "sam", name: "Sam", colorKey: "shelter", sortOrder: 0 };
+const alex: Person = { id: "alex", name: "Alex", colorKey: "sleep", sortOrder: 1 };
 
 const item = (over: Partial<Item> = {}): Item => ({
   id: "i1",
@@ -64,7 +64,7 @@ const item = (over: Partial<Item> = {}): Item => ({
 });
 
 function mountRow(items: Item[], children = new Map<string, Item[]>()) {
-  snapshot.value = blankList({ people: [ryan, matt], items });
+  snapshot.value = blankList({ people: [sam, alex], items });
   return mount(ItemRow, {
     props: {
       get list() {
@@ -91,9 +91,9 @@ describe("carried by — the row's picker + the filter attribute", () => {
     await w.get(".item__person-btn").trigger("click");
     const picks = w.findAll(".item__personpick");
     // people in display order, then the clear entry — one table drives both seats
-    expect(picks.map((p) => p.text())).toEqual(["Ryan", "Matt", "Unassigned"]);
+    expect(picks.map((p) => p.text())).toEqual(["Sam", "Alex", "Unassigned"]);
     await picks[1]!.trigger("click");
-    expect(snapshot.value.items[0]!.personId).toBe("matt");
+    expect(snapshot.value.items[0]!.personId).toBe("alex");
     expect(w.get(".item-wrap").attributes("data-person")).toBe("1");
     // the trigger now wears the on-plate and the carrier's own dot (the glyph
     // swap — colour lives in a .swatch, chrome stays ink)
@@ -103,7 +103,7 @@ describe("carried by — the row's picker + the filter attribute", () => {
   });
 
   it("'Unassigned' hands the row back", async () => {
-    const w = mountRow([item({ personId: "ryan" })]);
+    const w = mountRow([item({ personId: "sam" })]);
     expect(w.get(".item-wrap").attributes("data-person")).toBe("0");
     await w.get(".item__person-btn").trigger("click");
     const clear = w.findAll(".item__personpick").at(-1)!;
@@ -115,16 +115,16 @@ describe("carried by — the row's picker + the filter attribute", () => {
   });
 
   it("a nested row inherits its parent's slot through the prop, until it claims its own", async () => {
-    const kit = item({ id: "kit", name: "Cook Kit", personId: "matt" });
+    const kit = item({ id: "kit", name: "Cook Kit", personId: "alex" });
     const pot = item({ id: "pot", name: "Pot", parentId: "kit", folderId: "f1", sortOrder: 1 });
     const w = mountRow([kit, pot], new Map([["kit", [pot]]]));
     const wraps = w.findAll(".item-wrap");
     expect(wraps).toHaveLength(2); // the parent renders its child inside its own wrap
-    expect(wraps[0]!.attributes("data-person")).toBe("1"); // Matt's kit…
+    expect(wraps[0]!.attributes("data-person")).toBe("1"); // Alex's kit…
     expect(wraps[1]!.attributes("data-person")).toBe("1"); // …and the pot follows it
-    // the child claims itself for Ryan — its slot flips, the parent's doesn't
+    // the child claims itself for Sam — its slot flips, the parent's doesn't
     snapshot.value = applyOps(snapshot.value, [
-      { t: "updateItem", id: "pot", patch: { personId: "ryan" } },
+      { t: "updateItem", id: "pot", patch: { personId: "sam" } },
     ]) as ListSnapshot;
     await w.vm.$nextTick();
     expect(w.findAll(".item-wrap")[1]!.attributes("data-person")).toBe("0");
@@ -159,10 +159,10 @@ describe("carried by — the row's picker + the filter attribute", () => {
     const em = useEditorMode();
     em.mode.value = "pack";
     em.everPacked.value = true;
-    const w = mountRow([item({ personId: "ryan" })]);
+    const w = mountRow([item({ personId: "sam" })]);
     await w.vm.$nextTick();
     const tag = w.get(".item__carrier");
-    expect(tag.text()).toContain("Ryan");
+    expect(tag.text()).toContain("Sam");
     em.mode.value = "edit";
     w.unmount();
   });

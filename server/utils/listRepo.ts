@@ -181,8 +181,8 @@ export function rowToSnapshot(row: ListRow): ListSnapshot {
     items: (data.items ?? []).map(({ packed: _packed, ...rest }) => rest),
     days: data.days ?? [],
     // People ride every read path, the same way days do — who carries what is
-    // list CONTENT (the point of the feature is Matt seeing his half over a
-    // share link), where `packed` above is one person's progress and waypoints
+    // list CONTENT (the point of the feature is a friend seeing their half over
+    // a share link), where `packed` above is one person's progress and waypoints
     // below are a location. The names are owner-typed labels, removable and
     // renameable like folder names.
     people: data.people ?? [],

@@ -205,7 +205,7 @@ export interface ListData {
    * `days` — lists written before this have no key at all.
    *
    * PUBLIC, unlike `waypoints`: who carries what is list content the same way
-   * folders are (the whole point is showing Matt his half over a share link), so
+   * folders are (the whole point is a friend seeing their half over a share link), so
    * rowToSnapshot forwards it on every read path. The names are whatever the
    * owner typed — first names in practice — and renaming or removing a person is
    * always one edit away.

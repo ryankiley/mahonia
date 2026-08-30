@@ -40,8 +40,11 @@
   .ac__menu,
   .packbar__clear,
   // the person filter chips — a control for narrowing a live page; the printed
-  // list already shows who carries what on the rows themselves
+  // list already shows who carries what on the rows themselves. The read views
+  // wrap theirs in a headed section, so the SECTION is the target there or the
+  // "People" label prints alone over nothing.
   .pplbar,
+  .view__people,
   // The site bar's whole trailing group — a page's own action, the account control,
   // the ⋯. Every one of them is a way IN to something, which a sheet of paper has no
   // use for, so the GROUP is the honest target rather than a list of its members.

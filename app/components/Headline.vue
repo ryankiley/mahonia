@@ -71,7 +71,7 @@ defineEmits<{ pick: [key: string] }>();
         </span>
       </template>
     </OptionMenu>
-    <span v-if="props.caption" class="t-label headline__caption">{{ props.caption }}</span>
+    <span v-if="props.caption" class="headline__caption">{{ props.caption }}</span>
   </div>
 </template>
 
@@ -116,9 +116,17 @@ defineEmits<{ pick: [key: string] }>();
   rotate: 180deg;
 }
 
-/* the caption sits on the figure's baseline, one step past the unit — quiet, so
-   the number stays the headline and the name reads as its qualifier */
+/* The caption sits on the figure's baseline, one step past the unit — in the
+   UNIT's own type, so the two read as one run of chrome qualifying the number
+   (t-label rendered bigger and bolder than the unit beside it: a heading, not a
+   qualifier). Truncates rather than wraps: a name runs to 60 chars, and the
+   figure is the headline — same guard the ListHead names wear. */
 .headline__caption {
+  font-size: var(--text-chrome);
   color: var(--ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: min(40vw, 26ch);
 }
 </style>

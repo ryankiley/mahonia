@@ -94,9 +94,9 @@ function onKey(e: KeyboardEvent) {
           aria-hidden="true"
         />
         {{ c.label }}<!--
-        the chip's carry, quiet beside the name — kept t-num t-muted so the chip
-        still reads as a control, not as one of the totals bar's readout chips
-        --><span v-if="c.weight" class="t-num t-muted pplbar__wt">{{ c.weight }}</span>
+        the chip's carry, riding a step off the name in the chip's OWN ink — the
+        pill shape is what keeps it reading as a control, not a readout chip
+        --><span v-if="c.weight" class="t-num pplbar__wt">{{ c.weight }}</span>
       </button>
     </div>
     <Tooltip v-if="!noManage" text="People on this trip" preferred-placement="top">
@@ -104,6 +104,7 @@ function onKey(e: KeyboardEvent) {
         type="button"
         class="btn btn--icon btn--ghost pplbar__manage"
         aria-label="People on this trip"
+        aria-haspopup="dialog"
         @click="emit('manage')"
       >
         <HugeiconsIcon :icon="UserGroupIcon" :size="16" :stroke-width="2" aria-hidden="true" />
@@ -170,9 +171,20 @@ function onKey(e: KeyboardEvent) {
   color: var(--ink);
 }
 /* (the hollow "no colour yet" dot is the shared .swatch--hollow atom — controls.scss) */
-/* the carry rides a step off the name, and never turns the chip's ink */
+/* The carry takes the chip's OWN ink: t-muted is --ink-2, a step DARKER than a
+   resting chip's --ink-3, so the qualifier out-shouted the name it qualifies on
+   every chip but the lit one. No margin — the chip's flex gap is the spacing,
+   and a margin on top of it doubled the step. */
 .pplbar__wt {
-  margin-left: var(--space-2);
+  color: inherit;
+}
+@media (max-width: $bp-stack) {
+  /* the chips are a control first — at phone width the suffixes turned a
+     one-line row into three or four, and the headline says the selected
+     person's carry the moment a chip is picked */
+  .pplbar__wt {
+    display: none;
+  }
 }
 /* the manage button holds the row's trailing edge and doesn't shrink under wrap */
 .pplbar__manage {

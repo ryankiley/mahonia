@@ -149,10 +149,14 @@ const hasUnassigned = computed(() => hasUnassignedTopLevel(snapshot.value?.items
 // unclaimed row was claimed (the Unassigned view emptying itself is done, not
 // blank), or the editor moved on to a different list under the same singleton.
 // The ONE owner of this job — removePerson deliberately doesn't reach for it.
-watch([people, hasUnassigned, () => snapshot.value?.shareCode], () => {
+watch([people, hasUnassigned, () => snapshot.value?.shareCode], ([, , code], [, , oldCode]) => {
   const s = pf.selected.value;
   if (!s) return;
-  const emptied = s === UNASSIGNED && people.value.length > 0 && !hasUnassigned.value;
+  // the toast is for a bucket that emptied UNDER you on this list — moving to a
+  // different list clears the stale filter silently (announcing "Everything’s
+  // assigned" about a list just opened would be a claim about nothing you did)
+  const emptied =
+    code === oldCode && s === UNASSIGNED && people.value.length > 0 && !hasUnassigned.value;
   const gone =
     s === UNASSIGNED
       ? !people.value.length || !hasUnassigned.value
@@ -161,7 +165,7 @@ watch([people, hasUnassigned, () => snapshot.value?.shareCode], () => {
     pf.clear();
     // the row you just claimed vanished and the whole list flooded back — one
     // sentence keeps that from reading as a glitch
-    if (emptied) flash("Everything’s claimed");
+    if (emptied) flash("Everything’s assigned");
   }
 });
 // the slot string the CSS matches on ("0"–"11" or "u"); null removes the
@@ -193,7 +197,9 @@ const view = computed(() => {
 const filterCaption = computed(() => {
   const s = pf.selected.value;
   if (!s || mode.value === "plan") return undefined;
-  if (s === UNASSIGNED) return "Unassigned";
+  // "Unassigned gear", not bare "Unassigned": beside a figure the bare word
+  // reads as a property of the number rather than what the number is OF
+  if (s === UNASSIGNED) return "Unassigned gear";
   const name = personName(snapshot.value?.people, s);
   return name ? `${name}’s pack` : undefined;
 });
@@ -295,8 +301,8 @@ watchPostEffect(() => {
   editorRef.value?.style.setProperty("--vault-w", `${vaultWidth.value}px`);
 });
 // packing progress — rows checked / rows total (a row is one check, whatever its
-// qty). Counts the FILTERED rows, so narrowed to Ryan it reads as his progress —
-// the same rows the checklist below is showing.
+// qty). Counts the FILTERED rows, so narrowed to one person it reads as their
+// progress — the same rows the checklist below is showing.
 const packProgress = computed(() => {
   const items = filteredItems.value;
   return { done: items.filter((i) => i.packed).length, total: items.length };
@@ -304,7 +310,7 @@ const packProgress = computed(() => {
 // start the next trip clean: uncheck everything (each row is its own op, so the
 // existing queue/flush machinery — offline, CAS, live-sync — applies unchanged).
 // Scoped to the filtered rows for the same reason the count is: clearing under
-// "Ryan" must not clear Matt's ticks.
+// one person's chip must not clear anyone else's ticks.
 async function clearChecks() {
   if (!snapshot.value) return;
   if (!(await askConfirm({
@@ -1123,8 +1129,8 @@ function onCorrected(res: { status: string; itemName?: string }) {
 
       <!-- WHO. The chips narrow the list to one person's load — in the gear view
            and the packing view alike, so it sits above the packbar and stands down
-           only for planning. Rendered only once the list names anyone (the ⋯ menu's
-           "People…" is the way in before that). -->
+           only for planning. Rendered only once the list names anyone (ListHead's
+           "Add people" affordance is the way in before that). -->
       <PeopleBar
         v-if="people.length"
         v-show="mode !== 'plan'"
@@ -1582,12 +1588,15 @@ function onCorrected(res: { status: string; itemName?: string }) {
   font-weight: 600;
 }
 /* the empty filter result — one quiet line where the folders would be, the way
-   back beside it (ListMenu's "No lists match" voice) */
+   back beside it (ListMenu's "No lists match" voice). Wraps: a 60-char name
+   folds the sentence at phone width, and without the wrap the button stayed
+   pinned to the first line's baseline out at the right. */
 .editor__filterempty {
   margin: 0;
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
-  gap: var(--space-3);
+  gap: var(--space-1) var(--space-3);
 }
 .editor__filterclear {
   flex: none;

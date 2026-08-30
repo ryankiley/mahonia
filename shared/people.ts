@@ -1,6 +1,6 @@
 // Who carries what — the display and filter rules for a list's people, written
 // ONCE. The editor rows, the read-only rows, the exporters and the per-person
-// totals all answer "whose is this item?" and "which items are Ryan's?", and a
+// totals all answer "whose is this item?" and "which items are Sam's?", and a
 // rule copied into each of those is the shape that lets the share view keep
 // drawing an assignment after the editor stops (the itemMarks lesson). Pure and
 // framework-free, like the rest of shared/.
@@ -115,13 +115,22 @@ export function hasUnassignedTopLevel(items: Item[]): boolean {
 export function carriedTotalsMg(
   list: Pick<ListData, "folders" | "items" | "people">,
 ): Record<string, number> {
+  // ONE bucketing pass, not a filter per key: the chips recompute this on every
+  // keystroke (the snapshot mutates in place), and thirteen filterItemsForPerson
+  // calls each rebuilt the parent map over the whole list.
+  const byId = new Map(list.items.map((i) => [i.id, i]));
+  const buckets = new Map<string, Item[]>();
+  for (const it of list.items) {
+    const key = effectivePersonId(it, it.parentId ? byId.get(it.parentId) : null) ?? UNASSIGNED;
+    const bucket = buckets.get(key);
+    if (bucket) bucket.push(it);
+    else buckets.set(key, [it]);
+  }
   const out: Record<string, number> = {};
-  const keys = [...(list.people ?? []).map((p) => p.id), UNASSIGNED];
-  for (const key of keys) {
-    const mg = computeTotals({
-      folders: list.folders,
-      items: filterItemsForPerson(list.items, key),
-    }).totalMg;
+  for (const key of [...(list.people ?? []).map((p) => p.id), UNASSIGNED]) {
+    const items = buckets.get(key);
+    if (!items) continue;
+    const mg = computeTotals({ folders: list.folders, items }).totalMg;
     if (mg > 0) out[key] = mg;
   }
   return out;

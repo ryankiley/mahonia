@@ -7,7 +7,7 @@ import { filterItemsForPerson, personColor, sortedPeople } from "~~/shared/peopl
 import type { Person } from "~~/shared/types";
 
 // Who's on this trip — the one place people are added, renamed, recolored and
-// removed. Assigning gear to them happens on the rows ("Carried by"), not here.
+// removed. Assigning gear to them happens on the rows ("Who carries this"), not here.
 //
 // Reads the controller directly like every editor surface (module singleton, no
 // prop drilling); the parent only decides when the dialog exists. Lazy-mounted
@@ -22,7 +22,7 @@ const atCap = computed(() => people.value.length >= MAX_PEOPLE);
 // ---- add ----
 const draft = ref("");
 const draftEl = useTemplateRef<HTMLInputElement>("draftEl");
-// The whole job on a fresh open is "type Ryan, Enter, type Matt, Enter" — start
+// The whole job on a fresh open is a name, Enter, a name, Enter — start
 // in the field. BaseModal's own focus move yields to a caller that already
 // placed focus inside (its documented contract), so this wins the race cleanly.
 onMounted(() => draftEl.value?.focus());
@@ -83,7 +83,7 @@ function remove(p: Person) {
     <p class="t-sm t-muted dlg__lede">
       Name who’s on this trip, then mark who carries what as you go down the list.
       Removing someone keeps their gear — it just goes back up for grabs.
-      Filter to Unassigned to work through what’s left.
+      Filter to Unassigned to see what nobody has yet.
     </p>
 
     <ul v-if="people.length" class="ppl__list">
@@ -112,7 +112,7 @@ function remove(p: Person) {
             type="button"
             class="btn btn--quiet ppl__remove"
             :class="{ 'is-arming': arming === p.id }"
-            :aria-label="arming === p.id ? `Really remove ${p.name}` : `Remove ${p.name}`"
+            :aria-label="arming === p.id ? `Really remove ${p.name}? ${carriedCount(p.id)} item${carriedCount(p.id) === 1 ? '' : 's'} go back up for grabs` : `Remove ${p.name}`"
             @click="remove(p)"
           >
             <template v-if="arming === p.id">Remove?{{ carriedCount(p.id) ? ` · ${carriedCount(p.id)} item${carriedCount(p.id) === 1 ? "" : "s"}` : "" }}</template>
@@ -152,7 +152,7 @@ function remove(p: Person) {
         ref="draftEl"
         v-model="draft"
         class="field ppl__addfield"
-        :placeholder="people.length ? 'Add another person' : 'Add a person — “Ryan”'"
+        :placeholder="people.length ? 'Add another person' : 'Add a person — “Sam”'"
         aria-label="Add a person"
         autocomplete="off"
         spellcheck="false"
@@ -161,8 +161,8 @@ function remove(p: Person) {
       />
       <button type="submit" class="btn btn--ghost" :disabled="atCap || !draft.trim()">Add</button>
     </form>
-    <!-- the cap, said only once it's near enough to matter -->
-    <p v-if="atCap" class="t-sm t-muted">Up to {{ MAX_PEOPLE }} people per list.</p>
+    <!-- the cap, said at the moment it starts refusing input -->
+    <p v-if="atCap" class="t-sm t-muted">Up to {{ MAX_PEOPLE }} people on a trip.</p>
 
     <div class="dlg__actions">
       <button class="btn btn--primary" @click="emit('close')">Done</button>
@@ -217,7 +217,6 @@ function remove(p: Person) {
   appearance: none;
   border: 0;
   background: none;
-  cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -225,7 +224,13 @@ function remove(p: Person) {
   block-size: var(--icon-btn);
   border-radius: var(--radius-2);
 }
-.ppl__swatchbtn:hover,
+/* the interactive halves are BUTTON-scoped: the standing procedural-color mark
+   below wears this class for the box alone, and a pointer cursor or a hover
+   plate on it would offer an affordance the element doesn't have */
+button.ppl__swatchbtn {
+  cursor: pointer;
+}
+button.ppl__swatchbtn:hover,
 .ppl__swatchbtn.is-active {
   background: var(--lit);
 }

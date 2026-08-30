@@ -874,8 +874,8 @@ function create() {
         name,
         // the folder palette walk, seeded with the FOLDERS' hues as well as the
         // people's: person dots and folder dots are the same swatch two rows apart
-        // (CategoryBar above, chips below), so Ryan taking the Shelter folder's
-        // green would put one color on two meanings. Distinct across both sets.
+        // (CategoryBar above, chips below), so a person taking the Shelter
+        // folder's green would put one color on two meanings. Distinct across both.
         colorKey: nextFolderColor([
           ...(snapshot.value?.folders ?? []).map((f) => f.colorKey ?? "other"),
           ...people.map((p) => p.colorKey ?? "other"),

@@ -7,7 +7,7 @@
 // pack progress — subscribe to this ref.
 //
 // NOT persisted, unlike the mode: a filter is a way of looking at the list this
-// sitting ("what's Matt carrying?"), not a standing preference — and the mode
+// sitting ("what's Sam carrying?"), not a standing preference — and the mode
 // key is device-level, which would be the wrong scope anyway (the same person
 // filter applied to a different list is meaningless). If per-list persistence
 // is ever wanted it must be keyed by the list, not the device.

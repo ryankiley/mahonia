@@ -69,9 +69,9 @@ function listWith(items: Item[], version = 1): ListSnapshot {
     description: "",
     displayUnit: "g",
     folders: [{ id: FOLDER, name: "Shelter", colorKey: "green", defaultClassification: null, sortOrder: 0 }],
-    // the carrier cases below assign rows to Ryan — he has to exist, or the
+    // the carrier cases below assign rows to Sam — he has to exist, or the
     // reducer's dangling-assignee heal quietly strips the very field under test
-    people: [{ id: "ryan", name: "Ryan", sortOrder: 0 }],
+    people: [{ id: "sam", name: "Sam", sortOrder: 0 }],
     items,
     version,
     isPublic: false,
@@ -288,15 +288,15 @@ describe("the carrier through a wrap and its unwrap", () => {
     // later child inherits nobody (and, under a person filter, "add a nested
     // item" builds a row the CSS immediately hides)
     const c = await open([
-      item({ id: "tent", name: "Tent", unitWeightMg: 900_000, personId: "ryan", sortOrder: 0 }),
+      item({ id: "tent", name: "Tent", unitWeightMg: 900_000, personId: "sam", sortOrder: 0 }),
       item({ id: "stakes", name: "Stakes", sortOrder: 1 }),
     ]);
 
     c.nestItem("stakes", "tent");
     await vi.waitFor(() => expect(byId(c, "tent")?.parentId).not.toBeNull());
     const groupId = byId(c, "tent")!.parentId!;
-    expect(byId(c, groupId)?.personId).toBe("ryan"); // the group stands where the product stood
-    expect(byId(c, "tent")?.personId).toBe("ryan"); // and the product keeps its own claim
+    expect(byId(c, groupId)?.personId).toBe("sam"); // the group stands where the product stood
+    expect(byId(c, "tent")?.personId).toBe("sam"); // and the product keeps its own claim
     expect(byId(c, "stakes")?.parentId).toBe(groupId);
   });
 
@@ -304,14 +304,14 @@ describe("the carrier through a wrap and its unwrap", () => {
     // the wrap's signature state, with the GROUP assigned and the child riding on
     // inheritance — deleting the container must not silently unclaim the row
     const c = await open([
-      item({ id: "g", name: "Tent", personId: "ryan", sortOrder: 0 }),
+      item({ id: "g", name: "Tent", personId: "sam", sortOrder: 0 }),
       item({ id: "body", name: "Tent body", parentId: "g", unitWeightMg: 900_000, commonNameOverridden: true, sortOrder: 0 }),
     ]);
 
     c.unnest("body");
     await vi.waitFor(() => expect(byId(c, "body")?.parentId).toBeNull());
     expect(byId(c, "g")).toBeUndefined(); // the wrapper unwound
-    expect(byId(c, "body")?.personId).toBe("ryan"); // the claim moved down with the name
+    expect(byId(c, "body")?.personId).toBe("sam"); // the claim moved down with the name
     expect(byId(c, "body")?.commonName).toBe("Tent");
   });
 });
