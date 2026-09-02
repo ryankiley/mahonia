@@ -2650,6 +2650,19 @@ function dismissFix() {
 }
 
 /* ---- carried by ---- */
+/* This is the ONLY .item__mark inside .item__actions, and the two rules disagree:
+   the cluster right-aligns its glyphs in their tap targets (above) so the grip
+   reads flush, while .item__mark paints a pill ground over the whole content box.
+   That right-alignment is for BARE glyphs — once the button wears the ground, the
+   ground is the object and its content belongs in the middle of it. Right-aligned,
+   the 10px dot sat hard against the edge of its own 32px chip (and 3px right of the
+   16px glyphs beside it, which centre at 24). Unlit there is no ground, so the User
+   glyph keeps the cluster's rhythm and this rule stands down with the chip.
+   Selector carries .item__actions purely to WIN: bare, it ties the cluster rule at
+   (0,2,0) and rides source order. */
+.item__actions .item__person-btn.item__mark {
+  justify-content: center;
+}
 /* the carrier tag itself is the shared .item__carrier atom (atoms/item.scss) —
    drawn once for this face, the checklist face and the read rows */
 /* the edit face's copy exists only where the trigger's dot doesn't: the phone
