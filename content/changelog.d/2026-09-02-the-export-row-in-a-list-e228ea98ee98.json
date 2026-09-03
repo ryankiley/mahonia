@@ -1,0 +1,6 @@
+{
+  "date": "2026-09-02",
+  "fixed": [
+    "The Export row in a list's ⋯ menu now highlights when you point at it, like the rows around it."
+  ]
+}

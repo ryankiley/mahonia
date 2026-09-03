@@ -26,8 +26,11 @@ import type { Ref } from "vue";
  * Usage — three things in the consuming component:
  *   const { plateRef, listRef, placing, on } = useMenuPlate();
  *   <ul ref="listRef" v-on="on"> <span ref="plateRef" class="menu__plate" …/> …
- * Rows are identified by `[data-row]`, so an item that shouldn't light (a section
- * header, a separator) simply doesn't carry it.
+ * Rows are identified by `[data-row]`, so an item that shouldn't light (a separator,
+ * a heading that is only a label) simply doesn't carry it. A section HEADER does
+ * carry it: it is a button that opens something, and once a menu has a plate the
+ * rows' own :hover is switched off (controls.scss), so a header left unmarked lights
+ * on neither path and reads as dead.
  */
 export function useMenuPlate(): {
   plateRef: Ref<HTMLElement | null>;

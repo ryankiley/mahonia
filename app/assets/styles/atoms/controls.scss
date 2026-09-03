@@ -447,6 +447,11 @@ input[type="search"]::-webkit-search-decoration {
 // The header is a menu row like any other — only the trailing chevron marks it as
 // something that OPENS rather than does. `display: contents` so the <li> wrapping a
 // header + its list doesn't become a box between them.
+//
+// The header carries [data-row] like the items do, so the travelling plate lands on
+// it. Leaving it off is not neutral: once a menu has a plate, the rule below strips
+// every .menu__item's own :hover, so an unmarked header lights on neither path and
+// the one row that opens the group reads as the only dead one.
 .menu__sect {
   display: contents;
 }
