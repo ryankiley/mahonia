@@ -4,7 +4,8 @@
     "Give a piece of gear in My Gear a note and what it cost.",
     "My Gear totals what your kit cost, beside what it weighs.",
     "What a piece of gear cost comes with it into every list you add it to, along with its product link.",
-    "Download everything in My Gear as a CSV or a JSON backup, from the ⋯ menu in the top bar."
+    "Download everything in My Gear as a CSV or a JSON backup, from the ⋯ menu in the top bar.",
+    "Import gear into My Gear from a CSV or a JSON backup — it adds what you don't already have."
   ],
   "fixed": [
     "A note written on a list row now travels with the gear into My Gear instead of being left behind."
