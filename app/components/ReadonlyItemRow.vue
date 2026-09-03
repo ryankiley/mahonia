@@ -310,25 +310,27 @@ const rowPerson = computed(() =>
     white-space: normal;
     overflow: visible;
   }
+  /* the sub-line (gear type · note) takes the line directly under the name — it is the
+     everyday word for that name, so it belongs against it, not under the numbers;
+     ×qty · weight · mark drop to the third line. Mirrors the editor's rows. */
+  .item__rosub {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
   .item__roqty {
     grid-column: 1;
-    grid-row: 2;
+    grid-row: 3;
   }
   /* the qty/weight cells' compact box metrics are shared with the editor's rows —
      atoms/item.scss */
   .item__roweight {
     grid-column: 2;
-    grid-row: 2;
+    grid-row: 3;
     justify-self: start;
     text-align: left;
   }
   .item__roclass {
     grid-column: 3;
-    grid-row: 2;
-  }
-  /* third line on the two-line mobile shape; the row-gap provides its spacing */
-  .item__rosub {
-    grid-column: 1 / -1;
     grid-row: 3;
   }
 }

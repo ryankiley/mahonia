@@ -37,7 +37,8 @@
    Editor-only by scope (.editor__body): the share views render one face and no
    editor body, the vault pane sits outside it, so neither is touched. display:none
    keeps the hidden face out of layout, paint and the accessibility tree exactly as
-   not-being-mounted did. The under-row reveals (gear type / note / catalog-fix) and
+   not-being-mounted did. The under-row catalog-fix reveal (the gear type / note
+   sub-line lives inside the edit face's name cell and goes with it) and
    the nested block's "Add an item" are edit-mode furniture, hidden the same way —
    they used to be v-ifs on the same prop, unmounted for the same cost. */
 /* !important, like print.scss's chrome-off rule and for the same reason: this is a

@@ -1073,36 +1073,92 @@ function dismissFix() {
       <!-- focusin (it bubbles, unlike focus) rather than binding ItemInput's own input:
            the name cell is the whole "what is this item" affordance, so landing anywhere
            in it offers the gear type + note below (see nameEditing) -->
-      <div class="item__name" :class="{ 'item__name--group': isParent }" @focusin="nameEditing = true">
-        <ItemInput
-          :unit="list.displayUnit"
-          :initial="editableName"
-          placeholder="Item name"
-          :clear-on-commit="false"
-          :autofocus="isPendingBlank"
-          @commit="onNameCommit"
-          @advance="c.addBlankItemAfter(item.id)"
-          @overlay-toggle="$emit('overlayToggle', $event)"
-        />
-        <!-- collapse a group of nested items — trails the name like the folder's
-             chevron (the name hugs its text so this sits right after it) -->
-        <!-- the carrier, PHONE-ONLY on this face (see the mobile block): the
-             cluster's dot trigger is display:none in the mobile stack, and without
-             this the one mode that can assign showed no assignment state at all.
-             Desktop stays clean — the trigger's dot already says it. BEFORE the
-             chevron, so all three faces read name · carrier · chevron alike. -->
-        <span v-if="ownPerson" class="t-sm item__carrier item__ecarrier"><span class="swatch item__carrier-dot" :style="{ background: personColor(ownPerson) }" aria-hidden="true" />{{ ownPerson.name }}</span>
-        <button
-          v-if="isParent"
-          class="item__nestcollapse"
-          :aria-expanded="!nestCollapsed"
-          :aria-label="`${nestCollapsed ? 'Expand' : 'Collapse'} ${item.name || 'group'}`"
-          :title="nestCollapsed ? 'Expand group' : 'Collapse group'"
-          @mousedown.prevent
-          @click="toggleNest"
-        >
-          <HugeiconsIcon :icon="ChevronDownIcon" class="item__nestchev" :class="{ 'is-collapsed': nestCollapsed }" :size="16" :stroke-width="2" />
-        </button>
+      <div class="item__name">
+        <!-- the name box: the positioned anchor for the autocomplete menu (so it opens
+             under the NAME, not under the sub-line below), the group's name·chevron flex
+             line, and the focusin target — landing anywhere in it offers the gear type
+             + note underneath (nameEditing); focus arriving in those fields does not. -->
+        <div class="item__namebox" :class="{ 'item__namebox--group': isParent }" @focusin="nameEditing = true">
+          <ItemInput
+            :unit="list.displayUnit"
+            :initial="editableName"
+            placeholder="Item name"
+            :clear-on-commit="false"
+            :autofocus="isPendingBlank"
+            @commit="onNameCommit"
+            @advance="c.addBlankItemAfter(item.id)"
+            @overlay-toggle="$emit('overlayToggle', $event)"
+          />
+          <!-- collapse a group of nested items — trails the name like the folder's
+               chevron (the name hugs its text so this sits right after it) -->
+          <!-- the carrier, PHONE-ONLY on this face (see the mobile block): the
+               cluster's dot trigger is display:none in the mobile stack, and without
+               this the one mode that can assign showed no assignment state at all.
+               Desktop stays clean — the trigger's dot already says it. BEFORE the
+               chevron, so all three faces read name · carrier · chevron alike. -->
+          <span v-if="ownPerson" class="t-sm item__carrier item__ecarrier"><span class="swatch item__carrier-dot" :style="{ background: personColor(ownPerson) }" aria-hidden="true" />{{ ownPerson.name }}</span>
+          <button
+            v-if="isParent"
+            class="item__nestcollapse"
+            :aria-expanded="!nestCollapsed"
+            :aria-label="`${nestCollapsed ? 'Expand' : 'Collapse'} ${item.name || 'group'}`"
+            :title="nestCollapsed ? 'Expand group' : 'Collapse group'"
+            @mousedown.prevent
+            @click="toggleNest"
+          >
+            <HugeiconsIcon :icon="ChevronDownIcon" class="item__nestchev" :class="{ 'is-collapsed': nestCollapsed }" :size="16" :stroke-width="2" />
+          </button>
+        </div>
+        <!-- sub-line: the gear type (a quiet upright label) and, under it, the freeform note;
+             both single-line live-text fields, showing whenever they hold a value or the
+             name is being edited (see nameEditing). INSIDE the name cell, not under the
+             whole row: the gear type is the everyday word for the product above it, so it
+             has to sit directly under that name at every width — under the row it landed
+             beneath the qty · weight line on a phone, describing the wrong thing. This
+             is also what puts the two fields next in the tab order after the name.
+             Editing only: the checklist row shows a saved gear type as plain text
+             (.item__csub) and no note at all — nothing there is editable; packing hides
+             this whole face (atoms/item.scss).
+             The .reveal wrapper is a grid whose row animates 1fr↔0fr (Safari-safe slide);
+             the two inputs share one inner child so that single-child slide stays clean. -->
+        <Transition name="reveal">
+          <div v-if="subShown" class="reveal reveal--note">
+            <div class="item__subfields">
+              <!-- the gear-type field's placeholder is EXAMPLES ONLY, no concept noun: it sits
+                   directly under the product name, so the contrast (a specific product / the
+                   everyday word for it) is what explains it — naming the abstraction there is
+                   what read as jargon. The aria-label carries the noun for screen readers,
+                   which have no such positional context.
+                   The three examples are the three most common types in the catalog itself
+                   (backpack 237 rows, tent 118, quilt 107 — seed/common-names.json), so they
+                   are real canonical values, spelled as the vocabulary spells them. The old
+                   "Shoes" was neither: no row carries it (footwear is "trail runners" /
+                   "hiking shoes"), so the field was advertising a value it would never fill in. -->
+              <input
+                v-if="cnameShown"
+                ref="cnameRef"
+                class="item__note item__gtype-input"
+                :value="item.commonName ?? ''"
+                placeholder="Tent, Backpack, Quilt…"
+                aria-label="Gear type"
+                autocorrect="off"
+                spellcheck="true"
+                @change="onCommonName"
+              />
+              <input
+                v-if="noteShown"
+                ref="noteRef"
+                class="item__note"
+                :value="item.description ?? ''"
+                placeholder="Add a note"
+                aria-label="Item note"
+                autocorrect="off"
+                spellcheck="true"
+                @change="onNote"
+              />
+            </div>
+          </div>
+        </Transition>
       </div>
 
       <!-- metadata + controls: display:contents on desktop, so qty/weight/class/
@@ -1656,52 +1712,6 @@ function dismissFix() {
       </div>
     </div>
 
-    <!-- sub-line: the common name (a quiet upright label) and, under it, the freeform note;
-         both single-line live-text fields, appearing once either has content or the details
-         button is clicked. Editing only: the checklist row shows a saved gear type as plain
-         text (.item__csub) and no note at all — nothing there is editable. (The "editing
-         only" half is CSS now — packing hides every under-row reveal; atoms/item.scss.)
-         The .reveal wrapper is a grid whose row animates 1fr↔0fr (Safari-safe slide); the two
-         inputs share one inner child so that single-child slide stays clean. -->
-    <Transition name="reveal">
-      <div v-if="subShown" class="reveal reveal--note">
-        <div class="item__subfields">
-          <!-- the gear-type field's placeholder is EXAMPLES ONLY, no concept noun: it sits
-               directly under the product name, so the contrast (a specific product / the
-               everyday word for it) is what explains it — naming the abstraction there is
-               what read as jargon. The aria-label carries the noun for screen readers,
-               which have no such positional context.
-               The three examples are the three most common types in the catalog itself
-               (backpack 237 rows, tent 118, quilt 107 — seed/common-names.json), so they
-               are real canonical values, spelled as the vocabulary spells them. The old
-               "Shoes" was neither: no row carries it (footwear is "trail runners" /
-               "hiking shoes"), so the field was advertising a value it would never fill in. -->
-          <input
-            v-if="cnameShown"
-            ref="cnameRef"
-            class="item__note item__gtype-input"
-            :value="item.commonName ?? ''"
-            placeholder="Tent, Backpack, Quilt…"
-            aria-label="Gear type"
-            autocorrect="off"
-            spellcheck="true"
-            @change="onCommonName"
-          />
-          <input
-            v-if="noteShown"
-            ref="noteRef"
-            class="item__note"
-            :value="item.description ?? ''"
-            placeholder="Add a note"
-            aria-label="Item note"
-            autocorrect="off"
-            spellcheck="true"
-            @change="onNote"
-          />
-        </div>
-      </div>
-    </Transition>
-
     <Transition name="reveal">
       <div v-if="showFix" class="reveal">
         <div class="item__fixrow">
@@ -1765,30 +1775,34 @@ function dismissFix() {
   /* vertical padding comes from the row wrapper (.folder__items > *) so the rule
      lines between items sit at a consistent rhythm */
 }
-/* position:relative makes the name cell the autocomplete dropdown's anchor, so
-   the menu opens flush with the row's left edge and its width math is cell-based
-   (see ItemInput .ac__menu) — the .ac root inside defers via position:static. */
 .item__name {
   grid-area: name;
+  min-width: 0;
+}
+/* position:relative makes the name BOX the autocomplete dropdown's anchor, so the
+   menu opens flush with the row's left edge, directly under the name field (not under
+   the sub-line that shares the cell), and its width math is box-based (see ItemInput
+   .ac__menu) — the .ac root inside defers via position:static. */
+.item__namebox {
   position: relative;
   min-width: 0;
 }
-.item__name :deep(.ac) {
+.item__namebox :deep(.ac) {
   position: static;
 }
 /* a GROUP (parent) row: the name hugs its text so the collapse chevron trails it,
    exactly like a folder header (.folder__title / .folder__name / .folder__collapse) */
-.item__name--group {
+.item__namebox--group {
   display: flex;
   align-items: baseline;
   gap: var(--space-1);
   min-width: 0;
 }
-.item__name--group :deep(.ac) {
+.item__namebox--group :deep(.ac) {
   flex: 0 1 auto;
   min-width: 0;
 }
-.item__name--group :deep(.ac__input) {
+.item__namebox--group :deep(.ac__input) {
   width: auto;
   field-sizing: content;
   min-width: 2ch;
@@ -1820,16 +1834,24 @@ function dismissFix() {
 .item__classcell {
   grid-area: class;
   display: flex;
-  align-self: center;
+  /* CENTRED in a box the height of the field track, pinned to the row's TOP — not
+     align-self:center in the grid area. The area is as tall as the name cell, and the
+     name cell grows when its sub-line (gear type / note) opens; centring in it sank
+     every icon to the middle of a two- or three-line cell. A --field-h box at the top
+     centres the glyph on the name line whether or not anything is open under it. */
+  align-self: start;
+  height: var(--field-h);
   align-items: center;
   gap: var(--space-1);
   min-width: 0;
 }
-/* same correction for the trailing cluster — it carried the same 2px lift, and
-   fixing only the middle one would leave two icon groups at two heights */
+/* same box for the trailing cluster — it carried the same 2px lift, and the same
+   sink once the name cell could grow; fixing only the middle one would leave two
+   icon groups at two heights */
 .item__actions {
   grid-area: actions;
-  align-self: center;
+  align-self: start;
+  height: var(--field-h);
 }
 /* desktop: the wrapper is invisible to layout, so its children act as direct grid
    items in the shared columns. (on mobile it becomes a flex-wrap row — see below) */
@@ -1963,13 +1985,18 @@ function dismissFix() {
    CENTRED in the row rather than baseline-aligned, the classification cell's fix for
    the same problem: a flex box whose first child is a button has no text baseline to
    offer, so the grid would synthesize one from that button's bottom edge and hang the
-   whole stepper off it. Every box on this row is --field-h tall, so centring puts the
-   number's baseline exactly where baseline alignment did.
+   whole stepper off it. Centred inside a --field-h box pinned to the row's TOP (the
+   classification cell and the actions cluster ride the same box): every box on the
+   name LINE is --field-h tall, so that puts the number's baseline exactly where
+   baseline alignment did — and the box, not the grid area, is what it centres in,
+   because the area grows with the name cell once its sub-line (gear type / note)
+   opens, and centring in that sank the stepper a line below the weight beside it.
    space-between, not a gap: the two buttons take the track's ends, which is what
    makes a column of them line up down the list while the numbers between them stay
    centred on their own. */
 .item__qty--step {
-  align-self: center;
+  align-self: start;
+  height: var(--field-h);
   align-items: center;
   justify-content: space-between;
   gap: 0;
@@ -2675,20 +2702,13 @@ function dismissFix() {
     padding-block: 2px;
     line-height: 1.3;
   }
-  /* The caption sits under the META line here rather than under the name field, so
-     the desktop tuck (sized for a 36px field's dead space) is the wrong correction:
-     there is no dead space left to cancel. Every touch box on this line is pulled back
-     onto it (see .item__classcell / .item__actions below), so the meta row is now as
-     tall as its TEXT — a 24.8px field box — and its bottom edge already sits directly
-     under the "2 × 540 g" the caption belongs to. So this is a GAP, not a tuck — and
-     it's the row's own gap: --space-1 is what .item already puts between the name and
+  /* The sub-line sits directly under the name field here as on desktop, but the mobile
+     name field is a text-tight box (padding-block 2px, see above), so the desktop tuck
+     (sized to cancel a 36px field's dead space) has nothing to cancel. This is a GAP,
+     and it's the row's own gap: --space-1 is what .item puts between the name cell and
      the meta line, and what .item__subfields puts between the gear type and the note.
-     Three text lines, one rhythm. (Zero is wrong for the same reason a tuck is: with
-     no margin the caption's line sits 8.4px under the meta's against the 12.8px above
-     it, and that third line reads as belonging to the row below.) Still routed through
-     this hook, so the offset retires with the height on close.
-     It used to pull back by half the button overhang, which is what that dead space
-     measured while the classification toggles stood 44px tall in a 25px line. */
+     Name, gear type, note, meta — one rhythm. Still routed through this hook, so the
+     offset retires with the height on close. */
   .reveal--note {
     --reveal-offset: var(--space-1);
   }
@@ -2745,6 +2765,7 @@ function dismissFix() {
   .item__actions {
     flex: none;
     align-self: center;
+    height: auto; /* the desktop --field-h box is for the grid row; here the cluster rides the flex line */
   }
   /* the --tap tap targets keep their size but overflow the (shorter) text line via
      negative margins, so the icons don't inflate the row and push the two text
@@ -2819,20 +2840,20 @@ function dismissFix() {
   .item__ecarrier {
     display: inline-flex;
   }
-  /* the name cell is a plain BLOCK on a non-group row (only --group is a flex
+  /* the name box is a plain BLOCK on a non-group row (only --group is a flex
      row), so without this the tag dropped to its own line under the field,
-     aligned to nothing — make the cell the baseline row the group variant
+     aligned to nothing — make the box the baseline row the group variant
      already is, the field taking the slack, the gap carrying the spacing */
-  .item__name:has(.item__ecarrier) {
+  .item__namebox:has(.item__ecarrier) {
     display: flex;
     align-items: baseline;
     gap: var(--space-1);
   }
-  .item__name:has(.item__ecarrier) :deep(.ac) {
+  .item__namebox:has(.item__ecarrier) :deep(.ac) {
     flex: 1 1 auto;
     min-width: 0;
   }
-  .item__name:has(.item__ecarrier) .item__ecarrier {
+  .item__namebox:has(.item__ecarrier) .item__ecarrier {
     margin-left: 0; /* the flex gap is the spacing here — the atom's margin doubled it */
   }
   /* the classification cell used to hold a text label that had to ellipsize to keep
@@ -2853,6 +2874,7 @@ function dismissFix() {
   .item__classcell {
     flex: none;
     margin-left: auto;
+    height: auto; /* as .item__actions: the --field-h box is desktop-grid furniture */
   }
   /* the number fields have no grid column to fill on mobile, so give them compact
      explicit widths — otherwise width:100% balloons to the default text-input size
@@ -2860,6 +2882,9 @@ function dismissFix() {
   .item__qty,
   .item__weight {
     flex: none;
+  }
+  .item__qty--step {
+    height: auto; /* the --field-h box is desktop-grid furniture; here the stepper stands down and the count rides the flex line */
   }
   /* THE STEPPER STANDS DOWN HERE, and the count goes back to a plain number and its
      ×. Nine controls already share this line at 375px, and unlike the grid it has no
@@ -2965,21 +2990,23 @@ function dismissFix() {
   }
   .item__cqty {
     grid-column: 2;
-    grid-row: 2;
+    grid-row: 3;
   }
   /* the qty/weight cells' compact box metrics are shared with the read rows —
      atoms/item.scss */
   .item__cweight {
     grid-column: 3;
-    grid-row: 2;
+    grid-row: 3;
     justify-self: start;
     text-align: left;
   }
-  /* common name on its own third line (under name + qty/weight), aligned to the name
-     column; the row-gap gives the spacing so drop the desktop upward tuck */
+  /* the gear type on the line directly under the name (it is the everyday word for
+     that name — the edit and read faces put it there too), ×qty · weight below it;
+     aligned to the name column. The row-gap gives the spacing so drop the desktop
+     upward tuck. */
   .item__csub {
     grid-column: 2 / -1;
-    grid-row: 3;
+    grid-row: 2;
     margin-top: 0;
   }
 }
