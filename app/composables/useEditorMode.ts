@@ -16,7 +16,7 @@
 // Client-only by nature (GearEditor is a .client component); the storage read is
 // guarded anyway so importing this in a server context stays inert.
 
-import { remember } from "../utils/remember";
+import { recall, remember } from "../utils/remember";
 
 export type EditorMode = "edit" | "pack" | "plan";
 export const MODE_ORDER: EditorMode[] = ["edit", "pack", "plan"];
@@ -32,12 +32,8 @@ let singleton: ReturnType<typeof create> | undefined;
 
 function create() {
   const stored = (): EditorMode => {
-    try {
-      const m = localStorage.getItem(MODE_KEY) as EditorMode | null;
-      return m && MODE_ORDER.includes(m) ? m : "edit";
-    } catch {
-      return "edit"; // private mode / no storage
-    }
+    const m = recall(MODE_KEY) as EditorMode | null; // null in private mode / no storage
+    return m && MODE_ORDER.includes(m) ? m : "edit";
   };
   const mode = ref<EditorMode>(import.meta.client ? stored() : "edit");
   watch(mode, (m) => remember(MODE_KEY, m));

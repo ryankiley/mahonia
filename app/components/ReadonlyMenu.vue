@@ -44,9 +44,24 @@ const { warmExporters, copyPlainText, copyMarkdown, downloadCsv, downloadJson } 
   flash,
   () => (typeof location !== "undefined" ? location.href : ""),
 );
+// The section's rows, table-driven as the editor's kebab has them (MENU_SECTIONS in
+// GearEditor) — same order, same words — so a new export is one row here and one
+// there rather than a fifth hand-written <li>. First, because it's the one people
+// reach for most: it's the format a comment box actually accepts. Markdown below it
+// is the same idea for somewhere that renders it.
+const EXPORT_ITEMS = [
+  { key: "text", label: "Copy as plain text", run: copyPlainText },
+  { key: "markdown", label: "Copy as Markdown", run: copyMarkdown },
+  { key: "csv", label: "Download CSV", run: downloadCsv },
+  { key: "json", label: "Download JSON", run: downloadJson },
+];
 function toggleMenu() {
   menuOpen.value = !menuOpen.value;
   if (menuOpen.value) warmExporters();
+}
+function runExport(run: () => Promise<void>) {
+  menuOpen.value = false;
+  void run();
 }
 
 const { copying, copyList } = useCopyList();
@@ -64,10 +79,7 @@ function runMenu(action: string) {
   switch (action) {
     case "copy": return void copyThis();
     case "link": return void copyLink();
-    case "text": return void copyPlainText();
-    case "markdown": return void copyMarkdown();
-    case "csv": return void downloadCsv();
-    case "json": return void downloadJson();
+    // the exports are EXPORT_ITEMS' — see runExport
     case "report": return void reportThis();
     case "feedback":
       feedbackEverOpened.value = true;
@@ -174,20 +186,9 @@ async function copyLink() {
           <Transition name="reveal">
             <div v-if="exportOpen" class="reveal">
               <ul class="menu__sectlist" role="group" aria-label="Export">
-                <!-- First, because it's the one people reach for most: it's the format
-                     a comment box actually accepts. Markdown below it is the same idea
-                     for somewhere that renders it. -->
-                <li role="none">
-                  <button type="button" data-row role="menuitem" class="menu__item menu__sectitem" @click="runMenu('text')">Copy as plain text</button>
-                </li>
-                <li role="none">
-                  <button type="button" data-row role="menuitem" class="menu__item menu__sectitem" @click="runMenu('markdown')">Copy as Markdown</button>
-                </li>
-                <li role="none">
-                  <button type="button" data-row role="menuitem" class="menu__item menu__sectitem" @click="runMenu('csv')">Download CSV</button>
-                </li>
-                <li role="none">
-                  <button type="button" data-row role="menuitem" class="menu__item menu__sectitem" @click="runMenu('json')">Download JSON</button>
+                <!-- one row per export action, in EXPORT_ITEMS' order (see the script) -->
+                <li v-for="x in EXPORT_ITEMS" :key="x.key" role="none">
+                  <button type="button" data-row role="menuitem" class="menu__item menu__sectitem" @click="runExport(x.run)">{{ x.label }}</button>
                 </li>
               </ul>
             </div>

@@ -87,7 +87,7 @@ function fromCredential(cred: PublicKeyCredential): Record<string, unknown> {
   return out;
 }
 
-export type PasskeyResult = "ok" | "cancelled" | "unsupported" | "failed";
+type PasskeyResult = "ok" | "cancelled" | "unsupported" | "failed";
 
 /** Where a ceremony stopped, so each flow can map it to its own vocabulary. */
 type CeremonyEnd =

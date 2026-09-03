@@ -15,11 +15,9 @@ import {
   vaultItems,
   vaults,
 } from "../db/schema";
-import { useAccountDb } from "./db";
+import type { Db } from "./db";
 
-type Db = Awaited<ReturnType<typeof useAccountDb>>;
-
-export interface AccountDeletion {
+interface AccountDeletion {
   /** lists soft-deleted — 0 unless `deleteLists` was asked for */
   listsDeleted: number;
   /** whether a vault was found and removed */

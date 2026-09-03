@@ -2,7 +2,7 @@ import type { H3Event } from "h3";
 import { createError } from "h3";
 import { eq, sql } from "drizzle-orm";
 import { vaults } from "../db/schema";
-import { useVaultDb } from "./db";
+import { useVaultDb, type Db } from "./db";
 import { resolveSession } from "./authSession";
 
 /**
@@ -28,8 +28,6 @@ import { resolveSession } from "./authSession";
  * fix the capture beacon: `navigator.sendBeacon` can't set headers, but it is
  * same-origin, so the cookie rides along on its own.
  */
-
-type Db = Awaited<ReturnType<typeof useVaultDb>>;
 
 /** The shared preamble of every resolver below: session or 401, then the vault
  *  looked up AND touched (see touchVaultByUser). One body, so the 401 wording

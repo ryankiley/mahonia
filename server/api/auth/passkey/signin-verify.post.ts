@@ -61,14 +61,14 @@ export default defineEventHandler(async (event) => {
 
   if (!verification.verified) return { ok: false as const };
 
-  await touchCredential(db, cred.id, verification.authenticationInfo.newCounter);
+  // the counter stamp and the email read are independent, so they go out together
+  // (one round trip on neon-http, which has no pipelining); the session starts only
+  // once the stamp has landed
+  const [, row] = await Promise.all([
+    touchCredential(db, cred.id, verification.authenticationInfo.newCounter),
+    db.select({ email: users.email }).from(users).where(eq(users.id, cred.userId)).limit(1),
+  ]);
   await startSession(event, db, cred.userId);
-
-  const row = await db
-    .select({ email: users.email })
-    .from(users)
-    .where(eq(users.id, cred.userId))
-    .limit(1);
   // null, not "" — an account made with a passkey genuinely has no address, and
   // the client distinguishes "none yet" from "" nowhere else
   return { ok: true as const, user: { email: row[0]?.email ?? null } };

@@ -22,13 +22,13 @@ body {
 
 // Small label — sentence case (no all-caps).
 .t-label {
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   font-weight: 600;
   color: var(--ink-2);
 }
 
 .t-sm {
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
 }
 
 // Tabular figures for data — aligned columns, same family.
@@ -40,6 +40,16 @@ body {
 // Secondary text color (the only de-emphasis level).
 .t-muted {
   color: var(--ink-2);
+}
+
+// One-line clip — the overflow/ellipsis/nowrap triplet, once; min-width:0 so a flex
+// or grid child can shrink to where the ellipsis engages. A mobile rule that wants
+// the text to wrap again out-specifies this from its scoped block.
+.t-clip {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 // The "·" that separates a gear name from its variant ("Rapide SL Pillow · One

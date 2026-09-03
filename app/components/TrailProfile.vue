@@ -2,12 +2,13 @@
 import { HugeiconsIcon } from "~/utils/hugeicon";
 import { dayColorSequence } from "~~/shared/categories";
 import {
-  M_PER_UNIT,
   formatDistance,
+  formatDistancePadded,
   heightUnitFor,
   heightValue,
   type DisplayDistanceUnit,
 } from "~~/shared/trailDistance";
+import { dayRanges } from "~~/shared/tripPlan";
 // gradeBandFor is the function the SHADING bands by, not a second copy of its two
 // thresholds — so the number under the cursor and the colour under the cursor can never
 // disagree about what "steep" means. There used to be a STEEP_PCT in this file saying 10
@@ -122,12 +123,9 @@ const dayOfSample = computed(() => {
     props.dayDistancesM.reduce((s, d) => s + d, 0),
   );
   if (!(total > 0)) return props.profile.map(() => -1);
-  const bounds: number[] = [];
-  let run = 0;
-  for (const d of props.dayDistancesM) {
-    run += d;
-    bounds.push(run / total);
-  }
+  // each day's far edge as a fraction of the route — the same end-to-end cut the map's
+  // legs and the panel's pins use (shared/tripPlan.dayRanges)
+  const bounds = dayRanges(props.dayDistancesM).map((r) => r.toM / total);
   return props.profile.map((_, i) => {
     const f = i / (props.profile.length - 1);
     // -1 = past the last assigned day: ground the itinerary hasn't reached
@@ -152,17 +150,28 @@ const dayColors = computed(() => dayColorSequence(props.dayDistancesM.length));
  */
 const RIDGE_GAP = 7;
 
-/** The polyline through a run of samples, and the same run closed down to the baseline. */
-function pathsFor(idx: readonly number[]) {
-  const pts = idx.map((i) => `${x(i).toFixed(1)},${y(props.profile[i]!).toFixed(1)}`);
+/**
+ * Every sample's drawn position, ONCE. x is already the string it lands in the path as; y
+ * stays a number because the fill offsets it before printing. The two path builders below
+ * read from here rather than re-projecting per run — the ridges and the fills each walk
+ * the whole profile, so this used to be four projections per sample per render.
+ */
+const pts = computed(() =>
+  props.profile.map((ele, i) => ({ x: x(i).toFixed(1), y: y(ele) })),
+);
+
+/** The polyline through a run of samples. */
+function ridgePath(idx: readonly number[]): string {
+  const p = pts.value;
+  return `M${idx.map((i) => `${p[i]!.x},${p[i]!.y.toFixed(1)}`).join("L")}`;
+}
+
+/** The same run closed down to the baseline. */
+function fillPath(idx: readonly number[]): string {
+  const p = pts.value;
   // the fill starts BELOW the ridge, clamped so a low point can't push it past the floor
-  const under = idx.map(
-    (i) => `${x(i).toFixed(1)},${Math.min(VB_H, y(props.profile[i]!) + RIDGE_GAP).toFixed(1)}`,
-  );
-  return {
-    ridge: `M${pts.join("L")}`,
-    fill: `M${x(idx[0]!).toFixed(1)},${VB_H}L${under.join("L")}L${x(idx[idx.length - 1]!).toFixed(1)},${VB_H}Z`,
-  };
+  const under = idx.map((i) => `${p[i]!.x},${Math.min(VB_H, p[i]!.y + RIDGE_GAP).toFixed(1)}`);
+  return `M${p[idx[0]!]!.x},${VB_H}L${under.join("L")}L${p[idx[idx.length - 1]!]!.x},${VB_H}Z`;
 }
 
 /**
@@ -190,7 +199,7 @@ const dayRuns = computed(() => {
     // samples and stops.
     if (idx.length < 2) continue;
     out.push({
-      ridge: pathsFor(idx).ridge,
+      ridge: ridgePath(idx),
       // unassigned ground is grey — a quiet surface, not a category colour, because it
       // is precisely the part of the route that has no day to belong to yet
       color: d === -1 ? "var(--ink-3)" : (dayColors.value[d] ?? "var(--cat-other)"),
@@ -226,7 +235,7 @@ const gradeFills = computed(() => {
     let idx: number[] = [];
     // two samples minimum: one sample is a path with no width to it
     const flush = () => {
-      if (idx.length > 1) out.push({ fill: pathsFor(idx).fill, band: r.band, key: out.length });
+      if (idx.length > 1) out.push({ fill: fillPath(idx), band: r.band, key: out.length });
       idx = [];
     };
     for (let k = r.from; k <= r.to; k++) {
@@ -293,8 +302,11 @@ const asHeight = (m: number) => heightValue(m, props.distanceUnit);
  *
  * Nothing here changes what is measured — only how many of its digits are asserted.
  */
-const readDistance = (m: number) =>
-  `${(m / M_PER_UNIT[props.distanceUnit]).toFixed(1)} ${props.distanceUnit}`;
+// formatDistancePadded IS the fixed-decimal reading — the same one the waypoint rows
+// use for their column, and for the same width-holding reason
+const readDistance = (m: number) => formatDistancePadded(m, props.distanceUnit);
+// its OWN metric step (5 m), coarser than the day rows' heightStepFor: a figure
+// rewritten under a moving cursor has to hold still, where a stated one can be exact
 const readHeight = (m: number) =>
   heightValue(m, props.distanceUnit, props.distanceUnit === "mi" ? 10 : 5);
 const readGrade = (pct: number) => {
@@ -583,9 +595,6 @@ const id = useId();
    grade the code has computed from the data: the shading doesn't ask you to measure the
    picture, it states a figure the picture happens to sit under. What stays banned is any
    claim the geometry alone would have to support. */
-.tprofile-wrap {
-  margin: 0;
-}
 .tprofile {
   display: block;
   width: 100%;
@@ -645,7 +654,7 @@ const id = useId();
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-1) var(--space-5);
-  margin: var(--space-3) 0 0;
+  margin-top: var(--space-3);
 }
 /* Actual dots, not dashes. A zero-length dash with a ROUND cap renders as a circle whose
    diameter is the stroke width — `2 3` drew stubby rectangles instead, which read as a

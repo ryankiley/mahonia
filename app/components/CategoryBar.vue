@@ -69,7 +69,7 @@ const segments = computed(() => categorySegments(props.list));
    text-indent, both off --swatch) keeps the wrapped lines under the NAME rather than
    under the dot, so the dot reads as the bullet it is. */
 .catbar__item {
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   padding-inline-start: calc(var(--swatch) + var(--space-2));
   text-indent: calc(-1 * (var(--swatch) + var(--space-2)));
 }

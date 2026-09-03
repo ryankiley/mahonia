@@ -101,6 +101,12 @@ export default defineNuxtConfig({
     // up from .output to the workspace's node_modules, so `nuxt preview` and the
     // seed/audit scripts keep working unchanged.
     externals: {
+      // Bundle the icon package INTO the server build rather than shipping it as
+      // an external: it is sideEffects-free and only a handful of icons are used,
+      // so inlining tree-shakes it to those, where the external copy was the whole
+      // package (24 MB / 6,000 files, 65% of the server output) plus a 673 KB
+      // barrel loaded on every cold start.
+      inline: ["@hugeicons/core-free-icons"],
       traceOptions: {
         // function form: node-file-trace matches string globs against paths
         // relative to its base ("/"), which proved brittle — predicate it instead

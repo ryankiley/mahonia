@@ -4,9 +4,10 @@ import { Backpack02Icon, CheckmarkSquare02Icon, ChevronDownIcon, Copy01Icon, Del
 import { editLinkPath, normalizeShareCode } from "~~/shared/links";
 import { tripHeadline } from "~~/shared/trailDistance";
 import { formatWeight } from "~~/shared/weights";
-import { carriedTotalsMg, filterItemsForPerson, hasUnassignedTopLevel, personName, personSlot, sortedPeople, UNASSIGNED } from "~~/shared/people";
+import { chipWeightLabels, filterItemsForPerson, hasUnassignedTopLevel, personName, personSlot, selectionGone, sortedPeople, UNASSIGNED } from "~~/shared/people";
 import type { Item, Unit } from "~~/shared/types";
 import type { EditorMode } from "~/composables/useEditorMode";
+import { CHILDREN_BY_PARENT, PEOPLE_CTX } from "~/components/ItemRow.vue";
 import { bySortOrder, computeTotals, groupItemsByFolder, groupItemsByParent, ungroupedTopLevel } from "~~/shared/weights";
 
 // The whole editor surface (its own sticky topbar + flex shell + the shared
@@ -102,9 +103,13 @@ const sortedFolders = computed(() =>
 // item". Folders are drag order only now, so the row already sits where it was
 // added.)
 const itemsByFolder = computed(() => groupItemsByFolder(snapshot.value?.items ?? []));
-// one children pass per snapshot, threaded to every row — so a parent row doesn't
-// re-scan the whole item array for its children on each render
+// one children pass per snapshot, PROVIDED to every row — so a parent row doesn't
+// re-scan the whole item array for its children on each render. Inject rather than
+// a prop: a fresh Map per recompute threaded through FolderSection → FolderRows →
+// ItemRow re-rendered every folder and every leaf on every structural edit, to
+// hand rows that only ever read the empty default a value they don't look at.
 const childrenByParent = computed(() => groupItemsByParent(snapshot.value?.items ?? []));
+provide(CHILDREN_BY_PARENT, childrenByParent);
 const NO_ITEMS: Item[] = [];
 
 // Which of the three views of this list you're in. Was a single `packed` boolean; it
@@ -128,6 +133,11 @@ const packed = computed(() => mode.value === "pack");
 // genuinely changes with it — chips, headline, totals, pack progress.
 const pf = usePersonFilter();
 const people = computed(() => sortedPeople(snapshot.value?.people));
+// each person's SLOT — their index in display order, the closed set the CSS filter
+// enumerates (see personSlot). Derived once here for every row's data-person stamp
+// and picker, rather than each row sorting the people list for itself.
+const personSlotById = computed(() => new Map(people.value.map((p, i) => [p.id, i])));
+provide(PEOPLE_CTX, { sorted: people, slotById: personSlotById });
 const peopleOpen = ref(false);
 const hasUnassigned = computed(() => hasUnassignedTopLevel(snapshot.value?.items ?? []));
 // widen a filter whose target stopped resolving: the person was removed (here, or
@@ -143,11 +153,7 @@ watch([people, hasUnassigned, () => snapshot.value?.shareCode], ([, , code], [, 
   // assigned" about a list just opened would be a claim about nothing you did)
   const emptied =
     code === oldCode && s === UNASSIGNED && people.value.length > 0 && !hasUnassigned.value;
-  const gone =
-    s === UNASSIGNED
-      ? !people.value.length || !hasUnassigned.value
-      : !people.value.some((p) => p.id === s);
-  if (gone) {
+  if (selectionGone(people.value, hasUnassigned.value, s)) {
     pf.clear();
     // the row you just claimed vanished and the whole list flooded back — one
     // sentence keeps that from reading as a glitch
@@ -194,9 +200,7 @@ const filterCaption = computed(() => {
 const chipWeights = computed<Record<string, string> | undefined>(() => {
   const s = snapshot.value;
   if (!s || !totals.value?.hasWeights || !people.value.length) return undefined;
-  const out: Record<string, string> = {};
-  for (const [key, mg] of Object.entries(carriedTotalsMg(s))) out[key] = formatWeight(mg, s.displayUnit);
-  return out;
+  return chipWeightLabels(s, s.displayUnit);
 });
 // the empty filter result gets a sentence (only a real person can reach it —
 // the watcher above widens an emptied Unassigned view on its own)
@@ -1138,10 +1142,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
       />
       <!-- a filter that matches nothing says so, instead of standing every folder
            down into a silent blank page — the ListMenu empty-state voice -->
-      <p v-if="emptyFilterName" v-show="mode !== 'plan'" class="t-sm t-muted editor__filterempty">
-        Nothing is {{ emptyFilterName }}’s yet.
-        <button type="button" class="btn btn--quiet editor__filterclear" @click="pf.clear()">Show everyone</button>
-      </p>
+      <FilterEmpty v-if="emptyFilterName" v-show="mode !== 'plan'" :name="emptyFilterName" @clear="pf.clear()" />
       <!-- Lazy like the vault picker: most lists never name anyone, and the manager
            has no business in their first paint. v-if — state resets per open. -->
       <LazyPeopleModal v-if="peopleOpen" @close="peopleOpen = false" />
@@ -1201,7 +1202,6 @@ function onCorrected(res: { status: string; itemName?: string }) {
           :list="snapshot"
           :folder="f"
           :items="itemsByFolder.get(f.id) ?? NO_ITEMS"
-          :children-by-parent="childrenByParent"
           :packed="packed"
           @toast="flash"
         />
@@ -1218,7 +1218,6 @@ function onCorrected(res: { status: string; itemName?: string }) {
           :key="it.id"
           :list="snapshot"
           :item="it"
-          :children-by-parent="childrenByParent"
           :prev-id="ungrouped[i - 1]?.id ?? null"
           @toast="flash"
         />
@@ -1228,11 +1227,11 @@ function onCorrected(res: { status: string; itemName?: string }) {
            the mode, and a switch mounts nothing. (A half-typed folder name can't leak
            across modes — any pointer or Tab out of the input commits it via blur
            before the mode can change.) -->
-      <div v-show="mode === 'edit'" class="editor__addfolder">
+      <div v-show="mode === 'edit'" class="addfolder editor__addfolder">
         <input
           v-if="addingFolder"
           ref="newFolderRef"
-          class="editor__addfolderinput"
+          class="addfolder__input"
           placeholder="Folder name"
           aria-label="New folder name"
           autocorrect="off"
@@ -1241,7 +1240,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
           @keydown.esc="addingFolder = false"
           @blur="commitAddFolder"
         />
-        <button v-else type="button" class="editor__addfolderbtn" @click="openAddFolder">Add folder</button>
+        <button v-else type="button" class="addfolder__btn" @click="openAddFolder">Add folder</button>
       </div>
     </main>
 
@@ -1332,13 +1331,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
 .editor > main {
   flex: 1 0 auto;
 }
-.topbar {
-  position: sticky;
-  top: 0;
-  z-index: var(--z-topbar);
-  background: var(--paper);
-  border-bottom: 1px solid var(--line);
-}
+/* .topbar itself (sticky, paper, rule) is global — main.scss */
 .topbar__inner {
   display: flex;
   align-items: center;
@@ -1582,20 +1575,6 @@ function onCorrected(res: { status: string; itemName?: string }) {
   color: var(--ink);
   font-weight: 600;
 }
-/* the empty filter result — one quiet line where the folders would be, the way
-   back beside it (ListMenu's "No lists match" voice). Wraps: a 60-char name
-   folds the sentence at phone width, and without the wrap the button stayed
-   pinned to the first line's baseline out at the right. */
-.editor__filterempty {
-  margin: 0;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--space-1) var(--space-3);
-}
-.editor__filterclear {
-  flex: none;
-}
 /* packing progress — one quiet line between the totals and the checklist. The
    count is the info; "Clear checks" sits beside it in the site's under-link
    voice (ink-3, darkens on hover, no chrome). */
@@ -1687,46 +1666,14 @@ function onCorrected(res: { status: string; itemName?: string }) {
 /* reads like a folder heading — same type as a folder name, dimmer, flush-left
    with the folder names above it. Tapping it swaps the label for an inline text
    field. */
+/* the .addfolder atom (controls.scss); only where it sits is ours */
 .editor__addfolder {
   align-self: flex-start;
-  display: inline-flex;
-  align-items: center;
   /* sit a full folder-gap below the last folder. This element is a SIBLING of
      .editor__folders, not a child, so it already carries the body's --space-4 gap and
      only needs the remainder — but the target is --folder-gap, read from the one
      declaration above rather than restated. */
   margin-top: calc(var(--folder-gap) - var(--space-4));
-}
-/* label + inline input share the folder-name type; label is dimmer */
-.editor__addfolderbtn,
-.editor__addfolderinput {
-  padding: 0;
-  background: none;
-  border: 0;
-  font-family: var(--font);
-  font-size: var(--text-title);
-  font-weight: 600;
-  letter-spacing: var(--track-tight);
-}
-.editor__addfolderbtn {
-  color: var(--ink-3);
-  cursor: pointer;
-  transition: color var(--dur) var(--ease);
-}
-.editor__addfolderbtn:hover {
-  /* full ink, like every quiet add affordance (.folder__addbtn, .item-nest__add) —
-     the house hover for quiet text actions (controls.scss) */
-  color: var(--ink);
-}
-.editor__addfolderinput {
-  color: var(--ink);
-  min-width: 12rem;
-}
-.editor__addfolderinput:focus {
-  outline: none;
-}
-.editor__addfolderinput::placeholder {
-  color: var(--ink-3);
 }
 .editor__missing {
   padding-block: var(--space-9);

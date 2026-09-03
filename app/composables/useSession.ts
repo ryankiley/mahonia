@@ -9,7 +9,7 @@
 // it (one fetch per page load, not one per caller) and survives SSR → hydration.
 
 
-export interface SessionState {
+interface SessionState {
   email: string | null;
   /** Optional and opt-in — the only part of an account anyone else ever sees.
    *  Null means this person's public lists carry no byline, which is the default. */
@@ -100,6 +100,17 @@ export function useSession() {
     }
   }
 
+  /** Drop the two per-account memos this device keeps — the vault's "already sent"
+   *  and the registry's "already claimed" — so the next person to sign in here
+   *  starts clean rather than inheriting them. Every way out of an account runs
+   *  it: signOut below does so itself; the delete-account and sign-out-everywhere
+   *  paths (which end the session server-side, then re-read it) call it directly.
+   *  A one-line seam, on purpose — this composable stays thin. */
+  function forgetAccountMemos(): void {
+    resetVaultCapture();
+    useClaimedLists().resetClaimMark();
+  }
+
   async function signOut(): Promise<void> {
     try {
       await $fetch("/api/auth/signout", { method: "POST" });
@@ -109,6 +120,7 @@ export function useSession() {
       clearSessionHint();
       user.value = null;
       loaded.value = true;
+      forgetAccountMemos();
     }
   }
 
@@ -139,6 +151,7 @@ export function useSession() {
     refresh,
     requestLink,
     signOut,
+    forgetAccountMemos,
     hasSessionHint,
     saveProfile,
   };

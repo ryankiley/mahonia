@@ -4,7 +4,7 @@ import { ArrowUpRight01Icon, Backpack02Icon, Calendar03Icon, GlobeIcon, Route02I
 import { parseTrailLink } from "~~/shared/trailLink";
 import { dayClimbs, parseProfile } from "~~/shared/profile";
 import { dayLabel } from "~~/shared/tripDay";
-import { formatDistance, heightUnitFor, heightValue, resolveDistanceUnit } from "~~/shared/trailDistance";
+import { formatDistance, heightStepFor, heightUnitFor, heightValue, resolveDistanceUnit } from "~~/shared/trailDistance";
 import { filterItemsForPerson, type PersonSelection } from "~~/shared/people";
 import type { Item, ListSnapshot, Person, Totals, Unit } from "~~/shared/types";
 import { groupItemsByFolder, groupItemsByParent } from "~~/shared/weights";
@@ -124,12 +124,13 @@ const routeM = computed(() =>
 // it had before any of this existed.
 const hasTrip = computed(() => days.value.length > 0 || profile.value.length > 0);
 // feet rounded to the nearest 10, as the editor does: the store is integer metres, so a
-// climb quoted to the foot claims a precision the measurement never had. The conversion
-// and the unit word are shared/trailDistance.ts's — only the rounding is this view's.
+// climb quoted to the foot claims a precision the measurement never had. The conversion,
+// the step and the unit word are all shared/trailDistance.ts's, so a shared day reads the
+// climb its owner sees.
 const tripId = useId();
 const asHeight = (m: number) => {
   const unit = distanceUnit.value;
-  return `${heightValue(m, unit, unit === "mi" ? 10 : 1)} ${heightUnitFor(unit)}`;
+  return `${heightValue(m, unit, heightStepFor(unit))} ${heightUnitFor(unit)}`;
 };
 </script>
 
@@ -200,7 +201,7 @@ const asHeight = (m: number) => {
             height="16"
           />
           <HugeiconsIcon :icon="GlobeIcon" v-else class="view__trailicon view__trailicon--fallback" :size="16" :stroke-width="2" aria-hidden="true" />
-          <span class="view__trailname">{{ trail.name }}</span>
+          <span class="t-clip view__trailname">{{ trail.name }}</span>
         </a>
 
         <!-- the trip's dates, when it has them. Read-only by nature — there is nothing
@@ -263,10 +264,7 @@ const asHeight = (m: number) => {
     </section>
 
     <!-- a filter that matches nothing says so, with the same way back the editor offers -->
-    <p v-if="view === 'gear' && filteredEmptyName" class="t-sm t-muted view__filterempty">
-      Nothing is {{ filteredEmptyName }}’s yet.
-      <button type="button" class="btn btn--quiet" @click="$emit('pick-person', null)">Show everyone</button>
-    </p>
+    <FilterEmpty v-if="view === 'gear' && filteredEmptyName" :name="filteredEmptyName" @clear="$emit('pick-person', null)" />
 
     <div v-if="view === 'gear'" class="view__folders">
       <ReadonlyFolderSection v-for="f in shownFolders" :key="f.id" :list="list" :folder="f" :items="itemsByFolder.get(f.id) ?? NO_ITEMS" :children-by-parent="childrenByParent" :context-only-ids="contextOnlyIds" />
@@ -300,24 +298,17 @@ const asHeight = (m: number) => {
   flex-direction: column;
   gap: var(--space-1);
 }
-/* the page-title step, matching the editor's title input — a shared link and the editor
-   must render the list's name the same size, or /s reads as a different document */
-.view__title {
-  font-family: var(--font);
-  font-size: var(--text-page-title);
-  font-weight: 700;
-}
+/* the h1's page-title step (.view__title) is global — main.scss */
 /* by · status · edited — one quiet line. flex so a #status icon (the /l globe) sits on
    the text baseline, with a drawn middle-dot between the pieces, wrapping only once a
    phone runs out of room (a desktop holds all three easily). */
 .view__meta {
-  margin: 0;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
   color: var(--ink-3);
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
 }
 /* One step up from the rest of the line's ink: a name is content, where "edited 3m ago"
    is status. Still quiet enough to sit under the title without competing with it. */
@@ -341,12 +332,11 @@ const asHeight = (m: number) => {
    day and its figures below) that two icon-led facts don't need a dot between them; the
    row gap is the tight one, for when a phone puts the dates on their own line. */
 .view__where {
-  margin: 0;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-1) var(--space-4);
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
 }
 /* the trail link. The mark identifies the site and the full destination rides on the
    anchor's title attribute, so the hostname isn't repeated in the text. It's the piece
@@ -376,11 +366,6 @@ const asHeight = (m: number) => {
   color: var(--ink-3);
   opacity: 0.6;
 }
-.view__trailname {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 /* read views are denser than the editor (no add-item row or controls per folder),
    so the inter-folder gap is a step tighter here (space-6, vs the editor's space-7)
    — the list scans as one block instead of drifting apart. */
@@ -397,15 +382,13 @@ const asHeight = (m: number) => {
 }
 .view__triph {
   margin: 0 0 var(--space-2);
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   font-weight: 600;
   letter-spacing: var(--track-tight);
   color: var(--ink-3);
 }
 .view__days {
-  list-style: none;
   margin: var(--space-3) 0 0;
-  padding: 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -443,18 +426,6 @@ const asHeight = (m: number) => {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-}
-.view__peopleh {
-  margin: 0;
-}
-/* the empty filter line — the editor's recipe: wraps so a long name folds the
-   sentence without stranding the button on the first line's baseline */
-.view__filterempty {
-  margin: 0;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--space-1) var(--space-3);
 }
 .view--missing {
   padding-block: var(--space-9);

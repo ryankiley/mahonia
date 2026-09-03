@@ -10,13 +10,17 @@ import { createError, getHeader, readRawBody, setHeader, type H3Event } from "h3
  *
  * A helper rather than a wrapper that sets it for you. The obvious next step —
  * defineApiHandler(action, handler), headers and rate limit together — is a trap
- * this codebase would spring immediately: requireAdmin and requireCronAuth
- * already call rateLimit("admin") themselves, so a wrapper that also called it
+ * this codebase would spring immediately: requireAdmin (the cron routes' gate
+ * too) already calls rateLimit("admin") itself, so a wrapper that also called it
  * would charge the same budget twice on every admin and cron request; two catalog
  * endpoints deliberately rate-limit BEFORE setting their cache headers, so a 429
  * is never cached at the edge, which a fixed order would undo; and auth/request
  * rate-limits twice, on two different subjects, at two points in its body. Three
  * separate one-line calls can express all of that. One wrapper can't.
+ *
+ * The one bundle that IS safe is requireAccount (authSession.ts): the
+ * session-gated account endpoints all set both headers and rate-limit before
+ * resolving the session, and none of them go near requireAdmin.
  */
 export function setNoIndex(event: H3Event): void {
   setHeader(event, "X-Robots-Tag", "noindex");
@@ -85,7 +89,7 @@ export function notFound(statusMessage = "Not found") {
  *  reject rather than truncate. Two outcomes rather than one nullable Buffer,
  *  because "nothing came back" and "too much came back" are different answers
  *  and /api/import has to tell a caller which one it hit. */
-export type CappedBody = { ok: true; body: Buffer | null } | { ok: false; reason: "oversize" };
+type CappedBody = { ok: true; body: Buffer | null } | { ok: false; reason: "oversize" };
 
 /**
  * Read an OUTBOUND fetch's response body up to `maxBytes`, cancelling the stream

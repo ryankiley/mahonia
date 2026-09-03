@@ -90,7 +90,7 @@ describe("startSession → resolveSession", () => {
     expect(rows[0]!.tokenHash).toBe(sha256Hex(token));
 
     const user = await resolveSession(makeEvent(`${SESSION_COOKIE}=${token}`));
-    expect(user).toEqual({ id: userId, email: "ryan@example.com" });
+    expect(user).toEqual({ id: userId, email: "ryan@example.com", displayName: null });
   });
 
   it("resolves nothing for no cookie, a made-up cookie, or an expired session", async () => {

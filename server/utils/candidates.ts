@@ -16,9 +16,8 @@ import {
 } from "../../shared/catalogQuality";
 import { itemDisplayName } from "../../shared/weights";
 import { bumpUsage, ensureCatalogSchema, searchCatalog, trigramScore } from "./catalog";
-import { memoizedEnsure } from "./memoize";
-
-type Db = Awaited<ReturnType<typeof import("./db").useDb>>;
+import { memoized } from "./memoize";
+import type { Db } from "./db";
 
 const K_DISTINCT_LISTS = Math.max(2, Number(process.env.CATALOG_MIN_DISTINCT_LISTS) || 3);
 const DEDUP_THRESHOLD = 0.6; // 2x the autocomplete recall floor — bias to a new (recoverable) row
@@ -42,9 +41,8 @@ export const CANDIDATES_DDL: string[] = [
   `CREATE INDEX IF NOT EXISTS idx_candidate_open ON catalog_candidates (norm_key) WHERE promoted_into_id IS NULL AND rejected_at IS NULL`,
 ];
 
-const ensureCandidatesSchema = memoizedEnsure(async (db: unknown) => {
-  const d = db as { execute: (q: unknown) => Promise<unknown> };
-  for (const stmt of CANDIDATES_DDL) await d.execute(sql.raw(stmt));
+const ensureCandidatesSchema = memoized(async (db: Db) => {
+  for (const stmt of CANDIDATES_DDL) await db.execute(sql.raw(stmt));
 });
 
 export interface CandidateObservation {
@@ -108,7 +106,7 @@ const mode = <T>(arr: T[]): T | undefined => {
   return best;
 };
 
-export interface CorroborateResult {
+interface CorroborateResult {
   scanned: number; promoted: number; merged: number; rejected: number; skipped: number; purged: number;
 }
 

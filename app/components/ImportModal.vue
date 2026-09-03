@@ -202,8 +202,7 @@ function onFile(e: Event) {
 /* the tint is the shared .well atom (controls.scss) */
 .import__text {
   width: 100%;
-  font-family: var(--font);
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   padding: var(--space-3);
   /* no resize: the native grip drew a square notch over the rounded corner, and
      the box scrolls anyway (the dialog is fixed-width, rows are fixed) */

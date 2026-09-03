@@ -11,10 +11,10 @@ import { and, eq, gt, isNull, lt, or, sql } from "drizzle-orm";
 import type { H3Event } from "h3";
 import { createError, deleteCookie, getCookie, setCookie } from "h3";
 import { authTokens, credentials, sessions, users } from "../db/schema";
-import { useAccountDb } from "./db";
+import { useAccountDb, type Db } from "./db";
+import { setNoIndex, setPrivate } from "./http";
+import { rateLimit, type RateLimitAction } from "./rateLimit";
 import { randomSecret, sha256Hex } from "./tokens";
-
-type Db = Awaited<ReturnType<typeof useAccountDb>>;
 
 /** The session cookie's name. `mh_` prefixed so it's obviously ours in devtools. */
 export const SESSION_COOKIE = "mh_session";
@@ -49,15 +49,22 @@ const SESSION_TTL_MS = 90 * 24 * 60 * 60_000;
  *  Sliding expiry with no floor would mean a DB write on every single request. */
 const SESSION_REFRESH_AFTER_MS = 24 * 60 * 60_000;
 
-export interface SessionUser {
+interface SessionUser {
   id: number;
   email: string;
+}
+
+/** The signed-in user as a request sees them. The display name rides along
+ *  because resolveSession already joins `users` for the email — so /api/auth/me
+ *  (and anything rendering a byline) reads one source with no second query. */
+interface ResolvedUser extends SessionUser {
+  displayName: string | null;
 }
 
 /** A user just returned by redeeming a magic link, which is the one moment the
  *  address-verification state matters — see `claimUnverifiedAccount`. Everything
  *  else in the app only ever needs `SessionUser`. */
-export interface RedeemedUser extends SessionUser {
+interface RedeemedUser extends SessionUser {
   /** Whether anyone had proved they hold this address BEFORE this redemption. */
   emailVerified: boolean;
 }
@@ -99,7 +106,6 @@ export async function findOrCreateUser(db: Db, email: string): Promise<SessionUs
   // later passkey signup for the same address is refused by the unique index. The
   // flag's only job is gating the eviction below, and there is nothing here to
   // evict. See accountSchema.ts.
-  // no-arg .returning() — the neon-http | PGlite union's only shared overload
   const inserted = await db
     .insert(users)
     .values({ email, emailVerified: true })
@@ -213,7 +219,6 @@ export async function consumeMagicToken(db: Db, rawToken: string): Promise<Redee
         gt(authTokens.expiresAt, now),
       ),
     )
-    // no-arg .returning() — the neon-http | PGlite union's only shared overload
     .returning();
   const userId = claimed[0]?.userId;
   if (userId == null) return null;
@@ -321,7 +326,7 @@ export async function startSession(event: H3Event, db: Db, userId: number): Prom
  * logged out after 90 quiet days). The refresh is best-effort — a failed bump
  * must not fail the request that carried it.
  */
-export async function resolveSession(event: H3Event): Promise<SessionUser | null> {
+export async function resolveSession(event: H3Event): Promise<ResolvedUser | null> {
   const raw = getCookie(event, SESSION_COOKIE);
   if (!raw) return null;
   const db = await useAccountDb();
@@ -332,6 +337,7 @@ export async function resolveSession(event: H3Event): Promise<SessionUser | null
       lastUsedAt: sessions.lastUsedAt,
       id: users.id,
       email: users.email,
+      displayName: users.displayName,
     })
     .from(sessions)
     .innerJoin(users, eq(users.id, sessions.userId))
@@ -358,16 +364,42 @@ export async function resolveSession(event: H3Event): Promise<SessionUser | null
     // so the app doesn't even ask.
     setSessionCookies(event, raw, expiresAt);
   }
-  return { id: row.id, email: row.email };
+  return { id: row.id, email: row.email, displayName: row.displayName ?? null };
 }
 
 /** Resolve the signed-in user or reject with 401. Every vault endpoint's first
  *  line — the vault is per-person by definition, so there is no anonymous mode to
  *  fall back to. */
-export async function requireUser(event: H3Event): Promise<SessionUser> {
+export async function requireUser(event: H3Event): Promise<ResolvedUser> {
   const user = await resolveSession(event);
   if (!user) throw createError({ statusCode: 401, statusMessage: "Sign in required" });
   return user;
+}
+
+/**
+ * The preamble every session-gated ACCOUNT endpoint opens with, in the order
+ * they all used to spell out by hand: keep it out of search results, never
+ * cache it, throttle on `action`, resolve the session or 401, and hand back the
+ * connection with the account schema ensured.
+ *
+ * http.ts argues against a general headers-plus-rate-limit wrapper, and that
+ * argument stands: it is about requireAdmin charging the admin budget twice and
+ * the catalog routes needing their limit BEFORE their cache headers. This is
+ * narrower than that wrapper — only the endpoints that need a signed-in account,
+ * none of which go near requireAdmin, and all of which set both headers first.
+ * Ten handlers spelling the same five lines is exactly the drift such a bundle
+ * exists to stop (one of them had quietly dropped setPrivate).
+ */
+export async function requireAccount(
+  event: H3Event,
+  action: RateLimitAction,
+): Promise<{ user: ResolvedUser; db: Db }> {
+  setNoIndex(event);
+  setPrivate(event);
+  await rateLimit(event, action);
+  const user = await requireUser(event);
+  const db = await useAccountDb();
+  return { user, db };
 }
 
 /** The clear-side twin of setSessionCookies, and for the same reason: both

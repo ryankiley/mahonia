@@ -77,11 +77,8 @@ async function onSubmit() {
 <style scoped>
 /* overlay + dialog shell + rise-in + action row live in atoms/dialog.scss and
    BaseModal; this dialog keeps only its own item title and field accent */
-.dlg__item {
-  font-size: var(--text-title);
-  font-weight: 600;
-  letter-spacing: var(--track-tight);
-}
+/* the item's name at title size is .dlg__item — atoms/dialog.scss, shared with the
+   vault-item dialog */
 .dlg__field em {
   font-style: normal;
   color: var(--accent);

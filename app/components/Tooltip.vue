@@ -128,8 +128,17 @@ function positionTooltip() {
   };
 }
 
+// Whether this tooltip has ever been raised. The Teleport below mounts only once
+// it has: a <Teleport> costs an anchor node in <body> even while its content is
+// v-if'd away, and the editor mounts three to six of these per row, so a hidden
+// 150-row list was holding hundreds of empty anchors for popups nobody had asked
+// for. Latched, never reset — once the Teleport exists it stays, so the leave
+// transition of a tooltip going back down still has a place to play.
+const everShown = ref(false);
+
 async function open() {
   if (disabled) return;
+  everShown.value = true;
   isVisible.value = true;
   await nextTick();
   positionTooltip();
@@ -217,7 +226,8 @@ onScopeDispose(() => window.removeEventListener("scroll", hide, { capture: true 
   >
     <slot />
 
-    <Teleport to="body" defer>
+    <!-- mounted on first show only — see everShown -->
+    <Teleport v-if="everShown" to="body" defer>
       <Transition name="tooltip">
         <div
           v-if="isVisible"

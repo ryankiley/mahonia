@@ -27,7 +27,7 @@ const NEST_THRESHOLD = 24;
 // keeps it clear of any uuid while staying truthy for pointerDrag's `if (dragId)`.
 const INSERT_SOURCE = " insert";
 
-export interface DropTarget {
+interface DropTarget {
   folderId: string | null;
   beforeId: string | null; // item to insert before; null = append to the container's end
   parentId: string | null; // the container's parent (null = top-level)
@@ -44,7 +44,27 @@ export interface DropTarget {
 let singleton: ReturnType<typeof create> | undefined;
 
 function create() {
-  const drop = ref<DropTarget | null>(null);
+  // shallowRef: a target is replaced whole, never mutated, and a deep proxy over it
+  // bought nothing but a wrapped object for every reader
+  const drop = shallowRef<DropTarget | null>(null);
+  // Write the target only when it CHANGES. `track` runs on every pointermove
+  // (~60/s), and every row's isDropBefore / isNestAppendTarget / isNestParent
+  // hangs off `drop` — so a fresh object per move, even one describing the same
+  // slot, recomputed all of them at pointer rate for a slot that hadn't moved.
+  function setDrop(next: DropTarget | null) {
+    const cur = drop.value;
+    if (
+      cur === next ||
+      (cur &&
+        next &&
+        cur.folderId === next.folderId &&
+        cur.parentId === next.parentId &&
+        cur.beforeId === next.beforeId &&
+        cur.insert === next.insert)
+    )
+      return;
+    drop.value = next;
+  }
   // The lifted row's wrap element for the gesture in flight. Its vertical offset from
   // the pickup point (the "carry" feel) is written straight onto it as --drag-dy every
   // move — an imperative style write, not a ref: only the row's own CSS transform
@@ -107,25 +127,27 @@ function create() {
         // over the source pane itself → no target, so releasing there cancels rather
         // than committing to whichever folder happens to sit behind it
         if (el?.closest("[data-vault-pane]")) {
-          drop.value = null;
+          setDrop(null);
           return;
         }
         const overFolder = folderUnder(el, ev.clientY);
         if (!overFolder || overFolder.hasAttribute("data-collapsed")) return;
         const rows = topRowsOf(overFolder, dragId);
-        drop.value = {
+        setDrop({
           folderId: overFolder.getAttribute("data-folder") || null,
           parentId: null,
           beforeId: idOf(rows[slotFor(rows, ev.clientY)]),
           insert: pendingInsert,
-        };
+        });
         return;
       }
 
       // read only on the reorder path — an inserting drag returned above without
-      // needing either, and this runs on every pointermove
+      // needing either, and this runs on every pointermove. Through toRaw: the two
+      // scans below are plain loops over plain objects that way, instead of a
+      // proxy get (and a dependency track) per item per move.
       const dx = ev.clientX - startX;
-      const snap = useGearList().snapshot.value;
+      const snap = toRaw(useGearList().snapshot.value);
       const dragged = snap?.items.find((i) => i.id === dragId);
       if (!dragged) return;
       const wasNested = dragged.parentId != null;
@@ -149,11 +171,11 @@ function create() {
         const sibs = [...document.querySelectorAll(`[data-parent="${parentId}"]`)].filter(
           (r) => r.getAttribute("data-item-id") !== dragId,
         ) as HTMLElement[];
-        drop.value = {
+        setDrop({
           folderId: dragged.folderId,
           parentId,
           beforeId: idOf(sibs[slotFor(sibs, ev.clientY)]),
-        };
+        });
         return;
       }
 
@@ -179,11 +201,11 @@ function create() {
         const kids = [...document.querySelectorAll(`[data-parent="${candidateId}"]`)].filter(
           (r) => r.getAttribute("data-item-id") !== dragId,
         ) as HTMLElement[];
-        drop.value = { folderId, parentId: candidateId, beforeId: idOf(kids[slotFor(kids, ev.clientY)]) };
+        setDrop({ folderId, parentId: candidateId, beforeId: idOf(kids[slotFor(kids, ev.clientY)]) });
         return;
       }
       // plain top-level reorder / un-nest (a nested row that reached here escaped its parent)
-      drop.value = { folderId, parentId: null, beforeId: idOf(topRows[slot]) };
+      setDrop({ folderId, parentId: null, beforeId: idOf(topRows[slot]) });
     },
     target: () => drop.value,
     commit: (id, t) =>

@@ -24,6 +24,16 @@ import type { Ref } from "vue";
 //   const { atStart, above, place } = useMenuPlacement(listRef);
 //   watch(open, (o) => o && nextTick(place));
 //   <ul ref="listRef" :class="{ 'menu__list--start': atStart, 'menu__list--above': above }">
+//
+// HORIZONTALLY there are two answers to "it doesn't fit", and the caller picks:
+//  • `flip` (the default) hangs the menu from the leading edge instead — right for
+//    a menu whose trigger sits at one edge of a toolbar, where the other side is
+//    all room.
+//  • `shift` slides it right by exactly the overflow and leaves it hanging from the
+//    trailing edge. For the row's classification popovers, whose trigger sits mid-
+//    row on a phone: a 13rem card flipped to the leading edge of a trigger at
+//    x≈180 on a 375px screen overruns the OTHER side, so the flip test fails and
+//    the card would stay cut off at the left — while a slide of a few pixels fits.
 
 /** Keep a menu this far from the window edge before calling it a collision. */
 const EDGE_PADDING = 8;
@@ -35,13 +45,19 @@ const EDGE_PADDING = 8;
  *  test a hair more conservative, never wrong in the direction that matters. */
 const ANCHOR_GAP = 4;
 
-export function useMenuPlacement(listRef: Ref<HTMLElement | null>): {
+export function useMenuPlacement(
+  listRef: Ref<HTMLElement | null>,
+  opts: { fit?: "flip" | "shift" } = {},
+): {
   atStart: Ref<boolean>;
   above: Ref<boolean>;
+  /** px to translate rightward — only ever non-zero under `fit: "shift"` */
+  shift: Ref<number>;
   place: () => void;
 } {
   const atStart = ref(false);
   const above = ref(false);
+  const shift = ref(0);
 
   function place(): void {
     const list = listRef.value;
@@ -64,11 +80,18 @@ export function useMenuPlacement(listRef: Ref<HTMLElement | null>): {
     const trailingLeft = a.right - w; // the default: right edges flush
     const leadingRight = a.left + w; // the flip: left edges flush
 
-    // Prefer the default. Only flip when it would overrun the leading edge AND the
-    // flip actually fits — a menu wider than the viewport is beyond helping, and
-    // flipping it would just move which edge it's cut off at.
-    atStart.value =
-      trailingLeft < EDGE_PADDING && leadingRight <= window.innerWidth - EDGE_PADDING;
+    if (opts.fit === "shift") {
+      // slide by the exact overrun, measured off the rendered card rather than a
+      // constant: its width is set in CSS (rem), so a hardcoded pixel twin is wrong
+      // the moment the root font size isn't 16, and drifts if the rule is retuned
+      shift.value = trailingLeft < EDGE_PADDING ? EDGE_PADDING - trailingLeft : 0;
+    } else {
+      // Prefer the default. Only flip when it would overrun the leading edge AND the
+      // flip actually fits — a menu wider than the viewport is beyond helping, and
+      // flipping it would just move which edge it's cut off at.
+      atStart.value =
+        trailingLeft < EDGE_PADDING && leadingRight <= window.innerWidth - EDGE_PADDING;
+    }
 
     // Same rule downward, and the same preference: below unless below doesn't fit and
     // above does. A menu TALLER than the viewport fails both tests and stays below,
@@ -80,5 +103,5 @@ export function useMenuPlacement(listRef: Ref<HTMLElement | null>): {
       belowBottom > window.innerHeight - EDGE_PADDING && aboveTop >= EDGE_PADDING;
   }
 
-  return { atStart, above, place };
+  return { atStart, above, shift, place };
 }

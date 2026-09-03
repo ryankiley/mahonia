@@ -11,9 +11,11 @@ import {
   listClaimedLists,
   unclaimList,
 } from "../server/utils/claimRepo";
-import { findByEditHash, findByEditToken, rotateEditHash } from "../server/utils/listRepo";
+import { findByEditHash, rotateEditHash } from "../server/utils/listRepo";
 import { randomEditToken, sha256Hex } from "../server/utils/tokens";
-import { createTestDb, makeList as makeListRow } from "./helpers/db";
+import { byToken, createTestDb, makeList as makeListRow } from "./helpers/db";
+
+const findByEditToken = byToken(findByEditHash);
 
 type DB = ReturnType<typeof drizzle>;
 async function freshDb(): Promise<DB> {

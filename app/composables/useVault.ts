@@ -23,7 +23,7 @@ import { remember } from "../utils/remember";
 // never sent anywhere.
 const DECISION_KEY = (editToken: string) => `gear.vault.for.${editToken}`;
 
-export type VaultDecision = "yes" | "no" | "ask";
+type VaultDecision = "yes" | "no" | "ask";
 
 export function vaultDecisionFor(editToken: string): VaultDecision {
   if (!import.meta.client || !editToken) return "yes"; // a draft is yours by definition
@@ -368,54 +368,30 @@ export function resetVaultCapture(): void {
 // ---------------------------------------------------------------------------
 
 /**
- * Debounced, abortable autocomplete against your own gear. Mirrors
- * useCatalogSearch's shape (results / search / clear) so the item input drives
- * both from one keystroke with no special-casing.
+ * Debounced, abortable autocomplete against your own gear. The same shape as
+ * useCatalogSearch (results / search / clear) — the two are one scaffold now,
+ * useDebouncedSearch — so the item input drives both from one keystroke with no
+ * special-casing.
  *
  * Ranking happens on the server (shared/vault.ts), so nothing here needs the
  * trigram code — this composable is a fetch and a timer.
  */
 export function useVaultSearch() {
   const { hasVault, vaultFetch } = useVaultAccess();
-  const results = ref<VaultEntry[]>([]);
-  let searchTimer: ReturnType<typeof setTimeout> | undefined;
-  let controller: AbortController | undefined;
-  let lastQ = "";
-
-  function clear() {
-    clearTimeout(searchTimer);
-    controller?.abort();
-    results.value = [];
-    lastQ = "";
-  }
-
-  function search(raw: string) {
-    const q = raw.trim();
-    clearTimeout(searchTimer);
-    // With no vault there is nothing to search — skip the round trip entirely
-    // rather than asking the server on every keystroke for a guaranteed [].
-    if (q.length < 2 || !hasVault.value) {
-      clear();
-      return;
-    }
-    // 140ms matches the catalog input's debounce, so the two halves of the menu
-    // settle together instead of the list reshuffling twice per keystroke.
-    searchTimer = setTimeout(async () => {
-      lastQ = q;
-      controller?.abort();
-      controller = new AbortController();
-      try {
-        const res = await vaultFetch<{ results: VaultEntry[] }>("/api/vault/search", {
-          query: { q },
-          signal: controller.signal,
-        });
-        if (lastQ === q) results.value = res.results || [];
-      } catch {
-        // a newer keystroke aborted this, or we're offline — leave the previous
-        // results alone rather than blanking the menu mid-type
-      }
-    }, 140);
-  }
-
-  return { results, search, clear };
+  // the timer / abort / stale-guard scaffold (and the 140ms) is useDebouncedSearch's,
+  // shared with the catalog search — see its header
+  return useDebouncedSearch<VaultEntry>(
+    async (q, signal) => {
+      const res = await vaultFetch<{ results: VaultEntry[] }>("/api/vault/search", {
+        query: { q },
+        signal,
+      });
+      return res.results || [];
+    },
+    {
+      // With no vault there is nothing to search — skip the round trip entirely
+      // rather than asking the server on every keystroke for a guaranteed [].
+      ready: () => hasVault.value,
+    },
+  );
 }

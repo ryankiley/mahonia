@@ -2,6 +2,7 @@
 // and cited-spec → integer-milligram conversion. No DB, no fs — so tests import
 // these directly (tests/catalog.test.ts) and the build/seed scripts reuse them.
 
+import { parseCsv } from "../shared/exporters/csv";
 import { MG_PER_UNIT, parseWeightInput } from "../shared/weights";
 import { buildSearchTerms } from "./searchTerms";
 
@@ -136,67 +137,6 @@ export function serializeCsv(
     );
   }
   return lines.join("\n") + "\n";
-}
-
-/**
- * Parse CSV text into rows of string fields. Handles double-quoted fields with
- * embedded commas, newlines, and "" escapes. Tolerates \r\n and a trailing
- * newline. Hand-rolled (no deps) — small and predictable.
- */
-export function parseCsv(text: string): string[][] {
-  const rows: string[][] = [];
-  let row: string[] = [];
-  let field = "";
-  let inQuotes = false;
-  let i = 0;
-  const n = text.length;
-
-  const endField = () => {
-    row.push(field);
-    field = "";
-  };
-  const endRow = () => {
-    endField();
-    rows.push(row);
-    row = [];
-  };
-
-  while (i < n) {
-    const c = text[i];
-    if (inQuotes) {
-      if (c === '"') {
-        if (text[i + 1] === '"') {
-          field += '"';
-          i += 2;
-        } else {
-          inQuotes = false;
-          i++;
-        }
-      } else {
-        field += c;
-        i++;
-      }
-    } else if (c === '"') {
-      inQuotes = true;
-      i++;
-    } else if (c === ",") {
-      endField();
-      i++;
-    } else if (c === "\n") {
-      endRow();
-      i++;
-    } else if (c === "\r") {
-      if (text[i + 1] === "\n") i++;
-      endRow();
-      i++;
-    } else {
-      field += c;
-      i++;
-    }
-  }
-  // flush the last field/row unless the input ended exactly on a newline
-  if (field.length > 0 || row.length > 0) endRow();
-  return rows;
 }
 
 export interface CatalogCsvRow {

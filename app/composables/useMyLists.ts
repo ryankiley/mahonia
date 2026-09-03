@@ -1,6 +1,6 @@
 import type { Ref } from "vue";
 import type { ListSnapshot, MyListEntry } from "~~/shared/types";
-import { remember } from "../utils/remember";
+import { recall, remember } from "../utils/remember";
 
 // No-login "My Lists": the registry of edit tokens this browser holds. This is
 // the only thing tying a visitor to their lists — clear the browser and they're
@@ -17,10 +17,27 @@ const STORAGE_KEY = "gear.mylists.v1";
 // so echoing the read back through the watcher can't loop.
 function readEntries(): MyListEntry[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = recall(STORAGE_KEY);
     return raw ? (JSON.parse(raw) as MyListEntry[]) : [];
   } catch {
-    return [];
+    return []; // a corrupt registry reads as empty rather than taking the page down
+  }
+}
+
+/**
+ * Delete a list on the server through whichever capability names it — a bearer
+ * token, or a share code with the session cookie as the proof. Soft-delete: it drops
+ * out of every lookup at once, and the nightly purge reclaims it. Resolves true when
+ * the list is gone, INCLUDING on a 404 (already gone server-side counts as done);
+ * false on any other failure (offline), so the caller leaves everything standing for
+ * a retry. One contract, shared by the device registry and the claimed list.
+ */
+export async function deleteListOnServer(headers: Record<string, string>): Promise<boolean> {
+  try {
+    await $fetch("/api/edit/delete", { method: "POST", headers });
+    return true;
+  } catch (e) {
+    return (e as { statusCode?: number })?.statusCode === 404;
   }
 }
 
@@ -146,25 +163,35 @@ export function useMyLists() {
     return true;
   }
 
-  // Delete the list on the server (soft-delete — it drops out of every lookup at
-  // once, the nightly purge reclaims it), then forget it locally. A 404 means it
-  // was already gone server-side, so we still forget it. Any other failure
-  // (offline) leaves the entry so the user can retry. Returns whether it's gone.
+  // Delete the list on the server, then forget it locally — see deleteListOnServer
+  // for the 404 contract. Returns whether it's gone.
   async function deleteList(editToken: string): Promise<boolean> {
-    try {
-      await $fetch("/api/edit/delete", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${editToken}` },
-      });
-    } catch (e) {
-      if ((e as { statusCode?: number })?.statusCode !== 404) return false;
-    }
+    if (!(await deleteListOnServer({ Authorization: `Bearer ${editToken}` }))) return false;
     // The list is gone for good, so this device's "is this gear mine?" answer for it
     // is gone with it. Here rather than in forget(), which also backs "Remove from
     // device" for a list that's still online — see clearVaultDecisionFor.
     clearVaultDecisionFor(editToken);
     forget(editToken);
     return true;
+  }
+
+  // The registry row a snapshot maps to — the ONE place the field list lives.
+  // registerCreated writes it; a rotate with no prior row builds from it too, so a
+  // new column reaches both without either being hand-copied.
+  function entryFromSnapshot(
+    res: { editToken: string; snapshot: ListSnapshot },
+    totalMg = 0,
+  ): MyListEntry {
+    return {
+      editToken: res.editToken,
+      shareCode: res.snapshot.shareCode,
+      slug: res.snapshot.slug,
+      title: res.snapshot.title,
+      totalMg,
+      version: res.snapshot.version,
+      lastOpened: Date.now(),
+      displayUnit: res.snapshot.displayUnit, // keep the unit system with the row
+    };
   }
 
   // Register a freshly created/imported/cloned list in this browser's registry.
@@ -174,19 +201,9 @@ export function useMyLists() {
     totalMg = 0,
     origin: "created" | "opened" = "created",
   ): string {
-    upsert({
-      origin,
-      editToken: res.editToken,
-      shareCode: res.snapshot.shareCode,
-      slug: res.snapshot.slug,
-      title: res.snapshot.title,
-      totalMg,
-      version: res.snapshot.version,
-      lastOpened: Date.now(),
-      displayUnit: res.snapshot.displayUnit,
-    });
+    upsert({ ...entryFromSnapshot(res, totalMg), origin });
     return res.editToken;
   }
 
-  return { entries, upsert, touch, forget, forgetSuperseded, deleteList, registerCreated };
+  return { entries, upsert, touch, forget, forgetSuperseded, deleteList, registerCreated, entryFromSnapshot };
 }

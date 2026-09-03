@@ -38,6 +38,29 @@
   padding-block: var(--space-5) var(--space-9);
 }
 
+/* The sticky bar at the top of every page — the site bar (SiteTopbar) and the editor's
+   own bar (GearEditor) each carried this block scoped, byte-identical. It sticks so the
+   nav + actions stay in reach through a long list; print.scss unsticks it. Each bar's
+   INNER row (gap, padding) stays its own. */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-topbar);
+  background: var(--paper);
+  border-bottom: 1px solid var(--line);
+}
+
+/* The page-title step — a LIST's own name as the read views' <h1>: 700 where every
+   other heading is 600, a document title carrying more mass than a section heading
+   (see --text-page-title). Global rather than scoped because /l renders the element
+   into ReadonlyListView's #head slot and /s renders the fallback itself — a scoped
+   rule in either can't reach the other's heading. Worn WITH .t-title, which it
+   out-orders here. */
+.view__title {
+  font-size: var(--text-page-title);
+  font-weight: 700;
+}
+
 .prose {
   max-width: 42rem;
   /* CENTRED in the page column, not flush to its left gutter. .wrap is --measure

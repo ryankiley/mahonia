@@ -12,7 +12,7 @@
 // see tests/bodyWeightPrivacy.test.ts.
 
 import type { Folder, Item, ListData, ListMeta, Person, TripDay, Unit, Waypoint } from "../types";
-import { UNITS } from "../types";
+import { pickListMeta, UNITS } from "../types";
 import {
   MAX_DAYS,
   MAX_FOLDERS,
@@ -38,21 +38,19 @@ import { normalizeTrailLabel, normalizeTrailUrl } from "../trailLink";
 import { normalizeRouteGeometry } from "../polyline";
 import { uid } from "../id";
 import { uniquifyPersonNames } from "../people";
+import { bySortOrder } from "../weights";
 
 /** The downloaded backup's shape: the list's meta + its full content. */
 export function listToJson(list: ListMeta & ListData): string {
-  const { title, description, displayUnit, trailUrl, trailLabel, trailDistanceM, trailDistanceUnit, trailProfile, trailAscentM, trailDescentM, routeGeometry, startDate, endDate, folders, items, days, waypoints, people } = list;
+  const { folders, items, days, waypoints, people } = list;
+  // The meta in LIST_META_KEYS order — the key order a person sees in the file.
   // trailFaviconDataUrl is deliberately absent — it's a per-host cache the server
   // rebuilds, not part of the list the owner authored.
-  return JSON.stringify(
-    { title, description, displayUnit, trailUrl, trailLabel, trailDistanceM, trailDistanceUnit, trailProfile, trailAscentM, trailDescentM, routeGeometry, startDate, endDate, folders, items, days, waypoints, people },
-    null,
-    2,
-  );
+  return JSON.stringify({ ...pickListMeta(list), folders, items, days, waypoints, people }, null, 2);
 }
 
 /** A parsed backup: meta to seed the new list with + sanitized content. */
-export interface JsonImport {
+interface JsonImport {
   title?: string;
   description?: string;
   displayUnit?: Unit;
@@ -71,6 +69,32 @@ export interface JsonImport {
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   !!v && typeof v === "object" && !Array.isArray(v);
+
+/**
+ * A backup's ordered entities → their stored form: records only, capped, run through
+ * the reducer's own normalizer, sorted into their saved order, then each re-minted
+ * with a fresh id and renumbered from 0. `idMap` (source id → new id) is filled for
+ * the lists something else points at; first occurrence wins on a duplicate source
+ * id, mirroring the reducer's add dedupe. Coerces a missing array to nothing: a
+ * backup written before a list existed has no key for it at all.
+ */
+function remintOrdered<T extends { id: string; sortOrder: number }>(
+  raw: unknown,
+  max: number,
+  normalize: (v: T) => T,
+  idMap?: Map<string, string>,
+): T[] {
+  return (Array.isArray(raw) ? raw : [])
+    .filter(isRecord)
+    .slice(0, max)
+    .map((v) => normalize(v as unknown as T))
+    .sort(bySortOrder)
+    .map((e, i) => {
+      const id = uid();
+      if (idMap && !idMap.has(e.id)) idMap.set(e.id, id);
+      return { ...e, id, sortOrder: i };
+    });
+}
 
 /**
  * Parse a "Download JSON" backup back into list content. Returns null when the
@@ -95,34 +119,17 @@ export function jsonToListImport(text: string): JsonImport | null {
   if (!isRecord(raw) || !Array.isArray(raw.folders) || !Array.isArray(raw.items)) return null;
 
   const folderIdMap = new Map<string, string>();
-  const folders = raw.folders
-    .filter(isRecord)
-    .slice(0, MAX_FOLDERS)
-    .map((f) => normalizeFolder(f as unknown as Folder))
-    .sort((a, b) => a.sortOrder - b.sortOrder)
-    .map((f, i) => {
-      const id = uid();
-      // first occurrence wins on a duplicate source id (mirrors addFolder's dedupe)
-      if (!folderIdMap.has(f.id)) folderIdMap.set(f.id, id);
-      return { ...f, id, sortOrder: i };
-    });
+  const folders = remintOrdered<Folder>(raw.folders, MAX_FOLDERS, normalizeFolder, folderIdMap);
 
   // People before items: the items re-point personId through this map. Same
   // first-occurrence-wins dedupe as folders, for the same op-targeting reason.
   const personIdMap = new Map<string, string>();
-  // …then uniquifyPersonNames below: a backup may predate the one-name-per-person
+  // …then uniquifyPersonNames: a backup may predate the one-name-per-person
   // rule, and two "Sam"s are two DIFFERENT people here (they carry their own ids),
   // so they're numbered apart rather than merged the way the CSV column merges them
-  const people = uniquifyPersonNames((Array.isArray(raw.people) ? raw.people : [])
-    .filter(isRecord)
-    .slice(0, MAX_PEOPLE)
-    .map((p) => normalizePerson(p as unknown as Person))
-    .sort((a, b) => a.sortOrder - b.sortOrder)
-    .map((p, i) => {
-      const id = uid();
-      if (!personIdMap.has(p.id)) personIdMap.set(p.id, id);
-      return { ...p, id, sortOrder: i };
-    }));
+  const people = uniquifyPersonNames(
+    remintOrdered<Person>(raw.people, MAX_PEOPLE, normalizePerson, personIdMap),
+  );
 
   const normalized = raw.items
     .filter(isRecord)
@@ -187,12 +194,7 @@ export function jsonToListImport(text: string): JsonImport | null {
     })
     .sort((a, b) => a.alongM - b.alongM);
 
-  const days = (Array.isArray(raw.days) ? raw.days : [])
-    .filter(isRecord)
-    .slice(0, MAX_DAYS)
-    .map((d) => normalizeDay(d as unknown as TripDay))
-    .sort((a, b) => a.sortOrder - b.sortOrder)
-    .map((d, i) => ({ ...d, id: uid(), sortOrder: i }));
+  const days = remintOrdered<TripDay>(raw.days, MAX_DAYS, normalizeDay);
 
   return {
     // clamps mirror setMeta's (the server re-clamps on create regardless)

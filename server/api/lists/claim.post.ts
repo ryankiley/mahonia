@@ -1,14 +1,13 @@
 import { defineEventHandler } from "h3";
-import { requireUser } from "../../utils/authSession";
+import { requireAccount } from "../../utils/authSession";
 import {
   CLAIM_BATCH_MAX,
   backfillVaultFromClaims,
   claimLists,
   listClaimedLists,
 } from "../../utils/claimRepo";
-import { useAccountDb, useVaultDb } from "../../utils/db";
-import { readJsonBodyCapped, setNoIndex, setPrivate } from "../../utils/http";
-import { rateLimit } from "../../utils/rateLimit";
+import { useVaultDb } from "../../utils/db";
+import { readJsonBodyCapped } from "../../utils/http";
 
 // Attach the lists this browser holds to the signed-in account, so they're there
 // on the next device too.
@@ -22,10 +21,7 @@ import { rateLimit } from "../../utils/rateLimit";
 // Returns the account's full claimed set so the caller can render immediately
 // without a second round-trip.
 export default defineEventHandler(async (event) => {
-  setNoIndex(event);
-  setPrivate(event);
-  await rateLimit(event, "list-claim");
-  const user = await requireUser(event);
+  const { user, db } = await requireAccount(event, "list-claim");
 
   const body = await readJsonBodyCapped<{ editTokens?: unknown; openedTokens?: unknown }>(
     event,
@@ -40,11 +36,10 @@ export default defineEventHandler(async (event) => {
   // in this array.
   const openedTokens = tokenList(body?.openedTokens);
 
-  // useVaultDb as well as useAccountDb: the backfill below writes vault rows, and on
-  // Neon the vault tables are ensured on first use rather than migrated. Without
+  // useVaultDb as well as the account db: the backfill below writes vault rows, and
+  // on Neon the vault tables are ensured on first use rather than migrated. Without
   // this the write would throw into the swallowed catch and the backfill would
   // silently never happen on a cold instance.
-  const db = await useAccountDb();
   await useVaultDb();
   const claimed =
     editTokens.length || openedTokens.length

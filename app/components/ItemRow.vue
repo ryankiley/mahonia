@@ -1,6 +1,24 @@
 <script lang="ts">
-import type { Classification, Item as ItemT, Unit } from "~~/shared/types";
-import { UNITS } from "~~/shared/types";
+import type { InjectionKey, Ref } from "vue";
+import type { Classification, Item as ItemT, Person, Unit } from "~~/shared/types";
+
+// What GearEditor derives ONCE per snapshot for every row, reached by inject rather
+// than threaded down as props. Props would carry the same one-pass tables — but a
+// prop that is a fresh Map per recompute re-renders every row it passes through on
+// every structural edit, folders and leaves alike, to hand most of them a value
+// they don't read. Injected, a row subscribes to the table only where it looks
+// something up, and the rest stay skipped.
+//  • children grouped by parent id — one groupItemsByParent pass, so a parent row
+//    doesn't re-scan the whole item array for its children on every render
+//  • the people in display order, and each person's SLOT (their index in that
+//    order) — the row's filter attribute and its picker both read these, and
+//    every row was sorting the people list for itself
+export const CHILDREN_BY_PARENT: InjectionKey<Readonly<Ref<Map<string, ItemT[]>>>> =
+  Symbol("childrenByParent");
+export const PEOPLE_CTX: InjectionKey<{
+  sorted: Readonly<Ref<Person[]>>;
+  slotById: Readonly<Ref<Map<string, number>>>;
+}> = Symbol("people");
 
 // static per-component tables — module scope so a large list doesn't rebuild
 // them in every row instance
@@ -8,38 +26,10 @@ const STEP_BY_UNIT: Record<Unit, number> = { g: 1, kg: 0.01, oz: 0.1, lb: 0.1 };
 // one stable empty array for every leaf row, so `children` never mints a fresh
 // identity per row per render
 const NO_ITEMS: ItemT[] = [];
-// Per-item nest-collapse, read through a module-level cache rather than straight off
-// localStorage. Storage is synchronous, and every row reads its own key on mount — so a
-// mode switch, which remounts the whole list, was paying one blocking read per row for an
-// answer that only this app ever writes. Cached on first read and kept in step by
-// setNestCollapsed, so the value is still exactly what's on disk.
-const nestCollapsedCache = new Map<string, boolean>();
-function nestCollapsedFor(key: string): boolean {
-  let v = nestCollapsedCache.get(key);
-  if (v === undefined) {
-    try {
-      v = localStorage.getItem(key) === "1";
-    } catch {
-      v = false; // private mode / no storage — default expanded
-    }
-    nestCollapsedCache.set(key, v);
-  }
-  return v;
-}
-function setNestCollapsed(key: string, on: boolean) {
-  nestCollapsedCache.set(key, on);
-  remember(key, on ? "1" : "0");
-}
-// A cache that never re-read would out-live the truth: `storage` fires in the OTHER
-// tabs, so the same list open twice would keep showing its own stale collapse state on
-// the next remount. Dropping the entry sends the next read back to disk — which is
-// exactly what happened before the cache existed.
-if (import.meta.client) {
-  window.addEventListener("storage", (e) => {
-    if (e.key?.startsWith("gear.nest.")) nestCollapsedCache.delete(e.key);
-    else if (e.key === null) nestCollapsedCache.clear(); // storage.clear() in another tab
-  });
-}
+// Per-item nest-collapse: usePersistedCollapse's module-level cache, keyed
+// gear.nest.<id> — one blocking storage read per row per remount was the cost this
+// cache retired (its header carries the reasoning and the cross-tab invalidation).
+const nestCollapse = usePersistedCollapse("gear.nest.");
 // offered "N worn" split counts stop here (the stored value is always shown even
 // beyond the cap, so clamps/imports can't strand invisible state)
 const MAX_SPLIT_OPTS = 5;
@@ -49,9 +39,8 @@ const MAX_SPLIT_OPTS = 5;
 // and neither can hand the store a number it would silently rewrite underneath them.
 const QTY_MAX = 9999;
 const clampQty = (n: number) => Math.max(1, Math.min(QTY_MAX, Math.round(n)));
-// the four units as OptionMenu rows — the abbreviation is the label, matching the
-// figure it sits beside (see TotalsBar, which builds the same list)
-const UNIT_OPTIONS = UNITS.map((u) => ({ key: u, label: u }));
+// the four units as OptionMenu rows — WEIGHT_UNIT_OPTIONS (app/utils/unitOptions),
+// the same list the totals' unit picker draws from
 </script>
 
 <script setup lang="ts">
@@ -59,7 +48,7 @@ import { HugeiconsIcon } from "~/utils/hugeicon";
 import { CalculateIcon, Cancel01Icon, CheckIcon, CheckmarkSquare02Icon, ChevronDownIcon, CircleEllipsisIcon, CookieIcon, Delete02Icon, DropletIcon, GripVerticalIcon, ListIndentIncreaseIcon, MinusSignIcon, PlusSignIcon, SafeBoxIcon, ShirtIcon, SquareIcon, UserIcon } from "@hugeicons/core-free-icons";
 import type { Item, ListSnapshot } from "~~/shared/types";
 import type { ItemPatch } from "~~/shared/ops";
-import { effectivePersonId, personColor, personSlot, sortedPeople } from "~~/shared/people";
+import { effectivePersonId, personColor } from "~~/shared/people";
 import type { NameCommit } from "~/composables/useCatalogSearch";
 import { bySortOrder, effectiveClassification, entryUnitFromInput, formatKcal, formatWeight, fromMg, groupLineMg, itemDisplayName, parseWeightInput, rowDisplayMg, siblingItems, splitWornQty } from "~~/shared/weights";
 import { isWaterName, itemQtyLabel, waterLiters, waterMgFromMl } from "~~/shared/water";
@@ -76,10 +65,8 @@ const props = withDefaults(
   defineProps<{
     list: ListSnapshot;
     item: Item;
-    // children grouped by parent id — ONE groupItemsByParent pass per snapshot at
-    // the view root (GearEditor), threaded to every row, so each row doesn't
-    // re-scan the whole item array for its children on every render
-    childrenByParent: Map<string, Item[]>;
+    // (children grouped by parent id, and the people tables, arrive by inject —
+    // see CHILDREN_BY_PARENT / PEOPLE_CTX above)
     // the row rendered directly ABOVE this one in the parent's DISPLAY order
     // (null = first row) — drives the indent affordance + its nest target, so a
     // name/weight-sorted folder indents under the row you actually see above
@@ -120,23 +107,23 @@ const { mode: editorMode, everEdit, everPacked } = useEditorMode();
 // A row with children is a "group": its weight column shows the group total (own +
 // children, read-only, like a folder subtotal); the children carry the real editable
 // weights. Nesting is one level, so a nested row never renders its own children.
+const childrenByParent = inject(CHILDREN_BY_PARENT)!;
 const children = computed(() =>
-  props.nested ? NO_ITEMS : (props.childrenByParent.get(props.item.id) ?? NO_ITEMS),
+  props.nested ? NO_ITEMS : (childrenByParent.value.get(props.item.id) ?? NO_ITEMS),
 );
 const isParent = computed(() => children.value.length > 0);
 // collapse a nested group — hide/show its children, persisted per item id (pure UI
 // state, never sent to the server), mirroring the folder collapse. Only meaningful on
 // a parent row; packing mode always shows children (you're checking them off).
-const NEST_KEY = `gear.nest.${props.item.id}`;
 const nestCollapsed = ref(false);
 // Still adopted on MOUNT rather than at setup, so the first paint is unchanged — this
-// only swaps where the value comes from (see nestCollapsedFor above).
+// only swaps where the value comes from (see nestCollapse above).
 onMounted(() => {
-  nestCollapsed.value = nestCollapsedFor(NEST_KEY);
+  nestCollapsed.value = nestCollapse.isCollapsed(props.item.id);
 });
 function toggleNest() {
   nestCollapsed.value = !nestCollapsed.value;
-  setNestCollapsed(NEST_KEY, nestCollapsed.value);
+  nestCollapse.set(props.item.id, nestCollapsed.value);
 }
 // the group total shown on a parent's read-only weight column (bare number, list
 // unit) — `children` holds exactly this row's children, so the sum is O(children)
@@ -619,47 +606,43 @@ const noteShown = computed(() => !!props.item.description || nameEditing.value);
 // the sub-line block shows when either field does
 const subShown = computed(() => cnameShown.value || noteShown.value);
 
-// ---- mobile overflow (⋯) menu ----
-// On mobile the trailing icons crowd the two-line row, so all of them EXCEPT delete
-// + grip collapse into a ⋯ menu (note + the nesting actions). Desktop keeps the
-// inline icons and never shows this. One menu open at a time across the list (shared
-// singleton), and the folder lifts its collapse clip while it's open (overlayToggle).
+// ---- the row's popovers ----
+// One-at-a-time across the whole list (useItemMenu's singleton), and the folder
+// lifts its collapse clip while any is open (overlayToggle). The singleton holds ONE
+// open id, so every popover a row can raise is namespaced off the row id
+// (`<id>:menu`, `<id>:kcal`, …). That's what makes them mutually exclusive for free
+// — opening the calorie popover closes the ⋯ menu, on this row or any other, with
+// no cross-wiring between them.
+//
+// The three MENUS (carrier, nesting, the mobile ⋯ overflow) are <ItemRowMenu>s in
+// the template — one component for the chrome and the open/close contract, with
+// only their entries written here. The two classification DIALOGS below stay in
+// this file: they hold a switch and a field rather than a list of actions.
 const menu = useItemMenu();
-const menuRootRef = useTemplateRef<HTMLElement>("menuRootRef");
-// Which sides these two menus hang from, measured per open (useMenuPlacement). Rows
-// are the one place the default was reliably wrong: a list is long, so its LAST rows
-// sit at the viewport floor, and a menu anchored below them opened off the bottom of
-// the screen — 144px past it, measured. The classification popovers beside them have
-// flipped for that since they were written (togglePop); these never learned to.
-const moreListRef = useTemplateRef<HTMLElement>("moreListRef");
-const nestListRef = useTemplateRef<HTMLElement>("nestListRef");
-const { atStart: moreAtStart, above: moreAbove, place: placeMore } = useMenuPlacement(moreListRef);
-const { atStart: nestAtStart, above: nestAbove, place: placeNest } = useMenuPlacement(nestListRef);
-// The singleton holds ONE open id for the whole list, so every popover a row can
-// raise is namespaced off the row id (`<id>:menu`, `<id>:kcal`). That's what makes
-// them mutually exclusive for free — opening the calorie popover closes the ⋯ menu,
-// on this row or any other, with no cross-wiring between them.
-const isMenuOpen = computed(() => menu.openId.value === `${props.item.id}:menu`);
-// measured on the tick the list mounts — it has no size to measure before that
-watch(isMenuOpen, (open) => {
-  emit("overlayToggle", open);
-  if (open) nextTick(placeMore);
-});
-function toggleMenu() {
-  menu.toggle(`${props.item.id}:menu`, menuRootRef.value);
-}
 
 // ---- the two classification popovers ----
 // Both hang off their own toggle and hold: a switch for the class itself, plus the
 // one detail that only makes sense while it is on (worn → how many of the qty;
 // consumable → calories). Same shape twice, so learning one teaches the other.
 //
-// Namespaced off the row id like the ⋯ menu, so the singleton's single openId makes
+// Namespaced off the row id like the menus, so the singleton's single openId makes
 // every popover on every row mutually exclusive with no cross-wiring.
+//
+// Placement is measured per open (useMenuPlacement, in its `shift` mode). Flip ABOVE
+// the trigger when there isn't room below: a list is long and its last rows sit at
+// the viewport floor, where a below-anchored popover opens off-screen — the one
+// place the feature is needed is the one place it would be unreachable. Slide RIGHT
+// rather than flip to the leading edge when the card runs off the left: it hangs
+// off the trigger's right edge, which is correct on a wide row but walks off the
+// left of a phone, where the stacked layout puts the toggles near the middle of a
+// 375px viewport (the composable's header says why a flip can't serve that case).
+// Tooltip.vue solves the same problem but is built around a hover-driven popup
+// teleported to <body>; this popover holds a focusable field and stays in the row.
 const wornRootRef = useTemplateRef<HTMLElement>("wornRootRef");
+const wornPopRef = useTemplateRef<HTMLElement>("wornPopRef");
 const isWornOpen = computed(() => menu.openId.value === `${props.item.id}:worn`);
 watch(isWornOpen, (open) => emit("overlayToggle", open));
-const wornAbove = ref(false);
+const { above: wornAbove, shift: wornShift, place: placeWorn } = useMenuPlacement(wornPopRef, { fit: "shift" });
 
 // ---- calories (consumable rows only) ----
 // Served in a popover hung off the classification control rather than given a
@@ -667,63 +650,28 @@ const wornAbove = ref(false);
 // A column would cost every row width to serve a few, which is the trade the
 // classification select already makes by collapsing three states into one control.
 const kcalRootRef = useTemplateRef<HTMLElement>("kcalRootRef");
+const kcalPopRef = useTemplateRef<HTMLElement>("kcalPopRef");
 const isKcalOpen = computed(() => menu.openId.value === `${props.item.id}:kcal`);
 watch(isKcalOpen, (open) => emit("overlayToggle", open));
+const { above: kcalAbove, shift: kcalShift, place: placeKcal } = useMenuPlacement(kcalPopRef, { fit: "shift" });
 
-// Flip above the trigger when there isn't room below. A list is long and its last
-// rows sit at the viewport floor, where a below-anchored popover opens off-screen —
-// the one place the feature is needed is the one place it would be unreachable.
-// Tooltip.vue solves the same problem but is built around a hover-driven popup
-// teleported to <body>; this popover holds a focusable field and stays in the row,
-// so it measures for itself rather than inheriting that machinery.
-const kcalAbove = ref(false);
-// generous: switch row + label + field + the optional line-total, plus a margin
-const POP_H = 170;
-const POP_EDGE = 8; // breathing room against the viewport edge
-
-// How far the popover must slide right to stay on screen. It hangs off the trigger's
-// RIGHT edge, which is correct on a wide row but walks off the left of a phone, where
-// the stacked layout puts the toggles near the middle of a 375px viewport. Measured
-// rather than handled in CSS: only the trigger's live position can say whether the
-// card fits, and the same open-time measurement already decides the vertical flip.
-const popShift = ref(0);
-
-/** Open (or close) one of the row's classification popovers, flipping it above the
- *  trigger when the row sits too close to the viewport floor. `focusField` is false
- *  for the worn popover, whose controls are a switch and a set of buttons — pulling
- *  focus to the first of those would look like a selection had been made. */
+/** Open (or close) one of the row's classification popovers, placing it once the
+ *  card exists to measure. `focusField` is false for the worn popover, whose
+ *  controls are a switch and a set of buttons — pulling focus to the first of
+ *  those would look like a selection had been made. */
 async function togglePop(
   kind: "worn" | "kcal",
   rootRef: HTMLElement | null,
-  above: { value: boolean },
   isOpen: boolean,
+  place: () => void,
   focusField: boolean,
 ) {
   const opening = !isOpen;
-  if (opening) {
-    const r = rootRef?.getBoundingClientRect();
-    above.value = !!r && window.innerHeight - r.bottom < POP_H;
-    popShift.value = 0; // measured below, once the card exists
-  }
   menu.toggle(`${props.item.id}:${kind}`, rootRef);
   if (!opening) return;
+  // on the tick the card mounts — it has no size to measure before that
   await nextTick();
-  // Measure the rendered card rather than trusting a constant: its width is set in
-  // CSS (rem), so a hardcoded pixel twin is wrong the moment the root font size
-  // isn't 16, and it drifts silently if the rule is ever retuned.
-  //
-  // offsetWidth, NOT getBoundingClientRect — the same trap Tooltip.vue documents.
-  // This runs on the tick the card mounts, while the enter transform is still
-  // applied, and a client rect reports the TRANSFORMED box (it measured 2px off).
-  // offsetWidth is the untransformed layout box. The TRIGGER isn't animating, so
-  // its rect is sound, and the card's left edge is the trigger's right minus that
-  // width — which is exactly where the CSS pins it.
-  const card = rootRef?.querySelector<HTMLElement>(".item__pop");
-  const anchor = rootRef?.getBoundingClientRect();
-  if (card && anchor) {
-    const left = anchor.right - card.offsetWidth;
-    if (left < POP_EDGE) popShift.value = POP_EDGE - left;
-  }
+  place();
   if (focusField) {
     // focus the field on open — the popover exists to take one number, so landing
     // anywhere else would make every use a click plus a tab
@@ -731,8 +679,8 @@ async function togglePop(
   }
 }
 
-const toggleWorn = () => togglePop("worn", wornRootRef.value, wornAbove, isWornOpen.value, false);
-const toggleKcal = () => togglePop("kcal", kcalRootRef.value, kcalAbove, isKcalOpen.value, true);
+const toggleWorn = () => togglePop("worn", wornRootRef.value, isWornOpen.value, placeWorn, false);
+const toggleKcal = () => togglePop("kcal", kcalRootRef.value, isKcalOpen.value, placeKcal, true);
 function onKcal(e: Event) {
   const el = e.target as HTMLInputElement;
   const raw = el.value.trim();
@@ -757,15 +705,6 @@ const nestActions = computed(() => {
     acts.push({ label: "Nest under the item above", run: () => c.nestItem(props.item.id, props.prevId!) });
   return acts;
 });
-const nestRootRef = useTemplateRef<HTMLElement>("nestRootRef");
-const isNestOpen = computed(() => menu.openId.value === `${props.item.id}:nest`);
-watch(isNestOpen, (open) => {
-  emit("overlayToggle", open);
-  if (open) nextTick(placeNest);
-});
-function toggleNestMenu() {
-  menu.toggle(`${props.item.id}:nest`, nestRootRef.value);
-}
 
 // ---- carried by (lists with people only) ----
 // Who takes this row. A menu hung off its own ghost trigger (the nesting menu's
@@ -775,7 +714,9 @@ function toggleNestMenu() {
 // swaps its glyph for the carrier's own .swatch dot (the vault button's
 // state-swap move) — colour stays in a dot, chrome stays ink, and the dot
 // carries the state at a contrast a tinted 16px glyph never met.
-const peopleSorted = computed(() => sortedPeople(props.list.people));
+// The people in display order and their slots come from GearEditor (PEOPLE_CTX):
+// sorted once per snapshot for every row, not once per row.
+const { sorted: peopleSorted, slotById } = inject(PEOPLE_CTX)!;
 // own assignment, else the group's — the shared inherit rule, fed here by the
 // parent through the inherited-person-id prop (one level, so one hop resolves it)
 const effPersonId = computed(() =>
@@ -792,7 +733,7 @@ const ownPerson = computed(() =>
 // the CSS never meets a row without the attribute. Derived from row-local data:
 // it changes when an assignment or the people change, never on a filter flip.
 const personSlotAttr = computed(() => {
-  const slot = personSlot(props.list.people, effPersonId.value);
+  const slot = effPersonId.value ? slotById.value.get(effPersonId.value) : undefined;
   return slot == null ? "u" : String(slot);
 });
 const personTitle = computed(() =>
@@ -834,17 +775,6 @@ const personPicks = computed(() => [
     active: !props.item.personId,
   },
 ]);
-const personRootRef = useTemplateRef<HTMLElement>("personRootRef");
-const personListRef = useTemplateRef<HTMLElement>("personListRef");
-const { atStart: personAtStart, above: personAbove, place: placePerson } = useMenuPlacement(personListRef);
-const isPersonOpen = computed(() => menu.openId.value === `${props.item.id}:person`);
-watch(isPersonOpen, (open) => {
-  emit("overlayToggle", open);
-  if (open) nextTick(placePerson);
-});
-function togglePersonMenu() {
-  menu.toggle(`${props.item.id}:person`, personRootRef.value);
-}
 // null clears (the wire's "hand it back"); a nested row cleared this way returns
 // to following its group, which is what the menu's own label for it says
 const setPerson = (personId: string | null) => c.updateItem(props.item.id, { personId });
@@ -931,18 +861,13 @@ watch(
 // ⋯ · grip, because the icons are --tap wide there and the line has no room for the
 // row's numbers beside more than two of them).
 const overflowActions = computed(() => {
-  // `nest` marks the structure edits, which stand down while a person filter is
-  // on (CSS off the body attribute — atoms/item.scss; the desktop nest menu
-  // hides whole the same way): indent targets the UNFILTERED row above, and a
-  // reparent changes what a row inherits, so either can make it vanish from the
-  // very view it was touched in.
-  const acts: { label: string; run: () => void; nest?: true }[] = [];
-  if (props.nested) acts.push({ label: "Un-nest", run: () => c.unnest(props.item.id), nest: true });
-  else {
-    if (!isParent.value) acts.push({ label: "Add a nested item", run: () => c.addChild(props.item.id), nest: true });
-    if (canIndent.value)
-      acts.push({ label: "Nest under the item above", run: () => c.nestItem(props.item.id, props.prevId!), nest: true });
-  }
+  // The nesting entries ARE nestActions — the desktop menu's table, not a second
+  // copy of it, so the two seats can't drift on a label. `nest` marks them as the
+  // structure edits, which stand down while a person filter is on (CSS off the
+  // body attribute — atoms/item.scss; the desktop nest menu hides whole the same
+  // way): indent targets the UNFILTERED row above, and a reparent changes what a
+  // row inherits, so either can make it vanish from the very view it was touched in.
+  const acts: { label: string; run: () => void; nest?: true }[] = nestActions.value.map((a) => ({ ...a, nest: true }));
   // Reads its own state, like the inline button's tooltip does — "Saved" is the
   // whole feedback here, since a menu closes on choosing and there's no tick left
   // on screen to see. Same disclosure rule as the inline icon: no entry until the
@@ -1021,10 +946,12 @@ function dismissFix() {
            the same glyph as the header's packing toggle, and the two share an identical
            outer square so the swap reads as the tick appearing); the real <input> stays
            on top, invisible but focusable, so behavior + focus stay native -->
-      <span class="item__boxwrap">
+      <!-- the shared .check atom (controls.scss); .item__box stays on the input for
+           the mobile grid placement below (and the print sheet's colour rule) -->
+      <span class="check">
         <input
           type="checkbox"
-          class="item__box"
+          class="check__box item__box"
           :checked="item.packed"
           :aria-label="`Packed: ${editableName || 'item'}`"
           @change="c.updateItem(item.id, { packed: ($event.target as HTMLInputElement).checked })"
@@ -1032,23 +959,22 @@ function dismissFix() {
         <!-- absolute-stroke-width pins the drawn line at ~1.33px — what the surrounding
              16px icons render (2 nominal × 16/24) — so the bigger box doesn't read bolder
              than its row -->
-        <HugeiconsIcon :icon="SquareIcon" class="item__boxicon item__boxicon--empty" :size="20" :stroke-width="1.33" absolute-stroke-width aria-hidden="true" />
-        <HugeiconsIcon :icon="CheckmarkSquare02Icon" class="item__boxicon item__boxicon--check" :size="20" :stroke-width="1.33" absolute-stroke-width aria-hidden="true" />
+        <HugeiconsIcon :icon="SquareIcon" class="check__icon check__icon--empty" :size="20" :stroke-width="1.33" absolute-stroke-width aria-hidden="true" />
+        <HugeiconsIcon :icon="CheckmarkSquare02Icon" class="check__icon check__icon--check" :size="20" :stroke-width="1.33" absolute-stroke-width aria-hidden="true" />
       </span>
       <span class="item__cname" :class="{ 'item__cname--group': isParent }"><ItemName :item="item" :group="isParent" /><!--
           the carrier, riding the name cell (display-only — this face is a <label>
           over a checkbox, so a control here would toggle the tick). Only their own
           claim is tagged: children of a claimed group inherit silently, or a
           six-item group would say the same name seven times.
-       --><span v-if="ownPerson" class="t-sm item__carrier"><span class="swatch item__carrier-dot" :style="{ background: personColor(ownPerson) }" aria-hidden="true" />{{ ownPerson.name }}</span><button
+       --><span v-if="ownPerson" class="t-sm item__carrier"><span class="swatch item__carrier-dot" :style="{ background: personColor(ownPerson) }" aria-hidden="true" />{{ ownPerson.name }}</span><NestChevron
           v-if="isParent"
-          class="item__nestcollapse"
-          :aria-expanded="!nestCollapsed"
-          :aria-label="`${nestCollapsed ? 'Expand' : 'Collapse'} ${item.name || 'group'}`"
-          :title="nestCollapsed ? 'Expand group' : 'Collapse group'"
+          :collapsed="nestCollapsed"
+          :label="item.name || 'group'"
+          stop
           @mousedown.prevent
-          @click.stop.prevent="toggleNest"
-        ><HugeiconsIcon :icon="ChevronDownIcon" class="item__nestchev" :class="{ 'is-collapsed': nestCollapsed }" :size="16" :stroke-width="2" /></button></span>
+          @toggle="toggleNest"
+        /></span>
       <!-- `item__qty--split` widens the amount track for the whole page column when any
            row in the list spells out a worn split ("×12 · 11 worn") — atoms/item.scss -->
       <span class="t-num t-sm t-muted item__cqty" :class="{ 'item__qty--split': activeSplit }">{{ itemQtyLabel(item, effClass) }}</span>
@@ -1089,17 +1015,13 @@ function dismissFix() {
                Desktop stays clean — the trigger's dot already says it. BEFORE the
                chevron, so all three faces read name · carrier · chevron alike. -->
           <span v-if="ownPerson" class="t-sm item__carrier item__ecarrier"><span class="swatch item__carrier-dot" :style="{ background: personColor(ownPerson) }" aria-hidden="true" />{{ ownPerson.name }}</span>
-          <button
+          <NestChevron
             v-if="isParent"
-            class="item__nestcollapse"
-            :aria-expanded="!nestCollapsed"
-            :aria-label="`${nestCollapsed ? 'Expand' : 'Collapse'} ${item.name || 'group'}`"
-            :title="nestCollapsed ? 'Expand group' : 'Collapse group'"
+            :collapsed="nestCollapsed"
+            :label="item.name || 'group'"
             @mousedown.prevent
-            @click="toggleNest"
-          >
-            <HugeiconsIcon :icon="ChevronDownIcon" class="item__nestchev" :class="{ 'is-collapsed': nestCollapsed }" :size="16" :stroke-width="2" />
-          </button>
+            @toggle="toggleNest"
+          />
         </div>
         <!-- sub-line: the gear type (a quiet upright label) and, under it, the freeform note;
              both single-line live-text fields, showing whenever they hold a value or the
@@ -1291,7 +1213,7 @@ function dismissFix() {
           <OptionMenu
             v-else
             class="item__unitwrap"
-            :options="UNIT_OPTIONS"
+            :options="WEIGHT_UNIT_OPTIONS"
             :current="rowUnit"
             label="Weight unit for this item"
             :title="`Unit for ${item.name || 'this item'}`"
@@ -1345,9 +1267,10 @@ function dismissFix() {
             <Transition name="menu">
               <div
                 v-if="isKcalOpen"
+                ref="kcalPopRef"
                 class="popover item__pop"
                 :class="{ 'is-above': kcalAbove }"
-                :style="popShift ? { translate: popShift + 'px 0' } : undefined"
+                :style="kcalShift ? { translate: kcalShift + 'px 0' } : undefined"
                 role="dialog"
                 aria-label="Consumable"
               >
@@ -1436,9 +1359,10 @@ function dismissFix() {
             <Transition name="menu">
               <div
                 v-if="isWornOpen"
+                ref="wornPopRef"
                 class="popover item__pop"
                 :class="{ 'is-above': wornAbove }"
-                :style="popShift ? { translate: popShift + 'px 0' } : undefined"
+                :style="wornShift ? { translate: wornShift + 'px 0' } : undefined"
                 role="dialog"
                 aria-label="Worn"
               >
@@ -1537,30 +1461,100 @@ function dismissFix() {
                reason: its coming and going must shuffle nothing. Assigned, the glyph
                becomes the carrier's own dot — the vault button's state-swap, with the
                colour kept in a .swatch where this app keeps all of it. -->
-          <div v-if="peopleSorted.length" ref="personRootRef" class="menu item__person">
-            <Tooltip :text="personTitle" preferred-placement="top" :disabled="isPersonOpen">
+          <ItemRowMenu
+            v-if="peopleSorted.length"
+            class="item__person"
+            :row-id="item.id"
+            kind="person"
+            :label="personTitle"
+            menu-label="Who carries this"
+            trigger-class="item__person-btn"
+            tooltip
+            @overlay-toggle="$emit('overlayToggle', $event)"
+          >
+            <template #trigger>
+              <span v-if="rowPerson" class="swatch" :style="{ background: personColor(rowPerson) }" aria-hidden="true" />
+              <HugeiconsIcon v-else :icon="UserIcon" :size="16" :stroke-width="2" />
+            </template>
+            <li v-for="e in personPicks" :key="e.id ?? 'none'" role="none">
               <button
-                class="btn btn--icon btn--ghost item__person-btn"
                 type="button"
-                aria-haspopup="menu"
-                :aria-expanded="isPersonOpen"
-                :aria-label="personTitle"
-                @mousedown.prevent
-                @click="togglePersonMenu"
+                role="menuitemradio"
+                class="menu__item item__personpick"
+                :class="{ 'is-active': e.active }"
+                :aria-checked="e.active"
+                @click="menu.close(); setPerson(e.active ? null : e.id)"
               >
-                <span v-if="rowPerson" class="swatch" :style="{ background: personColor(rowPerson) }" aria-hidden="true" />
-                <HugeiconsIcon v-else :icon="UserIcon" :size="16" :stroke-width="2" />
+                <span class="swatch" :class="{ 'swatch--hollow': !e.color }" :style="e.color ? { background: e.color } : undefined" aria-hidden="true" />
+                {{ e.label }}
               </button>
-            </Tooltip>
-            <Transition name="menu">
-              <ul
-                v-if="isPersonOpen"
-                ref="personListRef"
-                class="popover menu__list item__personlist"
-                :class="{ 'menu__list--start': personAtStart, 'menu__list--above': personAbove }"
-                role="menu"
-                aria-label="Who carries this"
-              >
+            </li>
+          </ItemRowMenu>
+          <!-- NESTING, under one icon. These were up to two adjacent buttons whose
+               glyphs (list-plus, indent, outdent) are near-identical at 16px, so the
+               cluster read as noise and you had to hover each to learn which was which.
+               One trigger, and the menu SAYS what each action does.
+               Rendered only when there is something to offer — a nested row that can't
+               un-nest, or a parent with nothing to indent under, gets no icon at all
+               rather than a menu that opens empty.
+               item__nestact: stands down while a person filter is on (atoms/item.scss)
+               — "the item above" is unfiltered order, so indent could target a row the
+               CSS is hiding, and a nested row inherits its parent, so either action
+               can make the row vanish from the very view it was touched in. -->
+          <ItemRowMenu
+            v-if="nestActions.length"
+            class="item__nest item__nestact"
+            :row-id="item.id"
+            kind="nest"
+            label="Nesting"
+            :icon="ListIndentIncreaseIcon"
+            trigger-class="item__nest-btn"
+            tooltip
+            @overlay-toggle="$emit('overlayToggle', $event)"
+          >
+            <li v-for="a in nestActions" :key="a.label" role="none">
+              <button type="button" role="menuitem" class="menu__item" @click="menu.close(); a.run()">{{ a.label }}</button>
+            </li>
+          </ItemRowMenu>
+          <Tooltip text="Remove item" preferred-placement="top">
+            <button
+              class="btn btn--icon btn--ghost item__del"
+              aria-label="Remove item"
+              @mousedown.prevent
+              @click="c.removeItem(item.id)"
+            >
+              <HugeiconsIcon :icon="Delete02Icon" :size="16" :stroke-width="2" />
+            </button>
+          </Tooltip>
+          <!-- mobile overflow: on a phone the trailing icons crowd the two-line row, so
+               everything EXCEPT delete + grip collapses in here — the carrier picker,
+               the nesting actions and the vault save — and desktop, which keeps the
+               inline icons, never shows it. Same .menu/.popover atom as the editor's ⋯
+               kebab; one row's menu open at a time (useItemMenu). -->
+          <ItemRowMenu
+            class="item__more"
+            :row-id="item.id"
+            kind="menu"
+            label="More actions"
+            menu-label="Item actions"
+            :icon="CircleEllipsisIcon"
+            trigger-class="menu__btn item__morebtn"
+            @overlay-toggle="$emit('overlayToggle', $event)"
+          >
+            <!-- the person picker's mobile seat — the desktop trigger is
+                 display:none here, so its popover would anchor to nothing. The
+                 SAME personPicks table as that popover, so the two seats can't
+                 drift. FIRST, not last: the assign run-through taps these forty
+                 times, and "Remove item" keeps the menu's closing seat — the
+                 one irreversible entry belongs at the end, not under the thumb.
+                 A real role=group with a visible name, so the radio run reads
+                 as one setting to assistive tech instead of loose siblings. -->
+            <li v-if="peopleSorted.length" role="none">
+              <ul role="group" aria-label="Who carries this" class="item__moregroup">
+                <!-- aria-hidden: the group's aria-label already names it — role=none
+                     strips the li's semantics but not its TEXT, so without this a
+                     screen reader heard the label twice -->
+                <li role="none" class="t-label item__morelabel" aria-hidden="true">Who carries this</li>
                 <li v-for="e in personPicks" :key="e.id ?? 'none'" role="none">
                   <button
                     type="button"
@@ -1575,121 +1569,15 @@ function dismissFix() {
                   </button>
                 </li>
               </ul>
-            </Transition>
-          </div>
-          <!-- NESTING, under one icon. These were up to two adjacent buttons whose
-               glyphs (list-plus, indent, outdent) are near-identical at 16px, so the
-               cluster read as noise and you had to hover each to learn which was which.
-               One trigger, and the menu SAYS what each action does.
-               Rendered only when there is something to offer — a nested row that can't
-               un-nest, or a parent with nothing to indent under, gets no icon at all
-               rather than a menu that opens empty.
-               item__nestact: stands down while a person filter is on (atoms/item.scss)
-               — "the item above" is unfiltered order, so indent could target a row the
-               CSS is hiding, and a nested row inherits its parent, so either action
-               can make the row vanish from the very view it was touched in. -->
-          <div v-if="nestActions.length" ref="nestRootRef" class="menu item__nest item__nestact">
-            <Tooltip text="Nesting" preferred-placement="top" :disabled="isNestOpen">
-              <button
-                class="btn btn--icon btn--ghost item__nest-btn"
-                type="button"
-                aria-haspopup="menu"
-                :aria-expanded="isNestOpen"
-                aria-label="Nesting"
-                @mousedown.prevent
-                @click="toggleNestMenu"
-              >
-                <HugeiconsIcon :icon="ListIndentIncreaseIcon" :size="16" :stroke-width="2" />
-              </button>
-            </Tooltip>
-            <Transition name="menu">
-              <ul
-                v-if="isNestOpen"
-                ref="nestListRef"
-                class="popover menu__list item__nestlist"
-                :class="{ 'menu__list--start': nestAtStart, 'menu__list--above': nestAbove }"
-                role="menu"
-                aria-label="Nesting"
-              >
-                <li v-for="a in nestActions" :key="a.label" role="none">
-                  <button type="button" role="menuitem" class="menu__item" @click="menu.close(); a.run()">{{ a.label }}</button>
-                </li>
-              </ul>
-            </Transition>
-          </div>
-          <Tooltip text="Remove item" preferred-placement="top">
-            <button
-              class="btn btn--icon btn--ghost item__del"
-              aria-label="Remove item"
-              @mousedown.prevent
-              @click="c.removeItem(item.id)"
-            >
-              <HugeiconsIcon :icon="Delete02Icon" :size="16" :stroke-width="2" />
-            </button>
-          </Tooltip>
-          <!-- mobile overflow: the nesting + vault actions collapse in here (delete +
-               grip stay inline). Hidden on desktop. Same .menu/.popover atom as the
-               editor's ⋯ kebab; one row's menu open at a time (useItemMenu). -->
-          <div ref="menuRootRef" class="menu item__more">
-            <button
-              class="btn btn--icon btn--ghost menu__btn item__morebtn"
-              type="button"
-              aria-haspopup="menu"
-              :aria-expanded="isMenuOpen"
-              aria-label="More actions"
-              @mousedown.prevent
-              @click="toggleMenu"
-            >
-              <HugeiconsIcon :icon="CircleEllipsisIcon" :size="16" :stroke-width="2" />
-            </button>
-            <Transition name="menu">
-              <ul
-                v-if="isMenuOpen"
-                ref="moreListRef"
-                class="popover menu__list item__morelist"
-                :class="{ 'menu__list--start': moreAtStart, 'menu__list--above': moreAbove }"
-                role="menu"
-                aria-label="Item actions"
-              >
-                <!-- the person picker's mobile seat — the desktop trigger is
-                     display:none here, so its popover would anchor to nothing. The
-                     SAME personPicks table as that popover, so the two seats can't
-                     drift. FIRST, not last: the assign run-through taps these forty
-                     times, and "Remove item" keeps the menu's closing seat — the
-                     one irreversible entry belongs at the end, not under the thumb.
-                     A real role=group with a visible name, so the radio run reads
-                     as one setting to assistive tech instead of loose siblings. -->
-                <li v-if="peopleSorted.length" role="none">
-                  <ul role="group" aria-label="Who carries this" class="item__moregroup">
-                    <!-- aria-hidden: the group's aria-label already names it — role=none
-                         strips the li's semantics but not its TEXT, so without this a
-                         screen reader heard the label twice -->
-                    <li role="none" class="t-label item__morelabel" aria-hidden="true">Who carries this</li>
-                    <li v-for="e in personPicks" :key="e.id ?? 'none'" role="none">
-                      <button
-                        type="button"
-                        role="menuitemradio"
-                        class="menu__item item__personpick"
-                        :class="{ 'is-active': e.active }"
-                        :aria-checked="e.active"
-                        @click="menu.close(); setPerson(e.active ? null : e.id)"
-                      >
-                        <span class="swatch" :class="{ 'swatch--hollow': !e.color }" :style="e.color ? { background: e.color } : undefined" aria-hidden="true" />
-                        {{ e.label }}
-                      </button>
-                    </li>
-                  </ul>
-                </li>
-                <li v-for="a in overflowActions" :key="a.label" role="none" :class="{ item__nestact: a.nest }">
-                  <button type="button" role="menuitem" class="menu__item" @click="menu.close(); a.run()">{{ a.label }}</button>
-                </li>
-              </ul>
-            </Transition>
-          </div>
+            </li>
+            <li v-for="a in overflowActions" :key="a.label" role="none" :class="{ item__nestact: a.nest }">
+              <button type="button" role="menuitem" class="menu__item" @click="menu.close(); a.run()">{{ a.label }}</button>
+            </li>
+          </ItemRowMenu>
           <!-- drag via pointerdown; arrow keys give the focused grip the reordering
                its label promises (a drag needs a pointer) -->
           <button
-            class="btn btn--icon btn--ghost item__grip"
+            class="btn btn--icon btn--ghost grip item__grip"
             title="Drag to reorder"
             :aria-label="`Reorder ${item.name || 'item'}`"
             @pointerdown="dnd.start(item.id, $event)"
@@ -1736,7 +1624,6 @@ function dismissFix() {
           :key="child.id"
           :list="list"
           :item="child"
-          :children-by-parent="childrenByParent"
           nested
           :inherited-person-id="effPersonId"
           @overlay-toggle="onChildOverlay"
@@ -1874,58 +1761,15 @@ function dismissFix() {
      list jump on every toggle. */
   min-height: var(--field-h);
 }
-/* checkbox — drawn by the icon set now: Square (empty) under SquareCheck (checked),
-   the same glyph as the header's packing toggle, stacked in one grid cell. The two
-   share an identical outer square, so the checked icon fading in reads as the tick
-   appearing inside the standing box. 20px — a step up from the old 18px drawn box;
-   the icons pin their stroke at ~1.33px (absolute-stroke-width) so the bigger box
-   keeps the same line weight the surrounding 16px icons render. */
-.item__boxwrap {
-  position: relative;
-  align-self: center;
-  width: 20px;
-  height: 20px;
-  flex: none;
-  display: grid;
-  place-content: center;
-}
-/* the real control, stretched over the icons: invisible (appearance:none draws nothing)
-   but hoverable, clickable and focusable, so the native focus ring lands on the box */
-.item__box {
-  position: absolute;
-  inset: 0;
-  appearance: none;
-  margin: 0;
-  border-radius: 4px;
-  cursor: pointer;
-}
-.item__boxicon {
-  grid-area: 1 / 1;
-  pointer-events: none;
-  color: var(--ink-3);
-  transition: color var(--dur) var(--ease);
-}
-.item__boxwrap:hover .item__boxicon {
+/* checkbox — the shared .check atom (controls.scss): Square (empty) under
+   SquareCheck (checked), the same glyph as the header's packing toggle, stacked in
+   one grid cell with the native control stretched invisibly over them. 20px — a
+   step up from the old 18px drawn box; the icons pin their stroke at ~1.33px
+   (absolute-stroke-width) so the bigger box keeps the same line weight the
+   surrounding 16px icons render. The row's only addition: the whole box is the tap
+   target, so pointing at it darkens the glyph like the row's other quiet marks. */
+.check:hover .check__icon {
   color: var(--ink);
-}
-/* the checked glyph pops in with the springy overshoot the old drawn tick had
-   (SPACE10's easeOutBack); scale starts at .5 — not 0 — so its square lands on the
-   standing one instead of visibly growing a second box */
-.item__boxicon--check {
-  opacity: 0;
-  color: var(--ink);
-  transform: scale(0.5);
-  transition:
-    transform var(--dur) var(--ease-spring),
-    opacity calc(var(--dur) * 0.6) var(--ease);
-}
-.item__box:checked ~ .item__boxicon--empty {
-  opacity: 0;
-  transition: opacity calc(var(--dur) * 0.6) var(--ease);
-}
-.item__box:checked ~ .item__boxicon--check {
-  opacity: 1;
-  transform: scale(1);
 }
 .item__cname {
   min-width: 0;
@@ -2229,7 +2073,6 @@ function dismissFix() {
    number is right-aligned so there is no left text edge to meet, and the field's BOX
    is the dominant vertical line, so indenting past it just read as two ragged edges. */
 .item__poplabel {
-  margin: 0;
   line-height: 1;
   white-space: nowrap;
 }
@@ -2289,7 +2132,6 @@ function dismissFix() {
   display: flex;
   align-items: center;
   gap: var(--space-1);
-  margin: 0;
 }
 .item__poplineicon {
   flex: none;
@@ -2305,33 +2147,29 @@ function dismissFix() {
 }
 /* right-align the trailing glyphs (remove · grip) in their tap targets so they
    read as evenly spaced with the grip flush to the edge — centering the others
-   while the grip sat hard-right left an uneven, wider gap before the grip */
-.item__actions .btn--icon {
+   while the grip sat hard-right left an uneven, wider gap before the grip.
+   :deep() because three of the cluster's triggers are rendered by ItemRowMenu
+   now, and a scoped rule doesn't cross into a child's own elements. */
+.item__actions :deep(.btn--icon) {
   justify-content: flex-end;
 }
+/* (the three menu triggers — carrier, nesting, ⋯ — take the same treatment from
+   ItemRowMenu's own scoped block, which is the only place a rule can reach them) */
 .item__grip,
-.item__nest-btn,
-.item__person-btn,
 .item__vault-btn,
 .item__del,
 /* the qty stepper's ± live in this family too, though they sit in the middle of the
    row rather than the trailing cluster: they are the same kind of thing (a quiet
    glyph that darkens under the pointer), and one rule is what keeps them the same
    weight as the icons across the row from them */
-.item__qtybtn,
-/* the ⋯ overflow (mobile) — override .menu__btn's --ink-2 so it reads at the same
-   weight as the delete + grip it sits between */
-.item__morebtn {
+.item__qtybtn {
   color: var(--ink-3);
   transition: color var(--dur) var(--ease);
 }
 .item__grip:hover,
-.item__nest-btn:hover,
-.item__person-btn:hover,
 .item__vault-btn:hover,
 .item__del:hover,
-.item__qtybtn:hover,
-.item__morebtn:hover {
+.item__qtybtn:hover {
   color: var(--ink);
 }
 /* banked: the tick holds at full ink so the row keeps saying so */
@@ -2449,27 +2287,9 @@ function dismissFix() {
   background: var(--paper-2);
   border-radius: var(--radius-1);
 }
-/* grip is the last icon in the trailing actions cluster (note · remove · grip);
-   sizing/colour come from .btn--icon / the shared colour rule above */
-.item__grip {
-  cursor: grab;
-  touch-action: none;
-  /* the reorder dots sit flush to the row's right edge — the visible glyph, not
-     just the 44px tap target: right-align the icon in its (still-full-size) button,
-     then shift out the glyph's own internal right-padding (the dots end ~⅓ in from
-     the viewBox edge). The empty overshoot falls into the page's right gutter. */
-  justify-content: flex-end;
-  /* the dots stay flush (right edge pinned by justify-self:end on the cluster), but
-     this pulls the grip's LAYOUT box left so the gap before it matches note→remove —
-     the flush shift is otherwise invisible to layout, leaving a wider gap here. */
-  margin-left: -9px;
-}
-.item__grip svg {
-  transform: translateX(33.333%);
-}
-.item__grip:active {
-  cursor: grabbing;
-}
+/* grip is the last icon in the trailing actions cluster (note · remove · grip); the
+   drag affordance + flush-right optics are the .grip atom (controls.scss), sizing and
+   colour .btn--icon / the shared colour rule above */
 
 /* The row's controls used to hide at rest on desktop and fade in on hover, to keep a
    long list quiet. That reads as an empty row until you point at it: the actions are
@@ -2524,10 +2344,6 @@ function dismissFix() {
   min-height: 0;
   /* the upward tuck under the name now lives on the .reveal--note wrapper (so the
      grid track sizing stays clean); this element just fills its cell */
-  margin: 0;
-  padding: 0;
-  border: 0;
-  background: none;
   color: var(--ink-3);
   font-size: 1rem; /* static 16px — avoid iOS focus-zoom (see .field in controls.scss) */
   font-style: italic;
@@ -2546,9 +2362,6 @@ function dismissFix() {
   align-items: center;
   gap: var(--space-1);
   margin-top: var(--space-1);
-  padding: 0;
-  background: none;
-  border: 0;
   color: var(--ink-3);
   text-align: left;
   cursor: pointer;
@@ -2618,6 +2431,8 @@ function dismissFix() {
    The dot then rides the glyph column like everything else: half the difference
    between a 16px glyph's footprint and the swatch, taken off the right, puts its
    centre at 24 instead of 3px past it. */
+/* (still reaches: the swatch is this component's slot content into ItemRowMenu, so
+   it carries this scope id even though the button around it doesn't) */
 .item__person-btn .swatch {
   margin-right: calc((16px - var(--swatch)) / 2);
 }
@@ -2643,11 +2458,6 @@ function dismissFix() {
 .item__morelabel {
   padding: var(--space-2) var(--space-3) var(--space-1);
   color: var(--ink-3);
-}
-.item__moregroup {
-  list-style: none;
-  margin: 0;
-  padding: 0;
 }
 
 @media (max-width: $bp-stack) {
@@ -2768,7 +2578,7 @@ function dismissFix() {
      numbers' optical centre, and it gives back the editing↔packing height parity
      .item--check is built around: the inflated line made an edit row 19px taller than
      the checklist row it toggles into, so the list jumped on every mode switch. */
-  .item__actions .btn--icon,
+  .item__actions :deep(.btn--icon),
   .item__classcell .btn--icon,
   .item__classcell .item__clsfixed {
     min-height: 0;
@@ -2961,7 +2771,8 @@ function dismissFix() {
     min-height: 0; /* drop the desktop tall single-row min-height */
   }
   /* checkbox in the left column, aligned to the title line (not centred across the
-     whole two-line cell) — it sits beside the name, centred to that first row */
+     whole two-line cell) — it sits beside the name, centred to that first row.
+     .item__box is the row's own hook on the .check atom's input, kept for this. */
   .item__box {
     grid-column: 1;
     grid-row: 1;

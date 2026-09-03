@@ -1,0 +1,6 @@
+{
+  "date": "2026-09-02",
+  "fixed": [
+    "The row's overflow menu on small screens now says \"Move out of the group\", the same wording the desktop nesting menu uses."
+  ]
+}

@@ -192,9 +192,6 @@ function remove(p: Person) {
 <style scoped lang="scss">
 /* overlay + shell + action row come from atoms/dialog.scss; this is the list */
 .ppl__list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
   max-height: min(48vh, 22rem); /* a full crew scrolls inside, like the vault picker */
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -250,8 +247,6 @@ function remove(p: Person) {
 }
 .ppl__swatchbtn {
   appearance: none;
-  border: 0;
-  background: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -259,12 +254,9 @@ function remove(p: Person) {
   block-size: var(--icon-btn);
   border-radius: var(--radius-2);
 }
-/* the interactive halves are BUTTON-scoped: the standing procedural-color mark
-   below wears this class for the box alone, and a pointer cursor or a hover
-   plate on it would offer an affordance the element doesn't have */
-button.ppl__swatchbtn {
-  cursor: pointer;
-}
+/* the hover plate is BUTTON-scoped: the standing procedural-color mark below wears
+   this class for the box alone (a <span>, so the reset's pointer cursor doesn't reach
+   it either), and a plate on it would offer an affordance the element doesn't have */
 button.ppl__swatchbtn:hover,
 .ppl__swatchbtn.is-active {
   background: var(--lit);
@@ -304,7 +296,6 @@ button.ppl__swatchbtn:hover,
    for the same reason: it reports something that did NOT happen, so it has to be
    read rather than scanned past */
 .ppl__clash {
-  margin: 0;
   color: var(--danger);
 }
 /* .btn--quiet — the variant the remove controls on the rows above already wear, so

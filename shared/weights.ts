@@ -169,11 +169,11 @@ export function groupLineMg(item: Item, items: readonly Item[]): number {
  * its own line for a leaf. The one rule the editor's ItemRow and the share views'
  * ReadonlyItemRow both render, so they can't drift. `children` is this row's own
  * children (already filtered), so the group sum is O(children).
+ *
+ * groupLineMg over zero children IS the own-line case, so this is that function
+ * under the name the two views share — one body, not a wrapper that could drift.
  */
-export function rowDisplayMg(item: Item, children: readonly Item[]): number {
-  // groupLineMg over zero children IS the own-line case — no branch needed
-  return groupLineMg(item, children);
-}
+export const rowDisplayMg: (item: Item, children: readonly Item[]) => number = groupLineMg;
 
 /** Units of a line that count as worn via the wornQty split.
  *  0 when the split doesn't apply (no wornQty, or effective class ≠ base). */
@@ -197,12 +197,11 @@ export function siblingItems<T extends { folderId: string | null; parentId?: str
 
 /** Top-level rows with no folder — the "Ungrouped" section the editor and the read
  *  views both render (nested children render under their parent, so a change to the
- *  nesting rules has one predicate to touch). */
-export function ungroupedTopLevel<T extends { folderId: string | null; parentId?: string | null }>(
+ *  nesting rules has one predicate to touch). siblingItems with the folderless,
+ *  parentless container named once, so there is one body. */
+export const ungroupedTopLevel = <T extends { folderId: string | null; parentId?: string | null }>(
   items: readonly T[],
-): T[] {
-  return siblingItems(items, null);
-}
+): T[] => siblingItems(items, null);
 
 /**
  * sortOrder that appends a new item at the BOTTOM of its container (folder + parent):
@@ -446,7 +445,7 @@ export function formatWeightAuto(
   return formatWeight(mg, autoUnit(mg, system), { withUnit });
 }
 
-export type WeightSystem = "metric" | "imperial";
+type WeightSystem = "metric" | "imperial";
 
 /** The measurement system a display unit belongs to — so a surface that only knows
  *  the list's displayUnit (the social card, the vault's first-visit default, the

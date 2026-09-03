@@ -1,7 +1,5 @@
 import { defineEventHandler } from "h3";
-import { endAllSessions, requireUser } from "../../utils/authSession";
-import { rateLimit } from "../../utils/rateLimit";
-import { setNoIndex, setPrivate } from "../../utils/http";
+import { endAllSessions, requireAccount } from "../../utils/authSession";
 
 // Sign out everywhere — the answer to "I think someone else is in my account".
 //
@@ -12,10 +10,7 @@ import { setNoIndex, setPrivate } from "../../utils/http";
 //
 // POST, like signout, so a prefetched link or a cross-site <img> can't trigger it.
 export default defineEventHandler(async (event) => {
-  setNoIndex(event);
-  setPrivate(event);
-  await rateLimit(event, "account");
-  const user = await requireUser(event);
+  const { user } = await requireAccount(event, "account");
   const ended = await endAllSessions(event, user.id);
   return { ok: true as const, ended };
 });

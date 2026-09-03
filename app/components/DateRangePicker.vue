@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
 import { ArrowLeft01Icon, ArrowRight01Icon } from "@hugeicons/core-free-icons";
+import { isoDate, parseIsoDate } from "~~/shared/calendar";
 
 // A month grid for picking a trip's two dates.
 //
@@ -10,26 +11,23 @@ import { ArrowLeft01Icon, ArrowRight01Icon } from "@hugeicons/core-free-icons";
 // shows the span as a span.
 //
 // Everything here is calendar dates — `YYYY-MM-DD`, no time, no timezone. Dates are
-// built and compared from parts, never through `new Date(iso)`, which parses as UTC
-// midnight and lands a day early west of UTC.
+// built and compared from LOCAL parts through shared/calendar.ts, never through
+// `new Date(iso)` (that file says why).
 
 const props = defineProps<{ start?: string; end?: string }>();
 const emit = defineEmits<{ update: [{ start?: string; end?: string }] }>();
 
 // ---- calendar-date helpers (all local, all part-based) ----
-const iso = (y: number, m: number, d: number) =>
-  `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+/** A calendar day from its parts — the month zero-based, as the grid counts it. */
+const iso = (y: number, m: number, d: number) => isoDate(new Date(y, m, d));
 function parts(s?: string): { y: number; m: number; d: number } | null {
-  const x = s ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(s) : null;
-  return x ? { y: +x[1]!, m: +x[2]! - 1, d: +x[3]! } : null;
+  const x = parseIsoDate(s);
+  return x ? { y: x.getFullYear(), m: x.getMonth(), d: x.getDate() } : null;
 }
 /** Sortable because the format is zero-padded and big-endian — no Date needed. */
 const before = (a: string, b: string) => a < b;
 
-const today = (() => {
-  const n = new Date();
-  return iso(n.getFullYear(), n.getMonth(), n.getDate());
-})();
+const today = isoDate(new Date());
 
 // which month the grid is showing — opens on the trip, else on this month
 const cursor = ref(parts(props.start) ?? parts(props.end) ?? parts(today)!);
@@ -96,9 +94,9 @@ const gridEl = useTemplateRef<HTMLElement>("gridEl");
 
 // ---- the tracking pip ----
 // One highlight that GLIDES to the day under the cursor, instead of every cell lighting
-// its own hover. Same device as the topbar's mode toggle (.modetoggle__pill): a single
-// absolutely-positioned box translated into place on the damped --ease, so the cursor
-// tracks rather than blinks.
+// its own hover. Same device as the menus' travelling plate (.menu__plate, controls.scss):
+// a single absolutely-positioned box translated into place on the damped --ease, so the
+// cursor tracks rather than blinks.
 // It follows the POINTER while the pointer is in the grid and the KEYBOARD's day the
 // rest of the time — so the two ways of moving around this grid share one cursor
 // instead of each having its own, and arrowing after mousing picks up where you left
@@ -145,8 +143,7 @@ function onKey(e: KeyboardEvent) {
   if (delta == null) return;
   e.preventDefault();
   const p = parts(focused.value)!;
-  const n = new Date(p.y, p.m, p.d + delta);
-  void moveFocus(iso(n.getFullYear(), n.getMonth(), n.getDate()));
+  void moveFocus(isoDate(new Date(p.y, p.m, p.d + delta)));
 }
 
 // The picker focuses ITSELF rather than being focused from outside. ListHead opens this
@@ -297,8 +294,8 @@ onMounted(() => {
   border-radius: var(--radius-2);
   background: color-mix(in oklab, var(--ink) 12%, transparent);
   pointer-events: none;
-  /* damped --ease, never overshoot — same rule as the mode toggle's pill: a cursor
-     that overshoots lands on the wrong day, however briefly */
+  /* damped --ease, never overshoot — same rule as the menus' plate: a cursor that
+     overshoots lands on the wrong day, however briefly */
   transition: translate var(--dur) var(--ease);
   will-change: translate;
 }
@@ -312,19 +309,14 @@ onMounted(() => {
   display: grid;
   place-items: center;
   block-size: var(--icon-btn);
-  padding: 0;
-  border: 0;
   /* One step up from --radius-1, and deliberately not --radius-pill: a day cell is a
      square --icon-btn box, so pill draws a full circle, and a circle is the wrong
      shape for a SPAN — the caps swell away from the band between them and the range
      stops reading as one bar. 8px on a 32px box softens the corner without rounding
      the thing away. */
   border-radius: var(--radius-2);
-  background: transparent;
-  font: inherit;
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   color: var(--ink-2);
-  cursor: pointer;
   transition:
     background var(--dur) var(--ease),
     color var(--dur) var(--ease);

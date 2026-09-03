@@ -1,4 +1,4 @@
-import type { Ref } from "vue";
+import type { EffectScope, Ref } from "vue";
 
 // Hand-rolled stand-ins for the six @vueuse/core helpers the app actually
 // called (useEventListener, onKeyStroke, onClickOutside, useNow, useOnline —
@@ -142,9 +142,16 @@ export function useNow(opts: { interval: number }): Ref<Date> {
 // would otherwise take them down — the menu just rides along, parked over the
 // list. It binds only while open (see onScrollOutside).
 //
-// Escape is bound unconditionally rather than only while open, matching what the
-// call sites did: the guard is on `open` inside the handler, so there is no
-// listener churn per toggle.
+// The click-outside pair and Escape bind only while open too, in an effect scope
+// started on open and stopped on close (ItemInput's own outside-click wiring is
+// the model). They used to be bound for the instance's whole life, with the guard
+// on `open` inside the handler — fine for the five toolbar menus this was written
+// for, and wrong once every editable row mounted an OptionMenu for its unit: a
+// 150-row list carried ~450 always-on window listeners, each walking
+// composedPath() on every tap and keystroke to close a menu that wasn't open.
+// The scope attaches after the opening click has fully dispatched (the watch runs
+// on the microtask), so the press that opened the menu can never be the press
+// that closes it.
 //
 // `onDismiss` is for a menu that has more to put away than the flag — the list
 // switcher also clears the search it was filtered by, so reopening it doesn't
@@ -157,9 +164,22 @@ export function useMenuDismiss(
   onDismiss?: () => void,
 ): void {
   const close = onDismiss ?? (() => (open.value = false));
-  onClickOutside(target, () => close());
   onScrollOutside(open, target, close);
-  useWindowEvent("keydown", (e) => {
-    if (e.key === "Escape" && open.value) close();
-  });
+  let scope: EffectScope | null = null;
+  const bind = (on: boolean) => {
+    if (on && !scope) {
+      scope = effectScope(true);
+      scope.run(() => {
+        onClickOutside(target, () => close());
+        useWindowEvent("keydown", (e) => {
+          if (e.key === "Escape") close();
+        });
+      });
+    } else if (!on && scope) {
+      scope.stop();
+      scope = null;
+    }
+  };
+  watch(open, bind);
+  onScopeDispose(() => bind(false));
 }

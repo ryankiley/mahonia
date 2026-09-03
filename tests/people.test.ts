@@ -3,9 +3,9 @@ import { describe, expect, it } from "vitest";
 import { lists, type ListRow } from "../server/db/schema";
 import { LISTS_DDL, SNAPSHOTS_DDL } from "../server/utils/db";
 import {
-  applyOpsByEditToken,
-  listSnapshotsByEditToken,
-  restoreSnapshotByEditToken,
+  applyOpsByEditHash,
+  listSnapshotsByEditHash,
+  restoreSnapshotByEditHash,
   rowToSnapshot,
 } from "../server/utils/listRepo";
 import { sha256Hex } from "../server/utils/tokens";
@@ -36,7 +36,11 @@ import {
 import type { Item, ListData, ListSnapshot, ListState, Person } from "../shared/types";
 import { captureFromList } from "../shared/vault";
 import { computeTotals } from "../shared/weights";
-import { createTestDb, makeList } from "./helpers/db";
+import { byToken, createTestDb, makeList } from "./helpers/db";
+
+const applyOpsByEditToken = byToken(applyOpsByEditHash);
+const listSnapshotsByEditToken = byToken(listSnapshotsByEditHash);
+const restoreSnapshotByEditToken = byToken(restoreSnapshotByEditHash);
 
 const state = (over: Partial<ListState> = {}): ListState => ({
   title: "Trip",

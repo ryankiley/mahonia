@@ -154,7 +154,7 @@ watch(open, (o) => {
       {{ all.length }}<span class="lm__word"> packs</span>
       <HugeiconsIcon
         :icon="ChevronDownIcon"
-        class="lm__chev"
+        class="menu__sectchev"
         :class="{ 'is-open': open }"
         :size="14"
         :stroke-width="2"
@@ -206,7 +206,7 @@ watch(open, (o) => {
             :title="savedListTitle(e.title)"
             @click="close"
           >
-            <span class="lm__name">{{ savedListTitle(e.title) }}</span>
+            <span class="lm__name t-clip">{{ savedListTitle(e.title) }}</span>
             <!-- on EVERY row, hidden rather than dropped — see the style -->
             <HugeiconsIcon
               :icon="CheckIcon"
@@ -254,7 +254,6 @@ watch(open, (o) => {
      The hover ground still extends past it, which is what the padding is for.
      Same move as .btn--flush-end at the bar's other end. */
   margin-left: calc(-1 * var(--space-2));
-  border: 0;
   /* --radius-2, the MODE CHIP's corner (.modebar__opt), not the pill every other
      button in the app wears. This control sits directly above that bar and is read
      with it — two chips in a column, a few pixels apart — so a pill here against a
@@ -262,12 +261,9 @@ watch(open, (o) => {
      same kind: a small labelled chip you press to change what the page is showing.
      The pill is right for a control standing on its own; this one never does. */
   border-radius: var(--radius-2);
-  background: transparent;
-  font: inherit;
   font-size: var(--text-chrome);
   color: var(--ink-2);
   white-space: nowrap;
-  cursor: pointer;
   transition:
     background var(--dur) var(--ease),
     color var(--dur) var(--ease);
@@ -286,22 +282,15 @@ watch(open, (o) => {
     color: var(--ink);
   }
 }
-/* the app's dropdown mark, and it turns over when the menu is open — the same
-   rotate the ⋯ menu's section headers and the sharing panel's disclosure use */
+/* the app's dropdown mark, and it turns over when the menu is open — it IS the ⋯
+   menu's section chevron (.menu__sectchev, controls.scss), the same atom the sharing
+   panel's disclosure wears; the copy that lived here was byte-identical to it */
 /* The word STAYS on a phone now. It used to be hidden below $bp-stack, and the comment
    here said why: "It's the topbar that forces this: with three mode segments the tool
    cluster no longer fits 375px." Those segments have left the bar — the view switcher is
    a row in the page now — which gave back ~116px, and the word costs ~30 of it. The
    component's header argues for a word over a glyph; this is that argument no longer
    having to be conceded on the surface where it matters most. */
-.lm__chev {
-  flex: none;
-  color: var(--ink-3);
-  transition: rotate var(--dur) var(--ease);
-}
-.lm__chev.is-open {
-  rotate: 180deg;
-}
 
 /* the atom anchors menus to the RIGHT (they hang off trailing-edge icons); this
    one hangs off the bar's leading edge */
@@ -319,10 +308,8 @@ watch(open, (o) => {
   width: 100%;
   height: var(--icon-btn);
   padding: 0 var(--space-3);
-  border: 0;
   border-radius: var(--popover-item-radius);
   background: var(--paper-2);
-  font: inherit;
   color: var(--ink);
 }
 .lm__field::placeholder {
@@ -353,16 +340,12 @@ watch(open, (o) => {
   right: 0;
 }
 /* one line of type and a mark — the weight lives on the list itself, and beside a
-   name it competed with the one thing you scan a switcher for */
+   name it competed with the one thing you scan a switcher for. The name clips with
+   .t-clip (the row is a .menu__item, already nowrap). */
 .lm__row {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-}
-.lm__name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 /* THE ONE YOU'RE IN IS A CHECK, not a ground.
    It was a --paper-3 fill, which put two meanings on one property: the travelling
@@ -431,12 +414,9 @@ watch(open, (o) => {
   white-space: nowrap;
 }
 .lm__hintclose {
-  border: 0;
-  background: none;
   color: var(--ink-3);
   font-size: var(--text-base);
   line-height: 1;
-  cursor: pointer;
 }
 .lm__hintclose:hover {
   color: var(--ink);

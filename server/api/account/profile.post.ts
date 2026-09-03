@@ -1,10 +1,8 @@
 import { defineEventHandler } from "h3";
 import { eq } from "drizzle-orm";
-import { requireUser } from "../../utils/authSession";
-import { useAccountDb } from "../../utils/db";
+import { requireAccount } from "../../utils/authSession";
 import { users } from "../../db/schema";
-import { readJsonBodyCapped, setNoIndex, setPrivate } from "../../utils/http";
-import { rateLimit } from "../../utils/rateLimit";
+import { readJsonBodyCapped } from "../../utils/http";
 
 /** Cap on a display name. Long enough for a real name or a trail name, short
  *  enough that a byline can't become a billboard. */
@@ -41,10 +39,7 @@ function cleanDisplayName(raw: string): string {
 // is ever public. An empty string clears it and returns you to anonymous; only a
 // field actually present in the body is written.
 export default defineEventHandler(async (event) => {
-  setNoIndex(event);
-  setPrivate(event);
-  await rateLimit(event, "account");
-  const user = await requireUser(event);
+  const { user, db } = await requireAccount(event, "account");
 
   const body = await readJsonBodyCapped<{ displayName?: unknown }>(
     event,
@@ -55,16 +50,14 @@ export default defineEventHandler(async (event) => {
   if (typeof body?.displayName === "string") {
     patch.displayName = cleanDisplayName(body.displayName) || null;
   }
-  const db = await useAccountDb();
-  if (Object.keys(patch).length) {
-    await db.update(users).set(patch).where(eq(users.id, user.id));
-  }
-
-  const row = await db
-    .select({ displayName: users.displayName })
-    .from(users)
-    .where(eq(users.id, user.id))
-    .limit(1);
+  // the write hands the row back (RETURNING), so the answer costs no second read
+  const row = Object.keys(patch).length
+    ? await db.update(users).set(patch).where(eq(users.id, user.id)).returning()
+    : await db
+        .select({ displayName: users.displayName })
+        .from(users)
+        .where(eq(users.id, user.id))
+        .limit(1);
   return {
     ok: true,
     displayName: row[0]?.displayName ?? null,

@@ -129,11 +129,19 @@ const spokenAt = computed(() => formatDistance(props.waypoint.alongM, props.dist
   </li>
 </template>
 
-<style scoped lang="scss">
+<style lang="scss">
+/* NOT scoped — on purpose, and it is the only such block in the planning view.
+   The camp row at the foot of each day (TrailPlanPanel) is on the SAME grid as a pin: it
+   wears these classes for its name, kind, coordinate, distance and empty delete cell, so
+   the two can't line up differently. A scoped rule can't reach another component's
+   element, and a second copy of this recipe in the panel was exactly what let the camp
+   drift three columns wide against the pins' four. The class names are the guard
+   against collisions (nothing else is a .wprow); the CSS pass should lift this into an
+   atom file beside folder.scss, which is what it already is in all but location. */
 /* THE DAY'S COLUMNS, shared with the camp row beside it — the list sets --wprow-cols so
    every row in a day is cut the same way and kind, name, coordinate, distance and the
-   delete button each line up down the list. A row with its own template only lines up with
-   itself, which is how the camp ended up three columns wide against the pins' four. */
+   delete button each line up down the list. A row with its own template only lines up
+   with itself, which is how the camp ended up three columns wide against the pins' four. */
 .wprow {
   display: grid;
   grid-template-columns: var(--wprow-cols);
@@ -145,30 +153,19 @@ const spokenAt = computed(() => formatDistance(props.waypoint.alongM, props.dist
      --space-1 there keeps the name and its readings reading as one row. */
   gap: var(--space-1) var(--wprow-gap, var(--space-2));
 }
-/* the two sit tight against each other, as the gear row's classification pair does —
-   they are one control with two settings, not two separate actions */
-.wprow__kind {
-  grid-area: kind;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-px);
-}
 .wprow__del {
   grid-area: del;
   /* the empty twin has no button box to size it, and the column has to hold open */
-  width: var(--wprow-btn, var(--icon-btn, 32px));
+  width: var(--wprow-btn, var(--icon-btn));
 }
-/* one toggle's box, so a fixed kind's glyph sits where a chosen toggle's glyph sits */
+/* one toggle's box, so a fixed kind's glyph — a route end's flag, the camp's tent —
+   sits where a chosen toggle's glyph sits */
 .wprow__fixedkind {
   grid-area: kind;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: var(--wprow-btn, var(--icon-btn, 32px));
-}
-/* quiet until chosen; .item__mark supplies the plate and the inline style the hue */
-.wprow__kindbtn {
-  color: var(--ink-3);
+  width: var(--wprow-btn, var(--icon-btn));
 }
 /* The list decides where these land — one line on a wide screen, two on a narrow one —
    so the pins and the night beneath them always wrap the same way. */
@@ -195,5 +192,21 @@ const spokenAt = computed(() => formatDistance(props.waypoint.alongM, props.dist
 }
 .wprow__dist {
   grid-area: dist;
+}
+</style>
+
+<style scoped lang="scss">
+/* what only a PIN has — the kind toggles — stays scoped */
+/* the two sit tight against each other, as the gear row's classification pair does —
+   they are one control with two settings, not two separate actions */
+.wprow__kind {
+  grid-area: kind;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-px);
+}
+/* quiet until chosen; .item__mark supplies the plate and the inline style the hue */
+.wprow__kindbtn {
+  color: var(--ink-3);
 }
 </style>

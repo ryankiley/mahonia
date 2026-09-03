@@ -15,7 +15,7 @@
 // Lives in its own file (not listRepo.ts) so this Phase-3 work stays additive
 // and merge-clean alongside the concurrent rate-limiter + component sessions.
 
-import { and, desc, eq, gt, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, gt, isNull } from "drizzle-orm";
 import { lists, type ListRow } from "../db/schema";
 import {
   decidePublish,
@@ -25,19 +25,17 @@ import {
   type PublishState,
 } from "../../shared/discovery";
 import type { ListSnapshot } from "../../shared/types";
-import { useDb } from "./db";
+import { useDb, type Db } from "./db";
 import {
   attachAuthorName,
   findPublishFieldsByEditHash,
   hydrateForRead,
   rowToSnapshot,
 } from "./listRepo";
-import { sha256Hex } from "./tokens";
 
-type Db = Awaited<ReturnType<typeof useDb>>;
 
 // The public-read visibility gate (public + active + not withheld + not deleted),
-// single-sourced so the by-slug reads (getPublicBySlug / bumpView / reportList) and
+// single-sourced so the by-slug reads (getPublicBySlug / reportList) and
 // the sitemap can't drift. Returns a FRESH array each call so callers can safely
 // spread + extend it without leaking conditions across requests. (Slug shape
 // validation is shared/discovery's normalizeSlug; the live edit-capability lookup
@@ -91,10 +89,6 @@ export async function getPublishStateByEditHash(
   return row ? publicState(row) : null;
 }
 
-export async function getPublishState(editToken: string, db?: Db): Promise<PublishState | null> {
-  return getPublishStateByEditHash(sha256Hex(editToken), db);
-}
-
 /**
  * Set a list public/private + its feed facets. The decision (spam→hidden,
  * stamp-once published_at, no resurrecting a moderated list) is decidePublish()
@@ -135,14 +129,6 @@ export async function publishListByEditHash(
     .where(eq(lists.id, row.id));
 
   return publicState({ ...row, isPublic: decision.isPublic, flagged, tripType, season });
-}
-
-export async function publishList(
-  editToken: string,
-  input: { isPublic: boolean; tripType?: string | null; season?: string | null },
-  db?: Db,
-): Promise<PublishState | null> {
-  return publishListByEditHash(sha256Hex(editToken), input, db);
 }
 
 // ---------------------------------------------------------------------------
@@ -197,21 +183,6 @@ export async function getPublicCardBySlug(slug: string, db?: Db): Promise<ListSn
   return hit ? rowToPublicView(hit.row) : null;
 }
 
-/** Best-effort "most-viewed" signal. Never throws into the read path. */
-export async function bumpView(slug: string, db?: Db): Promise<void> {
-  const s = normalizeSlug(slug);
-  if (!s) return;
-  try {
-    const d = db ?? (await useDb());
-    await d
-      .update(lists)
-      .set({ viewCount: sql`${lists.viewCount} + 1` })
-      .where(and(eq(lists.publicSlug, s), ...publicReadConditions()));
-  } catch {
-    /* a view counter is never worth failing a page render */
-  }
-}
-
 // The public-discovery visibility gate: the shared public-read gate PLUS
 // non-empty (empty lists are hidden from discovery, not just de-ranked).
 function publicVisibilityConditions() {
@@ -253,7 +224,7 @@ export async function reportList(slug: string, db?: Db): Promise<boolean> {
     .update(lists)
     .set({ flagged: true, updatedAt: new Date() })
     .where(and(eq(lists.publicSlug, s), ...publicReadConditions()))
-    .returning(); // no-arg form (the union db type's only shared overload)
+    .returning();
   return res.length > 0;
 }
 

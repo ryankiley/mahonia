@@ -58,10 +58,9 @@ watch(
   /* the import textarea's language — quiet tinted well, rounded a concentric
      step inside the card (radius-4 − space-2), not a hairline box. No focus
      deepen: the field is readonly and arrives preselected. */
-  border: 0;
   background: var(--paper-2);
   border-radius: calc(var(--radius-4) - var(--space-2));
   padding: var(--space-2) var(--space-3);
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
 }
 </style>

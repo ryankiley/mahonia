@@ -5,12 +5,16 @@ import { lists } from "../server/db/schema";
 import { LISTS_DDL, SNAPSHOTS_DDL, _resetSnapshotEnsured } from "../server/utils/db";
 import { sha256Hex } from "../server/utils/tokens";
 import {
-  applyOpsByEditToken,
-  listSnapshotsByEditToken,
-  restoreSnapshotByEditToken,
+  applyOpsByEditHash,
+  listSnapshotsByEditHash,
+  restoreSnapshotByEditHash,
 } from "../server/utils/listRepo";
 import type { Item, ListData } from "../shared/types";
-import { createTestDb } from "./helpers/db";
+import { byToken, createTestDb } from "./helpers/db";
+
+const applyOpsByEditToken = byToken(applyOpsByEditHash);
+const listSnapshotsByEditToken = byToken(listSnapshotsByEditHash);
+const restoreSnapshotByEditToken = byToken(restoreSnapshotByEditHash);
 
 // Fresh in-memory PGlite with the list + snapshot tables (mirrors discovery.test).
 async function freshDb() {

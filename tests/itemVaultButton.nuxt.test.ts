@@ -16,9 +16,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mockNuxtImport } from "@nuxt/test-utils/runtime";
 import { mount } from "@vue/test-utils";
-import ItemRow from "~/components/ItemRow.vue";
-import type { Item, ListSnapshot } from "~~/shared/types";
+import ItemRow, { CHILDREN_BY_PARENT, PEOPLE_CTX } from "~/components/ItemRow.vue";
+import type { Item, ListSnapshot, Person } from "~~/shared/types";
 import { vaultNormKey } from "~~/shared/vault";
+
+// what GearEditor provides to every row — the children map, and the people in
+// display order with their slots (this list names nobody)
+const rowProvides = {
+  [CHILDREN_BY_PARENT as symbol]: ref(new Map<string, Item[]>()),
+  [PEOPLE_CTX as symbol]: { sorted: ref<Person[]>([]), slotById: ref(new Map<string, number>()) },
+};
 
 // The dials the covered state reads, reset per test. `vaultKnown` is the session
 // having ANSWERED — false only in the moment before /api/auth/me lands.
@@ -73,7 +80,8 @@ const gear = (over: Partial<Item> = {}): Item => ({
 
 function mountRow(item: Item) {
   return mount(ItemRow, {
-    props: { list, item, childrenByParent: new Map() },
+    props: { list, item },
+    global: { provide: rowProvides },
     attachTo: document.body,
   });
 }

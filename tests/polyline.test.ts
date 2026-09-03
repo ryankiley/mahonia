@@ -9,6 +9,7 @@ import {
   normalizeRouteGeometry,
   pointAlong,
   routeGeometryFromPoints,
+  sliceAlong,
 } from "../shared/polyline";
 
 // The route's shape is the app's first stored geography, and the first value here that a
@@ -173,5 +174,35 @@ describe("positions along the route — how a waypoint stores a number instead o
     const cum = cumulativeM(pts);
     expect(along).toBeGreaterThanOrEqual(0);
     expect(along).toBeLessThanOrEqual(Math.ceil(cum[cum.length - 1]!));
+  });
+});
+
+describe("a precomputed spine is an optimisation, not a different answer", () => {
+  // The map walks the same route hundreds of times per interaction and hands every
+  // walker one cumulativeM() rather than letting each re-sum the route. That only
+  // holds if the two paths agree exactly — so this pins them against each other,
+  // including the ends where clamping happens and a span that crosses stored points.
+  const pts = Array.from({ length: 30 }, (_, i) => ({
+    lat: 45.3 + Math.sin(i / 3) * 0.004,
+    lon: -121.7 + i * 0.0009,
+  }));
+  const cum = cumulativeM(pts);
+  const total = cum[cum.length - 1]!;
+
+  it("pointAlong agrees at every distance, clamped ends included", () => {
+    for (const m of [-100, 0, 1, total / 3, total / 2, total - 1, total, total + 100]) {
+      expect(pointAlong(pts, m, cum)).toEqual(pointAlong(pts, m));
+    }
+  });
+
+  it("sliceAlong agrees, ends and inner points alike", () => {
+    expect(sliceAlong(pts, total * 0.2, total * 0.7, cum)).toEqual(sliceAlong(pts, total * 0.2, total * 0.7));
+    expect(sliceAlong(pts, -50, total + 50, cum)).toEqual(sliceAlong(pts, -50, total + 50));
+    expect(sliceAlong(pts, 10, 10, cum)).toEqual([]);
+  });
+
+  it("nearestAlongM agrees for a point off the line", () => {
+    const off = { lat: pts[12]!.lat + 0.001, lon: pts[12]!.lon - 0.0005 };
+    expect(nearestAlongM(pts, off, cum)).toBe(nearestAlongM(pts, off));
   });
 });

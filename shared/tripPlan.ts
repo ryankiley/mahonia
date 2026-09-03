@@ -363,6 +363,16 @@ export function dayRanges(dayDistancesM: number[]): DayRange[] {
 }
 
 /**
+ * The next day after `index` that owns any ground, or -1 — the neighbour a day
+ * boundary trades miles with. Blank days in between own none and can't give any up,
+ * so they are skipped rather than treated as a zero-length partner. The map asks this
+ * to bound a handle's drag and the panel asks it to apply the drop; one answer.
+ */
+export function nextOwnedDay(dayDistancesM: number[], index: number): number {
+  return dayDistancesM.findIndex((d, k) => k > index && d > 0);
+}
+
+/**
  * The climb (or descent) to SHOW for a day: the typed figure if there is one, else
  * the day's derived share of the route.
  *

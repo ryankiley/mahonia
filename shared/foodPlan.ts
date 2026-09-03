@@ -22,6 +22,7 @@
 // the comparison band named as a rule of thumb and nothing more.
 
 import type { ListMeta, Totals } from "./types";
+import { DAY_MS, utcMidnight } from "./calendar";
 import { formatDistance, resolveDistanceUnit } from "./trailDistance";
 
 /** How a day's calorie figure reads against the planning band. */
@@ -40,21 +41,19 @@ export const KCAL_PER_DAY_GENEROUS = 4500;
  * which is how many days you eat on. Null unless both dates are present and the end
  * doesn't precede the start.
  *
- * Parsed as UTC instants purely to subtract them. The stored values are calendar
- * dates with no timezone (see ListMeta.startDate), and anchoring both at T00:00:00Z
- * keeps the subtraction on the same footing they were written on — a local-midnight
- * Date would put the two ends in different offsets across a DST boundary and lose or
- * gain a day.
+ * Anchored at UTC midnight purely to subtract them (shared/calendar.ts says why: the
+ * stored values are calendar dates with no timezone, and a local-midnight Date would
+ * put the two ends in different offsets across a DST boundary and lose or gain a day).
  */
 export function tripDays(
   startDate: string | undefined,
   endDate: string | undefined,
 ): number | null {
   if (!startDate || !endDate) return null;
-  const start = Date.parse(`${startDate}T00:00:00Z`);
-  const end = Date.parse(`${endDate}T00:00:00Z`);
+  const start = utcMidnight(startDate);
+  const end = utcMidnight(endDate);
   if (Number.isNaN(start) || Number.isNaN(end) || end < start) return null;
-  return Math.round((end - start) / 86_400_000) + 1;
+  return Math.round((end - start) / DAY_MS) + 1;
 }
 
 /** What the food line renders, or null when the list hasn't earned one. */

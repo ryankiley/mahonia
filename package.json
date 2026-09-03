@@ -33,7 +33,6 @@
     "ios:fixtures": "node node_modules/jiti/lib/jiti-cli.mjs scripts/emit-ios-fixtures.ts"
   },
   "dependencies": {
-    "@electric-sql/pglite": "^0.5.3",
     "@hugeicons/core-free-icons": "^4.2.3",
     "@neondatabase/serverless": "^1.1.0",
     "@resvg/resvg-js": "^2.6.2",
@@ -47,6 +46,7 @@
     "vue": "^3.5.18"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.3",
     "@hugeicons/vue": "^1.0.7",
     "@nuxt/test-utils": "^4.0.3",
     "@types/leaflet": "^1.9.22",

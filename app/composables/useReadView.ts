@@ -17,7 +17,7 @@
  * mean opening a second share link on "Trip" because the first one was, which is the same
  * mistake as persisting it, only quieter.
  */
-export type ReadView = "gear" | "trip";
+type ReadView = "gear" | "trip";
 
 /**
  * useState, not a module-level ref, and that distinction is load-bearing HERE in a way

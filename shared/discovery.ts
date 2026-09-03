@@ -107,7 +107,7 @@ export function isLikelySpam(parts: {
 // each folder's line weight, heaviest first; ungrouped weight rolls into
 // "Other". Empty / weightless lists return [] (no bar — weight is optional).
 // ---------------------------------------------------------------------------
-export interface SparkSegment {
+interface SparkSegment {
   colorKey: string;
   name: string;
   mg: number;

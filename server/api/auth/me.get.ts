@@ -1,8 +1,5 @@
 import { defineEventHandler } from "h3";
-import { eq } from "drizzle-orm";
 import { resolveSession } from "../../utils/authSession";
-import { useAccountDb } from "../../utils/db";
-import { users } from "../../db/schema";
 import { rateLimit } from "../../utils/rateLimit";
 import { setNoIndex, setPrivate } from "../../utils/http";
 
@@ -17,18 +14,8 @@ export default defineEventHandler(async (event) => {
   await rateLimit(event, "auth-me");
   const user = await resolveSession(event);
   if (!user) return { user: null };
-  // the display name rides along so the account page and anything that renders a
-  // byline read one source rather than each fetching their own
-  const db = await useAccountDb();
-  const row = await db
-    .select({ displayName: users.displayName })
-    .from(users)
-    .where(eq(users.id, user.id))
-    .limit(1);
-  return {
-    user: {
-      email: user.email,
-      displayName: row[0]?.displayName ?? null,
-    },
-  };
+  // the display name rides along (resolveSession already joins users for it) so
+  // the account page and anything that renders a byline read one source rather
+  // than each fetching their own
+  return { user: { email: user.email, displayName: user.displayName } };
 });

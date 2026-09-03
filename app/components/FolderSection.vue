@@ -14,15 +14,15 @@ defineEmits<{ toast: [string] }>();
 //
 // `items` is this folder's items, pre-grouped + sorted by the parent (one
 // groupItemsByFolder pass per snapshot) — so an edit anywhere in the list
-// doesn't make every folder re-filter the whole item array. `childrenByParent`
-// is the same idea for nested rows (one groupItemsByParent pass), threaded
-// through to each ItemRow.
+// doesn't make every folder re-filter the whole item array. (The nested rows'
+// equivalent — one groupItemsByParent pass — reaches each ItemRow by inject
+// from GearEditor rather than through this header, so a structural edit
+// doesn't re-render every folder and leaf on its way down.)
 const props = withDefaults(
   defineProps<{
     list: ListSnapshot;
     folder: Folder;
     items: Item[];
-    childrenByParent: Map<string, Item[]>;
     packed?: boolean;
   }>(),
   { packed: false },
@@ -76,14 +76,10 @@ function onGripKey(e: KeyboardEvent) {
 // collapsed folder stays collapsed across reloads (pure UI state, never sent to the
 // server). The read-only views keep their own local-only collapse (see
 // ReadonlyFolderSection) so the owner's state can't bleed into a shared link.
-const COLLAPSE_KEY = `gear.fold.${props.folder.id}`;
+const foldCollapse = usePersistedCollapse("gear.fold.");
 const collapsed = ref(false);
 onMounted(() => {
-  try {
-    collapsed.value = localStorage.getItem(COLLAPSE_KEY) === "1";
-  } catch {
-    /* private mode / no storage — default expanded */
-  }
+  collapsed.value = foldCollapse.isCollapsed(props.folder.id);
 });
 // The reducer tidies what it stores (shared/tidyText), so the field has to be told the
 // answer rather than left holding what was typed. This is an uncontrolled input —
@@ -98,7 +94,7 @@ function onName(e: Event) {
 }
 function toggleCollapsed() {
   collapsed.value = !collapsed.value;
-  remember(COLLAPSE_KEY, collapsed.value ? "1" : "0");
+  foldCollapse.set(props.folder.id, collapsed.value);
 }
 </script>
 
@@ -148,7 +144,7 @@ function toggleCollapsed() {
         <!-- drag via pointerdown; arrow keys give the focused grip the reordering
              its label promises (a drag needs a pointer) -->
         <button
-          class="btn btn--icon btn--ghost folder__grip"
+          class="btn btn--icon btn--ghost grip folder__grip"
           title="Drag to reorder folder"
           :aria-label="`Reorder ${folder.name || 'folder'}`"
           @pointerdown="fdnd.start(folder.id, $event)"
@@ -174,7 +170,6 @@ function toggleCollapsed() {
           :list="list"
           :folder="folder"
           :items="items"
-          :children-by-parent="childrenByParent"
           @overlay-toggle="onOverlayToggle"
           @toast="$emit('toast', $event)"
         />
@@ -207,7 +202,11 @@ function toggleCollapsed() {
 }
 /* same column template as ItemRow so the remove + grip line up with item controls */
 /* packing mode drops the folder's trailing actions, so the header's grid narrows
-   to match the packing item rows */
+   to match the packing item rows. Holds on mobile too — this scoped rule outranks
+   the atom's narrow `--head-cols: 1fr auto` (folder.scss) — which keeps the folder
+   total aligned with item weights there: the checklist ROW itself restacks to
+   `auto auto 1fr` below $bp-stack, but the header keeps the desktop columns and
+   just needs the same right-hand weight track. */
 .folder__head--packed {
   --head-cols: var(--item-cols-pack);
 }
@@ -259,27 +258,13 @@ function toggleCollapsed() {
    on hover, which is the affordance doing its job rather than announcing itself. */
 
 @media (max-width: $bp-stack) {
-  .folder__head {
-    --head-cols: 1fr auto;
-  }
-  /* keep packing mode matching the checklist COLUMNS so the folder total stays aligned
-     with item weights on mobile too (the checklist ROW itself restacks to
-     `auto auto 1fr` here — the header keeps the desktop columns and just needs the
-     same right-hand weight track) */
-  .folder__head--packed {
-    --head-cols: var(--item-cols-pack);
-  }
-  .folder__title {
-    grid-column: 1;
-  }
+  /* the header's own collapse to name + actions (--head-cols, the title and
+     actions' columns) is the shared folder atom — atoms/folder.scss */
   /* checklist/packing mode has no trailing actions, so let the title span the WHOLE
      row — otherwise the empty 1fr data column steals the width and the name
      truncates with room to spare (e.g. "Miscellaneous …") */
   .folder__head--packed .folder__title {
     grid-column: 1 / -1;
-  }
-  .folder__actions {
-    grid-column: auto;
   }
   /* the 44px touch tap targets keep their size but overflow the (shorter) 36px
      title field via negative margins — otherwise they inflate the editing header

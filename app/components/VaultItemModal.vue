@@ -227,7 +227,7 @@ async function onSubmit() {
           >
             <template #trigger="{ active, open }">
               <span>{{ active?.label }}</span>
-              <HugeiconsIcon :icon="ChevronDownIcon" class="vitem__chev" :class="{ 'is-open': open }" :size="14" :stroke-width="2" aria-hidden="true" />
+              <HugeiconsIcon :icon="ChevronDownIcon" class="menu__sectchev" :class="{ 'is-open': open }" :size="14" :stroke-width="2" aria-hidden="true" />
             </template>
           </OptionMenu>
         </div>
@@ -264,11 +264,8 @@ async function onSubmit() {
 <style scoped lang="scss">
 /* the overlay, the shell, the field stack and the action row are atoms/dialog.scss —
    only the pairs and the error line are this dialog's own */
-.dlg__item {
-  font-size: var(--text-title);
-  font-weight: 600;
-  letter-spacing: var(--track-tight);
-}
+/* the item's name at title size is .dlg__item — atoms/dialog.scss, shared with the
+   catalog-correction dialog */
 /* Two short fields on one line. Brand/variant and weight/type are each a pair you
    read together, and a single stacked column of eight fields makes the dialog scroll
    on a phone before you reach Save. */
@@ -285,14 +282,7 @@ async function onSubmit() {
   justify-content: space-between;
   gap: var(--space-1);
 }
-.vitem__chev {
-  flex: none;
-  color: var(--ink-3);
-  transition: rotate var(--dur) var(--ease);
-}
-.vitem__chev.is-open {
-  rotate: 180deg;
-}
+/* its chevron is the .menu__sectchev atom (controls.scss), not a copy */
 /* Plain ink, not --danger: the monochrome rule reserves colour for irreversible acts
    and for the data viz (tokens.scss), and a save that didn't go through is neither.
    Matches /gear's own .vault__error. */

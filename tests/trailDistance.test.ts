@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   distanceFieldValue,
   formatDistance,
+  heightFieldValue,
+  heightStepFor,
+  heightValue,
   normalizeDistanceUnit,
   normalizeTrailDistanceM,
   parseDistanceM,
@@ -166,6 +169,46 @@ describe("distanceFieldValue", () => {
   it("is empty when there's nothing stored", () => {
     expect(distanceFieldValue(undefined, "km")).toBe("");
     expect(distanceFieldValue(0, "km")).toBe("");
+  });
+
+  // The day fields' column form: a decimal always, so "9.0" sits as wide as "9.8".
+  it("pads a whole number to one decimal, and only a whole number", () => {
+    expect(distanceFieldValue(9 * 1609.344, "mi", { pad: true })).toBe("9.0");
+    expect(distanceFieldValue(9.8 * 1609.344, "mi", { pad: true })).toBe("9.8");
+    // padded, not rounded — the second place survives, or it would drift on save
+    expect(distanceFieldValue(9.85 * 1609.344, "mi", { pad: true })).toBe("9.85");
+    expect(distanceFieldValue(12_000, "km", { pad: true })).toBe("12.0");
+  });
+
+  it("keeps a literal zero when padded, and nothing at all when not", () => {
+    // the day key quotes a blank day's zero; a field for nothing stored stays blank
+    expect(distanceFieldValue(0, "mi", { pad: true })).toBe("0.0");
+    expect(distanceFieldValue(undefined, "mi", { pad: true })).toBe("");
+  });
+});
+
+describe("heightStepFor / heightFieldValue", () => {
+  it("rounds feet to ten and metres to one", () => {
+    expect(heightStepFor("mi")).toBe(10);
+    expect(heightStepFor("km")).toBe(1);
+  });
+
+  it("prints a field value that parses back, ungrouped", () => {
+    // 690 m is 2263.8 ft: to the nearest 10, and no thousands separator
+    expect(heightFieldValue(690, "mi")).toBe("2260");
+    expect(heightFieldValue(690, "km")).toBe("690");
+    expect(heightFieldValue(690.4, "km")).toBe("690");
+    expect(heightFieldValue(1234.5, "km")).toBe("1235");
+    expect(parseDistanceM(heightFieldValue(690, "km"), "m")).toBe(690);
+  });
+
+  it("is empty for no height, and prints a genuine zero", () => {
+    expect(heightFieldValue(undefined, "mi")).toBe("");
+    expect(heightFieldValue(0, "mi")).toBe("0");
+  });
+
+  it("agrees with heightValue's rounding, minus the grouping", () => {
+    expect(heightFieldValue(7316 / 3.28084, "mi")).toBe(heightValue(7316 / 3.28084, "mi", heightStepFor("mi")).replace(",", ""));
   });
 });
 

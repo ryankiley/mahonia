@@ -4,7 +4,7 @@
 import type { Item, ListData, ListSnapshot, Unit } from "../types";
 import { nextFolderColor } from "../categories";
 import { MAX_PEOPLE } from "../ops";
-import { effectivePersonId, personName } from "../people";
+import { carrierName } from "../people";
 import { effectiveClassification, fromMg, itemDisplayName, splitWornQty, toMg, UNIT_ALIASES } from "../weights";
 import { exportSections } from "./rows";
 import { uid } from "../id";
@@ -40,8 +40,9 @@ export function listToCsv(list: ListSnapshot): string {
     const s = guardFormula(String(v ?? ""));
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
-  const folderName = (id: string | null) =>
-    list.folders.find((f) => f.id === id)?.name ?? "";
+  // one lookup table, not a folders.find() per row
+  const folderById = new Map(list.folders.map((f) => [f.id, f.name]));
+  const folderName = (id: string | null) => (id ? folderById.get(id) : undefined) ?? "";
 
   // Kcal and Person are APPENDED, never inserted: the importer maps columns by
   // header name (see idx() below), but third-party tooling reading our export
@@ -53,8 +54,7 @@ export function listToCsv(list: ListSnapshot): string {
   // row because the flat CSV loses nesting: a child re-imports as top-level, so
   // an assignment it only inherited has to be written out or it's gone.
   const itemById = new Map(list.items.map((i) => [i.id, i]));
-  const carrierOf = (it: Item) =>
-    personName(list.people, effectivePersonId(it, it.parentId ? itemById.get(it.parentId) : null)) ?? "";
+  const carrierOf = (it: Item) => carrierName(list, it, it.parentId ? itemById.get(it.parentId) : null);
   // rows follow what the app shows (exportSections): folders in their order, each
   // folder's items in drag order, then any ungrouped items — so a re-import keeps
   // the visible order. Each top-level row is immediately followed by its

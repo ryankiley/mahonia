@@ -2,21 +2,23 @@
 import { HugeiconsIcon, type IconChild, type IconNode } from "~/utils/hugeicon";
 import { ChevronDownIcon, Delete02Icon, Fire02Icon, HelpCircleIcon, RacingFlagIcon, RouteIcon, Stairs01Icon, TentIcon } from "@hugeicons/core-free-icons";
 import type { ListSnapshot, Totals, Waypoint } from "~~/shared/types";
-import { burnDownMg, dayEnd, dayRanges, estimateDay, heightIsDerived, shownHeightM } from "~~/shared/tripPlan";
+import { burnDownMg, dayEnd, dayRanges, estimateDay, heightIsDerived, nextOwnedDay, shownHeightM } from "~~/shared/tripPlan";
 import { dayClimbs, parseProfile } from "~~/shared/profile";
 import { MAX_DAYS } from "~~/shared/ops";
 import { dayColorSequence } from "~~/shared/categories";
-import { decodePolyline, formatLatLon, pointAlong } from "~~/shared/polyline";
+import { shiftIsoDate } from "~~/shared/calendar";
+import { cumulativeM, decodePolyline, formatLatLon, pointAlong } from "~~/shared/polyline";
 import { dayLabel } from "~~/shared/tripDay";
 import { isWaterName } from "~~/shared/water";
 import { lineMg, effectiveClassification, formatWeight } from "~~/shared/weights";
 import type { BodyWeightUnit } from "~~/shared/trailDistance";
 import {
   DEFAULT_BODY_G,
-  M_PER_UNIT,
   bodyWeightFieldValue,
+  distanceFieldValue,
   formatBodyWeight,
   formatDistancePadded,
+  heightFieldValue,
   heightUnitFor,
   heightValue,
   parseBodyWeightG,
@@ -82,8 +84,7 @@ function addDay() {
   const start = props.snapshot.startDate;
   if (!end || !start) return void c.addDay();
   if (days.value.length >= MAX_DAYS) return;
-  const next = new Date(Date.parse(`${end}T00:00:00Z`) + 86_400_000);
-  c.setMeta({ endDate: next.toISOString().slice(0, 10) });
+  c.setMeta({ endDate: shiftIsoDate(end, 1) });
 }
 
 /**
@@ -103,8 +104,7 @@ function removeDay(i: number) {
   if (!start || !end) return;
   // pull the END back, never the start: a trip's first day is the one thing about its
   // dates a person is sure of, and moving it would silently reschedule the whole walk
-  const next = new Date(Date.parse(`${end}T00:00:00Z`) - 86_400_000);
-  const iso = next.toISOString().slice(0, 10);
+  const iso = shiftIsoDate(end, -1);
   // a one-day trip has nothing left to shorten; clear the range rather than invert it
   c.setMeta(iso < start ? { startDate: "", endDate: "" } : { endDate: iso });
 }
@@ -408,8 +408,8 @@ function onBoundary(b: { index: number; alongM: number }) {
   const id = stored.value[b.index]?.id;
   if (from == null || !id) return;
   const len = Math.max(1, Math.round(b.alongM - from));
-  // the next day that owns ground; blanks in between own none and can't give any up
-  const nextI = dayDistancesM.value.findIndex((d, k) => k > b.index && d > 0);
+  // the next day that owns ground — the same answer the map bounded the drag with
+  const nextI = nextOwnedDay(dayDistancesM.value, b.index);
   const next = nextI >= 0 ? ranges.value[nextI] : undefined;
   const nextId = nextI >= 0 ? stored.value[nextI]?.id : undefined;
   c.updateDay(id, { distanceM: len });
@@ -446,6 +446,9 @@ function onBoundary(b: { index: number; alongM: number }) {
 // whether a stored end pin already says it. shared/tripPlan.dayEnd settles it, and
 // is tested there; this reads the answer once per day, and the rows (which ask
 // several times each) read this.
+// The stored end pins, once — not re-filtered inside the per-day map, where a
+// ten-day trip scanned the waypoints ten times to reach the same list.
+const endPinsAtM = computed(() => waypoints.value.filter((w) => w.kind === "end").map((w) => w.alongM));
 const dayEnds = computed(() =>
   ranges.value.map((_, i) =>
     dayEnd({
@@ -453,7 +456,7 @@ const dayEnds = computed(() =>
       ranges: ranges.value,
       dayDistancesM: dayDistancesM.value,
       hasRest: hasRest.value,
-      endPinsAtM: waypoints.value.filter((w) => w.kind === "end").map((w) => w.alongM),
+      endPinsAtM: endPinsAtM.value,
     }),
   ),
 );
@@ -476,8 +479,11 @@ const routeFinishM = computed(() => dayEnds.value.find((e) => e?.kind === "finis
 const routePoints = computed(() =>
   props.snapshot.routeGeometry ? decodePolyline(props.snapshot.routeGeometry) : [],
 );
+// the route's spine, summed once per geometry rather than once per row per render —
+// see the note on the walkers in shared/polyline.ts
+const routeCum = computed(() => cumulativeM(routePoints.value));
 const coordOf = (alongM: number) => {
-  const at = routePoints.value.length ? pointAlong(routePoints.value, alongM) : null;
+  const at = routePoints.value.length ? pointAlong(routePoints.value, alongM, routeCum.value) : null;
   return at ? formatLatLon(at) : "";
 };
 
@@ -552,28 +558,21 @@ function clockIcon(hours: number | undefined): IconNode {
 // Days collapse the way folders do, and remember it the same way — per id, in
 // localStorage, never in the list. A plan you come back to should open the way you left
 // it, and a long itinerary is exactly the thing you want to fold up.
+const dayCollapse = usePersistedCollapse("gear.day.");
 const collapsed = ref<Record<string, boolean>>({});
 onMounted(() => {
   const next: Record<string, boolean> = {};
-  // stored days only — a ghost has no id to remember a collapse against
+  // stored days only — a ghost has no id to remember a collapse against. Storage
+  // blocked reads as expanded, like a folder.
   for (const d of stored.value) {
-    try {
-      if (localStorage.getItem(`gear.day.${d.id}`) === "1") next[d.id] = true;
-    } catch {
-      /* private mode / no storage — default expanded, like a folder */
-    }
+    if (dayCollapse.isCollapsed(d.id)) next[d.id] = true;
   }
   collapsed.value = next;
 });
 function toggleDay(id: string) {
   const now = !collapsed.value[id];
   collapsed.value = { ...collapsed.value, [id]: now };
-  try {
-    if (now) localStorage.setItem(`gear.day.${id}`, "1");
-    else localStorage.removeItem(`gear.day.${id}`);
-  } catch {
-    /* not worth reporting */
-  }
+  dayCollapse.set(id, now);
 }
 
 /**
@@ -627,26 +626,12 @@ async function commitDayMetres(id: string | null, field: "distanceM" | "ascentM"
 }
 
 const ascentUnit = computed(() => heightUnitFor(distanceUnit.value));
-// Metres round-trip exactly; FEET don't, because the store is integer metres — type 690
-// and it comes back 689. Rounding display feet to the nearest 10 hides an artefact that
-// isn't a real disagreement, and it's the more honest figure besides: consumer elevation
-// is noisy to ±5–10 m, so a climb quoted to the foot claims precision nothing has.
-const ascentValue = (m: number | undefined) => {
-  if (m == null) return "";
-  // String, NOT heightValue — heightValue groups for reading ("7,316") and this is a field
-  // value that has to parse back. Same conversion, different presentation.
-  if (distanceUnit.value !== "mi") return String(Math.round(m));
-  return String(Math.round(m / M_PER_UNIT.ft / 10) * 10);
-};
-const distanceValue = (m: number | undefined) => {
-  if (m == null) return "";
-  const n = Number((m / M_PER_UNIT[distanceUnit.value]).toFixed(2));
-  // At least one decimal, so "9.0" and "9.8" are the same width and the unit sits hard
-  // against the figure instead of drifting a character away on whole numbers. PADDED, not
-  // rounded — 9.85 keeps both places, because this field round-trips through the store and
-  // forcing one decimal would quietly turn it into 9.9 the next time it saved.
-  return Number.isInteger(n) ? n.toFixed(1) : String(n);
-};
+// The two field formatters are shared/trailDistance.ts's: feet to the nearest 10 and
+// ungrouped so the value parses back (heightFieldValue), and a distance padded to at
+// least one decimal so the column holds its width (distanceFieldValue's `pad`). The
+// reasoning for both lives beside them there.
+const ascentValue = (m: number | undefined) => heightFieldValue(m, distanceUnit.value);
+const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceUnit.value, { pad: true });
 </script>
 
 <template>
@@ -827,7 +812,7 @@ const distanceValue = (m: number | undefined) => {
              round-trips through export and import untouched. What's gone is the
              affordance, not the data: naming can come back without a migration. -->
         <header class="plan__dayhead">
-          <h2 class="plan__name">{{ dayOrdinal(i) }}</h2>
+          <h2 class="t-clip plan__name">{{ dayOrdinal(i) }}</h2>
           <button
             type="button"
             class="plan__collapse plan__collapse--tight"
@@ -961,9 +946,12 @@ const distanceValue = (m: number | undefined) => {
                  because a day has exactly one end, so the two can never want the field
                  at once. The placeholder (not a typed-over name) is what says which
                  kind an empty row is. -->
-            <li v-if="dayEnds[i]" class="plan__camp">
+            <!-- It wears the waypoint row's own classes (WaypointRow.vue's unscoped
+                 .wprow recipe): the same grid, the same cells, so the two can't line
+                 up differently. What's this row's alone is named plan__camp*. -->
+            <li v-if="dayEnds[i]" class="wprow">
               <input
-                class="field plan__campfield"
+                class="field wprow__name"
                 :value="d?.label ?? ''"
                 :placeholder="dayEnds[i]!.kind === 'camp' ? 'Where you sleep' : 'Where you end up'"
                 maxlength="120"
@@ -976,18 +964,18 @@ const distanceValue = (m: number | undefined) => {
                    one, not because anybody chose it, so naming the kind here was labelling
                    a control that isn't one. Its label says so for a screen reader. -->
               <span
-                class="plan__campkind"
+                class="wprow__fixedkind plan__campkind"
                 role="img"
                 :aria-label="dayEnds[i]!.kind === 'camp' ? `Camp at the end of day ${i + 1}` : 'The end of the route'"
               >
                 <HugeiconsIcon :icon="dayEnds[i]!.kind === 'camp' ? TentIcon : RacingFlagIcon" :size="16" :stroke-width="2" aria-hidden="true" />
               </span>
-              <span class="t-sm plan__coord">{{ coordOf(dayEnds[i]!.alongM) }}</span>
-              <span class="t-sm plan__campdist">{{ formatDistancePadded(dayEnds[i]!.alongM, distanceUnit) }}</span>
+              <span class="t-sm wprow__coord">{{ coordOf(dayEnds[i]!.alongM) }}</span>
+              <span class="t-sm wprow__dist">{{ formatDistancePadded(dayEnds[i]!.alongM, distanceUnit) }}</span>
               <!-- the delete column, left empty: a day's end is the end of a day, and
                    removing it would mean removing the day. The cell stays so every other
                    column in the list still lines up through this row. -->
-              <span class="plan__campdel" aria-hidden="true" />
+              <span class="wprow__del" aria-hidden="true" />
             </li>
           </ol>
           <!-- the add row, carrying the same rule and the same padding as a row above it,
@@ -1095,7 +1083,6 @@ const distanceValue = (m: number | undefined) => {
   gap: var(--space-5);
 }
 .plan__note {
-  margin: 0;
   color: var(--ink-3);
   max-width: 46ch;
 }
@@ -1106,8 +1093,6 @@ const distanceValue = (m: number | undefined) => {
      mistake. Reached from the panel's own --space-4 gap, the identical arithmetic
      .editor__addfolder does for exactly this reason. */
   margin: calc(var(--folder-gap, var(--space-6)) - var(--space-4)) 0 0;
-  padding: 0;
-  list-style: none;
   display: flex;
   flex-direction: column;
   gap: var(--folder-gap, var(--space-6));
@@ -1129,16 +1114,12 @@ const distanceValue = (m: number | undefined) => {
 .plan__name {
   flex: 0 1 auto;
   min-width: 0;
-  margin: 0;
   /* A folder's name is an <input>, which builds a 41px box out of a 33px line and 4px
      of padding. This is a heading and would otherwise sit at 26px, putting every day
      header 15px shorter than every folder header in the same column. Matching the box
      is what makes the two modes feel like one page. */
   padding-block: var(--space-1);
   line-height: 1.5;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   font-size: var(--text-title);
   font-weight: 600;
   letter-spacing: var(--track-tight);
@@ -1222,9 +1203,6 @@ const distanceValue = (m: number | undefined) => {
      away — at --space-1 it read as a superscript on the number */
   margin-left: var(--space-2);
   display: inline-flex;
-  padding: 0;
-  border: 0;
-  background: none;
   color: var(--ink-3);
   cursor: help;
   transition: color var(--dur) var(--ease);
@@ -1240,9 +1218,6 @@ const distanceValue = (m: number | undefined) => {
 .plan__collapse {
   flex: none;
   display: inline-flex;
-  padding: 0;
-  border: 0;
-  background: none;
   color: var(--ink-3);
   cursor: pointer;
 }
@@ -1300,11 +1275,7 @@ const distanceValue = (m: number | undefined) => {
   margin-top: calc(var(--space-7) - var(--space-4));
 }
 .plan__add {
-  padding: 0;
-  border: 0;
-  background: none;
   cursor: pointer;
-  font-family: var(--font);
   font-size: var(--text-title);
   font-weight: 600;
   letter-spacing: var(--track-tight);
@@ -1331,7 +1302,6 @@ const distanceValue = (m: number | undefined) => {
 }
 .plan__assume,
 .plan__accuracy {
-  margin: 0;
   display: flex;
   align-items: baseline;
   gap: var(--space-2);
@@ -1366,10 +1336,7 @@ const distanceValue = (m: number | undefined) => {
   gap: var(--space-1);
   height: 26px;
   padding: 0 var(--space-2);
-  border: 0;
   border-radius: var(--radius-1);
-  background: none;
-  font-family: inherit;
   font-size: var(--text-chrome);
   color: #555;
   white-space: nowrap;
@@ -1432,37 +1399,15 @@ const distanceValue = (m: number | undefined) => {
 .plan__wpadd.is-first {
   border-top: 0;
 }
-/* The night, on the SAME grid as a waypoint row — see --wprow-cols below. Its own
-   template only lined it up with itself, which put its distance somewhere the pins' never
-   was. The trailing action cell is empty; there is nothing to delete here. */
-.plan__camp {
-  display: grid;
-  grid-template-columns: var(--wprow-cols);
-  /* the list decides the arrangement — one line wide, two lines narrow */
-  grid-template-areas: var(--wprow-areas, "name kind coord dist del");
-  align-items: center;
-  /* row gap only matters once the row wraps to two lines — see the stack below. --space-1
-     rather than the column gap, so the name and its readings still read as ONE row and not
-     as two rows that happen to be adjacent. */
-  gap: var(--space-1) var(--wprow-gap, var(--space-2));
-}
-/* One icon-button's box, aligned to the start of the kind column, so the tent lands on the
-   same pixel as the first toggle's glyph in the rows above it. */
+/* The night, on the SAME grid as a waypoint row — it wears .wprow and its cells
+   (WaypointRow.vue's unscoped recipe; see --wprow-cols below for the tracks the list
+   hands both). Its own template only lined it up with itself, which put its distance
+   somewhere the pins' never was. The trailing action cell is empty; there is nothing
+   to delete here. What's left here is the one thing the camp says differently: */
+/* ink, not a category hue — it is the itinerary talking, the same thing the handle on
+   the map says by being paper-filled rather than solid */
 .plan__campkind {
-  grid-area: kind;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  /* the same box a kind toggle wears, whichever pointer is in use, so the tent's glyph
-     lands on the pixel the first toggle's glyph lands on in the rows above */
-  width: var(--wprow-btn, var(--icon-btn, 32px));
-  /* ink, not a category hue — it is the itinerary talking, the same thing the handle on
-     the map says by being paper-filled rather than solid */
   color: var(--ink-3);
-}
-.plan__campfield {
-  min-width: 0;
-  grid-area: name;
 }
 /* Lifted wholesale from .catbar__legend, deliberately: "the same treatment" means the same
    spacing and the same hanging indent, not something that merely resembles it. */
@@ -1471,8 +1416,6 @@ const distanceValue = (m: number | undefined) => {
   flex-wrap: wrap;
   gap: var(--space-2) var(--space-5);
   margin-top: var(--space-3);
-  list-style: none;
-  padding: 0;
 }
 /* TEXT FLOW rather than a flex row, for the reason CategoryBar gives at length: a wrapped
    entry in a flex row centres its dot against the whole block instead of against the line
@@ -1492,31 +1435,6 @@ const distanceValue = (m: number | undefined) => {
   display: inline-block;
   vertical-align: 0.04em;
   margin-inline-end: var(--space-2);
-}
-/* the delete column, standing empty — see the template. It still has to hold the column
-   open, and at the width a button would be, or every cell before it shifts on this row. */
-.plan__campdel {
-  grid-area: del;
-  width: var(--wprow-btn, var(--icon-btn, 32px));
-}
-/* One size and one ink, matching a waypoint row's two readings exactly — see WaypointRow.
-   Both cells answer the same question, so ranking one above the other with size or colour
-   only breaks the baseline the column is read down. */
-.plan__coord,
-.plan__campdist {
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  text-align: right;
-  color: var(--ink-3);
-}
-.plan__coord {
-  grid-area: coord;
-  /* stretched on one line, where text-align does the aligning; shrunk to its text and
-     pushed left once the row wraps, so the two readings sit at opposite ends */
-  justify-self: var(--wprow-coord-justify, stretch);
-}
-.plan__campdist {
-  grid-area: dist;
 }
 .plan__wplist {
   /* ONE COLUMN SET for every row in the day — the pins and the night alike. Declared here
@@ -1538,7 +1456,7 @@ const distanceValue = (m: number | undefined) => {
      buttons — and a grid track narrower than its content doesn't clip it, it lets it
      paint over the neighbour. The delete button hung off the end of the row and the
      second kind toggle sat on top of the coordinate. */
-  --wprow-btn: var(--icon-btn, 32px);
+  --wprow-btn: var(--icon-btn);
   --wprow-cols:
     minmax(0, 1fr)
     calc(var(--wprow-btn) * 2 + var(--space-px))
@@ -1557,9 +1475,6 @@ const distanceValue = (m: number | undefined) => {
      right edge. Eight pixels between two numbers reads as one number that happens to have
      a space in it. */
   --wprow-gap: var(--space-5);
-  list-style: none;
-  margin: 0;
-  padding: 0;
   align-self: stretch;
   display: flex;
   flex-direction: column;
@@ -1606,7 +1521,6 @@ const distanceValue = (m: number | undefined) => {
   margin-top: var(--folder-gap, var(--space-6));
 }
 .plan__restname {
-  margin: 0;
   padding-block: var(--space-1);
   line-height: 1.5;
   font-size: var(--text-title);

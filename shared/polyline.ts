@@ -274,14 +274,28 @@ export function cumulativeM(points: readonly LatLon[]): number[] {
 }
 
 /**
+ * The walkers below each take an optional `cum` — cumulativeM(points), computed ONCE by
+ * a caller that walks the same route many times — and derive it themselves when it's
+ * absent, so a one-off call stays a one-off call.
+ *
+ * The map resolves every pin, every day boundary, every leg and every pointermove of a
+ * drag against the same 512 points, and each of those was re-summing the whole route
+ * first: a slice was three passes (its own and two for its ends), a drag step about
+ * four. The spine only changes when the geometry does, so a component keeps it as a
+ * computed keyed on that and threads it through. Nothing about the answer changes —
+ * tests/polyline.test.ts pins that the two paths agree.
+ */
+type Cum = readonly number[];
+
+/**
  * A distance along the route → the point there, interpolated between samples.
  *
  * This is what lets a waypoint store a single number instead of a coordinate: its position
  * is derived, so the only geography in the database is the route itself.
  */
-export function pointAlong(points: readonly LatLon[], alongM: number): LatLon | null {
+export function pointAlong(points: readonly LatLon[], alongM: number, cum?: Cum): LatLon | null {
   if (points.length < 2) return points[0] ?? null;
-  const cum = cumulativeM(points);
+  cum ??= cumulativeM(points);
   const total = cum[cum.length - 1]!;
   if (!(total > 0)) return points[0]!;
   const target = Math.max(0, Math.min(total, alongM));
@@ -305,15 +319,15 @@ export function pointAlong(points: readonly LatLon[], alongM: number): LatLon | 
  * Returns fewer than two points for an empty span, which the caller reads as "draw nothing"
  * — a day with no distance typed yet has no stretch to colour.
  */
-export function sliceAlong(points: readonly LatLon[], fromM: number, toM: number): LatLon[] {
+export function sliceAlong(points: readonly LatLon[], fromM: number, toM: number, cum?: Cum): LatLon[] {
   if (points.length < 2 || !(toM > fromM)) return [];
-  const cum = cumulativeM(points);
+  cum ??= cumulativeM(points);
   const total = cum[cum.length - 1]!;
   const lo = Math.max(0, Math.min(total, fromM));
   const hi = Math.max(0, Math.min(total, toM));
   if (!(hi > lo)) return [];
-  const head = pointAlong(points, lo);
-  const tail = pointAlong(points, hi);
+  const head = pointAlong(points, lo, cum);
+  const tail = pointAlong(points, hi, cum);
   if (!head || !tail) return [];
   // the stored points strictly inside the span; the ends are interpolated, not snapped
   const inner = points.filter((_, i) => cum[i]! > lo && cum[i]! < hi);
@@ -322,9 +336,9 @@ export function sliceAlong(points: readonly LatLon[], fromM: number, toM: number
 
 /** The nearest point ON the route to a coordinate, as a distance along it. Placement uses
  *  this so a pin can only ever sit on the line. */
-export function nearestAlongM(points: readonly LatLon[], at: LatLon): number {
+export function nearestAlongM(points: readonly LatLon[], at: LatLon, cum?: Cum): number {
   if (points.length < 2) return 0;
-  const cum = cumulativeM(points);
+  cum ??= cumulativeM(points);
   let best = 0;
   let bestD = Infinity;
   for (let i = 0; i < points.length - 1; i++) {

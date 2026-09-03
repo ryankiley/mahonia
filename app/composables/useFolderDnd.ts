@@ -5,7 +5,7 @@
 // gesture lifecycle (capture, listeners, cancels) is the shared createPointerDrag
 // scaffold.
 
-export interface FolderDropTarget {
+interface FolderDropTarget {
   targetId: string; // folder being hovered
   before: boolean; // insert before (true) or after (false) the target
 }

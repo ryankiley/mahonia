@@ -5,6 +5,8 @@
 // "Day 2" to whoever you sent the link to is the kind of drift nobody notices until it
 // is everywhere.
 
+import { DAY_MS, utcMidnight } from "./calendar";
+
 /**
  * "Monday, Day 2" once the trip has dates, "Day 2" before that.
  *
@@ -12,16 +14,16 @@
  * and the app already knows it: the day count comes from the dates, so day `i` IS
  * start + i.
  *
- * Parsed at `T00:00:00Z` and read back in UTC, matching how the dates are stored. A
+ * Anchored at UTC midnight and read back in UTC, matching how the dates are stored. A
  * local-midnight Date would name the wrong weekday for anyone west of UTC — the same
- * reason the dates are TEXT columns rather than timestamps.
+ * reason the dates are TEXT columns rather than timestamps (see shared/calendar.ts).
  */
 export function dayLabel(index: number, startDate: string | undefined): string {
   const n = `Day ${index + 1}`;
   if (!startDate) return n;
-  const ms = Date.parse(`${startDate}T00:00:00Z`);
+  const ms = utcMidnight(startDate);
   if (Number.isNaN(ms)) return n;
-  const weekday = new Date(ms + index * 86_400_000).toLocaleDateString("en-US", {
+  const weekday = new Date(ms + index * DAY_MS).toLocaleDateString("en-US", {
     weekday: "long",
     timeZone: "UTC",
   });

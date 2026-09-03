@@ -2,7 +2,7 @@
 // Apple Notes. Shared by the client (copy/download) and later the server.
 
 import type { ListSnapshot } from "../types";
-import { effectivePersonId, personName } from "../people";
+import { carrierName, effectivePersonId } from "../people";
 import { carriedIsDistinct, computeTotals, effectiveClassification, formatWeight, itemDisplayName, lineMg, rowDisplayMg, splitWornQty } from "../weights";
 import { exportSections } from "./rows";
 
@@ -39,11 +39,9 @@ export function listToMarkdown(list: ListSnapshot): string {
       const w = rowMg > 0 ? formatWeight(rowMg, u) : "—";
       // the product name, with the common name trailing it after an em dash when set
       // ("Altra Lone Peak 9+ — Trail runners") so a pasted list still says what each item is
-      const carrierId = effectivePersonId(it);
-      const carrier = personName(list.people, carrierId);
       const name = withCarrier(
         withCommon(itemDisplayName(it.brand, it.name, it.variant), it.commonName),
-        carrier,
+        carrierName(list, it),
       );
       const wq = splitWornQty(it, effectiveClassification(it, list.folders));
       out.push(`| ${name} | ${it.qty}${wq > 0 ? ` (${wq} worn)` : ""} | ${w} |`);
@@ -55,10 +53,9 @@ export function listToMarkdown(list: ListSnapshot): string {
         // Compared by ID: names are unique per list now, but a list written before
         // that rule can still hold two, and comparing the strings would silently
         // un-name a child carried by the OTHER one.
-        const childCarrierId = effectivePersonId(child, it);
         const cn = withCarrier(
           withCommon(itemDisplayName(child.brand, child.name, child.variant), child.commonName),
-          childCarrierId === carrierId ? undefined : personName(list.people, childCarrierId),
+          effectivePersonId(child, it) === effectivePersonId(it) ? undefined : carrierName(list, child, it),
         );
         out.push(`| ↳ ${cn} | ${child.qty} | ${cw} |`);
       }

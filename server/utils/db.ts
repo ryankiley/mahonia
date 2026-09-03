@@ -8,9 +8,20 @@ import { CATALOG_DDL, ensureCatalogSchema } from "./catalog";
 import { CANDIDATES_DDL } from "./candidates";
 import { VAULT_DDL } from "./vaultSchema";
 import { ACCOUNT_DDL } from "./accountSchema";
-import { memoizedEnsure } from "./memoize";
+import { memoized } from "./memoize";
 
-type Db = Awaited<ReturnType<typeof build>>;
+/**
+ * The connection handle every repo takes: Neon's HTTP driver in production,
+ * PGlite in dev and tests — a UNION, not a common interface, which is why it is
+ * declared once here and imported everywhere (`import type` is cycle-safe even
+ * from the modules db.ts itself imports).
+ *
+ * One consequence to know about: `.returning()` must be called with NO
+ * arguments. The two drivers' typed `.returning({ col })` overloads don't
+ * unify, so the no-arg form is the union's only shared overload — read the
+ * fields off the full row instead.
+ */
+export type Db = Awaited<ReturnType<typeof build>>;
 
 let _dbPromise: Promise<Db> | undefined;
 
@@ -45,7 +56,9 @@ async function build() {
   }
   // @electric-sql/pglite is kept OUT of the deployed server bundle — its wasm
   // weighed ~17 MB, 77% of the server output, and prod (DATABASE_URL set) never
-  // reaches this branch. Two mechanisms, both required:
+  // reaches this branch. It is a devDependency for the same reason: only this
+  // dev branch, the scripts and the tests ever load it. Two mechanisms, both
+  // required:
   //  1. the computed specifier below stops rollup resolving the package as an
   //     external entry (an entry bypasses the trace ignore);
   //  2. nitro.externals.traceOptions.ignore (nuxt.config) drops the package's
@@ -188,17 +201,17 @@ export const TRAIL_FAVICONS_DDL: string[] = [
 /** Idempotently create the `lists` table + indexes (memoized) — for Neon, where
  *  there's no build-time DDL. Mirrors ensureSnapshotSchema; gated to the prod path
  *  in useDb (dev's PGlite already runs the full DDL in build()). */
-const ensureListsSchema = memoizedEnsure(async (db: Db) => {
+const ensureListsSchema = memoized(async (db: Db) => {
   for (const stmt of LISTS_DDL) await db.execute(sql.raw(stmt));
 });
 
 /** Idempotently create trail_favicons (memoized) — for Neon (no build-time DDL). */
-export const ensureTrailFaviconSchema = memoizedEnsure(async (db: Db) => {
+export const ensureTrailFaviconSchema = memoized(async (db: Db) => {
   for (const stmt of TRAIL_FAVICONS_DDL) await db.execute(sql.raw(stmt));
 });
 
 /** Idempotently create list_snapshots (memoized) — for Neon (no build-time DDL). */
-export const ensureSnapshotSchema = memoizedEnsure(async (db: Db) => {
+export const ensureSnapshotSchema = memoized(async (db: Db) => {
   for (const stmt of SNAPSHOTS_DDL) await db.execute(sql.raw(stmt));
 });
 /** Reset the ensure-memo — for tests that spin up a fresh database. */
@@ -210,7 +223,7 @@ export function _resetSnapshotEnsured(): void {
  *  build-time DDL. Mirrors ensureCatalogSchema; every vault endpoint reaches its
  *  connection through useVaultDb() below, so the ensure can't be forgotten on a
  *  path that needs it. */
-export const ensureVaultSchema = memoizedEnsure(async (db: Db) => {
+const ensureVaultSchema = memoized(async (db: Db) => {
   for (const stmt of VAULT_DDL) await db.execute(sql.raw(stmt));
 });
 
@@ -231,7 +244,7 @@ export async function useVaultDb(): Promise<Db> {
  *  vault's ensure on purpose: the vault works with no account at all, so a visitor
  *  who never signs in must never pay for this DDL. Every auth endpoint reaches its
  *  connection through useAccountDb() below, so it can't be forgotten. */
-export const ensureAccountSchema = memoizedEnsure(async (db: Db) => {
+const ensureAccountSchema = memoized(async (db: Db) => {
   for (const stmt of ACCOUNT_DDL) await db.execute(sql.raw(stmt));
 });
 

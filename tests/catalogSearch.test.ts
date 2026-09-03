@@ -4,7 +4,6 @@ import {
   matchTier,
   mergeCatalogRows,
   rankCandidates,
-  searchCatalogLocal,
   trigramScore,
   trigrams,
   STRONG_THRESHOLD,
@@ -58,14 +57,14 @@ const row = (over: Partial<LocalCatalogRow>): LocalCatalogRow => ({
   ...over,
 });
 
-describe("searchCatalogLocal", () => {
+describe("rankCandidates — the shared ranker", () => {
   it("returns nothing for a query under 2 chars", () => {
-    expect(searchCatalogLocal([row({})], "d")).toEqual([]);
+    expect(rankCandidates([row({})], "d")).toEqual([]);
   });
 
   it("filters out rows below the similarity threshold", () => {
     const rows = [row({ id: 1, brand: "Zpacks", name: "Duplex" }), row({ id: 2, brand: "MSR", name: "PocketRocket" })];
-    const out = searchCatalogLocal(rows, "duplex");
+    const out = rankCandidates(rows, "duplex");
     expect(out.map((r) => r.id)).toEqual([1]);
   });
 
@@ -75,17 +74,17 @@ describe("searchCatalogLocal", () => {
       row({ id: 2, name: "Duplex", verified: true, usageCount: 1 }),
       row({ id: 3, name: "Duplex", verified: true, usageCount: 50 }),
     ];
-    const out = searchCatalogLocal(rows, "duplex");
+    const out = rankCandidates(rows, "duplex");
     expect(out.map((r) => r.id)).toEqual([3, 2, 1]); // verified(usage50), verified(usage1), unverified
   });
 
   it("caps results at the limit", () => {
     const rows = Array.from({ length: 12 }, (_, i) => row({ id: i + 1, name: "Duplex" }));
-    expect(searchCatalogLocal(rows, "duplex", 8)).toHaveLength(8);
+    expect(rankCandidates(rows, "duplex", 8)).toHaveLength(8);
   });
 
   it("returns the autocomplete shape (no usageCount; weightMg numeric)", () => {
-    const [r] = searchCatalogLocal([row({ weightMg: 549981 })], "duplex");
+    const [r] = rankCandidates([row({ weightMg: 549981 })], "duplex");
     expect(r).toEqual({
       id: 1,
       brand: "Zpacks",
@@ -103,12 +102,12 @@ describe("searchCatalogLocal", () => {
   });
 
   it("carries categoryHint through, so a pick can pre-classify consumables", () => {
-    const [r] = searchCatalogLocal([row({ categoryHint: "consumable" })], "duplex");
+    const [r] = rankCandidates([row({ categoryHint: "consumable" })], "duplex");
     expect(r?.categoryHint).toBe("consumable");
   });
 
   it("carries kcal through, so a food pick can pre-fill the row's calories", () => {
-    const [r] = searchCatalogLocal([row({ categoryHint: "consumable", kcal: 250 })], "duplex");
+    const [r] = rankCandidates([row({ categoryHint: "consumable", kcal: 250 })], "duplex");
     expect(r?.kcal).toBe(250);
   });
 
@@ -118,7 +117,7 @@ describe("searchCatalogLocal", () => {
       row({ id: 1, brand: "Big Agnes", name: "Copper Spur HV UL2", searchTerms: "tent" }),
       row({ id: 2, brand: "MSR", name: "PocketRocket 2", searchTerms: "stove" }),
     ];
-    expect(searchCatalogLocal(rows, "tent").map((r) => r.id)).toEqual([1]);
+    expect(rankCandidates(rows, "tent").map((r) => r.id)).toEqual([1]);
   });
 
   it("finds an accented brand typed in plain ASCII, and vice versa", () => {
@@ -126,8 +125,8 @@ describe("searchCatalogLocal", () => {
       row({ id: 1, brand: "Fjällräven", name: "Keb Hike 30", searchTerms: "backpack" }),
       row({ id: 2, brand: "MSR", name: "PocketRocket 2", searchTerms: "stove" }),
     ];
-    expect(searchCatalogLocal(rows, "Fjallraven").map((r) => r.id)).toEqual([1]);
-    expect(searchCatalogLocal(rows, "Fjällräven").map((r) => r.id)).toEqual([1]);
+    expect(rankCandidates(rows, "Fjallraven").map((r) => r.id)).toEqual([1]);
+    expect(rankCandidates(rows, "Fjällräven").map((r) => r.id)).toEqual([1]);
   });
 
   it("matches a locale/synonym term folded into search_terms", () => {
@@ -136,8 +135,8 @@ describe("searchCatalogLocal", () => {
       row({ id: 1, brand: "Osprey", name: "Exos 58", searchTerms: "backpack rucksack" }),
       row({ id: 2, brand: "Zpacks", name: "Duplex", searchTerms: "tent" }),
     ];
-    expect(searchCatalogLocal(rows, "rucksack").map((r) => r.id)).toEqual([1]);
-    expect(searchCatalogLocal(rows, "backpack").map((r) => r.id)).toEqual([1]);
+    expect(rankCandidates(rows, "rucksack").map((r) => r.id)).toEqual([1]);
+    expect(rankCandidates(rows, "backpack").map((r) => r.id)).toEqual([1]);
   });
 });
 

@@ -1,5 +1,5 @@
 import { defineEventHandler } from "h3";
-import { requireCronAuth } from "../../../utils/cronAuth";
+import { requireAdmin } from "../../../utils/auth";
 import { useDb, useVaultDb } from "../../../utils/db";
 import { purgeDeletedLists, reapAbandonedLists } from "../../../utils/listRepo";
 import { purgeDeletedVaults, reapAbandonedVaults } from "../../../utils/vaultRepo";
@@ -33,11 +33,11 @@ import { setNoIndex } from "../../../utils/http";
 // land at once. Harmless today (they touch different tables, and the shared "admin"
 // rate-limit budget is 30/min against two requests), but don't add work here that
 // assumes the catalog job has already finished.
-// Auth: requireCronAuth — Bearer $CRON_SECRET (Vercel) or x-admin-token for a
-// manual run; rate-limited, 404 otherwise.
+// Auth: requireAdmin with the cron door — Bearer $CRON_SECRET (Vercel) or
+// x-admin-token for a manual run; rate-limited, 404 otherwise.
 export default defineEventHandler(async (event) => {
   setNoIndex(event);
-  await requireCronAuth(event);
+  await requireAdmin(event, { orBearer: process.env.CRON_SECRET });
 
   const db = await useDb();
   const reaped = await reapAbandonedLists(db);

@@ -86,8 +86,10 @@ export interface Item {
   kcal?: number;
   description?: string; // optional freeform user text
   productUrl?: string;
-  imageUrl?: string;
   priceCents?: number;
+  // Write-only today: ItemRow stamps it from a catalog pick and nothing reads it
+  // back (cleanItemPatch doesn't even carry it through an update). Kept on the type
+  // for that one write; drop both together.
   currency?: string;
   catalogItemId?: number; // linked catalog entry (set when chosen from autocomplete)
   catalogWeightMgAtLink?: number; // catalog weight at link time → powers the "catalog changed" nudge
@@ -259,6 +261,38 @@ export interface ListMeta {
   // for why the smaller thing was chosen deliberately.
   startDate?: string;
   endDate?: string;
+}
+
+/**
+ * Every ListMeta field, spelled ONCE — in the order a backup file writes them, which
+ * is the order a person reads in the file, so it is canonical rather than incidental.
+ * The create body, the JSON export, the snapshot-chain forms and the delta all walk
+ * this list instead of restating it; a meta field added here reaches all four (the
+ * step trip dates once missed).
+ */
+export const LIST_META_KEYS = [
+  "title",
+  "description",
+  "displayUnit",
+  "trailUrl",
+  "trailLabel",
+  "trailDistanceM",
+  "trailDistanceUnit",
+  "trailProfile",
+  "trailAscentM",
+  "trailDescentM",
+  "routeGeometry",
+  "startDate",
+  "endDate",
+] as const satisfies readonly (keyof ListMeta)[];
+export type ListMetaKey = (typeof LIST_META_KEYS)[number];
+
+/** Just the meta of a snapshot/state, keys in LIST_META_KEYS order. An absent field
+ *  stays absent (undefined), so JSON.stringify drops it exactly as it did before. */
+export function pickListMeta(src: ListMeta): ListMeta {
+  const out = {} as Record<ListMetaKey, unknown>;
+  for (const key of LIST_META_KEYS) out[key] = src[key];
+  return out as unknown as ListMeta;
 }
 
 /** Canonical wire shape returned by the API and held by the client editor. */
