@@ -739,8 +739,6 @@ const feedbackEverOpened = ref(false);
 // Import and Export take the mirrored pair deliberately; they are the same door in
 // two directions and the glyphs should say so before the words do.
 const MENU_ACTIONS = [
-  { label: "Create a list", icon: NoteAddIcon, run: () => newList() },
-  { label: "Duplicate this list", icon: Copy01Icon, run: cloneList },
   // The crew's door BEFORE anyone is named — the chips row carries its own manage
   // button, but that row only exists once someone is on the list, so without an
   // entry here a fresh list has no way in. Short, and not just for the voice: this
@@ -749,6 +747,12 @@ const MENU_ACTIONS = [
   // glyph to sub-pixel while the text took the room. No ellipsis either — it opens
   // a dialog like "Import a list…", but it reads as the plain act it is.
   { label: "Add people", icon: UserGroupIcon, run: () => { peopleOpen.value = true; } },
+  // …and everything below it makes ANOTHER list: a blank one, a copy of this one, or
+  // one read out of a file. Create/Duplicate/Import are one unbroken run for that
+  // reason — People led the menu instead because it is the only entry here that acts
+  // on the list you are looking at, and the only one that doesn't navigate away.
+  { label: "Create a list", icon: NoteAddIcon, run: () => newList() },
+  { label: "Duplicate this list", icon: Copy01Icon, run: cloneList },
   // Import stays a plain row. It has exactly ONE entry point — the modal, which
   // offers the file and the LighterPack link side by side — and a disclosure holding
   // a single item is a click that reveals nothing you couldn't have been shown. It
