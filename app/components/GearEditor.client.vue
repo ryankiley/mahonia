@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon, type IconNode } from "~/utils/hugeicon";
-import { Backpack02Icon, CheckmarkSquare02Icon, ChevronDownIcon, Copy01Icon, Delete02Icon, EllipsisIcon, FileExportIcon, FileImportIcon, Message01Icon, NoteAddIcon, RemoveCircleIcon, Route02Icon, SafeBoxIcon, Share08Icon, UndoIcon, UserGroupIcon } from "@hugeicons/core-free-icons";
+import { Backpack02Icon, CheckmarkSquare02Icon, ChevronDownIcon, Copy01Icon, Delete02Icon, EllipsisIcon, FileExportIcon, FileImportIcon, Message01Icon, NoteAddIcon, RemoveCircleIcon, Route02Icon, SafeBoxIcon, Share08Icon, UndoIcon, UserAddIcon } from "@hugeicons/core-free-icons";
 import { editLinkPath, normalizeShareCode } from "~~/shared/links";
 import { tripHeadline } from "~~/shared/trailDistance";
 import { formatWeight } from "~~/shared/weights";
@@ -746,7 +746,7 @@ const MENU_ACTIONS = [
   // .menu__item's icon has nothing pinning its size, so a long one squeezed the
   // glyph to sub-pixel while the text took the room. No ellipsis either — it opens
   // a dialog like "Import a list…", but it reads as the plain act it is.
-  { label: "Add people", icon: UserGroupIcon, run: () => { peopleOpen.value = true; } },
+  { label: "Add people", icon: UserAddIcon, run: () => { peopleOpen.value = true; } },
   // …and everything below it makes ANOTHER list: a blank one, a copy of this one, or
   // one read out of a file. Create/Duplicate/Import are one unbroken run for that
   // reason — People led the menu instead because it is the only entry here that acts
@@ -1148,7 +1148,6 @@ function onCorrected(res: { status: string; itemName?: string }) {
         :show-unassigned="hasUnassigned"
         :weights="chipWeights"
         @pick="(id) => (pf.selected.value = id)"
-        @manage="peopleOpen = true"
       />
       <!-- a filter that matches nothing says so, instead of standing every folder
            down into a silent blank page — the ListMenu empty-state voice -->

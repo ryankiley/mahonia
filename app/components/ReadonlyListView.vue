@@ -246,7 +246,6 @@ const asHeight = (m: number) => {
         :selected="personFilter ?? null"
         :show-unassigned="showUnassigned"
         :weights="chipWeights"
-        no-manage
         @pick="(id) => $emit('pick-person', id)"
       />
     </section>

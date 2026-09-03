@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import { UserGroupIcon } from "@hugeicons/core-free-icons";
 import { personColor, UNASSIGNED, type PersonSelection } from "~~/shared/people";
 import type { Person } from "~~/shared/types";
 
@@ -21,12 +19,6 @@ const props = defineProps<{
   /** offer the "Unassigned" chip (some top-level row has no one yet) */
   showUnassigned?: boolean;
   /**
-   * Hide the trailing manage button (the read views have no one to manage).
-   * NOT named `readonly`: that word is a Vue auto-import, and a setup-scope
-   * binding by the same name would silently shadow the prop.
-   */
-  noManage?: boolean;
-  /**
    * Each chip's carry, pre-formatted, keyed by person id (+ the UNASSIGNED
    * sentinel) — the "divisible by participants" figure at a glance. Absent (or
    * missing a key) = no suffix, which is a list without weights.
@@ -34,7 +26,7 @@ const props = defineProps<{
   weights?: Record<string, string>;
 }>();
 
-const emit = defineEmits<{ pick: [selection: PersonSelection]; manage: [] }>();
+const emit = defineEmits<{ pick: [selection: PersonSelection] }>();
 
 // ONE array driving one v-for — not three sibling groups sharing a ref name: a
 // template ref only collects into an array within a single v-for, so the mixed
@@ -99,25 +91,15 @@ function onKey(e: KeyboardEvent) {
         --><span v-if="c.weight" class="t-num pplbar__wt">{{ c.weight }}</span>
       </button>
     </div>
-    <Tooltip v-if="!noManage" text="People on this trip" preferred-placement="top">
-      <button
-        type="button"
-        class="btn btn--icon btn--ghost pplbar__manage"
-        aria-label="People on this trip"
-        aria-haspopup="dialog"
-        @click="emit('manage')"
-      >
-        <HugeiconsIcon :icon="UserGroupIcon" :size="16" :stroke-width="2" aria-hidden="true" />
-      </button>
-    </Tooltip>
   </div>
 </template>
 
 <style scoped lang="scss">
+/* the row is its chips now — the manage button that shared it moved to the ⋯ menu.
+   Kept as an element rather than folded into .pplbar__chips: print.scss stands the
+   whole row down by this class, and both parents v-show it. */
 .pplbar {
   display: flex;
-  align-items: flex-start;
-  gap: var(--space-2);
 }
 .pplbar__chips {
   display: flex;
@@ -185,10 +167,5 @@ function onKey(e: KeyboardEvent) {
   .pplbar__wt {
     display: none;
   }
-}
-/* the manage button holds the row's trailing edge and doesn't shrink under wrap */
-.pplbar__manage {
-  flex: none;
-  margin-left: auto;
 }
 </style>
