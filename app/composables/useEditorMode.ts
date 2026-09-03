@@ -70,5 +70,11 @@ function create() {
 }
 
 export function useEditorMode() {
-  return (singleton ??= create());
+  // Built in a DETACHED scope: `watch` binds to whichever component is in setup at
+  // the time, and the first caller is the editor of whatever list the page opened
+  // on. Reopening another list (or a draft becoming a saved list, /e → /e/{code})
+  // unmounts that editor and would take the latch watchers with it — the singleton
+  // lived on with `mode` still moving but everPacked/switching frozen, so packing
+  // mode showed "0 of N packed" over a folder with no rows in it.
+  return (singleton ??= effectScope(true).run(create)!);
 }
