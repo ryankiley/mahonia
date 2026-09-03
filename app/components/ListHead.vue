@@ -1128,6 +1128,13 @@ onClickOutside(trailEl, closeTrail);
   margin: 0;
   color: var(--ink-3);
 }
+/* The file row is the URL field's second way in, so it hangs off that field at the
+   label's own tight step (8) rather than the 16 that separates one pair from the next —
+   but it does need SOME air: with none it sat flush on the field's bottom edge and read
+   as part of the input. */
+.head__panelinput + .head__gpx {
+  margin-block-start: var(--space-2);
+}
 .head__gpxbtn {
   color: var(--ink-2);
   cursor: pointer;

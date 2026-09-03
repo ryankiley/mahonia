@@ -1,0 +1,6 @@
+{
+  "date": "2026-09-02",
+  "fixed": [
+    "The trail link panel's \"Import map file\" row no longer sits flush against the link field."
+  ]
+}
