@@ -459,14 +459,6 @@ describe("vault folders", () => {
     await applyVaultFolderOp(db as any, VAULT, { t: "reorder", ids: [ids[1]!, ids[0]!] });
     expect((await listVaultFolders(db as any, VAULT)).map((f) => f.name)).toEqual(["Cook", "Tents"]);
   });
-
-  it("refuses a sort it doesn't recognise rather than storing it", async () => {
-    await applyVaultFolderOp(db as any, VAULT, { t: "add", name: "Shelter" });
-    const f = (await listVaultFolders(db as any, VAULT))[0]!;
-    await applyVaultFolderOp(db as any, VAULT, { t: "sort", id: f.id, sortBy: "sideways" });
-    // an unknown verb falls back to the default rather than reaching the client
-    expect((await listVaultFolders(db as any, VAULT))[0]!.sortBy).toBeUndefined();
-  });
 });
 
 // ---------------------------------------------------------------------------

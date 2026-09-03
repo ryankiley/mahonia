@@ -5,10 +5,10 @@ import { requireVault } from "../../utils/vaultAuth";
 import { applyVaultFolderOp, type VaultFolderOp } from "../../utils/vaultRepo";
 
 // Every folder mutation on a vault, through ONE route taking an op — the same
-// shape /api/edit/mutate takes for a list, and for the same reason: rename,
-// delete, reorder, re-sort and move-an-item are five verbs on one small structure,
-// and five endpoints would be five copies of the auth + rate-limit + vault-scoping
-// preamble with five chances for one of them to scope a query wrong.
+// shape /api/edit/mutate takes for a list, and for the same reason: add, rename,
+// delete, reorder and move-an-item are five verbs on one small structure, and five
+// endpoints would be five copies of the auth + rate-limit + vault-scoping preamble
+// with five chances for one of them to scope a query wrong.
 //
 // Every op is scoped by vaultId at the repo layer, so an id belonging to another
 // vault matches nothing and comes back `{ ok: false }` — the same answer as an id

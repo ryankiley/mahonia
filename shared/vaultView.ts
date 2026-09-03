@@ -97,25 +97,14 @@ export function sortVaultRows(rows: VaultEntry[], view: Exclude<VaultView, "fold
   return out;
 }
 
-/** A–Z, with the collator options the list's name sort used, so "A–Z" means the same thing on
- *  this page as it does inside a folder in the editor ("Bag 2" before "Bag 10", case
- *  ignored). The page's own sort used a bare localeCompare and quietly disagreed with
- *  the editor it says it matches. */
+/** A–Z with a numeric, case-insensitive collator ("Bag 2" before "Bag 10", case
+ *  ignored) — a bare localeCompare put "Bag 10" first. */
 function byName(a: VaultEntry, b: VaultEntry): number {
   return itemDisplayName(a.brand, a.name, a.variant).localeCompare(
     itemDisplayName(b.brand, b.name, b.variant),
     undefined,
     { sensitivity: "base", numeric: true },
   );
-}
-
-/** The per-folder item order, matching the editor's FolderSort verbs so the two
- *  surfaces sort the same way. "manual" means the vault's own default —
- *  most-recently-used first, which is the order the server already returns. */
-export function sortEntries(entries: VaultEntry[], sortBy: VaultFolder["sortBy"]): VaultEntry[] {
-  if (!sortBy || sortBy === "manual") return entries;
-  if (sortBy === "name") return [...entries].sort(byName);
-  return sortVaultRows(entries, sortBy);
 }
 
 /** One folder's worth of the page, with the two figures its header states. */
@@ -131,11 +120,10 @@ export interface VaultSection {
  *
  * ONLY the Folders view groups. A search has always flattened here, because
  * answering a query inside a dozen mostly-empty headings buries the rows that
- * matched — and a chosen ORDER flattens for a sharper reason still: a folder already
- * carries its own (folder.sortBy, chosen per folder and stored server-side), so a
- * grouped-and-globally-sorted vault would have two sort authorities over the same
- * rows. "Heaviest" inside twelve headings tells you the heaviest thing in each
- * folder, and leaves finding the heaviest thing you OWN as an exercise.
+ * matched — and a chosen ORDER flattens too: "Heaviest" inside twelve headings
+ * tells you the heaviest thing in each folder, and leaves finding the heaviest
+ * thing you OWN as an exercise. Inside a folder the rows keep the server's order,
+ * most recently used first.
  *
  * keepEmpty: an empty folder still shows, because it is a heading you made and
  * hiding it would make "delete" the only way to be rid of one you no longer want.
@@ -157,7 +145,7 @@ export function groupVaultRows(
   }
   const section = (folder: VaultFolder | null, entries: VaultEntry[]): VaultSection => ({
     folder,
-    entries: sortEntries(entries, folder?.sortBy),
+    entries,
     count: entries.length,
     // summed here rather than in the template: a section is built once per change
     // and read once per render, so the folder header's figure costs nothing extra

@@ -11,7 +11,6 @@ import {
   filterVaultRows,
   groupVaultRows,
   searchVaultRows,
-  sortEntries,
   sortVaultRows,
 } from "../shared/vaultView";
 
@@ -27,11 +26,7 @@ const row = (over: Partial<VaultEntry> = {}): VaultEntry => ({
   ...over,
 });
 
-const folder = (id: number, name: string, sortBy?: VaultFolder["sortBy"]): VaultFolder => ({
-  id,
-  name,
-  sortBy,
-});
+const folder = (id: number, name: string): VaultFolder => ({ id, name });
 
 const names = (rows: VaultEntry[]) => rows.map((r) => r.name);
 
@@ -199,26 +194,5 @@ describe("groupVaultRows — the folders view", () => {
     expect(out[0]).toMatchObject({ count: 2, weightMg: 600 });
     expect(out[1]).toMatchObject({ count: 1, weightMg: 7 });
   });
-
-  it("applies a folder's OWN sortBy inside it", () => {
-    const rows = [
-      row({ name: "Light", folderId: 1, weightMg: 100 }),
-      row({ name: "Heavy", folderId: 1, weightMg: 900 }),
-    ];
-    const out = groupVaultRows(rows, [folder(1, "Shelter", "heaviest")], { keepEmpty: true });
-    expect(names(out[0]!.entries)).toEqual(["Heavy", "Light"]);
-  });
 });
 
-describe("sortEntries — a folder's own order", () => {
-  it("'manual' and absent both mean the server's order, untouched", () => {
-    const rows = [row({ name: "B" }), row({ name: "A" })];
-    expect(sortEntries(rows, undefined)).toBe(rows);
-    expect(sortEntries(rows, "manual")).toBe(rows);
-  });
-
-  it("name uses the same collator the whole-vault A–Z does", () => {
-    const rows = [row({ name: "Bag 10" }), row({ name: "Bag 2" })];
-    expect(names(sortEntries(rows, "name"))).toEqual(["Bag 2", "Bag 10"]);
-  });
-});

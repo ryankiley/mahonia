@@ -67,8 +67,6 @@ export interface VaultCapture {
 export interface VaultFolder {
   id: number;
   name: string;
-  /** manual | name | heaviest | lightest — absent reads as manual, like FolderSort */
-  sortBy?: "manual" | "name" | "heaviest" | "lightest";
 }
 
 /**
