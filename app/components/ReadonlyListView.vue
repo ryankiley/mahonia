@@ -5,7 +5,7 @@ import { parseTrailLink } from "~~/shared/trailLink";
 import { dayClimbs, parseProfile } from "~~/shared/profile";
 import { dayLabel } from "~~/shared/tripDay";
 import { formatDistance, heightUnitFor, heightValue, resolveDistanceUnit } from "~~/shared/trailDistance";
-import type { PersonSelection } from "~~/shared/people";
+import { filterItemsForPerson, type PersonSelection } from "~~/shared/people";
 import type { Item, ListSnapshot, Person, Totals, Unit } from "~~/shared/types";
 import { groupItemsByFolder, groupItemsByParent } from "~~/shared/weights";
 
@@ -38,6 +38,18 @@ const filteredEmptyName = computed(() => {
   if (!props.personFilter) return null;
   if (props.shownFolders.length || props.ungrouped.length) return null;
   return props.people?.find((p) => p.id === props.personFilter)?.name ?? null;
+});
+
+// Rows kept on screen ONLY as a label for a matching child: in the visible set the
+// view-model hands us, but not in the strict set the totals count. Their own line
+// isn't in the figures on this page, so they print no weight — the editor blanks
+// the same cell in CSS (atoms/item.scss), which is the only way it can, since no
+// row there subscribes to the filter. One Set, threaded down beside childrenByParent.
+const contextOnlyIds = computed(() => {
+  const items = props.list?.items;
+  if (!props.personFilter || !items) return new Set<string>();
+  const counted = new Set(filterItemsForPerson(items, props.personFilter).map((i) => i.id));
+  return new Set(items.filter((i) => !counted.has(i.id)).map((i) => i.id));
 });
 
 // one grouping pass for all folders (ReadonlyFolderSection takes its items pre-grouped),
@@ -257,10 +269,10 @@ const asHeight = (m: number) => {
     </p>
 
     <div v-if="view === 'gear'" class="view__folders">
-      <ReadonlyFolderSection v-for="f in shownFolders" :key="f.id" :list="list" :folder="f" :items="itemsByFolder.get(f.id) ?? NO_ITEMS" :children-by-parent="childrenByParent" />
+      <ReadonlyFolderSection v-for="f in shownFolders" :key="f.id" :list="list" :folder="f" :items="itemsByFolder.get(f.id) ?? NO_ITEMS" :children-by-parent="childrenByParent" :context-only-ids="contextOnlyIds" />
       <section v-if="ungrouped.length">
         <p class="t-label view__ungrouped">Ungrouped</p>
-        <ReadonlyItemRow v-for="it in ungrouped" :key="it.id" :list="list" :item="it" :children-by-parent="childrenByParent" />
+        <ReadonlyItemRow v-for="it in ungrouped" :key="it.id" :list="list" :item="it" :children-by-parent="childrenByParent" :context-only-ids="contextOnlyIds" />
       </section>
     </div>
   </main>

@@ -1,0 +1,7 @@
+{
+  "date": "2026-09-02",
+  "fixed": [
+    "Two people on a trip can no longer share a name, so who carries what survives an export and import.",
+    "A group kept on screen only because one of its items is yours no longer shows a weight that isn't part of your total."
+  ]
+}

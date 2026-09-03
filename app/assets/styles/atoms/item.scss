@@ -109,6 +109,18 @@
     .item-wrap:not([data-person="#{$p}"]):has(.item-wrap[data-person="#{$p}"]) > .item-row:not(:has(.menu__list, .ac__menu)) {
       opacity: 0.55;
     }
+    /* …and its WEIGHT goes entirely. A group's line sums the children the filter
+       is hiding, so on a context row it states a figure that is NOT in the total
+       above it — the one number on the page that doesn't belong to the person you
+       asked about. Dimming was an apology for printing it; not printing it is the
+       fix. visibility, not display, so the row keeps its column track and the
+       names above and below stay lined up. The read views blank the same cell
+       from their own filtered set (ReadonlyListView) — the two surfaces used to
+       disagree here, one saying the group's whole weight and the other saying
+       just the matching child's. */
+    .item-wrap:not([data-person="#{$p}"]):has(.item-wrap[data-person="#{$p}"]) > .item-row .item__weight {
+      visibility: hidden;
+    }
     /* a folder holding nothing of theirs disappears whole — header, add row, rules —
        and so does the Ungrouped section. (Also swallows genuinely empty folders
        while any filter is on, which is the right reading of "their list".) */

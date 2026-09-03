@@ -20,8 +20,10 @@ import {
   effectivePersonId,
   filterItemsForPerson,
   hasUnassignedTopLevel,
+  personNameTaken,
   personSlot,
   sortedPeople,
+  uniquifyPersonNames,
   UNASSIGNED,
   visibleItemsForPerson,
 } from "../shared/people";
@@ -90,6 +92,31 @@ describe("person ops", () => {
     ]);
     expect(s.people).toHaveLength(1);
     expect(s.people![0]!.name).toBe("Sam");
+  });
+
+  it("refuses a name the list already holds, whatever its case or padding", () => {
+    // the CSV Person column carries the name and nothing else, so two people
+    // sharing one make that column ambiguous and the round-trip lossy
+    const s = state();
+    applyOps(s, [
+      { t: "addPerson", person: sam() },
+      { t: "addPerson", person: person({ id: "other", name: "  sAm " }) },
+    ]);
+    expect(s.people).toHaveLength(1);
+    expect(personNameTaken(s.people, "SAM")).toBe(true);
+    expect(personNameTaken(s.people, "Ana")).toBe(false);
+    // …and a person is never a collision with themselves
+    expect(personNameTaken(s.people, "Sam", "sam")).toBe(false);
+  });
+
+  it("drops a rename onto someone else's name, but keeps the rest of the patch", () => {
+    const s = state();
+    applyOps(s, [{ t: "addPerson", person: sam() }, { t: "addPerson", person: alex() }]);
+    applyOps(s, [{ t: "updatePerson", id: "alex", patch: { name: "sam", colorKey: "water" } }]);
+    expect(s.people![1]).toMatchObject({ name: "Alex", colorKey: "water" });
+    // renaming to a spelling of your OWN name still lands
+    applyOps(s, [{ t: "updatePerson", id: "alex", patch: { name: "ALEX" } }]);
+    expect(s.people![1]!.name).toBe("ALEX");
   });
 
   it("caps the crew at MAX_PEOPLE", () => {
@@ -357,6 +384,51 @@ describe("round-trips", () => {
   it("a CSV with no Person column (LighterPack) imports peopleless, key and all", () => {
     const back = csvToListData("Item Name,Weight,Unit\nTent,900,g\n");
     expect("people" in back).toBe(false);
+  });
+
+  it("the bulk paths number repeated names apart rather than dropping anyone", () => {
+    // a raw create, a hand-edited backup, or a list written before the rule — the
+    // reducer's one-at-a-time refusal never ran over these. Suffix, don't drop:
+    // dropping a person unassigns every row they carry.
+    const crew = [
+      person({ id: "a", name: "Sam" }),
+      person({ id: "b", name: "sam" }),
+      person({ id: "c", name: "Sam" }),
+      person({ id: "d", name: "Ana" }),
+    ];
+    // each keeps their OWN spelling and only gains a number — disambiguating is not
+    // a licence to restyle how someone wrote their name
+    expect(uniquifyPersonNames(crew).map((p) => p.name)).toEqual(["Sam", "sam 2", "Sam 3", "Ana"]);
+    expect(crew.map((p) => p.id)).toEqual(["a", "b", "c", "d"]); // nobody lost
+  });
+
+  it("a JSON backup holding two same-named people imports as two people", () => {
+    const json = listToJson({
+      ...full(),
+      people: [person({ id: "a", name: "Sam" }), person({ id: "b", name: "Sam", sortOrder: 1 })],
+      items: [item({ id: "i1", personId: "a" }), item({ id: "i2", personId: "b", sortOrder: 1 })],
+    } as never);
+    const back = jsonToListImport(json)!;
+    expect(back.data.people!.map((p) => p.name)).toEqual(["Sam", "Sam 2"]);
+    // …and they are still two DIFFERENT carriers, not one merged person
+    const [one, two] = back.data.items.map((i) => i.personId);
+    expect(one).toBeTruthy();
+    expect(two).toBeTruthy();
+    expect(one).not.toBe(two);
+  });
+
+  it("markdown compares carriers by ID, so same-named people don't merge in the diff", () => {
+    // names are unique per list now, but a list written before that rule can hold
+    // two — comparing the strings would silently un-name a child carried by the other
+    const snap = {
+      ...full(),
+      people: [person({ id: "sam", name: "Sam" }), person({ id: "sam2", name: "Sam", sortOrder: 1 })],
+      items: [
+        item({ id: "kit", name: "Cook Kit", personId: "sam" }),
+        item({ id: "pot", name: "Pot", parentId: "kit", personId: "sam2", sortOrder: 1 }),
+      ],
+    } as unknown as ListSnapshot;
+    expect(listToMarkdown(snap)).toContain("Pot *(Sam)*");
   });
 
   it("markdown names the carrier, and a child only when it differs from the group's", () => {

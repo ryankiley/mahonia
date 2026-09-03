@@ -20,6 +20,54 @@ export const UNASSIGNED = "unassigned";
 /** What the view is narrowed to: null = everyone, UNASSIGNED, or a person's id. */
 export type PersonSelection = string | null;
 
+/**
+ * The key a person's NAME is compared on. Trimmed and case-folded, because "Sam"
+ * and "sam " are one person to everyone who reads the list — and, more sharply,
+ * one column value to the CSV exporter, whose Person column carries the name and
+ * nothing else. Two people sharing a name make that column ambiguous and the
+ * round-trip lossy, so the name is an identity here, not a label.
+ */
+export const personNameKey = (name: string): string => name.trim().toLowerCase();
+
+/**
+ * Is `name` already spoken for? `exceptId` excuses the person being renamed, so
+ * re-saving your own name isn't a collision with yourself.
+ */
+export function personNameTaken(
+  people: Person[] | undefined,
+  name: string,
+  exceptId?: string,
+): boolean {
+  const key = personNameKey(name);
+  return !!people?.some((p) => p.id !== exceptId && personNameKey(p.name) === key);
+}
+
+/**
+ * Make a whole crew's names unique, in place, by numbering the repeats — for the
+ * BULK paths (a raw create, a JSON backup, a hand-edited file) where the reducer's
+ * one-at-a-time refusal never ran. Suffixes rather than drops: these people carry
+ * gear, and removing one would unassign their rows. Lists written before the rule
+ * existed come through here too, which is the point.
+ */
+export function uniquifyPersonNames(people: Person[]): Person[] {
+  const seen = new Set<string>();
+  for (const p of people) {
+    if (!seen.has(personNameKey(p.name))) {
+      seen.add(personNameKey(p.name));
+      continue;
+    }
+    // " 2", " 3", … until free. Bounded by MAX_PEOPLE, so this can't spin.
+    for (let n = 2; ; n++) {
+      const candidate = `${p.name} ${n}`;
+      if (seen.has(personNameKey(candidate))) continue;
+      p.name = candidate;
+      seen.add(personNameKey(candidate));
+      break;
+    }
+  }
+  return people;
+}
+
 /** People in display order. sortOrder is the order, array order is insertion. */
 export function sortedPeople(people?: Person[]): Person[] {
   return [...(people ?? [])].sort(bySortOrder);

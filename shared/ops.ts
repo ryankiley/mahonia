@@ -10,7 +10,7 @@ import { boundedRound, normalizeDistanceUnit, normalizeTrailAscentM, normalizeTr
 import { normalizeTrailLabel, normalizeTrailUrl } from "./trailLink";
 import type { Classification, Folder, FolderSort, Item, ListState, Person, TripDay, Unit, Waypoint } from "./types";
 import { UNITS, WAYPOINT_KINDS } from "./types";
-import { UNASSIGNED } from "./people";
+import { personNameTaken, UNASSIGNED } from "./people";
 import { cumulativeM, decodePolyline, isLoop, normalizeRouteGeometry } from "./polyline";
 
 // updateItem's patch: Partial<Item> plus `catalogItemId: null` as an explicit
@@ -604,12 +604,26 @@ function applyOp(state: ListState, op: Op): void {
         op.person.id !== UNASSIGNED &&
         (state.people?.length ?? 0) < MAX_PEOPLE &&
         !state.people?.some((p) => p.id === op.person.id)
-      )
-        (state.people ??= []).push(normalizePerson(op.person));
+      ) {
+        const person = normalizePerson(op.person);
+        // A NAME IS AN IDENTITY here, not a label: the CSV Person column carries
+        // the name and nothing else, so two people sharing one make that column
+        // ambiguous and the round-trip lossy — and two identical chips in the
+        // filter row tell the reader nothing either. Refused rather than
+        // suffixed, because the person adding it is right there and can say who
+        // they mean; the bulk paths, where nobody is, suffix instead.
+        if (!personNameTaken(state.people, person.name)) (state.people ??= []).push(person);
+      }
       break;
     case "updatePerson": {
       const p = state.people?.find((x) => x.id === op.id);
-      if (p) Object.assign(p, cleanPersonPatch(op.patch || {}));
+      if (p) {
+        const patch = cleanPersonPatch(op.patch || {});
+        // a rename onto someone else's name is dropped the way an empty one is —
+        // the colour and order in the same patch still land
+        if (patch.name && personNameTaken(state.people, patch.name, op.id)) delete patch.name;
+        Object.assign(p, patch);
+      }
       break;
     }
     case "removePerson":

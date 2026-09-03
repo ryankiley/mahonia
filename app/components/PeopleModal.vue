@@ -3,7 +3,7 @@ import { HugeiconsIcon } from "~/utils/hugeicon";
 import { Delete02Icon } from "@hugeicons/core-free-icons";
 import { categoryColor, FOLDER_PALETTE } from "~~/shared/categories";
 import { MAX_PEOPLE } from "~~/shared/ops";
-import { filterItemsForPerson, personColor, sortedPeople } from "~~/shared/people";
+import { filterItemsForPerson, personColor, personNameTaken, sortedPeople } from "~~/shared/people";
 import type { Person } from "~~/shared/types";
 
 // Who's on this trip — the one place people are added, renamed, recolored and
@@ -26,9 +26,19 @@ const draftEl = useTemplateRef<HTMLInputElement>("draftEl");
 // in the field. BaseModal's own focus move yields to a caller that already
 // placed focus inside (its documented contract), so this wins the race cleanly.
 onMounted(() => draftEl.value?.focus());
+// The reducer refuses a name the list already holds (shared/ops.ts — the CSV's
+// Person column carries names, so they have to identify). Refusing SILENTLY would
+// read as the Add button being broken, so both entry points say it instead.
+const clash = ref("");
 function add() {
   const name = draft.value.trim();
   if (!name || atCap.value) return;
+  if (personNameTaken(c.snapshot.value?.people, name)) {
+    clash.value = `Someone on this trip is already called ${name}.`;
+    draftEl.value?.select();
+    return;
+  }
+  clash.value = "";
   c.addPerson(name);
   draft.value = "";
   // stay in the field — a crew is usually typed in one sitting, name after name
@@ -39,10 +49,16 @@ function add() {
 function rename(p: Person, e: Event) {
   const el = e.target as HTMLInputElement;
   const name = el.value.trim();
-  if (name) c.updatePerson(p.id, { name });
-  // a person keeps a name (the reducer ignores an empty rename) — snap the field
-  // back so it can't show a blank the list doesn't hold
-  else el.value = p.name;
+  // a person keeps a name, and keeps a name of their OWN — the reducer drops both
+  // an empty rename and one onto someone else's name, so snap the field back
+  // rather than leave it showing something the list doesn't hold
+  if (!name || personNameTaken(c.snapshot.value?.people, name, p.id)) {
+    if (name) clash.value = `Someone on this trip is already called ${name}.`;
+    el.value = p.name;
+    return;
+  }
+  clash.value = "";
+  c.updatePerson(p.id, { name });
 }
 
 // ---- recolor ----
@@ -151,6 +167,7 @@ function remove(p: Person) {
       <input
         ref="draftEl"
         v-model="draft"
+        @input="clash = ''"
         class="field ppl__addfield"
         :placeholder="people.length ? 'Add another person' : 'Add a person — “Sam”'"
         aria-label="Add a person"
@@ -159,10 +176,12 @@ function remove(p: Person) {
         maxlength="60"
         :disabled="atCap"
       />
-      <button type="submit" class="btn btn--ghost ppl__addbtn" :disabled="atCap || !draft.trim()">Add</button>
+      <button type="submit" class="btn btn--quiet ppl__addbtn" :disabled="atCap || !draft.trim()">Add</button>
     </form>
-    <!-- the cap, said at the moment it starts refusing input -->
-    <p v-if="atCap" class="t-sm t-muted">Up to {{ MAX_PEOPLE }} people on a trip.</p>
+    <!-- said at the moment it refuses: the clash first, since it answers a press you
+         just made, and the cap only while nothing more pressing is standing -->
+    <p v-if="clash" class="t-sm ppl__clash" role="alert">{{ clash }}</p>
+    <p v-else-if="atCap" class="t-sm t-muted">Up to {{ MAX_PEOPLE }} people on a trip.</p>
 
     <div class="dlg__actions">
       <button class="btn btn--primary" @click="emit('close')">Done</button>
@@ -281,17 +300,24 @@ button.ppl__swatchbtn:hover,
   flex: 1;
   min-width: 0;
 }
-/* the WORD on the rule, like the remove icon in the rows above it: .btn's 16px inline
-   padding is hit padding, and on the row's trailing edge it pushed "Add" that far in
-   from the hairline everything else lines up with. Trailing side only — the leading
-   padding still holds it off the field it follows. */
+/* the refusal — the row's one moment of colour, like .ppl__remove.is-arming, and
+   for the same reason: it reports something that did NOT happen, so it has to be
+   read rather than scanned past */
+.ppl__clash {
+  margin: 0;
+  color: var(--danger);
+}
+/* .btn--quiet — the variant the remove controls on the rows above already wear, so
+   this row's trailing control matches theirs. It brings padding:0, which puts the
+   WORD on the rule the way their icons sit on it (the row's own gap holds it off the
+   field it follows), and min-height:0, so the row's height comes from that field
+   exactly as a person row's comes from its name field.
+   It was .btn--ghost, whose hover paints a --paper-3 plate. Getting the word flush
+   meant killing the trailing padding, and the plate went lopsided around it — 12px
+   of ground on one side and none on the other. A quiet control only darkens, so
+   there is no plate to go crooked. Stretch keeps the full-height target without
+   letting the button set the height. */
 .ppl__addbtn {
-  padding-inline: var(--space-3) 0;
-  /* …and the row's HEIGHT comes from the field beside it, exactly as a person row's
-     comes from its name field. .btn's 40px floor is 4px past that, which made this
-     row taller than every row above it and put its hairline off the rhythm. Stretch
-     keeps the button a full-height target without letting it set the height. */
-  min-height: 0;
   align-self: stretch;
 }
 </style>

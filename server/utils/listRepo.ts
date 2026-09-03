@@ -21,7 +21,7 @@ import {
   tidyListText,
   type Op,
 } from "../../shared/ops";
-import { UNASSIGNED } from "../../shared/people";
+import { UNASSIGNED, uniquifyPersonNames } from "../../shared/people";
 import { computeTotals } from "../../shared/weights";
 import {
   diffListState,
@@ -139,6 +139,10 @@ function normalizeListData(raw?: Partial<ListData>): ListData {
     people.push(p);
   }
   people.sort((a, b) => a.sortOrder - b.sortOrder).forEach((p, i) => (p.sortOrder = i));
+  // names are unique per list (the reducer refuses a collision); a raw create or a
+  // list written before that rule gets its repeats numbered rather than dropped —
+  // dropping one would unassign the rows they carry
+  uniquifyPersonNames(people);
   for (const it of items) if (it.personId && !personIds.has(it.personId)) it.personId = undefined;
   return { folders, items, days, waypoints, people };
 }
