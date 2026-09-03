@@ -691,9 +691,11 @@ onClickOutside(trailEl, closeTrail);
   align-items: flex-start;
   gap: var(--space-2);
 }
-/* Reserved at rest rather than appearing: `visibility` keeps the box in layout, so
-   revealing the hint moves nothing. (opacity would do the same, but this also takes
-   it out of the a11y tree for free.) */
+/* Reserved at rest rather than appearing: the box stays in layout, so revealing the
+   hint moves nothing. Opacity is what fades; visibility rides along in the same
+   transition so it flips at the END of the fade-out and the START of the fade-in
+   (that's how visibility interpolates), keeping the hidden hint out of the a11y tree
+   without snapping it on or off. */
 .head__pencil {
   flex: none;
   /* Centred on the title's CAP HEIGHT, not its line box.
@@ -713,11 +715,16 @@ onClickOutside(trailEl, closeTrail);
   margin-top: calc(var(--space-1) + 0.62 * var(--text-page-title) - 8px);
   align-self: flex-start;
   color: var(--ink-3);
+  opacity: 0;
   visibility: hidden;
-  transition: color var(--dur) var(--ease);
+  transition:
+    opacity var(--dur) var(--ease),
+    visibility var(--dur) var(--ease),
+    color var(--dur) var(--ease);
 }
 .head__titlewrap:hover .head__pencil,
 .head__titlewrap:focus-within .head__pencil {
+  opacity: 1;
   visibility: visible;
 }
 .head__titlewrap:focus-within .head__pencil {
