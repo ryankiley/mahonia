@@ -174,8 +174,10 @@ describe("…but the OWNER still gets it back", () => {
   });
 
   it("normalizeListData carries waypoints, or a restore drops every one", () => {
-    // the reconstructed data passes through here on its way to the row
+    // the reconstructed data passes through here on its way to the row (people
+    // joined the literal for the same reason — see tests/people.test.ts for the
+    // end-to-end version of this canary)
     expect(src).toMatch(/waypoints\.sort/);
-    expect(src).toMatch(/return \{ folders, items, days, waypoints \}/);
+    expect(src).toMatch(/return \{ folders, items, days, waypoints, people \}/);
   });
 });

@@ -74,6 +74,87 @@
   animation: rowmode-fade calc(var(--dur) * 0.9) var(--ease);
 }
 
+/* ---- the person filter -----------------------------------------------------------
+   Same architecture as the mode gate above, for the same measured reason: state on
+   the editor body (data-filter-person, absent = everyone), each row tagged with its
+   own derived data (data-person on .item-wrap — the row's EFFECTIVE carrier as a
+   slot index in display order, "u" = unassigned), and the match decided entirely in
+   CSS. Flipping a chip is one attribute write; no row subscribes to it.
+   SLOTS, not ids, because CSS cannot compare one attribute's value against
+   another's — but a closed set can be enumerated statically, and MAX_PEOPLE
+   (shared/ops.ts) bounds it at 12. Raise one, raise the other.
+   :has() keeps a parent visible as CONTEXT when only a nested child matches (the
+   children are DOM-nested inside the parent's wrap, one level only — so for a
+   nested wrap, which contains no wraps, the :not(:has()) term is vacuously true
+   and the rule is a plain match). Inside a kept parent, the other children still
+   hide. Composes with the mode gate: a display:none wrap hides both faces, so
+   packing mode filters identically.
+   !important on the row rule for the mode gate's documented reason — ItemRow's
+   mobile stack ties the specificity race, so importance ends it. The section rules
+   need none (nothing else sets display on .folder / .editor__ungrouped). */
+@each $p in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, "u") {
+  .editor__body[data-filter-person="#{$p}"] {
+    .item-wrap:not([data-person="#{$p}"]):not(:has(.item-wrap[data-person="#{$p}"])) {
+      display: none !important;
+    }
+    /* a parent kept on screen ONLY as context around a matching child: its own
+       faces quiet down, so its group weight (which still includes hidden
+       children) and its checkbox (which the filtered pack count doesn't count)
+       read as scaffolding rather than as claims. Direct children only — the
+       matching nested rows live in the sibling .nestcollapse and keep full ink.
+       …and NOT while the row has a surface up: opacity composites onto every
+       descendant and no child can undo it, so without the guard the row's own
+       popovers (the person picker, the nest menu, the name autocomplete)
+       opened at 55% over the page. */
+    .item-wrap:not([data-person="#{$p}"]):has(.item-wrap[data-person="#{$p}"]) > .item-row:not(:has(.menu__list, .ac__menu)) {
+      opacity: 0.55;
+    }
+    /* a folder holding nothing of theirs disappears whole — header, add row, rules —
+       and so does the Ungrouped section. (Also swallows genuinely empty folders
+       while any filter is on, which is the right reading of "their list".) */
+    .editor__folders > .folder:not(:has(.item-wrap[data-person="#{$p}"])),
+    .editor__ungrouped:not(:has(.item-wrap[data-person="#{$p}"])) {
+      display: none;
+    }
+  }
+}
+/* While ANY filter is active, no "Add folder": a fresh folder holds nothing of this
+   person's and would vanish the instant it appeared. Per-folder "Add an item" stays —
+   the controller pre-claims new rows for the filtered person, so they land visible.
+   No !important: this (0,3,0) beats the scoped base's (0,2,0), and v-show only ever
+   writes INLINE display:none, which never contests a hide. */
+.editor__body[data-filter-person] .editor__addfolder {
+  display: none;
+}
+/* The nesting actions stand down with it — the row's nest menu and the ⋯ menu's
+   nest entries (both carry .item__nestact). Indent aims at the UNFILTERED row
+   above, and a reparent changes what a row inherits — either can make the row
+   vanish from the very view it was touched in. Plain reorder-by-drag stays; the
+   drag's own nest gesture is suppressed at call time (useItemDnd). */
+.editor__body[data-filter-person] .item__nestact {
+  display: none !important; /* the row-rule's documented specificity race, same answer */
+}
+
+/* A list that names people shows up to SIX trailing icons on a row (the person
+   trigger joined vault · nest · remove · note · grip), one past the track's
+   reserved worst case — re-derive the reservation for six, but only under the
+   body class GearEditor sets when people exist, so every other list keeps the
+   narrower track and its wider name column. Same −9px grip-gutter overshoot,
+   and the same touch-size twin as the tokens it overrides (tokens.scss). */
+.editor__body.has-people {
+  --item-col-actions: calc(6 * var(--icon-btn) + 5 * var(--space-1) - 9px);
+  /* the COMPOSITE re-declared too, not just the part: a custom property's var()s
+     substitute where the property is DECLARED (tokens.scss:25-31 — the whole
+     reason item-cols is a mixin), so overriding the part alone left the :root
+     template holding :root's five-icon track and the sixth icon overlapping the
+     classification cell. Declared here, both resolve on this element, and the
+     folder header follows through its var(--head-cols, var(--item-cols)). */
+  --item-cols: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-class) var(--item-col-actions);
+  @media (pointer: coarse) {
+    --item-col-actions: calc(6 * var(--tap) + 5 * var(--space-1) - 9px);
+  }
+}
+
 /* nested items — a block indented behind a hairline "thread" line. The WHOLE row
    indents uniformly (via the container), so the name and its number line sit at the
    same indent — which matters most on the two-line mobile layout, where indenting
@@ -232,6 +313,23 @@
   inline-size: var(--icon-btn);
   block-size: var(--icon-btn);
   margin-block: var(--icon-pull);
+}
+
+/* The carrier tag — who takes this row, as a dot and a name riding the name line.
+   ONE recipe for every face that draws it (the editor's edit + checklist faces and
+   the share views' ReadonlyItemRow), per this file's own header rule: it existed
+   as two hand-mirrored scoped copies for exactly one review cycle. Quiet ink —
+   the dot is the identity, the name confirms it. */
+.item__carrier {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: var(--space-2);
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+.item__carrier-dot {
+  vertical-align: 0.04em; /* the CategoryBar dot's optical centring */
 }
 
 /* The quiet "Add an item" affordance — ONE recipe for the folder's add row and a nested

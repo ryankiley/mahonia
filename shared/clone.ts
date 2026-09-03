@@ -1,21 +1,32 @@
 import { uid } from "./id";
-import type { Folder, Item, ListSnapshot, TripDay, Waypoint } from "./types";
+import type { Folder, Item, ListSnapshot, Person, TripDay, Waypoint } from "./types";
 
 /**
  * The payload for an independent copy of a list: fresh ids everywhere (so the
- * copy shares nothing with the source), folder→item and parent→child links
- * remapped, and packed state reset (a copy is a list to pack, not a record of
- * what was packed). Shared by the editor's "Duplicate this list" and the read
- * views' "Duplicate this list" so the two can't drift.
+ * copy shares nothing with the source), folder→item, parent→child and
+ * person→item links remapped, and packed state reset (a copy is a list to pack,
+ * not a record of what was packed). Shared by the editor's "Duplicate this
+ * list" and the read views' "Duplicate this list" so the two can't drift.
  */
 export function cloneListData(
-  src: Pick<ListSnapshot, "folders" | "items" | "days" | "waypoints">,
-): { folders: Folder[]; items: Item[]; days: TripDay[]; waypoints: Waypoint[] } {
+  src: Pick<ListSnapshot, "folders" | "items" | "days" | "waypoints" | "people">,
+): { folders: Folder[]; items: Item[]; days: TripDay[]; waypoints: Waypoint[]; people: Person[] } {
   const idMap = new Map<string, string>();
   const folders = src.folders.map((f) => {
     const nid = uid();
     idMap.set(f.id, nid);
     return { ...f, id: nid };
+  });
+  // People come along WITH their assignments — the crew is part of the plan being
+  // copied (the next trip with the same people is exactly why you duplicate),
+  // where `packed` below is a record of one packing and resets. Remapped like
+  // folders because items point at them; a dangling assignee degrades to
+  // unassigned, the same shape as a dangling folderId.
+  const personIdMap = new Map<string, string>();
+  const people = (src.people ?? []).map((p) => {
+    const nid = uid();
+    personIdMap.set(p.id, nid);
+    return { ...p, id: nid };
   });
   // Two passes (mirrors jsonToListImport) so a child can re-point its parentId even
   // when the parent appears later in the array; a dangling parent degrades to
@@ -35,6 +46,7 @@ export function cloneListData(
     id: newIds[k]!,
     folderId: i.folderId ? (idMap.get(i.folderId) ?? null) : null,
     parentId: i.parentId ? (itemIdMap.get(i.parentId) ?? null) : null,
+    personId: i.personId ? (personIdMap.get(i.personId) ?? undefined) : undefined,
     packed: false,
   }));
   // Days come along — the itinerary is part of the plan you're copying, not a record of
@@ -51,5 +63,5 @@ export function cloneListData(
   // duplicate's own trail link is set: the distances were never coordinates, so they
   // don't go stale, they just wait.
   const waypoints = (src.waypoints ?? []).map((w) => ({ ...w, id: uid() }));
-  return { folders, items, days, waypoints };
+  return { folders, items, days, waypoints, people };
 }

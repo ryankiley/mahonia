@@ -5,22 +5,40 @@ import { parseTrailLink } from "~~/shared/trailLink";
 import { dayClimbs, parseProfile } from "~~/shared/profile";
 import { dayLabel } from "~~/shared/tripDay";
 import { formatDistance, heightUnitFor, heightValue, resolveDistanceUnit } from "~~/shared/trailDistance";
-import type { Item, ListSnapshot, Totals, Unit } from "~~/shared/types";
+import type { PersonSelection } from "~~/shared/people";
+import type { Item, ListSnapshot, Person, Totals, Unit } from "~~/shared/types";
 import { groupItemsByFolder, groupItemsByParent } from "~~/shared/weights";
 
 // The shared body for the two read-only pages (/s/[code] + /l/[slug]). Both render
 // the same totals + folder/ungrouped block over the same useReadonlyList view-model
 // (kept in the page); only the head, footer, and missing-state copy differ, so those
 // are slots. This is purely the shared template + .view CSS — no data shaping
-// (beyond the per-folder grouping every ReadonlyFolderSection consumes).
+// (beyond the per-folder grouping every ReadonlyFolderSection consumes; the person
+// filter is already applied to `list.items` by the view-model).
 const props = defineProps<{
   list: ListSnapshot | null;
   totals: Totals | null;
   shownFolders: ListSnapshot["folders"];
   ungrouped: ListSnapshot["items"];
+  // the list's people + the viewer's filter (useReadonlyList) — absent on a
+  // peopleless list, and the chips row simply doesn't render
+  people?: readonly Person[];
+  personFilter?: PersonSelection;
+  showUnassigned?: boolean;
+  /** each chip's carry, pre-formatted in the viewer's unit (useReadonlyList) */
+  chipWeights?: Record<string, string>;
 }>();
 
-defineEmits<{ "set-unit": [Unit] }>();
+defineEmits<{ "set-unit": [Unit]; "pick-person": [PersonSelection] }>();
+
+// the empty filter result gets a sentence (see the block below the folders) —
+// name resolvable only for a real person; the view-model's widen-watcher keeps
+// the Unassigned selection from ever standing empty
+const filteredEmptyName = computed(() => {
+  if (!props.personFilter) return null;
+  if (props.shownFolders.length || props.ungrouped.length) return null;
+  return props.people?.find((p) => p.id === props.personFilter)?.name ?? null;
+});
 
 // one grouping pass for all folders (ReadonlyFolderSection takes its items pre-grouped),
 // each folder ordered by its own sortBy so a shared list reads exactly as the owner's
@@ -216,6 +234,28 @@ const asHeight = (m: number) => {
       </ol>
     </section>
 
+    <!-- whose half of the load — the editor's chips, readonly (no manage button).
+         SSR'd like the rest of the page (the names are already in the rows below);
+         the filter itself is client state that starts, and renders, as Everyone.
+         The heading names the block for a first-time viewer — every other block on
+         this page has one, and an unlabelled row of names doesn't say it filters. -->
+    <section v-if="view === 'gear' && people?.length" class="view__people">
+      <p class="t-label view__peopleh">People</p>
+      <PeopleBar
+        :people="people"
+        :selected="personFilter ?? null"
+        :show-unassigned="showUnassigned"
+        :weights="chipWeights"
+        @pick="(id) => $emit('pick-person', id)"
+      />
+    </section>
+
+    <!-- a filter that matches nothing says so, with the same way back the editor offers -->
+    <p v-if="view === 'gear' && filteredEmptyName" class="t-sm t-muted view__filterempty">
+      Nothing is {{ filteredEmptyName }}’s yet.
+      <button type="button" class="btn btn--quiet" @click="$emit('pick-person', null)">Show everyone</button>
+    </p>
+
     <div v-if="view === 'gear'" class="view__folders">
       <ReadonlyFolderSection v-for="f in shownFolders" :key="f.id" :list="list" :folder="f" :items="itemsByFolder.get(f.id) ?? NO_ITEMS" :children-by-parent="childrenByParent" />
       <section v-if="ungrouped.length">
@@ -385,6 +425,24 @@ const asHeight = (m: number) => {
 }
 .view__ungrouped {
   margin-bottom: var(--space-1);
+}
+/* the people block: heading tight to its chips, the pair one unit in the column */
+.view__people {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.view__peopleh {
+  margin: 0;
+}
+/* the empty filter line — the editor's recipe: wraps so a long name folds the
+   sentence without stranding the button on the first line's baseline */
+.view__filterempty {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-3);
 }
 .view--missing {
   padding-block: var(--space-9);

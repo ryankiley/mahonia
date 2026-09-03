@@ -26,6 +26,14 @@ const props = defineProps<{
   title?: string;
   /** an explicit accessible name for the trigger, where the figure alone reads oddly */
   triggerLabel?: string;
+  /**
+   * What the figure is OF, shown only when that stops being the obvious thing.
+   * The headline normally needs no label ("the big figure makes it implicit" —
+   * TotalsBar), and that argument holds exactly as long as the number means the
+   * whole list; narrowed to one person's pack, the same reasoning demands the
+   * name. Absent = the label-less headline this has always been.
+   */
+  caption?: string;
 }>();
 
 defineEmits<{ pick: [key: string] }>();
@@ -63,6 +71,7 @@ defineEmits<{ pick: [key: string] }>();
         </span>
       </template>
     </OptionMenu>
+    <span v-if="props.caption" class="headline__caption">{{ props.caption }}</span>
   </div>
 </template>
 
@@ -105,5 +114,19 @@ defineEmits<{ pick: [key: string] }>();
 
 .headline__chev.is-open {
   rotate: 180deg;
+}
+
+/* The caption sits on the figure's baseline, one step past the unit — in the
+   UNIT's own type, so the two read as one run of chrome qualifying the number
+   (t-label rendered bigger and bolder than the unit beside it: a heading, not a
+   qualifier). Truncates rather than wraps: a name runs to 60 chars, and the
+   figure is the headline — same guard the ListHead names wear. */
+.headline__caption {
+  font-size: var(--text-chrome);
+  color: var(--ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: min(40vw, 26ch);
 }
 </style>

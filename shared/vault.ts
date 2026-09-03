@@ -33,9 +33,10 @@ export const VAULT_URL_MAX = 2000;
 /**
  * A piece of gear as the client offers it up for capture — the subset of a list
  * Item that describes the GEAR rather than its role in one particular list.
- * Deliberately omits qty, sortOrder, packed and wornQty: those are facts about a
- * list, not about the thing you own. Folder is the exception, and carried by NAME
- * rather than by the list's folder id — see the field below.
+ * Deliberately omits qty, sortOrder, packed, wornQty and personId: those are
+ * facts about a list (who carries the stove on THIS trip is not a property of
+ * the stove), not about the thing you own. Folder is the exception, and carried
+ * by NAME rather than by the list's folder id — see the field below.
  */
 export interface VaultCapture {
   normKey: string;

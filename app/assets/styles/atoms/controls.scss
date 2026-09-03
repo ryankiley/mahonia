@@ -330,6 +330,13 @@ input[type="search"]::-webkit-search-decoration {
   flex: none;
   border-radius: var(--radius-pill);
 }
+/* "no colour yet" — the unassigned bucket's mark, wherever it appears (the person
+   filter's chip and the row picker's clear entry). Hollow, so it reads as the
+   absence the filled dots fill. */
+.swatch--hollow {
+  background: transparent;
+  border: 1.5px solid var(--ink-3);
+}
 
 // .panel — a quiet hairline in-page surface (the ungrouped-items section).
 // Floating things (menus, dialogs) wear .popover / .dlg instead.

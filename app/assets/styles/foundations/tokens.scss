@@ -386,7 +386,11 @@ $bp-full: 1024px !default;
      add/indent/outdent varies), and an auto column would size to that count — stealing
      from the 1fr name column by a different amount per row and misaligning qty/weight/
      class. Reserve the widest case (5 × --icon-btn icons + 4 gaps; −9px = the grip's
-     gutter overshoot) so every row's data columns line up regardless of its icon count. */
+     gutter overshoot) so every row's data columns line up regardless of its icon count.
+     A list that NAMES PEOPLE shows a sixth (the carrier trigger): atoms/item.scss
+     re-derives this AND the composite --item-cols under .editor__body.has-people —
+     the composite too, per the substitution rule the item-cols mixin above exists
+     for. Retune this case and that one moves in step, or the six-icon rows drift. */
   --item-col-actions: calc(5 * var(--icon-btn) + 4 * var(--space-1) - 9px);
   --item-cols: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-class) var(--item-col-actions); /* edit: name · qty(+L) · weight+unit · class · actions */
 

@@ -16,12 +16,14 @@ const snapshot = computed<ListSnapshot | null>(() => data.value?.snapshot ?? nul
 useResponseHeader("Cache-Control").value =
   "public, max-age=0, s-maxage=30, stale-while-revalidate=120";
 
-const { unit, totals, roList, ungrouped, shownFolders } = useReadonlyList(snapshot);
+const { unit, totals, fullTotals, roList, ungrouped, shownFolders, people, personFilter, showUnassigned, chipWeights } =
+  useReadonlyList(snapshot);
 
 // Social unfurl (iMessage/Slack/etc.): the title + a short summary so a pasted share
 // link shows the list name, not a bare URL. Shared with /l via useReadonlyListSeo;
 // this page's noindex (below) keeps it out of search — og tags still drive previews.
-useReadonlyListSeo(snapshot, totals, "shared");
+// fullTotals, not totals: the unfurl describes the list, not the viewer's filter.
+useReadonlyListSeo(snapshot, fullTotals, "shared");
 useHead({
   title: () => (snapshot.value ? `${snapshot.value.title} — Mahonia` : "Mahonia"),
   meta: [{ name: "robots", content: "noindex" }],
@@ -30,7 +32,9 @@ useHead({
 
 <template>
   <div>
-    <ReadTopbar :snapshot="snapshot" :totals="totals" />
+    <!-- fullTotals, not totals: the topbar's figure (and the weight a Duplicate
+         registers in "Your lists") describes the list, not the viewer's filter -->
+    <ReadTopbar :snapshot="snapshot" :totals="fullTotals" />
 
     <!-- No #status here: a share link carries nothing to edit with, so "Read-only" only
          ever told the reader what the page already shows. /l keeps its status, because
@@ -40,7 +44,12 @@ useHead({
       :totals="totals"
       :shown-folders="shownFolders"
       :ungrouped="ungrouped"
+      :people="people"
+      :person-filter="personFilter"
+      :show-unassigned="showUnassigned"
+      :chip-weights="chipWeights"
       @set-unit="(u) => (unit = u)"
+      @pick-person="(id) => (personFilter = id)"
     />
   </div>
 </template>

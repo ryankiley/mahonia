@@ -9,6 +9,7 @@ const NO_ITEMS: ItemT[] = [];
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
 import { ChevronDownIcon, ShirtIcon } from "@hugeicons/core-free-icons";
+import { personColor } from "~~/shared/people";
 import type { Item, ListSnapshot } from "~~/shared/types";
 import { effectiveClassification, formatKcal, formatWeight, rowDisplayMg, splitWornQty } from "~~/shared/weights";
 import { itemQtyLabel } from "~~/shared/water";
@@ -81,13 +82,22 @@ const wornTitle = computed(() =>
 // shown; expand to see the members). Local + per-view, NEVER persisted, matching
 // ReadonlyFolderSection (the owner's editor collapse can't bleed into the share).
 const collapsed = ref(true);
+// The carrier, tagged only on the row that CLAIMS it (a child of a claimed group
+// inherits silently — the editor's checklist face draws the same line), from the
+// list's own people so the share reads exactly what the owner marked.
+const rowPerson = computed(() =>
+  props.item.personId ? props.list.people?.find((p) => p.id === props.item.personId) : undefined,
+);
 </script>
 
 <template>
   <div class="ro-wrap">
     <div class="item-row item item--ro">
       <span class="item__roname" :class="{ 'item__roname--group': isParent }">
-        <span class="item__ronametext"><ItemName :item="item" :group="isParent" search /><span v-if="lineKcal" class="t-sm item__class"> · {{ formatKcal(lineKcal) }} kcal</span></span>
+        <span class="item__ronametext"><ItemName :item="item" :group="isParent" search /><span v-if="lineKcal" class="t-sm item__class"> · {{ formatKcal(lineKcal) }} kcal</span><!--
+          who carries it — the dot names the person in colour, the hidden text names
+          them for flattened readers of this SSR'd page (the class-mark precedent)
+        --><span v-if="rowPerson" class="t-sm item__carrier"><span class="swatch item__carrier-dot" :style="{ background: personColor(rowPerson) }" aria-hidden="true" />{{ rowPerson.name }}<span class="visually-hidden"> carries this</span></span></span>
         <!-- collapse a group of nested items — trails the name like the folder chevron.
              The name text truncates so a long group name never shoves the chevron off. -->
         <button
@@ -255,6 +265,8 @@ const collapsed = ref(true);
   color: var(--ink-3);
   font-style: italic;
 }
+/* the carrier tag is the shared .item__carrier atom (atoms/item.scss) — one
+   recipe for this row and the editor's faces, per that file's header rule */
 /* the nested block's thread-line container is the shared .nest-block atom
    (atoms/item.scss), rendered identically by the editor's ItemRow */
 

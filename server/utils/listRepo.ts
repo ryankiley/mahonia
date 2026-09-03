@@ -10,15 +10,18 @@ import {
   MAX_DAYS,
   MAX_FOLDERS,
   MAX_ITEMS,
+  MAX_PEOPLE,
   MAX_WAYPOINTS,
   normalizeCalendarDate,
   normalizeDay,
   normalizeFolder,
   normalizeItem,
+  normalizePerson,
   normalizeWaypoint,
   tidyListText,
   type Op,
 } from "../../shared/ops";
+import { UNASSIGNED } from "../../shared/people";
 import { computeTotals } from "../../shared/weights";
 import {
   diffListState,
@@ -122,7 +125,22 @@ function normalizeListData(raw?: Partial<ListData>): ListData {
     waypoints.push(w);
   }
   waypoints.sort((a, b) => a.alongM - b.alongM);
-  return { folders, items, days, waypoints };
+  // People: dedupe + cap like folders, renumbered like days — and then the one
+  // referential invariant items hold against them, re-applied in bulk exactly as
+  // folderId is above: an assignee this list doesn't have heals to unassigned,
+  // or a raw create POST persists weight attributed to nobody the UI can show.
+  const people: NonNullable<ListData["people"]> = [];
+  const personIds = new Set<string>();
+  for (const p of (raw?.people ?? []).slice(0, MAX_PEOPLE).map(normalizePerson)) {
+    // the filter's sentinel word is not an id (the addPerson arm refuses it too);
+    // a crafted create carrying it is dropped here and its items heal below
+    if (personIds.has(p.id) || p.id === UNASSIGNED) continue;
+    personIds.add(p.id);
+    people.push(p);
+  }
+  people.sort((a, b) => a.sortOrder - b.sortOrder).forEach((p, i) => (p.sortOrder = i));
+  for (const it of items) if (it.personId && !personIds.has(it.personId)) it.personId = undefined;
+  return { folders, items, days, waypoints, people };
 }
 
 // trailFaviconDataUrl is NOT set here — it lives in a separate per-host table and is
@@ -162,6 +180,12 @@ export function rowToSnapshot(row: ListRow): ListSnapshot {
     // that fails closed. withOwnerOnly puts the real items back.
     items: (data.items ?? []).map(({ packed: _packed, ...rest }) => rest),
     days: data.days ?? [],
+    // People ride every read path, the same way days do — who carries what is
+    // list CONTENT (the point of the feature is a friend seeing their half over
+    // a share link), where `packed` above is one person's progress and waypoints
+    // below are a location. The names are owner-typed labels, removable and
+    // renameable like folder names.
+    people: data.people ?? [],
     // The ASYMMETRY with days is deliberate and load-bearing. Every other entity in
     // `data` is public; waypoints are not, so this must NOT forward them — and
     // routeGeometry is absent entirely rather than undefined. withOwnerOnly puts both
@@ -318,6 +342,7 @@ function rowToState(row: ListRow): ListState {
     items: structuredClone(data.items ?? []),
     days: structuredClone(data.days ?? []),
     waypoints: structuredClone(data.waypoints ?? []),
+    people: structuredClone(data.people ?? []),
     version: row.version,
   });
 }
@@ -983,6 +1008,7 @@ export async function applyOpsByEditHash(
       items: state.items.map((i) => ({ ...i })),
       folders: state.folders.map((f) => ({ ...f })),
       days: (state.days ?? []).map((d) => ({ ...d })),
+      people: (state.people ?? []).map((p) => ({ ...p })),
     };
     applyOps(state, ops);
     // EVERY entity the reducer holds, or the autosave quietly deletes the ones missed
@@ -995,6 +1021,7 @@ export async function applyOpsByEditHash(
       items: state.items,
       days: state.days ?? [],
       waypoints: state.waypoints ?? [],
+      people: state.people ?? [],
     };
     const totals = computeTotals(data);
 

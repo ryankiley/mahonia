@@ -533,6 +533,7 @@ onClickOutside(trailEl, closeTrail);
         </Transition>
       </span>
 
+
       <!-- The edit panel, anchored under the row so the link stays visible above it.
            No "Done": the inputs commit on change (blur/Enter) like every
            other field in the editor, so a confirm button would only be confirming

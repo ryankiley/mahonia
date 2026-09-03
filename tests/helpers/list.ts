@@ -4,12 +4,13 @@
 
 import type { ListSnapshot } from "../../shared/types";
 
-export function blankList(): ListSnapshot {
+export function blankList(over: Partial<ListSnapshot> = {}): ListSnapshot {
   return {
     id: "l1",
     name: "Test",
     displayUnit: "g",
     folders: [{ id: "f1", name: "Shelter", sortOrder: 0 }],
     items: [],
+    ...over,
   } as unknown as ListSnapshot;
 }
