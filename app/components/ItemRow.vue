@@ -1074,7 +1074,7 @@ function dismissFix() {
           <ItemInput
             :unit="list.displayUnit"
             :initial="editableName"
-            placeholder="Item name"
+            placeholder="Name of item"
             :clear-on-commit="false"
             :autofocus="isPendingBlank"
             @commit="onNameCommit"
@@ -1116,22 +1116,19 @@ function dismissFix() {
         <Transition name="reveal">
           <div v-if="subShown" class="reveal reveal--note">
             <div class="item__subfields">
-              <!-- the gear-type field's placeholder is EXAMPLES ONLY, no concept noun: it sits
-                   directly under the product name, so the contrast (a specific product / the
-                   everyday word for it) is what explains it — naming the abstraction there is
-                   what read as jargon. The aria-label carries the noun for screen readers,
-                   which have no such positional context.
-                   The three examples are the three most common types in the catalog itself
-                   (backpack 237 rows, tent 118, quilt 107 — seed/common-names.json), so they
-                   are real canonical values, spelled as the vocabulary spells them. The old
-                   "Shoes" was neither: no row carries it (footwear is "trail runners" /
-                   "hiking shoes"), so the field was advertising a value it would never fill in. -->
+              <!-- the two placeholders are a matched pair — "Name of item" above, "Type of
+                   gear" here — so a blank row reads as one short stack. This field used to
+                   show examples only ("Tent, Backpack, Quilt…"), relying on the product name
+                   above to explain it; on a blank row there is no name above, so the examples
+                   read as a second set of name suggestions. A catalog pick fills this field
+                   with a real value anyway, which demonstrates the vocabulary better than a
+                   placeholder did. The aria-label carries the same noun for screen readers. -->
               <input
                 v-if="cnameShown"
                 ref="cnameRef"
                 class="item__note item__gtype-input"
                 :value="item.commonName ?? ''"
-                placeholder="Tent, Backpack, Quilt…"
+                placeholder="Type of gear"
                 aria-label="Gear type"
                 autocorrect="off"
                 spellcheck="true"

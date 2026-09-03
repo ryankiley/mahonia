@@ -194,11 +194,11 @@ async function onSubmit() {
         <input ref="nameEl" v-model="name" class="field" autocomplete="off" autocorrect="off" spellcheck="false" @keydown.enter="onSubmit" />
       </label>
 
-      <!-- the placeholder is ItemRow's, word for word: three real canonical values
-           from the catalog's own common names, so the vocabulary is stated once -->
+      <!-- the placeholder is ItemRow's, word for word, so the field is named the same
+           way in both places -->
       <label class="dlg__field">
         <span class="t-sm t-muted">Gear type</span>
-        <input v-model="commonName" class="field" placeholder="Tent, Backpack, Quilt…" @keydown.enter="onSubmit" />
+        <input v-model="commonName" class="field" placeholder="Type of gear" @keydown.enter="onSubmit" />
       </label>
 
       <div class="vitem__pair">
