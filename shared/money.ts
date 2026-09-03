@@ -81,6 +81,50 @@ export function parsePriceInput(raw: string): Price | null {
   return { cents: Math.min(PRICE_MAX_CENTS, Math.round(cents)), currency };
 }
 
+/** What a set of gear cost, when that question has one honest answer. */
+export interface PriceTotal {
+  cents: number;
+  /** The currency every priced row agreed on, or absent when none stated one. */
+  currency?: string;
+  /** How many rows carried a price — the figure's own denominator. */
+  counted: number;
+}
+
+/**
+ * Add up what you paid for a set of gear.
+ *
+ * Returns null when the rows name MORE THAN ONE currency, and that is the whole
+ * design: a sum across two currencies is not a smaller truth, it is a wrong number,
+ * and stamping the majority's symbol on it would be a wrong number that looks
+ * right. A vault that mixes them shows no total rather than a bad one.
+ *
+ * A price with no currency (a bare number typed into the dialog) agrees with
+ * everything — it says "unstated", not "a different one" — so a vault where one row
+ * says "$399" and the rest say "62" totals in dollars. That is the common shape:
+ * one person, one currency, a symbol typed once.
+ *
+ * Rows with no price at all are simply not counted; `counted` is how many were, so
+ * a caller can decide whether a figure standing for three rows out of ninety is
+ * worth showing.
+ */
+export function sumPrices(
+  rows: readonly { priceCents?: number; currency?: string }[],
+): PriceTotal | null {
+  let cents = 0;
+  let counted = 0;
+  let currency: string | undefined;
+  for (const row of rows) {
+    if (typeof row.priceCents !== "number" || row.priceCents <= 0) continue;
+    if (row.currency) {
+      if (currency && row.currency !== currency) return null;
+      currency = row.currency;
+    }
+    cents += row.priceCents;
+    counted++;
+  }
+  return counted ? { cents, currency, counted } : null;
+}
+
 /**
  * A stored price as it reads on screen and in an export.
  *

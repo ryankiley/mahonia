@@ -20,7 +20,13 @@ import { formatWeight, itemDisplayName, parseWeightInput } from "~~/shared/weigh
 // The cost, plainly: a run of tidy-ups is open/edit/save per row rather than tabbing
 // down a column. Acceptable because /gear's row is DISPLAY — turning it into the
 // editor's live form is a bigger change than this page wants to be.
-const props = defineProps<{ entry: VaultEntry | null; unit: Unit }>();
+const props = defineProps<{
+  entry: VaultEntry | null;
+  unit: Unit;
+  /** The money the rest of your gear is priced in, when it is priced in one. A bare
+   *  number falls back to it, so stating a currency once is enough — see onSubmit. */
+  defaultCurrency?: string;
+}>();
 const emit = defineEmits<{ close: []; saved: [VaultEntry] }>();
 
 const { vaultFetch } = useVaultAccess();
@@ -151,10 +157,14 @@ async function onSubmit() {
       return;
     }
     patch.priceCents = parsed ? parsed.cents : null;
-    // A number typed with no symbol keeps the currency the row already carries —
-    // there is no separate currency field, so re-typing the amount would otherwise
-    // silently strip the money it was in. Type a new symbol to change it.
-    if (parsed) patch.currency = parsed.currency ?? props.entry.currency ?? null;
+    // A number typed with no symbol keeps the currency the row already carries, and
+    // failing that the one the rest of your gear is in — there is no separate
+    // currency field, so re-typing the amount would otherwise silently strip the
+    // money it was in, and a first price would land currency-less beside a total
+    // that has one. Type a new symbol to change it.
+    if (parsed) {
+      patch.currency = parsed.currency ?? props.entry.currency ?? props.defaultCurrency ?? null;
+    }
   }
   if (productUrl.value !== opened.productUrl) {
     const url = productUrl.value.trim().slice(0, VAULT_URL_MAX);
