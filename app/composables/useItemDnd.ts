@@ -11,9 +11,7 @@
 //
 // One level only (mirrors the indent/outdent buttons + the reducer's hasKids guard):
 // a row that already has children can't be nested, and you can't nest under a row
-// that is itself nested. Nesting via drag is a MANUAL-folder gesture — in a
-// name/weight-sorted folder the exact slot is moot, so a drag there stays a plain
-// (append) reorder, same as before; un-nesting still works everywhere.
+// that is itself nested.
 
 // horizontal travel from the gesture's start x (px) needed to change nesting level —
 // large enough that a vertical drag with a little wobble never re-nests by accident
@@ -115,11 +113,10 @@ function create() {
         const overFolder = folderUnder(el, ev.clientY);
         if (!overFolder || overFolder.hasAttribute("data-collapsed")) return;
         const rows = topRowsOf(overFolder, dragId);
-        const isSorted = (overFolder.getAttribute("data-sort") || "manual") !== "manual";
         drop.value = {
           folderId: overFolder.getAttribute("data-folder") || null,
           parentId: null,
-          beforeId: isSorted ? null : idOf(rows[slotFor(rows, ev.clientY)]),
+          beforeId: idOf(rows[slotFor(rows, ev.clientY)]),
           insert: pendingInsert,
         };
         return;
@@ -144,7 +141,6 @@ function create() {
       // append into a folder you can't see. Treat it as a gap and keep the last target.
       if (folderEl.hasAttribute("data-collapsed")) return;
       const folderId = folderEl.getAttribute("data-folder") || null;
-      const sorted = (folderEl.getAttribute("data-sort") || "manual") !== "manual";
 
       // ---- still nested + not dragged far enough left to escape: reorder among
       // siblings, staying under the same parent (the original nested behavior) ----
@@ -156,7 +152,7 @@ function create() {
         drop.value = {
           folderId: dragged.folderId,
           parentId,
-          beforeId: sorted ? null : idOf(sibs[slotFor(sibs, ev.clientY)]),
+          beforeId: idOf(sibs[slotFor(sibs, ev.clientY)]),
         };
         return;
       }
@@ -169,8 +165,8 @@ function create() {
       const candidateId = idOf(parentCandidate);
 
       // nest INTO the row above when dragged right past the threshold — but only a
-      // childless row can be nested, only under a real row above it, and not in a
-      // sorted folder (slot is moot there). Otherwise land at top level.
+      // childless row can be nested, and only under a real row above it. Otherwise
+      // land at top level.
       // Not while a person filter is on, either: the visible row above is either
       // that person's (fine) or a context parent belonging to someone ELSE — and
       // nesting under that one makes the dragged row inherit them and vanish from
@@ -178,7 +174,7 @@ function create() {
       // filter (the indent menu does the same, in CSS). Read at CALL time — this
       // is a pointermove handler, so no row grows a reactive subscription.
       const filterOn = usePersonFilter().selected.value != null;
-      const nest = !filterOn && dx >= NEST_THRESHOLD && !hasKids && !sorted && candidateId != null;
+      const nest = !filterOn && dx >= NEST_THRESHOLD && !hasKids && candidateId != null;
       if (nest) {
         const kids = [...document.querySelectorAll(`[data-parent="${candidateId}"]`)].filter(
           (r) => r.getAttribute("data-item-id") !== dragId,
@@ -187,7 +183,7 @@ function create() {
         return;
       }
       // plain top-level reorder / un-nest (a nested row that reached here escaped its parent)
-      drop.value = { folderId, parentId: null, beforeId: sorted ? null : idOf(topRows[slot]) };
+      drop.value = { folderId, parentId: null, beforeId: idOf(topRows[slot]) };
     },
     target: () => drop.value,
     commit: (id, t) =>

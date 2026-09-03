@@ -8,7 +8,7 @@ import { parseProfile } from "./profile";
 import { tidyProse, tidyText } from "./tidyText";
 import { boundedRound, normalizeDistanceUnit, normalizeTrailAscentM, normalizeTrailDistanceM } from "./trailDistance";
 import { normalizeTrailLabel, normalizeTrailUrl } from "./trailLink";
-import type { Classification, Folder, FolderSort, Item, ListState, Person, TripDay, Unit, Waypoint } from "./types";
+import type { Classification, Folder, Item, ListState, Person, TripDay, Unit, Waypoint } from "./types";
 import { UNITS, WAYPOINT_KINDS } from "./types";
 import { personNameTaken, UNASSIGNED } from "./people";
 import { cumulativeM, decodePolyline, isLoop, normalizeRouteGeometry } from "./polyline";
@@ -123,11 +123,6 @@ function setDate(state: ListState, key: "startDate" | "endDate", raw: string): v
   if (!value) return void delete state[key];
   state[key] = value;
 }
-// The non-default folder sorts. "manual" is the default and stored as ABSENT (see
-// cleanFolderPatch/normalizeFolder), so it isn't in this set — an incoming "manual"
-// (or any unknown value) clears sortBy back to the default rather than persisting it.
-const FOLDER_SORTS: FolderSort[] = ["name", "heaviest", "lightest"];
-
 // Hard caps (enforced in the reducer → client + server agree). Generous for
 // real lists, but bound row size / DoS and keep summed totals exact under the
 // bigint(mode:number) columns (MAX_ITEMS × qtyMax × UNIT_WEIGHT_MAX_MG < 2^53).
@@ -254,11 +249,6 @@ function cleanFolderPatch(patch: Partial<Folder>): Partial<Folder> {
   if (typeof patch.colorKey === "string" && SAFE_COLOR_KEY.test(patch.colorKey)) out.colorKey = patch.colorKey;
   if (typeof patch.defaultClassification === "string" && CLASSES.includes(patch.defaultClassification))
     out.defaultClassification = patch.defaultClassification;
-  // sortBy: a known non-default sort sets it; "manual" or anything unrecognized clears
-  // it back to the default (undefined) — so switching a folder back to Manual removes
-  // the field (dropped by JSON.stringify) instead of persisting a redundant "manual".
-  if (typeof patch.sortBy === "string")
-    out.sortBy = FOLDER_SORTS.includes(patch.sortBy as FolderSort) ? (patch.sortBy as FolderSort) : undefined;
   if (typeof patch.sortOrder === "number" && isFinite(patch.sortOrder)) out.sortOrder = patch.sortOrder;
   return out;
 }
@@ -861,9 +851,8 @@ export function normalizeFolder(raw: Folder): Folder {
     defaultClassification: CLASSES.includes(raw.defaultClassification)
       ? raw.defaultClassification
       : "base",
-    // only a known non-default sort survives; absent/"manual"/unknown → undefined
-    // (dropped by JSON.stringify), read back as the default manual order
-    sortBy: FOLDER_SORTS.includes(raw.sortBy as FolderSort) ? (raw.sortBy as FolderSort) : undefined,
+    // a `sortBy` from the days folders could be name/weight-sorted is dropped here:
+    // every folder is in drag order now, and the field has no reader left
     sortOrder: Number(raw.sortOrder) || 0,
   };
 }

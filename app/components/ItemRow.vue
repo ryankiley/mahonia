@@ -202,14 +202,6 @@ function onGripKey(e: KeyboardEvent) {
   if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
   e.preventDefault();
   const parentId = props.item.parentId ?? null;
-  // a top-level row in a non-manual folder is displayed in the sort's order, NOT
-  // sortOrder — reordering it would rewrite the manual order invisibly (the drag
-  // path bails the same way, useItemDnd). Nested children always render in
-  // sortOrder, so their keyboard reorder stays meaningful.
-  if (parentId == null) {
-    const sortBy = props.list.folders.find((f) => f.id === props.item.folderId)?.sortBy ?? "manual";
-    if (sortBy !== "manual") return;
-  }
   const sibs = siblingItems(props.list.items, props.item.folderId, parentId).sort(bySortOrder);
   const i = sibs.findIndex((s) => s.id === props.item.id);
   if (i < 0) return;

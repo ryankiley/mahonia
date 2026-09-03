@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
 import { ChevronDownIcon, Delete02Icon, GripVerticalIcon } from "@hugeicons/core-free-icons";
-import type { Folder, FolderSort, Item, ListSnapshot } from "~~/shared/types";
+import type { Folder, Item, ListSnapshot } from "~~/shared/types";
 import { bySortOrder } from "~~/shared/weights";
 
 // a row can raise a transient message (banking gear to the vault); the folder just
@@ -44,23 +44,6 @@ const anyItemDrag = computed(() => dnd.dragId.value != null);
 const overlayCount = ref(0);
 function onOverlayToggle(open: boolean) {
   overlayCount.value = Math.max(0, overlayCount.value + (open ? 1 : -1));
-}
-
-// per-folder "sort by": manual (drag order) is the default; name/weight are derived
-// views the parent's groupItemsByFolder recomputes each render, so they stay sorted
-// as items change. The control's glyph reflects the active mode (and lights up when
-// it's not manual, so a sorted folder is legible at a glance without opening it).
-// SORT_META / SORT_ORDER live in app/utils/sortOptions — My Gear's folders offer
-// the same four modes and have to read the same way. That file carries the glyph
-// reasoning, why `icon` is path data, and why the template can't use
-// <component :is>.
-const sortBy = computed<FolderSort>(() => props.folder.sortBy ?? "manual");
-const isSorted = computed(() => sortBy.value !== "manual");
-const sortIcon = computed(() => SORT_META[sortBy.value].icon);
-// the shape SortMenu takes — the same four modes, now declared once per caller
-const SORT_OPTIONS = SORT_ORDER.map((key) => ({ key, label: SORT_META[key].label, icon: SORT_META[key].icon }));
-function onSort(key: FolderSort) {
-  c.updateFolder(props.folder.id, { sortBy: key });
 }
 
 // drag-to-reorder folders via the grip handle (a drop line shows where it lands)
@@ -123,7 +106,6 @@ function toggleCollapsed() {
   <section
     class="folder"
     :data-folder="folder.id"
-    :data-sort="sortBy"
     :data-collapsed="collapsed || null"
     :class="{ 'folder--dragging': isFolderDragging, 'folder--drop-before': isDropBefore, 'folder--drop-after': isDropAfter }"
   >
@@ -148,10 +130,10 @@ function toggleCollapsed() {
           <HugeiconsIcon :icon="ChevronDownIcon" class="folder__chev" :class="{ 'is-collapsed': collapsed }" :size="20" :stroke-width="2" />
         </button>
       </div>
-      <!-- trailing actions read left→right: delete · sort · reorder-grip (grip stays
-           flush at the edge, matching the item rows) -->
+      <!-- trailing actions read left→right: delete · reorder-grip (grip stays flush
+           at the edge, matching the item rows) -->
       <!-- hidden in packing by the mode CSS (atoms/folder.scss), not a v-if: these
-           fourteen clusters (sort menu, delete, grip, their tooltips) were the last
+           fourteen clusters (delete, grip, their tooltips) were the last
            thing still MOUNTING on every packing→gear switch after the rows stopped —
            ~240ms of the switch was rebuilding folder chrome. -->
       <div class="folder__actions">
@@ -163,26 +145,6 @@ function toggleCollapsed() {
         >
           <HugeiconsIcon :icon="Delete02Icon" :size="16" :stroke-width="2" />
         </button>
-        <!-- the shared sort picker (SortMenu) — the editor's folder headers and the
-             vault's both use it, so the control exists once. `is-active` lights the
-             glyph when a non-manual sort is on, which is how a sorted folder reads as
-             sorted at a glance even when collapsed. -->
-        <OptionMenu
-          class="folder__sortwrap"
-          :class="{ 'is-active': isSorted }"
-          trigger-class="btn btn--icon btn--ghost"
-          :options="SORT_OPTIONS"
-          :current="sortBy"
-          :label="`Sort items in ${folder.name || 'folder'}`"
-          :title="`Sort items — ${SORT_META[sortBy].label}`"
-          @pick="(k) => onSort(k as FolderSort)"
-        >
-          <!-- sortIcon, not the slot's `active?.icon`: `active` is a find over the
-               options so its icon is a maybe, and the icon prop doesn't take one -->
-          <template #trigger>
-            <HugeiconsIcon :icon="sortIcon" class="folder__sorticon" :size="16" :stroke-width="2" aria-hidden="true" />
-          </template>
-        </OptionMenu>
         <!-- drag via pointerdown; arrow keys give the focused grip the reordering
              its label promises (a drag needs a pointer) -->
         <button
@@ -286,11 +248,11 @@ function toggleCollapsed() {
 }
 
 /* A folder's controls are ALWAYS visible, on every pointer.
-   They used to fade in on hover — a clean header at rest, with only the grip and a
-   non-default sort glyph standing. The item rows made the opposite call and it
-   held: an affordance you have to discover by sweeping the pointer over the thing
-   is one most people never learn is there, and the header is where a folder is
-   renamed, sorted, reordered and removed. Touch had them permanently anyway, so
+   They used to fade in on hover — a clean header at rest, with only the grip
+   standing. The item rows made the opposite call and it held: an affordance you
+   have to discover by sweeping the pointer over the thing is one most people never
+   learn is there, and the header is where a folder is renamed, reordered and
+   removed. Touch had them permanently anyway, so
    the hover branch was also the only place the two pointer types disagreed about
    what the app can do.
    The controls are already quiet enough to sit there: --ink-3 glyphs that deepen
@@ -324,8 +286,7 @@ function toggleCollapsed() {
      and, with baseline alignment, push the folder name down. Packing mode has no
      actions, so without this the title jumps vertically when toggling modes.
      (mirrors the item rows' .item__actions treatment) */
-  .folder__actions .btn--icon,
-  .folder__sortwrap {
+  .folder__actions .btn--icon {
     min-height: 0;
     height: var(--tap);
     margin-block: var(--tap-pull);

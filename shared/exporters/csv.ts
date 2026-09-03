@@ -56,9 +56,8 @@ export function listToCsv(list: ListSnapshot): string {
   const carrierOf = (it: Item) =>
     personName(list.people, effectivePersonId(it, it.parentId ? itemById.get(it.parentId) : null)) ?? "";
   // rows follow what the app shows (exportSections): folders in their order, each
-  // folder's items in its chosen sort, then any ungrouped items — so a re-import of a
-  // name/weight-sorted list bakes that visible order in (CSV has no sort field; JSON
-  // round-trips sortBy itself). Each top-level row is immediately followed by its
+  // folder's items in drag order, then any ungrouped items — so a re-import keeps
+  // the visible order. Each top-level row is immediately followed by its
   // nested children so they stay adjacent; each item exports its OWN weight (a
   // container parent's is usually blank), so the flat CSV re-imports with correct
   // totals and no parent/child double-count. (CSV has no nesting column — children
