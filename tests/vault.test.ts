@@ -10,6 +10,7 @@ import {
   applyVaultFolderOp,
   applyVaultItemOp,
   captureVaultItems,
+  importVaultItems,
   listRemovedVaultItems,
   listVaultFolders,
   listVaultItems,
@@ -20,12 +21,15 @@ import {
   searchVaultItems,
 } from "../server/utils/vaultRepo";
 import {
+  VAULT_IMPORT_MAX,
   captureFingerprint,
   captureFromList,
   isVaultWorthy,
   vaultNormKey,
 } from "../shared/vault";
 import { rankVaultRows } from "../shared/vaultSearch";
+import { vaultToJson } from "../shared/exporters/vault";
+import { parseVaultImport } from "../shared/vaultImport";
 import type { Item, MyListEntry } from "../shared/types";
 import { createTestDb } from "./helpers/db";
 
@@ -124,6 +128,29 @@ describe("captureFromList", () => {
     expect(caps[0]!.kcal).toBe(250);
     // never-entered stays absent — zero would be a claim (see Item.kcal)
     expect(captureFromList([item()])[0]!.kcal).toBeUndefined();
+  });
+
+  it("carries the note, the price and the picture the row arrived with", () => {
+    // the three the projection used to drop on the floor
+    const caps = captureFromList([
+      item({
+        description: "Seam-sealed 2024",
+        priceCents: 69_900,
+        currency: "USD",
+        imageUrl: "https://example.com/tent.jpg",
+      }),
+    ]);
+    expect(caps[0]!.description).toBe("Seam-sealed 2024");
+    expect(caps[0]!.priceCents).toBe(69_900);
+    expect(caps[0]!.currency).toBe("USD");
+    expect(caps[0]!.imageUrl).toBe("https://example.com/tent.jpg");
+  });
+
+  it("drops a currency with no amount under it", () => {
+    // a unit with nothing to measure — and it would render as one on the row
+    const caps = captureFromList([item({ currency: "USD" })]);
+    expect(caps[0]!.currency).toBeUndefined();
+    expect(caps[0]!.priceCents).toBeUndefined();
   });
 });
 
@@ -678,6 +705,55 @@ describe("a gear edit wins — the pin", () => {
     expect(row.classification).toBe("base"); // learned
   });
 
+  it("an edited note survives a list that says something else", async () => {
+    await edit({ description: "Mine, size M" });
+    await captureVaultItems(db as any, VAULT, [
+      { ...DUPLEX, description: "Sam carries this" } as any,
+    ]);
+    expect((await only(db))!.description).toBe("Mine, size M");
+  });
+
+  it("an unedited note is written once and then left alone", async () => {
+    // coalesce, not last-write-wins: a list's note is as often about the trip as
+    // about the gear, so the FIRST one stands until you correct it here
+    await captureVaultItems(db as any, VAULT, [{ ...DUPLEX, description: "first" } as any]);
+    await captureVaultItems(db as any, VAULT, [{ ...DUPLEX, description: "second" } as any]);
+    expect((await only(db))!.description).toBe("first");
+  });
+
+  it("an edited price survives, and its currency goes with it", async () => {
+    await edit({ priceCents: 69_900, currency: "GBP" });
+    await captureVaultItems(db as any, VAULT, [
+      { ...DUPLEX, priceCents: 39_900, currency: "USD" } as any,
+    ]);
+    const row = (await only(db))!;
+    expect(row.priceCents).toBe(69_900);
+    expect(row.currency).toBe("GBP");
+  });
+
+  it("clearing the price clears the currency with it", async () => {
+    // one field with two columns — a currency left behind would be the money a
+    // price nobody entered was in
+    await edit({ priceCents: 69_900, currency: "GBP" });
+    await edit({ priceCents: null });
+    const row = (await only(db))!;
+    // toEntry turns SQL nulls into absent fields — the shape the client sees
+    expect(row.priceCents).toBeUndefined();
+    expect(row.currency).toBeUndefined();
+  });
+
+  it("an unpinned currency follows the amount rather than lingering", async () => {
+    await captureVaultItems(db as any, VAULT, [
+      { ...DUPLEX, priceCents: 39_900, currency: "USD" } as any,
+    ]);
+    await captureVaultItems(db as any, VAULT, [
+      { ...DUPLEX, priceCents: 42_000, currency: "CAD" } as any,
+    ]);
+    const row = (await only(db))!;
+    expect(row.priceCents).toBe(42_000);
+    expect(row.currency).toBe("CAD");
+  });
+
   it("an edited spelling survives, and the list still lands on the same row", async () => {
     await edit({ name: "Duplex Flex", brand: "ZPacks" });
     await captureVaultItems(db as any, VAULT, [{ ...DUPLEX } as any]);
@@ -1110,5 +1186,139 @@ describe("a list's vault decision — cleared when it's deleted, kept when it's 
     store.set("gear.vault.for.", "yes");
     vault.clearVaultDecisionFor("");
     expect(store.has("gear.vault.for.")).toBe(true);
+  });
+});
+
+describe("vault import — putting a file's worth of gear back", () => {
+  let db: DB;
+  const VAULT = 1;
+  beforeEach(async () => {
+    db = await freshDb();
+  });
+
+  const gear = (over: Record<string, unknown> = {}) => ({
+    normKey: "",
+    name: "Duplex",
+    brand: "Zpacks",
+    weightMg: 539_000,
+    ...over,
+  }) as any;
+
+  it("adds what the vault doesn't have, and says how many", () => {
+    return importVaultItems(db as any, VAULT, [gear(), gear({ name: "NeoAir", brand: "Therm-a-Rest" })])
+      .then(async (res) => {
+        expect(res).toEqual({ added: 2, skipped: 0 });
+        expect((await listVaultItems(db as any, VAULT)).map((r) => r.name).sort()).toEqual([
+          "Duplex",
+          "NeoAir",
+        ]);
+      });
+  });
+
+  it("leaves gear you already have exactly as it is", async () => {
+    // the failure this rule exists for: a stale backup dropped on a vault you have
+    // since corrected. Overwriting would undo months of work with no way back.
+    await captureVaultItems(db as any, VAULT, [{ ...DUPLEX } as any]);
+    const id = (await only(db))!.id;
+    await applyVaultItemOp(db as any, VAULT, {
+      t: "edit",
+      id,
+      patch: { weightMg: 545_000 },
+    } as any);
+
+    const res = await importVaultItems(db as any, VAULT, [gear({ weightMg: 400_000 })]);
+    expect(res).toEqual({ added: 0, skipped: 1 });
+    expect((await only(db))!.weightMg).toBe(545_000);
+  });
+
+  it("respects a tombstone rather than resurrecting it", async () => {
+    // the same answer capture gives: putting a piece back is a deliberate act with
+    // its own control on /gear
+    await captureVaultItems(db as any, VAULT, [{ ...DUPLEX } as any]);
+    await removeVaultItem(db as any, VAULT, (await only(db))!.id);
+
+    const res = await importVaultItems(db as any, VAULT, [gear()]);
+    expect(res).toEqual({ added: 0, skipped: 1 });
+    expect(await listVaultItems(db as any, VAULT)).toHaveLength(0);
+    expect(await listRemovedVaultItems(db as any, VAULT)).toHaveLength(1);
+  });
+
+  it("applies the pins the file states", async () => {
+    await importVaultItems(db as any, VAULT, [gear({ pinned: ["weight", "price"] })]);
+    expect((await only(db))!.pinned).toEqual(["weight", "price"]);
+    // and they hold: a list can no longer teach the pinned field
+    await captureVaultItems(db as any, VAULT, [{ ...DUPLEX, weightMg: 100_000 } as any]);
+    expect((await only(db))!.weightMg).toBe(539_000);
+  });
+
+  it("refuses to pin a weight of zero", async () => {
+    // pinning "not weighed yet" would lock the row out of ever learning its weight
+    await importVaultItems(db as any, VAULT, [gear({ weightMg: 0, pinned: ["weight"] })]);
+    expect((await only(db))!.pinned).toBeUndefined();
+    await captureVaultItems(db as any, VAULT, [{ ...DUPLEX } as any]);
+    expect((await only(db))!.weightMg).toBe(539_000);
+  });
+
+  it("files rows under the folder names they name, creating them", async () => {
+    await importVaultItems(db as any, VAULT, [gear({ folder: "Shelter" })]);
+    const folders = await listVaultFolders(db as any, VAULT);
+    expect(folders.map((f) => f.name)).toEqual(["Shelter"]);
+    expect((await only(db))!.folderId).toBe(folders[0]!.id);
+  });
+
+  it("takes at most one request's worth of rows", async () => {
+    // VAULT_IMPORT_MAX matches what a read returns, so a backup of a vault you
+    // could actually see always fits; only a hand-made file exceeds it
+    const rows = Array.from({ length: VAULT_IMPORT_MAX + 5 }, (_, i) => gear({ name: `Thing ${i}` }));
+    expect((await importVaultItems(db as any, VAULT, rows)).added).toBe(VAULT_IMPORT_MAX);
+  });
+
+  it("adds nothing once the vault is at its ceiling, and counts the rest as skipped", async () => {
+    const now = new Date();
+    await db.insert(vaultItems).values(
+      Array.from({ length: VAULT_ITEMS_MAX }, (_, i) => ({
+        vaultId: VAULT,
+        normKey: vaultNormKey(null, `Seed ${i}`, null),
+        name: `Seed ${i}`,
+        weightMg: 1,
+        timesSeen: 1,
+        lastUsedAt: now,
+        updatedAt: now,
+      })),
+    );
+    expect(await importVaultItems(db as any, VAULT, [gear(), gear({ name: "NeoAir" })])).toEqual({
+      added: 0,
+      skipped: 2,
+    });
+  });
+
+  it("round-trips a whole vault: export, import, same gear", async () => {
+    // the promise the pair actually makes — a backup you can restore
+    await captureVaultItems(db as any, VAULT, [
+      { ...DUPLEX, commonName: "Tent", folder: "Shelter" } as any,
+      { normKey: vaultNormKey(null, "Bar", null), name: "Bar", weightMg: 68_000, kcal: 250, classification: "consumable" } as any,
+    ]);
+    const before = await listVaultItems(db as any, VAULT);
+    const folders = await listVaultFolders(db as any, VAULT);
+    const file = vaultToJson({ items: before, folders });
+
+    const fresh = await freshDb();
+    const res = await importVaultItems(fresh as any, 1, parseVaultImport(file).rows);
+    expect(res.added).toBe(2);
+
+    const after = await listVaultItems(fresh as any, 1);
+    const shape = (rows: typeof after) =>
+      rows
+        .map((r) => ({
+          name: r.name,
+          brand: r.brand,
+          commonName: r.commonName,
+          weightMg: r.weightMg,
+          kcal: r.kcal,
+          classification: r.classification,
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+    expect(shape(after)).toEqual(shape(before));
+    expect((await listVaultFolders(fresh as any, 1)).map((f) => f.name)).toEqual(["Shelter"]);
   });
 });

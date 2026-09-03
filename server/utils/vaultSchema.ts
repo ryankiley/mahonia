@@ -64,6 +64,10 @@ export const VAULT_DDL: string[] = [
     kcal integer,
     catalog_item_id integer,
     product_url text,
+    description text,
+    price_cents integer,
+    currency text,
+    image_url text,
     folder_id integer,
     name_pinned boolean NOT NULL DEFAULT false,
     weight_pinned boolean NOT NULL DEFAULT false,
@@ -71,6 +75,8 @@ export const VAULT_DDL: string[] = [
     classification_pinned boolean NOT NULL DEFAULT false,
     kcal_pinned boolean NOT NULL DEFAULT false,
     product_url_pinned boolean NOT NULL DEFAULT false,
+    description_pinned boolean NOT NULL DEFAULT false,
+    price_pinned boolean NOT NULL DEFAULT false,
     times_seen integer NOT NULL DEFAULT 1,
     last_used_at timestamptz NOT NULL DEFAULT now(),
     removed_at timestamptz,
@@ -95,6 +101,18 @@ export const VAULT_DDL: string[] = [
   `ALTER TABLE vault_items ADD COLUMN IF NOT EXISTS classification_pinned boolean NOT NULL DEFAULT false`,
   `ALTER TABLE vault_items ADD COLUMN IF NOT EXISTS kcal_pinned boolean NOT NULL DEFAULT false`,
   `ALTER TABLE vault_items ADD COLUMN IF NOT EXISTS product_url_pinned boolean NOT NULL DEFAULT false`,
+  // The three fields capture used to drop: your note, what it cost, and the picture
+  // the row arrived with. ALTERs so existing vaults gain them, the same way
+  // folder_id, kcal and the pins arrived — there is no migration step (see the
+  // module comment), so the CREATE above only ever runs for a brand-new database.
+  // price_cents and currency share ONE pin: an amount and the money it's in are one
+  // decision, and a capture able to revert half of it would invent a price.
+  `ALTER TABLE vault_items ADD COLUMN IF NOT EXISTS description text`,
+  `ALTER TABLE vault_items ADD COLUMN IF NOT EXISTS price_cents integer`,
+  `ALTER TABLE vault_items ADD COLUMN IF NOT EXISTS currency text`,
+  `ALTER TABLE vault_items ADD COLUMN IF NOT EXISTS image_url text`,
+  `ALTER TABLE vault_items ADD COLUMN IF NOT EXISTS description_pinned boolean NOT NULL DEFAULT false`,
+  `ALTER TABLE vault_items ADD COLUMN IF NOT EXISTS price_pinned boolean NOT NULL DEFAULT false`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_vault_identity ON vault_items (vault_id, norm_key)`,
   // /vault's browse order and the autocomplete's candidate pool: live rows,
   // most-recently-used first

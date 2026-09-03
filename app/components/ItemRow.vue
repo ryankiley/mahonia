@@ -450,6 +450,9 @@ function onNameCommit(p: NameCommit) {
       patch.priceCents = p.priceCents;
       patch.currency = p.currency;
     }
+    // only when the gear HAS one: absent leaves whatever the row already carries,
+    // the same rule the kcal line below keeps
+    if (p.productUrl) patch.productUrl = p.productUrl;
     // the vault's remembered calories land like its weight does — this is YOUR
     // number for the food; absent leaves whatever the row already says
     if (p.kcal != null) patch.kcal = p.kcal;

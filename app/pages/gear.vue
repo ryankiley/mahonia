@@ -4,6 +4,7 @@ import { ChartAverageIcon, ChevronDownIcon, CircleXIcon, Clock01Icon, Delete02Ic
 import type { Unit } from "~~/shared/types";
 import { UNITS } from "~~/shared/types";
 import type { VaultEntry, VaultFolder } from "~~/shared/vault";
+import { formatPrice, sumPrices } from "~~/shared/money";
 import { formatKcal, formatWeight, itemDisplayName, parseWeightInput } from "~~/shared/weights";
 import {
   filterVaultRows,
@@ -139,6 +140,30 @@ const grouped = computed<VaultSection[]>(() =>
 const narrowed = computed(() => filtered.value.length !== items.value.length);
 
 const totalMg = computed(() => filtered.value.reduce((sum, i) => sum + i.weightMg, 0));
+// What the gear on screen cost. Follows `filtered` like the weight beside it — both
+// figures describe what you are looking at, so narrowing to Worn answers "what did
+// the clothes cost" without a second control.
+//
+// Absent for a vault holding two currencies, which is sumPrices' rule and not a
+// display decision: no figure at all beats a figure that adds pounds to dollars.
+const totalPrice = computed(() => sumPrices(filtered.value));
+// The money this vault keeps its prices in, when it keeps them in one — over ALL
+// the gear, not the filtered view, because which currency you buy in is not a
+// property of what you're currently looking at. Handed to the edit dialog so a
+// price typed as a bare number joins the currency you've already stated instead of
+// sitting currency-less next to a total that has one. Absent for a vault holding
+// two, which is the same state that withholds the total (sumPrices).
+const vaultCurrency = computed(() => sumPrices(items.value)?.currency);
+// A total standing for three rows out of ninety is a true number that reads as a
+// bigger claim than it is, so the figure names its own denominator — but only when
+// there is one worth naming.
+const priceTitle = computed(() => {
+  const total = totalPrice.value;
+  if (!total) return undefined;
+  return total.counted === filtered.value.length
+    ? "What this gear cost"
+    : `What ${total.counted} of these ${filtered.value.length} pieces cost — the rest have no price`;
+});
 
 // The line under an empty result, derived from whichever control emptied it — "no
 // worn gear" and "nothing matches 'duplx'" are different facts, and one generic
@@ -512,12 +537,92 @@ const folderOptions = computed(() => [
 // Calories, gated on the class exactly as computeTotals gates them — so what the row
 // shows is what a list would count, rather than a number the totals ignore.
 const rowKcal = (e: VaultEntry) => (e.classification === "consumable" && e.kcal ? e.kcal : 0);
+
+// The row's sub-line: the short facts about a piece of gear that aren't its weight,
+// assembled in ONE place because the page renders rows twice (flat and in folders)
+// and a second copy of the list is a second thing to forget. The note is not here —
+// it is free text of any length, so it gets its own clamped line below the row.
+function metaOf(e: VaultEntry): string[] {
+  const parts: string[] = [];
+  if (e.commonName) parts.push(e.commonName);
+  if (e.priceCents != null) parts.push(formatPrice(e.priceCents, e.currency));
+  if (rowKcal(e)) parts.push(`${formatKcal(rowKcal(e))} kcal`);
+  return parts;
+}
+
+// ---- taking it with you --------------------------------------------------
+// My Gear is the one thing an account holds rather than a link, which makes it the
+// one thing you can't already take with you by copying a URL — and until this, the
+// only account-level data operation was delete.
+//
+// ALL of it, not what the controls have narrowed to: View and Show are how you're
+// looking at your gear, and a file called my-gear that quietly held only the worn
+// half would be a worse answer than no file. `items` is the live gear — what
+// "Remove" put away lives in its own `removed` array (see loadVault) and stays out,
+// which is the answer you'd want from a file called my-gear.
+//
+// The exporter is imported on demand, like the list's four: someone who never
+// exports shouldn't download the code that formats a CSV. Warmed when the menu
+// opens and awaited when a row is pressed — a warmed import() resolves from module
+// cache in a microtask, so the row doesn't sit there while a chunk is fetched.
+// (useListExports warms for the same reason, with a sharper one behind it: its
+// clipboard writes must stay inside iOS Safari's user-gesture window.)
+const exporter = () => import("~~/shared/exporters/vault");
+function warmExport() {
+  void exporter();
+}
+// The ⋯'s three rows. Import is a dialog rather than a download, so the menu's one
+// emit forks here instead of the menu knowing which of its rows is which kind.
+const importOpen = ref(false);
+const importEverOpened = ref(false);
+function onMenuPick(action: string) {
+  if (action !== "import") return void exportGear(action);
+  importEverOpened.value = true;
+  importOpen.value = true;
+}
+
+async function exportGear(kind: string) {
+  loadError.value = "";
+  try {
+    const { vaultToCsv, vaultToJson } = await exporter();
+    const gear = { items: items.value, folders: folders.value };
+    if (kind === "json") {
+      downloadFile("my-gear.json", vaultToJson(gear), "application/json");
+    } else {
+      downloadFile("my-gear.csv", vaultToCsv(gear, unit.value), "text/csv");
+    }
+  } catch {
+    // the chunk can fail to load (offline before the SW cached it) — the page's own
+    // error line, rather than a silent no-op on a button you just pressed
+    loadError.value = "Couldn’t build that file. Check your connection and try again.";
+  }
+}
 </script>
 
 <template>
   <div>
-    <SiteTopbar label="My Gear">
+    <!-- compact: the bar's trailing group is now a glyph row behind one text action
+         — the read views' exact shape, which is what the flag is for. Without it the
+         looser gaps ran "Create a list" onto two lines at 375px once the ⋯ arrived,
+         and the account control changed between a word and a glyph with the session. -->
+    <SiteTopbar compact label="My Gear">
       <NuxtLink to="/e" class="btn btn--link">Create a list</NuxtLink>
+      <!-- The bar's end-cap, where every ⋯ on the site sits — after the page's own
+           action and the account control (see SiteTopbar's #end). It holds the
+           export, which is an action on the whole page rather than a way of looking
+           at it, so it doesn't belong beside View and Show.
+           Present for anyone signed in, because Import works on an empty vault —
+           restoring a backup onto a new machine is the case with nothing to export
+           and the most reason to be here. The DOWNLOAD rows are the ones gated on
+           having gear (canExport): a control worth no action is absent, not inert. -->
+      <template #end>
+        <VaultMenu
+          v-if="hasVault"
+          :can-export="items.length > 0"
+          @open="warmExport"
+          @pick="onMenuPick"
+        />
+      </template>
     </SiteTopbar>
 
     <main id="main-content" tabindex="-1" class="wrap page vault__page">
@@ -639,6 +744,13 @@ const rowKcal = (e: VaultEntry) => (e.classification === "consumable" && e.kcal 
                   <HugeiconsIcon :icon="ChevronDownIcon" class="vault__chev" :class="{ 'is-open': open }" :size="14" :stroke-width="2.25" aria-hidden="true" />
                 </template>
               </OptionMenu>
+              <!-- What it cost, after what it weighs — the closet's second number, and
+                   the reason a price is worth recording at all. Plain text, not a
+                   control: the weight opens a unit picker because there IS a choice
+                   about units, and there is no equivalent choice here. -->
+              <template v-if="totalPrice">
+                · <span class="t-num" :title="priceTitle">{{ formatPrice(totalPrice.cents, totalPrice.currency) }}</span>
+              </template>
             </p>
 
             <!-- FLAT: a chosen order, or a search. One list, one order, no headings —
@@ -652,10 +764,15 @@ const rowKcal = (e: VaultEntry) => (e.classification === "consumable" && e.kcal 
                     <span>{{ entry.name }}</span>
                     <span v-if="entry.variant" class="gear__variant"><span class="sep">·</span> {{ entry.variant }}</span>
                   </p>
-                  <p v-if="entry.commonName || rowKcal(entry)" class="t-sm t-muted vault__meta">
-                    <span v-if="entry.commonName">{{ entry.commonName }}</span
-                    ><span v-if="entry.commonName && rowKcal(entry)" class="sep"> · </span
-                    ><span v-if="rowKcal(entry)">{{ formatKcal(rowKcal(entry)) }} kcal</span>
+                  <p v-if="metaOf(entry).length" class="t-sm t-muted vault__meta">
+                    <template v-for="(part, i) in metaOf(entry)" :key="i"
+                      ><span v-if="i" class="sep"> · </span>{{ part }}</template
+                    >
+                  </p>
+                  <!-- your note, one line and clipped: it can be a paragraph, and a
+                       row is not where a paragraph goes. The dialog holds all of it. -->
+                  <p v-if="entry.description" class="t-sm t-muted vault__note" :title="entry.description">
+                    {{ entry.description }}
                   </p>
                 </div>
                 <span class="t-num vault__weight">{{ weightLabel(entry.weightMg) }}</span>
@@ -806,10 +923,13 @@ const rowKcal = (e: VaultEntry) => (e.classification === "consumable" && e.kcal 
                                it for food. kcal is stored on every row that ever had
                                one, but only counted on a consumable — so only a
                                consumable shows it. -->
-                          <p v-if="entry.commonName || rowKcal(entry)" class="t-sm t-muted vault__meta">
-                            <span v-if="entry.commonName">{{ entry.commonName }}</span
-                            ><span v-if="entry.commonName && rowKcal(entry)" class="sep"> · </span
-                            ><span v-if="rowKcal(entry)">{{ formatKcal(rowKcal(entry)) }} kcal</span>
+                          <p v-if="metaOf(entry).length" class="t-sm t-muted vault__meta">
+                            <template v-for="(part, i) in metaOf(entry)" :key="i"
+                              ><span v-if="i" class="sep"> · </span>{{ part }}</template
+                            >
+                          </p>
+                          <p v-if="entry.description" class="t-sm t-muted vault__note" :title="entry.description">
+                            {{ entry.description }}
                           </p>
                         </div>
                         <span class="t-num vault__weight">{{ weightLabel(entry.weightMg) }}</span>
@@ -1036,8 +1156,17 @@ const rowKcal = (e: VaultEntry) => (e.classification === "consumable" && e.kcal 
       v-if="editorEverOpened"
       :entry="editing"
       :unit="unit"
+      :default-currency="vaultCurrency"
       @close="editing = null"
       @saved="onItemSaved"
+    />
+
+    <!-- Same lazy idiom: nobody who never imports downloads the parser. -->
+    <LazyVaultImportModal
+      v-if="importEverOpened"
+      :open="importOpen"
+      @close="importOpen = false"
+      @imported="loadVault"
     />
 
     <!-- Removal lands as the site's undo toast, the same object the editor puts up
@@ -1204,6 +1333,15 @@ const rowKcal = (e: VaultEntry) => (e.classification === "consumable" && e.kcal 
 /* the name cell (.gear__main / .gear__name / .gear__brand / .gear__variant) comes
    from atoms/gear.scss — shared with the gear pane, which used to hand-mirror
    these rules. Only the page's own mobile stack below touches it. */
+/* Your note, on one line and clipped. It is free text of any length and this is a
+   row in a list that can run to hundreds — a two-line note here would set the
+   rhythm of the whole page from its longest row. The full text is the title
+   attribute and the dialog that edits it. */
+.vault__note {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .vault__weight {
   flex: none;
   color: var(--ink-2);

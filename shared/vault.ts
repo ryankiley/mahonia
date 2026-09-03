@@ -18,6 +18,10 @@ import type { Classification, Item } from "./types";
  *  same menu, and your own gear shouldn't push the catalog off the first screen. */
 export const VAULT_SEARCH_LIMIT = 6;
 
+/** Hard cap on rows accepted by one IMPORT. Matches the read ceiling in vaultRepo,
+ *  so a backup taken from a vault you could actually see always fits back in. */
+export const VAULT_IMPORT_MAX = 1000;
+
 /** Hard cap on rows accepted by one capture request. A list far past this is
  *  pathological; the cap keeps a single POST bounded regardless. */
 export const VAULT_CAPTURE_MAX = 200;
@@ -29,6 +33,9 @@ export const VAULT_CAPTURE_MAX = 200;
 export const VAULT_NAME_MAX = 200;
 export const VAULT_SHORT_MAX = 120;
 export const VAULT_URL_MAX = 2000;
+/** A note's cap, taking the list Item's own (cleanItemPatch's 2000) rather than a
+ *  second number — it is the same text, moved. */
+export const VAULT_NOTE_MAX = 2000;
 
 /**
  * A piece of gear as the client offers it up for capture — the subset of a list
@@ -53,6 +60,25 @@ export interface VaultCapture {
   kcal?: number;
   catalogItemId?: number;
   productUrl?: string;
+  /** Your note about the gear — the list Item's `description`, which capture used
+   *  to drop on the floor. Ambiguous by nature (a row's note is sometimes about the
+   *  trip: "Sam carries this"), and the answer to that is the same one the other
+   *  coalesced fields get: the FIRST note wins, and correcting it on /gear pins it
+   *  so no later list can argue. */
+  description?: string;
+  /** What it cost, in whole cents of `currency`. Recorded on the gear rather than on
+   *  a list row, because a price is a fact about the thing you bought — and because
+   *  the list side has been waiting for it: NameCommit already declares priceCents
+   *  "when it came from the vault", against a vault that had nowhere to keep one. */
+  priceCents?: number;
+  /** ISO 4217 for priceCents, when it's known. Moves with the price and is pinned
+   *  with it — "$399" is one decision, not two. */
+  currency?: string;
+  /** A picture of the product, from wherever the row's own imageUrl came from (a
+   *  LighterPack import, a JSON backup). Carried for fidelity and for the export;
+   *  nothing renders it yet, and whether the vault should is a separate decision
+   *  from whether it should keep what it was handed. */
+  imageUrl?: string;
   /** The NAME of the list folder this gear sat in, so a vault fills itself
    *  organised instead of arriving as one flat pile. A name, not an id: list
    *  folder ids are per-list, and the same "Shelter" in two lists should mean one
@@ -89,6 +115,11 @@ export const VAULT_PIN_FIELDS = [
   "classification",
   "kcal",
   "productUrl",
+  "description",
+  // one token for priceCents + currency, on the same rule that gives brand/name/
+  // variant one: an amount and the money it's in are one decision, and a capture
+  // that could revert the currency under a kept number would invent a price
+  "price",
 ] as const;
 export type VaultPinField = (typeof VAULT_PIN_FIELDS)[number];
 
@@ -157,15 +188,19 @@ function isWaterRow(item: Item): boolean {
   return item.classification === "consumable" && foldForSearch(item.name) === "water";
 }
 
-/** Project a list Item onto the gear it describes. Returns null when the row isn't
- *  vault-worthy, so callers can map-and-filter in one pass. */
-function captureFromItem(
-  item: Item,
-  hasChildren: boolean,
-  folderName?: string,
-): VaultCapture | null {
-  if (!isVaultWorthy(item, hasChildren)) return null;
-  // non-empty by isVaultWorthy's first test, so no re-guard
+/**
+ * Project a list Item onto the gear it describes, asking only whether it has a
+ * NAME — not whether a live editor ought to be banking it.
+ *
+ * Split out from captureFromItem for the import path, where isVaultWorthy's rules
+ * are wrong: it exists to keep a half-typed row out of your vault while you are
+ * still typing it, and nothing in a file you deliberately chose is half-typed. Its
+ * weight test in particular would drop every un-weighed row in a gear CSV — gear
+ * you own and haven't put on the scale — which would quietly break the round trip
+ * the export advertises.
+ */
+export function gearFromItem(item: Item, folderName?: string): VaultCapture | null {
+  if (!item.name.trim()) return null;
   const name = item.name.trim().slice(0, VAULT_NAME_MAX);
   const brand = trim(item.brand, VAULT_SHORT_MAX);
   const variant = trim(item.variant, VAULT_SHORT_MAX);
@@ -186,8 +221,32 @@ function captureFromItem(
     kcal: typeof item.kcal === "number" && item.kcal > 0 ? Math.round(item.kcal) : undefined,
     catalogItemId: typeof item.catalogItemId === "number" ? item.catalogItemId : undefined,
     productUrl: trim(item.productUrl, VAULT_URL_MAX),
+    description: trim(item.description, VAULT_NOTE_MAX),
+    // a price of zero is "free", which nobody records, so it reads as absent —
+    // the same shape kcal takes above
+    priceCents:
+      typeof item.priceCents === "number" && item.priceCents > 0
+        ? Math.round(item.priceCents)
+        : undefined,
+    // only alongside an amount: a currency on its own says nothing and would
+    // survive in the row as a unit with no figure
+    currency:
+      typeof item.priceCents === "number" && item.priceCents > 0
+        ? trim(item.currency, 8)
+        : undefined,
+    imageUrl: trim(item.imageUrl, VAULT_URL_MAX),
     folder: trim(folderName, VAULT_SHORT_MAX),
   };
+}
+
+/** Project a list Item as CAPTURE sees it: the projection above, behind the rule
+ *  about which rows an open editor should be banking at all. */
+function captureFromItem(
+  item: Item,
+  hasChildren: boolean,
+  folderName?: string,
+): VaultCapture | null {
+  return isVaultWorthy(item, hasChildren) ? gearFromItem(item, folderName) : null;
 }
 
 /**
@@ -242,6 +301,10 @@ export function captureFingerprint(caps: VaultCapture[]): string {
         c.catalogItemId ?? "",
         c.commonName ?? "",
         c.productUrl ?? "",
+        c.description ?? "",
+        c.priceCents ?? "",
+        c.currency ?? "",
+        c.imageUrl ?? "",
         c.folder ?? "",
       ].join(
         "",

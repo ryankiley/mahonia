@@ -2,13 +2,14 @@
 import { HugeiconsIcon } from "~/utils/hugeicon";
 import { ChevronDownIcon } from "@hugeicons/core-free-icons";
 import type { Classification, Unit } from "~~/shared/types";
-import { VAULT_NAME_MAX, VAULT_SHORT_MAX, VAULT_URL_MAX, type VaultEntry } from "~~/shared/vault";
+import { VAULT_NAME_MAX, VAULT_NOTE_MAX, VAULT_SHORT_MAX, VAULT_URL_MAX, type VaultEntry } from "~~/shared/vault";
+import { formatPrice, parsePriceInput } from "~~/shared/money";
 import { formatWeight, itemDisplayName, parseWeightInput } from "~~/shared/weights";
 
 // Correcting a piece of gear in place — the half of My Gear that capture can't do.
 //
 // A DIALOG rather than an in-flow .reveal, and the motion vocabulary is why: that
-// family is for "a row's note" (atoms/controls.scss), and eight fields is a form, not
+// family is for "a row's note" (atoms/controls.scss), and ten fields is a form, not
 // a note. Two mechanical reasons agree. The classification picker is an absolutely
 // positioned .menu__list, and /gear's rows live inside .folder__bodyinner's
 // `overflow: hidden` — going in-flow would mean growing the editor's whole
@@ -19,7 +20,13 @@ import { formatWeight, itemDisplayName, parseWeightInput } from "~~/shared/weigh
 // The cost, plainly: a run of tidy-ups is open/edit/save per row rather than tabbing
 // down a column. Acceptable because /gear's row is DISPLAY — turning it into the
 // editor's live form is a bigger change than this page wants to be.
-const props = defineProps<{ entry: VaultEntry | null; unit: Unit }>();
+const props = defineProps<{
+  entry: VaultEntry | null;
+  unit: Unit;
+  /** The money the rest of your gear is priced in, when it is priced in one. A bare
+   *  number falls back to it, so stating a currency once is enough — see onSubmit. */
+  defaultCurrency?: string;
+}>();
 const emit = defineEmits<{ close: []; saved: [VaultEntry] }>();
 
 const { vaultFetch } = useVaultAccess();
@@ -39,6 +46,8 @@ const variant = ref("");
 const commonName = ref("");
 const weight = ref("");
 const kcal = ref("");
+const note = ref("");
+const price = ref("");
 const productUrl = ref("");
 const classification = ref<Classification>("base");
 const saving = ref(false);
@@ -58,6 +67,8 @@ let opened = {
   commonName: "",
   weight: "",
   kcal: "",
+  note: "",
+  price: "",
   productUrl: "",
   classification: "base" as Classification,
 };
@@ -83,6 +94,12 @@ watch(
     // field when the list row was inheriting its folder's default
     classification.value = e.classification ?? "base";
     kcal.value = e.kcal ? String(e.kcal) : "";
+    note.value = e.description ?? "";
+    // FORMATTED, not the bare cents: "$399.00" is what the row shows and what
+    // parsePriceInput reads straight back, so the symbol you'd otherwise have to
+    // retype is already there — and the same only-if-the-string-changed guard the
+    // weight field uses (below) keeps the round trip from re-pricing anything.
+    price.value = e.priceCents != null ? formatPrice(e.priceCents, e.currency) : "";
     productUrl.value = e.productUrl ?? "";
     saving.value = false;
     error.value = "";
@@ -93,6 +110,8 @@ watch(
       commonName: commonName.value,
       weight: weight.value,
       kcal: kcal.value,
+      note: note.value,
+      price: price.value,
       productUrl: productUrl.value,
       classification: classification.value,
     };
@@ -126,6 +145,26 @@ async function onSubmit() {
     // typed is kept rather than wiped — the value never stops being true of the food
     const k = kcal.value.trim() ? Math.max(0, Math.round(Number(kcal.value))) : 0;
     patch.kcal = k > 0 ? k : null;
+  }
+  if (note.value !== opened.note) {
+    patch.description = note.value.trim().slice(0, VAULT_NOTE_MAX) || null;
+  }
+  if (price.value !== opened.price) {
+    const raw = price.value.trim();
+    const parsed = raw ? parsePriceInput(raw) : null;
+    if (raw && !parsed) {
+      error.value = "That price doesn’t read as a number. Try “399” or “$62.50”.";
+      return;
+    }
+    patch.priceCents = parsed ? parsed.cents : null;
+    // A number typed with no symbol keeps the currency the row already carries, and
+    // failing that the one the rest of your gear is in — there is no separate
+    // currency field, so re-typing the amount would otherwise silently strip the
+    // money it was in, and a first price would land currency-less beside a total
+    // that has one. Type a new symbol to change it.
+    if (parsed) {
+      patch.currency = parsed.currency ?? props.entry.currency ?? props.defaultCurrency ?? null;
+    }
   }
   if (productUrl.value !== opened.productUrl) {
     const url = productUrl.value.trim().slice(0, VAULT_URL_MAX);
@@ -201,6 +240,14 @@ async function onSubmit() {
         <input v-model="commonName" class="field" placeholder="Type of gear" @keydown.enter="onSubmit" />
       </label>
 
+      <!-- the row's own sub-line, in the dialog's words: ItemRow's note placeholder
+           verbatim, because it is the same text moved — a list wrote it, and this is
+           where it stops being overwritten -->
+      <label class="dlg__field">
+        <span class="t-sm t-muted">Note</span>
+        <input v-model="note" class="field" placeholder="Add a note" autocorrect="off" spellcheck="true" @keydown.enter="onSubmit" />
+      </label>
+
       <div class="vitem__pair">
         <label class="dlg__field">
           <span class="t-sm t-muted">Weight</span>
@@ -241,13 +288,23 @@ async function onSubmit() {
         <input v-model="kcal" class="field" inputmode="numeric" placeholder="0" @keydown.enter="onSubmit" />
       </label>
 
-      <label class="dlg__field">
-        <span class="t-sm t-muted">
-          Product link
-          <a v-if="urlOk" :href="productUrl.trim()" class="link" target="_blank" rel="noopener noreferrer">Open</a>
-        </span>
-        <input v-model="productUrl" class="field" placeholder="https://" inputmode="url" @keydown.enter="onSubmit" />
-      </label>
+      <!-- what it cost and where it came from, read together. Price takes the
+           narrower track: it is four characters next to an address. -->
+      <div class="vitem__pair vitem__pair--money">
+        <label class="dlg__field">
+          <span class="t-sm t-muted">Price</span>
+          <!-- inputmode text, not decimal: a currency symbol is part of what this
+               field reads, and a numeric keypad can't type one -->
+          <input v-model="price" class="field" placeholder="399" autocomplete="off" autocorrect="off" spellcheck="false" @keydown.enter="onSubmit" />
+        </label>
+        <label class="dlg__field">
+          <span class="t-sm t-muted">
+            Product link
+            <a v-if="urlOk" :href="productUrl.trim()" class="link" target="_blank" rel="noopener noreferrer">Open</a>
+          </span>
+          <input v-model="productUrl" class="field" placeholder="https://" inputmode="url" @keydown.enter="onSubmit" />
+        </label>
+      </div>
 
       <p v-if="error" class="t-sm vitem__err">{{ error }}</p>
 
@@ -277,6 +334,11 @@ async function onSubmit() {
   grid-template-columns: 1fr 1fr;
   gap: var(--space-3);
 }
+/* a price is four characters and a URL is a line of them, so this pair is not an
+   even split — the address gets the room */
+.vitem__pair--money {
+  grid-template-columns: minmax(0, 9rem) 1fr;
+}
 /* the picker wears the field's own box, so it sits level with the weight input
    beside it rather than reading as a different kind of control */
 .vitem__cls {
@@ -300,7 +362,8 @@ async function onSubmit() {
   color: var(--ink);
 }
 @media (max-width: $bp-stack) {
-  .vitem__pair {
+  .vitem__pair,
+  .vitem__pair--money {
     grid-template-columns: 1fr;
   }
 }

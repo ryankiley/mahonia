@@ -429,6 +429,16 @@ export const vaultItems = pgTable(
     kcal: integer("kcal"),
     catalogItemId: integer("catalog_item_id"), // set when the row came from a catalog pick
     productUrl: text("product_url"),
+    // Your note about the gear ("size M", "seam-sealed 2024") — the list Item's
+    // `description`, which capture used to leave behind. Null = none.
+    description: text("description"),
+    // What it cost, in whole cents of `currency`. The gear is where a price belongs:
+    // a list row's price is the same purchase counted again in every list it's in.
+    priceCents: integer("price_cents"),
+    currency: text("currency"),
+    // The product picture the row arrived with (a LighterPack import, a JSON
+    // backup). Stored so the export can carry it; nothing renders it yet.
+    imageUrl: text("image_url"),
     // The holder's grouping. Null = unfiled, which is also every row's starting
     // state and where a row lands again if its folder is deleted.
     folderId: integer("folder_id"),
@@ -442,6 +452,10 @@ export const vaultItems = pgTable(
     classificationPinned: boolean("classification_pinned").notNull().default(false),
     kcalPinned: boolean("kcal_pinned").notNull().default(false),
     productUrlPinned: boolean("product_url_pinned").notNull().default(false),
+    descriptionPinned: boolean("description_pinned").notNull().default(false),
+    // price_cents + currency share one flag, like brand/name/variant share
+    // name_pinned: an amount and the money it's in are one decision
+    pricePinned: boolean("price_pinned").notNull().default(false),
     // how many distinct captures have landed here — ranks the autocomplete, the
     // vault's analogue of catalog_items.usage_count
     timesSeen: integer("times_seen").notNull().default(1),
