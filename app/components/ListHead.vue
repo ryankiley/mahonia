@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { Calendar03Icon, ChevronDownIcon, Copy01Icon, Delete02Icon, Edit02Icon, GlobeIcon, HelpCircleIcon, Location01Icon, UserGroupIcon } from "@hugeicons/core-free-icons";
-import { sortedPeople } from "~~/shared/people";
+import { Calendar03Icon, ChevronDownIcon, Copy01Icon, Delete02Icon, Edit02Icon, GlobeIcon, HelpCircleIcon, Location01Icon } from "@hugeicons/core-free-icons";
 import {
   distanceFieldValue,
   formatDistance,
@@ -258,13 +257,7 @@ function remove() {
 // that one). Goes through the shared copyText(), which carries the async-write +
 // execCommand fallback iOS Safari needs, and reports via the editor's toast rather than
 // a local icon swap, so every copy in the app confirms the same way.
-const emit = defineEmits<{ toast: [message: string]; openPeople: [] }>();
-
-// the crew, as the affordance's own label once anyone is named — "Add people"
-// swaps to the names the way "Add dates" swaps to the range
-const peopleLabel = computed(() =>
-  sortedPeople(props.snapshot.people).map((p) => p.name).join(", "),
-);
+const emit = defineEmits<{ toast: [message: string] }>();
 async function copyLink() {
   if (!link.value) return;
   emit("toast", (await copyText(link.value.href)) ? "Trail link copied" : "Copy failed");
@@ -540,19 +533,6 @@ onClickOutside(trailEl, closeTrail);
         </Transition>
       </span>
 
-      <!-- PEOPLE. The third fact about the trip, same shape as the two beside it:
-           the affordance occupies the slot its result will — naming the crew swaps
-           "Add people" for the names. A door to the manager (GearEditor owns the
-           dialog), not a third inline editor in this row. -->
-      <button
-        type="button"
-        class="btn btn--quiet head__add head__peoplebtn"
-        aria-haspopup="dialog"
-        @click="emit('openPeople')"
-      >
-        <HugeiconsIcon :icon="UserGroupIcon" :size="14" :stroke-width="2" aria-hidden="true" />
-        <span class="head__peoplenames">{{ peopleLabel || "Add people" }}</span>
-      </button>
 
       <!-- The edit panel, anchored under the row so the link stays visible above it.
            No "Done": the inputs commit on change (blur/Enter) like every
@@ -1248,20 +1228,6 @@ onClickOutside(trailEl, closeTrail);
    holds full-time at the same weight the trail link's name does */
 .head__datesbtn {
   gap: var(--space-1);
-}
-/* people, same borrowing as the dates button. The names truncate rather than
-   wrap — six of them are a fact this row states, not a paragraph; the manager
-   the button opens lists them all. */
-.head__peoplebtn {
-  gap: var(--space-1);
-  max-width: 100%;
-  min-width: 0;
-}
-.head__peoplenames {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: min(48vw, 34ch);
 }
 .head__datespanel {
   position: absolute;

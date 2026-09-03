@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon, type IconNode } from "~/utils/hugeicon";
-import { Backpack02Icon, CheckmarkSquare02Icon, ChevronDownIcon, Copy01Icon, Delete02Icon, EllipsisIcon, FileExportIcon, FileImportIcon, Message01Icon, NoteAddIcon, RemoveCircleIcon, Route02Icon, SafeBoxIcon, Share08Icon, UndoIcon } from "@hugeicons/core-free-icons";
+import { Backpack02Icon, CheckmarkSquare02Icon, ChevronDownIcon, Copy01Icon, Delete02Icon, EllipsisIcon, FileExportIcon, FileImportIcon, Message01Icon, NoteAddIcon, RemoveCircleIcon, Route02Icon, SafeBoxIcon, Share08Icon, UndoIcon, UserGroupIcon } from "@hugeicons/core-free-icons";
 import { editLinkPath, normalizeShareCode } from "~~/shared/links";
 import { tripHeadline } from "~~/shared/trailDistance";
 import { formatWeight } from "~~/shared/weights";
@@ -741,9 +741,14 @@ const feedbackEverOpened = ref(false);
 const MENU_ACTIONS = [
   { label: "Create a list", icon: NoteAddIcon, run: () => newList() },
   { label: "Duplicate this list", icon: Copy01Icon, run: cloneList },
-  // People is NOT here: its door is the "Add people" affordance in ListHead's
-  // meta row (beside the trail + dates it belongs with), and the chips row's own
-  // button once anyone is named. This menu stays list-lifecycle actions.
+  // The crew's door BEFORE anyone is named — the chips row carries its own manage
+  // button, but that row only exists once someone is on the list, so without an
+  // entry here a fresh list has no way in. Short, and not just for the voice: this
+  // row's label sets the menu's width once it passes "Duplicate this list", and
+  // .menu__item's icon has nothing pinning its size, so a long one squeezed the
+  // glyph to sub-pixel while the text took the room. No ellipsis either — it opens
+  // a dialog like "Import a list…", but it reads as the plain act it is.
+  { label: "Add people", icon: UserGroupIcon, run: () => { peopleOpen.value = true; } },
   // Import stays a plain row. It has exactly ONE entry point — the modal, which
   // offers the file and the LighterPack link side by side — and a disclosure holding
   // a single item is a click that reveals nothing you couldn't have been shown. It
@@ -1061,7 +1066,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
       <!-- The list name is a page title, not a toolbar field: large, borderless, with a
            ghosted placeholder, at the top of the content — matching what the two read
            views have always done (ReadonlyListView's h1). -->
-      <ListHead :snapshot="snapshot" :distance-is-headline="mode === 'plan'" @toast="flash" @open-people="peopleOpen = true" />
+      <ListHead :snapshot="snapshot" :distance-is-headline="mode === 'plan'" @toast="flash" />
       <!-- The totals bar stands down while planning: that view has its own headline (the
            route's distance), and two display-size figures on one screen would make you
            choose which one the page is about. The pack's weight isn't lost — it rides in
