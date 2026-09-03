@@ -5,7 +5,7 @@
 // and buys a €1.29 tent — is pinned by a test rather than by a form.
 
 import { describe, expect, it } from "vitest";
-import { PRICE_MAX_CENTS, formatPrice, parsePriceInput } from "../shared/money";
+import { PRICE_MAX_CENTS, formatPrice, parsePriceInput, sumPrices } from "../shared/money";
 
 describe("parsePriceInput — reading a price the way it was typed", () => {
   it("takes a bare number as whole units", () => {
@@ -78,5 +78,42 @@ describe("formatPrice", () => {
     ] as const) {
       expect(parsePriceInput(formatPrice(cents, code))).toEqual({ cents, currency: code });
     }
+  });
+});
+
+describe("sumPrices — what a set of gear cost", () => {
+  it("adds the rows that carry a price and ignores the rest", () => {
+    expect(sumPrices([{ priceCents: 39_900 }, {}, { priceCents: 6_250 }])).toEqual({
+      cents: 46_150,
+      currency: undefined,
+      counted: 2,
+    });
+  });
+
+  it("labels the total when the rows state a currency", () => {
+    expect(sumPrices([{ priceCents: 100, currency: "GBP" }])?.currency).toBe("GBP");
+  });
+
+  it("lets a bare number ride along with a stated currency", () => {
+    // "unstated", not "a different one" — the common shape is one person typing a
+    // symbol once and bare numbers thereafter
+    const total = sumPrices([{ priceCents: 39_900, currency: "USD" }, { priceCents: 100 }]);
+    expect(total).toEqual({ cents: 40_000, currency: "USD", counted: 2 });
+  });
+
+  it("refuses a total across two currencies rather than inventing one", () => {
+    // a sum of pounds and dollars isn't a rougher truth, it's a wrong number that
+    // would wear whichever symbol won
+    expect(
+      sumPrices([
+        { priceCents: 39_900, currency: "USD" },
+        { priceCents: 6_250, currency: "GBP" },
+      ]),
+    ).toBeNull();
+  });
+
+  it("is absent when nothing carries a price", () => {
+    expect(sumPrices([])).toBeNull();
+    expect(sumPrices([{}, { priceCents: 0 }])).toBeNull();
   });
 });

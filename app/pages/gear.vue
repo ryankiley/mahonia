@@ -4,7 +4,7 @@ import { ChartAverageIcon, ChevronDownIcon, CircleXIcon, Clock01Icon, Delete02Ic
 import type { Unit } from "~~/shared/types";
 import { UNITS } from "~~/shared/types";
 import type { VaultEntry, VaultFolder } from "~~/shared/vault";
-import { formatPrice } from "~~/shared/money";
+import { formatPrice, sumPrices } from "~~/shared/money";
 import { formatKcal, formatWeight, itemDisplayName, parseWeightInput } from "~~/shared/weights";
 import {
   filterVaultRows,
@@ -140,6 +140,30 @@ const grouped = computed<VaultSection[]>(() =>
 const narrowed = computed(() => filtered.value.length !== items.value.length);
 
 const totalMg = computed(() => filtered.value.reduce((sum, i) => sum + i.weightMg, 0));
+// What the gear on screen cost. Follows `filtered` like the weight beside it — both
+// figures describe what you are looking at, so narrowing to Worn answers "what did
+// the clothes cost" without a second control.
+//
+// Absent for a vault holding two currencies, which is sumPrices' rule and not a
+// display decision: no figure at all beats a figure that adds pounds to dollars.
+const totalPrice = computed(() => sumPrices(filtered.value));
+// The money this vault keeps its prices in, when it keeps them in one — over ALL
+// the gear, not the filtered view, because which currency you buy in is not a
+// property of what you're currently looking at. Handed to the edit dialog so a
+// price typed as a bare number joins the currency you've already stated instead of
+// sitting currency-less next to a total that has one. Absent for a vault holding
+// two, which is the same state that withholds the total (sumPrices).
+const vaultCurrency = computed(() => sumPrices(items.value)?.currency);
+// A total standing for three rows out of ninety is a true number that reads as a
+// bigger claim than it is, so the figure names its own denominator — but only when
+// there is one worth naming.
+const priceTitle = computed(() => {
+  const total = totalPrice.value;
+  if (!total) return undefined;
+  return total.counted === filtered.value.length
+    ? "What this gear cost"
+    : `What ${total.counted} of these ${filtered.value.length} pieces cost — the rest have no price`;
+});
 
 // The line under an empty result, derived from whichever control emptied it — "no
 // worn gear" and "nothing matches 'duplx'" are different facts, and one generic
@@ -704,6 +728,13 @@ async function exportGear(kind: string) {
                   <HugeiconsIcon :icon="ChevronDownIcon" class="vault__chev" :class="{ 'is-open': open }" :size="14" :stroke-width="2.25" aria-hidden="true" />
                 </template>
               </OptionMenu>
+              <!-- What it cost, after what it weighs — the closet's second number, and
+                   the reason a price is worth recording at all. Plain text, not a
+                   control: the weight opens a unit picker because there IS a choice
+                   about units, and there is no equivalent choice here. -->
+              <template v-if="totalPrice">
+                · <span class="t-num" :title="priceTitle">{{ formatPrice(totalPrice.cents, totalPrice.currency) }}</span>
+              </template>
             </p>
 
             <!-- FLAT: a chosen order, or a search. One list, one order, no headings —
@@ -1109,6 +1140,7 @@ async function exportGear(kind: string) {
       v-if="editorEverOpened"
       :entry="editing"
       :unit="unit"
+      :default-currency="vaultCurrency"
       @close="editing = null"
       @saved="onItemSaved"
     />
