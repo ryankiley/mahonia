@@ -159,7 +159,7 @@ function remove(p: Person) {
         maxlength="60"
         :disabled="atCap"
       />
-      <button type="submit" class="btn btn--ghost" :disabled="atCap || !draft.trim()">Add</button>
+      <button type="submit" class="btn btn--ghost ppl__addbtn" :disabled="atCap || !draft.trim()">Add</button>
     </form>
     <!-- the cap, said at the moment it starts refusing input -->
     <p v-if="atCap" class="t-sm t-muted">Up to {{ MAX_PEOPLE }} people on a trip.</p>
@@ -189,8 +189,24 @@ function remove(p: Person) {
   gap: var(--space-2);
   padding-block: var(--space-2);
 }
+/* The row's NAME COLUMN, defined once: where the dot's box ends and everything that
+   lines up with a name begins. The add row's indent and the palette strip both read
+   it, so the three can't drift apart. */
+.ppl__list,
+.ppl__add {
+  --ppl-dotw: calc(var(--swatch) + var(--space-3));
+  --ppl-namecol: calc(var(--ppl-dotw) + var(--space-2));
+}
 .ppl__dotbtn {
   flex: none;
+  /* The DOT sits on the row's left edge, flush with the hairline dividing the rows.
+     .btn--icon centres a 10px swatch in a 32px box, so the drawn dot started 11px in
+     and the whole column — dot, name, add field, palette — read as inset from its own
+     rule. Left-align the swatch and let the box keep only the width it needs; the
+     atom's min-height still gives the button the full row height for a thumb, so what
+     shrinks is dead space to the RIGHT of the dot, not the target you aim at. */
+  justify-content: flex-start;
+  width: var(--ppl-dotw);
 }
 .ppl__name {
   flex: 1;
@@ -211,7 +227,7 @@ function remove(p: Person) {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-1);
-  padding: 0 0 var(--space-2) calc(var(--icon-btn) + var(--space-2));
+  padding: 0 0 var(--space-2) var(--ppl-namecol);
 }
 .ppl__swatchbtn {
   appearance: none;
@@ -238,13 +254,44 @@ button.ppl__swatchbtn:hover,
   outline: 2px solid var(--ink);
   outline-offset: -2px;
 }
+/* Standing ALONE — nobody named yet, so the list above it doesn't render — this is
+   a plain form with room above it, aligned to the dialog like any other field. */
 .ppl__add {
   display: flex;
+  align-items: center;
   gap: var(--space-2);
   margin-top: var(--space-3);
+}
+/* After the list, it IS that list's last row: the same leading gutter .ppl__swatches
+   takes (the dot button's box plus the row gap) so the field sits in the NAME column
+   instead of out at the dialog's edge, and the same hairline and block padding the
+   rows divide with. Typing a name then happens exactly where the names are.
+   Sibling-scoped rather than unconditional — with no list above, that indent would
+   be an inset from nothing and the rule a stray line under nothing. */
+.ppl__list + .ppl__add {
+  /* .dlg is a flex COLUMN with a --space-3 gap between its blocks; cancelling it is
+     what lets this row butt straight onto the list, so its hairline falls on the same
+     rhythm as the ones dividing the rows rather than 12px below it. */
+  margin-top: calc(-1 * var(--space-3));
+  padding-block: var(--space-2);
+  padding-left: var(--ppl-namecol);
+  border-top: 1px solid var(--line);
 }
 .ppl__addfield {
   flex: 1;
   min-width: 0;
+}
+/* the WORD on the rule, like the remove icon in the rows above it: .btn's 16px inline
+   padding is hit padding, and on the row's trailing edge it pushed "Add" that far in
+   from the hairline everything else lines up with. Trailing side only — the leading
+   padding still holds it off the field it follows. */
+.ppl__addbtn {
+  padding-inline: var(--space-3) 0;
+  /* …and the row's HEIGHT comes from the field beside it, exactly as a person row's
+     comes from its name field. .btn's 40px floor is 4px past that, which made this
+     row taller than every row above it and put its hairline off the rhythm. Stretch
+     keeps the button a full-height target without letting it set the height. */
+  min-height: 0;
+  align-self: stretch;
 }
 </style>
