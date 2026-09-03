@@ -87,7 +87,7 @@ function onKey(e: KeyboardEvent) {
         />
         {{ c.label }}<!--
         the chip's carry, riding a step off the name in the chip's OWN ink — the
-        pill shape is what keeps it reading as a control, not a readout chip
+        bordered chip shape is what keeps it reading as a control, not a readout chip
         --><span v-if="c.weight" class="t-num pplbar__wt">{{ c.weight }}</span>
       </button>
     </div>
@@ -110,8 +110,8 @@ function onKey(e: KeyboardEvent) {
 }
 /* The armchip's shape (TrailPlanPanel's day chips) in the page's own tokens —
    that one hardcodes literals because it floats over a map; this row sits on
-   paper and speaks paper's language. Pill + hairline so an OFF chip still has
-   an edge to find, unlike the modebar's flat words which live inside one plate. */
+   paper and speaks paper's language. Hairline so an OFF chip still has an edge
+   to find, unlike the modebar's flat words which live inside one plate. */
 .pplbar__chip {
   appearance: none;
   display: inline-flex;
@@ -120,7 +120,12 @@ function onKey(e: KeyboardEvent) {
   height: 30px; /* the modebar's option height — same row rhythm */
   padding: 0 var(--space-3);
   border: 1px solid var(--line);
-  border-radius: var(--radius-pill);
+  /* --radius-2, the corner the mode chips and the list picker wear, not the pill.
+     These chips are read WITH that bar — the same kind of thing, a small labelled
+     chip you press to change what the page shows, a few rows apart — and a pill
+     here against rounded rectangles there read as two different controls. The
+     pill is for a button standing on its own; a row of options never does. */
+  border-radius: var(--radius-2);
   background: none;
   cursor: pointer;
   font-family: inherit;
