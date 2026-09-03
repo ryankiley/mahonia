@@ -95,10 +95,12 @@ describe("carried by — the row's picker + the filter attribute", () => {
     await picks[1]!.trigger("click");
     expect(snapshot.value.items[0]!.personId).toBe("alex");
     expect(w.get(".item-wrap").attributes("data-person")).toBe("1");
-    // the trigger now wears the on-plate and the carrier's own dot (the glyph
-    // swap — colour lives in a .swatch, chrome stays ink)
-    expect(w.get(".item__person-btn").classes()).toContain("item__mark");
+    // the trigger now wears the carrier's own dot in place of the User glyph
+    // (colour lives in a .swatch, chrome stays ink). No .item__mark ground: that
+    // atom's pill is always the full --icon-btn box, which can't sit on the
+    // column this cluster's right-aligned glyphs share — see ItemRow's style.
     expect(w.get(".item__person-btn").find(".swatch").exists()).toBe(true);
+    expect(w.get(".item__person-btn").classes()).not.toContain("item__mark");
     w.unmount();
   });
 

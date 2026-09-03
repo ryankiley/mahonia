@@ -1534,7 +1534,6 @@ function dismissFix() {
             <Tooltip :text="personTitle" preferred-placement="top" :disabled="isPersonOpen">
               <button
                 class="btn btn--icon btn--ghost item__person-btn"
-                :class="{ 'item__mark': !!rowPerson }"
                 type="button"
                 aria-haspopup="menu"
                 :aria-expanded="isPersonOpen"
@@ -2650,18 +2649,20 @@ function dismissFix() {
 }
 
 /* ---- carried by ---- */
-/* This is the ONLY .item__mark inside .item__actions, and the two rules disagree:
-   the cluster right-aligns its glyphs in their tap targets (above) so the grip
-   reads flush, while .item__mark paints a pill ground over the whole content box.
-   That right-alignment is for BARE glyphs — once the button wears the ground, the
-   ground is the object and its content belongs in the middle of it. Right-aligned,
-   the 10px dot sat hard against the edge of its own 32px chip (and 3px right of the
-   16px glyphs beside it, which centre at 24). Unlit there is no ground, so the User
-   glyph keeps the cluster's rhythm and this rule stands down with the chip.
-   Selector carries .item__actions purely to WIN: bare, it ties the cluster rule at
-   (0,2,0) and rides source order. */
-.item__actions .item__person-btn.item__mark {
-  justify-content: center;
+/* NO .item__mark ground on this one, unlike the classification toggles. That atom
+   clips its pill to the CONTENT box, and .btn--icon is padding:0 at --icon-btn — so
+   the ground is always the full 32px, centred at 16. Every other glyph in this
+   cluster is right-aligned (above, so the grip reads flush) and therefore centres at
+   24. A 32px ground simply cannot sit on that column, so the chip either hung 8px
+   left of every icon beside it or, right-aligned, left its own dot jammed against
+   its edge. The dot's COLOUR is the state here — a saturated hue against an outline
+   User glyph — which is the whole reason this button swaps glyph for swatch; a grey
+   disc behind it was the redundant half, and the loud one in a dense list.
+   The dot then rides the glyph column like everything else: half the difference
+   between a 16px glyph's footprint and the swatch, taken off the right, puts its
+   centre at 24 instead of 3px past it. */
+.item__person-btn .swatch {
+  margin-right: calc((16px - var(--swatch)) / 2);
 }
 /* the carrier tag itself is the shared .item__carrier atom (atoms/item.scss) —
    drawn once for this face, the checklist face and the read rows */
