@@ -39,10 +39,9 @@ const HEADER =
 /**
  * The gear as a spreadsheet, in the order the page shows it.
  *
- * Ordering is groupVaultRows — the SAME traversal /gear renders from, so a folder's
- * chosen sort is what lands in the file and the export can't drift from the screen.
- * Empty folders are dropped: a heading with nothing under it is a fact about the
- * page, not about the gear.
+ * Ordering is groupVaultRows — the SAME traversal /gear renders from, so the file
+ * lands in the order the page shows and the two can't drift. Empty folders are
+ * dropped: a heading with nothing under it is a fact about the page, not the gear.
  *
  * Every row exports in ONE unit, unlike a list's CSV: a vault row has no entryUnit
  * (a weight there is a fact about the gear, not about how one list types it), so
