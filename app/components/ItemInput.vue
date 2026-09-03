@@ -517,7 +517,7 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
 }
 /* The menu's surface (background/radius/shadow/forced-colors border) comes from
    the shared .popover atom — this block only positions and sizes it.
-   In an item row the anchor is the whole name CELL (.item__name overrides .ac to
+   In an item row the anchor is the name BOX (.item__namebox overrides .ac to
    position:static), so left:0 = the row's left edge and the width can safely run
    wider than the input: 40rem, capped by the page column so it can never cross
    the row's right edge or the viewport. */
