@@ -1,0 +1,17 @@
+{
+  "_comment": "Adds 2026-09-02, second pass over the user-typed items dropped from the first — the ones that turned out to have a maker-stated figure after all. CORPUS Nº Green follows the Salt & Stone deodorant precedent: the maker's stated net fill of the stick, no packaging.",
+  "rows": [
+    {
+      "brand": "CORPUS",
+      "name": "Nº Green Natural Deodorant Stick",
+      "variant": "75 g",
+      "category_hint": "consumable",
+      "common_name": "deodorant",
+      "weight_value": 75,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://corpusnaturals.com/products/deodorant-stick-no-green",
+      "quote": "DEODORANT STICK: Nº GREEN — 2.6 oz / 75g"
+    }
+  ]
+}
