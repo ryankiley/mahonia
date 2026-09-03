@@ -9,6 +9,7 @@ import { vaultFolders, vaultItems, vaults } from "../db/schema";
 import type { useVaultDb } from "./db";
 import {
   VAULT_CAPTURE_MAX,
+  VAULT_IMPORT_MAX,
   VAULT_NAME_MAX,
   VAULT_NOTE_MAX,
   VAULT_SHORT_MAX,
@@ -949,6 +950,108 @@ async function editVaultItem(db: Db, vaultId: number, op: Extract<VaultItemOp, {
     // no-arg .returning() — the neon-http | PGlite union's only shared overload
     .returning();
   return done[0] ? { item: toEntry(done[0]) } : null;
+}
+
+// ---------------------------------------------------------------------------
+// import: putting a file's worth of gear back
+// ---------------------------------------------------------------------------
+
+/** A row on its way in — the gear plus the pins it arrives holding. Mirrors
+ *  shared/vaultImport's VaultImportRow; only our own JSON ever states pins. */
+export type VaultImportRow = VaultCapture & { pinned?: readonly string[] };
+
+/** The pin booleans a row arrives with. A weight of zero pins NOTHING, the same
+ *  guard cleanVaultPatch applies: pinning "not weighed yet" would lock the row out
+ *  of ever learning its weight from a list. */
+function pinFlags(row: VaultImportRow): Record<string, boolean> {
+  const held = new Set(row.pinned ?? []);
+  const out: Record<string, boolean> = {};
+  for (const [token, col] of PIN_COLUMN) out[col] = held.has(token);
+  if (row.weightMg <= 0) out.weightPinned = false;
+  return out;
+}
+
+/**
+ * Put a file's worth of gear into the vault.
+ *
+ * ADDS WHAT'S MISSING AND TOUCHES NOTHING ELSE — `onConflictDoNothing`, not an
+ * upsert. A restore is usually into an empty vault, where every rule behaves the
+ * same; the rule only matters in the case that can do harm, which is a stale backup
+ * dropped on a vault you have since curated. Overwriting there would undo months of
+ * corrections in one press with no way back, so the conflict is a skip and the count
+ * comes back so the dialog can say how many.
+ *
+ * The skip also means a TOMBSTONE holds: the unique index doesn't care that a row is
+ * removed, so gear you took out stays out rather than being resurrected by a file.
+ * That is the same answer capture gives, and for the same reason — putting a piece
+ * back is a deliberate act with its own control on /gear.
+ *
+ * Pins ride in from our own JSON and nowhere else (see VaultImportRow). Everything
+ * else goes through sanitize, so a hand-edited backup is bounded exactly like a
+ * direct POST: the identity is re-derived from the spelling and every field re-clamped.
+ */
+export async function importVaultItems(
+  db: Db,
+  vaultId: number,
+  rows: VaultImportRow[],
+): Promise<{ added: number; skipped: number }> {
+  // Sanitized ONE AT A TIME so each row's pins stay with it — sanitize dedupes by a
+  // key it derives itself, and pairing that key back to a source row afterwards
+  // would mean re-deriving it here with the same tidying, in a second place.
+  const byKey = new Map<string, { cap: VaultCapture; pins: Record<string, boolean> }>();
+  for (const row of rows.slice(0, VAULT_IMPORT_MAX)) {
+    const [cap] = sanitize([row]);
+    if (cap) byKey.set(cap.normKey, { cap, pins: pinFlags(row) }); // last wins, like sanitize's own dedupe
+  }
+  if (!byKey.size) return { added: 0, skipped: 0 };
+
+  // The ceiling, counted once. Rows past it are skipped rather than refused: an
+  // import that lands most of a backup and says so beats one that lands none.
+  const [{ n } = { n: 0 }] = await db
+    .select({ n: sql<number>`count(*)` })
+    .from(vaultItems)
+    .where(eq(vaultItems.vaultId, vaultId));
+  const room = Math.max(0, VAULT_ITEMS_MAX - Number(n));
+  const all = [...byKey.values()];
+  const clean = all.slice(0, room);
+  if (!clean.length) return { added: 0, skipped: all.length };
+
+  const now = new Date();
+  const folderId = await ensureFolders(db, vaultId, clean.map((c) => c.cap.folder));
+  const done = await db
+    .insert(vaultItems)
+    .values(
+      clean.map(({ cap, pins }) => ({
+        vaultId,
+        normKey: cap.normKey,
+        brand: cap.brand ?? null,
+        name: cap.name,
+        variant: cap.variant ?? null,
+        commonName: cap.commonName ?? null,
+        weightMg: cap.weightMg,
+        classification: cap.classification ?? null,
+        kcal: cap.kcal ?? null,
+        catalogItemId: cap.catalogItemId ?? null,
+        productUrl: cap.productUrl ?? null,
+        description: cap.description ?? null,
+        priceCents: cap.priceCents ?? null,
+        currency: cap.currency ?? null,
+        imageUrl: cap.imageUrl ?? null,
+        folderId: (cap.folder && folderId.get(cap.folder)) || null,
+        // NOT bumped past 1: times_seen counts the lists that reached for a piece
+        // of gear, and a file is not a list. A restored vault's ranking rebuilds
+        // itself the next time you pack.
+        timesSeen: 1,
+        lastUsedAt: now,
+        updatedAt: now,
+        ...pins,
+      })),
+    )
+    // no target: the identity index (vault_id, norm_key) is the only conflict a
+    // row can have, and every one of them means "you already have this"
+    .onConflictDoNothing()
+    .returning();
+  return { added: done.length, skipped: all.length - done.length };
 }
 
 /** The folder verbs /gear offers, as one small tagged union — see

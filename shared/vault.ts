@@ -18,6 +18,10 @@ import type { Classification, Item } from "./types";
  *  same menu, and your own gear shouldn't push the catalog off the first screen. */
 export const VAULT_SEARCH_LIMIT = 6;
 
+/** Hard cap on rows accepted by one IMPORT. Matches the read ceiling in vaultRepo,
+ *  so a backup taken from a vault you could actually see always fits back in. */
+export const VAULT_IMPORT_MAX = 1000;
+
 /** Hard cap on rows accepted by one capture request. A list far past this is
  *  pathological; the cap keeps a single POST bounded regardless. */
 export const VAULT_CAPTURE_MAX = 200;
@@ -184,15 +188,19 @@ function isWaterRow(item: Item): boolean {
   return item.classification === "consumable" && foldForSearch(item.name) === "water";
 }
 
-/** Project a list Item onto the gear it describes. Returns null when the row isn't
- *  vault-worthy, so callers can map-and-filter in one pass. */
-function captureFromItem(
-  item: Item,
-  hasChildren: boolean,
-  folderName?: string,
-): VaultCapture | null {
-  if (!isVaultWorthy(item, hasChildren)) return null;
-  // non-empty by isVaultWorthy's first test, so no re-guard
+/**
+ * Project a list Item onto the gear it describes, asking only whether it has a
+ * NAME — not whether a live editor ought to be banking it.
+ *
+ * Split out from captureFromItem for the import path, where isVaultWorthy's rules
+ * are wrong: it exists to keep a half-typed row out of your vault while you are
+ * still typing it, and nothing in a file you deliberately chose is half-typed. Its
+ * weight test in particular would drop every un-weighed row in a gear CSV — gear
+ * you own and haven't put on the scale — which would quietly break the round trip
+ * the export advertises.
+ */
+export function gearFromItem(item: Item, folderName?: string): VaultCapture | null {
+  if (!item.name.trim()) return null;
   const name = item.name.trim().slice(0, VAULT_NAME_MAX);
   const brand = trim(item.brand, VAULT_SHORT_MAX);
   const variant = trim(item.variant, VAULT_SHORT_MAX);
@@ -229,6 +237,16 @@ function captureFromItem(
     imageUrl: trim(item.imageUrl, VAULT_URL_MAX),
     folder: trim(folderName, VAULT_SHORT_MAX),
   };
+}
+
+/** Project a list Item as CAPTURE sees it: the projection above, behind the rule
+ *  about which rows an open editor should be banking at all. */
+function captureFromItem(
+  item: Item,
+  hasChildren: boolean,
+  folderName?: string,
+): VaultCapture | null {
+  return isVaultWorthy(item, hasChildren) ? gearFromItem(item, folderName) : null;
 }
 
 /**

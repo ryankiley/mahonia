@@ -571,6 +571,16 @@ const exporter = () => import("~~/shared/exporters/vault");
 function warmExport() {
   void exporter();
 }
+// The ⋯'s three rows. Import is a dialog rather than a download, so the menu's one
+// emit forks here instead of the menu knowing which of its rows is which kind.
+const importOpen = ref(false);
+const importEverOpened = ref(false);
+function onMenuPick(action: string) {
+  if (action !== "import") return void exportGear(action);
+  importEverOpened.value = true;
+  importOpen.value = true;
+}
+
 async function exportGear(kind: string) {
   loadError.value = "";
   try {
@@ -601,11 +611,17 @@ async function exportGear(kind: string) {
            action and the account control (see SiteTopbar's #end). It holds the
            export, which is an action on the whole page rather than a way of looking
            at it, so it doesn't belong beside View and Show.
-           Only while there is gear to export: a menu whose one job is to hand you a
-           file of nothing is a control worth no action, and those are absent here
-           rather than present and inert. -->
+           Present for anyone signed in, because Import works on an empty vault —
+           restoring a backup onto a new machine is the case with nothing to export
+           and the most reason to be here. The DOWNLOAD rows are the ones gated on
+           having gear (canExport): a control worth no action is absent, not inert. -->
       <template #end>
-        <VaultMenu v-if="items.length" @open="warmExport" @pick="exportGear" />
+        <VaultMenu
+          v-if="hasVault"
+          :can-export="items.length > 0"
+          @open="warmExport"
+          @pick="onMenuPick"
+        />
       </template>
     </SiteTopbar>
 
@@ -1143,6 +1159,14 @@ async function exportGear(kind: string) {
       :default-currency="vaultCurrency"
       @close="editing = null"
       @saved="onItemSaved"
+    />
+
+    <!-- Same lazy idiom: nobody who never imports downloads the parser. -->
+    <LazyVaultImportModal
+      v-if="importEverOpened"
+      :open="importOpen"
+      @close="importOpen = false"
+      @imported="loadVault"
     />
 
     <!-- Removal lands as the site's undo toast, the same object the editor puts up

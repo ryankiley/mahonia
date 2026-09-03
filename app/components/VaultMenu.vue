@@ -12,8 +12,14 @@ import { EllipsisIcon } from "@hugeicons/core-free-icons";
 // the page's, and it only says which one you picked.
 //
 // No Export disclosure, unlike the other two. Theirs folds four formats away from
-// the items you came for; this menu IS the export, and a fold around the only two
-// rows in it would be a door in front of a door.
+// the items you came for; getting gear in and out is all this menu does, and a fold
+// around three rows would be a door in front of a door.
+const {
+  /** Whether there is gear to download. Import stands alone on an empty vault —
+   *  restoring a backup onto a new machine is the case that matters most, and it is
+   *  exactly the case with nothing to export. */
+  canExport = false,
+} = defineProps<{ canExport?: boolean }>();
 const emit = defineEmits<{ pick: [action: string]; open: [] }>();
 
 const menuOpen = ref(false);
@@ -53,14 +59,22 @@ function run(action: string) {
         <li role="none" aria-hidden="true">
           <span ref="plateRef" class="menu__plate" :class="{ 'is-placing': placing }" />
         </li>
+        <!-- Import first: it is the row that works on an empty vault, and on a
+             full one it is still the rarer, more deliberate act — the downloads
+             below it are the ones you reach for without thinking. -->
+        <li role="none">
+          <button type="button" data-row role="menuitem" class="menu__item" @click="run('import')">Import gear…</button>
+        </li>
         <!-- the same two words the editor's and the read views' export rows use, so
              one action keeps one name wherever you meet it -->
-        <li role="none">
-          <button type="button" data-row role="menuitem" class="menu__item" @click="run('csv')">Download CSV</button>
-        </li>
-        <li role="none">
-          <button type="button" data-row role="menuitem" class="menu__item" @click="run('json')">Download JSON</button>
-        </li>
+        <template v-if="canExport">
+          <li role="none">
+            <button type="button" data-row role="menuitem" class="menu__item" @click="run('csv')">Download CSV</button>
+          </li>
+          <li role="none">
+            <button type="button" data-row role="menuitem" class="menu__item" @click="run('json')">Download JSON</button>
+          </li>
+        </template>
       </ul>
     </Transition>
   </div>
