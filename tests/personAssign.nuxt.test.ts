@@ -137,6 +137,26 @@ describe("carried by — the row's picker + the filter attribute", () => {
     w.unmount();
   });
 
+  it("under a group nobody carries, the clear entry is plain 'Unassigned'", async () => {
+    // "Whoever carries the group" is only true when the group HAS someone. Under an
+    // unclaimed group, following it is being unassigned, and the group phrasing
+    // would name a carrier that isn't there.
+    const kit = item({ id: "kit", name: "Cook Kit" }); // no personId — nobody's
+    const pot = item({ id: "pot", name: "Pot", parentId: "kit", folderId: "f1", sortOrder: 1 });
+    const w = mountRow([kit, pot], new Map([["kit", [pot]]]));
+    expect(w.findAll(".item-wrap")[1]!.attributes("data-person")).toBe("u");
+    await w.findAll(".item__person-btn")[1]!.trigger("click");
+    expect(w.findAll(".item__personpick").at(-1)!.text()).toBe("Unassigned");
+
+    // …and it becomes the group phrasing the moment the group is claimed
+    snapshot.value = applyOps(snapshot.value, [
+      { t: "updateItem", id: "kit", patch: { personId: "sam" } },
+    ]) as ListSnapshot;
+    await w.vm.$nextTick();
+    expect(w.findAll(".item__personpick").at(-1)!.text()).toBe("Whoever carries the group");
+    w.unmount();
+  });
+
   it("a peopleless list renders no picker at all", () => {
     snapshot.value = blankList({ items: [item()] });
     const w = mount(ItemRow, {

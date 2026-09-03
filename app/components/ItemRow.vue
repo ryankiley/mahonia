@@ -860,6 +860,14 @@ const personTitle = computed(() =>
 // menu's section — the nestActions shape, so an entry can't exist in one and
 // not the other. The clear entry's id is already null, so `active ? null : id`
 // both toggles a person off and clears outright.
+// The group's own carrier, RESOLVED — what the clear entry below is handing the
+// row back TO. Resolved rather than a truthiness test on the id, so a dangling
+// assignee the reducer hasn't healed yet is never spoken of as a person.
+const groupPerson = computed(() =>
+  props.nested && props.inheritedPersonId
+    ? peopleSorted.value.find((p) => p.id === props.inheritedPersonId)
+    : undefined,
+);
 const personPicks = computed(() => [
   ...peopleSorted.value.map((p) => ({
     id: p.id as string | null,
@@ -869,10 +877,13 @@ const personPicks = computed(() => [
   })),
   // a nested row handed back follows its group; a top-level one is simply
   // unclaimed — the label says which return this is ("with the group" alone
-  // would read as the trip party, in a list of exactly those people)
+  // would read as the trip party, in a list of exactly those people).
+  // Nested is not on its own enough to earn that wording: under a group NOBODY
+  // carries, following it IS being unassigned, and the group phrasing would name
+  // a carrier that isn't there. So it turns on the group having someone.
   {
     id: null,
-    label: props.nested ? "Whoever carries the group" : "Unassigned",
+    label: groupPerson.value ? "Whoever carries the group" : "Unassigned",
     color: undefined,
     active: !props.item.personId,
   },
