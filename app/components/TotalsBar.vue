@@ -3,6 +3,7 @@ import { HugeiconsIcon } from "~/utils/hugeicon";
 import { ChevronDownIcon } from "@hugeicons/core-free-icons";
 import type { ListSnapshot, Totals, Unit } from "~~/shared/types";
 import { carriedIsDistinct, formatKcal, formatWeight, totalsChips } from "~~/shared/weights";
+import { personShares } from "~~/shared/people";
 import { KCAL_PER_DAY_GENEROUS, KCAL_PER_DAY_LIGHT, foodPlan } from "~~/shared/foodPlan";
 
 const props = withDefaults(
@@ -45,6 +46,15 @@ const chips = computed(() => totalsChips(props.totals));
 const showCarried = computed(() => carriedIsDistinct(props.totals));
 
 const kcalDisplay = computed(() => formatKcal(props.totals.kcalTotal));
+
+// The list divided by carrier — shown only while the weight actually DIVIDES,
+// i.e. two or more shares hold some. One share means either nobody is named,
+// or the list is narrowed to one person (the editor and the read views hand
+// this bar the filtered rows), and either way the folder bar above already IS
+// that one breakdown. The rule reads the data rather than a prop, so the two
+// parents don't each have to know when to ask for it.
+const shares = computed(() => personShares(props.list));
+const showByPerson = computed(() => shares.value.length > 1);
 
 // Calories PER DAY — the figure that answers "is there enough food in here", which
 // the raw total can't: 9,000 kcal is a feast for a weekend and starvation for a week.
@@ -156,6 +166,9 @@ const planTip = computed(() => {
         </Tooltip>
       </div>
       <CategoryBar :list="list" />
+      <!-- ...and the same picture per person, under the whole list's: Sam's
+           shelter and food beside Alex's, without flipping the chips to compare -->
+      <PeopleBreakdown v-if="showByPerson" :list="list" :shares="shares" />
     </div>
   </div>
 </template>

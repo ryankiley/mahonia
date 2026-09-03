@@ -4,7 +4,16 @@ import { categoryColor } from "~~/shared/categories";
 import { categorySegments } from "~~/shared/discovery";
 import { formatWeight } from "~~/shared/weights";
 
-const props = defineProps<{ list: ListSnapshot }>();
+const props = defineProps<{
+  list: ListSnapshot;
+  /**
+   * What the bar is a picture of, for assistive tech. The list's own bar reads
+   * "Weight by folder"; a person's share (PeopleBreakdown) says whose, or a
+   * screen reader hears the same sentence once per person with nothing to tell
+   * them apart.
+   */
+  label?: string;
+}>();
 
 // one folder-grouped rollup (sorted by weight; ungrouped items fold into
 // "Other"); empty / weightless lists give []
@@ -16,7 +25,7 @@ const segments = computed(() => categorySegments(props.list));
     <!-- flex track: a small gap separates adjacent colours so they always read as distinct.
          empty lists keep a single blank rail so the bar never reflows in when the first
          weighted item lands -->
-    <div class="catbar__track" role="img" aria-label="Weight by folder">
+    <div class="catbar__track" role="img" :aria-label="props.label ?? 'Weight by folder'">
       <span
         v-for="(s, i) in segments"
         :key="i"

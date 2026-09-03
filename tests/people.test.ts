@@ -21,6 +21,7 @@ import {
   filterItemsForPerson,
   hasUnassignedTopLevel,
   personNameTaken,
+  personShares,
   personSlot,
   sortedPeople,
   uniquifyPersonNames,
@@ -281,6 +282,33 @@ describe("filtering + per-person totals", () => {
     expect(personSlot(people, "alex")).toBe(1);
     expect(personSlot(people, "ghost")).toBeNull();
     expect(personSlot(people, undefined)).toBeNull();
+  });
+
+  it("personShares divides the list by carrier, in chip order, dropping empty shares", () => {
+    const shares = personShares({ folders: [], items: gear(), people: crew() });
+    expect(shares.map((s) => s.key)).toEqual(["sam", "alex", UNASSIGNED]);
+    // strict effective sets — Sam's spoon is Sam's even nested in Alex's kit, and
+    // the pot follows the kit; each share's total is that person's headline
+    expect(shares.map((s) => s.items.map((i) => i.id))).toEqual([
+      ["can", "spoon"],
+      ["kit", "pot"],
+      ["tarp"],
+    ]);
+    expect(shares.map((s) => s.mg)).toEqual([1050, 800, 700]);
+    expect(shares[0]!.person?.name).toBe("Sam");
+    expect(shares[2]!.person).toBeUndefined();
+    // display order, not insertion order — Alex first if their sortOrder says so
+    const flipped = [person({ id: "sam", name: "Sam", sortOrder: 1 }), alex()];
+    flipped[1]!.sortOrder = 0;
+    expect(personShares({ folders: [], items: gear(), people: flipped }).map((s) => s.key)).toEqual([
+      "alex",
+      "sam",
+      UNASSIGNED,
+    ]);
+    // a person carrying nothing has no share, and nor does an unclaimed bucket
+    // that holds nothing — the breakdown draws only the shares that exist
+    const only = personShares({ folders: [], items: [item({ id: "can", personId: "sam" })], people: crew() });
+    expect(only.map((s) => s.key)).toEqual(["sam"]);
   });
 
   it("carriedTotalsMg gives each chip its carry, and no chip a zero", () => {

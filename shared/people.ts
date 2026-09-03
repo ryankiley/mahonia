@@ -153,17 +153,30 @@ export function hasUnassignedTopLevel(items: Item[]): boolean {
 }
 
 /**
- * Each chip's carry, in milligrams: one entry per person id, plus UNASSIGNED for
- * the unclaimed bucket — the strict per-person sets through the ordinary
- * computeTotals, so a chip and the headline it filters to can never disagree.
- * Zero carries are omitted (a "0 g" suffix on a chip is noise, not a fact).
- * Written once for the editor's chips and the share views' — the two surfaces
- * format it in their own display unit.
+ * The list DIVIDED by carrier: one share per person who carries weight, in
+ * display order, then the unclaimed bucket — each holding the strict item set
+ * that person's total counts (filterItemsForPerson's rule, applied in ONE pass
+ * over the list rather than once per person). Empty shares are dropped: a
+ * person with nothing yet is a chip without a figure, not a row of zeros.
+ *
+ * Written once for the two surfaces that divide the list: the per-person chips
+ * (carriedTotalsMg, below) and the per-person folder breakdown under the totals
+ * bar, so a chip's figure and the bar beneath the same name can never disagree.
  */
-export function carriedTotalsMg(
+export interface PersonShare {
+  /** the person's id, or UNASSIGNED for the unclaimed bucket */
+  key: string;
+  /** absent for the unclaimed bucket */
+  person?: Person;
+  items: Item[];
+  /** this share's total, in milligrams — the ordinary computeTotals over `items` */
+  mg: number;
+}
+
+export function personShares(
   list: Pick<ListData, "folders" | "items" | "people">,
-): Record<string, number> {
-  // ONE bucketing pass, not a filter per key: the chips recompute this on every
+): PersonShare[] {
+  // ONE bucketing pass, not a filter per key: this recomputes on every
   // keystroke (the snapshot mutates in place), and thirteen filterItemsForPerson
   // calls each rebuilt the parent map over the whole list.
   const byId = new Map(list.items.map((i) => [i.id, i]));
@@ -174,12 +187,28 @@ export function carriedTotalsMg(
     if (bucket) bucket.push(it);
     else buckets.set(key, [it]);
   }
-  const out: Record<string, number> = {};
-  for (const key of [...(list.people ?? []).map((p) => p.id), UNASSIGNED]) {
+  const out: PersonShare[] = [];
+  const push = (key: string, person?: Person) => {
     const items = buckets.get(key);
-    if (!items) continue;
+    if (!items) return;
     const mg = computeTotals({ folders: list.folders, items }).totalMg;
-    if (mg > 0) out[key] = mg;
-  }
+    if (mg > 0) out.push({ key, person, items, mg });
+  };
+  for (const p of sortedPeople(list.people)) push(p.id, p);
+  push(UNASSIGNED);
+  return out;
+}
+
+/**
+ * Each chip's carry, in milligrams: one entry per person id, plus UNASSIGNED for
+ * the unclaimed bucket. Zero carries are omitted (a "0 g" suffix on a chip is
+ * noise, not a fact). The editor's chips and the share views' both read it and
+ * format it in their own display unit.
+ */
+export function carriedTotalsMg(
+  list: Pick<ListData, "folders" | "items" | "people">,
+): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const share of personShares(list)) out[share.key] = share.mg;
   return out;
 }
