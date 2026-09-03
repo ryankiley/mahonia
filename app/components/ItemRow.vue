@@ -56,7 +56,7 @@ const UNIT_OPTIONS = UNITS.map((u) => ({ key: u, label: u }));
 
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { CalculateIcon, Cancel01Icon, CheckIcon, CheckmarkSquare02Icon, ChevronDownIcon, CircleEllipsisIcon, CookieIcon, Delete02Icon, DropletIcon, GripVerticalIcon, ListIndentIncreaseIcon, MinusSignIcon, NoteAddIcon, NoteRemoveIcon, PlusSignIcon, SafeBoxIcon, ShirtIcon, SquareIcon, UserIcon } from "@hugeicons/core-free-icons";
+import { CalculateIcon, Cancel01Icon, CheckIcon, CheckmarkSquare02Icon, ChevronDownIcon, CircleEllipsisIcon, CookieIcon, Delete02Icon, DropletIcon, GripVerticalIcon, ListIndentIncreaseIcon, MinusSignIcon, PlusSignIcon, SafeBoxIcon, ShirtIcon, SquareIcon, UserIcon } from "@hugeicons/core-free-icons";
 import type { Item, ListSnapshot } from "~~/shared/types";
 import type { ItemPatch } from "~~/shared/ops";
 import { effectivePersonId, personColor, personSlot, sortedPeople } from "~~/shared/people";
@@ -242,7 +242,7 @@ function onRowBlur(e: FocusEvent) {
   // focus left the window entirely (alt-tab / app switch) rather than moving
   // elsewhere in the app — keep the row so they can come back and finish it
   if (!next && typeof document !== "undefined" && !document.hasFocus()) return;
-  nameEditing.value = false; // done with this row — an untouched common-name field folds away
+  nameEditing.value = false; // done with this row — the untouched empty sub-fields fold away
   c.discardEmpty(props.item.id);
 }
 
@@ -604,18 +604,17 @@ const wornAria = computed(() =>
 );
 const consumableAria = computed(() => (isConsumable.value ? "Consumable: yes" : "Consumable: no"));
 
-// the sub-line: the common name shows as an editable field whenever it's set (a catalog
-// pick pre-fills it), the note is opt-in. The button reveals the empty fields so a common
-// name / note can be added; each is cleared by emptying its own input.
-const subOpen = ref(false);
+// the sub-line: the gear type (common name) and the note. Each shows as an editable
+// field whenever it holds a value (a catalog pick pre-fills the gear type), and both
+// empty fields appear while the product name is being edited, so a row typed by hand
+// has a visible place to put either — there is no separate "add a note" control. Each
+// is cleared by emptying its own input.
 const cnameRef = useTemplateRef<HTMLInputElement>("cnameRef");
 const noteRef = useTemplateRef<HTMLInputElement>("noteRef");
-// Editing the product name also offers the common name, so gear typed by hand (no catalog
-// row to pre-fill it) has a visible place to put one — otherwise the only way in is the
-// hover-only sub-line button, and a custom item looks like it simply can't have one. Set
-// by focus landing anywhere in the name cell; held until focus leaves the ROW (so tabbing
-// on to the field itself, or to qty/weight, doesn't yank it away mid-edit), then cleared
-// by onRowBlur. An empty field just folds back up — nothing is written by revealing it.
+// Set by focus landing anywhere in the name cell; held until focus leaves the ROW (so
+// tabbing on to the fields themselves, or to qty/weight, doesn't yank them away
+// mid-edit), then cleared by onRowBlur. An empty field just folds back up — nothing is
+// written by revealing it.
 const nameEditing = ref(false);
 // A GROUP's own name is already the everyday label — that's where it comes from
 // (useGearList.containerFor lifts the wrapped product's common name up to be the
@@ -623,55 +622,10 @@ const nameEditing = ref(false);
 // never opens the EMPTY field. A value it already carries still shows, so a row
 // that acquired one before it became a group can still be read and cleared —
 // never a stored value with no field to edit it.
-const cnameShown = computed(
-  () => !!props.item.commonName || ((subOpen.value || nameEditing.value) && !isParent.value),
-);
-const noteShown = computed(() => !!props.item.description || subOpen.value);
-// the sub-line block shows when either field does — phrased off the two so a parent
-// mid-name-edit doesn't open an empty reveal with nothing in it
+const cnameShown = computed(() => !!props.item.commonName || (nameEditing.value && !isParent.value));
+const noteShown = computed(() => !!props.item.description || nameEditing.value);
+// the sub-line block shows when either field does
 const subShown = computed(() => cnameShown.value || noteShown.value);
-// what the button can still bring on screen. A group never gets a gear-type field (see
-// cnameShown), and a field showing a saved value is already there — so on a catalog-picked
-// row, whose gear type is pre-filled, the only thing left to open is the note.
-const hiddenFields = computed(() => {
-  const f: string[] = [];
-  if (!isParent.value && !cnameShown.value) f.push("gear type");
-  if (!noteShown.value) f.push("note");
-  return f;
-});
-// ONE name for this control, used as tooltip, accessible name AND ⋯-menu entry: a visible
-// label that isn't contained in the accessible name is a WCAG 2.5.3 failure and leaves the
-// button unhittable by speech input ("click Add a note" matching nothing).
-const subLabel = computed(() => {
-  const both = isParent.value ? "note" : "gear type & note";
-  if (subOpen.value) return `Hide ${both}`;
-  return hiddenFields.value.length ? `Add a ${hiddenFields.value.join(" or ")}` : `Edit ${both}`;
-});
-// the reveal's id, so the button can point at what it expands (aria-controls)
-const subId = useId();
-// Reveal the empty fields; toggling off hides them again (saved values keep showing and
-// are edited/cleared in place). Focus goes to the field that actually APPEARED — on a
-// catalog-picked row that's the note, not the gear type sitting there already.
-function onSubBtn() {
-  const opening = hiddenFields.value[0]; // read BEFORE the toggle invalidates it
-  // nothing left to reveal: the click means "let me edit what's showing", not "open more"
-  if (!subOpen.value && !opening) return void (cnameShown.value ? cnameRef : noteRef).value?.focus();
-  subOpen.value = !subOpen.value;
-  if (subOpen.value) nextTick(() => (opening === "gear type" ? cnameRef : noteRef).value?.focus());
-}
-// an opened-but-empty sub-line collapses when focus leaves BOTH fields with nothing typed;
-// moving focus between the two sibling inputs keeps it open
-function onSubBlur(e: FocusEvent) {
-  const next = e.relatedTarget as HTMLElement | null;
-  if (next && (next === cnameRef.value || next === noteRef.value)) return;
-  if (
-    !props.item.commonName &&
-    !props.item.description &&
-    !cnameRef.value?.value.trim() &&
-    !noteRef.value?.value.trim()
-  )
-    subOpen.value = false;
-}
 
 // ---- mobile overflow (⋯) menu ----
 // On mobile the trailing icons crowd the two-line row, so all of them EXCEPT delete
@@ -979,9 +933,8 @@ watch(
   () => (vaultSaved.value = false),
 );
 
-// the same actions the inline icons run: note first (the most-edited thing here),
-// then the one nesting action that applies to this row's state (add-nested / nest-up /
-// un-nest), then the vault save, and last the removal — all inline on a desktop row
+// the same actions the inline icons run: the one nesting action that applies to this
+// row's state (add-nested / nest-up / un-nest), then the vault save, and last the removal — all inline on a desktop row
 // and living only here on a phone (see the mobile block: the trailing cluster is
 // ⋯ · grip, because the icons are --tap wide there and the line has no room for the
 // row's numbers beside more than two of them).
@@ -991,9 +944,7 @@ const overflowActions = computed(() => {
   // hides whole the same way): indent targets the UNFILTERED row above, and a
   // reparent changes what a row inherits, so either can make it vanish from the
   // very view it was touched in.
-  const acts: { label: string; run: () => void; nest?: true }[] = [
-    { label: subLabel.value, run: onSubBtn },
-  ];
+  const acts: { label: string; run: () => void; nest?: true }[] = [];
   if (props.nested) acts.push({ label: "Un-nest", run: () => c.unnest(props.item.id), nest: true });
   else {
     if (!isParent.value) acts.push({ label: "Add a nested item", run: () => c.addChild(props.item.id), nest: true });
@@ -1121,7 +1072,7 @@ function dismissFix() {
       <!-- editable row (default) -->
       <!-- focusin (it bubbles, unlike focus) rather than binding ItemInput's own input:
            the name cell is the whole "what is this item" affordance, so landing anywhere
-           in it offers the common name below (see nameEditing) -->
+           in it offers the gear type + note below (see nameEditing) -->
       <div class="item__name" :class="{ 'item__name--group': isParent }" @focusin="nameEditing = true">
         <ItemInput
           :unit="list.displayUnit"
@@ -1631,20 +1582,7 @@ function dismissFix() {
               <HugeiconsIcon :icon="Delete02Icon" :size="16" :stroke-width="2" />
             </button>
           </Tooltip>
-          <Tooltip :text="subLabel" preferred-placement="top">
-            <button
-              class="btn btn--icon btn--ghost item__note-btn"
-              :class="{ 'is-active': !!item.description }"
-              :aria-label="subLabel"
-              :aria-expanded="subShown"
-              :aria-controls="subId"
-              @mousedown.prevent
-              @click="onSubBtn"
-            >
-              <HugeiconsIcon :icon="subOpen ? NoteRemoveIcon : NoteAddIcon" :size="16" :stroke-width="2" />
-            </button>
-          </Tooltip>
-          <!-- mobile overflow: the note + nesting actions collapse in here (delete +
+          <!-- mobile overflow: the nesting + vault actions collapse in here (delete +
                grip stay inline). Hidden on desktop. Same .menu/.popover atom as the
                editor's ⋯ kebab; one row's menu open at a time (useItemMenu). -->
           <div ref="menuRootRef" class="menu item__more">
@@ -1726,7 +1664,7 @@ function dismissFix() {
          The .reveal wrapper is a grid whose row animates 1fr↔0fr (Safari-safe slide); the two
          inputs share one inner child so that single-child slide stays clean. -->
     <Transition name="reveal">
-      <div v-if="subShown" :id="subId" class="reveal reveal--note">
+      <div v-if="subShown" class="reveal reveal--note">
         <div class="item__subfields">
           <!-- the gear-type field's placeholder is EXAMPLES ONLY, no concept noun: it sits
                directly under the product name, so the contrast (a specific product / the
@@ -1748,7 +1686,6 @@ function dismissFix() {
             autocorrect="off"
             spellcheck="true"
             @change="onCommonName"
-            @blur="onSubBlur"
           />
           <input
             v-if="noteShown"
@@ -1760,7 +1697,6 @@ function dismissFix() {
             autocorrect="off"
             spellcheck="true"
             @change="onNote"
-            @blur="onSubBlur"
           />
         </div>
       </div>
@@ -2351,14 +2287,13 @@ function dismissFix() {
   justify-self: end;
   gap: var(--space-1);
 }
-/* right-align all three glyphs (note · remove · grip) in their tap targets so they
-   read as evenly spaced with the grip flush to the edge — centering note/remove
+/* right-align the trailing glyphs (remove · grip) in their tap targets so they
+   read as evenly spaced with the grip flush to the edge — centering the others
    while the grip sat hard-right left an uneven, wider gap before the grip */
 .item__actions .btn--icon {
   justify-content: flex-end;
 }
 .item__grip,
-.item__note-btn,
 .item__nest-btn,
 .item__person-btn,
 .item__vault-btn,
@@ -2374,11 +2309,7 @@ function dismissFix() {
   color: var(--ink-3);
   transition: color var(--dur) var(--ease);
 }
-.item__note-btn.is-active {
-  color: var(--ink-2);
-}
 .item__grip:hover,
-.item__note-btn:hover,
 .item__nest-btn:hover,
 .item__person-btn:hover,
 .item__vault-btn:hover,
@@ -2387,8 +2318,7 @@ function dismissFix() {
 .item__morebtn:hover {
   color: var(--ink);
 }
-/* banked: the tick holds at full ink so the row keeps saying so, the same way the
-   note button stays lit once a note exists */
+/* banked: the tick holds at full ink so the row keeps saying so */
 .item__vault-btn.is-active,
 .item__vault-btn.is-active:hover {
   color: var(--ink);
@@ -2865,11 +2795,11 @@ function dismissFix() {
      every iPhone but the largest; at 375 even a top-level six-figure weight went ~15px
      over. Two icons is what the line can hold, and the drag grip and the menu that
      carries everything else are the two that have to be reachable.
-     Hide each departed one's BOX, not just the button in it. Three of them sit inside a
+     Hide each departed one's BOX, not just the button in it. Two of them sit inside a
      <Tooltip>, which renders a .tooltip-trigger wrapper, and the nesting menu has its
      own .menu div — hiding only the button leaves those wrappers as zero-width flex
      items, and a zero-width flex item still takes its share of the cluster's gap. That
-     was four phantom 4px gaps inside a cluster whose visible content is two buttons,
+     was three phantom 4px gaps inside a cluster whose visible content is two buttons,
      and the nesting one is CONDITIONAL (a group row offers no nest action), so the
      cluster came out 4px narrower on group rows than on the rest — enough to knock
      those rows out of the column the classification cell now rides. :has() is what
@@ -2877,7 +2807,6 @@ function dismissFix() {
      Tooltip, which is markup spent on saying what the button already says. */
   .item__nest,
   .item__person,
-  .item__actions .tooltip-trigger:has(.item__note-btn),
   .item__actions .tooltip-trigger:has(.item__vault-btn),
   .item__actions .tooltip-trigger:has(.item__del) {
     display: none;

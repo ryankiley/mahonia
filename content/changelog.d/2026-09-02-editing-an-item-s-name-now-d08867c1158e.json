@@ -1,0 +1,6 @@
+{
+  "date": "2026-09-02",
+  "changed": [
+    "Editing an item's name now also offers its gear type and note underneath; the separate add-a-note icon is gone."
+  ]
+}
