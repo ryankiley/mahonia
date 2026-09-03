@@ -28,10 +28,20 @@ const props = withDefaults(
     list: ListSnapshot;
     item: Item;
     childrenByParent: Map<string, Item[]>;
+    /**
+     * Rows kept on screen only as a label for a matching child, under a person
+     * filter (ReadonlyListView computes the set). Such a row's own line is not in
+     * this page's totals, so it prints no weight — the editor blanks the same cell
+     * in CSS, which is the only way it can, since no row there sees the filter.
+     */
+    contextOnlyIds?: ReadonlySet<string>;
     nested?: boolean;
   }>(),
   { nested: false },
 );
+
+/** this row is scaffolding around a match, not one of the filtered person's own */
+const isContextOnly = computed(() => !!props.contextOnlyIds?.has(props.item.id));
 
 const effClass = computed(() => effectiveClassification(props.item, props.list.folders));
 // one level of nesting: a nested row never renders its own children
@@ -125,7 +135,7 @@ const rowPerson = computed(() =>
            the cell's own right edge — 20px right of where every number in the column
            stops, since a number ends where the 2ch unit slot begins. It is standing in
            for the number, so it belongs in the number's place. -->
-      <span class="t-num item__roweight"><template v-if="rowWeightMg > 0">{{ formatWeight(rowWeightMg, rowUnit, { withUnit: false }) }}<span class="t-muted item__wunit">{{ rowUnit }}</span></template><template v-else>—<span class="item__wunit" /></template></span>
+      <span class="t-num item__roweight"><template v-if="isContextOnly" /><template v-else-if="rowWeightMg > 0">{{ formatWeight(rowWeightMg, rowUnit, { withUnit: false }) }}<span class="t-muted item__wunit">{{ rowUnit }}</span></template><template v-else>—<span class="item__wunit" /></template></span>
       <!-- CLASSIFICATION — the editor's own marks, in the column the editor puts them
            in: a lit shirt for worn, a lit cookie for consumable (a droplet when the
            consumable is water — see consumableIcon), the shared .item__mark
@@ -169,6 +179,7 @@ const rowPerson = computed(() =>
           :list="list"
           :item="child"
           :children-by-parent="childrenByParent"
+          :context-only-ids="contextOnlyIds"
           nested
         />
       </div>

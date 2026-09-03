@@ -39,7 +39,8 @@ export function listToMarkdown(list: ListSnapshot): string {
       const w = rowMg > 0 ? formatWeight(rowMg, u) : "—";
       // the product name, with the common name trailing it after an em dash when set
       // ("Altra Lone Peak 9+ — Trail runners") so a pasted list still says what each item is
-      const carrier = personName(list.people, effectivePersonId(it));
+      const carrierId = effectivePersonId(it);
+      const carrier = personName(list.people, carrierId);
       const name = withCarrier(
         withCommon(itemDisplayName(it.brand, it.name, it.variant), it.commonName),
         carrier,
@@ -50,11 +51,14 @@ export function listToMarkdown(list: ListSnapshot): string {
       for (const child of kids) {
         const cw = child.unitWeightMg > 0 ? formatWeight(lineMg(child), u) : "—";
         // a child names its carrier only when it DIFFERS from the parent's — every
-        // sub-row repeating the name above it would be noise, not information
-        const childCarrier = personName(list.people, effectivePersonId(child, it));
+        // sub-row repeating the name above it would be noise, not information.
+        // Compared by ID: names are unique per list now, but a list written before
+        // that rule can still hold two, and comparing the strings would silently
+        // un-name a child carried by the OTHER one.
+        const childCarrierId = effectivePersonId(child, it);
         const cn = withCarrier(
           withCommon(itemDisplayName(child.brand, child.name, child.variant), child.commonName),
-          childCarrier === carrier ? undefined : childCarrier,
+          childCarrierId === carrierId ? undefined : personName(list.people, childCarrierId),
         );
         out.push(`| ↳ ${cn} | ${child.qty} | ${cw} |`);
       }

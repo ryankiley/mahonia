@@ -37,6 +37,7 @@ import { parseProfile, profileToString } from "../profile";
 import { normalizeTrailLabel, normalizeTrailUrl } from "../trailLink";
 import { normalizeRouteGeometry } from "../polyline";
 import { uid } from "../id";
+import { uniquifyPersonNames } from "../people";
 
 /** The downloaded backup's shape: the list's meta + its full content. */
 export function listToJson(list: ListMeta & ListData): string {
@@ -109,7 +110,10 @@ export function jsonToListImport(text: string): JsonImport | null {
   // People before items: the items re-point personId through this map. Same
   // first-occurrence-wins dedupe as folders, for the same op-targeting reason.
   const personIdMap = new Map<string, string>();
-  const people = (Array.isArray(raw.people) ? raw.people : [])
+  // …then uniquifyPersonNames below: a backup may predate the one-name-per-person
+  // rule, and two "Sam"s are two DIFFERENT people here (they carry their own ids),
+  // so they're numbered apart rather than merged the way the CSV column merges them
+  const people = uniquifyPersonNames((Array.isArray(raw.people) ? raw.people : [])
     .filter(isRecord)
     .slice(0, MAX_PEOPLE)
     .map((p) => normalizePerson(p as unknown as Person))
@@ -118,7 +122,7 @@ export function jsonToListImport(text: string): JsonImport | null {
       const id = uid();
       if (!personIdMap.has(p.id)) personIdMap.set(p.id, id);
       return { ...p, id, sortOrder: i };
-    });
+    }));
 
   const normalized = raw.items
     .filter(isRecord)
