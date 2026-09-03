@@ -53,8 +53,8 @@ const contextOnlyIds = computed(() => {
 });
 
 // one grouping pass for all folders (ReadonlyFolderSection takes its items pre-grouped),
-// each folder ordered by its own sortBy so a shared list reads exactly as the owner's
-const itemsByFolder = computed(() => groupItemsByFolder(props.list?.items ?? [], props.list?.folders ?? []));
+// each folder in the owner's drag order so a shared list reads exactly as theirs
+const itemsByFolder = computed(() => groupItemsByFolder(props.list?.items ?? []));
 // one children pass for all rows — a row doesn't re-scan the item array for its children
 const childrenByParent = computed(() => groupItemsByParent(props.list?.items ?? []));
 const NO_ITEMS: Item[] = [];

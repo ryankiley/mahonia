@@ -184,10 +184,9 @@ function onOverlayToggle(key: string, open: boolean) {
 }
 const sectionKey = (s: VaultSection) => (s.folder ? String(s.folder.id) : "unfiled");
 
-// SORT_META / SORT_ORDER come from app/utils/sortOptions, shared with the editor's
-// folders — "Heaviest first" has to read identically on both surfaces, and one table
-// guarantees that where a copied comment only asked for it. (VIEW_OPTIONS below is a
-// different list: the PAGE's own order, which borrows the same glyph family.)
+// SORT_META / SORT_ORDER come from app/utils/sortOptions (this page is its one
+// caller now that a list's folders are drag order only). VIEW_OPTIONS below is a
+// different list: the PAGE's own order, which borrows the same glyph family.
 
 // Every folder change goes through the one ops route, then reloads — a vault is a
 // hundred rows and one small read, so re-reading is simpler and never leaves the
@@ -488,7 +487,7 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
 
 // Sign in without losing the vault behind it — the account opens over this page.
 const { open: openAccount } = useAccountModal();
-// the shape SortMenu takes — see FolderSection, which renders the same control
+// the shape OptionMenu takes
 const SORT_OPTIONS = SORT_ORDER.map((key) => ({ key, label: SORT_META[key].label, icon: SORT_META[key].icon }));
 // The page's own order. The sort glyphs are the editor's SORT_META family, so
 // "Heaviest" reads as the same verb it does in a folder header; Folders takes the
@@ -779,10 +778,9 @@ const rowKcal = (e: VaultEntry) => (e.classification === "consumable" && e.kcal 
                     >
                       <HugeiconsIcon :icon="Delete02Icon" :size="16" :stroke-width="2" />
                     </button>
-                    <!-- the shared sort picker, same control the editor's folder headers
-                         render. `!` on section.folder in @pick: the enclosing div is
-                         v-if="section.folder", but that narrowing doesn't survive into an
-                         arrow function's scope. -->
+                    <!-- the per-folder sort picker. `!` on section.folder in @pick: the
+                         enclosing div is v-if="section.folder", but that narrowing doesn't
+                         survive into an arrow function's scope. -->
                     <OptionMenu
                       class="folder__sortwrap"
                       :class="{ 'is-active': (section.folder.sortBy ?? 'manual') !== 'manual' }"

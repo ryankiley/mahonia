@@ -97,25 +97,11 @@ const sortedFolders = computed(() =>
 );
 // one grouping pass per snapshot, handed to each FolderSection — so a keystroke
 // in one folder doesn't make every folder re-filter + re-sort the whole item array.
-// Folders are passed so each group honors its own `sortBy` (manual = drag order).
-const itemsByFolder = computed(() => {
-  const map = groupItemsByFolder(snapshot.value?.items ?? [], snapshot.value?.folders ?? []);
-  // A just-added, still-blank row is pinned to the BOTTOM of its (possibly sorted)
-  // folder — otherwise a name/weight sort would immediately yank the empty row it
-  // autofocused off to the top, away from where you clicked "Add an item". Once you
-  // name it and blur, pendingBlankId clears and it slots into sorted position.
-  const pid = c.pendingBlankId.value;
-  if (pid) {
-    for (const group of map.values()) {
-      const i = group.findIndex((it) => it.id === pid);
-      if (i >= 0) {
-        group.push(...group.splice(i, 1));
-        break;
-      }
-    }
-  }
-  return map;
-});
+// (A just-added blank row used to be pinned to the bottom of its group here, so a
+// name/weight-sorted folder couldn't yank it away from where you clicked "Add an
+// item". Folders are drag order only now, so the row already sits where it was
+// added.)
+const itemsByFolder = computed(() => groupItemsByFolder(snapshot.value?.items ?? []));
 // one children pass per snapshot, threaded to every row — so a parent row doesn't
 // re-scan the whole item array for its children on each render
 const childrenByParent = computed(() => groupItemsByParent(snapshot.value?.items ?? []));

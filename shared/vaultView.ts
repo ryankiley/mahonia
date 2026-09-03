@@ -97,7 +97,7 @@ export function sortVaultRows(rows: VaultEntry[], view: Exclude<VaultView, "fold
   return out;
 }
 
-/** A–Z, with compareItemsBy's own collator options, so "A–Z" means the same thing on
+/** A–Z, with the collator options the list's name sort used, so "A–Z" means the same thing on
  *  this page as it does inside a folder in the editor ("Bag 2" before "Bag 10", case
  *  ignored). The page's own sort used a bare localeCompare and quietly disagreed with
  *  the editor it says it matches. */

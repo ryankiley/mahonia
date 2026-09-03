@@ -1,0 +1,6 @@
+{
+  "date": "2026-09-02",
+  "changed": [
+    "A list's folders no longer offer a sort menu (name, heaviest, lightest); items stay in the order you drag them into."
+  ]
+}
