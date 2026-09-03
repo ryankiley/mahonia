@@ -205,19 +205,17 @@ describe("vault isolation — one vault can never reach another's gear", () => {
   // Folders are a second id space over the same vault, so every folder verb needs
   // the same scoping the row verbs have — and the "move" op needs it TWICE, since
   // it names an item id and a folder id in one call.
-  it("refuses to rename, re-sort or delete another vault's folder", async () => {
+  it("refuses to rename or delete another vault's folder", async () => {
     await applyVaultFolderOp(db as never, theirs, { t: "add", name: "Shelter" });
     const [theirFolder] = await listVaultFolders(db as never, theirs);
 
     expect(await applyVaultFolderOp(db as never, mine, { t: "rename", id: theirFolder!.id, name: "hax" })).toBe(false);
-    expect(await applyVaultFolderOp(db as never, mine, { t: "sort", id: theirFolder!.id, sortBy: "name" })).toBe(false);
     expect(await applyVaultFolderOp(db as never, mine, { t: "remove", id: theirFolder!.id })).toBe(false);
 
     // untouched, and still named what they named it
     const after = await listVaultFolders(db as never, theirs);
     expect(after).toHaveLength(1);
     expect(after[0]!.name).toBe("Shelter");
-    expect(after[0]!.sortBy).toBeUndefined();
   });
 
   it("won't file my gear into another vault's folder", async () => {

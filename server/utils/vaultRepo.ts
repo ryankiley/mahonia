@@ -401,7 +401,6 @@ export async function listVaultFolders(db: Db, vaultId: number): Promise<VaultFo
   return rows.map((r) => ({
     id: r.id,
     name: tidyText(r.name),
-    sortBy: (r.sortBy as VaultFolder["sortBy"]) ?? undefined,
   }));
 }
 
@@ -858,12 +857,10 @@ export type VaultFolderOp =
   | { t: "add"; name: string }
   | { t: "rename"; id: number; name: string }
   | { t: "remove"; id: number }
-  | { t: "sort"; id: number; sortBy: string | null }
   | { t: "reorder"; ids: number[] }
   /** null folderId = unfile it */
   | { t: "move"; itemId: number; folderId: number | null };
 
-const FOLDER_SORTS = new Set(["manual", "name", "heaviest", "lightest"]);
 const FOLDER_NAME_MAX = 120;
 
 /**
@@ -921,15 +918,6 @@ export async function applyVaultFolderOp(
         .where(and(eq(vaultItems.folderId, op.id), eq(vaultItems.vaultId, vaultId)));
       const done = await db
         .delete(vaultFolders)
-        .where(and(eq(vaultFolders.id, op.id), eq(vaultFolders.vaultId, vaultId)))
-        .returning();
-      return done.length > 0;
-    }
-    case "sort": {
-      const sortBy = op.sortBy && FOLDER_SORTS.has(op.sortBy) ? op.sortBy : null;
-      const done = await db
-        .update(vaultFolders)
-        .set({ sortBy })
         .where(and(eq(vaultFolders.id, op.id), eq(vaultFolders.vaultId, vaultId)))
         .returning();
       return done.length > 0;

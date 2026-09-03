@@ -184,10 +184,6 @@ function onOverlayToggle(key: string, open: boolean) {
 }
 const sectionKey = (s: VaultSection) => (s.folder ? String(s.folder.id) : "unfiled");
 
-// SORT_META / SORT_ORDER come from app/utils/sortOptions (this page is its one
-// caller now that a list's folders are drag order only). VIEW_OPTIONS below is a
-// different list: the PAGE's own order, which borrows the same glyph family.
-
 // Every folder change goes through the one ops route, then reloads — a vault is a
 // hundred rows and one small read, so re-reading is simpler and never leaves the
 // page disagreeing with the server about an order or a filing.
@@ -242,9 +238,9 @@ function startFolderDrag(id: number, ev: PointerEvent) {
 // folder drag reorders headings, this one re-files a row, and one `track` trying to
 // mean both would have to guess from the grab point which you meant.
 //
-// The drop target is the FOLDER, not a slot within it: a vault folder's order is
-// its sortBy, so there is no position to aim at — unlike the list, where dropping
-// between two rows is the whole point.
+// The drop target is the FOLDER, not a slot within it: a vault folder's rows come
+// in the server's order (most recently used first), so there is no position to aim
+// at — unlike the list, where dropping between two rows is the whole point.
 const draggingItem = ref<number | null>(null);
 // number = a folder, null = unfiled, undefined = not over a drop target
 const itemDrop = ref<number | null | undefined>(undefined);
@@ -487,11 +483,9 @@ onBeforeUnmount(() => clearTimeout(undoTimer));
 
 // Sign in without losing the vault behind it — the account opens over this page.
 const { open: openAccount } = useAccountModal();
-// the shape OptionMenu takes
-const SORT_OPTIONS = SORT_ORDER.map((key) => ({ key, label: SORT_META[key].label, icon: SORT_META[key].icon }));
-// The page's own order. The sort glyphs are the editor's SORT_META family, so
-// "Heaviest" reads as the same verb it does in a folder header; Folders takes the
-// folder mark because it is a LAYOUT, not a sort key, and shouldn't borrow one.
+// The page's own order. A–Z / Heaviest / Lightest wear the sort-key glyph family;
+// Folders takes the folder mark because it is a LAYOUT, not a sort key, and
+// shouldn't borrow one.
 const VIEW_OPTIONS = [
   { key: "folders", label: "Folders", icon: FolderIcon },
   { key: "az", label: "A–Z", icon: SortingAZ01Icon },
@@ -713,7 +707,7 @@ const rowKcal = (e: VaultEntry) => (e.classification === "consumable" && e.kcal 
             </ul>
 
             <!-- FOLDERS. The editor's folder, class for class — the header grid, the
-                 collapse chevron, the trailing sort · delete · grip cluster and the
+                 collapse chevron, the trailing delete · grip cluster and the
                  1fr↔0fr body all come from atoms/folder.scss, so the two surfaces
                  can't drift. -->
             <template v-else>
@@ -744,7 +738,7 @@ const rowKcal = (e: VaultEntry) => (e.classification === "consumable" && e.kcal 
                       @change="renameFolder(section.folder, $event)"
                     />
                     <!-- unfiled isn't a folder you made: no name to edit, nothing to
-                         delete or sort — just a heading over what's left over -->
+                         delete — just a heading over what's left over -->
                     <span v-else class="field folder__name vault__unfiled">Unfiled</span>
                     <button
                       v-if="section.folder"
@@ -778,26 +772,6 @@ const rowKcal = (e: VaultEntry) => (e.classification === "consumable" && e.kcal 
                     >
                       <HugeiconsIcon :icon="Delete02Icon" :size="16" :stroke-width="2" />
                     </button>
-                    <!-- the per-folder sort picker. `!` on section.folder in @pick: the
-                         enclosing div is v-if="section.folder", but that narrowing doesn't
-                         survive into an arrow function's scope. -->
-                    <OptionMenu
-                      class="folder__sortwrap"
-                      :class="{ 'is-active': (section.folder.sortBy ?? 'manual') !== 'manual' }"
-                      trigger-class="btn btn--icon btn--ghost"
-                      :options="SORT_OPTIONS"
-                      :current="section.folder.sortBy ?? 'manual'"
-                      :label="`Sort gear in ${section.folder.name}`"
-                      @pick="(k) => folderOp({ t: 'sort', id: section.folder!.id, sortBy: k })"
-                    >
-                      <!-- SORT_META, not the slot's `active?.icon`: `active` is a find
-                           over the options so its icon is a maybe, and the icon prop
-                           doesn't take one. `!` for the same reason @pick's — a slot is
-                           an arrow function's scope too. -->
-                      <template #trigger>
-                        <HugeiconsIcon :icon="SORT_META[section.folder!.sortBy ?? 'manual'].icon" class="folder__sorticon" :size="16" :stroke-width="2" aria-hidden="true" />
-                      </template>
-                    </OptionMenu>
                     <button
                       class="btn btn--icon btn--ghost folder__grip"
                       title="Drag to reorder folder"
@@ -868,8 +842,7 @@ const rowKcal = (e: VaultEntry) => (e.classification === "consumable" && e.kcal 
                             <HugeiconsIcon :icon="Edit02Icon" :size="16" :stroke-width="2" aria-hidden="true" />
                           </button>
                           <!-- Move-to-folder: a quiet glyph opening the app's own
-                               picker — the same recipe as the folder header's sort
-                               control. It used to render the folder's NAME on every
+                               picker. It used to render the folder's NAME on every
                                row, which under a "Cook kit" heading meant every row
                                repeating "Cook kit"; the heading already says where you
                                are. The picker still names every destination when you
@@ -1296,7 +1269,7 @@ const rowKcal = (e: VaultEntry) => (e.classification === "consumable" && e.kcal 
 
 /* --- folders --- */
 /* Everything about a folder's LOOK — the header grid, the name field, the collapse
-   chevron, the trailing sort · delete · grip cluster, the 1fr↔0fr body — comes from
+   chevron, the trailing delete · grip cluster, the 1fr↔0fr body — comes from
    atoms/folder.scss, the same rules the editor renders. Only what's specific to a
    GEAR folder lives here. */
 .folder + .folder {
@@ -1315,7 +1288,7 @@ const rowKcal = (e: VaultEntry) => (e.classification === "consumable" && e.kcal 
      own gap to be the row's gap. Written as the same arithmetic the row is built
      from rather than a measured number, so a retune of either token moves both.
      It also has to be SIZED rather than auto: Unfiled owns no actions (there is
-     nothing to rename, sort or delete about "everything else"), so an auto track
+     nothing to rename or delete about "everything else"), so an auto track
      collapsed to nothing there and ran its subtotal out past every other folder's. */
   --head-actions: calc(3 * var(--icon-btn) + 2 * var(--space-1));
   --head-cols: 1fr auto calc(var(--icon-btn) + var(--space-4) + var(--head-actions));
@@ -1341,10 +1314,8 @@ const rowKcal = (e: VaultEntry) => (e.classification === "consumable" && e.kcal 
    header's three marks about 17px right of the row's three, and the two clusters
    read as two columns that nearly line up, which is worse than either. The rows own
    the geometry here, so the header takes theirs: same boxes, same centres.
-   :deep, because the sort control's button is rendered by OptionMenu and carries ITS
-   scope id, not this page's — a plain scoped selector moved the delete and the grip
-   and left the sort glyph 8px right of the column, which is the one place a
-   misalignment is most visible. */
+   :deep, so it reaches every button in the cluster whichever component renders it
+   (the move picker's is OptionMenu's, carrying ITS scope id, not this page's). */
 .folder__actions :deep(.btn--icon) {
   justify-content: center;
 }
@@ -1360,7 +1331,8 @@ const rowKcal = (e: VaultEntry) => (e.classification === "consumable" && e.kcal 
   opacity: 0.4;
 }
 /* the folder a dragged row will land in — a tint rather than an insertion line,
-   because a vault folder has no slot to aim at (its order is its sortBy) */
+   because a vault folder has no slot to aim at (its rows come in the server's
+   most-recently-used order) */
 .folder--drop-into {
   background: var(--paper-2);
   border-radius: var(--radius-2);
@@ -1555,7 +1527,7 @@ const rowKcal = (e: VaultEntry) => (e.classification === "consumable" && e.kcal 
   .vault__actions {
     margin-left: auto;
   }
-  /* three header columns don't survive 375px next to three --tap buttons, so the
+  /* three header columns don't survive 375px next to --tap buttons, so the
      subtotal takes its own line under the folder name — the way a read row's
      sub-line does */
   .folder__head {

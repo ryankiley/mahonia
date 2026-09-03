@@ -387,7 +387,9 @@ export const vaultFolders = pgTable(
     name: text("name").notNull(),
     // drag order on /vault; ties break on id so the order is always total
     sortOrder: integer("sort_order").notNull().default(0),
-    // manual|name|heaviest|lightest — null reads as manual, matching FolderSort
+    // LEGACY, unread: the per-folder sort (manual|name|heaviest|lightest) that My
+    // Gear used to offer. The feature is gone; the column stays until a migration
+    // drops it, and nothing writes or reads it.
     sortBy: text("sort_by"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },

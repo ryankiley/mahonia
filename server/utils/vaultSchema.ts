@@ -46,7 +46,7 @@ export const VAULT_DDL: string[] = [
     vault_id integer NOT NULL,
     name text NOT NULL,
     sort_order integer NOT NULL DEFAULT 0,
-    sort_by text,
+    sort_by text, -- legacy per-folder sort, no longer read or written (schema.ts)
     created_at timestamptz NOT NULL DEFAULT now()
   )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_vault_folder_name ON vault_folders (vault_id, name)`,
