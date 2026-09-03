@@ -651,6 +651,8 @@ Montane,Gecko VP+,Running vest,M,pack,167000,manufacturer,https://montane.com/pr
 Montane,Trailblazer 32L,Backpack,,pack,920000,manufacturer,https://montane.com/products/montane-trailblazer-r-32l-backpack,
 Montane,Trailblazer LT 28L,Backpack,,pack,390000,manufacturer,https://montane.com/products/montane-trailblazer-lt-28l-backpack,
 MooseTrack Packs,MTP 35L Backpacking Rucksack,Backpack,,pack,567000,manufacturer,https://www.garagegrowngear.com/products/mtp-35l-backpacking-rucksack-by-moose-track-packs,
+Mountain Hardwear,Alakazam 45L Ultralight Backpack,Backpack,M/L,pack,860000,manufacturer,https://www.mountainhardwear.com/p/alakazam-45l-backpack-2149971.html,
+Mountain Hardwear,Alakazam 45L Ultralight Backpack,Backpack,S/M,pack,820000,manufacturer,https://www.mountainhardwear.com/p/alakazam-45l-backpack-2149971.html,
 Mountain Laurel Designs,Burn 38L,Backpack,,pack,467767,manufacturer,https://mountainlaureldesigns.com/product/burn-38l/,
 Mountain Laurel Designs,Exodus 57L,Backpack,,pack,510291,manufacturer,https://mountainlaureldesigns.com/product/exodus-57l/,
 Mountain Laurel Designs,Prophet 48L,Backpack,,pack,496117,manufacturer,https://mountainlaureldesigns.com/product/prophet-48l/,
@@ -841,6 +843,7 @@ Fozzils,Snapfold Bowl,Bowl,XL,cook,119068,manufacturer,https://jrifecompany.com/
 Fozzils,Snapfold Solo Pack,Cookset,,cook,113000,manufacturer,https://www.garagegrowngear.com/products/snapfold-solo-pack-by-fozzils,
 Garage Grown Gear,Plastic Flask with Funnel,Flask,,cook,7000,manufacturer,https://www.garagegrowngear.com/products/plastic-flasks-with-funnel-by-ggg,
 Garage Grown Gear,Snap-Cap Bottles,Water bottle,1oz,cook,9000,manufacturer,https://www.garagegrowngear.com/products/squeeze-bottles,
+humangear,GoBite Duo Spoon & Fork,Utensils,,cook,22000,manufacturer,https://www.humangear.com/shop/p/duo,
 humangear,GoBite Spin Spoon & Fork,Utensils,,cook,14000,manufacturer,https://www.garagegrowngear.com/products/spin-spoon-fork-gobite-by-humangear,
 humangear,GoBite Uno Spoon & Fork,Utensils,Long,cook,18000,manufacturer,https://www.garagegrowngear.com/products/gobite-uno-spoon-fork-by-humangear,
 humangear,GoBite Uno Spoon & Fork,Utensils,Regular,cook,15000,manufacturer,https://www.garagegrowngear.com/products/gobite-uno-spoon-fork-by-humangear,
@@ -1272,6 +1275,7 @@ Gnuhr,Creeper Crew,Base layer top,4,clothing,258000,manufacturer,https://www.gnu
 Gnuhr,Creeper Crew Merino,Base layer top,4,clothing,182000,manufacturer,https://www.gnuhr.com/products/creeper-crew-merino,
 Gnuhr,Creeper Crew Merino v2.0,Base layer top,4,clothing,172000,manufacturer,https://www.gnuhr.com/products/creeper-crew-merino-v2-0,
 Gnuhr,Creeper Hood Merino,Base layer top,4,clothing,200000,manufacturer,https://www.gnuhr.com/products/creeper-hood-merino,
+Gnuhr,Footprint Camp Sandal,Sandals,US 9,clothing,171800,manufacturer,https://www.gnuhr.com/products/gnuhr-footprint-camp-sandal,
 Gnuhr,Heatwave Puffer Jacket,Insulated jacket,4,clothing,308000,manufacturer,https://www.gnuhr.com/products/heatwave-puffer-jacket,
 Gnuhr,Heatwave Puffer Jacket v1.5,Insulated jacket,4,clothing,361000,manufacturer,https://www.gnuhr.com/products/heatwave-puffer-jacket-v1-5,
 Gnuhr,Power Hoodie v1.5,Fleece,4,clothing,545000,manufacturer,https://www.gnuhr.com/products/power-hoodie-v1-5,
@@ -1469,6 +1473,7 @@ On,Cloudultra 2,Trail runners,US M9,clothing,578000,measured,https://www.irunfar
 On,Cloudultra 3,Trail runners,,clothing,589670,measured,https://www.cleverhiker.com/footwear/on-cloudultra-3-trail-running-shoe-review/,
 On,Cloudvista,Trail runners,US M8.5,clothing,570000,measured,https://www.doctorsofrunning.com/2022/04/on-cloudvista-review.html,
 On,Cloudvista 2,Trail runners,,clothing,584000,measured,https://runrepeat.com/on-cloudvista-2,
+Ortovox,185 Rock'N'Wool Boxer,Underwear,Men's,clothing,92000,manufacturer,https://www.ortovox.com/us-en/shop/men/p1957909-base-layer-pants-short-185-rock-n-wool-boxer-m,
 Outdoor Research,ActiveIce Chroma Full Sun Gloves,Sun gloves,,clothing,39973,manufacturer,https://www.outdoorresearch.com/products/activeice-chroma-full-sun-gloves-280134,
 Outdoor Research,ActiveIce Chroma Sun Gloves,Sun gloves,"Unisex, one size",clothing,34019,manufacturer,https://web.archive.org/web/20251211063136id_/https://www.outdoorresearch.com/products/activeice-chroma-sun-gloves-280133,
 Outdoor Research,ActiveIce Spectrum Sun Hoodie,Sun hoodie,Men's,clothing,255000,manufacturer,https://www.outdoorresearch.com/products/mens-activeice-spectrum-sun-hoodie-322376,
@@ -1839,6 +1844,7 @@ Ricoh,GR IIIx,Camera,"body, with battery + SD",electronics,262000,manufacturer,h
 Ricoh,GR IV,Camera,"body, with battery + SD",electronics,262000,manufacturer,https://www.ricoh-imaging.co.jp/english/products/gr-4/spec/,
 RovyVon,Aurora A5 (G4) Keychain Flashlight,Flashlight,,electronics,17000,manufacturer,https://www.garagegrowngear.com/products/a5-g3-by-rovyvon,
 Snow Peak,Hozuki Lantern,Lantern,,electronics,164000,manufacturer,https://www.snowpeak.com/products/hozuki-lantern-2,
+Snow Peak,Micro Hozuki,Lantern,,electronics,5000,manufacturer,https://ec.snowpeak.co.jp/item/SNP0126A0011,
 Snow Peak,Mini Hozuki,Lantern,,electronics,54000,manufacturer,https://www.snowpeak.com/products/mini-hozuki-1,
 ZOLEO,Satellite Communicator,Satellite messenger,,electronics,150000,manufacturer,https://www.zoleo.com/en-us/product/zoleo-global-satellite-communicator,
 Adventure Medical Kits,.3 Medical Kit,First aid kit,,firstaid,73000,manufacturer,https://www.garagegrowngear.com/products/ultralight-watertight-3-medical-kit-by-adventure-medical-kits,
@@ -1907,6 +1913,10 @@ Joshua Tree Skin Care,Hiker's Salve,Skin salve,3ml,consumable,8500,manufacturer,
 Joshua Tree Skin Care,Organic SPF Lip Balm,Lip balm,,consumable,11300,manufacturer,https://www.garagegrowngear.com/products/organic-spf-lip-balm-by-joshua-tree-skin-care,
 Joshua Tree Skin Care,Sunscreen Face Stick,Sunscreen,,consumable,28300,manufacturer,https://www.garagegrowngear.com/products/face-stick-by-joshua-tree-skin-care,
 Justin's,Classic Almond Butter Squeeze Pack,Nut butter,single serve,consumable,32602,manufacturer,https://www.target.com/p/justin-s-squeeze-pack-classic-almond-butter-1-15oz/-/A-15989040,220
+KIND,Nut Bar (Blueberry Vanilla & Cashew),Energy bar,single bar,consumable,40000,manufacturer,https://www.kindsnacks.com/products/nut-bar/blueberry-vanilla-cashew,160
+KIND,Nut Bar (Dark Chocolate Nuts & Sea Salt),Energy bar,single bar,consumable,40000,manufacturer,https://www.kindsnacks.com/products/nut-bar/dark-chocolate-nuts-sea-salt,190
+KIND,Nut Bar (Fruit & Nut),Energy bar,single bar,consumable,40000,manufacturer,https://www.kindsnacks.com/products/nut-bar/fruit-nut,190
+KIND,Nut Bar (Peanut Butter Dark Chocolate),Energy bar,single bar,consumable,40000,manufacturer,https://www.kindsnacks.com/products/nut-bar/peanut-butter-dark-chocolate,200
 Knorr,Rice Sides Cheddar Broccoli,Meal,one pouch,consumable,161592,manufacturer,https://smartlabel.unileverusa.com/041000022784-0001-en-US/index.html,600
 Kovea,Gas Canister,Fuel canister,"110g canister, net fuel",consumable,110000,manufacturer,https://bigtentoutdoors.com/products/kovea-gas-canister-case-pack,
 Kovea,Gas Canister,Fuel canister,"230g canister, net fuel",consumable,230000,manufacturer,https://bigtentoutdoors.com/products/kovea-gas-canister-case-pack,
@@ -2355,6 +2365,7 @@ Matador,Ultralight Travel Towel,Towel,Small,other,19000,manufacturer,https://www
 Montbell,Trekking Umbrella 50,Umbrella,,other,155000,manufacturer,https://www.montbell.com/us/en/products/detail/1128698,
 Montbell,Trekking Umbrella 55,Umbrella,,other,153087,manufacturer,https://www.montbell.com/us/en/products/detail/1128701,
 Montbell,Trekking Umbrella 60,Umbrella,,other,167262,manufacturer,https://www.montbell.com/us/en/products/detail/1128702,
+Montbell,U.L. Pouch,Pouch,S,other,18000,manufacturer,https://www.montbell.com/us/en/products/detail/1123866,
 MooseTrack Packs,ClipIt Lighter Lanyard,Lighter lanyard,,other,3000,manufacturer,https://www.garagegrowngear.com/products/clipit-lighter-lanyard-by-moose-track-packs,
 Mountainsmith,Andesite Neo Trekking Poles,Trekking poles,per pair,other,320000,manufacturer,https://www.garagegrowngear.com/products/andesite-trekking-poles-by-mountainsmith,
 MSR,Blizzard Stake,Tent stakes,per stake,other,27000,manufacturer,https://www.msrgear.com/tents/tent-accessories/blizzard-tent-stakes/05809.html,
