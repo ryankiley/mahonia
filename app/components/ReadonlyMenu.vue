@@ -151,6 +151,7 @@ async function copyLink() {
         <li role="none" class="menu__sect">
           <button
             type="button"
+            data-row
             class="menu__item menu__secthead"
             :aria-expanded="exportOpen"
             @click="exportOpen = !exportOpen"

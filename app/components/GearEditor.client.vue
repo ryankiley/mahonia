@@ -971,6 +971,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
                 <li v-for="s in MENU_SECTIONS" :key="s.key" role="none" class="menu__sect">
                   <button
                     type="button"
+                    data-row
                     class="menu__item menu__secthead"
                     :aria-expanded="openSection === s.key"
                     @click="toggleSection(s.key)"
