@@ -13,8 +13,10 @@ interface PointerDragHooks<T> {
   track: (ev: PointerEvent, el: HTMLElement | null, dragId: string) => void;
   /** The caller's current drop target — read at release, just before reset. */
   target: () => T | null;
-  /** Apply the drop. Called only for a release inside the editing surface. */
-  commit: (dragId: string, target: T) => void;
+  /** Apply the drop. Called only for a release inside the editing surface.
+   *  `copy` is the copy modifier's state at the RELEASE (see `copyKey`); a gesture
+   *  with no copy meaning simply ignores it. */
+  commit: (dragId: string, target: T, copy: boolean) => void;
   /** Per-gesture extra state on pickup (e.g. the item drag's start Y). */
   onStart?: (ev: PointerEvent) => void;
   /** Per-gesture extra cleanup on reset (e.g. the item drag's dy). */
@@ -45,9 +47,22 @@ export function createPointerDrag<T>(hooks: PointerDragHooks<T>) {
   // top bar, the footer, or off-screen). A release while outside cancels instead of
   // committing — the touch-reachable abort, since there's no Escape key on mobile.
   let outside = false;
+  // Option/Alt held: the copy-instead-of-move modifier, the one every direct-
+  // manipulation tool means by it (Finder, Figma, Sketch). Alt ALONE — Ctrl is the
+  // Windows convention for the same thing, but on macOS Ctrl+click is a right-click,
+  // so honouring it would arm a copy from the gesture that opens a context menu.
+  // Callers that don't copy anything never read this.
+  //
+  // Tracked here rather than by the caller because only this scaffold sees every
+  // event a gesture produces. The modifier can go down and up WITHOUT the pointer
+  // moving, so pointermove alone would hold a stale reading for as long as the hand
+  // is still — hence the keydown/keyup pair, which is also why this can't just be
+  // read off the commit event and be right for the indicator on the way there.
+  const copyKey = ref(false);
 
   function onMove(ev: PointerEvent) {
     if (!dragId.value || ev.pointerId !== activePointer) return;
+    copyKey.value = ev.altKey;
     const el = document.elementFromPoint(ev.clientX, ev.clientY) as HTMLElement | null;
     // Cancel only on a VERTICAL escape — dragging up over the sticky top bar or down
     // past the footer. A sideways drag into the horizontal page margin is still a
@@ -71,12 +86,17 @@ export function createPointerDrag<T>(hooks: PointerDragHooks<T>) {
     window.removeEventListener("pointerup", onUp);
     window.removeEventListener("pointercancel", onCancel);
     window.removeEventListener("keydown", onKey);
+    window.removeEventListener("keyup", onKey);
   }
 
   // Escape aborts the drag without committing — the clean cancel now that a release
-  // always commits to the last target.
+  // always commits to the last target. Bound to keyUP as well as keydown, for the
+  // modifier: pressing or releasing Alt is a key event and nothing else, so this is
+  // the only place a still hand's change of mind is heard. (Escape on keyup is
+  // harmless — the keydown already reset the drag, and reset() is re-entrant.)
   function onKey(ev: KeyboardEvent) {
-    if (ev.key === "Escape") reset();
+    if (ev.key === "Escape") return reset();
+    copyKey.value = ev.altKey;
   }
 
   // Clear all drag state + listeners without committing. Safe to call any time
@@ -95,6 +115,7 @@ export function createPointerDrag<T>(hooks: PointerDragHooks<T>) {
     }
     capturedId = -1;
     dragId.value = null;
+    copyKey.value = false;
     hooks.onReset?.();
   }
 
@@ -103,8 +124,13 @@ export function createPointerDrag<T>(hooks: PointerDragHooks<T>) {
     const id = dragId.value;
     const target = hooks.target();
     const cancelled = outside;
+    // The RELEASE is the authoritative reading of the modifier — you decide whether
+    // this is a copy by what you're holding when you let go. Read off the event
+    // rather than the ref because reset() below clears the ref (it has to: the ref
+    // is live state for the indicator, and a drag that ended holds no modifier).
+    const copy = ev.altKey;
     reset();
-    if (!cancelled && id && target) hooks.commit(id, target);
+    if (!cancelled && id && target) hooks.commit(id, target, copy);
   }
 
   // touch/OS can end a gesture with pointercancel (edge-swipe, scroll steal)
@@ -135,15 +161,17 @@ export function createPointerDrag<T>(hooks: PointerDragHooks<T>) {
     }
     dragId.value = id;
     outside = false;
+    copyKey.value = ev.altKey;
     hooks.onStart?.(ev);
     document.body.style.userSelect = "none";
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
     window.addEventListener("pointercancel", onCancel);
     window.addEventListener("keydown", onKey);
+    window.addEventListener("keyup", onKey);
   }
 
-  return { dragId, start, reset };
+  return { dragId, copyKey, start, reset };
 }
 
 // ---------------------------------------------------------------------------

@@ -236,5 +236,106 @@ function moveItem(
   if (formerParentId && formerParentId !== parentId) unwrapEmptied(formerParentId, id);
 }
 
-  return { containerFor, unwrapEmptied, addChild, nestItem, unnest, moveItem };
+// Everything a copy inherits: the whole row except its identity, its place in the
+// list, and its packing tick. `packed` is the one deliberate omission — it records a
+// checkbox ticked the night before a trip, which is a fact about that evening and not
+// about the gear, so a copy arrives unpacked whatever its source was.
+function copyOf(src: Item): Omit<Item, "id" | "folderId" | "parentId" | "sortOrder" | "packed"> {
+  // through a spread rather than by naming fields: this has to carry EVERY field a
+  // row can hold, and a list of them here would silently stop copying the next one
+  // added to the Item type. It also flattens the snapshot's reactive proxy, which is
+  // what removeFolder's undo capture does for the same reason.
+  const { id: _id, folderId: _folderId, parentId: _parentId, sortOrder: _sortOrder, packed: _packed, ...rest } = src;
+  return rest;
+}
+
+/**
+ * Copy a row — the whole row, not just its name — into a slot.
+ *
+ * WHY THIS EXISTS: a row's cost was never one field. Marking something consumable and
+ * giving it calories is three separate acts on top of typing its name, and a trip that
+ * eats the same bar on five days paid all three five times over. Every one of those
+ * values is already sitting on the row beside it. The same arithmetic holds for a row
+ * that took a weight, a carrier and a quantity — which is why this copies everything
+ * rather than growing a food-shaped shortcut.
+ *
+ * `at` is the slot a drag resolved (Alt-drag copies instead of moving). Omitted, the
+ * copy lands directly below the source in its own container, which is what Duplicate
+ * means from the row's menu: put it where the eye already is.
+ *
+ * CHILDREN COME ALONG. A group IS its children — copying "Tent" without its fly and
+ * poles hands back a row that weighs nothing and means nothing. A copy carrying
+ * children stays top-level, since nesting is one level deep.
+ *
+ * Returns the new row's id.
+ */
+function duplicateItem(
+  id: string,
+  at?: { folderId: string | null; beforeId: string | null; parentId: string | null },
+): string {
+  if (!snapshot.value) return "";
+  const src = snapshot.value.items.find((i) => i.id === id);
+  if (!src) return "";
+  const srcParent = src.parentId ?? null;
+  // only a top-level row can have any (one level deep), so a nested source skips the scan
+  const kids =
+    srcParent == null ? snapshot.value.items.filter((i) => i.parentId === id).sort(bySortOrder) : [];
+
+  const folderId = at ? at.folderId : src.folderId;
+  let parentId = at ? at.parentId : srcParent;
+  let beforeId: string | null;
+  if (at) beforeId = at.beforeId;
+  else {
+    // the slot AFTER the source among its own siblings — null when it is the last,
+    // which appends, exactly where "below this row" points there too
+    const sibs = siblingItems(snapshot.value.items, folderId, parentId).sort(bySortOrder);
+    beforeId = sibs[sibs.findIndex((s) => s.id === id) + 1]?.id ?? null;
+  }
+  // A copy that brings children can't itself be nested. The drag never offers such a
+  // target — it checks for children before it proposes one — so this is the menu
+  // path's guard, and the rule written where the children are made rather than only
+  // in the reducer that would otherwise scatter them to top level.
+  if (kids.length) parentId = null;
+  // Nesting into a row that carries a weight wraps it in a group, exactly as a move
+  // does. It has to happen BEFORE the copy is added: added first, the copy is itself
+  // the child that makes containerFor decide the row is already a container and
+  // decline to wrap — leaving a weight on a parent, which is the one state the wrap
+  // exists to prevent.
+  if (parentId != null) {
+    const containerId = containerFor(parentId, false);
+    if (containerId !== parentId) {
+      parentId = containerId;
+      beforeId = null;
+    }
+  }
+
+  const newId = uid();
+  // Appended to the DESTINATION container, then slotted by moveItem below. Landing it
+  // in the source's folder first and moving it across would be read as a move between
+  // folders, and the history would say "Moved" about a row that was never anywhere else.
+  dispatch({
+    t: "addItem",
+    item: {
+      ...copyOf(src),
+      id: newId,
+      folderId,
+      parentId,
+      sortOrder: nextSortOrder(snapshot.value.items, folderId, parentId),
+    },
+  });
+  // parents before children, so each child has a parent to re-link to (the reducer
+  // coerces a child whose parent isn't there yet to top level) — the ordering
+  // removeFolder's undo needs for the same reason
+  for (const kid of kids)
+    dispatch({
+      t: "addItem",
+      item: { ...copyOf(kid), id: uid(), folderId, parentId: newId, sortOrder: kid.sortOrder },
+    });
+  // reindex the destination around it — and this is a quiet op, because the row is
+  // already where it belongs; the ADD is the news
+  moveItem(newId, folderId, beforeId, parentId);
+  return newId;
+}
+
+  return { containerFor, unwrapEmptied, addChild, nestItem, unnest, moveItem, duplicateItem };
 }

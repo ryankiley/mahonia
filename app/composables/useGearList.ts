@@ -1126,7 +1126,7 @@ function create() {
   // they answer to nothing but the snapshot and the queue, and their group
   // semantics were the longest stretch of this file that had nothing to do with
   // syncing. Covered by tests/itemNesting.nuxt.test.ts.
-  const { addChild, nestItem, unnest, moveItem } = createNesting({
+  const { addChild, nestItem, unnest, moveItem, duplicateItem } = createNesting({
     snapshot,
     dispatch,
     pendingBlankId,
@@ -1242,7 +1242,7 @@ function create() {
     vaultPicker, confirmVaultPicker, cancelVaultPicker,
     vaultAuto, vaultDeclined,
     addBlankItem, addBlankItemAfter, addVaultItem, addVaultFolder, saveItemToVault, discardEmpty, updateItem, removeItem, setItemWeight, moveItem,
-    addChild, nestItem, unnest,
+    addChild, nestItem, unnest, duplicateItem,
     pendingBlankId, pendingUndo, undoRemove, holdUndo, releaseUndo,
   };
 }

@@ -265,6 +265,32 @@
    and that atom clears the ground on hover (controls.scss) at the same specificity.
    Same declarations, later in the cascade — so pointing at a lit toggle doesn't
    blink its state off. */
+/* ALT HELD MID-DRAG: the whole page says "copy". THREE selectors, because a drag
+   cursor has three different ways to be quietly wrong and this rule got two of them.
+
+   Not on the dragged row: it is pointer-events:none for the length of the gesture (so
+   the drop detection's elementFromPoint sees the rows underneath rather than the row in
+   flight), and an element that is never hit-tested never sets the cursor. Measured, the
+   rule on the lifted row computed `copy` while the pointer showed `auto`.
+
+   Not on the surface alone either. The gesture holds POINTER CAPTURE on
+   document.documentElement (pointerDrag.ts explains why: the lift would otherwise drop
+   the implicit capture and fire pointercancel), and while a pointer is captured the
+   cursor comes from the capturing element — which is <html>, an ANCESTOR of the surface
+   and so unreachable from any descendant selector. `:root:has()` is what reaches it,
+   and it is scoped to the attribute so nothing outside the gesture is touched.
+
+   The descendant `*` is the third: the grip, the fields and every button in reach set a
+   cursor of their own, and for the length of the gesture none of them may win. It
+   outranks each on specificity, so no !important is needed.
+
+   Costs nothing at rest — the attribute only exists while a copy-drag is in flight. */
+:root:has(.editor__body[data-copying]),
+.editor__body[data-copying],
+.editor__body[data-copying] * {
+  cursor: copy;
+}
+
 .item__mark,
 .item__mark:hover {
   background: var(--lit);
