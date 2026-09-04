@@ -12,7 +12,14 @@
    can't draw it three different ways. Every mode's row element carries `.item-row` and
    supplies only what legitimately differs, as custom properties:
      --row-cols  : the grid-template-columns for that mode + breakpoint
-     --row-align : align-items — edit + read sit on the baseline; packing centres its checkbox
+     --row-align : align-items — the DESKTOP grid's; packing centres on its checkbox, edit
+                   and read sit on the baseline. Both stacks centre on mobile instead (a
+                   line that mixes text with icon-only cells has no baseline to share), but
+                   only read says so through this variable — ReadonlyItemRow sets
+                   `--row-align: center`. The edit row's mobile line leaves the grid
+                   entirely (its .item__meta goes `display: contents` → flex) and centres
+                   with a local `align-items`, so it is invisible from here: changing this
+                   default does NOT reach it.
      --row-gap   : the gap — one value, or `<row> <col>` on the mobile two-line stacks
    plus its own chrome in its scoped block (edit's named areas, packing's checkbox +
    min-height, read's search link). The column templates themselves are tokens

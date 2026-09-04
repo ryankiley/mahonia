@@ -1913,9 +1913,14 @@ function dismissFix() {
   position: relative;
   flex: none;
   display: inline-flex;
-  /* centres the chevron ON the unit's text rather than letting it stretch. The wrap
-     still contributes the unit's own baseline upward, so the number and its unit stay
-     on one line with the rest of the row. */
+  /* centres the chevron ON the unit's text rather than letting it stretch.
+     What it CANNOT do is hand a baseline up: a flex box that centres its own contents
+     has none to offer, so a baseline-aligned parent gets a SYNTHESIZED one — a value the
+     spec leaves the engine to derive, and the engines disagree. That is what put the "lb"
+     a fraction above the "0.03" it belongs to, visibly in Safari. The mobile weight cell
+     no longer asks: it centres too (see .item__weight in the stack block below), which
+     needs no baseline from this wrap at all. The DESKTOP cell above still asks — it
+     measures right in Blink, and has not been checked in WebKit. */
   align-items: center;
   /* The SAME gap `.optmenu__btn` puts between its trigger's parts (both read the one
      token, so this is a shared value and not a copied number).
@@ -2590,18 +2595,25 @@ function dismissFix() {
   }
   .item__actions {
     flex: none;
-    height: auto; /* the desktop --field-h box is for the grid row; here the cluster rides the flex line */
   }
-  /* …and the pin that box came with, undone with it. On the grid these three cells sit
-     `align-self: start` inside a --field-h box, because the grid AREA is as tall as the
-     name cell and grows when its sub-line opens — the box is what keeps them on the name
-     line instead of sinking to the middle of a three-line cell. Down here there is no
-     area to escape and no box to sit in: the flex line is the box. Left in, `start` just
-     parks three cells of three slightly different heights against the top of a line whose
-     height they don't set, which is the wobble the centring above exists to remove. */
+  /* THE DESKTOP --field-h BOX, UNDONE — both halves of it, in one place, because it is
+     one idea. On the grid these three cells sit `align-self: start` inside a box exactly
+     --field-h tall: the grid AREA is as tall as the name cell and grows when its sub-line
+     (gear type / note) opens, so the box is what keeps each cell on the name LINE instead
+     of sinking to the middle of a three-line cell, and `start` is what pins the box to the
+     top of that area.
+     Down here there is no area to escape and no box to sit in — the flex line IS the box,
+     and it is sized by the cells themselves. Both halves have to come off together: the
+     height would hold a 36px box inside a ~25px line, and `start` would park three cells
+     of three slightly different heights against the top of a line whose height they don't
+     set, which is the wobble the centring above exists to remove.
+     They were three separate `height: auto` declarations until the align-self reset joined
+     them; keeping the two properties on one selector list is what stops a fourth cell being
+     added to one list and forgotten in the other. */
   .item__qty--step,
   .item__classcell,
   .item__actions {
+    height: auto;
     align-self: auto;
   }
   /* the --tap tap targets keep their size but overflow the (shorter) text line via
@@ -2609,13 +2621,18 @@ function dismissFix() {
      lines apart.
      BOTH icon groups on this line, not just the trailing one. The classification cell
      held a text label when this rule was written; once it became two --tap buttons it
-     stood 44px tall inside a ~25px text line, and the flex line grew to fit it. The
-     numbers are baseline-aligned so they stayed at the top of that taller line while
-     everything centred in it — the toggles AND the trailing icons — sank ~10px below
-     them. Pulling the toggles back onto the line is what lands every glyph on the
-     numbers' optical centre, and it gives back the editing↔packing height parity
-     .item--check is built around: the inflated line made an edit row 19px taller than
-     the checklist row it toggles into, so the list jumped on every mode switch. */
+     stood 44px tall inside a ~25px text line, and the flex line grew to fit it — which
+     is the whole problem, and it is not one the line's own alignment can solve. A 44px
+     item makes a 44px line whatever you align it by (the line takes its cross size from
+     its tallest item, and this rule ran when the line was still `baseline`, where the
+     numbers then held the top of it while every icon centred ~10px below them).
+     So the fix has to be the BOX, not the alignment: shrink each icon's footprint back
+     to the text line's height and let the 44px target overflow it. That is what keeps
+     the editing↔packing height parity .item--check is built around — the inflated line
+     made an edit row 19px taller than the checklist row it toggles into, so the list
+     jumped on every mode switch — and it is why these margins stay load-bearing now
+     that the line centres (.item__meta above): centring aligns the icons, it does not
+     stop a 44px one from setting the line's height. */
   .item__actions :deep(.btn--icon),
   .item__classcell .btn--icon,
   .item__classcell .item__clsfixed {
@@ -2705,13 +2722,12 @@ function dismissFix() {
      fixed class track (tokens.scss) gets its mobile equivalent. It costs no width: the
      free space it eats is the slack the widest row in the list doesn't have anyway.
      It must be the ONLY auto margin on the line — a second one splits the free space
-     between them and the drift comes straight back at half size. (The ≤360px coarse
-     block re-declares it on .item__actions because there the cluster wraps onto a line
-     of its own, where the two margins can't meet.) */
+     between them and the drift comes straight back at half size. The line that the
+     cluster wraps onto has no classification cell to be pushed by, so it is
+     .item__meta's own justify-content that right-anchors that one, not a second margin. */
   .item__classcell {
     flex: none;
     margin-left: auto;
-    height: auto; /* as .item__actions: the --field-h box is desktop-grid furniture */
   }
   /* the number fields have no grid column to fill on mobile, so give them compact
      explicit widths — otherwise width:100% balloons to the default text-input size
@@ -2720,15 +2736,20 @@ function dismissFix() {
   .item__weight {
     flex: none;
     /* and the cells centre their own parts too, for the reason the line above does.
-       The weight cell is the one that needed it: its unit is wrapped in .item__unitwrap
-       (a centred flex box, so that it can hold the picker's chevron beside the text),
-       and asking a centred box for a baseline is asking for a synthesized one — which
-       is how "lb" came to sit a fraction above the "0.03" it belongs to. Centring skips
-       the question and lands the two on the same baseline exactly. */
+       The weight cell is what forced it: its unit is wrapped in .item__unitwrap (a
+       centred flex box, so that it can hold the picker's chevron beside the text), and
+       asking a centred box for a baseline is asking for a synthesized one — which is how
+       "lb" came to sit a fraction above the "0.03" it belongs to. Centring skips the
+       question and lands the two on the same baseline exactly.
+       .item__qty IS IN THIS SELECTOR FOR THE WATER ROW, and only for it — do not narrow
+       this rule to .item__weight on the strength of the paragraph above. A water row's
+       qty cell holds litres, so it keeps a plain field and carries no .item__qty--step
+       (see the markup), and --step is where every other row gets its centring, from the
+       unconditional rule further up. Drop .item__qty here and a water row alone falls
+       back to the base `align-items: baseline` — its "L" against its own number, the
+       same mismatch this rule exists to remove, on the one row type nobody thinks to
+       check. */
     align-items: center;
-  }
-  .item__qty--step {
-    height: auto; /* the --field-h box is desktop-grid furniture; here the stepper stands down and the count rides the flex line */
   }
   /* THE STEPPER STANDS DOWN HERE, and the count goes back to a plain number and its
      ×. Nine controls already share this line at 375px, and unlike the grid it has no
