@@ -12,7 +12,7 @@
 // It lived in server/utils/vaultRepo.ts for the same reason, back when no client
 // searched a vault locally; the pane's own search is what brought it here.
 
-import { SIM_THRESHOLD, matchTier, trigramScore } from "./catalogSearch";
+import { matchTier, rankByQuery, trigramScore } from "./catalogSearch";
 import { VAULT_SEARCH_LIMIT } from "./vault";
 import { itemDisplayName } from "./weights";
 
@@ -27,6 +27,22 @@ export interface RankableVaultRow {
   variant?: string | null;
   commonName?: string | null;
   timesSeen: number;
+}
+
+/**
+ * The text a vault row is SEARCHED in, wider than the tier target (brand + name).
+ * Variant is in it (you may well type "x-mid 2 pro"), and so is the GEAR TYPE —
+ * "stove" has to find your PocketRocket, exactly as it finds the catalog's, or your
+ * own gear is harder to search than a stranger's. commonName is the vault's
+ * analogue of catalog_items.search_terms, and it's excluded from the tier target
+ * for the same reason search_terms is: typing a category noun isn't typing the
+ * name. The ranker scores this; the page's single-character substring pass
+ * (shared/vaultView.ts) reads the same text, so the two can't find different rows.
+ */
+export function vaultSearchText(
+  row: Pick<RankableVaultRow, "brand" | "name" | "variant" | "commonName">,
+): string {
+  return `${itemDisplayName(row.brand ?? null, row.name)} ${row.variant ?? ""} ${row.commonName ?? ""}`;
 }
 
 /**
@@ -45,28 +61,21 @@ export function rankVaultRows<T extends RankableVaultRow>(
   rawQuery: string,
   limit = VAULT_SEARCH_LIMIT,
 ): T[] {
-  const q = (rawQuery ?? "").trim();
-  if (q.length < 2) return []; // one character is too noisy for trigram autocomplete
-  return rows
-    .map((row) => {
+  return rankByQuery(
+    rows,
+    rawQuery,
+    limit,
+    (row, q) => {
+      // the tier target is brand + name only — see vaultSearchText for what the
+      // score reads and why the two differ
       const brandName = itemDisplayName(row.brand ?? null, row.name);
-      // The searchable target is wider than the tier target. Variant is in it (you
-      // may well type "x-mid 2 pro"), and so is the GEAR TYPE — "stove" has to find
-      // your PocketRocket, exactly as it finds the catalog's, or your own gear is
-      // harder to search than a stranger's. commonName is the vault's analogue of
-      // catalog_items.search_terms, and it's excluded from the tier target for the
-      // same reason search_terms is: typing a category noun isn't typing the name.
-      const score = trigramScore(q, `${brandName} ${row.variant ?? ""} ${row.commonName ?? ""}`);
+      const score = trigramScore(q, vaultSearchText(row));
       return { row, score, tier: matchTier(q, brandName, score) };
-    })
-    .filter((r) => r.score >= SIM_THRESHOLD)
-    .sort(
-      (a, b) =>
-        a.tier - b.tier ||
-        b.row.timesSeen - a.row.timesSeen ||
-        b.score - a.score ||
-        a.row.id - b.row.id,
-    )
-    .slice(0, limit)
-    .map(({ row }) => row);
+    },
+    (a, b) =>
+      a.tier - b.tier ||
+      b.row.timesSeen - a.row.timesSeen ||
+      b.score - a.score ||
+      a.row.id - b.row.id,
+  );
 }

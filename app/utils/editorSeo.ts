@@ -8,11 +8,9 @@
 // blowing the largest-chunk budget). Here it rides only the /e route chunks,
 // which already include weights.
 
+import { SITE_DESCRIPTION } from "~~/shared/site";
 import type { Totals, Unit } from "~~/shared/types";
 import { formatWeightAuto, unitSystem } from "~~/shared/weights";
-
-export const GENERIC_TITLE = "Mahonia — pack lists, weighed";
-const GENERIC_DESC = "Make a packing list, see what it weighs, share it. No login.";
 
 // The default "Untitled list" (or empty) is "not named" — an unnamed list keeps
 // the generic card rather than advertising "Untitled list". An empty `name`
@@ -24,7 +22,7 @@ export function editorSeo(
 ): { name: string; desc: string } {
   const t = title?.trim();
   const name = t && t !== "Untitled list" ? t : "";
-  if (!name) return { name, desc: GENERIC_DESC };
+  if (!name) return { name, desc: SITE_DESCRIPTION };
   if (!totals) return { name, desc: `${name}, a packing list on Mahonia.` };
   const bits = [`${totals.itemCount} items`];
   // owner's system, matching the card image this text unfurls beside — the same

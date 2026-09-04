@@ -13,7 +13,6 @@
 // the same PGlite directory open, and the two views disagreed.)
 
 import { sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/pglite";
 import { beforeEach, describe, expect, it } from "vitest";
 import * as schema from "../server/db/schema";
 import { LISTS_DDL } from "../server/utils/db";
@@ -21,20 +20,14 @@ import { ACCOUNT_DDL } from "../server/utils/accountSchema";
 import { VAULT_DDL } from "../server/utils/vaultSchema";
 import { deleteAccount } from "../server/utils/accountRepo";
 import { claimLists } from "../server/utils/claimRepo";
-import { createTestDb, makeList } from "./helpers/db";
+import { createTestDb, makeList, makeUser, type TestDb } from "./helpers/db";
 
-type DB = ReturnType<typeof drizzle>;
-async function freshDb(): Promise<DB> {
+async function freshDb(): Promise<TestDb> {
   return createTestDb(LISTS_DDL, ACCOUNT_DDL, VAULT_DDL);
 }
 
-async function makeUser(db: DB, email: string): Promise<number> {
-  const rows = await db.insert(schema.users).values({ email }).returning();
-  return rows[0]!.id;
-}
-
 /** A vault with one folder and one piece of gear in it. */
-async function makeVault(db: DB, userId: number): Promise<number> {
+async function makeVault(db: TestDb, userId: number): Promise<number> {
   const v = await db.insert(schema.vaults).values({ userId }).returning();
   const vaultId = v[0]!.id;
   const f = await db.insert(schema.vaultFolders).values({ vaultId, name: "Shelter" }).returning();
@@ -48,13 +41,13 @@ async function makeVault(db: DB, userId: number): Promise<number> {
   return vaultId;
 }
 
-const count = async (db: DB, table: string, where: string): Promise<number> => {
+const count = async (db: TestDb, table: string, where: string): Promise<number> => {
   const r = await db.execute(sql.raw(`select count(*)::int as n from ${table} where ${where}`));
   return Number((r as unknown as { rows: { n: number }[] }).rows[0]!.n);
 };
 
 describe("closing an account", () => {
-  let db: DB;
+  let db: TestDb;
   let user: number;
   beforeEach(async () => {
     db = await freshDb();

@@ -42,6 +42,13 @@ export async function createTestDb(...ddlGroups: string[][]): Promise<TestDb> {
 /** The handle createTestDb returns — the shape the repos take as their `db`. */
 export type TestDb = ReturnType<typeof drizzle<typeof schema>>;
 
+/** An account row, by email, returning its id — the account-scoped suites
+ *  (vault backfill, account delete) each carried this same three-liner. */
+export async function makeUser(db: TestDb, email: string): Promise<number> {
+  const rows = await db.insert(schema.users).values({ email }).returning();
+  return rows[0]!.id;
+}
+
 /**
  * Insert a list row directly — createList() reaches for the shared connection,
  * and these suites want a throwaway database per case. Three files each carried

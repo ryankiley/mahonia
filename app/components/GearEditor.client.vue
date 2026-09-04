@@ -2,6 +2,7 @@
 import { HugeiconsIcon, type IconNode } from "~/utils/hugeicon";
 import { Backpack02Icon, CheckmarkSquare02Icon, ChevronDownIcon, Copy01Icon, Delete02Icon, EllipsisIcon, FileExportIcon, FileImportIcon, Message01Icon, NoteAddIcon, RemoveCircleIcon, Route02Icon, SafeBoxIcon, Share08Icon, UndoIcon, UserAddIcon } from "@hugeicons/core-free-icons";
 import { editLinkPath, normalizeShareCode } from "~~/shared/links";
+import { SITE_TITLE } from "~~/shared/site";
 import { tripHeadline } from "~~/shared/trailDistance";
 import { formatWeight } from "~~/shared/weights";
 import { carriedTotalsMg, filterItemsForPerson, hasUnassignedTopLevel, personName, personSelectionGone, personSlot, sortedPeople, UNASSIGNED } from "~~/shared/people";
@@ -83,7 +84,7 @@ useHead({
 });
 useSeoMeta({
   description: () => seo.value.desc,
-  ogTitle: () => seo.value.name || GENERIC_TITLE,
+  ogTitle: () => seo.value.name || SITE_TITLE,
   ogDescription: () => seo.value.desc,
 });
 // items whose folder was removed (e.g. by a concurrent editor) land here, not as invisible ghosts

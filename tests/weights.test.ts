@@ -11,7 +11,6 @@ import {
   groupLineMg,
   nextSortOrder,
   parseWeightInput,
-  sortedFolderItems,
   splitWornQty,
   toMg,
   totalsChips,
@@ -363,9 +362,6 @@ describe("formatWeightAuto (magnitude-promoted, for comparison surfaces)", () =>
     expect(formatWeightAuto(700_000, { system: "imperial" })).toMatch(/ lb$/);
     expect(formatWeightAuto(300_000, { system: "imperial" })).toMatch(/ oz$/);
   });
-  it("honours withUnit: false", () => {
-    expect(formatWeightAuto(5_000_000, { withUnit: false })).toBe("5");
-  });
 });
 
 describe("nextSortOrder — new items append at the folder's bottom", () => {
@@ -415,15 +411,16 @@ describe("groupItemsByFolder", () => {
   });
 });
 
-describe("sortedFolderItems", () => {
-  it("returns just this folder's items in drag order", () => {
-    const f: Folder = { id: "f1", name: "f1", defaultClassification: "base", sortOrder: 0 };
+describe("groupItemsByFolder", () => {
+  it("groups each folder's own items, in drag order", () => {
     const items = [
       item({ id: "c", folderId: "f1", name: "Cook pot", sortOrder: 1 }),
       item({ id: "a", folderId: "f1", name: "Axe", sortOrder: 0 }),
       item({ id: "other", folderId: "f2", name: "Zzz", sortOrder: 0 }),
     ];
-    expect(sortedFolderItems(items, f).map((i) => i.id)).toEqual(["a", "c"]);
+    const byFolder = groupItemsByFolder(items);
+    expect(byFolder.get("f1")!.map((i) => i.id)).toEqual(["a", "c"]);
+    expect(byFolder.get("f2")!.map((i) => i.id)).toEqual(["other"]);
   });
 });
 
@@ -477,15 +474,13 @@ describe("nesting (a nested item is just an item with a parentId)", () => {
     expect(t.baseMg).toBe(30_000);
   });
 
-  it("groupItemsByFolder / sortedFolderItems return TOP-LEVEL rows only (children render nested)", () => {
-    const f: Folder = { id: "f1", name: "f1", defaultClassification: "base", sortOrder: 0 };
+  it("groupItemsByFolder returns TOP-LEVEL rows only (children render nested)", () => {
     const items = [
       item({ id: "tent", folderId: "f1", sortOrder: 0 }),
       item({ id: "fly", folderId: "f1", parentId: "tent", sortOrder: 0 }),
       item({ id: "pack", folderId: "f1", sortOrder: 1 }),
     ];
     expect(groupItemsByFolder(items).get("f1")!.map((i) => i.id)).toEqual(["tent", "pack"]);
-    expect(sortedFolderItems(items, f).map((i) => i.id)).toEqual(["tent", "pack"]);
   });
 
   it("groupItemsByParent: children under their parent id, in sortOrder", () => {

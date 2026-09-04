@@ -22,7 +22,7 @@ The build merges both into `content/changelog.generated.json`, which is generate
 checked in. See `shared/changelog.ts`.
 
 Not user-facing (refactor, deps, infra, catalog data)? Prefix the PR title —
-`refactor:`, `chore:`, `ci:`, `test:`, `docs:`, `perf:` — or put the `skip-changelog`
+`refactor:`, `chore:`, `ci:`, `test:`, `docs:`, `build:`, `perf:` — or put the `skip-changelog`
 label on it. Either silences the reminder; the prefix needs no trip to the GitHub UI.
 
 Nothing auto-fills this. A `changelog-reminder` comment nudges any user-facing PR that's

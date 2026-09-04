@@ -38,6 +38,7 @@ import { normalizeTrailLabel, normalizeTrailUrl } from "../trailLink";
 import { normalizeRouteGeometry } from "../polyline";
 import { uid } from "../id";
 import { uniquifyPersonNames } from "../people";
+import { bySortOrder } from "../weights";
 
 /** The downloaded backup's shape: the list's meta + its full content. */
 export function listToJson(list: ListMeta & ListData): string {
@@ -99,7 +100,7 @@ export function jsonToListImport(text: string): JsonImport | null {
     .filter(isRecord)
     .slice(0, MAX_FOLDERS)
     .map((f) => normalizeFolder(f as unknown as Folder))
-    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .sort(bySortOrder)
     .map((f, i) => {
       const id = uid();
       // first occurrence wins on a duplicate source id (mirrors addFolder's dedupe)
@@ -117,7 +118,7 @@ export function jsonToListImport(text: string): JsonImport | null {
     .filter(isRecord)
     .slice(0, MAX_PEOPLE)
     .map((p) => normalizePerson(p as unknown as Person))
-    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .sort(bySortOrder)
     .map((p, i) => {
       const id = uid();
       if (!personIdMap.has(p.id)) personIdMap.set(p.id, id);
@@ -128,7 +129,7 @@ export function jsonToListImport(text: string): JsonImport | null {
     .filter(isRecord)
     .slice(0, MAX_ITEMS)
     .map((it) => normalizeItem(it as unknown as Item))
-    .sort((a, b) => a.sortOrder - b.sortOrder);
+    .sort(bySortOrder);
   // Every item gets its OWN fresh id (duplicate source ids must NOT collide). A separate
   // source->new map (first occurrence wins, like folderIdMap) lets a child re-point its
   // parentId even when the parent appears later in the file.
@@ -158,10 +159,7 @@ export function jsonToListImport(text: string): JsonImport | null {
   const topLevel = new Set(items.filter((i) => i.parentId == null).map((i) => i.id));
   for (const it of items) if (it.parentId && !topLevel.has(it.parentId)) it.parentId = null;
 
-  // Days: re-minted ids and renumbered order, like folders. Nothing points at a day, so
-  // there is no reference map to rebuild — but a backup written before days existed has
-  // no array here at all, which is why this coerces rather than assuming one.
-  // Waypoints, same treatment as days: re-minted ids, re-validated rather than trusted.
+  // Waypoints: re-minted ids, re-validated rather than trusted, like the days below.
   // No sortOrder to renumber — route order is the only order — so they sort by alongM,
   // and normalizeWaypoint drops anything that isn't a placed pin.
   //
@@ -187,11 +185,14 @@ export function jsonToListImport(text: string): JsonImport | null {
     })
     .sort((a, b) => a.alongM - b.alongM);
 
+  // Days: re-minted ids and renumbered order, like folders. Nothing points at a day, so
+  // there is no reference map to rebuild — but a backup written before days existed has
+  // no array here at all, which is why this coerces rather than assuming one.
   const days = (Array.isArray(raw.days) ? raw.days : [])
     .filter(isRecord)
     .slice(0, MAX_DAYS)
     .map((d) => normalizeDay(d as unknown as TripDay))
-    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .sort(bySortOrder)
     .map((d, i) => ({ ...d, id: uid(), sortOrder: i }));
 
   return {

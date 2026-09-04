@@ -137,13 +137,19 @@ export function entryUnitFromInput(raw: string): Unit | null {
   return seen.size === 1 ? [...seen][0]! : null;
 }
 
-/** An item's effective classification = its own, else its folder's default. */
+/** An item's effective classification = its own, else its folder's default.
+ *  Takes the folder array, or a by-id Map for a caller resolving every row of a
+ *  list at once (the exporters), so that pass isn't a folder scan per row. */
 export function effectiveClassification(
   item: Pick<Item, "classification" | "folderId">,
-  folders: Folder[],
+  folders: readonly Folder[] | ReadonlyMap<string, Folder>,
 ): Classification {
   if (item.classification) return item.classification;
-  const folder = folders.find((f) => f.id === item.folderId);
+  const folder = Array.isArray(folders)
+    ? folders.find((f) => f.id === item.folderId)
+    : item.folderId == null
+      ? undefined
+      : (folders as ReadonlyMap<string, Folder>).get(item.folderId);
   return folder?.defaultClassification ?? "base";
 }
 
@@ -168,12 +174,11 @@ export function groupLineMg(item: Item, items: readonly Item[]): number {
  * What a row's weight column shows: a group's total (own + children) for a parent,
  * its own line for a leaf. The one rule the editor's ItemRow and the share views'
  * ReadonlyItemRow both render, so they can't drift. `children` is this row's own
- * children (already filtered), so the group sum is O(children).
+ * children (already filtered), so the group sum is O(children) — and groupLineMg
+ * over zero children IS the own-line case, so this is that function under the
+ * name the rows read it by.
  */
-export function rowDisplayMg(item: Item, children: readonly Item[]): number {
-  // groupLineMg over zero children IS the own-line case — no branch needed
-  return groupLineMg(item, children);
-}
+export const rowDisplayMg: (item: Item, children: readonly Item[]) => number = groupLineMg;
 
 /** Units of a line that count as worn via the wornQty split.
  *  0 when the split doesn't apply (no wornQty, or effective class ≠ base). */
@@ -216,13 +221,6 @@ export function nextSortOrder<T extends { folderId: string | null; parentId?: st
 ): number {
   const sibs = siblingItems(items, folderId, parentId);
   return sibs.length ? Math.max(...sibs.map((i) => i.sortOrder)) + 1 : 0;
-}
-
-/** A folder's TOP-LEVEL items in drag order (nested children render under their
- *  parent, so they're excluded here). Shared by the exporters so every surface
- *  (editor, share views, Markdown/CSV) orders a folder identically. */
-export function sortedFolderItems(items: readonly Item[], folder: Folder): Item[] {
-  return items.filter((i) => i.folderId === folder.id && i.parentId == null).sort(bySortOrder);
 }
 
 /**
@@ -438,12 +436,8 @@ export function formatKcal(kcal: number): string {
  * Metric promotes g→kg at ≥1 kg; imperial promotes oz→lb at ≥1 lb. This is the
  * magnitude auto-promotion that `formatWeight` deliberately dropped.
  */
-export function formatWeightAuto(
-  mg: number,
-  opts: { system?: WeightSystem; withUnit?: boolean } = {},
-): string {
-  const { system = "metric", withUnit = true } = opts;
-  return formatWeight(mg, autoUnit(mg, system), { withUnit });
+export function formatWeightAuto(mg: number, opts: { system?: WeightSystem } = {}): string {
+  return formatWeight(mg, autoUnit(mg, opts.system ?? "metric"));
 }
 
 export type WeightSystem = "metric" | "imperial";

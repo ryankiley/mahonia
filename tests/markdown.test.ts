@@ -1,23 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { listToMarkdown } from "../shared/exporters/markdown";
-import type { ListSnapshot } from "../shared/types";
-
-const snap = (): ListSnapshot => ({
-  shareCode: "X",
-  slug: "x",
-  version: 1,
-  isPublic: false,
-  title: "Trip",
-  displayUnit: "g",
-  folders: [
-    { id: "f1", name: "Shelter", defaultClassification: "base", sortOrder: 0 },
-    { id: "f2", name: "On Body", defaultClassification: "worn", sortOrder: 1 },
-  ],
-  items: [
-    { id: "i1", folderId: "f1", name: "Zpacks Duplex", unitWeightMg: 538000, qty: 1, classification: null, sortOrder: 0 },
-    { id: "i2", folderId: "f2", name: "Rain jacket", unitWeightMg: 300000, qty: 1, classification: null, sortOrder: 0 },
-  ],
-});
+import { sampleSnapshot as snap } from "./helpers/list";
 
 describe("listToMarkdown", () => {
   it("renders a heading, a table per non-empty folder, and a totals block", () => {

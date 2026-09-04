@@ -6,7 +6,7 @@ import { nextFolderColor } from "../categories";
 import { MAX_PEOPLE } from "../ops";
 import { effectivePersonId, personName } from "../people";
 import { effectiveClassification, fromMg, itemDisplayName, splitWornQty, toMg, UNIT_ALIASES } from "../weights";
-import { exportSections } from "./rows";
+import { exportRowsFlat, foldersById } from "./rows";
 import { uid } from "../id";
 
 // Delegate to the shared unit vocabulary (weights.UNIT_ALIASES) so a CSV / LighterPack
@@ -40,8 +40,8 @@ export function listToCsv(list: ListSnapshot): string {
     const s = guardFormula(String(v ?? ""));
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
-  const folderName = (id: string | null) =>
-    list.folders.find((f) => f.id === id)?.name ?? "";
+  const folders = foldersById(list.folders);
+  const folderName = (id: string | null) => (id == null ? "" : (folders.get(id)?.name ?? ""));
 
   // Kcal and Person are APPENDED, never inserted: the importer maps columns by
   // header name (see idx() below), but third-party tooling reading our export
@@ -55,18 +55,15 @@ export function listToCsv(list: ListSnapshot): string {
   const itemById = new Map(list.items.map((i) => [i.id, i]));
   const carrierOf = (it: Item) =>
     personName(list.people, effectivePersonId(it, it.parentId ? itemById.get(it.parentId) : null)) ?? "";
-  // rows follow what the app shows (exportSections): folders in their order, each
+  // rows follow what the app shows (exportRowsFlat): folders in their order, each
   // folder's items in drag order, then any ungrouped items — so a re-import keeps
   // the visible order. Each top-level row is immediately followed by its
   // nested children so they stay adjacent; each item exports its OWN weight (a
   // container parent's is usually blank), so the flat CSV re-imports with correct
   // totals and no parent/child double-count. (CSV has no nesting column — children
   // re-import as flat top-level rows.)
-  const ordered: Item[] = exportSections(list).flatMap((s) =>
-    s.rows.flatMap((r) => [r.item, ...r.children]),
-  );
-  for (const it of ordered) {
-    const cls = effectiveClassification(it, list.folders);
+  for (const it of exportRowsFlat(list)) {
+    const cls = effectiveClassification(it, folders);
     // Each row exports in the unit it READS in, not the list's. The Unit column is
     // already per-row and the importer already honours it per-row, so this is what
     // makes a row typed in ounces come back as ounces instead of being flattened to

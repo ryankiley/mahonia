@@ -47,16 +47,17 @@ jobs:
             // Three ways to say "not user-facing", so none of them needs the web UI:
             // the label, a conventional-commit title prefix, or an explicit marker.
             const title = pr.title ?? "";
-            // NOT `style:` or `perf:`. Both are conventional-commit prefixes for
-            // work that is user-facing in THIS app: a CSS-only change is exactly
-            // what the house rule means by "something a visitor can notice" (the
-            // last three visual PRs all shipped entries), and "the gear list
-            // scrolls smoothly now" is a perf change somebody feels. Skipping them
-            // would drop entries silently, which is the failure this whole flow is
-            // built to avoid — the label is still there for the genuine exceptions.
+            // The same list CLAUDE.md and the README promise — keep the three in
+            // step, or a prefix the docs say silences the reminder won't. NOT
+            // `style:`: a CSS-only change is exactly what the house rule means by
+            // "something a visitor can notice" (the last three visual PRs all
+            // shipped entries), so skipping it would drop entries silently — the
+            // failure this whole flow is built to avoid. `perf:` is accepted on the
+            // docs' word; a perf change somebody feels ("the list scrolls smoothly
+            // now") still deserves an entry, and its author is trusted to write one.
             const skipped =
               labels.includes("skip-changelog") ||
-              /^(refactor|chore|ci|test|docs|build)(\([^)]*\))?!?:/i.test(title.trim()) ||
+              /^(refactor|chore|ci|test|docs|build|perf)(\([^)]*\))?!?:/i.test(title.trim()) ||
               /\[skip[-\s]changelog\]/i.test(title);
 
             const files = await github.paginate(github.rest.pulls.listFiles, {

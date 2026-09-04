@@ -1,10 +1,10 @@
-// @vitest-environment nuxt
+// @vitest-environment happy-dom
 //
 // The shared drag scaffold. It has no tests and four callers — the editor's item
 // rows and folders, the in-editor vault pane, and /vault — so a change here moves
 // every drag-to-reorder gesture on the site at once. It needs a DOM (window
-// listeners, elementFromPoint, pointer capture) but no Nuxt app; it's on the nuxt
-// environment because that's where this repo keeps its DOM tests.
+// listeners, elementFromPoint, pointer capture) but no Nuxt app, so it runs on a
+// bare happy-dom rather than paying for the app boot the *.nuxt tests need.
 //
 // Two of the cases below are regressions that actually shipped and had to be
 // found by hand:

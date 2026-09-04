@@ -11,7 +11,7 @@
 
 import { foldApostrophes } from "./tidyText";
 import type { VaultEntry, VaultFolder } from "./vault";
-import { rankVaultRows } from "./vaultSearch";
+import { rankVaultRows, vaultSearchText } from "./vaultSearch";
 import { itemDisplayName } from "./weights";
 
 /** The page's layout-and-order control. "folders" is the default and the only one
@@ -64,11 +64,7 @@ export function searchVaultRows(rows: VaultEntry[], rawQuery: string): VaultEntr
     // repair kit" is on screen while the keyboard types "Ryan's". Only needed here —
     // the ranker's own foldForSearch strips non-alphanumerics on both sides.
     const needle = foldApostrophes(q.toLowerCase());
-    return rows.filter((i) =>
-      foldApostrophes(
-        `${i.brand ?? ""} ${i.name} ${i.variant ?? ""} ${i.commonName ?? ""}`.toLowerCase(),
-      ).includes(needle),
-    );
+    return rows.filter((i) => foldApostrophes(vaultSearchText(i).toLowerCase()).includes(needle));
   }
   return rankVaultRows(rows, q, Number.POSITIVE_INFINITY);
 }

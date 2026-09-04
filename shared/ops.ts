@@ -178,6 +178,13 @@ const clampWeight = (n: number) =>
 // …/men's-jacket), and curling one rewrites the address to a page that isn't there.
 const cleanText = (raw: string, max: number) => tidyText(raw.slice(0, max));
 
+/**
+ * A person's name, tidied and capped — the one spelling of that cap, which matches
+ * the People manager's field. Exported for the history summary, which quotes the
+ * name a rename actually stored rather than the untrimmed one the patch carried.
+ */
+export const cleanPersonName = (raw: string): string => cleanText(raw, 60);
+
 // Defensive clamps so a malformed op (or hostile client) can't corrupt state.
 function cleanItemPatch(patch: ItemPatch): Partial<Item> {
   const out: Partial<Item> = {};
@@ -265,7 +272,7 @@ export function normalizePerson(raw: Person): Person {
     id: String(raw.id).slice(0, MAX_ID_LEN),
     // never nameless: an all-whitespace name would render an invisible, unclickable
     // chip, so it falls to a placeholder the owner can see to rename
-    name: cleanText(String(raw.name ?? ""), 60) || "Person",
+    name: cleanPersonName(String(raw.name ?? "")) || "Person",
     colorKey: raw.colorKey && SAFE_COLOR_KEY.test(String(raw.colorKey)) ? String(raw.colorKey) : "other",
     sortOrder: Number(raw.sortOrder) || 0,
   };
@@ -276,7 +283,7 @@ function cleanPersonPatch(patch: Partial<Person>): Partial<Person> {
   // a rename to nothing is IGNORED rather than stored — unlike brand ("" clears),
   // a person must keep a name; blurring an emptied field leaves the old one standing
   if (typeof patch.name === "string") {
-    const name = cleanText(patch.name, 60);
+    const name = cleanPersonName(patch.name);
     if (name) out.name = name;
   }
   if (typeof patch.colorKey === "string" && SAFE_COLOR_KEY.test(patch.colorKey)) out.colorKey = patch.colorKey;
@@ -502,17 +509,21 @@ function applyOp(state: ListState, op: Op): void {
         // reparent (only when the op carries a parentId; undefined = leave as-is). A
         // valid parent must exist, be top-level, differ from this item, and this item
         // must not itself have children — keeping nesting one level deep + acyclic.
+        // The parent validated here is the one the folder rule below reads, so an op
+        // that names a parent finds it once; only an op that leaves nesting alone
+        // still has to look up the item's current one.
+        let parent: Item | undefined;
         if (op.parentId !== undefined) {
-          let parentId: string | null = null;
           if (typeof op.parentId === "string" && op.parentId !== op.id) {
-            const parent = state.items.find((p) => p.id === op.parentId);
+            const candidate = state.items.find((p) => p.id === op.parentId);
             const hasKids = state.items.some((c) => c.parentId === op.id);
-            if (parent && parent.parentId == null && !hasKids) parentId = op.parentId;
+            if (candidate && candidate.parentId == null && !hasKids) parent = candidate;
           }
-          it.parentId = parentId;
+          it.parentId = parent?.id ?? null;
+        } else if (it.parentId) {
+          parent = state.items.find((p) => p.id === it.parentId);
         }
         // a child always follows its parent's folder; otherwise honor the op's folder
-        const parent = it.parentId ? state.items.find((p) => p.id === it.parentId) : null;
         if (parent) it.folderId = parent.folderId;
         else if (op.folderId === null) it.folderId = null;
         else if (typeof op.folderId === "string")
@@ -831,7 +842,7 @@ export function tidyListText<T extends {
     else delete list.trailLabel;
   }
   for (const f of list.folders) f.name = cleanText(f.name ?? "", 120) || "Folder";
-  for (const p of list.people ?? []) p.name = cleanText(p.name ?? "", 60) || "Person";
+  for (const p of list.people ?? []) p.name = cleanPersonName(p.name ?? "") || "Person";
   for (const it of list.items) {
     it.name = cleanText(it.name ?? "", 200);
     if (it.brand) it.brand = cleanText(it.brand, 120) || undefined;
@@ -851,8 +862,8 @@ export function normalizeFolder(raw: Folder): Folder {
     defaultClassification: CLASSES.includes(raw.defaultClassification)
       ? raw.defaultClassification
       : "base",
-    // a `sortBy` from the days folders could be name/weight-sorted is dropped here:
-    // every folder is in drag order now, and the field has no reader left
+    // `sortBy`, from the days when a folder could be name- or weight-sorted, is
+    // dropped here: every folder is in drag order now, and the field has no reader left
     sortOrder: Number(raw.sortOrder) || 0,
   };
 }

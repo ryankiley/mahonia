@@ -21,7 +21,7 @@ import { readFileSync } from "node:fs";
 import { csvToCatalogRows, identityKey, isCitationUrl, isWeightSource, specToMg, type SpecUnit } from "./catalogCsv";
 import { gearLabel, runCatalogChecks } from "./catalogChecks";
 import { CATALOG_CSV, RESEARCH_DIR } from "./paths";
-import { readResearchFiles, type ResearchRow } from "./research";
+import { readResearchFiles } from "./research";
 import { RANGE_G } from "../shared/catalogQuality";
 
 // Plausible per-category weight ranges (RANGE_G) are single-sourced in
@@ -32,8 +32,8 @@ import { RANGE_G } from "../shared/catalogQuality";
 function gramsInQuote(q: string): number[] {
   const out: number[] = [];
   const num = (s: string) => parseFloat(s.replace(/,/g, ""));
-  for (const m of q.matchAll(/(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)\s*kg/gi)) out.push(num(m[1]) * 1000);
-  for (const m of q.matchAll(/(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)\s*g(?![a-z])/gi)) out.push(num(m[1]));
+  for (const m of q.matchAll(/(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)\s*kg/gi)) out.push(num(m[1]!) * 1000);
+  for (const m of q.matchAll(/(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)\s*g(?![a-z])/gi)) out.push(num(m[1]!));
   return out;
 }
 

@@ -31,6 +31,15 @@ const COLOUR_ATTR =
 // setup. Used to exempt them from the "drop per pair" rule below.
 const POLE_ITEM = /\b(pole|poles|paw|paws|basket|baskets)\b/i;
 
+// Generation/line markers — the extra tokens that make two same-weight names
+// DISTINCT products (inReach Mini vs Mini 2) rather than one product twice. See
+// the duplicate-name check.
+const VERSION_TOKEN = /^(\d+\+?|classic|pro|lite|ul|sl|lt|hv|nxt|elite|max|plus|air|se|x|mini|micro)$/;
+
+// Case-insensitive identity fold that PRESERVES punctuation, so "Lone Peak 9" vs
+// "Lone Peak 9+" stay distinct where normKey would merge them.
+const ciNorm = (x: string | null) => (x || "").toLowerCase().replace(/\s+/g, " ").trim();
+
 // Review/blog hosts — fine as a "measured" source, but a row claiming
 // weight_source="manufacturer" cited to one of these is provenance laundering.
 const REVIEW_DOMAINS = [
@@ -109,14 +118,16 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   for (const group of byProduct.values()) {
     for (let a = 0; a < group.length; a++) {
       for (let b = a + 1; b < group.length; b++) {
-        if (group[a].weightMg !== group[b].weightMg) continue;
-        const va = normKey(group[a].variant);
-        const vb = normKey(group[b].variant);
+        const ra = group[a]!;
+        const rb = group[b]!;
+        if (ra.weightMg !== rb.weightMg) continue;
+        const va = normKey(ra.variant);
+        const vb = normKey(rb.variant);
         const subset = va === "" || vb === "" || va.includes(vb) || vb.includes(va) || va === vb;
         if (subset) {
           err(
             "duplicate-row",
-            `${group[a].brand} ${group[a].name}: same weight (${group[a].weightMg} mg) for variants "${group[a].variant ?? ""}" and "${group[b].variant ?? ""}" — likely the same product twice`,
+            `${ra.brand} ${ra.name}: same weight (${ra.weightMg} mg) for variants "${ra.variant ?? ""}" and "${rb.variant ?? ""}" — likely the same product twice`,
           );
         }
       }
@@ -134,9 +145,11 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   for (const group of byBrand.values()) {
     for (let a = 0; a < group.length; a++) {
       for (let b = a + 1; b < group.length; b++) {
-        if (group[a].weightMg !== group[b].weightMg) continue;
-        const ta = normKey(group[a].name).split(" ").filter(Boolean);
-        const tb = normKey(group[b].name).split(" ").filter(Boolean);
+        const ra = group[a]!;
+        const rb = group[b]!;
+        if (ra.weightMg !== rb.weightMg) continue;
+        const ta = normKey(ra.name).split(" ").filter(Boolean);
+        const tb = normKey(rb.name).split(" ").filter(Boolean);
         if (ta.join(" ") === tb.join(" ")) continue; // same-name case handled above
         const [sh, lo] = ta.length <= tb.length ? [ta, tb] : [tb, ta];
         if (sh.join("").length < 4 || !tokenRunIncludes(lo, sh)) continue;
@@ -146,11 +159,10 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
         // Mini 2; Plex Solo vs Plex Solo Classic) — not a dup. Only flag when the
         // extra tokens are generic descriptors ("swiss army knife", "water filter").
         const extra = lo.filter((t) => !sh.includes(t));
-        const VERSION = /^(\d+\+?|classic|pro|lite|ul|sl|lt|hv|nxt|elite|max|plus|air|se|x|mini|micro)$/;
-        if (extra.length > 0 && extra.every((t) => VERSION.test(t))) continue;
+        if (extra.length > 0 && extra.every((t) => VERSION_TOKEN.test(t))) continue;
         err(
           "duplicate-name",
-          `${group[a].brand}: "${group[a].name}" and "${group[b].name}" — same weight (${group[a].weightMg} mg), one name contains the other; likely the same product`,
+          `${ra.brand}: "${ra.name}" and "${rb.name}" — same weight (${ra.weightMg} mg), one name contains the other; likely the same product`,
         );
       }
     }
@@ -159,8 +171,6 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   // --- ERROR: case-only identity collision (e.g. "NEMO" vs "Nemo") ----------
   const byCI = new Map<string, CatalogCsvRow>();
   for (const r of rows) {
-    const ciNorm = (x: string | null) => (x || "").toLowerCase().replace(/\s+/g, " ").trim();
-    // preserve punctuation so "Lone Peak 9" vs "Lone Peak 9+" stay distinct
     const ci = ciNorm(r.brand) + "|" + ciNorm(r.name) + "|" + ciNorm(r.variant);
     const exact = `${r.brand ?? ""}\u0000${r.name}\u0000${r.variant ?? ""}`;
     const prev = byCI.get(ci);

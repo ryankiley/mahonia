@@ -5,6 +5,7 @@
 // of base weight.
 
 import type { Classification } from "./types";
+import { scanQuantity } from "./trailDistance";
 import { splitWornQty } from "./weights";
 
 /** Milligrams of water per millilitre (water ≈ 1 g/mL = 1000 mg/mL). */
@@ -25,13 +26,9 @@ const ML_PER_UNIT = {
  * Returns null for anything unparseable or non-positive.
  */
 export function parseVolumeMl(raw: string): number | null {
-  if (raw == null) return null;
-  const s = String(raw).trim().toLowerCase().replace(",", ".");
-  const m = s.match(/^(\d*\.?\d+)\s*([a-z. ]*)$/);
-  if (!m) return null;
-  const n = Number.parseFloat(m[1]!);
-  if (!Number.isFinite(n) || n <= 0) return null;
-  const u = m[2]!.replace(/[. ]/g, "");
+  const q = scanQuantity(raw);
+  if (!q) return null;
+  const { n, unit: u } = q;
   let perMl: number | undefined;
   if (u === "" || u === "l" || u === "ltr" || u.startsWith("liter") || u.startsWith("litre")) perMl = ML_PER_UNIT.l;
   else if (u === "ml" || u === "mls" || u.startsWith("milli")) perMl = ML_PER_UNIT.ml;

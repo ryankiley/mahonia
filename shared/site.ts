@@ -34,6 +34,22 @@
 export const CANONICAL_ORIGIN = "https://mahonia.app";
 
 /**
+ * What the site calls itself where nothing more specific applies: the <title>
+ * and description of the bare editor and every prerendered page, and the
+ * og:title/og:description a crawler that reads no further unfurls. nuxt.config.ts
+ * reads both; the editor's own head (app/utils/editorSeo.ts) should too, since a
+ * list with no name falls back to exactly these words.
+ *
+ * KEEP IN STEP WITH public/manifest.webmanifest, which repeats the title as
+ * `name` and the description as `description`. That file is strict JSON and
+ * hand-written (pwa.manifest is false), so it can carry no comment of its own
+ * and nothing checks the two agree — an installed app whose name disagrees with
+ * its page title is the failure mode. See config/pwa.ts.
+ */
+export const SITE_TITLE = "Mahonia — pack lists, weighed";
+export const SITE_DESCRIPTION = "Make a packing list, see what it weighs, share it. No login.";
+
+/**
  * The edge-cache window for a list's read surfaces. One literal for the pair a
  * crawler fetches together — the read PAGES (/s, /l, via useResponseHeader) and
  * the API + card image behind them (server/utils/http.ts setReadEdgeCache) — so

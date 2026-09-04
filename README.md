@@ -80,7 +80,7 @@ what the page reads.
 A PR comment reminds any user-facing PR that's missing an entry — but nothing auto-fills it,
 so the entry is always hand-written (the page stays plain, curated prose). If a PR merges
 without one, the page just omits that change until it's backfilled. For non-user-facing work,
-prefix the PR title (`refactor:`, `chore:`, `ci:`, `test:`, `docs:`, `perf:`) or label it
+prefix the PR title (`refactor:`, `chore:`, `ci:`, `test:`, `docs:`, `build:`, `perf:`) or label it
 **`skip-changelog`**.
 
 ## License

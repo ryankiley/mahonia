@@ -5,8 +5,8 @@
 // section of top-level folderless items — matching what the editor and share
 // views render. Empty sections are included; exporters skip or flatten them.
 
-import type { Item, ListData } from "../types";
-import { bySortOrder, groupItemsByParent, sortedFolderItems, ungroupedTopLevel } from "../weights";
+import type { Folder, Item, ListData } from "../types";
+import { bySortOrder, groupItemsByFolder, groupItemsByParent, ungroupedTopLevel } from "../weights";
 
 export interface ExportSection {
   name: string;
@@ -14,12 +14,15 @@ export interface ExportSection {
 }
 
 export function exportSections(list: Pick<ListData, "folders" | "items">): ExportSection[] {
-  // one children-by-parent pass for the whole list, not a per-row scan of every item
+  // one children-by-parent pass and one top-level-rows-by-folder pass for the whole
+  // list — the same groupings the editor renders from — rather than a scan of every
+  // item per folder and per row
   const byParent = groupItemsByParent(list.items);
+  const byFolder = groupItemsByFolder(list.items);
   const row = (item: Item) => ({ item, children: byParent.get(item.id) ?? [] });
   const sections: ExportSection[] = [...list.folders].sort(bySortOrder).map((f) => ({
     name: f.name,
-    rows: sortedFolderItems(list.items, f).map(row),
+    rows: (byFolder.get(f.id) ?? []).map(row),
   }));
   sections.push({
     // ungroupedTopLevel is the one shared "not in any folder" predicate the editor
@@ -28,4 +31,18 @@ export function exportSections(list: Pick<ListData, "folders" | "items">): Expor
     rows: ungroupedTopLevel(list.items).sort(bySortOrder).map(row),
   });
   return sections;
+}
+
+/** Every item in export order, flattened: each top-level row immediately followed
+ *  by its nested children, folder after folder, the ungrouped tail last. The
+ *  traversal the CSV and the plain-text export share — both are flat formats, so
+ *  a child's only claim to its parent is adjacency. */
+export function exportRowsFlat(list: Pick<ListData, "folders" | "items">): Item[] {
+  return exportSections(list).flatMap((s) => s.rows.flatMap((r) => [r.item, ...r.children]));
+}
+
+/** Folder id → folder, built once per export so the per-row classification and
+ *  folder-name lookups don't each scan the folder array. */
+export function foldersById(folders: readonly Folder[]): Map<string, Folder> {
+  return new Map(folders.map((f) => [f.id, f]));
 }

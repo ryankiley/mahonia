@@ -12,7 +12,6 @@
 // without also asserting whose vault it landed in.
 
 import { sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/pglite";
 import { beforeEach, describe, expect, it } from "vitest";
 import * as schema from "../server/db/schema";
 import { LISTS_DDL } from "../server/utils/db";
@@ -21,20 +20,14 @@ import { VAULT_DDL } from "../server/utils/vaultSchema";
 import { backfillVaultFromClaims, claimLists } from "../server/utils/claimRepo";
 import { applyVaultItemOp, listVaultItems } from "../server/utils/vaultRepo";
 import { randomEditToken, randomShareCode, sha256Hex } from "../server/utils/tokens";
-import { createTestDb } from "./helpers/db";
+import { createTestDb, makeUser, type TestDb } from "./helpers/db";
 
-type DB = ReturnType<typeof drizzle>;
-async function freshDb(): Promise<DB> {
+async function freshDb(): Promise<TestDb> {
   return createTestDb(LISTS_DDL, ACCOUNT_DDL, VAULT_DDL);
 }
 
-async function makeUser(db: DB, email: string): Promise<number> {
-  const rows = await db.insert(schema.users).values({ email }).returning();
-  return rows[0]!.id;
-}
-
 /** A list carrying one named piece of gear, so the backfill has something to fold. */
-async function makeListWithGear(db: DB, title: string, gear: string) {
+async function makeListWithGear(db: TestDb, title: string, gear: string) {
   const editToken = randomEditToken();
   const shareCode = randomShareCode();
   const rows = await db
@@ -63,13 +56,13 @@ async function makeListWithGear(db: DB, title: string, gear: string) {
   return { editToken, id: rows[0]!.id };
 }
 
-const vaultIdFor = async (db: DB, userId: number): Promise<number | null> => {
+const vaultIdFor = async (db: TestDb, userId: number): Promise<number | null> => {
   const r = await db.execute(sql.raw(`select id from vaults where user_id = ${userId}`));
   const rows = (r as unknown as { rows: { id: number }[] }).rows;
   return rows[0]?.id ?? null;
 };
 
-const gearIn = async (db: DB, vaultId: number): Promise<string[]> => {
+const gearIn = async (db: TestDb, vaultId: number): Promise<string[]> => {
   const r = await db.execute(
     sql.raw(`select name from vault_items where vault_id = ${vaultId} order by name`),
   );
@@ -77,7 +70,7 @@ const gearIn = async (db: DB, vaultId: number): Promise<string[]> => {
 };
 
 describe("rebuilding a vault from claimed lists", () => {
-  let db: DB;
+  let db: TestDb;
   beforeEach(async () => {
     db = await freshDb();
   });

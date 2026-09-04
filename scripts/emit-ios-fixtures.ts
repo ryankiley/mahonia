@@ -173,8 +173,8 @@ const fixtures: Fixture[] = [
     { t: "addFolder", folder: { id: "f1", name: "Kit", colorKey: "pack", defaultClassification: "base", sortOrder: 0 } },
     // duplicate id ignored
     { t: "addFolder", folder: { id: "f1", name: "Kit again", colorKey: "sleep", defaultClassification: "worn", sortOrder: 1 } },
-    { t: "updateFolder", id: "f1", patch: { sortBy: "heaviest" } },
-    { t: "updateFolder", id: "f1", patch: { sortBy: "manual" } },
+    { t: "updateFolder", id: "f1", patch: { sortBy: "heaviest" } as never },
+    { t: "updateFolder", id: "f1", patch: { sortBy: "manual" } as never },
     { t: "updateFolder", id: "f1", patch: { name: "Big Kit", defaultClassification: "consumable" } },
     { t: "addFolder", folder: { id: "f2", name: "Doomed", colorKey: "water", defaultClassification: "base", sortOrder: 2 } },
     { t: "addItem", item: { id: "i1", folderId: "f2", name: "Casualty", unitWeightMg: 100000, qty: 1, classification: null, sortOrder: 0 } },
@@ -186,7 +186,7 @@ const fixtures: Fixture[] = [
   fixture("meta-and-dates", [
     { t: "setMeta", patch: { title: "  Timberline Loop  ", description: "Ryan's plan\n\n  with paragraphs kept\n" } },
     { t: "setMeta", patch: { displayUnit: "oz" } },
-    { t: "setMeta", patch: { displayUnit: "stone" } },
+    { t: "setMeta", patch: { displayUnit: "stone" as never } },
     { t: "setMeta", patch: { startDate: "2026-08-14", endDate: "2026-02-31" } },
     { t: "setMeta", patch: { endDate: "2026-08-16" } },
     { t: "setMeta", patch: { trailUrl: "javascript:alert(1)" } },
@@ -203,7 +203,7 @@ const fixtures: Fixture[] = [
     { t: "addDay", day: { id: "d1", sortOrder: 0, label: "Over the pass", distanceM: 19000, ascentM: 1200 } },
     { t: "addDay", day: { id: "d2", sortOrder: 1 } },
     { t: "updateDay", id: "d2", patch: { rest: true } },
-    { t: "updateDay", id: "d2", patch: { rest: false } },
+    { t: "updateDay", id: "d2", patch: { rest: false as never } },
     { t: "updateDay", id: "d2", patch: { distanceM: 12000, ascentM: 400, rest: true } },
     // "" is the erase sentinel; zero clears rather than claims
     { t: "updateDay", id: "d1", patch: { ascentM: "" } },

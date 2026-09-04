@@ -100,7 +100,15 @@ export function sortedPeople(people?: Person[]): Person[] {
  */
 export function personSlot(people: Person[] | undefined, id: string | undefined): number | null {
   if (!id) return null;
-  const slot = sortedPeople(people).findIndex((p) => p.id === id);
+  return slotInSorted(sortedPeople(people), id);
+}
+
+/** personSlot for a caller that already holds the people in display order — a row
+ *  inside a list that sorted them once — so answering per row doesn't re-sort the
+ *  list per row. Same answer, same "nobody" null. */
+export function slotInSorted(sorted: readonly Person[], id: string | undefined): number | null {
+  if (!id) return null;
+  const slot = sorted.findIndex((p) => p.id === id);
   return slot === -1 ? null : slot;
 }
 

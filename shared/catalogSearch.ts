@@ -143,6 +143,39 @@ export function matchTier(query: string, brandName: string, score: number): 0 | 
   return 2; // cleared the SIM_THRESHOLD gate but weak
 }
 
+/** A row with what ranking knows about it: its trigram score and relevance tier. */
+export interface Scored<T> {
+  row: T;
+  score: number;
+  tier: 0 | 1 | 2;
+}
+
+/**
+ * The ranking skeleton the catalog and the vault (shared/vaultSearch.ts) share, so
+ * the two halves of one autocomplete menu can't gate or cap differently: reject a
+ * query under two characters (too noisy for trigrams), score every row, keep the
+ * ones over SIM_THRESHOLD, order by the caller's cascade, cap at `limit`. `score`
+ * is the caller's target text + tier rule; `compare` its cascade — the two rankers
+ * differ only in the axes between tier and score (verified/usage for the catalog,
+ * timesSeen for the vault).
+ */
+export function rankByQuery<T>(
+  rows: readonly T[],
+  rawQuery: string,
+  limit: number,
+  score: (row: T, q: string) => Scored<T>,
+  compare: (a: Scored<T>, b: Scored<T>) => number,
+): T[] {
+  const q = (rawQuery ?? "").trim();
+  if (q.length < 2) return [];
+  return rows
+    .map((r) => score(r, q))
+    .filter((r) => r.score >= SIM_THRESHOLD)
+    .sort(compare)
+    .slice(0, limit)
+    .map(({ row }) => row);
+}
+
 /**
  * The single source of truth for autocomplete ordering, applied identically to the
  * Neon candidate pool and the PGlite/offline table (its whole-table rows ARE the
@@ -159,27 +192,24 @@ export function rankCandidates(
   rawQuery: string,
   limit = SEARCH_LIMIT,
 ): CatalogSearchResult[] {
-  const q = (rawQuery ?? "").trim();
-  if (q.length < 2) return []; // 1 char is too noisy for trigram autocomplete
-  return rows
-    .map((r) => {
+  return rankByQuery(
+    rows,
+    rawQuery,
+    limit,
+    (r, q) => {
       const brandName = itemDisplayName(r.brand, r.name);
       // Score against name AND the derived search terms, mirroring the Neon target
       // (coalesce(brand,'') || ' ' || name || ' ' || coalesce(search_terms,'')).
       const score = trigramScore(q, `${brandName} ${r.searchTerms ?? ""}`);
       return { row: r, score, tier: matchTier(q, brandName, score) };
-    })
-    .filter((r) => r.score >= SIM_THRESHOLD)
-    .sort(
-      (a, b) =>
-        a.tier - b.tier ||
-        Number(b.row.verified) - Number(a.row.verified) ||
-        b.row.usageCount - a.row.usageCount ||
-        b.score - a.score ||
-        a.row.id - b.row.id,
-    )
-    .slice(0, limit)
-    .map(({ row }) => ({
+    },
+    (a, b) =>
+      a.tier - b.tier ||
+      Number(b.row.verified) - Number(a.row.verified) ||
+      b.row.usageCount - a.row.usageCount ||
+      b.score - a.score ||
+      a.row.id - b.row.id,
+  ).map((row) => ({
       id: row.id,
       brand: row.brand,
       name: row.name,
@@ -197,16 +227,10 @@ export function rankCandidates(
 /**
  * Offline / PGlite entry point: rank the entire (bounded) active catalog in JS with
  * the shared ranker. Kept as a named export for existing importers (the offline
- * cache + the server's PGlite branch); delegates to rankCandidates so ordering lives
- * in exactly one place.
+ * cache + the server's PGlite branch); it IS rankCandidates, so ordering lives in
+ * exactly one place.
  */
-export function searchCatalogLocal(
-  rows: LocalCatalogRow[],
-  rawQuery: string,
-  limit = SEARCH_LIMIT,
-): CatalogSearchResult[] {
-  return rankCandidates(rows, rawQuery, limit);
-}
+export { rankCandidates as searchCatalogLocal };
 
 /**
  * Fold freshly-seen catalog rows into the on-device cache: dedup by id (the

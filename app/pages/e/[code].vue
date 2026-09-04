@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { shareCardPath } from "~~/shared/links";
+import { SITE_TITLE } from "~~/shared/site";
 import type { ListSnapshot } from "~~/shared/types";
 import { computeTotals } from "~~/shared/weights";
 
@@ -40,7 +41,7 @@ useHead({
 });
 useSeoMeta({
   description: () => seo.value.desc,
-  ogTitle: () => seo.value.name || GENERIC_TITLE,
+  ogTitle: () => seo.value.name || SITE_TITLE,
   ogDescription: () => seo.value.desc,
 });
 </script>

@@ -9,7 +9,6 @@ import {
   estimateDay,
   restingKcal,
   toblerSpeedMs,
-  walkingKcal,
   walkingVo2,
 } from "../shared/tripPlan";
 

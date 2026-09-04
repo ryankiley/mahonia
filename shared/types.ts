@@ -254,9 +254,10 @@ export interface ListMeta {
   // timezone. A trip's dates are the ones written on a permit — they don't shift
   // because you flew somewhere, which is exactly what storing an instant would do.
   //
-  // Two optional strings and nothing else. This is NOT a trip planner: there are no
-  // days, no waypoints, no itinerary. See the note in shared/ops.ts's setMeta case
-  // for why the smaller thing was chosen deliberately.
+  // Two optional strings here, and nothing derived from them: the trip's days and
+  // waypoints live in ListData (they are entities with ids, edited by their own ops),
+  // and a day is never computed from this range — see the note in shared/ops.ts's
+  // setMeta case.
   startDate?: string;
   endDate?: string;
 }

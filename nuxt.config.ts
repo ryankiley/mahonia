@@ -9,7 +9,10 @@ import { PWA_OPTIONS } from "./config/pwa";
 // The canonical origin, single-sourced — the server reads the same constant to
 // decide what host a sign-in link may point at (server/utils/origin.ts), so the
 // social card and that decision can't drift onto different domains.
-import { CANONICAL_ORIGIN } from "./shared/site";
+import { CANONICAL_ORIGIN, SITE_DESCRIPTION, SITE_TITLE } from "./shared/site";
+// The social card's canvas — the same two numbers the renderer draws at, so the
+// og:image:width/height tags below can't describe a picture of another size.
+import { OG_IMAGE_HEIGHT, OG_IMAGE_WIDTH } from "./shared/ogCard";
 
 export default defineNuxtConfig({
   // Pin date-gated Nuxt/Nitro defaults so builds are reproducible across CI/Vercel
@@ -152,23 +155,15 @@ export default defineNuxtConfig({
 
   css: ["~/assets/styles/main.scss"],
 
-  components: [
-    // pathPrefix:false so components register without directory prefixes
-    // (e.g. ItemRow, not ListItemRow) — same convention as the portfolio.
-    { path: "~/components", pathPrefix: false },
-  ],
-
   devtools: { enabled: false },
+
 
   app: {
     head: {
       htmlAttrs: { lang: "en" },
-      // KEEP IN STEP WITH public/manifest.webmanifest, which repeats this title as
-      // `name` and the description below as `description`. That file is strict JSON
-      // and hand-written (pwa.manifest is false), so it can carry no comment of its
-      // own and nothing checks the two agree — an installed app whose name disagrees
-      // with its page title is the failure mode. See config/pwa.ts.
-      title: "Mahonia — pack lists, weighed",
+      // The title and description are single-sourced in shared/site.ts, which also
+      // carries the note about keeping them in step with the web manifest.
+      title: SITE_TITLE,
       // no charset entry: Nuxt prepends { charset: "utf-8" } itself when none is set
       meta: [
         {
@@ -186,11 +181,7 @@ export default defineNuxtConfig({
         // the page's --paper in each mode.
         { name: "theme-color", media: "(prefers-color-scheme: light)", content: "#ffffff" },
         { name: "theme-color", media: "(prefers-color-scheme: dark)", content: "#000000" },
-        {
-          name: "description",
-          content:
-            "Make a packing list, see what it weighs, share it. No login.",
-        },
+        { name: "description", content: SITE_DESCRIPTION },
         // Social card. The editor (the landing page) is prerendered, and this static
         // set is what unfurls the bare domain for a crawler that reads no further.
         // og:image MUST be absolute and the prerendered shell has no request
@@ -200,14 +191,11 @@ export default defineNuxtConfig({
         // routes (/s, /l) override og:title/description per-list via their own useSeoMeta.
         { property: "og:type", content: "website" },
         { property: "og:site_name", content: "Mahonia" },
-        { property: "og:title", content: "Mahonia — pack lists, weighed" },
-        {
-          property: "og:description",
-          content: "Make a packing list, see what it weighs, share it. No login.",
-        },
+        { property: "og:title", content: SITE_TITLE },
+        { property: "og:description", content: SITE_DESCRIPTION },
         { property: "og:image", content: `${CANONICAL_ORIGIN}/og.png` },
-        { property: "og:image:width", content: "1200" },
-        { property: "og:image:height", content: "630" },
+        { property: "og:image:width", content: String(OG_IMAGE_WIDTH) },
+        { property: "og:image:height", content: String(OG_IMAGE_HEIGHT) },
         { property: "og:image:type", content: "image/png" },
         { property: "og:image:alt", content: "The Mahonia M. Pack lists, weighed." },
         { name: "twitter:card", content: "summary_large_image" },

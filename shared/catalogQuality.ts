@@ -4,7 +4,10 @@
 // Plausible weight range per category, grams. Loose — catches gross slips
 // (a 50 g tent, a 5 kg stove), not borderline judgment calls. (Relocated here
 // from scripts/catalogChecks so server intake can validate without a scripts/ import.)
-export const RANGE_G: Record<string, [number, number]> = {
+// `other` is typed as always present: it is the fallback every lookup lands on
+// (`RANGE_G[hint] ?? RANGE_G.other`), so a plain Record would make each of those
+// sites prove it exists again.
+export const RANGE_G: Record<string, [number, number]> & { other: [number, number] } = {
   shelter: [120, 3500],
   sleep: [40, 2600],
   pack: [120, 2800],

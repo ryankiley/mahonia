@@ -113,7 +113,18 @@ export function reconstructChainAt(
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 // stable equality for plain entity objects. A false "changed" (e.g. from key-order
 // noise) only over-includes — safe — so this never drops a real change.
-const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+// Entities are flat — every field on Item, Folder, Person, TripDay and Waypoint is a
+// primitive (shared/types.ts) — so "did this one change" is a key-by-key compare,
+// not a serialisation of both sides of every entity on every diff. A field that is
+// absent and one that is explicitly undefined are the same thing here, as they were
+// to the JSON.stringify this replaced, which dropped both.
+const sameEntity = (a: object, b: object): boolean => {
+  const ra = a as Record<string, unknown>;
+  const rb = b as Record<string, unknown>;
+  for (const k in ra) if (ra[k] !== rb[k]) return false;
+  for (const k in rb) if (!(k in ra) && rb[k] !== undefined) return false;
+  return true;
+};
 
 /** Ops that turn `base` into `target`, as an entity-level delta. */
 export function diffListState(base: ListState, target: ListState): ListDiff {
@@ -262,7 +273,7 @@ function diffEntities<T extends { id: string }>(
   const byId = new Map(baseArr.map((e) => [e.id, e]));
   const targetIds = new Set(targetArr.map((e) => e.id));
   return {
-    upsert: targetArr.filter((e) => !byId.has(e.id) || !same(byId.get(e.id), e)),
+    upsert: targetArr.filter((e) => !byId.has(e.id) || !sameEntity(byId.get(e.id)!, e)),
     del: baseArr.filter((e) => !targetIds.has(e.id)).map((e) => e.id),
   };
 }

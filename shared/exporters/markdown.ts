@@ -1,10 +1,10 @@
 // Markdown export — pure string building, ~0 KB, no deps. Pastes cleanly into
 // Apple Notes. Shared by the client (copy/download) and later the server.
 
-import type { ListSnapshot } from "../types";
+import type { Item, ListSnapshot } from "../types";
 import { effectivePersonId, personName } from "../people";
 import { carriedIsDistinct, computeTotals, effectiveClassification, formatWeight, itemDisplayName, lineMg, rowDisplayMg, splitWornQty } from "../weights";
-import { exportSections } from "./rows";
+import { exportSections, foldersById } from "./rows";
 
 // a product name with its common name trailing after an em dash, when the item has one
 const withCommon = (name: string, commonName?: string) =>
@@ -15,9 +15,16 @@ const withCommon = (name: string, commonName?: string) =>
 const withCarrier = (name: string, carrier?: string) =>
   carrier ? `${name} *(${carrier})*` : name;
 
+// the Item cell: product name, then the common name after an em dash when set
+// ("Altra Lone Peak 9+ — Trail runners") so a pasted list still says what each
+// item is, then the carrier
+const label = (it: Item, carrier?: string) =>
+  withCarrier(withCommon(itemDisplayName(it.brand, it.name, it.variant), it.commonName), carrier);
+
 export function listToMarkdown(list: ListSnapshot): string {
   const u = list.displayUnit;
   const totals = computeTotals(list);
+  const folders = foldersById(list.folders);
   const out: string[] = [];
 
   out.push(`# ${list.title || "Mahonia list"}`);
@@ -37,15 +44,9 @@ export function listToMarkdown(list: ListSnapshot): string {
       // line — kids is already this row's children, so no whole-list rescan
       const rowMg = rowDisplayMg(it, kids);
       const w = rowMg > 0 ? formatWeight(rowMg, u) : "—";
-      // the product name, with the common name trailing it after an em dash when set
-      // ("Altra Lone Peak 9+ — Trail runners") so a pasted list still says what each item is
       const carrierId = effectivePersonId(it);
-      const carrier = personName(list.people, carrierId);
-      const name = withCarrier(
-        withCommon(itemDisplayName(it.brand, it.name, it.variant), it.commonName),
-        carrier,
-      );
-      const wq = splitWornQty(it, effectiveClassification(it, list.folders));
+      const name = label(it, personName(list.people, carrierId));
+      const wq = splitWornQty(it, effectiveClassification(it, folders));
       out.push(`| ${name} | ${it.qty}${wq > 0 ? ` (${wq} worn)` : ""} | ${w} |`);
       // nested items as indented sub-rows (the row weight above is their total)
       for (const child of kids) {
@@ -56,8 +57,8 @@ export function listToMarkdown(list: ListSnapshot): string {
         // that rule can still hold two, and comparing the strings would silently
         // un-name a child carried by the OTHER one.
         const childCarrierId = effectivePersonId(child, it);
-        const cn = withCarrier(
-          withCommon(itemDisplayName(child.brand, child.name, child.variant), child.commonName),
+        const cn = label(
+          child,
           childCarrierId === carrierId ? undefined : personName(list.people, childCarrierId),
         );
         out.push(`| ↳ ${cn} | ${child.qty} | ${cw} |`);

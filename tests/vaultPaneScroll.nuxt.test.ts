@@ -9,7 +9,7 @@
 //
 // happy-dom lays nothing out, so scrollHeight/clientHeight read 0 on every element
 // and a real scroll can't happen here. Both are stubbed per case, the same way
-// pointerDrag.nuxt.test.ts stubs elementFromPoint: the guard's decision is ABOUT
+// pointerDrag.test.ts stubs elementFromPoint: the guard's decision is ABOUT
 // those readings, so faking them is faking the input, not the logic. What's asserted
 // is the one thing that decides the outcome in a browser — whether the touchmove was
 // cancelled.

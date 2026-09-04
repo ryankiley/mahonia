@@ -2,6 +2,7 @@
 // and cited-spec → integer-milligram conversion. No DB, no fs — so tests import
 // these directly (tests/catalog.test.ts) and the build/seed scripts reuse them.
 
+import { parseCsv } from "../shared/exporters/csv";
 import { MG_PER_UNIT, parseWeightInput } from "../shared/weights";
 import { buildSearchTerms } from "./searchTerms";
 
@@ -21,7 +22,7 @@ export const CATALOG_CSV_HEADERS = [
   "kcal",
 ] as const;
 
-export const WEIGHT_SOURCES = [
+const WEIGHT_SOURCES = [
   "manufacturer",
   "measured",
   "community",
@@ -73,7 +74,7 @@ const SECONDARY_UNIT_RE =
 function secondaryUnit(s: string): SpecUnit | null {
   const m = s.match(SECONDARY_UNIT_RE);
   if (!m) return null;
-  const w = m[1].toLowerCase();
+  const w = m[1]!.toLowerCase();
   if (w.startsWith("k")) return "kg";
   if (w.startsWith("l") || w.startsWith("p")) return "lb";
   if (w.startsWith("o")) return "oz";
@@ -139,65 +140,14 @@ export function serializeCsv(
 }
 
 /**
- * Parse CSV text into rows of string fields. Handles double-quoted fields with
- * embedded commas, newlines, and "" escapes. Tolerates \r\n and a trailing
- * newline. Hand-rolled (no deps) — small and predictable.
+ * The parser is the app's own CSV importer's (shared/exporters/csv.ts): quoted
+ * fields, "" escapes, commas and newlines inside quotes, CRLF. A second copy lived
+ * here and never differed on anything the pipeline reads — the one gap, that it
+ * keeps fully-blank rows where the shared one drops them, is a row
+ * csvToCatalogRows skipped anyway. Re-exported so tests/catalog.test.ts still pins
+ * the cases against this module.
  */
-export function parseCsv(text: string): string[][] {
-  const rows: string[][] = [];
-  let row: string[] = [];
-  let field = "";
-  let inQuotes = false;
-  let i = 0;
-  const n = text.length;
-
-  const endField = () => {
-    row.push(field);
-    field = "";
-  };
-  const endRow = () => {
-    endField();
-    rows.push(row);
-    row = [];
-  };
-
-  while (i < n) {
-    const c = text[i];
-    if (inQuotes) {
-      if (c === '"') {
-        if (text[i + 1] === '"') {
-          field += '"';
-          i += 2;
-        } else {
-          inQuotes = false;
-          i++;
-        }
-      } else {
-        field += c;
-        i++;
-      }
-    } else if (c === '"') {
-      inQuotes = true;
-      i++;
-    } else if (c === ",") {
-      endField();
-      i++;
-    } else if (c === "\n") {
-      endRow();
-      i++;
-    } else if (c === "\r") {
-      if (text[i + 1] === "\n") i++;
-      endRow();
-      i++;
-    } else {
-      field += c;
-      i++;
-    }
-  }
-  // flush the last field/row unless the input ended exactly on a newline
-  if (field.length > 0 || row.length > 0) endRow();
-  return rows;
-}
+export { parseCsv };
 
 export interface CatalogCsvRow {
   brand: string | null;
@@ -223,7 +173,7 @@ export interface CatalogCsvRow {
 export function csvToCatalogRows(text: string): CatalogCsvRow[] {
   const grid = parseCsv(text);
   if (grid.length === 0) return [];
-  const header = grid[0].map((h) => h.trim());
+  const header = grid[0]!.map((h) => h.trim());
   const idx = (col: string) => header.indexOf(col);
   const iBrand = idx("brand");
   const iName = idx("name");
@@ -240,8 +190,7 @@ export function csvToCatalogRows(text: string): CatalogCsvRow[] {
 
   const out: CatalogCsvRow[] = [];
   for (let r = 1; r < grid.length; r++) {
-    const cells = grid[r];
-    if (cells.length === 1 && cells[0].trim() === "") continue; // blank line
+    const cells = grid[r]!;
     const name = (cells[iName] ?? "").trim();
     if (!name) continue;
     const weightMg = Number((cells[iMg] ?? "").trim());

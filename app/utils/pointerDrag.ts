@@ -7,6 +7,10 @@
 // press on a row is a drag at all. One copy of each, so the gesture plumbing
 // can't drift between surfaces.
 
+// Explicit rather than auto-imported: this file has no Nuxt in it, and the import
+// is what lets its test run on a bare DOM without booting an app.
+import { ref } from "vue";
+
 export interface PointerDragHooks<T> {
   /** Update the caller's drop target from the pointer. `el` is the current
    *  elementFromPoint hit; `dragId` the id passed to start(). */

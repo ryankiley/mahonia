@@ -49,9 +49,32 @@ export type DisplayDistanceUnit = (typeof DISPLAY_DISTANCE_UNITS)[number];
 // longest thru-hike on earth and still nowhere near a float that misbehaves.
 const MAX_DISTANCE_M = 10_000_000;
 
+/** A unit as typed → the bare word the unit tables key on: "fl. oz" → "floz",
+ *  "sq m" → "sqm". Dots and spaces are the only decoration people put in one. */
+const unitWord = (token: string): string => token.replace(/[. ]/g, "");
+
+/**
+ * The shape every single-value field here reads — a number, then maybe a unit word:
+ * "82 kg", "1.5l", "7.5", "32 fl oz". Split into the number and its unit word (""
+ * for none), or null for no number, a non-positive one, or a trailing qualifier
+ * that isn't letters. The one comma reads as a decimal point, the European form;
+ * the thousands-grouping question is the PASTE parser's (parseDistanceM, which
+ * scans a whole stats line) and is deliberately not asked of a value someone typed
+ * into a field that holds one number.
+ */
+export function scanQuantity(raw: string): { n: number; unit: string } | null {
+  if (raw == null) return null;
+  const s = String(raw).trim().toLowerCase().replace(",", ".");
+  const m = s.match(/^(\d*\.?\d+)\s*([a-z. ]*)$/);
+  if (!m) return null;
+  const n = Number.parseFloat(m[1]!);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return { n, unit: unitWord(m[2]!) };
+}
+
 /** One unit word → its metres, or null when the word isn't a unit we know. */
 function unitFromToken(token: string): number | null {
-  const u = token.replace(/[. ]/g, "");
+  const u = unitWord(token);
   if (u === "km" || u === "kms" || u.startsWith("kilomet")) return M_PER_UNIT.km;
   if (u === "m" || u === "mtr" || u.startsWith("met")) return M_PER_UNIT.m;
   // "mi"/"mile"/"miles" only — a bare "m" is metres, and guessing miles from it
@@ -302,13 +325,9 @@ export function normalizeBodyWeightUnit(raw: unknown): BodyWeightUnit | undefine
 
 /** A raw body weight → grams, or undefined. Bare numbers read in the given unit. */
 export function parseBodyWeightG(raw: string, fallbackUnit: BodyWeightUnit): number | null {
-  if (raw == null) return null;
-  const s = String(raw).trim().toLowerCase().replace(",", ".");
-  const m = s.match(/^(\d*\.?\d+)\s*([a-z. ]*)$/);
-  if (!m) return null;
-  const n = Number.parseFloat(m[1]!);
-  if (!Number.isFinite(n) || n <= 0) return null;
-  const u = m[2]!.replace(/[. ]/g, "");
+  const q = scanQuantity(raw);
+  if (!q) return null;
+  const { n, unit: u } = q;
   let perG: number | undefined;
   if (u === "") perG = G_PER_BODY_UNIT[fallbackUnit];
   else if (u === "kg" || u.startsWith("kilo")) perG = G_PER_BODY_UNIT.kg;

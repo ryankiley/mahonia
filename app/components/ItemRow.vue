@@ -59,7 +59,7 @@ import { HugeiconsIcon } from "~/utils/hugeicon";
 import { CalculateIcon, Cancel01Icon, CheckIcon, CheckmarkSquare02Icon, ChevronDownIcon, CircleEllipsisIcon, CookieIcon, Delete02Icon, DropletIcon, GripVerticalIcon, ListIndentIncreaseIcon, MinusSignIcon, PlusSignIcon, SafeBoxIcon, ShirtIcon, SquareIcon, UserIcon } from "@hugeicons/core-free-icons";
 import type { Item, ListSnapshot } from "~~/shared/types";
 import type { ItemPatch } from "~~/shared/ops";
-import { effectivePersonId, personColor, sortedPeople } from "~~/shared/people";
+import { effectivePersonId, personColor, slotInSorted, sortedPeople } from "~~/shared/people";
 import type { NameCommit } from "~/composables/useCatalogSearch";
 import { bySortOrder, effectiveClassification, entryUnitFromInput, formatKcal, formatWeight, fromMg, groupLineMg, itemDisplayName, parseWeightInput, rowDisplayMg, siblingItems, splitWornQty } from "~~/shared/weights";
 import { isWaterName, itemQtyLabel, waterLiters, waterMgFromMl } from "~~/shared/water";
@@ -798,12 +798,11 @@ const ownPerson = computed(() =>
 // The slot the FILTER matches this row on — always stamped ("u" = unassigned) so
 // the CSS never meets a row without the attribute. Derived from row-local data:
 // it changes when an assignment or the people change, never on a filter flip.
-// Same answer as shared/people's personSlot, read off the list this row already
-// holds sorted instead of sorting the people again per row.
+// personSlot's answer, read off the list this row already holds sorted instead
+// of sorting the people again per row.
 const personSlotAttr = computed(() => {
-  const id = effPersonId.value;
-  const slot = id ? peopleSorted.value.findIndex((p) => p.id === id) : -1;
-  return slot === -1 ? "u" : String(slot);
+  const slot = slotInSorted(peopleSorted.value, effPersonId.value);
+  return slot === null ? "u" : String(slot);
 });
 const personTitle = computed(() =>
   rowPerson.value

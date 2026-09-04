@@ -9,9 +9,10 @@ import { defaultExclude } from "vitest/config";
 // defineVitestConfig only makes the Nuxt environment AVAILABLE; it does not impose
 // it. A file opts in with `// @vitest-environment nuxt` on its first line, which
 // boots a Nuxt app for that file alone. Only tests that genuinely need the framework
-// — auto-imports, composables holding Vue reactivity — should opt in; everything
-// else stays on node. See tests/gearList.nuxt.test.ts for the one case that does,
-// and the comment there for why it can't be tested as plain TS.
+// — auto-imports, composables holding Vue reactivity, mounted components — should
+// opt in; everything else stays on node. The `*.nuxt.test.ts` files are the ones
+// that do (tests/gearList.nuxt.test.ts explains why it can't be tested as plain TS),
+// bar pointerDrag's, which needs only a DOM and runs on happy-dom the same way.
 export default defineVitestConfig({
   test: {
     include: ["tests/**/*.test.ts"],

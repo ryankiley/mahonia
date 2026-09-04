@@ -64,7 +64,7 @@ async function main() {
       continue;
     }
 
-    const cur = existing[0];
+    const cur = existing[0]!;
     const changed =
       Number(cur.weightMg) !== row.weightMg ||
       (cur.kcal ?? null) !== row.kcal ||

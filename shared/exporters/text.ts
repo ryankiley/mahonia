@@ -13,7 +13,7 @@
 
 import type { Item, ListSnapshot } from "../types";
 import { computeTotals, formatWeightAuto, itemDisplayName, unitSystem } from "../weights";
-import { exportSections } from "./rows";
+import { exportRowsFlat } from "./rows";
 
 /**
  * A gear type reads as a common noun mid-sentence ("Altra Lone Peak 9+ trail runners")
@@ -58,14 +58,11 @@ function itemPhrase(it: Item): string {
  * link it means — the read-only one from the editor, the current page from a read view.
  */
 export function listToText(list: ListSnapshot, opts: { shareUrl?: string } = {}): string {
-  // exportSections carries the app's visible order, shared with CSV and Markdown so the
+  // exportRowsFlat carries the app's visible order, shared with CSV and Markdown so the
   // three can't disagree about what comes first. Folders are FLATTENED — the answer to
   // "what's in your pack?" is one run of names — and nested children follow their
   // parent, as they do in the CSV.
-  const names = exportSections(list)
-    .flatMap((s) => s.rows.flatMap((r) => [r.item, ...r.children]))
-    .map(itemPhrase)
-    .filter(Boolean);
+  const names = exportRowsFlat(list).map(itemPhrase).filter(Boolean);
 
   const tail: string[] = [];
   const totals = computeTotals(list);

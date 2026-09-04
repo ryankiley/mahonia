@@ -48,11 +48,12 @@ jobs:
       - run: npm ci
 
       # Ordered cheapest-first so an obvious break reports in a minute rather than
-      # five — but every step runs regardless (`!cancelled()`), because a red
+      # five — but every LATER step runs regardless (`!cancelled()`), because a red
       # typecheck shouldn't hide whether the tests also fail. One PR, one full
-      # picture, rather than a queue of one-fix-at-a-time pushes.
+      # picture, rather than a queue of one-fix-at-a-time pushes. The first check
+      # carries no such guard: nothing before it can fail except `npm ci`, and a
+      # broken install should report once, not once per step.
       - name: Typecheck
-        if: '!cancelled()'
         run: npm run typecheck
 
       - name: Test

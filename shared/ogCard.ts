@@ -8,8 +8,9 @@ import { tidyText } from "./tidyText";
 import type { ListData, ListSnapshot, Totals } from "./types";
 import { autoUnit, computeTotals, formatWeight, formatWeightAuto, totalsChips, unitSystem } from "./weights";
 
-// The canvas — og:image's canonical 1200×630. The meta tags (og:image:width/height)
-// and the renderer read these same two numbers, so they can't disagree.
+// The canvas — og:image's canonical 1200×630. The meta tags (og:image:width/height
+// in nuxt.config.ts) and the renderer read these same two numbers, so they can't
+// disagree.
 export const OG_IMAGE_WIDTH = 1200;
 export const OG_IMAGE_HEIGHT = 630;
 
