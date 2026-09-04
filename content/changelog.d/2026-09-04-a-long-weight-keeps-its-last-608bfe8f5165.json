@@ -1,0 +1,6 @@
+{
+  "date": "2026-09-04",
+  "fixed": [
+    "A long weight keeps its last digit — the number no longer runs out of room beside its unit."
+  ]
+}

@@ -56,12 +56,10 @@ const rowWeightMg = computed(() => rowDisplayMg(props.item, children.value));
 // (ItemRow's rowUnit). Without this the same row read "32.5 oz" to the person who wrote
 // it and "920 g" to everyone they shared it with — the feature is that a row keeps the
 // unit you typed, and a shared list is still that row.
-// A GROUP falls back to the list's unit for the same reason it does in the editor: its
-// figure is the sum of children that may each have been typed differently, so there is
-// no one entry unit to honour.
-const rowUnit = computed(() =>
-  isParent.value ? props.list.displayUnit : (props.item.entryUnit ?? props.list.displayUnit),
-);
+// A GROUP resolves the same way, though nothing was typed on it: there its entryUnit is
+// the unit the owner picked for the TOTAL (ItemRow documents the double duty), and a
+// group they set to ounces has to read in ounces here too, for the same reason.
+const rowUnit = computed(() => props.item.entryUnit ?? props.list.displayUnit);
 
 // The LINE's calories, on the same terms as the line's weight beside it: kcal is stored
 // per unit, so this is kcal × qty. The totals bar already shows the list's calorie

@@ -377,8 +377,25 @@ $bp-full: 1024px !default;
      end, two at the narrow). Stating a flat width instead would go stale the moment
      --qty-btn is retuned, and the number would be what silently lost the space. */
   --item-col-qty: calc(2 * var(--qty-btn) + #{fluid-track(28px, 44px)});
-  --item-col-weight: #{fluid-track(68px, 88px)};
-  --item-col-class: #{fluid-track(108px, 128px)}; /* min fits "Consumable" at 1rem */
+  /* The weight track is NOT fluid, and it is measured in em for the same reason
+     --item-col-weight-ro is: what it holds is type. The cell is a number FIELD, a gap,
+     the unit, and the unit picker's chevron — "100,000" (the 100 kg cap in grams) plus
+     a "g" measures 6.03em, and the widest pair the app can state, "3,527.4 oz", 6.2em.
+     The old 68–88px range was short of that at every viewport: at 1280 a group total of
+     "12,450" lost its last digit INSIDE the field (an input clips its own value — no
+     ellipsis, no overflow, nothing to see), and below ~850px so did "0.27 kg". The
+     chevron arrived with the row unit picker and this track was never re-measured for
+     it; a fluid range here only ever described a track too small at both ends.
+     6.25em, not the exact 6.2: Safari's text inputs carry a hair more chrome than
+     Chromium's, and the whole point of a floor is to not be exactly at it. */
+  --item-col-weight: 6.25em;
+  /* …and the width comes from next door, where it had been sitting unused. This cell
+     held the word "Consumable" in a select when the track was measured; it holds TWO
+     --icon-btn toggles now (atoms/item.scss draws them), which is 68px of a 108–128px
+     reservation — so the row was carrying ~60px of air beside a column that was
+     clipping numbers for want of 12. Derived from the boxes rather than stated, the
+     way --item-col-actions below is, so a retune of --icon-btn moves it in step. */
+  --item-col-class: calc(2 * var(--icon-btn) + var(--space-1));
   /* actions column is FIXED, not auto: a row shows 4 or 5 trailing icons (the nesting
      add/indent/outdent varies), and an auto column would size to that count — stealing
      from the 1fr name column by a different amount per row and misaligning qty/weight/
@@ -402,6 +419,10 @@ $bp-full: 1024px !default;
      step if either size ever moves. */
   @media (pointer: coarse) {
     --item-col-actions: calc(5 * var(--tap) + 4 * var(--space-1) - 9px);
+    /* the class cell's two toggles grow with it — same trap, one column over: a track
+       measured in --icon-btn boxes under buttons drawn at --tap is 24px short, and the
+       overflow would be the toggles sitting under the trailing icons */
+    --item-col-class: calc(2 * var(--tap) + var(--space-1));
   }
   /* the read/share views' two data tracks, named so the read row, the folder header
      and the packing row all measure them identically (they used to be inlined in
