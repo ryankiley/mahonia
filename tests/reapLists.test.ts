@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { lists, listSnapshots } from "../server/db/schema";
-import { LISTS_DDL, SNAPSHOTS_DDL, _resetSnapshotEnsured } from "../server/utils/db";
+import { LISTS_DDL, SNAPSHOTS_DDL, ensureSnapshotSchema } from "../server/utils/db";
 import { purgeDeletedLists, reapAbandonedLists } from "../server/utils/listRepo";
 import { sha256Hex } from "../server/utils/tokens";
 import type { ListData } from "../shared/types";
@@ -12,7 +12,7 @@ import { createTestDb } from "./helpers/db";
 // ensure so purgeDeletedLists's ensureSnapshotSchema runs against THIS db.
 async function freshDb() {
   const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL);
-  _resetSnapshotEnsured();
+  ensureSnapshotSchema.reset();
   return db;
 }
 

@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { lists } from "../server/db/schema";
-import { LISTS_DDL, SNAPSHOTS_DDL, _resetSnapshotEnsured } from "../server/utils/db";
-import { findByEditToken, softDeleteByEditToken } from "../server/utils/listRepo";
+import { LISTS_DDL, SNAPSHOTS_DDL, ensureSnapshotSchema } from "../server/utils/db";
+import { findByEditToken, softDeleteByEditToken } from "./helpers/repo";
 import { sha256Hex } from "../server/utils/tokens";
 import { createTestDb } from "./helpers/db";
 
 // Repo against a fresh in-memory PGlite (mirrors reapLists.test / discovery.test).
 async function freshDb() {
   const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL);
-  _resetSnapshotEnsured();
+  ensureSnapshotSchema.reset();
   return db;
 }
 

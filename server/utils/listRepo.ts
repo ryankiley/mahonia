@@ -3,7 +3,7 @@
 // leaves this module.
 
 import { createError } from "h3";
-import { and, desc, eq, inArray, isNotNull, isNull, lt, lte, notInArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, lt, lte, notInArray, sql } from "drizzle-orm";
 import { listClaims, catalogItems, listSnapshots, lists, type ListRow, users } from "../db/schema";
 import {
   applyOps,
@@ -40,13 +40,11 @@ import { parseProfile } from "../../shared/profile";
 import { normalizeRouteGeometry } from "../../shared/polyline";
 import { tidyProse, tidyText } from "../../shared/tidyText";
 import { displayHost, normalizeTrailLabel, normalizeTrailUrl, safeUrl } from "../../shared/trailLink";
-import { ensureSnapshotSchema, ensureTrailFaviconSchema, useAccountDb, useDb } from "./db";
+import { batchLimit, ensureSnapshotSchema, ensureTrailFaviconSchema, useAccountDb, useDb, type Db } from "./db";
 import { getFavicon, warmFavicon } from "./trailFavicon";
 import { ensureCatalogSchema } from "./catalog";
 import { randomEditToken, randomShareCode, randomSlug, sha256Hex } from "./tokens";
 import { stageCandidates, type CandidateObservation } from "./candidates";
-
-type Db = Awaited<ReturnType<typeof useDb>>;
 
 // The denormalized weight-rollup columns, derived from a list's totals. Single-
 // sourced so the create / mutate / restore writes all set the SAME set of columns
@@ -147,18 +145,12 @@ function normalizeListData(raw?: Partial<ListData>): ListData {
   return { folders, items, days, waypoints, people };
 }
 
-// trailFaviconDataUrl is NOT set here — it lives in a separate per-host table and is
-// attached by attachTrailFavicon on the read paths. A snapshot without it is perfectly
-// valid; the link just renders without a mark.
-export function rowToSnapshot(row: ListRow): ListSnapshot {
-  const data = (row.data ?? { folders: [], items: [] }) as ListData;
-  // Backfilled on the way out (see tidyListText). Rows written before the tidy existed
-  // still hold their straight apostrophes and stray spaces; without this every list
-  // made before it renders half-tidied the moment one field is retyped. Safe to mutate
-  // `data` in place — `row` is a fresh object per query, not a shared cache entry.
-  return tidyListText({
-    shareCode: row.shareCode,
-    slug: row.publicSlug,
+// The list's META fields as the wire shapes carry them — SQL nulls become absent,
+// the distance unit re-validated on the way out. Shared by rowToSnapshot (the read
+// shape) and rowToState (the reducer's), which differ only in what they attach on
+// top: the addresses on one side, the route geometry on the other.
+function metaOf(row: ListRow) {
+  return {
     title: row.title,
     description: row.description ?? undefined,
     trailUrl: row.trailUrl ?? undefined,
@@ -171,6 +163,22 @@ export function rowToSnapshot(row: ListRow): ListSnapshot {
     startDate: row.startDate ?? undefined,
     endDate: row.endDate ?? undefined,
     displayUnit: row.displayUnit as Unit,
+  };
+}
+
+// trailFaviconDataUrl is NOT set here — it lives in a separate per-host table and is
+// attached by the read paths (hydrateForRead). A snapshot without it is perfectly
+// valid; the link just renders without a mark.
+export function rowToSnapshot(row: ListRow): ListSnapshot {
+  const data = (row.data ?? { folders: [], items: [] }) as ListData;
+  // Backfilled on the way out (see tidyListText). Rows written before the tidy existed
+  // still hold their straight apostrophes and stray spaces; without this every list
+  // made before it renders half-tidied the moment one field is retyped. Safe to mutate
+  // `data` in place — `row` is a fresh object per query, not a shared cache entry.
+  return tidyListText({
+    shareCode: row.shareCode,
+    slug: row.publicSlug,
+    ...metaOf(row),
     folders: data.folders ?? [],
     // WITHOUT `packed`. A tick is not a property of the gear, it is a record of how far
     // along the owner is with their own packing — and it was riding every share link,
@@ -286,7 +294,7 @@ export async function hydrateCatalogNames(db: Db, snap: ListSnapshot): Promise<L
 /** Attach the trail site's favicon from the per-host cache, if we have one. Never
  *  throws and never blocks: an unknown host, a missing table on a fresh Neon deploy, or
  *  a known-bad icon all just mean the link renders without a mark. */
-export async function attachTrailFavicon(db: Db, snap: ListSnapshot): Promise<ListSnapshot> {
+async function attachTrailFavicon(db: Db, snap: ListSnapshot): Promise<ListSnapshot> {
   if (!snap.trailUrl) return snap;
   try {
     await ensureTrailFaviconSchema(db);
@@ -303,7 +311,7 @@ export async function attachTrailFavicon(db: Db, snap: ListSnapshot): Promise<Li
  *  trail-link favicon. Single-sourced so the read paths can't drift apart.
  *
  *  Deliberately NOT used by the mutate path. The favicon is a data: URL of up to 64 KB
- *  (~87 KB base64), and applyOpsByEditToken returns on a 450 ms autosave debounce whose
+ *  (~87 KB base64), and applyOpsByEditHash returns on a 450 ms autosave debounce whose
  *  response the client adopts wholesale and mirrors into IndexedDB — so attaching it
  *  there re-shipped an immutable icon on every keystroke batch. The editor gets its icon
  *  once from getByEditHash, or from /api/trail-favicon while the list is still a draft.
@@ -329,19 +337,8 @@ function rowToState(row: ListRow): ListState {
   // the version history — the punctuation moves on both sides at once, so nothing
   // reads as an edit the user didn't make.
   return tidyListText({
-    title: row.title,
-    description: row.description ?? undefined,
-    trailUrl: row.trailUrl ?? undefined,
-    trailLabel: row.trailLabel ?? undefined,
-    trailDistanceM: row.trailDistanceM ?? undefined,
-    trailDistanceUnit: normalizeDistanceUnit(row.trailDistanceUnit),
-    trailProfile: row.trailProfile ?? undefined,
-    trailAscentM: row.trailAscentM ?? undefined,
-    trailDescentM: row.trailDescentM ?? undefined,
+    ...metaOf(row),
     routeGeometry: row.routeGeometry ?? undefined,
-    startDate: row.startDate ?? undefined,
-    endDate: row.endDate ?? undefined,
-    displayUnit: row.displayUnit as Unit,
     folders: structuredClone(data.folders ?? []),
     items: structuredClone(data.items ?? []),
     days: structuredClone(data.days ?? []),
@@ -366,10 +363,6 @@ export async function findByEditHash(editHash: string, db?: Db): Promise<ListRow
   const d = db ?? (await useDb());
   const rows = await d.select().from(lists).where(liveOnly(lists.editTokenHash, editHash)).limit(1);
   return rows[0] ?? null;
-}
-
-export async function findByEditToken(editToken: string, db?: Db): Promise<ListRow | null> {
-  return findByEditHash(sha256Hex(editToken), db);
 }
 
 /**
@@ -548,14 +541,16 @@ async function captureSnapshot(db: Db, row: ListRow, reason: string): Promise<vo
         .set({ kind: "diff", snapshot: demote.snapshot })
         .where(eq(listSnapshots.id, demote.id));
     }
-    // prune oldest beyond the cap (id tie-breaks same-timestamp rows)
-    const all = await db
+    // prune oldest beyond the cap (id tie-breaks same-timestamp rows) — the
+    // OFFSET skips the rows that stay, so only the ids to drop cross the wire
+    const stale = await db
       .select({ id: listSnapshots.id })
       .from(listSnapshots)
       .where(eq(listSnapshots.listId, row.id))
-      .orderBy(desc(listSnapshots.createdAt), desc(listSnapshots.id));
-    const stale = all.slice(SNAPSHOT_CAP).map((r) => r.id);
-    if (stale.length) await db.delete(listSnapshots).where(inArray(listSnapshots.id, stale));
+      .orderBy(desc(listSnapshots.createdAt), desc(listSnapshots.id))
+      .offset(SNAPSHOT_CAP);
+    if (stale.length)
+      await db.delete(listSnapshots).where(inArray(listSnapshots.id, stale.map((r) => r.id)));
   } catch {
     /* best-effort: never block a write on snapshotting */
   }
@@ -620,13 +615,6 @@ export async function listSnapshotsByEditHash(
   }));
 }
 
-export async function listSnapshotsByEditToken(
-  editToken: string,
-  db?: Db,
-): Promise<SnapshotMeta[] | null> {
-  return listSnapshotsByEditHash(sha256Hex(editToken), db);
-}
-
 /**
  * Restore a list to one of its snapshots (edit-token-gated). The overwritten
  * pre-restore state is snapshotted ("before restore") so a restore is itself
@@ -645,16 +633,9 @@ export async function restoreSnapshotByEditHash(
   const ownerId = await findIdByEditHash(editHash, d);
   if (ownerId === null) return null;
   await ensureSnapshotSchema(d);
-  // verify the snapshot is THIS caller's list (no cross-list oracle), then
-  // reconstruct its full state from the reverse-delta chain
-  const owns = (
-    await d
-      .select({ id: listSnapshots.id })
-      .from(listSnapshots)
-      .where(and(eq(listSnapshots.id, snapshotId), eq(listSnapshots.listId, ownerId)))
-      .limit(1)
-  )[0];
-  if (!owns) return null; // unknown id, or not this caller's list
+  // Reconstruct the target's full state from the reverse-delta chain. This is also
+  // the ownership check (no cross-list oracle): the chain is read for THIS caller's
+  // list only, so an unknown id, or another list's, is simply not in it → null.
   const s = await reconstructSnapshotState(d, ownerId, snapshotId);
   if (!s) return null;
 
@@ -670,7 +651,7 @@ export async function restoreSnapshotByEditHash(
   const displayUnit: Unit = UNITS.includes(s.displayUnit as Unit) ? (s.displayUnit as Unit) : "g";
   // restore writes title/description like a mutate does, so it's the same link-spam
   // vector: publish clean, then restore a link-stuffed earlier snapshot. Re-check
-  // here too (set-only, mirroring applyOpsByEditToken) so this path can't smuggle
+  // here too (set-only, mirroring applyOpsByEditHash) so this path can't smuggle
   // spam meta onto an already-public list past the publish-time gate.
   const spammyMeta = isLikelySpam({
     title,
@@ -741,14 +722,6 @@ export async function restoreSnapshotByEditHash(
   throw createError({ statusCode: 409, statusMessage: "Restore contention — retry" });
 }
 
-export async function restoreSnapshotByEditToken(
-  editToken: string,
-  snapshotId: number,
-  db?: Db,
-): Promise<ListSnapshot | null> {
-  return restoreSnapshotByEditHash(sha256Hex(editToken), snapshotId, db);
-}
-
 /**
  * Resolve a list's maker to the name shown under its title on the read views.
  *
@@ -814,7 +787,7 @@ export async function getCardByShareCode(code: string): Promise<ListSnapshot | n
  * rowToSnapshot omits the route's geometry and its waypoints, so every read path starts
  * without them and has to ask. That is the wrong way round from how it reads — but it is
  * the only shape that fails CLOSED: /s (getByShareCode), /l (rowToPublicView) and the
- * public feed all build on rowToSnapshot, and any read path added later will too. Opt-in
+ * social cards all build on rowToSnapshot, and any read path added later will too. Opt-in
  * means forgetting leaks nothing; opt-out means forgetting publishes somebody's route.
  *
  * This wrapper existed once before, for body weight, and three owner paths forgot to call
@@ -843,11 +816,9 @@ function withOwnerOnly(snap: ListSnapshot, row: ListRow): ListSnapshot {
 
 // Hash-first like findByEditHash, and for the same reason: the edit endpoints now
 // take EITHER the bearer token or a session + claimed share code (see editAuth),
-// and both arrive here as the hash. A ByEditToken wrapper exists wherever something
-// that isn't an endpoint — a test, mostly — genuinely holds the raw token and would
-// otherwise hash it at the call site. Only where one is actually called: the
-// unused half of the pair went with the hash migration rather than sitting here
-// implying a caller that doesn't exist.
+// and both arrive here as the hash. Nothing in production holds a raw token past
+// the endpoint gate, so there are no ByEditToken variants here; the tests, which
+// genuinely do hold one, hash it in tests/helpers/repo.ts.
 export async function getByEditHash(editHash: string): Promise<ListSnapshot | null> {
   const db = await useDb();
   const row = await findByEditHash(editHash, db);
@@ -964,22 +935,24 @@ export async function createList(init?: {
 /**
  * Owner-initiated delete: soft-delete the list this edit token holds. Reuses the
  * reaper's `deletedAt` model, so the list drops out of every capability lookup
- * (edit/share/public/feed all go through `liveOnly`) the instant this runs, and
- * the nightly purge reclaims its storage + snapshots after the same grace window
- * (so a mistaken delete is admin-recoverable for `LIST_PURGE_GRACE_DAYS`). Returns
- * false if the token resolves to nothing (already deleted / never existed) → 404.
+ * (edit, share and the public slug all go through `liveOnly`) the instant this
+ * runs, and the nightly purge reclaims its storage + snapshots after the same
+ * grace window (so a mistaken delete is admin-recoverable for the purge grace
+ * period, 90 days by default). Returns false if the token resolves to nothing
+ * (already deleted / never existed) → 404.
+ *
+ * One UPDATE keyed on the capability, like rotateEditHash: `liveOnly` is the
+ * gate, and the returned rows say whether anything was there to delete.
  */
 export async function softDeleteByEditHash(editHash: string, db?: Db): Promise<boolean> {
   const d = db ?? (await useDb());
-  const listId = await findIdByEditHash(editHash, d);
-  if (listId === null) return false;
   const now = new Date();
-  await d.update(lists).set({ deletedAt: now, updatedAt: now }).where(eq(lists.id, listId));
-  return true;
-}
-
-export async function softDeleteByEditToken(editToken: string, db?: Db): Promise<boolean> {
-  return softDeleteByEditHash(sha256Hex(editToken), db);
+  const rows = await d
+    .update(lists)
+    .set({ deletedAt: now, updatedAt: now })
+    .where(liveOnly(lists.editTokenHash, editHash))
+    .returning();
+  return rows.length > 0;
 }
 
 /**
@@ -1130,14 +1103,6 @@ export async function applyOpsByEditHash(
   throw createError({ statusCode: 409, statusMessage: "Save contention — retry" });
 }
 
-export async function applyOpsByEditToken(
-  editToken: string,
-  ops: Op[],
-  db?: Db,
-): Promise<ListSnapshot | null> {
-  return applyOpsByEditHash(sha256Hex(editToken), ops, db);
-}
-
 // ---- maintenance: reap near-empty abandoned lists -------------------------
 // A pack list with 0 or 1 items isn't a real list — the editor won't even create a
 // server row until a list has real content (useGearList.hasRealContent), so these
@@ -1153,7 +1118,7 @@ export async function applyOpsByEditToken(
 // mirroring the rest of the schema) drops the row from every live query, frees the
 // slug/share_code/edit_token (the unique indexes are WHERE deleted_at IS NULL), and
 // stays reversible.
-export const LIST_REAP_STALE_DAYS = Math.max(1, Number(process.env.LIST_REAP_STALE_DAYS) || 30);
+const LIST_REAP_STALE_DAYS = Math.max(1, Number(process.env.LIST_REAP_STALE_DAYS) || 30);
 const REAP_BATCH_MAX = 10_000;
 
 /**
@@ -1168,15 +1133,15 @@ export async function reapAbandonedLists(
 ): Promise<{ reaped: number }> {
   const d = db ?? (await useDb());
   const staleDays = Math.max(1, Math.floor(opts?.staleDays ?? LIST_REAP_STALE_DAYS));
-  const limit = Math.max(1, Math.min(REAP_BATCH_MAX, Math.floor(opts?.limit ?? 5_000)));
   const cutoff = new Date(Date.now() - staleDays * 86_400_000);
 
-  // Select the eligible ids first (bounded), then soft-delete them and count via
-  // RETURNING — a reliable affected-row count across both the neon-http and PGlite
-  // drivers. The jsonb_array_length guard is belt-and-suspenders: reap only rows
-  // whose ACTUAL item array holds <= 1 item, so a drifted item_count rollup can't
-  // cause a real (2+ item) list to be reaped.
-  const candidates = await d
+  // One statement: the bounded id select rides as a subquery of the UPDATE (an
+  // UPDATE can't take a LIMIT of its own), and RETURNING gives the affected-row
+  // count on both drivers (no-arg, the union's one shared overload — see Db).
+  // The jsonb_array_length guard is belt-and-suspenders:
+  // reap only rows whose ACTUAL item array holds <= 1 item, so a drifted
+  // item_count rollup can't cause a real (2+ item) list to be reaped.
+  const eligible = d
     .select({ id: lists.id })
     .from(lists)
     .where(
@@ -1188,17 +1153,12 @@ export async function reapAbandonedLists(
         lt(lists.updatedAt, cutoff),
       ),
     )
-    .limit(limit);
-  if (!candidates.length) return { reaped: 0 };
-
-  const ids = candidates.map((c) => c.id);
+    .limit(batchLimit(opts?.limit, REAP_BATCH_MAX));
   const now = new Date();
-  // no-arg .returning() — the neon-http | PGlite union's only shared overload
-  // (same constraint discoveryRepo.reportList notes). We only need the row count.
   const reaped = await d
     .update(lists)
     .set({ deletedAt: now, updatedAt: now })
-    .where(inArray(lists.id, ids))
+    .where(inArray(lists.id, eligible))
     .returning();
   return { reaped: reaped.length };
 }
@@ -1211,7 +1171,7 @@ export async function reapAbandonedLists(
 // age). Cascades to each list's snapshots, which hold full-copy payloads and are
 // the real storage weight; an empty reaped list rarely has any, but other
 // soft-deleted lists can.
-export const LIST_PURGE_GRACE_DAYS = Math.max(1, Number(process.env.LIST_PURGE_GRACE_DAYS) || 90);
+const LIST_PURGE_GRACE_DAYS = Math.max(1, Number(process.env.LIST_PURGE_GRACE_DAYS) || 90);
 
 /**
  * Permanently delete lists soft-deleted more than `graceDays` ago (+ their
@@ -1224,22 +1184,26 @@ export async function purgeDeletedLists(
 ): Promise<{ purged: number }> {
   const d = db ?? (await useDb());
   const graceDays = Math.max(1, Math.floor(opts?.graceDays ?? LIST_PURGE_GRACE_DAYS));
-  const limit = Math.max(1, Math.min(REAP_BATCH_MAX, Math.floor(opts?.limit ?? 5_000)));
   const cutoff = new Date(Date.now() - graceDays * 86_400_000);
 
-  const doomed = await d
+  // Two statements, one bounded id select as the subquery of each. The snapshots
+  // go first (no DB-level FK, so the cascade is manual; a run that dies between
+  // the two leaves a list the next run purges, never an orphaned snapshot). The
+  // subquery is evaluated fresh per statement, so it is ORDERED — oldest deletion
+  // first, id as the tie-break — or a LIMIT smaller than the backlog could pick a
+  // different batch each time and strand the snapshots of the lists it purged.
+  // Nothing enters that window between the two (a fresh soft-delete is inside its
+  // grace), so both statements see the same set.
+  const doomed = d
     .select({ id: lists.id })
     .from(lists)
     .where(and(isNotNull(lists.deletedAt), lt(lists.deletedAt, cutoff)))
-    .limit(limit);
-  if (!doomed.length) return { purged: 0 };
-  const ids = doomed.map((r) => r.id);
-
-  // drop child snapshots first (no DB-level FK, so this is manual), then the rows
+    .orderBy(asc(lists.deletedAt), asc(lists.id))
+    .limit(batchLimit(opts?.limit, REAP_BATCH_MAX));
   await ensureSnapshotSchema(d);
-  await d.delete(listSnapshots).where(inArray(listSnapshots.listId, ids));
-  await d.delete(lists).where(inArray(lists.id, ids));
-  return { purged: ids.length };
+  await d.delete(listSnapshots).where(inArray(listSnapshots.listId, doomed));
+  const purged = await d.delete(lists).where(inArray(lists.id, doomed)).returning();
+  return { purged: purged.length };
 }
 
 /**
@@ -1279,7 +1243,6 @@ export async function rotateEditHash(
   // tabs — the loser's WHERE matches nothing and it 404s, instead of a 200 carrying
   // a token that was already overwritten (a silent, permanent lockout: the token is
   // the only credential). `liveOnly` keeps the active/not-deleted gate.
-  // no-arg .returning() — the neon-http | PGlite union's only shared overload.
   const updated = await d
     .update(lists)
     .set({ editTokenHash: sha256Hex(next), updatedAt: new Date() })

@@ -9,7 +9,7 @@ import { setNoIndex } from "../utils/http";
 // third-party icon itself (CSP is `default-src 'self'` / `img-src 'self' data: blob:`).
 // So the client asks us, and we answer with an inlined data: URL that the CSP allows.
 //
-// The saved-list path doesn't come through here — attachTrailFavicon joins the cached
+// The saved-list path doesn't come through here — hydrateForRead joins the cached
 // row straight into the snapshot. This is the unsaved case only.
 //
 // Never an error: an unknown or hostile host answers { dataUrl: null } and the link just

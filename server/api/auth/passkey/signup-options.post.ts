@@ -60,7 +60,7 @@ export default defineEventHandler(async (event) => {
   // could both pass here — but the unique index is the real guard and signup-verify
   // handles losing that race.
   const db = await useAccountDb();
-  if (await emailTaken(db, email, -1)) {
+  if (await emailTaken(db, email)) {
     throw createError({ statusCode: 409, statusMessage: "That address already has an account" });
   }
 

@@ -46,9 +46,13 @@ export const VAULT_DDL: string[] = [
     vault_id integer NOT NULL,
     name text NOT NULL,
     sort_order integer NOT NULL DEFAULT 0,
-    sort_by text, -- legacy per-folder sort, no longer read or written (schema.ts)
     created_at timestamptz NOT NULL DEFAULT now()
   )`,
+  // The per-folder item sort (manual|name|heaviest|lightest) My Gear used to
+  // offer. The feature is gone and nothing read or wrote the column; this is how
+  // it actually leaves a database that already has it (same as token_hash above
+  // — there is no migration step, so the DDL is the migration).
+  `ALTER TABLE vault_folders DROP COLUMN IF EXISTS sort_by`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_vault_folder_name ON vault_folders (vault_id, name)`,
 
   `CREATE TABLE IF NOT EXISTS vault_items (

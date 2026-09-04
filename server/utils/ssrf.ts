@@ -6,7 +6,7 @@
  * attacker-controlled. Without these checks a request to
  * `http://my-redirect.com/` could pivot to `http://169.254.169.254/...` and
  * exfiltrate Vercel-provided env values, or hit an internal admin endpoint
- * on a private network. These helpers cover three angles:
+ * on a private network. These helpers cover two angles:
  *
  *   1. validateExternalUrl — synchronous URL-shape + literal-IP checks. Rejects
  *      private CIDRs in dotted-decimal form, the alternate IPv4 encodings
@@ -79,17 +79,15 @@ function isPrivateIPv6(ip: string): boolean {
   // XOR'd with 0xffffffff. The compressed form makes the last two groups
   // sit at the tail of the string.
   const teredo = s.match(/^2001:0?:[0-9a-f:]+:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
-  if (teredo) {
-    const high = parseInt(teredo[1]!, 16) ^ 0xffff;
-    const low = parseInt(teredo[2]!, 16) ^ 0xffff;
-    return isPrivateIPv4(`${(high >> 8) & 0xff}.${high & 0xff}.${(low >> 8) & 0xff}.${low & 0xff}`);
-  }
+  if (teredo) return isPrivateIPv4(hexPairToDotted(teredo[1]!, teredo[2]!, 0xffff));
   return false;
 }
 
-function hexPairToDotted(highHex: string, lowHex: string): string {
-  const high = parseInt(highHex, 16);
-  const low = parseInt(lowHex, 16);
+/** Two 16-bit hex groups → the dotted quad they embed. `mask` is XOR'd over each
+ *  group first — Teredo stores the client address inverted, the others as-is. */
+function hexPairToDotted(highHex: string, lowHex: string, mask = 0): string {
+  const high = parseInt(highHex, 16) ^ mask;
+  const low = parseInt(lowHex, 16) ^ mask;
   return `${(high >> 8) & 0xff}.${high & 0xff}.${(low >> 8) & 0xff}.${low & 0xff}`;
 }
 

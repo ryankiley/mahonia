@@ -189,14 +189,15 @@ function siteCardVnode(): Vnode {
   );
 }
 
-function ogSiteCardSvg(fonts: SatoriOptions["fonts"]): Promise<string> {
-  return satori(siteCardVnode(), { width: OG_IMAGE_WIDTH, height: OG_IMAGE_HEIGHT, fonts });
+/** SVG → PNG bytes. Skip resvg's default system-font scan: satori has already
+ *  turned every glyph into a <path>, so there is no text left to shape and the
+ *  scan would walk the platform's font directories per render for nothing. */
+function toPng(svg: string): Buffer {
+  return new Resvg(svg, { font: { loadSystemFonts: false } }).render().asPng();
 }
 
 export async function renderOgSiteCard(fonts: SatoriOptions["fonts"]): Promise<Buffer> {
-  return new Resvg(await ogSiteCardSvg(fonts), { font: { loadSystemFonts: false } })
-    .render()
-    .asPng();
+  return toPng(await satori(siteCardVnode(), { width: OG_IMAGE_WIDTH, height: OG_IMAGE_HEIGHT, fonts }));
 }
 
 /** The card as SVG — the testable middle step (deterministic string out).
@@ -206,19 +207,12 @@ export function ogCardSvg(m: OgCardModel, fonts: SatoriOptions["fonts"]): Promis
   return satori(cardVnode(m), { width: OG_IMAGE_WIDTH, height: OG_IMAGE_HEIGHT, fonts });
 }
 
-/** The card as PNG bytes. Skip resvg's default system-font scan: satori has
- *  already turned every glyph into a <path>, so there is no text left to shape
- *  and the scan would walk the platform's font directories per render for
- *  nothing. */
+/** The card as PNG bytes. */
 export async function renderOgCard(
   m: OgCardModel,
   fonts: SatoriOptions["fonts"],
 ): Promise<Buffer> {
-  return new Resvg(await ogCardSvg(m, fonts), {
-    font: { loadSystemFonts: false },
-  })
-    .render()
-    .asPng();
+  return toPng(await ogCardSvg(m, fonts));
 }
 
 /**

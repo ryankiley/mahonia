@@ -1,6 +1,7 @@
 // Database access. Local dev uses PGlite (in-process Postgres, zero setup);
 // production uses Neon when DATABASE_URL is set. Same Drizzle API either way.
-// Schema is ensured idempotently on first use (dev); prod would run migrations.
+// There is no migration step on either: the schema is ensured idempotently on
+// first use — all of it in build() for dev, per table-group on the prod path.
 
 import { sql } from "drizzle-orm";
 import * as schema from "../db/schema";
@@ -10,7 +11,24 @@ import { VAULT_DDL } from "./vaultSchema";
 import { ACCOUNT_DDL } from "./accountSchema";
 import { memoizedEnsure } from "./memoize";
 
-type Db = Awaited<ReturnType<typeof build>>;
+/**
+ * The connection handle every repo takes as its `db` — the neon-http | PGlite
+ * union, so a repo function works against whichever driver built it.
+ *
+ * One consequence worth knowing at every write site: the union's only shared
+ * `.returning()` overload is the no-arg one, so a write that needs its affected
+ * rows (or just their count) spells `.returning()` and reads what it needs off
+ * the full rows.
+ */
+export type Db = Awaited<ReturnType<typeof build>>;
+
+/** Clamp a maintenance sweep's batch size to [1, max] — the reap and purge
+ *  sweeps (lists and vaults alike) all take a `limit` so one run can never issue
+ *  an unbounded write, and this is the one spelling of that clamp. `fallback`
+ *  is the size a caller that passes nothing gets. */
+export function batchLimit(n: number | undefined, max: number, fallback = 5_000): number {
+  return Math.max(1, Math.min(max, Math.floor(n ?? fallback)));
+}
 
 let _dbPromise: Promise<Db> | undefined;
 
@@ -201,16 +219,12 @@ export const ensureTrailFaviconSchema = memoizedEnsure(async (db: Db) => {
 export const ensureSnapshotSchema = memoizedEnsure(async (db: Db) => {
   for (const stmt of SNAPSHOTS_DDL) await db.execute(sql.raw(stmt));
 });
-/** Reset the ensure-memo — for tests that spin up a fresh database. */
-export function _resetSnapshotEnsured(): void {
-  ensureSnapshotSchema.reset();
-}
 
 /** Idempotently create the vault tables (memoized) — for Neon, where there's no
  *  build-time DDL. Mirrors ensureCatalogSchema; every vault endpoint reaches its
  *  connection through useVaultDb() below, so the ensure can't be forgotten on a
  *  path that needs it. */
-export const ensureVaultSchema = memoizedEnsure(async (db: Db) => {
+const ensureVaultSchema = memoizedEnsure(async (db: Db) => {
   for (const stmt of VAULT_DDL) await db.execute(sql.raw(stmt));
 });
 
@@ -231,7 +245,7 @@ export async function useVaultDb(): Promise<Db> {
  *  vault's ensure on purpose: the vault works with no account at all, so a visitor
  *  who never signs in must never pay for this DDL. Every auth endpoint reaches its
  *  connection through useAccountDb() below, so it can't be forgotten. */
-export const ensureAccountSchema = memoizedEnsure(async (db: Db) => {
+const ensureAccountSchema = memoizedEnsure(async (db: Db) => {
   for (const stmt of ACCOUNT_DDL) await db.execute(sql.raw(stmt));
 });
 

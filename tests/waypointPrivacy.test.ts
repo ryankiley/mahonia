@@ -121,10 +121,11 @@ describe("…but the OWNER still gets it back", () => {
   const src = readFileSync(`${ROOT}server/utils/listRepo.ts`, "utf8");
 
   // Every function that answers an edit CAPABILITY or mints a list — i.e. talks to
-  // an owner. These are the hash cores: the ByEditToken names are one-line wrappers
-  // that hash and delegate (see listRepo's findByEditHash precedent), so the bodies
-  // this test reads — and the owner-only guarantee — live here, and the same body
-  // now serves both ways in (bearer token, or session + claimed code via editAuth).
+  // an owner. These are the hash cores, and the only bodies there are: the
+  // ByEditToken names the other suites call are one-line test helpers that hash
+  // and delegate (tests/helpers/repo.ts), so the owner-only guarantee lives here,
+  // and the same body serves both ways in (bearer token, or session + claimed
+  // code via editAuth).
   const OWNER_PATHS = [
     "getByEditHash",
     "createList",

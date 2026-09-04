@@ -11,9 +11,6 @@
 
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
-import { IncomingMessage, ServerResponse } from "node:http";
-import { Socket } from "node:net";
-import { createEvent, type H3Event } from "h3";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as schema from "../server/db/schema";
 import { LISTS_DDL } from "../server/utils/db";
@@ -24,6 +21,7 @@ import { claimLists } from "../server/utils/claimRepo";
 import { randomEditToken, sha256Hex } from "../server/utils/tokens";
 import { LIST_CODE_HEADER } from "../shared/links";
 import { createTestDb } from "./helpers/db";
+import { makeEvent } from "./helpers/http";
 
 type DB = ReturnType<typeof drizzle>;
 async function freshDb(): Promise<DB> {
@@ -42,15 +40,6 @@ vi.mock("../server/utils/db", async (importOriginal) => {
   };
   return { ...mod, useVaultDb: grab, useAccountDb: grab };
 });
-
-function makeEvent(headers: Record<string, string> = {}): H3Event {
-  const req = new IncomingMessage(new Socket());
-  req.method = "POST";
-  req.url = "/api/edit/mutate";
-  req.headers = { host: "mahonia.test", ...headers };
-  req.push(null);
-  return createEvent(req, new ServerResponse(req));
-}
 
 const CODE = "TESTC0DE0001"; // canonical Crockford — normalizes to itself
 
@@ -99,7 +88,7 @@ describe("requireEditHash — one gate, two ways through it", () => {
 
   it("bearer token → its hash, with no database lookup at all", async () => {
     state.throwIfTouched = true;
-    const hash = await requireEditHash(makeEvent({ authorization: "Bearer tok-abc" }));
+    const hash = await requireEditHash(makeEvent({ headers: { authorization: "Bearer tok-abc" } }));
     expect(hash).toBe(sha256Hex("tok-abc"));
   });
 
@@ -108,7 +97,7 @@ describe("requireEditHash — one gate, two ways through it", () => {
     const { userId, cookie } = await signedInCookie(db, "ryan@example.com");
     await claimLists(db as never, userId, [list.editToken]);
 
-    const hash = await requireEditHash(makeEvent({ cookie, [LIST_CODE_HEADER]: CODE }));
+    const hash = await requireEditHash(makeEvent({ cookie, headers: { [LIST_CODE_HEADER]: CODE } }));
     expect(hash).toBe(sha256Hex(list.editToken));
   });
 
@@ -119,7 +108,7 @@ describe("requireEditHash — one gate, two ways through it", () => {
 
     // lowercase, with O standing in for 0 — a hand-typed header
     const sloppy = CODE.toLowerCase().replace(/0/g, "o");
-    const hash = await requireEditHash(makeEvent({ cookie, [LIST_CODE_HEADER]: sloppy }));
+    const hash = await requireEditHash(makeEvent({ cookie, headers: { [LIST_CODE_HEADER]: sloppy } }));
     expect(hash).toBe(sha256Hex(list.editToken));
   });
 
@@ -132,7 +121,7 @@ describe("requireEditHash — one gate, two ways through it", () => {
     await claimLists(db as never, userId, [b.editToken]);
 
     const hash = await requireEditHash(
-      makeEvent({ cookie, authorization: `Bearer ${a.editToken}`, [LIST_CODE_HEADER]: b.shareCode }),
+      makeEvent({ cookie, headers: { authorization: `Bearer ${a.editToken}`, [LIST_CODE_HEADER]: b.shareCode } }),
     );
     expect(hash).toBe(sha256Hex(a.editToken));
   });
@@ -141,7 +130,7 @@ describe("requireEditHash — one gate, two ways through it", () => {
     await seedList(db); // the list exists; this session just holds no claim on it
     const { cookie } = await signedInCookie(db, "stranger@example.com");
 
-    const noClaim = await refusalOf(makeEvent({ cookie, [LIST_CODE_HEADER]: CODE }));
+    const noClaim = await refusalOf(makeEvent({ cookie, headers: { [LIST_CODE_HEADER]: CODE } }));
     const nothing = await refusalOf(makeEvent());
     expect(noClaim.statusCode).toBe(401);
     // BYTE-equal refusals: a 403, or a different message, would confirm the list
@@ -158,7 +147,7 @@ describe("requireEditHash — one gate, two ways through it", () => {
       .set({ deletedAt: new Date() })
       .where(sql`share_code = ${CODE}`);
 
-    const gone = await refusalOf(makeEvent({ cookie, [LIST_CODE_HEADER]: CODE }));
+    const gone = await refusalOf(makeEvent({ cookie, headers: { [LIST_CODE_HEADER]: CODE } }));
     expect(gone).toEqual(await refusalOf(makeEvent()));
   });
 
@@ -169,7 +158,7 @@ describe("requireEditHash — one gate, two ways through it", () => {
 
     // header present, cookie absent — the code alone is the PUBLIC read handle
     // and must buy nothing here
-    const bare = await refusalOf(makeEvent({ [LIST_CODE_HEADER]: CODE }));
+    const bare = await refusalOf(makeEvent({ headers: { [LIST_CODE_HEADER]: CODE } }));
     expect(bare.statusCode).toBe(401);
   });
 });

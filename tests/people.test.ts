@@ -2,12 +2,7 @@ import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { lists, type ListRow } from "../server/db/schema";
 import { LISTS_DDL, SNAPSHOTS_DDL } from "../server/utils/db";
-import {
-  applyOpsByEditToken,
-  listSnapshotsByEditToken,
-  restoreSnapshotByEditToken,
-  rowToSnapshot,
-} from "../server/utils/listRepo";
+import { rowToSnapshot } from "../server/utils/listRepo";
 import { sha256Hex } from "../server/utils/tokens";
 import { summarizeOps } from "../shared/changeSummary";
 import { cloneListData } from "../shared/clone";
@@ -37,6 +32,11 @@ import type { Item, ListData, ListSnapshot, ListState, Person } from "../shared/
 import { captureFromList } from "../shared/vault";
 import { computeTotals } from "../shared/weights";
 import { createTestDb, makeList } from "./helpers/db";
+import {
+  applyOpsByEditToken,
+  listSnapshotsByEditToken,
+  restoreSnapshotByEditToken,
+} from "./helpers/repo";
 
 const state = (over: Partial<ListState> = {}): ListState => ({
   title: "Trip",

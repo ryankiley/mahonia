@@ -11,10 +11,10 @@ import { and, eq, gt, isNull, lt, or, sql } from "drizzle-orm";
 import type { H3Event } from "h3";
 import { createError, deleteCookie, getCookie, setCookie } from "h3";
 import { authTokens, credentials, sessions, users } from "../db/schema";
-import { useAccountDb } from "./db";
+import { useAccountDb, type Db } from "./db";
+import { sendMagicLink, type MagicLinkEmail } from "./email";
+import { trustedOrigin } from "./origin";
 import { randomSecret, sha256Hex } from "./tokens";
-
-type Db = Awaited<ReturnType<typeof useAccountDb>>;
 
 /** The session cookie's name. `mh_` prefixed so it's obviously ours in devtools. */
 export const SESSION_COOKIE = "mh_session";
@@ -52,6 +52,21 @@ const SESSION_REFRESH_AFTER_MS = 24 * 60 * 60_000;
 export interface SessionUser {
   id: number;
   email: string;
+  /** The one account setting, and the only part of an account that is ever
+   *  public (the byline on the read views). Null until chosen. Rides along on
+   *  the session so /api/auth/me and the account page read it from the same
+   *  join the session lookup already pays for. */
+  displayName: string | null;
+}
+
+/** The SessionUser projection of the users table — one spelling, so the lookups
+ *  below can't hand back different shapes. */
+const sessionUserColumns = { id: users.id, email: users.email, displayName: users.displayName };
+
+/** The account row for `email`, as a SessionUser, or null. */
+async function userByEmail(db: Db, email: string): Promise<SessionUser | null> {
+  const rows = await db.select(sessionUserColumns).from(users).where(eq(users.email, email)).limit(1);
+  return rows[0] ?? null;
 }
 
 /** A user just returned by redeeming a magic link, which is the one moment the
@@ -84,12 +99,8 @@ export function normalizeEmail(raw: unknown): string | null {
  *  separate signup: requesting a link for an unknown address IS the signup, which
  *  is what keeps the flow to one field and one click. */
 export async function findOrCreateUser(db: Db, email: string): Promise<SessionUser> {
-  const existing = await db
-    .select({ id: users.id, email: users.email })
-    .from(users)
-    .where(eq(users.email, email))
-    .limit(1);
-  if (existing[0]) return existing[0];
+  const existing = await userByEmail(db, email);
+  if (existing) return existing;
   // ON CONFLICT DO NOTHING + re-read: two link requests racing for the same new
   // address would otherwise fail one of them on the unique index.
   //
@@ -99,21 +110,16 @@ export async function findOrCreateUser(db: Db, email: string): Promise<SessionUs
   // later passkey signup for the same address is refused by the unique index. The
   // flag's only job is gating the eviction below, and there is nothing here to
   // evict. See accountSchema.ts.
-  // no-arg .returning() — the neon-http | PGlite union's only shared overload
   const inserted = await db
     .insert(users)
     .values({ email, emailVerified: true })
     .onConflictDoNothing({ target: users.email })
     .returning();
   const fresh = inserted[0];
-  if (fresh) return { id: fresh.id, email: fresh.email };
-  const raced = await db
-    .select({ id: users.id, email: users.email })
-    .from(users)
-    .where(eq(users.email, email))
-    .limit(1);
-  if (!raced[0]) throw new Error("could not create user");
-  return raced[0];
+  if (fresh) return { id: fresh.id, email: fresh.email, displayName: fresh.displayName };
+  const raced = await userByEmail(db, email);
+  if (!raced) throw new Error("could not create user");
+  return raced;
 }
 
 /**
@@ -141,7 +147,7 @@ export async function createAccount(db: Db, email: string): Promise<SessionUser>
   const inserted = await db.insert(users).values({ email, emailVerified: false }).returning();
   const row = inserted[0];
   if (!row) throw new Error("could not create account");
-  return { id: row.id, email: row.email };
+  return { id: row.id, email: row.email, displayName: row.displayName };
 }
 
 /** Remove an account ROW and nothing else. Used for exactly one thing: rolling
@@ -155,16 +161,11 @@ export async function deleteAccountRow(db: Db, userId: number): Promise<void> {
   await db.delete(users).where(eq(users.id, userId));
 }
 
-/** Is this address already on some OTHER account? Attaching must not silently
- *  merge two accounts, and must not let one person's address be claimed onto
- *  someone else's account. */
-export async function emailTaken(db: Db, email: string, exceptUserId: number): Promise<boolean> {
-  const rows = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.email, email))
-    .limit(1);
-  return Boolean(rows[0]) && rows[0]!.id !== exceptUserId;
+/** Is this address already on an account? A passkey signup must not silently
+ *  land inside an existing account — see createAccount for why that would let
+ *  anyone with a known address attach their own passkey to it. */
+export async function emailTaken(db: Db, email: string): Promise<boolean> {
+  return (await userByEmail(db, email)) !== null;
 }
 
 /**
@@ -187,6 +188,39 @@ export async function issueMagicToken(db: Db, userId: number): Promise<string> {
     expiresAt: new Date(Date.now() + MAGIC_LINK_TTL_MS),
   });
   return token;
+}
+
+/**
+ * Mint a magic link for `userId` and mail it to `email` — the whole of what a
+ * sign-in request and a passkey signup's confirmation share, so the two can't
+ * build the link differently.
+ *
+ * NOT the origin that served this request. `Host` is a claim by the caller, and
+ * this link is a live credential leaving the building — a forged host here mails
+ * the account's key to whoever asked. trustedOrigin pins production and keeps the
+ * request-derived origin for dev and previews, so those still mail themselves
+ * working links without configuration.
+ *
+ * Throws on a delivery failure, like sendMagicLink; what the caller does with
+ * that is the caller's contract (request.post.ts must not let it vary the
+ * response, signup-verify must not let it fail the signup).
+ */
+export async function sendSignInLink(
+  event: H3Event,
+  db: Db,
+  userId: number,
+  email: string,
+  purpose: MagicLinkEmail["purpose"] = "signin",
+): Promise<void> {
+  const token = await issueMagicToken(db, userId);
+  const url = new URL("/auth/callback", trustedOrigin(event));
+  url.searchParams.set("t", token);
+  await sendMagicLink({
+    to: email,
+    url: url.toString(),
+    expiresIn: `${Math.round(MAGIC_LINK_TTL_MS / 60_000)} minutes`,
+    purpose,
+  });
 }
 
 /**
@@ -213,12 +247,11 @@ export async function consumeMagicToken(db: Db, rawToken: string): Promise<Redee
         gt(authTokens.expiresAt, now),
       ),
     )
-    // no-arg .returning() — the neon-http | PGlite union's only shared overload
     .returning();
   const userId = claimed[0]?.userId;
   if (userId == null) return null;
   const row = await db
-    .select({ id: users.id, email: users.email, emailVerified: users.emailVerified })
+    .select({ ...sessionUserColumns, emailVerified: users.emailVerified })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
@@ -274,17 +307,6 @@ function isSecureRequest(event: H3Event): boolean {
   return (Array.isArray(proto) ? proto[0] : proto) === "https";
 }
 
-/**
- * Start a signed-in session: mint the cookie value, store its hash, set the
- * cookie.
- *
- * HttpOnly — no script ever needs to read it, and the app's CSP already allows
- * inline script, so keeping it off `document.cookie` matters.
- * SameSite=Lax — the sign-in link is a cross-site top-level GET from an email
- * client, which Lax permits, while still blocking the cross-site POSTs that CSRF
- * needs. Every mutating vault endpoint is a POST, so Lax alone carries the CSRF
- * defence here.
- */
 /** Write both cookies with one expiry. Split out because sign-in and the sliding
  *  refresh both set them, and a difference between the two would be invisible
  *  until someone was logged out early. */
@@ -306,6 +328,17 @@ function setSessionCookies(event: H3Event, token: string, expiresAt: Date): void
   });
 }
 
+/**
+ * Start a signed-in session: mint the cookie value, store its hash, set the
+ * cookie.
+ *
+ * HttpOnly — no script ever needs to read it, and the app's CSP already allows
+ * inline script, so keeping it off `document.cookie` matters.
+ * SameSite=Lax — the sign-in link is a cross-site top-level GET from an email
+ * client, which Lax permits, while still blocking the cross-site POSTs that CSRF
+ * needs. Every mutating vault endpoint is a POST, so Lax alone carries the CSRF
+ * defence here.
+ */
 export async function startSession(event: H3Event, db: Db, userId: number): Promise<void> {
   const token = randomSecret();
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
@@ -330,8 +363,7 @@ export async function resolveSession(event: H3Event): Promise<SessionUser | null
     .select({
       sessionId: sessions.id,
       lastUsedAt: sessions.lastUsedAt,
-      id: users.id,
-      email: users.email,
+      ...sessionUserColumns,
     })
     .from(sessions)
     .innerJoin(users, eq(users.id, sessions.userId))
@@ -341,16 +373,19 @@ export async function resolveSession(event: H3Event): Promise<SessionUser | null
   if (!row) return null;
   if (now.getTime() - new Date(row.lastUsedAt).getTime() > SESSION_REFRESH_AFTER_MS) {
     const expiresAt = new Date(now.getTime() + SESSION_TTL_MS);
-    await db
-      .update(sessions)
-      .set({ lastUsedAt: now, expiresAt })
-      .where(eq(sessions.id, row.sessionId))
-      .catch(() => {});
-    await db
-      .update(users)
-      .set({ lastSeenAt: now })
-      .where(eq(users.id, row.id))
-      .catch(() => {});
+    // two independent best-effort bumps, in flight together rather than in series
+    await Promise.all([
+      db
+        .update(sessions)
+        .set({ lastUsedAt: now, expiresAt })
+        .where(eq(sessions.id, row.sessionId))
+        .catch(() => {}),
+      db
+        .update(users)
+        .set({ lastSeenAt: now })
+        .where(eq(users.id, row.id))
+        .catch(() => {}),
+    ]);
     // AND RE-SET THE COOKIES. Sliding the row alone slides nothing the user can
     // feel: the browser still drops the cookie 90 days after SIGN-IN, so someone
     // who uses Mahonia every week is signed out on day 90 while holding a session
@@ -358,12 +393,13 @@ export async function resolveSession(event: H3Event): Promise<SessionUser | null
     // so the app doesn't even ask.
     setSessionCookies(event, raw, expiresAt);
   }
-  return { id: row.id, email: row.email };
+  return { id: row.id, email: row.email, displayName: row.displayName };
 }
 
-/** Resolve the signed-in user or reject with 401. Every vault endpoint's first
- *  line — the vault is per-person by definition, so there is no anonymous mode to
- *  fall back to. */
+/** Resolve the signed-in user or reject with 401 — the opening line of the
+ *  account, passkey and claimed-list routes, where there is no anonymous mode
+ *  to fall back to. (The vault has its own resolver, vaultAuth.vaultFor, which
+ *  turns the same session into a vault id.) */
 export async function requireUser(event: H3Event): Promise<SessionUser> {
   const user = await resolveSession(event);
   if (!user) throw createError({ statusCode: 401, statusMessage: "Sign in required" });

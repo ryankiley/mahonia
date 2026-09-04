@@ -55,16 +55,17 @@ export default defineEventHandler(async (event) => {
   if (typeof body?.displayName === "string") {
     patch.displayName = cleanDisplayName(body.displayName) || null;
   }
+  // the write hands back the name it stored (RETURNING — the whole row, the
+  // union's one shared overload), so only the no-op path (a body that named no
+  // field) has to go and read what's there
   const db = await useAccountDb();
-  if (Object.keys(patch).length) {
-    await db.update(users).set(patch).where(eq(users.id, user.id));
-  }
-
-  const row = await db
-    .select({ displayName: users.displayName })
-    .from(users)
-    .where(eq(users.id, user.id))
-    .limit(1);
+  const row = Object.keys(patch).length
+    ? await db.update(users).set(patch).where(eq(users.id, user.id)).returning()
+    : await db
+        .select({ displayName: users.displayName })
+        .from(users)
+        .where(eq(users.id, user.id))
+        .limit(1);
   return {
     ok: true,
     displayName: row[0]?.displayName ?? null,

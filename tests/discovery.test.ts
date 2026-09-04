@@ -5,11 +5,9 @@ import { lists } from "../server/db/schema";
 import { LISTS_DDL } from "../server/utils/db";
 import { CATALOG_DDL } from "../server/utils/catalog";
 import { sha256Hex } from "../server/utils/tokens";
-import { applyOpsByEditToken } from "../server/utils/listRepo";
 import {
   bumpView,
   getPublicBySlug,
-  getPublishState,
   listPublicSlugs,
   publishList,
   reportList,
@@ -25,6 +23,7 @@ import {
 } from "../shared/discovery";
 import type { ListData } from "../shared/types";
 import { createTestDb } from "./helpers/db";
+import { applyOpsByEditToken, getPublishState } from "./helpers/repo";
 
 // ===========================================================================
 // Pure logic (no DB) — this is where the real discovery logic lives + is tested.

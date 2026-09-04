@@ -32,9 +32,10 @@
 
 import type { H3Event } from "h3";
 import { createError } from "h3";
+import { verifyRegistrationResponse } from "@simplewebauthn/server";
 import { trustedHost, trustedOrigin } from "./origin";
 import { randomSecret, sha256Hex } from "./tokens";
-import { useKv } from "./rateLimit";
+import { sharedKvConfigured, useKv } from "./rateLimit";
 
 /** How long a registration/sign-in ceremony may stay open. The user has to touch
  *  a sensor; a couple of minutes is generous and bounds the challenge store. */
@@ -64,9 +65,11 @@ export function newAccountHandle(): string {
 export const RP_NAME = "Mahonia";
 
 /**
- * Can this deployment run a passkey ceremony at all?
+ * The refusal every passkey endpoint opens with: fail up front, loudly, rather
+ * than at verify with nothing to explain it. One message to maintain.
  *
- * A ceremony is TWO requests — options (which writes the challenge) then verify
+ * WHY PASSKEYS NEED THE SHARED STORE WHEN RATE LIMITING ONLY PREFERS IT. A
+ * ceremony is TWO requests — options (which writes the challenge) then verify
  * (which reads it) — so the challenge store must be shared across instances. In
  * production the KV binding falls back to an in-memory driver when Upstash isn't
  * configured (see nuxt.config), and on Vercel the two requests routinely land on
@@ -74,19 +77,12 @@ export const RP_NAME = "Mahonia";
  * would fail, with nothing in the response to say why.
  *
  * Rate limiting tolerates that fallback — it degrades to per-instance counting and
- * the app keeps serving. Passkeys don't degrade, they break. So this is checked up
- * front and reported as a misconfiguration instead of a mysterious failed sign-in.
- * Same env vars nuxt.config tests, so the two can't disagree.
+ * the app keeps serving. Passkeys don't degrade, they break. So the same check
+ * (sharedKvConfigured — one spelling, so the two can't disagree about the env
+ * vars) is a warning there and a refusal here.
  */
-function passkeysConfigured(): boolean {
-  if (process.env.NODE_ENV !== "production") return true; // dev's in-memory KV is one process
-  return Boolean(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN);
-}
-
-/** The refusal every passkey endpoint opens with: fail up front, loudly, rather
- *  than at verify with nothing to explain it. One message to maintain. */
 export function requirePasskeysConfigured(): void {
-  if (passkeysConfigured()) return;
+  if (sharedKvConfigured()) return;
   console.error(
     "[passkey] no shared KV configured (KV_REST_API_URL / KV_REST_API_TOKEN) — passkeys are unavailable",
   );
@@ -138,7 +134,9 @@ export async function startChallenge(
  * Single-use: the entry is cleared before the caller verifies anything, so a
  * replayed response finds nothing and fails, whatever else happens downstream.
  */
-export async function takeChallenge(flowId: string): Promise<StoredChallenge | null> {
+export async function takeChallenge(flowId: unknown): Promise<StoredChallenge | null> {
+  // takes the raw body field: anything but a short non-empty string is "no
+  // challenge", the same answer an unknown id gets
   if (!flowId || typeof flowId !== "string" || flowId.length > 200) return null;
   const key = `wa:${sha256Hex(flowId)}`;
   const kv = useKv();
@@ -147,4 +145,53 @@ export async function takeChallenge(flowId: string): Promise<StoredChallenge | n
   // burn it immediately — a 1-second TTL is how this KV surface expresses a delete
   await kv.setItem(key, null, { ttl: 1 });
   return found;
+}
+
+/**
+ * Check what the authenticator produced against the challenge we parked, bound
+ * to THIS deployment's origin and RP ID. Returns the registration info to store,
+ * or null for anything that doesn't verify — a thrown verification (malformed
+ * response, wrong origin, bad signature) is logged under `logLabel` and answered
+ * the same way as a clean `verified: false`, so the two registration endpoints
+ * can't drift on what counts as a refusal.
+ *
+ * Origin and RP ID are re-derived here rather than trusted from the body —
+ * they're the binding that makes a passkey unphishable, so they can never come
+ * from the caller.
+ */
+export async function verifyRegistration(
+  event: H3Event,
+  response: unknown,
+  challenge: string,
+  logLabel: string,
+) {
+  let verification;
+  try {
+    verification = await verifyRegistrationResponse({
+      response: response as never,
+      expectedChallenge: challenge,
+      expectedOrigin: originFor(event),
+      expectedRPID: rpIdFor(event),
+      requireUserVerification: false, // a hardware key with no PIN is still a fine second factor
+    });
+  } catch (e) {
+    console.error(`[${logLabel}]`, e);
+    return null;
+  }
+  const info = verification.registrationInfo;
+  return verification.verified && info ? info : null;
+}
+
+/** The stored shape of a verified credential — what savePasskey wants from the
+ *  registration info, minus the fields each endpoint decides for itself (which
+ *  account, whether it's discoverable, a label). */
+export function credentialFromInfo(
+  info: NonNullable<Awaited<ReturnType<typeof verifyRegistration>>>,
+) {
+  return {
+    credentialId: info.credential.id,
+    publicKey: Buffer.from(info.credential.publicKey).toString("base64url"),
+    counter: info.credential.counter,
+    transports: info.credential.transports ?? null,
+  };
 }

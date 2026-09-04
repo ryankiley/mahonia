@@ -16,9 +16,6 @@
 
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
-import { IncomingMessage, ServerResponse } from "node:http";
-import { Socket } from "node:net";
-import { createEvent, type H3Event } from "h3";
 import { verifyRegistrationResponse } from "@simplewebauthn/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as schema from "../server/db/schema";
@@ -29,7 +26,7 @@ import { startChallenge, takeChallenge } from "../server/utils/passkeys";
 import registerVerify from "../server/api/auth/passkey/register-verify.post";
 import signupVerify from "../server/api/auth/passkey/signup-verify.post";
 import { createTestDb } from "./helpers/db";
-import { setCookieValue } from "./helpers/http";
+import { makeEvent, setCookieValue } from "./helpers/http";
 
 type DB = ReturnType<typeof drizzle>;
 async function freshDb(): Promise<DB> {
@@ -76,23 +73,6 @@ vi.mock("../server/utils/email", () => ({
   sendMagicLink: vi.fn(),
   sendPasskeyAddedNotice: vi.fn(),
 }));
-
-/** A minimal real H3 event: JSON body in, cookies/headers out. */
-function makeEvent(opts: { body?: unknown; cookie?: string } = {}): H3Event {
-  const req = new IncomingMessage(new Socket());
-  req.method = "POST";
-  req.url = "/";
-  req.headers = { host: "mahonia.test" };
-  if (opts.cookie) req.headers.cookie = opts.cookie;
-  if (opts.body !== undefined) {
-    const buf = Buffer.from(JSON.stringify(opts.body));
-    req.headers["content-type"] = "application/json";
-    req.headers["content-length"] = String(buf.length);
-    req.push(buf);
-  }
-  req.push(null);
-  return createEvent(req, new ServerResponse(req));
-}
 
 const usersWith = (db: DB, email: string) =>
   db.select().from(schema.users).where(eq(schema.users.email, email));

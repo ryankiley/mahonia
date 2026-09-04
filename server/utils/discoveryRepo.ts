@@ -11,9 +11,6 @@
 // Each function takes an OPTIONAL db (defaults to useDb()) so the query logic
 // is exercisable against an in-memory PGlite in tests — endpoints call the
 // no-arg form. The decision logic itself lives in shared/discovery.ts.
-//
-// Lives in its own file (not listRepo.ts) so this Phase-3 work stays additive
-// and merge-clean alongside the concurrent rate-limiter + component sessions.
 
 import { and, desc, eq, gt, isNull, sql } from "drizzle-orm";
 import { lists, type ListRow } from "../db/schema";
@@ -25,7 +22,7 @@ import {
   type PublishState,
 } from "../../shared/discovery";
 import type { ListSnapshot } from "../../shared/types";
-import { useDb } from "./db";
+import { useDb, type Db } from "./db";
 import {
   attachAuthorName,
   findPublishFieldsByEditHash,
@@ -33,8 +30,6 @@ import {
   rowToSnapshot,
 } from "./listRepo";
 import { sha256Hex } from "./tokens";
-
-type Db = Awaited<ReturnType<typeof useDb>>;
 
 // The public-read visibility gate (public + active + not withheld + not deleted),
 // single-sourced so the by-slug reads (getPublicBySlug / bumpView / reportList) and
@@ -53,9 +48,9 @@ function publicReadConditions() {
 }
 
 // ---------------------------------------------------------------------------
-// Publish flow (write — edit token). Sets is_public + the feed facets. Only the
-// public address is ever returned (PublishState lives in shared/discovery.ts so
-// the editor dialog shares the exact shape).
+// Publish flow (write — edit token). Sets is_public + the publish facets (trip
+// type, season). Only the public address is ever returned (PublishState lives in
+// shared/discovery.ts so the editor dialog shares the exact shape).
 // ---------------------------------------------------------------------------
 function publicState(row: {
   isPublic: boolean;
@@ -91,12 +86,8 @@ export async function getPublishStateByEditHash(
   return row ? publicState(row) : null;
 }
 
-export async function getPublishState(editToken: string, db?: Db): Promise<PublishState | null> {
-  return getPublishStateByEditHash(sha256Hex(editToken), db);
-}
-
 /**
- * Set a list public/private + its feed facets. The decision (spam→hidden,
+ * Set a list public/private + its publish facets. The decision (spam→hidden,
  * stamp-once published_at, no resurrecting a moderated list) is decidePublish()
  * in shared/. Only the public address is returned.
  */
@@ -151,7 +142,7 @@ export async function publishList(
 // the id + token. Null → 404.
 // ---------------------------------------------------------------------------
 function rowToPublicView(row: ListRow): ListSnapshot {
-  // Same base shape as the edit/share snapshot, plus the public-feed facets.
+  // Same base shape as the edit/share snapshot, plus the publish facets.
   return {
     ...rowToSnapshot(row),
     tripType: row.tripType ?? undefined,
@@ -212,13 +203,9 @@ export async function bumpView(slug: string, db?: Db): Promise<void> {
   }
 }
 
-// The public-discovery visibility gate: the shared public-read gate PLUS
-// non-empty (empty lists are hidden from discovery, not just de-ranked).
-function publicVisibilityConditions() {
-  return [...publicReadConditions(), gt(lists.itemCount, 0)];
-}
-
-/** Public list slugs for the sitemap — the public-discovery visibility gate. */
+/** Public list slugs for the sitemap — the shared public-read gate PLUS
+ *  non-empty: an empty list is kept out of the crawl entirely, not just
+ *  de-ranked. */
 export async function listPublicSlugs(
   db?: Db,
 ): Promise<{ slug: string; updatedAt: Date | string | null }[]> {
@@ -226,14 +213,14 @@ export async function listPublicSlugs(
   return d
     .select({ slug: lists.publicSlug, updatedAt: lists.updatedAt })
     .from(lists)
-    .where(and(...publicVisibilityConditions()))
+    .where(and(...publicReadConditions(), gt(lists.itemCount, 0)))
     .orderBy(desc(lists.publishedAt))
     .limit(5000);
 }
 
 // ---------------------------------------------------------------------------
 // Report — a public affordance to flag a list. Sets `flagged=true`, which
-// WITHHOLDS the list from the public feed + /l read view pending review, but
+// WITHHOLDS the list from the /l read view and the sitemap pending review, but
 // leaves `status='active'` so the OWNER keeps full edit + share access (/e, /s).
 // So a malicious report can, at worst, pull a list out of public discovery — it
 // can never lock an owner out of their own list (that needs an admin takedown to

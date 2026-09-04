@@ -1,4 +1,5 @@
-// Transactional email — one message, the sign-in link.
+// Transactional email — two messages: the sign-in link (which also serves as the
+// passkey signup's address confirmation) and the passkey-added notice.
 //
 // NO SDK: Resend's REST API is a single POST with a JSON body, so a plain fetch
 // does the whole job. That keeps the dependency list (nine runtime packages) as it
@@ -12,6 +13,7 @@
 // In production a missing key is a real misconfiguration and throws, because
 // silently swallowing it would leave users staring at "check your email" forever.
 
+import { escapeHtml as esc } from "./http";
 import { randomSecret } from "./tokens";
 
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
@@ -85,18 +87,13 @@ export interface MagicLinkEmail {
   purpose?: "signin" | "welcome";
 }
 
-/** Escape interpolated text for the HTML part. The address and the URL are the
- *  only interpolations and both are validated upstream, but an email body is
- *  still an HTML document rendered by someone else's client — belt and braces. */
-function esc(s: string): string {
-  return s.replace(
-    /[<>&"']/g,
-    (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;", "'": "&#39;" })[c]!,
-  );
-}
-
 /** Plain, unstyled, single-purpose — the message says what it is, shows the link,
- *  and says what to do if it wasn't you. Matches the site's plain-prose voice. */
+ *  and says what to do if it wasn't you. Matches the site's plain-prose voice.
+ *
+ *  Interpolated text is escaped (escapeHtml, imported as `esc`). The address and
+ *  the URL are the only interpolations and both are validated upstream, but an
+ *  email body is still an HTML document rendered by someone else's client — belt
+ *  and braces. */
 function body(
   url: string,
   expiresIn: string,
@@ -173,27 +170,39 @@ export async function sendMagicLink({
   expiresIn,
   purpose = "signin",
 }: MagicLinkEmail): Promise<void> {
-  const apiKey = process.env.RESEND_API_KEY;
-  const { html, text, subject } = body(url, expiresIn, purpose);
-
-  if (!apiKey) {
-    if (process.env.NODE_ENV === "production") {
-      throw new Error("RESEND_API_KEY is not set — cannot send the sign-in email");
-    }
+  await deliver(
+    to,
+    body(url, expiresIn, purpose),
     // Dev convenience: the whole point is that a fresh checkout can sign in with
     // zero configuration. Loud and unmissable in the terminal.
-    console.info(
-      `\n[auth] Sign-in link for ${to} (no RESEND_API_KEY set, so it's printed instead of emailed):\n${url}\n`,
-    );
+    `Sign-in link for ${to} (no RESEND_API_KEY set, so it's printed instead of emailed):\n${url}`,
+  );
+}
+
+/**
+ * The envelope both messages share: the key check — a loud failure in
+ * production, the console in development — and then the one POST. `devPreview`
+ * is what the terminal shows in place of the send, so a message can still be
+ * read (and a sign-in link still clicked) with no provider configured.
+ */
+async function deliver(
+  to: string,
+  message: { subject: string; html: string; text: string },
+  devPreview: string,
+): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error(`RESEND_API_KEY is not set — cannot send "${message.subject}"`);
+    }
+    console.info(`\n[auth] ${devPreview}\n`);
     return;
   }
 
   await postToResend({
     from: fromAddress(),
     to: [to],
-    subject,
-    html,
-    text,
+    ...message,
     // BREAK THE THREAD. Without a distinct Message-ID, Gmail groups messages
     // with the same subject from the same sender into one conversation and
     // collapses the older ones — so the visible link is often a PREVIOUS one,
@@ -219,27 +228,17 @@ export async function sendMagicLink({
  * reverse is not.
  */
 export async function sendPasskeyAddedNotice(to: string, label: string | null): Promise<void> {
-  const apiKey = process.env.RESEND_API_KEY;
   const which = label ? `“${label}”` : "A new passkey";
   const lead = `${which} was added to your Mahonia account.`;
   const closing =
     "If that was you, there's nothing to do. If it wasn't, open your account page and remove it — and remove any passkey you don't recognise while you're there.";
-  const text = [lead, "", closing].join("\n");
-
-  if (!apiKey) {
-    if (process.env.NODE_ENV === "production") {
-      throw new Error("RESEND_API_KEY is not set — cannot send the passkey notice");
-    }
-    console.info(`\n[auth] Passkey notice for ${to} (no RESEND_API_KEY, printed instead):\n${lead}\n`);
-    return;
-  }
-
-  await postToResend({
-    from: fromAddress(),
-    to: [to],
-    subject: "A passkey was added to your Mahonia account",
-    html: [`<p>${esc(lead)}</p>`, `<p>${esc(closing)}</p>`].join("\n"),
-    text,
-    headers: { "X-Entity-Ref-ID": randomSecret() },
-  }, apiKey);
+  await deliver(
+    to,
+    {
+      subject: "A passkey was added to your Mahonia account",
+      html: [`<p>${esc(lead)}</p>`, `<p>${esc(closing)}</p>`].join("\n"),
+      text: [lead, "", closing].join("\n"),
+    },
+    `Passkey notice for ${to} (no RESEND_API_KEY, printed instead):\n${lead}`,
+  );
 }

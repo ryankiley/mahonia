@@ -2,7 +2,6 @@ import { drizzle } from "drizzle-orm/pglite";
 import { beforeEach, describe, expect, it } from "vitest";
 import { ACCOUNT_DDL } from "../server/utils/accountSchema";
 import {
-  countPasskeys,
   deletePasskey,
   existingCredentialIds,
   findCredential,
@@ -12,6 +11,7 @@ import {
 } from "../server/utils/credentialRepo";
 import { findOrCreateUser } from "../server/utils/authSession";
 import { createTestDb } from "./helpers/db";
+import { countPasskeys } from "./helpers/repo";
 
 type DB = ReturnType<typeof drizzle>;
 async function freshDb(): Promise<DB> {

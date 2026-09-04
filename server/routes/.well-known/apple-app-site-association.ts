@@ -13,9 +13,10 @@ import { setDailyEdgeCache } from "../../utils/http";
 //   as in a browser, so the no-login capability model carries over intact.
 //
 //   webcredentials — passkeys. Lets the app run the SAME WebAuthn ceremonies
-//   the site uses (server/utils/passkeys.ts): the RP ID is derived from the
-//   request host, and Apple reports the app's origin as https://mahonia.app,
-//   so the existing verify endpoints work unchanged.
+//   the site uses (server/utils/passkeys.ts): the RP ID comes from the
+//   deployment's trusted origin (never a request header), and Apple reports
+//   the app's origin as https://mahonia.app, so the existing verify endpoints
+//   work unchanged.
 //
 // Served as application/json with NO redirect and NO extension — Apple's CDN
 // fetches this path exactly and refuses redirects. The appID prefix is the

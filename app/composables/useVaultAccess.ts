@@ -15,6 +15,8 @@
  * every vault call going through one function, which is what made the missing
  * Authorization headers on remove/restore/price findable last time.
  */
+type FetchOptions = Parameters<typeof $fetch>[1];
+
 export function useVaultAccess() {
   const { signedIn, loaded } = useSession();
 
@@ -43,8 +45,13 @@ export function useVaultAccess() {
    * explicit `credentials` keeps that true if a call is ever made cross-origin by
    * accident rather than failing silently as an anonymous request.
    */
-  async function vaultFetch<T>(url: string, opts: Parameters<typeof $fetch>[1] = {}): Promise<T> {
-    return (await $fetch(url, { ...opts, credentials: "same-origin" })) as T;
+  async function vaultFetch<T>(url: string, opts: FetchOptions = {}): Promise<T> {
+    // Called with a plain string, not a route literal: Nitro's typed $fetch tries
+    // to match `string` against every route it knows and TypeScript gives up
+    // ("excessive stack depth") once the route table is large enough, so the
+    // call goes through the untyped signature and the caller names T.
+    const untyped = $fetch as unknown as (u: string, o?: FetchOptions) => Promise<unknown>;
+    return (await untyped(url, { ...opts, credentials: "same-origin" })) as T;
   }
 
   return { hasVault, vaultKnown, vaultFetch };

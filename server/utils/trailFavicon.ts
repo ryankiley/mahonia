@@ -6,7 +6,7 @@
 // "rich link" idea worth keeping.
 //
 // The icon is inlined as a data: URL rather than hot-linked, so the site's strict
-// `img-src 'self' data: blob:` (nuxt.config.ts) never has to loosen to let a viewer's
+// `img-src 'self' data: blob:` (config/security.ts) never has to loosen to let a viewer's
 // browser hit a third-party host. It also means the mark can't become a tracking
 // beacon on a shared list a stranger opens.
 //
@@ -16,14 +16,12 @@
 
 import { eq, lt, sql } from "drizzle-orm";
 import { trailFavicons } from "../db/schema";
-import { ensureTrailFaviconSchema, useDb } from "./db";
+import { ensureTrailFaviconSchema, type Db } from "./db";
 import { displayHost, safeUrl } from "../../shared/trailLink";
 // the streaming, cancel-at-the-cap body reader — it started life in this file and
 // now lives beside its sibling readJsonBodyCapped, since /api/import needs it too
 import { readResponseCapped } from "./http";
 import { isResolvedHostSafe, validateExternalUrl } from "./ssrf";
-
-type Db = Awaited<ReturnType<typeof useDb>>;
 
 const FETCH_TIMEOUT_MS = 5_000;
 const FETCH_USER_AGENT = "Mahonia trail-link/1.0 (+https://mahonia.app)";
@@ -104,9 +102,8 @@ async function imageAsDataUrl(target: URL): Promise<string | null> {
   if (!contentType.startsWith("image/")) return null;
   const read = await readResponseCapped(res, MAX_BYTES, "reject");
   if (!read.ok || !read.body) return null;
-  const buffer = read.body;
   // strip charset/parameters — `image/vnd.microsoft.icon;charset=UTF-8` is a real response
-  return `data:${contentType.split(";")[0]!.trim()};base64,${buffer.toString("base64")}`;
+  return `data:${contentType.split(";")[0]!.trim()};base64,${read.body.toString("base64")}`;
 }
 
 // Well-known icon paths, HIGHEST RESOLUTION FIRST. /favicon.ico is the last resort, not
@@ -190,14 +187,21 @@ export async function fetchFaviconDataUrl(host: string): Promise<string | null> 
   }
 }
 
-/** The cached data: URL for a host, or null (unknown host, or a known-bad one). */
-export async function getFavicon(db: Db, host: string): Promise<string | null> {
+/** The host's row, value only: `dataUrl` null means fetched and there wasn't a
+ *  usable icon (a NEGATIVE result, kept on purpose — see cacheFaviconForHost);
+ *  no row means never seen. The read and the cache-check are the same query. */
+async function faviconRow(db: Db, host: string): Promise<{ dataUrl: string | null } | undefined> {
   const rows = await db
     .select({ dataUrl: trailFavicons.dataUrl })
     .from(trailFavicons)
     .where(eq(trailFavicons.host, host))
     .limit(1);
-  return rows[0]?.dataUrl ?? null;
+  return rows[0];
+}
+
+/** The cached data: URL for a host, or null (unknown host, or a known-bad one). */
+export async function getFavicon(db: Db, host: string): Promise<string | null> {
+  return (await faviconRow(db, host))?.dataUrl ?? null;
 }
 
 /** A trail URL → its host's favicon, fetching and caching it if the host is new.
@@ -227,14 +231,10 @@ export function warmFavicon(db: Db, trailUrl: string | null | undefined): void {
 export async function cacheFaviconForHost(db: Db, host: string): Promise<string | null> {
   try {
     await ensureTrailFaviconSchema(db);
-    // select the VALUE, not just the key: on the common (cached) path this is the only
+    // the VALUE, not just the key: on the common (cached) path this is the only
     // query the whole request needs
-    const existing = await db
-      .select({ dataUrl: trailFavicons.dataUrl })
-      .from(trailFavicons)
-      .where(eq(trailFavicons.host, host))
-      .limit(1);
-    if (existing.length) return existing[0]!.dataUrl ?? null; // known, positive OR negative
+    const existing = await faviconRow(db, host);
+    if (existing) return existing.dataUrl ?? null; // known, positive OR negative
 
     const [{ count } = { count: 0 }] = await db
       .select({ count: sql<number>`count(*)::int` })

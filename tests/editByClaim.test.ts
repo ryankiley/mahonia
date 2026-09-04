@@ -1,6 +1,5 @@
 import { drizzle } from "drizzle-orm/pglite";
 import { beforeEach, describe, expect, it } from "vitest";
-import * as schema from "../server/db/schema";
 import { LISTS_DDL } from "../server/utils/db";
 import { ACCOUNT_DDL } from "../server/utils/accountSchema";
 import { claimLists, claimedEditHash, listClaimedLists } from "../server/utils/claimRepo";
@@ -20,8 +19,9 @@ import { createTestDb, makeList as makeListRow } from "./helpers/db";
 // lets a claimed list OPEN AND EDIT on a device that never saw its edit link —
 // the half of the account feature the endpoints never wired up before.
 //
-// The ByEditToken wrappers stay covered by the existing suites (snapshots,
-// listDelete, discovery); what's new here is the hash arriving FROM A CLAIM.
+// The token-hashing path stays covered by the existing suites (snapshots,
+// listDelete, discovery, via tests/helpers/repo.ts); what's new here is the hash
+// arriving FROM A CLAIM.
 
 type DB = ReturnType<typeof drizzle>;
 async function freshDb(): Promise<DB> {

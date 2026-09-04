@@ -1,4 +1,4 @@
-import { createError, getHeader, readRawBody, setHeader, type H3Event } from "h3";
+import { createError, getHeader, getQuery, readRawBody, setHeader, type H3Event } from "h3";
 import { READ_EDGE_CACHE_CONTROL } from "~~/shared/site";
 
 /**
@@ -71,16 +71,40 @@ export function notFound(statusMessage = "Not found") {
   return createError({ statusCode: 404, statusMessage });
 }
 
-/**
- * Read a JSON body with a hard size cap on the ACTUAL bytes received rather
- * than the client-supplied Content-Length. A header-only check is bypassable by
- * omitting Content-Length or using chunked transfer-encoding, which then lets
- * an oversized body be buffered + JSON-parsed; reading the raw body and
- * measuring it closes that. Rejects with 413 past `maxBytes`; falls back to
- * `{}` on missing/malformed JSON so every handler validates its own fields
- * uniformly. (On Vercel a ~4.5 MB platform limit backstops the buffering
- * itself; this makes the per-endpoint cap authoritative.)
- */
+/** The bare 400 for a body that doesn't carry what the endpoint needs — an id
+ *  that isn't a positive integer, a slug that doesn't normalize. Same words
+ *  every time, like notFound, and returned rather than thrown for the same
+ *  reason. Endpoints with something specific to say about the field still say
+ *  it in their own words. */
+export function badRequest() {
+  return createError({ statusCode: 400, statusMessage: "Bad request" });
+}
+
+/** A body field read as a positive integer id, or null for anything else —
+ *  the check three "which row" endpoints make before touching one. */
+export function positiveInt(v: unknown): number | null {
+  const n = Number(v);
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
+/** One string query parameter, capped — the first value when it repeats, ""
+ *  when absent. The two autocomplete endpoints read `?q=` this way. */
+export function queryParam(event: H3Event, name: string, maxLen: number): string {
+  const raw = getQuery(event)[name];
+  return (Array.isArray(raw) ? raw[0] : raw ?? "").toString().slice(0, maxLen);
+}
+
+/** Escape text for interpolation into HTML or XML. The one table for both an
+ *  email body and the sitemap, so the two can't disagree on a character; `&#39;`
+ *  for the apostrophe because `&apos;` is XML-only and an HTML mail client may
+ *  not know it. */
+export function escapeHtml(s: string): string {
+  return s.replace(
+    /[<>&"']/g,
+    (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;", "'": "&#39;" })[c]!,
+  );
+}
+
 /** What reading a capped response body produced. `body: null` means the response
  *  was empty; `ok: false` means it went past the cap and the caller asked to
  *  reject rather than truncate. Two outcomes rather than one nullable Buffer,
@@ -132,6 +156,16 @@ export async function readResponseCapped(
   return { ok: true, body: total ? Buffer.concat(chunks.map((c) => Buffer.from(c))) : null };
 }
 
+/**
+ * Read a JSON body with a hard size cap on the ACTUAL bytes received rather
+ * than the client-supplied Content-Length. A header-only check is bypassable by
+ * omitting Content-Length or using chunked transfer-encoding, which then lets
+ * an oversized body be buffered + JSON-parsed; reading the raw body and
+ * measuring it closes that. Rejects with 413 past `maxBytes`; falls back to
+ * `{}` on missing/malformed JSON so every handler validates its own fields
+ * uniformly. (On Vercel a ~4.5 MB platform limit backstops the buffering
+ * itself; this makes the per-endpoint cap authoritative.)
+ */
 export async function readJsonBodyCapped<T>(event: H3Event, maxBytes: number): Promise<T> {
   const raw = await readRawBody(event, false).catch(() => undefined); // Buffer | undefined
   if (raw && raw.length > maxBytes)

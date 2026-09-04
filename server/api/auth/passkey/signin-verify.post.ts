@@ -1,10 +1,8 @@
 import { defineEventHandler } from "h3";
 import { verifyAuthenticationResponse } from "@simplewebauthn/server";
-import { eq } from "drizzle-orm";
 import { startSession } from "../../../utils/authSession";
 import { findCredential, touchCredential } from "../../../utils/credentialRepo";
 import { useAccountDb } from "../../../utils/db";
-import { users } from "../../../db/schema";
 import { readJsonBodyCapped, setNoIndex, setPrivate } from "../../../utils/http";
 import { originFor, rpIdFor, takeChallenge } from "../../../utils/passkeys";
 import { rateLimit } from "../../../utils/rateLimit";
@@ -25,8 +23,7 @@ export default defineEventHandler(async (event) => {
   await rateLimit(event, "passkey");
 
   const body = await readJsonBodyCapped<{ flowId?: unknown; response?: unknown }>(event, 32_000);
-  const flowId = typeof body?.flowId === "string" ? body.flowId : "";
-  const stored = await takeChallenge(flowId);
+  const stored = await takeChallenge(body?.flowId);
   if (!stored) return { ok: false as const };
 
   const response = body?.response as { id?: string } | undefined;
@@ -64,12 +61,7 @@ export default defineEventHandler(async (event) => {
   await touchCredential(db, cred.id, verification.authenticationInfo.newCounter);
   await startSession(event, db, cred.userId);
 
-  const row = await db
-    .select({ email: users.email })
-    .from(users)
-    .where(eq(users.id, cred.userId))
-    .limit(1);
   // null, not "" — an account made with a passkey genuinely has no address, and
   // the client distinguishes "none yet" from "" nowhere else
-  return { ok: true as const, user: { email: row[0]?.email ?? null } };
+  return { ok: true as const, user: { email: cred.email ?? null } };
 });

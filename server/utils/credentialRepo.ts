@@ -2,11 +2,9 @@
 // verification, origin/RP binding) belongs to @simplewebauthn/server, and the
 // ceremony plumbing to server/utils/passkeys.ts.
 
-import { and, desc, eq } from "drizzle-orm";
-import { credentials } from "../db/schema";
-import type { useAccountDb } from "./db";
-
-type Db = Awaited<ReturnType<typeof useAccountDb>>;
+import { and, desc, eq, getTableColumns } from "drizzle-orm";
+import { credentials, users } from "../db/schema";
+import type { Db } from "./db";
 
 /** How many passkeys one account may hold. Generous — a phone, a laptop, a
  *  hardware key and spares — while still bounding the row count per user. */
@@ -48,10 +46,6 @@ export async function existingCredentialIds(db: Db, userId: number): Promise<str
   return rows.map((r) => r.credentialId);
 }
 
-export async function countPasskeys(db: Db, userId: number): Promise<number> {
-  return (await existingCredentialIds(db, userId)).length;
-}
-
 export async function savePasskey(
   db: Db,
   input: {
@@ -77,11 +71,15 @@ export async function savePasskey(
 
 /** Look a credential up by the id the authenticator presented. Not scoped by
  *  user — for a discoverable ("usernameless") sign-in the credential is what
- *  TELLS us the user. */
+ *  TELLS us the user. The account's email rides along (a left join, so a
+ *  credential whose account is somehow gone still resolves rather than
+ *  vanishing): sign-in answers with it, and this is the one read that path
+ *  makes before it has a session to ask. */
 export async function findCredential(db: Db, credentialId: string) {
   const rows = await db
-    .select()
+    .select({ ...getTableColumns(credentials), email: users.email })
     .from(credentials)
+    .leftJoin(users, eq(users.id, credentials.userId))
     .where(eq(credentials.credentialId, credentialId))
     .limit(1);
   return rows[0] ?? null;
@@ -103,7 +101,6 @@ export async function deletePasskey(db: Db, userId: number, id: number): Promise
   const done = await db
     .delete(credentials)
     .where(and(eq(credentials.id, id), eq(credentials.userId, userId)))
-    // no-arg .returning() — the neon-http | PGlite union's only shared overload
     .returning();
   return done.length > 0;
 }

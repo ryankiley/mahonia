@@ -15,10 +15,11 @@ import {
   RANGE_G,
 } from "../../shared/catalogQuality";
 import { itemDisplayName } from "../../shared/weights";
-import { bumpUsage, ensureCatalogSchema, searchCatalog, trigramScore } from "./catalog";
+// the one trigram scorer, shared with the offline client — see shared/catalogSearch
+import { trigramScore } from "../../shared/catalogSearch";
+import { bumpUsage, ensureCatalogSchema, searchCatalog } from "./catalog";
+import type { Db } from "./db";
 import { memoizedEnsure } from "./memoize";
-
-type Db = Awaited<ReturnType<typeof import("./db").useDb>>;
 
 const K_DISTINCT_LISTS = Math.max(2, Number(process.env.CATALOG_MIN_DISTINCT_LISTS) || 3);
 const DEDUP_THRESHOLD = 0.6; // 2x the autocomplete recall floor — bias to a new (recoverable) row

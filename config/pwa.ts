@@ -48,8 +48,9 @@ export const PWA_OPTIONS: Partial<ModuleOptions> = {
     // below handles the editor shell explicitly instead.
     navigateFallback: "",
     runtimeCaching: [
-      // editor shell — the bare /e is prerendered and /e/{shareCode} is ISR, but
-      // neither is precached (globPatterns is assets-only), so cache the
+      // editor shell — the bare /e is prerendered and /e/{shareCode} is uncached
+      // SSR (see nuxt.config), and neither is precached (globPatterns is
+      // assets-only), so cache the
       // navigation response: a prior online visit lets the editor boot offline.
       // The pattern covers BOTH the bare /e and the named-link /e/{shareCode} so
       // a saved pretty link opens offline too. NetworkFirst keeps online users on

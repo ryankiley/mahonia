@@ -1,5 +1,5 @@
 import type { H3Event } from "h3";
-import { getHeader } from "h3";
+import { adminTokenOk } from "./auth";
 import { bearerToken, notFound } from "./http";
 import { rateLimit } from "./rateLimit";
 import { safeEqual } from "./tokens";
@@ -16,9 +16,6 @@ import { safeEqual } from "./tokens";
  */
 export async function requireCronAuth(event: H3Event): Promise<void> {
   await rateLimit(event, "admin");
-  const cronSecret = process.env.CRON_SECRET;
-  const adminToken = process.env.GEAR_ADMIN_TOKEN;
-  const admin = getHeader(event, "x-admin-token") || "";
-  const ok = safeEqual(bearerToken(event), cronSecret) || safeEqual(admin, adminToken);
+  const ok = safeEqual(bearerToken(event), process.env.CRON_SECRET) || adminTokenOk(event);
   if (!ok) throw notFound();
 }

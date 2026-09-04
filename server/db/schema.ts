@@ -3,9 +3,11 @@
 // Design: a list's CONTENT (folders + items) lives in a single JSONB `data`
 // column, and the same op-reducer (shared/ops.ts) applies mutations on both the
 // client (optimistic) and the server (authoritative) — so they can't drift.
-// Weight rollups are cached as columns for the public-feed leaderboard sort.
-// We never query items relationally in v1 (the catalog is a separate Phase-2
-// table), so JSONB is the right fit and keeps sync semantics in one place.
+// Weight rollups are cached as columns (see the note on them below: nothing sorts
+// on them since the feed went, but they're the cheap shape any list-of-lists
+// query wants). We never query items relationally in v1 (the catalog is a
+// separate Phase-2 table), so JSONB is the right fit and keeps sync semantics in
+// one place.
 
 import { sql } from "drizzle-orm";
 import {
@@ -309,7 +311,7 @@ export const listSnapshots = pgTable(
 // pointing at alltrails.com shares this row, so a popular site costs one fetch a month
 // however many lists link to it — and the refresh sweep walks a handful of hosts instead
 // of thousands of rows. Stored as a data: URL so a strict img-src 'self' data: never has
-// to loosen (see nuxt.config.ts).
+// to loosen (see config/security.ts).
 export const trailFavicons = pgTable(
   "trail_favicons",
   {
@@ -371,9 +373,9 @@ export const vaults = pgTable(
 
 /**
  * A vault's folders. Its own table rather than a text label on the item, because
- * these carry state of their own — an order you can drag, and a per-folder item
- * sort — which a label has nowhere to keep. Name is unique per vault so capture can
- * find-or-create by the list folder's name without ending up with three "Shelter"s.
+ * these carry state of their own — an order you can drag — which a label has
+ * nowhere to keep. Name is unique per vault so capture can find-or-create by the
+ * list folder's name without ending up with three "Shelter"s.
  *
  * Deliberately NOT a mirror of the list Folder type: colorKey and
  * defaultClassification are facts about how a LIST presents and classifies its
@@ -387,10 +389,6 @@ export const vaultFolders = pgTable(
     name: text("name").notNull(),
     // drag order on /vault; ties break on id so the order is always total
     sortOrder: integer("sort_order").notNull().default(0),
-    // LEGACY, unread: the per-folder sort (manual|name|heaviest|lightest) that My
-    // Gear used to offer. The feature is gone; the column stays until a migration
-    // drops it, and nothing writes or reads it.
-    sortBy: text("sort_by"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex("idx_vault_folder_name").on(t.vaultId, t.name)],

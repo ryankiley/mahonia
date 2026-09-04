@@ -15,9 +15,7 @@ import {
   vaultItems,
   vaults,
 } from "../db/schema";
-import { useAccountDb } from "./db";
-
-type Db = Awaited<ReturnType<typeof useAccountDb>>;
+import type { Db } from "./db";
 
 export interface AccountDeletion {
   /** lists soft-deleted — 0 unless `deleteLists` was asked for */
@@ -87,10 +85,14 @@ export async function deleteAccount(
   // stranger's list.
   await db.update(lists).set({ authorUserId: null }).where(eq(lists.authorUserId, userId));
 
-  await db.delete(listClaims).where(eq(listClaims.userId, userId));
-  await db.delete(credentials).where(eq(credentials.userId, userId));
-  await db.delete(authTokens).where(eq(authTokens.userId, userId));
-  await db.delete(sessions).where(eq(sessions.userId, userId));
+  // the four per-user tables are independent of one another, so they go in
+  // flight together; the account row itself goes last, after all of them
+  await Promise.all([
+    db.delete(listClaims).where(eq(listClaims.userId, userId)),
+    db.delete(credentials).where(eq(credentials.userId, userId)),
+    db.delete(authTokens).where(eq(authTokens.userId, userId)),
+    db.delete(sessions).where(eq(sessions.userId, userId)),
+  ]);
   await db.delete(users).where(eq(users.id, userId));
 
   return { listsDeleted, vaultDeleted: vaultId != null };

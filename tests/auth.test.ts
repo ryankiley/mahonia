@@ -13,9 +13,10 @@ import {
   normalizeEmail,
   sweepExpiredAuth,
 } from "../server/utils/authSession";
-import { countPasskeys, savePasskey } from "../server/utils/credentialRepo";
+import { savePasskey } from "../server/utils/credentialRepo";
 import { sha256Hex } from "../server/utils/tokens";
 import { createTestDb } from "./helpers/db";
+import { countPasskeys } from "./helpers/repo";
 
 type DB = ReturnType<typeof drizzle>;
 async function freshDb(): Promise<DB> {

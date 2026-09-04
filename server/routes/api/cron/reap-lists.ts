@@ -6,19 +6,18 @@ import { purgeDeletedVaults, reapAbandonedVaults } from "../../../utils/vaultRep
 import { refreshStaleFavicons } from "../../../utils/trailFavicon";
 import { setNoIndex } from "../../../utils/http";
 
-// Nightly list-maintenance job (registered in vercel.json). Three stages:
-//   1. REAP  — soft-delete abandoned lists (<= 1 item, untouched for
-//              LIST_REAP_STALE_DAYS; publish status deliberately not a factor —
-//              see reapAbandonedLists in server/utils/listRepo.ts) so the table
-//              can't be padded indefinitely with contentless rows.
-//   2. PURGE — hard-delete rows soft-deleted past LIST_PURGE_GRACE_DAYS (+ their
-//              snapshots) to reclaim the storage; the grace window keeps a reap
-//              reversible until then.
+// Nightly list-maintenance job (registered in vercel.json). Four stages:
+//   1. REAP  — soft-delete abandoned lists (<= 1 item, untouched for the stale
+//              window, 30 days by default; publish status deliberately not a
+//              factor — see reapAbandonedLists in server/utils/listRepo.ts) so
+//              the table can't be padded indefinitely with contentless rows.
+//   2. PURGE — hard-delete rows soft-deleted past the grace window (90 days by
+//              default; + their snapshots) to reclaim the storage; the grace
+//              window keeps a reap reversible until then.
 //   3. VAULTS — the same two stages for vaults, which are minted lazily and
 //              never signed out of, so nothing else would ever bound their growth.
-//              Longer
-//              windows than a list gets; see reapAbandonedVaults for why, and for
-//              why using a link inside the grace revives the vault.
+//              Longer windows than a list gets; see reapAbandonedVaults for why,
+//              and for why signing in inside the grace revives the vault.
 //   4. FAVICONS — re-fetch trail-link favicons older than a month, oldest first and
 //              batch-capped (see server/utils/trailFavicon.ts). Rides along here
 //              rather than as its own vercel.json entry because it IS list

@@ -6,7 +6,7 @@
 import { and, asc, desc, eq, inArray, isNotNull, isNull, lt, sql, type SQL } from "drizzle-orm";
 import type { PgColumn } from "drizzle-orm/pg-core";
 import { vaultFolders, vaultItems, vaults } from "../db/schema";
-import type { useVaultDb } from "./db";
+import { batchLimit, type Db } from "./db";
 import {
   VAULT_CAPTURE_MAX,
   VAULT_NAME_MAX,
@@ -22,8 +22,6 @@ import type { Classification } from "../../shared/types";
 import { KCAL_MAX, UNIT_WEIGHT_MAX_MG } from "../../shared/ops";
 import { tidyText } from "../../shared/tidyText";
 import { rankVaultRows } from "../../shared/vaultSearch";
-
-type Db = Awaited<ReturnType<typeof useVaultDb>>;
 
 /** Upper bound on the rows pulled into memory for a search or a browse. A vault is
  *  personal gear, so real ones are dozens of rows; this only bounds the pathological
@@ -42,6 +40,13 @@ export const VAULT_ITEMS_MAX = 2000;
 export const VAULT_FOLDERS_MAX = 200;
 
 const CLASSIFICATIONS: Classification[] = ["base", "worn", "consumable"];
+
+/** A classification off the wire or out of a row, or undefined for anything that
+ *  isn't one — the CHECK constraint would reject it, and a 500 is the wrong answer
+ *  to one bad field. */
+function asClassification(v: unknown): Classification | undefined {
+  return CLASSIFICATIONS.includes(v as Classification) ? (v as Classification) : undefined;
+}
 
 type Row = typeof vaultItems.$inferSelect;
 
@@ -84,9 +89,7 @@ function toEntry(row: Row): VaultEntry {
     variant: row.variant ? tidyText(row.variant) || undefined : undefined,
     commonName: row.commonName ? tidyText(row.commonName) || undefined : undefined,
     weightMg: Number(row.weightMg),
-    classification: CLASSIFICATIONS.includes(row.classification as Classification)
-      ? (row.classification as Classification)
-      : undefined,
+    classification: asClassification(row.classification),
     kcal: row.kcal ?? undefined,
     catalogItemId: row.catalogItemId ?? undefined,
     productUrl: row.productUrl ?? undefined,
@@ -157,9 +160,7 @@ function sanitize(caps: VaultCapture[]): VaultCapture[] {
       productUrl: url(c.productUrl),
       folder: str(c.folder, FOLDER_NAME_MAX),
       weightMg: Number.isFinite(c.weightMg) ? clampWeightMg(c.weightMg) : 0,
-      classification: CLASSIFICATIONS.includes(c.classification as Classification)
-        ? c.classification
-        : undefined,
+      classification: asClassification(c.classification),
       kcal: kcalOf(c.kcal),
       catalogItemId: Number.isInteger(c.catalogItemId) ? c.catalogItemId : undefined,
     });
@@ -375,16 +376,21 @@ async function ensureFolders(
   return new Map(rows.map((r) => [r.name, r.id]));
 }
 
-/** Every live row in a user's vault, most-recently-used first — the /vault page's
- *  read. Small by nature, so it's one unpaginated query. */
-export async function listVaultItems(db: Db, vaultId: number): Promise<VaultEntry[]> {
-  const rows = await db
+/** The live rows of one vault, most-recently-used first, bounded by POOL_LIMIT —
+ *  the pool both the browse read and the autocomplete rank over. */
+function livePool(db: Db, vaultId: number): Promise<Row[]> {
+  return db
     .select()
     .from(vaultItems)
     .where(and(eq(vaultItems.vaultId, vaultId), isNull(vaultItems.removedAt)))
     .orderBy(desc(vaultItems.lastUsedAt))
     .limit(POOL_LIMIT);
-  return rows.map(toEntry);
+}
+
+/** Every live row in a user's vault, most-recently-used first — the /vault page's
+ *  read. Small by nature, so it's one unpaginated query. */
+export async function listVaultItems(db: Db, vaultId: number): Promise<VaultEntry[]> {
+  return (await livePool(db, vaultId)).map(toEntry);
 }
 
 /** A vault's folders in drag order (id breaks a tie, so the order is total). */
@@ -429,12 +435,7 @@ export async function listRemovedVaultItems(db: Db, vaultId: number): Promise<Va
  *  strategy, applied here on both engines because a vault is always small. */
 export async function searchVaultItems(db: Db, vaultId: number, q: string): Promise<VaultEntry[]> {
   if ((q ?? "").trim().length < 2) return [];
-  const rows = await db
-    .select()
-    .from(vaultItems)
-    .where(and(eq(vaultItems.vaultId, vaultId), isNull(vaultItems.removedAt)))
-    .orderBy(desc(vaultItems.lastUsedAt))
-    .limit(POOL_LIMIT);
+  const rows = await livePool(db, vaultId);
   // rank the ROWS, then convert the handful that survive — toEntry allocates two
   // Dates and two ISO strings per row, and the ranker reads neither
   return rankVaultRows(rows, q).map(toEntry);
@@ -447,13 +448,13 @@ export async function searchVaultItems(db: Db, vaultId: number, q: string): Prom
  * was actually removed.
  */
 export async function removeVaultItem(db: Db, vaultId: number, id: number): Promise<boolean> {
+  const now = new Date();
   const done = await db
     .update(vaultItems)
-    .set({ removedAt: new Date(), updatedAt: new Date() })
+    .set({ removedAt: now, updatedAt: now })
     .where(
       and(eq(vaultItems.id, id), eq(vaultItems.vaultId, vaultId), isNull(vaultItems.removedAt)),
     )
-    // no-arg .returning() — the neon-http | PGlite union's only shared overload
     .returning();
   return done.length > 0;
 }
@@ -466,7 +467,6 @@ export async function restoreVaultItem(db: Db, vaultId: number, id: number): Pro
     .update(vaultItems)
     .set({ removedAt: null, updatedAt: new Date() })
     .where(and(eq(vaultItems.id, id), eq(vaultItems.vaultId, vaultId)))
-    // no-arg .returning() — the neon-http | PGlite union's only shared overload
     .returning();
   return done.length > 0;
 }
@@ -474,17 +474,18 @@ export async function restoreVaultItem(db: Db, vaultId: number, id: number): Pro
 // ---------------------------------------------------------------------------
 // the nightly reaper
 // ---------------------------------------------------------------------------
-// Vaults are minted lazily and never signed out of, so without this they only ever
-// accumulate: every abandoned device, every browser that captured once and never
-// came back. `last_seen_at` is bumped by requireVault on EVERY vault request
-// — capture included, which for anyone actively building lists is constant — so
-// "not seen in months" is a strong signal and not a proxy for "quiet lately".
+// Vaults are minted lazily, one per account on first use, so without this they
+// only ever accumulate: every account that captured once and never came back.
+// `last_seen_at` is bumped on EVERY vault request (vaultAuth.vaultFor →
+// touchVaultByUser) — capture included, which for anyone actively building lists
+// is constant — so "not seen in months" is a strong signal and not a proxy for
+// "quiet lately".
 //
 // Two stages, the shape lists already use (see listRepo): soft-delete first, hard
-// delete only after a grace window. That matters more here than it does for a
-// list: there is no account and no email behind a vault, so a hard reap would be
-// unrecoverable for someone who kept the link in a note and came back late. Inside
-// the grace, using the link is enough — requireVault clears deleted_at.
+// delete only after a grace window. A vault is the one thing here its owner can't
+// rebuild from memory, so a hard reap of someone who came back late after a season
+// off would be the worst loss on the site. Inside the grace, signing in is enough
+// — touchVaultByUser clears deleted_at on the same bump.
 
 /** Untouched for this long and a vault is presumed abandoned. Much longer than a
  *  list's 30: a list is reaped for being EMPTY as well as stale, whereas a full
@@ -497,30 +498,25 @@ const VAULT_PURGE_GRACE_DAYS = Math.max(
 );
 const VAULT_REAP_BATCH_MAX = 10_000;
 
-function batchLimit(n: number | undefined): number {
-  return Math.max(1, Math.min(VAULT_REAP_BATCH_MAX, Math.floor(n ?? 5_000)));
-}
-
 /** Soft-delete vaults not seen in `staleDays`. Batched, so one run can never issue
- *  an unbounded write — a backlog just drains over successive nights. */
+ *  an unbounded write — a backlog just drains over successive nights. One
+ *  statement, like reapAbandonedLists: the bounded id select is the UPDATE's
+ *  subquery, and RETURNING is the count. */
 export async function reapAbandonedVaults(
   db: Db,
   opts?: { staleDays?: number; limit?: number },
 ): Promise<{ vaultsReaped: number }> {
   const staleDays = Math.max(1, Math.floor(opts?.staleDays ?? VAULT_REAP_STALE_DAYS));
   const cutoff = new Date(Date.now() - staleDays * 86_400_000);
-  const candidates = await db
+  const stale = db
     .select({ id: vaults.id })
     .from(vaults)
     .where(and(isNull(vaults.deletedAt), lt(vaults.lastSeenAt, cutoff)))
-    .limit(batchLimit(opts?.limit));
-  if (!candidates.length) return { vaultsReaped: 0 };
-
-  // no-arg .returning() — the neon-http | PGlite union's only shared overload
+    .limit(batchLimit(opts?.limit, VAULT_REAP_BATCH_MAX));
   const done = await db
     .update(vaults)
     .set({ deletedAt: new Date() })
-    .where(inArray(vaults.id, candidates.map((c) => c.id)))
+    .where(inArray(vaults.id, stale))
     .returning();
   return { vaultsReaped: done.length };
 }
@@ -533,21 +529,26 @@ export async function purgeDeletedVaults(
 ): Promise<{ vaultsPurged: number }> {
   const graceDays = Math.max(1, Math.floor(opts?.graceDays ?? VAULT_PURGE_GRACE_DAYS));
   const cutoff = new Date(Date.now() - graceDays * 86_400_000);
-  const doomed = await db
+  // The same bounded id select as the subquery of all three deletes. It is
+  // evaluated fresh per statement, so it is ORDERED (oldest deletion first, id as
+  // the tie-break) — a LIMIT smaller than the backlog would otherwise pick a
+  // different batch each time and strand a purged vault's gear. Nothing enters the
+  // window between statements (a fresh soft-delete is inside its grace), so all
+  // three see the same set — see purgeDeletedLists for the same reasoning.
+  const doomed = db
     .select({ id: vaults.id })
     .from(vaults)
     .where(and(isNotNull(vaults.deletedAt), lt(vaults.deletedAt, cutoff)))
-    .limit(batchLimit(opts?.limit));
-  if (!doomed.length) return { vaultsPurged: 0 };
-  const ids = doomed.map((r) => r.id);
+    .orderBy(asc(vaults.deletedAt), asc(vaults.id))
+    .limit(batchLimit(opts?.limit, VAULT_REAP_BATCH_MAX));
 
   // children first — there's no DB-level FK here (same as lists → snapshots), so
   // the cascade is manual, and doing it in this order means a run that dies partway
   // leaves orphaned NOTHING: the vault row is the last thing to go.
-  await db.delete(vaultItems).where(inArray(vaultItems.vaultId, ids));
-  await db.delete(vaultFolders).where(inArray(vaultFolders.vaultId, ids));
-  await db.delete(vaults).where(inArray(vaults.id, ids));
-  return { vaultsPurged: ids.length };
+  await db.delete(vaultItems).where(inArray(vaultItems.vaultId, doomed));
+  await db.delete(vaultFolders).where(inArray(vaultFolders.vaultId, doomed));
+  const purged = await db.delete(vaults).where(inArray(vaults.id, doomed)).returning();
+  return { vaultsPurged: purged.length };
 }
 
 // ---------------------------------------------------------------------------
@@ -654,15 +655,12 @@ function cleanVaultPatch(patch: unknown): ItemWrite | null {
     out.weightPinned = mg > 0;
   }
   if ("classification" in p) {
-    if (p.classification === null) {
-      out.classification = null;
-      out.classificationPinned = true;
-    } else if (CLASSIFICATIONS.includes(p.classification as Classification)) {
-      out.classification = p.classification as Classification;
+    const classification = p.classification === null ? null : asClassification(p.classification);
+    // anything else is ignored rather than stored (see asClassification)
+    if (classification !== undefined) {
+      out.classification = classification;
       out.classificationPinned = true;
     }
-    // anything else is ignored rather than stored: the CHECK would reject it, and a
-    // 500 is the wrong answer to one bad field
   }
   if ("kcal" in p) {
     if (p.kcal === null) {
@@ -729,21 +727,18 @@ async function addVaultItem(db: Db, vaultId: number, op: Extract<VaultItemOp, { 
     if (!owner.length) return null;
   }
 
-  // The ceiling. Counted lazily and disambiguated only when this request could cross
-  // the line, like capture — but a DELIBERATE add REFUSES where capture drops
-  // silently, the same way applyVaultFolderOp's "add" does. Landing on a key the
-  // gear already holds adds no row, so it's allowed at any count.
-  const [{ n } = { n: 0 }] = await db
-    .select({ n: sql<number>`count(*)` })
+  // The ceiling. Counted here, like capture — but a DELIBERATE add REFUSES where
+  // capture drops silently, the same way applyVaultFolderOp's "add" does. Landing
+  // on a key the gear already holds adds no row, so it's allowed at any count: the
+  // same aggregate pass says whether this one is already there.
+  const [{ n, has } = { n: 0, has: false }] = await db
+    .select({
+      n: sql<number>`count(*)`,
+      has: sql<boolean>`bool_or(${vaultItems.normKey} = ${clean.normKey})`,
+    })
     .from(vaultItems)
     .where(eq(vaultItems.vaultId, vaultId));
-  if (Number(n) >= VAULT_ITEMS_MAX) {
-    const [prior] = await db
-      .select({ id: vaultItems.id })
-      .from(vaultItems)
-      .where(and(eq(vaultItems.vaultId, vaultId), eq(vaultItems.normKey, clean.normKey)));
-    if (!prior) return { refused: "full" as const };
-  }
+  if (Number(n) >= VAULT_ITEMS_MAX && !has) return { refused: "full" as const };
 
   const now = new Date();
   const done = await db
@@ -846,7 +841,6 @@ async function editVaultItem(db: Db, vaultId: number, op: Extract<VaultItemOp, {
     .set({ ...set, updatedAt: new Date() })
     // ownership is IN the where, not a check on the result — see removeVaultItem
     .where(and(eq(vaultItems.id, op.id), eq(vaultItems.vaultId, vaultId)))
-    // no-arg .returning() — the neon-http | PGlite union's only shared overload
     .returning();
   return done[0] ? { item: toEntry(done[0]) } : null;
 }

@@ -4,9 +4,10 @@ import { publishListByEditHash } from "../../utils/discoveryRepo";
 import { notFound, readJsonBodyCapped, setNoIndex } from "../../utils/http";
 import { rateLimit } from "../../utils/rateLimit";
 
-// Make a list public/private + set its feed facets. Write capability resolved by
-// editAuth (edit token in the Authorization header, or a session naming a claimed
-// list) — never the path, so the public feed/routes can never expose or derive it.
+// Make a list public/private + set its publish facets (trip type, season). Write
+// capability resolved by editAuth (edit token in the Authorization header, or a
+// session naming a claimed list) — never the path, so the public routes can never
+// expose or derive it.
 export default defineEventHandler(async (event) => {
   setNoIndex(event);
   await rateLimit(event, "publish");

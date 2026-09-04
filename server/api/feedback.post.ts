@@ -17,6 +17,10 @@ import { rateLimit } from "../utils/rateLimit";
 
 const GITHUB_API = "https://api.github.com";
 
+/** A production deploy with no usable repo or token. One error for both ways
+ *  of being misconfigured — the sender learns nothing about which. */
+const notConfigured = () => createError({ statusCode: 500, statusMessage: "Feedback isn't configured" });
+
 export default defineEventHandler(async (event) => {
   setNoIndex(event);
   await rateLimit(event, "feedback");
@@ -39,28 +43,22 @@ export default defineEventHandler(async (event) => {
     if (process.env.NODE_ENV === "production") {
       // A production deploy that silently swallows feedback is worse than a loud
       // failure: the sender is told it was sent, and it goes nowhere forever.
-      throw createError({
-        statusCode: 500,
-        statusMessage: "Feedback isn't configured",
-      });
+      throw notConfigured();
     }
     console.info(`[feedback] ${message}`);
     return { ok: true, filed: false };
   }
 
-  if (!isFeedbackRepo(repo))
-    throw createError({ statusCode: 500, statusMessage: "Feedback isn't configured" });
+  if (!isFeedbackRepo(repo)) throw notConfigured();
 
-  // the fixed title + fenced body rule lives in server/utils/feedback (and is tested
+  // the fixed title + fenced body rule lives in shared/feedback (and is tested
   // there) — it is the part of this endpoint most worth pinning down
   const payload = buildFeedbackIssue(message);
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 10_000);
   try {
     const res = await fetch(`${GITHUB_API}/repos/${repo}/issues`, {
       method: "POST",
-      signal: controller.signal,
+      signal: AbortSignal.timeout(10_000),
       redirect: "error",
       headers: {
         authorization: `Bearer ${token}`,
@@ -77,8 +75,6 @@ export default defineEventHandler(async (event) => {
     if (!res.ok) throw new Error(String(res.status));
   } catch {
     throw createError({ statusCode: 502, statusMessage: "Couldn't send that just now" });
-  } finally {
-    clearTimeout(timer);
   }
 
   return { ok: true, filed: true };

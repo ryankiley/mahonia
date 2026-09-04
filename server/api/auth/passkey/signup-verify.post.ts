@@ -1,18 +1,20 @@
 import { defineEventHandler } from "h3";
-import { verifyRegistrationResponse } from "@simplewebauthn/server";
 import {
-  MAGIC_LINK_TTL_MS,
   createAccount,
   deleteAccountRow,
-  issueMagicToken,
+  sendSignInLink,
   startSession,
 } from "../../../utils/authSession";
-import { canSendEmail, sendMagicLink } from "../../../utils/email";
+import { canSendEmail } from "../../../utils/email";
 import { savePasskey } from "../../../utils/credentialRepo";
 import { useAccountDb } from "../../../utils/db";
 import { readJsonBodyCapped, setNoIndex, setPrivate } from "../../../utils/http";
-import { trustedOrigin } from "../../../utils/origin";
-import { originFor, requirePasskeysConfigured, rpIdFor, takeChallenge } from "../../../utils/passkeys";
+import {
+  credentialFromInfo,
+  requirePasskeysConfigured,
+  takeChallenge,
+  verifyRegistration,
+} from "../../../utils/passkeys";
 import { rateLimit } from "../../../utils/rateLimit";
 
 // Step 2 of creating an account with nothing but a passkey: check what the
@@ -22,8 +24,8 @@ import { rateLimit } from "../../../utils/rateLimit";
 // the signature is verified second, and the `users` row is written third — so an
 // unverified request cannot leave anything behind, and a replayed one has no
 // challenge left to match. Origin and RP ID are re-derived from THIS request
-// rather than read from the body: they're the binding that makes a passkey
-// unphishable, so they can never come from the caller.
+// rather than read from the body (verifyRegistration): they're the binding that
+// makes a passkey unphishable, so they can never come from the caller.
 //
 // The account is created WITH the address that signup-options checked — read back
 // from the challenge, not from this request, so the client can't swap it between
@@ -48,8 +50,7 @@ export default defineEventHandler(async (event) => {
   requirePasskeysConfigured();
 
   const body = await readJsonBodyCapped<{ flowId?: unknown; response?: unknown }>(event, 32_000);
-  const flowId = typeof body?.flowId === "string" ? body.flowId : "";
-  const stored = await takeChallenge(flowId);
+  const stored = await takeChallenge(body?.flowId);
   // A signup challenge carries an email and no userId. One with a userId came from
   // register-options (adding a key to an existing account) and must not mint a
   // second account here.
@@ -57,22 +58,8 @@ export default defineEventHandler(async (event) => {
     return { ok: false as const, reason: "expired" as const };
   }
 
-  let verification;
-  try {
-    verification = await verifyRegistrationResponse({
-      response: body?.response as never,
-      expectedChallenge: stored.challenge,
-      expectedOrigin: originFor(event),
-      expectedRPID: rpIdFor(event),
-      requireUserVerification: false,
-    });
-  } catch (e) {
-    console.error("[passkey signup]", e);
-    return { ok: false as const, reason: "invalid" as const };
-  }
-
-  const info = verification.registrationInfo;
-  if (!verification.verified || !info) return { ok: false as const, reason: "invalid" as const };
+  const info = await verifyRegistration(event, body?.response, stored.challenge, "passkey signup");
+  if (!info) return { ok: false as const, reason: "invalid" as const };
 
   const db = await useAccountDb();
   let user;
@@ -86,10 +73,7 @@ export default defineEventHandler(async (event) => {
   try {
     await savePasskey(db, {
       userId: user.id,
-      credentialId: info.credential.id,
-      publicKey: Buffer.from(info.credential.publicKey).toString("base64url"),
-      counter: info.credential.counter,
-      transports: info.credential.transports ?? null,
+      ...credentialFromInfo(info),
       discoverable: true, // residentKey: "required" — see signup-options
       label: null,
     });
@@ -111,20 +95,12 @@ export default defineEventHandler(async (event) => {
   // Best-effort, and never allowed to fail the signup it rode in on.
   if (canSendEmail()) {
     try {
-      const token = await issueMagicToken(db, user.id);
-      // trustedOrigin, not the request's — this link is the UNDO for a signup
-      // against an address the signer may not hold, so it is the one thing in
-      // that message that must land on Mahonia. See server/utils/origin.ts.
-      const url = new URL("/auth/callback", trustedOrigin(event));
-      url.searchParams.set("t", token);
-      await sendMagicLink({
-        to: stored.email,
-        url: url.toString(),
-        expiresIn: `${Math.round(MAGIC_LINK_TTL_MS / 60_000)} minutes`,
-        // not a sign-in link — they're already signed in, and this is the address
-        // confirmation. See MagicLinkEmail.purpose.
-        purpose: "welcome",
-      });
+      // The link lands on the DEPLOYMENT's origin, never this request's Host —
+      // it is the UNDO for a signup against an address the signer may not hold,
+      // so it is the one thing in that message that must land on Mahonia (see
+      // sendSignInLink). "welcome", not a sign-in link: they're already signed
+      // in, and this is the address confirmation. See MagicLinkEmail.purpose.
+      await sendSignInLink(event, db, user.id, stored.email, "welcome");
     } catch (e) {
       console.error("[passkey signup] confirmation email failed", e);
     }

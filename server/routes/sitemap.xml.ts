@@ -1,13 +1,12 @@
 import { defineEventHandler, getRequestURL, setHeader } from "h3";
 import { listPublicSlugs } from "../utils/discoveryRepo";
+import { escapeHtml as esc } from "../utils/http";
 // Hand-rolled sitemap (no module / dep): the home page + every public list
 // (/l/{slug}), gated by the public-discovery visibility rule (public, active,
-// not flagged/deleted, non-empty — see discoveryRepo's
-// publicVisibilityConditions). The host comes from the request, so
-// it works on any deploy domain without configuring a canonical URL. The /e
-// editor and /s share views are intentionally excluded (noindex capabilities).
-const esc = (s: string) =>
-  s.replace(/[<>&'"]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", "'": "&apos;", '"': "&quot;" })[c]!);
+// not flagged/deleted, non-empty — see discoveryRepo's listPublicSlugs). The
+// host comes from the request, so it works on any deploy domain without
+// configuring a canonical URL. The /e editor and /s share views are
+// intentionally excluded (noindex capabilities).
 export default defineEventHandler(async (event) => {
   const origin = getRequestURL(event).origin;
   const rows = await listPublicSlugs().catch(() => []);

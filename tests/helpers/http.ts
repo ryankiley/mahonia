@@ -1,11 +1,49 @@
-// Shared plumbing for suites that drive H3 responses and a stubbed network:
-// the auth/session suites assert on Set-Cookie, and the favicon/SSRF suites
-// stub fetch so they are hermetic. Each of these lived as a per-file copy
-// (sessionLifecycle + passkeyCeremony; trailFavicon + ssrfRedirect) before
-// moving here.
+// Shared plumbing for suites that drive H3 events and a stubbed network:
+// the auth/session/gate suites build real events over bare node mocks and
+// assert on Set-Cookie, and the favicon/SSRF suites stub fetch so they are
+// hermetic. Each of these lived as a per-file copy (sessionLifecycle +
+// passkeyCeremony + editAuthGate; trailFavicon + ssrfRedirect) before moving
+// here.
 
-import type { H3Event } from "h3";
+import { IncomingMessage, ServerResponse } from "node:http";
+import { Socket } from "node:net";
+import { createEvent, type H3Event } from "h3";
 import { vi } from "vitest";
+
+/**
+ * A minimal REAL H3 event: enough request for getCookie / readRawBody / the
+ * header reads, enough response for setCookie. No server boots — the event IS
+ * the interface under test, so the code under it (cookie parsing, body
+ * capping, header gates) runs exactly as a request would drive it.
+ *
+ * `cookie` is the Cookie header a browser would replay; `body` is JSON-encoded
+ * with the content headers a fetch would send. Method defaults to POST when
+ * there is a body and GET otherwise, which is what the endpoints these suites
+ * boot expect.
+ */
+export function makeEvent(
+  opts: {
+    method?: string;
+    url?: string;
+    headers?: Record<string, string>;
+    cookie?: string;
+    body?: unknown;
+  } = {},
+): H3Event {
+  const req = new IncomingMessage(new Socket());
+  req.method = opts.method ?? (opts.body !== undefined ? "POST" : "GET");
+  req.url = opts.url ?? "/";
+  req.headers = { host: "mahonia.test", ...opts.headers };
+  if (opts.cookie) req.headers.cookie = opts.cookie;
+  if (opts.body !== undefined) {
+    const buf = Buffer.from(JSON.stringify(opts.body));
+    req.headers["content-type"] = "application/json";
+    req.headers["content-length"] = String(buf.length);
+    req.push(buf);
+  }
+  req.push(null);
+  return createEvent(req, new ServerResponse(req));
+}
 
 /** What the response set a cookie to, or null if it never touched that cookie. */
 export function setCookieValue(event: H3Event, name: string): string | null {

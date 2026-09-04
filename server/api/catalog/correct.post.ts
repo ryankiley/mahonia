@@ -2,7 +2,7 @@ import { createError, defineEventHandler } from "h3";
 import { parseWeightInput } from "../../../shared/weights";
 import { proposeCorrection } from "../../utils/catalog";
 import { useCatalogDb } from "../../utils/db";
-import { readJsonBodyCapped, setNoIndex } from "../../utils/http";
+import { badRequest, positiveInt, readJsonBodyCapped, setNoIndex } from "../../utils/http";
 import { consumeRateLimit, rateLimit, useKv } from "../../utils/rateLimit";
 
 // Beyond the per-IP `catalog-correct` budget, cap edits to a SINGLE catalog row
@@ -26,9 +26,8 @@ export default defineEventHandler(async (event) => {
     reason?: string;
   }>(event, 8_000);
 
-  const catalogItemId = Number(body?.catalogItemId);
-  if (!Number.isInteger(catalogItemId) || catalogItemId <= 0)
-    throw createError({ statusCode: 400, statusMessage: "Bad request" });
+  const catalogItemId = positiveInt(body?.catalogItemId);
+  if (catalogItemId === null) throw badRequest();
 
   // per-item throttle (shared KV, IP-independent) — bounds flood-vandalism of one row
   const overItem = await consumeRateLimit(

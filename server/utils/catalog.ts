@@ -2,9 +2,10 @@
 //
 // Kept out of the hot lists path in db.ts on purpose. The catalog table DDL is
 // single-sourced here (CATALOG_DDL) and spread into db.ts's idempotent local
-// DDL, so the dev server auto-creates it; the seed script and search endpoint
-// also call ensureCatalogSchema() so they work on Neon (where db.ts applies
-// schema via migrations, not on the request path) regardless of migration state.
+// DDL, so the dev server auto-creates it; the catalog endpoints, the seed script
+// and hydrateCatalogNames also call ensureCatalogSchema() so it exists on Neon
+// (where db.ts ensures only the core `lists` table on the request path — there
+// is no migration step) before the first query that needs it.
 //
 // FUZZY SEARCH — pg_trgm vs ILIKE/JS, decided empirically:
 //   • Neon (prod): pg_trgm is available → a GIN trigram index + word_similarity
@@ -30,11 +31,6 @@ import {
   type CatalogSearchResult,
   type LocalCatalogRow,
 } from "../../shared/catalogSearch";
-
-// trigramScore lives in shared/catalogSearch (single source of truth for the
-// offline client + this server fallback) — re-exported so its one server-side
-// importer (candidates.ts) keeps its import path.
-export { trigramScore } from "../../shared/catalogSearch";
 
 const isNeon = () => Boolean(process.env.DATABASE_URL);
 

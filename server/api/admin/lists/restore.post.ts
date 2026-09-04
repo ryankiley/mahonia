@@ -1,8 +1,8 @@
-import { createError, defineEventHandler } from "h3";
+import { defineEventHandler } from "h3";
 import { normalizeSlug } from "../../../../shared/discovery";
 import { requireAdmin } from "../../../utils/auth";
 import { restoreList } from "../../../utils/discoveryRepo";
-import { readJsonBodyCapped, setNoIndex } from "../../../utils/http";
+import { badRequest, readJsonBodyCapped, setNoIndex } from "../../../utils/http";
 import { clearReportTally, useKv } from "../../../utils/rateLimit";
 
 // Admin: restore a reported/flagged list to discovery (the counterpart to the
@@ -16,7 +16,7 @@ export default defineEventHandler(async (event) => {
   // and spoofable, so the raw-body cap is the authoritative one
   const body = await readJsonBodyCapped<{ slug?: string }>(event, 4_000);
   const slug = normalizeSlug(body?.slug);
-  if (!slug) throw createError({ statusCode: 400, statusMessage: "Bad request" });
+  if (!slug) throw badRequest();
 
   const restored = await restoreList(slug);
   // Reset the distinct-report tally so the restored list can't instantly re-flag
