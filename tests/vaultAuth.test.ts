@@ -24,7 +24,7 @@ import {
   reapAbandonedVaults,
   removeVaultItem,
 } from "../server/utils/vaultRepo";
-import { vaultNormKey } from "../shared/vault";
+import { vaultNormKey, type VaultCapture } from "../shared/vault";
 import { createTestDb } from "./helpers/db";
 
 type DB = ReturnType<typeof drizzle>;
@@ -49,13 +49,12 @@ async function resolve(db: DB, userId: number): Promise<number | null> {
   return rows[0]?.id ?? null;
 }
 
-const cap = (name: string, over: Record<string, unknown> = {}) =>
-  ({
-    normKey: vaultNormKey(null, name, null),
-    name,
-    weightMg: 100_000,
-    ...over,
-  }) as never;
+const cap = (name: string, over: Partial<VaultCapture> = {}): VaultCapture => ({
+  normKey: vaultNormKey(null, name, null),
+  name,
+  weightMg: 100_000,
+  ...over,
+});
 
 describe("vault ownership", () => {
   let db: DB;

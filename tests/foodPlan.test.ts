@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { KCAL_PER_DAY_GENEROUS, KCAL_PER_DAY_LIGHT, foodPlan, tripDays } from "../shared/foodPlan";
+import type { ListMeta } from "../shared/types";
 
 const totals = (kcalTotal: number) => ({ kcalTotal, hasKcal: kcalTotal > 0 });
-const meta = (over: Partial<Parameters<typeof foodPlan>[1]> = {}) => ({
+const meta = (over: Partial<Parameters<typeof foodPlan>[1] & Pick<ListMeta, "displayUnit">> = {}) => ({
   displayUnit: "g" as const,
   ...over,
 });

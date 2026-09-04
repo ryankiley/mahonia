@@ -264,7 +264,7 @@ const gear = (over: Partial<Item> = {}): Item => ({
 const folder = (over: Partial<Folder> = {}): Folder => ({
   id: "f1",
   name: "Shelter",
-  defaultClassification: null,
+  defaultClassification: "base",
   sortOrder: 0,
   colorKey: "green",
   ...over,

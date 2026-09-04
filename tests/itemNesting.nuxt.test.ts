@@ -68,7 +68,7 @@ function listWith(items: Item[], version = 1): ListSnapshot {
     title: "Nesting",
     description: "",
     displayUnit: "g",
-    folders: [{ id: FOLDER, name: "Shelter", colorKey: "green", defaultClassification: null, sortOrder: 0 }],
+    folders: [{ id: FOLDER, name: "Shelter", colorKey: "green", defaultClassification: "base", sortOrder: 0 }],
     // the carrier cases below assign rows to Sam — he has to exist, or the
     // reducer's dangling-assignee heal quietly strips the very field under test
     people: [{ id: "sam", name: "Sam", sortOrder: 0 }],

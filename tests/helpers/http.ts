@@ -71,23 +71,16 @@ export function stubFetch(impl: (url: string) => Partial<Response> | null): stri
 /** A one-chunk streamed body with the given content type — the shape the
  *  favicon fetcher reads. `contentType` is explicit at every call site because
  *  at least one assertion checks it round-trips into the stored data: URL. */
-export function imageResponse(bytes: Uint8Array, contentType: string) {
+export function imageResponse(bytes: Uint8Array<ArrayBuffer>, contentType: string): Partial<Response> {
   return {
     ok: true,
     status: 200,
     headers: new Headers({ "content-type": contentType }),
-    body: {
-      getReader() {
-        let sent = false;
-        return {
-          async read() {
-            if (sent) return { value: undefined, done: true };
-            sent = true;
-            return { value: bytes, done: false };
-          },
-          async cancel() {},
-        };
+    body: new ReadableStream<Uint8Array<ArrayBuffer>>({
+      start(controller) {
+        controller.enqueue(bytes);
+        controller.close();
       },
-    },
+    }),
   };
 }

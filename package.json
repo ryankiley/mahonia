@@ -21,7 +21,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "pretypecheck": "npm run changelog:build",
-    "typecheck": "nuxt typecheck && vue-tsc --noEmit -p tsconfig.scripts.json",
+    "typecheck": "nuxt typecheck && vue-tsc --noEmit -p tsconfig.scripts.json && vue-tsc --noEmit -p tsconfig.tests.json",
     "typecheck:tests": "vue-tsc --noEmit -p tsconfig.tests.json",
     "bundle-budget": "node scripts/bundle-budget.mjs",
     "changelog": "node scripts/changelog.mjs",

@@ -17,7 +17,7 @@ async function legacyVault() {
   const db = await createTestDb(VAULT_DDL);
   const [vault] = await db
     .insert(schema.vaults)
-    .values({ tokenHash: "h", userId: null })
+    .values({ userId: null })
     .returning({ id: schema.vaults.id });
   const vaultId = vault!.id;
 

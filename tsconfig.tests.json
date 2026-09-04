@@ -2,12 +2,8 @@
   // Type coverage for tests/, which `nuxt typecheck` never reaches: Nuxt's own
   // include is `tests/nuxt/**`, a directory this repo doesn't have, so a test could
   // import an export that no longer existed and only fail when it ran. `npm run
-  // typecheck:tests` runs this project. Unlike tsconfig.scripts.json it is NOT
-  // part of `npm run typecheck` yet, because the suite doesn't pass it: a few
-  // DB-backed files build their handle without the schema, and the Nuxt-
-  // environment tests trip vue-tsc on component and route types — and a red
-  // `typecheck` would gate every PR on fixes that belong to those files. Chain it
-  // into `typecheck` once it's green.
+  // typecheck:tests` runs this project on its own; `npm run typecheck` chains it
+  // after the app and scripts projects.
   "extends": "./.nuxt/tsconfig.json",
   "compilerOptions": {
     // A test indexes its fixtures by position on purpose (`items[0].name`) and a

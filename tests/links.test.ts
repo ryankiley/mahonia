@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { editLinkPath, itemSearchName, itemSearchUrl, webSearchUrl } from "../shared/links";
+import type { Item } from "../shared/types";
+
+// Item.brand is string | undefined, but a row that went through an older export
+// can still carry null — the helpers have to cope, so the probe is off-type on purpose.
+const nullBrand = (name: string) => ({ brand: null, name }) as unknown as Pick<Item, "brand" | "name">;
 
 describe("webSearchUrl", () => {
   it("builds a Google search URL for a simple query", () => {
@@ -40,7 +45,7 @@ describe("itemSearchName", () => {
 
   it("is just the name for a brandless (free-renamed) item", () => {
     expect(itemSearchName({ brand: "", name: "My custom tarp" })).toBe("My custom tarp");
-    expect(itemSearchName({ brand: null, name: "My custom tarp" })).toBe("My custom tarp");
+    expect(itemSearchName(nullBrand("My custom tarp"))).toBe("My custom tarp");
   });
 });
 
@@ -59,7 +64,7 @@ describe("itemSearchUrl", () => {
 
   it("returns null for an unnamed row", () => {
     expect(itemSearchUrl({ brand: "", name: "" })).toBeNull();
-    expect(itemSearchUrl({ brand: null, name: "   " })).toBeNull();
+    expect(itemSearchUrl(nullBrand("   "))).toBeNull();
   });
 });
 

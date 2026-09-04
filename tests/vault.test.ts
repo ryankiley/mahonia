@@ -472,7 +472,7 @@ describe("vault reaping — bounding a table nothing else ever shrinks", () => {
   async function seedVault(days: number): Promise<number> {
     const [row] = await db
       .insert(vaults)
-      .values({ tokenHash: `hash-${days}-${Math.round(Math.random() * 1e9)}`, lastSeenAt: ago(days) })
+      .values({ lastSeenAt: ago(days) })
       .returning();
     await captureVaultItems(db as any, row!.id, [
       { normKey: "", name: `Thing ${row!.id}`, brand: "Maker", weightMg: 100 } as any,

@@ -12,6 +12,7 @@
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { H3Event } from "h3";
 import * as schema from "../server/db/schema";
 import { LISTS_DDL } from "../server/utils/db";
 import { ACCOUNT_DDL } from "../server/utils/accountSchema";
