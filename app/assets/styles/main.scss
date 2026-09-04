@@ -40,8 +40,9 @@
 
 /* The sticky bar at the top of every page — the site bar (SiteTopbar) and the editor's
    own bar (GearEditor) each carried this block scoped, byte-identical. It sticks so the
-   nav + actions stay in reach through a long list; print.scss unsticks it. Each bar's
-   INNER row (gap, padding) stays its own. */
+   nav + actions stay in reach through a long list; print.scss unsticks it — with
+   !important, since @use'd modules are emitted ahead of this file and its `.topbar` is
+   no more specific than this one. Each bar's INNER row (gap, padding) stays its own. */
 .topbar {
   position: sticky;
   top: 0;

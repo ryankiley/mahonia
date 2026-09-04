@@ -3,11 +3,27 @@
 // editor and both read views alike: these are GLOBAL rules matching the class
 // names components render (scoped-CSS attributes don't stop a global selector),
 // so one sheet covers every printable page.
+//
+// EVERY declaration in here carries !important, and that is not defensive noise —
+// it is the only thing that makes this sheet work. A global class selector is the
+// WEAKEST thing that can match these elements, and it loses two ways:
+//
+//   * to a component's own scoped rule, because Vue's [data-v-…] suffix adds a
+//     whole specificity step (.iname__link[data-v-…] beats .iname__link outright);
+//   * to main.scss's own top-level rules, because Sass requires @use to precede
+//     everything else, so `@use "print"` is emitted BEFORE the rules of the file
+//     using it. There is no ordering fix — the module physically cannot come last.
+//
+// Both have bitten: .topbar printed with its sticky bar and hairline for its whole
+// life (scoped rule first, then source order after the block moved to main.scss),
+// and .iname__link printed its dotted underline on every touch device. Neither
+// failed a test or looked wrong on screen. If you add a rule here without the
+// bang, assume it does nothing. tests/printStyles.test.ts enforces this.
 @media print {
   // every token is defined with light-dark(); forcing the light scheme resolves
   // the whole palette to its paper values — no per-token print overrides needed
   :root {
-    color-scheme: light;
+    color-scheme: light !important;
   }
 
   @page {
@@ -53,10 +69,14 @@
     display: none !important;
   }
 
-  // the editor's sticky bar becomes a plain title line
+  // the sticky bar becomes a plain title line. !important because the bar's sticky
+  // block is a GLOBAL `.topbar` in main.scss — same specificity as this one, and Sass
+  // emits an @use'd module before the using file's own rules, so main.scss's copy lands
+  // after this and would win on source order alone. (It used to be scoped, `.topbar[data-v-…]`,
+  // which outweighed this rule outright — the line has never actually printed flat.)
   .topbar {
-    position: static;
-    border-bottom: 0;
+    position: static !important;
+    border-bottom: 0 !important;
   }
 
   // a collapsed folder still prints complete — paper has no chevron to expand
@@ -65,7 +85,7 @@
   }
   .folder__bodyinner {
     opacity: 1 !important;
-    overflow: visible;
+    overflow: visible !important;
   }
   // …and so does a collapsed nested GROUP (same 1fr↔0fr clip as the folder body).
   // The share views default groups closed and packing collapses too, so without
@@ -75,18 +95,18 @@
     grid-template-rows: 1fr !important;
   }
   .nestcollapse > .nest-block {
-    overflow: visible;
+    overflow: visible !important;
   }
 
   // keep a row (and a folder heading with its first rows) on one page
   .item-wrap,
   .item--ro,
   .item--check {
-    break-inside: avoid;
+    break-inside: avoid !important;
   }
   .folder__head {
-    break-inside: avoid;
-    break-after: avoid;
+    break-inside: avoid !important;
+    break-after: avoid !important;
   }
 
   // the page's only colour (category bar + legend swatches), the checklist's filled
@@ -98,13 +118,13 @@
   .item__mark,
   .catbar__seg,
   .swatch {
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
   // item names are web-search links on the read views — on paper the dotted
   // underline is noise, not an affordance
   .iname__link {
-    text-decoration: none;
+    text-decoration: none !important;
   }
 }
