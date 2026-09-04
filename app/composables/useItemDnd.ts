@@ -3,7 +3,8 @@
 // the outliner model: drag right past a threshold to nest under the row above,
 // drag left to pop back out to top level. The threshold is measured from where the
 // gesture STARTED (not an absolute x), so it works no matter where on the row you
-// grab. Rows expose `data-item-id` + `data-parent` (absent/null = top-level),
+// grab — and it only counts on a move that still READS as horizontal (see `renest`).
+// Rows expose `data-item-id` + `data-parent` (absent/null = top-level),
 // folders expose `data-folder`; the drop commits via useGearList().moveItem on
 // pointerup. The dragged row isn't live-reordered — a drop indicator shows where it
 // lands, keeping the DOM stable. The gesture lifecycle (capture, listeners, cancels)
@@ -13,8 +14,10 @@
 // a row that already has children can't be nested, and you can't nest under a row
 // that is itself nested.
 
-// horizontal travel from the gesture's start x (px) needed to change nesting level —
-// large enough that a vertical drag with a little wobble never re-nests by accident
+// horizontal travel from the gesture's start x (px) needed to change nesting level.
+// Unchanged at 24 — what keeps a reorder from re-nesting by accident is not this
+// number but the out-runs-the-vertical test at `renest` below, for which this is only
+// the floor.
 const NEST_THRESHOLD = 24;
 
 // The dragId an INSERTING drag carries — one that brings something in from outside
@@ -150,6 +153,42 @@ function create() {
       const snap = toRaw(useGearList().snapshot.value);
       const dragged = snap?.items.find((i) => i.id === dragId);
       if (!dragged) return;
+
+      // Which way this move re-nests, if at all: -1 out to top level, +1 in under the
+      // row above, 0 neither — and 0 is the ordinary vertical reorder.
+      //
+      // Re-nesting is a HORIZONTAL gesture, so it counts only while the drag still
+      // READS as one: the travel across has to clear the threshold AND out-run the
+      // travel down. The threshold on its own — which is all `dx <= -NEST_THRESHOLD`
+      // used to be — is not a gesture, it is a distance, so any reorder of a few rows
+      // inside a group eventually wandered into it and the row popped out to top
+      // level. On a phone that isn't even wander: the grip sits at the row's right
+      // edge and a thumb dragging down sweeps left, so reordering within a group
+      // un-nested it nearly every time. Same in mirror image for nesting IN, which
+      // rightward drift could trigger just as easily.
+      //
+      // Re-read on EVERY move, deliberately — and this is the whole subtlety. Latching
+      // it instead (commit once, hold until the pointer comes back inside the
+      // threshold) reads better and is wrong: it arms on the first sample where the
+      // across-travel happens to lead, which early in a gesture is nearly any of them,
+      // and then rides out the entire descent. "Drift left, then descend" and "pull
+      // out, then carry down" are the SAME cumulative shape, so no amount of
+      // remembering can separate them — only the live reading can. The price is that
+      // re-nesting a row and carrying it a long way down are two gestures rather than
+      // one: the lead across has to still be there at the release. The drop indicator
+      // says which of the two you are in, the whole way.
+      const dy = ev.clientY - startY;
+      // Structure edits stand down under a person filter, in BOTH directions. Nesting
+      // in makes the row inherit a carrier and vanish from the very view being worked
+      // in; un-nesting drops the carrier it had inherited, for the same disappearing
+      // act, and can quietly take an emptied group with it. The indent menu stands
+      // down the same way, in CSS (atoms/item.scss) — this is that rule for the drag.
+      // Read at CALL time: this is a pointermove handler, so no row grows a
+      // reactive subscription.
+      const filterOn = usePersonFilter().selected.value != null;
+      const renest =
+        !filterOn && Math.abs(dx) >= NEST_THRESHOLD && Math.abs(dx) > Math.abs(dy) ? Math.sign(dx) : 0;
+
       const wasNested = dragged.parentId != null;
       // a row with children can't be nested (one level only) — the reducer enforces it
       // too, but knowing here keeps the indicator honest
@@ -164,9 +203,9 @@ function create() {
       if (folderEl.hasAttribute("data-collapsed")) return;
       const folderId = folderEl.getAttribute("data-folder") || null;
 
-      // ---- still nested + not dragged far enough left to escape: reorder among
-      // siblings, staying under the same parent (the original nested behavior) ----
-      if (wasNested && dx > -NEST_THRESHOLD) {
+      // ---- still nested, and this move is no gesture out: reorder among siblings,
+      // staying under the same parent (the original nested behavior) ----
+      if (wasNested && renest !== -1) {
         const parentId = dragged.parentId!;
         const sibs = [...document.querySelectorAll(`[data-parent="${parentId}"]`)].filter(
           (r) => r.getAttribute("data-item-id") !== dragId,
@@ -186,17 +225,10 @@ function create() {
       const parentCandidate = slot > 0 ? topRows[slot - 1] : undefined;
       const candidateId = idOf(parentCandidate);
 
-      // nest INTO the row above when dragged right past the threshold — but only a
-      // childless row can be nested, and only under a real row above it. Otherwise
-      // land at top level.
-      // Not while a person filter is on, either: the visible row above is either
-      // that person's (fine) or a context parent belonging to someone ELSE — and
-      // nesting under that one makes the dragged row inherit them and vanish from
-      // the very view the user is working in. Structure edits stand down under a
-      // filter (the indent menu does the same, in CSS). Read at CALL time — this
-      // is a pointermove handler, so no row grows a reactive subscription.
-      const filterOn = usePersonFilter().selected.value != null;
-      const nest = !filterOn && dx >= NEST_THRESHOLD && !hasKids && candidateId != null;
+      // nest INTO the row above on a gesture rightward — but only a childless row can
+      // be nested, and only under a real row above it. Otherwise land at top level.
+      // (A person filter has already zeroed `renest`; see above.)
+      const nest = renest === 1 && !hasKids && candidateId != null;
       if (nest) {
         const kids = [...document.querySelectorAll(`[data-parent="${candidateId}"]`)].filter(
           (r) => r.getAttribute("data-item-id") !== dragId,
