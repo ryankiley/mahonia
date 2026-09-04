@@ -125,11 +125,6 @@ function toggleNest() {
   nestCollapsed.value = !nestCollapsed.value;
   nestCollapse.set(props.item.id, nestCollapsed.value);
 }
-// the group total shown on a parent's read-only weight column (bare number, list
-// unit) — `children` holds exactly this row's children, so the sum is O(children)
-const groupWeight = computed(() =>
-  formatWeight(groupLineMg(props.item, children.value), props.list.displayUnit, { withUnit: false }),
-);
 // the packing row's weight — same rule as the read views (ReadonlyItemRow): a
 // group shows its total (own + children), a leaf its own line
 const rowWeightMg = computed(() => rowDisplayMg(props.item, children.value));
@@ -276,17 +271,27 @@ function flushPendingEdit(e: Event) {
 // can't drift apart — they must all agree, or the number means something different
 // from the label beside it.
 //
-// A GROUP row is excluded on purpose: its figure is the sum of children that may
-// each have been typed in a different unit, so there's no entry unit to honour and
-// the list's own is the only honest choice.
-const rowUnit = computed(() =>
-  isParent.value ? props.list.displayUnit : (props.item.entryUnit ?? props.list.displayUnit),
-);
+// A GROUP row resolves the same way, though nothing was ever typed on it: its figure
+// is a sum of children that may each read differently, so no typed unit stands behind
+// it — but a stuff sack totalling 0.59 lb is a thing you may well want to see in
+// ounces, and the list's unit used to be the only answer on offer. So `entryUnit` on a
+// parent means what the picker beside it says: the unit its total is SHOWN in. Nothing
+// else reads it there — the weight cell is read-only on a group, and the CSV writes a
+// unit only for a row carrying a weight of its own — so the one field can carry both
+// senses without either leaking into the other.
+const rowUnit = computed(() => props.item.entryUnit ?? props.list.displayUnit);
 
 const weightDisplay = computed(() =>
   props.item.unitWeightMg > 0
     ? formatWeight(props.item.unitWeightMg, rowUnit.value, { withUnit: false })
     : "",
+);
+// weightDisplay's counterpart for a group: the total shown in its read-only weight
+// column (bare number, same rowUnit). Lives beside it rather than up with the nesting
+// block so the two readings of that one cell sit together — `children` holds exactly
+// this row's children, so the sum is O(children).
+const groupWeight = computed(() =>
+  formatWeight(groupLineMg(props.item, children.value), rowUnit.value, { withUnit: false }),
 );
 
 const effClass = computed(() =>
@@ -1184,14 +1189,17 @@ function dismissFix() {
                native-select idiom the total's unit uses (TotalsBar): the visible text
                stays exactly as it was, and the real control sits over it keeping the
                native picker and full keyboard behaviour.
-               Not on water (its weight is derived from a volume) or on a group row
-               (whose figure is the sum of children that may each read differently) —
-               those two show the unit as plain text, with no unit to pick. -->
-          <span v-if="isWater || isParent" class="item__unitwrap">
+               A GROUP row carries the very same picker — identical trigger, identical
+               chevron — even though its figure is a sum rather than something typed:
+               the choice is which unit that total READS in, and a stuff sack's 0.59 lb
+               is exactly the number you want to see in ounces. Only water is left out,
+               its weight being derived from a volume: it shows the unit as plain text,
+               with no unit to pick. -->
+          <span v-if="isWater" class="item__unitwrap">
             <span class="t-sm t-muted item__unit">{{ rowUnit }}</span>
             <!-- The chevron's SLOT, held open by the chevron itself.
-                 These rows have no unit to pick, so they carry no picker — and without
-                 the mark their cell is 20px narrower than every editable row's. On the
+                 A water row has no unit to pick, so it carries no picker — and without
+                 the mark its cell is 20px narrower than every other row's. On the
                  desktop grid that hid inside a fixed column, but the mobile meta line is
                  a flowing flex row, so those 20px moved the whole pair and a water row's
                  figure sat out of line with the rows above it.
@@ -1215,8 +1223,8 @@ function dismissFix() {
             class="item__unitwrap"
             :options="WEIGHT_UNIT_OPTIONS"
             :current="rowUnit"
-            label="Weight unit for this item"
-            :title="`Unit for ${item.name || 'this item'}`"
+            :label="isParent ? 'Weight unit for this group' : 'Weight unit for this item'"
+            :title="`Unit for ${item.name || (isParent ? 'this group' : 'this item')}`"
             @pick="(u) => onRowUnit(u as Unit)"
             @overlay-toggle="$emit('overlayToggle', $event)"
           >
@@ -1911,20 +1919,20 @@ function dismissFix() {
   align-items: center;
   /* The SAME gap `.optmenu__btn` puts between its trigger's parts (both read the one
      token, so this is a shared value and not a copied number).
-     It is load-bearing on the plain water/group variant, where this element IS the
+     It is load-bearing on the plain water variant, where this element IS the
      unit-and-chevron box; on the picker variant that box is the button inside, so the
      declaration is inert there and only one rule is needed for both.
      Without it the ghost chevron reserved the chevron's WIDTH but not the space the
      button holds before it, so the two variants' wraps measured 21px and 29px. The
      chevrons still lined up — they're pinned to the cell's trailing edge — and the
-     "g" did not: it sat 8px right of every editable row's, which put a water or group
-     row's unit out of the column it exists to keep. */
+     "g" did not: it sat 8px right of every editable row's, which put a water row's
+     unit out of the column it exists to keep. */
   gap: var(--space-2);
 }
 .item__unit {
   flex: none;
 }
-/* The reserved chevron on water and group rows — present for layout, invisible to eyes
+/* The reserved chevron on water rows — present for layout, invisible to eyes
  * and to screen readers (aria-hidden at the call site). See the markup for why the slot
  * is held open by a real icon rather than by a width.
  *
@@ -1965,9 +1973,10 @@ function dismissFix() {
 /* transparent native select over the unit text — the same construction the total's
    unit picker uses. The label stays the only thing drawn; this just makes it a
    control. Sized to the label so it can't widen the weight column. */
-/* the two classification toggles. Both --icon-btn wide, so the pair costs 68px of
-   the 108–128px class track the old select needed for the word "Consumable" — the
-   row gets denser, not busier. */
+/* the two classification toggles. Both --icon-btn wide, and the class track is now
+   derived from exactly that pair (tokens.scss) rather than from the word "Consumable"
+   the old select spelled out — the row gets denser, not busier, and the ~60px that
+   reservation was still holding went to the weight column, which was short. */
 .item__cls {
   position: relative;
   flex: none;

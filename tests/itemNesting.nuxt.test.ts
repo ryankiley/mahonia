@@ -128,6 +128,25 @@ describe("nesting into a row that carries a weight", () => {
     expect(childrenOf(c, group.id).map((i) => i.id).sort()).toEqual(["stakes", "tent"]);
   });
 
+  // On a group, entryUnit is the unit its TOTAL is shown in (ItemRow's rowUnit), so
+  // the wrap has to hand it over with the slot: a row reading "15.5 oz" that becomes
+  // a group of one must still read in ounces, or nesting silently re-expressed a
+  // number the gesture never touched.
+  it("carries the product's unit up to the group it minted", async () => {
+    const c = await open([
+      item({ id: "tent", name: "X-Mid Pro 1", commonName: "Tent", unitWeightMg: 439418, entryUnit: "oz", sortOrder: 0 }),
+      item({ id: "stakes", name: "Stakes", unitWeightMg: 50000, sortOrder: 1 }),
+    ]);
+
+    c.nestItem("stakes", "tent");
+    await vi.waitFor(() => expect(byId(c, "stakes")?.parentId).not.toBeNull());
+
+    const group = byId(c, byId(c, "tent")!.parentId!)!;
+    expect(group.entryUnit).toBe("oz");
+    // and the product keeps its own — it is still a row that was typed in ounces
+    expect(byId(c, "tent")?.entryUnit).toBe("oz");
+  });
+
   // commonNameOverridden, not merely an empty commonName: the child keeps its catalog
   // link, and hydrateCatalogNames refills an un-overridden common name from the catalog
   // on the very next snapshot — the label would come straight back and print twice.

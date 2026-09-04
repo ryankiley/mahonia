@@ -80,6 +80,11 @@ function containerFor(targetId: string, focusNewGroup: boolean): string {
     // stood, and a wrap that dropped it would disinherit every later child (and,
     // under a person filter, make "add a nested item" build an invisible row)
     personId: target.personId,
+    // and so does the unit it read in. On a group, entryUnit is the unit its TOTAL
+    // is shown in (see ItemRow's rowUnit) — so inheriting it means a row showing
+    // "160 g" still shows grams the moment something nests under it, instead of
+    // silently jumping to the list's unit for a gesture that added no weight.
+    entryUnit: target.entryUnit,
     sortOrder: target.sortOrder, // take the product's slot in the folder
   };
   dispatch({ t: "addItem", item: group });
