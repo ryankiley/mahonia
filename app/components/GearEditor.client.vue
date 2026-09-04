@@ -473,12 +473,21 @@ const origin = () => (typeof location !== "undefined" ? location.origin : "");
 // The share URL the plain-text copy appends is the READ-ONLY link — explicitly, not
 // location.href, which here is /e/{code}#{token}. That token is edit access, and this
 // action's whole purpose is pasting the result somewhere public.
+// The two links the list can hand out, built ONCE for the exporters, the copy
+// actions and the sharing panel. A draft has no share code yet, and this device may
+// hold no edit token — either way an empty string rather than a broken link.
+// /e/{shareCode}#{token} so link previews (Apple Notes/iMessage) show the name; the
+// token stays in the fragment (see shared/links.editLinkPath).
+const readUrl = computed(() =>
+  snapshot.value?.shareCode ? `${origin()}/s/${snapshot.value.shareCode}` : "",
+);
+const editUrl = computed(() =>
+  c.editToken ? `${origin()}${editLinkPath(snapshot.value?.shareCode, c.editToken)}` : "",
+);
 const { warmExporters, copyPlainText, copyMarkdown, downloadCsv, downloadJson } = useListExports(
   () => snapshot.value,
   flash,
-  // a draft has no share code yet — no link rather than a broken one (same guard
-  // copyShare() makes before offering to copy it)
-  () => (snapshot.value?.shareCode ? `${origin()}/s/${snapshot.value.shareCode}` : ""),
+  () => readUrl.value,
 );
 
 // the ⋯ actions menu is a custom popover of real <button>s (was a native <select>).
@@ -502,8 +511,8 @@ function toggleMenu() {
 
 function copyShare() {
   // a draft has no shareCode/token yet — nudge instead of copying a broken link
-  if (!snapshot.value?.shareCode) return flash("Add an item first to share");
-  copy(`${origin()}/s/${snapshot.value.shareCode}`, "Read-only link copied", "Read-only link");
+  if (!readUrl.value) return flash("Add an item first to share");
+  copy(readUrl.value, "Read-only link copied", "Read-only link");
 }
 async function copyEditLink() {
   // a claimed open holds no edit link to copy — the server only ever stored its
@@ -516,9 +525,7 @@ async function copyEditLink() {
     message: "Anyone with this link can edit your list. Only send it to people you trust.",
     confirmLabel: "Copy edit link",
   }))) return;
-  // /e/{shareCode}#{token} so link previews (Apple Notes/iMessage) show the name;
-  // token stays in the fragment (see shared/links.editLinkPath)
-  copy(`${origin()}${editLinkPath(snapshot.value?.shareCode, c.editToken)}`, "Edit link copied", "Edit link");
+  copy(editUrl.value, "Edit link copied", "Edit link");
 }
 async function rotate() {
   if (!(await askConfirm({
@@ -908,8 +915,8 @@ function onCorrected(res: { status: string; itemName?: string }) {
                 :snapshot="snapshot"
                 :edit-token="c.editToken"
                 :auth-headers="c.authHeaders()"
-                :read-url="snapshot.shareCode ? `${origin()}/s/${snapshot.shareCode}` : ''"
-                :edit-url="c.editToken ? `${origin()}${editLinkPath(snapshot.shareCode, c.editToken)}` : ''"
+                :read-url="readUrl"
+                :edit-url="editUrl"
                 @close="shareOpen = false"
                 @copy-read="copyShare"
                 @copy-edit="copyEditLink"
@@ -1389,16 +1396,6 @@ function onCorrected(res: { status: string; itemName?: string }) {
 .editor__modes {
   margin-bottom: var(--space-1);
 }
-/* The big figure sits between the switcher and whatever that switcher chose. Its own
-   space, because it belongs to neither — it is the page's headline in all three views. */
-/* NO margin of its own. The body is a flex column with a --space-4 gap, so a margin here
-   is a SECOND gap stacked on the first — which is how the number ended up 32px clear of
-   the totals and 48 clear of the elevation chart, two different distances from two
-   different stacks. One gap, the body's, and both views sit the same distance below the
-   figure they belong to. (.totals and .plan drop their own top padding to match.) */
-.editor__headline {
-  margin-bottom: 0;
-}
 
 /* The plan's reveal: the pack bar's slide without its standing clip — see the template.
    Keyed on the body's data-mode like the pack bar, not on enter/leave classes. The
@@ -1443,9 +1440,6 @@ function onCorrected(res: { status: string; itemName?: string }) {
     opacity: 0;
   }
 }
-/* The title block (name + trail link) belongs to ListHead.vue — it owns its own layout
-   so the hover affordance, the title, and the link keep one DOM order. */
-
 /* the icon cluster is rigid so it can't be nudged by anything that joins the row */
 .editor__share,
 .editor__vault,
@@ -1454,8 +1448,10 @@ function onCorrected(res: { status: string; itemName?: string }) {
 }
 
 /* on = the pane is open: the icon takes full ink and a soft ground, so the button
-   reads as a held state rather than a hover */
-.editor__vault.is-on {
+   reads as a held state rather than a hover — the two topbar popovers signal their
+   state identically */
+.editor__vault.is-on,
+.editor__share.is-on {
   color: var(--ink);
   background: var(--paper-2);
 }
@@ -1476,15 +1472,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
     position: static;
   }
 }
-/* the sharing panel is open — same held-state treatment the vault toggle uses, so
-   the two topbar popovers signal their state identically */
-.editor__share.is-on {
-  color: var(--ink);
-  background: var(--paper-2);
-}
-/* the ⋯ menu's Export section is the shared .menu__sect disclosure (controls.scss),
-   which the read views' menu uses too */
-/* ...and its FOOT holds the one action that ends the list, ruled off from the rest.
+/* the ⋯ menu's FOOT holds the one action that ends the list, ruled off from the rest.
    The rule sits on the <li> rather than on the row, so it spans the same width the
    travelling plate does (both measure from the popover's padding box) instead of the
    row's own inset. Same construction as ListMenu's .lm__foot — one hairline, in the
@@ -1551,6 +1539,12 @@ function onCorrected(res: { status: string; itemName?: string }) {
   margin-right: -13px;
 }
 .editor__body {
+  /* The headline figure between the mode switcher and whatever that switcher chose
+     takes NO margin of its own: this body is a flex column with a --space-4 gap, and a
+     margin there was a SECOND gap stacked on the first — which is how the number ended
+     up 32px clear of the totals and 48 clear of the elevation chart. One gap, the body's,
+     and both views sit the same distance below the figure they belong to. (.totals and
+     .plan drop their own top padding to match.) */
   /* The folder-to-folder rhythm, named once and read twice: .editor__folders uses it
      as its gap, and .editor__addfolder has to reach the SAME distance from a different
      starting point. It lives HERE, on their common ancestor, and not on .editor__folders
@@ -1569,8 +1563,6 @@ function onCorrected(res: { status: string; itemName?: string }) {
      the read views already give the same seam (.view is a --space-6 column). */
   gap: var(--space-5);
 }
-/* the first-run pointer moved out of the column and onto the list switcher it
-   points at — it lives in ListMenu now, tethered to that control */
 /* the inline vault ask's affirmative — quiet like the rest of the banner, and
    deepening to full ink on hover the way every under-link on the site does */
 .editor__vaultadd {
@@ -1739,7 +1731,4 @@ function onCorrected(res: { status: string; itemName?: string }) {
 .editor--centered :deep(.foot) {
   margin-top: 0;
 }
-/* the toast base + its enter/leave motion now live in the shared .toast atom
-   (controls.scss), used by the read views' menu too; the undo bar just adds its
-   inner layout on top of that pill. */
 </style>

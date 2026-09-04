@@ -165,8 +165,9 @@ const CLEARS_WITH_LINK = {
 // per keystroke, so a half-typed URL never reaches the reducer (which would reject it).
 function commitUrl(e: Event) {
   const value = (e.target as HTMLInputElement).value.trim();
-  c.setMeta({ trailUrl: value });
-  if (!value) c.setMeta({ ...CLEARS_WITH_LINK });
+  // one op either way, so clearing the link is one autosave and one undo step
+  // (remove() below makes the same single dispatch)
+  c.setMeta(value ? { trailUrl: value } : { trailUrl: "", ...CLEARS_WITH_LINK });
 }
 
 function commitLabel(e: Event) {
@@ -710,7 +711,6 @@ onClickOutside(trailEl, closeTrail);
      em can't be used directly (it would resolve against this SVG's inherited 16px,
      not the title's 32px), so the title's own token is multiplied explicitly. */
   margin-top: calc(var(--space-1) + 0.62 * var(--text-page-title) - 8px);
-  align-self: flex-start;
   color: var(--ink-3);
   opacity: 0;
   visibility: hidden;
@@ -848,9 +848,9 @@ onClickOutside(trailEl, closeTrail);
   display: inline-flex;
   align-items: baseline;
   min-width: 0;
-  /* content-sized: the card floats out of flow at every pointer, so the anchor is only
-     ever as wide as the name it holds and never claims the whole row */
-  flex: 0 1 auto;
+  /* content-sized (flex's initial 0 1 auto): the card floats out of flow at every
+     pointer, so the anchor is only ever as wide as the name it holds and never claims
+     the whole row */
 }
 /* The link card: the destination in full, then the actions on it. It FLOATS
    under the link at every pointer type, and it is hidden until asked for. What asks for
@@ -880,7 +880,6 @@ onClickOutside(trailEl, closeTrail);
   flex: 0 0 auto;
   width: max-content;
   max-width: 100%;
-  margin-inline-start: 0;
   /* --radius-3 is the small-card step; inner surfaces derive from it with calc() so a
      nested curve can never end up rounder than the box holding it. */
   padding: var(--space-2) var(--space-3);
@@ -946,7 +945,7 @@ onClickOutside(trailEl, closeTrail);
   color: var(--ink);
 }
 /* the actions are the emphasis in this card: full ink, regular weight. The explicit
-   font-size is load-bearing — .btn hard-sets --text-sm (16px), which would otherwise
+   font-size is load-bearing — .btn hard-sets --text-base (16px), which would otherwise
    leave "Edit" at 16px beside a 12px URL and push the card to 40px tall against the
    reference's 32px. */
 .head__cardbtn {
@@ -996,13 +995,6 @@ onClickOutside(trailEl, closeTrail);
     visibility: visible;
   }
 }
-/* The meta affordances used to hide until the title block was hovered.
-   That was defensible when there was ONE of them and the row was
-   otherwise empty; with trail and dates side by side, the row is a real part of the
-   header, and a header that appears only when pointed at is a header you don't know
-   you have. They rest at --ink-3 and darken on hover instead, so the block is still
-   quiet without being blank. (This also retires the touch/keyboard carve-outs the
-   reveal needed: nothing to reveal, nothing to except.) */
 /* The edit panel — a floating form anchored under the link, so the link stays visible
    above it while you change where it points. */
 .head__panel {
@@ -1076,20 +1068,11 @@ onClickOutside(trailEl, closeTrail);
 .head__panelinput:focus {
   outline: none;
 }
-.head__panelinput + .head__panellabel {
-  margin-block-start: var(--space-4);
-}
-/* The distance field wraps its input, so the sibling rule above can't reach the label
-   that follows it. Same spacing, stated for the wrapper. */
-.head__distrow + .head__panellabel {
-  margin-block-start: var(--space-4);
-}
-/* And the same again for the file row, which sits BETWEEN the URL field and the title's
-   label and so breaks the adjacency the rule above depends on — the label was arriving
-   with no space above it at all. Third statement of one spacing; if a fourth thing ever
-   lands between a field and a label, this wants to become a rule about the panel's
-   children rather than another pair. */
-.head__gpx + .head__panellabel {
+/* a label after a field gets a step of air — whichever thing the field is here: the
+   bare input, the distance row that wraps its own, or the file row that sits between
+   the URL and the title's label. If a fourth kind lands here, this wants to become a
+   rule about the panel's children rather than a longer list. */
+:is(.head__panelinput, .head__distrow, .head__gpx) + .head__panellabel {
   margin-block-start: var(--space-4);
 }
 /* Number and unit on one line, the unit taking only what it needs. NOT absolutely
@@ -1234,12 +1217,9 @@ onClickOutside(trailEl, closeTrail);
   position: relative;
   display: inline-flex;
 }
-/* the affordance itself borrows .head__add wholesale (hover reveal, colour, ease);
-   only the resolved state differs — a set date is content, not an invitation, so it
-   holds full-time at the same weight the trail link's name does */
-.head__datesbtn {
-  gap: var(--space-1);
-}
+/* the dates affordance (.head__datesbtn) borrows .head__add wholesale (gap, hover
+   reveal, colour, ease); only the resolved state differs — a set date is content, not
+   an invitation, so it holds full-time at the same weight the trail link's name does */
 .head__datespanel {
   position: absolute;
   top: calc(100% + var(--space-1));

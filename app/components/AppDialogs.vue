@@ -62,6 +62,6 @@ watch(
   background: var(--paper-2);
   border-radius: calc(var(--radius-4) - var(--space-2));
   padding: var(--space-2) var(--space-3);
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
 }
 </style>

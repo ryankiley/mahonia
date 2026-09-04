@@ -11,17 +11,9 @@ const c = useGearList();
 const status = c.status;
 const snapshot = c.snapshot;
 
-// tick the relative time as it ages (30s is finer than the smallest "N minutes"
-// step, so "just now" → "1 minute ago" flips promptly without a per-second churn)
-const now = useNow({ interval: 30_000 });
-
 // authoritative last write, from the server snapshot — so a collaborator's edit the
 // poll pulls in moves it too. Absent on a never-server-saved draft.
-const editedAt = computed(() => {
-  const iso = snapshot.value?.updatedAt;
-  const t = iso ? Date.parse(iso) : NaN;
-  return Number.isFinite(t) ? t : null;
-});
+const { editedAt, now } = useEditedAt(() => snapshot.value?.updatedAt);
 
 // mirrors the controller's hasRealContent gate (a name or a weight; a bare
 // "Add an item" row doesn't count) — drives the empty-new-list case below

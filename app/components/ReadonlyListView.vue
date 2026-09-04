@@ -3,6 +3,7 @@ import { HugeiconsIcon } from "~/utils/hugeicon";
 import { ArrowUpRight01Icon, Backpack02Icon, Calendar03Icon, GlobeIcon, Route02Icon, RouteIcon } from "@hugeicons/core-free-icons";
 import { parseTrailLink } from "~~/shared/trailLink";
 import { dayClimbs, parseProfile } from "~~/shared/profile";
+import { shownHeightM } from "~~/shared/tripPlan";
 import { dayLabel } from "~~/shared/tripDay";
 import { formatDistance, heightUnitFor, heightValue, resolveDistanceUnit } from "~~/shared/trailDistance";
 import { filterItemsForPerson, type PersonSelection } from "~~/shared/people";
@@ -64,12 +65,7 @@ const NO_ITEMS: Item[] = [];
 // object. The time is the read-only twin of the editor's SyncStatus suffix: no sync
 // words (the viewer isn't writing), just the last server write via the shared
 // timeAgo(), so a share link tells the reader how fresh the list is. Ticks silently.
-const now = useNow({ interval: 30_000 });
-const editedAt = computed(() => {
-  const iso = props.list?.updatedAt;
-  const t = iso ? Date.parse(iso) : NaN;
-  return Number.isFinite(t) ? t : null;
-});
+const { editedAt, now } = useEditedAt(() => props.list?.updatedAt);
 
 // The route this list was packed for. Lives here rather than in either page's #head
 // slot so /s and /l both get it — /l overrides only the heading block.
@@ -115,11 +111,11 @@ const climbs = computed(() =>
     props.list?.trailAscentM,
   ),
 );
+// a typed climb wins over the derived one, and a day with no distance has no share of
+// the route to climb — the same rule the editor's plan panel reads (shownHeightM)
 const climbFor = (i: number) =>
-  days.value[i]?.ascentM ?? (days.value[i]?.distanceM != null ? climbs.value[i]?.ascentM : undefined);
-const routeM = computed(() =>
-  Math.max(props.list?.trailDistanceM ?? 0, dayDistancesM.value.reduce((s, d) => s + d, 0)),
-);
+  shownHeightM(days.value[i]?.ascentM, days.value[i]?.distanceM, climbs.value[i]?.ascentM);
+const routeM = computed(() => routeLengthM(props.list?.trailDistanceM, days.value));
 // Nothing to show is nothing to draw — a list with no days and no route keeps the shape
 // it had before any of this existed.
 const hasTrip = computed(() => days.value.length > 0 || profile.value.length > 0);
@@ -317,7 +313,7 @@ const asHeight = (m: number) => {
   align-items: center;
   gap: var(--space-2);
   color: var(--ink-3);
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
 }
 /* One step up from the rest of the line's ink: a name is content, where "edited 3m ago"
    is status. Still quiet enough to sit under the title without competing with it. */
@@ -346,7 +342,7 @@ const asHeight = (m: number) => {
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-1) var(--space-4);
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
 }
 /* the trail link. The mark identifies the site and the full destination rides on the
    anchor's title attribute, so the hostname isn't repeated in the text. It's the piece
@@ -381,11 +377,6 @@ const asHeight = (m: number) => {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* read views are denser than the editor (no add-item row or controls per folder),
-   so the inter-folder gap is a step tighter here (space-6, vs the editor's space-7)
-   — the list scans as one block instead of drifting apart. */
-/* The trip block. Quiet by construction — it sits between the totals and the gear, and
-   the gear is what a reader came for. */
 /* Under the toolbar, above the title, scrolling with the page. Matches .editor__modes,
    including leaning on the bar's own padding and the title's leading rather than adding
    a step of its own. */
@@ -397,7 +388,7 @@ const asHeight = (m: number) => {
 }
 .view__triph {
   margin: 0 0 var(--space-2);
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   font-weight: 600;
   letter-spacing: var(--track-tight);
   color: var(--ink-3);

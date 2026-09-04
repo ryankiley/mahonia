@@ -241,19 +241,6 @@ function frame() {
 }
 
 /**
- * A Hugeicon as an SVG STRING.
- *
- * Leaflet's divIcon takes HTML, not a component, so the glyph can't be rendered by
- * <HugeiconsIcon> the way it is everywhere else in the app — it has to be serialised. The
- * icon data is a plain `[tag, attrs][]` array from the bundled package, which is why this
- * is a dozen lines rather than a dependency.
- *
- * The per-path `stroke-width` is DROPPED and set once on the <svg>. The set draws in a
- * 24-unit box at 1.5, which scales to a 0.7px hairline at pin size — invisible against
- * contour lines. Setting it here lets the paths inherit a weight chosen for the size
- * they're actually drawn at.
- */
-/**
  * The drop. Big enough to hold a legible glyph, small enough not to bury the terrain.
  *
  * 22px was sized for a coloured disc, where the fill did the finding and the glyph was a
@@ -301,6 +288,19 @@ const TRACE_PX = 12;
 const PIN_TIP_PX = PIN_PX / 2 + (PIN_PX * Math.SQRT2) / 2;
 const PIN_GLYPH_PX = 17;
 const PIN_GLYPH_STROKE = 2;
+/**
+ * A Hugeicon as an SVG STRING.
+ *
+ * Leaflet's divIcon takes HTML, not a component, so the glyph can't be rendered by
+ * <HugeiconsIcon> the way it is everywhere else in the app — it has to be serialised. The
+ * icon data is a plain `[tag, attrs][]` array from the bundled package, which is why this
+ * is a dozen lines rather than a dependency.
+ *
+ * The per-path `stroke-width` is DROPPED and set once on the <svg>. The set draws in a
+ * 24-unit box at 1.5, which scales to a 0.7px hairline at pin size — invisible against
+ * contour lines. Setting it here lets the paths inherit a weight chosen for the size
+ * they're actually drawn at.
+ */
 function iconSvg(icon: IconNode): string {
   const body = icon
     .map(([tag, attrs]) => {
@@ -457,15 +457,6 @@ function endLift() {
   l.commit(l.alongM);
 }
 
-/**
- * Draw the pins.
- *
- * A waypoint stores only a DISTANCE, so its position is walked out of the polyline here —
- * which is the whole reason no coordinate is ever stored for one.
- *
- * The label goes on with textContent, never into the divIcon's html. That html is set as
- * innerHTML, and a label is text somebody typed on a list anyone with the link can open.
- */
 /** The day-boundary handles. Same lift gesture as a pin, a different thing to commit. */
 function renderBounds() {
   if (!map || !L) return;
@@ -479,7 +470,9 @@ function renderBounds() {
     const marker = L.marker([at.lat, at.lon], {
       keyboard: false,
       icon: L.divIcon({
-        className: "routemap__bound",
+        // the dark waypoint drop, exactly — the CSS has one pin recipe, and a
+        // boundary differs from a placed camp only in what a grab commits
+        className: "routemap__pin routemap__pin--dark routemap__bound",
         html: `<i>${iconSvg(camp.icon)}</i>`,
         iconSize: [PIN_PX, PIN_PX],
         // the tip, as a waypoint's is — the point is the metre of route it marks
@@ -576,6 +569,15 @@ function renderFinish() {
   }).addTo(map);
 }
 
+/**
+ * Draw the pins.
+ *
+ * A waypoint stores only a DISTANCE, so its position is walked out of the polyline here —
+ * which is the whole reason no coordinate is ever stored for one.
+ *
+ * The label goes on with textContent, never into the divIcon's html. That html is set as
+ * innerHTML, and a label is text somebody typed on a list anyone with the link can open.
+ */
 function renderPins() {
   if (!map || !L) return;
   for (const m of pins) m.remove();
@@ -918,8 +920,6 @@ async function draw() {
     // — which is `onWheel` below, because Leaflet's own handler has no modifier gate: it
     // is all scrolls or none. Off here, ours there.
     scrollWheelZoom: false,
-    zoomControl: true,
-    attributionControl: true,
   });
 
   // The caption under the map promised this and nothing delivered it: with Leaflet's
@@ -1025,7 +1025,7 @@ watch(() => props.finishM, renderFinish);
 // with — a re-added pin would otherwise paint over it
 watch(() => props.waypoints, () => { renderPins(); renderFinish(); }, { deep: true });
 
-watch(boundaries, renderBounds, { deep: true });
+watch(boundaries, renderBounds);
 
 watch(dayLegs, renderLegs);
 
@@ -1142,6 +1142,8 @@ onBeforeUnmount(() => {
   // declaration, no parallel `--map-*` token set to keep in sync. This is the single
   // thing most likely to look right in development and break for every dark-mode user.
   color-scheme: light;
+  // one place for the expand duration the script also counts on
+  --dur-map-expand: 260ms;
 }
 
 .routemap__canvas {
@@ -1158,12 +1160,18 @@ onBeforeUnmount(() => {
   // popovers and dialogs rather than letting a tile pane sit over a menu.
   z-index: 0;
   isolation: isolate;
+  flex: 1;
+  min-width: 0;
 }
 
 // the anchor for anything drawn OVER the map — never the figure, which is taller
 .routemap__frame {
   position: relative;
   display: flex;
+  // The clip is what animates. See setExpanded: the frame is full size from the first
+  // frame, so Leaflet is measured once and only the window onto it moves.
+  // reduced-motion is handled by the global duration kill-switch (main.scss)
+  transition: clip-path var(--dur-map-expand) cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 /* EXPANDED: the FRAME takes the window, and the figure stays exactly where it was.
@@ -1182,28 +1190,12 @@ onBeforeUnmount(() => {
   height: auto;
 }
 
-/* The clip is what animates. See setExpanded: the frame is full size from the first frame,
-   so Leaflet is measured once and only the window onto it moves. */
-.routemap__frame {
-  // reduced-motion is handled by the global duration kill-switch (main.scss)
-  transition: clip-path var(--dur-map-expand) cubic-bezier(0.32, 0.72, 0, 1);
-}
-.routemap {
-  // one place for the duration the script also counts on
-  --dur-map-expand: 260ms;
-}
-.routemap__canvas {
-  flex: 1;
-  min-width: 0;
-}
 /* the caption is a footnote at strip size and a distraction at window size — the gesture
    it names still works, and by now you have used it */
 .routemap.is-expanded .routemap__note {
   display: none;
 }
 
-/* The expanded map's own controls, floating over the terrain rather than pushing it down:
-   the point of expanding is the map being big. */
 /* The popup's own controls, kept plain — it is a name and a delete, over terrain. */
 .routemap__wp {
   display: flex;
@@ -1252,6 +1244,8 @@ onBeforeUnmount(() => {
 }
 
 /* see the template for why this corner */
+/* The expand control floats over the terrain rather than pushing it down: the point of
+   expanding is the map being big. */
 .routemap__expand {
   position: absolute;
   right: var(--space-2);
@@ -1378,8 +1372,7 @@ onBeforeUnmount(() => {
 // press, which is the only thing a hover on a 30px target is asked. Smaller than the
 // lifted state below, so picking one up still reads as a further step and not as more of
 // the same.
-.routemap__pin:hover i,
-.routemap__bound:hover i {
+.routemap__pin:hover i {
   scale: 1.15;
 }
 .routemap__pin.is-lifted i {
@@ -1387,6 +1380,10 @@ onBeforeUnmount(() => {
   box-shadow: -2px 2px 8px #0000008c;
 }
 .routemap__pin {
+  // Leaflet's divIcon ships a white box with a border; both are cleared or every pin
+  // renders inside a little card.
+  background: none;
+  border: 0;
   cursor: grab;
   // BROWSER scrolling only — Leaflet pans with its own JS handlers, so a drag that starts
   // on a pin still moves the map. What this stops is the page scrolling out from under a
@@ -1397,46 +1394,10 @@ onBeforeUnmount(() => {
   cursor: grabbing;
 }
 
-/* A DAY BOUNDARY. Wears a tent, because that is what the end of a day is, and reads as a
-   control rather than as data: paper-filled with an ink edge, where a waypoint is a solid
-   category hue. One says "somebody put this here", the other says "your itinerary says
-   this". Same lift gesture either way. */
-.routemap__bound {
-  background: none;
-  border: 0;
-  cursor: grab;
-  touch-action: none;
-}
-// THE SAME DROP AS A WAYPOINT, because on the map it is one: the end of a day is a camp,
-// and a reader shouldn't have to know which of these the itinerary drew and which somebody
-// placed. What still separates them is the glyph's ink — a boundary is the itinerary
-// talking, so it takes ink where a placed pin takes its category's hue.
-.routemap__bound i {
-  display: grid;
-  place-items: center;
-  width: 100%;
-  height: 100%;
-  background: #1c1c1c;
-  color: #fff;
-  position: relative;
-  border-radius: 50% 50% 50% 0;
-  rotate: -45deg;
-  box-shadow: -1px 1px 3px #00000059;
-  transition:
-    scale var(--dur) var(--ease),
-    box-shadow var(--dur) var(--ease);
-}
-// the same seat the waypoints wear — a camp is the same kind of mark on the map, so it
-// gets the same construction and differs only by the ink of its glyph
-.routemap__bound i::before {
-  content: "";
-  position: absolute;
-  inset: 14%;
-  border-radius: 50%;
-  background: #333;
-}
-
-/* INVERTED: the itinerary's own marks, and the route's two ends.
+/* INVERTED: the itinerary's own marks (a DAY BOUNDARY wears a tent, because that is what
+   the end of a day is — the same drop as a waypoint, since on the map it is one: a reader
+   shouldn't have to know which camp the itinerary drew and which somebody placed), and
+   the route's two ends.
    A white drop with a coloured glyph says "one of the things you will pass" — water, a
    landmark, a kind of place. These are not that. A camp is where the plan puts you and the
    ends are where the route begins and stops, and both are statements the ROUTE makes rather
@@ -1450,24 +1411,6 @@ onBeforeUnmount(() => {
 }
 .routemap__pin--dark i::before {
   background: #333;
-}
-.routemap__bound i > svg {
-  // over the seat, not under it — see the waypoint pin for why this has to be positioned
-  position: relative;
-  rotate: 45deg;
-}
-.routemap__bound.is-lifted i {
-  scale: 1.35;
-  box-shadow: -2px 2px 8px #0000008c;
-}
-.routemap__bound.is-lifted {
-  cursor: grabbing;
-}
-// Leaflet's divIcon ships a white box with a border; both are cleared or every pin
-// renders inside a little card.
-.routemap__pin {
-  background: none;
-  border: 0;
 }
 
 /* THE CHART'S CURSOR, ON THE GROUND.

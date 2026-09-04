@@ -1,21 +1,19 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { ChartAverageIcon, ChevronDownIcon, CircleXIcon, Clock01Icon, Delete02Icon, Edit02Icon, FolderIcon, GripVerticalIcon, ShirtIcon, SortingAZ01Icon, SortingNineOneIcon, SortingOneNineIcon, UndoIcon } from "@hugeicons/core-free-icons";
+import { ChartAverageIcon, ChevronDownIcon, CircleXIcon, Clock01Icon, Delete02Icon, FolderIcon, GripVerticalIcon, SortingAZ01Icon, SortingNineOneIcon, SortingOneNineIcon, UndoIcon } from "@hugeicons/core-free-icons";
 import type { Unit } from "~~/shared/types";
 import { UNITS } from "~~/shared/types";
 import type { VaultEntry, VaultFolder } from "~~/shared/vault";
-import { formatKcal, formatWeight, itemDisplayName, parseWeightInput } from "~~/shared/weights";
+import { formatWeight, itemDisplayName, parseWeightInput } from "~~/shared/weights";
 import {
   filterVaultRows,
   groupVaultRows,
   searchVaultRows,
   sortVaultRows,
-  type VaultSection,
   type VaultShow,
   type VaultView,
 } from "~~/shared/vaultView";
 import { WEIGHT_UNIT_OPTIONS } from "~/utils/unitOptions";
-import { consumableIcon } from "~/utils/itemMarks";
 
 // "My Gear" — every piece of gear you've put in a list, in one place, so building
 // the next list is picking rather than retyping. That's the name the chrome uses
@@ -131,10 +129,14 @@ const filtered = computed(() =>
 );
 // A chosen order flattens, and so does a search — see groupVaultRows for why.
 const flat = computed(() => view.value !== "folders" || !!query.value.trim());
-const grouped = computed<VaultSection[]>(() =>
-  flat.value
+// Each section carries its key (the overlay count's and the add row's handle) and
+// its destination folder id once, rather than the template re-deriving both from
+// `folder` a handful of times per section per render.
+const grouped = computed(() =>
+  (flat.value
     ? []
-    : groupVaultRows(filtered.value, folders.value, { keepEmpty: show.value === "all" }),
+    : groupVaultRows(filtered.value, folders.value, { keepEmpty: show.value === "all" })
+  ).map((s) => ({ ...s, key: s.folder ? String(s.folder.id) : "unfiled", folderId: s.folder?.id ?? null })),
 );
 const narrowed = computed(() => filtered.value.length !== items.value.length);
 
@@ -182,7 +184,6 @@ const overlays = ref<Record<string, number>>({});
 function onOverlayToggle(key: string, open: boolean) {
   overlays.value[key] = Math.max(0, (overlays.value[key] ?? 0) + (open ? 1 : -1));
 }
-const sectionKey = (s: VaultSection) => (s.folder ? String(s.folder.id) : "unfiled");
 
 // Every folder change goes through the one ops route, then reloads — a vault is a
 // hundred rows and one small read, so re-reading is simpler and never leaves the
@@ -203,7 +204,7 @@ async function folderOp(op: Record<string, unknown>) {
 const draggingFolder = ref<number | null>(null);
 const folderDrop = ref<number | null>(null);
 const folderDrag = createPointerDrag<number>({
-  track(ev, el) {
+  track(_ev, el) {
     const over = el?.closest("[data-gear-folder]") as HTMLElement | null;
     const id = Number(over?.getAttribute("data-gear-folder"));
     // above the first / below the last, or over the unfiled heading (which has no
@@ -245,7 +246,7 @@ const draggingItem = ref<number | null>(null);
 // number = a folder, null = unfiled, undefined = not over a drop target
 const itemDrop = ref<number | null | undefined>(undefined);
 const itemDrag = createPointerDrag<number | null>({
-  track(ev, el) {
+  track(_ev, el) {
     const over = el?.closest("[data-gear-folder]") as HTMLElement | null;
     // off every section (the page margins, the header) — hold the last target so a
     // wobble mid-drag doesn't drop the indicator
@@ -352,9 +353,23 @@ function closeAdd() {
   addName.value = "";
   addWeight.value = "";
 }
-async function commitAdd(folderId: number | null) {
+// One binding for the three seats an add row can open in — a folder's foot, the
+// flat list's foot, the empty page — which differ only in where they sit: the
+// destination is whichever seat is open (addingIn), not a per-seat argument.
+const addRowBind = computed(() => ({
+  name: addName.value,
+  "onUpdate:name": (v: string) => (addName.value = v),
+  weight: addWeight.value,
+  "onUpdate:weight": (v: string) => (addWeight.value = v),
+  unit: unit.value,
+  busy: addBusy.value,
+  onSubmit: commitAdd,
+  onDone: closeAdd,
+}));
+async function commitAdd() {
   const name = addName.value.trim();
   if (!name || addBusy.value) return;
+  const folderId = addingIn.value === "unfiled" || addingIn.value == null ? null : Number(addingIn.value);
   const raw = addWeight.value.trim();
   const weightMg = raw ? parseWeightInput(raw, unit.value) : 0;
   if (weightMg == null) {
@@ -509,9 +524,6 @@ const folderOptions = computed(() => [
   { key: "", label: "Unfiled" },
   ...folders.value.map((f) => ({ key: String(f.id), label: f.name })),
 ]);
-// Calories, gated on the class exactly as computeTotals gates them — so what the row
-// shows is what a list would count, rather than a number the totals ignore.
-const rowKcal = (e: VaultEntry) => (e.classification === "consumable" && e.kcal ? e.kcal : 0);
 </script>
 
 <template>
@@ -645,65 +657,17 @@ const rowKcal = (e: VaultEntry) => (e.classification === "consumable" && e.kcal 
                  a folder already owns an order of its own, and two authorities over
                  the same rows is what makes "heaviest" mean nothing. -->
             <ul v-if="flat" class="vault__list">
-              <li v-for="entry in filtered" :key="entry.id" class="vault__row">
-                <div class="gear__main">
-                  <p class="gear__name">
-                    <span v-if="entry.brand" class="gear__brand">{{ entry.brand }}</span>
-                    <span>{{ entry.name }}</span>
-                    <span v-if="entry.variant" class="gear__variant"><span class="sep">·</span> {{ entry.variant }}</span>
-                  </p>
-                  <p v-if="entry.commonName || rowKcal(entry)" class="t-sm t-muted vault__meta">
-                    <span v-if="entry.commonName">{{ entry.commonName }}</span
-                    ><span v-if="entry.commonName && rowKcal(entry)" class="sep"> · </span
-                    ><span v-if="rowKcal(entry)">{{ formatKcal(rowKcal(entry)) }} kcal</span>
-                  </p>
-                </div>
-                <span class="t-num vault__weight">{{ weightLabel(entry.weightMg) }}</span>
-                <span class="vault__cls">
-                  <span v-if="entry.classification === 'worn'" class="item__mark item__mark--static" title="Worn">
-                    <HugeiconsIcon :icon="ShirtIcon" :size="16" :stroke-width="2" aria-hidden="true" />
-                    <span class="visually-hidden">Worn</span>
-                  </span>
-                  <span v-else-if="entry.classification === 'consumable'" class="item__mark item__mark--static" title="Consumable">
-                    <HugeiconsIcon :icon="consumableIcon(entry.name)" :size="16" :stroke-width="2" aria-hidden="true" />
-                    <span class="visually-hidden">Consumable</span>
-                  </span>
-                </span>
-                <div class="vault__actions">
-                  <button
-                    type="button"
-                    class="btn btn--icon btn--ghost vault__act"
-                    :title="`Edit ${itemDisplayName(entry.brand, entry.name, entry.variant)}`"
-                    :aria-label="`Edit ${itemDisplayName(entry.brand, entry.name, entry.variant)}`"
-                    @click="openEdit(entry)"
-                  >
-                    <HugeiconsIcon :icon="Edit02Icon" :size="16" :stroke-width="2" aria-hidden="true" />
-                  </button>
-                  <OptionMenu
-                    class="vault__movewrap"
-                    trigger-class="btn btn--icon btn--ghost"
-                    :options="folderOptions"
-                    :current="String(entry.folderId ?? '')"
-                    :label="`Folder for ${itemDisplayName(entry.brand, entry.name, entry.variant)}`"
-                    :title="`Move ${itemDisplayName(entry.brand, entry.name, entry.variant)} to a folder`"
-                    @pick="(k) => folderOp({ t: 'move', itemId: entry.id, folderId: k ? Number(k) : null })"
-                  >
-                    <template #trigger>
-                      <HugeiconsIcon :icon="FolderIcon" class="vault__moveicon" :size="16" :stroke-width="2" aria-hidden="true" />
-                    </template>
-                  </OptionMenu>
-                  <button
-                    type="button"
-                    class="btn btn--icon btn--ghost vault__act"
-                    :disabled="removing === entry.id"
-                    :title="`Remove ${itemDisplayName(entry.brand, entry.name, entry.variant)}`"
-                    :aria-label="`Remove ${itemDisplayName(entry.brand, entry.name, entry.variant)} from My Gear`"
-                    @click="remove(entry)"
-                  >
-                    <HugeiconsIcon :icon="Delete02Icon" :size="16" aria-hidden="true" :stroke-width="2" />
-                  </button>
-                </div>
-              </li>
+              <VaultGearRow
+                v-for="entry in filtered"
+                :key="entry.id"
+                :entry="entry"
+                :unit="unit"
+                :folder-options="folderOptions"
+                :removing="removing === entry.id"
+                @edit="openEdit(entry)"
+                @remove="remove(entry)"
+                @move="(folderId) => folderOp({ t: 'move', itemId: entry.id, folderId })"
+              />
             </ul>
 
             <!-- FOLDERS. The editor's folder, class for class — the header grid, the
@@ -713,15 +677,12 @@ const rowKcal = (e: VaultEntry) => (e.classification === "consumable" && e.kcal 
             <template v-else>
               <section
                 v-for="section in grouped"
-                :key="sectionKey(section)"
+                :key="section.key"
                 class="folder"
                 :class="{
                   'folder--dragging': section.folder && draggingFolder === section.folder.id,
                   'folder--drop-before': section.folder && draggingFolder !== null && folderDrop === section.folder.id,
-                  'folder--drop-into':
-                    draggingItem !== null &&
-                    itemDrop !== undefined &&
-                    itemDrop === (section.folder ? section.folder.id : null),
+                  'folder--drop-into': draggingItem !== null && itemDrop !== undefined && itemDrop === section.folderId,
                 }"
                 :data-gear-folder="section.folder ? section.folder.id : ''"
                 :data-collapsed="section.folder && collapsed[section.folder.id] ? true : null"
@@ -786,97 +747,26 @@ const rowKcal = (e: VaultEntry) => (e.classification === "consumable" && e.kcal 
                 <div class="folder__body">
                   <div
                     class="folder__bodyinner"
-                    :class="{ 'is-overlay-open': (overlays[sectionKey(section)] ?? 0) > 0 }"
+                    :class="{ 'is-overlay-open': (overlays[section.key] ?? 0) > 0 }"
                   >
                     <ul v-if="section.entries.length" class="vault__list">
-                      <li
+                      <!-- the row is the drag handle (rowPress arms a hold, then
+                           itemDrag takes over) — the listener falls through to the
+                           row's root -->
+                      <VaultGearRow
                         v-for="entry in section.entries"
                         :key="entry.id"
-                        class="vault__row"
-                        :class="{ 'vault__row--dragging': draggingItem === entry.id }"
+                        :entry="entry"
+                        :unit="unit"
+                        :folder-options="folderOptions"
+                        :removing="removing === entry.id"
+                        :dragging="draggingItem === entry.id"
                         @pointerdown="rowPress.start(entry.id, $event)"
-                      >
-                        <div class="gear__main">
-                          <p class="gear__name">
-                            <span v-if="entry.brand" class="gear__brand">{{ entry.brand }}</span>
-                            <span>{{ entry.name }}</span>
-                            <span v-if="entry.variant" class="gear__variant"><span class="sep">·</span> {{ entry.variant }}</span>
-                          </p>
-                          <!-- the sub-line: the gear type, with the calories trailing
-                               it for food. kcal is stored on every row that ever had
-                               one, but only counted on a consumable — so only a
-                               consumable shows it. -->
-                          <p v-if="entry.commonName || rowKcal(entry)" class="t-sm t-muted vault__meta">
-                            <span v-if="entry.commonName">{{ entry.commonName }}</span
-                            ><span v-if="entry.commonName && rowKcal(entry)" class="sep"> · </span
-                            ><span v-if="rowKcal(entry)">{{ formatKcal(rowKcal(entry)) }} kcal</span>
-                          </p>
-                        </div>
-                        <span class="t-num vault__weight">{{ weightLabel(entry.weightMg) }}</span>
-                        <!-- the editor's own marks, in a fixed column whether or not
-                             the row carries one — an auto column would size to the
-                             count and steal a different amount from the name on every
-                             row (the reason --item-col-actions is fixed too) -->
-                        <span class="vault__cls">
-                          <span v-if="entry.classification === 'worn'" class="item__mark item__mark--static" title="Worn">
-                            <HugeiconsIcon :icon="ShirtIcon" :size="16" :stroke-width="2" aria-hidden="true" />
-                            <span class="visually-hidden">Worn</span>
-                          </span>
-                          <span v-else-if="entry.classification === 'consumable'" class="item__mark item__mark--static" title="Consumable">
-                            <HugeiconsIcon :icon="consumableIcon(entry.name)" :size="16" :stroke-width="2" aria-hidden="true" />
-                            <span class="visually-hidden">Consumable</span>
-                          </span>
-                        </span>
-                        <div class="vault__actions">
-                          <!-- Edit, first in the cluster: the trailing icons are
-                               right-aligned, so the new one takes the open edge and
-                               the two you already know don't move — and it puts the
-                               destructive control furthest from the new arrival. -->
-                          <button
-                            type="button"
-                            class="btn btn--icon btn--ghost vault__act"
-                            :title="`Edit ${itemDisplayName(entry.brand, entry.name, entry.variant)}`"
-                            :aria-label="`Edit ${itemDisplayName(entry.brand, entry.name, entry.variant)}`"
-                            @click="openEdit(entry)"
-                          >
-                            <HugeiconsIcon :icon="Edit02Icon" :size="16" :stroke-width="2" aria-hidden="true" />
-                          </button>
-                          <!-- Move-to-folder: a quiet glyph opening the app's own
-                               picker. It used to render the folder's NAME on every
-                               row, which under a "Cook kit" heading meant every row
-                               repeating "Cook kit"; the heading already says where you
-                               are. The picker still names every destination when you
-                               open it, and it's the keyboard and touch path for
-                               moving gear. -->
-                          <OptionMenu
-                            class="vault__movewrap"
-                            trigger-class="btn btn--icon btn--ghost"
-                            :options="folderOptions"
-                            :current="String(entry.folderId ?? '')"
-                            :label="`Folder for ${itemDisplayName(entry.brand, entry.name, entry.variant)}`"
-                            :title="`Move ${itemDisplayName(entry.brand, entry.name, entry.variant)} to a folder`"
-                            @overlay-toggle="(o) => onOverlayToggle(sectionKey(section), o)"
-                            @pick="(k) => folderOp({ t: 'move', itemId: entry.id, folderId: k ? Number(k) : null })"
-                          >
-                            <template #trigger>
-                              <HugeiconsIcon :icon="FolderIcon" class="vault__moveicon" :size="16" :stroke-width="2" aria-hidden="true" />
-                            </template>
-                          </OptionMenu>
-                          <!-- glyph only, like every other row action on the site: the
-                               word was the widest thing in the row and said what the
-                               bin already says. The label lives on aria-label + title. -->
-                          <button
-                            type="button"
-                            class="btn btn--icon btn--ghost vault__act"
-                            :disabled="removing === entry.id"
-                            :title="`Remove ${itemDisplayName(entry.brand, entry.name, entry.variant)}`"
-                            :aria-label="`Remove ${itemDisplayName(entry.brand, entry.name, entry.variant)} from My Gear`"
-                            @click="remove(entry)"
-                          >
-                            <HugeiconsIcon :icon="Delete02Icon" :size="16" aria-hidden="true" :stroke-width="2" />
-                          </button>
-                        </div>
-                      </li>
+                        @edit="openEdit(entry)"
+                        @remove="remove(entry)"
+                        @move="(folderId) => folderOp({ t: 'move', itemId: entry.id, folderId })"
+                        @overlay-toggle="(o) => onOverlayToggle(section.key, o)"
+                      />
                     </ul>
 
                     <!-- the add row IS the destination: press it and what you type
@@ -884,21 +774,12 @@ const rowKcal = (e: VaultEntry) => (e.classification === "consumable" && e.kcal 
                          (FolderRows) — the rule line above it, dropped when it's the
                          folder's first row. -->
                     <div class="vault__add" :class="{ 'vault__add--first': !section.entries.length }">
-                      <VaultAddRow
-                        v-if="addingIn === sectionKey(section)"
-                        ref="addRow"
-                        v-model:name="addName"
-                        v-model:weight="addWeight"
-                        :unit="unit"
-                        :busy="addBusy"
-                        @submit="commitAdd(section.folder ? section.folder.id : null)"
-                        @done="closeAdd"
-                      />
+                      <VaultAddRow v-if="addingIn === section.key" ref="addRow" v-bind="addRowBind" />
                       <button
                         v-else
                         type="button"
                         class="folder__addbtn"
-                        @click="openAdd(section.folder ? section.folder.id : null)"
+                        @click="openAdd(section.folderId)"
                       >
                         Add gear
                       </button>
@@ -933,16 +814,7 @@ const rowKcal = (e: VaultEntry) => (e.classification === "consumable" && e.kcal 
             <!-- a flat view has no folder to hang an add row off, so it gets one at
                  the foot. Unfiled, because there is no destination on screen to mean. -->
             <div v-if="flat && !query" class="vault__add vault__add--flat">
-              <VaultAddRow
-                v-if="addingIn === 'unfiled'"
-                ref="addRow"
-                v-model:name="addName"
-                v-model:weight="addWeight"
-                :unit="unit"
-                :busy="addBusy"
-                @submit="commitAdd(null)"
-                @done="closeAdd"
-              />
+              <VaultAddRow v-if="addingIn === 'unfiled'" ref="addRow" v-bind="addRowBind" />
               <button v-else type="button" class="folder__addbtn" @click="openAdd(null)">Add gear</button>
             </div>
           </template>
@@ -956,16 +828,7 @@ const rowKcal = (e: VaultEntry) => (e.classification === "consumable" && e.kcal 
               Nothing here yet. Add a piece of gear, or build a list and it’ll collect
               itself here.
             </p>
-            <VaultAddRow
-              v-if="addingIn === 'unfiled'"
-              ref="addRow"
-              v-model:name="addName"
-              v-model:weight="addWeight"
-              :unit="unit"
-              :busy="addBusy"
-              @submit="commitAdd(null)"
-              @done="closeAdd"
-            />
+            <VaultAddRow v-if="addingIn === 'unfiled'" ref="addRow" v-bind="addRowBind" />
             <div v-else class="vault__emptyacts">
               <button type="button" class="btn btn--primary" @click="openAdd(null)">Add gear</button>
               <NuxtLink to="/e" class="btn btn--ghost">Create a list</NuxtLink>
@@ -993,26 +856,15 @@ const rowKcal = (e: VaultEntry) => (e.classification === "consumable" && e.kcal 
                 still in a list. Put a piece back and it's yours again.
               </p>
               <ul class="vault__list">
-                <li v-for="entry in removed" :key="entry.id" class="vault__row">
-                  <div class="gear__main">
-                    <p class="gear__name">
-                      <span v-if="entry.brand" class="gear__brand">{{ entry.brand }}</span>
-                      <span>{{ entry.name }}</span>
-                      <span v-if="entry.variant" class="gear__variant"><span class="sep">·</span> {{ entry.variant }}</span>
-                    </p>
-                    <p v-if="entry.commonName" class="t-sm t-muted vault__meta">{{ entry.commonName }}</p>
-                  </div>
-                  <span class="t-num vault__weight">{{ weightLabel(entry.weightMg) }}</span>
-                  <button
-                    type="button"
-                    class="btn btn--quiet vault__act"
-                    :disabled="restoring === entry.id"
-                    :aria-label="`Put ${itemDisplayName(entry.brand, entry.name, entry.variant)} back in My Gear`"
-                    @click="putBack(entry)"
-                  >
-                    <HugeiconsIcon :icon="UndoIcon" :size="14" aria-hidden="true" :stroke-width="2" /> Put back
-                  </button>
-                </li>
+                <VaultGearRow
+                  v-for="entry in removed"
+                  :key="entry.id"
+                  :entry="entry"
+                  :unit="unit"
+                  removed
+                  :restoring="restoring === entry.id"
+                  @put-back="putBack(entry)"
+                />
               </ul>
             </div>
           </div>
@@ -1178,79 +1030,13 @@ const rowKcal = (e: VaultEntry) => (e.classification === "consumable" && e.kcal 
 }
 
 /* --- the rows --- */
-/* de-outlined rows, separated by hairlines */
+/* the row itself (name cell, weight, marks, the action cluster, and its mobile
+   stack) is VaultGearRow — one component for the flat list, the folders and the
+   removed seat; this page only lays the rows out and dims the removed ones */
 .vault__list {
   list-style: none;
   display: flex;
   flex-direction: column;
-}
-.vault__row {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-4);
-  /* The editor's own item rhythm, to the pixel: .folder__items > * at --space-2.
-     The anchor this used to cite ("Your lists", --space-4) is a page that no longer
-     exists, and the reference that survives is the editor's, because these ARE that
-     row on another surface — a name, a weight, a class mark, trailing icon buttons,
-     hairlines between. Matching it exactly is also what makes the gap under a folder
-     name the same here as it is in a list: the header's own --space-1 margin plus
-     the first row's top padding, and a looser row here made that seam visibly
-     different from the one two clicks away. */
-  padding-block: var(--space-2);
-}
-.vault__row + .vault__row {
-  border-top: 1px solid var(--line);
-}
-/* the name cell (.gear__main / .gear__name / .gear__brand / .gear__variant) comes
-   from atoms/gear.scss — shared with the gear pane, which used to hand-mirror
-   these rules. Only the page's own mobile stack below touches it. */
-.vault__weight {
-  flex: none;
-  color: var(--ink-2);
-  /* a fixed column so the weights line up down the list instead of ragging with
-     the name lengths beside them */
-  min-width: 5rem;
-  text-align: right;
-}
-/* A FIXED column whether or not the row carries a mark — an auto one would size to
-   the count and steal a different amount from the 1fr name on every row, which is
-   the same reason --item-col-actions is a fixed track.
-   FIRST LINE, not the row's middle. `align-self: center` centres a 32px chip against
-   the whole row, and a large share of these rows are two lines (a gear type, a
-   calorie count) — so the mark sat visibly below the name and weight it belongs to.
-   flex-start puts its layout box at the first line's top, and the chip's own
-   --icon-pull (atoms/item.scss) recentres the 32px picture on that 1.45rem line. */
-.vault__cls {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--icon-btn);
-  align-self: flex-start;
-}
-/* --space-1, matching .folder__actions above them: the row's controls were 16px
-   apart while the folder header's three were 4px, so the two clusters read as
-   different objects sitting in the same column.
-   flex-start + --icon-pull for the same reason .vault__cls takes them: baseline
-   alignment on a control with no text falls back to its bottom margin edge, which
-   drifts down the moment a row grows a second line. */
-.vault__actions {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  align-self: flex-start;
-  margin-block: var(--icon-pull);
-}
-/* sizing + hover come from .btn--icon .btn--ghost; only the quiet resting ink is
-   ours, matching the folder header's delete beside it */
-.vault__act {
-  flex: none;
-  color: var(--ink-3);
-  transition: color var(--dur) var(--ease);
-}
-.vault__act:hover {
-  color: var(--ink);
 }
 .vault__empty {
   display: flex;
@@ -1338,9 +1124,6 @@ const rowKcal = (e: VaultEntry) => (e.classification === "consumable" && e.kcal 
   border-radius: var(--radius-2);
   box-shadow: 0 0 0 var(--space-2) var(--paper-2);
 }
-.vault__row--dragging {
-  opacity: 0.4;
-}
 .folder--drop-before::before {
   content: "";
   position: absolute;
@@ -1357,26 +1140,6 @@ const rowKcal = (e: VaultEntry) => (e.classification === "consumable" && e.kcal 
   color: var(--ink-2);
   cursor: default;
 }
-/* the row's move-to-folder control: a glyph that shows the control exists,
-   opening the app's own picker (OptionMenu) */
-.vault__movewrap {
-  position: relative;
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--icon-btn);
-  min-height: var(--icon-btn);
-  color: var(--ink-3);
-  transition: color var(--dur) var(--ease);
-}
-.vault__movewrap:hover {
-  color: var(--ink);
-}
-.vault__moveicon {
-  pointer-events: none;
-}
-
 /* --- adding gear --- */
 /* the add row is the next row in the list rhythm: the same top padding as a row,
    plus the rule line between them, so "Add gear" lands where the next item name
@@ -1470,34 +1233,19 @@ const rowKcal = (e: VaultEntry) => (e.classification === "consumable" && e.kcal 
     opacity: 1;
   }
 }
-/* touch: the hand-rolled icon controls meet the --tap minimum like every
-   .btn--icon does (controls.scss). The clear overlays the field's end, so the
-   bigger box only extends its hit area, not the layout.
-   The row's three controls take --tap-pull, whose layout box is exactly the 1.45rem
-   text line — so enlarging the hit area for a thumb no longer stands a phone row 8px
-   taller than the same row on a desktop. */
+/* touch: the search's clear meets the --tap minimum like every .btn--icon does
+   (controls.scss). It overlays the field's end, so the bigger box only extends its
+   hit area, not the layout. (The rows' own controls do the same in VaultGearRow.) */
 @media (pointer: coarse) {
   .vault__clear {
     justify-content: center;
     min-width: var(--tap);
     min-height: var(--tap);
   }
-  .vault__movewrap {
-    width: var(--tap);
-    min-height: var(--tap);
-  }
-  /* the trailing track follows the buttons up to --tap, or the folder figures drift
-     out of the weight column again on a touch screen */
+  /* the trailing track follows the row buttons up to --tap, or the folder figures
+     drift out of the weight column again on a touch screen */
   .folder__head {
     --head-actions: calc(3 * var(--tap) + 2 * var(--space-1));
-  }
-  .vault__moveicon {
-    width: var(--icon-touch);
-    height: var(--icon-touch);
-  }
-  .vault__actions > * {
-    margin-block: var(--tap-pull);
-    align-self: center;
   }
 }
 
@@ -1510,21 +1258,6 @@ const rowKcal = (e: VaultEntry) => (e.classification === "consumable" && e.kcal 
   .vault__views {
     margin-left: 0;
     gap: var(--space-3);
-  }
-  /* name on its own line, weight + marks + controls beneath — nothing cramped */
-  .vault__row {
-    flex-wrap: wrap;
-    gap: var(--space-2);
-  }
-  .gear__main {
-    flex-basis: 100%;
-  }
-  .vault__weight {
-    min-width: 0;
-    text-align: left;
-  }
-  .vault__actions {
-    margin-left: auto;
   }
   /* three header columns don't survive 375px next to --tap buttons, so the
      subtotal takes its own line under the folder name — the way a read row's

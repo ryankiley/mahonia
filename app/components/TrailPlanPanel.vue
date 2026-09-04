@@ -9,7 +9,7 @@ import { dayColorSequence } from "~~/shared/categories";
 import { decodePolyline, formatLatLon, pointAlong } from "~~/shared/polyline";
 import { dayLabel } from "~~/shared/tripDay";
 import { isWaterName } from "~~/shared/water";
-import { lineMg, effectiveClassification, formatWeight } from "~~/shared/weights";
+import { bySortOrder, lineMg, effectiveClassification, formatWeight } from "~~/shared/weights";
 import type { BodyWeightUnit } from "~~/shared/trailDistance";
 import {
   DEFAULT_BODY_G,
@@ -37,7 +37,7 @@ const props = defineProps<{ snapshot: ListSnapshot; totals: Totals }>();
 const c = useGearList();
 const uid = useId();
 
-const stored = computed(() => [...(props.snapshot.days ?? [])].sort((a, b) => a.sortOrder - b.sortOrder));
+const stored = computed(() => [...(props.snapshot.days ?? [])].sort(bySortOrder));
 
 /**
  * The days of the trip. The DATES already say how many there are, so the itinerary takes
@@ -123,8 +123,8 @@ function ensureDay(i: number): string | null {
 }
 const distanceUnit = computed(() => resolveDistanceUnit(props.snapshot.trailDistanceUnit));
 
-const totalDistanceM = computed(() => days.value.reduce((s, d) => s + (d?.distanceM ?? 0), 0));
-// The bigger of the route's own length and what the days add up to.
+// The bigger of the route's own length and what the days add up to (routeLengthM, the
+// read view's derivation too).
 //
 // The route leads, because it says something true from the first moment rather than
 // sitting at zero until an itinerary is typed, and because the days are shares OF it —
@@ -137,9 +137,7 @@ const totalDistanceM = computed(() => days.value.reduce((s, d) => s + (d?.distan
 // list's STORED days; this sums the days the calendar currently shows. They differ on a
 // list whose date range was shortened, because the entities behind the hidden days survive
 // (see `days`) — and the chart below has to be scaled to the ground it actually draws.
-const headlineM = computed(() =>
-  Math.max(props.snapshot.trailDistanceM ?? 0, totalDistanceM.value),
-);
+const headlineM = computed(() => routeLengthM(props.snapshot.trailDistanceM, days.value));
 /**
  * The ROUTE's climb, exact.
  *
@@ -220,8 +218,8 @@ const estimates = computed(() =>
     d?.distanceM
       ? estimateDay({
           distanceM: d.distanceM,
-          ascentM: climbFor(i) ?? 0,
-          descentM: descentFor(i),
+          ascentM: climbs.value[i] ?? 0,
+          descentM: descents.value[i],
           bodyKg: bodyG.value / 1000,
           loadKg: (packMg.value[i] ?? 0) / 1e6,
         })
@@ -419,33 +417,22 @@ function onBoundary(b: { index: number; alongM: number }) {
 }
 
 /**
- * Where each day ENDS, as a row of its own — the same point the tent handle marks on the
- * map, so what you can drag up there has a line down here saying what it is and how far in.
+ * Where each day ENDS, as a row of its own — a camp (the same point the tent handle marks
+ * on the map, so what you can drag up there has a line down here saying what it is and
+ * how far in) or, for the last day, a FINISH, which is not a camp: the end of the walk is
+ * somewhere you go home from rather than sleep at.
  *
  * Derived from the itinerary, exactly as the handle is: no entity, no id, nothing stored.
- * The last day only gets one if the route runs on past it — otherwise its "camp" is the
- * end of the walk, which is somewhere you go home from rather than sleep at.
+ * On a loop that is the whole point of the finish — a loop ends at the trailhead it left,
+ * so a stored finish pin would put two markers on one coordinate, which is exactly what
+ * seedRouteEnds refuses to do. A row costs nothing and stacks nothing.
+ *
+ * Camp and finish are one decision with two answers: a day has a camp or a finish, never
+ * both and never neither — unless there is unclaimed ground after it, in which case the
+ * walk does not end there and neither mark is true. shared/tripPlan.dayEnd settles it,
+ * and is tested there; this reads the answer once per day, and the rows (which ask
+ * several times each) read this.
  */
-/**
- * Where the LAST day ends — a finish, which is not a camp.
- *
- * Every other day ends at a night and the camp row draws it. The last one ends at the end of the
- * walk, and that was the one thing this panel never said: the final day printed its figures
- * and then nothing at all, because it has no camp and frequently no pins either.
- *
- * DERIVED, like the camp beside it, rather than a stored waypoint — and on a loop that is
- * the whole point. A loop finishes at the trailhead it left, so a stored finish pin would
- * put two markers on one coordinate, which is exactly what seedRouteEnds refuses to do. A
- * ROW costs nothing and stacks nothing, and the map still carries one flag.
- *
- * Exactly complementary to the camp: a day has a camp or a finish, never both and never
- * neither — unless there is unclaimed ground after it, in which case the walk does not end
- * there and neither mark is true.
- */
-// Camp and finish are one decision with two answers — which day ends where, and
-// whether a stored end pin already says it. shared/tripPlan.dayEnd settles it, and
-// is tested there; this reads the answer once per day, and the rows (which ask
-// several times each) read this.
 const dayEnds = computed(() =>
   ranges.value.map((_, i) =>
     dayEnd({
@@ -568,13 +555,11 @@ onMounted(() => {
 function toggleDay(id: string) {
   const now = !collapsed.value[id];
   collapsed.value = { ...collapsed.value, [id]: now };
-  try {
-    if (now) localStorage.setItem(`gear.day.${id}`, "1");
-    else localStorage.removeItem(`gear.day.${id}`);
-  } catch {
-    /* not worth reporting */
-  }
+  // the reader above tests === "1", so "0" reads the same as never stored
+  remember(`gear.day.${id}`, now ? "1" : "0");
 }
+// the template asks per day, five times over; a ghost day (no id) is always open
+const isOpen = (d: { id: string } | null | undefined) => !collapsed.value[d?.id ?? ""];
 
 /**
  * Each day's climb, READ OFF the profile rather than typed — the route already knows it,
@@ -596,15 +581,18 @@ const derivedClimbs = computed(() =>
 // has a share to take. Without this a day you haven't given a distance to reads "0 ft" —
 // which is a measurement, and states flat ground where there is only an unanswered
 // question. Its distance says "—"; its climb has to agree.
-const climbFor = (i: number) =>
-  shownHeightM(days.value[i]?.ascentM, days.value[i]?.distanceM, derivedClimbs.value[i]?.ascentM);
-const climbIsDerived = (i: number) => heightIsDerived(days.value[i]?.ascentM, climbFor(i));
+// Resolved once per day (the template and the estimates each read it several times).
+const climbs = computed(() =>
+  days.value.map((d, i) => shownHeightM(d?.ascentM, d?.distanceM, derivedClimbs.value[i]?.ascentM)),
+);
+const climbIsDerived = (i: number) => heightIsDerived(days.value[i]?.ascentM, climbs.value[i]);
 // The matching descent. Nothing in the app writes TripDay.descentM — there is no field
 // for it — so without this every day fell back to estimateDay's default of "descends
 // exactly what it climbs", while the real figure sat unused in derivedClimbs one line
 // above. On a route that ends lower than it starts, that default is simply wrong.
-const descentFor = (i: number) =>
-  shownHeightM(days.value[i]?.descentM, days.value[i]?.distanceM, derivedClimbs.value[i]?.descentM);
+const descents = computed(() =>
+  days.value.map((d, i) => shownHeightM(d?.descentM, d?.distanceM, derivedClimbs.value[i]?.descentM)),
+);
 
 // One commit for both metre fields. Distance reads in the trip's km/mi; ascent is
 // a HEIGHT and reads in metres or feet, never the km/mi beside it — same parser,
@@ -831,11 +819,11 @@ const distanceValue = (m: number | undefined) => {
           <button
             type="button"
             class="plan__collapse plan__collapse--tight"
-            :aria-expanded="!collapsed[d?.id ?? '']"
-            :aria-label="`${collapsed[d?.id ?? ''] ? 'Expand' : 'Collapse'} ${dayOrdinal(i)}`"
+            :aria-expanded="isOpen(d)"
+            :aria-label="`${isOpen(d) ? 'Collapse' : 'Expand'} ${dayOrdinal(i)}`"
             @click="d && toggleDay(d.id)"
           >
-            <HugeiconsIcon :icon="ChevronDownIcon" class="plan__chev2" :class="{ 'is-collapsed': collapsed[d?.id ?? ''] }" :size="20" :stroke-width="2" />
+            <HugeiconsIcon :icon="ChevronDownIcon" class="plan__chev2" :class="{ 'is-collapsed': !isOpen(d) }" :size="20" :stroke-width="2" />
           </button>
           <button
             type="button"
@@ -850,7 +838,7 @@ const distanceValue = (m: number | undefined) => {
 
         <!-- The data reads as one line of glyph-and-figure pairs, the way an item row
              does: what you TYPE first, then what follows from it. -->
-        <div v-if="!collapsed[d?.id ?? '']" class="plan__data">
+        <div v-if="isOpen(d)" class="plan__data">
           <span class="plan__cell">
             <HugeiconsIcon :icon="RouteIcon" class="plan__gl" :size="16" :stroke-width="2" aria-hidden="true" />
             <input
@@ -879,7 +867,7 @@ const distanceValue = (m: number | undefined) => {
             <input
               class="field field--num plan__num"
               inputmode="decimal"
-              :value="ascentValue(climbFor(i))"
+              :value="ascentValue(climbs[i])"
               :aria-label="`Elevation gain on day ${i + 1}, in ${ascentUnit}`"
               placeholder="—"
               @change="commitDayMetres(d?.id ?? ensureDay(i), 'ascentM', $event)"
@@ -890,9 +878,9 @@ const distanceValue = (m: number | undefined) => {
                  what it is. The same staircase, mirrored: it climbs left-to-right, so its
                  reflection descends. One glyph for one idea, and the pair reads as a
                  matched set in a way two different arrows never did. -->
-            <span v-if="descentFor(i) != null" class="plan__drop">
+            <span v-if="descents[i] != null" class="plan__drop">
               <HugeiconsIcon :icon="Stairs01Icon" class="plan__gl plan__gl--down" :size="16" :stroke-width="2" aria-hidden="true" />
-              <span class="t-num">{{ ascentValue(descentFor(i)) }} <span class="t-muted">{{ ascentUnit }}</span></span>
+              <span class="t-num">{{ ascentValue(descents[i]) }} <span class="t-muted">{{ ascentUnit }}</span></span>
             </span>
           </span>
 
@@ -932,7 +920,7 @@ const distanceValue = (m: number | undefined) => {
              already reads "—" for exactly this reason — and an add button that could never
              produce a row under it is worse than no button at all. -->
         <div
-          v-if="!collapsed[d?.id ?? ''] && snapshot.routeGeometry && dayDistancesM[i]"
+          v-if="isOpen(d) && snapshot.routeGeometry && dayDistancesM[i]"
           class="plan__wps"
         >
           <!-- ONE list, pins and the night together, because the hairlines between them
@@ -1055,7 +1043,7 @@ const distanceValue = (m: number | undefined) => {
           title="Change unit"
           @pick="(u) => body.setUnit(u as BodyWeightUnit)"
         >
-          <template #trigger="{ open }">
+          <template #trigger>
             <span class="t-muted">{{ bodyUnit }}</span>
             <HugeiconsIcon :icon="ChevronDownIcon" :size="12" :stroke-width="2" />
           </template>
@@ -1484,13 +1472,9 @@ const distanceValue = (m: number | undefined) => {
 .daykey__dist {
   margin-inline-start: var(--space-2);
 }
-/* The .swatch atom sets a size but not a DISPLAY, and a bare span is inline — where width
-   and height do nothing at all, so the dot rendered at zero. CategoryBar carries this same
-   pair in its own file; the vertical-align is its reasoning too, and it is a length rather
-   than `middle` so the dot centres on the label's cap box instead of sitting ~1.4px low. */
+/* the dot's inline box + cap-box centring are the .swatch atom's (controls.scss);
+   only the gap to the label is this key's — the same gap CategoryBar's legend keeps */
 .daykey .swatch {
-  display: inline-block;
-  vertical-align: 0.04em;
   margin-inline-end: var(--space-2);
 }
 /* the delete column, standing empty — see the template. It still has to hold the column

@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "~/utils/hugeicon";
 import { dayColorSequence } from "~~/shared/categories";
 import {
   M_PER_UNIT,
@@ -405,7 +404,7 @@ const hover = computed(() => {
   const grade = grades.value[Math.min(i, grades.value.length - 1)] ?? 0;
   return {
     extreme,
-    x: (i / (props.profile.length - 1)) * VB_W,
+    x: x(i),
     distanceM: Math.round((i / (props.profile.length - 1)) * props.totalDistanceM),
     ele,
     grade,
@@ -583,13 +582,15 @@ const id = useId();
    grade the code has computed from the data: the shading doesn't ask you to measure the
    picture, it states a figure the picture happens to sit under. What stays banned is any
    claim the geometry alone would have to support. */
-.tprofile-wrap {
-  margin: 0;
-}
 .tprofile {
   display: block;
   width: 100%;
   height: clamp(56px, 9vw, 96px);
+  /* An SVG root clips to its viewBox by default, and a stroke is centred on its path — so
+     at x=0 and at the far right, half of every dot fell outside the box and was cut away.
+     The line looked like it came apart exactly at the two ends you can scrub to. Nothing
+     here is drawn beyond the box on purpose, so letting strokes finish is all this does. */
+  overflow: visible;
 }
 /* the ends sit hard against the mark's own edges, so each figure lines up with the
    point of the route it names rather than floating near it */
@@ -662,14 +663,8 @@ const id = useId();
   stroke-linecap: round;
   stroke-dasharray: 0 5;
 }
-/* An SVG root clips to its viewBox by default, and a stroke is centred on its path — so at
-   x=0 and at the far right, half of every dot fell outside the box and was cut away. The
-   line looked like it came apart exactly at the two ends you can scrub to. Nothing here is
-   drawn beyond the box on purpose, so letting strokes finish is all this does. */
-.tprofile {
-  overflow: visible;
-}
 .tprofile-wrap {
+  margin: 0; /* a <figure>, so the UA default has to be put down explicitly */
   position: relative;
   cursor: crosshair;
   /* HEADROOM, and it is hover area as well as space.

@@ -20,7 +20,6 @@
   .foot,
   .toast,
   .ovl,
-  .modetoggle,
   .editor__share,
   // the account control, in both shapes: the editor bar's compact icon and the
   // site bar's text link. It is a way IN to something, which a sheet of paper
@@ -95,7 +94,7 @@
   // background stripping. All three are a FILLED GROUND carrying state — strip the
   // fill and the mark is gone, not merely paler: a lit classification toggle would
   // print as the same bare glyph as an unlit one.
-  .item__box,
+  .check__box,
   .item__mark,
   .catbar__seg,
   .swatch {

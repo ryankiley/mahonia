@@ -935,16 +935,16 @@ watch(
   () => (vaultSaved.value = false),
 );
 
-// the same actions the inline icons run: the one nesting action that applies to this
-// row's state (add-nested / nest-up / un-nest), then the vault save, and last the removal — all inline on a desktop row
-// and living only here on a phone (see the mobile block: the trailing cluster is
-// ⋯ · grip, because the icons are --tap wide there and the line has no room for the
-// row's numbers beside more than two of them).
 const OVERFLOW_NEST_LABELS: Record<NestKind, string> = {
   add: "Add a nested item",
   unnest: "Un-nest",
   nestUp: "Nest under the item above",
 };
+// the same actions the inline icons run: the one nesting action that applies to this
+// row's state (add-nested / nest-up / un-nest), then the vault save, and last the removal — all inline on a desktop row
+// and living only here on a phone (see the mobile block: the trailing cluster is
+// ⋯ · grip, because the icons are --tap wide there and the line has no room for the
+// row's numbers beside more than two of them).
 const overflowActions = computed(() => {
   // `nest` marks the structure edits, which stand down while a person filter is
   // on (CSS off the body attribute — atoms/item.scss; the desktop nest menu
@@ -1053,7 +1053,7 @@ function dismissFix() {
           over a checkbox, so a control here would toggle the tick). Only their own
           claim is tagged: children of a claimed group inherit silently, or a
           six-item group would say the same name seven times.
-       --><span v-if="ownPerson" class="t-sm item__carrier"><span class="swatch item__carrier-dot" :style="{ background: personColor(ownPerson) }" aria-hidden="true" />{{ ownPerson.name }}</span><button
+       --><span v-if="ownPerson" class="t-sm item__carrier"><span class="swatch" :style="{ background: personColor(ownPerson) }" aria-hidden="true" />{{ ownPerson.name }}</span><button
           v-if="isParent"
           class="item__nestcollapse"
           :aria-expanded="!nestCollapsed"
@@ -1101,7 +1101,7 @@ function dismissFix() {
                this the one mode that can assign showed no assignment state at all.
                Desktop stays clean — the trigger's dot already says it. BEFORE the
                chevron, so all three faces read name · carrier · chevron alike. -->
-          <span v-if="ownPerson" class="t-sm item__carrier item__ecarrier"><span class="swatch item__carrier-dot" :style="{ background: personColor(ownPerson) }" aria-hidden="true" />{{ ownPerson.name }}</span>
+          <span v-if="ownPerson" class="t-sm item__carrier item__ecarrier"><span class="swatch" :style="{ background: personColor(ownPerson) }" aria-hidden="true" />{{ ownPerson.name }}</span>
           <button
             v-if="isParent"
             class="item__nestcollapse"
@@ -1883,58 +1883,12 @@ function dismissFix() {
      list jump on every toggle. */
   min-height: var(--field-h);
 }
-/* checkbox — drawn by the icon set now: Square (empty) under SquareCheck (checked),
-   the same glyph as the header's packing toggle, stacked in one grid cell. The two
-   share an identical outer square, so the checked icon fading in reads as the tick
-   appearing inside the standing box. 20px — a step up from the old 18px drawn box;
-   the icons pin their stroke at ~1.33px (absolute-stroke-width) so the bigger box
-   keeps the same line weight the surrounding 16px icons render. */
-.item__boxwrap {
-  position: relative;
-  align-self: center;
-  width: 20px;
-  height: 20px;
-  flex: none;
-  display: grid;
-  place-content: center;
-}
-/* the real control, stretched over the icons: invisible (appearance:none draws nothing)
-   but hoverable, clickable and focusable, so the native focus ring lands on the box */
-.item__box {
-  position: absolute;
-  inset: 0;
-  appearance: none;
-  margin: 0;
-  border-radius: 4px;
-  cursor: pointer;
-}
-.item__boxicon {
-  grid-area: 1 / 1;
-  pointer-events: none;
-  color: var(--ink-3);
-  transition: color var(--dur) var(--ease);
-}
-.item__boxwrap:hover .item__boxicon {
+/* the checkbox is the shared .check atom (atoms/controls.scss): the real <input>
+   stretched invisibly over two stacked icons, Square under SquareCheck — the same
+   glyph as the header's packing toggle. Only the row's hover darkening is local:
+   pointing at the box lifts the icon to full ink for feedback. */
+.item--check .check:hover .check__icon {
   color: var(--ink);
-}
-/* the checked glyph pops in with the springy overshoot the old drawn tick had
-   (SPACE10's easeOutBack); scale starts at .5 — not 0 — so its square lands on the
-   standing one instead of visibly growing a second box */
-.item__boxicon--check {
-  opacity: 0;
-  color: var(--ink);
-  transform: scale(0.5);
-  transition:
-    transform var(--dur) var(--ease-spring),
-    opacity calc(var(--dur) * 0.6) var(--ease);
-}
-.item__box:checked ~ .item__boxicon--empty {
-  opacity: 0;
-  transition: opacity calc(var(--dur) * 0.6) var(--ease);
-}
-.item__box:checked ~ .item__boxicon--check {
-  opacity: 1;
-  transform: scale(1);
 }
 .item__cname {
   min-width: 0;
@@ -1959,7 +1913,6 @@ function dismissFix() {
   margin-top: var(--caption-tuck);
   color: var(--ink-2);
 }
-/* the unit suffix gap (.item__wunit) is shared with the read rows — atoms/item.scss */
 /* packed = "in the bag", so it reads as done (dimmed), NOT excluded — the check
    mark carries the state; a strikethrough would say "removed/crossed off". */
 .item--done {
@@ -2126,9 +2079,6 @@ function dismissFix() {
 .item__unitwrap:focus-within .item__unitchev {
   color: var(--ink-2);
 }
-/* transparent native select over the unit text — the same construction the total's
-   unit picker uses. The label stays the only thing drawn; this just makes it a
-   control. Sized to the label so it can't widen the weight column. */
 /* the two classification toggles. Both --icon-btn wide, so the pair costs 68px of
    the 108–128px class track the old select needed for the word "Consumable" — the
    row gets denser, not busier. */
@@ -2304,8 +2254,8 @@ function dismissFix() {
   flex: none;
   color: var(--ink-3);
 }
-/* row controls (note + remove) stay visible at rest; the note button is lit when
-   a note exists, and hover just darkens for feedback */
+/* the row controls stay visible at rest (ghosted ink), and hover just darkens for
+   feedback */
 .item__actions {
   display: flex;
   align-items: center;
@@ -2344,8 +2294,7 @@ function dismissFix() {
   color: var(--ink);
 }
 /* banked: the tick holds at full ink so the row keeps saying so */
-.item__vault-btn.is-active,
-.item__vault-btn.is-active:hover {
+.item__vault-btn.is-active {
   color: var(--ink);
 }
 .item__vault-btn:disabled {
@@ -2423,7 +2372,6 @@ function dismissFix() {
    pointer-events:none so the drop detection (elementFromPoint) sees the rows
    underneath, not the floating row. */
 .item-wrap.is-dragging {
-  position: relative;
   z-index: var(--z-lifted);
   pointer-events: none;
   transform: translateY(var(--drag-dy, 0)) scale(1.01);
@@ -2458,7 +2406,7 @@ function dismissFix() {
   background: var(--paper-2);
   border-radius: var(--radius-1);
 }
-/* grip is the last icon in the trailing actions cluster (note · remove · grip);
+/* grip is the last icon in the trailing actions cluster (… · remove · grip);
    sizing/colour come from .btn--icon / the shared colour rule above */
 .item__grip {
   cursor: grab;
@@ -2469,7 +2417,8 @@ function dismissFix() {
      the viewBox edge). The empty overshoot falls into the page's right gutter. */
   justify-content: flex-end;
   /* the dots stay flush (right edge pinned by justify-self:end on the cluster), but
-     this pulls the grip's LAYOUT box left so the gap before it matches note→remove —
+     this pulls the grip's LAYOUT box left so the gap before it matches the gap
+     between its neighbours —
      the flush shift is otherwise invisible to layout, leaving a wider gap here. */
   margin-left: -9px;
 }
@@ -2479,15 +2428,6 @@ function dismissFix() {
 .item__grip:active {
   cursor: grabbing;
 }
-
-/* The row's controls used to hide at rest on desktop and fade in on hover, to keep a
-   long list quiet. That reads as an empty row until you point at it: the actions are
-   undiscoverable, and the row's right half visibly re-populates under the cursor as
-   as you scan down the list. A row that simply shows its controls has no flicker to
-   have.
-   They are ghosted (--ink-3) at rest and darken on hover instead, so the row is calm
-   without being blank. Nothing here is opacity-animated any more, which also retires
-   the Safari layer-snap workaround the old rule needed. */
 
 /* the .reveal recipe now lives in atoms/controls.scss — three surfaces disclose the
    same way, and while it was scoped here the other two got the class names with none
@@ -2500,9 +2440,6 @@ function dismissFix() {
 .reveal-leave-to > * {
   transform: translateY(0.4em);
 }
-/* the editing↔packing row swap lives in atoms/item.scss now — it keys off the editor
-   body's data-mode, which no scoped block can see, and the fade that used to be a
-   <Transition> here is the rowmode-fade animation there. */
 /* the note tucks up under the name (into the 36px field's dead space); the offset
    lives on the wrapper, not the input, so the grid track sizing stays clean.
    Cancelling that dead space puts the caption's line box flush under the name's — the
@@ -2588,8 +2525,6 @@ function dismissFix() {
   color: var(--ink);
 }
 
-/* the nested block's thread-line container is the shared .nest-block atom
-   (atoms/item.scss), rendered identically by ReadonlyItemRow */
 /* the collapse machinery (1fr↔0fr grid slide + clip) is the shared .nestcollapse atom
    (atoms/item.scss). The editor's only addition: lift the clip while a child overlay
    is open or a drag is live, so a child's autocomplete dropdown / lifted row isn't
@@ -2604,11 +2539,6 @@ function dismissFix() {
   background: var(--ink);
   margin: var(--space-1) 0;
 }
-/* ever-present "Add an item" at the bottom of a group, so growing a group needs no hover.
-   It sits inside the thread line with the rest of the nested block; no horizontal rule.
-   Its look IS the folder add row's — one shared add-affordance atom (atoms/item.scss),
-   including the mobile compaction. */
-
 /* the ⋯ overflow menu is mobile-only — desktop shows every action inline (below) */
 .item__more {
   display: none;
@@ -2630,8 +2560,6 @@ function dismissFix() {
 .item__person-btn .swatch {
   margin-right: calc((16px - var(--swatch)) / 2);
 }
-/* the carrier tag itself is the shared .item__carrier atom (atoms/item.scss) —
-   drawn once for this face, the checklist face and the read rows */
 /* the edit face's copy exists only where the trigger's dot doesn't: the phone
    (the trigger is display:none in the mobile block below, which reveals this) */
 .item__ecarrier {
@@ -2802,7 +2730,7 @@ function dismissFix() {
     width: var(--tap);
     padding: calc((var(--tap) - var(--icon-btn)) / 2);
   }
-  /* mobile trailing cluster = ⋯ · grip. Everything else the row can do — the note, the
+  /* mobile trailing cluster = ⋯ · grip. Everything else the row can do — the
      nesting actions, the vault save and the removal — moves into the ⋯ menu, which
      names each one in words rather than asking a 16px glyph to.
      It is width that decides how many stay: on a coarse pointer every .btn--icon grows
@@ -2969,13 +2897,6 @@ function dismissFix() {
     --row-gap: var(--space-1) var(--space-3); /* row-gap · column-gap */
     min-height: 0; /* drop the desktop tall single-row min-height */
   }
-  /* checkbox in the left column, aligned to the title line (not centred across the
-     whole two-line cell) — it sits beside the name, centred to that first row */
-  .item__box {
-    grid-column: 1;
-    grid-row: 1;
-    align-self: center;
-  }
   /* same box metrics as the editing fields (padding + line-height) so a checklist
      row is the exact same height as its editing counterpart — no shift on toggle */
   .item__cname {
@@ -3008,12 +2929,4 @@ function dismissFix() {
     margin-top: 0;
   }
 }
-
-/* The narrowest-phone block that used to live here (max-width: 360px and pointer:
- * coarse — wrap the meta line, right-align the wrapped actions) is gone: both of its
- * declarations moved up into the mobile block unconditionally when the quantity
- * stepper widened the line. A breakpoint was the wrong shape for the rule anyway —
- * it named the one width at which nowrap was known to fail, and the answer it gave
- * ("let it wrap") is the answer at every width where it fails. See .item__meta.
- */
 </style>
