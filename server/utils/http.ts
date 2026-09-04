@@ -1,4 +1,5 @@
 import { createError, getHeader, readRawBody, setHeader, type H3Event } from "h3";
+import { READ_EDGE_CACHE_CONTROL } from "~~/shared/site";
 
 /**
  * Keep a response out of search results.
@@ -35,9 +36,9 @@ export function setPrivate(event: H3Event): void {
  *  (a list's HTML via /api/s | /api/l, then its card image via /og) must go
  *  stale together, which six copies of a header literal can't promise. The two
  *  read PAGES (/s, /l) state the same window via useResponseHeader; app code
- *  can't reach this helper, so those two literals remain. */
+ *  can't reach this helper, so the literal itself lives in shared/site. */
 export function setReadEdgeCache(event: H3Event): void {
-  setHeader(event, "Cache-Control", "public, max-age=0, s-maxage=30, stale-while-revalidate=120");
+  setHeader(event, "Cache-Control", READ_EDGE_CACHE_CONTROL);
 }
 
 /** A day of edge cache for the static, same-for-everyone text routes (robots,

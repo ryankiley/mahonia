@@ -11,19 +11,11 @@ const code = computed(() => String(route.params.code || ""));
 const { data } = await useFetch<{ snapshot: ListSnapshot }>(() => `/api/s/${code.value}`);
 const snapshot = computed<ListSnapshot | null>(() => data.value?.snapshot ?? null);
 
-// edge-cache the HTML for a short window, mirroring /l — collapses the burst when
-// a share link makes the rounds; a read-only view tolerates 30 s of staleness.
-useResponseHeader("Cache-Control").value =
-  "public, max-age=0, s-maxage=30, stale-while-revalidate=120";
-
-const { unit, totals, fullTotals, roList, ungrouped, shownFolders, people, personFilter, showUnassigned, chipWeights } =
-  useReadonlyList(snapshot);
-
-// Social unfurl (iMessage/Slack/etc.): the title + a short summary so a pasted share
-// link shows the list name, not a bare URL. Shared with /l via useReadonlyListSeo;
-// this page's noindex (below) keeps it out of search — og tags still drive previews.
-// fullTotals, not totals: the unfurl describes the list, not the viewer's filter.
-useReadonlyListSeo(snapshot, fullTotals, "shared");
+// The edge-cache window, the view-model and the social unfurl (iMessage/Slack/etc.:
+// the title + a short summary so a pasted share link shows the list name, not a bare
+// URL) are shared with /l via useReadonlyPage; this page's noindex (below) keeps it
+// out of search — og tags still drive previews.
+const { unit, fullTotals, personFilter, view } = useReadonlyPage(snapshot, "shared");
 useHead({
   title: () => (snapshot.value ? `${snapshot.value.title} — Mahonia` : "Mahonia"),
   meta: [{ name: "robots", content: "noindex" }],
@@ -40,14 +32,7 @@ useHead({
          ever told the reader what the page already shows. /l keeps its status, because
          "Public list" says something the page doesn't — that this list is listed. -->
     <ReadonlyListView
-      :list="roList"
-      :totals="totals"
-      :shown-folders="shownFolders"
-      :ungrouped="ungrouped"
-      :people="people"
-      :person-filter="personFilter"
-      :show-unassigned="showUnassigned"
-      :chip-weights="chipWeights"
+      v-bind="view"
       @set-unit="(u) => (unit = u)"
       @pick-person="(id) => (personFilter = id)"
     />

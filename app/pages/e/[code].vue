@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { shareCardPath } from "~~/shared/links";
 import type { ListSnapshot } from "~~/shared/types";
 import { computeTotals } from "~~/shared/weights";
 
@@ -29,7 +30,7 @@ const seo = computed(() => editorSeo(snap.value?.title, totals.value, snap.value
 // secret token in the fragment plays no part.
 useListOgCard(() =>
   snap.value && totals.value
-    ? { path: `/og/s/${snap.value.shareCode}`, list: snap.value, totals: totals.value }
+    ? { path: shareCardPath(snap.value.shareCode), list: snap.value, totals: totals.value }
     : null,
 );
 useHead({

@@ -4,7 +4,7 @@ import { Backpack02Icon, CheckmarkSquare02Icon, ChevronDownIcon, Copy01Icon, Del
 import { editLinkPath, normalizeShareCode } from "~~/shared/links";
 import { tripHeadline } from "~~/shared/trailDistance";
 import { formatWeight } from "~~/shared/weights";
-import { carriedTotalsMg, filterItemsForPerson, hasUnassignedTopLevel, personName, personSlot, sortedPeople, UNASSIGNED } from "~~/shared/people";
+import { carriedTotalsMg, filterItemsForPerson, hasUnassignedTopLevel, personName, personSelectionGone, personSlot, sortedPeople, UNASSIGNED } from "~~/shared/people";
 import type { Item, Unit } from "~~/shared/types";
 import type { EditorMode } from "~/composables/useEditorMode";
 import { bySortOrder, computeTotals, groupItemsByFolder, groupItemsByParent, ungroupedTopLevel } from "~~/shared/weights";
@@ -143,11 +143,7 @@ watch([people, hasUnassigned, () => snapshot.value?.shareCode], ([, , code], [, 
   // assigned" about a list just opened would be a claim about nothing you did)
   const emptied =
     code === oldCode && s === UNASSIGNED && people.value.length > 0 && !hasUnassigned.value;
-  const gone =
-    s === UNASSIGNED
-      ? !people.value.length || !hasUnassigned.value
-      : !people.value.some((p) => p.id === s);
-  if (gone) {
+  if (personSelectionGone(s, people.value, hasUnassigned.value)) {
     pf.clear();
     // the row you just claimed vanished and the whole list flooded back — one
     // sentence keeps that from reading as a glitch

@@ -24,36 +24,18 @@ useHead({
   ],
 });
 
-// Parse in LOCAL time from the parts — `new Date("2026-06-27")` parses as UTC
-// midnight, which toLocaleDateString would render as the day before in a
-// timezone west of UTC (like Portland).
-function parseIso(iso: string): Date | null {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
-  return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null;
-}
-
-// Fixed locales, never `undefined`: the page is prerendered, so a runtime-locale
+// formatCalendarDate (app/utils/time): parsed from the parts in local time and
+// formatted in a PINNED locale — the page is prerendered, so a runtime-locale
 // format would differ between the build server and the visitor's browser and
 // trip a hydration mismatch.
-function fmtDate(iso: string) {
-  return (
-    parseIso(iso)?.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) ??
-    iso
-  );
-}
-
-// "Last updated" is just the newest entry's date, formatted like the legal
-// page's stamped line ("17 July 2026") — so it updates itself whenever an entry
-// is added, with no commit hook to forget and no way to drift from the content.
-// computed, not a module-scope constant: `releases` is fetched, so this has to
-// track it rather than read an empty array once at setup
+//
+// "Last updated" is just the newest entry's date — so it updates itself whenever
+// an entry is added, with no commit hook to forget and no way to drift from the
+// content. computed, not a module-scope constant: `releases` is fetched, so this
+// has to track it rather than read an empty array once at setup
 const lastUpdated = computed(() => {
   const iso = releases.value[0]?.date;
-  if (!iso) return "";
-  return (
-    parseIso(iso)?.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) ??
-    iso
-  );
+  return iso ? formatCalendarDate(iso) : "";
 });
 </script>
 
@@ -146,7 +128,7 @@ const lastUpdated = computed(() => {
 
         <section v-for="rel in releases" :key="rel.date" class="log__rel">
           <h3 class="log__date">
-            <time :datetime="rel.date" class="t-title">{{ fmtDate(rel.date) }}</time>
+            <time :datetime="rel.date" class="t-title">{{ formatCalendarDate(rel.date) }}</time>
             <span v-if="rel.title" class="log__title t-sm t-muted">{{ rel.title }}</span>
           </h3>
 

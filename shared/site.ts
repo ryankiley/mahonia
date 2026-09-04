@@ -32,3 +32,13 @@
  * self-hosted deploy on another domain sets instead of editing this line.
  */
 export const CANONICAL_ORIGIN = "https://mahonia.app";
+
+/**
+ * The edge-cache window for a list's read surfaces. One literal for the pair a
+ * crawler fetches together — the read PAGES (/s, /l, via useResponseHeader) and
+ * the API + card image behind them (server/utils/http.ts setReadEdgeCache) — so
+ * they go stale together, which four copies of a header string can't promise. A
+ * read-only view tolerates 30 s of staleness, and the window collapses the burst
+ * when a share link makes the rounds.
+ */
+export const READ_EDGE_CACHE_CONTROL = "public, max-age=0, s-maxage=30, stale-while-revalidate=120";

@@ -60,9 +60,9 @@ export function useBodyWeight(displayUnit?: string) {
     value: computed(() => grams.value ?? DEFAULT_BODY_G),
     /** Null until someone sets one. The UI says "assumed" while this is true, because a
      *  pre-filled field looks like something you already confirmed. */
-    stored: computed(() => grams.value),
+    stored: readonly(grams),
     isDefault: computed(() => grams.value == null),
-    unit: computed(() => unit.value),
+    unit: readonly(unit),
     /** Null or an out-of-range value clears it and returns to the stated assumption. */
     set(next: number | null) {
       grams.value = next == null ? null : (normalizeBodyWeightG(next) ?? null);

@@ -37,12 +37,9 @@ export default defineNuxtPlugin(() => {
   // already, so signing in on a new device simply finds it. That claim-on-sign-in
   // step only existed while a vault was owned by a link the browser happened to
   // hold.
+  // the whole registry — the same set the claim sends, both buckets
   const registryFingerprint = computed(() =>
-    useMyLists()
-      .entries.value // the whole registry — the same set the claim sends, both buckets
-      .map((e) => e.editToken)
-      .sort()
-      .join("|"),
+    deviceFingerprint(useMyLists().entries.value.map((e) => e.editToken)),
   );
   watch([session.signedIn, registryFingerprint], ([yes]) => {
     if (!yes) return;

@@ -1,14 +1,16 @@
 import type { Ref } from "vue";
 import { seasonLabel, tripTypeLabel } from "~~/shared/discovery";
+import { publicCardPath, shareCardPath } from "~~/shared/links";
 import {
   carriedTotalsMg,
   filterItemsForPerson,
   hasUnassignedTopLevel,
+  personSelectionGone,
   sortedPeople,
-  UNASSIGNED,
   visibleItemsForPerson,
   type PersonSelection,
 } from "~~/shared/people";
+import { READ_EDGE_CACHE_CONTROL } from "~~/shared/site";
 import type { ListSnapshot, Totals, Unit } from "~~/shared/types";
 import {
   bySortOrder,
@@ -40,16 +42,10 @@ export function useReadonlyList(snapshot: Ref<ListSnapshot | null>) {
   const showUnassigned = computed(() => hasUnassignedTopLevel(snapshot.value?.items ?? []));
   // /s polls live, so the owner can pull the filtered person (or claim the last
   // unclaimed row) out from under a viewer — widen a selection that stopped
-  // resolving, exactly as the editor's watcher does, or the viewer is stranded
-  // on a blank list under a chips row with nothing lit and no tab stop.
+  // resolving, on the same rule as the editor's watcher (personSelectionGone)
   watch([people, showUnassigned], () => {
-    const s = personFilter.value;
-    if (!s) return;
-    const gone =
-      s === UNASSIGNED
-        ? !people.value.length || !showUnassigned.value
-        : !people.value.some((p) => p.id === s);
-    if (gone) personFilter.value = null;
+    if (personSelectionGone(personFilter.value, people.value, showUnassigned.value))
+      personFilter.value = null;
   });
   // two readings of the filter, per shared/people.ts: the rows the page RENDERS
   // (matches plus a parent kept as context around a matching child) and the rows
@@ -115,13 +111,13 @@ const SEO_COPY: Record<
     empty: "A shared packing list on Mahonia.",
     noun: "a shared packing list",
     cta: "Make your own on Mahonia.",
-    cardPath: (s) => `/og/s/${s.shareCode}`,
+    cardPath: (s) => shareCardPath(s.shareCode),
   },
   public: {
     empty: "A public packing list on Mahonia.",
     noun: "a public packing list",
     cta: "Browse gear lists on Mahonia.",
-    cardPath: (s) => `/og/l/${s.slug}`,
+    cardPath: (s) => publicCardPath(s.slug),
   },
 };
 
@@ -164,4 +160,31 @@ export function useReadonlyListSeo(
     ogType: "article",
   });
   return { facets };
+}
+
+/**
+ * Everything a read-only page does with its fetched snapshot, in one call: the
+ * edge-cache window, the view-model above, the SEO summary. The two pages differ
+ * only in how they fetch and in their <head> (noindex on /s, canonical on /l), so
+ * each keeps those and takes the rest from here.
+ *
+ * `view` is the props ReadonlyListView takes, as one ref-unwrapping bag for
+ * `v-bind` — the prop list was spelled out identically on both pages, and a prop
+ * added to the view had to be threaded through each by hand.
+ */
+export function useReadonlyPage(snapshot: Ref<ListSnapshot | null>, kind: ReadonlyKind) {
+  useResponseHeader("Cache-Control").value = READ_EDGE_CACHE_CONTROL;
+  const ro = useReadonlyList(snapshot);
+  const { facets } = useReadonlyListSeo(snapshot, ro.fullTotals, kind);
+  const view = reactive({
+    list: ro.roList,
+    totals: ro.totals,
+    shownFolders: ro.shownFolders,
+    ungrouped: ro.ungrouped,
+    people: ro.people,
+    personFilter: ro.personFilter,
+    showUnassigned: ro.showUnassigned,
+    chipWeights: ro.chipWeights,
+  });
+  return { ...ro, facets, view };
 }

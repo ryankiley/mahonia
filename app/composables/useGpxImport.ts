@@ -1,6 +1,6 @@
 import { ref, type Ref } from "vue";
 import { profileToString } from "~~/shared/profile";
-import { routeGeometryFromPoints } from "~~/shared/polyline";
+import { cumulativeM, decodePolyline, nearestAlongM, routeGeometryFromPoints } from "~~/shared/polyline";
 import type { FilePin } from "~~/shared/gpx";
 import type { Op } from "~~/shared/ops";
 import type { ListSnapshot, WaypointKind } from "~~/shared/types";
@@ -47,7 +47,7 @@ interface GpxTarget {
   setMeta: (patch: Extract<Op, { t: "setMeta" }>["patch"]) => void;
 }
 
-export function useGpxImport(snapshot: Ref<ListSnapshot | null>, c: GpxTarget) {
+export function useGpxImport(c: GpxTarget) {
   const gpxError = ref("");
   const gpxBusy = ref(false);
 
@@ -68,14 +68,13 @@ export function useGpxImport(snapshot: Ref<ListSnapshot | null>, c: GpxTarget) {
     const p = pending.value;
     pending.value = null;
     if (!p) return;
-    const { cumulativeM, decodePolyline, nearestAlongM } = await import("~~/shared/polyline");
     const line = decodePolyline(p.geometry);
     if (line.length < 2) return;
     const total = cumulativeM(line).at(-1) ?? 0;
     // Every pin PROJECTS onto the line, because a waypoint is a distance along the route
     // and not a coordinate. A water source 200 m off-trail is recorded where you'd leave
     // the trail for it, which is the useful place to be told about it.
-    const taken = (snapshot.value?.waypoints ?? []).map((w) => w.alongM);
+    const taken = (c.snapshot.value?.waypoints ?? []).map((w) => w.alongM);
     for (const pin of p.pins) {
       const alongM = nearestAlongM(line, pin);
       if (alongM < 0 || alongM > total) continue;

@@ -205,10 +205,7 @@ function onTitleInput(e: Event) {
 // so it lives on its own rather than in the middle of a component that lays out
 // a title and some dates. The reasoning about CSP, dedup and route ends went
 // with it.
-const { gpxError, gpxBusy, pending, confirmPins, onGpx } = useGpxImport(
-  computed(() => props.snapshot),
-  c,
-);
+const { gpxError, gpxBusy, pending, confirmPins, onGpx } = useGpxImport(c);
 
 // ---- distance ----
 // The route's length, typed. It can't be read off the linked page — see the note atop

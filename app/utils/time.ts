@@ -51,7 +51,8 @@ function parseCalendarDate(iso: string | undefined): Date | null {
 }
 
 /**
- * A trip's dates, as one phrase: "4–6 Aug 2026", "4 Aug 2026", "4 Aug – 2 Sep 2026".
+ * A trip's dates, as one phrase: "September 6–9, 2026", "September 6, 2026",
+ * "August 30 – September 2, 2026".
  *
  * Collapses whatever the two dates share — a range inside one month prints the
  * month and year once — because the point of the line is the span, and repeating
@@ -77,6 +78,13 @@ export function formatDateRange(start?: string, end?: string): string {
   if (sameMonth) return `${fmtMonthDay(a)}–${b.getDate()}, ${b.getFullYear()}`;
   if (sameYear) return `${fmtMonthDay(a)} – ${fmtFull(b)}`;
   return `${fmtFull(a)} – ${fmtFull(b)}`;
+}
+
+/** One calendar date, in full — "July 17, 2026". Falls back to the raw string when it
+ *  isn't a bare ISO date, so a malformed entry is still visible rather than blank. */
+export function formatCalendarDate(iso: string): string {
+  const d = parseCalendarDate(iso);
+  return d ? fmtFull(d) : iso;
 }
 
 // Locale PINNED, matching the rule in shared/weights.ts: these render in the editor

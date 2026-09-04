@@ -5,7 +5,7 @@ import { colorKeyForName, nextFolderColor, STARTER_FOLDERS } from "~~/shared/cat
 import { LIST_CODE_HEADER, editLinkPath, normalizeShareCode } from "~~/shared/links";
 import { DRAFT_KEY, claimedLocalKey, localKey, rebaseOnto } from "~~/shared/localList";
 import { sortedPeople } from "~~/shared/people";
-import type { Folder, Item, ListSnapshot, Person, TripDay, Unit, Waypoint, WaypointKind } from "~~/shared/types";
+import type { Folder, Item, ListSnapshot, Person, Unit, Waypoint, WaypointKind } from "~~/shared/types";
 import type { VaultCapture, VaultEntry } from "~~/shared/vault";
 import { vaultNormKey } from "~~/shared/vault";
 import { bySortOrder, computeTotals, entryUnitFromInput, nextSortOrder, parseWeightInput, siblingItems } from "~~/shared/weights";
@@ -102,13 +102,9 @@ function create() {
   // Write the current snapshot + queue to IndexedDB under this list's key.
   // Best-effort: the store swallows its own failures, so this never throws into
   // the edit path. No-ops with no snapshot.
-  function writeLocal() {
-    if (!snapshot.value) return;
-    store.set(storeKey(), {
-      snapshot: snapshot.value,
-      pending: pending.slice(),
-      updatedAt: Date.now(),
-    });
+  function writeLocal(key = storeKey(), snap = snapshot.value, ops = pending.slice()) {
+    if (!snap) return;
+    store.set(key, { snapshot: snap, pending: ops, updatedAt: Date.now() });
   }
 
   // Mirror to IndexedDB, debounced — local writes are cheap but frequent (every
@@ -156,9 +152,7 @@ function create() {
     clearTimeout(undoTimer);
   }
   function releaseUndo() {
-    if (!pendingUndo.value) return;
-    clearTimeout(undoTimer);
-    undoTimer = setTimeout(() => (pendingUndo.value = null), UNDO_MS);
+    if (pendingUndo.value) offerUndo(pendingUndo.value.label, pendingUndo.value.restore);
   }
   function undoRemove() {
     const u = pendingUndo.value;
@@ -253,6 +247,19 @@ function create() {
     );
   }
 
+  // The queue and its timers belong to ONE list session: load(), startDraft() and
+  // dispose() each start from this blank slate, so an op or a backoff from the
+  // list that was open a moment ago can never fire into the one replacing it.
+  function resetQueue() {
+    pending = [];
+    inFlight = false;
+    isEditing = false;
+    remoteMissing = false;
+    clearTimeout(flushTimer);
+    clearTimeout(retryTimer);
+    flushFailures = 0;
+  }
+
   // Open a list this device holds the edit link for ({ token }), or one the
   // signed-in account has claimed ({ code } — the share code, with the session
   // cookie as the proof; see server/utils/editAuth). Token wins if both arrive,
@@ -266,18 +273,12 @@ function create() {
     // returns key the same IndexedDB record and claimed-lists row
     claimCode = editToken ? "" : normalizeShareCode(cap.code);
     openedByCode.value = !editToken && !!claimCode;
-    pending = [];
-    inFlight = false;
-    isEditing = false;
-    remoteMissing = false;
+    resetQueue();
     // the vault question is about THIS list — an unanswered one must not ride
     // along to the next list opened (where it would ask about the wrong gear,
     // and spend that list's one chance to ask)
     vaultPrompt.value = null;
     refreshVaultCover(); // ...and the rows must render against THIS list's answer
-    clearTimeout(flushTimer);
-    clearTimeout(retryTimer); // a backoff must not fire into the session that replaced this one
-    flushFailures = 0;
     snapshot.value = null;
     status.value = "loading";
     installListeners();
@@ -341,9 +342,10 @@ function create() {
       // and re-runs the cascade; self-persists via the mutate flow like the
       // backfills above.
       const stranded = new Set<Item>();
+      const byId = new Map(merged.items.map((i) => [i.id, i]));
       for (const it of merged.items) {
         if (it.parentId == null) continue;
-        const parent = merged.items.find((p) => p.id === it.parentId);
+        const parent = byId.get(it.parentId);
         if (parent && parent.folderId !== it.folderId) stranded.add(parent);
       }
       for (const p of stranded)
@@ -421,15 +423,9 @@ function create() {
     editToken = "";
     claimCode = "";
     openedByCode.value = false;
-    pending = [];
-    inFlight = false;
-    isEditing = false;
-    remoteMissing = false;
+    resetQueue();
     vaultPrompt.value = null; // see load() — a draft is yours, and never asks
     refreshVaultCover(); // a draft's answer IS yes (no token → yours by definition)
-    clearTimeout(flushTimer);
-    clearTimeout(retryTimer); // a backoff must not fire into the session that replaced this one
-    flushFailures = 0;
     installListeners();
     const folders: Folder[] = STARTER_FOLDERS.map((p, i) => ({
       id: uid(),
@@ -627,13 +623,7 @@ function create() {
         // replace it with the server's, making them visibly appear and vanish.
         // Restore them into that record instead, so the next open replays them.
         // (beforeunload doesn't cover this — SPA navigation never fires it.)
-        if (myKey !== DRAFT_KEY && snapAtFlush) {
-          store.set(myKey, {
-            snapshot: snapAtFlush,
-            pending: ops,
-            updatedAt: Date.now(),
-          });
-        }
+        if (myKey !== DRAFT_KEY) writeLocal(myKey, snapAtFlush, ops);
         return;
       }
       pending = ops.concat(pending); // re-queue (incl. 409 contention) and retry shortly
@@ -690,7 +680,6 @@ function create() {
         // so a slow poll can't clobber a fresher flushed state with stale data
         if (
           res.snapshot &&
-          snapshot.value &&
           res.snapshot.version > snapshot.value.version &&
           !isEditing &&
           !pending.length &&
@@ -981,7 +970,7 @@ function create() {
     const snap = snapshot.value;
     const item = snap?.items.find((i) => i.id === id);
     if (!snap || !item) return "failed";
-    return vault.captureOne(item, snap.items, snap.folders, editToken);
+    return vault.captureOne(item, snap.items, snap.folders);
   }
 
   /**
@@ -1228,20 +1217,14 @@ function create() {
     useItemDnd().reset();
     useFolderDnd().reset();
     stopPoll();
-    clearTimeout(flushTimer);
-    clearTimeout(retryTimer); // a backoff must not fire into the session that replaced this one
-    flushFailures = 0;
+    resetQueue();
     clearTimeout(undoTimer);
     pendingUndo.value = null;
     teardownListeners?.();
     snapshot.value = null;
-    pending = [];
     editToken = "";
     claimCode = "";
     openedByCode.value = false;
-    inFlight = false;
-    isEditing = false;
-    remoteMissing = false;
     status.value = "idle";
   }
 

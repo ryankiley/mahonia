@@ -10,7 +10,7 @@ const props = defineProps<{ error: NuxtError }>();
 const notFound = computed(() => props.error?.statusCode === 404);
 
 useHead({
-  title: computed(() => (notFound.value ? "Page not found — Mahonia" : "Error — Mahonia")),
+  title: () => (notFound.value ? "Page not found — Mahonia" : "Error — Mahonia"),
 });
 
 // surface the raw error in dev builds only (the branch compiles out of prod)

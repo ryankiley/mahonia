@@ -21,13 +21,31 @@ export const UNASSIGNED = "unassigned";
 export type PersonSelection = string | null;
 
 /**
+ * Has a selection stopped resolving? A person removed, or the unassigned bucket
+ * emptied (or the crew dissolved, which retires the bucket too) — in the editor by
+ * your own edit, on a live read view by the owner's. Either way a filter aimed at
+ * nothing strands the viewer on a blank list under a chips row with nothing lit,
+ * so both surfaces widen back to everyone on the same rule.
+ */
+export function personSelectionGone(
+  selection: PersonSelection,
+  people: Person[],
+  hasUnassigned: boolean,
+): boolean {
+  if (!selection) return false;
+  return selection === UNASSIGNED
+    ? !people.length || !hasUnassigned
+    : !people.some((p) => p.id === selection);
+}
+
+/**
  * The key a person's NAME is compared on. Trimmed and case-folded, because "Sam"
  * and "sam " are one person to everyone who reads the list — and, more sharply,
  * one column value to the CSV exporter, whose Person column carries the name and
  * nothing else. Two people sharing a name make that column ambiguous and the
  * round-trip lossy, so the name is an identity here, not a label.
  */
-export const personNameKey = (name: string): string => name.trim().toLowerCase();
+const personNameKey = (name: string): string => name.trim().toLowerCase();
 
 /**
  * Is `name` already spoken for? `exceptId` excuses the person being renamed, so

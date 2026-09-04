@@ -1357,8 +1357,8 @@ const rowKcal = (e: VaultEntry) => (e.classification === "consumable" && e.kcal 
   color: var(--ink-2);
   cursor: default;
 }
-/* the folder header's sort control at row scale: a glyph that shows the control
-   exists, opening the app's own picker (OptionMenu) */
+/* the row's move-to-folder control: a glyph that shows the control exists,
+   opening the app's own picker (OptionMenu) */
 .vault__movewrap {
   position: relative;
   flex: none;
@@ -1472,8 +1472,7 @@ const rowKcal = (e: VaultEntry) => (e.classification === "consumable" && e.kcal 
 }
 /* touch: the hand-rolled icon controls meet the --tap minimum like every
    .btn--icon does (controls.scss). The clear overlays the field's end, so the
-   bigger box only extends its hit area, not the layout; the move control mirrors
-   the folder header's sortwrap recipe, glyph bump included (atoms/folder.scss).
+   bigger box only extends its hit area, not the layout.
    The row's three controls take --tap-pull, whose layout box is exactly the 1.45rem
    text line — so enlarging the hit area for a thumb no longer stands a phone row 8px
    taller than the same row on a desktop. */

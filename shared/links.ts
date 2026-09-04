@@ -43,6 +43,13 @@ export function claimedEditPath(shareCode: string): string {
   return `/e/${shareCode}`;
 }
 
+// The list's social-card IMAGE, rendered per list by server/routes/og and addressed
+// by the same capability as the page it unfurls beside: the share code for /s and
+// the edit link (which resolves through the code — the token plays no part), the
+// slug for /l.
+export const shareCardPath = (shareCode: string): string => `/og/s/${shareCode}`;
+export const publicCardPath = (slug: string): string => `/og/l/${slug}`;
+
 /** The header a session-authorised edit request uses to NAME which claimed list it
  *  means. Shared because the client sends it and the server reads it — one string,
  *  or the two halves drift. Not a secret (it's the public read code), unlike the

@@ -13,17 +13,10 @@ const slug = computed(() => String(route.params.slug || ""));
 const { data } = await useFetch<{ list: ListSnapshot }>(() => `/api/l/${slug.value}`);
 const snapshot = computed<ListSnapshot | null>(() => data.value?.list ?? null);
 
-// edge-cache the HTML for a short window (SSR + Cache-Control, per the plan).
-useResponseHeader("Cache-Control").value =
-  "public, max-age=0, s-maxage=30, stale-while-revalidate=120";
-
-const { unit, totals, fullTotals, roList, ungrouped, shownFolders, people, personFilter, showUnassigned, chipWeights } =
-  useReadonlyList(snapshot);
-
-// SEO — indexable (NOT noindex, unlike /s/[code]). Summary shared via useReadonlyListSeo;
-// `facets` comes back for the <head> template below. Only the canonical link differs.
-// fullTotals, not totals: search/unfurls describe the list, not the viewer's filter.
-const { facets } = useReadonlyListSeo(snapshot, fullTotals, "public");
+// The edge-cache window, the view-model and the SEO summary are shared with /s via
+// useReadonlyPage; `facets` comes back for the <head> template below. This page is
+// indexable (NOT noindex, unlike /s/[code]) — only the canonical link differs.
+const { unit, fullTotals, roList, personFilter, facets, view } = useReadonlyPage(snapshot, "public");
 useHead(() => ({
   title: snapshot.value ? `${snapshot.value.title} — Mahonia` : "List not found — Mahonia",
   link: [{ rel: "canonical", href: `/l/${slug.value}` }],
@@ -39,14 +32,7 @@ useHead(() => ({
     <ReadTopbar :snapshot="snapshot" :totals="fullTotals" />
 
     <ReadonlyListView
-      :list="roList"
-      :totals="totals"
-      :shown-folders="shownFolders"
-      :ungrouped="ungrouped"
-      :people="people"
-      :person-filter="personFilter"
-      :show-unassigned="showUnassigned"
-      :chip-weights="chipWeights"
+      v-bind="view"
       @set-unit="(u) => (unit = u)"
       @pick-person="(id) => (personFilter = id)"
     >

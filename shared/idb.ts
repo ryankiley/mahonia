@@ -1,9 +1,9 @@
-// A tiny, per-name-memoized IndexedDB opener shared by the on-device stores
-// (app/composables/useLocalListStore + useCatalogCache). Only the open/upgrade
-// dance lives here — the part that's identical across both and easy to get subtly
-// wrong on a version bump. Each store keeps its OWN transaction + error-policy
-// layer (they differ on purpose: the list store rejects and lets callers catch;
-// the catalog cache swallows).
+// A tiny, per-name-memoized IndexedDB opener plus the one-request transaction
+// shared by the on-device stores (app/composables/useLocalListStore +
+// useCatalogCache) — the parts that are identical across both and easy to get
+// subtly wrong on a version bump. Each store keeps its OWN error policy on top
+// (they differ on purpose: the list store rejects and lets callers catch; the
+// catalog cache swallows).
 //
 // Memoized per DB NAME via a Map (NOT a single shared promise) so opening
 // "mahonia" and "mahonia-catalog" get independent handles and never cross-wire.
@@ -28,4 +28,23 @@ export function openIdb(name: string, version: number, store: string): Promise<I
     dbPromises.set(name, p);
   }
   return p;
+}
+
+/** One request in one transaction against the store: resolves with the request's
+ *  result, rejects with its error (or the open failure). */
+export function idbRequest<T>(
+  name: string,
+  version: number,
+  store: string,
+  mode: IDBTransactionMode,
+  run: (s: IDBObjectStore) => IDBRequest<T>,
+): Promise<T> {
+  return openIdb(name, version, store).then(
+    (db) =>
+      new Promise<T>((resolve, reject) => {
+        const req = run(db.transaction(store, mode).objectStore(store));
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      }),
+  );
 }

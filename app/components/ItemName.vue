@@ -18,7 +18,7 @@ const props = defineProps<{ item: Item; search?: boolean; group?: boolean }>();
 const main = computed(() => itemDisplayName(props.item.brand, props.item.name));
 const variant = computed(() => (props.item.nameOverridden ? "" : props.item.variant || ""));
 // A group reaches these views unnamed when nesting wrapped a weighed row that had no
-// gear type to take (useGearList.containerFor) — it starts empty, awaiting a name.
+// gear type to take (useGearListNesting's containerFor) — it starts empty, awaiting a name.
 const unnamed = computed(() => props.group && !main.value && !variant.value);
 const href = computed(() => (props.search ? itemSearchUrl(props.item) : null));
 const searchLabel = computed(() => `Search the web for ${itemSearchName(props.item)}`);

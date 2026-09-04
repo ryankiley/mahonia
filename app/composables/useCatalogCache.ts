@@ -4,7 +4,7 @@ import {
   type CatalogSearchResult,
   type LocalCatalogRow,
 } from "~~/shared/catalogSearch";
-import { openIdb } from "~~/shared/idb";
+import { idbRequest } from "~~/shared/idb";
 
 // On-device catalog cache for offline autocomplete, built INCREMENTALLY from the
 // results the user actually sees while online — there's no bulk-dump endpoint, so
@@ -26,30 +26,16 @@ const KEY = "catalog";
 const DB_VERSION = 1;
 const MAX_ITEMS = 2000; // bounded; far above what one person realistically searches
 
-function idbGet(): Promise<CatalogCacheRecord | undefined> {
-  return openIdb(DB_NAME, DB_VERSION, STORE)
-    .then(
-      (db) =>
-        new Promise<CatalogCacheRecord | undefined>((res) => {
-          const r = db.transaction(STORE, "readonly").objectStore(STORE).get(KEY);
-          r.onsuccess = () => res(r.result);
-          r.onerror = () => res(undefined);
-        }),
-    )
-    .catch(() => undefined);
-}
-function idbSet(record: CatalogCacheRecord): Promise<void> {
-  return openIdb(DB_NAME, DB_VERSION, STORE)
-    .then(
-      (db) =>
-        new Promise<void>((res) => {
-          const r = db.transaction(STORE, "readwrite").objectStore(STORE).put(record, KEY);
-          r.onsuccess = () => res();
-          r.onerror = () => res();
-        }),
-    )
-    .catch(() => {});
-}
+// best-effort both ways: a cache that can't be read or written is simply absent
+const idbGet = (): Promise<CatalogCacheRecord | undefined> =>
+  idbRequest<CatalogCacheRecord | undefined>(DB_NAME, DB_VERSION, STORE, "readonly", (s) =>
+    s.get(KEY),
+  ).catch(() => undefined);
+const idbSet = (record: CatalogCacheRecord): Promise<void> =>
+  idbRequest(DB_NAME, DB_VERSION, STORE, "readwrite", (s) => s.put(record, KEY)).then(
+    () => {},
+    () => {},
+  );
 
 // In-memory index, shared across every autocomplete instance on the page.
 let memItems: LocalCatalogRow[] = [];

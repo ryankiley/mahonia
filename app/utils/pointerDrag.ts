@@ -45,6 +45,9 @@ export function createPointerDrag<T>(hooks: PointerDragHooks<T>) {
   // top bar, the footer, or off-screen). A release while outside cancels instead of
   // committing — the touch-reachable abort, since there's no Escape key on mobile.
   let outside = false;
+  // the editing surface, looked up once per gesture in start() rather than on every
+  // pointermove; null when it isn't on this page at all
+  let surface: Element | null = null;
 
   function onMove(ev: PointerEvent) {
     if (!dragId.value || ev.pointerId !== activePointer) return;
@@ -53,8 +56,6 @@ export function createPointerDrag<T>(hooks: PointerDragHooks<T>) {
     // past the footer. A sideways drag into the horizontal page margin is still a
     // valid drop: nesting a row means dragging it rightward off the row's right edge
     // (where the grip sits) into the gutter, so the margin must NOT read as "outside".
-    const within = hooks.within ?? ".editor__body";
-    const surface = document.querySelector(within);
     if (surface) {
       const b = surface.getBoundingClientRect();
       outside = ev.clientY < b.top || ev.clientY > b.bottom;
@@ -119,6 +120,7 @@ export function createPointerDrag<T>(hooks: PointerDragHooks<T>) {
   function start(id: string, ev: PointerEvent) {
     if (dragId.value) reset(); // never stack a second gesture's listeners
     ev.preventDefault();
+    surface = document.querySelector(hooks.within ?? ".editor__body");
     // Capture the pointer to the document root — a node that never becomes
     // pointer-events:none. On touch, pointerdown grants implicit capture to the
     // grip, but the lifted row immediately goes pointer-events:none (so drop

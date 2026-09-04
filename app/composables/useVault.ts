@@ -4,10 +4,7 @@
 import type { Folder, Item } from "~~/shared/types";
 import type { VaultCapture, VaultEntry } from "~~/shared/vault";
 import { remember } from "../utils/remember";
-
-// ---------------------------------------------------------------------------
-// capture
-// ---------------------------------------------------------------------------
+import { useDebouncedSearch } from "./useDebouncedSearch";
 
 // ---------------------------------------------------------------------------
 // whose gear is this?
@@ -321,7 +318,6 @@ export function useVaultCapture() {
     item: Item,
     allItems: Item[],
     folders: Folder[],
-    editToken: string,
   ): Promise<"saved" | "unworthy" | "failed"> {
     if (!import.meta.client) return "failed";
     let caps: VaultCapture[];
@@ -377,45 +373,11 @@ export function resetVaultCapture(): void {
  */
 export function useVaultSearch() {
   const { hasVault, vaultFetch } = useVaultAccess();
-  const results = ref<VaultEntry[]>([]);
-  let searchTimer: ReturnType<typeof setTimeout> | undefined;
-  let controller: AbortController | undefined;
-  let lastQ = "";
-
-  function clear() {
-    clearTimeout(searchTimer);
-    controller?.abort();
-    results.value = [];
-    lastQ = "";
-  }
-
-  function search(raw: string) {
-    const q = raw.trim();
-    clearTimeout(searchTimer);
+  return useDebouncedSearch<VaultEntry>({
     // With no vault there is nothing to search — skip the round trip entirely
     // rather than asking the server on every keystroke for a guaranteed [].
-    if (q.length < 2 || !hasVault.value) {
-      clear();
-      return;
-    }
-    // 140ms matches the catalog input's debounce, so the two halves of the menu
-    // settle together instead of the list reshuffling twice per keystroke.
-    searchTimer = setTimeout(async () => {
-      lastQ = q;
-      controller?.abort();
-      controller = new AbortController();
-      try {
-        const res = await vaultFetch<{ results: VaultEntry[] }>("/api/vault/search", {
-          query: { q },
-          signal: controller.signal,
-        });
-        if (lastQ === q) results.value = res.results || [];
-      } catch {
-        // a newer keystroke aborted this, or we're offline — leave the previous
-        // results alone rather than blanking the menu mid-type
-      }
-    }, 140);
-  }
-
-  return { results, search, clear };
+    gate: () => hasVault.value,
+    fetch: (q, signal) =>
+      vaultFetch<{ results: VaultEntry[] }>("/api/vault/search", { query: { q }, signal }),
+  });
 }

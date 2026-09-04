@@ -236,5 +236,5 @@ function moveItem(
   if (formerParentId && formerParentId !== parentId) unwrapEmptied(formerParentId, id);
 }
 
-  return { containerFor, unwrapEmptied, addChild, nestItem, unnest, moveItem };
+  return { addChild, nestItem, unnest, moveItem };
 }

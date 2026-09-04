@@ -1,7 +1,7 @@
 // One-at-a-time overflow menu for item rows. A singleton (like useItemDnd) so the
 // whole list shares ONE open-menu id and ONE set of dismiss listeners — opening a
 // row's ⋯ menu closes any other, and there are 3 window listeners total instead of
-// the per-row pair a naive onClickOutside would attach to every row. Editor-only
+// the per-row set a naive useMenuDismiss would attach to every row. Editor-only
 // (ItemRow renders client-side under GearEditor.client), but guarded anyway.
 
 let singleton: ReturnType<typeof create> | undefined;
@@ -10,9 +10,6 @@ function create() {
   const openId = ref<string | null>(null);
   // the open menu's root element, for outside-click detection (only one is ever open)
   let rootEl: HTMLElement | null = null;
-  // the press must START outside too — a drag from inside the menu that releases
-  // outside is not an outside click (same rule as dom.ts onClickOutside)
-  let startedOutside = true;
 
   function close() {
     openId.value = null;
@@ -27,44 +24,17 @@ function create() {
   }
 
   if (import.meta.client) {
-    // no-op <html> click listener so iOS Safari synthesizes clicks on non-interactive
-    // dead space at all (WebKit only dispatches them when an ancestor looks clickable)
-    // — without it, an outside tap can't dismiss the menu (mirrors dom.ts's shim)
-    document.documentElement.addEventListener("click", () => {}, { passive: true });
-    window.addEventListener(
-      "pointerdown",
-      (e) => {
-        startedOutside = !rootEl || !e.composedPath().includes(rootEl);
+    // The same outside-click / scroll-gesture / Escape trio every other menu gets
+    // from useMenuDismiss. This is a page-lifetime singleton with no component
+    // scope for those listeners to hang off, so a detached effect scope stands in
+    // for one — it is never disposed, which is exactly the lifetime wanted.
+    const open = computed(() => openId.value != null);
+    const target = {
+      get value() {
+        return rootEl;
       },
-      { passive: true },
-    );
-    window.addEventListener(
-      "click",
-      (e) => {
-        if (!rootEl || e.composedPath().includes(rootEl)) return;
-        if (startedOutside) close();
-      },
-      // capture: still close when the outside click's own handler stops propagation
-      { passive: true, capture: true },
-    );
-    // The mobile dismissal — see onScrollOutside (dom.ts) for why it watches the touch
-    // gesture rather than `scroll`. Registered flat alongside the others instead of
-    // through that helper: this is a page-lifetime singleton with no component scope to
-    // hang a teardown on, which is the same reason the listeners above are raw. Nothing
-    // is open until `rootEl` is set, so the closed case costs one early return — and
-    // there is exactly ONE of these for the whole list, which is the point of the
-    // singleton. Drags INSIDE the open surface are scrolling it, not leaving it.
-    window.addEventListener(
-      "touchmove",
-      (e) => {
-        if (!rootEl || e.composedPath().includes(rootEl)) return;
-        close();
-      },
-      { passive: true, capture: true },
-    );
-    window.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") close();
-    });
+    };
+    effectScope(true).run(() => useMenuDismiss(open, target, close));
   }
 
   return { openId, toggle, close };

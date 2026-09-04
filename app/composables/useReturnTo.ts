@@ -68,5 +68,5 @@ export function useReturnTo() {
     await navigateTo(take() ?? fallback, { replace: true });
   }
 
-  return { remember, take, resume };
+  return { remember, resume };
 }

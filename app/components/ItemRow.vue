@@ -59,7 +59,7 @@ import { HugeiconsIcon } from "~/utils/hugeicon";
 import { CalculateIcon, Cancel01Icon, CheckIcon, CheckmarkSquare02Icon, ChevronDownIcon, CircleEllipsisIcon, CookieIcon, Delete02Icon, DropletIcon, GripVerticalIcon, ListIndentIncreaseIcon, MinusSignIcon, PlusSignIcon, SafeBoxIcon, ShirtIcon, SquareIcon, UserIcon } from "@hugeicons/core-free-icons";
 import type { Item, ListSnapshot } from "~~/shared/types";
 import type { ItemPatch } from "~~/shared/ops";
-import { effectivePersonId, personColor, personSlot, sortedPeople } from "~~/shared/people";
+import { effectivePersonId, personColor, sortedPeople } from "~~/shared/people";
 import type { NameCommit } from "~/composables/useCatalogSearch";
 import { bySortOrder, effectiveClassification, entryUnitFromInput, formatKcal, formatWeight, fromMg, groupLineMg, itemDisplayName, parseWeightInput, rowDisplayMg, siblingItems, splitWornQty } from "~~/shared/weights";
 import { isWaterName, itemQtyLabel, waterLiters, waterMgFromMl } from "~~/shared/water";
@@ -601,15 +601,13 @@ const consumableAria = computed(() => (isConsumable.value ? "Consumable: yes" : 
 // empty fields appear while the product name is being edited, so a row typed by hand
 // has a visible place to put either — there is no separate "add a note" control. Each
 // is cleared by emptying its own input.
-const cnameRef = useTemplateRef<HTMLInputElement>("cnameRef");
-const noteRef = useTemplateRef<HTMLInputElement>("noteRef");
 // Set by focus landing anywhere in the name cell; held until focus leaves the ROW (so
 // tabbing on to the fields themselves, or to qty/weight, doesn't yank them away
 // mid-edit), then cleared by onRowBlur. An empty field just folds back up — nothing is
 // written by revealing it.
 const nameEditing = ref(false);
 // A GROUP's own name is already the everyday label — that's where it comes from
-// (useGearList.containerFor lifts the wrapped product's common name up to be the
+// (useGearListNesting's containerFor lifts the wrapped product's common name up to be the
 // group's name), so offering a group a second one is circular. A parent therefore
 // never opens the EMPTY field. A value it already carries still shows, so a row
 // that acquired one before it became a group can still be read and cleared —
@@ -620,8 +618,8 @@ const noteShown = computed(() => !!props.item.description || nameEditing.value);
 const subShown = computed(() => cnameShown.value || noteShown.value);
 
 // ---- mobile overflow (⋯) menu ----
-// On mobile the trailing icons crowd the two-line row, so all of them EXCEPT delete
-// + grip collapse into a ⋯ menu (note + the nesting actions). Desktop keeps the
+// On mobile the trailing icons crowd the two-line row, so all of them EXCEPT the
+// grip collapse into a ⋯ menu (vault · nesting · remove). Desktop keeps the
 // inline icons and never shows this. One menu open at a time across the list (shared
 // singleton), and the folder lifts its collapse clip while it's open (overlayToggle).
 const menu = useItemMenu();
@@ -744,19 +742,28 @@ function onKcal(e: Event) {
   el.value = props.item.kcal ? String(props.item.kcal) : "";
 }
 // ---- nesting ----
-// The two actions a row can offer, resolved to whichever apply. Same table-drives-
-// both-markup-and-dispatch shape the editor's ⋯ menu uses, so an action can't exist
-// in one without the other.
-const nestActions = computed(() => {
-  const acts: { label: string; run: () => void }[] = [];
+// The structure edits a row can offer, resolved to whichever apply. ONE table feeds
+// both seats — the desktop nesting menu and the ⋯ menu's section — so an action
+// can't exist in one and not the other; each seat only names them in its own words.
+type NestKind = "add" | "unnest" | "nestUp";
+const nestKinds = computed(() => {
+  const acts: { kind: NestKind; run: () => void }[] = [];
   // a nested row can't nest further, and a row that already HAS children uses its
   // own ever-present "Add an item" instead
-  if (!props.nested && !isParent.value) acts.push({ label: "Add a nested item", run: () => c.addChild(props.item.id) });
-  if (props.nested) acts.push({ label: "Move out of the group", run: () => c.unnest(props.item.id) });
+  if (!props.nested && !isParent.value) acts.push({ kind: "add", run: () => c.addChild(props.item.id) });
+  if (props.nested) acts.push({ kind: "unnest", run: () => c.unnest(props.item.id) });
   else if (canIndent.value)
-    acts.push({ label: "Nest under the item above", run: () => c.nestItem(props.item.id, props.prevId!) });
+    acts.push({ kind: "nestUp", run: () => c.nestItem(props.item.id, props.prevId!) });
   return acts;
 });
+const NEST_MENU_LABELS: Record<NestKind, string> = {
+  add: "Add a nested item",
+  unnest: "Move out of the group",
+  nestUp: "Nest under the item above",
+};
+const nestActions = computed(() =>
+  nestKinds.value.map((a) => ({ label: NEST_MENU_LABELS[a.kind], run: a.run })),
+);
 const nestRootRef = useTemplateRef<HTMLElement>("nestRootRef");
 const isNestOpen = computed(() => menu.openId.value === `${props.item.id}:nest`);
 watch(isNestOpen, (open) => {
@@ -791,9 +798,12 @@ const ownPerson = computed(() =>
 // The slot the FILTER matches this row on — always stamped ("u" = unassigned) so
 // the CSS never meets a row without the attribute. Derived from row-local data:
 // it changes when an assignment or the people change, never on a filter flip.
+// Same answer as shared/people's personSlot, read off the list this row already
+// holds sorted instead of sorting the people again per row.
 const personSlotAttr = computed(() => {
-  const slot = personSlot(props.list.people, effPersonId.value);
-  return slot == null ? "u" : String(slot);
+  const id = effPersonId.value;
+  const slot = id ? peopleSorted.value.findIndex((p) => p.id === id) : -1;
+  return slot === -1 ? "u" : String(slot);
 });
 const personTitle = computed(() =>
   rowPerson.value
@@ -930,19 +940,22 @@ watch(
 // and living only here on a phone (see the mobile block: the trailing cluster is
 // ⋯ · grip, because the icons are --tap wide there and the line has no room for the
 // row's numbers beside more than two of them).
+const OVERFLOW_NEST_LABELS: Record<NestKind, string> = {
+  add: "Add a nested item",
+  unnest: "Un-nest",
+  nestUp: "Nest under the item above",
+};
 const overflowActions = computed(() => {
   // `nest` marks the structure edits, which stand down while a person filter is
   // on (CSS off the body attribute — atoms/item.scss; the desktop nest menu
   // hides whole the same way): indent targets the UNFILTERED row above, and a
   // reparent changes what a row inherits, so either can make it vanish from the
   // very view it was touched in.
-  const acts: { label: string; run: () => void; nest?: true }[] = [];
-  if (props.nested) acts.push({ label: "Un-nest", run: () => c.unnest(props.item.id), nest: true });
-  else {
-    if (!isParent.value) acts.push({ label: "Add a nested item", run: () => c.addChild(props.item.id), nest: true });
-    if (canIndent.value)
-      acts.push({ label: "Nest under the item above", run: () => c.nestItem(props.item.id, props.prevId!), nest: true });
-  }
+  const acts: { label: string; run: () => void; nest?: true }[] = nestKinds.value.map((a) => ({
+    label: OVERFLOW_NEST_LABELS[a.kind],
+    run: a.run,
+    nest: true,
+  }));
   // Reads its own state, like the inline button's tooltip does — "Saved" is the
   // whole feedback here, since a menu closes on choosing and there's no tick left
   // on screen to see. Same disclosure rule as the inline icon: no entry until the
@@ -1021,10 +1034,10 @@ function dismissFix() {
            the same glyph as the header's packing toggle, and the two share an identical
            outer square so the swap reads as the tick appearing); the real <input> stays
            on top, invisible but focusable, so behavior + focus stay native -->
-      <span class="item__boxwrap">
+      <span class="check">
         <input
           type="checkbox"
-          class="item__box"
+          class="check__box"
           :checked="item.packed"
           :aria-label="`Packed: ${editableName || 'item'}`"
           @change="c.updateItem(item.id, { packed: ($event.target as HTMLInputElement).checked })"
@@ -1032,8 +1045,8 @@ function dismissFix() {
         <!-- absolute-stroke-width pins the drawn line at ~1.33px — what the surrounding
              16px icons render (2 nominal × 16/24) — so the bigger box doesn't read bolder
              than its row -->
-        <HugeiconsIcon :icon="SquareIcon" class="item__boxicon item__boxicon--empty" :size="20" :stroke-width="1.33" absolute-stroke-width aria-hidden="true" />
-        <HugeiconsIcon :icon="CheckmarkSquare02Icon" class="item__boxicon item__boxicon--check" :size="20" :stroke-width="1.33" absolute-stroke-width aria-hidden="true" />
+        <HugeiconsIcon :icon="SquareIcon" class="check__icon check__icon--empty" :size="20" :stroke-width="1.33" absolute-stroke-width aria-hidden="true" />
+        <HugeiconsIcon :icon="CheckmarkSquare02Icon" class="check__icon check__icon--check" :size="20" :stroke-width="1.33" absolute-stroke-width aria-hidden="true" />
       </span>
       <span class="item__cname" :class="{ 'item__cname--group': isParent }"><ItemName :item="item" :group="isParent" /><!--
           the carrier, riding the name cell (display-only — this face is a <label>
@@ -1125,7 +1138,6 @@ function dismissFix() {
                    placeholder did. The aria-label carries the same noun for screen readers. -->
               <input
                 v-if="cnameShown"
-                ref="cnameRef"
                 class="item__note item__gtype-input"
                 :value="item.commonName ?? ''"
                 placeholder="Type of gear"
@@ -1136,7 +1148,6 @@ function dismissFix() {
               />
               <input
                 v-if="noteShown"
-                ref="noteRef"
                 class="item__note"
                 :value="item.description ?? ''"
                 placeholder="Add a note"
@@ -1497,8 +1508,8 @@ function dismissFix() {
           <!-- mousedown.prevent on the action buttons: on macOS Safari/Firefox a
                button does NOT take focus on mousedown, so clicking one from a
                focused input blurs the row (relatedTarget null) and a pristine
-               blank row discards itself before the click can act (e.g. the note
-               button would delete the row instead of opening the note field).
+               blank row discards itself before the click can act (e.g. the nesting
+               button would delete the row instead of opening its menu).
                Preventing the default keeps focus where it was; click still fires. -->
           <!-- Save to vault. Capture already happens on its own as you build, so this
                isn't a new capability — it's the missing affordance for one that had no
@@ -1757,8 +1768,9 @@ function dismissFix() {
 .item {
   /* the grid scaffold (display / columns / align / gap) is the shared .item-row base
      (atoms/item.scss); this row only feeds it the edit column token and lays its cells
-     into named areas. names sit flush at the page edge; the note + remove + grip live
-     together in one trailing actions cluster (evenly spaced, same vertical centre). */
+     into named areas. names sit flush at the page edge; the row controls (vault ·
+     person · nesting · remove · grip) live together in one trailing actions cluster
+     (evenly spaced, same vertical centre). */
   --row-cols: var(--item-cols);
   grid-template-areas: "name qty weight class actions";
   /* vertical padding comes from the row wrapper (.folder__items > *) so the rule
@@ -1785,7 +1797,6 @@ function dismissFix() {
   display: flex;
   align-items: baseline;
   gap: var(--space-1);
-  min-width: 0;
 }
 .item__namebox--group :deep(.ac) {
   flex: 0 1 auto;
@@ -1803,9 +1814,7 @@ function dismissFix() {
      names so the chevron trails them tightly. */
   max-width: min(40ch, calc(100vw - 5rem));
 }
-/* the collapse chevron button + its rotate + touch tap target are the shared
-   .item__nestcollapse / .item__nestchev recipe in atoms/item.scss — one recipe for
-   the edit row, the packing row (.item__cname--group below), and the share views. */
+/* the collapse chevron (.item__nestcollapse / .item__nestchev) is an atoms/item.scss recipe */
 .item__qty {
   grid-area: qty;
 }

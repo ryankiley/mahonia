@@ -28,7 +28,7 @@ export interface ClaimedList {
 // held in memory: the claim call would otherwise repeat on every cold navigation.
 const CLAIMED_MARK_KEY = "gear.claimed.v1";
 
-function deviceFingerprint(tokens: string[]): string {
+export function deviceFingerprint(tokens: string[]): string {
   return [...tokens].sort().join("|");
 }
 

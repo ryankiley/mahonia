@@ -19,7 +19,7 @@ export function useVaultAccess() {
   const { signedIn, loaded } = useSession();
 
   /** Is there a vault to talk to at all? Signed out, the answer is simply no. */
-  const hasVault = computed(() => signedIn.value);
+  const hasVault = signedIn;
 
   /**
    * Whether `hasVault` is an ANSWER yet, or still the `false` it holds by default
@@ -36,7 +36,7 @@ export function useVaultAccess() {
    * account is settled before the first row renders. Only someone who plausibly
    * HAS a vault waits, and only for the round trip that decides it.
    */
-  const vaultKnown = computed(() => loaded.value);
+  const vaultKnown = readonly(loaded);
 
   /**
    * Call a vault endpoint. Same-origin, so the session cookie rides along; the
