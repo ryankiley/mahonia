@@ -1,0 +1,6 @@
+{
+  "date": "2026-09-04",
+  "fixed": [
+    "A row's Save to My Gear button now checks what My Gear actually holds, so gear you already own stops asking to be saved again."
+  ]
+}

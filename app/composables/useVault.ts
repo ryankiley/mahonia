@@ -4,6 +4,7 @@
 import type { Folder, Item } from "~~/shared/types";
 import type { VaultCapture, VaultEntry } from "~~/shared/vault";
 import { remember } from "../utils/remember";
+import { noteVaultKeys, resetVaultKeys } from "./useVaultKeys";
 
 // ---------------------------------------------------------------------------
 // capture
@@ -110,7 +111,7 @@ let timer: ReturnType<typeof setTimeout> | undefined;
 // Capture rows built and waiting: either for the debounce to elapse, or for a
 // retry after a failed send. Held as built rows (not raw items) so the page-hide
 // flush can beacon them synchronously — it has no chance to await anything.
-let pending: { items: unknown[]; fingerprint: string } | null = null;
+let pending: { items: unknown[]; keys: string[]; fingerprint: string } | null = null;
 
 /**
  * Capture the gear in a list into this device's vault.
@@ -151,7 +152,7 @@ export function useVaultCapture() {
   ): void {
     if (!import.meta.client) return;
     void (async () => {
-      let built: { caps: unknown[]; fingerprint: string } | null = null;
+      let built: { caps: unknown[]; keys: string[]; fingerprint: string } | null = null;
       try {
         const { captureFromList, captureFingerprint } = await import("~~/shared/vault");
         const all = captureFromList(items, folders);
@@ -174,13 +175,13 @@ export function useVaultCapture() {
         // gets. Leaving it unanswered is right — the question fires properly the
         // first time you edit this list with an account.
         if (decision === "ask") return hasVault.value ? opts.onAsk?.() : undefined;
-        built = { caps, fingerprint: captureFingerprint(caps) };
+        built = { caps, keys: caps.map((c) => c.normKey), fingerprint: captureFingerprint(caps) };
       } catch {
         return; // chunk fetch failed (offline before the SW cached it) — skip
       }
       // already stored, or already queued for exactly this state
       if (built.fingerprint === lastFingerprint || built.fingerprint === pending?.fingerprint) return;
-      pending = { items: built.caps, fingerprint: built.fingerprint };
+      pending = { items: built.caps, keys: built.keys, fingerprint: built.fingerprint };
       clearTimeout(timer);
       timer = setTimeout(send, CAPTURE_DEBOUNCE_MS);
     })();
@@ -194,6 +195,9 @@ export function useVaultCapture() {
         method: "POST",
         body: { items: sending.items },
       });
+      // the vault now holds these, so the rows carrying them stop offering to
+      // save what's saved without waiting for the next read of /api/vault/keys
+      noteVaultKeys(sending.keys);
       lastFingerprint = sending.fingerprint;
       // only clear if nothing newer arrived while this was in flight
       if (pending?.fingerprint === sending.fingerprint) pending = null;
@@ -224,6 +228,7 @@ export function useVaultCapture() {
       type: "application/json",
     });
     if (navigator.sendBeacon("/api/vault/capture", blob)) {
+      noteVaultKeys(pending.keys);
       lastFingerprint = pending.fingerprint;
       pending = null;
     }
@@ -339,6 +344,9 @@ export function useVaultCapture() {
     } catch {
       return "failed";
     }
+    // My Gear has it now — which is what stops a DUPLICATE of this gear further
+    // down the same list from still offering to save it
+    noteVaultKeys(caps.map((c) => c.normKey));
     // DELIBERATELY does not set the list-wide decision, tempting though it looks.
     // Pressing save on ONE row says "this piece of gear is mine". It says nothing
     // about the other forty, which on a list opened from someone else's edit link
@@ -361,6 +369,9 @@ export function resetVaultCapture(): void {
   clearTimeout(timer);
   lastFingerprint = "";
   pending = null;
+  // the keys are the other half of "what this account has already banked", and
+  // they must not follow one person's sign-out into the next person's session
+  resetVaultKeys();
 }
 
 // ---------------------------------------------------------------------------

@@ -36,6 +36,9 @@ const records = new Map<string, LocalListRecord>();
 // case at the end of the file.
 mockNuxtImport("useVaultAccess", () => () => ({
   hasVault: ref(true),
+  // the session has ANSWERED — the vault's reads (useVaultKeys) wait on this, so
+  // a mock that only carried hasVault left them hanging
+  vaultKnown: ref(true),
   vaultFetch: <T,>(url: string, opts?: Parameters<typeof $fetch>[1]) =>
     $fetch(url, { ...opts, credentials: "same-origin" }) as Promise<T>,
 }));
@@ -114,6 +117,10 @@ let listResponse: ListSnapshot = snapshotFor("Original");
 registerEndpoint("/api/edit/list", () => ({ snapshot: listResponse }));
 registerEndpoint("/api/edit/changes", () => ({ version: 1 })); // the live-sync poll
 registerEndpoint("/api/catalog/use", () => ({})); // fire-and-forget ranking ping
+// what My Gear already holds — read whenever a list opens, so the rows know
+// whether to offer their save button (useVaultKeys). Empty here: these cases are
+// about capture, and an empty vault is what makes every row a genuine capture.
+registerEndpoint("/api/vault/keys", () => ({ keys: [] }));
 
 let captureCalls = 0;
 // what each capture actually carried — the picker tests assert on the ROWS, not

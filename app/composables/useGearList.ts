@@ -93,6 +93,11 @@ function create() {
   // The vault's capture side. Bound inside the controller's scope so its
   // page-hide flush lives exactly as long as the editor does.
   const vault = useVaultCapture();
+  // The vault's READ side: which gear it already holds, so a row can stop
+  // offering to save what's saved (useVaultKeys). Resolved here, with the rest of
+  // the controller's collaborators, rather than inside load() — that runs from an
+  // async callback, and the session state underneath is a useState.
+  const vaultKeys = useVaultKeys();
   scope.run(() => vault.bindFlushOnLeave());
   const online = scope.run(() => useOnline())!;
   let persistTimer: ReturnType<typeof setTimeout> | undefined;
@@ -290,6 +295,12 @@ function create() {
     claimCode = editToken ? "" : normalizeShareCode(cap.code);
     openedByCode.value = !editToken && !!claimCode;
     resetSession();
+    // Re-read what My Gear holds. The set is fetched once per app session, and
+    // /gear can have changed it since (a row added by hand, a row removed) — this
+    // is the moment the rows that render against it are about to be built. Silent
+    // and best-effort: it decides whether a save button shows, and a list must
+    // never wait on it.
+    void vaultKeys.refreshVaultKeys();
     snapshot.value = null;
     status.value = "loading";
     installListeners();

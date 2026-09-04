@@ -12,6 +12,7 @@ import {
   listRemovedVaultItems,
   listVaultFolders,
   listVaultItems,
+  listVaultKeys,
   purgeDeletedVaults,
   reapAbandonedVaults,
   removeVaultItem,
@@ -350,6 +351,57 @@ describe("vault removal — the tombstone", () => {
     await removeVaultItem(db as any, VAULT, id);
     expect(await restoreVaultItem(db as any, OTHER, id)).toBe(false);
     expect(await listVaultItems(db as any, VAULT)).toHaveLength(0);
+  });
+});
+
+describe("listVaultKeys — the membership read the editor runs on", () => {
+  // The editor asks one question about a list row: does My Gear already hold this
+  // piece of gear? For three attempts the row answered it from the list's own
+  // capture answer instead, which is why gear banked months ago kept being
+  // offered for saving. This is the read that replaced the guess, so what it
+  // counts as "in the vault" is the whole contract.
+  let db: DB;
+  const VAULT = 1;
+  const duplex = {
+    normKey: vaultNormKey("Zpacks", "Duplex", null),
+    brand: "Zpacks",
+    name: "Duplex",
+    weightMg: 539_000,
+  } as any;
+  const kakwa = {
+    normKey: vaultNormKey("Durston", "Kakwa 55", null),
+    brand: "Durston",
+    name: "Kakwa 55",
+    weightMg: 900_000,
+  } as any;
+
+  beforeEach(async () => {
+    db = await freshDb();
+    await captureVaultItems(db as any, VAULT, [duplex, kakwa]);
+  });
+
+  it("returns every live row's key, and nothing else about the row", async () => {
+    expect((await listVaultKeys(db as any, VAULT)).sort()).toEqual(
+      [duplex.normKey, kakwa.normKey].sort(),
+    );
+  });
+
+  it("drops a removed row — a tombstone is gear you no longer have", async () => {
+    // and it has to: capture never resurrects one (see the tombstone cases
+    // above), so a removed row that still counted as banked would take away the
+    // button on gear the vault genuinely doesn't hold.
+    const id = (await listVaultItems(db as any, VAULT)).find((r) => r.name === "Duplex")!.id;
+    await removeVaultItem(db as any, VAULT, id);
+    expect(await listVaultKeys(db as any, VAULT)).toEqual([kakwa.normKey]);
+  });
+
+  it("answers for one vault only", async () => {
+    await captureVaultItems(db as any, 2, [duplex]);
+    expect(await listVaultKeys(db as any, 2)).toEqual([duplex.normKey]);
+  });
+
+  it("is empty for a vault with nothing in it", async () => {
+    expect(await listVaultKeys(db as any, 99)).toEqual([]);
   });
 });
 

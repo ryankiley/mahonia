@@ -36,6 +36,7 @@ let rowCount = 30;
 // none of which has any say in what a finger on the sheet does.
 mockNuxtImport("useVaultAccess", () => () => ({
   hasVault: ref(true),
+  vaultKnown: ref(true),
   vaultFetch: async () => ({ items: Array.from({ length: rowCount }, (_, i) => entry(i + 1)) }),
 }));
 mockNuxtImport("useGearList", () => () => ({

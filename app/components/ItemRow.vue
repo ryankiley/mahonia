@@ -97,6 +97,9 @@ const c = useGearList();
 // below — signed out, nothing reaches a vault automatically, so no row may claim
 // it's already there
 const { hasVault, vaultKnown } = useVaultAccess();
+// ...and the one fact neither of those carries: what My Gear actually holds. Read
+// from a shared singleton, so a 150-row list asks once (useVaultKeys).
+const { vaultKeys, vaultKeysKnown } = useVaultKeys();
 
 // The two mount latches (each row face mounts the first time its mode is entered and
 // then stays, CSS-hidden elsewhere) and the mode itself, for event handlers only —
@@ -792,14 +795,18 @@ const setPerson = (personId: string | null) => c.updateItem(props.item.id, { per
 //    out the same way). The old always-present button's only outcome there was a
 //    toast telling you to finish the row — so a NEW item shows no icon at all,
 //    and finishing the row is what makes it arrive (the reveal below).
-//  • Already banked: when the automatic path has the row, asking out loud is
-//    offering to do what's done — so the button leaves again. (It used to stay,
-//    dimmed and aria-disabled, reading "Already in My Gear".) Covered is true
-//    exactly when every gate the automatic path runs is open for this worthy row:
-//    there's a vault to reach (signed in — or not yet known not to be, see the
-//    computed), this list's answer is yes (c.vaultAuto), and the chooser didn't
-//    decline it. Fail one of those and the worthy row keeps its button, because
-//    pressing it is then the only way this row gets banked.
+//  • Already banked: asking out loud to save what's saved is offering to do what's
+//    done — so the button leaves again. (It used to stay, dimmed and
+//    aria-disabled, reading "Already in My Gear".) Two ways a row is banked, and
+//    for three attempts this only knew the second: My Gear ALREADY HOLDS the gear
+//    (vaultKeys — however it got there), or the automatic path is about to put it
+//    there for this list (a vault to reach, this list's answer is yes, the chooser
+//    didn't decline it). Judging by the second alone made the button reappear on
+//    gear that had been banked for months, every time the list's own answer wasn't
+//    yes — the same list opened on a second device, a list answered "no", a row
+//    unticked in the chooser, anything typed in from /gear. Fail both and the
+//    worthy row keeps its button, because pressing it is then the only way this
+//    row gets banked.
 //
 // Neither gate can race live typing: they read the committed snapshot, and the
 // fields that feed worthiness settle before they commit — the name on
@@ -808,25 +815,46 @@ const setPerson = (personId: string | null) => c.updateItem(props.item.id, { per
 // letter. (On a covered list both gates flip in the same commit, worthy AND
 // covered, so completing a row there never flashes a button it's about to take.)
 const vaultWorthy = computed(() => isVaultWorthy(props.item, isParent.value));
-const vaultCovered = computed(
-  () =>
-    // "signed in, or not yet known to be otherwise" — NOT hasVault alone. That ref
-    // is false both for someone signed out and for the moment before
-    // /api/auth/me answers, and only the first of those means the automatic path
-    // can't have banked this row. Reading them as one put the button on every
-    // worthy row of every covered list for the length of that round trip: open a
-    // list you built, and gear that has been in My Gear for weeks offered to be
-    // saved to it. (Whether it then vanished or stayed depended on whether the
-    // session resolved at all — a failed lookup left the wrong answer up for good.)
-    (hasVault.value || !vaultKnown.value) &&
-    c.vaultAuto.value &&
-    vaultWorthy.value &&
-    !c.vaultDeclined.value.has(vaultNormKey(props.item.brand, props.item.name, props.item.variant)),
-);
+const vaultKey = computed(() => vaultNormKey(props.item.brand, props.item.name, props.item.variant));
+const vaultCovered = computed(() => {
+  // "signed in, or not yet known to be otherwise" — NOT hasVault alone. That ref
+  // is false both for someone signed out and for the moment before
+  // /api/auth/me answers, and only the first of those means nothing can have
+  // banked this row. Reading them as one put the button on every worthy row of
+  // every covered list for the length of that round trip: open a list you built,
+  // and gear that has been in My Gear for weeks offered to be saved to it.
+  // (Whether it then vanished or stayed depended on whether the session resolved
+  // at all — a failed lookup left the wrong answer up for good.)
+  if (vaultKnown.value && !hasVault.value) return false; // no vault, so nothing is in one
+  // Same rule one level down: the keys are an empty Set both for an empty vault
+  // and for the moment before /api/vault/keys answers, and only the first means
+  // the row isn't banked. Hold the button back until the answer lands.
+  if (!vaultKnown.value || !vaultKeysKnown.value) return true;
+  // THE TRUTHFUL TEST, and the one this button spent three attempts without: My
+  // Gear either has this piece of gear or it doesn't. It holds however the row got
+  // there — a list on another device, an import, a hand-typed row on /gear — and
+  // it does not care what this list's capture answer happens to be.
+  if (vaultKeys.value.has(vaultKey.value)) return true;
+  // Not banked yet, but about to be: the automatic path takes this list's gear on
+  // the next pause, so offering to do it by hand is offering to do what's already
+  // happening. Fail either gate and the worthy row keeps its button, because
+  // pressing it is then the only way the row gets banked.
+  return c.vaultAuto.value && vaultWorthy.value && !c.vaultDeclined.value.has(vaultKey.value);
+});
 const vaultSaved = ref(false);
 const vaultBusy = ref(false);
 const vaultLabel = computed(() =>
   vaultSaved.value ? "Saved to My Gear" : "Save to My Gear",
+);
+/** Does this row offer the save affordance at all — the inline icon and the ⋯
+ *  entry, which must agree.
+ *
+ *  `vaultSaved` overrides coverage on purpose: the tick IS the feedback for a
+ *  press, and a press is the very thing that makes the row covered (the key it
+ *  banks lands in vaultKeys immediately). Without this the button answered a
+ *  click by vanishing, which reads as the click having gone nowhere. */
+const vaultOffered = computed(
+  () => !isWater.value && vaultWorthy.value && (vaultSaved.value || !vaultCovered.value),
 );
 async function onSaveToVault() {
   // a covered row renders no button, but coverage can flip mid-press (the chooser
@@ -874,8 +902,7 @@ const overflowActions = computed(() => {
   // row is gear worth saving, none again once the automatic path has it (it used
   // to stay as a disabled "Already in My Gear" line) — a menu row that can only
   // say "nothing to do" is an action list advertising a non-action.
-  if (!isWater.value && vaultWorthy.value && !vaultCovered.value)
-    acts.push({ label: vaultLabel.value, run: onSaveToVault });
+  if (vaultOffered.value) acts.push({ label: vaultLabel.value, run: onSaveToVault });
   // LAST, the way the destructive icon sat last in the desktop cluster — a menu is a
   // list you read top to bottom, so the one irreversible entry belongs at the end of
   // it rather than under the thumb. Same words as the icon it replaces ("Remove item",
@@ -1441,7 +1468,7 @@ function dismissFix() {
                gear (isVaultWorthy), so the button's only possible outcome there was
                a toast telling you to weigh a row that has a weight. -->
           <Transition name="vaultin">
-            <Tooltip v-if="!isWater && vaultWorthy && !vaultCovered" :text="vaultLabel" preferred-placement="top">
+            <Tooltip v-if="vaultOffered" :text="vaultLabel" preferred-placement="top">
               <button
                 class="btn btn--icon btn--ghost item__vault-btn"
                 :class="{ 'is-active': vaultSaved }"

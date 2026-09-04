@@ -1,18 +1,25 @@
 // @vitest-environment nuxt
 //
 // The row's "Save to My Gear" button, which renders only while pressing it could
-// do the thing it names. Two states hide it: a row that isn't yet gear (unnamed /
-// unweighed — nothing to save), and a row the automatic capture path already
-// banks (the vault answer is yes — offering to save what's saved is a placebo).
-// In both, the button isn't dimmed, it's GONE: no inline icon, no ⋯-menu entry.
-// A worthy row failing any covered gate keeps it as a live action, because
+// do the thing it names. Three states hide it: a row that isn't yet gear (unnamed
+// / unweighed — nothing to save), a row My Gear ALREADY HOLDS, and a row the
+// automatic capture path is about to bank (the vault answer is yes). In all
+// three, the button isn't dimmed, it's GONE: no inline icon, no ⋯-menu entry. A
+// worthy row failing every covered gate keeps it as a live action, because
 // pressing it is then the only way the row gets banked.
+//
+// The middle one is the gate this button spent three attempts without, and the
+// reason it kept reappearing on gear banked months ago: coverage used to be
+// inferred entirely from THIS LIST's capture answer, which is a different
+// question and says no in every ordinary situation where the answer lives
+// somewhere the device can't see it.
 //
 // Nuxt environment because the decision under test is what the ROW renders:
 // whether the button exists at all, and whether a press reaches the controller.
-// The condition spans the controller's mirror (vaultAuto / vaultDeclined), the
-// session (hasVault), and the row's own worthiness — gearList.nuxt.test.ts proves
-// the mirror tracks the stored answer; this file proves the row obeys the mirror.
+// The condition spans the vault's own contents (useVaultKeys), the controller's
+// mirror (vaultAuto / vaultDeclined), the session (hasVault), and the row's own
+// worthiness — gearList.nuxt.test.ts proves the mirror tracks the stored answer;
+// this file proves the row obeys both.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mockNuxtImport } from "@nuxt/test-utils/runtime";
 import { mount } from "@vue/test-utils";
@@ -28,17 +35,27 @@ const rowProvides = {
 };
 
 // The dials the covered state reads, reset per test. `vaultKnown` is the session
-// having ANSWERED — false only in the moment before /api/auth/me lands.
+// having ANSWERED — false only in the moment before /api/auth/me lands;
+// `vaultKeysKnown` is the same distinction one level down, for the read that says
+// what My Gear actually holds.
 const vaultAuto = ref(false);
 const vaultDeclined = ref<Set<string>>(new Set());
 const hasVault = ref(true);
 const vaultKnown = ref(true);
+const vaultKeys = ref<ReadonlySet<string>>(new Set<string>());
+const vaultKeysKnown = ref(true);
 const saveItemToVault = vi.fn(() => Promise.resolve("saved" as const));
 
 mockNuxtImport("useVaultAccess", () => () => ({
   hasVault,
   vaultKnown,
   vaultFetch: () => Promise.resolve({ results: [] }),
+}));
+
+mockNuxtImport("useVaultKeys", () => () => ({
+  vaultKeys,
+  vaultKeysKnown,
+  refreshVaultKeys: () => Promise.resolve(),
 }));
 
 mockNuxtImport("useGearList", () => () => ({
@@ -88,12 +105,135 @@ function mountRow(item: Item) {
 
 const vaultBtn = (w: ReturnType<typeof mountRow>) => w.find(".item__vault-btn");
 
+const keyFor = (item: Item) => vaultNormKey(item.brand, item.name, item.variant);
+
+describe("the save button, against what My Gear actually holds", () => {
+  beforeEach(() => {
+    vaultAuto.value = false;
+    vaultDeclined.value = new Set();
+    hasVault.value = true;
+    vaultKnown.value = true;
+    vaultKeys.value = new Set();
+    vaultKeysKnown.value = true;
+    saveItemToVault.mockClear();
+  });
+
+  it("stands down for gear the vault already holds, whatever this list's answer is", async () => {
+    // THE BUG. Every route to it is the same shape: the gear is banked, and this
+    // list's capture answer says otherwise — a list built on another device (the
+    // answer is in that device's localStorage), a list answered "no", a list
+    // whose prompt is still unanswered. The row used to take the answer's word
+    // for it and offer to save a tent that had been in My Gear for months.
+    const item = gear();
+    vaultKeys.value = new Set([keyFor(item)]);
+    const w = mountRow(item);
+    expect(vaultBtn(w).exists()).toBe(false);
+    // and the ⋯ menu agrees, on a phone where the inline cluster collapses
+    await w.find(".item__morebtn").trigger("click");
+    const labels = w.findAll(".item__morelist .menu__item").map((b) => b.text());
+    expect(labels.some((l) => l.includes("My Gear"))).toBe(false);
+    w.unmount();
+  });
+
+  it("still offers gear the vault does NOT hold, on that same uncovered list", () => {
+    // the other half of the same rule — membership is per piece of gear, not per
+    // list, so one banked row must not quiet its neighbours
+    vaultKeys.value = new Set([vaultNormKey("Durston", "Kakwa 55", null)]);
+    const w = mountRow(gear());
+    expect(vaultBtn(w).exists()).toBe(true);
+    expect(vaultBtn(w).attributes("aria-label")).toBe("Save to My Gear");
+    w.unmount();
+  });
+
+  it("outranks a chooser exclusion — declining a row is not the same as not owning it", () => {
+    // "that tent is my friend's, for THIS list" is an instruction to capture, and
+    // it was read as a statement about the vault. Bank the same gear from
+    // anywhere else and the button has nothing left to offer.
+    vaultAuto.value = true;
+    const item = gear();
+    vaultDeclined.value = new Set([keyFor(item)]);
+    vaultKeys.value = new Set([keyFor(item)]);
+    const w = mountRow(item);
+    expect(vaultBtn(w).exists()).toBe(false);
+    w.unmount();
+  });
+
+  it("waits for the vault's answer before offering to save anything", async () => {
+    // the flash PR #239 took out of the session lookup, one level down: an empty
+    // key set means "we haven't asked" until the read lands, and rendering it as
+    // "your vault is empty" would put the button back on every banked row for the
+    // length of that round trip
+    const item = gear();
+    vaultKeysKnown.value = false;
+    const w = mountRow(item);
+    expect(vaultBtn(w).exists()).toBe(false);
+
+    vaultKeys.value = new Set([keyFor(item)]);
+    vaultKeysKnown.value = true;
+    await nextTick();
+    expect(vaultBtn(w).exists()).toBe(false); // banked all along; no flash
+    w.unmount();
+  });
+
+  it("falls back to the list's answer when the vault can't be read at all", async () => {
+    // offline, rate-limited, a blip: the read settles as known-with-nothing rather
+    // than hiding a working affordance behind a request that may never land, so
+    // the button lands exactly where it was before the read existed
+    const w = mountRow(gear());
+    expect(vaultBtn(w).exists()).toBe(true); // uncovered list → offered
+    vaultAuto.value = true;
+    await nextTick();
+    expect(vaultBtn(w).exists()).toBe(false); // covered list → not
+    w.unmount();
+  });
+
+  it("ignores a stale key set once the session says there is no vault", () => {
+    // signing out drops the keys (resetVaultKeys), but the render must not depend
+    // on that ordering: no vault means nothing is in one, whatever the set holds
+    const item = gear();
+    vaultKeys.value = new Set([keyFor(item)]);
+    hasVault.value = false;
+    const w = mountRow(item);
+    expect(vaultBtn(w).exists()).toBe(true);
+    w.unmount();
+  });
+
+  it("keeps its tick after a press, though banking the row is what covers it", async () => {
+    // a press puts the key in the set immediately (useVault.captureOne →
+    // noteVaultKeys), so a button that obeyed coverage alone would answer the
+    // click by vanishing — which reads as the click having gone nowhere. The tick
+    // IS the feedback, so it outranks coverage on the row that earned it.
+    const item = gear();
+    const w = mountRow(item);
+    await vaultBtn(w).trigger("click");
+    vaultKeys.value = new Set([keyFor(item)]); // what noteVaultKeys does
+    await vi.waitFor(() => expect(vaultBtn(w).attributes("aria-label")).toBe("Saved to My Gear"));
+    w.unmount();
+  });
+
+  it("takes the button back when the ticked row is renamed into different gear", async () => {
+    // the tick stops speaking for a row whose identity changed — and the new
+    // identity is judged on its own membership, like any other row
+    const item = gear();
+    const w = mountRow(item);
+    await vaultBtn(w).trigger("click");
+    vaultKeys.value = new Set([keyFor(item)]);
+    await vi.waitFor(() => expect(vaultBtn(w).attributes("aria-label")).toBe("Saved to My Gear"));
+
+    await w.setProps({ item: gear({ name: "Kakwa 55", brand: "Durston" }) });
+    expect(vaultBtn(w).attributes("aria-label")).toBe("Save to My Gear");
+    w.unmount();
+  });
+});
+
 describe("the save button on a list the automatic capture already covers", () => {
   beforeEach(() => {
     vaultAuto.value = false;
     vaultDeclined.value = new Set();
     hasVault.value = true;
     vaultKnown.value = true;
+    vaultKeys.value = new Set();
+    vaultKeysKnown.value = true;
     saveItemToVault.mockClear();
   });
 

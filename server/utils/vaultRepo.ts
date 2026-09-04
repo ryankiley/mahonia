@@ -415,6 +415,29 @@ export async function listVaultItems(db: Db, vaultId: number): Promise<VaultEntr
   return (await liveRows(db, vaultId)).map(toEntry);
 }
 
+/**
+ * Just the identity keys of a vault's live rows — no content, no folders, no
+ * tombstones.
+ *
+ * The editor's question about a list row is a MEMBERSHIP one ("is this gear
+ * already mine?"), not a browse, and answering it with listVaultItems would ship
+ * a whole vault's worth of rows to a page that renders none of them. One indexed
+ * column, and a set is all the client builds from it.
+ *
+ * Bounded by VAULT_ITEMS_MAX rather than POOL_LIMIT: this is the membership set,
+ * and a row past the browse's window is still a row you own. Removed rows are
+ * excluded because capture never resurrects a tombstone (see captureVaultItems) —
+ * gear you put away is genuinely not in your vault.
+ */
+export async function listVaultKeys(db: Db, vaultId: number): Promise<string[]> {
+  const rows = await db
+    .select({ normKey: vaultItems.normKey })
+    .from(vaultItems)
+    .where(and(eq(vaultItems.vaultId, vaultId), isNull(vaultItems.removedAt)))
+    .limit(VAULT_ITEMS_MAX);
+  return rows.map((r) => r.normKey);
+}
+
 /** A vault's folders in drag order (id breaks a tie, so the order is total). */
 export async function listVaultFolders(db: Db, vaultId: number): Promise<VaultFolder[]> {
   const rows = await db
