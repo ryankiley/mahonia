@@ -80,6 +80,72 @@ function numFromGroup(s: string): number {
 // as a token; a fresh regex per call because /g carries lastIndex state.
 const weightScan = () => /(-?[\d][\d.,]*)\s*([a-z]+)?/g;
 
+/** One number the scanner found, and the unit it named (null = named none). */
+interface WeightGroup {
+  value: number;
+  unit: Unit | null;
+}
+
+/**
+ * The numbers in `text` that are actually PART OF THE MEASUREMENT.
+ *
+ * Summing every number the scanner finds is what makes "2 lb 3 oz" work, and it is
+ * also what made a pasted spec line come out at double: "32.5 oz (921 g)" is one
+ * weight written twice, and adding the two gave 1,842 g. Two rules separate a
+ * compound weight from a sentence that happens to contain digits:
+ *
+ *  1. WITH MORE THAN ONE NUMBER PRESENT, A NUMBER THAT NAMES NO UNIT ISN'T ONE.
+ *     "size 2 / 400 g" is a 400 g item in size 2, not 402 g; "5 g/m2" is 5 g, not 7.
+ *     A lone bare number still takes `defaultUnit` — typing "820" on a gram list is
+ *     the overwhelmingly common case and stays exactly as it was.
+ *  2. ONLY GROUPS SEPARATED BY WHITESPACE ALONE ARE ADDED TOGETHER.
+ *     "2 lb 3 oz" is one weight in two units; "32.5 oz (921 g)" and "1.5 kg / 3.3 lb"
+ *     put a bracket or a slash between them, which is how a person writes the SAME
+ *     weight twice rather than a sum. Anything but space between two figures ends
+ *     the run, so the first one wins.
+ *
+ * Returns the accepted groups in order — empty when nothing parsed. Shared by both
+ * parsers below so "how much" and "which unit" can never disagree about which
+ * numbers counted.
+ */
+function weightGroups(text: string): WeightGroup[] {
+  const re = weightScan();
+  const all: (WeightGroup & { start: number; end: number })[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    // numFromGroup() decides which separator is the decimal point
+    const value = numFromGroup(m[1]!);
+    if (!isFinite(value)) continue;
+    const word = m[2];
+    // a word that isn't a unit disqualifies the number it trails — "5 pretzels" is
+    // a count, not a weight (this is the old loop's `continue`, kept verbatim)
+    if (word && !UNIT_ALIASES[word]) continue;
+    all.push({
+      value,
+      unit: word ? UNIT_ALIASES[word]! : null,
+      start: m.index,
+      end: m.index + m[0].length,
+    });
+  }
+  if (all.length <= 1) return all; // one figure (or none): rule 1 has nothing to compare
+
+  const named = all.filter((g) => g.unit);
+  // every figure is bare ("850 - 900"): no unit names one as the weight, so take the
+  // first and let defaultUnit apply, rather than adding numbers that never agreed
+  if (!named.length) return [all[0]!];
+
+  const run = [named[0]!];
+  for (let i = 1; i < named.length; i++) {
+    const prev = named[i - 1]!;
+    const cur = named[i]!;
+    // whitespace only — and a skipped bare number between them is itself
+    // non-whitespace, so "1 kg 500" ends the run at "1 kg" too
+    if (!/^\s*$/.test(text.slice(prev.end, cur.start))) break;
+    run.push(cur);
+  }
+  return run;
+}
+
 export function parseWeightInput(
   raw: string,
   defaultUnit: Unit = "g",
@@ -88,23 +154,12 @@ export function parseWeightInput(
   const text = String(raw).trim().toLowerCase();
   if (!text) return null;
 
-  // numFromGroup() below decides which separator is the decimal point
-  const re = weightScan();
+  const groups = weightGroups(text);
+  if (!groups.length) return null;
+
   let mg = 0;
-  let matched = false;
-  let m: RegExpExecArray | null;
-
-  while ((m = re.exec(text)) !== null) {
-    const num = numFromGroup(m[1]!);
-    if (!isFinite(num)) continue;
-    const unitWord = m[2];
-    const unit = unitWord ? UNIT_ALIASES[unitWord] : defaultUnit;
-    if (!unit) continue; // an unknown word like "stuff sack" — skip
-    matched = true;
-    mg += num * MG_PER_UNIT[unit];
-  }
-
-  return matched ? Math.round(mg) : null;
+  for (const g of groups) mg += g.value * MG_PER_UNIT[g.unit ?? defaultUnit];
+  return Math.round(mg);
 }
 
 /**
@@ -120,20 +175,17 @@ export function parseWeightInput(
  *
  * Null therefore means "no opinion", never "invalid" — callers fall back to the
  * list's displayUnit, which is what every row did before entryUnit existed.
+ *
+ * Reads the SAME accepted groups parseWeightInput sums (see weightGroups), so the
+ * unit a row reads back in is always a unit that counted toward its weight — for
+ * "32.5 oz (921 g)" that is "oz", the one the typist actually chose.
  */
 export function entryUnitFromInput(raw: string): Unit | null {
   if (raw == null) return null;
   const text = String(raw).trim().toLowerCase();
   if (!text) return null;
   const seen = new Set<Unit>();
-  const re = weightScan();
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(text)) !== null) {
-    const word = m[2];
-    if (!word) continue;
-    const unit = UNIT_ALIASES[word];
-    if (unit) seen.add(unit);
-  }
+  for (const g of weightGroups(text)) if (g.unit) seen.add(g.unit);
   return seen.size === 1 ? [...seen][0]! : null;
 }
 

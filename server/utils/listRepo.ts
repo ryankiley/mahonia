@@ -7,6 +7,7 @@ import { and, desc, eq, inArray, isNotNull, isNull, lt, lte, notInArray, sql } f
 import { listClaims, catalogItems, listSnapshots, lists, type ListRow, users } from "../db/schema";
 import {
   applyOps,
+  isOpObject,
   MAX_DAYS,
   MAX_FOLDERS,
   MAX_ITEMS,
@@ -1008,8 +1009,12 @@ export async function applyOpsByEditHash(
     // trailLabel joins title/description here: it's owner-typed free text that renders
     // on /l. trailUrl doesn't — it's one validated URL in its own field, and counting
     // it would flag every list that legitimately uses the feature.
+    // isOpObject first: applyOps above ignores a malformed entry by design, so a raw
+    // `op.t` here threw on a null in the batch — a 500 that rolled back every valid
+    // op sent with it, on the one code path a client cannot route around.
     const touchesMeta = ops.some(
       (op) =>
+        isOpObject(op) &&
         op.t === "setMeta" &&
         (typeof op.patch?.title === "string" ||
           typeof op.patch?.description === "string" ||
@@ -1069,6 +1074,7 @@ export async function applyOpsByEditHash(
       try {
         const touched = new Set<string>();
         for (const op of ops) {
+          if (!isOpObject(op)) continue; // same tolerance as applyOps (see touchesMeta)
           if (op.t === "addItem") touched.add(op.item.id);
           else if (op.t === "updateItem" && typeof op.patch?.name === "string") touched.add(op.id);
         }

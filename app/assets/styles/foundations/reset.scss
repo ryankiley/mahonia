@@ -68,13 +68,20 @@ body {
 }
 
 // Don't let long unbroken strings (URLs, tokens) force horizontal overflow.
-p,
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
+//
+// On the BODY, not on a list of block elements. Scoped to `p` and the headings, this
+// covered none of the places user text actually lands: an item name is a <span>, a
+// folder name in the category legend is a <span> in an <li>. A 50-character token with
+// no space, hyphen or slash in it then ran 1,600px off the right edge of a 390px phone
+// — on the shared read view and the packing checklist, where the name is plain text
+// rather than the <input> that clips it in the editor — with the page refusing to
+// scroll sideways, so the text was simply unreachable. In print it was cut for good.
+//
+// `break-word` rather than `anywhere`: both break a word that cannot fit, but only
+// `anywhere` lets the break count against min-content, which would let flex and grid
+// tracks collapse narrower than their content all over the app. Inherited, so a
+// component that genuinely wants a word to run (a code span, say) opts out locally.
+body {
   overflow-wrap: break-word;
 }
 

@@ -234,3 +234,26 @@ describe("JSON export: the route read off a GPX", () => {
     expect(parsed?.trailAscentM).toBeUndefined();
   });
 });
+
+// The header of shared/exporters/json.ts promises a backup "reproduces the list
+// exactly". A qty of 0 broke that promise by exactly one unit's weight.
+describe("JSON backup — a quantity of zero survives the round-trip", () => {
+  it("restores the qty the file actually says", () => {
+    const list = {
+      title: "Trip",
+      displayUnit: "g" as const,
+      folders: [],
+      items: [
+        { id: "a", folderId: null, name: "Tent", unitWeightMg: 1_200_000, qty: 1, classification: null, sortOrder: 0 },
+        { id: "b", folderId: null, name: "Spare batteries", unitWeightMg: 23_000, qty: 0, classification: null, sortOrder: 1 },
+      ],
+    };
+    const file = listToJson(list);
+    expect(JSON.parse(file).items[1].qty).toBe(0);
+    const back = jsonToListImport(file)!;
+    expect(back.data.items.map((i) => i.qty)).toEqual([1, 0]);
+    const weigh = (items: readonly { qty: number; unitWeightMg: number }[]) =>
+      items.reduce((s, i) => s + i.qty * i.unitWeightMg, 0);
+    expect(weigh(back.data.items)).toBe(weigh(list.items));
+  });
+});

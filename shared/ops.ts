@@ -7,7 +7,7 @@
 import { parseProfile } from "./profile";
 import { tidyProse, tidyText } from "./tidyText";
 import { boundedRound, normalizeDistanceUnit, normalizeTrailAscentM, normalizeTrailDistanceM } from "./trailDistance";
-import { normalizeTrailLabel, normalizeTrailUrl } from "./trailLink";
+import { normalizeTrailLabel, normalizeTrailUrl, safeUrl } from "./trailLink";
 import type { Classification, Folder, Item, ListMeta, ListState, Person, TripDay, Unit, Waypoint } from "./types";
 import { UNITS, WAYPOINT_KINDS } from "./types";
 import { personNameTaken, UNASSIGNED } from "./people";
@@ -221,6 +221,13 @@ const SAFE_COLOR_KEY = /^[a-z0-9-]{1,40}$/;
 const clampWeight = (n: number) =>
   Math.max(0, Math.min(UNIT_WEIGHT_MAX_MG, Math.round(n)));
 
+/** A stored product link: http(s) only, length-capped. Anything else is no link.
+ *  Deliberately not tidied — see cleanText below on why URLs keep their apostrophes. */
+const httpUrl = (raw: string): string | undefined => {
+  const url = raw.trim().slice(0, 2000);
+  return safeUrl(url) ? url : undefined;
+};
+
 // Every HUMAN-typed string lands here: clamped, then tidied (see tidyText). Doing it
 // in the reducer rather than in the fields means one rule covers paths no component
 // can — a catalog pick, a LighterPack import, a restored JSON backup, and an op
@@ -249,7 +256,13 @@ function cleanItemPatch(patch: ItemPatch): Partial<Item> {
   if (typeof patch.commonNameOverridden === "boolean") out.commonNameOverridden = patch.commonNameOverridden;
   if (typeof patch.nameOverridden === "boolean") out.nameOverridden = patch.nameOverridden;
   if (typeof patch.description === "string") out.description = cleanText(patch.description, 2000);
-  if (typeof patch.productUrl === "string") out.productUrl = patch.productUrl.slice(0, 2000);
+  // Scheme-checked like every other stored URL (trailUrl via normalizeTrailUrl, the
+  // vault's own field via its ^https?:// gate). It had only a length clamp, so
+  // "javascript:..." stored verbatim -- inert today, since nothing on a list surface
+  // renders it as an href, but the CSP carries 'unsafe-inline', so the day something
+  // does it is a live sink on a page strangers open. "" clears it, like brand/variant.
+  if (typeof patch.productUrl === "string")
+    out.productUrl = httpUrl(patch.productUrl) ?? undefined;
   if (typeof patch.unitWeightMg === "number" && isFinite(patch.unitWeightMg))
     out.unitWeightMg = clampWeight(patch.unitWeightMg);
   // entryUnit is DISPLAY ONLY (see types.ts) — validated against the unit list so a
@@ -500,6 +513,19 @@ function canAdd<T extends { id: string }>(
   );
 }
 
+/**
+ * Is this entry shaped like an op at all?
+ *
+ * applyOp below tolerates anything (`op?.t` falls through the switch), which is the
+ * contract every other reader of an op batch has to keep — and two didn't: the
+ * server's `ops.some((op) => op.t === "setMeta" …)` and summarizeOps's
+ * `"quiet" in op` both THREW on a null / number / string, turning one malformed
+ * entry into a 500 that lost the valid ops batched with it. Exported so those
+ * readers filter on the same predicate rather than each inventing a guard.
+ */
+export const isOpObject = (op: unknown): op is Op =>
+  !!op && typeof op === "object" && !Array.isArray(op);
+
 /** Apply a single op in place. Unknown/invalid ops are ignored (no throw). */
 function applyOp(state: ListState, op: Op): void {
   switch (op?.t) {
@@ -732,7 +758,17 @@ export function applyOps(state: ListState, ops: Op[]): ListState {
 }
 
 export function normalizeItem(raw: Item): Item {
-  const qty = Math.max(0, Math.min(9999, Math.round(Number(raw.qty) || 1)));
+  // `Number(raw.qty) || 1` read a stored 0 as 1 — 0 is falsy, so the default meant
+  // for a MISSING qty swallowed a real one. cleanItemPatch accepts 0 (Math.max(0, …)),
+  // so a zero is a state the write path stores and this one could not express: a JSON
+  // backup round-tripped a qty-0 row back as qty 1 and the list gained its weight,
+  // and so did every whole-list rebuild (create, and a recovery-point restore).
+  // Default only when the field is genuinely absent or unusable — `?? ""` and the
+  // emptiness test keep null/undefined/"" on the default side, where Number() would
+  // otherwise turn the last two into a zero nobody typed.
+  const rawQty = String(raw.qty ?? "").trim();
+  const n = rawQty ? Number(rawQty) : NaN;
+  const qty = Math.max(0, Math.min(9999, Math.round(Number.isFinite(n) ? n : 1)));
   let classification = CLASSES.includes(raw.classification as Classification)
     ? (raw.classification as Classification)
     : null;
@@ -777,7 +813,7 @@ export function normalizeItem(raw: Item): Item {
     classification,
     kcal: kcal > 0 ? Math.min(KCAL_MAX, kcal) : undefined,
     description: raw.description ? cleanText(String(raw.description), 2000) || undefined : undefined,
-    productUrl: raw.productUrl ? String(raw.productUrl).slice(0, 2000) : undefined,
+    productUrl: raw.productUrl ? httpUrl(String(raw.productUrl)) : undefined,
     priceCents:
       typeof raw.priceCents === "number" && isFinite(raw.priceCents)
         ? Math.max(0, Math.round(raw.priceCents))

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  highlightParts,
   isExactOrPrefixMatch,
   matchTier,
   mergeCatalogRows,
@@ -245,5 +246,37 @@ describe("mergeCatalogRows", () => {
     const incoming = [row({ id: 99 })];
     const merged = mergeCatalogRows(existing, incoming, 3);
     expect(merged.map((r) => r.id)).toEqual([99, 1, 2]); // newest kept, oldest dropped
+  });
+});
+
+// The apostrophe fold exists because a row that RANKS but highlights nothing reads as
+// "this isn't the match you asked for". foldForSearch strips diacritics too — its own
+// comment names Fjällräven — so the highlighter has to fold them or it reopens the hole.
+describe("highlightParts — accents", () => {
+  const on = (text: string, q: string) =>
+    highlightParts(text, q)
+      .filter((p) => p.on)
+      .map((p) => p.t)
+      .join("");
+
+  it("marks the match when the query drops the accents", () => {
+    expect(on("Fjällräven Abisko", "fjallraven")).toBe("Fjällräven");
+    expect(on("NeoAir Café", "cafe")).toBe("Café");
+  });
+
+  it("still marks it when the query carries them", () => {
+    expect(on("Fjällräven Abisko", "fjällräven")).toBe("Fjällräven");
+  });
+
+  it("keeps both apostrophe spellings working", () => {
+    expect(on("Arc\u2019teryx Beta", "arc'teryx")).toBe("Arc\u2019teryx");
+    expect(on("Arc\u2019teryx Beta", "arc\u2019teryx")).toBe("Arc\u2019teryx");
+  });
+
+  it("puts the parts back together as the original text", () => {
+    for (const q of ["fjallraven", "cafe", "arc'teryx", "(a+)+", "\\"]) {
+      const text = "Fjällräven Arc\u2019teryx Café";
+      expect(highlightParts(text, q).map((p) => p.t).join("")).toBe(text);
+    }
   });
 });

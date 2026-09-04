@@ -100,7 +100,13 @@ $bp-full: 1024px !default;
   /* ---- ink: neutral grey ramp; primary is true black / white ---- */
   --ink: light-dark(#000000, #ffffff);
   --ink-2: light-dark(#595959, #a8a8a8); /* secondary text */
-  --ink-3: light-dark(#767676, #757575); /* faint — tuned to clear WCAG AA 4.5:1 on paper */
+  /* faint — tuned to clear WCAG AA 4.5:1, and tuned against the RAISED surface, not
+     just --paper. The dark value was #757575, which cleared 4.56:1 on the black page
+     and then fell to 3.58:1 wherever it sat on --surface-float (#1f1f1f) — the trail
+     card's URL line, and anything else on a lifted panel. #878787 clears 4.59:1 there
+     and 5.7:1 on the page, and keeps a visible step down from --ink-2. Light was
+     already fine on both (4.54:1 on white) and is left alone. */
+  --ink-3: light-dark(#767676, #878787);
   /* Ghost: the unfilled LIST TITLE only, and deliberately far below --ink-3's AA floor.
      Two things make that legitimate here and nowhere else — the field carries a real
      aria-label ("List name"), so the placeholder is never the accessible name; and it's

@@ -147,15 +147,31 @@ function cardVnode(m: OgCardModel): Vnode {
       // the breakdown, small — the ask behind this card: pack weight up top,
       // Base / Worn / Consumable in smaller text beneath it
       m.chips.length
-        ? el(
-            { flexDirection: "row", marginTop: 32 },
-            m.chips.map((c, i) =>
-              el({ marginLeft: i ? 48 : 0, fontSize: 40 }, [
-                el({ fontWeight: 600, color: INK_2 }, c.label),
-                el({ marginLeft: 14 }, c.value),
-              ]),
-            ),
-          )
+        ? (() => {
+            // One line, always inside the card. At the design size the row ran off the
+            // right edge on a heavy list — "Consumable 150.03" was cut mid-number with
+            // its unit gone — because nothing here shrinks and satori does not scroll.
+            // Rather than wrap (a second line would collide with the card's bottom
+            // edge), step the whole row down when the text it holds is too long for
+            // the 1056px between the paddings. `min` so an ordinary breakdown, which
+            // is the overwhelming majority, renders at exactly the size it always did.
+            const text = m.chips.map((c) => `${c.label} ${c.value}`).join("");
+            const gaps = (m.chips.length - 1) * CHIP_GAP + m.chips.length * CHIP_PAIR_GAP;
+            const size = Math.min(
+              CHIP_SIZE,
+              Math.floor(((CARD_INNER_W - gaps) / (text.length * CHIP_ADVANCE_EM)) * 10) / 10,
+            );
+            const scale = size / CHIP_SIZE;
+            return el(
+              { flexDirection: "row", marginTop: 32 },
+              m.chips.map((c, i) =>
+                el({ marginLeft: i ? Math.round(CHIP_GAP * scale) : 0, fontSize: size }, [
+                  el({ fontWeight: 600, color: INK_2 }, c.label),
+                  el({ marginLeft: Math.round(CHIP_PAIR_GAP * scale) }, c.value),
+                ]),
+              ),
+            );
+          })()
         : null,
     ],
   );
@@ -168,6 +184,17 @@ function cardVnode(m: OgCardModel): Vnode {
 // static file can't fail, which is what a failure fallback must be), and a test
 // re-renders it against the committed bytes so the template and the file can't
 // drift. The one-liner mirrors editorSeo's GENERIC_TITLE, which app code owns.
+// The breakdown row's metrics, named so the fit calculation above and the markup can
+// never disagree: the design size, the space between chips and between a chip's label
+// and its value, the drawing width between the card's 72px paddings, and Inter's
+// average advance as a fraction of the em (measured across the label/figure mix this
+// row holds — digits and spaces run narrower than 0.5em, capitals wider).
+const CHIP_SIZE = 40;
+const CHIP_GAP = 48;
+const CHIP_PAIR_GAP = 14;
+const CARD_INNER_W = 1200 - 72 * 2;
+const CHIP_ADVANCE_EM = 0.52;
+
 const SITE_MARK_SIZE = 264;
 function siteCardVnode(): Vnode {
   return el(

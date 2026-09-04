@@ -545,3 +545,52 @@ describe("totalsChips — the breakdown TotalsBar and the social card share", ()
     ]);
   });
 });
+
+// A weight field takes free text, and people paste into it. The parser sums number/unit
+// pairs, which is what makes "2 lb 3 oz" work — and what made a pasted spec line come
+// out at exactly double. See weightGroups() for the two rules that separate a compound
+// weight from a sentence that happens to contain digits.
+describe("parseWeightInput — a stray number is not part of the weight", () => {
+  it("does not add the second spelling of the same weight", () => {
+    // the shape a product page gives you: one weight, written twice
+    expect(parseWeightInput("32.5 oz (921 g)", "g")).toBe(toMg(32.5, "oz"));
+    expect(parseWeightInput("921 g / 32.5 oz", "g")).toBe(toMg(921, "g"));
+    expect(parseWeightInput("1.5 kg / 3.3 lb", "g")).toBe(toMg(1.5, "kg"));
+  });
+
+  it("ignores a number that names no unit when another number does", () => {
+    expect(parseWeightInput("size 2 / 400 g", "g")).toBe(toMg(400, "g"));
+    expect(parseWeightInput("400g (size 2)", "g")).toBe(toMg(400, "g"));
+    expect(parseWeightInput("5 g/m2", "g")).toBe(toMg(5, "g"));
+    expect(parseWeightInput("850g±10", "g")).toBe(toMg(850, "g"));
+    expect(parseWeightInput("1 kg 500", "g")).toBe(toMg(1, "kg"));
+  });
+
+  it("takes the figure that names a unit out of a range", () => {
+    expect(parseWeightInput("850 - 900 g", "g")).toBe(toMg(900, "g"));
+  });
+
+  it("still sums a genuine compound, which is whitespace-separated", () => {
+    // summed in full precision and rounded ONCE, as the parser does — not the sum of
+    // three separately-rounded conversions
+    expect(parseWeightInput("2 lb 3 oz")).toBe(Math.round(2 * 453_592.37 + 3 * 28_349.523125));
+    expect(parseWeightInput("1 lb 2 oz 3 g")).toBe(
+      Math.round(453_592.37 + 2 * 28_349.523125 + 3 * 1_000),
+    );
+  });
+
+  it("still reads a lone bare number in the list's own unit", () => {
+    expect(parseWeightInput("820", "g")).toBe(820_000);
+    expect(parseWeightInput("1.5", "kg")).toBe(1_500_000);
+    expect(parseWeightInput("Weight: 850 g", "g")).toBe(850_000);
+    expect(parseWeightInput("12 oz nalgene", "g")).toBe(toMg(12, "oz"));
+  });
+
+  it("reads back in the unit that counted", () => {
+    // "oz" is the unit the typist chose and the one the weight came from, so the row
+    // should read back in it — not fall through to the list's, as a compound does
+    expect(entryUnitFromInput("32.5 oz (921 g)")).toBe("oz");
+    expect(entryUnitFromInput("2 lb 3 oz")).toBeNull();
+    expect(entryUnitFromInput("size 2 / 400 g")).toBe("g");
+  });
+});

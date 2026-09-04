@@ -60,7 +60,34 @@
 // The non-breaking space is also absent, for the opposite reason: \s already matches it,
 // so the collapse below folds it into a normal space rather than deleting it, which is
 // what it means.
-const INVISIBLE = /[\u0000-\u0008\u000E-\u001F\u007F\u200B\uFEFF]/g;
+// The bidi EMBEDDING, OVERRIDE and ISOLATE controls (U+202A-U+202E, U+2066-U+2069) are
+// here on the same "carries no meaning of its own" test, and they are the one class that
+// can make stored text and rendered text disagree. U+202E (right-to-left override)
+// reverses everything after it for the rest of the line, so a row stored as
+// "Down quilt <RLO>g 002" READS as "Down quilt 200 g" next to a weight column saying
+// 620 g -- on a page a stranger opens over a share link, in a field that arrives from a
+// co-editor, a LighterPack import or a raw API call. Nobody types one into a gear name:
+// a single-line field has no directional run to embed.
+//
+// U+200E / U+200F / U+061C (the left-to-right, right-to-left and Arabic letter marks)
+// are NOT here, on the same reasoning that keeps the joiners. They are ordinary
+// directionality hints an Arabic or Hebrew keyboard emits to order a mixed-script name,
+// they affect only the character beside them, and they cannot reverse a run.
+const INVISIBLE =
+  /[\u0000-\u0008\u000E-\u001F\u007F\u200B\u202A-\u202E\u2066-\u2069\uFEFF]/g;
+
+// Characters that RENDER AS NOTHING but are not whitespace, so \s never folds them and
+// the `|| "Folder"` fallbacks never fire: the Hangul and Khmer fillers, the Braille
+// blank, the Mongolian vowel separator, the word joiner, the soft hyphen, and the two
+// joiners this file deliberately preserves.
+//
+// None is stripped -- each is legitimate inside a word, which is the rule this file is
+// built on. But a value made of NOTHING else renders as an unreadable blank that still
+// passes a non-empty test: an item row with no visible name, a person chip with no
+// label to click. Whole-string and anchored for exactly that reason -- "blank" is then
+// what the value means, and empty is how it should be stored.
+const BLANK_ONLY =
+  /^[\s\u00AD\u115F\u1160\u17B4\u17B5\u180E\u200C\u200D\u2060\u2800\u3164\uFFA0]*$/u;
 
 // A straight apostrophe with a letter on each side — a possessive or a contraction,
 // never a measurement. \p{L} rather than [a-z] so it reads O'Brien, l'eau and
@@ -105,11 +132,13 @@ const COLLAPSIBLE_SPACE = /[^\S　]+/g;
  * the one field that can, use tidyProse.
  */
 export function tidyText(raw: string): string {
-  return raw
+  const out = raw
     .replace(INVISIBLE, "")
     .replace(LETTER_FLANKED_APOSTROPHE, CURL_REPLACEMENT)
     .replace(COLLAPSIBLE_SPACE, " ")
     .trim();
+  // a value that draws nothing IS empty, whatever its length (see BLANK_ONLY)
+  return BLANK_ONLY.test(out) ? "" : out;
 }
 
 // Horizontal whitespace only — a newline is content here, and U+3000 keeps the
@@ -135,13 +164,14 @@ const LINE_ENDINGS = /\r\n?/g;
  * leave every line break exactly where the author put it.
  */
 export function tidyProse(raw: string): string {
-  return raw
+  const out = raw
     .replace(INVISIBLE, "")
     .replace(LETTER_FLANKED_APOSTROPHE, CURL_REPLACEMENT)
     .replace(LINE_ENDINGS, "\n")
     .replace(HORIZONTAL_SPACE, " ")
     .replace(SPACE_AROUND_BREAK, "\n")
     .trim();
+  return BLANK_ONLY.test(out) ? "" : out;
 }
 
 // Every apostrophe spelling folded to the straight one. The curly mark this file

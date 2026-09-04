@@ -1,0 +1,18 @@
+{
+  "date": "2026-09-04",
+  "fixed": [
+    "A weight typed as \"32.5 oz (921 g)\" is one weight, not two — pasting a spec line no longer doubles the row.",
+    "A number that names no unit is no longer added to the weight beside it: \"size 2 / 400 g\" is 400 g.",
+    "A long item name with nothing to break on now wraps instead of running off the side of the screen, on a shared list and in packing mode.",
+    "A folder name with no spaces in it stays inside the category legend.",
+    "A very large total no longer has its last digits and its unit cut off the edge of a phone screen.",
+    "A JSON backup restores a quantity of zero as zero, so a restored list weighs what the file said.",
+    "Exporting to CSV and importing it back keeps a row you weighed but haven't named yet, and keeps weights under a gram.",
+    "An item name can no longer carry hidden characters that reverse how it reads — what a list shows is what it says.",
+    "A person or folder named with an invisible character now falls back to a readable name instead of a blank chip.",
+    "A saved edit no longer fails when something malformed rides along in the same batch.",
+    "The trail link under a list title is easier to read in dark mode.",
+    "Searching the gear catalog without accents — \"fjallraven\" — now highlights the match it found.",
+    "The Base / Worn / Consumable line stays inside the preview card a shared link unfurls, however heavy the pack."
+  ]
+}

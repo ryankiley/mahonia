@@ -33,6 +33,15 @@ function stripFormulaGuard(s: string): string {
   return s.length > 1 && s[0] === "'" && FORMULA_LEAD.test(s.slice(1)) ? s.slice(1) : s;
 }
 
+// Decimals each unit is written with. Enough that toMg() rounds the value back to the
+// milligrams it came from, so an export/import round-trip is lossless in every unit.
+// Grams used to be written at ZERO decimals, which claimed a 499 mg row weighed nothing
+// -- while formatWeight goes out of its way to render "<1 g" on the same data, on the
+// stated reasoning that a real weight rounding to zero "must NOT read as 0". The file
+// now agrees with the screen. Trailing zeros never survive the unary `+` below, so a
+// whole-gram list still exports "1247", not "1247.000".
+const CSV_DECIMALS: Record<Unit, number> = { g: 3, kg: 6, oz: 6, lb: 6 };
+
 // ---- export ----
 export function listToCsv(list: ListSnapshot): string {
   const u = list.displayUnit;
@@ -72,7 +81,7 @@ export function listToCsv(list: ListSnapshot): string {
     // makes a row typed in ounces come back as ounces instead of being flattened to
     // the list's unit on every round-trip.
     const ru = it.entryUnit ?? u;
-    const w = it.unitWeightMg > 0 ? +fromMg(it.unitWeightMg, ru).toFixed(ru === "g" ? 0 : 3) : "";
+    const w = it.unitWeightMg > 0 ? +fromMg(it.unitWeightMg, ru).toFixed(CSV_DECIMALS[ru]) : "";
     // the split gets its OWN column: the boolean Worn column can't carry a count
     // (a split row must not import back as fully worn)
     const wq = splitWornQty(it, cls);
@@ -218,14 +227,22 @@ export function csvToListData(text: string): ListData {
       return v ? stripFormulaGuard(v) : undefined;
     };
     const name = stripFormulaGuard((row[nameCol] || "").trim());
-    if (!name) continue;
+    // Skip only a row that carries NOTHING -- a trailing newline or a spacer line,
+    // which is what this guard was for. Skipping on the name alone deleted a real
+    // row, and its weight, on a round-trip through our own export: an unnamed item
+    // is a normal state in the editor (a row you weighed before you named it), and
+    // losing 450 g to it is worse than importing a row with a blank name.
+    if (!name && row.every((c) => !c?.trim())) continue;
     const gearType = cell(iCommon); // read once — it also decides the override flag below
     const cat = iCat >= 0 ? stripFormulaGuard(row[iCat] ?? "") : "";
     const fId = ensureFolder(cat || "Imported");
     const unit = normalizeUnit(iUnit >= 0 ? row[iUnit] : undefined, "g");
     const weightNum = iWeight >= 0 ? parseFloat((row[iWeight] || "").replace(/,/g, "")) : 0;
     const unitWeightMg = isFinite(weightNum) && weightNum > 0 ? toMg(weightNum, unit) : 0;
-    const qty = iQty >= 0 ? Math.max(1, Math.round(parseFloat(row[iQty] || "") || 1)) : 1;
+    // `parseFloat(...) || 1` read a written 0 as 1 (0 is falsy) -- the same trap
+    // normalizeItem had. Default only when the cell is absent or unreadable.
+    const qtyNum = iQty >= 0 ? parseFloat(row[iQty] || "") : NaN;
+    const qty = Math.max(0, Math.round(Number.isFinite(qtyNum) ? qtyNum : 1));
     const classification = iWorn >= 0 && truthy(row[iWorn])
       ? "worn"
       : iCons >= 0 && truthy(row[iCons])

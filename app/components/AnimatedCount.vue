@@ -3,7 +3,12 @@
      with a staggered translate + fade. Takes the already-formatted string so it
      works for "4,723 g", "1.36 kg", "10.4 lb" alike. -->
 <template>
-  <span ref="el" class="acount" :class="{ 'is-animating': animating }">
+  <span
+    ref="el"
+    class="acount"
+    :class="{ 'is-animating': animating }"
+    :style="{ '--acount-len': chars.length }"
+  >
     <!-- screen readers get the value as one string; the per-char spans (a known
          AT-fragmentation trap) are hidden from them -->
     <span class="visually-hidden">{{ value }}</span>
@@ -18,6 +23,12 @@
 </template>
 
 <script setup lang="ts">
+// `--acount-len` (the character count, published on the root) is what lets a caller
+// keep a long figure inside a narrow screen: the display size is a single unbreakable
+// token that neither wraps nor ellipsizes, so past a certain length it simply ran off
+// the edge of a phone — number, unit and all — with the page refusing to scroll
+// sideways. Only the count can say when that is about to happen, and only this
+// component knows it. See .headline__big / .totals__big for the size rule.
 const props = defineProps<{ value: string }>();
 
 const el = useTemplateRef<HTMLElement>("el");
