@@ -5,7 +5,7 @@ import {
   normalizeBodyWeightUnit,
   type BodyWeightUnit,
 } from "~~/shared/trailDistance";
-import { remember } from "../utils/remember";
+import { forget, recall, remember } from "../utils/remember";
 
 // Your body weight, for the trip estimates.
 //
@@ -42,12 +42,9 @@ let loaded = false;
 export function useBodyWeight(displayUnit?: string) {
   if (import.meta.client && !loaded) {
     loaded = true;
-    try {
-      grams.value = normalizeBodyWeightG(localStorage.getItem(GRAMS_KEY)) ?? null;
-      unit.value = normalizeBodyWeightUnit(localStorage.getItem(UNIT_KEY)) ?? bodyWeightUnitFor(displayUnit);
-    } catch {
-      /* storage blocked — the default holds for this visit */
-    }
+    // storage blocked reads as nothing stored — the default holds for this visit
+    grams.value = normalizeBodyWeightG(recall(GRAMS_KEY)) ?? null;
+    unit.value = normalizeBodyWeightUnit(recall(UNIT_KEY)) ?? bodyWeightUnitFor(displayUnit);
     // another tab is the same device and the same person
     window.addEventListener("storage", (e) => {
       if (e.key === GRAMS_KEY) grams.value = normalizeBodyWeightG(e.newValue) ?? null;
@@ -66,15 +63,8 @@ export function useBodyWeight(displayUnit?: string) {
     /** Null or an out-of-range value clears it and returns to the stated assumption. */
     set(next: number | null) {
       grams.value = next == null ? null : (normalizeBodyWeightG(next) ?? null);
-      if (grams.value == null) {
-        try {
-          localStorage.removeItem(GRAMS_KEY);
-        } catch {
-          /* as above */
-        }
-      } else {
-        remember(GRAMS_KEY, String(grams.value));
-      }
+      if (grams.value == null) forget(GRAMS_KEY);
+      else remember(GRAMS_KEY, String(grams.value));
     },
     setUnit(next: BodyWeightUnit) {
       unit.value = next;

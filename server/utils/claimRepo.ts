@@ -7,18 +7,16 @@
 // non-claimers alike, and claiming a list takes nothing away from anyone else
 // holding that link.
 
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { listClaims, lists } from "../db/schema";
-import type { useAccountDb } from "./db";
+import type { Db } from "./db";
 import { findLiveByEditHashes } from "./listRepo";
 import { sha256Hex } from "./tokens";
 import { captureVaultItems } from "./vaultRepo";
 import { mintVault, touchVaultByUser } from "./vaultAuth";
 import { VAULT_CAPTURE_MAX, captureFromList, type VaultCapture } from "../../shared/vault";
 import { normalizeShareCode } from "../../shared/links";
-import type { Unit } from "../../shared/types";
-
-type Db = Awaited<ReturnType<typeof useAccountDb>>;
+import { UNITS, type Unit } from "../../shared/types";
 
 /** Cap on how many tokens one claim request may carry. "Your lists" is a device
  *  registry a person built by hand; anything past this is not a real browser. */
@@ -107,10 +105,7 @@ export async function claimLists(
   // Neon's HTTP driver (no pipelining) is the difference between a sign-in that
   // lands and one you watch happen.
   const ownedHashes = new Set(owned.map(sha256Hex));
-  const rows = await findLiveByEditHashes(
-    [...ownedHashes, ...opened.map(sha256Hex)],
-    db as never,
-  );
+  const rows = await findLiveByEditHashes([...ownedHashes, ...opened.map(sha256Hex)], db);
   if (!rows.length) return 0;
 
   // SORTED, which is the part that matters. Two overlapping claims from the same
@@ -150,7 +145,6 @@ export async function claimLists(
     .insert(listClaims)
     .values(listIds.map((listId) => ({ userId, listId })))
     .onConflictDoNothing({ target: [listClaims.userId, listClaims.listId] })
-    // no-arg .returning() — the neon-http | PGlite union's only shared overload
     .returning();
   return done.length;
 }
@@ -196,9 +190,7 @@ export async function listClaimedLists(db: Db, userId: number): Promise<ClaimedL
     title: r.title,
     totalMg: Number(r.totalWeightMg),
     version: r.version,
-    displayUnit: (["g", "kg", "oz", "lb"] as const).includes(r.displayUnit as Unit)
-      ? (r.displayUnit as Unit)
-      : "g",
+    displayUnit: UNITS.includes(r.displayUnit as Unit) ? (r.displayUnit as Unit) : "g",
     updatedAt: new Date(r.updatedAt).toISOString(),
   }));
 }
@@ -307,17 +299,16 @@ export async function claimedEditHash(
 export async function unclaimList(db: Db, userId: number, shareCode: string): Promise<boolean> {
   const code = normalizeShareCode(shareCode);
   if (!code) return false;
-  const target = await db
-    .select({ id: lists.id })
-    .from(lists)
-    .where(eq(lists.shareCode, code))
-    .limit(1);
-  const listId = target[0]?.id;
-  if (listId == null) return false;
+  // the share code resolves to its list INSIDE the delete — one round trip, not a
+  // select-then-delete pair
   const done = await db
     .delete(listClaims)
-    .where(and(eq(listClaims.userId, userId), eq(listClaims.listId, listId)))
-    // no-arg .returning() — the neon-http | PGlite union's only shared overload
+    .where(
+      and(
+        eq(listClaims.userId, userId),
+        inArray(listClaims.listId, db.select({ id: lists.id }).from(lists).where(eq(lists.shareCode, code))),
+      ),
+    )
     .returning();
   return done.length > 0;
 }

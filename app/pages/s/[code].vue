@@ -16,8 +16,7 @@ const snapshot = computed<ListSnapshot | null>(() => data.value?.snapshot ?? nul
 useResponseHeader("Cache-Control").value =
   "public, max-age=0, s-maxage=30, stale-while-revalidate=120";
 
-const { unit, totals, fullTotals, roList, ungrouped, shownFolders, people, personFilter, showUnassigned, chipWeights } =
-  useReadonlyList(snapshot);
+const { unit, fullTotals, personFilter, viewProps } = useReadonlyList(snapshot);
 
 // Social unfurl (iMessage/Slack/etc.): the title + a short summary so a pasted share
 // link shows the list name, not a bare URL. Shared with /l via useReadonlyListSeo;
@@ -39,15 +38,10 @@ useHead({
     <!-- No #status here: a share link carries nothing to edit with, so "Read-only" only
          ever told the reader what the page already shows. /l keeps its status, because
          "Public list" says something the page doesn't — that this list is listed. -->
+    <!-- the view-model's props as one object (useReadonlyList.viewProps) — /l binds
+         the same one, so the two pages can't hand the view different lists -->
     <ReadonlyListView
-      :list="roList"
-      :totals="totals"
-      :shown-folders="shownFolders"
-      :ungrouped="ungrouped"
-      :people="people"
-      :person-filter="personFilter"
-      :show-unassigned="showUnassigned"
-      :chip-weights="chipWeights"
+      v-bind="viewProps"
       @set-unit="(u) => (unit = u)"
       @pick-person="(id) => (personFilter = id)"
     />

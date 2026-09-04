@@ -1,3 +1,5 @@
+import { DAY_MS, parseIsoDate } from "~~/shared/calendar";
+
 // Human "time ago" — one source of truth for the editor's sync-status line and the
 // "Your lists" registry, so the two phrase elapsed time identically. Reads like
 // speech ("just now", "1 hour ago", "yesterday"), staying calendar-aware at the
@@ -23,7 +25,7 @@ export function timeAgo(ts: number, now: number = Date.now()): string {
   const then = new Date(ts);
   const today = new Date(now);
   const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-  const days = Math.round((startOfDay(today) - startOfDay(then)) / 86_400_000);
+  const days = Math.round((startOfDay(today) - startOfDay(then)) / DAY_MS);
   if (days <= 1) return "yesterday";
   if (days < 7) return `${days} days ago`;
 
@@ -38,16 +40,19 @@ export function timeAgo(ts: number, now: number = Date.now()): string {
   );
 }
 
+// The `YYYY-MM-DD` → local Date step is shared/calendar.ts's — a trip starting "Aug 4"
+// must read as Aug 4 in Portland, and that file explains why `new Date(iso)` doesn't.
+const parseCalendarDate = parseIsoDate;
+
 /**
- * Parse a `YYYY-MM-DD` calendar date into a LOCAL Date.
- *
- * From the parts, never `new Date(iso)` — that parses bare ISO dates as UTC
- * midnight, which formats as the DAY BEFORE anywhere west of UTC. A trip starting
- * "Aug 4" must read as Aug 4 in Portland.
+ * One calendar date as prose: "September 6, 2026" — the same fixed-locale formatter
+ * the range below uses, for a caller holding an ISO string (the What's new page's
+ * release dates). Falls back to the string itself when it doesn't parse, so a bad
+ * date is visible rather than blank.
  */
-function parseCalendarDate(iso: string | undefined): Date | null {
-  const m = iso ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso) : null;
-  return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null;
+export function formatCalendarDate(iso: string): string {
+  const d = parseCalendarDate(iso);
+  return d ? fmtFull(d) : iso;
 }
 
 /**

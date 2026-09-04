@@ -18,6 +18,7 @@
 // "my lists" registry is where they're kept).
 
 import { isSafeReturnPath } from "~~/shared/links";
+import { forget, recall, remember as store } from "../utils/remember";
 
 const KEY = "gear.returnto.v1";
 // Long enough to read an email and come back, short enough that a path abandoned days
@@ -32,11 +33,8 @@ export function useReturnTo() {
   function remember(path: string): void {
     if (!import.meta.client || !isSafeReturnPath(path)) return;
     if (NEVER.some((p) => path === p || path.startsWith(`${p}?`) || path.startsWith(`${p}#`))) return;
-    try {
-      localStorage.setItem(KEY, JSON.stringify({ path, at: Date.now() }));
-    } catch {
-      // private mode / quota — returning to /gear is a fine outcome, not an error
-    }
+    // private mode / quota swallow the write — returning to /gear is a fine outcome, not an error
+    store(KEY, JSON.stringify({ path, at: Date.now() }));
   }
 
   /**
@@ -46,13 +44,8 @@ export function useReturnTo() {
    */
   function take(): string | null {
     if (!import.meta.client) return null;
-    let raw: string | null = null;
-    try {
-      raw = localStorage.getItem(KEY);
-      localStorage.removeItem(KEY);
-    } catch {
-      return null;
-    }
+    const raw = recall(KEY);
+    forget(KEY);
     if (!raw) return null;
     try {
       const { path, at } = JSON.parse(raw) as { path?: unknown; at?: unknown };

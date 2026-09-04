@@ -7,6 +7,7 @@ import {
   burnDownMg,
   dayLegs,
   estimateDay,
+  nextOwnedDay,
   restingKcal,
   toblerSpeedMs,
   walkingKcal,
@@ -294,6 +295,18 @@ describe("dayRanges", () => {
 
   it("has nothing to say about no days", () => {
     expect(dayRanges([])).toEqual([]);
+  });
+});
+
+describe("nextOwnedDay — the neighbour a boundary trades with", () => {
+  it("skips blank days, which own no ground to give up", () => {
+    expect(nextOwnedDay([1000, 0, 0, 2000], 0)).toBe(3);
+    expect(nextOwnedDay([1000, 2000], 0)).toBe(1);
+  });
+
+  it("is -1 for the last planned day — its tail is the unclaimed ground", () => {
+    expect(nextOwnedDay([1000, 2000, 0], 1)).toBe(-1);
+    expect(nextOwnedDay([1000], 0)).toBe(-1);
   });
 });
 

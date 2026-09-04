@@ -52,7 +52,7 @@ async function finish(fallback: string) {
 // The title and the noindex belong to /account, which is the thing that is actually
 // the account; see the page.
 
-const { user, signedIn, loaded, refresh, requestLink, signOut, saveProfile } = useSession();
+const { user, signedIn, loaded, refresh, requestLink, signOut, saveProfile, forgetAccountMemos } = useSession();
 const { confirm: askConfirm, confirmState } = useDialogs();
 const pk = usePasskeys();
 // whether this browser can do WebAuthn at all — resolved on mount, so the
@@ -253,8 +253,7 @@ async function deleteAccount() {
       method: "POST",
       body: { deleteLists: alsoLists },
     });
-    resetVaultCapture();
-    useClaimedLists().resetClaimMark();
+    forgetAccountMemos();
     // Stay here rather than navigating away. The page re-renders as the signed-out
     // screen on its own once the session has gone, so the confirmation lands on the
     // thing that actually changed — and a toast that outlived a route change would
@@ -286,8 +285,7 @@ async function onSignOutEverywhere() {
   signingOutAll.value = true;
   try {
     await $fetch("/api/auth/signout-all", { method: "POST" });
-    resetVaultCapture();
-    useClaimedLists().resetClaimMark();
+    forgetAccountMemos();
     // Stay put and re-read: in the modal there is nowhere to go (you're already
     // looking at the account), and on the page you're already on /account.
     await refresh(true);
@@ -298,11 +296,7 @@ async function onSignOutEverywhere() {
 }
 
 async function onSignOut() {
-  await signOut();
-  // drop both per-account memos so the next person to sign in on this device
-  // starts clean rather than inheriting "already sent" / "already claimed"
-  resetVaultCapture();
-  useClaimedLists().resetClaimMark();
+  await signOut(); // drops the per-account memos itself — see useSession
   // Signing out of a list you're reading shouldn't also take the list away — in the
   // modal this just closes. The page has nothing behind it, so it goes to /gear.
   await finish("/gear");
@@ -566,9 +560,8 @@ async function onSignOut() {
   align-items: center;
   gap: var(--space-3);
   width: 100%;
-  margin: 0;
   color: var(--ink-3);
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
 }
 .acct__or::before,
 .acct__or::after {
@@ -578,12 +571,9 @@ async function onSignOut() {
   background: var(--line);
 }
 /* A mode switch, not a navigation — it swaps the form in place, so it's a button
-   that reads as a link rather than an anchor that goes nowhere. */
+   that reads as a link rather than an anchor that goes nowhere (the reset already
+   strips a button's chrome, so only the link's own look is said here). */
 .acct__switch {
-  border: 0;
-  background: none;
-  padding: 0;
-  font: inherit;
   color: var(--ink);
   font-weight: 600;
   /* the house underline: soft at rest, deepens to --ink-2 — never full ink
@@ -591,7 +581,6 @@ async function onSignOut() {
   text-decoration: underline;
   text-decoration-color: var(--underline);
   text-underline-offset: 2px;
-  cursor: pointer;
 }
 .acct__switch:hover,
 .acct__switch:focus-visible {
@@ -745,7 +734,6 @@ async function onSignOut() {
   color: var(--ink);
 }
 .acct__list {
-  list-style: none;
   display: flex;
   flex-direction: column;
 }

@@ -7,7 +7,7 @@
 // press on a row is a drag at all. One copy of each, so the gesture plumbing
 // can't drift between surfaces.
 
-export interface PointerDragHooks<T> {
+interface PointerDragHooks<T> {
   /** Update the caller's drop target from the pointer. `el` is the current
    *  elementFromPoint hit; `dragId` the id passed to start(). */
   track: (ev: PointerEvent, el: HTMLElement | null, dragId: string) => void;
@@ -155,7 +155,7 @@ export function createPointerDrag<T>(hooks: PointerDragHooks<T>) {
 // what the drag then IS (createPointerDrag above on /vault, the editor's insert
 // gesture in the pane) stays with the caller, in onDrag.
 
-export interface PressArmOptions<T> {
+interface PressArmOptions<T> {
   /** px of pointer travel that separates a drag from a stray press */
   threshold: number;
   /** Touch only: how long a finger must hold before movement means "drag". A

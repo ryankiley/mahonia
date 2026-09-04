@@ -102,7 +102,7 @@ describe("the vault sheet's touch guard", () => {
 
   it("swallows a swipe on the search row", async () => {
     const { pane } = await openPane();
-    expect(swipe(pane.querySelector(".vp__search")!, -120)).toBe(true);
+    expect(swipe(pane.querySelector(".sf__input")!, -120)).toBe(true);
   });
 
   it("hands the rows a swipe they can still travel", async () => {

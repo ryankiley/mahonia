@@ -54,20 +54,30 @@
   opacity: 0;
 }
 
-/* the collapse chevron rotates in sync with the body */
-.folder__chev {
+/* the collapse chevron rotates in sync with the body. ONE recipe for the folder
+   header's chevron and the group ROW's (.item__nestchev — the same gesture at row
+   scale, drawn by NestChevron.vue for the editor's two faces and the share views):
+   the two used to be hand-mirrored across this file and atoms/item.scss. */
+.folder__chev,
+.item__nestchev {
   transition: transform var(--dur) var(--ease);
   /* standing layer: the chevron transforms on every toggle, so keep it promoted to
      avoid WebKit re-snapping it ~1px as the compositing layer comes and goes */
   will-change: transform;
 }
-.folder__chev.is-collapsed {
+.folder__chev.is-collapsed,
+.item__nestchev.is-collapsed {
   transform: rotate(-90deg);
 }
 
-/* collapse chevron button — right after the folder name. One recipe for both
-   folder views (the editor adds only a -1px margin-left to trim input slack). */
-.folder__collapse {
+/* collapse chevron button — right after the folder name (one recipe for both folder
+   views; the editor adds only a -1px margin-left to trim input slack), and the same
+   button trailing a group row's name (.item__nestcollapse). The only thing that
+   differs is the glyph's rendered size, which --chev-glyph carries for the
+   coarse-pointer rule below. */
+.folder__collapse,
+.item__nestcollapse {
+  --chev-glyph: 20px;
   flex: none;
   align-self: center;
   display: flex;
@@ -78,7 +88,14 @@
   cursor: pointer;
   transition: color var(--dur) var(--ease);
 }
-.folder__collapse:hover {
+/* the row's glyph is 16px; -1px so it hugs the name at the same distance the folder
+   chevron does */
+.item__nestcollapse {
+  --chev-glyph: 16px;
+  margin-left: -1px;
+}
+.folder__collapse:hover,
+.item__nestcollapse:hover {
   color: var(--ink);
 }
 /* touch: the chevron is the primary per-folder control (and the ONLY interactive
@@ -86,14 +103,16 @@
    buttons (controls.scss). The box grows rightward + vertically ONLY — the left
    edge stays tight against the name, so a tap at the end of an editor name still
    focuses the input instead of toggling — and the overshoot is pulled back out of
-   layout (--tap-pull) so the glyph stays optically put and the header keeps its
-   height. calc(20px − --tap) cancels exactly the width added past the 20px glyph. */
+   layout (--tap-pull) so the glyph stays optically put and the header (or row)
+   keeps its height. calc(--chev-glyph − --tap) cancels exactly the width added
+   past the glyph. */
 @media (pointer: coarse) {
-  .folder__collapse {
+  .folder__collapse,
+  .item__nestcollapse {
     min-width: var(--tap);
     height: var(--tap);
     justify-content: flex-start;
-    margin-right: calc(20px - var(--tap));
+    margin-right: calc(var(--chev-glyph) - var(--tap));
     margin-block: var(--tap-pull);
   }
 }

@@ -1,6 +1,6 @@
 import { ref, type Ref } from "vue";
 import { profileToString } from "~~/shared/profile";
-import { routeGeometryFromPoints } from "~~/shared/polyline";
+import { cumulativeM, decodePolyline, nearestAlongM, routeGeometryFromPoints } from "~~/shared/polyline";
 import type { FilePin } from "~~/shared/gpx";
 import type { Op } from "~~/shared/ops";
 import type { ListSnapshot, WaypointKind } from "~~/shared/types";
@@ -68,16 +68,19 @@ export function useGpxImport(snapshot: Ref<ListSnapshot | null>, c: GpxTarget) {
     const p = pending.value;
     pending.value = null;
     if (!p) return;
-    const { cumulativeM, decodePolyline, nearestAlongM } = await import("~~/shared/polyline");
+    // polyline is a static import (this file already had it at the top for the
+    // geometry); it's shared/gpx.ts that stays a lazy chunk, see onGpx
     const line = decodePolyline(p.geometry);
     if (line.length < 2) return;
-    const total = cumulativeM(line).at(-1) ?? 0;
+    // the spine once, for every pin's projection — see the walkers in shared/polyline.ts
+    const cum = cumulativeM(line);
+    const total = cum.at(-1) ?? 0;
     // Every pin PROJECTS onto the line, because a waypoint is a distance along the route
     // and not a coordinate. A water source 200 m off-trail is recorded where you'd leave
     // the trail for it, which is the useful place to be told about it.
     const taken = (snapshot.value?.waypoints ?? []).map((w) => w.alongM);
     for (const pin of p.pins) {
-      const alongM = nearestAlongM(line, pin);
+      const alongM = nearestAlongM(line, pin, cum);
       if (alongM < 0 || alongM > total) continue;
       // Don't re-place the ends the reducer seeded with the route, and don't stack two
       // pins a person would read as one. Checked against what's ALREADY there, so it

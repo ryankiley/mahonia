@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { dayColorSequence } from "~~/shared/categories";
 import { cumulativeM, decodePolyline, formatLatLon, nearestAlongM, pointAlong, sliceAlong, type LatLon } from "~~/shared/polyline";
+import { dayRanges, nextOwnedDay } from "~~/shared/tripPlan";
 import { HugeiconsIcon, type IconNode } from "~/utils/hugeicon";
 import { ArrowExpand02Icon, ArrowShrink02Icon, HelpCircleIcon } from "@hugeicons/core-free-icons";
 import { formatDistance, type DisplayDistanceUnit } from "~~/shared/trailDistance";
@@ -103,9 +104,19 @@ let finish: import("leaflet").Marker | null = null;
 let ro: ResizeObserver | null = null;
 
 const points = computed<LatLon[]>(() => decodePolyline(props.geometry));
+// The route's spine — cumulative metres at every stored point — summed ONCE per geometry
+// and handed to every walk below. Pins, boundaries, legs and each step of a drag all
+// resolve a distance against the same 512 points, and each used to re-sum them first
+// (see the note on the walkers in shared/polyline.ts).
+const cum = computed(() => cumulativeM(points.value));
 
 // ONE sequence for every leg, memoized so a redraw can't re-derive a different palette.
 const colors = computed(() => dayColorSequence(props.dayDistancesM.length));
+
+// Where each day starts and ends along the route — the same cut the panel and the
+// elevation chart make (shared/tripPlan), so a leg, a handle and a coloured stretch of
+// chart all agree about which day owns a metre of ground.
+const ranges = computed(() => dayRanges(props.dayDistancesM));
 
 /**
  * The route cut into days, each with the colour that day wears on the elevation chart.
@@ -118,12 +129,8 @@ const colors = computed(() => dayColorSequence(props.dayDistancesM.length));
  */
 const dayLegs = computed(() => {
   const out: { points: LatLon[]; color: string; day: number; fromM: number; toM: number }[] = [];
-  let run = 0;
-  props.dayDistancesM.forEach((d, i) => {
-    const fromM = run;
-    const toM = run + d;
-    const leg = sliceAlong(points.value, fromM, toM);
-    run = toM;
+  ranges.value.forEach(({ fromM, toM }, i) => {
+    const leg = sliceAlong(points.value, fromM, toM, cum.value);
     if (leg.length >= 2) {
       out.push({ points: leg, color: colors.value[i] ?? "var(--cat-other)", day: i + 1, fromM, toM });
     }
@@ -142,7 +149,7 @@ const dayLegs = computed(() => {
 const DIM = 0.25;
 
 /** The route's own length — the far end of anything that can be dragged along it. */
-const routeLengthM = computed(() => cumulativeM(points.value).at(-1) ?? 0);
+const routeLengthM = computed(() => cum.value.at(-1) ?? 0);
 
 /** The shortest a day may be dragged down to. Below this it stops being a day. */
 const MIN_DAY_M = 200;
@@ -170,22 +177,20 @@ const boundaries = computed(() => {
   const d = props.dayDistancesM;
   const total = routeLengthM.value;
   const out: { index: number; alongM: number; minM: number; maxM: number }[] = [];
-  let run = 0;
-  for (let i = 0; i < d.length; i++) {
-    const fromM = run;
-    run += d[i] ?? 0;
-    if (!(d[i]! > 0)) continue;
-    // the next day that owns any ground; blanks in between own none and can't be traded with
-    const nextI = d.findIndex((v, k) => k > i && v > 0);
+  ranges.value.forEach(({ fromM, toM }, i) => {
+    if (!(d[i]! > 0)) return;
+    // the next day that owns any ground — the neighbour this handle trades with, and the
+    // same answer the panel applies on the drop (shared/tripPlan.nextOwnedDay)
+    const nextI = nextOwnedDay(d, i);
     const minM = fromM + MIN_DAY_M;
     if (nextI < 0) {
       // the last planned day, against the unclaimed tail
-      if (run < total - MIN_DAY_M && minM < total) out.push({ index: i, alongM: run, minM, maxM: total });
-      continue;
+      if (toM < total - MIN_DAY_M && minM < total) out.push({ index: i, alongM: toM, minM, maxM: total });
+      return;
     }
-    const maxM = run + d[nextI]! - MIN_DAY_M;
-    if (minM < maxM) out.push({ index: i, alongM: run, minM, maxM });
-  }
+    const maxM = toM + d[nextI]! - MIN_DAY_M;
+    if (minM < maxM) out.push({ index: i, alongM: toM, minM, maxM });
+  });
   return out;
 });
 
@@ -428,14 +433,14 @@ function onLiftMove(e: PointerEvent) {
   // continuous drag can still walk a pin the length of the route; what it can't do is
   // jump there, which is the only thing that was ever a mistake.
   const from = Math.max(0, lift.alongM - LIFT_WINDOW_M);
-  const near = sliceAlong(points.value, from, lift.alongM + LIFT_WINDOW_M);
+  const near = sliceAlong(points.value, from, lift.alongM + LIFT_WINDOW_M, cum.value);
   if (near.length < 2) return;
   // CLAMPED to what this thing may occupy. A pin may go anywhere on the route; a day
   // boundary may not cross its neighbours, because a day it dragged past would end before
   // it began. The window above keeps the drag continuous, this keeps it legal.
   const raw = from + nearestAlongM(near, { lat: p.lat, lon: p.lng });
   const alongM = Math.min(lift.maxM, Math.max(lift.minM, raw));
-  const at = pointAlong(points.value, alongM);
+  const at = pointAlong(points.value, alongM, cum.value);
   if (!at) return;
   lift.alongM = alongM;
   lift.marker.setLatLng([at.lat, at.lon]);
@@ -474,12 +479,17 @@ function renderBounds() {
   const line = points.value;
   const camp = waypointKindMeta("camp");
   for (const b of boundaries.value) {
-    const at = pointAlong(line, b.alongM);
+    const at = pointAlong(line, b.alongM, cum.value);
     if (!at) continue;
     const marker = L.marker([at.lat, at.lon], {
       keyboard: false,
       icon: L.divIcon({
-        className: "routemap__bound",
+        // THE SAME DROP AS A WAYPOINT, because on the map it is one: the end of a day is
+        // a camp, and a reader shouldn't have to know which of these the itinerary drew
+        // and which somebody placed. It takes the inverted pin's recipe wholesale (see
+        // the CSS) — the itinerary talking, in ink rather than a category's hue — and
+        // keeps its own name only as a hook.
+        className: "routemap__pin routemap__pin--dark routemap__bound",
         html: `<i>${iconSvg(camp.icon)}</i>`,
         iconSize: [PIN_PX, PIN_PX],
         // the tip, as a waypoint's is — the point is the metre of route it marks
@@ -520,7 +530,7 @@ function renderBounds() {
  */
 function renderTrace() {
   if (!map || !L) return;
-  const at = props.traceM == null ? null : pointAlong(points.value, props.traceM);
+  const at = props.traceM == null ? null : pointAlong(points.value, props.traceM, cum.value);
   if (!at) {
     trace?.remove();
     trace = null;
@@ -550,7 +560,7 @@ function renderFinish() {
   if (!map || !L) return;
   finish?.remove();
   finish = null;
-  const at = props.finishM == null ? null : pointAlong(points.value, props.finishM);
+  const at = props.finishM == null ? null : pointAlong(points.value, props.finishM, cum.value);
   if (!at) return;
   // ON A LOOP THERE IS ONE MARK, not two on one spot. The finish of a loop IS its
   // trailhead — the same coordinate — and that pin is already standing there wearing the
@@ -581,7 +591,7 @@ function renderPins() {
   for (const m of pins) m.remove();
   const line = points.value;
   pins = (props.waypoints ?? []).flatMap((w) => {
-    const at = pointAlong(line, w.alongM);
+    const at = pointAlong(line, w.alongM, cum.value);
     if (!at) return [];
     const meta = waypointKindMeta(w.kind);
     const marker = L!.marker([at.lat, at.lon], {
@@ -860,7 +870,7 @@ function pinPopup(w: { id: string; kind: string; alongM: number; label?: string 
 
   const head = document.createElement("p");
   head.className = "routemap__wphead";
-  const at = pointAlong(points.value, w.alongM);
+  const at = pointAlong(points.value, w.alongM, cum.value);
   head.textContent = [
     meta.label,
     props.distanceUnit ? formatDistance(w.alongM, props.distanceUnit) : "",
@@ -994,7 +1004,7 @@ async function draw() {
     // a pin on an armed map dropped a second one on top of it.
     if (suppressPlace) return;
     // `lon`, not Leaflet's `lng` — the app's own LatLon shape
-    const at = nearestAlongM(points.value, { lat: e.latlng.lat, lon: e.latlng.lng });
+    const at = nearestAlongM(points.value, { lat: e.latlng.lat, lon: e.latlng.lng }, cum.value);
     // CLAMPED to the armed stretch. The affordance that armed this belongs to a day, so
     // the pin has to land in that day — a tap on a dimmed leg is a mis-tap, and pulling it
     // to the near end of the lit one is the forgiving reading rather than a refusal.
@@ -1021,11 +1031,22 @@ onMounted(draw);
 // that belongs to the person looking at it.
 watch(() => props.traceM, renderTrace);
 watch(() => props.finishM, renderFinish);
-// the finish redraws with them, so it stays on top of a trailhead it may be sharing a spot
-// with — a re-added pin would otherwise paint over it
-watch(() => props.waypoints, () => { renderPins(); renderFinish(); }, { deep: true });
+// The finish redraws with them, so it stays on top of a trailhead it may be sharing a spot
+// with — a re-added pin would otherwise paint over it.
+//
+// Keyed on what a MARKER is made of — id, kind, position — and not on the array, nor
+// deeply on its objects. The reducer edits a waypoint in place (ops.ts's updateWaypoint
+// is an Object.assign on the stored row), so the panel's sorted copy keeps its identity
+// across a rename and a shallow watch would miss a kind change; a deep one caught
+// everything, a label edit included, and tore down and rebuilt every marker to redraw a
+// word nothing on the map shows. The popup reads `w.label` live when it opens, so a
+// rename needs no redraw at all — and a kind or a move changes this key and gets one.
+const pinKey = computed(() => (props.waypoints ?? []).map((w) => `${w.id}:${w.kind}:${w.alongM}`).join("|"));
+watch(pinKey, () => { renderPins(); renderFinish(); });
 
-watch(boundaries, renderBounds, { deep: true });
+// a computed that returns a fresh array whenever its inputs change — nothing to watch
+// deeply, the identity is the signal
+watch(boundaries, renderBounds);
 
 watch(dayLegs, renderLegs);
 
@@ -1126,8 +1147,6 @@ onBeforeUnmount(() => {
 // into), and scoped styles can't reach elements Vue didn't render.
 
 .routemap {
-  margin: 0; // a <figure>, so the UA default has to be put down explicitly
-
   // The one place on the site where the theme does NOT flip.
   //
   // No free provider ships a dark topographic style, because hillshading and natural
@@ -1211,7 +1230,6 @@ onBeforeUnmount(() => {
   gap: var(--space-2);
 }
 .routemap__wphead {
-  margin: 0;
   font-size: var(--text-chrome);
   color: #666;
 }
@@ -1220,22 +1238,16 @@ onBeforeUnmount(() => {
   padding: var(--space-1) var(--space-2);
   border: 1px solid #ccc;
   border-radius: var(--radius-1);
-  font: inherit;
   font-size: 1rem; // the iOS zoom floor, as .field has
   color: #111;
   background: #fff;
 }
 .routemap__wpdel {
   align-self: flex-start;
-  padding: 0;
-  border: 0;
-  background: none;
-  font: inherit;
   font-size: var(--text-chrome);
   // the one destructive control on the map, so it says so — every other mark here is ink
   // or a category hue, and this is neither
-  color: var(--danger, #b3261e);
-  cursor: pointer;
+  color: var(--danger);
 }
 .routemap__wpdel:hover {
   text-decoration: underline;
@@ -1269,7 +1281,6 @@ onBeforeUnmount(() => {
   // light; this matches them rather than the app's dark chrome.
   background: #fff;
   color: #333;
-  cursor: pointer;
   box-shadow: 0 1px 4px #0000001f;
 }
 // Pointer-gated — it paints (see the note on .btn:hover, controls.scss). The control
@@ -1378,8 +1389,7 @@ onBeforeUnmount(() => {
 // press, which is the only thing a hover on a 30px target is asked. Smaller than the
 // lifted state below, so picking one up still reads as a further step and not as more of
 // the same.
-.routemap__pin:hover i,
-.routemap__bound:hover i {
+.routemap__pin:hover i {
   scale: 1.15;
 }
 .routemap__pin.is-lifted i {
@@ -1397,45 +1407,6 @@ onBeforeUnmount(() => {
   cursor: grabbing;
 }
 
-/* A DAY BOUNDARY. Wears a tent, because that is what the end of a day is, and reads as a
-   control rather than as data: paper-filled with an ink edge, where a waypoint is a solid
-   category hue. One says "somebody put this here", the other says "your itinerary says
-   this". Same lift gesture either way. */
-.routemap__bound {
-  background: none;
-  border: 0;
-  cursor: grab;
-  touch-action: none;
-}
-// THE SAME DROP AS A WAYPOINT, because on the map it is one: the end of a day is a camp,
-// and a reader shouldn't have to know which of these the itinerary drew and which somebody
-// placed. What still separates them is the glyph's ink — a boundary is the itinerary
-// talking, so it takes ink where a placed pin takes its category's hue.
-.routemap__bound i {
-  display: grid;
-  place-items: center;
-  width: 100%;
-  height: 100%;
-  background: #1c1c1c;
-  color: #fff;
-  position: relative;
-  border-radius: 50% 50% 50% 0;
-  rotate: -45deg;
-  box-shadow: -1px 1px 3px #00000059;
-  transition:
-    scale var(--dur) var(--ease),
-    box-shadow var(--dur) var(--ease);
-}
-// the same seat the waypoints wear — a camp is the same kind of mark on the map, so it
-// gets the same construction and differs only by the ink of its glyph
-.routemap__bound i::before {
-  content: "";
-  position: absolute;
-  inset: 14%;
-  border-radius: 50%;
-  background: #333;
-}
-
 /* INVERTED: the itinerary's own marks, and the route's two ends.
    A white drop with a coloured glyph says "one of the things you will pass" — water, a
    landmark, a kind of place. These are not that. A camp is where the plan puts you and the
@@ -1443,25 +1414,18 @@ onBeforeUnmount(() => {
    than categories of thing. Solid ink says so at a glance and needs no further hue, which
    matters on a sheet already carrying magenta paths and green woodland.
    The seat inverts with it — a step OFF the drop rather than a fixed grey, so the head
-   still reads as round instead of as a black blob with a point on it. */
+   still reads as round instead of as a black blob with a point on it.
+   A DAY BOUNDARY wears exactly this (renderBounds gives it these two classes plus
+   .routemap__bound as a name): a tent, because that is what the end of a day is, and
+   the same drop, seat, hover, lift and grab as a waypoint — on the map it IS one, and a
+   reader shouldn't have to know which of these the itinerary drew and which somebody
+   placed. It used to carry a byte-for-byte copy of the recipe under its own name. */
 .routemap__pin--dark i {
   background: #1c1c1c;
   color: #fff;
 }
 .routemap__pin--dark i::before {
   background: #333;
-}
-.routemap__bound i > svg {
-  // over the seat, not under it — see the waypoint pin for why this has to be positioned
-  position: relative;
-  rotate: 45deg;
-}
-.routemap__bound.is-lifted i {
-  scale: 1.35;
-  box-shadow: -2px 2px 8px #0000008c;
-}
-.routemap__bound.is-lifted {
-  cursor: grabbing;
 }
 // Leaflet's divIcon ships a white box with a border; both are cleared or every pin
 // renders inside a little card.

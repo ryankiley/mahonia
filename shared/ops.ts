@@ -8,7 +8,7 @@ import { parseProfile } from "./profile";
 import { tidyProse, tidyText } from "./tidyText";
 import { boundedRound, normalizeDistanceUnit, normalizeTrailAscentM, normalizeTrailDistanceM } from "./trailDistance";
 import { normalizeTrailLabel, normalizeTrailUrl } from "./trailLink";
-import type { Classification, Folder, Item, ListState, Person, TripDay, Unit, Waypoint } from "./types";
+import type { Classification, Folder, Item, ListMeta, ListState, Person, TripDay, Unit, Waypoint } from "./types";
 import { UNITS, WAYPOINT_KINDS } from "./types";
 import { personNameTaken, UNASSIGNED } from "./people";
 import { cumulativeM, decodePolyline, isLoop, normalizeRouteGeometry } from "./polyline";
@@ -116,13 +116,70 @@ export function normalizeCalendarDate(raw: unknown): string | undefined {
   return value;
 }
 
-function setDate(state: ListState, key: "startDate" | "endDate", raw: string): void {
-  // Anything that isn't a real date CLEARS rather than persists — an unparseable
-  // value is a date nobody can act on, and leaving the old one would be a lie.
-  const value = normalizeCalendarDate(raw);
-  if (!value) return void delete state[key];
-  state[key] = value;
+/**
+ * One rule for every clearable meta field: set what the normalizer gives back, else
+ * DELETE the key. Absent — not blank, not zero — is how each of these says "unset",
+ * so a re-read or restored state matches a never-set one exactly.
+ */
+function setOrClear<K extends ClearableMetaKey>(state: ListMeta, key: K, value: ListMeta[K] | undefined): void {
+  if (value) state[key] = value;
+  else delete state[key];
 }
+
+type ClearableMetaKey =
+  | "trailLabel"
+  | "trailDistanceM"
+  | "trailDistanceUnit"
+  | "trailProfile"
+  | "routeGeometry"
+  | "trailAscentM"
+  | "trailDescentM"
+  | "startDate"
+  | "endDate";
+
+/**
+ * The setOrClear fields, each with the normalizer that is its single gate — the
+ * WHY for each rule sits on its row. `numeric` rows also accept a number on the wire
+ * (metres); the rest take strings only, so a malformed op carrying a number into a
+ * string field is ignored rather than coerced. trailUrl and routeGeometry are not
+ * here: the URL keeps a stale value over a hostile one, and the geometry reseeds the
+ * waypoints — both live in the setMeta case itself.
+ */
+const META_RULES: {
+  [K in Exclude<ClearableMetaKey, "routeGeometry">]: {
+    numeric?: true;
+    normalize: (raw: string | number) => ListMeta[K] | undefined;
+  };
+} = {
+  trailLabel: { normalize: (raw) => normalizeTrailLabel(String(raw)) },
+  // Metres, bounded and integer-ised by the normalizer. Anything that isn't a
+  // usable distance CLEARS, on the same reasoning as the dates below: a route
+  // length of "0" or "abc" is not a partially-valid state worth carrying.
+  trailDistanceM: { numeric: true, normalize: normalizeTrailDistanceM },
+  // Anything that isn't one of the two units clears back to ABSENT, which means
+  // "follow the weight unit" — the default, not a blank: the default is stored by
+  // not being stored.
+  trailDistanceUnit: { normalize: normalizeDistanceUnit },
+  // Same clear-on-unusable rule as everything else here. Note this rides the ordinary
+  // op pipeline: it is list state for the OWNER, and only the read paths strip it.
+  // parseProfile is the single gate: a hand-edited value, a truncated string or
+  // anything that isn't elevations in metres clears rather than persisting.
+  trailProfile: {
+    normalize: (raw) => {
+      const prof = parseProfile(raw);
+      return prof.length ? prof.join(",") : undefined;
+    },
+  },
+  trailAscentM: { numeric: true, normalize: normalizeTrailAscentM },
+  trailDescentM: { numeric: true, normalize: normalizeTrailAscentM },
+  // Dates are SHAPE-checked, not just clamped. They're rendered and exported, and
+  // a half-typed "2026-0" would otherwise persist and read as a real date
+  // everywhere downstream. Anything that isn't a real date CLEARS rather than
+  // persists — an unparseable value is a date nobody can act on, and leaving the
+  // old one would be a lie.
+  startDate: { normalize: normalizeCalendarDate },
+  endDate: { normalize: normalizeCalendarDate },
+};
 // Hard caps (enforced in the reducer → client + server agree). Generous for
 // real lists, but bound row size / DoS and keep summed totals exact under the
 // bigint(mode:number) columns (MAX_ITEMS × qtyMax × UNIT_WEIGHT_MAX_MG < 2^53).
@@ -173,9 +230,9 @@ const clampWeight = (n: number) =>
 // honours the cap; the order is what stops a cut landing mid-space from leaving the
 // half-word's trailing space behind.
 //
-// URLs deliberately don't come through here — productUrl and imageUrl keep their
-// plain .slice(). A path can legitimately carry an apostrophe (…/mens-jacket vs
-// …/men's-jacket), and curling one rewrites the address to a page that isn't there.
+// URLs deliberately don't come through here — productUrl keeps its plain .slice().
+// A path can legitimately carry an apostrophe (…/mens-jacket vs …/men's-jacket),
+// and curling one rewrites the address to a page that isn't there.
 const cleanText = (raw: string, max: number) => tidyText(raw.slice(0, max));
 
 // Defensive clamps so a malformed op (or hostile client) can't corrupt state.
@@ -425,16 +482,29 @@ function cleanWaypointPatch(patch: Partial<Waypoint>): Partial<Waypoint> {
   return out;
 }
 
+/**
+ * The guard every add shares: a real entity with a string id, room under the cap, and
+ * no row already holding that id — so a replayed op is a no-op, never a duplicate.
+ * `arr` may be absent (days/waypoints/people on a list written before they existed).
+ */
+function canAdd<T extends { id: string }>(
+  arr: readonly T[] | undefined,
+  entity: T | null | undefined,
+  max: number,
+): entity is T {
+  return (
+    !!entity &&
+    typeof entity.id === "string" &&
+    (arr?.length ?? 0) < max &&
+    !arr?.some((e) => e.id === entity.id)
+  );
+}
+
 /** Apply a single op in place. Unknown/invalid ops are ignored (no throw). */
 function applyOp(state: ListState, op: Op): void {
   switch (op?.t) {
     case "addItem":
-      if (
-        op.item &&
-        typeof op.item.id === "string" &&
-        state.items.length < MAX_ITEMS &&
-        !state.items.some((i) => i.id === op.item.id)
-      ) {
+      if (canAdd(state.items, op.item, MAX_ITEMS)) {
         const it = normalizeItem(op.item);
         // coerce a dangling folderId (e.g. folder deleted by a concurrent editor) to null
         if (it.folderId && !state.folders.some((f) => f.id === it.folderId)) it.folderId = null;
@@ -527,13 +597,7 @@ function applyOp(state: ListState, op: Op): void {
       break;
     }
     case "addFolder":
-      if (
-        op.folder &&
-        typeof op.folder.id === "string" &&
-        state.folders.length < MAX_FOLDERS &&
-        !state.folders.some((f) => f.id === op.folder.id)
-      )
-        state.folders.push(normalizeFolder(op.folder));
+      if (canAdd(state.folders, op.folder, MAX_FOLDERS)) state.folders.push(normalizeFolder(op.folder));
       break;
     case "updateFolder": {
       const f = state.folders.find((x) => x.id === op.id);
@@ -545,13 +609,7 @@ function applyOp(state: ListState, op: Op): void {
       state.items = state.items.filter((i) => i.folderId !== op.id);
       break;
     case "addDay":
-      if (
-        op.day &&
-        typeof op.day.id === "string" &&
-        (state.days?.length ?? 0) < MAX_DAYS &&
-        !state.days?.some((d) => d.id === op.day.id)
-      )
-        (state.days ??= []).push(normalizeDay(op.day));
+      if (canAdd(state.days, op.day, MAX_DAYS)) (state.days ??= []).push(normalizeDay(op.day));
       break;
     case "updateDay": {
       const d = state.days?.find((x) => x.id === op.id);
@@ -566,12 +624,7 @@ function applyOp(state: ListState, op: Op): void {
       break;
     case "addWaypoint": {
       const wp = normalizeWaypoint(op.waypoint);
-      if (
-        wp &&
-        (state.waypoints?.length ?? 0) < MAX_WAYPOINTS &&
-        !state.waypoints?.some((w) => w.id === wp.id)
-      )
-        (state.waypoints ??= []).push(wp);
+      if (canAdd(state.waypoints, wp, MAX_WAYPOINTS)) (state.waypoints ??= []).push(wp);
       break;
     }
     case "updateWaypoint": {
@@ -585,15 +638,12 @@ function applyOp(state: ListState, op: Op): void {
       break;
     case "addPerson":
       if (
-        op.person &&
-        typeof op.person.id === "string" &&
+        canAdd(state.people, op.person, MAX_PEOPLE) &&
         // the filter's sentinel word is not an id anyone may claim — a crafted
         // person named by it would hijack the Unassigned chip. Refused, not
         // re-minted: a fresh uid() here would differ between the client's replay
         // and the server's, and the two must stay one state.
-        op.person.id !== UNASSIGNED &&
-        (state.people?.length ?? 0) < MAX_PEOPLE &&
-        !state.people?.some((p) => p.id === op.person.id)
+        op.person.id !== UNASSIGNED
       ) {
         const person = normalizePerson(op.person);
         // A NAME IS AN IDENTITY here, not a label: the CSV Person column carries
@@ -644,35 +694,12 @@ function applyOp(state: ListState, op: Op): void {
         if (href) state.trailUrl = href;
         else if (!p.trailUrl.trim()) delete state.trailUrl;
       }
-      if (typeof p.trailLabel === "string") {
-        const label = normalizeTrailLabel(p.trailLabel);
-        if (label) state.trailLabel = label;
-        else delete state.trailLabel;
-      }
-      // Metres, bounded and integer-ised by the normalizer. Anything that isn't a
-      // usable distance CLEARS, on the same reasoning as the dates below: a route
-      // length of "0" or "abc" is not a partially-valid state worth carrying.
-      if (typeof p.trailDistanceM === "number" || typeof p.trailDistanceM === "string") {
-        const metres = normalizeTrailDistanceM(p.trailDistanceM);
-        if (metres) state.trailDistanceM = metres;
-        else delete state.trailDistanceM;
-      }
-      // Anything that isn't one of the two units clears back to ABSENT, which means
-      // "follow the weight unit" — the default, not a blank. Same shape as a folder's
-      // "manual" sort: the default is stored by not being stored.
-      if (typeof p.trailDistanceUnit === "string") {
-        const unit = normalizeDistanceUnit(p.trailDistanceUnit);
-        if (unit) state.trailDistanceUnit = unit;
-        else delete state.trailDistanceUnit;
-      }
-      // Same clear-on-unusable rule as everything else here. Note this rides the ordinary
-      // op pipeline: it is list state for the OWNER, and only the read paths strip it.
-      if (typeof p.trailProfile === "string") {
-        // parseProfile is the single gate: a hand-edited value, a truncated string or
-        // anything that isn't elevations in metres clears rather than persisting.
-        const prof = parseProfile(p.trailProfile);
-        if (prof.length) state.trailProfile = prof.join(",");
-        else delete state.trailProfile;
+      // The clearable fields, one rule each — see META_RULES for the why per field.
+      for (const key of Object.keys(META_RULES) as (keyof typeof META_RULES)[]) {
+        const raw = p[key];
+        const rule = META_RULES[key];
+        if (typeof raw === "string" || (rule.numeric && typeof raw === "number"))
+          setOrClear(state, key, rule.normalize(raw));
       }
       if (typeof p.routeGeometry === "string") {
         // normalizeRouteGeometry is the single gate, like parseProfile above: it bounds
@@ -692,25 +719,8 @@ function applyOp(state: ListState, op: Op): void {
         // three of those already (import, clear the link, remove the trail) and the next
         // one to be added is the one that would forget.
         if (geo !== state.routeGeometry) state.waypoints = seedRouteEnds(geo ?? "");
-        if (geo) state.routeGeometry = geo;
-        else delete state.routeGeometry;
+        setOrClear(state, "routeGeometry", geo);
       }
-      if (typeof p.trailAscentM === "number" || typeof p.trailAscentM === "string") {
-        const m = normalizeTrailAscentM(p.trailAscentM);
-        if (m) state.trailAscentM = m;
-        else delete state.trailAscentM;
-      }
-      if (typeof p.trailDescentM === "number" || typeof p.trailDescentM === "string") {
-        const m = normalizeTrailAscentM(p.trailDescentM);
-        if (m) state.trailDescentM = m;
-        else delete state.trailDescentM;
-      }
-      // Dates are SHAPE-checked, not just clamped. They're rendered and exported, and
-      // a half-typed "2026-0" would otherwise persist and read as a real date
-      // everywhere downstream. Anything that isn't a calendar date clears the field —
-      // there is no partially-valid state worth keeping.
-      if (typeof p.startDate === "string") setDate(state, "startDate", p.startDate);
-      if (typeof p.endDate === "string") setDate(state, "endDate", p.endDate);
       break;
     }
   }
@@ -768,7 +778,6 @@ export function normalizeItem(raw: Item): Item {
     kcal: kcal > 0 ? Math.min(KCAL_MAX, kcal) : undefined,
     description: raw.description ? cleanText(String(raw.description), 2000) || undefined : undefined,
     productUrl: raw.productUrl ? String(raw.productUrl).slice(0, 2000) : undefined,
-    imageUrl: raw.imageUrl ? String(raw.imageUrl).slice(0, 2000) : undefined,
     priceCents:
       typeof raw.priceCents === "number" && isFinite(raw.priceCents)
         ? Math.max(0, Math.round(raw.priceCents))
@@ -838,7 +847,7 @@ export function tidyListText<T extends {
     if (it.variant) it.variant = cleanText(it.variant, 120) || undefined;
     if (it.commonName) it.commonName = cleanText(it.commonName, 120) || undefined;
     if (it.description) it.description = cleanText(it.description, 2000) || undefined;
-    // productUrl/imageUrl left alone — an apostrophe in a path is part of the address
+    // productUrl left alone — an apostrophe in a path is part of the address
   }
   return list;
 }

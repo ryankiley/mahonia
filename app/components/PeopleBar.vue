@@ -126,9 +126,6 @@ function onKey(e: KeyboardEvent) {
      here against rounded rectangles there read as two different controls. The
      pill is for a button standing on its own; a row of options never does. */
   border-radius: var(--radius-2);
-  background: none;
-  cursor: pointer;
-  font-family: inherit;
   font-size: var(--text-chrome);
   color: var(--ink-3);
   white-space: nowrap;

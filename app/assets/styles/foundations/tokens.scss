@@ -181,13 +181,10 @@ $bp-full: 1024px !default;
      so the number outranks the name. */
   --text-page-title: max(2rem, 1.667vw);
   --text-display: max(4rem, 3.333vw); /* 64px — the live total */
-  /* the small tier was removed — kept as an alias = base so existing
-     `var(--text-sm)` consumers don't break */
-  --text-sm: var(--text-base);
   /* ---- CHROME ONLY — two steps for text that annotates the app rather than being its
      content: a popover's own text, and the toolbar's status line. Neither is a revival of
-     the removed small tier: --text-sm stays aliased to base, and nothing in the DOCUMENT
-     FLOW may use either — the test is whether the text belongs to the list or to the
+     the removed small tier (there is no --text-sm; body text is --text-base), and
+     nothing in the DOCUMENT FLOW may use either — the test is whether the text belongs to the list or to the
      furniture around it. Never put either on an <input>: under 16px iOS Safari zooms the
      page on focus (see .field in atoms/controls.scss). Both are fluid on the same model
      as the rest of the scale — fixed at the px floor up to the 1920px anchor, then

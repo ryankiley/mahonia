@@ -1,5 +1,4 @@
 import { defineEventHandler } from "h3";
-import { verifyRegistrationResponse } from "@simplewebauthn/server";
 import {
   MAGIC_LINK_TTL_MS,
   createAccount,
@@ -12,7 +11,7 @@ import { savePasskey } from "../../../utils/credentialRepo";
 import { useAccountDb } from "../../../utils/db";
 import { readJsonBodyCapped, setNoIndex, setPrivate } from "../../../utils/http";
 import { trustedOrigin } from "../../../utils/origin";
-import { originFor, requirePasskeysConfigured, rpIdFor, takeChallenge } from "../../../utils/passkeys";
+import { requirePasskeysConfigured, takeChallenge, verifyPasskeyRegistration } from "../../../utils/passkeys";
 import { rateLimit } from "../../../utils/rateLimit";
 
 // Step 2 of creating an account with nothing but a passkey: check what the
@@ -22,8 +21,8 @@ import { rateLimit } from "../../../utils/rateLimit";
 // the signature is verified second, and the `users` row is written third — so an
 // unverified request cannot leave anything behind, and a replayed one has no
 // challenge left to match. Origin and RP ID are re-derived from THIS request
-// rather than read from the body: they're the binding that makes a passkey
-// unphishable, so they can never come from the caller.
+// rather than read from the body (verifyPasskeyRegistration): they're the binding
+// that makes a passkey unphishable, so they can never come from the caller.
 //
 // The account is created WITH the address that signup-options checked — read back
 // from the challenge, not from this request, so the client can't swap it between
@@ -57,22 +56,13 @@ export default defineEventHandler(async (event) => {
     return { ok: false as const, reason: "expired" as const };
   }
 
-  let verification;
-  try {
-    verification = await verifyRegistrationResponse({
-      response: body?.response as never,
-      expectedChallenge: stored.challenge,
-      expectedOrigin: originFor(event),
-      expectedRPID: rpIdFor(event),
-      requireUserVerification: false,
-    });
-  } catch (e) {
-    console.error("[passkey signup]", e);
-    return { ok: false as const, reason: "invalid" as const };
-  }
-
-  const info = verification.registrationInfo;
-  if (!verification.verified || !info) return { ok: false as const, reason: "invalid" as const };
+  const verified = await verifyPasskeyRegistration(
+    event,
+    body?.response,
+    stored.challenge,
+    "[passkey signup]",
+  );
+  if (!verified) return { ok: false as const, reason: "invalid" as const };
 
   const db = await useAccountDb();
   let user;
@@ -84,12 +74,10 @@ export default defineEventHandler(async (event) => {
     return { ok: false as const, reason: "taken" as const };
   }
   try {
+    const { syncable: _syncable, ...credential } = verified;
     await savePasskey(db, {
       userId: user.id,
-      credentialId: info.credential.id,
-      publicKey: Buffer.from(info.credential.publicKey).toString("base64url"),
-      counter: info.credential.counter,
-      transports: info.credential.transports ?? null,
+      ...credential,
       discoverable: true, // residentKey: "required" — see signup-options
       label: null,
     });

@@ -38,6 +38,10 @@
   max-height: 100%;
   overflow-y: auto;
   overscroll-behavior: contain;
+  // the scrim just fades (.ovl-* below); the dialog itself rises in (same for every modal)
+  transition:
+    transform var(--dur) var(--ease-spring),
+    opacity var(--dur) var(--ease);
 }
 
 /* The account is NARROWER than the shared 30rem. Its widest state is a column of
@@ -58,6 +62,13 @@
 }
 .dlg__lede {
   margin-bottom: var(--space-2);
+}
+/* the item's name at title size — the vault-item and catalog-correction dialogs both
+   open with one, so it lives here beside .dlg__lede rather than as two scoped copies */
+.dlg__item {
+  font-size: var(--text-title);
+  font-weight: 600;
+  letter-spacing: var(--track-tight);
 }
 // trailing-aligned buttons closing every dialog body — part of the shared shell,
 // so it lives here beside .dlg rather than in one caller's scoped styles
@@ -90,12 +101,6 @@
 .ovl-enter-from,
 .ovl-leave-to {
   opacity: 0;
-}
-// the scrim just fades; the dialog itself rises in (same for every modal)
-.dlg {
-  transition:
-    transform var(--dur) var(--ease-spring),
-    opacity var(--dur) var(--ease);
 }
 .ovl-enter-from .dlg {
   transform: translateY(12px);

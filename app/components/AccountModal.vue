@@ -21,10 +21,10 @@ const label = computed(() => (signedIn.value ? "Your account" : "Sign in"));
     <!-- The only modal here whose body is a whole surface rather than a form, so it
          has no dlg__actions row and had no visible way out — just Escape and a tap on
          the scrim. The X is the same control the vault and sharing panels close with. -->
-    <header class="acctmodal__head">
+    <header class="panel__head acctmodal__head">
       <!-- .t-label is --ink-2 by design; a panel TITLE steps up to full ink, which is
            what the sharing and vault headers already do. -->
-      <h2 class="t-label acctmodal__title">{{ label }}</h2>
+      <h2 class="t-label panel__title">{{ label }}</h2>
       <!-- btn--flush-end is how the other two put their X in a repeatable place: it
            cancels the icon button's own inset so the GLYPH — not the 32px box around
            it — lands on the card's content edge. Same class, same result, and it
@@ -47,12 +47,10 @@ const label = computed(() => (signedIn.value ? "Your account" : "Sign in"));
 /* the panels' header shape, to the pixel: title left, close right, no rule beneath.
    The negative top margin is theirs too — an icon button is taller than the line of
    type beside it, so without it the row sets the header's height and opens a gap the
-   title doesn't need. */
+   title doesn't need.
+   The shape is the .panel__head atom (controls.scss); the offsets onto this
+   container's edge are its own. */
 .acctmodal__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
   /* the optical nudge the panels carry too: a line of type sits lower inside its box
      than a padding value suggests (half-leading plus the gap above the cap), so a
      header aligned by the box alone reads as more inset at the top than at the sides */
@@ -68,8 +66,5 @@ const label = computed(() => (signedIn.value ? "Your account" : "Sign in"));
    so a retune of --icon-btn keeps the rhythm. */
 .acctmodal__head .btn--icon {
   margin-block: calc((1.45rem - var(--icon-btn)) / 2);
-}
-.acctmodal__title {
-  color: var(--ink);
 }
 </style>

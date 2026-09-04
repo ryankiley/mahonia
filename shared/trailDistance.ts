@@ -228,12 +228,58 @@ export function heightValue(metres: number, unit: DisplayDistanceUnit, step = 1)
 }
 
 /**
+ * The step a STATED height rounds to: ten feet on a miles list, whole metres on a
+ * kilometres one.
+ *
+ * Metres round-trip exactly; FEET don't, because the store is integer metres — type 690
+ * and it comes back 689. Rounding display feet to the nearest 10 hides an artefact that
+ * isn't a real disagreement, and it's the more honest figure besides: consumer elevation
+ * is noisy to ±5–10 m, so a climb quoted to the foot claims precision nothing has. The
+ * day fields, the shared view's itinerary and the field formatter below all take it from
+ * here, so "the editor rounds feet to 10" can't quietly become "to 5" on one surface.
+ * (The profile's moving readout picks its own, coarser metric step — a figure rewritten
+ * under a cursor has to hold still.)
+ */
+export function heightStepFor(unit: DisplayDistanceUnit): number {
+  return unit === "mi" ? 10 : 1;
+}
+
+/**
+ * A height as the bare number an editable FIELD shows, or "" for none — the round-trip
+ * partner of parseDistanceM for a climb, as distanceFieldValue is for a distance.
+ *
+ * String, NOT heightValue — heightValue groups for reading ("7,316") and this is a
+ * field value that has to parse back. Same conversion, same step (heightStepFor),
+ * different presentation.
+ */
+export function heightFieldValue(metres: number | undefined, unit: DisplayDistanceUnit): string {
+  if (metres == null) return "";
+  const step = heightStepFor(unit);
+  const v = unit === "mi" ? metres / M_PER_UNIT.ft : metres;
+  return String(Math.round(v / step) * step);
+}
+
+/**
  * The stored distance as the bare number its input shows ("7.5"), or "" at zero —
  * the round-trip partner of parseDistanceM, mirroring waterLiters in water.ts.
+ *
+ * `pad` keeps AT LEAST ONE DECIMAL, so "9.0" and "9.8" are the same width and the unit
+ * sits hard against the figure instead of drifting a character away on whole numbers —
+ * for the day fields, which form a column. PADDED, not rounded: 9.85 keeps both places,
+ * because this field round-trips through the store and forcing one decimal would
+ * quietly turn it into 9.9 the next time it saved. The padded form also keeps a literal
+ * zero ("0.0"): the day key quotes it for a day with no distance yet, where the bare
+ * form reads zero as "nothing stored", like waterLiters.
  */
-export function distanceFieldValue(metres: number | undefined, unit: DisplayDistanceUnit): string {
-  if (!metres || metres <= 0) return "";
-  return String(Number((metres / M_PER_UNIT[unit]).toFixed(2)));
+export function distanceFieldValue(
+  metres: number | undefined,
+  unit: DisplayDistanceUnit,
+  { pad = false }: { pad?: boolean } = {},
+): string {
+  if (metres == null || (!pad && !(metres > 0))) return "";
+  const n = Number((metres / M_PER_UNIT[unit]).toFixed(2));
+  if (!pad) return String(n);
+  return Number.isInteger(n) ? n.toFixed(1) : String(n);
 }
 
 /**

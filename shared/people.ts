@@ -6,8 +6,8 @@
 // framework-free, like the rest of shared/.
 
 import { categoryColor } from "./categories";
-import type { Item, ListData, Person } from "./types";
-import { bySortOrder, computeTotals } from "./weights";
+import type { Item, ListData, ListSnapshot, Person, Unit } from "./types";
+import { bySortOrder, computeTotals, formatWeight } from "./weights";
 
 /**
  * The filter's third state, beside "a person id" and null-for-everyone: rows
@@ -27,7 +27,7 @@ export type PersonSelection = string | null;
  * nothing else. Two people sharing a name make that column ambiguous and the
  * round-trip lossy, so the name is an identity here, not a label.
  */
-export const personNameKey = (name: string): string => name.trim().toLowerCase();
+const personNameKey = (name: string): string => name.trim().toLowerCase();
 
 /**
  * Is `name` already spoken for? `exceptId` excuses the person being renamed, so
@@ -102,6 +102,20 @@ export function effectivePersonId(
 export function personName(people: Person[] | undefined, id: string | undefined): string | undefined {
   if (!id) return undefined;
   return people?.find((p) => p.id === id)?.name;
+}
+
+/**
+ * The carrier's NAME as a reader sees it: the effective assignee (the row's own,
+ * else its parent's) looked up in the list's people. Undefined when nobody carries
+ * it or the id names nobody. The exporters print this; written once so the CSV
+ * column and the Markdown italics can't resolve the same row two ways.
+ */
+export function carrierName(
+  list: Pick<ListData, "people">,
+  item: Pick<Item, "personId">,
+  parent?: Pick<Item, "personId"> | null,
+): string | undefined {
+  return personName(list.people, effectivePersonId(item, parent));
 }
 
 /** A person's CSS color — the folder recipe, so chips and dots read in both themes. */
@@ -181,5 +195,30 @@ export function carriedTotalsMg(
     const mg = computeTotals({ folders: list.folders, items }).totalMg;
     if (mg > 0) out[key] = mg;
   }
+  return out;
+}
+
+/**
+ * Does a chip selection still resolve? The editor's watcher and the share view's
+ * ask the same question after the people list or the unassigned bucket changes —
+ * a person removed, or the last unclaimed row claimed — and widen to everyone
+ * when the answer is no, so nobody is stranded on a blank list under a chips
+ * row with nothing lit.
+ */
+export function selectionGone(
+  people: Person[],
+  hasUnassigned: boolean,
+  selection: PersonSelection,
+): boolean {
+  if (!selection) return false;
+  return selection === UNASSIGNED
+    ? !people.length || !hasUnassigned
+    : !people.some((p) => p.id === selection);
+}
+
+/** Each chip's carry formatted in `unit` — the "divisible by participants" figure. */
+export function chipWeightLabels(snapshot: ListSnapshot, unit: Unit): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [key, mg] of Object.entries(carriedTotalsMg(snapshot))) out[key] = formatWeight(mg, unit);
   return out;
 }

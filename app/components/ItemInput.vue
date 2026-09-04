@@ -452,42 +452,42 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
                  means one thing across both surfaces and reads before the text does -->
             <HugeiconsIcon :icon="SafeBoxIcon" class="ac__mineicon" :size="14" :stroke-width="2" aria-hidden="true" />
             <span class="visually-hidden">From My Gear: </span>
-            <span v-if="opt.vault.brand" class="ac__brand">
+            <span v-if="opt.vault.brand" class="ac__brand t-clip">
               <span
                 v-for="(p, pi) in hl(opt.vault.brand)"
                 :key="pi"
                 :class="{ 'ac__hl': p.on }"
               >{{ p.t }}</span>
             </span>
-            <span class="ac__model">
+            <span class="ac__model t-clip">
               <span
                 v-for="(p, pi) in hl(opt.vault.name)"
                 :key="pi"
                 :class="{ 'ac__hl': p.on }"
               >{{ p.t }}</span>
             </span>
-            <span v-if="opt.vault.variant" class="ac__variant"><span class="sep">·</span> {{ opt.vault.variant }}</span>
+            <span v-if="opt.vault.variant" class="ac__variant t-clip"><span class="sep">·</span> {{ opt.vault.variant }}</span>
           </span>
         </template>
         <template v-else>
           <!-- brand shrinks first (its matched prefix + an ellipsis survive), so the
                distinguishing model name + variant stay readable on a narrow phone menu -->
           <span class="ac__name">
-            <span v-if="opt.result.brand" class="ac__brand">
+            <span v-if="opt.result.brand" class="ac__brand t-clip">
               <span
                 v-for="(p, pi) in hl(opt.result.brand)"
                 :key="pi"
                 :class="{ 'ac__hl': p.on }"
               >{{ p.t }}</span>
             </span>
-            <span class="ac__model">
+            <span class="ac__model t-clip">
               <span
                 v-for="(p, pi) in hl(opt.result.name)"
                 :key="pi"
                 :class="{ 'ac__hl': p.on }"
               >{{ p.t }}</span>
             </span>
-            <span v-if="opt.result.variant" class="ac__variant"><span class="sep">·</span> {{ tidyText(opt.result.variant) }}</span>
+            <span v-if="opt.result.variant" class="ac__variant t-clip"><span class="sep">·</span> {{ tidyText(opt.result.variant) }}</span>
             <span v-if="!opt.result.verified" class="ac__community" title="community-contributed, unverified">· community</span>
           </span>
         </template>
@@ -539,22 +539,20 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
 /* the scroller — INSIDE the card's inline padding, so the (thin, transparent-
    track) scrollbar sits inset from the edge, never over the rounded corners */
 .ac__list {
-  margin: 0;
   padding: var(--space-2) 0;
-  list-style: none;
   /* cap at 10.5 ROWS (+ the resting top padding), not a round length: the half-
      cropped row at the fold is the scroll cue — glyphs sliced cleanly AT the
      card's visual edge (the .popover outline-not-border fix keeps the overflow
      clip flush; it was a 1px-inset ledge that made this crop read as broken).
      A full-text fold read as a complete list and left the card too tall. One row
-     = 2×space-2 padding + a 1.5-line-height text-sm line; phrasing it in the
+     = 2×space-2 padding + a 1.5-line-height base-size line; phrasing it in the
      same vars keeps the fold mid-row past the 1920px anchor where the type (and
      the rows) scale fluidly. The dvh cap keeps it on-screen on small devices
      (dvh tracks the collapsing mobile URL bar; vh line = older-browser fallback). */
   /* +2px: an eye-tuned crop point rather than a derived one — a hair more of the fold
      row's glyphs, which is what makes the cut read as a fold and not a clip */
-  max-height: min(calc(10.5 * (2 * var(--space-2) + 1.5 * var(--text-sm)) + var(--space-2) + 2px), 55vh);
-  max-height: min(calc(10.5 * (2 * var(--space-2) + 1.5 * var(--text-sm)) + var(--space-2) + 2px), 50dvh);
+  max-height: min(calc(10.5 * (2 * var(--space-2) + 1.5 * var(--text-base)) + var(--space-2) + 2px), 55vh);
+  max-height: min(calc(10.5 * (2 * var(--space-2) + 1.5 * var(--text-base)) + var(--space-2) + 2px), 50dvh);
   overflow-y: auto;
   /* never a horizontal bar: overflow-y alone computes overflow-x to auto, and with
      classic (always-shown) scrollbars the vertical bar narrows the rows, so any
@@ -585,7 +583,7 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
   gap: var(--space-3);
   padding: var(--space-2) var(--space-2);
   cursor: pointer;
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   /* concentric radius + hover tint are pinned on the shared .popover surface */
   border-radius: var(--popover-item-radius);
 }
@@ -601,13 +599,7 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
 }
 /* shrink order under width pressure: variant first, then brand, then the model
    (the most distinguishing part) clings on longest. Each truncates with its own
-   ellipsis so a matched prefix stays visible. */
-.ac__name > span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+   ellipsis (.t-clip, on every part) so a matched prefix stays visible. */
 .ac__brand {
   flex: 0 100 auto;
   color: var(--ink-2);
@@ -669,7 +661,7 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
   flex: none;
 }
 .ac__w {
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   color: var(--ink-2);
 }
 </style>

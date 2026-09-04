@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { ArrowUpRight01Icon, Cancel01Icon, CheckIcon, ChevronDownIcon, CircleXIcon } from "@hugeicons/core-free-icons";
+import { ArrowUpRight01Icon, Cancel01Icon, CheckIcon, ChevronDownIcon } from "@hugeicons/core-free-icons";
 import type { VaultEntry, VaultFolder } from "~~/shared/vault";
 import { vaultNormKey } from "~~/shared/vault";
 import { rankVaultRows } from "~~/shared/vaultSearch";
+import { groupVaultRows } from "~~/shared/vaultView";
 import { highlightParts } from "~~/shared/catalogSearch";
 import { formatWeight, itemDisplayName } from "~~/shared/weights";
 import { foldApostrophes } from "~~/shared/tidyText";
@@ -117,7 +118,7 @@ const query = computed({
   get: () => queries.value[tab.value],
   set: (v: string) => (queries.value[tab.value] = v),
 });
-const searchEl = useTemplateRef<HTMLInputElement>("searchEl");
+const searchEl = useTemplateRef<{ focus: () => void }>("searchEl");
 
 // Where an added item lands. Defaults to the first folder and remembers your
 // choice while the pane is open — adding six things to "Cook kit" shouldn't mean
@@ -184,40 +185,26 @@ const filtered = computed(() => {
 // same emphasis, as the autocomplete's rows
 const hl = (text: string) => highlightParts(text, query.value);
 
-// clearing returns you to the field, not to nowhere — you cleared it to type again
-function clearQuery() {
-  query.value = "";
-  searchEl.value?.focus();
-}
-
 // ---- categories ----
 // A vault folder plus the gear filed under it. Built from the SAME loaded rows the
 // Items tab shows, so nothing is fetched twice and the two tabs can never disagree
-// about what the vault holds.
-const categories = computed(() => {
-  const byFolder = new Map<number, VaultEntry[]>();
-  for (const e of items.value) {
-    if (e.folderId == null) continue; // unfiled gear lives on the Items tab only
-    const bucket = byFolder.get(e.folderId);
-    if (bucket) bucket.push(e);
-    else byFolder.set(e.folderId, [e]);
-  }
-  return vaultFolders.value
-    .map((f) => {
-      const entries = byFolder.get(f.id) ?? [];
-      return {
-        id: f.id,
-        name: f.name,
-        entries,
-        weightMg: entries.reduce((sum, e) => sum + e.weightMg, 0),
-        // every piece of it is already on the list — the same rule the item rows
-        // use, resolved for the whole set so the button can say so
-        allInList: entries.length > 0 && entries.every((e) => inList.value.has(e.normKey)),
-      };
-    })
-    // an empty vault folder is a filing artefact, not a template worth offering
-    .filter((c) => c.entries.length > 0);
-});
+// about what the vault holds. The grouping is /gear's own (shared/vaultView), so a
+// category here holds exactly what the folder shows there, in the folder's own order.
+const categories = computed(() =>
+  // keepEmpty: false — an empty vault folder is a filing artefact, not a template
+  // worth offering; and no unfiled section, since unfiled gear lives on the Items tab
+  groupVaultRows(items.value, vaultFolders.value, { keepEmpty: false })
+    .filter((s) => s.folder)
+    .map((s) => ({
+      id: s.folder!.id,
+      name: s.folder!.name,
+      entries: s.entries,
+      weightMg: s.weightMg,
+      // every piece of it is already on the list — the same rule the item rows
+      // use, resolved for the whole set so the button can say so
+      allInList: s.entries.length > 0 && s.entries.every((e) => inList.value.has(e.normKey)),
+    })),
+);
 
 // name-only match: a category has no brand/variant to fuzzy-rank, and the set is
 // small enough to scan
@@ -392,8 +379,8 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
       @pointerdown="startResize"
       @keydown="onResizeKey"
     />
-    <header class="vp__head">
-      <h2 class="t-label vp__title">My Gear</h2>
+    <header class="panel__head vp__head">
+      <h2 class="t-label panel__title vp__title">My Gear</h2>
       <!-- The way out to the full page, and it lives HERE rather than on the toolbar
            glyph that opened this. That glyph is a one-press toggle you hit repeatedly
            while building a list; hanging a menu off it to offer this would tax the
@@ -460,29 +447,13 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
       </div>
 
       <div class="vp__controls">
-        <!-- our own clear, not the platform's: WebKit's cancel button is a filled
-             blue circle-x, the only colour in the chrome (suppressed in
-             atoms/controls.scss). This is the same glyph in the site's ink. -->
-        <div class="vp__searchwrap">
-          <input
-            ref="searchEl"
-            v-model="query"
-            class="field well vp__search"
-            type="search"
-            :placeholder="tab === 'items' ? 'Search gear…' : 'Search categories…'"
-            :aria-label="tab === 'items' ? 'Search gear' : 'Search categories'"
-          />
-          <button
-            v-if="query"
-            type="button"
-            class="vp__clear"
-            aria-label="Clear search"
-            title="Clear search"
-            @click="clearQuery"
-          >
-            <HugeiconsIcon :icon="CircleXIcon" :size="16" :stroke-width="2" />
-          </button>
-        </div>
+        <!-- the field and its own clear — SearchField, the same control /gear draws -->
+        <SearchField
+          ref="searchEl"
+          v-model="query"
+          :placeholder="tab === 'items' ? 'Search gear…' : 'Search categories…'"
+          :label="tab === 'items' ? 'Search gear' : 'Search categories'"
+        />
         <!-- the destination picker is meaningless on Categories — a cloned category
              brings its own folder with it -->
         <div v-if="folders.length && tab === 'items'" class="vp__target">
@@ -498,7 +469,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
             @pick="(k) => (targetFolderId = k)"
           >
             <template #trigger="{ active, open }">
-              <span class="vp__targetname">{{ active?.label }}</span>
+              <span class="t-clip vp__targetname">{{ active?.label }}</span>
               <HugeiconsIcon :icon="ChevronDownIcon" class="vp__targetchev" :class="{ 'is-open': open }" :size="14" :stroke-width="2" aria-hidden="true" />
             </template>
           </OptionMenu>
@@ -713,11 +684,8 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   align-items: center;
   gap: var(--space-1);
   padding: var(--space-1) var(--space-2);
-  border: 0;
   border-radius: var(--popover-item-radius);
-  background: transparent;
-  font: inherit;
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   color: var(--ink-3);
   cursor: pointer;
   transition:
@@ -736,17 +704,14 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
 .vp__tabcount {
   color: var(--ink-3);
 }
+/* THE PANEL HEADER is the .panel__head atom (controls.scss); only the offset onto
+   this card's edge is its own. */
 .vp__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
   /* the card no longer carries block padding (see .vp) — the top of it lives here */
   padding-block-start: var(--space-2);
   margin-bottom: var(--space-2);
 }
 .vp__title {
-  color: var(--ink);
   /* takes the slack so the two trailing controls sit together on the end rather than
      spreading across the header — space-between would otherwise put "Open" in the
      middle of it, reading as a third heading */
@@ -771,45 +736,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   gap: var(--space-2);
   margin-bottom: var(--space-2);
 }
-.vp__searchwrap {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-/* the tint is the shared .well atom (controls.scss) — CONTAINED, not a hairline
-   rule: search is the one control you reach for in this panel, and an underline
-   reads as a caption with a line under it rather than a box you can type in. */
-.vp__search {
-  width: 100%;
-  padding-inline: var(--space-3);
-  /* room for the clear button, so a long query doesn't run under it */
-  padding-right: var(--space-5);
-}
-/* Sits ON the field rather than beside it: the rule under the input is the field's
-   whole visible boundary, and a sibling button would either break that line or push
-   the input narrower whenever a query exists (a field that resizes as you type). */
-.vp__clear {
-  position: absolute;
-  right: 0;
-  display: inline-flex;
-  align-items: center;
-  padding: 0;
-  color: var(--ink-3);
-  transition: color var(--dur) var(--ease);
-}
-.vp__clear:hover,
-.vp__clear:focus-visible {
-  color: var(--ink);
-}
-/* touch: the clear meets the --tap minimum (controls.scss); it overlays the
-   field's end, so the bigger box only widens its hit area, not the layout */
-@media (pointer: coarse) {
-  .vp__clear {
-    justify-content: center;
-    min-width: var(--tap);
-    min-height: var(--tap);
-  }
-}
+/* the search field, its clear and their touch target are SearchField's own */
 /* the hand stays on the select alone — "Add to" is the label naming it, not a
    thing you click, and pointing at prose invites a click that does nothing */
 .vp__target {
@@ -829,11 +756,6 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
 .vp__select {
   flex: 0 1 auto;
   min-width: 0;
-}
-.vp__targetname {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .vp__targetchev {
   flex: none;
@@ -858,8 +780,6 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   color: var(--ink);
 }
 .vp__list {
-  list-style: none;
-  margin: 0;
   /* the card's bottom breathing room, inside the scroller so it scrolls with the
      rows rather than sitting under them as a ledge that clips the last one */
   padding: 0 0 var(--space-2);
@@ -889,10 +809,6 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   border-radius: var(--popover-item-radius);
   text-align: left;
   cursor: pointer;
-  background: none;
-  border: 0;
-  color: inherit;
-  font: inherit;
 }
 /* Split from :hover, not merged with it: focus is not a pointer state and a keyboard
    driving a touch device still needs the highlight, while the hover twin paints only

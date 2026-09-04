@@ -4,9 +4,7 @@
 
 import { and, desc, eq } from "drizzle-orm";
 import { credentials } from "../db/schema";
-import type { useAccountDb } from "./db";
-
-type Db = Awaited<ReturnType<typeof useAccountDb>>;
+import type { Db } from "./db";
 
 /** How many passkeys one account may hold. Generous — a phone, a laptop, a
  *  hardware key and spares — while still bounding the row count per user. */
@@ -46,10 +44,6 @@ export async function existingCredentialIds(db: Db, userId: number): Promise<str
     .from(credentials)
     .where(eq(credentials.userId, userId));
   return rows.map((r) => r.credentialId);
-}
-
-export async function countPasskeys(db: Db, userId: number): Promise<number> {
-  return (await existingCredentialIds(db, userId)).length;
 }
 
 export async function savePasskey(
@@ -103,7 +97,6 @@ export async function deletePasskey(db: Db, userId: number, id: number): Promise
   const done = await db
     .delete(credentials)
     .where(and(eq(credentials.id, id), eq(credentials.userId, userId)))
-    // no-arg .returning() — the neon-http | PGlite union's only shared overload
     .returning();
   return done.length > 0;
 }

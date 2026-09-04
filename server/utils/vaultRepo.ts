@@ -6,7 +6,7 @@
 import { and, asc, desc, eq, inArray, isNotNull, isNull, lt, sql, type SQL } from "drizzle-orm";
 import type { PgColumn } from "drizzle-orm/pg-core";
 import { vaultFolders, vaultItems, vaults } from "../db/schema";
-import type { useVaultDb } from "./db";
+import type { Db } from "./db";
 import {
   VAULT_CAPTURE_MAX,
   VAULT_NAME_MAX,
@@ -22,8 +22,6 @@ import type { Classification } from "../../shared/types";
 import { KCAL_MAX, UNIT_WEIGHT_MAX_MG } from "../../shared/ops";
 import { tidyText } from "../../shared/tidyText";
 import { rankVaultRows } from "../../shared/vaultSearch";
-
-type Db = Awaited<ReturnType<typeof useVaultDb>>;
 
 /** Upper bound on the rows pulled into memory for a search or a browse. A vault is
  *  personal gear, so real ones are dozens of rows; this only bounds the pathological
@@ -110,8 +108,8 @@ function str(v: unknown, max: number): string | undefined {
 /** A URL off the wire: typed and capped, but NOT tidied. tidyText curls a
  *  letter-flanked apostrophe, and a path can legitimately carry one
  *  (…/mens-jacket vs …/men's-jacket) — curling it rewrites the address to a page
- *  that isn't there. shared/ops.ts exempts productUrl and imageUrl from cleanText
- *  for exactly this reason; str() below does not, so the gear was curling them. */
+ *  that isn't there. shared/ops.ts exempts productUrl from cleanText for exactly
+ *  this reason; str() below does not, so the gear was curling them. */
 function url(v: unknown): string | undefined {
   if (typeof v !== "string") return undefined;
   return v.trim().slice(0, VAULT_URL_MAX) || undefined;
@@ -205,11 +203,7 @@ export async function captureVaultItems(
   // error in front of someone who didn't ask for anything. Counted lazily (one
   // cheap indexed count) and only disambiguated when the request could actually
   // cross the line.
-  const [{ n } = { n: 0 }] = await db
-    .select({ n: sql<number>`count(*)` })
-    .from(vaultItems)
-    .where(eq(vaultItems.vaultId, vaultId));
-  const room = VAULT_ITEMS_MAX - Number(n);
+  const room = VAULT_ITEMS_MAX - (await vaultItemCount(db, vaultId));
   if (clean.length > room) {
     const existing = new Set(
       (
@@ -254,25 +248,7 @@ export async function captureVaultItems(
 
   await db
     .insert(vaultItems)
-    .values(
-      clean.map((c) => ({
-        vaultId,
-        normKey: c.normKey,
-        brand: c.brand ?? null,
-        name: c.name,
-        variant: c.variant ?? null,
-        commonName: c.commonName ?? null,
-        weightMg: c.weightMg,
-        classification: c.classification ?? null,
-        kcal: c.kcal ?? null,
-        catalogItemId: c.catalogItemId ?? null,
-        productUrl: c.productUrl ?? null,
-        folderId: (c.folder && folderId.get(c.folder)) || null,
-        timesSeen: 1,
-        lastUsedAt: now,
-        updatedAt: now,
-      })),
-    )
+    .values(clean.map((c) => rowValues(c, vaultId, now, (c.folder && folderId.get(c.folder)) || null)))
     .onConflictDoUpdate({
       target: [vaultItems.vaultId, vaultItems.normKey],
       set: {
@@ -328,6 +304,64 @@ export async function captureVaultItems(
   return clean.length;
 }
 
+/** The INSERT half a captured row and a hand-added one share — every content
+ *  column off a sanitized capture, plus the usage stamps a brand-new row starts
+ *  with. The pins are NOT here: capture asserts none and an add asserts them
+ *  all, which is the whole difference between the two (see addVaultItem). */
+function rowValues(c: VaultCapture, vaultId: number, now: Date, folderId: number | null) {
+  return {
+    vaultId,
+    normKey: c.normKey,
+    brand: c.brand ?? null,
+    name: c.name,
+    variant: c.variant ?? null,
+    commonName: c.commonName ?? null,
+    weightMg: c.weightMg,
+    classification: c.classification ?? null,
+    kcal: c.kcal ?? null,
+    catalogItemId: c.catalogItemId ?? null,
+    productUrl: c.productUrl ?? null,
+    folderId,
+    timesSeen: 1,
+    lastUsedAt: now,
+    updatedAt: now,
+  };
+}
+
+/** How many rows (live AND removed — tombstones hold a slot) a vault holds: the
+ *  count both ceilings (capture's silent drop, add's refusal) are measured
+ *  against. One cheap indexed count. */
+async function vaultItemCount(db: Db, vaultId: number): Promise<number> {
+  const [{ n } = { n: 0 }] = await db
+    .select({ n: sql<number>`count(*)` })
+    .from(vaultItems)
+    .where(eq(vaultItems.vaultId, vaultId));
+  return Number(n);
+}
+
+/** Is this folder id one of THIS vault's? A folderId from another vault would
+ *  file gear under a heading its owner can never see, so both writes that take
+ *  an id off the wire (add, move) verify it in scope before writing. */
+async function ownsFolder(db: Db, vaultId: number, folderId: number): Promise<boolean> {
+  const owner = await db
+    .select({ id: vaultFolders.id })
+    .from(vaultFolders)
+    .where(and(eq(vaultFolders.id, folderId), eq(vaultFolders.vaultId, vaultId)));
+  return owner.length > 0;
+}
+
+/** A vault's live rows, most-recently-used first, bounded to POOL_LIMIT — the
+ *  one read behind both the /vault browse and the autocomplete's candidate pool
+ *  (idx_vault_recent serves exactly this shape). */
+function liveRows(db: Db, vaultId: number) {
+  return db
+    .select()
+    .from(vaultItems)
+    .where(and(eq(vaultItems.vaultId, vaultId), isNull(vaultItems.removedAt)))
+    .orderBy(desc(vaultItems.lastUsedAt))
+    .limit(POOL_LIMIT);
+}
+
 /**
  * Wrap a merge rule so a PINNED field keeps whatever the gear already holds.
  *
@@ -378,13 +412,7 @@ async function ensureFolders(
 /** Every live row in a user's vault, most-recently-used first — the /vault page's
  *  read. Small by nature, so it's one unpaginated query. */
 export async function listVaultItems(db: Db, vaultId: number): Promise<VaultEntry[]> {
-  const rows = await db
-    .select()
-    .from(vaultItems)
-    .where(and(eq(vaultItems.vaultId, vaultId), isNull(vaultItems.removedAt)))
-    .orderBy(desc(vaultItems.lastUsedAt))
-    .limit(POOL_LIMIT);
-  return rows.map(toEntry);
+  return (await liveRows(db, vaultId)).map(toEntry);
 }
 
 /** A vault's folders in drag order (id breaks a tie, so the order is total). */
@@ -429,12 +457,7 @@ export async function listRemovedVaultItems(db: Db, vaultId: number): Promise<Va
  *  strategy, applied here on both engines because a vault is always small. */
 export async function searchVaultItems(db: Db, vaultId: number, q: string): Promise<VaultEntry[]> {
   if ((q ?? "").trim().length < 2) return [];
-  const rows = await db
-    .select()
-    .from(vaultItems)
-    .where(and(eq(vaultItems.vaultId, vaultId), isNull(vaultItems.removedAt)))
-    .orderBy(desc(vaultItems.lastUsedAt))
-    .limit(POOL_LIMIT);
+  const rows = await liveRows(db, vaultId);
   // rank the ROWS, then convert the handful that survive — toEntry allocates two
   // Dates and two ISO strings per row, and the ranker reads neither
   return rankVaultRows(rows, q).map(toEntry);
@@ -453,7 +476,6 @@ export async function removeVaultItem(db: Db, vaultId: number, id: number): Prom
     .where(
       and(eq(vaultItems.id, id), eq(vaultItems.vaultId, vaultId), isNull(vaultItems.removedAt)),
     )
-    // no-arg .returning() — the neon-http | PGlite union's only shared overload
     .returning();
   return done.length > 0;
 }
@@ -466,7 +488,6 @@ export async function restoreVaultItem(db: Db, vaultId: number, id: number): Pro
     .update(vaultItems)
     .set({ removedAt: null, updatedAt: new Date() })
     .where(and(eq(vaultItems.id, id), eq(vaultItems.vaultId, vaultId)))
-    // no-arg .returning() — the neon-http | PGlite union's only shared overload
     .returning();
   return done.length > 0;
 }
@@ -516,7 +537,6 @@ export async function reapAbandonedVaults(
     .limit(batchLimit(opts?.limit));
   if (!candidates.length) return { vaultsReaped: 0 };
 
-  // no-arg .returning() — the neon-http | PGlite union's only shared overload
   const done = await db
     .update(vaults)
     .set({ deletedAt: new Date() })
@@ -593,7 +613,7 @@ export type VaultItemOp =
  * No folderId: re-filing a row is the folders route's "move" verb, and a second copy
  * of a scoped write is a second chance to scope it wrong.
  */
-export interface VaultItemPatch {
+interface VaultItemPatch {
   brand?: string | null;
   name?: string;
   variant?: string | null;
@@ -722,22 +742,14 @@ async function addVaultItem(db: Db, vaultId: number, op: Extract<VaultItemOp, { 
   // a heading its owner can never see would be worse than not filing it at all.
   if (op.folderId != null) {
     if (!Number.isInteger(op.folderId)) return null;
-    const owner = await db
-      .select({ id: vaultFolders.id })
-      .from(vaultFolders)
-      .where(and(eq(vaultFolders.id, op.folderId), eq(vaultFolders.vaultId, vaultId)));
-    if (!owner.length) return null;
+    if (!(await ownsFolder(db, vaultId, op.folderId))) return null;
   }
 
   // The ceiling. Counted lazily and disambiguated only when this request could cross
   // the line, like capture — but a DELIBERATE add REFUSES where capture drops
   // silently, the same way applyVaultFolderOp's "add" does. Landing on a key the
   // gear already holds adds no row, so it's allowed at any count.
-  const [{ n } = { n: 0 }] = await db
-    .select({ n: sql<number>`count(*)` })
-    .from(vaultItems)
-    .where(eq(vaultItems.vaultId, vaultId));
-  if (Number(n) >= VAULT_ITEMS_MAX) {
+  if ((await vaultItemCount(db, vaultId)) >= VAULT_ITEMS_MAX) {
     const [prior] = await db
       .select({ id: vaultItems.id })
       .from(vaultItems)
@@ -749,20 +761,7 @@ async function addVaultItem(db: Db, vaultId: number, op: Extract<VaultItemOp, { 
   const done = await db
     .insert(vaultItems)
     .values({
-      vaultId,
-      normKey: clean.normKey,
-      brand: clean.brand ?? null,
-      name: clean.name,
-      variant: clean.variant ?? null,
-      commonName: clean.commonName ?? null,
-      weightMg: clean.weightMg,
-      classification: clean.classification ?? null,
-      kcal: clean.kcal ?? null,
-      productUrl: clean.productUrl ?? null,
-      folderId: op.folderId ?? null,
-      timesSeen: 1,
-      lastUsedAt: now,
-      updatedAt: now,
+      ...rowValues(clean, vaultId, now, op.folderId ?? null),
       // Typing it in is choosing it: every field you supplied is yours, and no list
       // may overwrite it. A zero weight pins nothing — see cleanVaultPatch.
       namePinned: true,
@@ -846,7 +845,6 @@ async function editVaultItem(db: Db, vaultId: number, op: Extract<VaultItemOp, {
     .set({ ...set, updatedAt: new Date() })
     // ownership is IN the where, not a check on the result — see removeVaultItem
     .where(and(eq(vaultItems.id, op.id), eq(vaultItems.vaultId, vaultId)))
-    // no-arg .returning() — the neon-http | PGlite union's only shared overload
     .returning();
   return done[0] ? { item: toEntry(done[0]) } : null;
 }
@@ -939,13 +937,7 @@ export async function applyVaultFolderOp(
       if (!Number.isInteger(op.itemId)) return false;
       // a folderId from another vault would file gear under a heading you can't
       // see, so it's verified in the same scope before being written
-      if (op.folderId != null) {
-        const owner = await db
-          .select({ id: vaultFolders.id })
-          .from(vaultFolders)
-          .where(and(eq(vaultFolders.id, op.folderId), eq(vaultFolders.vaultId, vaultId)));
-        if (!owner.length) return false;
-      }
+      if (op.folderId != null && !(await ownsFolder(db, vaultId, op.folderId))) return false;
       const done = await db
         .update(vaultItems)
         .set({ folderId: op.folderId ?? null, updatedAt: new Date() })

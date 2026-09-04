@@ -187,8 +187,8 @@ function changeLabel(i: number): string {
 
 <template>
   <div class="popover share" role="dialog" aria-label="Sharing">
-    <header class="share__head">
-      <h2 class="t-label share__title">Sharing</h2>
+    <header class="panel__head share__head">
+      <h2 class="t-label panel__title">Sharing</h2>
       <button
         type="button"
         class="btn btn--icon btn--ghost btn--flush-end"
@@ -293,7 +293,7 @@ function changeLabel(i: number): string {
           @click="activityOpen = !activityOpen"
         >
           <span class="t-label share__subtitle">Recent changes</span>
-          <HugeiconsIcon :icon="ChevronDownIcon" class="share__chev"
+          <HugeiconsIcon :icon="ChevronDownIcon" class="menu__sectchev"
             :class="{ 'is-open': activityOpen }"
             :size="14"
             :stroke-width="2"
@@ -353,23 +353,16 @@ function changeLabel(i: number): string {
     right: var(--space-4);
   }
 }
-/* the header is a title bar, ruled off from the body — without it the panel's own
-   name read as just another section label in the stack */
+/* THE PANEL HEADER is the .panel__head atom (controls.scss); only the offset onto
+   this container's edge is ours. */
 .share__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-  margin: calc(-1 * var(--space-1)) 0 0;
+  /* the optical nudge the account dialog carries too: a line of type sits lower inside
+     its box than a padding value suggests, so a header aligned by the box alone reads
+     as more inset at the top than at the sides */
+  margin-top: calc(-1 * var(--space-1));
   /* No rule under the title, and no padding under it either — the padding was there to
      hold the title off that rule. The vault pane, which is the same header at the same
      size with the same close button, never had either. The card's own gap separates. */
-}
-.share__title {
-  color: var(--ink);
-}
-.share__note {
-  margin: 0;
 }
 /* a link and everything that belongs to it, as one block */
 .share__field {
@@ -405,12 +398,10 @@ function changeLabel(i: number): string {
   min-width: 0;
   min-height: var(--icon-btn);
   padding-inline: var(--space-2);
-  border: 0;
   border-radius: var(--popover-item-radius);
   background: var(--paper-2);
   color: var(--ink-2);
-  font: inherit;
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   text-overflow: ellipsis;
 }
 /* Copy is FILLED a step deeper than the field beside it: it is the one thing you
@@ -425,7 +416,6 @@ function changeLabel(i: number): string {
   gap: var(--space-1);
   min-height: var(--icon-btn);
   padding-inline: var(--space-3);
-  border: 0;
   background: var(--paper-3);
   border-radius: var(--popover-item-radius);
   color: var(--ink);
@@ -438,9 +428,6 @@ function changeLabel(i: number): string {
   .share__act:hover {
     background: color-mix(in oklab, var(--ink) 6%, var(--paper-3));
   }
-}
-.share__hint {
-  margin: 0;
 }
 /* Replacing the link is quiet TEXT under the field it replaces. It is destructive
    and rarely wanted; giving it a button's weight beside the copies would have made
@@ -470,24 +457,11 @@ function changeLabel(i: number): string {
   justify-content: space-between;
   gap: var(--space-2);
   width: 100%;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  font: inherit;
   cursor: pointer;
 }
-.share__chev {
-  flex: none;
-  color: var(--ink-3);
-  transition: rotate var(--dur) var(--ease);
-}
-.share__chev.is-open {
-  rotate: 180deg;
-}
+/* the chevron is the .menu__sectchev atom (controls.scss) — the same quiet mark that
+   turns over on the ⋯ menu's Export section; it had a byte-identical copy here */
 .share__log {
-  list-style: none;
-  margin: 0;
-  padding: 0;
   display: grid;
   gap: var(--space-1);
   /* a long-lived list can hold many recovery points; the panel stays a panel */

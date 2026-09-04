@@ -28,7 +28,7 @@ import type { Op } from "./ops";
 export const MAX_SUMMARY_LEN = 80;
 
 /** The list as it stood before the batch — what makes names resolvable. */
-export interface SummaryBefore {
+interface SummaryBefore {
   items: readonly Item[];
   folders: readonly Folder[];
   // optional like the field it names: without it a removePerson still counts,
@@ -41,14 +41,35 @@ const plural = (n: number, noun: string) => `${n} ${noun}${n === 1 ? "" : "s"}`;
 const persons = (n: number) => (n === 1 ? "1 person" : `${n} people`);
 
 /**
- * Name one thing, or count several.
+ * A count, and the names that go with it.
  *
- * A history line is capped at MAX_SUMMARY_LEN and three gear names do not fit in
- * eighty characters — so naming is for the single case, which is also the case
- * where a name tells you something a count can't.
+ * Every kind of edit the summary tracks does the same two things per op — bump a
+ * count, and maybe keep a name — and asks the same question at the end: can this be
+ * said as one name? A history line is capped at MAX_SUMMARY_LEN and three gear names
+ * do not fit in eighty characters — so naming is for the single case, which is also
+ * the case where a name tells you something a count can't.
+ *
+ * `names` can be SHARED between two tallies (folders added and removed both write
+ * folderNames), which is why it's injectable: a batch that added one folder and
+ * removed another holds two names, and neither side may then claim the line.
  */
-const one = (names: readonly string[], n: number, noun: string) =>
-  n === 1 && names.length === 1 ? names[0]! : plural(n, noun);
+class Tally {
+  n = 0;
+  constructor(readonly names: string[] = []) {}
+  /** Count one; keep its name when there is one (a blank is not a name). */
+  add(name?: string | null): void {
+    this.n++;
+    if (name) this.names.push(name);
+  }
+  /** The one name, when this is exactly one thing with exactly one name. */
+  only(): string | undefined {
+    return this.n === 1 && this.names.length === 1 ? this.names[0] : undefined;
+  }
+  /** Name one thing, or count several. */
+  one(noun: string): string {
+    return this.only() ?? plural(this.n, noun);
+  }
+}
 
 /**
  * Did a rename change the gear, or only tidy how it's written?
@@ -82,106 +103,88 @@ export function summarizeOps(ops: readonly Op[], before?: SummaryBefore): string
     return it ? itemDisplayName(it.brand, it.name, it.variant) : "";
   };
 
-  let added = 0, removed = 0, foldersAdded = 0, foldersRemoved = 0;
-  let daysAdded = 0, daysRemoved = 0, daysEdited = 0;
-  let wpsAdded = 0, wpsRemoved = 0, wpsEdited = 0;
-  let peopleAdded = 0, peopleRemoved = 0, peopleEdited = 0;
-  let renamed = 0, swapped = 0, reweighed = 0, reclassified = 0, reassigned = 0, moved = 0, packed = 0;
-  let meta = 0, other = 0;
-
-  const addedNames: string[] = [];
-  const removedNames: string[] = [];
-  const renamedPhrases: string[] = [];
-  const swappedPhrases: string[] = [];
-  const reweighedNames: string[] = [];
-  const reclassifiedNames: string[] = [];
-  const reassignedPhrases: string[] = [];
-  const movedPhrases: string[] = [];
+  const added = new Tally(), removed = new Tally();
+  // one name list across add and remove, for folders and again for people — see Tally
   const folderNames: string[] = [];
+  const foldersAdded = new Tally(folderNames), foldersRemoved = new Tally(folderNames);
+  const daysAdded = new Tally(), daysRemoved = new Tally(), daysEdited = new Tally();
+  const wpsAdded = new Tally(), wpsRemoved = new Tally(), wpsEdited = new Tally();
   const personNames: string[] = [];
-  const personRenames: string[] = [];
+  const peopleAdded = new Tally(personNames), peopleRemoved = new Tally(personNames);
+  const peopleEdited = new Tally();
+  const renamed = new Tally(), swapped = new Tally(), reweighed = new Tally();
+  const reclassified = new Tally(), reassigned = new Tally(), moved = new Tally();
+  const packed = new Tally(), meta = new Tally(), other = new Tally();
 
   for (const op of reportable) {
     switch (op.t) {
-      case "addItem": {
-        added++;
-        const n = itemDisplayName(op.item?.brand, op.item?.name, op.item?.variant);
-        if (n) addedNames.push(n);
+      case "addItem":
+        added.add(itemDisplayName(op.item?.brand, op.item?.name, op.item?.variant));
         break;
-      }
       case "removeItem": {
         const n = labelOf(op.id);
         // A row with no name was never gear — it's a blank someone abandoned, and
         // "Removed" describes nothing. (The editor marks the ones it tidies away
         // itself with `quiet`; this catches any that reach here another way.)
         if (before && !n) break;
-        removed++;
-        if (n) removedNames.push(n);
+        removed.add(n);
         break;
       }
       case "addFolder":
-        foldersAdded++;
-        if (op.folder?.name) folderNames.push(op.folder.name);
+        foldersAdded.add(op.folder?.name);
         break;
-      case "removeFolder": {
-        foldersRemoved++;
-        const f = foldersById.get(op.id);
-        if (f?.name) folderNames.push(f.name);
+      case "removeFolder":
+        foldersRemoved.add(foldersById.get(op.id)?.name);
         break;
-      }
       case "moveItem": {
-        moved++;
         const n = labelOf(op.id);
         const to = op.folderId ? foldersById.get(op.folderId)?.name : null;
-        if (n && to) movedPhrases.push(`${n} to ${to}`);
+        moved.add(n && to ? `${n} to ${to}` : undefined);
         break;
       }
       case "addDay":
-        daysAdded++;
+        daysAdded.add();
         break;
       case "removeDay":
-        daysRemoved++;
+        daysRemoved.add();
         break;
       case "updateDay":
-        daysEdited++;
+        daysEdited.add();
         break;
       case "addWaypoint":
-        wpsAdded++;
+        wpsAdded.add();
         break;
       case "removeWaypoint":
-        wpsRemoved++;
+        wpsRemoved.add();
         break;
       case "updateWaypoint":
-        wpsEdited++;
+        wpsEdited.add();
         break;
       case "addPerson":
-        peopleAdded++;
-        if (op.person?.name) personNames.push(op.person.name);
+        peopleAdded.add(op.person?.name);
         break;
-      case "removePerson": {
-        peopleRemoved++;
-        const p = peopleById.get(op.id);
-        if (p?.name) personNames.push(p.name);
+      case "removePerson":
+        peopleRemoved.add(peopleById.get(op.id)?.name);
         break;
-      }
       case "updatePerson": {
-        peopleEdited++;
         // a rename is worth naming, the way an item rename is — recolors and
         // reorders stay a count (nobody scans history for a hue change)
+        let rename: string | undefined;
         if (typeof op.patch?.name === "string") {
           const was = peopleById.get(op.id)?.name;
           // sliced to the reducer's own cap, so the line quotes the name the
           // list actually stored, not the untrimmed one the patch carried
           const now = tidyText(op.patch.name.slice(0, 60));
-          if (was && now && was !== now) personRenames.push(`${was} → ${now}`);
+          if (was && now && was !== now) rename = `${was} → ${now}`;
         }
+        peopleEdited.add(rename);
         break;
       }
       case "setMeta":
-        meta++;
+        meta.add();
         break;
       case "updateFolder":
-        other++;
+        other.add();
         break;
       case "updateItem": {
         const p = op.patch ?? {};
@@ -221,105 +224,82 @@ export function summarizeOps(ops: readonly Op[], before?: SummaryBefore): string
             // maker, and the loose fold splits it on the apostrophe. Reachable only
             // when the name changed too — a punctuation-only fix exits above.
             letters(p.brand) !== letters(was.brand);
-          if (relinked || rebranded) {
-            swapped++;
-            if (beforeLabel && afterLabel) swappedPhrases.push(`${beforeLabel} for ${afterLabel}`);
-          } else {
-            renamed++;
-            if (beforeLabel && afterLabel) renamedPhrases.push(`${beforeLabel} → ${afterLabel}`);
-          }
+          const both = beforeLabel && afterLabel;
+          if (relinked || rebranded) swapped.add(both ? `${beforeLabel} for ${afterLabel}` : undefined);
+          else renamed.add(both ? `${beforeLabel} → ${afterLabel}` : undefined);
           break;
         }
         if (p.unitWeightMg !== undefined || p.entryUnit !== undefined) {
-          reweighed++;
-          const n = labelOf(op.id);
-          if (n) reweighedNames.push(n);
+          reweighed.add(labelOf(op.id));
           break;
         }
         if (p.classification !== undefined || p.wornQty !== undefined || p.kcal !== undefined) {
-          reclassified++;
-          const n = labelOf(op.id);
-          if (n) reclassifiedNames.push(n);
+          reclassified.add(labelOf(op.id));
           break;
         }
         if (p.personId !== undefined) {
-          reassigned++;
           const n = labelOf(op.id);
           // the receiving person, when the batch names one that existed before it —
           // null (back up for grabs) or a just-added person reads as the bare item
           const to = typeof p.personId === "string" ? peopleById.get(p.personId)?.name : undefined;
-          if (n) reassignedPhrases.push(to ? `${n} to ${to}` : n);
+          reassigned.add(n && to ? `${n} to ${to}` : n);
           break;
         }
         if (p.packed !== undefined) {
-          packed++;
+          packed.add();
           break;
         }
-        other++;
+        other.add();
         break;
       }
       default:
-        other++;
+        other.add();
     }
   }
 
   // Structural changes lead: they are what you would scan this list to find.
-  if (added && !removed) return `Added ${one(addedNames, added, "item")}`;
-  if (removed && !added) return `Removed ${one(removedNames, removed, "item")}`;
-  if (added && removed) return `Added ${added}, removed ${removed}`;
-  if (foldersAdded && !foldersRemoved) return `Added ${one(folderNames, foldersAdded, "folder")}`;
-  if (foldersRemoved) return `Removed ${one(folderNames, foldersRemoved, "folder")}`;
+  if (added.n && !removed.n) return `Added ${added.one("item")}`;
+  if (removed.n && !added.n) return `Removed ${removed.one("item")}`;
+  if (added.n && removed.n) return `Added ${added.n}, removed ${removed.n}`;
+  if (foldersAdded.n && !foldersRemoved.n) return `Added ${foldersAdded.one("folder")}`;
+  if (foldersRemoved.n) return `Removed ${foldersRemoved.one("folder")}`;
   // A day is to the trip what a folder is to the list — a structural change, so it reads
   // at the same level rather than falling through to a generic "Edited the list".
-  if (daysAdded && !daysRemoved) return `Added ${plural(daysAdded, "day")}`;
-  if (daysRemoved) return `Removed ${plural(daysRemoved, "day")}`;
-  if (daysEdited) return `Edited ${plural(daysEdited, "day")}`;
+  if (daysAdded.n && !daysRemoved.n) return `Added ${plural(daysAdded.n, "day")}`;
+  if (daysRemoved.n) return `Removed ${plural(daysRemoved.n, "day")}`;
+  if (daysEdited.n) return `Edited ${plural(daysEdited.n, "day")}`;
   // Below the days, because a recovery point is most often reached for after losing gear
   // or an itinerary; a moved pin is the smaller thing to have lost.
-  if (wpsAdded && !wpsRemoved) return `Added ${plural(wpsAdded, "waypoint")}`;
-  if (wpsRemoved) return `Removed ${plural(wpsRemoved, "waypoint")}`;
-  if (wpsEdited) return `Edited ${plural(wpsEdited, "waypoint")}`;
+  if (wpsAdded.n && !wpsRemoved.n) return `Added ${plural(wpsAdded.n, "waypoint")}`;
+  if (wpsRemoved.n) return `Removed ${plural(wpsRemoved.n, "waypoint")}`;
+  if (wpsEdited.n) return `Edited ${plural(wpsEdited.n, "waypoint")}`;
   // The crew reads at the same structural level as days: who's on the trip is
   // list shape, not an item edit. "to/from the trip" keeps "Added Sam" from
   // reading as a gear row named Sam.
-  if (peopleAdded && !peopleRemoved)
-    return `Added ${peopleAdded === 1 && personNames.length === 1 ? personNames[0] : persons(peopleAdded)} to the trip`;
-  if (peopleRemoved)
-    return `Removed ${peopleRemoved === 1 && personNames.length === 1 ? personNames[0] : persons(peopleRemoved)} from the trip`;
-  if (peopleEdited)
-    return peopleEdited === 1 && personRenames.length === 1
-      ? `Renamed ${personRenames[0]}`
-      : `Edited ${persons(peopleEdited)}`;
+  if (peopleAdded.n && !peopleRemoved.n)
+    return `Added ${peopleAdded.only() ?? persons(peopleAdded.n)} to the trip`;
+  if (peopleRemoved.n) return `Removed ${peopleRemoved.only() ?? persons(peopleRemoved.n)} from the trip`;
+  if (peopleEdited.n) {
+    const rename = peopleEdited.only();
+    return rename ? `Renamed ${rename}` : `Edited ${persons(peopleEdited.n)}`;
+  }
 
   // then the single-intent edits
-  const labelEdits = renamed + swapped + reweighed + reclassified + reassigned;
-  if (swapped && labelEdits === swapped)
-    return swapped === 1 && swappedPhrases.length === 1
-      ? `Swapped ${swappedPhrases[0]}`
-      : `Swapped ${plural(swapped, "item")}`;
-  if (renamed && labelEdits === renamed)
-    return renamed === 1 && renamedPhrases.length === 1
-      ? `Renamed ${renamedPhrases[0]}`
-      : `Renamed ${plural(renamed, "item")}`;
-  if (reweighed && labelEdits === reweighed)
-    return reweighed === 1 && reweighedNames.length === 1
-      ? `Changed ${reweighedNames[0]}’s weight`
-      : `Changed ${plural(reweighed, "weight")}`;
-  if (reclassified && labelEdits === reclassified)
-    return `Reclassified ${one(reclassifiedNames, reclassified, "item")}`;
-  if (reassigned && labelEdits === reassigned)
-    return reassigned === 1 && reassignedPhrases.length === 1
-      ? `Reassigned ${reassignedPhrases[0]}`
-      : `Reassigned ${plural(reassigned, "item")}`;
-  if (moved && !labelEdits)
-    return moved === 1 && movedPhrases.length === 1
-      ? `Moved ${movedPhrases[0]}`
-      : `Moved ${plural(moved, "item")}`;
+  const labelEdits = renamed.n + swapped.n + reweighed.n + reclassified.n + reassigned.n;
+  if (swapped.n && labelEdits === swapped.n) return `Swapped ${swapped.one("item")}`;
+  if (renamed.n && labelEdits === renamed.n) return `Renamed ${renamed.one("item")}`;
+  if (reweighed.n && labelEdits === reweighed.n) {
+    const name = reweighed.only();
+    return name ? `Changed ${name}’s weight` : `Changed ${plural(reweighed.n, "weight")}`;
+  }
+  if (reclassified.n && labelEdits === reclassified.n) return `Reclassified ${reclassified.one("item")}`;
+  if (reassigned.n && labelEdits === reassigned.n) return `Reassigned ${reassigned.one("item")}`;
+  if (moved.n && !labelEdits) return `Moved ${moved.one("item")}`;
   // packing ticks are their own kind of session and shouldn't read as "edited"
-  if (packed && !labelEdits) return `Checked off ${plural(packed, "item")}`;
-  if (meta && !labelEdits) return "Changed list details";
+  if (packed.n && !labelEdits) return `Checked off ${plural(packed.n, "item")}`;
+  if (meta.n && !labelEdits) return "Changed list details";
 
   // a genuine mixture — say how much, since which is no longer one phrase
-  const touched = labelEdits + moved + packed + other;
+  const touched = labelEdits + moved.n + packed.n + other.n;
   return touched ? `Edited ${plural(touched, "item")}` : "";
 }

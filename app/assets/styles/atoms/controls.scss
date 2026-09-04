@@ -14,7 +14,7 @@
   border-radius: var(--radius-pill);
   background: transparent;
   color: var(--ink);
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   font-weight: 600;
   letter-spacing: var(--track-tight);
   transition:
@@ -893,4 +893,72 @@ input[type="search"]::-webkit-search-decoration {
 .check__box:checked ~ .check__icon--check {
   opacity: 1;
   transform: scale(1);
+}
+
+/* "Add folder" — the quiet label that becomes an inline field, worn by the editor's
+   list body and the /gear page. Label + input share the folder-name type, label
+   dimmer, hover to full ink like every quiet add affordance (.folder__addbtn,
+   .item-nest__add). Where it sits (the gap above it) is each surface's own. */
+.addfolder {
+  display: inline-flex;
+  align-items: center;
+}
+.addfolder__btn,
+.addfolder__input {
+  font-size: var(--text-title);
+  font-weight: 600;
+  letter-spacing: var(--track-tight);
+}
+.addfolder__btn {
+  color: var(--ink-3);
+  cursor: pointer;
+  transition: color var(--dur) var(--ease);
+}
+.addfolder__btn:hover {
+  color: var(--ink);
+}
+.addfolder__input {
+  color: var(--ink);
+  min-width: 12rem;
+}
+.addfolder__input:focus {
+  outline: none;
+}
+.addfolder__input::placeholder {
+  color: var(--ink-3);
+}
+
+/* The reorder grip — the last icon in a row's or a folder's trailing cluster. Sizing
+   and colour come from .btn--icon and the surface's quiet-glyph rule; this is only
+   the drag affordance and the flush-right optics. The dots sit flush to the right
+   edge — the visible glyph, not just the 44px tap target: right-align the icon in its
+   (still-full-size) button, then shift out the glyph's own internal right-padding
+   (the dots end ~⅓ in from the viewBox edge). The empty overshoot falls into the
+   page's right gutter. The negative margin pulls the LAYOUT box left so the gap
+   before it matches the rest of the cluster — the flush shift is otherwise invisible
+   to layout, leaving a wider gap here. */
+.grip {
+  cursor: grab;
+  touch-action: none;
+  justify-content: flex-end;
+  margin-left: -9px;
+}
+.grip svg {
+  transform: translateX(33.333%);
+}
+.grip:active {
+  cursor: grabbing;
+}
+
+/* THE PANEL HEADER — title left, flush-end X right — worn by the share panel, the vault
+   pane and the account dialog. Each surface keeps only the offset that puts it on its
+   own container's edge (a negative top nudge, a padding-block-start). */
+.panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.panel__title {
+  color: var(--ink);
 }

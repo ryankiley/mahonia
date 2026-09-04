@@ -166,11 +166,8 @@ function pick(key: string) {
      The type-based triggers ask for baseline through `triggerClass`. */
   align-items: center;
   gap: var(--space-2);
-  padding: 0;
-  border: 0;
-  background: none;
+  padding: 0; /* over .btn's, for the callers that pass it through triggerClass */
   color: inherit;
-  font: inherit;
   text-align: start;
   cursor: pointer;
 }

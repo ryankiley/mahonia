@@ -17,8 +17,7 @@ const snapshot = computed<ListSnapshot | null>(() => data.value?.list ?? null);
 useResponseHeader("Cache-Control").value =
   "public, max-age=0, s-maxage=30, stale-while-revalidate=120";
 
-const { unit, totals, fullTotals, roList, ungrouped, shownFolders, people, personFilter, showUnassigned, chipWeights } =
-  useReadonlyList(snapshot);
+const { unit, fullTotals, roList, personFilter, viewProps } = useReadonlyList(snapshot);
 
 // SEO — indexable (NOT noindex, unlike /s/[code]). Summary shared via useReadonlyListSeo;
 // `facets` comes back for the <head> template below. Only the canonical link differs.
@@ -38,15 +37,10 @@ useHead(() => ({
          registers in "Your lists") describes the list, not the viewer's filter -->
     <ReadTopbar :snapshot="snapshot" :totals="fullTotals" />
 
+    <!-- the view-model's props as one object (useReadonlyList.viewProps), the same
+         binding /s makes -->
     <ReadonlyListView
-      :list="roList"
-      :totals="totals"
-      :shown-folders="shownFolders"
-      :ungrouped="ungrouped"
-      :people="people"
-      :person-filter="personFilter"
-      :show-unassigned="showUnassigned"
-      :chip-weights="chipWeights"
+      v-bind="viewProps"
       @set-unit="(u) => (unit = u)"
       @pick-person="(id) => (personFilter = id)"
     >
@@ -72,14 +66,8 @@ useHead(() => ({
   flex-direction: column;
   gap: var(--space-2);
 }
-/* near-dup of ReadonlyListView's rule, but load-bearing: the #head slot's h1 is
-   THIS page's scoped content, out of reach of ReadonlyListView's scoped copy
-   (which styles only its own /s fallback heading) */
-.view__title {
-  font-family: var(--font);
-  font-size: var(--text-page-title);
-  font-weight: 700;
-}
+/* the h1's page-title step (.view__title) is global — main.scss — so this page's
+   #head slot and ReadonlyListView's /s fallback wear one rule */
 .view__desc {
   max-width: 60ch;
 }

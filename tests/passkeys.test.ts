@@ -2,7 +2,6 @@ import { drizzle } from "drizzle-orm/pglite";
 import { beforeEach, describe, expect, it } from "vitest";
 import { ACCOUNT_DDL } from "../server/utils/accountSchema";
 import {
-  countPasskeys,
   deletePasskey,
   existingCredentialIds,
   findCredential,
@@ -52,7 +51,7 @@ describe("passkey storage", () => {
   it("refuses to register the same credential twice", async () => {
     await savePasskey(db as any, key());
     await expect(savePasskey(db as any, key())).rejects.toThrow();
-    expect(await countPasskeys(db as any, 1)).toBe(1);
+    expect(await existingCredentialIds(db as any, 1)).toHaveLength(1);
   });
 
   it("finds a credential WITHOUT being told the user — that's what makes usernameless sign-in work", async () => {
@@ -96,6 +95,6 @@ describe("passkey storage", () => {
     await savePasskey(db as any, key());
     const only = (await listPasskeys(db as any, 1))[0]!;
     expect(await deletePasskey(db as any, 1, only.id)).toBe(true);
-    expect(await countPasskeys(db as any, 1)).toBe(0);
+    expect(await existingCredentialIds(db as any, 1)).toHaveLength(0);
   });
 });

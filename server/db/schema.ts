@@ -6,27 +6,24 @@
 // Weight rollups are cached as columns for the public-feed leaderboard sort.
 // We never query items relationally in v1 (the catalog is a separate Phase-2
 // table), so JSONB is the right fit and keeps sync semantics in one place.
+//
+// THIS FILE IS THE TYPED VIEW ONLY. The DDL that actually runs is the raw
+// CREATE ... IF NOT EXISTS strings (db.ts, catalog.ts, candidates.ts,
+// vaultSchema.ts, accountSchema.ts), ensured idempotently on first use — there is
+// no drizzle-kit and no migration step — so the indexes and CHECKs live there,
+// with their reasoning. Two consequences: a table declared here may carry legacy
+// columns the database still has (nullable or defaulted, so harmless — nothing
+// drops them), and a column added here must ALSO be added to the DDL.
 
-import { sql } from "drizzle-orm";
-import {
-  bigint,
-  boolean,
-  check,
-  index,
-  integer,
-  jsonb,
-  pgTable,
-  serial,
-  text,
-  timestamp,
-  uniqueIndex,
-} from "drizzle-orm/pg-core";
+import { bigint, boolean, integer, jsonb, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
 import type { ListData } from "../../shared/types";
 import type { FullSnap, ListDiff } from "../../shared/snapshotDiff";
 
 // A snapshot row's JSONB: a full payload (`kind:'base'`) or a reverse-delta (`kind:'diff'`).
 type SnapshotPayload = FullSnap | ListDiff;
 
+// legacy columns still in the database, undeclared: primary_category,
+// view_count, claim_phrase_hash (see the header)
 export const lists = pgTable(
   "lists",
   {
@@ -77,9 +74,6 @@ export const lists = pgTable(
     // They render on /l and in its unfurl; there is no feed to browse them by.
     tripType: text("trip_type"),
     season: text("season"),
-    primaryCategory: text("primary_category"),
-    // cheap "most-viewed" signal; best-effort bumped on public reads (/l)
-    viewCount: integer("view_count").notNull().default(0),
     // withheld from public discovery pending review (spam heuristic or a user
     // report). Distinct from `status`: a flagged list stays active, so the OWNER
     // keeps edit + share access — only the public /l address is withheld.
@@ -91,8 +85,6 @@ export const lists = pgTable(
     // it", and letting a claim rewrite authorship would let anyone with the link
     // put their name on someone else's list.
     authorUserId: integer("author_user_id"),
-    // optional recovery (generated phrase only); not used yet
-    claimPhraseHash: text("claim_phrase_hash"),
     // when this list was last auto-snapshotted (drives the snapshot throttle from
     // the in-hand row, so the hot mutate path needs no extra query)
     lastSnapshotAt: timestamp("last_snapshot_at", { withTimezone: true }),
@@ -102,34 +94,7 @@ export const lists = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
-  },
-  (t) => [
-    // partial unique indexes so soft-deleted rows don't block reuse
-    uniqueIndex("idx_lists_edit_token")
-      .on(t.editTokenHash)
-      .where(sql`${t.deletedAt} is null`),
-    uniqueIndex("idx_lists_share_code")
-      .on(t.shareCode)
-      .where(sql`${t.deletedAt} is null`),
-    uniqueIndex("idx_lists_slug")
-      .on(t.publicSlug)
-      .where(sql`${t.deletedAt} is null`),
-    // NO feed indexes. Three partial indexes used to sit here — a lightest-packs
-    // leaderboard, a recency sort, and browse-by-trip-type — for a public feed that
-    // was never built (there has never been a listPublicFeed query to serve). They
-    // were dropped deliberately: a public directory of user-made lists is thin,
-    // near-duplicate content and a standing moderation job, and sharing already
-    // works without one (`/s/{code}` opens for anyone, no account, with its own
-    // social card). Publishing itself STAYS — see isPublic above.
-    // the nightly reap's scan — abandoned near-empty drafts, over the updated_at
-    // range (the query takes no order).
-    index("idx_lists_reap")
-      .on(t.updatedAt)
-      .where(sql`${t.status} = 'active' and ${t.deletedAt} is null and ${t.itemCount} <= 1`),
-    // the purge's scan — the OPPOSITE condition to every partial index above, so it
-    // needs its own.
-    index("idx_lists_purge").on(t.deletedAt).where(sql`${t.deletedAt} is not null`),
-  ],
+  }
 );
 
 export type ListRow = typeof lists.$inferSelect;
@@ -147,13 +112,14 @@ export type ListRow = typeof lists.$inferSelect;
 // loaded into the constructor, which we don't touch), so the extension + GIN
 // trigram index are created at runtime ONLY on Neon by `ensureCatalogSchema()`
 // in server/utils/catalog.ts; on PGlite the search endpoint falls back to the
-// shared JS trigram ranker `searchCatalogLocal` (shared/catalogSearch.ts) — the
-// same ranking the offline client uses, so recall can't drift. The GIN index
-// declared below is schema-fidelity metadata only: it is never run by the
-// raw-DDL `ensureSchema()` path the live app uses, and the Neon query filters +
-// orders on the word_similarity() function directly, deliberately forgoing
-// gin_trgm_ops (the catalog is small + bounded, so the seq scan is cheap).
+// shared JS trigram ranker `rankCandidates` (shared/catalogSearch.ts) — the
+// same ranking the offline client uses, so recall can't drift. The Neon query
+// filters + orders on the word_similarity() function directly, deliberately
+// forgoing gin_trgm_ops (the catalog is small + bounded, so the seq scan is
+// cheap).
 // ---------------------------------------------------------------------------
+// legacy columns still in the database, undeclared: description, image_url,
+// msrp_cents, currency, merged_into_id (see the header)
 export const catalogItems = pgTable(
   "catalog_items",
   {
@@ -161,7 +127,6 @@ export const catalogItems = pgTable(
     brand: text("brand"), // company / maker (nullable: generic items like "Smartwater bottle")
     name: text("name").notNull(), // product name
     variant: text("variant"), // size / temp / capacity that changes the weight
-    description: text("description"),
     // Default generic label ("tent", "trekking poles") — auto-fills a list item's
     // commonName on pick and via live-resolve. Generated per row (seed/common-names.json).
     commonName: text("common_name"),
@@ -179,38 +144,12 @@ export const catalogItems = pgTable(
     weightSource: text("weight_source").notNull(), // manufacturer|measured|community|imported
     sourceUrl: text("source_url"), // the citation (manufacturer spec page preferred)
     productUrl: text("product_url"), // optional buy/official link, distinct from the citation
-    imageUrl: text("image_url"), // optional, external — we don't host images
-    msrpCents: integer("msrp_cents"),
-    currency: text("currency"),
     verified: boolean("verified").notNull().default(false), // owner-curated trust
     usageCount: integer("usage_count").notNull().default(0), // ranks autocomplete
     status: text("status").notNull().default("active"), // active|merged|removed
-    mergedIntoId: integer("merged_into_id"), // when status='merged', the survivor row
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => [
-    check(
-      "catalog_weight_source_ck",
-      sql`${t.weightSource} in ('manufacturer','measured','community','imported')`,
-    ),
-    check("catalog_status_ck", sql`${t.status} in ('active','merged','removed')`),
-    // identity for idempotent upsert — coalesce so NULL brand/variant compare equal
-    uniqueIndex("idx_catalog_identity").on(
-      sql`coalesce(${t.brand},'')`,
-      t.name,
-      sql`coalesce(${t.variant},'')`,
-    ),
-    // autocomplete ranking: verified first, then most-used
-    index("idx_catalog_rank")
-      .on(t.verified.desc(), t.usageCount.desc())
-      .where(sql`${t.status} = 'active'`),
-    // fuzzy search (Neon only — see note above; created by ensureCatalogSchema())
-    index("idx_catalog_trgm").using(
-      "gin",
-      sql`(coalesce(${t.brand},'') || ' ' || ${t.name}) gin_trgm_ops`,
-    ),
-  ],
+  }
 );
 
 // ---------------------------------------------------------------------------
@@ -223,6 +162,7 @@ export const catalogItems = pgTable(
 // verified value becomes a `proposed` row unless the correction carries a
 // citation from a trusted manufacturer/retailer domain (then it auto-applies).
 // ---------------------------------------------------------------------------
+// legacy column still in the database, undeclared: confirmations (see the header)
 export const catalogEdits = pgTable(
   "catalog_edits",
   {
@@ -233,17 +173,8 @@ export const catalogEdits = pgTable(
     sourceUrl: text("source_url"), // citation; validated against a domain allowlist for auto-promote
     reason: text("reason"),
     status: text("status").notNull().default("applied"), // applied|proposed|reverted|rejected
-    confirmations: integer("confirmations").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => [
-    check(
-      "catalog_edit_status_ck",
-      sql`${t.status} in ('applied','proposed','reverted','rejected')`,
-    ),
-    index("idx_catalog_edits_item").on(t.catalogItemId, t.createdAt.desc()),
-    index("idx_catalog_edits_recent").on(t.createdAt.desc()),
-  ],
+  }
 );
 
 // ---------------------------------------------------------------------------
@@ -268,15 +199,7 @@ export const catalogCandidates = pgTable(
     rejectedAt: timestamp("rejected_at", { withTimezone: true }), // filtered out → stop recounting
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => [
-    // one observation per (item, list) — re-typing on the same list updates, never duplicates
-    uniqueIndex("idx_candidate_identity").on(t.normKey, t.listId),
-    // grouping scan: un-processed candidates by norm_key
-    index("idx_candidate_open")
-      .on(t.normKey)
-      .where(sql`${t.promotedIntoId} is null and ${t.rejectedAt} is null`),
-  ],
+  }
 );
 
 // ---------------------------------------------------------------------------
@@ -301,8 +224,7 @@ export const listSnapshots = pgTable(
     version: integer("version").notNull(),
     reason: text("reason"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => [index("idx_list_snapshots_list").on(t.listId, t.createdAt.desc())],
+  }
 );
 
 // Favicons for trail-link hosts, cached ONCE PER HOST rather than per list. Every list
@@ -319,9 +241,7 @@ export const trailFavicons = pgTable(
     // fetched: it's what stops a dead host being re-fetched on every subsequent save.
     dataUrl: text("data_url"),
     fetchedAt: timestamp("fetched_at", { withTimezone: true }).notNull().defaultNow(),
-  },
-  // the refresh sweep's scan: stalest host first (refreshStaleFavicons)
-  (t) => [index("idx_trail_favicons_stale").on(t.fetchedAt)],
+  }
 );
 
 // ---------------------------------------------------------------------------
@@ -358,15 +278,7 @@ export const vaults = pgTable(
     // owner comes back after the stale window is REVIVED by being used rather than
     // being already gone.
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
-  },
-  (t) => [
-    // one vault per account; also the conflict target for lazy minting
-    uniqueIndex("idx_vaults_user").on(t.userId),
-    // the reaper's scan: live vaults, oldest-seen first
-    index("idx_vaults_stale").on(t.lastSeenAt).where(sql`${t.deletedAt} is null`),
-    // the purge's scan — the opposite condition, so it can't share the index above
-    index("idx_vaults_purge").on(t.deletedAt).where(sql`${t.deletedAt} is not null`),
-  ],
+  }
 );
 
 /**
@@ -392,8 +304,7 @@ export const vaultFolders = pgTable(
     // drops it, and nothing writes or reads it.
     sortBy: text("sort_by"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => [uniqueIndex("idx_vault_folder_name").on(t.vaultId, t.name)],
+  }
 );
 
 
@@ -449,20 +360,7 @@ export const vaultItems = pgTable(
     removedAt: timestamp("removed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => [
-    check(
-      "vault_classification_ck",
-      sql`${t.classification} is null or ${t.classification} in ('base','worn','consumable')`,
-    ),
-    // one row per piece of gear per vault — the upsert target
-    uniqueIndex("idx_vault_identity").on(t.vaultId, t.normKey),
-    // the /vault browse + the autocomplete's candidate pool: a vault's live rows,
-    // most-recently-used first
-    index("idx_vault_recent")
-      .on(t.vaultId, t.lastUsedAt.desc())
-      .where(sql`${t.removedAt} is null`),
-  ],
+  }
 );
 
 // ---------------------------------------------------------------------------
@@ -501,8 +399,7 @@ export const users = pgTable(
     emailVerified: boolean("email_verified").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => [uniqueIndex("idx_users_email").on(t.email)],
+  }
 );
 
 // A pending magic link. Short-lived and single-use: `consumedAt` is stamped the
@@ -517,12 +414,7 @@ export const authTokens = pgTable(
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     consumedAt: timestamp("consumed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => [
-    uniqueIndex("idx_auth_tokens_hash").on(t.tokenHash),
-    // the sweep that reaps expired/consumed links
-    index("idx_auth_tokens_expiry").on(t.expiresAt),
-  ],
+  }
 );
 
 // A signed-in browser. The cookie carries a high-entropy random value; like the
@@ -537,13 +429,7 @@ export const sessions = pgTable(
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     lastUsedAt: timestamp("last_used_at", { withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => [
-    uniqueIndex("idx_sessions_hash").on(t.tokenHash),
-    // "sign out everywhere" + the expiry sweep
-    index("idx_sessions_user").on(t.userId),
-    index("idx_sessions_expiry").on(t.expiresAt),
-  ],
+  }
 );
 
 // ---------------------------------------------------------------------------
@@ -579,13 +465,7 @@ export const credentials = pgTable(
     label: text("label"), // human-set name, so a list of keys is meaningful
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
-  },
-  (t) => [
-    // a credential id is globally unique; the unique index is also what stops the
-    // same key being registered twice
-    uniqueIndex("idx_credentials_credential_id").on(t.credentialId),
-    index("idx_credentials_user").on(t.userId),
-  ],
+  }
 );
 
 // ---------------------------------------------------------------------------
@@ -613,11 +493,5 @@ export const listClaims = pgTable(
     userId: integer("user_id").notNull(),
     listId: integer("list_id").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => [
-    // claiming the same list twice is a no-op, not a second row
-    uniqueIndex("idx_list_claims_identity").on(t.userId, t.listId),
-    // "my lists" for a signed-in user
-    index("idx_list_claims_user").on(t.userId),
-  ],
+  }
 );

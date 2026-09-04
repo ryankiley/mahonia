@@ -8,7 +8,7 @@ const NO_ITEMS: ItemT[] = [];
 
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { ChevronDownIcon, ShirtIcon } from "@hugeicons/core-free-icons";
+import { ShirtIcon } from "@hugeicons/core-free-icons";
 import { personColor } from "~~/shared/people";
 import type { Item, ListSnapshot } from "~~/shared/types";
 import { effectiveClassification, formatKcal, formatWeight, rowDisplayMg, splitWornQty } from "~~/shared/weights";
@@ -103,23 +103,14 @@ const rowPerson = computed(() =>
 <template>
   <div class="ro-wrap">
     <div class="item-row item item--ro">
-      <span class="item__roname" :class="{ 'item__roname--group': isParent }">
-        <span class="item__ronametext"><ItemName :item="item" :group="isParent" search /><span v-if="lineKcal" class="t-sm item__class"> · {{ formatKcal(lineKcal) }} kcal</span><!--
+      <span class="item__roname t-clip" :class="{ 'item__roname--group': isParent }">
+        <span class="item__ronametext" :class="{ 't-clip': isParent }"><ItemName :item="item" :group="isParent" search /><span v-if="lineKcal" class="t-sm item__class"> · {{ formatKcal(lineKcal) }} kcal</span><!--
           who carries it — the dot names the person in colour, the hidden text names
           them for flattened readers of this SSR'd page (the class-mark precedent)
         --><span v-if="rowPerson" class="t-sm item__carrier"><span class="swatch item__carrier-dot" :style="{ background: personColor(rowPerson) }" aria-hidden="true" />{{ rowPerson.name }}<span class="visually-hidden"> carries this</span></span></span>
         <!-- collapse a group of nested items — trails the name like the folder chevron.
              The name text truncates so a long group name never shoves the chevron off. -->
-        <button
-          v-if="isParent"
-          class="item__nestcollapse"
-          :aria-expanded="!collapsed"
-          :aria-label="`${collapsed ? 'Expand' : 'Collapse'} ${item.name || 'group'}`"
-          :title="collapsed ? 'Expand group' : 'Collapse group'"
-          @click="collapsed = !collapsed"
-        >
-          <HugeiconsIcon :icon="ChevronDownIcon" class="item__nestchev" :class="{ 'is-collapsed': collapsed }" :size="16" :stroke-width="2" />
-        </button>
+        <NestChevron v-if="isParent" :collapsed="collapsed" :label="item.name || 'group'" @toggle="collapsed = !collapsed" />
       </span>
       <!-- `item__qty--split` is what tells the page column this list needs the wider
            amount track (atoms/item.scss): the label grows from "×12" to "×12 · 11 worn"
@@ -204,12 +195,8 @@ const rowPerson = computed(() =>
      so the caption sits exactly one line under the name in read + edit alike. */
   --row-gap: 0 var(--item-gap);
 }
-.item__roname {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+/* the name cell clips to one line (.t-clip, on the element); the mobile rule below
+   lets it wrap again */
 /* a GROUP (parent) row: the name + trailing collapse chevron, mirroring the editor's
    ItemRow / a folder header. The name is a link so it hugs its text naturally. */
 .item__roname--group {
@@ -219,16 +206,13 @@ const rowPerson = computed(() =>
   overflow: visible;
 }
 /* the name text truncates within the group flex so a long name never pushes the
-   chevron off the row edge (the chevron is flex:none, always kept) */
-.item__roname--group .item__ronametext {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+   chevron off the row edge (the chevron is flex:none, always kept). .t-clip goes on
+   the text span for a GROUP only: a leaf name's clip is the cell's own, and its mobile
+   rule (below) has to be free to wrap it. */
 /* the collapse chevron button + its rotate + touch tap target are the shared
-   .item__nestcollapse / .item__nestchev recipe in atoms/item.scss (identical to the
-   editor's), so a group chevron looks the same in the editor and the share views. */
+   .item__nestcollapse / .item__nestchev recipe in atoms/folder.scss (one recipe with
+   the folder header's), so a group chevron looks the same in the editor and the share
+   views. */
 /* the read-only name is a web-search link (look up / buy the gear) — see ItemName.vue,
    which owns the dotted underline + search icon so the underline wraps only the product
    name, not the variant. */
@@ -314,7 +298,6 @@ const rowPerson = computed(() =>
      everyday word for that name, so it belongs against it, not under the numbers;
      ×qty · weight · mark drop to the third line. Mirrors the editor's rows. */
   .item__rosub {
-    grid-column: 1 / -1;
     grid-row: 2;
   }
   .item__roqty {

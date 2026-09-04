@@ -150,7 +150,7 @@ const emit = defineEmits<{ dismiss: [] }>();
      At one line 20px is within 2px of a true pill anyway; at two it stays a card. */
   border-radius: var(--radius-4);
   color: var(--ink-2);
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
 }
 .prompt__text {
   display: flex;

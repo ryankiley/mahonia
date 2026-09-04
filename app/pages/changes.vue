@@ -62,7 +62,7 @@ function when(iso: string) {
 
       <ul v-else class="chg__list">
         <li v-for="ch in changes" :key="ch.id" class="chg__row">
-          <span class="chg__name">{{ ch.itemName }}</span>
+          <span class="chg__name t-clip">{{ ch.itemName }}</span>
           <span class="t-num t-sm chg__w">
             {{ formatWeight(ch.oldWeightMg, "g") }} → {{ formatWeight(ch.newWeightMg, "g") }}
           </span>
@@ -70,12 +70,12 @@ function when(iso: string) {
           <a
             v-if="host(ch.sourceUrl)"
             :href="safeHref(ch.sourceUrl)"
-            class="t-sm chg__src"
+            class="t-sm chg__src t-clip"
             target="_blank"
             rel="noreferrer noopener"
             >{{ host(ch.sourceUrl) }}</a
           >
-          <span v-else class="t-sm t-muted chg__src">—</span>
+          <span v-else class="t-sm t-muted chg__src t-clip">—</span>
           <span class="t-sm t-muted chg__when">{{ when(ch.createdAt) }}</span>
         </li>
       </ul>
@@ -108,12 +108,6 @@ function when(iso: string) {
   padding: var(--space-2) 0;
   border-top: 1px solid var(--line);
 }
-.chg__name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 .chg__w {
   color: var(--ink-2);
   white-space: nowrap;
@@ -131,9 +125,6 @@ function when(iso: string) {
 }
 .chg__src {
   color: var(--accent);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .chg__when {
   text-align: right;

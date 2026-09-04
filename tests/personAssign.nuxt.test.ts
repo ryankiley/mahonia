@@ -13,7 +13,8 @@
 import { describe, expect, it } from "vitest";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import { mount } from "@vue/test-utils";
-import ItemRow from "~/components/ItemRow.vue";
+import ItemRow, { CHILDREN_BY_PARENT, PEOPLE_CTX } from "~/components/ItemRow.vue";
+import { sortedPeople } from "~~/shared/people";
 import type { Item, ListSnapshot, Person } from "~~/shared/types";
 import { blankList } from "./helpers/list";
 import type { ItemPatch } from "~~/shared/ops";
@@ -63,6 +64,19 @@ const item = (over: Partial<Item> = {}): Item => ({
   ...over,
 });
 
+// what GearEditor provides to every row — the children map, and the people in
+// display order with their slots — off the live snapshot, so a people edit reaches
+// the row the way it would in the editor
+const peopleSorted = computed(() => sortedPeople(snapshot.value.people));
+const peopleCtx = {
+  sorted: peopleSorted,
+  slotById: computed(() => new Map(peopleSorted.value.map((p, i) => [p.id, i]))),
+};
+const rowProvides = (children = new Map<string, Item[]>()) => ({
+  [CHILDREN_BY_PARENT as symbol]: ref(children),
+  [PEOPLE_CTX as symbol]: peopleCtx,
+});
+
 function mountRow(items: Item[], children = new Map<string, Item[]>()) {
   snapshot.value = blankList({ people: [sam, alex], items });
   return mount(ItemRow, {
@@ -73,8 +87,8 @@ function mountRow(items: Item[], children = new Map<string, Item[]>()) {
       get item() {
         return snapshot.value.items[0]!;
       },
-      childrenByParent: children,
     },
+    global: { provide: rowProvides(children) },
     attachTo: document.body,
   });
 }
@@ -167,8 +181,8 @@ describe("carried by — the row's picker + the filter attribute", () => {
         get item() {
           return snapshot.value.items[0]!;
         },
-        childrenByParent: new Map<string, Item[]>(),
       },
+      global: { provide: rowProvides() },
     });
     expect(w.find(".item__person-btn").exists()).toBe(false);
     w.unmount();

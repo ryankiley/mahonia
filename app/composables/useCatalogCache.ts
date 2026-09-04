@@ -1,6 +1,6 @@
 import {
   mergeCatalogRows,
-  searchCatalogLocal,
+  rankCandidates,
   type CatalogSearchResult,
   type LocalCatalogRow,
 } from "~~/shared/catalogSearch";
@@ -84,7 +84,7 @@ export function useCatalogCache() {
   }
 
   function searchLocal(q: string): CatalogSearchResult[] {
-    return searchCatalogLocal(memItems, q);
+    return rankCandidates(memItems, q);
   }
 
   return { prime, remember, searchLocal };

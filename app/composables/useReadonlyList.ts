@@ -1,11 +1,11 @@
 import type { Ref } from "vue";
 import { seasonLabel, tripTypeLabel } from "~~/shared/discovery";
 import {
-  carriedTotalsMg,
+  chipWeightLabels,
   filterItemsForPerson,
   hasUnassignedTopLevel,
+  selectionGone,
   sortedPeople,
-  UNASSIGNED,
   visibleItemsForPerson,
   type PersonSelection,
 } from "~~/shared/people";
@@ -13,7 +13,6 @@ import type { ListSnapshot, Totals, Unit } from "~~/shared/types";
 import {
   bySortOrder,
   computeTotals,
-  formatWeight,
   formatWeightAuto,
   ungroupedTopLevel,
   unitSystem,
@@ -45,11 +44,7 @@ export function useReadonlyList(snapshot: Ref<ListSnapshot | null>) {
   watch([people, showUnassigned], () => {
     const s = personFilter.value;
     if (!s) return;
-    const gone =
-      s === UNASSIGNED
-        ? !people.value.length || !showUnassigned.value
-        : !people.value.some((p) => p.id === s);
-    if (gone) personFilter.value = null;
+    if (selectionGone(people.value, showUnassigned.value, s)) personFilter.value = null;
   });
   // two readings of the filter, per shared/people.ts: the rows the page RENDERS
   // (matches plus a parent kept as context around a matching child) and the rows
@@ -65,9 +60,7 @@ export function useReadonlyList(snapshot: Ref<ListSnapshot | null>) {
   const chipWeights = computed<Record<string, string> | undefined>(() => {
     const s = snapshot.value;
     if (!s || !fullTotals.value?.hasWeights) return undefined;
-    const out: Record<string, string> = {};
-    for (const [key, mg] of Object.entries(carriedTotalsMg(s))) out[key] = formatWeight(mg, unit.value);
-    return out;
+    return chipWeightLabels(s, unit.value);
   });
   const totals = computed<Totals | null>(() => {
     if (!snapshot.value) return null;
@@ -97,7 +90,20 @@ export function useReadonlyList(snapshot: Ref<ListSnapshot | null>) {
     const withItems = new Set(visibleItems.value.map((i) => i.folderId));
     return roList.value.folders.filter((f) => withItems.has(f.id)).sort(bySortOrder);
   });
-  return { unit, totals, fullTotals, roList, ungrouped, shownFolders, people, personFilter, showUnassigned, chipWeights };
+  // Everything ReadonlyListView takes, as ONE object the pages `v-bind` — so /s and /l
+  // don't each spell out nine props that can drift (they did, identically, twice). The
+  // two emits stay on the pages: they write to `unit` and `personFilter` here.
+  const viewProps = computed(() => ({
+    list: roList.value,
+    totals: totals.value,
+    shownFolders: shownFolders.value,
+    ungrouped: ungrouped.value,
+    people: people.value,
+    personFilter: personFilter.value,
+    showUnassigned: showUnassigned.value,
+    chipWeights: chipWeights.value,
+  }));
+  return { unit, totals, fullTotals, roList, ungrouped, shownFolders, people, personFilter, showUnassigned, chipWeights, viewProps };
 }
 
 // The read-only pages' SEO summary was copy-pasted across /s and /l and already

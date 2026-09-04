@@ -59,11 +59,8 @@ const collapsed = ref(false);
 </template>
 
 <style scoped lang="scss">
-/* de-outlined: no card box — the heading + whitespace separate folders */
-.folder {
-  position: relative;
-  padding: 0;
-}
+/* de-outlined: no card box — the heading + whitespace separate folders. That, and the
+   header's own layout, are the atom's (atoms/folder.scss); only what differs is here. */
 /* only the columns differ from the atom — everything else comes from it */
 .folder__head {
   --head-cols: var(--item-cols-ro);
@@ -71,13 +68,10 @@ const collapsed = ref(false);
 /* just the name + chevron — no trailing actions in the read view, so the title runs
    the WHOLE header row. `1 / -1`, not a counted end line: --item-cols-ro has both
    gained and lost a trailing track over time (tokens.scss), and a hardcoded end line
-   would have quietly stopped short of the last column each time. */
+   would have quietly stopped short of the last column each time. The flex row inside
+   it is the atom's. */
 .folder__title {
   grid-column: 1 / -1;
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-1);
-  min-width: 0;
 }
 /* the collapse chevron button + its coarse-pointer tap target, the collapse
    machinery (.folder__body 1fr↔0fr, .folder__bodyinner clip + fade, the
@@ -94,12 +88,10 @@ const collapsed = ref(false);
 
 @media (max-width: $bp-stack) {
   /* no trailing actions in the read view — let the title (name + chevron) run
-     the WHOLE row (the atom drops the desktop 50vw name cap here) */
+     the WHOLE row (the atom drops the desktop 50vw name cap here); the title's
+     `1 / -1` above already spans whatever this resolves to */
   .folder__head {
     --head-cols: 1fr;
-  }
-  .folder__title {
-    grid-column: 1 / -1;
   }
 }
 </style>

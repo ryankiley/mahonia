@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { lists } from "../server/db/schema";
 import { LISTS_DDL, SNAPSHOTS_DDL, _resetSnapshotEnsured } from "../server/utils/db";
-import { findByEditToken, softDeleteByEditToken } from "../server/utils/listRepo";
+import { findByEditHash, softDeleteByEditHash } from "../server/utils/listRepo";
 import { sha256Hex } from "../server/utils/tokens";
-import { createTestDb } from "./helpers/db";
+import { byToken, createTestDb } from "./helpers/db";
+
+const findByEditToken = byToken(findByEditHash);
+const softDeleteByEditToken = byToken(softDeleteByEditHash);
 
 // Repo against a fresh in-memory PGlite (mirrors reapLists.test / discovery.test).
 async function freshDb() {
@@ -25,7 +28,7 @@ async function seed(db: Awaited<ReturnType<typeof freshDb>>, token: string) {
   });
 }
 
-describe("softDeleteByEditToken — owner-initiated delete", () => {
+describe("softDeleteByEditHash — owner-initiated delete", () => {
   it("soft-deletes the token's list and drops it from the capability lookup", async () => {
     const db = await freshDb();
     await seed(db, "tok-a");
@@ -34,7 +37,7 @@ describe("softDeleteByEditToken — owner-initiated delete", () => {
 
     expect(await softDeleteByEditToken("tok-a", db)).toBe(true);
 
-    // gone from the live lookup (findByEditToken filters deletedAt)…
+    // gone from the live lookup (findByEditHash filters deletedAt)…
     expect(await findByEditToken("tok-a", db)).toBeNull();
     // …but the row still exists with deletedAt set (purge reclaims it later)
     const rows = await db.select().from(lists);

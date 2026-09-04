@@ -40,7 +40,18 @@ export async function createTestDb(...ddlGroups: string[][]): Promise<TestDb> {
 }
 
 /** The handle createTestDb returns — the shape the repos take as their `db`. */
-export type TestDb = ReturnType<typeof drizzle<typeof schema>>;
+type TestDb = ReturnType<typeof drizzle<typeof schema>>;
+
+/**
+ * Call a hash-keyed repo function with the RAW edit token. The repos take
+ * sha256(token) — an endpoint resolves either a bearer token or a session +
+ * claimed code to that hash (server/utils/editAuth.ts) — but a suite genuinely
+ * holds the token, so it hashes here rather than the repos carrying ByEditToken
+ * wrappers no server code calls.
+ */
+export function byToken<A extends unknown[], R>(fn: (editHash: string, ...rest: A) => R) {
+  return (editToken: string, ...rest: A): R => fn(sha256Hex(editToken), ...rest);
+}
 
 /**
  * Insert a list row directly — createList() reaches for the shared connection,

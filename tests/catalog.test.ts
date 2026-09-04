@@ -4,9 +4,9 @@ import { describe, expect, it } from "vitest";
 import * as schema from "../server/db/schema";
 import { MG_PER_UNIT } from "../shared/weights";
 import { createTestDb } from "./helpers/db";
+import { parseCsv } from "../shared/exporters/csv";
 import {
   csvToCatalogRows,
-  parseCsv,
   serializeCsv,
   specToMg,
 } from "../scripts/catalogCsv";

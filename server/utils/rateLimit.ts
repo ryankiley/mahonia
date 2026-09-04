@@ -77,16 +77,16 @@ export interface KvStorage {
 }
 
 /**
- * Whether a SHARED counter store is configured — the same two env vars
- * nuxt.config.ts tests when it picks a driver, so the two can't disagree.
+ * Whether a SHARED KV store is configured — the same two env vars nuxt.config.ts
+ * tests when it picks a driver, so the two can't disagree.
  *
- * Deliberately the same shape as passkeysConfigured(), and the difference
- * between them is the whole point. Passkeys REFUSE without shared KV, because a
- * ceremony split across two instances can't complete. Rate limiting keeps
- * serving, because a limit counted per instance is degraded rather than broken
- * and refusing would take the whole site down over a throttle.
+ * One answer, two callers that do opposite things with it, and that difference
+ * is the whole point: passkeys (requirePasskeysConfigured) REFUSE without shared
+ * KV, because a ceremony split across two instances can't complete; rate limiting
+ * (useKv, below) keeps serving, because a limit counted per instance is degraded
+ * rather than broken and refusing would take the whole site down over a throttle.
  */
-export function rateLimitStoreShared(): boolean {
+export function sharedKvConfigured(): boolean {
   if (process.env.NODE_ENV !== "production") return true; // dev's in-memory KV is one process
   return Boolean(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN);
 }
@@ -104,14 +104,15 @@ let warnedAboutStore = false;
  * AND SAYS SO WHEN THE STORE ISN'T SHARED. Without Upstash, nuxt.config falls
  * back to the in-memory driver and every budget below silently becomes per warm
  * serverless instance — a number Vercel scales with load. Tolerating that is a
- * deliberate choice (see rateLimitStoreShared); tolerating it in silence was
+ * deliberate choice (see sharedKvConfigured — degrade, where passkeys refuse);
+ * tolerating it in silence was
  * not. Nothing in a response differs, so a log line is the only place this can
  * surface, and the endpoints it protects are the ones that most need it:
  * `feedback` opens PUBLIC issues anonymously, `auth-request` sends mail to
  * addresses the caller names, `catalog-correct` writes the catalog everyone reads.
  */
 export function useKv(): KvStorage {
-  if (!warnedAboutStore && !rateLimitStoreShared()) {
+  if (!warnedAboutStore && !sharedKvConfigured()) {
     warnedAboutStore = true;
     console.error(
       "[rate-limit] no shared KV configured (KV_REST_API_URL / KV_REST_API_TOKEN) — every budget is now per serverless instance, not global",
@@ -191,7 +192,7 @@ export async function clearReportTally(storage: KvStorage, slug: string): Promis
 // Per-IP request budgets, all on a fixed 1-minute window — the whole throttle
 // policy in one reviewable table (endpoints used to hardcode their own numbers).
 const WINDOW_MS = 60_000;
-export const RATE_LIMITS = {
+const RATE_LIMITS = {
   // editor write path — every keystroke batch lands here, so it's the roomiest
   "mutate": 300,
   "create": 30,
@@ -206,7 +207,7 @@ export const RATE_LIMITS = {
   "delete": 20,
   "rotate": 20,
   // public read views (/l, /s) — edge-cached, so origin hits are rare; a generous
-  // per-IP cap bounds cache-busted floods (each uncached /l hit also bumps view_count)
+  // per-IP cap bounds cache-busted floods
   "public-read": 120,
   // heavier / abuse-prone writes
   "publish": 20,

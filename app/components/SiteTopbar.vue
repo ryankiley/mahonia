@@ -43,16 +43,8 @@ defineProps<{
 </template>
 
 <style scoped>
-/* sticks to the top on scroll, matching the editor's own sticky topbar — so the
-   read views (and every other page using this bar) keep their nav + actions in
-   reach through a long list. */
-.topbar {
-  position: sticky;
-  top: 0;
-  z-index: var(--z-topbar);
-  background: var(--paper);
-  border-bottom: 1px solid var(--line);
-}
+/* the stick-to-top block is the global .topbar rule (main.scss), shared with the
+   editor's own bar so the two can't drift */
 .topbar__inner {
   display: flex;
   align-items: center;

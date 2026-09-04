@@ -34,7 +34,6 @@ const snap = (): ListSnapshot => ({
         classification: null,
         description: "seam-sealed",
         productUrl: "https://zpacks.com/duplex",
-        imageUrl: "https://cdn.example/duplex.jpg",
         priceCents: 66_900,
         currency: "USD",
         catalogItemId: 42,

@@ -83,7 +83,7 @@ function childrenFor(icon: IconNode, strokeWidth: number | undefined): PreparedC
   return built;
 }
 
-export interface HugeiconsIconProps {
+interface HugeiconsIconProps {
   /**
    * `IconNode`, not a type borrowed from upstream: @hugeicons/vue's published types
    * re-export `./components/HugeiconsIcon.vue`, a file its package does not ship, so

@@ -13,7 +13,7 @@ import {
   normalizeEmail,
   sweepExpiredAuth,
 } from "../server/utils/authSession";
-import { countPasskeys, savePasskey } from "../server/utils/credentialRepo";
+import { existingCredentialIds, savePasskey } from "../server/utils/credentialRepo";
 import { sha256Hex } from "../server/utils/tokens";
 import { createTestDb } from "./helpers/db";
 
@@ -214,7 +214,7 @@ describe("an address is only a claim until a link comes back", () => {
     expect((await signInWithLink(token))?.id).toBe(seeded.id);
 
     // the passkey that could re-open the account at will is gone...
-    expect(await countPasskeys(db as any, seeded.id)).toBe(0);
+    expect(await existingCredentialIds(db as any, seeded.id)).toHaveLength(0);
     // ...and so is every session it had already started
     expect(await sessionHashes()).toEqual([]);
     // the address is proved now, so this happens exactly once
@@ -242,7 +242,7 @@ describe("an address is only a claim until a link comes back", () => {
       await signInWithLink(token);
     }
 
-    expect(await countPasskeys(db as any, user.id)).toBe(1);
+    expect(await existingCredentialIds(db as any, user.id)).toHaveLength(1);
   });
 
   it("disarms after the takeover: a passkey added afterwards survives", async () => {
@@ -253,7 +253,7 @@ describe("an address is only a claim until a link comes back", () => {
     // now it's genuinely their account, and their own key has to stick
     await addPasskey(seeded.id, "owner-key");
     await signInWithLink(await issueMagicToken(db as any, seeded.id));
-    expect(await countPasskeys(db as any, seeded.id)).toBe(1);
+    expect(await existingCredentialIds(db as any, seeded.id)).toHaveLength(1);
   });
 
   it("keeps its hands off every other account", async () => {
@@ -265,7 +265,7 @@ describe("an address is only a claim until a link comes back", () => {
 
     await signInWithLink(await issueMagicToken(db as any, seeded.id));
 
-    expect(await countPasskeys(db as any, bystander.id)).toBe(1);
+    expect(await existingCredentialIds(db as any, bystander.id)).toHaveLength(1);
     expect(await sessionHashes()).toEqual(["bystander-session"]);
   });
 });

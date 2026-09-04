@@ -437,7 +437,7 @@ onClickOutside(trailEl, closeTrail);
             height="16"
           />
           <HugeiconsIcon :icon="GlobeIcon" v-else class="head__icon head__icon--fallback" :size="16" :stroke-width="2" aria-hidden="true" />
-          <span class="head__name">{{ link.name }}</span>
+          <span class="head__name t-clip">{{ link.name }}</span>
           <!-- The one fact about the route that isn't in its name. Muted and after the
                name, so it reads as a detail OF the trail rather than a second link;
                absent entirely until it's set, like every other optional field here. -->
@@ -460,7 +460,7 @@ onClickOutside(trailEl, closeTrail);
           />
           <HugeiconsIcon :icon="GlobeIcon" v-else class="head__cardicon head__icon--fallback" :size="14" :stroke-width="2" aria-hidden="true" />
           <a
-            class="head__cardurl"
+            class="head__cardurl t-clip"
             :href="link.href"
             target="_blank"
             rel="nofollow ugc noopener noreferrer"
@@ -742,7 +742,6 @@ onClickOutside(trailEl, closeTrail);
    the title instead of stranded at the far edge of the column. */
 .head__title {
   width: 100%;
-  font-family: var(--font);
   /* the page-title step — a document title, not a section heading. Well above the 16px
      threshold that triggers iOS Safari's focus-zoom, so .field's literal-1rem
      workaround (controls.scss) doesn't apply here. */
@@ -782,7 +781,6 @@ onClickOutside(trailEl, closeTrail);
    so nothing below shifts as the affordance fades in or a link is added. */
 .head__trail {
   position: relative; /* anchors the edit panel */
-  margin: 0;
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
@@ -805,15 +803,10 @@ onClickOutside(trailEl, closeTrail);
   align-items: baseline;
   gap: var(--space-2);
   min-width: 0;
-  /* it's a <button> (see the template note), so the UA's chrome has to go — it should
-     read as the line of text it looks like, not as a control */
-  padding: 0;
-  border: 0;
-  background: none;
-  font: inherit;
+  /* it's a <button> (see the template note) — the reset already strips the UA's chrome
+     so it reads as the line of text it looks like; only the tracking needs saying */
   letter-spacing: inherit;
   text-align: start;
-  cursor: pointer;
 }
 /* the icon is the one thing that ISN'T type: baseline-aligning a replaced element sits
    its bottom edge on the baseline, which rides visibly high next to the text */
@@ -828,13 +821,8 @@ onClickOutside(trailEl, closeTrail);
   color: var(--ink-3);
   opacity: 0.6;
 }
-.head__name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 /* The distance rides after the name as a detail of it. `flex: none` so a long trail
-   name ellipses (the rule above) instead of squeezing the number out — the name is
+   name ellipses (.t-clip on the name) instead of squeezing the number out — the name is
    the thing you can afford to lose characters from, since the card carries the URL
    in full and this is four characters that are useless truncated. */
 .head__dist {
@@ -936,9 +924,6 @@ onClickOutside(trailEl, closeTrail);
   flex: 1 1 auto;
   min-width: 12ch;
   max-width: 32ch;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   /* the one thing here that navigates, so it deepens on hover — quiet at rest, because
      the card is a place you land on the way to Edit as often as to the trail itself */
   color: var(--ink-3);
@@ -949,7 +934,7 @@ onClickOutside(trailEl, closeTrail);
   color: var(--ink);
 }
 /* the actions are the emphasis in this card: full ink, regular weight. The explicit
-   font-size is load-bearing — .btn hard-sets --text-sm (16px), which would otherwise
+   font-size is load-bearing — .btn hard-sets --text-base (16px), which would otherwise
    leave "Edit" at 16px beside a 12px URL and push the card to 40px tall against the
    reference's 32px. */
 .head__cardbtn {
@@ -1074,7 +1059,6 @@ onClickOutside(trailEl, closeTrail);
   /* stays at 16px while the labels above drop to 12px: 14 would sit better with them,
      but anything under 16px makes iOS Safari zoom the page on focus (atoms/controls.scss) */
   font-size: 1rem;
-  font-family: inherit;
 }
 .head__panelinput:focus {
   outline: none;
@@ -1125,7 +1109,6 @@ onClickOutside(trailEl, closeTrail);
 .head__gpx {
   display: flex;
   align-items: center;
-  margin: 0;
   color: var(--ink-3);
 }
 /* The file row is the URL field's second way in, so it hangs off that field at the
@@ -1150,9 +1133,6 @@ onClickOutside(trailEl, closeTrail);
 .head__gpxwhy {
   display: inline-flex;
   margin-left: var(--space-1);
-  padding: 0;
-  border: 0;
-  background: none;
   color: var(--ink-3);
   cursor: help;
   transition: color var(--dur) var(--ease);
@@ -1162,7 +1142,6 @@ onClickOutside(trailEl, closeTrail);
   color: var(--ink);
 }
 .head__gpxerr {
-  margin: 0;
   color: var(--ink-2);
 }
 /* The two answers to the pins offer. Text buttons rather than real ones: this sits inside
@@ -1171,11 +1150,6 @@ onClickOutside(trailEl, closeTrail);
    the other thing in this panel you click to make something happen. */
 .head__gpxyes,
 .head__gpxno {
-  padding: 0;
-  border: 0;
-  background: none;
-  font: inherit;
-  cursor: pointer;
   text-decoration: underline;
   text-underline-offset: 2px;
   transition: color var(--dur) var(--ease);

@@ -4,7 +4,7 @@ import type { Unit } from "~~/shared/types";
 // like useGearList: the trigger lives in an ItemRow deep in the tree, the dialog
 // is mounted once in the editor, and this connects them without prop-drilling.
 
-export interface CorrectionTarget {
+interface CorrectionTarget {
   catalogItemId: number;
   itemName: string;
   catalogWeightMg: number; // the catalog's weight (what we're proposing to change)
@@ -12,7 +12,7 @@ export interface CorrectionTarget {
   displayUnit: Unit;
 }
 
-export interface CorrectionResult {
+interface CorrectionResult {
   status: "applied" | "proposed" | "noop" | "rejected" | "notfound";
   weightMg?: number;
   itemName?: string;

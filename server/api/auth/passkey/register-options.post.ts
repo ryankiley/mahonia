@@ -1,24 +1,16 @@
 import { createError, defineEventHandler } from "h3";
 import { generateRegistrationOptions } from "@simplewebauthn/server";
-import { requireUser } from "../../../utils/authSession";
+import { requireAccount } from "../../../utils/authSession";
 import { existingCredentialIds, MAX_PASSKEYS_PER_USER } from "../../../utils/credentialRepo";
-import { useAccountDb } from "../../../utils/db";
 import { RP_NAME, requirePasskeysConfigured, rpIdFor, startChallenge } from "../../../utils/passkeys";
-import { rateLimit } from "../../../utils/rateLimit";
-import { setNoIndex, setPrivate } from "../../../utils/http";
 
 // Step 1 of adding a passkey: hand the browser the challenge and parameters for
 // the ceremony. Requires a session — you add a passkey to an account you're
 // already in, which is what makes the magic link the root of trust and the passkey
 // a faster door to the same room.
 export default defineEventHandler(async (event) => {
-  setNoIndex(event);
-  setPrivate(event);
-  await rateLimit(event, "passkey");
-  const user = await requireUser(event);
+  const { user, db } = await requireAccount(event, "passkey");
   requirePasskeysConfigured();
-
-  const db = await useAccountDb();
 
   // one credential read serves both the cap check and excludeCredentials below
   const existing = await existingCredentialIds(db, user.id);

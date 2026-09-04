@@ -80,9 +80,9 @@ function isPrivateIPv6(ip: string): boolean {
   // sit at the tail of the string.
   const teredo = s.match(/^2001:0?:[0-9a-f:]+:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
   if (teredo) {
-    const high = parseInt(teredo[1]!, 16) ^ 0xffff;
-    const low = parseInt(teredo[2]!, 16) ^ 0xffff;
-    return isPrivateIPv4(`${(high >> 8) & 0xff}.${high & 0xff}.${(low >> 8) & 0xff}.${low & 0xff}`);
+    const high = (parseInt(teredo[1]!, 16) ^ 0xffff).toString(16);
+    const low = (parseInt(teredo[2]!, 16) ^ 0xffff).toString(16);
+    return isPrivateIPv4(hexPairToDotted(high, low));
   }
   return false;
 }

@@ -195,20 +195,6 @@ export function rankCandidates(
 }
 
 /**
- * Offline / PGlite entry point: rank the entire (bounded) active catalog in JS with
- * the shared ranker. Kept as a named export for existing importers (the offline
- * cache + the server's PGlite branch); delegates to rankCandidates so ordering lives
- * in exactly one place.
- */
-export function searchCatalogLocal(
-  rows: LocalCatalogRow[],
-  rawQuery: string,
-  limit = SEARCH_LIMIT,
-): CatalogSearchResult[] {
-  return rankCandidates(rows, rawQuery, limit);
-}
-
-/**
  * Fold freshly-seen catalog rows into the on-device cache: dedup by id (the
  * incoming/fresher copy wins), most-recently-seen first, capped to `cap`. Pure so
  * it's unit-testable; the client (useCatalogCache) builds its offline index by

@@ -21,12 +21,12 @@ import { and, desc, eq, gt, inArray, sql } from "drizzle-orm";
 import { catalogEdits, catalogItems } from "../db/schema";
 import { itemDisplayName } from "../../shared/weights";
 import { UNIT_WEIGHT_MAX_MG } from "../../shared/ops";
-import { memoizedEnsure } from "./memoize";
+import { memoized } from "./memoize";
+import type { Db } from "./db";
 import {
   SEARCH_LIMIT,
   SIM_THRESHOLD,
   rankCandidates,
-  searchCatalogLocal,
   type CatalogSearchResult,
   type LocalCatalogRow,
 } from "../../shared/catalogSearch";
@@ -93,19 +93,18 @@ export const CATALOG_DDL: string[] = [
 ];
 
 /** Idempotently create the catalog table + indexes (memoized per process). */
-export const ensureCatalogSchema = memoizedEnsure(async (db: unknown) => {
-  const d = db as { execute: (q: unknown) => Promise<unknown> };
-  for (const stmt of CATALOG_DDL) await d.execute(sql.raw(stmt));
+export const ensureCatalogSchema = memoized(async (db: Db) => {
+  for (const stmt of CATALOG_DDL) await db.execute(sql.raw(stmt));
   if (isNeon()) {
     // Neon ships pg_trgm — create the extension + GIN trigram index that
     // power fuzzy autocomplete. (No-op'd locally; see file header.)
-    await d.execute(sql.raw(`CREATE EXTENSION IF NOT EXISTS pg_trgm`));
+    await db.execute(sql.raw(`CREATE EXTENSION IF NOT EXISTS pg_trgm`));
     // unaccent folds diacritics (ä→a) at query time so an accented brand
     // ("Fjällräven") matches its plain spelling — mirrors the diacritic fold in
     // shared/catalogSearch.ts's trigrams(). Used in the WHERE/ORDER expressions
     // below, not an index, so unaccent()'s STABLE volatility is fine.
-    await d.execute(sql.raw(`CREATE EXTENSION IF NOT EXISTS unaccent`));
-    await d.execute(
+    await db.execute(sql.raw(`CREATE EXTENSION IF NOT EXISTS unaccent`));
+    await db.execute(
       sql.raw(
         `CREATE INDEX IF NOT EXISTS idx_catalog_trgm ON catalog_items USING gin ((coalesce(brand,'') || ' ' || name) gin_trgm_ops)`,
       ),
@@ -126,7 +125,7 @@ function normalizeQuery(q: unknown): string {
  * "prod and offline must never diverge" invariant real instead of hand-mirrored.
  */
 export async function searchCatalog(
-  db: unknown,
+  db: Db,
   rawQuery: unknown,
   limit = SEARCH_LIMIT, // same default as the offline ranker — counts can't drift
 ): Promise<CatalogSearchResult[]> {
@@ -134,7 +133,6 @@ export async function searchCatalog(
   if (q.length < 2) return []; // 1 char is too noisy for trigram autocomplete
 
   if (isNeon()) {
-    const d = db as { execute: (query: unknown) => Promise<unknown> };
     // STAGE 1 — recall only. word_similarity matches a short query against the best
     // extent of a longer name — the right metric for autocomplete fragments. We
     // DON'T use the `<%` operator: its threshold is the GUC
@@ -158,7 +156,7 @@ export async function searchCatalog(
     // the row count on the small, bounded catalog (same bet the offline path makes
     // by loading the whole active table), so fetching all gated rows is cheap and
     // makes Neon ≡ PGlite ≡ offline by construction.
-    const res = await d.execute(sql`
+    const res = await db.execute(sql`
       select id, brand, name, variant, weight_mg, weight_source, verified, usage_count, search_terms, common_name, category_hint, kcal
       from catalog_items
       where status = 'active'
@@ -169,16 +167,9 @@ export async function searchCatalog(
   }
 
   // PGlite: load the bounded active catalog and rank in JS — the SAME ranking the
-  // offline client uses (searchCatalogLocal is the shared source of truth).
-  const d = db as unknown as {
-    select: () => {
-      from: (t: typeof catalogItems) => {
-        where: (w: unknown) => Promise<Array<Record<string, unknown>>>;
-      };
-    };
-  };
-  const rows = await d.select().from(catalogItems).where(eq(catalogItems.status, "active"));
-  return searchCatalogLocal(rows as unknown as LocalCatalogRow[], q, limit);
+  // offline client uses (rankCandidates is the shared source of truth).
+  const rows = await db.select().from(catalogItems).where(eq(catalogItems.status, "active"));
+  return rankCandidates(rows, q, limit);
 }
 
 /**
@@ -186,15 +177,10 @@ export async function searchCatalog(
  * what makes autocomplete self-improve: the gear people actually carry floats to
  * the top of the ranking. Best-effort + bounded; works on PGlite + Neon.
  */
-export async function bumpUsage(db: unknown, ids: number[]): Promise<void> {
+export async function bumpUsage(db: Db, ids: number[]): Promise<void> {
   const clean = [...new Set(ids.filter((n) => Number.isInteger(n) && n > 0))].slice(0, 50);
   if (!clean.length) return;
-  const d = db as {
-    update: (t: typeof catalogItems) => {
-      set: (v: unknown) => { where: (w: unknown) => Promise<unknown> };
-    };
-  };
-  await d
+  await db
     .update(catalogItems)
     .set({ usageCount: sql`usage_count + 1`, updatedAt: new Date() })
     .where(inArray(catalogItems.id, clean));
@@ -279,8 +265,8 @@ export function isTrustedSource(url: string | undefined | null): boolean {
 }
 
 
-export type CorrectionStatus = "applied" | "proposed" | "noop" | "rejected" | "notfound";
-export interface CorrectionOutcome {
+type CorrectionStatus = "applied" | "proposed" | "noop" | "rejected" | "notfound";
+interface CorrectionOutcome {
   status: CorrectionStatus;
   weightMg?: number; // the catalog's current weight after the call
   itemName?: string;
@@ -288,21 +274,16 @@ export interface CorrectionOutcome {
 
 /** Submit a "fix for everyone" correction; applies or proposes per the trust tier. */
 export async function proposeCorrection(
-  db: unknown,
+  db: Db,
   input: { catalogItemId: number; newWeightMg: number; sourceUrl?: string; reason?: string },
 ): Promise<CorrectionOutcome> {
-  const d = db as {
-    select: (...a: unknown[]) => any;
-    insert: (t: unknown) => any;
-    update: (t: unknown) => any;
-  };
   const id = Number(input.catalogItemId);
   if (!Number.isInteger(id) || id <= 0) return { status: "rejected" };
   const newW = Math.round(input.newWeightMg);
   // 100 kg per-item ceiling — the SAME cap the list reducer clamps to (shared/ops)
   if (!Number.isFinite(newW) || newW <= 0 || newW > UNIT_WEIGHT_MAX_MG) return { status: "rejected" };
 
-  const rows = await d.select().from(catalogItems).where(eq(catalogItems.id, id)).limit(1);
+  const rows = await db.select().from(catalogItems).where(eq(catalogItems.id, id)).limit(1);
   const item = rows[0];
   if (!item) return { status: "notfound" };
   const itemName = itemDisplayName(item.brand, item.name, item.variant);
@@ -318,7 +299,7 @@ export async function proposeCorrection(
   const applies = !item.verified || cited;
   const status: "applied" | "proposed" = applies ? "applied" : "proposed";
 
-  await d.insert(catalogEdits).values({
+  await db.insert(catalogEdits).values({
     catalogItemId: id,
     oldWeightMg: oldW,
     newWeightMg: newW,
@@ -328,7 +309,7 @@ export async function proposeCorrection(
   });
 
   if (applies) {
-    await d
+    await db
       .update(catalogItems)
       .set({
         weightMg: newW,
@@ -352,9 +333,8 @@ export interface RecentChange {
 }
 
 /** Recent catalog weight changes (newest first) — the patrol / transparency feed. */
-export async function recentChanges(db: unknown, limit = 50): Promise<RecentChange[]> {
-  const d = db as { select: (...a: unknown[]) => any };
-  const rows = await d
+export async function recentChanges(db: Db, limit = 50): Promise<RecentChange[]> {
+  const rows = await db
     .select({
       id: catalogEdits.id,
       brand: catalogItems.brand,
@@ -370,32 +350,30 @@ export async function recentChanges(db: unknown, limit = 50): Promise<RecentChan
     .leftJoin(catalogItems, eq(catalogEdits.catalogItemId, catalogItems.id))
     .orderBy(desc(catalogEdits.createdAt))
     .limit(Math.min(100, Math.max(1, limit)));
-  return (rows as Array<Record<string, unknown>>).map((r) => ({
-    id: Number(r.id),
-    itemName:
-      itemDisplayName(r.brand as string | null, String(r.name ?? ""), r.variant as string | null) ||
-      "(removed item)",
+  return rows.map((r) => ({
+    id: r.id,
+    // the left join leaves brand/name/variant null for an edit whose item is gone
+    itemName: itemDisplayName(r.brand, r.name ?? "", r.variant) || "(removed item)",
     oldWeightMg: Number(r.oldWeightMg),
     newWeightMg: Number(r.newWeightMg),
-    status: String(r.status),
-    sourceUrl: (r.sourceUrl as string | null) ?? null,
+    status: r.status,
+    sourceUrl: r.sourceUrl ?? null,
     createdAt:
       r.createdAt instanceof Date ? r.createdAt.toISOString() : String(r.createdAt ?? ""),
   }));
 }
 
 /** One-click revert (admin): restore an applied edit's prior weight + mark it reverted. */
-export async function revertEdit(db: unknown, editId: number): Promise<CorrectionOutcome> {
-  const d = db as { select: (...a: unknown[]) => any; update: (t: unknown) => any };
+export async function revertEdit(db: Db, editId: number): Promise<CorrectionOutcome> {
   const id = Number(editId);
   if (!Number.isInteger(id) || id <= 0) return { status: "rejected" };
-  const rows = await d.select().from(catalogEdits).where(eq(catalogEdits.id, id)).limit(1);
+  const rows = await db.select().from(catalogEdits).where(eq(catalogEdits.id, id)).limit(1);
   const edit = rows[0];
   if (!edit) return { status: "notfound" };
   if (edit.status !== "applied") return { status: "rejected" }; // only applied edits moved a weight
   // only the MOST RECENT applied edit can be reverted — reverting an older one
   // would silently discard newer changes and desync the weight from the feed
-  const newer = await d
+  const newer = await db
     .select({ id: catalogEdits.id })
     .from(catalogEdits)
     .where(
@@ -407,10 +385,10 @@ export async function revertEdit(db: unknown, editId: number): Promise<Correctio
     )
     .limit(1);
   if (newer.length) return { status: "rejected" };
-  await d
+  await db
     .update(catalogItems)
     .set({ weightMg: Number(edit.oldWeightMg), updatedAt: new Date() })
     .where(eq(catalogItems.id, Number(edit.catalogItemId)));
-  await d.update(catalogEdits).set({ status: "reverted" }).where(eq(catalogEdits.id, id));
+  await db.update(catalogEdits).set({ status: "reverted" }).where(eq(catalogEdits.id, id));
   return { status: "applied", weightMg: Number(edit.oldWeightMg) };
 }

@@ -14,6 +14,21 @@ export interface LocalListRecord {
   updatedAt: number;
 }
 
+/**
+ * A list "has content" once any ITEM carries a name or a weight — nothing else counts.
+ * The editor doesn't persist a draft (or count it as a keepable list) until then, so
+ * opening the site and bouncing leaves no row behind; the sync line reads the same
+ * gate to say "Saved on device" only when there's something saved.
+ *
+ * Deliberately NOT counted: a title, and a trail link. Both are things you can set
+ * while circling a list you never actually make, and a pack list with no gear in it
+ * isn't a pack list. A link-only draft still shows its site mark — ListHead asks
+ * /api/trail-favicon directly, so nothing about the icon depends on having a row.
+ */
+export function hasRealContent(s: Pick<ListSnapshot, "items">): boolean {
+  return s.items.some((i) => i.name.trim() !== "" || i.unitWeightMg > 0);
+}
+
 /** Fixed key for the single in-progress, not-yet-saved draft (one at a time). */
 export const DRAFT_KEY = "__draft__";
 

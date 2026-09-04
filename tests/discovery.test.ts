@@ -5,13 +5,12 @@ import { lists } from "../server/db/schema";
 import { LISTS_DDL } from "../server/utils/db";
 import { CATALOG_DDL } from "../server/utils/catalog";
 import { sha256Hex } from "../server/utils/tokens";
-import { applyOpsByEditToken } from "../server/utils/listRepo";
+import { applyOpsByEditHash } from "../server/utils/listRepo";
 import {
-  bumpView,
   getPublicBySlug,
-  getPublishState,
+  getPublishStateByEditHash,
   listPublicSlugs,
-  publishList,
+  publishListByEditHash,
   reportList,
   restoreList,
 } from "../server/utils/discoveryRepo";
@@ -24,7 +23,11 @@ import {
   normalizeTripType,
 } from "../shared/discovery";
 import type { ListData } from "../shared/types";
-import { createTestDb } from "./helpers/db";
+import { byToken, createTestDb } from "./helpers/db";
+
+const applyOpsByEditToken = byToken(applyOpsByEditHash);
+const getPublishState = byToken(getPublishStateByEditHash);
+const publishList = byToken(publishListByEditHash);
 
 // ===========================================================================
 // Pure logic (no DB) — this is where the real discovery logic lives + is tested.
@@ -143,7 +146,6 @@ async function seed(
       publishedAt: o.publishedAt ?? null,
       tripType: o.tripType ?? null,
       season: o.season ?? null,
-      viewCount: o.viewCount ?? 0,
     })
     .returning();
   return { row: row!, editToken };
@@ -295,7 +297,7 @@ describe("post-publish spam gate — setMeta on a public list re-runs isLikelySp
   });
 });
 
-describe("reportList + bumpView", () => {
+describe("reportList", () => {
   it("report withholds a list from public discovery but keeps the owner's access", async () => {
     const db = await freshDb();
     const { row } = await seed(db, { isPublic: true, itemCount: 3, baseWeightMg: 1_000_000, publishedAt: new Date() });
@@ -320,13 +322,5 @@ describe("reportList + bumpView", () => {
     expect(await getPublicBySlug(row.publicSlug, db)).not.toBeNull();
     // restoring an unflagged list is a no-op
     expect(await restoreList(row.publicSlug, db)).toBe(false);
-  });
-  it("bumpView increments the counter for a public list", async () => {
-    const db = await freshDb();
-    const { row } = await seed(db, { isPublic: true, itemCount: 1, publishedAt: new Date() });
-    await bumpView(row.publicSlug, db);
-    await bumpView(row.publicSlug, db);
-    const after = (await db.select().from(lists))[0]!;
-    expect(after.viewCount).toBe(2);
   });
 });

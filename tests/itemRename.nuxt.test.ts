@@ -21,13 +21,20 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import { flushPromises, mount } from "@vue/test-utils";
-import ItemRow from "~/components/ItemRow.vue";
+import ItemRow, { CHILDREN_BY_PARENT, PEOPLE_CTX } from "~/components/ItemRow.vue";
 import ItemInput from "~/components/ItemInput.vue";
-import type { Item, ListSnapshot } from "~~/shared/types";
+import type { Item, ListSnapshot, Person } from "~~/shared/types";
 import { blankList } from "./helpers/list";
 import type { ItemPatch } from "~~/shared/ops";
 import { applyOps } from "~~/shared/ops";
 import type { NameCommit } from "~/composables/useCatalogSearch";
+
+// what GearEditor provides to every row — the children map, and the people in
+// display order with their slots (this list names nobody)
+const rowProvides = {
+  [CHILDREN_BY_PARENT as symbol]: ref(new Map<string, Item[]>()),
+  [PEOPLE_CTX as symbol]: { sorted: ref<Person[]>([]), slotById: ref(new Map<string, number>()) },
+};
 
 // What the two halves of the autocomplete menu answer with, per case.
 const catalogHits: Record<string, unknown>[] = [];
@@ -107,8 +114,8 @@ function mountRow(item: Item) {
       get item() {
         return snapshot.value.items[0]!;
       },
-      childrenByParent: new Map(),
     },
+    global: { provide: rowProvides },
     attachTo: document.body,
   });
 }

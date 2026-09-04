@@ -16,14 +16,12 @@
 
 import { eq, lt, sql } from "drizzle-orm";
 import { trailFavicons } from "../db/schema";
-import { ensureTrailFaviconSchema, useDb } from "./db";
+import { ensureTrailFaviconSchema, type Db } from "./db";
 import { displayHost, safeUrl } from "../../shared/trailLink";
 // the streaming, cancel-at-the-cap body reader — it started life in this file and
 // now lives beside its sibling readJsonBodyCapped, since /api/import needs it too
 import { readResponseCapped } from "./http";
 import { isResolvedHostSafe, validateExternalUrl } from "./ssrf";
-
-type Db = Awaited<ReturnType<typeof useDb>>;
 
 const FETCH_TIMEOUT_MS = 5_000;
 const FETCH_USER_AGENT = "Mahonia trail-link/1.0 (+https://mahonia.app)";

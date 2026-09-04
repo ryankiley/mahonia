@@ -3,9 +3,11 @@ import { applyOps, seedRouteEnds, tidyListText } from "~~/shared/ops";
 import { uid } from "~~/shared/id";
 import { colorKeyForName, nextFolderColor, STARTER_FOLDERS } from "~~/shared/categories";
 import { LIST_CODE_HEADER, editLinkPath, normalizeShareCode } from "~~/shared/links";
-import { DRAFT_KEY, claimedLocalKey, localKey, rebaseOnto } from "~~/shared/localList";
+import { DRAFT_KEY, claimedLocalKey, hasRealContent, localKey, rebaseOnto } from "~~/shared/localList";
 import { sortedPeople } from "~~/shared/people";
-import type { Folder, Item, ListSnapshot, Person, TripDay, Unit, Waypoint, WaypointKind } from "~~/shared/types";
+import { reconcileSnapshot } from "~~/shared/reconcile";
+import type { Folder, Item, ListSnapshot, Person, Unit, Waypoint, WaypointKind } from "~~/shared/types";
+import { pickListMeta } from "~~/shared/types";
 import type { VaultCapture, VaultEntry } from "~~/shared/vault";
 import { vaultNormKey } from "~~/shared/vault";
 import { bySortOrder, computeTotals, entryUnitFromInput, nextSortOrder, parseWeightInput, siblingItems } from "~~/shared/weights";
@@ -253,6 +255,27 @@ function create() {
     );
   }
 
+  // Everything one list's session owns, zeroed. Every way a session begins or ends
+  // — load(), startDraft(), dispose() — runs this AFTER the capability (editToken /
+  // claimCode) is set for the new session, so a queue, an in-flight flag or a
+  // backoff from the last list can never leak into the next one.
+  function resetSession() {
+    pending = [];
+    inFlight = false;
+    isEditing = false;
+    remoteMissing = false;
+    // the vault question is about THIS list — an unanswered one must not ride
+    // along to the next list opened (where it would ask about the wrong gear,
+    // and spend that list's one chance to ask). A draft is yours, and never asks.
+    vaultPrompt.value = null;
+    // ...and the rows must render against THIS list's answer (a draft's answer IS
+    // yes: no token → yours by definition)
+    refreshVaultCover();
+    clearTimeout(flushTimer);
+    clearTimeout(retryTimer); // a backoff must not fire into the session that replaced this one
+    flushFailures = 0;
+  }
+
   // Open a list this device holds the edit link for ({ token }), or one the
   // signed-in account has claimed ({ code } — the share code, with the session
   // cookie as the proof; see server/utils/editAuth). Token wins if both arrive,
@@ -266,18 +289,7 @@ function create() {
     // returns key the same IndexedDB record and claimed-lists row
     claimCode = editToken ? "" : normalizeShareCode(cap.code);
     openedByCode.value = !editToken && !!claimCode;
-    pending = [];
-    inFlight = false;
-    isEditing = false;
-    remoteMissing = false;
-    // the vault question is about THIS list — an unanswered one must not ride
-    // along to the next list opened (where it would ask about the wrong gear,
-    // and spend that list's one chance to ask)
-    vaultPrompt.value = null;
-    refreshVaultCover(); // ...and the rows must render against THIS list's answer
-    clearTimeout(flushTimer);
-    clearTimeout(retryTimer); // a backoff must not fire into the session that replaced this one
-    flushFailures = 0;
+    resetSession();
     snapshot.value = null;
     status.value = "loading";
     installListeners();
@@ -400,17 +412,8 @@ function create() {
     }
   }
 
-  // A list "has content" once any ITEM carries a name or a weight — nothing else counts.
-  // We don't persist a draft (or count it as a keepable list) until then, so opening the
-  // site and bouncing leaves no row behind.
-  //
-  // Deliberately NOT counted: a title, and a trail link. Both are things you can set
-  // while circling a list you never actually make, and a pack list with no gear in it
-  // isn't a pack list. A link-only draft still shows its site mark — ListHead asks
-  // /api/trail-favicon directly, so nothing about the icon depends on having a row.
-  function hasRealContent(s: ListSnapshot) {
-    return s.items.some((i) => i.name.trim() !== "" || i.unitWeightMg > 0);
-  }
+  // "Has content" — the gate on persisting a draft at all — is hasRealContent in
+  // shared/localList, shared with the sync line so both read the same rule.
 
   // Open a fresh, NOT-yet-persisted list (starter folders, no items). It lives only
   // in memory until the first real content lands (createFromDraft), so a visitor who
@@ -421,15 +424,7 @@ function create() {
     editToken = "";
     claimCode = "";
     openedByCode.value = false;
-    pending = [];
-    inFlight = false;
-    isEditing = false;
-    remoteMissing = false;
-    vaultPrompt.value = null; // see load() — a draft is yours, and never asks
-    refreshVaultCover(); // a draft's answer IS yes (no token → yours by definition)
-    clearTimeout(flushTimer);
-    clearTimeout(retryTimer); // a backoff must not fire into the session that replaced this one
-    flushFailures = 0;
+    resetSession();
     installListeners();
     const folders: Folder[] = STARTER_FOLDERS.map((p, i) => ({
       id: uid(),
@@ -485,20 +480,11 @@ function create() {
       const res = await $fetch<{ editToken: string; snapshot: ListSnapshot }>("/api/lists/create", {
         method: "POST",
         body: {
-          title: s.title,
-          displayUnit: s.displayUnit,
-          // a trail link added to the draft must survive its first save — and so
-          // must the dates, which sit in the same meta row and are set the same way
-          trailUrl: s.trailUrl,
-          trailLabel: s.trailLabel,
-          trailDistanceM: s.trailDistanceM,
-          trailDistanceUnit: s.trailDistanceUnit,
-          trailProfile: s.trailProfile,
-          trailAscentM: s.trailAscentM,
-          trailDescentM: s.trailDescentM,
-          routeGeometry: s.routeGeometry,
-          startDate: s.startDate,
-          endDate: s.endDate,
+          // every meta field — a trail link added to the draft must survive its
+          // first save, and so must the dates, which sit in the same meta row and
+          // are set the same way; LIST_META_KEYS is what keeps the next one from
+          // being forgotten here
+          ...pickListMeta(s),
           data: { folders: s.folders, items: s.items, days: s.days ?? [], waypoints: s.waypoints ?? [], people: s.people ?? [] },
         },
       });
@@ -599,12 +585,14 @@ function create() {
         body: { ops },
       });
       if (myEpoch !== epoch) return; // controller moved to a different list
-      if (!isEditing) {
+      if (!isEditing && snapshot.value) {
         // adopt the authoritative merged snapshot, then re-apply ops queued while
         // this request was in flight (rebase) so nothing is lost or clobbered.
+        // Patched INTO the live snapshot rather than swapped in for it: a swap
+        // re-rendered every row after every settled edit (see shared/reconcile).
         const merged = res.snapshot;
         if (pending.length) applyOps(merged, pending);
-        snapshot.value = merged;
+        reconcileSnapshot(snapshot.value, merged);
       }
       // While mid-edit: keep local content AND do NOT advance the local version,
       // so the post-blur poll (since < server version) still delivers the merge.
@@ -670,15 +658,16 @@ function create() {
     }
   }
 
+  // never adopt mid-drag (item OR folder): a reshuffle under the pointer would
+  // commit the drop against pre-adoption geometry
+  const dragging = () => useItemDnd().dragId.value != null || useFolderDnd().dragId.value != null;
+
   function startPoll() {
     stopPoll();
     pollTimer = setInterval(async () => {
       if (typeof document !== "undefined" && document.hidden) return;
       if (!online.value) return; // nothing to pull while the connection is down
-      if (inFlight || pending.length || !snapshot.value) return;
-      // never adopt mid-drag (item OR folder): a reshuffle under the pointer would
-      // commit the drop against pre-adoption geometry
-      if (useItemDnd().dragId.value != null || useFolderDnd().dragId.value != null) return;
+      if (inFlight || pending.length || !snapshot.value || dragging()) return;
       const myEpoch = epoch;
       try {
         const res = await $fetch<{ version: number; snapshot?: ListSnapshot }>(
@@ -695,10 +684,9 @@ function create() {
           !isEditing &&
           !pending.length &&
           !inFlight &&
-          useItemDnd().dragId.value == null &&
-          useFolderDnd().dragId.value == null
+          !dragging()
         ) {
-          snapshot.value = res.snapshot;
+          reconcileSnapshot(snapshot.value, res.snapshot); // in place — see flush()
           syncRegistry();
           // mirror the adopted merge on device — the guards above guarantee the
           // queue is empty, so a hard tab kill can't leave a stale local copy
@@ -806,8 +794,18 @@ function create() {
     const ti = without.findIndex((f) => f.id === targetId);
     if (ti < 0) return;
     without.splice(before ? ti : ti + 1, 0, moving);
-    without.forEach((f, idx) => {
-      if (f.sortOrder !== idx) updateFolder(f.id, { sortOrder: idx });
+    renumber(without, (id, sortOrder) => updateFolder(id, { sortOrder }));
+  }
+  // Make `rows` (already in display order) gapless: one patch per row whose sortOrder
+  // isn't its position. Folders after a drag, days and people after a removal all
+  // need it, so the numbering a person reads ("Day 3", the chip order) stays the
+  // position in the list rather than drifting from it.
+  function renumber(
+    rows: readonly { id: string; sortOrder: number }[],
+    update: (id: string, sortOrder: number) => void,
+  ) {
+    rows.forEach((r, i) => {
+      if (r.sortOrder !== i) update(r.id, i);
     });
   }
   // ---- trip days ----
@@ -852,12 +850,10 @@ function create() {
   const removeWaypoint = (id: string) => dispatch({ t: "removeWaypoint", id });
   function removeDay(id: string) {
     dispatch({ t: "removeDay", id });
-    // close the gap so the numbering a person reads ("Day 3") stays the position in the
-    // trip rather than drifting from it
-    const rest = (snapshot.value?.days ?? []).slice().sort(bySortOrder);
-    rest.forEach((d, i) => {
-      if (d.sortOrder !== i) dispatch({ t: "updateDay", id: d.id, patch: { sortOrder: i } });
-    });
+    // close the gap so "Day 3" stays the third day — see renumber
+    renumber((snapshot.value?.days ?? []).slice().sort(bySortOrder), (id, sortOrder) =>
+      updateDay(id, { sortOrder }),
+    );
   }
 
   // ---- people ----
@@ -892,10 +888,7 @@ function create() {
     // renumber like removeDay, so the chip order a person reads stays gapless.
     // NOT the place that widens a filter aimed at whoever just left — GearEditor's
     // watcher owns that, and covers a COLLABORATOR's removal arriving by poll too.
-    const rest = sortedPeople(snapshot.value?.people);
-    rest.forEach((p, i) => {
-      if (p.sortOrder !== i) dispatch({ t: "updatePerson", id: p.id, patch: { sortOrder: i } });
-    });
+    renumber(sortedPeople(snapshot.value?.people), (id, sortOrder) => updatePerson(id, { sortOrder }));
   }
 
   function removeFolder(id: string) {
@@ -1176,18 +1169,12 @@ function create() {
       const my = useMyLists();
       const prev = my.entries.value.find((e) => e.editToken === old);
       // always persist the NEW token, even if the old registry entry was missing,
-      // so a rotate can never strand the only copy of the write capability
+      // so a rotate can never strand the only copy of the write capability — built
+      // from the snapshot by the same mapping registerCreated uses
       const base =
         prev ??
         (snapshot.value
-          ? {
-              shareCode: snapshot.value.shareCode,
-              slug: snapshot.value.slug,
-              title: snapshot.value.title,
-              totalMg: totals.value?.totalMg ?? 0,
-              version: snapshot.value.version,
-              displayUnit: snapshot.value.displayUnit, // keep the unit system through a rotate
-            }
+          ? my.entryFromSnapshot({ editToken: res.editToken, snapshot: snapshot.value }, totals.value?.totalMg ?? 0)
           : null);
       if (old) my.forget(old); // also drops the old token's on-device record
       // the claimed open's record re-keys onto the token; leaving the code-keyed
@@ -1228,20 +1215,14 @@ function create() {
     useItemDnd().reset();
     useFolderDnd().reset();
     stopPoll();
-    clearTimeout(flushTimer);
-    clearTimeout(retryTimer); // a backoff must not fire into the session that replaced this one
-    flushFailures = 0;
     clearTimeout(undoTimer);
     pendingUndo.value = null;
     teardownListeners?.();
     snapshot.value = null;
-    pending = [];
     editToken = "";
     claimCode = "";
     openedByCode.value = false;
-    inFlight = false;
-    isEditing = false;
-    remoteMissing = false;
+    resetSession();
     status.value = "idle";
   }
 

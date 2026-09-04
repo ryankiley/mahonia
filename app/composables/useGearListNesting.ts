@@ -24,7 +24,7 @@ import type { Ref } from "vue";
  * behaved. The tests drive the real controller and were mutation-checked against
  * three deliberate breakages before this ran.
  */
-export interface NestingDeps {
+interface NestingDeps {
   snapshot: Ref<ListSnapshot | null>;
   dispatch: (op: Op) => void;
   /** The row that should take the caret once it renders — see useGearList. */

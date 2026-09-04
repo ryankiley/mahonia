@@ -8,7 +8,7 @@
 import type { Item, ListData } from "../types";
 import { bySortOrder, groupItemsByParent, sortedFolderItems, ungroupedTopLevel } from "../weights";
 
-export interface ExportSection {
+interface ExportSection {
   name: string;
   rows: { item: Item; children: Item[] }[];
 }

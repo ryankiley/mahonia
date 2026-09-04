@@ -67,15 +67,6 @@ body {
   hanging-punctuation: first last;
 }
 
-// interpolate-size — enables transitions to/from auto / min-content / etc.
-// (animated disclosure without JS height measurement). Gated behind
-// reduced-motion so the preference is respected.
-@media (prefers-reduced-motion: no-preference) {
-  :root {
-    interpolate-size: allow-keywords;
-  }
-}
-
 // Don't let long unbroken strings (URLs, tokens) force horizontal overflow.
 p,
 h1,
@@ -150,9 +141,6 @@ button {
 button,
 input[type="checkbox"] {
   touch-action: manipulation;
-}
-textarea:not([rows]) {
-  min-height: 10em;
 }
 
 // Links inherit ink, no underline — styled per component.

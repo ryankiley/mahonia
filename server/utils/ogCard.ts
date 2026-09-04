@@ -189,37 +189,26 @@ function siteCardVnode(): Vnode {
   );
 }
 
-function ogSiteCardSvg(fonts: SatoriOptions["fonts"]): Promise<string> {
-  return satori(siteCardVnode(), { width: OG_IMAGE_WIDTH, height: OG_IMAGE_HEIGHT, fonts });
-}
-
-export async function renderOgSiteCard(fonts: SatoriOptions["fonts"]): Promise<Buffer> {
-  return new Resvg(await ogSiteCardSvg(fonts), { font: { loadSystemFonts: false } })
-    .render()
-    .asPng();
-}
-
-/** The card as SVG — the testable middle step (deterministic string out).
+/** A card as SVG — the testable middle step (deterministic string out).
  *  `fonts` stays a parameter as the test seam: the routes load them from Nitro
  *  server assets (ogFonts), the tests from the filesystem. */
-export function ogCardSvg(m: OgCardModel, fonts: SatoriOptions["fonts"]): Promise<string> {
-  return satori(cardVnode(m), { width: OG_IMAGE_WIDTH, height: OG_IMAGE_HEIGHT, fonts });
+function svgOf(vnode: Vnode, fonts: SatoriOptions["fonts"]): Promise<string> {
+  return satori(vnode, { width: OG_IMAGE_WIDTH, height: OG_IMAGE_HEIGHT, fonts });
 }
 
-/** The card as PNG bytes. Skip resvg's default system-font scan: satori has
+/** A card as PNG bytes. Skip resvg's default system-font scan: satori has
  *  already turned every glyph into a <path>, so there is no text left to shape
  *  and the scan would walk the platform's font directories per render for
  *  nothing. */
-export async function renderOgCard(
-  m: OgCardModel,
-  fonts: SatoriOptions["fonts"],
-): Promise<Buffer> {
-  return new Resvg(await ogCardSvg(m, fonts), {
-    font: { loadSystemFonts: false },
-  })
+async function pngOf(vnode: Vnode, fonts: SatoriOptions["fonts"]): Promise<Buffer> {
+  return new Resvg(await svgOf(vnode, fonts), { font: { loadSystemFonts: false } })
     .render()
     .asPng();
 }
+
+export const renderOgSiteCard = (fonts: SatoriOptions["fonts"]) => pngOf(siteCardVnode(), fonts);
+export const ogCardSvg = (m: OgCardModel, fonts: SatoriOptions["fonts"]) => svgOf(cardVnode(m), fonts);
+export const renderOgCard = (m: OgCardModel, fonts: SatoriOptions["fonts"]) => pngOf(cardVnode(m), fonts);
 
 /**
  * The whole response tail the two og routes share: model → fonts → render →

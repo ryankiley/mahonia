@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { hasRealContent } from "~~/shared/localList";
+
 // The list's live sync state + last-edit time, in one quiet text line on the
 // leading edge of the editor's top bar. The words carry the state — "Syncing…",
 // "Synced · edited 1 hour ago", "Offline · saved on device" — and the state word
@@ -23,11 +25,9 @@ const editedAt = computed(() => {
   return Number.isFinite(t) ? t : null;
 });
 
-// mirrors the controller's hasRealContent gate (a name or a weight; a bare
+// the controller's own hasRealContent gate (a name or a weight; a bare
 // "Add an item" row doesn't count) — drives the empty-new-list case below
-const hasContent = computed(
-  () => !!snapshot.value?.items.some((i) => i.name.trim() !== "" || i.unitWeightMg > 0),
-);
+const hasContent = computed(() => !!snapshot.value && hasRealContent(snapshot.value));
 
 // state word (announced on change) and the time suffix (silent, updates in place)
 // are kept apart so the 30s tick never re-announces the state
@@ -77,7 +77,7 @@ const shown = computed(() => stateWord.value !== "" || timeSuffix.value !== "");
 </script>
 
 <template>
-  <p v-if="shown" class="syncstatus" :class="{ 'is-alert': status === 'error' }">
+  <p v-if="shown" class="syncstatus t-clip" :class="{ 'is-alert': status === 'error' }">
     <!-- polite live region: the state word swaps in place and re-announces on
          change, while the time suffix updates silently outside it (so the 30s tick
          never re-announces) --><span
@@ -93,15 +93,11 @@ const shown = computed(() => stateWord.value !== "" || timeSuffix.value !== "");
      the production build with "Invalid media query" — dev is happy either way. -->
 <style scoped lang="scss">
 .syncstatus {
-  margin: 0;
   color: var(--ink-3);
   /* the chrome tier, not body size: this annotates the app rather than being part of
      the list, and it shares a dense toolbar with 32px icon buttons */
   font-size: var(--text-chrome);
-  /* one line; a long "edited Jul 8" clips rather than wraps */
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  /* one line; a long "edited Jul 8" clips rather than wraps — .t-clip, on the element */
 }
 /* Below the stack point the bar is genuinely tight — the mode toggle, share and kebab
    leave ~130px, and the full string wants ~180. Drop the TIME rather than ellipsis the

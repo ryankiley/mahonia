@@ -32,9 +32,10 @@
 
 import type { H3Event } from "h3";
 import { createError } from "h3";
+import { verifyRegistrationResponse } from "@simplewebauthn/server";
 import { trustedHost, trustedOrigin } from "./origin";
 import { randomSecret, sha256Hex } from "./tokens";
-import { useKv } from "./rateLimit";
+import { sharedKvConfigured, useKv } from "./rateLimit";
 
 /** How long a registration/sign-in ceremony may stay open. The user has to touch
  *  a sensor; a couple of minutes is generous and bounds the challenge store. */
@@ -64,29 +65,25 @@ export function newAccountHandle(): string {
 export const RP_NAME = "Mahonia";
 
 /**
- * Can this deployment run a passkey ceremony at all?
+ * The refusal every passkey endpoint opens with: fail up front, loudly, rather
+ * than at verify with nothing to explain it. One message to maintain.
  *
- * A ceremony is TWO requests — options (which writes the challenge) then verify
- * (which reads it) — so the challenge store must be shared across instances. In
- * production the KV binding falls back to an in-memory driver when Upstash isn't
- * configured (see nuxt.config), and on Vercel the two requests routinely land on
- * different serverless instances: verify would find nothing and every sign-in
- * would fail, with nothing in the response to say why.
+ * Can this deployment run a passkey ceremony at all? A ceremony is TWO requests —
+ * options (which writes the challenge) then verify (which reads it) — so the
+ * challenge store must be shared across instances. In production the KV binding
+ * falls back to an in-memory driver when Upstash isn't configured (see
+ * nuxt.config), and on Vercel the two requests routinely land on different
+ * serverless instances: verify would find nothing and every sign-in would fail,
+ * with nothing in the response to say why.
  *
  * Rate limiting tolerates that fallback — it degrades to per-instance counting and
- * the app keeps serving. Passkeys don't degrade, they break. So this is checked up
- * front and reported as a misconfiguration instead of a mysterious failed sign-in.
- * Same env vars nuxt.config tests, so the two can't disagree.
+ * the app keeps serving (see useKv). Passkeys don't degrade, they break. So the
+ * same check (sharedKvConfigured — one function, so the two can't disagree) is
+ * made up front here and reported as a misconfiguration instead of a mysterious
+ * failed sign-in.
  */
-function passkeysConfigured(): boolean {
-  if (process.env.NODE_ENV !== "production") return true; // dev's in-memory KV is one process
-  return Boolean(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN);
-}
-
-/** The refusal every passkey endpoint opens with: fail up front, loudly, rather
- *  than at verify with nothing to explain it. One message to maintain. */
 export function requirePasskeysConfigured(): void {
-  if (passkeysConfigured()) return;
+  if (sharedKvConfigured()) return;
   console.error(
     "[passkey] no shared KV configured (KV_REST_API_URL / KV_REST_API_TOKEN) — passkeys are unavailable",
   );
@@ -147,4 +144,55 @@ export async function takeChallenge(flowId: string): Promise<StoredChallenge | n
   // burn it immediately — a 1-second TTL is how this KV surface expresses a delete
   await kv.setItem(key, null, { ttl: 1 });
   return found;
+}
+
+/** What a verified registration leaves us to store — the credential as
+ *  savePasskey takes it, plus the one fact the two callers read differently. */
+interface VerifiedRegistration {
+  credentialId: string;
+  /** base64url COSE key, the storage form */
+  publicKey: string;
+  counter: number;
+  transports: string[] | null;
+  /** A synced/multi-device credential is discoverable by construction; a
+   *  hardware key may not be. register-verify stores this as `discoverable`;
+   *  signup-verify ignores it, since signup demands a resident key. */
+  syncable: boolean;
+}
+
+/**
+ * Verify what an authenticator produced for a registration ceremony, against the
+ * challenge we issued and the origin/RP ID of THIS request — never the body's, as
+ * they're the binding that makes a passkey unphishable. Null on any failure
+ * (thrown or merely unverified), logged under `tag`, so both registration routes
+ * answer the same "invalid" without repeating the try/catch.
+ */
+export async function verifyPasskeyRegistration(
+  event: H3Event,
+  response: unknown,
+  challenge: string,
+  tag: string,
+): Promise<VerifiedRegistration | null> {
+  let verification;
+  try {
+    verification = await verifyRegistrationResponse({
+      response: response as never,
+      expectedChallenge: challenge,
+      expectedOrigin: originFor(event),
+      expectedRPID: rpIdFor(event),
+      requireUserVerification: false, // a hardware key with no PIN is still a fine second factor
+    });
+  } catch (e) {
+    console.error(tag, e);
+    return null;
+  }
+  const info = verification.registrationInfo;
+  if (!verification.verified || !info) return null;
+  return {
+    credentialId: info.credential.id,
+    publicKey: Buffer.from(info.credential.publicKey).toString("base64url"),
+    counter: info.credential.counter,
+    transports: info.credential.transports ?? null,
+    syncable: Boolean(info.credentialDeviceType === "multiDevice" || info.credentialBackedUp),
+  };
 }

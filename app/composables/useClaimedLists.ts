@@ -11,7 +11,8 @@
 import { LIST_CODE_HEADER } from "~~/shared/links";
 import { claimedLocalKey } from "~~/shared/localList";
 import type { Unit } from "~~/shared/types";
-import { remember } from "../utils/remember";
+import { forget, recall, remember } from "../utils/remember";
+import { deleteListOnServer } from "./useMyLists";
 
 export interface ClaimedList {
   shareCode: string;
@@ -28,7 +29,10 @@ export interface ClaimedList {
 // held in memory: the claim call would otherwise repeat on every cold navigation.
 const CLAIMED_MARK_KEY = "gear.claimed.v1";
 
-function deviceFingerprint(tokens: string[]): string {
+/** The registry as one comparable string. Exported so the session plugin, which
+ *  watches for the registry to change, computes the same value it then passes in
+ *  here — one fingerprint per change, not one per watcher and one per claim. */
+export function deviceFingerprint(tokens: string[]): string {
   return [...tokens].sort().join("|");
 }
 
@@ -62,8 +66,10 @@ export function useClaimedLists() {
    * Skipped when the registry hasn't changed since the last successful claim —
    * the call is idempotent server-side, but there's no reason to make it on every
    * page load. Creating a new list changes the fingerprint, so it re-runs then.
+   * `fingerprint` is that value when the caller already has it (the session plugin
+   * computed it to notice the change); otherwise it's taken here.
    */
-  async function claimDeviceLists(): Promise<void> {
+  async function claimDeviceLists(fingerprint?: string): Promise<void> {
     if (!import.meta.client || !signedIn.value) return;
     // The registry, split by what this browser knows about each row. Lists it made
     // are claimed outright. Lists that arrived through someone else's edit link go
@@ -83,13 +89,9 @@ export function useClaimedLists() {
     // re-runs the sweep. (It also retires every mark written by the version that
     // fingerprinted one bucket — which is what re-sweeps the lists this bug had
     // already stranded, without anything to migrate.)
-    const mark = deviceFingerprint([...editTokens, ...openedTokens]);
-    let seen = "";
-    try {
-      seen = localStorage.getItem(CLAIMED_MARK_KEY) ?? "";
-    } catch {
-      // storage blocked — fall through and claim; it's idempotent
-    }
+    const mark = fingerprint ?? deviceFingerprint([...editTokens, ...openedTokens]);
+    // storage blocked reads as "" — fall through and claim; it's idempotent
+    const seen = recall(CLAIMED_MARK_KEY) ?? "";
     if ((editTokens.length || openedTokens.length) && mark === seen) {
       // nothing new to attach, but we still want the account's own list
       if (!loaded.value) await refresh();
@@ -141,14 +143,7 @@ export function useClaimedLists() {
    *  contract as useMyLists().deleteList: already-gone counts as done, any other
    *  failure leaves everything standing so the user can retry. */
   async function deleteClaimed(shareCode: string): Promise<boolean> {
-    try {
-      await $fetch("/api/edit/delete", {
-        method: "POST",
-        headers: { [LIST_CODE_HEADER]: shareCode },
-      });
-    } catch (e) {
-      if ((e as { statusCode?: number })?.statusCode !== 404) return false;
-    }
+    if (!(await deleteListOnServer({ [LIST_CODE_HEADER]: shareCode }))) return false;
     lists.value = lists.value.filter((l) => l.shareCode !== shareCode);
     // drop the claimed open's on-device copy too — the list is gone for good
     useLocalListStore().del(claimedLocalKey(shareCode));
@@ -174,11 +169,7 @@ export function useClaimedLists() {
    *  on this browser claims its own registry rather than seeing ours already done. */
   function resetClaimMark(): void {
     if (!import.meta.client) return;
-    try {
-      localStorage.removeItem(CLAIMED_MARK_KEY);
-    } catch {
-      // nothing to do; the mark is an optimisation, not state we depend on
-    }
+    forget(CLAIMED_MARK_KEY); // a blocked remove is nothing to do about; the mark is an optimisation, not state we depend on
     lists.value = [];
     loaded.value = false;
   }
