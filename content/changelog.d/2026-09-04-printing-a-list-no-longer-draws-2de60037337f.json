@@ -1,6 +1,7 @@
 {
   "date": "2026-09-04",
   "fixed": [
-    "Printing a list no longer draws the top bar's dividing line across the page."
+    "Printing a list no longer draws the top bar's dividing line across the page.",
+    "Printing a list no longer underlines the item names."
   ]
 }
