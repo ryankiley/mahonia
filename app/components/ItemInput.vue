@@ -547,14 +547,14 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
      card's visual edge (the .popover outline-not-border fix keeps the overflow
      clip flush; it was a 1px-inset ledge that made this crop read as broken).
      A full-text fold read as a complete list and left the card too tall. One row
-     = 2×space-2 padding + a 1.5-line-height text-sm line; phrasing it in the
+     = 2×space-2 padding + a 1.5-line-height text-base line; phrasing it in the
      same vars keeps the fold mid-row past the 1920px anchor where the type (and
      the rows) scale fluidly. The dvh cap keeps it on-screen on small devices
      (dvh tracks the collapsing mobile URL bar; vh line = older-browser fallback). */
   /* +2px: an eye-tuned crop point rather than a derived one — a hair more of the fold
      row's glyphs, which is what makes the cut read as a fold and not a clip */
-  max-height: min(calc(10.5 * (2 * var(--space-2) + 1.5 * var(--text-sm)) + var(--space-2) + 2px), 55vh);
-  max-height: min(calc(10.5 * (2 * var(--space-2) + 1.5 * var(--text-sm)) + var(--space-2) + 2px), 50dvh);
+  max-height: min(calc(10.5 * (2 * var(--space-2) + 1.5 * var(--text-base)) + var(--space-2) + 2px), 55vh);
+  max-height: min(calc(10.5 * (2 * var(--space-2) + 1.5 * var(--text-base)) + var(--space-2) + 2px), 50dvh);
   overflow-y: auto;
   /* never a horizontal bar: overflow-y alone computes overflow-x to auto, and with
      classic (always-shown) scrollbars the vertical bar narrows the rows, so any
@@ -573,7 +573,6 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
      viewport edge; a surface that does reads as a system sheet rather than part of
      the page. */
   .ac__menu {
-    left: 0;
     right: 0;
     width: auto;
   }
@@ -585,7 +584,7 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
   gap: var(--space-3);
   padding: var(--space-2) var(--space-2);
   cursor: pointer;
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   /* concentric radius + hover tint are pinned on the shared .popover surface */
   border-radius: var(--popover-item-radius);
 }
@@ -669,7 +668,7 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
   flex: none;
 }
 .ac__w {
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   color: var(--ink-2);
 }
 </style>

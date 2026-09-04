@@ -91,7 +91,7 @@ defineEmits<{ pick: [key: string] }>();
 .headline__big {
   font-size: var(--text-display);
   line-height: 0.95;
-  letter-spacing: -0.02em;
+  letter-spacing: var(--track-tight);
 }
 
 /* unit + chevron travel together as one object, so the mark stays tight to the word it

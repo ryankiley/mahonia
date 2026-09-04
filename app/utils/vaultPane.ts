@@ -8,8 +8,10 @@
 
 /** Starting width, in px. 368 = 23rem. */
 const VAULT_W_DEFAULT = 368;
-const VAULT_W_MIN = 288;
-const VAULT_W_MAX = 720;
+/** The usable range, in px — exported so the pane's resize handle can announce the
+ *  same bounds (aria-valuemin/max) that the clamp below enforces. */
+export const VAULT_W_MIN = 288;
+export const VAULT_W_MAX = 720;
 
 /**
  * Hold a width inside the pane's usable range. Applied on the way IN as well as on

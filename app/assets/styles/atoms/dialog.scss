@@ -38,6 +38,10 @@
   max-height: 100%;
   overflow-y: auto;
   overscroll-behavior: contain;
+  // the scrim just fades (.ovl-* below); the dialog itself rises in, same for every modal
+  transition:
+    transform var(--dur) var(--ease-spring),
+    opacity var(--dur) var(--ease);
 }
 
 /* The account is NARROWER than the shared 30rem. Its widest state is a column of
@@ -47,9 +51,15 @@
    applied where the dialog is now the measure.
    Opt-in via :has(), the same way .menu__plate attaches — no prop to thread through
    BaseModal for one caller's width. */
-.dlg:has(> .acct),
-.dlg:has(> .acctmodal__head) {
+.dlg:has(> .acct) {
   max-width: 26rem;
+}
+/* the item a dialog is about, named as its title — the catalog correction and the
+   vault entry editor both open on one */
+.dlg__item {
+  font-size: var(--text-title);
+  font-weight: 600;
+  letter-spacing: var(--track-tight);
 }
 .dlg__field {
   display: flex;
@@ -90,12 +100,6 @@
 .ovl-enter-from,
 .ovl-leave-to {
   opacity: 0;
-}
-// the scrim just fades; the dialog itself rises in (same for every modal)
-.dlg {
-  transition:
-    transform var(--dur) var(--ease-spring),
-    opacity var(--dur) var(--ease);
 }
 .ovl-enter-from .dlg {
   transform: translateY(12px);

@@ -149,7 +149,7 @@
 }
 
 /* A list that names people shows up to SIX trailing icons on a row (the person
-   trigger joined vault · nest · remove · note · grip), one past the track's
+   trigger joined vault · nest · remove · ⋯ · grip), one past the track's
    reserved worst case — re-derive the reservation for six, but only under the
    body class GearEditor sets when people exist, so every other list keeps the
    narrower track and its wider name column. Same −9px grip-gutter overshoot,
@@ -184,14 +184,13 @@
 }
 
 /* collapse a nested group — hide/show its children with the folder's 1fr↔0fr grid
-   slide (Safari-safe). Shared by the editor's ItemRow and the share views'
+   slide (collapse-grid, tokens.scss). Shared by the editor's ItemRow and the share views'
    ReadonlyItemRow: the .nest-block inner needs min-height:0 + overflow:hidden to clip
    the reveal, and its parent→child margin collapses too so a closed group leaves no
    orphan gap. (The editor additionally lifts the clip while an autocomplete/drag is
    live — that override lives in ItemRow, which is the only view with those.) */
 .nestcollapse {
-  display: grid;
-  grid-template-rows: 1fr;
+  @include t.collapse-grid;
   transition: grid-template-rows var(--dur) var(--ease);
 }
 .nestcollapse[data-collapsed] {
@@ -214,23 +213,16 @@
   align-self: center;
   display: flex;
   align-items: center;
-  padding: 0;
   margin-left: -1px;
   color: var(--ink-3);
-  cursor: pointer;
   transition: color var(--dur) var(--ease);
 }
 .item__nestcollapse:hover {
   color: var(--ink);
 }
 .item__nestchev {
-  transition: transform var(--dur) var(--ease);
-  /* standing layer so WebKit doesn't re-snap the glyph ~1px when it layers for the
-     rotate (same quirk handled on .folder__chev) */
-  will-change: transform;
-}
-.item__nestchev.is-collapsed {
-  transform: rotate(-90deg);
+  /* the folder chevron's recipe, standing layer included (tokens.scss) */
+  @include t.collapse-chevron;
 }
 @media (pointer: coarse) {
   /* touch: the ~44px tap target, grown rightward + vertically and pulled back out of
@@ -341,9 +333,6 @@
   color: var(--ink-3);
   white-space: nowrap;
 }
-.item__carrier-dot {
-  vertical-align: 0.04em; /* the CategoryBar dot's optical centring */
-}
 
 /* The quiet "Add an item" affordance — ONE recipe for the folder's add row and a nested
    group's alike, which were hand-copied from each other (right down to needing the mobile
@@ -360,11 +349,8 @@
   gap: var(--space-2);
   min-height: var(--field-h);
   padding: var(--space-1) 0;
-  background: none;
-  border: 0;
   font-size: var(--text-base);
   color: var(--ink-3);
-  cursor: pointer;
   transition: color var(--dur) var(--ease);
 }
 .folder__addbtn:hover,

@@ -146,9 +146,7 @@ const groups = computed(() => {
 .vpick__row + .vpick__row {
   border-top: 1px solid var(--line);
 }
-/* checkbox — the ItemRow recipe (atoms would be better, but the two are far enough
-   apart in markup that hoisting them isn't a clean win yet): invisible native input
-   over a Square/SquareCheck pair */
+/* the row's hover darkens its .check atom's box, via the inherited ink */
 .vpick__row:hover .check__icon {
   color: var(--ink);
 }

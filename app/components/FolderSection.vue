@@ -133,9 +133,9 @@ function toggleCollapsed() {
       <!-- trailing actions read left→right: delete · reorder-grip (grip stays flush
            at the edge, matching the item rows) -->
       <!-- hidden in packing by the mode CSS (atoms/folder.scss), not a v-if: these
-           fourteen clusters (delete, grip, their tooltips) were the last
-           thing still MOUNTING on every packing→gear switch after the rows stopped —
-           ~240ms of the switch was rebuilding folder chrome. -->
+           fourteen clusters (a delete and a grip apiece) were the last thing still
+           MOUNTING on every packing→gear switch after the rows stopped — ~240ms of
+           the switch was rebuilding folder chrome. -->
       <div class="folder__actions">
         <button
           class="btn btn--icon btn--ghost folder__del"
@@ -205,7 +205,6 @@ function toggleCollapsed() {
 .folder--drop-after::after {
   bottom: calc(-0.5 * var(--space-7));
 }
-/* same column template as ItemRow so the remove + grip line up with item controls */
 /* packing mode drops the folder's trailing actions, so the header's grid narrows
    to match the packing item rows */
 .folder__head--packed {
@@ -247,21 +246,9 @@ function toggleCollapsed() {
   opacity: 1;
 }
 
-/* A folder's controls are ALWAYS visible, on every pointer.
-   They used to fade in on hover — a clean header at rest, with only the grip
-   standing. The item rows made the opposite call and it held: an affordance you
-   have to discover by sweeping the pointer over the thing is one most people never
-   learn is there, and the header is where a folder is renamed, reordered and
-   removed. Touch had them permanently anyway, so
-   the hover branch was also the only place the two pointer types disagreed about
-   what the app can do.
-   The controls are already quiet enough to sit there: --ink-3 glyphs that deepen
-   on hover, which is the affordance doing its job rather than announcing itself. */
-
+/* the name + actions restack is the atom's (atoms/folder.scss); only the packing
+   variants are the editor's — /gear has no checklist */
 @media (max-width: $bp-stack) {
-  .folder__head {
-    --head-cols: 1fr auto;
-  }
   /* keep packing mode matching the checklist COLUMNS so the folder total stays aligned
      with item weights on mobile too (the checklist ROW itself restacks to
      `auto auto 1fr` here — the header keeps the desktop columns and just needs the
@@ -269,17 +256,11 @@ function toggleCollapsed() {
   .folder__head--packed {
     --head-cols: var(--item-cols-pack);
   }
-  .folder__title {
-    grid-column: 1;
-  }
   /* checklist/packing mode has no trailing actions, so let the title span the WHOLE
      row — otherwise the empty 1fr data column steals the width and the name
      truncates with room to spare (e.g. "Miscellaneous …") */
   .folder__head--packed .folder__title {
     grid-column: 1 / -1;
-  }
-  .folder__actions {
-    grid-column: auto;
   }
   /* the 44px touch tap targets keep their size but overflow the (shorter) 36px
      title field via negative margins — otherwise they inflate the editing header

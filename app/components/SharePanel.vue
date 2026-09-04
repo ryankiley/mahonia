@@ -89,7 +89,7 @@ async function addToAccount() {
   // success flips canAddToAccount and the button simply leaves. Nothing takes its
   // place: the list is on the account, which is what you asked for and what the
   // absence now means.
-  const ok = await useClaimedLists().claimOne(props.editToken);
+  const ok = await claimed.claimOne(props.editToken);
   claimFailed.value = !ok;
   claiming.value = false;
 }
@@ -165,12 +165,10 @@ onMounted(() => {
 // weight, or adding one thing while removing another all leave the count unmoved,
 // and those correctly fall back to "Edited" rather than inventing a description.
 // The oldest entry has nothing older to compare against, so it does too.
-const RESTORE_LABEL = "Restored an earlier version";
-
 function changeLabel(i: number): string {
   const s = activity.value[i];
   if (!s) return "Edited";
-  if (s.reason === "before restore") return RESTORE_LABEL;
+  if (s.reason === "before restore") return "Restored an earlier version";
   // Snapshots written since summaries shipped carry one in `reason` (see
   // shared/changeSummary). "edit" is the old constant, and everything older than
   // this change has it — those fall back to the count delta, which can still tell
@@ -218,7 +216,7 @@ function changeLabel(i: number): string {
             :value="readUrl"
             readonly
             tabindex="-1"
-            :aria-label="'Read-only link'"
+            aria-label="Read-only link"
             @focus="selectAll"
             @click="selectAll"
           />
@@ -238,7 +236,7 @@ function changeLabel(i: number): string {
               :value="editUrl"
               readonly
               tabindex="-1"
-              :aria-label="'Edit link'"
+              aria-label="Edit link"
               @focus="selectAll"
               @click="selectAll"
             />
@@ -410,7 +408,7 @@ function changeLabel(i: number): string {
   background: var(--paper-2);
   color: var(--ink-2);
   font: inherit;
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   text-overflow: ellipsis;
 }
 /* Copy is FILLED a step deeper than the field beside it: it is the one thing you

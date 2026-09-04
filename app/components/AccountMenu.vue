@@ -47,10 +47,7 @@ useMenuDismiss(open, menuRef);
 async function onSignOut() {
   open.value = false;
   await signOut();
-  // drop both per-account memos so the next person to sign in on this device
-  // starts clean rather than inheriting "already sent" / "already claimed"
-  resetVaultCapture();
-  useClaimedLists().resetClaimMark();
+  clearAccountMemos();
   await navigateTo("/e");
 }
 

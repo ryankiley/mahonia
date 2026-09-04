@@ -43,7 +43,6 @@ const productUrl = ref("");
 const classification = ref<Classification>("base");
 const saving = ref(false);
 const error = ref("");
-const nameEl = useTemplateRef<HTMLInputElement>("nameEl");
 
 // What the dialog opened with. The patch is the DIFF against this, because a field
 // that reaches the server gets PINNED — and pinning is a promise about the future,
@@ -191,7 +190,7 @@ async function onSubmit() {
 
       <label class="dlg__field">
         <span class="t-sm t-muted">Name</span>
-        <input ref="nameEl" v-model="name" class="field" autocomplete="off" autocorrect="off" spellcheck="false" @keydown.enter="onSubmit" />
+        <input v-model="name" class="field" autocomplete="off" autocorrect="off" spellcheck="false" @keydown.enter="onSubmit" />
       </label>
 
       <!-- the placeholder is ItemRow's, word for word, so the field is named the same
@@ -262,13 +261,8 @@ async function onSubmit() {
 </template>
 
 <style scoped lang="scss">
-/* the overlay, the shell, the field stack and the action row are atoms/dialog.scss —
-   only the pairs and the error line are this dialog's own */
-.dlg__item {
-  font-size: var(--text-title);
-  font-weight: 600;
-  letter-spacing: var(--track-tight);
-}
+/* the overlay, the shell, the item title, the field stack and the action row are
+   atoms/dialog.scss — only the pairs and the error line are this dialog's own */
 /* Two short fields on one line. Brand/variant and weight/type are each a pair you
    read together, and a single stacked column of eight fields makes the dialog scroll
    on a phone before you reach Save. */

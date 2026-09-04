@@ -16,10 +16,8 @@ import { Cancel01Icon } from "@hugeicons/core-free-icons";
 //
 // Bottom-RIGHT (the .toast--corner atom): the centre is where passing messages
 // land, and something that stays parked there would be in their way.
-const { show, lede, dismissLabel = "Dismiss", variant = "corner" } = defineProps<{
+const { show, dismissLabel = "Dismiss", variant = "corner" } = defineProps<{
   show: boolean;
-  /** the quieter half — what this is about; the slot carries what's being asked */
-  lede?: string;
   /** what the × means here, since dismissing answers the question */
   dismissLabel?: string;
   /**
@@ -49,7 +47,6 @@ const emit = defineEmits<{ dismiss: [] }>();
            placement (and the same reasoning) as the vault mark in the autocomplete -->
       <span v-if="$slots.icon" class="prompt__icon" aria-hidden="true"><slot name="icon" /></span>
       <span class="prompt__text">
-        <span v-if="lede" class="prompt__lede">{{ lede }}</span>
         <slot />
       </span>
       <slot name="action" />
@@ -59,17 +56,17 @@ const emit = defineEmits<{ dismiss: [] }>();
     </div>
 
     <!-- Inline: it sits IN the column, so dismissing it moves everything below.
-         It leaves through a height animation — the house recipe, a grid whose
-         single row runs 1fr↔0fr with the inner clipping (the packing bar and a
-         row's note use the same one; height:auto↔0 would just snap in Safari,
-         which has no interpolate-size). The content below eases up instead of
-         jumping. -->
-    <div v-else-if="show" class="prompt-reveal" role="status">
-      <div class="prompt-reveal__inner">
+         It leaves through a height animation — the .reveal atom (controls.scss), a
+         grid whose single row runs 1fr↔0fr with the inner clipping (a row's note and
+         the ⋯ menu's Export section ride the same one; height:auto↔0 would just snap
+         in Safari, which has no interpolate-size). The content below eases up instead
+         of jumping. Only the geometry is borrowed: the transition is this file's own,
+         because the atom's `reveal` transition slides its content too. -->
+    <div v-else-if="show" class="reveal" role="status">
+      <div>
         <div class="prompt prompt--inline">
           <span v-if="$slots.icon" class="prompt__icon" aria-hidden="true"><slot name="icon" /></span>
           <span class="prompt__text">
-            <span v-if="lede" class="prompt__lede">{{ lede }}</span>
             <slot />
           </span>
           <slot name="action" />
@@ -90,11 +87,11 @@ const emit = defineEmits<{ dismiss: [] }>();
   gap: var(--space-4);
 }
 /* .toast's padding is tuned for the undo bar: ONE line of text, so 8px above and
-   below sits right. A Prompt puts a two-line stack in the same box (lede over the
-   message), and at 8px that stack reads as touching the edges — the inline variant
-   already uses 12px for exactly the same content. Match them, and only for
-   prompts: `.toast.prompt` so the plain undo toast keeps its own tighter box
-   rather than being loosened by association. */
+   below sits right. A Prompt puts a whole sentence and an action in the same box,
+   and at 8px that reads as touching the edges — the inline variant already uses
+   12px for exactly the same content. Match them, and only for prompts:
+   `.toast.prompt` so the plain undo toast keeps its own tighter box rather than
+   being loosened by association. */
 .toast.prompt {
   padding-block: var(--space-3);
 }
@@ -117,15 +114,6 @@ const emit = defineEmits<{ dismiss: [] }>();
 .promptin-leave-to {
   opacity: 0;
   grid-template-rows: 0fr;
-}
-/* the wrapper IS the animation: one row, 1fr → 0fr, inner clipping */
-.prompt-reveal {
-  display: grid;
-  grid-template-rows: 1fr;
-}
-.prompt-reveal__inner {
-  min-height: 0;
-  overflow: hidden;
 }
 
 /* Inline: an aside in the column, so it borrows the page's ink rather than the
@@ -150,18 +138,12 @@ const emit = defineEmits<{ dismiss: [] }>();
      At one line 20px is within 2px of a true pill anyway; at two it stays a card. */
   border-radius: var(--radius-4);
   color: var(--ink-2);
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
 }
 .prompt__text {
   display: flex;
   flex-direction: column;
   gap: var(--space-px);
-}
-/* The lede explains, the slot asks. Stepped back with opacity rather than a dimmer
-   token — the ink/paper pair inverts with the colour scheme, and the --ink-N ramp
-   doesn't exist in reverse for text ON ink. */
-.prompt__lede {
-  opacity: 0.72;
 }
 /* leading mark: same box and ink as the dismiss at the other end, so the two read
    as a matched pair bracketing the message */

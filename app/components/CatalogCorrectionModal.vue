@@ -75,13 +75,8 @@ async function onSubmit() {
 </template>
 
 <style scoped>
-/* overlay + dialog shell + rise-in + action row live in atoms/dialog.scss and
-   BaseModal; this dialog keeps only its own item title and field accent */
-.dlg__item {
-  font-size: var(--text-title);
-  font-weight: 600;
-  letter-spacing: var(--track-tight);
-}
+/* overlay + dialog shell + rise-in + item title + action row live in atoms/dialog.scss
+   and BaseModal; this dialog keeps only its own field accent */
 .dlg__field em {
   font-style: normal;
   color: var(--accent);

@@ -253,8 +253,7 @@ async function deleteAccount() {
       method: "POST",
       body: { deleteLists: alsoLists },
     });
-    resetVaultCapture();
-    useClaimedLists().resetClaimMark();
+    clearAccountMemos();
     // Stay here rather than navigating away. The page re-renders as the signed-out
     // screen on its own once the session has gone, so the confirmation lands on the
     // thing that actually changed — and a toast that outlived a route change would
@@ -286,8 +285,7 @@ async function onSignOutEverywhere() {
   signingOutAll.value = true;
   try {
     await $fetch("/api/auth/signout-all", { method: "POST" });
-    resetVaultCapture();
-    useClaimedLists().resetClaimMark();
+    clearAccountMemos();
     // Stay put and re-read: in the modal there is nowhere to go (you're already
     // looking at the account), and on the page you're already on /account.
     await refresh(true);
@@ -299,10 +297,7 @@ async function onSignOutEverywhere() {
 
 async function onSignOut() {
   await signOut();
-  // drop both per-account memos so the next person to sign in on this device
-  // starts clean rather than inheriting "already sent" / "already claimed"
-  resetVaultCapture();
-  useClaimedLists().resetClaimMark();
+  clearAccountMemos();
   // Signing out of a list you're reading shouldn't also take the list away — in the
   // modal this just closes. The page has nothing behind it, so it goes to /gear.
   await finish("/gear");
@@ -495,8 +490,6 @@ async function onSignOut() {
   flex-direction: column;
   max-width: 52ch;
 }
-/* one rhythm for every block: a hairline above, the same padding below it. The
-   sections differ in content, never in spacing. */
 /* Centred only when the signed-out column is what's below it — asked of the page's
    own structure rather than re-deriving the session state up here, so the two can't
    disagree. Signed in the page is a left-aligned stack of sections, where a centred
@@ -552,9 +545,6 @@ async function onSignOut() {
   padding-block: 0 var(--space-6);
   text-align: center;
 }
-/* The secondary action. The system is deliberately de-outlined (see
-   atoms/controls.scss), so this gets a quiet FILL rather than a border — it reads
-   as a button at rest without introducing the one device that file rules out. */
 .acct__empty .acct__wide {
   width: 100%;
 }
@@ -568,7 +558,7 @@ async function onSignOut() {
   width: 100%;
   margin: 0;
   color: var(--ink-3);
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
 }
 .acct__or::before,
 .acct__or::after {
@@ -597,6 +587,9 @@ async function onSignOut() {
 .acct__switch:focus-visible {
   text-decoration-color: var(--ink-2);
 }
+/* The secondary action. The system is deliberately de-outlined (see
+   atoms/controls.scss), so this gets a quiet FILL rather than a border — it reads
+   as a button at rest without introducing the one device that file rules out. */
 .acct__empty .acct__alt {
   width: 100%;
   background: var(--paper-2);
@@ -616,6 +609,8 @@ async function onSignOut() {
   gap: var(--space-3);
   width: 100%;
 }
+/* one rhythm for every block: a hairline above, the same padding below it. The
+   sections differ in content, never in spacing. */
 .acct__section {
   display: flex;
   flex-direction: column;
@@ -685,14 +680,9 @@ async function onSignOut() {
   background: var(--paper);
   text-align: left;
 }
-.acct__input:focus {
-  border-bottom-color: var(--ink-2);
-}
 .acct__row .btn {
   flex: none;
 }
-/* the section is a flex COLUMN, so a bare button stretches and its label centres —
-   pull it back to the left edge every other line sits on */
 /* The one destructive control in the app, and the one coloured one — see --danger in
    tokens.scss for why this is the single exception to monochrome chrome. It used to
    step BACK to secondary ink, on the reasoning that the confirm dialog carried the

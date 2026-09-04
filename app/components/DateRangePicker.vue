@@ -31,8 +31,9 @@ const today = (() => {
   return iso(n.getFullYear(), n.getMonth(), n.getDate());
 })();
 
-// which month the grid is showing — opens on the trip, else on this month
-const cursor = ref(parts(props.start) ?? parts(props.end) ?? parts(today)!);
+// which month the grid is showing — opens on the trip, else on this month (only the
+// month matters here: the day under the keyboard is `focused`, below)
+const cursor = ref<{ y: number; m: number }>(parts(props.start) ?? parts(props.end) ?? parts(today)!);
 const viewY = computed(() => cursor.value.y);
 const viewM = computed(() => cursor.value.m);
 
@@ -96,7 +97,7 @@ const gridEl = useTemplateRef<HTMLElement>("gridEl");
 
 // ---- the tracking pip ----
 // One highlight that GLIDES to the day under the cursor, instead of every cell lighting
-// its own hover. Same device as the topbar's mode toggle (.modetoggle__pill): a single
+// its own hover. Same device as the account menu's travelling plate (.menu__plate): a single
 // absolutely-positioned box translated into place on the damped --ease, so the cursor
 // tracks rather than blinks.
 // It follows the POINTER while the pointer is in the grid and the KEYBOARD's day the
@@ -135,7 +136,7 @@ const pip = computed(() => {
 async function moveFocus(v: string) {
   focused.value = v;
   const p = parts(v)!;
-  cursor.value = { y: p.y, m: p.m, d: p.d };
+  cursor.value = { y: p.y, m: p.m };
   await nextTick();
   gridEl.value?.querySelector<HTMLElement>(`[data-iso="${v}"]`)?.focus();
 }
@@ -322,7 +323,7 @@ onMounted(() => {
   border-radius: var(--radius-2);
   background: transparent;
   font: inherit;
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   color: var(--ink-2);
   cursor: pointer;
   transition:
@@ -340,7 +341,6 @@ onMounted(() => {
 .cal__day:focus-visible {
   outline: 2px solid var(--ink);
   outline-offset: -2px;
-  border-radius: var(--radius-2);
 }
 /* today is MARKED, not selected — a ring rather than a fill, so it can't be mistaken
    for one end of the range */
@@ -368,9 +368,7 @@ onMounted(() => {
   }
 }
 .cal__day.is-start,
-.cal__day.is-end,
-.cal__day.is-start:hover,
-.cal__day.is-end:hover {
+.cal__day.is-end {
   background: var(--accent);
   color: var(--accent-ink);
 }

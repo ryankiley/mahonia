@@ -5,7 +5,7 @@ import type { VaultEntry, VaultFolder } from "~~/shared/vault";
 import { vaultNormKey } from "~~/shared/vault";
 import { rankVaultRows } from "~~/shared/vaultSearch";
 import { highlightParts } from "~~/shared/catalogSearch";
-import { formatWeight, itemDisplayName } from "~~/shared/weights";
+import { bySortOrder, formatWeight, itemDisplayName } from "~~/shared/weights";
 import { foldApostrophes } from "~~/shared/tidyText";
 
 // The vault, alongside the list you're building — a floating palette you keep open
@@ -122,7 +122,7 @@ const searchEl = useTemplateRef<HTMLInputElement>("searchEl");
 // Where an added item lands. Defaults to the first folder and remembers your
 // choice while the pane is open — adding six things to "Cook kit" shouldn't mean
 // re-picking the folder six times.
-const folders = computed(() => [...(c.snapshot.value?.folders ?? [])].sort((a, b) => a.sortOrder - b.sortOrder));
+const folders = computed(() => [...(c.snapshot.value?.folders ?? [])].sort(bySortOrder));
 const targetFolderId = ref<string | null>(null);
 watchEffect(() => {
   const list = folders.value;
@@ -386,8 +386,8 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
       tabindex="0"
       aria-label="Resize the My Gear panel"
       :aria-valuenow="width"
-      :aria-valuemin="288"
-      :aria-valuemax="720"
+      :aria-valuemin="VAULT_W_MIN"
+      :aria-valuemax="VAULT_W_MAX"
       title="Drag to resize"
       @pointerdown="startResize"
       @keydown="onResizeKey"
@@ -605,9 +605,6 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
 </template>
 
 <style scoped lang="scss">
-/* Desktop: a floating column pinned to the right, clear of the sticky topbar and
-   never taller than the viewport. Its own scroller, so the page behind keeps its
-   own scroll position while you work through the vault. */
 /* The SURFACE (lifted background, radius, soft shadow, forced-colors edge) comes
    from the shared .popover atom — the same one the autocomplete and kebab menus
    wear, so this panel can't drift from them. It also hands down
@@ -717,7 +714,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   border-radius: var(--popover-item-radius);
   background: transparent;
   font: inherit;
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   color: var(--ink-3);
   cursor: pointer;
   transition:
@@ -883,7 +880,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   align-items: baseline;
   gap: var(--space-2);
   /* matches .ac__opt — a row on a floating surface, not a page row (which sits on
-     the roomier --space-4 rhythm; see .vault__row / .mine__row) */
+     the roomier --space-4 rhythm; see .vault__row in pages/gear.vue) */
   padding: var(--space-2);
   /* both pinned on .popover, so they track the surface rather than being guessed */
   border-radius: var(--popover-item-radius);

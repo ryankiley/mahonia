@@ -22,13 +22,13 @@ body {
 
 // Small label — sentence case (no all-caps).
 .t-label {
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   font-weight: 600;
   color: var(--ink-2);
 }
 
 .t-sm {
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
 }
 
 // Tabular figures for data — aligned columns, same family.

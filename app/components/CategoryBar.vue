@@ -69,20 +69,13 @@ const segments = computed(() => categorySegments(props.list));
    text-indent, both off --swatch) keeps the wrapped lines under the NAME rather than
    under the dot, so the dot reads as the bullet it is. */
 .catbar__item {
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   padding-inline-start: calc(var(--swatch) + var(--space-2));
   text-indent: calc(-1 * (var(--swatch) + var(--space-2)));
 }
+/* the dot's inline box + cap-box centring are the .swatch atom's (controls.scss);
+   only the gap to the name is this legend's */
 .swatch {
-  display: inline-block;
-  /* Centred on the CAP box, not the x-height. `vertical-align: middle` is the reflex
-     here, but it centres a box on the baseline plus half the x-height — and the label
-     beside it is a 600-weight line with no descenders, whose optical centre is half its
-     cap height. The two differ by (cap − x-height) / 2, about 1.4px at this size, and
-     the dot read that much low. As a length, vertical-align raises the dot's bottom
-     edge off the baseline instead: 0.04em leaves an equal sliver of cap above and below
-     a --swatch dot, and being an em it holds if the type scale moves. */
-  vertical-align: 0.04em;
   margin-inline-end: var(--space-2);
 }
 /* folder names read as labels — same treatment as the Base/Worn chips (t-label):

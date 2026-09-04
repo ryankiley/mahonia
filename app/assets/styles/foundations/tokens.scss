@@ -1,7 +1,7 @@
 // Design tokens — gorpcore-brutalist, editorial (ref: ROA Hiking).
 // Reuses the portfolio token *technique* (OKLCH + light-dark(), 4/8 grid,
-// custom properties) with fresh values. Fonts are system stacks for now — to be
-// swapped for self-hosted woff2 subsets within a ≤60KB budget (no British colour).
+// custom properties) with fresh values. The type is the platform's own system stack
+// (typography.scss) — one family, nothing self-hosted, no British colour.
 
 // Stack breakpoints — the mobile stack point and the full-width point.
 // nuxt.config.ts injects these SAME declarations into every SFC style block
@@ -11,6 +11,11 @@
 // fight, but a retune must change BOTH places.
 $bp-stack: 720px !default;
 $bp-full: 1024px !default;
+// The type anchor: every size in the scale holds its px floor up to here and grows
+// with the viewport past it (see the type-scale note in :root below). One variable so
+// the scale's media-query companion in atoms/controls.scss (the iOS input-zoom escape
+// hatch rejoining the scaling) can't drift from the vw ratios written against it.
+$type-anchor: 1920px;
 
 @use "sass:math";
 
@@ -32,6 +37,27 @@ $bp-full: 1024px !default;
 @mixin item-cols($qty) {
   --item-cols-ro: minmax(0, 1fr) #{$qty} var(--item-col-weight-ro) var(--icon-btn);
   --item-cols-pack: auto 1fr #{$qty} var(--item-col-weight-ro);
+}
+
+// The disclosure slide — a grid whose single row animates 1fr↔0fr, the inner child
+// clipping (min-height:0 + overflow:hidden at the consumer). NOT height:auto↔0: Safari
+// has no interpolate-size, so that just snaps there. Three surfaces open this way
+// (.reveal in atoms/controls.scss, .folder__body in atoms/folder.scss, .nestcollapse
+// in atoms/item.scss); each adds its own transition and collapsed state, the geometry
+// is this. A mixin rather than @extend so each rule keeps its own place in the cascade.
+@mixin collapse-grid {
+  display: grid;
+  grid-template-rows: 1fr;
+}
+// ...and the chevron that turns with it, on the same clock. The standing layer is
+// load-bearing: the glyph transforms on every toggle, and without will-change WebKit
+// re-snaps it ~1px as the compositing layer comes and goes.
+@mixin collapse-chevron {
+  transition: transform var(--dur) var(--ease);
+  will-change: transform;
+  &.is-collapsed {
+    transform: rotate(-90deg);
+  }
 }
 
 :root {
@@ -165,13 +191,13 @@ $bp-full: 1024px !default;
     Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
 
   /* ---- type scale — 4 sizes. Each token is fluid IN ITSELF (portfolio model):
-     fixed at its px floor up to the 1920px anchor, then scaling with the viewport
-     above it — max(floor, floor/1920*100vw). So any consumer of a token scales,
-     not just heading classes; below the anchor (i.e. almost every screen,
-     including the 1728px 16" MacBook Pro) the floor holds, so type stays stable
-     on phones/laptops and only grows on huge displays. The anchor's media-query
-     companion (iOS input-zoom escape hatch) lives in atoms/controls.scss — keep
-     the two in sync. ---- */
+     fixed at its px floor up to the 1920px anchor ($type-anchor, top of file), then
+     scaling with the viewport above it — max(floor, floor/1920*100vw). So any
+     consumer of a token scales, not just heading classes; below the anchor (i.e.
+     almost every screen, including the 1728px 16" MacBook Pro) the floor holds, so
+     type stays stable on phones/laptops and only grows on huge displays. The
+     anchor's media-query companion (iOS input-zoom escape hatch) lives in
+     atoms/controls.scss and reads the same variable. ---- */
   --text-base: max(1rem, 0.833vw); /* 16px — body, inputs, item names, labels, meta, controls */
   --text-title: max(1.375rem, 1.146vw); /* 22px — the one heading size */
   /* 32px — the LIST'S OWN NAME, and nothing else. A deliberate fifth step: a page title
@@ -382,8 +408,8 @@ $bp-full: 1024px !default;
   --item-col-qty: calc(2 * var(--qty-btn) + #{fluid-track(28px, 44px)});
   --item-col-weight: #{fluid-track(68px, 88px)};
   --item-col-class: #{fluid-track(108px, 128px)}; /* min fits "Consumable" at 1rem */
-  /* actions column is FIXED, not auto: a row shows 4 or 5 trailing icons (the nesting
-     add/indent/outdent varies), and an auto column would size to that count — stealing
+  /* actions column is FIXED, not auto: a row shows 4 or 5 trailing icons (the vault
+     button comes and goes), and an auto column would size to that count — stealing
      from the 1fr name column by a different amount per row and misaligning qty/weight/
      class. Reserve the widest case (5 × --icon-btn icons + 4 gaps; −9px = the grip's
      gutter overshoot) so every row's data columns line up regardless of its icon count.

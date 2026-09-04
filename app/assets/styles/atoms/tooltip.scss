@@ -21,7 +21,6 @@
   // popover or a dialog, so it has to clear --z-float rather than tie with it
   z-index: var(--z-tooltip);
   max-width: 280px;
-  transform-origin: center;
   // How far the enter/leave states travel, and in which direction — flipped by
   // placement so the motion always reads as coming OUT of the trigger. As a custom
   // property, the transform itself is written once below instead of once per side.

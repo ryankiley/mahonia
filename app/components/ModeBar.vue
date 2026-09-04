@@ -24,7 +24,7 @@ import { HugeiconsIcon, type IconNode } from "~/utils/hugeicon";
 //
 // NOT role="menubar", despite the name this goes by in conversation: that role is for
 // application menus with submenus. Not role="tablist" either — see the group below.
-export interface Mode {
+interface Mode {
   key: string;
   label: string;
   /** the label is what names the control, so this is decoration */
@@ -126,8 +126,6 @@ function onKey(e: KeyboardEvent) {
   gap: var(--space-px);
   padding: var(--space-1);
   border-radius: var(--radius-3);
-  background: transparent;
-  box-shadow: none;
   color: var(--ink);
   // the row's own padding would otherwise indent it past the title beneath it
   margin-left: calc((var(--space-1) + var(--space-2)) * -1);

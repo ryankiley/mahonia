@@ -64,8 +64,6 @@ onMounted(() => {
   filter: blur(0);
   transform: translateZ(0);
 }
-/* .acount__sr → migrated to the shared global .visually-hidden utility
-   (app/assets/styles/foundations/reset.scss) */
 /* the keyframe itself → the shared global `num-pop` (app/assets/styles/main.scss).
    The row's quantity stepper pops its number with the same motion, and a scoped
    @keyframes is renamed per component — kept here, the two would have been two
@@ -74,10 +72,5 @@ onMounted(() => {
 .acount.is-animating .acount__ch {
   animation: num-pop var(--dur-slow) var(--ease-spring) both;
   animation-delay: calc(var(--i, 0) * var(--stagger-ch)); /* 0 for the first char */
-}
-@media (prefers-reduced-motion: reduce) {
-  .acount.is-animating .acount__ch {
-    animation: none;
-  }
 }
 </style>

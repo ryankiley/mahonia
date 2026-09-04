@@ -10,11 +10,9 @@
   gap: var(--space-2);
   min-height: 40px;
   padding: 0 var(--space-4);
-  border: 0;
   border-radius: var(--radius-pill);
-  background: transparent;
   color: var(--ink);
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   font-weight: 600;
   letter-spacing: var(--track-tight);
   transition:
@@ -70,13 +68,13 @@
   }
 }
 
-// ghost === default now (kept for intent at call sites)
+// ghost — the default shape one step quieter at rest, deepening to full ink on
+// hover (the hover FILL is .btn's own, same gate)
 .btn--ghost {
   color: var(--ink-2);
 }
 @media (hover: hover) and (pointer: fine) {
   .btn--ghost:hover {
-    background: var(--paper-3);
     color: var(--ink);
   }
 }
@@ -109,7 +107,6 @@
 .btn--link {
   min-height: 0;
   padding: 0;
-  background: transparent;
   color: var(--ink-2);
 }
 .btn--link:hover {
@@ -137,12 +134,11 @@
 
 // Quiet text button — bare like --link, one step calmer: regular weight, faint
 // ink, no chrome; darkens to full ink on hover. For tertiary/secondary text
-// actions (the Your-lists row actions, the packing "Clear checks"). Composes .btn,
-// so it inherits the shared transition + disabled/active states.
+// actions (the sharing panel's Copy, the packing "Clear checks", a dozen more).
+// Composes .btn, so it inherits the shared transition + disabled/active states.
 .btn--quiet {
   min-height: 0;
   padding: 0;
-  background: transparent;
   font-weight: 400;
   letter-spacing: normal;
   white-space: nowrap;
@@ -191,11 +187,8 @@ button svg {
   position: relative;
   inline-size: 28px;
   block-size: 16px;
-  padding: 0;
-  border: 0;
   border-radius: var(--radius-pill);
   background: var(--well);
-  cursor: pointer;
   transition: background var(--dur) var(--ease);
 }
 // THE TARGET, which is a different object from the track. 28×16 is what a switch of
@@ -264,8 +257,6 @@ button svg {
   width: 100%;
   min-height: var(--field-h);
   padding: var(--space-1) 0;
-  border: 0;
-  background: transparent;
   color: var(--ink);
   /* STATIC 16px, not var(--text-base) — iOS Safari zooms the page on focus when an
      input's font-size is < 16px, AND its zoom check mis-reads CSS math functions
@@ -298,14 +289,13 @@ input[type="search"]::-webkit-search-decoration {
    That literal exists ONLY to dodge iOS Safari's focus-zoom, a phone/tablet bug;
    no iOS device is 1920px wide, so past the anchor it's safe to rejoin the
    scaling and consume --text-base like every other consumer. */
-@media (min-width: 1920px) {
+@media (min-width: t.$type-anchor) {
   .field {
     font-size: var(--text-base);
   }
 }
 
 .field--num {
-  font-family: var(--font);
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
@@ -324,11 +314,24 @@ input[type="search"]::-webkit-search-decoration {
 
 // Category colour chip — the ONE colour mark (data viz). A round dot now (softer
 // than a square), same size everywhere (the bar legend + folder headings).
+// inline-block, because a bare <span> is inline and width/height do nothing there —
+// the dot rendered at zero wherever it rode a line of text (the legend, the day key).
+// Inside the flex buttons and chips it also lives in, the flex item is blockified
+// anyway and vertical-align is ignored, so both declarations are inert there.
 .swatch {
+  display: inline-block;
   width: var(--swatch);
   height: var(--swatch);
   flex: none;
   border-radius: var(--radius-pill);
+  /* Centred on the CAP box, not the x-height. `vertical-align: middle` is the reflex
+     here, but it centres a box on the baseline plus half the x-height — and the label
+     beside it is a 600-weight line with no descenders, whose optical centre is half its
+     cap height. The two differ by (cap − x-height) / 2, about 1.4px at this size, and
+     the dot read that much low. As a length, vertical-align raises the dot's bottom
+     edge off the baseline instead: 0.04em leaves an equal sliver of cap above and below
+     a --swatch dot, and being an em it holds if the type scale moves. */
+  vertical-align: 0.04em;
 }
 /* "no colour yet" — the unassigned bucket's mark, wherever it appears (the person
    filter's chip and the row picker's clear entry). Hollow, so it reads as the
@@ -391,11 +394,9 @@ input[type="search"]::-webkit-search-decoration {
   right: 0;
   z-index: var(--z-menu);
   min-width: 12rem;
-  margin: 0;
   // same edge inset as the autocomplete menu (.ac__menu) so the two floating
   // menus' hover tints sit at an identical margin from the card edge
   padding: var(--space-2);
-  list-style: none;
   // the surface itself comes from .popover (shared with the autocomplete)
   transform-origin: top right;
 }
@@ -430,12 +431,10 @@ input[type="search"]::-webkit-search-decoration {
   padding: var(--space-2) var(--space-3);
   // concentric with the .popover container (pinned there, shared with .ac__opt)
   border-radius: var(--popover-item-radius);
-  background: none;
   color: var(--ink);
   font-size: var(--text-base);
   text-align: left;
   white-space: nowrap;
-  cursor: pointer;
   transition: background var(--dur) var(--ease);
 }
 // ── a section INSIDE a menu ──────────────────────────────────────────────────
@@ -469,11 +468,6 @@ input[type="search"]::-webkit-search-decoration {
 }
 .menu__sectchev.is-open {
   rotate: 180deg;
-}
-.menu__sectlist {
-  list-style: none;
-  margin: 0;
-  padding: 0;
 }
 // The section SLIDES rather than snapping: opening Export added 120px to the menu in
 // one frame, which read as the menu flinching. The recipe is the shared .reveal atom
@@ -529,11 +523,6 @@ input[type="search"]::-webkit-search-decoration {
 .menu__plate.is-placing {
   transition: none;
 }
-@media (prefers-reduced-motion: reduce) {
-  .menu__plate {
-    transition: opacity 1ms;
-  }
-}
 // the rows sit above it
 .menu__list:has(.menu__plate) .menu__item {
   position: relative;
@@ -556,7 +545,6 @@ input[type="search"]::-webkit-search-decoration {
 @media (hover: hover) and (pointer: fine) {
   .menu__item:hover {
     background: var(--popover-hover);
-    outline: none;
   }
 }
 .menu__item:disabled {
@@ -687,18 +675,14 @@ input[type="search"]::-webkit-search-decoration {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  padding: 0;
-  background: none;
-  border: 0;
-  color: var(--paper);
   font-weight: 600;
   /* soft underline, matching the site's --underline house style — but the toast is
-     inverted (paper text on ink), so soften the PAPER rather than using --ink-3
-     (which would vanish on the dark toast). Translucent paper stays legible + quiet. */
+     inverted (paper text on ink, which the button inherits), so soften the PAPER
+     rather than using --ink-3 (which would vanish on the dark toast). Translucent
+     paper stays legible + quiet. */
   text-decoration: underline;
   text-decoration-color: color-mix(in srgb, var(--paper) 55%, transparent);
   text-underline-offset: 2px;
-  cursor: pointer;
 }
 
 // Corner variant — a snackbar that STAYS until dismissed, rather than a message
@@ -786,20 +770,16 @@ input[type="search"]::-webkit-search-decoration {
 // paste box, both vault searches, the feedback box. A FILL, not a hairline box
 // (de-outlined chrome; the menus' language, rounded radius-4 − space-2, the same
 // concentric step the popovers keep). Focus deepens the ground a step — house
-// style carries focus on the caret, not a ring. Compose with .field; keep width,
-// padding and font local to the surface.
+// style carries focus on the caret, not a ring. Compose with .field — it owns the
+// placeholder ink and the no-outline focus; keep width, padding and font local to
+// the surface.
 .well {
-  border: 0;
   background: var(--paper-2);
   border-radius: calc(var(--radius-4) - var(--space-2));
   color: var(--ink);
   transition: background var(--dur) var(--ease);
 }
-.well::placeholder {
-  color: var(--ink-3);
-}
 .well:focus {
-  outline: none;
   background: color-mix(in oklab, var(--ink) 4%, var(--paper-2));
 }
 

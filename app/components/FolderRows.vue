@@ -45,13 +45,6 @@ const isAppendTarget = computed(
     dnd.drop.value?.beforeId == null,
 );
 
-// "Add an item" drops a real, empty row into the folder (with every control a
-// normal row has) and focuses it — you just start typing. Catalog autocomplete +
-// water volumes still work in the row's own name field; an abandoned empty row
-// removes itself.
-function addBlank() {
-  c.addBlankItem(props.folder.id);
-}
 </script>
 
 <template>
@@ -76,8 +69,12 @@ function addBlank() {
   <div v-if="isAppendTarget" class="folder__droptail" aria-hidden="true" />
 
   <!-- CSS-hidden in packing (atoms/folder.scss), so no mount per switch -->
+  <!-- "Add an item" drops a real, empty row into the folder (with every control a
+       normal row has) and focuses it — you just start typing. Catalog autocomplete +
+       water volumes still work in the row's own name field; an abandoned empty row
+       removes itself. -->
   <div class="folder__add" :class="{ 'folder__add--first': !items.length }">
-    <button type="button" class="folder__addbtn" @click="addBlank">Add an item</button>
+    <button type="button" class="folder__addbtn" @click="c.addBlankItem(folder.id)">Add an item</button>
   </div>
 </template>
 

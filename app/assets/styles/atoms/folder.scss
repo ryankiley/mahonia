@@ -9,10 +9,9 @@
 // @use'd by main.scss — so no :root re-emission); keeps the literal out of here
 @use "../foundations/tokens" as t;
 
-/* collapsible body — a grid whose one row animates 1fr↔0fr (cross-browser slide;
-   Safari has no interpolate-size, so height:auto↔0 would just snap there). The inner
-   needs min-height:0 to collapse below content size + overflow:hidden to clip the
-   reveal. */
+/* collapsible body — the shared 1fr↔0fr slide (collapse-grid, foundations/tokens.scss).
+   The inner needs min-height:0 to collapse below content size + overflow:hidden to
+   clip the reveal. */
 /* min-width:0 is the same rule on the other axis, and it is not optional here. A grid
    item's automatic minimum size is its MIN-CONTENT size, which the overflow:hidden
    below happens to suppress — so the moment anything lifts that clip (a row's open
@@ -23,8 +22,7 @@
    stayed open. The rows are what should be fixed, but the folder must not be a
    multiplier for it: this pins the track to the column either way. */
 .folder__body {
-  display: grid;
-  grid-template-rows: 1fr;
+  @include t.collapse-grid;
   transition: grid-template-rows var(--dur) var(--ease);
 }
 .folder[data-collapsed] .folder__body {
@@ -34,7 +32,6 @@
   min-height: 0;
   min-width: 0;
   overflow: hidden;
-  opacity: 1;
   transition: opacity var(--dur) var(--ease);
 }
 /* Lift the collapse clip while a row's floating overlay is open — the folder picker,
@@ -54,15 +51,9 @@
   opacity: 0;
 }
 
-/* the collapse chevron rotates in sync with the body */
+/* the collapse chevron rotates in sync with the body (shared recipe, tokens.scss) */
 .folder__chev {
-  transition: transform var(--dur) var(--ease);
-  /* standing layer: the chevron transforms on every toggle, so keep it promoted to
-     avoid WebKit re-snapping it ~1px as the compositing layer comes and goes */
-  will-change: transform;
-}
-.folder__chev.is-collapsed {
-  transform: rotate(-90deg);
+  @include t.collapse-chevron;
 }
 
 /* collapse chevron button — right after the folder name. One recipe for both
@@ -73,9 +64,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0;
   color: var(--ink-3);
-  cursor: pointer;
   transition: color var(--dur) var(--ease);
 }
 .folder__collapse:hover {
@@ -100,7 +89,12 @@
 
 /* folder-name type: caps at 40ch (or half the viewport) and truncates with an
    ellipsis rather than a hard mid-character cut, so the collapse chevron hugs the
-   name instead of drifting to the column edge */
+   name instead of drifting to the column edge.
+   Sized to the typed text so the chevron hugs the name (not the full column).
+   min-width is a small floor ONLY so a *cleared* name stays clickable (folders are
+   always created with a name) — 4ch floored the box wider than short names like
+   "Pack", stranding the chevron a variable distance from the text; 2ch lets every
+   real name hug tightly. */
 .folder__name {
   max-width: min(40ch, 50vw);
   white-space: nowrap;
@@ -109,6 +103,9 @@
   font-weight: 600;
   font-size: var(--text-title);
   letter-spacing: var(--track-tight);
+  width: auto;
+  field-sizing: content;
+  min-width: 2ch;
 }
 
 /* rule lines between items — a quiet spec-sheet rhythm; padding here (not on the
@@ -141,7 +138,6 @@
    in the last column so it lines up with the item actions below. */
 .folder {
   position: relative;
-  padding: 0;
 }
 /* The header's columns are fed in as --head-cols, the same contract .item-row signs
    with --row-cols (atoms/item.scss): each mode supplies only what legitimately
@@ -163,16 +159,6 @@
   align-items: baseline;
   gap: var(--space-1);
   min-width: 0;
-}
-/* size to the typed text so the chevron hugs the name (not the full column) — the
-   cap/truncation + name type come from the shared folder atom. min-width is a small
-   floor ONLY so a *cleared* name stays clickable (folders are always created with a
-   name) — 4ch floored the box wider than short names like "Pack", stranding the
-   chevron a variable distance from the text; 2ch lets every real name hug tightly. */
-.folder__name {
-  width: auto;
-  field-sizing: content;
-  min-width: 2ch;
 }
 /* remove + grip share the trailing actions cluster — evenly spaced + aligned
    with the item actions cluster below (both end at the grid edge) */

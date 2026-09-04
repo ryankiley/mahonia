@@ -59,11 +59,6 @@ const collapsed = ref(false);
 </template>
 
 <style scoped lang="scss">
-/* de-outlined: no card box — the heading + whitespace separate folders */
-.folder {
-  position: relative;
-  padding: 0;
-}
 /* only the columns differ from the atom — everything else comes from it */
 .folder__head {
   --head-cols: var(--item-cols-ro);
@@ -74,10 +69,6 @@ const collapsed = ref(false);
    would have quietly stopped short of the last column each time. */
 .folder__title {
   grid-column: 1 / -1;
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-1);
-  min-width: 0;
 }
 /* the collapse chevron button + its coarse-pointer tap target, the collapse
    machinery (.folder__body 1fr↔0fr, .folder__bodyinner clip + fade, the

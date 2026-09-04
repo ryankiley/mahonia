@@ -151,7 +151,7 @@ watch(open, (o) => {
       :aria-expanded="open"
       @click="open = !open"
     >
-      {{ all.length }}<span class="lm__word"> packs</span>
+      {{ all.length }} packs
       <HugeiconsIcon
         :icon="ChevronDownIcon"
         class="lm__chev"
@@ -201,7 +201,6 @@ watch(open, (o) => {
             data-row
             role="menuitem"
             class="menu__item lm__row"
-            :class="{ 'is-current': isCurrent(e) }"
             :aria-current="isCurrent(e) ? 'page' : undefined"
             :title="savedListTitle(e.title)"
             @click="close"
