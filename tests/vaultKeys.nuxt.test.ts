@@ -218,6 +218,44 @@ describe("useVaultKeys", () => {
     expect(vaultGear.value.has(DUPLEX)).toBe(true); // and the read still wins for its own
   });
 
+  it("lets gear removed elsewhere actually leave", async () => {
+    // The read REPLACES. Carrying the previous Map forward instead made every key
+    // immortal: /gear removes the gear, the server correctly answers without it,
+    // and the stale value put it straight back — so the save button stayed hidden
+    // on gear the vault no longer held, for the life of the page, and the "put it
+    // back in My Gear first" toast could never be reached either.
+    const { vaultGear, refreshVaultKeys } = useVaultKeys();
+    await sessionAnswers(true);
+    expect(vaultGear.value.has(DUPLEX)).toBe(true);
+
+    serverKeys = []; // removed on /gear, in this tab or another
+    await refreshVaultKeys();
+    expect(vaultGear.value.size).toBe(0);
+  });
+
+  it("lets the newest read win when a forced one overtakes an older one", async () => {
+    // A forced read races rather than joining, because it exists to pick up a
+    // change the one already out was issued before. Without a sequence the
+    // SLOWER, older answer landed last and reverted the fresher one.
+    const { vaultGear, refreshVaultKeys } = useVaultKeys();
+    await sessionAnswers(true);
+
+    let releaseOld!: () => void;
+    hold = new Promise<void>((r) => (releaseOld = r));
+    const old = refreshVaultKeys(); // A: held open, will answer with the OLD keys
+    await settle();
+
+    hold = null;
+    serverKeys = [[DUPLEX, 545_000]]; // the weight is corrected on /gear
+    await refreshVaultKeys(); // B: issued later, lands first
+    expect(vaultGear.value.get(DUPLEX)).toBe(545_000);
+
+    releaseOld();
+    await old;
+    await settle();
+    expect(vaultGear.value.get(DUPLEX)).toBe(545_000); // A does not revert B
+  });
+
   it("drops a capture that answers after the account changed", async () => {
     // A capture POST outlives the session that sent it: sign out mid-flight and
     // the response still arrives. Writing its keys in would hand the next person

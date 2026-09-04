@@ -15,6 +15,7 @@ import {
   vaultNormKey,
   type VaultCapture,
   type VaultEntry,
+  type VaultGearKey,
   type VaultFolder,
   type VaultPinField,
 } from "../../shared/vault";
@@ -187,15 +188,18 @@ function sanitize(caps: VaultCapture[]): VaultCapture[] {
  *    an automatic write must not argue with a deliberate one. times_seen and
  *    last_used_at still move: those are facts about USE, not about the gear.
  *
- * Returns how many rows were written, for the caller's response.
+ * Returns the gear that is LIVE in the vault afterwards — the honest answer to
+ * "what did you store?", which a 2xx alone is not (a tombstoned row is written
+ * and stays put away, and rows past the ceiling are dropped above). Most callers
+ * want the count instead; captureVaultItems below is that.
  */
-export async function captureVaultItems(
+export async function captureVaultItemsReporting(
   db: Db,
   vaultId: number,
   caps: VaultCapture[],
-): Promise<number> {
+): Promise<VaultGearKey[]> {
   let clean = sanitize(caps);
-  if (!clean.length) return 0;
+  if (!clean.length) return [];
 
   // The per-vault ceiling. Updates to rows already in the vault always land —
   // they add nothing — but new keys stop at VAULT_ITEMS_MAX, silently: capture is
@@ -228,7 +232,7 @@ export async function captureVaultItems(
       budget--;
       return true;
     });
-    if (!clean.length) return 0;
+    if (!clean.length) return [];
   }
 
   const now = new Date();
@@ -246,7 +250,7 @@ export async function captureVaultItems(
   // queue, a flaky connection) neither duplicates a folder nor errors.
   const folderId = await ensureFolders(db, vaultId, clean.map((c) => c.folder));
 
-  await db
+  const written = await db
     .insert(vaultItems)
     .values(clean.map((c) => rowValues(c, vaultId, now, (c.folder && folderId.get(c.folder)) || null)))
     .onConflictDoUpdate({
@@ -300,8 +304,41 @@ export async function captureVaultItems(
         lastUsedAt: now,
         updatedAt: now,
       },
+    })
+    // What the write actually produced, in the one statement that produced it.
+    // The alternative was a second SELECT keyed on the CLIENT's normKeys — but
+    // sanitize() re-derives the key from the tidied text, so those two spellings
+    // diverge wherever tidyText and foldForSearch disagree (a zero-width space is
+    // deleted by one and folded to a gap by the other), and each divergence read
+    // as "the vault refused this row" on a row it had stored correctly.
+    .returning({
+      normKey: vaultItems.normKey,
+      weightMg: vaultItems.weightMg,
+      weightPinned: vaultItems.weightPinned,
+      removedAt: vaultItems.removedAt,
     });
-  return clean.length;
+  // LIVE rows only. The upsert deliberately leaves `removed_at` alone, so gear you
+  // put away on /gear is written and stays put away — the row comes back here, and
+  // the caller must not be told it landed.
+  return written
+    .filter((r) => !r.removedAt)
+    .map((r): VaultGearKey => [r.normKey, r.weightPinned ? null : r.weightMg]);
+}
+
+/**
+ * Fold a list's gear into a vault, reporting only HOW MANY rows were written.
+ *
+ * The shape almost every caller wants (the claim backfill, the tests), kept so
+ * the one caller that needs to know WHICH gear landed — the capture endpoint,
+ * which tells the editor what it may stop offering to save — doesn't push a
+ * second return value through eighty call sites.
+ */
+export async function captureVaultItems(
+  db: Db,
+  vaultId: number,
+  caps: VaultCapture[],
+): Promise<number> {
+  return (await captureVaultItemsReporting(db, vaultId, caps)).length;
 }
 
 /** The INSERT half a captured row and a hand-added one share — every content
@@ -358,7 +395,11 @@ function liveRows(db: Db, vaultId: number) {
     .select()
     .from(vaultItems)
     .where(liveIn(vaultId))
-    .orderBy(desc(vaultItems.lastUsedAt))
+    // id breaks the tie, so the order is TOTAL — captureVaultItems stamps one
+    // `now` onto a whole batch, so a 200-row import leaves 200 rows sharing a
+    // last_used_at, and an untotal order lets two queries truncate at POOL_LIMIT
+    // on different subsets of them. listVaultFolders already orders this way.
+    .orderBy(desc(vaultItems.lastUsedAt), asc(vaultItems.id))
     .limit(POOL_LIMIT);
 }
 
@@ -448,7 +489,7 @@ export async function listVaultItems(db: Db, vaultId: number): Promise<VaultEntr
  * because capture never resurrects a tombstone (see captureVaultItems), so gear
  * you put away is genuinely not in your vault.
  */
-export async function listVaultKeys(db: Db, vaultId: number): Promise<[string, number | null][]> {
+export async function listVaultKeys(db: Db, vaultId: number): Promise<VaultGearKey[]> {
   const rows = await db
     .select({
       normKey: vaultItems.normKey,
@@ -457,33 +498,11 @@ export async function listVaultKeys(db: Db, vaultId: number): Promise<[string, n
     })
     .from(vaultItems)
     .where(liveIn(vaultId))
-    .orderBy(desc(vaultItems.lastUsedAt))
+    // the same total order liveRows uses — the two must truncate on the SAME
+    // rows or the membership set claims gear /gear will not show
+    .orderBy(desc(vaultItems.lastUsedAt), asc(vaultItems.id))
     .limit(POOL_LIMIT);
   return rows.map((r) => [r.normKey, r.weightPinned ? null : r.weightMg]);
-}
-
-/**
- * Which of these keys the vault actually holds, LIVE.
- *
- * The capture endpoint's honest answer to "what did you store?". A 2xx from
- * capture is not that answer: the upsert deliberately leaves `removed_at` alone,
- * so a row you removed on /gear is written and stays put away, and new keys past
- * VAULT_ITEMS_MAX are dropped silently. The client folds these keys into the set
- * that decides whether a save button renders, so it has to be told what landed
- * rather than what it sent — otherwise the button disappears from gear the vault
- * refused, and the row's own covered guard makes pressing it again a no-op.
- */
-export async function liveKeysAmong(
-  db: Db,
-  vaultId: number,
-  normKeys: string[],
-): Promise<string[]> {
-  if (!normKeys.length) return [];
-  const rows = await db
-    .select({ normKey: vaultItems.normKey })
-    .from(vaultItems)
-    .where(and(liveIn(vaultId), inArray(vaultItems.normKey, normKeys.slice(0, VAULT_CAPTURE_MAX))));
-  return rows.map((r) => r.normKey);
 }
 
 /** A vault's folders in drag order (id breaks a tie, so the order is total). */

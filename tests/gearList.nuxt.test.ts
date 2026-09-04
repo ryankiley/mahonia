@@ -128,11 +128,19 @@ let captureCalls = 0;
 // what each capture actually carried — the picker tests assert on the ROWS, not
 // just that a write happened
 let captureBodies: { name: string }[][] = [];
+// The REAL response shape, not a convenient stand-in. The old stub answered
+// `{ vaultToken }` — a shape the endpoint has never returned — so `res.keys` was
+// always undefined here and the client's contract was never compared against the
+// server's. That is exactly how a `string[]` where the client destructured
+// `[key, weight]` tuples reached main-adjacent code with a green suite: every
+// successful save reported itself as refused. The stub now echoes what
+// captureVaultItemsReporting returns.
 registerEndpoint("/api/vault/capture", { method: "POST", handler: async (event) => {
   captureCalls++;
-  const body = await readBody<{ items?: { name: string }[] }>(event);
-  captureBodies.push(body?.items ?? []);
-  return { vaultToken: "test-vault-token" };
+  const body = await readBody<{ items?: { name: string; normKey: string; weightMg: number }[] }>(event);
+  const items = body?.items ?? [];
+  captureBodies.push(items);
+  return { ok: true, captured: items.length, keys: items.map((i) => [i.normKey, i.weightMg]) };
 } });
 
 // The link a rotate mints. A constant, because the one thing the rotate tests

@@ -9,11 +9,11 @@ import {
   applyVaultFolderOp,
   applyVaultItemOp,
   captureVaultItems,
+  captureVaultItemsReporting,
   listRemovedVaultItems,
   listVaultFolders,
   listVaultItems,
   listVaultKeys,
-  liveKeysAmong,
   purgeDeletedVaults,
   reapAbandonedVaults,
   removeVaultItem,
@@ -454,9 +454,11 @@ describe("listVaultKeys — the membership read the editor runs on", () => {
   });
 });
 
-describe("liveKeysAmong — what a capture actually landed", () => {
+describe("captureVaultItemsReporting — what a capture actually landed", () => {
   // The capture endpoint's honest answer, and the reason the client stopped
-  // trusting its own POST body: sending a key is not storing it.
+  // trusting its own POST body: sending a key is not storing it. The write
+  // reports its own result, so there is no second query keyed on a spelling the
+  // server may have re-derived — and no second shape to drift from the first.
   let db: DB;
   const VAULT = 1;
   const cap = {
@@ -468,31 +470,53 @@ describe("liveKeysAmong — what a capture actually landed", () => {
 
   beforeEach(async () => {
     db = await freshDb();
-    await captureVaultItems(db as any, VAULT, [cap]);
   });
 
-  it("returns the keys the vault holds live", async () => {
-    expect(await liveKeysAmong(db as any, VAULT, [cap.normKey])).toEqual([cap.normKey]);
+  it("reports the gear it wrote, in the SAME shape listVaultKeys returns", async () => {
+    // The editor folds both into one Map, so a drift between them is not a type
+    // nit — it shipped one. When this returned bare keys while the client
+    // destructured tuples, `[k] of "zpacks duplex"` bound k to "z": every
+    // successful save reported itself as refused, and the automatic path wrote
+    // single characters into the membership Map. Nothing caught it because each
+    // side was only ever asserted in isolation.
+    const landed = await captureVaultItemsReporting(db as any, VAULT, [cap]);
+    expect(landed).toEqual([[cap.normKey, 539_000]]);
+    expect(landed).toEqual(await listVaultKeys(db as any, VAULT));
   });
 
-  it("omits a key a capture wrote but left tombstoned", async () => {
-    // THE case the client can't see from a 2xx. Capture re-upserts a removed
-    // row's content and deliberately leaves removed_at set, so the POST succeeds
-    // and the gear is still not in the vault. A client that believed its own
-    // request would hide that row's save button for good.
+  it("omits a row it wrote but left tombstoned", async () => {
+    // THE case a 2xx cannot express. Capture re-upserts a removed row's content
+    // and deliberately leaves removed_at set, so the write succeeds and the gear
+    // is still not in the vault. A client that believed its own request would
+    // hide that row's save button for good.
+    await captureVaultItemsReporting(db as any, VAULT, [cap]);
     const id = (await listVaultItems(db as any, VAULT))[0]!.id;
     await removeVaultItem(db as any, VAULT, id);
-    await captureVaultItems(db as any, VAULT, [cap]);
-    expect(await liveKeysAmong(db as any, VAULT, [cap.normKey])).toEqual([]);
+    expect(await captureVaultItemsReporting(db as any, VAULT, [cap])).toEqual([]);
   });
 
-  it("omits a key this vault has never held, and one another vault holds", async () => {
-    await captureVaultItems(db as any, 2, [{ ...cap, normKey: "durston kakwa 55", name: "Kakwa 55" }]);
-    expect(await liveKeysAmong(db as any, VAULT, ["durston kakwa 55", "nothing at all"])).toEqual([]);
+  it("nulls a pinned weight, exactly as the membership read does", async () => {
+    await captureVaultItemsReporting(db as any, VAULT, [cap]);
+    const id = (await listVaultItems(db as any, VAULT))[0]!.id;
+    await applyVaultItemOp(db as any, VAULT, { t: "edit", id, patch: { weightMg: 545_000 } } as any);
+    expect(await captureVaultItemsReporting(db as any, VAULT, [cap])).toEqual([[cap.normKey, null]]);
   });
 
-  it("is empty for an empty ask, without touching the database", async () => {
-    expect(await liveKeysAmong(db as any, VAULT, [])).toEqual([]);
+  it("reports the key the SERVER derived, not the one the client sent", async () => {
+    // sanitize() re-derives normKey from the tidied text, so a client key and a
+    // stored key diverge wherever tidyText and foldForSearch disagree — a
+    // zero-width space is deleted by one and folded to a gap by the other. Asking
+    // a second query with the client's spelling read as "the vault refused this"
+    // on a row it had stored correctly.
+    const landed = await captureVaultItemsReporting(db as any, VAULT, [
+      { ...cap, normKey: "whatever the client felt like sending" },
+    ]);
+    expect(landed).toEqual([[vaultNormKey("Zpacks", "Duplex", null), 539_000]]);
+  });
+
+  it("counts for every other caller, unchanged", async () => {
+    expect(await captureVaultItems(db as any, VAULT, [cap])).toBe(1);
+    expect(await captureVaultItems(db as any, VAULT, [])).toBe(0);
   });
 });
 

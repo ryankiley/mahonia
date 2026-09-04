@@ -2,7 +2,7 @@
 // and offering it back the next time you build one.
 
 import type { Folder, Item } from "~~/shared/types";
-import type { VaultCapture, VaultEntry } from "~~/shared/vault";
+import type { VaultCapture, VaultEntry, VaultGearKey } from "~~/shared/vault";
 import { remember } from "../utils/remember";
 import { noteVaultKeys, resetVaultKeys, useVaultKeys, vaultKeysEpoch } from "./useVaultKeys";
 
@@ -213,7 +213,7 @@ export function useVaultCapture() {
     // into the next person's vault
     const at = vaultKeysEpoch();
     try {
-      const res = await vaultFetch<{ keys?: [string, number | null][] }>("/api/vault/capture", {
+      const res = await vaultFetch<{ keys?: VaultGearKey[] }>("/api/vault/capture", {
         method: "POST",
         body: { items: sending.items },
       });
@@ -222,6 +222,12 @@ export function useVaultCapture() {
       // past the ceiling are dropped in silence), and a row wrongly marked banked
       // loses its save button with no way to press it again.
       noteVaultKeys(res?.keys ?? [], at);
+      // The memo is guarded by the SAME epoch, and for the same reason. A
+      // sign-out mid-POST clears it (resetVaultCapture), and re-setting it here
+      // afterwards told the NEXT account that this list was already sent — so
+      // their first edit of it captured nothing, which is the leak the reset
+      // exists to close, arriving a beat late.
+      if (at !== vaultKeysEpoch()) return;
       lastFingerprint = sending.fingerprint;
       // only clear if nothing newer arrived while this was in flight
       if (pending?.fingerprint === sending.fingerprint) pending = null;
@@ -257,6 +263,13 @@ export function useVaultCapture() {
     // limit 429s). This handler also runs on an ordinary tab-background, so the
     // page usually comes back: claiming those keys banked would strip the save
     // button off every row of a list whose capture never landed.
+    // The memo IS set on sendBeacon's boolean, which only says the browser queued
+    // the payload — so a beacon the endpoint later refuses (an expired session,
+    // the rate limit) is never retried, because sync() will match the same
+    // fingerprint and return. That is a real hole, and it is NOT this change's to
+    // close: "does not also POST what it already beaconed" is a deliberate,
+    // tested decision about double-sending, and reversing it trades one loss for
+    // another. Left as found, and flagged.
     if (navigator.sendBeacon("/api/vault/capture", blob)) {
       lastFingerprint = pending.fingerprint;
       pending = null;
@@ -369,9 +382,9 @@ export function useVaultCapture() {
     // a parent is a container, not gear; captureFromList can't see that from one item
     if (!caps.length || allItems.some((i) => i.parentId === item.id)) return "unworthy";
     const at = vaultKeysEpoch(); // see send() — the answer can outlive the account
-    let landed: [string, number | null][];
+    let landed: VaultGearKey[];
     try {
-      const res = await vaultFetch<{ keys?: [string, number | null][] }>(
+      const res = await vaultFetch<{ keys?: VaultGearKey[] }>(
         "/api/vault/capture",
         { method: "POST", body: { items: caps } },
       );

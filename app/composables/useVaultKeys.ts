@@ -1,4 +1,5 @@
 import type { Ref } from "vue";
+import type { VaultGearKey } from "~~/shared/vault";
 
 /**
  * What My Gear ALREADY holds — the gear's identity keys, and the one number that
@@ -44,6 +45,12 @@ type KeyState = {
 
 let shared: KeyState | undefined;
 let inFlight: Promise<void> | undefined;
+// Monotonic per read, so a slower older response cannot land on top of a newer one.
+let issued = 0;
+let waiting: ReturnType<typeof setTimeout> | undefined;
+// The `banked` maps of every read currently out (see load) — noteVaultKeys writes
+// through to them so a read cannot land and drop a capture that beat it home.
+const banking = new Set<Map<string, number | null>>();
 // Bumped whenever the answer this cache holds stops being about the current
 // account — a sign-out, and every other session change. A read or a capture that
 // was already out then lands into a vault that is no longer the one it asked
@@ -94,6 +101,14 @@ function state(): KeyState {
 function invalidate(): void {
   epoch++;
   inFlight = undefined;
+  banking.clear(); // nothing in flight speaks for the new session
+  // Release the give-up timer too. It captured the OLD epoch, so leaving it
+  // pending both disowns its own bound (it will fire, fail the epoch check and
+  // settle nothing) and blocks the re-arm below, which refuses to stack a second
+  // timer — between them the wait became unbounded again, which is the failure
+  // SESSION_WAIT_MS exists to prevent.
+  clearTimeout(waiting);
+  waiting = undefined;
   if (!shared) return;
   shared.gear.value = new Map();
   shared.known.value = false;
@@ -109,7 +124,8 @@ function invalidate(): void {
  *  list, with no way to get it back. Giving up settles as known-with-nothing,
  *  which puts the row exactly where it stood before this cache existed. */
 const SESSION_WAIT_MS = 6_000;
-let waiting: ReturnType<typeof setTimeout> | undefined;
+/** ...and the same bound on the read itself, for the same reason. */
+const READ_TIMEOUT_MS = 6_000;
 
 /**
  * Fetch the vault's gear, once.
@@ -157,27 +173,52 @@ async function load(force = false): Promise<void> {
   if (!force && inFlight) return inFlight;
   if (s.known.value && !force) return;
   const mine = epoch;
+  // keys this device banks while this read is out — see the merge below
+  const banked = new Map<string, number | null>();
+  banking.add(banked);
+  const seq = ++issued;
   const run = (async () => {
     try {
-      const res = await vaultFetch<{ keys: [string, number | null][] }>("/api/vault/keys");
-      if (mine !== epoch) return;
-      // Union, not replace. A capture that landed WHILE this read was out is not
-      // in its answer — the server built it first — and dropping those keys put
-      // the button back on gear banked seconds earlier, which is the symptom this
-      // whole cache removes. The read is still authoritative for everything it
-      // does mention, so it wins on any key it carries.
+      const res = await Promise.race([
+        vaultFetch<{ keys: VaultGearKey[] }>("/api/vault/keys"),
+        // The row holds its save button back until this settles, and $fetch has
+        // no timeout of its own — so a socket that never answers (a captive
+        // portal, a dead radio) hid the button on every row of every list until
+        // the browser gave up minutes later. The session wait is bounded for the
+        // same reason; so is this.
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("vault keys timed out")), READ_TIMEOUT_MS),
+        ),
+      ]);
+      // NEWEST answer wins. A forced read deliberately races rather than joining
+      // one already out (it exists because the vault may have changed since that
+      // one was issued) — so without a sequence the slower, OLDER response landed
+      // last and reverted the fresher one.
+      if (mine !== epoch || seq !== issued) return;
+      // The read REPLACES — it is the server's current truth, and gear you
+      // removed on /gear has to be able to leave. Carrying the old Map forward
+      // instead (a plain union) made every key immortal: a removal was answered
+      // correctly by the server and then re-added from the stale value, so the
+      // save button stayed hidden on gear the vault no longer held, for the life
+      // of the page, with no way to reach it.
+      //
+      // What DOES survive is the narrow thing the union was reaching for: a
+      // capture this device landed WHILE this read was out. The server built its
+      // answer before that write, so it cannot mention it, and dropping it put
+      // the button back on gear banked seconds earlier.
       const next = new Map(Array.isArray(res?.keys) ? res.keys : []);
-      for (const [k, w] of s.gear.value) if (!next.has(k)) next.set(k, w);
+      for (const [k, w] of banked) if (!next.has(k)) next.set(k, w);
       s.gear.value = next;
     } catch {
       /* see above — an unanswerable question falls back to the old behaviour */
     }
-    if (mine === epoch) s.known.value = true;
+    if (mine === epoch && seq === issued) s.known.value = true;
   })();
   inFlight = run;
   try {
     await run;
   } finally {
+    banking.delete(banked);
     // only clear the slot if it is still OURS — a reset (or a forced read) may
     // have replaced it while this one was out
     if (inFlight === run) inFlight = undefined;
@@ -199,13 +240,19 @@ async function load(force = false): Promise<void> {
  * tombstoned and drops new keys past the vault's ceiling in silence, and a
  * button hidden on gear the vault refused cannot be pressed again to fix it.
  */
-export function noteVaultKeys(keys: [string, number | null][], at: number): void {
+export function noteVaultKeys(keys: VaultGearKey[], at: number): void {
   // No state means no row has ever asked, so there is nothing to keep honest —
   // and building it here would install the app-wide watcher and fire a GET from
   // a pagehide handler, for a document that is going away.
   if (!import.meta.client || !shared || !keys.length || at !== epoch) return;
   const next = new Map(shared.gear.value);
-  for (const [k, w] of keys) if (k) next.set(k, w);
+  for (const [k, w] of keys) {
+    if (!k) continue;
+    next.set(k, w);
+    // and tell any read still out about it, so its answer — built before this
+    // write reached the server — doesn't drop what we just banked
+    for (const pending of banking) pending.set(k, w);
+  }
   shared.gear.value = next;
 }
 
@@ -220,9 +267,7 @@ export function vaultKeysEpoch(): number {
  *  with resetVaultCapture in useSession.forgetAccountMemos. */
 export function resetVaultKeys(): void {
   if (!import.meta.client) return;
-  clearTimeout(waiting);
-  waiting = undefined;
-  invalidate();
+  invalidate(); // which releases the give-up timer too
 }
 
 export function useVaultKeys() {

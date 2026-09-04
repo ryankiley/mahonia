@@ -260,6 +260,13 @@ describe("the save button, against what My Gear actually holds", () => {
     // ...and armed just after it, so a later return — the row becoming gear, a key
     // leaving the vault — plays the shine the way it always did
     await vi.waitFor(() => expect(reveal(w).props("css")).toBe(true));
+
+    // ...and DISARMS again when the answer is withdrawn. `known` returns to false
+    // on every session change, so an arm-only latch let an in-page sign-in play
+    // the whole list's shine at once — the burst this exists to prevent.
+    vaultKeysKnown.value = false;
+    await nextTick();
+    expect(reveal(w).props("css")).toBe(false);
     w.unmount();
   });
 
@@ -410,6 +417,21 @@ describe("the save button on a list the automatic capture already covers", () =>
     vaultKnown.value = true;
     vaultKeysKnown.value = true;
     await nextTick();
+    expect(vaultBtn(w).exists()).toBe(true);
+    w.unmount();
+  });
+
+  it("does not read the session directly — the vault's own answer is the whole gate", async () => {
+    // THE DISCRIMINATING STATE, which nothing else reaches: the session has not
+    // answered, but useVaultKeys has settled anyway (its wait is bounded, so a
+    // /api/auth/me that never resolves cannot hide the button for good). A row
+    // that re-read vaultKnown here would call this covered and take the button
+    // away on every row of every list, with no way back — and every other case in
+    // this file flips the two together, so that regression would ship green.
+    vaultAuto.value = false;
+    vaultKnown.value = false;
+    vaultKeysKnown.value = true; // bounded wait gave up; nothing is known banked
+    const w = mountRow(gear());
     expect(vaultBtn(w).exists()).toBe(true);
     w.unmount();
   });

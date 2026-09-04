@@ -888,7 +888,13 @@ const vaultOffered = computed(
 const vaultRevealArmed = ref(false);
 watch(
   vaultKeysKnown,
-  (known) => known && nextTick(() => (vaultRevealArmed.value = true)),
+  // Disarms on the way DOWN as well. `known` returns to false on every session
+  // change (useVaultKeys invalidates, because an answer about the last account is
+  // not an answer about this one) — so an arm-only latch let an in-page sign-in
+  // take every worthy row through covered and back, playing the whole list's
+  // shine at once. That is the same page-load burst this exists to prevent,
+  // reached by the most ordinary route into the feature.
+  (known) => (known ? nextTick(() => (vaultRevealArmed.value = true)) : (vaultRevealArmed.value = false)),
   { immediate: true },
 );
 async function onSaveToVault() {

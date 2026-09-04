@@ -2,7 +2,7 @@ import { defineEventHandler } from "h3";
 import { readJsonBodyCapped, setNoIndex, setPrivate } from "../../utils/http";
 import { rateLimit } from "../../utils/rateLimit";
 import { resolveOrMintVault } from "../../utils/vaultAuth";
-import { captureVaultItems, liveKeysAmong } from "../../utils/vaultRepo";
+import { captureVaultItemsReporting } from "../../utils/vaultRepo";
 import { VAULT_CAPTURE_MAX, type VaultCapture } from "../../../shared/vault";
 
 // Fold the gear in an open list into the holder's vault.
@@ -54,11 +54,9 @@ export default defineEventHandler(async (event) => {
   // is the whole reason this endpoint needed a body token under link ownership and
   // doesn't now.
   const { db, vaultId } = await resolveOrMintVault(event);
-  const captured = await captureVaultItems(db, vaultId, items);
-  // One read, off the same index the membership endpoint uses. Skipped entirely
-  // when nothing was written, which is also the beacon's common case.
-  const keys = captured
-    ? await liveKeysAmong(db, vaultId, items.map((i) => String(i?.normKey ?? "")).filter(Boolean))
-    : [];
-  return { ok: true, captured, keys };
+  // The write reports its own result — no second query, and no chance of asking
+  // about a key the server spelled differently than the client did (sanitize
+  // re-derives normKey from the tidied text).
+  const keys = await captureVaultItemsReporting(db, vaultId, items);
+  return { ok: true, captured: keys.length, keys };
 });
