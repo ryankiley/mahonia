@@ -1,12 +1,11 @@
 import { eq, sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/pglite";
 import { beforeEach, describe, expect, it } from "vitest";
 import * as schema from "../server/db/schema";
 import { CATALOG_DDL } from "../server/utils/catalog";
 import { CANDIDATES_DDL, corroborateCatalog, stageCandidates } from "../server/utils/candidates";
-import { createTestDb } from "./helpers/db";
+import { createTestDb, type TestDb } from "./helpers/db";
 
-type DB = ReturnType<typeof drizzle>;
+type DB = TestDb;
 async function freshDb(): Promise<DB> {
   return createTestDb(CATALOG_DDL, CANDIDATES_DDL);
 }

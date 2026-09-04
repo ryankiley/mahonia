@@ -10,7 +10,6 @@
 // vault has to match NOTHING, not "match and then get filtered", because the second
 // shape is the one that quietly stops being true when someone adds a query.
 import { sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/pglite";
 import { beforeEach, describe, expect, it } from "vitest";
 import { vaults } from "../server/db/schema";
 import { VAULT_DDL } from "../server/utils/vaultSchema";
@@ -25,9 +24,9 @@ import {
   removeVaultItem,
 } from "../server/utils/vaultRepo";
 import { vaultNormKey } from "../shared/vault";
-import { createTestDb } from "./helpers/db";
+import { createTestDb, type TestDb } from "./helpers/db";
 
-type DB = ReturnType<typeof drizzle>;
+type DB = TestDb;
 
 async function freshDb(): Promise<DB> {
   return createTestDb(VAULT_DDL);
@@ -184,8 +183,8 @@ describe("vault isolation — one vault can never reach another's gear", () => {
     const row = (await listVaultItems(db as never, mine))[0]!;
     await applyVaultItemOp(db as never, mine, { t: "edit", id: row.id, patch: { weightMg: 545_000 } });
 
-    await captureVaultItems(db as never, mine, [{ ...cap("Duplex"), weightMg: 900 }]);
-    await captureVaultItems(db as never, theirs, [{ ...cap("Duplex"), weightMg: 900 }]);
+    await captureVaultItems(db as never, mine, [cap("Duplex", { weightMg: 900 })]);
+    await captureVaultItems(db as never, theirs, [cap("Duplex", { weightMg: 900 })]);
 
     expect((await listVaultItems(db as never, mine))[0]!.weightMg).toBe(545_000);
     expect((await listVaultItems(db as never, theirs))[0]!.weightMg).toBe(900);

@@ -39,7 +39,10 @@ const CATEGORY_ORDER = [
   "other",
 ];
 
-interface BuiltRow {
+// A `type`, not an `interface`: serializeCsv takes
+// Record<string, string | number | null | undefined>, and only a type alias gets the
+// implicit index signature that assignment needs.
+type BuiltRow = {
   brand: string;
   name: string;
   common_name: string;
@@ -49,7 +52,7 @@ interface BuiltRow {
   weight_source: string;
   source_url: string;
   kcal: number | null;
-}
+};
 
 const identity = (r: { brand: string; name: string; variant: string }) =>
   identityKey(r.brand, r.name, r.variant);

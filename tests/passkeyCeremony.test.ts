@@ -15,7 +15,6 @@
 // through real H3 events (body, cookies, headers) the way a request would.
 
 import { eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/pglite";
 import { IncomingMessage, ServerResponse } from "node:http";
 import { Socket } from "node:net";
 import { createEvent, type H3Event } from "h3";
@@ -28,10 +27,10 @@ import { savePasskey } from "../server/utils/credentialRepo";
 import { startChallenge, takeChallenge } from "../server/utils/passkeys";
 import registerVerify from "../server/api/auth/passkey/register-verify.post";
 import signupVerify from "../server/api/auth/passkey/signup-verify.post";
-import { createTestDb } from "./helpers/db";
+import { createTestDb, type TestDb } from "./helpers/db";
 import { setCookieValue } from "./helpers/http";
 
-type DB = ReturnType<typeof drizzle>;
+type DB = TestDb;
 async function freshDb(): Promise<DB> {
   return createTestDb(ACCOUNT_DDL);
 }

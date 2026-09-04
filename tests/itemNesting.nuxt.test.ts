@@ -68,7 +68,9 @@ function listWith(items: Item[], version = 1): ListSnapshot {
     title: "Nesting",
     description: "",
     displayUnit: "g",
-    folders: [{ id: FOLDER, name: "Shelter", colorKey: "green", defaultClassification: null, sortOrder: 0 }],
+    // defaultClassification null: not in Classification, but weights.ts falls back to
+    // "base" for exactly this — see the note in gearList.nuxt.test.ts.
+    folders: [{ id: FOLDER, name: "Shelter", colorKey: "green", defaultClassification: null as never, sortOrder: 0 }],
     // the carrier cases below assign rows to Sam — he has to exist, or the
     // reducer's dangling-assignee heal quietly strips the very field under test
     people: [{ id: "sam", name: "Sam", sortOrder: 0 }],

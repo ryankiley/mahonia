@@ -32,8 +32,14 @@ export function stubFetch(impl: (url: string) => Partial<Response> | null): stri
 
 /** A one-chunk streamed body with the given content type — the shape the
  *  favicon fetcher reads. `contentType` is explicit at every call site because
- *  at least one assertion checks it round-trips into the stored data: URL. */
-export function imageResponse(bytes: Uint8Array, contentType: string) {
+ *  at least one assertion checks it round-trips into the stored data: URL.
+ *
+ *  `body` is a getReader() stub, not a ReadableStream: the reader is the whole
+ *  interface the fetcher touches, and a real stream would mean constructing one
+ *  per case to prove nothing extra. The cast is where that shortcut is declared —
+ *  widen it to a real stream here, once, if a caller ever needs `tee`, `cancel`
+ *  or async iteration. */
+export function imageResponse(bytes: Uint8Array, contentType: string): Partial<Response> {
   return {
     ok: true,
     status: 200,
@@ -50,6 +56,6 @@ export function imageResponse(bytes: Uint8Array, contentType: string) {
           async cancel() {},
         };
       },
-    },
+    } as unknown as Response["body"],
   };
 }

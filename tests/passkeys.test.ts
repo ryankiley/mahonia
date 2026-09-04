@@ -1,4 +1,3 @@
-import { drizzle } from "drizzle-orm/pglite";
 import { beforeEach, describe, expect, it } from "vitest";
 import { ACCOUNT_DDL } from "../server/utils/accountSchema";
 import {
@@ -10,9 +9,9 @@ import {
   touchCredential,
 } from "../server/utils/credentialRepo";
 import { findOrCreateUser } from "../server/utils/authSession";
-import { createTestDb } from "./helpers/db";
+import { createTestDb, type TestDb } from "./helpers/db";
 
-type DB = ReturnType<typeof drizzle>;
+type DB = TestDb;
 async function freshDb(): Promise<DB> {
   return createTestDb(ACCOUNT_DDL);
 }

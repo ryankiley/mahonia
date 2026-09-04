@@ -264,7 +264,9 @@ const gear = (over: Partial<Item> = {}): Item => ({
 const folder = (over: Partial<Folder> = {}): Folder => ({
   id: "f1",
   name: "Shelter",
-  defaultClassification: null,
+  // no default class: Classification has no null member, but weights.ts reads this
+  // as `?? "base"` — this is the shape that guard is for, so the fixture keeps it.
+  defaultClassification: null as never,
   sortOrder: 0,
   colorKey: "green",
   ...over,

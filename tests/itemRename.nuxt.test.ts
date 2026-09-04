@@ -194,16 +194,16 @@ describe("renaming a row to a different piece of gear", () => {
 
   it("the weight FIELD shows the new weight", async () => {
     const w = mountRow(catalogPicked);
-    expect(w.find('input[aria-label="Weight"]').element.value).toBe("688");
+    expect((w.find('input[aria-label="Weight"]').element as HTMLInputElement).value).toBe("688");
     await rename(w, fromCatalog());
-    expect(w.find('input[aria-label="Weight"]').element.value).toBe("541");
+    expect((w.find('input[aria-label="Weight"]').element as HTMLInputElement).value).toBe("541");
     w.unmount();
   });
 
   it("the weight FIELD shows the new weight after a vault rename", async () => {
     const w = mountRow(catalogPicked);
     await rename(w, fromVault());
-    expect(w.find('input[aria-label="Weight"]').element.value).toBe("545");
+    expect((w.find('input[aria-label="Weight"]').element as HTMLInputElement).value).toBe("545");
     w.unmount();
   });
 
@@ -298,7 +298,7 @@ describe("renaming through the live autocomplete", () => {
       expect(row().unitWeightMg).toBe(c.mg);
       expect(row().catalogItemId).toBe(c.link);
 
-      expect(w.find('input[aria-label="Weight"]').element.value).toBe(c.shown);
+      expect((w.find('input[aria-label="Weight"]').element as HTMLInputElement).value).toBe(c.shown);
       // the "suggest a fix" nudge is only honest when the baseline belongs to the
       // product now linked — a re-link that can't stamp one must not inherit the old
       expect(w.find(".item__fixrow").exists()).toBe(false);

@@ -40,7 +40,9 @@ describe("itemSearchName", () => {
 
   it("is just the name for a brandless (free-renamed) item", () => {
     expect(itemSearchName({ brand: "", name: "My custom tarp" })).toBe("My custom tarp");
-    expect(itemSearchName({ brand: null, name: "My custom tarp" })).toBe("My custom tarp");
+    // null, not undefined: Item.brand is optional in the type, but an imported row
+    // can carry an explicit null and itemDisplayName has to read it as brandless.
+    expect(itemSearchName({ brand: null as never, name: "My custom tarp" })).toBe("My custom tarp");
   });
 });
 
@@ -59,7 +61,7 @@ describe("itemSearchUrl", () => {
 
   it("returns null for an unnamed row", () => {
     expect(itemSearchUrl({ brand: "", name: "" })).toBeNull();
-    expect(itemSearchUrl({ brand: null, name: "   " })).toBeNull();
+    expect(itemSearchUrl({ brand: null as never, name: "   " })).toBeNull();
   });
 });
 

@@ -12,7 +12,6 @@
 // without also asserting whose vault it landed in.
 
 import { sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/pglite";
 import { beforeEach, describe, expect, it } from "vitest";
 import * as schema from "../server/db/schema";
 import { LISTS_DDL } from "../server/utils/db";
@@ -21,9 +20,9 @@ import { VAULT_DDL } from "../server/utils/vaultSchema";
 import { backfillVaultFromClaims, claimLists } from "../server/utils/claimRepo";
 import { applyVaultItemOp, listVaultItems } from "../server/utils/vaultRepo";
 import { randomEditToken, randomShareCode, sha256Hex } from "../server/utils/tokens";
-import { createTestDb } from "./helpers/db";
+import { createTestDb, type TestDb } from "./helpers/db";
 
-type DB = ReturnType<typeof drizzle>;
+type DB = TestDb;
 async function freshDb(): Promise<DB> {
   return createTestDb(LISTS_DDL, ACCOUNT_DDL, VAULT_DDL);
 }

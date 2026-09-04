@@ -31,7 +31,10 @@ const geom = {
 let wrapper: ReturnType<typeof mount> | undefined;
 
 // Mount inside a page column (or, with `inWrap: false`, floating outside any).
-function mountTooltip(props: Record<string, unknown>, inWrap = true) {
+function mountTooltip(
+  props: InstanceType<typeof Tooltip>["$props"],
+  inWrap = true,
+) {
   const host = document.createElement("div");
   if (inWrap) {
     host.className = "wrap";

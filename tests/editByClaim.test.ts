@@ -1,4 +1,3 @@
-import { drizzle } from "drizzle-orm/pglite";
 import { beforeEach, describe, expect, it } from "vitest";
 import * as schema from "../server/db/schema";
 import { LISTS_DDL } from "../server/utils/db";
@@ -12,7 +11,7 @@ import {
 } from "../server/utils/listRepo";
 import { getPublishStateByEditHash, publishListByEditHash } from "../server/utils/discoveryRepo";
 import { sha256Hex } from "../server/utils/tokens";
-import { createTestDb, makeList as makeListRow } from "./helpers/db";
+import { createTestDb, makeList as makeListRow, type TestDb } from "./helpers/db";
 
 // The session path END TO END at the repo layer: a claim resolves a share code to
 // the list's edit hash (claimedEditHash), and every edit-shaped operation accepts
@@ -23,7 +22,7 @@ import { createTestDb, makeList as makeListRow } from "./helpers/db";
 // The ByEditToken wrappers stay covered by the existing suites (snapshots,
 // listDelete, discovery); what's new here is the hash arriving FROM A CLAIM.
 
-type DB = ReturnType<typeof drizzle>;
+type DB = TestDb;
 async function freshDb(): Promise<DB> {
   return createTestDb(LISTS_DDL, ACCOUNT_DDL);
 }

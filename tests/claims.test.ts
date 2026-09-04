@@ -1,5 +1,4 @@
 import { sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/pglite";
 import { beforeEach, describe, expect, it } from "vitest";
 import * as schema from "../server/db/schema";
 import { LISTS_DDL } from "../server/utils/db";
@@ -13,11 +12,11 @@ import {
 } from "../server/utils/claimRepo";
 import { findByEditHash, rotateEditHash } from "../server/utils/listRepo";
 import { randomEditToken, sha256Hex } from "../server/utils/tokens";
-import { byToken, createTestDb, makeList as makeListRow } from "./helpers/db";
+import { byToken, createTestDb, makeList as makeListRow, type TestDb } from "./helpers/db";
 
 const findByEditToken = byToken(findByEditHash);
 
-type DB = ReturnType<typeof drizzle>;
+type DB = TestDb;
 async function freshDb(): Promise<DB> {
   return createTestDb(LISTS_DDL, ACCOUNT_DDL);
 }

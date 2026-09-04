@@ -11,7 +11,6 @@
 // about would actually live.
 
 import { eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/pglite";
 import { IncomingMessage, ServerResponse } from "node:http";
 import { Socket } from "node:net";
 import { createEvent, type H3Event } from "h3";
@@ -28,10 +27,10 @@ import {
   startSession,
 } from "../server/utils/authSession";
 import { sha256Hex } from "../server/utils/tokens";
-import { createTestDb } from "./helpers/db";
+import { createTestDb, type TestDb } from "./helpers/db";
 import { setCookieValue } from "./helpers/http";
 
-type DB = ReturnType<typeof drizzle>;
+type DB = TestDb;
 async function freshDb(): Promise<DB> {
   return createTestDb(ACCOUNT_DDL);
 }

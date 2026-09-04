@@ -213,7 +213,7 @@ describe("tidyText — fuzzed invariants", () => {
     String.fromCharCode(0x3000), String.fromCharCode(0x0001),
     "1", "6", "-", ".", "\u{1F600}", "µ", "ß", "்", "あ",
   ];
-  const mkRand = (seed) => () => {
+  const mkRand = (seed: number) => () => {
     seed = (seed * 1103515245 + 12345) & 0x7fffffff;
     return seed / 0x7fffffff;
   };
@@ -233,7 +233,7 @@ describe("tidyText — fuzzed invariants", () => {
   });
 
   it("slice-then-tidy honours the cap and is a fixed point (25k strings)", () => {
-    const clean = (raw, max) => tidyText(raw.slice(0, max));
+    const clean = (raw: string, max: number) => tidyText(raw.slice(0, max));
     const rand = mkRand(987654321);
     const bad = [];
     for (let n = 0; n < 25_000 && bad.length < 5; n++) {

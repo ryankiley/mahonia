@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { KCAL_PER_DAY_GENEROUS, KCAL_PER_DAY_LIGHT, foodPlan, tripDays } from "../shared/foodPlan";
+import type { Unit } from "../shared/types";
 
 const totals = (kcalTotal: number) => ({ kcalTotal, hasKcal: kcalTotal > 0 });
-const meta = (over: Partial<Parameters<typeof foodPlan>[1]> = {}) => ({
+// `displayUnit` isn't read by foodPlan — it rides along because some callers build a
+// whole ListMeta from this — so the override type is the plan's slice plus that.
+const meta = (
+  over: Partial<Parameters<typeof foodPlan>[1]> & { displayUnit?: Unit } = {},
+) => ({
   displayUnit: "g" as const,
   ...over,
 });
