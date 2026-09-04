@@ -19,6 +19,10 @@
 defineProps<{ open: boolean }>();
 const emit = defineEmits<{ close: [] }>();
 
+// "⌥" on a Mac, "Alt" elsewhere. A sheet that exists to make an unguessable gesture
+// findable cannot name a key the reader's keyboard doesn't have — see app/utils/platform.
+const ALT = altKeyLabel();
+
 // `mod` is the key HELD while `keys` are pressed, rendered with a "+" between the two
 // halves and nothing between the keys themselves — because ↑ and ↓ are one control,
 // not two shortcuts, and "Shift + ↑ + ↓" would be a chord nobody can play.
@@ -31,7 +35,7 @@ const GROUPS: { title: string; rows: Row[] }[] = [
   {
     title: "A row",
     rows: [
-      { mod: "Alt", keys: ["drag"], what: "Duplicate a row — it lands where you drop it, with everything on it" },
+      { mod: ALT, keys: ["drag"], what: "Duplicate a row — it lands where you drop it, with everything on it" },
       { keys: ["↑", "↓"], what: "In a weight field, nudge the weight in that row’s own unit" },
       { mod: "Shift", keys: ["↑", "↓"], what: "Nudge it by ten of those" },
       { keys: ["↑", "↓"], what: "On the drag handle, move a row — or a folder — one place" },
@@ -41,9 +45,9 @@ const GROUPS: { title: string; rows: Row[] }[] = [
     title: "While dragging",
     rows: [
       { keys: ["Esc"], what: "Put it back — the drop is cancelled and nothing moves" },
-      // the non-obvious half of Alt-drag, and the reason it earns a second line: the
-      // modifier is read at the RELEASE, so it can be pressed or dropped mid-gesture
-      { keys: ["Alt"], what: "Press or let go of it any time — what you hold at the drop decides" },
+      // the non-obvious half of the copy gesture, and the reason it earns a second
+      // line: the modifier LATCHES, so you needn't still be holding it at the drop
+      { keys: [ALT], what: "Press it any time before the drop; let go and keep dragging to cancel" },
     ],
   },
   {

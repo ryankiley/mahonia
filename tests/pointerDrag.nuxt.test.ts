@@ -385,24 +385,57 @@ describe("createPressArm", () => {
 // that sees every event in a gesture: the modifier can go down and up with the pointer
 // perfectly still, so a reading taken only on pointermove goes stale in the hand.
 describe("the copy modifier", () => {
-  it("hands commit the modifier's state at the RELEASE, not at pickup", () => {
+  it("copies when Alt is armed mid-drag, even picked up bare", () => {
     surface("editor__body", 0, 400);
     const { drag, calls } = harness({ within: ".editor__body" });
 
-    // picked up bare, released with Alt down — a copy, decided at the end
     drag.start("row-1", down());
-    window.dispatchEvent(move(200));
+    window.dispatchEvent(new PointerEvent("pointermove", { pointerId: 1, clientX: 10, clientY: 200, altKey: true }));
     window.dispatchEvent(up(1, true));
     expect(calls.copies).toEqual([true]);
-
-    // and the mirror: armed during the drag, let go before the release
-    drag.start("row-2", down());
-    window.dispatchEvent(new PointerEvent("pointermove", { pointerId: 1, clientX: 10, clientY: 200, altKey: true }));
-    window.dispatchEvent(up(1, false));
-    expect(calls.copies).toEqual([true, false]);
   });
 
-  it("hears the modifier while the pointer sits still", () => {
+  // THE ONE THAT SHIPPED BROKEN. Letting go of Alt and the mouse button is a single
+  // two-handed motion and the key almost always lifts first, so a decision read off
+  // the release event turned the copy into a silent MOVE — no error, nothing to see,
+  // the row just relocated and the gesture read as not existing.
+  it("still copies when Alt lifts a moment before the button", () => {
+    surface("editor__body", 0, 400);
+    const { drag, calls } = harness({ within: ".editor__body" });
+
+    drag.start("row-1", down());
+    window.dispatchEvent(new PointerEvent("pointermove", { pointerId: 1, clientX: 10, clientY: 200, altKey: true }));
+    // the key goes up first, the pointer never moves again, THEN the button
+    window.dispatchEvent(key("keyup", "Alt", false));
+    window.dispatchEvent(up(1, false));
+    expect(calls.copies).toEqual([true]);
+  });
+
+  // …and the other half of the latch: movement is what disarms it, which is the only
+  // signal that separates "letting go to drop" from "changed my mind".
+  it("drops the copy when Alt is released and the drag carries on", () => {
+    surface("editor__body", 0, 400);
+    const { drag, calls } = harness({ within: ".editor__body" });
+
+    drag.start("row-1", down());
+    window.dispatchEvent(new PointerEvent("pointermove", { pointerId: 1, clientX: 10, clientY: 200, altKey: true }));
+    window.dispatchEvent(key("keyup", "Alt", false));
+    window.dispatchEvent(move(240)); // carried on dragging without it
+    window.dispatchEvent(up(1, false));
+    expect(calls.copies).toEqual([false]);
+  });
+
+  it("does not copy a drag that never touched the modifier", () => {
+    surface("editor__body", 0, 400);
+    const { drag, calls } = harness({ within: ".editor__body" });
+
+    drag.start("row-1", down());
+    window.dispatchEvent(move(200));
+    window.dispatchEvent(up());
+    expect(calls.copies).toEqual([false]);
+  });
+
+  it("arms from a keypress alone, with the pointer sitting still", () => {
     surface("editor__body", 0, 400);
     const { drag } = harness({ within: ".editor__body" });
 
@@ -413,7 +446,12 @@ describe("the copy modifier", () => {
     // no pointermove between these — pressing Alt is a key event and nothing else
     window.dispatchEvent(key("keydown", "Alt", true));
     expect(drag.copyKey.value).toBe(true);
+    // and a keyup does NOT disarm it: that is the release-order trap. The cursor
+    // keeps saying "copy" because a drop here would still be one.
     window.dispatchEvent(key("keyup", "Alt", false));
+    expect(drag.copyKey.value).toBe(true);
+    // only movement re-reads the live state
+    window.dispatchEvent(move(240));
     expect(drag.copyKey.value).toBe(false);
   });
 

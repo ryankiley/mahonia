@@ -141,6 +141,9 @@ const canIndent = computed(() => !props.nested && !isParent.value && props.prevI
 
 // drag-to-reorder (editable rows only)
 const dnd = useItemDnd();
+// the grip's tooltip teaches the copy gesture, so it has to name the key this
+// keyboard actually has — "⌥" on a Mac (see app/utils/platform)
+const altLabel = altKeyLabel();
 const isDragging = computed(() => dnd.dragId.value === props.item.id);
 // (A drag with Alt held COPIES rather than moves. The row still lifts and follows the
 // pointer — a gesture whose held object stayed put would read as broken — and the
@@ -1606,7 +1609,7 @@ function dismissFix() {
                its label promises (a drag needs a pointer) -->
           <button
             class="btn btn--icon btn--ghost grip item__grip"
-            title="Drag to reorder · Alt-drag to copy"
+            :title="`Drag to reorder · ${altLabel}-drag to copy`"
             :aria-label="`Reorder ${item.name || 'item'}`"
             @pointerdown="dnd.start(item.id, $event)"
             @keydown="onGripKey"
