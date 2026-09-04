@@ -2531,7 +2531,24 @@ function dismissFix() {
   .item__meta {
     display: flex;
     flex-wrap: wrap;
-    align-items: baseline;
+    /* CENTRED, not baseline — the same call .item__classcell makes on the grid and the
+       read row's mobile stack makes on its own (--row-align: center, ReadonlyItemRow),
+       for the same reason, arriving here last.
+       `baseline` only works when every item on the line HAS a text baseline to share.
+       Half of this line doesn't: the qty cell, the unit wrap and both icon clusters are
+       flex boxes that centre their own contents, so none of them offers a baseline and
+       each one gets a SYNTHESIZED one instead — a value the spec leaves the engine to
+       derive, and the engines disagree. Safari drew the count and its × a visible step
+       off the weight beside them; Blink lands closer and still measured the unit 0.4px
+       high and the two class toggles 0.8px above the ⋯ and the grip. Four cells, four
+       reference edges, and no width at which they all agree.
+       Centring needs no baseline from anyone, and it does not cost the numbers theirs:
+       within one line box the baseline sits (ascent − descent) / 2 below the centre
+       REGARDLESS of the box's height, so at one font size — which this whole line is —
+       centring the boxes puts the text baselines on exactly the same y that baseline
+       alignment was reaching for. The icons come along to that line's optical centre,
+       which is where the row's other icon groups already aim. */
+    align-items: center;
     /* Generous gap BETWEEN the groups (qty · weight · class) so they read as
        distinct — each number stays tight to its own ×/unit (see .item__qty gap +
        the 1ch field min-width); this is the separation between those pairs.
@@ -2564,8 +2581,19 @@ function dismissFix() {
   }
   .item__actions {
     flex: none;
-    align-self: center;
     height: auto; /* the desktop --field-h box is for the grid row; here the cluster rides the flex line */
+  }
+  /* …and the pin that box came with, undone with it. On the grid these three cells sit
+     `align-self: start` inside a --field-h box, because the grid AREA is as tall as the
+     name cell and grows when its sub-line opens — the box is what keeps them on the name
+     line instead of sinking to the middle of a three-line cell. Down here there is no
+     area to escape and no box to sit in: the flex line is the box. Left in, `start` just
+     parks three cells of three slightly different heights against the top of a line whose
+     height they don't set, which is the wobble the centring above exists to remove. */
+  .item__qty--step,
+  .item__classcell,
+  .item__actions {
+    align-self: auto;
   }
   /* the --tap tap targets keep their size but overflow the (shorter) text line via
      negative margins, so the icons don't inflate the row and push the two text
@@ -2682,6 +2710,13 @@ function dismissFix() {
   .item__qty,
   .item__weight {
     flex: none;
+    /* and the cells centre their own parts too, for the reason the line above does.
+       The weight cell is the one that needed it: its unit is wrapped in .item__unitwrap
+       (a centred flex box, so that it can hold the picker's chevron beside the text),
+       and asking a centred box for a baseline is asking for a synthesized one — which
+       is how "lb" came to sit a fraction above the "0.03" it belongs to. Centring skips
+       the question and lands the two on the same baseline exactly. */
+    align-items: center;
   }
   .item__qty--step {
     height: auto; /* the --field-h box is desktop-grid furniture; here the stepper stands down and the count rides the flex line */
