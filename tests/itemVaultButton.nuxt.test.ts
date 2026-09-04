@@ -44,7 +44,9 @@ const hasVault = ref(true);
 const vaultKnown = ref(true);
 const vaultGear = ref<ReadonlyMap<string, number | null>>(new Map());
 const vaultKeysKnown = ref(true);
-const saveItemToVault = vi.fn(() => Promise.resolve("saved" as const));
+const saveItemToVault = vi.fn<() => Promise<"saved" | "unworthy" | "removed" | "failed">>(
+  () => Promise.resolve("saved"),
+);
 
 mockNuxtImport("useVaultAccess", () => () => ({
   hasVault,
@@ -258,6 +260,24 @@ describe("the save button, against what My Gear actually holds", () => {
     // ...and armed just after it, so a later return — the row becoming gear, a key
     // leaving the vault — plays the shine the way it always did
     await vi.waitFor(() => expect(reveal(w).props("css")).toBe(true));
+    w.unmount();
+  });
+
+  it("says where the way back is when the vault refuses gear you removed", async () => {
+    // Capture never resurrects a tombstone, so the POST lands and the row stays
+    // put away. Reporting that as a plain failure ("try again in a moment") is a
+    // loop — pressing again does exactly as little, for as long as the removal
+    // stands — and reporting it as success was worse: the key went into the set
+    // and the button vanished off gear the vault does not hold.
+    saveItemToVault.mockResolvedValueOnce("removed");
+    const w = mountRow(gear());
+    await vaultBtn(w).trigger("click");
+    await vi.waitFor(() => expect(w.emitted("toast")).toBeTruthy());
+    expect(w.emitted("toast")![0]![0]).toBe(
+      "This is in your removed gear — put it back in My Gear first",
+    );
+    // and it does NOT claim the tick
+    expect(vaultBtn(w).attributes("aria-label")).toBe("Save to My Gear");
     w.unmount();
   });
 

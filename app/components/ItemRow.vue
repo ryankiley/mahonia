@@ -904,11 +904,16 @@ async function onSaveToVault() {
     "toast",
     result === "unworthy"
       ? "Give the row a name and a weight first"
-      // the vault belongs to an account, so signed out there is nowhere to put it.
-      // Naming that is the difference between a dead button and a next step.
-      : hasVault.value
-        ? "Couldn’t reach My Gear — try again in a moment"
-        : "Sign in to keep your gear",
+      // You removed this gear on /gear, and capture never resurrects a tombstone
+      // — so "try again in a moment" would be a lie and a loop. Say where the way
+      // back is, in the words that page uses for it.
+      : result === "removed"
+        ? "This is in your removed gear — put it back in My Gear first"
+        // the vault belongs to an account, so signed out there is nowhere to put it.
+        // Naming that is the difference between a dead button and a next step.
+        : hasVault.value
+          ? "Couldn’t reach My Gear — try again in a moment"
+          : "Sign in to keep your gear",
   );
 }
 // a rename or re-weigh makes it a different piece of gear, so the tick stops

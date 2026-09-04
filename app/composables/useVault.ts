@@ -356,7 +356,7 @@ export function useVaultCapture() {
     allItems: Item[],
     folders: Folder[],
     editToken: string,
-  ): Promise<"saved" | "unworthy" | "failed"> {
+  ): Promise<"saved" | "unworthy" | "removed" | "failed"> {
     if (!import.meta.client) return "failed";
     let caps: VaultCapture[];
     try {
@@ -380,10 +380,14 @@ export function useVaultCapture() {
       return "failed";
     }
     // The press said "this gear is mine" and the vault either took it or didn't.
-    // It DIDN'T when the row is one you removed on /gear — capture never
-    // resurrects a tombstone — so saying so is the difference between a tick that
-    // means something and a button that vanishes off gear you don't own.
-    if (!landed.some(([k]) => k === caps[0]?.normKey)) return "failed";
+    // It DIDN'T when the row is gear you removed on /gear: capture never
+    // resurrects a tombstone, so the write lands on a row that stays put away.
+    //
+    // Its OWN answer, not "failed" — the two need different words. A failure is
+    // worth retrying and this is not: pressing again will do exactly as little,
+    // for as long as the removal stands. The way back is on /gear, and the toast
+    // has to say so or the button is a loop.
+    if (!landed.some(([k]) => k === caps[0]?.normKey)) return "removed";
     // My Gear has it now — which is what stops a DUPLICATE of this gear further
     // down the same list from still offering to save it
     noteVaultKeys(landed, at);
