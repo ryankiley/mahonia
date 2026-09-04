@@ -45,7 +45,7 @@ const clampQty = (n: number) => Math.max(1, Math.min(QTY_MAX, Math.round(n)));
 
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { CalculateIcon, Cancel01Icon, CheckIcon, CheckmarkSquare02Icon, ChevronDownIcon, CircleEllipsisIcon, CookieIcon, Copy01Icon, Delete02Icon, DropletIcon, GripVerticalIcon, ListIndentIncreaseIcon, MinusSignIcon, PlusSignIcon, SafeBoxIcon, ShirtIcon, SquareIcon, UserIcon } from "@hugeicons/core-free-icons";
+import { CalculateIcon, Cancel01Icon, CheckIcon, CheckmarkSquare02Icon, ChevronDownIcon, CircleEllipsisIcon, CookieIcon, Delete02Icon, DropletIcon, GripVerticalIcon, LayerAddIcon, ListIndentIncreaseIcon, MinusSignIcon, PlusSignIcon, SafeBoxIcon, ShirtIcon, SquareIcon, UserIcon } from "@hugeicons/core-free-icons";
 import type { Item, ListSnapshot } from "~~/shared/types";
 import type { ItemPatch } from "~~/shared/ops";
 import { effectivePersonId, personColor } from "~~/shared/people";
@@ -974,8 +974,10 @@ const overflowActions = computed(() => {
   if (vaultOffered.value) acts.push({ label: vaultLabel.value, run: onSaveToVault });
   // LAST, the way the destructive icon sat last in the desktop cluster — a menu is a
   // list you read top to bottom, so the one irreversible entry belongs at the end of
-  // it rather than under the thumb. Same words as the icon it replaces ("Remove item",
-  // its aria-label and its tooltip), so the action has one name wherever it appears.
+  // it rather than under the thumb. "Remove item" here and in the icon's aria-label:
+  // a menu row and a screen reader both arrive without the row in front of them, so
+  // both name the thing. Only the TOOLTIP drops the noun, because it is pinned to the
+  // very row it would remove.
   acts.push({ label: "Remove item", run: () => c.removeItem(props.item.id) });
   return acts;
 });
@@ -1629,10 +1631,15 @@ function dismissFix() {
               @mousedown.prevent
               @click="c.duplicateItem(item.id)"
             >
-              <HugeiconsIcon :icon="Copy01Icon" :size="16" :stroke-width="2" />
+              <HugeiconsIcon :icon="LayerAddIcon" :size="16" :stroke-width="2" />
             </button>
           </Tooltip>
-          <Tooltip text="Remove item" preferred-placement="top">
+          <!-- "Remove", not "Remove item": the tooltip hangs off the row it acts on, so
+               the noun names something already on screen. The ACCESSIBLE name keeps it
+               ("Remove item" below) — a screen reader reaches this button with no such
+               context — and WCAG 2.5.3 is satisfied either way, since the accessible
+               name contains the visible word. Same split as Duplicate beside it. -->
+          <Tooltip text="Remove" preferred-placement="top">
             <button
               class="btn btn--icon btn--ghost item__del"
               aria-label="Remove item"
