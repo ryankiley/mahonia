@@ -1916,11 +1916,19 @@ function dismissFix() {
   /* centres the chevron ON the unit's text rather than letting it stretch.
      What it CANNOT do is hand a baseline up: a flex box that centres its own contents
      has none to offer, so a baseline-aligned parent gets a SYNTHESIZED one — a value the
-     spec leaves the engine to derive, and the engines disagree. That is what put the "lb"
-     a fraction above the "0.03" it belongs to, visibly in Safari. The mobile weight cell
-     no longer asks: it centres too (see .item__weight in the stack block below), which
-     needs no baseline from this wrap at all. The DESKTOP cell above still asks — it
-     measures right in Blink, and has not been checked in WebKit. */
+     spec leaves the engine to derive. Where the engines disagree about it, that is what
+     put the "lb" a fraction above the "0.03" it belongs to, visibly in Safari. The mobile
+     weight cell no longer asks: it centres too (see .item__weight in the stack block
+     below), which needs no baseline from this wrap at all.
+     THE DESKTOP CELL ABOVE STILL ASKS, AND THAT IS FINE — measured, not assumed.
+     Chromium and WebKit both land the unit's ink within half a pixel of the number's at
+     1100px, the same residue the fixed mobile cell reads, so there is nothing here to
+     fix and no reason to spend the desktop grid's baseline on it. What actually diverges
+     is a cell with NO TEXT ANYWHERE (the mobile line's two icon-only clusters); a centred
+     wrap like this one leads with a text span, and both engines take its baseline from
+     that. Re-measure from INK, never from the box model, if this is ever revisited: the
+     box formula reports a phantom error here because WebKit sizes the field 24px against
+     a 20.8px line box. */
   align-items: center;
   /* The SAME gap `.optmenu__btn` puts between its trigger's parts (both read the one
      token, so this is a shared value and not a copied number).
@@ -2552,10 +2560,17 @@ function dismissFix() {
        Half of this line doesn't: the qty cell, the unit wrap and both icon clusters are
        flex boxes that centre their own contents, so none of them offers a baseline and
        each one gets a SYNTHESIZED one instead — a value the spec leaves the engine to
-       derive, and the engines disagree. Safari drew the count and its × a visible step
-       off the weight beside them; Blink lands closer and still measured the unit 0.4px
-       high and the two class toggles 0.8px above the ⋯ and the grip. Four cells, four
-       reference edges, and no width at which they all agree.
+       derive, and here the engines disagreed. Measured from the rendered ink against the
+       pre-fix rules: WebKit put the count 2px off the weight beside it, and the grip 2px
+       off the numbers, while Blink did not move a pixel — its own error was sub-pixel
+       (the unit 0.4px high, the class toggles 0.8px above the ⋯ and the grip), which is
+       to say Chrome reports this line as fine. Four cells, four reference edges, and no
+       width at which they all agree.
+       It takes a cell with NO TEXT ANYWHERE to break, which is why the icon clusters are
+       the ones that did. A centred wrap that leads with a text span is not enough on its
+       own — both engines take its baseline from that span, which is why the identically
+       shaped .totals__uc, .headline__uc and .folder__actions were measured in WebKit and
+       left alone.
        Centring needs no baseline from anyone, and it does not cost the numbers theirs:
        within one line box the baseline sits (ascent − descent) / 2 below the centre
        REGARDLESS of the box's height, so at one font size — which this whole line is —
