@@ -13,7 +13,6 @@
 // the same PGlite directory open, and the two views disagreed.)
 
 import { sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/pglite";
 import { beforeEach, describe, expect, it } from "vitest";
 import * as schema from "../server/db/schema";
 import { LISTS_DDL } from "../server/utils/db";
@@ -21,9 +20,9 @@ import { ACCOUNT_DDL } from "../server/utils/accountSchema";
 import { VAULT_DDL } from "../server/utils/vaultSchema";
 import { deleteAccount } from "../server/utils/accountRepo";
 import { claimLists } from "../server/utils/claimRepo";
-import { createTestDb, makeList } from "./helpers/db";
+import { createTestDb, makeList, type TestDb } from "./helpers/db";
 
-type DB = ReturnType<typeof drizzle>;
+type DB = TestDb;
 async function freshDb(): Promise<DB> {
   return createTestDb(LISTS_DDL, ACCOUNT_DDL, VAULT_DDL);
 }

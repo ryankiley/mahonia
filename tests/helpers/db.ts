@@ -39,8 +39,12 @@ export async function createTestDb(...ddlGroups: string[][]): Promise<TestDb> {
   return db;
 }
 
-/** The handle createTestDb returns — the shape the repos take as their `db`. */
-type TestDb = ReturnType<typeof drizzle<typeof schema>>;
+/** The handle createTestDb returns — the shape the repos take as their `db`.
+ *  EXPORTED because the generic is the whole point: a suite that writes its own
+ *  `ReturnType<typeof drizzle>` silently drops `<typeof schema>` and lands on
+ *  PgliteDatabase<Record<string, unknown>>, which no repo signature accepts — the
+ *  files that did that had each papered over it with a cast at the call site. */
+export type TestDb = ReturnType<typeof drizzle<typeof schema>>;
 
 /**
  * Call a hash-keyed repo function with the RAW edit token. The repos take

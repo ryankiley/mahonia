@@ -1,0 +1,26 @@
+{
+  // Type coverage for scripts/ — the catalog + changelog pipeline — which `nuxt
+  // typecheck` never reaches: Nuxt's own include covers app/, shared/ and
+  // nuxt.config.ts. These files ran only as jiti transpiles, so a removed field or
+  // a stale import sat there unreported until the script was next run by hand.
+  //
+  // A SEPARATE project rather than an entry in nuxt.config's
+  // typescript.tsConfig.include, which was tried first: seed-catalog.ts imports
+  // the server's db + catalog modules, and adding those to the app's program
+  // tipped TypeScript's instantiation limit on an unrelated composable
+  // (useVaultAccess's untyped-URL $fetch reported "excessive stack depth", and
+  // reverting the include alone cleared it). This project holds scripts/ and what
+  // they import, and no app/ code — so `npm run typecheck` runs both.
+  "extends": "./.nuxt/tsconfig.json",
+  "compilerOptions": {
+    // Same exemption tsconfig.tests.json takes, for the same reason. A script walks
+    // a CSV it just parsed and indexes by position (`cells[3]`, `rows[i - 1]`)
+    // against a header it validated a few lines earlier; the app's strict-index rule
+    // would put a `!` on ~40 such lines here and assert nothing the script doesn't
+    // already know. These run at a developer's keyboard, not in a request — a wrong
+    // index throws on the spot with the row in hand. What this project IS here to
+    // catch is the stale reference: a field the schema dropped, an import that moved.
+    "noUncheckedIndexedAccess": false
+  },
+  "include": [".nuxt/nuxt.d.ts", "scripts/**/*"]
+}

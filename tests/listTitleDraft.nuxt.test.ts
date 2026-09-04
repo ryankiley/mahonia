@@ -21,6 +21,7 @@
 // which is the COMMIT — it would test the one path that was never broken and skip
 // the one that was, since the hazard is uncommitted text.
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { mockNuxtImport } from "@nuxt/test-utils/runtime";
 import { mount } from "@vue/test-utils";
 import { reactive } from "vue";
 import ListHead from "~/components/ListHead.vue";

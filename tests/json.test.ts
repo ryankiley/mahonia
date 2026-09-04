@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { jsonToListImport, listToJson } from "../shared/exporters/json";
 import { MAX_FOLDERS, MAX_ITEMS, UNIT_WEIGHT_MAX_MG, normalizeFolder, normalizeItem } from "../shared/ops";
-import type { Item, ListSnapshot } from "../shared/types";
+import type { Folder, Item, ListSnapshot } from "../shared/types";
 
 // A full-fidelity list: catalog links, override flags, packed state, folder
 // colors/defaults, brand/variant splits, a worn split, an unfiled item. The
@@ -15,10 +15,10 @@ const snap = (): ListSnapshot => ({
   title: "Sierra loop",
   description: "Late-season kit — bring the warm puffy.",
   displayUnit: "oz",
-  folders: [
+  folders: ([
     { id: "f1", name: "Shelter", colorKey: "moss", defaultClassification: "base", sortOrder: 0 },
     { id: "f2", name: "On Body", colorKey: "sky", defaultClassification: "worn", sortOrder: 1 },
-  ].map(normalizeFolder),
+  ] satisfies Folder[]).map(normalizeFolder),
   items: (
     [
       {

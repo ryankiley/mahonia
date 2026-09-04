@@ -10,7 +10,6 @@
 //   • that the bearer path never touches the database.
 
 import { sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/pglite";
 import { IncomingMessage, ServerResponse } from "node:http";
 import { Socket } from "node:net";
 import { createEvent, type H3Event } from "h3";
@@ -23,9 +22,9 @@ import { SESSION_COOKIE, findOrCreateUser, startSession } from "../server/utils/
 import { claimLists } from "../server/utils/claimRepo";
 import { randomEditToken, sha256Hex } from "../server/utils/tokens";
 import { LIST_CODE_HEADER } from "../shared/links";
-import { createTestDb } from "./helpers/db";
+import { createTestDb, type TestDb } from "./helpers/db";
 
-type DB = ReturnType<typeof drizzle>;
+type DB = TestDb;
 async function freshDb(): Promise<DB> {
   return createTestDb(LISTS_DDL, ACCOUNT_DDL);
 }

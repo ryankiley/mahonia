@@ -1,5 +1,4 @@
 import { eq, sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/pglite";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { vaultFolders, vaultItems, vaults } from "../server/db/schema";
 import { VAULT_DDL } from "../server/utils/vaultSchema";
@@ -27,9 +26,9 @@ import {
 } from "../shared/vault";
 import { rankVaultRows } from "../shared/vaultSearch";
 import type { Item, MyListEntry } from "../shared/types";
-import { createTestDb } from "./helpers/db";
+import { createTestDb, type TestDb } from "./helpers/db";
 
-type DB = ReturnType<typeof drizzle>;
+type DB = TestDb;
 async function freshDb(): Promise<DB> {
   return createTestDb(VAULT_DDL);
 }
@@ -472,7 +471,7 @@ describe("vault reaping — bounding a table nothing else ever shrinks", () => {
   async function seedVault(days: number): Promise<number> {
     const [row] = await db
       .insert(vaults)
-      .values({ tokenHash: `hash-${days}-${Math.round(Math.random() * 1e9)}`, lastSeenAt: ago(days) })
+      .values({ lastSeenAt: ago(days) })
       .returning();
     await captureVaultItems(db as any, row!.id, [
       { normKey: "", name: `Thing ${row!.id}`, brand: "Maker", weightMg: 100 } as any,
