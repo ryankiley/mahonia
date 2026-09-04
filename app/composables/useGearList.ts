@@ -989,7 +989,9 @@ function create() {
   }
   /** Bank one row on demand — see useVault.captureOne for why it bypasses the
    *  debounce and the consent prompt that the automatic path is built around. */
-  async function saveItemToVault(id: string): Promise<"saved" | "unworthy" | "removed" | "failed"> {
+  async function saveItemToVault(
+    id: string,
+  ): Promise<"saved" | "unworthy" | "removed" | "full" | "failed"> {
     const snap = snapshot.value;
     const item = snap?.items.find((i) => i.id === id);
     if (!snap || !item) return "failed";

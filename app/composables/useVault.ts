@@ -369,7 +369,7 @@ export function useVaultCapture() {
     allItems: Item[],
     folders: Folder[],
     editToken: string,
-  ): Promise<"saved" | "unworthy" | "removed" | "failed"> {
+  ): Promise<"saved" | "unworthy" | "removed" | "full" | "failed"> {
     if (!import.meta.client) return "failed";
     let caps: VaultCapture[];
     try {
@@ -383,12 +383,14 @@ export function useVaultCapture() {
     if (!caps.length || allItems.some((i) => i.parentId === item.id)) return "unworthy";
     const at = vaultKeysEpoch(); // see send() — the answer can outlive the account
     let landed: VaultGearKey[];
+    let full = false;
     try {
-      const res = await vaultFetch<{ keys?: VaultGearKey[] }>(
+      const res = await vaultFetch<{ keys?: VaultGearKey[]; full?: boolean }>(
         "/api/vault/capture",
         { method: "POST", body: { items: caps } },
       );
       landed = res?.keys ?? [];
+      full = !!res?.full;
     } catch {
       return "failed";
     }
@@ -400,7 +402,10 @@ export function useVaultCapture() {
     // worth retrying and this is not: pressing again will do exactly as little,
     // for as long as the removal stands. The way back is on /gear, and the toast
     // has to say so or the button is a loop.
-    if (!landed.some(([k]) => k === caps[0]?.normKey)) return "removed";
+    // Refused, and for one of two reasons that need different words. "Removed"
+    // sends you to /gear's removed list; on a full vault there is nothing there
+    // to find, and the same message would have you looking forever.
+    if (!landed.some(([k]) => k === caps[0]?.normKey)) return full ? "full" : "removed";
     // My Gear has it now — which is what stops a DUPLICATE of this gear further
     // down the same list from still offering to save it
     noteVaultKeys(landed, at);

@@ -44,9 +44,9 @@ const hasVault = ref(true);
 const vaultKnown = ref(true);
 const vaultGear = ref<ReadonlyMap<string, number | null>>(new Map());
 const vaultKeysKnown = ref(true);
-const saveItemToVault = vi.fn<() => Promise<"saved" | "unworthy" | "removed" | "failed">>(
-  () => Promise.resolve("saved"),
-);
+const saveItemToVault = vi.fn<
+  () => Promise<"saved" | "unworthy" | "removed" | "full" | "failed">
+>(() => Promise.resolve("saved"));
 
 mockNuxtImport("useVaultAccess", () => () => ({
   hasVault,
@@ -285,6 +285,15 @@ describe("the save button, against what My Gear actually holds", () => {
     );
     // and it does NOT claim the tick
     expect(vaultBtn(w).attributes("aria-label")).toBe("Save to My Gear");
+    w.unmount();
+  });
+
+  it("does not send someone to their removed gear when the vault is simply full", async () => {
+    saveItemToVault.mockResolvedValueOnce("full");
+    const w = mountRow(gear());
+    await vaultBtn(w).trigger("click");
+    await vi.waitFor(() => expect(w.emitted("toast")).toBeTruthy());
+    expect(w.emitted("toast")![0]![0]).toBe("My Gear is full — remove something there to make room");
     w.unmount();
   });
 

@@ -915,6 +915,10 @@ async function onSaveToVault() {
       // back is, in the words that page uses for it.
       : result === "removed"
         ? "This is in your removed gear — put it back in My Gear first"
+        // ...and a vault with no room is NOT that: there is nothing in the removed
+        // list to find, so the message above would send you looking forever.
+        : result === "full"
+        ? "My Gear is full — remove something there to make room"
         // the vault belongs to an account, so signed out there is nowhere to put it.
         // Naming that is the difference between a dead button and a next step.
         : hasVault.value

@@ -197,9 +197,9 @@ export async function captureVaultItemsReporting(
   db: Db,
   vaultId: number,
   caps: VaultCapture[],
-): Promise<VaultGearKey[]> {
+): Promise<{ keys: VaultGearKey[]; full: boolean }> {
   let clean = sanitize(caps);
-  if (!clean.length) return [];
+  if (!clean.length) return { keys: [], full: false };
 
   // The per-vault ceiling. Updates to rows already in the vault always land —
   // they add nothing — but new keys stop at VAULT_ITEMS_MAX, silently: capture is
@@ -207,6 +207,11 @@ export async function captureVaultItemsReporting(
   // error in front of someone who didn't ask for anything. Counted lazily (one
   // cheap indexed count) and only disambiguated when the request could actually
   // cross the line.
+  // ...silently to the LIST, which never asked — but not to a hand press, which
+  // did. `full` is how the one deliberate caller tells "the vault refused this
+  // for space" from "you removed this gear", two states that need different
+  // words: one is fixed on /gear's removed list, the other is not there at all.
+  let full = false;
   const room = VAULT_ITEMS_MAX - (await vaultItemCount(db, vaultId));
   if (clean.length > room) {
     const existing = new Set(
@@ -228,11 +233,11 @@ export async function captureVaultItemsReporting(
     let budget = Math.max(0, room);
     clean = clean.filter((c) => {
       if (existing.has(c.normKey)) return true;
-      if (budget === 0) return false;
+      if (budget === 0) return void (full = true) ?? false;
       budget--;
       return true;
     });
-    if (!clean.length) return [];
+    if (!clean.length) return { keys: [], full: true };
   }
 
   const now = new Date();
@@ -320,9 +325,12 @@ export async function captureVaultItemsReporting(
   // LIVE rows only. The upsert deliberately leaves `removed_at` alone, so gear you
   // put away on /gear is written and stays put away — the row comes back here, and
   // the caller must not be told it landed.
-  return written
-    .filter((r) => !r.removedAt)
-    .map((r): VaultGearKey => [r.normKey, r.weightPinned ? null : r.weightMg]);
+  return {
+    keys: written
+      .filter((r) => !r.removedAt)
+      .map((r): VaultGearKey => [r.normKey, r.weightPinned ? null : r.weightMg]),
+    full,
+  };
 }
 
 /**
@@ -338,7 +346,7 @@ export async function captureVaultItems(
   vaultId: number,
   caps: VaultCapture[],
 ): Promise<number> {
-  return (await captureVaultItemsReporting(db, vaultId, caps)).length;
+  return (await captureVaultItemsReporting(db, vaultId, caps)).keys.length;
 }
 
 /** The INSERT half a captured row and a hand-added one share — every content

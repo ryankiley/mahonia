@@ -57,6 +57,10 @@ export default defineEventHandler(async (event) => {
   // The write reports its own result — no second query, and no chance of asking
   // about a key the server spelled differently than the client did (sanitize
   // re-derives normKey from the tidied text).
-  const keys = await captureVaultItemsReporting(db, vaultId, items);
-  return { ok: true, captured: keys.length, keys };
+  const { keys, full } = await captureVaultItemsReporting(db, vaultId, items);
+  // `full` only ever means "new gear was refused for space". The automatic path
+  // ignores it (capture is a side effect of editing, and must never put an error
+  // over the list); a hand press needs it, because "the vault is full" and "you
+  // removed this gear" are fixed in different places.
+  return { ok: true, captured: keys.length, keys, full };
 });
