@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { Backpack02Icon, ChevronDownIcon, CookieIcon, Delete02Icon, GripVerticalIcon, ShirtIcon } from "@hugeicons/core-free-icons";
-import type { Classification, Folder, Item, ListSnapshot } from "~~/shared/types";
+import { ChevronDownIcon, Delete02Icon, GripVerticalIcon } from "@hugeicons/core-free-icons";
+import type { Folder, Item, ListSnapshot } from "~~/shared/types";
 import { bySortOrder } from "~~/shared/weights";
 
 // a row can raise a transient message (banking gear to the vault); the folder just
@@ -96,34 +96,6 @@ function toggleCollapsed() {
   collapsed.value = !collapsed.value;
   foldCollapse.set(props.folder.id, collapsed.value);
 }
-
-// ---- what the rows in here count as ----
-//
-// Folder.defaultClassification has been on the type, honoured by the totals
-// (effectiveClassification in shared/weights.ts) and patchable by the reducer since
-// the beginning — with no control anywhere to set it. Every folder anyone could make
-// was created "base" and stayed there, so a "Day 3" or a "Food & fuel" had its every
-// row marked consumable by hand, one row at a time.
-//
-// It is NOT merely a default for new rows. An item stores `null` for "whatever this
-// folder says" — that is the whole reason base is stored as null (see ItemRow's
-// baseValue) — so this re-reads every row in the folder that hasn't pinned a class of
-// its own, the ones already in it included. A row that HAS pinned one is left alone,
-// which is what keeps the one worn shirt in a base folder worn.
-//
-// A menu rather than the row's pair of toggles: two more glyphs would cost the folder
-// header 88px of its name on a phone, for a setting most folders never touch — and a
-// folder-level rule reads better as a sentence than as two lit pictures anyway.
-const menu = useItemMenu();
-const CLASS_PICKS: { value: Classification; label: string; icon: typeof Backpack02Icon }[] = [
-  { value: "base", label: "Base weight", icon: Backpack02Icon },
-  { value: "worn", label: "Worn", icon: ShirtIcon },
-  { value: "consumable", label: "Consumable", icon: CookieIcon },
-];
-// `?? "base"` for the same reason weights.ts falls back: a folder written before the
-// field existed, or an import that skipped it, has no value to read.
-const folderClass = computed(() => props.folder.defaultClassification ?? "base");
-const classPick = computed(() => CLASS_PICKS.find((p) => p.value === folderClass.value) ?? CLASS_PICKS[0]!);
 </script>
 
 <template>
@@ -161,31 +133,6 @@ const classPick = computed(() => CLASS_PICKS.find((p) => p.value === folderClass
            thing still MOUNTING on every packing→gear switch after the rows stopped —
            ~240ms of the switch was rebuilding folder chrome. -->
       <div class="folder__actions">
-        <!-- what rows here count as — the folder's own classification, which every
-             row in it inherits unless it says otherwise -->
-        <ItemRowMenu
-          class="folder__cls"
-          :row-id="folder.id"
-          kind="folderclass"
-          :label="`Items here count as ${classPick.label.toLowerCase()}`"
-          menu-label="What items here count as"
-          :icon="classPick.icon"
-          :trigger-class="folderClass === 'base' ? 'folder__clsbtn' : 'folder__clsbtn item__mark'"
-          tooltip
-        >
-          <li v-for="p in CLASS_PICKS" :key="p.value" role="none">
-            <button
-              type="button"
-              role="menuitemradio"
-              class="menu__item"
-              :class="{ 'is-active': p.value === folderClass }"
-              :aria-checked="p.value === folderClass"
-              @click="menu.close(); c.updateFolder(folder.id, { defaultClassification: p.value })"
-            >
-              {{ p.label }}
-            </button>
-          </li>
-        </ItemRowMenu>
         <button
           class="btn btn--icon btn--ghost folder__del"
           title="Remove folder"
@@ -269,24 +216,6 @@ const classPick = computed(() => CLASS_PICKS.find((p) => p.value === folderClass
    only because .folder__name hugs its text (field-sizing:content). */
 .folder__collapse {
   margin-left: -1px;
-}
-
-/* The classification trigger wears the item row's own states: quiet ink at rest, the
-   shared `.item__mark` chip (atoms/item.scss) once the folder says something other
-   than base — so "this folder is food" and "this row is food" look like one claim
-   made at two altitudes rather than two inventions.
-   The OFF ink is scoped to the off state (`:not`) rather than stated flat, for the
-   reason ItemRow's .item__clsbtn gives: a scoped rule carries this component's
-   attribute and would otherwise outrank the shared chip's own colour, leaving a lit
-   trigger drawn in --ink-3. */
-.folder__clsbtn:not(.item__mark) {
-  color: var(--ink-3);
-}
-.folder__clsbtn {
-  border-radius: var(--radius-pill);
-}
-.folder__clsbtn:hover {
-  color: var(--ink);
 }
 
 /* the collapse machinery (.folder__body 1fr↔0fr, .folder__bodyinner clip + fade,
