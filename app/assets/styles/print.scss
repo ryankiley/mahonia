@@ -53,10 +53,14 @@
     display: none !important;
   }
 
-  // the editor's sticky bar becomes a plain title line
+  // the sticky bar becomes a plain title line. !important because the bar's sticky
+  // block is a GLOBAL `.topbar` in main.scss — same specificity as this one, and Sass
+  // emits an @use'd module before the using file's own rules, so main.scss's copy lands
+  // after this and would win on source order alone. (It used to be scoped, `.topbar[data-v-…]`,
+  // which outweighed this rule outright — the line has never actually printed flat.)
   .topbar {
-    position: static;
-    border-bottom: 0;
+    position: static !important;
+    border-bottom: 0 !important;
   }
 
   // a collapsed folder still prints complete — paper has no chevron to expand
