@@ -16,7 +16,7 @@ import { HugeiconsIcon as Upstream } from "@hugeicons/vue";
 import {
   Add01Icon, ArrowExpand02Icon, ArrowLeft01Icon, ArrowRight01Icon, ArrowShrink02Icon,
   ArrowUpRight01Icon, Backpack02Icon, CalculateIcon, Calendar03Icon,
-  Cancel01Icon, CheckIcon, CheckmarkSquare02Icon, ChevronDownIcon, CircleEllipsisIcon,
+  Cancel01Icon, CheckIcon, CheckmarkSquare02Icon, ChevronDownIcon, CircleEllipsisIcon, CommandIcon,
   CircleXIcon, CookieIcon, Copy01Icon, Delete02Icon, DropletIcon, Edit02Icon,
   EllipsisIcon, FileExportIcon, FileImportIcon, Fire02Icon, FolderIcon, GlobeIcon,
   GripVerticalIcon, HelpCircleIcon, Message01Icon, RemoveCircleIcon,
@@ -35,7 +35,7 @@ import { HugeiconsIcon as Local } from "~/utils/hugeicon";
 const ALL_ICONS = Object.entries({
   Add01Icon, ArrowExpand02Icon, ArrowLeft01Icon, ArrowRight01Icon, ArrowShrink02Icon,
   ArrowUpRight01Icon, Backpack02Icon, CalculateIcon, Calendar03Icon,
-  Cancel01Icon, CheckIcon, CheckmarkSquare02Icon, ChevronDownIcon, CircleEllipsisIcon,
+  Cancel01Icon, CheckIcon, CheckmarkSquare02Icon, ChevronDownIcon, CircleEllipsisIcon, CommandIcon,
   CircleXIcon, CookieIcon, Copy01Icon, Delete02Icon, DropletIcon, Edit02Icon,
   EllipsisIcon, FileExportIcon, FileImportIcon, Fire02Icon, FolderIcon, GlobeIcon,
   GripVerticalIcon, HelpCircleIcon, Message01Icon, RemoveCircleIcon,

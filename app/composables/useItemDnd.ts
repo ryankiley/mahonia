@@ -240,8 +240,18 @@ function create() {
       setDrop({ folderId, parentId: null, beforeId: idOf(topRows[slot]) });
     },
     target: () => drop.value,
-    commit: (id, t) =>
-      t.insert ? t.insert(t.folderId, t.beforeId) : useGearList().moveItem(id, t.folderId, t.beforeId, t.parentId),
+    // Alt held at the release COPIES instead of moving — the Finder/Figma gesture,
+    // and the one that makes a row costing four fields worth building once. The
+    // source stays where it is; everything on it lands in the slot the indicator
+    // was pointing at, children included. An INSERTING drag ignores the modifier:
+    // it is already bringing a new row in, so there is no move for a copy to be an
+    // alternative to.
+    commit: (id, t, copy) =>
+      t.insert
+        ? t.insert(t.folderId, t.beforeId)
+        : copy
+          ? useGearList().duplicateItem(id, { folderId: t.folderId, beforeId: t.beforeId, parentId: t.parentId })
+          : useGearList().moveItem(id, t.folderId, t.beforeId, t.parentId),
     onStart(ev) {
       drop.value = null;
       startY = ev.clientY;
@@ -268,7 +278,10 @@ function create() {
     drag.start(INSERT_SOURCE, ev);
   }
 
-  return { dragId: drag.dragId, drop, start: drag.start, startInsert, reset: drag.reset };
+  // `copying` is live for the duration of a gesture, which is what the rows read to
+  // stop dimming the source: a copy leaves it exactly where it is, so the lifted-row
+  // treatment would be the indicator telling you the wrong thing.
+  return { dragId: drag.dragId, copying: drag.copyKey, drop, start: drag.start, startInsert, reset: drag.reset };
 }
 
 export function useItemDnd() {

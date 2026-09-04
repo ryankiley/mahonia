@@ -46,15 +46,28 @@ function surface(selectorClass: string, top: number, bottom: number): HTMLElemen
 const down = (pointerId = 1) => new PointerEvent("pointerdown", { pointerId, clientX: 10, clientY: 50 });
 const move = (clientY: number, pointerId = 1) =>
   new PointerEvent("pointermove", { pointerId, clientX: 10, clientY, bubbles: true });
-const up = (pointerId = 1) => new PointerEvent("pointerup", { pointerId, bubbles: true });
+const up = (pointerId = 1, altKey = false) => new PointerEvent("pointerup", { pointerId, bubbles: true, altKey });
+const key = (type: "keydown" | "keyup", k: string, altKey: boolean) =>
+  new KeyboardEvent(type, { key: k, altKey });
 
 /** A drag wired to a fixed target, with the calls it made recorded. */
 function harness(opts: { within?: string; target?: () => unknown } = {}) {
-  const calls = { commit: [] as [string, unknown][], reset: 0, start: 0, tracked: [] as (HTMLElement | null)[] };
+  // `copies` is kept beside `commit` rather than as a third element in it, so the
+  // cases that predate the copy modifier still assert the pair they were written for
+  const calls = {
+    commit: [] as [string, unknown][],
+    copies: [] as boolean[],
+    reset: 0,
+    start: 0,
+    tracked: [] as (HTMLElement | null)[],
+  };
   const drag = createPointerDrag<unknown>({
     track: (_ev, el) => void calls.tracked.push(el),
     target: opts.target ?? (() => "drop-target"),
-    commit: (id, t) => void calls.commit.push([id, t]),
+    commit: (id, t, copy) => {
+      calls.commit.push([id, t]);
+      calls.copies.push(copy);
+    },
     onStart: () => void calls.start++,
     onReset: () => void calls.reset++,
     within: opts.within,
@@ -364,5 +377,70 @@ describe("createPressArm", () => {
     arm.end();
     window.dispatchEvent(pmove({ clientX: 200 }));
     expect(drags).toEqual([]);
+  });
+});
+
+// The copy modifier — Alt held means "copy instead of move" (the editor's item rows
+// duplicate a row on an Alt-drag). The scaffold owns it because it is the only thing
+// that sees every event in a gesture: the modifier can go down and up with the pointer
+// perfectly still, so a reading taken only on pointermove goes stale in the hand.
+describe("the copy modifier", () => {
+  it("hands commit the modifier's state at the RELEASE, not at pickup", () => {
+    surface("editor__body", 0, 400);
+    const { drag, calls } = harness({ within: ".editor__body" });
+
+    // picked up bare, released with Alt down — a copy, decided at the end
+    drag.start("row-1", down());
+    window.dispatchEvent(move(200));
+    window.dispatchEvent(up(1, true));
+    expect(calls.copies).toEqual([true]);
+
+    // and the mirror: armed during the drag, let go before the release
+    drag.start("row-2", down());
+    window.dispatchEvent(new PointerEvent("pointermove", { pointerId: 1, clientX: 10, clientY: 200, altKey: true }));
+    window.dispatchEvent(up(1, false));
+    expect(calls.copies).toEqual([true, false]);
+  });
+
+  it("hears the modifier while the pointer sits still", () => {
+    surface("editor__body", 0, 400);
+    const { drag } = harness({ within: ".editor__body" });
+
+    drag.start("row-1", down());
+    window.dispatchEvent(move(200));
+    expect(drag.copyKey.value).toBe(false);
+
+    // no pointermove between these — pressing Alt is a key event and nothing else
+    window.dispatchEvent(key("keydown", "Alt", true));
+    expect(drag.copyKey.value).toBe(true);
+    window.dispatchEvent(key("keyup", "Alt", false));
+    expect(drag.copyKey.value).toBe(false);
+  });
+
+  it("drops the modifier with the gesture", () => {
+    surface("editor__body", 0, 400);
+    const { drag } = harness({ within: ".editor__body" });
+
+    drag.start("row-1", down());
+    window.dispatchEvent(key("keydown", "Alt", true));
+    expect(drag.copyKey.value).toBe(true);
+    window.dispatchEvent(up(1, true));
+    // a drag that ended holds no modifier — the rows read this live for the copy
+    // cursor, and a stale `true` would light the next gesture before it began
+    expect(drag.copyKey.value).toBe(false);
+  });
+
+  // Escape still aborts, and must not be mistaken for a modifier reading on the way
+  it("still cancels on Escape once the modifier shares the listener", () => {
+    surface("editor__body", 0, 400);
+    const { drag, calls } = harness({ within: ".editor__body" });
+
+    drag.start("row-1", down());
+    window.dispatchEvent(move(200));
+    window.dispatchEvent(key("keydown", "Escape", false));
+    window.dispatchEvent(up());
+
+    expect(calls.commit).toEqual([]);
+    expect(drag.dragId.value).toBeNull();
   });
 });

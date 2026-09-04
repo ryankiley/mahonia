@@ -45,7 +45,7 @@ const clampQty = (n: number) => Math.max(1, Math.min(QTY_MAX, Math.round(n)));
 
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { CalculateIcon, Cancel01Icon, CheckIcon, CheckmarkSquare02Icon, ChevronDownIcon, CircleEllipsisIcon, CookieIcon, Delete02Icon, DropletIcon, GripVerticalIcon, ListIndentIncreaseIcon, MinusSignIcon, PlusSignIcon, SafeBoxIcon, ShirtIcon, SquareIcon, UserIcon } from "@hugeicons/core-free-icons";
+import { CalculateIcon, Cancel01Icon, CheckIcon, CheckmarkSquare02Icon, ChevronDownIcon, CircleEllipsisIcon, CookieIcon, Copy01Icon, Delete02Icon, DropletIcon, GripVerticalIcon, ListIndentIncreaseIcon, MinusSignIcon, PlusSignIcon, SafeBoxIcon, ShirtIcon, SquareIcon, UserIcon } from "@hugeicons/core-free-icons";
 import type { Item, ListSnapshot } from "~~/shared/types";
 import type { ItemPatch } from "~~/shared/ops";
 import { effectivePersonId, personColor } from "~~/shared/people";
@@ -141,6 +141,10 @@ const canIndent = computed(() => !props.nested && !isParent.value && props.prevI
 // drag-to-reorder (editable rows only)
 const dnd = useItemDnd();
 const isDragging = computed(() => dnd.dragId.value === props.item.id);
+// (A drag with Alt held COPIES rather than moves. The row still lifts and follows the
+// pointer — a gesture whose held object stayed put would read as broken — and the
+// in-flight signal is the cursor, which GearEditor puts on the editing surface rather
+// than here: this row is pointer-events:none while lifted, so it cannot set one.)
 // the group's collapse clip (overflow:hidden on .nest-block, needed for the 1fr↔0fr
 // slide) would crop a child's autocomplete dropdown or a lifted drag row. Lift it
 // while a child overlay is open or any drag is in flight — mirrors the folder's
@@ -950,7 +954,14 @@ const overflowActions = computed(() => {
   // body attribute — atoms/item.scss; the desktop nest menu hides whole the same
   // way): indent targets the UNFILTERED row above, and a reparent changes what a
   // row inherits, so either can make it vanish from the very view it was touched in.
-  const acts: { label: string; run: () => void; nest?: true }[] = nestActions.value.map((a) => ({ ...a, nest: true }));
+  // Duplicate LEADS. It is the entry most often reached for, and the only one here
+  // that is always available — the nesting pair is conditional (a group row offers no
+  // indent, a top-level row no un-nest), so anything after them would open the menu on
+  // a different line from one row to the next.
+  const acts: { label: string; run: () => void; nest?: true }[] = [
+    { label: "Duplicate", run: () => c.duplicateItem(props.item.id) },
+    ...nestActions.value.map((a) => ({ ...a, nest: true as const })),
+  ];
   // Reads its own state, like the inline button's tooltip does — "Saved" is the
   // whole feedback here, since a menu closes on choosing and there's no tick left
   // on screen to see. Same disclosure rule as the inline icon: no entry until the
@@ -1601,6 +1612,23 @@ function dismissFix() {
               <button type="button" role="menuitem" class="menu__item" @click="menu.close(); a.run()">{{ a.label }}</button>
             </li>
           </ItemRowMenu>
+          <!-- DUPLICATE. The whole row copied one slot down — name, weight, class,
+               calories, carrier and any nested children. It earns an inline seat for
+               the same reason the vault save has one: it is a top-level action on the
+               row, not a refinement of one, and burying it would leave Alt-drag (which
+               a phone can't perform at all) as the only way to reach it. Mobile keeps
+               it in the ⋯ menu with the rest of the cluster. -->
+          <Tooltip text="Duplicate" preferred-placement="top">
+            <button
+              class="btn btn--icon btn--ghost item__dup"
+              type="button"
+              aria-label="Duplicate item"
+              @mousedown.prevent
+              @click="c.duplicateItem(item.id)"
+            >
+              <HugeiconsIcon :icon="Copy01Icon" :size="16" :stroke-width="2" />
+            </button>
+          </Tooltip>
           <Tooltip text="Remove item" preferred-placement="top">
             <button
               class="btn btn--icon btn--ghost item__del"
@@ -1663,7 +1691,7 @@ function dismissFix() {
                its label promises (a drag needs a pointer) -->
           <button
             class="btn btn--icon btn--ghost grip item__grip"
-            title="Drag to reorder"
+            title="Drag to reorder · Alt-drag to copy"
             :aria-label="`Reorder ${item.name || 'item'}`"
             @pointerdown="dnd.start(item.id, $event)"
             @keydown="onGripKey"
@@ -2269,6 +2297,7 @@ function dismissFix() {
    ItemRowMenu's own scoped block, which is the only place a rule can reach them) */
 .item__grip,
 .item__vault-btn,
+.item__dup,
 .item__del,
 /* the qty stepper's ± live in this family too, though they sit in the middle of the
    row rather than the trailing cluster: they are the same kind of thing (a quiet
@@ -2280,6 +2309,7 @@ function dismissFix() {
 }
 .item__grip:hover,
 .item__vault-btn:hover,
+.item__dup:hover,
 .item__del:hover,
 .item__qtybtn:hover {
   color: var(--ink);
@@ -2379,6 +2409,7 @@ function dismissFix() {
     0 0 0 1px var(--line-2),
     var(--shadow-pop);
   cursor: grabbing;
+
 }
 /* insertion line marking where the dragged row will land */
 .item-wrap.is-drop-before::before {
@@ -2787,6 +2818,7 @@ function dismissFix() {
   .item__nest,
   .item__person,
   .item__actions .tooltip-trigger:has(.item__vault-btn),
+  .item__actions .tooltip-trigger:has(.item__dup),
   .item__actions .tooltip-trigger:has(.item__del) {
     display: none;
   }

@@ -337,3 +337,153 @@ describe("the carrier through a wrap and its unwrap", () => {
     expect(byId(c, "body")?.commonName).toBe("Tent");
   });
 });
+
+// Duplicating a row — the whole row, not just its name.
+//
+// The bug this answers isn't a bug: it's arithmetic. A row costs a name plus every
+// other decision on it (mark it consumable, give it calories, weigh it, assign a
+// carrier), and a trip eating the same food on eight days paid all of them eight
+// times. The copy already knows every one of those answers.
+describe("duplicating a row", () => {
+  beforeEach(() => {
+    records.clear();
+    storage.clear();
+  });
+  afterEach(() => useGearList().dispose());
+
+  it("carries every field over and lands directly below the source", async () => {
+    const c = await open([
+      item({
+        id: "pretzels",
+        name: "Sourdough pretzels",
+        // apostrophe-free on purpose: the copy passes through normalizeItem, which
+        // tidies a straight apostrophe to a curly one (a real behaviour, and not this
+        // test's) — the source came off the loaded snapshot and never met it
+        brand: "Unique Snacks",
+        variant: "8 oz",
+        commonName: "Snack",
+        commonNameOverridden: true,
+        nameOverridden: true,
+        unitWeightMg: 227_000,
+        weightOverridden: true,
+        entryUnit: "oz",
+        qty: 2,
+        classification: "consumable",
+        kcal: 310,
+        description: "day three",
+        productUrl: "https://example.com/pretzels",
+        personId: "sam",
+        sortOrder: 0,
+      }),
+      item({ id: "after", name: "After", sortOrder: 1 }),
+    ]);
+
+    const newId = c.duplicateItem("pretzels");
+    await vi.waitFor(() => expect(byId(c, newId)).toBeTruthy());
+
+    // every field but the row's identity and its place — the three the copy has to
+    // mint for itself. This is asserted as one comparison rather than field by field
+    // on purpose: a field-by-field list would keep passing when the Item type grows
+    // a field the copy silently stops carrying.
+    // packed is excluded here and asserted on its own below — it is the one field a
+    // copy deliberately does NOT inherit
+    const { id: _si, sortOrder: _ss, packed: _sp, ...src } = byId(c, "pretzels")!;
+    const { id: _ci, sortOrder: _cs, packed: _cp, ...copy } = byId(c, newId)!;
+    // on the DEFINED keys: the copy goes through normalizeItem (the source came
+    // straight off the loaded snapshot and didn't), and the normalizer writes some
+    // optionals as an explicit `undefined` — which every reader treats as absent
+    const defined = (o: object) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined));
+    expect(defined(copy)).toEqual(defined(src));
+
+    // "Duplicate" means below THIS row, not at the end of the folder — the copy
+    // should land where the eye already is
+    expect(itemsOf(c).map((i) => i.id)).toEqual(["pretzels", newId, "after"]);
+    expect(itemsOf(c).map((i) => i.sortOrder)).toEqual([0, 1, 2]);
+  });
+
+  it("arrives unpacked, whatever the source was", async () => {
+    const c = await open([item({ id: "bar", name: "Bar", packed: true, sortOrder: 0 })]);
+
+    const newId = c.duplicateItem("bar");
+    await vi.waitFor(() => expect(byId(c, newId)).toBeTruthy());
+
+    // packed records a checklist tick from the night before a trip — a fact about
+    // that evening, not about the gear
+    expect(byId(c, "bar")?.packed).toBe(true);
+    expect(byId(c, newId)?.packed).toBe(false); // normalizeItem's `!!raw.packed`
+  });
+
+  it("brings a group's children with it, on fresh ids", async () => {
+    const c = await open([
+      item({ id: "tent", name: "Tent", sortOrder: 0 }),
+      item({ id: "fly", name: "Fly", parentId: "tent", unitWeightMg: 300_000, sortOrder: 0 }),
+      item({ id: "poles", name: "Poles", parentId: "tent", unitWeightMg: 400_000, sortOrder: 1 }),
+    ]);
+
+    const newId = c.duplicateItem("tent");
+    await vi.waitFor(() => expect(childrenOf(c, newId).length).toBe(2));
+
+    // a group IS its children — a copy without them weighs nothing and means nothing
+    const kids = childrenOf(c, newId);
+    expect(kids.map((i) => i.name)).toEqual(["Fly", "Poles"]);
+    expect(kids.map((i) => i.unitWeightMg)).toEqual([300_000, 400_000]);
+    // fresh ids: the originals stay put under the original group
+    expect(kids.map((i) => i.id)).not.toContain("fly");
+    expect(kids.map((i) => i.id)).not.toContain("poles");
+    expect(childrenOf(c, "tent").map((i) => i.id)).toEqual(["fly", "poles"]);
+  });
+
+  it("drops a copy into the slot a drag resolved", async () => {
+    // the Alt-drag path: the same resolved target a move would have committed to
+    const c = await open([
+      item({ id: "bar", name: "Bar", classification: "consumable", kcal: 250, sortOrder: 0 }),
+      item({ id: "x", name: "X", folderId: null, sortOrder: 0 }),
+      item({ id: "y", name: "Y", folderId: null, sortOrder: 1 }),
+    ]);
+
+    const newId = c.duplicateItem("bar", { folderId: null, beforeId: "y", parentId: null });
+    await vi.waitFor(() => expect(byId(c, newId)).toBeTruthy());
+
+    // the source is still where it was — that is the whole difference from a move
+    expect(byId(c, "bar")?.folderId).toBe(FOLDER);
+    const ungrouped = itemsOf(c).filter((i) => i.folderId === null);
+    expect(ungrouped.map((i) => i.id)).toEqual(["x", newId, "y"]);
+    expect(ungrouped.map((i) => i.sortOrder)).toEqual([0, 1, 2]);
+    // and the copy took the calories with it, which is the point of the gesture
+    expect(byId(c, newId)?.kcal).toBe(250);
+    expect(byId(c, newId)?.classification).toBe("consumable");
+  });
+
+  it("keeps a nested row's copy under the same parent", async () => {
+    const c = await open([
+      item({ id: "kit", name: "Cook kit", sortOrder: 0 }),
+      item({ id: "pot", name: "Pot", parentId: "kit", unitWeightMg: 100_000, sortOrder: 0 }),
+      item({ id: "spoon", name: "Spoon", parentId: "kit", unitWeightMg: 10_000, sortOrder: 1 }),
+    ]);
+
+    const newId = c.duplicateItem("pot");
+    await vi.waitFor(() => expect(childrenOf(c, "kit").length).toBe(3));
+
+    // below the row it copied, inside the group it copied from
+    expect(childrenOf(c, "kit").map((i) => i.id)).toEqual(["pot", newId, "spoon"]);
+    expect(byId(c, newId)?.parentId).toBe("kit");
+    expect(byId(c, newId)?.folderId).toBe(FOLDER);
+  });
+
+  it("appends the copy when the source is the last row", async () => {
+    const c = await open([
+      item({ id: "a", name: "A", sortOrder: 0 }),
+      item({ id: "b", name: "B", sortOrder: 1 }),
+    ]);
+
+    const newId = c.duplicateItem("b");
+    await vi.waitFor(() => expect(byId(c, newId)).toBeTruthy());
+    expect(itemsOf(c).map((i) => i.id)).toEqual(["a", "b", newId]);
+  });
+
+  it("does nothing for a row that isn't there", async () => {
+    const c = await open([item({ id: "a", name: "A", sortOrder: 0 })]);
+    expect(c.duplicateItem("ghost")).toBe("");
+    expect(itemsOf(c)).toHaveLength(1);
+  });
+});
