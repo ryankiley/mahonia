@@ -35,7 +35,11 @@ const GROUPS: { title: string; rows: Row[] }[] = [
   {
     title: "A row",
     rows: [
-      { mod: ALT, keys: ["drag"], what: "Duplicate a row — it lands where you drop it, with everything on it" },
+      // "drag" alone was not enough: the row is mostly text fields, so the ⋮⋮ handle is
+      // the only thing that starts a drag — and the first person to try this reached
+      // for the row body and concluded the feature was broken. The arrow-key entry
+      // below already said "on the drag handle"; this one has to as well.
+      { mod: ALT, keys: ["drag"], what: "Duplicate a row from its ⋮⋮ handle — the copy lands where you drop it, with everything on it" },
       { keys: ["↑", "↓"], what: "In a weight field, nudge the weight in that row’s own unit" },
       { mod: "Shift", keys: ["↑", "↓"], what: "Nudge it by ten of those" },
       { keys: ["↑", "↓"], what: "On the drag handle, move a row — or a folder — one place" },
