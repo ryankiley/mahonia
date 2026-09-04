@@ -14,8 +14,8 @@ interface PointerDragHooks<T> {
   /** The caller's current drop target — read at release, just before reset. */
   target: () => T | null;
   /** Apply the drop. Called only for a release inside the editing surface.
-   *  `copy` is the copy modifier's state at the RELEASE (see `copyKey`); a gesture
-   *  with no copy meaning simply ignores it. */
+   *  `copy` is the latched copy modifier (see `copyKey`); a gesture with no copy
+   *  meaning simply ignores it. */
   commit: (dragId: string, target: T, copy: boolean) => void;
   /** Per-gesture extra state on pickup (e.g. the item drag's start Y). */
   onStart?: (ev: PointerEvent) => void;
@@ -56,12 +56,26 @@ export function createPointerDrag<T>(hooks: PointerDragHooks<T>) {
   // Tracked here rather than by the caller because only this scaffold sees every
   // event a gesture produces. The modifier can go down and up WITHOUT the pointer
   // moving, so pointermove alone would hold a stale reading for as long as the hand
-  // is still — hence the keydown/keyup pair, which is also why this can't just be
-  // read off the commit event and be right for the indicator on the way there.
+  // is still — hence the keydown.
+  //
+  // IT LATCHES, and that is the whole subtlety. Reading the modifier off the release
+  // event instead — "you decide by what you're holding when you let go" — is a lovely
+  // sentence and a broken gesture: letting go of Alt and the mouse button is one
+  // two-handed motion, the key almost always lifts first, and the drop then silently
+  // performs a MOVE. No error, no feedback, the row simply relocates, and the feature
+  // reads as not existing. It failed that way for its first user, on a gesture that had
+  // "worked" in every test that set the flag in code rather than with two hands.
+  //
+  // So: Alt down at any point ARMS it, and only MOVEMENT can disarm it. That one rule
+  // separates the two cases a release cannot: letting go of the key as part of dropping
+  // (no move follows — still a copy) from changing your mind (you carry on dragging,
+  // and each move re-reads the live state). keyup deliberately does NOT clear it.
   const copyKey = ref(false);
 
   function onMove(ev: PointerEvent) {
     if (!dragId.value || ev.pointerId !== activePointer) return;
+    // movement is the ONLY thing that disarms the latch (see copyKey) — it re-reads
+    // the live state, so carrying on after letting go of Alt cancels the copy
     copyKey.value = ev.altKey;
     const el = document.elementFromPoint(ev.clientX, ev.clientY) as HTMLElement | null;
     // Cancel only on a VERTICAL escape — dragging up over the sticky top bar or down
@@ -86,17 +100,17 @@ export function createPointerDrag<T>(hooks: PointerDragHooks<T>) {
     window.removeEventListener("pointerup", onUp);
     window.removeEventListener("pointercancel", onCancel);
     window.removeEventListener("keydown", onKey);
-    window.removeEventListener("keyup", onKey);
   }
 
   // Escape aborts the drag without committing — the clean cancel now that a release
-  // always commits to the last target. Bound to keyUP as well as keydown, for the
-  // modifier: pressing or releasing Alt is a key event and nothing else, so this is
-  // the only place a still hand's change of mind is heard. (Escape on keyup is
-  // harmless — the keydown already reset the drag, and reset() is re-entrant.)
+  // always commits to the last target.
+  //
+  // Also the modifier's ARM: pressing Alt is a key event and nothing else, so with a
+  // still hand this is the only place it can be heard. Arm only — releasing Alt is
+  // pointedly not a disarm (see copyKey), so keyup is not listened for at all.
   function onKey(ev: KeyboardEvent) {
     if (ev.key === "Escape") return reset();
-    copyKey.value = ev.altKey;
+    if (ev.altKey) copyKey.value = true;
   }
 
   // Clear all drag state + listeners without committing. Safe to call any time
@@ -124,11 +138,10 @@ export function createPointerDrag<T>(hooks: PointerDragHooks<T>) {
     const id = dragId.value;
     const target = hooks.target();
     const cancelled = outside;
-    // The RELEASE is the authoritative reading of the modifier — you decide whether
-    // this is a copy by what you're holding when you let go. Read off the event
-    // rather than the ref because reset() below clears the ref (it has to: the ref
-    // is live state for the indicator, and a drag that ended holds no modifier).
-    const copy = ev.altKey;
+    // The LATCH, not this event's altKey — the release is the one reading that cannot
+    // be trusted, because the key lifts before the button (see copyKey). Read before
+    // reset(), which clears it.
+    const copy = copyKey.value;
     reset();
     if (!cancelled && id && target) hooks.commit(id, target, copy);
   }
@@ -168,7 +181,6 @@ export function createPointerDrag<T>(hooks: PointerDragHooks<T>) {
     window.addEventListener("pointerup", onUp);
     window.addEventListener("pointercancel", onCancel);
     window.addEventListener("keydown", onKey);
-    window.addEventListener("keyup", onKey);
   }
 
   return { dragId, copyKey, start, reset };
