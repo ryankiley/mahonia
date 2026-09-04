@@ -97,9 +97,10 @@ const c = useGearList();
 // below — signed out, nothing reaches a vault automatically, so no row may claim
 // it's already there
 const { hasVault, vaultKnown } = useVaultAccess();
-// ...and the one fact neither of those carries: what My Gear actually holds. Read
-// from a shared singleton, so a 150-row list asks once (useVaultKeys).
-const { vaultKeys, vaultKeysKnown } = useVaultKeys();
+// ...and the one fact neither of those carries: what My Gear actually holds, and
+// at what weight. Read from a shared singleton, so a 150-row list asks once
+// (useVaultKeys).
+const { vaultGear, vaultKeysKnown } = useVaultKeys();
 
 // The two mount latches (each row face mounts the first time its mode is entered and
 // then stays, CSS-hidden elsewhere) and the mode itself, for event handlers only —
@@ -823,18 +824,31 @@ const vaultCovered = computed(() => {
   // banked this row. Reading them as one put the button on every worthy row of
   // every covered list for the length of that round trip: open a list you built,
   // and gear that has been in My Gear for weeks offered to be saved to it.
-  // (Whether it then vanished or stayed depended on whether the session resolved
-  // at all — a failed lookup left the wrong answer up for good.)
   if (vaultKnown.value && !hasVault.value) return false; // no vault, so nothing is in one
-  // Same rule one level down: the keys are an empty Set both for an empty vault
-  // and for the moment before /api/vault/keys answers, and only the first means
-  // the row isn't banked. Hold the button back until the answer lands.
-  if (!vaultKnown.value || !vaultKeysKnown.value) return true;
+  // Same rule one level down, and the ONLY wait: the Map is empty both for an
+  // empty vault and for the moment before /api/vault/keys answers, and only the
+  // first means the row isn't banked. Deliberately not also gated on vaultKnown —
+  // useVaultKeys owns that wait and BOUNDS it (a session lookup that never
+  // resolves settles this as known-with-nothing), where reading vaultKnown here
+  // hid the button for good on a visitor whose /api/auth/me never came back.
+  if (!vaultKeysKnown.value) return true;
   // THE TRUTHFUL TEST, and the one this button spent three attempts without: My
   // Gear either has this piece of gear or it doesn't. It holds however the row got
   // there — a list on another device, an import, a hand-typed row on /gear — and
   // it does not care what this list's capture answer happens to be.
-  if (vaultKeys.value.has(vaultKey.value)) return true;
+  //
+  // Held gear still isn't covered while the row carries a weight the vault would
+  // take: capture writes the incoming weight, so correcting one and pressing save
+  // does something. Membership alone made the button leave on the first press and
+  // never come back, so a weight fixed afterwards could not be pushed from that
+  // list at all. `null` is a PINNED weight — you fixed it by hand on /gear and no
+  // capture may argue with it — and a row with no weight sends nothing (the
+  // upsert ignores a zero), so both are covered.
+  if (vaultGear.value.has(vaultKey.value)) {
+    const held = vaultGear.value.get(vaultKey.value);
+    const mine = Math.max(0, Math.round(props.item.unitWeightMg));
+    if (held === null || mine === 0 || held === mine) return true;
+  }
   // Not banked yet, but about to be: the automatic path takes this list's gear on
   // the next pause, so offering to do it by hand is offering to do what's already
   // happening. Fail either gate and the worthy row keeps its button, because
@@ -855,6 +869,27 @@ const vaultLabel = computed(() =>
  *  click by vanishing, which reads as the click having gone nowhere. */
 const vaultOffered = computed(
   () => !isWater.value && vaultWorthy.value && (vaultSaved.value || !vaultCovered.value),
+);
+/**
+ * Whether the reveal below is allowed to PLAY.
+ *
+ * The `vaultin` Transition carries no `appear` because, as its keyframes say, "a
+ * fresh row (or page) animates nothing; the shine plays only when an EXISTING
+ * row's button comes back". Coverage broke that promise without touching the
+ * animation: the gate is now false at first paint for a signed-in visitor (the
+ * vault read hasn't landed) and flips true a few hundred ms later, which IS an
+ * enter transition — so opening a list set every worthy row shining at once, a
+ * page-load event the design explicitly excludes.
+ *
+ * Armed one tick after the gate first settles, so the button's first appearance
+ * on any given row is silent and every later one — the row becoming gear, a key
+ * leaving the vault — still plays.
+ */
+const vaultRevealArmed = ref(false);
+watch(
+  vaultKeysKnown,
+  (known) => known && nextTick(() => (vaultRevealArmed.value = true)),
+  { immediate: true },
 );
 async function onSaveToVault() {
   // a covered row renders no button, but coverage can flip mid-press (the chooser
@@ -1467,7 +1502,7 @@ function dismissFix() {
                Not on water rows, the same rule the ⋯ menu applies: water is never
                gear (isVaultWorthy), so the button's only possible outcome there was
                a toast telling you to weigh a row that has a weight. -->
-          <Transition name="vaultin">
+          <Transition name="vaultin" :css="vaultRevealArmed">
             <Tooltip v-if="vaultOffered" :text="vaultLabel" preferred-placement="top">
               <button
                 class="btn btn--icon btn--ghost item__vault-btn"

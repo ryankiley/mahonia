@@ -1,0 +1,7 @@
+{
+  "date": "2026-09-04",
+  "fixed": [
+    "Correcting a weight on gear you've already saved offers to update My Gear again, instead of leaving you no way to push the new number.",
+    "You're no longer asked whether to add a list's gear to My Gear when My Gear already has all of it."
+  ]
+}

@@ -295,12 +295,20 @@ function create() {
     claimCode = editToken ? "" : normalizeShareCode(cap.code);
     openedByCode.value = !editToken && !!claimCode;
     resetSession();
-    // Re-read what My Gear holds. The set is fetched once per app session, and
-    // /gear can have changed it since (a row added by hand, a row removed) — this
-    // is the moment the rows that render against it are about to be built. Silent
-    // and best-effort: it decides whether a save button shows, and a list must
-    // never wait on it.
-    void vaultKeys.refreshVaultKeys();
+    // Re-read what My Gear holds, but only when it could change what a row draws.
+    //
+    // /gear can have edited the vault since the last read (a row added by hand,
+    // one removed), and neither reaches this cache on its own. But a row consults
+    // membership at all only when the automatic path ISN'T already claiming it —
+    // so on a list this device built (answer "yes", nothing declined) and on every
+    // claimed open, the read provably cannot move a pixel, and refreshVaultCover()
+    // one line above has just made both answers current. Skipping those is worth
+    // real money: each read is a session lookup, a `vaults` row write (the
+    // last-seen bump in resolveVaultForRead) and the query.
+    //
+    // Best-effort to the point of silence — it decides whether a save button
+    // shows, and a list must never wait on it or fail because of it.
+    if (!vaultAuto.value || vaultDeclined.value.size) void vaultKeys.refreshVaultKeys();
     snapshot.value = null;
     status.value = "loading";
     installListeners();

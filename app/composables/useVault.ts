@@ -4,7 +4,7 @@
 import type { Folder, Item } from "~~/shared/types";
 import type { VaultCapture, VaultEntry } from "~~/shared/vault";
 import { remember } from "../utils/remember";
-import { noteVaultKeys, resetVaultKeys } from "./useVaultKeys";
+import { noteVaultKeys, resetVaultKeys, useVaultKeys, vaultKeysEpoch } from "./useVaultKeys";
 
 // ---------------------------------------------------------------------------
 // capture
@@ -111,7 +111,7 @@ let timer: ReturnType<typeof setTimeout> | undefined;
 // Capture rows built and waiting: either for the debounce to elapse, or for a
 // retry after a failed send. Held as built rows (not raw items) so the page-hide
 // flush can beacon them synchronously — it has no chance to await anything.
-let pending: { items: unknown[]; keys: string[]; fingerprint: string } | null = null;
+let pending: { items: VaultCapture[]; fingerprint: string } | null = null;
 
 /**
  * Capture the gear in a list into this device's vault.
@@ -132,6 +132,12 @@ export function useVaultCapture() {
   // hasVault as well as the fetch: capture must not ASK someone who has no vault
   // (see sync below), and the two come from the same place.
   const { hasVault, vaultFetch } = useVaultAccess();
+  // Resolved HERE, where a Nuxt instance is guaranteed — sync() runs from an async
+  // continuation and send() from a setTimeout, and the session state underneath
+  // these is a useState. (It is safe today only because the singletons are already
+  // built by then; resolving once removes the ordering dependency rather than
+  // relying on it.)
+  const { vaultGear, vaultKeysKnown } = useVaultKeys();
 
   /**
    * Note a change to the list.
@@ -152,7 +158,7 @@ export function useVaultCapture() {
   ): void {
     if (!import.meta.client) return;
     void (async () => {
-      let built: { caps: unknown[]; keys: string[]; fingerprint: string } | null = null;
+      let built: { caps: VaultCapture[]; fingerprint: string } | null = null;
       try {
         const { captureFromList, captureFingerprint } = await import("~~/shared/vault");
         const all = captureFromList(items, folders);
@@ -174,14 +180,26 @@ export function useVaultCapture() {
         // decision as yes and then 401'd, spending the single question this list
         // gets. Leaving it unanswered is right — the question fires properly the
         // first time you edit this list with an account.
-        if (decision === "ask") return hasVault.value ? opts.onAsk?.() : undefined;
-        built = { caps, keys: caps.map((c) => c.normKey), fingerprint: captureFingerprint(caps) };
+        // ...and only about gear there is still something to decide. The whole
+        // reason a list you built on another device asks at all is that the
+        // per-list answer lives in localStorage and this device has never seen it
+        // — but the vault itself can now be asked, and when it already holds
+        // every row there is nothing to consent to and nothing to move. The rows
+        // correctly stand their save buttons down in that state; asking anyway
+        // put a modal over a list to request permission for a no-op, and spent
+        // the one question that list gets.
+        if (decision === "ask") {
+          if (!hasVault.value) return;
+          if (vaultKeysKnown.value && caps.every((c) => vaultGear.value.has(c.normKey))) return;
+          return opts.onAsk?.();
+        }
+        built = { caps, fingerprint: captureFingerprint(caps) };
       } catch {
         return; // chunk fetch failed (offline before the SW cached it) — skip
       }
       // already stored, or already queued for exactly this state
       if (built.fingerprint === lastFingerprint || built.fingerprint === pending?.fingerprint) return;
-      pending = { items: built.caps, keys: built.keys, fingerprint: built.fingerprint };
+      pending = { items: built.caps, fingerprint: built.fingerprint };
       clearTimeout(timer);
       timer = setTimeout(send, CAPTURE_DEBOUNCE_MS);
     })();
@@ -190,14 +208,20 @@ export function useVaultCapture() {
   async function send(): Promise<void> {
     const sending = pending;
     if (!sending) return;
+    // read BEFORE the POST: this response can outlive the account that sent it
+    // (sign out mid-flight and it still arrives), and its keys must not be folded
+    // into the next person's vault
+    const at = vaultKeysEpoch();
     try {
-      await vaultFetch("/api/vault/capture", {
+      const res = await vaultFetch<{ keys?: [string, number | null][] }>("/api/vault/capture", {
         method: "POST",
         body: { items: sending.items },
       });
-      // the vault now holds these, so the rows carrying them stop offering to
-      // save what's saved without waiting for the next read of /api/vault/keys
-      noteVaultKeys(sending.keys);
+      // What the vault NOW holds, as the vault reports it — not what we sent. The
+      // upsert refuses some of both (a tombstoned row stays put away, new keys
+      // past the ceiling are dropped in silence), and a row wrongly marked banked
+      // loses its save button with no way to press it again.
+      noteVaultKeys(res?.keys ?? [], at);
       lastFingerprint = sending.fingerprint;
       // only clear if nothing newer arrived while this was in flight
       if (pending?.fingerprint === sending.fingerprint) pending = null;
@@ -227,8 +251,13 @@ export function useVaultCapture() {
     const blob = new Blob([JSON.stringify({ items: pending.items })], {
       type: "application/json",
     });
+    // NOTHING is noted here, deliberately. A beacon has no response, and
+    // sendBeacon's boolean says the browser QUEUED the payload — not that the
+    // endpoint accepted it, which it may not (an expired session 401s, the rate
+    // limit 429s). This handler also runs on an ordinary tab-background, so the
+    // page usually comes back: claiming those keys banked would strip the save
+    // button off every row of a list whose capture never landed.
     if (navigator.sendBeacon("/api/vault/capture", blob)) {
-      noteVaultKeys(pending.keys);
       lastFingerprint = pending.fingerprint;
       pending = null;
     }
@@ -339,14 +368,25 @@ export function useVaultCapture() {
     }
     // a parent is a container, not gear; captureFromList can't see that from one item
     if (!caps.length || allItems.some((i) => i.parentId === item.id)) return "unworthy";
+    const at = vaultKeysEpoch(); // see send() — the answer can outlive the account
+    let landed: [string, number | null][];
     try {
-      await vaultFetch("/api/vault/capture", { method: "POST", body: { items: caps } });
+      const res = await vaultFetch<{ keys?: [string, number | null][] }>(
+        "/api/vault/capture",
+        { method: "POST", body: { items: caps } },
+      );
+      landed = res?.keys ?? [];
     } catch {
       return "failed";
     }
+    // The press said "this gear is mine" and the vault either took it or didn't.
+    // It DIDN'T when the row is one you removed on /gear — capture never
+    // resurrects a tombstone — so saying so is the difference between a tick that
+    // means something and a button that vanishes off gear you don't own.
+    if (!landed.some(([k]) => k === caps[0]?.normKey)) return "failed";
     // My Gear has it now — which is what stops a DUPLICATE of this gear further
     // down the same list from still offering to save it
-    noteVaultKeys(caps.map((c) => c.normKey));
+    noteVaultKeys(landed, at);
     // DELIBERATELY does not set the list-wide decision, tempting though it looks.
     // Pressing save on ONE row says "this piece of gear is mine". It says nothing
     // about the other forty, which on a list opened from someone else's edit link

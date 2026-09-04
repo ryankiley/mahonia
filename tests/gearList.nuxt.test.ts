@@ -17,6 +17,7 @@ import { localKey, type LocalListRecord } from "~~/shared/localList";
 import type { Folder, Item, ListSnapshot } from "~~/shared/types";
 import type { VaultEntry } from "~~/shared/vault";
 import { vaultNormKey } from "~~/shared/vault";
+import { noteVaultKeys, vaultKeysEpoch } from "~/composables/useVaultKeys";
 import {
   resetVaultCapture,
   setVaultDecisionFor,
@@ -117,9 +118,10 @@ let listResponse: ListSnapshot = snapshotFor("Original");
 registerEndpoint("/api/edit/list", () => ({ snapshot: listResponse }));
 registerEndpoint("/api/edit/changes", () => ({ version: 1 })); // the live-sync poll
 registerEndpoint("/api/catalog/use", () => ({})); // fire-and-forget ranking ping
-// what My Gear already holds — read whenever a list opens, so the rows know
-// whether to offer their save button (useVaultKeys). Empty here: these cases are
-// about capture, and an empty vault is what makes every row a genuine capture.
+// what My Gear already holds, as [normKey, weightMg] tuples — read when a list
+// opens whose own answer doesn't already cover it (useVaultKeys). Empty here:
+// these cases are about capture, and an empty vault is what makes every row a
+// genuine capture.
 registerEndpoint("/api/vault/keys", () => ({ keys: [] }));
 
 let captureCalls = 0;
@@ -397,6 +399,33 @@ describe("useGearList — whose gear is this?", () => {
     await new Promise((r) => setTimeout(r, 50));
     expect(reopened.vaultPrompt.value).toBeNull();
     expect(captureCalls).toBe(0);
+  });
+
+  // The same proxy that made the save button lie also raises this question, and
+  // the vault can now answer it: a list whose every row is already banked has
+  // nothing to consent to and nothing to move.
+  it("does not ask about a list whose gear My Gear already holds", async () => {
+    const c = useGearList();
+    await c.load({ token: TOKEN });
+    // what /api/vault/keys would have said: this list's one row, already banked
+    const item = listResponse.items[0]!;
+    noteVaultKeys([[vaultNormKey(item.brand, item.name, item.variant), item.unitWeightMg]], vaultKeysEpoch());
+    c.updateItem("i1", { qty: 2 });
+    await new Promise((r) => setTimeout(r, 50));
+    // no modal over a list to request permission for a no-op — and, crucially,
+    // the list's one chance to ask is NOT spent: the question stays open for gear
+    // added later that the vault genuinely doesn't have
+    expect(c.vaultPrompt.value).toBeNull();
+    expect(vaultDecisionFor(TOKEN)).toBe("ask");
+    expect(captureCalls).toBe(0);
+  });
+
+  it("still asks as soon as one row is gear the vault doesn't hold", async () => {
+    const c = useGearList();
+    await c.load({ token: TOKEN });
+    noteVaultKeys([["something else entirely", 1_000]], vaultKeysEpoch());
+    c.updateItem("i1", { qty: 2 });
+    await vi.waitFor(() => expect(c.vaultPrompt.value).not.toBeNull());
   });
 
   // The question is about the list in front of you. Left standing after a

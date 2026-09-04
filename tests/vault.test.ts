@@ -13,6 +13,7 @@ import {
   listVaultFolders,
   listVaultItems,
   listVaultKeys,
+  liveKeysAmong,
   purgeDeletedVaults,
   reapAbandonedVaults,
   removeVaultItem,
@@ -380,10 +381,26 @@ describe("listVaultKeys — the membership read the editor runs on", () => {
     await captureVaultItems(db as any, VAULT, [duplex, kakwa]);
   });
 
-  it("returns every live row's key, and nothing else about the row", async () => {
-    expect((await listVaultKeys(db as any, VAULT)).sort()).toEqual(
-      [duplex.normKey, kakwa.normKey].sort(),
+  /** the [key, weight] tuples as a Map, which is what the client builds anyway */
+  const keyMap = async (vault: number) => new Map(await listVaultKeys(db as any, vault));
+
+  it("returns every live row's key with the weight a capture could still change", async () => {
+    expect(await keyMap(VAULT)).toEqual(
+      new Map([
+        [duplex.normKey, 539_000],
+        [kakwa.normKey, 900_000],
+      ]),
     );
+  });
+
+  it("nulls the weight of a row whose weight is pinned", async () => {
+    // a pinned weight is one you fixed by hand on /gear, and captureVaultItems
+    // refuses to overwrite it — so the row has nothing left to push and the
+    // client must not offer to
+    const id = (await listVaultItems(db as any, VAULT)).find((r) => r.name === "Duplex")!.id;
+    await applyVaultItemOp(db as any, VAULT, { t: "edit", id, patch: { weightMg: 545_000 } } as any);
+    expect((await keyMap(VAULT)).get(duplex.normKey)).toBeNull();
+    expect((await keyMap(VAULT)).get(kakwa.normKey)).toBe(900_000); // unpinned, untouched
   });
 
   it("drops a removed row — a tombstone is gear you no longer have", async () => {
@@ -392,16 +409,90 @@ describe("listVaultKeys — the membership read the editor runs on", () => {
     // button on gear the vault genuinely doesn't hold.
     const id = (await listVaultItems(db as any, VAULT)).find((r) => r.name === "Duplex")!.id;
     await removeVaultItem(db as any, VAULT, id);
-    expect(await listVaultKeys(db as any, VAULT)).toEqual([kakwa.normKey]);
+    expect([...(await keyMap(VAULT)).keys()]).toEqual([kakwa.normKey]);
   });
 
   it("answers for one vault only", async () => {
     await captureVaultItems(db as any, 2, [duplex]);
-    expect(await listVaultKeys(db as any, 2)).toEqual([duplex.normKey]);
+    expect([...(await keyMap(2)).keys()]).toEqual([duplex.normKey]);
   });
 
   it("is empty for a vault with nothing in it", async () => {
     expect(await listVaultKeys(db as any, 99)).toEqual([]);
+  });
+
+  it("is empty for a vault whose every row has been removed", async () => {
+    // the state a full tombstone sweep leaves, which "no such vault" above does
+    // NOT stand in for — that one never had a row to exclude
+    for (const row of await listVaultItems(db as any, VAULT))
+      await removeVaultItem(db as any, VAULT, row.id);
+    expect(await listVaultKeys(db as any, VAULT)).toEqual([]);
+  });
+
+  it("stays inside the browse's window, newest first", async () => {
+    // The bound and the ORDER are load-bearing, and a test with two rows can't
+    // see either. A key OUTSIDE what /vault shows would hide the save button on
+    // a row its owner cannot see, remove or restore — a state with no way out —
+    // so this read must never reach further than listVaultItems does.
+    //
+    // It also pins the ordering: without an explicit orderBy the truncated set is
+    // whatever Postgres happens to return, so the same gear reads as banked on
+    // one load and not on the next.
+    const many = Array.from({ length: 40 }, (_, i) => ({
+      normKey: vaultNormKey("Brand", `Thing ${i}`, null),
+      brand: "Brand",
+      name: `Thing ${i}`,
+      weightMg: 1_000 + i,
+    })) as any[];
+    const fresh = await freshDb();
+    await captureVaultItems(fresh as any, VAULT, many);
+    const browse = await listVaultItems(fresh as any, VAULT);
+    const keys = await listVaultKeys(fresh as any, VAULT);
+    // never wider than the browse, and identical in both membership and order
+    expect(keys.length).toBeLessThanOrEqual(browse.length);
+    expect(keys.map(([k]) => k)).toEqual(browse.map((r) => r.normKey));
+  });
+});
+
+describe("liveKeysAmong — what a capture actually landed", () => {
+  // The capture endpoint's honest answer, and the reason the client stopped
+  // trusting its own POST body: sending a key is not storing it.
+  let db: DB;
+  const VAULT = 1;
+  const cap = {
+    normKey: vaultNormKey("Zpacks", "Duplex", null),
+    brand: "Zpacks",
+    name: "Duplex",
+    weightMg: 539_000,
+  } as any;
+
+  beforeEach(async () => {
+    db = await freshDb();
+    await captureVaultItems(db as any, VAULT, [cap]);
+  });
+
+  it("returns the keys the vault holds live", async () => {
+    expect(await liveKeysAmong(db as any, VAULT, [cap.normKey])).toEqual([cap.normKey]);
+  });
+
+  it("omits a key a capture wrote but left tombstoned", async () => {
+    // THE case the client can't see from a 2xx. Capture re-upserts a removed
+    // row's content and deliberately leaves removed_at set, so the POST succeeds
+    // and the gear is still not in the vault. A client that believed its own
+    // request would hide that row's save button for good.
+    const id = (await listVaultItems(db as any, VAULT))[0]!.id;
+    await removeVaultItem(db as any, VAULT, id);
+    await captureVaultItems(db as any, VAULT, [cap]);
+    expect(await liveKeysAmong(db as any, VAULT, [cap.normKey])).toEqual([]);
+  });
+
+  it("omits a key this vault has never held, and one another vault holds", async () => {
+    await captureVaultItems(db as any, 2, [{ ...cap, normKey: "durston kakwa 55", name: "Kakwa 55" }]);
+    expect(await liveKeysAmong(db as any, VAULT, ["durston kakwa 55", "nothing at all"])).toEqual([]);
+  });
+
+  it("is empty for an empty ask, without touching the database", async () => {
+    expect(await liveKeysAmong(db as any, VAULT, [])).toEqual([]);
   });
 });
 

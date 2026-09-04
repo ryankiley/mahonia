@@ -2,7 +2,7 @@ import { defineEventHandler } from "h3";
 import { readJsonBodyCapped, setNoIndex, setPrivate } from "../../utils/http";
 import { rateLimit } from "../../utils/rateLimit";
 import { resolveOrMintVault } from "../../utils/vaultAuth";
-import { captureVaultItems } from "../../utils/vaultRepo";
+import { captureVaultItems, liveKeysAmong } from "../../utils/vaultRepo";
 import { VAULT_CAPTURE_MAX, type VaultCapture } from "../../../shared/vault";
 
 // Fold the gear in an open list into the holder's vault.
@@ -16,8 +16,15 @@ import { VAULT_CAPTURE_MAX, type VaultCapture } from "../../../shared/vault";
 // This is the ONE endpoint that will mint a vault, and only for a signed-in
 // caller who doesn't have one yet — a vault comes into being the first time you
 // have gear worth remembering, the same way a list isn't created until it has real
-// content. Nothing comes back but a count: the vault is identified by the account,
-// so there is no capability to hand out and nothing for the client to store.
+// content. The vault is identified by the account, so there is no capability to
+// hand out and nothing for the client to store.
+//
+// What DOES come back is which keys are now live, because "I sent it" and "the
+// vault holds it" are not the same claim and the client renders off the second
+// one. The upsert deliberately leaves a tombstone tombstoned, and it drops new
+// keys past VAULT_ITEMS_MAX in silence — so a client that assumed 2xx meant
+// stored would hide the save button on gear the vault had just refused, with the
+// row's own covered guard making a second press a no-op.
 //
 // A signed-out capture is refused rather than dropped: there is no owner to file
 // the gear under, and inventing an anonymous vault would put it somewhere nobody
@@ -40,7 +47,7 @@ export default defineEventHandler(async (event) => {
     : [];
   // Nothing to store — and deliberately checked BEFORE the mint, so an editor that
   // is open but empty never brings a vault into existence.
-  if (!items.length) return { ok: true, captured: 0 };
+  if (!items.length) return { ok: true, captured: 0, keys: [] };
 
   // The beacon carries no header — `navigator.sendBeacon` can't set one — but it
   // is same-origin, so the session cookie rides along and IS the capability. That
@@ -48,5 +55,10 @@ export default defineEventHandler(async (event) => {
   // doesn't now.
   const { db, vaultId } = await resolveOrMintVault(event);
   const captured = await captureVaultItems(db, vaultId, items);
-  return { ok: true, captured };
+  // One read, off the same index the membership endpoint uses. Skipped entirely
+  // when nothing was written, which is also the beacon's common case.
+  const keys = captured
+    ? await liveKeysAmong(db, vaultId, items.map((i) => String(i?.normKey ?? "")).filter(Boolean))
+    : [];
+  return { ok: true, captured, keys };
 });

@@ -1,7 +1,8 @@
 import type { Ref } from "vue";
 
 /**
- * What My Gear ALREADY holds — the set of identity keys, and nothing else.
+ * What My Gear ALREADY holds — the gear's identity keys, and the one number that
+ * can still be pushed into one.
  *
  * WHY THIS EXISTS. The row's "Save to My Gear" button is supposed to disappear
  * once the gear is banked, and for three attempts it decided that from a PROXY:
@@ -13,9 +14,14 @@ import type { Ref } from "vue";
  * to, a row you unticked in the chooser, gear you added by hand on /gear. In
  * every one of them the button came back and offered to save what was saved.
  *
- * So the button now asks the vault. One small GET per editor session, one column
- * wide, folded into a Set; a row is covered when the vault genuinely has its
- * normKey, or when the automatic path is about to put it there.
+ * So the button now asks the vault. One small GET per signed-in session, folded
+ * into a Map; a row is covered when the vault genuinely has its normKey with
+ * nothing left to push, or when the automatic path is about to put it there.
+ *
+ * The value is `weightMg`, or null when that row's weight is PINNED. Membership
+ * alone was not enough: capture takes the incoming weight, so a row whose weight
+ * you have just corrected is still worth pressing, and a bare Set made the button
+ * vanish on first bank and never return (see coverage in ItemRow).
  *
  * SINGLETON, deliberately — the same lesson useVaultAccess learned: a 150-row
  * list asks this per row, and a per-caller ref would mean 150 copies of one fact
@@ -23,28 +29,33 @@ import type { Ref } from "vue";
  * the first row to mount can't take it down again when it unmounts.
  */
 
+/** A vault row as this cache holds it: its weight in mg, or null when the weight
+ *  is pinned and no capture may change it. */
+export type VaultGear = ReadonlyMap<string, number | null>;
+
 type KeyState = {
-  keys: Ref<ReadonlySet<string>>;
-  /** Whether `keys` is an ANSWER yet, or still the empty set it starts as.
+  gear: Ref<VaultGear>;
+  /** Whether `gear` is an ANSWER yet, or still the empty Map it starts as.
    *  The distinction is the whole point: "the vault has nothing" and "we haven't
-   *  asked" look identical in a Set, and treating the second as the first is
+   *  asked" look identical in a Map, and treating the second as the first is
    *  exactly the flash PR #239 took out of the signed-in first paint. */
   known: Ref<boolean>;
 };
 
 let shared: KeyState | undefined;
 let inFlight: Promise<void> | undefined;
-// Bumped by every reset. A read that was already out when an account ended must
-// not land afterwards and repopulate the set with the last person's gear — the
-// exact leak resetVaultKeys exists to close, and the sign-out path makes it
-// reachable (hasVault flips, the watcher clears the set, then the old request
-// arrives). The epoch is what makes a stale answer recognisably stale.
+// Bumped whenever the answer this cache holds stops being about the current
+// account — a sign-out, and every other session change. A read or a capture that
+// was already out then lands into a vault that is no longer the one it asked
+// about, and must write nothing; the epoch is what makes such an answer
+// recognisably stale. Handed to callers by vaultKeysEpoch() so a capture can
+// carry it across its own POST.
 let epoch = 0;
 
 function build(): KeyState {
-  // shallowRef: the set is replaced wholesale on every change, never mutated in
+  // shallowRef: the Map is replaced wholesale on every change, never mutated in
   // place, so there is nothing for deep reactivity to track
-  return { keys: shallowRef<ReadonlySet<string>>(new Set()), known: ref(false) };
+  return { gear: shallowRef<VaultGear>(new Map()), known: ref(false) };
 }
 
 function state(): KeyState {
@@ -58,17 +69,50 @@ function state(): KeyState {
   shared = scope.run(build)!;
   scope.run(() => {
     const { hasVault, vaultKnown } = useVaultAccess();
-    // ONE watcher for the whole app, in the scope that outlives every row. It
-    // does the first fetch (immediate) and the re-ask when the session finally
-    // answers — which for a signed-in visitor lands a beat after the first rows
-    // have already mounted and decided what to render.
-    watch([vaultKnown, hasVault], () => void load(), { immediate: true });
+    // ONE watcher for the whole app, in the scope that outlives every row.
+    //
+    // It INVALIDATES before loading, and that is the whole correctness of the
+    // thing: every edge it fires on is a change of session, and an answer about
+    // the last session is not an answer about this one. Without the invalidation
+    // the signed-out branch below (which settles `known` with an empty Map) held
+    // for the account signed in afterwards — so signing in from the editor, which
+    // never navigates and so never reopens a list, left the cache saying "your
+    // vault is empty" for the rest of the page. Every row then fell back to the
+    // old per-list proxy and offered to save gear banked months ago: the exact
+    // bug this composable exists to remove, reinstated by the most ordinary way
+    // anyone reaches the feature.
+    watch([vaultKnown, hasVault], () => {
+      invalidate();
+      void load();
+    }, { immediate: true });
   });
   return shared;
 }
 
+/** Forget the answer (and disown any read still out) without touching whether
+ *  anyone is signed in — the half of a reset that a session CHANGE also needs. */
+function invalidate(): void {
+  epoch++;
+  inFlight = undefined;
+  if (!shared) return;
+  shared.gear.value = new Map();
+  shared.known.value = false;
+}
+
+/** How long to wait on a session that hasn't answered before giving up on it.
+ *
+ *  `useSession.refresh()` deliberately leaves `loaded` false when /api/auth/me
+ *  fails, so a later call can retry — but the only caller is the one-shot boot
+ *  plugin, so offline (or a 429, or a blip) means it never answers at all. The
+ *  row holds its save button back while this cache is unanswered, so without a
+ *  bound that is a button hidden for the whole session on every row of every
+ *  list, with no way to get it back. Giving up settles as known-with-nothing,
+ *  which puts the row exactly where it stood before this cache existed. */
+const SESSION_WAIT_MS = 6_000;
+let waiting: ReturnType<typeof setTimeout> | undefined;
+
 /**
- * Fetch the keys, once.
+ * Fetch the vault's gear, once.
  *
  * Gated on the session having ANSWERED. Signed out there is no vault and no
  * request to make — the answer is "nothing is banked", known immediately, which
@@ -78,78 +122,117 @@ function state(): KeyState {
  * rather than retrying forever: that puts the button back exactly where it was
  * before this composable existed — offered on every worthy row — instead of
  * hiding a working affordance behind a request that may never land. The next
- * list opened calls this with `force` and tries again.
+ * session change, or the next list opened, tries again.
+ *
+ * Never rejects. Callers treat this as best-effort and `void` it, and a floating
+ * rejection out of the editor's list-open path is an unhandled rejection in the
+ * console (and a crash in a test runner that fails on them).
  */
 async function load(force = false): Promise<void> {
   if (!import.meta.client) return;
   const s = state();
   const { hasVault, vaultKnown, vaultFetch } = useVaultAccess();
-  if (!vaultKnown.value) return; // the session is still in flight; the watcher re-runs
+  if (!vaultKnown.value) {
+    // the watcher re-runs when the session answers; this only covers its NOT
+    // answering, and re-arming would push the deadline out forever
+    if (waiting === undefined) {
+      const mine = epoch;
+      waiting = setTimeout(() => {
+        waiting = undefined;
+        if (mine === epoch && !s.known.value) s.known.value = true;
+      }, SESSION_WAIT_MS);
+    }
+    return;
+  }
+  clearTimeout(waiting);
+  waiting = undefined;
   if (!hasVault.value) {
-    s.keys.value = new Set();
+    s.gear.value = new Map();
     s.known.value = true;
     return;
   }
-  // a read already out is the fresh one, forced or not — join it rather than
-  // racing a second against it
-  if (inFlight) return inFlight;
+  // A forced read is asking for state that may have changed since the read
+  // already out was issued, so it must not settle for that one; an unforced
+  // caller joins it rather than racing a second against it.
+  if (!force && inFlight) return inFlight;
   if (s.known.value && !force) return;
   const mine = epoch;
-  inFlight = (async () => {
+  const run = (async () => {
     try {
-      const res = await vaultFetch<{ keys: string[] }>("/api/vault/keys");
+      const res = await vaultFetch<{ keys: [string, number | null][] }>("/api/vault/keys");
       if (mine !== epoch) return;
-      s.keys.value = new Set(Array.isArray(res?.keys) ? res.keys : []);
+      // Union, not replace. A capture that landed WHILE this read was out is not
+      // in its answer — the server built it first — and dropping those keys put
+      // the button back on gear banked seconds earlier, which is the symptom this
+      // whole cache removes. The read is still authoritative for everything it
+      // does mention, so it wins on any key it carries.
+      const next = new Map(Array.isArray(res?.keys) ? res.keys : []);
+      for (const [k, w] of s.gear.value) if (!next.has(k)) next.set(k, w);
+      s.gear.value = next;
     } catch {
       /* see above — an unanswerable question falls back to the old behaviour */
     }
     if (mine === epoch) s.known.value = true;
   })();
+  inFlight = run;
   try {
-    await inFlight;
+    await run;
   } finally {
-    inFlight = undefined;
+    // only clear the slot if it is still OURS — a reset (or a forced read) may
+    // have replaced it while this one was out
+    if (inFlight === run) inFlight = undefined;
   }
 }
 
 /**
- * Fold keys this device has just banked into the set, so the button stands down
- * without a second round trip.
+ * Fold gear this device has just banked into the cache, so the button stands
+ * down without a second round trip.
  *
- * Only ever ADDS. These are the rows a capture just sent, which is the same set
- * the automatic path already claimed coverage for — so this can't make the button
- * lie about anything it wasn't already lying about, and it means banking a row by
- * hand also quiets a duplicate of that gear further down the list.
+ * `at` is the epoch the write was STARTED under (vaultKeysEpoch()). A capture
+ * POST outlives the session that sent it — sign out mid-flight and the response
+ * still arrives — and without this the previous account's gear was written back
+ * into the Map the sign-out had just cleared, where the next person to sign in
+ * read it as their own.
+ *
+ * Only ever ADDS, and only keys the SERVER said are live (see the capture
+ * endpoint). Sending a key is not storing it: the upsert leaves a tombstone
+ * tombstoned and drops new keys past the vault's ceiling in silence, and a
+ * button hidden on gear the vault refused cannot be pressed again to fix it.
  */
-export function noteVaultKeys(keys: string[]): void {
-  if (!import.meta.client || !keys.length) return;
-  const s = state();
-  const next = new Set(s.keys.value);
-  for (const k of keys) if (k) next.add(k);
-  s.keys.value = next;
+export function noteVaultKeys(keys: [string, number | null][], at: number): void {
+  // No state means no row has ever asked, so there is nothing to keep honest —
+  // and building it here would install the app-wide watcher and fire a GET from
+  // a pagehide handler, for a document that is going away.
+  if (!import.meta.client || !shared || !keys.length || at !== epoch) return;
+  const next = new Map(shared.gear.value);
+  for (const [k, w] of keys) if (k) next.set(k, w);
+  shared.gear.value = next;
 }
 
-/** Drop the set on the way out of an account, so the next person to sign in on
- *  this device doesn't inherit a stranger's gear as "already yours". Paired with
- *  resetVaultCapture in useSession.forgetAccountMemos. */
+/** The epoch a write should carry to noteVaultKeys — read it BEFORE the request
+ *  goes out, so an answer that arrives after the account changed is discarded. */
+export function vaultKeysEpoch(): number {
+  return epoch;
+}
+
+/** Drop everything on the way out of an account, so the next person to sign in
+ *  on this device doesn't inherit a stranger's gear as "already yours". Paired
+ *  with resetVaultCapture in useSession.forgetAccountMemos. */
 export function resetVaultKeys(): void {
   if (!import.meta.client) return;
-  epoch++; // disowns a read still in flight (see above)
-  if (!shared) return;
-  shared.keys.value = new Set();
-  shared.known.value = false;
+  clearTimeout(waiting);
+  waiting = undefined;
+  invalidate();
 }
 
 export function useVaultKeys() {
   // Building the singleton is what starts the first fetch, so the first row to
-  // mount puts the answer on its way. Asking again while it is still unanswered
-  // re-kicks it — the watcher only fires on a CHANGE, and a reset (signing out,
-  // then in again on the same page) leaves nothing to change. `load` de-dupes, so
-  // the other 149 rows of the list still join the one request.
+  // mount puts the answer on its way and the other 149 join it. A pure accessor
+  // otherwise: the watcher owns every re-ask, because every re-ask is a session
+  // change and the watcher is what sees those.
   const s = state();
-  if (!s.known.value) void load();
   return {
-    vaultKeys: s.keys,
+    vaultGear: s.gear,
     vaultKeysKnown: s.known,
     /** Re-read from the server — for the points where the vault may have changed
      *  behind the editor's back (another tab, or an edit on /gear). */

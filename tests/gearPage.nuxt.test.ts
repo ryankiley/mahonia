@@ -20,7 +20,6 @@ import GearPage from "~/pages/gear.vue";
 // resolve against the routes below — the same passthrough gearList.nuxt.test.ts uses.
 mockNuxtImport("useVaultAccess", () => () => ({
   hasVault: ref(true),
-  vaultKnown: ref(true), // the session has answered — the vault's reads wait on it
   vaultFetch: <T,>(url: string, opts?: Parameters<typeof $fetch>[1]) =>
     $fetch(url, { ...opts, credentials: "same-origin" }) as Promise<T>,
 }));

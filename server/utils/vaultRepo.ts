@@ -357,9 +357,18 @@ function liveRows(db: Db, vaultId: number) {
   return db
     .select()
     .from(vaultItems)
-    .where(and(eq(vaultItems.vaultId, vaultId), isNull(vaultItems.removedAt)))
+    .where(liveIn(vaultId))
     .orderBy(desc(vaultItems.lastUsedAt))
     .limit(POOL_LIMIT);
+}
+
+/** "A live row of this vault" — the predicate, written once. The browse, the
+ *  membership read and capture's landed-keys check all mean the same thing by it,
+ *  and a fourth condition on what counts as live (an archive flag, a per-row
+ *  visibility column) has to reach all of them or the membership set starts
+ *  claiming rows /gear won't show. */
+function liveIn(vaultId: number) {
+  return and(eq(vaultItems.vaultId, vaultId), isNull(vaultItems.removedAt));
 }
 
 /**
@@ -416,25 +425,64 @@ export async function listVaultItems(db: Db, vaultId: number): Promise<VaultEntr
 }
 
 /**
- * Just the identity keys of a vault's live rows — no content, no folders, no
- * tombstones.
+ * What a vault holds, as identity keys and the one number that can still be
+ * pushed into a row — no spellings, no folders, no tombstones.
  *
  * The editor's question about a list row is a MEMBERSHIP one ("is this gear
  * already mine?"), not a browse, and answering it with listVaultItems would ship
- * a whole vault's worth of rows to a page that renders none of them. One indexed
- * column, and a set is all the client builds from it.
+ * a whole vault's worth of rows to a page that renders none of them. Two columns,
+ * as tuples, and a Map is all the client builds from it.
  *
- * Bounded by VAULT_ITEMS_MAX rather than POOL_LIMIT: this is the membership set,
- * and a row past the browse's window is still a row you own. Removed rows are
- * excluded because capture never resurrects a tombstone (see captureVaultItems) —
- * gear you put away is genuinely not in your vault.
+ * WHY THE WEIGHT COMES TOO. "My Gear has this gear" is not the whole question the
+ * save button asks — it asks whether pressing it would DO anything, and on a row
+ * whose weight you have just corrected it still would: capture takes the incoming
+ * weight (see the upsert above). Membership alone made the button vanish the
+ * moment a row was banked and never bring it back, so a corrected weight could
+ * not be pushed from that list at all. A null weight means the row's weight is
+ * PINNED — you fixed it by hand on /gear, capture is not allowed to argue with
+ * it, and offering to save would be offering a no-op.
+ *
+ * Bounded and ordered exactly like liveRows, which is the browse's own window:
+ * a key outside it would hide the button on a row the owner cannot see, remove
+ * or restore on /gear — a state with no way out. Removed rows are excluded
+ * because capture never resurrects a tombstone (see captureVaultItems), so gear
+ * you put away is genuinely not in your vault.
  */
-export async function listVaultKeys(db: Db, vaultId: number): Promise<string[]> {
+export async function listVaultKeys(db: Db, vaultId: number): Promise<[string, number | null][]> {
+  const rows = await db
+    .select({
+      normKey: vaultItems.normKey,
+      weightMg: vaultItems.weightMg,
+      weightPinned: vaultItems.weightPinned,
+    })
+    .from(vaultItems)
+    .where(liveIn(vaultId))
+    .orderBy(desc(vaultItems.lastUsedAt))
+    .limit(POOL_LIMIT);
+  return rows.map((r) => [r.normKey, r.weightPinned ? null : r.weightMg]);
+}
+
+/**
+ * Which of these keys the vault actually holds, LIVE.
+ *
+ * The capture endpoint's honest answer to "what did you store?". A 2xx from
+ * capture is not that answer: the upsert deliberately leaves `removed_at` alone,
+ * so a row you removed on /gear is written and stays put away, and new keys past
+ * VAULT_ITEMS_MAX are dropped silently. The client folds these keys into the set
+ * that decides whether a save button renders, so it has to be told what landed
+ * rather than what it sent — otherwise the button disappears from gear the vault
+ * refused, and the row's own covered guard makes pressing it again a no-op.
+ */
+export async function liveKeysAmong(
+  db: Db,
+  vaultId: number,
+  normKeys: string[],
+): Promise<string[]> {
+  if (!normKeys.length) return [];
   const rows = await db
     .select({ normKey: vaultItems.normKey })
     .from(vaultItems)
-    .where(and(eq(vaultItems.vaultId, vaultId), isNull(vaultItems.removedAt)))
-    .limit(VAULT_ITEMS_MAX);
+    .where(and(liveIn(vaultId), inArray(vaultItems.normKey, normKeys.slice(0, VAULT_CAPTURE_MAX))));
   return rows.map((r) => r.normKey);
 }
 
