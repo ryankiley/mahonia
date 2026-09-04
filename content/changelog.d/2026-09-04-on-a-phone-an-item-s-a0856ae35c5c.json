@@ -1,0 +1,6 @@
+{
+  "date": "2026-09-04",
+  "fixed": [
+    "On a phone, an item's count, weight and unit no longer sit a hair off one another, and the Worn and Consumable marks beside them line up with the numbers."
+  ]
+}
