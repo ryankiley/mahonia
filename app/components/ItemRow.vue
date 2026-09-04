@@ -1691,8 +1691,9 @@ function dismissFix() {
   max-width: min(40ch, calc(100vw - 5rem));
 }
 /* the collapse chevron button + its rotate + touch tap target are the shared
-   .item__nestcollapse / .item__nestchev recipe in atoms/item.scss — one recipe for
-   the edit row, the packing row (.item__cname--group below), and the share views. */
+   .item__nestcollapse / .item__nestchev recipe in atoms/folder.scss, which it shares
+   with the folder header's chevron — one recipe for the edit row, the packing row
+   (.item__cname--group below), and the share views. */
 .item__qty {
   grid-area: qty;
 }

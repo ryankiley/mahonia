@@ -108,8 +108,8 @@ function str(v: unknown, max: number): string | undefined {
 /** A URL off the wire: typed and capped, but NOT tidied. tidyText curls a
  *  letter-flanked apostrophe, and a path can legitimately carry one
  *  (…/mens-jacket vs …/men's-jacket) — curling it rewrites the address to a page
- *  that isn't there. shared/ops.ts exempts productUrl and imageUrl from cleanText
- *  for exactly this reason; str() below does not, so the gear was curling them. */
+ *  that isn't there. shared/ops.ts exempts productUrl from cleanText for exactly
+ *  this reason; str() below does not, so the gear was curling them. */
 function url(v: unknown): string | undefined {
   if (typeof v !== "string") return undefined;
   return v.trim().slice(0, VAULT_URL_MAX) || undefined;
