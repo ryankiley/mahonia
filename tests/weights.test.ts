@@ -435,10 +435,17 @@ describe("isBareGroup — the rows whose per-unit cells stand down", () => {
     expect(isBareGroup(item({ id: "kit", unitWeightMg: 0 }), false)).toBe(false); // a leaf is never bare
   });
   it("is false the moment the row carries a line of its own", () => {
-    // each of the three on its own is enough to keep the cells on screen
+    // either one is enough to keep the cells on screen
     expect(isBareGroup(item({ id: "a", unitWeightMg: 210_000 }), true)).toBe(false);
     expect(isBareGroup(item({ id: "b", unitWeightMg: 0, kcal: 700 }), true)).toBe(false);
-    expect(isBareGroup(item({ id: "c", unitWeightMg: 0, qty: 4 }), true)).toBe(false);
+  });
+  // qty is NOT a term, and that is the point: it made the cell's own condition depend on
+  // the value the cell's buttons write, so stepping a group down to 1 unmounted the
+  // stepper mid-press with no control left to put the count back. A count on a
+  // contentless group multiplies zero and moves no total, so nothing is hidden by it.
+  it("ignores the count, so no control can flip it by being used", () => {
+    expect(isBareGroup(item({ id: "c", unitWeightMg: 0, qty: 4 }), true)).toBe(true);
+    expect(isBareGroup(item({ id: "d", unitWeightMg: 0, qty: 1 }), true)).toBe(true);
   });
   it("counts calories even where computeTotals would ignore them", () => {
     // kcal on a base row is dormant, not gone (Item.kcal) — it returns the moment the

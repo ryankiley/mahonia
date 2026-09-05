@@ -91,11 +91,14 @@ describe("itemQtyLabel — amount labels incl. the worn split", () => {
     // and it is opt-in like hideSingle — nothing changes for a row nobody called a group
     expect(itemQtyLabel(socks, "base", { group: false })).toBe("×3 · 1 worn");
   });
-  // WATER outranks it. That cell states a volume, not a count, and the weight beside it
-  // is read-only on a group — blanking it would leave the row no number it can be edited
-  // back from.
-  it("water still states its volume on a group", () => {
-    expect(itemQtyLabel({ name: "Water", qty: 2, unitWeightMg: 1_000_000 }, "consumable", { group: true })).toBe("2 L");
-    expect(itemQtyLabel({ name: "Water", qty: 1, unitWeightMg: 0 }, "consumable", { group: true, hideSingle: true })).toBe("0 L");
+  // GROUP OUTRANKS WATER. A bare group's own volume is zero by definition, so letting
+  // water win could only ever print "0 L" — against a group total of however many full
+  // bottles hang under it. Two figures for one line, disagreeing, which is the very thing
+  // the water branch exists to prevent. The editor keeps a water group's litres FIELD;
+  // this label is a different question and the answer is nothing.
+  it("blanks a water group too, rather than printing 0 L", () => {
+    expect(itemQtyLabel({ name: "Water", qty: 1, unitWeightMg: 0 }, "consumable", { group: true })).toBe("");
+    // ...and every water row that is NOT called a group still states its volume
+    expect(itemQtyLabel({ name: "Water", qty: 2, unitWeightMg: 1_000_000 }, "consumable")).toBe("2 L");
   });
 });

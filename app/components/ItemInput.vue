@@ -166,7 +166,15 @@ const waterSuggestion = computed<WaterSug | null>(() => {
 // more likely answer when the two match — and because it's the whole point of
 // keeping a vault.
 type AcOption = { water: WaterSug } | { vault: VaultEntry } | { result: CatalogResult };
+const NO_OPTIONS: AcOption[] = [];
 const options = computed<AcOption[]>(() => {
+  // Suggestions off means NO suggestions, not "no menu". Gating only the render left the
+  // one option that needs no network — the water/volume reading of the draft — still in
+  // here, and both keyboard paths take options straight from this list: Enter committed
+  // it, ArrowDown pointed aria-activedescendant at a row nobody had drawn. Emptying the
+  // list is what actually turns the feature off, and it stops the per-keystroke rebuild
+  // (waterSuggestion's regexes + a Set + two arrays) on a field that can render none of it.
+  if (!props.suggest) return NO_OPTIONS;
   const opts: AcOption[] = [];
   if (waterSuggestion.value) opts.push({ water: waterSuggestion.value });
   // A vault row that came from a catalog pick keeps its catalog id, so the same
@@ -364,7 +372,9 @@ function onKeydown(e: KeyboardEvent) {
     e.preventDefault();
     if (open.value && active.value >= 0 && options.value[active.value]) {
       selectOption(options.value[active.value]!);
-    } else if (waterSuggestion.value) {
+    } else if (props.suggest && waterSuggestion.value) {
+      // `props.suggest` here as well as in `options` above: this branch reads the
+      // computed directly, so emptying the list alone would not have closed it
       selectWater(waterSuggestion.value);
     } else if (draft.value.trim()) {
       commitFree();
@@ -408,16 +418,16 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
       :placeholder="placeholder"
       :aria-label="placeholder"
       :title="draft"
-      role="combobox"
-      aria-autocomplete="list"
-      :aria-expanded="menuVisible"
-      :aria-controls="`${acId}-listbox`"
-      :aria-activedescendant="active >= 0 ? optId(active) : undefined"
+      :role="suggest ? 'combobox' : undefined"
+      :aria-autocomplete="suggest ? 'list' : undefined"
+      :aria-expanded="suggest ? menuVisible : undefined"
+      :aria-controls="suggest ? `${acId}-listbox` : undefined"
+      :aria-activedescendant="suggest && active >= 0 ? optId(active) : undefined"
       autocomplete="off"
       autocorrect="off"
       spellcheck="false"
       @keydown="onKeydown"
-      @focus="focused = true; open = true"
+      @focus="focused = true; open = suggest"
     />
     <!-- pointer leaving the menu clears the hover highlight (mouseenter on options
          sets it; without this the last row stays lit). Keyboard arrows re-set it.

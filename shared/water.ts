@@ -79,32 +79,34 @@ export function waterLiters(unitWeightMg: number): string {
  * column that has to be read past to find the rows that actually carry a count. A
  * split still speaks ("×3 · 1 worn"), and so does water.
  *
- * `group` blanks the label. A parent's weight column shows the group TOTAL — own line
- * plus the children's — so the count that made that figure is already inside it, and a
- * "×N" beside it reads as a multiplier over a number that has nothing left to multiply.
- * The editor drops the whole cell on a parent for the same reason; this is that one rule
- * in the label the static views share, so the checklist and the read row can't drift.
+ * `group` blanks the label, and it OUTRANKS the water branch below. A parent's weight
+ * column shows the group TOTAL — own line plus the children's — so the count that would
+ * sit beside it multiplies a figure it is already inside; and on a bare group it
+ * multiplies zero. The editor drops the whole cell there for the same reason; this is
+ * that one rule in the label the static views share, so the checklist and the read row
+ * can't drift.
  *
- * It is the CALLER that decides, via isBareGroup (shared/weights): only a parent holding
- * nothing of its own is blanked, so what this hides is a count that multiplies zero and
- * never a live multiple. A parent that does carry a line keeps its label — these views
- * cannot heal what they render, and a figure with no visible count beside it would be
- * exactly the unexplained multiplier the rule exists to remove.
+ * It is the CALLER that decides which rows qualify, via isBareGroup (shared/weights). A
+ * group that carries a line of its own keeps its label — these views cannot heal what
+ * they render, and a figure with no visible count beside it would be exactly the
+ * unexplained multiplier the rule exists to remove.
  *
- * WATER OUTRANKS IT. That cell holds a volume, not a count (see the branch below), and
- * a group of water bottles still has litres to state; blanking it would leave a row whose
- * only number is a weight it can't be edited back from.
+ * Water is below it, not above: a bare group's own volume is zero by definition, so
+ * letting water win printed "0 L" against a group total of two full bottles — two
+ * figures for one line, disagreeing, which is the very thing the water branch exists to
+ * prevent. The editor keeps a water group's litres FIELD (it is the only editable figure
+ * such a row has); this label is a different question, and the answer there is nothing.
  */
 export function itemQtyLabel(
   item: { name: string; qty: number; unitWeightMg: number; wornQty?: number },
   cls?: Classification,
   opts?: { hideSingle?: boolean; group?: boolean },
 ): string {
+  if (opts?.group) return "";
   // Water's amount is the LINE's volume — unit volume × qty, the same arithmetic the
   // weight beside it does. Reading the unit volume alone put "1 L" against "2,000 g"
   // on a two-bottle row: two figures for one line, disagreeing by a factor of the qty.
   if (isWaterName(item.name)) return `${waterLiters(lineMg(item)) || "0"} L`;
-  if (opts?.group) return "";
   const wq = cls ? splitWornQty(item, cls) : 0;
   if (wq > 0) return `×${item.qty} · ${wq} worn`;
   return opts?.hideSingle && item.qty === 1 ? "" : `×${item.qty}`;

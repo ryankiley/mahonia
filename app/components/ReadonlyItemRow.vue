@@ -96,12 +96,20 @@ const folderDefault = computed<Classification>(
 // is precisely the departure worth drawing, and it was the one class that had no
 // picture to draw it with.
 // A SPLIT is always an exception — "1 of 3 worn" is not something a folder can say.
-// ...and NEVER on a bare group: its class describes its own line, which is zero, and its
+// ...and not on a bare group: its class describes its own line, which is zero, and its
 // children take the folder's default rather than its own (effectiveClassification) — so
 // the glyph would be a claim about a total it doesn't govern. Mirrors the editor row,
-// which drops the two toggles on the same rows.
+// which drops the two toggles on the same rows — with the same exception: a group
+// carrying a class the owner set EXPLICITLY keeps its mark, because their editor still
+// shows a control for it and every export still writes it, so a reader who can't see it
+// is the only one out of the loop. (The editor's other exception, water's fixed mark,
+// needs no counterpart here: this view already draws a mark only where the row DEPARTS
+// from its folder, and a water row that departs does so by carrying a stored class —
+// which is the clause above. A water row that doesn't shows nothing here as a leaf
+// either, so a group behaves exactly as its own children do.)
+const groupMarkHidden = computed(() => bareGroup.value && props.item.classification == null);
 const showMark = computed(
-  () => !bareGroup.value && (splitWorn.value > 0 || effClass.value !== folderDefault.value),
+  () => !groupMarkHidden.value && (splitWorn.value > 0 || effClass.value !== folderDefault.value),
 );
 // worn wins over the effective class for the picture, so a split reads as the shirt
 const markClass = computed<Classification>(() => (isWorn.value ? "worn" : effClass.value));
@@ -155,7 +163,10 @@ const rowPerson = computed(() =>
       <!-- `item__qty--split` is what tells the page column this list needs the wider
            amount track (atoms/item.scss): the label grows from "×12" to "×12 · 11 worn"
            and the tight track can't hold it. -->
-      <span class="t-num t-sm t-muted item__roqty" :class="{ 'item__qty--split': splitWorn }">{{ qtyLabel }}</span>
+      <!-- the widening class goes with the LABEL, not with the split: a bare group can carry
+           one (qty is not a term in isBareGroup) and prints nothing for it, and the class
+           widens the amount track for every row on the page -->
+      <span class="t-num t-sm t-muted item__roqty" :class="{ 'item__qty--split': splitWorn && !bareGroup }">{{ qtyLabel }}</span>
       <!-- separate the qty and weight columns in the TEXT stream. On screen they're
            distinct grid cells, but flattened text (crawlers, LLMs, plain scrapers of
            this SSR'd share page) concatenates "×3" + "510" into "3510" — reading the
