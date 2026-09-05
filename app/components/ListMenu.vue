@@ -101,7 +101,7 @@ const shown = computed(() => {
 const isCurrent = (e: SwitcherRow) => !!currentShareCode && e.shareCode === currentShareCode;
 
 // the travelling wash — see useMenuPlate for the two measurement traps it carries
-const { plateRef, listRef, placing, on: plateOn } = useMenuPlate();
+const { plateRef, listRef, on: plateOn } = useMenuPlate();
 // A SECOND instance for the footer, which is one row ("New list") and had no hover
 // wash at all — the only row in the card that lit up for neither pointer nor keyboard.
 // It can't share the one above, and the reason is structural rather than an oversight:
@@ -112,7 +112,7 @@ const { plateRef, listRef, placing, on: plateOn } = useMenuPlate();
 // Two instances cost a ref and a span; the alternative — a plain :hover background —
 // would draw the same rectangle a different way and drift from the atom the moment
 // either is retuned.
-const { plateRef: footPlateRef, listRef: footListRef, placing: footPlacing, on: footPlateOn } = useMenuPlate();
+const { plateRef: footPlateRef, listRef: footListRef, on: footPlateOn } = useMenuPlate();
 
 function close() {
   open.value = false;
@@ -193,7 +193,7 @@ watch(open, (o) => {
         </div>
 
         <div ref="listRef" class="lm__rows" v-on="plateOn">
-          <span ref="plateRef" class="menu__plate" :class="{ 'is-placing': placing }" aria-hidden="true" />
+          <span ref="plateRef" class="menu__plate" aria-hidden="true" />
           <NuxtLink
             v-for="e in shown"
             :key="e.key"
@@ -225,7 +225,7 @@ watch(open, (o) => {
              hairline — the one place in this card a rule earns its keep, because it
              separates two kinds of thing rather than two instances of one. -->
         <div ref="footListRef" class="lm__foot" v-on="footPlateOn">
-          <span ref="footPlateRef" class="menu__plate" :class="{ 'is-placing': footPlacing }" aria-hidden="true" />
+          <span ref="footPlateRef" class="menu__plate" aria-hidden="true" />
           <button type="button" data-row class="menu__item lm__new" role="menuitem" @click="close(); emit('new-list')">
             New list
           </button>

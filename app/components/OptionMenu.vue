@@ -55,7 +55,7 @@ const emit = defineEmits<{ pick: [key: string]; overlayToggle: [boolean] }>();
 const open = ref(false);
 const rootRef = useTemplateRef<HTMLElement>("rootRef");
 // the travelling wash shared with every other menu (useMenuPlate)
-const { plateRef, listRef, placing, on: plateOn } = useMenuPlate();
+const { plateRef, listRef, on: plateOn } = useMenuPlate();
 // which sides to hang from, measured rather than declared — see useMenuPlacement.
 // On open, because a menu can't change size while it's up.
 const { atStart, above, place } = useMenuPlacement(listRef);
@@ -117,7 +117,7 @@ function pick(key: string) {
         v-on="plateOn"
       >
         <li role="none" aria-hidden="true">
-          <span ref="plateRef" class="menu__plate" :class="{ 'is-placing': placing }" />
+          <span ref="plateRef" class="menu__plate" />
         </li>
         <li v-for="o in options" :key="o.key" role="none">
           <button

@@ -529,9 +529,55 @@ input[type="search"]::-webkit-search-decoration {
 .menu__plate.is-placing {
   transition: none;
 }
+// ── crossing a rule ──────────────────────────────────────────────────────────
+// A hairline in a menu separates two KINDS of thing (the kebab's delete, the read
+// menu's report, ListMenu's "New list"), and the wash's premise is one thing being
+// pointed along a run of PEERS. So a move between groups is a HAND-OFF rather than a
+// slide: the plate fades out where it stands, relocates while it is invisible, and
+// comes back on the far side. useMenuPlate says when; this says how.
+//
+// It settles two things the slide got wrong as well. The rule is never washed over
+// in passing — the plate is at nothing exactly where it would have crossed — and a
+// menu whose far side is RED (the editor's delete) no longer bleeds that hue up over
+// the safe rows on the way down: the swap happens at the trough, so the plate leaves
+// neutral and arrives red, having been neither in between.
+//
+// The relocation rides a 0s transition on a DELAY rather than a JS timer, so the
+// jump cannot drift out of step with the fade that hides it. Delay and trough are
+// the same fraction, and have to stay so — the keyframe below is the other half.
+.menu__plate.is-crossing {
+  --cross-dur: calc(var(--dur) * 0.75);
+  --cross-hold: calc(var(--cross-dur) * 0.42);
+  transition:
+    transform 0s var(--cross-hold),
+    height 0s var(--cross-hold),
+    background 0s var(--cross-hold);
+  animation: menu-plate-cross var(--cross-dur) linear;
+}
+// linear, and not the workhorse --ease: this is a cross-FADE, where a constant rate
+// is what reads as one wash handed over. Expo-out would empty the plate in its first
+// few milliseconds and hold it there — a cut, with a wait on the end of it.
+@keyframes menu-plate-cross {
+  0% {
+    opacity: 1;
+  }
+  42% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .menu__plate {
     transition: opacity 1ms;
+  }
+  // ...and no hand-off: without the travel there is nothing for the fade to cover,
+  // so the plate simply appears on the far side. Stated at this weight because
+  // .is-crossing above outranks the rule it follows.
+  .menu__plate.is-crossing {
+    transition: opacity 1ms;
+    animation: none;
   }
 }
 // the rows sit above it
