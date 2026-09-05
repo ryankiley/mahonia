@@ -11,7 +11,7 @@ defineProps<{
 
 <template>
   <SiteTopbar compact>
-    <NuxtLink to="/" class="btn btn--link">Make your own</NuxtLink>
+    <NuxtLink to="/" class="btn btn--link">Make a list</NuxtLink>
     <!-- ⋯ goes in #end so it lands after the account glyph, matching the editor's
          bar (vault, account, share, ⋯). The reader's one text action keeps the
          lead; the two glyphs close the row. -->

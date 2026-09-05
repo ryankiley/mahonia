@@ -120,7 +120,7 @@ const SEO_COPY: Record<
   shared: {
     empty: "A shared packing list on Mahonia.",
     noun: "a shared packing list",
-    cta: "Make your own on Mahonia.",
+    cta: "Make a list on Mahonia.",
     cardPath: (s) => `/og/s/${s.shareCode}`,
   },
   public: {
