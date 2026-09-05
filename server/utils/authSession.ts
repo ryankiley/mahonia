@@ -367,10 +367,9 @@ export async function resolveSession(event: H3Event): Promise<ResolvedUser | nul
   return { id: row.id, email: row.email, displayName: row.displayName ?? null };
 }
 
-/** Resolve the signed-in user or reject with 401. Every vault endpoint's first
- *  line — the vault is per-person by definition, so there is no anonymous mode to
- *  fall back to. */
-export async function requireUser(event: H3Event): Promise<ResolvedUser> {
+/** Resolve the signed-in user or reject with 401 — requireAccount's gate. (The vault
+ *  endpoints, which this once served, resolve through vaultAuth's own preamble.) */
+async function requireUser(event: H3Event): Promise<ResolvedUser> {
   const user = await resolveSession(event);
   if (!user) throw createError({ statusCode: 401, statusMessage: "Sign in required" });
   return user;

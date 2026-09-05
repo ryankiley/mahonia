@@ -16,7 +16,7 @@ import { captureVaultItems } from "./vaultRepo";
 import { mintVault, touchVaultByUser } from "./vaultAuth";
 import { VAULT_CAPTURE_MAX, captureFromList, type VaultCapture } from "../../shared/vault";
 import { normalizeShareCode } from "../../shared/links";
-import { UNITS, type Unit } from "../../shared/types";
+import { UNITS, type ClaimedList, type Unit } from "../../shared/types";
 
 /** Cap on how many tokens one claim request may carry. "Your lists" is a device
  *  registry a person built by hand; anything past this is not a real browser. */
@@ -48,16 +48,6 @@ const ORIGIN_TRACKING_SINCE = new Date("2026-08-02T01:45:17Z");
  *  this only bounds the pathological account. */
 const VAULT_BACKFILL_MAX = 1000;
 
-/** A claimed list as the client needs it to render "Your lists" and open one. */
-export interface ClaimedList {
-  shareCode: string;
-  slug: string;
-  title: string;
-  totalMg: number;
-  version: number;
-  displayUnit: Unit;
-  updatedAt: string;
-}
 
 const isToken = (t: unknown): t is string =>
   typeof t === "string" && t.length > 0 && t.length <= 200;

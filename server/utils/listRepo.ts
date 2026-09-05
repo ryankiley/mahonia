@@ -32,7 +32,7 @@ import {
   type FullSnap,
 } from "../../shared/snapshotDiff";
 import { UNITS } from "../../shared/types";
-import type { ListData, ListSnapshot, ListState, Totals, Unit } from "../../shared/types";
+import type { ListData, ListMeta, ListSnapshot, ListState, SnapshotMeta, Totals, Unit } from "../../shared/types";
 import { isLikelySpam } from "../../shared/discovery";
 import { normalizeShareCode } from "../../shared/links";
 import { MAX_SUMMARY_LEN, summarizeOps } from "../../shared/changeSummary";
@@ -579,13 +579,6 @@ async function reconstructSnapshotState(
   );
 }
 
-export interface SnapshotMeta {
-  id: number;
-  version: number;
-  reason: string | null;
-  createdAt: string;
-  itemCount: number;
-}
 
 /** List a list's recovery points (newest first), capability-gated (see editAuth). */
 export async function listSnapshotsByEditHash(
@@ -839,27 +832,16 @@ export async function versionByEditHash(editHash: string): Promise<number | null
   return rows[0]?.version ?? null;
 }
 
-export async function createList(init?: {
-  title?: string;
-  description?: string;
-  displayUnit?: Unit;
-  trailUrl?: string;
-  trailLabel?: string;
-  trailDistanceM?: number;
-  trailDistanceUnit?: string;
-  trailProfile?: string;
-  trailAscentM?: number;
-  trailDescentM?: number;
-  routeGeometry?: string;
-  startDate?: string;
-  endDate?: string;
-  data?: ListData;
-  /** The signed-in maker, when there is one — stamped ONCE at creation, for the
-   *  byline on the read views. Absent for the (still entirely normal) no-account
-   *  case, and never re-pointed later: an edit link is shared, so "who else holds
-   *  this" is a different question from "who wrote it". */
-  authorUserId?: number;
-}): Promise<{ editToken: string; snapshot: ListSnapshot }> {
+export async function createList(
+  init?: Partial<ListMeta> & {
+    data?: ListData;
+    /** The signed-in maker, when there is one — stamped ONCE at creation, for the
+     *  byline on the read views. Absent for the (still entirely normal) no-account
+     *  case, and never re-pointed later: an edit link is shared, so "who else holds
+     *  this" is a different question from "who wrote it". */
+    authorUserId?: number;
+  },
+): Promise<{ editToken: string; snapshot: ListSnapshot }> {
   const db = await useDb();
   const editToken = randomEditToken();
   const editTokenHash = sha256Hex(editToken);
@@ -871,10 +853,13 @@ export async function createList(init?: {
   // straight apostrophe (and the stray spaces) that the identical rename after saving
   // would have tidied. The `||` fallback still reads the tidied value, so a
   // whitespace-only title is "Untitled list" and not a bare "-a1b2c3" slug.
-  const title = tidyText(init?.title?.slice(0, 200) ?? "") || "Untitled list";
+  // EVERY meta field is validated here and only here, typeof included: the create route
+  // hands the body's LIST_META_KEYS through untouched (see create.post.ts), so a field
+  // that arrives as the wrong type is this function's case, not the route's.
+  const title = tidyText((typeof init?.title === "string" ? init.title : "").slice(0, 200)) || "Untitled list";
   // tidyProse, matching the setMeta case — apostrophes and invisibles yes, line
   // breaks kept, because this is the one text field that can hold paragraphs
-  const description = init?.description
+  const description = typeof init?.description === "string" && init.description
     ? tidyProse(init.description.slice(0, 4000)) || undefined
     : undefined;
   // re-validated, not just clamped — a create can carry an imported JSON backup's URL
@@ -892,7 +877,8 @@ export async function createList(init?: {
   const endDate = normalizeCalendarDate(init?.endDate);
   const data = normalizeListData(init?.data);
   const totals = computeTotals(data);
-  const displayUnit = init?.displayUnit ?? "g";
+  // checked here since the route stopped doing it — anything but a real unit is grams
+  const displayUnit = init?.displayUnit && UNITS.includes(init.displayUnit) ? init.displayUnit : "g";
 
   // Retry on slug/share_code unique collision (regenerated each attempt).
   for (let attempt = 0; attempt < 5; attempt++) {

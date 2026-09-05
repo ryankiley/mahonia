@@ -7,7 +7,7 @@ import {
   Refresh01Icon,
   UserAdd01Icon,
 } from "@hugeicons/core-free-icons";
-import type { ListSnapshot } from "~~/shared/types";
+import type { ListSnapshot, SnapshotMeta } from "~~/shared/types";
 
 // Everything about who can see or change this list, in ONE place.
 //
@@ -114,13 +114,6 @@ function selectAll(e: Event) {
 // activity log this app has, and they are honest about what they are: a version
 // count and a time, not a per-field diff. Fetched on OPEN rather than on mount, so
 // the editor never pays for it.
-interface SnapshotMeta {
-  id: number;
-  version: number;
-  reason: string | null;
-  createdAt: string;
-  itemCount: number;
-}
 const activity = ref<SnapshotMeta[]>([]);
 const activityState = ref<"idle" | "loading" | "error">("idle");
 // re-rendered against a ticking clock would be churn for no gain — the panel is

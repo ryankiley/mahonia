@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { Bug02Icon, ChevronDownIcon, Copy01Icon, CopyPlusIcon, Csv01Icon, EllipsisIcon, FileExportIcon, Flag02Icon, HashIcon, ThirdBracketIcon, Txt01Icon } from "@hugeicons/core-free-icons";
+import { Bug02Icon, ChevronDownIcon, Copy01Icon, CopyPlusIcon, EllipsisIcon, FileExportIcon, Flag02Icon } from "@hugeicons/core-free-icons";
 import type { ListSnapshot, Totals } from "~~/shared/types";
 
 // The read-only share views' ⋯ actions menu — the quiet counterpart to the editor's
@@ -38,35 +38,16 @@ const { toast, flash } = useToast();
 // about scrolling would otherwise take it down — see onScrollOutside.
 useMenuDismiss(menuOpen, menuRef);
 
-// the four export actions + their chunk warm-up live in useListExports, shared
-// with the editor's kebab so the copy + error handling can't drift (the exporters
-// stay on-demand chunks, out of the read view's initial payload).
+// the four export actions, their chunk warm-up and the rows that draw them live in
+// useListExports, shared with the editor's kebab so neither the copy, the error
+// handling nor the wording can drift (the exporters stay on-demand chunks, out of
+// the read view's initial payload).
 //
 // The link the plain-text copy appends is THIS PAGE — the same URL "Copy link" below
 // hands out, whether that's /s/{code} or a public /l/{slug}. A read view never holds an
 // edit token, so unlike the editor there's nothing here to leak.
-const { warmExporters, copyPlainText, copyMarkdown, downloadCsv, downloadJson } = useListExports(
-  () => props.snapshot,
-  flash,
-  () => (typeof location !== "undefined" ? location.href : ""),
-);
-// The section's rows, table-driven as the editor's kebab has them (MENU_SECTIONS in
-// GearEditor) — same order, same words — so a new export is one row here and one
-// there rather than a fifth hand-written <li>. First, because it's the one people
-// reach for most: it's the format a comment box actually accepts. Markdown below it
-// is the same idea for somewhere that renders it.
-// The MARKS are the editor's too, one per FORMAT rather than four drawings of the
-// idea "a file": Txt01 and Csv01 are the set's own file marks, and Markdown and JSON,
-// which the set has no icon for, take the character each is actually written with —
-// the # a Markdown writer types for a heading, the braces a JSON file opens with. See
-// MENU_SECTIONS in GearEditor for the long version; the point of repeating them here
-// is that one export reads the same in both menus.
-const EXPORT_ITEMS = [
-  { key: "text", label: "Copy as plain text", icon: Txt01Icon, run: copyPlainText },
-  { key: "markdown", label: "Copy as Markdown", icon: HashIcon, run: copyMarkdown },
-  { key: "csv", label: "Download CSV", icon: Csv01Icon, run: downloadCsv },
-  { key: "json", label: "Download JSON", icon: ThirdBracketIcon, run: downloadJson },
-];
+const pageUrl = () => (typeof location !== "undefined" ? location.href : "");
+const { warmExporters, exportItems } = useListExports(() => props.snapshot, flash, pageUrl);
 function toggleMenu() {
   menuOpen.value = !menuOpen.value;
   if (menuOpen.value) warmExporters();
@@ -86,20 +67,6 @@ const { confirm: askConfirm, showLinkFallback } = useDialogs();
 // threshold that actually withholds a list.
 const reported = ref(false);
 
-function runMenu(action: string) {
-  menuOpen.value = false;
-  switch (action) {
-    case "copy": return void copyThis();
-    case "link": return void copyLink();
-    // the exports are EXPORT_ITEMS' — see runExport
-    case "report": return void reportThis();
-    case "feedback":
-      feedbackEverOpened.value = true;
-      feedbackOpen.value = true;
-      return;
-  }
-}
-
 // Feedback used to be a link in the site footer. It moved to where you are when you
 // have something to say — which for a reader is this menu. Distinct from "Report
 // list" at the foot: that one is about THIS list being spam, this one is about the app.
@@ -108,6 +75,10 @@ function runMenu(action: string) {
 // Lazy + everOpened, so a reader who never sends anything pays nothing for it.
 const feedbackOpen = ref(false);
 const feedbackEverOpened = ref(false);
+function openFeedback() {
+  feedbackEverOpened.value = true;
+  feedbackOpen.value = true;
+}
 
 async function reportThis() {
   if (reported.value) return;
@@ -132,11 +103,33 @@ async function copyThis() {
   if (!ok) flash("Couldn’t copy. Try again.");
 }
 async function copyLink() {
-  const url = typeof location !== "undefined" ? location.href : "";
+  const url = pageUrl();
   if (await copyText(url)) return flash("Link copied");
   // blocked clipboard → show the link selectable instead of dead-ending
   showLinkFallback(url, "Copy this link");
 }
+
+// The plain rows, table-driven as the editor's kebab has them (MENU_ACTIONS in
+// GearEditor) — a row is one entry here, not a hand-written <li> plus a case in a
+// dispatch switch. Same order as the editor's plain run: the act on this list, then
+// the clipboard, then the one that's about the app.
+const MENU_ACTIONS = [
+  // NOT "Copy this list". Two of this menu's other items are clipboard actions ("Copy
+  // link", "Copy as Markdown"), and this one is the odd one out: it mints an
+  // independent list, registers it in this browser and navigates you into its editor.
+  // Three items opening with the same verb, one of which takes you off the page, is a
+  // menu you have to read twice. Matches the editor's kebab word-for-word — one action,
+  // one name, so nobody has to learn that "duplicate" here is "copy" there.
+  // The MARK carries the same argument one step earlier: CopyPlus rather than the
+  // clipboard sheets the genuine copies wear, because a glyph is read before its label
+  // and a clipboard here would spend the word before you got to it.
+  { label: "Duplicate this list", icon: CopyPlusIcon, run: copyThis, busy: copying },
+  // …and THIS one is the clipboard, so it wears the app's clipboard mark — the same
+  // Copy01 pair of sheets ListHead and SharePanel put on the buttons that copy this
+  // very link.
+  { label: "Copy link", icon: Copy01Icon, run: copyLink },
+  { label: "Send feedback…", icon: Bug02Icon, run: openFeedback },
+];
 </script>
 
 <template>
@@ -157,36 +150,13 @@ async function copyLink() {
         <li role="none" aria-hidden="true">
           <span ref="plateRef" class="menu__plate" />
         </li>
-        <li role="none">
-          <!-- NOT "Copy this list". Two of this menu's other items are clipboard
-               actions ("Copy link", "Copy as Markdown"), and this one is the odd one
-               out: it mints an independent list, registers it in this browser and
-               navigates you into its editor. Three items opening with the same verb,
-               one of which takes you off the page, is a menu you have to read twice.
-               Matches the editor's kebab word-for-word — one action, one name, so
-               nobody has to learn that "duplicate" here is "copy" there.
-               The MARK carries the same argument one step earlier: CopyPlus rather than
-               the clipboard sheets the genuine copies wear, because a glyph is read
-               before its label and a clipboard here would spend the word before you got
-               to it. Same pick as the editor's row of this name. -->
-          <button type="button" data-row role="menuitem" class="menu__item" :disabled="copying" @click="runMenu('copy')">
-            <HugeiconsIcon :icon="CopyPlusIcon" :size="14" :stroke-width="2" aria-hidden="true" />
-            Duplicate this list
-          </button>
-        </li>
-        <li role="none">
-          <!-- …and THIS one is the clipboard, so it wears the app's clipboard mark —
-               the same Copy01 pair of sheets ListHead and SharePanel put on the buttons
-               that copy this very link. -->
-          <button type="button" data-row role="menuitem" class="menu__item" @click="runMenu('link')">
-            <HugeiconsIcon :icon="Copy01Icon" :size="14" :stroke-width="2" aria-hidden="true" />
-            Copy link
-          </button>
-        </li>
-        <li role="none">
-          <button type="button" data-row role="menuitem" class="menu__item" @click="runMenu('feedback')">
-            <HugeiconsIcon :icon="Bug02Icon" :size="14" :stroke-width="2" aria-hidden="true" />
-            Send feedback…
+        <!-- Close BEFORE the action runs, as the editor's rows do. `busy` is the one
+             row-specific state: Duplicate is a navigation, and a second press mid-copy
+             would mint a second list. -->
+        <li v-for="a in MENU_ACTIONS" :key="a.label" role="none">
+          <button type="button" data-row role="menuitem" class="menu__item" :disabled="a.busy?.value" @click="menuOpen = false; a.run()">
+            <HugeiconsIcon :icon="a.icon" :size="14" :stroke-width="2" aria-hidden="true" />
+            {{ a.label }}
           </button>
         </li>
         <!-- Export folds into a disclosure, as it already does in the editor's ⋯ —
@@ -205,7 +175,7 @@ async function copyLink() {
             <HugeiconsIcon :icon="FileExportIcon" :size="14" :stroke-width="2" aria-hidden="true" />
             <!-- the label takes the slack, so the chevron keeps the trailing edge now
                  that a glyph holds the leading one -->
-            <span class="ro__sectlabel">Export</span>
+            <span class="menu__sectlabel">Export</span>
             <HugeiconsIcon
               :icon="ChevronDownIcon"
               class="chev"
@@ -223,8 +193,9 @@ async function copyLink() {
           <Transition name="reveal">
             <div v-if="exportOpen" class="reveal">
               <ul class="menu__sectlist" role="group" aria-label="Export">
-                <!-- one row per export action, in EXPORT_ITEMS' order (see the script) -->
-                <li v-for="x in EXPORT_ITEMS" :key="x.key" role="none">
+                <!-- one row per export action, in useListExports' order — the same
+                     table the editor's kebab draws from -->
+                <li v-for="x in exportItems" :key="x.key" role="none">
                   <button type="button" data-row role="menuitem" class="menu__item menu__sectitem" @click="runExport(x.run)">
                     <HugeiconsIcon :icon="x.icon" :size="14" :stroke-width="2" aria-hidden="true" />
                     {{ x.label }}
@@ -248,7 +219,7 @@ async function copyLink() {
                more here than anywhere else in the menu: reporting is the one row a reader
                should recognise without reading, and the one they should never hit by
                mistake reaching for the row above. -->
-          <button type="button" data-row role="menuitem" class="menu__item" @click="runMenu('report')">
+          <button type="button" data-row role="menuitem" class="menu__item" @click="menuOpen = false; reportThis()">
             <HugeiconsIcon :icon="Flag02Icon" :size="14" :stroke-width="2" aria-hidden="true" />
             Report list
           </button>
@@ -268,23 +239,3 @@ async function copyLink() {
   </div>
 </template>
 
-<style scoped>
-/* The glyph column and its `flex: none` pin are .menu__item's own (atoms/controls.scss).
-   They arrived here as a copy of the editor's, on the argument that only those two menus
-   want the shape and the switcher's rows must not inherit it — but every .menu__list in
-   the app wants it, this menu's own glyphs being the case that settled it. */
-/* NO INDENT on the Export rows, overriding the atom's --space-5 step. The step was
-   right while they were bare; now that they carry glyphs it opens a SECOND glyph column
-   a step in from the first, which reads as a ragged edge rather than as nesting. What
-   says "group" instead is what already did the rest of that job: the quieter ink
-   (--ink-2, from the atom) under a header whose chevron has turned over.
-   It also settles a jump — the card is sized to its widest row, so an indent that only
-   exists while the section is open widened the card on opening. */
-.menu__list .menu__sectitem {
-  padding-left: var(--space-3);
-}
-/* the label takes the slack, so the Export header's chevron holds the trailing edge */
-.ro__sectlabel {
-  flex: 1 1 auto;
-}
-</style>

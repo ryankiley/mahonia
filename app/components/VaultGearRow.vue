@@ -45,7 +45,7 @@ const kcal = computed(() =>
 <template>
   <li class="vault__row">
     <div class="gear__main">
-      <p class="gear__name">
+      <p class="gear__name t-clip">
         <span v-if="entry.brand" class="gear__brand">{{ entry.brand }}</span>
         <span>{{ entry.name }}</span>
         <span v-if="entry.variant" class="gear__variant"><span class="sep">·</span> {{ entry.variant }}</span>

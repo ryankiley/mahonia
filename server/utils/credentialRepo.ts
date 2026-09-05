@@ -5,17 +5,12 @@
 import { and, desc, eq } from "drizzle-orm";
 import { credentials } from "../db/schema";
 import type { Db } from "./db";
+import type { PasskeySummary } from "../../shared/types";
 
 /** How many passkeys one account may hold. Generous — a phone, a laptop, a
  *  hardware key and spares — while still bounding the row count per user. */
 export const MAX_PASSKEYS_PER_USER = 20;
 
-export interface PasskeySummary {
-  id: number;
-  label: string | null;
-  createdAt: string;
-  lastUsedAt: string | null;
-}
 
 export async function listPasskeys(db: Db, userId: number): Promise<PasskeySummary[]> {
   const rows = await db

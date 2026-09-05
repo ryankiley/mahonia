@@ -107,7 +107,7 @@ const planTip = computed(() => {
           @pick="(u) => emit('set-unit', u as Unit)"
         >
           <template #trigger="{ open }">
-            <AnimatedCount class="t-num totals__big" :value="formatWeight(totals.totalMg, list.displayUnit, { withUnit: false })" />
+            <AnimatedCount class="t-num t-display totals__big" :value="formatWeight(totals.totalMg, list.displayUnit, { withUnit: false })" />
             <span class="totals__uc" aria-hidden="true">
               <span class="totals__unit">{{ list.displayUnit }}</span>
               <!-- stroke 2.25, not the app-wide 2: at size 16 it renders an exact
@@ -218,15 +218,8 @@ const planTip = computed(() => {
    the `align` prop: a class here could not reach that button, since scoped styles stop
    at the component boundary. */
 .totals__big {
-  /* Never wider than the screen. The figure is one unbreakable token, so past about
-     nine characters on a 320px phone it ran off the right edge — with the unit
-     following it out of view and no horizontal scroll to reach either. `--acount-len`
-     (AnimatedCount) gives the character count, ~0.58em is a tabular digit's advance,
-     and 78vw leaves the unit its room; `min()` means a figure that already fits is
-     untouched, so every ordinary total still renders at the full --text-display. */
-  font-size: min(var(--text-display), calc(78vw / (0.58 * var(--acount-len, 6))));
-  line-height: 0.95;
-  letter-spacing: var(--track-tight);
+  /* the size and its phone-width clamp are .t-display's (foundations/typography.scss);
+     the accent is this figure's alone — /gear's headline sits in plain ink */
   color: var(--accent);
 }
 /* unit + its dropdown chevron travel together, centered to each other, and the

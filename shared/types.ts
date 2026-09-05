@@ -287,12 +287,13 @@ export const LIST_META_KEYS = [
 ] as const satisfies readonly (keyof ListMeta)[];
 export type ListMetaKey = (typeof LIST_META_KEYS)[number];
 
-/** Just the meta of a snapshot/state, keys in LIST_META_KEYS order. An absent field
- *  stays absent (undefined), so JSON.stringify drops it exactly as it did before. */
-export function pickListMeta(src: ListMeta): ListMeta {
+/** Just the meta of a snapshot/state — or of anything meta-shaped, a create body
+ *  included — keys in LIST_META_KEYS order and nothing else. An absent field stays
+ *  absent (undefined), so JSON.stringify drops it exactly as it did before. */
+export function pickListMeta<T extends Partial<ListMeta>>(src: T): Pick<T, ListMetaKey & keyof T> {
   const out = {} as Record<ListMetaKey, unknown>;
   for (const key of LIST_META_KEYS) out[key] = src[key];
-  return out as unknown as ListMeta;
+  return out as unknown as Pick<T, ListMetaKey & keyof T>;
 }
 
 /** Canonical wire shape returned by the API and held by the client editor. */
@@ -372,4 +373,50 @@ export interface Totals {
    *  silent on the overwhelming majority of lists, which will never use kcal, and
    *  distinguishes "nothing entered" from a genuine zero. */
   hasKcal: boolean;
+}
+
+// ── WIRE SHAPES the client renders and the server answers with ──────────────────
+// Each of these was declared twice, once per side of the fetch, and the two copies
+// were byte-identical — which is the state that holds right up until one side adds a
+// field. One declaration: the server's repo returns it, the client's fetch is typed by
+// it, and a field added here reaches both.
+
+/** A claimed list as "Your lists" needs it to render and open one — the account's half
+ *  of the switcher, beside the device registry's MyListEntry above. */
+export interface ClaimedList {
+  shareCode: string;
+  slug: string;
+  title: string;
+  totalMg: number;
+  version: number;
+  displayUnit: Unit;
+  updatedAt: string;
+}
+
+/** One recovery point, as the sharing panel's activity log lists them. */
+export interface SnapshotMeta {
+  id: number;
+  version: number;
+  reason: string | null;
+  createdAt: string;
+  itemCount: number;
+}
+
+/** One passkey, as the account dialog lists them. */
+export interface PasskeySummary {
+  id: number;
+  label: string | null;
+  createdAt: string;
+  lastUsedAt: string | null;
+}
+
+/** One catalog weight correction, as /changes lists them. */
+export interface RecentChange {
+  id: number;
+  itemName: string;
+  oldWeightMg: number;
+  newWeightMg: number;
+  status: string;
+  sourceUrl: string | null;
+  createdAt: string;
 }

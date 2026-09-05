@@ -12,7 +12,7 @@
 // Signing in and deleting an account are worse things to keep in sync by hand.
 import { HugeiconsIcon } from "~/utils/hugeicon";
 import { Key01Icon } from "@hugeicons/core-free-icons";
-import type { PasskeySummary } from "~/composables/usePasskeys";
+import type { PasskeySummary } from "~~/shared/types";
 
 // In the MODAL you are already where you want to be, so finishing means closing and
 // nothing else. On the PAGE there is no context behind it, so finishing has to take

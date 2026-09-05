@@ -130,7 +130,7 @@ let pending: { items: VaultCapture[]; fingerprint: string } | null = null;
 /** Why a hand press did or didn't land. Each value is a different thing for the
  *  row to SAY: a row to finish, a removal to undo on /gear, a full vault to make
  *  room in, a request worth retrying. */
-export type CaptureOneResult = "saved" | "unworthy" | "removed" | "full" | "failed";
+type CaptureOneResult = "saved" | "unworthy" | "removed" | "full" | "failed";
 
 export function useVaultCapture() {
   // hasVault as well as the fetch: capture must not ASK someone who has no vault

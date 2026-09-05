@@ -26,6 +26,7 @@ import { mount } from "@vue/test-utils";
 import ItemRow, { CHILDREN_BY_PARENT, PEOPLE_CTX } from "~/components/ItemRow.vue";
 import type { Item, ListSnapshot, Person } from "~~/shared/types";
 import { vaultNormKey } from "~~/shared/vault";
+import { gearListStub } from "./helpers/gearList";
 
 // what GearEditor provides to every row — the children map, and the people in
 // display order with their slots (this list names nobody)
@@ -56,18 +57,8 @@ mockNuxtImport("useVaultAccess", () => () => ({
   vaultFetch: () => Promise.resolve({ results: [] }),
 }));
 
-mockNuxtImport("useGearList", () => () => ({
-  pendingBlankId: ref<string | null>(null),
+mockNuxtImport("useGearList", () => () => gearListStub({
   updateItem: () => {},
-  setItemWeight: () => {},
-  removeItem: () => {},
-  duplicateItem: () => "",
-  moveItem: () => {},
-  discardEmpty: () => {},
-  addBlankItemAfter: () => "",
-  addChild: () => "",
-  nestItem: () => {},
-  unnest: () => {},
   saveItemToVault,
   vaultAuto,
   vaultDeclined,
