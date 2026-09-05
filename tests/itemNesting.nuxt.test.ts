@@ -628,3 +628,44 @@ describe("nesting never rewrites the row it nests into", () => {
     expect(byId(c, "stakes")?.description).toBe("8 of them");
   });
 });
+
+// THE TWO QUIET DELETIONS, which is what makes their shared field list worth testing.
+// Neither offers an undo — both fire on the reasoning that nothing was there to lose —
+// so a field missing from the list is a value removed with no way back. `kcal` was
+// missing from both: a row can carry calories with no weight (in a consumable folder the
+// field is there from the first keystroke, with `classification` still null), and each
+// of these removed it in turn. One list now, in carriesContent (shared/weights).
+describe("what the quiet removals count as content", () => {
+  beforeEach(() => {
+    records.clear();
+    storage.clear();
+  });
+  afterEach(() => useGearList().dispose());
+
+  it("keeps a blank row whose only entry is its calories", async () => {
+    const c = await open([item({ id: "snack", name: "", kcal: 250, sortOrder: 0 })]);
+    c.discardEmpty("snack");
+    await vi.waitFor(() => expect(byId(c, "snack")).toBeTruthy());
+    expect(byId(c, "snack")?.kcal).toBe(250);
+  });
+
+  it("still discards one that really is untouched", async () => {
+    const c = await open([item({ id: "blank", name: "", sortOrder: 0 })]);
+    c.discardEmpty("blank");
+    await vi.waitFor(() => expect(byId(c, "blank")).toBeUndefined());
+  });
+
+  // unwrapEmptied's turn: the last child leaving a container that looks like a wrapper
+  // dissolves it. A food container is not a wrapper, and this used to delete it.
+  it("keeps a container carrying calories when its last child leaves", async () => {
+    const c = await open([
+      item({ id: "dinners", name: "Dinners", kcal: 700, sortOrder: 0 }),
+      item({ id: "bar", name: "Bar", parentId: "dinners", commonNameOverridden: true, unitWeightMg: 60_000, sortOrder: 0 }),
+    ]);
+
+    c.unnest("bar");
+    await vi.waitFor(() => expect(byId(c, "bar")?.parentId).toBeNull());
+    expect(byId(c, "dinners")).toBeTruthy();
+    expect(byId(c, "dinners")?.kcal).toBe(700);
+  });
+});

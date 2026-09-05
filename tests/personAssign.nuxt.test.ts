@@ -14,6 +14,7 @@ import { describe, expect, it } from "vitest";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import { mount } from "@vue/test-utils";
 import ItemRow, { CHILDREN_BY_PARENT, PEOPLE_CTX } from "~/components/ItemRow.vue";
+import { rowProvides } from "./helpers/itemRow";
 import { sortedPeople } from "~~/shared/people";
 import type { Item, ListSnapshot, Person } from "~~/shared/types";
 import { blankList } from "./helpers/list";
@@ -56,10 +57,6 @@ const peopleCtx = {
   sorted: peopleSorted,
   slotById: computed(() => new Map(peopleSorted.value.map((p, i) => [p.id, i]))),
 };
-const rowProvides = (children = new Map<string, Item[]>()) => ({
-  [CHILDREN_BY_PARENT as symbol]: ref(children),
-  [PEOPLE_CTX as symbol]: peopleCtx,
-});
 
 function mountRow(items: Item[], children = new Map<string, Item[]>()) {
   snapshot.value = blankList({ people: [sam, alex], items });
@@ -72,7 +69,7 @@ function mountRow(items: Item[], children = new Map<string, Item[]>()) {
         return snapshot.value.items[0]!;
       },
     },
-    global: { provide: rowProvides(children) },
+    global: { provide: rowProvides(children, peopleCtx) },
     attachTo: document.body,
   });
 }
@@ -166,7 +163,7 @@ describe("carried by — the row's picker + the filter attribute", () => {
           return snapshot.value.items[0]!;
         },
       },
-      global: { provide: rowProvides() },
+      global: { provide: rowProvides(new Map(), peopleCtx) },
     });
     expect(w.find(".item__person-btn").exists()).toBe(false);
     w.unmount();

@@ -313,6 +313,31 @@ export const isBareGroup = (
   hasChildren: boolean,
 ): boolean => hasChildren && !carriesOwnLine(item);
 
+/**
+ * Does this row hold ANYTHING a person put there, apart from its name?
+ *
+ * The question both of the app's quiet deletions ask before they fire — discardEmpty
+ * (the blank row that removes itself on blur) and unwrapEmptied (the container that
+ * dissolves when its last child leaves). Neither offers an undo, on the reasoning that
+ * nothing was there to lose; so the field list IS that reasoning, and it was written out
+ * twice, in two files, with two different answers. `kcal` was missing from both, and a
+ * row whose only entry was its calories got removed by each in turn.
+ *
+ * One list, one place, so the next optional field on Item has a single home. The name is
+ * deliberately NOT in it: the two callers disagree about names for good reasons of their
+ * own — a blank row with a name is a row, while a container is nothing BUT a name — so
+ * each still tests that itself.
+ */
+export const carriesContent = (item: Item): boolean =>
+  carriesOwnLine(item) ||
+  item.qty !== 1 ||
+  !!item.description ||
+  !!item.productUrl ||
+  item.catalogItemId != null ||
+  item.classification != null ||
+  item.wornQty != null ||
+  !!item.packed;
+
 /** Units of a line that count as worn via the wornQty split.
  *  0 when the split doesn't apply (no wornQty, or effective class ≠ base). */
 export function splitWornQty(

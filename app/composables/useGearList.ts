@@ -11,7 +11,7 @@ import { pickListMeta } from "~~/shared/types";
 import type { CaptureOneResult } from "./useVault";
 import type { VaultCapture, VaultEntry, VaultGearKey } from "~~/shared/vault";
 import { vaultNormKey } from "~~/shared/vault";
-import { bySortOrder, carriesOwnLine, computeTotals, entryUnitFromInput, nextSortOrder, parseWeightInput, siblingItems, storedClassification } from "~~/shared/weights";
+import { bySortOrder, carriesContent, computeTotals, entryUnitFromInput, nextSortOrder, parseWeightInput, siblingItems, storedClassification } from "~~/shared/weights";
 import { createNesting } from "~/composables/useGearListNesting";
 
 // Editor controller (one list open at a time → module singleton). Mutations are
@@ -1275,13 +1275,12 @@ function create() {
     const it = snapshot.value?.items.find((i) => i.id === id);
     if (!it) return;
     if (
-      // carriesOwnLine covers the weight AND the calories: a row can carry kcal with no
-      // weight (in a consumable folder the field is there from the first keystroke, with
-      // `classification` still null), and without that term "nothing was typed" removed
-      // it — quietly, no undo — on the blur that followed typing the number.
-      it.name.trim() !== "" || carriesOwnLine(it) || it.qty !== 1 ||
-      it.commonName || it.description || it.productUrl || it.catalogItemId != null ||
-      it.classification != null || it.wornQty != null || it.packed ||
+      // A NAME, A GEAR TYPE, or anything carriesContent counts (shared/weights — the one
+      // list, shared with unwrapEmptied, which deletes on the same reasoning). Both of
+      // those are the row's own words rather than a value, which is why they are here
+      // and not in the shared predicate: a container is nothing BUT a name, so
+      // unwrapEmptied has to answer the name question the other way round.
+      it.name.trim() !== "" || it.commonName || carriesContent(it) ||
       snapshot.value?.items.some((c) => c.parentId === id) // has nested children
     ) return;
     if (pendingBlankId.value === id) pendingBlankId.value = null;

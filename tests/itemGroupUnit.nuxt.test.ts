@@ -16,6 +16,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import { mount } from "@vue/test-utils";
 import ItemRow, { CHILDREN_BY_PARENT, PEOPLE_CTX } from "~/components/ItemRow.vue";
+import { rowProvides } from "./helpers/itemRow";
 import type { Item, ListSnapshot, Person } from "~~/shared/types";
 import { blankList } from "./helpers/list";
 import { gearListStub } from "./helpers/gearList";
@@ -63,12 +64,7 @@ function mountRow(row: Item, children: Item[] = []) {
         return snapshot.value.items[0]!;
       },
     },
-    global: {
-      provide: {
-        [CHILDREN_BY_PARENT as symbol]: ref(new Map([[row.id, children]])),
-        [PEOPLE_CTX as symbol]: { sorted: ref<Person[]>([]), slotById: ref(new Map<string, number>()) },
-      },
-    },
+    global: { provide: rowProvides(new Map([[row.id, children]])) },
     attachTo: document.body,
   });
 }
