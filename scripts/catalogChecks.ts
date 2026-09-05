@@ -313,8 +313,8 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
     if (!v) continue;
     const single = rowsPerProduct.get(`${normKey(r.brand)}|${normKey(r.name)}`) === 1;
     const dims = v.split(/,\s*/);
-    if (dims.some((d) => /^(one size|unisex)$/i.test(d))) {
-      warn("variant-filler", `${gearLabel(r)}: "${v}" — "One size" / "Unisex" distinguish nothing; drop`);
+    if (dims.some((d) => /^(one size|unisex|1 serving)$/i.test(d))) {
+      warn("variant-filler", `${gearLabel(r)}: "${v}" — "One size" / "Unisex" / "1 serving" distinguish nothing (single-serving is the unmarked default); drop`);
     } else if (single && /^standard$/i.test(v)) {
       warn("variant-filler", `${gearLabel(r)}: "Standard" on a one-row product is filler; drop`);
     } else if (dims.some((d) => /^per \w+$/i.test(d)) && !/\btrekking\s+poles?$/i.test(r.name.trim()) && !hasPackSibling(r)) {

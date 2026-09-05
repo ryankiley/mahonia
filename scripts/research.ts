@@ -32,6 +32,8 @@ export interface ResearchRow {
   //     that could only be sourced at net contents says "net" in its variant, and the audit
   //     lists it as a to-do. Bars and chews stay at label weight (a wrapper is a gram or two).
   //     Fuel canisters keep "net fuel": the weight is the gas alone, not the can.
+  //   • Servings: a multi-serving pouch says "2 servings"; single-serving is the unmarked default
+  //     ("1 serving" is filler). A maker's format name stays ("Pro-Pak").
   //   • Several of a thing read "3-pack" or "sleeve of 10". A number and its unit are one
   //     token ("6ft", "400ml", "20F").
   //   • A config never hides in `name`: " - Regular", "(low)", "(2024)", "(SP129)" all go
