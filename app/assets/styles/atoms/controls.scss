@@ -390,6 +390,25 @@ input[type="search"]::-webkit-search-decoration {
   top: calc(100% + var(--space-1));
   right: 0;
   z-index: var(--z-menu);
+  // SIZE TO THE WIDEST ROW, and ask for it out loud. `width: auto` looks like it
+  // already does, and does — right up until a row holds something that can give way.
+  // An absolutely positioned box shrink-to-fits against the room its containing block
+  // leaves it, and that container is the TRIGGER: one 32px icon button. Shrink-to-fit
+  // is min(max(min-content, available), max-content), so with 32px available the card
+  // always takes its MIN-content width, which equals max-content only while every row
+  // refuses to shrink.
+  //
+  // A glyph doesn't refuse: an <svg> flex item shrinks below its own size, so the card
+  // fell to the min-width below and the icon column absorbed the whole deficit — 2.2px
+  // against the 14 it reserves. Pin the glyph (`flex: none`, which every menu carrying
+  // one now does) and the deficit only MOVES: it lands on the label, which runs nowrap
+  // straight through the row's trailing padding until it touches the hover plate's
+  // edge — so the wash reads as hugging the text on one side and clearing it on the
+  // other. Asking for max-content takes the available width out of the answer, and
+  // neither failure has anywhere left to come from.
+  //
+  // Same fix, and the same reason, as the toast's `width: max-content` below.
+  width: max-content;
   min-width: 12rem;
   margin: 0;
   // same edge inset as the autocomplete menu (.ac__menu) so the two floating

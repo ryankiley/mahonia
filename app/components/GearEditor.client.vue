@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon, type IconNode } from "~/utils/hugeicon";
-import { Backpack02Icon, CheckmarkSquare02Icon, ChevronDownIcon, CommandIcon, Copy01Icon, Delete02Icon, EllipsisIcon, FileExportIcon, FileImportIcon, Message01Icon, NoteAddIcon, RemoveCircleIcon, Route02Icon, SafeBoxIcon, Share08Icon, UndoIcon, UserAddIcon } from "@hugeicons/core-free-icons";
+import { Backpack02Icon, CheckmarkSquare02Icon, ChevronDownIcon, Copy01Icon, ClipboardIcon, Delete02Icon, Download04Icon, EllipsisIcon, FileExportIcon, FileImportIcon, KeyboardIcon, Message01Icon, NoteAddIcon, RemoveCircleIcon, Route02Icon, SafeBoxIcon, Share08Icon, UndoIcon, UserAddIcon } from "@hugeicons/core-free-icons";
 import { editLinkPath, normalizeShareCode } from "~~/shared/links";
 import { tripHeadline } from "~~/shared/trailDistance";
 import { formatWeight } from "~~/shared/weights";
@@ -747,12 +747,22 @@ onKeyStroke("?", (e) => {
   openShortcuts();
 });
 
-// EVERY TOP-LEVEL ROW LEADS WITH A GLYPH. It was words alone until the foot grew two
-// rows that needed marks to tell them apart, which left the menu looking like two
-// kinds of list stacked on each other. The design system's ds-menu carries an icon on
-// every row and reserves the bare ones for its NESTED group — so that's the rule here:
-// icons down the top level, nothing on the four Export items, which are indented and
-// read as a group rather than as peers.
+// EVERY ROW LEADS WITH A GLYPH. It was words alone until the foot grew two rows that
+// needed marks to tell them apart, which left the menu looking like two kinds of list
+// stacked on each other.
+//
+// The Export items were the exception for one release — bare, on the design system's
+// rule that its nested rows carry nothing. What that left was the one place in the
+// menu where the eye had to fall back to reading, and it was reading four labels that
+// differ in two ways at once: two land on the CLIPBOARD and two land in DOWNLOADS,
+// which is the difference people actually get wrong. So the glyph marks the VERB, and
+// each pair shares one — the format is already the loudest word in the label and needs
+// no help. A mark per format was tried and isn't available: the icon set has no
+// Markdown and no JSON, and CSV against a braces-file is two indistinguishable file
+// shapes at 14px.
+//
+// They still read as a group rather than as peers — the indent is what says so, and it
+// now puts their glyph column where the top-level LABELS start (see .menu__sectitem).
 //
 // Import and Export take the mirrored pair deliberately; they are the same door in
 // two directions and the glyphs should say so before the words do.
@@ -782,7 +792,7 @@ const MENU_ACTIONS = [
   // away. The toolbar is in reach from anywhere in the list.
   // The two entries that are ABOUT using the app rather than acts upon a list, so
   // they close the menu together, after the run that makes lists.
-  { label: "Keyboard shortcuts", icon: CommandIcon, run: openShortcuts },
+  { label: "Keyboard shortcuts", icon: KeyboardIcon, run: openShortcuts },
   { label: "Send feedback…", icon: Message01Icon, run: () => { feedbackEverOpened.value = true; feedbackOpen.value = true; } },
 ];
 const MENU_SECTIONS = [
@@ -794,10 +804,10 @@ const MENU_SECTIONS = [
       // First, because it's the one people reach for most: it's the format a comment
       // box actually accepts. Markdown below it is the same idea for somewhere that
       // renders it (Apple Notes, a README, a forum that takes it).
-      { label: "Copy as plain text", run: copyPlainText },
-      { label: "Copy as Markdown", run: copyMarkdown },
-      { label: "Download CSV", run: downloadCsv },
-      { label: "Download JSON", run: downloadJson },
+      { label: "Copy as plain text", icon: ClipboardIcon, run: copyPlainText },
+      { label: "Copy as Markdown", icon: ClipboardIcon, run: copyMarkdown },
+      { label: "Download CSV", icon: Download04Icon, run: downloadCsv },
+      { label: "Download JSON", icon: Download04Icon, run: downloadJson },
     ],
   },
 ] as const;
@@ -1011,7 +1021,10 @@ function onCorrected(res: { status: string; itemName?: string }) {
                     <div v-if="openSection === s.key" class="reveal">
                   <ul class="menu__sectlist" role="group" :aria-label="s.label">
                     <li v-for="a in s.items" :key="a.label" role="none">
-                      <button type="button" data-row role="menuitem" class="menu__item menu__sectitem" @click="menuOpen = false; a.run()">{{ a.label }}</button>
+                      <button type="button" data-row role="menuitem" class="menu__item menu__sectitem" @click="menuOpen = false; a.run()">
+                        <HugeiconsIcon :icon="a.icon" :size="14" :stroke-width="2" aria-hidden="true" />
+                        {{ a.label }}
+                      </button>
                     </li>
                   </ul>
                     </div>
@@ -1566,8 +1579,11 @@ function onCorrected(res: { status: string; itemName?: string }) {
 .editor__sectlabel {
   flex: 1 1 auto;
 }
-/* The Export items carry no glyph (the design system's nested rows don't either), so
-   they indent to where the labels above them start rather than to an arbitrary step.
+/* The Export items indent by exactly one glyph column, which lands THEIR glyphs where
+   the labels above them start — a nested step measured in the menu's own units rather
+   than an arbitrary one. (The same number carried the bare version of these rows, where
+   it put their labels there instead. It reads as a step either way; what changed is
+   which column arrives at it.)
    Derived from the column, not typed as a number, so changing the icon size can't
    quietly leave this behind. */
 .menu__list .menu__sectitem {
