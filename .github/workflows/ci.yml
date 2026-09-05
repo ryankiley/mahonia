@@ -82,3 +82,26 @@ jobs:
       - name: Bundle budget
         if: '!cancelled()'
         run: npm run bundle-budget
+
+      # Does the SERVER bundle contain the files the server needs at runtime?
+      #
+      # Nothing else here asks that. The tests import from node_modules, where
+      # every dependency is whole; typecheck never looks at a build at all; the
+      # bundle budget reads only .output/public. So a file that node-file-trace
+      # failed to copy is invisible to all four gates, and the first thing to
+      # notice is production.
+      #
+      # That is not hypothetical. satori 0.33 shapes text with harfbuzz, and
+      # harfbuzzjs resolves its wasm as `__dirname + "/hb.wasm"` — a runtime
+      # string concat that nft cannot follow, so the build shipped hb.js without
+      # it. And because harfbuzzjs builds its wasm promise at import time, the
+      # ENOENT arrives as an unhandled rejection that ogCard.ts's try/catch never
+      # sees: the instance dies rather than falling back to /og.png. Every gate
+      # above was green. See the nitro:init hook in nuxt.config.ts.
+      #
+      # One asserted path is a narrow guard, deliberately — a general "is the
+      # trace complete" check is not a thing you can write. It ratchets the one
+      # case that actually bit, and it is the right place to add the next one.
+      - name: Server bundle has its runtime assets
+        if: '!cancelled()'
+        run: test -f .output/server/node_modules/harfbuzzjs/hb.wasm
