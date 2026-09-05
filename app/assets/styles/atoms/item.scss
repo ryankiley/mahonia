@@ -334,6 +334,20 @@
 .item__carrier-dot {
   align-self: center;
 }
+/* The name gets its own element so it can LOSE ITS TAIL. A bare text node in this
+   inline-flex box is an anonymous flex item, and text-overflow has nothing to bite
+   on there — so a long name could only ever push the tag wider, never ellipsize.
+   Which it did: on the editor's phone face this tag sits beside the item's own name
+   field, and a flex item's automatic minimum size is its min-content width, so
+   "Bartholomew Fitzgerald-Montgomery III" took 300px of a 343px row and left the
+   item reading "Hy…". The row's subject crushed by an annotation on it.
+   Harmless on the two faces that never hit it (the read row already clips the whole
+   name line, the checklist row has room): an element that fits is untouched. */
+.item__carrier-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 /* The quiet "Add an item" affordance — ONE recipe for the folder's add row and a nested
    group's alike, which were hand-copied from each other (right down to needing the mobile

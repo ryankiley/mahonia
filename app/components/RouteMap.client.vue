@@ -1193,7 +1193,7 @@ onBeforeUnmount(() => {
 .routemap.is-expanded .routemap__frame {
   position: fixed;
   inset: 0;
-  z-index: var(--z-modal, 100);
+  z-index: var(--z-fullscreen);
   padding: var(--space-3);
   background: var(--paper);
 }
