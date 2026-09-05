@@ -63,18 +63,6 @@ const lastUpdated = computed(() => {
           build a list with zero weights and the totals just stay quiet.
         </p>
 
-        <h2>Why “Mahonia”?</h2>
-        <p>
-          <em>Mahonia</em> is the Oregon grape, the Oregon state flower and one of the most common
-          native plants in the Pacific Northwest woods this tool is built for. It’s an unfussy
-          evergreen shrub: holly-shaped leaves, bright yellow flowers in late winter, dusty-blue
-          berries. Hardy, understated, and everywhere on the trails around Portland.
-        </p>
-        <p>
-          I wanted a name that was short, a little bit odd, and actually rooted in the place this
-          tool is built for. A native plant, for a tool about getting outside, felt right.
-        </p>
-
         <h2>The short version of how it works</h2>
         <ul>
           <li>
@@ -87,12 +75,6 @@ const lastUpdated = computed(() => {
           </li>
           <li>Weights are backed by a curated, cited gear catalog, but you can override anything.</li>
           <li>
-            <NuxtLink to="/gear">My Gear</NuxtLink> is the one part that asks for an
-            account — a passkey, or a link emailed to you. It fills itself as you build, so the
-            kit you already own is one pick away on the next list, from any device. Lists
-            themselves never need it.
-          </li>
-          <li>
             A list remembers more than weights: calories on food and fuel, the unit you typed each
             row in, and the dates of the trip it's for.
           </li>
@@ -100,7 +82,25 @@ const lastUpdated = computed(() => {
             Flip the same list into a checklist for the night before, and tick things off as they
             go in the pack.
           </li>
+          <li>
+            <NuxtLink to="/gear">My Gear</NuxtLink> is the one part that asks for an
+            account — a passkey, or a link emailed to you. It fills itself as you build, so the
+            kit you already own is one pick away on the next list, from any device. Lists
+            themselves never need it.
+          </li>
         </ul>
+
+        <h2>Why “Mahonia”?</h2>
+        <p>
+          <em>Mahonia</em> is the Oregon grape, the Oregon state flower and one of the most common
+          native plants in the Pacific Northwest woods this tool is built for. It’s an unfussy
+          evergreen shrub: holly-shaped leaves, bright yellow flowers in late winter, dusty-blue
+          berries. Hardy, understated, and everywhere on the trails around Portland.
+        </p>
+        <p>
+          I wanted a name that was short, a little bit odd, and actually rooted in the place this
+          tool is built for. A native plant, for a tool about getting outside, felt right.
+        </p>
 
         <h2>Open source</h2>
         <p>
@@ -110,6 +110,7 @@ const lastUpdated = computed(() => {
           >, so you can read how it works, file an issue, or run your own copy.
         </p>
 
+        <h2>Contact</h2>
         <p>
           Questions, or want a list removed? Email
           <a :href="`mailto:${CONTACT_EMAIL}`">{{ CONTACT_EMAIL }}</a>. See also the
