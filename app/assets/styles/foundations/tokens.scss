@@ -310,19 +310,28 @@ $bp-full: 1024px !default;
      here so the stack order reads in one place. --z-lifted shares --z-float's
      value but is its own layer: a dragged row competes in a local stacking
      context (sibling rows + the sticky topbar), not against the toast/dialog. ---- */
+  /* BELOW the topbar, and that is the whole point — it has to be under 10, not
+     merely under --z-menu. `.topbar` is `position: sticky` with a z-index, so it
+     opens a STACKING CONTEXT: every menu hanging off the bar is resolved inside it
+     and competes with the rest of the page at the BAR's 10, whatever its own
+     z-index says. So a pane above 10 covers the bar's menus even though --z-menu
+     (20) reads higher than --z-pane in this list — the numbers below are compared
+     within the bar, never against it.
+     That is the bug this fixes: on --z-float the pane covered the ⋯ and account
+     menus that drop out of the bar directly above it, leaving a 31px sliver of the
+     menu you just asked for showing past the pane's edge. It is also why the old
+     --z-panel (55) never worked: the sharing panel was trapped in the same context,
+     so the layer it climbed to made no difference and the token is now retired.
+     Putting the pane under the bar fixes every one of them at once.
+     Fine for the pane to lose here: it is a split-pane COLUMN, not a floating object
+     — the editor gives up the width it occupies (.editor--split) — so it belongs to
+     the page in a way the transient surfaces over it never do. */
+  --z-pane: 5;
   --z-topbar: 10;
   --z-menu: 20;
   --z-autocomplete: 30;
   --z-float: 50; /* toasts + dialog overlays */
   --z-lifted: 50; /* the row mid-drag */
-  /* An anchored panel that has to clear the SIDE PANE. The sharing panel hangs off
-     the topbar, and --z-menu put it under the vault pane (--z-float): open the pane
-     first and the panel you just asked for appeared behind it, cropped.
-     Above --z-float, and safely so: the panel closes on any outside click
-     (onClickOutside in GearEditor), so it cannot still be open when a dialog's scrim
-     goes up — there is no case where this floats over a modal. Below --z-tooltip,
-     which must still describe the controls inside it. */
-  --z-panel: 55;
   /* the hover tooltip — the TOP layer, and deliberately above --z-float rather than
      level with it: a tooltip describes a control, and that control can itself live
      inside a dialog or a popover, so it has to clear everything it can annotate */

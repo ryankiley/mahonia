@@ -44,6 +44,20 @@ const width = defineModel<number>("width", { required: true });
 // editor every frame just to deliver a number to a style attribute. The model commits
 // once, on release, which is also when the editor persists it.
 let endResize = () => {};
+// Mark the editor as being SIZED, so its inset stops easing for the length of the
+// gesture. The editor animates padding-right between the two column widths (see
+// .editor--sizing there) — right for a pane opening or closing, wrong for a drag,
+// where --vault-w changes every frame and an eased column would trail the divider
+// by a fifth of a second. Idle-cleared rather than paired with an explicit end,
+// because the two callers stop differently: a pointer drag has a release to hang it
+// on, an arrow-key step has only the last keypress. 120ms is longer than a frame and
+// shorter than a held key's repeat, so a run of steps stays one rigid gesture.
+let sizingTimer: ReturnType<typeof setTimeout> | undefined;
+function markSizing(editorEl: HTMLElement | null) {
+  editorEl?.classList.add("editor--sizing");
+  clearTimeout(sizingTimer);
+  sizingTimer = setTimeout(() => editorEl?.classList.remove("editor--sizing"), 120);
+}
 function startResize(ev: PointerEvent) {
   ev.preventDefault();
   const divider = ev.currentTarget as HTMLElement;
@@ -66,6 +80,7 @@ function startResize(ev: PointerEvent) {
     frame ||= requestAnimationFrame(() => {
       frame = 0;
       const w = clampVaultWidth(vw - pendingX);
+      markSizing(editorEl);
       editorEl?.style.setProperty("--vault-w", `${w}px`);
       divider.setAttribute("aria-valuenow", String(w));
     });
@@ -95,6 +110,8 @@ function onResizeKey(ev: KeyboardEvent) {
   if (ev.key === "ArrowLeft") width.value = clampVaultWidth(width.value + step);
   else if (ev.key === "ArrowRight") width.value = clampVaultWidth(width.value - step);
   else return;
+  // same rigidity the drag gets: a held arrow repeats faster than the inset's ease
+  markSizing((ev.currentTarget as HTMLElement).closest(".editor"));
   ev.preventDefault();
 }
 
@@ -596,7 +613,12 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
      13. Expressed as grid steps rather than a magic 72px so it stays on the same
      4/8 rhythm as everything else. */
   top: calc(var(--space-7) + var(--space-5));
-  z-index: var(--z-float);
+  /* Under the TOPBAR's layer, which is what puts it under everything the bar opens
+     — the bar's own z-index makes a stacking context, so its menus can only ever
+     compete at the bar's number. See --z-pane, where the whole order is written
+     down. This is a column the editor makes room for, not a float; the transient
+     surfaces over it win. */
+  z-index: var(--z-pane);
   display: flex;
   flex-direction: column;
   /* A split pane in LAYOUT — the editor insets its own column by this width (see
@@ -943,8 +965,26 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
    reveal — the pane is opened on purpose, and anything longer gets in the way of
    the thing you opened it to do.
    Entrance leads with opacity on the quicker --dur while the travel settles on the
-   spring; the exit is faster and flatter, the same asymmetry .menu and .toast use.
-   (The global prefers-reduced-motion rule in main.scss flattens both.) */
+   spring; the exit stays quicker than the entrance, the same asymmetry .menu and
+   .toast use. (The global prefers-reduced-motion rule in main.scss flattens both.)
+
+   The EXIT is not the menus' exit, though, and shouldn't be. A menu is a small
+   object popping off a control, so it leaves flat and in 120ms. This is a
+   full-height column, 23rem wide before anyone drags the divider, and at that size
+   the same treatment read as the panel being deleted rather than dismissed — 8px of
+   travel is invisible on a surface that wide, so all you saw was a large rectangle
+   blinking off. It leaves the way
+   it arrived instead: back out to the edge it lives on, far enough to read as
+   travel (--space-4, the entrance's distance and then some), on --ease-in — the
+   token that exists for exactly this, floating chrome ACCELERATING away rather
+   than easing into a stop that isn't there. Opacity runs slightly ahead of the
+   move so it's spent before the offset lands and never clips at the end.
+   Still well short of the entrance: --dur out against --dur-slow in.
+
+   The LIST moves with it. GearEditor eases its own inset over the same durations
+   (see .editor--split there), so the column gives up the space as the pane arrives
+   and flows back into it as the pane goes — one movement, not a panel animating
+   over a page that already jumped. */
 .vaultpane-enter-active {
   transition:
     opacity var(--dur) var(--ease),
@@ -952,8 +992,8 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
 }
 .vaultpane-leave-active {
   transition:
-    opacity calc(var(--dur) * 0.6) var(--ease),
-    transform calc(var(--dur) * 0.6) var(--ease);
+    opacity calc(var(--dur) * 0.8) var(--ease-in),
+    transform var(--dur) var(--ease-in);
 }
 .vaultpane-enter-from {
   opacity: 0;
@@ -961,7 +1001,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
 }
 .vaultpane-leave-to {
   opacity: 0;
-  transform: translateX(var(--space-2));
+  transform: translateX(var(--space-4));
 }
 @media (max-width: $bp-full) {
   /* the sheet's edge is the bottom one */
@@ -969,7 +1009,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
     transform: translateY(var(--space-3));
   }
   .vaultpane-leave-to {
-    transform: translateY(var(--space-2));
+    transform: translateY(var(--space-4));
   }
 }
 </style>
