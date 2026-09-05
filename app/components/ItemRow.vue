@@ -402,9 +402,12 @@ function onCommonName(e: Event) {
   el.value = props.item.commonName ?? "";
 }
 function onNote(e: Event) {
-  const el = e.target as HTMLInputElement;
+  const el = e.target as HTMLTextAreaElement;
   c.updateItem(props.item.id, { description: el.value });
   el.value = props.item.description ?? "";
+  // the reducer tidies on the way in, and a collapsed run of spaces can shorten the
+  // text enough to free a line — so re-measure against what actually got saved
+  fitNote();
 }
 // arrow keys nudge the weight by a unit-appropriate step (Shift = ×10), so you can
 // tap into the field and increment/decrement without retyping
@@ -605,7 +608,7 @@ const consumableAria = computed(() => (isConsumable.value ? "Consumable: yes" : 
 // has a visible place to put either — there is no separate "add a note" control. Each
 // is cleared by emptying its own input.
 const cnameRef = useTemplateRef<HTMLInputElement>("cnameRef");
-const noteRef = useTemplateRef<HTMLInputElement>("noteRef");
+const noteRef = useTemplateRef<HTMLTextAreaElement>("noteRef");
 // Set by focus landing anywhere in the name cell; held until focus leaves the ROW (so
 // tabbing on to the fields themselves, or to qty/weight, doesn't yank them away
 // mid-edit), then cleared by onRowBlur. An empty field just folds back up — nothing is
@@ -621,6 +624,35 @@ const cnameShown = computed(() => !!props.item.commonName || (nameEditing.value 
 const noteShown = computed(() => !!props.item.description || nameEditing.value);
 // the sub-line block shows when either field does
 const subShown = computed(() => cnameShown.value || noteShown.value);
+
+// The note grows to fit its text. `field-sizing: content` (in the stylesheet) does it
+// natively; this is the fallback for the engines without it, and it runs ONLY there —
+// an explicit inline height overrides content sizing, so running both would replace
+// the free native path with a forced layout flush per keystroke. Collapse to auto
+// first, then take scrollHeight: without the reset the box can only ever grow, since
+// the scrollHeight of an already-tall textarea includes the empty space. (The same
+// pair ListHead gives the list title, which is the same problem at page scale.)
+//
+// NO window-resize refit, which is the one part that does NOT copy across. The title
+// is a singleton; this component mounts once per item, so a listener each is exactly
+// the always-on-per-row cost useMenuDismiss exists to avoid — a 150-row list would
+// carry 150 of them to re-measure notes nobody is looking at. A viewport that changes
+// under a note leaves it a line of slack until the next keystroke; the listeners would
+// cost every resize frame on every list.
+const needsNoteFit = import.meta.client && !CSS.supports("field-sizing", "content");
+function fitNote() {
+  const el = noteRef.value;
+  if (!needsNoteFit || !el) return;
+  el.style.height = "auto";
+  el.style.height = `${el.scrollHeight}px`;
+}
+// Both triggers, because either can put text in front of a box that hasn't measured
+// it: a note arriving from outside (the list loading in, a collaborator's edit on the
+// poll), and the field being revealed at all — it is v-if'd, so a stored note's first
+// measurable moment is the tick after `noteShown` turns true.
+if (needsNoteFit) {
+  watch([() => props.item.description, noteShown], () => nextTick(fitNote), { immediate: true });
+}
 
 // ---- the row's popovers ----
 // One-at-a-time across the whole list (useItemMenu's singleton), and the folder
@@ -1076,7 +1108,7 @@ function dismissFix() {
           over a checkbox, so a control here would toggle the tick). Only their own
           claim is tagged: children of a claimed group inherit silently, or a
           six-item group would say the same name seven times.
-       --><span v-if="ownPerson" class="t-sm item__carrier"><span class="swatch item__carrier-dot" :style="{ background: personColor(ownPerson) }" aria-hidden="true" />{{ ownPerson.name }}</span><NestChevron
+       --><span v-if="ownPerson" class="t-sm item__carrier"><span class="swatch item__carrier-dot" :style="{ background: personColor(ownPerson) }" aria-hidden="true" /><span class="item__carrier-name">{{ ownPerson.name }}</span></span><NestChevron
           v-if="isParent"
           :collapsed="nestCollapsed"
           :label="item.name || 'group'"
@@ -1123,7 +1155,7 @@ function dismissFix() {
                this the one mode that can assign showed no assignment state at all.
                Desktop stays clean — the trigger's dot already says it. BEFORE the
                chevron, so all three faces read name · carrier · chevron alike. -->
-          <span v-if="ownPerson" class="t-sm item__carrier item__ecarrier"><span class="swatch item__carrier-dot" :style="{ background: personColor(ownPerson) }" aria-hidden="true" />{{ ownPerson.name }}</span>
+          <span v-if="ownPerson" class="t-sm item__carrier item__ecarrier"><span class="swatch item__carrier-dot" :style="{ background: personColor(ownPerson) }" aria-hidden="true" /><span class="item__carrier-name">{{ ownPerson.name }}</span></span>
           <NestChevron
             v-if="isParent"
             :collapsed="nestCollapsed"
@@ -1165,15 +1197,29 @@ function dismissFix() {
                 spellcheck="true"
                 @change="onCommonName"
               />
-              <input
+              <!-- A TEXTAREA, and the only field on the row that is one. Everything
+                   else here holds a value — a name, a count, a weight — and a value
+                   that outgrows its box is a bug you fix by typing less. A note is a
+                   sentence, and as an <input> a long one simply stopped: an input
+                   clips its own value with no ellipsis and no second line, so a note
+                   you had written read as ending mid-word with nothing to say it
+                   hadn't. It wraps now, which is what the share views have always done
+                   with the same text (ReadonlyItemRow's sub-line).
+                   Enter still COMMITS rather than opening a line, like every other
+                   field in the editor — and it keeps `description` a single line for
+                   the CSV and Markdown exports, which would have to quote a newline. -->
+              <textarea
                 v-if="noteShown"
                 ref="noteRef"
                 class="item__note"
+                rows="1"
                 :value="item.description ?? ''"
                 placeholder="Add a note"
                 aria-label="Item note"
                 autocorrect="off"
                 spellcheck="true"
+                @input="fitNote"
+                @keydown.enter.prevent="($event.target as HTMLTextAreaElement).blur()"
                 @change="onNote"
               />
             </div>
@@ -1360,377 +1406,387 @@ function dismissFix() {
              row draws a lit mark instead of a toggle — and only with consumable in
              the leading slot does that mark land in the same column as every other
              row's cookie (the worn slot beside it is held open by a ghost below). -->
-        <div class="item__classcell">
-          <div v-if="!isWater" ref="kcalRootRef" class="menu item__cls">
-            <Tooltip text="Consumable" :disabled="isKcalOpen" preferred-placement="top">
-              <button
-                class="btn btn--icon btn--ghost menu__btn item__clsbtn"
-                :class="{ 'item__mark': isConsumable }"
-                type="button"
-                aria-haspopup="dialog"
-                :aria-expanded="isKcalOpen"
-                :aria-label="consumableAria"
-                @mousedown.prevent
-                @click="toggleKcal"
-              >
-                <HugeiconsIcon :icon="CookieIcon" :size="16" :stroke-width="2" />
-              </button>
-            </Tooltip>
-            <Transition name="menu">
-              <div
-                v-if="isKcalOpen"
-                ref="kcalPopRef"
-                class="popover item__pop"
-                :class="{ 'is-above': kcalAbove }"
-                :style="kcalShift ? { translate: kcalShift + 'px 0' } : undefined"
-                role="dialog"
-                aria-label="Consumable"
-              >
-                <div class="switch-row">
-                  <span class="t-sm">Consumable</span>
-                  <!-- The name has to OPEN with the visible label. WCAG 2.5.3 asks
-                       that a control's accessible name contain the text you can see
-                       beside it, and "Food, fuel or water" — good as the gloss is —
-                       shares not one word with the "Consumable" printed next to it.
-                       The cost is real and not theoretical: speech input matches on
-                       the accessible name, so "click Consumable" hit nothing.
-                       The gloss stays, after the label, because it is the sentence
-                       that says what the word means. (The worn switch below needs no
-                       such repair — "Worn on your body" already opens with "Worn".) -->
-                  <button
-                    class="switch"
-                    type="button"
-                    role="switch"
-                    :aria-checked="isConsumable"
-                    aria-label="Consumable — food, fuel or water"
-                    @click="setClass('consumable', !isConsumable)"
-                  />
-                </div>
-                <!-- calories only once the row IS consumable — that is the only state
-                     in which the number is counted, so offering it before would collect
-                     a value the totals ignore -->
-                <template v-if="isConsumable">
-                  <label class="t-sm t-muted item__poplabel" :for="`${item.id}-kcal`">kcal each</label>
-                  <input
-                    :id="`${item.id}-kcal`"
-                    class="field field--num item__popinput"
-                    :value="item.kcal ?? ''"
-                    placeholder="0"
-                    inputmode="numeric"
-                    autocomplete="off"
-                    spellcheck="false"
-                    @change="onKcal"
-                    @keydown.enter="($event.target as HTMLInputElement).blur()"
-                  />
-                  <!-- the line total, so a qty>1 row doesn't make you do it in your
-                       head. The icon marks it as DERIVED — everything above it in this
-                       popover is something you typed, this is the one line the app
-                       worked out. -->
-                  <p v-if="item.kcal && item.qty > 1" class="t-sm t-muted item__popline">
-                    <HugeiconsIcon :icon="CalculateIcon" class="item__poplineicon" :size="14" aria-hidden="true" :stroke-width="2" />
-                    {{ formatKcal(item.kcal * item.qty) }} kcal for {{ item.qty }}
-                  </p>
-                </template>
-              </div>
-            </Transition>
-          </div>
-          <!-- water's mark, not a toggle: its class can't change and it has no
-               calories to hold, so a switch and a kcal field here would both be
-               controls that lie. A DROPLET rather than the cookie every other
-               consumable wears — same class, same lit chip, same "Consumable" name,
-               but the picture matches the one consumable the app already treats as
-               its own thing. The read view draws the same swap (see consumableIcon). -->
-          <div v-else class="item__cls">
-            <Tooltip text="Consumable" preferred-placement="top">
-              <span class="item__clsfixed item__mark" role="img" aria-label="Consumable">
-                <HugeiconsIcon :icon="DropletIcon" :size="16" :stroke-width="2" />
-              </span>
-            </Tooltip>
-          </div>
-
-          <div v-if="!isWater" ref="wornRootRef" class="menu item__cls">
-            <!-- Tooltip wraps the BUTTON, not the cell: the popover below is anchored
-                 to .item__cls, and putting the wrapper around both would re-anchor it
-                 to a div that only spans the trigger. The accessible name stays on the
-                 control (aria-label) — the tooltip only adds the visible description,
-                 so `title` is dropped to avoid the native bubble doubling it. -->
-            <Tooltip :text="wornTitle" :disabled="isWornOpen" preferred-placement="top">
-              <button
-                class="btn btn--icon btn--ghost menu__btn item__clsbtn"
-                :class="{ 'item__mark': isWorn }"
-                type="button"
-                aria-haspopup="dialog"
-                :aria-expanded="isWornOpen"
-                :aria-label="wornAria"
-                @mousedown.prevent
-                @click="toggleWorn"
-              >
-                <HugeiconsIcon :icon="ShirtIcon" :size="16" :stroke-width="2" />
-              </button>
-            </Tooltip>
-            <Transition name="menu">
-              <div
-                v-if="isWornOpen"
-                ref="wornPopRef"
-                class="popover item__pop"
-                :class="{ 'is-above': wornAbove }"
-                :style="wornShift ? { translate: wornShift + 'px 0' } : undefined"
-                role="dialog"
-                aria-label="Worn"
-              >
-                <div class="switch-row">
-                  <span class="t-sm">Worn</span>
-                  <button
-                    class="switch"
-                    type="button"
-                    role="switch"
-                    :aria-checked="isWorn"
-                    aria-label="Worn on your body"
-                    @click="setClass('worn', !isWorn)"
-                  />
-                </div>
-                <!-- the split: only offered on a row with multiples, because one of one
-                     is simply "worn". Buttons rather than a number field — the useful
-                     range is 1..qty-1 and it is nearly always 1. The label matches the
-                     consumable popover's ("kcal each"): a field label naming the value
-                     below it, not a sentence. -->
-                <template v-if="splitOptions.length">
-                  <p class="t-sm t-muted item__poplabel">worn of {{ item.qty }}</p>
-                  <div class="item__splits">
+        <!-- THE TRAILING CLUSTER — the marks and the controls, as one thing. On the
+             desktop grid this wrapper is `display: contents`, so both cells drop into
+             their own columns exactly as they did loose; it exists for the mobile line,
+             where the two have to wrap TOGETHER. Split, they made two ragged rows of
+             icons: the class cell ends in a centred glyph 13px inside its box and the
+             actions end in the grip, whose dots deliberately overshoot to the row’s
+             edge, so the stacked lines’ ink landed 19px apart and lined up in no
+             column at all. One item can only wrap whole. -->
+        <div class="item__trail">
+          <div class="item__classcell">
+            <div v-if="!isWater" ref="kcalRootRef" class="menu item__cls">
+              <Tooltip text="Consumable" :disabled="isKcalOpen" preferred-placement="top">
+                <button
+                  class="btn btn--icon btn--ghost menu__btn item__clsbtn"
+                  :class="{ 'item__mark': isConsumable }"
+                  type="button"
+                  aria-haspopup="dialog"
+                  :aria-expanded="isKcalOpen"
+                  :aria-label="consumableAria"
+                  @mousedown.prevent
+                  @click="toggleKcal"
+                >
+                  <HugeiconsIcon :icon="CookieIcon" :size="16" :stroke-width="2" />
+                </button>
+              </Tooltip>
+              <Transition name="menu">
+                <div
+                  v-if="isKcalOpen"
+                  ref="kcalPopRef"
+                  class="popover item__pop"
+                  :class="{ 'is-above': kcalAbove }"
+                  :style="kcalShift ? { translate: kcalShift + 'px 0' } : undefined"
+                  role="dialog"
+                  aria-label="Consumable"
+                >
+                  <div class="switch-row">
+                    <span class="t-sm">Consumable</span>
+                    <!-- The name has to OPEN with the visible label. WCAG 2.5.3 asks
+                         that a control's accessible name contain the text you can see
+                         beside it, and "Food, fuel or water" — good as the gloss is —
+                         shares not one word with the "Consumable" printed next to it.
+                         The cost is real and not theoretical: speech input matches on
+                         the accessible name, so "click Consumable" hit nothing.
+                         The gloss stays, after the label, because it is the sentence
+                         that says what the word means. (The worn switch below needs no
+                         such repair — "Worn on your body" already opens with "Worn".) -->
                     <button
-                      v-for="n in splitOptions"
-                      :key="n"
-                      class="btn btn--quiet item__split"
-                      :class="{ 'is-active': activeSplit === n }"
+                      class="switch"
                       type="button"
-                      :title="`${n} worn, ${Math.max(0, item.qty - n)} in the pack`"
-                      @click="setSplit(n)"
-                    >
-                      {{ n }}
-                    </button>
+                      role="switch"
+                      :aria-checked="isConsumable"
+                      aria-label="Consumable — food, fuel or water"
+                      @click="setClass('consumable', !isConsumable)"
+                    />
                   </div>
-                  <!-- the resolved split, mirroring the calorie popover's line total:
-                       both popovers end by restating what the row now counts as -->
-                  <p v-if="activeSplit > 0" class="t-sm t-muted item__popline">
-                    {{ activeSplit }} worn · {{ Math.max(0, item.qty - activeSplit) }} packed
-                  </p>
-                </template>
-              </div>
-            </Transition>
-          </div>
-          <!-- the worn SLOT, held open by the icon itself — the unit chevron's ghost
-               recipe. Water can't be worn, but the cell must stay two slots wide:
-               the mobile line right-anchors this cell, so a one-slot cell would pull
-               water's lone mark out of the cookie column it exists to sit in. -->
-          <div v-else class="item__cls" aria-hidden="true">
-            <span class="item__clsfixed item__clsghost">
-              <HugeiconsIcon :icon="ShirtIcon" :size="16" :stroke-width="2" />
-            </span>
-          </div>
-        </div>
+                  <!-- calories only once the row IS consumable — that is the only state
+                       in which the number is counted, so offering it before would collect
+                       a value the totals ignore -->
+                  <template v-if="isConsumable">
+                    <label class="t-sm t-muted item__poplabel" :for="`${item.id}-kcal`">kcal each</label>
+                    <input
+                      :id="`${item.id}-kcal`"
+                      class="field field--num item__popinput"
+                      :value="item.kcal ?? ''"
+                      placeholder="0"
+                      inputmode="numeric"
+                      autocomplete="off"
+                      spellcheck="false"
+                      @change="onKcal"
+                      @keydown.enter="($event.target as HTMLInputElement).blur()"
+                    />
+                    <!-- the line total, so a qty>1 row doesn't make you do it in your
+                         head. The icon marks it as DERIVED — everything above it in this
+                         popover is something you typed, this is the one line the app
+                         worked out. -->
+                    <p v-if="item.kcal && item.qty > 1" class="t-sm t-muted item__popline">
+                      <HugeiconsIcon :icon="CalculateIcon" class="item__poplineicon" :size="14" aria-hidden="true" :stroke-width="2" />
+                      {{ formatKcal(item.kcal * item.qty) }} kcal for {{ item.qty }}
+                    </p>
+                  </template>
+                </div>
+              </Transition>
+            </div>
+            <!-- water's mark, not a toggle: its class can't change and it has no
+                 calories to hold, so a switch and a kcal field here would both be
+                 controls that lie. A DROPLET rather than the cookie every other
+                 consumable wears — same class, same lit chip, same "Consumable" name,
+                 but the picture matches the one consumable the app already treats as
+                 its own thing. The read view draws the same swap (see consumableIcon). -->
+            <div v-else class="item__cls">
+              <Tooltip text="Consumable" preferred-placement="top">
+                <span class="item__clsfixed item__mark" role="img" aria-label="Consumable">
+                  <HugeiconsIcon :icon="DropletIcon" :size="16" :stroke-width="2" />
+                </span>
+              </Tooltip>
+            </div>
 
-        <div class="item__actions">
-          <!-- mousedown.prevent on the action buttons: on macOS Safari/Firefox a
-               button does NOT take focus on mousedown, so clicking one from a
-               focused input blurs the row (relatedTarget null) and a pristine
-               blank row discards itself before the click can act (e.g. the note
-               button would delete the row instead of opening the note field).
-               Preventing the default keeps focus where it was; click still fires. -->
-          <!-- Save to vault. Capture already happens on its own as you build, so this
-               isn't a new capability — it's the missing affordance for one that had no
-               visible existence.
-               Rendered only while pressing it would DO something: not before the row
-               is gear worth saving (vaultWorthy — a new item carries no icon; naming
-               and weighing it is what makes this arrive), and not after the automatic
-               path has it (vaultCovered — the button doesn't stand down, it steps
-               out). Same disclosure rule as the nesting menu below, which also only
-               exists while it has an action to offer. It sits FIRST in the cluster,
-               at the open left edge, because it's the one icon here that comes and
-               goes per row: the cluster is right-aligned, so a conditional icon in
-               the middle would shuffle its neighbours from row to row, while out
-               here its absence moves nothing.
-               Not on water rows, the same rule the ⋯ menu applies: water is never
-               gear (isVaultWorthy), so the button's only possible outcome there was
-               a toast telling you to weigh a row that has a weight. -->
-          <Transition name="vaultin" :css="vaultRevealArmed">
-            <Tooltip v-if="vaultOffered" :text="vaultLabel" preferred-placement="top">
+            <div v-if="!isWater" ref="wornRootRef" class="menu item__cls">
+              <!-- Tooltip wraps the BUTTON, not the cell: the popover below is anchored
+                   to .item__cls, and putting the wrapper around both would re-anchor it
+                   to a div that only spans the trigger. The accessible name stays on the
+                   control (aria-label) — the tooltip only adds the visible description,
+                   so `title` is dropped to avoid the native bubble doubling it. -->
+              <Tooltip :text="wornTitle" :disabled="isWornOpen" preferred-placement="top">
+                <button
+                  class="btn btn--icon btn--ghost menu__btn item__clsbtn"
+                  :class="{ 'item__mark': isWorn }"
+                  type="button"
+                  aria-haspopup="dialog"
+                  :aria-expanded="isWornOpen"
+                  :aria-label="wornAria"
+                  @mousedown.prevent
+                  @click="toggleWorn"
+                >
+                  <HugeiconsIcon :icon="ShirtIcon" :size="16" :stroke-width="2" />
+                </button>
+              </Tooltip>
+              <Transition name="menu">
+                <div
+                  v-if="isWornOpen"
+                  ref="wornPopRef"
+                  class="popover item__pop"
+                  :class="{ 'is-above': wornAbove }"
+                  :style="wornShift ? { translate: wornShift + 'px 0' } : undefined"
+                  role="dialog"
+                  aria-label="Worn"
+                >
+                  <div class="switch-row">
+                    <span class="t-sm">Worn</span>
+                    <button
+                      class="switch"
+                      type="button"
+                      role="switch"
+                      :aria-checked="isWorn"
+                      aria-label="Worn on your body"
+                      @click="setClass('worn', !isWorn)"
+                    />
+                  </div>
+                  <!-- the split: only offered on a row with multiples, because one of one
+                       is simply "worn". Buttons rather than a number field — the useful
+                       range is 1..qty-1 and it is nearly always 1. The label matches the
+                       consumable popover's ("kcal each"): a field label naming the value
+                       below it, not a sentence. -->
+                  <template v-if="splitOptions.length">
+                    <p class="t-sm t-muted item__poplabel">worn of {{ item.qty }}</p>
+                    <div class="item__splits">
+                      <button
+                        v-for="n in splitOptions"
+                        :key="n"
+                        class="btn btn--quiet item__split"
+                        :class="{ 'is-active': activeSplit === n }"
+                        type="button"
+                        :title="`${n} worn, ${Math.max(0, item.qty - n)} in the pack`"
+                        @click="setSplit(n)"
+                      >
+                        {{ n }}
+                      </button>
+                    </div>
+                    <!-- the resolved split, mirroring the calorie popover's line total:
+                         both popovers end by restating what the row now counts as -->
+                    <p v-if="activeSplit > 0" class="t-sm t-muted item__popline">
+                      {{ activeSplit }} worn · {{ Math.max(0, item.qty - activeSplit) }} packed
+                    </p>
+                  </template>
+                </div>
+              </Transition>
+            </div>
+            <!-- the worn SLOT, held open by the icon itself — the unit chevron's ghost
+                 recipe. Water can't be worn, but the cell must stay two slots wide:
+                 the mobile line right-anchors this cell, so a one-slot cell would pull
+                 water's lone mark out of the cookie column it exists to sit in. -->
+            <div v-else class="item__cls" aria-hidden="true">
+              <span class="item__clsfixed item__clsghost">
+                <HugeiconsIcon :icon="ShirtIcon" :size="16" :stroke-width="2" />
+              </span>
+            </div>
+          </div>
+
+          <div class="item__actions">
+            <!-- mousedown.prevent on the action buttons: on macOS Safari/Firefox a
+                 button does NOT take focus on mousedown, so clicking one from a
+                 focused input blurs the row (relatedTarget null) and a pristine
+                 blank row discards itself before the click can act (e.g. the note
+                 button would delete the row instead of opening the note field).
+                 Preventing the default keeps focus where it was; click still fires. -->
+            <!-- Save to vault. Capture already happens on its own as you build, so this
+                 isn't a new capability — it's the missing affordance for one that had no
+                 visible existence.
+                 Rendered only while pressing it would DO something: not before the row
+                 is gear worth saving (vaultWorthy — a new item carries no icon; naming
+                 and weighing it is what makes this arrive), and not after the automatic
+                 path has it (vaultCovered — the button doesn't stand down, it steps
+                 out). Same disclosure rule as the nesting menu below, which also only
+                 exists while it has an action to offer. It sits FIRST in the cluster,
+                 at the open left edge, because it's the one icon here that comes and
+                 goes per row: the cluster is right-aligned, so a conditional icon in
+                 the middle would shuffle its neighbours from row to row, while out
+                 here its absence moves nothing.
+                 Not on water rows, the same rule the ⋯ menu applies: water is never
+                 gear (isVaultWorthy), so the button's only possible outcome there was
+                 a toast telling you to weigh a row that has a weight. -->
+            <Transition name="vaultin" :css="vaultRevealArmed">
+              <Tooltip v-if="vaultOffered" :text="vaultLabel" preferred-placement="top">
+                <button
+                  class="btn btn--icon btn--ghost item__vault-btn"
+                  :class="{ 'is-active': vaultSaved }"
+                  type="button"
+                  :disabled="vaultBusy"
+                  :aria-label="vaultLabel"
+                  @mousedown.prevent
+                  @click="onSaveToVault"
+                >
+                  <HugeiconsIcon :icon="vaultSaved ? CheckIcon : SafeBoxIcon" :size="16" :stroke-width="2" />
+                </button>
+              </Tooltip>
+            </Transition>
+            <!-- CARRIED BY. Exists only once the list names people (the ⋯ menu carries
+                 the same entries on mobile, where this cluster collapses). Sits with the
+                 conditional icons at the cluster's open edge for the vault button's
+                 reason: its coming and going must shuffle nothing. Assigned, the glyph
+                 becomes the carrier's own dot — the vault button's state-swap, with the
+                 colour kept in a .swatch where this app keeps all of it. -->
+            <ItemRowMenu
+              v-if="peopleSorted.length"
+              class="item__person"
+              :row-id="item.id"
+              kind="person"
+              :label="personTitle"
+              menu-label="Who carries this"
+              trigger-class="item__person-btn"
+              tooltip
+              @overlay-toggle="$emit('overlayToggle', $event)"
+            >
+              <template #trigger>
+                <span v-if="rowPerson" class="swatch" :style="{ background: personColor(rowPerson) }" aria-hidden="true" />
+                <HugeiconsIcon v-else :icon="UserIcon" :size="16" :stroke-width="2" />
+              </template>
+              <li v-for="e in personPicks" :key="e.id ?? 'none'" role="none">
+                <button
+                  type="button"
+                  role="menuitemradio"
+                  class="menu__item item__personpick"
+                  :class="{ 'is-active': e.active }"
+                  :aria-checked="e.active"
+                  @click="menu.close(); setPerson(e.active ? null : e.id)"
+                >
+                  <span class="swatch" :class="{ 'swatch--hollow': !e.color }" :style="e.color ? { background: e.color } : undefined" aria-hidden="true" />
+                  {{ e.label }}
+                </button>
+              </li>
+            </ItemRowMenu>
+            <!-- NESTING, under one icon. These were up to two adjacent buttons whose
+                 glyphs (list-plus, indent, outdent) are near-identical at 16px, so the
+                 cluster read as noise and you had to hover each to learn which was which.
+                 One trigger, and the menu SAYS what each action does.
+                 Its glyph is node-add, not the indent arrow it wore first: the arrow drew
+                 ONE of the entries behind it, and not the one that leads — a row's first
+                 (often only) offer is a nested item, so an arrow promised the wrong thing
+                 on most rows and lied outright on a nested one. Duplicate next door also
+                 carries a plus; that one is enclosed in its square and this one stands
+                 free above the branch, and both name themselves on hover.
+                 Rendered only when there is something to offer — a nested row that can't
+                 un-nest, or a parent with nothing to indent under, gets no icon at all
+                 rather than a menu that opens empty.
+                 item__nestact: stands down while a person filter is on (atoms/item.scss)
+                 — "the item above" is unfiltered order, so indent could target a row the
+                 CSS is hiding, and a nested row inherits its parent, so either action
+                 can make the row vanish from the very view it was touched in. -->
+            <ItemRowMenu
+              v-if="nestActions.length"
+              class="item__nest item__nestact"
+              :row-id="item.id"
+              kind="nest"
+              label="Nesting"
+              :icon="NodeAddIcon"
+              trigger-class="item__nest-btn"
+              tooltip
+              @overlay-toggle="$emit('overlayToggle', $event)"
+            >
+              <li v-for="a in nestActions" :key="a.label" role="none">
+                <button type="button" role="menuitem" class="menu__item" @click="menu.close(); a.run()">
+                  <HugeiconsIcon :icon="a.icon" :size="14" :stroke-width="2" aria-hidden="true" />
+                  {{ a.label }}
+                </button>
+              </li>
+            </ItemRowMenu>
+            <!-- DUPLICATE. The whole row copied one slot down — name, weight, class,
+                 calories, carrier and any nested children. It earns an inline seat for
+                 the same reason the vault save has one: it is a top-level action on the
+                 row, not a refinement of one, and burying it would leave Alt-drag (which
+                 a phone can't perform at all) as the only way to reach it. Mobile keeps
+                 it in the ⋯ menu with the rest of the cluster. -->
+            <Tooltip text="Duplicate" preferred-placement="top">
               <button
-                class="btn btn--icon btn--ghost item__vault-btn"
-                :class="{ 'is-active': vaultSaved }"
+                class="btn btn--icon btn--ghost item__dup"
                 type="button"
-                :disabled="vaultBusy"
-                :aria-label="vaultLabel"
+                aria-label="Duplicate item"
                 @mousedown.prevent
-                @click="onSaveToVault"
+                @click="c.duplicateItem(item.id)"
               >
-                <HugeiconsIcon :icon="vaultSaved ? CheckIcon : SafeBoxIcon" :size="16" :stroke-width="2" />
+                <HugeiconsIcon :icon="LayerAddIcon" :size="16" :stroke-width="2" />
               </button>
             </Tooltip>
-          </Transition>
-          <!-- CARRIED BY. Exists only once the list names people (the ⋯ menu carries
-               the same entries on mobile, where this cluster collapses). Sits with the
-               conditional icons at the cluster's open edge for the vault button's
-               reason: its coming and going must shuffle nothing. Assigned, the glyph
-               becomes the carrier's own dot — the vault button's state-swap, with the
-               colour kept in a .swatch where this app keeps all of it. -->
-          <ItemRowMenu
-            v-if="peopleSorted.length"
-            class="item__person"
-            :row-id="item.id"
-            kind="person"
-            :label="personTitle"
-            menu-label="Who carries this"
-            trigger-class="item__person-btn"
-            tooltip
-            @overlay-toggle="$emit('overlayToggle', $event)"
-          >
-            <template #trigger>
-              <span v-if="rowPerson" class="swatch" :style="{ background: personColor(rowPerson) }" aria-hidden="true" />
-              <HugeiconsIcon v-else :icon="UserIcon" :size="16" :stroke-width="2" />
-            </template>
-            <li v-for="e in personPicks" :key="e.id ?? 'none'" role="none">
+            <!-- "Remove", not "Remove item": the tooltip hangs off the row it acts on, so
+                 the noun names something already on screen. The ACCESSIBLE name keeps it
+                 ("Remove item" below) — a screen reader reaches this button with no such
+                 context — and WCAG 2.5.3 is satisfied either way, since the accessible
+                 name contains the visible word. Same split as Duplicate beside it. -->
+            <Tooltip text="Remove" preferred-placement="top">
               <button
-                type="button"
-                role="menuitemradio"
-                class="menu__item item__personpick"
-                :class="{ 'is-active': e.active }"
-                :aria-checked="e.active"
-                @click="menu.close(); setPerson(e.active ? null : e.id)"
+                class="btn btn--icon btn--ghost item__del"
+                aria-label="Remove item"
+                @mousedown.prevent
+                @click="c.removeItem(item.id)"
               >
-                <span class="swatch" :class="{ 'swatch--hollow': !e.color }" :style="e.color ? { background: e.color } : undefined" aria-hidden="true" />
-                {{ e.label }}
+                <HugeiconsIcon :icon="Delete02Icon" :size="16" :stroke-width="2" />
               </button>
-            </li>
-          </ItemRowMenu>
-          <!-- NESTING, under one icon. These were up to two adjacent buttons whose
-               glyphs (list-plus, indent, outdent) are near-identical at 16px, so the
-               cluster read as noise and you had to hover each to learn which was which.
-               One trigger, and the menu SAYS what each action does.
-               Its glyph is node-add, not the indent arrow it wore first: the arrow drew
-               ONE of the entries behind it, and not the one that leads — a row's first
-               (often only) offer is a nested item, so an arrow promised the wrong thing
-               on most rows and lied outright on a nested one. Duplicate next door also
-               carries a plus; that one is enclosed in its square and this one stands
-               free above the branch, and both name themselves on hover.
-               Rendered only when there is something to offer — a nested row that can't
-               un-nest, or a parent with nothing to indent under, gets no icon at all
-               rather than a menu that opens empty.
-               item__nestact: stands down while a person filter is on (atoms/item.scss)
-               — "the item above" is unfiltered order, so indent could target a row the
-               CSS is hiding, and a nested row inherits its parent, so either action
-               can make the row vanish from the very view it was touched in. -->
-          <ItemRowMenu
-            v-if="nestActions.length"
-            class="item__nest item__nestact"
-            :row-id="item.id"
-            kind="nest"
-            label="Nesting"
-            :icon="NodeAddIcon"
-            trigger-class="item__nest-btn"
-            tooltip
-            @overlay-toggle="$emit('overlayToggle', $event)"
-          >
-            <li v-for="a in nestActions" :key="a.label" role="none">
-              <button type="button" role="menuitem" class="menu__item" @click="menu.close(); a.run()">
-                <HugeiconsIcon :icon="a.icon" :size="14" :stroke-width="2" aria-hidden="true" />
-                {{ a.label }}
-              </button>
-            </li>
-          </ItemRowMenu>
-          <!-- DUPLICATE. The whole row copied one slot down — name, weight, class,
-               calories, carrier and any nested children. It earns an inline seat for
-               the same reason the vault save has one: it is a top-level action on the
-               row, not a refinement of one, and burying it would leave Alt-drag (which
-               a phone can't perform at all) as the only way to reach it. Mobile keeps
-               it in the ⋯ menu with the rest of the cluster. -->
-          <Tooltip text="Duplicate" preferred-placement="top">
-            <button
-              class="btn btn--icon btn--ghost item__dup"
-              type="button"
-              aria-label="Duplicate item"
-              @mousedown.prevent
-              @click="c.duplicateItem(item.id)"
+            </Tooltip>
+            <!-- mobile overflow: on a phone the trailing icons crowd the two-line row, so
+                 everything EXCEPT delete + grip collapses in here — the carrier picker,
+                 the nesting actions and the vault save — and desktop, which keeps the
+                 inline icons, never shows it. Same .menu/.popover atom as the editor's ⋯
+                 kebab; one row's menu open at a time (useItemMenu). -->
+            <ItemRowMenu
+              class="item__more"
+              :row-id="item.id"
+              kind="menu"
+              label="More actions"
+              menu-label="Item actions"
+              :icon="CircleEllipsisIcon"
+              trigger-class="menu__btn item__morebtn"
+              @overlay-toggle="$emit('overlayToggle', $event)"
             >
-              <HugeiconsIcon :icon="LayerAddIcon" :size="16" :stroke-width="2" />
-            </button>
-          </Tooltip>
-          <!-- "Remove", not "Remove item": the tooltip hangs off the row it acts on, so
-               the noun names something already on screen. The ACCESSIBLE name keeps it
-               ("Remove item" below) — a screen reader reaches this button with no such
-               context — and WCAG 2.5.3 is satisfied either way, since the accessible
-               name contains the visible word. Same split as Duplicate beside it. -->
-          <Tooltip text="Remove" preferred-placement="top">
+              <!-- the person picker's mobile seat — the desktop trigger is
+                   display:none here, so its popover would anchor to nothing. The
+                   SAME personPicks table as that popover, so the two seats can't
+                   drift. FIRST, not last: the assign run-through taps these forty
+                   times, and "Remove item" keeps the menu's closing seat — the
+                   one irreversible entry belongs at the end, not under the thumb.
+                   A real role=group with a visible name, so the radio run reads
+                   as one setting to assistive tech instead of loose siblings. -->
+              <li v-if="peopleSorted.length" role="none">
+                <ul role="group" aria-label="Who carries this" class="item__moregroup">
+                  <!-- aria-hidden: the group's aria-label already names it — role=none
+                       strips the li's semantics but not its TEXT, so without this a
+                       screen reader heard the label twice -->
+                  <li role="none" class="t-label item__morelabel" aria-hidden="true">Who carries this</li>
+                  <li v-for="e in personPicks" :key="e.id ?? 'none'" role="none">
+                    <button
+                      type="button"
+                      role="menuitemradio"
+                      class="menu__item item__personpick"
+                      :class="{ 'is-active': e.active }"
+                      :aria-checked="e.active"
+                      @click="menu.close(); setPerson(e.active ? null : e.id)"
+                    >
+                      <span class="swatch" :class="{ 'swatch--hollow': !e.color }" :style="e.color ? { background: e.color } : undefined" aria-hidden="true" />
+                      {{ e.label }}
+                    </button>
+                  </li>
+                </ul>
+              </li>
+              <li v-for="a in overflowActions" :key="a.label" role="none" :class="{ item__nestact: a.nest }">
+                <button type="button" role="menuitem" class="menu__item" @click="menu.close(); a.run()">
+                  <HugeiconsIcon :icon="a.icon" :size="14" :stroke-width="2" aria-hidden="true" />
+                  {{ a.label }}
+                </button>
+              </li>
+            </ItemRowMenu>
+            <!-- drag via pointerdown; arrow keys give the focused grip the reordering
+                 its label promises (a drag needs a pointer) -->
             <button
-              class="btn btn--icon btn--ghost item__del"
-              aria-label="Remove item"
-              @mousedown.prevent
-              @click="c.removeItem(item.id)"
+              class="btn btn--icon btn--ghost grip item__grip"
+              :title="`Drag to reorder · ${altLabel}-drag to copy`"
+              :aria-label="`Reorder ${item.name || 'item'}`"
+              @pointerdown="dnd.start(item.id, $event)"
+              @keydown="onGripKey"
             >
-              <HugeiconsIcon :icon="Delete02Icon" :size="16" :stroke-width="2" />
+              <HugeiconsIcon :icon="GripVerticalIcon" :size="16" :stroke-width="2" />
             </button>
-          </Tooltip>
-          <!-- mobile overflow: on a phone the trailing icons crowd the two-line row, so
-               everything EXCEPT delete + grip collapses in here — the carrier picker,
-               the nesting actions and the vault save — and desktop, which keeps the
-               inline icons, never shows it. Same .menu/.popover atom as the editor's ⋯
-               kebab; one row's menu open at a time (useItemMenu). -->
-          <ItemRowMenu
-            class="item__more"
-            :row-id="item.id"
-            kind="menu"
-            label="More actions"
-            menu-label="Item actions"
-            :icon="CircleEllipsisIcon"
-            trigger-class="menu__btn item__morebtn"
-            @overlay-toggle="$emit('overlayToggle', $event)"
-          >
-            <!-- the person picker's mobile seat — the desktop trigger is
-                 display:none here, so its popover would anchor to nothing. The
-                 SAME personPicks table as that popover, so the two seats can't
-                 drift. FIRST, not last: the assign run-through taps these forty
-                 times, and "Remove item" keeps the menu's closing seat — the
-                 one irreversible entry belongs at the end, not under the thumb.
-                 A real role=group with a visible name, so the radio run reads
-                 as one setting to assistive tech instead of loose siblings. -->
-            <li v-if="peopleSorted.length" role="none">
-              <ul role="group" aria-label="Who carries this" class="item__moregroup">
-                <!-- aria-hidden: the group's aria-label already names it — role=none
-                     strips the li's semantics but not its TEXT, so without this a
-                     screen reader heard the label twice -->
-                <li role="none" class="t-label item__morelabel" aria-hidden="true">Who carries this</li>
-                <li v-for="e in personPicks" :key="e.id ?? 'none'" role="none">
-                  <button
-                    type="button"
-                    role="menuitemradio"
-                    class="menu__item item__personpick"
-                    :class="{ 'is-active': e.active }"
-                    :aria-checked="e.active"
-                    @click="menu.close(); setPerson(e.active ? null : e.id)"
-                  >
-                    <span class="swatch" :class="{ 'swatch--hollow': !e.color }" :style="e.color ? { background: e.color } : undefined" aria-hidden="true" />
-                    {{ e.label }}
-                  </button>
-                </li>
-              </ul>
-            </li>
-            <li v-for="a in overflowActions" :key="a.label" role="none" :class="{ item__nestact: a.nest }">
-              <button type="button" role="menuitem" class="menu__item" @click="menu.close(); a.run()">
-                <HugeiconsIcon :icon="a.icon" :size="14" :stroke-width="2" aria-hidden="true" />
-                {{ a.label }}
-              </button>
-            </li>
-          </ItemRowMenu>
-          <!-- drag via pointerdown; arrow keys give the focused grip the reordering
-               its label promises (a drag needs a pointer) -->
-          <button
-            class="btn btn--icon btn--ghost grip item__grip"
-            :title="`Drag to reorder · ${altLabel}-drag to copy`"
-            :aria-label="`Reorder ${item.name || 'item'}`"
-            @pointerdown="dnd.start(item.id, $event)"
-            @keydown="onGripKey"
-          >
-            <HugeiconsIcon :icon="GripVerticalIcon" :size="16" :stroke-width="2" />
-          </button>
+          </div>
         </div>
       </div>
     </div>
@@ -1879,6 +1935,13 @@ function dismissFix() {
 /* desktop: the wrapper is invisible to layout, so its children act as direct grid
    items in the shared columns. (on mobile it becomes a flex-wrap row — see below) */
 .item__meta {
+  display: contents;
+}
+/* …and so is the trailing cluster inside it, for the same reason and by the same
+   means — `display: contents` nests, so the class cell and the actions reach the
+   grid's own `class` and `actions` areas through both wrappers. It is a real box
+   only on the mobile line below, where its whole job is to be ONE flex item. */
+.item__trail {
   display: contents;
 }
 
@@ -2533,6 +2596,18 @@ function dismissFix() {
 .item__note:focus {
   outline: none;
 }
+/* …and only the NOTE is a textarea (the gear type beside it is still a one-value
+   field). `field-sizing: content` is what makes it read as a caption that happens to
+   be editable rather than as a box: one line when it holds one, as many as the text
+   takes, never a scrollbar and never a drag handle — the two defaults .head__title
+   drops for the same reason. fitNote() covers the engines without it.
+   `rows="1"` is the floor, so an empty note costs exactly the line the <input> did
+   and the row's height is unchanged until there is something to wrap. */
+textarea.item__note {
+  field-sizing: content;
+  resize: none;
+  overflow: hidden;
+}
 /* quiet "suggest a fix" link under a row */
 .item__under-link {
   display: inline-flex;
@@ -2743,21 +2818,25 @@ function dismissFix() {
        run of figures rather than a count and a weight. 12px against 4px is a ratio
        you can, and it is the one piece of this the grid gets for free from having
        columns at all. The 4px it costs a 375px line is affordable; below that the
-       line wraps, which it already did. */
-    gap: clamp(var(--space-3), 2vw, var(--space-4));
+       line wraps, which it already did.
+       Named, because the trailing cluster below has to separate ITS two groups by
+       exactly the same amount — it used to be one of this row's own gaps, and became
+       a gap of its own the moment the two were wrapped into one flex item. */
+    --meta-gap: clamp(var(--space-3), 2vw, var(--space-4));
+    gap: var(--meta-gap);
     /* but the gap BETWEEN wrapped lines is the row's own rhythm, not the columns'
        separation — the same --space-1 the name and this line already sit apart by.
        After the shorthand, which would otherwise set both. */
     row-gap: var(--space-1);
-    /* Right-aligns the actions on the line the auto margin can't reach: when the
-       cluster wraps to a line of its own there is no classification cell down there
-       to carry it (.item__classcell below is what right-anchors the fitting case).
-       justify-content rather than a second margin-left:auto, because two auto margins
-       SPLIT the free space between them on any row that still fits on one line, which
-       puts back half the drift the first one exists to remove. justify-content can't
-       do that: an auto margin consumes the free space before it is consulted, so this
-       stays inert on a line that has one and takes charge on the line that doesn't. */
-    justify-content: flex-end;
+    /* NO justify-content. There used to be a flex-end here, right-anchoring the line
+       the auto margin couldn't reach — the actions cluster, wrapped down on its own,
+       with no classification cell beside it to be pushed by. The cluster carries its
+       own auto margin now (.item__trail below), and an auto margin absorbs the free
+       space on WHATEVER line its item lands on, so both cases are one rule.
+       Taking it out is what puts the numbers back on the left. flex-end reached the
+       wrapped line's other item too: with the marks gone down to the cluster, the qty
+       and weight were left alone up there and slid to the right edge, so a row that
+       wrapped read its figures in a different place from every row that didn't. */
   }
   .item__actions {
     flex: none;
@@ -2876,6 +2955,16 @@ function dismissFix() {
   }
   .item__namebox:has(.item__ecarrier) .item__ecarrier {
     margin-left: 0; /* the flex gap is the spacing here — the atom's margin doubled it */
+    /* …and the TAG is what gives way, not the name. Both are flex items on a 343px
+       line, and a flex item won't shrink below its min-content width unless told to,
+       so a long carrier simply took the row: the field above holds `min-width: 0` and
+       collapsed to 37px around it, leaving the item's own name as "Hy…". The floor
+       here lets the tag shrink, and the cap keeps it from taking most of the line
+       before it starts to — the item's name is the row, the carrier is a note on it.
+       The tail is dropped with an ellipsis by .item__carrier-name (atoms/item.scss);
+       neither rule binds on a tag that already fits. */
+    min-width: 0;
+    max-width: 45%;
   }
   /* the classification cell used to hold a text label that had to ellipsize to keep
      qty/weight/controls on one line. Two icon toggles are a fixed 68px, so there is
@@ -2890,11 +2979,21 @@ function dismissFix() {
      free space it eats is the slack the widest row in the list doesn't have anyway.
      It must be the ONLY auto margin on the line — a second one splits the free space
      between them and the drift comes straight back at half size. The line that the
-     cluster wraps onto has no classification cell to be pushed by, so it is
-     .item__meta's own justify-content that right-anchors that one, not a second margin. */
-  .item__classcell {
+     cluster wraps onto is the SAME cluster (.item__trail is one flex item), so
+     .item__meta's own justify-content right-anchors it there, not a second margin.
+     The margin rides the cluster rather than the cell inside it, which is what makes
+     the two travel together: a flex item can only wrap whole, so the marks now go
+     down with the controls instead of staying up on the numbers' line as a second,
+     shorter row of icons that lined up with nothing. */
+  .item__trail {
+    display: flex;
+    align-items: center;
+    gap: var(--meta-gap);
     flex: none;
     margin-left: auto;
+  }
+  .item__classcell {
+    flex: none;
   }
   /* the number fields have no grid column to fill on mobile, so give them compact
      explicit widths — otherwise width:100% balloons to the default text-input size

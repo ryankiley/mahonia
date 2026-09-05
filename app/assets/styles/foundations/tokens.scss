@@ -336,6 +336,15 @@ $bp-full: 1024px !default;
      level with it: a tooltip describes a control, and that control can itself live
      inside a dialog or a popover, so it has to clear everything it can annotate */
   --z-tooltip: 60;
+  /* the expanded route map, and the one layer that outranks the tooltip — because it
+     is not a surface OVER the page, it is the page: it takes the window (position:
+     fixed, inset: 0) and everything it could have annotated goes with it (the map's
+     own caption, which carries the only tooltip in there, is display:none while it
+     is open). Above --z-float too, so a toast can't land on the terrain.
+     Named because it wasn't: the rule asked for `var(--z-modal, 100)` and no
+     --z-modal has ever been declared, so the layer this scale exists to state in one
+     place was living in a fallback. The value is unchanged. */
+  --z-fullscreen: 100;
 
   /* ---- layout ---- */
   /* fluid like the type tokens: 1024px floor, growing past the same 1920px

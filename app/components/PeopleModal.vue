@@ -254,12 +254,23 @@ function remove(p: Person) {
   block-size: var(--icon-btn);
   border-radius: var(--radius-2);
 }
-/* the hover plate is BUTTON-scoped: the standing procedural-color mark below wears
-   this class for the box alone (a <span>, so the reset's pointer cursor doesn't reach
-   it either), and a plate on it would offer an affordance the element doesn't have */
-button.ppl__swatchbtn:hover,
+/* CHOSEN is a state, and it keeps its plate whatever the pointer is doing — this
+   strip has to say which colour is this person's. */
 .ppl__swatchbtn.is-active {
   background: var(--lit);
+}
+/* …and the hover wears the SAME plate, so it has to be pointer-gated (it paints —
+   see the note on .btn:hover, controls.scss). iOS latches :hover on the last thing
+   tapped, and here that latch is indistinguishable from the selection: pick a colour
+   and the strip reads as having two chosen at once, in the one row whose whole job is
+   to say which one you took.
+   The plate is BUTTON-scoped: the standing procedural-colour mark below wears this
+   class for the box alone (a <span>, so the reset's pointer cursor doesn't reach it
+   either), and a plate on it would offer an affordance the element doesn't have. */
+@media (hover: hover) and (pointer: fine) {
+  button.ppl__swatchbtn:hover {
+    background: var(--lit);
+  }
 }
 .ppl__swatchbtn:focus-visible {
   outline: 2px solid var(--ink);

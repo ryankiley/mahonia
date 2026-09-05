@@ -942,7 +942,11 @@ function onCorrected(res: { status: string; itemName?: string }) {
                way this one does. It keeps the aria-label on the button (the
                accessible NAME) and adds the visible description. Nothing changes on
                touch — <Tooltip> declines to open where there's no hover. -->
-          <Tooltip text="My Gear" preferred-placement="bottom">
+          <!-- …and it stands down while the pane is up, like the share panel and the
+               account menu beside it. The pane is a .popover in its own right and it
+               opens directly under this button, so the description landed on its top
+               corner — and the pane says what it is far better than a word does. -->
+          <Tooltip text="My Gear" preferred-placement="bottom" :disabled="vaultOpen">
             <button
               class="btn btn--icon btn--ghost editor__vault"
               :class="{ 'is-on': vaultOpen }"
@@ -993,7 +997,12 @@ function onCorrected(res: { status: string; itemName?: string }) {
             <!-- a custom popover of real <button>s (was a native <select>): the
                  clipboard items need a direct click gesture, which a <select> change
                  isn't on iOS Safari. The kebab toggles it; each item runs on click. -->
-            <Tooltip text="More actions" preferred-placement="bottom">
+            <!-- …and the description stands down once the menu it describes is open,
+                 like the two controls beside it. The tooltip drops BELOW the trigger
+                 and the menu drops out of the same edge, so an undismissed one landed
+                 squarely on the menu's first row — the pointer is still on the button
+                 that opened it, so nothing else would take it down. -->
+            <Tooltip text="More actions" preferred-placement="bottom" :disabled="menuOpen">
               <button
                 type="button"
                 class="btn btn--icon btn--ghost menu__btn"

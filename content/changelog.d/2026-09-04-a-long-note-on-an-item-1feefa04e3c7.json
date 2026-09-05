@@ -1,0 +1,12 @@
+{
+  "date": "2026-09-04",
+  "changed": [
+    "A long note on an item now wraps onto as many lines as it needs, instead of stopping at the width of the row."
+  ],
+  "fixed": [
+    "On a phone, an item's marks and its ⋯ and drag handle now stay together on one line — a row too narrow to hold them all used to split them into two rows of icons that lined up with nothing.",
+    "On a phone, a long name in the People list no longer squeezes the item's own name down to a couple of letters.",
+    "In the editor's toolbar, opening the ⋯ menu or the My Gear panel no longer leaves the tooltip describing the button sitting on top of what it opened.",
+    "Picking someone's colour on a touchscreen no longer leaves the colour you tapped before it looking chosen as well."
+  ]
+}
