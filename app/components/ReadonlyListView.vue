@@ -222,7 +222,11 @@ const asHeight = (m: number) => {
              Formatted by the SAME helper the editor's label uses, so a shared list reads
              the dates identically to the list it was shared from. -->
         <span v-if="dateLabel" class="view__dates">
-          <HugeiconsIcon :icon="Calendar03Icon" :size="14" :stroke-width="2" aria-hidden="true" />
+          <!-- 16, not the 14 of the small icon tier, because this mark shares a COLUMN
+               with the trail's: the row wraps on a narrow screen and the two then stack,
+               so a mark that measured differently started its text at a different x. See
+               --where-mark below, which is what actually holds the two to one slot. -->
+          <HugeiconsIcon :icon="Calendar03Icon" :size="16" :stroke-width="2" aria-hidden="true" />
           <span>{{ dateLabel }}</span>
         </span>
       </p>
@@ -359,6 +363,15 @@ const asHeight = (m: number) => {
    beside a 14px calendar is already two box heights being centred independently.
    Baseline puts the TEXT in charge, which is the thing a reader lines up on. */
 .view__where {
+  /* ONE MARK SLOT for both facts on this row. Wide, they sit side by side and nothing
+     depends on the marks measuring alike; narrow, the row WRAPS and they stack — and
+     then each text starts at whatever its own glyph happened to be. A 16px favicon put
+     the trail name at x=36 and a 14px calendar put the date at x=34, so the two stacked
+     lines read 2px out of true against each other.
+     16px because line one's mark is 16 either way, favicon or fallback globe (see the
+     markup). Declared here, on the row that owns the alignment, so the two marks are
+     held to one column by a rule rather than by two size props that happen to agree. */
+  --where-mark: 16px;
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
@@ -399,6 +412,12 @@ const asHeight = (m: number) => {
 .view__dates > svg {
   flex: none;
   align-self: center;
+  /* pinned to the shared slot (--where-mark), so neither mark can drift off the other
+     and pull its text out of the column when the row wraps. Square by both axes: a
+     favicon is served at 16×16, and holding the height too keeps a non-square source
+     from stretching the slot it shares. */
+  inline-size: var(--where-mark);
+  block-size: var(--where-mark);
 }
 .view__trailicon {
   border-radius: 2px;
