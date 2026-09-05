@@ -217,6 +217,28 @@ export function effectiveClassification(
   return folder?.defaultClassification ?? "base";
 }
 
+/**
+ * How a chosen classification is STORED on an item: `null` when it agrees with the
+ * folder's default, the value itself otherwise.
+ *
+ * `null` means "whatever this folder says", which is why base is usually stored as
+ * null — and that was harmless only while every folder defaulted to base. Now that a
+ * folder can default to worn or consumable, writing null for an explicit "base" pins
+ * the row to the folder instead of to the choice: a stove saved as base gear, added to
+ * a Consumable day folder, would silently read as food and join the calorie total.
+ *
+ * Storing base explicitly ONLY where it differs from the default keeps the other half
+ * true as well — a row that agrees with its folder keeps following it when the folder
+ * changes, which is what makes flipping a folder reclassify the rows already in it.
+ */
+export function storedClassification(
+  next: Classification,
+  folderId: string | null,
+  folders: Folder[],
+): Classification | null {
+  return effectiveClassification({ classification: null, folderId }, folders) === next ? null : next;
+}
+
 /** Line weight for an item (qty × unit weight), in milligrams. */
 export function lineMg(item: Pick<Item, "qty" | "unitWeightMg">): number {
   return Math.max(0, item.qty) * Math.max(0, item.unitWeightMg);

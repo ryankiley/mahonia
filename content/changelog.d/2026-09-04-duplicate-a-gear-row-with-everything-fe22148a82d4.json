@@ -1,0 +1,10 @@
+{
+  "date": "2026-09-04",
+  "added": [
+    "Duplicate a gear row, with everything on it — from the row's menu, or by holding Alt and dragging it by its handle.",
+    "A keyboard-shortcuts sheet in the editor's actions menu, or press ? — the arrow keys, the drag handle and copy-dragging all in one place."
+  ],
+  "fixed": [
+    "The drag cursor now shows while you drag a row, and shows a copy cursor when you're about to duplicate one."
+  ]
+}

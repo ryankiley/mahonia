@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon, type IconNode } from "~/utils/hugeicon";
-import { Backpack02Icon, CheckmarkSquare02Icon, ChevronDownIcon, Copy01Icon, Delete02Icon, EllipsisIcon, FileExportIcon, FileImportIcon, Message01Icon, NoteAddIcon, RemoveCircleIcon, Route02Icon, SafeBoxIcon, Share08Icon, UndoIcon, UserAddIcon } from "@hugeicons/core-free-icons";
+import { Backpack02Icon, CheckmarkSquare02Icon, ChevronDownIcon, CommandIcon, Copy01Icon, Delete02Icon, EllipsisIcon, FileExportIcon, FileImportIcon, Message01Icon, NoteAddIcon, RemoveCircleIcon, Route02Icon, SafeBoxIcon, Share08Icon, UndoIcon, UserAddIcon } from "@hugeicons/core-free-icons";
 import { editLinkPath, normalizeShareCode } from "~~/shared/links";
 import { tripHeadline } from "~~/shared/trailDistance";
 import { formatWeight } from "~~/shared/weights";
@@ -719,6 +719,34 @@ async function forgetMissingList() {
 const feedbackOpen = ref(false);
 const feedbackEverOpened = ref(false);
 
+// ---- the shortcuts sheet ----
+// Lazy + mounted on first use, like the other dialogs: a reference nobody has opened
+// should cost nobody anything.
+const shortcutsOpen = ref(false);
+const shortcutsEverOpened = ref(false);
+function openShortcuts() {
+  shortcutsEverOpened.value = true;
+  shortcutsOpen.value = true;
+}
+// `?` opens it — the convention nearly every keyboard-driven app shares, and the only
+// route to a sheet about hidden keys for someone who never opens the ⋯ menu.
+//
+// Guarded hard, because this editor is very nearly ALL text fields: a "?" typed into
+// a name, a note or the feedback box has to stay a "?" — hence the target test — and
+// a browser or OS chord that happens to produce one (⌘? is Help on macOS) is not this
+// shortcut, hence the modifier test. Alt is deliberately not excluded: it is the copy
+// modifier, and holding it while typing produces other characters, not "?".
+onKeyStroke("?", (e) => {
+  if (e.metaKey || e.ctrlKey) return;
+  const el = e.target as HTMLElement | null;
+  if (el?.isContentEditable || /^(?:INPUT|TEXTAREA|SELECT)$/.test(el?.tagName ?? "")) return;
+  // never on top of another dialog — the sheet would trap focus over the one actually
+  // in use, and Escape would then close the wrong thing
+  if (document.querySelector(".ovl")) return;
+  e.preventDefault();
+  openShortcuts();
+});
+
 // EVERY TOP-LEVEL ROW LEADS WITH A GLYPH. It was words alone until the foot grew two
 // rows that needed marks to tell them apart, which left the menu looking like two
 // kinds of list stacked on each other. The design system's ds-menu carries an icon on
@@ -752,6 +780,9 @@ const MENU_ACTIONS = [
   // people actually spend their time and where a long list puts that footer far below
   // the fold — by the time you have something to say about a row, the link is a scroll
   // away. The toolbar is in reach from anywhere in the list.
+  // The two entries that are ABOUT using the app rather than acts upon a list, so
+  // they close the menu together, after the run that makes lists.
+  { label: "Keyboard shortcuts", icon: CommandIcon, run: openShortcuts },
   { label: "Send feedback…", icon: Message01Icon, run: () => { feedbackEverOpened.value = true; feedbackOpen.value = true; } },
 ];
 const MENU_SECTIONS = [
@@ -1295,6 +1326,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
     <LazyCatalogCorrectionModal v-if="correctionEverOpened" @done="onCorrected" />
     <LazyImportModal v-if="importEverOpened" :open="importOpen" @close="importOpen = false" />
     <LazyFeedbackModal v-if="feedbackEverOpened" :open="feedbackOpen" @close="feedbackOpen = false" />
+    <LazyShortcutsModal v-if="shortcutsEverOpened" :open="shortcutsOpen" @close="shortcutsOpen = false" />
   </div>
 </template>
 
@@ -1513,6 +1545,18 @@ function onCorrected(res: { status: string; itemName?: string }) {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+}
+/* …and the glyph is PINNED to that column. An <svg> is a shrinkable flex item by
+   default, and this list is an absolutely positioned right-anchored box whose
+   shrink-to-fit width the longest label can exhaust — at which point the only thing
+   left to give is the icon. It gave: measured at 2.2px wide against its neighbours'
+   14 the moment a label longer than "Duplicate this list" joined the menu.
+   This used to be handled by keeping every label short enough not to trigger it,
+   which is a rule that lives nowhere and that the next label breaks. Now the labels
+   are free and the column is fixed — the same `flex: none` the section chevron
+   already carries (atoms/controls.scss) for the same reason. */
+.menu__list .menu__item > svg {
+  flex: none;
 }
 /* named once, because two rules have to agree on it — the column the glyphs sit in,
    and the indent that puts a nested label at the same place a top-level one starts */

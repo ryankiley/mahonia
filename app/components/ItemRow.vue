@@ -45,12 +45,12 @@ const clampQty = (n: number) => Math.max(1, Math.min(QTY_MAX, Math.round(n)));
 
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { CalculateIcon, Cancel01Icon, CheckIcon, CheckmarkSquare02Icon, ChevronDownIcon, CircleEllipsisIcon, CookieIcon, Delete02Icon, DropletIcon, GripVerticalIcon, ListIndentIncreaseIcon, MinusSignIcon, PlusSignIcon, SafeBoxIcon, ShirtIcon, SquareIcon, UserIcon } from "@hugeicons/core-free-icons";
+import { CalculateIcon, Cancel01Icon, CheckIcon, CheckmarkSquare02Icon, ChevronDownIcon, CircleEllipsisIcon, CookieIcon, Delete02Icon, DropletIcon, GripVerticalIcon, LayerAddIcon, ListIndentIncreaseIcon, MinusSignIcon, PlusSignIcon, SafeBoxIcon, ShirtIcon, SquareIcon, UserIcon } from "@hugeicons/core-free-icons";
 import type { Item, ListSnapshot } from "~~/shared/types";
 import type { ItemPatch } from "~~/shared/ops";
 import { effectivePersonId, personColor } from "~~/shared/people";
 import type { NameCommit } from "~/composables/useCatalogSearch";
-import { bySortOrder, effectiveClassification, entryUnitFromInput, formatKcal, formatWeight, fromMg, groupLineMg, itemDisplayName, parseWeightInput, rowDisplayMg, siblingItems, splitWornQty } from "~~/shared/weights";
+import { bySortOrder, effectiveClassification, entryUnitFromInput, formatKcal, formatWeight, fromMg, groupLineMg, itemDisplayName, parseWeightInput, rowDisplayMg, siblingItems, splitWornQty, storedClassification } from "~~/shared/weights";
 import { isWaterName, itemQtyLabel, waterLiters, waterMgFromMl } from "~~/shared/water";
 // the same worthiness + identity rules the capture path runs, so "already banked"
 // below can only ever claim what capture would actually take (statically imported
@@ -140,7 +140,14 @@ const canIndent = computed(() => !props.nested && !isParent.value && props.prevI
 
 // drag-to-reorder (editable rows only)
 const dnd = useItemDnd();
+// the grip's tooltip teaches the copy gesture, so it has to name the key this
+// keyboard actually has — "⌥" on a Mac (see app/utils/platform)
+const altLabel = altKeyLabel();
 const isDragging = computed(() => dnd.dragId.value === props.item.id);
+// (A drag with Alt held COPIES rather than moves. The row still lifts and follows the
+// pointer — a gesture whose held object stayed put would read as broken — and the
+// in-flight signal is the cursor, which GearEditor puts on the editing surface rather
+// than here: this row is pointer-events:none while lifted, so it cannot set one.)
 // the group's collapse clip (overflow:hidden on .nest-block, needed for the 1fr↔0fr
 // slide) would crop a child's autocomplete dropdown or a lifted drag row. Lift it
 // while a child overlay is open or any drag is in flight — mirrors the folder's
@@ -500,8 +507,11 @@ function onNameCommit(p: NameCommit) {
       }
     }
   }
-  // water arrives as a consumable; base is stored as null (the folder default)
-  if (p.classification !== undefined) patch.classification = p.classification === "base" ? null : p.classification;
+  // water arrives as a consumable. Through storedClassification, not a bare
+  // `=== "base" ? null`: null means "follow the folder", so an explicit base pick
+  // landing in a worn/consumable folder has to be pinned or it silently inherits.
+  if (p.classification !== undefined)
+    patch.classification = storedClassification(p.classification, props.item.folderId, props.list.folders);
   c.updateItem(props.item.id, patch);
 }
 
@@ -523,14 +533,10 @@ const isConsumable = computed(() => effClass.value === "consumable");
 
 // base is stored as null — the folder default — EXCEPT where the folder itself
 // defaults to something else, in which case base has to be pinned explicitly or
-// clearing a class would silently re-inherit worn/consumable
-function baseValue(): Classification | null {
-  const folderDefault = effectiveClassification(
-    { classification: null, folderId: props.item.folderId },
-    props.list.folders,
-  );
-  return folderDefault === "base" ? null : "base";
-}
+// clearing a class would silently re-inherit worn/consumable. (The rule is
+// storedClassification's; this is the one caller that always asks about base.)
+const baseValue = (): Classification | null =>
+  storedClassification("base", props.item.folderId, props.list.folders);
 
 function setClass(next: "worn" | "consumable", on: boolean) {
   c.updateItem(props.item.id, {
@@ -950,7 +956,14 @@ const overflowActions = computed(() => {
   // body attribute — atoms/item.scss; the desktop nest menu hides whole the same
   // way): indent targets the UNFILTERED row above, and a reparent changes what a
   // row inherits, so either can make it vanish from the very view it was touched in.
-  const acts: { label: string; run: () => void; nest?: true }[] = nestActions.value.map((a) => ({ ...a, nest: true }));
+  // Duplicate LEADS. It is the entry most often reached for, and the only one here
+  // that is always available — the nesting pair is conditional (a group row offers no
+  // indent, a top-level row no un-nest), so anything after them would open the menu on
+  // a different line from one row to the next.
+  const acts: { label: string; run: () => void; nest?: true }[] = [
+    { label: "Duplicate", run: () => c.duplicateItem(props.item.id) },
+    ...nestActions.value.map((a) => ({ ...a, nest: true as const })),
+  ];
   // Reads its own state, like the inline button's tooltip does — "Saved" is the
   // whole feedback here, since a menu closes on choosing and there's no tick left
   // on screen to see. Same disclosure rule as the inline icon: no entry until the
@@ -960,8 +973,10 @@ const overflowActions = computed(() => {
   if (vaultOffered.value) acts.push({ label: vaultLabel.value, run: onSaveToVault });
   // LAST, the way the destructive icon sat last in the desktop cluster — a menu is a
   // list you read top to bottom, so the one irreversible entry belongs at the end of
-  // it rather than under the thumb. Same words as the icon it replaces ("Remove item",
-  // its aria-label and its tooltip), so the action has one name wherever it appears.
+  // it rather than under the thumb. "Remove item" here and in the icon's aria-label:
+  // a menu row and a screen reader both arrive without the row in front of them, so
+  // both name the thing. Only the TOOLTIP drops the noun, because it is pinned to the
+  // very row it would remove.
   acts.push({ label: "Remove item", run: () => c.removeItem(props.item.id) });
   return acts;
 });
@@ -1601,7 +1616,29 @@ function dismissFix() {
               <button type="button" role="menuitem" class="menu__item" @click="menu.close(); a.run()">{{ a.label }}</button>
             </li>
           </ItemRowMenu>
-          <Tooltip text="Remove item" preferred-placement="top">
+          <!-- DUPLICATE. The whole row copied one slot down — name, weight, class,
+               calories, carrier and any nested children. It earns an inline seat for
+               the same reason the vault save has one: it is a top-level action on the
+               row, not a refinement of one, and burying it would leave Alt-drag (which
+               a phone can't perform at all) as the only way to reach it. Mobile keeps
+               it in the ⋯ menu with the rest of the cluster. -->
+          <Tooltip text="Duplicate" preferred-placement="top">
+            <button
+              class="btn btn--icon btn--ghost item__dup"
+              type="button"
+              aria-label="Duplicate item"
+              @mousedown.prevent
+              @click="c.duplicateItem(item.id)"
+            >
+              <HugeiconsIcon :icon="LayerAddIcon" :size="16" :stroke-width="2" />
+            </button>
+          </Tooltip>
+          <!-- "Remove", not "Remove item": the tooltip hangs off the row it acts on, so
+               the noun names something already on screen. The ACCESSIBLE name keeps it
+               ("Remove item" below) — a screen reader reaches this button with no such
+               context — and WCAG 2.5.3 is satisfied either way, since the accessible
+               name contains the visible word. Same split as Duplicate beside it. -->
+          <Tooltip text="Remove" preferred-placement="top">
             <button
               class="btn btn--icon btn--ghost item__del"
               aria-label="Remove item"
@@ -1663,7 +1700,7 @@ function dismissFix() {
                its label promises (a drag needs a pointer) -->
           <button
             class="btn btn--icon btn--ghost grip item__grip"
-            title="Drag to reorder"
+            :title="`Drag to reorder · ${altLabel}-drag to copy`"
             :aria-label="`Reorder ${item.name || 'item'}`"
             @pointerdown="dnd.start(item.id, $event)"
             @keydown="onGripKey"
@@ -2269,6 +2306,7 @@ function dismissFix() {
    ItemRowMenu's own scoped block, which is the only place a rule can reach them) */
 .item__grip,
 .item__vault-btn,
+.item__dup,
 .item__del,
 /* the qty stepper's ± live in this family too, though they sit in the middle of the
    row rather than the trailing cluster: they are the same kind of thing (a quiet
@@ -2280,6 +2318,7 @@ function dismissFix() {
 }
 .item__grip:hover,
 .item__vault-btn:hover,
+.item__dup:hover,
 .item__del:hover,
 .item__qtybtn:hover {
   color: var(--ink);
@@ -2378,7 +2417,11 @@ function dismissFix() {
   box-shadow:
     0 0 0 1px var(--line-2),
     var(--shadow-pop);
-  cursor: grabbing;
+  /* no `cursor` here. This row is pointer-events:none two lines up, so it is never
+     hit-tested and never gets to set one — the `cursor: grabbing` that used to sit
+     here had been dead since it was written (measured: the rule computed `grabbing`
+     while the pointer showed `grab`, off a grip underneath). pointerDrag paints the
+     drag cursor on <html>, the element that owns it while the pointer is captured. */
 }
 /* insertion line marking where the dragged row will land */
 .item-wrap.is-drop-before::before {
@@ -2787,6 +2830,7 @@ function dismissFix() {
   .item__nest,
   .item__person,
   .item__actions .tooltip-trigger:has(.item__vault-btn),
+  .item__actions .tooltip-trigger:has(.item__dup),
   .item__actions .tooltip-trigger:has(.item__del) {
     display: none;
   }

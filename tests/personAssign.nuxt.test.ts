@@ -39,6 +39,7 @@ mockNuxtImport("useGearList", () => () => ({
   },
   setItemWeight: () => {},
   removeItem: () => {},
+  duplicateItem: () => "",
   moveItem: () => {},
   discardEmpty: () => {},
   addBlankItemAfter: () => "",
