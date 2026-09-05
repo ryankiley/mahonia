@@ -22,7 +22,7 @@ import { foldForSearch } from "./catalogSearch";
 import type { Folder, Item, Person } from "./types";
 import { itemDisplayName } from "./weights";
 import { tidyText } from "./tidyText";
-import type { Op } from "./ops";
+import { isOpObject, type Op } from "./ops";
 
 /** Longer than this and it stops being a label. */
 export const MAX_SUMMARY_LEN = 80;
@@ -92,7 +92,14 @@ export function summarizeOps(ops: readonly Op[], before?: SummaryBefore): string
   // itself away on blur, a nesting container dissolving, a row being indented. They
   // are real ops the reducer must apply, and none is a thing anyone would say they
   // did. Filtered here rather than at the source, so the list still receives them.
-  const reportable = ops.filter((op) => !("quiet" in op && op.quiet));
+  //
+  // The object test is not defensive noise: applyOp tolerates a malformed op by
+  // design ("Unknown/invalid ops are ignored (no throw)" — its switch reads `op?.t`),
+  // and `"quiet" in op` THROWS on a null / number / string, which turned one bad
+  // entry in a batch into a 500 that discarded every valid op beside it.
+  const reportable = ops.filter(
+    (op) => isOpObject(op) && !("quiet" in op && op.quiet),
+  );
   if (!reportable.length) return "";
 
   const itemsById = new Map((before?.items ?? []).map((i) => [i.id, i]));

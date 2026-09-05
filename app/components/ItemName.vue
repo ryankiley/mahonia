@@ -36,6 +36,15 @@ const searchLabel = computed(() => `Search the web for ${itemSearchName(props.it
 </template>
 
 <style scoped>
+/* The packing row lays its name cell out as a flex row (name + carrier + chevron), and a
+   flex item's automatic minimum is its MIN-CONTENT width — so a name with no space or
+   hyphen in it grew this span to the whole word and ran it off the side of the phone,
+   past a parent that was itself correctly bounded. `min-width: 0` lets it shrink to the
+   cell, which is what lets the inherited overflow-wrap break the word. Inert in the
+   read row, where this span is inline and min-width doesn't apply. */
+.iname {
+  min-width: 0;
+}
 /* the dimmed variant suffix, and the stand-in label for a group the user never named —
    both quiet asides beside the product name, so both read as "not the name itself"
    ("Group" must not look like a product actually called that) */
@@ -55,6 +64,11 @@ const searchLabel = computed(() => `Search the web for ${itemSearchName(props.it
    it's revealed by pointer instead: quiet at rest, drawn on hover. */
 .iname__link {
   color: inherit;
+  /* Vertical padding is HIT AREA, not spacing: an inline box's padding doesn't move the
+     line, so this costs the layout nothing and takes a name link from the 19px its text
+     happens to occupy up past the 24px minimum. Every row on a shared list is one of
+     these, read on a phone, and a short name ("Pot", "i") was a genuinely hard tap. */
+  padding-block: 0.22rem;
   text-decoration-line: underline;
   text-decoration-style: dotted;
   text-decoration-color: var(--underline);

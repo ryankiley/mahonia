@@ -327,3 +327,46 @@ describe("tidyProse — the multi-line variant", () => {
     expect(tidyProse(prose)).toBe("one\n\ntwo");
   });
 });
+
+// U+202E and its family reverse the DISPLAY of everything after them, so a stored
+// string and the string a visitor reads can differ — on the read views, which is where
+// a name from a co-editor, a LighterPack import or a raw API call lands.
+const RLO = String.fromCharCode(0x202e);
+const LRE = String.fromCharCode(0x202a);
+const LRI = String.fromCharCode(0x2066);
+const PDI = String.fromCharCode(0x2069);
+const RLM = String.fromCharCode(0x200f);
+const HANGUL_FILLER = String.fromCharCode(0x3164);
+const BRAILLE_BLANK = String.fromCharCode(0x2800);
+const WORD_JOINER = String.fromCharCode(0x2060);
+
+describe("tidyText — bidi controls and blank-width characters", () => {
+  it("strips the bidi embedding / override / isolate controls", () => {
+    expect(tidyText(`Down quilt ${RLO}g 002`)).toBe("Down quilt g 002");
+    expect(tidyText(`a${LRE}b`)).toBe("ab");
+    expect(tidyText(`a${LRI}b${PDI}c`)).toBe("abc");
+  });
+
+  it("keeps the directional MARKS, which order a mixed-script name and reverse nothing", () => {
+    expect(tidyText(`${RLM}שם 3 oz`)).toContain(RLM);
+  });
+
+  it("keeps a blank-width character inside a word", () => {
+    // legitimate there, and the governing rule of this file is that a character it
+    // removes is one the user can never type back
+    expect(tidyText(`ab${HANGUL_FILLER}cd`)).toBe(`ab${HANGUL_FILLER}cd`);
+  });
+
+  it("treats a value made of nothing but blanks as empty", () => {
+    // it renders as an unreadable blank that still passes a non-empty test, which is
+    // how a person chip or a folder ended up with no label at all
+    expect(tidyText(HANGUL_FILLER)).toBe("");
+    expect(tidyText(BRAILLE_BLANK)).toBe("");
+    expect(tidyText(`${WORD_JOINER} ${HANGUL_FILLER}`)).toBe("");
+    expect(tidyProse(HANGUL_FILLER)).toBe("");
+  });
+
+  it("still keeps the joiners that hold an emoji together", () => {
+    expect(tidyText("\u{1F469}\u200D\u{1F680} kit")).toBe("\u{1F469}\u200D\u{1F680} kit");
+  });
+});

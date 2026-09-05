@@ -195,7 +195,13 @@ const planTip = computed(() => {
    the `align` prop: a class here could not reach that button, since scoped styles stop
    at the component boundary. */
 .totals__big {
-  font-size: var(--text-display);
+  /* Never wider than the screen. The figure is one unbreakable token, so past about
+     nine characters on a 320px phone it ran off the right edge — with the unit
+     following it out of view and no horizontal scroll to reach either. `--acount-len`
+     (AnimatedCount) gives the character count, ~0.58em is a tabular digit's advance,
+     and 78vw leaves the unit its room; `min()` means a figure that already fits is
+     untouched, so every ordinary total still renders at the full --text-display. */
+  font-size: min(var(--text-display), calc(78vw / (0.58 * var(--acount-len, 6))));
   line-height: 0.95;
   letter-spacing: var(--track-tight);
   color: var(--accent);

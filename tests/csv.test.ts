@@ -219,3 +219,57 @@ describe("CSV: per-row entry units", () => {
     expect(data.items[0]?.entryUnit).toBeUndefined();
   });
 });
+
+// The CSV is the app's own interchange format, so a list that goes out and comes back
+// must be the same list. Two things silently changed it: a row with no name was skipped
+// on import (taking its weight with it), and the gram column was written at zero
+// decimals, which claimed a sub-gram row weighed nothing.
+describe("CSV round-trip — nothing changes weight", () => {
+  const totalMg = (items: readonly { qty: number; unitWeightMg: number }[]) =>
+    items.reduce((sum, i) => sum + i.qty * i.unitWeightMg, 0);
+
+  it("keeps a row that has a weight but no name", () => {
+    const list = snap();
+    list.items.push({ id: "i3", folderId: "f1", name: "", unitWeightMg: 450_000, qty: 1, classification: null, sortOrder: 1 });
+    const back = csvToListData(listToCsv(list));
+    expect(back.items).toHaveLength(3);
+    expect(totalMg(back.items)).toBe(totalMg(list.items));
+  });
+
+  it("still skips a wholly empty line", () => {
+    const back = csvToListData(listToCsv(snap()) + "\n,,,,,,,,,,,,,,");
+    expect(back.items).toHaveLength(2);
+  });
+
+  it("skips a spacer row that carries no name and no weight", () => {
+    // a category-only separator line, and a stray row holding only a price — both are
+    // layout in someone's spreadsheet, and both used to import as phantom 0 g items
+    const sep = csvToListData("Category,Item Name,Qty,Weight,Unit\nShelter,,,,\nShelter,Tent,1,900,g");
+    expect(sep.items.map((i) => i.name)).toEqual(["Tent"]);
+    const priced = csvToListData("Category,Item Name,Qty,Weight,Unit,Price\n,,,,,$ 12.00\n,Tent,1,900,g,");
+    expect(priced.items.map((i) => i.name)).toEqual(["Tent"]);
+  });
+
+  it("carries sub-gram and fractional weights back unchanged", () => {
+    for (const [mg, unit] of [[1, "g"], [499, "g"], [12_345, "g"], [12_345, "oz"], [12_345, "kg"], [12_345, "lb"], [100_000_000, "lb"]] as const) {
+      const list = snap();
+      list.items = [{ id: "i1", folderId: null, name: "Item", unitWeightMg: mg, qty: 1, classification: null, sortOrder: 0, entryUnit: unit }];
+      const back = csvToListData(listToCsv(list));
+      expect(back.items[0]!.unitWeightMg, `${mg} mg in ${unit}`).toBe(mg);
+    }
+  });
+
+  it("writes a whole-gram weight without decimal noise", () => {
+    const csv = listToCsv(snap());
+    expect(csv).toContain(",538,g,");
+    expect(csv).not.toContain("538.000");
+  });
+
+  it("keeps a quantity of zero", () => {
+    const list = snap();
+    list.items[0]!.qty = 0;
+    const back = csvToListData(listToCsv(list));
+    expect(back.items.find((i) => i.name === "Zpacks Duplex")!.qty).toBe(0);
+    expect(totalMg(back.items)).toBe(totalMg(list.items));
+  });
+});

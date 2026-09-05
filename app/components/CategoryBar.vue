@@ -72,6 +72,14 @@ const segments = computed(() => categorySegments(props.list));
   font-size: var(--text-base);
   padding-inline-start: calc(var(--swatch) + var(--space-2));
   text-indent: calc(-1 * (var(--swatch) + var(--space-2)));
+  /* A flex item's automatic minimum is its MIN-CONTENT width, so a folder name with no
+     space or hyphen in it sized this entry to the whole word and ran it off the side of
+     the page — the legend clips, so the name was cut with no ellipsis and no way to
+     scroll to the rest. `min-width: 0` lets the entry shrink, which is what lets the
+     inherited overflow-wrap actually break the word; `max-width` keeps it inside the
+     legend once it has. */
+  min-width: 0;
+  max-width: 100%;
 }
 .swatch {
   display: inline-block;

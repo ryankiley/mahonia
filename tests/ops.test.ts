@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyOps, normalizeCalendarDate, normalizeItem, tidyListText, type Op } from "../shared/ops";
+import { applyOps, isOpObject, normalizeCalendarDate, normalizeItem, tidyListText, type Op } from "../shared/ops";
 import type { Item, ListState } from "../shared/types";
 
 const base = (): ListState => ({
@@ -744,5 +744,62 @@ describe("tidyListText — bringing already-stored text up to date", () => {
     ]);
     expect(after.items[0]!.name).toBe(before.items[0]!.name); // the rename that never was
     expect(after.title).toBe(before.title);
+  });
+});
+
+describe("normalizeItem — a quantity of zero is a quantity", () => {
+  const item = (qty: unknown): Item =>
+    ({ id: "i", name: "Spare batteries", unitWeightMg: 23_000, qty }) as unknown as Item;
+
+  it("keeps a stored 0 instead of defaulting it to 1", () => {
+    // cleanItemPatch accepts 0 (Math.max(0, …)), so a zero is a state the write path
+    // stores; `Number(raw.qty) || 1` could not express it, and a JSON backup came
+    // back one unit heavier than the file it was restored from
+    expect(normalizeItem(item(0)).qty).toBe(0);
+  });
+
+  it("still defaults when the field is absent or unusable", () => {
+    expect(normalizeItem(item(undefined)).qty).toBe(1);
+    expect(normalizeItem(item(null)).qty).toBe(1);
+    expect(normalizeItem(item("")).qty).toBe(1);
+    expect(normalizeItem(item(Number.NaN)).qty).toBe(1);
+    expect(normalizeItem(item("3")).qty).toBe(3);
+  });
+});
+
+describe("productUrl — scheme-checked like every other stored link", () => {
+  const withUrl = (productUrl: string) =>
+    normalizeItem({ id: "i", name: "Tent", unitWeightMg: 1, qty: 1, productUrl } as unknown as Item);
+
+  it("keeps an http(s) link", () => {
+    expect(withUrl("https://example.com/tent").productUrl).toBe("https://example.com/tent");
+  });
+
+  it("drops a scheme that isn't a web address", () => {
+    expect(withUrl("javascript:alert(1)").productUrl).toBeUndefined();
+    expect(withUrl("data:text/html,<script>").productUrl).toBeUndefined();
+    expect(withUrl("file:///etc/passwd").productUrl).toBeUndefined();
+    expect(withUrl("not a url").productUrl).toBeUndefined();
+  });
+
+  it("clears the field through an op, and refuses a hostile one", () => {
+    const s = base();
+    applyOps(s, [{ t: "addItem", item: { id: "i1", name: "Tent", unitWeightMg: 1, qty: 1, productUrl: "https://ok.test/x" } }] as unknown as Op[]);
+    applyOps(s, [{ t: "updateItem", id: "i1", patch: { productUrl: "javascript:alert(1)" } }] as unknown as Op[]);
+    expect(s.items[0]!.productUrl).toBeUndefined();
+  });
+});
+
+describe("isOpObject", () => {
+  it("passes an op and rejects everything the reducer already ignores", () => {
+    expect(isOpObject({ t: "addItem" })).toBe(true);
+    for (const bad of [null, undefined, 0, "", "addItem", []]) expect(isOpObject(bad)).toBe(false);
+  });
+
+  it("applyOps still ignores a malformed entry without touching the valid ones", () => {
+    const s = base();
+    const ops = [null, { t: "addItem", item: { id: "i1", name: "Tent", unitWeightMg: 1, qty: 1 } }, 7] as unknown as Op[];
+    expect(() => applyOps(s, ops)).not.toThrow();
+    expect(s.items.map((i) => i.name)).toEqual(["Tent"]);
   });
 });

@@ -285,3 +285,54 @@ describe("the committed site card (public/og.png)", () => {
     expect(fresh.equals(committed)).toBe(true);
   });
 });
+
+// The breakdown row is a fixed-size flex row that satori will not scroll or wrap, so a
+// heavy list ran it off the card: "Consumable 150.03" was cut mid-number with its unit
+// gone. cardVnode now steps the row down to fit. Measured off the PIXELS, because the
+// bug was a layout overflow and only the raster can prove it isn't there — and because
+// satori draws text as paths, so there is no font-size in the SVG to assert on.
+describe("the breakdown row stays inside the card", () => {
+  // the chips are the last thing on the card, so every measurement scans its floor
+  const BAND = 0.82;
+  const ink = (svg: string) => {
+    const { width, height, pixels } = new Resvg(svg, { font: { loadSystemFonts: false } }).render();
+    const dark = (x: number, y: number) => pixels[(y * width + x) * 4]! < 128;
+    const y0 = Math.floor(height * BAND);
+    let right = -1, top = -1, bottom = -1;
+    for (let y = y0; y < height; y++)
+      for (let x = 0; x < width; x++)
+        if (dark(x, y)) {
+          if (top < 0) top = y;
+          bottom = y;
+          if (x > right) right = x;
+        }
+    return { right, capHeight: bottom - top };
+  };
+  const heavy = totals({
+    totalMg: 1_000_153_215_000,
+    baseMg: 1_000_003_025_000,
+    wornMg: 156_000,
+    consumableMg: 150_034_000,
+    itemCount: 40,
+  });
+
+  it("draws an ordinary breakdown inside the padding, unshrunk", async () => {
+    const { right } = ink(await ogCardSvg(model("Wonderland Loop", weighed), await fontsLoaded));
+    expect(right).toBeGreaterThan(0);
+    expect(right).toBeLessThanOrEqual(1200 - 72);
+  });
+
+  it("draws a tonne-scale breakdown inside the padding too", async () => {
+    const { right } = ink(await ogCardSvg(model("Heavy", heavy), await fontsLoaded));
+    expect(right).toBeGreaterThan(0); // the row drew something
+    expect(right).toBeLessThanOrEqual(1200 - 72); // and stopped inside the padding
+  });
+
+  it("shrinks only the row that needs it", async () => {
+    const fonts = await fontsLoaded;
+    const ordinary = ink(await ogCardSvg(model("Wonderland Loop", weighed), fonts));
+    const big = ink(await ogCardSvg(model("Heavy", heavy), fonts));
+    // proof the fit ran, rather than the first row simply being short
+    expect(big.capHeight).toBeLessThan(ordinary.capHeight);
+  });
+});

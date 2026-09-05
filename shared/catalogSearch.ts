@@ -230,6 +230,26 @@ export function mergeCatalogRows(
  * decided the row was a match; two surfaces now render it (the item autocomplete
  * and the vault's own search) and a second copy would be free to drift.
  */
+/**
+ * The search folds this highlighter can afford: apostrophes AND diacritics, both
+ * applied ONE CHARACTER FOR ONE so an offset into the folded string is the same offset
+ * into the original.
+ *
+ * foldForSearch above can't be reused here — it deletes and re-spaces, so its offsets
+ * mean nothing against `text`. But leaving diacritics unfolded left exactly the hole the
+ * apostrophe fold was added to close: typing "fjallraven" ranks Fjällräven (foldForSearch
+ * strips the marks, and its own comment names that case) and then rendered the row with
+ * nothing bolded, which reads as "this isn't the match you asked for".
+ *
+ * A character whose fold isn't one character — a lone combining mark, a surrogate half —
+ * is kept as it was, because holding the 1:1 offsets matters more than matching it.
+ */
+const foldForHighlight = (raw: string): string =>
+  foldApostrophes(raw).replace(/[^\u0000-\u007F]/g, (ch) => {
+    const folded = ch.normalize("NFD").replace(/\p{Diacritic}/gu, "");
+    return folded.length === 1 ? folded : ch;
+  });
+
 export function highlightParts(text: string, rawQuery: string): { t: string; on: boolean }[] {
   // Apostrophes folded on BOTH sides, and the offsets still index `text` — the fold is
   // 1:1 on characters, so position i in `lower` is position i in `text`. Rows are
@@ -237,10 +257,10 @@ export function highlightParts(text: string, rawQuery: string): { t: string; on:
   // literal indexOf: without the fold the row still RANKS (the trigram fold ignores
   // punctuation) and still appears, but arrives with nothing bolded, which reads as
   // "this isn't the match you asked for".
-  const q = foldApostrophes((rawQuery ?? "").trim().toLowerCase());
+  const q = foldForHighlight((rawQuery ?? "").trim().toLowerCase());
   const tokens = q.split(/\s+/).filter((t) => t.length > 1);
   if (!tokens.length) return [{ t: text, on: false }];
-  const lower = foldApostrophes(text.toLowerCase());
+  const lower = foldForHighlight(text.toLowerCase());
   const hit = new Array(text.length).fill(false);
   for (const tok of tokens) {
     let from = 0;

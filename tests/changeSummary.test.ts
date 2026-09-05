@@ -123,3 +123,22 @@ describe("summarizeOps, with the list it is describing", () => {
     )).toBe("Removed 2 items");
   });
 });
+
+// applyOp tolerates a malformed op by design ("Unknown/invalid ops are ignored"), and
+// everything that reads the same batch has to agree — this one threw on `"quiet" in op`,
+// which turned a single bad entry into a 500 that discarded every valid op beside it.
+describe("summarizeOps — a malformed entry in the batch", () => {
+  it("does not throw on a non-object op", () => {
+    const bad = [null, undefined, 0, "setMeta", []] as unknown as Op[];
+    expect(() => summarizeOps(bad)).not.toThrow();
+    expect(summarizeOps(bad)).toBe("");
+  });
+
+  it("still summarizes the valid ops beside it", () => {
+    const ops = [
+      null,
+      { t: "addItem", item: { id: "a", name: "Tent" } },
+    ] as unknown as Op[];
+    expect(summarizeOps(ops)).toContain("Tent");
+  });
+});
