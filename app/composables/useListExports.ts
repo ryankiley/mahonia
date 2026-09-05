@@ -56,7 +56,7 @@ export function useListExports(
       const { listToText } = await textExporter();
       const shareUrl = getShareUrl();
       const ok = await copyText(listToText(snap, { shareUrl }));
-      flash(ok ? (shareUrl ? "Copied — includes the read-only link" : "Copied as plain text") : "Copy failed");
+      flash(ok ? (shareUrl ? "Copied, with the read-only link" : "Copied as plain text") : "Copy failed");
     } catch {
       flash(LOAD_FAILED);
     }

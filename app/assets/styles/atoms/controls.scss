@@ -966,18 +966,27 @@ input[type="search"]::-webkit-search-decoration {
   min-height: 0;
   overflow: hidden;
 }
-.reveal-enter-active,
+// Two curves, not one: opening decelerates into place, closing gathers speed and
+// leaves — the expo-out on both read as a snap (tokens.scss, --ease-open/--ease-close).
+.reveal-enter-active {
+  transition:
+    grid-template-rows var(--dur-reveal) var(--ease-open),
+    margin-top var(--dur-reveal) var(--ease-open),
+    opacity var(--dur-reveal) var(--ease-open);
+}
 .reveal-leave-active {
   transition:
-    grid-template-rows var(--dur) var(--ease),
-    margin-top var(--dur) var(--ease),
-    opacity var(--dur) var(--ease);
+    grid-template-rows var(--dur-reveal) var(--ease-close),
+    margin-top var(--dur-reveal) var(--ease-close),
+    opacity var(--dur-reveal) var(--ease-close);
 }
 /* the content also rises a touch as it fades, so it reads as lifting into place
    rather than just being unveiled */
-.reveal-enter-active > *,
+.reveal-enter-active > * {
+  transition: transform var(--dur-reveal) var(--ease-open);
+}
 .reveal-leave-active > * {
-  transition: transform var(--dur) var(--ease);
+  transition: transform var(--dur-reveal) var(--ease-close);
 }
 .reveal-enter-from,
 .reveal-leave-to {

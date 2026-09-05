@@ -1,0 +1,7 @@
+{
+  "date": "2026-09-05",
+  "changed": [
+    "The editor's third tab is called Trip, the name the shared page already used.",
+    "About now describes the Trip tab, and About and Legal no longer mention a publish step that never existed: a list is only ever reachable by its links."
+  ]
+}

@@ -26,6 +26,7 @@ import {
   normalizePerson,
   normalizeWaypoint,
   ROUTE_END_IDS,
+  MAX_TITLE_LEN,
 } from "../ops";
 import {
   normalizeDistanceUnit,
@@ -199,7 +200,7 @@ export function jsonToListImport(text: string): JsonImport | null {
   return {
     // clamps mirror setMeta's (the server re-clamps on create regardless)
     title:
-      typeof raw.title === "string" && raw.title.trim() ? raw.title.slice(0, 200) : undefined,
+      typeof raw.title === "string" && raw.title.trim() ? raw.title.slice(0, MAX_TITLE_LEN) : undefined,
     description:
       typeof raw.description === "string" && raw.description.trim()
         ? raw.description.slice(0, 4000)

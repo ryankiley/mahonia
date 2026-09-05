@@ -1,0 +1,6 @@
+{
+  "date": "2026-09-05",
+  "fixed": [
+    "Typing a weight like .9oz (no leading zero) now reads as 0.9 oz, not 9 oz."
+  ]
+}

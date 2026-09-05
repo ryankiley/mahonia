@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
+  hasTokenHit,
   highlightParts,
   isExactOrPrefixMatch,
+  isSearchTermRun,
   matchTier,
   mergeCatalogRows,
   rankCandidates,
   trigramScore,
   trigrams,
+  typeMatch,
   STRONG_THRESHOLD,
   type LocalCatalogRow,
 } from "../shared/catalogSearch";
@@ -167,36 +170,47 @@ describe("isExactOrPrefixMatch", () => {
 });
 
 describe("matchTier", () => {
-  it("is 0 for an exact/prefix match regardless of score", () => {
-    expect(matchTier("duplex", "Zpacks Duplex", 0.4)).toBe(0);
+  it("is 0 when the query names the row's kind of gear, whatever the name says", () => {
+    expect(matchTier("tent", "Big Agnes Copper Spur HV UL2", 1, "Tent", "tent")).toBe(0);
   });
-  it("is 1 for a strong (>= STRONG_THRESHOLD) non-prefix fuzzy match", () => {
-    expect(matchTier("duplx", "Zpacks Duplex", STRONG_THRESHOLD)).toBe(1);
-    expect(matchTier("duplx", "Zpacks Duplex", 0.72)).toBe(1);
+  it("is 1 for an exact/prefix match on the name regardless of score", () => {
+    expect(matchTier("duplex", "Zpacks Duplex", 0.4)).toBe(1);
   });
-  it("is 2 for a weak match that only cleared the gate", () => {
-    expect(matchTier("duplx", "Zpacks Duplex", 0.4)).toBe(2);
+  it("is 2 for a strong (>= STRONG_THRESHOLD) fuzzy match that also starts a word of the target", () => {
+    expect(matchTier("hyperl wind", "Hyperlite Mountain Gear Windrider", STRONG_THRESHOLD)).toBe(2);
+  });
+  it("is 3 for a strong score with no word-boundary hit: coverage alone is not evidence", () => {
+    // "battery" shares att/tte/ter with the brand and " ba" with "bag" (0.625) and
+    // starts no word of the target
+    expect(matchTier("battery", "Klättermusen Hrid WP Accessory Bag", 0.625, "Dry bag", "dry bag")).toBe(3);
+    // a typo is recall, not a peer of a real match: rankCandidates keeps it only
+    // when nothing better matched
+    expect(matchTier("duplx", "Zpacks Duplex", 0.72)).toBe(3);
+  });
+  it("is 3 for a weak match that only cleared the gate", () => {
+    expect(matchTier("duplx", "Zpacks Duplex", 0.4)).toBe(3);
   });
 });
 
 describe("rankCandidates ordering", () => {
-  it("lets a better textual match win: a Tier-0 unverified row beats a Tier-1 verified one", () => {
+  it("lets a better textual match win: a prefix-match unverified row beats a fuzzy verified one", () => {
     const rows = [
       row({ id: 1, brand: null, name: "X-Mid 2", verified: false, usageCount: 0 }),
       row({ id: 2, brand: null, name: "X-Mid Pro", verified: true, usageCount: 100 }),
     ];
-    // "x mid 2" exact-matches id 1 (Tier 0); id 2 is only a strong fuzzy (Tier 1).
+    // "x mid 2" exact-matches id 1 (tier 1); id 2 is only a strong fuzzy (tier 2).
     expect(rankCandidates(rows, "x mid 2").map((r) => r.id)).toEqual([1, 2]);
   });
 
-  it("ranks by tier before usage_count: an exact match beats a high-usage weak match", () => {
+  it("ranks by tier before usage_count, and drops a weak typo row once real matches exist", () => {
     const rows = [
       row({ id: 1, name: "Duplex", verified: true, usageCount: 1 }),
       row({ id: 2, name: "Duplex", verified: true, usageCount: 50 }),
       row({ id: 3, name: "Duplux", verified: true, usageCount: 999 }), // typo → not exact
     ];
-    // Tier-0 exact rows first (by usage), then the weak-but-hugely-used row last.
-    expect(rankCandidates(rows, "duplex").map((r) => r.id)).toEqual([2, 1, 3]);
+    // exact rows first (by usage); the weak-but-hugely-used typo row is junk beside
+    // them and goes (it would still answer a query nothing else matched)
+    expect(rankCandidates(rows, "duplex").map((r) => r.id)).toEqual([2, 1]);
   });
 
   it("breaks exact ties deterministically by id ascending (no keystroke jitter)", () => {
@@ -223,6 +237,107 @@ describe("rankCandidates ordering", () => {
     );
     rows.push(row({ id: 999, name: "Duplex", verified: true, usageCount: 500 }));
     expect(rankCandidates(rows, "duplex", 12)[0]!.id).toBe(999);
+  });
+});
+
+describe("typeMatch", () => {
+  it("is 2 when the query is the whole common name, last token still typing", () => {
+    expect(typeMatch("tent", "Tent")).toBe(2);
+    expect(typeMatch("sleeping ba", "Sleeping bag")).toBe(2);
+  });
+  it("is 1 when the query is a leading prefix of a longer type", () => {
+    expect(typeMatch("sleeping bag", "Sleeping bag liner")).toBe(1);
+    expect(typeMatch("sleeping", "Sleeping pad")).toBe(1);
+  });
+  it("is 0 for a different type, a non-leading word, or no common name", () => {
+    expect(typeMatch("tent", "Groundsheet")).toBe(0);
+    expect(typeMatch("bag", "Sleeping bag")).toBe(0);
+    expect(typeMatch("tent", null)).toBe(0);
+  });
+});
+
+describe("hasTokenHit / isSearchTermRun", () => {
+  it("needs a 3+ char query token to start a target word", () => {
+    expect(hasTokenHit("copper", "Enlightened Equipment Copperfield Wind Pants")).toBe(true);
+    expect(hasTokenHit("battery", "Klättermusen Hrid WP Accessory Bag dry bag")).toBe(false);
+    expect(hasTokenHit("ul", "Copper Spur HV UL2")).toBe(false);
+  });
+  it("finds the query as a run of the derived search terms, last token a prefix", () => {
+    expect(isSearchTermRun("puffy", "down jacket puffy")).toBe(true);
+    expect(isSearchTermRun("down jack", "down jacket puffy")).toBe(true);
+    expect(isSearchTermRun("tensor", "sleeping pad")).toBe(false);
+    expect(isSearchTermRun("tent", null)).toBe(false);
+  });
+});
+
+describe("rankCandidates — kind-of-gear queries", () => {
+  const pad = (id: number, brand: string, name: string, variant: string | null = null) =>
+    row({ id, brand, name, variant, commonName: "Sleeping pad", searchTerms: "sleeping pad" });
+
+  it("puts rows OF the type above a row with the word in its name", () => {
+    const rows = [
+      row({ id: 1, brand: "Gossamer Gear", name: "Polycro Tent Ground Cloth", commonName: "Groundsheet", searchTerms: "tent" }),
+      row({ id: 2, brand: "Big Agnes", name: "Copper Spur HV UL2", commonName: "Tent", searchTerms: "tent" }),
+      row({ id: 3, brand: "Zpacks", name: "Duplex", commonName: "Tent", searchTerms: "tent" }),
+    ];
+    expect(rankCandidates(rows, "tent").map((r) => r.id)).toEqual([2, 3, 1]);
+  });
+
+  it("puts the whole type above a longer type it merely prefixes (bags before liners)", () => {
+    const rows = [
+      row({ id: 1, brand: "Big Agnes", name: "Alpha Direct Fleece Sleeping Bag Liner", commonName: "Sleeping bag liner", searchTerms: "sleeping bag liner" }),
+      row({ id: 2, brand: "Cumulus", name: "Aerial 180", commonName: "Sleeping bag", searchTerms: "sleeping bag" }),
+    ];
+    expect(rankCandidates(rows, "sleeping bag").map((r) => r.id)).toEqual([2, 1]);
+  });
+
+  it("drops weak fuzzy rows once anything better matched, and keeps them when nothing did", () => {
+    const rows = [
+      row({ id: 1, brand: "Nitecore", name: "Carbon Battery 6k Power Bank", commonName: "Power bank", searchTerms: "power bank" }),
+      row({ id: 2, brand: "Klättermusen", name: "Hrid WP Accessory Bag", commonName: "Dry bag", searchTerms: "dry bag" }),
+    ];
+    expect(rankCandidates(rows, "battery").map((r) => r.id)).toEqual([1]);
+    expect(rankCandidates([row({ id: 3, name: "Duplex" })], "duplx").map((r) => r.id)).toEqual([3]);
+  });
+
+  it("returns nothing for a multi-word query that starts no word of any row (a custom name)", () => {
+    const rows = [
+      row({ id: 1, brand: "Chicken Tramper Gear", name: "Bear Can Key" }),
+      row({ id: 2, brand: "Katadyn", name: "BeFree Activated Carbon Flip Cap" }),
+    ];
+    expect(rankCandidates(rows, "my car keys")).toEqual([]);
+  });
+
+  it("caps a kind-of-gear query at two rows per product and two per brand, then backfills", () => {
+    const rows = [
+      ...["Regular", "Regular Wide", "Long Wide", "Regular Mummy", "Short"].map((v, i) => pad(i + 1, "Nemo", "Tensor All-Season", v)),
+      pad(6, "Nemo", "Tensor Elite", "Regular"),
+      pad(7, "Nemo", "Switchback"),
+      pad(8, "Therm-a-Rest", "NeoAir XLite NXT"),
+    ];
+    // two Tensor All-Seasons fill Nemo's two slots, the Therm-a-Rest follows, then the
+    // capped Nemo rows fill the rest in their original order
+    expect(rankCandidates(rows, "sleeping pad").map((r) => r.id)).toEqual([1, 2, 8, 3, 4, 5, 6, 7]);
+  });
+
+  it("does not cap a query that names the product: every size comes back", () => {
+    const rows = ["Regular", "Regular Wide", "Long Wide", "Regular Mummy", "Short"].map((v, i) => pad(i + 1, "Nemo", "Tensor All-Season", v));
+    expect(rankCandidates(rows, "tensor").map((r) => r.id)).toEqual([1, 2, 3, 4, 5]);
+  });
+
+  it("treats a synonym in search_terms as a kind-of-gear query too", () => {
+    const puffy = (id: number, name: string, variant: string) =>
+      row({ id, brand: "Arc'teryx", name, variant, commonName: "Down jacket", searchTerms: "down jacket puffy" });
+    const rows = [
+      puffy(1, "Cerium Hoody", "Men's"),
+      puffy(2, "Cerium Hoody", "Women's"),
+      puffy(3, "Cerium SL Hoody", "Men's"),
+      puffy(4, "Cerium SL Hoody", "Women's"),
+      row({ id: 5, brand: "Katabatic Gear", name: "Tarn", commonName: "Down jacket", searchTerms: "down jacket puffy" }),
+    ];
+    // the Men's/Women's pair fills Arc'teryx's two slots, Katabatic follows, and the
+    // capped Arc'teryx rows backfill
+    expect(rankCandidates(rows, "puffy").map((r) => r.id)).toEqual([1, 2, 5, 3, 4]);
   });
 });
 

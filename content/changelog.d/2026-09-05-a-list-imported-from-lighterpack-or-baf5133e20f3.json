@@ -1,0 +1,7 @@
+{
+  "date": "2026-09-05",
+  "added": [
+    "A list imported from LighterPack or a CSV now recognises rows that name a catalog product word for word: they get the catalog's weight check and My Gear knows them, and a note says how many matched. Your weights are kept as they were.",
+    "The import dialog asks what to call the list."
+  ]
+}

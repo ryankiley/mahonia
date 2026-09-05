@@ -26,10 +26,9 @@ import type { Db } from "./db";
 import {
   SEARCH_LIMIT,
   SIM_THRESHOLD,
-  rankCandidates,
-  type CatalogSearchResult,
+  rankCandidates, type CatalogSearchResult,
   type LocalCatalogRow,
-} from "../../shared/catalogSearch";
+toCatalogResult } from "../../shared/catalogSearch";
 
 // trigramScore lives in shared/catalogSearch (single source of truth for the
 // offline client + this server fallback) — re-exported so its one server-side
@@ -119,7 +118,7 @@ function normalizeQuery(q: unknown): string {
 /**
  * Fuzzy autocomplete. Two stages that share ONE ranking (shared/catalogSearch.ts):
  * SQL/scan does coarse recall, then rankCandidates() does the fine ordering
- * (relevance-tier cascade: tier → verified → usage_count → similarity → id) and
+ * (relevance-tier cascade: tier → verified → usage_count → similarity → id, then the kind-of-gear diversity cap) and
  * caps to `limit`. pg_trgm recall on Neon; whole-table JS on PGlite (see file
  * header). Keeping the order in rankCandidates() — not in SQL — is what makes the
  * "prod and offline must never diverge" invariant real instead of hand-mirrored.
@@ -177,6 +176,16 @@ export async function searchCatalog(
  * what makes autocomplete self-improve: the gear people actually carry floats to
  * the top of the ranking. Best-effort + bounded; works on PGlite + Neon.
  */
+/**
+ * Every active row, in the autocomplete's result shape — the pool the import matcher
+ * indexes by exact name (shared/catalogMatch.ts). The same whole-table read the PGlite
+ * search path makes: the catalog is small and bounded, and an import is rare.
+ */
+export async function activeCatalogRows(db: Db): Promise<CatalogSearchResult[]> {
+  const rows = await db.select().from(catalogItems).where(eq(catalogItems.status, "active"));
+  return rows.map(toCatalogResult);
+}
+
 export async function bumpUsage(db: Db, ids: number[]): Promise<void> {
   const clean = [...new Set(ids.filter((n) => Number.isInteger(n) && n > 0))].slice(0, 50);
   if (!clean.length) return;

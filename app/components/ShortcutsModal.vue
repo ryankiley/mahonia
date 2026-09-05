@@ -39,16 +39,16 @@ const GROUPS: { title: string; rows: Row[] }[] = [
       // the only thing that starts a drag — and the first person to try this reached
       // for the row body and concluded the feature was broken. The arrow-key entry
       // below already said "on the drag handle"; this one has to as well.
-      { mod: ALT, keys: ["drag"], what: "Duplicate a row from its ⋮⋮ handle — the copy lands where you drop it, with everything on it" },
+      { mod: ALT, keys: ["drag"], what: "Duplicate a row from its ⋮⋮ handle. The copy lands where you drop it, with everything on it" },
       { keys: ["↑", "↓"], what: "In a weight field, nudge the weight in that row’s own unit" },
       { mod: "Shift", keys: ["↑", "↓"], what: "Nudge it by ten of those" },
-      { keys: ["↑", "↓"], what: "On the drag handle, move a row — or a folder — one place" },
+      { keys: ["↑", "↓"], what: "On the drag handle, move a row (or a folder) one place" },
     ],
   },
   {
     title: "While dragging",
     rows: [
-      { keys: ["Esc"], what: "Put it back — the drop is cancelled and nothing moves" },
+      { keys: ["Esc"], what: "Put it back: the drop is cancelled and nothing moves" },
       // the non-obvious half of the copy gesture, and the reason it earns a second
       // line: the modifier LATCHES, so you needn't still be holding it at the drop
       { keys: [ALT], what: "Press it any time before the drop; let go and keep dragging to cancel" },

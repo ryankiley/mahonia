@@ -2,6 +2,9 @@
 import { csvToListData } from "~~/shared/exporters/csv";
 import { jsonToListImport } from "~~/shared/exporters/json";
 import { lighterpackId } from "~~/shared/lighterpack";
+import { linkImportedItems } from "~~/shared/catalogMatch";
+import type { CatalogSearchResult } from "~~/shared/catalogSearch";
+import { MAX_TITLE_LEN } from "~~/shared/ops";
 import { editLinkPath } from "~~/shared/links";
 import type { ListData, ListSnapshot, Unit } from "~~/shared/types";
 
@@ -18,6 +21,9 @@ const router = useRouter();
 const myLists = useMyLists();
 
 const text = ref("");
+// what to call the list; empty falls back to the backup's own title, then "Imported list"
+const title = ref("");
+const importNote = useImportNote();
 const importing = ref(false);
 const error = ref("");
 const fileRef = useTemplateRef<HTMLInputElement>("fileRef");
@@ -28,6 +34,7 @@ watch(
   (o) => {
     if (o) {
       text.value = "";
+      title.value = "";
       error.value = "";
       importing.value = false;
     }
@@ -62,10 +69,15 @@ async function createFrom(
   importing.value = true;
   error.value = "";
   try {
+    // Rows that name a catalog product word for word arrive linked, as if picked (the
+    // matcher is exact-only). One request; if it fails the list still imports, unlinked —
+    // the link is a nicety on top of the import, never a condition of it.
+    const linked = await linkToCatalog(data.items);
+    const list: ListData = { ...data, items: linked.items };
     const res = await $fetch<{ editToken: string; snapshot: ListSnapshot }>("/api/lists/create", {
       method: "POST",
       body: {
-        title: meta?.title || "Imported list",
+        title: title.value.trim() || meta?.title || "Imported list",
         description: meta?.description,
         displayUnit: meta?.displayUnit,
         trailUrl: meta?.trailUrl,
@@ -79,18 +91,38 @@ async function createFrom(
         routeGeometry: meta?.routeGeometry,
         startDate: meta?.startDate,
         endDate: meta?.endDate,
-        data,
+        data: list,
       },
     });
     emit("close");
+    tally("import");
     // an import arrives whole (no ops) — capture it here, where the device knows
     // it just created this list from data you supplied
     useVaultCapture().captureNewList(res.snapshot, res.editToken);
+    // set before the navigation, so the editor finds it the moment the list lands; a
+    // list where nothing matched gets no note — "0 of 25" reads as a failure it isn't
+    importNote.value = linked.matched
+      ? `${linked.matched} of ${list.items.length} rows matched the catalog.`
+      : null;
     router.push(editLinkPath(res.snapshot.shareCode, myLists.registerCreated(res)));
   } catch {
     error.value = "Import failed. Check the file and try again.";
   } finally {
     importing.value = false;
+  }
+}
+
+async function linkToCatalog(items: ListData["items"]): Promise<{ items: ListData["items"]; matched: number }> {
+  // a backup carries its links already; only unlinked, named rows are worth a question
+  if (!items.some((i) => i.catalogItemId == null && i.name.trim())) return { items, matched: 0 };
+  try {
+    const { matches } = await $fetch<{ matches: (CatalogSearchResult | null)[] }>("/api/catalog/match", {
+      method: "POST",
+      body: { names: items.map((i) => ({ name: i.name, brand: i.brand, variant: i.variant })) },
+    });
+    return linkImportedItems(items, matches);
+  } catch {
+    return { items, matched: 0 };
   }
 }
 
@@ -157,20 +189,36 @@ function onFile(e: Event) {
 <template>
   <BaseModal :open="open" label="Import a list" @close="emit('close')">
     <h2 class="t-label">Import a list</h2>
-    <!-- The controls below already say the rest: the placeholder shows the link and
-         CSV shapes, and the file picker's accept filter covers JSON. This only has
-         to carry the part nothing else does — that an import ARRIVES as a new list
-         rather than merging into the one you're looking at. -->
+    <!-- Two things nothing else on screen says: that the file picker takes the app's
+         own JSON backup (its accept filter is invisible until the picker opens), and
+         that an import ARRIVES as a new list rather than merging into the one you're
+         looking at. The hint under the box carries the CSV shape. -->
     <p class="t-sm t-muted dlg__lede">
-      Paste a LighterPack link or CSV, or choose a file. It becomes a new list.
+      Paste a LighterPack link or CSV, or choose a file: a CSV, or a JSON backup from Export. It becomes a new list.
     </p>
+
+    <input
+      v-model="title"
+      class="field import__name"
+      :maxlength="MAX_TITLE_LEN"
+      placeholder="Imported list"
+      aria-label="List name"
+      autocorrect="off"
+      spellcheck="false"
+    />
 
     <textarea
       v-model="text"
       class="field well import__text"
       rows="5"
-      placeholder="https://lighterpack.com/r/… or a CSV like Category,Item Name,Qty,Weight,Unit,Worn,Consumable…"
+      placeholder="https://lighterpack.com/r/… or paste a CSV"
     />
+    <!-- the column order stays on screen: as a placeholder it vanished on the first
+         keystroke, exactly when someone composing a CSV by hand needs it -->
+    <p class="t-sm t-muted import__hint">
+      A CSV needs a header row, with columns like Category, Item Name, Qty, Weight, Unit, Worn,
+      Consumable. A LighterPack export works as it is.
+    </p>
 
     <p v-if="error" class="t-sm import__err">{{ error }}</p>
 
@@ -200,6 +248,15 @@ function onFile(e: Event) {
 /* overlay + dialog shell live in atoms/dialog.scss; only the import-specific
    body is scoped here */
 /* the tint is the shared .well atom (controls.scss) */
+/* the name sits above the paste box: what the list will be called, shown as its
+   placeholder so an untouched field still says what happens */
+.import__name {
+  width: 100%;
+  margin-bottom: var(--space-2);
+}
+.import__hint {
+  margin-top: var(--space-2);
+}
 .import__text {
   width: 100%;
   font-size: var(--text-base);

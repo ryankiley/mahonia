@@ -215,6 +215,7 @@ const RATE_LIMITS = {
   "report": 10,
   // catalog: autocomplete search is per-keystroke; corrections are rare writes
   "catalog-search": 240,
+  "catalog-match": 30, // one request per import, every row's name in it
   "catalog-use": 120,
   "catalog-changes": 60,
   "catalog-correct": 20,

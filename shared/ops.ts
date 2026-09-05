@@ -185,6 +185,16 @@ const META_RULES: {
 // bigint(mode:number) columns (MAX_ITEMS × qtyMax × UNIT_WEIGHT_MAX_MG < 2^53).
 export const MAX_ITEMS = 1000;
 export const MAX_FOLDERS = 50;
+// Text caps, one constant per field. The reducer, the whole-list normalizer, the
+// server, the JSON importer and the field's own maxlength all read the same number,
+// so none of them can drift: they had, and a field accepted 1,200 characters the
+// server then cut to 200 without a word.
+export const MAX_TITLE_LEN = 200;
+export const MAX_ITEM_NAME_LEN = 200;
+export const MAX_ITEM_NOTE_LEN = 2000;
+export const MAX_GEAR_TYPE_LEN = 120; // commonName
+export const MAX_FOLDER_NAME_LEN = 120;
+export const MAX_PERSON_NAME_LEN = 60;
 // Past this an itinerary stops being something a person hand-enters, and the per-day
 // model stops being the right tool for the trip. A bound on row size, like the two above,
 // not an opinion about how long a walk should be.
@@ -245,17 +255,17 @@ const cleanText = (raw: string, max: number) => tidyText(raw.slice(0, max));
 // Defensive clamps so a malformed op (or hostile client) can't corrupt state.
 function cleanItemPatch(patch: ItemPatch): Partial<Item> {
   const out: Partial<Item> = {};
-  if (typeof patch.name === "string") out.name = cleanText(patch.name, 200);
+  if (typeof patch.name === "string") out.name = cleanText(patch.name, MAX_ITEM_NAME_LEN);
   // brand/variant: a non-empty string sets it; "" clears it (so a free rename can
   // drop the catalog-derived brand/variant from a now-custom item). The emptiness test
   // reads the TIDIED value, so an all-whitespace field clears rather than storing " ".
   if (typeof patch.brand === "string") out.brand = cleanText(patch.brand, 120) || undefined;
   if (typeof patch.variant === "string") out.variant = cleanText(patch.variant, 120) || undefined;
   // common name: a non-empty string sets it; "" clears it (mirrors brand/variant)
-  if (typeof patch.commonName === "string") out.commonName = cleanText(patch.commonName, 120) || undefined;
+  if (typeof patch.commonName === "string") out.commonName = cleanText(patch.commonName, MAX_GEAR_TYPE_LEN) || undefined;
   if (typeof patch.commonNameOverridden === "boolean") out.commonNameOverridden = patch.commonNameOverridden;
   if (typeof patch.nameOverridden === "boolean") out.nameOverridden = patch.nameOverridden;
-  if (typeof patch.description === "string") out.description = cleanText(patch.description, 2000);
+  if (typeof patch.description === "string") out.description = cleanText(patch.description, MAX_ITEM_NOTE_LEN);
   // Scheme-checked like every other stored URL (trailUrl via normalizeTrailUrl, the
   // vault's own field via its ^https?:// gate). It had only a length clamp, so
   // "javascript:..." stored verbatim -- inert today, since nothing on a list surface
@@ -314,7 +324,7 @@ function cleanItemPatch(patch: ItemPatch): Partial<Item> {
 
 function cleanFolderPatch(patch: Partial<Folder>): Partial<Folder> {
   const out: Partial<Folder> = {};
-  if (typeof patch.name === "string") out.name = cleanText(patch.name, 120);
+  if (typeof patch.name === "string") out.name = cleanText(patch.name, MAX_FOLDER_NAME_LEN);
   if (typeof patch.colorKey === "string" && SAFE_COLOR_KEY.test(patch.colorKey)) out.colorKey = patch.colorKey;
   if (typeof patch.defaultClassification === "string" && CLASSES.includes(patch.defaultClassification))
     out.defaultClassification = patch.defaultClassification;
@@ -334,7 +344,7 @@ export function normalizePerson(raw: Person): Person {
     id: String(raw.id).slice(0, MAX_ID_LEN),
     // never nameless: an all-whitespace name would render an invisible, unclickable
     // chip, so it falls to a placeholder the owner can see to rename
-    name: cleanText(String(raw.name ?? ""), 60) || "Person",
+    name: cleanText(String(raw.name ?? ""), MAX_PERSON_NAME_LEN) || "Person",
     colorKey: raw.colorKey && SAFE_COLOR_KEY.test(String(raw.colorKey)) ? String(raw.colorKey) : "other",
     sortOrder: Number(raw.sortOrder) || 0,
   };
@@ -345,7 +355,7 @@ function cleanPersonPatch(patch: Partial<Person>): Partial<Person> {
   // a rename to nothing is IGNORED rather than stored — unlike brand ("" clears),
   // a person must keep a name; blurring an emptied field leaves the old one standing
   if (typeof patch.name === "string") {
-    const name = cleanText(patch.name, 60);
+    const name = cleanText(patch.name, MAX_PERSON_NAME_LEN);
     if (name) out.name = name;
   }
   if (typeof patch.colorKey === "string" && SAFE_COLOR_KEY.test(patch.colorKey)) out.colorKey = patch.colorKey;
@@ -701,7 +711,7 @@ function applyOp(state: ListState, op: Op): void {
       break;
     case "setMeta": {
       const p = op.patch || {};
-      if (typeof p.title === "string") state.title = cleanText(p.title, 200);
+      if (typeof p.title === "string") state.title = cleanText(p.title, MAX_TITLE_LEN);
       // tidyProse, not cleanText: the LIST description is the one field that can hold
       // paragraphs (no editor anywhere — it arrives from a LighterPack import or a JSON
       // backup), so it gets the apostrophes and the invisibles but keeps every line
@@ -795,10 +805,10 @@ export function normalizeItem(raw: Item): Item {
     // the item this is nested under (validated against real, top-level items by the
     // addItem/moveItem reducer cases, which can see the whole list; here we only clamp)
     parentId: typeof raw.parentId === "string" && raw.parentId ? raw.parentId.slice(0, MAX_ID_LEN) : null,
-    name: cleanText(String(raw.name ?? ""), 200),
+    name: cleanText(String(raw.name ?? ""), MAX_ITEM_NAME_LEN),
     brand: raw.brand ? cleanText(String(raw.brand), 120) || undefined : undefined,
     variant: raw.variant ? cleanText(String(raw.variant), 120) || undefined : undefined,
-    commonName: raw.commonName ? cleanText(String(raw.commonName), 120) || undefined : undefined,
+    commonName: raw.commonName ? cleanText(String(raw.commonName), MAX_GEAR_TYPE_LEN) || undefined : undefined,
     commonNameOverridden: raw.commonNameOverridden ? true : undefined,
     nameOverridden: raw.nameOverridden ? true : undefined,
     unitWeightMg: clampWeight(Number(raw.unitWeightMg) || 0),
@@ -865,7 +875,7 @@ export function tidyListText<T extends {
   items: Item[];
   people?: Person[];
 }>(list: T): T {
-  if (typeof list.title === "string") list.title = cleanText(list.title, 200);
+  if (typeof list.title === "string") list.title = cleanText(list.title, MAX_TITLE_LEN);
   // prose, so an imported description keeps its paragraphs — see the setMeta case
   if (typeof list.description === "string")
     list.description = tidyProse(list.description.slice(0, 4000));
@@ -875,14 +885,14 @@ export function tidyListText<T extends {
     if (label) list.trailLabel = label;
     else delete list.trailLabel;
   }
-  for (const f of list.folders) f.name = cleanText(f.name ?? "", 120) || "Folder";
-  for (const p of list.people ?? []) p.name = cleanText(p.name ?? "", 60) || "Person";
+  for (const f of list.folders) f.name = cleanText(f.name ?? "", MAX_FOLDER_NAME_LEN) || "Folder";
+  for (const p of list.people ?? []) p.name = cleanText(p.name ?? "", MAX_PERSON_NAME_LEN) || "Person";
   for (const it of list.items) {
-    it.name = cleanText(it.name ?? "", 200);
+    it.name = cleanText(it.name ?? "", MAX_ITEM_NAME_LEN);
     if (it.brand) it.brand = cleanText(it.brand, 120) || undefined;
     if (it.variant) it.variant = cleanText(it.variant, 120) || undefined;
-    if (it.commonName) it.commonName = cleanText(it.commonName, 120) || undefined;
-    if (it.description) it.description = cleanText(it.description, 2000) || undefined;
+    if (it.commonName) it.commonName = cleanText(it.commonName, MAX_GEAR_TYPE_LEN) || undefined;
+    if (it.description) it.description = cleanText(it.description, MAX_ITEM_NOTE_LEN) || undefined;
     // productUrl left alone — an apostrophe in a path is part of the address
   }
   return list;
@@ -891,7 +901,7 @@ export function tidyListText<T extends {
 export function normalizeFolder(raw: Folder): Folder {
   return {
     id: String(raw.id).slice(0, MAX_ID_LEN),
-    name: cleanText(String(raw.name ?? ""), 120) || "Folder",
+    name: cleanText(String(raw.name ?? ""), MAX_FOLDER_NAME_LEN) || "Folder",
     colorKey: raw.colorKey && SAFE_COLOR_KEY.test(String(raw.colorKey)) ? String(raw.colorKey) : "other",
     defaultClassification: CLASSES.includes(raw.defaultClassification)
       ? raw.defaultClassification

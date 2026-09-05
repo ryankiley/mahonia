@@ -1125,7 +1125,7 @@ onBeforeUnmount(() => {
     <figcaption class="routemap__note">
       <!-- The FAILURE stays in the open. It is not an instruction you go looking for, it
            is the reason the picture under it looks wrong, and it has to arrive unasked. -->
-      <span v-if="failed">Map tiles couldn't load — the route is still drawn.</span>
+      <span v-if="failed">Map tiles couldn't load. The route is still drawn.</span>
       <!-- The GESTURES fold into a (?), the same affordance the estimates use. Two
            sentences of instruction sat under the map permanently, and a caption you have
            read once is a caption you stop seeing while it goes on taking a line of the

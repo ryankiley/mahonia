@@ -7,7 +7,10 @@ import { MAX_FEEDBACK_LEN } from "~~/shared/feedback";
 // thing they came to say, and each one is answerable by whoever reads the issue.
 // The friction being near zero IS the design: the reports you never get are the ones
 // that needed a form filled in first.
-const props = defineProps<{ open: boolean }>();
+// preset + title: the read view's "Report list" opens this same box with the list's
+// address already in the message and its own heading — a report is feedback about one
+// list, and it reaches the maintainer the same way (GitHub issue, or the console)
+const props = defineProps<{ open: boolean; preset?: string; title?: string }>();
 const emit = defineEmits<{ close: [] }>();
 
 // the SAME cap the endpoint enforces — see shared/feedback.ts for why it is one
@@ -27,7 +30,7 @@ watch(
   () => props.open,
   (open) => {
     if (!open) return;
-    message.value = "";
+    message.value = props.preset ?? "";
     error.value = "";
     state.value = "idle";
     nextTick(() => boxRef.value?.focus());
@@ -54,9 +57,9 @@ async function send() {
 </script>
 
 <template>
-  <BaseModal :open="open" label="Send feedback" @close="emit('close')">
+  <BaseModal :open="open" :label="title ?? 'Send feedback'" @close="emit('close')">
     <div class="fb">
-      <h2 class="t-label fb__title">Send feedback</h2>
+      <h2 class="t-label fb__title">{{ title ?? "Send feedback" }}</h2>
 
       <template v-if="state === 'sent'">
         <p class="t-sm">Thanks. That’s been sent.</p>
@@ -85,11 +88,11 @@ async function send() {
                words, is the whole point: someone will otherwise paste an email
                address or a whole gear list into a repository anyone can read. It is a
                requirement of the feature, not a disclaimer. -->
-          <p class="t-sm t-muted fb__notice">
-            This is posted publicly to the issue tracker. Don’t include anything private.
-          </p>
           <p class="t-sm t-muted t-num fb__count" :class="{ 'is-low': remaining <= 50 }">
             {{ remaining }}
+          </p>
+          <p class="t-sm t-muted fb__notice">
+            This is posted publicly to the issue tracker. Don’t include anything private.
           </p>
         </div>
 
@@ -127,14 +130,16 @@ async function send() {
      this one just never got the fix. It scrolls, which is what it did past 7rem anyway. */
   resize: none;
 }
+/* Two lines, not one: the count is a caption on the box (tight under its corner, the
+   box's own right edge), and the notice is a sentence with a line of its own. Side by
+   side, the sentence wrapped under a number that then hung off its first line. */
 .fb__meta {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-3);
+  display: grid;
+  gap: var(--space-2);
 }
-.fb__notice {
-  flex: 1;
+.fb__count {
+  justify-self: end;
+  margin-top: calc(-1 * var(--space-2));
 }
 /* the count is information, not an alarm — it only stops being muted once it is
    close enough to matter */

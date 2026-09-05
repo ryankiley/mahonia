@@ -77,23 +77,28 @@ function runExport(run: () => Promise<void>) {
 }
 
 const { copying, copyList } = useCopyList();
-const { confirm: askConfirm, showLinkFallback } = useDialogs();
+const { showLinkFallback } = useDialogs();
 
-// "Report list" — flag a public list for review. Only offered when the list is
-// public (the Terms scope reporting to public lists, and a private share has
-// nothing on the feed to withhold). Hidden once reported so the ⋯ item doesn't
-// invite a second, no-op tap. See /api/lists/report for the distinct-reporter
-// threshold that actually withholds a list.
-const reported = ref(false);
-
+// "Report list" is feedback about one list: it opens the feedback box with the list's
+// address already in the message, and reaches the maintainer the way feedback does.
+// It used to flag the row server-side, gated on isPublic — which no list ever was, so
+// nobody ever saw it; and a flag any link-holder could raise on a private list would
+// have been a way to take down someone's list. /api/lists/report stays for that design.
 function runMenu(action: string) {
   menuOpen.value = false;
   switch (action) {
     case "copy": return void copyThis();
     case "link": return void copyLink();
     // the exports are EXPORT_ITEMS' — see runExport
-    case "report": return void reportThis();
+    case "report":
+      feedbackTitle.value = "Report this list";
+      feedbackPreset.value = `Reporting the shared list at ${location.origin}/s/${props.snapshot.shareCode}. What's wrong with it: `;
+      feedbackEverOpened.value = true;
+      feedbackOpen.value = true;
+      return;
     case "feedback":
+      feedbackTitle.value = undefined;
+      feedbackPreset.value = undefined;
       feedbackEverOpened.value = true;
       feedbackOpen.value = true;
       return;
@@ -108,23 +113,9 @@ function runMenu(action: string) {
 // Lazy + everOpened, so a reader who never sends anything pays nothing for it.
 const feedbackOpen = ref(false);
 const feedbackEverOpened = ref(false);
-
-async function reportThis() {
-  if (reported.value) return;
-  if (!(await askConfirm({
-    title: "Report this list",
-    message: "Report this list as spam or inappropriate? Reports are reviewed, and a list is withheld from public discovery once enough people flag it.",
-    confirmLabel: "Report",
-  }))) return;
-  try {
-    await $fetch("/api/lists/report", { method: "POST", body: { slug: props.snapshot.slug } });
-    reported.value = true;
-    flash("Reported. Thanks, we’ll take a look.");
-  } catch {
-    // best-effort affordance — a failed report just asks the viewer to retry
-    flash("Couldn’t report. Try again.");
-  }
-}
+// what the box opens with: a report seeds both; plain feedback clears them
+const feedbackPreset = ref<string | undefined>();
+const feedbackTitle = ref<string | undefined>();
 
 async function copyThis() {
   // success navigates to the new copy's editor, so only a failure needs a word here
@@ -235,13 +226,13 @@ async function copyLink() {
           </Transition>
         </li>
         <!-- moderation, not a read of the list — set off from the rows above by the
-             shared .menu__foot hairline (controls.scss), and only for public lists (per
-             the Terms) that aren't yet reported. The reader's counterpart to the editor's
+             shared .menu__foot hairline (controls.scss), on every shared list (the Terms
+             say a list can be reported, and now one can). The reader's counterpart to the editor's
              foot: both sit under the rule, both are the row that takes a list off
              something, and both now draw that rule from one place — this one had its own
              copy at --space-2, a step further off than the other two for no reason
              anyone chose. -->
-        <li v-if="snapshot.isPublic && !reported" role="none" class="menu__foot">
+        <li role="none" class="menu__foot">
           <!-- A FLAG, the one mark this menu doesn't share with the editor's, because
                the editor has no row to share it with — an owner doesn't report their own
                list. It is the convention every feed uses for exactly this, which matters
@@ -256,7 +247,7 @@ async function copyLink() {
       </ul>
     </Transition>
 
-    <LazyFeedbackModal v-if="feedbackEverOpened" :open="feedbackOpen" @close="feedbackOpen = false" />
+    <LazyFeedbackModal v-if="feedbackEverOpened" :open="feedbackOpen" :preset="feedbackPreset" :title="feedbackTitle" @close="feedbackOpen = false" />
 
     <!-- to body so the fixed toast escapes the topbar's stacking/overflow context;
          the pill + its motion come from the shared .toast atom (controls.scss) -->

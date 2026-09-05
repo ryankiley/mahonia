@@ -21,6 +21,7 @@ import {
   normalizeWaypoint,
   tidyListText,
   type Op,
+  MAX_TITLE_LEN,
 } from "../../shared/ops";
 import { UNASSIGNED, uniquifyPersonNames } from "../../shared/people";
 import { computeTotals } from "../../shared/weights";
@@ -650,7 +651,7 @@ export async function restoreSnapshotByEditHash(
   // folder name in this same restore. Without it one operation returns an internally
   // inconsistent list — rows reading "Ryan’s tent" under a title still reading
   // "  Ryan's   Trip  " — which is the mixed state the tidy exists to remove.
-  const title = tidyText((s.title ?? "").slice(0, 200)) || "Untitled list";
+  const title = tidyText((s.title ?? "").slice(0, MAX_TITLE_LEN)) || "Untitled list";
   const displayUnit: Unit = UNITS.includes(s.displayUnit as Unit) ? (s.displayUnit as Unit) : "g";
   // restore writes title/description like a mutate does, so it's the same link-spam
   // vector: publish clean, then restore a link-stuffed earlier snapshot. Re-check
@@ -871,7 +872,7 @@ export async function createList(init?: {
   // straight apostrophe (and the stray spaces) that the identical rename after saving
   // would have tidied. The `||` fallback still reads the tidied value, so a
   // whitespace-only title is "Untitled list" and not a bare "-a1b2c3" slug.
-  const title = tidyText(init?.title?.slice(0, 200) ?? "") || "Untitled list";
+  const title = tidyText(init?.title?.slice(0, MAX_TITLE_LEN) ?? "") || "Untitled list";
   // tidyProse, matching the setMeta case — apostrophes and invisibles yes, line
   // breaks kept, because this is the one text field that can hold paragraphs
   const description = init?.description

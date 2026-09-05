@@ -287,7 +287,7 @@ describe("the save button, against what My Gear actually holds", () => {
     await vaultBtn(w).trigger("click");
     await vi.waitFor(() => expect(w.emitted("toast")).toBeTruthy());
     expect(w.emitted("toast")![0]![0]).toBe(
-      "This is in your removed gear — put it back in My Gear first",
+      "This is in your removed gear. Put it back in My Gear first",
     );
     // and it does NOT claim the tick
     expect(vaultBtn(w).attributes("aria-label")).toBe("Save to My Gear");
@@ -299,7 +299,7 @@ describe("the save button, against what My Gear actually holds", () => {
     const w = mountRow(gear());
     await vaultBtn(w).trigger("click");
     await vi.waitFor(() => expect(w.emitted("toast")).toBeTruthy());
-    expect(w.emitted("toast")![0]![0]).toBe("My Gear is full — remove something there to make room");
+    expect(w.emitted("toast")![0]![0]).toBe("My Gear is full. Remove something there to make room");
     w.unmount();
   });
 

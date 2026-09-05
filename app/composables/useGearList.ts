@@ -38,6 +38,9 @@ function create() {
   // plain getters below can't be tracked, and the chrome needs to hide the
   // token-only affordances (Forget, the copyable edit link) on a claimed open.
   const openedByCode = ref(false);
+  // the share code of a fragment-less /e/{code} opened with no session: the link
+  // lost its edit key, so the page explains instead of minting a draft (startKeyless)
+  const keylessCode = ref("");
   let pending: Op[] = [];
   let flushTimer: ReturnType<typeof setTimeout> | undefined;
   // The failure path's own timer, kept apart from flushTimer so a backoff already
@@ -448,6 +451,7 @@ function create() {
     // returns key the same IndexedDB record and claimed-lists row
     claimCode = editToken ? "" : normalizeShareCode(cap.code);
     openedByCode.value = !editToken && !!claimCode;
+    keylessCode.value = "";
     resetSession();
     snapshot.value = null;
     status.value = "loading";
@@ -509,7 +513,7 @@ function create() {
       const colorKeys = merged.folders.map((f) => f.colorKey ?? "other");
       merged.folders.forEach((f, i) => {
         if (colorKeys[i] !== "other") return;
-        const colorKey = nextFolderColor(colorKeys);
+        const colorKey = colorKeyForName(f.name, colorKeys);
         colorKeys[i] = colorKey;
         updateFolder(f.id, { colorKey });
       });
@@ -582,6 +586,23 @@ function create() {
   // "Has content" — the gate on persisting a draft at all — is hasRealContent in
   // shared/localList, shared with the sync line so both read the same rule.
 
+  // A fragment-less /e/{code} from a visitor with no session: the link lost its edit
+  // key, so nothing here can open the list for editing, and no request is worth
+  // making. Same honest dead-end as a dead token, minus the fetch; the page used to
+  // mint a fresh draft under the dead address, which read as "the list is empty".
+  // The code is kept so the page can offer the read-only view it also opens.
+  function startKeyless(code: string) {
+    epoch++;
+    editToken = "";
+    claimCode = "";
+    openedByCode.value = false;
+    resetSession();
+    installListeners();
+    snapshot.value = null;
+    keylessCode.value = code;
+    status.value = "missing";
+  }
+
   // Open a fresh, NOT-yet-persisted list (starter folders, no items). It lives only
   // in memory until the first real content lands (createFromDraft), so a visitor who
   // never adds anything never creates a server row.
@@ -591,6 +612,7 @@ function create() {
     editToken = "";
     claimCode = "";
     openedByCode.value = false;
+    keylessCode.value = "";
     resetSession();
     installListeners();
     // A draft has no gear to ask about yet; settle it so nothing renders as
@@ -1337,6 +1359,7 @@ function create() {
       // behaves from now on exactly as if the link had been opened directly.
       claimCode = "";
       openedByCode.value = false;
+      keylessCode.value = "";
       // The vault answer rides along. It's keyed by the token, but it answers a
       // question about the GEAR ("is this list's gear mine?"), and a rotate is the
       // owner cycling a leaked link on a list they've already answered for. Losing
@@ -1410,6 +1433,7 @@ function create() {
     editToken = "";
     claimCode = "";
     openedByCode.value = false;
+    keylessCode.value = "";
     resetSession();
     status.value = "idle";
   }
@@ -1420,6 +1444,8 @@ function create() {
     get claimCode() { return claimCode; },
     get epoch() { return epoch; },
     openedByCode,
+    keylessCode,
+    startKeyless,
     authHeaders,
     load, startDraft, dispose, rotate,
     setMeta, setUnit, addFolder, updateFolder, removeFolder, moveFolderBefore,

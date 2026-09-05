@@ -74,6 +74,16 @@ $bp-full: 1024px !default;
     color-mix(in oklab, var(--ink) 6.5%, transparent),
     color-mix(in oklab, var(--ink) 8.5%, transparent)
   );
+  /* ---- --lit under the pointer. A selected control still answers a hover (Ryan,
+     2026-09-05): one step of ink up from its plate, so "on" and "on, and you're about
+     to press it" are two tones. The mode tabs, the person filter, the People swatches
+     and the row's Worn/Consumable mark all read this one token, the way they all read
+     --lit — one tone for "on", one for "on and hovered". Two percentages, for --lit's
+     reason. Pointer-gated wherever it's used, like every hover in the app. ---- */
+  --lit-hover: light-dark(
+    color-mix(in oklab, var(--ink) 10%, transparent),
+    color-mix(in oklab, var(--ink) 12.5%, transparent)
+  );
   /* ---- the WELL: a control that is OFF, held as an empty track for its knob (the
      Worn/Consumable switch). --lit's counterpart, and the same kind of token for the
      same reason — an AMOUNT OF INK and not a named tone, because that switch's first
@@ -253,6 +263,16 @@ $bp-full: 1024px !default;
   /* ---- motion: one signature ease (SPACE10's expo-out workhorse) ---- */
   --ease: cubic-bezier(0.19, 1, 0.22, 1);
   --ease-spring: cubic-bezier(0.34, 1.4, 0.5, 1);
+  /* IN-FLOW DISCLOSURES — a row's second line (gear type + note), the ⋯ menu's Export
+     group, the sharing panel's log (.reveal, controls.scss). Height that pushes the
+     page around wants a gentler shape than the expo-out, which spends 80% of its
+     travel in the first 60ms and read as a snap with a soft landing — worst on the
+     way shut (Ryan, 2026-09-05). Open decelerates (ease-out-cubic), close accelerates
+     (ease-in-cubic), each over a beat that stays proportional to --dur so the
+     reduced-motion switch zeroes it too. */
+  --ease-open: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-close: cubic-bezier(0.55, 0.06, 0.68, 0.19);
+  --dur-reveal: calc(var(--dur) * 1.2);
   /* FLOATING CHROME ONLY — the two curves the tooltip's reveal/dismiss uses, brought
      over from the portfolio with the component. Not a second signature ease: nothing
      in the document flow may take them, and --ease stays the app's one workhorse.

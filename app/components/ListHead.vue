@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
 import { Calendar03Icon, ChevronDownIcon, Copy01Icon, Delete02Icon, Edit02Icon, GlobeIcon, HelpCircleIcon, Location01Icon } from "@hugeicons/core-free-icons";
+import { MAX_TITLE_LEN } from "~~/shared/ops";
 import {
   distanceFieldValue,
   formatDistance,
@@ -357,6 +358,7 @@ onClickOutside(trailEl, closeTrail);
         ref="titleEl"
         class="field head__title"
         rows="1"
+        :maxlength="MAX_TITLE_LEN"
         :value="draftTitle"
         placeholder="List name"
         aria-label="List name"
@@ -546,6 +548,13 @@ onClickOutside(trailEl, closeTrail);
         @focusout="onFocusOut"
         @keyup.escape="mode = null"
       >
+        <!-- one line before the two fields, because they were two fields and no words:
+             what a link does and what a file does. A span, not a p — the panel is
+             phrasing content — set to block below. -->
+        <span class="t-sm t-muted head__panellede">
+          A link keeps the route with the list. A map file adds its distance and climb; it's
+          read here in your browser and never uploaded.
+        </span>
         <!-- TWO ways in now, which is why the affordance above says "Add a trail" rather
              than naming either of them. A LINK is the common one, so it stays first and
              unadorned. A GPX is the richer one — it carries the distance and the shape of
@@ -574,7 +583,7 @@ onClickOutside(trailEl, closeTrail);
             {{ gpxBusy ? "Reading…" : snapshot.trailProfile ? "Replace map file" : "Import map file" }}
           </label>
           <Tooltip
-            text="GPX, KML, KMZ, TCX, GeoJSON or GeoRSS. Reads the route's distance and the shape of its climb — the file is read here in your browser and never uploaded."
+            text="GPX, KML, KMZ, TCX, GeoJSON or GeoRSS. Reads the route's distance and the shape of its climb. The file is read here in your browser and never uploaded."
             preferred-placement="bottom"
           >
             <button type="button" class="head__gpxwhy" aria-label="Which map files can be read">
@@ -1026,6 +1035,10 @@ onClickOutside(trailEl, closeTrail);
    subordinate to the fields and row beneath them. A label
    belongs to the field UNDER it, so it sits closer to that field (8) than the field above
    sits to it (16, set on the adjacent-sibling rule below). */
+.head__panellede {
+  display: block;
+  margin-block-end: var(--space-3);
+}
 .head__panellabel {
   margin-block-end: var(--space-2);
   color: var(--ink-3);

@@ -129,30 +129,140 @@ export function isExactOrPrefixMatch(query: string, target: string): boolean {
   return false;
 }
 
+/** Fold + split once, for the token-level helpers below. */
+function tokens(s: string | null | undefined): string[] {
+  const folded = foldForSearch(s ?? "");
+  return folded ? folded.split(/\s+/) : [];
+}
+
 /**
- * Match-quality tier for ORDERING ONLY (0 = best). `brandName` is the exact/prefix
- * target (brand + name, no search_terms — a category noun shouldn't count as typing
- * the name). `score` is the already-computed base trigramScore against the FULL
- * target (brand + name + search_terms), reused here so Tier 1 still rewards the
- * "tent"→Copper Spur / "rucksack"→pack matches that live in search_terms. This is a
- * SEPARATE signal — it never calls into or changes trigramScore.
+ * Whether `query` names the row's KIND of gear: its tokens are a leading run of the
+ * row's common-name tokens, the last one still being typed ("sleeping b" → "Sleeping
+ * bag", and "Sleeping bag liner"). 0 = no; 1 = a leading prefix of a longer type;
+ * 2 = the whole type. The 1/2 split breaks the tie the word-match ranker couldn't:
+ * "sleeping bag" is the whole of "Sleeping bag" and only a prefix of "Sleeping bag
+ * liner", so bags outrank liners; "tent" is the whole of "Tent" and nothing of
+ * "Groundsheet", so a ground cloth with "Tent" in its NAME no longer beats every tent
+ * whose name never says the word. common_name is the curated type; search_terms is
+ * derived from the name's words and can't be trusted for this (that ground cloth's
+ * search_terms ARE "tent").
  */
-export function matchTier(query: string, brandName: string, score: number): 0 | 1 | 2 {
-  if (isExactOrPrefixMatch(query, brandName)) return 0; // exact / prefix / word-boundary-prefix
-  if (score >= STRONG_THRESHOLD) return 1; // strong fuzzy match
-  return 2; // cleared the SIM_THRESHOLD gate but weak
+export function typeMatch(query: string, commonName: string | null | undefined): 0 | 1 | 2 {
+  const qt = tokens(query);
+  const tt = tokens(commonName);
+  if (!qt.length || !tt.length || qt.length > tt.length) return 0;
+  for (let k = 0; k < qt.length - 1; k++) if (qt[k] !== tt[k]) return 0;
+  if (!tt[qt.length - 1]!.startsWith(qt[qt.length - 1]!)) return 0;
+  return qt.length === tt.length ? 2 : 1;
+}
+
+/**
+ * Whether some query token (3+ chars, so "ul" or "2" can't anchor a match) starts a
+ * target token. The word-boundary evidence a "strong" fuzzy match has to show:
+ * trigram coverage alone let "battery" clear 0.6 against "Klättermusen … dry bag" on
+ * the strength of "att", "tte", "ter" and " ba".
+ */
+export function hasTokenHit(query: string, target: string): boolean {
+  const tt = tokens(target);
+  return tokens(query).some((q) => q.length >= 3 && tt.some((t) => t.startsWith(q)));
+}
+
+/**
+ * Whether the query is a contiguous run of the row's search terms — the derived
+ * category noun and its synonyms ("puffy" in "down jacket puffy"), last token still
+ * being typed. Decides only that a query names a KIND of gear (see the diversity
+ * cap in rankCandidates); it never ranks a row.
+ */
+export function isSearchTermRun(query: string, searchTerms: string | null | undefined): boolean {
+  const qt = tokens(query);
+  const tt = tokens(searchTerms);
+  if (!qt.length || qt.length > tt.length) return false;
+  const last = qt.length - 1;
+  for (let i = 0; i + qt.length <= tt.length; i++) {
+    let ok = true;
+    for (let k = 0; k < last; k++)
+      if (tt[i + k] !== qt[k]) {
+        ok = false;
+        break;
+      }
+    if (ok && tt[i + last]!.startsWith(qt[last]!)) return true;
+  }
+  return false;
+}
+
+export type MatchTier = 0 | 1 | 2 | 3;
+
+/**
+ * Match-quality tier for ORDERING ONLY (0 = best).
+ *   0  the query names the row's kind of gear (typeMatch on common_name)
+ *   1  exact / prefix / word-boundary-prefix on brand + name — "I typed the name"
+ *   2  strong fuzzy: score ≥ STRONG_THRESHOLD AND a word-boundary token hit
+ *   3  cleared the SIM_THRESHOLD gate but weak (a typo's recall, kept only when
+ *      nothing better matched — see the junk filter in rankCandidates)
+ * `brandName` is the prefix target (brand + name, no search_terms — a category noun
+ * shouldn't count as typing the name). `score` is the base trigramScore against the
+ * FULL target (brand + name + search_terms), reused so tier 2 still rewards the
+ * "rucksack"→pack matches that live in search_terms.
+ */
+export function matchTier(
+  query: string,
+  brandName: string,
+  score: number,
+  commonName?: string | null,
+  searchTerms?: string | null,
+): MatchTier {
+  if (typeMatch(query, commonName)) return 0;
+  if (isExactOrPrefixMatch(query, brandName)) return 1;
+  if (score >= STRONG_THRESHOLD && hasTokenHit(query, `${brandName} ${searchTerms ?? ""}`)) return 2;
+  return 3;
+}
+
+/** Per-product and per-brand caps for a query that names a kind of gear, so one pad
+ *  in five sizes or one brand's eight socks can't take the whole menu: twelve slots
+ *  become six brands, two rows each (a Men's/Women's pair survives the product cap). Sizes come
+ *  straight back the moment the query names the product ("tensor"), because the cap
+ *  applies to generic queries only. An unbranded row escapes the brand cap: "" is
+ *  not a brand, and lumping every generic item together would hide them. */
+const FAMILY_CAP = 2;
+const BRAND_CAP = 2;
+
+function diversify<T extends { row: LocalCatalogRow }>(sorted: T[], limit: number): T[] {
+  const perFamily = new Map<string, number>();
+  const perBrand = new Map<string, number>();
+  const picked: T[] = [];
+  const overflow: T[] = [];
+  for (const r of sorted) {
+    const brand = foldForSearch(r.row.brand ?? "");
+    const family = `${brand}|${foldForSearch(r.row.name)}`;
+    const famN = perFamily.get(family) ?? 0;
+    const brandN = perBrand.get(brand) ?? 0;
+    if (famN >= FAMILY_CAP || (brand && brandN >= BRAND_CAP)) {
+      overflow.push(r);
+      continue;
+    }
+    perFamily.set(family, famN + 1);
+    perBrand.set(brand, brandN + 1);
+    picked.push(r);
+  }
+  // the caps spread the menu; they never shorten it — when the spread runs out, the
+  // capped rows fill the remaining slots in their original order
+  return picked.length >= limit ? picked.slice(0, limit) : [...picked, ...overflow].slice(0, limit);
 }
 
 /**
  * The single source of truth for autocomplete ordering, applied identically to the
  * Neon candidate pool and the PGlite/offline table (its whole-table rows ARE the
  * pool). Two-stage: the caller's SQL/scan does coarse recall; this does the fine
- * ranking. Gate at `SIM_THRESHOLD`, then order by a relevance-tier cascade —
- *   tier ASC → verified DESC → usage_count DESC → base score DESC → id ASC
- * — so a clearly-better textual match (exact/prefix) can outrank a verified-but-
- * weaker one ("best match can win"), while among comparable matches verified then
- * usage still decide. The trailing `id ASC` is a deterministic tiebreak: without it
- * equal-scoring rows could swap between keystrokes. Capped at `limit`.
+ * ranking. Gate at `SIM_THRESHOLD`, drop the weak tier when anything better
+ * matched, then order by a relevance cascade —
+ *   tier ASC → whole-type before type-prefix → verified DESC → usage_count DESC →
+ *   base score DESC → id ASC
+ * — so a clearly-better match can outrank a verified-but-weaker one ("best match can
+ * win"), while among comparable matches verified then usage still decide. The
+ * trailing `id ASC` is a deterministic tiebreak: without it equal-scoring rows could
+ * swap between keystrokes. When the query names a KIND of gear rather than a product
+ * or brand, the diversity caps above spread the result across products and brands.
+ * Capped at `limit`.
  */
 export function rankCandidates(
   rows: LocalCatalogRow[],
@@ -161,37 +271,62 @@ export function rankCandidates(
 ): CatalogSearchResult[] {
   const q = (rawQuery ?? "").trim();
   if (q.length < 2) return []; // 1 char is too noisy for trigram autocomplete
-  return rows
+  const scored = rows
     .map((r) => {
       const brandName = itemDisplayName(r.brand, r.name);
       // Score against name AND the derived search terms, mirroring the Neon target
       // (coalesce(brand,'') || ' ' || name || ' ' || coalesce(search_terms,'')).
       const score = trigramScore(q, `${brandName} ${r.searchTerms ?? ""}`);
-      return { row: r, score, tier: matchTier(q, brandName, score) };
+      return {
+        row: r,
+        score,
+        type: typeMatch(q, r.commonName),
+        tier: matchTier(q, brandName, score, r.commonName, r.searchTerms),
+      };
     })
-    .filter((r) => r.score >= SIM_THRESHOLD)
-    .sort(
-      (a, b) =>
-        a.tier - b.tier ||
-        Number(b.row.verified) - Number(a.row.verified) ||
-        b.row.usageCount - a.row.usageCount ||
-        b.score - a.score ||
-        a.row.id - b.row.id,
-    )
-    .slice(0, limit)
-    .map(({ row }) => ({
-      id: row.id,
-      brand: row.brand,
-      name: row.name,
-      variant: row.variant,
-      weightMg: Number(row.weightMg),
-      weightSource: row.weightSource,
-      verified: Boolean(row.verified),
-      searchTerms: row.searchTerms ?? null,
-      commonName: row.commonName ?? null,
-      categoryHint: row.categoryHint ?? null,
-      kcal: row.kcal ?? null,
-    }));
+    .filter((r) => r.score >= SIM_THRESHOLD);
+  // Junk filter: a weak trigram match is a typo's safety net, not a peer of a real
+  // hit. With anything better in the pool it only pads the menu ("copper spur" once
+  // ended in a compass and a spoon cover). With nothing better it IS the answer for
+  // a single word (a typo of one word looks like this) — but a multi-word query that
+  // starts no word of any row is a custom name ("my car keys"), and twelve
+  // look-alikes under it are noise: the menu stays shut and the typed text stands.
+  const anyReal = scored.some((r) => r.tier < 3);
+  const kept = anyReal ? scored.filter((r) => r.tier < 3) : tokens(q).length > 1 ? [] : scored;
+  kept.sort(
+    (a, b) =>
+      a.tier - b.tier ||
+      b.type - a.type ||
+      Number(b.row.verified) - Number(a.row.verified) ||
+      b.row.usageCount - a.row.usageCount ||
+      b.score - a.score ||
+      a.row.id - b.row.id,
+  );
+  // a query that names a kind of gear — a common name, or a derived noun/synonym —
+  // gets the spread; a product or brand name gets every size it has
+  const generic = scored.some((r) => r.type > 0 || isSearchTermRun(q, r.row.searchTerms));
+  const ordered = generic ? diversify(kept, limit) : kept.slice(0, limit);
+  return ordered.map(({ row }) => toCatalogResult(row));
+}
+
+/** A loaded/ranked row in the autocomplete's result shape: usageCount dropped, the
+ *  weight a number (bigint columns arrive as strings on Neon), nullable fields null.
+ *  The one place the shape is spelled out — the ranker and the import matcher's
+ *  whole-table read (server/utils/catalog.ts) both go through it. */
+export function toCatalogResult(row: LocalCatalogRow): CatalogSearchResult {
+  return {
+    id: row.id,
+    brand: row.brand,
+    name: row.name,
+    variant: row.variant,
+    weightMg: Number(row.weightMg),
+    weightSource: row.weightSource,
+    verified: Boolean(row.verified),
+    searchTerms: row.searchTerms ?? null,
+    commonName: row.commonName ?? null,
+    categoryHint: row.categoryHint ?? null,
+    kcal: row.kcal ?? null,
+  };
 }
 
 /**

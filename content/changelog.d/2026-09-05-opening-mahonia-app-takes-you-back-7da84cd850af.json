@@ -1,0 +1,7 @@
+{
+  "date": "2026-09-05",
+  "changed": [
+    "Opening mahonia.app takes you back to the list you had open last. New list is one click away in the packs menu, and the first time you land this way the menu points out where your other lists are.",
+    "The list menu no longer offers Export or Duplicate for an empty, unsaved list."
+  ]
+}

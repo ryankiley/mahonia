@@ -91,7 +91,9 @@
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  gap: var(--space-2);
+  /* a quiet Cancel beside a filled primary: --space-2 put the word against the pill's
+     edge, and the two read as one control (Ryan, 2026-09-05). Every dialog's row. */
+  gap: var(--space-4);
   margin-top: var(--space-2);
 }
 .ovl-enter-active,

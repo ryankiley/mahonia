@@ -2,7 +2,7 @@
 import { HugeiconsIcon } from "~/utils/hugeicon";
 import { Delete02Icon } from "@hugeicons/core-free-icons";
 import { categoryColor, FOLDER_PALETTE } from "~~/shared/categories";
-import { MAX_PEOPLE } from "~~/shared/ops";
+import { MAX_PEOPLE, MAX_PERSON_NAME_LEN } from "~~/shared/ops";
 import { filterItemsForPerson, personColor, personNameTaken, sortedPeople } from "~~/shared/people";
 import type { Person } from "~~/shared/types";
 
@@ -98,7 +98,7 @@ function remove(p: Person) {
     <h2 class="t-label">People</h2>
     <p class="t-sm t-muted dlg__lede">
       Name who’s on this trip, then mark who carries what as you go down the list.
-      Removing someone keeps their gear — it just goes back up for grabs.
+      Removing someone keeps their gear; it just goes back up for grabs.
       Filter to Unassigned to see what nobody has yet.
     </p>
 
@@ -120,7 +120,7 @@ function remove(p: Person) {
             :aria-label="`Rename ${p.name}`"
             autocomplete="off"
             spellcheck="false"
-            maxlength="60"
+            :maxlength="MAX_PERSON_NAME_LEN"
             @change="rename(p, $event)"
             @keydown.enter="($event.target as HTMLInputElement).blur()"
           />
@@ -169,11 +169,11 @@ function remove(p: Person) {
         v-model="draft"
         @input="clash = ''"
         class="field ppl__addfield"
-        :placeholder="people.length ? 'Add another person' : 'Add a person — “Sam”'"
+        :placeholder="people.length ? 'Add another person' : 'Add a person, like “Sam”'"
         aria-label="Add a person"
         autocomplete="off"
         spellcheck="false"
-        maxlength="60"
+        :maxlength="MAX_PERSON_NAME_LEN"
         :disabled="atCap"
       />
       <button type="submit" class="btn btn--quiet ppl__addbtn" :disabled="atCap || !draft.trim()">Add</button>
@@ -270,6 +270,9 @@ function remove(p: Person) {
 @media (hover: hover) and (pointer: fine) {
   button.ppl__swatchbtn:hover {
     background: var(--lit);
+  }
+  button.ppl__swatchbtn.is-active:hover {
+    background: var(--lit-hover); /* the chosen swatch answers the pointer too */
   }
 }
 .ppl__swatchbtn:focus-visible {

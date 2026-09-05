@@ -66,3 +66,19 @@ export function mergeSwitcherRows(
   }
   return rows;
 }
+
+/** Where the bare address lands: the list this browser opened most recently, or
+ *  null when it holds none (→ a fresh draft). Device rows only, and only ones with
+ *  an edit token: a claimed-only row is as good as the session behind it, and the
+ *  bare address is what a bookmark opens signed out and offline. Ties (same
+ *  lastOpened, or entries from before the field) keep registry order. */
+export function resumeTarget(
+  device: Pick<MyListEntry, "editToken" | "shareCode" | "lastOpened">[],
+): { to: string; shareCode: string } | null {
+  let best: (typeof device)[number] | undefined;
+  for (const e of device) {
+    if (!e.editToken) continue;
+    if (!best || (e.lastOpened ?? 0) > (best.lastOpened ?? 0)) best = e;
+  }
+  return best ? { to: editLinkPath(best.shareCode, best.editToken), shareCode: best.shareCode } : null;
+}

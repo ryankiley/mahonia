@@ -48,6 +48,7 @@ import { HugeiconsIcon, type IconNode } from "~/utils/hugeicon";
 import { CalculateIcon, Cancel01Icon, CheckIcon, CheckmarkSquare02Icon, ChevronDownIcon, CircleEllipsisIcon, CookieIcon, Delete02Icon, DropletIcon, GripVerticalIcon, LayerAddIcon, ListIndentDecreaseIcon, ListIndentIncreaseIcon, ListPlusIcon, MinusSignIcon, NodeAddIcon, PlusSignIcon, SafeBoxIcon, ShirtIcon, SquareIcon, UserIcon } from "@hugeicons/core-free-icons";
 import type { Item, ListSnapshot } from "~~/shared/types";
 import type { ItemPatch } from "~~/shared/ops";
+import { MAX_GEAR_TYPE_LEN, MAX_ITEM_NOTE_LEN } from "~~/shared/ops";
 import { effectivePersonId, personColor } from "~~/shared/people";
 import type { NameCommit } from "~/composables/useCatalogSearch";
 import { bySortOrder, effectiveClassification, entryUnitFromInput, formatKcal, formatWeight, fromMg, groupLineMg, itemDisplayName, parseWeightInput, rowDisplayMg, siblingItems, splitWornQty, storedClassification } from "~~/shared/weights";
@@ -966,15 +967,15 @@ async function onSaveToVault() {
       // — so "try again in a moment" would be a lie and a loop. Say where the way
       // back is, in the words that page uses for it.
       : result === "removed"
-        ? "This is in your removed gear — put it back in My Gear first"
+        ? "This is in your removed gear. Put it back in My Gear first"
         // ...and a vault with no room is NOT that: there is nothing in the removed
         // list to find, so the message above would send you looking forever.
         : result === "full"
-        ? "My Gear is full — remove something there to make room"
+        ? "My Gear is full. Remove something there to make room"
         // the vault belongs to an account, so signed out there is nowhere to put it.
         // Naming that is the difference between a dead button and a next step.
         : hasVault.value
-          ? "Couldn’t reach My Gear — try again in a moment"
+          ? "Couldn’t reach My Gear. Try again in a moment"
           : "Sign in to keep your gear",
   );
 }
@@ -1190,6 +1191,7 @@ function dismissFix() {
                 v-if="cnameShown"
                 ref="cnameRef"
                 class="item__note item__gtype-input"
+                :maxlength="MAX_GEAR_TYPE_LEN"
                 :value="item.commonName ?? ''"
                 placeholder="Type of gear"
                 aria-label="Gear type"
@@ -1213,6 +1215,7 @@ function dismissFix() {
                 ref="noteRef"
                 class="item__note"
                 rows="1"
+                :maxlength="MAX_ITEM_NOTE_LEN"
                 :value="item.description ?? ''"
                 placeholder="Add a note"
                 aria-label="Item note"
@@ -1327,6 +1330,7 @@ function dismissFix() {
             autocapitalize="off"
             spellcheck="false"
             :readonly="isWater || isParent"
+            :tabindex="isWater || isParent ? -1 : undefined"
             :title="isParent ? 'Total of this group' : undefined"
             @focus="onWeightFocus"
             @change="onWeight"
@@ -1457,7 +1461,7 @@ function dismissFix() {
                       type="button"
                       role="switch"
                       :aria-checked="isConsumable"
-                      aria-label="Consumable — food, fuel or water"
+                      aria-label="Consumable: food, fuel or water"
                       @click="setClass('consumable', !isConsumable)"
                     />
                   </div>
@@ -2021,6 +2025,17 @@ function dismissFix() {
 /* let the number input shrink so its unit suffix (L / lb) stays on the same line
    in the narrow columns instead of wrapping below */
 .item__qty .field,
+/* A DERIVED weight — a group's total, water's litres-to-grams — is read, not typed
+   (the input is readonly, and onWeight refuses it). It kept every affordance of a
+   field all the same, so the parent of a nested group read as editable (Ryan,
+   2026-09-05). Same box, so the column doesn't move; muted ink, an arrow cursor and no
+   caret, so the number reads as a figure. The unit chevron beside it stays live: the
+   group's unit is still yours to pick. */
+.item__weight .field:read-only {
+  color: var(--ink-2);
+  cursor: default;
+  caret-color: transparent;
+}
 .item__weight .field {
   min-width: 0;
 }
@@ -2415,6 +2430,33 @@ function dismissFix() {
 }
 .item__vault-btn:disabled {
   cursor: default;
+}
+/* The four TRAILING actions — save, nest, duplicate, remove — show for the row under
+   the pointer or holding focus; the marks and the grip stay put (Ryan, 2026-09-05:
+   seven icons on every row was the page's loudest thing). Fine pointers only: a thumb
+   has no hover, so a phone keeps its ⋯ and a touch laptop keeps every icon in view.
+   Opacity, not visibility: the buttons stay in the tab order and the accessibility
+   tree — Tab into a row and its icons appear — and the cluster keeps its track, so the
+   weights beside it never move. :focus-within also holds them while a row's own
+   popover is open. */
+@media (hover: hover) and (pointer: fine) {
+  .item-row .item__vault-btn,
+  .item-row .item__nestact,
+  .item-row .item__dup,
+  .item-row .item__del {
+    opacity: 0;
+    transition: opacity var(--dur) var(--ease);
+  }
+  .item-row:hover .item__vault-btn,
+  .item-row:hover .item__nestact,
+  .item-row:hover .item__dup,
+  .item-row:hover .item__del,
+  .item-row:focus-within .item__vault-btn,
+  .item-row:focus-within .item__nestact,
+  .item-row:focus-within .item__dup,
+  .item-row:focus-within .item__del {
+    opacity: 1;
+  }
 }
 /* The save button's coming and going is STATE — the automatic capture releasing a
    row, or taking it. Arrival gets a little sizzle: the trigger pops in, and a

@@ -156,6 +156,26 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
     }
   }
 
+  // --- ERROR: one product modelled two ways — the size in the NAME on one row
+  // ("Copper Spur HV UL2", no variant) and in the VARIANT on another ("Copper Spur
+  // HV UL" + "UL2"). They render the same words, land in one dropdown twice, and
+  // drift apart by a rounding step. Weight-independent on purpose: the two Copper
+  // Spur rows differed by 29 mg, which the same-weight checks above let through. --
+  for (const group of byBrand.values()) {
+    const byName = new Map<string, CatalogCsvRow>();
+    for (const r of group) byName.set(normKey(r.name), r);
+    for (const r of group) {
+      if (!r.variant) continue;
+      const twin = byName.get(normKey(`${r.name} ${r.variant}`));
+      if (twin && twin !== r) {
+        err(
+          "split-convention",
+          `${r.brand}: "${r.name}" + variant "${r.variant}" and "${twin.name}" are one product modelled two ways — keep one convention`,
+        );
+      }
+    }
+  }
+
   // --- ERROR: case-only identity collision (e.g. "NEMO" vs "Nemo") ----------
   const byCI = new Map<string, CatalogCsvRow>();
   for (const r of rows) {

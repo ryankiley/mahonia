@@ -36,7 +36,7 @@ const dev = import.meta.dev;
           }}
         </p>
         <p>
-          <button class="btn btn--primary" type="button" @click="clearError({ redirect: '/' })">
+          <button class="btn btn--primary" type="button" @click="clearError({ redirect: '/e' })">
             Start a packing list
           </button>
         </p>

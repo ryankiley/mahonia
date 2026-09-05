@@ -201,6 +201,7 @@ export function useMyLists() {
     totalMg = 0,
     origin: "created" | "opened" = "created",
   ): string {
+    tally("list_created");
     upsert({ ...entryFromSnapshot(res, totalMg), origin });
     return res.editToken;
   }

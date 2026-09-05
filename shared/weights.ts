@@ -69,7 +69,8 @@ function numFromGroup(s: string): number {
         ? s.replace(/\./g, "").replace(",", ".") // 1.234,56 → 1234.56
         : s.replace(/,/g, ""); // 1,234.56 → 1234.56
   } else if (hasComma) {
-    norm = /^-?\d+,\d{1,2}$/.test(s) ? s.replace(",", ".") : s.replace(/,/g, "");
+    // \d* not \d+: ",9" is a decimal comma with nothing before it, like ".9"
+    norm = /^-?\d*,\d{1,2}$/.test(s) ? s.replace(",", ".") : s.replace(/,/g, "");
   }
   return parseFloat(norm);
 }
@@ -78,7 +79,10 @@ function numFromGroup(s: string): number {
 // ',' / '.' separators), optionally followed by a unit word. One definition so
 // parseWeightInput and entryUnitFromInput can never disagree about what counts
 // as a token; a fresh regex per call because /g carries lastIndex state.
-const weightScan = () => /(-?[\d][\d.,]*)\s*([a-z]+)?/g;
+// Digit-led, or a separator-led fraction (".9oz", ",9"): the shorthand a scale-reader
+// types. Without the second branch the scanner skipped the dot and read ".9oz" as 9 oz —
+// ten times the weight, with no complaint.
+const weightScan = () => /(-?(?:[\d][\d.,]*|[.,]\d+))\s*([a-z]+)?/g;
 
 /** One number the scanner found, and the unit it named (null = named none). */
 interface WeightGroup {
