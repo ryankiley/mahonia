@@ -226,6 +226,16 @@
 .folder__actions .btn--icon {
   justify-content: flex-end;
 }
+/* …so a tooltip in this cluster has to move with the glyph, not with the button.
+   Same offset and same reasoning as the item rows' (.item__actions in ItemRow.vue):
+   a 16px picture pinned to the right of a 32px box puts its optical centre 8px right
+   of the box's, and a popup centred on the box points at the padding beside it.
+   Declared here, beside the rule that causes it, rather than wherever a tooltip
+   happens to be added — the offset is a property of this alignment, not of any one
+   control. Inherited, so it reaches triggers rendered by child components. */
+.folder__actions {
+  --tip-shift: 8px;
+}
 .folder__grip {
   cursor: grab;
   touch-action: none;

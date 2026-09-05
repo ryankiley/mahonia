@@ -120,8 +120,20 @@ function positionTooltip() {
     ? (preferredPlacement === "top" ? "bottom" : "top")
     : preferredPlacement;
 
-  // Centre on the trigger, then clamp to the page column's content-edges.
-  const left = Math.min(trigger.left + trigger.width / 2 - width / 2, bounds.max - width);
+  // Centre on the trigger's INK, then clamp to the page column's content-edges.
+  //
+  // Usually the ink is the box and the shift is 0. It isn't when a control aligns its
+  // glyph to one side of a larger tap target — which the editor's row actions do on
+  // purpose, right-aligning every glyph so the drag grip sits flush at the row's edge
+  // (see ItemRow's .item__actions). Centred on the BOX, a tooltip there points at the
+  // padding beside the picture it describes: measured at 8px left of a 16px glyph in a
+  // 32px button, which reads as a misaligned popup rather than as a deliberate box.
+  //
+  // Opt-in via a custom property, because only the caller knows its own alignment, and
+  // it INHERITS — so one declaration on a cluster reaches every trigger inside it,
+  // including the ones a child component renders, with no :deep() per control.
+  const shift = parseFloat(getComputedStyle(triggerRef.value).getPropertyValue("--tip-shift")) || 0;
+  const left = Math.min(trigger.left + trigger.width / 2 + shift - width / 2, bounds.max - width);
   tooltipStyle.value = {
     left: `${Math.max(bounds.min, left)}px`,
     top: `${placement.value === "top" ? trigger.top - height - OFFSET : trigger.bottom + OFFSET}px`,
