@@ -26,6 +26,7 @@ import { mount } from "@vue/test-utils";
 import ItemRow, { CHILDREN_BY_PARENT, PEOPLE_CTX } from "~/components/ItemRow.vue";
 import type { Item, ListSnapshot, Person } from "~~/shared/types";
 import { vaultNormKey } from "~~/shared/vault";
+import type { CaptureOneResult } from "~/composables/useVault";
 import { gearListStub } from "./helpers/gearList";
 
 // what GearEditor provides to every row — the children map, and the people in
@@ -47,9 +48,7 @@ const vaultGear = ref<ReadonlyMap<string, number | null>>(new Map());
 /** Which keys the open list has an ANSWER for — the row's only wait. */
 const vaultGearAsked = ref<ReadonlySet<string>>(new Set());
 const vaultGearSettled = ref(true);
-const saveItemToVault = vi.fn<
-  () => Promise<"saved" | "unworthy" | "removed" | "full" | "failed">
->(() => Promise.resolve("saved"));
+const saveItemToVault = vi.fn<() => Promise<CaptureOneResult>>(() => Promise.resolve("saved"));
 
 mockNuxtImport("useVaultAccess", () => () => ({
   hasVault,

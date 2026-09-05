@@ -20,9 +20,9 @@ const props = defineProps<{
 }>();
 
 const menuOpen = ref(false);
-// Export opens in place. A re-opened menu starts collapsed — the previous session's
-// open section is not a preference, and restoring it would put a different item
-// under the cursor.
+// Export opens in place, through the shared <MenuSection> the editor's kebab uses. A
+// re-opened menu starts collapsed — the previous session's open section is not a
+// preference, and restoring it would put a different item under the cursor.
 const exportOpen = ref(false);
 watch(menuOpen, (open) => open || (exportOpen.value = false));
 // the travelling wash shared with the other menus (see useMenuPlate)
@@ -50,11 +50,6 @@ const pageUrl = () => (typeof location !== "undefined" ? location.href : "");
 const { warmExporters, exportItems } = useListExports(() => props.snapshot, flash, pageUrl);
 function toggleMenu() {
   menuOpen.value = !menuOpen.value;
-  if (menuOpen.value) warmExporters();
-}
-function runExport(run: () => Promise<void>) {
-  menuOpen.value = false;
-  void run();
 }
 
 const { copying, copyList } = useCopyList();
@@ -161,50 +156,17 @@ const MENU_ACTIONS = [
         </li>
         <!-- Export folds into a disclosure, as it already does in the editor's ⋯ —
              four formats you'd otherwise scan past to reach the thing you came for,
-             and only one of them is ever the one you want. Same .menu__sect atom, and
-             the same SEAT: last of the body, so opening it pushes nothing but the
-             hairline down. -->
-        <li role="none" class="menu__sect">
-          <button
-            type="button"
-            data-row
-            class="menu__item menu__secthead"
-            :aria-expanded="exportOpen"
-            @click="exportOpen = !exportOpen"
-          >
-            <HugeiconsIcon :icon="FileExportIcon" :size="14" :stroke-width="2" aria-hidden="true" />
-            <!-- the label takes the slack, so the chevron keeps the trailing edge now
-                 that a glyph holds the leading one -->
-            <span class="menu__sectlabel">Export</span>
-            <HugeiconsIcon
-              :icon="ChevronDownIcon"
-              class="chev"
-              :class="{ 'is-open': exportOpen }"
-              :size="14"
-              :stroke-width="2"
-              aria-hidden="true"
-            />
-          </button>
-          <!-- Transition + v-if, NOT a class: .reveal is a transition recipe (it has
-               no open/closed state of its own and defaults to 1fr), so driving it
-               with a class leaves the section permanently expanded and the chevron
-               spinning over nothing. v-if also takes the collapsed items out of the
-               tab order, which a height-0 box would not. -->
-          <Transition name="reveal">
-            <div v-if="exportOpen" class="reveal">
-              <ul class="menu__sectlist" role="group" aria-label="Export">
-                <!-- one row per export action, in useListExports' order — the same
-                     table the editor's kebab draws from -->
-                <li v-for="x in exportItems" :key="x.key" role="none">
-                  <button type="button" data-row role="menuitem" class="menu__item menu__sectitem" @click="runExport(x.run)">
-                    <HugeiconsIcon :icon="x.icon" :size="14" :stroke-width="2" aria-hidden="true" />
-                    {{ x.label }}
-                  </button>
-                </li>
-              </ul>
-            </div>
-          </Transition>
-        </li>
+             and only one of them is ever the one you want. The SAME component draws
+             it in both menus, and the same SEAT: last of the body, so opening it
+             pushes nothing but the hairline down. -->
+        <MenuSection
+          v-model:open="exportOpen"
+          label="Export"
+          :icon="FileExportIcon"
+          :items="exportItems"
+          @opened="warmExporters"
+          @pick="menuOpen = false"
+        />
         <!-- moderation, not a read of the list — set off from the rows above by the
              shared .menu__foot hairline (controls.scss), and only for public lists (per
              the Terms) that aren't yet reported. The reader's counterpart to the editor's

@@ -32,7 +32,7 @@ import {
   type FullSnap,
 } from "../../shared/snapshotDiff";
 import { UNITS } from "../../shared/types";
-import type { ListData, ListMeta, ListSnapshot, ListState, SnapshotMeta, Totals, Unit } from "../../shared/types";
+import type { ListData, ListMeta, ListMetaKey, ListSnapshot, ListState, SnapshotMeta, Totals, Unit } from "../../shared/types";
 import { isLikelySpam } from "../../shared/discovery";
 import { normalizeShareCode } from "../../shared/links";
 import { MAX_SUMMARY_LEN, summarizeOps } from "../../shared/changeSummary";
@@ -880,6 +880,29 @@ export async function createList(
   // checked here since the route stopped doing it — anything but a real unit is grams
   const displayUnit = init?.displayUnit && UNITS.includes(init.displayUnit) ? init.displayUnit : "g";
 
+  // THE VALIDATED META, as one object the insert spreads.
+  //
+  // `satisfies Record<ListMetaKey, unknown>` is the load-bearing part: it fails to
+  // compile unless every LIST_META_KEYS entry appears here. The route forwards the
+  // whole meta now, so without this a field added to ListMeta would type-check the
+  // whole way in and then be dropped at the insert, which is the trip-dates bug
+  // relocated one hop — and with a comment upstream promising it can't happen.
+  const meta = {
+    title,
+    description,
+    displayUnit,
+    trailUrl,
+    trailLabel,
+    trailDistanceM,
+    trailDistanceUnit,
+    trailProfile,
+    trailAscentM,
+    trailDescentM,
+    routeGeometry,
+    startDate,
+    endDate,
+  } satisfies Record<ListMetaKey, unknown>;
+
   // Retry on slug/share_code unique collision (regenerated each attempt).
   for (let attempt = 0; attempt < 5; attempt++) {
     try {
@@ -889,19 +912,7 @@ export async function createList(
           publicSlug: randomSlug(title),
           editTokenHash,
           shareCode: randomShareCode(),
-          title,
-          description,
-          trailUrl,
-          trailLabel,
-          trailDistanceM,
-          trailDistanceUnit,
-          trailProfile,
-          trailAscentM,
-          trailDescentM,
-          routeGeometry,
-          startDate,
-          endDate,
-          displayUnit,
+          ...meta,
           data,
           ...weightColumns(totals),
           authorUserId: init?.authorUserId ?? null,

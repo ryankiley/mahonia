@@ -286,14 +286,30 @@ export const LIST_META_KEYS = [
   "endDate",
 ] as const satisfies readonly (keyof ListMeta)[];
 export type ListMetaKey = (typeof LIST_META_KEYS)[number];
+// `satisfies` above proves every key LISTED is a real ListMeta field. It says nothing
+// about the other direction — add a field to ListMeta, forget it here, and the compiler
+// stays silent while the create body, the JSON backup and the delta all quietly skip it.
+// That is the exact step trip dates once missed, and it was invisible to typecheck. This
+// line is the missing half: it fails to compile until the new key is listed.
+type MetaKeysAreExhaustive = Exclude<keyof ListMeta, ListMetaKey> extends never ? true : never;
+const _metaKeysAreExhaustive: MetaKeysAreExhaustive = true;
+void _metaKeysAreExhaustive;
 
-/** Just the meta of a snapshot/state — or of anything meta-shaped, a create body
- *  included — keys in LIST_META_KEYS order and nothing else. An absent field stays
- *  absent (undefined), so JSON.stringify drops it exactly as it did before. */
+/**
+ * Just the meta of a snapshot/state — or of anything meta-shaped, a create body
+ * included — keys in LIST_META_KEYS order and nothing else.
+ *
+ * An absent field stays ABSENT, rather than present-and-undefined. That distinction is
+ * the whole of this function's contract now that the source may be partial: writing
+ * `out[key] = src[key]` unconditionally gave back thirteen own keys whatever went in,
+ * so `{ ...current, ...pickListMeta(patch) }` blanked every field the patch didn't
+ * mention — while the return type said only the patch's own keys had been copied.
+ * JSON.stringify hides the difference; a spread, `in` and structuredClone do not.
+ */
 export function pickListMeta<T extends Partial<ListMeta>>(src: T): Pick<T, ListMetaKey & keyof T> {
   const out = {} as Record<ListMetaKey, unknown>;
-  for (const key of LIST_META_KEYS) out[key] = src[key];
-  return out as unknown as Pick<T, ListMetaKey & keyof T>;
+  for (const key of LIST_META_KEYS) if (key in src) out[key] = src[key];
+  return out as Pick<T, ListMetaKey & keyof T>;
 }
 
 /** Canonical wire shape returned by the API and held by the client editor. */

@@ -116,5 +116,9 @@ export function useListExports(
     { key: "json", label: "Download JSON", icon: ThirdBracketIcon, run: downloadJson },
   ];
 
-  return { warmExporters, exportItems, copyPlainText, copyMarkdown, downloadCsv, downloadJson };
+  // exportItems ONLY. The four actions were returned individually too, and after both
+  // menus moved to the table nothing destructured them — two public routes to one act,
+  // the loose one carrying no label, mark or order. That is the hand-written row this
+  // table exists to replace, left reachable.
+  return { warmExporters, exportItems };
 }

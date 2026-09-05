@@ -583,10 +583,15 @@ input[type="search"]::-webkit-search-decoration {
 // It also settles a jump. The card is sized to its widest row (`width: max-content`),
 // so an indent that only exists while the section is OPEN widened the card on
 // opening — the width twin of the flinch the .reveal slide was added to stop.
-// (Both consumers had been overriding the step back to --space-3 locally, in
-// identical rules; the value nobody wanted has left the atom.)
+//
+// So there is NO padding declaration here at all. Restating .menu__item's own
+// --space-3 would have pinned it: same specificity, declared later, so it wins with an
+// identical value today and silently disagrees the moment that shorthand is retuned —
+// which is the ragged column this comment exists to prevent, rebuilt by the rule meant
+// to prevent it. Inheriting the row inset is what "takes the same inset every other row
+// takes" actually means. The quieter ink is all that's left, and all that was ever the
+// section's own.
 .menu__sectitem {
-  padding-left: var(--space-3);
   color: var(--ink-2);
 }
 

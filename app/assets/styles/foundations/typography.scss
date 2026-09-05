@@ -28,6 +28,14 @@ body {
 // 78vw leaves the unit its room; `min()` means a figure that already fits is untouched,
 // so every ordinary total still renders at the full --text-display.
 // (It lived twice, byte for byte, in the editor's totals bar and the /gear headline.)
+//
+// REQUIRES --acount-len, and only <AnimatedCount> publishes it — on its own root, as an
+// inline style. Wear this class on that root and nowhere else: on a plain <span>, or on
+// a WRAPPER around the count, the var falls back to 6, min() keeps the full 64px, and a
+// long figure runs off a phone's right edge with no sideways scroll — the exact overflow
+// the clamp exists to stop. The two component-scoped classes this replaced could only
+// ever land on an AnimatedCount; a utility class can land anywhere, so the contract has
+// to be written down instead of enforced by the selector.
 .t-display {
   font-size: min(var(--text-display), calc(78vw / (0.58 * var(--acount-len, 6))));
   line-height: 0.95;
