@@ -830,6 +830,17 @@ const setPerson = (personId: string | null) => c.updateItem(props.item.id, { per
 const vaultWorthy = computed(() => isVaultWorthy(props.item, isParent.value));
 const vaultKey = computed(() => vaultNormKey(props.item.brand, props.item.name, props.item.variant));
 const vaultCovered = computed(() => {
+  // Signed out there is no vault, so nothing can be in one and every worthy row
+  // keeps its button — pressing it is how you find that out ("Sign in to keep
+  // your gear"). NOT `!hasVault` alone: that ref is also false for the moment
+  // before /api/auth/me answers, and reading the two as one put the button on
+  // every worthy row of every covered list for the length of that round trip.
+  //
+  // FIRST, ahead of the wait below, because it makes the wait pointless: there is
+  // no answer coming that could change it. Behind the wait, a signed-out visitor
+  // — most of them — typed a row and watched its button arrive most of a second
+  // late, once a debounced ask had confirmed the nothing we already knew.
+  if (vaultKnown.value && !hasVault.value) return false;
   // Has the vault been ASKED about this row's gear? An unanswered key and a key
   // the vault doesn't have are the same absence from the Map, and rendering the
   // second as the first is the flash PR #239 took out of the signed-in first
@@ -837,12 +848,6 @@ const vaultCovered = computed(() => {
   // settles even when it fails, times out, or is skipped for a visitor with no
   // account (see askVaultGear), so there is no state where it never answers.
   if (!vaultGearAsked.value.has(vaultKey.value)) return true;
-  // Signed out there is no vault, so nothing can be in one and every worthy row
-  // keeps its button — pressing it is how you find that out ("Sign in to keep
-  // your gear"). NOT `!hasVault` alone: that ref is also false for the moment
-  // before /api/auth/me answers, and reading the two as one put the button on
-  // every worthy row of every covered list for the length of that round trip.
-  if (vaultKnown.value && !hasVault.value) return false;
   // THE TRUTHFUL TEST, and the one this button spent three attempts without: My
   // Gear either has this piece of gear or it doesn't. It holds however the row got
   // there — a list on another device, an import, a hand-typed row on /gear — and

@@ -414,6 +414,19 @@ describe("the save button on a list the automatic capture already covers", () =>
     w.unmount();
   });
 
+  it("offers itself signed out the INSTANT a row becomes gear, without waiting on an ask", () => {
+    // A signed-out visitor is most of them, and no answer is coming that could
+    // change what this row shows — so the wait for one must not be in front of
+    // it. Behind the wait, typing a row and completing it left the button most of
+    // a second late while a debounced ask confirmed the nothing we already knew.
+    vaultAuto.value = true;
+    hasVault.value = false;
+    vaultGearAsked.value = new Set(); // nothing answered for: a row just typed in
+    const w = mountRow(gear());
+    expect(vaultBtn(w).exists()).toBe(true);
+    w.unmount();
+  });
+
   it("still offers itself signed out — there is no vault for the gear to already be in", () => {
     vaultAuto.value = true;
     hasVault.value = false;
