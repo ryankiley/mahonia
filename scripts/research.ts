@@ -15,8 +15,12 @@ export interface ResearchRow {
   // "Apple Watch SE 3"; an eponymous product takes a descriptor: "Camping Pillow Strap").
   brand?: string | null;
   name?: string;
-  // Size / config, in the catalog's house style (enforced by scripts/catalogChecks.ts
-  // and tidied by shared/catalogQuality normalizeVariant):
+  // Size / config, in the catalog's house style. Every rule below is ENFORCED: the
+  // built CSV by scripts/catalogChecks.ts and the cited rows by scripts/researchChecks.ts,
+  // both under `npm test` (which CI runs on every PR) and `npm run catalog:audit`. A rule
+  // that only warned drifted within weeks, so a convention is an error or it is not a
+  // convention; the only warnings are judgment lists for a human (weight plausibility,
+  // food rows still at net weight or without kcal). normalizeVariant tidies what it can.
   //   • S/M/L-family sizes are LETTERS — "M", "XL", "Men's M", "Women's XS/S" — on
   //     anything worn or carried. No "Size " prefix, no comma after the gender.
   //   • Sleep + shelter keep the maker's LENGTH words ("Regular", "Long", "Large").

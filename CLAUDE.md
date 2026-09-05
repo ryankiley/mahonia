@@ -29,3 +29,14 @@ Nothing auto-fills this. A `changelog-reminder` comment nudges any user-facing P
 missing an entry, but if one merges without it, the "What's new" page simply omits that
 change until it's backfilled by hand. Writing the entry as part of the PR is the whole job.
 Catalog weight corrections are separate; they belong to `/changes`, not the changelog.
+
+## Catalog conventions are enforced, not described
+
+Adding or editing rows in `seed/_research/*.json`: the naming, size, unit, food-weight and
+citation conventions are all build ERRORS — `npm test` runs `scripts/catalogChecks.ts` over the
+built CSV and `scripts/researchChecks.ts` over the research rows, and CI runs `npm test` on every
+PR. Read the rules on `ResearchRow` in `scripts/research.ts`; `npm run catalog:audit` prints the
+same findings with the row named. The only warnings are to-do lists for a human (weight
+plausibility, pouch meals still at net weight, food rows without kcal). `catalog:build` also fails
+on a `seed/common-names.json` entry that matches no row.
+
