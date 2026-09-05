@@ -586,6 +586,23 @@ describe("parseWeightInput — a stray number is not part of the weight", () => 
     expect(parseWeightInput("12 oz nalgene", "g")).toBe(toMg(12, "oz"));
   });
 
+  it("does not sum the same weight written twice with no space between", () => {
+    // rule 2 can't see this one — there is nothing between the figures to end the run
+    expect(parseWeightInput("921g32.5oz", "g")).toBe(921_000);
+    expect(parseWeightInput("5g5g", "g")).toBe(5_000);
+  });
+
+  it("still sums a compound written closed up, where the units descend", () => {
+    expect(parseWeightInput("2lb3oz")).toBe(Math.round(2 * 453_592.37 + 3 * 28_349.523125));
+    expect(parseWeightInput("1kg500g")).toBe(1_500_000);
+  });
+
+  it("returns null, not NaN, when the fallback unit isn't one", () => {
+    // every caller tests `mg === null`; NaN would sail through that and reach an op
+    expect(parseWeightInput("820", "stone" as never)).toBeNull();
+    expect(parseWeightInput("820 g", "stone" as never)).toBe(820_000);
+  });
+
   it("reads back in the unit that counted", () => {
     // "oz" is the unit the typist chose and the one the weight came from, so the row
     // should read back in it — not fall through to the list's, as a compound does

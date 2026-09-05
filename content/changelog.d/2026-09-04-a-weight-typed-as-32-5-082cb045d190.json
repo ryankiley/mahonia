@@ -10,7 +10,7 @@
     "Exporting to CSV and importing it back keeps a row you weighed but haven't named yet, and keeps weights under a gram.",
     "An item name can no longer carry hidden characters that reverse how it reads — what a list shows is what it says.",
     "A person or folder named with an invisible character now falls back to a readable name instead of a blank chip.",
-    "A saved edit no longer fails when something malformed rides along in the same batch.",
+    "An edit that used to fail to save now saves.",
     "The trail link under a list title is easier to read in dark mode.",
     "Searching the gear catalog without accents — \"fjallraven\" — now highlights the match it found.",
     "The Base / Worn / Consumable line stays inside the preview card a shared link unfurls, however heavy the pack."

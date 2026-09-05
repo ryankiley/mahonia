@@ -241,6 +241,15 @@ describe("CSV round-trip — nothing changes weight", () => {
     expect(back.items).toHaveLength(2);
   });
 
+  it("skips a spacer row that carries no name and no weight", () => {
+    // a category-only separator line, and a stray row holding only a price — both are
+    // layout in someone's spreadsheet, and both used to import as phantom 0 g items
+    const sep = csvToListData("Category,Item Name,Qty,Weight,Unit\nShelter,,,,\nShelter,Tent,1,900,g");
+    expect(sep.items.map((i) => i.name)).toEqual(["Tent"]);
+    const priced = csvToListData("Category,Item Name,Qty,Weight,Unit,Price\n,,,,,$ 12.00\n,Tent,1,900,g,");
+    expect(priced.items.map((i) => i.name)).toEqual(["Tent"]);
+  });
+
   it("carries sub-gram and fractional weights back unchanged", () => {
     for (const [mg, unit] of [[1, "g"], [499, "g"], [12_345, "g"], [12_345, "oz"], [12_345, "kg"], [12_345, "lb"], [100_000_000, "lb"]] as const) {
       const list = snap();

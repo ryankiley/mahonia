@@ -261,8 +261,7 @@ function cleanItemPatch(patch: ItemPatch): Partial<Item> {
   // "javascript:..." stored verbatim -- inert today, since nothing on a list surface
   // renders it as an href, but the CSP carries 'unsafe-inline', so the day something
   // does it is a live sink on a page strangers open. "" clears it, like brand/variant.
-  if (typeof patch.productUrl === "string")
-    out.productUrl = httpUrl(patch.productUrl) ?? undefined;
+  if (typeof patch.productUrl === "string") out.productUrl = httpUrl(patch.productUrl);
   if (typeof patch.unitWeightMg === "number" && isFinite(patch.unitWeightMg))
     out.unitWeightMg = clampWeight(patch.unitWeightMg);
   // entryUnit is DISPLAY ONLY (see types.ts) — validated against the unit list so a
@@ -763,11 +762,12 @@ export function normalizeItem(raw: Item): Item {
   // so a zero is a state the write path stores and this one could not express: a JSON
   // backup round-tripped a qty-0 row back as qty 1 and the list gained its weight,
   // and so did every whole-list rebuild (create, and a recovery-point restore).
-  // Default only when the field is genuinely absent or unusable — `?? ""` and the
-  // emptiness test keep null/undefined/"" on the default side, where Number() would
-  // otherwise turn the last two into a zero nobody typed.
-  const rawQty = String(raw.qty ?? "").trim();
-  const n = rawQty ? Number(rawQty) : NaN;
+  // Default only when the field is genuinely absent or unusable. null / undefined /
+  // "" are listed explicitly because Number() turns all three into a zero nobody
+  // typed; everything else coerces as before. No String()/trim() round-trip — this
+  // runs per item on every batch and every whole-list rebuild.
+  const rawQty: unknown = raw.qty; // typed number, but this parses foreign JSON too
+  const n = rawQty == null || rawQty === "" ? NaN : Number(rawQty);
   const qty = Math.max(0, Math.min(9999, Math.round(Number.isFinite(n) ? n : 1)));
   let classification = CLASSES.includes(raw.classification as Classification)
     ? (raw.classification as Classification)

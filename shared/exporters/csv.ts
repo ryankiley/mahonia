@@ -227,18 +227,20 @@ export function csvToListData(text: string): ListData {
       return v ? stripFormulaGuard(v) : undefined;
     };
     const name = stripFormulaGuard((row[nameCol] || "").trim());
-    // Skip only a row that carries NOTHING -- a trailing newline or a spacer line,
-    // which is what this guard was for. Skipping on the name alone deleted a real
-    // row, and its weight, on a round-trip through our own export: an unnamed item
-    // is a normal state in the editor (a row you weighed before you named it), and
-    // losing 450 g to it is worse than importing a row with a blank name.
-    if (!name && row.every((c) => !c?.trim())) continue;
-    const gearType = cell(iCommon); // read once — it also decides the override flag below
-    const cat = iCat >= 0 ? stripFormulaGuard(row[iCat] ?? "") : "";
-    const fId = ensureFolder(cat || "Imported");
     const unit = normalizeUnit(iUnit >= 0 ? row[iUnit] : undefined, "g");
     const weightNum = iWeight >= 0 ? parseFloat((row[iWeight] || "").replace(/,/g, "")) : 0;
     const unitWeightMg = isFinite(weightNum) && weightNum > 0 ? toMg(weightNum, unit) : 0;
+    // A row needs a name OR a weight to be gear. Skipping on the name alone deleted a
+    // real row, and its weight, on a round-trip through our own export -- an unnamed
+    // item is a normal state in the editor (a row you weighed before you named it).
+    // But "carries anything at all" is too loose in the other direction: a
+    // category-only separator line, or a stray row holding just a Price cell, is a
+    // spacer in someone's spreadsheet, and importing it as a nameless 0 g item puts
+    // a phantom row in the list.
+    if (!name && unitWeightMg <= 0) continue;
+    const gearType = cell(iCommon); // read once — it also decides the override flag below
+    const cat = iCat >= 0 ? stripFormulaGuard(row[iCat] ?? "") : "";
+    const fId = ensureFolder(cat || "Imported");
     // `parseFloat(...) || 1` read a written 0 as 1 (0 is falsy) -- the same trap
     // normalizeItem had. Default only when the cell is absent or unreadable.
     const qtyNum = iQty >= 0 ? parseFloat(row[iQty] || "") : NaN;

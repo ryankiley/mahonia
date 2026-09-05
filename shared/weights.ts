@@ -91,18 +91,25 @@ interface WeightGroup {
  *
  * Summing every number the scanner finds is what makes "2 lb 3 oz" work, and it is
  * also what made a pasted spec line come out at double: "32.5 oz (921 g)" is one
- * weight written twice, and adding the two gave 1,842 g. Two rules separate a
+ * weight written twice, and adding the two gave 1,842 g. Three rules separate a
  * compound weight from a sentence that happens to contain digits:
  *
  *  1. WITH MORE THAN ONE NUMBER PRESENT, A NUMBER THAT NAMES NO UNIT ISN'T ONE.
  *     "size 2 / 400 g" is a 400 g item in size 2, not 402 g; "5 g/m2" is 5 g, not 7.
  *     A lone bare number still takes `defaultUnit` — typing "820" on a gram list is
  *     the overwhelmingly common case and stays exactly as it was.
- *  2. ONLY GROUPS SEPARATED BY WHITESPACE ALONE ARE ADDED TOGETHER.
+ *  2. ONLY GROUPS SEPARATED BY WHITESPACE ARE ADDED TOGETHER.
  *     "2 lb 3 oz" is one weight in two units; "32.5 oz (921 g)" and "1.5 kg / 3.3 lb"
  *     put a bracket or a slash between them, which is how a person writes the SAME
  *     weight twice rather than a sum. Anything but space between two figures ends
  *     the run, so the first one wins.
+ *  3. CLOSED UP, THE UNITS MUST DESCEND.
+ *     "2lb3oz" and "1kg500g" are the same compound written without spaces, so an
+ *     EMPTY gap has to stay summable. But "921g32.5oz" is the doubling case in that
+ *     same spelling, and rule 2 can't see the difference — both have nothing between
+ *     them. A real compound always steps DOWN a unit (pounds then ounces, kilos then
+ *     grams); the same weight written twice goes any direction and often repeats a
+ *     unit. So a closed-up pair is added only when its units strictly descend.
  *
  * Returns the accepted groups in order — empty when nothing parsed. Shared by both
  * parsers below so "how much" and "which unit" can never disagree about which
@@ -138,9 +145,12 @@ function weightGroups(text: string): WeightGroup[] {
   for (let i = 1; i < named.length; i++) {
     const prev = named[i - 1]!;
     const cur = named[i]!;
+    const gap = text.slice(prev.end, cur.start);
     // whitespace only — and a skipped bare number between them is itself
     // non-whitespace, so "1 kg 500" ends the run at "1 kg" too
-    if (!/^\s*$/.test(text.slice(prev.end, cur.start))) break;
+    if (!/^\s*$/.test(gap)) break;
+    // nothing at all between them: summable only as a descending compound (rule 3)
+    if (!gap && MG_PER_UNIT[prev.unit!] <= MG_PER_UNIT[cur.unit!]) break;
     run.push(cur);
   }
   return run;
@@ -154,12 +164,20 @@ export function parseWeightInput(
   const text = String(raw).trim().toLowerCase();
   if (!text) return null;
 
-  const groups = weightGroups(text);
-  if (!groups.length) return null;
-
   let mg = 0;
-  for (const g of groups) mg += g.value * MG_PER_UNIT[g.unit ?? defaultUnit];
-  return Math.round(mg);
+  let matched = false;
+  for (const g of weightGroups(text)) {
+    // `?? defaultUnit` is only as good as the unit handed in. The pre-refactor loop
+    // skipped a group whose unit didn't resolve, so a caller passing something that
+    // isn't a Unit got null — the sentinel every caller checks. Without this the
+    // lookup is undefined and the sum becomes NaN, which `mg === null` lets straight
+    // through (see useGearList.setItemWeight).
+    const perUnit = MG_PER_UNIT[g.unit ?? defaultUnit];
+    if (!perUnit) continue;
+    matched = true;
+    mg += g.value * perUnit;
+  }
+  return matched ? Math.round(mg) : null;
 }
 
 /**

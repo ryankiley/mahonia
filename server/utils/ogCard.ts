@@ -80,6 +80,21 @@ const el = (style: Record<string, unknown>, children?: unknown): Vnode => ({
   key: null,
 });
 
+// The breakdown row's metrics, named so the fit calculation below and the markup can
+// never disagree: the design size, the space between chips and between a chip's label
+// and its value, the drawing width between the card's 72px paddings, and Inter's
+// average advance as a fraction of the em (measured across the label/figure mix this
+// row holds — digits and spaces run narrower than 0.5em, capitals wider).
+const CHIP_SIZE = 40;
+const CHIP_GAP = 48;
+const CHIP_PAIR_GAP = 14;
+const CARD_INNER_W = 1200 - 72 * 2;
+// Inter's average advance across this row's label/figure mix, measured off the raster
+// (tests/ogCard.test.ts renders a tonne-scale breakdown and checks the ink stops inside
+// the padding). Erring high is the safe direction: it shrinks a shade early rather than
+// letting a heavy list run off the card.
+const CHIP_ADVANCE_EM = 0.56;
+
 function cardVnode(m: OgCardModel): Vnode {
   return el(
     {
@@ -155,12 +170,18 @@ function cardVnode(m: OgCardModel): Vnode {
             // edge), step the whole row down when the text it holds is too long for
             // the 1056px between the paddings. `min` so an ordinary breakdown, which
             // is the overwhelming majority, renders at exactly the size it always did.
-            const text = m.chips.map((c) => `${c.label} ${c.value}`).join("");
+            // no separator characters: every gap in this row is a margin, and `gaps`
+            // below already subtracts each one. A space here would charge the budget
+            // for it twice and shrink the row earlier than it needs to.
+            const text = m.chips.map((c) => `${c.label}${c.value}`).join("");
+            // The gaps SCALE with the row, so they can't be subtracted at full size and
+            // then shrunk — that budgets for margins wider than the ones drawn and
+            // lands the row outside the card anyway. Solve for the size at which the
+            // whole row (text + margins, both scaled) is exactly CARD_INNER_W wide:
+            //   size × (ADVANCE × chars) + CHIP_GAPS × (size / CHIP_SIZE) = CARD_INNER_W
             const gaps = (m.chips.length - 1) * CHIP_GAP + m.chips.length * CHIP_PAIR_GAP;
-            const size = Math.min(
-              CHIP_SIZE,
-              Math.floor(((CARD_INNER_W - gaps) / (text.length * CHIP_ADVANCE_EM)) * 10) / 10,
-            );
+            const perPx = CHIP_ADVANCE_EM * text.length + gaps / CHIP_SIZE;
+            const size = Math.min(CHIP_SIZE, Math.floor((CARD_INNER_W / perPx) * 10) / 10);
             const scale = size / CHIP_SIZE;
             return el(
               { flexDirection: "row", marginTop: 32 },
@@ -184,17 +205,6 @@ function cardVnode(m: OgCardModel): Vnode {
 // static file can't fail, which is what a failure fallback must be), and a test
 // re-renders it against the committed bytes so the template and the file can't
 // drift. The one-liner mirrors editorSeo's GENERIC_TITLE, which app code owns.
-// The breakdown row's metrics, named so the fit calculation above and the markup can
-// never disagree: the design size, the space between chips and between a chip's label
-// and its value, the drawing width between the card's 72px paddings, and Inter's
-// average advance as a fraction of the em (measured across the label/figure mix this
-// row holds — digits and spaces run narrower than 0.5em, capitals wider).
-const CHIP_SIZE = 40;
-const CHIP_GAP = 48;
-const CHIP_PAIR_GAP = 14;
-const CARD_INNER_W = 1200 - 72 * 2;
-const CHIP_ADVANCE_EM = 0.52;
-
 const SITE_MARK_SIZE = 264;
 function siteCardVnode(): Vnode {
   return el(
