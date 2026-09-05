@@ -12,7 +12,7 @@
 // It lived in server/utils/vaultRepo.ts for the same reason, back when no client
 // searched a vault locally; the pane's own search is what brought it here.
 
-import { SIM_THRESHOLD, matchTier, trigramScore } from "./catalogSearch";
+import { SIM_THRESHOLD, STRONG_THRESHOLD, isExactOrPrefixMatch, trigramScore } from "./catalogSearch";
 import { VAULT_SEARCH_LIMIT } from "./vault";
 import { itemDisplayName } from "./weights";
 
@@ -57,7 +57,7 @@ export function rankVaultRows<T extends RankableVaultRow>(
       // catalog_items.search_terms, and it's excluded from the tier target for the
       // same reason search_terms is: typing a category noun isn't typing the name.
       const score = trigramScore(q, `${brandName} ${row.variant ?? ""} ${row.commonName ?? ""}`);
-      return { row, score, tier: matchTier(q, brandName, score) };
+      return { row, score, tier: isExactOrPrefixMatch(q, brandName) ? 0 : score >= STRONG_THRESHOLD ? 1 : 2 };
     })
     .filter((r) => r.score >= SIM_THRESHOLD)
     .sort(

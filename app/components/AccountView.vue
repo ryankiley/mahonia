@@ -124,6 +124,7 @@ async function createWithPasskey() {
   creating.value = true;
   createNote.value = "";
   const r = await pk.signUp(email);
+  if (r === "ok") tally("sign_in"); // a session either way, so it counts like the others
   creating.value = false;
   if (r === "ok") return;
   if (r === "taken") {

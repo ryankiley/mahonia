@@ -1178,32 +1178,7 @@
     },
     {
       "brand": "Big Agnes",
-      "name": "Copper Spur HV UL",
-      "variant": "UL2",
-      "category_hint": "shelter",
-      "weight_value": 1219,
-      "weight_unit": "g",
-      "weight_secondary": "43oz",
-      "weight_source": "manufacturer",
-      "source_url": "https://www.garagegrowngear.com/products/copper-spur-hv-ul2-ul4-by-big-agnes",
-      "quote": "Weight:  43oz | 1219g (minimum)"
-    },
-    {
-      "brand": "Big Agnes",
-      "name": "Copper Spur HV UL",
-      "variant": "UL3",
-      "category_hint": "shelter",
-      "weight_value": 1588,
-      "weight_unit": "g",
-      "weight_secondary": "56oz",
-      "weight_source": "manufacturer",
-      "source_url": "https://www.garagegrowngear.com/products/copper-spur-hv-ul2-ul4-by-big-agnes",
-      "quote": "Weight: 56oz | 1588g (minimum)"
-    },
-    {
-      "brand": "Big Agnes",
-      "name": "Copper Spur HV UL",
-      "variant": "UL4",
+      "name": "Copper Spur HV UL4",
       "category_hint": "shelter",
       "weight_value": 2381,
       "weight_unit": "g",

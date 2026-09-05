@@ -1,4 +1,4 @@
-import { createError, defineEventHandler, readBody } from "h3";
+import { createError, defineEventHandler } from "h3";
 import { buildCatalogNameIndex, lookupImported, type ImportedName } from "../../../shared/catalogMatch";
 import { MAX_ITEMS, MAX_ITEM_NAME_LEN } from "../../../shared/ops";
 import { activeCatalogRows } from "../../utils/catalog";
@@ -15,7 +15,7 @@ export default defineEventHandler(async (event) => {
   await rateLimit(event, "catalog-match");
   setNoIndex(event);
 
-  const body = (await readBody(event)) as { names?: unknown } | null;
+  const body = (await readJsonBodyCapped(event, 64_000)) as { names?: unknown } | null;
   const raw = Array.isArray(body?.names) ? (body.names as unknown[]) : null;
   if (!raw) throw createError({ statusCode: 400, statusMessage: "names[] required" });
   if (raw.length > MAX_ITEMS) throw createError({ statusCode: 413, statusMessage: `At most ${MAX_ITEMS} names` });

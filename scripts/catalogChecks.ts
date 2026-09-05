@@ -201,7 +201,12 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
     for (const r of group) byName.set(normKey(r.name), r);
     for (const r of group) {
       if (!r.variant) continue;
-      const twin = byName.get(normKey(`${r.name} ${r.variant}`));
+      // "Name Variant", and the other spelling the Copper Spur rows actually took:
+      // a variant that extends the name's last word ("…HV UL" + "UL2" → "…HV UL2")
+      const words = r.name.trim().split(/\s+/);
+      const last = words[words.length - 1] ?? "";
+      const grown = last && r.variant.toLowerCase().startsWith(last.toLowerCase()) ? [...words.slice(0, -1), r.variant].join(" ") : null;
+      const twin = byName.get(normKey(`${r.name} ${r.variant}`)) ?? (grown ? byName.get(normKey(grown)) : undefined);
       if (twin && twin !== r) {
         err(
           "split-convention",

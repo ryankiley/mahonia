@@ -80,7 +80,10 @@ function openFeedback() {
 // have been a way to take down someone's list. /api/lists/report stays for that design.
 function reportThis() {
   feedbackTitle.value = "Report this list";
-  feedbackPreset.value = `Reporting the shared list at ${location.origin}/s/${props.snapshot.shareCode}. What's wrong with it: `;
+  // NOT the share link: feedback is filed as a public issue, and a private list's
+  // unguessable link would be published with it. The title and the code's first
+  // characters are enough to find the list, and useless to anyone else.
+  feedbackPreset.value = `Reporting the shared list "${props.snapshot.title}" (share code starting ${props.snapshot.shareCode.slice(0, 4)}). What's wrong with it: `;
   feedbackEverOpened.value = true;
   feedbackOpen.value = true;
 }

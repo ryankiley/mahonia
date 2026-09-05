@@ -418,6 +418,12 @@ watch(
     // offer the read-only view the same code opens, rather than landing a fresh
     // draft under the dead address (which read as "the list is empty"). No request
     // is made: nothing could succeed without a key or a session.
+    // ...unless this browser holds the key itself. A list made or opened here is in
+    // the registry with its token, so a truncated link to your OWN list opens it for
+    // editing (the fragment is restored and this watcher runs again) rather than
+    // offering you the read-only view of it.
+    const mine = code ? my.entries.value.find((e) => e.shareCode === code)?.editToken : undefined;
+    if (mine) return navigateTo({ path: route.path, hash: `#${mine}` }, { replace: true });
     if (code) {
       c.dispose(ownedEpoch);
       c.startKeyless(code);
@@ -543,13 +549,12 @@ function toggleMenu() {
 }
 
 function copyShare() {
-  tally("share_link_copied");
   // a draft has no shareCode/token yet — nudge instead of copying a broken link
   if (!snapshot.value?.shareCode) return flash("Add an item first to share");
+  tally("share_link_copied"); // after the guard: a refused copy is not a copy
   copy(`${origin()}/s/${snapshot.value.shareCode}`, "Read-only link copied", "Read-only link");
 }
 async function copyEditLink() {
-  tally("share_link_copied");
   // a claimed open holds no edit link to copy — the server only ever stored its
   // hash, so this device can't produce one without rotating (which mints a new one)
   if (!c.editToken && c.claimCode)
@@ -560,6 +565,7 @@ async function copyEditLink() {
     message: "Anyone with this link can edit your list. Only send it to people you trust.",
     confirmLabel: "Copy edit link",
   }))) return;
+  tally("share_link_copied"); // after the confirm: a cancelled copy is not a copy
   // /e/{shareCode}#{token} so link previews (Apple Notes/iMessage) show the name;
   // token stays in the fragment (see shared/links.editLinkPath)
   copy(`${origin()}${editLinkPath(snapshot.value?.shareCode, c.editToken)}`, "Edit link copied", "Edit link");

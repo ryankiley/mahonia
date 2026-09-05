@@ -175,7 +175,7 @@ watch(open, (o) => {
          has done its job the moment you've found the control. -->
     <Transition name="menu">
       <div v-if="hint && !open" class="lm__hint" role="status">
-        <span>{{ resumed ? "Picked up where you left off. Your other lists are here." : "Pick up where you left off" }}</span>
+        <span>{{ resumed ? (all.length > 1 ? "Picked up where you left off. Your other lists are here." : "Picked up where you left off.") : "Pick up where you left off" }}</span>
         <button
           type="button"
           class="lm__hintclose"
