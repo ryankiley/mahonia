@@ -64,7 +64,7 @@
   },
   "overrides": {
     "satori": {
-      "fflate": "^0.8.3"
+      "fflate": "0.7.5"
     }
   }
 }

@@ -1,6 +1,7 @@
 import { createError, defineEventHandler } from "h3";
 import { generateRegistrationOptions } from "@simplewebauthn/server";
 import {
+  PASSKEY_ALGORITHM_IDS,
   RP_NAME,
   newAccountHandle,
   requirePasskeysConfigured,
@@ -81,6 +82,8 @@ export default defineEventHandler(async (event) => {
     userDisplayName: email,
     userID: new TextEncoder().encode(handle),
     attestationType: "none",
+    // stated, not inherited — see PASSKEY_ALGORITHM_IDS
+    supportedAlgorithmIDs: PASSKEY_ALGORITHM_IDS,
     authenticatorSelection: {
       // REQUIRED, not preferred. Sign-in sends no email and no user id, so the
       // browser has to be able to offer the credential unprompted. A non-

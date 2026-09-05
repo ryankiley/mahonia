@@ -65,6 +65,37 @@ export function newAccountHandle(): string {
 export const RP_NAME = "Mahonia";
 
 /**
+ * The signature algorithms a new passkey may use: Ed25519, ES256, RS256 — stated
+ * here rather than left to the library's default, and passed by BOTH registration
+ * routes.
+ *
+ * @simplewebauthn/server v13 defaulted to exactly this list. v14 changed the
+ * default to a value it computes at import time:
+ *
+ *     if (SettingsService.runtimeSupportsPQC())
+ *       defaultSupportedAlgorithmIDs = [COSEALG.ML_DSA_44, ...]
+ *
+ * On Node 24 that detection succeeds, so the default silently became
+ * [-48, -8, -7, -257] with post-quantum ML-DSA-44 FIRST — the most-preferred
+ * algorithm, chosen by whatever the runtime happened to report. Node itself calls
+ * ML-DSA-44 experimental and warns that it "might change at any time".
+ *
+ * Two ways that bites, both silent and both permanent. A ceremony is two requests
+ * on two serverless instances: if the one serving options detects PQC and the one
+ * serving verify does not, registration throws PQCNotSupportedError AFTER the user
+ * has already touched their sensor. And a key minted as ML-DSA-44 can only ever be
+ * verified by a runtime that still offers the algorithm — if a later Node build
+ * renames or withdraws it, that user's sign-in fails forever, through a catch that
+ * turns it into a bare {ok:false} with nothing to explain it.
+ *
+ * A passkey outlives the runtime that minted it. Which algorithms this site is
+ * willing to be held to for years is a decision, not a feature-detection result —
+ * so it is written down. Adding ML-DSA-44 is a fine thing to do deliberately, once
+ * it is no longer experimental, with both routes changed together.
+ */
+export const PASSKEY_ALGORITHM_IDS = [-8, -7, -257];
+
+/**
  * The refusal every passkey endpoint opens with: fail up front, loudly, rather
  * than at verify with nothing to explain it. One message to maintain.
  *

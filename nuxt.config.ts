@@ -1,5 +1,9 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 
+import { copyFile, mkdir } from "node:fs/promises";
+import { createRequire } from "node:module";
+import { dirname, join } from "node:path";
+
 // The one external host, the CSP built from it, and the headers every route
 // carries — all in config/security.ts, with the reasoning that goes with them.
 // Imported rather than inlined so tests/csp.test.ts can read the real values
@@ -111,6 +115,38 @@ export default defineNuxtConfig({
         // function form: node-file-trace matches string globs against paths
         // relative to its base ("/"), which proved brittle — predicate it instead
         ignore: (path: string) => path.includes("node_modules/@electric-sql/pglite/"),
+      },
+    },
+
+    hooks: {
+      // Ship harfbuzz's wasm by hand, because nothing else will.
+      //
+      // satori 0.33 shapes text with harfbuzz (that's what moved the OG card's
+      // glyph advances), and harfbuzzjs locates its binary as
+      // `__dirname + "/hb.wasm"` — a runtime string concat. node-file-trace only
+      // follows STATIC requires, so it copies hb.js and leaves hb.wasm behind:
+      // `find .output -name '*.wasm'` came back empty. `externals.traceInclude`
+      // is no help either; it adds trace ENTRY POINTS, and tracing from hb.js is
+      // exactly what already fails.
+      //
+      // The failure this prevents is not a missing image, it's a dead instance.
+      // harfbuzzjs/index.js is `module.exports = new Promise(...)` built at
+      // IMPORT time, so the ENOENT surfaces as an unhandled rejection that never
+      // passes through the try/catch in server/utils/ogCard.ts — under Node's
+      // default --unhandled-rejections=throw the lambda dies, taking every
+      // concurrent request with it. And nothing catches this before production:
+      // /og/l/:slug and /og/s/:code are runtime SSR (never prerendered, so the
+      // build never renders a card), and vitest resolves satori from the intact
+      // node_modules where hb.wasm sits right next to hb.js.
+      //
+      // serverDir rather than a hardcoded path so this follows the preset —
+      // .output/server locally, .vercel/output/functions/__fallback.func on
+      // Vercel.
+      async compiled(nitro) {
+        const src = join(dirname(createRequire(import.meta.url).resolve("harfbuzzjs")), "hb.wasm");
+        const dest = join(nitro.options.output.serverDir, "node_modules/harfbuzzjs/hb.wasm");
+        await mkdir(dirname(dest), { recursive: true });
+        await copyFile(src, dest);
       },
     },
   },
