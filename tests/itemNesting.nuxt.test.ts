@@ -88,6 +88,14 @@ const byId = (c: ReturnType<typeof useGearList>, id: string) =>
   c.snapshot.value?.items.find((i) => i.id === id);
 const childrenOf = (c: ReturnType<typeof useGearList>, parentId: string) =>
   itemsOf(c).filter((i) => i.parentId === parentId);
+/** The list's rollups. `totals` is null until a snapshot exists, and every caller below
+ *  has already awaited `open()` — so assert that rather than reaching past it with `!`,
+ *  which would report "cannot read kcalTotal of null" instead of the real cause. */
+function totalsOf(c: ReturnType<typeof useGearList>) {
+  const t = c.totals.value;
+  if (!t) throw new Error("no snapshot: the list never loaded");
+  return t;
+}
 
 async function open(items: Item[]) {
   listResponse = listWith(items);
@@ -523,13 +531,13 @@ describe("nesting never rewrites the row it nests into", () => {
       item({ id: "dinner", name: "Dinners", qty: 5, kcal: 700, classification: "consumable", sortOrder: 0 }),
       item({ id: "chili", name: "Chili", unitWeightMg: 180_000, sortOrder: 1 }),
     ]);
-    expect(c.totals.value.kcalTotal).toBe(3500);
+    expect(totalsOf(c).kcalTotal).toBe(3500);
 
     c.nestItem("chili", "dinner");
     await vi.waitFor(() => expect(byId(c, "chili")?.parentId).toBe("dinner"));
     expect(byId(c, "dinner")?.qty).toBe(5);
     expect(byId(c, "dinner")?.kcal).toBe(700);
-    expect(c.totals.value.kcalTotal).toBe(3500);
+    expect(totalsOf(c).kcalTotal).toBe(3500);
   });
 
   // The cancelled gesture: "Add a nested item" opens a blank child, and clicking away
@@ -538,7 +546,7 @@ describe("nesting never rewrites the row it nests into", () => {
     const c = await open([
       item({ id: "socks", name: "Socks", qty: 4, wornQty: 1, classification: "base", unitWeightMg: 40_000, sortOrder: 0 }),
     ]);
-    const before = c.totals.value.totalMg;
+    const before = totalsOf(c).totalMg;
 
     const child = c.addChild("socks");
     await vi.waitFor(() => expect(byId(c, child)?.parentId).toBeTruthy());
@@ -547,7 +555,7 @@ describe("nesting never rewrites the row it nests into", () => {
 
     expect(byId(c, "socks")?.qty).toBe(4);
     expect(byId(c, "socks")?.wornQty).toBe(1);
-    expect(c.totals.value.totalMg).toBe(before);
+    expect(totalsOf(c).totalMg).toBe(before);
   });
 
   // Opening a list must not rewrite it either. A parent stored with a count and a weight
@@ -566,7 +574,7 @@ describe("nesting never rewrites the row it nests into", () => {
     expect(byId(c, "poles")?.qty).toBe(2);
     expect(byId(c, "kit")?.qty).toBe(3);
     // the totals the list opened with are the totals it still has
-    expect(c.totals.value.totalMg).toBe(2 * 210_000 + 20_000 + 100_000);
+    expect(totalsOf(c).totalMg).toBe(2 * 210_000 + 20_000 + 100_000);
   });
 
   // The wrap's reverse keeps a working discriminator: unwrapEmptied refuses to dissolve a
