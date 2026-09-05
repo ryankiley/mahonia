@@ -13,7 +13,7 @@ import {
   listRemovedVaultItems,
   listVaultFolders,
   listVaultItems,
-  listVaultKeys,
+  vaultGearAmong,
   purgeDeletedVaults,
   reapAbandonedVaults,
   removeVaultItem,
@@ -355,12 +355,17 @@ describe("vault removal — the tombstone", () => {
   });
 });
 
-describe("listVaultKeys — the membership read the editor runs on", () => {
+describe("vaultGearAmong — the membership read the editor runs on", () => {
   // The editor asks one question about a list row: does My Gear already hold this
-  // piece of gear? For three attempts the row answered it from the list's own
-  // capture answer instead, which is why gear banked months ago kept being
-  // offered for saving. This is the read that replaced the guess, so what it
-  // counts as "in the vault" is the whole contract.
+  // piece of gear, and is there anything left to push into it? For three attempts
+  // the row answered from the list's own capture answer instead, which is why gear
+  // banked months ago kept being offered for saving. This is the read that
+  // replaced the guess, so what it counts as "in the vault" is the whole contract.
+  //
+  // Scoped to the keys ASKED about — the whole-vault version of this read forced
+  // an app-lifetime cache on the client, and every lifetime question that cache
+  // then had (whose account, how stale, did a sign-in change it) was a bug waiting
+  // to be written.
   let db: DB;
   const VAULT = 1;
   const duplex = {
@@ -375,22 +380,29 @@ describe("listVaultKeys — the membership read the editor runs on", () => {
     name: "Kakwa 55",
     weightMg: 900_000,
   } as any;
+  const both = [duplex.normKey, kakwa.normKey];
 
   beforeEach(async () => {
     db = await freshDb();
     await captureVaultItems(db as any, VAULT, [duplex, kakwa]);
   });
 
-  /** the [key, weight] tuples as a Map, which is what the client builds anyway */
-  const keyMap = async (vault: number) => new Map(await listVaultKeys(db as any, vault));
+  const among = async (keys: string[], vault = VAULT) =>
+    new Map(await vaultGearAmong(db as any, vault, keys));
 
-  it("returns every live row's key with the weight a capture could still change", async () => {
-    expect(await keyMap(VAULT)).toEqual(
+  it("answers for the keys asked about, with the weight a capture could still write", async () => {
+    expect(await among(both)).toEqual(
       new Map([
         [duplex.normKey, 539_000],
         [kakwa.normKey, 900_000],
       ]),
     );
+  });
+
+  it("answers ONLY for the keys asked about", async () => {
+    // the point of the scope: a list's question is about a list's gear, not about
+    // everything the vault happens to hold
+    expect(await among([duplex.normKey])).toEqual(new Map([[duplex.normKey, 539_000]]));
   });
 
   it("nulls the weight of a row whose weight is pinned", async () => {
@@ -399,8 +411,8 @@ describe("listVaultKeys — the membership read the editor runs on", () => {
     // client must not offer to
     const id = (await listVaultItems(db as any, VAULT)).find((r) => r.name === "Duplex")!.id;
     await applyVaultItemOp(db as any, VAULT, { t: "edit", id, patch: { weightMg: 545_000 } } as any);
-    expect((await keyMap(VAULT)).get(duplex.normKey)).toBeNull();
-    expect((await keyMap(VAULT)).get(kakwa.normKey)).toBe(900_000); // unpinned, untouched
+    expect((await among(both)).get(duplex.normKey)).toBeNull();
+    expect((await among(both)).get(kakwa.normKey)).toBe(900_000); // unpinned, untouched
   });
 
   it("drops a removed row — a tombstone is gear you no longer have", async () => {
@@ -409,16 +421,21 @@ describe("listVaultKeys — the membership read the editor runs on", () => {
     // button on gear the vault genuinely doesn't hold.
     const id = (await listVaultItems(db as any, VAULT)).find((r) => r.name === "Duplex")!.id;
     await removeVaultItem(db as any, VAULT, id);
-    expect([...(await keyMap(VAULT)).keys()]).toEqual([kakwa.normKey]);
+    expect([...(await among(both)).keys()]).toEqual([kakwa.normKey]);
   });
 
   it("answers for one vault only", async () => {
     await captureVaultItems(db as any, 2, [duplex]);
-    expect([...(await keyMap(2)).keys()]).toEqual([duplex.normKey]);
+    expect([...(await among(both, 2)).keys()]).toEqual([duplex.normKey]);
   });
 
-  it("is empty for a vault with nothing in it", async () => {
-    expect(await listVaultKeys(db as any, 99)).toEqual([]);
+  it("is empty for gear no vault has ever held", async () => {
+    expect(await vaultGearAmong(db as any, VAULT, ["nothing at all"])).toEqual([]);
+  });
+
+  it("is empty for an empty ask, and for a vault with nothing in it", async () => {
+    expect(await vaultGearAmong(db as any, VAULT, [])).toEqual([]);
+    expect(await vaultGearAmong(db as any, 99, both)).toEqual([]);
   });
 
   it("is empty for a vault whose every row has been removed", async () => {
@@ -426,31 +443,28 @@ describe("listVaultKeys — the membership read the editor runs on", () => {
     // NOT stand in for — that one never had a row to exclude
     for (const row of await listVaultItems(db as any, VAULT))
       await removeVaultItem(db as any, VAULT, row.id);
-    expect(await listVaultKeys(db as any, VAULT)).toEqual([]);
+    expect(await vaultGearAmong(db as any, VAULT, both)).toEqual([]);
   });
 
-  it("stays inside the browse's window, newest first", async () => {
-    // The bound and the ORDER are load-bearing, and a test with two rows can't
-    // see either. A key OUTSIDE what /vault shows would hide the save button on
-    // a row its owner cannot see, remove or restore — a state with no way out —
-    // so this read must never reach further than listVaultItems does.
-    //
-    // It also pins the ordering: without an explicit orderBy the truncated set is
-    // whatever Postgres happens to return, so the same gear reads as banked on
-    // one load and not on the next.
-    const many = Array.from({ length: 40 }, (_, i) => ({
-      normKey: vaultNormKey("Brand", `Thing ${i}`, null),
-      brand: "Brand",
-      name: `Thing ${i}`,
-      weightMg: 1_000 + i,
-    })) as any[];
-    const fresh = await freshDb();
-    await captureVaultItems(fresh as any, VAULT, many);
-    const browse = await listVaultItems(fresh as any, VAULT);
-    const keys = await listVaultKeys(fresh as any, VAULT);
-    // never wider than the browse, and identical in both membership and order
-    expect(keys.length).toBeLessThanOrEqual(browse.length);
-    expect(keys.map(([k]) => k)).toEqual(browse.map((r) => r.normKey));
+  it("has no window to fall outside of, however much gear the vault holds", async () => {
+    // The whole-vault read was bounded at POOL_LIMIT, and a key outside that
+    // window hid the save button on a row its owner could not see, remove or
+    // restore on /gear — a state with no way out. An ask has no window: seed past
+    // the browse's bound and the answer is still about the keys asked for.
+    const now = new Date();
+    await db.insert(vaultItems).values(
+      Array.from({ length: 1_200 }, (_, i) => ({
+        vaultId: 2,
+        normKey: vaultNormKey(null, `Seed ${i}`, null),
+        name: `Seed ${i}`,
+        weightMg: 1,
+        timesSeen: 1,
+        lastUsedAt: now,
+        updatedAt: now,
+      })),
+    );
+    const oldest = vaultNormKey(null, "Seed 0", null);
+    expect(await vaultGearAmong(db as any, 2, [oldest])).toEqual([[oldest, 1]]);
   });
 });
 
@@ -472,7 +486,7 @@ describe("captureVaultItemsReporting — what a capture actually landed", () => 
     db = await freshDb();
   });
 
-  it("reports the gear it wrote, in the SAME shape listVaultKeys returns", async () => {
+  it("reports the gear it wrote, in the SAME shape the membership read returns", async () => {
     // The editor folds both into one Map, so a drift between them is not a type
     // nit — it shipped one. When this returned bare keys while the client
     // destructured tuples, `[k] of "zpacks duplex"` bound k to "z": every
@@ -481,7 +495,7 @@ describe("captureVaultItemsReporting — what a capture actually landed", () => 
     // side was only ever asserted in isolation.
     const landed = await captureVaultItemsReporting(db as any, VAULT, [cap]);
     expect(landed.keys).toEqual([[cap.normKey, 539_000]]);
-    expect(landed.keys).toEqual(await listVaultKeys(db as any, VAULT));
+    expect(landed.keys).toEqual(await vaultGearAmong(db as any, VAULT, [cap.normKey]));
     expect(landed.full).toBe(false);
   });
 

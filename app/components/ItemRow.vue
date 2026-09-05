@@ -97,10 +97,11 @@ const c = useGearList();
 // below — signed out, nothing reaches a vault automatically, so no row may claim
 // it's already there
 const { hasVault, vaultKnown } = useVaultAccess();
-// ...and the one fact neither of those carries: what My Gear actually holds, and
-// at what weight. Read from a shared singleton, so a 150-row list asks once
-// (useVaultKeys).
-const { vaultGear, vaultKeysKnown } = useVaultKeys();
+// ...and the one fact neither of those carries: what My Gear actually holds of
+// THIS LIST's gear, and at what weight. It belongs to the open list, which asked
+// once when it opened (useGearList.askVaultGear) — so a 150-row list reads two
+// refs rather than holding a cache of its own.
+const { vaultGear, vaultGearAsked, vaultGearSettled } = c;
 
 // The two mount latches (each row face mounts the first time its mode is entered and
 // then stays, CSS-hidden elsewhere) and the mode itself, for event handlers only —
@@ -829,20 +830,24 @@ const setPerson = (personId: string | null) => c.updateItem(props.item.id, { per
 const vaultWorthy = computed(() => isVaultWorthy(props.item, isParent.value));
 const vaultKey = computed(() => vaultNormKey(props.item.brand, props.item.name, props.item.variant));
 const vaultCovered = computed(() => {
-  // "signed in, or not yet known to be otherwise" — NOT hasVault alone. That ref
-  // is false both for someone signed out and for the moment before
-  // /api/auth/me answers, and only the first of those means nothing can have
-  // banked this row. Reading them as one put the button on every worthy row of
-  // every covered list for the length of that round trip: open a list you built,
-  // and gear that has been in My Gear for weeks offered to be saved to it.
-  if (vaultKnown.value && !hasVault.value) return false; // no vault, so nothing is in one
-  // Same rule one level down, and the ONLY wait: the Map is empty both for an
-  // empty vault and for the moment before /api/vault/keys answers, and only the
-  // first means the row isn't banked. Deliberately not also gated on vaultKnown —
-  // useVaultKeys owns that wait and BOUNDS it (a session lookup that never
-  // resolves settles this as known-with-nothing), where reading vaultKnown here
-  // hid the button for good on a visitor whose /api/auth/me never came back.
-  if (!vaultKeysKnown.value) return true;
+  // Signed out there is no vault, so nothing can be in one and every worthy row
+  // keeps its button — pressing it is how you find that out ("Sign in to keep
+  // your gear"). NOT `!hasVault` alone: that ref is also false for the moment
+  // before /api/auth/me answers, and reading the two as one put the button on
+  // every worthy row of every covered list for the length of that round trip.
+  //
+  // FIRST, ahead of the wait below, because it makes the wait pointless: there is
+  // no answer coming that could change it. Behind the wait, a signed-out visitor
+  // — most of them — typed a row and watched its button arrive most of a second
+  // late, once a debounced ask had confirmed the nothing we already knew.
+  if (vaultKnown.value && !hasVault.value) return false;
+  // Has the vault been ASKED about this row's gear? An unanswered key and a key
+  // the vault doesn't have are the same absence from the Map, and rendering the
+  // second as the first is the flash PR #239 took out of the signed-in first
+  // paint. This is the only wait, and it is bounded by construction: the ask
+  // settles even when it fails, times out, or is skipped for a visitor with no
+  // account (see askVaultGear), so there is no state where it never answers.
+  if (!vaultGearAsked.value.has(vaultKey.value)) return true;
   // THE TRUTHFUL TEST, and the one this button spent three attempts without: My
   // Gear either has this piece of gear or it doesn't. It holds however the row got
   // there — a list on another device, an import, a hand-typed row on /gear — and
@@ -898,14 +903,14 @@ const vaultOffered = computed(
  */
 const vaultRevealArmed = ref(false);
 watch(
-  vaultKeysKnown,
-  // Disarms on the way DOWN as well. `known` returns to false on every session
-  // change (useVaultKeys invalidates, because an answer about the last account is
-  // not an answer about this one) — so an arm-only latch let an in-page sign-in
-  // take every worthy row through covered and back, playing the whole list's
-  // shine at once. That is the same page-load burst this exists to prevent,
-  // reached by the most ordinary route into the feature.
-  (known) => (known ? nextTick(() => (vaultRevealArmed.value = true)) : (vaultRevealArmed.value = false)),
+  vaultGearSettled,
+  // Disarms on the way DOWN as well. The list's answer returns to unsettled on
+  // every session change (the controller re-asks, because an answer about the
+  // last account is not an answer about this one) — so an arm-only latch let an
+  // in-page sign-in take every worthy row through covered and back, playing the
+  // whole list's shine at once. That is the same page-load burst this exists to
+  // prevent, reached by the most ordinary route into the feature.
+  (settled) => (settled ? nextTick(() => (vaultRevealArmed.value = true)) : (vaultRevealArmed.value = false)),
   { immediate: true },
 );
 async function onSaveToVault() {

@@ -20,8 +20,13 @@ import GearPage from "~/pages/gear.vue";
 // resolve against the routes below — the same passthrough gearList.nuxt.test.ts uses.
 mockNuxtImport("useVaultAccess", () => () => ({
   hasVault: ref(true),
-  vaultFetch: <T,>(url: string, opts?: Parameters<typeof $fetch>[1]) =>
-    $fetch(url, { ...opts, credentials: "same-origin" }) as Promise<T>,
+  // Mirrors the real vaultFetch, including WHY it casts: `$fetch` is generic over
+  // the app's routes, so typing the call drags Nuxt's route matcher in and blows
+  // TypeScript's depth limit from a mock (see useVaultAccess).
+  vaultFetch: <T,>(url: string, opts?: Record<string, unknown>) => {
+    const call = $fetch as unknown as (u: string, o: unknown) => Promise<unknown>;
+    return call(url, { ...opts, credentials: "same-origin" }) as Promise<T>;
+  },
 }));
 
 // Node's own localStorage global throws on every method without a backing file; the

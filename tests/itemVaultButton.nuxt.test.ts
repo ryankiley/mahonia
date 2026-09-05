@@ -36,14 +36,16 @@ const rowProvides = {
 
 // The dials the covered state reads, reset per test. `vaultKnown` is the session
 // having ANSWERED — false only in the moment before /api/auth/me lands;
-// `vaultKeysKnown` is the same distinction one level down, for the read that says
-// what My Gear actually holds.
+// `vaultGearAsked` is the same distinction one level down, and per KEY: it says
+// which gear the open list has an answer about at all.
 const vaultAuto = ref(false);
 const vaultDeclined = ref<Set<string>>(new Set());
 const hasVault = ref(true);
 const vaultKnown = ref(true);
 const vaultGear = ref<ReadonlyMap<string, number | null>>(new Map());
-const vaultKeysKnown = ref(true);
+/** Which keys the open list has an ANSWER for — the row's only wait. */
+const vaultGearAsked = ref<ReadonlySet<string>>(new Set());
+const vaultGearSettled = ref(true);
 const saveItemToVault = vi.fn<
   () => Promise<"saved" | "unworthy" | "removed" | "full" | "failed">
 >(() => Promise.resolve("saved"));
@@ -52,12 +54,6 @@ mockNuxtImport("useVaultAccess", () => () => ({
   hasVault,
   vaultKnown,
   vaultFetch: () => Promise.resolve({ results: [] }),
-}));
-
-mockNuxtImport("useVaultKeys", () => () => ({
-  vaultGear,
-  vaultKeysKnown,
-  refreshVaultKeys: () => Promise.resolve(),
 }));
 
 mockNuxtImport("useGearList", () => () => ({
@@ -75,6 +71,10 @@ mockNuxtImport("useGearList", () => () => ({
   saveItemToVault,
   vaultAuto,
   vaultDeclined,
+  // the open list's own answer about its own gear — no shared cache to mock
+  vaultGear,
+  vaultGearAsked,
+  vaultGearSettled,
 }));
 
 const list = {
@@ -113,6 +113,8 @@ const keyFor = (item: Item) => vaultNormKey(item.brand, item.name, item.variant)
  *  "banked, with nothing left to push". */
 const banked = (item: Item, weightMg: number | null = item.unitWeightMg) =>
   new Map([[keyFor(item), weightMg]]);
+/** Mark these keys answered-for, which is what the list's ask does. */
+const asked = (...keys: string[]) => new Set(keys);
 
 describe("the save button, against what My Gear actually holds", () => {
   beforeEach(() => {
@@ -121,7 +123,10 @@ describe("the save button, against what My Gear actually holds", () => {
     hasVault.value = true;
     vaultKnown.value = true;
     vaultGear.value = new Map();
-    vaultKeysKnown.value = true;
+    // every case's row is the `gear()` fixture, so its key is answered for unless
+    // a case says otherwise
+    vaultGearAsked.value = asked(keyFor(gear()));
+    vaultGearSettled.value = true;
     saveItemToVault.mockClear();
   });
 
@@ -171,12 +176,12 @@ describe("the save button, against what My Gear actually holds", () => {
     // "your vault is empty" would put the button back on every banked row for the
     // length of that round trip
     const item = gear();
-    vaultKeysKnown.value = false;
+    vaultGearAsked.value = new Set(); // nothing answered for yet
     const w = mountRow(item);
     expect(vaultBtn(w).exists()).toBe(false);
 
     vaultGear.value = banked(item);
-    vaultKeysKnown.value = true;
+    vaultGearAsked.value = asked(keyFor(item));
     await nextTick();
     expect(vaultBtn(w).exists()).toBe(false); // banked all along; no flash
     w.unmount();
@@ -250,11 +255,11 @@ describe("the save button, against what My Gear actually holds", () => {
     const reveal = (v: ReturnType<typeof mountRow>) =>
       v.findAllComponents({ name: "Transition" }).find((t) => t.props("name") === "vaultin")!;
 
-    vaultKeysKnown.value = false;
+    vaultGearSettled.value = false;
     const w = mountRow(gear());
     expect(reveal(w).props("css")).toBe(false); // disarmed while unanswered
 
-    vaultKeysKnown.value = true;
+    vaultGearSettled.value = true;
     await nextTick();
     expect(vaultBtn(w).exists()).toBe(true); // ...arrives without animating
     expect(reveal(w).props("css")).toBe(false); // still disarmed on that very render
@@ -265,7 +270,7 @@ describe("the save button, against what My Gear actually holds", () => {
     // ...and DISARMS again when the answer is withdrawn. `known` returns to false
     // on every session change, so an arm-only latch let an in-page sign-in play
     // the whole list's shine at once — the burst this exists to prevent.
-    vaultKeysKnown.value = false;
+    vaultGearSettled.value = false;
     await nextTick();
     expect(reveal(w).props("css")).toBe(false);
     w.unmount();
@@ -320,7 +325,17 @@ describe("the save button, against what My Gear actually holds", () => {
     vaultGear.value = banked(item);
     await vi.waitFor(() => expect(vaultBtn(w).attributes("aria-label")).toBe("Saved to My Gear"));
 
-    await w.setProps({ item: gear({ name: "Kakwa 55", brand: "Durston" }) });
+    // A rename makes it gear nothing has asked about, so the row waits rather
+    // than guessing — the same rule as a row typed in after the list opened. The
+    // list re-asks on a debounce (useGearList.queueVaultGear).
+    const renamed = gear({ name: "Kakwa 55", brand: "Durston" });
+    await w.setProps({ item: renamed });
+    expect(vaultBtn(w).exists()).toBe(false);
+
+    // ...and when that answer lands saying the vault doesn't have it, the button
+    // is back, offering to save the gear this row has become
+    vaultGearAsked.value = asked(keyFor(item), keyFor(renamed));
+    await nextTick();
     expect(vaultBtn(w).attributes("aria-label")).toBe("Save to My Gear");
     w.unmount();
   });
@@ -333,7 +348,10 @@ describe("the save button on a list the automatic capture already covers", () =>
     hasVault.value = true;
     vaultKnown.value = true;
     vaultGear.value = new Map();
-    vaultKeysKnown.value = true;
+    // every case's row is the `gear()` fixture, so its key is answered for unless
+    // a case says otherwise
+    vaultGearAsked.value = asked(keyFor(gear()));
+    vaultGearSettled.value = true;
     saveItemToVault.mockClear();
   });
 
@@ -396,6 +414,19 @@ describe("the save button on a list the automatic capture already covers", () =>
     w.unmount();
   });
 
+  it("offers itself signed out the INSTANT a row becomes gear, without waiting on an ask", () => {
+    // A signed-out visitor is most of them, and no answer is coming that could
+    // change what this row shows — so the wait for one must not be in front of
+    // it. Behind the wait, typing a row and completing it left the button most of
+    // a second late while a debounced ask confirmed the nothing we already knew.
+    vaultAuto.value = true;
+    hasVault.value = false;
+    vaultGearAsked.value = new Set(); // nothing answered for: a row just typed in
+    const w = mountRow(gear());
+    expect(vaultBtn(w).exists()).toBe(true);
+    w.unmount();
+  });
+
   it("still offers itself signed out — there is no vault for the gear to already be in", () => {
     vaultAuto.value = true;
     hasVault.value = false;
@@ -410,22 +441,22 @@ describe("the save button on a list the automatic capture already covers", () =>
     // button on every worthy row of a list you built for the length of that round
     // trip — gear that had been in My Gear for weeks, offering to be saved to it.
     //
-    // The row expresses that wait through vaultKeysKnown ALONE. useVaultKeys is
-    // gated on the session and bounds its own wait, so a lookup that never
-    // resolves settles rather than hiding the button for good; reading vaultKnown
-    // here as well is what made an offline signed-in visitor lose the button on
+    // The row expresses that wait through the list's ANSWER, not the session: the
+    // ask settles even when it fails, times out, or is skipped for a visitor with
+    // no account, so there is no state where it never answers. Reading vaultKnown
+    // as the wait is what made an offline signed-in visitor lose the button on
     // every row of every list with no way back.
     vaultAuto.value = true;
     hasVault.value = false;
     vaultKnown.value = false; // /api/auth/me still in flight
-    vaultKeysKnown.value = false;
+    vaultGearAsked.value = new Set(); // ...and the list hasn't been answered either
     const w = mountRow(gear());
     expect(vaultBtn(w).exists()).toBe(false);
 
     // ...and the answer, when it lands, is what decides. Signed out really does
     // mean nothing was banked, so the button arrives.
     vaultKnown.value = true;
-    vaultKeysKnown.value = true;
+    vaultGearAsked.value = asked(keyFor(gear()));
     await nextTick();
     expect(vaultBtn(w).exists()).toBe(true);
     w.unmount();
@@ -440,7 +471,7 @@ describe("the save button on a list the automatic capture already covers", () =>
     // this file flips the two together, so that regression would ship green.
     vaultAuto.value = false;
     vaultKnown.value = false;
-    vaultKeysKnown.value = true; // bounded wait gave up; nothing is known banked
+    vaultGearAsked.value = asked(keyFor(gear())); // the ask settled; nothing banked
     const w = mountRow(gear());
     expect(vaultBtn(w).exists()).toBe(true);
     w.unmount();
@@ -450,13 +481,13 @@ describe("the save button on a list the automatic capture already covers", () =>
     vaultAuto.value = true;
     hasVault.value = false;
     vaultKnown.value = false;
-    vaultKeysKnown.value = false;
+    vaultGearAsked.value = new Set();
     const w = mountRow(gear());
     expect(vaultBtn(w).exists()).toBe(false);
 
     hasVault.value = true; // the session resolves as signed in
     vaultKnown.value = true;
-    vaultKeysKnown.value = true;
+    vaultGearAsked.value = asked(keyFor(gear()));
     await nextTick();
     expect(vaultBtn(w).exists()).toBe(false);
     w.unmount();

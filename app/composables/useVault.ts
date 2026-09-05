@@ -4,7 +4,6 @@
 import type { Folder, Item } from "~~/shared/types";
 import type { VaultCapture, VaultEntry, VaultGearKey } from "~~/shared/vault";
 import { remember } from "../utils/remember";
-import { noteVaultKeys, resetVaultKeys, useVaultKeys, vaultKeysEpoch } from "./useVaultKeys";
 
 // ---------------------------------------------------------------------------
 // capture
@@ -128,16 +127,15 @@ let pending: { items: VaultCapture[]; fingerprint: string } | null = null;
  * treatment the offline catalog cache gets, and for the same reason (the editor's
  * bundle is budgeted).
  */
+/** Why a hand press did or didn't land. Each value is a different thing for the
+ *  row to SAY: a row to finish, a removal to undo on /gear, a full vault to make
+ *  room in, a request worth retrying. */
+export type CaptureOneResult = "saved" | "unworthy" | "removed" | "full" | "failed";
+
 export function useVaultCapture() {
   // hasVault as well as the fetch: capture must not ASK someone who has no vault
   // (see sync below), and the two come from the same place.
   const { hasVault, vaultFetch } = useVaultAccess();
-  // Resolved HERE, where a Nuxt instance is guaranteed — sync() runs from an async
-  // continuation and send() from a setTimeout, and the session state underneath
-  // these is a useState. (It is safe today only because the singletons are already
-  // built by then; resolving once removes the ordering dependency rather than
-  // relying on it.)
-  const { vaultGear, vaultKeysKnown } = useVaultKeys();
 
   /**
    * Note a change to the list.
@@ -154,7 +152,13 @@ export function useVaultCapture() {
   function sync(
     items: Item[],
     folders: Folder[] = [],
-    opts: { editToken?: string; onAsk?: () => void } = {},
+    opts: {
+      editToken?: string;
+      onAsk?: () => void;
+      /** What the vault holds of this list's gear, or null while unanswered —
+       *  the open list's own answer, handed in by the controller. */
+      held?: ReadonlyMap<string, number | null> | null;
+    } = {},
   ): void {
     if (!import.meta.client) return;
     void (async () => {
@@ -190,7 +194,8 @@ export function useVaultCapture() {
         // the one question that list gets.
         if (decision === "ask") {
           if (!hasVault.value) return;
-          if (vaultKeysKnown.value && caps.every((c) => vaultGear.value.has(c.normKey))) return;
+          const held = opts.held;
+          if (held && caps.every((c) => held.has(c.normKey))) return;
           return opts.onAsk?.();
         }
         built = { caps, fingerprint: captureFingerprint(caps) };
@@ -208,26 +213,17 @@ export function useVaultCapture() {
   async function send(): Promise<void> {
     const sending = pending;
     if (!sending) return;
-    // read BEFORE the POST: this response can outlive the account that sent it
-    // (sign out mid-flight and it still arrives), and its keys must not be folded
-    // into the next person's vault
-    const at = vaultKeysEpoch();
     try {
-      const res = await vaultFetch<{ keys?: VaultGearKey[] }>("/api/vault/capture", {
+      await vaultFetch("/api/vault/capture", {
         method: "POST",
         body: { items: sending.items },
       });
-      // What the vault NOW holds, as the vault reports it — not what we sent. The
-      // upsert refuses some of both (a tombstoned row stays put away, new keys
-      // past the ceiling are dropped in silence), and a row wrongly marked banked
-      // loses its save button with no way to press it again.
-      noteVaultKeys(res?.keys ?? [], at);
-      // The memo is guarded by the SAME epoch, and for the same reason. A
-      // sign-out mid-POST clears it (resetVaultCapture), and re-setting it here
-      // afterwards told the NEXT account that this list was already sent — so
-      // their first edit of it captured nothing, which is the leak the reset
-      // exists to close, arriving a beat late.
-      if (at !== vaultKeysEpoch()) return;
+      // Nothing is fed back to the rows from here, and nothing needs to be: this
+      // path runs ONLY when the list's stored answer is "yes" (sync returns above
+      // for "no" and for "ask"), which is exactly when vaultAuto already covers
+      // every worthy row it sends. Rows the chooser declined aren't in the payload
+      // at all. So the automatic path can never change what a button renders, and
+      // the epoch that used to carry this response across a sign-out went with it.
       lastFingerprint = sending.fingerprint;
       // only clear if nothing newer arrived while this was in flight
       if (pending?.fingerprint === sending.fingerprint) pending = null;
@@ -369,19 +365,21 @@ export function useVaultCapture() {
     allItems: Item[],
     folders: Folder[],
     editToken: string,
-  ): Promise<"saved" | "unworthy" | "removed" | "full" | "failed"> {
-    if (!import.meta.client) return "failed";
+  ): Promise<{ result: CaptureOneResult; landed: VaultGearKey[] }> {
+    const nothing: VaultGearKey[] = [];
+    if (!import.meta.client) return { result: "failed", landed: nothing };
     let caps: VaultCapture[];
     try {
       const { captureFromList } = await import("~~/shared/vault");
       // the folder list is passed so the row lands filed, not in a flat pile
       caps = captureFromList([item], folders);
     } catch {
-      return "failed"; // chunk fetch failed (offline before the SW cached it)
+      // chunk fetch failed (offline before the SW cached it)
+      return { result: "failed", landed: nothing };
     }
     // a parent is a container, not gear; captureFromList can't see that from one item
-    if (!caps.length || allItems.some((i) => i.parentId === item.id)) return "unworthy";
-    const at = vaultKeysEpoch(); // see send() — the answer can outlive the account
+    if (!caps.length || allItems.some((i) => i.parentId === item.id))
+      return { result: "unworthy", landed: nothing };
     let landed: VaultGearKey[];
     let full = false;
     try {
@@ -392,7 +390,7 @@ export function useVaultCapture() {
       landed = res?.keys ?? [];
       full = !!res?.full;
     } catch {
-      return "failed";
+      return { result: "failed", landed: nothing };
     }
     // The press said "this gear is mine" and the vault either took it or didn't.
     // It DIDN'T when the row is gear you removed on /gear: capture never
@@ -400,15 +398,16 @@ export function useVaultCapture() {
     //
     // Its OWN answer, not "failed" — the two need different words. A failure is
     // worth retrying and this is not: pressing again will do exactly as little,
-    // for as long as the removal stands. The way back is on /gear, and the toast
-    // has to say so or the button is a loop.
-    // Refused, and for one of two reasons that need different words. "Removed"
-    // sends you to /gear's removed list; on a full vault there is nothing there
-    // to find, and the same message would have you looking forever.
-    if (!landed.some(([k]) => k === caps[0]?.normKey)) return full ? "full" : "removed";
-    // My Gear has it now — which is what stops a DUPLICATE of this gear further
-    // down the same list from still offering to save it
-    noteVaultKeys(landed, at);
+    // for as long as the removal stands. And a FULL vault is not that either:
+    // there is nothing in the removed list to find, so the same message would
+    // have you looking forever.
+    if (!landed.some(([k]) => k === caps[0]?.normKey))
+      return { result: full ? "full" : "removed", landed: nothing };
+    // The landed keys go back to the CALLER rather than into a shared cache. My
+    // Gear has this gear now, which is what stops a duplicate of it further down
+    // the same list from still offering to save it — and the caller is the open
+    // list, whose answer dies with it, so a response that outlives the list (or
+    // the account that sent it) writes into state that is already gone.
     // DELIBERATELY does not set the list-wide decision, tempting though it looks.
     // Pressing save on ONE row says "this piece of gear is mine". It says nothing
     // about the other forty, which on a list opened from someone else's edit link
@@ -419,7 +418,7 @@ export function useVaultCapture() {
     // the automatic path's memo is now stale — it would otherwise treat the next
     // edit as "already stored" and skip a genuine change
     lastFingerprint = "";
-    return "saved";
+    return { result: "saved", landed };
   }
 
   return { sync, buildCaptures, captureNewList, captureOne, bindFlushOnLeave };
@@ -431,9 +430,10 @@ export function resetVaultCapture(): void {
   clearTimeout(timer);
   lastFingerprint = "";
   pending = null;
-  // the keys are the other half of "what this account has already banked", and
-  // they must not follow one person's sign-out into the next person's session
-  resetVaultKeys();
+  // Nothing else to drop. What the vault HOLDS used to be cached app-wide here
+  // too, and had to be cleared on the way out of an account or the next person
+  // inherited it; it lives on the open list now (useGearList), which drops it
+  // when the list closes and re-asks when the session changes.
 }
 
 // ---------------------------------------------------------------------------
