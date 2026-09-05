@@ -1,0 +1,10 @@
+{
+  "date": "2026-09-04",
+  "changed": [
+    "The packs menu in the top-left now appears as soon as you have one list, instead of waiting for a second.",
+    "New list lives only in the packs menu now — the ⋯ menu's Create a list has gone."
+  ],
+  "fixed": [
+    "With exactly one saved list, a fresh draft gave you no way back to it. It does now."
+  ]
+}
