@@ -101,6 +101,11 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   // --- ERROR: same product + same weight = redundant duplicate row ----------
   // (Same brand+name, equal weight, and one variant is a subset/empty of the
   // other — i.e. not two genuinely-different size variants that happen to match.)
+  // "Same weight" is exact between two NAMED variants (a men's and a women's
+  // pack, a GPS and a GPS + Cellular watch legitimately land within a gram of
+  // each other), but allows a 1% spread when one variant is EMPTY: that's the
+  // same product cited from two pages (the maker's "2 oz / 0.06 kg" and a
+  // stockist's "57 g"), and exact equality let a "Z Seat" / "Z-Seat" pair ship.
   const byProduct = new Map<string, CatalogCsvRow[]>();
   for (const r of rows) {
     const k = `${normKey(r.brand)}|${normKey(r.name)}`;
@@ -109,14 +114,18 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   for (const group of byProduct.values()) {
     for (let a = 0; a < group.length; a++) {
       for (let b = a + 1; b < group.length; b++) {
-        if (group[a].weightMg !== group[b].weightMg) continue;
+        const wa = group[a].weightMg;
+        const wb = group[b].weightMg;
         const va = normKey(group[a].variant);
         const vb = normKey(group[b].variant);
-        const subset = va === "" || vb === "" || va.includes(vb) || vb.includes(va) || va === vb;
+        const oneBlank = va === "" || vb === "";
+        const sameWeight = oneBlank ? Math.abs(wa - wb) <= 0.01 * Math.max(wa, wb) : wa === wb;
+        if (!sameWeight) continue;
+        const subset = oneBlank || va.includes(vb) || vb.includes(va) || va === vb;
         if (subset) {
           err(
             "duplicate-row",
-            `${group[a].brand} ${group[a].name}: same weight (${group[a].weightMg} mg) for variants "${group[a].variant ?? ""}" and "${group[b].variant ?? ""}" — likely the same product twice`,
+            `${group[a].brand} ${group[a].name}: same weight (${wa} mg vs ${wb} mg) for variants "${group[a].variant ?? ""}" and "${group[b].variant ?? ""}" — likely the same product twice`,
           );
         }
       }
@@ -204,10 +213,11 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   // real setup). To avoid a confusing mix of per-pole and per-pair weights, the
   // catalog standardizes on "per pair" for every pole — so a bare pole, or one
   // still marked "per pole", is flagged to convert.
-  // Match "trekking pole(s)" specifically — a bare "pole" also names tent poles,
-  // pole sets, and pole bags, none of which take a per-pair unit.
+  // Match a name that ENDS in "trekking pole(s)" — a bare "pole" also names tent
+  // poles, pole sets, and pole bags, and a "Trekking Pole Cup" / "Trekking Pole
+  // Holsters" is an accessory FOR poles, not a pair of them.
   for (const r of rows) {
-    if (/\btrekking\s+poles?\b/i.test(r.name) && !/\bper pair\b/i.test(r.variant ?? "")) {
+    if (/\btrekking\s+poles?$/i.test(r.name.trim()) && !/\bper pair\b/i.test(r.variant ?? "")) {
       warn("pole-unit", `${gearLabel(r)}: trekking poles should state "per pair" (the catalog's single pole-weight convention)`);
     }
   }

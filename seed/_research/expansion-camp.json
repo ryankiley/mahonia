@@ -60,7 +60,7 @@
     {
       "brand": "BearVault",
       "name": "BV450 Jaunt Bear Canister",
-      "variant": "standard",
+      "variant": "Standard",
       "category_hint": "other",
       "weight_value": 2,
       "weight_unit": "lb",
@@ -72,7 +72,7 @@
     {
       "brand": "BearVault",
       "name": "BV500 Journey Bear Canister",
-      "variant": "standard",
+      "variant": "Standard",
       "category_hint": "other",
       "weight_value": 2,
       "weight_unit": "lb",
@@ -84,7 +84,7 @@
     {
       "brand": "BearVault",
       "name": "BV425 Sprint Bear Canister",
-      "variant": "standard",
+      "variant": "Standard",
       "category_hint": "other",
       "weight_value": 1,
       "weight_unit": "lb",
@@ -96,7 +96,7 @@
     {
       "brand": "BearVault",
       "name": "BV475 Trek Bear Canister",
-      "variant": "standard",
+      "variant": "Standard",
       "category_hint": "other",
       "weight_value": 2,
       "weight_unit": "lb",
@@ -108,7 +108,7 @@
     {
       "brand": "Wild Ideas",
       "name": "Bearikade Weekender",
-      "variant": "standard",
+      "variant": "Standard",
       "category_hint": "other",
       "weight_value": 31,
       "weight_unit": "oz",
@@ -119,7 +119,7 @@
     {
       "brand": "Ursack",
       "name": "Major AllMitey",
-      "variant": "standard",
+      "variant": "Standard",
       "category_hint": "other",
       "weight_value": 9.5,
       "weight_unit": "oz",
@@ -177,7 +177,7 @@
     {
       "brand": "Therm-a-Rest",
       "name": "Z Seat",
-      "variant": "standard",
+      "variant": "Standard",
       "category_hint": "other",
       "weight_value": 2,
       "weight_unit": "oz",
@@ -190,7 +190,7 @@
       "brand": "Zpacks",
       "name": "Tyvek Groundsheet",
       "variant": "5 ft x 9 ft cut",
-      "category_hint": "other",
+      "category_hint": "shelter",
       "weight_value": 9.2,
       "weight_unit": "oz",
       "weight_secondary": "262 g; material 1.85 oz/sq yd (62.7 gsm)",

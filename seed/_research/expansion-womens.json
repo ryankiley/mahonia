@@ -553,7 +553,7 @@
     {
       "brand": "On",
       "name": "Cloudrock Low Waterproof",
-      "variant": "women's",
+      "variant": "Women's",
       "category_hint": "clothing",
       "weight_value": 663,
       "weight_unit": "g",
@@ -901,17 +901,6 @@
       "weight_source": "manufacturer",
       "source_url": "https://www.topoathletic.com/womens-ultraventure-4",
       "quote": "Weight: 8.2 OZ (W7) per shoe | pair = 465 g (2× per-shoe)"
-    },
-    {
-      "brand": "WIDE OPEN Socks",
-      "name": "Women's Stripe Cushioned Quarter Crew Socks",
-      "variant": "M",
-      "category_hint": "clothing",
-      "weight_value": 56,
-      "weight_unit": "g",
-      "weight_source": "manufacturer",
-      "source_url": "https://www.garagegrowngear.com/products/womens-stripe-cushioned-quarter-crew-socks-by-wide-open-socks",
-      "quote": "Weight: 2oz | 56g (medium)"
     },
     {
       "brand": "Wūru Wool",
