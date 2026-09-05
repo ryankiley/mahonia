@@ -19,9 +19,24 @@ name: CI
 
 on:
   pull_request:
+  # ...and on main itself, because a green PR is not the same claim as a green
+  # main. CI runs against the PR's own branch, and a branch cut days earlier can
+  # merge cleanly into a main that has moved under it — git resolves TEXT, and
+  # says nothing about whether the two changes still make sense together.
+  #
+  # That is not hypothetical either: #265 was cut from 77e3019 and squash-merged
+  # after #266, #268 and #272 had landed, two of which edited the same component
+  # it rewrote most. It applied without a conflict and the merged result was fine
+  # — but nothing had run the suite on that combination, and nothing would have
+  # said so if it hadn't been. The gap is structural: `pull_request` can only ever
+  # test the code as it was proposed, never as it landed.
+  push:
+    branches: [main]
 
-# one run per PR: a push mid-run makes the older answer irrelevant, and these are
-# minutes of compute
+# One run per ref: a push mid-run makes the older answer irrelevant, and these are
+# minutes of compute. PR runs and main runs land in different groups
+# (refs/pull/N/merge vs refs/heads/main), so a merge never cancels a PR's own
+# check — and on main the newest commit is the one worth an answer.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
