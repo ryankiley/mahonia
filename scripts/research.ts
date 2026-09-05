@@ -12,6 +12,13 @@ import { join } from "node:path";
 export interface ResearchRow {
   brand?: string | null;
   name?: string;
+  // Size / config, in the catalog's house style (enforced by scripts/catalogChecks.ts
+  // and tidied by shared/catalogQuality normalizeVariant):
+  //   • S/M/L-family sizes are LETTERS — "M", "XL", "Men's M", "Women's XS/S" — on
+  //     anything worn or carried. No "Size " prefix, no comma after the gender.
+  //   • Sleep + shelter keep the maker's LENGTH words ("Regular", "Long", "Large").
+  //   • Footwear states the region: "Men's US 9", "Women's US 8", "UK 8", "US 9" (unisex).
+  //   • Worn-in-pairs apparel carries no unit label; only trekking poles say "per pair".
   variant?: string | null;
   category_hint?: string | null;
   // the item's common name ("tent", "trekking poles") — REQUIRED for a new row to build

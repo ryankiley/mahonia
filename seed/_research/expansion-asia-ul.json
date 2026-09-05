@@ -3,7 +3,7 @@
     {
       "brand": "Yamatomichi",
       "name": "MINI",
-      "variant": "Size M",
+      "variant": "M",
       "category_hint": "pack",
       "weight_value": 425,
       "weight_unit": "g",
@@ -14,7 +14,7 @@
     {
       "brand": "Yamatomichi",
       "name": "THREE",
-      "variant": "ECOPAK EPX200, Size M",
+      "variant": "ECOPAK EPX200, M",
       "category_hint": "pack",
       "weight_value": 682,
       "weight_unit": "g",
@@ -25,7 +25,7 @@
     {
       "brand": "Yamatomichi",
       "name": "UL Shirt",
-      "variant": "Size M",
+      "variant": "M",
       "category_hint": "clothing",
       "weight_value": 99,
       "weight_unit": "g",

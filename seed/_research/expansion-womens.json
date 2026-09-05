@@ -234,7 +234,7 @@
     {
       "brand": "Katabatic Gear",
       "name": "Women's Crest Windshell",
-      "variant": "Size M",
+      "variant": "M",
       "category_hint": "clothing",
       "weight_value": 48,
       "weight_unit": "g",
@@ -487,7 +487,7 @@
     {
       "brand": "Norda",
       "name": "001",
-      "variant": "Women's, US W 8",
+      "variant": "Women's US 8",
       "category_hint": "clothing",
       "weight_value": 464,
       "weight_unit": "g",
@@ -498,7 +498,7 @@
     {
       "brand": "Norda",
       "name": "001A",
-      "variant": "Women's, US W 8",
+      "variant": "Women's US 8",
       "category_hint": "clothing",
       "weight_value": 464,
       "weight_unit": "g",
@@ -509,7 +509,7 @@
     {
       "brand": "Norda",
       "name": "002",
-      "variant": "Women's, US W 8",
+      "variant": "Women's US 8",
       "category_hint": "clothing",
       "weight_value": 438,
       "weight_unit": "g",
@@ -520,7 +520,7 @@
     {
       "brand": "Norda",
       "name": "005",
-      "variant": "Women's, US W 8",
+      "variant": "Women's US 8",
       "category_hint": "clothing",
       "weight_value": 354,
       "weight_unit": "g",
@@ -531,7 +531,7 @@
     {
       "brand": "Oboz",
       "name": "Sawtooth X Low Waterproof",
-      "variant": "Women's, size 8.5",
+      "variant": "Women's US 8.5",
       "category_hint": "clothing",
       "weight_value": 1.88,
       "weight_unit": "lb",
@@ -817,7 +817,7 @@
     {
       "brand": "SkyGOAT",
       "name": "Women's Full Zip Fleece Jacket",
-      "variant": "Medium",
+      "variant": "M",
       "category_hint": "clothing",
       "weight_value": 275,
       "weight_unit": "g",
@@ -839,7 +839,7 @@
     {
       "brand": "Territory Run Co.",
       "name": "Women's Long Haul Short",
-      "variant": "Medium",
+      "variant": "M",
       "category_hint": "clothing",
       "weight_value": 4,
       "weight_unit": "oz",
@@ -861,7 +861,7 @@
     {
       "brand": "Teva",
       "name": "Original Universal Sandals",
-      "variant": "Women's, size 6.5",
+      "variant": "Women's US 6.5",
       "category_hint": "clothing",
       "weight_value": 10.0,
       "weight_unit": "oz",
@@ -905,7 +905,7 @@
     {
       "brand": "Wūru Wool",
       "name": "Women's 100% Merino Short Sleeve Shirt",
-      "variant": "Size M",
+      "variant": "M",
       "category_hint": "clothing",
       "weight_value": 198,
       "weight_unit": "g",

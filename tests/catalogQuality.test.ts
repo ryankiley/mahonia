@@ -26,6 +26,14 @@ describe("normalizeVariant", () => {
     ["32oz / 1L", "32oz / 1L"], // spaced unit equivalent
     ["20F / -6C, Regular, 650FP down", "20F / -6C, Regular, 650FP down"], // F/C temp equivalent
     ['Gridstop (16" / 19")', 'Gridstop, 16" / 19"'], // measurement range kept
+    // "Size" prefix drops before a letter size, and only there
+    ["Size M", "M"],
+    ["120gsm, Size M", "120gsm, M"],
+    ["Size D", "Size D"],
+    ["Size 9", "Size 9"],
+    // a gender prefix and its letter size are one dimension
+    ["Men's, M", "Men's M"],
+    ["Women's, XS/S", "Women's XS/S"],
     // "|" is a non-canonical separator (copied from a manufacturer quote) → comma
     ["M's 9 | W's 10 US", "M's 9, W's 10 US"],
     // already-canonical / no-op
@@ -57,6 +65,7 @@ describe("isVariantRedundant", () => {
   });
   it("keeps a variant that adds real info", () => {
     expect(isVariantRedundant("Kakwa 55", "UltraGrid, M")).toBe(false);
+    expect(isVariantRedundant("Women's Tarn Down Jacket", "S")).toBe(false); // the "s" of a possessive is not a size
     expect(isVariantRedundant("Ether Light XT Insulated", "Regular")).toBe(false);
     expect(isVariantRedundant("Plex Solo", "")).toBe(false);
   });

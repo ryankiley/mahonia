@@ -41,7 +41,7 @@
 
     {"brand":"Osprey","name":"Talon Velocity 20","variant":"S/M","category_hint":"pack","weight_value":0.87,"weight_unit":"kg","weight_secondary":null,"weight_source":"manufacturer","source_url":"https://www.osprey.com/talontm-velocity-20","quote":"S/M — Weight: 0.87 KG"},
     {"brand":"Osprey","name":"Talon Velocity 30","variant":"S/M","category_hint":"pack","weight_value":0.96,"weight_unit":"kg","weight_secondary":null,"weight_source":"manufacturer","source_url":"https://www.osprey.com/talontm-velocity-30","quote":"S/M — Weight: 0.96 KG"},
-    {"brand":"Osprey","name":"Tempest Velocity 20","variant":"WM/L","category_hint":"pack","weight_value":0.86,"weight_unit":"kg","weight_secondary":null,"weight_source":"manufacturer","source_url":"https://www.osprey.com/tempest-velocity-20","quote":"WM/L — Weight: 0.86 KG"},
+    {"brand":"Osprey","name":"Tempest Velocity 20","variant":"Women's M/L","category_hint":"pack","weight_value":0.86,"weight_unit":"kg","weight_secondary":null,"weight_source":"manufacturer","source_url":"https://www.osprey.com/tempest-velocity-20","quote":"WM/L — Weight: 0.86 KG"},
 
     {"brand":"Red Paw Packs","name":"Flatiron 28L","variant":"17\" torso","category_hint":"pack","weight_value":14.4,"weight_unit":"oz","weight_secondary":null,"weight_source":"manufacturer","source_url":"https://redpawpacks.com/product/flatiron-pack-28l-in-stock/","quote":"Weight is 14.4 oz."},
     {"brand":"Granite Gear","name":"Virga3 26","variant":"","category_hint":"pack","weight_value":1.26,"weight_unit":"lb","weight_secondary":null,"weight_source":"manufacturer","source_url":"https://www.granitegear.com/virga3-26-unisex.html","quote":"The Virga3 26 weighs in at 1.26 lbs (stripped weight: 1.16 lb)"},

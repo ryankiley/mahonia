@@ -241,6 +241,36 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
     }
   }
 
+  // --- ERROR: size written in the wrong style ---------------------------------
+  // House convention (2026-09-05): S/M/L-family sizes are LETTERS — XS, S, M, L, XL —
+  // on anything worn or carried, with an optional gender prefix ("Men's M"). Sleep
+  // and shelter gear are exempt: there Small / Regular / Large is a LENGTH scale the
+  // maker names in words beside Regular / Long, and "L" would read as a garment size.
+  // Only a size word standing as the whole dimension (or right after Men's/Women's)
+  // trips this, so a product size NAME like "Small Bag" passes.
+  const SIZE_WORD = /^(?:(?:men's|women's)\s+)?(?:xx-small|x-small|extra small|small|medium|large|x-large|extra large|xx-large)$/i;
+  for (const r of rows) {
+    if (!r.variant) continue;
+    const lengthScaled = r.categoryHint === "sleep" || r.categoryHint === "shelter";
+    for (const dim of r.variant.split(/,\s*/)) {
+      if (!lengthScaled && SIZE_WORD.test(dim)) {
+        err("variant-size-style", `${gearLabel(r)}: write the size as a letter ("Medium" → "M"), not "${dim}"`);
+      }
+    }
+  }
+
+  // --- WARNING: footwear size with no region ----------------------------------
+  // A shoe's "9" means nothing without US/UK/EU — the same shoe is a 9 US, 8 UK and
+  // 42 EU. House form is "Men's US 9" / "Women's US 8" / "US 9" (unisex).
+  const FOOTWEAR = new Set(["trail runners", "hiking shoes", "hiking boots", "sandals", "camp shoes", "insoles", "booties"]);
+  for (const r of rows) {
+    const v = r.variant ?? "";
+    if (!FOOTWEAR.has((r.commonName ?? "").toLowerCase()) || !/\d/.test(v)) continue;
+    if (!/\b(US|UK|EU|JP)\b/.test(v)) {
+      warn("footwear-size", `${gearLabel(r)}: footwear size "${v}" needs a region — "Men's US 9", "Women's US 8", "UK 8"`);
+    }
+  }
+
   // --- WARNING: variant just repeats the name (e.g. "Copper Spur HV UL3" + "UL3") -
   for (const r of rows) {
     if (r.variant && isVariantRedundant(r.name, r.variant)) {

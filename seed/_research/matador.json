@@ -190,7 +190,7 @@
     {
       "brand": "Matador",
       "name": "NanoDry Trek Towel",
-      "variant": "Small",
+      "variant": "S",
       "category_hint": "other",
       "weight_value": 34,
       "weight_unit": "g",
@@ -212,7 +212,7 @@
     {
       "brand": "Matador",
       "name": "Ultralight Travel Towel",
-      "variant": "Small",
+      "variant": "S",
       "category_hint": "other",
       "weight_value": 19,
       "weight_unit": "g",
@@ -223,7 +223,7 @@
     {
       "brand": "Matador",
       "name": "Ultralight Travel Towel",
-      "variant": "Large",
+      "variant": "L",
       "category_hint": "other",
       "weight_value": 77,
       "weight_unit": "g",
