@@ -1,16 +1,8 @@
 <script setup lang="ts">
 import { displayHost, safeUrl } from "~~/shared/trailLink";
 import { formatWeight } from "~~/shared/weights";
+import type { RecentChange } from "~~/shared/types";
 
-interface RecentChange {
-  id: number;
-  itemName: string;
-  oldWeightMg: number;
-  newWeightMg: number;
-  status: string;
-  sourceUrl: string | null;
-  createdAt: string;
-}
 
 const { data } = await useFetch<{ changes: RecentChange[] }>("/api/catalog/changes");
 const changes = computed(() => data.value?.changes ?? []);

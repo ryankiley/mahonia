@@ -213,7 +213,7 @@
       "brand": "Gnuhr",
       "name": "Sling 1 v3.0",
       "variant": null,
-      "category_hint": "other",
+      "category_hint": "pack",
       "common_name": "Sling bag",
       "weight_value": 26,
       "weight_unit": "g",
@@ -226,7 +226,7 @@
       "brand": "Gnuhr",
       "name": "Sling 2 v3.0",
       "variant": null,
-      "category_hint": "other",
+      "category_hint": "pack",
       "common_name": "Sling bag",
       "weight_value": 49,
       "weight_unit": "g",
@@ -275,8 +275,8 @@
       "quote": "Weight: ~11 grams (0.39 oz)"
     },
     {
-      "brand": "Gnuhr",
-      "name": "CW&T Gnuhr Little Scissors",
+      "brand": "CW&T x Gnuhr",
+      "name": "Little Scissors",
       "variant": null,
       "category_hint": "firstaid",
       "common_name": "Scissors",
@@ -288,8 +288,8 @@
       "quote": "Weighs 24g."
     },
     {
-      "brand": "Gnuhr",
-      "name": "CW&T Gnuhr Pen Type-C Ultra",
+      "brand": "CW&T x Gnuhr",
+      "name": "Pen Type-C Ultra",
       "variant": null,
       "category_hint": "other",
       "common_name": "Pen",

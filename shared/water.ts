@@ -6,6 +6,7 @@
 
 import type { Classification } from "./types";
 import { lineMg, splitWornQty } from "./weights";
+import { splitAmount } from "./trailDistance";
 
 /** Milligrams of water per millilitre (water ≈ 1 g/mL = 1000 mg/mL). */
 const WATER_MG_PER_ML = 1000;
@@ -25,13 +26,9 @@ const ML_PER_UNIT = {
  * Returns null for anything unparseable or non-positive.
  */
 export function parseVolumeMl(raw: string): number | null {
-  if (raw == null) return null;
-  const s = String(raw).trim().toLowerCase().replace(",", ".");
-  const m = s.match(/^(\d*\.?\d+)\s*([a-z. ]*)$/);
-  if (!m) return null;
-  const n = Number.parseFloat(m[1]!);
-  if (!Number.isFinite(n) || n <= 0) return null;
-  const u = m[2]!.replace(/[. ]/g, "");
+  const amt = splitAmount(raw);
+  if (!amt) return null;
+  const { n, unit: u } = amt;
   let perMl: number | undefined;
   if (u === "" || u === "l" || u === "ltr" || u.startsWith("liter") || u.startsWith("litre")) perMl = ML_PER_UNIT.l;
   else if (u === "ml" || u === "mls" || u.startsWith("milli")) perMl = ML_PER_UNIT.ml;
@@ -78,12 +75,31 @@ export function waterLiters(unitWeightMg: number): string {
  * one is the default and a column where nearly every cell says the same thing is a
  * column that has to be read past to find the rows that actually carry a count. A
  * split still speaks ("×3 · 1 worn"), and so does water.
+ *
+ * `group` blanks the label, and it OUTRANKS the water branch below. A parent's weight
+ * column shows the group TOTAL — own line plus the children's — so the count that would
+ * sit beside it multiplies a figure it is already inside; and on a bare group it
+ * multiplies zero. The editor drops the whole cell there for the same reason; this is
+ * that one rule in the label the static views share, so the checklist and the read row
+ * can't drift.
+ *
+ * It is the CALLER that decides which rows qualify, via isBareGroup (shared/weights). A
+ * group that carries a line of its own keeps its label — these views cannot heal what
+ * they render, and a figure with no visible count beside it would be exactly the
+ * unexplained multiplier the rule exists to remove.
+ *
+ * Water is below it, not above: a bare group's own volume is zero by definition, so
+ * letting water win printed "0 L" against a group total of two full bottles — two
+ * figures for one line, disagreeing, which is the very thing the water branch exists to
+ * prevent. The editor keeps a water group's litres FIELD (it is the only editable figure
+ * such a row has); this label is a different question, and the answer there is nothing.
  */
 export function itemQtyLabel(
   item: { name: string; qty: number; unitWeightMg: number; wornQty?: number },
   cls?: Classification,
-  opts?: { hideSingle?: boolean },
+  opts?: { hideSingle?: boolean; group?: boolean },
 ): string {
+  if (opts?.group) return "";
   // Water's amount is the LINE's volume — unit volume × qty, the same arithmetic the
   // weight beside it does. Reading the unit volume alone put "1 L" against "2,000 g"
   // on a two-bottle row: two figures for one line, disagreeing by a factor of the qty.

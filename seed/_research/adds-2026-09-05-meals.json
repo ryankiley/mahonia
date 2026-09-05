@@ -1,0 +1,80 @@
+{
+  "_comment": "Adds 2026-09-05 — meals typed on Ryan's Timberline list that the catalog lacked, plus kcal citations. Farm to Summit publishes its nutrition panel only as an image, so the maker's spec block as republished verbatim by Garage Grown Gear is cited (Weight … (net); Servings per container; Single serving calories) — the Salomon/runningwarehouse precedent. Good To-Go likewise (Litesmith republishes the maker's spec sheet: Net Weight 3.4 oz (95 g), Total Weight 4.1 oz (116.2 g) — the TOTAL is stored: a food row is what you carry, pouch included, wherever a packaged figure exists). The two Farm to Summit rows carry the maintainer's own scale reading of a whole pouch (measured) because the maker publishes net contents only. Gardetto's from General Mills Foodservice. Per-pouch kcal = servings × single-serving calories.",
+  "rows": [
+    {
+      "brand": "Farm to Summit",
+      "name": "Three Bean Chili & Cornbread",
+      "variant": "2 servings",
+      "category_hint": "consumable",
+      "common_name": "meal",
+      "weight_value": 6.4,
+      "weight_unit": "oz",
+      "weight_source": "measured",
+      "source_url": "https://mahonia.app/s/P3PWAH8RMCVR",
+      "quote": "Weighed by the catalog maintainer, pouch included: 6.4 oz / 181 g (Timberline list, 2026-09-05). The maker prints net contents only (5.5 oz); the difference is the cook-in pouch.",
+      "kcal": 800,
+      "kcal_source_url": "https://www.garagegrowngear.com/products/three-bean-chili-cornbread-by-farm-to-summit",
+      "kcal_quote": "Servings per container: 2 Single serving: 400 calories, 3.5g fat, 810mg sodium, 68g carb, 20g protein"
+    },
+    {
+      "brand": "Farm to Summit",
+      "name": "Puebloan Beans & Rice",
+      "variant": "2 servings",
+      "category_hint": "consumable",
+      "common_name": "meal",
+      "weight_value": 6.1,
+      "weight_unit": "oz",
+      "weight_source": "measured",
+      "source_url": "https://mahonia.app/s/P3PWAH8RMCVR",
+      "quote": "Weighed by the catalog maintainer, pouch included: 6.1 oz / 173 g (Timberline list, 2026-09-05). The maker prints net contents only (5.4 oz); the difference is the cook-in pouch.",
+      "kcal": 700,
+      "kcal_source_url": "https://www.garagegrowngear.com/products/anasazi-beans-and-rice-by-farm-to-summit",
+      "kcal_quote": "Servings per container: 2 Single serving: 350 calories, 2g fat, 740mg sodium, 65g carb, 12g protein"
+    },
+    {
+      "brand": "Good To-Go",
+      "name": "Mushroom Risotto",
+      "variant": "",
+      "category_hint": "consumable",
+      "common_name": "meal",
+      "weight_value": 116.2,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.litesmith.com/good-to-go-mushroom-risotto/",
+      "quote": "Net Weight : 3.4 oz (95 g) Total Weight : 4.1 oz (116.2 g)",
+      "kcal": 410,
+      "kcal_source_url": "https://www.litesmith.com/good-to-go-mushroom-risotto/",
+      "kcal_quote": "Servings per Pouch : 1 Single serving : 410 calories, 10 g fat, 0 mg cholesterol, 420 mg sodium"
+    },
+    {
+      "brand": "Gardetto's",
+      "name": "Original Recipe Snack Mix",
+      "variant": "1.75oz",
+      "category_hint": "consumable",
+      "common_name": "snack mix",
+      "weight_value": 1.75,
+      "weight_unit": "oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.generalmillsfoodservice.com/products/category/snacks/gardettos/original-1-75oz-60ct",
+      "quote": "Gardetto's Snack Mix Single Serve Pouch Original Recipe 60/1.75 OZ",
+      "kcal": 230,
+      "kcal_source_url": "https://www.generalmillsfoodservice.com/products/category/snacks/gardettos/original-1-75oz-60ct",
+      "kcal_quote": "Serving Size 1 bag … Calories 230"
+    },
+    {
+      "brand": "Good To-Go",
+      "name": "Mushroom Risotto",
+      "variant": "2 servings",
+      "category_hint": "consumable",
+      "common_name": "meal",
+      "weight_value": 7.5,
+      "weight_unit": "oz",
+      "weight_source": "measured",
+      "source_url": "https://mahonia.app/s/P3PWAH8RMCVR",
+      "quote": "Weighed by the catalog maintainer, pouch included: 7.5 oz / 213 g (Timberline list, 2026-09-05). Good To-Go no longer sells the 2-serving bag; the single-serving row above is the current product.",
+      "kcal": 820,
+      "kcal_source_url": "https://www.litesmith.com/good-to-go-mushroom-risotto/",
+      "kcal_quote": "Single serving : 410 calories — two servings in this pouch"
+    }
+  ]
+}

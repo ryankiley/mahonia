@@ -2,7 +2,13 @@ import { createError, defineEventHandler } from "h3";
 import { generateRegistrationOptions } from "@simplewebauthn/server";
 import { requireAccount } from "../../../utils/authSession";
 import { existingCredentialIds, MAX_PASSKEYS_PER_USER } from "../../../utils/credentialRepo";
-import { RP_NAME, requirePasskeysConfigured, rpIdFor, startChallenge } from "../../../utils/passkeys";
+import {
+  PASSKEY_ALGORITHM_IDS,
+  RP_NAME,
+  requirePasskeysConfigured,
+  rpIdFor,
+  startChallenge,
+} from "../../../utils/passkeys";
 
 // Step 1 of adding a passkey: hand the browser the challenge and parameters for
 // the ceremony. Requires a session — you add a passkey to an account you're
@@ -34,6 +40,8 @@ export default defineEventHandler(async (event) => {
     userDisplayName: user.email ?? "Mahonia",
     userID: new TextEncoder().encode(String(user.id)),
     attestationType: "none", // we don't need to know which make of key it is
+    // stated, not inherited — see PASSKEY_ALGORITHM_IDS
+    supportedAlgorithmIDs: PASSKEY_ALGORITHM_IDS,
     // don't offer to create a second key on an authenticator that already holds
     // one for this account
     excludeCredentials: existing.map((id) => ({ id })),

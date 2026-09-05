@@ -6,12 +6,8 @@
 // verification — not code to hand-roll), but shipping one to every visitor to do
 // base64 would be a poor trade against this repo's bundle budget.
 
-export interface PasskeySummary {
-  id: number;
-  label: string | null;
-  createdAt: string;
-  lastUsedAt: string | null;
-}
+
+import type { PasskeySummary } from "~~/shared/types";
 
 const b64urlToBytes = (s: string): Uint8Array => {
   const b64 = s.replace(/-/g, "+").replace(/_/g, "/");

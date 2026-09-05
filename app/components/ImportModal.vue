@@ -6,7 +6,7 @@ import { linkImportedItems } from "~~/shared/catalogMatch";
 import type { CatalogSearchResult } from "~~/shared/catalogSearch";
 import { MAX_TITLE_LEN } from "~~/shared/ops";
 import { editLinkPath } from "~~/shared/links";
-import type { ListData, ListSnapshot, Unit } from "~~/shared/types";
+import type { ListData, ListMeta, ListSnapshot } from "~~/shared/types";
 
 // "Import a list" dialog — mint a NEW list from a LighterPack share link, a
 // pasted CSV, a JSON backup (the menus' "Download JSON"), or an uploaded file,
@@ -41,28 +41,12 @@ watch(
   },
 );
 
-// meta rides along on a JSON-backup restore (its title/unit/description are the
-// list's own); CSV/LighterPack imports have no meta and keep the stock title
-async function createFrom(
-  data: ListData,
-  meta?: {
-    title?: string;
-    description?: string;
-    displayUnit?: Unit;
-    trailUrl?: string;
-    trailLabel?: string;
-    trailDistanceM?: number;
-    trailDistanceUnit?: string;
-    trailProfile?: string;
-    trailAscentM?: number;
-    trailDescentM?: number;
-    routeGeometry?: string;
-    startDate?: string;
-    endDate?: string;
-  },
-) {
+// A JSON-backup restore arrives as the whole list — its meta (title, unit, the route
+// read off a GPX, the trip dates) around its content; CSV/LighterPack imports are
+// content alone and keep the stock title.
+async function createFrom(list: Partial<ListMeta> & { data: ListData }) {
   // a folders-only JSON backup is still a real restore; an empty CSV is not
-  if (!data.items.length && !data.folders.length) {
+  if (!list.data.items.length && !list.data.folders.length) {
     error.value = "No items found. Paste a CSV with a header row.";
     return;
   }
@@ -72,27 +56,15 @@ async function createFrom(
     // Rows that name a catalog product word for word arrive linked, as if picked (the
     // matcher is exact-only). One request; if it fails the list still imports, unlinked —
     // the link is a nicety on top of the import, never a condition of it.
-    const linked = await linkToCatalog(data.items);
-    const list: ListData = { ...data, items: linked.items };
+    const linked = await linkToCatalog(list.data.items);
+    const data: ListData = { ...list.data, items: linked.items };
     const res = await $fetch<{ editToken: string; snapshot: ListSnapshot }>("/api/lists/create", {
       method: "POST",
-      body: {
-        title: title.value.trim() || meta?.title || "Imported list",
-        description: meta?.description,
-        displayUnit: meta?.displayUnit,
-        trailUrl: meta?.trailUrl,
-        trailLabel: meta?.trailLabel,
-        trailDistanceM: meta?.trailDistanceM,
-        trailDistanceUnit: meta?.trailDistanceUnit,
-        // the route read off a GPX — the export writes it, so the restore has to send it
-        trailProfile: meta?.trailProfile,
-        trailAscentM: meta?.trailAscentM,
-        trailDescentM: meta?.trailDescentM,
-        routeGeometry: meta?.routeGeometry,
-        startDate: meta?.startDate,
-        endDate: meta?.endDate,
-        data: list,
-      },
+      // the backup forwarded whole, meta and content. It was thirteen `x: meta?.x`
+      // lines, one per ListMeta field — the shape that once let trip dates go
+      // missing from this very list (see LIST_META_KEYS); a field the export writes
+      // now reaches the restore without anyone remembering to add it here.
+      body: { ...list, data, title: title.value.trim() || list.title || "Imported list" },
     });
     emit("close");
     tally("import");
@@ -102,7 +74,7 @@ async function createFrom(
     // set before the navigation, so the editor finds it the moment the list lands; a
     // list where nothing matched gets no note — "0 of 25" reads as a failure it isn't
     importNote.value = linked.matched
-      ? `${linked.matched} of ${list.items.length} rows matched the catalog.`
+      ? `${linked.matched} of ${data.items.length} rows matched the catalog.`
       : null;
     router.push(editLinkPath(res.snapshot.shareCode, myLists.registerCreated(res)));
   } catch {
@@ -138,7 +110,7 @@ async function importFromText() {
         method: "POST",
         body: { url: raw },
       });
-      await createFrom(data);
+      await createFrom({ data });
     } catch (e: unknown) {
       const err = e as { data?: { statusMessage?: string; message?: string } };
       error.value =
@@ -150,12 +122,12 @@ async function importFromText() {
   // a pasted JSON backup (the menus' "Download JSON") — restored at full fidelity
   if (raw.startsWith("{")) {
     const parsed = jsonToListImport(raw);
-    if (parsed) return createFrom(parsed.data, parsed);
+    if (parsed) return createFrom(parsed);
     error.value = "That looks like JSON, but not a list backup. Use “Download JSON” to make one.";
     return;
   }
   // otherwise treat the pasted text as CSV/TSV — parsed client-side
-  createFrom(csvToListData(raw));
+  createFrom({ data: csvToListData(raw) });
 }
 
 function onFile(e: Event) {
@@ -174,13 +146,13 @@ function onFile(e: Event) {
     // {-leading content too, so a mis-extensioned backup still restores.
     if (isJson || text.trimStart().startsWith("{")) {
       const parsed = jsonToListImport(text);
-      if (parsed) return void createFrom(parsed.data, parsed);
+      if (parsed) return void createFrom(parsed);
       if (isJson) {
         error.value = "Couldn’t read that file as a list backup. Use “Download JSON” to make one.";
         return;
       }
     }
-    void createFrom(csvToListData(text));
+    void createFrom({ data: csvToListData(text) });
   };
   reader.readAsText(file);
 }

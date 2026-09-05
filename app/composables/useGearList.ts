@@ -8,9 +8,10 @@ import { sortedPeople } from "~~/shared/people";
 import { reconcileSnapshot } from "~~/shared/reconcile";
 import type { Folder, Item, ListSnapshot, Person, Unit, Waypoint, WaypointKind } from "~~/shared/types";
 import { pickListMeta } from "~~/shared/types";
+import type { CaptureOneResult } from "./useVault";
 import type { VaultCapture, VaultEntry, VaultGearKey } from "~~/shared/vault";
 import { vaultNormKey } from "~~/shared/vault";
-import { bySortOrder, computeTotals, entryUnitFromInput, nextSortOrder, parseWeightInput, siblingItems, storedClassification } from "~~/shared/weights";
+import { bySortOrder, carriesOwnLine, computeTotals, entryUnitFromInput, nextSortOrder, parseWeightInput, siblingItems, storedClassification } from "~~/shared/weights";
 import { createNesting } from "~/composables/useGearListNesting";
 
 // Editor controller (one list open at a time → module singleton). Mutations are
@@ -1168,9 +1169,7 @@ function create() {
   }
   /** Bank one row on demand — see useVault.captureOne for why it bypasses the
    *  debounce and the consent prompt that the automatic path is built around. */
-  async function saveItemToVault(
-    id: string,
-  ): Promise<"saved" | "unworthy" | "removed" | "full" | "failed"> {
+  async function saveItemToVault(id: string): Promise<CaptureOneResult> {
     const snap = snapshot.value;
     const item = snap?.items.find((i) => i.id === id);
     if (!snap || !item) return "failed";
@@ -1276,8 +1275,12 @@ function create() {
     const it = snapshot.value?.items.find((i) => i.id === id);
     if (!it) return;
     if (
-      it.name.trim() !== "" || it.unitWeightMg > 0 || it.qty !== 1 ||
-      it.commonName || it.description || it.catalogItemId != null ||
+      // carriesOwnLine covers the weight AND the calories: a row can carry kcal with no
+      // weight (in a consumable folder the field is there from the first keystroke, with
+      // `classification` still null), and without that term "nothing was typed" removed
+      // it — quietly, no undo — on the blur that followed typing the number.
+      it.name.trim() !== "" || carriesOwnLine(it) || it.qty !== 1 ||
+      it.commonName || it.description || it.productUrl || it.catalogItemId != null ||
       it.classification != null || it.wornQty != null || it.packed ||
       snapshot.value?.items.some((c) => c.parentId === id) // has nested children
     ) return;

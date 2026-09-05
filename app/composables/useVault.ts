@@ -129,7 +129,12 @@ let pending: { items: VaultCapture[]; fingerprint: string } | null = null;
  */
 /** Why a hand press did or didn't land. Each value is a different thing for the
  *  row to SAY: a row to finish, a removal to undo on /gear, a full vault to make
- *  room in, a request worth retrying. */
+ *  room in, a request worth retrying.
+ *
+ *  EXPORTED because it is part of captureOne's public answer, and because the union
+ *  was otherwise spelled out by hand wherever that answer travels — the controller's
+ *  saveItemToVault and the row's test both restated it, so a sixth result would have
+ *  narrowed silently at one hop and kept compiling at the other. */
 export type CaptureOneResult = "saved" | "unworthy" | "removed" | "full" | "failed";
 
 export function useVaultCapture() {

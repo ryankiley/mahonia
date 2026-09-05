@@ -24,18 +24,6 @@
       "quote": "15°F (-9°C): Weight 730 g | 25.7 oz (Regular)"
     },
     {
-      "brand": "Sea to Summit",
-      "name": "Spark 30F",
-      "variant": "30F, Regular",
-      "category_hint": "sleep",
-      "weight_value": 17.4,
-      "weight_unit": "oz",
-      "weight_secondary": "493 g",
-      "weight_source": "manufacturer",
-      "source_url": "https://seatosummit.com/products/spark-down-sleeping-bag",
-      "quote": "30°F (-1°C): Weight 493 g | 17.4 oz (Regular)"
-    },
-    {
       "brand": "Zpacks",
       "name": "Solo Quilt",
       "variant": "20F, 900FP, Standard",
@@ -74,25 +62,13 @@
     {
       "brand": "Sea to Summit",
       "name": "Ether Light XT Extreme Insulated",
-      "variant": "Regular, tapered",
+      "variant": "Regular, Tapered",
       "category_hint": "sleep",
       "weight_value": 720,
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://seatosummit.com/pages/ether-light-xt-insulated-sleeping-pad",
       "quote": "Ether Light XT Extreme, Tapered Regular (72 x 21.5 in): ~720 g / 1.6 lb. (The Rectangular Regular is ~950 g; this row is the lighter tapered config.)"
-    },
-    {
-      "brand": "Therm-a-Rest",
-      "name": "Vesper 20F",
-      "variant": "20F, Regular",
-      "category_hint": "sleep",
-      "weight_value": 1.19,
-      "weight_unit": "lb",
-      "weight_secondary": "550 g",
-      "weight_source": "manufacturer",
-      "source_url": "https://cascadedesigns.com/products/vesper-20f-6c-down-quilt",
-      "quote": "Regular size: 1 lb 3 oz (550 g); Long size: 1 lbs 5 oz (610 g)"
     },
     {
       "brand": "Therm-a-Rest",

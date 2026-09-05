@@ -10,8 +10,39 @@ import { join } from "node:path";
  *  validates only the fields it needs. `category_hint` is `string | null` (the
  *  wider of the two former local copies). */
 export interface ResearchRow {
+  // The maker, or a collab as its own brand ("Zpacks x Vaucluse"). The UI renders
+  // brand + name joined, so `name` never starts with the brand ("Watch SE 3", not
+  // "Apple Watch SE 3"; an eponymous product takes a descriptor: "Camping Pillow Strap").
   brand?: string | null;
   name?: string;
+  // Size / config, in the catalog's house style. Every rule below is ENFORCED: the
+  // built CSV by scripts/catalogChecks.ts and the cited rows by scripts/researchChecks.ts,
+  // both under `npm test` (which CI runs on every PR) and `npm run catalog:audit`. A rule
+  // that only warned drifted within weeks, so a convention is an error or it is not a
+  // convention; the only warnings are judgment lists for a human (weight plausibility,
+  // food rows still at net weight or without kcal). normalizeVariant tidies what it can.
+  //   • S/M/L-family sizes are LETTERS — "M", "XL", "Men's M", "Women's XS/S" — on
+  //     anything worn or carried. No "Size " prefix, no comma after the gender.
+  //   • Sleep + shelter keep the maker's LENGTH words ("Regular", "Long", "Large").
+  //   • Footwear states the region: "Men's US 9", "Women's US 8", "UK 8", "US 9" (unisex).
+  //   • Worn-in-pairs apparel carries no unit label; only trekking poles say "per pair".
+  //   • A variant exists only to tell a row apart from a sibling, or to state a size the
+  //     maker sells several of. "One size", "Unisex", "Standard" on a one-row product, and
+  //     "per bar" on the only "Energy Bar" row all say nothing — leave the variant empty.
+  //     A unit label ("per tablet") appears only beside a multi-pack sibling ("sleeve of
+  //     10"), or on trekking poles ("per pair").
+  //   • A food row weighs what you CARRY — contents plus pouch — whenever the maker prints a
+  //     total/package weight or someone has weighed one (weight_source "measured"). A row
+  //     that could only be sourced at net contents says "net" in its variant, and the audit
+  //     lists it as a to-do. Bars and chews stay at label weight (a wrapper is a gram or two).
+  //     Fuel canisters keep "net fuel": the weight is the gas alone, not the can.
+  //   • Servings: a multi-serving pouch says "2 servings"; single-serving is the unmarked default
+  //     ("1 serving" is filler). A maker's format name stays ("Pro-Pak").
+  //   • Several of a thing read "3-pack" or "sleeve of 10". A number and its unit are one
+  //     token ("6ft", "400ml", "20F").
+  //   • A config never hides in `name`: " - Regular", "(low)", "(2024)", "(SP129)" all go
+  //     here. A size-named family is one name plus variants ("Food Bag" [L], not
+  //     "Large Food Bag"), and a product-family name is singular ("Stuff Sack" [M]).
   variant?: string | null;
   category_hint?: string | null;
   // the item's common name ("tent", "trekking poles") — REQUIRED for a new row to build

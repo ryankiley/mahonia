@@ -148,7 +148,7 @@
     {
       "brand": "HydraPak",
       "name": "FuelPak",
-      "variant": "Small",
+      "variant": "S",
       "category_hint": "other",
       "common_name": "snack pouch",
       "weight_value": 10,
@@ -160,7 +160,7 @@
     {
       "brand": "HydraPak",
       "name": "FuelPak",
-      "variant": "Large",
+      "variant": "L",
       "category_hint": "other",
       "common_name": "snack pouch",
       "weight_value": 11,
@@ -592,7 +592,7 @@
     {
       "brand": "HydraPak",
       "name": "28mm Filter Kit",
-      "variant": "Filter only",
+      "variant": "filter only",
       "category_hint": "water",
       "common_name": "water filter",
       "weight_value": 47,

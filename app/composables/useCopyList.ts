@@ -1,6 +1,6 @@
 import { cloneListData } from "~~/shared/clone";
 import { editLinkPath } from "~~/shared/links";
-import type { ListSnapshot } from "~~/shared/types";
+import { pickListMeta, type ListSnapshot } from "~~/shared/types";
 
 // The one create-a-copy path: mint an independent list from a snapshot, register
 // it in this browser's "my lists", and land in its editor. Used by the editor's
@@ -18,7 +18,18 @@ export function useCopyList() {
         "/api/lists/create",
         {
           method: "POST",
-          body: { title: `${src.title || "Untitled list"} (copy)`, data: cloneListData(src) },
+          // The list's META rides along, not just its content. Sending title + data
+          // alone meant a duplicate came back in GRAMS however the original read, with
+          // its description, trail link, distance, route and trip dates all dropped —
+          // while cloneListData faithfully copied the days and waypoints that were
+          // measured against that route. pickListMeta walks LIST_META_KEYS, so what a
+          // copy keeps can't drift from what a list holds.
+          // Title last: a copy is named after its source, not by it.
+          body: {
+            ...pickListMeta(src),
+            title: `${src.title || "Untitled list"} (copy)`,
+            data: cloneListData(src),
+          },
         },
       );
       // a clone arrives whole (no ops), so this is the one moment its gear can

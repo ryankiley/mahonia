@@ -55,7 +55,7 @@ defineEmits<{ pick: [key: string] }>();
       @pick="(u) => $emit('pick', u)"
     >
       <template #trigger="{ open }">
-        <AnimatedCount class="t-num headline__big" :value="props.value" />
+        <AnimatedCount class="t-num t-display" :value="props.value" />
         <span class="headline__uc" aria-hidden="true">
           <span class="headline__unit">{{ props.unit }}</span>
           <!-- stroke 2.25, not the app-wide 2: at size 16 it renders an exact 1.5px
@@ -86,18 +86,6 @@ defineEmits<{ pick: [key: string] }>();
   display: inline-flex;
   align-items: baseline;
   gap: var(--space-1);
-}
-
-.headline__big {
-  /* Never wider than the screen. The figure is one unbreakable token, so past about
-     nine characters on a 320px phone it ran off the right edge — with the unit
-     following it out of view and no horizontal scroll to reach either. `--acount-len`
-     (AnimatedCount) gives the character count, ~0.58em is a tabular digit's advance,
-     and 78vw leaves the unit its room; `min()` means a figure that already fits is
-     untouched, so every ordinary total still renders at the full --text-display. */
-  font-size: min(var(--text-display), calc(78vw / (0.58 * var(--acount-len, 6))));
-  line-height: 0.95;
-  letter-spacing: var(--track-tight);
 }
 
 /* unit + chevron travel together as one object, so the mark stays tight to the word it

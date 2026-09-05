@@ -25,8 +25,7 @@ import ItemRow, { CHILDREN_BY_PARENT, PEOPLE_CTX } from "~/components/ItemRow.vu
 import ItemInput from "~/components/ItemInput.vue";
 import type { Item, ListSnapshot, Person } from "~~/shared/types";
 import { blankList } from "./helpers/list";
-import type { ItemPatch } from "~~/shared/ops";
-import { applyOps } from "~~/shared/ops";
+import { gearListStub } from "./helpers/gearList";
 import type { NameCommit } from "~/composables/useCatalogSearch";
 
 // what GearEditor provides to every row — the children map, and the people in
@@ -52,32 +51,7 @@ mockNuxtImport("useVaultAccess", () => () => ({
 // controller mutates through the REAL reducer, so what the row re-renders from is
 // the state the app would actually have.
 const snapshot = ref<ListSnapshot>(blankList());
-mockNuxtImport("useGearList", () => () => ({
-  pendingBlankId: ref<string | null>(null),
-  updateItem: (id: string, patch: ItemPatch) => {
-    snapshot.value = applyOps(snapshot.value, [{ t: "updateItem", id, patch }]) as ListSnapshot;
-  },
-  setItemWeight: () => {},
-  removeItem: () => {},
-  duplicateItem: () => "",
-  moveItem: () => {},
-  discardEmpty: () => {},
-  addBlankItemAfter: () => "",
-  addChild: () => "",
-  nestItem: () => {},
-  unnest: () => {},
-  saveItemToVault: () => Promise.resolve(),
-  // the row's "already banked" state — off, so these cases exercise a live button
-  vaultAuto: ref(false),
-  vaultDeclined: ref(new Set<string>()),
-  // What My Gear holds of this list's gear, and which keys have an answer at all
-  // — ItemRow renders its save button against these. Empty-but-answered here:
-  // these suites are not about the vault, and a row that has been asked about and
-  // isn't banked is the plainest state to render.
-  vaultGear: ref(new Map()),
-  vaultGearAsked: ref(new Set()),
-  vaultGearSettled: ref(true),
-}));
+mockNuxtImport("useGearList", () => () => gearListStub({ snapshot }));
 
 // A row as a catalog pick leaves it: linked, the catalog's weight, and the link
 // baseline stamped at the weight it was linked AT.

@@ -35,18 +35,6 @@
       "quote": "M | 4.5 (oz, with a +/-10% variance note)"
     },
     {
-      "brand": "Senchi Designs",
-      "name": "Alpha 60 Hoodie",
-      "variant": "Men's M",
-      "category_hint": "clothing",
-      "weight_value": 3.8,
-      "weight_unit": "oz",
-      "weight_secondary": "108 g",
-      "weight_source": "manufacturer",
-      "source_url": "https://senchidesigns.com/pages/weight-chart-alpha-60-hoodie",
-      "quote": "M | 3.8 oz | 108g"
-    },
-    {
       "brand": "LightHeart Gear",
       "name": "Alpha Direct 90 Hoodie",
       "variant": "Men's M",
@@ -68,28 +56,6 @@
       "weight_source": "manufacturer",
       "source_url": "https://appalachiangearcompany.com/products/mens-all-paca-fleece-hoodie",
       "quote": "Medium - 11 oz / 312g"
-    },
-    {
-      "brand": "Mountain Hardwear",
-      "name": "Ghost Whisperer Hoody",
-      "variant": "Men's M",
-      "category_hint": "clothing",
-      "weight_value": 8.8,
-      "weight_unit": "oz",
-      "weight_source": "manufacturer",
-      "source_url": "https://www.cleverhiker.com/apparel/mountain-hardwear-ghost-whisperer-down-hoody-review/",
-      "quote": "[Renamed from Ghost Whisperer/2 — MHW dropped the /2 suffix; same garment] 8.8 oz. (from the Quick Specs section)"
-    },
-    {
-      "brand": "Montbell",
-      "name": "Plasma 1000 Down Jacket",
-      "variant": "Men's M",
-      "category_hint": "clothing",
-      "weight_value": 4.8,
-      "weight_unit": "oz",
-      "weight_source": "manufacturer",
-      "source_url": "https://www.montbell.com/us/en/products/detail/2301381",
-      "quote": "Plasma 1000 Down Jacket — manufacturer advertised weight 4.8 oz (136 g) (montbell.com)"
     },
     {
       "brand": "Melanzana",

@@ -31,6 +31,7 @@ const row = (over: Partial<CatalogSearchResult> = {}): CatalogSearchResult => ({
 const item = (over: Partial<Item> = {}): Item => ({
   id: "i1",
   folderId: "f1",
+  sortOrder: 0,
   name: "MSR PocketRocket 2 Stove",
   unitWeightMg: 73_000,
   qty: 1,

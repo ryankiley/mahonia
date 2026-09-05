@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  carriesOwnLine,
   computeTotals,
   effectiveClassification,
   entryUnitFromInput,
@@ -9,6 +10,7 @@ import {
   groupItemsByFolder,
   groupItemsByParent,
   groupLineMg,
+  isBareGroup,
   nextSortOrder,
   parseWeightInput,
   sortedFolderItems,
@@ -430,6 +432,33 @@ describe("sortedFolderItems", () => {
       item({ id: "other", folderId: "f2", name: "Zzz", sortOrder: 0 }),
     ];
     expect(sortedFolderItems(items, f).map((i) => i.id)).toEqual(["a", "c"]);
+  });
+});
+
+describe("isBareGroup — the rows whose per-unit cells stand down", () => {
+  it("is a group holding no weight, no calories and no count", () => {
+    expect(isBareGroup(item({ id: "kit", unitWeightMg: 0 }), true)).toBe(true);
+    expect(isBareGroup(item({ id: "kit", unitWeightMg: 0 }), false)).toBe(false); // a leaf is never bare
+  });
+  it("is false the moment the row carries a line of its own", () => {
+    // either one is enough to keep the cells on screen
+    expect(isBareGroup(item({ id: "a", unitWeightMg: 210_000 }), true)).toBe(false);
+    expect(isBareGroup(item({ id: "b", unitWeightMg: 0, kcal: 700 }), true)).toBe(false);
+  });
+  // qty is NOT a term, and that is the point: it made the cell's own condition depend on
+  // the value the cell's buttons write, so stepping a group down to 1 unmounted the
+  // stepper mid-press with no control left to put the count back. A count on a
+  // contentless group multiplies zero and moves no total, so nothing is hidden by it.
+  it("ignores the count, so no control can flip it by being used", () => {
+    expect(isBareGroup(item({ id: "c", unitWeightMg: 0, qty: 4 }), true)).toBe(true);
+    expect(isBareGroup(item({ id: "d", unitWeightMg: 0, qty: 1 }), true)).toBe(true);
+  });
+  it("counts calories even where computeTotals would ignore them", () => {
+    // kcal on a base row is dormant, not gone (Item.kcal) — it returns the moment the
+    // row is consumable again, so "nothing to hide" has to mean nothing on the next click
+    const dormant = item({ id: "d", unitWeightMg: 0, kcal: 700, classification: "base" });
+    expect(carriesOwnLine(dormant)).toBe(true);
+    expect(isBareGroup(dormant, true)).toBe(false);
   });
 });
 

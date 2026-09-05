@@ -3,7 +3,7 @@
 
 import type { ListSnapshot } from "../types";
 import { carrierName, effectivePersonId } from "../people";
-import { carriedIsDistinct, computeTotals, effectiveClassification, formatWeight, itemDisplayName, lineMg, rowDisplayMg, splitWornQty } from "../weights";
+import { carriedIsDistinct, computeTotals, effectiveClassification, formatWeight, isBareGroup, itemDisplayName, lineMg, rowDisplayMg, splitWornQty } from "../weights";
 import { exportSections } from "./rows";
 
 // a product name with its common name trailing after an em dash, when the item has one
@@ -44,7 +44,11 @@ export function listToMarkdown(list: ListSnapshot): string {
         carrierName(list, it),
       );
       const wq = splitWornQty(it, effectiveClassification(it, list.folders));
-      out.push(`| ${name} | ${it.qty}${wq > 0 ? ` (${wq} worn)` : ""} | ${w} |`);
+      // a bare group's Qty cell is empty, matching the three on-screen faces: the weight
+      // beside it is the GROUP total, so a count there multiplies a figure it is already
+      // inside — and on a row whose own line is zero, it multiplies zero
+      const qty = isBareGroup(it, kids.length > 0) ? "" : `${it.qty}${wq > 0 ? ` (${wq} worn)` : ""}`;
+      out.push(`| ${name} | ${qty} | ${w} |`);
       // nested items as indented sub-rows (the row weight above is their total)
       for (const child of kids) {
         const cw = child.unitWeightMg > 0 ? formatWeight(lineMg(child), u) : "—";

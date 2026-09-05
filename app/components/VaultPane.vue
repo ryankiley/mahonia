@@ -513,7 +513,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
             @click="addCategory(cat)"
           >
             <span class="gear__main">
-              <span class="gear__name">{{ cat.name }}</span>
+              <span class="gear__name t-clip">{{ cat.name }}</span>
               <span class="t-sm vp__inlist">
                 {{ cat.allInList ? "Already added" : `${cat.entries.length} item${cat.entries.length === 1 ? "" : "s"}` }}
               </span>
@@ -548,7 +548,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
             @click="onRowClick(entry)"
           >
             <span class="gear__main">
-              <span class="gear__name">
+              <span class="gear__name t-clip">
                 <span v-if="entry.brand" class="gear__brand"
                   ><span v-for="(p, pi) in hl(entry.brand)" :key="pi" :class="{ 'vp__hl': p.on }">{{ p.t }}</span></span
                 >

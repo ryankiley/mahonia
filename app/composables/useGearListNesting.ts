@@ -1,7 +1,7 @@
 import type { Op } from "~~/shared/ops";
 import { uid } from "~~/shared/id";
 import type { Item, ListSnapshot } from "~~/shared/types";
-import { bySortOrder, nextSortOrder, siblingItems } from "~~/shared/weights";
+import { bySortOrder, carriesOwnLine, nextSortOrder, siblingItems } from "~~/shared/weights";
 import type { Ref } from "vue";
 
 /**
@@ -45,6 +45,13 @@ export function createNesting({ snapshot, dispatch, pendingBlankId, discardEmpty
 // catalog link and all), and the caller nests into the group instead. A row with
 // no weight is already a container — nest straight into it, exactly as before,
 // which is what keeps a hand-built "Cook kit" group working the way it does now.
+//
+// WEIGHT IS THE ONLY TRIGGER, and deliberately so: it is the one field whose cell a
+// parent row takes away. The others a group can carry — a count, calories — keep
+// their cells on a group that holds them (isBareGroup, shared/weights), so nothing
+// goes into hiding and there is nothing for a wrap to rescue. Widening the trigger
+// to those would only mean lifting more rows' gear type onto a new container for a
+// gesture that asked for none.
 //
 // The group takes the product's COMMON NAME ("Tent") — the field that exists to
 // say what a thing generically IS, which is precisely what the group now is — and
@@ -121,8 +128,13 @@ function unwrapEmptied(containerId: string, childId: string) {
     !items || !container || !child || !container.name ||
     items.some((i) => i.parentId === containerId) || // still holds other children
     !child.commonNameOverridden || child.commonName || // not a row that gave a label up
-    // a container carrying content of its own is a real row, not a wrapper
-    container.unitWeightMg > 0 || container.qty !== 1 || container.description ||
+    // a container carrying content of its own is a real row, not a wrapper.
+    // carriesOwnLine, not a bare `unitWeightMg > 0`: containerFor wraps on WEIGHT alone,
+    // so a weightless food row that gains a child becomes the container with its CALORIES
+    // still on it — and this branch removes the container quietly, with no undo. One
+    // predicate with the row's own display rule, so the two can't disagree about which
+    // rows hold something.
+    carriesOwnLine(container) || container.qty !== 1 || container.description ||
     container.productUrl || container.catalogItemId != null ||
     container.classification != null || container.wornQty != null || container.packed
   )

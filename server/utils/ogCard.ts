@@ -17,6 +17,18 @@
 // closest OFL stand-in for the site's system-ui stack — a lambda has no system
 // fonts), with InterDisplay for the two display-size runs, subset into
 // server/assets/fonts (coverage rule: shared/ogCard.ts's DRAWABLE_RANGES).
+//
+// DO NOT "CLEAN UP" the `overrides.satori.fflate` pin in package.json, and do not
+// let a bot bump it to 0.8.x. satori 0.33 depends on fflate 0.7.3 exactly, and
+// 0.7.3 is inside GHSA-px8p-9vwx-vf98 (an infinite loop in `unzipSync` on
+// malformed ZIP64 — a function neither satori nor its font parser ever calls, but
+// one `npm audit` reports forever). 0.7.5 clears the advisory and is the last
+// release that still takes an OUTPUT BUFFER as `inflateSync`'s second argument.
+// fflate 0.8 changed that argument to an options object; satori still calls it the
+// old way and reads the buffer it passed, so on 0.8.x the buffer stays zero-filled
+// and WOFF faces decompress to nothing — every glyph silently blank, no error
+// thrown. The fonts here are TTF, which skips that path entirely, so the trap only
+// springs if someone adds a .woff. Hence the pin rather than the newer release.
 
 import satori, { type SatoriOptions } from "satori";
 import { Resvg } from "@resvg/resvg-js";

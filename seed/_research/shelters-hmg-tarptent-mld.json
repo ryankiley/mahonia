@@ -3,7 +3,7 @@
     {
       "brand": "Hyperlite Mountain Gear",
       "name": "UltaMid 2",
-      "variant": "DCF, canopy only",
+      "variant": "canopy only",
       "category_hint": "shelter",
       "weight_value": 19.1,
       "weight_unit": "oz",
@@ -14,7 +14,7 @@
     {
       "brand": "Hyperlite Mountain Gear",
       "name": "UltaMid 4",
-      "variant": "DCF, canopy only",
+      "variant": "canopy only",
       "category_hint": "shelter",
       "weight_value": 22.4,
       "weight_unit": "oz",
@@ -36,7 +36,7 @@
     {
       "brand": "Tarptent",
       "name": "Notch",
-      "variant": "silpoly fly, silnylon floor",
+      "variant": "",
       "category_hint": "shelter",
       "weight_value": 26,
       "weight_unit": "oz",
@@ -47,7 +47,7 @@
     {
       "brand": "Tarptent",
       "name": "Notch Li",
-      "variant": "DCF",
+      "variant": "",
       "category_hint": "shelter",
       "weight_value": 20,
       "weight_unit": "oz",
@@ -58,7 +58,7 @@
     {
       "brand": "Tarptent",
       "name": "ProTrail Li",
-      "variant": "DCF",
+      "variant": "",
       "category_hint": "shelter",
       "weight_value": 15.95,
       "weight_unit": "oz",
@@ -69,7 +69,7 @@
     {
       "brand": "Tarptent",
       "name": "Double Rainbow",
-      "variant": "silpoly/silnylon",
+      "variant": "",
       "category_hint": "shelter",
       "weight_value": 35.9,
       "weight_unit": "oz",
@@ -80,7 +80,7 @@
     {
       "brand": "Tarptent",
       "name": "Double Rainbow Li",
-      "variant": "DCF",
+      "variant": "",
       "category_hint": "shelter",
       "weight_value": 26.2,
       "weight_unit": "oz",
@@ -91,7 +91,7 @@
     {
       "brand": "Tarptent",
       "name": "Aeon Li",
-      "variant": "DCF",
+      "variant": "",
       "category_hint": "shelter",
       "weight_value": 16.85,
       "weight_unit": "oz",
@@ -102,7 +102,7 @@
     {
       "brand": "Tarptent",
       "name": "StratoSpire 2",
-      "variant": "silpoly/silnylon",
+      "variant": "",
       "category_hint": "shelter",
       "weight_value": 38.8,
       "weight_unit": "oz",
@@ -113,7 +113,7 @@
     {
       "brand": "Tarptent",
       "name": "StratoSpire Li",
-      "variant": "DCF",
+      "variant": "",
       "category_hint": "shelter",
       "weight_value": 29.7,
       "weight_unit": "oz",
@@ -124,7 +124,7 @@
     {
       "brand": "Mountain Laurel Designs",
       "name": "DuoMid",
-      "variant": "SilPoly",
+      "variant": "Silpoly",
       "category_hint": "shelter",
       "weight_value": 18,
       "weight_unit": "oz",
@@ -135,7 +135,7 @@
     {
       "brand": "Mountain Laurel Designs",
       "name": "DuoMid",
-      "variant": "DCF, .75",
+      "variant": "0.75 DCF",
       "category_hint": "shelter",
       "weight_value": 15.5,
       "weight_unit": "oz",
@@ -146,7 +146,7 @@
     {
       "brand": "Mountain Laurel Designs",
       "name": "SoloMid XL",
-      "variant": "SilPoly",
+      "variant": "Silpoly",
       "category_hint": "shelter",
       "weight_value": 16,
       "weight_unit": "oz",
@@ -157,7 +157,7 @@
     {
       "brand": "Mountain Laurel Designs",
       "name": "SoloMid XL",
-      "variant": "DCF, .75",
+      "variant": "0.75 DCF",
       "category_hint": "shelter",
       "weight_value": 14,
       "weight_unit": "oz",
@@ -168,7 +168,7 @@
     {
       "brand": "Mountain Laurel Designs",
       "name": "Cricket Pyramid Tarp",
-      "variant": ".5 DCF",
+      "variant": "0.5 DCF",
       "category_hint": "shelter",
       "weight_value": 7.5,
       "weight_unit": "oz",
@@ -179,7 +179,7 @@
     {
       "brand": "Mountain Laurel Designs",
       "name": "Cricket Pyramid Tarp",
-      "variant": ".8 DCF",
+      "variant": "0.8 DCF",
       "category_hint": "shelter",
       "weight_value": 9,
       "weight_unit": "oz",

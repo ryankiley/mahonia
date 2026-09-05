@@ -28,7 +28,7 @@
 // token that neither wraps nor ellipsizes, so past a certain length it simply ran off
 // the edge of a phone — number, unit and all — with the page refusing to scroll
 // sideways. Only the count can say when that is about to happen, and only this
-// component knows it. See .headline__big / .totals__big for the size rule.
+// component knows it. See .t-display (foundations/typography.scss) for the size rule.
 //
 // Floored at 1 because the callers DIVIDE by it: a zero would make their calc()
 // divide by zero, which is invalid at computed-value time and drops the whole

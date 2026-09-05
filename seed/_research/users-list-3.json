@@ -3,7 +3,7 @@
   "rows": [
     {
       "brand": "Apple",
-      "name": "Apple Watch Series 6",
+      "name": "Watch Series 6",
       "variant": "40mm, Aluminum, GPS",
       "category_hint": "electronics",
       "weight_value": 30.5,
@@ -15,7 +15,7 @@
     {
       "brand": "Snow Peak",
       "name": "GigaPower Fuel 110 Gold",
-      "variant": "110g canister, net fuel",
+      "variant": "110g, net fuel",
       "category_hint": "consumable",
       "weight_value": 110,
       "weight_unit": "g",

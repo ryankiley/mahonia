@@ -1,0 +1,11 @@
+{
+  "date": "2026-09-05",
+  "changed": [
+    "A group row no longer shows a count or worn/consumable marks of its own, unless it carries a weight or calories.",
+    "Naming a group no longer offers catalog or My Gear suggestions — a group is a heading you write."
+  ],
+  "fixed": [
+    "A weight typed into a group's name, like \"Cook kit 540 g\", is no longer added to the group; only the name is.",
+    "A row whose only entry is its calories is no longer discarded when you click away from it."
+  ]
+}
