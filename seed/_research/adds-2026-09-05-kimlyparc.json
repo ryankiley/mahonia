@@ -1,0 +1,20 @@
+{
+  "_comment": "Add 2026-09-05 — KimlyParc Original Korean Latte, at Ryan's request. Weight from the maker's product page ('10Packets x 0.7oz (20g)'); calories transcribed from the Nutrition Facts panel image on the same page (kimlyparc.com prints the panel only as an image: Serving size 1 Packet (20g), Calories 90). Label weight, per the bars-and-sticks convention (a stick wrapper is a gram or so). The page's 'net wt. 7 oz (250g)' box figure is the maker's own inconsistency (10 × 20 g = 200 g) and is not used.",
+  "rows": [
+    {
+      "brand": "KimlyParc",
+      "name": "Original Korean Latte",
+      "variant": "",
+      "category_hint": "consumable",
+      "common_name": "instant coffee",
+      "weight_value": 20,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://kimlyparc.com/products/original-korean-latte",
+      "quote": "10Packets x 0.7oz (20g)",
+      "kcal": 90,
+      "kcal_source_url": "https://kimlyparc.com/products/original-korean-latte",
+      "kcal_quote": "Nutrition Facts (label image on the product page): Serving size 1 Packet (20g) — Calories 90"
+    }
+  ]
+}
