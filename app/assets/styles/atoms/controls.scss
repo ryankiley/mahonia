@@ -552,14 +552,7 @@ input[type="search"]::-webkit-search-decoration {
   justify-content: space-between;
   gap: var(--space-2);
 }
-.menu__sectchev {
-  flex: none;
-  color: var(--ink-3);
-  transition: rotate var(--dur) var(--ease);
-}
-.menu__sectchev.is-open {
-  rotate: 180deg;
-}
+// the section header's chevron is the app's .chev (below) — nothing extra needed
 .menu__sectlist {
   list-style: none;
   margin: 0;
@@ -574,6 +567,37 @@ input[type="search"]::-webkit-search-decoration {
 .menu__sectitem {
   padding-left: var(--space-5);
   color: var(--ink-2);
+}
+
+// ── THE DISCLOSURE MARK ──────────────────────────────────────────────────────
+// The ⌄ that says a control opens something, and turns over while it's open. One rule,
+// because it was six: .menu__sectchev here, plus .totals__chev, .headline__chev,
+// .vault__chev, .vp__targetchev and .item__unitchev, each restating `flex: none` and
+// the quiet --ink-3 resting ink under its own name.
+//
+// Six copies bought six chances to disagree, and two had already taken them:
+//   · the TOTALS chevron listed only `color` in its transition while still setting
+//     `rotate: 180deg` on .is-open — so the editor's headline mark snapped round while
+//     the identical mark on /gear eased;
+//   · the vault pane's target chevron was handed `:class="{ 'is-open': open }"` by its
+//     markup and had no .is-open rule at all, so it never turned.
+// Both are fixed by there being one rule to be right.
+//
+// `flex: none` because a chevron is the shrinkable item in most of the rows it sits in
+// (a label beside it grows, a figure is fixed), and the app has already watched an
+// unpinned <svg> collapse to a sliver — see .menu__item.
+//
+// NOT the folder/nesting chevron (atoms/folder.scss): that one rotates -90deg when
+// COLLAPSED, a different motion for a different idea (a tree twisty, not a disclosure).
+.chev {
+  flex: none;
+  color: var(--ink-3);
+  transition:
+    color var(--dur) var(--ease),
+    rotate var(--dur) var(--ease);
+}
+.chev.is-open {
+  rotate: 180deg;
 }
 
 // ── the travelling plate ─────────────────────────────────────────────────────

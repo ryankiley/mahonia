@@ -63,7 +63,7 @@ defineEmits<{ pick: [key: string] }>();
                a display-size figure instead of thinning out against it. -->
           <HugeiconsIcon
             :icon="ChevronDownIcon"
-            class="headline__chev"
+            class="chev"
             :class="{ 'is-open': open }"
             :size="16"
             :stroke-width="2.25"
@@ -125,13 +125,6 @@ defineEmits<{ pick: [key: string] }>();
   transition: color var(--dur) var(--ease);
 }
 
-.headline__chev {
-  color: var(--ink-3);
-  transition:
-    color var(--dur) var(--ease),
-    rotate var(--dur) var(--ease);
-}
-
 /* Unit and chevron lift TOGETHER, under the pointer and on keyboard focus. They are
    already one object in the layout (.headline__uc) and one target in the markup, so
    lighting only the mark made the word beside it look like it belonged to something
@@ -140,14 +133,10 @@ defineEmits<{ pick: [key: string] }>();
    (gear.vue). Hung off the trigger, not the whole .headline, so the caption beside it
    isn't a hover target for a menu it has nothing to do with. */
 .headline__amount:hover .headline__unit,
-.headline__amount:hover .headline__chev,
+.headline__amount:hover .chev,
 .headline__amount:focus-within .headline__unit,
-.headline__amount:focus-within .headline__chev {
+.headline__amount:focus-within .chev {
   color: var(--ink);
-}
-
-.headline__chev.is-open {
-  rotate: 180deg;
 }
 
 /* The caption sits on the figure's baseline, one step past the unit, and holds

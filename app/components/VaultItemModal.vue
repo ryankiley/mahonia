@@ -227,7 +227,7 @@ async function onSubmit() {
           >
             <template #trigger="{ active, open }">
               <span>{{ active?.label }}</span>
-              <HugeiconsIcon :icon="ChevronDownIcon" class="menu__sectchev" :class="{ 'is-open': open }" :size="14" :stroke-width="2" aria-hidden="true" />
+              <HugeiconsIcon :icon="ChevronDownIcon" class="chev" :class="{ 'is-open': open }" :size="14" :stroke-width="2" aria-hidden="true" />
             </template>
           </OptionMenu>
         </div>

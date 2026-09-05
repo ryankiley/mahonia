@@ -171,7 +171,7 @@ async function copyLink() {
             Export
             <HugeiconsIcon
               :icon="ChevronDownIcon"
-              class="menu__sectchev"
+              class="chev"
               :class="{ 'is-open': exportOpen }"
               :size="14"
               :stroke-width="2"

@@ -151,7 +151,7 @@ watch(open, (o) => {
       {{ all.length }}<span class="lm__word"> packs</span>
       <HugeiconsIcon
         :icon="ChevronDownIcon"
-        class="menu__sectchev"
+        class="chev"
         :class="{ 'is-open': open }"
         :size="14"
         :stroke-width="2"

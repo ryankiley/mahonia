@@ -293,7 +293,7 @@ function changeLabel(i: number): string {
           @click="activityOpen = !activityOpen"
         >
           <span class="t-label share__subtitle">Recent changes</span>
-          <HugeiconsIcon :icon="ChevronDownIcon" class="menu__sectchev"
+          <HugeiconsIcon :icon="ChevronDownIcon" class="chev"
             :class="{ 'is-open': activityOpen }"
             :size="14"
             :stroke-width="2"

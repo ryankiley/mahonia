@@ -487,7 +487,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
           >
             <template #trigger="{ active, open }">
               <span class="t-clip vp__targetname">{{ active?.label }}</span>
-              <HugeiconsIcon :icon="ChevronDownIcon" class="vp__targetchev" :class="{ 'is-open': open }" :size="14" :stroke-width="2" aria-hidden="true" />
+              <HugeiconsIcon :icon="ChevronDownIcon" class="chev" :class="{ 'is-open': open }" :size="14" :stroke-width="2" aria-hidden="true" />
             </template>
           </OptionMenu>
         </div>
@@ -779,10 +779,9 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   flex: 0 1 auto;
   min-width: 0;
 }
-.vp__targetchev {
-  flex: none;
-  color: var(--ink-3);
-}
+/* the target's mark is the shared .chev (atoms/controls.scss). Its copy here set the
+   resting ink and nothing else — no .is-open rule at all — while the markup has always
+   handed it `is-open`, so the one chevron that told you the picker was open never turned. */
 .vp__note,
 .vp__error {
   padding-block: var(--space-2);

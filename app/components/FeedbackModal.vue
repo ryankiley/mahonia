@@ -60,7 +60,7 @@ async function send() {
 
       <template v-if="state === 'sent'">
         <p class="t-sm">Thanks. That’s been sent.</p>
-        <div class="fb__actions">
+        <div class="dlg__actions">
           <button type="button" class="btn btn--primary" @click="emit('close')">Close</button>
         </div>
       </template>
@@ -95,7 +95,7 @@ async function send() {
 
         <p v-if="error" class="t-sm fb__error">{{ error }}</p>
 
-        <div class="fb__actions">
+        <div class="dlg__actions">
           <button type="button" class="btn btn--quiet" @click="emit('close')">Cancel</button>
           <button type="button" class="btn btn--primary" :disabled="!canSend" @click="send">
             {{ state === "sending" ? "Sending…" : "Send" }}
@@ -138,10 +138,5 @@ async function send() {
 }
 .fb__error {
   color: var(--ink);
-}
-.fb__actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-2);
 }
 </style>

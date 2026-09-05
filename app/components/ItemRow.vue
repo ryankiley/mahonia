@@ -1312,7 +1312,7 @@ function dismissFix() {
                  cannot drift, because it IS the icon. -->
             <HugeiconsIcon
               :icon="ChevronDownIcon"
-              class="item__unitchev item__unitchev--ghost"
+              class="chev item__unitchev item__unitchev--ghost"
               :size="12"
               :stroke-width="2"
               aria-hidden="true"
@@ -1341,7 +1341,7 @@ function dismissFix() {
                    (12 ÷ 24 × 2), the small-size counterpart to the total's 16/2.25. -->
               <HugeiconsIcon
                 :icon="ChevronDownIcon"
-                class="item__unitchev"
+                class="chev item__unitchev"
                 :class="{ 'is-open': open }"
                 :size="12"
                 :stroke-width="2"
@@ -2106,14 +2106,12 @@ function dismissFix() {
   }
 }
 /* Quiet by default — one of these sits on every row, and a column of hard chevrons
-   would shout louder than the weights they belong to. --ink-3 is the same step the
-   row's other passive marks use; it lifts on hover so pointing at the row confirms
-   the thing is live. */
-.item__unitchev {
-  flex: none;
-  color: var(--ink-3);
-  transition: color var(--dur) var(--ease);
-}
+   would shout louder than the weights they belong to. That resting step (--ink-3, and
+   the pin that keeps it from shrinking) is the shared .chev now, atoms/controls.scss.
+   Only the LIFT is the row's own: --ink-2 rather than the --ink every other chevron
+   takes, because this one lifts on the ROW being hovered, not on its own trigger — a
+   column of full-ink marks following the pointer down the list would read as the loud
+   thing the quiet default exists to avoid. */
 /* :has(), not a sibling combinator — the select is rendered AFTER the chevron, so
    `~` from it reaches nothing. Keyboard focus has to light the mark too, or the
    affordance exists for pointers only. */

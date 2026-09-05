@@ -275,9 +275,17 @@ const asHeight = (m: number) => {
     </div>
   </main>
 
-  <main v-else id="main-content" tabindex="-1" class="wrap view view--missing">
-    <p class="t-muted"><slot name="missing">This list doesn’t exist (or was removed).</slot></p>
-    <NuxtLink to="/" class="btn btn--primary">Create a list</NuxtLink>
+  <!-- Nothing to show, so it takes the shape the site already uses for exactly that:
+       .page + .prose, the same block app/error.vue renders. It used to build its own
+       (.view's flex column at full --measure width, with --space-9 above), which put a
+       single muted line hard against the page gutter — 46px left of where text starts
+       on every other page, alone in a 1024px column with nothing to sit against. The
+       reading column gives it a left edge shared with the rest of the site. -->
+  <main v-else id="main-content" tabindex="-1" class="wrap page">
+    <div class="prose">
+      <p><slot name="missing">This list doesn’t exist (or was removed).</slot></p>
+      <p><NuxtLink to="/" class="btn btn--primary">Create a list</NuxtLink></p>
+    </div>
   </main>
 </template>
 
@@ -426,9 +434,5 @@ const asHeight = (m: number) => {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-}
-.view--missing {
-  padding-block: var(--space-9);
-  align-items: flex-start;
 }
 </style>
