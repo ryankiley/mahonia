@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  carriesContent,
   carriesOwnLine,
   computeTotals,
   effectiveClassification,
@@ -453,6 +454,28 @@ describe("isBareGroup — the rows whose per-unit cells stand down", () => {
     const dormant = item({ id: "d", unitWeightMg: 0, kcal: 700, classification: "base" });
     expect(carriesOwnLine(dormant)).toBe(true);
     expect(isBareGroup(dormant, true)).toBe(false);
+  });
+});
+
+describe("carriesContent — what the two quiet removals count", () => {
+  it("counts calories, which both deletions used to miss", () => {
+    expect(carriesContent(item({ id: "a", unitWeightMg: 0, kcal: 250 }))).toBe(true);
+  });
+  it("counts every other mark a person can leave on a row", () => {
+    expect(carriesContent(item({ id: "b", qty: 3 }))).toBe(true);
+    expect(carriesContent(item({ id: "c", description: "in the lid" }))).toBe(true);
+    expect(carriesContent(item({ id: "d", productUrl: "https://example.com" }))).toBe(true);
+    expect(carriesContent(item({ id: "e", catalogItemId: 12 }))).toBe(true);
+    expect(carriesContent(item({ id: "f", classification: "worn" }))).toBe(true);
+    expect(carriesContent(item({ id: "g", qty: 2, wornQty: 1 }))).toBe(true);
+    expect(carriesContent(item({ id: "h", packed: true }))).toBe(true);
+  });
+  // the NAME is deliberately outside it: the two callers disagree about names for good
+  // reasons of their own — a blank row with a name is a row somebody started, while a
+  // container is nothing BUT a name — so each tests that itself
+  it("says nothing about the name", () => {
+    expect(carriesContent(item({ id: "i", name: "Cook kit" }))).toBe(false);
+    expect(carriesContent(item({ id: "j" }))).toBe(false);
   });
 });
 

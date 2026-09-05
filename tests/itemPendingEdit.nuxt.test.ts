@@ -22,16 +22,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import { mount } from "@vue/test-utils";
 import ItemRow, { CHILDREN_BY_PARENT, PEOPLE_CTX } from "~/components/ItemRow.vue";
+import { rowProvides } from "./helpers/itemRow";
 import type { Item, ListSnapshot, Person } from "~~/shared/types";
 import { blankList } from "./helpers/list";
 import { gearListStub } from "./helpers/gearList";
 
 // what GearEditor provides to every row — the children map, and the people in
 // display order with their slots (this list names nobody)
-const rowProvides = {
-  [CHILDREN_BY_PARENT as symbol]: ref(new Map<string, Item[]>()),
-  [PEOPLE_CTX as symbol]: { sorted: ref<Person[]>([]), slotById: ref(new Map<string, number>()) },
-};
 
 registerEndpoint("/api/catalog/search", () => ({ results: [] }));
 mockNuxtImport("useVaultAccess", () => () => ({
@@ -75,7 +72,7 @@ function mountRow() {
         return snapshot.value.items[0]!;
       },
     },
-    global: { provide: rowProvides },
+    global: { provide: rowProvides() },
     attachTo: document.body,
   });
 }

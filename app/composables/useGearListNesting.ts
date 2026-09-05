@@ -1,7 +1,7 @@
 import type { Op } from "~~/shared/ops";
 import { uid } from "~~/shared/id";
 import type { Item, ListSnapshot } from "~~/shared/types";
-import { bySortOrder, carriesOwnLine, nextSortOrder, siblingItems } from "~~/shared/weights";
+import { bySortOrder, carriesContent, nextSortOrder, siblingItems } from "~~/shared/weights";
 import type { Ref } from "vue";
 
 /**
@@ -128,15 +128,11 @@ function unwrapEmptied(containerId: string, childId: string) {
     !items || !container || !child || !container.name ||
     items.some((i) => i.parentId === containerId) || // still holds other children
     !child.commonNameOverridden || child.commonName || // not a row that gave a label up
-    // a container carrying content of its own is a real row, not a wrapper.
-    // carriesOwnLine, not a bare `unitWeightMg > 0`: containerFor wraps on WEIGHT alone,
-    // so a weightless food row that gains a child becomes the container with its CALORIES
-    // still on it — and this branch removes the container quietly, with no undo. One
-    // predicate with the row's own display rule, so the two can't disagree about which
-    // rows hold something.
-    carriesOwnLine(container) || container.qty !== 1 || container.description ||
-    container.productUrl || container.catalogItemId != null ||
-    container.classification != null || container.wornQty != null || container.packed
+    // a container carrying content of its own is a real row, not a wrapper — the same
+    // list discardEmpty checks before ITS quiet removal, now written once (shared/weights).
+    // Its name is tested separately above, and the other way round: a wrapper is nothing
+    // but a name, where a blank row with one is a row somebody started.
+    carriesContent(container)
   )
     return discardEmpty(containerId);
   dispatch({

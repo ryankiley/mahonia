@@ -24,11 +24,13 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import { mount } from "@vue/test-utils";
 import ItemRow, { CHILDREN_BY_PARENT, PEOPLE_CTX } from "~/components/ItemRow.vue";
+import { rowProvides } from "./helpers/itemRow";
 import ItemInput from "~/components/ItemInput.vue";
 import type { Item, ListSnapshot, Person } from "~~/shared/types";
 import type { ItemPatch } from "~~/shared/ops";
 import { applyOps } from "~~/shared/ops";
 import { blankList } from "./helpers/list";
+import { gearListStub } from "./helpers/gearList";
 
 registerEndpoint("/api/catalog/search", () => ({ results: [] }));
 registerEndpoint("/api/catalog/use", { method: "POST", handler: () => ({ ok: true }) });
@@ -40,27 +42,7 @@ mockNuxtImport("useVaultAccess", () => () => ({
 }));
 
 const snapshot = ref<ListSnapshot>(blankList());
-mockNuxtImport("useGearList", () => () => ({
-  pendingBlankId: ref<string | null>(null),
-  updateItem: (id: string, patch: ItemPatch) => {
-    snapshot.value = applyOps(snapshot.value, [{ t: "updateItem", id, patch }]) as ListSnapshot;
-  },
-  setItemWeight: () => {},
-  removeItem: () => {},
-  duplicateItem: () => "",
-  moveItem: () => {},
-  discardEmpty: () => {},
-  addBlankItemAfter: () => "",
-  addChild: () => "",
-  nestItem: () => {},
-  unnest: () => {},
-  saveItemToVault: () => Promise.resolve(),
-  vaultAuto: ref(false),
-  vaultDeclined: ref(new Set<string>()),
-  vaultGear: ref(new Map()),
-  vaultGearAsked: ref(new Set()),
-  vaultGearSettled: ref(true),
-}));
+mockNuxtImport("useGearList", () => () => gearListStub({ snapshot }));
 
 const item = (over: Partial<Item> & { id: string }): Item => ({
   folderId: "f1",
@@ -86,12 +68,7 @@ function mountRow(row: Item, children: Item[] = []) {
         return snapshot.value.items[0]!;
       },
     },
-    global: {
-      provide: {
-        [CHILDREN_BY_PARENT as symbol]: ref(new Map([[row.id, children]])),
-        [PEOPLE_CTX as symbol]: { sorted: ref<Person[]>([]), slotById: ref(new Map<string, number>()) },
-      },
-    },
+    global: { provide: rowProvides(new Map([[row.id, children]])) },
     attachTo: document.body,
   });
 }
