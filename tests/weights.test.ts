@@ -51,6 +51,12 @@ describe("unit conversion", () => {
 });
 
 describe("parseWeightInput", () => {
+  it("reads a separator-led fraction as the shorthand it is (.9oz is 0.9 oz, not 9)", () => {
+    expect(parseWeightInput(".9oz")).toBe(Math.round(0.9 * 28_349.523125));
+    expect(parseWeightInput(".5")).toBe(500);
+    expect(parseWeightInput(",9")).toBe(900);
+    expect(parseWeightInput("0.9oz")).toBe(parseWeightInput(".9oz"));
+  });
   it("parses '1.36kg'", () => {
     expect(parseWeightInput("1.36kg")).toBe(1_360_000);
   });

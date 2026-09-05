@@ -191,6 +191,31 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
     }
   }
 
+  // --- ERROR: one product modelled two ways — the size in the NAME on one row
+  // ("Copper Spur HV UL2", no variant) and in the VARIANT on another ("Copper Spur
+  // HV UL" + "UL2"). They render the same words, land in one dropdown twice, and
+  // drift apart by a rounding step. Weight-independent on purpose: the two Copper
+  // Spur rows differed by 29 mg, which the same-weight checks above let through. --
+  for (const group of byBrand.values()) {
+    const byName = new Map<string, CatalogCsvRow>();
+    for (const r of group) byName.set(normKey(r.name), r);
+    for (const r of group) {
+      if (!r.variant) continue;
+      // "Name Variant", and the other spelling the Copper Spur rows actually took:
+      // a variant that extends the name's last word ("…HV UL" + "UL2" → "…HV UL2")
+      const words = r.name.trim().split(/\s+/);
+      const last = words[words.length - 1] ?? "";
+      const grown = last && r.variant.toLowerCase().startsWith(last.toLowerCase()) ? [...words.slice(0, -1), r.variant].join(" ") : null;
+      const twin = byName.get(normKey(`${r.name} ${r.variant}`)) ?? (grown ? byName.get(normKey(grown)) : undefined);
+      if (twin && twin !== r) {
+        err(
+          "split-convention",
+          `${r.brand}: "${r.name}" + variant "${r.variant}" and "${twin.name}" are one product modelled two ways — keep one convention`,
+        );
+      }
+    }
+  }
+
   // --- ERROR: one brand spelled two ways ("FLEXTAIL" / "Flextail") -------------
   // Search groups by brand text, and a hiker reads it on every row; one spelling.
   const brandSpellings = new Map<string, Set<string>>();

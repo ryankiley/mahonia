@@ -59,7 +59,7 @@ const lastUpdated = computed(() => {
         <p>
           Mahonia is a tool for building, weighing, and sharing packing lists, made by one
           person. Make a list, see what it weighs, send someone the link. No app, no ads, and no
-          sign-up to make a list — it's yours the moment you start typing. The grams are optional;
+          sign-up to make a list: it's yours the moment you start typing. The grams are optional;
           build a list with zero weights and the totals just stay quiet.
         </p>
 
@@ -71,7 +71,7 @@ const lastUpdated = computed(() => {
           </li>
           <li>
             Every list gets a private edit link and a separate read-only link to share. No
-            sign-up. Nothing shows up publicly unless you choose to publish it.
+            sign-up. Nothing shows up publicly; a list is only ever reachable by its links.
           </li>
           <li>Weights are backed by a curated, cited gear catalog, but you can override anything.</li>
           <li>
@@ -83,8 +83,14 @@ const lastUpdated = computed(() => {
             go in the pack.
           </li>
           <li>
+            The Trip tab plans the walk itself. Add a trail as a link or a map file, break it into
+            days, and each day shows its distance and climb, a walking-time estimate, and what the
+            pack weighs when you shoulder it that morning, lighter as the food and water go. Name
+            who's coming and mark who carries what.
+          </li>
+          <li>
             <NuxtLink to="/gear">My Gear</NuxtLink> is the one part that asks for an
-            account — a passkey, or a link emailed to you. It fills itself as you build, so the
+            account: a passkey, or a link emailed to you. It fills itself as you build, so the
             kit you already own is one pick away on the next list, from any device. Lists
             themselves never need it.
           </li>

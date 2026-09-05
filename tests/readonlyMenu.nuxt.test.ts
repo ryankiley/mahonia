@@ -53,7 +53,8 @@ async function openMenu(over: Parameters<typeof blankList>[0] = {}) {
 describe("the read views' ⋯ menu", () => {
   it("reads in the editor's order, with Export last of the body", async () => {
     const w = await openMenu();
-    expect(rows(w)).toEqual(["Duplicate this list", "Copy link", "Send feedback…"]);
+    // Report is the foot: under the hairline, after Export, on every shared list
+    expect(rows(w)).toEqual(["Duplicate this list", "Copy link", "Send feedback…", "Report list"]);
     // the header opens a group rather than doing anything, so it is not a menuitem
     const head = w.get(".menu__secthead");
     expect(head.text()).toContain("Export");
@@ -64,7 +65,8 @@ describe("the read views' ⋯ menu", () => {
   it("draws the export rows from useListExports, not from its own markup", async () => {
     const w = await openMenu();
     await w.get(".menu__secthead").trigger("click");
-    expect(rows(w).slice(-4)).toEqual([
+    // the four export rows sit between the plain rows and the Report foot
+    expect(rows(w).slice(-5, -1)).toEqual([
       "Copy as plain text",
       "Copy as Markdown",
       "Download CSV",
@@ -94,9 +96,12 @@ describe("the read views' ⋯ menu", () => {
     w.unmount();
   });
 
-  it("offers Report only on a public list that hasn't been reported", async () => {
+  it("offers Report on every shared list, public or not", async () => {
+    // It used to be gated on isPublic, which no list ever was, so nobody ever saw it.
+    // A report is feedback about one list now: the row opens the feedback box with the
+    // list's address in the message, so the private-or-public question doesn't arise.
     const priv = await openMenu();
-    expect(rows(priv)).not.toContain("Report list");
+    expect(rows(priv)).toContain("Report list");
     priv.unmount();
 
     const pub = await openMenu({ isPublic: true } as Parameters<typeof blankList>[0]);

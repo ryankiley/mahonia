@@ -44,6 +44,8 @@ describe("buildSearchTerms", () => {
     const terms = buildSearchTerms("Nemo Tensor Sleeping Pad", "sleep");
     expect(terms).toContain("sleeping pad");
     expect(terms).toContain("mattress"); // UK/colloquial term matches the same row
+    // "battery" reaches a power bank the way "puffy" reaches a down jacket
+    expect(buildSearchTerms("Anker MagGo Power Bank", "other")).toContain("battery");
   });
 
   it("returns null for an ambiguous category with no name noun", () => {

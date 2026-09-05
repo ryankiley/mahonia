@@ -2,6 +2,7 @@
 import { HugeiconsIcon } from "~/utils/hugeicon";
 import { ChevronDownIcon, Delete02Icon, GripVerticalIcon } from "@hugeicons/core-free-icons";
 import type { Folder, Item, ListSnapshot } from "~~/shared/types";
+import { MAX_FOLDER_NAME_LEN } from "~~/shared/ops";
 import { bySortOrder } from "~~/shared/weights";
 
 // a row can raise a transient message (banking gear to the vault); the folder just
@@ -109,6 +110,7 @@ function toggleCollapsed() {
       <div class="folder__title">
         <input
           class="field folder__name"
+          :maxlength="MAX_FOLDER_NAME_LEN"
           :value="folder.name"
           :disabled="packed"
           aria-label="Folder name"

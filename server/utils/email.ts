@@ -124,7 +124,7 @@ function body(
   // promise these sentences are making.
   const closing = welcome
     ? "If it wasn't you, someone else set up a passkey with your address. Use the link above. Signing in removes their passkey, signs them out, and leaves the account yours."
-    : "If you didn't ask to sign in, you can ignore this — nothing has changed on your account.";
+    : "If you didn't ask to sign in, you can ignore this; nothing has changed on your account.";
   return {
     // Says what happened rather than congratulating anyone: the subject line is
     // what decides whether the person under attack opens this at all.
@@ -240,7 +240,7 @@ export async function sendPasskeyAddedNotice(to: string, label: string | null): 
   const which = label ? `“${label}”` : "A new passkey";
   const lead = `${which} was added to your Mahonia account.`;
   const closing =
-    "If that was you, there's nothing to do. If it wasn't, open your account page and remove it — and remove any passkey you don't recognise while you're there.";
+    "If that was you, there's nothing to do. If it wasn't, open your account page and remove it, and remove any passkey you don't recognise while you're there.";
   await deliver(
     to,
     "A passkey was added to your Mahonia account",

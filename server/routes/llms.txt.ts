@@ -12,8 +12,8 @@ export default defineEventHandler((event) => {
   return [
     "# Mahonia",
     "",
-    "> A no-login gear-list and pack-weight tracker for hikers. Make a packing list,",
-    "> see what it weighs, and share it — no account, no app.",
+    "> A gear-list and pack-weight tracker for hikers. Make a packing list,",
+    "> see what it weighs, and share it. No login needed, no app.",
     "",
     "The list editor (/e) is a client-rendered app whose data lives behind an edit",
     "token in the URL fragment, so it serves no readable HTML to a fetch. Use the",

@@ -7,7 +7,8 @@ import { setNoIndex } from "../../utils/http";
 
 // Maps-grade autocomplete for the gear catalog. `?q=` returns up to SEARCH_LIMIT
 // fuzzy matches ordered by the shared relevance-tier cascade (tier → verified →
-// usage_count → similarity → id; see shared/catalogSearch.ts). Fuzzy recall via
+// usage_count → similarity → id, then a diversity cap for kind-of-gear queries;
+// see shared/catalogSearch.ts). Fuzzy recall via
 // pg_trgm on Neon, whole-table JS on PGlite (see server/utils/catalog.ts).
 //
 // Public read-only endpoint. The client debounces; we add a short edge cache so

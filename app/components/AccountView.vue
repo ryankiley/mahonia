@@ -82,7 +82,10 @@ async function signInWithPasskey() {
   // settings page you never came here to read — with no list navigation in the site
   // bar to get out with. /gear is the fallback: it's the one thing an account is
   // FOR, so it's the right landing when there's nowhere to go back to.
-  if (r === "ok") return await finish("/gear");
+  if (r === "ok") {
+    tally("sign_in");
+    return await finish("/gear");
+  }
   signinNote.value =
     r === "unsupported"
       ? "This browser can’t use passkeys. Ask for a link instead."
@@ -121,6 +124,7 @@ async function createWithPasskey() {
   creating.value = true;
   createNote.value = "";
   const r = await pk.signUp(email);
+  if (r === "ok") tally("sign_in"); // a session either way, so it counts like the others
   creating.value = false;
   if (r === "ok") return;
   if (r === "taken") {
@@ -130,7 +134,7 @@ async function createWithPasskey() {
     // the toggle, and carries the address across so it isn't typed twice.
     linkEmail.value = email;
     mode.value = "signin";
-    signinNote.value = "You already have an account — sign in with your passkey, or ask for a link.";
+    signinNote.value = "You already have an account. Sign in with your passkey, or ask for a link.";
     return;
   }
   createNote.value =
@@ -277,7 +281,7 @@ async function onSignOutEverywhere() {
     !(await askConfirm({
       title: "Sign out everywhere?",
       message:
-        "Ends every session on every device, including this one. Do this if you think someone else has access — removing a passkey alone doesn't end the sessions it already started.",
+        "Ends every session on every device, including this one. Do this if you think someone else has access; removing a passkey alone doesn't end the sessions it already started.",
       confirmLabel: "Sign out everywhere",
     }))
   )
@@ -314,6 +318,13 @@ async function onSignOut() {
         <!-- SIGN IN. A passkey is one tap and nothing typed, so it leads; the
              link is the fallback for a device that doesn't hold one yet. -->
         <template v-if="mode === 'signin'">
+          <!-- the one line that says what an account is FOR, before it asks for one: the
+               vault is the whole reason, and a stranger who tapped the person icon has
+               not been told. Lists never needing it is the half that keeps the promise. -->
+          <p class="t-sm t-muted acct__why">
+            An account holds My Gear: the kit you own, one pick away on every list, from any
+            device. Lists never need one.
+          </p>
           <button
             v-if="canPasskey"
             type="button"
@@ -456,7 +467,7 @@ async function onSignOut() {
           <section class="acct__section">
             <h2 class="t-label acct__label">Delete your account</h2>
             <p class="t-sm t-muted">
-              Your email, passkeys and saved gear go for good. Your lists stay — they belong
+              Your email, passkeys and saved gear go for good. Your lists stay; they belong
               to their edit links, and any link you’ve shared still opens them.
             </p>
             <button
@@ -555,6 +566,9 @@ async function onSignOut() {
 /* "or" sitting in a hairline. The rule is drawn with a flex child either side
    rather than a pseudo-element on the text, so it centres correctly whatever the
    word's width and needs no background-matching trick to punch the gap. */
+.acct__why {
+  margin-block-end: var(--space-3);
+}
 .acct__or {
   display: flex;
   align-items: center;

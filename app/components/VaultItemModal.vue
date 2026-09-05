@@ -174,7 +174,7 @@ async function onSubmit() {
       <!-- The one thing a dialog has room to say that a row doesn't: these three
            fields ARE how the vault recognises this piece of gear. -->
       <p class="t-sm t-muted dlg__lede">
-        Whatever you change here is yours — your lists stop overwriting a field once
+        Whatever you change here is yours: your lists stop overwriting a field once
         you’ve corrected it.
       </p>
 

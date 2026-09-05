@@ -59,8 +59,13 @@ function create() {
 
   watch(mode, (m) => {
     if (m === "edit") everEdit.value = true;
-    else if (m === "pack") everPacked.value = true;
-    else if (m === "plan") everPlan.value = true;
+    else if (m === "pack") {
+      everPacked.value = true;
+      tally("packing_opened");
+    } else if (m === "plan") {
+      everPlan.value = true;
+      tally("trip_opened");
+    }
     switching.value = true;
     clearTimeout(switchTimer);
     switchTimer = setTimeout(() => (switching.value = false), SWITCH_ANIM_MS);

@@ -242,7 +242,7 @@ export default defineNuxtConfig({
         {
           name: "description",
           content:
-            "Make a packing list, see what it weighs, share it. No login.",
+            "Make a packing list, see what it weighs, share it. No login needed.",
         },
         // Social card. The editor (the landing page) is prerendered, and this static
         // set is what unfurls the bare domain for a crawler that reads no further.
@@ -256,7 +256,7 @@ export default defineNuxtConfig({
         { property: "og:title", content: "Mahonia — pack lists, weighed" },
         {
           property: "og:description",
-          content: "Make a packing list, see what it weighs, share it. No login.",
+          content: "Make a packing list, see what it weighs, share it. No login needed.",
         },
         { property: "og:image", content: `${CANONICAL_ORIGIN}/og.png` },
         { property: "og:image:width", content: "1200" },
@@ -278,8 +278,8 @@ export default defineNuxtConfig({
     },
   },
 
-  // Per-route rendering. "/" is a bare redirect into the editor (the rule below —
-  // there is no index page); the editor stays a pure client island (edit token in
+  // Per-route rendering. "/" is a tiny client-decided page (app/pages/index.vue: the
+  // list you opened last, else a fresh draft); the editor stays a pure client island (edit token in
   // the URL fragment, no SSR value). Everything else (legal pages, the public /l
   // read view) is SSR by default.
   routeRules: {
@@ -289,9 +289,11 @@ export default defineNuxtConfig({
     // once shipped; setting them here (Nitro applies routeRules headers to the
     // prerendered + static output too) closes that gap and adds the CSP site-wide.
     "/**": { headers: SECURITY_HEADERS },
-    // opening the site forwards straight into the editor, which starts an unsaved
-    // draft — no list row is created until you actually add content
-    "/": { redirect: "/e" },
+    // opening the site lands on the list you had open last, or on /e (an unsaved
+    // draft — no list row is created until you actually add content). The page
+    // decides in the browser, so it renders the same nothing for everyone: prerender
+    // it, like /e.
+    "/": { prerender: true },
     // The editor routes (/e and /e/{shareCode}) are SSR, but the editor BODY is a
     // client-only component (GearEditor.client.vue — IndexedDB, the singleton
     // controller, window refs), so it still runs only in the browser and no list data
@@ -302,7 +304,7 @@ export default defineNuxtConfig({
     // rule also suppressed data/head SSR on the nested /e/{shareCode} route.)
     //
     // Bare /e renders identically for everyone (generic head + a client-only body),
-    // so PRERENDER it — the landing route (where "/" redirects) becomes a static
+    // so PRERENDER it — the landing route (where "/" sends a first-time visitor) becomes a static
     // file served from the CDN: fastest possible TTFB and zero function invocations
     // on the site's most-hit route.
     //

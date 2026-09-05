@@ -18,7 +18,7 @@ useHead({
     <main id="main-content" tabindex="-1" class="wrap page">
       <div class="prose">
         <h1 class="t-title">Legal</h1>
-        <p class="t-sm t-muted">Last updated 4 September 2026</p>
+        <p class="t-sm t-muted">Last updated 5 September 2026</p>
         <p>
           How Mahonia handles your data, and the terms for using it. Jump to
           <a href="#privacy">Privacy</a> or <a href="#terms">Terms</a>.
@@ -40,21 +40,21 @@ useHead({
         </p>
         <p>
           A synced list is private: unlisted, not indexed, and openable only by someone you give the
-          link to. Publishing is a separate, explicit step. Public means public: anyone can read it
-          until you unpublish or delete it.
+          link to. There is no publish step; nothing you make appears anywhere except at its own
+          links.
         </p>
         <p>
           <strong>Body weight</strong> is treated differently from everything else here, and more
           carefully. Planning a trip lets you enter it so the calorie estimates mean something; it
           is optional, and the rest of the planning view works without it. It is saved
-          <strong>on this device only</strong> — it is never sent to the server, so it cannot
+          <strong>on this device only</strong>: it is never sent to the server, so it cannot
           appear on a share link, a published list, the public feed, or a JSON backup, and it does
           not follow you to another device. Clear the field and the estimates fall back to a stated
           assumption.
         </p>
         <p>
           Your <strong>route</strong> gets the same care. Importing a map file stores the line the
-          trail follows, and that is the only geography Mahonia keeps — a recorded track often
+          trail follows, and that is the only geography Mahonia keeps; a recorded track often
           starts where you parked, which is sometimes where you live. So it is
           <strong>yours alone</strong>: it never appears on a share link, a published list or the
           public feed, not even in the page’s hidden data. Anyone you share with sees the
@@ -64,7 +64,7 @@ useHead({
         </p>
         <p>
           <strong>My Gear</strong>, your saved gear, is the one part that needs an account. It holds names,
-          brands and weights, and belongs to you rather than to a browser — so signing in on another
+          brands and weights, and belongs to you rather than to a browser, so signing in on another
           device brings it with you, and clearing this one doesn’t lose it. Gear reaches it when you
           add something to a list yourself, or import or copy a list. Opening a list someone shared
           with you doesn’t put their gear into yours.
@@ -78,16 +78,18 @@ useHead({
             short-lived logs.
           </li>
           <li>
-            <strong>Analytics.</strong> Cookieless, aggregate counts of page views and performance.
+            <strong>Analytics.</strong> Cookieless, aggregate counts of page views, a handful of in-app
+            actions (making a list, importing one, copying a share link, opening Packing or Trip,
+            signing in), and performance.
             No advertising cookies, no cross-site tracking, no profile.
           </li>
         </ul>
         <p>
           An account holds an email address, an optional display name, and the public half of any
-          passkey you add. There is no password to store, because there are no passwords — you sign
+          passkey you add. There is no password to store, because there are no passwords: you sign
           in with a passkey or with a link sent to that address. Mahonia never asks for your real
           name, payment details, or location, and a display name is shown only if you set one. The
-          one thing it asks about you — optionally, for trip planning — is your body weight, and
+          one thing it asks about you (optionally, for trip planning) is your body weight, and
           that never leaves your device; see above.
         </p>
 
@@ -96,7 +98,7 @@ useHead({
           When you type a piece of gear that isn’t already in Mahonia’s catalog, the brand, name
           and weight are noted. If the same item is typed on <strong>three or more different
           lists</strong>, it’s added to the public catalog with the median weight, so everyone
-          gets a suggestion instead of typing it again. Only branded products qualify — generic
+          gets a suggestion instead of typing it again. Only branded products qualify; generic
           words like “tent” or “snacks” never make it in.
         </p>
         <p>
@@ -110,14 +112,14 @@ useHead({
           Four US-based providers run the plumbing, so your data may be processed there:
           <strong>Vercel</strong> (hosting, delivery, analytics), <strong>Neon</strong> (the
           database), <strong>Upstash</strong> (rate limiting, and the short-lived challenge a
-          passkey needs), <strong>Resend</strong> (sending sign-in links — it therefore handles
+          passkey needs), <strong>Resend</strong> (sending sign-in links, so it handles
           your email address).
         </p>
         <p>
           One more, and only on one screen. When a list has a route, the planning view draws it on
           a topographic map, and those map images come from <strong>OpenTopoMap</strong>, a
           volunteer project built on OpenStreetMap data. Loading an image tells that server your
-          rough map position and that the request came from mahonia.app — never which list you’re
+          rough map position and that the request came from mahonia.app, never which list you’re
           looking at, because the browser is told to send the site’s address and nothing further.
           It’s the only request Mahonia makes to anyone else, it only happens on a list that has a
           route, and the map’s code isn’t even downloaded otherwise.
@@ -153,7 +155,7 @@ useHead({
           <strong>30 days</strong> is marked for removal; saved gear untouched for
           <strong>180 days</strong> is treated the same way. Either is then held for
           <strong>90 days</strong> before it’s deleted for good, and using it again during that
-          window brings it straight back — for your gear, signing in is enough. If you’ve lost
+          window brings it straight back; for your gear, signing in is enough. If you’ve lost
           something, email me and I’ll see what can be recovered.
         </p>
         <p>
@@ -171,7 +173,7 @@ useHead({
             trackers.
           </li>
           <li>
-            No asking where you are. The map shows your route, never you — there is no “find me”
+            No asking where you are. The map shows your route, never you; there is no “find me”
             button, and Mahonia never requests location permission.
           </li>
         </ul>
@@ -256,7 +258,7 @@ useHead({
         <h3>Open source, and the code Mahonia borrows</h3>
         <p>
           Mahonia’s own code is open source under the MIT license. It also ships a handful of
-          libraries other people wrote — the map, the framework it’s built on — and their
+          libraries other people wrote (the map, the framework it’s built on) and their
           licenses ask for credit where the code goes. That credit is at
           <a href="/licenses.txt">/licenses.txt</a>, along with the map data’s.
         </p>

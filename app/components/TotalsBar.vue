@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
 import { ChevronDownIcon } from "@hugeicons/core-free-icons";
-import { classMark } from "~/utils/itemMarks";
-import type { Classification, ListSnapshot, Totals, Unit } from "~~/shared/types";
+import type { ListSnapshot, Totals, Unit } from "~~/shared/types";
 import { carriedIsDistinct, formatKcal, formatWeight, totalsChips } from "~~/shared/weights";
 import { KCAL_PER_DAY_GENEROUS, KCAL_PER_DAY_LIGHT, foodPlan } from "~~/shared/foodPlan";
 
@@ -34,22 +33,6 @@ const emit = defineEmits<{
 // noise) is a judgment about the data, shared with the social-card image via
 // totalsChips so the two renderings can't drift
 const chips = computed(() => totalsChips(props.totals));
-
-// THE LEGEND. These three chips are the only place the app writes the class names out
-// in full, and the rows below them mark the same three with a picture and nothing else
-// — a shirt, a cookie (a droplet on water), a backpack — so the two vocabularies never
-// met. Someone opening a share link has never seen the editor's toggles, and `title=`
-// doesn't exist on a phone; the word and its glyph sitting together here is the whole
-// explanation, built out of a row that was already on the page.
-// Only the PARTITION carries a mark. Carried / Calories / Per day are a roll-up and a
-// different quantity — already set apart by their hairline — and a glyph on them would
-// undo the one distinction this row is at pains to draw.
-const CHIP_CLASS: Record<string, Classification> = {
-  Base: "base",
-  Worn: "worn",
-  Consumable: "consumable",
-};
-const chipMark = (label: string) => classMark(CHIP_CLASS[label] ?? "base");
 
 // "Carried" — base + consumable, the weight actually on your back. The three chips
 // above partition the total, so this is the one figure here that's a ROLL-UP of two of
@@ -126,13 +109,7 @@ const planTip = computed(() => {
       <!-- only the categories actually present show — no "Consumable 0 g" noise -->
       <div class="totals__chips">
         <span v-for="c in chips" :key="c.label" class="chip">
-          <span class="t-label totals__clabel">
-            <!-- 14 = the small icon tier, the size every other inline-with-text icon
-                 uses. aria-hidden: the label beside it already says the word, so a
-                 screen reader would otherwise hear the class twice. -->
-            <HugeiconsIcon :icon="chipMark(c.label)" :size="14" :stroke-width="2" aria-hidden="true" />
-            {{ c.label }}
-          </span>
+          <span class="t-label">{{ c.label }}</span>
           <span class="t-num">{{ formatWeight(c.mg, list.displayUnit, { withUnit: false }) }} <span class="t-muted">{{ list.displayUnit }}</span></span>
         </span>
         <!-- the derived roll-up, set apart by a hairline because it doesn't belong to
@@ -145,7 +122,7 @@ const planTip = computed(() => {
         <Tooltip
           v-if="showCarried"
           preferred-placement="bottom"
-          text="Base + consumable — everything in the pack, nothing worn on your body."
+          text="Base + consumable: everything in the pack, nothing worn on your body."
         >
           <span class="chip chip--sum">
             <span class="t-label">Carried</span>
@@ -262,19 +239,6 @@ const planTip = computed(() => {
   margin-top: 0;
 }
 
-/* the glyph and its word are one object — baseline, with the mark stepping out of the
-   group (align-self) so the WORD keeps setting the line and the icon centres optically
-   on it. Same two-line idiom as .head__icon and the read view's trail mark; the label's
-   own quiet ink carries the glyph, so it never out-weighs the figure under it. */
-.totals__clabel {
-  display: inline-flex;
-  align-items: baseline;
-  gap: var(--space-1);
-}
-.totals__clabel > svg {
-  flex: none;
-  align-self: center;
-}
 .totals__chips {
   display: flex;
   flex-wrap: wrap;
@@ -324,5 +288,20 @@ const planTip = computed(() => {
   inset-block: 0;
   inset-inline-start: calc(-1 * var(--space-5));
   border-inline-start: 1px solid var(--line);
+}
+
+/* Packing's header is the list's name, the tabs and the total. The Base/Worn/
+   Consumable line and the category bar are the weighing view's instruments, and on a
+   phone they held the first checkbox at the bottom edge of the screen (measured:
+   763px of 844). Keyed on the editor body's data-mode like everything else the mode
+   changes (folder.scss, item.scss), so the swap rides the same one CSS pass as the
+   rows. display, not a reveal grid: nothing here animates on a mode switch, and a
+   250px slide would read as the page flinching. Lives HERE rather than in the editor
+   because this component owns the class; the editor's scoped sheet can't see it.
+   The WHOLE selector sits inside :global(): in Vue 3 scoped CSS a leading
+   :global(ancestor) swallows the descendant after it, and the rule silently became
+   `.editor__body[data-mode="pack"] {}` — matched nothing it was meant to. */
+:global(.editor__body[data-mode="pack"] .totals__breakdown) {
+  display: none;
 }
 </style>

@@ -301,7 +301,7 @@ const asHeight = (m: number) => {
   <main v-else id="main-content" tabindex="-1" class="wrap page">
     <div class="prose">
       <p><slot name="missing">This list doesn’t exist (or was removed).</slot></p>
-      <p><NuxtLink to="/" class="btn btn--primary">Create a list</NuxtLink></p>
+      <p><NuxtLink to="/e" class="btn btn--primary">Create a list</NuxtLink></p>
     </div>
   </main>
 </template>

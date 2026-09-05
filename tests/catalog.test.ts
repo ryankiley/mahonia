@@ -12,6 +12,7 @@ import {
 } from "../scripts/catalogCsv";
 import {
   CATALOG_DDL,
+  activeCatalogRows,
   isHttpUrl,
   isTrustedSource,
   proposeCorrection,
@@ -341,5 +342,19 @@ describe("revertEdit — one-click undo of an applied edit", () => {
       .from(schema.catalogItems)
       .where(eq(schema.catalogItems.id, row.id));
     expect(Number(after.weightMg)).toBe(300_000); // unchanged
+  });
+});
+
+describe("activeCatalogRows — the import matcher's pool", () => {
+  it("returns active rows in the autocomplete's result shape (weight a number, nullables null)", async () => {
+    const db = await freshCatalogDb();
+    await db.insert(schema.catalogItems).values([
+      { brand: "MSR", name: "PocketRocket 2 Stove", weightMg: 73_000, weightSource: "manufacturer", verified: true },
+      { name: "Retired thing", weightMg: 1_000, weightSource: "community", verified: false, status: "removed" },
+    ]);
+    const rows = await activeCatalogRows(db);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ brand: "MSR", name: "PocketRocket 2 Stove", weightMg: 73_000, variant: null, kcal: null });
+    expect(typeof rows[0]!.weightMg).toBe("number");
   });
 });

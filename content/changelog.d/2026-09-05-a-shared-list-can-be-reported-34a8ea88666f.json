@@ -1,0 +1,10 @@
+{
+  "date": "2026-09-05",
+  "added": [
+    "A shared list can be reported from its menu. The report reaches the maintainer the way feedback does."
+  ],
+  "changed": [
+    "The list switcher is labelled \"Your packs\"; the count sits inside it.",
+    "Alongside page views, Mahonia now keeps six cookieless tallies of in-app actions (making a list, importing one, copying a share link, opening Packing or Trip, signing in). Nothing about who; the Legal page says so."
+  ]
+}

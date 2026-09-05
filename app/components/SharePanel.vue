@@ -246,7 +246,7 @@ function changeLabel(i: number): string {
              the way to mint one on this device (and it cuts off the old link, the
              same trade it has always been). -->
         <p v-else class="t-sm t-muted share__hint">
-          Opened from your account — this device doesn’t hold the edit link.
+          Opened from your account; this device doesn’t hold the edit link.
           Replacing it creates a new link here and stops the old one working.
         </p>
         <!-- revocation is a quiet text link under the thing it revokes, not a row of
@@ -269,7 +269,7 @@ function changeLabel(i: number): string {
           Add to your account
         </button>
         <p v-if="claimFailed" class="t-sm t-muted share__hint" role="alert">
-          That didn’t save — check your connection and try again.
+          That didn’t save. Check your connection and try again.
         </p>
       </section>
 

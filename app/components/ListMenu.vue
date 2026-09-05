@@ -34,7 +34,7 @@ import { foldApostrophes } from "~~/shared/tidyText";
 // design system's ds-menu: it ships as the list's first row, at row height and row
 // inset, so the card's rhythm is unbroken and what you type into is the same voice
 // as the list it filters.
-const { currentShareCode, hint = false } = defineProps<{
+const { currentShareCode, hint = false, resumed = false } = defineProps<{
   // The list being edited, so its own row can be marked. From the SNAPSHOT rather
   // than the route: a draft minted this session has its URL rewritten with
   // replaceState and never routes, so route.hash is empty while the list is very
@@ -47,6 +47,9 @@ const { currentShareCode, hint = false } = defineProps<{
    * told you your lists existed and then left you to find them.
    */
   hint?: boolean;
+  // the hint's other reading: the bare address just dropped you into this list, so
+  // the pointer is to the OTHER lists rather than to any list at all
+  resumed?: boolean;
 }>();
 
 const emit = defineEmits<{ "new-list": []; "dismiss-hint": [] }>();
@@ -155,8 +158,9 @@ watch(open, (o) => {
       :aria-expanded="open"
       @click="open = !open"
     >
-      <!-- singular at one, because one is a state this control now has (see hasLists) -->
-      {{ all.length }}<span class="lm__word"> {{ all.length === 1 ? "pack" : "packs" }}</span>
+      <!-- "Your", because a bare count here read as a fact about the list you're on
+           ("1 pack") rather than the lists you have; the count sits inside, above the rows -->
+      Your packs
       <HugeiconsIcon
         :icon="ChevronDownIcon"
         class="chev"
@@ -171,7 +175,7 @@ watch(open, (o) => {
          has done its job the moment you've found the control. -->
     <Transition name="menu">
       <div v-if="hint && !open" class="lm__hint" role="status">
-        <span>Pick up where you left off</span>
+        <span>{{ resumed ? (all.length > 1 ? "Picked up where you left off. Your other lists are here." : "Picked up where you left off.") : "Pick up where you left off" }}</span>
         <button
           type="button"
           class="lm__hintclose"
@@ -207,6 +211,7 @@ watch(open, (o) => {
           />
         </div>
 
+        <p class="t-label lm__count">{{ all.length }} {{ all.length === 1 ? "pack" : "packs" }}</p>
         <div class="lm__rows">
           <NuxtLink
             v-for="e in shown"
@@ -384,7 +389,18 @@ watch(open, (o) => {
   background: var(--paper-2);
   color: var(--ink-2);
   font-size: var(--text-chrome);
-  white-space: nowrap;
+  /* one line for the short reading; the resumed one ("Picked up where you left off.
+     Your other lists are here.") wraps on a phone instead of running off its edge */
+  /* max-content, not shrink-to-fit: an absolute box's natural width is capped by
+     the chip it hangs from, which laid the sentence out one word per line */
+  width: max-content;
+  max-width: min(26rem, calc(100vw - 2 * var(--space-4)));
+}
+/* the count, quiet, above the rows it counts */
+.lm__count {
+  margin: 0;
+  padding: var(--space-2) var(--space-3) var(--space-1);
+  color: var(--ink-3);
 }
 .lm__hintclose {
   color: var(--ink-3);

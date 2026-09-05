@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mergeSwitcherRows } from "../shared/switcher";
+import { mergeSwitcherRows, resumeTarget } from "../shared/switcher";
 
 // The list switcher's merge: this browser's registry + the account's claimed
 // lists, ONE ROW PER LIST. The rule under test is identity — a device row and a
@@ -64,5 +64,24 @@ describe("mergeSwitcherRows", () => {
       [],
     );
     expect(rows.map((r) => r.key)).toEqual(["tok-z", "tok-a"]);
+  });
+});
+
+describe("resumeTarget — where the bare address lands", () => {
+  const row = (editToken: string, shareCode: string, lastOpened: number) => ({ editToken, shareCode, lastOpened });
+
+  it("picks the list opened most recently, as its edit link", () => {
+    const t = resumeTarget([row("tokA", "AAAA", 100), row("tokB", "BBBB", 300), row("tokC", "CCCC", 200)]);
+    expect(t).toEqual({ to: "/e/BBBB#tokB", shareCode: "BBBB" });
+  });
+
+  it("is null with no lists, and skips a row that carries no edit token", () => {
+    expect(resumeTarget([])).toBeNull();
+    expect(resumeTarget([row("", "AAAA", 900)])).toBeNull();
+  });
+
+  it("keeps registry order on a tie, so an entry from before the field still resolves", () => {
+    const t = resumeTarget([row("tokA", "AAAA", 0), { editToken: "tokB", shareCode: "BBBB", lastOpened: undefined as unknown as number }]);
+    expect(t?.shareCode).toBe("AAAA");
   });
 });

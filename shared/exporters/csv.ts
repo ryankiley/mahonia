@@ -2,7 +2,7 @@
 // and ingests LighterPack's "Export to CSV" output (flexible header detection).
 
 import type { Item, ListData, ListSnapshot, Unit } from "../types";
-import { nextFolderColor } from "../categories";
+import { colorKeyForName, nextFolderColor } from "../categories";
 import { MAX_PEOPLE } from "../ops";
 import { carrierName } from "../people";
 import { effectiveClassification, fromMg, itemDisplayName, splitWornQty, toMg, UNIT_ALIASES } from "../weights";
@@ -185,7 +185,10 @@ export function csvToListData(text: string): ListData {
     if (!folderId.has(key)) {
       const id = uid();
       folderId.set(key, id);
-      const colorKey = nextFolderColor(folders.map((f) => f.colorKey ?? "other"));
+      // name-match first (Water→blue, First Aid→red), palette walk as the fallback:
+      // the same rule addFolder applies, so an imported list and a hand-built one
+      // with the same folder names wear the same colours
+      const colorKey = colorKeyForName(key, folders.map((f) => f.colorKey ?? "other"));
       folders.push({ id, name: key, colorKey, defaultClassification: "base", sortOrder: folders.length });
     }
     return folderId.get(key)!;

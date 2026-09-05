@@ -69,7 +69,7 @@ export function useListExports(
     withExporter(textExporter, async ({ listToText }, snap) => {
       const shareUrl = getShareUrl();
       const ok = await copyText(listToText(snap, { shareUrl }));
-      flash(ok ? (shareUrl ? "Copied — includes the read-only link" : "Copied as plain text") : "Copy failed");
+      flash(ok ? (shareUrl ? "Copied, with the read-only link" : "Copied as plain text") : "Copy failed");
     });
 
   const copyMarkdown = () =>

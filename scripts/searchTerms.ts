@@ -146,6 +146,7 @@ const ALIASES: Record<string, string> = {
   "torso pad": "sleeping pad",
   "wind shirt": "wind jacket",
   puffy: "down jacket",
+  battery: "power bank",
   toque: "beanie",
 };
 

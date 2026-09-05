@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon, type IconNode } from "~/utils/hugeicon";
-import { Backpack02Icon, Bug02Icon, CheckmarkSquare02Icon, ChevronDownIcon, CopyPlusIcon, Delete02Icon, EllipsisIcon, FileExportIcon, FileImportIcon, KeyboardIcon, RemoveCircleIcon, Route02Icon, SafeBoxIcon, Share08Icon, UndoIcon, UserAddIcon } from "@hugeicons/core-free-icons";
+import { Backpack02Icon, Bug02Icon, CheckmarkSquare02Icon, CopyPlusIcon, Delete02Icon, EllipsisIcon, FileExportIcon, FileImportIcon, KeyboardIcon, RemoveCircleIcon, Route02Icon, SafeBoxIcon, Share08Icon, UndoIcon, UserAddIcon } from "@hugeicons/core-free-icons";
 import { editLinkPath, normalizeShareCode } from "~~/shared/links";
 import { tripHeadline } from "~~/shared/trailDistance";
 import { formatWeight } from "~~/shared/weights";
@@ -33,6 +33,7 @@ const vaultPicker = c.vaultPicker;
 // this device) — the reactive flag the chrome gates on, since c.editToken is a
 // plain getter nothing can track
 const openedByCode = c.openedByCode;
+const keylessCode = c.keylessCode;
 
 // First-run / returning-user helper: an untouched draft (not yet saved to the
 // server, no named item — the starter draft ships one blank row) shows a one-line
@@ -54,10 +55,19 @@ const INTRO_DISMISSED_KEY = "gear.intro.dismissed.v1";
 const introDismissed = ref(localStorage.getItem(INTRO_DISMISSED_KEY) === "1");
 function dismissIntro() {
   introDismissed.value = true;
+  resumed.value = null;
   remember(INTRO_DISMISSED_KEY, "1");
 }
+// The bare address resumes the list you opened last (app/pages/index.vue); the first
+// time it does, the same signpost points at the switcher with the other reading —
+// you are ON a list now, and the rest are behind the chip. Same sticky dismissal.
+const resumed = useResumed();
+const resumedHere = computed(() => !!resumed.value && snapshot.value?.shareCode === resumed.value);
 const showIntro = computed(
-  () => isFirstRun.value && savedCount.value > 0 && !introDismissed.value && !vaultOpen.value,
+  () =>
+    (resumedHere.value || (isFirstRun.value && savedCount.value > 0)) &&
+    !introDismissed.value &&
+    !vaultOpen.value,
 );
 
 // Reflect the list's given name in the tab title AND the page's social/preview
@@ -269,7 +279,7 @@ const headline = computed(() => {
 const MODES = [
   { key: "edit", label: "Gear", icon: Backpack02Icon },
   { key: "pack", label: "Packing", icon: CheckmarkSquare02Icon },
-  { key: "plan", label: "Planning", icon: Route02Icon },
+  { key: "plan", label: "Trip", icon: Route02Icon },
 ] as const satisfies readonly { key: EditorMode; label: string; icon: IconNode }[];
 
 // The vault palette. Closed by default and only ever opened deliberately, so the
@@ -336,6 +346,19 @@ const menuOpen = ref(false);
 const { plateRef: kebabPlateRef, listRef: kebabListRef, on: kebabPlateOn } = useMenuPlate();
 const menuRef = useTemplateRef<HTMLElement>("menuRef");
 const { toast, flash } = useToast();
+// the import's one-line note ("18 of 25 rows matched the catalog."), shown once the list
+// it made is on screen — keyed on the share code, because the page may or may not
+// remount on the way here (/e → /e/{code} does; /e/{a} → /e/{b} doesn't)
+const importNote = useImportNote();
+watch(
+  () => snapshot.value?.shareCode,
+  (code) => {
+    if (!code || !importNote.value) return;
+    flash(importNote.value);
+    importNote.value = null;
+  },
+  { immediate: true },
+);
 
 // "Add folder" becomes an inline text field on tap; it only creates the folder
 // (and shows the next "Add folder") once you commit — enter or click away.
@@ -384,13 +407,29 @@ watch(
     if (token) return startSession({ token });
     // No token, but a code in the path: a claimed list — IF a session plausibly
     // exists (the hint cookie; the fetch itself is what proves it). For everyone
-    // else /e/{code} without a fragment stays what it always was — a truncated
-    // link landing on a fresh draft — rather than a doomed request per visit.
+    // else /e/{code} without a fragment is a truncated link, handled below without
+    // a doomed request per visit.
     // Normalized HERE as well as in load(): a path segment that can't be a share
     // code at all (/e/garbage) falls through to the draft for the signed-in too,
     // instead of spending a request to be told 401.
     const code = normalizeShareCode(typeof codeParam === "string" ? codeParam : "");
     if (code && session.hasSessionHint()) return startSession({ code });
+    // A well-formed code, no key, no session: a truncated edit link. Say so, and
+    // offer the read-only view the same code opens, rather than landing a fresh
+    // draft under the dead address (which read as "the list is empty"). No request
+    // is made: nothing could succeed without a key or a session.
+    // ...unless this browser holds the key itself. A list made or opened here is in
+    // the registry with its token, so a truncated link to your OWN list opens it for
+    // editing (the fragment is restored and this watcher runs again) rather than
+    // offering you the read-only view of it.
+    const mine = code ? my.entries.value.find((e) => e.shareCode === code)?.editToken : undefined;
+    if (mine) return navigateTo({ path: route.path, hash: `#${mine}` }, { replace: true });
+    if (code) {
+      c.dispose(ownedEpoch);
+      c.startKeyless(code);
+      ownedEpoch = c.epoch;
+      return;
+    }
     startSession(); // a fresh, unsaved draft (persists on first real content)
   },
   { immediate: true },
@@ -512,19 +551,21 @@ function toggleMenu() {
 function copyShare() {
   // a draft has no shareCode/token yet — nudge instead of copying a broken link
   if (!snapshot.value?.shareCode) return flash("Add an item first to share");
+  tally("share_link_copied"); // after the guard: a refused copy is not a copy
   copy(`${origin()}/s/${snapshot.value.shareCode}`, "Read-only link copied", "Read-only link");
 }
 async function copyEditLink() {
   // a claimed open holds no edit link to copy — the server only ever stored its
   // hash, so this device can't produce one without rotating (which mints a new one)
   if (!c.editToken && c.claimCode)
-    return flash("This device doesn’t hold the edit link — replace it in Sharing to get one");
+    return flash("This device doesn’t hold the edit link. Replace it in Sharing to get one");
   if (!c.editToken) return flash("Add an item first to get an edit link");
   if (!(await askConfirm({
     title: "Copy edit link",
     message: "Anyone with this link can edit your list. Only send it to people you trust.",
     confirmLabel: "Copy edit link",
   }))) return;
+  tally("share_link_copied"); // after the confirm: a cancelled copy is not a copy
   // /e/{shareCode}#{token} so link previews (Apple Notes/iMessage) show the name;
   // token stays in the fragment (see shared/links.editLinkPath)
   copy(`${origin()}${editLinkPath(snapshot.value?.shareCode, c.editToken)}`, "Edit link copied", "Edit link");
@@ -601,7 +642,7 @@ async function forgetThisList() {
     // browser's way back into it is what's being dropped; dead, the copy being
     // dropped is the thing itself.
     message: dead
-      ? `Forget “${title}”? Its link stopped working, so the copy saved on this device may be all that’s left — forgetting discards it.`
+      ? `Forget “${title}”? Its link stopped working, so the copy saved on this device may be all that’s left; forgetting discards it.`
       : `Forget “${title}” on this device? The list stays online for anyone with its link, but you’ll need its edit link to open it again.`,
     confirmLabel: "Forget",
     // marked the way the delete's dialog is: dead, this costs something no link
@@ -670,7 +711,7 @@ async function deleteThisList() {
 // list's ONLY row, and forgetting it is not covered by any self-heal.
 const missingEntry = computed(() =>
   status.value === "missing"
-    ? my.entries.value.find((x) => x.editToken === c.editToken)
+    ? my.entries.value.find((x) => !!c.editToken && x.editToken === c.editToken)
     : undefined,
 );
 // With a row in hand the page can say WHICH list refused to open, instead of the
@@ -683,7 +724,11 @@ const missingMessage = computed(() =>
       // a claimed open that 404'd/401'd: the list left the account's reach, or the
       // session did — the two things a person can actually check from here
       ? "This list couldn’t be opened from your account. It may have been deleted, or you may need to sign in again on this device."
-      : "This list isn’t in this browser, or the link is invalid.",
+      : keylessCode.value
+        // a fragment-less /e/{code}: the key that opens it for editing is gone from
+        // the link, not the list — the read-only view still opens with the same code
+        ? "This edit link is missing its key, so it can’t open the list for editing. Ask for the edit link again, or open the read-only view."
+        : "This list isn’t in this browser, or the link is invalid.",
 );
 async function forgetMissingList() {
   // capture before dispose() blanks c.editToken (which empties missingEntry too)
@@ -691,7 +736,7 @@ async function forgetMissingList() {
   if (!entry) return;
   if (!(await askConfirm({
     title: "Forget this list",
-    message: `Forget “${savedListTitle(entry.title)}”? Its link no longer works — this only removes it from your lists on this device.`,
+    message: `Forget “${savedListTitle(entry.title)}”? Its link no longer works; this only removes it from your lists on this device.`,
     confirmLabel: "Forget",
   }))) return;
   // Same teardown-first order as the pair above. Nothing here can write it back
@@ -759,7 +804,16 @@ onKeyStroke("?", (e) => {
 //
 // Import and Export take the mirrored pair deliberately; they are the same door in
 // two directions and the glyphs should say so before the words do.
-const MENU_ACTIONS = [
+// `hidden` keeps an action out of the menu while pressing it would do nothing worth
+// doing: an unsaved, empty draft has nothing to copy or export, and a row that yields
+// an empty file is worse than no row (inert controls are absent, not dimmed).
+interface MenuAction {
+  label: string;
+  icon: typeof UserAddIcon;
+  run: () => void;
+  hidden?: () => boolean;
+}
+const MENU_ACTIONS: MenuAction[] = [
   // The crew's door BEFORE anyone is named — the chips row carries its own manage
   // button, but that row only exists once someone is on the list, so without an
   // entry here a fresh list has no way in. Short, and not just for the voice: this
@@ -788,7 +842,7 @@ const MENU_ACTIONS = [
   // argument ReadonlyMenu.vue already makes for calling it "Duplicate" and not
   // "Copy"; the glyph is read first, so it has to agree or it spends the label.
   // The plus is what carries it: "another one of these", still legible at 14.
-  { label: "Duplicate this list", icon: CopyPlusIcon, run: cloneList },
+  { label: "Duplicate this list", icon: CopyPlusIcon, run: cloneList, hidden: () => isFirstRun.value },
   // Import stays a plain row. It has exactly ONE entry point — the modal, which
   // offers the file and the LighterPack link side by side — and a disclosure holding
   // a single item is a click that reveals nothing you couldn't have been shown. It
@@ -806,6 +860,8 @@ const MENU_ACTIONS = [
 // Export folds into a disclosure — <MenuSection>, shared with the read views' ⋯ menu,
 // which owns the header, the reveal and the warm-on-open. The rows are useListExports'.
 const exportOpen = ref(false);
+// what the menu renders: the rows a state hides (Duplicate on the first-run screen)
+const menuActions = computed(() => MENU_ACTIONS.filter((a) => !a.hidden?.()));
 // a re-opened menu starts collapsed — the previous session's open section is not a
 // preference, and restoring it would put a different item under the cursor
 watch(menuOpen, (open) => open || (exportOpen.value = false));
@@ -882,6 +938,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
           class="editor__lists"
           :current-share-code="snapshot?.shareCode ?? null"
           :hint="showIntro"
+          :resumed="resumedHere"
           @new-list="newList()"
           @dismiss-hint="dismissIntro"
         />
@@ -985,13 +1042,17 @@ function onCorrected(res: { status: string; itemName?: string }) {
                 </li>
                 <!-- no "Your lists" here — the footer already carries that link.
                      Close BEFORE the action runs, matching the old dispatch order. -->
-                <li v-for="a in MENU_ACTIONS" :key="a.label" role="none">
+                <li v-for="a in menuActions" :key="a.label" role="none">
                   <button type="button" data-row role="menuitem" class="menu__item" @click="menuOpen = false; a.run()">
                     <HugeiconsIcon :icon="a.icon" :size="14" :stroke-width="2" aria-hidden="true" />
                     {{ a.label }}
                   </button>
                 </li>
+                <!-- Export folds into <MenuSection>, and stays off the first-run screen
+                     for the same reason Duplicate does: an unsaved, empty draft has
+                     nothing to give (a header-only CSV). -->
                 <MenuSection
+                  v-if="!isFirstRun"
                   v-model:open="exportOpen"
                   label="Export"
                   :icon="FileExportIcon"
@@ -1259,7 +1320,10 @@ function onCorrected(res: { status: string; itemName?: string }) {
 
     <main v-else-if="status === 'missing'" id="main-content" tabindex="-1" class="wrap editor__missing">
       <p class="t-muted">{{ missingMessage }}</p>
-      <button class="btn btn--primary" @click="newList({ replace: true })">Create a list</button>
+      <!-- a truncated edit link: the read-only view is the way back to THIS list, so
+           it takes the primary and starting over steps down beside it -->
+      <NuxtLink v-if="keylessCode" :to="`/s/${keylessCode}`" class="btn btn--primary">Open the read-only view</NuxtLink>
+      <button :class="['btn', keylessCode ? 'btn--quiet' : 'btn--primary']" @click="newList({ replace: true })">Create a list</button>
       <!-- quiet, under the primary: the way forward stays the page's loudest offer,
            and retiring the row that led here is the calm cleanup beside it -->
       <button v-if="missingEntry" class="btn btn--quiet" @click="forgetMissingList">Forget this list</button>

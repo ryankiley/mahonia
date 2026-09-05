@@ -43,6 +43,7 @@ async function verify() {
     // re-read the session so the rest of the app sees the new cookie, then hand
     // the user straight to the thing they signed in for
     await refresh(true);
+    tally("sign_in");
     state.value = "done";
     // Same as the passkey path: back where you started if we still know, /gear if
     // not. The magic link usually returns in a new tab, which is exactly why the
@@ -78,7 +79,7 @@ onMounted(verify);
       <template v-else>
         <h1 class="t-title">Couldn’t sign you in</h1>
         <p class="t-muted cb__line">
-          Something went wrong on the way — your link is probably still good.
+          Something went wrong on the way. Your link is probably still good.
         </p>
         <button type="button" class="btn btn--primary cb__action" @click="verify">Try again</button>
       </template>

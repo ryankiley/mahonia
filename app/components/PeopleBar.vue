@@ -149,6 +149,11 @@ function onKey(e: KeyboardEvent) {
 /* ON is the app's one on-plate (--lit), same as the mode switcher and the
    classification marks — and the hairline steps aside so the plate reads as the
    edge, not a border around a border. */
+@media (hover: hover) and (pointer: fine) {
+  .pplbar__chip.is-on:hover {
+    background: var(--lit-hover); /* the selected chip answers the pointer too */
+  }
+}
 .pplbar__chip.is-on {
   background: var(--lit);
   border-color: transparent;

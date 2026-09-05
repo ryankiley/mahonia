@@ -27,8 +27,8 @@ useHead(() => ({
   title: snapshot.value ? `${snapshot.value.title} — Mahonia` : "List not found — Mahonia",
   link: [{ rel: "canonical", href: `/l/${slug.value}` }],
 }));
-// "Report list" lives in the ⋯ menu (ReadonlyMenu) now — shared with /s and gated
-// on isPublic there — so this page no longer carries its own report affordance.
+// "Report list" lives in the ⋯ menu (ReadonlyMenu) now — shared with /s, on every
+// shared list, through the feedback box — so this page carries no report affordance.
 </script>
 
 <template>

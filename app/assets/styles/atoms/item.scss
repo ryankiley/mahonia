@@ -222,6 +222,14 @@
   transition:
     opacity var(--dur) var(--ease),
     margin-top var(--dur) var(--ease);
+  /* The clip box reaches --grip-pull past the block: a nested row's grip is pulled that
+     far into the gutter so it lines up flush with every other grip on the page, and
+     the block's own edge sat 5px short of it — the right column of dots was cut off
+     (Ryan, 2026-09-05). Padding widens the clip; the negative margin gives the width
+     back, so the rows inside don't move. overflow-clip-margin would say this in one
+     line, but Safari doesn't have it. */
+  padding-right: var(--grip-pull);
+  margin-right: calc(-1 * var(--grip-pull));
 }
 .nestcollapse[data-collapsed] > .nest-block {
   height: 0;
@@ -317,6 +325,14 @@
   background-clip: content-box;
   border-radius: var(--radius-pill);
   color: var(--ink);
+}
+/* The hold, plus an answer: under a fine pointer the lit toggle steps up to --lit-hover
+   rather than sitting inert at its plate — a selected control still hovers. Buttons
+   only: the share views' marks are facts (role="img"), and a fact doesn't hover. */
+@media (hover: hover) and (pointer: fine) {
+  button.item__mark:hover {
+    background-color: var(--lit-hover); /* longhand: the shorthand resets the clip above and the plate grew */
+  }
 }
 
 /* The STATIC mark — the chip where it is a FACT rather than a toggle: /gear's rows,

@@ -303,7 +303,7 @@ async function deleteFolder(f: VaultFolder) {
     !(await askConfirm({
       title: `Delete “${f.name}”?`,
       message: held
-        ? `The ${held} ${held === 1 ? "piece" : "pieces"} of gear in it stay in My Gear — they just won’t be filed under anything.`
+        ? `The ${held} ${held === 1 ? "piece" : "pieces"} of gear in it stay in My Gear; they just won’t be filed under anything.`
         : "The folder goes; nothing else changes.",
       confirmLabel: "Delete folder",
     }))

@@ -195,6 +195,14 @@ function onKey(e: KeyboardEvent) {
   background: var(--lit);
   color: var(--ink);
 }
+// …and the selected tab still answers the pointer: its plate rule above outranks the
+// hover wash by cascade order, which left the one tab you're on the one that never
+// reacted. One step up from --lit (the token's own note), gated like the wash.
+@media (hover: hover) and (pointer: fine) {
+  .modebar__opt.is-active:hover {
+    background: var(--lit-hover);
+  }
+}
 
 // The icons are this app's addition, not the design system's — its menubar is words only.
 // They go first at every width and vanish before the word does.

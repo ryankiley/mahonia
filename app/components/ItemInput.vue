@@ -5,6 +5,7 @@ import type { EffectScope } from "vue";
 import type { Unit } from "~~/shared/types";
 import { formatWeight, itemDisplayName } from "~~/shared/weights";
 import { highlightParts } from "~~/shared/catalogSearch";
+import { MAX_ITEM_NAME_LEN } from "~~/shared/ops";
 import { tidyText } from "~~/shared/tidyText";
 import { formatVolume, isWaterName, parseVolumeMl, waterMgFromMl } from "~~/shared/water";
 import type { CatalogResult, NameCommit } from "~/composables/useCatalogSearch";
@@ -415,6 +416,7 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
       ref="inputEl"
       v-model="draft"
       class="field ac__input"
+      :maxlength="MAX_ITEM_NAME_LEN"
       :placeholder="placeholder"
       :aria-label="placeholder"
       :title="draft"
