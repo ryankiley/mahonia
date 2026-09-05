@@ -100,19 +100,16 @@ const shown = computed(() => {
 // and neither does a legacy entry, and "" === "" would mark a row at random.
 const isCurrent = (e: SwitcherRow) => !!currentShareCode && e.shareCode === currentShareCode;
 
-// the travelling wash — see useMenuPlate for the two measurement traps it carries
-const { plateRef, listRef, placing, on: plateOn } = useMenuPlate();
-// A SECOND instance for the footer, which is one row ("New list") and had no hover
-// wash at all — the only row in the card that lit up for neither pointer nor keyboard.
-// It can't share the one above, and the reason is structural rather than an oversight:
-// the plate is positioned by its row's offsetTop inside .lm__rows, which SCROLLS, so
-// the plate has to live in that scroll container to travel with the rows. The footer
-// deliberately sits outside it — a "New list" that scrolled away with forty lists
-// above it would be the wrong control to lose. One plate cannot be in both places.
-// Two instances cost a ref and a span; the alternative — a plain :hover background —
-// would draw the same rectangle a different way and drift from the atom the moment
-// either is retuned.
-const { plateRef: footPlateRef, listRef: footListRef, placing: footPlacing, on: footPlateOn } = useMenuPlate();
+// The travelling wash — see useMenuPlate for the measurement traps it carries.
+// ONE instance for the whole card, footer included. It used to be two: the plate is
+// positioned by its row's offsetTop, .lm__rows SCROLLS, and the footer deliberately
+// sits outside it (a "New list" that scrolled away with forty lists above it would be
+// the wrong control to lose) — so a plate living in the scroller could not reach the
+// footer, and a second one covered it instead. That cost the card the only move that
+// matters here: the wash BLINKED across the hairline, crossfading between two plates,
+// where everywhere else in the app it slides. The composable measures across a
+// scroller now, so the plate sits in the panel and travels the whole way.
+const { plateRef, listRef, on: plateOn } = useMenuPlate();
 
 function close() {
   open.value = false;
@@ -178,7 +175,17 @@ watch(open, (o) => {
     </Transition>
 
     <Transition name="menu">
-      <div v-if="open" class="popover menu__list lm__panel" role="menu" aria-label="Your lists">
+      <div
+        v-if="open"
+        ref="listRef"
+        class="popover menu__list lm__panel"
+        role="menu"
+        aria-label="Your lists"
+        v-on="plateOn"
+      >
+        <!-- the travelling wash, in the PANEL rather than in either row area — the one
+             box both of them are measured into (atoms/controls.scss + useMenuPlate) -->
+        <span ref="plateRef" class="menu__plate" aria-hidden="true" />
         <div v-if="filterable" class="lm__filter">
           <input
             ref="fieldRef"
@@ -192,8 +199,7 @@ watch(open, (o) => {
           />
         </div>
 
-        <div ref="listRef" class="lm__rows" v-on="plateOn">
-          <span ref="plateRef" class="menu__plate" :class="{ 'is-placing': placing }" aria-hidden="true" />
+        <div class="lm__rows">
           <NuxtLink
             v-for="e in shown"
             :key="e.key"
@@ -224,8 +230,7 @@ watch(open, (o) => {
         <!-- New list is an ACTION, not one of your lists, so it sits below a
              hairline — the one place in this card a rule earns its keep, because it
              separates two kinds of thing rather than two instances of one. -->
-        <div ref="footListRef" class="lm__foot" v-on="footPlateOn">
-          <span ref="footPlateRef" class="menu__plate" :class="{ 'is-placing': footPlacing }" aria-hidden="true" />
+        <div class="lm__foot">
           <button type="button" data-row class="menu__item lm__new" role="menuitem" @click="close(); emit('new-list')">
             New list
           </button>
@@ -321,6 +326,10 @@ watch(open, (o) => {
 }
 
 .lm__rows {
+  /* Positioned so this box appears in its rows' offsetParent chain, which is how
+     useMenuPlate finds the scroll to take off: the plate lives out in the panel
+     (it has to reach the footer), so a row in here is measured in a box the plate
+     isn't in, and only a positioned scroller puts the two in one space. */
   position: relative;
   display: flex;
   flex-direction: column;
@@ -328,16 +337,6 @@ watch(open, (o) => {
   max-height: 15rem;
   overflow-y: auto;
   overscroll-behavior: contain;
-}
-/* The plate matches its ROWS, and where those rows live decides the inset.
-   The atom's default assumes the plate is a direct child of .menu__list — an
-   absolutely-positioned box resolves against its container's PADDING box, so it
-   insets by --space-2 to come back to where the rows actually are. This menu wraps
-   its rows in a scroller that's already inside that padding, so the same inset
-   applies it twice and the wash lands 16px narrower than the row it's lighting. */
-.lm__rows .menu__plate {
-  left: 0;
-  right: 0;
 }
 /* one line of type and a mark — the weight lives on the list itself, and beside a
    name it competed with the one thing you scan a switcher for. The name clips with
@@ -377,19 +376,9 @@ watch(open, (o) => {
   color: var(--ink-3);
 }
 .lm__foot {
-  /* the plate's offsetParent — useMenuPlate positions by offsetTop, so the row's
-     coordinate space has to be this box and not some ancestor's */
-  position: relative;
   margin-top: var(--space-1);
   padding-top: var(--space-1);
   border-top: 1px solid var(--line);
-}
-/* the same full-bleed inset the rows' plate takes (.lm__rows .menu__plate): the atom
-   insets by --space-2 for a plate sitting directly in a .menu__list, and neither of
-   this card's two row areas is that */
-.lm__foot .menu__plate {
-  left: 0;
-  right: 0;
 }
 .lm__new {
   color: var(--ink-2);

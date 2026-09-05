@@ -333,7 +333,7 @@ const menuOpen = ref(false);
 // the travelling wash shared with the other menus (see useMenuPlate). Section
 // HEADERS deliberately carry no [data-row] — they open a group rather than doing
 // something, so the wash shouldn't claim them as a destination.
-const { plateRef: kebabPlateRef, listRef: kebabListRef, placing: kebabPlacing, on: kebabPlateOn } = useMenuPlate();
+const { plateRef: kebabPlateRef, listRef: kebabListRef, on: kebabPlateOn } = useMenuPlate();
 const menuRef = useTemplateRef<HTMLElement>("menuRef");
 const { toast, flash } = useToast();
 
@@ -983,7 +983,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
               <ul v-if="menuOpen" ref="kebabListRef" class="popover menu__list" role="menu" aria-label="More actions" v-on="kebabPlateOn">
                 <!-- the travelling wash (atoms/controls.scss + useMenuPlate) -->
                 <li role="none" aria-hidden="true">
-                  <span ref="kebabPlateRef" class="menu__plate" :class="{ 'is-placing': kebabPlacing }" />
+                  <span ref="kebabPlateRef" class="menu__plate" />
                 </li>
                 <!-- no "Your lists" here — the footer already carries that link.
                      Close BEFORE the action runs, matching the old dispatch order. -->

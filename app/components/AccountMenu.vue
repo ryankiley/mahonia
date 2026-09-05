@@ -49,7 +49,7 @@ watch(signedIn, (yes) => (known.value = yes || hasSessionHint()));
 
 const open = ref(false);
 // the travelling wash shared with the other menus (see useMenuPlate)
-const { plateRef, listRef, placing, on: plateOn } = useMenuPlate();
+const { plateRef, listRef, on: plateOn } = useMenuPlate();
 const menuRef = useTemplateRef<HTMLElement>("menuRef");
 // same close behaviour as the editor kebab and ReadonlyMenu: the action itself, an
 // outside tap, a scroll gesture on mobile, or Escape
@@ -126,7 +126,7 @@ const { open: openAccount } = useAccountModal();
           <!-- the travelling wash (atoms/controls.scss + useMenuPlate). role="none"
                so a decorative element can't read as a menu item. -->
           <li role="none" aria-hidden="true">
-            <span ref="plateRef" class="menu__plate" :class="{ 'is-placing': placing }" />
+            <span ref="plateRef" class="menu__plate" />
           </li>
           <li v-if="showGear" role="none">
             <NuxtLink to="/gear" data-row role="menuitem" class="menu__item" @click="open = false">

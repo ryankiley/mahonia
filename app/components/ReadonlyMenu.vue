@@ -20,7 +20,7 @@ const menuOpen = ref(false);
 const exportOpen = ref(false);
 watch(menuOpen, (open) => open || (exportOpen.value = false));
 // the travelling wash shared with the other menus (see useMenuPlate)
-const { plateRef, listRef, placing, on: plateOn } = useMenuPlate();
+const { plateRef, listRef, on: plateOn } = useMenuPlate();
 const menuRef = useTemplateRef<HTMLElement>("menuRef");
 
 // tiny toast for the copy actions (a link/markdown copy is otherwise invisible); the
@@ -141,7 +141,7 @@ async function copyLink() {
       <ul v-if="menuOpen" ref="listRef" class="popover menu__list" role="menu" aria-label="More actions" v-on="plateOn">
         <!-- the travelling wash (atoms/controls.scss + useMenuPlate) -->
         <li role="none" aria-hidden="true">
-          <span ref="plateRef" class="menu__plate" :class="{ 'is-placing': placing }" />
+          <span ref="plateRef" class="menu__plate" />
         </li>
         <li role="none">
           <!-- NOT "Copy this list". Two of this menu's other items are clipboard
