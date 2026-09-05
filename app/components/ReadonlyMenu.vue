@@ -198,10 +198,8 @@ async function copyLink() {
           <button type="button" data-row role="menuitem" class="menu__item" @click="runMenu('feedback')">Send feedback…</button>
         </li>
         <!-- moderation, not a read of the list — set off from the copy/export group by a
-             hairline, and only for public lists (per the Terms) that aren't yet reported.
-             data-row-group is what tells the travelling wash the rule is a boundary: it
-             hands off across it rather than sliding through (useMenuPlate). -->
-        <li v-if="snapshot.isPublic && !reported" role="none" class="menu__report" data-row-group>
+             hairline, and only for public lists (per the Terms) that aren't yet reported -->
+        <li v-if="snapshot.isPublic && !reported" role="none" class="menu__report">
           <button type="button" data-row role="menuitem" class="menu__item" @click="runMenu('report')">Report list</button>
         </li>
       </ul>

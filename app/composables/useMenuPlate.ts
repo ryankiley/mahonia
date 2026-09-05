@@ -26,7 +26,11 @@ import type { Ref } from "vue";
  *    flew in from the top of the card, which is exactly what the paragraph above
  *    says it doesn't. Anything the plate needs mid-gesture is set on the element.
  *
- *  • A move that CROSSES A RULE is a hand-off, not a slide. See below.
+ *  • A row may sit inside a SCROLLER that the plate is outside of, and the plate
+ *    still travels to it — see `offsetIn` and `follow` below. One menu needs that
+ *    (ListMenu, whose lists scroll inside a card whose footer doesn't), and it is
+ *    the difference between the wash sliding across that card's hairline and
+ *    blinking across it.
  *
  * It follows FOCUS as well as the pointer, deliberately: a menu whose only
  * "you are here" mark is reserved for people with a mouse works worse the more you
@@ -53,26 +57,66 @@ export function useMenuPlate(): {
 } {
   const plateRef = ref<HTMLElement | null>(null);
   const listRef = ref<HTMLElement | null>(null);
-
-  // Which GROUP the plate is standing in, while it is lit. A group is the nearest
-  // ancestor marked [data-row-group] — the <li> a menu rules off from the rest —
-  // and everything not inside one belongs to the list itself.
-  let group: Element | null = null;
+  // the row the plate is standing on, so a scroll under a still pointer can put it
+  // back where that row went
+  let at: HTMLElement | null = null;
 
   function hide() {
     plateRef.value?.classList.remove("is-on");
-    group = null;
+    at = null;
   }
 
-  // One listener per plate ELEMENT, wired the first time that element crosses. The
-  // crossing class carries a timing an ordinary travel mustn't inherit, so it comes
-  // off when the animation ends; the menu's v-if mints a new span each time it
-  // opens, and the listener dies with the old one.
-  let wired: HTMLElement | null = null;
-  function wireCross(plate: HTMLElement) {
-    if (wired === plate) return;
-    wired = plate;
-    plate.addEventListener("animationend", () => plate.classList.remove("is-crossing"));
+  /**
+   * Where a row sits in the plate's own coordinate space.
+   *
+   * Usually that is just its `offsetTop`: the plate is the list's first child, so
+   * the two share an offsetParent. It stops being that the moment a menu puts some
+   * of its rows in a SCROLLER — ListMenu's card scrolls its lists but deliberately
+   * doesn't scroll "New list", so the plate has to sit outside the scroller to be
+   * able to reach the footer at all, and a row inside one is then measured in a box
+   * the plate isn't in. Walking the offsetParent chain up to the list, taking each
+   * step's own offset and scroll as we go, puts both kinds of row in one space —
+   * which is what lets the wash SLIDE from the last list across the hairline onto
+   * "New list", the same move it makes between any other two rows.
+   *
+   * Still all layout-space reads, so the scaled-card trap above doesn't apply.
+   */
+  function offsetIn(row: HTMLElement, list: HTMLElement) {
+    let y = row.offsetTop;
+    for (let n = row.offsetParent; n instanceof HTMLElement && n !== list; n = n.offsetParent) {
+      y += n.offsetTop - n.scrollTop;
+    }
+    return y;
+  }
+
+  /**
+   * Trim the plate back inside its row's scroller.
+   *
+   * The plate has to sit OUTSIDE that scroller to be able to travel to a row beyond
+   * it, which means the scroller's own overflow no longer clips it: point at a row
+   * that a scroll has left half out of view and the wash spills past the edge, over
+   * the field above or the rule below. This puts that clipping back by hand.
+   *
+   * Rectangular, and only on the edge that is actually cut — the plate keeps its
+   * corner everywhere it isn't. Rows whose box doesn't scroll (every other menu, and
+   * this one's footer) take no clip at all, which is also what lets the wash slide
+   * out from under the scroller's edge on its way to "New list": the destination
+   * isn't in a scroller, so nothing trims the move.
+   */
+  function clipTo(plate: HTMLElement, row: HTMLElement, list: HTMLElement) {
+    const box = row.offsetParent;
+    if (!(box instanceof HTMLElement) || box === list || box.scrollHeight <= box.clientHeight) {
+      plate.style.clipPath = "";
+      return;
+    }
+    const top = offsetIn(box, list);
+    const y = offsetIn(row, list);
+    const over = Math.max(0, top - y);
+    const under = Math.max(0, y + row.offsetHeight - (top + box.clientHeight));
+    const r = "var(--popover-item-radius)";
+    plate.style.clipPath = over || under
+      ? `inset(${over}px 0 ${under}px 0 round ${over ? "0" : r} ${over ? "0" : r} ${under ? "0" : r} ${under ? "0" : r})`
+      : "";
   }
 
   function moveTo(row: HTMLElement | null) {
@@ -84,39 +128,13 @@ export function useMenuPlate(): {
     // parked on the last row you touched while the pointer is elsewhere reads as a
     // second selection.
     if (!row || !list.contains(row) || (row as HTMLButtonElement).disabled) return hide();
+    at = row;
 
     const first = !plate.classList.contains("is-on");
-    const to = row.closest("[data-row-group]") ?? list;
-    // A HAIRLINE IN A MENU SEPARATES TWO KINDS OF THING — the kebab's delete, the
-    // read menu's report, ListMenu's "New list" — and the wash's whole premise is
-    // one thing being pointed along a run of PEERS. Between kinds there is no run,
-    // so it leaves one group and arrives in the other instead of gliding over the
-    // rule as though the rows below were more of the rows above. The motion is in
-    // the stylesheet (`.menu__plate.is-crossing`); this only says when.
-    //
-    // ListMenu already reads this way, for a structural reason rather than a chosen
-    // one — its footer sits outside the scroller and carries its own plate — so this
-    // is every other menu agreeing with the one that had no choice.
-    const crossing = !first && to !== group;
-    group = to;
-
-    // Off first, and unconditionally: re-adding a class the element already carries
-    // does NOT restart its animation, so a pointer sweeping down through two rules
-    // in a row would hand off once and then just slide. Removing it and forcing a
-    // reflow is what makes the second one replay.
-    plate.classList.remove("is-crossing");
-    if (first) {
-      plate.classList.add("is-placing");
-    } else if (crossing) {
-      void plate.offsetHeight;
-      plate.classList.add("is-crossing");
-      wireCross(plate);
-    }
-
-    // measured against the plate's own offsetParent, which is the list; a row
-    // nested in an <li> still reports its position in that same space
-    plate.style.transform = `translateY(${row.offsetTop}px)`;
+    if (first) plate.classList.add("is-placing");
+    plate.style.transform = `translateY(${offsetIn(row, list)}px)`;
     plate.style.height = `${row.offsetHeight}px`;
+    clipTo(plate, row, list);
     // THE PLATE CARRIES THE ROW'S OWN HUE, so a destructive row lights red rather
     // than in the neutral wash — a grey fill under red text says "a row", and the
     // point of the colour is that this row isn't one.
@@ -144,6 +162,27 @@ export function useMenuPlate(): {
     }
     plate.classList.add("is-on");
   }
+
+  // Scrolling under a still pointer moves the row out from under the wash, and no
+  // pointer event says so. Re-place it, silently: this is the row following the
+  // scroll rather than the plate travelling anywhere, and a 200ms ease on it would
+  // just make the wash lag the list it's meant to be lighting.
+  function follow() {
+    const plate = plateRef.value;
+    const list = listRef.value;
+    if (!plate || !list || !at || !plate.classList.contains("is-on")) return;
+    plate.classList.add("is-placing");
+    plate.style.transform = `translateY(${offsetIn(at, list)}px)`;
+    clipTo(plate, at, list);
+    void plate.offsetHeight;
+    plate.classList.remove("is-placing");
+  }
+  // capture, because scroll doesn't bubble — the scroller is INSIDE the list, and
+  // this is the one listener the `on` object below can't carry
+  watch(listRef, (el, old) => {
+    old?.removeEventListener("scroll", follow, true);
+    el?.addEventListener("scroll", follow, true);
+  });
 
   const rowFrom = (t: EventTarget | null) =>
     t instanceof Element ? t.closest<HTMLElement>("[data-row]") : null;

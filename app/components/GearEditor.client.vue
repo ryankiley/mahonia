@@ -1024,11 +1024,8 @@ function onCorrected(res: { status: string; itemName?: string }) {
                      Red, and red at rest rather than only under the pointer — the
                      colour is there to be read before you reach for it. It is the
                      port of the design system's .ds-menu__item--danger, down to the
-                     plate washing the row in its own hue (see the style).
-                     data-row-group makes the rule a boundary for the travelling wash
-                     too: it hands off across it instead of sliding through, which is
-                     also what keeps the red out of the rows above (useMenuPlate). -->
-                <li v-if="isSaved" role="none" class="editor__menufoot" data-row-group>
+                     plate washing the row in its own hue (see the style). -->
+                <li v-if="isSaved" role="none" class="editor__menufoot">
                   <!-- Gentler first. The two escalate — off this device, then off the
                        internet — and reading them in that order is what makes the
                        second one land as the bigger of the pair rather than as

@@ -1,7 +1,7 @@
 {
   "date": "2026-09-04",
   "changed": [
-    "A menu's hover highlight now steps across a dividing line instead of sliding over it, so the red on a delete row never passes over the rows above it."
+    "In the lists menu, the hover highlight slides onto \"New list\" the way it slides between lists, instead of blinking across the line above it."
   ],
   "fixed": [
     "A menu's hover highlight no longer slides in from the top of the card the first time you point at a row."
