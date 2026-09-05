@@ -176,7 +176,7 @@
     {
       "brand": "Mountain House",
       "name": "Biscuits and Gravy",
-      "variant": "2 servings",
+      "variant": "2 servings, net",
       "category_hint": "consumable",
       "weight_value": 4.4,
       "weight_unit": "oz",
@@ -191,7 +191,7 @@
     {
       "brand": "Peak Refuel",
       "name": "Beef Stroganoff",
-      "variant": "2 servings",
+      "variant": "2 servings, net",
       "category_hint": "consumable",
       "weight_value": 5,
       "weight_unit": "oz",
@@ -205,7 +205,7 @@
     {
       "brand": "Backpacker's Pantry",
       "name": "Pad Thai",
-      "variant": "2 servings",
+      "variant": "2 servings, net",
       "category_hint": "consumable",
       "weight_value": 6.2,
       "weight_unit": "oz",

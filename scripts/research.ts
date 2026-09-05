@@ -26,8 +26,12 @@ export interface ResearchRow {
   //     maker sells several of. "One size", "Unisex", "Standard" on a one-row product, and
   //     "per bar" on the only "Energy Bar" row all say nothing — leave the variant empty.
   //     A unit label ("per tablet") appears only beside a multi-pack sibling ("sleeve of
-  //     10"), or on trekking poles ("per pair"). Food weights are net contents by
-  //     convention, so no "net"; fuel canisters keep "net fuel" (the weight is the gas alone).
+  //     10"), or on trekking poles ("per pair").
+  //   • A food row weighs what you CARRY — contents plus pouch — whenever the maker prints a
+  //     total/package weight or someone has weighed one (weight_source "measured"). A row
+  //     that could only be sourced at net contents says "net" in its variant, and the audit
+  //     lists it as a to-do. Bars and chews stay at label weight (a wrapper is a gram or two).
+  //     Fuel canisters keep "net fuel": the weight is the gas alone, not the can.
   //   • Several of a thing read "3-pack" or "sleeve of 10". A number and its unit are one
   //     token ("6ft", "400ml", "20F").
   //   • A config never hides in `name`: " - Regular", "(low)", "(2024)", "(SP129)" all go

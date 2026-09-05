@@ -1913,7 +1913,7 @@ Aloe Up,Sport SPF 15 Lip Balm,Lip balm,,consumable,4250,manufacturer,https://www
 Anessa,Perfect UV Sunscreen Skincare Milk NA SPF50+,Sunscreen,60ml,consumable,60000,manufacturer,https://japanesetaste.com/products/shiseido-anessa-perfect-uv-sunscreen-skincare-milk-spf50-60ml,
 Aquaphor,Lip Repair,Lip balm,0.35 fl oz,consumable,10000,community,https://www.aquaphorus.com/products/aquaphor/aquaphor-lip-repair,
 Aquatabs,Water Purification Tablets,Water treatment,per tablet,consumable,397,manufacturer,https://www.aquatabs.us/product/aquatabs-397mg-tablets-x100/,
-Backpacker's Pantry,Pad Thai,Meal,2 servings,consumable,175767,manufacturer,https://backpackerspantry.com/products/pad-thai,760
+Backpacker's Pantry,Pad Thai,Meal,"2 servings, net",consumable,175767,manufacturer,https://backpackerspantry.com/products/pad-thai,760
 Beauty of Joseon,Relief Sun: Rice + Probiotics SPF50+,Sunscreen,50ml,consumable,50000,manufacturer,https://beautyofjoseon.com/products/relief-sun-rice-probiotics,
 Ben's Tick and Insect Repellent,Insect Repellent Adventure Formula,Insect repellent,,consumable,134000,manufacturer,https://www.garagegrowngear.com/products/insect-repellent-adventure-formula-nu-nems-adventure,
 Ben's Tick and Insect Repellent,Tick & Insect Repellent Wipes,Insect repellent,,consumable,80000,manufacturer,https://www.garagegrowngear.com/products/tick-insect-repellent-wipes-by-bens-adventure,
@@ -1938,11 +1938,12 @@ Dermatone,Mineral Sunscreen Stick SPF 50,Sunscreen,,consumable,14000,manufacture
 Dermatone,Skin Protector Balm with Zinc SPF 30,Sunscreen,,consumable,14000,manufacturer,https://www.garagegrowngear.com/products/skin-protector-balm-with-zinc-spf-30by-dermatone,
 Esbit,Solid Fuel Tablets,Fuel tablets,12-pack,consumable,172000,manufacturer,https://esbit.de/en/products/solid-fuel-tablets,
 Esbit,Solid Fuel Tablets,Fuel tablets,"per tablet, 14g",consumable,14000,manufacturer,https://esbit.de/en/products/solid-fuel-tablets,
-Farm to Summit,Puebloan Beans & Rice,Meal,2 servings,consumable,153000,manufacturer,https://www.garagegrowngear.com/products/anasazi-beans-and-rice-by-farm-to-summit,700
-Farm to Summit,Three Bean Chili & Cornbread,Meal,2 servings,consumable,156000,manufacturer,https://www.garagegrowngear.com/products/three-bean-chili-cornbread-by-farm-to-summit,800
+Farm to Summit,Puebloan Beans & Rice,Meal,2 servings,consumable,172932,measured,https://mahonia.app/s/P3PWAH8RMCVR,700
+Farm to Summit,Three Bean Chili & Cornbread,Meal,2 servings,consumable,181437,measured,https://mahonia.app/s/P3PWAH8RMCVR,800
 Garage Grown Gear,Beeswax Mini Lip Balm,Lip balm,,consumable,2800,manufacturer,https://www.garagegrowngear.com/products/beeswax-mini-lip-balm,
 Gardetto's,Original Recipe Snack Mix,Snack mix,1.75oz,consumable,49612,manufacturer,https://www.generalmillsfoodservice.com/products/category/snacks/gardettos/original-1-75oz-60ct,230
-Good To-Go,Mushroom Risotto,Meal,,consumable,95000,manufacturer,https://www.litesmith.com/good-to-go-mushroom-risotto/,410
+Good To-Go,Mushroom Risotto,Meal,,consumable,116200,manufacturer,https://www.litesmith.com/good-to-go-mushroom-risotto/,410
+Good To-Go,Mushroom Risotto,Meal,2 servings,consumable,212621,measured,https://mahonia.app/s/P3PWAH8RMCVR,820
 GSI Outdoors,Isobutane Fuel Cartridge,Fuel canister,"110g, net fuel",consumable,110000,manufacturer,https://www.kitterytradingpost.com/camping-travel/camp-stoves-grills-heaters/fuel-canisters/gsi-outdoors-isobutane-110g.-fuel-cartridge-95913.html,
 GSI Outdoors,Isobutane Fuel Cartridge,Fuel canister,"230g, net fuel",consumable,230000,manufacturer,https://www.kitterytradingpost.com/camping-travel/camp-stoves-grills-heaters/fuel-canisters/gsi-outdoors-isobutane-230g.-fuel-cartridge-95915.html,
 GurneyGoo,Anti Chafing,Anti-chafe balm,"Pocket, 10ml",consumable,11000,manufacturer,https://www.garagegrowngear.com/products/gurneygoo-anti-chafing,
@@ -1950,7 +1951,7 @@ Honey Stinger,Organic Honey Waffle,Energy waffle,,consumable,30050,manufacturer,
 Huppy,Toothpaste Tablets,Toothpaste tablets,Tin,consumable,48000,manufacturer,https://www.garagegrowngear.com/products/toothpaste-tablets-by-huppy,
 Huppy,Toothpaste Tablets,Toothpaste tablets,Travel Pack,consumable,3000,manufacturer,https://www.garagegrowngear.com/products/toothpaste-tablets-by-huppy,
 HydraPak,Bottle Bright Gear Cleaning Tablets,Cleaning tablets,,consumable,18000,manufacturer,https://www.garagegrowngear.com/products/gear-cleaning-tablets-by-bottle-bright,
-Idahoan,Classic Mashed Potatoes,Meal,,consumable,113398,manufacturer,https://idahoan.com/products/100645,440
+Idahoan,Classic Mashed Potatoes,Meal,net,consumable,113398,manufacturer,https://idahoan.com/products/100645,440
 Jetboil,JetPower Fuel,Fuel canister,"100g, net fuel",consumable,100000,manufacturer,https://jetboil.johnsonoutdoors.com/us/shop/parts-accessories/fuel-related/jetpower-fuel-single/jf1001,
 Jetboil,JetPower Fuel,Fuel canister,"230g, net fuel",consumable,230000,manufacturer,https://jetboil.johnsonoutdoors.com/us/shop/parts-accessories/fuel-related/jetpower-fuel-single,
 Jetboil,JetPower Fuel,Fuel canister,"450g, net fuel",consumable,450000,manufacturer,https://jetboil.johnsonoutdoors.com/ca/en-ca/shop/parts-accessories/fuel-related/jetpower-fuel/jf450,
@@ -1963,15 +1964,15 @@ KIND,Nut Bar (Blueberry Vanilla & Cashew),Energy bar,,consumable,40000,manufactu
 KIND,Nut Bar (Dark Chocolate Nuts & Sea Salt),Energy bar,,consumable,40000,manufacturer,https://www.kindsnacks.com/products/nut-bar/dark-chocolate-nuts-sea-salt,190
 KIND,Nut Bar (Fruit & Nut),Energy bar,,consumable,40000,manufacturer,https://www.kindsnacks.com/products/nut-bar/fruit-nut,190
 KIND,Nut Bar (Peanut Butter Dark Chocolate),Energy bar,,consumable,40000,manufacturer,https://www.kindsnacks.com/products/nut-bar/peanut-butter-dark-chocolate,200
-Knorr,Rice Sides Cheddar Broccoli,Meal,,consumable,161592,manufacturer,https://smartlabel.unileverusa.com/041000022784-0001-en-US/index.html,600
+Knorr,Rice Sides Cheddar Broccoli,Meal,net,consumable,161592,manufacturer,https://smartlabel.unileverusa.com/041000022784-0001-en-US/index.html,600
 Kovea,Gas Canister,Fuel canister,"110g, net fuel",consumable,110000,manufacturer,https://bigtentoutdoors.com/products/kovea-gas-canister-case-pack,
 Kovea,Gas Canister,Fuel canister,"230g, net fuel",consumable,230000,manufacturer,https://bigtentoutdoors.com/products/kovea-gas-canister-case-pack,
 Kovea,Gas Canister,Fuel canister,"450g, net fuel",consumable,450000,manufacturer,https://bigtentoutdoors.com/products/kovea-gas-canister-case-pack,
 Liquid I.V.,Hydration Multiplier,Electrolyte mix,,consumable,15876,manufacturer,https://www.fairwaymarket.com/product/liquid-iv-hydration-multiplier-electrolyte-drink-mix-sticks-056-oz-10-count-id-00810125970535,45
 Matador,Refillable Toothpaste Tube,Toothpaste tube,1-week,consumable,7000,manufacturer,https://www.matadorequipment.com/products/refillable-toothpaste-tubes,
 Matador,Refillable Toothpaste Tube,Toothpaste tube,2-week,consumable,8000,manufacturer,https://www.matadorequipment.com/products/refillable-toothpaste-tubes,
-Mountain House,Beef Stroganoff,Meal,"Pro-Pak, 1 serving",consumable,130408,manufacturer,https://lintonoutdoors.com/mountain-house-beef-stroganoff-propak/,590
-Mountain House,Biscuits and Gravy,Meal,2 servings,consumable,124738,manufacturer,https://lintonoutdoors.com/mountain-house-biscuits-and-gravy/,540
+Mountain House,Beef Stroganoff,Meal,"Pro-Pak, 1 serving, net",consumable,130408,manufacturer,https://lintonoutdoors.com/mountain-house-beef-stroganoff-propak/,590
+Mountain House,Biscuits and Gravy,Meal,"2 servings, net",consumable,124738,manufacturer,https://lintonoutdoors.com/mountain-house-biscuits-and-gravy/,540
 MSR,IsoPro Fuel Canister,Fuel canister,"110g, net fuel",consumable,110000,manufacturer,https://cascadedesigns.com/products/msr-isopro-fuel,
 MSR,IsoPro Fuel Canister,Fuel canister,"227g, net fuel",consumable,227000,manufacturer,https://cascadedesigns.com/products/msr-isopro-fuel,
 MSR,IsoPro Fuel Canister,Fuel canister,"450g, net fuel",consumable,450000,manufacturer,https://cascadedesigns.com/products/msr-isopro-fuel,
@@ -1981,7 +1982,7 @@ PACT Outdoors,Bathroom Wipes,Wipes,,consumable,2000,manufacturer,https://www.gar
 PACT Outdoors,Body Wipes,Wipes,,consumable,9000,manufacturer,https://www.garagegrowngear.com/products/body-wipes-by-pact-outdoors,
 PACT Outdoors,Mycelium Tabs,Waste tablets,bag of 120,consumable,38000,manufacturer,https://www.garagegrowngear.com/products/mycelium-tabs-by-pact-outdoors,
 PACT Outdoors,Pack Out Bathroom Kit,Bathroom kit,1 Bag,consumable,40000,manufacturer,https://www.garagegrowngear.com/products/pack-out-kit-by-pact-outdoors,
-Peak Refuel,Beef Stroganoff,Meal,2 servings,consumable,141748,manufacturer,https://peakrefuel.com/products/beef-stroganoff,810
+Peak Refuel,Beef Stroganoff,Meal,"2 servings, net",consumable,141748,manufacturer,https://peakrefuel.com/products/beef-stroganoff,810
 Peter Rabbit Organics,Organic Fruit Snack (Strawberry & Banana),Fruit snack,,consumable,113398,manufacturer,https://www.wholefoodsmarket.com/product/peter-rabbit-organics-strawberry-banana-4-oz-b00fbo6b80,70
 Pika Outdoors,Summit Suds Powdered Soap,Soap,1oz Bottle,consumable,40000,manufacturer,https://www.garagegrowngear.com/products/summit-suds-powdered-soap-by-pika-outdoors,
 Pika Outdoors,Summit Suds Powdered Soap,Soap,3oz Packet,consumable,91000,manufacturer,https://www.garagegrowngear.com/products/summit-suds-powdered-soap-by-pika-outdoors,

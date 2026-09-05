@@ -100,7 +100,7 @@
     {
       "brand": "Knorr",
       "name": "Rice Sides Cheddar Broccoli",
-      "variant": "",
+      "variant": "net",
       "category_hint": "consumable",
       "weight_value": 5.7,
       "weight_unit": "oz",
@@ -114,7 +114,7 @@
     {
       "brand": "Idahoan",
       "name": "Classic Mashed Potatoes",
-      "variant": "",
+      "variant": "net",
       "category_hint": "consumable",
       "weight_value": 4,
       "weight_unit": "oz",
@@ -128,7 +128,7 @@
     {
       "brand": "Mountain House",
       "name": "Beef Stroganoff",
-      "variant": "Pro-Pak, 1 serving",
+      "variant": "Pro-Pak, 1 serving, net",
       "category_hint": "consumable",
       "weight_value": 4.6,
       "weight_unit": "oz",

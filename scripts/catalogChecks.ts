@@ -298,9 +298,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   // maker sells several of. So: "One size" and "Unisex" say nothing; "Standard" on
   // a product with one row is filler; "per bar" on the only row of "Energy Bar"
   // restates the name (a unit label earns its place only beside a multi-pack
-  // sibling, or on trekking poles); "net" is the catalog's convention for every
-  // food weight, not a fact about one pouch (fuel canisters keep "net fuel" — the
-  // stored weight is the gas alone, not the can you carry).
+  // sibling, or on trekking poles).
   const rowsPerProduct = new Map<string, number>();
   for (const r of rows) {
     const k = `${normKey(r.brand)}|${normKey(r.name)}`;
@@ -321,8 +319,21 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
       warn("variant-filler", `${gearLabel(r)}: "Standard" on a one-row product is filler; drop`);
     } else if (dims.some((d) => /^per \w+$/i.test(d)) && !/\btrekking\s+poles?$/i.test(r.name.trim()) && !hasPackSibling(r)) {
       warn("variant-filler", `${gearLabel(r)}: unit label in "${v}" restates the row — only trekking poles, or a row beside a multi-pack sibling, carry one`);
-    } else if (dims.includes("net") && r.commonName?.toLowerCase() !== "fuel canister") {
-      warn("variant-filler", `${gearLabel(r)}: "net" is the convention for every food weight, not a fact about this row; drop`);
+    }
+  }
+
+  // --- WARNING: a food row still at net weight -------------------------------
+  // A food row stores what you CARRY — contents plus pouch — whenever the maker
+  // publishes a total/package weight or someone has weighed one. Makers mostly
+  // print net contents only, and a cook-in pouch is 20–30 g, so a net-only row
+  // undercounts a five-dinner trip by ~100 g. Such a row says "net" in its variant
+  // so the reader knows, and shows up here as a to-do until a packaged weight is
+  // found. (Bars and chews stay at label weight: the wrapper is a gram or two and
+  // nobody publishes it.) Fuel canisters keep "net fuel" — that is the gas alone.
+  for (const r of rows) {
+    const dims = (r.variant ?? "").split(/,\s*/);
+    if (dims.includes("net") && r.categoryHint === "consumable") {
+      warn("food-net-weight", `${gearLabel(r)}: weight excludes the pouch — find the packaged weight (maker "total weight", or a scale) and drop "net"`);
     }
   }
 
