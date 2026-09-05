@@ -1,0 +1,64 @@
+{
+  "rows": [
+    {
+      "brand": "District Vision",
+      "name": "Junya Racer",
+      "variant": "",
+      "category_hint": "other",
+      "common_name": "sunglasses",
+      "weight_value": 24,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://districtvision.com/products/junya-racer-black-d-g15",
+      "quote": "Total Weight 24g"
+    },
+    {
+      "brand": "District Vision",
+      "name": "Nagata Speed Blade",
+      "variant": "",
+      "category_hint": "other",
+      "common_name": "sunglasses",
+      "weight_value": 23,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://districtvision.com/products/nagata-speed-blade-black-d-g15",
+      "quote": "Total Weight 23g"
+    },
+    {
+      "brand": "District Vision",
+      "name": "Linto Rider",
+      "variant": "",
+      "category_hint": "other",
+      "common_name": "sunglasses",
+      "weight_value": 24,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://districtvision.com/products/linto-gravel-rider-sand-d-blue-ice",
+      "quote": "Total Weight 24g"
+    },
+    {
+      "brand": "District Vision",
+      "name": "Mami Vantage Ti",
+      "variant": "",
+      "category_hint": "other",
+      "common_name": "sunglasses",
+      "weight_value": 23,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://districtvision.com/products/mami-vantage-ti-glossy-graphite-d-blue-gradient",
+      "quote": "Total Weight 23g"
+    },
+    {
+      "brand": "District Vision",
+      "name": "Yukari Windshield",
+      "variant": "",
+      "category_hint": "other",
+      "common_name": "sunglasses",
+      "weight_value": 24,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://districtvision.com/products/yukari-windshield-glossy-black-d-water-grey",
+      "quote": "Total Weight 24g"
+    }
+  ]
+}
