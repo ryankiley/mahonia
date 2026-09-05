@@ -104,6 +104,11 @@ const VIEW_MODES = [
 
 const days = computed(() => props.list?.days ?? []);
 const distanceUnit = computed(() => resolveDistanceUnit(props.list?.trailDistanceUnit));
+// the route's length, for the trail line up in the header — same helper the editor's
+// head row formats with, so a shared list quotes the distance its owner sees
+const distanceLabel = computed(() =>
+  props.list?.trailDistanceM ? formatDistance(props.list.trailDistanceM, distanceUnit.value) : "",
+);
 const profile = computed(() => parseProfile(props.list?.trailProfile));
 const dayDistancesM = computed(() => days.value.map((d) => d.distanceM ?? 0));
 // the same helper the editor uses, so a shared day reads the climb its owner sees
@@ -202,6 +207,14 @@ const asHeight = (m: number) => {
           />
           <HugeiconsIcon :icon="GlobeIcon" v-else class="view__trailicon view__trailicon--fallback" :size="16" :stroke-width="2" aria-hidden="true" />
           <span class="t-clip view__trailname">{{ trail.name }}</span>
+          <!-- How far it goes — the one fact about the route that isn't in its name,
+               and the second thing anybody asks after it. The editor's own head row
+               carries it (ListHead's .head__dist, same helper, same muted step after
+               the name); the share views were dropping it, so a link that read
+               "Kearsarge Pass Trail 41.4 mi" to its owner reached everyone they sent
+               it to as a bare name. `flex: none` so a long trail name ellipses instead
+               of squeezing out four characters that are useless truncated. -->
+          <span v-if="distanceLabel" class="view__dist">{{ distanceLabel }}</span>
         </a>
 
         <!-- the trip's dates, when it has them. Read-only by nature — there is nothing
@@ -339,10 +352,16 @@ const asHeight = (m: number) => {
 /* route + dates on one row. The column gap is wide enough (--space-4, the gap between a
    day and its figures below) that two icon-led facts don't need a dot between them; the
    row gap is the tight one, for when a phone puts the dates on their own line. */
+/* BASELINE down this whole line, and the marks step out of it (align-self: center on
+   each icon below) — the two-part idiom .head__anchor uses in the editor. Centre
+   happened to land these two on the same line while their icons were the same height
+   and their text the same size; it was holding by coincidence, and a 16px favicon
+   beside a 14px calendar is already two box heights being centred independently.
+   Baseline puts the TEXT in charge, which is the thing a reader lines up on. */
 .view__where {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: baseline;
   gap: var(--space-1) var(--space-4);
   font-size: var(--text-base);
 }
@@ -351,22 +370,37 @@ const asHeight = (m: number) => {
    that gives way when the row is tight: shrink (and ellipsis) before the dates do. */
 .view__trail {
   display: inline-flex;
-  align-items: center;
+  align-items: baseline;
   /* the mark and the name are one object — --space-2 let the icon drift off the text */
   gap: var(--space-1);
   min-width: 0;
 }
 .view__dates {
   display: inline-flex;
-  align-items: center;
+  align-items: baseline;
   gap: var(--space-1);
   /* a fact, not a target — never squeezed to make room for a long trail name */
   flex: none;
   color: var(--ink-3);
 }
-/* the mark never gives way — a shrinking row eats the name, never the icon */
-.view__trailicon {
+/* the distance rides after the name as a detail OF it, never truncated — ListHead's
+   .head__dist, one step quieter than the link it trails */
+.view__dist {
   flex: none;
+  color: var(--ink-3);
+}
+/* The mark never gives way — a shrinking row eats the name, never the icon — and it
+   steps OUT of the baseline group its box sits in. Both halves matter: an icon centres
+   optically on the line rather than perching on the baseline (an <svg>'s own baseline
+   is its bottom edge), and an item aligned any other way stops donating its baseline to
+   the flex box, which is what leaves the NAME setting the line. Same pair, for the same
+   two reasons, as .head__icon in the editor's head row. */
+.view__trailicon,
+.view__dates > svg {
+  flex: none;
+  align-self: center;
+}
+.view__trailicon {
   border-radius: 2px;
 }
 /* a stand-in, not the site's mark — a step lighter than the link text beside it */
@@ -413,13 +447,21 @@ const asHeight = (m: number) => {
   flex: 1 1 auto;
   min-width: 0;
 }
+/* baseline, with the icon stepping out of it — the day's figures were landing 1px
+   above the day NAME they sit beside (.view__day is a baseline row, and a centred
+   inline-flex whose first item is an <svg> hands the row a synthesized baseline off
+   its own box instead of the number's). Same fix, same two lines, as .view__trail. */
 .view__dayfig {
   flex: none;
   display: inline-flex;
-  align-items: center;
+  align-items: baseline;
   gap: var(--space-1);
   color: var(--ink-3);
   font-variant-numeric: tabular-nums;
+}
+.view__dayfig > svg {
+  flex: none;
+  align-self: center;
 }
 .view__folders {
   display: flex;

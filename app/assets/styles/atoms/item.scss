@@ -280,10 +280,13 @@
   color: var(--ink);
 }
 
-/* The STATIC mark — the chip where it is a FACT rather than a toggle: the share
-   views' rows, and /gear's. The editor's chip gets its box from .btn--icon; these
-   have no button to inherit one from, so the box lives here rather than as a
-   hand-copy per surface. It became an atom on the third surface, which is the rule.
+/* The STATIC mark — the chip where it is a FACT rather than a toggle: /gear's rows,
+   whose row carries real buttons beside it, so a chip there reads as one more thing in
+   a row of them. (The share views' rows used to take this too, and no longer do: a
+   read row has no buttons at all, and a lit pill among them was a button-shaped mark
+   that did nothing when pressed. See .item__romark in ReadonlyItemRow.) The editor's
+   chip gets its box from .btn--icon; this has no button to inherit one from, so the
+   box lives here rather than as a hand-copy per surface.
    --icon-btn to LOOK at, pulled back onto the text line it sits in (--icon-pull, the
    --tap-pull idiom one size down): at its full height the chip stands the row's first
    line 8px taller than an unmarked row's, which shows up as an uneven rhythm down a
@@ -305,16 +308,31 @@
    the share views' ReadonlyItemRow), per this file's own header rule: it existed
    as two hand-mirrored scoped copies for exactly one review cycle. Quiet ink —
    the dot is the identity, the name confirms it. */
+/* BASELINE, not centre — and the dot is what steps out of it (align-self below), which
+   is the same two-part idiom .head__anchor uses for the trail link's favicon.
+   `center` here made the tag ride a line of its own: an inline-flex box takes its
+   baseline from its first flex item that participates in baseline alignment, and the
+   first item is the DOT — an empty 10px block with no baseline of its own, so the box
+   synthesized one from its bottom edge and set the whole tag down 1px off the text it
+   sits in ("Trail mix · 2,240 kcal ● Dana", with Dana alone a pixel low). Baseline
+   alignment puts the NAME in that group instead, which is the thing that should be on
+   the row's baseline; the dot, opted out, is free to centre on the line. */
 .item__carrier {
   display: inline-flex;
-  align-items: center;
+  align-items: baseline;
   gap: var(--space-1);
   margin-left: var(--space-2);
   color: var(--ink-3);
   white-space: nowrap;
 }
+/* Centred on the line the name sets — and OUT of the baseline group, which is the half
+   that matters: an item aligned any other way doesn't donate its baseline to the box.
+   This used to ask for the CategoryBar dot's `vertical-align: 0.04em`, which is inert
+   on a flex item (vertical-align applies to inline-level and table-cell boxes, and a
+   flex item is neither) — so the dot was never optically placed at all, and the tag was
+   paying for the attempt with the misalignment above. */
 .item__carrier-dot {
-  vertical-align: 0.04em; /* the CategoryBar dot's optical centring */
+  align-self: center;
 }
 
 /* The quiet "Add an item" affordance — ONE recipe for the folder's add row and a nested

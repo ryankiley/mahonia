@@ -1,6 +1,7 @@
-import { CookieIcon, DropletIcon } from "@hugeicons/core-free-icons";
+import { Backpack02Icon, CookieIcon, DropletIcon, ShirtIcon } from "@hugeicons/core-free-icons";
 import type { IconNode } from "./hugeicon";
 import { isWaterName } from "~~/shared/water";
+import type { Classification } from "~~/shared/types";
 
 /**
  * The glyph the CONSUMABLE mark wears — a droplet on water, the cookie on everything
@@ -18,3 +19,24 @@ import { isWaterName } from "~~/shared/water";
  */
 export const consumableIcon = (name: string): IconNode =>
   isWaterName(name) ? DropletIcon : CookieIcon;
+
+/**
+ * A CLASSIFICATION's glyph — the full three, where the editor's toggles only ever had
+ * two (worn, consumable; base is both of them unlit, which works only where the
+ * toggles are on screen to be unlit).
+ *
+ * Base takes the BACKPACK, and it is the app's own word for the class rather than a
+ * new one: base weight is what's in the pack, which is what the Carried tooltip says
+ * in as many words ("everything in the pack, nothing worn on your body"). Two places
+ * need a picture for it. The totals chips, where a legend with a hole in it teaches
+ * two thirds of a vocabulary. And the share views' rows, where a base row inside a
+ * consumable folder — the stove filed with the food — is the one row on the page that
+ * departs from its folder, and the only class with no mark was exactly the class that
+ * needed one.
+ */
+export const classMark = (cls: Classification, name = ""): IconNode =>
+  cls === "worn" ? ShirtIcon : cls === "consumable" ? consumableIcon(name) : Backpack02Icon;
+
+/** The word beside that glyph — the label a flattened reader gets, and the chips' own. */
+export const classLabel = (cls: Classification): string =>
+  cls === "worn" ? "Worn" : cls === "consumable" ? "Consumable" : "Base";

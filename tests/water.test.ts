@@ -64,4 +64,21 @@ describe("itemQtyLabel — amount labels incl. the worn split", () => {
   it("keeps water as a volume label regardless of any split", () => {
     expect(itemQtyLabel({ name: "Water", qty: 1, unitWeightMg: 2_000_000, wornQty: 1 }, "base")).toBe("2 L");
   });
+  it("counts a water row's volume across its whole line, not one unit of it", () => {
+    // two 1 L bottles weigh 2,000 g, so the amount beside that figure has to say 2 L —
+    // reading the UNIT volume made the row's two numbers disagree by a factor of qty
+    expect(itemQtyLabel({ name: "Water", qty: 2, unitWeightMg: 1_000_000 }, "consumable")).toBe("2 L");
+    expect(itemQtyLabel({ name: "Water", qty: 3, unitWeightMg: 500_000 }, "consumable")).toBe("1.5 L");
+  });
+  it("hideSingle drops a bare ×1 and nothing else", () => {
+    const tent = { name: "Tent", qty: 1, unitWeightMg: 500_000 };
+    expect(itemQtyLabel(tent, "base", { hideSingle: true })).toBe("");
+    expect(itemQtyLabel(tent, "base")).toBe("×1"); // opt-in only — the editor still counts
+    // a real count, a split and a volume all still speak
+    expect(itemQtyLabel(socks, "base", { hideSingle: true })).toBe("×3 · 1 worn");
+    expect(itemQtyLabel({ ...socks, wornQty: undefined }, "base", { hideSingle: true })).toBe("×3");
+    expect(itemQtyLabel({ name: "Water", qty: 1, unitWeightMg: 1_000_000 }, "consumable", { hideSingle: true })).toBe("1 L");
+    // …and a single WORN unit of one is still a split worth naming
+    expect(itemQtyLabel({ name: "Hat", qty: 1, unitWeightMg: 50_000, wornQty: 1 }, "base", { hideSingle: true })).toBe("×1 · 1 worn");
+  });
 });
