@@ -79,8 +79,8 @@
     },
     {
       "brand": "Anker",
-      "name": "313 Power Bank (PowerCore 10K)",
-      "variant": "A1229",
+      "name": "313 Power Bank",
+      "variant": "PowerCore 10K, A1229",
       "category_hint": "electronics",
       "weight_value": 7.5,
       "weight_unit": "oz",
@@ -90,8 +90,8 @@
     },
     {
       "brand": "Anker",
-      "name": "Nano Charger (20W)",
-      "variant": "A2637",
+      "name": "Nano Charger",
+      "variant": "20W, A2637",
       "category_hint": "electronics",
       "weight_value": 1.1,
       "weight_unit": "oz",
@@ -123,7 +123,7 @@
     },
     {
       "brand": "Apple",
-      "name": "Apple Watch Magnetic Fast Charger to USB-C Cable",
+      "name": "Watch Magnetic Fast Charger to USB-C Cable",
       "variant": "1 m",
       "category_hint": "electronics",
       "weight_value": 33,
@@ -134,7 +134,7 @@
     },
     {
       "brand": "INIU",
-      "name": "100W Power Bank (P63)",
+      "name": "100W Power Bank",
       "variant": "P63-E1, 25000mAh",
       "category_hint": "electronics",
       "weight_value": 493,
@@ -145,8 +145,8 @@
     },
     {
       "brand": "Amazon",
-      "name": "Kindle (2024)",
-      "variant": "",
+      "name": "Kindle",
+      "variant": "2024",
       "category_hint": "electronics",
       "weight_value": 158,
       "weight_unit": "g",
@@ -156,8 +156,8 @@
     },
     {
       "brand": "Amazon",
-      "name": "Kindle Paperwhite (2024)",
-      "variant": "",
+      "name": "Kindle Paperwhite",
+      "variant": "2024",
       "category_hint": "electronics",
       "weight_value": 211,
       "weight_unit": "g",
@@ -167,8 +167,8 @@
     },
     {
       "brand": "Amazon",
-      "name": "Kindle Paperwhite Signature Edition (2024)",
-      "variant": "",
+      "name": "Kindle Paperwhite Signature Edition",
+      "variant": "2024",
       "category_hint": "electronics",
       "weight_value": 214,
       "weight_unit": "g",
@@ -178,8 +178,8 @@
     },
     {
       "brand": "Amazon",
-      "name": "Kindle Colorsoft Signature Edition (2024)",
-      "variant": "",
+      "name": "Kindle Colorsoft Signature Edition",
+      "variant": "2024",
       "category_hint": "electronics",
       "weight_value": 219,
       "weight_unit": "g",
@@ -189,8 +189,8 @@
     },
     {
       "brand": "Amazon",
-      "name": "Kindle Scribe (2024)",
-      "variant": "",
+      "name": "Kindle Scribe",
+      "variant": "2024",
       "category_hint": "electronics",
       "weight_value": 433,
       "weight_unit": "g",
@@ -211,7 +211,7 @@
     },
     {
       "brand": "INIU",
-      "name": "Ultra Mini Power Bank (P50)",
+      "name": "Ultra Mini Power Bank",
       "variant": "P50-E1, 10000mAh",
       "category_hint": "electronics",
       "weight_value": 160,

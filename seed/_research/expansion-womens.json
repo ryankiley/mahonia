@@ -102,7 +102,7 @@
     {
       "brand": "Cumulus",
       "name": "Incredilite Endurance",
-      "variant": "Women's down jacket",
+      "variant": "Women's",
       "category_hint": "clothing",
       "weight_value": 325,
       "weight_unit": "g",
@@ -332,8 +332,8 @@
     },
     {
       "brand": "Merrell",
-      "name": "Moab 3 (low)",
-      "variant": "Women's",
+      "name": "Moab 3",
+      "variant": "Women's, Low",
       "category_hint": "clothing",
       "weight_value": 700,
       "weight_unit": "g",
@@ -706,8 +706,8 @@
     },
     {
       "brand": "Patagonia",
-      "name": "Quandary Pants - Regular",
-      "variant": "Women's M",
+      "name": "Quandary Pants",
+      "variant": "Women's M, Regular",
       "category_hint": "clothing",
       "weight_value": 283,
       "weight_unit": "g",
@@ -740,7 +740,7 @@
     {
       "brand": "Rab",
       "name": "Downpour Waterproof Jacket",
-      "variant": "Women's 10",
+      "variant": "Women's UK 10",
       "category_hint": "clothing",
       "weight_value": 341.5,
       "weight_unit": "g",
@@ -751,7 +751,7 @@
     {
       "brand": "Rab",
       "name": "Downpour Waterproof Pants",
-      "variant": "Women's 10",
+      "variant": "Women's UK 10",
       "category_hint": "clothing",
       "weight_value": 239.5,
       "weight_unit": "g",
@@ -762,7 +762,7 @@
     {
       "brand": "Rab",
       "name": "Microlight Alpine Jacket",
-      "variant": "Women's 12",
+      "variant": "Women's UK 12",
       "category_hint": "clothing",
       "weight_value": 413.5,
       "weight_unit": "g",
@@ -773,7 +773,7 @@
     {
       "brand": "Rab",
       "name": "Mythic Ultra",
-      "variant": "Women's 10",
+      "variant": "Women's UK 10",
       "category_hint": "clothing",
       "weight_value": 499,
       "weight_unit": "g",
@@ -794,8 +794,8 @@
     },
     {
       "brand": "Salomon",
-      "name": "X Ultra 360 (low)",
-      "variant": "Women's",
+      "name": "X Ultra 360",
+      "variant": "Women's, Low",
       "category_hint": "clothing",
       "weight_value": 610,
       "weight_unit": "g",

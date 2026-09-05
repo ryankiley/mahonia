@@ -145,8 +145,8 @@
     },
     {
       "brand": "Merrell",
-      "name": "Moab 3 (low)",
-      "variant": "Men's",
+      "name": "Moab 3",
+      "variant": "Men's, Low",
       "category_hint": "clothing",
       "weight_value": 919,
       "weight_unit": "g",
@@ -167,8 +167,8 @@
     },
     {
       "brand": "Salomon",
-      "name": "X Ultra 360 (low)",
-      "variant": "Men's",
+      "name": "X Ultra 360",
+      "variant": "Men's, Low",
       "category_hint": "clothing",
       "weight_value": 697,
       "weight_unit": "g",

@@ -88,6 +88,28 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
     if (canon) err("common-name-drift", `${gearLabel(r)}: gear type "${r.commonName}" → canonical "${canon}"`);
   }
 
+  // --- ERROR: the name starts with its own brand ------------------------------
+  // The UI renders brand + name joined ("Apple" + "Apple Watch SE 3" → "Apple Apple
+  // Watch SE 3"), so the brand lives in `brand` only. A collab is a brand of its own
+  // ("Zpacks x Vaucluse"), and an eponymous product takes a descriptor for a name.
+  for (const r of rows) {
+    const b = (r.brand ?? "").trim();
+    if (b && new RegExp(`^${b.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(r.name.trim())) {
+      err("name-repeats-brand", `${gearLabel(r)}: name starts with the brand — drop it from the name (or make the collab the brand)`);
+    }
+  }
+
+  // --- ERROR: a qualifier hiding in the name ----------------------------------
+  // " - Regular", "(low)", "(2024)", "(SP129)" are configs, not names: they go in
+  // `variant`. Parentheses are allowed on food rows (the flavor convention:
+  // "Energy Bar (Chocolate Chip)").
+  for (const r of rows) {
+    if (/\s[-–]\s/.test(r.name)) err("name-qualifier", `${gearLabel(r)}: " - " suffix in the name belongs in the variant`);
+    else if (/\(/.test(r.name) && r.categoryHint !== "consumable") {
+      err("name-qualifier", `${gearLabel(r)}: parenthetical in the name belongs in the variant (parens are for a food row's flavor)`);
+    }
+  }
+
   // --- ERROR: variant carries research commentary instead of a clean config ---
   // Keyword-driven (deterministic, low false-positive). A legit size spec like
   // "(US size 9 / M9)" or "(tapered)" must NOT trip — only prose markers do.
@@ -268,6 +290,16 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
     if (!FOOTWEAR.has((r.commonName ?? "").toLowerCase()) || !/\d/.test(v)) continue;
     if (!/\b(US|UK|EU|JP)\b/.test(v)) {
       warn("footwear-size", `${gearLabel(r)}: footwear size "${v}" needs a region — "Men's US 9", "Women's US 8", "UK 8"`);
+    }
+  }
+
+  // --- WARNING: unit-label phrasing -------------------------------------------
+  // One weight per one thing reads "per bar" / "per stake", never "single bar",
+  // "each", or "one pouch"; multiples read "3-pack" or "sleeve of 10".
+  for (const r of rows) {
+    const v = r.variant ?? "";
+    if (/\b(?:single|one)\s+(?:bar|pouch|sleeve|stick|waffle|packet|serve|serving|bowl|pack|wipe|tablet)\b|\beach\b/i.test(v)) {
+      warn("variant-unit-label", `${gearLabel(r)}: "${v}" — say "per <unit>" for one item, "<n>-pack" for several`);
     }
   }
 

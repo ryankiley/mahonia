@@ -102,7 +102,7 @@
     {
       "brand": "Matador",
       "name": "GlobeRider35 Travel Backpack",
-      "variant": "with hip belt",
+      "variant": "with hipbelt",
       "category_hint": "pack",
       "weight_value": 1560,
       "weight_unit": "g",
@@ -167,7 +167,7 @@
     },
     {
       "brand": "Matador",
-      "name": "Refillable Toothpaste Tubes",
+      "name": "Refillable Toothpaste Tube",
       "variant": "1-week",
       "category_hint": "consumable",
       "weight_value": 7,
@@ -178,7 +178,7 @@
     },
     {
       "brand": "Matador",
-      "name": "Refillable Toothpaste Tubes",
+      "name": "Refillable Toothpaste Tube",
       "variant": "2-week",
       "category_hint": "consumable",
       "weight_value": 8,

@@ -124,6 +124,10 @@ export function isBrandedTypedItem(p: {
 //   • no "Size" prefix before a letter size ("Size M" → "M"; "Size D" / "Size 9" keep
 //     theirs — an insole letter or a shoe number isn't self-describing alone)
 //   • a gender prefix takes no comma ("Men's, M" → "Men's M", the catalog's house form)
+//   • a number and its unit are one token — "6 ft" → "6ft", "400 ml" → "400ml", "1 m" →
+//     "1m" — matching the "68L" / "20F" forms above; prime marks spell out as ft / in
+//     ("9'" → "9ft", '17" torso' → "17in torso") so a variant never carries a bare quote
+//   • quantity phrasing: "3 Pack" → "3-pack"; "Set of 4" / "Sleeve of 10" → lowercase
 //   • KEEP genuine tokens: size ranges ("S/M", "L/XL", "M/L torso") and spaced
 //     unit/temperature equivalents ("32oz / 1L", "20F / -6C", '16" / 19"')
 //   • a "|" between dimensions is treated like a top-level comma ("M's 9 | W's 10"
@@ -146,6 +150,17 @@ export function normalizeVariant(input: string | null | undefined): string {
   // 1b. "Size M" → "M": the prefix only ever precedes an S/M/L-family letter that stands
   //     on its own; "Size D" (insole) and "Size 9" (shoe) are left for the footwear rule
   v = v.replace(/\bsize\s+(?=(?:xxs|xs|s|m|l|xl|xxl)\b)/gi, "");
+  // 1c. prime marks → ft / in ("9'" → "9ft", '20"' → "20in", "5' x 8.5'" → "5ft x 8.5ft");
+  //     a vulgar fraction counts as a number ("⅝\"" → "⅝in")
+  v = v
+    .replace(/(\d(?:\.\d+)?|[⅛¼⅜½⅝¾⅞])\s*'(?!s\b)/g, "$1ft")
+    .replace(/(\d(?:\.\d+)?|[⅛¼⅜½⅝¾⅞])\s*"/g, "$1in")
+    .replace(/ft(?=\d)/g, "ft "); // 5'6" → "5ft 6in", not "5ft6in"
+  // 1d. number + unit are one token: "6 ft" → "6ft", "400 ml" → "400ml", "1 m" → "1m".
+  //     Only these units — never a size scale ("Size 9", "JP 3", "US 9", "Ultra 200X").
+  v = v.replace(/(\d)\s+(ft|in|yd|cm|mm|m|km|g|kg|oz|lb|ml|qt|gal|mAh|gsm)\b/g, "$1$2");
+  // 1e. quantity phrasing: "3 Pack" / "3 pack" → "3-pack"; "Set of 4" → "set of 4"
+  v = v.replace(/\b(\d+)[\s-]?[Pp]ack\b/g, "$1-pack").replace(/\b(Set|Sleeve|Bag|Box|Bottle|Package|Roll|Tin|Tube) of\b/g, (m) => m.toLowerCase());
   // 2. temperature: "20°F" / "20 F" / "-6 c" → "20F" / "-6C" (degree dropped, uppercased)
   v = v.replace(/(-?\d+(?:\.\d+)?)\s*°?\s*([FfCc])\b/g, (_m, n: string, u: string) => `${n}${u.toUpperCase()}`);
   // 3. volume: a number followed by L (with optional space) → "<n>L" (only when a digit precedes L,
