@@ -1297,9 +1297,14 @@ onBeforeUnmount(() => {
   background: light-dark(oklch(0.95 0.01 250), oklch(0.95 0.01 250));
 }
 
+/* No font-size. It asked for `var(--fs-xs)`, from a --fs-* scale this app has never
+   had — so the declaration was invalid at computed-value time, the browser dropped it,
+   and the note has always rendered at the inherited --text-base. Removing it changes
+   nothing; keeping it claimed a size that was never applied. If the note does want the
+   smaller step it is --text-chrome or --text-micro (tokens.scss), but that is a design
+   call and a visible change, so it is not made here. */
 .routemap__note {
   margin-top: var(--space-1);
-  font-size: var(--fs-xs);
   color: var(--ink-3);
 }
 /* The (?) sits where the sentence did, and quietly — it is an offer, not a notice. */

@@ -192,8 +192,8 @@ watch(open, (o) => {
             v-model="query"
             type="text"
             class="lm__field"
-            placeholder="Filter lists"
-            aria-label="Filter lists"
+            placeholder="Search"
+            aria-label="Search lists"
             autocomplete="off"
             spellcheck="false"
           />
@@ -207,7 +207,6 @@ watch(open, (o) => {
             data-row
             role="menuitem"
             class="menu__item"
-            :class="{ 'is-current': isCurrent(e) }"
             :aria-current="isCurrent(e) ? 'page' : undefined"
             :title="savedListTitle(e.title)"
             @click="close"
@@ -288,7 +287,7 @@ watch(open, (o) => {
   }
 }
 /* the app's dropdown mark, and it turns over when the menu is open — it IS the ⋯
-   menu's section chevron (.menu__sectchev, controls.scss), the same atom the sharing
+   menu's section chevron (.chev, controls.scss), the same atom the sharing
    panel's disclosure wears; the copy that lived here was byte-identical to it */
 /* The word STAYS on a phone now. It used to be hidden below $bp-stack, and the comment
    here said why: "It's the topbar that forces this: with three mode segments the tool

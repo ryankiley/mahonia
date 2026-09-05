@@ -4,6 +4,10 @@
     "What's new lines up with the rest of the About page — its heading, dates and entries share one column with the text above them, and the rule that separates them has room above it.",
     "Bullets in a list sit level with the line they belong to instead of floating above it.",
     "Open a link to a list that isn't there and the message starts where every other page's text starts, with its Create a list button showing its label again.",
-    "The chevron beside the big total turns as smoothly as every other one when its unit menu opens, and the one on My Gear's folder picker turns at all."
+    "Every chevron that opens a menu now turns while it's open, and turns smoothly — the one beside the big total, the one on each row's unit, and My Gear's folder picker, which never turned at all.",
+    "The buttons in the feedback dialog sit where every other dialog's do."
+  ],
+  "changed": [
+    "The box at the top of the lists menu says Search."
   ]
 }

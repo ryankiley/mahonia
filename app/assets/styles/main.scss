@@ -119,17 +119,23 @@
    bullet on this site opens with a capital, so the mark reads against cap height
    rather than x-height. Half the line box gets most of the way there, and the +0.02em
    is the gap between that midpoint and the cap box's own — for the system stack at
-   16/24 it lands 12.32px down against a true cap centre of 12.36px.
-   Derived from --leading-normal rather than stated flat (it was `0.72em`, which is the
-   LINE BOX centre less a hair — 0.84px high, about a sixth of the dot's diameter, and
-   visible as dots that float above their text) so retuning the leading carries the
-   marks with it instead of stranding them. */
+   16/24 it lands 12.32px down against a true cap centre of 12.36px. It was `0.72em`,
+   the LINE BOX centre less a hair: 0.84px high, about a sixth of the dot's diameter,
+   and visible as dots that float above their text.
+   `0.5lh`, NOT `var(--leading-normal) * 0.5em`. Both track the leading, but the second
+   is only valid while that token stays unitless — and it is consumed elsewhere as a
+   line-height, where `1.5rem` is an equally natural way to write it. The moment it took
+   a unit the calc would be length × length, invalid at computed-value time, and `top`
+   would fall back to `auto` with every bullet on the site dropping to the foot of its
+   line and nothing anywhere reporting it. That is the same silent failure --space-8 had
+   just been caught making one file over. The `lh` unit IS half the line box, however the
+   line-height is expressed, so there is no token to keep honest. */
 .prose li::before,
 .bullets > li::before {
   content: "";
   position: absolute;
   left: 0;
-  top: calc(var(--leading-normal) * 0.5em + 0.02em);
+  top: calc(0.5lh + 0.02em);
   width: 0.36em;
   height: 0.36em;
   border-radius: 50%;

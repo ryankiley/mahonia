@@ -190,6 +190,12 @@ const lastUpdated = computed(() => {
   flex-direction: column;
   gap: var(--space-2);
 }
+/* The measure came with `.prose` too, and running text without one is the fault this
+   page was just fixed for — these two lines were the only prose on it free to run the
+   full 42rem while every paragraph above them stopped at 64ch. */
+.log__head p {
+  max-width: 64ch;
+}
 
 /* date rail on the left, entries on the right — spec-sheet rhythm */
 .log__rel {

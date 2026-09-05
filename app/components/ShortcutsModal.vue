@@ -135,8 +135,12 @@ const GROUPS: { title: string; rows: Row[] }[] = [
   justify-content: center;
   min-width: 1.6em;
   padding: 0.1em 0.4em;
+  /* `font: inherit` is the whole of the sizing. The line under it asked for
+     `var(--text-sm)`, and tokens.scss says in as many words that there is no --text-sm —
+     the small tier was removed and body text is --text-base — so the declaration was
+     invalid, dropped, and the key has always matched its surrounding line. Which is the
+     right answer for a <kbd> inline in a sentence; the dead line just said otherwise. */
   font: inherit;
-  font-size: var(--text-sm);
   line-height: 1.4;
   color: var(--ink);
   background: var(--paper-2);
