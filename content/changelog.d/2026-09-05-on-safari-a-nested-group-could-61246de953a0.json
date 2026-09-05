@@ -1,0 +1,7 @@
+{
+  "date": "2026-09-05",
+  "fixed": [
+    "On Safari, a nested group could keep a blank space the height of its children below it, or push them down by their own height. It no longer can.",
+    "On a phone, a group's total weight now starts at the left edge of its line instead of floating after a blank space."
+  ]
+}

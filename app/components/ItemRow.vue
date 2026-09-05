@@ -1317,14 +1317,10 @@ function dismissFix() {
              regardless: the columns are named areas off --item-cols, not the cells that
              sit in them, so the weight column stays put and a parent lines up with its
              children. Two of a kit is a second group: "Duplicate" carries the children. -->
-        <!-- ...and a GHOST in its place, for the mobile line only. The desktop grid needs
-             none — its columns are named areas off a fixed --item-col-qty track, so an
-             absent cell leaves an empty column. Below $bp-stack there is no grid:
-             .item__meta is a plain flex row, so dropping the cell makes the weight the
-             first item and a bare group's total starts a whole cell + gap left of every
-             other row's. The ghost carries the same two children as the real cell so it
-             measures itself rather than guessing a width, and it is display:none up on
-             the grid. -->
+        <!-- No spacer stands in for it on the phone line either. One did, so a group's
+             total would start where a sibling row's weight does, but with nothing to
+             its left the total read as a broken wrap (Sept 2026, prod). A row's second
+             line starts at its own left edge, like every other row's. -->
         <div v-if="isWater || !bareGroup" class="item__qty" :class="{ 'item__qty--step': !isWater }">
           <template v-if="isWater">
             <input
@@ -1388,9 +1384,6 @@ function dismissFix() {
               <HugeiconsIcon :icon="PlusSignIcon" :size="16" :stroke-width="2" />
             </button>
           </template>
-        </div>
-        <div v-else class="item__qty item__qty--ghost" aria-hidden="true">
-          <span class="field field--num" /><span class="t-sm t-muted item__unit">×</span>
         </div>
 
         <div class="item__weight">
@@ -2201,15 +2194,6 @@ function dismissFix() {
 /* the pop when the stepper moves the number — the shared `num-pop` keyframe
    (main.scss), the one the big total takes when it changes. blur(0) at rest, never
    `none`: the filter context has to persist between runs or WebKit drops it. */
-/* The ghost is a spacer, never a control: no ink, no hit target, no a11y presence
-   (aria-hidden on the element). Off the grid entirely up here — the named area already
-   holds the column — and switched on in the $bp-stack block, which is the only place a
-   missing cell moves anything. */
-.item__qty--ghost {
-  display: none;
-  visibility: hidden;
-  pointer-events: none;
-}
 .item__qtyfield {
   filter: blur(0);
   transform: translateZ(0);
@@ -3190,11 +3174,6 @@ textarea.item__note {
   }
   .item__qty .field {
     width: 2.5em;
-  }
-  /* the ghost takes the same box the real cell would have (it holds the same field +
-     "×"), so the amount slot measures itself and no width has to be guessed here */
-  .item__qty--ghost {
-    display: flex;
   }
   .item__weight .field {
     width: 4em;
