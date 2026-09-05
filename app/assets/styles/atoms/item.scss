@@ -190,27 +190,66 @@
   border-left: 1px solid var(--line);
 }
 
-/* collapse a nested group — hide/show its children with the folder's 1fr↔0fr grid
-   slide (Safari-safe). Shared by the editor's ItemRow and the share views'
-   ReadonlyItemRow: the .nest-block inner needs min-height:0 + overflow:hidden to clip
-   the reveal, and its parent→child margin collapses too so a closed group leaves no
-   orphan gap. (The editor additionally lifts the clip while an autocomplete/drag is
-   live — that override lives in ItemRow, which is the only view with those.) */
+/* collapse a nested group — hide/show its children. Shared by the editor's ItemRow and
+   the share views' ReadonlyItemRow.
+
+   Two implementations, picked by engine.
+
+   WebKit (Safari, and every iOS browser, which all run it): NO grid. The wrapper is a
+   plain block and a closed group's block is height:0 + hidden — rest states that no
+   track-sizing pass can get wrong. Opening fades the children in; closing is instant.
+   Why: Safari 26.4 shipped a new grid engine, and on a 1fr↔0fr track holding one
+   min-height:0 + overflow:hidden item it took the item's CONTENT height as the
+   track's minimum. A closed group kept its children's height as blank space, and an
+   open one doubled it, pushing the children down by their own height. Seen in prod
+   (Sept 2026) on nested groups only, and it cleared itself on a fresh layout (coming
+   back to the tab), which is the mark of a stale-size bug rather than a CSS one. Not
+   reproducible in Chromium or WebKit trunk, where the fixes landed after Safari 26.6.
+   `font: -apple-system-body` is a value only WebKit accepts, which makes it a feature
+   query for the engine itself.
+
+   Everything else: the folder's 1fr↔0fr grid slide. minmax(0, …) pins each track's
+   minimum by declaration rather than leaving it to be derived from the clipped item,
+   and the .nest-block inner needs min-height:0 + overflow:hidden to clip the reveal.
+   Its parent→child margin collapses too so a closed group leaves no orphan gap. (The
+   editor additionally lifts the clip while an autocomplete/drag is live — that
+   override lives in ItemRow, which is the only view with those.) */
 .nestcollapse {
-  display: grid;
-  grid-template-rows: 1fr;
-  transition: grid-template-rows var(--dur) var(--ease);
-}
-.nestcollapse[data-collapsed] {
-  grid-template-rows: 0fr;
+  display: flow-root;
 }
 .nestcollapse > .nest-block {
   min-height: 0;
-  overflow: hidden;
-  transition: margin-top var(--dur) var(--ease);
+  transition:
+    opacity var(--dur) var(--ease),
+    margin-top var(--dur) var(--ease);
 }
 .nestcollapse[data-collapsed] > .nest-block {
+  height: 0;
   margin-top: 0;
+  overflow: hidden;
+  visibility: hidden;
+  opacity: 0;
+}
+@supports not (font: -apple-system-body) {
+  .nestcollapse {
+    display: grid;
+    grid-template-rows: minmax(0, 1fr);
+    transition: grid-template-rows var(--dur) var(--ease);
+  }
+  .nestcollapse[data-collapsed] {
+    grid-template-rows: minmax(0, 0fr);
+  }
+  .nestcollapse > .nest-block {
+    overflow: hidden;
+    transition: margin-top var(--dur) var(--ease);
+  }
+  /* the track does the hiding here; the block stays whole so the slide has something
+     to clip, and the children keep their opacity through it */
+  .nestcollapse[data-collapsed] > .nest-block {
+    height: auto;
+    visibility: visible;
+    opacity: 1;
+  }
 }
 
 /* the collapse chevron that trails a group's name (.item__nestcollapse / .item__nestchev,
