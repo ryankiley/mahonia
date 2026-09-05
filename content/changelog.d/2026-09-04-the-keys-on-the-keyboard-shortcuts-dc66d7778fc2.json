@@ -1,0 +1,7 @@
+{
+  "date": "2026-09-04",
+  "changed": [
+    "The keys on the keyboard-shortcuts sheet are a step smaller, so a chord sits in its line instead of standing taller than the description beside it.",
+    "The note under the route map reads at caption size rather than body size."
+  ]
+}

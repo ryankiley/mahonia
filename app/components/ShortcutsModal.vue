@@ -135,12 +135,17 @@ const GROUPS: { title: string; rows: Row[] }[] = [
   justify-content: center;
   min-width: 1.6em;
   padding: 0.1em 0.4em;
-  /* `font: inherit` is the whole of the sizing. The line under it asked for
-     `var(--text-sm)`, and tokens.scss says in as many words that there is no --text-sm —
-     the small tier was removed and body text is --text-base — so the declaration was
-     invalid, dropped, and the key has always matched its surrounding line. Which is the
-     right answer for a <kbd> inline in a sentence; the dead line just said otherwise. */
   font: inherit;
+  /* …then one step down, which is what the line above this rule is about. The cap is a
+     BOX, not a word: at --text-base its 1.4 leading plus 0.1em of padding and a 1px edge
+     measures 27.6px, and it sits in a 24px description line — so every chord stood the
+     row 3.6px taller than the text it annotates, which is the thing the comment above
+     says this rule exists to prevent. At --text-chrome the box is 24.4px and the row is
+     the line. (It asked for --text-sm, a token this app has never had; #289 removed the
+     dead declaration on the reasoning that a <kbd> should match its surrounding line,
+     which is right for one set inline in a sentence — every <kbd> here is a <dt> in the
+     key column of a <dl>, and none of them is.) */
+  font-size: var(--text-chrome);
   line-height: 1.4;
   color: var(--ink);
   background: var(--paper-2);
