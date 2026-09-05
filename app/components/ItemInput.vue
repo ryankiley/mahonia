@@ -20,8 +20,17 @@ const props = withDefaults(
     placeholder?: string;
     clearOnCommit?: boolean;
     autofocus?: boolean; // focus the field on mount (a freshly-added blank row)
+    // Offer catalog / My Gear matches while typing. FALSE on a GROUP's name: a pick
+    // stamps a weight (onNameCommit in ItemRow) and a group's weight cell is read-only
+    // and shows the total of its children, so that weight would land where no row prints
+    // it and no field can edit it — the one state the wrap exists to prevent, arriving
+    // through the name box instead of through a nest. A container's name is a heading the
+    // user writes ("Dinners", "Cook kit"); the catalog names products, which are its
+    // children. Off means no request and no menu — typing and committing free text are
+    // untouched, so renaming a group still works exactly as it did.
+    suggest?: boolean;
   }>(),
-  { initial: "", placeholder: "Add an item…", clearOnCommit: true, autofocus: false },
+  { initial: "", placeholder: "Add an item…", clearOnCommit: true, autofocus: false, suggest: true },
 );
 const emit = defineEmits<{
   commit: [NameCommit];
@@ -94,7 +103,7 @@ function setDraftQuiet(v: string) {
   nextTick(() => (suppressOpen = false));
 }
 watch(draft, (v) => {
-  if (suppressOpen) return;
+  if (suppressOpen || !props.suggest) return; // no suggestions asked for → no request
   search(v);
   vaultSearch(v);
   active.value = -1;
@@ -201,7 +210,7 @@ const sectionAt = computed<Map<number, string>>(() => {
 // whose body clips overflow for the collapse animation. Signal the ancestor while the
 // menu is showing so it can lift that clip (mirrors the drag-pass clip lift). Emit a
 // closing toggle on unmount too, so a row removed mid-suggestion doesn't strand it.
-const menuVisible = computed(() => open.value && options.value.length > 0);
+const menuVisible = computed(() => props.suggest && open.value && options.value.length > 0);
 // The folder lifts its collapse clip while we're lifted (a +1/−1 count), so only
 // emit on genuine state CHANGES — dedup makes the count impossible to unbalance.
 let acLifted = false;

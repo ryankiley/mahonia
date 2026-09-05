@@ -1,0 +1,7 @@
+{
+  "date": "2026-09-05",
+  "changed": [
+    "A row with items nested under it no longer carries a quantity or a worn/consumable mark of its own — those describe one item's own line, and a group's line is its children's.",
+    "Naming a group no longer offers catalog and My Gear suggestions: a group is a heading you write, and the products it names are its children."
+  ]
+}

@@ -46,6 +46,13 @@ export function createNesting({ snapshot, dispatch, pendingBlankId, discardEmpty
 // no weight is already a container — nest straight into it, exactly as before,
 // which is what keeps a hand-built "Cook kit" group working the way it does now.
 //
+// WEIGHT IS THE ONLY TRIGGER, and deliberately so: it is the one field whose cell a
+// parent row takes away. The others a group can carry — a count, calories — keep
+// their cells on a group that holds them (isBareGroup, shared/weights), so nothing
+// goes into hiding and there is nothing for a wrap to rescue. Widening the trigger
+// to those would only mean lifting more rows' gear type onto a new container for a
+// gesture that asked for none.
+//
 // The group takes the product's COMMON NAME ("Tent") — the field that exists to
 // say what a thing generically IS, which is precisely what the group now is — and
 // the child gives it up so it isn't printed on both lines. With no common name to

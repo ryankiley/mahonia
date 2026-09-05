@@ -363,38 +363,6 @@ function healPersonId(state: ListState, it: Item): void {
   if (it.personId && !state.people?.some((p) => p.id === it.personId)) it.personId = undefined;
 }
 
-// A GROUP CARRIES NO COUNT OF ITS OWN — pin it to one whenever a row gains a child.
-//
-// The twin of the rule the WRAP already keeps (containerFor in useGearListNesting: nest
-// into a row that carries a weight and the product slides underneath a fresh container,
-// because "a group is a container, not a product"). A container has no weight of its own;
-// it has no quantity of its own either, and for the same reason.
-//
-// What forced it is that the two cells stopped agreeing. On a leaf the weight column is
-// the UNIT weight, so "×3 · 40 g" reads as the multiplication that makes the line. On a
-// parent that same column shows the GROUP total (groupLineMg: own line + the children's),
-// so a "×3" beside it is a multiplier over a figure it is already inside — and one that
-// never reached the children anyway. "2 ×" against a group of dinners still contributes
-// one dinner each; "2 ×" on a tent with its fly and poles nested under it would mean two
-// tent bodies sharing one set of poles, which is not a thing anyone packs.
-//
-// So a count on a group isn't a number the app renders wrong — it is a number with no
-// meaning to render. The editor drops the qty cell outright on a parent (ItemRow), the
-// way it already makes the weight cell read-only, and this keeps the STORED count honest
-// with that: nothing multiplying quietly behind a control that isn't there. The wrap
-// means a container's own weight is 0 to begin with, so what this pins is a factor on
-// zero and takes nothing away. wornQty goes with it, on the rule it follows everywhere
-// else — a split needs ≥2 units.
-//
-// Two of a kit is a SECOND GROUP, not a bigger number: duplicateItem carries children.
-function pinParentQty(state: ListState, parentId: string | null | undefined): void {
-  if (!parentId) return;
-  const parent = state.items.find((p) => p.id === parentId);
-  if (!parent || parent.qty === 1) return;
-  parent.qty = 1;
-  parent.wornQty = undefined;
-}
-
 // A day's optional metres go through trailDistance's boundedRound. Absent stays absent
 // and a zero CLEARS, on the same reasoning as Item.kcal: a zero would read as "this day
 // covers no ground", which is a claim, where absent reads as "not filled in". A day that
@@ -571,7 +539,6 @@ function applyOp(state: ListState, op: Op): void {
           const parent = state.items.find((p) => p.id === it.parentId);
           if (parent && parent.parentId == null && parent.id !== it.id) it.folderId = parent.folderId;
           else it.parentId = null;
-          pinParentQty(state, it.parentId); // a group has no count of its own
         }
         healPersonId(state, it); // same heal as the folderId line above
         state.items.push(it);
@@ -638,7 +605,6 @@ function applyOp(state: ListState, op: Op): void {
             if (parent && parent.parentId == null && !hasKids) parentId = op.parentId;
           }
           it.parentId = parentId;
-          pinParentQty(state, parentId); // a group has no count of its own
         }
         // a child always follows its parent's folder; otherwise honor the op's folder
         const parent = it.parentId ? state.items.find((p) => p.id === it.parentId) : null;

@@ -82,14 +82,20 @@ describe("itemQtyLabel — amount labels incl. the worn split", () => {
     expect(itemQtyLabel({ name: "Hat", qty: 1, unitWeightMg: 50_000, wornQty: 1 }, "base", { hideSingle: true })).toBe("×1 · 1 worn");
   });
   // A GROUP has no count in this column: the weight beside it is the group's TOTAL,
-  // which the parent's own qty already went into, so a "×N" there would multiply a
-  // figure it is part of. Outranks every case below it, water and the split included —
-  // those speak for a row that is a product, and a group is a container.
-  it("group empties the label outright, whatever the row holds", () => {
-    expect(itemQtyLabel(socks, "base", { group: true })).toBe("");
+  // which the row's own count is already inside, so a "×N" there would multiply a figure
+  // it is part of. The CALLER decides which rows qualify (isBareGroup) — a group that
+  // carries a line of its own keeps its label, since these views heal nothing.
+  it("group empties the label", () => {
     expect(itemQtyLabel({ name: "Cook kit", qty: 1, unitWeightMg: 0 }, "base", { group: true })).toBe("");
-    expect(itemQtyLabel({ name: "Water", qty: 2, unitWeightMg: 1_000_000 }, "consumable", { group: true })).toBe("");
+    expect(itemQtyLabel(socks, "base", { group: true })).toBe("");
     // and it is opt-in like hideSingle — nothing changes for a row nobody called a group
     expect(itemQtyLabel(socks, "base", { group: false })).toBe("×3 · 1 worn");
+  });
+  // WATER outranks it. That cell states a volume, not a count, and the weight beside it
+  // is read-only on a group — blanking it would leave the row no number it can be edited
+  // back from.
+  it("water still states its volume on a group", () => {
+    expect(itemQtyLabel({ name: "Water", qty: 2, unitWeightMg: 1_000_000 }, "consumable", { group: true })).toBe("2 L");
+    expect(itemQtyLabel({ name: "Water", qty: 1, unitWeightMg: 0 }, "consumable", { group: true, hideSingle: true })).toBe("0 L");
   });
 });

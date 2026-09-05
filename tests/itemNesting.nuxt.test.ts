@@ -488,19 +488,21 @@ describe("duplicating a row", () => {
   });
 });
 
-// A GROUP CARRIES NO COUNT OF ITS OWN, the twin of the wrap above: a parent's weight
-// column shows the group TOTAL, so a "×N" beside it multiplies a figure it is already
-// inside — and one that never reached the children anyway. The editor drops the qty
-// cell on a parent, so anything left in the field would be a multiple with no control
-// left to see or undo it. The reducer pins it (pinParentQty) on every path that nests.
-describe("a row that gains a child gives up its own count", () => {
+// A GROUP CARRIES NOTHING OF ITS OWN — but nothing is REWRITTEN to make that true.
+//
+// The row's qty cell and its two class marks stand down on a group holding none of
+// weight, calories or a count (isBareGroup, shared/weights). A group that does hold one
+// keeps its cells, so no number ever goes into hiding — which is what lets nesting stay
+// a pure move. An earlier attempt pinned the stored count to 1 instead and healed old
+// lists on open; it silently changed their totals, and these are the cases that catch it.
+describe("nesting never rewrites the row it nests into", () => {
   beforeEach(() => {
     records.clear();
     storage.clear();
   });
   afterEach(() => useGearList().dispose());
 
-  it("pins a hand-built container's count to one when something nests into it", async () => {
+  it("leaves a counted row's count alone when it becomes a group", async () => {
     const c = await open([
       item({ id: "kit", name: "Cook kit", qty: 4, sortOrder: 0 }),
       item({ id: "pot", name: "Pot", unitWeightMg: 100_000, sortOrder: 1 }),
@@ -508,68 +510,113 @@ describe("a row that gains a child gives up its own count", () => {
 
     c.nestItem("pot", "kit");
     await vi.waitFor(() => expect(byId(c, "pot")?.parentId).toBe("kit"));
-    // no wrap: the container carries no weight, so it IS the container (containerFor)
-    expect(byId(c, "kit")?.qty).toBe(1);
+    // no weight of its own, so no wrap — and the count is still the user's
+    expect(byId(c, "kit")?.parentId).toBeNull();
+    expect(byId(c, "kit")?.qty).toBe(4);
   });
 
-  it("pins it on the add-a-nested-item path too, and drops the worn split with it", async () => {
+  // Calories are the other thing a count multiplies (computeTotals is kcal × qty), and
+  // the row that carries them typically has no weight yet — so the wrap doesn't fire and
+  // the reducer must not either.
+  it("costs a weightless food row none of its calories", async () => {
     const c = await open([
-      item({ id: "socks", name: "Socks", qty: 3, wornQty: 1, classification: "base", sortOrder: 0 }),
+      item({ id: "dinner", name: "Dinners", qty: 5, kcal: 700, classification: "consumable", sortOrder: 0 }),
+      item({ id: "chili", name: "Chili", unitWeightMg: 180_000, sortOrder: 1 }),
     ]);
+    expect(c.totals.value.kcalTotal).toBe(3500);
+
+    c.nestItem("chili", "dinner");
+    await vi.waitFor(() => expect(byId(c, "chili")?.parentId).toBe("dinner"));
+    expect(byId(c, "dinner")?.qty).toBe(5);
+    expect(byId(c, "dinner")?.kcal).toBe(700);
+    expect(c.totals.value.kcalTotal).toBe(3500);
+  });
+
+  // The cancelled gesture: "Add a nested item" opens a blank child, and clicking away
+  // discards it. Nothing may have changed but the nesting.
+  it("costs nothing when the blank child it opens is discarded", async () => {
+    const c = await open([
+      item({ id: "socks", name: "Socks", qty: 4, wornQty: 1, classification: "base", unitWeightMg: 40_000, sortOrder: 0 }),
+    ]);
+    const before = c.totals.value.totalMg;
 
     const child = c.addChild("socks");
-    await vi.waitFor(() => expect(byId(c, child)?.parentId).toBe("socks"));
-    expect(byId(c, "socks")?.qty).toBe(1);
-    // a split reads as a partial of a base line with ≥2 units; one unit has none
-    expect(byId(c, "socks")?.wornQty).toBeUndefined();
-  });
+    await vi.waitFor(() => expect(byId(c, child)?.parentId).toBeTruthy());
+    c.discardEmpty(child);
+    await vi.waitFor(() => expect(byId(c, child)).toBeUndefined());
 
-  // The count is only ever pinned on a row whose own weight is 0, because a row that
-  // HAS a weight gets wrapped first — so the pair "3 × 210 g" rides down onto the
-  // product intact and the new container starts at one. Nothing is lost either way.
-  it("carries a weighted row's count down to the product the wrap makes", async () => {
-    const c = await open([
-      item({ id: "poles", name: "Trekking poles", commonName: "Poles", qty: 2, unitWeightMg: 210_000, sortOrder: 0 }),
-      item({ id: "baskets", name: "Snow baskets", unitWeightMg: 20_000, sortOrder: 1 }),
-    ]);
-
-    c.nestItem("baskets", "poles");
-    await vi.waitFor(() => expect(byId(c, "poles")?.parentId).not.toBeNull());
-
-    const group = byId(c, byId(c, "poles")!.parentId!)!;
-    expect(group.qty).toBe(1);
-    expect(group.unitWeightMg).toBe(0);
-    // the pair is still a pair, still weighed, one row further in
-    expect(byId(c, "poles")?.qty).toBe(2);
-    expect(byId(c, "poles")?.unitWeightMg).toBe(210_000);
-  });
-
-  // The same pin for the rows nested before it existed: load()'s one-time heal, which
-  // self-persists through the mutate flow like the backfills beside it. Without it a
-  // stored count would sit behind a qty cell the editor no longer draws.
-  it("heals a list opened with a count already on a parent", async () => {
-    const c = await open([
-      item({ id: "kit", name: "Cook kit", qty: 3, sortOrder: 0 }),
-      item({ id: "pot", name: "Pot", parentId: "kit", unitWeightMg: 100_000, sortOrder: 0 }),
-      item({ id: "socks", name: "Socks", qty: 3, wornQty: 1, classification: "base", sortOrder: 1 }),
-    ]);
-
-    await vi.waitFor(() => expect(byId(c, "kit")?.qty).toBe(1));
-    // and only the parents — a leaf's count is its own business
-    expect(byId(c, "socks")?.qty).toBe(3);
+    expect(byId(c, "socks")?.qty).toBe(4);
     expect(byId(c, "socks")?.wornQty).toBe(1);
+    expect(c.totals.value.totalMg).toBe(before);
   });
 
-  it("leaves a childless row's count alone", async () => {
+  // Opening a list must not rewrite it either. A parent stored with a count and a weight
+  // of its own — an import, another client, a list nested before any of this — keeps both,
+  // and its cells stay on screen (isBareGroup is false) rather than the number being
+  // pinned away behind a control that is no longer drawn.
+  it("leaves a stored list's counted parent exactly as it found it", async () => {
+    const c = await open([
+      item({ id: "poles", name: "Trekking poles", qty: 2, unitWeightMg: 210_000, sortOrder: 0 }),
+      item({ id: "baskets", name: "Snow baskets", parentId: "poles", unitWeightMg: 20_000, sortOrder: 0 }),
+      item({ id: "kit", name: "Cook kit", qty: 3, sortOrder: 1 }),
+      item({ id: "pot", name: "Pot", parentId: "kit", unitWeightMg: 100_000, sortOrder: 0 }),
+    ]);
+
+    await vi.waitFor(() => expect(byId(c, "poles")).toBeTruthy());
+    expect(byId(c, "poles")?.qty).toBe(2);
+    expect(byId(c, "kit")?.qty).toBe(3);
+    // the totals the list opened with are the totals it still has
+    expect(c.totals.value.totalMg).toBe(2 * 210_000 + 20_000 + 100_000);
+  });
+
+  // The wrap's reverse keeps a working discriminator: unwrapEmptied refuses to dissolve a
+  // container carrying content of its own, `qty !== 1` included. Nothing pins that field,
+  // so the guard means what it says.
+  it("keeps a hand-built group when its last child leaves", async () => {
     const c = await open([
       item({ id: "kit", name: "Cook kit", qty: 4, sortOrder: 0 }),
-      item({ id: "pot", name: "Pot", parentId: "kit", unitWeightMg: 100_000, sortOrder: 0 }),
+      item({ id: "pot", name: "Pot", parentId: "kit", commonNameOverridden: true, unitWeightMg: 100_000, sortOrder: 0 }),
     ]);
 
     c.unnest("pot");
     await vi.waitFor(() => expect(byId(c, "pot")?.parentId).toBeNull());
-    // pinned when it gained the child, and NOT handed a count back when it lost one:
-    // one is simply what a row counts unless someone says otherwise
-    expect(byId(c, "kit")?.qty).toBe(1);
+    expect(byId(c, "kit")).toBeTruthy();
+    expect(byId(c, "kit")?.qty).toBe(4);
+  });
+
+  // What a nest DOES move is the gear type, and only through the wrap: the container is
+  // named for what the product generically is, and the product gives that label up so it
+  // isn't printed on both lines (containerFor). The NOTE is never touched, on either row,
+  // and neither field moves when no wrap fires.
+  it("leaves both sub-line fields alone when no wrap fires", async () => {
+    const c = await open([
+      item({ id: "kit", name: "Cook kit", commonName: "Kit", description: "in the blue sack", sortOrder: 0 }),
+      item({ id: "pot", name: "Pot", commonName: "Pot", description: "titanium", unitWeightMg: 100_000, sortOrder: 1 }),
+    ]);
+
+    c.nestItem("pot", "kit");
+    await vi.waitFor(() => expect(byId(c, "pot")?.parentId).toBe("kit"));
+    expect(byId(c, "kit")?.commonName).toBe("Kit");
+    expect(byId(c, "kit")?.description).toBe("in the blue sack");
+    expect(byId(c, "pot")?.commonName).toBe("Pot");
+    expect(byId(c, "pot")?.description).toBe("titanium");
+  });
+
+  it("moves the gear type onto the container it mints, and keeps the note put", async () => {
+    const c = await open([
+      item({ id: "tent", name: "X-Mid", commonName: "Tent", description: "trekking-pole shelter", unitWeightMg: 439_418, sortOrder: 0 }),
+      item({ id: "stakes", name: "Stakes", commonName: "Stakes", description: "8 of them", unitWeightMg: 50_000, sortOrder: 1 }),
+    ]);
+
+    c.nestItem("stakes", "tent");
+    await vi.waitFor(() => expect(byId(c, "tent")?.parentId).not.toBeNull());
+
+    // the label is MOVED, not lost — it names the group, one line up
+    expect(byId(c, byId(c, "tent")!.parentId!)?.name).toBe("Tent");
+    expect(byId(c, "tent")?.commonName).toBeFalsy();
+    // ...and every note stays exactly where its owner typed it
+    expect(byId(c, "tent")?.description).toBe("trekking-pole shelter");
+    expect(byId(c, "stakes")?.commonName).toBe("Stakes");
+    expect(byId(c, "stakes")?.description).toBe("8 of them");
   });
 });

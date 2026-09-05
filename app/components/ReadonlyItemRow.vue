@@ -10,7 +10,7 @@ const NO_ITEMS: ItemT[] = [];
 import { HugeiconsIcon } from "~/utils/hugeicon";
 import { personColor } from "~~/shared/people";
 import type { Classification, Item, ListSnapshot } from "~~/shared/types";
-import { effectiveClassification, formatKcal, formatWeight, rowDisplayMg, splitWornQty } from "~~/shared/weights";
+import { effectiveClassification, formatKcal, formatWeight, isBareGroup, rowDisplayMg, splitWornQty } from "~~/shared/weights";
 import { itemQtyLabel } from "~~/shared/water";
 import { classLabel, classMark } from "~/utils/itemMarks";
 
@@ -48,6 +48,9 @@ const children = computed(() =>
   props.nested ? NO_ITEMS : (props.childrenByParent.get(props.item.id) ?? NO_ITEMS),
 );
 const isParent = computed(() => children.value.length > 0);
+// a group holding nothing of its own — the row's per-unit marks stand down on it
+// (shared/weights, one predicate with the editor's row so the two can't drift)
+const bareGroup = computed(() => isBareGroup(props.item, isParent.value));
 // a group shows its total (own + children); a leaf shows its own line weight
 // (`children` holds exactly this row's children, so the sum is O(children))
 const rowWeightMg = computed(() => rowDisplayMg(props.item, children.value));
@@ -93,7 +96,13 @@ const folderDefault = computed<Classification>(
 // is precisely the departure worth drawing, and it was the one class that had no
 // picture to draw it with.
 // A SPLIT is always an exception — "1 of 3 worn" is not something a folder can say.
-const showMark = computed(() => splitWorn.value > 0 || effClass.value !== folderDefault.value);
+// ...and NEVER on a bare group: its class describes its own line, which is zero, and its
+// children take the folder's default rather than its own (effectiveClassification) — so
+// the glyph would be a claim about a total it doesn't govern. Mirrors the editor row,
+// which drops the two toggles on the same rows.
+const showMark = computed(
+  () => !bareGroup.value && (splitWorn.value > 0 || effClass.value !== folderDefault.value),
+);
 // worn wins over the effective class for the picture, so a split reads as the shirt
 const markClass = computed<Classification>(() => (isWorn.value ? "worn" : effClass.value));
 const markIcon = computed(() => classMark(markClass.value, props.item.name));
@@ -104,11 +113,13 @@ const markTitle = computed(() =>
     ? `${splitWorn.value} of ${props.item.qty} worn`
     : classLabel(markClass.value),
 );
-// A quantity of one is the default — see itemQtyLabel's `hideSingle`. A GROUP carries
-// no count in this column at all (`group`): the weight beside it is the group's total,
-// which the parent's own qty already went into — see itemQtyLabel.
+// A quantity of one is the default — see itemQtyLabel's `hideSingle`. A BARE GROUP
+// carries no count in this column at all (`group`): the weight beside it is the group's
+// total, which the row's own count is already inside — see itemQtyLabel. Only a bare one,
+// because these views heal nothing they render: a group that arrived carrying a real
+// count keeps it on screen rather than leaving a total no visible number accounts for.
 const qtyLabel = computed(() =>
-  itemQtyLabel(props.item, effClass.value, { hideSingle: true, group: isParent.value }),
+  itemQtyLabel(props.item, effClass.value, { hideSingle: true, group: bareGroup.value }),
 );
 // nested groups start CLOSED in a shared list — it reads compact (the group total is
 // shown; expand to see the members). Local + per-view, NEVER persisted, matching
