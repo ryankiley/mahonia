@@ -556,6 +556,17 @@ input[type="search"]::-webkit-search-decoration {
 .menu__secthead {
   justify-content: space-between;
   gap: var(--space-2);
+<<<<<<< HEAD
+=======
+}
+.menu__sectchev {
+  flex: none;
+  color: var(--ink-3);
+  transition: rotate var(--dur) var(--ease);
+}
+.menu__sectchev.is-open {
+  rotate: 180deg;
+>>>>>>> origin/main
 }
 // the section header's chevron is the app's .chev (below) — nothing extra needed
 .menu__sectlist {
