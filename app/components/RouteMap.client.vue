@@ -1297,14 +1297,18 @@ onBeforeUnmount(() => {
   background: light-dark(oklch(0.95 0.01 250), oklch(0.95 0.01 250));
 }
 
-/* No font-size. It asked for `var(--fs-xs)`, from a --fs-* scale this app has never
-   had — so the declaration was invalid at computed-value time, the browser dropped it,
-   and the note has always rendered at the inherited --text-base. Removing it changes
-   nothing; keeping it claimed a size that was never applied. If the note does want the
-   smaller step it is --text-chrome or --text-micro (tokens.scss), but that is a design
-   call and a visible change, so it is not made here. */
+/* …and it does want the smaller step — the design call #289 left open when it removed
+   the dead `var(--fs-xs)` (a --fs-* scale this app has never had, so the declaration was
+   invalid and the caption had always rendered at the inherited --text-base).
+   --text-chrome, not --text-micro: this is a caption under a figure, which is the same
+   register as the two other pieces of small print in this file (.routemap__wpname and
+   the popup's label, both --text-chrome) — where --text-micro is for a label sitting
+   above a field. The only text it ever holds is the tile-failure line, and reporting
+   that the basemap didn't load at the same size as an item name overstates it; the
+   route is still drawn, which is the whole point of the sentence. */
 .routemap__note {
   margin-top: var(--space-1);
+  font-size: var(--text-chrome);
   color: var(--ink-3);
 }
 /* The (?) sits where the sentence did, and quietly — it is an offer, not a notice. */
