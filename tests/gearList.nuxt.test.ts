@@ -17,6 +17,7 @@ import { localKey, type LocalListRecord } from "~~/shared/localList";
 import type { Folder, Item, ListSnapshot } from "~~/shared/types";
 import type { VaultEntry } from "~~/shared/vault";
 import { vaultNormKey } from "~~/shared/vault";
+import { noteVaultKeys, vaultKeysEpoch } from "~/composables/useVaultKeys";
 import {
   resetVaultCapture,
   setVaultDecisionFor,
@@ -36,6 +37,9 @@ const records = new Map<string, LocalListRecord>();
 // case at the end of the file.
 mockNuxtImport("useVaultAccess", () => () => ({
   hasVault: ref(true),
+  // the session has ANSWERED — the vault's reads (useVaultKeys) wait on this, so
+  // a mock that only carried hasVault left them hanging
+  vaultKnown: ref(true),
   vaultFetch: <T,>(url: string, opts?: Parameters<typeof $fetch>[1]) =>
     $fetch(url, { ...opts, credentials: "same-origin" }) as Promise<T>,
 }));
@@ -114,16 +118,29 @@ let listResponse: ListSnapshot = snapshotFor("Original");
 registerEndpoint("/api/edit/list", () => ({ snapshot: listResponse }));
 registerEndpoint("/api/edit/changes", () => ({ version: 1 })); // the live-sync poll
 registerEndpoint("/api/catalog/use", () => ({})); // fire-and-forget ranking ping
+// what My Gear already holds, as [normKey, weightMg] tuples — read when a list
+// opens whose own answer doesn't already cover it (useVaultKeys). Empty here:
+// these cases are about capture, and an empty vault is what makes every row a
+// genuine capture.
+registerEndpoint("/api/vault/keys", () => ({ keys: [] }));
 
 let captureCalls = 0;
 // what each capture actually carried — the picker tests assert on the ROWS, not
 // just that a write happened
 let captureBodies: { name: string }[][] = [];
+// The REAL response shape, not a convenient stand-in. The old stub answered
+// `{ vaultToken }` — a shape the endpoint has never returned — so `res.keys` was
+// always undefined here and the client's contract was never compared against the
+// server's. That is exactly how a `string[]` where the client destructured
+// `[key, weight]` tuples reached main-adjacent code with a green suite: every
+// successful save reported itself as refused. The stub now echoes what
+// captureVaultItemsReporting returns.
 registerEndpoint("/api/vault/capture", { method: "POST", handler: async (event) => {
   captureCalls++;
-  const body = await readBody<{ items?: { name: string }[] }>(event);
-  captureBodies.push(body?.items ?? []);
-  return { vaultToken: "test-vault-token" };
+  const body = await readBody<{ items?: { name: string; normKey: string; weightMg: number }[] }>(event);
+  const items = body?.items ?? [];
+  captureBodies.push(items);
+  return { ok: true, captured: items.length, keys: items.map((i) => [i.normKey, i.weightMg]) };
 } });
 
 // The link a rotate mints. A constant, because the one thing the rotate tests
@@ -390,6 +407,33 @@ describe("useGearList — whose gear is this?", () => {
     await new Promise((r) => setTimeout(r, 50));
     expect(reopened.vaultPrompt.value).toBeNull();
     expect(captureCalls).toBe(0);
+  });
+
+  // The same proxy that made the save button lie also raises this question, and
+  // the vault can now answer it: a list whose every row is already banked has
+  // nothing to consent to and nothing to move.
+  it("does not ask about a list whose gear My Gear already holds", async () => {
+    const c = useGearList();
+    await c.load({ token: TOKEN });
+    // what /api/vault/keys would have said: this list's one row, already banked
+    const item = listResponse.items[0]!;
+    noteVaultKeys([[vaultNormKey(item.brand, item.name, item.variant), item.unitWeightMg]], vaultKeysEpoch());
+    c.updateItem("i1", { qty: 2 });
+    await new Promise((r) => setTimeout(r, 50));
+    // no modal over a list to request permission for a no-op — and, crucially,
+    // the list's one chance to ask is NOT spent: the question stays open for gear
+    // added later that the vault genuinely doesn't have
+    expect(c.vaultPrompt.value).toBeNull();
+    expect(vaultDecisionFor(TOKEN)).toBe("ask");
+    expect(captureCalls).toBe(0);
+  });
+
+  it("still asks as soon as one row is gear the vault doesn't hold", async () => {
+    const c = useGearList();
+    await c.load({ token: TOKEN });
+    noteVaultKeys([["something else entirely", 1_000]], vaultKeysEpoch());
+    c.updateItem("i1", { qty: 2 });
+    await vi.waitFor(() => expect(c.vaultPrompt.value).not.toBeNull());
   });
 
   // The question is about the list in front of you. Left standing after a

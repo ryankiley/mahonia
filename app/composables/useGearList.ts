@@ -93,6 +93,11 @@ function create() {
   // The vault's capture side. Bound inside the controller's scope so its
   // page-hide flush lives exactly as long as the editor does.
   const vault = useVaultCapture();
+  // The vault's READ side: which gear it already holds, so a row can stop
+  // offering to save what's saved (useVaultKeys). Resolved here, with the rest of
+  // the controller's collaborators, rather than inside load() — that runs from an
+  // async callback, and the session state underneath is a useState.
+  const vaultKeys = useVaultKeys();
   scope.run(() => vault.bindFlushOnLeave());
   const online = scope.run(() => useOnline())!;
   let persistTimer: ReturnType<typeof setTimeout> | undefined;
@@ -290,6 +295,20 @@ function create() {
     claimCode = editToken ? "" : normalizeShareCode(cap.code);
     openedByCode.value = !editToken && !!claimCode;
     resetSession();
+    // Re-read what My Gear holds, but only when it could change what a row draws.
+    //
+    // /gear can have edited the vault since the last read (a row added by hand,
+    // one removed), and neither reaches this cache on its own. But a row consults
+    // membership at all only when the automatic path ISN'T already claiming it —
+    // so on a list this device built (answer "yes", nothing declined) and on every
+    // claimed open, the read provably cannot move a pixel, and refreshVaultCover()
+    // one line above has just made both answers current. Skipping those is worth
+    // real money: each read is a session lookup, a `vaults` row write (the
+    // last-seen bump in resolveVaultForRead) and the query.
+    //
+    // Best-effort to the point of silence — it decides whether a save button
+    // shows, and a list must never wait on it or fail because of it.
+    if (!vaultAuto.value || vaultDeclined.value.size) void vaultKeys.refreshVaultKeys();
     snapshot.value = null;
     status.value = "loading";
     installListeners();
@@ -970,7 +989,9 @@ function create() {
   }
   /** Bank one row on demand — see useVault.captureOne for why it bypasses the
    *  debounce and the consent prompt that the automatic path is built around. */
-  async function saveItemToVault(id: string): Promise<"saved" | "unworthy" | "failed"> {
+  async function saveItemToVault(
+    id: string,
+  ): Promise<"saved" | "unworthy" | "removed" | "full" | "failed"> {
     const snap = snapshot.value;
     const item = snap?.items.find((i) => i.id === id);
     if (!snap || !item) return "failed";

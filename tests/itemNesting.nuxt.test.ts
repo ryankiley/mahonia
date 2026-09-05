@@ -21,6 +21,7 @@ import type { Item, ListSnapshot } from "~~/shared/types";
 
 mockNuxtImport("useVaultAccess", () => () => ({
   hasVault: ref(false),
+  vaultKnown: ref(true), // answered, and answered "signed out" — see gearList.nuxt
   vaultFetch: <T,>() => Promise.resolve({} as T),
 }));
 

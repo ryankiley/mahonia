@@ -36,6 +36,7 @@ mockNuxtImport("useLocalListStore", () => () => ({
 }));
 mockNuxtImport("useVaultAccess", () => () => ({
   hasVault: ref(false), // the vault is not this file's subject; keep capture quiet
+  vaultKnown: ref(true), // ...and answered, so its reads settle instead of waiting
   vaultFetch: <T,>() => Promise.resolve({} as T),
 }));
 

@@ -61,6 +61,20 @@ export interface VaultCapture {
   folder?: string;
 }
 
+/**
+ * How the vault reports WHAT IT HOLDS, to the one client that asks: the gear's
+ * identity key, and the weight a capture could still write into it — null when
+ * that weight is pinned and no capture may argue with it.
+ *
+ * Named and shared because two endpoints return it (the membership read, and
+ * capture's answer about what actually landed) and the editor folds both into one
+ * Map. When those two drifted — one returning bare keys while the client
+ * destructured tuples — every successful save reported itself as refused, and the
+ * automatic path wrote single characters into the Map. A cast at the fetch is not
+ * a check; a shared name at least makes the contract greppable from both sides.
+ */
+export type VaultGearKey = [normKey: string, weightMg: number | null];
+
 /** A vault folder as the API returns it. Deliberately smaller than a list Folder:
  *  no colorKey, no defaultClassification — those describe how a LIST presents and
  *  classifies rows, and a vault row already carries its own classification. */

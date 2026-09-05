@@ -1,0 +1,6 @@
+{
+  "date": "2026-09-04",
+  "fixed": [
+    "Saving a piece of gear to My Gear now reliably reports what happened, and gear you remove there stops being treated as saved."
+  ]
+}

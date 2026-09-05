@@ -15,6 +15,7 @@ import {
   vaultNormKey,
   type VaultCapture,
   type VaultEntry,
+  type VaultGearKey,
   type VaultFolder,
   type VaultPinField,
 } from "../../shared/vault";
@@ -187,15 +188,18 @@ function sanitize(caps: VaultCapture[]): VaultCapture[] {
  *    an automatic write must not argue with a deliberate one. times_seen and
  *    last_used_at still move: those are facts about USE, not about the gear.
  *
- * Returns how many rows were written, for the caller's response.
+ * Returns the gear that is LIVE in the vault afterwards — the honest answer to
+ * "what did you store?", which a 2xx alone is not (a tombstoned row is written
+ * and stays put away, and rows past the ceiling are dropped above). Most callers
+ * want the count instead; captureVaultItems below is that.
  */
-export async function captureVaultItems(
+export async function captureVaultItemsReporting(
   db: Db,
   vaultId: number,
   caps: VaultCapture[],
-): Promise<number> {
+): Promise<{ keys: VaultGearKey[]; full: boolean }> {
   let clean = sanitize(caps);
-  if (!clean.length) return 0;
+  if (!clean.length) return { keys: [], full: false };
 
   // The per-vault ceiling. Updates to rows already in the vault always land —
   // they add nothing — but new keys stop at VAULT_ITEMS_MAX, silently: capture is
@@ -203,6 +207,11 @@ export async function captureVaultItems(
   // error in front of someone who didn't ask for anything. Counted lazily (one
   // cheap indexed count) and only disambiguated when the request could actually
   // cross the line.
+  // ...silently to the LIST, which never asked — but not to a hand press, which
+  // did. `full` is how the one deliberate caller tells "the vault refused this
+  // for space" from "you removed this gear", two states that need different
+  // words: one is fixed on /gear's removed list, the other is not there at all.
+  let full = false;
   const room = VAULT_ITEMS_MAX - (await vaultItemCount(db, vaultId));
   if (clean.length > room) {
     const existing = new Set(
@@ -224,11 +233,14 @@ export async function captureVaultItems(
     let budget = Math.max(0, room);
     clean = clean.filter((c) => {
       if (existing.has(c.normKey)) return true;
-      if (budget === 0) return false;
+      if (budget === 0) {
+        full = true;
+        return false;
+      }
       budget--;
       return true;
     });
-    if (!clean.length) return 0;
+    if (!clean.length) return { keys: [], full: true };
   }
 
   const now = new Date();
@@ -246,7 +258,7 @@ export async function captureVaultItems(
   // queue, a flaky connection) neither duplicates a folder nor errors.
   const folderId = await ensureFolders(db, vaultId, clean.map((c) => c.folder));
 
-  await db
+  const written = await db
     .insert(vaultItems)
     .values(clean.map((c) => rowValues(c, vaultId, now, (c.folder && folderId.get(c.folder)) || null)))
     .onConflictDoUpdate({
@@ -300,8 +312,42 @@ export async function captureVaultItems(
         lastUsedAt: now,
         updatedAt: now,
       },
-    });
-  return clean.length;
+    })
+    // What the write actually produced, in the one statement that produced it.
+    // The alternative was a second SELECT keyed on the CLIENT's normKeys — but
+    // sanitize() re-derives the key from the tidied text, so those two spellings
+    // diverge wherever tidyText and foldForSearch disagree (a zero-width space is
+    // deleted by one and folded to a gap by the other), and each divergence read
+    // as "the vault refused this row" on a row it had stored correctly.
+    // No-arg, and it has to be: the two drivers' typed `.returning({ col })`
+    // overloads don't unify, so the bare form is the Db union's only shared one
+    // (see server/utils/db.ts). Read the fields off the full row instead.
+    .returning();
+  // LIVE rows only. The upsert deliberately leaves `removed_at` alone, so gear you
+  // put away on /gear is written and stays put away — the row comes back here, and
+  // the caller must not be told it landed.
+  return {
+    keys: written
+      .filter((r) => !r.removedAt)
+      .map((r): VaultGearKey => [r.normKey, r.weightPinned ? null : r.weightMg]),
+    full,
+  };
+}
+
+/**
+ * Fold a list's gear into a vault, reporting only HOW MANY rows were written.
+ *
+ * The shape almost every caller wants (the claim backfill, the tests), kept so
+ * the one caller that needs to know WHICH gear landed — the capture endpoint,
+ * which tells the editor what it may stop offering to save — doesn't push a
+ * second return value through eighty call sites.
+ */
+export async function captureVaultItems(
+  db: Db,
+  vaultId: number,
+  caps: VaultCapture[],
+): Promise<number> {
+  return (await captureVaultItemsReporting(db, vaultId, caps)).keys.length;
 }
 
 /** The INSERT half a captured row and a hand-added one share — every content
@@ -357,9 +403,22 @@ function liveRows(db: Db, vaultId: number) {
   return db
     .select()
     .from(vaultItems)
-    .where(and(eq(vaultItems.vaultId, vaultId), isNull(vaultItems.removedAt)))
-    .orderBy(desc(vaultItems.lastUsedAt))
+    .where(liveIn(vaultId))
+    // id breaks the tie, so the order is TOTAL — captureVaultItems stamps one
+    // `now` onto a whole batch, so a 200-row import leaves 200 rows sharing a
+    // last_used_at, and an untotal order lets two queries truncate at POOL_LIMIT
+    // on different subsets of them. listVaultFolders already orders this way.
+    .orderBy(desc(vaultItems.lastUsedAt), asc(vaultItems.id))
     .limit(POOL_LIMIT);
+}
+
+/** "A live row of this vault" — the predicate, written once. The browse, the
+ *  membership read and capture's landed-keys check all mean the same thing by it,
+ *  and a fourth condition on what counts as live (an archive flag, a per-row
+ *  visibility column) has to reach all of them or the membership set starts
+ *  claiming rows /gear won't show. */
+function liveIn(vaultId: number) {
+  return and(eq(vaultItems.vaultId, vaultId), isNull(vaultItems.removedAt));
 }
 
 /**
@@ -413,6 +472,46 @@ async function ensureFolders(
  *  read. Small by nature, so it's one unpaginated query. */
 export async function listVaultItems(db: Db, vaultId: number): Promise<VaultEntry[]> {
   return (await liveRows(db, vaultId)).map(toEntry);
+}
+
+/**
+ * What a vault holds, as identity keys and the one number that can still be
+ * pushed into a row — no spellings, no folders, no tombstones.
+ *
+ * The editor's question about a list row is a MEMBERSHIP one ("is this gear
+ * already mine?"), not a browse, and answering it with listVaultItems would ship
+ * a whole vault's worth of rows to a page that renders none of them. Two columns,
+ * as tuples, and a Map is all the client builds from it.
+ *
+ * WHY THE WEIGHT COMES TOO. "My Gear has this gear" is not the whole question the
+ * save button asks — it asks whether pressing it would DO anything, and on a row
+ * whose weight you have just corrected it still would: capture takes the incoming
+ * weight (see the upsert above). Membership alone made the button vanish the
+ * moment a row was banked and never bring it back, so a corrected weight could
+ * not be pushed from that list at all. A null weight means the row's weight is
+ * PINNED — you fixed it by hand on /gear, capture is not allowed to argue with
+ * it, and offering to save would be offering a no-op.
+ *
+ * Bounded and ordered exactly like liveRows, which is the browse's own window:
+ * a key outside it would hide the button on a row the owner cannot see, remove
+ * or restore on /gear — a state with no way out. Removed rows are excluded
+ * because capture never resurrects a tombstone (see captureVaultItems), so gear
+ * you put away is genuinely not in your vault.
+ */
+export async function listVaultKeys(db: Db, vaultId: number): Promise<VaultGearKey[]> {
+  const rows = await db
+    .select({
+      normKey: vaultItems.normKey,
+      weightMg: vaultItems.weightMg,
+      weightPinned: vaultItems.weightPinned,
+    })
+    .from(vaultItems)
+    .where(liveIn(vaultId))
+    // the same total order liveRows uses — the two must truncate on the SAME
+    // rows or the membership set claims gear /gear will not show
+    .orderBy(desc(vaultItems.lastUsedAt), asc(vaultItems.id))
+    .limit(POOL_LIMIT);
+  return rows.map((r) => [r.normKey, r.weightPinned ? null : r.weightMg]);
 }
 
 /** A vault's folders in drag order (id breaks a tie, so the order is total). */
