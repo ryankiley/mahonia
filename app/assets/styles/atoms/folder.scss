@@ -226,49 +226,6 @@
 .folder__actions .btn--icon {
   justify-content: flex-end;
 }
-
-/* ---- what the rows in here count as: the header's classification trigger ---- */
-/* GLOBAL, not FolderSection's scoped block, and that is the whole point: the button is
-   rendered by ItemRowMenu (it arrives as `trigger-class`), so it carries ITS scope id
-   and a scoped rule in FolderSection compiles to a selector that matches nothing. It
-   was written there first and every declaration was dead — the lit chip kept the OFF
-   ink, because the `:not()` guard meant to outrank ItemRowMenu's own quiet
-   `.rowmenu__btn` never matched.
-   The trigger wears the item row's states so "this folder is food" and "this row is
-   food" read as one claim at two altitudes: quiet ink at rest, the shared `.item__mark`
-   chip once the folder says something other than base. The OFF ink is scoped to the off
-   state (`:not`) rather than stated flat, or it would outrank the chip's own colour. */
-.folder__clsbtn:not(.item__mark) {
-  color: var(--ink-3);
-}
-.folder__clsbtn {
-  border-radius: var(--radius-pill);
-  /* CENTRED, against the cluster rule above. That rule right-aligns every glyph so the
-     trailing grip sits flush at the row's edge — right for the two controls it was
-     written for, wrong for this one, which LEADS the cluster and, once lit, paints a
-     filled chip: a 16px glyph pinned to the right of a 32px ground is visibly off
-     inside its own pill, next to item rows whose class chips are centred. */
-  justify-content: center;
-}
-.folder__clsbtn:hover {
-  color: var(--ink);
-}
-/* …and centred means its tooltip must NOT take the cluster's 8px shift (declared
-   below with the alignment that earns it). Set on the ItemRowMenu ROOT, which is the
-   one element in that subtree carrying FolderSection's own class, and inherited down
-   to the trigger's tooltip from there. */
-.folder__cls {
-  --tip-shift: 0;
-}
-@media (pointer: coarse) {
-  /* the overshoot as padding, so the chip's content box stays --icon-btn while the
-     button grows to --tap — otherwise `.item__mark`'s pill paints the whole 44px box
-     and the chip reads as a disc beside every item row's 32px one. ItemRow's
-     `.item__clsbtn` carries the identical rule for the identical reason. */
-  .folder__clsbtn {
-    padding: calc((var(--tap) - var(--icon-btn)) / 2);
-  }
-}
 /* …so a tooltip in this cluster has to move with the glyph, not with the button.
    Same offset and same reasoning as the item rows' (.item__actions in ItemRow.vue):
    a 16px picture pinned to the right of a 32px box puts its optical centre 8px right

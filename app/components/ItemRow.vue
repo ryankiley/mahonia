@@ -2604,9 +2604,10 @@ function dismissFix() {
   align-items: center;
   gap: var(--space-2);
 }
-/* (the chosen row's lit ground is the shared .menu__item.is-active atom now —
-   atoms/controls.scss — so the carrier picker and the folder classification menu
-   cannot drift on what "selected" looks like) */
+.item__personpick.is-active {
+  background: var(--lit);
+  color: var(--ink);
+}
 /* the ⋯ menu's group label above the person entries — the entries' own inline
    padding (space-3, controls.scss), so its text sits flush with theirs */
 .item__morelabel {
