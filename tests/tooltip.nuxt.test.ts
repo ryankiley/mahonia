@@ -102,6 +102,29 @@ describe("Tooltip positioning", () => {
     expect(tip.style.top).toBe("368px");
   });
 
+  // A control may put its glyph to one side of its tap target rather than in the
+  // middle — the editor's row actions right-align every glyph so the drag grip sits
+  // flush at the row's edge. Centred on the BOX, the popup then points at the padding
+  // beside the picture it names; measured on a real row, 8px left of a 16px glyph in a
+  // 32px button, which reads as a broken tooltip rather than a deliberate one.
+  it("centres on the trigger's ink when --tip-shift moves it off the box centre", async () => {
+    const w = mountTooltip({ text: "Remove" });
+    // the glyph sits 8px right of the button's centre
+    w.element.style.setProperty("--tip-shift", "8px");
+    const tip = (await hover())!;
+
+    // trigger centre 516, ink centre 524, − half the 100px popup = 474
+    expect(tip.style.left).toBe("474px");
+  });
+
+  it("leaves an unshifted trigger exactly where it was", async () => {
+    // the property is absent on every other trigger in the app, and an absent custom
+    // property reads back as "" — which must mean 0 and not NaN
+    mountTooltip({ text: "Remove" });
+    const tip = (await hover())!;
+    expect(tip.style.left).toBe("466px");
+  });
+
   it("flips to bottom when the space above can't hold it", async () => {
     // 20px from the top: 24 (popup) + 8 (offset) + 12 (edge padding) doesn't fit
     geom.trigger = { top: 20, bottom: 44, left: 500, width: 32, height: 24 };

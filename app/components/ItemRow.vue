@@ -2176,6 +2176,18 @@ function dismissFix() {
 .item__actions :deep(.btn--icon) {
   justify-content: flex-end;
 }
+/* …and the tooltips move with the glyphs. The rule above puts a 16px picture at the
+   RIGHT edge of a 32px button, so a tooltip centred on the button lands 8px left of
+   the thing it names — half the difference, on every control in this cluster.
+   A literal length rather than calc((var(--icon-btn) - 16px) / 2): a custom property
+   is read back as its token stream, so an unregistered calc() would reach Tooltip as
+   text and parse to NaN. If --icon-btn (32px) or the 16px glyph size changes, this
+   changes with them.
+   Declared on the CLUSTER, not the controls: custom properties inherit, so this one
+   line reaches the triggers ItemRowMenu renders too — which a scoped rule can't. */
+.item__actions {
+  --tip-shift: 8px;
+}
 /* (the three menu triggers — carrier, nesting, ⋯ — take the same treatment from
    ItemRowMenu's own scoped block, which is the only place a rule can reach them) */
 .item__grip,
