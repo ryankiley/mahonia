@@ -24,7 +24,7 @@ export function listToMarkdown(list: ListSnapshot): string {
   out.push("");
 
   // exportSections carries the app's visible order (folders by sortOrder, then an
-  // "Ungrouped" tail) so the table rows always sum to the totals block below —
+  // "Unfiled" tail) so the table rows always sum to the totals block below —
   // ungrouped items are in computeTotals, so they must be in the tables too.
   for (const section of exportSections(list)) {
     if (!section.rows.length) continue;

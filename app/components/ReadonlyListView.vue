@@ -269,7 +269,7 @@ const asHeight = (m: number) => {
     <div v-if="view === 'gear'" class="view__folders">
       <ReadonlyFolderSection v-for="f in shownFolders" :key="f.id" :list="list" :folder="f" :items="itemsByFolder.get(f.id) ?? NO_ITEMS" :children-by-parent="childrenByParent" :context-only-ids="contextOnlyIds" />
       <section v-if="ungrouped.length">
-        <p class="t-label view__ungrouped">Ungrouped</p>
+        <p class="t-label view__ungrouped">Unfiled</p>
         <ReadonlyItemRow v-for="it in ungrouped" :key="it.id" :list="list" :item="it" :children-by-parent="childrenByParent" :context-only-ids="contextOnlyIds" />
       </section>
     </div>

@@ -1,0 +1,8 @@
+{
+  "date": "2026-09-04",
+  "changed": [
+    "The nesting button on an item row shows a branch-and-plus icon in place of the indent arrow.",
+    "An item row's menus put an icon beside every entry, so a menu row and the button that does the same thing look alike.",
+    "Items that sit in no folder are headed Unfiled, on screen and in an exported list — a group is now only ever a row's nested items."
+  ]
+}

@@ -504,7 +504,7 @@ describe("nesting (a nested item is just an item with a parentId)", () => {
   });
 });
 
-describe("ungroupedTopLevel — the 'Ungrouped' section's rows", () => {
+describe("ungroupedTopLevel — the 'Unfiled' section's rows", () => {
   it("keeps only folderless TOP-LEVEL rows (children render under their parent)", () => {
     const items = [
       item({ id: "loose", folderId: null, sortOrder: 0 }),

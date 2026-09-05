@@ -287,7 +287,7 @@ export function siblingItems<T extends { folderId: string | null; parentId?: str
   return items.filter((i) => i.folderId === folderId && (i.parentId ?? null) === parentId);
 }
 
-/** Top-level rows with no folder — the "Ungrouped" section the editor and the read
+/** Top-level rows with no folder — the "Unfiled" section the editor and the read
  *  views both render (nested children render under their parent, so a change to the
  *  nesting rules has one predicate to touch). siblingItems with the folderless,
  *  parentless container named once, so there is one body. */
