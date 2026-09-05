@@ -214,7 +214,7 @@ watch(open, (o) => {
             :to="e.to"
             data-row
             role="menuitem"
-            class="menu__item lm__row"
+            class="menu__item"
             :class="{ 'is-current': isCurrent(e) }"
             :aria-current="isCurrent(e) ? 'page' : undefined"
             :title="savedListTitle(e.title)"
@@ -224,7 +224,7 @@ watch(open, (o) => {
             <!-- on EVERY row, hidden rather than dropped — see the style -->
             <HugeiconsIcon
               :icon="CheckIcon"
-              class="lm__check"
+              class="menu__check"
               :class="{ 'is-on': isCurrent(e) }"
               :size="14"
               :stroke-width="2"
@@ -241,7 +241,7 @@ watch(open, (o) => {
              It is also the app's ONLY blank-list door now: the editor's ⋯ menu carried
              a "Create a list" twin calling the same handler, and lost it. Which is why
              this card can't wait for a second list to appear. -->
-        <div class="lm__foot">
+        <div class="menu__foot">
           <button type="button" data-row class="menu__item lm__new" role="menuitem" @click="close(); emit('new-list')">
             New list
           </button>
@@ -350,14 +350,10 @@ watch(open, (o) => {
   overscroll-behavior: contain;
 }
 /* one line of type and a mark — the weight lives on the list itself, and beside a
-   name it competed with the one thing you scan a switcher for. The name clips with
-   .t-clip (the row is a .menu__item, already nowrap). */
-.lm__row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-/* THE ONE YOU'RE IN IS A CHECK, not a ground.
+   name it competed with the one thing you scan a switcher for. The row layout is
+   .menu__item's own (atoms/controls.scss); the name clips with .t-clip (the row is
+   already nowrap). */
+/* THE ONE YOU'RE IN IS A CHECK, not a ground — .menu__check, the shared mark.
    It was a --paper-3 fill, which put two meanings on one property: the travelling
    plate marks where the POINTER is, and this marked where you ARE. Hovering the
    current row stacked the plate's translucent ink over that fill and composited a
@@ -365,31 +361,9 @@ watch(open, (o) => {
    other row could get, and the two states couldn't be told apart.
    One ground, one meaning: the plate owns every fill in this menu, and "current" is
    said with the same check the vault uses for gear that's already in your list. */
-/* The mark takes a column on every row, shown only on the current one. Dropped from
-   the others, the CHECKED row became the widest — so it set the panel's width, leaving
-   its own margin-left:auto no free space to push the mark into, and the check sat
-   against the name while every other row had a trailing gutter going spare. (Rarely
-   visible here, because list names vary and the current one is seldom the longest —
-   which is exactly why it would have surfaced on someone else's lists, not mine.)
-   Hidden, not transparent: aria-hidden keeps it out of the accessibility tree either
-   way, and aria-current on the row is what says which one you're in. */
-.lm__check {
-  flex: none;
-  margin-left: auto;
-  color: var(--ink-3);
-  visibility: hidden;
-}
-.lm__check.is-on {
-  visibility: visible;
-}
 .lm__empty {
   padding: var(--space-2) var(--space-3);
   color: var(--ink-3);
-}
-.lm__foot {
-  margin-top: var(--space-1);
-  padding-top: var(--space-1);
-  border-top: 1px solid var(--line);
 }
 .lm__new {
   color: var(--ink-2);

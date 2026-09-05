@@ -234,11 +234,14 @@ async function copyLink() {
             </div>
           </Transition>
         </li>
-        <!-- moderation, not a read of the list — set off from the rows above by a
-             hairline, and only for public lists (per the Terms) that aren't yet reported.
-             The reader's counterpart to the editor's foot: both sit under the rule, and
-             both are the row that takes a list off something. -->
-        <li v-if="snapshot.isPublic && !reported" role="none" class="menu__report">
+        <!-- moderation, not a read of the list — set off from the rows above by the
+             shared .menu__foot hairline (controls.scss), and only for public lists (per
+             the Terms) that aren't yet reported. The reader's counterpart to the editor's
+             foot: both sit under the rule, both are the row that takes a list off
+             something, and both now draw that rule from one place — this one had its own
+             copy at --space-2, a step further off than the other two for no reason
+             anyone chose. -->
+        <li v-if="snapshot.isPublic && !reported" role="none" class="menu__foot">
           <!-- A FLAG, the one mark this menu doesn't share with the editor's, because
                the editor has no row to share it with — an owner doesn't report their own
                list. It is the convention every feed uses for exactly this, which matters
@@ -266,34 +269,10 @@ async function copyLink() {
 </template>
 
 <style scoped>
-/* the report row is a different class of action from the copy/export items above
-   it — a hairline + a touch of space sets it apart without a heavy divider. The
-   rule sits on the <li>, so it aligns to the item hover box (inset by the list's
-   own padding), matching the rounded rows rather than bleeding to the card edge. */
-.menu__report {
-  margin-top: var(--space-2);
-  padding-top: var(--space-2);
-  border-top: 1px solid var(--line);
-}
-/* ONE GLYPH COLUMN down the whole menu — the editor's kebab carries the identical
-   three rules, and for the identical reasons (GearEditor's style block has the long
-   version). Kept as a copy rather than lifted into the .menu atom because the two
-   menus that want it are the two whose rows are all one shape; the switcher's rows and
-   a gear row lay themselves out differently and must not inherit it.
-   flex, because .menu__item is display:block and a glyph beside a label needs a row.
-   The gap beats .menu__secthead's --space-3 on specificity, which is what keeps the
-   Export header's glyph in the same column as every other row's. */
-.menu__list .menu__item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-/* …and the glyph is PINNED to that column. An <svg> is a shrinkable flex item by
-   default, and this list is an absolutely positioned box whose shrink-to-fit width the
-   longest label can exhaust — at which point the only thing left to give is the icon. */
-.menu__list .menu__item > svg {
-  flex: none;
-}
+/* The glyph column and its `flex: none` pin are .menu__item's own (atoms/controls.scss).
+   They arrived here as a copy of the editor's, on the argument that only those two menus
+   want the shape and the switcher's rows must not inherit it — but every .menu__list in
+   the app wants it, this menu's own glyphs being the case that settled it. */
 /* NO INDENT on the Export rows, overriding the atom's --space-5 step. The step was
    right while they were bare; now that they carry glyphs it opens a SECOND glyph column
    a step in from the first, which reads as a ragged edge rather than as nesting. What

@@ -324,7 +324,22 @@ input[type="search"]::-webkit-search-decoration {
 
 // Category colour chip — the ONE colour mark (data viz). A round dot now (softer
 // than a square), same size everywhere (the bar legend + folder headings).
+// inline-block because the atom is usually a bare <span>, and a bare span is inline —
+// where width and height do nothing at all and the dot renders at zero. The two
+// consumers each supplied this themselves (CategoryBar and the trip planner's day key,
+// the second noting the first "carries this same pair in its own file"), which made a
+// third consumer a silently invisible dot.
+//
+// Centred on the CAP box, not the x-height. `vertical-align: middle` is the reflex
+// here, but it centres a box on the baseline plus half the x-height — and the label
+// beside it is a 600-weight line with no descenders, whose optical centre is half its
+// cap height. The two differ by (cap − x-height) / 2, about 1.4px at this size, and the
+// dot read that much low. As a length, vertical-align raises the dot's bottom edge off
+// the baseline instead: 0.04em leaves an equal sliver of cap above and below a --swatch
+// dot, and being an em it holds if the type scale moves.
 .swatch {
+  display: inline-block;
+  vertical-align: 0.04em;
   width: var(--swatch);
   height: var(--swatch);
   flex: none;
@@ -441,10 +456,35 @@ input[type="search"]::-webkit-search-decoration {
 .menu__list--above.menu__list--start {
   transform-origin: bottom left;
 }
+// ONE GLYPH COLUMN down every menu in the app. A row is icon · label, centred, and
+// the glyph is PINNED to its column: an <svg> is a shrinkable flex item by default,
+// and a menu list is an absolutely positioned, shrink-to-fit box whose width the
+// longest label can exhaust — at which point the only thing left to give is the icon.
+// It gave: measured at 2.2px wide against its neighbours' 14 the moment a label longer
+// than "Duplicate this list" joined the editor's menu.
+//
+// Flex rather than the block this used to be. Block was here so a <NuxtLink>/<a> item
+// fills the row like the <button> items do — an inline anchor ignores width:100%,
+// shrinking the padding + hover box to the text — and a flex container is a
+// block-level box, so width:100% still does that job. A text-only row is unaffected:
+// its single anonymous flex item packs to the start, which is where text-align put it.
+//
+// This lived scoped in SIX components — as `.menu__list .menu__item` in AccountMenu,
+// GearEditor, ItemRow and (from #288, landed while this was in review) ReadonlyMenu,
+// byte-identical, each commented as carrying the others; and again under local names as
+// ListMenu's .lm__row and OptionMenu's .optmenu__item.
+// Every copy was scoped defensively, "so it can't reach a menu that lays its rows out
+// differently" — #288 says it in as many words, giving the read views' ⋯ a glyph column
+// by copying the editor's three rules rather than lifting them here, "because the two
+// menus that want it are the two whose rows are all one shape".
+// There is no menu that doesn't. All eight .menu__list sites want this row, and #288's
+// own menu is the case that settles it: it wanted the shape, so it took a sixth copy.
+// The defence was against something that never arrived, at the price of one idea in six
+// places.
 .menu__item {
-  // block so a <NuxtLink>/<a> item fills the row like the <button> items do —
-  // an inline anchor ignores width:100%, shrinking the padding + hover box to the text
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   width: 100%;
   padding: var(--space-2) var(--space-3);
   // concentric with the .popover container (pinned there, shared with .ac__opt)
@@ -456,6 +496,38 @@ input[type="search"]::-webkit-search-decoration {
   white-space: nowrap;
   cursor: pointer;
   transition: background var(--dur) var(--ease);
+}
+.menu__item > svg {
+  flex: none;
+}
+// THE TRAILING MARK — a check on the row you're already on (the list switcher's
+// current list, an option menu's current value). It takes a column on EVERY row and
+// is only shown on that one: dropped from the others, the checked row became the
+// widest, so it set the menu's width and left its own margin-left:auto no free space
+// to push the mark into — the check sat against its label while every other row had a
+// trailing gutter going spare.
+// Hidden, not transparent: aria-hidden keeps it out of the accessibility tree either
+// way, and aria-current on the row is what actually says which one you're in.
+.menu__check {
+  flex: none;
+  margin-left: auto;
+  color: var(--ink-3);
+  visibility: hidden;
+}
+.menu__check.is-on {
+  visibility: visible;
+}
+// THE LAST GROUP — one hairline where a menu holds two kinds of thing (the editor's
+// destructive pair, the switcher's "New list", the read views' Report). Inset by the
+// list's own padding like the rows are, so it aligns to the item hover box and the
+// travelling plate rather than bleeding to the card edge.
+// Three components carried this: .editor__menufoot, .lm__foot and .menu__report — and
+// the third had drifted to --space-2, so the same divider sat at two different
+// distances depending on which menu you opened.
+.menu__foot {
+  margin-top: var(--space-1);
+  padding-top: var(--space-1);
+  border-top: 1px solid var(--line);
 }
 // ── a section INSIDE a menu ──────────────────────────────────────────────────
 // A group of related items that opens in place, rather than a flat run of peers.
@@ -474,12 +546,16 @@ input[type="search"]::-webkit-search-decoration {
 .menu__sect {
   display: contents;
 }
+// --space-2, the same gap every other row takes, which is what keeps the header's
+// glyph in the one glyph column. It read --space-3 while GearEditor's scoped
+// `.menu__list .menu__item` outranked it and forced --space-2 anyway; now that the
+// row lives on .menu__item, this rule (declared later, same specificity) would win —
+// so the value it was already resolving to is written here.
+// space-between still does the work of pushing the chevron to the trailing edge; this
+// gap is only the minimum between a header's label and its mark.
 .menu__secthead {
-  display: flex;
-  align-items: center;
   justify-content: space-between;
-  gap: var(--space-3);
-  width: 100%;
+  gap: var(--space-2);
 }
 .menu__sectchev {
   flex: none;
@@ -960,7 +1036,7 @@ input[type="search"]::-webkit-search-decoration {
   cursor: grab;
   touch-action: none;
   justify-content: flex-end;
-  margin-left: -9px;
+  margin-left: calc(-1 * var(--grip-pull));
 }
 .grip svg {
   transform: translateX(33.333%);

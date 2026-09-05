@@ -2622,20 +2622,8 @@ function dismissFix() {
 .item__ecarrier {
   display: none;
 }
-/* ONE GLYPH COLUMN down both of this row's menus — the editor ⋯ menu's rule
-   (GearEditor.client.vue), for its reasons: .menu__item is display:block, so a glyph
-   beside a label needs a row, and an <svg> is the first thing to shrink when a long
-   label exhausts a right-anchored list's width. Scoped, so it reaches this row's
-   menus and nothing else. The person entries take their dot through this column
-   rather than a rule of their own. */
-.menu__list .menu__item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-.menu__list .menu__item > svg {
-  flex: none;
-}
+/* the glyph column down both of this row's menus is .menu__item's own now
+   (atoms/controls.scss) — the person entries take their dot through it too */
 /* picker entries: the chosen one wears the on-plate */
 .item__personpick.is-active {
   background: var(--lit);

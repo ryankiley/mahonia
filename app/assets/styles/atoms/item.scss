@@ -159,10 +159,10 @@
    trigger joined vault · nest · remove · note · grip), one past the track's
    reserved worst case — re-derive the reservation for six, but only under the
    body class GearEditor sets when people exist, so every other list keeps the
-   narrower track and its wider name column. Same −9px grip-gutter overshoot,
+   narrower track and its wider name column. Same --grip-pull gutter overshoot,
    and the same touch-size twin as the tokens it overrides (tokens.scss). */
 .editor__body.has-people {
-  --item-col-actions: calc(6 * var(--icon-btn) + 5 * var(--space-1) - 9px);
+  --item-col-actions: calc(6 * var(--icon-btn) + 5 * var(--space-1) - var(--grip-pull));
   /* the COMPOSITE re-declared too, not just the part: a custom property's var()s
      substitute where the property is DECLARED (tokens.scss:25-31 — the whole
      reason item-cols is a mixin), so overriding the part alone left the :root
@@ -171,7 +171,7 @@
      folder header follows through its var(--head-cols, var(--item-cols)). */
   --item-cols: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-class) var(--item-col-actions);
   @media (pointer: coarse) {
-    --item-col-actions: calc(6 * var(--tap) + 5 * var(--space-1) - 9px);
+    --item-col-actions: calc(6 * var(--tap) + 5 * var(--space-1) - var(--grip-pull));
   }
 }
 

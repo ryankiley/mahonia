@@ -1061,7 +1061,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
                      colour is there to be read before you reach for it. It is the
                      port of the design system's .ds-menu__item--danger, down to the
                      plate washing the row in its own hue (see the style). -->
-                <li v-if="isSaved" role="none" class="editor__menufoot">
+                <li v-if="isSaved" role="none" class="menu__foot">
                   <!-- Gentler first. The two escalate — off this device, then off the
                        internet — and reading them in that order is what makes the
                        second one land as the bigger of the pair rather than as
@@ -1583,16 +1583,11 @@ function onCorrected(res: { status: string; itemName?: string }) {
 }
 /* the ⋯ menu's Export section is the shared .menu__sect disclosure (controls.scss),
    which the read views' menu uses too */
-/* ...and its FOOT holds the one action that ends the list, ruled off from the rest.
-   The rule sits on the <li> rather than on the row, so it spans the same width the
-   travelling plate does (both measure from the popover's padding box) instead of the
-   row's own inset. Same construction as ListMenu's .lm__foot — one hairline, in the
-   one place a menu has two kinds of thing in it. */
-.editor__menufoot {
-  margin-top: var(--space-1);
-  padding-top: var(--space-1);
-  border-top: 1px solid var(--line);
-}
+/* ...and its FOOT holds the one action that ends the list, ruled off from the rest —
+   the shared .menu__foot (controls.scss), which the switcher and the read views' menu
+   wear too. The rule sits on the <li> rather than on the row, so it spans the same
+   width the travelling plate does (both measure from the popover's padding box)
+   instead of the row's own inset. */
 /* THE ONE COLOURED ROW IN THE CHROME. It was --ink-3 with the trash glyph doing the
    distinguishing, on the monochrome rule in tokens.scss; it now spends --danger, and
    the token's comment has been widened to say so rather than left asserting a rule
@@ -1606,28 +1601,9 @@ function onCorrected(res: { status: string; itemName?: string }) {
    No hover deepen. The wash is the state — moving the ink as well would say two
    things about one event, and there is nowhere darker for red to go that doesn't
    read as a different colour. */
-/* ONE GLYPH COLUMN down the whole menu. flex, because .menu__item is display:block —
-   a glyph beside a label needs a row. Scoped, so it reaches this menu's rows and not
-   the switcher's or a gear row's, which lay themselves out differently.
-   The gap wins over .menu__secthead's --space-3 on specificity, which is what keeps
-   the section header's glyph in the same column as every other row's. */
-.menu__list .menu__item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-/* …and the glyph is PINNED to that column. An <svg> is a shrinkable flex item by
-   default, and this list is an absolutely positioned right-anchored box whose
-   shrink-to-fit width the longest label can exhaust — at which point the only thing
-   left to give is the icon. It gave: measured at 2.2px wide against its neighbours'
-   14 the moment a label longer than "Duplicate this list" joined the menu.
-   This used to be handled by keeping every label short enough not to trigger it,
-   which is a rule that lives nowhere and that the next label breaks. Now the labels
-   are free and the column is fixed — the same `flex: none` the section chevron
-   already carries (atoms/controls.scss) for the same reason. */
-.menu__list .menu__item > svg {
-  flex: none;
-}
+/* the glyph column, and the `flex: none` pinning the icon into it, are .menu__item's
+   own now (atoms/controls.scss) — including the section header's, which took its gap
+   from the copy that lived here */
 /* --menu-glyph lived here: the icon's width, named once because two rules had to agree
    on it — the column the glyphs sit in, and the nested indent derived from that column.
    The indent is gone (see .menu__sectitem), so nothing has to agree with anything and a

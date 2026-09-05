@@ -106,7 +106,9 @@ const unitLabel = (w: ReturnType<typeof mountRow>) => w.find(".item__unitwrap .i
 /** Open the row's unit picker and choose `unit` from it. */
 async function pickUnit(w: ReturnType<typeof mountRow>, unit: string) {
   await w.find(".item__unitwrap .optmenu__btn").trigger("click");
-  const row = w.findAll(".optmenu__item").find((b) => b.text() === unit);
+  // OptionMenu's rows are the shared .menu__item atom — it carried a local
+  // .optmenu__item alongside it until that duplicated the atom's own layout
+  const row = w.findAll(".menu__item").find((b) => b.text() === unit);
   if (!row) throw new Error(`no "${unit}" in the unit menu`);
   await row.trigger("click");
 }

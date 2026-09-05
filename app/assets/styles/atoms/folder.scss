@@ -236,20 +236,11 @@
 .folder__actions {
   --tip-shift: 8px;
 }
-.folder__grip {
-  cursor: grab;
-  touch-action: none;
-  /* reorder dots flush to the right edge — the visible glyph, not just the tap
-     target (matches the item rows); the empty overshoot falls into the gutter */
-  justify-content: flex-end;
-  margin-left: -9px;
-}
-.folder__grip svg {
-  transform: translateX(33.333%);
-}
-.folder__grip:active {
-  cursor: grabbing;
-}
+/* The drag affordance and the flush-right optics are the .grip atom's
+   (atoms/controls.scss), which the folder header's grip already wears alongside this
+   class — three rules here restated it verbatim, down to the literal pull. Only the
+   quiet-ink pair above is this file's, because it belongs to the header's cluster
+   rather than to grips in general. */
 
 /* Narrow: the five-column item grid doesn't fit a phone, so the header collapses to
    name + actions. Hoisted with the rest of the header — a folder heading that keeps

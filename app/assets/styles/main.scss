@@ -75,13 +75,17 @@
   flex-direction: column;
   gap: var(--space-4);
 }
-.prose h2 {
+/* h3 rides with h2 rather than stepping down. Prose here is legal copy and About —
+   two levels deep at most, where a third size would be a distinction the writing never
+   makes. It was a verbatim copy of this block scoped in legal.vue, which also meant the
+   :first-child reset below reached only half the headings it names. */
+.prose :is(h2, h3) {
   font-size: var(--text-title);
   font-weight: 600;
   letter-spacing: var(--track-tight);
   margin-top: var(--space-4);
 }
-.prose h2:first-child {
+.prose :is(h2, h3):first-child {
   margin-top: 0;
 }
 .prose p,

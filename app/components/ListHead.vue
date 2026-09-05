@@ -1182,11 +1182,9 @@ onClickOutside(trailEl, closeTrail);
    panel's 12px content edge, in line with the rule and the fields above it. */
 .head__panelremove {
   /* .menu__item (atoms/controls.scss) supplies the row: background, ink, hover tint,
-     concentric radius, transition, cursor, alignment. Only this panel's own geometry
-     lives here. The radius comes out right because .head__panel repins
-     --popover-item-radius to its own corner — see there. */
-  display: flex;
-  align-items: center;
+     concentric radius, transition, cursor, and the centred flex row itself. Only this
+     panel's own geometry lives here. The radius comes out right because .head__panel
+     repins --popover-item-radius to its own corner — see there. */
   /* 12px — a 16px glyph on the panel's 12px content edge leaves the label starting at
      x40, which is where every other label in the panel starts */
   gap: var(--space-3);
