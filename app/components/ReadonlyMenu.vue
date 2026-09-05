@@ -208,7 +208,7 @@ async function copyLink() {
             <span class="ro__sectlabel">Export</span>
             <HugeiconsIcon
               :icon="ChevronDownIcon"
-              class="menu__sectchev"
+              class="chev"
               :class="{ 'is-open': exportOpen }"
               :size="14"
               :stroke-width="2"

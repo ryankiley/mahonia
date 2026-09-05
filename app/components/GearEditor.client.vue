@@ -1034,7 +1034,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
                     <!-- the label takes the slack, so the chevron keeps the trailing
                          edge now that a glyph holds the leading one -->
                     <span class="editor__sectlabel">{{ s.label }}</span>
-                    <HugeiconsIcon :icon="ChevronDownIcon" class="menu__sectchev"
+                    <HugeiconsIcon :icon="ChevronDownIcon" class="chev"
                       :class="{ 'is-open': openSection === s.key }"
                       :size="14"
                       :stroke-width="2"

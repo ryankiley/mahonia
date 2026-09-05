@@ -60,7 +60,7 @@ async function send() {
 
       <template v-if="state === 'sent'">
         <p class="t-sm">Thanks. That’s been sent.</p>
-        <div class="fb__actions">
+        <div class="dlg__actions">
           <button type="button" class="btn btn--primary" @click="emit('close')">Close</button>
         </div>
       </template>
@@ -95,7 +95,7 @@ async function send() {
 
         <p v-if="error" class="t-sm fb__error">{{ error }}</p>
 
-        <div class="fb__actions">
+        <div class="dlg__actions">
           <button type="button" class="btn btn--quiet" @click="emit('close')">Cancel</button>
           <button type="button" class="btn btn--primary" :disabled="!canSend" @click="send">
             {{ state === "sending" ? "Sending…" : "Send" }}
@@ -120,7 +120,12 @@ async function send() {
 .fb__box {
   min-height: 7rem;
   padding: var(--space-2);
-  resize: vertical;
+  /* No resize, for the reason the import dialog's paste box already gives (.import__text):
+     the native grip is a square widget the UA paints over the bottom-right corner, and it
+     is not clipped by the border-radius — so one corner of a box whose other three are
+     12px came out square. The two textareas are the same atom in the same dialog shell;
+     this one just never got the fix. It scrolls, which is what it did past 7rem anyway. */
+  resize: none;
 }
 .fb__meta {
   display: flex;
@@ -138,10 +143,5 @@ async function send() {
 }
 .fb__error {
   color: var(--ink);
-}
-.fb__actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-2);
 }
 </style>

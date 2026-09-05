@@ -556,7 +556,7 @@ const folderOptions = computed(() => [
                 <template #trigger="{ open }">
                   <span class="t-muted">View</span>
                   <span>{{ viewLabel }}</span>
-                  <HugeiconsIcon :icon="ChevronDownIcon" class="vault__chev" :class="{ 'is-open': open }" :size="14" :stroke-width="2.25" aria-hidden="true" />
+                  <HugeiconsIcon :icon="ChevronDownIcon" class="chev" :class="{ 'is-open': open }" :size="14" :stroke-width="2.25" aria-hidden="true" />
                 </template>
               </OptionMenu>
               <OptionMenu
@@ -569,7 +569,7 @@ const folderOptions = computed(() => [
                 <template #trigger="{ open }">
                   <span class="t-muted">Show</span>
                   <span>{{ showLabel }}</span>
-                  <HugeiconsIcon :icon="ChevronDownIcon" class="vault__chev" :class="{ 'is-open': open }" :size="14" :stroke-width="2.25" aria-hidden="true" />
+                  <HugeiconsIcon :icon="ChevronDownIcon" class="chev" :class="{ 'is-open': open }" :size="14" :stroke-width="2.25" aria-hidden="true" />
                 </template>
               </OptionMenu>
             </div>
@@ -604,7 +604,7 @@ const folderOptions = computed(() => [
               >
                 <template #trigger="{ open }">
                   {{ weightLabel(totalMg) }}
-                  <HugeiconsIcon :icon="ChevronDownIcon" class="vault__chev" :class="{ 'is-open': open }" :size="14" :stroke-width="2.25" aria-hidden="true" />
+                  <HugeiconsIcon :icon="ChevronDownIcon" class="chev" :class="{ 'is-open': open }" :size="14" :stroke-width="2.25" aria-hidden="true" />
                 </template>
               </OptionMenu>
             </p>
@@ -973,25 +973,15 @@ const folderOptions = computed(() => [
   gap: var(--space-px);
   color: var(--ink-2);
 }
-.vault__chev {
-  flex: none;
-  color: var(--ink-3);
-  transition:
-    color var(--dur) var(--ease),
-    rotate var(--dur) var(--ease);
-}
 .vault__total:hover {
   color: var(--ink);
 }
-/* the chevron turns over with the menu, like every other disclosure in the app —
-   the rule these were given the class for and never had */
-.vault__chev.is-open {
-  rotate: 180deg;
-}
-.vault__total:hover .vault__chev,
-.vault__total:focus-within .vault__chev,
-.vault__view:hover .vault__chev,
-.vault__view:focus-within .vault__chev {
+/* the mark and its turn are the shared .chev (atoms/controls.scss); pointing at either
+   control lights it */
+.vault__total:hover .chev,
+.vault__total:focus-within .chev,
+.vault__view:hover .chev,
+.vault__view:focus-within .chev {
   color: var(--ink);
 }
 .vault__count {

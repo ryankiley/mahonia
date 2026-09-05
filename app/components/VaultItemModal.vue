@@ -227,7 +227,7 @@ async function onSubmit() {
           >
             <template #trigger="{ active, open }">
               <span>{{ active?.label }}</span>
-              <HugeiconsIcon :icon="ChevronDownIcon" class="menu__sectchev" :class="{ 'is-open': open }" :size="14" :stroke-width="2" aria-hidden="true" />
+              <HugeiconsIcon :icon="ChevronDownIcon" class="chev" :class="{ 'is-open': open }" :size="14" :stroke-width="2" aria-hidden="true" />
             </template>
           </OptionMenu>
         </div>
@@ -282,7 +282,7 @@ async function onSubmit() {
   justify-content: space-between;
   gap: var(--space-1);
 }
-/* its chevron is the .menu__sectchev atom (controls.scss), not a copy */
+/* its chevron is the .chev atom (controls.scss), not a copy */
 /* Plain ink, not --danger: the monochrome rule reserves colour for irreversible acts
    and for the data viz (tokens.scss), and a save that didn't go through is neither.
    Matches /gear's own .vault__error. */

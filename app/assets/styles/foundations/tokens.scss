@@ -347,6 +347,15 @@ $bp-full: 1024px !default;
      in bigger type. */
   --measure: max(64rem, 53.33vw);
 
+  /* ---- the READING column — .prose's width, and the left edge every page's running
+     text starts on. Named because a second thing has to agree with it: About's release
+     list is a two-column spec sheet that deliberately runs WIDER than a measure, and
+     it can only start on the same left edge as the prose above it by deriving that
+     edge from the same number. It was 42rem written in .prose alone, so the log took
+     the page gutter instead and the page had three different left edges going down
+     it — headings at one, "What's new" at a second, the date rail at a third. ---- */
+  --prose: 42rem;
+
   /* ---- component primitives — shared structure so duplicated values can't drift ---- */
   /* icon-button box — the dense desktop chrome. The fixed actions track below
      multiplies it, so resizing the button here resizes the track with it. */

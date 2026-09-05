@@ -293,7 +293,7 @@ function changeLabel(i: number): string {
           @click="activityOpen = !activityOpen"
         >
           <span class="t-label share__subtitle">Recent changes</span>
-          <HugeiconsIcon :icon="ChevronDownIcon" class="menu__sectchev"
+          <HugeiconsIcon :icon="ChevronDownIcon" class="chev"
             :class="{ 'is-open': activityOpen }"
             :size="14"
             :stroke-width="2"
@@ -463,7 +463,7 @@ function changeLabel(i: number): string {
   width: 100%;
   cursor: pointer;
 }
-/* the chevron is the .menu__sectchev atom (controls.scss) — the same quiet mark that
+/* the chevron is the .chev atom (controls.scss) — the same quiet mark that
    turns over on the ⋯ menu's Export section; it had a byte-identical copy here */
 .share__log {
   display: grid;

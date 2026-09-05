@@ -119,10 +119,12 @@ const lastUpdated = computed(() => {
       </div>
 
       <!-- ================= What's new ================= -->
-      <!-- outside .prose: the release list is a two-column spec sheet (date rail +
-           entries), not running text, and the prose measure would squeeze it -->
+      <!-- a sibling of .prose rather than a child: the release list is a two-column
+           spec sheet (date rail + entries), not running text, so it wants its own grid
+           and its own gaps. It keeps the prose COLUMN though — same width, same edges —
+           see .log. -->
       <section id="whats-new" class="log">
-        <header class="log__head prose">
+        <header class="log__head">
           <h2 class="t-title">What's new</h2>
           <p class="t-sm t-muted">
             Mahonia is built in the open and changes often. Here’s what’s shipped, newest first.
@@ -139,8 +141,8 @@ const lastUpdated = computed(() => {
           <div class="log__body">
             <div v-for="g in rel.groups" :key="g.label" class="log__group">
               <p class="log__label t-label">{{ g.label }}</p>
-              <ul class="log__items">
-                <li v-for="(item, i) in g.items" :key="i" class="log__item">{{ item }}</li>
+              <ul class="bullets">
+                <li v-for="(item, i) in g.items" :key="i">{{ item }}</li>
               </ul>
             </div>
           </div>
@@ -152,8 +154,14 @@ const lastUpdated = computed(() => {
 
 <style scoped lang="scss">
 .log {
-  /* the section's own top rule + air, since .prose above it ends flush */
-  margin-block-start: var(--space-8);
+  /* The section's own top rule + air, since .prose above it ends flush.
+     --space-7, and NOT the --space-8 this asked for: there is no --space-8 in the scale
+     (it runs 1-7 then 9), so the declaration was invalid at computed-value time and the
+     margin resolved to 0 — the rule sat hard against the Contact paragraph with 24px of
+     air below it and none above, the one lopsided hairline on the page. 48/24 is the
+     same section break /legal already draws (.legal__break), which is what this was
+     built to match. */
+  margin-block-start: var(--space-7);
   padding-block-start: var(--space-5);
   border-top: 1px solid var(--line);
   display: flex;
@@ -161,10 +169,32 @@ const lastUpdated = computed(() => {
   gap: var(--space-5);
   /* an anchor jump shouldn't tuck the heading under the sticky topbar */
   scroll-margin-top: var(--space-5);
+  /* THE SAME COLUMN AS EVERYTHING ELSE ON THE PAGE — both edges, not just the left.
+     This section used to sit outside .prose entirely, on the argument that a two-column
+     spec sheet wants more width than a reading measure. What that actually bought was a
+     page with three left edges going down it (headings at 62.5, "What's new" at 97, the
+     date rail at 16) and a section whose rule ran to the page gutter while the copy
+     above it stopped 46px short. Anchoring only the left edge fixed the first half and
+     left the second: flush right, inset left, margins that plainly didn't match.
+     A measure is not a squeeze here. The rail needs 12rem (the widest month-name date
+     measures ~174px) and the entries take the remaining ~28rem, which is a longer line
+     than the 60ch they used to ask for. Same token as .prose so the two cannot drift. */
+  max-width: var(--prose);
+  margin-inline: auto;
 }
-/* .prose already gives the column + 42rem measure; only the tighter gap is ours */
+/* It wore `.prose` as well, which re-ran `margin-inline: auto` INSIDE .log — so
+   "What's new" centred itself within the log's own box and landed 34.5px right of
+   "Contact" directly above it. .log is already the column; this only needs its stack. */
 .log__head {
+  display: flex;
+  flex-direction: column;
   gap: var(--space-2);
+}
+/* The measure came with `.prose` too, and running text without one is the fault this
+   page was just fixed for — these two lines were the only prose on it free to run the
+   full 42rem while every paragraph above them stopped at 64ch. */
+.log__head p {
+  max-width: 64ch;
 }
 
 /* date rail on the left, entries on the right — spec-sheet rhythm */
@@ -199,28 +229,9 @@ const lastUpdated = computed(() => {
 .log__label {
   color: var(--ink-2);
 }
-.log__items {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  max-width: 60ch;
-}
-.log__item {
-  position: relative;
-  padding-left: var(--space-4);
-  color: var(--ink-2);
-}
-/* the same quiet drawn bullet the .prose lists use */
-.log__item::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 0.62em;
-  width: 0.34em;
-  height: 0.34em;
-  border-radius: 50%;
-  background: var(--ink-3);
-}
+/* the list, its marks, its ink and its measure are the shared `.bullets` (main.scss) —
+   this is the same list the prose sections above it are, so it is now literally the
+   same rule rather than a hand-copy that had drifted in size, position and measure */
 
 @media (max-width: $bp-stack) {
   .log__rel {

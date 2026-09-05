@@ -131,7 +131,7 @@ function pick(key: string) {
             <!-- :icon, NOT <component :is>. A hugeicons icon is PATH DATA rather than
                  a component, so :is would try to render an array and fail. -->
             <HugeiconsIcon v-if="o.icon" :icon="o.icon" :size="14" :stroke-width="2" aria-hidden="true" />
-            <span class="optmenu__label">{{ o.label }}</span>
+            <span>{{ o.label }}</span>
             <!-- rendered on EVERY row and hidden rather than dropped — see the style -->
             <HugeiconsIcon
               :icon="CheckIcon"
@@ -177,14 +177,12 @@ function pick(key: string) {
 .optmenu__list {
   min-width: 7rem;
 }
-/* icon · label · check is .menu__item's own row now (atoms/controls.scss), and the
-   check is the shared .menu__check. The label still takes the slack, which is what
-   holds the mark on the trailing edge and — with the atom's `flex: none` on the
-   glyphs — keeps the leading icon from being the one thing in the row left to shrink.
-   Without that pinning it collapsed to zero width on the current row, the one row
-   carrying all three, pulling that label 14px out of line with every other. */
-.optmenu__label {
-  flex: 1 1 auto;
-  text-align: start;
-}
+/* icon · label · check is .menu__item's own row (atoms/controls.scss), the check is the
+   shared .menu__check, and both glyphs are pinned by the atom's `flex: none` — without
+   which the leading icon is the one shrinkable thing in the row and collapses to zero
+   width on the current row, the one row carrying all three.
+   The label carried `flex: 1 1 auto` to push the check to the trailing edge. .menu__check
+   does that itself with `margin-left: auto`, so the grow was a second mechanism aimed at
+   one outcome, and `text-align: start` with it was a no-op on a box already sized to its
+   text. Nothing local is left. */
 </style>

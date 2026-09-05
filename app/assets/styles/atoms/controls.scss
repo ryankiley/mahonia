@@ -557,14 +557,7 @@ input[type="search"]::-webkit-search-decoration {
   justify-content: space-between;
   gap: var(--space-2);
 }
-.menu__sectchev {
-  flex: none;
-  color: var(--ink-3);
-  transition: rotate var(--dur) var(--ease);
-}
-.menu__sectchev.is-open {
-  rotate: 180deg;
-}
+// the section header's chevron is the app's .chev (below) — nothing extra needed
 .menu__sectlist {
   list-style: none;
   margin: 0;
@@ -579,6 +572,37 @@ input[type="search"]::-webkit-search-decoration {
 .menu__sectitem {
   padding-left: var(--space-5);
   color: var(--ink-2);
+}
+
+// ── THE DISCLOSURE MARK ──────────────────────────────────────────────────────
+// The ⌄ that says a control opens something, and turns over while it's open. One rule,
+// because it was six: .menu__sectchev here, plus .totals__chev, .headline__chev,
+// .vault__chev, .vp__targetchev and .item__unitchev, each restating `flex: none` and
+// the quiet --ink-3 resting ink under its own name.
+//
+// Six copies bought six chances to disagree, and two had already taken them:
+//   · the TOTALS chevron listed only `color` in its transition while still setting
+//     `rotate: 180deg` on .is-open — so the editor's headline mark snapped round while
+//     the identical mark on /gear eased;
+//   · the vault pane's target chevron was handed `:class="{ 'is-open': open }"` by its
+//     markup and had no .is-open rule at all, so it never turned.
+// Both are fixed by there being one rule to be right.
+//
+// `flex: none` because a chevron is the shrinkable item in most of the rows it sits in
+// (a label beside it grows, a figure is fixed), and the app has already watched an
+// unpinned <svg> collapse to a sliver — see .menu__item.
+//
+// NOT the folder/nesting chevron (atoms/folder.scss): that one rotates -90deg when
+// COLLAPSED, a different motion for a different idea (a tree twisty, not a disclosure).
+.chev {
+  flex: none;
+  color: var(--ink-3);
+  transition:
+    color var(--dur) var(--ease),
+    rotate var(--dur) var(--ease);
+}
+.chev.is-open {
+  rotate: 180deg;
 }
 
 // ── the travelling plate ─────────────────────────────────────────────────────
@@ -883,9 +907,28 @@ input[type="search"]::-webkit-search-decoration {
 // concentric step the popovers keep). Focus deepens the ground a step — house
 // style carries focus on the caret, not a ring. Compose with .field; keep width,
 // padding and font local to the surface.
+// AN AMOUNT OF INK, not a named surface — and that is the load-bearing part, for the
+// third time in this file (see --lit and --well in tokens.scss, which both learned it
+// the same way). This drew its ground in --paper-2, a PAGE surface, while most of the
+// things that wear it float: the import dialog's paste box and the feedback box sit on
+// --surface-float, and only /gear's search sits on --paper. A solid light-dark() pair is
+// only ever right on ONE ground, so on the floating one the well was gone —
+//   light  --paper-2 #f4f4f4 on --surface-float #ffffff → 1.10:1
+//   dark   --paper-2 #151515 on --surface-float #1f1f1f → 1.108:1
+// — a container you could not see you were about to type into. Focus made it worse
+// rather than better: --paper-3 IS --surface-float's exact value in dark, so focusing
+// the field composited to 1.000:1 and the box disappeared completely at the moment it
+// became the thing you were using. That is the Worn/Consumable switch's bug (#216)
+// exactly, in the atom the switch's fix was written next to.
+// Mixed from ink, the fill composites over whatever it lands on and cannot match its
+// surface. Every ground gains and none regresses: 1.248 light, 1.344 dark on a popover,
+// 1.207 dark on the page, and focus lifts to 1.412/1.615. ONE percentage, not a
+// light-dark() pair: var(--ink) already flips with the theme, and these two measured out
+// equal. Do not read that as a rule — sRGB is not symmetric and --lit needed 6.5/8.5 for
+// the same job; it is just what this amount does on these grounds.
 .well {
   border: 0;
-  background: var(--paper-2);
+  background: color-mix(in oklab, var(--ink) 10%, transparent);
   border-radius: calc(var(--radius-4) - var(--space-2));
   color: var(--ink);
   transition: background var(--dur) var(--ease);
@@ -893,9 +936,12 @@ input[type="search"]::-webkit-search-decoration {
 .well::placeholder {
   color: var(--ink-3);
 }
+// Focus DEEPENS the ground — house style carries focus on the caret, not a ring — so it
+// has to deepen from the same substance, or the state that matters most is the one that
+// vanishes.
 .well:focus {
   outline: none;
-  background: color-mix(in oklab, var(--ink) 4%, var(--paper-2));
+  background: color-mix(in oklab, var(--ink) 15%, transparent);
 }
 
 // Disclosure slide — a grid whose single row animates 1fr↔0fr.

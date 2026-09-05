@@ -63,7 +63,7 @@
 }
 
 .prose {
-  max-width: 42rem;
+  max-width: var(--prose);
   /* CENTRED in the page column, not flush to its left gutter. .wrap is --measure
      wide (≥1024px) and this column is 42rem, so left-aligning parked ~350px of dead
      space to the right of every prose page and the block sat noticeably left of
@@ -89,39 +89,70 @@
   margin-top: 0;
 }
 .prose p,
-.prose li {
+.prose li,
+.bullets > li {
   color: var(--ink-2);
   max-width: 64ch;
 }
-.prose ul {
+
+/* THE DRAWN BULLET LIST — a prose <ul>, and anything else that wants the same marks.
+   `.bullets` exists because About's release entries wanted them outside .prose and
+   redrew the whole thing instead: its copy called itself "the same quiet bullet the
+   .prose lists use" while being a different size (0.34em vs 0.36em), positioned by a
+   different technique (top edge vs centre), landing 1.1px lower, and measuring to a
+   different column (60ch vs 64ch). Two bullets on one page, both claiming to be one. */
+.prose ul,
+.bullets {
   list-style: none;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
 }
-.prose li {
+.prose li,
+.bullets > li {
   padding-left: var(--space-4);
   position: relative;
 }
-/* a small round bullet (drawn, not a glyph — crisp + consistent across fonts),
-   sized in em so it tracks the text, centred on the first line */
-.prose li::before {
+/* Drawn, not a glyph — crisp and identical across fonts — and sized in em so it tracks
+   the text.
+   CENTRED ON THE CAP BOX of the first line, which is where the eye puts it: every
+   bullet on this site opens with a capital, so the mark reads against cap height
+   rather than x-height. Half the line box gets most of the way there, and the +0.02em
+   is the gap between that midpoint and the cap box's own — for the system stack at
+   16/24 it lands 12.32px down against a true cap centre of 12.36px. It was `0.72em`,
+   the LINE BOX centre less a hair: 0.84px high, about a sixth of the dot's diameter,
+   and visible as dots that float above their text.
+   `0.5lh`, NOT `var(--leading-normal) * 0.5em`. Both track the leading, but the second
+   is only valid while that token stays unitless — and it is consumed elsewhere as a
+   line-height, where `1.5rem` is an equally natural way to write it. The moment it took
+   a unit the calc would be length × length, invalid at computed-value time, and `top`
+   would fall back to `auto` with every bullet on the site dropping to the foot of its
+   line and nothing anywhere reporting it. That is the same silent failure --space-8 had
+   just been caught making one file over. The `lh` unit IS half the line box, however the
+   line-height is expressed, so there is no token to keep honest. */
+.prose li::before,
+.bullets > li::before {
   content: "";
   position: absolute;
   left: 0;
-  top: 0.72em;
+  top: calc(0.5lh + 0.02em);
   width: 0.36em;
   height: 0.36em;
   border-radius: 50%;
   background: var(--ink-3);
   transform: translateY(-50%);
 }
-.prose a {
+/* :not(.btn), because a link WEARING A BUTTON is not running text and must keep the
+   button's own chrome. `.prose a` outranks `.btn--primary` (0,1,1 against 0,1,0), so a
+   NuxtLink styled as the primary action inside a prose column had its label repainted
+   --ink — white on the white pill, i.e. an empty button — and took a stray hairline
+   under it as well. A prose page has no reason to restyle a control it contains. */
+.prose a:not(.btn) {
   color: var(--ink);
   border-bottom: 1px solid var(--line-2);
   transition: border-color var(--dur) var(--ease);
 }
-.prose a:hover {
+.prose a:not(.btn):hover {
   // deepen on hover, but never to full ink — keeps the underline soft (see --underline)
   border-bottom-color: var(--ink-2);
 }

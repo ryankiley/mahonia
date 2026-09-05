@@ -96,7 +96,7 @@ const planTip = computed(() => {
               <!-- stroke 2.25, not the app-wide 2: at size 16 it renders an exact
                    1.5px stroke (crisp 3 device px at 2x), so the chevron holds its
                    weight beside the display-size figure -->
-              <HugeiconsIcon :icon="ChevronDownIcon" class="totals__chev" :class="{ 'is-open': open }" :size="16" :stroke-width="2.25" />
+              <HugeiconsIcon :icon="ChevronDownIcon" class="chev" :class="{ 'is-open': open }" :size="16" :stroke-width="2.25" />
             </span>
           </template>
         </OptionMenu>
@@ -222,18 +222,12 @@ const planTip = computed(() => {
      loose beside the tightly-tracked display figure */
   letter-spacing: -0.01em;
 }
-.totals__chev {
-  flex: none;
-  color: var(--ink-3);
-  transition: color var(--dur) var(--ease);
-}
-.totals__amount:hover .totals__chev,
-.totals__amount:focus-within .totals__chev {
+/* the mark and its turn are the shared .chev (atoms/controls.scss); pointing at the
+   figure lights it. The copy that lived here transitioned `color` only while still
+   setting the 180deg — so this one chevron snapped round where every other one eased. */
+.totals__amount:hover .chev,
+.totals__amount:focus-within .chev {
   color: var(--ink);
-}
-/* the chevron turns over with the menu, like every other disclosure in the app */
-.totals__chev.is-open {
-  rotate: 180deg;
 }
 .totals__breakdown {
   /* one step up from --space-4 — the display-size figure above has a lot of optical
