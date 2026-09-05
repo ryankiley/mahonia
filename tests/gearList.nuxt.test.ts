@@ -17,7 +17,6 @@ import { localKey, type LocalListRecord } from "~~/shared/localList";
 import type { Folder, Item, ListSnapshot } from "~~/shared/types";
 import type { VaultEntry } from "~~/shared/vault";
 import { vaultNormKey } from "~~/shared/vault";
-import { noteVaultKeys, vaultKeysEpoch } from "~/composables/useVaultKeys";
 import {
   resetVaultCapture,
   setVaultDecisionFor,
@@ -35,13 +34,22 @@ const records = new Map<string, LocalListRecord>();
 // somewhere, and signed out there is nowhere. These cases are about the question
 // itself, so they're run as a holder of a vault; the signed-out path has its own
 // case at the end of the file.
+// mutable, so a case can drive a sign-in without leaving the list
+const hasVault = ref(true);
 mockNuxtImport("useVaultAccess", () => () => ({
-  hasVault: ref(true),
-  // the session has ANSWERED — the vault's reads (useVaultKeys) wait on this, so
-  // a mock that only carried hasVault left them hanging
+  hasVault,
   vaultKnown: ref(true),
-  vaultFetch: <T,>(url: string, opts?: Parameters<typeof $fetch>[1]) =>
-    $fetch(url, { ...opts, credentials: "same-origin" }) as Promise<T>,
+  // Options spelled out rather than `Parameters<typeof $fetch>[1]`: taking
+  // Parameters of a generic instantiates it, which drags Nuxt's typed-route
+  // matcher into every file that mocks this and blows TypeScript's depth limit
+  // (see the same note in useVaultAccess itself).
+  // Mirrors the real vaultFetch, including WHY it casts: `$fetch` is generic over
+  // the app's routes, so typing the call drags Nuxt's route matcher in and blows
+  // TypeScript's depth limit from a mock (see useVaultAccess).
+  vaultFetch: <T,>(url: string, opts?: Record<string, unknown>) => {
+    const call = $fetch as unknown as (u: string, o: unknown) => Promise<unknown>;
+    return call(url, { ...opts, credentials: "same-origin" }) as Promise<T>;
+  },
 }));
 
 mockNuxtImport("useLocalListStore", () => () => ({
@@ -118,11 +126,22 @@ let listResponse: ListSnapshot = snapshotFor("Original");
 registerEndpoint("/api/edit/list", () => ({ snapshot: listResponse }));
 registerEndpoint("/api/edit/changes", () => ({ version: 1 })); // the live-sync poll
 registerEndpoint("/api/catalog/use", () => ({})); // fire-and-forget ranking ping
-// what My Gear already holds, as [normKey, weightMg] tuples — read when a list
-// opens whose own answer doesn't already cover it (useVaultKeys). Empty here:
-// these cases are about capture, and an empty vault is what makes every row a
-// genuine capture.
-registerEndpoint("/api/vault/keys", () => ({ keys: [] }));
+// What My Gear holds of the keys the open list asks about, as [normKey, weightMg]
+// tuples. `heldGear` is what these cases pretend the vault has; empty by default,
+// because they are about capture and an empty vault makes every row a genuine one.
+let heldGear: [string, number | null][] = [];
+let amongCalls = 0;
+let amongFails = false;
+registerEndpoint("/api/vault/among", {
+  method: "POST",
+  handler: async (event) => {
+    amongCalls++;
+    if (amongFails) throw createError({ statusCode: 503 });
+    const body = await readBody<{ normKeys?: string[] }>(event);
+    const asked = new Set(body?.normKeys ?? []);
+    return { keys: heldGear.filter(([k]) => asked.has(k)) };
+  },
+});
 
 let captureCalls = 0;
 // what each capture actually carried — the picker tests assert on the ROWS, not
@@ -302,6 +321,10 @@ describe("useGearList — whose gear is this?", () => {
     captureBodies = [];
     storage.clear(); // the decision store
     resetVaultCapture(); // the capture memo is module-scoped
+    heldGear = []; // ...the vault's answer is not — it lives on the open list
+    amongCalls = 0;
+    amongFails = false;
+    hasVault.value = true;
     listResponse = withGear([gear()]);
   });
   afterEach(() => {
@@ -409,15 +432,122 @@ describe("useGearList — whose gear is this?", () => {
     expect(captureCalls).toBe(0);
   });
 
+  // ---- what My Gear holds, of THIS list's gear ---------------------------
+  //
+  // This lived in an app-wide singleton once, with a test file of its own. Two
+  // reviews of that shape produced 27 findings, about twenty of them consequences
+  // of its lifetime — so the answer moved onto the open list, and its behaviour is
+  // tested through the controller that owns it.
+
+  it("asks the vault about the list it just opened, and only about that list's gear", async () => {
+    const item = listResponse.items[0]!;
+    const key = vaultNormKey(item.brand, item.name, item.variant);
+    heldGear = [[key, item.unitWeightMg], ["something else entirely", 1_000]];
+    const c = useGearList();
+    await c.load({ token: TOKEN });
+    await vi.waitFor(() => expect(c.vaultGearAsked.value.has(key)).toBe(true));
+    // the ask is scoped, so the answer is too — the vault's other gear is not here
+    expect([...c.vaultGear.value.keys()]).toEqual([key]);
+    expect(c.vaultGear.value.get(key)).toBe(item.unitWeightMg);
+    expect(c.vaultGearSettled.value).toBe(true);
+  });
+
+  it("drops one list's answer when the next opens, without being told to", async () => {
+    // THE reason this is per-list. An app-wide cache had to be told: an epoch to
+    // tell one account's answer from the next, a reset hooked into sign-out, a
+    // merge rule for a read racing a capture. State that dies with the list it
+    // describes needs none of it.
+    const item = listResponse.items[0]!;
+    const key = vaultNormKey(item.brand, item.name, item.variant);
+    heldGear = [[key, item.unitWeightMg]];
+    const c = useGearList();
+    await c.load({ token: TOKEN });
+    await vi.waitFor(() => expect(c.vaultGear.value.size).toBe(1));
+
+    heldGear = [];
+    listResponse = withGear([gear({ name: "Kakwa 55", brand: "Durston" })]);
+    await c.load({ token: "another-edit-token" });
+    expect(c.vaultGear.value.has(key)).toBe(false);
+    await vi.waitFor(() => expect(c.vaultGearSettled.value).toBe(true));
+    expect(c.vaultGear.value.size).toBe(0);
+  });
+
+  it("asks nothing at all when there is no vault to ask", async () => {
+    hasVault.value = false;
+    try {
+      const c = useGearList();
+      await c.load({ token: TOKEN });
+      await vi.waitFor(() => expect(c.vaultGearSettled.value).toBe(true));
+      // settled as an ANSWER — nothing is banked, so every worthy row keeps its
+      // button — and without a request, which is what keeps a visitor with no
+      // account off this endpoint entirely
+      expect(amongCalls).toBe(0);
+      expect(c.vaultGearAsked.value.size).toBeGreaterThan(0);
+      expect(c.vaultGear.value.size).toBe(0);
+    } finally {
+      hasVault.value = true;
+    }
+  });
+
+  it("settles even when the ask fails, rather than holding every button back", async () => {
+    // offline, rate-limited, a blip. A row waits only while its gear is
+    // unanswered, so an ask that never settles is a save button hidden on every
+    // row of every list with no way back.
+    amongFails = true;
+    try {
+      const c = useGearList();
+      await c.load({ token: TOKEN });
+      await vi.waitFor(() => expect(c.vaultGearSettled.value).toBe(true));
+      expect(c.vaultGearAsked.value.size).toBeGreaterThan(0);
+      expect(c.vaultGear.value.size).toBe(0);
+    } finally {
+      amongFails = false;
+    }
+  });
+
+  it("re-asks when someone signs in without leaving the list", async () => {
+    // The one thing a per-list answer cannot work out for itself, and finding #1
+    // of the first review: signing in from the editor never navigates, so nothing
+    // reopens the list. Without the controller's session watcher the rows would
+    // still be rendering against the signed-out answer — every one of them
+    // offering to save gear the new account banked months ago.
+    hasVault.value = false;
+    const item = listResponse.items[0]!;
+    const key = vaultNormKey(item.brand, item.name, item.variant);
+    const c = useGearList();
+    await c.load({ token: TOKEN });
+    await vi.waitFor(() => expect(c.vaultGearSettled.value).toBe(true));
+    expect(c.vaultGear.value.size).toBe(0);
+
+    heldGear = [[key, item.unitWeightMg]];
+    hasVault.value = true; // a passkey sign-in, same page, no navigation
+    await vi.waitFor(() => expect(c.vaultGear.value.has(key)).toBe(true));
+  });
+
+  it("asks again about gear the list gains after it opened", async () => {
+    // A row typed in later has no answer, so it would offer to save gear the
+    // vault already holds — the original bug, in miniature, on rows added since.
+    const c = useGearList();
+    await c.load({ token: TOKEN });
+    await vi.waitFor(() => expect(c.vaultGearSettled.value).toBe(true));
+
+    const late = vaultNormKey("Durston", "Kakwa 55", null);
+    heldGear = [[late, 900_000]];
+    const id = c.addBlankItem(c.snapshot.value!.folders[0]!.id);
+    c.updateItem(id, { name: "Kakwa 55", brand: "Durston", unitWeightMg: 900_000 });
+    await vi.waitFor(() => expect(c.vaultGear.value.get(late)).toBe(900_000), { timeout: 3_000 });
+  });
+
   // The same proxy that made the save button lie also raises this question, and
   // the vault can now answer it: a list whose every row is already banked has
   // nothing to consent to and nothing to move.
   it("does not ask about a list whose gear My Gear already holds", async () => {
+    const item = listResponse.items[0]!;
+    // what the vault says when asked about this list: its one row, already banked
+    heldGear = [[vaultNormKey(item.brand, item.name, item.variant), item.unitWeightMg]];
     const c = useGearList();
     await c.load({ token: TOKEN });
-    // what /api/vault/keys would have said: this list's one row, already banked
-    const item = listResponse.items[0]!;
-    noteVaultKeys([[vaultNormKey(item.brand, item.name, item.variant), item.unitWeightMg]], vaultKeysEpoch());
+    await vi.waitFor(() => expect(c.vaultGearAsked.value.size).toBeGreaterThan(0));
     c.updateItem("i1", { qty: 2 });
     await new Promise((r) => setTimeout(r, 50));
     // no modal over a list to request permission for a no-op — and, crucially,
@@ -429,9 +559,10 @@ describe("useGearList — whose gear is this?", () => {
   });
 
   it("still asks as soon as one row is gear the vault doesn't hold", async () => {
+    heldGear = [["something else entirely", 1_000]]; // nothing this list carries
     const c = useGearList();
     await c.load({ token: TOKEN });
-    noteVaultKeys([["something else entirely", 1_000]], vaultKeysEpoch());
+    await vi.waitFor(() => expect(c.vaultGearAsked.value.size).toBeGreaterThan(0));
     c.updateItem("i1", { qty: 2 });
     await vi.waitFor(() => expect(c.vaultPrompt.value).not.toBeNull());
   });

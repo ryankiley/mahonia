@@ -8,7 +8,7 @@ import { sortedPeople } from "~~/shared/people";
 import { reconcileSnapshot } from "~~/shared/reconcile";
 import type { Folder, Item, ListSnapshot, Person, Unit, Waypoint, WaypointKind } from "~~/shared/types";
 import { pickListMeta } from "~~/shared/types";
-import type { VaultCapture, VaultEntry } from "~~/shared/vault";
+import type { VaultCapture, VaultEntry, VaultGearKey } from "~~/shared/vault";
 import { vaultNormKey } from "~~/shared/vault";
 import { bySortOrder, computeTotals, entryUnitFromInput, nextSortOrder, parseWeightInput, siblingItems, storedClassification } from "~~/shared/weights";
 import { createNesting } from "~/composables/useGearListNesting";
@@ -82,6 +82,131 @@ function create() {
     vaultAuto.value = vaultDecisionFor(editToken) === "yes";
     vaultDeclined.value = vaultExclusionsFor(editToken);
   }
+
+  // ---- what My Gear already holds, OF THIS LIST'S GEAR --------------------
+  //
+  // The other half of what a row's save button needs, and the half no local
+  // answer can supply: the vault either has this piece of gear or it doesn't,
+  // however it got there — a list on another device, an import, a row typed by
+  // hand on /gear. The per-list answers above are about CAPTURE, and reading them
+  // as membership is what made the button offer to save gear banked months ago.
+  //
+  // PER LIST, and that is the point. This was an app-wide, app-lifetime cache
+  // once; two reviews of it produced 27 findings, about twenty of which were
+  // consequences of that one choice — an epoch to tell one account's answer from
+  // the next, a reset hooked into sign-out, a merge rule for a read racing a
+  // capture, two timeouts, a sequence counter. State that dies with the list it
+  // describes needs none of them: `resetSession()` drops it, and the next list
+  // asks its own question.
+  //
+  // `gear` is what the vault holds of the keys we ASKED about — value is the
+  // weight a capture could still write, or null when that weight is pinned and no
+  // capture may argue with it. `asked` is which keys we have an answer for at
+  // all, and it is the reason both exist: "the vault doesn't have this" and "we
+  // haven't asked yet" are the same empty Map, and rendering the second as the
+  // first is the flash PR #239 took out of the signed-in first paint.
+  const vaultGear = shallowRef<ReadonlyMap<string, number | null>>(new Map());
+  const vaultGearAsked = shallowRef<ReadonlySet<string>>(new Set());
+  /** Whether an ask has SETTLED for this list — true even when it found nothing,
+   *  and even when there was nothing to ask about. Only the reveal animation
+   *  needs it; coverage reads `asked`, which is finer. */
+  const vaultGearSettled = ref(false);
+  // newest ask wins: opens overlap, and a slower older answer landing last would
+  // revert a fresher one
+  let vaultGearGen = 0;
+  let vaultGearTimer: ReturnType<typeof setTimeout> | undefined;
+  /** How long after an edit to ask about gear the list has gained. Long enough
+   *  that typing a name is one ask rather than one per keystroke. */
+  const VAULT_GEAR_DEBOUNCE_MS = 700;
+
+  /** Every distinct gear identity in the list right now. Not the capture set —
+   *  this is about what a ROW might render, so it includes rows capture would
+   *  skip, and it costs one fold per item rather than the capture builder's pass. */
+  function listGearKeys(): string[] {
+    const snap = snapshot.value;
+    if (!snap) return [];
+    const out = new Set<string>();
+    for (const it of snap.items) {
+      const k = vaultNormKey(it.brand, it.name, it.variant);
+      if (k) out.add(k);
+    }
+    return [...out];
+  }
+
+  /**
+   * Ask the vault about this list's gear.
+   *
+   * Skips the request when every key already has an answer, so the debounced
+   * re-ask after an edit costs nothing until the list actually gains gear.
+   * `force` is for the one case where the answers are still about the wrong
+   * question: the session changed under an open list.
+   *
+   * Never throws, and never makes a signed-out visitor wait. The editor is
+   * prerendered and most visitors have no account, so the hint cookie — a
+   * synchronous read, no round trip — settles them immediately with nothing
+   * banked, which is exactly right and keeps them off this endpoint entirely.
+   * A failed or slow ask settles the same way: the button then stands where it
+   * did before any of this existed, rather than staying hidden behind a request
+   * that may never land.
+   */
+  async function askVaultGear(force = false): Promise<void> {
+    if (!import.meta.client) return;
+    const keys = listGearKeys();
+    const gen = ++vaultGearGen;
+    const settle = (found: VaultGearKey[]) => {
+      if (gen !== vaultGearGen) return; // a newer ask (or a new list) owns the answer
+      vaultGear.value = new Map(found);
+      vaultGearAsked.value = new Set(keys);
+      vaultGearSettled.value = true;
+    };
+    if (!force && keys.every((k) => vaultGearAsked.value.has(k))) {
+      vaultGearSettled.value = true;
+      return;
+    }
+    // Two ways to know there is nothing to ask, and neither costs a round trip.
+    // Once the session has answered, "signed out" is final. Before it answers, the
+    // hint cookie stands in: the editor is prerendered and most visitors have no
+    // account, and a request on every one of their page loads is exactly the cost
+    // that cookie exists to avoid (see useSession.refresh).
+    if (!keys.length) return settle([]);
+    if (sessionKnown.value ? !sessionHasVault.value : !hasSessionHint()) return settle([]);
+    try {
+      const res = await vaultRead<{ keys: VaultGearKey[] }>("/api/vault/among", {
+        method: "POST",
+        body: { normKeys: keys },
+        // $fetch has no timeout of its own, so a socket that never answers (a
+        // captive portal, a dead radio) would hold every save button back until
+        // the browser gave up minutes later
+        signal: AbortSignal.timeout(6_000),
+      });
+      settle(Array.isArray(res?.keys) ? res.keys : []);
+    } catch {
+      settle([]); // signed out, offline, rate-limited — see the header
+    }
+  }
+
+  /** Re-ask after the list has settled from an edit — only actually a request
+   *  when the list gained gear nothing has answered for. */
+  function queueVaultGear(): void {
+    clearTimeout(vaultGearTimer);
+    vaultGearTimer = setTimeout(() => void askVaultGear(), VAULT_GEAR_DEBOUNCE_MS);
+  }
+
+  /** Fold gear this device has just banked into the answer, so the button stands
+   *  down without another round trip — and so a DUPLICATE of that gear further
+   *  down the same list stops offering too. Only ever keys the server confirmed
+   *  are live (see captureOne). */
+  function noteVaultGear(landed: VaultGearKey[]): void {
+    if (!landed.length) return;
+    const gear = new Map(vaultGear.value);
+    const asked = new Set(vaultGearAsked.value);
+    for (const [k, w] of landed) {
+      gear.set(k, w);
+      asked.add(k);
+    }
+    vaultGear.value = gear;
+    vaultGearAsked.value = asked;
+  }
   let teardownListeners: (() => void) | undefined;
 
   // on-device durability + connectivity awareness. The connectivity ref + watcher
@@ -93,12 +218,33 @@ function create() {
   // The vault's capture side. Bound inside the controller's scope so its
   // page-hide flush lives exactly as long as the editor does.
   const vault = useVaultCapture();
-  // The vault's READ side: which gear it already holds, so a row can stop
-  // offering to save what's saved (useVaultKeys). Resolved here, with the rest of
-  // the controller's collaborators, rather than inside load() — that runs from an
-  // async callback, and the session state underneath is a useState.
-  const vaultKeys = useVaultKeys();
   scope.run(() => vault.bindFlushOnLeave());
+  // The ONE thing a per-list answer cannot work out for itself: signing in (or
+  // out) without leaving the list. Nothing reopens the list, so nothing would
+  // re-ask, and the answers on screen would still be about the last session —
+  // which for a sign-in means every row falls back to the capture proxy and
+  // offers to save gear the new account banked months ago. That was finding #1 of
+  // the first review, and it is the whole reason this watcher exists.
+  //
+  // In the controller's scope, which already outlives any single mount, so it
+  // needs no lifetime machinery of its own.
+  // Resolved once, HERE: askVaultGear runs from a debounce and from async
+  // continuations, and the session state underneath vaultFetch is a useState.
+  // It is also the seam the codebase keeps every vault call behind, so a call
+  // site can't forget the credential.
+  const { vaultFetch: vaultRead, hasVault: sessionHasVault, vaultKnown: sessionKnown } =
+    useVaultAccess();
+  // A cookie read, not a request — see the gate in askVaultGear.
+  const { hasSessionHint } = useSession();
+  scope.run(() => {
+    const { hasVault } = useVaultAccess();
+    watch(hasVault, () => {
+      vaultGear.value = new Map();
+      vaultGearAsked.value = new Set();
+      vaultGearSettled.value = false;
+      void askVaultGear(true);
+    });
+  });
   const online = scope.run(() => useOnline())!;
   let persistTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -276,6 +422,14 @@ function create() {
     // ...and the rows must render against THIS list's answer (a draft's answer IS
     // yes: no token → yours by definition)
     refreshVaultCover();
+    // The vault's answer was about the LAST list's gear. It dies here, which is
+    // the entire lifetime story now: no epoch, no reset hook, no cross-account
+    // question — a new list asks its own.
+    vaultGear.value = new Map();
+    vaultGearAsked.value = new Set();
+    vaultGearSettled.value = false;
+    vaultGearGen++;
+    clearTimeout(vaultGearTimer);
     clearTimeout(flushTimer);
     clearTimeout(retryTimer); // a backoff must not fire into the session that replaced this one
     flushFailures = 0;
@@ -295,20 +449,6 @@ function create() {
     claimCode = editToken ? "" : normalizeShareCode(cap.code);
     openedByCode.value = !editToken && !!claimCode;
     resetSession();
-    // Re-read what My Gear holds, but only when it could change what a row draws.
-    //
-    // /gear can have edited the vault since the last read (a row added by hand,
-    // one removed), and neither reaches this cache on its own. But a row consults
-    // membership at all only when the automatic path ISN'T already claiming it —
-    // so on a list this device built (answer "yes", nothing declined) and on every
-    // claimed open, the read provably cannot move a pixel, and refreshVaultCover()
-    // one line above has just made both answers current. Skipping those is worth
-    // real money: each read is a session lookup, a `vaults` row write (the
-    // last-seen bump in resolveVaultForRead) and the query.
-    //
-    // Best-effort to the point of silence — it decides whether a save button
-    // shows, and a list must never wait on it or fail because of it.
-    if (!vaultAuto.value || vaultDeclined.value.size) void vaultKeys.refreshVaultKeys();
     snapshot.value = null;
     status.value = "loading";
     installListeners();
@@ -326,6 +466,10 @@ function create() {
       pending = local.pending ?? [];
       status.value = pending.length ? "saving" : "synced";
       syncRegistry();
+      // The rows are on screen now, so the question they render against is live
+      // now. Silent and best-effort: it decides whether a save button shows, and
+      // a list must never wait on it (see askVaultGear).
+      void askVaultGear();
     }
 
     try {
@@ -338,6 +482,10 @@ function create() {
       snapshot.value = merged;
       status.value = pending.length ? "saving" : "synced";
       registerOpened(); // server confirmed the token → remember this list in "Your lists"
+      // A second ask, which costs a request only if the server's copy brought
+      // gear the on-device one didn't have — every key already answered for is
+      // skipped inside.
+      void askVaultGear();
       // NO capture on open. It used to happen here, to catch a list that arrived
       // whole (imported, cloned) and dispatches no ops — but an edit link is an
       // edit link, and this hook could not tell YOUR list opened on a second device
@@ -445,6 +593,9 @@ function create() {
     openedByCode.value = false;
     resetSession();
     installListeners();
+    // A draft has no gear to ask about yet; settle it so nothing renders as
+    // held-back, and let the debounce above ask once rows arrive.
+    void askVaultGear();
     const folders: Folder[] = STARTER_FOLDERS.map((p, i) => ({
       id: uid(),
       name: p.name,
@@ -555,6 +706,11 @@ function create() {
     // pick, a drag, an undo — so this one call captures gear from all of them
     // without each call site having to remember to.
     if (!hydrating) captureIfMine();
+    // ...and the same for the READ side: gear typed in after the list opened has
+    // no answer yet, so a row that IS in My Gear would offer to save it — the
+    // original bug, in miniature, on rows added since. Debounced, and a no-op
+    // unless the list actually gained an identity nothing has answered for.
+    if (!hydrating) queueVaultGear();
     // Draft (no capability yet): keep edits local until there's real content, then
     // create the list once. While that create is in flight, queue ops for the
     // post-create flush. A claimed open is NOT a draft — it queues and flushes
@@ -996,7 +1152,12 @@ function create() {
     const snap = snapshot.value;
     const item = snap?.items.find((i) => i.id === id);
     if (!snap || !item) return "failed";
-    return vault.captureOne(item, snap.items, snap.folders, editToken);
+    const { result, landed } = await vault.captureOne(item, snap.items, snap.folders, editToken);
+    // Folded in HERE rather than inside capture: the answer belongs to this list's
+    // state, so a response that outlives the list (or the account) writes into a
+    // Map that resetSession has already replaced, and nothing leaks anywhere.
+    noteVaultGear(landed);
+    return result;
   }
 
   /**
@@ -1014,6 +1175,11 @@ function create() {
     // worth asking about — see useVault.
     vault.sync(snapshot.value.items, snapshot.value.folders, {
       editToken,
+      // ...and what the vault already holds of it, so a list whose every row is
+      // banked never raises a modal asking permission for a no-op. Passed in
+      // rather than read from a singleton: this is the open list's answer, and
+      // sync() has no business knowing where it came from.
+      held: vaultGearAsked.value.size ? vaultGear.value : null,
       onAsk: () => (vaultPrompt.value = { title: snapshot.value?.title || "this list" }),
     });
   }
@@ -1263,6 +1429,9 @@ function create() {
     vaultPrompt, answerVaultPrompt,
     vaultPicker, confirmVaultPicker, cancelVaultPicker,
     vaultAuto, vaultDeclined,
+    // what My Gear holds of this list's gear, and which keys have an answer at
+    // all — ItemRow renders its save button against the pair (see askVaultGear)
+    vaultGear, vaultGearAsked, vaultGearSettled,
     addBlankItem, addBlankItemAfter, addVaultItem, addVaultFolder, saveItemToVault, discardEmpty, updateItem, removeItem, setItemWeight, moveItem,
     addChild, nestItem, unnest, duplicateItem,
     pendingBlankId, pendingUndo, undoRemove, holdUndo, releaseUndo,

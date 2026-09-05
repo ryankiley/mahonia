@@ -61,9 +61,25 @@ export function useVaultAccess() {
    * Call a vault endpoint. Same-origin, so the session cookie rides along; the
    * explicit `credentials` keeps that true if a call is ever made cross-origin by
    * accident rather than failing silently as an anonymous request.
+   *
+   * The options are spelled out rather than borrowed as `Parameters<typeof
+   * $fetch>[1]`. That looked tidier and cost the whole file: taking Parameters of
+   * a GENERIC function instantiates it at its constraint, which drags in Nuxt's
+   * typed-route matcher — a recursive conditional type over every route in the
+   * app — for a call that infers nothing from the route anyway (the return is
+   * cast to `T`). It sat just under TypeScript's depth limit until a routes change
+   * pushed it over, and then reported five TS2321s on this one line, in a file
+   * nothing had touched. Casting the call itself keeps the matcher out of it.
    */
-  async function vaultFetch<T>(url: string, opts: Parameters<typeof $fetch>[1] = {}): Promise<T> {
-    return (await $fetch(url, { ...opts, credentials: "same-origin" })) as T;
+  type VaultFetchOptions = {
+    method?: "GET" | "POST";
+    body?: unknown;
+    query?: Record<string, unknown>;
+    signal?: AbortSignal;
+  };
+  async function vaultFetch<T>(url: string, opts: VaultFetchOptions = {}): Promise<T> {
+    const call = $fetch as unknown as (u: string, o: unknown) => Promise<unknown>;
+    return (await call(url, { ...opts, credentials: "same-origin" })) as T;
   }
 
   return { hasVault, vaultKnown, vaultFetch };

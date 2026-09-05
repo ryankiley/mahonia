@@ -475,30 +475,35 @@ export async function listVaultItems(db: Db, vaultId: number): Promise<VaultEntr
 }
 
 /**
- * What a vault holds, as identity keys and the one number that can still be
- * pushed into a row — no spellings, no folders, no tombstones.
+ * What this vault holds OF THIS GEAR: the rows matching the keys asked about,
+ * with the one number a capture could still write into them.
  *
- * The editor's question about a list row is a MEMBERSHIP one ("is this gear
- * already mine?"), not a browse, and answering it with listVaultItems would ship
- * a whole vault's worth of rows to a page that renders none of them. Two columns,
- * as tuples, and a Map is all the client builds from it.
+ * Scoped to an ask, not to the vault, and that is the whole design. The editor's
+ * question is about the ~40 rows of one open list, so answering it with the
+ * vault's entire contents shipped up to POOL_LIMIT rows to a page that renders
+ * none of them — and made the answer an app-lifetime cache, which is where the
+ * lifetime bugs came from (see the composable that used to hold it). Ask about a
+ * list, get a list back, and the answer dies with the list.
  *
- * WHY THE WEIGHT COMES TOO. "My Gear has this gear" is not the whole question the
- * save button asks — it asks whether pressing it would DO anything, and on a row
- * whose weight you have just corrected it still would: capture takes the incoming
- * weight (see the upsert above). Membership alone made the button vanish the
- * moment a row was banked and never bring it back, so a corrected weight could
- * not be pushed from that list at all. A null weight means the row's weight is
- * PINNED — you fixed it by hand on /gear, capture is not allowed to argue with
- * it, and offering to save would be offering a no-op.
+ * It also retires an argument the whole-vault read needed: bounded at
+ * POOL_LIMIT, a key OUTSIDE that window hid the save button on a row its owner
+ * could not see, remove or restore on /gear. An ask has no window.
  *
- * Bounded and ordered exactly like liveRows, which is the browse's own window:
- * a key outside it would hide the button on a row the owner cannot see, remove
- * or restore on /gear — a state with no way out. Removed rows are excluded
- * because capture never resurrects a tombstone (see captureVaultItems), so gear
- * you put away is genuinely not in your vault.
+ * `weightMg`, or null when the row's weight is PINNED. Membership alone is not
+ * the question the button asks — it asks whether pressing would DO anything, and
+ * on a row whose weight you have just corrected it still would, because capture
+ * takes the incoming weight. A pinned weight is one you fixed by hand on /gear,
+ * which no capture may argue with, so there is nothing left to push.
+ *
+ * Removed rows are excluded because capture never resurrects a tombstone (see
+ * captureVaultItems), so gear you put away is genuinely not in your vault.
  */
-export async function listVaultKeys(db: Db, vaultId: number): Promise<VaultGearKey[]> {
+export async function vaultGearAmong(
+  db: Db,
+  vaultId: number,
+  normKeys: string[],
+): Promise<VaultGearKey[]> {
+  if (!normKeys.length) return [];
   const rows = await db
     .select({
       normKey: vaultItems.normKey,
@@ -506,11 +511,7 @@ export async function listVaultKeys(db: Db, vaultId: number): Promise<VaultGearK
       weightPinned: vaultItems.weightPinned,
     })
     .from(vaultItems)
-    .where(liveIn(vaultId))
-    // the same total order liveRows uses — the two must truncate on the SAME
-    // rows or the membership set claims gear /gear will not show
-    .orderBy(desc(vaultItems.lastUsedAt), asc(vaultItems.id))
-    .limit(POOL_LIMIT);
+    .where(and(liveIn(vaultId), inArray(vaultItems.normKey, normKeys.slice(0, VAULT_CAPTURE_MAX))));
   return rows.map((r) => [r.normKey, r.weightPinned ? null : r.weightMg]);
 }
 

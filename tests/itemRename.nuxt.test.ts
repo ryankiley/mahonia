@@ -70,6 +70,13 @@ mockNuxtImport("useGearList", () => () => ({
   // the row's "already banked" state — off, so these cases exercise a live button
   vaultAuto: ref(false),
   vaultDeclined: ref(new Set<string>()),
+  // What My Gear holds of this list's gear, and which keys have an answer at all
+  // — ItemRow renders its save button against these. Empty-but-answered here:
+  // these suites are not about the vault, and a row that has been asked about and
+  // isn't banked is the plainest state to render.
+  vaultGear: ref(new Map()),
+  vaultGearAsked: ref(new Set()),
+  vaultGearSettled: ref(true),
 }));
 
 // A row as a catalog pick leaves it: linked, the catalog's weight, and the link

@@ -42,6 +42,13 @@ mockNuxtImport("useGearList", () => () => ({
   snapshot: ref({ folders: [], items: [], displayUnit: "g" }),
   addVaultItem: vi.fn(),
   moveItem: vi.fn(),
+  // What My Gear holds of this list's gear, and which keys have an answer at all
+  // — ItemRow renders its save button against these. Empty-but-answered here:
+  // these suites are not about the vault, and a row that has been asked about and
+  // isn't banked is the plainest state to render.
+  vaultGear: ref(new Map()),
+  vaultGearAsked: ref(new Set()),
+  vaultGearSettled: ref(true),
 }));
 mockNuxtImport("useItemDnd", () => () => ({ startInsert: vi.fn() }));
 
