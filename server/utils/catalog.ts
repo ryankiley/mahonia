@@ -30,6 +30,7 @@ import {
   type CatalogSearchResult,
   type LocalCatalogRow,
 } from "../../shared/catalogSearch";
+import type { RecentChange } from "../../shared/types";
 
 // trigramScore lives in shared/catalogSearch (single source of truth for the
 // offline client + this server fallback) — re-exported so its one server-side
@@ -322,15 +323,6 @@ export async function proposeCorrection(
   return { status, weightMg: applies ? newW : oldW, itemName };
 }
 
-export interface RecentChange {
-  id: number;
-  itemName: string;
-  oldWeightMg: number;
-  newWeightMg: number;
-  status: string;
-  sourceUrl: string | null;
-  createdAt: string;
-}
 
 /** Recent catalog weight changes (newest first) — the patrol / transparency feed. */
 export async function recentChanges(db: Db, limit = 50): Promise<RecentChange[]> {

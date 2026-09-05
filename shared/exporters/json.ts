@@ -31,7 +31,6 @@ import {
   normalizeDistanceUnit,
   normalizeTrailAscentM,
   normalizeTrailDistanceM,
-  type DisplayDistanceUnit,
 } from "../trailDistance";
 import { parseProfile, profileToString } from "../profile";
 import { normalizeTrailLabel, normalizeTrailUrl } from "../trailLink";
@@ -50,22 +49,7 @@ export function listToJson(list: ListMeta & ListData): string {
 }
 
 /** A parsed backup: meta to seed the new list with + sanitized content. */
-interface JsonImport {
-  title?: string;
-  description?: string;
-  displayUnit?: Unit;
-  trailUrl?: string;
-  trailLabel?: string;
-  trailDistanceM?: number;
-  trailDistanceUnit?: DisplayDistanceUnit;
-  trailProfile?: string;
-  trailAscentM?: number;
-  trailDescentM?: number;
-  routeGeometry?: string;
-  startDate?: string;
-  endDate?: string;
-  data: ListData;
-}
+type JsonImport = Partial<ListMeta> & { data: ListData };
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   !!v && typeof v === "object" && !Array.isArray(v);
@@ -210,8 +194,8 @@ export function jsonToListImport(text: string): JsonImport | null {
         : undefined,
     // a hand-edited backup can carry any string here, so re-validate rather than clamp:
     // this ends up in a :href on a page strangers open
-    trailUrl: normalizeTrailUrl(typeof raw.trailUrl === "string" ? raw.trailUrl : null) ?? undefined,
-    trailLabel: normalizeTrailLabel(typeof raw.trailLabel === "string" ? raw.trailLabel : null),
+    trailUrl: normalizeTrailUrl(raw.trailUrl) ?? undefined,
+    trailLabel: normalizeTrailLabel(raw.trailLabel),
     // re-validated for the same reason: a hand-edited backup can carry a negative,
     // a string or an absurd number, and the normalizer is the one rule for all of them
     trailDistanceM: normalizeTrailDistanceM(raw.trailDistanceM),

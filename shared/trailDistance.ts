@@ -346,15 +346,30 @@ export function normalizeBodyWeightUnit(raw: unknown): BodyWeightUnit | undefine
   return oneOf(BODY_WEIGHT_UNITS, raw);
 }
 
-/** A raw body weight → grams, or undefined. Bare numbers read in the given unit. */
-export function parseBodyWeightG(raw: string, fallbackUnit: BodyWeightUnit): number | null {
+/**
+ * "1.5 L", "32 fl oz", "70kg", "0.75" → the number and the unit word beside it, or null
+ * for anything unparseable or non-positive. A comma reads as the decimal point; the unit
+ * comes back lower-case with its dots and spaces gone ("fl. oz" → "floz"), "" when there
+ * is none. The one rule for reading an amount someone typed — a body weight below and a
+ * water volume (shared/water.ts) both start here, so what counts as a number can't
+ * drift between them. (It lives in this file because this file imports nothing, and
+ * types.ts relies on that.)
+ */
+export function splitAmount(raw: unknown): { n: number; unit: string } | null {
   if (raw == null) return null;
   const s = String(raw).trim().toLowerCase().replace(",", ".");
   const m = s.match(/^(\d*\.?\d+)\s*([a-z. ]*)$/);
   if (!m) return null;
   const n = Number.parseFloat(m[1]!);
   if (!Number.isFinite(n) || n <= 0) return null;
-  const u = m[2]!.replace(/[. ]/g, "");
+  return { n, unit: m[2]!.replace(/[. ]/g, "") };
+}
+
+/** A raw body weight → grams, or undefined. Bare numbers read in the given unit. */
+export function parseBodyWeightG(raw: string, fallbackUnit: BodyWeightUnit): number | null {
+  const amt = splitAmount(raw);
+  if (!amt) return null;
+  const { n, unit: u } = amt;
   let perG: number | undefined;
   if (u === "") perG = G_PER_BODY_UNIT[fallbackUnit];
   else if (u === "kg" || u.startsWith("kilo")) perG = G_PER_BODY_UNIT.kg;

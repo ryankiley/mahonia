@@ -10,19 +10,10 @@
 
 import { LIST_CODE_HEADER } from "~~/shared/links";
 import { claimedLocalKey } from "~~/shared/localList";
-import type { Unit } from "~~/shared/types";
+import type { ClaimedList } from "~~/shared/types";
 import { forget, recall, remember } from "../utils/remember";
 import { deleteListOnServer } from "./useMyLists";
 
-export interface ClaimedList {
-  shareCode: string;
-  slug: string;
-  title: string;
-  totalMg: number;
-  version: number;
-  displayUnit: Unit;
-  updatedAt: string;
-}
 
 // Which set of device tokens we've already claimed, so a signed-in visitor doesn't
 // re-POST the same registry on every page load. Persisted per-device rather than

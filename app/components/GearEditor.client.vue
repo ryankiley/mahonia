@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon, type IconNode } from "~/utils/hugeicon";
-import { Backpack02Icon, Bug02Icon, CheckmarkSquare02Icon, ChevronDownIcon, CopyPlusIcon, Csv01Icon, Delete02Icon, EllipsisIcon, FileExportIcon, FileImportIcon, HashIcon, KeyboardIcon, RemoveCircleIcon, Route02Icon, SafeBoxIcon, Share08Icon, ThirdBracketIcon, Txt01Icon, UndoIcon, UserAddIcon } from "@hugeicons/core-free-icons";
+import { Backpack02Icon, Bug02Icon, CheckmarkSquare02Icon, ChevronDownIcon, CopyPlusIcon, Delete02Icon, EllipsisIcon, FileExportIcon, FileImportIcon, KeyboardIcon, RemoveCircleIcon, Route02Icon, SafeBoxIcon, Share08Icon, UndoIcon, UserAddIcon } from "@hugeicons/core-free-icons";
 import { editLinkPath, normalizeShareCode } from "~~/shared/links";
 import { tripHeadline } from "~~/shared/trailDistance";
 import { formatWeight } from "~~/shared/weights";
@@ -481,7 +481,7 @@ const origin = () => (typeof location !== "undefined" ? location.origin : "");
 // The share URL the plain-text copy appends is the READ-ONLY link — explicitly, not
 // location.href, which here is /e/{code}#{token}. That token is edit access, and this
 // action's whole purpose is pasting the result somewhere public.
-const { warmExporters, copyPlainText, copyMarkdown, downloadCsv, downloadJson } = useListExports(
+const { warmExporters, exportItems } = useListExports(
   () => snapshot.value,
   flash,
   // a draft has no share code yet — no link rather than a broken one (same guard
@@ -819,21 +819,9 @@ const MENU_ACTIONS = [
   { label: "Send feedback…", icon: Bug02Icon, run: () => { feedbackEverOpened.value = true; feedbackOpen.value = true; } },
 ];
 const MENU_SECTIONS = [
-  {
-    key: "export",
-    label: "Export",
-    icon: FileExportIcon,
-    items: [
-      // First, because it's the one people reach for most: it's the format a comment
-      // box actually accepts. Markdown below it is the same idea for somewhere that
-      // renders it (Apple Notes, a README, a forum that takes it).
-      { label: "Copy as plain text", icon: Txt01Icon, run: copyPlainText },
-      { label: "Copy as Markdown", icon: HashIcon, run: copyMarkdown },
-      { label: "Download CSV", icon: Csv01Icon, run: downloadCsv },
-      { label: "Download JSON", icon: ThirdBracketIcon, run: downloadJson },
-    ],
-  },
-] as const;
+  // the rows are useListExports' — one table for this menu and the read views'
+  { key: "export", label: "Export", icon: FileExportIcon, items: exportItems },
+];
 
 const openSection = ref<string | null>(null);
 function toggleSection(key: string) {
@@ -1042,7 +1030,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
                     <HugeiconsIcon :icon="s.icon" :size="14" :stroke-width="2" aria-hidden="true" />
                     <!-- the label takes the slack, so the chevron keeps the trailing
                          edge now that a glyph holds the leading one -->
-                    <span class="editor__sectlabel">{{ s.label }}</span>
+                    <span class="menu__sectlabel">{{ s.label }}</span>
                     <HugeiconsIcon :icon="ChevronDownIcon" class="chev"
                       :class="{ 'is-open': openSection === s.key }"
                       :size="14"
@@ -1613,30 +1601,6 @@ function onCorrected(res: { status: string; itemName?: string }) {
 /* the glyph column, and the `flex: none` pinning the icon into it, are .menu__item's
    own now (atoms/controls.scss) — including the section header's, which took its gap
    from the copy that lived here */
-/* --menu-glyph lived here: the icon's width, named once because two rules had to agree
-   on it — the column the glyphs sit in, and the nested indent derived from that column.
-   The indent is gone (see .menu__sectitem), so nothing has to agree with anything and a
-   token with one reader is just a longer way to write its value. */
-.editor__sectlabel {
-  flex: 1 1 auto;
-}
-/* NO INDENT — the Export items take the row inset every other row takes, overriding
-   the atom's --space-5 step.
-   The indent was right while these rows were bare: it put their labels where the
-   labels above them start, and a step was the only thing marking them as nested. Now
-   that they carry glyphs it works against the menu, because it opens a SECOND glyph
-   column a step in from the first — and one glyph column down the whole card is the
-   thing this menu was rebuilt around. Two of them read as a ragged edge, not as
-   nesting.
-   What says "group" instead is what already did the rest of that job: the quieter ink
-   (--ink-2, from the atom) under a header whose chevron has turned over.
-   It also settles a jump. The card is sized to its widest row (`width: max-content`,
-   atoms/controls.scss), so an indent that only exists while the section is OPEN made
-   opening it widen the card by that step — the width twin of the flinch the .reveal
-   slide was added to stop. Rows that measure like their peers can't move it. */
-.menu__list .menu__sectitem {
-  padding-left: var(--space-3);
-}
 /* ...and forgetting stays in plain ink. It is not a lesser action — it takes the
    default row colour, not the quiet one — it just isn't the irreversible one, and
    red is what this menu reserves for that. */

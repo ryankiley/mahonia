@@ -563,14 +563,30 @@ input[type="search"]::-webkit-search-decoration {
   margin: 0;
   padding: 0;
 }
+// the header's label takes the slack, so its chevron holds the trailing edge now that
+// a glyph holds the leading one
+.menu__sectlabel {
+  flex: 1 1 auto;
+}
 // The section SLIDES rather than snapping: opening Export added 120px to the menu in
 // one frame, which read as the menu flinching. The recipe is the shared .reveal atom
 // below — nothing needed but the wrapper in the template.
 //
-// Items are indented, so an open group reads as belonging to its header rather than
-// as more peers appearing in the middle of the menu.
+// NO INDENT — an item takes the same --space-3 inset every other row takes. The
+// --space-5 step it used to have was right while these rows were bare: it put their
+// labels where the labels above them start, and a step was the only thing marking
+// them as nested. Now that they carry glyphs it works against the menu, because it
+// opens a SECOND glyph column a step in from the first, and one glyph column down the
+// whole card is the thing the menus were rebuilt around. Two of them read as a ragged
+// edge, not as nesting. What says "group" instead is what already did the rest of
+// that job: the quieter ink under a header whose chevron has turned over.
+// It also settles a jump. The card is sized to its widest row (`width: max-content`),
+// so an indent that only exists while the section is OPEN widened the card on
+// opening — the width twin of the flinch the .reveal slide was added to stop.
+// (Both consumers had been overriding the step back to --space-3 locally, in
+// identical rules; the value nobody wanted has left the atom.)
 .menu__sectitem {
-  padding-left: var(--space-5);
+  padding-left: var(--space-3);
   color: var(--ink-2);
 }
 
