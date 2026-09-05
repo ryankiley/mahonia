@@ -24,11 +24,11 @@
    multiplier for it: this pins the track to the column either way. */
 .folder__body {
   display: grid;
-  grid-template-rows: 1fr;
+  grid-template-rows: minmax(0, 1fr);
   transition: grid-template-rows var(--dur) var(--ease);
 }
 .folder[data-collapsed] .folder__body {
-  grid-template-rows: 0fr;
+  grid-template-rows: minmax(0, 0fr);
 }
 .folder__bodyinner {
   min-height: 0;

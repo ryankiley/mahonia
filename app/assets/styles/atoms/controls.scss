@@ -976,7 +976,7 @@ input[type="search"]::-webkit-search-decoration {
 // names and none of the transition — a disclosure that snapped instead of sliding.
 .reveal {
   display: grid;
-  grid-template-rows: 1fr;
+  grid-template-rows: minmax(0, 1fr);
   /* Any offset a variant carries must COLLAPSE with the height. A margin still
      applies to a box that has animated to 0fr, so the row lands off by it and then
      snaps when the node is removed. Owned here as a hook rather than patched per
@@ -1002,7 +1002,7 @@ input[type="search"]::-webkit-search-decoration {
 }
 .reveal-enter-from,
 .reveal-leave-to {
-  grid-template-rows: 0fr;
+  grid-template-rows: minmax(0, 0fr);
   opacity: 0;
 }
 

@@ -95,7 +95,11 @@
     grid-template-rows: 1fr !important;
   }
   .nestcollapse > .nest-block {
+    height: auto !important;
+    margin-top: var(--space-2) !important;
     overflow: visible !important;
+    visibility: visible !important;
+    opacity: 1 !important;
   }
 
   // keep a row (and a folder heading with its first rows) on one page
