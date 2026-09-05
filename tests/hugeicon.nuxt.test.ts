@@ -15,16 +15,16 @@ import { mount } from "@vue/test-utils";
 import { HugeiconsIcon as Upstream } from "@hugeicons/vue";
 import {
   Add01Icon, ArrowExpand02Icon, ArrowLeft01Icon, ArrowRight01Icon, ArrowShrink02Icon,
-  ArrowUpRight01Icon, Backpack02Icon, CalculateIcon, Calendar03Icon,
-  Cancel01Icon, CheckIcon, CheckmarkSquare02Icon, ChevronDownIcon, CircleEllipsisIcon, CommandIcon,
-  CircleXIcon, CookieIcon, Copy01Icon, CopyPlusIcon, Delete02Icon, DropletIcon, Edit02Icon,
+  ArrowUpRight01Icon, Backpack02Icon, Bug02Icon, CalculateIcon, Calendar03Icon,
+  Cancel01Icon, CheckIcon, CheckmarkSquare02Icon, ChevronDownIcon, CircleEllipsisIcon,
+  CircleXIcon, CookieIcon, Copy01Icon, CopyPlusIcon, Csv01Icon, Delete02Icon, DropletIcon, Edit02Icon,
   EllipsisIcon, FileExportIcon, FileImportIcon, Fire02Icon, FolderIcon, GlobeIcon,
-  GripVerticalIcon, HelpCircleIcon, Message01Icon, RemoveCircleIcon,
-  Key01Icon, LayerAddIcon, ListIndentDecreaseIcon, ListIndentIncreaseIcon, ListPlusIcon, Location01Icon,
+  GripVerticalIcon, HashIcon, HelpCircleIcon, RemoveCircleIcon,
+  Key01Icon, KeyboardIcon, LayerAddIcon, ListIndentDecreaseIcon, ListIndentIncreaseIcon, ListPlusIcon, Location01Icon,
   NodeAddIcon, NoteAddIcon, RacingFlagIcon, Refresh01Icon, Route02Icon, RouteIcon,
   SafeBoxIcon, Share08Icon, ShirtIcon, SortingAZ01Icon, SortingNineOneIcon,
-  SortingOneNineIcon, SquareIcon, Stairs01Icon, TentIcon, Undo02Icon, UserCircleIcon,
-  UserLock01Icon,
+  SortingOneNineIcon, SquareIcon, Stairs01Icon, TentIcon, ThirdBracketIcon, Txt01Icon,
+  Undo02Icon, UserCircleIcon, UserLock01Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon as Local } from "~/utils/hugeicon";
 
@@ -34,16 +34,16 @@ import { HugeiconsIcon as Local } from "~/utils/hugeicon";
 // 'from "@hugeicons/core-free-icons"' -B..` or just the import lists in app/.
 const ALL_ICONS = Object.entries({
   Add01Icon, ArrowExpand02Icon, ArrowLeft01Icon, ArrowRight01Icon, ArrowShrink02Icon,
-  ArrowUpRight01Icon, Backpack02Icon, CalculateIcon, Calendar03Icon,
-  Cancel01Icon, CheckIcon, CheckmarkSquare02Icon, ChevronDownIcon, CircleEllipsisIcon, CommandIcon,
-  CircleXIcon, CookieIcon, Copy01Icon, CopyPlusIcon, Delete02Icon, DropletIcon, Edit02Icon,
+  ArrowUpRight01Icon, Backpack02Icon, Bug02Icon, CalculateIcon, Calendar03Icon,
+  Cancel01Icon, CheckIcon, CheckmarkSquare02Icon, ChevronDownIcon, CircleEllipsisIcon,
+  CircleXIcon, CookieIcon, Copy01Icon, CopyPlusIcon, Csv01Icon, Delete02Icon, DropletIcon, Edit02Icon,
   EllipsisIcon, FileExportIcon, FileImportIcon, Fire02Icon, FolderIcon, GlobeIcon,
-  GripVerticalIcon, HelpCircleIcon, Message01Icon, RemoveCircleIcon,
-  Key01Icon, LayerAddIcon, ListIndentDecreaseIcon, ListIndentIncreaseIcon, ListPlusIcon, Location01Icon,
+  GripVerticalIcon, HashIcon, HelpCircleIcon, RemoveCircleIcon,
+  Key01Icon, KeyboardIcon, LayerAddIcon, ListIndentDecreaseIcon, ListIndentIncreaseIcon, ListPlusIcon, Location01Icon,
   NodeAddIcon, NoteAddIcon, RacingFlagIcon, Refresh01Icon, Route02Icon, RouteIcon,
   SafeBoxIcon, Share08Icon, ShirtIcon, SortingAZ01Icon, SortingNineOneIcon,
-  SortingOneNineIcon, SquareIcon, Stairs01Icon, TentIcon, Undo02Icon, UserCircleIcon,
-  UserLock01Icon,
+  SortingOneNineIcon, SquareIcon, Stairs01Icon, TentIcon, ThirdBracketIcon, Txt01Icon,
+  Undo02Icon, UserCircleIcon, UserLock01Icon,
 }) as [string, never][];
 
 // The prop combinations the app actually draws with (see the call sites), plus the
