@@ -132,14 +132,17 @@
     },
     {
       "brand": "RXBAR",
-      "name": "Protein Bar",
+      "name": "Protein Bar (Chocolate Sea Salt)",
       "variant": "",
       "category_hint": "consumable",
       "weight_value": 1.83,
       "weight_unit": "oz",
       "weight_source": "manufacturer",
       "source_url": "https://www.amazon.com/RXBAR-Whole-Protein-Chocolate-1-83oz/dp/B07CWXX69K",
-      "quote": "RXBAR, Chocolate Sea Salt, Protein Bar, 1.83 Oz Bar"
+      "quote": "RXBAR, Chocolate Sea Salt, Protein Bar, 1.83 Oz Bar",
+      "kcal": 200,
+      "kcal_source_url": "https://smartlabel.kelloggs.com/Product/Index/10857777004307",
+      "kcal_quote": "Serving Size 1 bar (52 g) … Calories 200"
     },
     {
       "brand": "Skratch Labs",

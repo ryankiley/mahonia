@@ -71,14 +71,17 @@
     },
     {
       "brand": "PROBAR",
-      "name": "MEAL Bar",
+      "name": "MEAL Bar (Peanut Butter Chocolate Chip)",
       "variant": "",
       "category_hint": "consumable",
       "weight_value": 3,
       "weight_unit": "oz",
       "weight_source": "manufacturer",
-      "source_url": "https://theprobar.com/collections/meal-bar",
-      "quote": "3 oz. Bar"
+      "source_url": "https://theprobar.com/products/peanut-butter-chocolate-meal-replacement-bar",
+      "quote": "3 oz. Bar",
+      "kcal": 380,
+      "kcal_source_url": "https://theprobar.com/products/peanut-butter-chocolate-meal-replacement-bar",
+      "kcal_quote": "3 oz. Bar … 380 calories"
     },
     {
       "brand": "Snickers",
