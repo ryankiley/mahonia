@@ -293,6 +293,39 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
     }
   }
 
+  // --- WARNING: a variant that distinguishes nothing --------------------------
+  // A variant exists to tell a row apart from a sibling, or to state a size the
+  // maker sells several of. So: "One size" and "Unisex" say nothing; "Standard" on
+  // a product with one row is filler; "per bar" on the only row of "Energy Bar"
+  // restates the name (a unit label earns its place only beside a multi-pack
+  // sibling, or on trekking poles); "net" is the catalog's convention for every
+  // food weight, not a fact about one pouch (fuel canisters keep "net fuel" — the
+  // stored weight is the gas alone, not the can you carry).
+  const rowsPerProduct = new Map<string, number>();
+  for (const r of rows) {
+    const k = `${normKey(r.brand)}|${normKey(r.name)}`;
+    rowsPerProduct.set(k, (rowsPerProduct.get(k) ?? 0) + 1);
+  }
+  // a unit label is earned when a sibling row is counted differently: "sleeve of 10"
+  // beside "per tablet", or "per pair" beside "per pole"
+  const hasPackSibling = (r: CatalogCsvRow) =>
+    rows.some((o) => o !== r && normKey(o.brand) === normKey(r.brand) && normKey(o.name) === normKey(r.name) && /\b(\d+-pack|of \d+|per \w+)\b/i.test(o.variant ?? ""));
+  for (const r of rows) {
+    const v = r.variant ?? "";
+    if (!v) continue;
+    const single = rowsPerProduct.get(`${normKey(r.brand)}|${normKey(r.name)}`) === 1;
+    const dims = v.split(/,\s*/);
+    if (dims.some((d) => /^(one size|unisex)$/i.test(d))) {
+      warn("variant-filler", `${gearLabel(r)}: "${v}" — "One size" / "Unisex" distinguish nothing; drop`);
+    } else if (single && /^standard$/i.test(v)) {
+      warn("variant-filler", `${gearLabel(r)}: "Standard" on a one-row product is filler; drop`);
+    } else if (dims.some((d) => /^per \w+$/i.test(d)) && !/\btrekking\s+poles?$/i.test(r.name.trim()) && !hasPackSibling(r)) {
+      warn("variant-filler", `${gearLabel(r)}: unit label in "${v}" restates the row — only trekking poles, or a row beside a multi-pack sibling, carry one`);
+    } else if (dims.includes("net") && r.commonName?.toLowerCase() !== "fuel canister") {
+      warn("variant-filler", `${gearLabel(r)}: "net" is the convention for every food weight, not a fact about this row; drop`);
+    }
+  }
+
   // --- WARNING: unit-label phrasing -------------------------------------------
   // One weight per one thing reads "per bar" / "per stake", never "single bar",
   // "each", or "one pouch"; multiples read "3-pack" or "sleeve of 10".

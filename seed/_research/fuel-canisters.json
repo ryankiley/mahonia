@@ -3,7 +3,7 @@
     {
       "brand": "Snow Peak",
       "name": "GigaPower Fuel 250 Gold",
-      "variant": "220g canister, net fuel",
+      "variant": "220g, net fuel",
       "category_hint": "consumable",
       "weight_value": 220,
       "weight_unit": "g",
@@ -15,7 +15,7 @@
     {
       "brand": "Primus",
       "name": "Power Gas",
-      "variant": "100g canister, net fuel",
+      "variant": "100g, net fuel",
       "category_hint": "consumable",
       "weight_value": 100,
       "weight_unit": "g",
@@ -27,7 +27,7 @@
     {
       "brand": "Primus",
       "name": "Power Gas",
-      "variant": "230g canister, net fuel",
+      "variant": "230g, net fuel",
       "category_hint": "consumable",
       "weight_value": 230,
       "weight_unit": "g",
@@ -39,7 +39,7 @@
     {
       "brand": "Primus",
       "name": "Power Gas",
-      "variant": "450g canister, net fuel",
+      "variant": "450g, net fuel",
       "category_hint": "consumable",
       "weight_value": 450,
       "weight_unit": "g",
@@ -51,7 +51,7 @@
     {
       "brand": "Soto",
       "name": "Power Gas 105 Triple Mix",
-      "variant": "105g canister, net fuel",
+      "variant": "105g, net fuel",
       "category_hint": "consumable",
       "weight_value": 105,
       "weight_unit": "g",
@@ -63,7 +63,7 @@
     {
       "brand": "Soto",
       "name": "Power Gas 250 Triple Mix",
-      "variant": "230g canister, net fuel",
+      "variant": "230g, net fuel",
       "category_hint": "consumable",
       "weight_value": 230,
       "weight_unit": "g",
@@ -75,7 +75,7 @@
     {
       "brand": "Soto",
       "name": "Power Gas 500 Triple Mix",
-      "variant": "460g canister, net fuel",
+      "variant": "460g, net fuel",
       "category_hint": "consumable",
       "weight_value": 460,
       "weight_unit": "g",
@@ -99,7 +99,7 @@
     {
       "brand": "Kovea",
       "name": "Gas Canister",
-      "variant": "110g canister, net fuel",
+      "variant": "110g, net fuel",
       "category_hint": "consumable",
       "weight_value": 110,
       "weight_unit": "g",
@@ -111,7 +111,7 @@
     {
       "brand": "Kovea",
       "name": "Gas Canister",
-      "variant": "230g canister, net fuel",
+      "variant": "230g, net fuel",
       "category_hint": "consumable",
       "weight_value": 230,
       "weight_unit": "g",
@@ -123,7 +123,7 @@
     {
       "brand": "Kovea",
       "name": "Gas Canister",
-      "variant": "450g canister, net fuel",
+      "variant": "450g, net fuel",
       "category_hint": "consumable",
       "weight_value": 450,
       "weight_unit": "g",
@@ -135,7 +135,7 @@
     {
       "brand": "GSI Outdoors",
       "name": "Isobutane Fuel Cartridge",
-      "variant": "110g canister, net fuel",
+      "variant": "110g, net fuel",
       "category_hint": "consumable",
       "weight_value": 110,
       "weight_unit": "g",
@@ -147,7 +147,7 @@
     {
       "brand": "GSI Outdoors",
       "name": "Isobutane Fuel Cartridge",
-      "variant": "230g canister, net fuel",
+      "variant": "230g, net fuel",
       "category_hint": "consumable",
       "weight_value": 230,
       "weight_unit": "g",
@@ -159,7 +159,7 @@
     {
       "brand": "Coleman",
       "name": "C100 Xtreme Gas Cartridge",
-      "variant": "97g canister, net fuel",
+      "variant": "97g, net fuel",
       "category_hint": "consumable",
       "weight_value": 97,
       "weight_unit": "g",
@@ -171,7 +171,7 @@
     {
       "brand": "Coleman",
       "name": "C300 Xtreme Gas Cartridge",
-      "variant": "230g canister, net fuel",
+      "variant": "230g, net fuel",
       "category_hint": "consumable",
       "weight_value": 230,
       "weight_unit": "g",
@@ -183,7 +183,7 @@
     {
       "brand": "Coleman",
       "name": "C300 Performance Gas Cartridge",
-      "variant": "240g canister, net fuel",
+      "variant": "240g, net fuel",
       "category_hint": "consumable",
       "weight_value": 240,
       "weight_unit": "g",
@@ -195,7 +195,7 @@
     {
       "brand": "Coleman",
       "name": "C500 Performance Gas Cartridge",
-      "variant": "440g canister, net fuel",
+      "variant": "440g, net fuel",
       "category_hint": "consumable",
       "weight_value": 440,
       "weight_unit": "g",
@@ -207,7 +207,7 @@
     {
       "brand": "Optimus",
       "name": "Universal Gas",
-      "variant": "230g canister, net fuel",
+      "variant": "230g, net fuel",
       "category_hint": "consumable",
       "weight_value": 230,
       "weight_unit": "g",
