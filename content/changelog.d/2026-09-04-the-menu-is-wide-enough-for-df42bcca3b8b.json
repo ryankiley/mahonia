@@ -1,8 +1,9 @@
 {
   "date": "2026-09-04",
   "changed": [
-    "Every row of the ⋯ menu now leads with an icon, including the four under Export — a clipboard for the two that copy, an arrow for the two that download.",
-    "Keyboard shortcuts is marked with a keyboard rather than a ⌘, which named a key only some keyboards have."
+    "Every row of the ⋯ menu now leads with an icon, in one column — including the four under Export, each marked with its own format.",
+    "Keyboard shortcuts is marked with a keyboard rather than a ⌘, a key only some keyboards have.",
+    "Send feedback is marked with a bug."
   ],
   "fixed": [
     "The ⋯ menu is wide enough for its longest row again, so a label can't run into the edge of the highlight behind it."
