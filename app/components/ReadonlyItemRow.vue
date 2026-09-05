@@ -104,8 +104,12 @@ const markTitle = computed(() =>
     ? `${splitWorn.value} of ${props.item.qty} worn`
     : classLabel(markClass.value),
 );
-// A quantity of one is the default — see itemQtyLabel's `hideSingle`.
-const qtyLabel = computed(() => itemQtyLabel(props.item, effClass.value, { hideSingle: true }));
+// A quantity of one is the default — see itemQtyLabel's `hideSingle`. A GROUP carries
+// no count in this column at all (`group`): the weight beside it is the group's total,
+// which the parent's own qty already went into — see itemQtyLabel.
+const qtyLabel = computed(() =>
+  itemQtyLabel(props.item, effClass.value, { hideSingle: true, group: isParent.value }),
+);
 // nested groups start CLOSED in a shared list — it reads compact (the group total is
 // shown; expand to see the members). Local + per-view, NEVER persisted, matching
 // ReadonlyFolderSection (the owner's editor collapse can't bleed into the share).

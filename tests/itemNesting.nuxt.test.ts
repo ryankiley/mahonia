@@ -487,3 +487,89 @@ describe("duplicating a row", () => {
     expect(itemsOf(c)).toHaveLength(1);
   });
 });
+
+// A GROUP CARRIES NO COUNT OF ITS OWN, the twin of the wrap above: a parent's weight
+// column shows the group TOTAL, so a "×N" beside it multiplies a figure it is already
+// inside — and one that never reached the children anyway. The editor drops the qty
+// cell on a parent, so anything left in the field would be a multiple with no control
+// left to see or undo it. The reducer pins it (pinParentQty) on every path that nests.
+describe("a row that gains a child gives up its own count", () => {
+  beforeEach(() => {
+    records.clear();
+    storage.clear();
+  });
+  afterEach(() => useGearList().dispose());
+
+  it("pins a hand-built container's count to one when something nests into it", async () => {
+    const c = await open([
+      item({ id: "kit", name: "Cook kit", qty: 4, sortOrder: 0 }),
+      item({ id: "pot", name: "Pot", unitWeightMg: 100_000, sortOrder: 1 }),
+    ]);
+
+    c.nestItem("pot", "kit");
+    await vi.waitFor(() => expect(byId(c, "pot")?.parentId).toBe("kit"));
+    // no wrap: the container carries no weight, so it IS the container (containerFor)
+    expect(byId(c, "kit")?.qty).toBe(1);
+  });
+
+  it("pins it on the add-a-nested-item path too, and drops the worn split with it", async () => {
+    const c = await open([
+      item({ id: "socks", name: "Socks", qty: 3, wornQty: 1, classification: "base", sortOrder: 0 }),
+    ]);
+
+    const child = c.addChild("socks");
+    await vi.waitFor(() => expect(byId(c, child)?.parentId).toBe("socks"));
+    expect(byId(c, "socks")?.qty).toBe(1);
+    // a split reads as a partial of a base line with ≥2 units; one unit has none
+    expect(byId(c, "socks")?.wornQty).toBeUndefined();
+  });
+
+  // The count is only ever pinned on a row whose own weight is 0, because a row that
+  // HAS a weight gets wrapped first — so the pair "3 × 210 g" rides down onto the
+  // product intact and the new container starts at one. Nothing is lost either way.
+  it("carries a weighted row's count down to the product the wrap makes", async () => {
+    const c = await open([
+      item({ id: "poles", name: "Trekking poles", commonName: "Poles", qty: 2, unitWeightMg: 210_000, sortOrder: 0 }),
+      item({ id: "baskets", name: "Snow baskets", unitWeightMg: 20_000, sortOrder: 1 }),
+    ]);
+
+    c.nestItem("baskets", "poles");
+    await vi.waitFor(() => expect(byId(c, "poles")?.parentId).not.toBeNull());
+
+    const group = byId(c, byId(c, "poles")!.parentId!)!;
+    expect(group.qty).toBe(1);
+    expect(group.unitWeightMg).toBe(0);
+    // the pair is still a pair, still weighed, one row further in
+    expect(byId(c, "poles")?.qty).toBe(2);
+    expect(byId(c, "poles")?.unitWeightMg).toBe(210_000);
+  });
+
+  // The same pin for the rows nested before it existed: load()'s one-time heal, which
+  // self-persists through the mutate flow like the backfills beside it. Without it a
+  // stored count would sit behind a qty cell the editor no longer draws.
+  it("heals a list opened with a count already on a parent", async () => {
+    const c = await open([
+      item({ id: "kit", name: "Cook kit", qty: 3, sortOrder: 0 }),
+      item({ id: "pot", name: "Pot", parentId: "kit", unitWeightMg: 100_000, sortOrder: 0 }),
+      item({ id: "socks", name: "Socks", qty: 3, wornQty: 1, classification: "base", sortOrder: 1 }),
+    ]);
+
+    await vi.waitFor(() => expect(byId(c, "kit")?.qty).toBe(1));
+    // and only the parents — a leaf's count is its own business
+    expect(byId(c, "socks")?.qty).toBe(3);
+    expect(byId(c, "socks")?.wornQty).toBe(1);
+  });
+
+  it("leaves a childless row's count alone", async () => {
+    const c = await open([
+      item({ id: "kit", name: "Cook kit", qty: 4, sortOrder: 0 }),
+      item({ id: "pot", name: "Pot", parentId: "kit", unitWeightMg: 100_000, sortOrder: 0 }),
+    ]);
+
+    c.unnest("pot");
+    await vi.waitFor(() => expect(byId(c, "pot")?.parentId).toBeNull());
+    // pinned when it gained the child, and NOT handed a count back when it lost one:
+    // one is simply what a row counts unless someone says otherwise
+    expect(byId(c, "kit")?.qty).toBe(1);
+  });
+});

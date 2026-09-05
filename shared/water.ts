@@ -78,12 +78,22 @@ export function waterLiters(unitWeightMg: number): string {
  * one is the default and a column where nearly every cell says the same thing is a
  * column that has to be read past to find the rows that actually carry a count. A
  * split still speaks ("×3 · 1 worn"), and so does water.
+ *
+ * `group` blanks the label outright, and it OUTRANKS every case below including water.
+ * A parent's weight column shows the group TOTAL — own line plus the children's — so
+ * the count that made that figure is already inside it, and a "×N" beside it reads as
+ * a multiplier over a number that has nothing left to multiply. The editor drops the
+ * whole cell on a parent for the same reason; this is that one rule in the label the
+ * static views share, so the checklist and the read row can't drift from it. The stored
+ * count is pinned to one on any row that gains a child (pinParentQty in shared/ops.ts),
+ * so what this hides is a "×1" and never a live multiple.
  */
 export function itemQtyLabel(
   item: { name: string; qty: number; unitWeightMg: number; wornQty?: number },
   cls?: Classification,
-  opts?: { hideSingle?: boolean },
+  opts?: { hideSingle?: boolean; group?: boolean },
 ): string {
+  if (opts?.group) return "";
   // Water's amount is the LINE's volume — unit volume × qty, the same arithmetic the
   // weight beside it does. Reading the unit volume alone put "1 L" against "2,000 g"
   // on a two-bottle row: two figures for one line, disagreeing by a factor of the qty.

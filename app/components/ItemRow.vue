@@ -1117,8 +1117,11 @@ function dismissFix() {
           @toggle="toggleNest"
         /></span>
       <!-- `item__qty--split` widens the amount track for the whole page column when any
-           row in the list spells out a worn split ("×12 · 11 worn") — atoms/item.scss -->
-      <span class="t-num t-sm t-muted item__cqty" :class="{ 'item__qty--split': activeSplit }">{{ itemQtyLabel(item, effClass) }}</span>
+           row in the list spells out a worn split ("×12 · 11 worn") — atoms/item.scss.
+           `group` empties it on a parent, matching the edit row's missing qty cell and
+           the read row's: the weight beside it is the group's TOTAL, so a count there
+           would be multiplying a figure it is already part of. -->
+      <span class="t-num t-sm t-muted item__cqty" :class="{ 'item__qty--split': activeSplit }">{{ itemQtyLabel(item, effClass, { group: isParent }) }}</span>
       <!-- the empty unit slot keeps the zero placeholder in the number's place rather
            than out at the cell's edge — same as the read row's -->
       <span class="t-num item__cweight"><template v-if="rowWeightMg > 0">{{ formatWeight(rowWeightMg, rowUnit, { withUnit: false }) }}<span class="t-muted item__wunit">{{ rowUnit }}</span></template><template v-else>—<span class="item__wunit" /></template></span>
@@ -1250,8 +1253,18 @@ function dismissFix() {
              grid's own columns are what make the same three parts legible up here.
              WATER is the exception at every width and keeps the plain field: that
              cell holds LITRES — a continuous measure driving the row's weight, not a
-             count — so ±1 would be both the wrong step and the wrong idea. -->
-        <div class="item__qty" :class="{ 'item__qty--step': !isWater }">
+             count — so ±1 would be both the wrong step and the wrong idea.
+             A GROUP HAS NO CELL HERE AT ALL, the way its weight cell is read-only: the
+             column beside it shows the group TOTAL, which already has the parent's own
+             qty folded in and never touched the children — so a "×N" against it
+             multiplies a figure with nothing left to multiply. A stepper there offers
+             arithmetic the app doesn't do (see pinParentQty in shared/ops.ts, which is
+             what keeps the stored count at one so nothing hides behind the absent
+             control). The grid keeps the track either way — the columns are named areas
+             off --item-cols, not the cells that sit in them — so the weight column
+             stays put and a parent lines up with its children. Two of a kit is a second
+             group: "Duplicate" carries the children. -->
+        <div v-if="!isParent" class="item__qty" :class="{ 'item__qty--step': !isWater }">
           <template v-if="isWater">
             <input
               class="field field--num"

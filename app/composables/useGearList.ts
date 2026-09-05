@@ -527,6 +527,16 @@ function create() {
       }
       for (const p of stranded)
         dispatch({ t: "moveItem", id: p.id, folderId: p.folderId, sortOrder: p.sortOrder });
+      // one-time heal, same shape as the one above: a GROUP HAS NO COUNT OF ITS OWN.
+      // Its weight cell shows the total of the group, which the parent's own qty is
+      // already folded into, so the row's qty cell is gone (ItemRow) — and a stored
+      // count from before that would then be a multiple with no control left to see or
+      // undo it. The reducer pins it on any new nest (pinParentQty); this is the same
+      // pin for the rows nested before it existed, and it self-persists through the
+      // mutate flow like the backfills above.
+      const counted = new Set<string>();
+      for (const it of merged.items) if (it.parentId) counted.add(it.parentId);
+      for (const p of merged.items) if (counted.has(p.id) && p.qty !== 1) updateItem(p.id, { qty: 1 });
       hydrating = false;
       // Upgrade a legacy bare /e#{token} URL to the share-ready pretty path
       // (/e/{shareCode}#{token}) once the share code is known. Pre-#54 lists —

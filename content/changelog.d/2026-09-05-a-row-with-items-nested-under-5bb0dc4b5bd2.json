@@ -1,0 +1,6 @@
+{
+  "date": "2026-09-05",
+  "changed": [
+    "A row with items nested under it no longer carries a quantity of its own — the number beside it was multiplying the group's total, which already counts every item in the group."
+  ]
+}

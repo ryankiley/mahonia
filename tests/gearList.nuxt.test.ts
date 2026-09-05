@@ -347,8 +347,9 @@ describe("useGearList — whose gear is this?", () => {
     expect(c.vaultAuto.value).toBe(false);
   });
 
-  // The regression that made the ask worth nothing. load() runs three one-time
-  // backfills (water rename, folder colours, stranded children) through the SAME
+  // The regression that made the ask worth nothing. load() runs four one-time
+  // backfills (water rename, folder colours, stranded children, a count left on a
+  // parent) through the SAME
   // dispatch() every user edit goes through — so merely OPENING a shared list
   // captured the whole thing before its owner's gear was ever in question.
   it("does not capture — or ask — for load()'s own backfills", async () => {
