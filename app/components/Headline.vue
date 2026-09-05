@@ -115,7 +115,20 @@ defineEmits<{ pick: [key: string] }>();
 
 .headline__chev {
   color: var(--ink-3);
-  transition: rotate var(--dur) var(--ease);
+  transition:
+    color var(--dur) var(--ease),
+    rotate var(--dur) var(--ease);
+}
+
+/* Lifts under the pointer, and on keyboard focus, exactly as the total's own chevron
+   does (TotalsBar) and the vault's (gear.vue). The figure is a control that doesn't
+   look like one, so the mark that says so has to answer when you point at it —
+   without this the one disclosure in the app that sits at display size was also the
+   only one that stayed inert. Hung off the trigger, not the whole .headline, so the
+   caption beside it isn't a hover target for a menu it has nothing to do with. */
+.headline__amount:hover .headline__chev,
+.headline__amount:focus-within .headline__chev {
+  color: var(--ink);
 }
 
 .headline__chev.is-open {
