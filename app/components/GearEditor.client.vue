@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon, type IconNode } from "~/utils/hugeicon";
-import { Backpack02Icon, Bug02Icon, CheckmarkSquare02Icon, ChevronDownIcon, CopyPlusIcon, Csv01Icon, Delete02Icon, EllipsisIcon, FileExportIcon, FileImportIcon, HashIcon, KeyboardIcon, RemoveCircleIcon, Route02Icon, SafeBoxIcon, Share08Icon, ThirdBracketIcon, Txt01Icon, UndoIcon, UserAddIcon } from "@hugeicons/core-free-icons";
+import { Backpack02Icon, Bug02Icon, CheckmarkSquare02Icon, ChevronDownIcon, CopyPlusIcon, Delete02Icon, EllipsisIcon, FileExportIcon, FileImportIcon, KeyboardIcon, RemoveCircleIcon, Route02Icon, SafeBoxIcon, Share08Icon, UndoIcon, UserAddIcon } from "@hugeicons/core-free-icons";
 import { editLinkPath, normalizeShareCode } from "~~/shared/links";
 import { tripHeadline } from "~~/shared/trailDistance";
 import { formatWeight } from "~~/shared/weights";
@@ -475,13 +475,14 @@ async function copy(text: string, msg: string, linkFallbackTitle?: string) {
 }
 const origin = () => (typeof location !== "undefined" ? location.origin : "");
 
-// the four export actions + their chunk warm-up live in useListExports, shared
-// with the read views' ⋯ menu so the copy + error handling can't drift.
+// the four export actions, their chunk warm-up and the ROWS that draw them live in
+// useListExports, shared with the read views' ⋯ menu so neither the copy, the error
+// handling nor the wording and marks can drift.
 //
 // The share URL the plain-text copy appends is the READ-ONLY link — explicitly, not
 // location.href, which here is /e/{code}#{token}. That token is edit access, and this
 // action's whole purpose is pasting the result somewhere public.
-const { warmExporters, copyPlainText, copyMarkdown, downloadCsv, downloadJson } = useListExports(
+const { warmExporters, exportItems } = useListExports(
   () => snapshot.value,
   flash,
   // a draft has no share code yet — no link rather than a broken one (same guard
@@ -753,24 +754,8 @@ onKeyStroke("?", (e) => {
 //
 // The Export items were the exception for one release — bare, on the design system's
 // rule that its nested rows carry nothing. That left the one place in the menu where
-// the eye had to fall back to reading, so they carry marks now too, one per FORMAT.
-//
-// Txt01 and Csv01 are the set's own file marks — a document with the format's letters
-// on it — and Markdown and JSON, which the set has no icon for, take the character each
-// one is actually written with: the # a Markdown writer types for a heading, the braces
-// a JSON file opens with. A bare mark next to a file mark is a mix, and deliberately so;
-// what the four have in common is that each is the thing you'd recognise the format BY,
-// not four drawings of the idea "a file".
-//
-// Note the size these are read at. At 14px a document icon's three letters go, so Txt
-// and CSV carry the same silhouette and are told apart by the label beside them rather
-// than by the mark — the glyph is confirming the row you're on, not naming it from
-// across the menu. (ThirdBracketCircle was the first pick for JSON and lost its braces
-// to the circle at this size, which is why the bare bracket won.)
-//
-// They sit in the SAME glyph column as everything above them, and are marked as a group
-// by their quieter ink under a turned-over chevron rather than by a step (see
-// .menu__sectitem, which says what the step cost once these rows had glyphs of their own).
+// the eye had to fall back to reading, so they carry marks now too, one per FORMAT —
+// the argument for WHICH four moved to useListExports with the rows themselves.
 //
 // Import and Export take the mirrored pair deliberately; they are the same door in
 // two directions and the glyphs should say so before the words do.
@@ -818,34 +803,12 @@ const MENU_ACTIONS = [
   { label: "Keyboard shortcuts", icon: KeyboardIcon, run: openShortcuts },
   { label: "Send feedback…", icon: Bug02Icon, run: () => { feedbackEverOpened.value = true; feedbackOpen.value = true; } },
 ];
-const MENU_SECTIONS = [
-  {
-    key: "export",
-    label: "Export",
-    icon: FileExportIcon,
-    items: [
-      // First, because it's the one people reach for most: it's the format a comment
-      // box actually accepts. Markdown below it is the same idea for somewhere that
-      // renders it (Apple Notes, a README, a forum that takes it).
-      { label: "Copy as plain text", icon: Txt01Icon, run: copyPlainText },
-      { label: "Copy as Markdown", icon: HashIcon, run: copyMarkdown },
-      { label: "Download CSV", icon: Csv01Icon, run: downloadCsv },
-      { label: "Download JSON", icon: ThirdBracketIcon, run: downloadJson },
-    ],
-  },
-] as const;
-
-const openSection = ref<string | null>(null);
-function toggleSection(key: string) {
-  openSection.value = openSection.value === key ? null : key;
-  // warm the exporter chunks when the EXPORT section opens, not when the menu does.
-  // Opening ⋯ to duplicate a list shouldn't pull three parsers you never asked for;
-  // opening Export is the first honest signal that one of them is about to run.
-  if (openSection.value === "export") warmExporters();
-}
+// Export folds into a disclosure — <MenuSection>, shared with the read views' ⋯ menu,
+// which owns the header, the reveal and the warm-on-open. The rows are useListExports'.
+const exportOpen = ref(false);
 // a re-opened menu starts collapsed — the previous session's open section is not a
 // preference, and restoring it would put a different item under the cursor
-watch(menuOpen, (open) => open || (openSection.value = null));
+watch(menuOpen, (open) => open || (exportOpen.value = false));
 
 // Start a fresh, empty draft — no server row until something is added. The current
 // list isn't lost: it's auto-saved and lives in "Your lists" behind its own link.
@@ -1028,40 +991,14 @@ function onCorrected(res: { status: string; itemName?: string }) {
                     {{ a.label }}
                   </button>
                 </li>
-                <!-- Import / Export expand in place. The section header is not a
-                     menuitem — it opens a group rather than doing anything — so it
-                     carries aria-expanded and its items stay the menuitems. -->
-                <li v-for="s in MENU_SECTIONS" :key="s.key" role="none" class="menu__sect">
-                  <button
-                    type="button"
-                    data-row
-                    class="menu__item menu__secthead"
-                    :aria-expanded="openSection === s.key"
-                    @click="toggleSection(s.key)"
-                  >
-                    <HugeiconsIcon :icon="s.icon" :size="14" :stroke-width="2" aria-hidden="true" />
-                    <!-- the label takes the slack, so the chevron keeps the trailing
-                         edge now that a glyph holds the leading one -->
-                    <span class="editor__sectlabel">{{ s.label }}</span>
-                    <HugeiconsIcon :icon="ChevronDownIcon" class="chev"
-                      :class="{ 'is-open': openSection === s.key }"
-                      :size="14"
-                      :stroke-width="2"
-                      aria-hidden="true" />
-                  </button>
-                  <Transition name="reveal">
-                    <div v-if="openSection === s.key" class="reveal">
-                  <ul class="menu__sectlist" role="group" :aria-label="s.label">
-                    <li v-for="a in s.items" :key="a.label" role="none">
-                      <button type="button" data-row role="menuitem" class="menu__item menu__sectitem" @click="menuOpen = false; a.run()">
-                        <HugeiconsIcon :icon="a.icon" :size="14" :stroke-width="2" aria-hidden="true" />
-                        {{ a.label }}
-                      </button>
-                    </li>
-                  </ul>
-                    </div>
-                  </Transition>
-                </li>
+                <MenuSection
+                  v-model:open="exportOpen"
+                  label="Export"
+                  :icon="FileExportIcon"
+                  :items="exportItems"
+                  @opened="warmExporters"
+                  @pick="menuOpen = false"
+                />
                 <!-- Deleting this list, last and under a hairline. Not one of the rows
                      above it: everything there makes, copies or moves a list, and this
                      one ends it — the same reason ListMenu rules "New list" off its list
@@ -1613,30 +1550,6 @@ function onCorrected(res: { status: string; itemName?: string }) {
 /* the glyph column, and the `flex: none` pinning the icon into it, are .menu__item's
    own now (atoms/controls.scss) — including the section header's, which took its gap
    from the copy that lived here */
-/* --menu-glyph lived here: the icon's width, named once because two rules had to agree
-   on it — the column the glyphs sit in, and the nested indent derived from that column.
-   The indent is gone (see .menu__sectitem), so nothing has to agree with anything and a
-   token with one reader is just a longer way to write its value. */
-.editor__sectlabel {
-  flex: 1 1 auto;
-}
-/* NO INDENT — the Export items take the row inset every other row takes, overriding
-   the atom's --space-5 step.
-   The indent was right while these rows were bare: it put their labels where the
-   labels above them start, and a step was the only thing marking them as nested. Now
-   that they carry glyphs it works against the menu, because it opens a SECOND glyph
-   column a step in from the first — and one glyph column down the whole card is the
-   thing this menu was rebuilt around. Two of them read as a ragged edge, not as
-   nesting.
-   What says "group" instead is what already did the rest of that job: the quieter ink
-   (--ink-2, from the atom) under a header whose chevron has turned over.
-   It also settles a jump. The card is sized to its widest row (`width: max-content`,
-   atoms/controls.scss), so an indent that only exists while the section is OPEN made
-   opening it widen the card by that step — the width twin of the flinch the .reveal
-   slide was added to stop. Rows that measure like their peers can't move it. */
-.menu__list .menu__sectitem {
-  padding-left: var(--space-3);
-}
 /* ...and forgetting stays in plain ink. It is not a lesser action — it takes the
    default row colour, not the quiet one — it just isn't the irreversible one, and
    red is what this menu reserves for that. */

@@ -31,12 +31,10 @@
    word with its middle removed is harder to recognise than one cut cleanly at
    the end. Keeping the brand intact and cutting elsewhere gets the same
    information for nothing.) */
+/* The clip itself is .t-clip's (foundations/typography.scss), worn in the markup —
+   this had its four declarations as a copy. */
 .gear__name {
   display: block;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   color: var(--ink);
 }
 

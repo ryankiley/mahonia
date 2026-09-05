@@ -104,15 +104,17 @@ const MAX_TRAIL_LABEL_LEN = 120;
  * already clamped, already normalized and already known-renderable (client and server
  * agree, and a hostile client can't smuggle a `javascript:` value into a shared list).
  */
-export function normalizeTrailUrl(raw: string | null | undefined): string | null {
-  return safeUrl(raw?.slice(0, MAX_TRAIL_URL_LEN))?.href ?? null;
+export function normalizeTrailUrl(raw: unknown): string | null {
+  // `unknown`, like every other meta normalizer: a create body or a hand-edited backup
+  // can put anything here, and the callers used to each guard the type themselves
+  return typeof raw === "string" ? (safeUrl(raw.slice(0, MAX_TRAIL_URL_LEN))?.href ?? null) : null;
 }
 
 /** A raw trail label → its stored form, or undefined when it's blank. */
-export function normalizeTrailLabel(raw: string | null | undefined): string | undefined {
+export function normalizeTrailLabel(raw: unknown): string | undefined {
   // tidyText rather than a bare trim: this is a typed name like any other ("Ryan's
   // loop"), and it renders beside the list title, which gets the same pass.
-  const label = tidyText(raw?.slice(0, MAX_TRAIL_LABEL_LEN) ?? "");
+  const label = tidyText(typeof raw === "string" ? raw.slice(0, MAX_TRAIL_LABEL_LEN) : "");
   return label || undefined;
 }
 

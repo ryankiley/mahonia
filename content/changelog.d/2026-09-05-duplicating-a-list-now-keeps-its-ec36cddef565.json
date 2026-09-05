@@ -1,0 +1,6 @@
+{
+  "date": "2026-09-05",
+  "fixed": [
+    "Duplicating a list now keeps its unit, description, trail link, route and trip dates — a copy used to come back in grams with all of that missing."
+  ]
+}
