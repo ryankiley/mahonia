@@ -1241,7 +1241,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
            have no ungrouped rows and shouldn't carry the section), visibility follows
            the MODE (v-show — so leaving planning doesn't rebuild these rows either) -->
       <section v-if="ungrouped.length" v-show="mode !== 'plan'" class="panel editor__ungrouped">
-        <p class="t-label">Ungrouped</p>
+        <p class="t-label">Unfiled</p>
         <!-- prev-id follows this section's render order, so the indent affordance
              points at the row actually shown above -->
         <ItemRow
@@ -1702,7 +1702,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
   flex-direction: column;
   gap: var(--space-1);
 }
-/* "Ungrouped" is a folder heading in everything but name, so it sits the same
+/* "Unfiled" is a folder heading in everything but name, so it sits the same
    --space-1 above its first row that a real folder name does (.folder__head, in the
    atom). The section's own flex gap already provides exactly that; an extra
    margin-bottom here put the editor's heading 12px off its rows while the share

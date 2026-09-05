@@ -331,7 +331,7 @@ describe("nesting (parentId)", () => {
     expect(s.items.find((i) => i.id === "fly")!.folderId).toBe("f2");
     expect(s.items.find((i) => i.id === "inner")!.folderId).toBe("f2");
     expect(s.items.find((i) => i.id === "fly")!.parentId).toBe("tent"); // still nested
-    // dragging the parent out to Ungrouped carries the children too
+    // dragging the parent out to Unfiled carries the children too
     applyOps(s, [{ t: "moveItem", id: "tent", folderId: null, sortOrder: 0 }]);
     expect(s.items.find((i) => i.id === "fly")!.folderId).toBeNull();
     expect(s.items.find((i) => i.id === "inner")!.folderId).toBeNull();

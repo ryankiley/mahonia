@@ -130,7 +130,7 @@
       visibility: hidden;
     }
     /* a folder holding nothing of theirs disappears whole — header, add row, rules —
-       and so does the Ungrouped section. (Also swallows genuinely empty folders
+       and so does the Unfiled section. (Also swallows genuinely empty folders
        while any filter is on, which is the right reading of "their list".) */
     .editor__folders > .folder:not(:has(.item-wrap[data-person="#{$p}"])),
     .editor__ungrouped:not(:has(.item-wrap[data-person="#{$p}"])) {

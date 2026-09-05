@@ -44,8 +44,8 @@ const clampQty = (n: number) => Math.max(1, Math.min(QTY_MAX, Math.round(n)));
 </script>
 
 <script setup lang="ts">
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import { CalculateIcon, Cancel01Icon, CheckIcon, CheckmarkSquare02Icon, ChevronDownIcon, CircleEllipsisIcon, CookieIcon, Delete02Icon, DropletIcon, GripVerticalIcon, LayerAddIcon, ListIndentIncreaseIcon, MinusSignIcon, PlusSignIcon, SafeBoxIcon, ShirtIcon, SquareIcon, UserIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon, type IconNode } from "~/utils/hugeicon";
+import { CalculateIcon, Cancel01Icon, CheckIcon, CheckmarkSquare02Icon, ChevronDownIcon, CircleEllipsisIcon, CookieIcon, Delete02Icon, DropletIcon, GripVerticalIcon, LayerAddIcon, ListIndentDecreaseIcon, ListIndentIncreaseIcon, ListPlusIcon, MinusSignIcon, NodeAddIcon, PlusSignIcon, SafeBoxIcon, ShirtIcon, SquareIcon, UserIcon } from "@hugeicons/core-free-icons";
 import type { Item, ListSnapshot } from "~~/shared/types";
 import type { ItemPatch } from "~~/shared/ops";
 import { effectivePersonId, personColor } from "~~/shared/people";
@@ -711,14 +711,18 @@ function onKcal(e: Event) {
 // The two actions a row can offer, resolved to whichever apply. Same table-drives-
 // both-markup-and-dispatch shape the editor's ⋯ menu uses, so an action can't exist
 // in one without the other.
+// Each carries its own glyph, and they are the three the trigger above collapsed
+// (list-plus, indent, outdent). What made those unreadable was standing alone at 16px
+// with nothing to say which was which; in a menu each sits beside its own label, so
+// the glyph is a shape to aim at rather than the only thing naming the action.
 const nestActions = computed(() => {
-  const acts: { label: string; run: () => void }[] = [];
+  const acts: { label: string; icon: IconNode; run: () => void }[] = [];
   // a nested row can't nest further, and a row that already HAS children uses its
   // own ever-present "Add an item" instead
-  if (!props.nested && !isParent.value) acts.push({ label: "Add a nested item", run: () => c.addChild(props.item.id) });
-  if (props.nested) acts.push({ label: "Move out of the group", run: () => c.unnest(props.item.id) });
+  if (!props.nested && !isParent.value) acts.push({ label: "Add a nested item", icon: ListPlusIcon, run: () => c.addChild(props.item.id) });
+  if (props.nested) acts.push({ label: "Move out of the group", icon: ListIndentDecreaseIcon, run: () => c.unnest(props.item.id) });
   else if (canIndent.value)
-    acts.push({ label: "Nest under the item above", run: () => c.nestItem(props.item.id, props.prevId!) });
+    acts.push({ label: "Nest under the item above", icon: ListIndentIncreaseIcon, run: () => c.nestItem(props.item.id, props.prevId!) });
   return acts;
 });
 
@@ -965,8 +969,10 @@ const overflowActions = computed(() => {
   // that is always available — the nesting pair is conditional (a group row offers no
   // indent, a top-level row no un-nest), so anything after them would open the menu on
   // a different line from one row to the next.
-  const acts: { label: string; run: () => void; nest?: true }[] = [
-    { label: "Duplicate", run: () => c.duplicateItem(props.item.id) },
+  // Each entry wears the glyph its own inline button wears, the vault's state swap
+  // included — the row and the menu should not name one action two ways.
+  const acts: { label: string; icon: IconNode; run: () => void; nest?: true }[] = [
+    { label: "Duplicate", icon: LayerAddIcon, run: () => c.duplicateItem(props.item.id) },
     ...nestActions.value.map((a) => ({ ...a, nest: true as const })),
   ];
   // Reads its own state, like the inline button's tooltip does — "Saved" is the
@@ -975,14 +981,15 @@ const overflowActions = computed(() => {
   // row is gear worth saving, none again once the automatic path has it (it used
   // to stay as a disabled "Already in My Gear" line) — a menu row that can only
   // say "nothing to do" is an action list advertising a non-action.
-  if (vaultOffered.value) acts.push({ label: vaultLabel.value, run: onSaveToVault });
+  if (vaultOffered.value)
+    acts.push({ label: vaultLabel.value, icon: vaultSaved.value ? CheckIcon : SafeBoxIcon, run: onSaveToVault });
   // LAST, the way the destructive icon sat last in the desktop cluster — a menu is a
   // list you read top to bottom, so the one irreversible entry belongs at the end of
   // it rather than under the thumb. "Remove item" here and in the icon's aria-label:
   // a menu row and a screen reader both arrive without the row in front of them, so
   // both name the thing. Only the TOOLTIP drops the noun, because it is pinned to the
   // very row it would remove.
-  acts.push({ label: "Remove item", run: () => c.removeItem(props.item.id) });
+  acts.push({ label: "Remove item", icon: Delete02Icon, run: () => c.removeItem(props.item.id) });
   return acts;
 });
 
@@ -1274,7 +1281,7 @@ function dismissFix() {
             autocapitalize="off"
             spellcheck="false"
             :readonly="isWater || isParent"
-            :title="isParent ? 'Total of this group (its nested items)' : undefined"
+            :title="isParent ? 'Total of this group' : undefined"
             @focus="onWeightFocus"
             @change="onWeight"
             @keydown.up.prevent="onWeightStep($event, 1)"
@@ -1599,6 +1606,12 @@ function dismissFix() {
                glyphs (list-plus, indent, outdent) are near-identical at 16px, so the
                cluster read as noise and you had to hover each to learn which was which.
                One trigger, and the menu SAYS what each action does.
+               Its glyph is node-add, not the indent arrow it wore first: the arrow drew
+               ONE of the entries behind it, and not the one that leads — a row's first
+               (often only) offer is a nested item, so an arrow promised the wrong thing
+               on most rows and lied outright on a nested one. Duplicate next door also
+               carries a plus; that one is enclosed in its square and this one stands
+               free above the branch, and both name themselves on hover.
                Rendered only when there is something to offer — a nested row that can't
                un-nest, or a parent with nothing to indent under, gets no icon at all
                rather than a menu that opens empty.
@@ -1612,13 +1625,16 @@ function dismissFix() {
             :row-id="item.id"
             kind="nest"
             label="Nesting"
-            :icon="ListIndentIncreaseIcon"
+            :icon="NodeAddIcon"
             trigger-class="item__nest-btn"
             tooltip
             @overlay-toggle="$emit('overlayToggle', $event)"
           >
             <li v-for="a in nestActions" :key="a.label" role="none">
-              <button type="button" role="menuitem" class="menu__item" @click="menu.close(); a.run()">{{ a.label }}</button>
+              <button type="button" role="menuitem" class="menu__item" @click="menu.close(); a.run()">
+                <HugeiconsIcon :icon="a.icon" :size="14" :stroke-width="2" aria-hidden="true" />
+                {{ a.label }}
+              </button>
             </li>
           </ItemRowMenu>
           <!-- DUPLICATE. The whole row copied one slot down — name, weight, class,
@@ -1698,7 +1714,10 @@ function dismissFix() {
               </ul>
             </li>
             <li v-for="a in overflowActions" :key="a.label" role="none" :class="{ item__nestact: a.nest }">
-              <button type="button" role="menuitem" class="menu__item" @click="menu.close(); a.run()">{{ a.label }}</button>
+              <button type="button" role="menuitem" class="menu__item" @click="menu.close(); a.run()">
+                <HugeiconsIcon :icon="a.icon" :size="14" :stroke-width="2" aria-hidden="true" />
+                {{ a.label }}
+              </button>
             </li>
           </ItemRowMenu>
           <!-- drag via pointerdown; arrow keys give the focused grip the reordering
@@ -2603,12 +2622,21 @@ function dismissFix() {
 .item__ecarrier {
   display: none;
 }
-/* picker entries: a dot beside each name; the chosen one wears the on-plate */
-.item__personpick {
+/* ONE GLYPH COLUMN down both of this row's menus — the editor ⋯ menu's rule
+   (GearEditor.client.vue), for its reasons: .menu__item is display:block, so a glyph
+   beside a label needs a row, and an <svg> is the first thing to shrink when a long
+   label exhausts a right-anchored list's width. Scoped, so it reaches this row's
+   menus and nothing else. The person entries take their dot through this column
+   rather than a rule of their own. */
+.menu__list .menu__item {
   display: flex;
   align-items: center;
   gap: var(--space-2);
 }
+.menu__list .menu__item > svg {
+  flex: none;
+}
+/* picker entries: the chosen one wears the on-plate */
 .item__personpick.is-active {
   background: var(--lit);
   color: var(--ink);
