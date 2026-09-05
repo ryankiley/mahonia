@@ -336,8 +336,12 @@ function changeLabel(i: number): string {
   position: absolute;
   top: calc(100% + var(--space-1));
   right: 0;
-  /* clears the vault pane — see --z-panel */
-  z-index: var(--z-panel);
+  /* The same layer every other topbar popover takes. It carried a layer of its own
+     (--z-panel: 55) to climb over the vault pane, which could never have worked —
+     the topbar's own z-index makes a stacking context, so this is resolved inside it
+     and 55 bought exactly nothing. The pane sits under the whole bar now (--z-pane),
+     so all this has to do is order correctly against its siblings in the bar. */
+  z-index: var(--z-menu);
   width: min(22rem, calc(100vw - 2 * var(--space-4)));
   padding: var(--space-3);
   display: grid;

@@ -924,7 +924,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
                SiteTopbar, so until now edit AND checklist mode offered no way to sign
                in, reach your account, or sign out — on the one screen people spend
                their time. `compact` gives it the icon shape this glyph row needs. -->
-          <AccountMenu compact />
+          <AccountMenu compact has-gear-button />
           <!-- Sharing is one panel, not an icon plus two buried menu items. The
                trigger keeps the same glyph and slot it had as a bare copy button. -->
           <div ref="shareRef" class="menu editor__sharemenu">
@@ -1358,6 +1358,40 @@ function onCorrected(res: { status: string; itemName?: string }) {
      the shell, and the bar opts out of it. */
   .editor--split > .topbar {
     margin-right: calc(-1 * (var(--vault-w) + 2 * var(--space-4)));
+  }
+  /* The inset EASES between the two widths rather than jumping, so opening and
+     closing the pane is one movement: the list gives up the space as the pane slides
+     in, and flows back into it as the pane leaves. It used to snap on the click —
+     ~400px in a single frame, and on the way out the page had already re-flowed
+     before the pane finished going, so you saw the result before the cause.
+     Declared on the BASE selector as well as the modifier, which is what makes the
+     removal animate too — and the pair is what sets the direction: the modifier's
+     --dur-slow runs while the class is on (opening, alongside the pane's own
+     entrance), the base's --dur when it comes off (closing, alongside the exit).
+     --ease, never the popover curves: this is the document flow, and a spring here
+     would overshoot the column's width and wobble the text inside it.
+     The bar's break-out has to move on exactly the same clock — its negative margin
+     is what cancels this padding, so a bar that jumped while the column eased would
+     be the wrong width for the whole transition. */
+  .editor {
+    transition: padding-right var(--dur) var(--ease);
+  }
+  .editor > .topbar {
+    transition: margin-right var(--dur) var(--ease);
+  }
+  .editor--split,
+  .editor--split > .topbar {
+    transition-duration: var(--dur-slow);
+  }
+  /* …but NOT while the divider is being dragged. --vault-w is rewritten every frame
+     of a drag (VaultPane's startResize writes it straight onto this element), and an
+     eased padding would make the column chase the divider a fifth of a second behind
+     the cursor. The pane marks the element for the length of the gesture — and for
+     the arrow-key resize, which steps the same property — so sizing stays rigid and
+     only the open/close eases. */
+  .editor--sizing,
+  .editor--sizing > .topbar {
+    transition: none;
   }
 }
 .editor > main {

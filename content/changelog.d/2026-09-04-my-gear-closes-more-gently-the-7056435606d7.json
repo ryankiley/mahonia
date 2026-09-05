@@ -1,0 +1,10 @@
+{
+  "date": "2026-09-04",
+  "changed": [
+    "My Gear opens and closes as one movement — the list eases out of the way as the panel arrives, and flows back as it leaves, instead of jumping.",
+    "While you're editing a list, the account menu no longer repeats My Gear — the toolbar already has it — and its remaining entries carry icons."
+  ],
+  "fixed": [
+    "Open My Gear and the toolbar menus beside it no longer open behind the panel."
+  ]
+}
