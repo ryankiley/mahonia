@@ -5,7 +5,7 @@
 // of base weight.
 
 import type { Classification } from "./types";
-import { splitWornQty } from "./weights";
+import { lineMg, splitWornQty } from "./weights";
 
 /** Milligrams of water per millilitre (water ≈ 1 g/mL = 1000 mg/mL). */
 const WATER_MG_PER_ML = 1000;
@@ -73,12 +73,22 @@ export function waterLiters(unitWeightMg: number): string {
  * volume in litres (matching the editable row's litres field), so it reads "2 L"
  * rather than a meaningless "×1"; everything else keeps its ×quantity. Pass the
  * row's effective classification to surface a worn split ("×3 · 1 worn").
+ *
+ * `hideSingle` blanks a plain "×1" — the read views take it, because a quantity of
+ * one is the default and a column where nearly every cell says the same thing is a
+ * column that has to be read past to find the rows that actually carry a count. A
+ * split still speaks ("×3 · 1 worn"), and so does water.
  */
 export function itemQtyLabel(
   item: { name: string; qty: number; unitWeightMg: number; wornQty?: number },
   cls?: Classification,
+  opts?: { hideSingle?: boolean },
 ): string {
-  if (isWaterName(item.name)) return `${waterLiters(item.unitWeightMg) || "0"} L`;
+  // Water's amount is the LINE's volume — unit volume × qty, the same arithmetic the
+  // weight beside it does. Reading the unit volume alone put "1 L" against "2,000 g"
+  // on a two-bottle row: two figures for one line, disagreeing by a factor of the qty.
+  if (isWaterName(item.name)) return `${waterLiters(lineMg(item)) || "0"} L`;
   const wq = cls ? splitWornQty(item, cls) : 0;
-  return wq > 0 ? `×${item.qty} · ${wq} worn` : `×${item.qty}`;
+  if (wq > 0) return `×${item.qty} · ${wq} worn`;
+  return opts?.hideSingle && item.qty === 1 ? "" : `×${item.qty}`;
 }

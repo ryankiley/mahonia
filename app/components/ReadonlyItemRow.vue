@@ -8,12 +8,11 @@ const NO_ITEMS: ItemT[] = [];
 
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { ShirtIcon } from "@hugeicons/core-free-icons";
 import { personColor } from "~~/shared/people";
-import type { Item, ListSnapshot } from "~~/shared/types";
+import type { Classification, Item, ListSnapshot } from "~~/shared/types";
 import { effectiveClassification, formatKcal, formatWeight, rowDisplayMg, splitWornQty } from "~~/shared/weights";
 import { itemQtyLabel } from "~~/shared/water";
-import { consumableIcon } from "~/utils/itemMarks";
+import { classLabel, classMark } from "~/utils/itemMarks";
 
 // The share views' row (/s + /l): name (a web-search link via <ItemName search>),
 // amount, line weight — and its nested children, rendered the SAME way one level down
@@ -72,20 +71,41 @@ const lineKcal = computed(() =>
     ? props.item.kcal * (props.item.qty || 0)
     : 0,
 );
-// The row's classification, as the MARK the editor lights rather than the word it
-// used to trail the name with — same two icons, same lit chip, so a list reads the
-// same shared as it does open in the editor, and the class scans down a column
-// instead of hiding at the end of a name that may be long.
 // A base row with a worn SPLIT counts as worn here exactly as it does in the editor
 // (ItemRow's isWorn): the row has something on your body, so the column says so.
 const splitWorn = computed(() => splitWornQty(props.item, effClass.value));
 const isWorn = computed(() => effClass.value === "worn" || splitWorn.value > 0);
-const isConsumable = computed(() => effClass.value === "consumable");
+
+// ---- the CLASS MARK: an exception column, not a decoration ----
+//
+// The class the row would have said nothing to earn — its folder's default, which is
+// what every row in it inherits unless it says otherwise.
+const folderDefault = computed<Classification>(
+  () => props.list.folders.find((f) => f.id === props.item.folderId)?.defaultClassification ?? "base",
+);
+// A mark is drawn only where the row DEPARTS from that. The overwhelmingly common
+// list is LighterPack-shaped — a "Worn" folder and a "Consumables" folder — and there
+// every row inside inherited, so the column was a run of identical glyphs under a
+// heading that already said the word in full. What carries information is the
+// exception: the rain jacket filed under Clothing but worn, the stove filed with the
+// food. Which is also why base has a glyph of its own here (classMark) where the
+// editor's pair of toggles never needed one — inside a consumable folder, "not food"
+// is precisely the departure worth drawing, and it was the one class that had no
+// picture to draw it with.
+// A SPLIT is always an exception — "1 of 3 worn" is not something a folder can say.
+const showMark = computed(() => splitWorn.value > 0 || effClass.value !== folderDefault.value);
+// worn wins over the effective class for the picture, so a split reads as the shirt
+const markClass = computed<Classification>(() => (isWorn.value ? "worn" : effClass.value));
+const markIcon = computed(() => classMark(markClass.value, props.item.name));
 // the hover title, matching the editor's tooltip: a split names its count, since
 // "Worn" alone would overstate a row that is mostly in the pack
-const wornTitle = computed(() =>
-  splitWorn.value > 0 ? `${splitWorn.value} of ${props.item.qty} worn` : "Worn",
+const markTitle = computed(() =>
+  splitWorn.value > 0
+    ? `${splitWorn.value} of ${props.item.qty} worn`
+    : classLabel(markClass.value),
 );
+// A quantity of one is the default — see itemQtyLabel's `hideSingle`.
+const qtyLabel = computed(() => itemQtyLabel(props.item, effClass.value, { hideSingle: true }));
 // nested groups start CLOSED in a shared list — it reads compact (the group total is
 // shown; expand to see the members). Local + per-view, NEVER persisted, matching
 // ReadonlyFolderSection (the owner's editor collapse can't bleed into the share).
@@ -109,45 +129,52 @@ const rowPerson = computed(() =>
         <!-- collapse a group of nested items — trails the name like the folder chevron.
              The name text truncates so a long group name never shoves the chevron off. -->
         <NestChevron v-if="isParent" :collapsed="collapsed" :label="item.name || 'group'" @toggle="collapsed = !collapsed" />
+        <!-- …and how many are behind it, while it is shut. A group opens CLOSED here
+             (unlike the editor, which shows its children), so the chevron was the only
+             thing saying anything was in there — a turned-over chevron trailing a name
+             reads as punctuation, not as three rows folded away. The count goes with
+             the chevron rather than into the weight column: it is a fact about the
+             control, and it leaves with the rows the moment they're on screen. -->
+        <span v-if="isParent && collapsed" class="t-sm item__rocount">{{ children.length }}</span>
       </span>
       <!-- `item__qty--split` is what tells the page column this list needs the wider
            amount track (atoms/item.scss): the label grows from "×12" to "×12 · 11 worn"
            and the tight track can't hold it. -->
-      <span class="t-num t-sm t-muted item__roqty" :class="{ 'item__qty--split': splitWorn }">{{ itemQtyLabel(item, effClass) }}</span>
+      <span class="t-num t-sm t-muted item__roqty" :class="{ 'item__qty--split': splitWorn }">{{ qtyLabel }}</span>
       <!-- separate the qty and weight columns in the TEXT stream. On screen they're
            distinct grid cells, but flattened text (crawlers, LLMs, plain scrapers of
-           this SSR'd share page) concatenates "×1" + "206" into "1206" — reading every
-           weight ~1000 g heavy. A visually-hidden delimiter keeps them apart for those
-           readers with no visual change (position:absolute → takes no grid cell). -->
+           this SSR'd share page) concatenates "×3" + "510" into "3510" — reading the
+           weight an order of magnitude heavy. A visually-hidden delimiter keeps them
+           apart for those readers with no visual change (position:absolute → takes no
+           grid cell). It still earns its place now that a bare "×1" is blanked above:
+           the cell is empty, not absent, and an empty cell abuts the weight just the
+           same in a flattened stream. -->
       <span class="visually-hidden"> · </span>
       <!-- the zero placeholder keeps the unit slot, empty. Without it the dash hung off
            the cell's own right edge — 20px right of where every number in the column
            stops, since a number ends where the 2ch unit slot begins. It is standing in
            for the number, so it belongs in the number's place. -->
       <span class="t-num item__roweight"><template v-if="isContextOnly" /><template v-else-if="rowWeightMg > 0">{{ formatWeight(rowWeightMg, rowUnit, { withUnit: false }) }}<span class="t-muted item__wunit">{{ rowUnit }}</span></template><template v-else>—<span class="item__wunit" /></template></span>
-      <!-- CLASSIFICATION — the editor's own marks, in the column the editor puts them
-           in: a lit shirt for worn, a lit cookie for consumable (a droplet when the
-           consumable is water — see consumableIcon), the shared .item__mark
-           chip (atoms/item.scss). It replaces the word that used to trail the name,
-           which hid the class at the end of a name that may be long and may truncate;
-           down a column it scans, and a shared list now reads the way the same list
-           reads open in the editor.
+      <!-- CLASSIFICATION — a shirt for worn, a cookie for consumable (a droplet when
+           the consumable is water), a backpack for a base row that has departed from a
+           classed folder. See `showMark`: the mark is drawn only where the row differs
+           from its folder's default, so this column holds the exceptions rather than a
+           run of the same glyph under a heading that already said the word.
+           A BARE GLYPH, not the editor's lit chip. There the ground is the ON state of
+           a toggle button; here nothing is pressable, so the same filled pill was a
+           button-shaped thing that did nothing when you pressed it — most obviously on
+           a phone, where it floats alone at the row's right edge as a 44px disc. The
+           picture is the whole mark now, and it sits on the row's baseline with the
+           text it qualifies instead of centred against the row's full height.
            The word survives as the mark's hidden label, so flattened text (crawlers,
            LLMs, plain scrapers of this SSR'd share page) still reads "· worn" exactly
-           where it always did. Base rows leave the cell empty — same as the editor,
-           where both toggles simply sit unlit. A WATER row does show its mark here,
-           though the editor gives water no toggles: there the pair is hidden because
-           water's class can't be edited, and nothing about a read row is editable. -->
+           where it always did. -->
       <span class="item__roclass">
-        <span v-if="isWorn" class="item__mark item__mark--static item__romark" :title="wornTitle">
-          <HugeiconsIcon :icon="ShirtIcon" :size="16" :stroke-width="2" aria-hidden="true" />
+        <span v-if="showMark" class="item__romark" :title="markTitle">
+          <HugeiconsIcon :icon="markIcon" :size="16" :stroke-width="2" aria-hidden="true" />
           <!-- a SPLIT already reads "×3 · 1 worn" in the amount cell, so a second
                "worn" here would only say it twice -->
-          <span v-if="!splitWorn" class="visually-hidden"> · worn</span>
-        </span>
-        <span v-else-if="isConsumable" class="item__mark item__mark--static item__romark" title="Consumable">
-          <HugeiconsIcon :icon="consumableIcon(item.name)" :size="16" :stroke-width="2" aria-hidden="true" />
-          <span class="visually-hidden"> · consumable</span>
+          <span v-if="!splitWorn" class="visually-hidden"> · {{ markTitle.toLowerCase() }}</span>
         </span>
       </span>
       <!-- the sub-line: the gear type (a quiet upright label, "Tent"/"Trail runners") with the
@@ -217,20 +244,43 @@ const rowPerson = computed(() =>
 .item__roweight {
   text-align: right;
 }
-/* the classification cell — one chip wide, because a row is worn OR consumable and
-   never both (one field, base stored as null), so there is never a second mark to
-   reserve for. CENTRED rather than on the baseline for the same reason the editor's
-   class cell is (ItemRow): the row aligns on the baseline, which lines up the TOPS of
-   a 32px chip and the numbers beside it and leaves the glyph sitting high. */
+/* The classification cell — one mark wide, because a row is worn OR consumable OR a
+   departed base and never two at once (one field), so there is never a second mark to
+   reserve for. The track is still --icon-btn, so the mark lands at one x down the
+   whole page; the glyph is centred in it.
+   ON THE BASELINE, with the numbers beside it. The old chip had to be centred against
+   the row's full height instead: at 32px its box lined its TOP up with the figures and
+   left the glyph sitting high, which on a phone became a disc floating in the row's
+   dead space. A bare glyph has no such box to fight, so the mark can sit on the text
+   line like everything else in the row. A `block` cell (not flex) is what gives it a
+   line box to sit on — a flex container has no text baseline of its own. */
 .item__roclass {
-  display: flex;
-  align-self: center;
-  align-items: center;
+  display: block;
+  text-align: center;
 }
-/* …but only --icon-btn to LOOK at, and pulled back onto its text line — both now in
-   .item__mark--static (atoms/item.scss), which /gear's rows share. These three
-   declarations were the second hand-copy of that box; the vault page would have been
-   the third, which is when it stops being a hypothetical. */
+/* NO .item__mark ground. In the editor that lit pill is the ON state of a toggle
+   BUTTON; a read row has no toggles, so the same pill drew a button-shaped thing that
+   did nothing when pressed. The picture is the whole mark, one ink step down from the
+   figures beside it: the class qualifies the row, the weight is what the row is for.
+   `vertical-align` drops the glyph off the baseline until its optical centre sits on
+   the figures' — an <svg>'s own baseline is its bottom edge, so left alone it perches
+   ON the text line rather than straddling it. This works where the carrier tag's old
+   0.04em did not (see atoms/item.scss) because the mark is an inline-level box in a
+   `block` cell; vertical-align has no effect on a flex item, which is what that one
+   was. -0.125em is measured, not guessed: it lands the 16px glyph's midpoint on the
+   weight cell's to the pixel at the row's base size. */
+.item__romark {
+  display: inline-flex;
+  color: var(--ink-2);
+  vertical-align: -0.125em;
+}
+/* how many rows a shut group is holding — the quietest thing on the line (it is about
+   the chevron it follows, not about the gear), and gone the moment they're on screen */
+.item__rocount {
+  flex: none;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
 /* the qty/amount label lives in the narrow 44px column; keep it on one line so a water
    row's volume ("1.75 L") never breaks between the number and its "L" unit. */
 .item__roqty {

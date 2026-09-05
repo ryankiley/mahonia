@@ -1,0 +1,10 @@
+{
+  "date": "2026-09-04",
+  "changed": [
+    "On a shared list, the worn and consumable marks are quieter, and appear only on rows that differ from their folder — so a Worn folder no longer repeats itself down every row.",
+    "Shared lists no longer print \"×1\" on every single-item row, and show the route's distance beside its name."
+  ],
+  "fixed": [
+    "A shared water row counts its whole line, so two 1 L bottles read \"2 L\" instead of \"1 L\"."
+  ]
+}
