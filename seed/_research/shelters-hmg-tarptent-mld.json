@@ -69,7 +69,7 @@
     {
       "brand": "Tarptent",
       "name": "Double Rainbow",
-      "variant": "silpoly/silnylon",
+      "variant": "silpoly fly, silnylon floor",
       "category_hint": "shelter",
       "weight_value": 35.9,
       "weight_unit": "oz",
@@ -124,7 +124,7 @@
     {
       "brand": "Mountain Laurel Designs",
       "name": "DuoMid",
-      "variant": "SilPoly",
+      "variant": "Silpoly",
       "category_hint": "shelter",
       "weight_value": 18,
       "weight_unit": "oz",
@@ -135,7 +135,7 @@
     {
       "brand": "Mountain Laurel Designs",
       "name": "DuoMid",
-      "variant": "DCF, .75",
+      "variant": "0.75 DCF",
       "category_hint": "shelter",
       "weight_value": 15.5,
       "weight_unit": "oz",
@@ -146,7 +146,7 @@
     {
       "brand": "Mountain Laurel Designs",
       "name": "SoloMid XL",
-      "variant": "SilPoly",
+      "variant": "Silpoly",
       "category_hint": "shelter",
       "weight_value": 16,
       "weight_unit": "oz",
@@ -157,7 +157,7 @@
     {
       "brand": "Mountain Laurel Designs",
       "name": "SoloMid XL",
-      "variant": "DCF, .75",
+      "variant": "0.75 DCF",
       "category_hint": "shelter",
       "weight_value": 14,
       "weight_unit": "oz",
@@ -168,7 +168,7 @@
     {
       "brand": "Mountain Laurel Designs",
       "name": "Cricket Pyramid Tarp",
-      "variant": ".5 DCF",
+      "variant": "0.5 DCF",
       "category_hint": "shelter",
       "weight_value": 7.5,
       "weight_unit": "oz",
@@ -179,7 +179,7 @@
     {
       "brand": "Mountain Laurel Designs",
       "name": "Cricket Pyramid Tarp",
-      "variant": ".8 DCF",
+      "variant": "0.8 DCF",
       "category_hint": "shelter",
       "weight_value": 9,
       "weight_unit": "oz",

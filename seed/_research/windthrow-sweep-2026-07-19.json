@@ -280,7 +280,7 @@
     {
       "brand": "Klättermusen",
       "name": "Algir Accessory Bag",
-      "variant": "Medium",
+      "variant": "M",
       "category_hint": "other",
       "common_name": "pouch",
       "weight_value": 61,
@@ -317,7 +317,7 @@
       "brand": "Klättermusen",
       "name": "Gebo Bag 23L",
       "variant": "",
-      "category_hint": "other",
+      "category_hint": "pack",
       "common_name": "tote bag",
       "weight_value": 127,
       "weight_unit": "g",
@@ -413,7 +413,7 @@
       "brand": "CAYL",
       "name": "Race Bag",
       "variant": "",
-      "category_hint": "other",
+      "category_hint": "pack",
       "common_name": "duffel",
       "weight_value": 716,
       "weight_unit": "g",
@@ -508,7 +508,7 @@
     {
       "brand": "Portal",
       "name": "Drift Merino Glove",
-      "variant": "per pair",
+      "variant": "",
       "category_hint": "clothing",
       "common_name": "gloves",
       "weight_value": 15,
@@ -580,7 +580,7 @@
     {
       "brand": "Portal",
       "name": "Lineage All Purpose Sock",
-      "variant": "M, per pair",
+      "variant": "M",
       "category_hint": "clothing",
       "common_name": "socks",
       "weight_value": 60,
@@ -616,7 +616,7 @@
     {
       "brand": "Portal",
       "name": "Pattern Active Sock",
-      "variant": "M, per pair",
+      "variant": "M",
       "category_hint": "clothing",
       "common_name": "socks",
       "weight_value": 40,
@@ -628,7 +628,7 @@
     {
       "brand": "Portal",
       "name": "Planar Lightweight Cap",
-      "variant": "one size",
+      "variant": "One size",
       "category_hint": "clothing",
       "common_name": "hat",
       "weight_value": 35,
@@ -640,7 +640,7 @@
     {
       "brand": "Portal",
       "name": "Radius Cap",
-      "variant": "one size",
+      "variant": "One size",
       "category_hint": "clothing",
       "common_name": "hat",
       "weight_value": 40,
@@ -664,7 +664,7 @@
     {
       "brand": "Portal",
       "name": "Ritual Merino Sock",
-      "variant": "M, per pair",
+      "variant": "M",
       "category_hint": "clothing",
       "common_name": "socks",
       "weight_value": 60,
@@ -772,7 +772,7 @@
     {
       "brand": "Helinox",
       "name": "Vibram Ball Feet",
-      "variant": "Set of 4, 55mm",
+      "variant": "set of 4, 55mm",
       "category_hint": "other",
       "common_name": "chair feet",
       "weight_value": 10.5,
@@ -796,7 +796,7 @@
     {
       "brand": "Pa'lante",
       "name": "Turtle Pack",
-      "variant": "Ultraweave",
+      "variant": "UltraWeave",
       "category_hint": "pack",
       "common_name": "backpack",
       "weight_value": 12.6,

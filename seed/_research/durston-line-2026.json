@@ -496,9 +496,9 @@
     },
     {
       "brand": "Lawson Equipment",
-      "name": "Reflective Ironwire (50' Hank)",
+      "name": "Reflective Ironwire",
       "common_name": "guyline",
-      "variant": "2mm",
+      "variant": "2mm, 50ft hank",
       "category_hint": "other",
       "weight_value": 2.1,
       "weight_unit": "oz",

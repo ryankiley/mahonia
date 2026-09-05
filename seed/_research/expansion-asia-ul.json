@@ -3,7 +3,7 @@
     {
       "brand": "Yamatomichi",
       "name": "MINI",
-      "variant": "Size M",
+      "variant": "M",
       "category_hint": "pack",
       "weight_value": 425,
       "weight_unit": "g",
@@ -14,7 +14,7 @@
     {
       "brand": "Yamatomichi",
       "name": "THREE",
-      "variant": "ECOPAK EPX200, Size M",
+      "variant": "ECOPAK EPX200, M",
       "category_hint": "pack",
       "weight_value": 682,
       "weight_unit": "g",
@@ -25,7 +25,7 @@
     {
       "brand": "Yamatomichi",
       "name": "UL Shirt",
-      "variant": "Size M",
+      "variant": "M",
       "category_hint": "clothing",
       "weight_value": 99,
       "weight_unit": "g",
@@ -135,7 +135,7 @@
     {
       "brand": "Hanchor",
       "name": "MARL Hiking Backpack",
-      "variant": "torso R, hipbelt S",
+      "variant": "Regular torso, S hipbelt",
       "category_hint": "pack",
       "weight_value": 1053,
       "weight_unit": "g",
@@ -146,7 +146,7 @@
     {
       "brand": "Hanchor",
       "name": "MARBLE Hiking Backpack",
-      "variant": "torso R, hipbelt S",
+      "variant": "Regular torso, S hipbelt",
       "category_hint": "pack",
       "weight_value": 1160,
       "weight_unit": "g",

@@ -3,7 +3,7 @@
     {
       "brand": "Nemo",
       "name": "Dagger OSMO 3P",
-      "variant": "3P, min trail weight",
+      "variant": "",
       "category_hint": "shelter",
       "weight_value": 3,
       "weight_unit": "lb",
@@ -40,7 +40,7 @@
       "brand": "Gossamer Gear",
       "name": "Nylofume Pack Liner Bag",
       "variant": "per bag",
-      "category_hint": "pack",
+      "category_hint": "other",
       "weight_value": 0.91,
       "weight_unit": "oz",
       "weight_secondary": null,

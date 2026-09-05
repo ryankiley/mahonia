@@ -3,7 +3,7 @@
   "rows": [
     {
       "brand": "Apple",
-      "name": "Apple Watch Ultra 3",
+      "name": "Watch Ultra 3",
       "variant": "49mm, Titanium",
       "category_hint": "electronics",
       "common_name": "Smartwatch",
@@ -16,7 +16,7 @@
     },
     {
       "brand": "Apple",
-      "name": "Apple Watch Ultra 2",
+      "name": "Watch Ultra 2",
       "variant": "49mm, Titanium",
       "category_hint": "electronics",
       "common_name": "Smartwatch",
@@ -29,7 +29,7 @@
     },
     {
       "brand": "Apple",
-      "name": "Apple Watch Series 11",
+      "name": "Watch Series 11",
       "variant": "46mm, Aluminum, GPS",
       "category_hint": "electronics",
       "common_name": "Smartwatch",
@@ -42,7 +42,7 @@
     },
     {
       "brand": "Apple",
-      "name": "Apple Watch Series 11",
+      "name": "Watch Series 11",
       "variant": "46mm, Aluminum, GPS + Cellular",
       "category_hint": "electronics",
       "common_name": "Smartwatch",
@@ -55,7 +55,7 @@
     },
     {
       "brand": "Apple",
-      "name": "Apple Watch Series 11",
+      "name": "Watch Series 11",
       "variant": "46mm, Titanium",
       "category_hint": "electronics",
       "common_name": "Smartwatch",
@@ -68,7 +68,7 @@
     },
     {
       "brand": "Apple",
-      "name": "Apple Watch Series 11",
+      "name": "Watch Series 11",
       "variant": "42mm, Aluminum, GPS",
       "category_hint": "electronics",
       "common_name": "Smartwatch",
@@ -81,7 +81,7 @@
     },
     {
       "brand": "Apple",
-      "name": "Apple Watch Series 11",
+      "name": "Watch Series 11",
       "variant": "42mm, Aluminum, GPS + Cellular",
       "category_hint": "electronics",
       "common_name": "Smartwatch",
@@ -94,7 +94,7 @@
     },
     {
       "brand": "Apple",
-      "name": "Apple Watch Series 11",
+      "name": "Watch Series 11",
       "variant": "42mm, Titanium",
       "category_hint": "electronics",
       "common_name": "Smartwatch",
@@ -107,7 +107,7 @@
     },
     {
       "brand": "Apple",
-      "name": "Apple Watch SE 3",
+      "name": "Watch SE 3",
       "variant": "44mm, Aluminum, GPS",
       "category_hint": "electronics",
       "common_name": "Smartwatch",
@@ -120,7 +120,7 @@
     },
     {
       "brand": "Apple",
-      "name": "Apple Watch SE 3",
+      "name": "Watch SE 3",
       "variant": "44mm, Aluminum, GPS + Cellular",
       "category_hint": "electronics",
       "common_name": "Smartwatch",
@@ -133,7 +133,7 @@
     },
     {
       "brand": "Apple",
-      "name": "Apple Watch SE 3",
+      "name": "Watch SE 3",
       "variant": "40mm, Aluminum, GPS",
       "category_hint": "electronics",
       "common_name": "Smartwatch",
@@ -146,7 +146,7 @@
     },
     {
       "brand": "Apple",
-      "name": "Apple Watch SE 3",
+      "name": "Watch SE 3",
       "variant": "40mm, Aluminum, GPS + Cellular",
       "category_hint": "electronics",
       "common_name": "Smartwatch",

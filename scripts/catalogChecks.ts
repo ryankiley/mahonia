@@ -88,6 +88,28 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
     if (canon) err("common-name-drift", `${gearLabel(r)}: gear type "${r.commonName}" → canonical "${canon}"`);
   }
 
+  // --- ERROR: the name starts with its own brand ------------------------------
+  // The UI renders brand + name joined ("Apple" + "Apple Watch SE 3" → "Apple Apple
+  // Watch SE 3"), so the brand lives in `brand` only. A collab is a brand of its own
+  // ("Zpacks x Vaucluse"), and an eponymous product takes a descriptor for a name.
+  for (const r of rows) {
+    const b = (r.brand ?? "").trim();
+    if (b && new RegExp(`^${b.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(r.name.trim())) {
+      err("name-repeats-brand", `${gearLabel(r)}: name starts with the brand — drop it from the name (or make the collab the brand)`);
+    }
+  }
+
+  // --- ERROR: a qualifier hiding in the name ----------------------------------
+  // " - Regular", "(low)", "(2024)", "(SP129)" are configs, not names: they go in
+  // `variant`. Parentheses are allowed on food rows (the flavor convention:
+  // "Energy Bar (Chocolate Chip)").
+  for (const r of rows) {
+    if (/\s[-–]\s/.test(r.name)) err("name-qualifier", `${gearLabel(r)}: " - " suffix in the name belongs in the variant`);
+    else if (/\(/.test(r.name) && r.categoryHint !== "consumable") {
+      err("name-qualifier", `${gearLabel(r)}: parenthetical in the name belongs in the variant (parens are for a food row's flavor)`);
+    }
+  }
+
   // --- ERROR: variant carries research commentary instead of a clean config ---
   // Keyword-driven (deterministic, low false-positive). A legit size spec like
   // "(US size 9 / M9)" or "(tapered)" must NOT trip — only prose markers do.
@@ -101,6 +123,11 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   // --- ERROR: same product + same weight = redundant duplicate row ----------
   // (Same brand+name, equal weight, and one variant is a subset/empty of the
   // other — i.e. not two genuinely-different size variants that happen to match.)
+  // "Same weight" is exact between two NAMED variants (a men's and a women's
+  // pack, a GPS and a GPS + Cellular watch legitimately land within a gram of
+  // each other), but allows a 1% spread when one variant is EMPTY: that's the
+  // same product cited from two pages (the maker's "2 oz / 0.06 kg" and a
+  // stockist's "57 g"), and exact equality let a "Z Seat" / "Z-Seat" pair ship.
   const byProduct = new Map<string, CatalogCsvRow[]>();
   for (const r of rows) {
     const k = `${normKey(r.brand)}|${normKey(r.name)}`;
@@ -109,14 +136,18 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   for (const group of byProduct.values()) {
     for (let a = 0; a < group.length; a++) {
       for (let b = a + 1; b < group.length; b++) {
-        if (group[a].weightMg !== group[b].weightMg) continue;
+        const wa = group[a].weightMg;
+        const wb = group[b].weightMg;
         const va = normKey(group[a].variant);
         const vb = normKey(group[b].variant);
-        const subset = va === "" || vb === "" || va.includes(vb) || vb.includes(va) || va === vb;
+        const oneBlank = va === "" || vb === "";
+        const sameWeight = oneBlank ? Math.abs(wa - wb) <= 0.01 * Math.max(wa, wb) : wa === wb;
+        if (!sameWeight) continue;
+        const subset = oneBlank || va.includes(vb) || vb.includes(va) || va === vb;
         if (subset) {
           err(
             "duplicate-row",
-            `${group[a].brand} ${group[a].name}: same weight (${group[a].weightMg} mg) for variants "${group[a].variant ?? ""}" and "${group[b].variant ?? ""}" — likely the same product twice`,
+            `${group[a].brand} ${group[a].name}: same weight (${wa} mg vs ${wb} mg) for variants "${group[a].variant ?? ""}" and "${group[b].variant ?? ""}" — likely the same product twice`,
           );
         }
       }
@@ -204,10 +235,11 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   // real setup). To avoid a confusing mix of per-pole and per-pair weights, the
   // catalog standardizes on "per pair" for every pole — so a bare pole, or one
   // still marked "per pole", is flagged to convert.
-  // Match "trekking pole(s)" specifically — a bare "pole" also names tent poles,
-  // pole sets, and pole bags, none of which take a per-pair unit.
+  // Match a name that ENDS in "trekking pole(s)" — a bare "pole" also names tent
+  // poles, pole sets, and pole bags, and a "Trekking Pole Cup" / "Trekking Pole
+  // Holsters" is an accessory FOR poles, not a pair of them.
   for (const r of rows) {
-    if (/\btrekking\s+poles?\b/i.test(r.name) && !/\bper pair\b/i.test(r.variant ?? "")) {
+    if (/\btrekking\s+poles?$/i.test(r.name.trim()) && !/\bper pair\b/i.test(r.variant ?? "")) {
       warn("pole-unit", `${gearLabel(r)}: trekking poles should state "per pair" (the catalog's single pole-weight convention)`);
     }
   }
@@ -228,6 +260,46 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
     const v = r.variant ?? "";
     if (v && normalizeVariant(v) !== v) {
       warn("variant-noncanonical", `${gearLabel(r)}: variant "${v}" → canonical "${normalizeVariant(v)}"`);
+    }
+  }
+
+  // --- ERROR: size written in the wrong style ---------------------------------
+  // House convention (2026-09-05): S/M/L-family sizes are LETTERS — XS, S, M, L, XL —
+  // on anything worn or carried, with an optional gender prefix ("Men's M"). Sleep
+  // and shelter gear are exempt: there Small / Regular / Large is a LENGTH scale the
+  // maker names in words beside Regular / Long, and "L" would read as a garment size.
+  // Only a size word standing as the whole dimension (or right after Men's/Women's)
+  // trips this, so a product size NAME like "Small Bag" passes.
+  const SIZE_WORD = /^(?:(?:men's|women's)\s+)?(?:xx-small|x-small|extra small|small|medium|large|x-large|extra large|xx-large)$/i;
+  for (const r of rows) {
+    if (!r.variant) continue;
+    const lengthScaled = r.categoryHint === "sleep" || r.categoryHint === "shelter";
+    for (const dim of r.variant.split(/,\s*/)) {
+      if (!lengthScaled && SIZE_WORD.test(dim)) {
+        err("variant-size-style", `${gearLabel(r)}: write the size as a letter ("Medium" → "M"), not "${dim}"`);
+      }
+    }
+  }
+
+  // --- WARNING: footwear size with no region ----------------------------------
+  // A shoe's "9" means nothing without US/UK/EU — the same shoe is a 9 US, 8 UK and
+  // 42 EU. House form is "Men's US 9" / "Women's US 8" / "US 9" (unisex).
+  const FOOTWEAR = new Set(["trail runners", "hiking shoes", "hiking boots", "sandals", "camp shoes", "insoles", "booties"]);
+  for (const r of rows) {
+    const v = r.variant ?? "";
+    if (!FOOTWEAR.has((r.commonName ?? "").toLowerCase()) || !/\d/.test(v)) continue;
+    if (!/\b(US|UK|EU|JP)\b/.test(v)) {
+      warn("footwear-size", `${gearLabel(r)}: footwear size "${v}" needs a region — "Men's US 9", "Women's US 8", "UK 8"`);
+    }
+  }
+
+  // --- WARNING: unit-label phrasing -------------------------------------------
+  // One weight per one thing reads "per bar" / "per stake", never "single bar",
+  // "each", or "one pouch"; multiples read "3-pack" or "sleeve of 10".
+  for (const r of rows) {
+    const v = r.variant ?? "";
+    if (/\b(?:single|one)\s+(?:bar|pouch|sleeve|stick|waffle|packet|serve|serving|bowl|pack|wipe|tablet)\b|\beach\b/i.test(v)) {
+      warn("variant-unit-label", `${gearLabel(r)}: "${v}" — say "per <unit>" for one item, "<n>-pack" for several`);
     }
   }
 

@@ -59,7 +59,7 @@
     {
       "brand": "Kahtoola",
       "name": "EXOspikes",
-      "variant": "Medium",
+      "variant": "M",
       "category_hint": "other",
       "weight_value": 7.3,
       "weight_unit": "oz",
@@ -116,7 +116,7 @@
     {
       "brand": "Garmin",
       "name": "inReach Mini",
-      "variant": "original",
+      "variant": "",
       "category_hint": "electronics",
       "weight_value": 3.5,
       "weight_unit": "oz",

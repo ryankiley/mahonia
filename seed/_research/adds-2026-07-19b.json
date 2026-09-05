@@ -315,7 +315,7 @@
     {
       "brand": "Zpacks",
       "name": "Pillow Dry Bag",
-      "variant": "Medium",
+      "variant": "M",
       "category_hint": "sleep",
       "weight_value": 41,
       "weight_unit": "g",
@@ -339,7 +339,7 @@
     {
       "brand": "SaltStick",
       "name": "Electrolyte FastChews",
-      "variant": "60 ct",
+      "variant": "bottle of 60",
       "category_hint": "consumable",
       "weight_value": 127,
       "weight_unit": "g",

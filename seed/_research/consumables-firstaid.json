@@ -58,7 +58,7 @@
     {
       "brand": "Clif",
       "name": "Energy Bar (Chocolate Chip)",
-      "variant": "single bar",
+      "variant": "per bar",
       "category_hint": "consumable",
       "weight_value": 68,
       "weight_unit": "g",
@@ -72,7 +72,7 @@
     {
       "brand": "PROBAR",
       "name": "MEAL Bar",
-      "variant": "single bar",
+      "variant": "per bar",
       "category_hint": "consumable",
       "weight_value": 3,
       "weight_unit": "oz",
@@ -83,7 +83,7 @@
     {
       "brand": "Snickers",
       "name": "Singles Size Bar",
-      "variant": "single bar",
+      "variant": "per bar",
       "category_hint": "consumable",
       "weight_value": 1.86,
       "weight_unit": "oz",
@@ -97,7 +97,7 @@
     {
       "brand": "Knorr",
       "name": "Rice Sides Cheddar Broccoli",
-      "variant": "one pouch",
+      "variant": "per pouch",
       "category_hint": "consumable",
       "weight_value": 5.7,
       "weight_unit": "oz",
@@ -111,7 +111,7 @@
     {
       "brand": "Idahoan",
       "name": "Classic Mashed Potatoes",
-      "variant": "single pouch",
+      "variant": "per pouch",
       "category_hint": "consumable",
       "weight_value": 4,
       "weight_unit": "oz",
@@ -124,8 +124,8 @@
     },
     {
       "brand": "Mountain House",
-      "name": "Beef Stroganoff - Pro-Pak",
-      "variant": "Pro-Pak, 1 serving",
+      "name": "Beef Stroganoff",
+      "variant": "per pouch, 1 serving, Pro-Pak",
       "category_hint": "consumable",
       "weight_value": 4.6,
       "weight_unit": "oz",
@@ -139,7 +139,7 @@
     {
       "brand": "Starbucks",
       "name": "VIA Instant Coffee",
-      "variant": "single packet",
+      "variant": "per packet",
       "category_hint": "consumable",
       "weight_value": 0.11,
       "weight_unit": "oz",
@@ -150,7 +150,7 @@
     {
       "brand": "Honey Stinger",
       "name": "Organic Honey Waffle",
-      "variant": "single waffle",
+      "variant": "per waffle",
       "category_hint": "consumable",
       "weight_value": 1.06,
       "weight_unit": "oz",
@@ -164,7 +164,7 @@
     {
       "brand": "Pop-Tarts",
       "name": "Frosted Strawberry Toaster Pastries",
-      "variant": "one pouch, 2 pastries",
+      "variant": "per pouch, 2 pastries",
       "category_hint": "consumable",
       "weight_value": 96,
       "weight_unit": "g",
@@ -178,7 +178,7 @@
     {
       "brand": "Clif",
       "name": "Energy Bar (Crunchy Peanut Butter)",
-      "variant": "single bar",
+      "variant": "per bar",
       "category_hint": "consumable",
       "weight_value": 68,
       "weight_unit": "g",
@@ -192,7 +192,7 @@
     {
       "brand": "Clif",
       "name": "Nut Butter Bar (Peanut Butter)",
-      "variant": "single bar",
+      "variant": "per bar",
       "category_hint": "consumable",
       "weight_value": 50,
       "weight_unit": "g",
@@ -206,7 +206,7 @@
     {
       "brand": "Clif",
       "name": "Builders Protein Bar (Chocolate Peanut Butter)",
-      "variant": "single bar",
+      "variant": "per bar",
       "category_hint": "consumable",
       "weight_value": 68,
       "weight_unit": "g",
@@ -220,7 +220,7 @@
     {
       "brand": "Skratch Labs",
       "name": "Sport Energy Chews (Raspberry)",
-      "variant": "single pouch",
+      "variant": "per pouch",
       "category_hint": "consumable",
       "weight_value": 50,
       "weight_unit": "g",
@@ -234,7 +234,7 @@
     {
       "brand": "Peter Rabbit Organics",
       "name": "Organic Fruit Snack (Strawberry & Banana)",
-      "variant": "single pouch",
+      "variant": "per pouch",
       "category_hint": "consumable",
       "weight_value": 4,
       "weight_unit": "oz",
@@ -247,8 +247,8 @@
     },
     {
       "brand": "Leukotape",
-      "name": "Leukotape P Sports Tape",
-      "variant": "1.5 in x 15 yd full roll",
+      "name": "P Sports Tape",
+      "variant": "1.5in x 15yd roll",
       "category_hint": "firstaid",
       "weight_value": 3.9,
       "weight_unit": "oz",
@@ -260,7 +260,7 @@
       "brand": "BIC",
       "name": "J25 Mini Lighter",
       "variant": "Mini, J25",
-      "category_hint": "other",
+      "category_hint": "cook",
       "weight_value": 13,
       "weight_unit": "g",
       "weight_source": "manufacturer",
@@ -379,7 +379,7 @@
     },
     {
       "brand": "Tick Key",
-      "name": "The Original Tick Key",
+      "name": "Original Tick Key",
       "variant": "",
       "category_hint": "firstaid",
       "weight_value": 0.2,

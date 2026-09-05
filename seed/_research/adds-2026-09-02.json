@@ -76,7 +76,7 @@
     {
       "brand": "KIND",
       "name": "Nut Bar (Dark Chocolate Nuts & Sea Salt)",
-      "variant": "single bar",
+      "variant": "per bar",
       "category_hint": "consumable",
       "common_name": "energy bar",
       "weight_value": 40,
@@ -91,7 +91,7 @@
     {
       "brand": "KIND",
       "name": "Nut Bar (Peanut Butter Dark Chocolate)",
-      "variant": "single bar",
+      "variant": "per bar",
       "category_hint": "consumable",
       "common_name": "energy bar",
       "weight_value": 40,
@@ -106,7 +106,7 @@
     {
       "brand": "KIND",
       "name": "Nut Bar (Fruit & Nut)",
-      "variant": "single bar",
+      "variant": "per bar",
       "category_hint": "consumable",
       "common_name": "energy bar",
       "weight_value": 40,
@@ -121,7 +121,7 @@
     {
       "brand": "KIND",
       "name": "Nut Bar (Blueberry Vanilla & Cashew)",
-      "variant": "single bar",
+      "variant": "per bar",
       "category_hint": "consumable",
       "common_name": "energy bar",
       "weight_value": 40,
