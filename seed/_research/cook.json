@@ -90,8 +90,8 @@
     },
     {
       "brand": "Toaks",
-      "name": "Titanium 550ml Pot (Ultralight)",
-      "variant": "",
+      "name": "Titanium 550ml Pot",
+      "variant": "Ultralight",
       "category_hint": "cook",
       "weight_value": 2.6,
       "weight_unit": "oz",
@@ -101,8 +101,8 @@
     },
     {
       "brand": "Toaks",
-      "name": "Titanium 650ml Pot (Light)",
-      "variant": "",
+      "name": "Titanium 650ml Pot",
+      "variant": "Light",
       "category_hint": "cook",
       "weight_value": 2.8,
       "weight_unit": "oz",

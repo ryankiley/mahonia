@@ -61,8 +61,8 @@
     },
     {
       "brand": "Patagonia",
-      "name": "Quandary Pants - Regular",
-      "variant": "Men's M",
+      "name": "Quandary Pants",
+      "variant": "Men's M, Regular",
       "category_hint": "clothing",
       "weight_value": 318,
       "weight_unit": "g",
@@ -70,30 +70,6 @@
       "weight_source": "manufacturer",
       "source_url": "https://web.archive.org/web/20260128055417id_/https://www.patagonia.com/product/mens-quandary-hiking-pants-regular/55183.html",
       "quote": "<p class=\"content-feature__description\">318 g (11.2 oz)</p>"
-    },
-    {
-      "brand": "Patagonia",
-      "name": "Capilene Cool Lightweight Shirt",
-      "variant": "Men's M, short sleeve",
-      "category_hint": "clothing",
-      "weight_value": 74,
-      "weight_unit": "g",
-      "weight_secondary": "2.6 oz",
-      "weight_source": "manufacturer",
-      "source_url": "https://web.archive.org/web/20260128014309id_/https://www.patagonia.com/product/mens-capilene-cool-lightweight-shirt/45760.html",
-      "quote": "<p class=\"content-feature__description\">74 g (2.6 oz)</p>"
-    },
-    {
-      "brand": "Smartwool",
-      "name": "Merino 250 Cuffed Beanie",
-      "variant": "One size",
-      "category_hint": "clothing",
-      "weight_value": 2.1,
-      "weight_unit": "oz",
-      "weight_secondary": "60 g",
-      "weight_source": "manufacturer",
-      "source_url": "https://www.rei.com/product/738915/smartwool-thermal-merino-reversible-cuffed-beanie",
-      "quote": "Smartwool Merino 250 Cuffed Beanie — 2.1 oz / 60 g (REI). Smartwool.com lists garment weight 60 g (2.1 oz)."
     }
   ]
 }

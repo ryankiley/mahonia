@@ -2,8 +2,8 @@
   "rows": [
     {
       "brand": "Sawyer",
-      "name": "Squeeze Water Filter (SP129)",
-      "variant": "",
+      "name": "Squeeze Water Filter",
+      "variant": "SP129",
       "category_hint": "water",
       "weight_value": 3,
       "weight_unit": "oz",
@@ -79,8 +79,8 @@
     },
     {
       "brand": "CNOC",
-      "name": "Vecto Water Container (28mm)",
-      "variant": "2L",
+      "name": "Vecto Water Container",
+      "variant": "2L, 28mm",
       "category_hint": "water",
       "weight_value": 76,
       "weight_unit": "g",
@@ -90,8 +90,8 @@
     },
     {
       "brand": "CNOC",
-      "name": "Vecto Water Container (28mm)",
-      "variant": "3L",
+      "name": "Vecto Water Container",
+      "variant": "3L, 28mm",
       "category_hint": "water",
       "weight_value": 84,
       "weight_unit": "g",

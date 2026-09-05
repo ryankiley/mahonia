@@ -3,7 +3,7 @@
     {
       "brand": "Garmin",
       "name": "inReach Mini 2",
-      "variant": "Satellite Communicator",
+      "variant": "",
       "category_hint": "electronics",
       "weight_value": 3.5,
       "weight_unit": "oz",
@@ -37,8 +37,8 @@
     },
     {
       "brand": "Anker",
-      "name": "511 Power Bank (PowerCore Fusion 5K)",
-      "variant": "A1633",
+      "name": "511 Power Bank",
+      "variant": "PowerCore Fusion 5K, A1633",
       "category_hint": "electronics",
       "weight_value": 170,
       "weight_unit": "g",
@@ -71,7 +71,7 @@
     {
       "brand": "Petzl",
       "name": "e+LITE",
-      "variant": "Emergency Headlamp",
+      "variant": "",
       "category_hint": "electronics",
       "weight_value": 26,
       "weight_unit": "g",
@@ -81,8 +81,8 @@
     },
     {
       "brand": "Esbit",
-      "name": "Solid Fuel Tablet",
-      "variant": "per 14 g tablet",
+      "name": "Solid Fuel Tablets",
+      "variant": "per tablet, 14g",
       "category_hint": "consumable",
       "weight_value": 14,
       "weight_unit": "g",
@@ -93,7 +93,7 @@
     {
       "brand": "Esbit",
       "name": "Solid Fuel Tablets",
-      "variant": "12 x 14 g pack, net",
+      "variant": "12-pack, net",
       "category_hint": "consumable",
       "weight_value": 0.172,
       "weight_unit": "kg",
@@ -105,7 +105,7 @@
     {
       "brand": "Nature Valley",
       "name": "Crunchy Granola Bars",
-      "variant": "one 2-bar pouch, net",
+      "variant": "per pouch, 2 bars, net",
       "category_hint": "consumable",
       "weight_value": 42,
       "weight_unit": "g",
@@ -119,7 +119,7 @@
     {
       "brand": "Justin's",
       "name": "Classic Almond Butter Squeeze Pack",
-      "variant": "single serve",
+      "variant": "per pack",
       "category_hint": "consumable",
       "weight_value": 1.15,
       "weight_unit": "oz",
@@ -133,7 +133,7 @@
     {
       "brand": "RXBAR",
       "name": "Protein Bar",
-      "variant": "single bar",
+      "variant": "per bar",
       "category_hint": "consumable",
       "weight_value": 1.83,
       "weight_unit": "oz",
@@ -144,7 +144,7 @@
     {
       "brand": "Skratch Labs",
       "name": "Hydration Sport Drink Mix",
-      "variant": "single-serving stick",
+      "variant": "per stick",
       "category_hint": "consumable",
       "weight_value": 22,
       "weight_unit": "g",
@@ -158,7 +158,7 @@
     {
       "brand": "Liquid I.V.",
       "name": "Hydration Multiplier",
-      "variant": "single stick",
+      "variant": "per stick",
       "category_hint": "consumable",
       "weight_value": 0.56,
       "weight_unit": "oz",
@@ -173,7 +173,7 @@
     {
       "brand": "Mountain House",
       "name": "Biscuits and Gravy",
-      "variant": "pouch, 2 servings, net",
+      "variant": "per pouch, 2 servings, net",
       "category_hint": "consumable",
       "weight_value": 4.4,
       "weight_unit": "oz",
@@ -188,7 +188,7 @@
     {
       "brand": "Peak Refuel",
       "name": "Beef Stroganoff",
-      "variant": "pouch, 2 servings, net",
+      "variant": "per pouch, 2 servings, net",
       "category_hint": "consumable",
       "weight_value": 5,
       "weight_unit": "oz",
@@ -202,7 +202,7 @@
     {
       "brand": "Backpacker's Pantry",
       "name": "Pad Thai",
-      "variant": "pouch, 2 servings, net",
+      "variant": "per pouch, 2 servings, net",
       "category_hint": "consumable",
       "weight_value": 6.2,
       "weight_unit": "oz",
@@ -303,7 +303,7 @@
     },
     {
       "brand": "AeroPress",
-      "name": "AeroPress Go",
+      "name": "Go",
       "variant": "",
       "category_hint": "cook",
       "weight_value": 11.4,

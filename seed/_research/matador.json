@@ -102,7 +102,7 @@
     {
       "brand": "Matador",
       "name": "GlobeRider35 Travel Backpack",
-      "variant": "with hip belt",
+      "variant": "with hipbelt",
       "category_hint": "pack",
       "weight_value": 1560,
       "weight_unit": "g",
@@ -167,7 +167,7 @@
     },
     {
       "brand": "Matador",
-      "name": "Refillable Toothpaste Tubes",
+      "name": "Refillable Toothpaste Tube",
       "variant": "1-week",
       "category_hint": "consumable",
       "weight_value": 7,
@@ -178,7 +178,7 @@
     },
     {
       "brand": "Matador",
-      "name": "Refillable Toothpaste Tubes",
+      "name": "Refillable Toothpaste Tube",
       "variant": "2-week",
       "category_hint": "consumable",
       "weight_value": 8,
@@ -190,7 +190,7 @@
     {
       "brand": "Matador",
       "name": "NanoDry Trek Towel",
-      "variant": "Small",
+      "variant": "S",
       "category_hint": "other",
       "weight_value": 34,
       "weight_unit": "g",
@@ -212,7 +212,7 @@
     {
       "brand": "Matador",
       "name": "Ultralight Travel Towel",
-      "variant": "Small",
+      "variant": "S",
       "category_hint": "other",
       "weight_value": 19,
       "weight_unit": "g",
@@ -223,7 +223,7 @@
     {
       "brand": "Matador",
       "name": "Ultralight Travel Towel",
-      "variant": "Large",
+      "variant": "L",
       "category_hint": "other",
       "weight_value": 77,
       "weight_unit": "g",

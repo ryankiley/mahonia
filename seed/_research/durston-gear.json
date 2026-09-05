@@ -86,8 +86,8 @@
     },
     {
       "brand": "Evernew",
-      "name": "Titanium NS Pot 0.9L (ECA422)",
-      "variant": "900ml",
+      "name": "Titanium NS Pot 0.9L",
+      "variant": "ECA422",
       "category_hint": "cook",
       "weight_value": 140,
       "weight_unit": "g",
@@ -98,8 +98,8 @@
     },
     {
       "brand": "Evernew",
-      "name": "Titanium Ti Cup 400FD (EBY265)",
-      "variant": "400ml, single wall",
+      "name": "Ti Cup 400FD",
+      "variant": "EBY265, single wall",
       "category_hint": "cook",
       "weight_value": 2.12,
       "weight_unit": "oz",
@@ -147,7 +147,7 @@
     {
       "brand": "Victorinox",
       "name": "Classic SD",
-      "variant": "standard",
+      "variant": "Standard",
       "category_hint": "other",
       "weight_value": 0.8,
       "weight_unit": "oz",

@@ -28,9 +28,12 @@ export function normKey(s: string | null | undefined): string {
  *  name — e.g. name "Copper Spur HV UL3" + variant "UL3" → renders "…UL3 · UL3".
  *  Such variants should be cleared (the name already carries the size/config). */
 export function isVariantRedundant(name: string, variant: string | null | undefined): boolean {
-  const v = normKey(variant).split(" ").filter(Boolean);
+  // Fold possessives before tokenizing: normKey would split "Women's" into "women s",
+  // and a letter size "S" would then read as already-in-the-name.
+  const fold = (s: string | null | undefined) => normKey((s ?? "").replace(/'/g, ""));
+  const v = fold(variant).split(" ").filter(Boolean);
   if (!v.length) return false;
-  const n = normKey(name).split(" ").filter(Boolean);
+  const n = fold(name).split(" ").filter(Boolean);
   for (let i = 0; i + v.length <= n.length; i++) {
     if (n.slice(i, i + v.length).join(" ") === v.join(" ")) return true;
   }
@@ -118,6 +121,13 @@ export function isBrandedTypedItem(p: {
 //   • temperature: no degree symbol, no space, uppercase ("20°F" → "20F", "-6 c" → "-6C")
 //   • volume: no parens/space, uppercase L ("(68 L)" → "68L")
 //   • trailing parenthetical qualifiers unwrapped ("Regular (6 ft)" → "Regular, 6 ft")
+//   • no "Size" prefix before a letter size ("Size M" → "M"; "Size D" / "Size 9" keep
+//     theirs — an insole letter or a shoe number isn't self-describing alone)
+//   • a gender prefix takes no comma ("Men's, M" → "Men's M", the catalog's house form)
+//   • a number and its unit are one token — "6 ft" → "6ft", "400 ml" → "400ml", "1 m" →
+//     "1m" — matching the "68L" / "20F" forms above; prime marks spell out as ft / in
+//     ("9'" → "9ft", '17" torso' → "17in torso") so a variant never carries a bare quote
+//   • quantity phrasing: "3 Pack" → "3-pack"; "Set of 4" / "Sleeve of 10" → lowercase
 //   • KEEP genuine tokens: size ranges ("S/M", "L/XL", "M/L torso") and spaced
 //     unit/temperature equivalents ("32oz / 1L", "20F / -6C", '16" / 19"')
 //   • a "|" between dimensions is treated like a top-level comma ("M's 9 | W's 10"
@@ -137,6 +147,20 @@ export function normalizeVariant(input: string | null | undefined): string {
   if (!v) return "";
   // 1. unwrap trailing/inline parenthetical qualifiers into ", " dimensions
   v = v.replace(/\s*\(\s*([^()]*?)\s*\)/g, (_m, inner: string) => `, ${inner.trim()}`);
+  // 1b. "Size M" → "M": the prefix only ever precedes an S/M/L-family letter that stands
+  //     on its own; "Size D" (insole) and "Size 9" (shoe) are left for the footwear rule
+  v = v.replace(/\bsize\s+(?=(?:xxs|xs|s|m|l|xl|xxl)\b)/gi, "");
+  // 1c. prime marks → ft / in ("9'" → "9ft", '20"' → "20in", "5' x 8.5'" → "5ft x 8.5ft");
+  //     a vulgar fraction counts as a number ("⅝\"" → "⅝in")
+  v = v
+    .replace(/(\d(?:\.\d+)?|[⅛¼⅜½⅝¾⅞])\s*'(?!s\b)/g, "$1ft")
+    .replace(/(\d(?:\.\d+)?|[⅛¼⅜½⅝¾⅞])\s*"/g, "$1in")
+    .replace(/ft(?=\d)/g, "ft "); // 5'6" → "5ft 6in", not "5ft6in"
+  // 1d. number + unit are one token: "6 ft" → "6ft", "400 ml" → "400ml", "1 m" → "1m".
+  //     Only these units — never a size scale ("Size 9", "JP 3", "US 9", "Ultra 200X").
+  v = v.replace(/(\d)\s+(ft|in|yd|cm|mm|m|km|g|kg|oz|lb|ml|qt|gal|mAh|gsm)\b/g, "$1$2");
+  // 1e. quantity phrasing: "3 Pack" / "3 pack" → "3-pack"; "Set of 4" → "set of 4"
+  v = v.replace(/\b(\d+)[\s-]?[Pp]ack\b/g, "$1-pack").replace(/\b(Set|Sleeve|Bag|Box|Bottle|Package|Roll|Tin|Tube) of\b/g, (m) => m.toLowerCase());
   // 2. temperature: "20°F" / "20 F" / "-6 c" → "20F" / "-6C" (degree dropped, uppercased)
   v = v.replace(/(-?\d+(?:\.\d+)?)\s*°?\s*([FfCc])\b/g, (_m, n: string, u: string) => `${n}${u.toUpperCase()}`);
   // 3. volume: a number followed by L (with optional space) → "<n>L" (only when a digit precedes L,
@@ -156,5 +180,10 @@ export function normalizeVariant(input: string | null | undefined): string {
       for (const p of parts) dims.push(p);
     }
   }
-  return dims.map(cleanDim).filter(Boolean).join(", ");
+  return dims
+    .map(cleanDim)
+    .filter(Boolean)
+    .join(", ")
+    // a gender prefix and its letter size are ONE dimension: "Men's, M" → "Men's M"
+    .replace(/\b(Men's|Women's), (?=(?:XXS|XS|S|M|L|XL|XXL)\b)/g, "$1 ");
 }
