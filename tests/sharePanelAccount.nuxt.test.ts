@@ -13,7 +13,7 @@ import { mockNuxtImport } from "@nuxt/test-utils/runtime";
 import { flushPromises, mount } from "@vue/test-utils";
 import SharePanel from "~/components/SharePanel.vue";
 import type { ListSnapshot } from "~~/shared/types";
-import type { ClaimedList } from "~/composables/useClaimedLists";
+import type { ClaimedList } from "~~/shared/types";
 
 // the panel's activity fetch on mount — not under test, kept quiet
 vi.stubGlobal(

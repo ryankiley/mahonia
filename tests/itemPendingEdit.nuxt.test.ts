@@ -23,9 +23,8 @@ import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import { mount } from "@vue/test-utils";
 import ItemRow, { CHILDREN_BY_PARENT, PEOPLE_CTX } from "~/components/ItemRow.vue";
 import type { Item, ListSnapshot, Person } from "~~/shared/types";
-import type { ItemPatch } from "~~/shared/ops";
-import { applyOps } from "~~/shared/ops";
 import { blankList } from "./helpers/list";
+import { gearListStub } from "./helpers/gearList";
 
 // what GearEditor provides to every row — the children map, and the people in
 // display order with their slots (this list names nobody)
@@ -44,32 +43,11 @@ mockNuxtImport("useVaultAccess", () => () => ({
 const weightCommits: string[] = [];
 const snapshot = ref<ListSnapshot>(blankList());
 
-mockNuxtImport("useGearList", () => () => ({
-  pendingBlankId: ref<string | null>(null),
-  updateItem: (id: string, patch: ItemPatch) => {
-    snapshot.value = applyOps(snapshot.value, [{ t: "updateItem", id, patch }]) as ListSnapshot;
-  },
+mockNuxtImport("useGearList", () => () => gearListStub({
+  snapshot,
   // the real one parses text → milligrams; recording the RAW string is what says whether
   // the commit path ran at all, which is the whole question here
   setItemWeight: (_id: string, raw: string) => weightCommits.push(raw),
-  removeItem: () => {},
-  duplicateItem: () => "",
-  moveItem: () => {},
-  discardEmpty: () => {},
-  addBlankItemAfter: () => "",
-  addChild: () => "",
-  nestItem: () => {},
-  unnest: () => {},
-  saveItemToVault: () => Promise.resolve(),
-  vaultAuto: ref(false),
-  vaultDeclined: ref(new Set<string>()),
-  // What My Gear holds of this list's gear, and which keys have an answer at all
-  // — ItemRow renders its save button against these. Empty-but-answered here:
-  // these suites are not about the vault, and a row that has been asked about and
-  // isn't banked is the plainest state to render.
-  vaultGear: ref(new Map()),
-  vaultGearAsked: ref(new Set()),
-  vaultGearSettled: ref(true),
 }));
 
 // A row mid-build: named and counted, with NO weight yet. That's the state the report
