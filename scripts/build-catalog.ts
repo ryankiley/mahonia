@@ -214,12 +214,16 @@ function main() {
   // A map entry that matched no row is dead weight AND a warning sign: its brand/name/variant
   // was edited in the research file, so that row silently fell back to a derived label instead
   // of the one authored here. Surfacing it is the difference between noticing and not.
+  // …and since 2026-09-05 it FAILS the build: the row behind an orphan is now
+  // labelled by deriveNoun, which may be wrong or blank, and nothing downstream
+  // would say so. Move the map entry with the row (or put common_name on the row).
   const orphaned = [...commonNames.keys()].filter((k) => !usedCommonKeys.has(k));
   if (orphaned.length) {
-    console.log(`\n  ⚠ ${orphaned.length} seed/common-names.json entr${orphaned.length === 1 ? "y" : "ies"} matched no row`);
-    console.log(`    (identity changed in the research file → the row fell back to a derived gear type)`);
-    for (const k of orphaned.slice(0, 10)) console.log(`      - ${k.replace(/\|/g, " ")}`);
-    if (orphaned.length > 10) console.log(`      … and ${orphaned.length - 10} more`);
+    console.error(`\n✗ ${orphaned.length} seed/common-names.json entr${orphaned.length === 1 ? "y" : "ies"} matched no row`);
+    console.error(`  (identity changed in the research file → the row fell back to a derived gear type)`);
+    for (const k of orphaned.slice(0, 10)) console.error(`    - ${k.replace(/\|/g, " ")}`);
+    if (orphaned.length > 10) console.error(`    … and ${orphaned.length - 10} more`);
+    process.exit(1);
   }
 
   writeFileSync(CATALOG_CSV, serializeCsv(CATALOG_CSV_HEADERS, built), "utf8");

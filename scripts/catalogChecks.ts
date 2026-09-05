@@ -2,8 +2,12 @@
 // hand-cleaning, turned into deterministic checks so they fail CI instead of
 // surviving to an ad-hoc spot-check later.
 //
-// ERRORS gate the build (npm test fails). WARNINGS are heuristic — surfaced by
-// `npm run catalog:audit` for a human to eyeball, but don't fail the build.
+// ERRORS gate the build (npm test fails, and CI runs npm test on every PR). Every
+// CONVENTION is an error: a rule that only warns is a rule that drifts. The two
+// WARNINGS left are not conventions but judgment lists for a human — weight
+// plausibility (heavy boots and sub-gram patches are legit) and pouch meals still
+// at net weight (a to-do until someone weighs one). Research-level checks (the
+// cited quote vs the stored weight, kcal vs its panel) live in researchChecks.ts.
 //
 // Pure + dependency-light on purpose (no DB import) so the gating test stays fast.
 
@@ -187,6 +191,81 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
     }
   }
 
+  // --- ERROR: one brand spelled two ways ("FLEXTAIL" / "Flextail") -------------
+  // Search groups by brand text, and a hiker reads it on every row; one spelling.
+  const brandSpellings = new Map<string, Set<string>>();
+  for (const r of rows) {
+    const b = (r.brand ?? "").trim();
+    if (!b) continue;
+    (brandSpellings.get(normKey(b)) ?? brandSpellings.set(normKey(b), new Set()).get(normKey(b))!).add(b);
+  }
+  for (const spellings of brandSpellings.values()) {
+    if (spellings.size > 1) err("brand-case-split", `one brand, ${spellings.size} spellings: ${[...spellings].map((s) => `"${s}"`).join(" / ")} — pick one`);
+  }
+
+  // --- ERROR: one variant token spelled two ways ("Standard" / "standard") ------
+  const tokenSpellings = new Map<string, Set<string>>();
+  for (const r of rows) {
+    for (const d of (r.variant ?? "").split(/,\s*/)) {
+      if (!d) continue;
+      (tokenSpellings.get(d.toLowerCase()) ?? tokenSpellings.set(d.toLowerCase(), new Set()).get(d.toLowerCase())!).add(d);
+    }
+  }
+  for (const spellings of tokenSpellings.values()) {
+    if (spellings.size > 1) err("variant-case-split", `one variant token, ${spellings.size} spellings: ${[...spellings].map((s) => `"${s}"`).join(" / ")} — pick one`);
+  }
+
+  // --- ERROR: a size word leading the name ("Large Food Bag") -------------------
+  // A size-named family is ONE product with size variants: "Food Bag" [L].
+  for (const r of rows) {
+    if (/^(?:X-Small|Small|Small-Plus|Medium|Medium-Plus|Large|X-Large|XX-Large)\b/i.test(r.name.trim())) {
+      err("name-size-prefix", `${gearLabel(r)}: the size belongs in the variant — one name for the family, a letter per size`);
+    }
+  }
+
+  // --- ERROR: a product-family name in the plural ("Stuff Sacks" [M]) -----------
+  // Each row is one item, so the name is singular. Inherent pairs and multiples
+  // (Socks, Poles, Tablets, Wipes, Straps) are not in this list on purpose.
+  // It fires only when the variant is a SIZE — a "3-pack" of bags or sheets of
+  // "Patches" [Camping] are legitimately plural.
+  const FAMILY_PLURAL = /\b(Bags|Sacks|Pouches|Bottles|Jars|Cubes|Caps|Bands|Stakes|Pegs|Patches|Tubes|Hangers|Sprayers|Pods)$/;
+  const SIZE_LIKE = /^(?:XXS|XS|S|M|L|XL|XXL|S\+|M\+|Mini|Jumbo|Regular|Long|[\d.]+\s?(?:L|ml|oz|in|mm|cm|ft|g))$/i;
+  for (const r of rows) {
+    const sized = (r.variant ?? "").split(/,\s*/).some((d) => SIZE_LIKE.test(d));
+    if (FAMILY_PLURAL.test(r.name.trim()) && sized) {
+      err("name-plural-family", `${gearLabel(r)}: a family name is singular — "${r.name.trim().replace(/(ie)s$/, "y").replace(/(ch|sh|x|s)es$/, "$1").replace(/s$/, "")}" with a size in the variant`);
+    }
+  }
+
+  // --- ERROR: a row filed where none of its gear type's siblings are ------------
+  // category_hint drives sort order, the plausibility band, and the consumable
+  // flag; a running cap in `other` beside 17 caps in `clothing` is a misfile. Only
+  // fires when the gear type has a clear home: at least 5 rows and 90% agreement.
+  const catsByType = new Map<string, Map<string, number>>();
+  for (const r of rows) {
+    const k = (r.commonName ?? "").toLowerCase();
+    const m = catsByType.get(k) ?? catsByType.set(k, new Map()).get(k)!;
+    m.set(r.categoryHint ?? "other", (m.get(r.categoryHint ?? "other") ?? 0) + 1);
+  }
+  for (const r of rows) {
+    const m = catsByType.get((r.commonName ?? "").toLowerCase())!;
+    const total = [...m.values()].reduce((a, b) => a + b, 0);
+    const [home, n] = [...m.entries()].sort((a, b) => b[1] - a[1])[0];
+    if (total >= 5 && n / total >= 0.9 && (r.categoryHint ?? "other") !== home) {
+      err("category-outlier", `${gearLabel(r)}: filed under ${r.categoryHint} while ${n} of ${total} "${r.commonName}" rows are ${home} — move it (or fix the gear type)`);
+    }
+  }
+
+  // --- ERROR: a number and its unit split, or a prime mark, in a variant --------
+  // normalizeVariant emits "6ft" / "400ml" / "5ft 6in"; a hand edit that slips past
+  // it ("6 ft", '17" torso') fails here.
+  for (const r of rows) {
+    const v = r.variant ?? "";
+    if (/\d\s+(?:ft|in|yd|cm|mm|m|km|g|kg|oz|lb|ml|qt|gal|mAh|gsm)\b/.test(v) || /["']/.test(v.replace(/\b\w+'s\b/g, ""))) {
+      err("variant-unit-spacing", `${gearLabel(r)}: "${v}" — a number and its unit are one token ("6ft", "400ml"), and feet/inches are spelled out`);
+    }
+  }
+
   // --- ERROR: case-only identity collision (e.g. "NEMO" vs "Nemo") ----------
   const byCI = new Map<string, CatalogCsvRow>();
   for (const r of rows) {
@@ -205,19 +284,19 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
     }
   }
 
-  // --- WARNING: provenance laundering (manufacturer claim from a review site) -
+  // --- ERROR: provenance laundering (manufacturer claim from a review site) -
   for (const r of rows) {
     if (r.weightSource !== "manufacturer") continue;
     const host = hostOf(r.sourceUrl);
     if (host && REVIEW_DOMAINS.some((d) => host === d || host.endsWith(`.${d}`))) {
-      warn("provenance", `${gearLabel(r)}: weight_source=manufacturer but cited to a review site (${host}) — re-source or mark measured`);
+      err("provenance", `${gearLabel(r)}: weight_source=manufacturer but cited to a review site (${host}) — re-source or mark measured`);
     }
   }
 
-  // --- WARNING: colour-as-attribute in variant ------------------------------
+  // --- ERROR: colour-as-attribute in variant ------------------------------
   for (const r of rows) {
     if (r.variant && COLOUR_ATTR.test(r.variant)) {
-      warn("colour-variant", `${gearLabel(r)}: variant contains a colour ("${r.variant}") — colour rarely affects weight`);
+      err("colour-variant", `${gearLabel(r)}: variant contains a colour ("${r.variant}") — colour rarely affects weight`);
     }
   }
 
@@ -230,7 +309,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
     }
   }
 
-  // --- WARNING: trekking poles not on the single "per pair" convention -------
+  // --- ERROR: trekking poles not on the single "per pair" convention -------
   // Poles are the ONE paired item that keeps a unit label (single-pole use is a
   // real setup). To avoid a confusing mix of per-pole and per-pair weights, the
   // catalog standardizes on "per pair" for every pole — so a bare pole, or one
@@ -240,26 +319,26 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   // Holsters" is an accessory FOR poles, not a pair of them.
   for (const r of rows) {
     if (/\btrekking\s+poles?$/i.test(r.name.trim()) && !/\bper pair\b/i.test(r.variant ?? "")) {
-      warn("pole-unit", `${gearLabel(r)}: trekking poles should state "per pair" (the catalog's single pole-weight convention)`);
+      err("pole-unit", `${gearLabel(r)}: trekking poles should state "per pair" (the catalog's single pole-weight convention)`);
     }
   }
 
-  // --- WARNING: "per pair" label on non-pole gear ---------------------------
+  // --- ERROR: "per pair" label on non-pole gear ---------------------------
   // House policy: worn-as-a-pair apparel (footwear, socks, gaiters, gloves, etc.)
   // is stored as a PAIR weight with NO label — nobody carries one boot, so the
   // annotation is noise. Only trekking poles (above) keep a unit. A stray
   // "per pair" on anything else is a leftover to drop.
   for (const r of rows) {
     if (/\bper pair\b/i.test(r.variant ?? "") && !POLE_ITEM.test(r.name)) {
-      warn("per-pair-label", `${gearLabel(r)}: drop "per pair" — worn-pair apparel is stored as a pair weight without the label`);
+      err("per-pair-label", `${gearLabel(r)}: drop "per pair" — worn-pair apparel is stored as a pair weight without the label`);
     }
   }
 
-  // --- WARNING: variant isn't in canonical form (run normalizeVariant) -------
+  // --- ERROR: variant isn't in canonical form (run normalizeVariant) -------
   for (const r of rows) {
     const v = r.variant ?? "";
     if (v && normalizeVariant(v) !== v) {
-      warn("variant-noncanonical", `${gearLabel(r)}: variant "${v}" → canonical "${normalizeVariant(v)}"`);
+      err("variant-noncanonical", `${gearLabel(r)}: variant "${v}" → canonical "${normalizeVariant(v)}"`);
     }
   }
 
@@ -281,7 +360,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
     }
   }
 
-  // --- WARNING: footwear size with no region ----------------------------------
+  // --- ERROR: footwear size with no region ----------------------------------
   // A shoe's "9" means nothing without US/UK/EU — the same shoe is a 9 US, 8 UK and
   // 42 EU. House form is "Men's US 9" / "Women's US 8" / "US 9" (unisex).
   const FOOTWEAR = new Set(["trail runners", "hiking shoes", "hiking boots", "sandals", "camp shoes", "insoles", "booties"]);
@@ -289,18 +368,16 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
     const v = r.variant ?? "";
     if (!FOOTWEAR.has((r.commonName ?? "").toLowerCase()) || !/\d/.test(v)) continue;
     if (!/\b(US|UK|EU|JP)\b/.test(v)) {
-      warn("footwear-size", `${gearLabel(r)}: footwear size "${v}" needs a region — "Men's US 9", "Women's US 8", "UK 8"`);
+      err("footwear-size", `${gearLabel(r)}: footwear size "${v}" needs a region — "Men's US 9", "Women's US 8", "UK 8"`);
     }
   }
 
-  // --- WARNING: a variant that distinguishes nothing --------------------------
+  // --- ERROR: a variant that distinguishes nothing --------------------------
   // A variant exists to tell a row apart from a sibling, or to state a size the
   // maker sells several of. So: "One size" and "Unisex" say nothing; "Standard" on
   // a product with one row is filler; "per bar" on the only row of "Energy Bar"
   // restates the name (a unit label earns its place only beside a multi-pack
-  // sibling, or on trekking poles); "net" is the catalog's convention for every
-  // food weight, not a fact about one pouch (fuel canisters keep "net fuel" — the
-  // stored weight is the gas alone, not the can you carry).
+  // sibling, or on trekking poles).
   const rowsPerProduct = new Map<string, number>();
   for (const r of rows) {
     const k = `${normKey(r.brand)}|${normKey(r.name)}`;
@@ -315,31 +392,54 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
     if (!v) continue;
     const single = rowsPerProduct.get(`${normKey(r.brand)}|${normKey(r.name)}`) === 1;
     const dims = v.split(/,\s*/);
-    if (dims.some((d) => /^(one size|unisex)$/i.test(d))) {
-      warn("variant-filler", `${gearLabel(r)}: "${v}" — "One size" / "Unisex" distinguish nothing; drop`);
+    if (dims.some((d) => /^(one size|unisex|1 serving)$/i.test(d))) {
+      err("variant-filler", `${gearLabel(r)}: "${v}" — "One size" / "Unisex" / "1 serving" distinguish nothing (single-serving is the unmarked default); drop`);
     } else if (single && /^standard$/i.test(v)) {
-      warn("variant-filler", `${gearLabel(r)}: "Standard" on a one-row product is filler; drop`);
+      err("variant-filler", `${gearLabel(r)}: "Standard" on a one-row product is filler; drop`);
     } else if (dims.some((d) => /^per \w+$/i.test(d)) && !/\btrekking\s+poles?$/i.test(r.name.trim()) && !hasPackSibling(r)) {
-      warn("variant-filler", `${gearLabel(r)}: unit label in "${v}" restates the row — only trekking poles, or a row beside a multi-pack sibling, carry one`);
-    } else if (dims.includes("net") && r.commonName?.toLowerCase() !== "fuel canister") {
-      warn("variant-filler", `${gearLabel(r)}: "net" is the convention for every food weight, not a fact about this row; drop`);
+      err("variant-filler", `${gearLabel(r)}: unit label in "${v}" restates the row — only trekking poles, or a row beside a multi-pack sibling, carry one`);
     }
   }
 
-  // --- WARNING: unit-label phrasing -------------------------------------------
+  // --- WARNING: a food row with no kcal ---------------------------------------
+  // Calories are the point of a food row; one without them is a to-do (the row
+  // stays until a nutrition panel can be cited — see researchChecks kcal-quote).
+  const FOOD_TYPES = new Set(["meal", "energy bar", "protein bar", "granola bar", "candy bar", "energy chews", "energy waffle", "nut butter", "snack", "snack mix", "fruit snack", "electrolyte mix", "instant coffee"]);
+  for (const r of rows) {
+    if (r.categoryHint === "consumable" && FOOD_TYPES.has((r.commonName ?? "").toLowerCase()) && r.kcal == null) {
+      warn("food-kcal-missing", `${gearLabel(r)}: a food row with no kcal — cite a nutrition panel (kcal + kcal_source_url + kcal_quote on the research row)`);
+    }
+  }
+
+  // --- WARNING: a food row still at net weight -------------------------------
+  // A food row stores what you CARRY — contents plus pouch — whenever the maker
+  // publishes a total/package weight or someone has weighed one. Makers mostly
+  // print net contents only, and a cook-in pouch is 20–30 g, so a net-only row
+  // undercounts a five-dinner trip by ~100 g. Such a row says "net" in its variant
+  // so the reader knows, and shows up here as a to-do until a packaged weight is
+  // found. (Bars and chews stay at label weight: the wrapper is a gram or two and
+  // nobody publishes it.) Fuel canisters keep "net fuel" — that is the gas alone.
+  for (const r of rows) {
+    const dims = (r.variant ?? "").split(/,\s*/);
+    if (dims.includes("net") && r.categoryHint === "consumable") {
+      warn("food-net-weight", `${gearLabel(r)}: weight excludes the pouch — find the packaged weight (maker "total weight", or a scale) and drop "net"`);
+    }
+  }
+
+  // --- ERROR: unit-label phrasing -------------------------------------------
   // One weight per one thing reads "per bar" / "per stake", never "single bar",
   // "each", or "one pouch"; multiples read "3-pack" or "sleeve of 10".
   for (const r of rows) {
     const v = r.variant ?? "";
     if (/\b(?:single|one)\s+(?:bar|pouch|sleeve|stick|waffle|packet|serve|serving|bowl|pack|wipe|tablet)\b|\beach\b/i.test(v)) {
-      warn("variant-unit-label", `${gearLabel(r)}: "${v}" — say "per <unit>" for one item, "<n>-pack" for several`);
+      err("variant-unit-label", `${gearLabel(r)}: "${v}" — say "per <unit>" for one item, "<n>-pack" for several`);
     }
   }
 
-  // --- WARNING: variant just repeats the name (e.g. "Copper Spur HV UL3" + "UL3") -
+  // --- ERROR: variant just repeats the name (e.g. "Copper Spur HV UL3" + "UL3") -
   for (const r of rows) {
     if (r.variant && isVariantRedundant(r.name, r.variant)) {
-      warn("variant-redundant", `${gearLabel(r)}: variant "${r.variant}" already in the name — clear it`);
+      err("variant-redundant", `${gearLabel(r)}: variant "${r.variant}" already in the name — clear it`);
     }
   }
 
