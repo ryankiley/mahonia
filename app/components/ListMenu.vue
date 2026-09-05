@@ -71,9 +71,16 @@ const all = computed(() =>
   ),
 );
 
-// Below two the count would be a lie worth avoiding: "1 list" while you're looking
-// at the only one there is. A brand-new visitor never sees this at all.
-const enoughToSwitch = computed(() => all.value.length >= 2);
+// ONE list is enough to show this. It used to take two, on the reasoning that "1
+// list" is a lie while you're looking at the only one there is — true of a pure
+// SWITCHER, and this card stopped being only that when "New list" moved into its
+// footer as the app's single door to a blank one. Hidden at one pack, that door was
+// shut precisely when you'd want it: no way to reach a second list, so you stayed on
+// one forever. The count isn't lying at 1 either — "do I have others?" gets a real
+// answer, which is no.
+// A brand-new visitor still never sees this: an untouched draft saves nothing, so
+// there is no row to switch to and no list to add one beside.
+const hasLists = computed(() => all.value.length >= 1);
 // A menu of five doesn't want a search box; a menu of thirty is unusable without
 // one. Same opt-in the kit makes, decided by the data rather than by a prop.
 const filterable = computed(() => all.value.length > 6);
@@ -139,7 +146,7 @@ watch(open, (o) => {
 </script>
 
 <template>
-  <div v-if="enoughToSwitch" ref="rootRef" class="menu lm">
+  <div v-if="hasLists" ref="rootRef" class="menu lm">
     <button
       type="button"
       class="lm__trigger"
@@ -148,7 +155,8 @@ watch(open, (o) => {
       :aria-expanded="open"
       @click="open = !open"
     >
-      {{ all.length }}<span class="lm__word"> packs</span>
+      <!-- singular at one, because one is a state this control now has (see hasLists) -->
+      {{ all.length }}<span class="lm__word"> {{ all.length === 1 ? "pack" : "packs" }}</span>
       <HugeiconsIcon
         :icon="ChevronDownIcon"
         class="menu__sectchev"
@@ -229,7 +237,10 @@ watch(open, (o) => {
 
         <!-- New list is an ACTION, not one of your lists, so it sits below a
              hairline — the one place in this card a rule earns its keep, because it
-             separates two kinds of thing rather than two instances of one. -->
+             separates two kinds of thing rather than two instances of one.
+             It is also the app's ONLY blank-list door now: the editor's ⋯ menu carried
+             a "Create a list" twin calling the same handler, and lost it. Which is why
+             this card can't wait for a second list to appear. -->
         <div class="menu__foot">
           <button type="button" data-row class="menu__item lm__new" role="menuitem" @click="close(); emit('new-list')">
             New list

@@ -469,12 +469,17 @@ input[type="search"]::-webkit-search-decoration {
 // block-level box, so width:100% still does that job. A text-only row is unaffected:
 // its single anonymous flex item packs to the start, which is where text-align put it.
 //
-// This lived scoped in FIVE components — as `.menu__list .menu__item` in AccountMenu,
-// GearEditor and ItemRow (byte-identical, each commented as carrying the other two),
-// and again under local names as ListMenu's .lm__row and OptionMenu's .optmenu__item.
-// Each copy was scoped defensively, "so it can't reach a menu that lays its rows out
-// differently". There is no such menu — all eight .menu__list sites want this row — so
-// the defence was against a case that never arrived, at the price of one idea in five
+// This lived scoped in SIX components — as `.menu__list .menu__item` in AccountMenu,
+// GearEditor, ItemRow and (from #288, landed while this was in review) ReadonlyMenu,
+// byte-identical, each commented as carrying the others; and again under local names as
+// ListMenu's .lm__row and OptionMenu's .optmenu__item.
+// Every copy was scoped defensively, "so it can't reach a menu that lays its rows out
+// differently" — #288 says it in as many words, giving the read views' ⋯ a glyph column
+// by copying the editor's three rules rather than lifting them here, "because the two
+// menus that want it are the two whose rows are all one shape".
+// There is no menu that doesn't. All eight .menu__list sites want this row, and #288's
+// own menu is the case that settles it: it wanted the shape, so it took a sixth copy.
+// The defence was against something that never arrived, at the price of one idea in six
 // places.
 .menu__item {
   display: flex;

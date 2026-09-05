@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon, type IconNode } from "~/utils/hugeicon";
-import { Backpack02Icon, Bug02Icon, CheckmarkSquare02Icon, ChevronDownIcon, CopyPlusIcon, Csv01Icon, Delete02Icon, EllipsisIcon, FileExportIcon, FileImportIcon, HashIcon, KeyboardIcon, NoteAddIcon, RemoveCircleIcon, Route02Icon, SafeBoxIcon, Share08Icon, ThirdBracketIcon, Txt01Icon, UndoIcon, UserAddIcon } from "@hugeicons/core-free-icons";
+import { Backpack02Icon, Bug02Icon, CheckmarkSquare02Icon, ChevronDownIcon, CopyPlusIcon, Csv01Icon, Delete02Icon, EllipsisIcon, FileExportIcon, FileImportIcon, HashIcon, KeyboardIcon, RemoveCircleIcon, Route02Icon, SafeBoxIcon, Share08Icon, ThirdBracketIcon, Txt01Icon, UndoIcon, UserAddIcon } from "@hugeicons/core-free-icons";
 import { editLinkPath, normalizeShareCode } from "~~/shared/links";
 import { tripHeadline } from "~~/shared/trailDistance";
 import { formatWeight } from "~~/shared/weights";
@@ -783,11 +783,19 @@ const MENU_ACTIONS = [
   // glyph to sub-pixel while the text took the room. No ellipsis either — it opens
   // a dialog like "Import a list…", but it reads as the plain act it is.
   { label: "Add people", icon: UserAddIcon, run: () => { peopleOpen.value = true; } },
-  // …and everything below it makes ANOTHER list: a blank one, a copy of this one, or
-  // one read out of a file. Create/Duplicate/Import are one unbroken run for that
-  // reason — People led the menu instead because it is the only entry here that acts
-  // on the list you are looking at, and the only one that doesn't navigate away.
-  { label: "Create a list", icon: NoteAddIcon, run: () => newList() },
+  // …and everything below it makes ANOTHER list: a copy of this one, or one read out
+  // of a file. Duplicate/Import are one run for that reason — People leads the menu
+  // instead because it is the only entry here that acts on the list you are looking
+  // at, and the only one that doesn't navigate away.
+  //
+  // A blank "Create a list" used to open that run, and it was the same newList() the
+  // switcher's footer row calls. Two doors to one act, a toolbar apart. The switcher
+  // keeps it: that card is where the lists you already have live, so "and one more"
+  // belongs under them rather than filed with import and export. This menu is what
+  // you do TO a list; the switcher is which list you're in. (That only works because
+  // the switcher now appears at ONE list rather than two — see ListMenu. Below that
+  // threshold it wasn't on screen at all, and dropping this row would have stranded a
+  // one-pack visitor with no way to start a second.)
   // NOT a clipboard mark, however well one would fit the word "copy". The Export
   // rows below are genuine clipboard writes, and so is the Copy01 pair of sheets
   // that ListHead and SharePanel put on their Copy buttons — this row is the odd
