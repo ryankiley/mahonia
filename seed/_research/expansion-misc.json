@@ -93,7 +93,7 @@
     {
       "brand": "Esbit",
       "name": "Solid Fuel Tablets",
-      "variant": "12-pack, net",
+      "variant": "12-pack",
       "category_hint": "consumable",
       "weight_value": 0.172,
       "weight_unit": "kg",
@@ -105,7 +105,7 @@
     {
       "brand": "Nature Valley",
       "name": "Crunchy Granola Bars",
-      "variant": "per pouch, 2 bars, net",
+      "variant": "2 bars",
       "category_hint": "consumable",
       "weight_value": 42,
       "weight_unit": "g",
@@ -119,7 +119,7 @@
     {
       "brand": "Justin's",
       "name": "Classic Almond Butter Squeeze Pack",
-      "variant": "per pack",
+      "variant": "",
       "category_hint": "consumable",
       "weight_value": 1.15,
       "weight_unit": "oz",
@@ -132,19 +132,22 @@
     },
     {
       "brand": "RXBAR",
-      "name": "Protein Bar",
-      "variant": "per bar",
+      "name": "Protein Bar (Chocolate Sea Salt)",
+      "variant": "",
       "category_hint": "consumable",
       "weight_value": 1.83,
       "weight_unit": "oz",
       "weight_source": "manufacturer",
       "source_url": "https://www.amazon.com/RXBAR-Whole-Protein-Chocolate-1-83oz/dp/B07CWXX69K",
-      "quote": "RXBAR, Chocolate Sea Salt, Protein Bar, 1.83 Oz Bar"
+      "quote": "RXBAR, Chocolate Sea Salt, Protein Bar, 1.83 Oz Bar",
+      "kcal": 200,
+      "kcal_source_url": "https://smartlabel.kelloggs.com/Product/Index/10857777004307",
+      "kcal_quote": "Serving Size 1 bar (52 g) … Calories 200"
     },
     {
       "brand": "Skratch Labs",
       "name": "Hydration Sport Drink Mix",
-      "variant": "per stick",
+      "variant": "",
       "category_hint": "consumable",
       "weight_value": 22,
       "weight_unit": "g",
@@ -158,7 +161,7 @@
     {
       "brand": "Liquid I.V.",
       "name": "Hydration Multiplier",
-      "variant": "per stick",
+      "variant": "",
       "category_hint": "consumable",
       "weight_value": 0.56,
       "weight_unit": "oz",
@@ -173,7 +176,7 @@
     {
       "brand": "Mountain House",
       "name": "Biscuits and Gravy",
-      "variant": "per pouch, 2 servings, net",
+      "variant": "2 servings",
       "category_hint": "consumable",
       "weight_value": 4.4,
       "weight_unit": "oz",
@@ -188,7 +191,7 @@
     {
       "brand": "Peak Refuel",
       "name": "Beef Stroganoff",
-      "variant": "per pouch, 2 servings, net",
+      "variant": "2 servings",
       "category_hint": "consumable",
       "weight_value": 5,
       "weight_unit": "oz",
@@ -202,7 +205,7 @@
     {
       "brand": "Backpacker's Pantry",
       "name": "Pad Thai",
-      "variant": "per pouch, 2 servings, net",
+      "variant": "2 servings",
       "category_hint": "consumable",
       "weight_value": 6.2,
       "weight_unit": "oz",

@@ -1935,7 +1935,7 @@
     {
       "brand": "Brautigam Expedition Works",
       "name": "Dirt Dart Titanium Tent Stake",
-      "variant": "per stake",
+      "variant": "",
       "category_hint": "other",
       "weight_value": 11,
       "weight_unit": "g",
@@ -5883,7 +5883,7 @@
     {
       "brand": "HydraPak",
       "name": "Bottle Bright Gear Cleaning Tablets",
-      "variant": "per tablet",
+      "variant": "",
       "category_hint": "consumable",
       "weight_value": 18,
       "weight_unit": "g",
@@ -6531,7 +6531,7 @@
     {
       "brand": "Igneous",
       "name": "Airlock Patch",
-      "variant": "per patch",
+      "variant": "",
       "category_hint": "other",
       "weight_value": 0.39,
       "weight_unit": "g",
@@ -6651,7 +6651,7 @@
     {
       "brand": "Igneous",
       "name": "Threadlock Patch",
-      "variant": "per patch",
+      "variant": "",
       "category_hint": "other",
       "weight_value": 0.28,
       "weight_unit": "g",
@@ -8090,18 +8090,6 @@
     },
     {
       "brand": "Matador",
-      "name": "FlatPak Toiletry Bottle",
-      "variant": "90ml, per bottle",
-      "category_hint": "other",
-      "weight_value": 11.5,
-      "weight_unit": "g",
-      "weight_secondary": "0.4oz",
-      "weight_source": "manufacturer",
-      "source_url": "https://www.garagegrowngear.com/products/flatpak-toiletry-bottles-by-matador",
-      "quote": "Weight: 0.4oz | 11.5g (per bottle)"
-    },
-    {
-      "brand": "Matador",
       "name": "FlatPak Waterproof Toiletry Case",
       "variant": null,
       "category_hint": "other",
@@ -9195,7 +9183,7 @@
     {
       "brand": "PACT Outdoors",
       "name": "Bathroom Wipes",
-      "variant": "per wipe",
+      "variant": "",
       "category_hint": "consumable",
       "weight_value": 2,
       "weight_unit": "g",
@@ -9207,7 +9195,7 @@
     {
       "brand": "PACT Outdoors",
       "name": "Body Wipes",
-      "variant": "per wipe",
+      "variant": "",
       "category_hint": "consumable",
       "weight_value": 9,
       "weight_unit": "g",
@@ -9519,7 +9507,7 @@
     {
       "brand": "Preservation Dogs",
       "name": "Arctic Fox Trekking Paws",
-      "variant": "per pair",
+      "variant": "",
       "category_hint": "other",
       "weight_value": 24,
       "weight_unit": "g",
@@ -9639,7 +9627,7 @@
     {
       "brand": "Rawlogy",
       "name": "Cork Massage Ball",
-      "variant": "Ultra Mini 1.4\", per ball",
+      "variant": "Ultra Mini 1.4in",
       "category_hint": "other",
       "weight_value": 7,
       "weight_unit": "g",
@@ -9651,7 +9639,7 @@
     {
       "brand": "Rawlogy",
       "name": "Micro Cork Massage Ball",
-      "variant": "per ball",
+      "variant": "",
       "category_hint": "other",
       "weight_value": 1,
       "weight_unit": "g",
@@ -10575,7 +10563,7 @@
     {
       "brand": "Six Moon Designs",
       "name": "Packing Pod",
-      "variant": "L (7L), per pod",
+      "variant": "L, 7L",
       "category_hint": "other",
       "weight_value": 28,
       "weight_unit": "g",
@@ -11151,7 +11139,7 @@
     {
       "brand": "Suluk 46",
       "name": "Atani Titanium Tent Stake",
-      "variant": "6\", per stake",
+      "variant": "6in",
       "category_hint": "other",
       "weight_value": 5,
       "weight_unit": "g",
@@ -11163,7 +11151,7 @@
     {
       "brand": "Suluk 46",
       "name": "Atani Titanium Tent Stake",
-      "variant": "8\", per stake",
+      "variant": "8in",
       "category_hint": "other",
       "weight_value": 9,
       "weight_unit": "g",
@@ -11223,7 +11211,7 @@
     {
       "brand": "Suluk 46",
       "name": "Olik Titanium Snow Stake",
-      "variant": "per stake",
+      "variant": "",
       "category_hint": "other",
       "weight_value": 14,
       "weight_unit": "g",
@@ -12639,7 +12627,7 @@
     {
       "brand": "Venture Wipes",
       "name": "Body Wipes",
-      "variant": "per wipe",
+      "variant": "",
       "category_hint": "consumable",
       "weight_value": 28,
       "weight_unit": "g",

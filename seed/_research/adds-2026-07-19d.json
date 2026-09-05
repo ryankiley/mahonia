@@ -219,14 +219,17 @@
     {
       "brand": "Clif",
       "name": "Bloks Energy Chews",
-      "variant": "per sleeve",
+      "variant": "",
       "category_hint": "consumable",
       "weight_value": 60,
       "weight_unit": "g",
       "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.iherb.com/pr/clif-bar-bloks-energy-chews-mountain-berry-flavor-18-packets-2-12-oz-60-g-each/15971",
-      "quote": "Clif Bar, Bloks® Energy Chews, Mountain Berry, 18 Packets, 2.12 oz (60 g) Each"
+      "quote": "Clif Bar, Bloks® Energy Chews, Mountain Berry, 18 Packets, 2.12 oz (60 g) Each",
+      "kcal": 200,
+      "kcal_source_url": "https://thefeed.com/products/clif-bloks-energy-chews",
+      "kcal_quote": "Serving Size: 3 Bloks … Servings Per Container: 2 … Calories: 100"
     },
     {
       "brand": "Quitch",

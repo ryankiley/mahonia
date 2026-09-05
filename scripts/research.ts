@@ -22,8 +22,14 @@ export interface ResearchRow {
   //   • Sleep + shelter keep the maker's LENGTH words ("Regular", "Long", "Large").
   //   • Footwear states the region: "Men's US 9", "Women's US 8", "UK 8", "US 9" (unisex).
   //   • Worn-in-pairs apparel carries no unit label; only trekking poles say "per pair".
-  //   • One weight per one thing reads "per bar" / "per stake"; several read "3-pack" or
-  //     "sleeve of 10". A number and its unit are one token ("6ft", "400ml", "20F").
+  //   • A variant exists only to tell a row apart from a sibling, or to state a size the
+  //     maker sells several of. "One size", "Unisex", "Standard" on a one-row product, and
+  //     "per bar" on the only "Energy Bar" row all say nothing — leave the variant empty.
+  //     A unit label ("per tablet") appears only beside a multi-pack sibling ("sleeve of
+  //     10"), or on trekking poles ("per pair"). Food weights are net contents by
+  //     convention, so no "net"; fuel canisters keep "net fuel" (the weight is the gas alone).
+  //   • Several of a thing read "3-pack" or "sleeve of 10". A number and its unit are one
+  //     token ("6ft", "400ml", "20F").
   //   • A config never hides in `name`: " - Regular", "(low)", "(2024)", "(SP129)" all go
   //     here. A size-named family is one name plus variants ("Food Bag" [L], not
   //     "Large Food Bag"), and a product-family name is singular ("Stuff Sack" [M]).

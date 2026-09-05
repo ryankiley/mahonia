@@ -628,7 +628,7 @@
     {
       "brand": "Portal",
       "name": "Planar Lightweight Cap",
-      "variant": "One size",
+      "variant": "",
       "category_hint": "clothing",
       "common_name": "hat",
       "weight_value": 35,
@@ -640,7 +640,7 @@
     {
       "brand": "Portal",
       "name": "Radius Cap",
-      "variant": "One size",
+      "variant": "",
       "category_hint": "clothing",
       "common_name": "hat",
       "weight_value": 40,
