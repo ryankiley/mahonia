@@ -98,9 +98,17 @@ function create() {
   // but it still occupied an index, and the nest candidate below is picked BY index —
   // so without this a rightward drag could nest under a row nobody can see.
   function topRowsOf(folderEl: HTMLElement, dragId: string): HTMLElement[] {
+    // `skip` is the row that will VACATE its slot — the dragged one on a move, and
+    // nobody on a copy, because a copy leaves its source exactly where it is. Excluding
+    // the source from a copy's slot math collapsed a whole row-height band onto one
+    // answer: every position from the row above's midpoint to the row below's returned
+    // the same slot, the insertion line was drawn a row below the pointer, and the slot
+    // directly ABOVE the source was unreachable — you could not copy a row to the
+    // position just above itself.
+    const skip = drag.copyKey.value ? null : dragId;
     return ([...folderEl.querySelectorAll("[data-item-id]")] as HTMLElement[]).filter(
       (r) =>
-        r.getAttribute("data-item-id") !== dragId &&
+        r.getAttribute("data-item-id") !== skip &&
         !r.getAttribute("data-parent") &&
         r.getBoundingClientRect().height > 0,
     );
@@ -121,6 +129,11 @@ function create() {
   }
 
   const drag = createPointerDrag<DropTarget>({
+    // An INSERTING drag brings a new row in from outside the list, so there is no move
+    // for a copy to be an alternative to and `commit` ignores the modifier entirely.
+    // Saying so here rather than at the commit keeps the CURSOR honest too — otherwise
+    // Alt held over a vault drag promised a copy the drop would never perform.
+    copyable: (id) => id !== INSERT_SOURCE,
     track(ev, el, dragId) {
       dragEl?.style.setProperty("--drag-dy", `${ev.clientY - startY}px`);
 
@@ -207,9 +220,10 @@ function create() {
       // staying under the same parent (the original nested behavior) ----
       if (wasNested && renest !== -1) {
         const parentId = dragged.parentId!;
-        const sibs = [...document.querySelectorAll(`[data-parent="${parentId}"]`)].filter(
-          (r) => r.getAttribute("data-item-id") !== dragId,
-        ) as HTMLElement[];
+        const sibs = ([...document.querySelectorAll(`[data-parent="${parentId}"]`)] as HTMLElement[]).filter(
+          // same rule as topRowsOf: only a MOVE vacates the source's slot
+          (r) => drag.copyKey.value || r.getAttribute("data-item-id") !== dragId,
+        );
         setDrop({
           folderId: dragged.folderId,
           parentId,
@@ -228,7 +242,10 @@ function create() {
       // nest INTO the row above on a gesture rightward — but only a childless row can
       // be nested, and only under a real row above it. Otherwise land at top level.
       // (A person filter has already zeroed `renest`; see above.)
-      const nest = renest === 1 && !hasKids && candidateId != null;
+      // …and it must not become the row we nest INTO. The source is in the candidate
+      // list on a copy (above), so without this a rightward copy-drag over the source's
+      // own band would nest the copy under its own original.
+      const nest = renest === 1 && !hasKids && candidateId != null && candidateId !== dragId;
       if (nest) {
         const kids = [...document.querySelectorAll(`[data-parent="${candidateId}"]`)].filter(
           (r) => r.getAttribute("data-item-id") !== dragId,
@@ -278,9 +295,11 @@ function create() {
     drag.start(INSERT_SOURCE, ev);
   }
 
-  // `copying` is live for the duration of a gesture, which is what the rows read to
-  // stop dimming the source: a copy leaves it exactly where it is, so the lifted-row
-  // treatment would be the indicator telling you the wrong thing.
+  // `copying` is live for the duration of a gesture. The drop-slot math above reads it
+  // (a copy's source keeps its slot); the CURSOR is not its business — the scaffold
+  // paints that on <html>, which is the only element that owns it while the pointer is
+  // captured. The source row still lifts and follows the pointer during a copy, which
+  // is deliberate: a gesture whose held object stayed put would read as broken.
   return { dragId: drag.dragId, copying: drag.copyKey, drop, start: drag.start, startInsert, reset: drag.reset };
 }
 

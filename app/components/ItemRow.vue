@@ -50,7 +50,7 @@ import type { Item, ListSnapshot } from "~~/shared/types";
 import type { ItemPatch } from "~~/shared/ops";
 import { effectivePersonId, personColor } from "~~/shared/people";
 import type { NameCommit } from "~/composables/useCatalogSearch";
-import { bySortOrder, effectiveClassification, entryUnitFromInput, formatKcal, formatWeight, fromMg, groupLineMg, itemDisplayName, parseWeightInput, rowDisplayMg, siblingItems, splitWornQty } from "~~/shared/weights";
+import { bySortOrder, effectiveClassification, entryUnitFromInput, formatKcal, formatWeight, fromMg, groupLineMg, itemDisplayName, parseWeightInput, rowDisplayMg, siblingItems, splitWornQty, storedClassification } from "~~/shared/weights";
 import { isWaterName, itemQtyLabel, waterLiters, waterMgFromMl } from "~~/shared/water";
 // the same worthiness + identity rules the capture path runs, so "already banked"
 // below can only ever claim what capture would actually take (statically imported
@@ -507,8 +507,11 @@ function onNameCommit(p: NameCommit) {
       }
     }
   }
-  // water arrives as a consumable; base is stored as null (the folder default)
-  if (p.classification !== undefined) patch.classification = p.classification === "base" ? null : p.classification;
+  // water arrives as a consumable. Through storedClassification, not a bare
+  // `=== "base" ? null`: null means "follow the folder", so an explicit base pick
+  // landing in a worn/consumable folder has to be pinned or it silently inherits.
+  if (p.classification !== undefined)
+    patch.classification = storedClassification(p.classification, props.item.folderId, props.list.folders);
   c.updateItem(props.item.id, patch);
 }
 
@@ -530,14 +533,10 @@ const isConsumable = computed(() => effClass.value === "consumable");
 
 // base is stored as null — the folder default — EXCEPT where the folder itself
 // defaults to something else, in which case base has to be pinned explicitly or
-// clearing a class would silently re-inherit worn/consumable
-function baseValue(): Classification | null {
-  const folderDefault = effectiveClassification(
-    { classification: null, folderId: props.item.folderId },
-    props.list.folders,
-  );
-  return folderDefault === "base" ? null : "base";
-}
+// clearing a class would silently re-inherit worn/consumable. (The rule is
+// storedClassification's; this is the one caller that always asks about base.)
+const baseValue = (): Classification | null =>
+  storedClassification("base", props.item.folderId, props.list.folders);
 
 function setClass(next: "worn" | "consumable", on: boolean) {
   c.updateItem(props.item.id, {
@@ -2418,8 +2417,11 @@ function dismissFix() {
   box-shadow:
     0 0 0 1px var(--line-2),
     var(--shadow-pop);
-  cursor: grabbing;
-
+  /* no `cursor` here. This row is pointer-events:none two lines up, so it is never
+     hit-tested and never gets to set one — the `cursor: grabbing` that used to sit
+     here had been dead since it was written (measured: the rule computed `grabbing`
+     while the pointer showed `grab`, off a grip underneath). pointerDrag paints the
+     drag cursor on <html>, the element that owns it while the pointer is captured. */
 }
 /* insertion line marking where the dragged row will land */
 .item-wrap.is-drop-before::before {
@@ -2602,10 +2604,9 @@ function dismissFix() {
   align-items: center;
   gap: var(--space-2);
 }
-.item__personpick.is-active {
-  background: var(--lit);
-  color: var(--ink);
-}
+/* (the chosen row's lit ground is the shared .menu__item.is-active atom now —
+   atoms/controls.scss — so the carrier picker and the folder classification menu
+   cannot drift on what "selected" looks like) */
 /* the ⋯ menu's group label above the person entries — the entries' own inline
    padding (space-3, controls.scss), so its text sits flush with theirs */
 .item__morelabel {

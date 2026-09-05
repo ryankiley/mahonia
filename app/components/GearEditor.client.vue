@@ -719,16 +719,6 @@ async function forgetMissingList() {
 const feedbackOpen = ref(false);
 const feedbackEverOpened = ref(false);
 
-// Alt held during a row drag, as an attribute on the surface — the cursor for a
-// copy-drag has to be set HERE and not on the row being dragged. That row is
-// pointer-events:none for the length of the gesture (so the drop detection can see
-// the rows underneath it), and an element the pointer cannot hit never gets to say
-// what the cursor is: measured mid-drag, the rule on the lifted row computed `copy`
-// while the pointer showed `auto`, because the element actually under it was the row
-// below. Same data-attribute idiom as data-mode and data-filter-person above.
-const itemDnd = useItemDnd();
-const copyDragging = computed(() => itemDnd.dragId.value != null && itemDnd.copying.value);
-
 // ---- the shortcuts sheet ----
 // Lazy + mounted on first use, like the other dialogs: a reference nobody has opened
 // should cost nobody anything.
@@ -1092,7 +1082,6 @@ function onCorrected(res: { status: string; itemName?: string }) {
       :class="{ 'is-rowswitching': modeSwitching, 'has-people': people.length > 0 }"
       :data-mode="mode"
       :data-filter-person="personFilterAttr"
-      :data-copying="copyDragging || null"
     >
       <!-- WHICH VIEW OF THIS LIST. First thing under the toolbar, and part of the PAGE
            rather than the chrome: it scrolls away with everything else. A row of its own

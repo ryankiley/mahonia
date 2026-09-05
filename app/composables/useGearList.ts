@@ -10,7 +10,7 @@ import type { Folder, Item, ListSnapshot, Person, Unit, Waypoint, WaypointKind }
 import { pickListMeta } from "~~/shared/types";
 import type { VaultCapture, VaultEntry } from "~~/shared/vault";
 import { vaultNormKey } from "~~/shared/vault";
-import { bySortOrder, computeTotals, entryUnitFromInput, nextSortOrder, parseWeightInput, siblingItems } from "~~/shared/weights";
+import { bySortOrder, computeTotals, entryUnitFromInput, nextSortOrder, parseWeightInput, siblingItems, storedClassification } from "~~/shared/weights";
 import { createNesting } from "~/composables/useGearListNesting";
 
 // Editor controller (one list open at a time → module singleton). Mutations are
@@ -973,9 +973,10 @@ function create() {
       unitWeightMg: entry.weightMg,
       weightOverridden: true,
       qty: 1,
-      // "base" is stored as null — it IS the folder default, and storing it
-      // explicitly would pin the row against a later change to that default
-      classification: entry.classification && entry.classification !== "base" ? entry.classification : null,
+      // null is stored only where the gear's class AGREES with the folder's default,
+      // so the row keeps following a folder it matches — and an explicit "base" stove
+      // dropped into a Consumable day folder stays base instead of becoming food.
+      classification: storedClassification(entry.classification ?? "base", folderId, snapshot.value.folders),
       // the calories the vault remembers for this food, like the weight above
       kcal: entry.kcal,
       catalogItemId: entry.catalogItemId,

@@ -438,6 +438,18 @@ input[type="search"]::-webkit-search-decoration {
   cursor: pointer;
   transition: background var(--dur) var(--ease);
 }
+/* The CHOSEN row of a menu that is a set of choices (role=menuitemradio). Lifted here
+   on the second consumer, which is this file's own rule: it lived as a scoped
+   `.item__personpick.is-active` in ItemRow, and the folder classification menu copied
+   the markup — role, aria-checked, the class — without the style, because a scoped
+   rule cannot reach another component's menu. The result was a radio group with no
+   visible selection: the checked entry rendered identically to the other two,
+   measured. Screen readers were fine throughout; only the eye was uninformed. */
+.menu__item.is-active {
+  background: var(--lit);
+  color: var(--ink);
+}
+
 // ── a section INSIDE a menu ──────────────────────────────────────────────────
 // A group of related items that opens in place, rather than a flat run of peers.
 // The editor's ⋯ grew one for Export (three formats you'd otherwise scan past to

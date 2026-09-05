@@ -53,6 +53,7 @@ mockNuxtImport("useGearList", () => () => ({
   // the commit path ran at all, which is the whole question here
   setItemWeight: (_id: string, raw: string) => weightCommits.push(raw),
   removeItem: () => {},
+  duplicateItem: () => "",
   moveItem: () => {},
   discardEmpty: () => {},
   addBlankItemAfter: () => "",

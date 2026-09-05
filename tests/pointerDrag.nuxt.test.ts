@@ -455,6 +455,77 @@ describe("the copy modifier", () => {
     expect(drag.copyKey.value).toBe(false);
   });
 
+  // THE OTHER WAY THE LATCH SHIPPED WRONG. Arming on `ev.altKey` armed on every key
+  // pressed while Alt was down — so Alt+Tab mid-drag latched a copy, the keyup went to
+  // the other window, and coming back to release without moving DUPLICATED a row on a
+  // drag nobody meant to copy. Reproduced in the browser before this fix: 12 rows -> 13.
+  it("is not armed by an Alt chord that isn't the Alt key", () => {
+    surface("editor__body", 0, 400);
+    const { drag, calls } = harness({ within: ".editor__body" });
+
+    drag.start("row-1", down());
+    window.dispatchEvent(move(200));
+    window.dispatchEvent(key("keydown", "Tab", true)); // Alt+Tab
+    expect(drag.copyKey.value).toBe(false);
+    window.dispatchEvent(up());
+    expect(calls.copies).toEqual([false]);
+  });
+
+  // …and losing focus makes the key's state unknowable, since no keyup is coming.
+  it("disarms when the window loses focus", () => {
+    surface("editor__body", 0, 400);
+    const { drag, calls } = harness({ within: ".editor__body" });
+
+    drag.start("row-1", down());
+    window.dispatchEvent(key("keydown", "Alt", true));
+    expect(drag.copyKey.value).toBe(true);
+    window.dispatchEvent(new Event("blur"));
+    expect(drag.copyKey.value).toBe(false);
+    // the DRAG survives — coming back to finish it is reasonable
+    expect(drag.dragId.value).toBe("row-1");
+    window.dispatchEvent(up());
+    expect(calls.copies).toEqual([false]);
+  });
+
+  // A gesture that cannot copy must not arm, or the cursor promises what the commit
+  // discards (the editor's vault insert-drags are already creating a row).
+  it("never arms a gesture whose caller says it cannot copy", () => {
+    surface("editor__body", 0, 400);
+    const calls = { copies: [] as boolean[] };
+    const drag = createPointerDrag<string>({
+      track: () => {},
+      target: () => "t",
+      commit: (_id, _t, copy) => void calls.copies.push(copy),
+      copyable: (id) => id !== "no-copy",
+      within: ".editor__body",
+    });
+
+    drag.start("no-copy", down());
+    window.dispatchEvent(key("keydown", "Alt", true));
+    expect(drag.copyKey.value).toBe(false);
+    window.dispatchEvent(up(1, true));
+    expect(calls.copies).toEqual([false]);
+  });
+
+  // The cursor lives on <html>, not in CSS: the lifted row is pointer-events:none, so
+  // it is never hit-tested and never gets to set one — which is why the row's old
+  // `cursor: grabbing` had been dead since it was written.
+  it("paints the drag cursor on <html> and clears it on reset", () => {
+    surface("editor__body", 0, 400);
+    const { drag } = harness({ within: ".editor__body" });
+    const cursor = () => document.documentElement.style.cursor;
+
+    expect(cursor()).toBe("");
+    drag.start("row-1", down());
+    expect(cursor()).toBe("grabbing");
+    window.dispatchEvent(key("keydown", "Alt", true));
+    expect(cursor()).toBe("copy");
+    window.dispatchEvent(move(200)); // moving without Alt disarms, and repaints
+    expect(cursor()).toBe("grabbing");
+    window.dispatchEvent(up());
+    expect(cursor()).toBe("");
+  });
+
   it("drops the modifier with the gesture", () => {
     surface("editor__body", 0, 400);
     const { drag } = harness({ within: ".editor__body" });

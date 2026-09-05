@@ -271,23 +271,9 @@ const classPick = computed(() => CLASS_PICKS.find((p) => p.value === folderClass
   margin-left: -1px;
 }
 
-/* The classification trigger wears the item row's own states: quiet ink at rest, the
-   shared `.item__mark` chip (atoms/item.scss) once the folder says something other
-   than base — so "this folder is food" and "this row is food" look like one claim
-   made at two altitudes rather than two inventions.
-   The OFF ink is scoped to the off state (`:not`) rather than stated flat, for the
-   reason ItemRow's .item__clsbtn gives: a scoped rule carries this component's
-   attribute and would otherwise outrank the shared chip's own colour, leaving a lit
-   trigger drawn in --ink-3. */
-.folder__clsbtn:not(.item__mark) {
-  color: var(--ink-3);
-}
-.folder__clsbtn {
-  border-radius: var(--radius-pill);
-}
-.folder__clsbtn:hover {
-  color: var(--ink);
-}
+/* (the classification trigger's own look lives in atoms/folder.scss: the button is
+   rendered by ItemRowMenu, so it carries THAT component's scope id and a rule written
+   here could never reach it — the same trap this file's collapse machinery records) */
 
 /* the collapse machinery (.folder__body 1fr↔0fr, .folder__bodyinner clip + fade,
    the .folder__chev rotate) is the shared folder atom — atoms/folder.scss */

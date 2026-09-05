@@ -15,8 +15,15 @@
 //
 // userAgentData.platform first (navigator.platform is deprecated and lies under some
 // emulation), then the old field, then nothing.
+//
+// AND AN IPAD IS NOT A MAC, however loudly it says so. iPadOS Safari ships no
+// userAgentData and reports navigator.platform as "MacIntel" — so the string test
+// alone hands an iPad a sheet written in ⌥, a key it does not have, which is the exact
+// failure this module exists to prevent. maxTouchPoints separates them: a Mac reports
+// 0 (1 on a touch-bar model), an iPad 5.
 function isMac(): boolean {
   if (typeof navigator === "undefined") return false;
+  if (navigator.maxTouchPoints > 1) return false;
   const p =
     (navigator as { userAgentData?: { platform?: string } }).userAgentData?.platform ??
     navigator.platform ??

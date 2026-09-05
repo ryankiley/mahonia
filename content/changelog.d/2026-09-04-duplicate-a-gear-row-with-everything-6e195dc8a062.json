@@ -1,8 +1,0 @@
-{
-  "date": "2026-09-04",
-  "added": [
-    "Duplicate a gear row, with everything on it — from the row's menu, or by holding Alt while you drag it.",
-    "A folder can say what its items count as, so a food folder marks its own rows consumable.",
-    "A keyboard-shortcuts sheet in the editor's actions menu, or press ? — the arrow keys, the drag handle and Alt-drag all in one place."
-  ]
-}
