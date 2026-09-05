@@ -120,7 +120,12 @@ async function send() {
 .fb__box {
   min-height: 7rem;
   padding: var(--space-2);
-  resize: vertical;
+  /* No resize, for the reason the import dialog's paste box already gives (.import__text):
+     the native grip is a square widget the UA paints over the bottom-right corner, and it
+     is not clipped by the border-radius — so one corner of a box whose other three are
+     12px came out square. The two textareas are the same atom in the same dialog shell;
+     this one just never got the fix. It scrolls, which is what it did past 7rem anyway. */
+  resize: none;
 }
 .fb__meta {
   display: flex;

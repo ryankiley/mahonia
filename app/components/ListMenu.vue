@@ -191,7 +191,7 @@ watch(open, (o) => {
             ref="fieldRef"
             v-model="query"
             type="text"
-            class="lm__field"
+            class="well lm__field"
             placeholder="Search"
             aria-label="Search lists"
             autocomplete="off"
@@ -308,20 +308,20 @@ watch(open, (o) => {
 .lm__filter {
   margin-bottom: var(--space-1);
 }
+/* The GROUND, its placeholder and its focus step are the .well atom (controls.scss) —
+   the app's contained input for a floating surface, which is exactly what this is. This
+   had its own copy, and the copy carried the bug the atom has now been fixed for: a
+   --paper-2 fill on a --surface-float panel measured 1.108:1 in dark and 1.10:1 in
+   light, and focusing it swapped in --paper-3, which IS --surface-float in dark, so the
+   box vanished outright at 1.000:1 the moment you typed in it.
+   Only the geometry is local. The radius agrees with the atom's by construction —
+   --popover-item-radius is pinned to the same `--radius-4 - --space-2` step — but it is
+   named rather than repeated, because this box is concentric with THIS popover. */
 .lm__field {
   width: 100%;
   height: var(--icon-btn);
   padding: 0 var(--space-3);
   border-radius: var(--popover-item-radius);
-  background: var(--paper-2);
-  color: var(--ink);
-}
-.lm__field::placeholder {
-  color: var(--ink-3);
-}
-.lm__field:focus-visible {
-  outline: none;
-  background: var(--paper-3);
 }
 
 .lm__rows {
