@@ -81,4 +81,24 @@ describe("itemQtyLabel — amount labels incl. the worn split", () => {
     // …and a single WORN unit of one is still a split worth naming
     expect(itemQtyLabel({ name: "Hat", qty: 1, unitWeightMg: 50_000, wornQty: 1 }, "base", { hideSingle: true })).toBe("×1 · 1 worn");
   });
+  // A GROUP has no count in this column: the weight beside it is the group's TOTAL,
+  // which the row's own count is already inside, so a "×N" there would multiply a figure
+  // it is part of. The CALLER decides which rows qualify (isBareGroup) — a group that
+  // carries a line of its own keeps its label, since these views heal nothing.
+  it("group empties the label", () => {
+    expect(itemQtyLabel({ name: "Cook kit", qty: 1, unitWeightMg: 0 }, "base", { group: true })).toBe("");
+    expect(itemQtyLabel(socks, "base", { group: true })).toBe("");
+    // and it is opt-in like hideSingle — nothing changes for a row nobody called a group
+    expect(itemQtyLabel(socks, "base", { group: false })).toBe("×3 · 1 worn");
+  });
+  // GROUP OUTRANKS WATER. A bare group's own volume is zero by definition, so letting
+  // water win could only ever print "0 L" — against a group total of however many full
+  // bottles hang under it. Two figures for one line, disagreeing, which is the very thing
+  // the water branch exists to prevent. The editor keeps a water group's litres FIELD;
+  // this label is a different question and the answer is nothing.
+  it("blanks a water group too, rather than printing 0 L", () => {
+    expect(itemQtyLabel({ name: "Water", qty: 1, unitWeightMg: 0 }, "consumable", { group: true })).toBe("");
+    // ...and every water row that is NOT called a group still states its volume
+    expect(itemQtyLabel({ name: "Water", qty: 2, unitWeightMg: 1_000_000 }, "consumable")).toBe("2 L");
+  });
 });

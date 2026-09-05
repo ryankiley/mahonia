@@ -50,7 +50,7 @@ import type { Item, ListSnapshot } from "~~/shared/types";
 import type { ItemPatch } from "~~/shared/ops";
 import { effectivePersonId, personColor } from "~~/shared/people";
 import type { NameCommit } from "~/composables/useCatalogSearch";
-import { bySortOrder, effectiveClassification, entryUnitFromInput, formatKcal, formatWeight, fromMg, groupLineMg, itemDisplayName, parseWeightInput, rowDisplayMg, siblingItems, splitWornQty, storedClassification } from "~~/shared/weights";
+import { bySortOrder, effectiveClassification, entryUnitFromInput, formatKcal, formatWeight, fromMg, groupLineMg, isBareGroup, itemDisplayName, parseWeightInput, rowDisplayMg, siblingItems, splitWornQty, storedClassification } from "~~/shared/weights";
 import { isWaterName, itemQtyLabel, waterLiters, waterMgFromMl } from "~~/shared/water";
 // the same worthiness + identity rules the capture path runs, so "already banked"
 // below can only ever claim what capture would actually take (statically imported
@@ -117,6 +117,13 @@ const children = computed(() =>
   props.nested ? NO_ITEMS : (childrenByParent.value.get(props.item.id) ?? NO_ITEMS),
 );
 const isParent = computed(() => children.value.length > 0);
+// A group holding NOTHING of its own — where the row's per-unit cells stand down (the
+// count and the two class marks). One predicate in shared/weights so this row, the
+// checklist face below it and the read views can't drift on which rows are bare; and
+// the reason it isn't simply `isParent` is that a group carrying a real weight or real
+// calories still has something for those controls to act on, and this app doesn't hide
+// a number it can't also correct. See isBareGroup.
+const bareGroup = computed(() => isBareGroup(props.item, isParent.value));
 // collapse a nested group — hide/show its children, persisted per item id (pure UI
 // state, never sent to the server), mirroring the folder collapse. Only meaningful on
 // a parent row; packing mode always shows children (you're checking them off).
@@ -516,6 +523,21 @@ function onNameCommit(p: NameCommit) {
   // landing in a worn/consumable folder has to be pinned or it silently inherits.
   if (p.classification !== undefined)
     patch.classification = storedClassification(p.classification, props.item.folderId, props.list.folders);
+  // A GROUP TAKES NO WEIGHT FROM ITS NAME. Every branch above can carry one — a catalog
+  // pick, a vault pick, a water volume, a trailing "540 g" on free text — and a parent's
+  // weight cell is read-only and shows its children's total, so a weight landing here
+  // would be counted in every rollup, printed on no row and editable in no field: the
+  // one state the wrap exists to prevent, arriving through the name box instead of
+  // through a nest. `:suggest` below takes away the MENU, which is the affordance; this
+  // is the guard, at the single point every branch passes through, matching onWeight and
+  // onWeightStep, which have refused a parent all along. Renaming still works — only the
+  // number is dropped.
+  if (isParent.value) {
+    delete patch.unitWeightMg;
+    delete patch.weightOverridden;
+    delete patch.catalogWeightMgAtLink;
+    delete patch.entryUnit; // set only alongside a weight in the branches above
+  }
   c.updateItem(props.item.id, patch);
 }
 
@@ -701,6 +723,20 @@ const kcalRootRef = useTemplateRef<HTMLElement>("kcalRootRef");
 const kcalPopRef = useTemplateRef<HTMLElement>("kcalPopRef");
 const isKcalOpen = computed(() => menu.openId.value === `${props.item.id}:kcal`);
 watch(isKcalOpen, (open) => emit("overlayToggle", open));
+// Whether the two class marks are drawn. `!bareGroup` is the rule (below, at the cell);
+// the other three terms are the cases where taking them away would strand something:
+//  • WATER — its cell holds a FIXED mark, not a toggle, and that glyph is the only thing
+//    on the row saying it is a consumable. Nothing else can restate it, so it stays.
+//  • A STORED CLASS — a row marked worn or consumable before it gained children keeps its
+//    toggles, or the value is set forever with no field to clear it, still exported and
+//    still read by unwrapEmptied's guard. Same rule the gear type follows (cnameShown).
+//  • AN OPEN POPOVER — the kcal and worn popovers live INSIDE this cell, and clearing the
+//    kcal field is exactly what can turn the row bare. Unmounting the popover the user is
+//    typing in also stranded its overlayToggle(true), leaving the folder's collapse clip
+//    lifted, since the menu singleton never learned it had closed.
+const classCellShown = computed(
+  () => isWater.value || !bareGroup.value || props.item.classification != null || isKcalOpen.value || isWornOpen.value,
+);
 const { above: kcalAbove, shift: kcalShift, place: placeKcal } = useMenuPlacement(kcalPopRef, { fit: "shift" });
 
 /** Open (or close) one of the row's classification popovers, placing it once the
@@ -1117,8 +1153,14 @@ function dismissFix() {
           @toggle="toggleNest"
         /></span>
       <!-- `item__qty--split` widens the amount track for the whole page column when any
-           row in the list spells out a worn split ("×12 · 11 worn") — atoms/item.scss -->
-      <span class="t-num t-sm t-muted item__cqty" :class="{ 'item__qty--split': activeSplit }">{{ itemQtyLabel(item, effClass) }}</span>
+           row in the list spells out a worn split ("×12 · 11 worn") — atoms/item.scss.
+           `group` empties it on a BARE group, matching the edit row's missing qty cell
+           and the read row's: the weight beside it is the group's TOTAL, so a count
+           there would be multiplying a figure it is already part of. The widening class
+           goes with the label — a group CAN carry a split (qty is not a term in
+           isBareGroup), and left on an empty cell it would widen the amount track for
+           every row on the page on the strength of a figure nothing prints. -->
+      <span class="t-num t-sm t-muted item__cqty" :class="{ 'item__qty--split': activeSplit && !bareGroup }">{{ itemQtyLabel(item, effClass, { group: bareGroup }) }}</span>
       <!-- the empty unit slot keeps the zero placeholder in the number's place rather
            than out at the cell's edge — same as the read row's -->
       <span class="t-num item__cweight"><template v-if="rowWeightMg > 0">{{ formatWeight(rowWeightMg, rowUnit, { withUnit: false }) }}<span class="t-muted item__wunit">{{ rowUnit }}</span></template><template v-else>—<span class="item__wunit" /></template></span>
@@ -1138,11 +1180,19 @@ function dismissFix() {
              line, and the focusin target — landing anywhere in it offers the gear type
              + note underneath (nameEditing); focus arriving in those fields does not. -->
         <div class="item__namebox" :class="{ 'item__namebox--group': isParent }" @focusin="nameEditing = true">
+          <!-- no catalog / My Gear suggestions on a GROUP. A pick stamps the product's
+               weight onto the row (onNameCommit), and a group's weight cell is read-only
+               and shows the total of its children — so that weight would land where no
+               row prints it and no field can edit it: the exact state the wrap exists to
+               prevent, arriving through the name box instead of through a nest. A
+               container's name is a heading the user writes; the catalog names the
+               products, which are its children. Free text is untouched. -->
           <ItemInput
             :unit="list.displayUnit"
             :initial="editableName"
             placeholder="Name of item"
             :clear-on-commit="false"
+            :suggest="!isParent"
             :autofocus="isPendingBlank"
             @commit="onNameCommit"
             @advance="c.addBlankItemAfter(item.id)"
@@ -1250,8 +1300,29 @@ function dismissFix() {
              grid's own columns are what make the same three parts legible up here.
              WATER is the exception at every width and keeps the plain field: that
              cell holds LITRES — a continuous measure driving the row's weight, not a
-             count — so ±1 would be both the wrong step and the wrong idea. -->
-        <div class="item__qty" :class="{ 'item__qty--step': !isWater }">
+             count — so ±1 would be both the wrong step and the wrong idea.
+             A BARE GROUP HAS NO CELL HERE AT ALL, the way its weight cell is read-only:
+             the column beside it shows the group TOTAL, which the row's own count is
+             already inside and which never reached the children — so a "×N" against it
+             multiplies a figure with nothing left to multiply. A container the app makes
+             holds nothing of its own (containerFor wraps any row that does), so the
+             count it hides is a factor on zero; a group that DID arrive carrying a line
+             keeps its stepper, because a control removed is a number nobody can see or
+             correct. Water keeps its cell either way — that is a volume, not a count,
+             and the weight field beside it is read-only on a group, so dropping it would
+             leave the row with no editable figure at all. The grid keeps the track
+             regardless: the columns are named areas off --item-cols, not the cells that
+             sit in them, so the weight column stays put and a parent lines up with its
+             children. Two of a kit is a second group: "Duplicate" carries the children. -->
+        <!-- ...and a GHOST in its place, for the mobile line only. The desktop grid needs
+             none — its columns are named areas off a fixed --item-col-qty track, so an
+             absent cell leaves an empty column. Below $bp-stack there is no grid:
+             .item__meta is a plain flex row, so dropping the cell makes the weight the
+             first item and a bare group's total starts a whole cell + gap left of every
+             other row's. The ghost carries the same two children as the real cell so it
+             measures itself rather than guessing a width, and it is display:none up on
+             the grid. -->
+        <div v-if="isWater || !bareGroup" class="item__qty" :class="{ 'item__qty--step': !isWater }">
           <template v-if="isWater">
             <input
               class="field field--num"
@@ -1314,6 +1385,9 @@ function dismissFix() {
               <HugeiconsIcon :icon="PlusSignIcon" :size="16" :stroke-width="2" />
             </button>
           </template>
+        </div>
+        <div v-else class="item__qty item__qty--ghost" aria-hidden="true">
+          <span class="field field--num" /><span class="t-sm t-muted item__unit">×</span>
         </div>
 
         <div class="item__weight">
@@ -1415,7 +1489,16 @@ function dismissFix() {
              edge, so the stacked lines’ ink landed 19px apart and lined up in no
              column at all. One item can only wrap whole. -->
         <div class="item__trail">
-          <div class="item__classcell">
+          <!-- ...and the marks stand down on a BARE GROUP for the same reason the count
+               does. A class describes ONE row's own line, and a container's is zero — it
+               contributes nothing to Base/Worn/Consumable whatever the toggles say, and
+               it does not govern its children either: they inherit the FOLDER's default,
+               never their parent's (effectiveClassification). So a lit cookie on a group
+               is a claim about food that no number under it answers to, sitting where the
+               eye reads it as covering the total beside it. A group carrying a line of
+               its own keeps the marks — there the class does decide which bucket that
+               line lands in. -->
+          <div v-if="classCellShown" class="item__classcell">
             <div v-if="!isWater" ref="kcalRootRef" class="menu item__cls">
               <Tooltip text="Consumable" :disabled="isKcalOpen" preferred-placement="top">
                 <button
@@ -2103,6 +2186,15 @@ function dismissFix() {
 /* the pop when the stepper moves the number — the shared `num-pop` keyframe
    (main.scss), the one the big total takes when it changes. blur(0) at rest, never
    `none`: the filter context has to persist between runs or WebKit drops it. */
+/* The ghost is a spacer, never a control: no ink, no hit target, no a11y presence
+   (aria-hidden on the element). Off the grid entirely up here — the named area already
+   holds the column — and switched on in the $bp-stack block, which is the only place a
+   missing cell moves anything. */
+.item__qty--ghost {
+  display: none;
+  visibility: hidden;
+  pointer-events: none;
+}
 .item__qtyfield {
   filter: blur(0);
   transform: translateZ(0);
@@ -3057,6 +3149,11 @@ textarea.item__note {
   .item__qty .field {
     width: 2.5em;
   }
+  /* the ghost takes the same box the real cell would have (it holds the same field +
+     "×"), so the amount slot measures itself and no width has to be guessed here */
+  .item__qty--ghost {
+    display: flex;
+  }
   .item__weight .field {
     width: 4em;
   }
@@ -3098,7 +3195,11 @@ textarea.item__note {
     /* stack via the shared .item-row grid: a checkbox column, then the name (row 1)
        over ×qty · weight (row 2) — cell placements below. --row-align stays `center`
        from the desktop rule; only the columns + gap change here. */
-    --row-cols: auto auto 1fr;
+    /* track 2 is the amount cell, sized by its own text — and a bare group's is EMPTY
+       (see .item__cqty), which collapsed it to 0 and shunted that one row's weight a
+       column-gap left of every other row's. A floor holds the column open for the rows
+       that say nothing; `auto` above it still grows for a spelled-out split. */
+    --row-cols: auto minmax(2.5ch, auto) 1fr;
     --row-gap: var(--space-1) var(--space-3); /* row-gap · column-gap */
     min-height: 0; /* drop the desktop tall single-row min-height */
   }

@@ -88,6 +88,14 @@ const byId = (c: ReturnType<typeof useGearList>, id: string) =>
   c.snapshot.value?.items.find((i) => i.id === id);
 const childrenOf = (c: ReturnType<typeof useGearList>, parentId: string) =>
   itemsOf(c).filter((i) => i.parentId === parentId);
+/** The list's rollups. `totals` is null until a snapshot exists, and every caller below
+ *  has already awaited `open()` — so assert that rather than reaching past it with `!`,
+ *  which would report "cannot read kcalTotal of null" instead of the real cause. */
+function totalsOf(c: ReturnType<typeof useGearList>) {
+  const t = c.totals.value;
+  if (!t) throw new Error("no snapshot: the list never loaded");
+  return t;
+}
 
 async function open(items: Item[]) {
   listResponse = listWith(items);
@@ -485,5 +493,138 @@ describe("duplicating a row", () => {
     const c = await open([item({ id: "a", name: "A", sortOrder: 0 })]);
     expect(c.duplicateItem("ghost")).toBe("");
     expect(itemsOf(c)).toHaveLength(1);
+  });
+});
+
+// A GROUP CARRIES NOTHING OF ITS OWN — but nothing is REWRITTEN to make that true.
+//
+// The row's qty cell and its two class marks stand down on a group holding none of
+// weight, calories or a count (isBareGroup, shared/weights). A group that does hold one
+// keeps its cells, so no number ever goes into hiding — which is what lets nesting stay
+// a pure move. An earlier attempt pinned the stored count to 1 instead and healed old
+// lists on open; it silently changed their totals, and these are the cases that catch it.
+describe("nesting never rewrites the row it nests into", () => {
+  beforeEach(() => {
+    records.clear();
+    storage.clear();
+  });
+  afterEach(() => useGearList().dispose());
+
+  it("leaves a counted row's count alone when it becomes a group", async () => {
+    const c = await open([
+      item({ id: "kit", name: "Cook kit", qty: 4, sortOrder: 0 }),
+      item({ id: "pot", name: "Pot", unitWeightMg: 100_000, sortOrder: 1 }),
+    ]);
+
+    c.nestItem("pot", "kit");
+    await vi.waitFor(() => expect(byId(c, "pot")?.parentId).toBe("kit"));
+    // no weight of its own, so no wrap — and the count is still the user's
+    expect(byId(c, "kit")?.parentId).toBeNull();
+    expect(byId(c, "kit")?.qty).toBe(4);
+  });
+
+  // Calories are the other thing a count multiplies (computeTotals is kcal × qty), and
+  // the row that carries them typically has no weight yet — so the wrap doesn't fire and
+  // the reducer must not either.
+  it("costs a weightless food row none of its calories", async () => {
+    const c = await open([
+      item({ id: "dinner", name: "Dinners", qty: 5, kcal: 700, classification: "consumable", sortOrder: 0 }),
+      item({ id: "chili", name: "Chili", unitWeightMg: 180_000, sortOrder: 1 }),
+    ]);
+    expect(totalsOf(c).kcalTotal).toBe(3500);
+
+    c.nestItem("chili", "dinner");
+    await vi.waitFor(() => expect(byId(c, "chili")?.parentId).toBe("dinner"));
+    expect(byId(c, "dinner")?.qty).toBe(5);
+    expect(byId(c, "dinner")?.kcal).toBe(700);
+    expect(totalsOf(c).kcalTotal).toBe(3500);
+  });
+
+  // The cancelled gesture: "Add a nested item" opens a blank child, and clicking away
+  // discards it. Nothing may have changed but the nesting.
+  it("costs nothing when the blank child it opens is discarded", async () => {
+    const c = await open([
+      item({ id: "socks", name: "Socks", qty: 4, wornQty: 1, classification: "base", unitWeightMg: 40_000, sortOrder: 0 }),
+    ]);
+    const before = totalsOf(c).totalMg;
+
+    const child = c.addChild("socks");
+    await vi.waitFor(() => expect(byId(c, child)?.parentId).toBeTruthy());
+    c.discardEmpty(child);
+    await vi.waitFor(() => expect(byId(c, child)).toBeUndefined());
+
+    expect(byId(c, "socks")?.qty).toBe(4);
+    expect(byId(c, "socks")?.wornQty).toBe(1);
+    expect(totalsOf(c).totalMg).toBe(before);
+  });
+
+  // Opening a list must not rewrite it either. A parent stored with a count and a weight
+  // of its own — an import, another client, a list nested before any of this — keeps both,
+  // and its cells stay on screen (isBareGroup is false) rather than the number being
+  // pinned away behind a control that is no longer drawn.
+  it("leaves a stored list's counted parent exactly as it found it", async () => {
+    const c = await open([
+      item({ id: "poles", name: "Trekking poles", qty: 2, unitWeightMg: 210_000, sortOrder: 0 }),
+      item({ id: "baskets", name: "Snow baskets", parentId: "poles", unitWeightMg: 20_000, sortOrder: 0 }),
+      item({ id: "kit", name: "Cook kit", qty: 3, sortOrder: 1 }),
+      item({ id: "pot", name: "Pot", parentId: "kit", unitWeightMg: 100_000, sortOrder: 0 }),
+    ]);
+
+    await vi.waitFor(() => expect(byId(c, "poles")).toBeTruthy());
+    expect(byId(c, "poles")?.qty).toBe(2);
+    expect(byId(c, "kit")?.qty).toBe(3);
+    // the totals the list opened with are the totals it still has
+    expect(totalsOf(c).totalMg).toBe(2 * 210_000 + 20_000 + 100_000);
+  });
+
+  // The wrap's reverse keeps a working discriminator: unwrapEmptied refuses to dissolve a
+  // container carrying content of its own, `qty !== 1` included. Nothing pins that field,
+  // so the guard means what it says.
+  it("keeps a hand-built group when its last child leaves", async () => {
+    const c = await open([
+      item({ id: "kit", name: "Cook kit", qty: 4, sortOrder: 0 }),
+      item({ id: "pot", name: "Pot", parentId: "kit", commonNameOverridden: true, unitWeightMg: 100_000, sortOrder: 0 }),
+    ]);
+
+    c.unnest("pot");
+    await vi.waitFor(() => expect(byId(c, "pot")?.parentId).toBeNull());
+    expect(byId(c, "kit")).toBeTruthy();
+    expect(byId(c, "kit")?.qty).toBe(4);
+  });
+
+  // What a nest DOES move is the gear type, and only through the wrap: the container is
+  // named for what the product generically is, and the product gives that label up so it
+  // isn't printed on both lines (containerFor). The NOTE is never touched, on either row,
+  // and neither field moves when no wrap fires.
+  it("leaves both sub-line fields alone when no wrap fires", async () => {
+    const c = await open([
+      item({ id: "kit", name: "Cook kit", commonName: "Kit", description: "in the blue sack", sortOrder: 0 }),
+      item({ id: "pot", name: "Pot", commonName: "Pot", description: "titanium", unitWeightMg: 100_000, sortOrder: 1 }),
+    ]);
+
+    c.nestItem("pot", "kit");
+    await vi.waitFor(() => expect(byId(c, "pot")?.parentId).toBe("kit"));
+    expect(byId(c, "kit")?.commonName).toBe("Kit");
+    expect(byId(c, "kit")?.description).toBe("in the blue sack");
+    expect(byId(c, "pot")?.commonName).toBe("Pot");
+    expect(byId(c, "pot")?.description).toBe("titanium");
+  });
+
+  it("moves the gear type onto the container it mints, and keeps the note put", async () => {
+    const c = await open([
+      item({ id: "tent", name: "X-Mid", commonName: "Tent", description: "trekking-pole shelter", unitWeightMg: 439_418, sortOrder: 0 }),
+      item({ id: "stakes", name: "Stakes", commonName: "Stakes", description: "8 of them", unitWeightMg: 50_000, sortOrder: 1 }),
+    ]);
+
+    c.nestItem("stakes", "tent");
+    await vi.waitFor(() => expect(byId(c, "tent")?.parentId).not.toBeNull());
+
+    // the label is MOVED, not lost — it names the group, one line up
+    expect(byId(c, byId(c, "tent")!.parentId!)?.name).toBe("Tent");
+    expect(byId(c, "tent")?.commonName).toBeFalsy();
+    // ...and every note stays exactly where its owner typed it
+    expect(byId(c, "tent")?.description).toBe("trekking-pole shelter");
+    expect(byId(c, "stakes")?.commonName).toBe("Stakes");
+    expect(byId(c, "stakes")?.description).toBe("8 of them");
   });
 });

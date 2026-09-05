@@ -20,8 +20,17 @@ const props = withDefaults(
     placeholder?: string;
     clearOnCommit?: boolean;
     autofocus?: boolean; // focus the field on mount (a freshly-added blank row)
+    // Offer catalog / My Gear matches while typing. FALSE on a GROUP's name: a pick
+    // stamps a weight (onNameCommit in ItemRow) and a group's weight cell is read-only
+    // and shows the total of its children, so that weight would land where no row prints
+    // it and no field can edit it — the one state the wrap exists to prevent, arriving
+    // through the name box instead of through a nest. A container's name is a heading the
+    // user writes ("Dinners", "Cook kit"); the catalog names products, which are its
+    // children. Off means no request and no menu — typing and committing free text are
+    // untouched, so renaming a group still works exactly as it did.
+    suggest?: boolean;
   }>(),
-  { initial: "", placeholder: "Add an item…", clearOnCommit: true, autofocus: false },
+  { initial: "", placeholder: "Add an item…", clearOnCommit: true, autofocus: false, suggest: true },
 );
 const emit = defineEmits<{
   commit: [NameCommit];
@@ -94,7 +103,7 @@ function setDraftQuiet(v: string) {
   nextTick(() => (suppressOpen = false));
 }
 watch(draft, (v) => {
-  if (suppressOpen) return;
+  if (suppressOpen || !props.suggest) return; // no suggestions asked for → no request
   search(v);
   vaultSearch(v);
   active.value = -1;
@@ -157,7 +166,15 @@ const waterSuggestion = computed<WaterSug | null>(() => {
 // more likely answer when the two match — and because it's the whole point of
 // keeping a vault.
 type AcOption = { water: WaterSug } | { vault: VaultEntry } | { result: CatalogResult };
+const NO_OPTIONS: AcOption[] = [];
 const options = computed<AcOption[]>(() => {
+  // Suggestions off means NO suggestions, not "no menu". Gating only the render left the
+  // one option that needs no network — the water/volume reading of the draft — still in
+  // here, and both keyboard paths take options straight from this list: Enter committed
+  // it, ArrowDown pointed aria-activedescendant at a row nobody had drawn. Emptying the
+  // list is what actually turns the feature off, and it stops the per-keystroke rebuild
+  // (waterSuggestion's regexes + a Set + two arrays) on a field that can render none of it.
+  if (!props.suggest) return NO_OPTIONS;
   const opts: AcOption[] = [];
   if (waterSuggestion.value) opts.push({ water: waterSuggestion.value });
   // A vault row that came from a catalog pick keeps its catalog id, so the same
@@ -201,7 +218,7 @@ const sectionAt = computed<Map<number, string>>(() => {
 // whose body clips overflow for the collapse animation. Signal the ancestor while the
 // menu is showing so it can lift that clip (mirrors the drag-pass clip lift). Emit a
 // closing toggle on unmount too, so a row removed mid-suggestion doesn't strand it.
-const menuVisible = computed(() => open.value && options.value.length > 0);
+const menuVisible = computed(() => props.suggest && open.value && options.value.length > 0);
 // The folder lifts its collapse clip while we're lifted (a +1/−1 count), so only
 // emit on genuine state CHANGES — dedup makes the count impossible to unbalance.
 let acLifted = false;
@@ -355,7 +372,9 @@ function onKeydown(e: KeyboardEvent) {
     e.preventDefault();
     if (open.value && active.value >= 0 && options.value[active.value]) {
       selectOption(options.value[active.value]!);
-    } else if (waterSuggestion.value) {
+    } else if (props.suggest && waterSuggestion.value) {
+      // `props.suggest` here as well as in `options` above: this branch reads the
+      // computed directly, so emptying the list alone would not have closed it
       selectWater(waterSuggestion.value);
     } else if (draft.value.trim()) {
       commitFree();
@@ -399,16 +418,16 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
       :placeholder="placeholder"
       :aria-label="placeholder"
       :title="draft"
-      role="combobox"
-      aria-autocomplete="list"
-      :aria-expanded="menuVisible"
-      :aria-controls="`${acId}-listbox`"
-      :aria-activedescendant="active >= 0 ? optId(active) : undefined"
+      :role="suggest ? 'combobox' : undefined"
+      :aria-autocomplete="suggest ? 'list' : undefined"
+      :aria-expanded="suggest ? menuVisible : undefined"
+      :aria-controls="suggest ? `${acId}-listbox` : undefined"
+      :aria-activedescendant="suggest && active >= 0 ? optId(active) : undefined"
       autocomplete="off"
       autocorrect="off"
       spellcheck="false"
       @keydown="onKeydown"
-      @focus="focused = true; open = true"
+      @focus="focused = true; open = suggest"
     />
     <!-- pointer leaving the menu clears the hover highlight (mouseenter on options
          sets it; without this the last row stays lit). Keyboard arrows re-set it.

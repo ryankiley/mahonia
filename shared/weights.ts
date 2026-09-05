@@ -267,6 +267,48 @@ export function groupLineMg(item: Item, items: readonly Item[]): number {
  */
 export const rowDisplayMg: (item: Item, children: readonly Item[]) => number = groupLineMg;
 
+/**
+ * Does this row's OWN line carry anything — a weight, or calories?
+ *
+ * The two numbers `qty` multiplies. Both are counted whatever the row's class says: kcal
+ * on a base row is dormant, not gone (see Item.kcal), and it comes back the moment the
+ * row is consumable again, so "carries nothing" has to mean nothing now AND on the next
+ * click.
+ */
+export const carriesOwnLine = (item: Pick<Item, "unitWeightMg" | "kcal">): boolean =>
+  item.unitWeightMg > 0 || (item.kcal ?? 0) > 0;
+
+/**
+ * A row that has children and holds NOTHING of its own — the state in which the row's
+ * per-unit controls have nothing left to act on and stand down.
+ *
+ * A parent's weight column shows the GROUP total (rowDisplayMg), so a "×N" beside it
+ * multiplies a figure it is already inside — and on a row whose own line is zero it
+ * multiplies zero, which is the whole of what a count can do here. So the cell goes.
+ *
+ * The NEGATIVE case is the point. A row that arrived some other way — an import, another
+ * client, a list nested before the wrap existed — can hold a real weight or real
+ * calories, and there the count is live arithmetic: the cell stays, because a control
+ * removed is a number nobody can see or correct.
+ *
+ * `qty` IS NOT A TERM HERE, deliberately. It was, and it made the qty stepper a trap:
+ * the cell's condition was driven by the value the cell's own buttons write, so pressing
+ * "one fewer" on a group counted 2 unmounted the stepper mid-press and left no control
+ * anywhere to put the 2 back. A predicate a control can flip by being used is a predicate
+ * that will eat the thing it gates. A count on a contentless group multiplies zero and
+ * moves no total, so nothing is hidden by leaving it out — and the stored number survives
+ * to mean something again if the row ever stops being a group.
+ *
+ * NOTE what this does NOT say: it is not "the app never mints a container that carries a
+ * line." containerFor wraps on WEIGHT alone, so nesting into a weightless row that holds
+ * calories makes that row the container, calories and all. The kcal term above is what
+ * catches it, and it is not dead code.
+ */
+export const isBareGroup = (
+  item: Pick<Item, "unitWeightMg" | "kcal">,
+  hasChildren: boolean,
+): boolean => hasChildren && !carriesOwnLine(item);
+
 /** Units of a line that count as worn via the wornQty split.
  *  0 when the split doesn't apply (no wornQty, or effective class ≠ base). */
 export function splitWornQty(
