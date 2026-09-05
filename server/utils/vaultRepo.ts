@@ -233,7 +233,10 @@ export async function captureVaultItemsReporting(
     let budget = Math.max(0, room);
     clean = clean.filter((c) => {
       if (existing.has(c.normKey)) return true;
-      if (budget === 0) return void (full = true) ?? false;
+      if (budget === 0) {
+        full = true;
+        return false;
+      }
       budget--;
       return true;
     });
@@ -316,12 +319,10 @@ export async function captureVaultItemsReporting(
     // diverge wherever tidyText and foldForSearch disagree (a zero-width space is
     // deleted by one and folded to a gap by the other), and each divergence read
     // as "the vault refused this row" on a row it had stored correctly.
-    .returning({
-      normKey: vaultItems.normKey,
-      weightMg: vaultItems.weightMg,
-      weightPinned: vaultItems.weightPinned,
-      removedAt: vaultItems.removedAt,
-    });
+    // No-arg, and it has to be: the two drivers' typed `.returning({ col })`
+    // overloads don't unify, so the bare form is the Db union's only shared one
+    // (see server/utils/db.ts). Read the fields off the full row instead.
+    .returning();
   // LIVE rows only. The upsert deliberately leaves `removed_at` alone, so gear you
   // put away on /gear is written and stays put away — the row comes back here, and
   // the caller must not be told it landed.
