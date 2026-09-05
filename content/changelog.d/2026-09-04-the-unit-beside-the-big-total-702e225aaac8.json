@@ -1,0 +1,9 @@
+{
+  "date": "2026-09-04",
+  "changed": [
+    "The unit beside the big total is set at the size it takes everywhere else, instead of a step smaller."
+  ],
+  "fixed": [
+    "The unit and its chevron brighten together when you point at the big total."
+  ]
+}

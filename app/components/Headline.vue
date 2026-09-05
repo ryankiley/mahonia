@@ -108,25 +108,56 @@ defineEmits<{ pick: [key: string] }>();
   gap: 2px;
 }
 
+/* The unit takes the SAME type as the total's own (TotalsBar's .totals__unit):
+   --text-title, not --text-chrome. At 14px beside a 64px figure the "g" read as a
+   footnote stuck to the number rather than as the other half of it — and it was the
+   same unit, in the same construction, at two different sizes depending on which
+   component happened to draw the figure. Weight 400 keeps it from competing with the
+   figure now that it is big enough to be seen. */
 .headline__unit {
-  font-size: var(--text-chrome);
-  color: var(--ink-3);
+  font-size: var(--text-title);
+  font-weight: 400;
+  /* half-step between the type system's two trackings: the full --track-tight
+     visibly pinches a bare two-letter unit ("oz"), while normal tracking reads
+     loose beside the tightly-tracked display figure */
+  letter-spacing: -0.01em;
+  color: var(--ink-2);
+  transition: color var(--dur) var(--ease);
 }
 
 .headline__chev {
   color: var(--ink-3);
-  transition: rotate var(--dur) var(--ease);
+  transition:
+    color var(--dur) var(--ease),
+    rotate var(--dur) var(--ease);
+}
+
+/* Unit and chevron lift TOGETHER, under the pointer and on keyboard focus. They are
+   already one object in the layout (.headline__uc) and one target in the markup, so
+   lighting only the mark made the word beside it look like it belonged to something
+   else. They start a step apart — the chevron is the quieter of the two — and meet at
+   --ink, which is the lift the total's own chevron takes (TotalsBar) and the vault's
+   (gear.vue). Hung off the trigger, not the whole .headline, so the caption beside it
+   isn't a hover target for a menu it has nothing to do with. */
+.headline__amount:hover .headline__unit,
+.headline__amount:hover .headline__chev,
+.headline__amount:focus-within .headline__unit,
+.headline__amount:focus-within .headline__chev {
+  color: var(--ink);
 }
 
 .headline__chev.is-open {
   rotate: 180deg;
 }
 
-/* The caption sits on the figure's baseline, one step past the unit — in the
-   UNIT's own type, so the two read as one run of chrome qualifying the number
-   (t-label rendered bigger and bolder than the unit beside it: a heading, not a
-   qualifier). Truncates rather than wraps (.t-clip): a name runs to 60 chars, and
-   the figure is the headline — same guard the ListHead names wear. */
+/* The caption sits on the figure's baseline, one step past the unit, and holds
+   --text-chrome — small print qualifying the number. It used to take "the unit's own
+   type", which said the same thing back when the unit was 14px too; now that the unit
+   matches the total's --text-title, following it would set a person's name at 22px
+   beside the figure, which is the second heading this deliberately isn't (the same
+   reason it isn't t-label, bigger and bolder still). So the size is stated here rather
+   than inherited by coincidence. Truncates rather than wraps (.t-clip): a name runs to
+   60 chars, and the figure is the headline — same guard the ListHead names wear. */
 .headline__caption {
   font-size: var(--text-chrome);
   color: var(--ink-3);
