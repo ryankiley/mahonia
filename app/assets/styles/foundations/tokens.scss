@@ -378,6 +378,15 @@ $bp-full: 1024px !default;
      line 8px taller than an unmarked row's and push the caption under it down with it.
      Grow the picture, not the line. */
   --icon-pull: calc((1.45rem - var(--icon-btn)) / 2);
+  /* the reorder grip's flush pull (.grip, atoms/controls.scss). The grip right-aligns
+     its dots and shifts the glyph's own internal padding out past the button edge, so
+     its layout box has to come back left by that much or the gap before it reads wider
+     than the rest of the cluster. Named because SIX rules had to agree on it: the pull
+     itself, and the four --item-col-actions tracks below and in atoms/item.scss, which
+     each subtract it back out so the actions column still measures the visible glyphs.
+     It was the literal 9px in all six — the one value in the token layer that a retune
+     had to find by grep. */
+  --grip-pull: 9px;
   /* field height — .field's min-height, mirrored by the add affordances and the
      packing-row height calc so toggling modes never jumps the row height */
   --field-h: 36px;
@@ -414,13 +423,14 @@ $bp-full: 1024px !default;
   /* actions column is FIXED, not auto: a row shows 4 or 5 trailing icons (the nesting
      add/indent/outdent varies), and an auto column would size to that count — stealing
      from the 1fr name column by a different amount per row and misaligning qty/weight/
-     class. Reserve the widest case (5 × --icon-btn icons + 4 gaps; −9px = the grip's
-     gutter overshoot) so every row's data columns line up regardless of its icon count.
+     class. Reserve the widest case (5 × --icon-btn icons + 4 gaps, less --grip-pull for
+     the grip's gutter overshoot) so every row's data columns line up regardless of its
+     icon count.
      A list that NAMES PEOPLE shows a sixth (the carrier trigger): atoms/item.scss
      re-derives this AND the composite --item-cols under .editor__body.has-people —
      the composite too, per the substitution rule the item-cols mixin above exists
      for. Retune this case and that one moves in step, or the six-icon rows drift. */
-  --item-col-actions: calc(5 * var(--icon-btn) + 4 * var(--space-1) - 9px);
+  --item-col-actions: calc(5 * var(--icon-btn) + 4 * var(--space-1) - var(--grip-pull));
   --item-cols: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-class) var(--item-col-actions); /* edit: name · qty(+L) · weight+unit · class · actions */
 
   /* The same reservation, measured in TOUCH buttons. Everything above assumes the
@@ -433,7 +443,7 @@ $bp-full: 1024px !default;
      Re-derived from --tap rather than widened by a magic number, so the two stay in
      step if either size ever moves. */
   @media (pointer: coarse) {
-    --item-col-actions: calc(5 * var(--tap) + 4 * var(--space-1) - 9px);
+    --item-col-actions: calc(5 * var(--tap) + 4 * var(--space-1) - var(--grip-pull));
     /* the class cell's two toggles grow with it — same trap, one column over: a track
        measured in --icon-btn boxes under buttons drawn at --tap is 24px short, and the
        overflow would be the toggles sitting under the trailing icons */

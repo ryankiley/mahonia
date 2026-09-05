@@ -158,18 +158,4 @@ const { open: openAccount } = useAccountModal();
 .acct__signin {
   white-space: nowrap;
 }
-/* ONE GLYPH COLUMN down the menu — the same block the editor's ⋯ and a row's menu
-   each carry, scoped the same way and for the same reason (a menu whose rows lay
-   themselves out differently must not inherit it). flex, because .menu__item is
-   display:block and a glyph beside a label needs a row; `flex: none` on the <svg>
-   because it is otherwise the one shrinkable thing in an absolutely positioned,
-   shrink-to-fit box, and a long enough label collapses it to a sliver. */
-.menu__list .menu__item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-.menu__list .menu__item > svg {
-  flex: none;
-}
 </style>

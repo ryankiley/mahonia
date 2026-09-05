@@ -1427,13 +1427,9 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
 .daykey__dist {
   margin-inline-start: var(--space-2);
 }
-/* The .swatch atom sets a size but not a DISPLAY, and a bare span is inline — where width
-   and height do nothing at all, so the dot rendered at zero. CategoryBar carries this same
-   pair in its own file; the vertical-align is its reasoning too, and it is a length rather
-   than `middle` so the dot centres on the label's cap box instead of sitting ~1.4px low. */
+/* the atom draws the dot and sits it on the label's cap box (atoms/controls.scss —
+   both used to be restated here); only the gap to the label is the day key's */
 .daykey .swatch {
-  display: inline-block;
-  vertical-align: 0.04em;
   margin-inline-end: var(--space-2);
 }
 .plan__wplist {

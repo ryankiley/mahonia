@@ -197,9 +197,13 @@ async function copyLink() {
         <li role="none">
           <button type="button" data-row role="menuitem" class="menu__item" @click="runMenu('feedback')">Send feedback…</button>
         </li>
-        <!-- moderation, not a read of the list — set off from the copy/export group by a
-             hairline, and only for public lists (per the Terms) that aren't yet reported -->
-        <li v-if="snapshot.isPublic && !reported" role="none" class="menu__report">
+        <!-- moderation, not a read of the list — set off from the copy/export group by
+             the shared .menu__foot hairline (controls.scss), the same divider at the same
+             distance as the editor's destructive pair and the switcher's "New list". It
+             was a rule of this component's own at --space-2, which put one menu's last
+             group a step further off than the other two for no reason anyone chose.
+             Only for public lists (per the Terms) that aren't yet reported. -->
+        <li v-if="snapshot.isPublic && !reported" role="none" class="menu__foot">
           <button type="button" data-row role="menuitem" class="menu__item" @click="runMenu('report')">Report list</button>
         </li>
       </ul>
@@ -217,14 +221,3 @@ async function copyLink() {
   </div>
 </template>
 
-<style scoped>
-/* the report row is a different class of action from the copy/export items above
-   it — a hairline + a touch of space sets it apart without a heavy divider. The
-   rule sits on the <li>, so it aligns to the item hover box (inset by the list's
-   own padding), matching the rounded rows rather than bleeding to the card edge. */
-.menu__report {
-  margin-top: var(--space-2);
-  padding-top: var(--space-2);
-  border-top: 1px solid var(--line);
-}
-</style>

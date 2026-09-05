@@ -81,16 +81,10 @@ const segments = computed(() => categorySegments(props.list));
   min-width: 0;
   max-width: 100%;
 }
+/* the dot's own inline-block + cap-box alignment moved onto the .swatch atom
+   (atoms/controls.scss), where a third consumer can't miss them; the gap to the label
+   is this legend's */
 .swatch {
-  display: inline-block;
-  /* Centred on the CAP box, not the x-height. `vertical-align: middle` is the reflex
-     here, but it centres a box on the baseline plus half the x-height — and the label
-     beside it is a 600-weight line with no descenders, whose optical centre is half its
-     cap height. The two differ by (cap − x-height) / 2, about 1.4px at this size, and
-     the dot read that much low. As a length, vertical-align raises the dot's bottom
-     edge off the baseline instead: 0.04em leaves an equal sliver of cap above and below
-     a --swatch dot, and being an em it holds if the type scale moves. */
-  vertical-align: 0.04em;
   margin-inline-end: var(--space-2);
 }
 /* folder names read as labels — same treatment as the Base/Worn chips (t-label):

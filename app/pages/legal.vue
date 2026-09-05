@@ -18,7 +18,7 @@ useHead({
     <main id="main-content" tabindex="-1" class="wrap page">
       <div class="prose">
         <h1 class="t-title">Legal</h1>
-        <p class="t-sm t-muted">Last updated 15 August 2026</p>
+        <p class="t-sm t-muted">Last updated 4 September 2026</p>
         <p>
           How Mahonia handles your data, and the terms for using it. Jump to
           <a href="#privacy">Privacy</a> or <a href="#terms">Terms</a>.
@@ -283,12 +283,7 @@ useHead({
   border-top: 1px solid var(--line-2);
   scroll-margin-top: var(--space-5);
 }
-/* Subsection headings, demoted from h2 so the section titles are the parent
-   level; matched to the site's single heading treatment (.prose h2). */
-.prose h3 {
-  font-size: var(--text-title);
-  font-weight: 600;
-  letter-spacing: var(--track-tight);
-  margin-top: var(--space-4);
-}
+/* Subsection headings are demoted from h2 so the section titles are the parent level;
+   the site's single heading treatment covers both (.prose :is(h2, h3), main.scss),
+   where this used to restate it verbatim. */
 </style>
