@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon, type IconNode } from "~/utils/hugeicon";
-import { Backpack02Icon, CheckmarkSquare02Icon, ChevronDownIcon, CommandIcon, Copy01Icon, Delete02Icon, EllipsisIcon, FileExportIcon, FileImportIcon, Message01Icon, NoteAddIcon, RemoveCircleIcon, Route02Icon, SafeBoxIcon, Share08Icon, UndoIcon, UserAddIcon } from "@hugeicons/core-free-icons";
+import { Backpack02Icon, CheckmarkSquare02Icon, ChevronDownIcon, CommandIcon, CopyPlusIcon, Delete02Icon, EllipsisIcon, FileExportIcon, FileImportIcon, Message01Icon, NoteAddIcon, RemoveCircleIcon, Route02Icon, SafeBoxIcon, Share08Icon, UndoIcon, UserAddIcon } from "@hugeicons/core-free-icons";
 import { editLinkPath, normalizeShareCode } from "~~/shared/links";
 import { tripHeadline } from "~~/shared/trailDistance";
 import { formatWeight } from "~~/shared/weights";
@@ -770,7 +770,14 @@ const MENU_ACTIONS = [
   // reason — People led the menu instead because it is the only entry here that acts
   // on the list you are looking at, and the only one that doesn't navigate away.
   { label: "Create a list", icon: NoteAddIcon, run: () => newList() },
-  { label: "Duplicate this list", icon: Copy01Icon, run: cloneList },
+  // NOT a clipboard mark, however well one would fit the word "copy". The Export
+  // rows below are genuine clipboard writes, and so is the Copy01 pair of sheets
+  // that ListHead and SharePanel put on their Copy buttons — this row is the odd
+  // one out, minting an independent list and navigating you into it. That is the
+  // argument ReadonlyMenu.vue already makes for calling it "Duplicate" and not
+  // "Copy"; the glyph is read first, so it has to agree or it spends the label.
+  // The plus is what carries it: "another one of these", still legible at 14.
+  { label: "Duplicate this list", icon: CopyPlusIcon, run: cloneList },
   // Import stays a plain row. It has exactly ONE entry point — the modal, which
   // offers the file and the LighterPack link side by side — and a disclosure holding
   // a single item is a click that reveals nothing you couldn't have been shown. It
