@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { rowDisplayKcal,
+import { itemDisplayName, nameRepeatsBrand, rowDisplayKcal,
   carriesContent,
   carriesOwnLine,
   computeTotals,
@@ -694,5 +694,24 @@ describe("rowDisplayKcal", () => {
   it("is a leaf's own line, and 0 when it carries none", () => {
     expect(rowDisplayKcal(item({ id: "x", folderId: "food", kcal: 400, qty: 2 }), [], folders)).toBe(800);
     expect(rowDisplayKcal(item({ id: "y", folderId: "food" }), [], folders)).toBe(0);
+  });
+});
+
+describe("itemDisplayName says the brand once", () => {
+  it("drops the brand when the name already opens with it", () => {
+    expect(itemDisplayName("Apple", "Apple Watch Ultra 2")).toBe("Apple Watch Ultra 2");
+    expect(itemDisplayName("Sea to Summit", "Sea to Summit Aeros Pillow", "Regular")).toBe("Sea to Summit Aeros Pillow Regular");
+    expect(itemDisplayName("apple", "Apple Watch")).toBe("Apple Watch");
+  });
+  it("keeps the brand when the name only shares its letters, or is the brand alone", () => {
+    expect(itemDisplayName("Apple", "Applecore Charger")).toBe("Apple Applecore Charger");
+    expect(itemDisplayName("Apple", "iPhone 17 Pro")).toBe("Apple iPhone 17 Pro");
+    expect(itemDisplayName("Apple", "Apple")).toBe("Apple");
+    expect(itemDisplayName(null, "Apple Watch")).toBe("Apple Watch");
+  });
+  it("is the rule the suggestion menu asks too", () => {
+    expect(nameRepeatsBrand("Apple", "Apple Watch")).toBe(true);
+    expect(nameRepeatsBrand("Apple", "iPhone")).toBe(false);
+    expect(nameRepeatsBrand("", "Apple Watch")).toBe(false);
   });
 });

@@ -1,0 +1,6 @@
+{
+  "date": "2026-09-06",
+  "fixed": [
+    "An item whose name already starts with its brand, like an Apple Watch, no longer reads the brand twice."
+  ]
+}
