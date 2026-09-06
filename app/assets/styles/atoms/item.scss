@@ -474,13 +474,14 @@
 }
 /* …lifted where containment would clip what a row hangs outside its box, since paint
    containment comes with it (measured: the suggestion menu's lower options became
-   unhittable). A row with any menu open — autocomplete, unit, ⋯, the class popovers:
-   every trigger says aria-expanded, and :has() sees a nested row's through its parent
-   — but not the group's own collapse chevron, which says it whenever a group is open
-   and would have kept every open group and its children laid out for nothing.
-   And every row while a drag is live, so the held row's shadow paints and the drop
-   targets measure true rather than at a remembered size. */
-.item-wrap:has([aria-expanded="true"]:not(.item__nestcollapse)),
+   unhittable). A row holding any .popover — autocomplete, unit, ⋯, the class popovers
+   all wear the atom — and :has() sees a nested row's through its parent. The ELEMENT,
+   not aria-expanded: a menu outlives its trigger's state by its leave transition, and
+   keyed on the state the row re-contained 20 ms into the close and cut the card off
+   at the row's edge while it faded (measured, 2026-09-05). And every row while a drag
+   is live, so the held row's shadow paints and the drop targets measure true rather
+   than at a remembered size. */
+.item-wrap:has(.popover),
 .item-wrap.is-dragging,
 .folder__bodyinner.is-dragpass .item-wrap,
 .nestcollapse.is-lifted .item-wrap {
