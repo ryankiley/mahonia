@@ -454,3 +454,35 @@
     line-height: 1.3;
   }
 }
+
+/* ---- rows off screen are not laid out ------------------------------------------
+   Typing into a name re-lays out the folder around it, and WebKit re-lays out every
+   row on the page for it: measured in Playwright WebKit at 600 rows on an M-series Mac,
+   5.6 ms a key in a plain name and 25 ms in a group's content-sized one — on a phone,
+   letters arriving after they were typed (Ryan, 2026-09-05, iPhone, a 98-item list with
+   the autocomplete open). Per-row `contain: layout` / `layout style` and `contain:
+   inline-size` on the folder bodies changed nothing; content-visibility took both to
+   ~3 ms and, the point, stopped the cost growing with the list. `auto 64px` estimates a
+   row never yet rendered and keeps the size of one that has, so the scroll height
+   settles as rows come into view. Skipped rows stay in the accessibility tree and
+   become relevant on focus, find-in-page and scrollIntoView (Safari 18+; the Safari
+   find-in-page gap was fixed in WebKit, March 2025). Print renders every row (print.scss).
+   The editor's rows only: the share views' rows carry no overlays and no typing. */
+.item-wrap {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 64px;
+}
+/* …lifted where containment would clip what a row hangs outside its box, since paint
+   containment comes with it (measured: the suggestion menu's lower options became
+   unhittable). A row with any menu open — autocomplete, unit, ⋯, the class popovers:
+   every trigger says aria-expanded, and :has() sees a nested row's through its parent
+   — but not the group's own collapse chevron, which says it whenever a group is open
+   and would have kept every open group and its children laid out for nothing.
+   And every row while a drag is live, so the held row's shadow paints and the drop
+   targets measure true rather than at a remembered size. */
+.item-wrap:has([aria-expanded="true"]:not(.item__nestcollapse)),
+.item-wrap.is-dragging,
+.folder__bodyinner.is-dragpass .item-wrap,
+.nestcollapse.is-lifted .item-wrap {
+  content-visibility: visible;
+}
