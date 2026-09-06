@@ -261,7 +261,21 @@ import { brotliCompressSync, gzipSync, constants } from "node:zlib";
 // rather than drifting back into the noise.
 //
 // 157 restores the ~2.5 KB of working headroom every anchor above argues for.
-const FIRST_LOAD_BUDGET_KB = 157;
+//
+// 157 → 162, the design review (#302) and the group row (#307, #308), measured both ways
+// as ever. main before #302 (7f9c9bf) builds to 156.9 against 157: a tenth of a KB of the
+// ~2.5 KB the last re-anchor restored was left, spent across the merges since, none of
+// them over the line. #302 adds 1.9 to first load (158.8): a way back to your last list
+// from the bare address, a fragment-less edit link that opens your own list, the
+// first-run screen standing down Export and Duplicate, Report through the feedback box,
+// and six event counters — editor surface, all of it, on the chunk every visitor gets.
+// The catalog matching an import does is on the import modal's lazy chunk and costs this
+// line nothing. The group row's calories and italic total (#307) and the totals row's
+// order (#308) add 0.3 between them (159.1). Those merged without CI running this script
+// — squashed straight from a session — so, as with 154 → 157, the first run to see the
+// number was a later PR's (#309), and this note is where it gets recorded. 162 restores
+// the ~2.9 KB of working headroom the anchors above argue for.
+const FIRST_LOAD_BUDGET_KB = 162;
 // TOTAL of every built file, the backstop. Deliberately slack: its job is to catch
 // a route chunk ballooning or a heavy dep landing somewhere unnoticed, NOT to price
 // ordinary feature work. Set clear of the current total (269.0) so it only speaks up when
@@ -329,7 +343,13 @@ const FIRST_LOAD_BUDGET_KB = 157;
 // 151.1 → 154.2 against the 157 ratchet, inside the working headroom that number was last
 // re-anchored to keep. MAX_CHUNK unmoved at 36.5 against 72. 281 restores the ~5 KB of
 // slack the re-anchors above keep arguing for.
-const TOTAL_BUDGET_KB = 281;
+//
+// 281 → 288, the same work: 279.9 before #302 against 281 (1.1 KB of slack), 283.0 after
+// it (#302's 3.1 is its share of the editor, plus the catalog-match chunk the import modal
+// loads on demand, plus the bare-address page's own chunk), 283.3 after #307 and #308.
+// MAX_CHUNK unmoved at 36.5 against 72. 288 restores the ~4.7 KB of slack the re-anchors
+// above keep arguing for.
+const TOTAL_BUDGET_KB = 288;
 // Largest single chunk, brotli. LOAD-BEARING, and the one number here that should not move
 // to accommodate a dependency: it is what a heavy map library fails. MapLibre GL ships as a
 // single ~200 KB brotli chunk and was ruled out on this line alone — a dep that needs the
