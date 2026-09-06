@@ -453,14 +453,27 @@ export function groupItemsByParent<T extends { parentId?: string | null; sortOrd
 export const bySortOrder = (a: { sortOrder: number }, b: { sortOrder: number }): number =>
   a.sortOrder - b.sortOrder;
 
+/** Does the name already open with the brand — "Apple Watch Ultra 2" under Apple,
+ *  "Sea to Summit Aeros" under Sea to Summit? Then the brand is said once, by the name.
+ *  Whole words only: "Applecore" under Apple is not a repeat. Case-insensitive, since a
+ *  name is typed and a brand is picked. */
+export const nameRepeatsBrand = (brand: string | null | undefined, name: string): boolean => {
+  const b = (brand ?? "").trim().toLowerCase();
+  if (!b) return false;
+  const n = name.trim().toLowerCase();
+  return n === b || n.startsWith(`${b} `);
+};
+
 /** Flat display name "Brand Name Variant" (brand/variant optional) — shared by
  *  exports + the editable name field. Two-arg calls (e.g. catalog search text)
- *  keep the old "Brand Name" behavior since variant defaults to undefined. */
+ *  keep the old "Brand Name" behavior since variant defaults to undefined.
+ *  The brand is dropped when the name already opens with it: an Apple Watch read
+ *  "Apple Apple Watch" (Ryan, 2026-09-06). */
 export const itemDisplayName = (
   brand: string | null | undefined,
   name: string,
   variant?: string | null,
-): string => [brand, name, variant].filter(Boolean).join(" ");
+): string => [nameRepeatsBrand(brand, name) ? null : brand, name, variant].filter(Boolean).join(" ");
 
 /**
  * Is `carriedMg` worth showing, or would it just restate a figure already on screen?

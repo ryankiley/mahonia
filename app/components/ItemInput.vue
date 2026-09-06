@@ -3,7 +3,7 @@ import { HugeiconsIcon } from "~/utils/hugeicon";
 import { DropletIcon, SafeBoxIcon } from "@hugeicons/core-free-icons";
 import type { EffectScope } from "vue";
 import type { Unit } from "~~/shared/types";
-import { formatWeight, itemDisplayName } from "~~/shared/weights";
+import { nameRepeatsBrand, formatWeight, itemDisplayName } from "~~/shared/weights";
 import { highlightParts } from "~~/shared/catalogSearch";
 import { MAX_ITEM_NAME_LEN } from "~~/shared/ops";
 import { tidyText } from "~~/shared/tidyText";
@@ -473,7 +473,7 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
                  means one thing across both surfaces and reads before the text does -->
             <HugeiconsIcon :icon="SafeBoxIcon" class="ac__mineicon" :size="14" :stroke-width="2" aria-hidden="true" />
             <span class="visually-hidden">From My Gear: </span>
-            <span v-if="opt.vault.brand" class="ac__brand t-clip">
+            <span v-if="opt.vault.brand && !nameRepeatsBrand(opt.vault.brand, opt.vault.name)" class="ac__brand t-clip">
               <span
                 v-for="(p, pi) in hl(opt.vault.brand)"
                 :key="pi"
@@ -494,7 +494,7 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
           <!-- brand shrinks first (its matched prefix + an ellipsis survive), so the
                distinguishing model name + variant stay readable on a narrow phone menu -->
           <span class="ac__name">
-            <span v-if="opt.result.brand" class="ac__brand t-clip">
+            <span v-if="opt.result.brand && !nameRepeatsBrand(opt.result.brand, opt.result.name)" class="ac__brand t-clip">
               <span
                 v-for="(p, pi) in hl(opt.result.brand)"
                 :key="pi"
