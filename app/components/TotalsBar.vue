@@ -33,6 +33,14 @@ const emit = defineEmits<{
 // noise) is a judgment about the data, shared with the social-card image via
 // totalsChips so the two renderings can't drift
 const chips = computed(() => totalsChips(props.totals));
+// The row's order — Base · Consumable · Carried | Worn | Calories · Per day — is the
+// sum it draws: what's in the pack, what in it gets eaten, what the pack weighs; then
+// what's on your body; then food. The big total above is Carried + Worn. It used to be
+// the partition in one run with Carried after a rule, which read as the sum of all
+// three, Worn included, and didn't add up (Ryan, 2026-09-05). totalsChips keeps the
+// partition order for the exports and the OG card, which print no Carried.
+const packChips = computed(() => chips.value.filter((c) => c.label !== "Worn"));
+const wornChip = computed(() => chips.value.find((c) => c.label === "Worn"));
 
 // "Carried" — base + consumable, the weight actually on your back. The three chips
 // above partition the total, so this is the one figure here that's a ROLL-UP of two of
@@ -108,7 +116,7 @@ const planTip = computed(() => {
     <div class="totals__breakdown">
       <!-- only the categories actually present show — no "Consumable 0 g" noise -->
       <div class="totals__chips">
-        <span v-for="c in chips" :key="c.label" class="chip">
+        <span v-for="c in packChips" :key="c.label" class="chip">
           <span class="t-label">{{ c.label }}</span>
           <span class="t-num">{{ formatWeight(c.mg, list.displayUnit, { withUnit: false }) }} <span class="t-muted">{{ list.displayUnit }}</span></span>
         </span>
@@ -124,36 +132,47 @@ const planTip = computed(() => {
           preferred-placement="bottom"
           text="Base + consumable: everything in the pack, nothing worn on your body."
         >
-          <span class="chip chip--sum">
+          <span class="chip">
             <span class="t-label">Carried</span>
             <span class="t-num">{{ formatWeight(totals.carriedMg, list.displayUnit, { withUnit: false }) }} <span class="t-muted">{{ list.displayUnit }}</span></span>
           </span>
         </Tooltip>
+        <!-- Worn closes the weights, apart from the run before it: the one weight that
+             isn't in the pack, so it can't read as a slice of Carried. -->
+        <span v-if="wornChip" class="chip chip--apart">
+          <span class="t-label">{{ wornChip.label }}</span>
+          <span class="t-num">{{ formatWeight(wornChip.mg, list.displayUnit, { withUnit: false }) }} <span class="t-muted">{{ list.displayUnit }}</span></span>
+        </span>
         <!-- calories sit APART from the chips on their left: those three partition the
              weight, and this is a different quantity entirely — dropping it into the
              same row would read as a fourth slice of the total. Only appears once
              something carries a value (hasKcal), so the overwhelming majority of
              lists, which will never use it, never see it. -->
-        <Tooltip
-          v-if="totals.hasKcal"
-          preferred-placement="bottom"
-          text="Food energy across everything classed as consumable."
-        >
-          <span class="chip chip--alt">
-            <span class="t-label">Calories</span>
-            <span class="t-num">{{ kcalDisplay }} <span class="t-muted">kcal</span></span>
+        <!-- Calories and Per day wrap as ONE. A "Per day" alone at the head of a line is a
+             rate cut off from the figure it's a rate of (Ryan, 2026-09-05); as a pair
+             they either fit the line or leave it together. -->
+        <span class="totals__food">
+          <Tooltip
+            v-if="totals.hasKcal"
+            preferred-placement="bottom"
+            text="Food energy across everything classed as consumable."
+          >
+            <span class="chip chip--alt">
+              <span class="t-label">Calories</span>
+              <span class="t-num">{{ kcalDisplay }} <span class="t-muted">kcal</span></span>
+            </span>
+          </Tooltip>
+          <!-- Per day: the same calories divided by the trip's own dates. It sits with
+               the calorie chip rather than behind its own rule — it IS that figure, at
+               the scale that makes it mean something. Needs both halves (kcal and a date
+               range), so it stays absent on the lists that have only one. -->
+          <Tooltip v-if="plan" preferred-placement="bottom" :text="planTip">
+            <span class="chip">
+              <span class="t-label">Per day</span>
+              <span class="t-num">{{ formatKcal(plan.kcalPerDay) }} <span class="t-muted">kcal</span></span>
+            </span>
+          </Tooltip>
           </span>
-        </Tooltip>
-        <!-- Per day: the same calories divided by the trip's own dates. It sits with
-             the calorie chip rather than behind its own rule — it IS that figure, at
-             the scale that makes it mean something. Needs both halves (kcal and a date
-             range), so it stays absent on the lists that have only one. -->
-        <Tooltip v-if="plan" preferred-placement="bottom" :text="planTip">
-          <span class="chip">
-            <span class="t-label">Per day</span>
-            <span class="t-num">{{ formatKcal(plan.kcalPerDay) }} <span class="t-muted">kcal</span></span>
-          </span>
-        </Tooltip>
       </div>
       <CategoryBar :list="list" />
     </div>
@@ -265,23 +284,30 @@ const planTip = computed(() => {
    than crowding the label — is built ENTIRELY out of space that a line break throws
    away: the row's own gap, plus a margin on the chip before it. A phone wraps this
    row, and space belonging to the separated chip (padding, or a start margin) came
-   with it: "Carried" arrived at the head of the second line with a rule against the
-   page edge and its label indented from the "Base" above it, dividing it from
-   nothing. A gap exists only BETWEEN chips on a line, and a trailing margin at the
+   with it: the set-apart chip arrived at the head of the second line with a rule
+   against the page edge and its label indented from the "Base" above it, dividing
+   it from nothing. (--apart is Worn now, the one weight not in the pack, closing the
+   Base · Consumable · Carried run; the rule used to sit on Carried.) A gap exists only BETWEEN chips on a line, and a trailing margin at the
    end of a line is invisible, so both halves of the trench simply vanish at the wrap
    and the chip starts flush. */
-.totals__chips > *:has(+ * > .chip--sum),
-.totals__chips > *:has(+ * > .chip--alt) {
+.totals__chips > *:has(+ .chip--apart),
+.totals__chips > *:has(+ * > .chip--apart),
+.totals__chips > *:has(+ .totals__food) {
   margin-inline-end: var(--space-5);
 }
 /* the rule itself hangs OUTSIDE the chip, centred in that trench — a border on the
    chip's own edge would ride into the page margin at a line break. Out there it is
    past .totals__chips' content edge, which is what the clip above is for. */
-.chip--sum,
+.totals__food {
+  display: flex;
+  gap: inherit;
+  flex: none;
+}
+.chip--apart,
 .chip--alt {
   position: relative;
 }
-.chip--sum::before,
+.chip--apart::before,
 .chip--alt::before {
   content: "";
   position: absolute;
