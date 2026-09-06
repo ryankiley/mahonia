@@ -50,7 +50,11 @@ function create() {
   let retryTimer: ReturnType<typeof setTimeout> | undefined;
   let flushFailures = 0;
   let inFlight = false;
-  let pollTimer: ReturnType<typeof setInterval> | undefined;
+  let pollTimer: ReturnType<typeof setTimeout> | undefined;
+  let polling = false;
+  // when the list last showed a sign of life — a local edit, a change adopted from
+  // elsewhere, a field taking focus, the tab coming back — sets the poll cadence
+  let liveAt = 0;
   let isEditing = false;
   // The server has no row under this token (deleted, or the link was rotated) but
   // a local copy is still on screen. Mutate's 404 is a permanent token-lookup
@@ -717,6 +721,7 @@ function create() {
 
   function dispatch(op: Op) {
     if (!snapshot.value) return;
+    wakePoll(); // an edit here is the surest sign the list is live
     // optimistic: same reducer as the server. The in-place mutation through the
     // deep ref's proxy gives precise property-level reactivity — only the touched
     // rows re-render, so a keystroke in one folder doesn't repaint every folder.
@@ -860,43 +865,80 @@ function create() {
   // commit the drop against pre-adoption geometry
   const dragging = () => useItemDnd().dragId.value != null || useFolderDnd().dragId.value != null;
 
-  function startPoll() {
-    stopPoll();
-    pollTimer = setInterval(async () => {
+  // ---- live-sync poll ----
+  // The cadence follows the list's own activity. 3 s while it is live — an edit here
+  // in the last two minutes, or a change that just arrived from elsewhere — because
+  // that is when a collaborator's next change is worth showing within a breath. A tab
+  // left open on a list nobody is touching stretches to 10 s after two quiet minutes
+  // and 30 s after ten, and snaps back on any sign of life: a keystroke, a field taking
+  // focus, the tab returning to view (which also polls at once, so a change made while
+  // it was away shows immediately). Ten times fewer requests for the common case, a
+  // solo editor reading their own list; nothing changes for two people editing
+  // together, whose edits keep both sides fast. A timeout chain rather than an
+  // interval, so the delay can move between ticks.
+  const POLL_FAST_MS = 3_000;
+  const POLL_SLOW_MS = 10_000;
+  const POLL_IDLE_MS = 30_000;
+  function pollDelay(): number {
+    const quiet = Date.now() - liveAt;
+    return quiet < 2 * 60_000 ? POLL_FAST_MS : quiet < 10 * 60_000 ? POLL_SLOW_MS : POLL_IDLE_MS;
+  }
+  function schedulePoll(delay = pollDelay()) {
+    clearTimeout(pollTimer);
+    pollTimer = setTimeout(pollTick, delay);
+  }
+  /** Note a sign of life. `now` also polls straight away — the tab just came back. */
+  function wakePoll(now = false) {
+    liveAt = Date.now();
+    if (polling && now) schedulePoll(0);
+  }
+  async function pollTick() {
+    pollTimer = undefined;
+    const myEpoch = epoch;
+    try {
       if (typeof document !== "undefined" && document.hidden) return;
       if (!online.value) return; // nothing to pull while the connection is down
       if (inFlight || pending.length || !snapshot.value || dragging()) return;
-      const myEpoch = epoch;
-      try {
-        const res = await $fetch<{ version: number; snapshot?: ListSnapshot }>(
-          "/api/edit/changes",
-          { headers: authHeaders(), query: { since: snapshot.value.version } },
-        );
-        if (myEpoch !== epoch) return;
-        // adopt only a strictly-newer snapshot, and only when not mid-write/edit —
-        // so a slow poll can't clobber a fresher flushed state with stale data
-        if (
-          res.snapshot &&
-          snapshot.value &&
-          res.snapshot.version > snapshot.value.version &&
-          !isEditing &&
-          !pending.length &&
-          !inFlight &&
-          !dragging()
-        ) {
-          reconcileSnapshot(snapshot.value, res.snapshot); // in place — see flush()
-          syncRegistry();
-          // mirror the adopted merge on device — the guards above guarantee the
-          // queue is empty, so a hard tab kill can't leave a stale local copy
-          persistLocal();
-        }
-      } catch {
-        /* transient */
+      const res = await $fetch<{ version: number; snapshot?: ListSnapshot }>(
+        "/api/edit/changes",
+        { headers: authHeaders(), query: { since: snapshot.value.version } },
+      );
+      if (myEpoch !== epoch) return;
+      // adopt only a strictly-newer snapshot, and only when not mid-write/edit —
+      // so a slow poll can't clobber a fresher flushed state with stale data
+      if (
+        res.snapshot &&
+        snapshot.value &&
+        res.snapshot.version > snapshot.value.version &&
+        !isEditing &&
+        !pending.length &&
+        !inFlight &&
+        !dragging()
+      ) {
+        reconcileSnapshot(snapshot.value, res.snapshot); // in place — see flush()
+        syncRegistry();
+        // mirror the adopted merge on device — the guards above guarantee the
+        // queue is empty, so a hard tab kill can't leave a stale local copy
+        persistLocal();
+        wakePoll(); // someone else is here: stay quick for them
       }
-    }, 3000);
+    } catch {
+      /* transient */
+    } finally {
+      // the chain goes on only for the session that started it — a load() that
+      // superseded this one mid-flight has a chain of its own
+      if (polling && myEpoch === epoch) schedulePoll();
+    }
+  }
+  function startPoll() {
+    stopPoll();
+    polling = true;
+    liveAt = Date.now(); // a list just opened is live
+    schedulePoll();
   }
   function stopPoll() {
-    if (pollTimer) clearInterval(pollTimer);
+    polling = false;
+    clearTimeout(pollTimer);
     pollTimer = undefined;
   }
 
@@ -904,8 +946,10 @@ function create() {
     if (typeof window === "undefined" || teardownListeners) return; // once only
     const isField = (el: EventTarget | null) =>
       el instanceof HTMLElement && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName);
-    const onFocusIn = (e: FocusEvent) => { if (isField(e.target)) isEditing = true; };
+    const onFocusIn = (e: FocusEvent) => { if (isField(e.target)) { isEditing = true; wakePoll(); } };
     const onFocusOut = () => { isEditing = false; };
+    // back in view: poll now rather than wherever the idle cadence had got to
+    const onVisibility = () => { if (!document.hidden) wakePoll(true); };
     // warn before leaving with unsynced edits — but offline edits are safely held
     // on device (IndexedDB), so only nag when a server sync is pending AND reachable.
     // A dead-token queue (remoteMissing) can never sync, so it never nags either.
@@ -915,10 +959,12 @@ function create() {
     window.addEventListener("focusin", onFocusIn);
     window.addEventListener("focusout", onFocusOut);
     window.addEventListener("beforeunload", onBeforeUnload);
+    document.addEventListener("visibilitychange", onVisibility);
     teardownListeners = () => {
       window.removeEventListener("focusin", onFocusIn);
       window.removeEventListener("focusout", onFocusOut);
       window.removeEventListener("beforeunload", onBeforeUnload);
+      document.removeEventListener("visibilitychange", onVisibility);
       teardownListeners = undefined;
     };
   }
