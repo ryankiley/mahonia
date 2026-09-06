@@ -3,8 +3,15 @@
 // an unsaved draft or an un-acked op survives a reload, a crash, or a dropped
 // connection. Pure + framework-agnostic (so it's unit-testable); the IndexedDB
 // plumbing lives in app/composables/useLocalListStore.ts.
+//
+// Imports only a TYPE from the reducer, and that is load-bearing: the claimed-list
+// composable reads a key helper from here, the session plugin pulls that composable
+// in, and so this file is on every page's boot path. A value import of applyOps
+// (which rebaseOnto used to make here) carried the whole reducer and everything it
+// folds in — the trail, polyline and profile arithmetic — onto the About page and
+// the share views, none of which edit anything.
 
-import { applyOps, type Op } from "./ops";
+import type { Op } from "./ops";
 import type { ListSnapshot } from "./types";
 
 /** A list persisted to this browser's IndexedDB so its edits survive a reload. */
@@ -42,16 +49,3 @@ export const localKey = (editToken: string): string => editToken || DRAFT_KEY;
  *  the claimed record simply goes quiet, and re-opening by claim drains any queue
  *  it was still holding. */
 export const claimedLocalKey = (shareCode: string): string => `code:${shareCode}`;
-
-/**
- * Rebase un-acked local ops onto the authoritative server snapshot — the same
- * merge the editor's flush() does, but returning a fresh object so the server
- * snapshot passed in is left untouched. Used when hydrating a list on load: the
- * server is the source of truth, with the device's pending edits replayed on top.
- */
-export function rebaseOnto(server: ListSnapshot, pending: Op[]): ListSnapshot {
-  if (!pending.length) return server;
-  const next = structuredClone(server);
-  applyOps(next, pending);
-  return next;
-}

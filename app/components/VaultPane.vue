@@ -5,7 +5,7 @@ import type { VaultEntry, VaultFolder } from "~~/shared/vault";
 import { vaultNormKey } from "~~/shared/vault";
 import { rankVaultRows } from "~~/shared/vaultSearch";
 import { groupVaultRows } from "~~/shared/vaultView";
-import { highlightParts } from "~~/shared/catalogSearch";
+import { highlightParts } from "~~/shared/searchText";
 import { formatWeight, itemDisplayName } from "~~/shared/weights";
 import { foldApostrophes } from "~~/shared/tidyText";
 

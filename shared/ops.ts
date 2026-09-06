@@ -8,7 +8,7 @@ import { parseProfile } from "./profile";
 import { tidyProse, tidyText } from "./tidyText";
 import { boundedRound, normalizeDistanceUnit, normalizeTrailAscentM, normalizeTrailDistanceM } from "./trailDistance";
 import { normalizeTrailLabel, normalizeTrailUrl, safeUrl } from "./trailLink";
-import type { Classification, Folder, Item, ListMeta, ListState, Person, TripDay, Unit, Waypoint } from "./types";
+import type { Classification, Folder, Item, ListMeta, ListSnapshot, ListState, Person, TripDay, Unit, Waypoint } from "./types";
 import { UNITS, WAYPOINT_KINDS } from "./types";
 import { personNameTaken, UNASSIGNED } from "./people";
 import { cumulativeM, decodePolyline, isLoop, normalizeRouteGeometry } from "./polyline";
@@ -910,4 +910,19 @@ export function normalizeFolder(raw: Folder): Folder {
     // every folder is in drag order now, and the field has no reader left
     sortOrder: Number(raw.sortOrder) || 0,
   };
+}
+
+/**
+ * Rebase un-acked local ops onto the authoritative server snapshot — the same
+ * merge the editor's flush() does, but returning a fresh object so the server
+ * snapshot passed in is left untouched. Used when hydrating a list on load: the
+ * server is the source of truth, with the device's pending edits replayed on top.
+ * Beside applyOps rather than in shared/localList.ts, which sits on every page's
+ * boot path and must not pull the reducer in with it.
+ */
+export function rebaseOnto(server: ListSnapshot, pending: Op[]): ListSnapshot {
+  if (!pending.length) return server;
+  const next = structuredClone(server);
+  applyOps(next, pending);
+  return next;
 }

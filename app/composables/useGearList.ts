@@ -1,9 +1,9 @@
 import type { DayPatch, ItemPatch, Op } from "~~/shared/ops";
-import { applyOps, seedRouteEnds, tidyListText } from "~~/shared/ops";
+import { applyOps, seedRouteEnds, tidyListText, rebaseOnto } from "~~/shared/ops";
 import { uid } from "~~/shared/id";
 import { colorKeyForName, nextFolderColor, STARTER_FOLDERS } from "~~/shared/categories";
 import { LIST_CODE_HEADER, editLinkPath, normalizeShareCode } from "~~/shared/links";
-import { DRAFT_KEY, claimedLocalKey, hasRealContent, localKey, rebaseOnto } from "~~/shared/localList";
+import { DRAFT_KEY, claimedLocalKey, hasRealContent, localKey } from "~~/shared/localList";
 import { sortedPeople } from "~~/shared/people";
 import { reconcileSnapshot } from "~~/shared/reconcile";
 import type { Folder, Item, ListSnapshot, Person, Unit, Waypoint, WaypointKind } from "~~/shared/types";

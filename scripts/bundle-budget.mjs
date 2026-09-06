@@ -275,7 +275,31 @@ import { brotliCompressSync, gzipSync, constants } from "node:zlib";
 // — squashed straight from a session — so, as with 154 → 157, the first run to see the
 // number was a later PR's (#309), and this note is where it gets recorded. 162 restores
 // the ~2.9 KB of working headroom the anchors above argue for.
-const FIRST_LOAD_BUDGET_KB = 162;
+//
+// 162 → 151, and this one is a re-anchor DOWNWARD after a loading pass, measured both
+// ways on the same tree and lockfile: 158.4 KB / 45 files before, 148.5 KB / 22 files
+// after. Nothing was removed from the editor; the bytes stopped being split. The
+// bundler cuts one chunk per distinct set of importers, so every module the app shell
+// shares with a lazy panel or a route had its own file — 39 scripts on this line, 22 of
+// them under 1 KB brotli, one carrying a 27-byte module — and the split cost ~17 KB of
+// compression at the file boundaries on top of the requests. nuxt.config's codeSplitting
+// groups merge the boot graph into a framework chunk and a boot chunk (the reasoning is
+// there); the payload the prerendered pages fetched separately is inlined; the bare
+// address renders the editor instead of redirecting an empty page to it, so its HTML
+// preloads the editor's chunks alongside the shell's (it used to fetch them a round trip
+// after mount — and this line, measured from /e, never saw that); and two modules that
+// only the offline ranker and the reducer needed left the hot path of every page (the
+// text folds moved to shared/searchText.ts, rebaseOnto moved beside applyOps). The
+// share views dropped 129.4 → 116.6 and About 106.5 → 90.6 from the same work, which
+// this line doesn't measure either.
+//
+// The number you see here is the editor's; the editor is the one route that needs the
+// reducer, so moving it off the shell cost this line 1.1 KB and four files against the
+// 6 KB every other page saved. 151 keeps the ~2.5 KB of working headroom the anchors
+// above argue for. The largest chunk is now the framework (`vendor`, 52.9 KB) rather
+// than Leaflet, and that is the point of the split: vue, vue-router and unhead only
+// change hash on a dependency bump, so a returning visitor keeps them across deploys.
+const FIRST_LOAD_BUDGET_KB = 151;
 // TOTAL of every built file, the backstop. Deliberately slack: its job is to catch
 // a route chunk ballooning or a heavy dep landing somewhere unnoticed, NOT to price
 // ordinary feature work. Set clear of the current total (269.0) so it only speaks up when
@@ -349,12 +373,21 @@ const FIRST_LOAD_BUDGET_KB = 162;
 // loads on demand, plus the bare-address page's own chunk), 283.3 after #307 and #308.
 // MAX_CHUNK unmoved at 36.5 against 72. 288 restores the ~4.7 KB of slack the re-anchors
 // above keep arguing for.
-const TOTAL_BUDGET_KB = 288;
+//
+// 288 → 278, the same re-anchor: 282.6 KB / 111 files → 272.3 KB / 88 files, all of it
+// the boot-graph merge above (fewer files compress better) — nothing left the build.
+// 278 restores the ~5.7 KB of slack the re-anchors above keep arguing for.
+const TOTAL_BUDGET_KB = 278;
 // Largest single chunk, brotli. LOAD-BEARING, and the one number here that should not move
 // to accommodate a dependency: it is what a heavy map library fails. MapLibre GL ships as a
 // single ~200 KB brotli chunk and was ruled out on this line alone — a dep that needs the
 // budget tripled is precisely what the budget is for. Leaflet lands at 36.5 KB, half of it,
 // which is why it was the one that could be taken. Unchanged by the map work.
+// Since the boot-graph merge the largest chunk is the framework runtime (`vendor`,
+// 52.9 KB, vue + vue-router + unhead + ofetch and friends), not Leaflet — a 52.9 KB
+// chunk that every page needs before it can render anything, which is exactly what the
+// cap is NOT for. Unchanged at 72: a heavy map library still fails it, and the vendor
+// chunk only moves on a dependency bump.
 const MAX_CHUNK_BUDGET_KB = 72;
 
 // First build output that exists: node-server / static generate, or the Vercel

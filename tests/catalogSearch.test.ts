@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   hasTokenHit,
-  highlightParts,
   isExactOrPrefixMatch,
   isSearchTermRun,
   matchTier,
@@ -13,6 +12,7 @@ import {
   STRONG_THRESHOLD,
   type LocalCatalogRow,
 } from "../shared/catalogSearch";
+import { highlightParts } from "../shared/searchText";
 
 // The one home for trigram behaviour: the server re-exports trigramScore from
 // this same module (server/utils/catalog.ts), so covering it here covers both.

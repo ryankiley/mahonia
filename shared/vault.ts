@@ -10,7 +10,7 @@
 // So a vault row is keyed by its TEXT, not by a catalog id: two list rows are the
 // same gear when their brand + name + variant fold to the same string.
 
-import { foldForSearch } from "./catalogSearch";
+import { foldForSearch } from "./searchText";
 import type { Classification, Item } from "./types";
 
 /** Max vault suggestions returned to the autocomplete. Deliberately smaller than

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { DRAFT_KEY, localKey, rebaseOnto } from "../shared/localList";
+import { DRAFT_KEY, localKey } from "../shared/localList";
+import { rebaseOnto } from "../shared/ops";
 import type { ListSnapshot } from "../shared/types";
 
 // A small authoritative snapshot, as the server would return it.

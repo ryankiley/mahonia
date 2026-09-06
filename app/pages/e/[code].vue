@@ -17,7 +17,18 @@ const code = computed(() => String(route.params.code || ""));
 // JS. Read-only + side-effect-free (no view bump); resolves for private lists too,
 // since the share code is a capability. A bad/unknown code → data null → the
 // generic card, and the editor still opens from the fragment token.
-const { data } = await useFetch<{ snapshot: ListSnapshot }>(() => `/api/s/${code.value}`);
+//
+// SERVER ONLY. On a hydrating page the data arrives in the payload; on an in-app
+// navigation here — the switcher, the bare address resuming a list — nobody reads
+// this head: the editor mounts, loads the list itself and titles the tab from it.
+// The default would have fetched anyway, and because this setup awaits it, held the
+// editor's mount until /api/s answered — a round trip, and a function invocation,
+// spent on a title that is overwritten as soon as it lands. `watch: false` for the
+// same reason: a change of code remounts the page, so there is nothing to track.
+const { data } = await useFetch<{ snapshot: ListSnapshot }>(() => `/api/s/${code.value}`, {
+  immediate: import.meta.server,
+  watch: false,
+});
 const snap = computed<ListSnapshot | null>(() => data.value?.snapshot ?? null);
 
 // naming rule + description builder live in editorSeo (app/utils/editorSeo.ts), the
