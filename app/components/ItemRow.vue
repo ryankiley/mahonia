@@ -2561,7 +2561,10 @@ function dismissFix() {
    weights beside it never move. :focus-within also holds them while a row's own
    popover is open. */
 @media (hover: hover) and (pointer: fine) {
-  .item-row .item__vault-btn,
+  /* :not(.is-active) — a SAVED row's tick is state, not a control waiting to be used,
+     and hiding it with the rest left nothing on a desktop row to say the item was in
+     the vault until the mouse found it (the #302 review, 2026-09-05). */
+  .item-row .item__vault-btn:not(.is-active),
   .item-row .item__nestact,
   .item-row .item__dup,
   .item-row .item__del {

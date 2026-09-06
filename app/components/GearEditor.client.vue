@@ -2,6 +2,7 @@
 import { HugeiconsIcon, type IconNode } from "~/utils/hugeicon";
 import { Backpack02Icon, Bug02Icon, CheckmarkSquare02Icon, CopyPlusIcon, Delete02Icon, EllipsisIcon, FileExportIcon, FileImportIcon, KeyboardIcon, RemoveCircleIcon, Route02Icon, SafeBoxIcon, Share08Icon, UndoIcon, UserAddIcon } from "@hugeicons/core-free-icons";
 import { editLinkPath, normalizeShareCode } from "~~/shared/links";
+import { resumeTarget } from "~~/shared/switcher";
 import { tripHeadline } from "~~/shared/trailDistance";
 import { formatWeight } from "~~/shared/weights";
 import { chipWeightLabels, filterItemsForPerson, hasUnassignedTopLevel, personName, personSlot, selectionGone, sortedPeople, UNASSIGNED } from "~~/shared/people";
@@ -375,6 +376,24 @@ function commitAddFolder() {
 }
 
 const route = useRoute();
+// A resume that lands on a DEAD list is not an error page's business. The bare address
+// picks this browser's most recently opened list without asking the server whether
+// its token still works (shared/switcher resumeTarget), so a list deleted or rotated
+// on another device would have greeted you with "can't be opened anymore" instead of
+// your list. Drop the dead entry and go where the bare address would have gone
+// without it: the next list this browser holds, or a fresh draft. Only for a resume:
+// a dead link you opened yourself still gets the message, which is the honest answer
+// to that link.
+watch(status, (s) => {
+  if (s !== "missing" || !resumed.value) return;
+  const code = normalizeShareCode(typeof route.params.code === "string" ? route.params.code : "");
+  if (!code || code !== resumed.value) return;
+  const token = decodeURIComponent(route.hash.replace(/^#/, ""));
+  if (token) my.forget(token);
+  const next = resumeTarget(my.entries.value);
+  resumed.value = next?.shareCode ?? null;
+  navigateTo(next?.to ?? "/e", { replace: true });
+});
 // The epoch of the session THIS instance started. On an /e ↔ /e/[code] route
 // swap, Nuxt runs the incoming page's setup (whose watcher below starts a new
 // session) BEFORE this instance unmounts — passing our own epoch lets dispose()

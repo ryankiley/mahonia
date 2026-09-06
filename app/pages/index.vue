@@ -8,6 +8,10 @@
 import { resumeTarget } from "~~/shared/switcher";
 
 definePageMeta({ layout: false });
+// Prerendered as an empty shell that resolves on the client (below), so to a crawler it
+// is a blank homepage: keep it out of the index. The indexable surface stays /about
+// and /legal; the app itself lives behind unguessable links.
+useHead({ meta: [{ name: "robots", content: "noindex" }] });
 const my = useMyLists();
 const resumed = useResumed();
 onMounted(() => {

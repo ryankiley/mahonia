@@ -41,7 +41,13 @@ export const PWA_OPTIONS: Partial<ModuleOptions> = {
   devOptions: { enabled: false },
   workbox: {
     // precache the client shell (hashed JS/CSS/fonts) so it boots from cache
-    globPatterns: ["**/*.{js,css,woff2}"],
+    // …plus the prerendered bare address, the manifest's start_url: a static shell that
+    // only resolves on the client (app/pages/index.vue), so it belongs in the precache
+    // — an installed app launched offline gets it instantly, then the client resolves
+    // to the last list from the runtime-cached /e shell below. Without it the launch
+    // was a browser error page: nothing below matches "/", and navigateFallback is
+    // deliberately empty.
+    globPatterns: ["**/*.{js,css,woff2}", "index.html"],
     // Disable the plugin's default catch-all navigation fallback: it binds to a
     // non-precached "/" (the auto-precache of the fallback only runs in dev, not
     // the prod build), so it would throw on every navigation. The `/e` route
