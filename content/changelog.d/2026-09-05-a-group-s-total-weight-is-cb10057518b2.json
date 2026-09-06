@@ -1,0 +1,6 @@
+{
+  "date": "2026-09-05",
+  "changed": [
+    "A group's total weight is set in italic, so it reads as the sum of the items inside rather than a weight of its own."
+  ]
+}

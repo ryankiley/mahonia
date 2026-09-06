@@ -1,0 +1,9 @@
+{
+  "date": "2026-09-05",
+  "added": [
+    "A group's row shows the calories of the items inside it, in the column beside its total weight, in the editor and the shared view."
+  ],
+  "fixed": [
+    "The quantity field shows its cursor and full-strength digits again."
+  ]
+}
