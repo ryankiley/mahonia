@@ -272,6 +272,29 @@ export function groupLineMg(item: Item, items: readonly Item[]): number {
 export const rowDisplayMg: (item: Item, children: readonly Item[]) => number = groupLineMg;
 
 /**
+ * A row's calories, under the one rule computeTotals counts by: consumable rows only
+ * (by EFFECTIVE class, so a folder's default counts), kcal each × qty. Anything else
+ * is 0, so a base row's stray kcal can never show a figure the total didn't count.
+ */
+export function lineKcal(item: Pick<Item, "kcal" | "qty" | "classification" | "folderId">, folders: Folder[]): number {
+  if (effectiveClassification(item, folders) !== "consumable") return 0;
+  return item.kcal != null && item.kcal > 0 ? item.kcal * Math.max(0, item.qty) : 0;
+}
+
+/**
+ * What a row's kcal readout shows: a group's total (own + children) for a parent, its
+ * own line for a leaf — rowDisplayMg's counterpart, rendered by the editor's ItemRow
+ * (both faces) and the share views' ReadonlyItemRow, so a group's calories can't
+ * drift between them any more than its weight can. `children` is this row's own
+ * children (already filtered), so the sum is O(children).
+ */
+export function rowDisplayKcal(item: Item, children: readonly Item[], folders: Folder[]): number {
+  let kcal = lineKcal(item, folders);
+  for (const child of children) if (child.parentId === item.id) kcal += lineKcal(child, folders);
+  return kcal;
+}
+
+/**
  * Does this row's OWN line carry anything — a weight, or calories?
  *
  * The two numbers `qty` multiplies. Both are counted whatever the row's class says: kcal

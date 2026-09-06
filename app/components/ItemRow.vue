@@ -51,7 +51,7 @@ import type { ItemPatch } from "~~/shared/ops";
 import { MAX_GEAR_TYPE_LEN, MAX_ITEM_NOTE_LEN } from "~~/shared/ops";
 import { effectivePersonId, personColor } from "~~/shared/people";
 import type { NameCommit } from "~/composables/useCatalogSearch";
-import { bySortOrder, effectiveClassification, entryUnitFromInput, formatKcal, formatWeight, fromMg, groupLineMg, isBareGroup, itemDisplayName, parseWeightInput, rowDisplayMg, siblingItems, splitWornQty, storedClassification } from "~~/shared/weights";
+import { bySortOrder, effectiveClassification, entryUnitFromInput, formatKcal, rowDisplayKcal, formatWeight, fromMg, groupLineMg, isBareGroup, itemDisplayName, parseWeightInput, rowDisplayMg, siblingItems, splitWornQty, storedClassification } from "~~/shared/weights";
 import { isWaterName, itemQtyLabel, waterLiters, waterMgFromMl } from "~~/shared/water";
 // the same worthiness + identity rules the capture path runs, so "already banked"
 // below can only ever claim what capture would actually take (statically imported
@@ -314,6 +314,10 @@ const groupWeight = computed(() =>
   formatWeight(groupLineMg(props.item, children.value), rowUnit.value, { withUnit: false }),
 );
 
+// the calories a group's row reads out — the rows inside it, under the rule the
+// totals bar counts by (rowDisplayKcal). A leaf reads nothing here: its kcal lives in
+// the consumable popover, which a bare group no longer has (#299).
+const rowKcal = computed(() => rowDisplayKcal(props.item, children.value, props.list.folders));
 const effClass = computed(() =>
   effectiveClassification(props.item, props.list.folders),
 );
@@ -1140,7 +1144,7 @@ function dismissFix() {
         <HugeiconsIcon :icon="SquareIcon" class="check__icon check__icon--empty" :size="20" :stroke-width="1.33" absolute-stroke-width aria-hidden="true" />
         <HugeiconsIcon :icon="CheckmarkSquare02Icon" class="check__icon check__icon--check" :size="20" :stroke-width="1.33" absolute-stroke-width aria-hidden="true" />
       </span>
-      <span class="item__cname" :class="{ 'item__cname--group': isParent }"><ItemName :item="item" :group="isParent" /><!--
+      <span class="item__cname" :class="{ 'item__cname--group': isParent }"><ItemName :item="item" :group="isParent" /><span v-if="isParent && rowKcal > 0" class="t-sm t-muted item__gkcalinline"> · {{ formatKcal(rowKcal) }} kcal</span><!--
           the carrier, riding the name cell (display-only — this face is a <label>
           over a checkbox, so a control here would toggle the tick). Only their own
           claim is tagged: children of a claimed group inherit silently, or a
@@ -1214,6 +1218,10 @@ function dismissFix() {
             @mousedown.prevent
             @toggle="toggleNest"
           />
+          <!-- a group that keeps its class marks (#299: one carrying a line of its own)
+               reads its calories here, on the name line; a bare group's go in the class
+               column below, where its rows' consumable marks are. -->
+          <span v-if="isParent && rowKcal > 0 && classCellShown" class="t-sm t-muted item__gkcalinline" title="Calories in this group">· {{ formatKcal(rowKcal) }} kcal</span>
         </div>
         <!-- sub-line: the gear type (a quiet upright label) and, under it, the freeform note;
              both single-line live-text fields, showing whenever they hold a value or the
@@ -1495,6 +1503,13 @@ function dismissFix() {
                eye reads it as covering the total beside it. A group carrying a line of
                its own keeps the marks — there the class does decide which bucket that
                line lands in. -->
+          <!-- what the group holds, in calories: a day's meals answer "how much food?"
+               from the row. A bare group's class cell is empty (#299), so the figure
+               takes that column — above its rows' consumable marks, which is where the
+               eye already goes for "food" — in the same muted italic voice as the total
+               beside it (Ryan, 2026-09-05). The share view prints the same words in the
+               same column. -->
+          <div v-if="isParent && rowKcal > 0 && !classCellShown" class="t-sm t-muted item__gkcal" title="Calories in this group">{{ formatKcal(rowKcal) }} kcal</div>
           <div v-if="classCellShown" class="item__classcell">
             <div v-if="!isWater" ref="kcalRootRef" class="menu item__cls">
               <Tooltip text="Consumable" :disabled="isKcalOpen" preferred-placement="top">
@@ -2101,19 +2116,49 @@ function dismissFix() {
 /* let the number input shrink so its unit suffix (L / lb) stays on the same line
    in the narrow columns instead of wrapping below */
 .item__qty .field,
+.item__weight .field {
+  min-width: 0;
+}
 /* A DERIVED weight — a group's total, water's litres-to-grams — is read, not typed
    (the input is readonly, and onWeight refuses it). It kept every affordance of a
    field all the same, so the parent of a nested group read as editable (Ryan,
    2026-09-05). Same box, so the column doesn't move; muted ink, an arrow cursor and no
    caret, so the number reads as a figure. The unit chevron beside it stays live: the
-   group's unit is still yours to pick. */
+   group's unit is still yours to pick.
+   And ITALIC, number and unit both: the row's own vocabulary for "derived". A group's
+   type line is already set in italic, and a total in the same voice reads as a sum of
+   the items inside rather than a weight of its own (Ryan, 2026-09-05: chosen over a
+   glyph before the figure, which would be one more mark to learn on the row #299 just
+   quieted). The chevron is a glyph, so it stays upright. */
 .item__weight .field:read-only {
   color: var(--ink-2);
   cursor: default;
   caret-color: transparent;
+  font-style: italic;
 }
-.item__weight .field {
-  min-width: 0;
+.item__weight:has(.field:read-only) .item__unit {
+  font-style: italic;
+}
+/* the group's calorie readout in the class column: the classification cell's box
+   (a --field-h box pinned to the row's top, so the figure centres on the name line
+   whatever opens under the name), the figure centred in it like the marks it stands
+   in for, in the derived voice of the total beside it. Never wraps: a five-figure
+   day spills the column's edges by a few px rather than breaking "kcal" onto a line. */
+.item__gkcal {
+  grid-area: class;
+  align-self: start;
+  height: var(--field-h);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-style: italic;
+  white-space: nowrap;
+}
+/* …and on the name line, where a group that kept its marks reads it */
+.item__gkcalinline {
+  font-style: italic;
+  white-space: nowrap;
+  margin-left: var(--space-1);
 }
 /* ---- the quantity stepper: − · the number · + ----
    CENTRED in the row rather than baseline-aligned, the classification cell's fix for
@@ -3111,6 +3156,9 @@ textarea.item__note {
     margin-left: auto;
   }
   .item__classcell {
+    flex: none;
+  }
+  .item__gkcal {
     flex: none;
   }
   /* the number fields have no grid column to fill on mobile, so give them compact

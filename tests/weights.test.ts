@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
+import { rowDisplayKcal,
   carriesContent,
   carriesOwnLine,
   computeTotals,
@@ -667,5 +667,32 @@ describe("parseWeightInput — a stray number is not part of the weight", () => 
     expect(entryUnitFromInput("32.5 oz (921 g)")).toBe("oz");
     expect(entryUnitFromInput("2 lb 3 oz")).toBeNull();
     expect(entryUnitFromInput("size 2 / 400 g")).toBe("g");
+  });
+});
+
+describe("rowDisplayKcal", () => {
+  const folders: Folder[] = [
+    { id: "food", name: "Food", defaultClassification: "consumable", sortOrder: 0 },
+    { id: "gear", name: "Gear", defaultClassification: "base", sortOrder: 1 },
+  ];
+  it("sums a group's consumable rows, kcal each × qty, own line included", () => {
+    const g = item({ id: "g", folderId: "food", kcal: 100 });
+    const kids = [
+      item({ id: "a", folderId: "food", parentId: "g", kcal: 600, qty: 2 }),
+      item({ id: "b", folderId: "food", parentId: "g", kcal: 250, qty: 3 }),
+    ];
+    expect(rowDisplayKcal(g, kids, folders)).toBe(100 + 1200 + 750);
+  });
+  it("counts by the effective class, as the totals do, so a base row's kcal never shows", () => {
+    const g = item({ id: "g", folderId: "gear" });
+    const kids = [
+      item({ id: "a", folderId: "gear", parentId: "g", kcal: 600 }),
+      item({ id: "b", folderId: "gear", parentId: "g", kcal: 300, classification: "consumable" }),
+    ];
+    expect(rowDisplayKcal(g, kids, folders)).toBe(300);
+  });
+  it("is a leaf's own line, and 0 when it carries none", () => {
+    expect(rowDisplayKcal(item({ id: "x", folderId: "food", kcal: 400, qty: 2 }), [], folders)).toBe(800);
+    expect(rowDisplayKcal(item({ id: "y", folderId: "food" }), [], folders)).toBe(0);
   });
 });

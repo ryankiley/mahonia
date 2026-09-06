@@ -10,7 +10,7 @@ const NO_ITEMS: ItemT[] = [];
 import { HugeiconsIcon } from "~/utils/hugeicon";
 import { personColor } from "~~/shared/people";
 import type { Classification, Item, ListSnapshot } from "~~/shared/types";
-import { effectiveClassification, formatKcal, formatWeight, isBareGroup, rowDisplayMg, splitWornQty } from "~~/shared/weights";
+import { effectiveClassification, formatKcal, formatWeight, isBareGroup, rowDisplayMg, splitWornQty, rowDisplayKcal } from "~~/shared/weights";
 import { itemQtyLabel } from "~~/shared/water";
 import { classLabel, classMark } from "~/utils/itemMarks";
 
@@ -69,11 +69,13 @@ const rowUnit = computed(() => props.item.entryUnit ?? props.list.displayUnit);
 // shared food list could show "2,430 kcal" with nothing saying where it came from.
 // Gated on the EFFECTIVE class, the same condition computeTotals counts under, so what
 // a reader can see and what the total counted never disagree.
-const lineKcal = computed(() =>
-  effClass.value === "consumable" && props.item.kcal
-    ? props.item.kcal * (props.item.qty || 0)
-    : 0,
-);
+// A GROUP shows the calories of the rows inside it (rowDisplayKcal, the rule both
+// views render): a day's meals folded into one row still answer "how much food is
+// this?" without opening it.
+// On the NAME line, where every read row's calories go — not in the class column the
+// editor seats a group's in: this row's column is cut for two 16px marks, and the
+// figure spilling out of it ran into the weight (measured, 2026-09-05).
+const lineKcal = computed(() => rowDisplayKcal(props.item, children.value, props.list.folders));
 // A base row with a worn SPLIT counts as worn here exactly as it does in the editor
 // (ItemRow's isWorn): the row has something on your body, so the column says so.
 const splitWorn = computed(() => splitWornQty(props.item, effClass.value));
@@ -145,7 +147,7 @@ const rowPerson = computed(() =>
   <div class="ro-wrap">
     <div class="item-row item item--ro">
       <span class="item__roname t-clip" :class="{ 'item__roname--group': isParent }">
-        <span class="item__ronametext" :class="{ 't-clip': isParent }"><ItemName :item="item" :group="isParent" search /><span v-if="lineKcal" class="t-sm item__class"> · {{ formatKcal(lineKcal) }} kcal</span><!--
+        <span class="item__ronametext" :class="{ 't-clip': isParent }"><ItemName :item="item" :group="isParent" search /><span v-if="lineKcal" class="t-sm item__class" :class="{ 'item__class--derived': isParent }"> · {{ formatKcal(lineKcal) }} kcal</span><!--
           who carries it — the dot names the person in colour, the hidden text names
           them for flattened readers of this SSR'd page (the class-mark precedent)
         --><span v-if="rowPerson" class="t-sm item__carrier"><span class="swatch item__carrier-dot" :style="{ background: personColor(rowPerson) }" aria-hidden="true" /><span class="item__carrier-name">{{ rowPerson.name }}</span><span class="visually-hidden"> carries this</span></span></span>
@@ -180,7 +182,7 @@ const rowPerson = computed(() =>
            the cell's own right edge — 20px right of where every number in the column
            stops, since a number ends where the 2ch unit slot begins. It is standing in
            for the number, so it belongs in the number's place. -->
-      <span class="t-num item__roweight"><template v-if="isContextOnly" /><template v-else-if="rowWeightMg > 0">{{ formatWeight(rowWeightMg, rowUnit, { withUnit: false }) }}<span class="t-muted item__wunit">{{ rowUnit }}</span></template><template v-else>—<span class="item__wunit" /></template></span>
+      <span class="t-num item__roweight" :class="{ 'item__roweight--derived': isParent }"><template v-if="isContextOnly" /><template v-else-if="rowWeightMg > 0">{{ formatWeight(rowWeightMg, rowUnit, { withUnit: false }) }}<span class="t-muted item__wunit">{{ rowUnit }}</span></template><template v-else>—<span class="item__wunit" /></template></span>
       <!-- CLASSIFICATION — a shirt for worn, a cookie for consumable (a droplet when
            the consumable is water), a backpack for a base row that has departed from a
            classed folder. See `showMark`: the mark is drawn only where the row differs
@@ -267,6 +269,13 @@ const rowPerson = computed(() =>
 /* the read-only name is a web-search link (look up / buy the gear) — see ItemName.vue,
    which owns the dotted underline + search icon so the underline wraps only the product
    name, not the variant. */
+/* a group's total is a sum of the rows inside, not a weight of its own: italic, the
+   editor's voice for a derived figure (ItemRow's read-only weight), so the two views
+   agree on what a total looks like */
+.item__roweight--derived,
+.item__class--derived {
+  font-style: italic;
+}
 .item__roweight {
   text-align: right;
 }
