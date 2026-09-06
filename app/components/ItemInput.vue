@@ -557,6 +557,27 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
   /* the pop-in scales from where the menu hangs off the input (kebab: top right) */
   transform-origin: top left;
 }
+/* The EXIT folds. The card wipes upward into the field (a clip-path inset from the
+   bottom) while it fades, so the list reads as retracting into the input it grew from
+   rather than dissolving in place. The rows don't move, so nothing pins or hangs — the
+   reason the shared menu exit keeps off scale (controls.scss) — and the ease-in
+   accelerates it away. A full --dur: the shared exit's 0.6× read as a blink on a card
+   this tall, and longer would lag a fast typist's next row. The rest state's clip sits 2px outside the box so the
+   .popover outline, painted outside it, keeps drawing. (Ryan, 2026-09-05: "a nicer exit
+   animation for the predictive menu".) */
+.ac__menu {
+  clip-path: inset(-2px round var(--radius-4));
+}
+.ac__menu.menu-leave-active {
+  transition:
+    opacity var(--dur) var(--ease-close),
+    clip-path var(--dur) var(--ease-close);
+}
+.ac__menu.menu-leave-to {
+  opacity: 0;
+  transform: none;
+  clip-path: inset(-2px -2px 100% -2px round var(--radius-4));
+}
 /* the scroller — INSIDE the card's inline padding, so the (thin, transparent-
    track) scrollbar sits inset from the edge, never over the rounded corners */
 .ac__list {
