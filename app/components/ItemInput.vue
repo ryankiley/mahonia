@@ -3,7 +3,7 @@ import { HugeiconsIcon } from "~/utils/hugeicon";
 import { DropletIcon, SafeBoxIcon } from "@hugeicons/core-free-icons";
 import type { EffectScope } from "vue";
 import type { Unit } from "~~/shared/types";
-import { formatWeight, itemDisplayName } from "~~/shared/weights";
+import { nameRepeatsBrand, formatWeight, itemDisplayName } from "~~/shared/weights";
 import { highlightParts } from "~~/shared/searchText";
 import { MAX_ITEM_NAME_LEN } from "~~/shared/ops";
 import { tidyText } from "~~/shared/tidyText";
@@ -473,7 +473,7 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
                  means one thing across both surfaces and reads before the text does -->
             <HugeiconsIcon :icon="SafeBoxIcon" class="ac__mineicon" :size="14" :stroke-width="2" aria-hidden="true" />
             <span class="visually-hidden">From My Gear: </span>
-            <span v-if="opt.vault.brand" class="ac__brand t-clip">
+            <span v-if="opt.vault.brand && !nameRepeatsBrand(opt.vault.brand, opt.vault.name)" class="ac__brand t-clip">
               <span
                 v-for="(p, pi) in hl(opt.vault.brand)"
                 :key="pi"
@@ -494,7 +494,7 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
           <!-- brand shrinks first (its matched prefix + an ellipsis survive), so the
                distinguishing model name + variant stay readable on a narrow phone menu -->
           <span class="ac__name">
-            <span v-if="opt.result.brand" class="ac__brand t-clip">
+            <span v-if="opt.result.brand && !nameRepeatsBrand(opt.result.brand, opt.result.name)" class="ac__brand t-clip">
               <span
                 v-for="(p, pi) in hl(opt.result.brand)"
                 :key="pi"
@@ -556,6 +556,27 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
   overflow: hidden;
   /* the pop-in scales from where the menu hangs off the input (kebab: top right) */
   transform-origin: top left;
+}
+/* The EXIT folds. The card wipes upward into the field (a clip-path inset from the
+   bottom) while it fades, so the list reads as retracting into the input it grew from
+   rather than dissolving in place. The rows don't move, so nothing pins or hangs — the
+   reason the shared menu exit keeps off scale (controls.scss) — and the ease-in
+   accelerates it away. A full --dur: the shared exit's 0.6× read as a blink on a card
+   this tall, and longer would lag a fast typist's next row. The rest state's clip sits 2px outside the box so the
+   .popover outline, painted outside it, keeps drawing. (Ryan, 2026-09-05: "a nicer exit
+   animation for the predictive menu".) */
+.ac__menu {
+  clip-path: inset(-2px round var(--radius-4));
+}
+.ac__menu.menu-leave-active {
+  transition:
+    opacity var(--dur) var(--ease-close),
+    clip-path var(--dur) var(--ease-close);
+}
+.ac__menu.menu-leave-to {
+  opacity: 0;
+  transform: none;
+  clip-path: inset(-2px -2px 100% -2px round var(--radius-4));
 }
 /* the scroller — INSIDE the card's inline padding, so the (thin, transparent-
    track) scrollbar sits inset from the edge, never over the rounded corners */

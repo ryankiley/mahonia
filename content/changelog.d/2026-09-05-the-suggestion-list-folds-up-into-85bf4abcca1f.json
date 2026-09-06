@@ -1,0 +1,9 @@
+{
+  "date": "2026-09-05",
+  "changed": [
+    "The suggestion list folds up into the field when it closes."
+  ],
+  "fixed": [
+    "The suggestion list is no longer cut off at the row while it closes."
+  ]
+}
