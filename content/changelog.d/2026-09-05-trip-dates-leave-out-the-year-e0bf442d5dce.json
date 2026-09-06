@@ -1,0 +1,6 @@
+{
+  "date": "2026-09-05",
+  "changed": [
+    "Trip dates leave out the year when the trip is in the current year, and name it again when it isn't."
+  ]
+}

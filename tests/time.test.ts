@@ -68,41 +68,57 @@ describe("timeAgo", () => {
 // the editor AND in server-rendered HTML, so reading the visitor's locale would format
 // one way in the cached page and another after hydration.
 describe("formatDateRange", () => {
-  it("collapses a range inside one month to two days, month and year once", () => {
-    expect(formatDateRange("2026-09-06", "2026-09-09")).toBe("September 6–9, 2026");
+  // the year is judged against `now`: these run as if it were 2020, so 2026 prints
+  const then = new Date(2020, 0, 15);
+  it("collapses a range inside one month to one month and one year", () => {
+    expect(formatDateRange("2026-09-06", "2026-09-09", then)).toBe("September 6–9, 2026");
   });
-
-  it("names both months when the range crosses one, year once", () => {
-    expect(formatDateRange("2026-09-28", "2026-10-03")).toBe("September 28 – October 3, 2026");
+  it("prints both months across a month boundary, the year once", () => {
+    expect(formatDateRange("2026-09-28", "2026-10-03", then)).toBe("September 28 – October 3, 2026");
   });
-
-  it("prints both years when the range crosses one", () => {
-    expect(formatDateRange("2026-12-30", "2027-01-02")).toBe("December 30, 2026 – January 2, 2027");
+  it("prints both dates in full across a year boundary", () => {
+    expect(formatDateRange("2026-12-30", "2027-01-02", then)).toBe("December 30, 2026 – January 2, 2027");
   });
-
-  it("prints a single date when both ends are the same day", () => {
-    expect(formatDateRange("2026-09-06", "2026-09-06")).toBe("September 6, 2026");
+  it("prints one date when the two are the same day", () => {
+    expect(formatDateRange("2026-09-06", "2026-09-06", then)).toBe("September 6, 2026");
   });
-
-  it("prints just the start when the end is open", () => {
-    // you often know when you leave before you know when you're back
-    expect(formatDateRange("2026-09-06")).toBe("September 6, 2026");
-    expect(formatDateRange("2026-09-06", "")).toBe("September 6, 2026");
+  it("prints just the start for an open end", () => {
+    expect(formatDateRange("2026-09-06", undefined, then)).toBe("September 6, 2026");
+    expect(formatDateRange("2026-09-06", "", then)).toBe("September 6, 2026");
   });
-
-  it("prints the end alone when only an end is set", () => {
-    expect(formatDateRange(undefined, "2026-09-09")).toBe("September 9, 2026");
+  it("prints just the end when only the end is set", () => {
+    expect(formatDateRange(undefined, "2026-09-09", then)).toBe("September 9, 2026");
   });
-
-  it("is empty when there are no dates, and ignores unparseable ones", () => {
+  it("is empty with nothing to show", () => {
     expect(formatDateRange()).toBe("");
     expect(formatDateRange("", "")).toBe("");
     expect(formatDateRange("not-a-date", "also-not")).toBe("");
   });
 
-  it("does not shift a date across a timezone boundary", () => {
-    // calendar dates, not instants — parsed from parts, so the 1st stays the 1st even
-    // when the runner sits west of UTC and `new Date(iso)` would land a day early
-    expect(formatDateRange("2026-09-01", "2026-09-01")).toBe("September 1, 2026");
+  describe("in the trip's own year, the year goes unsaid", () => {
+    const now = new Date(2026, 8, 5);
+    it("inside one month", () => {
+      expect(formatDateRange("2026-09-06", "2026-09-09", now)).toBe("September 6–9");
+    });
+    it("across a month boundary", () => {
+      expect(formatDateRange("2026-09-28", "2026-10-03", now)).toBe("September 28 – October 3");
+    });
+    it("on a single day and an open end", () => {
+      expect(formatDateRange("2026-09-06", "2026-09-06", now)).toBe("September 6");
+      expect(formatDateRange("2026-09-06", undefined, now)).toBe("September 6");
+      expect(formatDateRange(undefined, "2026-09-09", now)).toBe("September 9");
+    });
+    it("but a trip that crosses New Year always names both years", () => {
+      expect(formatDateRange("2026-12-30", "2027-01-02", now)).toBe("December 30, 2026 – January 2, 2027");
+    });
+    it("and any other year is named, past or future", () => {
+      expect(formatDateRange("2025-09-06", "2025-09-09", now)).toBe("September 6–9, 2025");
+      expect(formatDateRange("2027-06-01", "2027-06-04", now)).toBe("June 1–4, 2027");
+      expect(formatDateRange("2025-09-06", undefined, now)).toBe("September 6, 2025");
+    });
+    it("defaults `now` to today, so a trip this year drops the year on screen", () => {
+      const y = new Date().getFullYear();
+      expect(formatDateRange(`${y}-09-06`, `${y}-09-09`)).toBe("September 6–9");
+    });
   });
 });
