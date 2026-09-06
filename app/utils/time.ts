@@ -56,38 +56,43 @@ export function formatCalendarDate(iso: string): string {
 }
 
 /**
- * A trip's dates, as one phrase: "4–6 Aug 2026", "4 Aug 2026", "4 Aug – 2 Sep 2026".
+ * A trip's dates, as one phrase: "September 6–9", "August 4 – September 2",
+ * "December 30, 2026 – January 2, 2027".
  *
  * Collapses whatever the two dates share — a range inside one month prints the
- * month and year once — because the point of the line is the span, and repeating
- * "Aug 2026" twice makes the reader do the comparison themselves.
+ * month once — because the point of the line is the span, and repeating "August"
+ * twice makes the reader do the comparison themselves.
+ *
+ * The YEAR is dropped when every date shown falls in the current calendar year
+ * (`now`, injectable for tests): almost every trip is this year's, and "2026" on a
+ * September trip in September is a number the reader already knows. It comes back
+ * the moment it carries information — a trip in another year, or one that crosses
+ * New Year, which always prints both years. Judged when the line is rendered, so
+ * the same trip reads "September 6–9" this year and "September 6–9, 2026" next
+ * January, which is exactly when the year starts to matter. (Ryan, 2026-09-05.)
+ * Screen headers only: the exports keep the year, since a document read later has
+ * to stand on its own.
  *
  * An open end is legitimate and prints as just the start: you often know when you
  * leave before you know when you're back.
  */
-export function formatDateRange(start?: string, end?: string): string {
+export function formatDateRange(start?: string, end?: string, now: Date = new Date()): string {
   const a = parseCalendarDate(start);
   const b = parseCalendarDate(end);
   if (!a && !b) return "";
-  // one date, or only an end — either way there is a single date to print
-  if (!a || !b) return fmtFull(a ?? b!);
-  if (a.getTime() === b.getTime()) return fmtFull(a);
+  const thisYear = now.getFullYear();
+  const one = (d: Date) => (d.getFullYear() === thisYear ? fmtMonthDay(d) : fmtFull(d));
+  if (!a || !b) return one(a ?? b!);
+  if (a.getTime() === b.getTime()) return one(a);
 
   const sameYear = a.getFullYear() === b.getFullYear();
-  const sameMonth = sameYear && a.getMonth() === b.getMonth();
-  // en dash, not a hyphen: this is a range, and the two read differently at size.
-  // Month-first, so the collapse puts the two DAYS side by side and says the month
-  // and year once: "September 6–9, 2026". Day-first order would have produced
-  // "6–September 9, 2026", which is why this isn't just a locale swap.
-  if (sameMonth) return `${fmtMonthDay(a)}–${b.getDate()}, ${b.getFullYear()}`;
-  if (sameYear) return `${fmtMonthDay(a)} – ${fmtFull(b)}`;
-  return `${fmtFull(a)} – ${fmtFull(b)}`;
+  if (!sameYear) return `${fmtFull(a)} – ${fmtFull(b)}`;
+  const year = b.getFullYear() === thisYear ? "" : `, ${b.getFullYear()}`;
+  const sameMonth = a.getMonth() === b.getMonth();
+  if (sameMonth) return `${fmtMonthDay(a)}–${b.getDate()}${year}`;
+  return `${fmtMonthDay(a)} – ${fmtMonthDay(b)}${year}`;
 }
 
-// Locale PINNED, matching the rule in shared/weights.ts: these render in the editor
-// AND on the server-rendered share views, so reading the visitor's own locale would
-// format one way in the cached HTML and another after hydration — a mismatch on every
-// shared page. One fixed locale is the price of server rendering these at all.
 const fmtFull = (d: Date) =>
   d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
 const fmtMonthDay = (d: Date) =>
