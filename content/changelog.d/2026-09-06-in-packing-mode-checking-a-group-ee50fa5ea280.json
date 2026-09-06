@@ -1,0 +1,7 @@
+{
+  "date": "2026-09-06",
+  "changed": [
+    "In packing mode, checking a group now checks everything nested under it, and unchecking it clears them all. A group with only some of its items checked shows a dash instead of an empty box.",
+    "Pack progress counts the items you tick: a group with three things nested under it is three ticks, not four."
+  ]
+}

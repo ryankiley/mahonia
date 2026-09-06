@@ -6,6 +6,7 @@ import { resumeTarget } from "~~/shared/switcher";
 import { tripHeadline } from "~~/shared/trailDistance";
 import { formatWeight } from "~~/shared/weights";
 import { chipWeightLabels, filterItemsForPerson, hasUnassignedTopLevel, personName, personSlot, selectionGone, sortedPeople, UNASSIGNED } from "~~/shared/people";
+import { countedForPacking } from "~~/shared/packing";
 import type { Item, Unit } from "~~/shared/types";
 import type { EditorMode } from "~/composables/useEditorMode";
 import { CHILDREN_BY_PARENT, PEOPLE_CTX } from "~/components/ItemRow.vue";
@@ -301,11 +302,14 @@ const editorRef = ref<HTMLElement | null>(null);
 watchPostEffect(() => {
   editorRef.value?.style.setProperty("--vault-w", `${vaultWidth.value}px`);
 });
-// packing progress — rows checked / rows total (a row is one check, whatever its
+// packing progress — boxes ticked / boxes to tick (a row is one check, whatever its
 // qty). Counts the FILTERED rows, so narrowed to one person it reads as their
-// progress — the same rows the checklist below is showing.
+// progress — the same rows the checklist below is showing — and among them only the
+// rows whose box stands for its own line (countedForPacking): a group's box is its
+// children's, so counting the group too made a six-item group seven ticks, the last
+// of them a flag nothing on screen draws.
 const packProgress = computed(() => {
-  const items = filteredItems.value;
+  const items = countedForPacking(filteredItems.value);
   return { done: items.filter((i) => i.packed).length, total: items.length };
 });
 // start the next trip clean: uncheck everything (each row is its own op, so the
