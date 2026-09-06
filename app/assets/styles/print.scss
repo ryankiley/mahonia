@@ -91,6 +91,11 @@
   // The share views default groups closed and packing collapses too, so without
   // this a printed/PDF'd list would drop every nested child and show only the
   // group's summary row. Un-collapse the grid + release the child clip.
+  // every row renders on paper, whether or not it was on screen (atoms/item.scss
+  // skips the layout of rows off screen)
+  .item-wrap {
+    content-visibility: visible !important;
+  }
   .nestcollapse {
     grid-template-rows: 1fr !important;
   }

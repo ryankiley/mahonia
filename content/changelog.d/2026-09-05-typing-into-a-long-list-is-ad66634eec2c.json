@@ -1,0 +1,6 @@
+{
+  "date": "2026-09-05",
+  "changed": [
+    "Typing into a long list is quicker on a phone: rows that are off screen are no longer laid out on every keystroke."
+  ]
+}
