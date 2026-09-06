@@ -41,13 +41,18 @@ export const PWA_OPTIONS: Partial<ModuleOptions> = {
   devOptions: { enabled: false },
   workbox: {
     // precache the client shell (hashed JS/CSS/fonts) so it boots from cache
-    // …plus the prerendered bare address, the manifest's start_url: a static shell that
-    // only resolves on the client (app/pages/index.vue), so it belongs in the precache
-    // — an installed app launched offline gets it instantly, then the client resolves
-    // to the last list from the runtime-cached /e shell below. Without it the launch
-    // was a browser error page: nothing below matches "/", and navigateFallback is
-    // deliberately empty.
-    globPatterns: ["**/*.{js,css,woff2}", "index.html"],
+    globPatterns: ["**/*.{js,css,woff2}"],
+    // …plus the bare address, the manifest's start_url, by name. It is a prerendered
+    // static shell that only resolves on the client (app/pages/index.vue), so it belongs
+    // in the precache — an installed app launched offline gets it instantly, then the
+    // client resolves to the last list from the runtime-cached /e shell below. It can't
+    // come in through the glob above: this worker is generated during the client build,
+    // before Nitro prerenders index.html, so the file isn't there to glob. Listed by URL
+    // instead, and stamped per build so a deploy replaces the cached copy — `null` here
+    // would tell Workbox the URL versions itself, and "/" never changes its name.
+    // Without any of this the offline launch was a browser error page: nothing below
+    // matches "/", and navigateFallback is deliberately empty.
+    additionalManifestEntries: [{ url: "/", revision: process.env.VERCEL_GIT_COMMIT_SHA || String(Date.now()) }],
     // Disable the plugin's default catch-all navigation fallback: it binds to a
     // non-precached "/" (the auto-precache of the fallback only runs in dev, not
     // the prod build), so it would throw on every navigation. The `/e` route
