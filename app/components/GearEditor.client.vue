@@ -30,6 +30,14 @@ const status = c.status;
 const pendingUndo = c.pendingUndo;
 const vaultPrompt = c.vaultPrompt;
 const vaultPicker = c.vaultPicker;
+// The chooser is a Lazy component, but rendering it unconditionally (it opens itself
+// off `caps`) fetched its chunk and stylesheet on every editor mount all the same —
+// two requests for a dialog most lists never show. Mounted on the first answer that
+// opens it, and kept after, like the other lazy dialogs below.
+const vaultPickerEverOpened = ref(false);
+watch(vaultPicker, (caps) => {
+  if (caps) vaultPickerEverOpened.value = true;
+});
 // whether the open list is a CLAIMED one (session + share code, no edit token on
 // this device) — the reactive flag the chrome gates on, since c.editToken is a
 // plain getter nothing can track
@@ -1211,9 +1219,11 @@ function onCorrected(res: { status: string; itemName?: string }) {
       </Prompt>
 
       <!-- ...and "Add" opens the chooser, because a list you didn't start is
-           usually part yours and part theirs. Lazy: it's reachable only from the
-           banner above, which most lists never show. -->
+           usually part yours and part theirs. Lazy AND gated: it's reachable only
+           from the banner above, which most lists never show, so its chunk waits for
+           the first "Add" (see vaultPickerEverOpened). -->
       <LazyVaultPickerModal
+        v-if="vaultPickerEverOpened"
         :caps="vaultPicker"
         :unit="snapshot.displayUnit"
         @confirm="(keep) => c.confirmVaultPicker(keep)"

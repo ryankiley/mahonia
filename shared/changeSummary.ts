@@ -18,7 +18,7 @@
 // Pure + shared so the wording is written down once: the server stores it and the
 // panel renders it verbatim, rather than each having a half-opinion about phrasing.
 
-import { foldForSearch } from "./catalogSearch";
+import { foldForSearch } from "./searchText";
 import type { Folder, Item, Person } from "./types";
 import { itemDisplayName } from "./weights";
 import { tidyText } from "./tidyText";

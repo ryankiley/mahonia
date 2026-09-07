@@ -195,12 +195,91 @@ export default defineNuxtConfig({
         },
       },
     },
+    // How the client build is cut into files. Client only: the same groups on the
+    // server build broke Nitro's style chunks with an unresolvable placeholder name.
+    //
+    // Left to itself the bundler makes one chunk per distinct SET of importers, so
+    // every module the app shell shares with a lazy panel or a route lands in its
+    // own file. The editor's first load was 39 script files, 22 of them under 1 KB
+    // brotli (one held a single 27-byte module), and the split cost twice: 38 extra
+    // requests, and ~17 KB brotli of compression lost at the file boundaries — the
+    // same bytes compress to 128 KB as one file and 145 KB as thirty-nine.
+    //
+    // Two groups, both over `$initial` (modules statically reachable from the entry,
+    // i.e. downloaded by every page before anything renders — so merging them can't
+    // put a byte on a page that didn't already carry it):
+    //   vendor — the framework runtime (vue, vue-router, unhead, ofetch…). A leaf:
+    //            nothing in it imports app code, so it is a stable file whose hash
+    //            only moves on a dependency bump, and returning visitors keep it
+    //            cached across deploys. nuxt's own runtime and the analytics
+    //            module are kept OUT because they import app modules (plugins,
+    //            app.vue) — inside vendor they would make the two chunks import
+    //            each other, and a circular chunk pair can evaluate app code
+    //            before the vue bindings it reads exist. Dependencies are not
+    //            captured recursively for the same reason: the entry's imports
+    //            reach the whole app. The budget script fails the build if this
+    //            chunk ever imports another: a future dependency on the boot path
+    //            that reaches for #app would be captured here and form exactly
+    //            that cycle, and nothing else would notice before production.
+    //   boot   — everything else on the boot path: nuxt runtime, plugins, app.vue,
+    //            the composables the session plugin pulls in.
+    // Measured on the same tree: the editor's first load went from 45 files to 19
+    // (39 → 14 scripts) and 158.4 → 148.2 KB brotli; every route lost ~26 files and
+    // ~10 KB. The largest chunk is now `boot` (52.9 KB) rather than Leaflet.
+    //
+    // TRIED AND DROPPED: a third, entries-aware group merging the small chunks the
+    // editor shares with the read views (rolldown's entriesAwareMergeThreshold).
+    // It merged toward the wrong neighbours — the editor lost 4 files while /about
+    // and /account gained ~13 KB of editor-only code. What remains split is shared
+    // between routes with different needs, and the automatic cut is the right one.
+    // Pages and layouts must never be captured by a group: a captured page loses
+    // its manifest identity and its chunk drops out of the HTML's preload hints.
+    $client: {
+      build: {
+        rolldownOptions: {
+          output: {
+            // The framework chunk keeps its group name in the file name, so the
+            // bundle-budget script can find it and check that it is still a LEAF —
+            // see the vendor group below for why a vendor chunk that imports app
+            // code is a boot crash, not a slowdown. Everything else keeps Nuxt's
+            // hash-only name; the `_nuxt/` prefix is Nuxt's own buildAssetsDir
+            // default, restated here because a file-name option replaces it whole.
+            chunkFileNames: (chunk: { name: string }) =>
+              chunk.name === "vendor" ? "_nuxt/vendor.[hash].js" : "_nuxt/[hash].js",
+            codeSplitting: {
+              groups: [
+                {
+                  name: "vendor",
+                  test: /node_modules\/(?!\.cache\/|nuxt\/|@vercel\/)/,
+                  tags: ["$initial"],
+                  includeDependenciesRecursively: false,
+                  priority: 2,
+                },
+                { name: "boot", tags: ["$initial"], priority: 1 },
+              ],
+            },
+          },
+        },
+      },
+    },
     // Dev-only: the dev server runs behind a proxy (preview tooling) whose Host
     // header isn't localhost; Vite 7 otherwise rejects those requests with 426
     // Upgrade Required. Only affects `nuxt dev`, never the prod build.
     server: {
       allowedHosts: true,
     },
+  },
+
+  experimental: {
+    // "client", not the default `true`: the prerendered pages (/, /e, /about, /legal)
+    // used to ship their Nuxt payload as a separate `_payload.json` that hydration
+    // waits on — a request on the critical path of the site's two front doors, for
+    // a payload that is 69 bytes of nothing. With "client" the payload is inlined
+    // in the HTML on first load, and the `_payload.json` files are still written and
+    // still used for client-side navigation (the footer's link to /about reads the
+    // prerendered changelog from its payload instead of calling the API). This is
+    // the default Nuxt 5 will move to.
+    payloadExtraction: "client",
   },
 
   css: ["~/assets/styles/main.scss"],

@@ -4,7 +4,7 @@ import { DropletIcon, SafeBoxIcon } from "@hugeicons/core-free-icons";
 import type { EffectScope } from "vue";
 import type { Unit } from "~~/shared/types";
 import { nameRepeatsBrand, formatWeight, itemDisplayName } from "~~/shared/weights";
-import { highlightParts } from "~~/shared/catalogSearch";
+import { highlightParts } from "~~/shared/searchText";
 import { MAX_ITEM_NAME_LEN } from "~~/shared/ops";
 import { tidyText } from "~~/shared/tidyText";
 import { formatVolume, isWaterName, parseVolumeMl, waterMgFromMl } from "~~/shared/water";

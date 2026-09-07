@@ -14,6 +14,18 @@ import { setNoIndex } from "../../utils/http";
 // Public read-only endpoint. The client debounces; we add a short edge cache so
 // repeated keystrokes for the same prefix collapse to one DB hit. noindex — this
 // is an API surface, not a page.
+//
+// SHORT ON PURPOSE, though a longer window would pay: measured from the west coast
+// against production, a miss is ~180–320 ms (the hop to the function's region, the
+// limiter's store, the query) and an edge hit ~57 ms. What forbids stretching it is
+// the on-device catalog cache (app/composables/useCatalogCache.ts), which folds
+// every result set in with the server's copy winning by id — it treats whatever
+// this endpoint returns as the freshest truth. A correction applied "for
+// everyone" changes a row in place under the same id, so an edge entry older than
+// that correction would not just show the old weight in the dropdown for the
+// window's length, it would write it back over the corrected row on the device.
+// Ten seconds keeps that to a keystroke's worth; a real cache lever here needs a
+// key that changes with the catalog, not a longer clock.
 export default defineEventHandler(async (event) => {
   // Per-IP throttle on the read path — the catalog is the product's moat, so the
   // one real exposure (this endpoint) shouldn't be bulk-scrapeable. Generous

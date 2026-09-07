@@ -89,6 +89,12 @@ const failed = ref(false);
 // a Nuxt composable called after an await has lost the instance context — it returned an
 // empty config, which silently produced `undefined/{z}/{x}/{y}.png` and 404'd every tile.
 const tileOrigin = useRuntimeConfig().public.tileOrigin;
+// Open the connection to the tile host while Leaflet is still downloading: DNS and
+// TLS to a third-party origin are a couple of hundred milliseconds the first tile
+// otherwise waits on, and the chunk fetch below is exactly the time to spend them.
+// No `crossorigin`: tiles load as plain <img>, and only a non-CORS connection is
+// reused for those.
+useHead({ link: [{ rel: "preconnect", href: tileOrigin }] });
 /** Leaflet's own types, but only inside the lazy chunk — the module is never statically
  *  imported, so `typeof import()` keeps the types without pulling the code into the entry. */
 type Leaflet = typeof import("leaflet");

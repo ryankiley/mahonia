@@ -1,9 +1,9 @@
 import type { DayPatch, ItemPatch, Op } from "~~/shared/ops";
-import { applyOps, seedRouteEnds, tidyListText } from "~~/shared/ops";
+import { applyOps, seedRouteEnds, tidyListText, rebaseOnto } from "~~/shared/ops";
 import { uid } from "~~/shared/id";
 import { colorKeyForName, nextFolderColor, STARTER_FOLDERS } from "~~/shared/categories";
 import { LIST_CODE_HEADER, editLinkPath, normalizeShareCode } from "~~/shared/links";
-import { DRAFT_KEY, claimedLocalKey, hasRealContent, localKey, rebaseOnto } from "~~/shared/localList";
+import { DRAFT_KEY, claimedLocalKey, hasRealContent, localKey } from "~~/shared/localList";
 import { sortedPeople } from "~~/shared/people";
 import { reconcileSnapshot } from "~~/shared/reconcile";
 import type { Folder, Item, ListSnapshot, Person, Unit, Waypoint, WaypointKind } from "~~/shared/types";
@@ -50,7 +50,11 @@ function create() {
   let retryTimer: ReturnType<typeof setTimeout> | undefined;
   let flushFailures = 0;
   let inFlight = false;
-  let pollTimer: ReturnType<typeof setInterval> | undefined;
+  let pollTimer: ReturnType<typeof setTimeout> | undefined;
+  let polling = false;
+  // when the list last showed a sign of life — a local edit, a change adopted from
+  // elsewhere, a field taking focus, the tab coming back — sets the poll cadence
+  let liveAt = 0;
   let isEditing = false;
   // The server has no row under this token (deleted, or the link was rotated) but
   // a local copy is still on screen. Mutate's 404 is a permanent token-lookup
@@ -293,6 +297,10 @@ function create() {
       } else if (status.value === "offline") {
         status.value = "synced";
       }
+      // the network coming back is the tab coming back, as far as the poll is
+      // concerned: whatever happened elsewhere while it was gone is worth showing
+      // now, not wherever the idle cadence had got to
+      if ((editToken || claimCode) && !remoteMissing) wakePoll(true);
     });
   });
 
@@ -415,6 +423,10 @@ function create() {
   // claimCode) is set for the new session, so a queue, an in-flight flag or a
   // backoff from the last list can never leak into the next one.
   function resetSession() {
+    // the previous list's poll chain ends here, not when its next tick happens to
+    // notice: a tick still queued from the old session would otherwise fire into
+    // this one, and a load() that fails never starts a chain of its own to replace it
+    stopPoll();
     pending = [];
     inFlight = false;
     isEditing = false;
@@ -423,6 +435,9 @@ function create() {
     // along to the next list opened (where it would ask about the wrong gear,
     // and spend that list's one chance to ask). A draft is yours, and never asks.
     vaultPrompt.value = null;
+    // ...and so must the chooser it opens: left standing, it would show the last
+    // list's gear over this one and record the answer against this list's token
+    vaultPicker.value = null;
     // ...and the rows must render against THIS list's answer (a draft's answer IS
     // yes: no token → yours by definition)
     refreshVaultCover();
@@ -717,6 +732,7 @@ function create() {
 
   function dispatch(op: Op) {
     if (!snapshot.value) return;
+    wakePoll(); // an edit here is the surest sign the list is live
     // optimistic: same reducer as the server. The in-place mutation through the
     // deep ref's proxy gives precise property-level reactivity — only the touched
     // rows re-render, so a keystroke in one folder doesn't repaint every folder.
@@ -860,43 +876,102 @@ function create() {
   // commit the drop against pre-adoption geometry
   const dragging = () => useItemDnd().dragId.value != null || useFolderDnd().dragId.value != null;
 
-  function startPoll() {
-    stopPoll();
-    pollTimer = setInterval(async () => {
+  // ---- live-sync poll ----
+  // The cadence follows the list's own activity. 3 s while it is live — an edit here
+  // in the last two minutes, or a change that just arrived from elsewhere — because
+  // that is when a collaborator's next change is worth showing within a breath. A tab
+  // left open on a list nobody is touching stretches to 10 s after two quiet minutes
+  // and 30 s after ten, and snaps back on any sign of life: a keystroke, a field taking
+  // focus, the tab returning to view or the network coming back (both of which also
+  // poll at once, so a change made while they were away shows immediately). Ten
+  // times fewer requests for the common case, a solo editor reading their own list;
+  // nothing changes for two people editing together, whose edits keep both sides
+  // fast. A timeout chain rather than an interval, so the delay can move between
+  // ticks.
+  //
+  // Two guards keep the chain honest. A tick carries the epoch it was SCHEDULED in,
+  // so one queued by a list that has since been replaced exits on arrival rather
+  // than adopting the new session (dispose, load, a new draft all bump the epoch).
+  // And a wake that lands while a tick's request is in flight is noted rather than
+  // started: a second concurrent request for the same version would race the first,
+  // and the first's own rescheduling would otherwise cancel the immediate poll the
+  // wake promised — so the in-flight tick honours it as it finishes.
+  const POLL_FAST_MS = 3_000;
+  const POLL_SLOW_MS = 10_000;
+  const POLL_IDLE_MS = 30_000;
+  let pollInFlight = false;
+  let pollWakePending = false;
+  function pollDelay(): number {
+    const quiet = Date.now() - liveAt;
+    return quiet < 2 * 60_000 ? POLL_FAST_MS : quiet < 10 * 60_000 ? POLL_SLOW_MS : POLL_IDLE_MS;
+  }
+  function schedulePoll(delay = pollDelay()) {
+    clearTimeout(pollTimer);
+    const scheduledEpoch = epoch;
+    pollTimer = setTimeout(() => void pollTick(scheduledEpoch), delay);
+  }
+  /** Note a sign of life. `now` also polls straight away — the tab, or the network,
+   *  just came back. */
+  function wakePoll(now = false) {
+    liveAt = Date.now();
+    if (!polling || !now) return;
+    if (pollInFlight) pollWakePending = true;
+    else schedulePoll(0);
+  }
+  async function pollTick(myEpoch: number) {
+    pollTimer = undefined;
+    if (myEpoch !== epoch) return; // queued by a session that has since been replaced
+    try {
       if (typeof document !== "undefined" && document.hidden) return;
       if (!online.value) return; // nothing to pull while the connection is down
       if (inFlight || pending.length || !snapshot.value || dragging()) return;
-      const myEpoch = epoch;
-      try {
-        const res = await $fetch<{ version: number; snapshot?: ListSnapshot }>(
-          "/api/edit/changes",
-          { headers: authHeaders(), query: { since: snapshot.value.version } },
-        );
-        if (myEpoch !== epoch) return;
-        // adopt only a strictly-newer snapshot, and only when not mid-write/edit —
-        // so a slow poll can't clobber a fresher flushed state with stale data
-        if (
-          res.snapshot &&
-          snapshot.value &&
-          res.snapshot.version > snapshot.value.version &&
-          !isEditing &&
-          !pending.length &&
-          !inFlight &&
-          !dragging()
-        ) {
-          reconcileSnapshot(snapshot.value, res.snapshot); // in place — see flush()
-          syncRegistry();
-          // mirror the adopted merge on device — the guards above guarantee the
-          // queue is empty, so a hard tab kill can't leave a stale local copy
-          persistLocal();
-        }
-      } catch {
-        /* transient */
+      pollInFlight = true;
+      const res = await $fetch<{ version: number; snapshot?: ListSnapshot }>(
+        "/api/edit/changes",
+        { headers: authHeaders(), query: { since: snapshot.value.version } },
+      );
+      if (myEpoch !== epoch) return;
+      // adopt only a strictly-newer snapshot, and only when not mid-write/edit —
+      // so a slow poll can't clobber a fresher flushed state with stale data
+      if (
+        res.snapshot &&
+        snapshot.value &&
+        res.snapshot.version > snapshot.value.version &&
+        !isEditing &&
+        !pending.length &&
+        !inFlight &&
+        !dragging()
+      ) {
+        reconcileSnapshot(snapshot.value, res.snapshot); // in place — see flush()
+        syncRegistry();
+        // mirror the adopted merge on device — the guards above guarantee the
+        // queue is empty, so a hard tab kill can't leave a stale local copy
+        persistLocal();
+        wakePoll(); // someone else is here: stay quick for them
       }
-    }, 3000);
+    } catch {
+      /* transient */
+    } finally {
+      pollInFlight = false;
+      // the chain goes on only for the session that started it — a load() that
+      // superseded this one mid-flight has a chain of its own
+      if (polling && myEpoch === epoch) {
+        const wake = pollWakePending;
+        pollWakePending = false;
+        schedulePoll(wake ? 0 : pollDelay());
+      }
+    }
+  }
+  function startPoll() {
+    stopPoll();
+    polling = true;
+    liveAt = Date.now(); // a list just opened is live
+    schedulePoll();
   }
   function stopPoll() {
-    if (pollTimer) clearInterval(pollTimer);
+    polling = false;
+    pollWakePending = false;
+    clearTimeout(pollTimer);
     pollTimer = undefined;
   }
 
@@ -904,8 +979,10 @@ function create() {
     if (typeof window === "undefined" || teardownListeners) return; // once only
     const isField = (el: EventTarget | null) =>
       el instanceof HTMLElement && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName);
-    const onFocusIn = (e: FocusEvent) => { if (isField(e.target)) isEditing = true; };
+    const onFocusIn = (e: FocusEvent) => { if (isField(e.target)) { isEditing = true; wakePoll(); } };
     const onFocusOut = () => { isEditing = false; };
+    // back in view: poll now rather than wherever the idle cadence had got to
+    const onVisibility = () => { if (!document.hidden) wakePoll(true); };
     // warn before leaving with unsynced edits — but offline edits are safely held
     // on device (IndexedDB), so only nag when a server sync is pending AND reachable.
     // A dead-token queue (remoteMissing) can never sync, so it never nags either.
@@ -915,10 +992,12 @@ function create() {
     window.addEventListener("focusin", onFocusIn);
     window.addEventListener("focusout", onFocusOut);
     window.addEventListener("beforeunload", onBeforeUnload);
+    document.addEventListener("visibilitychange", onVisibility);
     teardownListeners = () => {
       window.removeEventListener("focusin", onFocusIn);
       window.removeEventListener("focusout", onFocusOut);
       window.removeEventListener("beforeunload", onBeforeUnload);
+      document.removeEventListener("visibilitychange", onVisibility);
       teardownListeners = undefined;
     };
   }
@@ -1220,7 +1299,9 @@ function create() {
       return refreshVaultCover();
     }
     const s = snapshot.value;
+    const myEpoch = epoch;
     const caps = s ? await vault.buildCaptures(s.items, s.folders) : [];
+    if (myEpoch !== epoch) return; // the list changed under the question
     // nothing to choose between — record the answer and take the (empty) set, so
     // an empty chooser never appears and the question doesn't come back
     if (caps.length < 2) {
