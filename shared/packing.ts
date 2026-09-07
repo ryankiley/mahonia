@@ -1,85 +1,148 @@
 // Packing-mode ticks: what a row's box STANDS FOR, and what a tick on it writes.
 //
-// A leaf's box is its own tick. A GROUP's box (a row with children nested under it)
-// is its children's: it reads checked when every child in view is packed, mixed when
-// some are, clear when none, and a tick on it packs or unpacks all of them. The
-// group's own `packed` flag is not a fact the view draws while it has children in
-// view: a container is packed when what's in it is. The box used to record the
-// group's own flag instead, which let it read checked over six unchecked rows (Ryan,
-// 2026-09-06, a toiletry bag with everything still out of it) and gave it no way to
-// say "some".
+// ONE rule, resolved in one place: a box stands for the row's own line — unless the
+// row is a bare group, which has no line of its own — plus every child of it the page
+// is showing. `tickState` and `tickRows` are that sentence in the two forms the view
+// needs (all / some / none of them packed, and the rows a tick writes). They resolve
+// the same set through the same helper, so they cannot drift: what the box reads is
+// always exactly what pressing it changes.
 //
-// "In view" is the person filter: the children a narrowed editor shows, or all of
-// them. The filter reaches the rows only as CSS (see usePersonFilter), so a tick on a
-// group has to decide for itself which children it may write. One that reached rows
-// the filter was hiding would pack someone else's gear on their behalf.
+// The shapes that falls into:
 //
-// Nothing here reconciles the group's own flag from its children, deliberately. The
-// count and the box both derive, so a stored flag on a group would be a number
-// nothing on screen reads, and carriesContent (shared/weights) treats `packed` as
-// something a person put on the row: a group flagged by its children would then
-// outlive its last child instead of dissolving with it (unwrapEmptied).
+//  • A LEAF stands for itself, exactly as it always did.
+//
+//  • A BARE GROUP — a container holding nothing of its own — stands for its children
+//    and never for its own `packed`. A container is packed when what's in it is. That
+//    flag used to be the box's whole story, which let a toiletry bag read checked over
+//    six unchecked rows (Ryan, 2026-09-06) with no way to say "some".
+//
+//  • A group that CARRIES ITS OWN LINE — a weight or calories of its own, the
+//    isBareGroup predicate in shared/weights — stands for BOTH. Its line is real gear
+//    that has to go in the bag too, and this app's rule for such a row is already
+//    written down over there: a control is not taken away from a number the row still
+//    contributes. A tent body with its poles nested under it is two things to pack,
+//    and one tick on the group is both of them.
+//
+//  • A bare group whose children are ALL someone else's under a person filter stands
+//    for NOTHING, and says so ("none" — the view disables the box). It does NOT fall
+//    back to its own flag. That fallback is what this file shipped with, and it was a
+//    trap: the flag it wrote is one no view draws and no count counts, so the tick
+//    vanished the instant the filter widened, nothing on screen could clear it again,
+//    and it sat there keeping carriesContent (shared/weights) true — which is what
+//    stops an emptied group from dissolving. One argument was being asked to carry two
+//    different facts, "is this a group" and "which children are on screen"; they are
+//    separate questions here now.
+//
+// "Showing" is the person filter. It reaches the rows only as CSS (see
+// usePersonFilter), so a box has to work out for itself which children it may count
+// and write — one that reached rows the filter is hiding would pack someone else's
+// gear on their behalf, and would read "mixed" over a group whose every visible row
+// was ticked. The nest COLLAPSE is deliberately not part of this: those are your own
+// rows, folded away by you, and rolling them up under one tick is what the control is
+// for — where a filtered-out row belongs to somebody else.
+//
+// Nothing here reconciles a group's stored flag from its children. The box and the
+// count both derive, so a bare group's flag is inert rather than wrong; "Clear checks"
+// still reaches it (GearEditor shows that button whenever anything in view is packed,
+// precisely so a flag no box draws is never stranded).
 import type { Item } from "./types";
-import { effectivePersonId, UNASSIGNED, type PersonSelection } from "./people";
+import { matchesSelection, type PersonSelection } from "./people";
+import { isBareGroup } from "./weights";
 
-export type TickState = "checked" | "mixed" | "clear";
+/** All, some, none — or "none", the box that stands for no row at all (see above). */
+export type TickState = "checked" | "mixed" | "clear" | "none";
+
+/** The fields a row must carry to answer "what does this box stand for". */
+type TickItem = Pick<Item, "unitWeightMg" | "kcal" | "packed" | "personId">;
 
 /**
- * The children a person selection keeps on screen under a group: all of them for the
- * everyone view, else those whose EFFECTIVE carrier (their own, else the group's, the
- * one inherit rule in shared/people) is the selected person, or nobody under
- * UNASSIGNED. The same answer the editor's CSS filter and the read views'
- * visibleItemsForPerson give, so a box never counts a row the page isn't showing.
+ * Does this row's box stand for the row's OWN line? True for a leaf, and for a group
+ * that carries a weight or calories of its own; false for a bare group, which is
+ * nothing but the container around its children.
  */
-export function childrenInView<T extends Pick<Item, "personId">>(
+const standsForOwnLine = (item: Pick<Item, "unitWeightMg" | "kcal">, hasChildren: boolean): boolean =>
+  !isBareGroup(item, hasChildren);
+
+/**
+ * The children of `group` this page is showing: all of them in the everyone view, else
+ * those whose EFFECTIVE carrier (their own, else the group's) is the selection. The
+ * rule itself is shared/people's `matchesSelection` — the same predicate
+ * filterItemsForPerson counts by — so the box, the totals and the CSS filter cannot
+ * answer "whose row is this?" three different ways.
+ */
+const childrenInView = <T extends Pick<Item, "personId">>(
   group: Pick<Item, "personId">,
   children: readonly T[],
   selection: PersonSelection,
-): readonly T[] {
-  if (!selection) return children;
-  const wanted = selection === UNASSIGNED ? undefined : selection;
-  return children.filter((ch) => effectivePersonId(ch, group) === wanted);
-}
+): readonly T[] =>
+  selection ? children.filter((ch) => matchesSelection(ch, group, selection)) : children;
 
 /**
- * What a row's box shows. With children in view it is theirs: all, some or none
- * packed. Without (a leaf, or a group whose children are all someone else's under the
- * filter), the box is the row's own line and shows its own flag.
+ * What the box shows. Walks the row's children once without building a list — this
+ * runs on every row on every filter flip and every tick, and the ARRAY it would
+ * otherwise mint is a fresh identity each time, which would defeat the caching that
+ * keeps an unchanged state from re-rendering its row. `tickRows` builds the list, at
+ * click time, where an allocation is free.
+ *
+ * Not generic, unlike tickRows below: this returns a verdict rather than rows, so
+ * nothing here needs the item and its children to be the same type — and requiring it
+ * only made callers whose item is narrower than its children (a literal `packed: true`
+ * in a test fixture, say) fail to unify, for no benefit.
  */
 export function tickState(
-  item: Pick<Item, "packed">,
-  childrenInView: readonly Pick<Item, "packed">[],
+  item: TickItem,
+  children: readonly TickItem[],
+  selection: PersonSelection,
 ): TickState {
-  if (!childrenInView.length) return item.packed ? "checked" : "clear";
-  const packed = childrenInView.filter((ch) => ch.packed).length;
-  return packed === childrenInView.length ? "checked" : packed ? "mixed" : "clear";
+  let total = 0;
+  let packed = 0;
+  if (standsForOwnLine(item, children.length > 0)) {
+    total = 1;
+    if (item.packed) packed = 1;
+  }
+  for (const ch of children) {
+    if (selection && !matchesSelection(ch, item, selection)) continue;
+    total++;
+    if (ch.packed) packed++;
+  }
+  if (!total) return "none";
+  return packed === total ? "checked" : packed ? "mixed" : "clear";
 }
 
 /**
- * The rows a tick on the box writes: the children in view for a group, the row
- * itself otherwise. The mirror of tickState, so what a tick changes is exactly what
- * the box was reading, and pressing a mixed box packs the rest rather than clearing
- * the ones already in.
+ * The rows a tick on the box writes — the same set `tickState` just classified. Empty
+ * exactly when that returned "none", so a box standing for nothing writes nothing.
+ * Pressing a MIXED box packs the rest rather than clearing the ones already in: the
+ * caller writes the value it was handed to every row here, skipping the ones already
+ * there.
  */
-export function tickTargets<T extends Pick<Item, "packed">>(
+export function tickRows<T extends TickItem>(
   item: T,
-  childrenInView: readonly T[],
+  children: readonly T[],
+  selection: PersonSelection,
 ): readonly T[] {
-  return childrenInView.length ? childrenInView : [item];
+  const inView = childrenInView(item, children, selection);
+  if (!standsForOwnLine(item, children.length > 0)) return inView;
+  return inView.length ? [item, ...inView] : [item];
 }
 
 /**
- * The rows a progress count is over: those whose box stands for its own line, which
- * is every row with no child among `items`. Pass the FILTERED items (the strict set a
- * person view counts, filterItemsForPerson), so a group whose children are all
- * someone else's counts as its own line, exactly as its box reads under that filter.
- * A group with children in the set is not a check of its own: its box is theirs, and
- * counting it too made a six-item group seven ticks.
+ * The rows a progress count is over: exactly the rows some visible box stands for, so
+ * the bar and the boxes can never disagree. That is every row except a BARE GROUP,
+ * whose box is its children's — counting it too made a six-item group seven ticks.
+ *
+ * `items` is the set being counted (the strict per-person set under a filter,
+ * filterItemsForPerson); `all` is the whole list, and is what decides whether a row is
+ * a group at all. The two differ under a filter, and the difference matters: a bare
+ * group whose children are all someone else's has no children in the filtered set, so
+ * counting off that set alone would call it a leaf and count it — a tick the filtered
+ * view offers no box for, and a total that could never be reached.
  */
-export function countedForPacking<T extends Pick<Item, "id" | "parentId">>(
+export function countedForPacking<T extends Pick<Item, "id" | "parentId" | "unitWeightMg" | "kcal">>(
   items: readonly T[],
+  all: readonly T[] = items,
 ): T[] {
   const parents = new Set<string>();
-  for (const it of items) if (it.parentId) parents.add(it.parentId);
-  return items.filter((it) => !parents.has(it.id));
+  for (const it of all) if (it.parentId) parents.add(it.parentId);
+  return items.filter((it) => standsForOwnLine(it, parents.has(it.id)));
 }

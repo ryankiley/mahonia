@@ -12,7 +12,7 @@
 // only two pass children. Folding those into one signature would mean a parameter per
 // difference and a helper nobody could read. The costly duplication is this object,
 // whose keys are symbols exported from the component under test.
-import { ref } from "vue";
+import { isRef, ref, type Ref } from "vue";
 import { CHILDREN_BY_PARENT, PEOPLE_CTX } from "../../app/components/ItemRow.vue";
 import type { Item, Person } from "../../shared/types";
 
@@ -28,11 +28,17 @@ export const noPeople = (): PeopleCtx => ({ sorted: ref<Person[]>([]), slotById:
  * group; the default empty map is what a leaf row's suite wants. Pass `people` only when
  * the suite is ABOUT carriers — personAssign hands over a live table whose people it
  * mutates between cases, which is the one thing here that cannot be a constant.
+ *
+ * `children` takes a REF as readily as a plain Map, because the two kinds of suite here
+ * genuinely differ: most hand over a fixed set of children and want the wrapping done
+ * for them, while a suite whose rows change under the reducer (itemPacking ticks a child
+ * and expects its parent's box to follow) has to pass the same live computed GearEditor
+ * provides, or the row reads a snapshot of children the reducer never touches.
  */
 export const rowProvides = (
-  children: Map<string, Item[]> = new Map(),
+  children: Map<string, Item[]> | Ref<Map<string, Item[]>> = new Map(),
   people: PeopleCtx = noPeople(),
 ) => ({
-  [CHILDREN_BY_PARENT as symbol]: ref(children),
+  [CHILDREN_BY_PARENT as symbol]: isRef(children) ? children : ref(children),
   [PEOPLE_CTX as symbol]: people,
 });

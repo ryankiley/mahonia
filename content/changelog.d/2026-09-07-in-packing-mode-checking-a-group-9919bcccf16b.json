@@ -1,0 +1,8 @@
+{
+  "date": "2026-09-07",
+  "changed": [
+    "In packing mode, checking a group now checks everything nested under it, and unchecking it clears them all. A group with only some of its items checked shows a dash instead of an empty box.",
+    "A group that has a weight of its own — a tent body with the poles nested under it — is something to pack in its own right, so its check covers that as well as the items inside it.",
+    "Pack progress counts the boxes you tick, so a group that only holds other items is no longer a check of its own on top of them."
+  ]
+}

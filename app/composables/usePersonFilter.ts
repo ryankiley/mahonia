@@ -2,9 +2,18 @@
 // useEditorMode is, and for the same reason: the rows must be able to IGNORE it.
 // The filter reaches them only as CSS (a data-filter-person attribute on the
 // editor body matched against each row's own data-person; see atoms/item.scss),
-// so flipping it re-renders none of the ~150 ItemRows. Only the top-level
-// surfaces that genuinely change with it — the headline, the totals bar, the
-// pack progress — subscribe to this ref.
+// so flipping it re-renders none of the ~150 ItemRows on its own account. Only the
+// top-level surfaces that genuinely change with it — the headline, the totals bar,
+// the pack progress — subscribe to this ref.
+//
+// ONE ROW-LEVEL EXCEPTION, and it is deliberate: ItemRow's packing tick (`tick`,
+// shared/packing) reads this ref, because a group's checkbox has to know which of its
+// children the page is showing before it can say how many are packed or write to any
+// of them. Every row subscribes once packing mode has been entered, but `tick` is a
+// short string, so a flip costs ~150 cheap recomputes and re-renders only the rows
+// whose state actually changed. That is the bar for adding another: it must reduce to
+// a value that is usually unchanged. A subscriber that re-rendered its row on every
+// flip would put the cost this file exists to avoid straight back.
 //
 // NOT persisted, unlike the mode: a filter is a way of looking at the list this
 // sitting ("what's Sam carrying?"), not a standing preference — and the mode

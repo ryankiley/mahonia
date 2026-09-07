@@ -304,14 +304,24 @@ watchPostEffect(() => {
 });
 // packing progress — boxes ticked / boxes to tick (a row is one check, whatever its
 // qty). Counts the FILTERED rows, so narrowed to one person it reads as their
-// progress — the same rows the checklist below is showing — and among them only the
-// rows whose box stands for its own line (countedForPacking): a group's box is its
-// children's, so counting the group too made a six-item group seven ticks, the last
-// of them a flag nothing on screen draws.
+// progress — the same rows the checklist below is showing — and among them exactly the
+// rows some visible box stands for (countedForPacking): a bare group's box is its
+// children's, so counting the group too made a six-item group seven ticks, the last of
+// them a flag nothing on screen draws. The WHOLE list goes as the second argument
+// because it is what decides whether a row is a group at all — off the filtered set
+// alone, a group whose children are all someone else's looks like a leaf and gets
+// counted, adding a tick that view offers no box for.
 const packProgress = computed(() => {
-  const items = countedForPacking(filteredItems.value);
+  const items = countedForPacking(filteredItems.value, snapshot.value?.items ?? []);
   return { done: items.filter((i) => i.packed).length, total: items.length };
 });
+// Is there anything to clear? NOT `packProgress.done` — that counts only the rows with
+// a box of their own, and clearChecks below reaches every row in view. A list carrying
+// a tick on a bare group (which older builds wrote, and which no box draws now) would
+// otherwise report "0 packed" and hide the one control that can clear it, stranding the
+// flag: unreachable, uncountable, and still enough to stop an emptied group dissolving
+// (carriesContent, shared/weights).
+const anyPacked = computed(() => filteredItems.value.some((i) => i.packed));
 // start the next trip clean: uncheck everything (each row is its own op, so the
 // existing queue/flush machinery — offline, CAS, live-sync — applies unchanged).
 // Scoped to the filtered rows for the same reason the count is: clearing under
@@ -1257,7 +1267,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
         <div class="packbar t-sm">
           <span class="t-num" aria-live="polite">{{ packProgress.done }} of {{ packProgress.total }} packed</span>
           <button
-            v-if="packProgress.done"
+            v-if="anyPacked"
             type="button"
             class="btn btn--quiet packbar__clear"
             @click="clearChecks"

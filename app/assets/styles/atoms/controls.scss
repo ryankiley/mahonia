@@ -1045,6 +1045,18 @@ input[type="search"]::-webkit-search-decoration {
   border-radius: 4px;
   cursor: pointer;
 }
+// A box that stands for NO ROW — the checklist's bare group whose children a person
+// filter has all hidden (see shared/packing). It isn't a control here, so it stops
+// looking like one: no pointer, and the square steps back rather than sitting at full
+// strength inviting a press that would do nothing. Scoped to the empty face on purpose
+// — the other two are held at opacity 0 by rules this one would otherwise outrank,
+// which would stack all three glyphs in the single cell they share.
+.check__box:disabled {
+  cursor: default;
+}
+.check__box:disabled ~ .check__icon--empty {
+  opacity: 0.4;
+}
 .check__icon {
   grid-area: 1 / 1;
   pointer-events: none;
@@ -1059,8 +1071,14 @@ input[type="search"]::-webkit-search-decoration {
     transform var(--dur) var(--ease-spring),
     opacity calc(var(--dur) * 0.6) var(--ease);
 }
+// The empty square steps aside for the tick — and for the dash, but ONLY where there
+// is a dash to step aside for. `:has()` is doing real work in that second selector:
+// this atom's other two users (AppDialogs, VaultPickerModal) build a .check by hand
+// with two glyphs, so an unguarded rule would leave either of them painting NOTHING —
+// a blank, still-clickable 20px hole — the day one of them binds `indeterminate` (a
+// "select all" in the vault picker being the obvious next use).
 .check__box:checked ~ .check__icon--empty,
-.check__box:indeterminate ~ .check__icon--empty {
+.check:has(.check__icon--mixed) .check__box:indeterminate ~ .check__icon--empty {
   opacity: 0;
   transition: opacity calc(var(--dur) * 0.6) var(--ease);
 }
@@ -1074,8 +1092,7 @@ input[type="search"]::-webkit-search-decoration {
 // rather than an attribute (Vue binds it as one), which is also what the
 // accessibility tree reads as "mixed" — so no aria-checked of its own. A plain
 // cross-fade with the empty square, no spring: the tick pops because you pressed
-// it, where mixed arrives from a tick on some OTHER row. A box that never renders
-// the glyph (the dialogs' checkboxes) is untouched; the rule matches nothing.
+// it, where mixed arrives from a tick on some OTHER row.
 .check__icon--mixed {
   opacity: 0;
   color: var(--ink);
@@ -1083,6 +1100,17 @@ input[type="search"]::-webkit-search-decoration {
 }
 .check__box:indeterminate ~ .check__icon--mixed {
   opacity: 1;
+}
+// The three faces are mutually exclusive in CSS, not merely in the binding that drives
+// them. `checked` and `indeterminate` are independent DOM properties — setting one does
+// not clear the other, and a native click writes both behind Vue's back before @change
+// runs — so nothing but this rule stops a box that ends up carrying both from painting
+// the tick and the dash stacked in the one grid cell they share. The dash wins: it is
+// the weaker claim, and overstating "all of it is packed" is the costlier way to be
+// wrong the night before a trip.
+.check__box:indeterminate ~ .check__icon--check {
+  opacity: 0;
+  transform: scale(0.5);
 }
 
 /* "Add folder" — the quiet label that becomes an inline field, worn by the editor's
