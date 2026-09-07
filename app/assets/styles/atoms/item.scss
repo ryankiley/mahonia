@@ -87,7 +87,10 @@
    the editor body (data-filter-person, absent = everyone), each row tagged with its
    own derived data (data-person on .item-wrap — the row's EFFECTIVE carrier as a
    slot index in display order, "u" = unassigned), and the match decided entirely in
-   CSS. Flipping a chip is one attribute write; no row subscribes to it.
+   CSS. Flipping a chip is one attribute write; no row subscribes to it for its
+   VISIBILITY, which is what this rule decides. (The packing tick is the one
+   row-level reader of the filter ref, for a different question — how much of a group
+   is packed; see usePersonFilter's header.)
    SLOTS, not ids, because CSS cannot compare one attribute's value against
    another's — but a closed set can be enumerated statically, and MAX_PEOPLE
    (shared/ops.ts) bounds it at 12. Raise one, raise the other.
@@ -106,9 +109,12 @@
       display: none !important;
     }
     /* a parent kept on screen ONLY as context around a matching child: its own
-       faces quiet down, so its group weight (which still includes hidden
-       children) and its checkbox (which the filtered pack count doesn't count)
-       read as scaffolding rather than as claims. Direct children only — the
+       faces quiet down, so its group weight — which still includes the children
+       the filter is hiding — reads as scaffolding rather than as a claim.
+       NOT its checkbox, which is a live control here: a group's box stands for the
+       children in VIEW (shared/packing), which on a context row is exactly the
+       matching child below it, so pressing it packs that child. The dimming is
+       about the figures; the box beneath it still does what it says. Direct children only — the
        matching nested rows live in the sibling .nestcollapse and keep full ink.
        …and NOT while the row has a surface up: opacity composites onto every
        descendant and no child can undo it, so without the guard the row's own

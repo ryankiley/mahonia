@@ -124,6 +124,26 @@ export function personColor(person?: Person): string {
 }
 
 /**
+ * Is this row the selection's? THE per-row half of every "whose items are these?"
+ * question in the app, so the surfaces that ask it can't answer three different ways —
+ * this file's own header names that drift as the thing it exists to prevent, and the
+ * rule had been written out twice by the time the packing tick needed it a third time.
+ *
+ * The parent is passed in rather than looked up, because the callers differ in how
+ * they have it: filterItemsForPerson holds a whole list and builds a map, while a
+ * group's checkbox (shared/packing) already IS the parent and hands over itself.
+ * Everyone matches everything — the everyone view is the list itself.
+ */
+export function matchesSelection(
+  item: Pick<Item, "personId">,
+  parent: Pick<Item, "personId"> | null | undefined,
+  selection: PersonSelection,
+): boolean {
+  if (!selection) return true;
+  return effectivePersonId(item, parent) === (selection === UNASSIGNED ? undefined : selection);
+}
+
+/**
  * The items a selection COUNTS: strict effective matching, so a per-person
  * total is exactly the weight on that person's back. UNASSIGNED keeps the rows
  * nobody has claimed. null returns the input untouched — the everyone view is
@@ -137,9 +157,8 @@ export function personColor(person?: Person): string {
 export function filterItemsForPerson(items: Item[], selection: PersonSelection): Item[] {
   if (!selection) return items;
   const byId = new Map(items.map((i) => [i.id, i]));
-  const wanted = selection === UNASSIGNED ? undefined : selection;
-  return items.filter(
-    (it) => effectivePersonId(it, it.parentId ? byId.get(it.parentId) : null) === wanted,
+  return items.filter((it) =>
+    matchesSelection(it, it.parentId ? byId.get(it.parentId) : null, selection),
   );
 }
 

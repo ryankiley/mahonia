@@ -45,11 +45,12 @@ const clampQty = (n: number) => Math.max(1, Math.min(QTY_MAX, Math.round(n)));
 
 <script setup lang="ts">
 import { HugeiconsIcon, type IconNode } from "~/utils/hugeicon";
-import { CalculateIcon, Cancel01Icon, CheckIcon, CheckmarkSquare02Icon, ChevronDownIcon, CircleEllipsisIcon, CookieIcon, Delete02Icon, DropletIcon, GripVerticalIcon, LayerAddIcon, ListIndentDecreaseIcon, ListIndentIncreaseIcon, ListPlusIcon, MinusSignIcon, NodeAddIcon, PlusSignIcon, SafeBoxIcon, ShirtIcon, SquareIcon, UserIcon } from "@hugeicons/core-free-icons";
+import { CalculateIcon, Cancel01Icon, CheckIcon, CheckmarkSquare02Icon, ChevronDownIcon, CircleEllipsisIcon, CookieIcon, Delete02Icon, DropletIcon, GripVerticalIcon, LayerAddIcon, ListIndentDecreaseIcon, ListIndentIncreaseIcon, ListPlusIcon, MinusSignIcon, MinusSignSquareIcon, NodeAddIcon, PlusSignIcon, SafeBoxIcon, ShirtIcon, SquareIcon, UserIcon } from "@hugeicons/core-free-icons";
 import type { Item, ListSnapshot } from "~~/shared/types";
 import type { ItemPatch } from "~~/shared/ops";
 import { MAX_GEAR_TYPE_LEN, MAX_ITEM_NOTE_LEN } from "~~/shared/ops";
 import { effectivePersonId, personColor } from "~~/shared/people";
+import { tickRows, tickState } from "~~/shared/packing";
 import type { NameCommit } from "~/composables/useCatalogSearch";
 import { bySortOrder, effectiveClassification, entryUnitFromInput, formatKcal, rowDisplayKcal, formatWeight, fromMg, groupLineMg, isBareGroup, itemDisplayName, parseWeightInput, rowDisplayMg, siblingItems, splitWornQty, storedClassification } from "~~/shared/weights";
 import { isWaterName, itemQtyLabel, waterLiters, waterMgFromMl } from "~~/shared/water";
@@ -127,7 +128,9 @@ const isParent = computed(() => children.value.length > 0);
 const bareGroup = computed(() => isBareGroup(props.item, isParent.value));
 // collapse a nested group — hide/show its children, persisted per item id (pure UI
 // state, never sent to the server), mirroring the folder collapse. Only meaningful on
-// a parent row; packing mode always shows children (you're checking them off).
+// a parent row. It applies in PACKING mode too (the checklist face draws its own
+// chevron), and the group's tick rolls the folded rows up deliberately: they are your
+// own rows, put away by you, which is not the case the filter guards against.
 const nestCollapsed = ref(false);
 // Still adopted on MOUNT rather than at setup, so the first paint is unchanged — this
 // only swaps where the value comes from (see nestCollapse above).
@@ -141,6 +144,48 @@ function toggleNest() {
 // the packing row's weight — same rule as the read views (ReadonlyItemRow): a
 // group shows its total (own + children), a leaf its own line
 const rowWeightMg = computed(() => rowDisplayMg(props.item, children.value));
+// ---- the packing tick ----
+// What this row's box stands for, and what pressing it writes — both resolved by
+// shared/packing, which holds the whole rule and the reasoning behind it. In short: a
+// leaf is itself, a bare group is its children, and a group carrying a weight or
+// calories of its own is both. "none" is a bare group whose children the person filter
+// has all hidden: it stands for no row at all, so the template disables it rather than
+// letting a press land on a flag nothing draws.
+//
+// THE FILTER, which no other part of this row reads. usePersonFilter's design is that
+// flipping a chip is one attribute write that re-renders nothing — and this computed is
+// the documented exception to it (that file's header names this one). It is a cheap
+// exception: `tick` is a STRING, so a flip recomputes ~150 short walks and re-renders
+// only the rows whose state actually changed. Reading the filter is not optional here.
+// A box that counted children the filter is hiding would read "mixed" over a group
+// whose every visible row was ticked, and a press on it would pack rows belonging to
+// somebody the person looking at the list didn't ask about.
+const personFilter = usePersonFilter();
+const tick = computed(() => tickState(props.item, children.value, personFilter.selected.value));
+// One op per row, like "Clear checks" (GearEditor): the queue, offline replay and the
+// change summary ("Checked off 6 items") all apply unchanged. Rows already in the new
+// state are skipped, so a press on a half-packed group writes only the other half —
+// and a press always writes something: a box reads checked only while every row it
+// stands for is packed, and clear or mixed only while at least one isn't.
+function onTick(e: Event) {
+  const el = e.target as HTMLInputElement;
+  const packed = el.checked;
+  for (const it of tickRows(props.item, children.value, personFilter.selected.value))
+    if (!!it.packed !== packed) c.updateItem(it.id, { packed });
+  // ...then put the ELEMENT back in step with the model, by hand.
+  //
+  // `checked` and `indeterminate` are DOM properties, and a native click writes both
+  // (flipping one, clearing the other) before this handler runs. Vue's own patch only
+  // fires when the BOUND value changes — `next !== prev` — so any press that leaves
+  // `tick` where it was leaves the browser's write standing instead: the dash gone and
+  // a full tick painted over a group that is still half packed. `:checked` has no
+  // re-sync of its own (v-model's is a `beforeUpdate` hook this binding doesn't get).
+  // It takes a dropped write to reach — a child removed by a collaborator between the
+  // render and the click, which applyOps then no-ops — but the fix is two lines and the
+  // failure is a checklist lying about what is in the bag.
+  el.checked = tick.value === "checked";
+  el.indeterminate = tick.value === "mixed";
+}
 // Indent (nest under the row above): only a top-level, childless row with a row
 // above it in DISPLAY order can (keeps nesting one level deep; prevId comes from
 // the parent's v-for, so a sorted folder nests under the row you see, not the
@@ -1123,25 +1168,37 @@ function dismissFix() {
          nothing, and re-renders nothing here — flipping one body attribute is the
          entire act. The checklist face never mounts for a list that never enters
          packing mode, and a list OPENED in packing builds no edit faces either. -->
-      <label v-if="everPacked" class="item-row item item--check" :class="{ 'item--done': item.packed }">
+      <label v-if="everPacked" class="item-row item item--check" :class="{ 'item--done': tick === 'checked' }">
       <!-- checkbox visuals come from the icon set (Square empty / SquareCheck checked —
            the same glyph as the header's packing toggle, and the two share an identical
            outer square so the swap reads as the tick appearing); the real <input> stays
            on top, invisible but focusable, so behavior + focus stay native -->
       <!-- the shared .check atom (controls.scss); .item__box stays on the input for
            the mobile grid placement below (and the print sheet's colour rule) -->
+      <!-- The three states of `tick` (shared/packing, which holds the rule): checked,
+           MIXED — the native indeterminate property, which the atom draws as a dash and
+           the accessibility tree reads as "mixed" — and clear. Plus "none", a bare group
+           whose children a person filter has all hidden: it stands for no row, so the
+           box is disabled rather than writing a flag no view would draw. -->
       <span class="check">
         <input
           type="checkbox"
           class="check__box item__box"
-          :checked="item.packed"
+          :checked="tick === 'checked'"
+          :indeterminate="tick === 'mixed'"
+          :disabled="tick === 'none'"
           :aria-label="`Packed: ${editableName || 'item'}`"
-          @change="c.updateItem(item.id, { packed: ($event.target as HTMLInputElement).checked })"
+          @change="onTick($event)"
         />
         <!-- absolute-stroke-width pins the drawn line at ~1.33px — what the surrounding
              16px icons render (2 nominal × 16/24) — so the bigger box doesn't read bolder
              than its row -->
         <HugeiconsIcon :icon="SquareIcon" class="check__icon check__icon--empty" :size="20" :stroke-width="1.33" absolute-stroke-width aria-hidden="true" />
+        <!-- the dash, on GROUP rows only: a leaf's box stands for exactly one row and
+             can never be mixed, and this is a third inline SVG on every row of a long
+             checklist. It is also what the atom's own :indeterminate rule keys on to
+             know this .check has a mixed face to swap in (controls.scss). -->
+        <HugeiconsIcon v-if="isParent" :icon="MinusSignSquareIcon" class="check__icon check__icon--mixed" :size="20" :stroke-width="1.33" absolute-stroke-width aria-hidden="true" />
         <HugeiconsIcon :icon="CheckmarkSquare02Icon" class="check__icon check__icon--check" :size="20" :stroke-width="1.33" absolute-stroke-width aria-hidden="true" />
       </span>
       <span class="item__cname" :class="{ 'item__cname--group': isParent }"><ItemName :item="item" :group="isParent" /><span v-if="isParent && rowKcal > 0" class="t-sm t-muted item__gkcalinline"> · {{ formatKcal(rowKcal) }} kcal</span><!--
@@ -2065,6 +2122,12 @@ function dismissFix() {
      field-h + 2×space-3, which stood 24px taller than the edit row and made the
      list jump on every toggle. */
   min-height: var(--field-h);
+}
+/* ...and the row stops offering itself as a tap target when its box stands for no row
+   (the disabled state above): the whole label is the control, so the pointer has to go
+   with it or the row still reads as pressable. */
+.item--check:has(.check__box:disabled) {
+  cursor: default;
 }
 /* checkbox — the shared .check atom (controls.scss): Square (empty) under
    SquareCheck (checked), the same glyph as the header's packing toggle, stacked in
