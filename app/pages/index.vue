@@ -1,9 +1,7 @@
 <script setup lang="ts">
-// The bare address is "where you left off". With lists on this device, open the one
-// opened most recently; with none, this page IS the fresh draft — the editor renders
-// right here, and /e keeps meaning "new". Decided in a route middleware, in the
-// browser, because the registry lives in localStorage — the server can't know — so
-// the prerendered file and the SSR render are the same nothing for everyone.
+// The bare address: resume the list you opened last, or be the fresh draft. The
+// decision is app/middleware/resume.ts — a named middleware, so the routes table
+// needn't import this page to know about it — and it runs before this page renders.
 //
 // The editor is rendered here rather than reached through a redirect from an empty
 // page, and that is a loading decision: a page that only navigates to /e has none of
@@ -14,19 +12,20 @@
 // to start a list.
 import { resumeTarget } from "~~/shared/switcher";
 
-definePageMeta({
-  layout: false,
-  middleware: [
-    () => {
-      if (import.meta.server) return;
-      const target = resumeTarget(useMyLists().entries.value);
-      if (!target) return; // nothing to go back to: this page is the draft
-      // the editor aims its switcher hint at the list it was dropped into
-      useResumed().value = target.shareCode;
-      return navigateTo(target.to, { replace: true });
-    },
-  ],
-});
+definePageMeta({ layout: false, middleware: "resume" });
+
+// This page can still mount with a list to resume, and must then mount NOTHING. A
+// prerendered page is hydrated against the address it was rendered for and only then
+// moved to the address actually opened, so `/?utm_source=…` (a shared link with a
+// query, or a hash) hydrates as `/`, is redirected by the middleware, and after the
+// first paint is set back to the full address — directly, with no middleware in the
+// way — before the middleware redirects it once more. That intermediate mount is the
+// one place this page renders while a resume is pending; an editor mounted there
+// would start a throwaway draft, tearing the resumed list down and writing an empty
+// draft over the on-device slot on its way out. A bare div matches what the server
+// rendered for the editor's client-only placeholder, so nothing is disturbed.
+const resuming = import.meta.client && !!resumeTarget(useMyLists().entries.value);
+
 // Prerendered as an empty shell that resolves on the client, so to a crawler it is a
 // blank homepage: keep it out of the index. The indexable surface stays /about and
 // /legal; the app itself lives behind unguessable links.
@@ -34,7 +33,8 @@ useHead({ meta: [{ name: "robots", content: "noindex" }] });
 </script>
 
 <template>
+  <div v-if="resuming" />
   <!-- A .client component (IndexedDB, the singleton controller, window refs): the
        server renders a placeholder, the browser mounts the draft. -->
-  <GearEditor />
+  <GearEditor v-else />
 </template>

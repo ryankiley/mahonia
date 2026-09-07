@@ -217,7 +217,10 @@ export default defineNuxtConfig({
     //            each other, and a circular chunk pair can evaluate app code
     //            before the vue bindings it reads exist. Dependencies are not
     //            captured recursively for the same reason: the entry's imports
-    //            reach the whole app.
+    //            reach the whole app. The budget script fails the build if this
+    //            chunk ever imports another: a future dependency on the boot path
+    //            that reaches for #app would be captured here and form exactly
+    //            that cycle, and nothing else would notice before production.
     //   boot   — everything else on the boot path: nuxt runtime, plugins, app.vue,
     //            the composables the session plugin pulls in.
     // Measured on the same tree: the editor's first load went from 45 files to 19
@@ -235,6 +238,14 @@ export default defineNuxtConfig({
       build: {
         rolldownOptions: {
           output: {
+            // The framework chunk keeps its group name in the file name, so the
+            // bundle-budget script can find it and check that it is still a LEAF —
+            // see the vendor group below for why a vendor chunk that imports app
+            // code is a boot crash, not a slowdown. Everything else keeps Nuxt's
+            // hash-only name; the `_nuxt/` prefix is Nuxt's own buildAssetsDir
+            // default, restated here because a file-name option replaces it whole.
+            chunkFileNames: (chunk: { name: string }) =>
+              chunk.name === "vendor" ? "_nuxt/vendor.[hash].js" : "_nuxt/[hash].js",
             codeSplitting: {
               groups: [
                 {

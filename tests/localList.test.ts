@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { DRAFT_KEY, localKey } from "../shared/localList";
 import { rebaseOnto } from "../shared/ops";
@@ -61,5 +62,19 @@ describe("rebaseOnto", () => {
     const merged = rebaseOnto(s, [{ t: "updateItem", id: "i9", patch: { qty: 4 } }]);
     expect(merged.items).toHaveLength(1);
     expect(merged.items[0]!.id).toBe("i1");
+  });
+});
+
+// shared/localList.ts is on every page's boot path (the session plugin reads a key
+// helper from it), and the reducer is not: a VALUE import from ./ops here would put
+// applyOps and the trail, polyline and profile arithmetic it folds in on the About
+// page and the share views. The bundle budget can't see that — it measures the
+// editor, which carries the reducer anyway — so the invariant is pinned at the source.
+describe("shared/localList.ts stays off the reducer", () => {
+  it("imports only types from ./ops", () => {
+    const src = readFileSync(new URL("../shared/localList.ts", import.meta.url), "utf8");
+    const opsImports = [...src.matchAll(/^import\b[^;]*from\s+["']\.\/ops["'];?$/gm)].map((m) => m[0]);
+    expect(opsImports.length).toBeGreaterThan(0);
+    for (const line of opsImports) expect(line).toMatch(/^import type\b/);
   });
 });

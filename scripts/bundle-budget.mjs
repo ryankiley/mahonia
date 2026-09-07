@@ -491,6 +491,21 @@ console.log(
 console.log("");
 
 const failures = [];
+// The framework chunk (`vendor`, named in nuxt.config's chunkFileNames) must stay a
+// LEAF. It is cut from the boot graph without capturing dependencies, on the promise
+// that nothing in it imports app code; a node_modules module on the boot path that
+// reaches for #app or #imports would break that promise, land here, and make this
+// chunk and the boot chunk import each other — and a circular pair can evaluate app
+// code before the vue bindings it reads exist, which is a ReferenceError on every
+// page's first paint. No test runs the built bundle, so this is the only place that
+// would see it before a deploy.
+const vendor = files.find((f) => /^vendor\./.test(f));
+if (!vendor) failures.push("no vendor.*.js chunk — the framework chunk lost its name (see nuxt.config chunkFileNames)");
+else {
+  const vendorImports = [...readFileSync(join(dir, vendor), "utf8").matchAll(/\b(?:from|import)\s*["']\.\/([^"']+)["']/g)].map((m) => m[1]);
+  if (vendorImports.length)
+    failures.push(`vendor chunk ${vendor} imports ${vendorImports.join(", ")} — it must be a leaf (see nuxt.config's vendor group)`);
+}
 if (firstLoad && firstBrKb > FIRST_LOAD_BUDGET_KB)
   failures.push(
     `first load ${kb(firstBr)} KB > ${FIRST_LOAD_BUDGET_KB} KB budget — this is what every visitor downloads`,
@@ -511,5 +526,5 @@ if (failures.length) {
   process.exit(1);
 }
 console.log(
-  `✓ Within budget — first load ${kb(firstBr)}/${FIRST_LOAD_BUDGET_KB} KB, total ${kb(totalBr)}/${TOTAL_BUDGET_KB} KB, largest ${kb(maxChunk.br)}/${MAX_CHUNK_BUDGET_KB} KB.`,
+  `✓ Within budget — first load ${kb(firstBr)}/${FIRST_LOAD_BUDGET_KB} KB, total ${kb(totalBr)}/${TOTAL_BUDGET_KB} KB, largest ${kb(maxChunk.br)}/${MAX_CHUNK_BUDGET_KB} KB; ${vendor} is a leaf.`,
 );

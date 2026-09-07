@@ -297,6 +297,10 @@ function create() {
       } else if (status.value === "offline") {
         status.value = "synced";
       }
+      // the network coming back is the tab coming back, as far as the poll is
+      // concerned: whatever happened elsewhere while it was gone is worth showing
+      // now, not wherever the idle cadence had got to
+      if ((editToken || claimCode) && !remoteMissing) wakePoll(true);
     });
   });
 
@@ -419,6 +423,10 @@ function create() {
   // claimCode) is set for the new session, so a queue, an in-flight flag or a
   // backoff from the last list can never leak into the next one.
   function resetSession() {
+    // the previous list's poll chain ends here, not when its next tick happens to
+    // notice: a tick still queued from the old session would otherwise fire into
+    // this one, and a load() that fails never starts a chain of its own to replace it
+    stopPoll();
     pending = [];
     inFlight = false;
     isEditing = false;
@@ -427,6 +435,9 @@ function create() {
     // along to the next list opened (where it would ask about the wrong gear,
     // and spend that list's one chance to ask). A draft is yours, and never asks.
     vaultPrompt.value = null;
+    // ...and so must the chooser it opens: left standing, it would show the last
+    // list's gear over this one and record the answer against this list's token
+    vaultPicker.value = null;
     // ...and the rows must render against THIS list's answer (a draft's answer IS
     // yes: no token → yours by definition)
     refreshVaultCover();
@@ -871,34 +882,50 @@ function create() {
   // that is when a collaborator's next change is worth showing within a breath. A tab
   // left open on a list nobody is touching stretches to 10 s after two quiet minutes
   // and 30 s after ten, and snaps back on any sign of life: a keystroke, a field taking
-  // focus, the tab returning to view (which also polls at once, so a change made while
-  // it was away shows immediately). Ten times fewer requests for the common case, a
-  // solo editor reading their own list; nothing changes for two people editing
-  // together, whose edits keep both sides fast. A timeout chain rather than an
-  // interval, so the delay can move between ticks.
+  // focus, the tab returning to view or the network coming back (both of which also
+  // poll at once, so a change made while they were away shows immediately). Ten
+  // times fewer requests for the common case, a solo editor reading their own list;
+  // nothing changes for two people editing together, whose edits keep both sides
+  // fast. A timeout chain rather than an interval, so the delay can move between
+  // ticks.
+  //
+  // Two guards keep the chain honest. A tick carries the epoch it was SCHEDULED in,
+  // so one queued by a list that has since been replaced exits on arrival rather
+  // than adopting the new session (dispose, load, a new draft all bump the epoch).
+  // And a wake that lands while a tick's request is in flight is noted rather than
+  // started: a second concurrent request for the same version would race the first,
+  // and the first's own rescheduling would otherwise cancel the immediate poll the
+  // wake promised — so the in-flight tick honours it as it finishes.
   const POLL_FAST_MS = 3_000;
   const POLL_SLOW_MS = 10_000;
   const POLL_IDLE_MS = 30_000;
+  let pollInFlight = false;
+  let pollWakePending = false;
   function pollDelay(): number {
     const quiet = Date.now() - liveAt;
     return quiet < 2 * 60_000 ? POLL_FAST_MS : quiet < 10 * 60_000 ? POLL_SLOW_MS : POLL_IDLE_MS;
   }
   function schedulePoll(delay = pollDelay()) {
     clearTimeout(pollTimer);
-    pollTimer = setTimeout(pollTick, delay);
+    const scheduledEpoch = epoch;
+    pollTimer = setTimeout(() => void pollTick(scheduledEpoch), delay);
   }
-  /** Note a sign of life. `now` also polls straight away — the tab just came back. */
+  /** Note a sign of life. `now` also polls straight away — the tab, or the network,
+   *  just came back. */
   function wakePoll(now = false) {
     liveAt = Date.now();
-    if (polling && now) schedulePoll(0);
+    if (!polling || !now) return;
+    if (pollInFlight) pollWakePending = true;
+    else schedulePoll(0);
   }
-  async function pollTick() {
+  async function pollTick(myEpoch: number) {
     pollTimer = undefined;
-    const myEpoch = epoch;
+    if (myEpoch !== epoch) return; // queued by a session that has since been replaced
     try {
       if (typeof document !== "undefined" && document.hidden) return;
       if (!online.value) return; // nothing to pull while the connection is down
       if (inFlight || pending.length || !snapshot.value || dragging()) return;
+      pollInFlight = true;
       const res = await $fetch<{ version: number; snapshot?: ListSnapshot }>(
         "/api/edit/changes",
         { headers: authHeaders(), query: { since: snapshot.value.version } },
@@ -925,9 +952,14 @@ function create() {
     } catch {
       /* transient */
     } finally {
+      pollInFlight = false;
       // the chain goes on only for the session that started it — a load() that
       // superseded this one mid-flight has a chain of its own
-      if (polling && myEpoch === epoch) schedulePoll();
+      if (polling && myEpoch === epoch) {
+        const wake = pollWakePending;
+        pollWakePending = false;
+        schedulePoll(wake ? 0 : pollDelay());
+      }
     }
   }
   function startPoll() {
@@ -938,6 +970,7 @@ function create() {
   }
   function stopPoll() {
     polling = false;
+    pollWakePending = false;
     clearTimeout(pollTimer);
     pollTimer = undefined;
   }
@@ -1266,7 +1299,9 @@ function create() {
       return refreshVaultCover();
     }
     const s = snapshot.value;
+    const myEpoch = epoch;
     const caps = s ? await vault.buildCaptures(s.items, s.folders) : [];
+    if (myEpoch !== epoch) return; // the list changed under the question
     // nothing to choose between — record the answer and take the (empty) set, so
     // an empty chooser never appears and the question doesn't come back
     if (caps.length < 2) {
