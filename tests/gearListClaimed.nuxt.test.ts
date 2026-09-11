@@ -14,12 +14,16 @@
 //     handle), and its on-device copy lives under the code: key;
 //   • a rotate graduates it to the token path: bearer from then on, a registry
 //     row minted, the code-keyed record gone;
-//   • a rename reaches the claimed-lists state the switcher renders (touchByCode).
+//   • a rename reaches the claimed-lists state the switcher renders (touchByCode);
+//   • it is stamped in the opens ledger, so the bare address — the installed app's
+//     start_url, and therefore every offline launch — picks up here rather than at
+//     whatever older list this device happens to hold an edit link for.
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import { createError, getHeader, readBody, type H3Event } from "h3";
 import { claimedLocalKey, type LocalListRecord } from "~~/shared/localList";
 import { LIST_CODE_HEADER } from "~~/shared/links";
+import { resumeTarget } from "~~/shared/switcher";
 import type { ListSnapshot } from "~~/shared/types";
 import type { Op } from "~~/shared/ops";
 
@@ -173,6 +177,51 @@ describe("useGearList — a claimed open (share code + session, no token held)",
     expect(useMyLists().entries.value).toHaveLength(0);
   });
 
+  it("is still where the bare address picks up, registry row or not", async () => {
+    // The bug: with no row to stamp, an open through the account left nothing the
+    // resume could rank, so the installed app launched into some other list — one
+    // this device held a token for and you hadn't touched in weeks.
+    useMyLists().entries.value = [
+      {
+        editToken: "older-token",
+        origin: "created",
+        shareCode: "0LDLIST00001",
+        slug: "older-list-bbb222",
+        title: "Older",
+        totalMg: 0,
+        version: 1,
+        lastOpened: 1,
+        displayUnit: "g",
+      },
+    ];
+
+    const c = useGearList();
+    await c.load({ code: CODE });
+
+    expect(claimedOpens()[0]?.shareCode).toBe(CODE);
+    expect(resumeTarget(useMyLists().entries.value, claimedOpens())).toEqual({
+      to: `/e/${CODE}`,
+      shareCode: CODE,
+    });
+  });
+
+  it("stamps the ledger on an OFFLINE open, hydrated from the on-device copy", async () => {
+    // no server to confirm anything, and still every bit "the list you had open"
+    records.set(claimedLocalKey(CODE), {
+      snapshot: snapshotFor("Alpine Loop"),
+      pending: [],
+      updatedAt: 1,
+    });
+    refuseOpens = true;
+    try {
+      const c = useGearList();
+      await c.load({ code: CODE });
+      expect(claimedOpens()[0]?.shareCode).toBe(CODE);
+    } finally {
+      refuseOpens = false;
+    }
+  });
+
   it("edits flush through the code header and NEVER reach the draft-create path", async () => {
     const c = useGearList();
     await c.load({ code: CODE });
@@ -248,6 +297,9 @@ describe("useGearList — a claimed open (share code + session, no token held)",
       expect(records.has(claimedLocalKey(CODE))).toBe(false);
       expect(records.has(ROTATED_TOKEN)).toBe(true);
     });
+    // …and so is the ledger entry: the registry row is the way back in from here,
+    // and resumeTarget skips a claimed entry the registry already covers anyway
+    expect(claimedOpens()).toEqual([]);
 
     // and the next edit no longer names the claim. (The Bearer half of the
     // hand-off can't be asserted here: test-utils' fetch mock delivers custom

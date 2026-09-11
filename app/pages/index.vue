@@ -10,6 +10,7 @@
 // file first, then what it imports). Rendering the editor puts its chunks beside the
 // shell's in the HTML, downloaded in parallel — and a newcomer never leaves this URL
 // to start a list.
+import { claimedOpens } from "~/composables/useClaimedLists";
 import { resumeTarget } from "~~/shared/switcher";
 
 definePageMeta({ layout: false, middleware: "resume" });
@@ -24,7 +25,8 @@ definePageMeta({ layout: false, middleware: "resume" });
 // would start a throwaway draft, tearing the resumed list down and writing an empty
 // draft over the on-device slot on its way out. A bare div matches what the server
 // rendered for the editor's client-only placeholder, so nothing is disturbed.
-const resuming = import.meta.client && !!resumeTarget(useMyLists().entries.value);
+const resuming =
+  import.meta.client && !!resumeTarget(useMyLists().entries.value, claimedOpens());
 
 // Prerendered as an empty shell that resolves on the client, so to a crawler it is a
 // blank homepage: keep it out of the index. The indexable surface stays /about and

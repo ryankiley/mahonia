@@ -67,18 +67,52 @@ export function mergeSwitcherRows(
   return rows;
 }
 
-/** Where the bare address lands: the list this browser opened most recently, or
- *  null when it holds none (→ a fresh draft). Device rows only, and only ones with
- *  an edit token: a claimed-only row is as good as the session behind it, and the
- *  bare address is what a bookmark opens signed out and offline. Ties (same
- *  lastOpened, or entries from before the field) keep registry order. */
+/** One claimed list this browser has actually had open, and when. The device
+ *  registry keeps this per row; a claimed open has no row to keep it in, so it's
+ *  kept separately — see useClaimedLists' opens ledger. */
+export interface ClaimedOpen {
+  shareCode: string;
+  lastOpened: number;
+}
+
+/**
+ * Where the bare address lands: the list this browser opened most recently, or null
+ * when it has opened none (→ a fresh draft).
+ *
+ * BOTH WAYS IN COUNT. The registry half is the lists this browser holds the edit
+ * link for; the claimed half is the lists it has opened through the account, at
+ * /e/{code} on the session. Ranking only the first half is why the bare address —
+ * which is the installed app's start_url, so it IS the offline launch — could hand
+ * you a list you hadn't touched in weeks: a list made on another device arrives here
+ * as a claimed row, and opening it wrote nothing the resume could see. It has an
+ * on-device copy like any other open list (the editor persists one under its share
+ * code), so there was never anything missing but the pointer to it.
+ *
+ * A row with no edit token is still skipped, and a claimed entry for a list the
+ * registry ALSO holds is skipped: the edit link is the better way into the same
+ * list, since it works signed out and offline, and the registry row's own
+ * lastOpened already covers it.
+ *
+ * Ties keep this order — device rows first, then registry order — so an entry from
+ * before lastOpened existed still resolves, and a claimed open never displaces a
+ * token for the same instant.
+ */
 export function resumeTarget(
   device: Pick<MyListEntry, "editToken" | "shareCode" | "lastOpened">[],
+  claimed: ClaimedOpen[] = [],
 ): { to: string; shareCode: string } | null {
-  let best: (typeof device)[number] | undefined;
+  let best: { to: string; shareCode: string; at: number } | undefined;
+  const consider = (to: string, shareCode: string, at: number) => {
+    if (!best || at > best.at) best = { to, shareCode, at };
+  };
   for (const e of device) {
     if (!e.editToken) continue;
-    if (!best || (e.lastOpened ?? 0) > (best.lastOpened ?? 0)) best = e;
+    consider(editLinkPath(e.shareCode, e.editToken), e.shareCode, e.lastOpened ?? 0);
   }
-  return best ? { to: editLinkPath(best.shareCode, best.editToken), shareCode: best.shareCode } : null;
+  const held = new Set(device.filter((e) => e.editToken).map((e) => e.shareCode).filter(Boolean));
+  for (const c of claimed) {
+    if (!c.shareCode || held.has(c.shareCode)) continue;
+    consider(claimedEditPath(c.shareCode), c.shareCode, c.lastOpened ?? 0);
+  }
+  return best ? { to: best.to, shareCode: best.shareCode } : null;
 }

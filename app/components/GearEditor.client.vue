@@ -2,6 +2,7 @@
 import { HugeiconsIcon, type IconNode } from "~/utils/hugeicon";
 import { Backpack02Icon, Bug02Icon, CheckmarkSquare02Icon, CopyPlusIcon, Delete02Icon, EllipsisIcon, FileExportIcon, FileImportIcon, KeyboardIcon, RemoveCircleIcon, Route02Icon, SafeBoxIcon, Share08Icon, UndoIcon, UserAddIcon } from "@hugeicons/core-free-icons";
 import { editLinkPath, normalizeShareCode } from "~~/shared/links";
+import { claimedOpens, forgetClaimedOpen } from "~/composables/useClaimedLists";
 import { resumeTarget } from "~~/shared/switcher";
 import { tripHeadline } from "~~/shared/trailDistance";
 import { formatWeight } from "~~/shared/weights";
@@ -406,13 +407,20 @@ const route = useRoute();
 // without it: the next list this browser holds, or a fresh draft. Only for a resume:
 // a dead link you opened yourself still gets the message, which is the honest answer
 // to that link.
+//
+// Either shape of entry can go dead, and each is dropped where it lives: a token in
+// the registry, a claimed open in the opens ledger (its 401 — the claim revoked, or
+// the session gone for good — reaches "missing" by the same road as a 404). Without
+// the second the bare address would offer the same dead list on every launch,
+// skipping off it each time.
 watch(status, (s) => {
   if (s !== "missing" || !resumed.value) return;
   const code = normalizeShareCode(typeof route.params.code === "string" ? route.params.code : "");
   if (!code || code !== resumed.value) return;
   const token = decodeURIComponent(route.hash.replace(/^#/, ""));
   if (token) my.forget(token);
-  const next = resumeTarget(my.entries.value);
+  else forgetClaimedOpen(code);
+  const next = resumeTarget(my.entries.value, claimedOpens());
   resumed.value = next?.shareCode ?? null;
   navigateTo(next?.to ?? "/e", { replace: true });
 });

@@ -1,0 +1,7 @@
+{
+  "date": "2026-09-11",
+  "fixed": [
+    "Opening the app offline brings back the list you actually had open last, including one you opened from your account rather than through its own edit link.",
+    "Your lists stay in the switcher when you go offline, instead of thinning out to just the ones this device holds a link for."
+  ]
+}

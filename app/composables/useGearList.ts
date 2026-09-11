@@ -13,6 +13,7 @@ import type { VaultCapture, VaultEntry, VaultGearKey } from "~~/shared/vault";
 import { vaultNormKey } from "~~/shared/vault";
 import { bySortOrder, carriesContent, computeTotals, entryUnitFromInput, nextSortOrder, parseWeightInput, siblingItems, storedClassification } from "~~/shared/weights";
 import { createNesting } from "~/composables/useGearListNesting";
+import { forgetClaimedOpen, markClaimedOpen } from "~/composables/useClaimedLists";
 
 // Editor controller (one list open at a time → module singleton). Mutations are
 // applied optimistically via the SAME op-reducer the server uses, queued, and
@@ -369,7 +370,16 @@ function create() {
     if (editToken) useMyLists().touch(editToken, patch);
     // a claimed open has no registry row — its switcher row reads the account
     // list, so a rename here has to reach THAT copy to show up in the dropdown
-    else if (claimCode) useClaimedLists().touchByCode(claimCode, patch);
+    else if (claimCode) {
+      useClaimedLists().touchByCode(claimCode, patch);
+      // ...and the registry row is also where touch() stamps lastOpened, which is
+      // how the bare address knows where you left off. A claimed open has nowhere
+      // to stamp it, so it goes in the ledger beside the row copy. Here rather
+      // than only on a confirmed load, because this is the path an OFFLINE open
+      // takes: hydrated from the on-device copy with no server to confirm
+      // anything, and still every bit "the list you had open".
+      markClaimedOpen(claimCode);
+    }
   }
 
   // The gate on that optimistic call. dispatch runs on every keystroke and touch()
@@ -405,7 +415,15 @@ function create() {
   // visible handle. "Remove from device" (forget) still wins: the edit-path syncs
   // stay touch, so a list you removed mid-session isn't silently re-added.
   function registerOpened() {
-    if (!snapshot.value || !editToken) return;
+    if (!snapshot.value) return;
+    // A claimed open has no token to register and never gets a registry row — but
+    // "this browser opened this list" is exactly what the bare address needs, and
+    // a first open on this device has no on-device copy yet for syncRegistry's
+    // hydrate path to have stamped.
+    if (!editToken) {
+      if (claimCode) markClaimedOpen(claimCode);
+      return;
+    }
     // registerCreated owns the snapshot→MyListEntry mapping — one source of truth.
     // Marked "opened", because this is the path where a list arrives via a link
     // someone SENT you: signing in must not quietly attach it to your account.
@@ -1472,8 +1490,13 @@ function create() {
           : null);
       if (old) my.forget(old); // also drops the old token's on-device record
       // the claimed open's record re-keys onto the token; leaving the code-keyed
-      // copy behind would resurface pre-rotate state on the next claimed open
-      if (oldCode) store.del(claimedLocalKey(oldCode));
+      // copy behind would resurface pre-rotate state on the next claimed open, and
+      // its ledger entry would outlive the only route that reads it (the registry
+      // row minted below is what the bare address resumes through from now on)
+      if (oldCode) {
+        store.del(claimedLocalKey(oldCode));
+        forgetClaimedOpen(oldCode);
+      }
       if (base) my.upsert({ ...base, editToken: res.editToken, lastOpened: Date.now() });
       persistLocal(); // re-key this device's copy onto the new token
       return res.editToken;

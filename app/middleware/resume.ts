@@ -9,11 +9,21 @@
 // the page's meta module statically, which puts this code — and the switcher module
 // it reads — on the boot path of every route. A name is a string, and a named
 // middleware is loaded only when the route that names it is entered.
+//
+// BOTH WAYS IN are ranked, which is what makes this right on the launch that has no
+// network. A list this browser opened through the account rather than through an
+// edit link leaves no registry row, so ranking the registry alone sent the installed
+// app to whatever OTHER list happened to hold a token here — a list you last touched
+// weeks ago, while the one you actually packed sat on the device unreachable from
+// its own start_url. (The opens ledger is a plain localStorage read, and
+// useClaimedLists is already on the boot path via the session plugin, so neither
+// costs this route anything.)
+import { claimedOpens } from "~/composables/useClaimedLists";
 import { resumeTarget } from "~~/shared/switcher";
 
 export default defineNuxtRouteMiddleware(() => {
   if (import.meta.server) return;
-  const target = resumeTarget(useMyLists().entries.value);
+  const target = resumeTarget(useMyLists().entries.value, claimedOpens());
   // Written on EVERY visit, cleared included: the editor aims its switcher hint at
   // the list the bare address dropped you into, and a code left over from an earlier
   // resume would make a deliberate open of that list read as another one.

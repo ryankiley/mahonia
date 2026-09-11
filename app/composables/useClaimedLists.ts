@@ -10,6 +10,7 @@
 
 import { LIST_CODE_HEADER } from "~~/shared/links";
 import { claimedLocalKey } from "~~/shared/localList";
+import type { ClaimedOpen } from "~~/shared/switcher";
 import type { ClaimedList } from "~~/shared/types";
 import { forget, recall, remember } from "../utils/remember";
 import { deleteListOnServer } from "./useMyLists";
@@ -19,6 +20,83 @@ import { deleteListOnServer } from "./useMyLists";
 // re-POST the same registry on every page load. Persisted per-device rather than
 // held in memory: the claim call would otherwise repeat on every cold navigation.
 const CLAIMED_MARK_KEY = "gear.claimed.v1";
+
+// The account's rows as this browser last saw them. A cache, not a source: the
+// server owns the truth and every successful read below replaces this wholesale.
+//
+// It exists because the account half of "your lists" is fetched, and a fetch is the
+// one thing an offline launch cannot do — /api/auth/me fails first, so a signed-in
+// visitor even READS as signed out, and the switcher would show only the lists this
+// browser holds edit links for. The lists made on another device would vanish from
+// it exactly when there's no network to ask for them back, which is the moment the
+// app is least able to explain itself.
+const CLAIMED_ROWS_KEY = "gear.claimed.rows.v1";
+
+// When this browser last had each claimed list OPEN. The device registry keeps this
+// per row (MyListEntry.lastOpened); a claimed open has no registry row — the point
+// of it is that this device holds no edit token — so it's kept here instead, and
+// the bare address ranks the two together (shared/switcher resumeTarget).
+const CLAIMED_OPENS_KEY = "gear.claimed.opens.v1";
+
+// Enough to cover any plausible rotation of lists; the ledger is only ever read to
+// find the single most recent, so the tail is dead weight and old codes shouldn't
+// accumulate on the device forever.
+const OPENS_KEPT = 32;
+
+function readOpens(): Record<string, number> {
+  try {
+    const raw = recall(CLAIMED_OPENS_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : null;
+    // A corrupt ledger reads as empty rather than taking the bare address down with
+    // it — the same shrug the device registry makes about its own store.
+    return parsed && typeof parsed === "object" ? (parsed as Record<string, number>) : {};
+  } catch {
+    return {};
+  }
+}
+
+/** Every claimed list this browser has had open, newest first. Read by the bare
+ *  address; a plain function rather than a composable so the resume middleware can
+ *  call it without booting anything. */
+export function claimedOpens(): ClaimedOpen[] {
+  return Object.entries(readOpens())
+    .filter(([shareCode, at]) => !!shareCode && Number.isFinite(at))
+    .map(([shareCode, lastOpened]) => ({ shareCode, lastOpened }))
+    .sort((a, b) => b.lastOpened - a.lastOpened);
+}
+
+/** Note that this browser has this claimed list open NOW — the claimed twin of the
+ *  registry's touch(). Called from the editor on every sync, so an open that only
+ *  ever happened offline (hydrated from the on-device copy) counts too. */
+export function markClaimedOpen(shareCode: string): void {
+  if (!import.meta.client || !shareCode) return;
+  const opens = readOpens();
+  opens[shareCode] = Date.now();
+  const kept = Object.entries(opens)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, OPENS_KEPT);
+  remember(CLAIMED_OPENS_KEY, JSON.stringify(Object.fromEntries(kept)));
+}
+
+/** Drop one code from the ledger: the list is gone, detached, or the claim no
+ *  longer opens it, so the bare address must stop offering to resume it. */
+export function forgetClaimedOpen(shareCode: string): void {
+  if (!import.meta.client || !shareCode) return;
+  const opens = readOpens();
+  if (!(shareCode in opens)) return;
+  delete opens[shareCode];
+  remember(CLAIMED_OPENS_KEY, JSON.stringify(opens));
+}
+
+function readCachedRows(): ClaimedList[] {
+  try {
+    const raw = recall(CLAIMED_ROWS_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : null;
+    return Array.isArray(parsed) ? (parsed as ClaimedList[]) : [];
+  } catch {
+    return [];
+  }
+}
 
 /** The registry as one comparable string. Exported so the session plugin, which
  *  watches for the registry to change, computes the same value it then passes in
@@ -30,16 +108,48 @@ export function deviceFingerprint(tokens: string[]): string {
 export function useClaimedLists() {
   const lists = useState<ClaimedList[]>("claimed-lists", () => []);
   const loaded = useState<boolean>("claimed-loaded", () => false);
-  const { signedIn } = useSession();
+  const { signedIn, loaded: sessionLoaded, hasSessionHint } = useSession();
+
+  /** Adopt rows and mirror them to the device, so the next cold load — which may
+   *  have no network — starts from what this browser last knew. */
+  function adopt(rows: ClaimedList[]): void {
+    lists.value = rows;
+    remember(CLAIMED_ROWS_KEY, JSON.stringify(rows));
+  }
+
+  // The cached rows stand in until a fetch answers. Gated on the HINT COOKIE rather
+  // than on signedIn, and that's the whole point: offline, /api/auth/me never answers
+  // and signedIn reads false for someone who is very much signed in. The hint is a
+  // plain cookie this browser can read without asking anyone, which is exactly the
+  // question here — "does this browser have an account behind it".
+  //
+  // Conditions rather than a once-flag, so it doesn't matter which component asks
+  // first: it stops as soon as a read has landed (loaded) or there are rows to show,
+  // and re-reading the same cache into the same empty state changes nothing. The
+  // signed-out paths REMOVE the cache, so there is nothing here to resurrect.
+  if (import.meta.client && !loaded.value && !lists.value.length && hasSessionHint()) {
+    lists.value = readCachedRows();
+  }
 
   async function refresh(): Promise<void> {
-    if (!import.meta.client || !signedIn.value) {
-      lists.value = [];
+    if (!import.meta.client) return;
+    if (!signedIn.value) {
+      // Blank ONLY on a RESOLVED signed-out session. Offline the session read fails
+      // and reads as signed out, and blanking there would throw away the cached rows
+      // at the one moment they're the only copy there is — the switcher would go
+      // from "4 lists" to "1 list" the second the tunnel started.
+      // Removed rather than written as an empty array, so the overwhelming majority
+      // of visitors — who have no account and reach this every time the switcher
+      // opens — leave no key behind at all.
+      if (sessionLoaded.value) {
+        lists.value = [];
+        forget(CLAIMED_ROWS_KEY);
+      }
       return;
     }
     try {
       const res = await $fetch<{ lists: ClaimedList[] }>("/api/lists/claimed");
-      lists.value = res.lists || [];
+      adopt(res.lists || []);
       loaded.value = true;
     } catch {
       // signed out mid-flight, or offline — leave whatever we had rather than
@@ -93,7 +203,7 @@ export function useClaimedLists() {
         method: "POST",
         body: { editTokens, openedTokens },
       });
-      lists.value = res.lists || [];
+      adopt(res.lists || []);
       loaded.value = true;
       remember(CLAIMED_MARK_KEY, mark); // a blocked write just means claiming again next time
     } catch {
@@ -110,7 +220,7 @@ export function useClaimedLists() {
         method: "POST",
         body: { editTokens: [editToken] },
       });
-      lists.value = res.lists || [];
+      adopt(res.lists || []);
       loaded.value = true;
       return true;
     } catch {
@@ -120,13 +230,15 @@ export function useClaimedLists() {
 
   /** Mirror an edit made THROUGH a claimed open onto its row here, so the switcher
    *  reads the new title/total straight away instead of one refetch later — the
-   *  claimed-side twin of useMyLists().touch(). In-memory only: the server already
-   *  holds the truth (the edit just saved to it), and the next refresh re-reads it. */
+   *  claimed-side twin of useMyLists().touch(). The server still holds the truth and
+   *  the next refresh re-reads it; the copy kept here is what the switcher renders
+   *  offline, so the edit has to reach it. The "you had this open" half is
+   *  markClaimedOpen, which the editor calls alongside this. */
   function touchByCode(
     shareCode: string,
     patch: Partial<Pick<ClaimedList, "title" | "version" | "totalMg" | "displayUnit">>,
   ): void {
-    lists.value = lists.value.map((l) => (l.shareCode === shareCode ? { ...l, ...patch } : l));
+    adopt(lists.value.map((l) => (l.shareCode === shareCode ? { ...l, ...patch } : l)));
   }
 
   /** Delete a claimed list via the session (no edit token on this device — the
@@ -135,9 +247,11 @@ export function useClaimedLists() {
    *  failure leaves everything standing so the user can retry. */
   async function deleteClaimed(shareCode: string): Promise<boolean> {
     if (!(await deleteListOnServer({ [LIST_CODE_HEADER]: shareCode }))) return false;
-    lists.value = lists.value.filter((l) => l.shareCode !== shareCode);
-    // drop the claimed open's on-device copy too — the list is gone for good
+    adopt(lists.value.filter((l) => l.shareCode !== shareCode));
+    // drop the claimed open's on-device copy too — the list is gone for good, so
+    // the bare address must stop offering to resume it as well
     useLocalListStore().del(claimedLocalKey(shareCode));
+    forgetClaimedOpen(shareCode);
     return true;
   }
 
@@ -149,7 +263,12 @@ export function useClaimedLists() {
         method: "POST",
         body: { shareCode },
       });
-      if (res.ok) lists.value = lists.value.filter((l) => l.shareCode !== shareCode);
+      // the list itself survives, but this account is no longer a way into it —
+      // and a claimed resume is only as good as that claim
+      if (res.ok) {
+        adopt(lists.value.filter((l) => l.shareCode !== shareCode));
+        forgetClaimedOpen(shareCode);
+      }
       return res.ok;
     } catch {
       return false;
@@ -161,6 +280,11 @@ export function useClaimedLists() {
   function resetClaimMark(): void {
     if (!import.meta.client) return;
     forget(CLAIMED_MARK_KEY); // a blocked remove is nothing to do about; the mark is an optimisation, not state we depend on
+    // the cached rows and the opens ledger are this account's too: leaving either
+    // behind would show the last person's lists in the switcher, and could resume
+    // the bare address into one of them
+    forget(CLAIMED_ROWS_KEY);
+    forget(CLAIMED_OPENS_KEY);
     lists.value = [];
     loaded.value = false;
   }
