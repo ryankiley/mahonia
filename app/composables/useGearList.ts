@@ -243,8 +243,10 @@ function create() {
   // site can't forget the credential.
   const { vaultFetch: vaultRead, hasVault: sessionHasVault, vaultKnown: sessionKnown } =
     useVaultAccess();
-  // A cookie read, not a request — see the gate in askVaultGear.
-  const { hasSessionHint } = useSession();
+  // A cookie read, not a request — see the gate in askVaultGear. signedIn is the
+  // RESOLVED answer, read where a 401 on a claimed open has to be told apart from a
+  // session that merely lapsed (load's catch).
+  const { hasSessionHint, signedIn: sessionSignedIn } = useSession();
   scope.run(() => {
     const { hasVault } = useVaultAccess();
     watch(hasVault, () => {
@@ -377,8 +379,11 @@ function create() {
       // to stamp it, so it goes in the ledger beside the row copy. Here rather
       // than only on a confirmed load, because this is the path an OFFLINE open
       // takes: hydrated from the on-device copy with no server to confirm
-      // anything, and still every bit "the list you had open".
-      markClaimedOpen(claimCode);
+      // anything, and still every bit "the list you had open". Not once the server
+      // HAS answered that the claim is dead, though: the hydrate stamp lands before
+      // that answer, and every device-only edit on the dead-end page would renew it
+      // — the bare address then offered the dead list first on every launch.
+      if (!remoteMissing) markClaimedOpen(claimCode);
     }
   }
 
@@ -416,14 +421,16 @@ function create() {
   // stay touch, so a list you removed mid-session isn't silently re-added.
   function registerOpened() {
     if (!snapshot.value) return;
-    // A claimed open has no token to register and never gets a registry row — but
-    // "this browser opened this list" is exactly what the bare address needs, and
-    // a first open on this device has no on-device copy yet for syncRegistry's
-    // hydrate path to have stamped.
-    if (!editToken) {
-      if (claimCode) markClaimedOpen(claimCode);
+    // A claimed open has no token to register and never gets a registry row; its
+    // row copy and its ledger stamp are syncRegistry's, and a first open on this
+    // device has no on-device copy for the hydrate path to have run it on — so it
+    // runs here, on the server's fresh title and total, the way registerCreated
+    // below refreshes a token's row.
+    if (claimCode) {
+      syncRegistry();
       return;
     }
+    if (!editToken) return;
     // registerCreated owns the snapshot→MyListEntry mapping — one source of truth.
     // Marked "opened", because this is the path where a list arrives via a link
     // someone SENT you: signing in must not quietly attach it to your account.
@@ -434,6 +441,11 @@ function create() {
       totals.value?.totalMg ?? 0,
       "opened",
     );
+    // The token is the way into this list from now on: the row just minted is what
+    // the bare address ranks and how it navigates. A ledger entry from an earlier
+    // open through the account would only resurface — ranked at that older time —
+    // the moment the row is deleted or removed from this device.
+    forgetClaimedOpen(snapshot.value.shareCode);
   }
 
   // Everything one list's session owns, zeroed. Every way a session begins or ends
@@ -606,6 +618,15 @@ function create() {
         // composable). The live-side heal is upsert's share-code claim, so it
         // takes one visit to either row, whichever you happened to pick.
         if (editToken) useMyLists().forgetSuperseded(editToken);
+        // The claimed twin: the stamp the hydrate path made must not outlive the
+        // server's verdict, or the bare address resumes into this dead list on
+        // every launch. Only while the session is KNOWN good, though — a 401 here
+        // says "no claim under this session", and with the session itself
+        // unresolved (offline, or still being asked) that is as likely the session
+        // as the claim. Forgetting on that reading lost where you left off for a
+        // list the account still holds; a truly dead claim is pruned by the next
+        // read of the account's rows regardless (pruneClaimedOpens).
+        else if (claimCode && sessionSignedIn.value) forgetClaimedOpen(claimCode);
       } else if (local) {
         // Network failure with a local copy: keep editing, sync when it returns.
         status.value = "offline";

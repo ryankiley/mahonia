@@ -88,31 +88,42 @@ export interface ClaimedOpen {
  * on-device copy like any other open list (the editor persists one under its share
  * code), so there was never anything missing but the pointer to it.
  *
- * A row with no edit token is still skipped, and a claimed entry for a list the
- * registry ALSO holds is skipped: the edit link is the better way into the same
- * list, since it works signed out and offline, and the registry row's own
- * lastOpened already covers it.
+ * A row with no edit token is still skipped. A list that is in BOTH — opened through
+ * the account here, and through its edit link — is one list: it is ranked by
+ * whichever open was later and reached through the edit link, which works signed
+ * out and offline. The later open can well be the claimed one: a signed-in /e/{code}
+ * with no fragment takes the claimed path even when this browser holds the token,
+ * and stamps only the ledger — discarding that stamp let an older list win.
  *
  * Ties keep this order — device rows first, then registry order — so an entry from
  * before lastOpened existed still resolves, and a claimed open never displaces a
- * token for the same instant.
+ * token for the same instant. Only finite stamps count: nothing compares greater
+ * than a NaN, so one considered first would otherwise sit at the top for good.
  */
 export function resumeTarget(
   device: Pick<MyListEntry, "editToken" | "shareCode" | "lastOpened">[],
   claimed: ClaimedOpen[] = [],
 ): { to: string; shareCode: string } | null {
+  const finite = (n: number | undefined) => (Number.isFinite(n) ? (n as number) : 0);
+  const stamped = new Map<string, number>();
+  for (const c of claimed) if (c.shareCode) stamped.set(c.shareCode, finite(c.lastOpened));
   let best: { to: string; shareCode: string; at: number } | undefined;
   const consider = (to: string, shareCode: string, at: number) => {
     if (!best || at > best.at) best = { to, shareCode, at };
   };
+  const held = new Set<string>();
   for (const e of device) {
     if (!e.editToken) continue;
-    consider(editLinkPath(e.shareCode, e.editToken), e.shareCode, e.lastOpened ?? 0);
+    held.add(e.shareCode);
+    consider(
+      editLinkPath(e.shareCode, e.editToken),
+      e.shareCode,
+      Math.max(finite(e.lastOpened), stamped.get(e.shareCode) ?? 0),
+    );
   }
-  const held = new Set(device.filter((e) => e.editToken).map((e) => e.shareCode).filter(Boolean));
   for (const c of claimed) {
     if (!c.shareCode || held.has(c.shareCode)) continue;
-    consider(claimedEditPath(c.shareCode), c.shareCode, c.lastOpened ?? 0);
+    consider(claimedEditPath(c.shareCode), c.shareCode, finite(c.lastOpened));
   }
   return best ? { to: best.to, shareCode: best.shareCode } : null;
 }

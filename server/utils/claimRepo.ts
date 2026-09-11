@@ -16,11 +16,13 @@ import { captureVaultItems } from "./vaultRepo";
 import { mintVault, touchVaultByUser } from "./vaultAuth";
 import { VAULT_CAPTURE_MAX, captureFromList, type VaultCapture } from "../../shared/vault";
 import { normalizeShareCode } from "../../shared/links";
-import { UNITS, type ClaimedList, type Unit } from "../../shared/types";
+import { CLAIMED_LIST_CAP, UNITS, type ClaimedList, type Unit } from "../../shared/types";
 
 /** Cap on how many tokens one claim request may carry. "Your lists" is a device
- *  registry a person built by hand; anything past this is not a real browser. */
-export const CLAIM_BATCH_MAX = 200;
+ *  registry a person built by hand; anything past this is not a real browser. The
+ *  same number caps the rows a read returns, and the client reads it from shared/
+ *  to know when the rows it holds are the whole account. */
+export const CLAIM_BATCH_MAX = CLAIMED_LIST_CAP;
 
 /**
  * When the device registry started recording HOW a list got onto a browser.

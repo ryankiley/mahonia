@@ -15,15 +15,14 @@
 // edit link leaves no registry row, so ranking the registry alone sent the installed
 // app to whatever OTHER list happened to hold a token here — a list you last touched
 // weeks ago, while the one you actually packed sat on the device unreachable from
-// its own start_url. (The opens ledger is a plain localStorage read, and
-// useClaimedLists is already on the boot path via the session plugin, so neither
-// costs this route anything.)
-import { claimedOpens } from "~/composables/useClaimedLists";
-import { resumeTarget } from "~~/shared/switcher";
+// its own start_url. The ranking, and the one gate in front of its claimed half,
+// live in resumeHere (app/composables/useResumed.ts), shared with the page and the
+// editor's dead-resume skip.
+import { resumeHere } from "~/composables/useResumed";
 
 export default defineNuxtRouteMiddleware(() => {
   if (import.meta.server) return;
-  const target = resumeTarget(useMyLists().entries.value, claimedOpens());
+  const target = resumeHere();
   // Written on EVERY visit, cleared included: the editor aims its switcher hint at
   // the list the bare address dropped you into, and a code left over from an earlier
   // resume would make a deliberate open of that list read as another one.

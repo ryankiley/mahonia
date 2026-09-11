@@ -121,4 +121,18 @@ describe("resumeTarget — where the bare address lands", () => {
   it("ignores a claimed entry with no share code", () => {
     expect(resumeTarget([], [open("", 900)])).toBeNull();
   });
+
+  // A signed-in /e/{code} with no fragment takes the claimed path even when this
+  // browser holds the token, and stamps only the ledger — so the row's own time can
+  // be older than the list's last open. One list, ranked by its later open.
+  it("ranks a list that is in both by its later open, reached through the edit link", () => {
+    const t = resumeTarget([row("tokA", "AAAA", 100), row("tokB", "BBBB", 200)], [open("AAAA", 300)]);
+    expect(t).toEqual({ to: "/e/AAAA#tokA", shareCode: "AAAA" });
+  });
+
+  it("never lets a NaN stamp sit at the top", () => {
+    const t = resumeTarget([], [open("AAAA", Number.NaN), open("BBBB", 900)]);
+    expect(t?.shareCode).toBe("BBBB");
+    expect(resumeTarget([row("tokA", "AAAA", Number.NaN), row("tokB", "BBBB", 1)])?.shareCode).toBe("BBBB");
+  });
 });

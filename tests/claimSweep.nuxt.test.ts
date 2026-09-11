@@ -18,7 +18,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import { readBody } from "h3";
-import type { ClaimedList, MyListEntry } from "~~/shared/types";
+import { CLAIMED_LIST_CAP, type ClaimedList, type MyListEntry } from "~~/shared/types";
 
 const signedIn = ref(true);
 const sessionLoaded = ref(true);
@@ -65,7 +65,7 @@ registerEndpoint("/api/lists/claimed", () => ({ lists: served }));
 registerEndpoint("/api/lists/unclaim", { method: "POST", handler: () => ({ ok: true }) });
 
 const entry = (over: Partial<MyListEntry> & { editToken: string }): MyListEntry => ({
-  shareCode: "CODE00000001",
+  shareCode: "C0DE00000001",
   slug: "trip-aa11bb",
   title: "Trip",
   totalMg: 0,
@@ -83,11 +83,10 @@ beforeEach(() => {
   storage.clear();
   posted.length = 0;
   served = [];
-  // useState is shared for the whole file, and the cache seed below is gated on
-  // both — a case that left rows standing (or a landed fetch) would decide the
-  // next one's answer
-  useClaimedLists().lists.value = [];
-  useState<boolean>("claimed-loaded").value = false;
+  // useState is shared for the whole file, and the cache seed is gated on both
+  // `lists` and `loaded` — a case that left rows standing (or a landed fetch) would
+  // decide the next one's answer. The composable's own "back to nothing".
+  useClaimedLists().resetClaimMark();
 });
 
 describe("claimDeviceLists — what goes to the server", () => {
@@ -95,7 +94,7 @@ describe("claimDeviceLists — what goes to the server", () => {
     entries.value = [
       entry({ editToken: "mine", origin: "created" }),
       entry({ editToken: "legacy" }), // predates the field
-      entry({ editToken: "theirs", origin: "opened", shareCode: "CODE00000002" }),
+      entry({ editToken: "theirs", origin: "opened", shareCode: "C0DE00000002" }),
     ];
 
     await useClaimedLists().claimDeviceLists();
@@ -161,7 +160,7 @@ const cachedTitles = () =>
 
 describe("the account's lists survive losing the network", () => {
   it("mirrors what the server returned onto the device", async () => {
-    served = [{ shareCode: "CODE00000009", title: "Timberline" }];
+    served = [{ shareCode: "C0DE00000009", title: "Timberline" }];
 
     await useClaimedLists().refresh();
 
@@ -171,13 +170,13 @@ describe("the account's lists survive losing the network", () => {
   it("reads them back on a cold launch, before anything has been fetched", () => {
     // the switcher on an offline start: no session read has answered, so the only
     // copy of the account's lists is the one this browser kept
-    storage.set(ROWS_KEY, JSON.stringify([{ shareCode: "CODE00000009", title: "Timberline" }]));
+    storage.set(ROWS_KEY, JSON.stringify([{ shareCode: "C0DE00000009", title: "Timberline" }]));
 
     expect(useClaimedLists().lists.value.map((l) => l.title)).toEqual(["Timberline"]);
   });
 
   it("does not read them back with no account behind this browser", () => {
-    storage.set(ROWS_KEY, JSON.stringify([{ shareCode: "CODE00000009", title: "Timberline" }]));
+    storage.set(ROWS_KEY, JSON.stringify([{ shareCode: "C0DE00000009", title: "Timberline" }]));
     hasHint.value = false;
 
     expect(useClaimedLists().lists.value).toEqual([]);
@@ -187,7 +186,7 @@ describe("the account's lists survive losing the network", () => {
     // offline, /api/auth/me fails and signedIn reads false for someone signed in —
     // blanking there emptied the switcher at the one moment the cache was the only
     // copy this device had
-    storage.set(ROWS_KEY, JSON.stringify([{ shareCode: "CODE00000009", title: "Timberline" }]));
+    storage.set(ROWS_KEY, JSON.stringify([{ shareCode: "C0DE00000009", title: "Timberline" }]));
     signedIn.value = false;
     sessionLoaded.value = false;
 
@@ -198,8 +197,9 @@ describe("the account's lists survive losing the network", () => {
     expect(cachedTitles()).toEqual(["Timberline"]);
   });
 
-  it("clears them once the server has actually said signed out", async () => {
-    storage.set(ROWS_KEY, JSON.stringify([{ shareCode: "CODE00000009", title: "Timberline" }]));
+  it("clears them once the server has actually said signed out — the ledger too", async () => {
+    storage.set(ROWS_KEY, JSON.stringify([{ shareCode: "C0DE00000009", title: "Timberline" }]));
+    markClaimedOpen("C0DE00000009");
     signedIn.value = false;
     sessionLoaded.value = true;
 
@@ -209,11 +209,93 @@ describe("the account's lists survive losing the network", () => {
     expect(claimed.lists.value).toEqual([]);
     // removed, not written as "[]" — a visitor with no account leaves no key behind
     expect(storage.has(ROWS_KEY)).toBe(false);
+    // a claimed resume is only as good as the session, and this is the session over
+    expect(storage.has(OPENS_KEY)).toBe(false);
+  });
+
+  it("never writes the cache from an edit made in this tab", () => {
+    // touchByCode mirrors a rename onto the row the switcher reads, in memory. The
+    // device cache is the server's last answer; written from here it became this
+    // tab's idea of the account — stale rows after a sign-out in another tab, or
+    // "[]" before the first read had landed.
+    const claimed = useClaimedLists();
+    claimed.lists.value = [
+      { shareCode: "C0DE00000009", slug: "t", title: "Timberline", totalMg: 0, version: 1, displayUnit: "g", updatedAt: "" },
+    ];
+
+    claimed.touchByCode("C0DE00000009", { title: "Timberline, renamed" });
+
+    expect(claimed.lists.value[0]!.title).toBe("Timberline, renamed");
+    expect(storage.has(ROWS_KEY)).toBe(false);
+  });
+
+  it("keeps the ledger to the lists the account actually holds", async () => {
+    // A list unclaimed or deleted on ANOTHER device never answers 401 here; the
+    // server's rows are the one place its absence shows, so every read prunes.
+    markClaimedOpen("C0DE00000001");
+    markClaimedOpen("C0DE00000002");
+    served = [{ shareCode: "C0DE00000002", title: "Still mine" }];
+
+    await useClaimedLists().refresh();
+
+    expect(claimedOpens().map((c) => c.shareCode)).toEqual(["C0DE00000002"]);
+  });
+
+  it("does not prune against an answer that hit the server's cap", async () => {
+    // 200 rows back means "at least 200", not "these and no others"
+    markClaimedOpen("ZZZZZZZZZZZ9");
+    served = Array.from({ length: CLAIMED_LIST_CAP }, (_, i) => ({
+      shareCode: `C${String(i).padStart(11, "0")}`,
+      title: `List ${i}`,
+    }));
+
+    await useClaimedLists().refresh();
+
+    expect(claimedOpens().map((c) => c.shareCode)).toEqual(["ZZZZZZZZZZZ9"]);
+  });
+
+  it("reads only what it writes: canonical codes with finite stamps, object rows", () => {
+    // An array ledger yields index keys — "/e/0" as a resume target that nothing
+    // could ever forget; a stamp stored as a string sorts as NaN and evicts the real
+    // ones on the next write; a null row throws in the switcher's render.
+    storage.set(OPENS_KEY, "[1700000000000]");
+    expect(claimedOpens()).toEqual([]);
+
+    storage.set(OPENS_KEY, JSON.stringify({ __proto__: 1, "0": 2, "not a code": 3, C0DE00000001: "4", C0DE00000002: 5 }));
+    expect(claimedOpens()).toEqual([{ shareCode: "C0DE00000002", lastOpened: 5 }]);
+    // ...and the next write carries only the clean set forward
+    markClaimedOpen("C0DE00000003");
+    expect(JSON.parse(storage.get(OPENS_KEY)!)).toEqual({ C0DE00000002: 5, C0DE00000003: expect.any(Number) });
+
+    storage.set(ROWS_KEY, JSON.stringify([null, 7, { shareCode: "C0DE00000009", title: "Timberline" }]));
+    expect(useClaimedLists().lists.value.map((l) => l.title)).toEqual(["Timberline"]);
+  });
+});
+
+describe("resumeHere — the bare address, both ways in, one gate", () => {
+  it("ranks a claimed open only while the session hint is present", () => {
+    markClaimedOpen("C0DE00000009");
+
+    expect(resumeHere()).toEqual({ to: "/e/C0DE00000009", shareCode: "C0DE00000009" });
+
+    // no hint: the route watcher would never ask the server, so the entry is
+    // skipped — not forgotten — and the launch falls back to what the registry holds
+    hasHint.value = false;
+    expect(resumeHere()).toBeNull();
+    expect(claimedOpens()).toHaveLength(1);
+  });
+
+  it("leaves the code a resume has just found dead out of the ranking", () => {
+    markClaimedOpen("C0DE00000001");
+    markClaimedOpen("C0DE00000009");
+
+    expect(resumeHere("C0DE00000009")?.shareCode).toBe("C0DE00000001");
+    expect(resumeHere("C0DE00000009")).not.toEqual(expect.objectContaining({ shareCode: "C0DE00000009" }));
   });
 
   it("leaves nothing of the account behind on sign-out", () => {
-    storage.set(ROWS_KEY, JSON.stringify([{ shareCode: "CODE00000009", title: "Timberline" }]));
-    markClaimedOpen("CODE00000009");
+    storage.set(ROWS_KEY, JSON.stringify([{ shareCode: "C0DE00000009", title: "Timberline" }]));
+    markClaimedOpen("C0DE00000009");
 
     useClaimedLists().resetClaimMark();
 
@@ -234,26 +316,26 @@ describe("the claimed-opens ledger — where the bare address left off", () => {
   };
 
   it("records an open and reads it back newest first", () => {
-    at(1_000, () => markClaimedOpen("CODE00000001"));
-    at(2_000, () => markClaimedOpen("CODE00000002"));
+    at(1_000, () => markClaimedOpen("C0DE00000001"));
+    at(2_000, () => markClaimedOpen("C0DE00000002"));
 
     expect(claimedOpens()).toEqual([
-      { shareCode: "CODE00000002", lastOpened: 2_000 },
-      { shareCode: "CODE00000001", lastOpened: 1_000 },
+      { shareCode: "C0DE00000002", lastOpened: 2_000 },
+      { shareCode: "C0DE00000001", lastOpened: 1_000 },
     ]);
   });
 
   it("re-stamps a list opened again, rather than keeping the first time", () => {
-    at(1_000, () => markClaimedOpen("CODE00000001"));
-    at(2_000, () => markClaimedOpen("CODE00000002"));
-    at(3_000, () => markClaimedOpen("CODE00000001"));
+    at(1_000, () => markClaimedOpen("C0DE00000001"));
+    at(2_000, () => markClaimedOpen("C0DE00000002"));
+    at(3_000, () => markClaimedOpen("C0DE00000001"));
 
-    expect(claimedOpens()[0]).toEqual({ shareCode: "CODE00000001", lastOpened: 3_000 });
+    expect(claimedOpens()[0]).toEqual({ shareCode: "C0DE00000001", lastOpened: 3_000 });
   });
 
   it("forgets one code, and reads a corrupt ledger as empty", () => {
-    markClaimedOpen("CODE00000001");
-    forgetClaimedOpen("CODE00000001");
+    markClaimedOpen("C0DE00000001");
+    forgetClaimedOpen("C0DE00000001");
     expect(claimedOpens()).toEqual([]);
 
     storage.set(OPENS_KEY, "{not json");
@@ -262,18 +344,18 @@ describe("the claimed-opens ledger — where the bare address left off", () => {
 
   it("keeps only the most recent codes, so the device never accumulates them", () => {
     for (let i = 0; i < 40; i++) {
-      at(1_000 + i, () => markClaimedOpen(`CODE${String(i).padStart(8, "0")}`));
+      at(1_000 + i, () => markClaimedOpen(`C0DE${String(i).padStart(8, "0")}`));
     }
 
     const opens = claimedOpens();
     expect(opens).toHaveLength(32);
-    expect(opens[0]!.shareCode).toBe("CODE00000039");
+    expect(opens[0]!.shareCode).toBe("C0DE00000039");
   });
 
   it("stops offering a list this account has been detached from", async () => {
-    markClaimedOpen("CODE00000009");
+    markClaimedOpen("C0DE00000009");
 
-    await useClaimedLists().unclaim("CODE00000009");
+    await useClaimedLists().unclaim("C0DE00000009");
 
     expect(claimedOpens()).toEqual([]);
   });

@@ -68,13 +68,26 @@ export function useSession() {
           }
         : null;
       // A hint with no session behind it (expired, or signed out in another tab)
-      // would otherwise keep costing a request on every page load — drop it.
-      if (!res.user) clearSessionHint();
+      // would otherwise keep costing a request on every page load — drop it. And
+      // drop what this device kept FOR that account with it: a session ending here
+      // without a sign-out — expiry, "sign out everywhere" run elsewhere, the account
+      // deleted — was the one way out that reached none of the memos, so the
+      // account's cached lists stood in the switcher until the menu opened, and its
+      // opens ledger steered the bare address into its lists for whoever signed in
+      // on this browser next.
+      if (!res.user) {
+        clearSessionHint();
+        forgetAccountMemos();
+      }
     } catch {
       // offline or a server blip — treat as signed out for rendering purposes,
       // but leave `loaded` false so the next call retries rather than caching a
-      // wrong answer for the rest of the session
+      // wrong answer for the rest of the session. SET false, not merely left: a
+      // forced re-read (after a sign-in, say) arrives with `loaded` already true
+      // from the last success, and a failure then read as a RESOLVED signed-out —
+      // the reading that tells the switcher to throw the account's cached lists away.
       user.value = null;
+      loaded.value = false;
       pending.value = false;
       return;
     }

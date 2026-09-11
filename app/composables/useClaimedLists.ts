@@ -8,10 +8,10 @@
 // usually appears in both. The list switcher merges the two for display — one row
 // per list, device rows winning the collision (shared/switcher.ts).
 
-import { LIST_CODE_HEADER } from "~~/shared/links";
+import { LIST_CODE_HEADER, normalizeShareCode } from "~~/shared/links";
 import { claimedLocalKey } from "~~/shared/localList";
 import type { ClaimedOpen } from "~~/shared/switcher";
-import type { ClaimedList } from "~~/shared/types";
+import { CLAIMED_LIST_CAP, type ClaimedList } from "~~/shared/types";
 import { forget, recall, remember } from "../utils/remember";
 import { deleteListOnServer } from "./useMyLists";
 
@@ -47,9 +47,20 @@ function readOpens(): Record<string, number> {
   try {
     const raw = recall(CLAIMED_OPENS_KEY);
     const parsed: unknown = raw ? JSON.parse(raw) : null;
-    // A corrupt ledger reads as empty rather than taking the bare address down with
-    // it — the same shrug the device registry makes about its own store.
-    return parsed && typeof parsed === "object" ? (parsed as Record<string, number>) : {};
+    // Only what this file itself writes gets through: a canonical share code as the
+    // key, a finite stamp as the value. Anything else — an array, "__proto__", a
+    // stamp stored as a string — would become a resume target (/e/0) or sort as NaN
+    // and evict the real stamps on the next write. A corrupt ledger reads as empty
+    // rather than taking the bare address down with it — the same shrug the device
+    // registry makes about its own store.
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    const clean: Record<string, number> = {};
+    for (const [code, at] of Object.entries(parsed as Record<string, unknown>)) {
+      if (normalizeShareCode(code) === code && typeof at === "number" && Number.isFinite(at)) {
+        clean[code] = at;
+      }
+    }
+    return clean;
   } catch {
     return {};
   }
@@ -60,7 +71,6 @@ function readOpens(): Record<string, number> {
  *  call it without booting anything. */
 export function claimedOpens(): ClaimedOpen[] {
   return Object.entries(readOpens())
-    .filter(([shareCode, at]) => !!shareCode && Number.isFinite(at))
     .map(([shareCode, lastOpened]) => ({ shareCode, lastOpened }))
     .sort((a, b) => b.lastOpened - a.lastOpened);
 }
@@ -69,9 +79,13 @@ export function claimedOpens(): ClaimedOpen[] {
  *  registry's touch(). Called from the editor on every sync, so an open that only
  *  ever happened offline (hydrated from the on-device copy) counts too. */
 export function markClaimedOpen(shareCode: string): void {
-  if (!import.meta.client || !shareCode) return;
+  // Keyed by the CANONICAL code, the spelling the reader accepts and the rows carry;
+  // callers already pass that (load() normalizes claimCode), so this is the writer
+  // keeping the promise the reader enforces, and a non-code is a no-op.
+  const code = normalizeShareCode(shareCode);
+  if (!import.meta.client || !code) return;
   const opens = readOpens();
-  opens[shareCode] = Date.now();
+  opens[code] = Date.now();
   const kept = Object.entries(opens)
     .sort((a, b) => b[1] - a[1])
     .slice(0, OPENS_KEPT);
@@ -81,18 +95,42 @@ export function markClaimedOpen(shareCode: string): void {
 /** Drop one code from the ledger: the list is gone, detached, or the claim no
  *  longer opens it, so the bare address must stop offering to resume it. */
 export function forgetClaimedOpen(shareCode: string): void {
-  if (!import.meta.client || !shareCode) return;
+  const code = normalizeShareCode(shareCode);
+  if (!import.meta.client || !code) return;
   const opens = readOpens();
-  if (!(shareCode in opens)) return;
-  delete opens[shareCode];
+  if (!(code in opens)) return;
+  delete opens[code];
   remember(CLAIMED_OPENS_KEY, JSON.stringify(opens));
+}
+
+/** Drop every ledger code not in `keep` — the account's rows as the server has just
+ *  returned them, which is the one moment the ledger can be held against the truth.
+ *  A list unclaimed or deleted on ANOTHER device never answers 401 here (nothing on
+ *  this device asks about it until the bare address resumes into it), so without
+ *  this the launch after such a change went straight to a list the account no
+ *  longer held — offline, into its stale copy as "offline", with no way to notice. */
+export function pruneClaimedOpens(keep: Iterable<string>): void {
+  if (!import.meta.client) return;
+  const live = new Set([...keep].map(normalizeShareCode));
+  const opens = readOpens();
+  const kept = Object.fromEntries(Object.entries(opens).filter(([code]) => live.has(code)));
+  if (Object.keys(kept).length === Object.keys(opens).length) return; // nothing to drop, no write
+  remember(CLAIMED_OPENS_KEY, JSON.stringify(kept));
 }
 
 function readCachedRows(): ClaimedList[] {
   try {
     const raw = recall(CLAIMED_ROWS_KEY);
     const parsed: unknown = raw ? JSON.parse(raw) : null;
-    return Array.isArray(parsed) ? (parsed as ClaimedList[]) : [];
+    // Element by element, not just "is it an array": a null or a number in here
+    // would reach mergeSwitcherRows and registryStale as `l.shareCode` and throw —
+    // in the switcher's render, and on every keystroke of a claimed open.
+    return Array.isArray(parsed)
+      ? (parsed as unknown[]).filter(
+          (r): r is ClaimedList =>
+            !!r && typeof r === "object" && typeof (r as ClaimedList).shareCode === "string",
+        )
+      : [];
   } catch {
     return [];
   }
@@ -111,10 +149,21 @@ export function useClaimedLists() {
   const { signedIn, loaded: sessionLoaded, hasSessionHint } = useSession();
 
   /** Adopt rows and mirror them to the device, so the next cold load — which may
-   *  have no network — starts from what this browser last knew. */
+   *  have no network — starts from what this browser last knew. The ONE owner of the
+   *  cache: no rows means no key, never a stored "[]", so the many visitors with no
+   *  account leave nothing behind and "empty" reads the same either way. */
   function adopt(rows: ClaimedList[]): void {
     lists.value = rows;
-    remember(CLAIMED_ROWS_KEY, JSON.stringify(rows));
+    if (rows.length) remember(CLAIMED_ROWS_KEY, JSON.stringify(rows));
+    else forget(CLAIMED_ROWS_KEY);
+  }
+
+  /** The server's answer, adopted whole — and held against the opens ledger (see
+   *  pruneClaimedOpens), unless it hit the server's cap, when the rows in hand are
+   *  not the whole account and nothing outside them can be called gone. */
+  function adoptFromServer(rows: ClaimedList[]): void {
+    adopt(rows);
+    if (rows.length < CLAIMED_LIST_CAP) pruneClaimedOpens(rows.map((r) => r.shareCode));
   }
 
   // The cached rows stand in until a fetch answers. Gated on the HINT COOKIE rather
@@ -124,11 +173,14 @@ export function useClaimedLists() {
   // question here — "does this browser have an account behind it".
   //
   // Conditions rather than a once-flag, so it doesn't matter which component asks
-  // first: it stops as soon as a read has landed (loaded) or there are rows to show,
-  // and re-reading the same cache into the same empty state changes nothing. The
-  // signed-out paths REMOVE the cache, so there is nothing here to resurrect.
+  // first: it stops as soon as a read has landed (loaded) or there are rows to show.
+  // Assigned only when the cache HAS rows: a fresh empty array is a change to a ref
+  // even when the old one was empty too, and this runs on every call — which, on a
+  // claimed open, is every dispatch (registryStale). The signed-out paths REMOVE the
+  // cache, so there is nothing here to resurrect.
   if (import.meta.client && !loaded.value && !lists.value.length && hasSessionHint()) {
-    lists.value = readCachedRows();
+    const cached = readCachedRows();
+    if (cached.length) lists.value = cached;
   }
 
   async function refresh(): Promise<void> {
@@ -137,19 +189,17 @@ export function useClaimedLists() {
       // Blank ONLY on a RESOLVED signed-out session. Offline the session read fails
       // and reads as signed out, and blanking there would throw away the cached rows
       // at the one moment they're the only copy there is — the switcher would go
-      // from "4 lists" to "1 list" the second the tunnel started.
-      // Removed rather than written as an empty array, so the overwhelming majority
-      // of visitors — who have no account and reach this every time the switcher
-      // opens — leave no key behind at all.
-      if (sessionLoaded.value) {
-        lists.value = [];
-        forget(CLAIMED_ROWS_KEY);
-      }
+      // from "4 lists" to "1 list" the second the tunnel started. The whole account
+      // half goes, the ledger included: a claimed resume is only as good as the
+      // session, and this is the session saying it is over. (useSession does the
+      // same the moment the server answers "no user", so by the time the switcher
+      // opens this is usually already done; it stays for the order that isn't.)
+      if (sessionLoaded.value) resetClaimMark();
       return;
     }
     try {
       const res = await $fetch<{ lists: ClaimedList[] }>("/api/lists/claimed");
-      adopt(res.lists || []);
+      adoptFromServer(res.lists || []);
       loaded.value = true;
     } catch {
       // signed out mid-flight, or offline — leave whatever we had rather than
@@ -203,7 +253,7 @@ export function useClaimedLists() {
         method: "POST",
         body: { editTokens, openedTokens },
       });
-      adopt(res.lists || []);
+      adoptFromServer(res.lists || []);
       loaded.value = true;
       remember(CLAIMED_MARK_KEY, mark); // a blocked write just means claiming again next time
     } catch {
@@ -220,7 +270,7 @@ export function useClaimedLists() {
         method: "POST",
         body: { editTokens: [editToken] },
       });
-      adopt(res.lists || []);
+      adoptFromServer(res.lists || []);
       loaded.value = true;
       return true;
     } catch {
@@ -230,15 +280,17 @@ export function useClaimedLists() {
 
   /** Mirror an edit made THROUGH a claimed open onto its row here, so the switcher
    *  reads the new title/total straight away instead of one refetch later — the
-   *  claimed-side twin of useMyLists().touch(). The server still holds the truth and
-   *  the next refresh re-reads it; the copy kept here is what the switcher renders
-   *  offline, so the edit has to reach it. The "you had this open" half is
-   *  markClaimedOpen, which the editor calls alongside this. */
+   *  claimed-side twin of useMyLists().touch(). IN MEMORY ONLY: the server holds the
+   *  truth and the next read replaces the device cache from it. Writing the cache
+   *  from here would write this TAB's idea of the account over the last real answer
+   *  — stale rows after a sign-out in another tab, or nothing at all before the first
+   *  read has landed. The "you had this open" half is markClaimedOpen, which the
+   *  editor calls alongside this. */
   function touchByCode(
     shareCode: string,
     patch: Partial<Pick<ClaimedList, "title" | "version" | "totalMg" | "displayUnit">>,
   ): void {
-    adopt(lists.value.map((l) => (l.shareCode === shareCode ? { ...l, ...patch } : l)));
+    lists.value = lists.value.map((l) => (l.shareCode === shareCode ? { ...l, ...patch } : l));
   }
 
   /** Delete a claimed list via the session (no edit token on this device — the

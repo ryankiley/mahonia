@@ -2,8 +2,8 @@
 import { HugeiconsIcon, type IconNode } from "~/utils/hugeicon";
 import { Backpack02Icon, Bug02Icon, CheckmarkSquare02Icon, CopyPlusIcon, Delete02Icon, EllipsisIcon, FileExportIcon, FileImportIcon, KeyboardIcon, RemoveCircleIcon, Route02Icon, SafeBoxIcon, Share08Icon, UndoIcon, UserAddIcon } from "@hugeicons/core-free-icons";
 import { editLinkPath, normalizeShareCode } from "~~/shared/links";
-import { claimedOpens, forgetClaimedOpen } from "~/composables/useClaimedLists";
-import { resumeTarget } from "~~/shared/switcher";
+import { forgetClaimedOpen } from "~/composables/useClaimedLists";
+import { resumeHere } from "~/composables/useResumed";
 import { tripHeadline } from "~~/shared/trailDistance";
 import { formatWeight } from "~~/shared/weights";
 import { chipWeightLabels, filterItemsForPerson, hasUnassignedTopLevel, personName, personSlot, selectionGone, sortedPeople, UNASSIGNED } from "~~/shared/people";
@@ -409,18 +409,28 @@ const route = useRoute();
 // to that link.
 //
 // Either shape of entry can go dead, and each is dropped where it lives: a token in
-// the registry, a claimed open in the opens ledger (its 401 — the claim revoked, or
-// the session gone for good — reaches "missing" by the same road as a 404). Without
-// the second the bare address would offer the same dead list on every launch,
-// skipping off it each time.
+// the registry, a claimed open in the opens ledger. Two things "missing" can ALSO
+// mean are not that, and neither may forget anything. A keyless start — the route
+// watcher never asked, because the session hint was gone — says nothing about the
+// list: openedByCode tells it apart, since a claimed load() leaves it set through
+// its own failure and startKeyless clears it. And a 404 that arrives after edits
+// have been made here is a flush's, minutes into the session, not the resume's:
+// forgetting the token then deleted the on-device record holding the very ops that
+// had just failed to land. The next hop leaves this code out of the ranking outright
+// (resumeHere's `except`), so it can never be the address just found dead — the
+// storage write behind forgetClaimedOpen can be refused, and a bounce to the route
+// already on screen is no bounce at all.
+let editedHere = false;
 watch(status, (s) => {
-  if (s !== "missing" || !resumed.value) return;
+  if (s === "loading") editedHere = false; // a new session starts clean
+  if (s === "saving") editedHere = true;
+  if (s !== "missing" || !resumed.value || editedHere) return;
   const code = normalizeShareCode(typeof route.params.code === "string" ? route.params.code : "");
   if (!code || code !== resumed.value) return;
   const token = decodeURIComponent(route.hash.replace(/^#/, ""));
   if (token) my.forget(token);
-  else forgetClaimedOpen(code);
-  const next = resumeTarget(my.entries.value, claimedOpens());
+  else if (openedByCode.value) forgetClaimedOpen(code);
+  const next = resumeHere(code);
   resumed.value = next?.shareCode ?? null;
   navigateTo(next?.to ?? "/e", { replace: true });
 });
