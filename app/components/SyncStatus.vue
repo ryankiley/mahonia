@@ -38,9 +38,11 @@ const stateWord = computed(() => {
     case "saving":
       return "Syncing…";
     case "offline":
-      return "Offline · saved on device";
+      // with nothing on the device the second half would be a lie; the page body
+      // says what that state means (see GearEditor's `unloaded`)
+      return snapshot.value ? "Offline · saved on device" : "Offline";
     case "error":
-      return "Not saved";
+      return snapshot.value ? "Not saved" : "Couldn’t load";
     case "synced":
       // NOTHING, once it's safely on the server — the time suffix below carries on
       // alone, so the resting line reads "edited 4 minutes ago" rather than

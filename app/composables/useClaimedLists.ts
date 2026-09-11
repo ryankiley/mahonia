@@ -80,6 +80,11 @@ export function markClaimedOpen(shareCode: string): void {
   // keeping the promise the reader enforces, and a non-code is a no-op.
   const code = normalizeShareCode(shareCode);
   if (!import.meta.client || !code) return;
+  // No account behind this browser, no stamp. A tab still holding a claimed list
+  // open after a sign-out in ANOTHER tab would otherwise re-create the ledger that
+  // sign-out had just cleared, for whoever signs in here next; the cookie is shared
+  // across tabs, so this one knows before its own session state has caught up.
+  if (useSession().presence.value === "signedOut") return;
   const opens = readOpens();
   opens[code] = Date.now();
   const kept = Object.entries(opens)
@@ -131,10 +136,14 @@ export function deviceFingerprint(tokens: string[]): string {
   return [...tokens].sort().join("|");
 }
 
+// Whether this page load has started following the rows cache across tabs — once
+// per page, whichever call gets there first (see restoreFromDevice).
+let following = false;
+
 export function useClaimedLists() {
   const lists = useState<ClaimedList[]>("claimed-lists", () => []);
   const loaded = useState<boolean>("claimed-loaded", () => false);
-  const { signedIn, loaded: sessionLoaded, hasSessionHint } = useSession();
+  const { signedIn, hasSessionHint, presence } = useSession();
 
   /** Adopt rows and mirror them to the device, so the next cold load — which may
    *  have no network — starts from what this browser last knew. The ONE owner of the
@@ -154,37 +163,55 @@ export function useClaimedLists() {
     if (rows.length < CLAIMED_LIST_CAP) pruneClaimedOpens(rows.map((r) => r.shareCode));
   }
 
-  // The cached rows stand in until a fetch answers. Gated on the HINT COOKIE rather
-  // than on signedIn, and that's the whole point: offline, /api/auth/me never answers
-  // and signedIn reads false for someone who is very much signed in. The hint is a
-  // plain cookie this browser can read without asking anyone, which is exactly the
-  // question here — "does this browser have an account behind it".
-  //
-  // Conditions rather than a once-flag, so it doesn't matter which component asks
-  // first: it stops as soon as a read has landed (loaded) or there are rows to show.
-  // Assigned only when the cache HAS rows: a fresh empty array is a change to a ref
-  // even when the old one was empty too, and this runs on every call — which, on a
-  // claimed open, is every dispatch (registryStale). The signed-out paths REMOVE the
-  // cache, so there is nothing here to resurrect.
-  if (import.meta.client && !loaded.value && !lists.value.length && hasSessionHint()) {
-    const cached = readCachedRows();
-    if (cached.length) lists.value = cached;
+  /**
+   * The cached rows, read ONCE at boot (app/plugins/session.client.ts) — before any
+   * component, middleware or fetch — so the switcher opens to what this browser last
+   * knew of the account until a read answers. Only with an account plausibly behind
+   * the browser: offline, /api/auth/me never answers and that is the hint cookie
+   * standing in ("presumed"), which is the whole reason the cache exists. Once and
+   * here, rather than as a side effect of every useClaimedLists() call, which ran
+   * the same guard on every dispatch of a claimed open. Assigned only when the cache
+   * HAS rows: a fresh empty array is a change to a ref even over an empty one.
+   *
+   * It also starts FOLLOWING the cache across tabs: another tab's read replaces the
+   * rows here as it lands, and its sign-out empties them — the way the device
+   * registry already follows its own key — so a sign-in or sign-out in one tab
+   * reaches the switcher in the others without a reload. The ledger needs no
+   * follower: it is read from storage on every use.
+   */
+  function restoreFromDevice(): void {
+    if (!import.meta.client) return;
+    if (presence.value !== "signedOut" && !loaded.value && !lists.value.length) {
+      const cached = readCachedRows();
+      if (cached.length) lists.value = cached;
+    }
+    if (following) return;
+    following = true;
+    window.addEventListener("storage", (e) => {
+      // a null key is the other tab clearing storage outright — read again either way
+      if (e.key !== null && e.key !== CLAIMED_ROWS_KEY) return;
+      lists.value = readCachedRows();
+    });
   }
 
   async function refresh(): Promise<void> {
     if (!import.meta.client) return;
-    if (!signedIn.value) {
+    // Resolved signed-out, yet the hint cookie is back: another tab signed in since
+    // this one asked. Ask again before deciding anything on that stale answer — the
+    // blank below would have thrown away the rows that tab had just cached.
+    if (presence.value === "signedOut" && hasSessionHint()) await useSession().refresh(true);
+    if (presence.value === "signedOut") {
       // Blank ONLY on a RESOLVED signed-out session. Offline the session read fails
-      // and reads as signed out, and blanking there would throw away the cached rows
-      // at the one moment they're the only copy there is — the switcher would go
-      // from "4 lists" to "1 list" the second the tunnel started. The whole account
-      // half goes, the ledger included: a claimed resume is only as good as the
-      // session, and this is the session saying it is over. (useSession does the
-      // same the moment the server answers "no user", so by the time the switcher
-      // opens this is usually already done; it stays for the order that isn't.)
-      if (sessionLoaded.value) resetClaimMark();
+      // and the hint stands in ("presumed"), so the cached rows stay — the switcher
+      // would otherwise go from "4 lists" to "1 list" the second the tunnel started.
+      // The whole account half goes, the ledger included: a claimed resume is only
+      // as good as the session, and this is the session saying it is over.
+      // (useSession does the same the moment the server answers "no user", so by
+      // the time the switcher opens this is usually already done.)
+      resetClaimMark();
       return;
     }
+    if (!signedIn.value) return; // presumed: nothing to ask with yet, nothing to throw away
     try {
       const res = await $fetch<{ lists: ClaimedList[] }>("/api/lists/claimed");
       adoptFromServer(res.lists || []);
@@ -332,6 +359,7 @@ export function useClaimedLists() {
   return {
     lists,
     loaded,
+    restoreFromDevice,
     refresh,
     claimDeviceLists,
     claimOne,

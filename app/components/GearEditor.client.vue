@@ -789,6 +789,13 @@ const missingMessage = computed(() =>
         ? "This edit link is missing its key, so it can’t open the list for editing. Ask for the edit link again, or open the read-only view."
         : "This list isn’t in this browser, or the link is invalid.",
 );
+// A load that ended with nothing to show and no verdict: no copy on the device and
+// either no network — it loads itself when the network returns (the controller's
+// online watcher) — or a server that didn't answer, which the page offers to retry.
+// Before this the page sat on "Loading…" for good, with "Not saved" in the bar.
+const unloaded = computed(
+  () => !snapshot.value && (status.value === "offline" || status.value === "error"),
+);
 async function forgetMissingList() {
   // capture before dispose() blanks c.editToken (which empties missingEntry too)
   const entry = missingEntry.value;
@@ -1388,6 +1395,16 @@ function onCorrected(res: { status: string; itemName?: string }) {
       <!-- quiet, under the primary: the way forward stays the page's loudest offer,
            and retiring the row that led here is the calm cleanup beside it -->
       <button v-if="missingEntry" class="btn btn--quiet" @click="forgetMissingList">Forget this list</button>
+    </main>
+
+    <main v-else-if="unloaded" id="main-content" tabindex="-1" class="wrap editor__missing">
+      <p class="t-muted">
+        {{ status === "offline"
+          ? "This list isn’t saved on this device, and there’s no connection to load it from. It will open on its own once you’re back online."
+          : "This list couldn’t be loaded. Check your connection and try again." }}
+      </p>
+      <button v-if="status === 'error'" class="btn btn--primary" @click="c.retryLoad()">Try again</button>
+      <button :class="['btn', status === 'error' ? 'btn--quiet' : 'btn--primary']" @click="newList({ replace: true })">Create a list</button>
     </main>
 
     <main v-else id="main-content" tabindex="-1" class="wrap editor__missing">

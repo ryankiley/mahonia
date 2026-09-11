@@ -16,6 +16,9 @@ interface SessionState {
   displayName: string | null;
 }
 
+/** The session as three answers, not two — see `presence` below. */
+export type Presence = "signedIn" | "signedOut" | "presumed";
+
 export function useSession() {
   const user = useState<SessionState | null>("session-user", () => null);
   // Distinguishes "not fetched yet" from "fetched, signed out" — without it the
@@ -28,6 +31,20 @@ export function useSession() {
   // every one of them as signed out — and take the vault, capture and the byline
   // down with it. The account is the identity; the address is only the way back in.
   const signedIn = computed(() => user.value !== null);
+
+  /**
+   * The session as the three-way answer the surfaces that cannot wait for
+   * /api/auth/me actually need — or that, offline, will never get one: "signedIn"
+   * and "signedOut" once the server has resolved it, "presumed" while it hasn't but
+   * the hint cookie says there is an account behind this browser. The ONE
+   * definition of "offline with a hint": the switcher's cache, the account menu and
+   * the vault gate each used to spell it from signedIn, loaded and the cookie in
+   * their own words. The cookie read is not reactive; the answer moves when
+   * `loaded` or `user` do, which is every moment the cookie itself is changed here.
+   */
+  const presence = computed<Presence>(() =>
+    loaded.value ? (user.value ? "signedIn" : "signedOut") : hasSessionHint() ? "presumed" : "signedOut",
+  );
 
   /** The readable companion flag the server sets alongside the HttpOnly session
    *  cookie (see SESSION_HINT_COOKIE). Not a credential — just "worth asking". */
@@ -160,6 +177,7 @@ export function useSession() {
   return {
     user,
     signedIn,
+    presence,
     loaded,
     refresh,
     requestLink,

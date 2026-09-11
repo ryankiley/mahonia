@@ -22,16 +22,31 @@ import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import { readBody } from "h3";
 import { CLAIMED_LIST_CAP, type ClaimedList, type MyListEntry } from "~~/shared/types";
 
+// The session plugin is the app's OWN driver of the sweep: it watches the registry
+// and the session and calls claimDeviceLists itself. This suite drives the sweep by
+// hand and counts what reaches the server, so the plugin stays out — with it in,
+// every `entries` reset below fired a claim of its own behind the case's back (and
+// one that came back with no rows pruned the ledger a case had just written).
+vi.mock("../app/plugins/session.client", () => ({ default: () => {} }));
+
 const signedIn = ref(true);
 const sessionLoaded = ref(true);
-// the readable companion flag to the session cookie — the composable reads it
-// directly because it is the one "is there an account here" answer that survives
-// having no network to ask with
+// the readable companion flag to the session cookie — the one "is there an account
+// here" answer that survives having no network to ask with
 const hasHint = ref(true);
+// what a forced re-read of the session does here; a case sets it to model another
+// tab having signed in since this one resolved
+let onRefresh: () => void = () => {};
 mockNuxtImport("useSession", () => () => ({
   signedIn,
   loaded: sessionLoaded,
   hasSessionHint: () => hasHint.value,
+  // the real composable's three-way rule, mirrored so the gates under test read the
+  // session exactly as the app does
+  presence: computed(() =>
+    sessionLoaded.value ? (signedIn.value ? "signedIn" : "signedOut") : hasHint.value ? "presumed" : "signedOut",
+  ),
+  refresh: async () => onRefresh(),
 }));
 
 const entries = ref<MyListEntry[]>([]);
@@ -73,6 +88,7 @@ beforeEach(() => {
   storage.clear();
   posted.length = 0;
   served = [];
+  onRefresh = () => {};
   // useState is shared for the whole file, and the cache seed is gated on both
   // `lists` and `loaded` — a case that left rows standing (or a landed fetch) would
   // decide the next one's answer. The composable's own "back to nothing".
@@ -159,17 +175,61 @@ describe("the account's lists survive losing the network", () => {
 
   it("reads them back on a cold launch, before anything has been fetched", () => {
     // the switcher on an offline start: no session read has answered, so the only
-    // copy of the account's lists is the one this browser kept
+    // copy of the account's lists is the one this browser kept — restored once at
+    // boot by the session plugin, which is what this call stands in for
     storage.set(ROWS_KEY, JSON.stringify([{ shareCode: "C0DE00000009", title: "Timberline" }]));
+    sessionLoaded.value = false;
 
-    expect(useClaimedLists().lists.value.map((l) => l.title)).toEqual(["Timberline"]);
+    const claimed = useClaimedLists();
+    claimed.restoreFromDevice();
+
+    expect(claimed.lists.value.map((l) => l.title)).toEqual(["Timberline"]);
   });
 
   it("does not read them back with no account behind this browser", () => {
     storage.set(ROWS_KEY, JSON.stringify([{ shareCode: "C0DE00000009", title: "Timberline" }]));
+    sessionLoaded.value = false;
     hasHint.value = false;
 
-    expect(useClaimedLists().lists.value).toEqual([]);
+    const claimed = useClaimedLists();
+    claimed.restoreFromDevice();
+
+    expect(claimed.lists.value).toEqual([]);
+  });
+
+  it("follows the cache across tabs: a read elsewhere fills the switcher, a sign-out empties it", () => {
+    const claimed = useClaimedLists();
+    claimed.restoreFromDevice(); // starts following
+    expect(claimed.lists.value).toEqual([]);
+
+    // another tab's read landing — the browser fires "storage" in every OTHER tab
+    storage.set(ROWS_KEY, JSON.stringify([{ shareCode: "C0DE00000009", title: "From the other tab" }]));
+    window.dispatchEvent(new StorageEvent("storage", { key: ROWS_KEY }));
+    expect(claimed.lists.value.map((l) => l.title)).toEqual(["From the other tab"]);
+
+    // ...and its sign-out removing the key
+    storage.delete(ROWS_KEY);
+    window.dispatchEvent(new StorageEvent("storage", { key: ROWS_KEY }));
+    expect(claimed.lists.value).toEqual([]);
+  });
+
+  it("asks the session again before blanking when the hint has come back", async () => {
+    // This tab resolved signed-out; another tab has since signed in (the cookie is
+    // shared) and cached the account's rows. Blanking on the stale answer threw
+    // those rows away; a re-read finds the session and reads the rows instead.
+    storage.set(ROWS_KEY, JSON.stringify([{ shareCode: "C0DE00000009", title: "Timberline" }]));
+    signedIn.value = false;
+    sessionLoaded.value = true;
+    onRefresh = () => {
+      signedIn.value = true;
+    };
+    served = [{ shareCode: "C0DE00000009", title: "Timberline" }];
+
+    const claimed = useClaimedLists();
+    await claimed.refresh();
+
+    expect(claimed.lists.value.map((l) => l.title)).toEqual(["Timberline"]);
+    expect(storage.has(ROWS_KEY)).toBe(true);
   });
 
   it("does not blank them while the session is merely unresolved", async () => {
@@ -181,6 +241,7 @@ describe("the account's lists survive losing the network", () => {
     sessionLoaded.value = false;
 
     const claimed = useClaimedLists();
+    claimed.restoreFromDevice(); // the boot-time seed, as the session plugin runs it
     await claimed.refresh();
 
     expect(claimed.lists.value.map((l) => l.title)).toEqual(["Timberline"]);
@@ -258,7 +319,10 @@ describe("the account's lists survive losing the network", () => {
     expect(JSON.parse(storage.get(OPENS_KEY)!)).toEqual({ C0DE00000002: 5, C0DE00000003: expect.any(Number) });
 
     storage.set(ROWS_KEY, JSON.stringify([null, 7, { shareCode: "C0DE00000009", title: "Timberline" }]));
-    expect(useClaimedLists().lists.value.map((l) => l.title)).toEqual(["Timberline"]);
+    sessionLoaded.value = false;
+    const claimed = useClaimedLists();
+    claimed.restoreFromDevice();
+    expect(claimed.lists.value.map((l) => l.title)).toEqual(["Timberline"]);
   });
 });
 
@@ -321,6 +385,19 @@ describe("the claimed-opens ledger — where the bare address left off", () => {
     at(3_000, () => markClaimedOpen("C0DE00000001"));
 
     expect(claimedOpens()[0]).toEqual({ shareCode: "C0DE00000001", lastOpened: 3_000 });
+  });
+
+  it("does not stamp with no account behind the browser", () => {
+    // a tab still holding a claimed list open after a sign-out in another tab: the
+    // shared cookie is gone, so its next sync must not re-create the ledger
+    signedIn.value = false;
+    sessionLoaded.value = true;
+    hasHint.value = false;
+
+    markClaimedOpen("C0DE00000001");
+
+    expect(claimedOpens()).toEqual([]);
+    expect(storage.has(OPENS_KEY)).toBe(false);
   });
 
   it("forgets one code, and reads a corrupt ledger as empty", () => {

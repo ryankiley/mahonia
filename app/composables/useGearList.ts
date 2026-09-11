@@ -178,7 +178,7 @@ function create() {
     // account, and a request on every one of their page loads is exactly the cost
     // that cookie exists to avoid (see useSession.refresh).
     if (!keys.length) return settle([]);
-    if (sessionKnown.value ? !sessionHasVault.value : !hasSessionHint()) return settle([]);
+    if (sessionKnown.value ? !sessionHasVault.value : sessionPresence.value === "signedOut") return settle([]);
     try {
       const res = await vaultRead<{ keys: VaultGearKey[] }>("/api/vault/among", {
         method: "POST",
@@ -243,10 +243,11 @@ function create() {
   // site can't forget the credential.
   const { vaultFetch: vaultRead, hasVault: sessionHasVault, vaultKnown: sessionKnown } =
     useVaultAccess();
-  // A cookie read, not a request — see the gate in askVaultGear. signedIn is the
-  // RESOLVED answer, read where a 401 on a claimed open has to be told apart from a
-  // session that merely lapsed (load's catch).
-  const { hasSessionHint, signedIn: sessionSignedIn } = useSession();
+  // presence is the three-way answer askVaultGear gates on before the session has
+  // resolved (a cookie read, not a request); signedIn is the RESOLVED one, read where
+  // a 401 on a claimed open has to be told apart from a session that merely lapsed
+  // (load's catch).
+  const { presence: sessionPresence, signedIn: sessionSignedIn } = useSession();
   scope.run(() => {
     const { hasVault } = useVaultAccess();
     watch(hasVault, () => {
@@ -290,7 +291,13 @@ function create() {
         if (snapshot.value && status.value !== "loading") status.value = "offline";
         return;
       }
-      if (!snapshot.value) return;
+      if (!snapshot.value) {
+        // A launch that found no copy on the device and no network to load from:
+        // the network is back, so load it now — the address never changed, only
+        // the answer.
+        if (status.value === "offline") retryLoad();
+        return;
+      }
       if (!editToken && !claimCode) {
         if (hasRealContent(snapshot.value)) createFromDraft();
       } else if (remoteMissing) {
@@ -633,13 +640,26 @@ function create() {
         if (pending.length) scheduleFlush();
         startPoll();
       } else {
-        status.value = "error";
+        // No copy on the device and no answer from the server. Offline, that is the
+        // honest state — "offline" with nothing to show — and the network coming
+        // back loads the list on its own (the online watcher); anything else is an
+        // error the page offers to retry. Either way the page says so, where it
+        // used to sit on "Loading…" for good.
+        status.value = online.value ? "error" : "offline";
       }
     }
   }
 
   // "Has content" — the gate on persisting a draft at all — is hasRealContent in
   // shared/localList, shared with the sync line so both read the same rule.
+
+  /** Load the list this session names again — after a load that found no copy on
+   *  the device and no server: the online watcher calls it when the network returns,
+   *  the page's "Try again" by hand. A draft names nothing, so it is a no-op there. */
+  function retryLoad(): void {
+    if (editToken) void load({ token: editToken });
+    else if (claimCode) void load({ code: claimCode });
+  }
 
   // A fragment-less /e/{code} from a visitor with no session: the link lost its edit
   // key, so nothing here can open the list for editing, and no request is worth
@@ -1574,7 +1594,7 @@ function create() {
     keylessCode,
     startKeyless,
     authHeaders,
-    load, startDraft, dispose, rotate,
+    load, retryLoad, startDraft, dispose, rotate,
     setMeta, setUnit, addFolder, updateFolder, removeFolder, moveFolderBefore,
     addDay, updateDay, removeDay,
     addPerson, updatePerson, removePerson,

@@ -42,8 +42,10 @@ describe("a session that ends without a sign-out here", () => {
   it("clears the account's cached lists and opens ledger when the server says no user", async () => {
     storage.set(ROWS_KEY, JSON.stringify([{ shareCode: "C0DE00000009", title: "Timberline" }]));
     markClaimedOpen("C0DE00000009");
-    // the stale hint seeded the rows, exactly as a cold launch would
+    // the stale hint seeded the rows, exactly as a cold launch does (the session
+    // plugin restores before it asks the server)
     const claimed = useClaimedLists();
+    claimed.restoreFromDevice();
     expect(claimed.lists.value.map((l) => l.title)).toEqual(["Timberline"]);
 
     await useSession().refresh();

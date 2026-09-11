@@ -160,6 +160,10 @@ describe("useGearList — a claimed open (share code + session, no token held)",
       { shareCode: CODE, slug: "claimed-list-aaa111", title: "Alpine Loop", totalMg: 0, version: 1, displayUnit: "g", updatedAt: "2026-08-07T00:00:00.000Z" },
     ];
     sessionUnresolved();
+    // a claimed open only ever happens with the session hint present (the route
+    // watcher's gate), and the ledger stamps only with an account behind the browser
+    document.cookie = "mh_signed_in=1; path=/";
+    window.dispatchEvent(new Event("online"));
   });
   afterEach(() => {
     useGearList().dispose();
@@ -224,6 +228,44 @@ describe("useGearList — a claimed open (share code + session, no token held)",
       await c.load({ code: CODE });
       expect(c.status.value).toBe("offline");
       expect(claimedOpens()[0]?.shareCode).toBe(CODE);
+    } finally {
+      failOpens = false;
+    }
+  });
+
+  it("with no copy on the device and no network, waits as offline and loads itself when the network returns", async () => {
+    // the installed app launched in a tunnel to a list this device never opened:
+    // nothing to hydrate, nothing to fetch — say so, and load when the network is back
+    window.dispatchEvent(new Event("offline"));
+    failOpens = true;
+    try {
+      const c = useGearList();
+      await c.load({ code: CODE });
+      expect(c.status.value).toBe("offline");
+      expect(c.snapshot.value).toBeNull();
+
+      failOpens = false;
+      window.dispatchEvent(new Event("online"));
+      await vi.waitFor(() => expect(c.snapshot.value?.title).toBe("Alpine Loop"));
+      expect(c.status.value).toBe("synced");
+    } finally {
+      failOpens = false;
+      window.dispatchEvent(new Event("online"));
+    }
+  });
+
+  it("with no copy and a server that does not answer, says so and can try again", async () => {
+    failOpens = true;
+    try {
+      const c = useGearList();
+      await c.load({ code: CODE });
+      expect(c.status.value).toBe("error");
+      expect(c.snapshot.value).toBeNull();
+
+      failOpens = false;
+      c.retryLoad();
+      await vi.waitFor(() => expect(c.status.value).toBe("synced"));
+      expect(c.snapshot.value?.title).toBe("Alpine Loop");
     } finally {
       failOpens = false;
     }

@@ -8,9 +8,11 @@ import { Cancel01Icon } from "@hugeicons/core-free-icons";
 // component /account renders. This file is the wiring between them and nothing else.
 const { state, close } = useAccountModal();
 // The dialog's accessible name tracks the same state its heading does — a screen
-// reader announcing "Your account" over a sign-in form is the same mismatch.
-const { signedIn } = useSession();
-const label = computed(() => (signedIn.value ? "Your account" : "Sign in"));
+// reader announcing "Your account" over a sign-in form is the same mismatch. Same
+// rule as AccountView's heading: a presumed account (offline, hint present) is
+// still "your account", loading, rather than a sign-in you don't need.
+const { presence } = useSession();
+const label = computed(() => (presence.value !== "signedOut" ? "Your account" : "Sign in"));
 </script>
 
 <template>
