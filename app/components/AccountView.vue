@@ -25,9 +25,11 @@ const { inModal = false, hideHeading = false } = defineProps<{ inModal?: boolean
 const emit = defineEmits<{ done: [] }>();
 // Say what this surface is FOR right now. Signed out it is a sign-in dialog, and
 // titling it "Your account" describes something you don't have yet — the one thing
-// the person in front of it is certain of. Signed in, it's the settings page.
+// the person in front of it is certain of. Signed in, it's the settings page — and
+// so is a PRESUMED session (offline with the hint cookie, the body still loading):
+// there is an account here, and "Sign in" over it asked for something already had.
 const heading = computed(() =>
-  signedIn.value ? "Your account" : mode.value === "create" ? "Create an account" : "Sign in",
+  presence.value !== "signedOut" ? "Your account" : mode.value === "create" ? "Create an account" : "Sign in",
 );
 
 async function finish(fallback: string) {
@@ -52,7 +54,7 @@ async function finish(fallback: string) {
 // The title and the noindex belong to /account, which is the thing that is actually
 // the account; see the page.
 
-const { user, signedIn, loaded, refresh, requestLink, signOut, saveProfile, forgetAccountMemos } = useSession();
+const { user, signedIn, presence, loaded, refresh, requestLink, signOut, saveProfile, forgetAccountMemos } = useSession();
 const { confirm: askConfirm, confirmState } = useDialogs();
 const pk = usePasskeys();
 // whether this browser can do WebAuthn at all — resolved on mount, so the

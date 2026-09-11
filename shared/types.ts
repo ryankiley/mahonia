@@ -409,6 +409,12 @@ export interface ClaimedList {
   updatedAt: string;
 }
 
+/** The most claimed lists the server hands back in one read (newest-updated first),
+ *  and the most tokens one claim request may carry. Shared because the client needs
+ *  the same number: an answer SHORTER than this is the whole account, and only then
+ *  can anything not in it be called gone (see useClaimedLists' opens ledger). */
+export const CLAIMED_LIST_CAP = 200;
+
 /** One recovery point, as the sharing panel's activity log lists them. */
 export interface SnapshotMeta {
   id: number;

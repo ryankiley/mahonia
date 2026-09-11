@@ -16,6 +16,9 @@ interface SessionState {
   displayName: string | null;
 }
 
+/** The session as three answers, not two — see `presence` below. */
+export type Presence = "signedIn" | "signedOut" | "presumed";
+
 export function useSession() {
   const user = useState<SessionState | null>("session-user", () => null);
   // Distinguishes "not fetched yet" from "fetched, signed out" — without it the
@@ -28,6 +31,20 @@ export function useSession() {
   // every one of them as signed out — and take the vault, capture and the byline
   // down with it. The account is the identity; the address is only the way back in.
   const signedIn = computed(() => user.value !== null);
+
+  /**
+   * The session as the three-way answer the surfaces that cannot wait for
+   * /api/auth/me actually need — or that, offline, will never get one: "signedIn"
+   * and "signedOut" once the server has resolved it, "presumed" while it hasn't but
+   * the hint cookie says there is an account behind this browser. The ONE
+   * definition of "offline with a hint": the switcher's cache, the account menu and
+   * the vault gate each used to spell it from signedIn, loaded and the cookie in
+   * their own words. The cookie read is not reactive; the answer moves when
+   * `loaded` or `user` do, which is every moment the cookie itself is changed here.
+   */
+  const presence = computed<Presence>(() =>
+    loaded.value ? (user.value ? "signedIn" : "signedOut") : hasSessionHint() ? "presumed" : "signedOut",
+  );
 
   /** The readable companion flag the server sets alongside the HttpOnly session
    *  cookie (see SESSION_HINT_COOKIE). Not a credential — just "worth asking". */
@@ -68,13 +85,26 @@ export function useSession() {
           }
         : null;
       // A hint with no session behind it (expired, or signed out in another tab)
-      // would otherwise keep costing a request on every page load — drop it.
-      if (!res.user) clearSessionHint();
+      // would otherwise keep costing a request on every page load — drop it. And
+      // drop what this device kept FOR that account with it: a session ending here
+      // without a sign-out — expiry, "sign out everywhere" run elsewhere, the account
+      // deleted — was the one way out that reached none of the memos, so the
+      // account's cached lists stood in the switcher until the menu opened, and its
+      // opens ledger steered the bare address into its lists for whoever signed in
+      // on this browser next.
+      if (!res.user) {
+        clearSessionHint();
+        forgetAccountMemos();
+      }
     } catch {
       // offline or a server blip — treat as signed out for rendering purposes,
       // but leave `loaded` false so the next call retries rather than caching a
-      // wrong answer for the rest of the session
+      // wrong answer for the rest of the session. SET false, not merely left: a
+      // forced re-read (after a sign-in, say) arrives with `loaded` already true
+      // from the last success, and a failure then read as a RESOLVED signed-out —
+      // the reading that tells the switcher to throw the account's cached lists away.
       user.value = null;
+      loaded.value = false;
       pending.value = false;
       return;
     }
@@ -147,6 +177,7 @@ export function useSession() {
   return {
     user,
     signedIn,
+    presence,
     loaded,
     refresh,
     requestLink,

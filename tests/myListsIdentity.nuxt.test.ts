@@ -7,7 +7,9 @@
 // localStorage, and the thing under test is what the registry does to its own
 // contents across a sequence of writes. Extracting a pure helper would be testing a
 // shape that isn't the one shipping.
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { listEntry } from "./helpers/myLists";
+import { stubLocalStorage } from "./helpers/storage";
 import { mockNuxtImport } from "@nuxt/test-utils/runtime";
 import type { ListSnapshot, MyListEntry } from "~~/shared/types";
 
@@ -21,29 +23,19 @@ mockNuxtImport("useLocalListStore", () => () => ({
   del: async (key: string) => void deleted.push(key),
 }));
 
-// Node's own localStorage global is inert without --localstorage-file (every method
-// throws). A Map-backed stub is what the browser actually gives us, and the registry
-// writes through it, so it's also how we check a collapse really landed on disk.
-const storage = new Map<string, string>();
-vi.stubGlobal("localStorage", {
-  getItem: (k: string) => storage.get(k) ?? null,
-  setItem: (k: string, v: string) => void storage.set(k, String(v)),
-  removeItem: (k: string) => void storage.delete(k),
-  clear: () => storage.clear(),
-});
+const storage = stubLocalStorage();
 
 const SHARE = "LOOWIT000001";
-const entry = (over: Partial<MyListEntry> & { editToken: string }): MyListEntry => ({
-  origin: "created",
-  shareCode: SHARE,
-  slug: "ryans-loowit-aa11bb",
-  title: "Ryan’s Loowit",
-  totalMg: 5_000_000,
-  version: 7,
-  lastOpened: 1_700_000_000_000,
-  displayUnit: "g",
-  ...over,
-});
+const entry = (over: Partial<MyListEntry> & { editToken: string }): MyListEntry =>
+  listEntry({
+    shareCode: SHARE,
+    slug: "ryans-loowit-aa11bb",
+    title: "Ryan’s Loowit",
+    totalMg: 5_000_000,
+    version: 7,
+    lastOpened: 1_700_000_000_000,
+    ...over,
+  });
 
 const snapshotFor = (shareCode: string): ListSnapshot => ({
   shareCode,

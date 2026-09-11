@@ -2,7 +2,8 @@
 import { HugeiconsIcon, type IconNode } from "~/utils/hugeicon";
 import { Backpack02Icon, Bug02Icon, CheckmarkSquare02Icon, CopyPlusIcon, Delete02Icon, EllipsisIcon, FileExportIcon, FileImportIcon, KeyboardIcon, RemoveCircleIcon, Route02Icon, SafeBoxIcon, Share08Icon, UndoIcon, UserAddIcon } from "@hugeicons/core-free-icons";
 import { editLinkPath, normalizeShareCode } from "~~/shared/links";
-import { resumeTarget } from "~~/shared/switcher";
+import { forgetClaimedOpen } from "~/composables/useClaimedLists";
+import { resumeHere } from "~/composables/useResumed";
 import { tripHeadline } from "~~/shared/trailDistance";
 import { formatWeight } from "~~/shared/weights";
 import { chipWeightLabels, filterItemsForPerson, hasUnassignedTopLevel, personName, personSlot, selectionGone, sortedPeople, UNASSIGNED } from "~~/shared/people";
@@ -406,13 +407,30 @@ const route = useRoute();
 // without it: the next list this browser holds, or a fresh draft. Only for a resume:
 // a dead link you opened yourself still gets the message, which is the honest answer
 // to that link.
+//
+// Either shape of entry can go dead, and each is dropped where it lives: a token in
+// the registry, a claimed open in the opens ledger. Two things "missing" can ALSO
+// mean are not that, and neither may forget anything. A keyless start — the route
+// watcher never asked, because the session hint was gone — says nothing about the
+// list: openedByCode tells it apart, since a claimed load() leaves it set through
+// its own failure and startKeyless clears it. And a 404 that arrives after edits
+// have been made here is a flush's, minutes into the session, not the resume's:
+// forgetting the token then deleted the on-device record holding the very ops that
+// had just failed to land. The next hop leaves this code out of the ranking outright
+// (resumeHere's `except`), so it can never be the address just found dead — the
+// storage write behind forgetClaimedOpen can be refused, and a bounce to the route
+// already on screen is no bounce at all.
+let editedHere = false;
 watch(status, (s) => {
-  if (s !== "missing" || !resumed.value) return;
+  if (s === "loading") editedHere = false; // a new session starts clean
+  if (s === "saving") editedHere = true;
+  if (s !== "missing" || !resumed.value || editedHere) return;
   const code = normalizeShareCode(typeof route.params.code === "string" ? route.params.code : "");
   if (!code || code !== resumed.value) return;
   const token = decodeURIComponent(route.hash.replace(/^#/, ""));
   if (token) my.forget(token);
-  const next = resumeTarget(my.entries.value);
+  else if (openedByCode.value) forgetClaimedOpen(code);
+  const next = resumeHere(code);
   resumed.value = next?.shareCode ?? null;
   navigateTo(next?.to ?? "/e", { replace: true });
 });
@@ -770,6 +788,13 @@ const missingMessage = computed(() =>
         // the link, not the list — the read-only view still opens with the same code
         ? "This edit link is missing its key, so it can’t open the list for editing. Ask for the edit link again, or open the read-only view."
         : "This list isn’t in this browser, or the link is invalid.",
+);
+// A load that ended with nothing to show and no verdict: no copy on the device and
+// either no network — it loads itself when the network returns (the controller's
+// online watcher) — or a server that didn't answer, which the page offers to retry.
+// Before this the page sat on "Loading…" for good, with "Not saved" in the bar.
+const unloaded = computed(
+  () => !snapshot.value && (status.value === "offline" || status.value === "error"),
 );
 async function forgetMissingList() {
   // capture before dispose() blanks c.editToken (which empties missingEntry too)
@@ -1370,6 +1395,16 @@ function onCorrected(res: { status: string; itemName?: string }) {
       <!-- quiet, under the primary: the way forward stays the page's loudest offer,
            and retiring the row that led here is the calm cleanup beside it -->
       <button v-if="missingEntry" class="btn btn--quiet" @click="forgetMissingList">Forget this list</button>
+    </main>
+
+    <main v-else-if="unloaded" id="main-content" tabindex="-1" class="wrap editor__missing">
+      <p class="t-muted">
+        {{ status === "offline"
+          ? "This list isn’t saved on this device, and there’s no connection to load it from. It will open on its own once you’re back online."
+          : "This list couldn’t be loaded. Check your connection and try again." }}
+      </p>
+      <button v-if="status === 'error'" class="btn btn--primary" @click="c.retryLoad()">Try again</button>
+      <button :class="['btn', status === 'error' ? 'btn--quiet' : 'btn--primary']" @click="newList({ replace: true })">Create a list</button>
     </main>
 
     <main v-else id="main-content" tabindex="-1" class="wrap editor__missing">

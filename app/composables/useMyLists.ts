@@ -1,6 +1,6 @@
 import type { Ref } from "vue";
 import type { ListSnapshot, MyListEntry } from "~~/shared/types";
-import { recall, remember } from "../utils/remember";
+import { recallJson, remember } from "../utils/remember";
 
 // No-login "My Lists": the registry of edit tokens this browser holds. This is
 // the only thing tying a visitor to their lists — clear the browser and they're
@@ -16,12 +16,8 @@ const STORAGE_KEY = "gear.mylists.v1";
 // it only fires on OTHER tabs and only when the stored string actually changed,
 // so echoing the read back through the watcher can't loop.
 function readEntries(): MyListEntry[] {
-  try {
-    const raw = recall(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as MyListEntry[]) : [];
-  } catch {
-    return []; // a corrupt registry reads as empty rather than taking the page down
-  }
+  // a corrupt or wrong-shaped registry reads as empty rather than taking the page down
+  return recallJson(STORAGE_KEY, (v): v is MyListEntry[] => Array.isArray(v), []);
 }
 
 /**

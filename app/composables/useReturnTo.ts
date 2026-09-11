@@ -18,7 +18,7 @@
 // "my lists" registry is where they're kept).
 
 import { isSafeReturnPath } from "~~/shared/links";
-import { forget, recall, remember as store } from "../utils/remember";
+import { forget, recallJson, remember as store } from "../utils/remember";
 
 const KEY = "gear.returnto.v1";
 // Long enough to read an email and come back, short enough that a path abandoned days
@@ -44,16 +44,14 @@ export function useReturnTo() {
    */
   function take(): string | null {
     if (!import.meta.client) return null;
-    const raw = recall(KEY);
+    const stored = recallJson(
+      KEY,
+      (v): v is { path?: unknown; at?: unknown } => !!v && typeof v === "object",
+      null,
+    );
     forget(KEY);
-    if (!raw) return null;
-    try {
-      const { path, at } = JSON.parse(raw) as { path?: unknown; at?: unknown };
-      if (typeof at !== "number" || Date.now() - at > TTL_MS) return null;
-      return isSafeReturnPath(path) ? path : null;
-    } catch {
-      return null;
-    }
+    if (!stored || typeof stored.at !== "number" || Date.now() - stored.at > TTL_MS) return null;
+    return isSafeReturnPath(stored.path) ? stored.path : null;
   }
 
   /** Go back where they came from, or to `fallback` if there's nowhere to go. */

@@ -14,12 +14,19 @@
 //     handle), and its on-device copy lives under the code: key;
 //   • a rotate graduates it to the token path: bearer from then on, a registry
 //     row minted, the code-keyed record gone;
-//   • a rename reaches the claimed-lists state the switcher renders (touchByCode).
+//   • a rename reaches the claimed-lists state the switcher renders (touchByCode);
+//   • it is stamped in the opens ledger, so the bare address — the installed app's
+//     start_url, and therefore every offline launch — picks up here rather than at
+//     whatever older list this device happens to hold an edit link for; a claim the
+//     server refuses loses that stamp, but only once the session is known good.
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
+import { listEntry } from "./helpers/myLists";
+import { stubLocalStorage } from "./helpers/storage";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import { createError, getHeader, readBody, type H3Event } from "h3";
 import { claimedLocalKey, type LocalListRecord } from "~~/shared/localList";
 import { LIST_CODE_HEADER } from "~~/shared/links";
+import { resumeTarget } from "~~/shared/switcher";
 import type { ListSnapshot } from "~~/shared/types";
 import type { Op } from "~~/shared/ops";
 
@@ -40,13 +47,7 @@ mockNuxtImport("useVaultAccess", () => () => ({
   vaultFetch: <T,>() => Promise.resolve({} as T),
 }));
 
-const storage = new Map<string, string>();
-vi.stubGlobal("localStorage", {
-  getItem: (k: string) => storage.get(k) ?? null,
-  setItem: (k: string, v: string) => void storage.set(k, String(v)),
-  removeItem: (k: string) => void storage.delete(k),
-  clear: () => storage.clear(),
-});
+const storage = stubLocalStorage();
 
 // ---- the network, capability-aware ---------------------------------------------
 const CODE = "TESTC0DE0001"; // canonical Crockford — normalizes to itself
@@ -76,11 +77,29 @@ let serverList: ListSnapshot = snapshotFor("Alpine Loop");
 // When set, the open is refused the way editAuth refuses a lapsed session or an
 // unclaimed code — the client-side half of that contract is a test below.
 let refuseOpens = false;
+// When set, the server is simply not there: the shape of an OFFLINE open, which the
+// controller tells apart from a refusal (no 401/404 → "offline", never "missing").
+let failOpens = false;
 registerEndpoint("/api/edit/list", (event) => {
   listAuth.push(authOf(event));
   if (refuseOpens) throw createError({ statusCode: 401, statusMessage: "Missing edit capability" });
+  if (failOpens) throw createError({ statusCode: 503, statusMessage: "Unreachable" });
   return { snapshot: serverList };
 });
+
+// The session, as the controller reads it for the 401 verdict below. The real
+// composable runs here (nothing mocks it), so its state is set the way /api/auth/me
+// would leave it.
+function sessionResolved(signedIn: boolean) {
+  useState<{ email: string; displayName: string | null } | null>("session-user").value = signedIn
+    ? { email: "ryan@example.com", displayName: null }
+    : null;
+  useState<boolean>("session-loaded").value = true;
+}
+function sessionUnresolved() {
+  useState<{ email: string; displayName: string | null } | null>("session-user").value = null;
+  useState<boolean>("session-loaded").value = false;
+}
 
 let mutateAuth: (SeenAuth & { ops?: Op[] })[] = [];
 registerEndpoint("/api/edit/mutate", {
@@ -140,6 +159,11 @@ describe("useGearList — a claimed open (share code + session, no token held)",
     useClaimedLists().lists.value = [
       { shareCode: CODE, slug: "claimed-list-aaa111", title: "Alpine Loop", totalMg: 0, version: 1, displayUnit: "g", updatedAt: "2026-08-07T00:00:00.000Z" },
     ];
+    sessionUnresolved();
+    // a claimed open only ever happens with the session hint present (the route
+    // watcher's gate), and the ledger stamps only with an account behind the browser
+    document.cookie = "mh_signed_in=1; path=/";
+    window.dispatchEvent(new Event("online"));
   });
   afterEach(() => {
     useGearList().dispose();
@@ -171,6 +195,131 @@ describe("useGearList — a claimed open (share code + session, no token held)",
     const c = useGearList();
     await c.load({ code: CODE });
     expect(useMyLists().entries.value).toHaveLength(0);
+  });
+
+  it("is still where the bare address picks up, registry row or not", async () => {
+    // The bug: with no row to stamp, an open through the account left nothing the
+    // resume could rank, so the installed app launched into some other list — one
+    // this device held a token for and you hadn't touched in weeks.
+    useMyLists().entries.value = [
+      listEntry({ editToken: "older-token", shareCode: "0LDLIST00001", slug: "older-list-bbb222", title: "Older" }),
+    ];
+
+    const c = useGearList();
+    await c.load({ code: CODE });
+
+    expect(claimedOpens()[0]?.shareCode).toBe(CODE);
+    expect(resumeTarget(useMyLists().entries.value, claimedOpens())).toEqual({
+      to: `/e/${CODE}`,
+      shareCode: CODE,
+    });
+  });
+
+  it("stamps the ledger on an OFFLINE open, hydrated from the on-device copy", async () => {
+    // no server to confirm anything, and still every bit "the list you had open"
+    records.set(claimedLocalKey(CODE), {
+      snapshot: snapshotFor("Alpine Loop"),
+      pending: [],
+      updatedAt: 1,
+    });
+    failOpens = true;
+    try {
+      const c = useGearList();
+      await c.load({ code: CODE });
+      expect(c.status.value).toBe("offline");
+      expect(claimedOpens()[0]?.shareCode).toBe(CODE);
+    } finally {
+      failOpens = false;
+    }
+  });
+
+  it("with no copy on the device and no network, waits as offline and loads itself when the network returns", async () => {
+    // the installed app launched in a tunnel to a list this device never opened:
+    // nothing to hydrate, nothing to fetch — say so, and load when the network is back
+    window.dispatchEvent(new Event("offline"));
+    failOpens = true;
+    try {
+      const c = useGearList();
+      await c.load({ code: CODE });
+      expect(c.status.value).toBe("offline");
+      expect(c.snapshot.value).toBeNull();
+
+      failOpens = false;
+      window.dispatchEvent(new Event("online"));
+      await vi.waitFor(() => expect(c.snapshot.value?.title).toBe("Alpine Loop"));
+      expect(c.status.value).toBe("synced");
+    } finally {
+      failOpens = false;
+      window.dispatchEvent(new Event("online"));
+    }
+  });
+
+  it("with no copy and a server that does not answer, says so and can try again", async () => {
+    failOpens = true;
+    try {
+      const c = useGearList();
+      await c.load({ code: CODE });
+      expect(c.status.value).toBe("error");
+      expect(c.snapshot.value).toBeNull();
+
+      failOpens = false;
+      c.retryLoad();
+      await vi.waitFor(() => expect(c.status.value).toBe("synced"));
+      expect(c.snapshot.value?.title).toBe("Alpine Loop");
+    } finally {
+      failOpens = false;
+    }
+  });
+
+  it("a claim the server refuses loses its stamp — once the session is known good", async () => {
+    // The hydrate path stamps before the server answers; a 401 with the session
+    // resolved signed-in can only mean the CLAIM is dead (unclaimed or deleted on
+    // another device), and the bare address must stop offering to resume it.
+    records.set(claimedLocalKey(CODE), { snapshot: snapshotFor("Alpine Loop"), pending: [], updatedAt: 1 });
+    sessionResolved(true);
+    refuseOpens = true;
+    try {
+      const c = useGearList();
+      await c.load({ code: CODE });
+      expect(c.status.value).toBe("missing");
+      expect(claimedOpens()).toEqual([]);
+      // ...and the dead-end page cannot stamp it back: device-only edits there
+      // sync the row copy but leave the ledger alone
+      c.setMeta({ title: "Typed on the dead-end" });
+      expect(claimedOpens()).toEqual([]);
+    } finally {
+      refuseOpens = false;
+    }
+  });
+
+  it("a refused claim keeps its stamp while the session is unresolved", async () => {
+    // A 401 on a claimed open is "no claim under this session" — with the session
+    // itself unanswered (offline, or still being asked) that is as likely the session
+    // as the claim, and forgetting on it lost where you left off for a list the
+    // account still holds.
+    records.set(claimedLocalKey(CODE), { snapshot: snapshotFor("Alpine Loop"), pending: [], updatedAt: 1 });
+    sessionUnresolved();
+    refuseOpens = true;
+    try {
+      const c = useGearList();
+      await c.load({ code: CODE });
+      expect(c.status.value).toBe("missing");
+      expect(claimedOpens()[0]?.shareCode).toBe(CODE);
+    } finally {
+      refuseOpens = false;
+    }
+  });
+
+  it("a token confirming the same list drops its ledger twin", async () => {
+    // Opened through the account once (ledger), then through the edit link: the row
+    // is the way in from now on, and a ledger entry would only resurface — ranked at
+    // the older time — the moment the row is deleted or removed from this device.
+    markClaimedOpen(CODE);
+    const c = useGearList();
+    await c.load({ token: "held-token" });
+
+    expect(useMyLists().entries.value.map((e) => e.shareCode)).toEqual([CODE]);
+    expect(claimedOpens()).toEqual([]);
   });
 
   it("edits flush through the code header and NEVER reach the draft-create path", async () => {
@@ -248,6 +397,9 @@ describe("useGearList — a claimed open (share code + session, no token held)",
       expect(records.has(claimedLocalKey(CODE))).toBe(false);
       expect(records.has(ROTATED_TOKEN)).toBe(true);
     });
+    // …and so is the ledger entry: the registry row is the way back in from here,
+    // and resumeTarget skips a claimed entry the registry already covers anyway
+    expect(claimedOpens()).toEqual([]);
 
     // and the next edit no longer names the claim. (The Bearer half of the
     // hand-off can't be asserted here: test-utils' fetch mock delivers custom

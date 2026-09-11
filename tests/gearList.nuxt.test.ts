@@ -11,6 +11,7 @@
 // one that breaks. So: boot Nuxt, stub the two boundaries (the fetch and the
 // IndexedDB store), and drive the real singleton through the real sequence.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { stubLocalStorage } from "./helpers/storage";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import { createError, readBody } from "h3";
 import { localKey, type LocalListRecord } from "~~/shared/localList";
@@ -93,13 +94,7 @@ class TextCapturingBlob extends RealBlob {
 }
 globalThis.Blob = TextCapturingBlob as unknown as typeof Blob;
 
-const storage = new Map<string, string>();
-vi.stubGlobal("localStorage", {
-  getItem: (k: string) => storage.get(k) ?? null,
-  setItem: (k: string, v: string) => void storage.set(k, String(v)),
-  removeItem: (k: string) => void storage.delete(k),
-  clear: () => storage.clear(),
-});
+const storage = stubLocalStorage();
 
 // ---- the network --------------------------------------------------------------
 const TOKEN = "test-edit-token";

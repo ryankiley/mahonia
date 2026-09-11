@@ -3,7 +3,7 @@
 
 import type { Folder, Item } from "~~/shared/types";
 import type { VaultCapture, VaultEntry, VaultGearKey } from "~~/shared/vault";
-import { remember } from "../utils/remember";
+import { recallJson, remember } from "../utils/remember";
 
 // ---------------------------------------------------------------------------
 // capture
@@ -53,13 +53,10 @@ const EXCLUDE_KEY = (editToken: string) => `gear.vault.not.${editToken}`;
 /** The normKeys this device said were somebody else's, for this list. */
 export function vaultExclusionsFor(editToken: string): Set<string> {
   if (!import.meta.client || !editToken) return new Set();
-  try {
-    const raw = localStorage.getItem(EXCLUDE_KEY(editToken));
-    const parsed = raw ? JSON.parse(raw) : null;
-    return new Set(Array.isArray(parsed) ? parsed.filter((k): k is string => typeof k === "string") : []);
-  } catch {
-    return new Set(); // unreadable or malformed — capture everything rather than nothing
-  }
+  // unreadable or malformed reads as none — capture everything rather than nothing
+  return new Set(
+    recallJson(EXCLUDE_KEY(editToken), Array.isArray, []).filter((k): k is string => typeof k === "string"),
+  );
 }
 
 export function setVaultExclusionsFor(editToken: string, normKeys: string[]): void {

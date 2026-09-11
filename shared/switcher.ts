@@ -67,18 +67,63 @@ export function mergeSwitcherRows(
   return rows;
 }
 
-/** Where the bare address lands: the list this browser opened most recently, or
- *  null when it holds none (→ a fresh draft). Device rows only, and only ones with
- *  an edit token: a claimed-only row is as good as the session behind it, and the
- *  bare address is what a bookmark opens signed out and offline. Ties (same
- *  lastOpened, or entries from before the field) keep registry order. */
+/** One claimed list this browser has actually had open, and when. The device
+ *  registry keeps this per row; a claimed open has no row to keep it in, so it's
+ *  kept separately — see useClaimedLists' opens ledger. */
+export interface ClaimedOpen {
+  shareCode: string;
+  lastOpened: number;
+}
+
+/**
+ * Where the bare address lands: the list this browser opened most recently, or null
+ * when it has opened none (→ a fresh draft).
+ *
+ * BOTH WAYS IN COUNT. The registry half is the lists this browser holds the edit
+ * link for; the claimed half is the lists it has opened through the account, at
+ * /e/{code} on the session. Ranking only the first half is why the bare address —
+ * which is the installed app's start_url, so it IS the offline launch — could hand
+ * you a list you hadn't touched in weeks: a list made on another device arrives here
+ * as a claimed row, and opening it wrote nothing the resume could see. It has an
+ * on-device copy like any other open list (the editor persists one under its share
+ * code), so there was never anything missing but the pointer to it.
+ *
+ * A row with no edit token is still skipped. A list that is in BOTH — opened through
+ * the account here, and through its edit link — is one list: it is ranked by
+ * whichever open was later and reached through the edit link, which works signed
+ * out and offline. The later open can well be the claimed one: a signed-in /e/{code}
+ * with no fragment takes the claimed path even when this browser holds the token,
+ * and stamps only the ledger — discarding that stamp let an older list win.
+ *
+ * Ties keep this order — device rows first, then registry order — so an entry from
+ * before lastOpened existed still resolves, and a claimed open never displaces a
+ * token for the same instant. Only finite stamps count: nothing compares greater
+ * than a NaN, so one considered first would otherwise sit at the top for good.
+ */
 export function resumeTarget(
   device: Pick<MyListEntry, "editToken" | "shareCode" | "lastOpened">[],
+  claimed: ClaimedOpen[] = [],
 ): { to: string; shareCode: string } | null {
-  let best: (typeof device)[number] | undefined;
+  const finite = (n: number | undefined) => (Number.isFinite(n) ? (n as number) : 0);
+  const stamped = new Map<string, number>();
+  for (const c of claimed) if (c.shareCode) stamped.set(c.shareCode, finite(c.lastOpened));
+  let best: { to: string; shareCode: string; at: number } | undefined;
+  const consider = (to: string, shareCode: string, at: number) => {
+    if (!best || at > best.at) best = { to, shareCode, at };
+  };
+  const held = new Set<string>();
   for (const e of device) {
     if (!e.editToken) continue;
-    if (!best || (e.lastOpened ?? 0) > (best.lastOpened ?? 0)) best = e;
+    held.add(e.shareCode);
+    consider(
+      editLinkPath(e.shareCode, e.editToken),
+      e.shareCode,
+      Math.max(finite(e.lastOpened), stamped.get(e.shareCode) ?? 0),
+    );
   }
-  return best ? { to: editLinkPath(best.shareCode, best.editToken), shareCode: best.shareCode } : null;
+  for (const c of claimed) {
+    if (!c.shareCode || held.has(c.shareCode)) continue;
+    consider(claimedEditPath(c.shareCode), c.shareCode, finite(c.lastOpened));
+  }
+  return best ? { to: best.to, shareCode: best.shareCode } : null;
 }

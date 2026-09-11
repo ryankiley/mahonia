@@ -9,11 +9,20 @@
 // the page's meta module statically, which puts this code — and the switcher module
 // it reads — on the boot path of every route. A name is a string, and a named
 // middleware is loaded only when the route that names it is entered.
-import { resumeTarget } from "~~/shared/switcher";
+//
+// BOTH WAYS IN are ranked, which is what makes this right on the launch that has no
+// network. A list this browser opened through the account rather than through an
+// edit link leaves no registry row, so ranking the registry alone sent the installed
+// app to whatever OTHER list happened to hold a token here — a list you last touched
+// weeks ago, while the one you actually packed sat on the device unreachable from
+// its own start_url. The ranking, and the one gate in front of its claimed half,
+// live in resumeHere (app/composables/useResumed.ts), shared with the page and the
+// editor's dead-resume skip.
+import { resumeHere } from "~/composables/useResumed";
 
 export default defineNuxtRouteMiddleware(() => {
   if (import.meta.server) return;
-  const target = resumeTarget(useMyLists().entries.value);
+  const target = resumeHere();
   // Written on EVERY visit, cleared included: the editor aims its switcher hint at
   // the list the bare address dropped you into, and a code left over from an earlier
   // resume would make a deliberate open of that list read as another one.

@@ -69,6 +69,7 @@ describe("mergeSwitcherRows", () => {
 
 describe("resumeTarget — where the bare address lands", () => {
   const row = (editToken: string, shareCode: string, lastOpened: number) => ({ editToken, shareCode, lastOpened });
+  const open = (shareCode: string, lastOpened: number) => ({ shareCode, lastOpened });
 
   it("picks the list opened most recently, as its edit link", () => {
     const t = resumeTarget([row("tokA", "AAAA", 100), row("tokB", "BBBB", 300), row("tokC", "CCCC", 200)]);
@@ -83,5 +84,55 @@ describe("resumeTarget — where the bare address lands", () => {
   it("keeps registry order on a tie, so an entry from before the field still resolves", () => {
     const t = resumeTarget([row("tokA", "AAAA", 0), { editToken: "tokB", shareCode: "BBBB", lastOpened: undefined as unknown as number }]);
     expect(t?.shareCode).toBe("AAAA");
+  });
+
+  // The bug this half exists for: a list made on another device reaches this one as
+  // a CLAIMED row, and opening it leaves no registry entry — so the bare address,
+  // which is the installed app's start_url and therefore every offline launch, used
+  // to hand back whatever older list happened to hold a token here.
+  it("resumes a claimed open that is newer than every list this browser holds", () => {
+    const t = resumeTarget([row("tokA", "AAAA", 100), row("tokB", "BBBB", 200)], [open("CCCC", 300)]);
+    expect(t).toEqual({ to: "/e/CCCC", shareCode: "CCCC" });
+  });
+
+  it("still prefers a token when the token is the more recent open", () => {
+    const t = resumeTarget([row("tokA", "AAAA", 400)], [open("CCCC", 300)]);
+    expect(t).toEqual({ to: "/e/AAAA#tokA", shareCode: "AAAA" });
+  });
+
+  it("takes the edit link for a list that is in both, whichever side is newer", () => {
+    // the token works signed out and offline, so it is the better way into the same
+    // list — and the registry row's own lastOpened already covers those opens
+    expect(resumeTarget([row("tokA", "AAAA", 100)], [open("AAAA", 900)])).toEqual({
+      to: "/e/AAAA#tokA",
+      shareCode: "AAAA",
+    });
+  });
+
+  it("resumes a claimed open with nothing in the registry at all", () => {
+    expect(resumeTarget([], [open("CCCC", 5)])).toEqual({ to: "/e/CCCC", shareCode: "CCCC" });
+  });
+
+  it("lets a token win a dead heat with a claimed open", () => {
+    const t = resumeTarget([row("tokA", "AAAA", 300)], [open("CCCC", 300)]);
+    expect(t?.shareCode).toBe("AAAA");
+  });
+
+  it("ignores a claimed entry with no share code", () => {
+    expect(resumeTarget([], [open("", 900)])).toBeNull();
+  });
+
+  // A signed-in /e/{code} with no fragment takes the claimed path even when this
+  // browser holds the token, and stamps only the ledger — so the row's own time can
+  // be older than the list's last open. One list, ranked by its later open.
+  it("ranks a list that is in both by its later open, reached through the edit link", () => {
+    const t = resumeTarget([row("tokA", "AAAA", 100), row("tokB", "BBBB", 200)], [open("AAAA", 300)]);
+    expect(t).toEqual({ to: "/e/AAAA#tokA", shareCode: "AAAA" });
+  });
+
+  it("never lets a NaN stamp sit at the top", () => {
+    const t = resumeTarget([], [open("AAAA", Number.NaN), open("BBBB", 900)]);
+    expect(t?.shareCode).toBe("BBBB");
+    expect(resumeTarget([row("tokA", "AAAA", Number.NaN), row("tokB", "BBBB", 1)])?.shareCode).toBe("BBBB");
   });
 });

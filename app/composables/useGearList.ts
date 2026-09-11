@@ -13,6 +13,7 @@ import type { VaultCapture, VaultEntry, VaultGearKey } from "~~/shared/vault";
 import { vaultNormKey } from "~~/shared/vault";
 import { bySortOrder, carriesContent, computeTotals, entryUnitFromInput, nextSortOrder, parseWeightInput, siblingItems, storedClassification } from "~~/shared/weights";
 import { createNesting } from "~/composables/useGearListNesting";
+import { forgetClaimedOpen, markClaimedOpen } from "~/composables/useClaimedLists";
 
 // Editor controller (one list open at a time → module singleton). Mutations are
 // applied optimistically via the SAME op-reducer the server uses, queued, and
@@ -177,7 +178,7 @@ function create() {
     // account, and a request on every one of their page loads is exactly the cost
     // that cookie exists to avoid (see useSession.refresh).
     if (!keys.length) return settle([]);
-    if (sessionKnown.value ? !sessionHasVault.value : !hasSessionHint()) return settle([]);
+    if (sessionKnown.value ? !sessionHasVault.value : sessionPresence.value === "signedOut") return settle([]);
     try {
       const res = await vaultRead<{ keys: VaultGearKey[] }>("/api/vault/among", {
         method: "POST",
@@ -242,8 +243,11 @@ function create() {
   // site can't forget the credential.
   const { vaultFetch: vaultRead, hasVault: sessionHasVault, vaultKnown: sessionKnown } =
     useVaultAccess();
-  // A cookie read, not a request — see the gate in askVaultGear.
-  const { hasSessionHint } = useSession();
+  // presence is the three-way answer askVaultGear gates on before the session has
+  // resolved (a cookie read, not a request); signedIn is the RESOLVED one, read where
+  // a 401 on a claimed open has to be told apart from a session that merely lapsed
+  // (load's catch).
+  const { presence: sessionPresence, signedIn: sessionSignedIn } = useSession();
   scope.run(() => {
     const { hasVault } = useVaultAccess();
     watch(hasVault, () => {
@@ -287,7 +291,13 @@ function create() {
         if (snapshot.value && status.value !== "loading") status.value = "offline";
         return;
       }
-      if (!snapshot.value) return;
+      if (!snapshot.value) {
+        // A launch that found no copy on the device and no network to load from:
+        // the network is back, so load it now — the address never changed, only
+        // the answer.
+        if (status.value === "offline") retryLoad();
+        return;
+      }
       if (!editToken && !claimCode) {
         if (hasRealContent(snapshot.value)) createFromDraft();
       } else if (remoteMissing) {
@@ -369,7 +379,19 @@ function create() {
     if (editToken) useMyLists().touch(editToken, patch);
     // a claimed open has no registry row — its switcher row reads the account
     // list, so a rename here has to reach THAT copy to show up in the dropdown
-    else if (claimCode) useClaimedLists().touchByCode(claimCode, patch);
+    else if (claimCode) {
+      useClaimedLists().touchByCode(claimCode, patch);
+      // ...and the registry row is also where touch() stamps lastOpened, which is
+      // how the bare address knows where you left off. A claimed open has nowhere
+      // to stamp it, so it goes in the ledger beside the row copy. Here rather
+      // than only on a confirmed load, because this is the path an OFFLINE open
+      // takes: hydrated from the on-device copy with no server to confirm
+      // anything, and still every bit "the list you had open". Not once the server
+      // HAS answered that the claim is dead, though: the hydrate stamp lands before
+      // that answer, and every device-only edit on the dead-end page would renew it
+      // — the bare address then offered the dead list first on every launch.
+      if (!remoteMissing) markClaimedOpen(claimCode);
+    }
   }
 
   // The gate on that optimistic call. dispatch runs on every keystroke and touch()
@@ -405,7 +427,17 @@ function create() {
   // visible handle. "Remove from device" (forget) still wins: the edit-path syncs
   // stay touch, so a list you removed mid-session isn't silently re-added.
   function registerOpened() {
-    if (!snapshot.value || !editToken) return;
+    if (!snapshot.value) return;
+    // A claimed open has no token to register and never gets a registry row; its
+    // row copy and its ledger stamp are syncRegistry's, and a first open on this
+    // device has no on-device copy for the hydrate path to have run it on — so it
+    // runs here, on the server's fresh title and total, the way registerCreated
+    // below refreshes a token's row.
+    if (claimCode) {
+      syncRegistry();
+      return;
+    }
+    if (!editToken) return;
     // registerCreated owns the snapshot→MyListEntry mapping — one source of truth.
     // Marked "opened", because this is the path where a list arrives via a link
     // someone SENT you: signing in must not quietly attach it to your account.
@@ -416,6 +448,11 @@ function create() {
       totals.value?.totalMg ?? 0,
       "opened",
     );
+    // The token is the way into this list from now on: the row just minted is what
+    // the bare address ranks and how it navigates. A ledger entry from an earlier
+    // open through the account would only resurface — ranked at that older time —
+    // the moment the row is deleted or removed from this device.
+    forgetClaimedOpen(snapshot.value.shareCode);
   }
 
   // Everything one list's session owns, zeroed. Every way a session begins or ends
@@ -588,19 +625,41 @@ function create() {
         // composable). The live-side heal is upsert's share-code claim, so it
         // takes one visit to either row, whichever you happened to pick.
         if (editToken) useMyLists().forgetSuperseded(editToken);
+        // The claimed twin: the stamp the hydrate path made must not outlive the
+        // server's verdict, or the bare address resumes into this dead list on
+        // every launch. Only while the session is KNOWN good, though — a 401 here
+        // says "no claim under this session", and with the session itself
+        // unresolved (offline, or still being asked) that is as likely the session
+        // as the claim. Forgetting on that reading lost where you left off for a
+        // list the account still holds; a truly dead claim is pruned by the next
+        // read of the account's rows regardless (pruneClaimedOpens).
+        else if (claimCode && sessionSignedIn.value) forgetClaimedOpen(claimCode);
       } else if (local) {
         // Network failure with a local copy: keep editing, sync when it returns.
         status.value = "offline";
         if (pending.length) scheduleFlush();
         startPoll();
       } else {
-        status.value = "error";
+        // No copy on the device and no answer from the server. Offline, that is the
+        // honest state — "offline" with nothing to show — and the network coming
+        // back loads the list on its own (the online watcher); anything else is an
+        // error the page offers to retry. Either way the page says so, where it
+        // used to sit on "Loading…" for good.
+        status.value = online.value ? "error" : "offline";
       }
     }
   }
 
   // "Has content" — the gate on persisting a draft at all — is hasRealContent in
   // shared/localList, shared with the sync line so both read the same rule.
+
+  /** Load the list this session names again — after a load that found no copy on
+   *  the device and no server: the online watcher calls it when the network returns,
+   *  the page's "Try again" by hand. A draft names nothing, so it is a no-op there. */
+  function retryLoad(): void {
+    if (editToken) void load({ token: editToken });
+    else if (claimCode) void load({ code: claimCode });
+  }
 
   // A fragment-less /e/{code} from a visitor with no session: the link lost its edit
   // key, so nothing here can open the list for editing, and no request is worth
@@ -1472,8 +1531,13 @@ function create() {
           : null);
       if (old) my.forget(old); // also drops the old token's on-device record
       // the claimed open's record re-keys onto the token; leaving the code-keyed
-      // copy behind would resurface pre-rotate state on the next claimed open
-      if (oldCode) store.del(claimedLocalKey(oldCode));
+      // copy behind would resurface pre-rotate state on the next claimed open, and
+      // its ledger entry would outlive the only route that reads it (the registry
+      // row minted below is what the bare address resumes through from now on)
+      if (oldCode) {
+        store.del(claimedLocalKey(oldCode));
+        forgetClaimedOpen(oldCode);
+      }
       if (base) my.upsert({ ...base, editToken: res.editToken, lastOpened: Date.now() });
       persistLocal(); // re-key this device's copy onto the new token
       return res.editToken;
@@ -1530,7 +1594,7 @@ function create() {
     keylessCode,
     startKeyless,
     authHeaders,
-    load, startDraft, dispose, rotate,
+    load, retryLoad, startDraft, dispose, rotate,
     setMeta, setUnit, addFolder, updateFolder, removeFolder, moveFolderBefore,
     addDay, updateDay, removeDay,
     addPerson, updatePerson, removePerson,
