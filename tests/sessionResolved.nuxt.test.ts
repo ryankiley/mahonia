@@ -12,17 +12,12 @@
 // The other half is what a FAILED read means. `loaded` is the switcher's licence to
 // throw the account's cached rows away ("resolved signed out"); a read that never
 // got an answer must not grant it, however the read was started.
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
+import { stubLocalStorage } from "./helpers/storage";
 import { registerEndpoint } from "@nuxt/test-utils/runtime";
 import { createError } from "h3";
 
-const storage = new Map<string, string>();
-vi.stubGlobal("localStorage", {
-  getItem: (k: string) => storage.get(k) ?? null,
-  setItem: (k: string, v: string) => void storage.set(k, String(v)),
-  removeItem: (k: string) => void storage.delete(k),
-  clear: () => storage.clear(),
-});
+const storage = stubLocalStorage();
 
 let answer: "signed-in" | "no-user" | "down" = "no-user";
 registerEndpoint("/api/auth/me", () => {

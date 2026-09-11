@@ -16,6 +16,8 @@
 // reopen reach the account without anyone pressing anything; NOT claiming on the
 // strength of it is what keeps a shared list out of your account.
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { listEntry } from "./helpers/myLists";
+import { stubLocalStorage } from "./helpers/storage";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import { readBody } from "h3";
 import { CLAIMED_LIST_CAP, type ClaimedList, type MyListEntry } from "~~/shared/types";
@@ -35,13 +37,7 @@ mockNuxtImport("useSession", () => () => ({
 const entries = ref<MyListEntry[]>([]);
 mockNuxtImport("useMyLists", () => () => ({ entries }));
 
-const storage = new Map<string, string>();
-vi.stubGlobal("localStorage", {
-  getItem: (k: string) => storage.get(k) ?? null,
-  setItem: (k: string, v: string) => void storage.set(k, String(v)),
-  removeItem: (k: string) => void storage.delete(k),
-  clear: () => storage.clear(),
-});
+const storage = stubLocalStorage();
 
 // The real request, intercepted at the endpoint — `$fetch` is resolved by the
 // auto-import at call time, so stubbing the global doesn't catch it (the live one
@@ -64,16 +60,10 @@ let served: Partial<ClaimedList>[] = [];
 registerEndpoint("/api/lists/claimed", () => ({ lists: served }));
 registerEndpoint("/api/lists/unclaim", { method: "POST", handler: () => ({ ok: true }) });
 
-const entry = (over: Partial<MyListEntry> & { editToken: string }): MyListEntry => ({
-  shareCode: "C0DE00000001",
-  slug: "trip-aa11bb",
-  title: "Trip",
-  totalMg: 0,
-  version: 1,
-  lastOpened: 0,
-  displayUnit: "g",
-  ...over,
-});
+// Rows here PREDATE origin tracking unless a case says otherwise: the sweep's whole
+// subject is what the server does with rows that never recorded how they arrived.
+const entry = (over: Partial<MyListEntry> & { editToken: string }): MyListEntry =>
+  listEntry({ origin: undefined, lastOpened: 0, ...over });
 
 beforeEach(() => {
   signedIn.value = true;

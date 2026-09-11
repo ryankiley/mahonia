@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { stubLocalStorage } from "./helpers/storage";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import type { LocalListRecord } from "~~/shared/localList";
 import type { ListSnapshot } from "~~/shared/types";
@@ -30,13 +31,7 @@ mockNuxtImport("useVaultAccess", () => () => ({
   vaultFetch: async () => ({}),
 }));
 
-const storage = new Map<string, string>();
-vi.stubGlobal("localStorage", {
-  getItem: (k: string) => storage.get(k) ?? null,
-  setItem: (k: string, v: string) => void storage.set(k, String(v)),
-  removeItem: (k: string) => void storage.delete(k),
-  clear: () => storage.clear(),
-});
+const storage = stubLocalStorage();
 
 const TOKEN = "poll-test-token";
 const OTHER_TOKEN = "poll-test-other-token";

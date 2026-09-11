@@ -12,7 +12,7 @@ import { LIST_CODE_HEADER, normalizeShareCode } from "~~/shared/links";
 import { claimedLocalKey } from "~~/shared/localList";
 import type { ClaimedOpen } from "~~/shared/switcher";
 import { CLAIMED_LIST_CAP, type ClaimedList } from "~~/shared/types";
-import { forget, recall, remember } from "../utils/remember";
+import { forget, recall, recallJson, remember } from "../utils/remember";
 import { deleteListOnServer } from "./useMyLists";
 
 
@@ -43,27 +43,23 @@ const CLAIMED_OPENS_KEY = "gear.claimed.opens.v1";
 // accumulate on the device forever.
 const OPENS_KEPT = 32;
 
+const isRecord = (v: unknown): v is Record<string, unknown> =>
+  !!v && typeof v === "object" && !Array.isArray(v);
+
 function readOpens(): Record<string, number> {
-  try {
-    const raw = recall(CLAIMED_OPENS_KEY);
-    const parsed: unknown = raw ? JSON.parse(raw) : null;
-    // Only what this file itself writes gets through: a canonical share code as the
-    // key, a finite stamp as the value. Anything else — an array, "__proto__", a
-    // stamp stored as a string — would become a resume target (/e/0) or sort as NaN
-    // and evict the real stamps on the next write. A corrupt ledger reads as empty
-    // rather than taking the bare address down with it — the same shrug the device
-    // registry makes about its own store.
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
-    const clean: Record<string, number> = {};
-    for (const [code, at] of Object.entries(parsed as Record<string, unknown>)) {
-      if (normalizeShareCode(code) === code && typeof at === "number" && Number.isFinite(at)) {
-        clean[code] = at;
-      }
+  // Only what this file itself writes gets through: a canonical share code as the
+  // key, a finite stamp as the value. Anything else — an array, "__proto__", a
+  // stamp stored as a string — would become a resume target (/e/0) or sort as NaN
+  // and evict the real stamps on the next write. A corrupt ledger reads as empty
+  // (recallJson) rather than taking the bare address down with it — the same shrug
+  // the device registry makes about its own store.
+  const clean: Record<string, number> = {};
+  for (const [code, at] of Object.entries(recallJson(CLAIMED_OPENS_KEY, isRecord, {}))) {
+    if (normalizeShareCode(code) === code && typeof at === "number" && Number.isFinite(at)) {
+      clean[code] = at;
     }
-    return clean;
-  } catch {
-    return {};
   }
+  return clean;
 }
 
 /** Every claimed list this browser has had open, newest first. Read by the bare
@@ -118,22 +114,14 @@ export function pruneClaimedOpens(keep: Iterable<string>): void {
   remember(CLAIMED_OPENS_KEY, JSON.stringify(kept));
 }
 
+const isClaimedRow = (r: unknown): r is ClaimedList =>
+  !!r && typeof r === "object" && typeof (r as ClaimedList).shareCode === "string";
+
 function readCachedRows(): ClaimedList[] {
-  try {
-    const raw = recall(CLAIMED_ROWS_KEY);
-    const parsed: unknown = raw ? JSON.parse(raw) : null;
-    // Element by element, not just "is it an array": a null or a number in here
-    // would reach mergeSwitcherRows and registryStale as `l.shareCode` and throw —
-    // in the switcher's render, and on every keystroke of a claimed open.
-    return Array.isArray(parsed)
-      ? (parsed as unknown[]).filter(
-          (r): r is ClaimedList =>
-            !!r && typeof r === "object" && typeof (r as ClaimedList).shareCode === "string",
-        )
-      : [];
-  } catch {
-    return [];
-  }
+  // Element by element, not just "is it an array": a null or a number in here would
+  // reach mergeSwitcherRows and registryStale as `l.shareCode` and throw — in the
+  // switcher's render, and on every keystroke of a claimed open.
+  return recallJson(CLAIMED_ROWS_KEY, Array.isArray, []).filter(isClaimedRow);
 }
 
 /** The registry as one comparable string. Exported so the session plugin, which

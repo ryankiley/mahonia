@@ -16,7 +16,9 @@
 // handed it back. A list you could not get rid of. Both actions live in the editor
 // now, which is the scope that owns the watcher — but the fix below is what makes
 // that safe rather than incidental.
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
+import { listEntry } from "./helpers/myLists";
+import { stubLocalStorage } from "./helpers/storage";
 import { mockNuxtImport } from "@nuxt/test-utils/runtime";
 import type { MyListEntry } from "~~/shared/types";
 
@@ -29,30 +31,10 @@ mockNuxtImport("useLocalListStore", () => () => ({
   del: async (key: string) => void deleted.push(key),
 }));
 
-// happy-dom ships a localStorage, but a Map-backed stub is clearable between cases
-// and can't carry state in from another suite.
-const storage = new Map<string, string>();
-vi.stubGlobal("localStorage", {
-  getItem: (k: string) => storage.get(k) ?? null,
-  setItem: (k: string, v: string) => void storage.set(k, String(v)),
-  removeItem: (k: string) => void storage.delete(k),
-  clear: () => storage.clear(),
-});
+const storage = stubLocalStorage();
 
 const STORAGE_KEY = "gear.mylists.v1";
 const stored = (): MyListEntry[] => JSON.parse(storage.get(STORAGE_KEY) ?? "[]");
-
-const entry = (editToken: string, title: string): MyListEntry => ({
-  origin: "created",
-  editToken,
-  shareCode: "SNAPCODE0001",
-  slug: "test-list-aaa111",
-  title,
-  totalMg: 0,
-  version: 1,
-  lastOpened: 1,
-  displayUnit: "g",
-});
 
 describe("the device registry survives its first caller", () => {
   beforeEach(() => {
@@ -70,7 +52,7 @@ describe("the device registry survives its first caller", () => {
 
     // A later page picks the same registry up and mutates it.
     const my = useMyLists();
-    my.upsert(entry("token-a", "Sierra Trip"));
+    my.upsert(listEntry({ editToken: "token-a", title: "Sierra Trip" }));
     await nextTick();
     expect(stored().map((e) => e.editToken)).toEqual(["token-a"]);
 
@@ -83,7 +65,7 @@ describe("the device registry survives its first caller", () => {
 
   it("keeps writing across several disposed scopes", async () => {
     const my = useMyLists();
-    my.upsert(entry("token-b", "Desert Trip"));
+    my.upsert(listEntry({ editToken: "token-b", title: "Desert Trip" }));
     await nextTick();
 
     // every route change in the app disposes another scope; none of them owns the

@@ -9,7 +9,8 @@
 // stubs vaultFetch with fixtures can never see that class of bug, so here the stub
 // passes through to $fetch and the endpoints are registered at the real paths:
 // registerEndpoint 404s anything unregistered, which is exactly what production did.
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+import { stubLocalStorage } from "./helpers/storage";
 import { flushPromises, mount } from "@vue/test-utils";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import { readBody } from "h3";
@@ -29,15 +30,7 @@ mockNuxtImport("useVaultAccess", () => () => ({
   },
 }));
 
-// Node's own localStorage global throws on every method without a backing file; the
-// page reads its unit preference and folder collapse state through it at mount.
-const storage = new Map<string, string>();
-vi.stubGlobal("localStorage", {
-  getItem: (k: string) => storage.get(k) ?? null,
-  setItem: (k: string, v: string) => void storage.set(k, String(v)),
-  removeItem: (k: string) => void storage.delete(k),
-  clear: () => storage.clear(),
-});
+const storage = stubLocalStorage();
 
 const entry = (id: number, name: string): VaultEntry => ({
   id,

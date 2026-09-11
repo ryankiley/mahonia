@@ -16,6 +16,7 @@
 // for testability would be exercising a different shape than the one that breaks.
 // Assertions are on the resulting snapshot, which is what a row actually renders.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { stubLocalStorage } from "./helpers/storage";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import type { Item, ListSnapshot } from "~~/shared/types";
 
@@ -32,13 +33,7 @@ mockNuxtImport("useLocalListStore", () => () => ({
   del: async (key: string) => void records.delete(key),
 }));
 
-const storage = new Map<string, string>();
-vi.stubGlobal("localStorage", {
-  getItem: (k: string) => storage.get(k) ?? null,
-  setItem: (k: string, v: string) => void storage.set(k, String(v)),
-  removeItem: (k: string) => void storage.delete(k),
-  clear: () => storage.clear(),
-});
+const storage = stubLocalStorage();
 
 const TOKEN = "nesting-edit-token";
 const FOLDER = "f1";

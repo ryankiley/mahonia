@@ -20,6 +20,8 @@
 //     whatever older list this device happens to hold an edit link for; a claim the
 //     server refuses loses that stamp, but only once the session is known good.
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
+import { listEntry } from "./helpers/myLists";
+import { stubLocalStorage } from "./helpers/storage";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import { createError, getHeader, readBody, type H3Event } from "h3";
 import { claimedLocalKey, type LocalListRecord } from "~~/shared/localList";
@@ -45,13 +47,7 @@ mockNuxtImport("useVaultAccess", () => () => ({
   vaultFetch: <T,>() => Promise.resolve({} as T),
 }));
 
-const storage = new Map<string, string>();
-vi.stubGlobal("localStorage", {
-  getItem: (k: string) => storage.get(k) ?? null,
-  setItem: (k: string, v: string) => void storage.set(k, String(v)),
-  removeItem: (k: string) => void storage.delete(k),
-  clear: () => storage.clear(),
-});
+const storage = stubLocalStorage();
 
 // ---- the network, capability-aware ---------------------------------------------
 const CODE = "TESTC0DE0001"; // canonical Crockford — normalizes to itself
@@ -202,17 +198,7 @@ describe("useGearList — a claimed open (share code + session, no token held)",
     // resume could rank, so the installed app launched into some other list — one
     // this device held a token for and you hadn't touched in weeks.
     useMyLists().entries.value = [
-      {
-        editToken: "older-token",
-        origin: "created",
-        shareCode: "0LDLIST00001",
-        slug: "older-list-bbb222",
-        title: "Older",
-        totalMg: 0,
-        version: 1,
-        lastOpened: 1,
-        displayUnit: "g",
-      },
+      listEntry({ editToken: "older-token", shareCode: "0LDLIST00001", slug: "older-list-bbb222", title: "Older" }),
     ];
 
     const c = useGearList();

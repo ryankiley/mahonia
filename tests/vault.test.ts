@@ -1,5 +1,7 @@
 import { eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { stubLocalStorage } from "./helpers/storage";
+import { listEntry } from "./helpers/myLists";
 import { vaultFolders, vaultItems, vaults } from "../server/db/schema";
 import { VAULT_DDL } from "../server/utils/vaultSchema";
 import { UNIT_WEIGHT_MAX_MG } from "../shared/ops";
@@ -1205,7 +1207,7 @@ describe("sanitize — bounds a direct POST can't get past", () => {
 // suites above run a WASM Postgres, and a `window` in scope is exactly the sort of
 // thing that convinces a library it's in a browser.
 describe("a list's vault decision — cleared when it's deleted, kept when it's forgotten", () => {
-  const store = new Map<string, string>();
+  let store: Map<string, string>;
   const TOKEN = "edit-token-abc";
   // What /api/edit/delete does when it's called. Reassigned per test; a resolve is
   // the server accepting the delete.
@@ -1215,11 +1217,7 @@ describe("a list's vault decision — cleared when it's deleted, kept when it's 
   let useMyLists: typeof import("../app/composables/useMyLists").useMyLists;
 
   beforeAll(async () => {
-    vi.stubGlobal("localStorage", {
-      getItem: (k: string) => store.get(k) ?? null,
-      setItem: (k: string, v: string) => void store.set(k, String(v)),
-      removeItem: (k: string) => void store.delete(k),
-    });
+    store = stubLocalStorage();
     vi.stubGlobal("window", { addEventListener: () => {} });
     vi.stubGlobal("$fetch", (url: string) => {
       if (url !== "/api/edit/delete") throw new Error(`unexpected fetch: ${url}`);
@@ -1239,16 +1237,7 @@ describe("a list's vault decision — cleared when it's deleted, kept when it's 
   });
   afterAll(() => vi.unstubAllGlobals());
 
-  const entry = (): MyListEntry => ({
-    origin: "created",
-    editToken: TOKEN,
-    shareCode: "SHARECODE001",
-    slug: "trip-abc123",
-    title: "Trip",
-    totalMg: 0,
-    version: 1,
-    lastOpened: 1,
-  });
+  const entry = () => listEntry({ editToken: TOKEN, shareCode: "SHARECODE001", slug: "trip-abc123" });
 
   // A list this device holds, with both halves of the decision answered: yes it's
   // mine, except for the stove — which is what the chooser records when you untick
