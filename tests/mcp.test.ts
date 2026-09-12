@@ -29,10 +29,20 @@ vi.mock("../server/utils/listRepo", () => repo);
 const catalog = vi.hoisted(() => ({ searchCatalog: vi.fn(), productVariants: vi.fn(), catalogRowsById: vi.fn(async () => new Map()) }));
 vi.mock("../server/utils/catalog", () => catalog);
 vi.mock("../server/utils/db", () => ({ useCatalogDb: async () => ({}) }));
-const limiter = vi.hoisted(() => ({
-  rateLimit: vi.fn<(event: unknown, action: string) => Promise<void>>(async () => {}),
-  rateLimitSubject: vi.fn<(action: string, subject: string) => Promise<void>>(async () => {}),
-}));
+const limiter = vi.hoisted(() => {
+  // the shared KV the replay window lives in, as a Map: what the limiter's own tests
+  // inject, minus the TTL (a case that needs expiry clears it by hand)
+  const kv = new Map<string, unknown>();
+  return {
+    kv,
+    rateLimit: vi.fn<(event: unknown, action: string) => Promise<void>>(async () => {}),
+    rateLimitSubject: vi.fn<(action: string, subject: string) => Promise<void>>(async () => {}),
+    useKv: () => ({
+      getItem: async <T,>(key: string) => (kv.get(key) as T | undefined) ?? null,
+      setItem: async <T,>(key: string, value: T) => void kv.set(key, value),
+    }),
+  };
+});
 vi.mock("../server/utils/rateLimit", () => limiter);
 
 const TOKEN = "AbCdEfGhIjKlMnOpQrStUvWxYz0123456789-_ABCDE";
@@ -99,6 +109,7 @@ const snap = (over: Partial<ListSnapshot> = {}): ListSnapshot => ({
 });
 
 beforeEach(() => {
+  limiter.kv.clear();
   for (const fn of Object.values(repo)) fn.mockReset();
   for (const fn of Object.values(catalog)) fn.mockReset();
   catalog.catalogRowsById.mockResolvedValue(new Map());
@@ -447,6 +458,45 @@ describe("writing", () => {
       expect(text.length).toBeGreaterThan(10);
     }
     expect(repo.createList).not.toHaveBeenCalled();
+  });
+
+  // A retry adds nothing twice: the same rows through the same link inside ten minutes
+  // is answered from the first call, marked repeated; `again: true` is the way to mean
+  // it; a different link, or different rows, is a different call.
+  it("add_items answers an identical call from the first one, and adds again only when told to", async () => {
+    repo.getByEditHash.mockResolvedValue(snap());
+    repo.applyOpsByEditHash.mockResolvedValue(snap());
+    const args = { edit_link: EDIT_LINK, items: [{ name: "Spoon", weight_g: 10 }] };
+    const first = toolText(await call("add_items", args)).structured as Record<string, unknown>;
+    expect(first).toMatchObject({ added: 1, repeated: false });
+    expect(repo.applyOpsByEditHash).toHaveBeenCalledTimes(1);
+
+    // the same call, the keys in another order: nothing written, the first answer back
+    const r = await call("add_items", { items: [{ weight_g: 10, name: "Spoon" }], edit_link: EDIT_LINK });
+    expect(repo.applyOpsByEditHash).toHaveBeenCalledTimes(1);
+    const { structured, text } = toolText(r);
+    expect(structured).toMatchObject({ added: 1, repeated: true, share_link: first.share_link });
+    expect(text).toContain("again: true");
+    expectConforms("add_items", structured); // `call` checked the raw result already; the repeat's shape too
+
+    // meant twice: written again
+    const again = toolText(await call("add_items", { ...args, again: true })).structured;
+    expect(repo.applyOpsByEditHash).toHaveBeenCalledTimes(2);
+    expect(again).toMatchObject({ added: 1, repeated: false });
+
+    // different rows, or another list's link: their own calls
+    await call("add_items", { edit_link: EDIT_LINK, items: [{ name: "Fork" }] });
+    await call("add_items", { edit_link: `https://mahonia.test/e/ABC123DEF456#${TOKEN.slice(0, -1)}Z`, items: [{ name: "Spoon", weight_g: 10 }] });
+    expect(repo.applyOpsByEditHash).toHaveBeenCalledTimes(4);
+  });
+
+  it("add_items remembers nothing from a call that failed", async () => {
+    repo.getByEditHash.mockResolvedValue(snap());
+    repo.applyOpsByEditHash.mockResolvedValueOnce(null).mockResolvedValue(snap());
+    const args = { edit_link: EDIT_LINK, items: [{ name: "Spoon" }] };
+    expect(toolText(await call("add_items", args)).isError).toBe(true);
+    const r = toolText(await call("add_items", args));
+    expect(r.structured).toMatchObject({ added: 1, repeated: false });
   });
 
   it("add_items resolves the list by the token's hash, files rows into folders by name, and makes the folder it can't find", async () => {

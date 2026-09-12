@@ -34,7 +34,7 @@ import { catalogRowsById, productVariants, searchCatalog } from "./catalog";
 import { useCatalogDb } from "./db";
 import { applyOpsByEditHash, createList, getByEditHash, getByShareCode, getTextByShareCode } from "./listRepo";
 import { trustedOrigin } from "./origin";
-import { rateLimit, rateLimitSubject } from "./rateLimit";
+import { rateLimit, rateLimitSubject, useKv } from "./rateLimit";
 import { sha256Hex } from "./tokens";
 
 /**
@@ -277,6 +277,10 @@ const ADD_OUTPUT = complete({
   folders_made: { type: "array", items: str(USER_TEXT), description: "Folders that didn't exist and were made for these rows." },
   share_link: str(),
   totals: TOTALS_SCHEMA,
+  repeated: {
+    type: "boolean",
+    description: "True when this call repeated one made in the last ten minutes: nothing was added again, and the figures are that call's. Pass again: true to add the rows a second time.",
+  },
 });
 
 const TRIP_OUTPUT = complete({
@@ -395,6 +399,11 @@ export const MCP_TOOLS: McpTool[] = [
         edit_link: EDIT_ARG,
         items: { type: "array", minItems: 1, items: ITEM_SCHEMA },
         folder: { type: "string", maxLength: MAX_FOLDER_NAME_LEN, description: "A folder name for every row that doesn't name its own." },
+        again: {
+          type: "boolean",
+          description:
+            "A call identical to one made in the last ten minutes is taken as a retry and adds nothing: the earlier result comes back with repeated set. Pass true to add the same rows a second time on purpose.",
+        },
       },
       required: ["edit_link", "items"],
     },
@@ -1038,6 +1047,34 @@ function tripMeta(args: Record<string, unknown>, creating = false): Record<strin
   return meta;
 }
 
+// A retried add_items must not add its rows twice. Clients retry a call that timed
+// out or lost its answer, and nothing in the protocol marks the retry; so an
+// add_items identical to one this list took in the last ten minutes (same rows, same
+// folder, same edit link: the arguments, stably serialised, hashed with the edit hash)
+// answers with that call's result and `repeated: true`, and adds nothing. The window
+// is in the shared KV store the rate limiter uses, so it holds across serverless
+// instances; without a shared store it degrades to per instance, as the budgets do.
+// A person who means the same rows twice says so with `again: true`, which skips the
+// window; the tool's description tells the model, and `repeated` tells it after.
+//
+// Keyed on the edit hash, so a stored answer only ever goes back to a caller holding
+// the same link (it carries the share link and totals, nothing more). create_list has
+// no such key: two callers making byte-identical lists from one address range would
+// be handed one edit link, so a retried create makes a second list instead, which is
+// a spare list rather than a leaked capability.
+const REPLAY_WINDOW_S = 10 * 60;
+function replayKey(hash: string, tool: string, args: Record<string, unknown>): string {
+  const { edit_link: _link, again: _again, ...rest } = args;
+  return `mcp:replay:${sha256Hex(`${hash}|${tool}|${stableJson(rest)}`)}`;
+}
+function stableJson(v: unknown): string {
+  if (Array.isArray(v)) return `[${v.map(stableJson).join(",")}]`;
+  if (v && typeof v === "object") {
+    return `{${Object.keys(v as Record<string, unknown>).sort().map((k) => `${JSON.stringify(k)}:${stableJson((v as Record<string, unknown>)[k])}`).join(",")}}`;
+  }
+  return JSON.stringify(v) ?? "null";
+}
+
 async function addItems(event: H3Event, args: Record<string, unknown>): Promise<ToolResult> {
   const hash = editHashFrom(args.edit_link);
   if (!hash) return fail(NO_EDIT);
@@ -1045,6 +1082,15 @@ async function addItems(event: H3Event, args: Record<string, unknown>): Promise<
   // on, so a call with no link costs nothing past the endpoint's own guard
   await rateLimitSubject("mcp-write", hash);
   if (!Array.isArray(args.items) || !args.items.length) return fail("items must be a non-empty array of rows.");
+  if (args.again != null && typeof args.again !== "boolean") return fail("again must be true or false.");
+  const key = replayKey(hash, "add_items", args);
+  if (args.again !== true) {
+    const prior = await useKv().getItem<Record<string, unknown>>(key).catch(() => null);
+    if (prior) {
+      const structured = { ...prior, repeated: true };
+      return ok(structured, `${JSON.stringify(structured)}\nThis repeats a call made in the last ten minutes, so the rows were not added again. Pass again: true to add them a second time.`);
+    }
+  }
   const snap = await getByEditHash(hash);
   if (!snap) return fail(NO_EDIT_LIST);
   if (snap.items.length + args.items.length > MAX_ITEMS) return fail(`A list holds at most ${MAX_ITEMS} rows; this one has ${snap.items.length}.`);
@@ -1084,12 +1130,17 @@ async function addItems(event: H3Event, args: Record<string, unknown>): Promise<
   const after = await applyOpsByEditHash(hash, ops);
   if (!after) return fail(NO_EDIT_LIST);
   const origin = trustedOrigin(event);
-  return ok({
+  const result = {
     added: items.length,
     folders_made: book.made.map((f) => f.name),
     share_link: `${origin}/s/${after.shareCode}`,
     totals: describeList(after, origin).totals,
-  });
+    repeated: false,
+  };
+  // remembered after the write, never before: a call that failed leaves no window,
+  // so its retry goes through
+  await useKv().setItem(key, result, { ttl: REPLAY_WINDOW_S }).catch(() => {});
+  return ok(result);
 }
 
 async function setTrip(event: H3Event, args: Record<string, unknown>): Promise<ToolResult> {
