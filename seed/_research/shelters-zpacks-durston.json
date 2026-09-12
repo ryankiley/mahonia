@@ -170,6 +170,7 @@
       "brand": "Durston",
       "name": "X-Dome 2",
       "variant": "Regular inner, carbon poles",
+      "attributes": {"persons": 2},
       "category_hint": "shelter",
       "weight_value": 44,
       "weight_unit": "oz",
