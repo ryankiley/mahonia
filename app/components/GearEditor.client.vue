@@ -1659,14 +1659,26 @@ function onCorrected(res: { status: string; itemName?: string }) {
   flex: none;
 }
 
+/* Toolbar actions recede until hovered, keyboard-focused, or open. Scope this to
+   the editor so icon buttons elsewhere keep their existing emphasis. */
+.editor > .topbar :deep(.btn--icon) {
+  color: var(--ink-3);
+}
+@media (hover: hover) and (pointer: fine) {
+  .editor > .topbar :deep(.btn--icon:hover) {
+    color: var(--ink);
+  }
+}
+.editor > .topbar :deep(.btn--icon:focus-visible),
+.editor > .topbar :deep(.btn--icon[aria-expanded="true"]) {
+  color: var(--ink);
+}
+
 /* on = the pane is open: the icon takes full ink and a soft ground, so the button
    reads as a held state rather than a hover */
 .editor__vault.is-on {
   color: var(--ink);
   background: var(--paper-2);
-}
-.editor__share {
-  color: var(--ink-2);
 }
 /* The sharing panel is ~343px of links and activity hanging off a 32px button that
    sits near the right end of the bar. `.menu` makes that button the containing block,
