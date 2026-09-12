@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon, type IconNode } from "~/utils/hugeicon";
-import { Backpack02Icon, Bug02Icon, CheckmarkSquare02Icon, CopyPlusIcon, Delete02Icon, EllipsisIcon, FileExportIcon, FileImportIcon, KeyboardIcon, RemoveCircleIcon, Route02Icon, SafeBoxIcon, Share08Icon, UndoIcon, UserAddIcon } from "@hugeicons/core-free-icons";
+import { Backpack03Icon, Bug02Icon, CheckmarkSquare02Icon, CopyPlusIcon, Delete02Icon, EllipsisIcon, FileExportIcon, FileImportIcon, KeyboardIcon, RemoveCircleIcon, Route02Icon, SafeBoxIcon, Share08Icon, UndoIcon, UserAddIcon } from "@hugeicons/core-free-icons";
 import { editLinkPath, normalizeShareCode } from "~~/shared/links";
 import { forgetClaimedOpen } from "~/composables/useClaimedLists";
 import { resumeHere } from "~/composables/useResumed";
@@ -329,7 +329,7 @@ const headline = computed(() => {
 // is that it is a noun beside two gerunds, which was the trade taken deliberately —
 // matching the read view beats matching the suffix.
 const MODES = [
-  { key: "edit", label: "Gear", icon: Backpack02Icon },
+  { key: "edit", label: "Gear", icon: Backpack03Icon },
   { key: "pack", label: "Packing", icon: CheckmarkSquare02Icon },
   { key: "plan", label: "Trip", icon: Route02Icon },
 ] as const satisfies readonly { key: EditorMode; label: string; icon: IconNode }[];
