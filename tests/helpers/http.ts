@@ -2,10 +2,28 @@
 // the auth/session suites assert on Set-Cookie, and the favicon/SSRF suites
 // stub fetch so they are hermetic. Each of these lived as a per-file copy
 // (sessionLifecycle + passkeyCeremony; trailFavicon + ssrfRedirect) before
-// moving here.
+// moving here. makeEvent is the same story (shareMarkdown + crawlerText).
 
-import type { H3Event } from "h3";
+import { IncomingMessage, ServerResponse } from "node:http";
+import { Socket } from "node:net";
+import { createEvent, type H3Event } from "h3";
 import { vi } from "vitest";
+
+/** A minimal real H3 event over bare node mocks: a method, a URL and headers, which
+ *  is all a handler under test reads. No server boots — the event IS the interface
+ *  under test. `host` is always set, because anything that builds a URL from the
+ *  request (getRequestURL; the robots/llms/sitemap routes) needs one. */
+export function makeEvent(
+  url: string,
+  { method = "GET", headers = {} }: { method?: string; headers?: Record<string, string> } = {},
+): H3Event {
+  const req = new IncomingMessage(new Socket());
+  req.method = method;
+  req.url = url;
+  req.headers = { host: "mahonia.test", ...headers };
+  req.push(null);
+  return createEvent(req, new ServerResponse(req));
+}
 
 /** What the response set a cookie to, or null if it never touched that cookie. */
 export function setCookieValue(event: H3Event, name: string): string | null {

@@ -1,11 +1,10 @@
-import { IncomingMessage, ServerResponse } from "node:http";
-import { Socket } from "node:net";
-import { createEvent, createError, type H3Event } from "h3";
+import { createError, type H3Event } from "h3";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import shareMarkdown from "../server/middleware/shareMarkdown";
 import { listToMarkdown } from "../shared/exporters/markdown";
 import { encodePolyline } from "../shared/polyline";
 import type { ListSnapshot } from "../shared/types";
+import { makeEvent } from "./helpers/http";
 
 // /s/{code}.md is the share page's Markdown twin, served by a middleware because the
 // router can't express a suffix after a param (see the file). Driven here as a request
@@ -14,26 +13,17 @@ import type { ListSnapshot } from "../shared/types";
 //   • it answers exactly its own shape and steps aside for everything else, because
 //     the share page is BEHIND it in the chain and a middleware that answered
 //     /s/{code} would replace the page rather than sit beside it;
-//   • the headers are the page's: text/markdown, noindex, the read views' edge window
+//   • it reads the PATH and nothing else — not the query, not the Host header — since
+//     it runs on every request the site gets and must not be the thing that fails;
+//   • the headers are the page's: plain text, noindex, the read views' edge window
 //     on a hit and NOT on a miss;
 //   • it spends the same public-read budget as /api/s, before the lookup;
 //   • the body is listToMarkdown's, and a snapshot carrying a route leaks none of it.
 
-const repo = vi.hoisted(() => ({ getByShareCode: vi.fn() }));
-vi.mock("../server/utils/listRepo", () => ({ getByShareCode: repo.getByShareCode }));
+const repo = vi.hoisted(() => ({ getTextByShareCode: vi.fn() }));
+vi.mock("../server/utils/listRepo", () => ({ getTextByShareCode: repo.getTextByShareCode }));
 const limiter = vi.hoisted(() => ({ rateLimit: vi.fn(async () => {}) }));
 vi.mock("../server/utils/rateLimit", () => ({ rateLimit: limiter.rateLimit }));
-
-/** A minimal real H3 event: a method, a URL and a host, which is all the
- *  middleware reads. No server boots — the event IS the interface under test. */
-function makeEvent(url: string, method = "GET"): H3Event {
-  const req = new IncomingMessage(new Socket());
-  req.method = method;
-  req.url = url;
-  req.headers = { host: "mahonia.test" };
-  req.push(null);
-  return createEvent(req, new ServerResponse(req));
-}
 
 const snap = (): ListSnapshot => ({
   shareCode: "ABC123",
@@ -51,22 +41,24 @@ const snap = (): ListSnapshot => ({
 const header = (event: H3Event, name: string) => event.node.res.getHeader(name);
 
 beforeEach(() => {
-  repo.getByShareCode.mockReset();
+  repo.getTextByShareCode.mockReset();
   limiter.rateLimit.mockReset();
   limiter.rateLimit.mockResolvedValue(undefined);
 });
 
 describe("/s/{code}.md", () => {
   it("answers with the list as Markdown, under the share page's headers", async () => {
-    repo.getByShareCode.mockResolvedValue(snap());
+    repo.getTextByShareCode.mockResolvedValue(snap());
     const event = makeEvent("/s/ABC123.md");
     const body = await shareMarkdown(event);
 
     expect(body).toBe(`${listToMarkdown(snap())}\n`);
     expect(body).toContain("# Trip");
     expect(body).toContain("| Zpacks Duplex | 1 | 538 g |");
-    expect(repo.getByShareCode).toHaveBeenCalledWith("ABC123");
-    expect(header(event, "content-type")).toBe("text/markdown; charset=utf-8");
+    expect(repo.getTextByShareCode).toHaveBeenCalledWith("ABC123");
+    // plain text, not text/markdown: Firefox downloads the latter rather than showing
+    // it, and nosniff (every route) stops it guessing its way back — see the file
+    expect(header(event, "content-type")).toBe("text/plain; charset=utf-8");
     expect(header(event, "x-robots-tag")).toBe("noindex");
     // the read views' one shared window (setReadEdgeCache), so the twin and the page
     // go stale together
@@ -74,12 +66,12 @@ describe("/s/{code}.md", () => {
   });
 
   it("spends the public-read budget, and spends it BEFORE the lookup", async () => {
-    repo.getByShareCode.mockResolvedValue(snap());
+    repo.getTextByShareCode.mockResolvedValue(snap());
     const event = makeEvent("/s/ABC123.md");
     await shareMarkdown(event);
     expect(limiter.rateLimit).toHaveBeenCalledWith(event, "public-read");
     expect(limiter.rateLimit.mock.invocationCallOrder[0]!).toBeLessThan(
-      repo.getByShareCode.mock.invocationCallOrder[0]!,
+      repo.getTextByShareCode.mock.invocationCallOrder[0]!,
     );
   });
 
@@ -87,12 +79,12 @@ describe("/s/{code}.md", () => {
     limiter.rateLimit.mockRejectedValue(createError({ statusCode: 429, statusMessage: "Too many requests" }));
     const event = makeEvent("/s/ABC123.md");
     await expect(shareMarkdown(event)).rejects.toMatchObject({ statusCode: 429 });
-    expect(repo.getByShareCode).not.toHaveBeenCalled();
+    expect(repo.getTextByShareCode).not.toHaveBeenCalled();
     expect(header(event, "cache-control")).toBeUndefined();
   });
 
   it("404s an unknown code with the shared wording, and no cache window", async () => {
-    repo.getByShareCode.mockResolvedValue(null);
+    repo.getTextByShareCode.mockResolvedValue(null);
     const event = makeEvent("/s/NOPE.md");
     await expect(shareMarkdown(event)).rejects.toMatchObject({ statusCode: 404, statusMessage: "Not found" });
     // noindex is set before anything can throw, like /api/s; the edge window only on a hit
@@ -101,45 +93,80 @@ describe("/s/{code}.md", () => {
   });
 
   it("matches on the path alone, whatever the query string says", async () => {
-    repo.getByShareCode.mockResolvedValue(snap());
+    repo.getTextByShareCode.mockResolvedValue(snap());
     const body = await shareMarkdown(makeEvent("/s/ABC123.md?utm_source=chat"));
     expect(body).toContain("# Trip");
-    expect(repo.getByShareCode).toHaveBeenCalledWith("ABC123");
+    expect(repo.getTextByShareCode).toHaveBeenCalledWith("ABC123");
+  });
+
+  it("…and on the path alone means not on the Host header, which it never builds a URL from", async () => {
+    // It runs on EVERY request, so it must not be the thing that turns one odd header
+    // into a site-wide 500. getRequestURL throws on a Host like this; event.path doesn't.
+    repo.getTextByShareCode.mockResolvedValue(snap());
+    const hit = makeEvent("/s/ABC123.md", { headers: { host: "not a host" } });
+    expect(await shareMarkdown(hit)).toContain("# Trip");
+    const miss = makeEvent("/about", { headers: { host: "not a host" } });
+    expect(await shareMarkdown(miss)).toBeUndefined();
+  });
+
+  it("reads the suffix in any case, as the code itself is read", async () => {
+    // normalizeShareCode upper-cases the code, so /s/abc123 is /s/ABC123; the twin's
+    // suffix forgives the same way rather than being the one strict half of the address
+    repo.getTextByShareCode.mockResolvedValue(snap());
+    expect(await shareMarkdown(makeEvent("/s/ABC123.MD"))).toContain("# Trip");
+    expect(await shareMarkdown(makeEvent("/s/abc123.Md"))).toContain("# Trip");
+    expect(repo.getTextByShareCode).toHaveBeenCalledWith("abc123");
+  });
+
+  it("decodes the code like a router param, so an encoded share link still resolves", async () => {
+    // the page's router decodes its params; a fetcher that percent-encodes the path
+    // must read the same list from the twin that it would see on the page
+    repo.getTextByShareCode.mockResolvedValue(snap());
+    await shareMarkdown(makeEvent("/s/%41BC123.md"));
+    expect(repo.getTextByShareCode).toHaveBeenCalledWith("ABC123");
+  });
+
+  it("a malformed escape is just a bad code: looked up as nothing, answered 404", async () => {
+    repo.getTextByShareCode.mockResolvedValue(null);
+    await expect(shareMarkdown(makeEvent("/s/%E0%A4%A.md"))).rejects.toMatchObject({ statusCode: 404 });
+    expect(repo.getTextByShareCode).toHaveBeenCalledWith("");
   });
 
   it("answers a HEAD the way it answers a GET, so a fetcher can ask what it is", async () => {
-    repo.getByShareCode.mockResolvedValue(snap());
-    const event = makeEvent("/s/ABC123.md", "HEAD");
+    repo.getTextByShareCode.mockResolvedValue(snap());
+    const event = makeEvent("/s/ABC123.md", { method: "HEAD" });
     await shareMarkdown(event);
-    expect(header(event, "content-type")).toBe("text/markdown; charset=utf-8");
+    expect(header(event, "content-type")).toBe("text/plain; charset=utf-8");
   });
 
   it.each([
     ["/s/ABC123", "the share page itself"],
     ["/s/ABC123.md/", "a trailing slash"],
     ["/s/ABC123.json", "another suffix"],
-    ["/s/ABC123.MD", "the suffix in capitals"],
+    ["/s/ABC123.md.txt", "the suffix not at the end"],
     ["/s/", "no code"],
+    ["/s/.md", "a suffix and no code"],
     ["/api/s/ABC123.md", "the API"],
     ["/l/trip-a1b2c3.md", "a public list"],
     ["/e/ABC123.md", "the editor"],
+    ["//evil.test/s/ABC123.md", "a protocol-relative path the router wouldn't route either"],
   ])("steps aside for %s (%s): no lookup, no header, nothing sent", async (url) => {
     const event = makeEvent(url);
     expect(await shareMarkdown(event)).toBeUndefined();
-    expect(repo.getByShareCode).not.toHaveBeenCalled();
+    expect(repo.getTextByShareCode).not.toHaveBeenCalled();
     expect(limiter.rateLimit).not.toHaveBeenCalled();
     expect(header(event, "x-robots-tag")).toBeUndefined();
     expect(event.node.res.headersSent).toBe(false);
   });
 
   it.each(["POST", "PUT", "DELETE"])("is a read: a %s to its address is somebody else's", async (method) => {
-    const event = makeEvent("/s/ABC123.md", method);
+    const event = makeEvent("/s/ABC123.md", { method });
     expect(await shareMarkdown(event)).toBeUndefined();
-    expect(repo.getByShareCode).not.toHaveBeenCalled();
+    expect(repo.getTextByShareCode).not.toHaveBeenCalled();
   });
 
   it("carries nothing of a route, even from a snapshot that somehow has one", async () => {
-    // getByShareCode never returns these (rowToSnapshot omits them, and
+    // getTextByShareCode never returns these (rowToSnapshot omits them, and
     // tests/waypointPrivacy.test.ts holds it to that). This is the other end: were a
     // read path ever to leak them, the twin must not be where they become text.
     const geometry = encodePolyline([
@@ -151,7 +178,7 @@ describe("/s/{code}.md", () => {
       routeGeometry: geometry,
       waypoints: [{ id: "w1", kind: "camp", alongM: 6_200, label: "Cairn Basin", note: "spring 40m off trail" }],
     };
-    repo.getByShareCode.mockResolvedValue(leaky);
+    repo.getTextByShareCode.mockResolvedValue(leaky);
     const body = String(await shareMarkdown(makeEvent("/s/ABC123.md")));
     expect(body).not.toContain(geometry);
     expect(body).not.toContain("Cairn Basin");

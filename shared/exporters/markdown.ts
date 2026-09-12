@@ -1,5 +1,7 @@
 // Markdown export — pure string building, ~0 KB, no deps. Pastes cleanly into
-// Apple Notes. Shared by the client (copy/download) and later the server.
+// Apple Notes. Shared by the client (copy/download) and by the server, which serves
+// the same text at /s/{code}.md (server/middleware/shareMarkdown.ts) — a test pins
+// the two byte-for-byte, so a change here is a change to what a share link reads as.
 
 import type { ListSnapshot } from "../types";
 import { carrierName, effectivePersonId } from "../people";

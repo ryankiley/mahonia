@@ -37,8 +37,8 @@ export default defineEventHandler((event) => {
     "discoverable.",
     "",
     `- ${origin}/s/{code}: the list as a page`,
-    `- ${origin}/s/{code}.md: the same list as Markdown (text/markdown), one table per`,
-    "  folder and a totals block, for pasting into a chat or a note",
+    `- ${origin}/s/{code}.md: the same list as Markdown, served as plain text: one table`,
+    "  per folder and a totals block, for pasting into a chat or a note",
     "",
   ].join("\n");
 });

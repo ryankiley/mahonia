@@ -779,6 +779,18 @@ export async function getCardByShareCode(code: string): Promise<ListSnapshot | n
 }
 
 /**
+ * The same lookup for the Markdown twin (/s/{code}.md), hydrated only as far as the
+ * text reads. listToMarkdown prints each item's CURRENT catalog name, so it needs the
+ * trickle-down; it prints neither the trail favicon (a data: URL of up to ~87 KB) nor
+ * the author byline, so it doesn't pay for those two reads. Sits between
+ * getByShareCode (everything the page shows) and getCardByShareCode (the bare row).
+ */
+export async function getTextByShareCode(code: string): Promise<ListSnapshot | null> {
+  const hit = await liveRowByShareCode(code);
+  return hit ? hydrateCatalogNames(hit.db, rowToSnapshot(hit.row)) : null;
+}
+
+/**
  * Attach the fields the OWNER may see and a viewer may not.
  *
  * rowToSnapshot omits the route's geometry and its waypoints, so every read path starts
