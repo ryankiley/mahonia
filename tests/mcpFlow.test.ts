@@ -21,7 +21,14 @@ vi.mock("../server/utils/db", async (importOriginal) => {
   const grab = async () => state.db;
   return { ...mod, useDb: grab, useCatalogDb: grab, useVaultDb: grab, useAccountDb: grab };
 });
-vi.mock("../server/utils/rateLimit", () => ({ rateLimit: async () => {}, rateLimitSubject: async () => {} }));
+vi.mock("../server/utils/rateLimit", () => {
+  const kv = new Map<string, unknown>();
+  return {
+    rateLimit: async () => {},
+    rateLimitSubject: async () => {},
+    useKv: () => ({ getItem: async (k: string) => kv.get(k) ?? null, setItem: async (k: string, v: unknown) => void kv.set(k, v) }),
+  };
+});
 // searchCatalog reads DATABASE_URL at call time to pick the Neon SQL branch, which a
 // PGlite handle can't run; a shell with the variable exported must not turn this
 // suite red for a reason that has nothing to do with the code
