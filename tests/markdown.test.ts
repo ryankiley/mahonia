@@ -87,4 +87,38 @@ describe("listToMarkdown", () => {
   it("omits the Unfiled table when every item has a folder", () => {
     expect(listToMarkdown(snap())).not.toContain("## Unfiled");
   });
+
+  it("escapes a pipe in the Item cell, so a name can't push its weight a column over", () => {
+    const s = snap();
+    s.items[0]!.name = "Socks | 3 pr";
+    s.items[0]!.commonName = "Wool | synthetic";
+    s.items.push({ id: "i7", folderId: "f1", parentId: "i1", name: "Liner | thin", unitWeightMg: 20000, qty: 1, classification: null, sortOrder: 1 });
+    const md = listToMarkdown(s);
+    expect(md).toContain("| Socks \\| 3 pr — Wool \\| synthetic | 1 | 558 g |");
+    expect(md).toContain("| ↳ Liner \\| thin | 1 | 20 g |");
+    // every table row still has exactly three cells once the escaped pipes are set aside
+    for (const line of md.split("\n").filter((l) => l.startsWith("| ") && !l.startsWith("| ---"))) {
+      expect(line.replace(/\\\|/g, "").split("|").length - 2, line).toBe(3);
+    }
+  });
+
+  it("doubles a backslash, so a name already holding an escaped pipe keeps its one cell", () => {
+    // GFM reads "\\|" as an escaped backslash and a live pipe: escaping the pipe alone
+    // would break the table for exactly the name the escape exists for
+    const s = snap();
+    s.items[0]!.name = "Socks\\|3 pr";
+    expect(listToMarkdown(s)).toContain("| Socks\\\\\\|3 pr | 1 | 538 g |");
+  });
+
+  it("escapes a < that opens a tag, which a renderer would swallow, and leaves one that doesn't", () => {
+    const s = snap();
+    s.items[0]!.name = "Tarp <spare>";
+    s.items[1]!.name = "Bag <20F, </new> <!-- x -->";
+    const md = listToMarkdown(s);
+    expect(md).toContain("| Tarp \\<spare> | 1 | 538 g |");
+    expect(md).toContain("| Bag <20F, \\</new> \\<!-- x --> | 1 | 300 g |");
+    // other Markdown in a name reads as Markdown, which a reader can see
+    s.items[1]!.name = "*Rain* _shell_";
+    expect(listToMarkdown(s)).toContain("| *Rain* _shell_ | 1 | 300 g |");
+  });
 });

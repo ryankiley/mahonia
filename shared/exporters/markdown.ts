@@ -17,6 +17,18 @@ const withCommon = (name: string, commonName?: string) =>
 const withCarrier = (name: string, carrier?: string) =>
   carrier ? `${name} *(${carrier})*` : name;
 
+// The Item cell, with the three characters a name can carry that a renderer would
+// not show as written escaped the way GFM reads them (a backslash). A pipe BREAKS the
+// table rather than styling its text: "Socks | 3 pr" would end the cell at the bar
+// and put its own weight a column to the right. A backslash is the escape itself, so
+// it is doubled first, or a name already holding "\|" would come out as an escaped
+// backslash and a live pipe. And "<" before a letter (or !, / or ?) opens an inline
+// HTML tag, the one Markdown construct that DELETES text: "Tarp <spare>" renders as
+// "Tarp" on GitHub and shows an empty unknown element everywhere else, where "<20F"
+// is no tag and stays. Other Markdown in a name (*stars*, an underscore) reads as
+// Markdown, which a reader can see. Only the Item cell needs it: the rest are numbers.
+const cell = (text: string) => text.replace(/[\\|]|<(?=[A-Za-z!/?])/g, "\\$&");
+
 export function listToMarkdown(list: ListSnapshot): string {
   const u = list.displayUnit;
   const totals = computeTotals(list);
@@ -50,7 +62,7 @@ export function listToMarkdown(list: ListSnapshot): string {
       // beside it is the GROUP total, so a count there multiplies a figure it is already
       // inside — and on a row whose own line is zero, it multiplies zero
       const qty = isBareGroup(it, kids.length > 0) ? "" : `${it.qty}${wq > 0 ? ` (${wq} worn)` : ""}`;
-      out.push(`| ${name} | ${qty} | ${w} |`);
+      out.push(`| ${cell(name)} | ${qty} | ${w} |`);
       // nested items as indented sub-rows (the row weight above is their total)
       for (const child of kids) {
         const cw = child.unitWeightMg > 0 ? formatWeight(lineMg(child), u) : "—";
@@ -63,7 +75,7 @@ export function listToMarkdown(list: ListSnapshot): string {
           withCommon(itemDisplayName(child.brand, child.name, child.variant), child.commonName),
           effectivePersonId(child, it) === effectivePersonId(it) ? undefined : carrierName(list, child, it),
         );
-        out.push(`| ↳ ${cn} | ${child.qty} | ${cw} |`);
+        out.push(`| ↳ ${cell(cn)} | ${child.qty} | ${cw} |`);
       }
     }
     out.push("");
