@@ -377,7 +377,16 @@ const FIRST_LOAD_BUDGET_KB = 151;
 // 288 → 278, the same re-anchor: 282.6 KB / 111 files → 272.3 KB / 88 files, all of it
 // the boot-graph merge above (fewer files compress better) — nothing left the build.
 // 278 restores the ~5.7 KB of slack the re-anchors above keep arguing for.
-const TOTAL_BUDGET_KB = 278;
+//
+// 278 → 283, My Gear keeping the note and the price, and exporting (#244). Measured both
+// ways: main at this commit builds to 274.6 against 278 (3.4 KB of slack), 279.0 with the
+// branch. The +4.4 is the /gear route chunk growing (price + note on the row and in the
+// dialog, the ⋯ menu, the total), plus two chunks nobody downloads until they ask — the
+// CSV/JSON exporter behind the menu, and the import dialog with its parser — which is the
+// shape this backstop is explicitly not supposed to police. FIRST LOAD is untouched by it,
+// 150.4 → 150.6 against 151, because none of it is on the editor's path. MAX_CHUNK unmoved
+// at 52.9 against 72. 283 restores the ~4 KB of slack the re-anchors above keep arguing for.
+const TOTAL_BUDGET_KB = 283;
 // Largest single chunk, brotli. LOAD-BEARING, and the one number here that should not move
 // to accommodate a dependency: it is what a heavy map library fails. MapLibre GL ships as a
 // single ~200 KB brotli chunk and was ruled out on this line alone — a dep that needs the

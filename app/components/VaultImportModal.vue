@@ -84,8 +84,8 @@ const summary = computed(() => {
   if (!d) return "";
   if (!d.added) {
     return d.skipped === 1
-      ? "Nothing new — you already had that one."
-      : `Nothing new — you already had all ${d.skipped}.`;
+      ? "Nothing new. You already had that one."
+      : `Nothing new. You already had all ${d.skipped}.`;
   }
   const added = `Added ${d.added === 1 ? "1 piece of gear" : `${d.added} pieces of gear`}.`;
   if (!d.skipped) return added;
@@ -150,7 +150,7 @@ const summary = computed(() => {
 .vimport__text {
   width: 100%;
   font-family: var(--font);
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   padding: var(--space-3);
   /* no resize — ImportModal's reasoning: the grip notches the rounded corner and
      the box scrolls anyway */

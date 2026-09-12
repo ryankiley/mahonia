@@ -155,7 +155,7 @@ const priceTitle = computed(() => {
   if (!total) return undefined;
   return total.counted === filtered.value.length
     ? "What this gear cost"
-    : `What ${total.counted} of these ${filtered.value.length} pieces cost — the rest have no price`;
+    : `What ${total.counted} of these ${filtered.value.length} pieces cost. The rest have no price.`;
 });
 
 // The line under an empty result, derived from whichever control emptied it — "no
@@ -584,14 +584,18 @@ async function exportGear(kind: string) {
            Present for anyone signed in, because Import works on an empty vault —
            restoring a backup onto a new machine is the case with nothing to export
            and the most reason to be here. The DOWNLOAD rows are the ones gated on
-           having gear (canExport): a control worth no action is absent, not inert. -->
+           having gear (canExport): a control worth no action is absent, not inert.
+           ClientOnly for the reason the page body is: the server has no session, and
+           a signed-in browser hydrates with one, so a v-if on it mismatches. -->
       <template #end>
-        <VaultMenu
-          v-if="hasVault"
-          :can-export="items.length > 0"
-          @open="warmExport"
-          @pick="onMenuPick"
-        />
+        <ClientOnly>
+          <VaultMenu
+            v-if="hasVault"
+            :can-export="items.length > 0"
+            @open="warmExport"
+            @pick="onMenuPick"
+          />
+        </ClientOnly>
       </template>
     </SiteTopbar>
 
