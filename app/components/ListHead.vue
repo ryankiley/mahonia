@@ -40,8 +40,10 @@ const props = withDefaults(
      * appears at all — so this is hidden by mode rather than deleted.
      */
     distanceIsHeadline?: boolean;
+    /** New-list capture keeps the generated fallback title as an empty prompt. */
+    capture?: boolean;
   }>(),
-  { distanceIsHeadline: false },
+  { distanceIsHeadline: false, capture: false },
 );
 
 const c = useGearList();
@@ -97,10 +99,20 @@ const titleEl = useTemplateRef<HTMLTextAreaElement>("titleEl");
 // overtaken by the server's) still updates the heading you aren't touching.
 const titleFocused = ref(false);
 const draftTitle = ref(props.snapshot.title);
+// The server's fallback is a prompt in capture, not a user-entered title. Once
+// someone actually types those exact words, don't erase their final keystroke.
+const titleEdited = ref(false);
+const visibleTitle = computed(() =>
+  props.capture && !titleEdited.value && draftTitle.value === "Untitled list" ? "" : draftTitle.value,
+);
 watch(
   () => props.snapshot.title,
   (t) => {
-    if (!titleFocused.value) draftTitle.value = t;
+    if (!titleFocused.value) {
+      const committedLocalTitle = titleEdited.value && t === draftTitle.value;
+      draftTitle.value = t;
+      if (!committedLocalTitle) titleEdited.value = false;
+    }
   },
 );
 
@@ -178,8 +190,10 @@ function commitLabel(e: Event) {
 // to free a row.
 function commitTitle(e: Event) {
   const el = e.target as HTMLTextAreaElement;
+  if (props.capture && props.snapshot.title === "Untitled list" && !el.value.trim()) return;
   c.setMeta({ title: el.value });
   draftTitle.value = props.snapshot.title;
+  if (!el.value.trim()) titleEdited.value = false;
   fit();
 }
 
@@ -188,6 +202,7 @@ function commitTitle(e: Event) {
 // with the box, so an arriving snapshot has something current to be held off by.
 function onTitleInput(e: Event) {
   draftTitle.value = (e.target as HTMLTextAreaElement).value;
+  titleEdited.value = true;
   fit();
 }
 
@@ -355,8 +370,8 @@ onClickOutside(trailEl, closeTrail);
         class="field head__title"
         rows="1"
         :maxlength="MAX_TITLE_LEN"
-        :value="draftTitle"
-        placeholder="List name"
+        :value="visibleTitle"
+        :placeholder="capture ? 'Name your list' : 'List name'"
         aria-label="List name"
         autocorrect="off"
         spellcheck="false"
@@ -379,6 +394,7 @@ onClickOutside(trailEl, closeTrail);
          "Add a trail" button occupies exactly the slot the link will, so adding one
          swaps the contents in place instead of moving the row across the title. The
          edit panel anchors to this row, so the link stays visible above it. -->
+    <Teleport to="#capture-list-tools" :disabled="!capture" defer>
     <p ref="trailEl" class="head__trail">
       <!-- The affordance and the link it produces share this slot, which is the whole
            point of the row. `out-in` so the two never overlap on a one-line row: the
@@ -685,6 +701,7 @@ onClickOutside(trailEl, closeTrail);
         </template>
       </span>
     </p>
+    </Teleport>
   </div>
 </template>
 

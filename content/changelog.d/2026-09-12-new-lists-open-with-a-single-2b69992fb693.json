@@ -1,6 +1,6 @@
 {
   "date": "2026-09-12",
   "changed": [
-    "New lists open with a single item field, so you can start typing before organizing your gear."
+    "New lists open with an optional name and a single item field, so you can start typing before organizing your gear."
   ]
 }

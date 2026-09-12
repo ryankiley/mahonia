@@ -1,12 +1,11 @@
-// New-list capture is a view of the ordinary editor, not a second item model.
-// The gate never appears on a loaded list or a share view. Leaving capture simply
-// exposes the same Items folder and rows with all their existing controls.
+// New-list capture is the ordinary editor in a quiet layout, not a second mode
+// with an unlock step. Controls follow the list in the same page as it grows.
 .item__capture-weight {
   display: none;
 }
 
 // Keep the toolbar available without letting its action cluster compete with the
-// first item. An open menu, hover, or keyboard focus restores the usual emphasis.
+// list name and first item. An open menu, hover, or keyboard focus restores emphasis.
 .editor[data-capture] .topbar__inner .btn--icon:not(:hover):not(:focus-visible):not(.is-on):not([aria-expanded="true"]) {
   color: var(--ink-3);
 }
@@ -16,12 +15,41 @@ main.editor__body[data-capture] {
   gap: var(--space-5);
   padding-top: clamp(80px, 20svh, 192px);
 
-  .head,
-  .head__trail,
-  .folder__head,
-  .item-nest__add,
-  .item-wrap > .reveal {
+  // The trail row moves to this in-flow tool slot when capture is active.
+  // Both the DOM and the visual order follow the list's reading order.
+  .editor__addfolder { margin-top: 0; }
+  .editor__modes { margin-bottom: 0; }
+
+  .editor__modes .modebar__opt.is-active {
+    color: var(--ink-2);
+    background: color-mix(in oklab, var(--ink) 4%, transparent);
+  }
+
+  .capture__tools {
+    display: flex;
+    align-items: baseline;
+  }
+
+  .packbar-reveal {
     display: none !important;
+  }
+
+  .folder__name {
+    font-size: 1rem;
+    color: var(--ink-3);
+    font-weight: 500;
+    letter-spacing: normal;
+  }
+
+  .folder__name:focus {
+    color: var(--ink);
+  }
+
+  .editor__addfolder .addfolder__btn,
+  .editor__addfolder .addfolder__input {
+    font-size: 1rem;
+    font-weight: 400;
+    letter-spacing: normal;
   }
 
   .editor__folders {
@@ -30,8 +58,18 @@ main.editor__body[data-capture] {
     gap: var(--space-2);
   }
 
+  .editor__folders:has(> .folder + .folder) {
+    gap: var(--space-7);
+  }
+
+  .editor__folders:has(> .folder + .folder) .folder__name {
+    font-size: var(--text-title);
+    font-weight: 600;
+    color: var(--ink);
+  }
+
   .capture__hint {
-    font-size: var(--text-base);
+    font-size: var(--text-micro);
     color: var(--ink-3);
   }
 
@@ -39,10 +77,10 @@ main.editor__body[data-capture] {
     display: inline-block;
     padding: 0.1em 0.45em;
     font-family: ui-monospace, "SF Mono", Menlo, monospace;
-    font-size: var(--text-chrome);
+    font-size: var(--text-micro);
     line-height: 1.4;
     color: var(--ink-2);
-    background: color-mix(in oklab, var(--ink) 8%, transparent);
+    background: color-mix(in oklab, var(--ink) 4%, transparent);
     border-radius: var(--radius-2);
   }
 
@@ -52,17 +90,7 @@ main.editor__body[data-capture] {
     display: none;
   }
 
-  .item-wrap .ac__input {
-    font-size: var(--text-title);
-    line-height: var(--leading-tight);
-  }
-
-  &[data-capture-start] .item-wrap[data-capture-empty] .ac__input {
-    min-height: 52px;
-    font-size: var(--text-page-title);
-  }
-
-  &[data-capture-start] .item-wrap[data-capture-empty] .ac__input::placeholder {
+  .item-wrap[data-capture-empty] .ac__input::placeholder {
     color: var(--ink-2);
   }
 
@@ -93,23 +121,6 @@ main.editor__body[data-capture] {
     display: none;
   }
 
-  .capture__organize {
-    align-self: flex-start;
-    padding: 0;
-    border: 0;
-    background: none;
-    color: var(--ink-3);
-    font: inherit;
-    font-size: var(--text-base);
-    text-decoration: underline;
-    text-underline-offset: 3px;
-    cursor: pointer;
-  }
-
-  .capture__organize:hover,
-  .capture__organize:focus-visible {
-    color: var(--ink);
-  }
 }
 
 @media (max-width: 700px) {

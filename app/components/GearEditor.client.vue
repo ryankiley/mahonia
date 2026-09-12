@@ -53,9 +53,8 @@ const keylessCode = c.keylessCode;
 // lists" via the footer). shareCode/items are reactive, so it recedes the moment
 // the first real item lands (which is also when the draft gets its shareCode).
 const savedCount = computed(() => my.entries.value.length);
-// A new list begins in a lightweight capture view. This is presentation state,
-// not list data: its ordinary Items folder and rows save through the same path
-// as every other list. The visitor can reveal the full editor when ready.
+// A new list begins in a quiet edit layout. This is presentation state, not
+// list data: its ordinary Items folder and rows use the same editor throughout.
 const captureMode = ref(false);
 const hasNamedItems = computed(() => !!snapshot.value?.items.some((i) => i.name.trim()));
 const captureKey = (code: string) => `gear.capture.${code}`;
@@ -153,9 +152,15 @@ const NO_ITEMS: Item[] = [];
 // stays ignorant that planning exists.
 const { mode, everPlan, switching: modeSwitching } = useEditorMode();
 const packed = computed(() => mode.value === "pack");
-// Keep the lightweight view on this device when its first item turns the draft
-// into a saved list, and on a later visit. Existing lists have no marker and
-// continue to open in the full editor. The explicit handoff clears it.
+// Keep the quiet edit layout on this device when the draft becomes a saved list
+// and on later visits. Pack and Trip remain their normal views, while returning
+// to Gear returns to the same simple list. Existing lists have no marker.
+const captureEdit = computed(() => captureMode.value && mode.value === "edit");
+function ensureCaptureBlank() {
+  const s = snapshot.value;
+  if (!captureMode.value || !s || !s.items.some((it) => it.name.trim()) || s.items.some((it) => !it.name.trim())) return;
+  c.addBlankItem(s.folders[0]?.id ?? null, false);
+}
 watch(() => snapshot.value?.shareCode, (code) => {
   if (!code) return;
   if (captureMode.value) localStorage.setItem(captureKey(code), "1");
@@ -165,21 +170,17 @@ watch(() => snapshot.value?.shareCode, (code) => {
   }
   // An uncommitted blank may not survive a round-trip. Restore the next
   // invitation once per load, without raising the phone keyboard on arrival.
-  const s = snapshot.value;
-  if (captureMode.value && s && s.items.some((it) => it.name.trim()) && !s.items.some((it) => !it.name.trim())) {
-    c.addBlankItem(s.folders[0]?.id ?? null, false);
+  ensureCaptureBlank();
+});
+watch(captureEdit, (on, was) => {
+  if (on) ensureCaptureBlank();
+  else if (was) {
+    // The invitation belongs to writing, not the packing checklist or trip view.
+    for (const it of [...(snapshot.value?.items ?? [])]) {
+      if (!it.name.trim()) c.discardEmpty(it.id);
+    }
   }
 });
-function showFullEditor() {
-  // The capture view intentionally keeps its next blank line on reload. It is
-  // an invitation here, but would be clutter beside the full editor's Add row.
-  for (const it of [...(snapshot.value?.items ?? [])]) {
-    if (!it.name.trim()) c.discardEmpty(it.id);
-  }
-  const code = snapshot.value?.shareCode;
-  if (code) localStorage.removeItem(captureKey(code));
-  captureMode.value = false;
-}
 // An older unsaved draft can be restored asynchronously after startDraft paints
 // the new one-folder shell. If it had its own organization already, don't mask
 // those folders under the first-run presentation.
@@ -1033,7 +1034,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
     ref="editorRef"
     class="editor"
     :class="{ 'editor--centered': !(snapshot && totals), 'editor--split': vaultOpen }"
-    :data-capture="captureMode || null"
+    :data-capture="captureEdit || null"
   >
     <!-- the editor's page heading — visually the title input carries it, but a
          real (hidden) h1 gives AT users a page title on this client-only view -->
@@ -1235,8 +1236,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
       class="wrap editor__body"
       :class="{ 'is-rowswitching': modeSwitching, 'has-people': people.length > 0 }"
       :data-mode="mode"
-      :data-capture="captureMode || null"
-      :data-capture-start="captureMode && !hasNamedItems || null"
+      :data-capture="captureEdit || null"
       :data-filter-person="personFilterAttr"
     >
       <!-- WHICH VIEW OF THIS LIST. First thing under the toolbar, and part of the PAGE
@@ -1244,11 +1244,11 @@ function onCorrected(res: { status: string; itemName?: string }) {
            rather than a seat in the bar above, because that row has no width left — it
            measures 338px of its 343px budget on a 375px phone, and words need ~207px
            against the 116px three icons took. -->
-      <ModeBar v-if="!captureMode" class="editor__modes" :modes="MODES" :current="mode" label="View mode" @pick="(k) => (mode = k as EditorMode)" />
+      <ModeBar class="editor__modes" :modes="MODES" :current="mode" label="View mode" @pick="(k) => (mode = k as EditorMode)" />
       <!-- The list name is a page title, not a toolbar field: large, borderless, with a
            ghosted placeholder, at the top of the content — matching what the two read
            views have always done (ReadonlyListView's h1). -->
-      <ListHead :snapshot="snapshot" :distance-is-headline="mode === 'plan'" @toast="flash" />
+      <ListHead :snapshot="snapshot" :distance-is-headline="mode === 'plan'" :capture="captureEdit" @toast="flash" />
       <!-- The totals bar stands down while planning: that view has its own headline (the
            route's distance), and two display-size figures on one screen would make you
            choose which one the page is about. The pack's weight isn't lost — it rides in
@@ -1259,7 +1259,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
            jumped and re-counted every time. Here it stays put and only the value under it
            changes, which is also what lets the count tween between modes. -->
       <Headline
-        v-if="!captureMode"
+        v-if="!captureEdit"
         class="editor__headline"
         :value="headline.value"
         :unit="headline.unit"
@@ -1278,7 +1278,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
            legend all describe that person's pack. The `??` never runs — see the
            `view` computed — it only narrows the type for the template. -->
       <TotalsBar
-        v-if="!captureMode"
+        v-if="!captureEdit"
         v-show="mode !== 'plan'"
         :headline="false"
         :list="view.list ?? snapshot"
@@ -1394,10 +1394,10 @@ function onCorrected(res: { status: string; itemName?: string }) {
           :folder="f"
           :items="itemsByFolder.get(f.id) ?? NO_ITEMS"
           :packed="packed"
-          :item-placeholder="captureMode ? (hasNamedItems ? 'Add another item' : 'Add your first item') : undefined"
+          :item-placeholder="captureEdit ? (hasNamedItems ? 'Add another item' : 'Add your first item') : undefined"
           @toast="flash"
         />
-        <p v-if="captureMode && !hasNamedItems" class="capture__hint">Press <kbd>Enter</kbd> for the next item.</p>
+        <p v-if="captureEdit && !hasNamedItems" class="capture__hint">Press <kbd>Enter</kbd> for the next item.</p>
       </div>
       <!-- same split as the folders above: presence follows the DATA (v-if — most lists
            have no ungrouped rows and shouldn't carry the section), visibility follows
@@ -1416,18 +1416,11 @@ function onCorrected(res: { status: string; itemName?: string }) {
         />
       </section>
 
-      <button
-        v-if="captureMode && hasNamedItems"
-        type="button"
-        class="capture__organize"
-        @click="showFullEditor"
-      >Name, organize, or add details</button>
-
       <!-- v-show, matching the folder chrome: presence is constant, visibility follows
            the mode, and a switch mounts nothing. (A half-typed folder name can't leak
            across modes — any pointer or Tab out of the input commits it via blur
            before the mode can change.) -->
-      <div v-show="mode === 'edit' && !captureMode" class="addfolder editor__addfolder">
+      <div v-show="mode === 'edit' && (!captureEdit || hasNamedItems)" class="addfolder editor__addfolder">
         <input
           v-if="addingFolder"
           ref="newFolderRef"
@@ -1442,6 +1435,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
         />
         <button v-else type="button" class="addfolder__btn" @click="openAddFolder">Add folder</button>
       </div>
+      <div id="capture-list-tools" class="capture__tools" v-show="captureEdit && hasNamedItems" />
     </main>
 
     <main v-else-if="status === 'missing'" id="main-content" tabindex="-1" class="wrap editor__missing">
