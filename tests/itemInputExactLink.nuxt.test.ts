@@ -114,6 +114,19 @@ describe("a product name typed in full", () => {
     expect(commits()).toEqual([expect.objectContaining({ fromVault: true, weightMg: 571_000, catalogItemId: 1 })]);
   });
 
+  // "water 2 L" tabbed away from is the water row at that volume, as the menu's water
+  // option makes it; before, only the menu path read the volume
+  it("makes the water row from a typed water phrase on blur", async () => {
+    catalogHits = [];
+    vaultHits = [];
+    const { w, input, commits } = mountInput();
+    input.focus();
+    input.value = "water 2 L";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await blur(w);
+    expect(commits()).toEqual([{ name: "Water", weightMg: 2_000_000, classification: "consumable" }]);
+  });
+
   // the search is 140ms behind the keystroke; a tab faster than that has nothing to
   // link against, and the row is what it always was: free text
   it("commits free text when the menu has not answered yet", async () => {

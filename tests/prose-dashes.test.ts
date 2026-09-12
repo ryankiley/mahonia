@@ -55,6 +55,7 @@ const ALLOWED: RegExp[] = [
   /(\d|\}|\bA)\s*–\s*(\d|\$\{|Z\b)/, // en dash in a range: 1–2, ${a}–${b}, A–Z
   /console\.(error|warn|log)|throw new Error\(|statusMessage:/, // server logs
   /^\s*"\[[a-z-]+\]/, // a log line's tag, on its own line inside a console call
+  /\[[^\]\n]*[–—][^\]\n]*\]/, // a dash READ, not written: inside a regex character class (shared/pasteList)
 ];
 
 describe("user-facing prose", () => {

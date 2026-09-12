@@ -1,0 +1,6 @@
+{
+  "date": "2026-09-12",
+  "changed": [
+    "A typed \"water 2 L\" makes the water row at that volume when you tab away, as choosing it from the menu does."
+  ]
+}

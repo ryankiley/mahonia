@@ -8,7 +8,8 @@ import { highlightParts } from "~~/shared/searchText";
 import { MAX_ITEM_NAME_LEN } from "~~/shared/ops";
 import { tidyText } from "~~/shared/tidyText";
 import { catalogNameKeys, foldName } from "~~/shared/catalogMatch";
-import { formatVolume, isWaterName, parseVolumeMl, waterMgFromMl } from "~~/shared/water";
+import { pasteRows, splitWeightTail } from "~~/shared/pasteList";
+import { formatVolume, isWaterName, parseVolumeMl, waterMgFromMl, waterPhraseMl } from "~~/shared/water";
 import type { CatalogResult, NameCommit } from "~/composables/useCatalogSearch";
 import type { VaultEntry } from "~~/shared/vault";
 
@@ -43,6 +44,12 @@ const emit = defineEmits<{
   // Enter (the mobile return key too) landed a commit — the parent may continue
   // the flow by opening a fresh row below (todo-list entry; see ItemRow).
   advance: [];
+  // A multi-line paste. `first` is the first line as a commit for THIS row (or null
+  // when it names nothing), NOT yet applied: the parent applies it, so it can remember
+  // what the row was before the line landed and offer that back with the paste's
+  // undo. `rest` are the lines after it, one row each, for the parent to make below
+  // this one (see onPaste).
+  pasteRows: [{ first: NameCommit | null; rest: string[] }];
 }>();
 
 const { results, search, clear } = useCatalogSearch();
@@ -89,10 +96,16 @@ onMounted(() => {
 // would trip the draft watcher's search-and-open, popping the menu on rows
 // nobody is touching whenever the server snapshot lands with a differing name
 // (stale local cache on entry, a collaborator's rename via the poll).
+// A FOCUSED field syncs too, when it is showing the stored name and nothing has been
+// typed since (compared folded, since the box may spell it "3fulgear" and the store
+// "3FULGEAR"): the row's name can change under a focused box that isn't being edited
+// (a paste's catalog link landing a moment after the paste, a collaborator's rename),
+// and a box left holding the old text would commit it back on the next blur, and
+// with it undo the link. Mid-edit text is never touched.
 watch(
   () => props.initial,
-  (v) => {
-    if (!focused.value) setDraftQuiet(v);
+  (v, old) => {
+    if (!focused.value || foldName(draft.value) === foldName(old)) setDraftQuiet(v);
   },
 );
 
@@ -137,9 +150,6 @@ watch(open, (v) => {
   }
 });
 onScopeDispose(() => outsideScope?.stop());
-
-// trailing weight in free text: "Tent 540 g" → name + weight; unitless ("UL2") stays in the name
-const WEIGHT_TAIL = /\s+(\d[\d.,]*\s*(?:kgs?|g|grams?|oz|ounces?|lbs?|pounds?))$/i;
 
 // Water folds into THIS input (no separate "add water"): typing a bare volume
 // ("1 L", "500 ml", "32 fl oz") or "water [volume]" surfaces a water option that
@@ -362,13 +372,27 @@ function exactMatch(typed: string): AcOption | null {
 // the next settle re-derives it.
 watch(options, (opts) => {
   if (active.value >= 0 || !open.value) return;
-  const hit = exactMatch(draft.value.trim().replace(WEIGHT_TAIL, ""));
+  const hit = exactMatch(splitWeightTail(draft.value).name);
   if (!hit) return;
   const at = opts.findIndex((o) =>
     "vault" in hit ? "vault" in o && o.vault === hit.vault : "result" in hit && "result" in o && o.result === hit.result,
   );
   if (at >= 0) active.value = at;
 });
+// Free text, read as a commit: the trailing weight ("Tent 540 g") rides along
+// (shared/pasteList, the one rule for where a name ends, shared with the multi-line
+// paste); "water 2 L" is the water row at that volume, as the menu's water option
+// makes it (shared/water.waterPhraseMl), and a row named exactly "water" IS the water
+// row wherever it came from: the litres field takes over on the name alone (see
+// ItemRow), so the classification follows. Null when the text names nothing.
+function freeCommit(raw: string): NameCommit | null {
+  const ml = waterPhraseMl(raw);
+  if (ml != null) return { name: "Water", weightMg: waterMgFromMl(ml), classification: "consumable" };
+  const split = splitWeightTail(raw);
+  const name = tidyText(split.name);
+  if (!name) return null;
+  return { name, weight: split.weight, classification: isWaterName(name) ? "consumable" : undefined };
+}
 function commitFree() {
   const raw = draft.value.trim();
   if (!raw) return;
@@ -381,23 +405,41 @@ function commitFree() {
     setDraftQuiet(props.initial);
     return close();
   }
-  const m = raw.match(WEIGHT_TAIL);
-  const name = tidyText(m ? raw.slice(0, m.index) : raw);
-  if (!name) return;
-  // a trailing weight in the typed name ("Tent 540 g") rides along
-  const weight = m ? m[1] : undefined;
+  const c = freeCommit(raw);
+  if (!c) return;
   // a product's own name, typed in full, links (see exactMatch); a trailing weight is
   // dropped with it, since the pick's weight is the product's (a vault pick, yours)
-  const exact = exactMatch(name);
+  const exact = c.weightMg == null ? exactMatch(c.name) : null;
   if (exact) return selectOption(exact);
-  // A row named exactly "water" IS the water row wherever it came from: the litres
-  // field takes over on the name alone (see ItemRow), so the classification must
-  // follow too — this is the blur path around the water suggestion, and without it
-  // a tabbed-away "water" would sit in base weight while reading in litres.
-  emit("commit", { name, weight, classification: isWaterName(name) ? "consumable" : undefined });
+  emit("commit", c);
   // the TIDIED name, not the typed one — this field has to show what got stored, and
   // Enter commits without ever unfocusing, so the watcher can't do it here either
-  setDraftQuiet(props.clearOnCommit ? "" : name);
+  setDraftQuiet(props.clearOnCommit ? "" : c.name);
+  close();
+}
+// A list pasted in, one item per line. The browser's paste would fold every line
+// into this one field (an input strips the newlines), so a paste with more than one
+// line is taken over: the first line lands where the caret is, replacing any
+// selection — the row you pasted into is the first row of the list, the way a
+// spreadsheet starts a multi-cell paste at the cell you're in — read the way typed
+// text is (trailing weight, tidying, the water rule) and handed to the parent WITH
+// the rest, un-applied, so the parent can remember the row as it was before applying
+// it (the paste's undo gives that row back). One line is left to the browser, so an
+// ordinary paste of a product name behaves exactly as it always has.
+function onPaste(e: ClipboardEvent) {
+  const rows = pasteRows(e.clipboardData?.getData("text/plain") ?? "");
+  if (rows.length < 2) return;
+  e.preventDefault();
+  const el = e.target as HTMLInputElement;
+  const from = el.selectionStart ?? draft.value.length;
+  const to = el.selectionEnd ?? from;
+  const [first, ...rest] = rows;
+  const text = (draft.value.slice(0, from) + first + draft.value.slice(to)).trim();
+  const c = text && tidyText(text) !== tidyText(props.initial) ? freeCommit(text) : null;
+  emit("pasteRows", { first: c, rest });
+  // the field shows what got stored: the first line's name, or, when it named nothing,
+  // the name the row still has — never text the store didn't take
+  setDraftQuiet(props.clearOnCommit ? "" : (c?.name ?? props.initial));
   close();
 }
 // commit when focus leaves the whole control
@@ -482,6 +524,7 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
       autocorrect="off"
       spellcheck="false"
       @keydown="onKeydown"
+      @paste="onPaste"
       @focus="focused = true; open = suggest"
     />
     <!-- pointer leaving the menu clears the hover highlight (mouseenter on options

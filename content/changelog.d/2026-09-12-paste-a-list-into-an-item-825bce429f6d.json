@@ -1,0 +1,9 @@
+{
+  "date": "2026-09-12",
+  "added": [
+    "Paste a list into an item's name, one item per line, and each line becomes its own row, weight and catalog link included."
+  ],
+  "changed": [
+    "A weight after a typed name can follow a dash, colon or comma, or sit in parentheses: \"Tent (540 g)\" reads as Tent at 540 g."
+  ]
+}
