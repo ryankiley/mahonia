@@ -174,16 +174,24 @@ const { open: openAccount } = useAccountModal();
   white-space: nowrap;
 }
 
-/* The disc. A FILLED mark in a row of 2px line-drawn glyphs, so it sits a step lighter
-   than their --ink-2: the same ink that reads as a stroke reads as a plate at 22px of
-   area (the --lit note in tokens.scss makes the same point about a 32px chip). --ink-3
-   was tuned to clear AA against --paper, so the letter set in --paper clears it back
-   in both themes by construction — 4.5:1 light, 5.7:1 dark — and the pair needs no
-   retune if either token moves. Hover steps the disc up one tone to --ink-2, the way
-   .btn--ghost steps its glyph from --ink-2 to --ink; pointer-gated like every hover.
+/* The disc wears --lit — the app's ONE plate meaning "this control is on", the same
+   tone the selected mode tab and the classification chips sit on. So the bar says
+   "signed in" the way the mode bar says "Gear": a state shown as a lit ground, not as
+   a dark object. The first cut was a solid --ink-3 disc with a --paper letter; Ryan
+   (2026-09-12): "circle is too dark, letter is too small, use the gray from the
+   selected state of Gear". Hover steps the plate to --lit-hover, as the selected tab
+   does; pointer-gated like every hover.
+   THE LETTER IS A GLYPH, and weighs like one (Ryan, same day: "letter should feel more
+   like the icon weight"). No colour of its own: it inherits the button's, so it rests
+   at the same ink as the glyphs beside it — --ink-2 in the site bar, the editor's
+   quieter --ink-3 — and darkens with them on hover, focus and open. Medium, not
+   semibold: the icons are 2px strokes on a 24 grid drawn at 16px, ~1.33px of ink,
+   which is a 14px medium stem; semibold read as a bold black mark in a row of thin
+   grey lines.
    Sized in px like the glyphs beside it, NOT from the type scale: the bar's icons hold
    16px while --text-* grows past the 1920px anchor, and a letter on the scale would
-   outgrow a disc that isn't. The letter is half the disc, so the two move together. */
+   outgrow a disc that isn't. The letter is 0.64 of the disc — 14px at rest, the tab
+   word's own --text-chrome size — so the two move together on touch. */
 .avatar {
   --avatar: 22px;
   display: inline-grid;
@@ -191,17 +199,16 @@ const { open: openAccount } = useAccountModal();
   width: var(--avatar);
   height: var(--avatar);
   border-radius: var(--radius-pill);
-  background: var(--ink-3);
-  color: var(--paper);
-  font-size: calc(var(--avatar) / 2);
-  font-weight: 600;
+  background: var(--lit);
+  font-size: calc(var(--avatar) * 0.64);
+  font-weight: 500;
   line-height: 1;
   text-transform: uppercase;
   transition: background var(--dur) var(--ease);
 }
 @media (hover: hover) and (pointer: fine) {
   .menu__btn:hover .avatar {
-    background: var(--ink-2);
+    background: var(--lit-hover);
   }
 }
 /* the glyphs grow 16 → 18 on touch (.btn--icon svg, controls.scss); the disc keeps
