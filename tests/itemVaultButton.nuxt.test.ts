@@ -46,6 +46,7 @@ const vaultGear = ref<ReadonlyMap<string, number | null>>(new Map());
 const vaultGearAsked = ref<ReadonlySet<string>>(new Set());
 const vaultGearSettled = ref(true);
 const saveItemToVault = vi.fn<() => Promise<CaptureOneResult>>(() => Promise.resolve("saved"));
+const updateItem = vi.fn();
 
 mockNuxtImport("useVaultAccess", () => () => ({
   hasVault,
@@ -54,7 +55,7 @@ mockNuxtImport("useVaultAccess", () => () => ({
 }));
 
 mockNuxtImport("useGearList", () => () => gearListStub({
-  updateItem: () => {},
+  updateItem,
   saveItemToVault,
   vaultAuto,
   vaultDeclined,
@@ -115,6 +116,7 @@ describe("the save button, against what My Gear actually holds", () => {
     vaultGearAsked.value = asked(keyFor(gear()));
     vaultGearSettled.value = true;
     saveItemToVault.mockClear();
+    updateItem.mockClear();
   });
 
   it("stands down for gear the vault already holds, whatever this list's answer is", async () => {
@@ -142,6 +144,32 @@ describe("the save button, against what My Gear actually holds", () => {
     expect(vaultBtn(w).exists()).toBe(true);
     expect(vaultBtn(w).attributes("aria-label")).toBe("Save to My Gear");
     w.unmount();
+  });
+
+  it("offers the saved My Gear weight when it differs, and takes it in one press", async () => {
+    const item = gear();
+    vaultGear.value = banked(item, 590_000);
+    const w = mountRow(item);
+    const nudge = w.find('button[aria-label="Use My Gear weight 590 g"]');
+    expect(nudge.text()).toBe("My Gear says 590 g");
+
+    await nudge.trigger("click");
+
+    expect(updateItem).toHaveBeenCalledWith(item.id, { unitWeightMg: 590_000, weightOverridden: true });
+    w.unmount();
+  });
+
+  it("does not offer a My Gear nudge when the saved weight agrees or is unavailable", () => {
+    const item = gear();
+    vaultGear.value = banked(item);
+    const w = mountRow(item);
+    expect(w.find('[aria-label^="Use My Gear weight"]').exists()).toBe(false);
+    w.unmount();
+
+    vaultGear.value = banked(item, null);
+    const pinned = mountRow(item);
+    expect(pinned.find('[aria-label^="Use My Gear weight"]').exists()).toBe(false);
+    pinned.unmount();
   });
 
   it("outranks a chooser exclusion — declining a row is not the same as not owning it", () => {

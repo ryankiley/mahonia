@@ -1077,6 +1077,21 @@ const vaultLabel = computed(() =>
 const vaultOffered = computed(
   () => !isWater.value && vaultWorthy.value && (vaultSaved.value || !vaultCovered.value),
 );
+// A list can be a past trip, while My Gear is the owner's current kit. The same
+// scoped vault answer that keeps the save button honest also lets a differing row
+// offer its saved weight back, without a whole-vault read or another request.
+const vaultWeight = computed(() => {
+  if (!vaultGearAsked.value.has(vaultKey.value)) return null;
+  const weight = vaultGear.value.get(vaultKey.value);
+  return typeof weight === "number" && weight > 0 && weight !== props.item.unitWeightMg ? weight : null;
+});
+function useVaultWeight() {
+  const weight = vaultWeight.value;
+  if (weight == null) return;
+  // This is the person's own saved measurement, not a new catalog fact. Mark it
+  // overridden so live catalog resolution cannot immediately write over it.
+  c.updateItem(props.item.id, { unitWeightMg: weight, weightOverridden: true });
+}
 /**
  * Whether the reveal below is allowed to PLAY.
  *
@@ -2074,6 +2089,19 @@ function dismissFix() {
             <HugeiconsIcon :icon="Cancel01Icon" :size="14" :stroke-width="2" />
           </button>
         </div>
+      </div>
+    </Transition>
+
+    <Transition name="reveal">
+      <div v-if="vaultWeight != null" class="reveal">
+        <button
+          type="button"
+          class="item__under-link t-sm"
+          :aria-label="`Use My Gear weight ${formatWeight(vaultWeight, list.displayUnit)}`"
+          @click="useVaultWeight"
+        >
+          My Gear says {{ formatWeight(vaultWeight, list.displayUnit) }}
+        </button>
       </div>
     </Transition>
 
