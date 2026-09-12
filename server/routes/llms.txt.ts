@@ -5,6 +5,10 @@ import { setDailyEdgeCache } from "../utils/http";
 // otherwise land on the client-rendered editor shell (/, /e) and read nothing. Points
 // them at the server-rendered, human-readable surfaces. Host comes from the request so
 // it works on any deploy domain (mirrors robots.txt / sitemap.xml).
+//
+// A map, not a gate: nothing here grants or refuses a fetch. What a fetcher MAY read
+// is robots.txt's job, which is why the share views are named here (they are readable)
+// and no longer disallowed there.
 export default defineEventHandler((event) => {
   const origin = getRequestURL(event).origin;
   setHeader(event, "Content-Type", "text/plain; charset=utf-8");
@@ -24,6 +28,17 @@ export default defineEventHandler((event) => {
     `- [About](${origin}/about): what Mahonia is and how it works`,
     `- [Public lists](${origin}/sitemap.xml): every shared public list, at /l/{slug}`,
     `- [Legal](${origin}/legal): privacy policy and terms of use`,
+    "",
+    "## Shared lists",
+    "",
+    "A share link (/s/{code}) is a read-only view of one list, rendered on the server",
+    "with every row in the HTML, so it can be fetched and read as it is. It is listed",
+    "nowhere and carries a noindex tag: readable by whoever holds the link, not",
+    "discoverable.",
+    "",
+    `- ${origin}/s/{code}: the list as a page`,
+    `- ${origin}/s/{code}.md: the same list as Markdown, served as plain text: one table`,
+    "  per folder and a totals block, for pasting into a chat or a note",
     "",
   ].join("\n");
 });
