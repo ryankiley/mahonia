@@ -1,6 +1,6 @@
 {
   "date": "2026-09-05",
   "changed": [
-    "In the feedback and report box the character count sits on its own line, and Cancel stands a little further from Send in every dialog."
+    "The feedback box's character count sits on its own line, and Cancel stands further from Send in every dialog."
   ]
 }

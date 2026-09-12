@@ -1,9 +1,9 @@
 {
   "date": "2026-09-04",
   "changed": [
-    "Pulling an item out of a group, or tucking one under the row above, is a sideways drag you hold to the end. Moving an item out of its group and far down the list is now two drags rather than one."
+    "Pulling an item out of a group, or tucking one under the row above, is a sideways drag you hold to the end."
   ],
   "fixed": [
-    "Dragging an item up or down inside a group keeps it in the group. A drag that wandered a little sideways on its way used to pull the item out to the top level."
+    "Dragging an item up or down inside a group keeps it in the group, even if the drag wanders a little sideways."
   ]
 }

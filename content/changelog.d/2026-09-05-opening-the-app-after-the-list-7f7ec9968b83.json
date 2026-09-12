@@ -1,7 +1,7 @@
 {
   "date": "2026-09-05",
   "fixed": [
-    "Opening the app after the list you last used was deleted or its link changed elsewhere now takes you to your next list, or a fresh one, instead of an error.",
+    "If the list you last used was deleted elsewhere, opening the app takes you to your next list instead of an error.",
     "On a desktop, a saved item's vault mark stays visible instead of waiting for the mouse to find the row.",
     "The installed app opens offline again from its start page."
   ]

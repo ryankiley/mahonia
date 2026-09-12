@@ -2,7 +2,7 @@
   "date": "2026-09-05",
   "changed": [
     "The sign-in box now says what an account is for: it holds My Gear, from any device, and lists never need one.",
-    "Adding a trail explains the two ways in: a link keeps the route with the list; a map file adds its distance and climb, read in your browser and never uploaded.",
+    "Adding a trail explains the two ways in: a link, or a map file read in your browser and never uploaded.",
     "The import dialog keeps the CSV column order on screen under the paste box instead of only in the placeholder."
   ]
 }

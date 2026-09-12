@@ -1,9 +1,9 @@
 {
   "date": "2026-08-14",
   "added": [
-    "The sharing panel can add a list to your account in one press, for the rare list this device holds a link for that your account doesn't."
+    "The sharing panel can add a list to your account in one press."
   ],
   "fixed": [
-    "A list you built before accounts existed could stay stranded on one device: signed in, it never joined your account, so your other devices never showed it. Reopening it through its own edit link now keeps it eligible, and signing in picks it up."
+    "A list built before accounts existed no longer stays stranded on one device; signing in picks it up."
   ]
 }

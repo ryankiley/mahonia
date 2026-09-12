@@ -4,8 +4,8 @@
     "The import dialog says it also takes a JSON backup made by Export."
   ],
   "fixed": [
-    "A list name, item name, folder name or note now stops at the length the list keeps, instead of being cut down after you leave the field.",
-    "A list imported from LighterPack gets the same folder colours a hand-built one does: Water is blue, First Aid is red, and so on.",
-    "An edit link that has lost its key (the part after the #) now says so and offers the read-only view, instead of opening a blank list under the same address."
+    "A name or note stops at the length the list keeps, instead of being cut down after you leave the field.",
+    "A list imported from LighterPack gets the same folder colours a hand-built one does.",
+    "An edit link that has lost its key (the part after the #) says so and offers the read-only view."
   ]
 }

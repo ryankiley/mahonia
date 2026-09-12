@@ -1,6 +1,6 @@
 {
   "date": "2026-09-06",
   "changed": [
-    "A list left open with no edits checks for other people's changes less often, every 10 seconds after two quiet minutes and every 30 after ten, and catches up the moment you return to it."
+    "A list left open with no edits checks for other people's changes less often, and catches up the moment you return to it."
   ]
 }

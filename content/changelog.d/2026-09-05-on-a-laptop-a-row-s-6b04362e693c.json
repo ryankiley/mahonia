@@ -1,7 +1,7 @@
 {
   "date": "2026-09-05",
   "changed": [
-    "On a laptop, a row's Save, Nesting, Duplicate and Remove icons appear when the pointer is on the row (or the row has keyboard focus); the Worn and Consumable marks and the drag handle stay. Phones are unchanged.",
-    "A group's total weight, and a water row's, no longer look like fields you can type in: they read as figures, with the unit still yours to change."
+    "On a laptop, a row's Save, Nesting, Duplicate and Remove icons appear when the pointer is on the row. Phones are unchanged.",
+    "A group's total weight, and a water row's, read as figures rather than fields. The unit is still yours to change."
   ]
 }

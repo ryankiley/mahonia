@@ -1,6 +1,6 @@
 {
   "date": "2026-09-02",
   "changed": [
-    "The blank fields on a new item now read “Name of item” and “Type of gear”, in place of “Item name” and a list of example gear types."
+    "A new item's blank fields read “Name of item” and “Type of gear”."
   ]
 }

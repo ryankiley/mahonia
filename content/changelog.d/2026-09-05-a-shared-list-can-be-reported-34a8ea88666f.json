@@ -5,6 +5,6 @@
   ],
   "changed": [
     "The list switcher is labelled \"Your packs\"; the count sits inside it.",
-    "Alongside page views, Mahonia now keeps six cookieless tallies of in-app actions (making a list, importing one, copying a share link, opening Packing or Trip, signing in). Nothing about who; the Legal page says so."
+    "Mahonia keeps six cookieless tallies of in-app actions, like making a list or copying a share link. Nothing about who; the Legal page says so."
   ]
 }

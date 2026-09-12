@@ -1,6 +1,6 @@
 {
   "date": "2026-09-05",
   "changed": [
-    "The totals row now reads Base, Consumable, Carried, then Worn, then Calories and Per day, so each run adds up to the figure after it."
+    "The totals row reads Base, Consumable, Carried, then Worn, Calories and Per day, so each run adds up to the figure after it."
   ]
 }
