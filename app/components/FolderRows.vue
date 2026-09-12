@@ -30,6 +30,7 @@ const props = defineProps<{
   folder: Folder;
   /** this folder's items, pre-grouped + sorted by GearEditor — see FolderSection */
   items: Item[];
+  itemPlaceholder: string;
 }>();
 
 // a row's overlay/toast still reaches the folder (which owns the collapse-clip
@@ -101,6 +102,7 @@ function addBlank() {
       :class="fresh.has(it.id) ? 'is-new' : undefined"
       :list="list"
       :item="it"
+      :placeholder="itemPlaceholder"
       :prev-id="items[i - 1]?.id ?? null"
       @overlay-toggle="$emit('overlayToggle', $event)"
       @toast="$emit('toast', $event)"

@@ -163,6 +163,12 @@ watch(() => snapshot.value?.shareCode, (code) => {
     captureMode.value = true;
     mode.value = "edit";
   }
+  // An uncommitted blank may not survive a round-trip. Restore the next
+  // invitation once per load, without raising the phone keyboard on arrival.
+  const s = snapshot.value;
+  if (captureMode.value && s && s.items.some((it) => it.name.trim()) && !s.items.some((it) => !it.name.trim())) {
+    c.addBlankItem(s.folders[0]?.id ?? null, false);
+  }
 });
 function showFullEditor() {
   // The capture view intentionally keeps its next blank line on reload. It is
@@ -1027,6 +1033,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
     ref="editorRef"
     class="editor"
     :class="{ 'editor--centered': !(snapshot && totals), 'editor--split': vaultOpen }"
+    :data-capture="captureMode || null"
   >
     <!-- the editor's page heading — visually the title input carries it, but a
          real (hidden) h1 gives AT users a page title on this client-only view -->
@@ -1229,6 +1236,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
       :class="{ 'is-rowswitching': modeSwitching, 'has-people': people.length > 0 }"
       :data-mode="mode"
       :data-capture="captureMode || null"
+      :data-capture-start="captureMode && !hasNamedItems || null"
       :data-filter-person="personFilterAttr"
     >
       <!-- WHICH VIEW OF THIS LIST. First thing under the toolbar, and part of the PAGE
@@ -1379,10 +1387,6 @@ function onCorrected(res: { status: string; itemName?: string }) {
            two-Transition comment). display:none takes the rows out of layout, paint
            and the accessibility tree exactly as absence did. -->
       <div v-show="mode !== 'plan'" class="editor__folders">
-        <div v-if="captureMode" class="capture__intro">
-          <p class="capture__prompt">{{ hasNamedItems ? 'Keep adding.' : 'Start with one item.' }}</p>
-          <p class="capture__hint">Press Enter to keep adding.</p>
-        </div>
         <FolderSection
           v-for="f in sortedFolders"
           :key="f.id"
@@ -1390,8 +1394,10 @@ function onCorrected(res: { status: string; itemName?: string }) {
           :folder="f"
           :items="itemsByFolder.get(f.id) ?? NO_ITEMS"
           :packed="packed"
+          :item-placeholder="captureMode ? (hasNamedItems ? 'Add another item' : 'Add your first item') : undefined"
           @toast="flash"
         />
+        <p v-if="captureMode && !hasNamedItems" class="capture__hint">Press <kbd>Enter</kbd> for the next item.</p>
       </div>
       <!-- same split as the folders above: presence follows the DATA (v-if — most lists
            have no ungrouped rows and shouldn't carry the section), visibility follows

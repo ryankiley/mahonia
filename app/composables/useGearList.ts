@@ -1279,7 +1279,7 @@ function create() {
 
   // "Add an item" drops a real, empty row in immediately (so it has every control
   // a normal row has) and focuses it; discardEmpty cleans it up if abandoned.
-  function addBlankItem(folderId: string | null): string {
+  function addBlankItem(folderId: string | null, focus = true): string {
     if (!snapshot.value) return "";
     const id = uid();
     const sortOrder = nextSortOrder(snapshot.value.items, folderId);
@@ -1291,7 +1291,7 @@ function create() {
     const personId = usePersonFilter().assignTarget(snapshot.value.people);
     if (personId) item.personId = personId;
     dispatch({ t: "addItem", item });
-    pendingBlankId.value = id;
+    if (focus) pendingBlankId.value = id;
     return id;
   }
   // Add a piece of gear straight from the vault — the VaultPane's one write.

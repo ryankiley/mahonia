@@ -25,8 +25,9 @@ const props = withDefaults(
     folder: Folder;
     items: Item[];
     packed?: boolean;
+    itemPlaceholder?: string;
   }>(),
-  { packed: false },
+  { packed: false, itemPlaceholder: "Name of item" },
 );
 const c = useGearList();
 
@@ -172,6 +173,7 @@ function toggleCollapsed() {
           :list="list"
           :folder="folder"
           :items="items"
+          :item-placeholder="itemPlaceholder"
           @overlay-toggle="onOverlayToggle"
           @toast="$emit('toast', $event)"
         />

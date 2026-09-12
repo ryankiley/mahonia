@@ -5,10 +5,16 @@
   display: none;
 }
 
-.editor__body[data-capture] {
+// Keep the toolbar available without letting its action cluster compete with the
+// first item. An open menu, hover, or keyboard focus restores the usual emphasis.
+.editor[data-capture] .topbar__inner .btn--icon:not(:hover):not(:focus-visible):not(.is-on):not([aria-expanded="true"]) {
+  color: var(--ink-3);
+}
+
+main.editor__body[data-capture] {
   max-width: 760px;
-  gap: var(--space-6);
-  padding-top: var(--space-7);
+  gap: var(--space-5);
+  padding-top: clamp(80px, 20svh, 192px);
 
   .head,
   .head__trail,
@@ -21,24 +27,23 @@
   .editor__folders {
     display: flex;
     flex-direction: column;
-    gap: var(--space-4);
-  }
-
-  .capture__intro {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
-  }
-
-  .capture__prompt {
-    font-size: var(--text-title);
-    font-weight: 600;
-    color: var(--ink);
+    gap: var(--space-2);
   }
 
   .capture__hint {
     font-size: var(--text-base);
     color: var(--ink-3);
+  }
+
+  .capture__hint kbd {
+    display: inline-block;
+    padding: 0.1em 0.45em;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: var(--text-chrome);
+    line-height: 1.4;
+    color: var(--ink-2);
+    background: color-mix(in oklab, var(--ink) 8%, transparent);
+    border-radius: var(--radius-2);
   }
 
   // The first input is already present, so a second Add button would ask for the
@@ -47,9 +52,18 @@
     display: none;
   }
 
-  .folder__items > .item-wrap[data-capture-empty]:only-child {
-    border-bottom: 1px solid var(--line);
-    padding-bottom: var(--space-3);
+  .item-wrap .ac__input {
+    font-size: var(--text-title);
+    line-height: var(--leading-tight);
+  }
+
+  &[data-capture-start] .item-wrap[data-capture-empty] .ac__input {
+    min-height: 52px;
+    font-size: var(--text-page-title);
+  }
+
+  &[data-capture-start] .item-wrap[data-capture-empty] .ac__input::placeholder {
+    color: var(--ink-2);
   }
 
   .item-wrap:not(:focus-within) .item:not(.item--check),
@@ -79,10 +93,6 @@
     display: none;
   }
 
-  .item-wrap[data-capture-empty] .ac__input {
-    font-size: var(--text-base);
-  }
-
   .capture__organize {
     align-self: flex-start;
     padding: 0;
@@ -99,5 +109,11 @@
   .capture__organize:hover,
   .capture__organize:focus-visible {
     color: var(--ink);
+  }
+}
+
+@media (max-width: 700px) {
+  main.editor__body[data-capture] {
+    padding-top: var(--space-7);
   }
 }

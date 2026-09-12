@@ -201,6 +201,10 @@ describe("useGearList — first item", () => {
     const laterBlank = c.addBlankItem(draft.folders[0]!.id);
     c.discardEmpty(laterBlank);
     expect(c.snapshot.value?.items).toHaveLength(1); // subsequent abandoned blanks still tidy up
+
+    const restoredBlank = c.addBlankItem(draft.folders[0]!.id, false);
+    expect(c.snapshot.value?.items.some((it) => it.id === restoredBlank)).toBe(true);
+    expect(c.pendingBlankId.value).toBeNull(); // restoration must not autofocus on a phone
   });
 });
 

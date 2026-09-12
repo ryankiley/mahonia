@@ -85,8 +85,9 @@ const props = withDefaults(
     // only when an assignment changes — which re-renders that group anyway —
     // never on a filter flip.
     inheritedPersonId?: string;
+    placeholder?: string;
   }>(),
-  { prevId: null, nested: false },
+  { prevId: null, nested: false, placeholder: "Name of item" },
 );
 // forwarded up to FolderSection so it can lift its collapse clip while this row has a
 // floating overlay open — the name autocomplete, or the mobile ⋯ menu (otherwise an
@@ -1256,7 +1257,7 @@ function dismissFix() {
           <ItemInput
             :unit="list.displayUnit"
             :initial="editableName"
-            placeholder="Name of item"
+            :placeholder="placeholder"
             :clear-on-commit="false"
             :suggest="!isParent"
             :autofocus="isPendingBlank"
@@ -1299,8 +1300,9 @@ function dismissFix() {
         <Transition name="reveal">
           <div v-if="subShown" class="reveal reveal--note">
             <div class="item__subfields">
-              <!-- the two placeholders are a matched pair — "Name of item" above, "Type of
-                   gear" here — so a blank row reads as one short stack. This field used to
+              <!-- Ordinary rows pair "Name of item" above with "Type of gear" here;
+                   first-run capture gives the name field a more direct invitation.
+                   This field used to
                    show examples only ("Tent, Backpack, Quilt…"), relying on the product name
                    above to explain it; on a blank row there is no name above, so the examples
                    read as a second set of name suggestions. A catalog pick fills this field
