@@ -8,6 +8,7 @@ import { highlightParts } from "~~/shared/searchText";
 import { MAX_ITEM_NAME_LEN } from "~~/shared/ops";
 import { tidyText } from "~~/shared/tidyText";
 import { catalogNameKeys, foldName } from "~~/shared/catalogMatch";
+import { displayVariant } from "~~/shared/variantLabel";
 import { pasteRows, splitWeightTail } from "~~/shared/pasteList";
 import { formatVolume, isWaterName, parseVolumeMl, waterMgFromMl, waterPhraseMl } from "~~/shared/water";
 import type { CatalogResult, NameCommit } from "~/composables/useCatalogSearch";
@@ -586,7 +587,7 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
                 :class="{ 'ac__hl': p.on }"
               >{{ p.t }}</span>
             </span>
-            <span v-if="opt.vault.variant" class="ac__variant t-clip"><span class="sep">·</span> {{ opt.vault.variant }}</span>
+            <span v-if="opt.vault.variant" class="ac__variant t-clip"><span class="sep">·</span> {{ displayVariant(opt.vault.variant) }}</span>
           </span>
         </template>
         <template v-else>
@@ -607,7 +608,7 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
                 :class="{ 'ac__hl': p.on }"
               >{{ p.t }}</span>
             </span>
-            <span v-if="opt.result.variant" class="ac__variant t-clip"><span class="sep">·</span> {{ tidyText(opt.result.variant) }}</span>
+            <span v-if="opt.result.variant" class="ac__variant t-clip"><span class="sep">·</span> {{ displayVariant(tidyText(opt.result.variant)) }}</span>
             <span v-if="!opt.result.verified" class="ac__community" title="community-contributed, unverified">· community</span>
           </span>
         </template>

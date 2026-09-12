@@ -58,6 +58,7 @@ import { tickRows, tickState } from "~~/shared/packing";
 import type { NameCommit } from "~/composables/useCatalogSearch";
 import { bySortOrder, effectiveClassification, entryUnitFromInput, formatKcal, rowDisplayKcal, formatWeight, fromMg, groupLineMg, isBareGroup, itemDisplayName, parseWeightInput, rowDisplayMg, siblingItems, splitWornQty, storedClassification } from "~~/shared/weights";
 import { isWaterName, itemQtyLabel, waterLiters, waterMgFromMl } from "~~/shared/water";
+import { displayVariant } from "~~/shared/variantLabel";
 // the same worthiness + identity rules the capture path runs, so "already banked"
 // below can only ever claim what capture would actually take (statically imported
 // like useGearList's own vaultNormKey — this module is in the editor graph already)
@@ -490,10 +491,13 @@ function onCommonName(e: Event) {
 // "" clears it (the reducer reads emptiness after tidying, like the gear type). The
 // variant is part of the gear's identity in My Gear (vaultNormKey), so "Long" typed on a
 // Revelation makes it the same thing as a Revelation picked in Long.
+// The field SHOWS the size spelled out ("Medium" for a stored "M", shared/variantLabel)
+// and stores what is typed: a box left as it is changes nothing, and a person who
+// types "Medium" over it has said "Medium", which is what the row then keeps.
 function onVariant(e: Event) {
   const el = e.target as HTMLInputElement;
   c.updateItem(props.item.id, { variant: el.value, nameOverridden: true });
-  el.value = props.item.variant ?? "";
+  el.value = displayVariant(props.item.variant);
 }
 function onNote(e: Event) {
   const el = e.target as HTMLTextAreaElement;
@@ -1308,7 +1312,7 @@ function dismissFix() {
            variant rides it in the aside voice, where the list holds the product in two
            variants (variantOnRow); the dot goes with the gear type, so a variant alone
            doesn't open with a stray one, as on the edit face's sub-line. -->
-      <span v-if="item.commonName || variantOnRow" class="t-sm item__csub">{{ item.commonName }}<span v-if="variantOnRow" class="item__cvariant">{{ item.commonName ? " · " : "" }}{{ item.variant }}</span></span>
+      <span v-if="item.commonName || variantOnRow" class="t-sm item__csub">{{ item.commonName }}<span v-if="variantOnRow" class="item__cvariant">{{ item.commonName ? " · " : "" }}{{ displayVariant(item.variant) }}</span></span>
     </label>
 
     <div v-if="everEdit" class="item-row item" @focusin="onFieldFocus">
@@ -1424,7 +1428,7 @@ function dismissFix() {
                     v-if="variantShown"
                     class="item__note item__variant-input"
                     :maxlength="MAX_VARIANT_LEN"
-                    :value="item.variant ?? ''"
+                    :value="displayVariant(item.variant)"
                     placeholder="Size or version"
                     aria-label="Size or version"
                     autocorrect="off"
@@ -3381,9 +3385,38 @@ textarea.item__note {
   .item__trail {
     display: flex;
     align-items: center;
-    gap: var(--meta-gap);
+    /* ONE evenly spaced cluster on a phone, marks and controls alike (Ryan,
+       2026-09-12: "align consumable and worn to the right and evenly space them").
+       The gap between the two pairs is the same 4px as within them: it was the
+       numbers' --meta-gap, which sets the pairs apart as groups on the wide grid line
+       and read as a hole in the middle of the cluster here, on the numbers' line or
+       wrapped under it. The separation from the weight stays the auto margin's. */
+    gap: var(--space-1);
     flex: none;
     margin-left: auto;
+  }
+  /* …and the four GLYPHS at one pitch. The marks centre theirs; the ⋯ right-aligned
+     its (the desktop rule, where the trailing glyphs line up on the grip), so it
+     centres here too. The grip keeps its flush treatment (.grip: the glyph right-
+     aligned in the box and shifted a third of itself out to the edge), which puts
+     its dots' centre 2px short of the box's right edge; a centred glyph's centre is
+     half a box in. So the grip's box comes back by half a box less those 2px, and
+     the dots land one box-plus-gap after the ⋯, like every other pair. The box is
+     --tap on a coarse pointer and --icon-btn on a fine one (.btn--icon's own rule),
+     hence the token, set both ways. Replaces .grip's --grip-pull here: that pull
+     evens the desktop cluster, where the ⋯ is right-aligned; this is the same idea
+     for a centred one. */
+  .item__trail :deep(.item__morebtn) {
+    justify-content: center;
+  }
+  .item__trail .item__grip {
+    --trail-box: var(--icon-btn);
+    margin-left: calc(-1 * (var(--trail-box) / 2 - 2px));
+  }
+  @media (pointer: coarse) {
+    .item__trail .item__grip {
+      --trail-box: var(--tap);
+    }
   }
   .item__classcell {
     flex: none;
