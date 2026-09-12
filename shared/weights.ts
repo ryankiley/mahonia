@@ -216,9 +216,16 @@ export function effectiveClassification(
   item: Pick<Item, "classification" | "folderId">,
   folders: Folder[],
 ): Classification {
-  if (item.classification) return item.classification;
   const folder = folders.find((f) => f.id === item.folderId);
-  return folder?.defaultClassification ?? "base";
+  return effectiveClassificationInFolder(item, folder);
+}
+
+/** Effective classification when the caller already has the item's folder indexed. */
+export function effectiveClassificationInFolder(
+  item: Pick<Item, "classification">,
+  folder: Pick<Folder, "defaultClassification"> | undefined,
+): Classification {
+  return item.classification ?? folder?.defaultClassification ?? "base";
 }
 
 /**
@@ -369,6 +376,15 @@ export function splitWornQty(
 ): number {
   if (cls !== "base" || item.wornQty == null) return 0;
   return Math.max(0, Math.min(Math.round(item.wornQty), Math.max(0, item.qty)));
+}
+
+/** The portion of an item's own line that is worn rather than carried. */
+export function wornLineMg(
+  item: Pick<Item, "qty" | "unitWeightMg" | "wornQty">,
+  cls: Classification,
+): number {
+  if (cls === "worn") return lineMg(item);
+  return cls === "base" ? splitWornQty(item, cls) * Math.max(0, item.unitWeightMg) : 0;
 }
 
 /** Items sharing a "container" — the same folder AND the same parent (null = top-level).
@@ -535,12 +551,11 @@ export function computeTotals(list: ListData): Totals {
     const line = lineMg(item);
     if (item.unitWeightMg > 0) hasWeights = true;
     totalMg += line;
-    const cls =
-      item.classification ??
-      (item.folderId ? folderById.get(item.folderId)?.defaultClassification : undefined) ??
-      "base";
-    if (cls === "worn") wornMg += line;
-    else if (cls === "consumable") {
+    const cls = effectiveClassificationInFolder(
+      item,
+      item.folderId ? folderById.get(item.folderId) : undefined,
+    );
+    if (cls === "consumable") {
       consumableMg += line;
       // gated on the EFFECTIVE class, the same condition that makes the field
       // reachable in the editor — so what's counted is exactly what's editable
@@ -550,12 +565,10 @@ export function computeTotals(list: ListData): Totals {
         hasKcal = true;
         kcalTotal += item.kcal * Math.max(0, item.qty);
       }
-    } else {
-      // a base line can carry a worn split (e.g. 3 pairs of socks, 1 worn) —
-      // move that portion into worn; the remainder stays in the derived base
-      const wq = splitWornQty(item, cls);
-      if (wq > 0) wornMg += wq * Math.max(0, item.unitWeightMg);
     }
+    // A base line can carry a worn split (e.g. 3 pairs of socks, 1 worn); every
+    // consumer of carried weight uses this same subtraction.
+    wornMg += wornLineMg(item, cls);
   }
 
   return {

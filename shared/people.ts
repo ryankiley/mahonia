@@ -7,7 +7,7 @@
 
 import { categoryColor } from "./categories";
 import type { Item, ListData, ListSnapshot, Person, Unit } from "./types";
-import { bySortOrder, computeTotals, formatWeight } from "./weights";
+import { bySortOrder, effectiveClassificationInFolder, formatWeight, lineMg, wornLineMg } from "./weights";
 
 /**
  * The filter's third state, beside "a person id" and null-for-everyone: rows
@@ -210,8 +210,8 @@ export function hasUnassignedTopLevel(items: Item[]): boolean {
 
 /**
  * Each chip's carry, in milligrams: one entry per person id, plus UNASSIGNED for
- * the unclaimed bucket — the strict per-person sets through the ordinary
- * computeTotals, so a chip and the headline it filters to can never disagree.
+ * the unclaimed bucket — the same carried-weight rule the headline uses, without
+ * recalculating a full totals object once for every person.
  * Zero carries are omitted (a "0 g" suffix on a chip is noise, not a fact).
  * Written once for the editor's chips and the share views' — the two surfaces
  * format it in their own display unit.
@@ -219,22 +219,23 @@ export function hasUnassignedTopLevel(items: Item[]): boolean {
 export function carriedTotalsMg(
   list: Pick<ListData, "folders" | "items" | "people">,
 ): Record<string, number> {
-  // ONE bucketing pass, not a filter per key: the chips recompute this on every
-  // keystroke (the snapshot mutates in place), and thirteen filterItemsForPerson
-  // calls each rebuilt the parent map over the whole list.
+  // One pass over items, rather than a full computeTotals scan for every person. The
+  // chip row recomputes on every edit and a full crew can have thirteen buckets.
   const byId = new Map(list.items.map((i) => [i.id, i]));
-  const buckets = new Map<string, Item[]>();
+  const folderById = new Map(list.folders.map((folder) => [folder.id, folder]));
+  const carriedByPerson = new Map<string, number>();
   for (const it of list.items) {
     const key = effectivePersonId(it, it.parentId ? byId.get(it.parentId) : null) ?? UNASSIGNED;
-    const bucket = buckets.get(key);
-    if (bucket) bucket.push(it);
-    else buckets.set(key, [it]);
+    const cls = effectiveClassificationInFolder(
+      it,
+      it.folderId ? folderById.get(it.folderId) : undefined,
+    );
+    const carried = lineMg(it) - wornLineMg(it, cls);
+    carriedByPerson.set(key, (carriedByPerson.get(key) ?? 0) + carried);
   }
   const out: Record<string, number> = {};
   for (const key of [...(list.people ?? []).map((p) => p.id), UNASSIGNED]) {
-    const items = buckets.get(key);
-    if (!items) continue;
-    const mg = computeTotals({ folders: list.folders, items }).totalMg;
+    const mg = carriedByPerson.get(key) ?? 0;
     if (mg > 0) out[key] = mg;
   }
   return out;

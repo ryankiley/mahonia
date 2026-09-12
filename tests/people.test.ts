@@ -301,6 +301,15 @@ describe("filtering + per-person totals", () => {
     const bare = carriedTotalsMg({ folders: [], items: [], people: crew() });
     expect(bare).toEqual({});
   });
+
+  it("does not count worn gear as part of a person's carry", () => {
+    const items = [
+      item({ id: "pack", personId: "sam", unitWeightMg: 1_000 }),
+      item({ id: "shoes", personId: "sam", classification: "worn", unitWeightMg: 500, sortOrder: 1 }),
+      item({ id: "socks", personId: "sam", qty: 3, wornQty: 1, unitWeightMg: 100, sortOrder: 2 }),
+    ];
+    expect(carriedTotalsMg({ folders: [], items, people: crew() })).toEqual({ sam: 1_200 });
+  });
 });
 
 describe("round-trips", () => {
