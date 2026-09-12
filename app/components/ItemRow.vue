@@ -511,6 +511,28 @@ function onWeightStep(e: KeyboardEvent, dir: 1 | -1) {
 
 // renaming in place via the same autocomplete: a catalog pick re-links + fills the
 // weight; a free-text rename just updates the name (or its trailing weight).
+// A multi-line paste into the name box (ItemInput.onPaste). The first line is this
+// row's, applied here through the same onNameCommit a typed name takes, AFTER the row
+// as it stands is copied off, so the paste's undo can give it back: the rows the paste
+// made are removed and this one is restored, name, link, weight and all, which is what
+// "undo a paste" means when the paste landed over something (ItemInput.onPaste says
+// why the line arrives un-applied). The rest become rows after this one; the last of
+// them is where Enter's next blank row goes (onAdvance), since that is the end of the
+// list just pasted, not the middle of it.
+const advanceAfter = ref<string | null>(null);
+function onPasteRows({ first, rest }: { first: NameCommit | null; rest: string[] }) {
+  const before = { ...props.item };
+  if (first) onNameCommit(first);
+  advanceAfter.value = c.pasteItemsAfter(props.item.id, rest, before) || null;
+}
+// Enter opens a blank row below: below the rows a paste just made, when there was
+// one and they are still there; else directly below this row (todo-list entry)
+function onAdvance() {
+  const after = advanceAfter.value;
+  const anchor = after && props.list.items.some((i) => i.id === after) ? after : props.item.id;
+  advanceAfter.value = null;
+  c.addBlankItemAfter(anchor);
+}
 function onNameCommit(p: NameCommit) {
   const patch: ItemPatch = { name: p.name };
   if (p.fromVault) {
@@ -1298,8 +1320,8 @@ function dismissFix() {
             :suggest="!isParent"
             :autofocus="isPendingBlank"
             @commit="onNameCommit"
-            @advance="c.addBlankItemAfter(item.id)"
-            @paste-rows="c.pasteItemsAfter(item.id, $event)"
+            @advance="onAdvance"
+            @paste-rows="onPasteRows"
             @overlay-toggle="$emit('overlayToggle', $event)"
           />
           <!-- collapse a group of nested items — trails the name like the folder's

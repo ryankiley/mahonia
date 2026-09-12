@@ -44,7 +44,7 @@ function baseStub(snapshot?: Ref<ListSnapshot>) {
     moveItem: () => {},
     discardEmpty: () => {},
     addBlankItemAfter: () => "",
-    pasteItemsAfter: () => 0,
+    pasteItemsAfter: () => "",
     addChild: () => "",
     nestItem: () => {},
     unnest: () => {},

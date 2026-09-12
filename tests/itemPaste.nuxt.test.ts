@@ -15,12 +15,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { stubLocalStorage } from "./helpers/storage";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import { readBody } from "h3";
-import { flushPromises, mount } from "@vue/test-utils";
+import { enableAutoUnmount, flushPromises, mount } from "@vue/test-utils";
 import ItemRow from "~/components/ItemRow.vue";
 import { rowProvides } from "./helpers/itemRow";
 import { MAX_ITEMS } from "~~/shared/ops";
 import type { Item, ListSnapshot } from "~~/shared/types";
 import type { CatalogSearchResult } from "~~/shared/catalogSearch";
+import { foldName } from "~~/shared/catalogMatch";
 
 mockNuxtImport("useVaultAccess", () => () => ({
   hasVault: ref(false),
@@ -59,7 +60,8 @@ registerEndpoint("/api/catalog/search", () => ({ results: [] }));
 registerEndpoint("/api/edit/mutate", { method: "POST", handler: () => ({ ok: true }) });
 
 // What the catalog knows, word for word — the endpoint answers positionally, a row or
-// null per name, exactly as the real one does. `matchAsked` records what it was asked.
+// null per name, through the real fold (case and punctuation off), exactly as the real
+// one does. `matchAsked` records what it was asked.
 const catalog = new Map<string, CatalogSearchResult>();
 let matchAsked: string[][] = [];
 registerEndpoint("/api/catalog/match", {
@@ -68,7 +70,8 @@ registerEndpoint("/api/catalog/match", {
     const body = await readBody<{ names: { name: string }[] }>(event);
     const names = body.names.map((n) => n.name);
     matchAsked.push(names);
-    return { matches: names.map((n) => catalog.get(n) ?? null) };
+    const byKey = new Map([...catalog].map(([k, v]) => [foldName(k), v]));
+    return { matches: names.map((n) => byKey.get(foldName(n)) ?? null) };
   },
 });
 
@@ -154,6 +157,9 @@ beforeEach(() => {
   catalog.clear();
   matchAsked = [];
 });
+// every mounted row comes down with its case: a row left mounted by a failed
+// assertion keeps reacting to the shared controller and eats the next case's rows
+enableAutoUnmount(afterEach);
 afterEach(() => useGearList().dispose());
 
 describe("pasting a list into an item's name", () => {
@@ -192,7 +198,48 @@ describe("pasting a list into an item's name", () => {
     w.unmount();
   });
 
-  it("undo takes the rows away and leaves the one you pasted into", async () => {
+  it("says one row in the singular, and does not blame the cap for a line that named nothing", async () => {
+    const c = await open([item({ id: "blank", sortOrder: 0 })]);
+    const w = mountRow(c, "blank");
+    pasteInto(w, "Tent\n: 540 g\nQuilt");
+    await flushPromises();
+    // ": 540 g" is a name (a weight with nothing in front of it), so two rows
+    expect(c.pendingUndo.value?.label).toBe("2 rows");
+    c.undoRemove();
+    pasteInto(w, "Tent\nQuilt");
+    await flushPromises();
+    expect(c.pendingUndo.value?.label).toBe("1 row");
+    w.unmount();
+  });
+
+  it("reads a water line as the water row at its volume", async () => {
+    const c = await open([item({ id: "blank", sortOrder: 0 })]);
+    const w = mountRow(c, "blank");
+    pasteInto(w, "Water 2 L\nwater 500 ml\n1 L water\nwater");
+    await flushPromises();
+    expect(itemsOf(c).map((i) => [i.name, i.unitWeightMg, i.classification])).toEqual([
+      ["Water", 2_000_000, "consumable"],
+      ["Water", 500_000, "consumable"],
+      ["Water", 1_000_000, "consumable"],
+      ["water", 0, "consumable"],
+    ]);
+    w.unmount();
+  });
+
+  // the todo-list Enter after a paste opens the blank below the rows just pasted,
+  // not between the first line and the second
+  it("opens Enter's blank row below the pasted rows", async () => {
+    const c = await open([item({ id: "blank", sortOrder: 0 }), item({ id: "pad", name: "Pad", sortOrder: 1 })]);
+    const w = mountRow(c, "blank");
+    pasteInto(w, "Quilt\nStove\nPot");
+    await flushPromises();
+    w.findComponent({ name: "ItemInput" }).vm.$emit("advance");
+    await flushPromises();
+    expect(itemsOf(c).map((i) => i.name)).toEqual(["Quilt", "Stove", "Pot", "", "Pad"]);
+    w.unmount();
+  });
+
+  it("undo takes the rows away and puts the one you pasted into back as it was", async () => {
     const c = await open([item({ id: "blank", sortOrder: 0 }), item({ id: "pad", name: "Pad", sortOrder: 1 })]);
     const w = mountRow(c, "blank");
     pasteInto(w, "Quilt\nStove\nPot");
@@ -200,8 +247,49 @@ describe("pasting a list into an item's name", () => {
     expect(itemsOf(c).map((i) => i.name)).toEqual(["Quilt", "Stove", "Pot", "Pad"]);
 
     c.undoRemove();
-    expect(itemsOf(c).map((i) => i.name)).toEqual(["Quilt", "Pad"]);
+    // the blank is blank again: the paste is undone in full, not half
+    expect(itemsOf(c).map((i) => i.name)).toEqual(["", "Pad"]);
     expect(c.pendingUndo.value).toBeNull();
+    w.unmount();
+  });
+
+  // The gesture's own undo covers what it did to the row it landed on: a linked row
+  // pasted over by mistake comes back with its name, link, weight and gear type.
+  it("undo restores a linked row the paste overwrote", async () => {
+    const c = await open([
+      item({ id: "dup", name: "Duplex", brand: "Zpacks", commonName: "Tent", catalogItemId: 200, catalogWeightMgAtLink: 545_000, unitWeightMg: 545_000, sortOrder: 0 }),
+    ]);
+    const w = mountRow(c, "dup");
+    pasteInto(w, "Groceries 200 g\nMilk", [0, "Zpacks Duplex".length]);
+    await flushPromises();
+    expect(byId(c, "dup")).toMatchObject({ name: "Groceries", unitWeightMg: 200_000, nameOverridden: true });
+    expect(byId(c, "dup")!.catalogItemId ?? null).toBeNull();
+
+    c.undoRemove();
+    expect(itemsOf(c).map((i) => i.name)).toEqual(["Duplex"]);
+    expect(byId(c, "dup")).toMatchObject({ brand: "Zpacks", commonName: "Tent", catalogItemId: 200, unitWeightMg: 545_000, catalogWeightMgAtLink: 545_000 });
+    expect(byId(c, "dup")!.nameOverridden).toBe(false);
+    // and the field, still focused, shows the restored name, not the pasted one
+    await flushPromises();
+    expect(w.find<HTMLInputElement>('input[aria-label="Name of item"]').element.value).toBe("Zpacks Duplex");
+  });
+
+  // A row someone nested under a pasted row in the meantime is not part of the paste:
+  // it steps out before the pasted row goes, rather than going with it (the reducer's
+  // removeItem cascades to children)
+  it("undo does not take a row nested under a pasted row since", async () => {
+    const c = await open([item({ id: "blank", sortOrder: 0 }), item({ id: "old", name: "Existing", unitWeightMg: 100_000, sortOrder: 1 })]);
+    const w = mountRow(c, "blank");
+    pasteInto(w, "Tent\nStakes");
+    await flushPromises();
+    const stakes = itemsOf(c).find((i) => i.name === "Stakes")!;
+    c.nestItem("old", stakes.id);
+    await flushPromises();
+    expect(byId(c, "old")!.parentId).toBe(stakes.id);
+
+    c.undoRemove();
+    expect(itemsOf(c).map((i) => i.name)).toEqual(["", "Existing"]);
+    expect(byId(c, "old")!.parentId ?? null).toBeNull();
     w.unmount();
   });
 
@@ -277,15 +365,62 @@ describe("pasting a list into an item's name", () => {
     await vi.waitFor(() => expect(byId(c, "linked")?.catalogItemId).toBe(1));
 
     expect(matchAsked).toEqual([["Lanshan 1 Pro Tent", "Pot"]]);
-    // the row's weight stands, as the importer's rule has it (a weight on a row is
-    // never overwritten), marked as disagreeing so the catalog's figure is offered
+    // the weight left by the PREVIOUS link was never the person's: the new product's
+    // weight lands, as a pick's would, with no "suggest a fix" against the old figure
     expect(byId(c, "linked")).toMatchObject({
       brand: "3FULGEAR",
       name: "Lanshan 1 Pro Tent",
-      unitWeightMg: 545_000,
-      weightOverridden: true,
+      unitWeightMg: 688_000,
+      weightOverridden: false,
       catalogWeightMgAtLink: 688_000,
     });
+    w.unmount();
+  });
+
+  it("keeps a weight the person typed on the row when the link lands", async () => {
+    catalog.set("Lanshan 1 Pro Tent", LANSHAN);
+    const c = await open([item({ id: "mine", name: "my tent", unitWeightMg: 700_000, weightOverridden: true, sortOrder: 0 })]);
+    const w = mountRow(c, "mine");
+    pasteInto(w, "Lanshan 1 Pro Tent\nPot", [0, "my tent".length]);
+    await flushPromises();
+    await vi.waitFor(() => expect(byId(c, "mine")?.catalogItemId).toBe(1));
+    expect(byId(c, "mine")).toMatchObject({ unitWeightMg: 700_000, weightOverridden: true, catalogWeightMgAtLink: 688_000 });
+    w.unmount();
+  });
+
+  // a group's weight is its children's; a pick can't stamp one and neither can this
+  it("links a group's name but never stamps a weight on it", async () => {
+    catalog.set("Lanshan 1 Pro Tent", LANSHAN);
+    const c = await open([
+      item({ id: "kit", name: "Shelter kit", sortOrder: 0 }),
+      item({ id: "stakes", name: "Stakes", parentId: "kit", unitWeightMg: 50_000, sortOrder: 0 }),
+    ]);
+    const w = mountRow(c, "kit");
+    pasteInto(w, "Lanshan 1 Pro Tent\nFootprint", [0, "Shelter kit".length]);
+    await flushPromises();
+    await vi.waitFor(() => expect(matchAsked).toHaveLength(1));
+    await flushPromises();
+    expect(matchAsked[0]).toEqual(["Footprint"]); // the group was never asked
+    expect(byId(c, "kit")).toMatchObject({ name: "Lanshan 1 Pro Tent", unitWeightMg: 0 });
+    expect(byId(c, "kit")!.catalogItemId ?? null).toBeNull();
+    w.unmount();
+  });
+
+  // the link lands a moment after the paste, while the field is still focused; the
+  // field follows it, so the next blur does not commit the old text back and unlink
+  it("keeps the link when the field blurs after the link landed", async () => {
+    catalog.set("Lanshan 1 Pro Tent", LANSHAN);
+    const c = await open([item({ id: "blank", sortOrder: 0 })]);
+    const w = mountRow(c, "blank");
+    pasteInto(w, "lanshan 1 pro tent\nPot");
+    await flushPromises();
+    await vi.waitFor(() => expect(byId(c, "blank")?.catalogItemId).toBe(1));
+    await flushPromises();
+    const input = w.find<HTMLInputElement>('input[aria-label="Name of item"]');
+    expect(input.element.value).toBe("3FULGEAR Lanshan 1 Pro Tent");
+    await w.find(".ac").trigger("focusout", { relatedTarget: document.body });
+    await flushPromises();
+    expect(byId(c, "blank")).toMatchObject({ catalogItemId: 1, brand: "3FULGEAR", nameOverridden: false });
     w.unmount();
   });
 
@@ -349,7 +484,7 @@ describe("pasting a list into an item's name", () => {
     expect(byId(c, "blank")!.name).toBe("One");
     expect(itemsOf(c)).toHaveLength(MAX_ITEMS);
     expect(itemsOf(c).slice(-3).map((i) => i.name)).toEqual(["One", "Two", "Three"]);
-    expect(c.pendingUndo.value?.label).toBe(`2 of 4 rows (a list holds ${MAX_ITEMS} items)`);
+    expect(c.pendingUndo.value?.label).toBe(`2 rows (a list holds ${MAX_ITEMS} items; 2 did not fit)`);
     w.unmount();
   });
 });

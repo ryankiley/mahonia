@@ -41,9 +41,53 @@ describe("splitWeightTail", () => {
   });
 
   // a weight with nothing in front of it is a name, as it always was when typed:
-  // there is no row for it to be the weight OF
-  it("keeps a bare weight as the name", () => {
+  // there is no row for it to be the weight OF; a separator in front of it changes
+  // nothing (": 540 g" pasted over a name used to leave the field lying)
+  it("keeps a bare weight as the name, separator or not", () => {
     expect(splitWeightTail("540 g")).toEqual({ name: "540 g" });
+    expect(splitWeightTail(": 540 g")).toEqual({ name: ": 540 g" });
+    expect(splitWeightTail("- 540 g")).toEqual({ name: "- 540 g" });
+    expect(splitWeightTail("(540 g)")).toEqual({ name: "(540 g)" });
+  });
+
+  // the parentheses come as a pair: a parenthetical that merely ends in a weight is
+  // not a weight, and a weight torn out of it would leave "(" behind in the name
+  it("does not tear a weight out of a longer parenthetical", () => {
+    expect(splitWeightTail("Tent (packed 540 g)")).toEqual({ name: "Tent (packed 540 g)" });
+    expect(splitWeightTail("Quilt (20F, 600 g)")).toEqual({ name: "Quilt (20F, 600 g)" });
+    expect(splitWeightTail("Socks (2 pairs, 60 g)")).toEqual({ name: "Socks (2 pairs, 60 g)" });
+    expect(splitWeightTail("Stove: 85 g)")).toEqual({ name: "Stove: 85 g)" });
+  });
+
+  // the field parser sums a compound ("2 lb 3 oz" is 992 g), so the tail hands all of
+  // it on; before, only the last group came off and the rest stayed in the name
+  it("takes a compound weight whole", () => {
+    expect(splitWeightTail("Tent 2 lb 3 oz")).toEqual({ name: "Tent", weight: "2 lb 3 oz" });
+    expect(splitWeightTail("Bear Vault BV500 (2 lbs 9 oz)")).toEqual({ name: "Bear Vault BV500", weight: "2 lbs 9 oz" });
+    expect(splitWeightTail("Tent - 1 lb 4 oz")).toEqual({ name: "Tent", weight: "1 lb 4 oz" });
+  });
+
+  // a dash after a figure is a range, spaced or not
+  it("does not split a spaced range", () => {
+    expect(splitWeightTail("Fuel 3 - 4 oz")).toEqual({ name: "Fuel 3 - 4 oz" });
+    expect(splitWeightTail("Bag 100 - 200 g")).toEqual({ name: "Bag 100 - 200 g" });
+  });
+
+  // the unit words and the number token are the field parser's own (shared/weights),
+  // so what parses there parses here
+  it("reads every unit word the weight field reads, and a bare decimal", () => {
+    expect(splitWeightTail("Bear can 1.2 kilograms")).toEqual({ name: "Bear can", weight: "1.2 kilograms" });
+    expect(splitWeightTail("Tent 1 kilogram")).toEqual({ name: "Tent", weight: "1 kilogram" });
+    expect(splitWeightTail("Bar .9 oz")).toEqual({ name: "Bar", weight: ".9 oz" });
+    expect(splitWeightTail("Bar ,9oz")).toEqual({ name: "Bar", weight: ",9oz" });
+  });
+
+  // a line of a thousand tabs (a wide spreadsheet row) used to cost most of a second
+  it("costs nothing on a long run of whitespace", () => {
+    const line = "a" + "\t".repeat(2000) + "b";
+    const t0 = performance.now();
+    expect(splitWeightTail(line)).toEqual({ name: "a b" });
+    expect(performance.now() - t0).toBeLessThan(50);
   });
 });
 
@@ -60,6 +104,24 @@ describe("pasteRows", () => {
     expect(pasteRows("- Tent\n* Quilt\n• Stove\n1. Pot\n2) Spoon\n[ ] Map\n[x] Compass\n☐ Filter")).toEqual([
       "Tent", "Quilt", "Stove", "Pot", "Spoon", "Map", "Compass", "Filter",
     ]);
+  });
+
+  // a Markdown checklist is a bullet and then a box; both come off
+  it("strips stacked markers", () => {
+    expect(pasteRows("- [ ] Tent\n- [x] Quilt\n* [ ] Stove\n1. [x] Pot")).toEqual(["Tent", "Quilt", "Stove", "Pot"]);
+  });
+
+  // a marker wants a space after it; a sign or an asterisk that is part of the text
+  // is not a marker
+  it("keeps a leading minus or asterisk that is part of the name", () => {
+    expect(pasteRows("-10F bag\n-20 degree quilt\n*Optional* shoes\nPot")).toEqual([
+      "-10F bag", "-20 degree quilt", "*Optional* shoes", "Pot",
+    ]);
+  });
+
+  it("cuts a line longer than any name the list would keep", () => {
+    const [row] = pasteRows("x".repeat(500) + "\nPot");
+    expect(row!.length).toBeLessThan(300);
   });
 
   // "2.5 oz bar" is a bar, not item 2 named "5 oz bar"
