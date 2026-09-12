@@ -95,6 +95,30 @@ describe("community intake — corroborateCatalog", () => {
     expect(row).toMatchObject({ brand: "Zpacks", name: "Frobozz 9000", weightSource: "community" });
   });
 
+  it("recognizes an unambiguous first word of a multi-word catalog brand", async () => {
+    const [alsek] = (await db.insert(schema.catalogItems).values({
+      brand: "Katabatic Gear", name: "Alsek", weightMg: 650_000, weightSource: "manufacturer", verified: true, usageCount: 0,
+    }).returning()) as any[];
+    await stageOnLists(db, 3, { name: "Katabatic Alsek", weightMg: 655_000 });
+    const r = await corroborateCatalog(db as any);
+    expect(r.merged).toBe(1);
+    expect(await catalogCount(db)).toBe(1);
+    const [row] = (await db.select().from(schema.catalogItems).where(eq(schema.catalogItems.id, alsek.id))) as any[];
+    expect(row.usageCount).toBeGreaterThan(0);
+  });
+
+  it("learns a cottage maker only after two candidate names are independently corroborated", async () => {
+    // SUL has three lists, enough to promote. Bilby has two, enough to corroborate
+    // Timmermade as its maker but not enough to promote a second product itself.
+    await stageOnLists(db, 3, { name: "Timmermade SUL 1.5", weightMg: 250_000 });
+    await stageCandidates(db as any, 11, [{ name: "Timmermade Bilby", weightMg: 300_000 }]);
+    await stageCandidates(db as any, 12, [{ name: "Timmermade Bilby", weightMg: 305_000 }]);
+    const r = await corroborateCatalog(db as any);
+    expect(r.promoted).toBe(1);
+    const [row] = (await db.select().from(schema.catalogItems).where(eq(schema.catalogItems.name, "SUL 1.5"))) as any[];
+    expect(row).toMatchObject({ brand: "Timmermade", name: "SUL 1.5", weightSource: "community" });
+  });
+
   // and the dedup reads the size too: a typed "Revelation" in Long is the catalog's
   // Revelation in Long, not its Regular beside it
   it("merges a typed size into the catalog's row of that size", async () => {

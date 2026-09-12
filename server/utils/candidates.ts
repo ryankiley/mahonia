@@ -9,6 +9,7 @@ import { catalogCandidates, catalogItems } from "../db/schema";
 import {
   categoryForGearType,
   classificationToCategory,
+  emergingBrandTokens,
   GENERIC_GEAR_TERMS,
   isAcceptableTypedItem,
   isBrandedTypedItem,
@@ -169,6 +170,24 @@ export async function corroborateCatalog(db: Db): Promise<CorroborateResult> {
   }
   const knownBrands = new Set<string>(brandSpellings.keys());
 
+  // A new maker must head at least two independently corroborated candidate names.
+  // Let Postgres narrow the 90-day intake table to those names first; the small result
+  // is all the pure helper needs to decide which leading tokens are trustworthy.
+  const emergingRows = await db
+    .select({
+      normKey: catalogCandidates.normKey,
+      rawName: sql<string>`min(${catalogCandidates.rawName})`,
+    })
+    .from(catalogCandidates)
+    .where(and(isNull(catalogCandidates.promotedIntoId), isNull(catalogCandidates.rejectedAt)))
+    .groupBy(catalogCandidates.normKey)
+    .having(sql`count(distinct ${catalogCandidates.listId}) >= 2`);
+  const emergingBrands = emergingBrandTokens(
+    // Candidate identity includes variant, but brand evidence is per PRODUCT: two
+    // sizes of "Frobozz Megapack" corroborate one name, not two makers' products.
+    emergingRows.map((row) => ({ normKey: normKey(row.rawName), name: row.rawName })),
+  );
+
   const reject = async (key: string) => {
     await db.update(catalogCandidates).set({ rejectedAt: new Date() })
       .where(and(eq(catalogCandidates.normKey, key), isNull(catalogCandidates.promotedIntoId), isNull(catalogCandidates.rejectedAt)));
@@ -185,7 +204,9 @@ export async function corroborateCatalog(db: Db): Promise<CorroborateResult> {
     // on a typed row), so a known brand at the front is split out here, spelled as the
     // catalog spells it, and the community row lands shaped like the cited ones. A
     // row that came with a brand of its own keeps it.
-    const split = typedBrand ? { brand: typedBrand, name: typedName } : splitKnownBrand(typedName, brandSpellings);
+    const split = typedBrand
+      ? { brand: typedBrand, name: typedName }
+      : splitKnownBrand(typedName, brandSpellings, emergingBrands);
     const rawBrand = split.brand;
     const rawName = split.name;
     // the typed size or version, in the catalog's one style ("Long, 18F"), or none
@@ -193,7 +214,7 @@ export async function corroborateCatalog(db: Db): Promise<CorroborateResult> {
     const full = itemDisplayName(rawBrand, rawName, variant);
 
     // gates: clean + branded (the gate reads the name as typed, brand and all)
-    if (!isAcceptableTypedItem({ brand: typedBrand, name: typedName }) || !isBrandedTypedItem({ brand: typedBrand, name: typedName, knownBrands })) {
+    if (!isAcceptableTypedItem({ brand: typedBrand, name: typedName }) || !isBrandedTypedItem({ brand: typedBrand, name: typedName, knownBrands, emergingBrands })) {
       await reject(key); res.rejected++; continue;
     }
     // corroborated, plausible weight
