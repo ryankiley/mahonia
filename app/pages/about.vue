@@ -24,11 +24,12 @@ useHead({
 
     <main id="main-content" tabindex="-1" class="wrap page">
       <div class="prose">
-        <h1 class="t-title">About</h1>
-        <p>What Mahonia is, and how it works.</p>
-
-        <!-- ================= About ================= -->
-        <h2 id="about">What it is</h2>
+        <!-- The bar already names the page, so the h1 is for the outline and the
+             screen reader, not the eye — /gear's shape. The line that used to sit
+             under it said "About" a third time, in a sentence, and the heading that
+             used to sit over the first paragraph ("What it is") was a label on the one
+             paragraph that is the answer. The page opens on the answer. -->
+        <h1 class="visually-hidden">About</h1>
         <p>
           Mahonia is a tool for building, weighing, and sharing packing lists, made by one
           person. Make a list, see what it weighs, send someone the link. No app, no ads, and no
@@ -36,7 +37,7 @@ useHead({
           build a list with zero weights and the totals just stay quiet.
         </p>
 
-        <h2>The short version of how it works</h2>
+        <h2>How Mahonia works</h2>
         <ul>
           <li>
             A list syncs to the server under a private, unguessable link as soon as you start
