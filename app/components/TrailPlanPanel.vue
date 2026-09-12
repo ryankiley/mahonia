@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { HugeiconsIcon, type IconChild, type IconNode } from "~/utils/hugeicon";
-import { ChevronDownIcon, Delete02Icon, Fire02Icon, HelpCircleIcon, RacingFlagIcon, RouteIcon, Stairs01Icon, Sun03Icon, TentIcon } from "@hugeicons/core-free-icons";
+import { ChevronDownIcon, Delete02Icon, DropletIcon, Fire02Icon, HelpCircleIcon, MountainIcon, RacingFlagIcon, RouteIcon, Stairs01Icon, Sun03Icon, TentIcon } from "@hugeicons/core-free-icons";
 import type { ListSnapshot, Totals, Waypoint } from "~~/shared/types";
 import { burnDownMg, dayEnd, dayRanges, estimateDay, heightIsDerived, nextOwnedDay, shownHeightM } from "~~/shared/tripPlan";
+import { coolerByC, dayFacts, type DayFacts } from "~~/shared/dayFacts";
+import { carryHours, dryCarries, longestCarryForDay, type DryCarry } from "~~/shared/dryCarry";
 import { dayClimbs, parseProfile } from "~~/shared/profile";
 import { MAX_DAYS } from "~~/shared/ops";
 import { dayColorSequence } from "~~/shared/categories";
@@ -18,6 +20,7 @@ import {
   bodyWeightFieldValue,
   distanceFieldValue,
   formatBodyWeight,
+  formatDistance,
   formatDistancePadded,
   heightFieldValue,
   heightUnitFor,
@@ -465,6 +468,82 @@ const dayEnds = computed(() =>
 /** The one day that has a finish, for the map — the rows ask per day, the map asks once. */
 const routeFinishM = computed(() => dayEnds.value.find((e) => e?.kind === "finish")?.alongM ?? null);
 
+// ---- what the day is like, read off the profile ----
+// The camp's altitude, the high point, the longest climb and the steepest stretch
+// (shared/dayFacts): derived, said in the estimate's ink, silent on a day with no
+// distance. Nothing here is typed; the profile is public but this reads on /e for now.
+const facts = computed(() =>
+  ranges.value.map((r) => dayFacts(profile.value, props.snapshot.trailDistanceM, r, props.snapshot.trailAscentM)),
+);
+/** a height in the list's own unit, with its unit word */
+const heightWord = (m: number) => `${heightValue(m, distanceUnit.value, distanceUnit.value === "mi" ? 10 : 1)} ${ascentUnit.value}`;
+/** the lapse-rate rule of thumb, in the degrees the list's unit system speaks */
+function coolerWord(aboveM: number): string {
+  const c = coolerByC(aboveM);
+  const v = distanceUnit.value === "mi" ? c * 1.8 : c;
+  const n = Math.round(Math.abs(v));
+  if (n < 1) return "";
+  return `about ${n} °${distanceUnit.value === "mi" ? "F" : "C"} ${v > 0 ? "cooler" : "warmer"}`;
+}
+// Whether day `i` ends the WALK. Asked of dayEnd without the stored end pins: those
+// stand the finish ROW down, because the pin's own row already says it, but the
+// sentence still has to say finish rather than camp, and on a point-to-point route
+// (every import that isn't a loop seeds an end pin) the pin is always there.
+const dayFinishes = computed(() =>
+  ranges.value.map(
+    (_, i) =>
+      dayEnd({ index: i, ranges: ranges.value, dayDistancesM: dayDistancesM.value, hasRest: hasRest.value })?.kind ===
+      "finish",
+  ),
+);
+/** "Camp at 1,850 m, 650 m above the trailhead and about 4 °C cooler. High point 2,410 m." */
+function campSentence(i: number, f: DayFacts): string {
+  const end = dayFinishes.value[i] ? "Finish" : "Camp";
+  const parts = [`${end} at ${heightWord(f.campM)}`];
+  const above = Math.round(f.aboveTrailheadM);
+  if (Math.abs(above) >= 10) {
+    const cooler = coolerWord(f.aboveTrailheadM);
+    parts.push(`${heightWord(Math.abs(above))} ${above > 0 ? "above" : "below"} the trailhead${cooler ? ` and ${cooler}` : ""}`);
+  }
+  let s = parts.join(", ") + ".";
+  if (f.highM - f.campM >= 10) s += ` High point ${heightWord(f.highM)}.`;
+  return s;
+}
+/** "Longest climb 620 m over 3.1 km, from 4.2 km. Steepest stretch 14% at 6.8 km." */
+function groundSentence(f: DayFacts): string {
+  const parts: string[] = [];
+  if (f.climb) parts.push(`Longest climb ${heightWord(f.climb.gainM)} over ${formatDistance(f.climb.lengthM, distanceUnit.value)}, from ${formatDistance(f.climb.startM, distanceUnit.value)}.`);
+  if (f.steepest) {
+    const g = f.steepest.gradePct;
+    parts.push(`Steepest stretch ${Math.abs(g)}% ${g < 0 ? "downhill" : "uphill"} at ${formatDistance(f.steepest.atM, distanceUnit.value)}.`);
+  }
+  return parts.join(" ");
+}
+
+// ---- the longest dry carry ----
+// Between one water and the next, measured in full even across a night, from the pins
+// already on the route (shared/dryCarry has the rules). The route's ends are sources
+// too: you leave the trailhead with water and stop carrying at the finish. Owner-only
+// by construction: the pins never ride a read path, so neither can this.
+const waterPins = computed(() => waypoints.value.filter((w) => w.kind === "water"));
+const carries = computed(() => dryCarries(waterPins.value, headlineM.value));
+const dayHours = computed(() => estimates.value.map((e) => e?.hours));
+// Each day's longest carry and its hours, once per day like dayEnds above, or null
+// when the day has no carry to speak of. The row reads it six times; a function here
+// would walk the carries and the ranges six times over to reach the same answer.
+const dayCarries = computed(() =>
+  ranges.value.map((r) => {
+    const carry = longestCarryForDay(carries.value, r);
+    return carry ? { carry, hours: carryHours(carry, ranges.value, dayHours.value) } : null;
+  }),
+);
+/** where the carry starts, in words: the trailhead, or the pin by name or by distance */
+function carryFromLabel(carry: DryCarry): string {
+  const at = formatDistance(carry.fromM, distanceUnit.value);
+  if (carry.from.kind === "trailhead") return "the trailhead";
+  return carry.from.label ? `${carry.from.label} at ${at}` : `water at ${at}`;
+}
+
 /**
  * WHERE a point on the route actually is, worked out rather than looked up.
  *
@@ -826,6 +905,13 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
       </li>
     </ul>
     <!-- Empty state names what's missing rather than showing an empty table. -->
+    <!-- the one line the carry needs before it can say anything: with no water marked
+         the whole route is one stretch, and that is not a finding. Said ONCE, here,
+         rather than on every day. It sits ABOVE the empty-state paragraph so that
+         paragraph's v-else (the days list) keeps its partner. -->
+    <p v-if="snapshot.routeGeometry && days.length && !waterPins.length" class="t-sm plan__carryhint">
+      Mark water on the route and each day shows its longest dry carry.
+    </p>
     <p v-if="!days.length" class="plan__note t-sm">
       Break the trip into days to see what each one asks of you, and what the pack weighs
       when you shoulder it that morning.
@@ -959,6 +1045,34 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
           </span>
 
         </div>
+
+        <!-- What the day is like, read off the profile: two derived sentences in the
+             estimate's ink. The first is where you end up and how high; the second is
+             the climb you'll remember and the steepest bit. Both go quiet when there
+             is nothing to say (flat ground, a day with no distance). -->
+        <template v-if="!collapsed[d?.id ?? ''] && dayDistancesM[i] && facts[i]">
+          <p class="t-sm plan__fact">
+            <HugeiconsIcon :icon="dayFinishes[i] ? RacingFlagIcon : TentIcon" class="plan__gl" :size="16" :stroke-width="2" aria-hidden="true" />
+            <span>{{ campSentence(i, facts[i]!) }}</span>
+          </p>
+          <p v-if="groundSentence(facts[i]!)" class="t-sm plan__fact">
+            <HugeiconsIcon :icon="MountainIcon" class="plan__gl" :size="16" :stroke-width="2" aria-hidden="true" />
+            <span>{{ groundSentence(facts[i]!) }}</span>
+          </p>
+        </template>
+
+        <!-- The longest carry this day walks any part of: a sentence, not a cell, because
+             it names a place. Measured in full even when it straddles the night; the
+             hours follow each day's own pace, and are left out when part of the carry
+             falls on ground with no estimate. -->
+        <p v-if="!collapsed[d?.id ?? ''] && dayDistancesM[i] && dayCarries[i]" class="t-sm plan__fact">
+          <HugeiconsIcon :icon="DropletIcon" class="plan__gl" :size="16" :stroke-width="2" aria-hidden="true" />
+          <span>
+            Longest carry
+            <span class="t-num">{{ formatDistance(dayCarries[i]!.carry.toM - dayCarries[i]!.carry.fromM, distanceUnit) }}</span><template v-if="dayCarries[i]!.hours != null">, <span class="t-num">{{ formatHours(dayCarries[i]!.hours!) }}</span></template>,
+            from {{ carryFromLabel(dayCarries[i]!.carry) }}.
+          </span>
+        </p>
 
         <!-- The pins on THIS day's stretch, and how you add one — the place in a day that
              "Add an item" holds in a folder, and deliberately the same gesture: arming
@@ -1221,6 +1335,25 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
 /* estimates sit a step back from the figures you entered — the `~` carries the claim,
    this only keeps the eye on what's yours */
 .plan__cell--est {
+  color: var(--ink-3);
+}
+/* a derived sentence under the day's figures (the camp, the ground, the carry), in the
+   estimate's ink, with a glyph for its subject so a stack of them scans by shape */
+.plan__fact {
+  margin-top: var(--space-1);
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  color: var(--ink-3);
+}
+.plan__fact .plan__gl {
+  /* the glyph's box sits on the baseline row; nudge it to the text's optical centre */
+  position: relative;
+  top: 0.2em;
+}
+/* the once-only hint above the days, same ink, same size, no glyph */
+.plan__carryhint {
+  margin-top: var(--space-2);
   color: var(--ink-3);
 }
 /* THE CLIMB AND ITS DROP SHARE ONE CELL, so they share one column.

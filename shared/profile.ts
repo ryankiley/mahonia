@@ -55,8 +55,8 @@ export const PROFILE_SAMPLES = 240;
  * The result is a FILTERED ESTIMATE, not a measurement. Both numbers are choices. Say so
  * wherever the figure is shown.
  */
-const ASCENT_THRESHOLD_M = 2;
-const SMOOTH_WINDOW = 5;
+export const ASCENT_THRESHOLD_M = 2;
+export const SMOOTH_WINDOW = 5;
 /**
  * The spacing the two numbers above were calibrated at, in metres between samples.
  *
@@ -71,8 +71,10 @@ const SMOOTH_WINDOW = 5;
  */
 export const CLIMB_SAMPLE_M = 18;
 
-/** Centred moving average, edge-clamped so the series keeps its length and its ends. */
-function smooth(values: readonly number[], window: number): number[] {
+/** Centred moving average, edge-clamped so the series keeps its length and its ends.
+ *  Exported for shared/dayFacts, which reads the same smoothed ground; the constants
+ *  above go with it so a second caller can't smooth by a different rule. */
+export function smooth(values: readonly number[], window: number): number[] {
   if (values.length < window) return [...values];
   const half = Math.floor(window / 2);
   return values.map((_, i) => {
@@ -297,8 +299,8 @@ export function gradeSeries(profile: readonly number[], totalDistanceM: number):
  * The profile cut into runs of like difficulty — `[from, to]` sample indices, inclusive,
  * each meeting the next so a renderer can draw them without a hairline of paper between.
  *
- * Lives here rather than in the component because it is arithmetic, it needs `smooth()`
- * (which is private to this file), and both the shading and anything else that wants to
+ * Lives here rather than in the component because it is arithmetic on the same smoothed
+ * series everything else here reads, and both the shading and anything else that wants to
  * say "how much of this route is steep" must agree on one answer.
  */
 export function gradeRuns(

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { ArrowUpRight01Icon, Backpack02Icon, Calendar03Icon, GlobeIcon, Route02Icon, RouteIcon } from "@hugeicons/core-free-icons";
+import { ArrowUpRight01Icon, Backpack03Icon, Calendar03Icon, GlobeIcon, Route02Icon, RouteIcon } from "@hugeicons/core-free-icons";
 import { parseTrailLink } from "~~/shared/trailLink";
 import { dayClimbs, parseProfile } from "~~/shared/profile";
 import { dayLabel } from "~~/shared/tripDay";
@@ -105,7 +105,7 @@ const dateLabel = computed(() => formatDateRange(props.list?.startDate, props.li
 const view = useReadView();
 onMounted(resetReadView);
 const VIEW_MODES = [
-  { key: "gear", label: "Gear", icon: Backpack02Icon },
+  { key: "gear", label: "Gear", icon: Backpack03Icon },
   { key: "trip", label: "Trip", icon: Route02Icon },
 ] as const;
 

@@ -1341,7 +1341,9 @@ function dismissFix() {
                    italic aside). A wrapping flex line, so the variant sits right after the
                    gear type's text where the fields can size to their content and drops
                    under it where they can't (.item__gtype-line). Either half may be
-                   absent: a group opens no empty field for either. -->
+                   absent: a group opens no empty field for either. Each field wears its own
+                   reveal-field fade (see the note below), so an empty one closes with its
+                   sibling rather than vanishing mid-frame. -->
               <div v-if="cnameShown || variantShown" class="item__gtype-line">
                 <!-- the two placeholders are a matched pair — "Name of item" above, "Type of
                      gear" here — so a blank row reads as one short stack. This field used to
@@ -1350,22 +1352,26 @@ function dismissFix() {
                      read as a second set of name suggestions. A catalog pick fills this field
                      with a real value anyway, which demonstrates the vocabulary better than a
                      placeholder did. The aria-label carries the same noun for screen readers. -->
-                <input
-                  v-if="cnameShown"
-                  ref="cnameRef"
-                  class="item__note item__gtype-input"
-                  :maxlength="MAX_GEAR_TYPE_LEN"
-                  :value="item.commonName ?? ''"
-                  placeholder="Type of gear"
-                  aria-label="Gear type"
-                  autocorrect="off"
-                  spellcheck="true"
-                  @change="onCommonName"
-                />
+                <Transition name="reveal-field">
+                  <input
+                    v-if="cnameShown"
+                    ref="cnameRef"
+                    class="item__note item__gtype-input"
+                    :maxlength="MAX_GEAR_TYPE_LEN"
+                    :value="item.commonName ?? ''"
+                    placeholder="Type of gear"
+                    aria-label="Gear type"
+                    autocorrect="off"
+                    spellcheck="true"
+                    @change="onCommonName"
+                  />
+                </Transition>
                 <!-- the dot belongs to the pair: it draws only when both fields do, so a
                      variant on its own line (gear type cleared) doesn't open with a
                      stray one. Presentational: the fields carry their own labels. -->
-                <span v-if="cnameShown && variantShown" class="item__gtype-dot" aria-hidden="true">·</span>
+                <Transition name="reveal-field">
+                  <span v-if="cnameShown && variantShown" class="item__gtype-dot" aria-hidden="true">·</span>
+                </Transition>
                 <!-- the variant, a field since 2026-09-12: a pick fills it, a person can
                      type or correct one, and a free rename of the name clears it with the
                      catalog link (onNameCommit). "Size or version", not "Variant": the
@@ -1373,17 +1379,19 @@ function dismissFix() {
                      Men's Medium or a Silpoly in mind (Ryan, 2026-09-12: "variant" is
                      "too industry terminology"). The field's name in code stays
                      `variant`. -->
-                <input
-                  v-if="variantShown"
-                  class="item__note item__variant-input"
-                  :maxlength="MAX_VARIANT_LEN"
-                  :value="item.variant ?? ''"
-                  placeholder="Size or version"
-                  aria-label="Size or version"
-                  autocorrect="off"
-                  spellcheck="false"
-                  @change="onVariant"
-                />
+                <Transition name="reveal-field">
+                  <input
+                    v-if="variantShown"
+                    class="item__note item__variant-input"
+                    :maxlength="MAX_VARIANT_LEN"
+                    :value="item.variant ?? ''"
+                    placeholder="Size or version"
+                    aria-label="Size or version"
+                    autocorrect="off"
+                    spellcheck="false"
+                    @change="onVariant"
+                  />
+                </Transition>
               </div>
               <!-- A TEXTAREA, and the only field on the row that is one. Everything
                    else here holds a value — a name, a count, a weight — and a value
@@ -1396,21 +1404,23 @@ function dismissFix() {
                    Enter still COMMITS rather than opening a line, like every other
                    field in the editor — and it keeps `description` a single line for
                    the CSV and Markdown exports, which would have to quote a newline. -->
-              <textarea
-                v-if="noteShown"
-                ref="noteRef"
-                class="item__note"
-                rows="1"
-                :maxlength="MAX_ITEM_NOTE_LEN"
-                :value="item.description ?? ''"
-                placeholder="Add a note"
-                aria-label="Item note"
-                autocorrect="off"
-                spellcheck="true"
-                @input="fitNote"
-                @keydown.enter.prevent="($event.target as HTMLTextAreaElement).blur()"
-                @change="onNote"
-              />
+              <Transition name="reveal-field">
+                <textarea
+                  v-if="noteShown"
+                  ref="noteRef"
+                  class="item__note"
+                  rows="1"
+                  :maxlength="MAX_ITEM_NOTE_LEN"
+                  :value="item.description ?? ''"
+                  placeholder="Add a note"
+                  aria-label="Item note"
+                  autocorrect="off"
+                  spellcheck="true"
+                  @input="fitNote"
+                  @keydown.enter.prevent="($event.target as HTMLTextAreaElement).blur()"
+                  @change="onNote"
+                />
+              </Transition>
             </div>
           </div>
         </Transition>
@@ -2873,6 +2883,14 @@ function dismissFix() {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
+}
+/* If one sub-line has a saved value, the shared reveal stays mounted when focus
+   leaves. Let its empty sibling finish closing instead of disappearing mid-frame. */
+.reveal-field-leave-active {
+  transition: opacity var(--dur-reveal) var(--ease-close);
+}
+.reveal-field-leave-to {
+  opacity: 0;
 }
 /* the common-name field is an upright quiet LABEL (--ink-2), distinct from the note's
    italic aside voice below it — mirrors the read-only sub-line's two voices. .item__note
