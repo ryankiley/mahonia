@@ -69,10 +69,32 @@ jobs:
 
       - name: Cut or update a release per settled changelog date
         env:
-          GH_TOKEN: ${{ github.token }}
+          # A fine-grained personal access token (repository: this one; permissions:
+          # Contents read and write, Workflows read and write) in the RELEASES_TOKEN
+          # secret, falling back to the workflow's own token when it is absent.
+          #
+          # NOT the workflow token alone, and the reason took four failed runs to find.
+          # Creating a release on a commit creates a tag there, and GitHub judges a new
+          # ref by its tree against the default branch: a ref whose workflow files
+          # differ from main's is "creating or updating a workflow", which the Actions
+          # token may never do (`workflows` is a permission only apps and personal
+          # tokens can hold; a workflow cannot grant it to itself). The four oldest
+          # dates cut fine because their commits predate any workflow file in the repo;
+          # from July 16 every anchor carries an older reseed-catalog.yml than main, and
+          # every create answered "HTTP 403: Resource not accessible by integration",
+          # with the same command succeeding under a person's token. A git push of the
+          # tag says it plainly: "refusing to allow a GitHub App to create or update
+          # workflow .github/workflows/reseed-catalog.yml without workflows permission".
+          # Going forward the same refusal returns whenever a workflow file changed
+          # between a day's anchor and the run, which is any day a ci: PR merges.
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN || github.token }}
+          HAS_RELEASES_TOKEN: ${{ secrets.RELEASES_TOKEN != '' }}
           TZ: America/Los_Angeles
         run: |
           set -euo pipefail
+          if [ "$HAS_RELEASES_TOKEN" != "true" ]; then
+            echo "::warning::RELEASES_TOKEN is not set. The workflow token cannot tag a commit whose workflow files differ from main's, so most days will fail to cut; add a fine-grained PAT (Contents + Workflows, read and write) as RELEASES_TOKEN."
+          fi
           notes() { node node_modules/jiti/lib/jiti-cli.mjs scripts/release-notes.ts "$@"; }
           # gh, retried: a secondary rate limit answers 403 and clears in seconds
           try() {
