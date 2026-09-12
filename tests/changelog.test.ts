@@ -147,6 +147,20 @@ describe("committed changelog content", () => {
     }
   });
 
+  // Ryan, 2026-09-12: "rewrite any of the changelog with brevity?" A hand pass took the
+  // median from 110 characters to 93; this keeps the tail from growing back. 140 is
+  // room for one plain sentence with a clause, not two sentences: the observable change,
+  // without the account of what it used to do.
+  it("keeps every entry to one plain sentence (140 characters)", () => {
+    const long: string[] = [];
+    for (const rel of everything) {
+      for (const group of [rel.added, rel.changed, rel.fixed]) {
+        for (const entry of group ?? []) if (entry.length > 140) long.push(`${rel.date} [${entry.length}] ${entry}`);
+      }
+    }
+    expect(long).toEqual([]);
+  });
+
   it("names every fragment for the date it carries, so filename order is date order", () => {
     for (const f of fragments) {
       expect(f.name, `${f.name} does not start with its date`).toMatch(
