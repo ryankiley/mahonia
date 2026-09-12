@@ -29,7 +29,7 @@ const props = withDefaults(
     childrenByParent: Map<string, Item[]>;
     /**
      * Rows kept on screen only as a label for a matching child, under a person
-     * filter (ReadonlyListView computes the set). Such a row's own line is not in
+     * filter (useReadonlyList computes the set). Such a row's own line is not in
      * this page's totals, so it prints no weight — the editor blanks the same cell
      * in CSS, which is the only way it can, since no row there sees the filter.
      */

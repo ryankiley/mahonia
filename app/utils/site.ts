@@ -23,4 +23,4 @@ export const CONTACT_EMAIL = "hello@mahonia.app";
 // host a sign-in link may point at, and it can't reach app/utils. The
 // declaration moved to shared/site.ts so there is one copy; app code keeps
 // using it bare, unchanged.
-export { CANONICAL_ORIGIN } from "~~/shared/site";
+export { CANONICAL_ORIGIN, READ_EDGE_CACHE_CONTROL } from "~~/shared/site";

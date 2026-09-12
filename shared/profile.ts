@@ -77,15 +77,20 @@ export const CLIMB_SAMPLE_M = 18;
 export function smooth(values: readonly number[], window: number): number[] {
   if (values.length < window) return [...values];
   const half = Math.floor(window / 2);
+  const width = half * 2 + 1;
+  // Prefix sums keep the centred window linear in profile length. The arithmetic below
+  // still repeats each edge value exactly as the former clamped index loop did.
+  const sums = [0];
+  for (const value of values) sums.push(sums[sums.length - 1]! + value);
+  const first = values[0]!;
+  const last = values[values.length - 1]!;
   return values.map((_, i) => {
-    let sum = 0;
-    let n = 0;
-    for (let j = i - half; j <= i + half; j++) {
-      const v = values[Math.min(values.length - 1, Math.max(0, j))]!;
-      sum += v;
-      n++;
-    }
-    return sum / n;
+    const from = Math.max(0, i - half);
+    const to = Math.min(values.length, i + half + 1);
+    const inside = sums[to]! - sums[from]!;
+    const before = Math.max(0, half - i);
+    const after = Math.max(0, i + half - (values.length - 1));
+    return (inside + before * first + after * last) / width;
   });
 }
 
@@ -137,12 +142,20 @@ export function segmentClimbs(
   shares: readonly number[],
   routeM?: number,
 ): { ascentM: number; descentM: number }[] {
+  return segmentClimbsInEasedProfile(smooth(profile, SMOOTH_WINDOW), shares, routeM);
+}
+
+/** The shared ascent pass after a caller has already smoothed the profile. */
+function segmentClimbsInEasedProfile(
+  eased: readonly number[],
+  shares: readonly number[],
+  routeM?: number,
+): { ascentM: number; descentM: number }[] {
   const stated = shares.reduce((s, d) => s + d, 0);
   const total = routeM != null && routeM > stated ? routeM : stated;
-  if (profile.length < 2 || !shares.length || !(total > 0)) {
+  if (eased.length < 2 || !shares.length || !(total > 0)) {
     return shares.map(() => ({ ascentM: 0, descentM: 0 }));
   }
-  const eased = smooth(profile, SMOOTH_WINDOW);
   // the sample index each stretch ends at
   let run = 0;
   const ends = shares.map((d) => {
@@ -206,8 +219,11 @@ export function dayClimbs(
   routeAscentM: number | undefined,
 ): { ascentM: number; descentM: number }[] {
   if (!profile.length) return [];
-  const parts = segmentClimbs(profile, dayDistancesM, routeM || undefined);
-  const wholeProfileClimb = totalClimb(profile).ascentM;
+  // Both calls use the same filtered ground. Keeping the prepared series local avoids
+  // smoothing an unchanged route twice whenever an itinerary cell changes.
+  const eased = smooth(profile, SMOOTH_WINDOW);
+  const parts = segmentClimbsInEasedProfile(eased, dayDistancesM, routeM || undefined);
+  const wholeProfileClimb = segmentClimbsInEasedProfile(eased, [1])[0]?.ascentM ?? 0;
   if (!routeAscentM || !(wholeProfileClimb > 0)) return parts;
   const scale = routeAscentM / wholeProfileClimb;
   return parts.map((x) => ({

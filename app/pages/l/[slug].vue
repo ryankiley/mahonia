@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
 import { GlobeIcon } from "@hugeicons/core-free-icons";
+import { READ_EDGE_CACHE_CONTROL } from "~/utils/site";
 import type { ListSnapshot } from "~~/shared/types";
 
 const route = useRoute();
@@ -14,8 +15,7 @@ const { data } = await useFetch<{ list: ListSnapshot }>(() => `/api/l/${slug.val
 const snapshot = computed<ListSnapshot | null>(() => data.value?.list ?? null);
 
 // edge-cache the HTML for a short window (SSR + Cache-Control, per the plan).
-useResponseHeader("Cache-Control").value =
-  "public, max-age=0, s-maxage=30, stale-while-revalidate=120";
+useResponseHeader("Cache-Control").value = READ_EDGE_CACHE_CONTROL;
 
 const { unit, fullTotals, roList, personFilter, viewProps } = useReadonlyList(snapshot);
 

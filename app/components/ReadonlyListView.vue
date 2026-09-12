@@ -5,7 +5,7 @@ import { parseTrailLink } from "~~/shared/trailLink";
 import { dayClimbs, parseProfile } from "~~/shared/profile";
 import { dayLabel } from "~~/shared/tripDay";
 import { formatDistance, heightStepFor, heightUnitFor, heightValue, resolveDistanceUnit } from "~~/shared/trailDistance";
-import { filterItemsForPerson, type PersonSelection } from "~~/shared/people";
+import type { PersonSelection } from "~~/shared/people";
 import type { Item, ListSnapshot, Person, Totals, Unit } from "~~/shared/types";
 import { groupItemsByFolder, groupItemsByParent } from "~~/shared/weights";
 
@@ -27,6 +27,8 @@ const props = defineProps<{
   showUnassigned?: boolean;
   /** each chip's carry, pre-formatted in the viewer's unit (useReadonlyList) */
   chipWeights?: Record<string, string>;
+  /** Visible parent rows that exist only to contain a selected child. */
+  contextOnlyIds?: ReadonlySet<string>;
 }>();
 
 defineEmits<{ "set-unit": [Unit]; "pick-person": [PersonSelection] }>();
@@ -40,17 +42,8 @@ const filteredEmptyName = computed(() => {
   return props.people?.find((p) => p.id === props.personFilter)?.name ?? null;
 });
 
-// Rows kept on screen ONLY as a label for a matching child: in the visible set the
-// view-model hands us, but not in the strict set the totals count. Their own line
-// isn't in the figures on this page, so they print no weight — the editor blanks
-// the same cell in CSS (atoms/item.scss), which is the only way it can, since no
-// row there subscribes to the filter. One Set, threaded down beside childrenByParent.
-const contextOnlyIds = computed(() => {
-  const items = props.list?.items;
-  if (!props.personFilter || !items) return new Set<string>();
-  const counted = new Set(filterItemsForPerson(items, props.personFilter).map((i) => i.id));
-  return new Set(items.filter((i) => !counted.has(i.id)).map((i) => i.id));
-});
+// The view-model resolves these with the strict and visible sets from one shared pass.
+const contextOnlyIds = computed(() => props.contextOnlyIds ?? new Set<string>());
 
 // one grouping pass for all folders (ReadonlyFolderSection takes its items pre-grouped),
 // each folder in the owner's drag order so a shared list reads exactly as theirs

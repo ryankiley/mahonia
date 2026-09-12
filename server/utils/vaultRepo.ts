@@ -22,7 +22,7 @@ import {
   type VaultPinField,
 } from "../../shared/vault";
 import type { Classification } from "../../shared/types";
-import { KCAL_MAX, UNIT_WEIGHT_MAX_MG } from "../../shared/ops";
+import { clampUnitWeightMg, KCAL_MAX } from "../../shared/ops";
 import { PRICE_MAX_CENTS } from "../../shared/money";
 import { tidyText } from "../../shared/tidyText";
 import { rankVaultRows } from "../../shared/vaultSearch";
@@ -127,12 +127,10 @@ function url(v: unknown): string | undefined {
   return v.trim().slice(0, VAULT_URL_MAX) || undefined;
 }
 
-/** A weight off the wire, clamped to the same ceiling the reducer applies to a list
- *  row (clampWeight in shared/ops). Flooring at zero was not enough: a direct POST
+/** A weight off the wire, clamped by the same rule the list reducer applies. Flooring
+ *  at zero was not enough: a direct POST
  *  of 1e19 reached the bigint column and errored the whole multi-row capture, so
  *  one hostile row took a whole list's gear down with it. */
-const clampWeightMg = (n: number) => Math.max(0, Math.min(UNIT_WEIGHT_MAX_MG, Math.round(n)));
-
 /** kcal off the wire: a positive whole number under the reducer's own ceiling, or
  *  absent — the same bounds shared/ops applies to a list row, so a direct POST
  *  can't store a value the editor could never have produced. */
@@ -187,7 +185,7 @@ function sanitize(caps: VaultCapture[]): VaultCapture[] {
       // dropped without an amount, so the pair can never half-exist in the table
       currency: centsOf(c.priceCents) != null ? currencyOf(c.currency) : undefined,
       folder: str(c.folder, FOLDER_NAME_MAX),
-      weightMg: Number.isFinite(c.weightMg) ? clampWeightMg(c.weightMg) : 0,
+      weightMg: Number.isFinite(c.weightMg) ? clampUnitWeightMg(c.weightMg) : 0,
       classification: CLASSIFICATIONS.includes(c.classification as Classification)
         ? c.classification
         : undefined,
@@ -838,7 +836,7 @@ function cleanVaultPatch(patch: unknown): ItemWrite | null {
     out.productUrlPinned = true;
   }
   if (typeof p.weightMg === "number" && Number.isFinite(p.weightMg)) {
-    const mg = clampWeightMg(p.weightMg);
+    const mg = clampUnitWeightMg(p.weightMg);
     out.weightMg = mg;
     // Zero is the gear's own sentinel for "not weighed yet", and the merge rule
     // already refuses to let one overwrite a real weight. Pinning a zero would lock

@@ -577,9 +577,10 @@ function create() {
       // and re-runs the cascade; self-persists via the mutate flow like the
       // backfills above.
       const stranded = new Set<Item>();
+      const itemById = new Map(merged.items.map((item) => [item.id, item]));
       for (const it of merged.items) {
         if (it.parentId == null) continue;
-        const parent = merged.items.find((p) => p.id === it.parentId);
+        const parent = itemById.get(it.parentId);
         if (parent && parent.folderId !== it.folderId) stranded.add(parent);
       }
       for (const p of stranded)

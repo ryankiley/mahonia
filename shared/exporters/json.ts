@@ -37,6 +37,7 @@ import { parseProfile, profileToString } from "../profile";
 import { normalizeTrailLabel, normalizeTrailUrl } from "../trailLink";
 import { normalizeRouteGeometry } from "../polyline";
 import { uid } from "../id";
+import { isRecord } from "../guards";
 import { uniquifyPersonNames } from "../people";
 import { bySortOrder } from "../weights";
 
@@ -51,9 +52,6 @@ export function listToJson(list: ListMeta & ListData): string {
 
 /** A parsed backup: meta to seed the new list with + sanitized content. */
 type JsonImport = Partial<ListMeta> & { data: ListData };
-
-const isRecord = (v: unknown): v is Record<string, unknown> =>
-  !!v && typeof v === "object" && !Array.isArray(v);
 
 /**
  * A backup's ordered entities → their stored form: records only, capped, run through
