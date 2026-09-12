@@ -37,6 +37,13 @@ citation conventions are all build ERRORS — `npm test` runs `scripts/catalogCh
 built CSV and `scripts/researchChecks.ts` over the research rows, and CI runs `npm test` on every
 PR. Read the rules on `ResearchRow` in `scripts/research.ts`; `npm run catalog:audit` prints the
 same findings with the row named. The only warnings are to-do lists for a human (weight
-plausibility, pouch meals still at net weight, food rows without kcal). `catalog:build` also fails
-on a `seed/common-names.json` entry that matches no row.
+plausibility, pouch meals still at net weight, food rows without kcal, rows missing an axis their
+gear type is sold by). `catalog:build` also fails on a `seed/common-names.json` entry that matches
+no row.
+
+A variant's axes are read out of it at build time into the CSV's `attributes` column
+(`scripts/catalogAttributes.ts`; the vocabulary and what each gear type is sold by live in
+`shared/catalogAxes.ts`). A research row writes in `attributes` only what its variant doesn't state
+(an R-value, a quilt's rating), in the canonical form; a value that contradicts the variant, a
+variant that claims one axis twice, or a value outside its form is a build error.
 

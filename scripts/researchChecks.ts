@@ -9,6 +9,7 @@
 // ERRORS gate the build. WARNINGS (weight-range plausibility) are for a human.
 // Pure and fs-free: the caller reads the files (scripts/research.ts) and passes them in.
 
+import { validateAttributes } from "./catalogAttributes";
 import type { Finding } from "./catalogChecks";
 import { gearLabel } from "./catalogChecks";
 import { identityKey, isCitationUrl, isWeightSource, specToMg, type SpecUnit } from "./catalogCsv";
@@ -79,6 +80,11 @@ export function runResearchChecks(files: ResearchFile[]): Finding[] {
       if (!isWeightSource(r.weight_source ?? "")) err("source", `${where}: weight_source="${r.weight_source}"`);
       const url = (r.source_url ?? "").trim();
       if (!isCitationUrl(url)) err("url", `${where}: bad source_url "${url}"`);
+
+      // ATTRIBUTES — typed axes, each in one canonical form. A wrong key, a "20°F", a
+      // fill power as a string: all errors here; the CSV check then holds what IS
+      // stated to the variant text (a "20F" variant must carry temp_f 20).
+      for (const p of validateAttributes(r.attributes)) err("attr", `${where}: ${p}`);
 
       // the cited weight must convert
       let mg: number;

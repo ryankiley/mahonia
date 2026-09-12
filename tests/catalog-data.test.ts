@@ -9,6 +9,7 @@ import { describe, expect, it } from "vitest";
 import { csvToCatalogRows, isCitationUrl, isWeightSource } from "../scripts/catalogCsv";
 import { runCatalogChecks } from "../scripts/catalogChecks";
 import { CATALOG_CSV } from "../scripts/paths";
+import { GEAR_TRAITS } from "../shared/catalogAxes";
 
 const rows = csvToCatalogRows(readFileSync(CATALOG_CSV, "utf8"));
 const findings = runCatalogChecks(rows);
@@ -28,6 +29,14 @@ describe("seed/catalog.csv data quality", () => {
   //  their own it() blocks. They're standing defect classes, so they now run inside
   //  runCatalogChecks — gated by the error assertion above AND reported by
   //  `npm run catalog:audit`, which the bespoke versions were invisible to.)
+
+  // A traits entry keyed by a gear type no row carries is dead: the variant reader or a
+  // check quietly stops firing for that type (a rename through the drift map, a typo), and
+  // fewer findings look like success. Same guard the build puts on common-names.json.
+  it("every gear type in shared/catalogAxes.ts is a live catalog type", () => {
+    const live = new Set(rows.map((r) => (r.commonName ?? "").toLowerCase()));
+    expect(Object.keys(GEAR_TRAITS).filter((t) => !live.has(t))).toEqual([]);
+  });
 
   it("every row has provenance + a citation URL", () => {
     const bad = rows.filter(

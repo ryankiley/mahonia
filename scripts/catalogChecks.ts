@@ -13,6 +13,8 @@
 
 import type { CatalogCsvRow } from "./catalogCsv";
 import { isVariantRedundant, normalizeVariant, normKey, RANGE_G } from "../shared/catalogQuality";
+import { soldByOf, traitsOf, type AttributeKey } from "../shared/catalogAxes";
+import { extractAttributes, SHOE_REGIONS } from "./catalogAttributes";
 import { GEAR_TYPE_ALIASES } from "./gearTypes";
 
 export interface Finding {
@@ -388,11 +390,11 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   // --- ERROR: footwear size with no region ----------------------------------
   // A shoe's "9" means nothing without US/UK/EU — the same shoe is a 9 US, 8 UK and
   // 42 EU. House form is "Men's US 9" / "Women's US 8" / "US 9" (unisex).
-  const FOOTWEAR = new Set(["trail runners", "hiking shoes", "hiking boots", "sandals", "camp shoes", "insoles", "booties"]);
+  const SHOE_REGION = new RegExp(`\\b(?:${SHOE_REGIONS})\\b`);
   for (const r of rows) {
     const v = r.variant ?? "";
-    if (!FOOTWEAR.has((r.commonName ?? "").toLowerCase()) || !/\d/.test(v)) continue;
-    if (!/\b(US|UK|EU|JP)\b/.test(v)) {
+    if (!traitsOf(r.commonName).footwear || !/\d/.test(v)) continue;
+    if (!SHOE_REGION.test(v)) {
       err("footwear-size", `${gearLabel(r)}: footwear size "${v}" needs a region — "Men's US 9", "Women's US 8", "UK 8"`);
     }
   }
@@ -429,9 +431,8 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   // --- WARNING: a food row with no kcal ---------------------------------------
   // Calories are the point of a food row; one without them is a to-do (the row
   // stays until a nutrition panel can be cited — see researchChecks kcal-quote).
-  const FOOD_TYPES = new Set(["meal", "energy bar", "protein bar", "granola bar", "candy bar", "energy chews", "energy waffle", "nut butter", "snack", "snack mix", "fruit snack", "electrolyte mix", "instant coffee"]);
   for (const r of rows) {
-    if (r.categoryHint === "consumable" && FOOD_TYPES.has((r.commonName ?? "").toLowerCase()) && r.kcal == null) {
+    if (r.categoryHint === "consumable" && traitsOf(r.commonName).food && r.kcal == null) {
       warn("food-kcal-missing", `${gearLabel(r)}: a food row with no kcal — cite a nutrition panel (kcal + kcal_source_url + kcal_quote on the research row)`);
     }
   }
@@ -466,6 +467,40 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
     if (r.variant && isVariantRedundant(r.name, r.variant)) {
       err("variant-redundant", `${gearLabel(r)}: variant "${r.variant}" already in the name — clear it`);
     }
+  }
+
+  // --- ERROR: the variant and the row's attributes disagree ----------------------
+  // The variant is prose; `attributes` is the same fact as data, read out of the
+  // variant by the build and then merged with what research wrote by hand.
+  // extractAttributes reads what a variant says outright ("20F" → temp_f 20, "Men's
+  // US 9" → fit + size, "65L" → volume_l 65), so a shipped row carries every axis its
+  // variant states (a hand-edited CSV that dropped one fails here), a hand-written
+  // value never contradicts the variant, and a variant never claims one axis twice
+  // ("Regular, Long"). What the variant does NOT state (a researched R-value, a rating
+  // on a quilt sold one way) is free.
+  for (const r of rows) {
+    const stated = extractAttributes(r.variant, r.commonName, r.categoryHint, (c) => err("attr-conflict", `${gearLabel(r)}: the variant claims one axis twice, ${c}`));
+    for (const key of Object.keys(stated) as AttributeKey[]) {
+      const want = stated[key];
+      const have = r.attributes?.[key];
+      if (have === undefined) {
+        err("attr-missing", `${gearLabel(r)}: the variant states ${key}=${want} but the attributes column lacks it — rebuild with catalog:build`);
+      } else if (have !== want) {
+        err("attr-mismatch", `${gearLabel(r)}: attributes say ${key}=${have} but the variant reads ${key}=${want}`);
+      }
+    }
+  }
+
+  // --- WARNING: an axis the gear type is sold by, still unresearched --------------
+  // A to-do list, not a convention. A quilt is sold by temperature and length, a pad
+  // by R-value, a pack by volume, a shoe by fit and size, a garment by size
+  // (shared/catalogAxes.ts says which); the build types what variant strings state,
+  // and these are the rows where the maker's page still has to be read. Worked in
+  // usage order (the catalog counts picks; the audit can't see them, so the ordered
+  // snapshot lives with #336).
+  for (const r of rows) {
+    const missing = soldByOf(r.commonName).filter((k) => r.attributes?.[k] === undefined);
+    if (missing.length) warn("attr-gap", `${gearLabel(r)}: a ${(r.commonName ?? "").toLowerCase()} without ${missing.join(", ")} — read the maker's page`);
   }
 
   return out;

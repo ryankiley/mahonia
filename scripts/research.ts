@@ -5,6 +5,7 @@
 
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import type { RowAttributes } from "./catalogAttributes";
 
 /** One row of cited research exactly as authored. Superset shape — each script
  *  validates only the fields it needs. `category_hint` is `string | null` (the
@@ -20,7 +21,8 @@ export interface ResearchRow {
   // both under `npm test` (which CI runs on every PR) and `npm run catalog:audit`. A rule
   // that only warned drifted within weeks, so a convention is an error or it is not a
   // convention; the only warnings are judgment lists for a human (weight plausibility,
-  // food rows still at net weight or without kcal). normalizeVariant tidies what it can.
+  // food rows still at net weight or without kcal, rows missing an axis their gear type
+  // is sold by). normalizeVariant tidies what it can.
   //   • S/M/L-family sizes are LETTERS — "M", "XL", "Men's M", "Women's XS/S" — on
   //     anything worn or carried. No "Size " prefix, no comma after the gender.
   //   • Sleep + shelter keep the maker's LENGTH words ("Regular", "Long", "Large").
@@ -43,7 +45,19 @@ export interface ResearchRow {
   //   • A config never hides in `name`: " - Regular", "(low)", "(2024)", "(SP129)" all go
   //     here. A size-named family is one name plus variants ("Food Bag" [L], not
   //     "Large Food Bag"), and a product-family name is singular ("Stuff Sack" [M]).
+  //   • The axes a variant STATES are read out of it at build time: "20F, 950FP, Regular"
+  //     becomes temp_f 20, fill_power 950 and length "Regular" in the CSV's `attributes`
+  //     column (scripts/catalogAttributes.ts, keyed on the gear type where a token is
+  //     ambiguous). A variant that claims one axis twice ("Regular, Long") fails the build.
+  //     Write in `attributes` only what the variant does NOT state.
   variant?: string | null;
+  // Typed axes the variant doesn't state (an R-value, the rating of a quilt sold one way):
+  // fit, size, torso, length, width, temp_f, fill_power, r_value, persons, volume_l,
+  // capacity_mah, fuel_g, fuel, each in ONE canonical form (validateAttributes: an unknown
+  // key, a "20°F", a fill power as a string all fail the build). The build merges these
+  // over what it reads from the variant; a value that contradicts the variant fails the
+  // CSV check. Vocabulary in shared/catalogAxes.ts, forms in catalogAttributes.ts.
+  attributes?: RowAttributes | null;
   category_hint?: string | null;
   // the item's common name ("tent", "trekking poles") — REQUIRED for a new row to build
   // (a row with no common_name here, no seed/common-names.json entry, and no derivable

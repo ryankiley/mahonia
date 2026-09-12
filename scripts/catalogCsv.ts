@@ -4,6 +4,7 @@
 
 import { parseCsv } from "../shared/exporters/csv";
 import { MG_PER_UNIT, parseWeightInput } from "../shared/weights";
+import { parseAttributes, type RowAttributes } from "./catalogAttributes";
 import { buildSearchTerms } from "./searchTerms";
 
 export type SpecUnit = "g" | "kg" | "oz" | "lb";
@@ -13,6 +14,10 @@ export const CATALOG_CSV_HEADERS = [
   "name",
   "common_name",
   "variant",
+  // the variant's axes, typed: "temp_f=20; fill_power=950; length=Regular" (one cell,
+  // no quoting — see scripts/catalogAttributes.ts). Beside the variant it types, ahead
+  // of the weight/provenance triplet, which stays contiguous.
+  "attributes",
   "category_hint",
   "weight_mg",
   "weight_source",
@@ -146,6 +151,9 @@ export interface CatalogCsvRow {
   // sourced from seed/common-names.json at build time. See scripts/build-catalog.ts.
   commonName: string | null;
   variant: string | null;
+  // The variant's axes as data (fit, size, temp_f, volume_l, …); null when the row
+  // states none. Parsed strictly: a cell the checks would reject never loads.
+  attributes: RowAttributes | null;
   categoryHint: string | null;
   weightMg: number;
   // Per-unit food energy (kcal) from the cited research — food rows only. The
@@ -174,6 +182,7 @@ export function csvToCatalogRows(text: string): CatalogCsvRow[] {
   const iSrc = idx("weight_source");
   const iUrl = idx("source_url");
   const iKcal = idx("kcal");
+  const iAttr = idx("attributes");
   if (iName < 0 || iMg < 0 || iSrc < 0) {
     throw new Error("catalog.csv missing required columns (name, weight_mg, weight_source)");
   }
@@ -199,11 +208,20 @@ export function csvToCatalogRows(text: string): CatalogCsvRow[] {
       throw new Error(`row ${r + 1} (${name}): kcal must be a positive integer when present`);
     }
     const commonName = iCommon >= 0 ? blankToNull(cells[iCommon]) : null;
+    let attributes: RowAttributes | null = null;
+    if (iAttr >= 0) {
+      try {
+        attributes = parseAttributes(cells[iAttr]);
+      } catch (e) {
+        throw new Error(`row ${r + 1} (${name}): ${(e as Error).message}`);
+      }
+    }
     out.push({
       brand: iBrand >= 0 ? blankToNull(cells[iBrand]) : null,
       name,
       commonName,
       variant: iVariant >= 0 ? blankToNull(cells[iVariant]) : null,
+      attributes,
       categoryHint,
       weightMg,
       kcal,

@@ -11,13 +11,16 @@ import { splitAmount } from "./trailDistance";
 /** Milligrams of water per millilitre (water ≈ 1 g/mL = 1000 mg/mL). */
 const WATER_MG_PER_ML = 1000;
 
-// millilitres per volume unit
-const ML_PER_UNIT = {
+// millilitres per volume unit. Exported for the catalog's variant reader (a "16oz" jar,
+// a "52qt" cooler); parseVolumeMl below reads the metric units and fluid ounces only.
+export const ML_PER_UNIT = {
   ml: 1,
   cl: 10,
   dl: 100,
   l: 1000,
   floz: 29.5735, // US fluid ounce
+  qt: 946.353, // US liquid quart
+  gal: 3785.41, // US gallon
 } as const;
 
 /**
