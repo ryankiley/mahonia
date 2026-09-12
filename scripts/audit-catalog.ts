@@ -14,8 +14,8 @@ import { readFileSync } from "node:fs";
 import { csvToCatalogRows } from "./catalogCsv";
 import { runCatalogChecks, type Finding } from "./catalogChecks";
 import { runResearchChecks } from "./researchChecks";
-import { CATALOG_CSV, RESEARCH_DIR } from "./paths";
-import { readResearchFiles } from "./research";
+import { CATALOG_CSV, COMMON_NAMES_JSON, RESEARCH_DIR } from "./paths";
+import { loadCommonNames, readResearchFiles } from "./research";
 
 function main() {
   const errors: Finding[] = [];
@@ -25,7 +25,7 @@ function main() {
 
   const files = readResearchFiles(RESEARCH_DIR);
   const researchRows = files.reduce((n, f) => n + f.rows.length, 0);
-  for (const f of runResearchChecks(files)) bucket(f);
+  for (const f of runResearchChecks(files, loadCommonNames(COMMON_NAMES_JSON))) bucket(f);
 
   // Standing CSV-level checks over the BUILT artifact (the shipped source of truth).
   // A CSV that will not even load (a malformed cell the strict parser refuses) is a
@@ -43,7 +43,7 @@ function main() {
   console.log(`\n=== Catalog accuracy audit (stage 1) ===`);
   console.log(`research rows: ${researchRows} | csv rows: ${csvChecked}`);
   if (warns.length) {
-    console.log(`\nWARNINGS (${warns.length}) — a human's list: weight plausibility, food rows still at net weight or without kcal, rows missing an axis their gear type is sold by:`);
+    console.log(`\nWARNINGS (${warns.length}) — a human's list: weight plausibility, food rows still at net weight or without kcal, tents still at trail weight, rows missing an axis their gear type is sold by:`);
     // grouped by code, so the 800-row attribute to-do list sits under one heading
     // instead of burying the dozen plausibility calls a human actually re-reads
     const byCode = new Map<string, Finding[]>();

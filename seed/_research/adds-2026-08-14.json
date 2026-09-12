@@ -5,6 +5,7 @@
       "brand": "Anker",
       "name": "MagGo Power Bank",
       "variant": "5K Slim, A1667",
+      "attributes": {"capacity_mah": 5000},
       "category_hint": "electronics",
       "common_name": "power bank",
       "weight_value": 120,

@@ -244,6 +244,7 @@
       "brand": "Zenbivy",
       "name": "Ultralight Mattress",
       "variant": "Tapered, 20 x 72",
+      "attributes": {"r_value": 4.8},
       "category_hint": "sleep",
       "weight_value": 482,
       "weight_unit": "g",

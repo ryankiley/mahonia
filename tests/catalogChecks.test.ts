@@ -13,6 +13,7 @@ const row = (o: Partial<CatalogCsvRow> & { name: string }): CatalogCsvRow => ({
   commonName: "Tent",
   variant: null,
   attributes: null,
+  attributesUnpublished: [],
   categoryHint: "shelter",
   weightMg: 1_000_000,
   kcal: null,
@@ -52,6 +53,8 @@ describe("catalog conventions are errors, not warnings", () => {
     const pad = row({ name: "XLite", categoryHint: "sleep", weightMg: 370_000, commonName: "Sleeping pad" });
     expect(codes([pad], "warning")).toContain("attr-gap");
     expect(codes([{ ...pad, attributes: { r_value: 4.5, length: "Regular" } }], "warning")).not.toContain("attr-gap");
+    // an axis the maker was found not to publish is researched, not a gap
+    expect(codes([{ ...pad, attributes: { length: "Regular" }, attributesUnpublished: ["r_value"] }], "warning")).not.toContain("attr-gap");
     // every footwear type, booties included, is sold by a size
     expect(codes([row({ name: "Down Booties", categoryHint: "clothing", weightMg: 60_000, commonName: "Booties" })], "warning")).toContain("attr-gap");
     // a gear type sold one way has no gap to fill, and a laptop is not a top
@@ -135,6 +138,39 @@ describe("research-level attributes check", () => {
     expect(errs({ length: "6 ft" })).toContain("attr");
     expect(errs({ persons: 2 })).toEqual([]);
     expect(errs(undefined)).toEqual([]);
+  });
+  it("attr-unpublished: a real axis, and never one the row also states", () => {
+    const withUnpub = (attributes: unknown, unpublished: unknown) => {
+      const f = file(attributes);
+      (f.rows[0] as Record<string, unknown>).attributes_unpublished = unpublished;
+      return runResearchChecks([f]).filter((x) => x.level === "error").map((x) => x.code);
+    };
+    expect(withUnpub(undefined, ["r_value"])).toEqual([]);
+    expect(withUnpub(undefined, ["colour"])).toContain("attr-unpublished");
+    expect(withUnpub(undefined, [])).toContain("attr-unpublished");
+    expect(withUnpub({ persons: 2 }, ["persons"])).toContain("attr-unpublished");
+  });
+});
+
+describe("research-level tent weight basis", () => {
+  const tent = (variant: string, weight_value: number, quote: string): ResearchFile => ({
+    file: "synthetic.json",
+    rows: [{ brand: "Acme", name: "Ridge 2", variant, common_name: "tent", category_hint: "shelter", weight_value, weight_unit: "g", weight_source: "manufacturer", source_url: "https://acme.example/ridge", quote }],
+  });
+  const codes = (f: ResearchFile, level: "error" | "warning") => runResearchChecks([f]).filter((x) => x.level === level).map((x) => x.code);
+  it("a tent stored at the trail figure when the page also gives the packaged one is an error", () => {
+    expect(codes(tent("2P", 1190, "Trail Weight: 1.19kg / 2lb 10oz. Packed Weight: 1.33kg / 2lb 15oz"), "error")).toContain("tent-weight-basis");
+    expect(codes(tent("2P", 1330, "Trail Weight: 1.19kg / 2lb 10oz. Packed Weight: 1.33kg / 2lb 15oz"), "error")).toEqual([]);
+  });
+  it("a tent stored at a trail-only figure must say so, and saying so is a to-do", () => {
+    expect(codes(tent("2P", 1340, "Minimum Weight: 1340g"), "error")).toContain("tent-weight-basis");
+    expect(codes(tent("2P, trail weight", 1340, "Minimum Weight: 1340g"), "error")).toEqual([]);
+    expect(codes(tent("2P, trail weight", 1340, "Minimum Weight: 1340g"), "warning")).toContain("tent-trail-weight");
+    // "trail weight" while the page shows a packaged figure: store that instead
+    expect(codes(tent("2P, trail weight", 1190, "Minimum Weight: 1190 g. Packed Weight: 1330 g"), "error")).toContain("tent-weight-basis");
+  });
+  it("a tent quoted at one unlabelled figure raises nothing", () => {
+    expect(codes(tent("2P", 509, "Tent: 17.9 oz / 509 g (Dyneema floor)"), "error")).toEqual([]);
   });
 });
 

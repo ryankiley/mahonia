@@ -4,7 +4,7 @@
 
 import { parseCsv } from "../shared/exporters/csv";
 import { MG_PER_UNIT, parseWeightInput } from "../shared/weights";
-import { parseAttributes, type RowAttributes } from "./catalogAttributes";
+import { ATTRIBUTE_KEYS, parseAttributes, type AttributeKey, type RowAttributes } from "./catalogAttributes";
 import { buildSearchTerms } from "./searchTerms";
 
 export type SpecUnit = "g" | "kg" | "oz" | "lb";
@@ -18,6 +18,9 @@ export const CATALOG_CSV_HEADERS = [
   // no quoting — see scripts/catalogAttributes.ts). Beside the variant it types, ahead
   // of the weight/provenance triplet, which stays contiguous.
   "attributes",
+  // axes the maker publishes no single value for, "size; fit", so the audit's to-do list
+  // can tell "unresearched" from "researched, nothing to cite" (ResearchRow.attributes_unpublished)
+  "attributes_unpublished",
   "category_hint",
   "weight_mg",
   "weight_source",
@@ -154,6 +157,8 @@ export interface CatalogCsvRow {
   // The variant's axes as data (fit, size, temp_f, volume_l, …); null when the row
   // states none. Parsed strictly: a cell the checks would reject never loads.
   attributes: RowAttributes | null;
+  // Axes researched and found unpublished by the maker; the attr-gap warning skips them.
+  attributesUnpublished: AttributeKey[];
   categoryHint: string | null;
   weightMg: number;
   // Per-unit food energy (kcal) from the cited research — food rows only. The
@@ -183,6 +188,7 @@ export function csvToCatalogRows(text: string): CatalogCsvRow[] {
   const iUrl = idx("source_url");
   const iKcal = idx("kcal");
   const iAttr = idx("attributes");
+  const iUnpub = idx("attributes_unpublished");
   if (iName < 0 || iMg < 0 || iSrc < 0) {
     throw new Error("catalog.csv missing required columns (name, weight_mg, weight_source)");
   }
@@ -216,12 +222,18 @@ export function csvToCatalogRows(text: string): CatalogCsvRow[] {
         throw new Error(`row ${r + 1} (${name}): ${(e as Error).message}`);
       }
     }
+    const attributesUnpublished: AttributeKey[] = [];
+    for (const k of (iUnpub >= 0 ? (cells[iUnpub] ?? "") : "").split(/;\s*/).filter(Boolean)) {
+      if (!(ATTRIBUTE_KEYS as readonly string[]).includes(k)) throw new Error(`row ${r + 1} (${name}): attributes_unpublished "${k}" is not an axis`);
+      attributesUnpublished.push(k as AttributeKey);
+    }
     out.push({
       brand: iBrand >= 0 ? blankToNull(cells[iBrand]) : null,
       name,
       commonName,
       variant: iVariant >= 0 ? blankToNull(cells[iVariant]) : null,
       attributes,
+      attributesUnpublished,
       categoryHint,
       weightMg,
       kcal,

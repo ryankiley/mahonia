@@ -5,7 +5,11 @@
 
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { RowAttributes } from "./catalogAttributes";
+import type { AttributeKey, RowAttributes } from "./catalogAttributes";
+import { identityKey } from "./catalogCsv";
+import { normalizeGearType } from "./gearTypes";
+import { deriveNoun } from "./searchTerms";
+import { normalizeVariant } from "../shared/catalogQuality";
 
 /** One row of cited research exactly as authored. Superset shape — each script
  *  validates only the fields it needs. `category_hint` is `string | null` (the
@@ -38,6 +42,10 @@ export interface ResearchRow {
   //     that could only be sourced at net contents says "net" in its variant, and the audit
   //     lists it as a to-do. Bars and chews stay at label weight (a wrapper is a gram or two).
   //     Fuel canisters keep "net fuel": the weight is the gas alone, not the can.
+  //   • A tent row weighs what is in the BOX — the maker's "packed" / "packaged" / "total" /
+  //     "typical" weight, stakes and bags included — never the "trail" or "minimum" figure
+  //     (fly, inner, poles), which sits 100–300 g lighter on the same page. A row that could
+  //     only be sourced at trail weight says "trail weight" in its variant and is a to-do.
   //   • Servings: a multi-serving pouch says "2 servings"; single-serving is the unmarked default
   //     ("1 serving" is filler). A maker's format name stays ("Pro-Pak").
   //   • Several of a thing read "3-pack" or "sleeve of 10". A number and its unit are one
@@ -58,6 +66,18 @@ export interface ResearchRow {
   // over what it reads from the variant; a value that contradicts the variant fails the
   // CSV check. Vocabulary in shared/catalogAxes.ts, forms in catalogAttributes.ts.
   attributes?: RowAttributes | null;
+  // Where a hand-written attribute came from, when it is NOT readable from the row's own
+  // `quote` (a maker's spec page for an R-value the cited stockist listing omits). Held to
+  // the kcal bar: a real URL plus a verbatim quote, together; either alone fails the build.
+  // A value the row's own quote already states needs neither.
+  attributes_source_url?: string | null;
+  attributes_quote?: string | null;
+  // Axes the row's gear type is sold by that the maker does NOT publish a single value for:
+  // a garment whose weight names no size, a sack listed by flat dimensions only, a pack sold
+  // as a 25–40 L range. Recorded after the page was read, so the audit's to-do list stops
+  // naming the row and the next pass doesn't re-read the page. An axis here and in
+  // `attributes` at once is an error.
+  attributes_unpublished?: AttributeKey[] | null;
   category_hint?: string | null;
   // the item's common name ("tent", "trekking poles") — REQUIRED for a new row to build
   // (a row with no common_name here, no seed/common-names.json entry, and no derivable
@@ -84,6 +104,33 @@ export interface ResearchFile {
   file: string;
   rows: ResearchRow[];
   parseError?: string;
+}
+
+/** The hand-authored gear-type map (seed/common-names.json) keyed by identity, for rows
+ *  that predate an inline `common_name`. Empty when the file is missing. Shared by the
+ *  build (which also reports orphans) and the research checks (which need a row's gear
+ *  type to know a tent from a stove). */
+export function loadCommonNames(path: string): Map<string, string> {
+  const m = new Map<string, string>();
+  try {
+    const arr = JSON.parse(readFileSync(path, "utf8")) as Array<{ brand?: string; name?: string; variant?: string; common_name?: string }>;
+    for (const e of arr) {
+      const cn = (e.common_name ?? "").trim();
+      if (!cn) continue;
+      m.set(identityKey((e.brand ?? "").trim(), (e.name ?? "").trim(), normalizeVariant(e.variant ?? "")), cn);
+    }
+  } catch {
+    // no map yet: every row falls back to its own common_name or a derived noun
+  }
+  return m;
+}
+
+/** A research row's canonical gear type, resolved the way the build resolves it: the
+ *  row's own `common_name`, else the hand-authored map, else a noun derived from the name. */
+export function researchGearType(row: ResearchRow, commonNames: Map<string, string>): string {
+  const own = typeof row.common_name === "string" ? row.common_name.trim() : "";
+  const mapped = commonNames.get(identityKey((row.brand ?? "").trim(), (row.name ?? "").trim(), normalizeVariant(row.variant ?? "")));
+  return normalizeGearType(own || mapped || deriveNoun((row.name ?? "").trim()) || "");
 }
 
 /** Read + JSON-parse every `*.json` under `researchDir`, sorted by filename. Never
