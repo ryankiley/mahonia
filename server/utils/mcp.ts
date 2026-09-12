@@ -77,7 +77,7 @@ const QTY_MAX = 9999;
 const ITEM_SCHEMA = {
   type: "object",
   properties: {
-    name: { type: "string", maxLength: MAX_ITEM_NAME_LEN, description: "The product or item name. Required." },
+    name: { type: "string", minLength: 1, maxLength: MAX_ITEM_NAME_LEN, description: "The product or item name. Required." },
     brand: { type: "string", maxLength: BRAND_LEN, description: "The maker, when known." },
     variant: { type: "string", maxLength: BRAND_LEN, description: "Size, length or configuration that changes the weight, such as Long or 20F." },
     gear_type: { type: "string", maxLength: MAX_GEAR_TYPE_LEN, description: "What kind of thing it is: Tent, Quilt, Trail runners." },
@@ -376,7 +376,7 @@ export const MCP_TOOLS: McpTool[] = [
           items: {
             type: "object",
             properties: {
-              name: { type: "string", maxLength: MAX_FOLDER_NAME_LEN },
+              name: { type: "string", minLength: 1, maxLength: MAX_FOLDER_NAME_LEN },
               classification: { type: "string", enum: CLASSIFICATIONS, description: "What rows in this folder count as unless they say otherwise. Default base." },
               items: { type: "array", items: ITEM_SCHEMA },
             },
@@ -927,63 +927,89 @@ class FolderBook {
   }
 }
 
-async function create(event: H3Event, args: Record<string, unknown>): Promise<ToolResult> {
-  // the one write with no list to key on: per address, like the web's create
-  await rateLimit(event, "mcp-write");
-  const book = new FolderBook([]);
-  const items: Item[] = [];
-  const counted = new Map<string | null, number>();
-  const nextOrder = (folderId: string | null) => {
-    const n = counted.get(folderId) ?? 0;
-    counted.set(folderId, n + 1);
-    return n;
-  };
-  const place = (raw: unknown, fallbackFolder: Folder | null): string | null => {
+/**
+ * The two write tools accept rows in different envelopes, but every row follows the
+ * same path: an item-level folder wins over the surrounding folder, a missing named
+ * folder is made, and its sort order is the next free slot in that folder. Keeping
+ * that policy here means create_list and add_items cannot quietly diverge on a later
+ * validation or ordering change.
+ */
+class ItemPlan {
+  readonly items: Item[] = [];
+  private readonly counted = new Map<string | null, number>();
+
+  constructor(
+    readonly folders: FolderBook,
+    private readonly existingItems: readonly Item[] = [],
+  ) {}
+
+  place(raw: unknown, fallbackFolder: Folder | null): string | null {
     let folder = fallbackFolder;
     const named = raw && typeof raw === "object" ? (raw as Record<string, unknown>).folder : undefined;
     if (typeof named === "string" && named.trim()) {
-      const got = book.resolve(named);
-      if (typeof got === "string") return got;
-      folder = got;
+      const resolved = this.folders.resolve(named);
+      if (typeof resolved === "string") return resolved;
+      folder = resolved;
     }
-    const item = toItem(raw, folder?.id ?? null, nextOrder(folder?.id ?? null));
+    const folderId = folder?.id ?? null;
+    const sortOrder = this.nextSortOrder(folderId);
+    const item = toItem(raw, folderId, sortOrder);
     if (typeof item === "string") return item;
-    items.push(item);
+    this.items.push(item);
     return null;
-  };
+  }
+
+  placeAll(rows: readonly unknown[], fallbackFolder: Folder | null): string | null {
+    for (const row of rows) {
+      const problem = this.place(row, fallbackFolder);
+      if (problem) return problem;
+    }
+    return null;
+  }
+
+  private nextSortOrder(folderId: string | null): number {
+    // New rows go after what the folder already holds: past its highest sortOrder,
+    // not its count, since a removed row leaves a hole the count would fill mid-folder.
+    const next = this.counted.get(folderId) ?? nextSortOrder(this.existingItems, folderId);
+    this.counted.set(folderId, next + 1);
+    return next;
+  }
+}
+
+async function create(event: H3Event, args: Record<string, unknown>): Promise<ToolResult> {
+  // the one write with no list to key on: per address, like the web's create
+  await rateLimit(event, "mcp-write");
+  const plan = new ItemPlan(new FolderBook([]));
   if (args.folders != null) {
     if (!Array.isArray(args.folders)) return fail("folders must be an array.");
     for (const f of args.folders) {
-      if (!f || typeof f !== "object" || typeof (f as Record<string, unknown>).name !== "string") return fail("Each folder needs a name.");
+      if (!f || typeof f !== "object") return fail("Each folder needs a name.");
       const fr = f as Record<string, unknown>;
+      if (typeof fr.name !== "string" || !fr.name.trim()) return fail("Each folder needs a name.");
       if (fr.classification != null && !CLASSIFICATIONS.includes(fr.classification as Classification)) {
         return fail(`"${String(fr.classification)}" isn't a classification; use base, worn or consumable.`);
       }
-      const folder = book.resolve(fr.name as string, (fr.classification as Classification | undefined) ?? "base");
+      const folder = plan.folders.resolve(fr.name as string, (fr.classification as Classification | undefined) ?? "base");
       if (typeof folder === "string") return fail(folder);
       if (fr.items != null) {
         if (!Array.isArray(fr.items)) return fail("A folder's items must be an array.");
-        for (const it of fr.items) {
-          const problem = place(it, folder);
-          if (problem) return fail(problem);
-        }
+        const problem = plan.placeAll(fr.items, folder);
+        if (problem) return fail(problem);
       }
     }
   }
   if (args.items != null) {
     if (!Array.isArray(args.items)) return fail("items must be an array.");
-    for (const it of args.items) {
-      const problem = place(it, null);
-      if (problem) return fail(problem);
-    }
+    const problem = plan.placeAll(args.items, null);
+    if (problem) return fail(problem);
   }
-  if (items.length > MAX_ITEMS) return fail(`A list holds at most ${MAX_ITEMS} rows; this would make ${items.length}.`);
+  if (plan.items.length > MAX_ITEMS) return fail(`A list holds at most ${MAX_ITEMS} rows; this would make ${plan.items.length}.`);
 
   const meta = tripMeta(args, true);
   if (typeof meta === "string") return fail(meta);
-  const unlinked = await linkCatalog(items);
+  const unlinked = await linkCatalog(plan.items);
   if (unlinked) return fail(unlinked);
-  const data: ListData = { folders: book.folders, items };
+  const data: ListData = { folders: plan.folders.folders, items: plan.items };
   const { editToken, snapshot } = await createList({ ...meta, data });
   const origin = trustedOrigin(event);
   return ok({
@@ -1095,44 +1121,27 @@ async function addItems(event: H3Event, args: Record<string, unknown>): Promise<
   if (!snap) return fail(NO_EDIT_LIST);
   if (snap.items.length + args.items.length > MAX_ITEMS) return fail(`A list holds at most ${MAX_ITEMS} rows; this one has ${snap.items.length}.`);
 
-  const book = new FolderBook(snap.folders);
+  const plan = new ItemPlan(new FolderBook(snap.folders), snap.items);
   let fallback: Folder | null = null;
   if (typeof args.folder === "string" && args.folder.trim()) {
-    const got = book.resolve(args.folder);
+    const got = plan.folders.resolve(args.folder);
     if (typeof got === "string") return fail(got);
     fallback = got;
   }
-  // new rows go after what the folder already holds: past its highest sortOrder,
-  // not its count, since a removed row leaves a hole the count would fill mid-folder
-  const counted = new Map<string | null, number>();
-  const items: Item[] = [];
-  for (const raw of args.items) {
-    let folder = fallback;
-    const named = raw && typeof raw === "object" ? (raw as Record<string, unknown>).folder : undefined;
-    if (typeof named === "string" && named.trim()) {
-      const got = book.resolve(named);
-      if (typeof got === "string") return fail(got);
-      folder = got;
-    }
-    const folderId = folder?.id ?? null;
-    const n = counted.get(folderId) ?? nextSortOrder(snap.items, folderId);
-    counted.set(folderId, n + 1);
-    const item = toItem(raw, folderId, n);
-    if (typeof item === "string") return fail(item);
-    items.push(item);
-  }
-  const unlinked = await linkCatalog(items);
+  const problem = plan.placeAll(args.items, fallback);
+  if (problem) return fail(problem);
+  const unlinked = await linkCatalog(plan.items);
   if (unlinked) return fail(unlinked);
   const ops: Op[] = [
-    ...book.made.map((folder): Op => ({ t: "addFolder", folder })),
-    ...items.map((item): Op => ({ t: "addItem", item })),
+    ...plan.folders.made.map((folder): Op => ({ t: "addFolder", folder })),
+    ...plan.items.map((item): Op => ({ t: "addItem", item })),
   ];
   const after = await applyOpsByEditHash(hash, ops);
   if (!after) return fail(NO_EDIT_LIST);
   const origin = trustedOrigin(event);
   const result = {
-    added: items.length,
-    folders_made: book.made.map((f) => f.name),
+    added: plan.items.length,
+    folders_made: plan.folders.made.map((f) => f.name),
     share_link: `${origin}/s/${after.shareCode}`,
     totals: describeList(after, origin).totals,
     repeated: false,
