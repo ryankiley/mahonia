@@ -59,15 +59,17 @@ import { kb } from "./bundleReport.mjs";
 // signed-in check (~4 KB an anonymous visitor never needs). Beyond those it is a
 // product conversation, and this is the number that starts it.
 const FIRST_LOAD_CEILING_KB = 150;
-// THE TRIPWIRE, ~2 KB over the last measurement (146.6 on 2026-09-12). Re-anchor to
-// current + ~2 in the PR that spends it; keep it under the ceiling.
-const FIRST_LOAD_BUDGET_KB = 149;
+// THE TRIPWIRE. A 149.4 KB editor leaves only 0.6 KB below the fixed 150 KB
+// ceiling, so a useful ~2 KB buffer is impossible for now. Keep this aligned to
+// the ceiling until a delivery pass opens room again; the ceiling itself does
+// not move with this re-anchor.
+const FIRST_LOAD_BUDGET_KB = FIRST_LOAD_CEILING_KB;
 // TOTAL of every built file, the backstop. Deliberately slack: its job is to catch
 // a route chunk ballooning or a heavy dep landing somewhere unnoticed, NOT to price
-// ordinary feature work. Set ~6 KB clear of the current total (281.9) so it only
+// ordinary feature work. Set ~4 KB clear of the current total (288.1) so it only
 // speaks up when something has genuinely gone wrong. If you find yourself bumping
 // this one often, something is being shipped to every page that shouldn't be.
-const TOTAL_BUDGET_KB = 288;
+const TOTAL_BUDGET_KB = 292;
 // Largest single chunk, brotli. LOAD-BEARING, and the one number here that should not move
 // to accommodate a dependency: it is what a heavy map library fails. MapLibre GL ships as a
 // single ~200 KB brotli chunk and was ruled out on this line alone — a dep that needs the

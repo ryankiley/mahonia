@@ -16,6 +16,7 @@ import type { ListData, ListMeta, ListSnapshot } from "~~/shared/types";
 // This is the importer the old home page used to host.
 const props = defineProps<{ open: boolean }>();
 const emit = defineEmits<{ close: [] }>();
+const isOpen = computed(() => props.open);
 
 const router = useRouter();
 const myLists = useMyLists();
@@ -30,26 +31,38 @@ const importing = ref(false);
 const error = ref("");
 const fileRef = useTemplateRef<HTMLInputElement>("fileRef");
 
+// An import can outlive a second import, a closed/reopened dialog, or an account
+// change. The account tells us who owns it; this separate generation tells us
+// which action by that person is still allowed to close/register/navigate.
+let importGeneration = 0;
+const ownsImport = (generation: number, account: number) =>
+  generation === importGeneration && account === accountGeneration.value && isOpen.value;
+
 // This modal survives a forced account refresh. Do not leave B looking at A's
 // pasted content, busy label, or error while the replacement session resolves.
 watch(accountGeneration, () => {
+  importGeneration++;
   importing.value = false;
   error.value = "";
   text.value = "";
   title.value = "";
-});
+}, { flush: "sync" });
 
 // fresh form each time the dialog is opened
 watch(
-  () => props.open,
+  isOpen,
   (o) => {
+    // Closing invalidates the async work too. Otherwise a file/read/create that
+    // began in the prior opening can route the next dialog instance away later.
+    importGeneration++;
+    importing.value = false;
+    error.value = "";
     if (o) {
       text.value = "";
       title.value = "";
-      error.value = "";
-      importing.value = false;
     }
   },
+  { flush: "sync" },
 );
 
 // A JSON-backup restore arrives as the whole list — its meta (title, unit, the route
@@ -60,18 +73,21 @@ async function createFrom(
   // FileReader and the LighterPack resolver both run before this function. Their
   // caller passes its account lifetime through so a switch in that earlier wait
   // cannot make this later stage look as though B started the import.
-  account = accountGeneration.value,
+  account: number,
+  generation: number,
 ) {
   // a folders-only JSON backup is still a real restore; an empty CSV is not
   if (!list.data.items.length && !list.data.folders.length) {
-    error.value = "No items found. Paste a CSV with a header row.";
+    if (ownsImport(generation, account)) {
+      error.value = "No items found. Paste a CSV with a header row.";
+      importing.value = false;
+    }
     return;
   }
   // Importing creates a device-owned list, but its automatic gear capture is
   // account-owned. A forced session refresh can move A → B without ever making
   // this dialog unmount, so use the account lifetime that started this work.
-  if (account !== accountGeneration.value) return;
-  const ownsImport = () => account === accountGeneration.value;
+  if (!ownsImport(generation, account)) return;
   importing.value = true;
   error.value = "";
   try {
@@ -79,7 +95,7 @@ async function createFrom(
     // matcher is exact-only). One request; if it fails the list still imports, unlinked —
     // the link is a nicety on top of the import, never a condition of it.
     const linked = await linkToCatalog(list.data.items);
-    if (!ownsImport()) return;
+    if (!ownsImport(generation, account)) return;
     const data: ListData = { ...list.data, items: linked.items };
     const res = await $fetch<{ editToken: string; snapshot: ListSnapshot }>("/api/lists/create", {
       method: "POST",
@@ -89,7 +105,7 @@ async function createFrom(
       // now reaches the restore without anyone remembering to add it here.
       body: { ...list, data, title: title.value.trim() || list.title || "Imported list" },
     });
-    if (!ownsImport()) return;
+    if (!ownsImport(generation, account)) return;
     emit("close");
     tally("import");
     // an import arrives whole (no ops) — capture it here, where the device knows
@@ -103,9 +119,9 @@ async function createFrom(
       : null;
     router.push(editLinkPath(res.snapshot.shareCode, myLists.registerCreated(res)));
   } catch {
-    if (ownsImport()) error.value = "Import failed. Check the file and try again.";
+    if (ownsImport(generation, account)) error.value = "Import failed. Check the file and try again.";
   } finally {
-    if (ownsImport()) importing.value = false;
+    if (ownsImport(generation, account)) importing.value = false;
   }
 }
 
@@ -130,6 +146,7 @@ async function importFromText() {
   // preparser) begins. `createFrom` receives this rather than sampling B after
   // an A-owned request eventually returns.
   const account = accountGeneration.value;
+  const generation = ++importGeneration;
   // a LighterPack share link → resolve + parse its sanctioned CSV export server-side
   if (lighterpackId(raw)) {
     importing.value = true;
@@ -139,9 +156,10 @@ async function importFromText() {
         method: "POST",
         body: { url: raw },
       });
-      await createFrom({ data }, account);
+      if (!ownsImport(generation, account)) return;
+      await createFrom({ data }, account, generation);
     } catch (e: unknown) {
-      if (account !== accountGeneration.value) return;
+      if (!ownsImport(generation, account)) return;
       const err = e as { data?: { statusMessage?: string; message?: string } };
       error.value =
         err?.data?.statusMessage || err?.data?.message || "Couldn’t import that LighterPack link.";
@@ -152,12 +170,13 @@ async function importFromText() {
   // a pasted JSON backup (the menus' "Download JSON") — restored at full fidelity
   if (raw.startsWith("{")) {
     const parsed = jsonToListImport(raw);
-    if (parsed) return createFrom(parsed, account);
-    error.value = "That looks like JSON, but not a list backup. Use “Download JSON” to make one.";
+    if (parsed) return createFrom(parsed, account, generation);
+    if (ownsImport(generation, account))
+      error.value = "That looks like JSON, but not a list backup. Use “Download JSON” to make one.";
     return;
   }
   // otherwise treat the pasted text as CSV/TSV — parsed client-side
-  void createFrom({ data: csvToListData(raw) }, account);
+  void createFrom({ data: csvToListData(raw) }, account, generation);
 }
 
 function onFile(e: Event) {
@@ -171,22 +190,23 @@ function onFile(e: Event) {
   // Reading a local file is asynchronous too. Keep the account that selected it
   // through `onload`, rather than sampling whoever happens to be signed in then.
   const account = accountGeneration.value;
+  const generation = ++importGeneration;
   const isJson = /\.json$/i.test(file.name) || file.type === "application/json";
   const reader = new FileReader();
   reader.onload = () => {
-    if (account !== accountGeneration.value) return;
+    if (!ownsImport(generation, account)) return;
     const text = String(reader.result);
     // a .json file is a "Download JSON" backup — full-fidelity restore. Sniff
     // {-leading content too, so a mis-extensioned backup still restores.
     if (isJson || text.trimStart().startsWith("{")) {
       const parsed = jsonToListImport(text);
-      if (parsed) return void createFrom(parsed, account);
+      if (parsed) return void createFrom(parsed, account, generation);
       if (isJson) {
         error.value = "Couldn’t read that file as a list backup. Use “Download JSON” to make one.";
         return;
       }
     }
-    void createFrom({ data: csvToListData(text) }, account);
+    void createFrom({ data: csvToListData(text) }, account, generation);
   };
   reader.readAsText(file);
 }

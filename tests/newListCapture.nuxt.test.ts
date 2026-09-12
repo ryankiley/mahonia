@@ -4,7 +4,7 @@
 // create can outlive a forced session refresh from account A to account B; that
 // response must not bank gear, close A's dialog, register the list, or navigate B.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { defineComponent } from "vue";
+import { defineComponent, ref } from "vue";
 import { flushPromises, mount } from "@vue/test-utils";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import { csvToListData } from "~~/shared/exporters/csv";
@@ -16,7 +16,6 @@ import { useCopyList } from "~/composables/useCopyList";
 // Keep the small test boundary in `vi.hoisted` so those factories and the cases
 // below deliberately share the same account lifetime.
 const state = vi.hoisted(() => ({
-  accountGeneration: { value: 0 },
   captureNewList: vi.fn(),
   registerCreated: vi.fn(() => "new-edit-token"),
   navigateTo: vi.fn(() => Promise.resolve()),
@@ -24,7 +23,9 @@ const state = vi.hoisted(() => ({
   tally: vi.fn(),
 }));
 
-mockNuxtImport("useVaultAccess", () => () => ({ accountGeneration: state.accountGeneration }));
+const accountGeneration = ref(0);
+
+mockNuxtImport("useVaultAccess", () => () => ({ accountGeneration }));
 mockNuxtImport("useVaultCapture", () => () => ({ captureNewList: state.captureNewList }));
 mockNuxtImport("useMyLists", () => () => ({ registerCreated: state.registerCreated }));
 mockNuxtImport("useImportNote", () => () => state.importNote);
@@ -70,7 +71,7 @@ const BaseModalStub = defineComponent({
 });
 
 beforeEach(() => {
-  state.accountGeneration.value = 10;
+  accountGeneration.value = 10;
   blockCreate = true;
   blockLighterpack = false;
   createReleases = [];
@@ -94,7 +95,7 @@ describe("whole-list vault capture across an account switch", () => {
     const copying = useCopyList().copyList(snapshot());
     await vi.waitFor(() => expect(createReleases).toHaveLength(1));
 
-    state.accountGeneration.value++;
+    accountGeneration.value++;
     createReleases[0]!();
     await expect(copying).resolves.toBe(false);
 
@@ -112,7 +113,7 @@ describe("whole-list vault capture across an account switch", () => {
     await wrapper.get("button.btn--primary").trigger("click");
     await vi.waitFor(() => expect(createReleases).toHaveLength(1));
 
-    state.accountGeneration.value++;
+    accountGeneration.value++;
     createReleases[0]!();
     await flushPromises();
 
@@ -121,6 +122,27 @@ describe("whole-list vault capture across an account switch", () => {
     expect(state.navigateTo).not.toHaveBeenCalled();
     expect(state.tally).not.toHaveBeenCalled();
     expect(wrapper.emitted("close")).toBeUndefined();
+    wrapper.unmount();
+  });
+
+  it("does not apply an import after its dialog closes", async () => {
+    const wrapper = mount(ImportModal, {
+      props: { open: true },
+      global: { stubs: { BaseModal: BaseModalStub } },
+    });
+    await wrapper.get("textarea.import__text").setValue("Item Name,Weight,Unit\nTent,500,g");
+    await wrapper.get("button.btn--primary").trigger("click");
+    await vi.waitFor(() => expect(createReleases).toHaveLength(1));
+
+    await wrapper.setProps({ open: false });
+    expect(wrapper.props("open")).toBe(false);
+    createReleases[0]!();
+    await flushPromises();
+
+    expect(state.captureNewList).not.toHaveBeenCalled();
+    expect(state.registerCreated).not.toHaveBeenCalled();
+    expect(state.navigateTo).not.toHaveBeenCalled();
+    expect(state.tally).not.toHaveBeenCalled();
     wrapper.unmount();
   });
 
@@ -135,7 +157,7 @@ describe("whole-list vault capture across an account switch", () => {
     await wrapper.get("button.btn--primary").trigger("click");
     await vi.waitFor(() => expect(lighterpackReleases).toHaveLength(1));
 
-    state.accountGeneration.value++;
+    accountGeneration.value++;
     lighterpackReleases[0]!();
     await flushPromises();
 
@@ -170,7 +192,7 @@ describe("whole-list vault capture across an account switch", () => {
       await wrapper.get('input[type="file"]').trigger("change");
       expect(readers).toHaveLength(1);
 
-      state.accountGeneration.value++;
+      accountGeneration.value++;
       readers[0]!.result = "Item Name,Weight,Unit\nTent,500,g";
       readers[0]!.onload?.();
       await flushPromises();

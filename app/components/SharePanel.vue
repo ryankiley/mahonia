@@ -68,7 +68,11 @@ const holdsEditLink = computed(() => !!props.editToken);
 // link" because it belongs to the edit link — the two things you can do about
 // who holds this list.
 const session = useSession();
-const { signedIn, accountGeneration } = session;
+const { signedIn } = session;
+// Lightweight component callers predate the account-lifetime seam. Production
+// always supplies it; a stable fallback keeps those single-account callers from
+// turning the watch/response guards into an invalid source.
+const accountGeneration = session.accountGeneration ?? ref(0);
 const claimed = useClaimedLists();
 const claiming = ref(false);
 const claimFailed = ref(false);
