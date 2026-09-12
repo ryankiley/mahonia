@@ -99,6 +99,16 @@ export function clearVaultDecisionFor(editToken: string): void {
  *  typing an item name is one write rather than one per keystroke; short enough
  *  that a list closed shortly after editing has already been captured. */
 const CAPTURE_DEBOUNCE_MS = 4_000;
+// The wait itself, read at the moment the timer is set — for tests. The suite that
+// drives this controller (tests/gearList.nuxt.test.ts) waits out this debounce six
+// times with real timers, on purpose; at 4 s that was 34 of the file's 41 s.
+let captureDebounceMs = CAPTURE_DEBOUNCE_MS;
+/** Shorten the capture debounce, or restore the default — for tests. Only the wait
+ *  changes: the fingerprint gate, the pending rows and the page-hide beacon run as
+ *  they do at 4 s. */
+export function _setCaptureDebounce(ms = CAPTURE_DEBOUNCE_MS): void {
+  captureDebounceMs = ms;
+}
 
 // Module scope, not per-instance: the editor is a singleton controller, and the
 // fingerprint is what stops an unchanged list re-POSTing on every dispatch.
@@ -208,7 +218,7 @@ export function useVaultCapture() {
       if (built.fingerprint === lastFingerprint || built.fingerprint === pending?.fingerprint) return;
       pending = { items: built.caps, fingerprint: built.fingerprint };
       clearTimeout(timer);
-      timer = setTimeout(send, CAPTURE_DEBOUNCE_MS);
+      timer = setTimeout(send, captureDebounceMs);
     })();
   }
 
