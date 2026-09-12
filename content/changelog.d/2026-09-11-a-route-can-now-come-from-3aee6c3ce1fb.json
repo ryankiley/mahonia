@@ -1,0 +1,6 @@
+{
+  "date": "2026-09-11",
+  "added": [
+    "A route can now come from a Garmin FIT file, the format a watch or bike computer records in, read in your browser like the others. A planned course's named stops are offered as pins."
+  ]
+}

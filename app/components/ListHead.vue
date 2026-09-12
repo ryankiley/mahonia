@@ -598,11 +598,11 @@ onClickOutside(trailEl, closeTrail);
 
         <p class="head__gpx t-sm">
           <label class="head__gpxbtn">
-            <input type="file" accept=".gpx,.kml,.kmz,.tcx,.geojson,.json,.xml,application/gpx+xml,application/vnd.google-earth.kml+xml,application/vnd.google-earth.kmz,application/geo+json,application/json,text/xml" @change="onGpx" />
+            <input type="file" accept=".gpx,.kml,.kmz,.tcx,.fit,.geojson,.json,.xml,application/gpx+xml,application/vnd.google-earth.kml+xml,application/vnd.google-earth.kmz,application/vnd.ant.fit,application/geo+json,application/json,text/xml" @change="onGpx" />
             {{ gpxBusy ? "Reading…" : snapshot.trailProfile ? "Replace map file" : "Import map file" }}
           </label>
           <Tooltip
-            text="GPX, KML, KMZ, TCX, GeoJSON or GeoRSS. Reads the route's distance and the shape of its climb. The file is read here in your browser and never uploaded."
+            text="GPX, KML, KMZ, TCX, FIT, GeoJSON or GeoRSS. Reads the route's distance and the shape of its climb. The file is read here in your browser and never uploaded."
             preferred-placement="bottom"
           >
             <button type="button" class="head__gpxwhy" aria-label="Which map files can be read">
