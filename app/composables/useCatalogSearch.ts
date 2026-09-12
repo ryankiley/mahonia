@@ -27,6 +27,10 @@ export interface NameCommit {
   // is recorded, so a pick carries it into the list rather than losing it
   priceCents?: number;
   currency?: string;
+  // where to buy it, same journey as the price: the vault has stored one since it
+  // shipped, and until now the trip was one-way — a list could teach the vault a
+  // product link and never be handed it back
+  productUrl?: string;
   // food energy per unit, when the vault remembers it — same journey as the price:
   // recorded once, carried back into every later list
   kcal?: number;

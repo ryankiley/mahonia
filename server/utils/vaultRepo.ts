@@ -9,7 +9,9 @@ import { vaultFolders, vaultItems, vaults } from "../db/schema";
 import type { Db } from "./db";
 import {
   VAULT_CAPTURE_MAX,
+  VAULT_IMPORT_MAX,
   VAULT_NAME_MAX,
+  VAULT_NOTE_MAX,
   VAULT_SHORT_MAX,
   VAULT_URL_MAX,
   vaultNormKey,
@@ -21,6 +23,7 @@ import {
 } from "../../shared/vault";
 import type { Classification } from "../../shared/types";
 import { KCAL_MAX, UNIT_WEIGHT_MAX_MG } from "../../shared/ops";
+import { PRICE_MAX_CENTS } from "../../shared/money";
 import { tidyText } from "../../shared/tidyText";
 import { rankVaultRows } from "../../shared/vaultSearch";
 
@@ -53,6 +56,9 @@ const PIN_COLUMN = [
   ["classification", "classificationPinned"],
   ["kcal", "kcalPinned"],
   ["productUrl", "productUrlPinned"],
+  ["description", "descriptionPinned"],
+  // one flag over price_cents AND currency — see the token's note in shared/vault
+  ["price", "pricePinned"],
 ] as const satisfies readonly (readonly [VaultPinField, keyof Row])[];
 
 /** Six booleans in, one small array out — absent when nothing is pinned, the same
@@ -89,6 +95,11 @@ function toEntry(row: Row): VaultEntry {
     kcal: row.kcal ?? undefined,
     catalogItemId: row.catalogItemId ?? undefined,
     productUrl: row.productUrl ?? undefined,
+    // tidied like the other prose above; the URLs are not (see url() below)
+    description: row.description ? tidyText(row.description) || undefined : undefined,
+    priceCents: row.priceCents ?? undefined,
+    // never on its own: a currency with no amount is a unit with nothing to measure
+    currency: row.priceCents != null ? (row.currency ?? undefined) : undefined,
     folderId: row.folderId ?? undefined,
     pinned: pinsOf(row),
     timesSeen: row.timesSeen,
@@ -131,6 +142,23 @@ function kcalOf(v: unknown): number | undefined {
   return k > 0 ? Math.min(KCAL_MAX, k) : undefined;
 }
 
+/** A price off the wire: whole cents, floored at zero and capped so an integer
+ *  column can hold it. Zero reads as absent, like kcal — nobody records paying
+ *  nothing, and a stored 0 would print as "0.00" on every row that never had one. */
+function centsOf(v: unknown): number | undefined {
+  if (typeof v !== "number" || !Number.isFinite(v)) return undefined;
+  const c = Math.round(v);
+  return c > 0 ? Math.min(PRICE_MAX_CENTS, c) : undefined;
+}
+
+/** The currency for a price, or absent. Three letters, upper-cased — the column is
+ *  ISO 4217 and a free-text POST is the only thing that could put prose in it. */
+function currencyOf(v: unknown): string | undefined {
+  if (typeof v !== "string") return undefined;
+  const code = v.trim().toUpperCase();
+  return /^[A-Z]{3}$/.test(code) ? code : undefined;
+}
+
 /** Re-derive the identity server-side rather than trusting the client's normKey —
  *  a forged key could otherwise collide two unrelated items into one row (or dodge
  *  a tombstone). Drops anything that doesn't survive normalization. Fields are
@@ -154,6 +182,10 @@ function sanitize(caps: VaultCapture[]): VaultCapture[] {
       variant,
       commonName: str(c.commonName, VAULT_SHORT_MAX),
       productUrl: url(c.productUrl),
+      description: str(c.description, VAULT_NOTE_MAX),
+      priceCents: centsOf(c.priceCents),
+      // dropped without an amount, so the pair can never half-exist in the table
+      currency: centsOf(c.priceCents) != null ? currencyOf(c.currency) : undefined,
       folder: str(c.folder, FOLDER_NAME_MAX),
       weightMg: Number.isFinite(c.weightMg) ? clampWeightMg(c.weightMg) : 0,
       classification: CLASSIFICATIONS.includes(c.classification as Classification)
@@ -297,6 +329,32 @@ export async function captureVaultItemsReporting(
           vaultItems.productUrl,
           sql`coalesce(excluded.product_url, ${vaultItems.productUrl})`,
         ),
+        // FIRST note wins — the coalesce runs the other way round from the fields
+        // above, the way folderId's does, and for the same kind of reason. Those are
+        // objective facts about the gear, where a newer value is a better one; a note
+        // is subjective text, and as often about the trip as about the gear ("Sam
+        // carries this"). Last-write-wins would let any list you happen to open
+        // rewrite what you wrote about your own kit. Correcting it on /gear pins it.
+        description: keepIfPinned(
+          vaultItems.descriptionPinned,
+          vaultItems.description,
+          sql`coalesce(${vaultItems.description}, excluded.description)`,
+        ),
+        // The pair moves under ONE pin, and the currency follows the amount rather
+        // than coalescing on its own — a kept "399" under a newly-arrived "GBP"
+        // would be a price nobody paid.
+        priceCents: keepIfPinned(
+          vaultItems.pricePinned,
+          vaultItems.priceCents,
+          sql`coalesce(excluded.price_cents, ${vaultItems.priceCents})`,
+        ),
+        currency: keepIfPinned(
+          vaultItems.pricePinned,
+          vaultItems.currency,
+          sql`case when excluded.price_cents is not null then excluded.currency else ${vaultItems.currency} end`,
+        ),
+        // Not pinnable, along with the catalog link below: nothing can edit it, so
+        // there is no deliberate write for a pin to protect. First one wins.
         // Not pinnable, and deliberately: both are already first-write-wins, so a
         // pin would say nothing the coalesce doesn't already say.
         catalogItemId: sql`coalesce(excluded.catalog_item_id, ${vaultItems.catalogItemId})`,
@@ -367,6 +425,9 @@ function rowValues(c: VaultCapture, vaultId: number, now: Date, folderId: number
     kcal: c.kcal ?? null,
     catalogItemId: c.catalogItemId ?? null,
     productUrl: c.productUrl ?? null,
+    description: c.description ?? null,
+    priceCents: c.priceCents ?? null,
+    currency: c.currency ?? null,
     folderId,
     timesSeen: 1,
     lastUsedAt: now,
@@ -690,6 +751,9 @@ export type VaultItemOp =
       classification?: Classification;
       kcal?: number;
       productUrl?: string;
+      description?: string;
+      priceCents?: number;
+      currency?: string;
       /** File it as you create it; null = unfiled. Verified in this gear's scope. */
       folderId?: number | null;
     }
@@ -722,6 +786,14 @@ interface VaultItemPatch {
   classification?: Classification | null;
   kcal?: number | null;
   productUrl?: string | null;
+  description?: string | null;
+  /** The amount, in cents. 0 or null clears it — and clears the currency with it,
+   *  since the two are one decision (VAULT_PIN_FIELDS' `price`). */
+  priceCents?: number | null;
+  /** Only read alongside a priceCents. On its own it would set the money a stored
+   *  amount is in without the amount being restated, which is how "£399" becomes
+   *  "$399" by editing a field the dialog didn't show you. */
+  currency?: string | null;
 }
 
 /** The pin flags a deliberate write asserts, returned in the SAME object as the
@@ -792,6 +864,19 @@ function cleanVaultPatch(patch: unknown): ItemWrite | null {
       out.kcal = kcalOf(p.kcal) ?? null; // ≤0 reads as "clear", like the reducer's
       out.kcalPinned = true;
     }
+  }
+  if (typeof p.description === "string" || p.description === null) {
+    out.description = str(p.description, VAULT_NOTE_MAX) ?? null;
+    out.descriptionPinned = true;
+  }
+  // The amount carries the currency: they are one field with two columns, so the
+  // currency is only ever read in the same breath as a price, and clearing the
+  // price clears it. A patch naming currency alone is ignored — see the field.
+  if ("priceCents" in p) {
+    const cents = p.priceCents === null ? undefined : centsOf(p.priceCents);
+    out.priceCents = cents ?? null;
+    out.currency = cents != null ? (currencyOf(p.currency) ?? null) : null;
+    out.pricePinned = true;
   }
   return out;
 }
@@ -870,6 +955,8 @@ async function addVaultItem(db: Db, vaultId: number, op: Extract<VaultItemOp, { 
       classificationPinned: clean.classification != null,
       kcalPinned: clean.kcal != null,
       productUrlPinned: clean.productUrl != null,
+      descriptionPinned: clean.description != null,
+      pricePinned: clean.priceCents != null,
     })
     .onConflictDoUpdate({
       target: [vaultItems.vaultId, vaultItems.normKey],
@@ -890,6 +977,9 @@ async function addVaultItem(db: Db, vaultId: number, op: Extract<VaultItemOp, { 
         classification: sql`coalesce(excluded.classification, ${vaultItems.classification})`,
         kcal: sql`coalesce(excluded.kcal, ${vaultItems.kcal})`,
         productUrl: sql`coalesce(excluded.product_url, ${vaultItems.productUrl})`,
+        description: sql`coalesce(excluded.description, ${vaultItems.description})`,
+        priceCents: sql`coalesce(excluded.price_cents, ${vaultItems.priceCents})`,
+        currency: sql`case when excluded.price_cents is not null then excluded.currency else ${vaultItems.currency} end`,
         // You named a folder → it wins; you didn't → it stays filed where it was.
         // The REVERSE of capture's coalesce, deliberately: capture is automatic and
         // must not reshuffle a gear, whereas an add is you doing the filing.
@@ -901,6 +991,8 @@ async function addVaultItem(db: Db, vaultId: number, op: Extract<VaultItemOp, { 
         classificationPinned: sql`${vaultItems.classificationPinned} or excluded.classification_pinned`,
         kcalPinned: sql`${vaultItems.kcalPinned} or excluded.kcal_pinned`,
         productUrlPinned: sql`${vaultItems.productUrlPinned} or excluded.product_url_pinned`,
+        descriptionPinned: sql`${vaultItems.descriptionPinned} or excluded.description_pinned`,
+        pricePinned: sql`${vaultItems.pricePinned} or excluded.price_pinned`,
         removedAt: null,
         // surfaces at the top of /gear, which orders by last_used_at desc
         lastUsedAt: now,
@@ -947,6 +1039,107 @@ async function editVaultItem(db: Db, vaultId: number, op: Extract<VaultItemOp, {
     .where(and(eq(vaultItems.id, op.id), eq(vaultItems.vaultId, vaultId)))
     .returning();
   return done[0] ? { item: toEntry(done[0]) } : null;
+}
+
+// ---------------------------------------------------------------------------
+// import: putting a file's worth of gear back
+// ---------------------------------------------------------------------------
+
+/** A row on its way in — the gear plus the pins it arrives holding. Mirrors
+ *  shared/vaultImport's VaultImportRow; only our own JSON ever states pins. */
+export type VaultImportRow = VaultCapture & { pinned?: readonly string[] };
+
+/** The pin booleans a row arrives with. A weight of zero pins NOTHING, the same
+ *  guard cleanVaultPatch applies: pinning "not weighed yet" would lock the row out
+ *  of ever learning its weight from a list. */
+function pinFlags(row: VaultImportRow): Record<string, boolean> {
+  const held = new Set(row.pinned ?? []);
+  const out: Record<string, boolean> = {};
+  for (const [token, col] of PIN_COLUMN) out[col] = held.has(token);
+  if (row.weightMg <= 0) out.weightPinned = false;
+  return out;
+}
+
+/**
+ * Put a file's worth of gear into the vault.
+ *
+ * ADDS WHAT'S MISSING AND TOUCHES NOTHING ELSE — `onConflictDoNothing`, not an
+ * upsert. A restore is usually into an empty vault, where every rule behaves the
+ * same; the rule only matters in the case that can do harm, which is a stale backup
+ * dropped on a vault you have since curated. Overwriting there would undo months of
+ * corrections in one press with no way back, so the conflict is a skip and the count
+ * comes back so the dialog can say how many.
+ *
+ * The skip also means a TOMBSTONE holds: the unique index doesn't care that a row is
+ * removed, so gear you took out stays out rather than being resurrected by a file.
+ * That is the same answer capture gives, and for the same reason — putting a piece
+ * back is a deliberate act with its own control on /gear.
+ *
+ * Pins ride in from our own JSON and nowhere else (see VaultImportRow). Everything
+ * else goes through sanitize, so a hand-edited backup is bounded exactly like a
+ * direct POST: the identity is re-derived from the spelling and every field re-clamped.
+ */
+export async function importVaultItems(
+  db: Db,
+  vaultId: number,
+  rows: VaultImportRow[],
+): Promise<{ added: number; skipped: number }> {
+  // Sanitized ONE AT A TIME so each row's pins stay with it — sanitize dedupes by a
+  // key it derives itself, and pairing that key back to a source row afterwards
+  // would mean re-deriving it here with the same tidying, in a second place.
+  const byKey = new Map<string, { cap: VaultCapture; pins: Record<string, boolean> }>();
+  for (const row of rows.slice(0, VAULT_IMPORT_MAX)) {
+    const [cap] = sanitize([row]);
+    if (cap) byKey.set(cap.normKey, { cap, pins: pinFlags(row) }); // last wins, like sanitize's own dedupe
+  }
+  if (!byKey.size) return { added: 0, skipped: 0 };
+
+  // The ceiling, counted once. Rows past it are skipped rather than refused: an
+  // import that lands most of a backup and says so beats one that lands none.
+  const [{ n } = { n: 0 }] = await db
+    .select({ n: sql<number>`count(*)` })
+    .from(vaultItems)
+    .where(eq(vaultItems.vaultId, vaultId));
+  const room = Math.max(0, VAULT_ITEMS_MAX - Number(n));
+  const all = [...byKey.values()];
+  const clean = all.slice(0, room);
+  if (!clean.length) return { added: 0, skipped: all.length };
+
+  const now = new Date();
+  const folderId = await ensureFolders(db, vaultId, clean.map((c) => c.cap.folder));
+  const done = await db
+    .insert(vaultItems)
+    .values(
+      clean.map(({ cap, pins }) => ({
+        vaultId,
+        normKey: cap.normKey,
+        brand: cap.brand ?? null,
+        name: cap.name,
+        variant: cap.variant ?? null,
+        commonName: cap.commonName ?? null,
+        weightMg: cap.weightMg,
+        classification: cap.classification ?? null,
+        kcal: cap.kcal ?? null,
+        catalogItemId: cap.catalogItemId ?? null,
+        productUrl: cap.productUrl ?? null,
+        description: cap.description ?? null,
+        priceCents: cap.priceCents ?? null,
+        currency: cap.currency ?? null,
+        folderId: (cap.folder && folderId.get(cap.folder)) || null,
+        // NOT bumped past 1: times_seen counts the lists that reached for a piece
+        // of gear, and a file is not a list. A restored vault's ranking rebuilds
+        // itself the next time you pack.
+        timesSeen: 1,
+        lastUsedAt: now,
+        updatedAt: now,
+        ...pins,
+      })),
+    )
+    // no target: the identity index (vault_id, norm_key) is the only conflict a
+    // row can have, and every one of them means "you already have this"
+    .onConflictDoNothing()
+    .returning();
+  return { added: done.length, skipped: all.length - done.length };
 }
 
 /** The folder verbs /gear offers, as one small tagged union — see
