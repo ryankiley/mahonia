@@ -46,9 +46,9 @@ const props = withDefaults(
   { nested: false },
 );
 
-/** this row's variant earns its place on the sub-line — never on a renamed row, whose
- *  rename dropped the catalog's variant (a stale one must not resurface) */
-const variantOnRow = computed(() => !props.item.nameOverridden && !!props.variantShownIds?.has(props.item.id));
+/** this row's variant earns its place on the sub-line (a typed one as readily as a
+ *  picked one: the rule is about the list, not where the variant came from) */
+const variantOnRow = computed(() => !!props.variantShownIds?.has(props.item.id));
 
 /** this row is scaffolding around a match, not one of the filtered person's own */
 const isContextOnly = computed(() => !!props.contextOnlyIds?.has(props.item.id));

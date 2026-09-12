@@ -7,9 +7,10 @@
 //     nothing else;
 //   • the share view's row puts the variant on its sub-line only when its list says
 //     so, and passes the answer down to nested rows;
-//   • the editor's row keeps the variant OUT of the name field, puts it in the edit
-//     sub-line beside the gear type on every row, and on the checklist face's sub-line
-//     only where the list holds the same product in another variant.
+//   • the editor's row keeps the variant OUT of the name field, gives it a field of its
+//     own in the edit sub-line beside the gear type (a pick fills it, a person can type
+//     one), and puts it on the checklist face's sub-line only where the list holds the
+//     same product in another variant.
 // Mounted rather than reasoned about, because each is a binding in a template, and a
 // template binding that goes missing fails no type check.
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -105,9 +106,11 @@ describe("the share view's row", () => {
     expect(w.find(".item__rosub").text()).toBe("Long · the summer one");
   });
 
-  it("shows nothing for a renamed row's stale variant, even when the list names it", () => {
-    const w = mountRo(longQuilt({ nameOverridden: true }), [], new Set(["q1"]));
-    expect(w.find(".item__rovariant").exists()).toBe(false);
+  // a typed variant on a hand-named row is as much the row's as a picked one
+  it("shows a typed variant on a renamed row when the list names it", () => {
+    const w = mountRo(longQuilt({ name: "Summer quilt", brand: "", nameOverridden: true }), [], new Set(["q1"]));
+    expect(w.find(".item__ronametext").text()).toBe("Summer quilt");
+    expect(w.find(".item__rovariant").text()).toBe("· Long");
   });
 
   it("hands the set down to a nested row", () => {
@@ -154,22 +157,73 @@ describe("the editor's row", () => {
     expect(field.value).toBe("Enlightened Equipment Revelation");
   });
 
-  it("names the variant in the sub-line, beside the gear type", () => {
+  it("names the variant in the sub-line, in a field beside the gear type", () => {
     const w = mountRow(longQuilt());
     const line = w.find(".item__gtype-line");
     expect((line.find(".item__gtype-input").element as HTMLInputElement).value).toBe("Quilt");
-    expect(line.find(".item__variant").text()).toBe("· Long");
+    expect(line.find(".item__gtype-dot").exists()).toBe(true);
+    expect((line.find(".item__variant-input").element as HTMLInputElement).value).toBe("Long");
   });
 
   it("opens the sub-line for a variant alone, without the gear type's dot", () => {
     const w = mountRow(longQuilt({ commonName: undefined }));
     expect(w.find(".item__gtype-input").exists()).toBe(false);
-    expect(w.find(".item__variant").text()).toBe("Long");
+    expect(w.find(".item__gtype-dot").exists()).toBe(false);
+    expect((w.find(".item__variant-input").element as HTMLInputElement).value).toBe("Long");
   });
 
-  it("shows nothing in the sub-line for a renamed row's stale variant", () => {
-    const w = mountRow(longQuilt({ nameOverridden: true, commonName: undefined }));
-    expect(w.find(".item__variant").exists()).toBe(false);
+  it("opens an empty variant field with the gear type's while the name is being edited, on a leaf only", async () => {
+    const leaf = mountRow(item({ id: "t", name: "Tarp" }));
+    expect(leaf.find(".item__variant-input").exists()).toBe(false);
+    await leaf.find(".item__namebox").trigger("focusin");
+    expect(leaf.find(".item__gtype-input").exists()).toBe(true);
+    expect(leaf.find(".item__variant-input").exists()).toBe(true);
+    // the person's words, not the catalog's: "variant" is trade vocabulary
+    expect(leaf.find(".item__variant-input").attributes("placeholder")).toBe("Size or version");
+    expect(leaf.find(".item__variant-input").attributes("aria-label")).toBe("Size or version");
+    leaf.unmount();
+
+    snapshot.value = { ...blankList(), items: [item({ id: "g", name: "Cook kit" }), item({ id: "c", name: "Pot", parentId: "g" })] } as ListSnapshot;
+    const group = mount(ItemRow, {
+      props: {
+        get list() {
+          return snapshot.value;
+        },
+        get item() {
+          return snapshot.value.items[0]!;
+        },
+      },
+      global: { provide: rowProvides(new Map([["g", [snapshot.value.items[1]!]]])) },
+      attachTo: document.body,
+    });
+    await group.find(".item__namebox").trigger("focusin");
+    expect(group.find(".item__variant-input").exists()).toBe(false);
+  });
+
+  // typing one: stored through the reducer (the stub's updateItem runs the real one),
+  // and the name marked the person's so live-resolve keeps its hands off the triple
+  it("stores a typed variant and marks the name the person's", async () => {
+    const w = mountRow(item({ id: "t", name: "Tarp", commonName: "Shelter" }));
+    await w.find(".item__namebox").trigger("focusin"); // opens the empty field
+    const field = w.find<HTMLInputElement>(".item__variant-input");
+    field.element.value = "  8 x 10  ";
+    await field.trigger("change");
+    expect(snapshot.value.items[0]).toMatchObject({ variant: "8 x 10", nameOverridden: true });
+    expect((w.find(".item__variant-input").element as HTMLInputElement).value).toBe("8 x 10");
+  });
+
+  it("clears a variant typed away, and keeps the row's name", async () => {
+    const w = mountRow(longQuilt());
+    const field = w.find<HTMLInputElement>(".item__variant-input");
+    field.element.value = "";
+    await field.trigger("change");
+    expect(snapshot.value.items[0]!.variant).toBeUndefined();
+    expect(snapshot.value.items[0]).toMatchObject({ name: "Revelation", brand: "Enlightened Equipment" });
+  });
+
+  it("shows a typed variant on a renamed row's sub-line", () => {
+    const w = mountRow(longQuilt({ name: "Summer quilt", brand: "", nameOverridden: true, commonName: undefined }));
+    expect((w.find(".item__variant-input").element as HTMLInputElement).value).toBe("Long");
   });
 
   it("puts the variant on the checklist face's sub-line only where it disambiguates, never on the name line", () => {
@@ -190,9 +244,10 @@ describe("the editor's row", () => {
     expect(bare.find("label.item--check .item__csub").text()).toBe("Long");
   });
 
-  it("shows no variant on the checklist face for a renamed row, whatever the list says", () => {
-    const w = mountRow(longQuilt({ nameOverridden: true }), new Set(["q1"]));
-    expect(w.find("label.item--check .item__cvariant").exists()).toBe(false);
+  it("shows a typed variant on the checklist face of a renamed row when the list names it", () => {
+    const w = mountRow(longQuilt({ name: "Summer quilt", brand: "", nameOverridden: true }), new Set(["q1"]));
+    expect(w.find("label.item--check .iname").text()).toBe("Summer quilt");
+    expect(w.find("label.item--check .item__cvariant").text()).toBe("· Long");
   });
 
   // The row is mounted over its own snapshot FIRST (mountRow), and only the answer set
