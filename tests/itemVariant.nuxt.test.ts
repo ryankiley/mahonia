@@ -1,19 +1,21 @@
 // @vitest-environment nuxt
 //
-// A row's variant, shown only where it tells the reader something. Three faces render
-// the answer shared/variantShown gives (pinned as plain TS in variantShown.test.ts):
-//   • <ItemName>, the name on the checklist and share rows, shows the dimmed suffix
-//     only when its caller says so;
-//   • the share view's row passes its list's answer down, nested rows included;
-//   • the editor's row keeps the variant OUT of the name field, puts it in the
-//     sub-line beside the gear type, and shows it beside the name on the checklist
-//     face only where the list holds the same product in another variant.
+// A row's variant, shown only where it tells the reader something, and always on the
+// sub-line under the name, never on the name line. Three faces render the answer
+// shared/variantShown gives (pinned as plain TS in variantShown.test.ts):
+//   • <ItemName>, the name on the checklist and share rows, is brand + product and
+//     nothing else;
+//   • the share view's row puts the variant on its sub-line only when its list says
+//     so, and passes the answer down to nested rows;
+//   • the editor's row keeps the variant OUT of the name field, puts it in the edit
+//     sub-line beside the gear type on every row, and on the checklist face's sub-line
+//     only where the list holds the same product in another variant.
 // Mounted rather than reasoned about, because each is a binding in a template, and a
 // template binding that goes missing fails no type check.
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import { enableAutoUnmount, mount } from "@vue/test-utils";
-import { ref } from "vue";
+import { ref, type Ref } from "vue";
 import ItemName from "~/components/ItemName.vue";
 import ItemRow from "~/components/ItemRow.vue";
 import ReadonlyItemRow from "~/components/ReadonlyItemRow.vue";
@@ -61,25 +63,18 @@ const longQuilt = (over: Partial<Item> = {}) =>
   });
 
 describe("<ItemName>", () => {
-  const mountName = (props: { item: Item; variant?: boolean }) => mount(ItemName, { props });
+  const mountName = (props: { item: Item }) => mount(ItemName, { props });
 
-  it("shows brand and product, and no variant unless told to", () => {
+  it("shows brand and product, and nothing else", () => {
     const w = mountName({ item: longQuilt() });
     expect(w.text()).toBe("Enlightened Equipment Revelation");
-    expect(w.find(".iname__variant").exists()).toBe(false);
   });
 
-  it("shows the variant as its dimmed suffix when told to", () => {
-    const w = mountName({ item: longQuilt(), variant: true });
-    expect(w.find(".iname__variant").text()).toBe("· Long");
-    expect(w.text()).toBe("Enlightened Equipment Revelation · Long");
-  });
-
-  it("never shows one on a renamed row, told or not", () => {
+  it("shows just the name on a renamed row", () => {
     // a rename drops the catalog's brand and variant on the way to the user's own name
-    // (ItemRow.onNameCommit); a stale one left behind must not resurface
-    const w = mountName({ item: longQuilt({ nameOverridden: true }), variant: true });
-    expect(w.find(".iname__variant").exists()).toBe(false);
+    // (ItemRow.onNameCommit)
+    const w = mountName({ item: longQuilt({ name: "My old quilt", brand: "", variant: "", nameOverridden: true }) });
+    expect(w.text()).toBe("My old quilt");
   });
 });
 
@@ -91,31 +86,44 @@ describe("the share view's row", () => {
     });
   }
 
-  it("shows brand and product alone when the list holds one of the product", () => {
+  it("shows brand and product on the name line, and the gear type alone under it, when the list holds one of the product", () => {
     const w = mountRo(longQuilt());
-    expect(w.find(".item__ronametext").text()).toContain("Enlightened Equipment Revelation");
-    expect(w.find(".iname__variant").exists()).toBe(false);
+    expect(w.find(".item__ronametext").text()).toBe("Enlightened Equipment Revelation");
+    expect(w.find(".item__rosub").text()).toBe("Quilt");
+    expect(w.find(".item__rovariant").exists()).toBe(false);
   });
 
-  it("shows the variant when the list says this row's is the one telling it apart", () => {
+  it("puts the variant on the sub-line beside the gear type when the list says this row's is the one telling it apart", () => {
     const w = mountRo(longQuilt(), [], new Set(["q1"]));
-    expect(w.find(".iname__variant").text()).toBe("· Long");
+    expect(w.find(".item__ronametext").text()).toBe("Enlightened Equipment Revelation");
+    expect(w.find(".item__rovariant").text()).toBe("· Long");
+    expect(w.find(".item__rosub").text()).toBe("Quilt · Long");
+  });
+
+  it("opens the sub-line for a variant alone, and dots the note after it", () => {
+    const w = mountRo(longQuilt({ commonName: undefined, description: "the summer one" }), [], new Set(["q1"]));
+    expect(w.find(".item__rosub").text()).toBe("Long · the summer one");
+  });
+
+  it("shows nothing for a renamed row's stale variant, even when the list names it", () => {
+    const w = mountRo(longQuilt({ nameOverridden: true }), [], new Set(["q1"]));
+    expect(w.find(".item__rovariant").exists()).toBe(false);
   });
 
   it("hands the set down to a nested row", () => {
     const group = item({ id: "g", name: "Sleep kit" });
     const child = longQuilt({ parentId: "g" });
     const w = mountRo(group, [child], new Set(["q1"]));
-    // the parent's own name line carries no variant; the child's, one level down, does.
+    // the parent's own sub-line carries no variant; the child's, one level down, does.
     // Scoped to the parent's row element: a parent renders its children as more of the
     // same component, so an unscoped find would answer for the child.
-    expect(w.find(".item-row").find(".iname__variant").exists()).toBe(false);
-    expect(w.find(".ro-nest .iname__variant").text()).toBe("· Long");
+    expect(w.find(".item-row").find(".item__rovariant").exists()).toBe(false);
+    expect(w.find(".ro-nest .item__rovariant").text()).toBe("· Long");
   });
 });
 
 describe("the editor's row", () => {
-  function mountRow(row: Item, shown: ReadonlySet<string> = new Set()) {
+  function mountRow(row: Item, shown: ReadonlySet<string> | Ref<ReadonlySet<string>> = new Set()) {
     snapshot.value = { ...blankList(), items: [{ ...row }] } as ListSnapshot;
     return mount(ItemRow, {
       props: {
@@ -164,38 +172,42 @@ describe("the editor's row", () => {
     expect(w.find(".item__variant").exists()).toBe(false);
   });
 
-  it("puts the variant beside the name on the checklist face only where it disambiguates", () => {
+  it("puts the variant on the checklist face's sub-line only where it disambiguates, never on the name line", () => {
     const alone = mountRow(longQuilt());
     expect(alone.find("label.item--check .iname").text()).toBe("Enlightened Equipment Revelation");
-    expect(alone.find("label.item--check .iname__variant").exists()).toBe(false);
+    expect(alone.find("label.item--check .item__csub").text()).toBe("Quilt");
+    expect(alone.find("label.item--check .item__cvariant").exists()).toBe(false);
     alone.unmount();
 
     const twin = mountRow(longQuilt(), new Set(["q1"]));
-    expect(twin.find("label.item--check .iname__variant").text()).toBe("· Long");
+    expect(twin.find("label.item--check .iname").text()).toBe("Enlightened Equipment Revelation");
+    expect(twin.find("label.item--check .item__cvariant").text()).toBe("· Long");
+    expect(twin.find("label.item--check .item__csub").text()).toBe("Quilt · Long");
+    twin.unmount();
+
+    // a variant with no gear type opens the sub-line on its own, without a stray dot
+    const bare = mountRow(longQuilt({ commonName: undefined }), new Set(["q1"]));
+    expect(bare.find("label.item--check .item__csub").text()).toBe("Long");
   });
 
+  it("shows no variant on the checklist face for a renamed row, whatever the list says", () => {
+    const w = mountRow(longQuilt({ nameOverridden: true }), new Set(["q1"]));
+    expect(w.find("label.item--check .item__cvariant").exists()).toBe(false);
+  });
+
+  // The row is mounted over its own snapshot FIRST (mountRow), and only the answer set
+  // moves: this case used to mount over whatever row the previous case left in the
+  // shared snapshot and swap it afterwards, which passed only while that leftover
+  // happened to be an unrenamed twin — and failed on its own (`-t`) with no row at all.
   it("follows the list: a twin arriving later brings the variant out, and leaving takes it back", async () => {
     const shown = ref<ReadonlySet<string>>(new Set());
-    const w = mount(ItemRow, {
-      props: {
-        get list() {
-          return snapshot.value;
-        },
-        get item() {
-          return snapshot.value.items[0]!;
-        },
-      },
-      global: { provide: rowProvides(new Map(), undefined, shown) },
-      attachTo: document.body,
-    });
-    snapshot.value = { ...blankList(), items: [longQuilt()] } as ListSnapshot;
-    await w.vm.$nextTick();
-    expect(w.find("label.item--check .iname__variant").exists()).toBe(false);
+    const w = mountRow(longQuilt(), shown);
+    expect(w.find("label.item--check .item__cvariant").exists()).toBe(false);
     shown.value = new Set(["q1"]);
     await w.vm.$nextTick();
-    expect(w.find("label.item--check .iname__variant").text()).toBe("· Long");
+    expect(w.find("label.item--check .item__cvariant").text()).toBe("· Long");
     shown.value = new Set();
     await w.vm.$nextTick();
-    expect(w.find("label.item--check .iname__variant").exists()).toBe(false);
+    expect(w.find("label.item--check .item__cvariant").exists()).toBe(false);
   });
 });

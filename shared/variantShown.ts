@@ -1,12 +1,14 @@
-// Which rows' variant EARNS its place beside the name.
+// Which rows' variant EARNS its place on the row.
 //
 // A catalog row is one per variant ("Long, 18F", "Men's Medium"), and every row used
-// to print its variant as a dimmed suffix. Once the gear is yours the size is known,
-// and "Men's Medium" beside the brand and product you know it by is noise. On a list,
-// the variant tells a reader something in exactly one place: where the list holds the
-// same product in MORE THAN ONE variant, because there it is the only thing telling
-// two rows apart. Everywhere else it moves to the quiet places (the catalog picker,
-// the editor's sub-line under the name) or stays off the row.
+// to print its variant as a dimmed suffix on the name. Once the gear is yours the size
+// is known, and "Men's Medium" beside the brand and product you know it by is noise.
+// On a list, the variant tells a reader something in exactly one place: where the list
+// holds the same product in MORE THAN ONE variant, because there it is the only thing
+// telling two rows apart. There it shows on the sub-line under the name (the checklist
+// and share rows), which is where the editor keeps it on every row; everywhere else it
+// stays in the quiet places (the catalog picker, that editor sub-line) or off the row.
+// The name line itself is brand + product on every face.
 //
 // Two things deliberately keep it regardless. The vault's identity (vaultNormKey): a
 // medium and a large remain two things in My Gear. And the exports, because a file
@@ -18,8 +20,8 @@ import { vaultNormKey } from "./vault";
 type Named = Pick<Item, "id" | "name" | "brand" | "variant">;
 
 /**
- * The ids of the rows whose variant shows ON the row: every row carrying a variant,
- * of a product the list holds in two or more variants.
+ * The ids of the rows whose variant shows on the row's sub-line: every row carrying a
+ * variant, of a product the list holds in two or more variants.
  *
  * A product is the folded brand + name, the vault's own key minus the variant, so
  * "Zpacks Duplex" and "zpacks  duplex" are one product and a typed brand matches a

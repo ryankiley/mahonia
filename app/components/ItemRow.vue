@@ -378,15 +378,20 @@ const effClass = computed(() =>
 // The editable name field shows "Brand Model" and NOT the variant. The variant is a
 // catalog fact rather than something typed here (a free-text edit drops it along with
 // the link, see onNameCommit), and beside the product you know your own gear by it
-// read as noise on every row; it lives in the sub-line below (variantInSub) and on the
-// checklist face only where it tells two rows apart (variantOnRow). ItemInput puts the
-// same "Brand Model" in the box after a pick, and that pairing is load-bearing: its
-// blur commit compares the box against THIS value, and a box still holding the
-// variant would read as a rename and unlink the row it had just linked.
+// read as noise on every row; it lives in the sub-line below (variantInSub), and the
+// checklist face's sub-line carries it only where it tells two rows apart
+// (variantOnRow). ItemInput puts the same "Brand Model" in the box after a pick, and
+// that pairing is load-bearing: its blur commit compares the box against THIS value,
+// and a box still holding the variant would read as a rename and unlink the row it
+// had just linked.
 const editableName = computed(() => itemDisplayName(props.item.brand, props.item.name));
-// the variant beside the name on the checklist face: only where the list holds the
-// same product in another variant too (shared/variantShown, one pass per snapshot)
-const variantOnRow = computed(() => variantShownIds.value.has(props.item.id));
+// The variant on the checklist face's sub-line: only where the list holds the same
+// product in another variant too (shared/variantShown, one pass per snapshot). On the
+// SUB-line, where the editor puts it, so the name line reads the same on every face
+// (Ryan, 2026-09-12: the checklist "expresses the variant on a different line").
+// Never on a renamed row: the rename dropped the catalog's variant, and a stale one
+// left behind must not resurface (the same guard as variantInSub).
+const variantOnRow = computed(() => !props.item.nameOverridden && variantShownIds.value.has(props.item.id));
 
 // water rows: the qty field becomes a LITRES field (water is 1 L = 1 kg), driving
 // the weight; the weight field itself is read-only so the two can't desync.
@@ -1224,7 +1229,7 @@ function dismissFix() {
         <HugeiconsIcon v-if="isParent" :icon="MinusSignSquareIcon" class="check__icon check__icon--mixed" :size="20" :stroke-width="1.33" absolute-stroke-width aria-hidden="true" />
         <HugeiconsIcon :icon="CheckmarkSquare02Icon" class="check__icon check__icon--check" :size="20" :stroke-width="1.33" absolute-stroke-width aria-hidden="true" />
       </span>
-      <span class="item__cname" :class="{ 'item__cname--group': isParent }"><ItemName :item="item" :group="isParent" :variant="variantOnRow" /><span v-if="isParent && rowKcal > 0" class="t-sm t-muted item__gkcalinline"> · {{ formatKcal(rowKcal) }} kcal</span><!--
+      <span class="item__cname" :class="{ 'item__cname--group': isParent }"><ItemName :item="item" :group="isParent" /><span v-if="isParent && rowKcal > 0" class="t-sm t-muted item__gkcalinline"> · {{ formatKcal(rowKcal) }} kcal</span><!--
           the carrier, riding the name cell (display-only — this face is a <label>
           over a checkbox, so a control here would toggle the tick). Only their own
           claim is tagged: children of a claimed group inherit silently, or a
@@ -1250,8 +1255,11 @@ function dismissFix() {
            than out at the cell's edge — same as the read row's -->
       <span class="t-num item__cweight"><template v-if="rowWeightMg > 0">{{ formatWeight(rowWeightMg, rowUnit, { withUnit: false }) }}<span class="t-muted item__wunit">{{ rowUnit }}</span></template><template v-else>—<span class="item__wunit" /></template></span>
       <!-- the common name — a quiet sub-line under the product name (what you're checking
-           off), aligned to the name column past the checkbox; mirrors the read row -->
-      <span v-if="item.commonName" class="t-sm item__csub">{{ item.commonName }}</span>
+           off), aligned to the name column past the checkbox; mirrors the read row. The
+           variant rides it in the aside voice, where the list holds the product in two
+           variants (variantOnRow); the dot goes with the gear type, so a variant alone
+           doesn't open with a stray one, as on the edit face's sub-line. -->
+      <span v-if="item.commonName || variantOnRow" class="t-sm item__csub">{{ item.commonName }}<span v-if="variantOnRow" class="item__cvariant" title="Variant">{{ item.commonName ? " · " : "" }}{{ item.variant }}</span></span>
     </label>
 
     <div v-if="everEdit" class="item-row item">
@@ -2196,6 +2204,12 @@ function dismissFix() {
      same distance under the name in packing mode too */
   margin-top: var(--caption-tuck);
   color: var(--ink-2);
+}
+/* the variant on that sub-line: the aside voice the edit face's .item__variant and the
+   read row's .item__rovariant use, a size under the upright gear type it qualifies */
+.item__cvariant {
+  color: var(--ink-3);
+  font-style: italic;
 }
 /* the unit suffix gap (.item__wunit) is shared with the read rows — atoms/item.scss */
 /* packed = "in the bag", so it reads as done (dimmed), NOT excluded — the check
