@@ -817,6 +817,7 @@
       "brand": "Tantrums",
       "name": "Crest 6 Hydration Pack",
       "variant": "M",
+      "attributes": {"volume_l": 6},
       "category_hint": "pack",
       "common_name": "running vest",
       "weight_value": 135,

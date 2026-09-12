@@ -252,6 +252,7 @@
       "brand": "Gnuhr",
       "name": "Nalgene 16oz",
       "variant": null,
+      "attributes": {"volume_l": 0.473},
       "category_hint": "water",
       "common_name": "Water bottle",
       "weight_value": 92,
