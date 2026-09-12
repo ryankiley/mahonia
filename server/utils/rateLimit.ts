@@ -209,6 +209,12 @@ const RATE_LIMITS = {
   // public read views (/l, /s) — edge-cached, so origin hits are rare; a generous
   // per-IP cap bounds cache-busted floods
   "public-read": 120,
+  // the MCP endpoint (/mcp): its own budget beside public-read, since an assistant's
+  // traffic arrives from a handful of fixed addresses and must neither starve the
+  // share pages nor be starved by them. Reads are the roomy one; the write tools spend
+  // the second as well, which is the create + mutate budgets' order of magnitude
+  "mcp": 120,
+  "mcp-write": 30,
   // heavier / abuse-prone writes
   "publish": 20,
   "restore": 30,

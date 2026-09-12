@@ -20,7 +20,8 @@
 import { and, desc, eq, gt, inArray, sql } from "drizzle-orm";
 import { catalogEdits, catalogItems } from "../db/schema";
 import { itemDisplayName } from "../../shared/weights";
-import { UNIT_WEIGHT_MAX_MG } from "../../shared/ops";
+import { foldForSearch } from "../../shared/searchText";
+import { UNIT_WEIGHT_MAX_MG, isCatalogId } from "../../shared/ops";
 import { memoized } from "./memoize";
 import type { Db } from "./db";
 import {
@@ -185,6 +186,100 @@ export async function searchCatalog(
 export async function activeCatalogRows(db: Db): Promise<CatalogSearchResult[]> {
   const rows = await db.select().from(catalogItems).where(eq(catalogItems.status, "active"));
   return rows.map(toCatalogResult);
+}
+
+/** One variant of a product, with its citation: what the MCP product tool hands back. */
+export interface ProductVariant {
+  id: number;
+  variant: string | null;
+  weightMg: number;
+  weightSource: string;
+  sourceUrl: string | null;
+  verified: boolean;
+  kcal: number | null;
+}
+export interface CatalogProduct {
+  brand: string | null;
+  name: string;
+  commonName: string | null;
+  categoryHint: string | null;
+  variants: ProductVariant[];
+}
+
+/**
+ * One product and every active variant of it, by a row id (its siblings come along)
+ * or by brand and name. A product is the rows sharing a folded brand and an
+ * exact, case-insensitive name: the identity index is (brand, name, variant), and
+ * this is that index minus its last column. Null when nothing matches.
+ */
+export async function productVariants(
+  db: Db,
+  ref: { id?: number; brand?: string; name?: string },
+): Promise<CatalogProduct | null> {
+  let anchor: { brand: string | null; name: string } | undefined;
+  if (ref.id) {
+    const rows = await db
+      .select({ brand: catalogItems.brand, name: catalogItems.name })
+      .from(catalogItems)
+      .where(and(eq(catalogItems.id, ref.id), eq(catalogItems.status, "active")))
+      .limit(1);
+    anchor = rows[0];
+  } else if (ref.name) {
+    anchor = { brand: ref.brand ?? null, name: ref.name };
+  }
+  if (!anchor) return null;
+  const rows = await db
+    .select({
+      id: catalogItems.id,
+      brand: catalogItems.brand,
+      name: catalogItems.name,
+      variant: catalogItems.variant,
+      commonName: catalogItems.commonName,
+      categoryHint: catalogItems.categoryHint,
+      weightMg: catalogItems.weightMg,
+      weightSource: catalogItems.weightSource,
+      sourceUrl: catalogItems.sourceUrl,
+      verified: catalogItems.verified,
+      kcal: catalogItems.kcal,
+    })
+    .from(catalogItems)
+    .where(and(eq(catalogItems.status, "active"), sql`lower(${catalogItems.name}) = lower(${anchor.name})`));
+  const wantBrand = foldForSearch(anchor.brand ?? "");
+  const siblings = rows
+    .filter((r) => foldForSearch(r.brand ?? "") === wantBrand)
+    .sort((a, b) => (a.variant ?? "").localeCompare(b.variant ?? "") || a.id - b.id);
+  const first = siblings[0];
+  if (!first) return null;
+  return {
+    brand: first.brand,
+    name: first.name,
+    commonName: first.commonName ?? null,
+    categoryHint: first.categoryHint ?? null,
+    variants: siblings.map((r) => ({
+      id: r.id,
+      variant: r.variant,
+      weightMg: Number(r.weightMg),
+      weightSource: r.weightSource,
+      sourceUrl: r.sourceUrl ?? null,
+      verified: r.verified,
+      kcal: r.kcal ?? null,
+    })),
+  };
+}
+
+/**
+ * Active catalog rows by id, in the search result's shape: what a row LINKED to the
+ * catalog takes from it (the cited weight, the brand, the variant, the gear type),
+ * the way a pick in the editor does. Ids that name nothing are simply absent.
+ */
+export async function catalogRowsById(db: Db, ids: readonly number[]): Promise<Map<number, CatalogSearchResult>> {
+  const wanted = [...new Set(ids.filter(isCatalogId))];
+  if (!wanted.length) return new Map();
+  const rows = await db
+    .select()
+    .from(catalogItems)
+    .where(and(inArray(catalogItems.id, wanted), eq(catalogItems.status, "active")));
+  return new Map(rows.map((r) => [r.id, toCatalogResult(r)]));
 }
 
 export async function bumpUsage(db: Db, ids: number[]): Promise<void> {

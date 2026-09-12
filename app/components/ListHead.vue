@@ -8,7 +8,7 @@ import {
   parseDistanceM,
   resolveDistanceUnit,
 } from "~~/shared/trailDistance";
-import { displayUrl, parseTrailLink, safeUrl } from "~~/shared/trailLink";
+import { displayUrl, parseTrailLink, safeUrl, CLEARS_WITH_LINK } from "~~/shared/trailLink";
 // shared/gpx is deliberately absent here AND in useGpxImport, which now owns the
 // reading — it is reached through `await import()` inside onGpx, so the file reader
 // isn't on the first load of a list nobody imports into. Not even MAX_GPX_BYTES: one
@@ -149,18 +149,9 @@ watch(
 );
 const icon = computed(() => props.snapshot.trailFaviconDataUrl ?? fetchedIcon.value);
 
-// Everything that describes the route the link pointed AT, cleared. A label with no link
-// is unreachable state, and so is a distance, a profile or a line with no route to be the
-// shape of. One object because two copies of this list is how the next field added here
-// gets cleared on one path and left behind on the other.
-const CLEARS_WITH_LINK = {
-  trailLabel: "",
-  trailDistanceM: "",
-  trailProfile: "",
-  trailAscentM: "",
-  trailDescentM: "",
-  routeGeometry: "",
-} as const;
+// Everything that describes the route the link pointed AT is cleared with it: one
+// object (shared/trailLink CLEARS_WITH_LINK), spread here and by the MCP set_trip
+// tool, so the next field added there is cleared on both paths.
 
 // Commits on @change (blur/Enter), the uncontrolled :value pattern the title uses — not
 // per keystroke, so a half-typed URL never reaches the reducer (which would reject it).
