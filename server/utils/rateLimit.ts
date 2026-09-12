@@ -256,6 +256,9 @@ const RATE_LIMITS = {
   // reachable by anyone and writes a row in `users`.
   "passkey-signup": 5,
   "account": 30,
+  // the account takeout reads every claimed list in full in one request, the most a
+  // single call here can cost; nobody needs it twice a minute
+  "account-export": 5,
   "list-claim": 60,
   // the admin gate itself (see requireAdmin) — throttled against brute force
   "admin": 30,

@@ -92,7 +92,13 @@ export function vaultToCsv({ items, folders }: VaultExport, unit: Unit): string 
  * differs from the wire is one more thing that can drift. Rows come back in the
  * page's order for the same reason the CSV does.
  */
-export function vaultToJson({ items, folders }: VaultExport): string {
+export function vaultToJson(vault: VaultExport): string {
+  return JSON.stringify(vaultExportObject(vault), null, 2);
+}
+
+/** The backup's object before it is text, for the account takeout to embed whole:
+ *  one shape for the gear wherever it is written out. */
+export function vaultExportObject({ items, folders }: VaultExport): { folders: VaultFolder[]; items: VaultEntry[] } {
   const ordered = groupVaultRows(items, folders, { keepEmpty: false }).flatMap((s) => s.entries);
-  return JSON.stringify({ folders, items: ordered }, null, 2);
+  return { folders, items: ordered };
 }
