@@ -13,12 +13,16 @@ import type { Classification, Item as ItemT, Person, Unit } from "~~/shared/type
 //  • the people in display order, and each person's SLOT (their index in that
 //    order) — the row's filter attribute and its picker both read these, and
 //    every row was sorting the people list for itself
+//  • the rows whose variant DISAMBIGUATES — the same product held in two variants
+//    (shared/variantShown) — one pass per snapshot, where each row asking for
+//    itself would scan the whole list for a twin
 export const CHILDREN_BY_PARENT: InjectionKey<Readonly<Ref<Map<string, ItemT[]>>>> =
   Symbol("childrenByParent");
 export const PEOPLE_CTX: InjectionKey<{
   sorted: Readonly<Ref<Person[]>>;
   slotById: Readonly<Ref<Map<string, number>>>;
 }> = Symbol("people");
+export const VARIANT_SHOWN: InjectionKey<Readonly<Ref<ReadonlySet<string>>>> = Symbol("variantShown");
 
 // static per-component tables — module scope so a large list doesn't rebuild
 // them in every row instance
@@ -115,6 +119,10 @@ const { mode: editorMode, everEdit, everPacked } = useEditorMode();
 // children, read-only, like a folder subtotal); the children carry the real editable
 // weights. Nesting is one level, so a nested row never renders its own children.
 const childrenByParent = inject(CHILDREN_BY_PARENT)!;
+// the rows whose variant belongs beside the name (VARIANT_SHOWN, above): this row
+// reads one membership, so the set changing under it re-renders nothing unless its
+// own answer flips
+const variantShownIds = inject(VARIANT_SHOWN)!;
 const children = computed(() =>
   props.nested ? NO_ITEMS : (childrenByParent.value.get(props.item.id) ?? NO_ITEMS),
 );
@@ -367,12 +375,18 @@ const effClass = computed(() =>
   effectiveClassification(props.item, props.list.folders),
 );
 
-// the editable name field shows the full flat "Brand Model Variant" so a rename
-// edits the whole thing; the static (read-only/packed) views render it structured
-// with the variant dimmed via <ItemName>.
-const editableName = computed(() =>
-  itemDisplayName(props.item.brand, props.item.name, props.item.variant),
-);
+// The editable name field shows "Brand Model" and NOT the variant. The variant is a
+// catalog fact rather than something typed here (a free-text edit drops it along with
+// the link, see onNameCommit), and beside the product you know your own gear by it
+// read as noise on every row; it lives in the sub-line below (variantInSub) and on the
+// checklist face only where it tells two rows apart (variantOnRow). ItemInput puts the
+// same "Brand Model" in the box after a pick, and that pairing is load-bearing: its
+// blur commit compares the box against THIS value, and a box still holding the
+// variant would read as a rename and unlink the row it had just linked.
+const editableName = computed(() => itemDisplayName(props.item.brand, props.item.name));
+// the variant beside the name on the checklist face: only where the list holds the
+// same product in another variant too (shared/variantShown, one pass per snapshot)
+const variantOnRow = computed(() => variantShownIds.value.has(props.item.id));
 
 // water rows: the qty field becomes a LITRES field (water is 1 L = 1 kg), driving
 // the weight; the weight field itself is read-only so the two can't desync.
@@ -697,8 +711,14 @@ const nameEditing = ref(false);
 // never a stored value with no field to edit it.
 const cnameShown = computed(() => !!props.item.commonName || (nameEditing.value && !isParent.value));
 const noteShown = computed(() => !!props.item.description || nameEditing.value);
-// the sub-line block shows when either field does
-const subShown = computed(() => cnameShown.value || noteShown.value);
+// The variant, as a quiet label beside the gear type: the catalog's "Long, 18F" or
+// "Men's Medium", shown whenever the row carries one (it can't be typed here; a pick
+// sets it and a rename clears it). It came off the name line (editableName) and this
+// is where it went, so a picked size is still one glance away. A renamed row shows
+// none, on the same rule as <ItemName>.
+const variantInSub = computed(() => !props.item.nameOverridden && !!props.item.variant);
+// the sub-line block shows when any of the three does
+const subShown = computed(() => cnameShown.value || noteShown.value || variantInSub.value);
 
 // The note grows to fit its text. `field-sizing: content` (in the stylesheet) does it
 // natively; this is the fallback for the engines without it, and it runs ONLY there —
@@ -1204,7 +1224,7 @@ function dismissFix() {
         <HugeiconsIcon v-if="isParent" :icon="MinusSignSquareIcon" class="check__icon check__icon--mixed" :size="20" :stroke-width="1.33" absolute-stroke-width aria-hidden="true" />
         <HugeiconsIcon :icon="CheckmarkSquare02Icon" class="check__icon check__icon--check" :size="20" :stroke-width="1.33" absolute-stroke-width aria-hidden="true" />
       </span>
-      <span class="item__cname" :class="{ 'item__cname--group': isParent }"><ItemName :item="item" :group="isParent" /><span v-if="isParent && rowKcal > 0" class="t-sm t-muted item__gkcalinline"> · {{ formatKcal(rowKcal) }} kcal</span><!--
+      <span class="item__cname" :class="{ 'item__cname--group': isParent }"><ItemName :item="item" :group="isParent" :variant="variantOnRow" /><span v-if="isParent && rowKcal > 0" class="t-sm t-muted item__gkcalinline"> · {{ formatKcal(rowKcal) }} kcal</span><!--
           the carrier, riding the name cell (display-only — this face is a <label>
           over a checkbox, so a control here would toggle the tick). Only their own
           claim is tagged: children of a claimed group inherit silently, or a
@@ -1298,25 +1318,37 @@ function dismissFix() {
         <Transition name="reveal">
           <div v-if="subShown" class="reveal reveal--note">
             <div class="item__subfields">
-              <!-- the two placeholders are a matched pair — "Name of item" above, "Type of
-                   gear" here — so a blank row reads as one short stack. This field used to
-                   show examples only ("Tent, Backpack, Quilt…"), relying on the product name
-                   above to explain it; on a blank row there is no name above, so the examples
-                   read as a second set of name suggestions. A catalog pick fills this field
-                   with a real value anyway, which demonstrates the vocabulary better than a
-                   placeholder did. The aria-label carries the same noun for screen readers. -->
-              <input
-                v-if="cnameShown"
-                ref="cnameRef"
-                class="item__note item__gtype-input"
-                :maxlength="MAX_GEAR_TYPE_LEN"
-                :value="item.commonName ?? ''"
-                placeholder="Type of gear"
-                aria-label="Gear type"
-                autocorrect="off"
-                spellcheck="true"
-                @change="onCommonName"
-              />
+              <!-- the gear type and, beside it, the variant: one line, in the two quiet
+                   voices the read row's sub-line uses (an upright label, an italic aside).
+                   A wrapping flex line, so the variant sits right after the gear type's
+                   text where the field can size to its content and drops under it where
+                   it can't (.item__gtype-line). Either half may be absent: a hand-typed
+                   row has no variant, and a group opens no empty gear type field. -->
+              <div v-if="cnameShown || variantInSub" class="item__gtype-line">
+                <!-- the two placeholders are a matched pair — "Name of item" above, "Type of
+                     gear" here — so a blank row reads as one short stack. This field used to
+                     show examples only ("Tent, Backpack, Quilt…"), relying on the product name
+                     above to explain it; on a blank row there is no name above, so the examples
+                     read as a second set of name suggestions. A catalog pick fills this field
+                     with a real value anyway, which demonstrates the vocabulary better than a
+                     placeholder did. The aria-label carries the same noun for screen readers. -->
+                <input
+                  v-if="cnameShown"
+                  ref="cnameRef"
+                  class="item__note item__gtype-input"
+                  :maxlength="MAX_GEAR_TYPE_LEN"
+                  :value="item.commonName ?? ''"
+                  placeholder="Type of gear"
+                  aria-label="Gear type"
+                  autocorrect="off"
+                  spellcheck="true"
+                  @change="onCommonName"
+                />
+                <!-- the variant is a fact about the pick, not a field: nothing here edits
+                     it. The separator goes with the gear type, so a variant on its own
+                     line (gear type cleared) doesn't open with a stray dot. -->
+                <span v-if="variantInSub" class="item__variant" title="Variant">{{ cnameShown ? "· " : "" }}{{ item.variant }}</span>
+              </div>
               <!-- A TEXTAREA, and the only field on the row that is one. Everything
                    else here holds a value — a name, a count, a weight — and a value
                    that outgrows its box is a bug you fix by typing less. A note is a
@@ -2807,6 +2839,35 @@ function dismissFix() {
 .item__note.item__gtype-input {
   color: var(--ink-2);
   font-style: normal;
+}
+/* The gear type + variant line. The field keeps .item__note's width:100% as the
+   FALLBACK, which puts the variant on the line below it; where the engine can size
+   a field to its text (the same enhancement the list title takes, ListHead) the
+   field hugs its word and the variant sits right after it. `wrap` is what makes the
+   fallback a layout rather than an overflow. Baseline-aligned, so the label and the
+   field's text share a line whatever the field's box does. */
+.item__gtype-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--space-1);
+}
+@supports (field-sizing: content) {
+  .item__gtype-line .item__gtype-input {
+    width: auto;
+    field-sizing: content;
+    min-width: 2ch;
+    max-width: 100%;
+  }
+}
+/* the variant, in the aside voice the row's name used for it before it moved down
+   here (ItemName's dimmed suffix). The fields beside it are a literal 1rem (iOS
+   focus-zoom, see .item__note), so the label matches rather than taking the t-sm
+   step and sitting a size under the word it qualifies. */
+.item__variant {
+  color: var(--ink-3);
+  font-style: italic;
+  font-size: 1rem;
 }
 /* note — a single-line live-text field under the item (no box, no resize handle).
    reads as a caption: the lightest ink (matching the "Add an item" placeholder) and

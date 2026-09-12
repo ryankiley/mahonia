@@ -3,9 +3,13 @@ import type { Item } from "~~/shared/types";
 import { itemSearchName, itemSearchUrl } from "~~/shared/links";
 import { itemDisplayName } from "~~/shared/weights";
 
-// Renders a product like "Sea to Summit Trek TkII Down Sleeping Bag · Long, 18F":
-// brand + model in normal ink; the variant as a dimmed " · …" suffix. A
-// custom-renamed item (nameOverridden) drops brand/variant and shows just the name.
+// Renders a product like "Sea to Summit Trek TkII Down Sleeping Bag": brand + model
+// in normal ink. The VARIANT ("Long, 18F") is a dimmed " · …" suffix, and it renders
+// only when the caller says so (`variant`): once the gear is yours the size is known,
+// so a row shows it only where the list holds the same product in another variant
+// too, and the variant is the one thing telling the two rows apart
+// (shared/variantShown decides which rows those are; each view passes its answer).
+// A custom-renamed item (nameOverridden) drops brand/variant and shows just the name.
 //
 // With `search` (the read-only share views), ONLY the product name (brand + model)
 // becomes a web-search link — the variant stays plain text OUTSIDE the anchor, so
@@ -14,9 +18,11 @@ import { itemDisplayName } from "~~/shared/weights";
 // `group` is the caller's own isParent (it has childrenByParent to hand) — the FACT,
 // not a guess. A nameless group gets a stand-in label rather than rendering an empty
 // line with a weight beside it; a nameless leaf renders as the blank it is.
-const props = defineProps<{ item: Item; search?: boolean; group?: boolean }>();
+const props = defineProps<{ item: Item; search?: boolean; group?: boolean; variant?: boolean }>();
 const main = computed(() => itemDisplayName(props.item.brand, props.item.name));
-const variant = computed(() => (props.item.nameOverridden ? "" : props.item.variant || ""));
+const variant = computed(() =>
+  props.variant && !props.item.nameOverridden ? props.item.variant || "" : "",
+);
 // A group reaches these views unnamed when nesting wrapped a weighed row that had no
 // gear type to take (useGearList.containerFor) — it starts empty, awaiting a name.
 const unnamed = computed(() => props.group && !main.value && !variant.value);

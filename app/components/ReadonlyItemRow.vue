@@ -34,10 +34,19 @@ const props = withDefaults(
      * in CSS, which is the only way it can, since no row there sees the filter.
      */
     contextOnlyIds?: ReadonlySet<string>;
+    /**
+     * Rows whose variant shows beside the name: the same product held in two
+     * variants, where the variant is what tells them apart (ReadonlyListView computes
+     * the set once, from shared/variantShown). Every other row shows brand + product.
+     */
+    variantShownIds?: ReadonlySet<string>;
     nested?: boolean;
   }>(),
   { nested: false },
 );
+
+/** this row's variant earns its place beside the name */
+const variantOnRow = computed(() => !!props.variantShownIds?.has(props.item.id));
 
 /** this row is scaffolding around a match, not one of the filtered person's own */
 const isContextOnly = computed(() => !!props.contextOnlyIds?.has(props.item.id));
@@ -147,7 +156,7 @@ const rowPerson = computed(() =>
   <div class="ro-wrap">
     <div class="item-row item item--ro">
       <span class="item__roname t-clip" :class="{ 'item__roname--group': isParent }">
-        <span class="item__ronametext" :class="{ 't-clip': isParent }"><ItemName :item="item" :group="isParent" search /><span v-if="lineKcal" class="t-sm item__class" :class="{ 'item__class--derived': isParent }"> · {{ formatKcal(lineKcal) }} kcal</span><!--
+        <span class="item__ronametext" :class="{ 't-clip': isParent }"><ItemName :item="item" :group="isParent" :variant="variantOnRow" search /><span v-if="lineKcal" class="t-sm item__class" :class="{ 'item__class--derived': isParent }"> · {{ formatKcal(lineKcal) }} kcal</span><!--
           who carries it — the dot names the person in colour, the hidden text names
           them for flattened readers of this SSR'd page (the class-mark precedent)
         --><span v-if="rowPerson" class="t-sm item__carrier"><span class="swatch item__carrier-dot" :style="{ background: personColor(rowPerson) }" aria-hidden="true" /><span class="item__carrier-name">{{ rowPerson.name }}</span><span class="visually-hidden"> carries this</span></span></span>
@@ -224,6 +233,7 @@ const rowPerson = computed(() =>
           :item="child"
           :children-by-parent="childrenByParent"
           :context-only-ids="contextOnlyIds"
+          :variant-shown-ids="variantShownIds"
           nested
         />
       </div>

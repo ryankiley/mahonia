@@ -13,7 +13,7 @@
 // difference and a helper nobody could read. The costly duplication is this object,
 // whose keys are symbols exported from the component under test.
 import { isRef, ref, type Ref } from "vue";
-import { CHILDREN_BY_PARENT, PEOPLE_CTX } from "../../app/components/ItemRow.vue";
+import { CHILDREN_BY_PARENT, PEOPLE_CTX, VARIANT_SHOWN } from "../../app/components/ItemRow.vue";
 import type { Item, Person } from "../../shared/types";
 
 /** What ItemRow injects for the people table: the sorted list, and each id's colour slot. */
@@ -34,11 +34,17 @@ export const noPeople = (): PeopleCtx => ({ sorted: ref<Person[]>([]), slotById:
  * for them, while a suite whose rows change under the reducer (itemPacking ticks a child
  * and expects its parent's box to follow) has to pass the same live computed GearEditor
  * provides, or the row reads a snapshot of children the reducer never touches.
+ *
+ * `variantShown` is the third table GearEditor provides (the rows whose variant sits
+ * beside the name, shared/variantShown); empty by default, since only the suite about
+ * variants cares which rows are in it.
  */
 export const rowProvides = (
   children: Map<string, Item[]> | Ref<Map<string, Item[]>> = new Map(),
   people: PeopleCtx = noPeople(),
+  variantShown: ReadonlySet<string> | Ref<ReadonlySet<string>> = new Set<string>(),
 ) => ({
   [CHILDREN_BY_PARENT as symbol]: isRef(children) ? children : ref(children),
   [PEOPLE_CTX as symbol]: people,
+  [VARIANT_SHOWN as symbol]: isRef(variantShown) ? variantShown : ref(variantShown),
 });

@@ -257,8 +257,9 @@ function close() {
 }
 function selectResult(r: CatalogResult) {
   // store brand / model / variant as separate fields so the UI can render the
-  // variant dimmed and linked items can live-resolve their name from the catalog.
-  // The flat string is only used for the editable field + exports (itemDisplayName).
+  // variant only where it earns its place (ItemName, the row's sub-line) and linked
+  // items can live-resolve their name from the catalog. The flat string is only used
+  // for the editable field + exports (itemDisplayName).
   emit("commit", {
     name: r.name,
     brand: r.brand ?? undefined,
@@ -282,7 +283,11 @@ function selectResult(r: CatalogResult) {
   // tidied, because picking with Enter never unfocuses the field and the props.initial
   // watcher only syncs an UNfocused one — so the straight spelling would sit in the box
   // while state already held the curly one, until a blur happened to heal it
-  setDraftQuiet(props.clearOnCommit ? "" : tidyText(itemDisplayName(r.brand, r.name, r.variant)));
+  // "Brand Model", no variant: the row's own name field reads that way (ItemRow's
+  // editableName), and commitFree compares this box against it on the way out. A box
+  // still holding "Brand Model Variant" would read as a rename and unlink the pick it
+  // had just made.
+  setDraftQuiet(props.clearOnCommit ? "" : tidyText(itemDisplayName(r.brand, r.name)));
   close();
 }
 function selectWater(w: WaterSug) {
@@ -313,7 +318,8 @@ function selectVault(v: VaultEntry) {
     productUrl: v.productUrl,
     fromVault: true,
   });
-  setDraftQuiet(props.clearOnCommit ? "" : tidyText(itemDisplayName(v.brand, v.name, v.variant)));
+  // the same "Brand Model" as selectResult, for the same reason
+  setDraftQuiet(props.clearOnCommit ? "" : tidyText(itemDisplayName(v.brand, v.name)));
   close();
 }
 // the one weight cell every option row ends with — three sources, one rendering

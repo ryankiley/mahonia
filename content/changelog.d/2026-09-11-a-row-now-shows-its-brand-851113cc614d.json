@@ -1,0 +1,6 @@
+{
+  "date": "2026-09-11",
+  "changed": [
+    "A row now shows its brand and product. The size or variant sits on the quiet line under the name in the editor, and comes back beside the name only when the list holds the same product in two variants, where it is what tells them apart."
+  ]
+}
