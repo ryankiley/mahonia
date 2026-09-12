@@ -417,6 +417,15 @@ function onWeight(e: Event) {
   if (!el.value.trim().startsWith("<")) c.setItemWeight(props.item.id, el.value);
   el.value = weightDisplay.value; // resync to canonical (handles unparseable / no-op edits)
 }
+// Enter in a typed weight is the other half of the name field's entry chain: commit
+// through the field's ordinary change handler, then put a blank row below.  This stays
+// a text field on purpose — “3.8 oz” remains valid input alongside a bare number.
+function onWeightKeydown(e: KeyboardEvent) {
+  if (e.key !== "Enter" || e.isComposing || isWater.value || isParent.value) return;
+  e.preventDefault();
+  (e.target as HTMLInputElement).dispatchEvent(new Event("change", { bubbles: true }));
+  onAdvance();
+}
 // tapping a "<0.01"-style weight selects the label so the first keystroke replaces it
 // with a real number instead of appending to it ("<0.013" → nonsense)
 function onWeightFocus(e: Event) {
@@ -1565,11 +1574,13 @@ function dismissFix() {
             autocorrect="off"
             autocapitalize="off"
             spellcheck="false"
+            enterkeyhint="next"
             :readonly="isWater || isParent"
             :tabindex="isWater || isParent ? -1 : undefined"
             :title="isParent ? 'Total of this group' : undefined"
             @focus="onWeightFocus"
             @change="onWeight"
+            @keydown="onWeightKeydown"
             @keydown.up.prevent="onWeightStep($event, 1)"
             @keydown.down.prevent="onWeightStep($event, -1)"
           />

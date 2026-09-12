@@ -38,6 +38,7 @@ mockNuxtImport("useVaultAccess", () => () => ({
 }));
 
 const weightCommits: string[] = [];
+const advanceAnchors: string[] = [];
 const snapshot = ref<ListSnapshot>(blankList());
 
 mockNuxtImport("useGearList", () => () => gearListStub({
@@ -45,6 +46,7 @@ mockNuxtImport("useGearList", () => () => gearListStub({
   // the real one parses text → milligrams; recording the RAW string is what says whether
   // the commit path ran at all, which is the whole question here
   setItemWeight: (_id: string, raw: string) => weightCommits.push(raw),
+  addBlankItemAfter: (id: string) => advanceAnchors.push(id),
 }));
 
 // A row mid-build: named and counted, with NO weight yet. That's the state the report
@@ -88,6 +90,7 @@ const row = () => snapshot.value.items[0]!;
 
 beforeEach(() => {
   weightCommits.length = 0;
+  advanceAnchors.length = 0;
   vi.restoreAllMocks();
 });
 
@@ -143,6 +146,20 @@ describe("a pending number edit survives the row's own controls", () => {
     await field.trigger("click");
 
     expect(weightCommits).toEqual([]);
+    w.unmount();
+  });
+
+  it("commits a typed unit-bearing weight and advances on Enter", async () => {
+    const w = mountRow();
+    const field = w.find<HTMLInputElement>('input[aria-label="Weight"]');
+    typeInto(field.element, "3.8 oz");
+
+    await field.trigger("keydown", { key: "Enter" });
+
+    expect(weightCommits).toEqual(["3.8 oz"]);
+    expect(advanceAnchors).toEqual([item.id]);
+    expect(field.attributes("enterkeyhint")).toBe("next");
+    expect(w.find<HTMLInputElement>('input[aria-label="Name of item"]').attributes("enterkeyhint")).toBe("next");
     w.unmount();
   });
 });
