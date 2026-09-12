@@ -1,9 +1,0 @@
-{
-  "date": "2026-09-12",
-  "added": [
-    "Paste a list into an item's name and each line becomes its own row: a weight after the name (\"Tent 540 g\") fills the weight, a line that names a catalog product arrives linked, and the toast says how many rows were made, with Undo."
-  ],
-  "changed": [
-    "A weight after a typed name can be set off by a dash, colon, comma or parentheses: \"Tent - 540 g\" and \"Tent (540 g)\" both read as Tent at 540 g."
-  ]
-}
