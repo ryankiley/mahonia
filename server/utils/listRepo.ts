@@ -15,7 +15,7 @@ import {
   stateToFullSnap,
   type FullSnap,
 } from "../../shared/snapshotDiff";
-import { UNITS } from "../../shared/types";
+import { UNITS, CLAIMED_LIST_CAP } from "../../shared/types";
 import type { ListData, ListMeta, ListMetaKey, ListSnapshot, ListState, SnapshotMeta, Totals, Unit } from "../../shared/types";
 import { isLikelySpam } from "../../shared/discovery";
 import { normalizeShareCode } from "../../shared/links";
@@ -820,6 +820,29 @@ export async function getByEditHash(editHash: string): Promise<ListSnapshot | nu
   const db = await useDb();
   const row = await findByEditHash(editHash, db);
   return row ? withOwnerOnly(await hydrateForRead(db, rowToSnapshot(row)), row) : null;
+}
+
+/**
+ * Every live list this account has claimed, as the OWNER sees it: route, pins and
+ * packing ticks included, catalog names trickled down. The account's own takeout
+ * (server/api/account/export), and the one read path that answers a session rather
+ * than an edit token yet still hands back the owner-only fields, because a claim IS
+ * ownership (see claimRepo). Newest first, capped where the claim read is capped.
+ */
+export async function exportClaimedLists(db: Db, userId: number): Promise<ListSnapshot[]> {
+  const rows = await db
+    .select({ row: lists })
+    .from(listClaims)
+    .innerJoin(lists, eq(lists.id, listClaims.listId))
+    .where(and(eq(listClaims.userId, userId), eq(lists.status, "active"), isNull(lists.deletedAt)))
+    .orderBy(desc(lists.updatedAt))
+    .limit(CLAIMED_LIST_CAP);
+  const out: ListSnapshot[] = [];
+  for (const { row } of rows) {
+    // hydrateCatalogNames rather than hydrateForRead: a backup carries no favicon
+    out.push(withOwnerOnly(await hydrateCatalogNames(db, rowToSnapshot(row)), row));
+  }
+  return out;
 }
 
 export async function versionByEditHash(editHash: string): Promise<number | null> {

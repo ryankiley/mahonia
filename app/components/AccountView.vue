@@ -222,6 +222,31 @@ function deviceLabel(): string {
 // ---- deleting the account ------------------------------------------------
 const deleting = ref(false);
 const deleteNote = ref("");
+
+// ---- take your data with you ----
+// One file: every list on this account in the shape a list's own JSON download has,
+// plus My Gear in the shape its export has. Fetched rather than linked, so the
+// session cookie rides the request the way every account call's does and a failure
+// can say so here instead of as a browser error page; then saved the way every other
+// export on the site is saved (app/utils/download).
+const exporting = ref(false);
+const exportNote = ref("");
+async function exportEverything() {
+  exporting.value = true;
+  exportNote.value = "";
+  try {
+    const data = await $fetch<{ lists: unknown[]; gear: { items: unknown[] } }>("/api/account/export");
+    const { downloadFile } = await import("~/utils/download");
+    downloadFile(`mahonia-export-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(data, null, 2), "application/json");
+    const n = data.lists.length;
+    const g = data.gear.items.length;
+    exportNote.value = `Saved ${n} ${n === 1 ? "list" : "lists"} and ${g} ${g === 1 ? "piece" : "pieces"} of gear.`;
+  } catch {
+    exportNote.value = "Couldn't build the file. Try again?";
+  } finally {
+    exporting.value = false;
+  }
+}
 // The confirmation, shown after the account is gone and the page has flipped back
 // to the signed-out screen. Longer-lived than the usual toast (8s, not the undo
 // bar's few): there is nothing to act on, and it's the only acknowledgement that an
@@ -464,6 +489,18 @@ async function onSignOut() {
             >
               {{ signingOutAll ? "Signing out…" : "Sign out everywhere" }}
             </button>
+          </section>
+
+          <section class="acct__section">
+            <h2 class="t-label acct__label">Take your data with you</h2>
+            <p class="t-sm t-muted">
+              One file with every list on this account, each in the same shape as a list's own
+              JSON download, plus My Gear. Any list in it can be restored through Import.
+            </p>
+            <button type="button" class="btn btn--ghost acct__btn" :disabled="exporting" @click="exportEverything">
+              {{ exporting ? "Building the file…" : "Download everything" }}
+            </button>
+            <p v-if="exportNote" class="t-sm acct__note">{{ exportNote }}</p>
           </section>
 
           <section class="acct__section">

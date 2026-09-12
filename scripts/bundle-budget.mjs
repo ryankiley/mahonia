@@ -34,7 +34,7 @@ import { brotliCompressSync, gzipSync, constants } from "node:zlib";
 //
 // NOT a bump, but the reason current dropped ~2.4 KB: content/changelog.json used to be a
 // module-scope import in the changelog page, so every entry was bundled into that
-// route's client chunk. It's served from server/api/changelog.get.ts now (the page is
+// route's client chunk. It was served from a server route after that (the page was
 // prerendered, so the read happens at build time). That matters beyond the one-off saving
 // — the house rule is a changelog entry per user-facing PR, so the old shape grew what
 // this gate measures on PRs that ship no code at all, and the ratchet slowly became a
@@ -299,10 +299,27 @@ import { brotliCompressSync, gzipSync, constants } from "node:zlib";
 // above argue for. The largest chunk is now the framework (`vendor`, 52.9 KB) rather
 // than Leaflet, and that is the point of the split: vue, vue-router and unhead only
 // change hash on a dependency bump, so a returning visitor keeps them across deploys.
-// 151 → 154 for the first-item capture view. Measured 151.7 KB after adding its
-// small presentation state and CSS to the editor's boot path. This is the screen
-// every new visitor sees, so deferring it would defer the core interaction; 154
-// restores roughly the 2–3 KB working headroom of the previous anchor.
+//
+// 151 → 153, a re-anchor after the connector work. Measured on a clean build of main at
+// e8db794: 151.0 against 151, i.e. no headroom at all. What spent the 2.5 KB since the
+// anchor above (148.5): the variant-and-brand rules on every row (#315, #346's shape),
+// the trip-date year rule (#309), the resume path (#311, #317), and, from the MCP server
+// (#352), two things the reducer now owns for every caller and therefore every visitor
+// downloads: the catalog-id bound (`isCatalogId`) and the clear-with-link rule
+// (`CLEARS_WITH_LINK`, moved to shared/trailLink from the head component). None of that
+// is a page's worth; it is the editor growing a few dozen bytes per feature, which is
+// what the anchors above call ordinary. At exactly the line, a branch that adds NOTHING
+// to the first load fails on the hundred bytes a different chunk graph shuffles between
+// builds (the account takeout that follows this measured 151.0 too, every byte of it on the account
+// chunk and the server). 153 restores ~2 KB of working headroom, a little less than the
+// re-anchors above kept, on purpose: the next feature that lands on the editor's path
+// should be the one that has to argue.
+//
+// 153 → 154 for the first-item capture view on top of that re-anchor. The merged
+// tree measures 151.8 KB (151.7 on the capture branch's older base), leaving
+// 2.2 KB of the working headroom this gate is meant to preserve. The new-list
+// invitation belongs on the editor's first load; deferring it would defer the
+// core interaction.
 const FIRST_LOAD_BUDGET_KB = 154;
 // TOTAL of every built file, the backstop. Deliberately slack: its job is to catch
 // a route chunk ballooning or a heavy dep landing somewhere unnoticed, NOT to price

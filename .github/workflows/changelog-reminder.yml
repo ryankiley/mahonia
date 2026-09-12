@@ -1,4 +1,5 @@
-# Nudges every PR to keep the on-site "What's new" changelog fed. The entries are
+# Nudges every PR to keep the changelog fed (GitHub Releases, one per day that
+# ships something — see releases.yml). The entries are
 # curated by hand (plain, user-facing — not auto-scraped from commits), so this
 # doesn't write them; it just leaves a sticky reminder comment when a PR looks
 # user-facing (touches app/ or shared/) but adds no changelog entry.
@@ -17,7 +18,7 @@
 # comment once satisfied. See scripts/changelog.mjs + README.
 #
 # There is no auto-fill: nothing writes the entry for you. If a user-facing PR
-# merges without one, the "What's new" page simply omits that change until it's
+# merges without one, that day's release simply omits the change until it's
 # backfilled by hand (npm run changelog). This comment is the only nudge.
 name: Changelog reminder
 
@@ -103,11 +104,11 @@ jobs:
               'npm run changelog -- --added "One plain sentence about the change."',
               "```",
               "",
-              "That writes a new file under `content/changelog.d/`, so it can't conflict with anyone else's entry. Grouped Added / Changed / Fixed, plain and user-facing — it shows up on [What's new](https://mahonia.app/about#whats-new).",
+              "That writes a new file under `content/changelog.d/`, so it can't conflict with anyone else's entry. Grouped Added / Changed / Fixed, plain and user-facing — it becomes that day's [release](https://github.com/ryankiley/mahonia/releases).",
               "",
               "Not user-facing (refactor, deps, infra)? Prefix the PR title — `refactor:`, `chore:`, `ci:`, `test:`, `docs:`, `build:` — or add the **`skip-changelog`** label. (`style:` and `perf:` deliberately aren't on that list: a CSS change and a speed-up are both things people notice here.)",
               "",
-              "_No auto-fill: if this merges without an entry, the page just omits the change until someone backfills it._",
+              "_No auto-fill: if this merges without an entry, that day's release just omits the change until someone backfills it._",
             ].join("\n");
 
             if (existing) {

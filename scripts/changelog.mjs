@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Writes one entry for the site's "What's new" changelog (app/pages/about.vue),
+// Writes one entry for the changelog (published as a GitHub Release per day),
 // so the plain-style, grouped format stays consistent when we ship a user-facing
 // change. Content is checked-in JSON — never derived from git at build time,
 // which is unreliable on Vercel's shallow clone.
@@ -11,7 +11,7 @@
 //
 // --added / --changed / --fixed are repeatable. --date overrides today, --title
 // sets the batch headline. Entries are hand-written (the PR author adds one per
-// user-facing change) — never auto-generated, so the "What's new" page stays
+// user-facing change) — never auto-generated, so the changelog stays
 // plain, user-facing prose.
 //
 // This writes a NEW FILE under content/changelog.d/ rather than appending to
@@ -19,8 +19,8 @@
 // shipped on the same day edited the same release object at the top of the same
 // file — so two open PRs conflicted on the same handful of lines, every time (28
 // commits touched that file on one day). Two PRs can't conflict on files neither
-// of them shares. scripts/build-changelog.ts folds the fragments back together
-// for the page; shared/changelog.ts has the full reasoning.
+// of them shares. scripts/release-notes.ts folds the fragments back together
+// for each day's release; shared/changelog.ts has the full reasoning.
 
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
