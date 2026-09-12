@@ -101,10 +101,6 @@ describe("the share view's row", () => {
     expect(w.find(".item__rosub").text()).toBe("Quilt · Long");
   });
 
-  it("spells a letter size out", () => {
-    const w = mountRo(longQuilt({ variant: "Men's M" }), [], new Set(["q1"]));
-    expect(w.find(".item__rovariant").text()).toBe("· Men's Medium");
-  });
 
   it("opens the sub-line for a variant alone, and dots the note after it", () => {
     const w = mountRo(longQuilt({ commonName: undefined, description: "the summer one" }), [], new Set(["q1"]));
@@ -237,15 +233,6 @@ describe("the editor's row", () => {
     await field.trigger("change");
     expect(snapshot.value.items[0]!.variant).toBeUndefined();
     expect(snapshot.value.items[0]).toMatchObject({ name: "Revelation", brand: "Enlightened Equipment" });
-  });
-
-  // the letter the catalog stores reads as a word on every face, and the field stores
-  // the letter until someone types over it
-  it("spells a letter size out on every face, and keeps the letter stored", async () => {
-    const w = mountRow(longQuilt({ variant: "M" }), new Set(["q1"]));
-    expect((w.find(".item__variant-input").element as HTMLInputElement).value).toBe("Medium");
-    expect(w.find("label.item--check .item__cvariant").text()).toBe("· Medium");
-    expect(snapshot.value.items[0]!.variant).toBe("M");
   });
 
   it("shows a typed variant on a renamed row's sub-line", () => {

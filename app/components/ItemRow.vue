@@ -58,7 +58,6 @@ import { tickRows, tickState } from "~~/shared/packing";
 import type { NameCommit } from "~/composables/useCatalogSearch";
 import { bySortOrder, effectiveClassification, entryUnitFromInput, formatKcal, rowDisplayKcal, formatWeight, fromMg, groupLineMg, isBareGroup, itemDisplayName, parseWeightInput, rowDisplayMg, siblingItems, splitWornQty, storedClassification } from "~~/shared/weights";
 import { isWaterName, itemQtyLabel, waterLiters, waterMgFromMl } from "~~/shared/water";
-import { displayVariant } from "~~/shared/variantLabel";
 // the same worthiness + identity rules the capture path runs, so "already banked"
 // below can only ever claim what capture would actually take (statically imported
 // like useGearList's own vaultNormKey — this module is in the editor graph already)
@@ -491,13 +490,10 @@ function onCommonName(e: Event) {
 // "" clears it (the reducer reads emptiness after tidying, like the gear type). The
 // variant is part of the gear's identity in My Gear (vaultNormKey), so "Long" typed on a
 // Revelation makes it the same thing as a Revelation picked in Long.
-// The field SHOWS the size spelled out ("Medium" for a stored "M", shared/variantLabel)
-// and stores what is typed: a box left as it is changes nothing, and a person who
-// types "Medium" over it has said "Medium", which is what the row then keeps.
 function onVariant(e: Event) {
   const el = e.target as HTMLInputElement;
   c.updateItem(props.item.id, { variant: el.value, nameOverridden: true });
-  el.value = displayVariant(props.item.variant);
+  el.value = props.item.variant ?? "";
 }
 function onNote(e: Event) {
   const el = e.target as HTMLTextAreaElement;
@@ -1312,7 +1308,7 @@ function dismissFix() {
            variant rides it in the aside voice, where the list holds the product in two
            variants (variantOnRow); the dot goes with the gear type, so a variant alone
            doesn't open with a stray one, as on the edit face's sub-line. -->
-      <span v-if="item.commonName || variantOnRow" class="t-sm item__csub">{{ item.commonName }}<span v-if="variantOnRow" class="item__cvariant">{{ item.commonName ? " · " : "" }}{{ displayVariant(item.variant) }}</span></span>
+      <span v-if="item.commonName || variantOnRow" class="t-sm item__csub">{{ item.commonName }}<span v-if="variantOnRow" class="item__cvariant">{{ item.commonName ? " · " : "" }}{{ item.variant }}</span></span>
     </label>
 
     <div v-if="everEdit" class="item-row item" @focusin="onFieldFocus">
@@ -1428,7 +1424,7 @@ function dismissFix() {
                     v-if="variantShown"
                     class="item__note item__variant-input"
                     :maxlength="MAX_VARIANT_LEN"
-                    :value="displayVariant(item.variant)"
+                    :value="item.variant ?? ''"
                     placeholder="Size or version"
                     aria-label="Size or version"
                     autocorrect="off"

@@ -1,6 +1,5 @@
 <script lang="ts">
 import type { Item as ItemT } from "~~/shared/types";
-import { displayVariant } from "~~/shared/variantLabel";
 
 // one stable empty array for every leaf row — module scope so a large list
 // doesn't mint a fresh identity per row
@@ -224,7 +223,7 @@ const rowPerson = computed(() =>
            so whatever comes first opens the line without one. -->
       <p v-if="item.commonName || variantOnRow || item.description" class="t-sm item__rosub">
         <span v-if="item.commonName" class="item__rogtype">{{ item.commonName }}</span
-        ><span v-if="variantOnRow" class="item__rovariant">{{ item.commonName ? " · " : "" }}{{ displayVariant(item.variant) }}</span
+        ><span v-if="variantOnRow" class="item__rovariant">{{ item.commonName ? " · " : "" }}{{ item.variant }}</span
         ><span v-if="item.description" class="item__ronote">{{ item.commonName || variantOnRow ? " · " : "" }}{{ item.description }}</span>
       </p>
     </div>
