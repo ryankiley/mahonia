@@ -12,9 +12,10 @@
 # commits with no build run between them. Nobody was careless — there was simply
 # nowhere for the number to surface. See scripts/bundle-budget.mjs.
 #
-# This file only REPORTS. Making any of these a merge blocker is a branch-protection
-# setting in the repo's GitHub settings, not something a workflow can declare — a red
-# check here is visible on the PR either way.
+# This file REPORTS, and says one thing back: on a PR it posts what the change costs
+# in bytes against main (see "Bundle delta" below). Making any of the checks a merge
+# blocker is a branch-protection setting in the repo's GitHub settings, not something
+# a workflow can declare — a red check here is visible on the PR either way.
 name: CI
 
 on:
@@ -41,9 +42,16 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
-# reads the code, says nothing back — no comments, no deploys, no secrets
+# Reads the code; writes exactly one thing back — the bundle-delta comment on a PR —
+# and reads its own artifacts to compute it. No deploys, no secrets beyond the
+# workflow's own token. (`actions: read` is what lets a PR run download the report
+# main's last run uploaded; `pull-requests: write` is the comment. A fork's PR gets a
+# read-only token regardless, so the comment step is gated to same-repo PRs and the
+# delta lands in the job summary either way.)
 permissions:
   contents: read
+  actions: read
+  pull-requests: write
 
 jobs:
   check:
@@ -74,14 +82,78 @@ jobs:
         if: '!cancelled()'
         run: npm test
 
+      # BUNDLE_MAPS: hidden client sourcemaps beside the chunks (nuxt.config), so the
+      # budget script can say which SOURCE files a chunk's bytes belong to. The JS is
+      # byte-identical with or without them; nothing built here is deployed.
       - name: Build
         if: '!cancelled()'
         run: npm run build
+        env:
+          BUNDLE_MAPS: "1"
 
-      # Reads .output, so it has to follow the build.
+      # Reads .output, so it has to follow the build. The report is the same
+      # measurement as JSON, per file and per source — uploaded from EVERY run, and on
+      # main that upload is what the next PR is measured against.
       - name: Bundle budget
         if: '!cancelled()'
-        run: npm run bundle-budget
+        run: npm run bundle-budget -- --report=bundle-report.json
+
+      - name: Keep the bundle report
+        if: '!cancelled()'
+        uses: actions/upload-artifact@v4
+        with:
+          name: bundle-report
+          path: bundle-report.json
+          retention-days: 90
+
+      # THE RECEIPT. What this PR costs against main — first load, total, largest
+      # chunk, and which sources moved — posted on the PR whether the gate above
+      # went green or red. That last part is the reason it exists: a PR that adds
+      # 1.8 KB under the tripwire used to say nothing at all, and ten of those in a
+      # row was how the first load grew 30 KB in a summer with every check green.
+      #
+      # main's number comes from the report its own last run uploaded (the newest
+      # `bundle-report` artifact from a run on main), not from a second build here:
+      # this job already runs on the PR's merge commit, so "this build minus main's
+      # last build" is exactly the PR's own contribution. The step is informational
+      # by design — bundle-budget is the gate; if there is no main report yet (the
+      # first run after this landed) it says so and moves on.
+      - name: Bundle delta vs main
+        if: github.event_name == 'pull_request' && !cancelled()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          id=$(gh api "repos/$REPO/actions/artifacts?name=bundle-report&per_page=50" \
+            --jq '[.artifacts[] | select(.workflow_run.head_branch == "main" and .expired == false)] | sort_by(.created_at) | last | .id // empty')
+          if [ -z "$id" ]; then
+            echo "_No bundle report from main yet — the first main run after this workflow landed will upload one._" | tee delta.md
+          else
+            sha=$(gh api "repos/$REPO/actions/artifacts/$id" --jq '.workflow_run.head_sha')
+            gh api "repos/$REPO/actions/artifacts/$id/zip" > base.zip
+            unzip -o -q base.zip -d base
+            node scripts/bundle-delta.mjs base/bundle-report.json bundle-report.json --sha="$sha" | tee delta.md
+          fi
+          cat delta.md >> "$GITHUB_STEP_SUMMARY"
+
+      # One sticky comment per PR, updated in place on every push (the same shape as
+      # changelog-reminder's), so the PR carries its current cost and not a history
+      # of every push. Same-repo PRs only — see the permissions note at the top.
+      - name: Post the bundle delta
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && !cancelled()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require("node:fs");
+            const MARKER = "<!-- bundle-delta -->";
+            if (!fs.existsSync("delta.md")) return;
+            const body = MARKER + "\n" + fs.readFileSync("delta.md", "utf8");
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.pull_request.number;
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number, per_page: 100 });
+            const existing = comments.find((c) => c.user?.type === "Bot" && c.body?.includes(MARKER));
+            if (existing) await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            else await github.rest.issues.createComment({ owner, repo, issue_number, body });
 
       # Does the SERVER bundle contain the files the server needs at runtime?
       #

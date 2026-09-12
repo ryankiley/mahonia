@@ -10,6 +10,7 @@ import { dirname, join } from "node:path";
 // instead of regexing them out of this file.
 import { SECURITY_HEADERS, TILE_ORIGIN } from "./config/security";
 import { PWA_OPTIONS } from "./config/pwa";
+import { hugeiconsPrecision } from "./config/icons";
 // The canonical origin, single-sourced — the server reads the same constant to
 // decide what host a sign-in link may point at (server/utils/origin.ts), so the
 // social card and that decision can't drift onto different domains.
@@ -162,7 +163,24 @@ export default defineNuxtConfig({
     },
   },
 
+  // Hidden client sourcemaps on request — `.map` files beside the chunks, never
+  // referenced by them, so the JS is byte-identical with or without. CI builds with
+  // BUNDLE_MAPS=1 so scripts/bundle-budget.mjs can charge each chunk's bytes back
+  // to the source files that make it up, and post a PR's delta against main by
+  // source rather than by hash. Off by default: Vercel's build doesn't need them
+  // and shouldn't ship them.
+  sourcemap: { client: process.env.BUNDLE_MAPS ? "hidden" : false },
+
   vite: {
+    // the icon set's path data rounded to two decimals at build time — see
+    // config/icons.ts for the measurement and the proof that nothing moves
+    plugins: [hugeiconsPrecision()],
+    // …and on the server too. Vite's SSR build externalises node_modules and Nitro
+    // bundles them afterwards, past every Vite transform, so without this the share
+    // views would render a glyph's full-precision `d` on the server and hydrate the
+    // rounded one on the client. Bundling the package in the SSR build runs it
+    // through the same plugin; the two sides then agree byte for byte.
+    ssr: { noExternal: ["@hugeicons/core-free-icons"] },
     // Compile out Vue's Options-API runtime (data()/mixins/computed-object
     // components). Every component here is <script setup>, and the client's Vue
     // dependencies are too (vue-router's views, Nuxt's own components; the icon
