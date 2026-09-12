@@ -155,6 +155,19 @@ describe("serializeCsv + csvToCatalogRows round-trip", () => {
     expect(csvToCatalogRows(csv)[0].kcal).toBeNull();
   });
 
+  it("parses the attributes column strictly, null when blank or the column is absent", () => {
+    const withAttrs =
+      "brand,name,variant,attributes,category_hint,weight_mg,weight_source,source_url\n" +
+      "EE,Revelation,\"20F, 950FP, Regular\",temp_f=20; fill_power=950; length=Regular,sleep,566000,manufacturer,https://x\n" +
+      "Zpacks,Duplex,,,shelter,549981,manufacturer,https://x\n";
+    const rows = csvToCatalogRows(withAttrs);
+    expect(rows[0].attributes).toEqual({ length: "Regular", temp_f: 20, fill_power: 950 });
+    expect(rows[1].attributes).toBeNull();
+    expect(csvToCatalogRows(csv)[0].attributes).toBeNull();
+    const bad = withAttrs.replace("temp_f=20", "temp_f=20F");
+    expect(() => csvToCatalogRows(bad)).toThrow(/row 2 \(Revelation\).*temp_f/);
+  });
+
   it("rejects a non-positive or fractional kcal", () => {
     const bad = (v: string) =>
       `brand,name,variant,category_hint,weight_mg,weight_source,source_url,kcal\nX,Y,,consumable,100,manufacturer,https://x,${v}\n`;

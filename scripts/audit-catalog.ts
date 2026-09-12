@@ -42,8 +42,18 @@ function main() {
   console.log(`\n=== Catalog accuracy audit (stage 1) ===`);
   console.log(`research rows: ${researchRows} | csv rows: ${csvChecked}`);
   if (warns.length) {
-    console.log(`\nWARNINGS (${warns.length}) — a human's list: weight plausibility, food rows still at net weight or without kcal:`);
-    for (const w of warns) console.log("  ! " + w);
+    console.log(`\nWARNINGS (${warns.length}) — a human's list: weight plausibility, food rows still at net weight or without kcal, rows missing an axis their gear type is sold by:`);
+    // grouped by code, so the 800-row attribute to-do list sits under one heading
+    // instead of burying the dozen plausibility calls a human actually re-reads
+    const byCode = new Map<string, string[]>();
+    for (const w of warns) {
+      const code = w.slice(0, w.indexOf("]") + 1);
+      (byCode.get(code) ?? byCode.set(code, []).get(code)!).push(w);
+    }
+    for (const [code, list] of [...byCode.entries()].sort((a, b) => a[1].length - b[1].length)) {
+      console.log(`\n  ${code} × ${list.length}`);
+      for (const w of list) console.log("  ! " + w);
+    }
   }
   if (errors.length) {
     console.log(`\nERRORS (${errors.length}) — must resolve before shipping (npm test fails on these too):`);

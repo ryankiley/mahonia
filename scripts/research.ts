@@ -5,6 +5,7 @@
 
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import type { RowAttributes } from "./catalogAttributes";
 
 /** One row of cited research exactly as authored. Superset shape — each script
  *  validates only the fields it needs. `category_hint` is `string | null` (the
@@ -43,7 +44,17 @@ export interface ResearchRow {
   //   • A config never hides in `name`: " - Regular", "(low)", "(2024)", "(SP129)" all go
   //     here. A size-named family is one name plus variants ("Food Bag" [L], not
   //     "Large Food Bag"), and a product-family name is singular ("Stuff Sack" [M]).
+  //   • The axes a variant STATES are typed beside it in `attributes`: "20F, 950FP, Regular"
+  //     carries temp_f 20, fill_power 950 and length "Regular". scripts/catalogAttributes.ts
+  //     reads a variant mechanically, and the CSV check fails a row whose variant says one
+  //     thing and whose attributes say another, or nothing. What the variant doesn't state
+  //     (an R-value, the rating of a quilt sold one way) is researched and written by hand.
   variant?: string | null;
+  // Typed axes — fit, size, torso, length, width, temp_f, fill_power, r_value, persons,
+  // volume_l, capacity_mah, fuel_g, fuel — each in ONE canonical form (validateAttributes:
+  // an unknown key, a "20°F", a fill power as a string all fail the build). Optional; a
+  // row states only what its maker publishes. See catalogAttributes.ts for the forms.
+  attributes?: RowAttributes | null;
   category_hint?: string | null;
   // the item's common name ("tent", "trekking poles") — REQUIRED for a new row to build
   // (a row with no common_name here, no seed/common-names.json entry, and no derivable

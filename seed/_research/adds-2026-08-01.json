@@ -5,6 +5,7 @@
       "brand": "CAYL",
       "name": "6 Pocket Hiking Pants",
       "variant": "M",
+      "attributes": {"size": "M"},
       "category_hint": "clothing",
       "common_name": "hiking pants",
       "weight_value": 253,

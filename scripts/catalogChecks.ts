@@ -13,6 +13,7 @@
 
 import type { CatalogCsvRow } from "./catalogCsv";
 import { isVariantRedundant, normalizeVariant, normKey, RANGE_G } from "../shared/catalogQuality";
+import { extractAttributes, type AttributeKey } from "./catalogAttributes";
 import { GEAR_TYPE_ALIASES } from "./gearTypes";
 
 export interface Finding {
@@ -466,6 +467,50 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
     if (r.variant && isVariantRedundant(r.name, r.variant)) {
       err("variant-redundant", `${gearLabel(r)}: variant "${r.variant}" already in the name — clear it`);
     }
+  }
+
+  // --- ERROR: an axis the variant states is missing from, or contradicted by, the
+  // row's attributes. The variant is prose; `attributes` is the same fact as data.
+  // extractAttributes reads what a variant says outright ("20F" → temp_f 20, "Men's
+  // US 9" → fit + size, "65L" → volume_l 65), so a row that states an axis in words
+  // carries it typed as well, and the two can never disagree. What the variant does
+  // NOT state (a researched R-value, a rating on a quilt sold one way) is free. ---
+  for (const r of rows) {
+    const stated = extractAttributes(r.variant, r.commonName, r.categoryHint);
+    for (const key of Object.keys(stated) as AttributeKey[]) {
+      const want = stated[key];
+      const have = r.attributes?.[key];
+      if (have === undefined) {
+        err("attr-missing", `${gearLabel(r)}: the variant states ${key}=${want} — add it to the row's attributes`);
+      } else if (have !== want) {
+        err("attr-mismatch", `${gearLabel(r)}: attributes say ${key}=${have} but the variant reads ${key}=${want}`);
+      }
+    }
+  }
+
+  // --- WARNING: an axis the gear type is sold by, still unresearched --------------
+  // A to-do list, not a convention. A quilt is sold by temperature and length, a pad
+  // by R-value, a pack by volume, a shoe by fit and size, a garment by size; the
+  // mechanical pass typed what variant strings stated, and these are the rows where
+  // the maker's page still has to be read. Worked in usage order (the catalog counts
+  // picks; the audit can't see them, so the ordered snapshot lives with #336).
+  const SOLD_BY: Array<[RegExp, AttributeKey[]]> = [
+    [/^(?:quilt|sleeping bag)$/, ["temp_f", "length"]],
+    [/^sleeping pad$/, ["r_value", "length"]],
+    [/^tent$/, ["persons"]],
+    [/^(?:backpack|fastpack|daypack|running vest|hip pack|fanny pack|dry bag|stuff sack|compression sack|food bag|bear bag|bear canister|water bottle|water reservoir|soft flask|pot|cup)$/, ["volume_l"]],
+    [/^power bank$/, ["capacity_mah"]],
+    [/^fuel canister$/, ["fuel_g"]],
+    [/^stove$/, ["fuel"]],
+    [/^(?:trail runners|hiking shoes|hiking boots|sandals|camp shoes)$/, ["fit", "size"]],
+    [/^insoles$/, ["size"]],
+    [/(?:jacket|hoody|hoodie|fleece|pants|shorts|shirt|tee|top|bottoms|leggings|tights|vest|skirt|pullover|sweater|anorak|parka|coat|socks|underwear|bra)$/, ["size"]],
+  ];
+  for (const r of rows) {
+    const type = (r.commonName ?? "").toLowerCase();
+    const expected = SOLD_BY.find(([re]) => re.test(type))?.[1] ?? [];
+    const missing = expected.filter((k) => r.attributes?.[k] === undefined);
+    if (missing.length) warn("attr-gap", `${gearLabel(r)}: a ${type} without ${missing.join(", ")} — read the maker's page`);
   }
 
   return out;

@@ -11,6 +11,7 @@ const row = (o: Partial<CatalogCsvRow> & { name: string }): CatalogCsvRow => ({
   brand: "Acme",
   commonName: "Tent",
   variant: null,
+  attributes: null,
   categoryHint: "shelter",
   weightMg: 1_000_000,
   kcal: null,
@@ -25,7 +26,25 @@ const codes = (rows: CatalogCsvRow[], level: "error" | "warning") =>
 
 describe("catalog conventions are errors, not warnings", () => {
   it("a clean row raises nothing", () => {
-    expect(runCatalogChecks([row({ name: "Ridge 2", variant: "2P" })])).toEqual([]);
+    expect(runCatalogChecks([row({ name: "Ridge 2", variant: "2P", attributes: { persons: 2 } })])).toEqual([]);
+  });
+
+  it("attr-missing / attr-mismatch: an axis the variant states is typed beside it, and agrees", () => {
+    const quilt = (attributes: CatalogCsvRow["attributes"]) =>
+      row({ name: "Revelation", variant: "20F, 950FP, Regular", categoryHint: "sleep", weightMg: 560_000, commonName: "Quilt", attributes });
+    expect(codes([quilt(null)], "error")).toContain("attr-missing");
+    expect(codes([quilt({ temp_f: 30, fill_power: 950, length: "Regular" })], "error")).toContain("attr-mismatch");
+    expect(codes([quilt({ temp_f: 20, fill_power: 950, length: "Regular" })], "error")).toEqual([]);
+    // an attribute the variant doesn't state is research, not a mismatch
+    expect(codes([quilt({ temp_f: 20, fill_power: 950, length: "Regular", width: "Wide" })], "error")).toEqual([]);
+  });
+
+  it("attr-gap: a row without an axis its gear type is sold by is a warning, a to-do", () => {
+    const pad = row({ name: "XLite", categoryHint: "sleep", weightMg: 370_000, commonName: "Sleeping pad" });
+    expect(codes([pad], "warning")).toContain("attr-gap");
+    expect(codes([{ ...pad, attributes: { r_value: 4.5, length: "Regular" } }], "warning")).not.toContain("attr-gap");
+    // a gear type sold one way has no gap to fill
+    expect(codes([row({ name: "Cross Band", categoryHint: "other", weightMg: 5_000, commonName: "Rubber bands" })], "warning")).not.toContain("attr-gap");
   });
 
   it("name-repeats-brand: the UI joins brand + name", () => {

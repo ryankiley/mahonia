@@ -19,6 +19,7 @@ import {
   specToMg,
   type SpecUnit,
 } from "./catalogCsv";
+import { serializeAttributes, validateAttributes } from "./catalogAttributes";
 import { CATALOG_CSV, COMMON_NAMES_JSON, RESEARCH_DIR } from "./paths";
 import { readResearchFiles } from "./research";
 import { normalizeVariant } from "../shared/catalogQuality";
@@ -47,6 +48,7 @@ type BuiltRow = {
   name: string;
   common_name: string;
   variant: string;
+  attributes: string;
   category_hint: string;
   weight_mg: number;
   weight_source: string;
@@ -137,6 +139,15 @@ function main() {
       let category = (row.category_hint ?? "").trim().toLowerCase();
       if (!CATEGORY_ORDER.includes(category)) category = "other";
 
+      // attributes — the variant's axes, typed; each value in one canonical form. A row
+      // whose attributes don't validate doesn't build (the research check names the
+      // same finding, so `npm test` fails on it too rather than a row going quietly missing).
+      const attrProblems = validateAttributes(row.attributes);
+      if (attrProblems.length) {
+        skipped.push(`${file}: ${label} — attributes: ${attrProblems.join("; ")}`);
+        continue;
+      }
+
       // kcal — held to the same citation bar as the weight: a figure with no
       // kcal_source_url + kcal_quote of its own doesn't build (the weight's quote
       // cites a spec page, which rarely shows a nutrition panel). Food only:
@@ -167,6 +178,7 @@ function main() {
         name,
         common_name: "",
         variant: normalizeVariant(row.variant ?? ""),
+        attributes: serializeAttributes(row.attributes),
         category_hint: category,
         weight_mg: weightMg,
         weight_source: source,
@@ -233,6 +245,7 @@ function main() {
   for (const r of built) byCat.set(r.category_hint, (byCat.get(r.category_hint) ?? 0) + 1);
   console.log(`\n✓ Wrote ${built.length} rows to seed/catalog.csv`);
   console.log(`  with kcal:   ${built.filter((r) => r.kcal != null).length}`);
+  console.log(`  with attributes: ${built.filter((r) => r.attributes).length} of ${built.filter((r) => r.variant).length} with a variant`);
   console.log("  by category:");
   for (const cat of CATEGORY_ORDER) {
     if (byCat.has(cat)) console.log(`    ${cat.padEnd(12)} ${byCat.get(cat)}`);

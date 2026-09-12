@@ -4,6 +4,7 @@
       "brand": "Darn Tough",
       "name": "Hiker Boot Midweight",
       "variant": "Men's",
+      "attributes": {"fit": "Men's"},
       "category_hint": "clothing",
       "weight_value": 2.6,
       "weight_unit": "oz",

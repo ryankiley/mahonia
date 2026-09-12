@@ -28,6 +28,7 @@
       "brand": "Snow Peak",
       "name": "Trek 1400 Titanium",
       "variant": "1400ml",
+      "attributes": {"volume_l": 1.4},
       "category_hint": "cook",
       "weight_value": 210,
       "weight_unit": "g",

@@ -63,6 +63,7 @@
       "brand": "Platypus",
       "name": "GravityWorks Water Filter System",
       "variant": "4L",
+      "attributes": {"volume_l": 4},
       "category_hint": "water",
       "weight_value": 11.5,
       "weight_unit": "oz",
