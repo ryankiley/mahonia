@@ -5,24 +5,7 @@
 import { createError } from "h3";
 import { and, desc, eq, inArray, isNotNull, isNull, lt, lte, notInArray, sql } from "drizzle-orm";
 import { listClaims, catalogItems, listSnapshots, lists, type ListRow, users } from "../db/schema";
-import {
-  applyOps,
-  isOpObject,
-  MAX_DAYS,
-  MAX_FOLDERS,
-  MAX_ITEMS,
-  MAX_PEOPLE,
-  MAX_WAYPOINTS,
-  normalizeCalendarDate,
-  normalizeDay,
-  normalizeFolder,
-  normalizeItem,
-  normalizePerson,
-  normalizeWaypoint,
-  tidyListText,
-  type Op,
-  MAX_TITLE_LEN,
-} from "../../shared/ops";
+import { applyOps, isOpObject, MAX_DAYS, MAX_FOLDERS, MAX_ITEMS, MAX_PEOPLE, MAX_WAYPOINTS, normalizeCalendarDate, normalizeDay, normalizeFolder, normalizeItem, normalizePerson, normalizeWaypoint, tidyListText, type Op, MAX_TITLE_LEN, isCatalogId } from "../../shared/ops";
 import { UNASSIGNED, uniquifyPersonNames } from "../../shared/people";
 import { computeTotals } from "../../shared/weights";
 import {
@@ -238,7 +221,11 @@ export async function hydrateCatalogNames(db: Db, snap: ListSnapshot): Promise<L
   const ids = [
     ...new Set(
       snap.items
-        .filter((i) => typeof i.catalogItemId === "number" && !(i.nameOverridden && i.commonNameOverridden))
+        // isCatalogId, not a typeof: a stored id past the column's range would make
+        // this query fail on every read of the list, and every write, since the write
+        // path hydrates too. The reducer refuses such an id now; rows written before
+        // it did are simply left un-hydrated rather than taking the list down.
+        .filter((i) => isCatalogId(i.catalogItemId) && !(i.nameOverridden && i.commonNameOverridden))
         .map((i) => i.catalogItemId as number),
     ),
   ];

@@ -116,6 +116,15 @@ const lastUpdated = computed(() => {
           >, so you can read how it works, file an issue, or run your own copy.
         </p>
 
+        <h2>From an assistant</h2>
+        <p>
+          Mahonia is also a connector. Add <code>https://mahonia.app/mcp</code> to an AI
+          assistant that speaks MCP and it can read a list from its share link, search the
+          catalog, make a new list, and, given an edit link, add to one. No sign-in: a share link
+          is the permission to read and an edit link the permission to change, exactly as they
+          are for a person.
+        </p>
+
         <h2>Contact</h2>
         <p>
           Questions, or want a list removed? Email

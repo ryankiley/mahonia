@@ -29,6 +29,8 @@ export default defineEventHandler((event) => {
     // be turned away at the other end.
     "Disallow: /mine",
     "Disallow: /api/",
+    // the MCP endpoint is an API for assistants, not a page; a crawler's GET gets a 405
+    "Disallow: /mcp",
     "",
     `Sitemap: ${origin}/sitemap.xml`,
     "",

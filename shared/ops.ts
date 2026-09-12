@@ -183,6 +183,17 @@ const META_RULES: {
 // Hard caps (enforced in the reducer → client + server agree). Generous for
 // real lists, but bound row size / DoS and keep summed totals exact under the
 // bigint(mode:number) columns (MAX_ITEMS × qtyMax × UNIT_WEIGHT_MAX_MG < 2^53).
+/**
+ * A catalog row id the database can hold: catalog_items.id is a Postgres integer, so
+ * anything past 2^31 - 1 isn't an id but a query that fails, and it fails on every
+ * later READ of the list as well as the write (hydrateCatalogNames looks the ids up).
+ * One guard for the reducer, the row normalizer and the MCP tools, since a made-up id
+ * is exactly what an assistant produces when it guesses.
+ */
+export const MAX_CATALOG_ID = 2_147_483_647;
+export const isCatalogId = (raw: unknown): raw is number =>
+  typeof raw === "number" && Number.isInteger(raw) && raw >= 1 && raw <= MAX_CATALOG_ID;
+
 export const MAX_ITEMS = 1000;
 export const MAX_FOLDERS = 50;
 // Text caps, one constant per field. The reducer, the whole-list normalizer, the
@@ -306,8 +317,7 @@ function cleanItemPatch(patch: ItemPatch): Partial<Item> {
   if (patch.catalogItemId === null) {
     out.catalogItemId = undefined;
     out.catalogWeightMgAtLink = undefined;
-  } else if (typeof patch.catalogItemId === "number" && isFinite(patch.catalogItemId))
-    out.catalogItemId = patch.catalogItemId;
+  } else if (isCatalogId(patch.catalogItemId)) out.catalogItemId = patch.catalogItemId;
   if (patch.catalogItemId !== null && typeof patch.catalogWeightMgAtLink === "number" && isFinite(patch.catalogWeightMgAtLink))
     out.catalogWeightMgAtLink = clampWeight(patch.catalogWeightMgAtLink);
   if (typeof patch.packed === "boolean") out.packed = patch.packed;
@@ -830,7 +840,7 @@ export function normalizeItem(raw: Item): Item {
         : undefined,
     currency: raw.currency ? String(raw.currency).slice(0, 8) : undefined,
     catalogItemId:
-      typeof raw.catalogItemId === "number" && isFinite(raw.catalogItemId)
+      isCatalogId(raw.catalogItemId)
         ? raw.catalogItemId
         : undefined,
     catalogWeightMgAtLink:

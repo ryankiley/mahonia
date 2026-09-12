@@ -40,5 +40,15 @@ export default defineEventHandler((event) => {
     `- ${origin}/s/{code}.md: the same list as Markdown, served as plain text: one table`,
     "  per folder and a totals block, for pasting into a chat or a note",
     "",
+    "## Connect an assistant",
+    "",
+    `Mahonia is a remote MCP server at ${origin}/mcp (Streamable HTTP, JSON-RPC over POST,`,
+    "no sign-in). Added as a connector, an assistant can read a shared list by its share",
+    "code or link, as data or Markdown, search the gear catalog and fetch one product's",
+    "variants with their cited weights, make a list, add rows to one and set its dates and",
+    "trail. A share link is the permission to read and an edit link the permission to",
+    "change, exactly as they are for a person; the write tools take the edit link as an",
+    "argument, never in the address.",
+    "",
   ].join("\n");
 });

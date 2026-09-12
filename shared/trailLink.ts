@@ -110,6 +110,23 @@ export function normalizeTrailUrl(raw: unknown): string | null {
   return typeof raw === "string" ? (safeUrl(raw.slice(0, MAX_TRAIL_URL_LEN))?.href ?? null) : null;
 }
 
+/**
+ * Everything that describes the route a link pointed AT, as the setMeta patch that
+ * clears it. A label with no link is unreachable state, and so is a distance, a
+ * profile or a line with no route to be the shape of. One object, because two copies
+ * of this list is how the next field added here gets cleared on one path and left
+ * behind on the other; ListHead spreads it when the link is emptied and the MCP
+ * set_trip tool does the same.
+ */
+export const CLEARS_WITH_LINK = {
+  trailLabel: "",
+  trailDistanceM: "",
+  trailProfile: "",
+  trailAscentM: "",
+  trailDescentM: "",
+  routeGeometry: "",
+} as const;
+
 /** A raw trail label → its stored form, or undefined when it's blank. */
 export function normalizeTrailLabel(raw: unknown): string | undefined {
   // tidyText rather than a bare trim: this is a typed name like any other ("Ryan's

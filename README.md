@@ -57,6 +57,20 @@ Both fail **loudly in production** rather than quietly accepting input that goes
 [Nuxt 4](https://nuxt.com) · Vue 3 · TypeScript · [Drizzle ORM](https://orm.drizzle.team) ·
 deployed on [Vercel](https://vercel.com).
 
+## MCP connector
+
+The app serves a remote MCP server at `/mcp`, so an AI assistant can be handed
+`https://mahonia.app/mcp` as a connector with nothing to install and no sign-in. Seven
+tools: read a shared list as data or Markdown, search the catalog, fetch one product's
+variants, and, holding an edit link, make a list, add rows and set the trip's dates and
+trail. A share code is the read capability and the edit link's fragment token the write
+one, hashed on arrival and passed only as a tool argument, so nothing new is trusted. The
+transport is stateless JSON-RPC over POST (MCP revision 2025-06-18, no sessions, no
+event stream, GET answers 405), hand-rolled in `server/routes/mcp.post.ts` with the tools
+in `server/utils/mcp.ts`; both files carry the reasoning. A client that only speaks stdio
+can bridge with `npx mcp-remote https://mahonia.app/mcp`. My Gear is deliberately out of
+reach: it would need an account token, which is a separate decision.
+
 ## Changelog
 
 The site's [“What’s new”](https://mahonia.app/about#whats-new) section (on the About page) renders
