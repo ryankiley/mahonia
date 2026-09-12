@@ -109,6 +109,11 @@ describe("waterPhraseMl", () => {
     expect(waterPhraseMl("water 500 ml")).toBe(500);
     expect(waterPhraseMl("1 L water")).toBe(1000);
   });
+  it("reads a volume set off the way a weight is", () => {
+    expect(waterPhraseMl("Water - 2 L")).toBe(2000);
+    expect(waterPhraseMl("Water: 750ml")).toBe(750);
+    expect(waterPhraseMl("Water (2 L)")).toBe(2000);
+  });
   it("is null for bare water, a bare volume, and anything else", () => {
     expect(waterPhraseMl("water")).toBeNull();
     expect(waterPhraseMl("500 ml")).toBeNull();

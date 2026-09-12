@@ -434,7 +434,9 @@ function onPaste(e: ClipboardEvent) {
   const from = el.selectionStart ?? draft.value.length;
   const to = el.selectionEnd ?? from;
   const [first, ...rest] = rows;
-  const text = (draft.value.slice(0, from) + first + draft.value.slice(to)).trim();
+  // capped where the reducer caps a name: a longer line would leave the box holding
+  // text the store never kept, and every later blur would commit it as a rename
+  const text = (draft.value.slice(0, from) + first + draft.value.slice(to)).trim().slice(0, MAX_ITEM_NAME_LEN);
   const c = text && tidyText(text) !== tidyText(props.initial) ? freeCommit(text) : null;
   emit("pasteRows", { first: c, rest });
   // the field shows what got stored: the first line's name, or, when it named nothing,

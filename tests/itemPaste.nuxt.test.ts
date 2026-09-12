@@ -205,11 +205,14 @@ describe("pasting a list into an item's name", () => {
     await flushPromises();
     // ": 540 g" is a name (a weight with nothing in front of it), so two rows
     expect(c.pendingUndo.value?.label).toBe("2 rows");
-    c.undoRemove();
-    pasteInto(w, "Tent\nQuilt");
-    await flushPromises();
-    expect(c.pendingUndo.value?.label).toBe("1 row");
     w.unmount();
+
+    const c2 = await open([item({ id: "blank", sortOrder: 0 })]);
+    const w2 = mountRow(c2, "blank");
+    pasteInto(w2, "Tent\nQuilt");
+    await flushPromises();
+    expect(c2.pendingUndo.value?.label).toBe("1 row");
+    w2.unmount();
   });
 
   it("reads a water line as the water row at its volume", async () => {
@@ -247,9 +250,21 @@ describe("pasting a list into an item's name", () => {
     expect(itemsOf(c).map((i) => i.name)).toEqual(["Quilt", "Stove", "Pot", "Pad"]);
 
     c.undoRemove();
-    // the blank is blank again: the paste is undone in full, not half
-    expect(itemsOf(c).map((i) => i.name)).toEqual(["", "Pad"]);
+    // the paste is undone in full: the blank it landed in is gone the way an
+    // abandoned "Add an item" blank goes, not left sitting in the folder
+    expect(itemsOf(c).map((i) => i.name)).toEqual(["Pad"]);
     expect(c.pendingUndo.value).toBeNull();
+    w.unmount();
+  });
+
+  it("keeps the field within the name the store keeps", async () => {
+    const c = await open([item({ id: "blank", sortOrder: 0 })]);
+    const w = mountRow(c, "blank");
+    pasteInto(w, "x".repeat(240) + "\nPot");
+    await flushPromises();
+    const input = w.find<HTMLInputElement>('input[aria-label="Name of item"]').element;
+    expect(byId(c, "blank")!.name).toHaveLength(200);
+    expect(input.value).toBe(byId(c, "blank")!.name);
     w.unmount();
   });
 
@@ -288,7 +303,7 @@ describe("pasting a list into an item's name", () => {
     expect(byId(c, "old")!.parentId).toBe(stakes.id);
 
     c.undoRemove();
-    expect(itemsOf(c).map((i) => i.name)).toEqual(["", "Existing"]);
+    expect(itemsOf(c).map((i) => i.name)).toEqual(["Existing"]);
     expect(byId(c, "old")!.parentId ?? null).toBeNull();
     w.unmount();
   });

@@ -71,6 +71,8 @@ export function waterPhraseMl(text: string): number | null {
   let vol: string | null = null;
   if (/^water\b/.test(low)) vol = low.replace(/^water\b/, "").trim();
   else if (/\bwater$/.test(low)) vol = low.replace(/\bwater$/, "").trim();
+  // set off the way a weight is ("Water - 2 L", "Water: 750 ml", "Water (2 L)")
+  vol = vol?.replace(/^[-–—:,|(]\s*/, "").replace(/\)$/, "").trim() ?? null;
   if (!vol) return null;
   const ml = parseVolumeMl(vol);
   return ml != null && ml > 0 ? ml : null;

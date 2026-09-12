@@ -96,8 +96,9 @@ describe("pasteRows", () => {
     expect(pasteRows("Tent 540 g\nQuilt\n\n  \nStove 85 g\n")).toEqual(["Tent 540 g", "Quilt", "Stove 85 g"]);
   });
 
-  it("reads Windows and old Mac line endings", () => {
+  it("reads Windows and old Mac line endings, and the Unicode separators a soft return becomes", () => {
     expect(pasteRows("Tent\r\nQuilt\rStove")).toEqual(["Tent", "Quilt", "Stove"]);
+    expect(pasteRows("Tent\u2028Quilt\u2029Stove\vPot")).toEqual(["Tent", "Quilt", "Stove", "Pot"]);
   });
 
   it("strips the list markers a notes app writes", () => {
