@@ -397,7 +397,10 @@ export function useVaultCapture() {
     try {
       const res = await vaultFetch<{ keys?: VaultGearKey[]; full?: boolean }>(
         "/api/vault/capture",
-        { method: "POST", body: { items: caps } },
+        // This is the deliberate update path. Background capture fills a missing
+        // My Gear weight only; pressing Save says this row's weight should replace
+        // the unpinned one already there.
+        { method: "POST", body: { items: caps, overwriteWeight: true } },
       );
       landed = res?.keys ?? [];
       full = !!res?.full;
