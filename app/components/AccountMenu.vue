@@ -4,7 +4,7 @@ import { HugeiconsIcon } from "~/utils/hugeicon";
 // person-plus-credentials glyph.
 // SafeBox is the editor toolbar's own My Gear glyph — the same thing named the same
 // way, so the row and the button can't read as two different destinations.
-import { Logout01Icon, SafeBoxIcon, UserCircleIcon, UserIcon, UserLock01Icon } from "@hugeicons/core-free-icons";
+import { Logout01Icon, SafeBoxIcon, UserIcon, UserLock01Icon } from "@hugeicons/core-free-icons";
 
 // The account affordance in the top bar. Two shapes, because signed in and signed
 // out are different jobs:
@@ -15,9 +15,16 @@ import { Logout01Icon, SafeBoxIcon, UserCircleIcon, UserIcon, UserLock01Icon } f
 //                none of them deserves the bar's limited room. (In the editor it's
 //                two: the bar has its own My Gear button — see `hasGearButton`.)
 //
-// Deliberately NOT an avatar. An account stores an optional display name and an
-// email; there is no photo and never will be, so an avatar renders as a circle
-// with a "?" for most people, and it would signal a profile product this isn't.
+// The signed-in trigger is a grey disc lettered with your INITIAL (Ryan, 2026-09-12)
+// — the first letter of the display name, or of the address while there is no name.
+// It was a generic person glyph, held against an avatar on two counts: an account
+// has no photo and never will, so a photo avatar would be a "?" for most people; and
+// a face would promise a profile product this isn't. A letter answers the first —
+// every account has an address, so there is always one and the disc is never blank
+// or a "?" — and makes the second a feature: the one thing the bar can say about
+// WHO is signed in, with what an account actually stores. Where the letter comes
+// from, and how it is on the disc at first paint rather than a beat after
+// /api/auth/me, is useAccountInitial.
 //
 // COSTS THE SIGNED-OUT NOTHING. The state comes from the readable hint cookie, not
 // a session lookup: /e is prerendered and CDN-served with no function invocation,
@@ -38,6 +45,9 @@ import { Logout01Icon, SafeBoxIcon, UserCircleIcon, UserIcon, UserLock01Icon } f
 const { compact = false, hasGearButton = false } = defineProps<{ compact?: boolean; hasGearButton?: boolean }>();
 
 const { presence, signOut } = useSession();
+// the disc's letter — the session's own once it has resolved, this device's memo
+// of it until then (so the disc mounts lettered, not empty)
+const initial = useAccountInitial();
 const route = useRoute();
 
 // The hint alone decides the shape — it carries no capability, and being wrong
@@ -116,11 +126,14 @@ const { open: openAccount } = useAccountModal();
         :aria-expanded="open"
         @click="open = !open"
       >
-        <!-- a person, not a key: the key said "credentials", which is what the
-             SIGNED-OUT state now says with a login glyph. This slot means "you".
-             Still not an avatar — an account here has a name and an email, never a
-             photo, so a circle with initials would promise a profile that isn't. -->
-        <HugeiconsIcon :icon="UserCircleIcon" :size="16" :stroke-width="2" />
+        <!-- your letter, not a key and not a person glyph: the key said
+             "credentials", which is what the SIGNED-OUT state says with its login
+             glyph; this slot means "you", and your own initial says that in a way a
+             generic person can't. The button keeps the accessible name — to a screen
+             reader the letter is decoration, and "R" would be a poor name for a menu.
+             Empty for one beat only: before the first /api/auth/me on a browser that
+             has never kept the memo (useAccountInitial). -->
+        <span class="avatar" aria-hidden="true">{{ initial }}</span>
       </button>
       </Tooltip>
       <Transition name="menu">
@@ -159,5 +172,43 @@ const { open: openAccount } = useAccountModal();
    this opens and looks exactly like the editor kebab and the read views' menu */
 .acct__signin {
   white-space: nowrap;
+}
+
+/* The disc. A FILLED mark in a row of 2px line-drawn glyphs, so it sits a step lighter
+   than their --ink-2: the same ink that reads as a stroke reads as a plate at 22px of
+   area (the --lit note in tokens.scss makes the same point about a 32px chip). --ink-3
+   was tuned to clear AA against --paper, so the letter set in --paper clears it back
+   in both themes by construction — 4.5:1 light, 5.7:1 dark — and the pair needs no
+   retune if either token moves. Hover steps the disc up one tone to --ink-2, the way
+   .btn--ghost steps its glyph from --ink-2 to --ink; pointer-gated like every hover.
+   Sized in px like the glyphs beside it, NOT from the type scale: the bar's icons hold
+   16px while --text-* grows past the 1920px anchor, and a letter on the scale would
+   outgrow a disc that isn't. The letter is half the disc, so the two move together. */
+.avatar {
+  --avatar: 22px;
+  display: inline-grid;
+  place-items: center;
+  width: var(--avatar);
+  height: var(--avatar);
+  border-radius: var(--radius-pill);
+  background: var(--ink-3);
+  color: var(--paper);
+  font-size: calc(var(--avatar) / 2);
+  font-weight: 600;
+  line-height: 1;
+  text-transform: uppercase;
+  transition: background var(--dur) var(--ease);
+}
+@media (hover: hover) and (pointer: fine) {
+  .menu__btn:hover .avatar {
+    background: var(--ink-2);
+  }
+}
+/* the glyphs grow 16 → 18 on touch (.btn--icon svg, controls.scss); the disc keeps
+   the same ratio */
+@media (pointer: coarse) {
+  .avatar {
+    --avatar: 24px;
+  }
 }
 </style>
