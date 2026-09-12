@@ -49,6 +49,10 @@ const lastUpdated = computed(() => {
           <h1 class="t-title">What's new</h1>
           <p class="t-sm t-muted">
             Mahonia is built in the open and changes often. Here’s what’s shipped, newest first.
+            Each day is also a
+            <a href="https://github.com/ryankiley/mahonia/releases" target="_blank" rel="noopener noreferrer"
+              >release on GitHub</a
+            >, with a feed.
           </p>
           <p v-if="lastUpdated" class="t-sm t-muted">Last updated {{ lastUpdated }}</p>
         </header>
