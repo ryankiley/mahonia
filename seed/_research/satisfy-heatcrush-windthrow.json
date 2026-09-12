@@ -3,7 +3,7 @@
     {
       "brand": "Satisfy",
       "name": "HeatCrush Long Sleeve Base Layer",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 120,
       "weight_unit": "g",
@@ -15,7 +15,7 @@
     {
       "brand": "Satisfy",
       "name": "HeatCrush T-Shirt",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 175,
       "weight_unit": "g",
@@ -27,7 +27,7 @@
     {
       "brand": "Satisfy",
       "name": "HeatCrush 8\" Desert Shorts",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 86,
       "weight_unit": "g",

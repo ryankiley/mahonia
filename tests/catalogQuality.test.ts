@@ -4,11 +4,11 @@ import { emergingBrandTokens, isBrandedTypedItem, isVariantRedundant, normalizeV
 describe("normalizeVariant", () => {
   const cases: [string, string][] = [
     // orphan punctuation from an empty leading dimension
-    ["/ M", "M"],
+    ["/ M", "Medium"],
     [", 18F", "18F"],
     // fabric / size — slash is a dimension separator
-    ["Ultra 200X / M", "Ultra 200X, M"],
-    ["UltraGrid / M", "UltraGrid, M"],
+    ["Ultra 200X / M", "Ultra 200X, Medium"],
+    ["UltraGrid / M", "UltraGrid, Medium"],
     // temperature: drop degree symbol, no space, uppercase
     ["6 ft, 30°F", "6ft, 30F"],
     ["Regular / 20°F", "Regular, 20F"],
@@ -26,14 +26,28 @@ describe("normalizeVariant", () => {
     ["32oz / 1L", "32oz / 1L"], // spaced unit equivalent
     ["20F / -6C, Regular, 650FP down", "20F / -6C, Regular, 650FP down"], // F/C temp equivalent
     ['Gridstop (16" / 19")', "Gridstop, 16in / 19in"], // measurement range kept, marks spelled out
-    // "Size" prefix drops before a letter size, and only there
-    ["Size M", "M"],
-    ["120gsm, Size M", "120gsm, M"],
+    // "Size" prefix drops before an S/M/L size, and only there; the size is a word
+    ["Size M", "Medium"],
+    ["120gsm, Size M", "120gsm, Medium"],
     ["Size D", "Size D"],
     ["Size 9", "Size 9"],
-    // a gender prefix and its letter size are one dimension
-    ["Men's, M", "Men's M"],
+    // a gender prefix and its size are one dimension
+    ["Men's, M", "Men's Medium"],
     ["Women's, XS/S", "Women's XS/S"],
+    // an S/M/L-family size is a word (2026-09-12); a range and a maker's own scale stay
+    ["M", "Medium"],
+    ["XS", "X-Small"],
+    ["Men's M", "Men's Medium"],
+    ["Women's XL", "Women's X-Large"],
+    ["M torso", "Medium torso"],
+    ["40L, M torso", "40L, Medium torso"],
+    ["Regular torso, S hipbelt", "Regular torso, Small hipbelt"],
+    ["M, JP 3", "Medium, JP 3"],
+    ["M+", "M+"],
+    ["L/XL", "L/XL"],
+    ["Medium", "Medium"],
+    ["27 L", "27L"], // a litre, not a Large
+    ["M's 9, W's 10 US", "M's 9, W's 10 US"],
     // number + unit are one token; prime marks spell out
     ["6 ft, 20F", "6ft, 20F"],
     ["Regular, 5 ft 3 in, 20F", "Regular, 5ft 3in, 20F"],
@@ -47,7 +61,7 @@ describe("normalizeVariant", () => {
     ["8'6\" x 8'6\"", "8ft 6in x 8ft 6in"],
     ['Titanium ⅝"', "Titanium ⅝in"],
     ["Men's US 9", "Men's US 9"], // a size scale is not a unit
-    ["Ultra 200X, M", "Ultra 200X, M"],
+    ["Ultra 200X, M", "Ultra 200X, Medium"],
     // quantity phrasing
     ["3 Pack", "3-pack"],
     ["Set of 4, 55mm", "set of 4, 55mm"],
@@ -55,7 +69,7 @@ describe("normalizeVariant", () => {
     // "|" is a non-canonical separator (copied from a manufacturer quote) → comma
     ["M's 9 | W's 10 US", "M's 9, W's 10 US"],
     // already-canonical / no-op
-    ["Men's M", "Men's M"],
+    ["Men's Medium", "Men's Medium"],
     ["one size", "one size"],
     ["Long, 18F", "Long, 18F"],
     ["", ""],

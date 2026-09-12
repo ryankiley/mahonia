@@ -370,20 +370,20 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   }
 
   // --- ERROR: size written in the wrong style ---------------------------------
-  // House convention (2026-09-05): S/M/L-family sizes are LETTERS — XS, S, M, L, XL —
-  // on anything worn or carried, with an optional gender prefix ("Men's M"). Sleep
-  // and shelter gear are exempt: there Small / Regular / Large is a LENGTH scale the
-  // maker names in words beside Regular / Long, and "L" would read as a garment size.
-  // Only a size word standing as the whole dimension (or right after Men's/Women's)
-  // trips this, so a product size NAME like "Small Bag" passes.
-  const SIZE_WORD = /^(?:(?:men's|women's)\s+)?(?:xx-small|x-small|extra small|small|medium|large|x-large|extra large|xx-large)$/i;
+  // House convention (2026-09-12, reversing 2026-09-05): S/M/L-family sizes are WORDS
+  // in the variant — Small, Medium, Large, X-Small, X-Large — with an optional gender
+  // prefix ("Men's Medium"), because that is what a person reads on the row (Ryan: "I
+  // want the catalogue to say Medium"). A range keeps the maker's letters ("S/M"), and
+  // the attributes column keeps the letter for the size axis. "Extra small" and the
+  // like are the same words misspelled for the catalog; normalizeVariant does not
+  // rewrite those, so they are named here.
+  const SIZE_LETTER = /^(?:(?:men's|women's)\s+)?(?:xxs|xs|s|m|l|xl|xxl)(?:\s+(?:torso|hipbelt))?$/i;
+  const SIZE_MISSPELT = /^(?:(?:men's|women's)\s+)?(?:extra small|extra large|xsmall|xlarge|med|sm|lg)$/i;
   for (const r of rows) {
     if (!r.variant) continue;
-    const lengthScaled = r.categoryHint === "sleep" || r.categoryHint === "shelter";
     for (const dim of r.variant.split(/,\s*/)) {
-      if (!lengthScaled && SIZE_WORD.test(dim)) {
-        err("variant-size-style", `${gearLabel(r)}: write the size as a letter ("Medium" → "M"), not "${dim}"`);
-      }
+      if (SIZE_LETTER.test(dim)) err("variant-size-style", `${gearLabel(r)}: write the size as a word ("M" → "Medium"), not "${dim}"`);
+      else if (SIZE_MISSPELT.test(dim)) err("variant-size-style", `${gearLabel(r)}: write the size as Small / Medium / Large / X-Small / X-Large, not "${dim}"`);
     }
   }
 

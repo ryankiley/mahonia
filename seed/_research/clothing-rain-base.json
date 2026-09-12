@@ -3,7 +3,7 @@
     {
       "brand": "Montbell",
       "name": "Versalite Jacket",
-      "variant": "Men's M",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 6.4,
       "weight_unit": "oz",
@@ -15,7 +15,7 @@
     {
       "brand": "Montbell",
       "name": "Storm Cruiser Jacket",
-      "variant": "Men's M",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 10,
       "weight_unit": "oz",
@@ -27,7 +27,7 @@
     {
       "brand": "Montbell",
       "name": "Plasma 1000 Down Jacket",
-      "variant": "Men's M",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 4.8,
       "weight_unit": "oz",
@@ -38,7 +38,7 @@
     {
       "brand": "Montbell",
       "name": "EX Light Down Anorak",
-      "variant": "Men's M",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 7.6,
       "weight_unit": "oz",
@@ -50,7 +50,7 @@
     {
       "brand": "Outdoor Research",
       "name": "Helium Rain Jacket",
-      "variant": "Men's M",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 6.2,
       "weight_unit": "oz",
@@ -62,7 +62,7 @@
     {
       "brand": "Outdoor Research",
       "name": "Helium Rain Pants",
-      "variant": "Men's M",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 5.3,
       "weight_unit": "oz",
@@ -74,7 +74,7 @@
     {
       "brand": "Outdoor Research",
       "name": "Echo Hoodie",
-      "variant": "Men's M",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 5.29,
       "weight_unit": "oz",
@@ -86,7 +86,7 @@
     {
       "brand": "Outdoor Research",
       "name": "Foray II GORE-TEX Jacket",
-      "variant": "Men's M",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 11.9,
       "weight_unit": "oz",
@@ -109,7 +109,7 @@
     {
       "brand": "Smartwool",
       "name": "Merino 150 Base Layer Long Sleeve",
-      "variant": "Men's M",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 6,
       "weight_unit": "oz",
@@ -121,7 +121,7 @@
     {
       "brand": "Patagonia",
       "name": "Capilene Cool Lightweight Shirt",
-      "variant": "Men's M, short sleeve",
+      "variant": "Men's Medium, short sleeve",
       "category_hint": "clothing",
       "weight_value": 74,
       "weight_unit": "g",
@@ -133,7 +133,7 @@
     {
       "brand": "Patagonia",
       "name": "Capilene Midweight Bottoms",
-      "variant": "Men's M",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 164,
       "weight_unit": "g",
@@ -168,7 +168,7 @@
     {
       "brand": "Senchi Designs",
       "name": "Alpha 60 Hoodie",
-      "variant": "Men's M",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 3.8,
       "weight_unit": "oz",
@@ -180,7 +180,7 @@
     {
       "brand": "Senchi Designs",
       "name": "Alpha 120 Hoodie",
-      "variant": "Men's M",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 7.1,
       "weight_unit": "oz",
@@ -192,7 +192,7 @@
     {
       "brand": "Senchi Designs",
       "name": "Alpha 60 Crewneck",
-      "variant": "Men's M",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 3.4,
       "weight_unit": "oz",
@@ -204,7 +204,7 @@
     {
       "brand": "Senchi Designs",
       "name": "Alpha 60 Legging",
-      "variant": "Men's M",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 2.5,
       "weight_unit": "oz",
@@ -216,7 +216,7 @@
     {
       "brand": "Senchi Designs",
       "name": "Alpha 90 Legging",
-      "variant": "Men's M",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 3.1,
       "weight_unit": "oz",

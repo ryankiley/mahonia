@@ -3,7 +3,7 @@
     {
       "brand": "Enlightened Equipment",
       "name": "Torrid APEX Jacket",
-      "variant": "Men's M",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 8.4,
       "weight_unit": "oz",
@@ -15,7 +15,7 @@
     {
       "brand": "Decathlon (Simond)",
       "name": "MT100 Hooded Down Jacket",
-      "variant": "Men's M",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 10.3,
       "weight_unit": "oz",
@@ -26,7 +26,7 @@
     {
       "brand": "Senchi Designs",
       "name": "Alpha 90 Hoodie",
-      "variant": "Men's M",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 4.5,
       "weight_unit": "oz",
@@ -37,7 +37,7 @@
     {
       "brand": "LightHeart Gear",
       "name": "Alpha Direct 90 Hoodie",
-      "variant": "Men's M",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 5.2,
       "weight_unit": "oz",
@@ -48,7 +48,7 @@
     {
       "brand": "Appalachian Gear Company",
       "name": "All-Paca Fleece Hoodie",
-      "variant": "Men's M",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 11,
       "weight_unit": "oz",
@@ -60,7 +60,7 @@
     {
       "brand": "Melanzana",
       "name": "Micro Grid Hoodie V2",
-      "variant": "Men's L",
+      "variant": "Men's Large",
       "category_hint": "clothing",
       "weight_value": 12.1,
       "weight_unit": "oz",

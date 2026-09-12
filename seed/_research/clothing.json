@@ -62,7 +62,7 @@
     {
       "brand": "Nike",
       "name": "ACG UV Hiking Pants",
-      "variant": "Men's M",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 310,
       "weight_unit": "g",
@@ -73,7 +73,7 @@
     {
       "brand": "Outdoor Research",
       "name": "Ferrosi Pants",
-      "variant": "Men's M",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 371,
       "weight_unit": "g",
@@ -84,7 +84,7 @@
     {
       "brand": "prAna",
       "name": "Stretch Zion Pant",
-      "variant": "Men's M",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 13.3,
       "weight_unit": "oz",
@@ -95,7 +95,7 @@
     {
       "brand": "Patagonia",
       "name": "Terrebonne Joggers",
-      "variant": "Men's M",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 6.9,
       "weight_unit": "oz",

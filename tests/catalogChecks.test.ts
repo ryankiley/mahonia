@@ -77,11 +77,17 @@ describe("catalog conventions are errors, not warnings", () => {
     expect(codes([row({ name: "Large Food Bag", categoryHint: "other", weightMg: 38_000, commonName: "Food bag" })], "error")).toContain("name-size-prefix");
     expect(codes([row({ name: "Stuff Sacks", variant: "M", categoryHint: "other", weightMg: 8_000, commonName: "Stuff sack" })], "error")).toContain("name-plural-family");
     // inherent plurals are fine
-    expect(codes([row({ name: "Hiker Midweight Socks", variant: "Men's L", categoryHint: "clothing", weightMg: 70_000, commonName: "Socks" })], "error")).not.toContain("name-plural-family");
+    expect(codes([row({ name: "Hiker Midweight Socks", variant: "Men's Large", categoryHint: "clothing", weightMg: 70_000, commonName: "Socks" })], "error")).not.toContain("name-plural-family");
   });
 
-  it("variant-size-style: letters, not words, on worn or carried gear", () => {
-    expect(codes([row({ name: "Kakwa 55", variant: "Medium", categoryHint: "pack", weightMg: 900_000, commonName: "Backpack" })], "error")).toContain("variant-size-style");
+  it("variant-size-style: words, not letters (2026-09-12), and the words spelled the house way", () => {
+    expect(codes([row({ name: "Kakwa 55", variant: "M", categoryHint: "pack", weightMg: 900_000, commonName: "Backpack" })], "error")).toContain("variant-size-style");
+    expect(codes([row({ name: "Cormac Hoody", variant: "Men's L", categoryHint: "clothing", weightMg: 200_000, commonName: "Sun hoodie" })], "error")).toContain("variant-size-style");
+    expect(codes([row({ name: "Cormac Hoody", variant: "Extra small", categoryHint: "clothing", weightMg: 200_000, commonName: "Sun hoodie" })], "error")).toContain("variant-size-style");
+    expect(codes([row({ name: "Kakwa 55", variant: "Medium", categoryHint: "pack", weightMg: 900_000, commonName: "Backpack" })], "error")).not.toContain("variant-size-style");
+    expect(codes([row({ name: "Cormac Hoody", variant: "Men's Medium", categoryHint: "clothing", weightMg: 200_000, commonName: "Sun hoodie" })], "error")).not.toContain("variant-size-style");
+    // a range keeps the maker's letters
+    expect(codes([row({ name: "Kakwa 55", variant: "S/M", categoryHint: "pack", weightMg: 900_000, commonName: "Backpack" })], "error")).not.toContain("variant-size-style");
     // sleep and shelter keep the maker's length words
     expect(codes([row({ name: "NeoAir XLite", variant: "Large", categoryHint: "sleep", weightMg: 400_000, commonName: "Sleeping pad" })], "error")).not.toContain("variant-size-style");
   });

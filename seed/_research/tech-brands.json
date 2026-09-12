@@ -3,7 +3,7 @@
     {
       "brand": "Goldwin",
       "name": "Dry Mesh Jacket",
-      "variant": "M, JP 3",
+      "variant": "Medium, JP 3",
       "category_hint": "clothing",
       "weight_value": 250,
       "weight_unit": "g",
@@ -15,7 +15,7 @@
     {
       "brand": "Goldwin",
       "name": "Rip-stop Hooded Jacket",
-      "variant": "M, JP 3",
+      "variant": "Medium, JP 3",
       "category_hint": "clothing",
       "weight_value": 320,
       "weight_unit": "g",
@@ -27,7 +27,7 @@
     {
       "brand": "Goldwin",
       "name": "Nylon Multi Purpose Jacket",
-      "variant": "M, JP 3",
+      "variant": "Medium, JP 3",
       "category_hint": "clothing",
       "weight_value": 510,
       "weight_unit": "g",
@@ -39,7 +39,7 @@
     {
       "brand": "Goldwin",
       "name": "Light Warmer Kochi Jacket",
-      "variant": "M, JP 3",
+      "variant": "Medium, JP 3",
       "category_hint": "clothing",
       "weight_value": 170,
       "weight_unit": "g",
@@ -51,7 +51,7 @@
     {
       "brand": "Goldwin",
       "name": "GORE-TEX 3/4 Over Coat",
-      "variant": "M, JP 3",
+      "variant": "Medium, JP 3",
       "category_hint": "clothing",
       "weight_value": 500,
       "weight_unit": "g",
@@ -63,7 +63,7 @@
     {
       "brand": "Goldwin",
       "name": "One Tuck Tapered Stretch Pants",
-      "variant": "M, JP 3",
+      "variant": "Medium, JP 3",
       "category_hint": "clothing",
       "weight_value": 535,
       "weight_unit": "g",
@@ -75,7 +75,7 @@
     {
       "brand": "Goldwin",
       "name": "Relax Straight Easy Pants",
-      "variant": "M, JP 3",
+      "variant": "Medium, JP 3",
       "category_hint": "clothing",
       "weight_value": 350,
       "weight_unit": "g",
@@ -87,7 +87,7 @@
     {
       "brand": "Goldwin",
       "name": "Dual Layered L/S Hoodie",
-      "variant": "M, JP 3",
+      "variant": "Medium, JP 3",
       "category_hint": "clothing",
       "weight_value": 257,
       "weight_unit": "g",
@@ -112,7 +112,7 @@
     {
       "brand": "Goldwin",
       "name": "Pertex Shield Pro Fast Run Jacket",
-      "variant": "M, JP 3",
+      "variant": "Medium, JP 3",
       "category_hint": "clothing",
       "weight_value": 140,
       "weight_unit": "g",
@@ -124,7 +124,7 @@
     {
       "brand": "Goldwin",
       "name": "Pertex Shield Air Fast Run Jacket",
-      "variant": "L",
+      "variant": "Large",
       "category_hint": "clothing",
       "weight_value": 115,
       "weight_unit": "g",
@@ -136,7 +136,7 @@
     {
       "brand": "Goldwin",
       "name": "Pertex Shieldair A/L Jacket",
-      "variant": "M, JP 3",
+      "variant": "Medium, JP 3",
       "category_hint": "clothing",
       "weight_value": 104,
       "weight_unit": "g",
@@ -148,7 +148,7 @@
     {
       "brand": "Goldwin",
       "name": "Zip-up Floating Wind Shell Jacket",
-      "variant": "M, JP 3",
+      "variant": "Medium, JP 3",
       "category_hint": "clothing",
       "weight_value": 90,
       "weight_unit": "g",
@@ -160,7 +160,7 @@
     {
       "brand": "Satisfy",
       "name": "Pertex 3L Fly Rain Jacket",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 154,
       "weight_unit": "g",
@@ -172,7 +172,7 @@
     {
       "brand": "Satisfy",
       "name": "Pertex Diamond Fuse Windbreaker",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 107,
       "weight_unit": "g",
@@ -184,7 +184,7 @@
     {
       "brand": "Satisfy",
       "name": "Rippy Modular Windbreaker",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 93,
       "weight_unit": "g",
@@ -196,7 +196,7 @@
     {
       "brand": "Satisfy",
       "name": "Pertex Modular Thermal Vest",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 187,
       "weight_unit": "g",
@@ -208,7 +208,7 @@
     {
       "brand": "Satisfy",
       "name": "PeaceShell River Shirt",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 168,
       "weight_unit": "g",
@@ -220,7 +220,7 @@
     {
       "brand": "Satisfy",
       "name": "CloudMerino 66 T-Shirt",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 100,
       "weight_unit": "g",
@@ -232,7 +232,7 @@
     {
       "brand": "Satisfy",
       "name": "Justice Trail Half-Zip T-Shirt",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 68,
       "weight_unit": "g",
@@ -244,7 +244,7 @@
     {
       "brand": "Satisfy",
       "name": "TechSilk 8\" Shorts",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 130,
       "weight_unit": "g",
@@ -256,7 +256,7 @@
     {
       "brand": "Satisfy",
       "name": "Space-O 2.5\" Shorts",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 124,
       "weight_unit": "g",
@@ -268,7 +268,7 @@
     {
       "brand": "Satisfy",
       "name": "PeaceShell 5\" Unlined Shorts",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 86,
       "weight_unit": "g",
@@ -280,7 +280,7 @@
     {
       "brand": "Satisfy",
       "name": "Justice Cordura 9\" Half Tights",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 93,
       "weight_unit": "g",
@@ -436,7 +436,7 @@
     {
       "brand": "Soar",
       "name": "Nano Jacket",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 129,
       "weight_unit": "g",
@@ -448,7 +448,7 @@
     {
       "brand": "Soar",
       "name": "Nano Rain Jacket",
-      "variant": "L",
+      "variant": "Large",
       "category_hint": "clothing",
       "weight_value": 242,
       "weight_unit": "g",
@@ -460,7 +460,7 @@
     {
       "brand": "Soar",
       "name": "Trail Rain Jacket",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 159,
       "weight_unit": "g",
@@ -472,7 +472,7 @@
     {
       "brand": "Soar",
       "name": "Ultra Rain Jacket 2.0",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 144,
       "weight_unit": "g",
@@ -484,7 +484,7 @@
     {
       "brand": "Soar",
       "name": "Running Sleeves",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 28,
       "weight_unit": "g",
@@ -496,7 +496,7 @@
     {
       "brand": "Houdini",
       "name": "Go Jacket",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 506,
       "weight_unit": "g",
@@ -508,7 +508,7 @@
     {
       "brand": "Houdini",
       "name": "Fall in Jacket",
-      "variant": "L",
+      "variant": "Large",
       "category_hint": "clothing",
       "weight_value": 1000,
       "weight_unit": "g",
@@ -520,7 +520,7 @@
     {
       "brand": "Houdini",
       "name": "Five to Nine Jacket",
-      "variant": "L",
+      "variant": "Large",
       "category_hint": "clothing",
       "weight_value": 630,
       "weight_unit": "g",
@@ -532,7 +532,7 @@
     {
       "brand": "Houdini",
       "name": "The Orange Jacket",
-      "variant": "L",
+      "variant": "Large",
       "category_hint": "clothing",
       "weight_value": 195,
       "weight_unit": "g",
@@ -544,7 +544,7 @@
     {
       "brand": "Houdini",
       "name": "Pace Trail Jacket",
-      "variant": "L",
+      "variant": "Large",
       "category_hint": "clothing",
       "weight_value": 150,
       "weight_unit": "g",
@@ -556,7 +556,7 @@
     {
       "brand": "Houdini",
       "name": "Pace Wind Jacket",
-      "variant": "L",
+      "variant": "Large",
       "category_hint": "clothing",
       "weight_value": 224,
       "weight_unit": "g",
@@ -568,7 +568,7 @@
     {
       "brand": "Houdini",
       "name": "The Orange Tee",
-      "variant": "L",
+      "variant": "Large",
       "category_hint": "clothing",
       "weight_value": 130,
       "weight_unit": "g",
@@ -803,7 +803,7 @@
     {
       "brand": "Snow Peak",
       "name": "Breathable Insulated Jacket",
-      "variant": "L",
+      "variant": "Large",
       "category_hint": "clothing",
       "weight_value": 410,
       "weight_unit": "g",
@@ -815,7 +815,7 @@
     {
       "brand": "Pas Normal Studios",
       "name": "Mechanism Pertex Rain Jacket",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 112,
       "weight_unit": "g",
