@@ -9,6 +9,12 @@ export type Unit = "g" | "kg" | "oz" | "lb";
 /** All units in display order — the runtime companion to the `Unit` type. */
 export const UNITS: Unit[] = ["g", "kg", "oz", "lb"];
 
+/** Where a catalog weight comes from. One list, read by the seed's gate, the table's
+ *  CHECK constraint and the connector's schema, so a fifth source can't be added to one
+ *  and not the others. */
+export const WEIGHT_SOURCES = ["manufacturer", "measured", "community", "imported"] as const;
+export type WeightSource = (typeof WEIGHT_SOURCES)[number];
+
 // One field, not two booleans — structurally prevents "worn AND consumable".
 // `base` counts toward base weight; `worn` = on your body; `consumable` = food/fuel/water.
 export type Classification = "base" | "worn" | "consumable";

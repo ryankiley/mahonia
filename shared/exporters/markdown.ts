@@ -17,13 +17,17 @@ const withCommon = (name: string, commonName?: string) =>
 const withCarrier = (name: string, carrier?: string) =>
   carrier ? `${name} *(${carrier})*` : name;
 
-// The Item cell, with its pipes escaped the way GFM reads them (a backslash). A pipe
-// is the one character in a name that BREAKS the table rather than styling its text:
-// "Socks | 3 pr" would end the cell at the bar and put its own weight a column to the
-// right. Nothing else is escaped; a name that happens to hold Markdown reads as
-// Markdown, which a renderer copes with and a reader can see, where a shifted column
-// misreports the weight. Only the Item cell needs it: the other two are numbers.
-const cell = (text: string) => text.replace(/\|/g, "\\|");
+// The Item cell, with the three characters a name can carry that a renderer would
+// not show as written escaped the way GFM reads them (a backslash). A pipe BREAKS the
+// table rather than styling its text: "Socks | 3 pr" would end the cell at the bar
+// and put its own weight a column to the right. A backslash is the escape itself, so
+// it is doubled first, or a name already holding "\|" would come out as an escaped
+// backslash and a live pipe. And "<" before a letter (or !, / or ?) opens an inline
+// HTML tag, the one Markdown construct that DELETES text: "Tarp <spare>" renders as
+// "Tarp" on GitHub and shows an empty unknown element everywhere else, where "<20F"
+// is no tag and stays. Other Markdown in a name (*stars*, an underscore) reads as
+// Markdown, which a reader can see. Only the Item cell needs it: the rest are numbers.
+const cell = (text: string) => text.replace(/[\\|]|<(?=[A-Za-z!/?])/g, "\\$&");
 
 export function listToMarkdown(list: ListSnapshot): string {
   const u = list.displayUnit;

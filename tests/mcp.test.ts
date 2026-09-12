@@ -6,11 +6,12 @@ import mcpDelete from "../server/routes/mcp.delete";
 import mcpGet from "../server/routes/mcp.get";
 import mcpHead from "../server/routes/mcp.head";
 import mcp from "../server/routes/mcp.post";
-import { GET_LIST_MAX_CHARS, MCP_TOOLS, describeList, editHashFrom, fitList, shareCodeFrom } from "../server/utils/mcp";
+import { GET_LIST_MAX_BYTES, MCP_TOOLS, describeList, editHashFrom, fitList, shareCodeFrom } from "../server/utils/mcp";
 import { sha256Hex } from "../server/utils/tokens";
 import { listToMarkdown } from "../shared/exporters/markdown";
+import { MAX_ITEMS, MAX_ITEM_NOTE_LEN } from "../shared/ops";
 import type { Item, ListSnapshot } from "../shared/types";
-import { declaresOutput, expectConforms } from "./helpers/mcpSchema";
+import { expectConforms, expectResultConforms } from "./helpers/mcpSchema";
 
 // The MCP endpoint, driven as a client would drive it: a real H3 event over bare node
 // mocks, one JSON-RPC message per POST, the repo and the limiter stubbed. What is pinned
@@ -58,11 +59,7 @@ const call = async (name: string, args?: unknown, headers?: Record<string, strin
   const r = await post(rpc("tools/call", { name, arguments: args }), headers, url);
   // every structured result this suite gets is held to the tool's declared shape,
   // which is what a validating client does before it lets the model see the result
-  const res = resultOf(r) as { structuredContent?: unknown; isError?: boolean } | null;
-  if (res && !res.isError && declaresOutput(name)) {
-    expect(res.structuredContent, `${name} declares an outputSchema, so a result needs structuredContent`).toBeDefined();
-    expectConforms(name, res.structuredContent);
-  }
+  expectResultConforms(name, resultOf(r) as { structuredContent?: unknown; isError?: boolean } | null);
   return r;
 };
 const resultOf = (r: { out?: Record<string, unknown> }) => (r.out?.result ?? null) as Record<string, unknown> | null;
@@ -567,9 +564,9 @@ describe("describeList", () => {
 });
 
 describe("fitList", () => {
-  const size = (value: unknown) => JSON.stringify(value).length;
+  const size = (value: unknown) => Buffer.byteLength(JSON.stringify(value));
   /** three folders of `perFolder` rows, each row with one nested row; a note on every row when given */
-  const big = (perFolder: number, note?: string): ListSnapshot => {
+  const big = (perFolder: number, note?: string, over: Partial<ListSnapshot> = {}): ListSnapshot => {
     const folders = ["Shelter", "Sleep", "Kitchen"].map((name, i) => ({ id: `f${i}`, name, defaultClassification: "base" as const, sortOrder: i }));
     const items: Item[] = [];
     for (const f of folders) {
@@ -579,10 +576,11 @@ describe("fitList", () => {
         items.push({ id: `${id}-k`, folderId: f.id, parentId: id, name: `Part ${i}`, unitWeightMg: 10_000, qty: 1, classification: null, sortOrder: 0, description: note });
       }
     }
-    return snap({ folders, items, people: [], days: [], description: "The list's own notes stay." });
+    return snap({ folders, items, people: [], days: [], description: "The list's own notes stay.", ...over });
   };
-  const rowsIn = (out: Record<string, unknown>) =>
-    (out.folders as { items: { items?: unknown[] }[] }[]).reduce((n, f) => n + f.items.reduce((m, r) => m + 1 + (r.items?.length ?? 0), 0), 0);
+  type Out = { name: string; items: { name: string; items?: { name: string }[] }[] }[];
+  const rowsIn = (out: Record<string, unknown>) => (out.folders as Out).reduce((n, f) => n + f.items.reduce((m, r) => m + 1 + (r.items?.length ?? 0), 0), 0);
+  const count = (d: Record<string, unknown>) => (d.totals as { item_count: number }).item_count;
 
   it("returns a list under the ceiling as it was, with no truncated field", () => {
     const d = describeList(snap(), "https://mahonia.app");
@@ -598,54 +596,131 @@ describe("fitList", () => {
     const out = fitList(d, max);
     expect(size(out)).toBeLessThanOrEqual(max);
     expect(out.truncated).toEqual({ notes: true });
-    expect(rowsIn(out)).toBe(60);
+    expect(rowsIn(out)).toBe(count(d));
     expect(JSON.stringify(out)).not.toContain('"note"');
     // the list's own description is not a row's note, and stays
     expect(out.description).toBe("The list's own notes stay.");
     expect(out.totals).toEqual(d.totals);
-    const keys = Object.keys(out);
-    expect(keys.indexOf("truncated")).toBeLessThan(keys.indexOf("folders"));
-    expect(keys.indexOf("truncated")).toBeGreaterThan(keys.indexOf("totals"));
+    // the same layout as a whole list, the notice slotted in before the rows
+    expect(Object.keys(out)).toEqual([...Object.keys(d).filter((k) => k !== "folders"), "truncated", "folders"]);
   });
 
-  it("then cuts rows off the end, a nested row with its parent, and counts what it left out", () => {
+  it("then cuts rows off the end, a nested row on its own, and counts what it left out", () => {
     const d = describeList(big(10), "https://mahonia.app");
     const out = fitList(d, 2_000);
     expect(size(out)).toBeLessThanOrEqual(2_000);
     // no note was dropped, so none is claimed
-    expect(out.truncated).toEqual({ items: 60 - rowsIn(out) });
-    expect((out.truncated as { items: number }).items).toBeGreaterThan(0);
+    expect(out.truncated).toEqual({ rows: count(d) - rowsIn(out) });
+    expect(rowsIn(out)).toBeGreaterThan(0);
     expect(out.totals).toEqual(d.totals);
     // the rows kept are the first ones, in order, and a folder left empty is gone
-    const folders = out.folders as { name: string; items: { name: string; items: { name: string }[] }[] }[];
+    const folders = out.folders as Out;
     expect(folders.length).toBeLessThan(3);
     expect(folders[0]!.name).toBe("Shelter");
     expect(folders[0]!.items.map((r) => r.name)).toEqual(folders[0]!.items.map((_, i) => `Row ${i} of Shelter`));
     expect(folders[0]!.items[0]!.items).toEqual([{ name: "Part 0", display_name: "Part 0", qty: 1, weight_g: 10, classification: "base" }]);
-    // the most that fit: at its own size the answer is stable, and one character less loses a row
+    // the most that fit: the answer is stable at its own size, and the next row in
+    // reading order (a group's nested row counts as one) would not have fit
     expect(fitList(d, size(out))).toEqual(out);
-    expect(rowsIn(fitList(d, size(out) - 1))).toBeLessThan(rowsIn(out));
+    const kept = folders[0]!.items;
+    const next = kept.at(-1)!.items ? `Row ${kept.length} of Shelter` : `Part ${kept.length - 1}`;
+    const nextRow = (d.folders as Out)[0]!.items.flatMap((r) => [r, ...(r.items ?? [])]).find((r) => r.name === next)!;
+    expect(nextRow).toBeDefined();
+    expect(size({ ...out, folders: [{ ...folders[0]!, items: [...kept, nextRow] }] })).toBeGreaterThan(2_000);
   });
 
-  it("does both when notes alone don't get it under, and holds the full-size list under the real ceiling", () => {
-    // MAX_ITEMS rows, the reducer's longest note on each: past the ceiling twice over
-    const d = describeList(big(166, "n".repeat(2_000)), "https://mahonia.app");
-    expect(size(d)).toBeGreaterThan(GET_LIST_MAX_CHARS * 2);
+  it("cuts inside a group, so one large group can't empty the answer or hide the folders after it", () => {
+    // one parent carrying more nested rows than the ceiling holds, then a plain folder
+    const parent: Item = { id: "p", folderId: "f0", name: "Food bag", unitWeightMg: 0, qty: 1, classification: null, sortOrder: 0 };
+    const kids: Item[] = Array.from({ length: 400 }, (_, i) => ({ id: `k${i}`, folderId: "f0", parentId: "p", name: `Snack ${i}`, brand: "Maker", variant: "Regular", commonName: "Food", unitWeightMg: 50_000, qty: 1, classification: null, sortOrder: i }));
+    const plain: Item[] = Array.from({ length: 20 }, (_, i) => ({ id: `s${i}`, folderId: "f1", name: `Item ${i}`, unitWeightMg: 20_000, qty: 1, classification: null, sortOrder: i }));
+    const s = snap({
+      folders: [
+        { id: "f0", name: "Food", defaultClassification: "consumable", sortOrder: 0 },
+        { id: "f1", name: "Shelter", defaultClassification: "base", sortOrder: 1 },
+      ],
+      items: [parent, ...kids, ...plain],
+      people: [],
+      days: [],
+    });
+    const d = describeList(s, "https://mahonia.app");
+    const out = fitList(d, 20_000);
+    expect(size(out)).toBeLessThanOrEqual(20_000);
+    const folders = out.folders as Out;
+    // the group survives with the nested rows that fit, its own fields intact
+    expect(folders[0]!.items[0]).toMatchObject({ name: "Food bag", classification: "consumable" });
+    const nested = folders[0]!.items[0]!.items!;
+    expect(nested.length).toBeGreaterThan(50);
+    expect(nested.length).toBeLessThan(400);
+    expect(nested.map((r) => r.name)).toEqual(nested.map((_, i) => `Snack ${i}`));
+    expect(out.truncated).toEqual({ rows: 421 - rowsIn(out) });
+    // …and with room to spare after the group, the folder after it is there too
+    const roomy = fitList(d, size(d) - 200) as { folders: Out };
+    expect(roomy.folders.map((f) => f.name)).toEqual(["Food", "Shelter"]);
+    expect(roomy.folders[0]!.items[0]!.items!.length).toBe(400);
+  });
+
+  it("measures bytes, so a list in a three-byte script is held to the same token budget", () => {
+    const name = "登山用のテント".repeat(4); // 28 characters: 28 string units, 84 bytes
+    const d = describeList(big(80, undefined, { title: "山の道具" }), "https://mahonia.app");
+    for (const f of d.folders as Out) for (const r of f.items) r.name = name;
+    // under the ceiling counted in characters, over it counted in bytes: a character
+    // ceiling would have returned this list whole, at roughly a third more tokens than it allows
+    expect(JSON.stringify(d).length).toBeLessThan(GET_LIST_MAX_BYTES);
+    expect(size(d)).toBeGreaterThan(GET_LIST_MAX_BYTES);
     const out = fitList(d);
-    expect(size(out)).toBeLessThanOrEqual(GET_LIST_MAX_CHARS);
-    const truncated = out.truncated as { notes: boolean; items: number };
-    expect(truncated.notes).toBe(true);
-    expect(truncated.items).toBe(996 - rowsIn(out));
+    expect(size(out)).toBeLessThanOrEqual(GET_LIST_MAX_BYTES);
+    expect(out.truncated).toEqual({ rows: count(d) - rowsIn(out) });
+  });
+
+  it("gives up the list's own facts, largest first, only when they alone are too big", () => {
+    const d = describeList(
+      big(1, undefined, {
+        description: "d".repeat(4_000),
+        days: Array.from({ length: 60 }, (_, i) => ({ id: `d${i}`, sortOrder: i, label: "\\u0001".repeat(120), distanceM: 1_000 })),
+        trailUrl: "https://example.com/route",
+        trailDistanceM: 60_000,
+        people: [{ id: "p1", name: "Sam", colorKey: "shelter", sortOrder: 0 }],
+      }),
+      "https://mahonia.app",
+    );
+    // a ceiling the head passes on its own: the days go, the description stays
+    const out = fitList(d, 10_000);
+    expect(size(out)).toBeLessThanOrEqual(10_000);
+    expect(out.truncated).toEqual({ rows: count(d), fields: ["days"] });
+    expect(out.days).toBeUndefined();
+    expect(out.description).toBe("d".repeat(4_000));
+    expect(out.trail).toBeDefined();
+    // a tighter one: the trail and the description follow, and it stops as soon as it fits
+    const bare = fitList(d, 600);
+    expect(size(bare)).toBeLessThanOrEqual(600);
+    expect(bare.truncated).toEqual({ rows: count(d), fields: ["days", "trail", "description"] });
+    expect(bare.people).toEqual(["Sam"]);
+    // one nothing can meet: everything sheddable goes, and what is left is the irreducible head
+    const floor = fitList(d, 100);
+    expect(floor.truncated).toEqual({ rows: count(d), fields: ["days", "trail", "description", "people"] });
+    expect(floor.title).toBe("Timberline");
+    expect(floor.totals).toEqual(d.totals);
+    expect(size(floor)).toBeLessThan(600);
+  });
+
+  it("does both when notes alone don't get it under, and holds the largest list the reducer allows", () => {
+    // as many rows as a list can hold (three folders, two rows a pair), the longest note on each
+    const d = describeList(big(Math.floor(MAX_ITEMS / 6), "n".repeat(MAX_ITEM_NOTE_LEN)), "https://mahonia.app");
+    expect(size(d)).toBeGreaterThan(GET_LIST_MAX_BYTES * 2);
+    const out = fitList(d);
+    expect(size(out)).toBeLessThanOrEqual(GET_LIST_MAX_BYTES);
+    expect(out.truncated).toEqual({ notes: true, rows: count(d) - rowsIn(out) });
     expect(rowsIn(out)).toBeGreaterThan(200);
-    expect((out.totals as { item_count: number }).item_count).toBe(996);
+    expect(count(out)).toBe(count(d));
   });
 
   it("get_list answers the cut list as text and data alike, in the declared shape", async () => {
-    repo.getByShareCode.mockResolvedValue(big(166, "n".repeat(2_000)));
+    repo.getByShareCode.mockResolvedValue(big(Math.floor(MAX_ITEMS / 6), "n".repeat(MAX_ITEM_NOTE_LEN)));
     const { text, structured, isError } = toolText(await call("get_list", { share_code: "ABC123DEF456" }));
     expect(isError).toBe(false);
-    expect(text.length).toBeLessThanOrEqual(GET_LIST_MAX_CHARS);
+    expect(Buffer.byteLength(text)).toBeLessThanOrEqual(GET_LIST_MAX_BYTES);
     expect(JSON.parse(text)).toEqual(structured);
-    expect(structured!.truncated).toMatchObject({ notes: true, items: expect.any(Number) });
+    expect(structured!.truncated).toMatchObject({ notes: true, rows: expect.any(Number) });
   });
 });

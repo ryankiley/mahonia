@@ -30,7 +30,7 @@ import {
   rankCandidates, type CatalogSearchResult,
   type LocalCatalogRow,
 toCatalogResult } from "../../shared/catalogSearch";
-import type { RecentChange } from "../../shared/types";
+import { WEIGHT_SOURCES, type RecentChange } from "../../shared/types";
 
 // trigramScore lives in shared/catalogSearch (single source of truth for the
 // offline client + this server fallback) — re-exported so its one server-side
@@ -50,7 +50,7 @@ export const CATALOG_DDL: string[] = [
     description text,
     category_hint text,
     weight_mg bigint NOT NULL,
-    weight_source text NOT NULL CHECK (weight_source IN ('manufacturer','measured','community','imported')),
+    weight_source text NOT NULL CHECK (weight_source IN (${WEIGHT_SOURCES.map((s) => `'${s}'`).join(",")})),
     source_url text,
     product_url text,
     image_url text,
