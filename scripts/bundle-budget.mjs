@@ -299,7 +299,22 @@ import { brotliCompressSync, gzipSync, constants } from "node:zlib";
 // above argue for. The largest chunk is now the framework (`vendor`, 52.9 KB) rather
 // than Leaflet, and that is the point of the split: vue, vue-router and unhead only
 // change hash on a dependency bump, so a returning visitor keeps them across deploys.
-const FIRST_LOAD_BUDGET_KB = 151;
+//
+// 151 → 153, a re-anchor after the connector work. Measured on a clean build of main at
+// e8db794: 151.0 against 151, i.e. no headroom at all. What spent the 2.5 KB since the
+// anchor above (148.5): the variant-and-brand rules on every row (#315, #346's shape),
+// the trip-date year rule (#309), the resume path (#311, #317), and, from the MCP server
+// (#352), two things the reducer now owns for every caller and therefore every visitor
+// downloads: the catalog-id bound (`isCatalogId`) and the clear-with-link rule
+// (`CLEARS_WITH_LINK`, moved to shared/trailLink from the head component). None of that
+// is a page's worth; it is the editor growing a few dozen bytes per feature, which is
+// what the anchors above call ordinary. At exactly the line, a branch that adds NOTHING
+// to the first load fails on the hundred bytes a different chunk graph shuffles between
+// builds (the account takeout that follows this measured 151.0 too, every byte of it on the account
+// chunk and the server). 153 restores ~2 KB of working headroom, a little less than the
+// re-anchors above kept, on purpose: the next feature that lands on the editor's path
+// should be the one that has to argue.
+const FIRST_LOAD_BUDGET_KB = 153;
 // TOTAL of every built file, the backstop. Deliberately slack: its job is to catch
 // a route chunk ballooning or a heavy dep landing somewhere unnoticed, NOT to price
 // ordinary feature work. Set clear of the current total (269.0) so it only speaks up when
