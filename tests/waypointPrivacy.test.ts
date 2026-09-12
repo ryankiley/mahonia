@@ -130,6 +130,8 @@ describe("…but the OWNER still gets it back", () => {
     "createList",
     "applyOpsByEditHash",
     "restoreSnapshotByEditHash",
+    // the account takeout: a claim is ownership, so the owner's fields ride it
+    "exportClaimedLists",
   ];
 
   const bodyOf = (name: string) => {
