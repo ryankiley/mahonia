@@ -175,13 +175,19 @@ const { open: openAccount } = useAccountModal();
 }
 
 /* The disc wears --lit — the app's ONE plate meaning "this control is on", the same
-   tone the selected mode tab and the classification chips sit on — with the letter in
-   --ink, exactly the selected tab's word on its plate. So the bar says "signed in" the
-   way the mode bar says "Gear": a state shown as a lit ground, not as a dark object.
-   The first cut was a solid --ink-3 disc with a --paper letter; Ryan (2026-09-12):
-   "circle is too dark, letter is too small, use the gray from the selected state of
-   Gear". Hover steps the plate to --lit-hover, as the selected tab does; pointer-gated
-   like every hover.
+   tone the selected mode tab and the classification chips sit on. So the bar says
+   "signed in" the way the mode bar says "Gear": a state shown as a lit ground, not as
+   a dark object. The first cut was a solid --ink-3 disc with a --paper letter; Ryan
+   (2026-09-12): "circle is too dark, letter is too small, use the gray from the
+   selected state of Gear". Hover steps the plate to --lit-hover, as the selected tab
+   does; pointer-gated like every hover.
+   THE LETTER IS A GLYPH, and weighs like one (Ryan, same day: "letter should feel more
+   like the icon weight"). No colour of its own: it inherits the button's, so it rests
+   at the same ink as the glyphs beside it — --ink-2 in the site bar, the editor's
+   quieter --ink-3 — and darkens with them on hover, focus and open. Medium, not
+   semibold: the icons are 2px strokes on a 24 grid drawn at 16px, ~1.33px of ink,
+   which is a 14px medium stem; semibold read as a bold black mark in a row of thin
+   grey lines.
    Sized in px like the glyphs beside it, NOT from the type scale: the bar's icons hold
    16px while --text-* grows past the 1920px anchor, and a letter on the scale would
    outgrow a disc that isn't. The letter is 0.64 of the disc — 14px at rest, the tab
@@ -194,9 +200,8 @@ const { open: openAccount } = useAccountModal();
   height: var(--avatar);
   border-radius: var(--radius-pill);
   background: var(--lit);
-  color: var(--ink);
   font-size: calc(var(--avatar) * 0.64);
-  font-weight: 600;
+  font-weight: 500;
   line-height: 1;
   text-transform: uppercase;
   transition: background var(--dur) var(--ease);
