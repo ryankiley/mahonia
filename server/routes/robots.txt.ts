@@ -1,10 +1,21 @@
 import { defineEventHandler, getRequestURL, setHeader } from "h3";
 import { setDailyEdgeCache } from "../utils/http";
 
-// Hand-rolled robots.txt. Public, indexable surfaces (/ and the /l public lists)
-// are allowed; the /e editor capability, /s share-read views, and /api are
-// disallowed (also enforced per-response via X-Robots-Tag: noindex). References
-// the sitemap on the same host so it works on any deploy domain.
+// Hand-rolled robots.txt. The /e editor capability, /mine and /api are disallowed;
+// everything else, the /s share views included, may be fetched. References the
+// sitemap on the same host so it works on any deploy domain.
+//
+// /s/ was disallowed here once, and that was the wrong tool for what it meant. A
+// share link is kept out of search by the page's own <meta name="robots"
+// content="noindex"> (and by X-Robots-Tag on /api/s and /s/{code}.md), and a robots
+// block HIDES that tag: a crawler that may not fetch the page never reads the
+// noindex, so it can still index the bare URL off a link somewhere else. Letting
+// it fetch, read the tag and leave is how noindex is meant to work. The block also
+// turned away every well-behaved user-initiated fetcher (an assistant handed a
+// share link and asked to read the list) before it read a byte, which is the
+// failure people actually noticed. The sitemap never lists a share link, so
+// nothing advertises one either way. tests/crawlerText.test.ts holds the pair
+// together: this file may only leave /s open while the page keeps its tag.
 export default defineEventHandler((event) => {
   const origin = getRequestURL(event).origin;
   setHeader(event, "Content-Type", "text/plain; charset=utf-8");
@@ -13,7 +24,6 @@ export default defineEventHandler((event) => {
     "User-agent: *",
     "Allow: /",
     "Disallow: /e",
-    "Disallow: /s/",
     // /mine is a 301 to /e now (the page retired into the editor's switcher). The
     // rule stays: it stops a crawler walking the redirect rather than leaving it to
     // be turned away at the other end.

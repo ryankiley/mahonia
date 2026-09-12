@@ -1,0 +1,9 @@
+{
+  "date": "2026-09-11",
+  "added": [
+    "Every shared list has a Markdown twin: add .md to the end of its share link for the same list as plain text tables, ready to paste into a note or a chat."
+  ],
+  "fixed": [
+    "A share link pasted into an AI assistant can be read by it now. Shared lists still stay out of search results."
+  ]
+}
