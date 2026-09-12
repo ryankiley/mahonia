@@ -1,6 +1,6 @@
 {
   "date": "2026-09-12",
   "added": [
-    "The account page has Download everything: one file with every list on your account, each in the same shape as a list's own JSON download, plus My Gear."
+    "The account page has Download everything: one file with every list on your account, in each list's own JSON shape, plus My Gear."
   ]
 }
