@@ -7,12 +7,16 @@
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { catalogCandidates, catalogItems } from "../db/schema";
 import {
+  categoryForGearType,
   classificationToCategory,
+  GENERIC_GEAR_TERMS,
   isAcceptableTypedItem,
   isBrandedTypedItem,
   median,
+  normalizeVariant,
   normKey,
   RANGE_G,
+  splitKnownBrand,
 } from "../../shared/catalogQuality";
 import { itemDisplayName } from "../../shared/weights";
 import { bumpUsage, ensureCatalogSchema, searchCatalog, trigramScore } from "./catalog";
@@ -29,6 +33,8 @@ export const CANDIDATES_DDL: string[] = [
     norm_key text NOT NULL,
     raw_brand text,
     raw_name text NOT NULL,
+    raw_variant text,
+    raw_common_name text,
     list_id integer NOT NULL,
     weight_mg bigint,
     classification text,
@@ -37,6 +43,10 @@ export const CANDIDATES_DDL: string[] = [
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now()
   )`,
+  // the size or version column arrived after the table did (2026-09-12); a database
+  // that already has the table takes it here, the same way the catalog table grows
+  `ALTER TABLE catalog_candidates ADD COLUMN IF NOT EXISTS raw_variant text`,
+  `ALTER TABLE catalog_candidates ADD COLUMN IF NOT EXISTS raw_common_name text`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_candidate_identity ON catalog_candidates (norm_key, list_id)`,
   `CREATE INDEX IF NOT EXISTS idx_candidate_open ON catalog_candidates (norm_key) WHERE promoted_into_id IS NULL AND rejected_at IS NULL`,
 ];
@@ -48,6 +58,14 @@ const ensureCandidatesSchema = memoized(async (db: Db) => {
 export interface CandidateObservation {
   brand?: string | null;
   name: string;
+  // the typed size or version. Part of the identity: a Long and a Regular of the same
+  // quilt are two products with two weights, and one blended community row for both
+  // would be wrong for either (the catalog's own identity index is brand+name+variant)
+  variant?: string | null;
+  // the typed gear type ("Tent"): the promoted row's common_name, so a later pick
+  // fills the field, and its search term, so "tent" finds it; and the plausibility
+  // band, which the class alone cannot pick (see categoryForGearType)
+  commonName?: string | null;
   weightMg?: number | null;
   classification?: string | null;
 }
@@ -62,9 +80,11 @@ export async function stageCandidates(
     .filter((o) => o.name && isAcceptableTypedItem({ brand: o.brand, name: o.name }))
     .slice(0, 50)
     .map((o) => ({
-      normKey: normKey(itemDisplayName(o.brand, o.name)),
+      normKey: normKey(itemDisplayName(o.brand, o.name, o.variant)),
       rawBrand: o.brand?.trim() || null,
       rawName: o.name.trim(),
+      rawVariant: o.variant?.trim() || null,
+      rawCommonName: o.commonName?.trim() || null,
       listId,
       weightMg: typeof o.weightMg === "number" && o.weightMg > 0 ? Math.round(o.weightMg) : null,
       classification: o.classification ?? null,
@@ -88,6 +108,8 @@ export async function stageCandidates(
       set: {
         rawBrand: sql`excluded.raw_brand`,
         rawName: sql`excluded.raw_name`,
+        rawVariant: sql`excluded.raw_variant`,
+        rawCommonName: sql`excluded.raw_common_name`,
         weightMg: sql`excluded.weight_mg`,
         classification: sql`excluded.classification`,
         updatedAt: new Date(),
@@ -132,16 +154,20 @@ export async function corroborateCatalog(db: Db): Promise<CorroborateResult> {
     .select()
     .from(catalogCandidates)
     .where(and(inArray(catalogCandidates.normKey, keys), isNull(catalogCandidates.promotedIntoId), isNull(catalogCandidates.rejectedAt)))) as Array<{
-    normKey: string; rawBrand: string | null; rawName: string; listId: number; weightMg: number | null; classification: string | null;
+    normKey: string; rawBrand: string | null; rawName: string; rawVariant: string | null; rawCommonName: string | null; listId: number; weightMg: number | null; classification: string | null;
   }>;
   const groups = new Map<string, typeof rows>();
   for (const r of rows) (groups.get(r.normKey) ?? groups.set(r.normKey, []).get(r.normKey)!).push(r);
 
-  // known catalog brands (for the branded-item gate)
+  // known catalog brands: the branded-item gate reads the folded set, and the split
+  // below wants the catalog's own spelling for each ("Sea to Summit", not "sea to summit")
   const brandRows = await db.selectDistinct({ brand: catalogItems.brand }).from(catalogItems).where(eq(catalogItems.status, "active"));
-  const knownBrands = new Set<string>(
-    brandRows.map((b: { brand: string | null }) => normKey(b.brand)).filter((s: string) => s.length > 0),
-  );
+  const brandSpellings = new Map<string, string>();
+  for (const b of brandRows as { brand: string | null }[]) {
+    const key = normKey(b.brand);
+    if (key && !brandSpellings.has(key)) brandSpellings.set(key, b.brand!.trim());
+  }
+  const knownBrands = new Set<string>(brandSpellings.keys());
 
   const reject = async (key: string) => {
     await db.update(catalogCandidates).set({ rejectedAt: new Date() })
@@ -153,27 +179,57 @@ export async function corroborateCatalog(db: Db): Promise<CorroborateResult> {
   };
 
   for (const [key, grp] of groups) {
-    const rawName = mode(grp.map((r) => r.rawName))!;
-    const rawBrand = mode(grp.filter((r) => r.rawBrand).map((r) => r.rawBrand!)) ?? null;
-    const full = itemDisplayName(rawBrand, rawName);
+    const typedName = mode(grp.map((r) => r.rawName))!;
+    const typedBrand = mode(grp.filter((r) => r.rawBrand).map((r) => r.rawBrand!)) ?? null;
+    // A typed row carries its brand inside the name ("Zpacks Duplex": no brand field
+    // on a typed row), so a known brand at the front is split out here, spelled as the
+    // catalog spells it, and the community row lands shaped like the cited ones. A
+    // row that came with a brand of its own keeps it.
+    const split = typedBrand ? { brand: typedBrand, name: typedName } : splitKnownBrand(typedName, brandSpellings);
+    const rawBrand = split.brand;
+    const rawName = split.name;
+    // the typed size or version, in the catalog's one style ("Long, 18F"), or none
+    const variant = normalizeVariant(mode(grp.filter((r) => r.rawVariant).map((r) => r.rawVariant!)) ?? null) || null;
+    const full = itemDisplayName(rawBrand, rawName, variant);
 
-    // gates: clean + branded
-    if (!isAcceptableTypedItem({ brand: rawBrand, name: rawName }) || !isBrandedTypedItem({ brand: rawBrand, name: rawName, knownBrands })) {
+    // gates: clean + branded (the gate reads the name as typed, brand and all)
+    if (!isAcceptableTypedItem({ brand: typedBrand, name: typedName }) || !isBrandedTypedItem({ brand: typedBrand, name: typedName, knownBrands })) {
       await reject(key); res.rejected++; continue;
     }
     // corroborated, plausible weight
     const weights = grp.map((r) => r.weightMg).filter((w): w is number => typeof w === "number" && w > 0);
     if (weights.length < MIN_WEIGHTS) { res.skipped++; continue; } // leave open for more data
     const med = median(weights);
-    const category = classificationToCategory(mode(grp.map((r) => r.classification).filter(Boolean) as string[]) ?? null);
+    // the plausibility band: the typed gear type where it names one ("Tent": up to
+    // 3.5 kg), else the class ("other" tops out at 1.6 kg, which rejected a typed
+    // 1.7 kg tent for good)
+    const commonName = mode(grp.filter((r) => r.rawCommonName).map((r) => r.rawCommonName!)) ?? null;
+    const category = categoryForGearType(commonName) ?? classificationToCategory(mode(grp.map((r) => r.classification).filter(Boolean) as string[]) ?? null);
     const [lo, hi] = RANGE_G[category] ?? RANGE_G.other ?? ([0, Number.MAX_SAFE_INTEGER] as [number, number]);
     if (med / 1000 < lo || med / 1000 > hi) { await reject(key); res.rejected++; continue; }
 
-    // dedup against the live catalog (fuzzy) → bump usage instead of duplicating
+    // dedup against the live catalog (fuzzy) → bump usage instead of duplicating.
+    // A candidate WITH a size or version only ever merges into a row of that size: the
+    // names alone score two sizes of one product as duplicates of each other, and the
+    // Regular would have merged into whichever size was promoted first. A candidate
+    // without one may still merge into any size of the product, as it always did (a
+    // usage bump on one of them beats a sizeless community row beside the cited ones).
+    // And a typed name that says MORE than the catalog row is a different product, not
+    // a duplicate: trigramScore is coverage of the query's trigrams by the target, so
+    // "Zpacks Duplex Zip" scored its parent "Duplex" at about 0.75 and was merged into
+    // it, and the sibling product never entered. A word the row lacks refuses the
+    // merge; a generic noun the person added ("tent") is not such a word.
     const matches = await searchCatalog(db, full, 5);
+    const sizeKey = normKey(variant);
+    const tokensOf = (t: string) => normKey(t).split(" ").filter(Boolean);
+    const said = tokensOf(full).filter((t) => !GENERIC_GEAR_TERMS.has(t));
     let bestId = 0, bestScore = 0;
     for (const m of matches) {
-      const s = trigramScore(full, itemDisplayName(m.brand, m.name));
+      if (sizeKey && normKey(m.variant) !== sizeKey) continue;
+      const target = itemDisplayName(m.brand, m.name, m.variant);
+      const has = new Set(tokensOf(target));
+      if (said.some((t) => !has.has(t))) continue;
+      const s = trigramScore(full, target);
       if (s > bestScore) { bestScore = s; bestId = m.id; }
     }
     if (bestScore >= DEDUP_THRESHOLD && bestId) {
@@ -187,7 +243,11 @@ export async function corroborateCatalog(db: Db): Promise<CorroborateResult> {
     const lists = new Set(grp.map((r) => r.listId)).size;
     try {
       const ins = await db.insert(catalogItems).values({
-        brand: rawBrand, name: rawName, variant: null, categoryHint: category,
+        brand: rawBrand, name: rawName, variant, categoryHint: category,
+        // the typed gear type, as the row's gear type for the next pick and as its
+        // search term, since the search matches brand + name + search_terms and
+        // "tent" would otherwise never find a community "Duplex Zip"
+        commonName, searchTerms: commonName ? normKey(commonName) || null : null,
         weightMg: med, weightSource: "community", verified: false, status: "active", usageCount: lists,
       }).returning();
       await markPromoted(key, ins[0]!.id);
