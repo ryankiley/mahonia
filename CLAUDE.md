@@ -33,6 +33,34 @@ missing an entry, but if one merges without it, that day's release simply omits 
 until it's backfilled by hand. Writing the entry as part of the PR is the whole job.
 Catalog weight corrections are separate; they belong to `/changes`, not the changelog.
 
+## Checking a change: CI is the gate; locally, run what you touched
+
+CI (`.github/workflows/ci.yml`) runs the typecheck, the whole suite, the build and the
+bundle budget on every PR, and `main` requires that `check` to pass before anything merges.
+So the full suite and the full typecheck are not a step to run here before opening a PR —
+they are what the PR runs, on a machine nobody is waiting at. Locally, run what the change
+touches:
+
+```bash
+npm run test:changed
+```
+
+That is `vitest run --changed origin/main`: every test whose import graph reaches a file
+changed on this branch, committed or not. Or name the files — `npx vitest run
+tests/water.test.ts`. The typecheck is cheap enough to run whole — `npm run typecheck` is
+the three projects side by side, incremental, ~6 s warm — or one of them: `npm run
+typecheck -- app` (`scripts`, `tests`).
+
+Why this matters more here than the habit suggests: several sessions share this machine,
+each in its own worktree. Two full suites running at once starve each other into 20 s
+timeouts that look exactly like regressions (vitest.config.ts has the history), and the
+typecheck that takes 19 s alone measured 92 s beside them. A full local run is for a change
+to the harness itself — vitest.config.ts, tests/helpers, scripts/typecheck.mjs — where
+"which tests" has no narrower answer; run it alone, when `uptime` says the machine is quiet.
+
+Then open the PR and let it merge itself on green: `gh pr merge --auto --squash`. A red
+check is yours to fix; the desktop app's PR pane and `gh pr checks --watch` both show it.
+
 ## Catalog conventions are enforced, not described
 
 Adding or editing rows in `seed/_research/*.json`: the naming, size, unit, food-weight and

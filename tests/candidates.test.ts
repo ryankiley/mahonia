@@ -63,6 +63,102 @@ describe("community intake — corroborateCatalog", () => {
     expect(row.weightMg).toBe(411_000); // cited weight NOT overwritten by the community value
   });
 
+  // The typed size or version is part of a candidate's identity, and rides into the
+  // community row: a Long and a Regular of one quilt are two products with two weights,
+  // and one row at a blended weight would be wrong for either.
+  it("keeps a typed size or version as its own product, promoted with it", async () => {
+    for (const [i, w] of [800_000, 820_000, 810_000].entries())
+      await stageCandidates(db as any, i + 1, [{ name: "Frobozz Megapack 9000", variant: "Long", weightMg: w }]);
+    for (const [i, w] of [700_000, 720_000, 710_000].entries())
+      await stageCandidates(db as any, i + 11, [{ name: "Frobozz Megapack 9000", variant: "Regular", weightMg: w }]);
+    const r = await corroborateCatalog(db as any);
+    expect(r.promoted).toBe(2);
+    const rows = (await db.select().from(schema.catalogItems)) as any[];
+    expect(rows.map((x) => [x.name, x.variant, x.weightMg]).sort()).toEqual([
+      ["Frobozz Megapack 9000", "Long", 810_000],
+      ["Frobozz Megapack 9000", "Regular", 710_000],
+    ]);
+  });
+
+  // A typed row has no brand field: "Zpacks Frobozz 9000" is one string. The catalog
+  // knows Zpacks, so the community row lands with the brand split out, spelled as the
+  // catalog spells it, shaped like the cited rows.
+  it("splits a known brand off the front of a typed name", async () => {
+    await db.insert(schema.catalogItems).values({
+      brand: "Zpacks", name: "Plex Solo", weightMg: 411_000, weightSource: "manufacturer", verified: true, usageCount: 0,
+    });
+    await stageOnLists(db, 3, { name: "zpacks Frobozz 9000", weightMg: 500_000 });
+    await stageCandidates(db as any, 4, [{ name: "zpacks Frobozz 9000", weightMg: 505_000 }]);
+    const r = await corroborateCatalog(db as any);
+    expect(r.promoted).toBe(1);
+    const [row] = (await db.select().from(schema.catalogItems).where(eq(schema.catalogItems.name, "Frobozz 9000"))) as any[];
+    expect(row).toMatchObject({ brand: "Zpacks", name: "Frobozz 9000", weightSource: "community" });
+  });
+
+  // and the dedup reads the size too: a typed "Revelation" in Long is the catalog's
+  // Revelation in Long, not its Regular beside it
+  it("merges a typed size into the catalog's row of that size", async () => {
+    const [long] = (await db.insert(schema.catalogItems).values({
+      brand: "Enlightened Equipment", name: "Revelation", variant: "Long", weightMg: 560_000, weightSource: "manufacturer", verified: true, usageCount: 0,
+    }).returning()) as any[];
+    await db.insert(schema.catalogItems).values({
+      brand: "Enlightened Equipment", name: "Revelation", variant: "Regular", weightMg: 500_000, weightSource: "manufacturer", verified: true, usageCount: 0,
+    });
+    for (const i of [1, 2, 3])
+      await stageCandidates(db as any, i, [{ brand: "Enlightened Equipment", name: "Revelation", variant: "Long", weightMg: 565_000 }]);
+    const r = await corroborateCatalog(db as any);
+    expect(r.merged).toBe(1);
+    expect(r.promoted).toBe(0);
+    const [row] = (await db.select().from(schema.catalogItems).where(eq(schema.catalogItems.id, long.id))) as any[];
+    expect(row.usageCount).toBeGreaterThan(0);
+    expect(await catalogCount(db)).toBe(2);
+  });
+
+  // "other" tops out at 1.6 kg; a typed "Tent" says which band applies, and the
+  // gear type rides onto the row so a later pick fills it and "tent" finds it
+  it("reads the typed gear type for the plausibility band, and keeps it on the row", async () => {
+    for (const [i, w] of [1_700_000, 1_720_000, 1_710_000].entries())
+      await stageCandidates(db as any, i + 1, [{ name: "Frobozz Palace 9000", commonName: "Tent", weightMg: w }]);
+    const r = await corroborateCatalog(db as any);
+    expect(r.promoted).toBe(1);
+    expect(r.rejected).toBe(0);
+    const [row] = (await db.select().from(schema.catalogItems)) as any[];
+    expect(row).toMatchObject({ name: "Frobozz Palace 9000", commonName: "Tent", searchTerms: "tent", categoryHint: "shelter", weightMg: 1_710_000 });
+  });
+
+  it("still rejects a weight no gear type can explain", async () => {
+    await stageOnLists(db, 3, { name: "Frobozz Palace 9000", weightMg: 1_700_000 }); // no gear type, base: "other"
+    await stageCandidates(db as any, 4, [{ name: "Frobozz Palace 9000", weightMg: 1_720_000 }]);
+    const r = await corroborateCatalog(db as any);
+    expect(r.promoted).toBe(0);
+    expect(r.rejected).toBe(1);
+  });
+
+  // a typed name that says MORE than the catalog row is a sibling product, not the
+  // row itself: the names alone scored "Duplex Zip" as a duplicate of "Duplex"
+  it("does not merge a typed name into a catalog row that lacks one of its words", async () => {
+    await db.insert(schema.catalogItems).values({
+      brand: "Zpacks", name: "Duplex", weightMg: 545_000, weightSource: "manufacturer", verified: true, usageCount: 0,
+    });
+    for (const [i, w] of [600_000, 605_000, 610_000].entries())
+      await stageCandidates(db as any, i + 1, [{ brand: "Zpacks", name: "Duplex Zip", weightMg: w }]);
+    const r = await corroborateCatalog(db as any);
+    expect(r.merged).toBe(0);
+    expect(r.promoted).toBe(1);
+    expect(await catalogCount(db)).toBe(2);
+  });
+
+  it("still merges when the extra word is only a generic noun", async () => {
+    await db.insert(schema.catalogItems).values({
+      brand: "Zpacks", name: "Duplex", weightMg: 545_000, weightSource: "manufacturer", verified: true, usageCount: 0,
+    });
+    for (const [i, w] of [540_000, 545_000, 550_000].entries())
+      await stageCandidates(db as any, i + 1, [{ brand: "Zpacks", name: "Duplex tent", weightMg: w }]);
+    const r = await corroborateCatalog(db as any);
+    expect(r.merged).toBe(1);
+    expect(await catalogCount(db)).toBe(1);
+  });
+
   it("leaves a corroborated item open when it has too few weights", async () => {
     // 3 lists but only 1 supplied a weight → below MIN_WEIGHTS, don't guess
     await stageCandidates(db as any, 1, [{ name: "Frobozz Megapack 9000", weightMg: 800_000 }]);

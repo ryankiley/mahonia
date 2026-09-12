@@ -1,0 +1,7 @@
+{
+  "date": "2026-09-12",
+  "changed": [
+    "The list editor now puts About and Legal in More actions instead of a footer.",
+    "Copyright information now appears on About."
+  ]
+}

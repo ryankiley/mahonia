@@ -7,6 +7,7 @@ import { nameRepeatsBrand, formatWeight, itemDisplayName } from "~~/shared/weigh
 import { highlightParts } from "~~/shared/searchText";
 import { MAX_ITEM_NAME_LEN } from "~~/shared/ops";
 import { tidyText } from "~~/shared/tidyText";
+import { catalogNameKeys, foldName } from "~~/shared/catalogMatch";
 import { formatVolume, isWaterName, parseVolumeMl, waterMgFromMl } from "~~/shared/water";
 import type { CatalogResult, NameCommit } from "~/composables/useCatalogSearch";
 import type { VaultEntry } from "~~/shared/vault";
@@ -257,8 +258,9 @@ function close() {
 }
 function selectResult(r: CatalogResult) {
   // store brand / model / variant as separate fields so the UI can render the
-  // variant dimmed and linked items can live-resolve their name from the catalog.
-  // The flat string is only used for the editable field + exports (itemDisplayName).
+  // variant only where it earns its place (ItemName, the row's sub-line) and linked
+  // items can live-resolve their name from the catalog. The flat string is only used
+  // for the editable field + exports (itemDisplayName).
   emit("commit", {
     name: r.name,
     brand: r.brand ?? undefined,
@@ -282,7 +284,11 @@ function selectResult(r: CatalogResult) {
   // tidied, because picking with Enter never unfocuses the field and the props.initial
   // watcher only syncs an UNfocused one — so the straight spelling would sit in the box
   // while state already held the curly one, until a blur happened to heal it
-  setDraftQuiet(props.clearOnCommit ? "" : tidyText(itemDisplayName(r.brand, r.name, r.variant)));
+  // "Brand Model", no variant: the row's own name field reads that way (ItemRow's
+  // editableName), and commitFree compares this box against it on the way out. A box
+  // still holding "Brand Model Variant" would read as a rename and unlink the pick it
+  // had just made.
+  setDraftQuiet(props.clearOnCommit ? "" : tidyText(itemDisplayName(r.brand, r.name)));
   close();
 }
 function selectWater(w: WaterSug) {
@@ -313,7 +319,8 @@ function selectVault(v: VaultEntry) {
     productUrl: v.productUrl,
     fromVault: true,
   });
-  setDraftQuiet(props.clearOnCommit ? "" : tidyText(itemDisplayName(v.brand, v.name, v.variant)));
+  // the same "Brand Model" as selectResult, for the same reason
+  setDraftQuiet(props.clearOnCommit ? "" : tidyText(itemDisplayName(v.brand, v.name)));
   close();
 }
 // the one weight cell every option row ends with — three sources, one rendering
@@ -325,6 +332,43 @@ function selectOption(opt: AcOption) {
   else if ("vault" in opt) selectVault(opt.vault);
   else selectResult(opt.result);
 }
+// The typed text IS a product the menu is showing, word for word: brand + model, or
+// brand + model + size. Then tabbing away links it, exactly as picking it would have,
+// and as the CSV import already does for the same text (shared/catalogMatch, the same
+// fold and the same keys). Before this, typing the product's full name and moving on
+// left an unlinked row shadowing the real one, with no weight and no live name, and
+// the only way to link was to reach for the menu.
+//
+// Only what the menu already fetched for this text: no request, no new surface. A
+// name the results can't answer for (the search still in flight, or nothing close)
+// commits as free text as it always did. Ambiguity is never a guess: "Zpacks Duplex"
+// with the Long and the Regular both on offer stays free text, the importer's rule.
+// Your own gear first, as the menu ranks it: a vault row carries your weight.
+function exactMatch(typed: string): AcOption | null {
+  if (!props.suggest) return null;
+  const key = foldName(typed);
+  if (!key) return null;
+  const keysOf = (r: { brand?: string | null; name: string; variant?: string | null }) =>
+    catalogNameKeys({ brand: r.brand ?? null, name: r.name, variant: r.variant ?? null });
+  const mine = vaultResults.value.filter((v) => keysOf(v).includes(key));
+  if (mine.length) return mine.length === 1 ? { vault: mine[0]! } : null;
+  const hits = results.value.filter((r) => keysOf(r).includes(key));
+  return hits.length === 1 ? { result: hits[0]! } : null;
+}
+// The menu points at that product the moment the results settle, so what Enter or
+// Tab will take is on screen before it is pressed: the row lights as if arrowed onto,
+// and aria-activedescendant says so. Only onto an unpointed menu (a hover or an arrow
+// key has already chosen); each keystroke clears the pointer (the draft watcher) and
+// the next settle re-derives it.
+watch(options, (opts) => {
+  if (active.value >= 0 || !open.value) return;
+  const hit = exactMatch(draft.value.trim().replace(WEIGHT_TAIL, ""));
+  if (!hit) return;
+  const at = opts.findIndex((o) =>
+    "vault" in hit ? "vault" in o && o.vault === hit.vault : "result" in hit && "result" in o && o.result === hit.result,
+  );
+  if (at >= 0) active.value = at;
+});
 function commitFree() {
   const raw = draft.value.trim();
   if (!raw) return;
@@ -342,6 +386,10 @@ function commitFree() {
   if (!name) return;
   // a trailing weight in the typed name ("Tent 540 g") rides along
   const weight = m ? m[1] : undefined;
+  // a product's own name, typed in full, links (see exactMatch); a trailing weight is
+  // dropped with it, since the pick's weight is the product's (a vault pick, yours)
+  const exact = exactMatch(name);
+  if (exact) return selectOption(exact);
   // A row named exactly "water" IS the water row wherever it came from: the litres
   // field takes over on the name alone (see ItemRow), so the classification must
   // follow too — this is the blur path around the water suggestion, and without it

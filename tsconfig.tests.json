@@ -2,14 +2,18 @@
   // Type coverage for tests/, which `nuxt typecheck` never reaches: Nuxt's own
   // include is `tests/nuxt/**`, a directory this repo doesn't have, so a test could
   // import an export that no longer existed and only fail when it ran. `npm run
-  // typecheck:tests` runs this project on its own; `npm run typecheck` chains it
-  // after the app and scripts projects.
+  // typecheck:tests` runs this project on its own; `npm run typecheck` runs it
+  // alongside the app and scripts projects (scripts/typecheck.mjs).
   "extends": "./.nuxt/tsconfig.json",
   "compilerOptions": {
     // A test indexes its fixtures by position on purpose (`items[0].name`) and a
     // wrong index fails the assertion loudly; the app's strict-index rule would
     // only add a `!` to every such line here.
-    "noUncheckedIndexedAccess": false
+    "noUncheckedIndexedAccess": false,
+    // Incremental, like the app project (see tsconfig.json): a re-check after a
+    // small edit costs seconds, not the whole program.
+    "incremental": true,
+    "tsBuildInfoFile": "./node_modules/.cache/typecheck/tests.tsbuildinfo"
   },
   "include": [".nuxt/nuxt.d.ts", "tests/**/*"]
 }

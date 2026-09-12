@@ -204,6 +204,7 @@ export const MAX_TITLE_LEN = 200;
 export const MAX_ITEM_NAME_LEN = 200;
 export const MAX_ITEM_NOTE_LEN = 2000;
 export const MAX_GEAR_TYPE_LEN = 120; // commonName
+export const MAX_VARIANT_LEN = 120; // the size/config qualifier, typed or picked
 export const MAX_FOLDER_NAME_LEN = 120;
 export const MAX_PERSON_NAME_LEN = 60;
 // Past this an itinerary stops being something a person hand-enters, and the per-day
@@ -271,7 +272,7 @@ function cleanItemPatch(patch: ItemPatch): Partial<Item> {
   // drop the catalog-derived brand/variant from a now-custom item). The emptiness test
   // reads the TIDIED value, so an all-whitespace field clears rather than storing " ".
   if (typeof patch.brand === "string") out.brand = cleanText(patch.brand, 120) || undefined;
-  if (typeof patch.variant === "string") out.variant = cleanText(patch.variant, 120) || undefined;
+  if (typeof patch.variant === "string") out.variant = cleanText(patch.variant, MAX_VARIANT_LEN) || undefined;
   // common name: a non-empty string sets it; "" clears it (mirrors brand/variant)
   if (typeof patch.commonName === "string") out.commonName = cleanText(patch.commonName, MAX_GEAR_TYPE_LEN) || undefined;
   if (typeof patch.commonNameOverridden === "boolean") out.commonNameOverridden = patch.commonNameOverridden;
@@ -817,7 +818,7 @@ export function normalizeItem(raw: Item): Item {
     parentId: typeof raw.parentId === "string" && raw.parentId ? raw.parentId.slice(0, MAX_ID_LEN) : null,
     name: cleanText(String(raw.name ?? ""), MAX_ITEM_NAME_LEN),
     brand: raw.brand ? cleanText(String(raw.brand), 120) || undefined : undefined,
-    variant: raw.variant ? cleanText(String(raw.variant), 120) || undefined : undefined,
+    variant: raw.variant ? cleanText(String(raw.variant), MAX_VARIANT_LEN) || undefined : undefined,
     commonName: raw.commonName ? cleanText(String(raw.commonName), MAX_GEAR_TYPE_LEN) || undefined : undefined,
     commonNameOverridden: raw.commonNameOverridden ? true : undefined,
     nameOverridden: raw.nameOverridden ? true : undefined,
@@ -900,7 +901,7 @@ export function tidyListText<T extends {
   for (const it of list.items) {
     it.name = cleanText(it.name ?? "", MAX_ITEM_NAME_LEN);
     if (it.brand) it.brand = cleanText(it.brand, 120) || undefined;
-    if (it.variant) it.variant = cleanText(it.variant, 120) || undefined;
+    if (it.variant) it.variant = cleanText(it.variant, MAX_VARIANT_LEN) || undefined;
     if (it.commonName) it.commonName = cleanText(it.commonName, MAX_GEAR_TYPE_LEN) || undefined;
     if (it.description) it.description = cleanText(it.description, MAX_ITEM_NOTE_LEN) || undefined;
     // productUrl left alone — an apostrophe in a path is part of the address

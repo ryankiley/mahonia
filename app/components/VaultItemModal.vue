@@ -223,7 +223,9 @@ async function onSubmit() {
           <input v-model="brand" class="field" autocomplete="off" autocorrect="off" spellcheck="false" @keydown.enter="onSubmit" />
         </label>
         <label class="dlg__field">
-          <span class="t-sm t-muted">Variant</span>
+          <!-- the same words as the editor row's field for this value (ItemRow):
+               "variant" is the catalog's word, not a person's -->
+          <span class="t-sm t-muted">Size or version</span>
           <input v-model="variant" class="field" autocomplete="off" autocorrect="off" spellcheck="false" @keydown.enter="onSubmit" />
         </label>
       </div>

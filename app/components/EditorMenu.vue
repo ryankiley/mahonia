@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { Bug02Icon, CopyPlusIcon, Delete02Icon, FileExportIcon, FileImportIcon, KeyboardIcon, RemoveCircleIcon, UserAddIcon } from "@hugeicons/core-free-icons";
+import { Bug02Icon, CopyPlusIcon, Delete02Icon, FileExportIcon, FileImportIcon, InformationCircleIcon, KeyboardIcon, LegalDocument01Icon, RemoveCircleIcon, UserAddIcon } from "@hugeicons/core-free-icons";
 import type { ListSnapshot } from "~~/shared/types";
 
 // The editor's ⋯ menu — the list of actions, NOT the button that opens it. The
@@ -12,7 +12,7 @@ import type { ListSnapshot } from "~~/shared/types";
 //
 // The split is the bundle ratchet's own rule — nothing that only runs on one
 // interaction belongs on the load before it — applied to a surface that had
-// escaped it: the rows below carry eight glyphs, the export section and its four
+// escaped it: the rows below carry ten glyphs, the export section and its four
 // format marks (useListExports), and the two rows of the foot, every byte of it on
 // the editor's first load for a menu most visits never open. Priced the way the
 // lazy checkbox in scripts/bundle-budget-ledger.md was, and it comes out the other
@@ -126,12 +126,12 @@ const MENU_ACTIONS: MenuAction[] = [
   // a single item is a click that reveals nothing you couldn't have been shown. It
   // also forced a label long enough to set the whole menu's width.
   { label: "Import a list…", icon: FileImportIcon, event: "import" },
-  // Feedback is reachable from the footer on every page, but the editor is where
-  // people actually spend their time and where a long list puts that footer far below
-  // the fold — by the time you have something to say about a row, the link is a scroll
-  // away. The toolbar is in reach from anywhere in the list.
-  // The two entries that are ABOUT using the app rather than acts upon a list, so
-  // they close the menu together, after the run that makes lists.
+];
+// Help and site destinations live together, away from list operations and the
+// destructive pair. The editor has no footer; the sticky toolbar keeps them in reach.
+// About and Legal sit beside them in the template — links, not events, since they
+// go somewhere rather than do something to the list.
+const SITE_ACTIONS: MenuAction[] = [
   { label: "Keyboard shortcuts", icon: KeyboardIcon, event: "shortcuts" },
   { label: "Send feedback…", icon: Bug02Icon, event: "feedback" },
 ];
@@ -150,12 +150,12 @@ function act(event: MenuEvent | FootEvent) {
        without it the first reveal would snap where every later one eases — the same
        reason BaseModal carries it. -->
   <Transition name="menu" appear>
-    <ul v-if="open" ref="listRef" class="popover menu__list" role="menu" aria-label="More actions" v-on="plateOn">
+    <ul v-if="open" ref="listRef" class="popover menu__list editor__actions" role="menu" aria-label="More actions" v-on="plateOn">
       <!-- the travelling wash (atoms/controls.scss + useMenuPlate) -->
       <li role="none" aria-hidden="true">
         <span ref="plateRef" class="menu__plate" />
       </li>
-      <!-- no "Your lists" here — the footer already carries that link. -->
+      <!-- Close BEFORE the action runs, matching the old dispatch order. -->
       <li v-for="a in menuActions" :key="a.label" role="none">
         <button type="button" data-row role="menuitem" class="menu__item" @click="act(a.event)">
           <HugeiconsIcon :icon="a.icon" :size="14" :stroke-width="2" aria-hidden="true" />
@@ -174,6 +174,31 @@ function act(event: MenuEvent | FootEvent) {
         @opened="warmExporters"
         @pick="emit('close')"
       />
+      <!-- The site foot: help, then the two pages the editor's footer used to carry
+           before it had none (main #376). Ruled off from the list operations above
+           by the shared .menu__foot, and from the destructive pair below by the next. -->
+      <li role="none" class="menu__foot">
+        <button
+          v-for="a in SITE_ACTIONS"
+          :key="a.label"
+          type="button"
+          data-row
+          role="menuitem"
+          class="menu__item"
+          @click="act(a.event)"
+        >
+          <HugeiconsIcon :icon="a.icon" :size="14" :stroke-width="2" aria-hidden="true" />
+          {{ a.label }}
+        </button>
+        <NuxtLink to="/about" data-row role="menuitem" class="menu__item" @click="emit('close')">
+          <HugeiconsIcon :icon="InformationCircleIcon" :size="14" :stroke-width="2" aria-hidden="true" />
+          About
+        </NuxtLink>
+        <NuxtLink to="/legal" data-row role="menuitem" class="menu__item" @click="emit('close')">
+          <HugeiconsIcon :icon="LegalDocument01Icon" :size="14" :stroke-width="2" aria-hidden="true" />
+          Legal
+        </NuxtLink>
+      </li>
       <!-- Deleting this list, last and under a hairline. Not one of the rows
            above it: everything there makes, copies or moves a list, and this
            one ends it — the same reason ListMenu rules "New list" off its list
@@ -218,6 +243,14 @@ function act(event: MenuEvent | FootEvent) {
 </template>
 
 <style scoped lang="scss">
+/* Export may expand on a short phone. Keep all links and actions reachable. */
+.editor__actions {
+  max-height: calc(100svh - var(--space-9));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+/* The shared .menu__foot (controls.scss) separates list, site, and destructive
+   actions. Its rule spans the same width as the travelling plate. */
 /* the ⋯ menu's Export section is the shared .menu__sect disclosure (controls.scss),
    which the read views' menu uses too */
 /* ...and its FOOT holds the one action that ends the list, ruled off from the rest —

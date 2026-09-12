@@ -1,0 +1,9 @@
+{
+  "date": "2026-09-12",
+  "added": [
+    "Typing a product's full name and moving on links it to the catalog, the way picking it from the menu does."
+  ],
+  "changed": [
+    "Gear typed by hand grows the catalog with its size, weight, gear type and brand, not just its name."
+  ]
+}
