@@ -101,7 +101,7 @@ async function copyLink() {
 }
 
 // The plain rows, table-driven as the editor's kebab has them (MENU_ACTIONS in
-// GearEditor) — a row is one entry here, not a hand-written <li> plus a case in a
+// EditorMenu) — a row is one entry here, not a hand-written <li> plus a case in a
 // dispatch switch. Same order as the editor's plain run: the act on this list, then
 // the clipboard, then the one that's about the app.
 const MENU_ACTIONS = [

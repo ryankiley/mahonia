@@ -4,56 +4,77 @@
 // is green or red. That last part is the point: a PR that adds 1.8 KB under the
 // tripwire used to say nothing at all, and ten of those were the whole summer.
 //
-// Usage: node scripts/bundle-delta.mjs <main.json> <pr.json> [--sha=<main sha>]
-// Both files come from `bundle-budget.mjs --report=…`. Prints Markdown to stdout;
-// never fails — the gate is bundle-budget's job, this is the receipt.
+// Usage: node scripts/bundle-delta.mjs <main.json> <pr.json> [--sha=<baseline sha>] [--base=<the PR's base sha>]
+// Both files come from `bundle-budget.mjs --report=…` (scripts/bundleReport.mjs is
+// the shape). Prints Markdown to stdout. It throws on a report it can't read — the
+// CI step that runs it is allowed to fail without failing the job, and a failure
+// leaves the PR's previous receipt in place rather than posting a blank one.
 
-import { readFileSync } from "node:fs";
+import { kb, loadReport } from "./bundleReport.mjs";
 
 const [basePath, headPath] = process.argv.slice(2).filter((a) => !a.startsWith("--"));
-const sha = (process.argv.find((a) => a.startsWith("--sha=")) ?? "").slice(6);
+const flag = (name) => (process.argv.find((a) => a.startsWith(`--${name}=`)) ?? "").slice(name.length + 3);
+const sha = flag("sha");
+const baseSha = flag("base");
 if (!basePath || !headPath) {
-  console.error("usage: bundle-delta.mjs <main.json> <pr.json> [--sha=…]");
+  console.error("usage: bundle-delta.mjs <main.json> <pr.json> [--sha=…] [--base=…]");
   process.exit(2);
 }
-const base = JSON.parse(readFileSync(basePath, "utf8"));
-const head = JSON.parse(readFileSync(headPath, "utf8"));
+const base = loadReport(basePath);
+const head = loadReport(headPath);
 
-const kb = (b) => (b / 1024).toFixed(1);
-// a signed delta in KB, with a hair of tolerance so a hash reshuffle reads as "—"
+// A signed delta in KB, derived from the two ROUNDED figures so the three cells of
+// a row can't disagree (52.7 | 52.8 | — was possible when the delta rounded on its
+// own); a hash reshuffle that moves nothing at one decimal reads as "—".
 const delta = (a, b) => {
-  const d = (b - a) / 1024;
-  if (Math.abs(d) < 0.05) return "—";
-  return `${d > 0 ? "+" : "−"}${Math.abs(d).toFixed(1)} KB`;
+  const d = Math.round(b / 102.4) - Math.round(a / 102.4);
+  if (d === 0) return "—";
+  return `${d > 0 ? "+" : "−"}${(Math.abs(d) / 10).toFixed(1)} KB`;
 };
+const measured = (v) => typeof v === "number";
 const { ceiling, firstLoad: tripwire, total: totalBudget, maxChunk: maxBudget } = head.budgets;
 
 const lines = [];
-const first = head.firstLoad ?? 0;
-const room = ceiling * 1024 - first;
-lines.push(`### Bundle — first load ${kb(first)} KB (${delta(base.firstLoad ?? 0, first)} vs main)`);
+// "not measured" is not zero: a build whose /e prerender is missing has no first
+// load to report, and rendering it as 0.0 KB would celebrate a 146 KB saving
+const first = head.firstLoad;
+const firstBase = base.firstLoad;
+const bothFirst = measured(first) && measured(firstBase);
+const firstCell = (v) => (measured(v) ? `${kb(v)} KB` : "not measured");
+if (measured(first)) {
+  lines.push(`### Bundle — first load ${kb(first)} KB (${bothFirst ? delta(firstBase, first) : "main not measured"} vs main)`);
+} else {
+  lines.push("### Bundle — first load not measured (`/e/index.html` is not in this build)");
+}
 lines.push("");
 lines.push("| | main | this PR | Δ |");
 lines.push("|---|---:|---:|---:|");
-lines.push(`| **First load** — what every visitor to the editor downloads | ${kb(base.firstLoad ?? 0)} KB | **${kb(first)} KB** | **${delta(base.firstLoad ?? 0, first)}** |`);
-lines.push(`| ceiling ${ceiling} KB · tripwire ${tripwire} KB | | ${room >= 0 ? `${kb(room)} KB under the ceiling` : `**${kb(-room)} KB OVER the ceiling**`} | |`);
+lines.push(`| **First load** — what every visitor to the editor downloads | ${firstCell(firstBase)} | **${firstCell(first)}** | **${bothFirst ? delta(firstBase, first) : "—"}** |`);
+const room = measured(first) ? ceiling * 1024 - first : null;
+lines.push(
+  `| ceiling ${ceiling} KB · tripwire ${tripwire} KB | | ${
+    room === null ? "—" : room >= 0 ? `${kb(room)} KB under the ceiling` : `**${kb(-room)} KB OVER the ceiling**`
+  } | |`,
+);
 lines.push(`| Total, every chunk (backstop ${totalBudget} KB) | ${kb(base.total)} KB | ${kb(head.total)} KB | ${delta(base.total, head.total)} |`);
 lines.push(`| Largest chunk (cap ${maxBudget} KB) | ${kb(base.maxChunk.br)} KB | ${kb(head.maxChunk.br)} KB | ${delta(base.maxChunk.br, head.maxChunk.br)} |`);
 lines.push("");
 
 // by source: the union of both sides, sorted by the size of the move
-function movers(a, b, threshold = 100) {
+function movers(a, b, threshold) {
   if (!a || !b) return null;
   const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
-  const rows = [...keys]
+  return [...keys]
     .map((k) => ({ k, d: (b[k] ?? 0) - (a[k] ?? 0), was: a[k] ?? 0, now: b[k] ?? 0 }))
     .filter((r) => Math.abs(r.d) >= threshold)
     .sort((x, y) => Math.abs(y.d) - Math.abs(x.d));
-  return rows;
 }
-const moved = movers(base.firstLoadSources, head.firstLoadSources);
-if (moved === null) {
+const attributed = base.totalSources && head.totalSources;
+const moved = bothFirst ? movers(base.firstLoadSources, head.firstLoadSources, 100) : null;
+if (!attributed) {
   lines.push("_No per-source attribution: one of the builds ran without hidden sourcemaps (BUNDLE_MAPS=1)._");
+} else if (!bothFirst) {
+  lines.push("_No first-load attribution: the first load was not measured on one side._");
 } else if (moved.length === 0) {
   lines.push("Nothing on the first load moved by 0.1 KB or more.");
 } else {
@@ -68,10 +89,15 @@ if (moved === null) {
   if (moved.length > 12) lines.push(`| | _…and ${moved.length - 12} more_ | |`);
   lines.push("");
 }
-// and the off-first-load movers, briefly — a lazy chunk growing is fine, but say so
-const movedTotal = movers(base.totalSources, head.totalSources, 512);
-if (movedTotal && movedTotal.length) {
-  const offPath = movedTotal.filter((r) => !moved?.some((m) => m.k === r.k));
+// …and off it: each source's bytes OUTSIDE the first load, subtracted per side, so a
+// source that moved on both — a package with glyphs on the hot path and glyphs in a
+// lazy menu — shows its off-path move with its own sign. (Filtering the total movers
+// by "not in the table above" dropped exactly those, and would have printed the
+// total delta, sometimes the opposite sign, for the ones it kept.)
+if (attributed) {
+  const off = (rep) =>
+    Object.fromEntries(Object.entries(rep.totalSources).map(([k, v]) => [k, v - (rep.firstLoadSources?.[k] ?? 0)]));
+  const offPath = movers(off(base), off(head), 512);
   if (offPath.length) {
     lines.push(
       `Off the first load (lazy chunks, other routes), ≥ 0.5 KB: ${offPath
@@ -82,7 +108,10 @@ if (movedTotal && movedTotal.length) {
     lines.push("");
   }
 }
+const stale = sha && baseSha && sha !== baseSha;
 lines.push(
-  `<sub>Brotli, measured by \`scripts/bundle-budget.mjs\` on both builds${sha ? ` (main at ${sha.slice(0, 7)})` : ""}. The ceiling is a product line; the tripwire re-anchors to current + ~2 in the PR that spends it.</sub>`,
+  `<sub>Brotli, measured by \`scripts/bundle-budget.mjs\` on both builds${sha ? ` (main at ${sha.slice(0, 7)}` : ""}${
+    stale ? `; this PR's merge was built on ${baseSha.slice(0, 7)} — main moved since this baseline, so some of the delta may be another PR's` : ""
+  }${sha ? ")" : ""}. The ceiling is a product line; the tripwire re-anchors to current + ~2 in the PR that spends it.</sub>`,
 );
 console.log(lines.join("\n"));

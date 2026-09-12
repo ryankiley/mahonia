@@ -107,6 +107,7 @@ NOTE main independently wrote this same first-load split (8d63e65) and landed on
 broader firstLoadAssets() that counts rel="prefetch". This branch's narrower
 reading is the one kept, so the anchor is re-derived from what it actually
 measures rather than carried over.
+
 123→125 for per-row calories + remembered entry units. Measured 123.1 KB, i.e.
 the row work costs ~0.1 KB on the hot path, which is what it should cost: the
 only new first-load code is the kcal popover's markup and the entryUnit reads in
@@ -198,6 +199,7 @@ owes a revisit. Worth being honest that the gate was ALREADY at zero slack befor
 budget that had no room left rather than the whole story. 142 re-anchors with the ~2 KB
 of working headroom the notes above keep arguing for, so the next heavy dep still trips
 the gate and ordinary work doesn't.
+
 142 → 151, and this one needs its two causes kept apart, because the visible change is
 a map and the map is not what spent the budget.
 
@@ -334,6 +336,7 @@ someone opens the export menu and never on a page load, so first load is untouch
 That is precisely the "ordinary feature work" this note says the backstop should not
 be pricing, and a backstop sitting 0.1 KB above current cannot catch the thing it
 exists for. 192 restores the ~6 KB of slack the last re-anchor set.
+
 192 → 258, and unlike the re-anchors above this one is buying something specific.
 
 Same two-build measurement: 204.3 before the map work, 251.8 after. Two thirds of that

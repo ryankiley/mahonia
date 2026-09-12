@@ -376,7 +376,17 @@ const menuOpen = ref(false);
 // the dialogs use: its rows, glyphs and export section are fetched and mounted on
 // the first open, so a visit that never opens ⋯ downloads none of it. The trigger,
 // the dismiss contract and `menuOpen` stay here.
+//
+// `warmMenu` flips the guard a beat EARLY — on the pointer reaching the button, or
+// focus landing on it — so the chunk is fetched and the component mounted (closed)
+// before the click, and the click only has to open it. An async component resolves
+// its chunk first and mounts after, so on a cold visit the first open would
+// otherwise paint nothing for one round trip and ease in only then; the hover is
+// where that round trip hides. Touch has no hover, and gets what it always got.
 const menuEverOpened = ref(false);
+function warmMenu() {
+  menuEverOpened.value = true;
+}
 const menuRef = useTemplateRef<HTMLElement>("menuRef");
 const { toast, flash } = useToast();
 // the import's one-line note ("18 of 25 rows matched the catalog."), shown once the list
@@ -1034,6 +1044,8 @@ function onCorrected(res: { status: string; itemName?: string }) {
                 aria-label="More actions"
                 aria-haspopup="true"
                 :aria-expanded="menuOpen"
+                @pointerenter="warmMenu"
+                @focus="warmMenu"
                 @click="toggleMenu"
               >
                 <HugeiconsIcon :icon="EllipsisIcon" :size="16" :stroke-width="2" />

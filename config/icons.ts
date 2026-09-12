@@ -33,16 +33,47 @@ import type { Plugin } from "vite";
 // that boilerplate to nothing (measured: 0.26 KB across the set), and the
 // attribute order they hold is what tests/hugeicon.nuxt.test.ts pins against
 // upstream's own output.
-export function hugeiconsPrecision(decimals = 2): Plugin {
+//
+// GUARDED, because the regex is not the SVG number grammar. Path data may omit the
+// separator where the sign or the second decimal point makes it unambiguous
+// ("M2.999.5", "L2.5-0.004"), and rounding "2.999" to "3" or "-0.004" to "0" (String
+// of -0 drops the sign) would then fuse two coordinates into one. The installed set
+// uses none of that syntax, so today the rewrite changes no token count — but a
+// package release that ships minified paths would, and the transform runs only in
+// production builds where no test sees its output. So every `d` is tokenised before
+// and after and the build fails loudly on a mismatch; tests/iconsPrecision.test.ts
+// runs the same check over the whole installed package.
+
+/** every number token in SVG path data, as the grammar reads them */
+const PATH_NUMBER = /[+-]?(?:\d*\.\d+|\d+\.?)(?:[eE][+-]?\d+)?/g;
+
+/**
+ * An icon module's source with its path coordinates rounded to `decimals` places.
+ * Throws when rounding would change a `d`'s number of tokens — the one way the
+ * shorter string could be a different drawing.
+ */
+export function roundIconSource(code: string, decimals = 2, id = "icon"): string {
   const factor = 10 ** decimals;
   const round = (n: string) => String(Math.round(parseFloat(n) * factor) / factor);
+  return code.replace(/d:\s*"([^"]+)"/g, (_, d: string) => {
+    const rounded = d.replace(/-?\d+\.\d+/g, round);
+    const before = d.match(PATH_NUMBER)?.length ?? 0;
+    const after = rounded.match(PATH_NUMBER)?.length ?? 0;
+    if (before !== after) {
+      throw new Error(`hugeiconsPrecision: rounding would merge path tokens in ${id} (${before} → ${after}): "${d}" → "${rounded}"`);
+    }
+    return `d: "${rounded}"`;
+  });
+}
+
+export function hugeiconsPrecision(decimals = 2): Plugin {
   return {
     name: "mahonia:hugeicons-precision",
     apply: "build",
     enforce: "pre",
     transform(code, id) {
       if (!/node_modules\/@hugeicons\/core-free-icons\/dist\/esm\/[^/]+\.js$/.test(id)) return null;
-      const out = code.replace(/d:\s*"([^"]+)"/g, (_, d: string) => `d: "${d.replace(/-?\d+\.\d+/g, round)}"`);
+      const out = roundIconSource(code, decimals, id);
       return out === code ? null : { code: out, map: null };
     },
   };

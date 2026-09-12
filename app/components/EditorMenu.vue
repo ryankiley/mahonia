@@ -5,9 +5,12 @@ import type { ListSnapshot } from "~~/shared/types";
 
 // The editor's ⋯ menu — the list of actions, NOT the button that opens it. The
 // trigger stays in the toolbar (GearEditor), where it is one glyph on the first
-// load; everything behind it lives here, in a chunk fetched on the first open
-// (~3 KB brotli, one round trip the enter transition mostly covers; the service
-// worker precaches it for every visit after) — the same contract the sharing
+// load; everything behind it lives here, in a chunk fetched when the pointer first
+// reaches the button (GearEditor's `warmMenu`) or, failing that, on the first tap —
+// ~5 KB brotli over five files, one round trip. The round trip comes BEFORE the
+// enter transition, not under it: an async component resolves, then mounts, then
+// its <Transition appear> plays, which is why the hover warm-up exists. The service
+// worker precaches the chunk for every visit after — the same contract the sharing
 // panel beside it and every dialog in the editor already have.
 //
 // The split is the bundle ratchet's own rule — nothing that only runs on one
@@ -146,9 +149,9 @@ function act(event: MenuEvent | FootEvent) {
 </script>
 
 <template>
-  <!-- `appear`: this component is Lazy-mounted on the first open (already open), so
-       without it the first reveal would snap where every later one eases — the same
-       reason BaseModal carries it. -->
+  <!-- `appear`: on a tap with no hover before it, this component is Lazy-mounted on
+       the first open (already open), so without it the first reveal would snap where
+       every later one eases — the same reason BaseModal carries it. -->
   <Transition name="menu" appear>
     <ul v-if="open" ref="listRef" class="popover menu__list editor__actions" role="menu" aria-label="More actions" v-on="plateOn">
       <!-- the travelling wash (atoms/controls.scss + useMenuPlate) -->

@@ -41,6 +41,7 @@
 import { readdirSync, readFileSync, existsSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { brotliCompressSync, gzipSync, constants } from "node:zlib";
+import { kb } from "./bundleReport.mjs";
 
 // THE CEILING. 150 KB brotli for the editor's first load, set 2026-09-12 at 146.6
 // measured, after a menu left the hot path and the icon set lost its fourth decimal.
@@ -95,7 +96,6 @@ if (!dir) {
 
 const brotli = (buf) =>
   brotliCompressSync(buf, { params: { [constants.BROTLI_PARAM_QUALITY]: 11 } }).length;
-const kb = (n) => (n / 1024).toFixed(1);
 
 /**
  * The assets the editor's first load pulls — read from the prerendered /e HTML,
@@ -146,7 +146,7 @@ for (const f of files) {
   totalRaw += buf.length;
   totalBr += br;
   totalGz += gz;
-  rows.push({ f, raw: buf.length, br, first: firstLoad?.has(f) ?? false });
+  rows.push({ f, buf, raw: buf.length, br, first: firstLoad?.has(f) ?? false });
 }
 rows.sort((a, b) => b.br - a.br);
 
@@ -157,84 +157,130 @@ const maxChunk = rows[0] ?? { f: "—", br: 0 };
 const maxChunkBrKb = maxChunk.br / 1024;
 
 /**
- * Where the first load's bytes come from, by source file — when the build carried
- * hidden client sourcemaps (BUNDLE_MAPS=1 → nuxt.config's sourcemap.client). Chunk
- * names are hashes, so a per-file delta says "the 29 KB chunk grew 1.1 KB", which is
- * nothing; a per-source one says "ItemRow.vue +0.8, the icon set +0.3", which is
- * something a reviewer can act on. Hidden maps leave the JS byte-identical, so the
- * numbers above don't move with them (a local build without maps simply reports
- * no attribution).
+ * Where the bytes come from, by source — when the build carried hidden client
+ * sourcemaps (BUNDLE_MAPS=1 → nuxt.config's sourcemap.client). Chunk names are
+ * hashes, so a per-file delta says "the 29 KB chunk grew 1.1 KB", which is nothing;
+ * a per-source one says "ItemRow.vue +0.8, the icon set +0.3", which is something a
+ * reviewer can act on. Hidden maps leave the JS byte-identical, so the numbers above
+ * don't move with them (a local build without maps simply reports no attribution).
  *
- * Walks each chunk's mappings: every segment's generated span, up to the next
- * segment, is charged to its source. A source's brotli is estimated at the chunk's
- * own compression ratio — an estimate, and a fair one: the same file compresses
- * the same way whichever chunk it lands in.
+ * EVERY BYTE IS CHARGED TO SOMETHING, so the rows sum to the totals they explain:
+ * a mapped chunk's segments go to their source files, the bytes before a line's
+ * first segment and on lines with no segment (the `import{…}from` headers and the
+ * preload tables the bundler writes, which grow with the chunk graph) to "(glue)",
+ * a CSS file to `css:<its stem>` (a .css has no map, but its name is stable across
+ * hashes), and a script with no map to "(unmapped chunk)". Without this the receipt
+ * could say "+1.5 KB" up top and "nothing moved" underneath — the CSS-only change.
+ *
+ * A source's brotli is estimated at its chunk's own compression ratio — an
+ * estimate, and a fair one: a file compresses about the same whichever chunk it
+ * lands in. Each chunk is walked once; first-load and total are two sums over it.
  */
-function attribute(which) {
-  const B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-  const vlq = (str) => {
-    const out = [];
-    let shift = 0;
-    let value = 0;
-    for (const ch of str) {
-      let digit = B64.indexOf(ch);
-      const more = digit & 32;
-      digit &= 31;
-      value += digit << shift;
-      if (more) {
-        shift += 5;
-        continue;
-      }
-      out.push(value & 1 ? -(value >> 1) : value >> 1);
-      value = 0;
-      shift = 0;
+const B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+function vlq(str) {
+  const out = [];
+  let shift = 0;
+  let value = 0;
+  for (const ch of str) {
+    let digit = B64.indexOf(ch);
+    const more = digit & 32;
+    digit &= 31;
+    value += digit << shift;
+    if (more) {
+      shift += 5;
+      continue;
     }
-    return out;
-  };
-  const bySource = new Map();
-  let mapped = false;
-  for (const r of which) {
-    if (!r.f.endsWith(".js")) continue;
-    const mapPath = join(dir, r.f + ".map");
-    if (!existsSync(mapPath)) continue;
-    mapped = true;
-    const map = JSON.parse(readFileSync(mapPath, "utf8"));
-    const lines = readFileSync(join(dir, r.f), "utf8").split("\n");
-    const ratio = r.br / r.raw;
-    let srcIdx = 0;
-    map.mappings.split(";").forEach((line, li) => {
-      const lineLen = (lines[li] ?? "").length + 1;
-      const cols = [];
-      let genCol = 0;
-      for (const seg of line.split(",")) {
-        if (!seg) continue;
-        const v = vlq(seg);
-        genCol += v[0];
-        if (v.length >= 4) srcIdx += v[1];
-        cols.push({ col: genCol, src: v.length >= 4 ? map.sources[srcIdx] : null });
-      }
-      for (let i = 0; i < cols.length; i++) {
-        const end = i + 1 < cols.length ? cols[i + 1].col : lineLen;
-        const src = cols[i].src ?? "(glue)";
-        bySource.set(src, (bySource.get(src) ?? 0) + Math.max(0, end - cols[i].col) * ratio);
-      }
-    });
+    out.push(value & 1 ? -(value >> 1) : value >> 1);
+    value = 0;
+    shift = 0;
   }
-  if (!mapped) return null;
-  // node_modules paths collapse to the package; app paths keep the file. Matched
-  // anywhere in the path, not at its start: a source is usually `../node_modules/…`
-  // or `app/…`, but a build whose node_modules is a symlink (a scratch worktree)
-  // records the absolute target instead.
-  const name = (s) => {
-    const pkg = s.match(/node_modules\/(?:\.cache\/[^/]+\/)?((?:@[^/]+\/)?[^/]+)/);
-    if (pkg) return `npm:${pkg[1]}`;
-    const own = s.match(/(?:^|\/)((?:app|shared|config)\/[^?]+)/);
-    if (own) return own[1];
-    return "(virtual)";
-  };
-  const out = {};
-  for (const [s, br] of bySource) out[name(s)] = (out[name(s)] ?? 0) + br;
-  return Object.fromEntries(Object.entries(out).sort((a, b) => b[1] - a[1]).map(([k, v]) => [k, Math.round(v)]));
+  return out;
+}
+
+// A source path → the name a reviewer reads. node_modules collapse to the package;
+// the repo's own files keep their path from the repo root; the bundler's virtual
+// modules and Nuxt's generated ones are "(virtual)". Matched anywhere in the path,
+// not at its start: a source is usually `../../app/…`, but a build whose
+// node_modules is a symlink (a scratch worktree) records the absolute target.
+function sourceName(s) {
+  if (s.startsWith("(") || s.startsWith("css:")) return s;
+  const pkg = s.match(/node_modules\/(?:\.cache\/[^/]+\/)?((?:@[^/]+\/)?[^/]+)/);
+  if (pkg) return `npm:${pkg[1]}`;
+  if (/^virtual:|^\0|^#|(?:^|\/)\.nuxt\//.test(s)) return "(virtual)";
+  const own = s.replace(/\?.*$/, "").replace(/^(\.\.\/)+/, "").replace(/^\.\//, "");
+  // an absolute path outside the repo we can't place: keep its last three segments
+  return own.startsWith("/") ? own.split("/").slice(-3).join("/") : own;
+}
+
+// bytes per source for ONE built file, at that file's compression ratio
+function chunkSources(r) {
+  const ratio = r.br / r.raw;
+  const out = new Map();
+  const charge = (src, raw) => out.set(src, (out.get(src) ?? 0) + raw * ratio);
+  if (r.f.endsWith(".css")) {
+    charge(`css:${r.f.replace(/\.[A-Za-z0-9_-]{8}\.css$/, "")}`, r.raw);
+    return { sources: out, mapped: false };
+  }
+  const mapPath = join(dir, r.f + ".map");
+  if (!existsSync(mapPath)) {
+    charge("(unmapped chunk)", r.raw);
+    return { sources: out, mapped: false };
+  }
+  const map = JSON.parse(readFileSync(mapPath, "utf8"));
+  if (typeof map.mappings !== "string" || !Array.isArray(map.sources)) throw new Error(`${r.f}.map has no mappings`);
+  const lines = r.buf.toString("utf8").split("\n");
+  let srcIdx = 0;
+  map.mappings.split(";").forEach((line, li) => {
+    const lineLen = (lines[li] ?? "").length + 1;
+    const cols = [];
+    let genCol = 0;
+    for (const seg of line.split(",")) {
+      if (!seg) continue;
+      const v = vlq(seg);
+      genCol += v[0];
+      if (v.length >= 4) srcIdx += v[1];
+      cols.push({ col: genCol, src: v.length >= 4 ? map.sources[srcIdx] : null });
+    }
+    // the run before the first segment — or the whole line, when it has none
+    charge("(glue)", Math.min(cols.length ? cols[0].col : lineLen, lineLen));
+    for (let i = 0; i < cols.length; i++) {
+      const end = i + 1 < cols.length ? cols[i + 1].col : lineLen;
+      charge(cols[i].src ?? "(glue)", Math.max(0, end - cols[i].col));
+    }
+  });
+  return { sources: out, mapped: true };
+}
+
+/**
+ * { firstLoadSources, totalSources } — each a name → brotli-bytes map sorted by
+ * size, or both null when no chunk carried a map (a build without BUNDLE_MAPS).
+ *
+ * NEVER THE GATE'S PROBLEM. A map that won't parse, or a shape this walker doesn't
+ * expect, costs the receipt its per-source rows and nothing else: the budget is
+ * decided on the files' own bytes, above, and the report is still written. Before
+ * this a broken map on a push to main failed the check and uploaded no baseline.
+ */
+function attribute() {
+  try {
+    const first = new Map();
+    const total = new Map();
+    let mapped = false;
+    for (const r of rows) {
+      const c = chunkSources(r);
+      mapped ||= c.mapped;
+      for (const [src, br] of c.sources) {
+        const name = sourceName(src);
+        total.set(name, (total.get(name) ?? 0) + br);
+        if (r.first) first.set(name, (first.get(name) ?? 0) + br);
+      }
+    }
+    if (!mapped) return { firstLoadSources: null, totalSources: null };
+    const sorted = (m) => Object.fromEntries([...m].sort((a, b) => b[1] - a[1]).map(([k, v]) => [k, Math.round(v)]));
+    return { firstLoadSources: firstLoad ? sorted(first) : null, totalSources: sorted(total) };
+  } catch (e) {
+    console.warn(`  ! per-source attribution skipped: ${e.message}\n`);
+    return { firstLoadSources: null, totalSources: null };
+  }
 }
 
 const reportPath = (process.argv.find((a) => a.startsWith("--report=")) ?? "").slice(9);
@@ -249,8 +295,7 @@ if (reportPath) {
         budgets: { ceiling: FIRST_LOAD_CEILING_KB, firstLoad: FIRST_LOAD_BUDGET_KB, total: TOTAL_BUDGET_KB, maxChunk: MAX_CHUNK_BUDGET_KB },
         files: rows.map((r) => ({ file: r.f, br: r.br, first: r.first })),
         // bytes by source on the first load, and across every chunk — both brotli
-        firstLoadSources: firstLoad ? attribute(rows.filter((r) => r.first)) : null,
-        totalSources: attribute(rows),
+        ...attribute(),
       },
       null,
       2,
