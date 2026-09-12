@@ -1,8 +1,6 @@
 <script setup lang="ts">
-// The one site-wide footer — a slim legal line, mounted by the default layout and
-// the editor so every page gets the exact same footer. Just the legal links + the
-// copyright; contact lives on the About page, not here. Monochrome chrome.
-const year = new Date().getFullYear();
+// A slim navigation line for non-editor pages, mounted by the default layout.
+// The editor keeps these destinations in its top-right menu to leave its canvas open.
 
 // The footer reads NO session state, and that is the point of it. It used to, for
 // one link: "My Gear" is signed-in chrome, so it needed the hint cookie to know
@@ -10,7 +8,7 @@ const year = new Date().getFullYear();
 // a footer is legal-and-colophon chrome, the wrong shelf for one person's own
 // possessions — the whole apparatus goes with it: the session read, the hint
 // fallback for the read views, and the `inToolbar` prop the editor passed to stop
-// the footer repeating its own toolbar. Two links about the site, and a copyright.
+// the footer repeating its own toolbar. Copyright now lives on About.
 
 // Never link to the page you're already on — it reads as an action and does nothing,
 // and in a short row it costs one of the few. AccountMenu has applied this to its own
@@ -20,9 +18,8 @@ const year = new Date().getFullYear();
 const route = useRoute();
 const here = (p: string) => route.path === p;
 
-// No feedback trigger here any more — it lives in the editor's actions menu. The
-// footer is a legal line: a few places to go and a copyright. A dialog launcher styled
-// to pass as a link in that row was the odd one out, and "send feedback" belongs
+// No feedback trigger here any more — it lives in the editor's actions menu. A
+// dialog launcher styled to pass as a link in this row was the odd one out; feedback belongs
 // beside the thing you'd be reporting on rather than under it.
 </script>
 
@@ -39,8 +36,6 @@ const here = (p: string) => route.path === p;
         <NuxtLink v-if="!here('/about')" to="/about" class="foot__link t-sm">About</NuxtLink>
         <NuxtLink v-if="!here('/legal')" to="/legal" class="foot__link t-sm">Legal</NuxtLink>
       </nav>
-
-      <p class="t-sm t-muted foot__copy">© {{ year }} Mahonia</p>
     </div>
   </footer>
 </template>
@@ -65,10 +60,6 @@ const here = (p: string) => route.path === p;
 .foot__nav {
   display: flex;
   flex-wrap: wrap;
-  /* grow to fill the row so the copyright is pushed to the end; the copyright wraps to
-     its own (left-aligned) line ONLY when nav + copy genuinely don't fit — not at a
-     fixed breakpoint, which fired well before it was needed on phones */
-  flex: 1 1 auto;
   gap: var(--space-3) var(--space-5);
 }
 .foot__link {
@@ -80,10 +71,5 @@ const here = (p: string) => route.path === p;
   color: var(--ink);
   /* underline appears on hover but stays soft — never full-strength ink */
   border-bottom-color: var(--ink-2);
-}
-.foot__copy {
-  /* no margin-left:auto + no forced wrap — .foot__nav's flex-grow pins this to the
-     row's end, and natural flex-wrap drops it to its own left-aligned line when needed */
-  flex: 0 1 auto;
 }
 </style>
