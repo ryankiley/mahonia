@@ -1,0 +1,97 @@
+# A GitHub Release per changelog date, cut from the entries the site already renders.
+#
+# WHY: the changelog is written once, per PR, as a fragment in content/changelog.d,
+# and the site is where people read it. GitHub is a second place the same words are
+# useful for free — a Release has an Atom feed (/releases.atom), a "Watch → Releases
+# only" notification, a permalink, and a tag that makes `git log vA..vB` mean "what
+# shipped between those two days". Nothing here is written by hand: the body is the
+# day's entries, the title is the date, the version IS the date (see
+# scripts/releaseNotes.ts for why CalVer and not SemVer).
+#
+# A day is released once it is over in the changelog's timezone, so its entries are
+# settled. The tag marks main at the end of that day (Pacific); an entry dated D whose
+# PR merged on D+1 is in v<D+1>'s range but in release D's notes, because the date is
+# the day the entry was written. Notes are rewritten whenever the entries change, so
+# a late fragment updates its release; the tag never moves.
+#
+# Idempotent: every run walks every settled date, creates what's missing, edits what
+# differs, and touches nothing else. Safe to re-run by hand.
+name: Releases
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - content/changelog.d/**
+      - content/changelog.json
+      - scripts/releaseNotes.ts
+      - scripts/release-notes.ts
+      - .github/workflows/releases.yml
+  # a day with no merges still needs yesterday cut: 09:10 UTC is 02:10 Pacific,
+  # past midnight either side of daylight saving
+  schedule:
+    - cron: "10 9 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: releases
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  cut:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # the tag anchor is found by date in history; a shallow clone has none
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      # --ignore-scripts: postinstall builds the changelog and the catalog, and this
+      # job reads the changelog's sources directly (scripts/changelogSources.ts)
+      - run: npm ci --ignore-scripts
+
+      - name: Cut or update a release per settled changelog date
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TZ: America/Los_Angeles
+        run: |
+          set -euo pipefail
+          notes() { node node_modules/jiti/lib/jiti-cli.mjs scripts/release-notes.ts "$@"; }
+
+          created=0; updated=0; kept=0
+          while IFS=$'\t' read -r date tag; do
+            [ -n "$date" ] || continue
+            notes --body "$date" > /tmp/body.md
+            title=$(notes --title "$date")
+
+            if gh release view "$tag" --json body --jq .body > /tmp/current.md 2>/dev/null; then
+              # gh hands back the body without its trailing newline; compare like for like
+              if [ "$(cat /tmp/current.md)" = "$(cat /tmp/body.md)" ]; then
+                kept=$((kept + 1))
+              else
+                gh release edit "$tag" --title "$title" --notes-file /tmp/body.md > /dev/null
+                echo "updated $tag"; updated=$((updated + 1))
+              fi
+              continue
+            fi
+
+            # main at the end of that day, Pacific — or the root commit for a date
+            # older than the repository (the first entries predate the first push)
+            anchor=$(git log -1 --format=%H --before="$date 23:59:59" origin/main)
+            [ -n "$anchor" ] || anchor=$(git rev-list --max-parents=0 origin/main | tail -1)
+
+            # settled releases arrive oldest first, so the last one created is "latest"
+            gh release create "$tag" --target "$anchor" --title "$title" --notes-file /tmp/body.md > /dev/null
+            echo "created $tag at ${anchor:0:7}"; created=$((created + 1))
+          done < <(notes --list)
+
+          echo "releases: $created created, $updated updated, $kept unchanged"
