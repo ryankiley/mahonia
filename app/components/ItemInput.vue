@@ -8,6 +8,7 @@ import { highlightParts } from "~~/shared/searchText";
 import { MAX_ITEM_NAME_LEN } from "~~/shared/ops";
 import { tidyText } from "~~/shared/tidyText";
 import { catalogNameKeys, foldName } from "~~/shared/catalogMatch";
+import { pasteRows, splitWeightTail } from "~~/shared/pasteList";
 import { formatVolume, isWaterName, parseVolumeMl, waterMgFromMl } from "~~/shared/water";
 import type { CatalogResult, NameCommit } from "~/composables/useCatalogSearch";
 import type { VaultEntry } from "~~/shared/vault";
@@ -43,6 +44,10 @@ const emit = defineEmits<{
   // Enter (the mobile return key too) landed a commit — the parent may continue
   // the flow by opening a fresh row below (todo-list entry; see ItemRow).
   advance: [];
+  // A multi-line paste: the first line was committed as THIS row's name (through the
+  // commit above), and these are the lines after it, one row each, for the parent to
+  // make below this one (see onPaste).
+  pasteRows: [string[]];
 }>();
 
 const { results, search, clear } = useCatalogSearch();
@@ -137,9 +142,6 @@ watch(open, (v) => {
   }
 });
 onScopeDispose(() => outsideScope?.stop());
-
-// trailing weight in free text: "Tent 540 g" → name + weight; unitless ("UL2") stays in the name
-const WEIGHT_TAIL = /\s+(\d[\d.,]*\s*(?:kgs?|g|grams?|oz|ounces?|lbs?|pounds?))$/i;
 
 // Water folds into THIS input (no separate "add water"): typing a bare volume
 // ("1 L", "500 ml", "32 fl oz") or "water [volume]" surfaces a water option that
@@ -362,7 +364,7 @@ function exactMatch(typed: string): AcOption | null {
 // the next settle re-derives it.
 watch(options, (opts) => {
   if (active.value >= 0 || !open.value) return;
-  const hit = exactMatch(draft.value.trim().replace(WEIGHT_TAIL, ""));
+  const hit = exactMatch(splitWeightTail(draft.value).name);
   if (!hit) return;
   const at = opts.findIndex((o) =>
     "vault" in hit ? "vault" in o && o.vault === hit.vault : "result" in hit && "result" in o && o.result === hit.result,
@@ -381,11 +383,12 @@ function commitFree() {
     setDraftQuiet(props.initial);
     return close();
   }
-  const m = raw.match(WEIGHT_TAIL);
-  const name = tidyText(m ? raw.slice(0, m.index) : raw);
+  // a trailing weight in the typed name ("Tent 540 g") rides along (shared/pasteList,
+  // the one rule for where a name ends, shared with the multi-line paste below)
+  const split = splitWeightTail(raw);
+  const name = tidyText(split.name);
   if (!name) return;
-  // a trailing weight in the typed name ("Tent 540 g") rides along
-  const weight = m ? m[1] : undefined;
+  const weight = split.weight;
   // a product's own name, typed in full, links (see exactMatch); a trailing weight is
   // dropped with it, since the pick's weight is the product's (a vault pick, yours)
   const exact = exactMatch(name);
@@ -399,6 +402,28 @@ function commitFree() {
   // Enter commits without ever unfocusing, so the watcher can't do it here either
   setDraftQuiet(props.clearOnCommit ? "" : name);
   close();
+}
+// A list pasted in, one item per line. The browser's paste would fold every line
+// into this one field (an input strips the newlines), so a paste with more than one
+// line is taken over: the first line lands where the caret is, replacing any
+// selection — the row you pasted into is the first row of the list, the way a
+// spreadsheet starts a multi-cell paste at the cell you're in — and is committed
+// through the usual path (trailing weight, tidying, the water rule); the rest go to
+// the parent as rows to make below. One line is left to the browser, so an ordinary
+// paste of a product name behaves exactly as it always has.
+function onPaste(e: ClipboardEvent) {
+  const rows = pasteRows(e.clipboardData?.getData("text/plain") ?? "");
+  if (rows.length < 2) return;
+  e.preventDefault();
+  const el = e.target as HTMLInputElement;
+  const from = el.selectionStart ?? draft.value.length;
+  const to = el.selectionEnd ?? from;
+  const [first, ...rest] = rows;
+  // quiet, like every programmatic assignment here: the draft watcher would otherwise
+  // open a menu of matches for the first line the instant before it's committed
+  setDraftQuiet(draft.value.slice(0, from) + first + draft.value.slice(to));
+  commitFree();
+  emit("pasteRows", rest);
 }
 // commit when focus leaves the whole control
 function onFocusOut(e: FocusEvent) {
@@ -482,6 +507,7 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
       autocorrect="off"
       spellcheck="false"
       @keydown="onKeydown"
+      @paste="onPaste"
       @focus="focused = true; open = suggest"
     />
     <!-- pointer leaving the menu clears the hover highlight (mouseenter on options

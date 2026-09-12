@@ -1299,6 +1299,7 @@ function dismissFix() {
             :autofocus="isPendingBlank"
             @commit="onNameCommit"
             @advance="c.addBlankItemAfter(item.id)"
+            @paste-rows="c.pasteItemsAfter(item.id, $event)"
             @overlay-toggle="$emit('overlayToggle', $event)"
           />
           <!-- collapse a group of nested items — trails the name like the folder's

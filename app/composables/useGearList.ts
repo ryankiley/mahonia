@@ -1,6 +1,11 @@
 import type { DayPatch, ItemPatch, Op } from "~~/shared/ops";
-import { applyOps, seedRouteEnds, tidyListText, rebaseOnto } from "~~/shared/ops";
+import { applyOps, MAX_ITEMS, seedRouteEnds, tidyListText, rebaseOnto } from "~~/shared/ops";
 import { uid } from "~~/shared/id";
+import { applyCatalogMatch } from "~~/shared/catalogMatch";
+import type { CatalogSearchResult } from "~~/shared/catalogSearch";
+import { splitWeightTail } from "~~/shared/pasteList";
+import { tidyText } from "~~/shared/tidyText";
+import { isWaterName } from "~~/shared/water";
 import { colorKeyForName, nextFolderColor, STARTER_FOLDERS } from "~~/shared/categories";
 import { LIST_CODE_HEADER, editLinkPath, normalizeShareCode } from "~~/shared/links";
 import { DRAFT_KEY, claimedLocalKey, hasRealContent, localKey } from "~~/shared/localList";
@@ -317,10 +322,13 @@ function create() {
   // single-level undo for destructive removes — drives the "Undo" toast
   // 10s: the full notice → reach → tap loop has to fit, including on mobile
   const UNDO_MS = 10_000;
-  const pendingUndo = ref<{ label: string; restore: () => void } | null>(null);
+  // `verb` is what the toast says happened to `label`. Removes, its first tenant, say
+  // nothing and read "Removed"; a paste that made rows says "Added" (pasteItemsAfter).
+  type Undo = { label: string; restore: () => void; verb?: "Added" | "Removed" };
+  const pendingUndo = ref<Undo | null>(null);
   let undoTimer: ReturnType<typeof setTimeout> | undefined;
-  function offerUndo(label: string, restore: () => void) {
-    pendingUndo.value = { label, restore };
+  function offerUndo(label: string, restore: () => void, verb?: Undo["verb"]) {
+    pendingUndo.value = { label, restore, verb };
     clearTimeout(undoTimer);
     undoTimer = setTimeout(() => (pendingUndo.value = null), UNDO_MS);
   }
@@ -1415,6 +1423,139 @@ function create() {
     if (id && next) moveItem(id, src.folderId, next.id, parentId);
     return id;
   }
+  /**
+   * The rows a multi-line paste makes: one per line, as SIBLINGS after `afterId` —
+   * the row the paste landed in, which took the first line itself (ItemInput.onPaste).
+   * They land in that row's folder and, when it's nested, under its parent, in the
+   * order the lines came.
+   *
+   * Each line is read the way the name field reads a typed name (shared/pasteList):
+   * a trailing weight fills the weight and names the row's unit, and a line that just
+   * says "water" arrives consumable, as the water row does. Each row lands complete
+   * in one dispatch (never a blank that is then patched — see addVaultItem for why).
+   *
+   * Then the catalog: one request naming every row, the same word-for-word matcher
+   * the CSV import uses, and a row that names a product is linked as a pick would
+   * link it — brand and variant split out, the cited weight where the line gave
+   * none, yours kept (and marked overridden) where it did. The match lands only on a
+   * row still named what was pasted and still unlinked, so a row already retyped or
+   * picked from the menu in the meantime is left alone. A failed request leaves the
+   * rows exactly as typed: the link is a bonus, not the paste.
+   *
+   * The count is said through the undo toast ("Added 12 rows"), which is also the
+   * way out of a paste that went into the wrong folder — twelve rows are twelve
+   * deletes otherwise. Lines past the list's cap are not made, and the label says
+   * how many were.
+   */
+  function pasteItemsAfter(afterId: string, lines: string[]): number {
+    const snap = snapshot.value;
+    const src = snap?.items.find((i) => i.id === afterId);
+    if (!snap || !src || !lines.length) return 0;
+    const parentId = src.parentId ?? null;
+    const folderId = src.folderId;
+    const room = Math.max(0, MAX_ITEMS - snap.items.length);
+    // same pre-claim as addBlankItem: rows made under a person filter belong to that
+    // person, or they'd materialize hidden by the very filter the paste happened inside
+    const personId = usePersonFilter().assignTarget(snap.people);
+    const items: Item[] = [];
+    for (const line of lines) {
+      if (items.length >= room) break;
+      const split = splitWeightTail(line);
+      const name = tidyText(split.name);
+      if (!name) continue;
+      const mg = split.weight != null ? parseWeightInput(split.weight, snap.displayUnit) : null;
+      const item: Item = {
+        id: uid(),
+        folderId,
+        name,
+        // typed by hand, so the name is the user's: a later catalog link (below) resets
+        // this, exactly as a pick through the menu does
+        nameOverridden: true,
+        unitWeightMg: mg ?? 0,
+        qty: 1,
+        classification: isWaterName(name) ? storedClassification("consumable", folderId, snap.folders) : null,
+        sortOrder: 0, // placed below
+      };
+      if (parentId) item.parentId = parentId;
+      if (mg != null) {
+        item.weightOverridden = true;
+        const named = entryUnitFromInput(split.weight!);
+        if (named) item.entryUnit = named;
+      }
+      if (personId) item.personId = personId;
+      items.push(item);
+    }
+    if (!items.length) return 0;
+
+    // Slot them in after `src`: the siblings are renumbered to their positions with a
+    // gap of items.length opened after src (quiet moves — a shuffle to make room is
+    // never news), and the new rows take the gap. Renumbering ALL of them, not just
+    // the followers, because sortOrders are not contiguous (deletes leave holes) and a
+    // gap counted from src's index would otherwise sort ahead of src itself.
+    const sibs = siblingItems(snap.items, folderId, parentId).sort(bySortOrder);
+    const at = sibs.findIndex((s) => s.id === afterId) + 1;
+    sibs.forEach((s, i) => {
+      const order = i < at ? i : i + items.length;
+      if (s.sortOrder !== order) dispatch({ t: "moveItem", id: s.id, folderId, sortOrder: order, quiet: true });
+    });
+    items.forEach((item, k) => {
+      item.sortOrder = at + k;
+      dispatch({ t: "addItem", item });
+    });
+
+    const ids = items.map((i) => i.id);
+    const made = items.length;
+    const label = made < lines.length ? `${made} of ${lines.length} rows (a list holds ${MAX_ITEMS} items)` : `${made} rows`;
+    offerUndo(label, () => {
+      // quiet: undoing the paste means the rows were never there, so the history
+      // shouldn't read "Removed" twelve times over
+      for (const id of ids) dispatch({ t: "removeItem", id, quiet: true });
+    }, "Added");
+
+    // The catalog, asked once for all of them, and for the row pasted INTO as well:
+    // it took the paste's first line through the plain free-text commit, which links
+    // nothing, and the first line of a list is as likely to name a product as any
+    // other. Only while it's unlinked — a linked row already is what it says.
+    const asked = [...(src.catalogItemId == null && src.name ? [{ id: src.id, name: src.name }] : []), ...items];
+    $fetch<{ matches: (CatalogSearchResult | null)[] }>("/api/catalog/match", {
+      method: "POST",
+      body: { names: asked.map((i) => ({ name: i.name })) },
+    })
+      .then(({ matches }) => {
+        matches.forEach((row, k) => {
+          if (!row) return;
+          const live = snapshot.value?.items.find((i) => i.id === asked[k]!.id);
+          if (!live || live.catalogItemId != null || live.name !== asked[k]!.name) return;
+          const linked = applyCatalogMatch(live, row);
+          dispatch({
+            t: "updateItem",
+            id: live.id,
+            patch: {
+              name: linked.name,
+              brand: linked.brand ?? "",
+              variant: linked.variant ?? "",
+              commonName: linked.commonName ?? "",
+              nameOverridden: false,
+              unitWeightMg: linked.unitWeightMg,
+              weightOverridden: linked.weightOverridden,
+              catalogItemId: linked.catalogItemId,
+              catalogWeightMgAtLink: linked.catalogWeightMgAtLink,
+              // only a consumable product changes the class, and through
+              // storedClassification as a pick does (ItemRow.onNameCommit): null means
+              // "follow the folder", so food landing in a food folder keeps following
+              // it rather than being pinned. Any other product leaves the row on the
+              // folder's default, which is where a typed row sits.
+              ...(row.categoryHint === "consumable"
+                ? { classification: storedClassification("consumable", live.folderId, snapshot.value!.folders) }
+                : {}),
+              ...(linked.kcal != null ? { kcal: linked.kcal } : {}),
+            },
+          });
+        });
+      })
+      .catch(() => {});
+    return made;
+  }
   // A row that's still untouched-empty removes itself when focus leaves it (the
   // row calls this on focusout). Quiet — no undo toast: nothing was typed, so
   // nothing is lost. Emptiness is verified against the snapshot HERE, not just
@@ -1613,7 +1754,7 @@ function create() {
     // what My Gear holds of this list's gear, and which keys have an answer at
     // all — ItemRow renders its save button against the pair (see askVaultGear)
     vaultGear, vaultGearAsked, vaultGearSettled,
-    addBlankItem, addBlankItemAfter, addVaultItem, addVaultFolder, saveItemToVault, discardEmpty, updateItem, removeItem, setItemWeight, moveItem,
+    addBlankItem, addBlankItemAfter, pasteItemsAfter, addVaultItem, addVaultFolder, saveItemToVault, discardEmpty, updateItem, removeItem, setItemWeight, moveItem,
     addChild, nestItem, unnest, duplicateItem,
     pendingBlankId, pendingUndo, undoRemove, holdUndo, releaseUndo,
   };

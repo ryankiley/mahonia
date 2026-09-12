@@ -1445,7 +1445,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
         @focusin="undoFocused = true"
         @focusout="undoFocused = false"
       >
-        <span class="t-sm">Removed <strong>{{ pendingUndo.label }}</strong></span>
+        <span class="t-sm">{{ pendingUndo.verb ?? "Removed" }} <strong>{{ pendingUndo.label }}</strong></span>
         <button class="undobar__btn t-sm" @click="c.undoRemove()">
           <HugeiconsIcon :icon="UndoIcon" :size="14" :stroke-width="2" /> Undo
         </button>
