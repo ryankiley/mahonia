@@ -65,11 +65,27 @@ tools: read a shared list as data or Markdown, search the catalog, fetch one pro
 variants, and, holding an edit link, make a list, add rows and set the trip's dates and
 trail. A share code is the read capability and the edit link's fragment token the write
 one, hashed on arrival and passed only as a tool argument, so nothing new is trusted. The
-transport is stateless JSON-RPC over POST (MCP revision 2025-06-18, no sessions, no
-event stream, GET answers 405), hand-rolled in `server/routes/mcp.post.ts` with the tools
-in `server/utils/mcp.ts`; both files carry the reasoning. A client that only speaks stdio
-can bridge with `npx mcp-remote https://mahonia.app/mcp`. My Gear is deliberately out of
-reach: it would need an account token, which is a separate decision.
+transport is stateless JSON-RPC over POST (MCP revisions 2025-06-18 and 2025-11-25, no
+sessions, no event stream, GET answers 405), hand-rolled in `server/routes/mcp.post.ts`
+with the tools in `server/utils/mcp.ts`; both files carry the reasoning. My Gear is
+deliberately out of reach: it would need an account token, which is a separate decision.
+
+Add it to a client:
+
+[![Install in Cursor](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/install-mcp?name=mahonia&config=eyJ1cmwiOiJodHRwczovL21haG9uaWEuYXBwL21jcCJ9)
+[![Install in VS Code](https://img.shields.io/badge/VS_Code-Install_Server-0098FF?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=mahonia&config=%7B%22type%22%3A%22http%22%2C%22url%22%3A%22https%3A%2F%2Fmahonia.app%2Fmcp%22%7D)
+
+- **Claude** (claude.ai, Desktop, mobile): [add Mahonia as a connector](https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=Mahonia&connectorUrl=https%3A%2F%2Fmahonia.app%2Fmcp)
+  and choose "No sign-in". Connectors added there are available in Claude Code too.
+- **Claude Code:** `claude mcp add --transport http --scope user mahonia https://mahonia.app/mcp`
+- **Gemini CLI:** `gemini mcp add --transport http mahonia https://mahonia.app/mcp`
+- **ChatGPT:** Settings, Developer mode, add `https://mahonia.app/mcp` with "No Authentication".
+- **Anything that reads an `mcp.json`:** `{"mcpServers":{"mahonia":{"url":"https://mahonia.app/mcp"}}}`
+- **A client that only speaks stdio:** bridge with `npx mcp-remote https://mahonia.app/mcp`.
+
+The server is listed in the [official MCP registry](https://registry.modelcontextprotocol.io)
+as `app.mahonia/mahonia`; [`server.json`](server.json) is the listing, published with
+`mcp-publisher` under the domain's DNS proof.
 
 ## Changelog
 

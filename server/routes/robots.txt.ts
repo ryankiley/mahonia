@@ -29,8 +29,11 @@ export default defineEventHandler((event) => {
     // be turned away at the other end.
     "Disallow: /mine",
     "Disallow: /api/",
-    // the MCP endpoint is an API for assistants, not a page; a crawler's GET gets a 405
-    "Disallow: /mcp",
+    // /mcp is NOT disallowed, for the reason /s/ isn't. Every answer it gives carries
+    // X-Robots-Tag: noindex, so a crawler that fetches it reads the tag and leaves; a
+    // block here would only turn away the user-initiated fetchers, which then tell
+    // the person "this site blocks automated fetching" instead of reading the 405
+    // whose body says what the address is for. That happened, the first day.
     "",
     `Sitemap: ${origin}/sitemap.xml`,
     "",

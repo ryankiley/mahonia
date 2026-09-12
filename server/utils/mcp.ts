@@ -47,7 +47,8 @@ import { sha256Hex } from "./tokens";
  */
 export const MCP_PROTOCOL_VERSIONS = ["2025-06-18", "2025-11-25"];
 export const MCP_LATEST_VERSION = MCP_PROTOCOL_VERSIONS[MCP_PROTOCOL_VERSIONS.length - 1]!;
-export const MCP_SERVER_INFO = { name: "mahonia", title: "Mahonia", version: "1" };
+// the version the registry listing (server.json) and this handshake both carry
+export const MCP_SERVER_INFO = { name: "mahonia", title: "Mahonia", version: "1.0.0" };
 export const MCP_INSTRUCTIONS = [
   "Mahonia is a gear-list and pack-weight tracker for hikers. Lists need no account.",
   "A share link (mahonia.app/s/CODE) is permission to read that list: pass its code or the whole link to the read tools.",

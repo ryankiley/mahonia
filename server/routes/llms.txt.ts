@@ -50,5 +50,8 @@ export default defineEventHandler((event) => {
     "change, exactly as they are for a person; the write tools take the edit link as an",
     "argument, never in the address.",
     "",
+    `- [MCP endpoint](${origin}/mcp): Streamable HTTP, JSON-RPC over POST, no sign-in`,
+    "- Registry listing: app.mahonia/mahonia at https://registry.modelcontextprotocol.io",
+    "",
   ].join("\n");
 });
