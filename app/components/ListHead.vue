@@ -323,6 +323,11 @@ async function openFields(next: "add" | "edit") {
 
 // Close when focus leaves the panel by keyboard. Tabbing between the two inputs (or to
 // Remove) keeps it open; tabbing past the last control puts the row back to rest.
+//
+// A press INSIDE the panel must never come through here as a departure. The panel is
+// itself focusable (tabindex="-1" in the template, and the note there), so a press on
+// its non-focusable content parks focus on the panel — which `contains` — rather than
+// on the editor's <main>, which it doesn't.
 function onFocusOut(e: FocusEvent) {
   const nextEl = e.relatedTarget as Node | null;
   // a click on non-focusable chrome gives relatedTarget null — leave that to
@@ -540,11 +545,25 @@ onClickOutside(trailEl, closeTrail);
            No "Done": the inputs commit on change (blur/Enter) like every
            other field in the editor, so a confirm button would only be confirming
            something already saved. Focus leaving the panel closes it. -->
+      <!-- tabindex="-1", so the panel can HOLD focus. A press on anything in here that
+           can't take focus itself — the map-file label, the lede, a strip of padding —
+           makes the browser focus the nearest ancestor that can, and without this
+           that was the editor's <main tabindex="-1"> (the skip link's target). Focus
+           arriving there is, to onFocusOut, focus leaving the panel: it closed on the
+           mousedown, the mouseup landed on whatever was underneath, and the click
+           never reached the label — so "Import map file" opened nothing. Safari sends
+           every BUTTON in here on the same trip, since it doesn't focus a button on
+           click, which put Remove link and the unit picker one press from the same
+           fate. With the panel focusable the press lands here instead, which is
+           inside, and the click goes through. Not in the tab order (-1), so keyboard
+           travel through the fields is unchanged; the reset gives a mouse-focused
+           element no ring. -->
       <span
         v-if="open"
         :id="fieldsId"
         ref="fieldsEl"
         class="head__panel popover"
+        tabindex="-1"
         @focusout="onFocusOut"
         @keyup.escape="mode = null"
       >
