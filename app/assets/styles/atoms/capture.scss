@@ -105,9 +105,38 @@ main.editor__body[data-capture] {
 
   .item-wrap:not(:focus-within) .item__meta,
   .item-wrap[data-capture-empty] .item__meta,
-  .item-wrap:not(:focus-within) .item__name .reveal,
   .item-wrap[data-capture-empty] .item__name .reveal {
     display: none !important;
+  }
+
+  // The old display:none above cut off the leave transition on blur. A saved
+  // sub-line stays mounted, so focus and blur both animate the same grid row.
+  .item-wrap:not([data-capture-empty]) .item__name .reveal {
+    transition:
+      grid-template-rows var(--dur-reveal) var(--ease-open),
+      margin-top var(--dur-reveal) var(--ease-open),
+      opacity var(--dur-reveal) var(--ease-open),
+      visibility 0s linear;
+  }
+
+  .item-wrap:not(:focus-within) .item__name .reveal {
+    grid-template-rows: minmax(0, 0fr);
+    margin-top: 0;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition-timing-function: var(--ease-close), var(--ease-close), var(--ease-close), linear;
+    transition-delay: 0s, 0s, 0s, var(--dur-reveal);
+  }
+
+  // A saved gear type or note keeps the wrapper mounted. Let the other,
+  // still-empty field finish its own exit before it leaves the layout.
+  .reveal-field-leave-active {
+    transition: opacity var(--dur-reveal) var(--ease-close);
+  }
+
+  .reveal-field-leave-to {
+    opacity: 0;
   }
 
   .item-wrap:not(:focus-within) .item__capture-weight {

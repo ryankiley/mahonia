@@ -1308,18 +1308,20 @@ function dismissFix() {
                    read as a second set of name suggestions. A catalog pick fills this field
                    with a real value anyway, which demonstrates the vocabulary better than a
                    placeholder did. The aria-label carries the same noun for screen readers. -->
-              <input
-                v-if="cnameShown"
-                ref="cnameRef"
-                class="item__note item__gtype-input"
-                :maxlength="MAX_GEAR_TYPE_LEN"
-                :value="item.commonName ?? ''"
-                placeholder="Type of gear"
-                aria-label="Gear type"
-                autocorrect="off"
-                spellcheck="true"
-                @change="onCommonName"
-              />
+              <Transition name="reveal-field">
+                <input
+                  v-if="cnameShown"
+                  ref="cnameRef"
+                  class="item__note item__gtype-input"
+                  :maxlength="MAX_GEAR_TYPE_LEN"
+                  :value="item.commonName ?? ''"
+                  placeholder="Type of gear"
+                  aria-label="Gear type"
+                  autocorrect="off"
+                  spellcheck="true"
+                  @change="onCommonName"
+                />
+              </Transition>
               <!-- A TEXTAREA, and the only field on the row that is one. Everything
                    else here holds a value — a name, a count, a weight — and a value
                    that outgrows its box is a bug you fix by typing less. A note is a
@@ -1331,21 +1333,23 @@ function dismissFix() {
                    Enter still COMMITS rather than opening a line, like every other
                    field in the editor — and it keeps `description` a single line for
                    the CSV and Markdown exports, which would have to quote a newline. -->
-              <textarea
-                v-if="noteShown"
-                ref="noteRef"
-                class="item__note"
-                rows="1"
-                :maxlength="MAX_ITEM_NOTE_LEN"
-                :value="item.description ?? ''"
-                placeholder="Add a note"
-                aria-label="Item note"
-                autocorrect="off"
-                spellcheck="true"
-                @input="fitNote"
-                @keydown.enter.prevent="($event.target as HTMLTextAreaElement).blur()"
-                @change="onNote"
-              />
+              <Transition name="reveal-field">
+                <textarea
+                  v-if="noteShown"
+                  ref="noteRef"
+                  class="item__note"
+                  rows="1"
+                  :maxlength="MAX_ITEM_NOTE_LEN"
+                  :value="item.description ?? ''"
+                  placeholder="Add a note"
+                  aria-label="Item note"
+                  autocorrect="off"
+                  spellcheck="true"
+                  @input="fitNote"
+                  @keydown.enter.prevent="($event.target as HTMLTextAreaElement).blur()"
+                  @change="onNote"
+                />
+              </Transition>
             </div>
           </div>
         </Transition>
