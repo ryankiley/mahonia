@@ -4,7 +4,7 @@
 // route pages/e/[code].vue — a pages/e.vue would make /e/{code} a nested child that
 // only renders through a <NuxtPage/>, suppressing that route's own head/data.
 //
-// The whole editor surface — its own topbar + the shared SiteFooter — lives in
+// The whole editor surface, including its own topbar, lives in
 // <GearEditor>, a .client component, so the body only ever runs in the browser.
 definePageMeta({ layout: false });
 </script>

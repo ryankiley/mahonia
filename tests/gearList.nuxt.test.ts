@@ -10,6 +10,12 @@
 // helper extracted for testability would be exercising a different shape than the
 // one that breaks. So: boot Nuxt, stub the two boundaries (the fetch and the
 // IndexedDB store), and drive the real singleton through the real sequence.
+//
+// Real timers, but not the real 4 s capture debounce: six cases here wait it out,
+// and at 4 s that was 34 of this file's 41 s — and the reason it was the first file
+// to time out under load. useVault exposes the wait for exactly this, and the cases
+// that must land INSIDE the debounce (the 200 ms pagehide sleeps below) need it to
+// stay a few times longer than they are, which is what sets the number.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { stubLocalStorage } from "./helpers/storage";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
@@ -19,6 +25,7 @@ import type { Folder, Item, ListSnapshot } from "~~/shared/types";
 import type { VaultEntry } from "~~/shared/vault";
 import { vaultNormKey } from "~~/shared/vault";
 import {
+  _setCaptureDebounce,
   resetVaultCapture,
   setVaultDecisionFor,
   useVaultCapture,
@@ -95,6 +102,12 @@ class TextCapturingBlob extends RealBlob {
 globalThis.Blob = TextCapturingBlob as unknown as typeof Blob;
 
 const storage = stubLocalStorage();
+
+// see the header: the real wait is 4 s, and the pagehide cases sleep 200 ms to get
+// inside it. Module scope, because the controller is a module singleton and vitest
+// gives this file its own process.
+const CAPTURE_DEBOUNCE_MS = 1_000;
+_setCaptureDebounce(CAPTURE_DEBOUNCE_MS);
 
 // ---- the network --------------------------------------------------------------
 const TOKEN = "test-edit-token";
@@ -333,9 +346,9 @@ describe("useGearList — whose gear is this?", () => {
 
     await vi.waitFor(() => expect(c.vaultPrompt.value).not.toBeNull());
     expect(vaultDecisionFor(TOKEN)).toBe("ask");
-    // and it is still only a question — nothing has been sent (the capture debounce
-    // is 4s, so this window is well inside it either way, but the guard returns
-    // before anything is even queued)
+    // and it is still only a question — nothing has been sent (this window is well
+    // inside the capture debounce either way, but the guard returns before anything
+    // is even queued)
     expect(captureCalls).toBe(0);
     // the rows' mirror of the answer agrees: unanswered is not covered, so every
     // row's save button stays a live action
@@ -391,7 +404,7 @@ describe("useGearList — whose gear is this?", () => {
     // list, so the save buttons flip to "already banked" without a reload
     expect(c.vaultAuto.value).toBe(true);
 
-    // the capture is debounced 4s behind the answer
+    // the capture is debounced behind the answer (CAPTURE_DEBOUNCE_MS here)
     await vi.waitFor(() => expect(captureCalls).toBe(1), { timeout: 8_000, interval: 50 });
 
     c.updateItem("i1", { qty: 3 });
@@ -631,7 +644,7 @@ describe("useGearList — whose gear is this?", () => {
     // happens: the capture set is unchanged, so the fingerprint gate correctly
     // suppresses the write entirely.
     c.updateItem("i2", { qty: 3 });
-    await new Promise((r) => setTimeout(r, 5_000)); // past the 4s capture debounce
+    await new Promise((r) => setTimeout(r, CAPTURE_DEBOUNCE_MS + 500)); // past the capture debounce
     expect(captureBodies.flat().map((r) => r.name)).toEqual(["Duplex"]);
   });
 
@@ -757,9 +770,9 @@ describe("useGearList — whose gear is this?", () => {
 // ---------------------------------------------------------------------------
 // the last-chance flush
 // ---------------------------------------------------------------------------
-// Capture is debounced 4s so typing a name is one write instead of one per
-// keystroke — which means the common case (edit a list, close the tab) lands
-// INSIDE the debounce with the rows still queued. pagehide is the only hook that
+// Capture is debounced (4 s in the app; CAPTURE_DEBOUNCE_MS here) so typing a name
+// is one write instead of one per keystroke — which means the common case (edit a
+// list, close the tab) lands INSIDE the debounce with the rows still queued. pagehide is the only hook that
 // reliably fires when mobile Safari backgrounds a tab, and a beacon is the only
 // send that survives the document going away.
 describe("useGearList — getting a pending capture out as the page goes away", () => {
@@ -783,7 +796,7 @@ describe("useGearList — getting a pending capture out as the page goes away", 
     await c.load({ token: TOKEN });
     setVaultDecisionFor(TOKEN, "yes"); // a list already known to be mine
     c.updateItem("i1", { qty: 2 });
-    // let sync()'s dynamic import resolve and queue the rows, but nowhere near 4s
+    // let sync()'s dynamic import resolve and queue the rows, well inside the debounce
     await new Promise((r) => setTimeout(r, 200));
 
     window.dispatchEvent(new Event("pagehide"));
@@ -806,7 +819,7 @@ describe("useGearList — getting a pending capture out as the page goes away", 
     await new Promise((r) => setTimeout(r, 200));
     window.dispatchEvent(new Event("pagehide"));
 
-    await new Promise((r) => setTimeout(r, 5_000)); // past the 4s debounce
+    await new Promise((r) => setTimeout(r, CAPTURE_DEBOUNCE_MS + 500)); // past the debounce
     expect(captureCalls).toBe(0);
   });
 

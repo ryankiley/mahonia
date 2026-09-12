@@ -15,6 +15,7 @@ useHead({
     },
   ],
 });
+const copyrightYear = new Date().getFullYear();
 
 </script>
 
@@ -135,6 +136,7 @@ useHead({
           <a :href="`mailto:${CONTACT_EMAIL}`">{{ CONTACT_EMAIL }}</a>. See also the
           <NuxtLink to="/legal">Legal</NuxtLink> page.
         </p>
+        <p class="t-muted">© {{ copyrightYear }} Ryan Kiley.</p>
       </div>
 
     </main>

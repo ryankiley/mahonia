@@ -1,3 +1,15 @@
 {
-  "extends": "./.nuxt/tsconfig.json"
+  // The app project — what `nuxt typecheck` checks. scripts/ and tests/ have their
+  // own projects (tsconfig.scripts.json, tsconfig.tests.json); scripts/typecheck.mjs
+  // runs all three.
+  "extends": "./.nuxt/tsconfig.json",
+  "compilerOptions": {
+    // Incremental: the first run writes what it learned to node_modules/.cache, and
+    // the next one re-checks only the files an edit touched (and their dependents).
+    // Checked with a type error injected into a .vue and a .ts file: a warm run
+    // reports both exactly as a cold one does. --noEmit still emits nothing; the
+    // only file written is the buildinfo.
+    "incremental": true,
+    "tsBuildInfoFile": "./node_modules/.cache/typecheck/app.tsbuildinfo"
+  }
 }

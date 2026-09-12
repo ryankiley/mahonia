@@ -34,10 +34,21 @@ const props = withDefaults(
      * in CSS, which is the only way it can, since no row there sees the filter.
      */
     contextOnlyIds?: ReadonlySet<string>;
+    /**
+     * Rows whose variant shows on the sub-line under the name: the same product held
+     * in two variants, where the variant is what tells them apart (ReadonlyListView
+     * computes the set once, from shared/variantShown). Every other row's sub-line
+     * carries the gear type and note alone; the name line is brand + product always.
+     */
+    variantShownIds?: ReadonlySet<string>;
     nested?: boolean;
   }>(),
   { nested: false },
 );
+
+/** this row's variant earns its place on the sub-line (a typed one as readily as a
+ *  picked one: the rule is about the list, not where the variant came from) */
+const variantOnRow = computed(() => !!props.variantShownIds?.has(props.item.id));
 
 /** this row is scaffolding around a match, not one of the filtered person's own */
 const isContextOnly = computed(() => !!props.contextOnlyIds?.has(props.item.id));
@@ -205,12 +216,15 @@ const rowPerson = computed(() =>
           <span v-if="!splitWorn" class="visually-hidden"> · {{ markTitle.toLowerCase() }}</span>
         </span>
       </span>
-      <!-- the sub-line: the gear type (a quiet upright label, "Tent"/"Trail runners") with the
-           owner's note trailing it inline in the italic caption voice. Either may be absent;
-           with no common name the note shows alone, exactly as it did before this field. -->
-      <p v-if="item.commonName || item.description" class="t-sm item__rosub">
+      <!-- the sub-line: the gear type (a quiet upright label, "Tent"/"Trail runners"), then
+           the variant where the list holds the product in two variants (variantOnRow, the
+           same place the editor keeps it), then the owner's note, the last two in the
+           italic caption voice. Any may be absent; each dot belongs to the part after it,
+           so whatever comes first opens the line without one. -->
+      <p v-if="item.commonName || variantOnRow || item.description" class="t-sm item__rosub">
         <span v-if="item.commonName" class="item__rogtype">{{ item.commonName }}</span
-        ><span v-if="item.description" class="item__ronote">{{ item.commonName ? " · " : "" }}{{ item.description }}</span>
+        ><span v-if="variantOnRow" class="item__rovariant">{{ item.commonName ? " · " : "" }}{{ item.variant }}</span
+        ><span v-if="item.description" class="item__ronote">{{ item.commonName || variantOnRow ? " · " : "" }}{{ item.description }}</span>
       </p>
     </div>
     <!-- nested items: the same read row, indented one level (their weights sum into the
@@ -224,6 +238,7 @@ const rowPerson = computed(() =>
           :item="child"
           :children-by-parent="childrenByParent"
           :context-only-ids="contextOnlyIds"
+          :variant-shown-ids="variantShownIds"
           nested
         />
       </div>
@@ -339,6 +354,7 @@ const rowPerson = computed(() =>
 .item__rogtype {
   color: var(--ink-2);
 }
+.item__rovariant,
 .item__ronote {
   color: var(--ink-3);
   font-style: italic;

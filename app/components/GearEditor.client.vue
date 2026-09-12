@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon, type IconNode } from "~/utils/hugeicon";
-import { Backpack02Icon, Bug02Icon, CheckmarkSquare02Icon, CopyPlusIcon, Delete02Icon, EllipsisIcon, FileExportIcon, FileImportIcon, KeyboardIcon, RemoveCircleIcon, Route02Icon, SafeBoxIcon, Share08Icon, UndoIcon, UserAddIcon } from "@hugeicons/core-free-icons";
+import { Backpack03Icon, Bug02Icon, CheckmarkSquare02Icon, CopyPlusIcon, Delete02Icon, EllipsisIcon, FileExportIcon, FileImportIcon, InformationCircleIcon, KeyboardIcon, LegalDocument01Icon, RemoveCircleIcon, Route02Icon, SafeBoxIcon, Share08Icon, UndoIcon, UserAddIcon } from "@hugeicons/core-free-icons";
 import { editLinkPath, normalizeShareCode } from "~~/shared/links";
 import { forgetClaimedOpen } from "~/composables/useClaimedLists";
 import { resumeHere } from "~/composables/useResumed";
@@ -10,11 +10,12 @@ import { chipWeightLabels, filterItemsForPerson, hasUnassignedTopLevel, personNa
 import { countedForPacking } from "~~/shared/packing";
 import type { Item, Unit } from "~~/shared/types";
 import type { EditorMode } from "~/composables/useEditorMode";
-import { CHILDREN_BY_PARENT, PEOPLE_CTX } from "~/components/ItemRow.vue";
+import { CHILDREN_BY_PARENT, PEOPLE_CTX, VARIANT_SHOWN } from "~/components/ItemRow.vue";
+import { variantShownIds } from "~~/shared/variantShown";
 import { bySortOrder, computeTotals, groupItemsByFolder, groupItemsByParent, ungroupedTopLevel } from "~~/shared/weights";
 
-// The whole editor surface (its own sticky topbar + flex shell + the shared
-// SiteFooter). Rendered by the page routes: /e (bare, prerendered) and /e/[code]
+// The whole editor surface (its own sticky topbar + flex shell). Rendered by
+// the page routes: /e (bare, prerendered) and /e/[code]
 // (client-only under a server-rendered <head>). It is CLIENT-ONLY — it holds a
 // singleton controller with IndexedDB + window listeners, so it never runs on the
 // server (the .client.vue suffix keeps it out of both pages' SSR/prerender pass).
@@ -131,6 +132,11 @@ const itemsByFolder = computed(() => groupItemsByFolder(snapshot.value?.items ??
 // hand rows that only ever read the empty default a value they don't look at.
 const childrenByParent = computed(() => groupItemsByParent(snapshot.value?.items ?? []));
 provide(CHILDREN_BY_PARENT, childrenByParent);
+// the rows whose variant shows beside the name on the checklist face: the same
+// product held in two variants (shared/variantShown). Provided for the reason the
+// children map is: one pass per snapshot, and a row subscribes only to its own
+// membership. The edit face never shows one beside the name (its sub-line has it).
+provide(VARIANT_SHOWN, computed(() => variantShownIds(snapshot.value?.items ?? [])));
 const NO_ITEMS: Item[] = [];
 
 // Which of the three views of this list you're in. Was a single `packed` boolean; it
@@ -288,7 +294,7 @@ const headline = computed(() => {
 // is that it is a noun beside two gerunds, which was the trade taken deliberately —
 // matching the read view beats matching the suffix.
 const MODES = [
-  { key: "edit", label: "Gear", icon: Backpack02Icon },
+  { key: "edit", label: "Gear", icon: Backpack03Icon },
   { key: "pack", label: "Packing", icon: CheckmarkSquare02Icon },
   { key: "plan", label: "Trip", icon: Route02Icon },
 ] as const satisfies readonly { key: EditorMode; label: string; icon: IconNode }[];
@@ -914,12 +920,10 @@ const MENU_ACTIONS: MenuAction[] = [
   // a single item is a click that reveals nothing you couldn't have been shown. It
   // also forced a label long enough to set the whole menu's width.
   { label: "Import a list…", icon: FileImportIcon, run: () => { importOpen.value = true; } },
-  // Feedback is reachable from the footer on every page, but the editor is where
-  // people actually spend their time and where a long list puts that footer far below
-  // the fold — by the time you have something to say about a row, the link is a scroll
-  // away. The toolbar is in reach from anywhere in the list.
-  // The two entries that are ABOUT using the app rather than acts upon a list, so
-  // they close the menu together, after the run that makes lists.
+];
+// Help and site destinations live together, away from list operations and the
+// destructive pair. The editor has no footer; the sticky toolbar keeps them in reach.
+const SITE_ACTIONS: MenuAction[] = [
   { label: "Keyboard shortcuts", icon: KeyboardIcon, run: openShortcuts },
   { label: "Send feedback…", icon: Bug02Icon, run: () => { feedbackEverOpened.value = true; feedbackOpen.value = true; } },
 ];
@@ -988,7 +992,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
   <div
     ref="editorRef"
     class="editor"
-    :class="{ 'editor--centered': !(snapshot && totals), 'editor--split': vaultOpen }"
+    :class="{ 'editor--split': vaultOpen }"
   >
     <!-- the editor's page heading — visually the title input carries it, but a
          real (hidden) h1 gives AT users a page title on this client-only view -->
@@ -1101,13 +1105,12 @@ function onCorrected(res: { status: string; itemName?: string }) {
               </button>
             </Tooltip>
             <Transition name="menu">
-              <ul v-if="menuOpen" ref="kebabListRef" class="popover menu__list" role="menu" aria-label="More actions" v-on="kebabPlateOn">
+              <ul v-if="menuOpen" ref="kebabListRef" class="popover menu__list editor__actions" role="menu" aria-label="More actions" v-on="kebabPlateOn">
                 <!-- the travelling wash (atoms/controls.scss + useMenuPlate) -->
                 <li role="none" aria-hidden="true">
                   <span ref="kebabPlateRef" class="menu__plate" />
                 </li>
-                <!-- no "Your lists" here — the footer already carries that link.
-                     Close BEFORE the action runs, matching the old dispatch order. -->
+                <!-- Close BEFORE the action runs, matching the old dispatch order. -->
                 <li v-for="a in menuActions" :key="a.label" role="none">
                   <button type="button" data-row role="menuitem" class="menu__item" @click="menuOpen = false; a.run()">
                     <HugeiconsIcon :icon="a.icon" :size="14" :stroke-width="2" aria-hidden="true" />
@@ -1126,6 +1129,28 @@ function onCorrected(res: { status: string; itemName?: string }) {
                   @opened="warmExporters"
                   @pick="menuOpen = false"
                 />
+                <li role="none" class="menu__foot">
+                  <button
+                    v-for="a in SITE_ACTIONS"
+                    :key="a.label"
+                    type="button"
+                    data-row
+                    role="menuitem"
+                    class="menu__item"
+                    @click="menuOpen = false; a.run()"
+                  >
+                    <HugeiconsIcon :icon="a.icon" :size="14" :stroke-width="2" aria-hidden="true" />
+                    {{ a.label }}
+                  </button>
+                  <NuxtLink to="/about" data-row role="menuitem" class="menu__item" @click="menuOpen = false">
+                    <HugeiconsIcon :icon="InformationCircleIcon" :size="14" :stroke-width="2" aria-hidden="true" />
+                    About
+                  </NuxtLink>
+                  <NuxtLink to="/legal" data-row role="menuitem" class="menu__item" @click="menuOpen = false">
+                    <HugeiconsIcon :icon="LegalDocument01Icon" :size="14" :stroke-width="2" aria-hidden="true" />
+                    Legal
+                  </NuxtLink>
+                </li>
                 <!-- Deleting this list, last and under a hairline. Not one of the rows
                      above it: everything there makes, copies or moves a list, and this
                      one ends it — the same reason ListMenu rules "New list" off its list
@@ -1411,11 +1436,6 @@ function onCorrected(res: { status: string; itemName?: string }) {
       <p class="t-muted">Loading…</p>
     </main>
 
-    <!-- in-toolbar: this page carries BOTH footer destinations in its own top bar —
-         the list switcher and My Gear — so the footer stops repeating them.
-         Every other page keeps them, because nothing up there carries them. -->
-    <SiteFooter />
-
     <Transition name="toast">
       <div
         v-if="pendingUndo"
@@ -1455,8 +1475,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
 </template>
 
 <style scoped lang="scss">
-/* column shell so the slim legal footer pins to the bottom on the short
-   (empty / missing) states and sits below the list on long ones */
+/* The editor fills the viewport on short lists and grows with long ones. */
 .editor {
   display: flex;
   flex-direction: column;
@@ -1467,7 +1486,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
    blocks (not a margin on .wrap) keeps .wrap's centring intact — it re-centres
    inside the narrower space, which is what makes this read as two panes and not as
    a page shoved sideways.
-   Applied to main + footer and NOT to .editor itself, so the sticky topbar keeps
+   Applied to the editor shell, while the sticky topbar breaks back out to keep
    spanning the full viewport: it's the site's bar, not the list column's, and
    stopping it short of the vault made it look like a second panel had been cut out
    of the page. Desktop only — below $bp-full the pane is a bottom sheet that
@@ -1671,11 +1690,14 @@ function onCorrected(res: { status: string; itemName?: string }) {
 }
 /* the ⋯ menu's Export section is the shared .menu__sect disclosure (controls.scss),
    which the read views' menu uses too */
-/* ...and its FOOT holds the one action that ends the list, ruled off from the rest —
-   the shared .menu__foot (controls.scss), which the switcher and the read views' menu
-   wear too. The rule sits on the <li> rather than on the row, so it spans the same
-   width the travelling plate does (both measure from the popover's padding box)
-   instead of the row's own inset. */
+/* Export may expand on a short phone. Keep all links and actions reachable. */
+.editor__actions {
+  max-height: calc(100svh - var(--space-9));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+/* The shared .menu__foot (controls.scss) separates list, site, and destructive
+   actions. Its rule spans the same width as the travelling plate. */
 /* THE ONE COLOURED ROW IN THE CHROME. It was --ink-3 with the trash glyph doing the
    distinguishing, on the monochrome rule in tokens.scss; it now spends --danger, and
    the token's comment has been widened to say so rather than left asserting a rule
@@ -1718,9 +1740,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
      sideways, so declaring it there left the other reading an invalid value and
      collapsing its margin to 0. */
   --folder-gap: var(--space-7);
-  /* no bottom padding: the footer's margin-top is the single content→footer gap
-     (matches the inter-folder rhythm), so it isn't doubled up here */
-  padding-block: var(--space-4) 0;
+  padding-block: var(--space-4) var(--space-7);
   display: flex;
   flex-direction: column;
   /* one step up from --space-4. This is the gap directly under the trail link (the last
@@ -1846,12 +1866,6 @@ function onCorrected(res: { status: string; itemName?: string }) {
   justify-content: center;
   text-align: center;
   gap: var(--space-4);
-}
-/* On the empty states (missing / loading) the message is the whole page, so centre
-   it in the viewport: drop the footer's top gap that would otherwise cap the grown
-   <main> short of the footer and pull the optical centre upward. */
-.editor--centered :deep(.foot) {
-  margin-top: 0;
 }
 /* the toast base + its enter/leave motion now live in the shared .toast atom
    (controls.scss), used by the read views' menu too; the undo bar just adds its
