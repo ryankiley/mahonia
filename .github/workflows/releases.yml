@@ -16,6 +16,14 @@
 #
 # Idempotent: every run walks every settled date, creates what's missing, edits what
 # differs, and touches nothing else. Safe to re-run by hand.
+#
+# Paced. The first run on main created four releases in five seconds and the fifth
+# got "HTTP 403: Resource not accessible by integration", which is not a permissions
+# failure (the four before it had the same token) but GitHub's secondary rate limit
+# on content that fans out notifications, and a release does. So a create is followed
+# by a pause, and any create or edit that fails is retried with a growing wait before
+# the run gives up on it. The 37-day backfill takes a few minutes instead of failing
+# at the fifth day and finishing on the next run.
 name: Releases
 
 on:
@@ -66,6 +74,15 @@ jobs:
         run: |
           set -euo pipefail
           notes() { node node_modules/jiti/lib/jiti-cli.mjs scripts/release-notes.ts "$@"; }
+          # gh, retried: a secondary rate limit answers 403 and clears in seconds
+          try() {
+            local wait
+            for wait in 10 30 60 0; do
+              if "$@"; then return 0; fi
+              [ "$wait" -gt 0 ] || return 1
+              echo "  retrying in ${wait}s"; sleep "$wait"
+            done
+          }
 
           created=0; updated=0; kept=0
           while IFS=$'\t' read -r date tag; do
@@ -78,8 +95,9 @@ jobs:
               if [ "$(cat /tmp/current.md)" = "$(cat /tmp/body.md)" ]; then
                 kept=$((kept + 1))
               else
-                gh release edit "$tag" --title "$title" --notes-file /tmp/body.md > /dev/null
+                try gh release edit "$tag" --title "$title" --notes-file /tmp/body.md > /dev/null
                 echo "updated $tag"; updated=$((updated + 1))
+                sleep 3
               fi
               continue
             fi
@@ -90,8 +108,9 @@ jobs:
             [ -n "$anchor" ] || anchor=$(git rev-list --max-parents=0 origin/main | tail -1)
 
             # settled releases arrive oldest first, so the last one created is "latest"
-            gh release create "$tag" --target "$anchor" --title "$title" --notes-file /tmp/body.md > /dev/null
+            try gh release create "$tag" --target "$anchor" --title "$title" --notes-file /tmp/body.md > /dev/null
             echo "created $tag at ${anchor:0:7}"; created=$((created + 1))
+            sleep 5
           done < <(notes --list)
 
           echo "releases: $created created, $updated updated, $kept unchanged"
