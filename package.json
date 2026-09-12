@@ -28,6 +28,7 @@
     "changelog": "node scripts/changelog.mjs",
     "changelog:build": "node node_modules/jiti/lib/jiti-cli.mjs scripts/build-changelog.ts",
     "changelog:compact": "node node_modules/jiti/lib/jiti-cli.mjs scripts/compact-changelog.ts",
+    "release-notes": "node node_modules/jiti/lib/jiti-cli.mjs scripts/release-notes.ts",
     "og:site": "node node_modules/jiti/lib/jiti-cli.mjs scripts/render-og-site.ts",
     "catalog:build": "node node_modules/jiti/lib/jiti-cli.mjs scripts/build-catalog.ts",
     "catalog:audit": "node node_modules/jiti/lib/jiti-cli.mjs scripts/audit-catalog.ts",
