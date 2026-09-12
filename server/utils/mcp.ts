@@ -34,7 +34,7 @@ import { catalogRowsById, productVariants, searchCatalog } from "./catalog";
 import { useCatalogDb } from "./db";
 import { applyOpsByEditHash, createList, getByEditHash, getByShareCode, getTextByShareCode } from "./listRepo";
 import { trustedOrigin } from "./origin";
-import { rateLimit } from "./rateLimit";
+import { rateLimit, rateLimitSubject } from "./rateLimit";
 import { sha256Hex } from "./tokens";
 
 /**
@@ -208,7 +208,7 @@ const LIST_OUTPUT = {
     truncated: {
       type: "object",
       description:
-        "Present only when the list was too large to return whole, naming what was cut: notes (true: every row's note), rows (how many came off the end, nested rows counted), fields (which of description, days, trail and people went, only when the rest alone was too large). The totals still count every row. get_list_markdown returns the same rows in about a third of the space, without notes.",
+        "Present only when the list was too large to return whole, naming what was cut: notes (true: every row's note), rows (how many came off the end, nested rows counted), fields (which of description, days, trail and people went, only when the rest alone was too large). The totals still count every row. get_list_markdown holds about three times as many rows, without notes, and is cut the same way only past that.",
       properties: {
         notes: { type: "boolean" },
         rows: { type: "integer" },
@@ -315,7 +315,7 @@ export const MCP_TOOLS: McpTool[] = [
   {
     name: "get_list_markdown",
     title: "Read a shared list as Markdown",
-    description: `The same list as Markdown: one table per folder and a totals block, the text the site's own Markdown export produces. Takes a share code or share link. ${PROVENANCE}`,
+    description: `The same list as Markdown: one table per folder and a totals block, the text the site's own Markdown export produces. Takes a share code or share link. A list too large to return whole loses rows off the end of the tables, a line under them says how many, and the totals still count every row. ${PROVENANCE}`,
     inputSchema: { type: "object", properties: { share_code: SHARE_ARG }, required: ["share_code"] },
     annotations: READ,
   },
@@ -488,6 +488,8 @@ const NO_LIST = "No list is shared at that code. It may have been deleted, or th
 async function getList(event: H3Event, args: Record<string, unknown>): Promise<ToolResult> {
   const code = shareCodeFrom(args.share_code);
   if (!code) return fail(NO_SHARE);
+  // the read budget is the list's, not the caller's address's (see RATE_LIMITS "mcp")
+  await rateLimitSubject("mcp-read", code);
   const snap = await getByShareCode(code);
   if (!snap) return fail(NO_LIST);
   return ok(fitList(describeList(snap, trustedOrigin(event))));
@@ -496,9 +498,10 @@ async function getList(event: H3Event, args: Record<string, unknown>): Promise<T
 async function getListMarkdown(args: Record<string, unknown>): Promise<ToolResult> {
   const code = shareCodeFrom(args.share_code);
   if (!code) return fail(NO_SHARE);
+  await rateLimitSubject("mcp-read", code);
   const snap = await getTextByShareCode(code);
   if (!snap) return fail(NO_LIST);
-  return { content: [{ type: "text", text: listToMarkdown(snap) }] };
+  return { content: [{ type: "text", text: fitMarkdown(listToMarkdown(snap)) }] };
 }
 
 /** milligrams to grams, to a tenth: the precision a kitchen scale has */
@@ -672,6 +675,66 @@ export function fitList(described: Record<string, unknown>, max = GET_LIST_MAX_B
     if (size(build(0, shed)) <= max) break;
   }
   return build(0, shed);
+}
+
+/** the exporter's table scaffolding (shared/exporters/markdown), read back line by line */
+const MD_HEADER = "| Item | Qty | Weight |";
+const MD_RULE = "| --- | ---: | ---: |";
+
+/**
+ * The Markdown answer cut to the same ceiling, when it is over it: rows off the end of
+ * the tables, a nested row on its own (it follows its parent, so it goes first), an
+ * emptied folder's heading with them, and one line under the tables saying how many
+ * are missing. The totals block at the foot is computed over every row and stays. This
+ * lives here, not in the exporter, because the exporter is what /s/{code}.md serves
+ * byte for byte; only the tool's answer has a budget. Under the ceiling the text is
+ * the exporter's, untouched.
+ */
+export function fitMarkdown(text: string, max = GET_LIST_MAX_BYTES): string {
+  const bytes = (line: string) => Buffer.byteLength(line);
+  let total = bytes(text);
+  if (total <= max) return text;
+  const lines = text.split("\n");
+  // the foot: the rule and the totals under it, when the list has weights. A row can't
+  // be a bare "---" (rows start with a pipe), so the last one is the rule.
+  const rule = lines.lastIndexOf("---");
+  const foot = rule >= 0 ? lines.slice(rule) : [];
+  const body = rule >= 0 ? lines.slice(0, rule) : lines;
+  // the body: the title, then per folder a heading, a blank, the header, the rule, its
+  // rows and a closing blank, in the exporter's own order
+  type Section = { head: string[]; rows: string[] };
+  const lead: string[] = [];
+  const sections: Section[] = [];
+  for (const line of body) {
+    const current = sections.at(-1);
+    if (line.startsWith("## ")) sections.push({ head: [line], rows: [] });
+    else if (!current) lead.push(line);
+    else if (line.startsWith("| ") && line !== MD_HEADER && line !== MD_RULE) current.rows.push(line);
+    else if (current.rows.length === 0) current.head.push(line);
+    // the blank that closes a folder's rows is not kept: the assembly below puts it back
+  }
+  const notice = (n: number) => `_${n} more row${n === 1 ? "" : "s"} not shown; the totals count every row._`;
+  let omitted = 0;
+  // what the notice adds: its own line and a blank under it, each with a newline
+  const fits = () => total + bytes(notice(omitted)) + 2 <= max;
+  while (!fits() && sections.length) {
+    const last = sections.at(-1)!;
+    const row = last.rows.pop();
+    if (row !== undefined) {
+      omitted++;
+      total -= bytes(row) + 1;
+    }
+    if (last.rows.length === 0) {
+      // the heading, blank, header and rule of a folder with no rows left, and its closing blank
+      for (const line of last.head) total -= bytes(line) + 1;
+      total -= 1;
+      sections.pop();
+    }
+  }
+  const out = [...lead];
+  for (const s of sections) out.push(...s.head, ...s.rows, "");
+  out.push(notice(omitted), "", ...foot);
+  return out.join("\n");
 }
 
 async function search(args: Record<string, unknown>): Promise<ToolResult> {
@@ -856,6 +919,7 @@ class FolderBook {
 }
 
 async function create(event: H3Event, args: Record<string, unknown>): Promise<ToolResult> {
+  // the one write with no list to key on: per address, like the web's create
   await rateLimit(event, "mcp-write");
   const book = new FolderBook([]);
   const items: Item[] = [];
@@ -975,9 +1039,11 @@ function tripMeta(args: Record<string, unknown>, creating = false): Record<strin
 }
 
 async function addItems(event: H3Event, args: Record<string, unknown>): Promise<ToolResult> {
-  await rateLimit(event, "mcp-write");
   const hash = editHashFrom(args.edit_link);
   if (!hash) return fail(NO_EDIT);
+  // the write budget is the list's: spent once the link has yielded a hash to key it
+  // on, so a call with no link costs nothing past the endpoint's own guard
+  await rateLimitSubject("mcp-write", hash);
   if (!Array.isArray(args.items) || !args.items.length) return fail("items must be a non-empty array of rows.");
   const snap = await getByEditHash(hash);
   if (!snap) return fail(NO_EDIT_LIST);
@@ -1027,9 +1093,9 @@ async function addItems(event: H3Event, args: Record<string, unknown>): Promise<
 }
 
 async function setTrip(event: H3Event, args: Record<string, unknown>): Promise<ToolResult> {
-  await rateLimit(event, "mcp-write");
   const hash = editHashFrom(args.edit_link);
   if (!hash) return fail(NO_EDIT);
+  await rateLimitSubject("mcp-write", hash);
   const meta = tripMeta(args);
   if (typeof meta === "string") return fail(meta);
   if (!Object.keys(meta).length) return fail("Nothing to set: give a title, unit, start_date, end_date, trail_url, trail_label or trail_distance_km.");
