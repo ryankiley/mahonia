@@ -77,11 +77,12 @@ export function notFound(statusMessage = "Not found") {
  * Read a JSON body with a hard size cap on the ACTUAL bytes received rather
  * than the client-supplied Content-Length. A header-only check is bypassable by
  * omitting Content-Length or using chunked transfer-encoding, which then lets
- * an oversized body be buffered + JSON-parsed; reading the raw body and
- * measuring it closes that. Rejects with 413 past `maxBytes`; falls back to
- * `{}` on missing/malformed JSON so every handler validates its own fields
- * uniformly. (On Vercel a ~4.5 MB platform limit backstops the buffering
- * itself; this makes the per-endpoint cap authoritative.)
+ * an oversized body be buffered + JSON-parsed. Normal node requests are read
+ * chunk by chunk and retain no more than the cap; adapters that hand H3 an
+ * already-materialized body are still measured before parsing. Rejects with
+ * 413 past `maxBytes`; falls back to `{}` on missing/malformed JSON so every
+ * handler validates its own fields uniformly. (On Vercel a ~4.5 MB platform
+ * limit backstops an adapter that buffers before our code can see it.)
  */
 /** What reading a capped response body produced. `body: null` means the response
  *  was empty; `ok: false` means it went past the cap and the caller asked to
@@ -89,6 +90,96 @@ export function notFound(statusMessage = "Not found") {
  *  because "nothing came back" and "too much came back" are different answers
  *  and /api/import has to tell a caller which one it hit. */
 type CappedBody = { ok: true; body: Buffer | null } | { ok: false; reason: "oversize" };
+
+const H3_RAW_BODY = Symbol.for("h3RawBody");
+
+function payloadTooLarge() {
+  return createError({ statusCode: 413, statusMessage: "Payload too large" });
+}
+
+/** Buffer a Node request only up to its cap. On an overage, resume the request so
+ * Node drains the socket without retaining the rest; that lets H3 send the 413
+ * instead of leaving a keep-alive connection stalled behind unread bytes. */
+function readNodeBodyCapped(event: H3Event, maxBytes: number): Promise<Buffer | null> {
+  const req = event.node.req;
+  const claimedLength = Number(getHeader(event, "content-length"));
+  if (Number.isFinite(claimedLength) && claimedLength > maxBytes) {
+    req.resume();
+    return Promise.reject(payloadTooLarge());
+  }
+
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    let total = 0;
+    let settled = false;
+    const cleanup = () => {
+      req.off("data", onData);
+      req.off("end", onEnd);
+      req.off("error", onError);
+      req.off("aborted", onAborted);
+    };
+    const fail = (error: unknown, drain = false) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      if (drain) req.resume();
+      reject(error);
+    };
+    const onData = (value: Uint8Array) => {
+      const chunk = Buffer.from(value);
+      if (chunk.length > maxBytes - total) return fail(payloadTooLarge(), true);
+      total += chunk.length;
+      chunks.push(chunk);
+    };
+    const onEnd = () => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve(total ? Buffer.concat(chunks, total) : null);
+    };
+    const onError = (error: Error) => fail(error);
+    const onAborted = () => fail(new Error("Request aborted"));
+    req.on("data", onData);
+    req.once("end", onEnd);
+    req.once("error", onError);
+    req.once("aborted", onAborted);
+  });
+}
+
+/** A Fetch/Web adapter can hand H3 a request body before it reaches node's
+ * IncomingMessage. It still needs the same cap. Native web streams honour
+ * cancellation, unlike h3's node-to-web bridge, so stopping here is safe. */
+async function readWebBodyCapped(stream: ReadableStream<Uint8Array>, maxBytes: number): Promise<Buffer | null> {
+  const reader = stream.getReader();
+  const chunks: Buffer[] = [];
+  let total = 0;
+  try {
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      if (value.byteLength > maxBytes - total) {
+        await reader.cancel();
+        throw payloadTooLarge();
+      }
+      const chunk = Buffer.from(value);
+      total += chunk.length;
+      chunks.push(chunk);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  return total ? Buffer.concat(chunks, total) : null;
+}
+
+/** Whether an adapter has already supplied a body outside the node stream.
+ * Buffers/objects supplied this way are already materialized by the platform;
+ * readRawBody remains the compatibility path, but their parsed size is still
+ * checked before a handler receives them. */
+function hasPreReadBody(event: H3Event): boolean {
+  const req = event.node.req as typeof event.node.req & { rawBody?: unknown; body?: unknown; [key: symbol]: unknown };
+  return event._requestBody != null || req[H3_RAW_BODY] != null || req.rawBody != null || req.body != null;
+}
 
 /**
  * Read an OUTBOUND fetch's response body up to `maxBytes`, cancelling the stream
@@ -145,9 +236,22 @@ export async function readResponseCapped(
 }
 
 export async function readJsonBodyCapped<T>(event: H3Event, maxBytes: number): Promise<T> {
-  const raw = await readRawBody(event, false).catch(() => undefined); // Buffer | undefined
-  if (raw && raw.length > maxBytes)
-    throw createError({ statusCode: 413, statusMessage: "Payload too large" });
+  const webBody = event.web?.request?.body ?? (event._requestBody instanceof ReadableStream ? event._requestBody : null);
+  let raw: Buffer | null | undefined;
+  try {
+    // `readRawBody` concatenates every incoming chunk before returning. Normal node
+    // requests must go through the streaming path, otherwise a chunked body can
+    // bypass Content-Length and allocate arbitrarily before this helper sees it.
+    raw = webBody
+      ? await readWebBodyCapped(webBody, maxBytes)
+      : hasPreReadBody(event)
+        ? await readRawBody(event, false)
+        : await readNodeBodyCapped(event, maxBytes);
+  } catch (error) {
+    if ((error as { statusCode?: number }).statusCode === 413) throw error;
+    return {} as T;
+  }
+  if (raw && raw.length > maxBytes) throw payloadTooLarge();
   if (!raw || raw.length === 0) return {} as T;
   try {
     return JSON.parse(raw.toString("utf8")) as T;
