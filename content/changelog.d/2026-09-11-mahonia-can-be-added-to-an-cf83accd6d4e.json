@@ -1,6 +1,6 @@
 {
   "date": "2026-09-11",
   "added": [
-    "Mahonia can be added to an AI assistant as a connector, at mahonia.app/mcp. The assistant can read a list from its share link, search the catalog, and, with an edit link, make a list, add rows and set the trip's dates and trail."
+    "Mahonia is an MCP connector at mahonia.app/mcp. An assistant can read a list from its share link, search the catalog, and, with an edit link, make and change lists."
   ]
 }

@@ -1,9 +1,9 @@
 {
   "date": "2026-09-05",
   "changed": [
-    "Typing a kind of gear (tent, sleeping bag, socks) now lists that kind first, spread across brands and products, rather than whatever had the word in its name or one product in every size."
+    "Typing a kind of gear (tent, socks) lists that kind first, across brands, rather than one product in every size."
   ],
   "fixed": [
-    "Look-alike suggestions that only shared a few letters (a wallet for \"copper spur\", four bags for \"battery\") no longer pad the list."
+    "Suggestions that only share a few letters with what you typed no longer pad the list."
   ]
 }

@@ -4,6 +4,6 @@
     "Signing in or out in one tab now reaches your lists in your other tabs straight away."
   ],
   "fixed": [
-    "Opening the app offline to a list this device hasn't saved now says so, instead of failing quietly, and opens the list on its own once you're back online."
+    "Opening a list offline that this device hasn't saved says so, and opens it once you're back online."
   ]
 }

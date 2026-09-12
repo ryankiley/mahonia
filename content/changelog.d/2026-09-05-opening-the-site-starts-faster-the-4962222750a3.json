@@ -1,7 +1,7 @@
 {
   "date": "2026-09-05",
   "changed": [
-    "Opening the site starts faster: the bare address goes straight to your last list, or to a fresh one, without a blank page on the way.",
+    "The bare address goes straight to your last list, or a fresh one, without a blank page on the way.",
     "The editor and shared-list pages load sooner, most noticeably on a slow connection."
   ]
 }
