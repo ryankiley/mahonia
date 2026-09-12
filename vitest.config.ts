@@ -26,25 +26,22 @@ export default defineVitestConfig({
     // defaultExclude is spread back in because naming `exclude` REPLACES vitest's
     // own list rather than extending it — drop it and node_modules is walked again.
     exclude: [...defaultExclude, "**/.claude/**"],
-    // Several suites boot a WASM Postgres (PGlite) per file; on slow/cold CI
-    // machines that routinely blows vitest's 5s default and fails as a spurious
-    // "Test timed out". Raise both (hooks build the DBs) rather than disabling.
-    // The Nuxt-environment file needs the same headroom for its app boot.
+    // The Nuxt-environment files boot an app each, and cold CI machines are slow;
+    // vitest's 5s default routinely failed those as a spurious "Test timed out".
+    // Raise both (hooks build the DBs) rather than disabling. The DB-backed files
+    // used to be the ones that hit this first — a PGlite boot per case, ~460 ms of
+    // CPU-bound WASM start each, fighting one another across workers — until
+    // tests/helpers/db.ts went to one boot per file; a full run is now 120 files in
+    // ~75 s on a 10-core machine at moderate load, none of it near this limit.
     testTimeout: 20_000,
     hookTimeout: 20_000,
-    // CAP THE WORKERS, because the timeout above was only ever half the fix.
-    //
-    // A PGlite instance costs ~494 ms to boot and ~15 ms to take the schema
-    // (measured — see tests/helpers/db.ts), and the suite boots ~96 of them. Those
-    // are CPU-bound WASM starts, so vitest's default of one worker per core makes
-    // them fight each other: on a 10-core machine a full run failed 12 files and
-    // 117 tests, every one of them a 20s timeout in `beforeEach` and not a single
-    // assertion failure, while the same suite at 4 workers passed 77/77 in 121s.
-    // More workers past this point buys no wall-clock and starts inventing
-    // failures, which on a 4-vCPU CI runner would be a red build nobody caused.
-    //
-    // The real fix is fewer boots (one instance per file, schema reset between
-    // cases) — tests/helpers/db.ts is the seam for it and says what it would take.
+    // CAP THE WORKERS. Four rather than one per core, for two reasons that both
+    // outlive the PGlite contention this was first added for (a 10-core run at the
+    // default failed 117 tests, every one a timeout, while 4 workers passed them all):
+    // CI's runner has four vCPUs, so a higher cap buys nothing where the full suite
+    // actually runs; and locally this machine is shared with other sessions' suites
+    // and Ryan's own work — see "Checking a change" in CLAUDE.md for why a full local
+    // run is the exception now, not the routine.
     maxWorkers: 4,
   },
 });
