@@ -58,6 +58,12 @@ export interface ResearchRow {
   // over what it reads from the variant; a value that contradicts the variant fails the
   // CSV check. Vocabulary in shared/catalogAxes.ts, forms in catalogAttributes.ts.
   attributes?: RowAttributes | null;
+  // Where a hand-written attribute came from, when it is NOT readable from the row's own
+  // `quote` (a maker's spec page for an R-value the cited stockist listing omits). Held to
+  // the kcal bar: a real URL plus a verbatim quote, together; either alone fails the build.
+  // A value the row's own quote already states needs neither.
+  attributes_source_url?: string | null;
+  attributes_quote?: string | null;
   category_hint?: string | null;
   // the item's common name ("tent", "trekking poles") — REQUIRED for a new row to build
   // (a row with no common_name here, no seed/common-names.json entry, and no derivable

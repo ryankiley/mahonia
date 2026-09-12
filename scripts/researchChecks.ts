@@ -85,6 +85,13 @@ export function runResearchChecks(files: ResearchFile[]): Finding[] {
       // fill power as a string: all errors here; the CSV check then holds what IS
       // stated to the variant text (a "20F" variant must carry temp_f 20).
       for (const p of validateAttributes(r.attributes)) err("attr", `${where}: ${p}`);
+      // a researched attribute cited to another page carries a URL and a quote together
+      const aUrl = (r.attributes_source_url ?? "").trim();
+      const aQuote = (r.attributes_quote ?? "").trim();
+      if (aUrl || aQuote) {
+        if (!isCitationUrl(aUrl) || !aQuote) err("attr-cite", `${where}: attributes_source_url and attributes_quote go together (a real URL plus a verbatim quote)`);
+        if (!r.attributes || !Object.keys(r.attributes).length) err("attr-cite", `${where}: an attributes citation with no attributes`);
+      }
 
       // the cited weight must convert
       let mg: number;

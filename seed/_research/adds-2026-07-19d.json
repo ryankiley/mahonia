@@ -52,6 +52,7 @@
       "brand": "Arc'teryx",
       "name": "Rho LT Hoody",
       "variant": "Women's",
+      "attributes": {"size": "S"},
       "category_hint": "clothing",
       "weight_value": 215,
       "weight_unit": "g",

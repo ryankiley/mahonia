@@ -341,6 +341,7 @@
       "brand": "Klättermusen",
       "name": "Hrid WP Accessory Bag 3L",
       "variant": "",
+      "attributes": {"volume_l": 3},
       "category_hint": "other",
       "common_name": "dry bag",
       "weight_value": 97,

@@ -4,6 +4,7 @@
       "brand": "REI Co-op",
       "name": "Flash 55 Pack",
       "variant": "Men's M",
+      "attributes": {"volume_l": 55},
       "category_hint": "pack",
       "weight_value": 2,
       "weight_unit": "lb",

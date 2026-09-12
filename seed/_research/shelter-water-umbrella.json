@@ -4,6 +4,7 @@
       "brand": "Six Moon Designs",
       "name": "Lunar Solo",
       "variant": "",
+      "attributes": {"persons": 1},
       "category_hint": "shelter",
       "weight_value": 26,
       "weight_unit": "oz",
@@ -28,6 +29,7 @@
       "brand": "Big Agnes",
       "name": "Tiger Wall UL1",
       "variant": "",
+      "attributes": {"persons": 1},
       "category_hint": "shelter",
       "weight_value": 1.87,
       "weight_unit": "lb",
@@ -39,6 +41,7 @@
     {
       "brand": "Zpacks",
       "name": "Plex Solo Classic",
+      "attributes": {"persons": 1},
       "category_hint": "shelter",
       "weight_value": 14.5,
       "weight_unit": "oz",

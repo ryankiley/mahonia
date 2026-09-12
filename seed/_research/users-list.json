@@ -27,6 +27,7 @@
       "brand": "Big Agnes",
       "name": "Copper Spur HV UL2 mtnGLO",
       "variant": "",
+      "attributes": {"persons": 2},
       "category_hint": "shelter",
       "weight_value": 2,
       "weight_unit": "lb",
@@ -186,6 +187,9 @@
     {
       "brand": "Mazama Designs",
       "name": "M!GO Bottle",
+      "attributes": {"volume_l": 1},
+      "attributes_source_url": "https://mazamadesigns.com/products/m-go-bottle",
+      "attributes_quote": "32 oz / 1,000ml at wide mouth",
       "category_hint": "water",
       "weight_value": 132,
       "weight_unit": "g",

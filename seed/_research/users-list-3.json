@@ -126,6 +126,7 @@
       "brand": "Big Agnes",
       "name": "Lost Ranger 3N1 15F",
       "variant": "Regular",
+      "attributes": {"temp_f": 15},
       "category_hint": "sleep",
       "weight_value": 1247,
       "weight_unit": "g",
