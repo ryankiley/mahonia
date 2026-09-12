@@ -4,6 +4,7 @@ import { createEvent } from "h3";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import mcpDelete from "../server/routes/mcp.delete";
 import mcpGet from "../server/routes/mcp.get";
+import mcpHead from "../server/routes/mcp.head";
 import mcp from "../server/routes/mcp.post";
 import { MCP_TOOLS, describeList, editHashFrom, shareCodeFrom } from "../server/utils/mcp";
 import { sha256Hex } from "../server/utils/tokens";
@@ -217,6 +218,12 @@ describe("the endpoint's transport", () => {
     const del = request("DELETE");
     await mcpDelete(del);
     expect(del.node.res.statusCode).toBe(405);
+    // HEAD takes the GET answer, headers and all; the body is Node's to drop
+    const head = request("HEAD");
+    await mcpHead(head);
+    expect(head.node.res.statusCode).toBe(405);
+    expect(head.node.res.getHeader("allow")).toBe("POST");
+    expect(head.node.res.getHeader("x-robots-tag")).toBe("noindex");
   });
 });
 
