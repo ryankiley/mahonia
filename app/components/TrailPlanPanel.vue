@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { HugeiconsIcon, type IconChild, type IconNode } from "~/utils/hugeicon";
-import { ChevronDownIcon, Delete02Icon, Fire02Icon, HelpCircleIcon, MountainIcon, RacingFlagIcon, RouteIcon, Stairs01Icon, Sun03Icon, TentIcon } from "@hugeicons/core-free-icons";
+import { ChevronDownIcon, Delete02Icon, DropletIcon, Fire02Icon, HelpCircleIcon, MountainIcon, RacingFlagIcon, RouteIcon, Stairs01Icon, Sun03Icon, TentIcon } from "@hugeicons/core-free-icons";
 import type { ListSnapshot, Totals, Waypoint } from "~~/shared/types";
 import { burnDownMg, dayEnd, dayRanges, estimateDay, heightIsDerived, nextOwnedDay, shownHeightM } from "~~/shared/tripPlan";
 import { coolerByC, dayFacts, type DayFacts } from "~~/shared/dayFacts";
+import { carryHours, dryCarries, longestCarryForDay, type DryCarry } from "~~/shared/dryCarry";
 import { dayClimbs, parseProfile } from "~~/shared/profile";
 import { MAX_DAYS } from "~~/shared/ops";
 import { dayColorSequence } from "~~/shared/categories";
@@ -519,6 +520,30 @@ function groundSentence(f: DayFacts): string {
   return parts.join(" ");
 }
 
+// ---- the longest dry carry ----
+// Between one water and the next, measured in full even across a night, from the pins
+// already on the route (shared/dryCarry has the rules). The route's ends are sources
+// too: you leave the trailhead with water and stop carrying at the finish. Owner-only
+// by construction: the pins never ride a read path, so neither can this.
+const waterPins = computed(() => waypoints.value.filter((w) => w.kind === "water"));
+const carries = computed(() => dryCarries(waterPins.value, headlineM.value));
+const dayHours = computed(() => estimates.value.map((e) => e?.hours));
+// Each day's longest carry and its hours, once per day like dayEnds above, or null
+// when the day has no carry to speak of. The row reads it six times; a function here
+// would walk the carries and the ranges six times over to reach the same answer.
+const dayCarries = computed(() =>
+  ranges.value.map((r) => {
+    const carry = longestCarryForDay(carries.value, r);
+    return carry ? { carry, hours: carryHours(carry, ranges.value, dayHours.value) } : null;
+  }),
+);
+/** where the carry starts, in words: the trailhead, or the pin by name or by distance */
+function carryFromLabel(carry: DryCarry): string {
+  const at = formatDistance(carry.fromM, distanceUnit.value);
+  if (carry.from.kind === "trailhead") return "the trailhead";
+  return carry.from.label ? `${carry.from.label} at ${at}` : `water at ${at}`;
+}
+
 /**
  * WHERE a point on the route actually is, worked out rather than looked up.
  *
@@ -880,6 +905,13 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
       </li>
     </ul>
     <!-- Empty state names what's missing rather than showing an empty table. -->
+    <!-- the one line the carry needs before it can say anything: with no water marked
+         the whole route is one stretch, and that is not a finding. Said ONCE, here,
+         rather than on every day. It sits ABOVE the empty-state paragraph so that
+         paragraph's v-else (the days list) keeps its partner. -->
+    <p v-if="snapshot.routeGeometry && days.length && !waterPins.length" class="t-sm plan__carryhint">
+      Mark water on the route and each day shows its longest dry carry.
+    </p>
     <p v-if="!days.length" class="plan__note t-sm">
       Break the trip into days to see what each one asks of you, and what the pack weighs
       when you shoulder it that morning.
@@ -1028,6 +1060,19 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
             <span>{{ groundSentence(facts[i]!) }}</span>
           </p>
         </template>
+
+        <!-- The longest carry this day walks any part of: a sentence, not a cell, because
+             it names a place. Measured in full even when it straddles the night; the
+             hours follow each day's own pace, and are left out when part of the carry
+             falls on ground with no estimate. -->
+        <p v-if="!collapsed[d?.id ?? ''] && dayDistancesM[i] && dayCarries[i]" class="t-sm plan__fact">
+          <HugeiconsIcon :icon="DropletIcon" class="plan__gl" :size="16" :stroke-width="2" aria-hidden="true" />
+          <span>
+            Longest carry
+            <span class="t-num">{{ formatDistance(dayCarries[i]!.carry.toM - dayCarries[i]!.carry.fromM, distanceUnit) }}</span><template v-if="dayCarries[i]!.hours != null">, <span class="t-num">{{ formatHours(dayCarries[i]!.hours!) }}</span></template>,
+            from {{ carryFromLabel(dayCarries[i]!.carry) }}.
+          </span>
+        </p>
 
         <!-- The pins on THIS day's stretch, and how you add one — the place in a day that
              "Add an item" holds in a folder, and deliberately the same gesture: arming
@@ -1292,8 +1337,8 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
 .plan__cell--est {
   color: var(--ink-3);
 }
-/* a derived sentence under the day's figures, in the estimate's ink, with a glyph for
-   its subject so a stack of them scans by shape */
+/* a derived sentence under the day's figures (the camp, the ground, the carry), in the
+   estimate's ink, with a glyph for its subject so a stack of them scans by shape */
 .plan__fact {
   margin-top: var(--space-1);
   display: flex;
@@ -1305,6 +1350,11 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
   /* the glyph's box sits on the baseline row; nudge it to the text's optical centre */
   position: relative;
   top: 0.2em;
+}
+/* the once-only hint above the days, same ink, same size, no glyph */
+.plan__carryhint {
+  margin-top: var(--space-2);
+  color: var(--ink-3);
 }
 /* THE CLIMB AND ITS DROP SHARE ONE CELL, so they share one column.
    Every other cell holds a different kind of fact, and the fixed width lines those up down
