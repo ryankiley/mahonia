@@ -17,7 +17,7 @@ the top of the same file, so any two open PRs conflicted on the same handful of 
 PRs can't conflict on files neither of them shares. `shared/changelog.ts` has the long
 version.
 
-`scripts/build-changelog.ts` merges this directory with the `content/changelog.json` archive
-into `content/changelog.generated.json` (generated, gitignored) before every dev, build, test
-and typecheck. `npm run changelog:compact` folds settled fragments into the archive and
-clears them out — housekeeping, never required.
+`scripts/release-notes.ts` reads this directory with the `content/changelog.json` archive and
+hands each settled day to `.github/workflows/releases.yml`, which publishes it as a GitHub
+Release. `npm run changelog:compact` folds settled fragments into the archive and clears
+them out — housekeeping, never required.

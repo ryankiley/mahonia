@@ -4,9 +4,8 @@ import { createError, getHeader, readRawBody, setHeader, type H3Event } from "h3
  * Keep a response out of search results.
  *
  * Nearly every endpoint here wants this — an API response is somebody's list,
- * gear or account, and none of it is a page. Two deliberately don't call it:
- * /api/l/[slug], which backs the indexable public read, and /api/changelog,
- * which is checked-in public content.
+ * gear or account, and none of it is a page. One deliberately doesn't call it:
+ * /api/l/[slug], which backs the indexable public read.
  *
  * A helper rather than a wrapper that sets it for you. The obvious next step —
  * defineApiHandler(action, handler), headers and rate limit together — is a trap

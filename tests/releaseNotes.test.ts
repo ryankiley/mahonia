@@ -43,9 +43,7 @@ describe("release title and body", () => {
 
   it("group the entries Added / Changed / Fixed and skip an empty group", () => {
     const body = releaseBody(day("2026-09-12", { added: ["A thing."], fixed: ["A bug.", "Another."] }));
-    expect(body).toBe(
-      "### Added\n\n- A thing.\n\n### Fixed\n\n- A bug.\n- Another.\n\n[What's new](https://mahonia.app/changelog) on the site has every release.\n",
-    );
+    expect(body).toBe("### Added\n\n- A thing.\n\n### Fixed\n\n- A bug.\n- Another.\n");
     expect(body).not.toContain("Changed");
   });
 });

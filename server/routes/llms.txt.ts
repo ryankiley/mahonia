@@ -26,7 +26,7 @@ export default defineEventHandler((event) => {
     "## Pages",
     "",
     `- [About](${origin}/about): what Mahonia is and how it works`,
-    `- [What's new](${origin}/changelog): everything that has shipped, newest first`,
+    "- [What's new](https://github.com/ryankiley/mahonia/releases): a release per day that ships something",
     `- [Public lists](${origin}/sitemap.xml): every shared public list, at /l/{slug}`,
     `- [Legal](${origin}/legal): privacy policy and terms of use`,
     "",

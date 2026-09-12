@@ -45,17 +45,6 @@ export function timeAgo(ts: number, now: number = Date.now()): string {
 const parseCalendarDate = parseIsoDate;
 
 /**
- * One calendar date as prose: "September 6, 2026" — the same fixed-locale formatter
- * the range below uses, for a caller holding an ISO string (the What's new page's
- * release dates). Falls back to the string itself when it doesn't parse, so a bad
- * date is visible rather than blank.
- */
-export function formatCalendarDate(iso: string): string {
-  const d = parseCalendarDate(iso);
-  return d ? fmtFull(d) : iso;
-}
-
-/**
  * A trip's dates, as one phrase: "September 6–9", "August 4 – September 2",
  * "December 30, 2026 – January 2, 2027".
  *

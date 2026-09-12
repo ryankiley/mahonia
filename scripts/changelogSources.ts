@@ -1,14 +1,9 @@
-// Where the changelog's two halves live, and how to read them.
+// Where the changelog's two halves live, and how to read them. Read-only: the
+// release script, the compactor and the tests all come through here.
 //
-// Split out from build-changelog.ts so importing this costs nothing — the build
-// script writes a file when you run it, and tests/changelog.test.ts wants the
-// same reader without that. Everything here is read-only.
-//
-// The archive is checked in and the generated file is not: content/changelog.json
-// is history that only changelog:compact rewrites, content/changelog.d/*.json is
-// one file per PR, and content/changelog.generated.json is what the build folds
-// them into for server/api/changelog.get.ts to import. See shared/changelog.ts
-// for why an entry is a file rather than a line in a shared one.
+// content/changelog.json is history that only changelog:compact rewrites, and
+// content/changelog.d/*.json is one file per PR. See shared/changelog.ts for why an
+// entry is a file rather than a line in a shared one.
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -19,7 +14,6 @@ const root = dirname(dirname(fileURLToPath(import.meta.url)));
 
 export const ARCHIVE_FILE = join(root, "content", "changelog.json");
 export const FRAGMENT_DIR = join(root, "content", "changelog.d");
-export const GENERATED_FILE = join(root, "content", "changelog.generated.json");
 
 /** The compacted history. Always present — it is checked in. */
 export function readArchive(): ChangelogRelease[] {

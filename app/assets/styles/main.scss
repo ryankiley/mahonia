@@ -151,18 +151,13 @@
    button's own chrome. `.prose a` outranks `.btn--primary` (0,1,1 against 0,1,0), so a
    NuxtLink styled as the primary action inside a prose column had its label repainted
    --ink — white on the white pill, i.e. an empty button — and took a stray hairline
-   under it as well. A prose page has no reason to restyle a control it contains.
-   .log__head too: the line under a What's new heading is prose that sits outside .prose
-   (the release list wants its own grid), and its one link should read like the
-   paragraph's neighbours above it, not like a bare word. */
-.prose a:not(.btn),
-.log__head a {
+   under it as well. A prose page has no reason to restyle a control it contains. */
+.prose a:not(.btn) {
   color: var(--ink);
   border-bottom: 1px solid var(--line-2);
   transition: border-color var(--dur) var(--ease);
 }
-.prose a:not(.btn):hover,
-.log__head a:hover {
+.prose a:not(.btn):hover {
   // deepen on hover, but never to full ink — keeps the underline soft (see --underline)
   border-bottom-color: var(--ink-2);
 }

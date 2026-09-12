@@ -34,7 +34,7 @@ import { brotliCompressSync, gzipSync, constants } from "node:zlib";
 //
 // NOT a bump, but the reason current dropped ~2.4 KB: content/changelog.json used to be a
 // module-scope import in the changelog page, so every entry was bundled into that
-// route's client chunk. It's served from server/api/changelog.get.ts now (the page is
+// route's client chunk. It was served from a server route after that (the page was
 // prerendered, so the read happens at build time). That matters beyond the one-off saving
 // — the house rule is a changelog entry per user-facing PR, so the old shape grew what
 // this gate measures on PRs that ship no code at all, and the ratchet slowly became a
