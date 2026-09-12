@@ -39,7 +39,9 @@ useHead({
   meta: [{ name: "robots", content: "noindex" }],
 });
 
-const { hasVault, vaultFetch } = useVaultAccess();
+const vaultAccess = useVaultAccess();
+const { hasVault, vaultFetch } = vaultAccess;
+const accountGeneration = vaultAccess.accountGeneration ?? useSession().accountGeneration;
 const { confirm: askConfirm } = useDialogs();
 
 // ---- the gear ------------------------------------------------------------
@@ -54,8 +56,46 @@ const showRemoved = ref(false);
 const loading = ref(false);
 const loadError = ref("");
 const query = ref("");
+// `/api/vault/list` is account-bound. A late response from a session that just
+// signed out (or switched accounts) must not repopulate this page, and a manual
+// reload must not lose to an earlier one that happened to finish last.
+let loadGeneration = 0;
+// Separate from a reload sequence: this lifetime changes only when the account
+// surface is cleared. Mutating actions keep it and the account generation, so an
+// old account's response cannot touch a same-id row in the next account.
+let pageGeneration = 0;
+type VaultViewOwner = { page: number; account: number };
+const ownVaultView = (): VaultViewOwner => ({ page: pageGeneration, account: accountGeneration.value });
+const ownsVaultView = (owner: VaultViewOwner) =>
+  owner.page === pageGeneration && owner.account === accountGeneration.value && hasVault.value;
+
+function clearLoadedVault() {
+  pageGeneration++;
+  loadGeneration++;
+  items.value = [];
+  removed.value = [];
+  folders.value = [];
+  // These can hold entries from the previous account even after the rows above are
+  // cleared.  The edit dialog and undo toast sit outside the signed-in branch, so
+  // leave neither visible while a session changes underneath this page.
+  editing.value = null;
+  undoable.value = null;
+  showRemoved.value = false;
+  restoring.value = null;
+  removing.value = null;
+  addingIn.value = null;
+  addName.value = "";
+  addWeight.value = "";
+  addBusy.value = false;
+  importOpen.value = false;
+  clearTimeout(undoTimer);
+  loading.value = false;
+  loadError.value = "";
+}
 
 async function loadVault() {
+  const mine = ++loadGeneration;
+  const owner = ownVaultView();
   if (!hasVault.value) return;
   loading.value = true;
   loadError.value = "";
@@ -65,39 +105,32 @@ async function loadVault() {
       removed: VaultEntry[];
       folders: VaultFolder[];
     }>("/api/vault/list");
+    if (mine !== loadGeneration || !ownsVaultView(owner)) return;
     items.value = res.items || [];
     removed.value = res.removed || [];
     folders.value = res.folders || [];
   } catch {
+    if (mine !== loadGeneration || !ownsVaultView(owner)) return;
     loadError.value = "Couldn’t load your gear. Check your connection and try again.";
+  } finally {
+    if (mine === loadGeneration && ownsVaultView(owner)) loading.value = false;
   }
-  loading.value = false;
 }
-// load once we know whether there’s a vault to load, and again when that flips —
-// signing in or out mid-session, which the session plugin's watcher drives
-watch(
-  hasVault,
-  (v) => {
-    if (v) return void loadVault();
-    items.value = [];
-    removed.value = [];
-    folders.value = [];
-  },
-  { immediate: true },
-);
-
 // Put a removed piece of gear back. Same endpoint the undo toast uses — restoring
 // is restoring, whether you do it two seconds later or two months.
 async function putBack(entry: VaultEntry) {
+  const owner = ownVaultView();
   restoring.value = entry.id;
   loadError.value = "";
   try {
     await vaultFetch("/api/vault/remove", { method: "POST", body: { id: entry.id, restore: true } });
+    if (!ownsVaultView(owner)) return;
     await loadVault();
   } catch {
-    loadError.value = "Couldn’t put that back. Check your connection and try again.";
+    if (ownsVaultView(owner)) loadError.value = "Couldn’t put that back. Check your connection and try again.";
+  } finally {
+    if (ownsVaultView(owner)) restoring.value = null;
   }
-  restoring.value = null;
 }
 const restoring = ref<number | null>(null);
 
@@ -198,12 +231,14 @@ const sectionKey = (s: VaultSection) => (s.folder ? String(s.folder.id) : "unfil
 // hundred rows and one small read, so re-reading is simpler and never leaves the
 // page disagreeing with the server about an order or a filing.
 async function folderOp(op: Record<string, unknown>) {
+  const owner = ownVaultView();
   loadError.value = "";
   try {
     await vaultFetch("/api/vault/folders", { method: "POST", body: { op } });
+    if (!ownsVaultView(owner)) return;
     await loadVault();
   } catch {
-    loadError.value = "Couldn’t save that change. Check your connection and try again.";
+    if (ownsVaultView(owner)) loadError.value = "Couldn’t save that change. Check your connection and try again.";
   }
 }
 // Drag a folder to reorder it — the editor's gesture, on the shared
@@ -320,6 +355,7 @@ function renameFolder(f: VaultFolder, e: Event) {
   void folderOp({ t: "rename", id: f.id, name });
 }
 async function deleteFolder(f: VaultFolder) {
+  const owner = ownVaultView();
   // counted over ALL the gear, not the filtered view: the number in the question has
   // to be the number that actually moves, and a "Show: Worn" filter would otherwise
   // promise that two pieces are affected while eleven are
@@ -334,6 +370,9 @@ async function deleteFolder(f: VaultFolder) {
     }))
   )
     return;
+  // The confirmation is asynchronous. It can be accepted after another account
+  // has arrived, in which case this old folder id must not become B's operation.
+  if (!ownsVaultView(owner)) return;
   void folderOp({ t: "remove", id: f.id });
 }
 
@@ -363,6 +402,7 @@ function closeAdd() {
   addWeight.value = "";
 }
 async function commitAdd(folderId: number | null) {
+  const owner = ownVaultView();
   const name = addName.value.trim();
   if (!name || addBusy.value) return;
   const raw = addWeight.value.trim();
@@ -378,6 +418,7 @@ async function commitAdd(folderId: number | null) {
       method: "POST",
       body: { op: { t: "add", name, weightMg, folderId } },
     });
+    if (!ownsVaultView(owner)) return;
     if (!res.ok) {
       // The refusals are worth naming: "you already have that" tells you to search
       // for it, and a generic failure tells you to try again. Both are facts about
@@ -392,6 +433,7 @@ async function commitAdd(folderId: number | null) {
       return;
     }
     await loadVault();
+    if (!ownsVaultView(owner)) return;
     // Committing re-opens a fresh pair — the editor's `advance` behaviour, which is
     // what makes typing in five things bearable rather than five separate presses.
     addName.value = "";
@@ -399,9 +441,10 @@ async function commitAdd(folderId: number | null) {
     // the whole gear re-rendered under it, so the field is a new element
     nextTick(() => addRow.value?.focus());
   } catch {
-    loadError.value = "Couldn’t add that. Check your connection and try again.";
+    if (ownsVaultView(owner)) loadError.value = "Couldn’t add that. Check your connection and try again.";
+  } finally {
+    if (ownsVaultView(owner)) addBusy.value = false;
   }
-  addBusy.value = false;
 }
 
 // ---- editing in place ----------------------------------------------------
@@ -417,6 +460,10 @@ function openEdit(entry: VaultEntry) {
 // the row as it now stands, and a full reload would re-sort the page under a dialog
 // that just closed (a rename can move a row under A–Z).
 function onItemSaved(item: VaultEntry) {
+  // A dialog can be dismissed while its request is still in flight.  Do not let an
+  // old completion close or patch whichever row was opened next (ids are only
+  // account-local, too).
+  if (editing.value?.id !== item.id) return;
   const at = items.value.findIndex((i) => i.id === item.id);
   if (at >= 0) items.value[at] = item;
   editing.value = null;
@@ -468,18 +515,21 @@ const undoable = ref<VaultEntry | null>(null);
 let undoTimer: ReturnType<typeof setTimeout> | undefined;
 
 async function remove(entry: VaultEntry) {
+  const owner = ownVaultView();
   removing.value = entry.id;
   loadError.value = "";
   try {
     await vaultFetch("/api/vault/remove", { method: "POST", body: { id: entry.id } });
+    if (!ownsVaultView(owner)) return;
     items.value = items.value.filter((i) => i.id !== entry.id);
     undoable.value = entry;
     clearTimeout(undoTimer);
     undoTimer = setTimeout(() => (undoable.value = null), 10_000);
   } catch {
-    loadError.value = "Couldn’t remove that. Check your connection and try again.";
+    if (ownsVaultView(owner)) loadError.value = "Couldn’t remove that. Check your connection and try again.";
+  } finally {
+    if (ownsVaultView(owner)) removing.value = null;
   }
-  removing.value = null;
 }
 
 async function undoRemove() {
@@ -551,10 +601,26 @@ function onMenuPick(action: string) {
   importOpen.value = true;
 }
 
+// Register this after all of the account-bound UI state exists. `immediate` calls
+// the callback synchronously, including for a signed-out first render.
+watch(
+  [hasVault, accountGeneration],
+  ([has]) => {
+    // An A → B forced refresh can keep both values of `hasVault` true. Clear
+    // first on every identity revision, then let B's resolved session start its
+    // own load rather than leaving A's rows/actions on screen.
+    clearLoadedVault();
+    if (has) void loadVault();
+  },
+  { immediate: true },
+);
+
 async function exportGear(kind: string) {
+  const owner = ownVaultView();
   loadError.value = "";
   try {
     const { vaultToCsv, vaultToJson } = await exporter();
+    if (!ownsVaultView(owner)) return;
     const gear = { items: items.value, folders: folders.value };
     if (kind === "json") {
       downloadFile("my-gear.json", vaultToJson(gear), "application/json");
@@ -564,7 +630,7 @@ async function exportGear(kind: string) {
   } catch {
     // the chunk can fail to load (offline before the SW cached it) — the page's own
     // error line, rather than a silent no-op on a button you just pressed
-    loadError.value = "Couldn’t build that file. Check your connection and try again.";
+    if (ownsVaultView(owner)) loadError.value = "Couldn’t build that file. Check your connection and try again.";
   }
 }
 </script>

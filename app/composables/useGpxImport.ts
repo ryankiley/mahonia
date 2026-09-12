@@ -41,6 +41,12 @@ const PIN_DEDUP_M = 60;
  *  `typeof` guard, and dropped the climb off an imported route with no error
  *  anywhere. Inline in ListHead that was a compile error, and it is again. */
 interface GpxTarget {
+  /** The editor controller's current list lifetime. Optional so this small helper
+   *  remains usable by focused callers that do not own a controller singleton. */
+  readonly epoch?: number;
+  /** Reactive form of the controller lifetime for clearing a visible pin offer on
+   * navigation. The scalar above remains useful for one-shot async checks. */
+  readonly epochRef?: Readonly<Ref<number>>;
   snapshot: Ref<ListSnapshot | null>;
   addWaypoint: (alongM: number, kind: WaypointKind) => void;
   updateWaypoint: (id: string, patch: { label?: string }) => void;
@@ -50,6 +56,12 @@ interface GpxTarget {
 export function useGpxImport(snapshot: Ref<ListSnapshot | null>, c: GpxTarget) {
   const gpxError = ref("");
   const gpxBusy = ref(false);
+  // A file read can outlive both a second file selection and a list navigation.
+  // This composable writes through the shared editor controller, so either must
+  // invalidate its eventual mutations rather than letting a late parse edit the
+  // list now on screen.
+  let importGeneration = 0;
+  const targetEpoch = () => c.epochRef?.value ?? c.epoch;
 
   /**
    * Pins the file offered, held until someone says yes.
@@ -62,12 +74,15 @@ export function useGpxImport(snapshot: Ref<ListSnapshot | null>, c: GpxTarget) {
     geometry: string;
     pins: FilePin[];
     kindOf: (p: Pick<FilePin, "sym" | "name">) => WaypointKind;
+    generation: number;
+    epoch: number | undefined;
   } | null>(null);
 
   async function confirmPins() {
     const p = pending.value;
     pending.value = null;
     if (!p) return;
+    if (p.generation !== importGeneration || p.epoch !== targetEpoch()) return;
     // polyline is a static import (this file already had it at the top for the
     // geometry); it's shared/gpx.ts that stays a lazy chunk, see onGpx
     const line = decodePolyline(p.geometry);
@@ -103,8 +118,12 @@ export function useGpxImport(snapshot: Ref<ListSnapshot | null>, c: GpxTarget) {
     const file = input.files?.[0];
     input.value = ""; // so choosing the same file twice still fires a change
     if (!file) return;
+    const mine = ++importGeneration;
+    const sourceEpoch = targetEpoch();
+    const current = () => mine === importGeneration && sourceEpoch === targetEpoch();
     gpxError.value = "";
     gpxBusy.value = true;
+    pending.value = null;
     try {
       // The reader arrives HERE, on the one interaction that needs it — several hundred
       // lines of XML dialects, a zip decoder and GeoJSON that would otherwise ride the
@@ -112,6 +131,7 @@ export function useGpxImport(snapshot: Ref<ListSnapshot | null>, c: GpxTarget) {
       // as "Reading…" like the parse it precedes.
       const { MAX_GPX_BYTES, filePins, fitRoute, geoJsonPoints, gpxPoints, gpxStats, isFit, pinKind, zipMember } =
         await import("~~/shared/gpx");
+      if (!current()) return;
       // Checked BEFORE reading. DOMParser on a 30 MB string blocks the main thread for
       // seconds; declining is cheaper than a worker, and honest. (After the import rather
       // than before it only because the limit lives with the reader — a chunk fetch is
@@ -125,6 +145,7 @@ export function useGpxImport(snapshot: Ref<ListSnapshot | null>, c: GpxTarget) {
       // shapes apart: "PK" is a zip (a KMZ, or the FIT-in-a-zip Garmin Connect's "Export
       // Original" hands out), ".FIT" at byte 8 is a watch's file as it was written.
       const head = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+      if (!current()) return;
       let fit: Uint8Array | null = isFit(head) ? new Uint8Array(await file.arrayBuffer()) : null;
       let text = "";
       if (!fit && head[0] === 0x50 && head[1] === 0x4b) {
@@ -134,6 +155,7 @@ export function useGpxImport(snapshot: Ref<ListSnapshot | null>, c: GpxTarget) {
       } else if (!fit) {
         text = await file.text();
       }
+      if (!current()) return;
       let points: TrackPoint[];
       let pins: FilePin[] = [];
       if (fit) {
@@ -162,6 +184,7 @@ export function useGpxImport(snapshot: Ref<ListSnapshot | null>, c: GpxTarget) {
       const stats = gpxStats(points);
       if (!stats) throw new Error("no track");
       const geometry = routeGeometryFromPoints(points) ?? "";
+      if (!current()) return;
       c.setMeta({
         trailDistanceM: stats.distanceM,
         trailProfile: profileToString(stats.profile) ?? "",
@@ -181,12 +204,26 @@ export function useGpxImport(snapshot: Ref<ListSnapshot | null>, c: GpxTarget) {
       // c.ensureRouteEnds(), which dedupes on those fixed ids.
       // Everything else the file offered is an OFFER. A track can carry thousands of pins;
       // fifty is not glanceable and undoing them is fifty taps, so it waits for a yes.
-      pending.value = geometry && pins.length ? { geometry, pins, kindOf: pinKind } : null;
+      pending.value = geometry && pins.length
+        ? { geometry, pins, kindOf: pinKind, generation: mine, epoch: sourceEpoch }
+        : null;
     } catch {
-      gpxError.value = "Couldn't read a route out of that file.";
+      if (current()) gpxError.value = "Couldn't read a route out of that file.";
     } finally {
-      gpxBusy.value = false;
+      if (mine === importGeneration) gpxBusy.value = false;
     }
+  }
+
+  // A successful import can leave an optional pin offer visible for minutes. The
+  // controller's list lifetime may change without unmounting ListHead, so retire
+  // that UI (and any old error/busy label) as soon as navigation mints an epoch.
+  if (c.epochRef) {
+    watch(c.epochRef, () => {
+      importGeneration++;
+      pending.value = null;
+      gpxError.value = "";
+      gpxBusy.value = false;
+    });
   }
 
   return { gpxError, gpxBusy, pending, confirmPins, onGpx };

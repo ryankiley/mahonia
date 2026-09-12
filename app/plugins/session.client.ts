@@ -47,8 +47,14 @@ export default defineNuxtPlugin(() => {
     // the whole registry — the same set the claim sends, both buckets
     deviceFingerprint(useMyLists().entries.value.map((e) => e.editToken)),
   );
-  watch([session.signedIn, registryFingerprint], ([yes, fingerprint]) => {
+  // Account generation changes even for A → B, where `signedIn` never changes.
+  // That must start a fresh claim/read for B after the session response lands.
+  watch([session.signedIn, session.accountGeneration, registryFingerprint], ([yes, _account, fingerprint]) => {
     if (!yes) return;
+    // A cache is now account-scoped, so the cold boot cannot safely restore it
+    // until `/me` identifies this session. Re-run the one-shot restore here before
+    // the claim/read path replaces it with the server answer.
+    useClaimedLists().restoreFromDevice();
     void useClaimedLists().claimDeviceLists(fingerprint);
   });
 });

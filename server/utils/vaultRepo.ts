@@ -22,7 +22,7 @@ import {
   type VaultPinField,
 } from "../../shared/vault";
 import type { Classification } from "../../shared/types";
-import { KCAL_MAX, UNIT_WEIGHT_MAX_MG } from "../../shared/ops";
+import { isCatalogId, KCAL_MAX, UNIT_WEIGHT_MAX_MG } from "../../shared/ops";
 import { PRICE_MAX_CENTS } from "../../shared/money";
 import { tidyText } from "../../shared/tidyText";
 import { rankVaultRows } from "../../shared/vaultSearch";
@@ -42,6 +42,11 @@ export const VAULT_ITEMS_MAX = 2000;
 /** Ceiling on folders per vault, same spirit. Capture stops creating folders at
  *  the cap (items land unfiled); a deliberate add on /vault refuses quietly. */
 export const VAULT_FOLDERS_MAX = 200;
+
+/** All vault row ids are PostgreSQL serials. Keep impossible values from reaching
+ * a query, where PostgreSQL would turn an ordinary bad request into an overflow. */
+const isVaultRowId = (v: unknown): v is number =>
+  typeof v === "number" && Number.isSafeInteger(v) && v > 0 && v <= 2_147_483_647;
 
 const CLASSIFICATIONS: Classification[] = ["base", "worn", "consumable"];
 
@@ -192,7 +197,9 @@ function sanitize(caps: VaultCapture[]): VaultCapture[] {
         ? c.classification
         : undefined,
       kcal: kcalOf(c.kcal),
-      catalogItemId: Number.isInteger(c.catalogItemId) ? c.catalogItemId : undefined,
+      // catalog_items.id is a Postgres integer. Keep a forged capture/import ID
+      // from turning the whole otherwise-valid upsert into an overflow error.
+      catalogItemId: isCatalogId(c.catalogItemId) ? c.catalogItemId : undefined,
     });
   }
   return [...out.values()];
@@ -631,6 +638,7 @@ export async function searchVaultItems(db: Db, vaultId: number, q: string): Prom
  * was actually removed.
  */
 export async function removeVaultItem(db: Db, vaultId: number, id: number): Promise<boolean> {
+  if (!isVaultRowId(id)) return false;
   const done = await db
     .update(vaultItems)
     .set({ removedAt: new Date(), updatedAt: new Date() })
@@ -645,6 +653,7 @@ export async function removeVaultItem(db: Db, vaultId: number, id: number): Prom
  *  WHERE, not a check on the result: filtering afterwards would already have
  *  written to another account's row. */
 export async function restoreVaultItem(db: Db, vaultId: number, id: number): Promise<boolean> {
+  if (!isVaultRowId(id)) return false;
   const done = await db
     .update(vaultItems)
     .set({ removedAt: null, updatedAt: new Date() })
@@ -926,7 +935,7 @@ async function addVaultItem(db: Db, vaultId: number, op: Extract<VaultItemOp, { 
   // one — so it takes the same in-scope check the "move" op does. Filing gear under
   // a heading its owner can never see would be worse than not filing it at all.
   if (op.folderId != null) {
-    if (!Number.isInteger(op.folderId)) return null;
+    if (!isVaultRowId(op.folderId)) return null;
     if (!(await ownsFolder(db, vaultId, op.folderId))) return null;
   }
 
@@ -1020,7 +1029,7 @@ async function addVaultItem(db: Db, vaultId: number, op: Extract<VaultItemOp, { 
  * edit the list too, which is a second deliberate act.
  */
 async function editVaultItem(db: Db, vaultId: number, op: Extract<VaultItemOp, { t: "edit" }>) {
-  if (!Number.isInteger(op.id)) return null;
+  if (!isVaultRowId(op.id)) return null;
   const set = cleanVaultPatch(op.patch);
   if (!set) return null;
   if (Array.isArray(op.unpin)) {
@@ -1154,6 +1163,9 @@ export type VaultFolderOp =
 
 const FOLDER_NAME_MAX = 120;
 
+const isUniqueViolation = (error: unknown): boolean =>
+  typeof error === "object" && error !== null && (error as { code?: unknown }).code === "23505";
+
 /**
  * Apply one folder op, always scoped to the caller's vault.
  *
@@ -1164,11 +1176,16 @@ const FOLDER_NAME_MAX = 120;
 export async function applyVaultFolderOp(
   db: Db,
   vaultId: number,
-  op: VaultFolderOp,
+  op: unknown,
 ): Promise<boolean> {
-  switch (op.t) {
+  // This is the JSON boundary for /api/vault/folders. Keep the public tagged
+  // union above for callers, but validate the actual wire value here rather than
+  // trusting a TypeScript cast in the route.
+  if (!op || typeof op !== "object") return false;
+  const raw = op as Record<string, unknown>;
+  switch (raw.t) {
     case "add": {
-      const name = (op.name ?? "").trim().slice(0, FOLDER_NAME_MAX);
+      const name = str(raw.name, FOLDER_NAME_MAX);
       if (!name) return false;
       const [{ max, n } = { max: 0, n: 0 }] = await db
         .select({
@@ -1190,31 +1207,48 @@ export async function applyVaultFolderOp(
       return done.length > 0;
     }
     case "rename": {
-      const name = (op.name ?? "").trim().slice(0, FOLDER_NAME_MAX);
-      if (!name) return false;
-      const done = await db
-        .update(vaultFolders)
-        .set({ name })
-        .where(and(eq(vaultFolders.id, op.id), eq(vaultFolders.vaultId, vaultId)))
-        .returning();
-      return done.length > 0;
+      const name = str(raw.name, FOLDER_NAME_MAX);
+      if (!name || !isVaultRowId(raw.id)) return false;
+      // An add treats an existing name as a harmless no-op. Match that behavior
+      // for rename instead of leaking a unique-index error to the API caller.
+      const sameName = await db
+        .select({ id: vaultFolders.id })
+        .from(vaultFolders)
+        .where(and(eq(vaultFolders.vaultId, vaultId), eq(vaultFolders.name, name)))
+        .limit(1);
+      if (sameName[0] && sameName[0].id !== raw.id) return false;
+      try {
+        const done = await db
+          .update(vaultFolders)
+          .set({ name })
+          .where(and(eq(vaultFolders.id, raw.id), eq(vaultFolders.vaultId, vaultId)))
+          .returning();
+        return done.length > 0;
+      } catch (error) {
+        // The preflight handles ordinary duplicate names; this covers the small
+        // window where another request creates the same name immediately after it.
+        if (isUniqueViolation(error)) return false;
+        throw error;
+      }
     }
     case "remove": {
+      if (!isVaultRowId(raw.id)) return false;
       // The GEAR survives — deleting a folder unfiles what was in it rather than
       // taking it with it. A folder is a label here, not a container, and losing
       // gear because you tidied a heading would be indefensible.
       await db
         .update(vaultItems)
         .set({ folderId: null, updatedAt: new Date() })
-        .where(and(eq(vaultItems.folderId, op.id), eq(vaultItems.vaultId, vaultId)));
+        .where(and(eq(vaultItems.folderId, raw.id), eq(vaultItems.vaultId, vaultId)));
       const done = await db
         .delete(vaultFolders)
-        .where(and(eq(vaultFolders.id, op.id), eq(vaultFolders.vaultId, vaultId)))
+        .where(and(eq(vaultFolders.id, raw.id), eq(vaultFolders.vaultId, vaultId)))
         .returning();
       return done.length > 0;
     }
     case "reorder": {
-      const ids = (op.ids ?? []).filter((n) => Number.isInteger(n)).slice(0, 200);
+      if (!Array.isArray(raw.ids)) return false;
+      const ids = [...new Set(raw.ids.filter(isVaultRowId))].slice(0, VAULT_FOLDERS_MAX);
       if (!ids.length) return false;
       // sequential rather than one CASE statement: a vault has a handful of
       // folders, and the readable version is worth more than the round trips here
@@ -1227,14 +1261,14 @@ export async function applyVaultFolderOp(
       return true;
     }
     case "move": {
-      if (!Number.isInteger(op.itemId)) return false;
+      if (!isVaultRowId(raw.itemId) || (raw.folderId !== null && !isVaultRowId(raw.folderId))) return false;
       // a folderId from another vault would file gear under a heading you can't
       // see, so it's verified in the same scope before being written
-      if (op.folderId != null && !(await ownsFolder(db, vaultId, op.folderId))) return false;
+      if (raw.folderId !== null && !(await ownsFolder(db, vaultId, raw.folderId))) return false;
       const done = await db
         .update(vaultItems)
-        .set({ folderId: op.folderId ?? null, updatedAt: new Date() })
-        .where(and(eq(vaultItems.id, op.itemId), eq(vaultItems.vaultId, vaultId)))
+        .set({ folderId: raw.folderId, updatedAt: new Date() })
+        .where(and(eq(vaultItems.id, raw.itemId), eq(vaultItems.vaultId, vaultId)))
         .returning();
       return done.length > 0;
     }

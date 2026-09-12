@@ -11,6 +11,7 @@ import { dirname, join } from "node:path";
 import { SECURITY_HEADERS, TILE_ORIGIN } from "./config/security";
 import { PWA_OPTIONS } from "./config/pwa";
 import { hugeiconsPrecision } from "./config/icons";
+import { parseDevAllowedHosts } from "./config/devHosts";
 // The canonical origin, single-sourced — the server reads the same constant to
 // decide what host a sign-in link may point at (server/utils/origin.ts), so the
 // social card and that decision can't drift onto different domains.
@@ -315,11 +316,13 @@ export default defineNuxtConfig({
         },
       },
     },
-    // Dev-only: the dev server runs behind a proxy (preview tooling) whose Host
-    // header isn't localhost; Vite 7 otherwise rejects those requests with 426
-    // Upgrade Required. Only affects `nuxt dev`, never the prod build.
+    // Dev-only: Vite accepts localhost and IP addresses by default. A proxy that
+    // needs another Host can add it through MAHONIA_DEV_ALLOWED_HOSTS (documented
+    // in .env.example). Do not set this to `true`: `npm run dev` listens on all
+    // interfaces and Vite explicitly treats an any-host setting as vulnerable to
+    // DNS rebinding. Only affects `nuxt dev`, never the prod build.
     server: {
-      allowedHosts: true,
+      allowedHosts: parseDevAllowedHosts(process.env.MAHONIA_DEV_ALLOWED_HOSTS),
     },
   },
 

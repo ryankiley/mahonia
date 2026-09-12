@@ -72,7 +72,14 @@ registerEndpoint("/api/lists/claim", {
   },
 });
 let served: Partial<ClaimedList>[] = [];
-registerEndpoint("/api/lists/claimed", () => ({ lists: served }));
+let deferClaimedRead = false;
+let settleClaimedReads: Array<() => void> = [];
+registerEndpoint("/api/lists/claimed", async () => {
+  // Snapshot now, before a later account's fixture changes the server answer.
+  const response = { lists: [...served] };
+  if (deferClaimedRead) await new Promise<void>((resolve) => settleClaimedReads.push(resolve));
+  return response;
+});
 registerEndpoint("/api/lists/unclaim", { method: "POST", handler: () => ({ ok: true }) });
 
 // Rows here PREDATE origin tracking unless a case says otherwise: the sweep's whole
@@ -88,6 +95,8 @@ beforeEach(() => {
   storage.clear();
   posted.length = 0;
   served = [];
+  deferClaimedRead = false;
+  settleClaimedReads = [];
   onRefresh = () => {};
   // useState is shared for the whole file, and the cache seed is gated on both
   // `lists` and `loaded` — a case that left rows standing (or a landed fetch) would
@@ -173,17 +182,16 @@ describe("the account's lists survive losing the network", () => {
     expect(cachedTitles()).toEqual(["Timberline"]);
   });
 
-  it("reads them back on a cold launch, before anything has been fetched", () => {
-    // the switcher on an offline start: no session read has answered, so the only
-    // copy of the account's lists is the one this browser kept — restored once at
-    // boot by the session plugin, which is what this call stands in for
+  it("does not restore an unverified cache on a cold launch", () => {
+    // A hint cannot identify whose session it is. Restoring this device-global
+    // cache before `/me` answers would briefly show A's list names to B.
     storage.set(ROWS_KEY, JSON.stringify([{ shareCode: "C0DE00000009", title: "Timberline" }]));
     sessionLoaded.value = false;
 
     const claimed = useClaimedLists();
     claimed.restoreFromDevice();
 
-    expect(claimed.lists.value.map((l) => l.title)).toEqual(["Timberline"]);
+    expect(claimed.lists.value).toEqual([]);
   });
 
   it("does not read them back with no account behind this browser", () => {
@@ -232,10 +240,9 @@ describe("the account's lists survive losing the network", () => {
     expect(storage.has(ROWS_KEY)).toBe(true);
   });
 
-  it("does not blank them while the session is merely unresolved", async () => {
-    // offline, /api/auth/me fails and signedIn reads false for someone signed in —
-    // blanking there emptied the switcher at the one moment the cache was the only
-    // copy this device had
+  it("keeps an unresolved cache on disk without drawing it", async () => {
+    // Offline before identity resolution leaves the cache available for the
+    // verified session later, but never paints it for an unknown person now.
     storage.set(ROWS_KEY, JSON.stringify([{ shareCode: "C0DE00000009", title: "Timberline" }]));
     signedIn.value = false;
     sessionLoaded.value = false;
@@ -244,7 +251,7 @@ describe("the account's lists survive losing the network", () => {
     claimed.restoreFromDevice(); // the boot-time seed, as the session plugin runs it
     await claimed.refresh();
 
-    expect(claimed.lists.value.map((l) => l.title)).toEqual(["Timberline"]);
+    expect(claimed.lists.value).toEqual([]);
     expect(cachedTitles()).toEqual(["Timberline"]);
   });
 
@@ -262,6 +269,24 @@ describe("the account's lists survive losing the network", () => {
     expect(storage.has(ROWS_KEY)).toBe(false);
     // a claimed resume is only as good as the session, and this is the session over
     expect(storage.has(OPENS_KEY)).toBe(false);
+  });
+
+  it("does not restore an old account's late read after sign-out", async () => {
+    served = [{ shareCode: "C0DE00000009", title: "Old account list" }];
+    deferClaimedRead = true;
+    const claimed = useClaimedLists();
+    const reading = claimed.refresh();
+    await vi.waitFor(() => expect(settleClaimedReads).toHaveLength(1));
+
+    // The session's sign-out cleanup empties these synchronously in production.
+    // This guard is the second half: the already-sent list response cannot put the
+    // prior account's rows straight back afterward.
+    signedIn.value = false;
+    settleClaimedReads[0]!();
+    await reading;
+
+    expect(claimed.lists.value).toEqual([]);
+    expect(storage.has(ROWS_KEY)).toBe(false);
   });
 
   it("never writes the cache from an edit made in this tab", () => {
@@ -322,7 +347,8 @@ describe("the account's lists survive losing the network", () => {
     sessionLoaded.value = false;
     const claimed = useClaimedLists();
     claimed.restoreFromDevice();
-    expect(claimed.lists.value.map((l) => l.title)).toEqual(["Timberline"]);
+    // A malformed cache is still not shown until its account is verified.
+    expect(claimed.lists.value).toEqual([]);
   });
 });
 

@@ -25,6 +25,17 @@ export function useSession() {
   // vault page flashes its signed-out state before /api/auth/me answers.
   const loaded = useState<boolean>("session-loaded", () => false);
   const pending = useState<boolean>("session-pending", () => false);
+  // A session can change while /api/auth/me is in flight: sign-out must not be
+  // undone by an old "signed in" response, and a passkey sign-in's forced read
+  // must not be ignored behind an older "signed out" one. The newest intent owns
+  // state; older requests are allowed to finish but are no longer allowed to write.
+  const refreshGeneration = useState<number>("session-refresh-generation", () => 0);
+  // The identity behind the session, not just whether one exists. A → B keeps
+  // `signedIn` true, so account-bound callers need a separate reactive lifetime
+  // to discard A's in-flight vault/list work before B's `/api/auth/me` response
+  // arrives. It advances at every forced re-read (the cookie may have changed),
+  // sign-out, and an identity change discovered by an ordinary read.
+  const accountGeneration = useState<number>("session-account-generation", () => 0);
 
   // Presence of the user, NOT of an email. An account created with a passkey has
   // no address until someone attaches one, so keying this off `email` would read
@@ -56,6 +67,26 @@ export function useSession() {
     if (import.meta.client) document.cookie = "mh_signed_in=; Max-Age=0; path=/";
   }
 
+  /**
+   * Make the current account unknowable immediately. This runs BEFORE a forced
+   * re-read, rather than after it identifies the next user: a stale request can
+   * otherwise finish in the gap while `signedIn` remains true for both accounts.
+   */
+  function invalidateAccountContext(): void {
+    accountGeneration.value++;
+    // Do not render A's identity while the cookie is being re-read for B. `loaded`
+    // stays false until the request settles, so account surfaces show their normal
+    // resolving state instead of a signed-out conclusion.
+    user.value = null;
+    loaded.value = false;
+    // A list token is device-local, but its capture consent is a judgement about
+    // this account's vault. Do not let a stored A decision be read during the
+    // interval before the cookie is confirmed as B.
+    setVaultConsentScope(null, false);
+    resetVaultCapture();
+    useClaimedLists().resetClaimMark();
+  }
+
   /** Fetch the current session. Idempotent and de-duped: several components
    *  calling it on the same page produce one request. `force` re-reads after a
    *  sign-in/out has changed the answer.
@@ -66,11 +97,22 @@ export function useSession() {
    *  of them) who have no account. */
   async function refresh(force = false): Promise<void> {
     if (!import.meta.client) return;
-    if (pending.value) return;
+    // A normal caller can share an active read. A forced read means the cookie just
+    // changed (after sign-in/out), so it deliberately supersedes that active read.
+    if (pending.value && !force) return;
     if (loaded.value && !force) return;
+    const priorIdentity = user.value?.email ?? null;
+    if (force) invalidateAccountContext();
+    // On a cold read the previous account is unknown too. Retire legacy/device
+    // consent before any account-bound component can interpret it as permission.
+    if (!force && !loaded.value) setVaultConsentScope(null, false);
+    const mine = ++refreshGeneration.value;
     if (!hasSessionHint()) {
+      if (!force && priorIdentity !== null) invalidateAccountContext();
       user.value = null;
       loaded.value = true;
+      pending.value = false;
+      setVaultConsentScope(null, true);
       return;
     }
     pending.value = true;
@@ -78,6 +120,16 @@ export function useSession() {
       const res = await $fetch<{
         user: { email: string; displayName: string | null } | null;
       }>("/api/auth/me");
+      if (mine !== refreshGeneration.value) return;
+      // A non-forced refresh can still discover that another tab replaced the
+      // session. It did not have an advance at request start, so establish one
+      // before handing the newly identified account to the rest of the app.
+      const nextIdentity = res.user?.email ?? null;
+      if (!force && nextIdentity !== priorIdentity) invalidateAccountContext();
+      // Only this freshly resolved identity may read/write per-list vault
+      // consent. Existing unscoped values are intentionally ignored rather than
+      // guessed at: the browser may have belonged to someone else.
+      setVaultConsentScope(res.user?.email ?? null, true);
       user.value = res.user
         ? {
             email: res.user.email,
@@ -94,9 +146,13 @@ export function useSession() {
       // on this browser next.
       if (!res.user) {
         clearSessionHint();
+        // The transition above invalidated a prior account. Even on a first
+        // resolved signed-out read, drop any device cache that a past session
+        // might have left behind.
         forgetAccountMemos();
       }
     } catch {
+      if (mine !== refreshGeneration.value) return;
       // offline or a server blip — treat as signed out for rendering purposes,
       // but leave `loaded` false so the next call retries rather than caching a
       // wrong answer for the rest of the session. SET false, not merely left: a
@@ -106,8 +162,10 @@ export function useSession() {
       user.value = null;
       loaded.value = false;
       pending.value = false;
+      setVaultConsentScope(null, false);
       return;
     }
+    if (mine !== refreshGeneration.value) return;
     loaded.value = true;
     pending.value = false;
   }
@@ -142,27 +200,39 @@ export function useSession() {
   }
 
   async function signOut(): Promise<void> {
+    // Make any read that was sent under this session stale before the network
+    // round-trip. Otherwise a slow /api/auth/me can put its user back after the
+    // local sign-out below.
+    invalidateAccountContext();
+    const mine = ++refreshGeneration.value;
+    pending.value = false;
     try {
       await $fetch("/api/auth/signout", { method: "POST" });
     } finally {
+      // A newer successful sign-in took ownership while this request was pending.
+      if (mine !== refreshGeneration.value) return;
       // clear locally too: the server drops both cookies, but doing it here means
       // the signed-out state holds even if that request never landed
       clearSessionHint();
       user.value = null;
       loaded.value = true;
-      forgetAccountMemos();
+      setVaultConsentScope(null, true);
     }
   }
 
   /** Patch the account's one setting (the display name); the shared state adopts
    *  whatever comes back. */
   async function saveProfile(patch: { displayName?: string }): Promise<boolean> {
+    const mine = accountGeneration.value;
     try {
       const res = await $fetch<{ ok: boolean; displayName: string | null }>(
         "/api/account/profile",
         { method: "POST", body: patch },
       );
-      if (user.value)
+      // The server may have accepted a request sent just before sign-out, but its
+      // profile response belongs to that account — never paint it onto whoever
+      // signed in while it was in flight.
+      if (mine === accountGeneration.value && user.value)
         user.value = {
           ...user.value,
           displayName: res.displayName,
@@ -179,6 +249,7 @@ export function useSession() {
     signedIn,
     presence,
     loaded,
+    accountGeneration,
     refresh,
     requestLink,
     signOut,

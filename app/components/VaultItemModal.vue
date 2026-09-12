@@ -29,7 +29,9 @@ const props = defineProps<{
 }>();
 const emit = defineEmits<{ close: []; saved: [VaultEntry] }>();
 
-const { vaultFetch } = useVaultAccess();
+const vaultAccess = useVaultAccess();
+const { vaultFetch } = vaultAccess;
+const accountGeneration = vaultAccess.accountGeneration ?? useSession().accountGeneration;
 
 // Three-way, not the editor's two toggles. Those are toggles because each ALSO opens
 // the detail that only exists while it's on, so the row gains no third control; there
@@ -126,6 +128,10 @@ const urlOk = computed(() => /^https?:\/\/\S/i.test(productUrl.value.trim()));
 
 async function onSubmit() {
   if (!canSave.value || saving.value || !props.entry) return;
+  // Keep the object, rather than only its numeric id: a session change can reopen
+  // this retained lazy component for another account whose ids overlap.
+  const activeEntry = props.entry;
+  const account = accountGeneration.value;
 
   // null, not undefined, for a field you emptied: the edit op has to be able to
   // CLEAR one, which capture's coalesce merge structurally can't (see vaultRepo).
@@ -163,7 +169,7 @@ async function onSubmit() {
     // money it was in, and a first price would land currency-less beside a total
     // that has one. Type a new symbol to change it.
     if (parsed) {
-      patch.currency = parsed.currency ?? props.entry.currency ?? props.defaultCurrency ?? null;
+      patch.currency = parsed.currency ?? activeEntry.currency ?? props.defaultCurrency ?? null;
     }
   }
   if (productUrl.value !== opened.productUrl) {
@@ -197,8 +203,12 @@ async function onSubmit() {
   error.value = "";
   const res = await vaultFetch<{ ok: boolean; item?: VaultEntry }>("/api/vault/items", {
     method: "POST",
-    body: { op: { t: "edit", id: props.entry.id, patch } },
+    body: { op: { t: "edit", id: activeEntry.id, patch } },
   }).catch(() => ({ ok: false }) as { ok: boolean; item?: VaultEntry });
+  // Cancel, account change, and opening another row are all legitimate while the
+  // network is slow.  The new entry's watcher owns its visible saving/error state;
+  // this old response must not emit into it.
+  if (props.entry !== activeEntry || account !== accountGeneration.value) return;
   saving.value = false;
   if (res.ok && res.item) return emit("saved", res.item);
   error.value = "Couldn’t save that. Check your connection and try again.";

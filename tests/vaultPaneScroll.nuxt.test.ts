@@ -30,13 +30,25 @@ const entry = (id: number) => ({
 // How many rows /api/vault/list hands back. Set per case: a long list is the
 // scrolling one, two rows is the list with nothing to scroll.
 let rowCount = 30;
+let rowStart = 1;
+const hasVault = ref(true);
+const accountGeneration = ref(0);
+let deferLoad = false;
+let settleLoads: Array<() => void> = [];
 
 // The pane's three collaborators, stubbed to the surface it actually touches. The
 // real ones would drag in the local-list store, a sync poll and four endpoints —
 // none of which has any say in what a finger on the sheet does.
 mockNuxtImport("useVaultAccess", () => () => ({
-  hasVault: ref(true),
-  vaultFetch: async () => ({ items: Array.from({ length: rowCount }, (_, i) => entry(i + 1)) }),
+  hasVault,
+  accountGeneration,
+  vaultFetch: async () => {
+    // Freeze this request's rows before waiting so the lifetime test can tell an
+    // old account's late response from the current account's fresh one.
+    const response = { items: Array.from({ length: rowCount }, (_, i) => entry(rowStart + i)) };
+    if (deferLoad) await new Promise<void>((resolve) => settleLoads.push(resolve));
+    return response;
+  },
 }));
 mockNuxtImport("useGearList", () => () => ({
   snapshot: ref({ folders: [], items: [], displayUnit: "g" }),
@@ -94,12 +106,19 @@ function swipe(from: Element, dy: number, fingers = 1): boolean {
 describe("the vault sheet's touch guard", () => {
   beforeEach(() => {
     rowCount = 30;
+    rowStart = 1;
+    hasVault.value = true;
+    accountGeneration.value = 0;
+    deferLoad = false;
+    settleLoads = [];
   });
   // the pane hangs an Escape listener on window; unmounting takes it with it
   afterEach(() => {
     wrapper?.unmount();
     wrapper = undefined;
     document.body.innerHTML = "";
+    for (const settleLoad of settleLoads) settleLoad();
+    settleLoads = [];
   });
 
   it("swallows a swipe on the header, which has nothing to scroll", async () => {
@@ -149,5 +168,32 @@ describe("the vault sheet's touch guard", () => {
   it("leaves a two-finger gesture alone", async () => {
     const { pane } = await openPane();
     expect(swipe(pane.querySelector(".vp__head")!, -120, 2)).toBe(false);
+  });
+
+  it("keeps a late old-account load out of a newly signed-in pane", async () => {
+    rowCount = 1;
+    rowStart = 1;
+    deferLoad = true;
+    const { pane } = await openPane();
+    expect(settleLoads).toHaveLength(1);
+
+    rowStart = 100;
+    // B still has a vault; only the account lifetime changes.
+    accountGeneration.value++;
+    await flushPromises();
+    await nextTick();
+    expect(settleLoads).toHaveLength(2);
+
+    settleLoads[0]!();
+    await flushPromises();
+    await nextTick();
+    expect(pane.textContent).not.toContain("Item 1");
+    expect(pane.querySelectorAll(".vp__add")).toHaveLength(0);
+
+    settleLoads[1]!();
+    await flushPromises();
+    await nextTick();
+    expect(pane.textContent).toContain("Item 100");
+    expect(pane.querySelectorAll(".vp__add")).toHaveLength(1);
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DAY_MS, isoDate, parseIsoDate, shiftIsoDate, utcMidnight } from "../shared/calendar";
+import { DAY_MS, isCalendarDate, isoDate, parseIsoDate, shiftIsoDate, utcMidnight } from "../shared/calendar";
 
 // The one place the app turns a `YYYY-MM-DD` into a Date. The two halves answer
 // different questions — a LOCAL Date for display, a UTC instant for arithmetic — and
@@ -36,6 +36,21 @@ describe("parseIsoDate — a local Date for display", () => {
     expect(parseIsoDate("not-a-date")).toBeNull();
     expect(parseIsoDate("2026-8-4")).toBeNull();
     expect(parseIsoDate("2026-08-04T00:00:00Z")).toBeNull();
+    // A format-shaped non-date used to roll forward through Date construction
+    // (2026-02-31 → March 3), so a corrupted stored date silently became a
+    // different valid day in every display and trip calculation.
+    expect(parseIsoDate("2026-02-31")).toBeNull();
+    expect(parseIsoDate("2025-02-29")).toBeNull();
+  });
+});
+
+describe("isCalendarDate — a strict boundary check for untyped input", () => {
+  it("accepts real canonical days and refuses rollover or non-string input", () => {
+    expect(isCalendarDate("2028-02-29")).toBe(true);
+    expect(isCalendarDate("2025-02-29")).toBe(false);
+    expect(isCalendarDate("2026-02-31")).toBe(false);
+    expect(isCalendarDate("2026-8-04")).toBe(false);
+    expect(isCalendarDate({ date: "2026-08-04" })).toBe(false);
   });
 });
 
@@ -62,6 +77,7 @@ describe("utcMidnight — the instant a day starts, for arithmetic", () => {
 
   it("is NaN for a non-date, so a caller can refuse", () => {
     expect(utcMidnight("nope")).toBeNaN();
+    expect(utcMidnight("2026-02-31")).toBeNaN();
   });
 
   it("puts consecutive days exactly one DAY_MS apart", () => {
@@ -92,5 +108,11 @@ describe("shiftIsoDate — a day later, staying on the calendar", () => {
 
   it("hands back a non-date untouched", () => {
     expect(shiftIsoDate("nope", 1)).toBe("nope");
+    expect(shiftIsoDate("2026-02-31", 1)).toBe("2026-02-31");
+  });
+
+  it("refuses a non-whole shift instead of producing a partial calendar day", () => {
+    expect(shiftIsoDate("2026-08-04", 1.5)).toBe("2026-08-04");
+    expect(shiftIsoDate("2026-08-04", Number.NaN)).toBe("2026-08-04");
   });
 });

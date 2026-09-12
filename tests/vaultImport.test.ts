@@ -7,6 +7,7 @@
 import { describe, expect, it } from "vitest";
 import { vaultToCsv, vaultToJson } from "../shared/exporters/vault";
 import { parseVaultImport, vaultImportFromCsv, vaultImportFromJson } from "../shared/vaultImport";
+import { MAX_CATALOG_ID, MAX_FOLDERS } from "../shared/ops";
 import type { VaultEntry, VaultFolder } from "../shared/vault";
 
 let nextId = 1;
@@ -76,6 +77,13 @@ describe("vaultImportFromJson — our own backup, back", () => {
     expect(back.rows[0]!.normKey).toBe("");
   });
 
+  it("drops a catalog id outside the database range before showing the import preview", () => {
+    const back = vaultImportFromJson(
+      JSON.stringify({ folders: [], items: [{ name: "Duplex", catalogItemId: MAX_CATALOG_ID + 1 }] }),
+    )!;
+    expect(back.rows[0]!.catalogItemId).toBeUndefined();
+  });
+
   it("drops a pin token that isn't one, and rows with no name", () => {
     const back = vaultImportFromJson(
       JSON.stringify({
@@ -125,6 +133,17 @@ describe("vaultImportFromCsv — any spreadsheet, as gear", () => {
   it("states no pins — a CSV records values, not decisions", () => {
     const back = vaultImportFromCsv("Item Name,Weight,Unit\nDuplex,539,g");
     expect(back.rows[0]!.pinned).toBeUndefined();
+  });
+
+  it("keeps folder names beyond a packing list's folder limit", () => {
+    const csv = [
+      "Category,Item Name,Weight,Unit",
+      ...Array.from({ length: MAX_FOLDERS + 1 }, (_, i) => `Folder ${i},Item ${i},1,g`),
+    ].join("\n");
+
+    const back = vaultImportFromCsv(csv);
+    expect(back.rows).toHaveLength(MAX_FOLDERS + 1);
+    expect(back.rows.find((row) => row.name === `Item ${MAX_FOLDERS}`)?.folder).toBe(`Folder ${MAX_FOLDERS}`);
   });
 });
 

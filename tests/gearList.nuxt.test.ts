@@ -27,6 +27,7 @@ import { vaultNormKey } from "~~/shared/vault";
 import {
   _setCaptureDebounce,
   resetVaultCapture,
+  setVaultConsentScope,
   setVaultDecisionFor,
   useVaultCapture,
   vaultDecisionFor,
@@ -103,6 +104,11 @@ globalThis.Blob = TextCapturingBlob as unknown as typeof Blob;
 
 const storage = stubLocalStorage();
 
+// The production session plugin resolves and scopes vault consent before the
+// controller runs. This focused controller suite mocks its vault/session seams,
+// so give its deliberate consent choices one resolved owner explicitly.
+beforeEach(() => setVaultConsentScope("test@example.com", true));
+
 // see the header: the real wait is 4 s, and the pagehide cases sleep 200 ms to get
 // inside it. Module scope, because the controller is a module singleton and vitest
 // gives this file its own process.
@@ -155,6 +161,11 @@ let captureCalls = 0;
 // what each capture actually carried — the picker tests assert on the ROWS, not
 // just that a write happened
 let captureBodies: { name: string }[][] = [];
+// Some lifetime tests need the vault response to outlive the list/account that
+// started it. The normal endpoint remains immediate; only an opted-in case holds
+// one response and releases the real shape below by hand.
+let deferCapture = false;
+let settleCapture: ((response: unknown) => void) | undefined;
 // The REAL response shape, not a convenient stand-in. The old stub answered
 // `{ vaultToken }` — a shape the endpoint has never returned — so `res.keys` was
 // always undefined here and the client's contract was never compared against the
@@ -167,13 +178,23 @@ registerEndpoint("/api/vault/capture", { method: "POST", handler: async (event) 
   const body = await readBody<{ items?: { name: string; normKey: string; weightMg: number }[] }>(event);
   const items = body?.items ?? [];
   captureBodies.push(items);
-  return { ok: true, captured: items.length, keys: items.map((i) => [i.normKey, i.weightMg]) };
+  const response = { ok: true, captured: items.length, keys: items.map((i) => [i.normKey, i.weightMg]) };
+  if (deferCapture) return new Promise<unknown>((resolve) => (settleCapture = resolve));
+  return response;
 } });
 
 // The link a rotate mints. A constant, because the one thing the rotate tests
 // need from the endpoint is that the token CHANGES.
 const ROTATED_TOKEN = "rotated-edit-token";
-registerEndpoint("/api/edit/rotate", { method: "POST", handler: () => ({ editToken: ROTATED_TOKEN }) });
+let deferRotate = false;
+let settleRotate: (() => void) | undefined;
+registerEndpoint("/api/edit/rotate", {
+  method: "POST",
+  handler: async () => {
+    if (deferRotate) await new Promise<void>((resolve) => (settleRotate = resolve));
+    return { editToken: ROTATED_TOKEN };
+  },
+});
 
 // The mutate is left hanging until the test settles it by hand — that pending window
 // IS the bug's window, and controlling it is the whole point.
@@ -327,6 +348,8 @@ describe("useGearList — whose gear is this?", () => {
     mutateCalls = 0;
     captureCalls = 0;
     captureBodies = [];
+    deferCapture = false;
+    settleCapture = undefined;
     storage.clear(); // the decision store
     resetVaultCapture(); // the capture memo is module-scoped
     heldGear = []; // ...the vault's answer is not — it lives on the open list
@@ -410,6 +433,26 @@ describe("useGearList — whose gear is this?", () => {
     c.updateItem("i1", { qty: 3 });
     await new Promise((r) => setTimeout(r, 50));
     expect(c.vaultPrompt.value).toBeNull();
+  });
+
+  it("does not apply a late manual save to the list opened after it", async () => {
+    const c = useGearList();
+    await c.load({ token: TOKEN });
+    const oldKey = vaultNormKey("Zpacks", "Duplex", undefined);
+    deferCapture = true;
+    const saving = c.saveItemToVault("i1");
+    await vi.waitFor(() => expect(captureCalls).toBe(1));
+
+    // The request was sent for this list, but navigation is immediate. Its response
+    // must not mark a same-named row in the next list as already banked.
+    listResponse = withGear([gear({ id: "i2", name: "Kakwa 55", brand: "Durston" })]);
+    await c.load({ token: "next-edit-token" });
+    expect(c.vaultGear.value.has(oldKey)).toBe(false);
+
+    deferCapture = false;
+    settleCapture?.({ ok: true, captured: 1, keys: [[oldKey, 539_000]] });
+    expect(await saving).toBe("saved");
+    expect(c.vaultGear.value.has(oldKey)).toBe(false);
   });
 
   // Dismissing IS answering — the whole point of the banner over a toast. "No" has
@@ -765,6 +808,23 @@ describe("useGearList — whose gear is this?", () => {
     expect(vaultDecisionFor(ROTATED_TOKEN)).toBe("ask");
     expect(c.vaultAuto.value).toBe(false);
   });
+
+  it("does not let a late rotate replace the list opened after it", async () => {
+    const c = useGearList();
+    await c.load({ token: TOKEN });
+    deferRotate = true;
+    const rotating = c.rotate();
+    await vi.waitFor(() => expect(settleRotate).toBeTypeOf("function"));
+
+    listResponse = snapshotFor("The next list");
+    await c.load({ token: "next-edit-token" });
+
+    deferRotate = false;
+    settleRotate?.();
+    await expect(rotating).resolves.toBeNull();
+    expect(c.editToken).toBe("next-edit-token");
+    expect(c.snapshot.value?.title).toBe("The next list");
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -781,6 +841,8 @@ describe("useGearList — getting a pending capture out as the page goes away", 
     mutateCalls = 0;
     captureCalls = 0;
     captureBodies = [];
+    deferCapture = false;
+    settleCapture = undefined;
     beacons.length = 0;
     beaconWorks = true;
     storage.clear();
@@ -850,6 +912,53 @@ describe("useGearList — getting a pending capture out as the page goes away", 
 
     window.dispatchEvent(new Event("pagehide"));
     expect(beacons).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Account boundaries must invalidate asynchronous capture work too. Clearing a
+// timer/payload alone is insufficient: the dynamic import or the POST response can
+// arrive after the reset and recreate old-account state.
+// ---------------------------------------------------------------------------
+describe("useVaultCapture — account-lifetime guards", () => {
+  beforeEach(() => {
+    captureCalls = 0;
+    captureBodies = [];
+    deferCapture = false;
+    settleCapture = undefined;
+    storage.clear();
+    resetVaultCapture();
+  });
+  afterEach(() => {
+    resetVaultCapture();
+    _setCaptureDebounce(CAPTURE_DEBOUNCE_MS);
+  });
+
+  it("does not schedule a dynamic capture that began before an account reset", async () => {
+    _setCaptureDebounce(20);
+    setVaultDecisionFor(TOKEN, "yes");
+    useVaultCapture().sync([gear()], [folder()], { editToken: TOKEN });
+    resetVaultCapture();
+
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    expect(captureCalls).toBe(0);
+  });
+
+  it("does not report an old-account manual save as successful after reset", async () => {
+    deferCapture = true;
+    const capture = useVaultCapture();
+    const saving = capture.captureOne(gear(), [gear()], [folder()], TOKEN);
+    await vi.waitFor(() => expect(captureCalls).toBe(1));
+
+    resetVaultCapture();
+    deferCapture = false;
+    settleCapture?.({
+      ok: true,
+      captured: 1,
+      keys: [[vaultNormKey("Zpacks", "Duplex", undefined), 539_000]],
+    });
+
+    await expect(saving).resolves.toEqual({ result: "failed", landed: [] });
   });
 });
 

@@ -117,7 +117,9 @@ function onResizeKey(ev: KeyboardEvent) {
 
 const c = useGearList();
 const dnd = useItemDnd();
-const { hasVault, vaultFetch } = useVaultAccess();
+const vaultAccess = useVaultAccess();
+const { hasVault, vaultFetch } = vaultAccess;
+const accountGeneration = vaultAccess.accountGeneration ?? useSession().accountGeneration;
 
 const items = ref<VaultEntry[]>([]);
 // The vault's own folders — gear is filed into them by the NAME of the list folder
@@ -128,6 +130,17 @@ const vaultFolders = ref<VaultFolder[]>([]);
 const tab = ref<"items" | "categories">("items");
 const loading = ref(true);
 const loadError = ref("");
+// The signed-in account can change while /api/vault/list is in flight. A response
+// belongs to the account that started it, not whichever account happens to be
+// active when it resolves, so every load owns a generation. This also gives a
+// newer reload precedence over an older one from the same account.
+let loadGeneration = 0;
+function clearLoadedVault() {
+  items.value = [];
+  vaultFolders.value = [];
+  loadError.value = "";
+  loading.value = false;
+}
 // one query ref per tab: switching back to a tab you were searching shouldn't hand
 // you its results filtered by a term you typed for the other one
 const queries = ref<{ items: string; categories: string }>({ items: "", categories: "" });
@@ -156,20 +169,25 @@ watchEffect(() => {
 const unit = computed(() => c.snapshot.value?.displayUnit ?? "g");
 
 async function load() {
+  const mine = ++loadGeneration;
+  const account = accountGeneration.value;
   if (!hasVault.value) {
-    loading.value = false;
+    clearLoadedVault();
     return;
   }
   loading.value = true;
   loadError.value = "";
   try {
     const res = await vaultFetch<{ items: VaultEntry[]; folders?: VaultFolder[] }>("/api/vault/list");
+    if (mine !== loadGeneration || account !== accountGeneration.value || !hasVault.value) return;
     items.value = res.items || [];
     vaultFolders.value = res.folders || [];
   } catch {
+    if (mine !== loadGeneration || account !== accountGeneration.value || !hasVault.value) return;
     loadError.value = "Couldn’t load your gear.";
+  } finally {
+    if (mine === loadGeneration && account === accountGeneration.value) loading.value = false;
   }
-  loading.value = false;
 }
 onMounted(() => {
   load();
@@ -178,7 +196,13 @@ onMounted(() => {
   // it makes — tabbing out to the list is left alone.
   nextTick(() => searchEl.value?.focus());
 });
-watch(hasVault, () => load());
+// A forced A → B refresh may keep `hasVault` true all the way through. The account
+// generation is the second half of this watcher, retiring A's response and loading
+// B's rows once the new session resolves.
+watch([hasVault, accountGeneration], ([has, account], [, priorAccount]) => {
+  if (!has || account !== priorAccount) clearLoadedVault();
+  void load();
+});
 
 // The SAME fuzzy ranker the item autocomplete uses on this gear (shared/vaultSearch),
 // run over the already-loaded set — no request per keystroke.

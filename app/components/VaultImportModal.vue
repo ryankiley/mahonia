@@ -18,7 +18,9 @@ import { parseVaultImport } from "~~/shared/vaultImport";
 const props = defineProps<{ open: boolean }>();
 const emit = defineEmits<{ close: []; imported: [] }>();
 
-const { vaultFetch } = useVaultAccess();
+const vaultAccess = useVaultAccess();
+const { vaultFetch } = vaultAccess;
+const accountGeneration = vaultAccess.accountGeneration ?? useSession().accountGeneration;
 
 const text = ref("");
 const busy = ref(false);
@@ -27,11 +29,17 @@ const error = ref("");
 // see the result of is an import you run twice
 const done = ref<{ added: number; skipped: number } | null>(null);
 const fileRef = useTemplateRef<HTMLInputElement>("fileRef");
+// Includes reads from the file picker. A selected A backup must not begin an
+// import into B merely because FileReader completed after the session changed.
+let importGeneration = 0;
+const currentImport = (mine: number, account: number) =>
+  mine === importGeneration && account === accountGeneration.value && props.open;
 
 // fresh each time it opens, like ImportModal's own reset
 watch(
   () => props.open,
   (o) => {
+    importGeneration++;
     if (!o) return;
     text.value = "";
     error.value = "";
@@ -39,8 +47,16 @@ watch(
     done.value = null;
   },
 );
+watch(accountGeneration, () => {
+  importGeneration++;
+  text.value = "";
+  busy.value = false;
+  error.value = "";
+  done.value = null;
+});
 
-async function send(raw: string) {
+async function send(raw: string, mine = ++importGeneration, account = accountGeneration.value) {
+  if (!currentImport(mine, account)) return;
   const { rows } = parseVaultImport(raw);
   if (!rows.length) {
     error.value = "No gear found in that. A CSV needs a header row with an item name.";
@@ -53,14 +69,16 @@ async function send(raw: string) {
       "/api/vault/import",
       { method: "POST", body: { items: rows } },
     );
+    if (!currentImport(mine, account)) return;
     done.value = { added: res.added, skipped: res.skipped };
     // the page reloads its gear behind the open dialog, so closing lands on the
     // result rather than on a list that hasn't caught up
     emit("imported");
   } catch {
-    error.value = "Couldn’t import that. Check your connection and try again.";
+    if (currentImport(mine, account)) error.value = "Couldn’t import that. Check your connection and try again.";
+  } finally {
+    if (currentImport(mine, account)) busy.value = false;
   }
-  busy.value = false;
 }
 
 function onFile(e: Event) {
@@ -70,8 +88,10 @@ function onFile(e: Event) {
   // retry, and it fires no change event while a value sticks (ImportModal's note)
   input.value = "";
   if (!file) return;
+  const mine = ++importGeneration;
+  const account = accountGeneration.value;
   const reader = new FileReader();
-  reader.onload = () => void send(String(reader.result));
+  reader.onload = () => void send(String(reader.result), mine, account);
   reader.readAsText(file);
 }
 

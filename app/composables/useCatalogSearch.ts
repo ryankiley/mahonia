@@ -57,15 +57,27 @@ export function useCatalogSearch() {
   // never download it; until it resolves, the null cache is simply live-search-only
   // — exactly the flag-off behavior.
   let cache: ReturnType<typeof useCatalogCache> | null = null;
+  // The cache module is intentionally lazy, which means the first live search can
+  // return before its chunk has loaded. Hold those real results briefly instead of
+  // dropping the only rows a brand-new offline cache may ever learn about.
+  let beforeCacheReady: CatalogResult[][] = [];
+  let cacheUnavailable = false;
   if (useOfflineEnabled()) {
     (cacheModule ??= import("./useCatalogCache"))
       .then((m) => {
         cache = m.useCatalogCache();
         void cache.prime();
+        for (const results of beforeCacheReady) cache.remember(results);
+        beforeCacheReady = [];
       })
       // chunk fetch failed (e.g. offline before the SW cached it) — stay
       // live-search-only rather than surfacing an unhandled rejection
-      .catch(() => {});
+      .catch(() => {
+        // Do not retain every later live result forever when the chunk is known
+        // unavailable. The fallback remains live-search-only exactly as before.
+        cacheUnavailable = true;
+        beforeCacheReady = [];
+      });
   }
   // the timer / abort / stale-guard scaffold is useDebouncedSearch's, shared with
   // the vault search so the two halves of the menu settle together
@@ -81,7 +93,9 @@ export function useCatalogSearch() {
       // remember every successful result set (even a superseded one — it's still
       // real catalog data) so offline search has it later
       onResults: (results) => {
-        if (cache && results.length) cache.remember(results);
+        if (!results.length) return;
+        if (cache) cache.remember(results);
+        else if (!cacheUnavailable) beforeCacheReady.push(results);
       },
       // A genuine failure (offline / network) with the flag on → serve the cached
       // catalog. Flag off → no cache, keep prior results (unchanged behavior).

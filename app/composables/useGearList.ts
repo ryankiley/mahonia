@@ -40,6 +40,11 @@ function create() {
   // signed-in session instead of an edit link (see server/utils/editAuth). Never
   // set while editToken is — the token is the stronger claim and always wins.
   let claimCode = "";
+  // A claimed-code open is authorized by the session cookie, unlike a held edit
+  // link. Keep the account lifetime that opened it so an A → B refresh can retire
+  // its polling, optimistic rows, and pending mutations before B's cookie is used.
+  let claimedAccountGeneration: number | null = null;
+  let claimedAwaitingResolution = false;
   // Reactive mirror of "this open holds no token" for the template layer — the
   // plain getters below can't be tracked, and the chrome needs to hide the
   // token-only affordances (Forget, the copyable edit link) on a claimed open.
@@ -68,6 +73,14 @@ function create() {
   let remoteMissing = false;
   // bumped on every load/dispose so in-flight responses for a previous list are ignored
   let epoch = 0;
+  // The getter below is convenient for one-shot ownership checks. Components that
+  // must clear visible transient UI on navigation need a reactive form as well.
+  const epochRef = shallowRef(0);
+  function bumpEpoch(): number {
+    epoch++;
+    epochRef.value = epoch;
+    return epoch;
+  }
   // True while load() runs its one-time backfills (water names, folder colours,
   // stranded children). Those go through dispatch like any edit — which is right for
   // persistence, and wrong for the vault: they fire on OPEN, so a list someone
@@ -166,8 +179,10 @@ function create() {
     if (!import.meta.client) return;
     const keys = listGearKeys();
     const gen = ++vaultGearGen;
+    const account = accountGeneration.value;
     const settle = (found: VaultGearKey[]) => {
-      if (gen !== vaultGearGen) return; // a newer ask (or a new list) owns the answer
+      if (gen !== vaultGearGen || account !== accountGeneration.value) return;
+      // A newer ask, list, or account owns the answer.
       vaultGear.value = new Map(found);
       vaultGearAsked.value = new Set(keys);
       vaultGearSettled.value = true;
@@ -245,21 +260,58 @@ function create() {
   // continuations, and the session state underneath vaultFetch is a useState.
   // It is also the seam the codebase keeps every vault call behind, so a call
   // site can't forget the credential.
-  const { vaultFetch: vaultRead, hasVault: sessionHasVault, vaultKnown: sessionKnown } =
-    useVaultAccess();
+  const vaultAccess = useVaultAccess();
+  const { vaultFetch: vaultRead, hasVault: sessionHasVault, vaultKnown: sessionKnown } = vaultAccess;
   // presence is the three-way answer askVaultGear gates on before the session has
   // resolved (a cookie read, not a request); signedIn is the RESOLVED one, read where
   // a 401 on a claimed open has to be told apart from a session that merely lapsed
   // (load's catch).
-  const { presence: sessionPresence, signedIn: sessionSignedIn } = useSession();
+  const session = useSession();
+  const { presence: sessionPresence, signedIn: sessionSignedIn } = session;
+  const accountGeneration = vaultAccess.accountGeneration ?? session.accountGeneration;
+  const ownsClaimedAccount = () =>
+    !claimCode || claimedAccountGeneration === accountGeneration.value;
+
+  function retireClaimedOpen(): void {
+    if (!claimCode || ownsClaimedAccount() || claimedAwaitingResolution) return;
+    // `epoch` is the ownership gate for the local hydrate, fetch, flush, and poll
+    // continuations below. Clearing now prevents A's cached snapshot or a late
+    // response from remaining visible while B's session is being resolved.
+    bumpEpoch();
+    resetSession();
+    snapshot.value = null;
+    status.value = sessionPresence.value === "signedOut" ? "missing" : "loading";
+    claimedAwaitingResolution = true;
+  }
+
   scope.run(() => {
-    const { hasVault } = useVaultAccess();
-    watch(hasVault, () => {
+    watch([sessionHasVault, accountGeneration], () => {
       vaultGear.value = new Map();
       vaultGearAsked.value = new Set();
       vaultGearSettled.value = false;
+      // A chooser is a decision about the current account's vault. The stored
+      // decision lookup is account-scoped too, but leave no A prompt/picker on B's
+      // screen while the new session resolves.
+      vaultPrompt.value = null;
+      vaultPicker.value = null;
+      refreshVaultCover();
+      clearTimeout(vaultGearTimer);
       void askVaultGear(true);
     });
+    watch(
+      [accountGeneration, sessionPresence],
+      () => {
+        if (!claimCode || ownsClaimedAccount()) return;
+        if (sessionPresence.value === "signedIn") {
+          // Only re-open under a freshly resolved account. `load` records its
+          // generation before its first await, so every new response is B-owned.
+          void load({ code: claimCode });
+          return;
+        }
+        retireClaimedOpen();
+      },
+      { flush: "sync" },
+    );
   });
   const online = scope.run(() => useOnline())!;
   let persistTimer: ReturnType<typeof setTimeout> | undefined;
@@ -386,7 +438,7 @@ function create() {
     if (editToken) useMyLists().touch(editToken, patch);
     // a claimed open has no registry row — its switcher row reads the account
     // list, so a rename here has to reach THAT copy to show up in the dropdown
-    else if (claimCode) {
+    else if (claimCode && ownsClaimedAccount()) {
       useClaimedLists().touchByCode(claimCode, patch);
       // ...and the registry row is also where touch() stamps lastOpened, which is
       // how the bare address knows where you left off. A claimed open has nowhere
@@ -504,12 +556,13 @@ function create() {
   // matching the server's precedence: it's the more specific claim, and it keeps a
   // signed-in user's behaviour on a shared link identical to a signed-out user's.
   async function load(cap: { token?: string; code?: string }) {
-    epoch++;
-    const myEpoch = epoch;
+    const myEpoch = bumpEpoch();
     editToken = cap.token ?? "";
     // normalized so a hand-typed /e/{code} URL and the canonical code the server
     // returns key the same IndexedDB record and claimed-lists row
     claimCode = editToken ? "" : normalizeShareCode(cap.code);
+    claimedAccountGeneration = claimCode ? accountGeneration.value : null;
+    claimedAwaitingResolution = false;
     openedByCode.value = !editToken && !!claimCode;
     keylessCode.value = "";
     resetSession();
@@ -674,9 +727,11 @@ function create() {
   // mint a fresh draft under the dead address, which read as "the list is empty".
   // The code is kept so the page can offer the read-only view it also opens.
   function startKeyless(code: string) {
-    epoch++;
+    bumpEpoch();
     editToken = "";
     claimCode = "";
+    claimedAccountGeneration = null;
+    claimedAwaitingResolution = false;
     openedByCode.value = false;
     resetSession();
     installListeners();
@@ -689,10 +744,11 @@ function create() {
   // in memory until the first real content lands (createFromDraft), so a visitor who
   // never adds anything never creates a server row.
   function startDraft() {
-    epoch++;
-    const myEpoch = epoch;
+    const myEpoch = bumpEpoch();
     editToken = "";
     claimCode = "";
+    claimedAccountGeneration = null;
+    claimedAwaitingResolution = false;
     openedByCode.value = false;
     keylessCode.value = "";
     resetSession();
@@ -747,6 +803,7 @@ function create() {
     // offline: the draft is already persisted locally; create once back online
     if (!online.value) { status.value = "offline"; return; }
     const myEpoch = epoch;
+    const account = accountGeneration.value;
     inFlight = true;
     status.value = "saving";
     try {
@@ -774,7 +831,9 @@ function create() {
       // register the write capability + put the token in the URL WITHOUT routing
       // (replaceState, so the editor's hash watcher doesn't dispose/reload us)
       const token = useMyLists().registerCreated(res, totals.value?.totalMg ?? 0);
-      setVaultDecisionFor(token, "yes"); // you built it; it's yours without asking
+      // The list itself is device-owned, but vault consent is not: an A draft
+      // creation that settles after B signs in must not mark B's vault as opted in.
+      if (account === accountGeneration.value) setVaultDecisionFor(token, "yes");
       refreshVaultCover(); // the answer moved onto the new token; keep the mirror true
       // pretty path (/e/{shareCode}#{token}) so the URL is share-ready immediately;
       // replaceState (not routing) so the hash watcher doesn't dispose/reload us
@@ -838,6 +897,7 @@ function create() {
 
   async function flush() {
     if (inFlight || remoteMissing || !pending.length || !snapshot.value) return;
+    if (claimCode && !ownsClaimedAccount()) return;
     // offline: leave the queue intact + persisted; the online watcher re-flushes
     if (!online.value) { status.value = "offline"; persistLocal(); return; }
     const myEpoch = epoch;
@@ -986,7 +1046,7 @@ function create() {
   }
   async function pollTick(myEpoch: number) {
     pollTimer = undefined;
-    if (myEpoch !== epoch) return; // queued by a session that has since been replaced
+    if (myEpoch !== epoch || (claimCode && !ownsClaimedAccount())) return; // queued by a session that has since been replaced
     try {
       if (typeof document !== "undefined" && document.hidden) return;
       if (!online.value) return; // nothing to pull while the connection is down
@@ -1326,11 +1386,14 @@ function create() {
     const snap = snapshot.value;
     const item = snap?.items.find((i) => i.id === id);
     if (!snap || !item) return "failed";
+    const myEpoch = epoch;
     const { result, landed } = await vault.captureOne(item, snap.items, snap.folders, editToken);
     // Folded in HERE rather than inside capture: the answer belongs to this list's
-    // state, so a response that outlives the list (or the account) writes into a
-    // Map that resetSession has already replaced, and nothing leaks anywhere.
-    noteVaultGear(landed);
+    // state. `resetSession()` replaces that Map, so a response from the old list
+    // must not fill the newly opened list's coverage with another list/account's
+    // answer. captureOne separately invalidates account changes; this guard owns
+    // the list-navigation half of the lifetime.
+    if (myEpoch === epoch) noteVaultGear(landed);
     return result;
   }
 
@@ -1367,7 +1430,9 @@ function create() {
    * isn't. All-or-nothing forces a wrong answer whichever way you go.
    */
   async function answerVaultPrompt(yes: boolean) {
+    const account = accountGeneration.value;
     vaultPrompt.value = null;
+    if (account !== accountGeneration.value) return;
     if (!yes) {
       setVaultDecisionFor(editToken, "no");
       return refreshVaultCover();
@@ -1375,7 +1440,7 @@ function create() {
     const s = snapshot.value;
     const myEpoch = epoch;
     const caps = s ? await vault.buildCaptures(s.items, s.folders) : [];
-    if (myEpoch !== epoch) return; // the list changed under the question
+    if (myEpoch !== epoch || account !== accountGeneration.value) return; // the list/account changed under the question
     // nothing to choose between — record the answer and take the (empty) set, so
     // an empty chooser never appears and the question doesn't come back
     if (caps.length < 2) {
@@ -1389,8 +1454,10 @@ function create() {
   /** Confirm the chooser: `keep` is the normKeys ticked. Everything else is
    *  recorded as not-yours FOR THIS LIST, so later edits don't re-offer it. */
   function confirmVaultPicker(keep: string[]) {
+    const account = accountGeneration.value;
     const offered = vaultPicker.value ?? [];
     vaultPicker.value = null;
+    if (account !== accountGeneration.value) return;
     const kept = new Set(keep);
     setVaultExclusionsFor(
       editToken,
@@ -1703,11 +1770,16 @@ function create() {
   });
 
   async function rotate(): Promise<string | null> {
+    // Like loads, a rotate response belongs to the list that sent it. The editor
+    // singleton can already be showing another list when this comes back; without
+    // this guard its new token and vault decision were written into that new list.
+    const myEpoch = epoch;
     try {
       const res = await $fetch<{ editToken: string }>("/api/edit/rotate", {
         method: "POST",
         headers: authHeaders(),
       });
+      if (myEpoch !== epoch) return null;
       const old = editToken;
       const oldCode = claimCode;
       editToken = res.editToken;
@@ -1715,6 +1787,8 @@ function create() {
       // list — so a claimed open graduates to the token path here, and the editor
       // behaves from now on exactly as if the link had been opened directly.
       claimCode = "";
+      claimedAccountGeneration = null;
+      claimedAwaitingResolution = false;
       openedByCode.value = false;
       keylessCode.value = "";
       // The vault answer rides along. It's keyed by the token, but it answers a
@@ -1776,14 +1850,14 @@ function create() {
     // 500-op batch limit (it rejects oversized batches); the remainder is safe in
     // the on-device copy below and drains on the next open. A dead token
     // (remoteMissing) would only 404, so don't bother.
-    if (pending.length && (editToken || claimCode) && !remoteMissing) {
+    if (pending.length && (editToken || claimCode) && !remoteMissing && ownsClaimedAccount()) {
       $fetch("/api/edit/mutate", { method: "POST", headers: authHeaders(), body: { ops: pending.slice(0, 500) } }).catch(() => {});
     }
     // capture the latest state on device before teardown — the debounced persist
     // may not have fired, and SPA nav / unmount must not drop the last edits
     writeLocal();
     clearTimeout(persistTimer);
-    epoch++; // invalidate any in-flight flush/poll responses
+    bumpEpoch(); // invalidate any in-flight flush/poll responses
     // drop any in-flight drag (item or folder) so it can't commit against a new list
     useItemDnd().reset();
     useFolderDnd().reset();
@@ -1794,6 +1868,8 @@ function create() {
     snapshot.value = null;
     editToken = "";
     claimCode = "";
+    claimedAccountGeneration = null;
+    claimedAwaitingResolution = false;
     openedByCode.value = false;
     keylessCode.value = "";
     resetSession();
@@ -1805,6 +1881,7 @@ function create() {
     get editToken() { return editToken; },
     get claimCode() { return claimCode; },
     get epoch() { return epoch; },
+    epochRef,
     openedByCode,
     keylessCode,
     startKeyless,

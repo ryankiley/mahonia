@@ -53,18 +53,26 @@ function idbSet(record: CatalogCacheRecord): Promise<void> {
 
 // In-memory index, shared across every autocomplete instance on the page.
 let memItems: LocalCatalogRow[] = [];
-let primed = false;
+// Keep the in-flight read too. A second input can start before IndexedDB has
+// answered; returning the same promise lets callers wait for the real cache rather
+// than mistaking "the read has started" for "the cache is ready".
+let primePromise: Promise<void> | undefined;
 let persistTimer: ReturnType<typeof setTimeout> | undefined;
 
 export function useCatalogCache() {
   const enabled = import.meta.client && typeof indexedDB !== "undefined";
 
   // Load the accumulated cache from a prior session into memory (once).
-  async function prime(): Promise<void> {
-    if (!enabled || primed) return;
-    primed = true;
-    const rec = await idbGet();
-    if (rec?.items?.length) memItems = rec.items;
+  function prime(): Promise<void> {
+    if (!enabled) return Promise.resolve();
+    return (primePromise ??= idbGet().then((rec) => {
+      if (!rec?.items?.length) return;
+      // A live search can resolve while IndexedDB is still opening. Replacing the
+      // in-memory rows here used to discard that fresh result (and then persist the
+      // older disk snapshot over it). Fold it in instead: the live answer is newer
+      // and therefore wins duplicate ids, while the prior cache remains available.
+      memItems = mergeCatalogRows(rec.items, memItems, MAX_ITEMS);
+    }));
   }
 
   function persistSoon() {

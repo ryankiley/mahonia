@@ -213,14 +213,14 @@ export async function backfillVaultFromClaims(db: Db, userId: number): Promise<n
     .where(
       and(eq(listClaims.userId, userId), eq(lists.status, "active"), isNull(lists.deletedAt)),
     )
+    .orderBy(desc(lists.updatedAt), desc(lists.id))
     .limit(CLAIM_BATCH_MAX);
 
   const byKey = new Map<string, VaultCapture>();
   for (const row of rows) {
     const items = Array.isArray(row.data?.items) ? row.data.items : [];
-    // most-recently-updated list wins on a conflict, since rows come back in that
-    // order and a later set() overwrites — the same "your newest weight is your
-    // truth" rule the upsert itself follows
+    // The query is newest first, so the first occurrence wins — the same "your
+    // newest weight is your truth" rule the upsert itself follows.
     for (const cap of captureFromList(items)) if (!byKey.has(cap.normKey)) byKey.set(cap.normKey, cap);
   }
   if (!byKey.size) return 0;

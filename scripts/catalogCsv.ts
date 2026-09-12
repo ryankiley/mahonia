@@ -38,9 +38,17 @@ export { WEIGHT_SOURCES };
 export const isWeightSource = (s: string): s is WeightSource =>
   (WEIGHT_SOURCES as readonly string[]).includes(s);
 
-/** A usable citation: an http(s) URL with something after the scheme. The one
- *  spelling — two of the four call sites used to accept a bare "https://". */
-export const isCitationUrl = (s: string): boolean => /^https?:\/\/.+/i.test(s);
+/** A usable citation: an absolute http(s) URL with a host. Keep this parsed rather
+ * than regex-shaped: `https://#note` and `https://?q` look like they have text after
+ * the scheme but have no destination for a reader or an audit to open. */
+export const isCitationUrl = (s: string): boolean => {
+  try {
+    const url = new URL(s);
+    return (url.protocol === "http:" || url.protocol === "https:") && Boolean(url.hostname);
+  } catch {
+    return false;
+  }
+};
 
 /** The catalog identity join: brand|name|variant, lowercased. Pre-processing
  *  (variant normalization, null-folding) stays at each call site — the builder

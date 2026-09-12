@@ -54,9 +54,37 @@ async function finish(fallback: string) {
 // The title and the noindex belong to /account, which is the thing that is actually
 // the account; see the page.
 
-const { user, signedIn, presence, loaded, refresh, requestLink, signOut, saveProfile, forgetAccountMemos } = useSession();
+const {
+  user,
+  signedIn,
+  presence,
+  loaded,
+  accountGeneration,
+  refresh,
+  requestLink,
+  signOut,
+  saveProfile,
+  forgetAccountMemos,
+} = useSession();
 const { confirm: askConfirm, confirmState } = useDialogs();
 const pk = usePasskeys();
+
+// Account screens can remain mounted while a passkey flow, another tab, or a
+// sign-out swaps the cookie underneath them. `signedIn` alone cannot describe
+// that lifetime: A → B stays signed in throughout. Every account-owned request
+// captures this small identity before it leaves, and may only affect the screen
+// while it is still the identity the screen is showing.
+type AccountContext = { generation: number; email: string };
+function accountContext(): AccountContext | null {
+  const email = user.value?.email;
+  return signedIn.value && email ? { generation: accountGeneration.value, email } : null;
+}
+function ownsAccount(context: AccountContext | null): context is AccountContext {
+  return !!context &&
+    context.generation === accountGeneration.value &&
+    context.email === user.value?.email &&
+    signedIn.value;
+}
 // whether this browser can do WebAuthn at all — resolved on mount, so the
 // signed-out view offers the passkey door only where it actually opens
 const canPasskey = ref(false);
@@ -154,20 +182,26 @@ const name = ref("");
 const nameSaving = ref(false);
 const nameNote = ref("");
 watch(
-  () => user.value?.displayName,
-  (v) => (name.value = v ?? ""),
+  [() => user.value?.email, () => user.value?.displayName],
+  ([_email, displayName]) => (name.value = displayName ?? ""),
   { immediate: true },
 );
 const nameDirty = computed(() => name.value.trim() !== (user.value?.displayName ?? ""));
 
 async function saveName() {
   if (!nameDirty.value || nameSaving.value) return;
+  const account = accountContext();
+  if (!account) return;
+  const displayName = name.value.trim();
   nameSaving.value = true;
   nameNote.value = "";
-  const ok = await saveProfile({ displayName: name.value.trim() });
+  const ok = await saveProfile({ displayName });
+  // saveProfile itself protects shared session state. This second guard protects
+  // this component's local busy state and success copy from an old account.
+  if (!ownsAccount(account)) return;
   nameSaving.value = false;
   nameNote.value = ok
-    ? name.value.trim()
+    ? displayName
       ? "Saved. Lists you make now carry your name."
       : "Cleared. Your lists are anonymous again."
     : "Couldn’t save that. Try again?";
@@ -177,17 +211,31 @@ async function saveName() {
 const passkeys = ref<PasskeySummary[]>([]);
 const pkBusy = ref(false);
 const pkNote = ref("");
+// A reload after adding/removing one key can overtake the mount-time read. The
+// account context distinguishes people; this counter distinguishes two reads for
+// the same person, so the newest list wins in both cases.
+let passkeyLoadGeneration = 0;
 
 async function loadPasskeys() {
-  if (!signedIn.value || !canPasskey.value) return;
-  passkeys.value = await pk.list();
+  const mine = ++passkeyLoadGeneration;
+  const account = accountContext();
+  if (!canPasskey.value || !account) {
+    passkeys.value = [];
+    return;
+  }
+  const rows = await pk.list();
+  if (mine !== passkeyLoadGeneration || !ownsAccount(account)) return;
+  passkeys.value = rows;
 }
-watch([signedIn, canPasskey], () => loadPasskeys(), { immediate: true });
 
 async function addPasskey() {
+  if (pkBusy.value) return;
+  const account = accountContext();
+  if (!account) return;
   pkBusy.value = true;
   pkNote.value = "";
   const result = await pk.register(deviceLabel());
+  if (!ownsAccount(account)) return;
   pkBusy.value = false;
   if (result === "ok") {
     pkNote.value = "Added. You can sign in with it from now on.";
@@ -197,13 +245,23 @@ async function addPasskey() {
 }
 
 async function removePasskey(id: number) {
+  if (pkBusy.value) return;
+  const account = accountContext();
+  if (!account) return;
   if (!(await askConfirm({
     title: "Remove this passkey",
     message:
       "Remove this passkey? You can still sign in with an emailed link, and add another any time.",
     confirmLabel: "Remove",
   }))) return;
-  if (await pk.remove(id)) await loadPasskeys();
+  // The dialog can stay open across an account change. Never send a removal
+  // using whichever cookie happens to be current when it closes.
+  if (!ownsAccount(account)) return;
+  pkBusy.value = true;
+  const removed = await pk.remove(id);
+  if (!ownsAccount(account)) return;
+  pkBusy.value = false;
+  if (removed) await loadPasskeys();
 }
 
 // A rough, honest name for the device being enrolled, so the list means something
@@ -232,19 +290,27 @@ const deleteNote = ref("");
 const exporting = ref(false);
 const exportNote = ref("");
 async function exportEverything() {
+  if (exporting.value) return;
+  const account = accountContext();
+  if (!account) return;
   exporting.value = true;
   exportNote.value = "";
   try {
     const data = await $fetch<{ lists: unknown[]; gear: { items: unknown[] } }>("/api/account/export");
+    // Do not turn A's completed response into a download after B arrives. This
+    // check has to happen before the lazy import too: that import is another
+    // await boundary, not merely a formatting detail.
+    if (!ownsAccount(account)) return;
     const { downloadFile } = await import("~/utils/download");
+    if (!ownsAccount(account)) return;
     downloadFile(`mahonia-export-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(data, null, 2), "application/json");
     const n = data.lists.length;
     const g = data.gear.items.length;
     exportNote.value = `Saved ${n} ${n === 1 ? "list" : "lists"} and ${g} ${g === 1 ? "piece" : "pieces"} of gear.`;
   } catch {
-    exportNote.value = "Couldn't build the file. Try again?";
+    if (ownsAccount(account)) exportNote.value = "Couldn't build the file. Try again?";
   } finally {
-    exporting.value = false;
+    if (ownsAccount(account)) exporting.value = false;
   }
 }
 // The confirmation, shown after the account is gone and the page has flipped back
@@ -252,7 +318,18 @@ async function exportEverything() {
 // bar's few): there is nothing to act on, and it's the only acknowledgement that an
 // irreversible thing succeeded.
 const gone = ref("");
+let goneGeneration = 0;
+function showGone(message: string) {
+  const mine = ++goneGeneration;
+  gone.value = message;
+  setTimeout(() => {
+    if (mine === goneGeneration) gone.value = "";
+  }, 8000);
+}
 async function deleteAccount() {
+  if (deleting.value) return;
+  const account = accountContext();
+  if (!account) return;
   // ONE dialog, two decisions. It used to ask twice — "delete your account?" then
   // "delete your lists too?" — and a second modal arriving after you'd already
   // committed read as a step you hadn't finished rather than a choice you were being
@@ -275,6 +352,9 @@ async function deleteAccount() {
     }))
   )
     return;
+  // A confirmation describes A's account, not B's. The page can stay mounted
+  // while the dialog is open, so re-check immediately before the destructive call.
+  if (!ownsAccount(account)) return;
   const alsoLists = confirmState.checked;
 
   deleting.value = true;
@@ -284,26 +364,37 @@ async function deleteAccount() {
       method: "POST",
       body: { deleteLists: alsoLists },
     });
+    if (!ownsAccount(account)) return;
+    // Clear the busy state while it still belongs to A. refresh(true) deliberately
+    // invalidates A's account context, and its watcher clears the rest of the view.
+    deleting.value = false;
     forgetAccountMemos();
     // Stay here rather than navigating away. The page re-renders as the signed-out
     // screen on its own once the session has gone, so the confirmation lands on the
     // thing that actually changed — and a toast that outlived a route change would
     // need app-wide plumbing this is the only caller for.
     await refresh(true);
+    // A newer sign-in can supersede this forced read. Only acknowledge deletion
+    // once the account screen has actually settled signed out; otherwise a later
+    // B session would inherit A's irreversible-action message.
+    if (!loaded.value || signedIn.value) return;
     const n = res?.listsDeleted ?? 0;
-    gone.value = n
+    showGone(n
       ? `Account deleted, along with ${n} ${n === 1 ? "list" : "lists"}.`
-      : "Account deleted. Your lists are untouched.";
-    setTimeout(() => (gone.value = ""), 8000);
+      : "Account deleted. Your lists are untouched.");
   } catch {
+    if (!ownsAccount(account)) return;
     deleteNote.value = "Couldn't delete the account. Try again?";
+    deleting.value = false;
   }
-  deleting.value = false;
 }
 
 // ---- signing out everywhere ----------------------------------------------
 const signingOutAll = ref(false);
 async function onSignOutEverywhere() {
+  if (signingOutAll.value) return;
+  const account = accountContext();
+  if (!account) return;
   if (
     !(await askConfirm({
       title: "Sign out everywhere?",
@@ -313,25 +404,69 @@ async function onSignOutEverywhere() {
     }))
   )
     return;
+  // Like deletion and passkey removal, the confirmation can outlive the account
+  // that prompted it. Do not end every session for the account that replaced it.
+  if (!ownsAccount(account)) return;
   signingOutAll.value = true;
   try {
     await $fetch("/api/auth/signout-all", { method: "POST" });
+    if (!ownsAccount(account)) return;
+    signingOutAll.value = false;
     forgetAccountMemos();
     // Stay put and re-read: in the modal there is nowhere to go (you're already
     // looking at the account), and on the page you're already on /account.
     await refresh(true);
   } catch {
+    if (!ownsAccount(account)) return;
     pkNote.value = "Couldn't sign out everywhere. Try again?";
+    signingOutAll.value = false;
   }
-  signingOutAll.value = false;
 }
 
 async function onSignOut() {
+  const account = accountContext();
+  if (!account) return;
   await signOut(); // drops the per-account memos itself — see useSession
+  // A different account may have signed in while this request was in flight.
+  // In that case it owns the mounted account surface, so don't close or redirect it.
+  if (!loaded.value || signedIn.value) return;
   // Signing out of a list you're reading shouldn't also take the list away — in the
   // modal this just closes. The page has nothing behind it, so it goes to /gear.
   await finish("/gear");
 }
+
+// Clearing the account view is separate from clearing app-wide account memos:
+// this is all transient surface state. It runs as soon as the session announces a
+// new account lifetime, including A → B where `signedIn` never becomes false.
+function clearAccountView() {
+  passkeyLoadGeneration++;
+  goneGeneration++;
+  // If the replacement session has already landed in the same reactive turn,
+  // adopt its display name now. Otherwise it is null during the forced read and
+  // the user watcher fills it when the new identity arrives.
+  name.value = user.value?.displayName ?? "";
+  nameSaving.value = false;
+  nameNote.value = "";
+  passkeys.value = [];
+  pkBusy.value = false;
+  pkNote.value = "";
+  exporting.value = false;
+  exportNote.value = "";
+  deleting.value = false;
+  deleteNote.value = "";
+  signingOutAll.value = false;
+  gone.value = "";
+}
+
+watch(accountGeneration, () => {
+  clearAccountView();
+  // A same-tick A → B replacement can leave `signedIn` true before either
+  // watcher observes its intermediate null. Ask again here so B gets its keys
+  // even in that batched path; the per-read generation keeps duplicate requests
+  // harmless.
+  void loadPasskeys();
+});
+watch([signedIn, canPasskey], () => void loadPasskeys(), { immediate: true });
 </script>
 
 <template>
@@ -469,7 +604,7 @@ async function onSignOut() {
                 <span class="t-sm t-muted acct__meta">
                   {{ k.lastUsedAt ? `last used ${timeAgo(Date.parse(k.lastUsedAt))}` : "not used yet" }}
                 </span>
-                <button type="button" class="btn btn--quiet" @click="removePasskey(k.id)">Remove</button>
+                <button type="button" class="btn btn--quiet" :disabled="pkBusy" @click="removePasskey(k.id)">Remove</button>
               </li>
             </ul>
             <p class="t-sm t-muted">

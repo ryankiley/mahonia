@@ -279,6 +279,11 @@ describe("vault capture — the upsert's merge rules", () => {
     expect(row.catalogItemId).toBe(7);
   });
 
+  it("drops a catalog id the database cannot represent instead of overflowing the capture", async () => {
+    await captureVaultItems(db as any, VAULT, [cap({ catalogItemId: 2_147_483_648 })]);
+    expect((await listVaultItems(db as any, VAULT))[0]!.catalogItemId).toBeUndefined();
+  });
+
   it("remembers calories, keeps them through a capture that has none, takes a re-count", async () => {
     await captureVaultItems(db as any, VAULT, [cap({ kcal: 250 })]);
     await captureVaultItems(db as any, VAULT, [cap()]); // carries no kcal → keeps 250
@@ -692,6 +697,33 @@ describe("vault folders", () => {
     const ids = (await listVaultFolders(db as any, VAULT)).map((f) => f.id);
     await applyVaultFolderOp(db as any, VAULT, { t: "reorder", ids: [ids[1]!, ids[0]!] });
     expect((await listVaultFolders(db as any, VAULT)).map((f) => f.name)).toEqual(["Cook", "Tents"]);
+  });
+
+  it("normalizes folder names and rejects malformed or colliding wire operations", async () => {
+    expect(await applyVaultFolderOp(db as any, VAULT, { t: "add", name: "  Ryan's   shelter  " })).toBe(true);
+    expect(await applyVaultFolderOp(db as any, VAULT, { t: "add", name: "Cook" })).toBe(true);
+    const [shelter, cook] = await listVaultFolders(db as any, VAULT);
+    expect(shelter!.name).toBe("Ryan’s shelter");
+
+    // A rename into a sibling's name is an ordinary rejected operation, not a
+    // unique-index exception that turns into a 500.
+    await expect(
+      applyVaultFolderOp(db as any, VAULT, { t: "rename", id: shelter!.id, name: cook!.name }),
+    ).resolves.toBe(false);
+    await expect(
+      applyVaultFolderOp(db as any, VAULT, { t: "add", name: 42 } as never),
+    ).resolves.toBe(false);
+    await expect(
+      applyVaultFolderOp(db as any, VAULT, { t: "remove", id: "nope" } as never),
+    ).resolves.toBe(false);
+    await expect(
+      applyVaultFolderOp(db as any, VAULT, { t: "reorder", ids: {} } as never),
+    ).resolves.toBe(false);
+    await expect(
+      applyVaultFolderOp(db as any, VAULT, { t: "move", itemId: 1, folderId: "nope" } as never),
+    ).resolves.toBe(false);
+    await expect(applyVaultFolderOp(db as any, VAULT, null)).resolves.toBe(false);
+    await expect(removeVaultItem(db as any, VAULT, 2_147_483_648)).resolves.toBe(false);
   });
 });
 

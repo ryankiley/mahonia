@@ -33,10 +33,29 @@ import { dirname, join } from "node:path";
 // TypeScript that owns the path. One string, named in both places on purpose.
 const DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "content", "changelog.d");
 
-// today, in LOCAL time (matches the ship-date semantics of the entries)
-const now = new Date();
-const pad = (n) => String(n).padStart(2, "0");
-const todayIso = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+// Changelog days are Pacific calendar days (the release workflow settles them on
+// that clock), even when a contributor runs this command elsewhere. This stays
+// self-contained because this bare Node script deliberately does not boot jiti to
+// import the TypeScript helper that validates the checked-in sources.
+const CHANGELOG_TZ = "America/Los_Angeles";
+const dateParts = Object.fromEntries(
+  new Intl.DateTimeFormat("en-US", {
+    timeZone: CHANGELOG_TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  })
+    .formatToParts(new Date())
+    .filter((part) => part.type !== "literal")
+    .map((part) => [part.type, part.value]),
+);
+const todayIso = `${dateParts.year}-${dateParts.month}-${dateParts.day}`;
+
+function isCalendarDate(iso) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return false;
+  const instant = Date.parse(`${iso}T00:00:00Z`);
+  return !Number.isNaN(instant) && new Date(instant).toISOString().slice(0, 10) === iso;
+}
 
 // --- parse args: repeatable --added/--changed/--fixed, single --date/--title ---
 const argv = process.argv.slice(2);
@@ -52,7 +71,7 @@ for (let i = 0; i < argv.length; i++) {
     groups[arg.slice(2)].push(val.trim());
     i++;
   } else if (arg === "--date") {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(val ?? "")) fail("--date must be YYYY-MM-DD");
+    if (!isCalendarDate(val ?? "")) fail("--date must be a real YYYY-MM-DD calendar date");
     date = val;
     i++;
   } else if (arg === "--title") {

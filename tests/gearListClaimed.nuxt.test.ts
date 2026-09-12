@@ -204,6 +204,7 @@ describe("useGearList — a claimed open (share code + session, no token held)",
     useMyLists().entries.value = [
       listEntry({ editToken: "older-token", shareCode: "0LDLIST00001", slug: "older-list-bbb222", title: "Older" }),
     ];
+    sessionResolved(true);
 
     const c = useGearList();
     await c.load({ code: CODE });
@@ -222,6 +223,9 @@ describe("useGearList — a claimed open (share code + session, no token held)",
       pending: [],
       updatedAt: 1,
     });
+    // The account was resolved before this device went offline, so this ledger is
+    // safely namespaced to it rather than an unknown session hint.
+    sessionResolved(true);
     failOpens = true;
     try {
       const c = useGearList();
@@ -292,11 +296,9 @@ describe("useGearList — a claimed open (share code + session, no token held)",
     }
   });
 
-  it("a refused claim keeps its stamp while the session is unresolved", async () => {
-    // A 401 on a claimed open is "no claim under this session" — with the session
-    // itself unanswered (offline, or still being asked) that is as likely the session
-    // as the claim, and forgetting on it lost where you left off for a list the
-    // account still holds.
+  it("does not stamp a refused claim while the account is unresolved", async () => {
+    // An unresolved hint has no owner namespace. Keeping its resume ledger used
+    // to make A's claimed list reappear for whichever account resolved next.
     records.set(claimedLocalKey(CODE), { snapshot: snapshotFor("Alpine Loop"), pending: [], updatedAt: 1 });
     sessionUnresolved();
     refuseOpens = true;
@@ -304,7 +306,7 @@ describe("useGearList — a claimed open (share code + session, no token held)",
       const c = useGearList();
       await c.load({ code: CODE });
       expect(c.status.value).toBe("missing");
-      expect(claimedOpens()[0]?.shareCode).toBe(CODE);
+      expect(claimedOpens()).toEqual([]);
     } finally {
       refuseOpens = false;
     }

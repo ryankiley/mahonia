@@ -1,4 +1,4 @@
-import type { ComputedRef } from "vue";
+import type { ComputedRef, Ref } from "vue";
 
 /**
  * How a client reaches its vault.
@@ -17,7 +17,13 @@ import type { ComputedRef } from "vue";
  * every vault call going through one function, which is what made the missing
  * Authorization headers on remove/restore/price findable last time.
  */
-type VaultAccessRefs = { hasVault: ComputedRef<boolean>; vaultKnown: ComputedRef<boolean> };
+type VaultAccessRefs = {
+  hasVault: ComputedRef<boolean>;
+  vaultKnown: ComputedRef<boolean>;
+  /** Changes before a forced session re-read can replace one signed-in account
+   * with another. Consumers use it to invalidate account-owned async state. */
+  accountGeneration: Ref<number>;
+};
 
 // The two computeds, built ONCE per app rather than per caller. They wrap a
 // singleton's state (useSession's useState), so every copy answered identically —
@@ -29,7 +35,7 @@ type VaultAccessRefs = { hasVault: ComputedRef<boolean>; vaultKnown: ComputedRef
 let shared: VaultAccessRefs | undefined;
 function accessRefs(): VaultAccessRefs {
   if (import.meta.client && shared) return shared;
-  const { signedIn, loaded } = useSession();
+  const { signedIn, loaded, accountGeneration } = useSession();
   const build = (): VaultAccessRefs => ({
     /** Is there a vault to talk to at all? Signed out, the answer is simply no. */
     hasVault: computed(() => signedIn.value),
@@ -49,13 +55,14 @@ function accessRefs(): VaultAccessRefs {
      * HAS a vault waits, and only for the round trip that decides it.
      */
     vaultKnown: computed(() => loaded.value),
+    accountGeneration,
   });
   if (!import.meta.client) return build();
   return (shared = effectScope(true).run(build)!);
 }
 
 export function useVaultAccess() {
-  const { hasVault, vaultKnown } = accessRefs();
+  const { hasVault, vaultKnown, accountGeneration } = accessRefs();
 
   /**
    * Call a vault endpoint. Same-origin, so the session cookie rides along; the
@@ -78,9 +85,15 @@ export function useVaultAccess() {
     signal?: AbortSignal;
   };
   async function vaultFetch<T>(url: string, opts: VaultFetchOptions = {}): Promise<T> {
+    const mine = accountGeneration.value;
     const call = $fetch as unknown as (u: string, o: unknown) => Promise<unknown>;
-    return (await call(url, { ...opts, credentials: "same-origin" })) as T;
+    const result = await call(url, { ...opts, credentials: "same-origin" });
+    // Cookie identity can change while a request is in flight. The server's answer
+    // is still valid for the request it received, but it must not be applied to
+    // the account now on screen.
+    if (mine !== accountGeneration.value) throw new Error("Vault session changed");
+    return result as T;
   }
 
-  return { hasVault, vaultKnown, vaultFetch };
+  return { hasVault, vaultKnown, accountGeneration, vaultFetch };
 }

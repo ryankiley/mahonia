@@ -108,6 +108,10 @@ let bounds: import("leaflet").Marker[] = [];
 let trace: import("leaflet").Marker | null = null;
 let finish: import("leaflet").Marker | null = null;
 let ro: ResizeObserver | null = null;
+// `draw()` imports Leaflet lazily. A route can be removed or the editor can
+// navigate away before that chunk arrives, so never create a map against a detached
+// host after this component's lifetime has ended.
+let disposed = false;
 
 const points = computed<LatLon[]>(() => decodePolyline(props.geometry));
 // The route's spine — cumulative metres at every stored point — summed ONCE per geometry
@@ -358,6 +362,10 @@ type Lift = {
   commit: (alongM: number) => void;
 };
 let lift: Lift | null = null;
+// The pre-lift hold has its own window listeners. Keep a stop handle because a map
+// can unmount while the finger is still down — Leaflet only cleans up listeners it
+// owns, not these plain window listeners.
+let stopGrab: (() => void) | undefined;
 /**
  * Set through any gesture that was ABOUT AN EXISTING PIN, so the click it generates can't
  * also place a new one on an armed map. Two of them do this: the pointerup that ends a
@@ -373,6 +381,7 @@ function suppressPlaceOnce() {
 
 function onGrab(e: PointerEvent, spec: Omit<Lift, "el">) {
   if (e.button > 0 || lift) return;
+  stopGrab?.();
   const el = e.currentTarget as HTMLElement;
   const x0 = e.clientX;
   const y0 = e.clientY;
@@ -388,7 +397,9 @@ function onGrab(e: PointerEvent, spec: Omit<Lift, "el">) {
     window.removeEventListener("pointermove", watch);
     window.removeEventListener("pointerup", stop);
     window.removeEventListener("pointercancel", stop);
+    if (stopGrab === stop) stopGrab = undefined;
   };
+  stopGrab = stop;
   const timer = setTimeout(() => {
     stop();
     beginLift(el, spec, e.pointerId);
@@ -452,7 +463,7 @@ function onLiftMove(e: PointerEvent) {
   lift.marker.setLatLng([at.lat, at.lon]);
 }
 
-function endLift() {
+function resetLift(commit: boolean) {
   const l = lift;
   lift = null;
   window.removeEventListener("pointermove", onLiftMove);
@@ -461,11 +472,15 @@ function endLift() {
   map?.dragging.enable();
   if (!l) return;
   l.el.classList.remove("is-lifted");
+  if (!commit) return;
   suppressPlaceOnce();
   // ONE op for the whole gesture, committed on the drop — the codebase's own rule for
   // anything continuous. Live commits would be a hundred ops and a hundred autosaves for
   // one drag, and every one of them a separate undo.
   l.commit(l.alongM);
+}
+function endLift() {
+  resetLift(true);
 }
 
 /**
@@ -972,17 +987,20 @@ function pinPopup(w: { id: string; kind: string; alongM: number; label?: string 
 }
 
 async function draw() {
-  if (!host.value) return;
+  const mapHost = host.value;
+  if (!mapHost) return;
   // Leaflet reads the container's size at construction. TrailPlanPanel lives behind a
   // v-if, so on the tick this mounts the element can still be zero-height — and a Leaflet
   // map built at zero height stays a grey box forever, since it never re-measures on its
   // own. nextTick, then invalidateSize, then watch the box for good.
   await nextTick();
+  if (disposed || host.value !== mapHost) return;
 
   const [leaflet] = await Promise.all([import("leaflet"), import("leaflet/dist/leaflet.css")]);
+  if (disposed || host.value !== mapHost) return;
   L = leaflet.default ?? (leaflet as unknown as Leaflet);
 
-  map = L.map(host.value, {
+  map = L.map(mapHost, {
     // The map is inside a scrolling page. Wheel-zoom here would eat the page scroll every
     // time the cursor crossed it, so zooming is the buttons or a deliberate ctrl/⌘ + wheel
     // — which is `onWheel` below, because Leaflet's own handler has no modifier gate: it
@@ -994,7 +1012,7 @@ async function draw() {
 
   // The caption under the map promised this and nothing delivered it: with Leaflet's
   // handler off, holding ⌘ did the same as not holding it, which is nothing.
-  host.value.addEventListener("wheel", onWheel, { passive: false });
+  mapHost.addEventListener("wheel", onWheel, { passive: false });
 
   // A VIEW BEFORE ANY LAYER. Leaflet's Map.addLayer returns early while `_loaded` is
   // false, deferring onAdd — so a layer added before the view exists has no DOM element
@@ -1081,7 +1099,7 @@ async function draw() {
     // the view is still ours.
     if (!touched) frame();
   });
-  ro.observe(host.value);
+  ro.observe(mapHost);
 }
 
 onMounted(draw);
@@ -1115,6 +1133,11 @@ watch(dayLegs, renderLegs);
 watch(() => props.armedRange, renderLegs);
 
 onBeforeUnmount(() => {
+  disposed = true;
+  stopGrab?.();
+  // Unmounting is a cancel, not a drop: the list may already be a different one
+  // by the time this component leaves the tree.
+  resetLift(false);
   ro?.disconnect();
   // ours, not Leaflet's — map.remove() only unbinds what Leaflet itself attached
   host.value?.removeEventListener("wheel", onWheel);

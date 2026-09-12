@@ -46,7 +46,41 @@ const OPENS_KEPT = 32;
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   !!v && typeof v === "object" && !Array.isArray(v);
 
-function readOpens(): Record<string, number> {
+// Claimed rows and their resume ledger are account data, even though their cache
+// lives on this device. Never pick a cache merely because a session hint exists:
+// while `/api/auth/me` is resolving that hint could belong to the next person at
+// the keyboard. A resolved email is the only safe cache namespace available to
+// this thin client session.
+function storageOwner(): string | null {
+  if (!import.meta.client) return null;
+  try {
+    const session = useSession() as {
+      user?: { value?: { email?: string | null } | null };
+      signedIn?: { value: boolean };
+      presence?: { value: Presence };
+    };
+    const email = session.user?.value?.email;
+    // The real session always identifies an account by email. The signed-in
+    // fallback keeps older narrow test seams usable, while an unresolved real
+    // session remains unscoped and therefore cannot restore any cache.
+    if (email) return email.trim().toLocaleLowerCase();
+    return !session.user && session.presence?.value === "signedIn" ? "signed-in" : null;
+  } catch {
+    return null;
+  }
+}
+const scopedKey = (base: string, owner: string) => `${base}.${encodeURIComponent(owner)}`;
+// `signed-in` is only the compatibility owner returned by legacy narrow test
+// seams that expose no `user` ref. Real sessions always have a concrete email;
+// keep the former on the historical key so those seams don't pretend to model an
+// account identity they never supplied.
+const rowsKeyFor = (owner: string) =>
+  owner === "signed-in" ? CLAIMED_ROWS_KEY : scopedKey(CLAIMED_ROWS_KEY, owner);
+const opensKeyFor = (owner: string) =>
+  owner === "signed-in" ? CLAIMED_OPENS_KEY : scopedKey(CLAIMED_OPENS_KEY, owner);
+
+function readOpens(owner = storageOwner()): Record<string, number> {
+  if (!owner) return {};
   // Only what this file itself writes gets through: a canonical share code as the
   // key, a finite stamp as the value. Anything else — an array, "__proto__", a
   // stamp stored as a string — would become a resume target (/e/0) or sort as NaN
@@ -54,7 +88,7 @@ function readOpens(): Record<string, number> {
   // (recallJson) rather than taking the bare address down with it — the same shrug
   // the device registry makes about its own store.
   const clean: Record<string, number> = {};
-  for (const [code, at] of Object.entries(recallJson(CLAIMED_OPENS_KEY, isRecord, {}))) {
+  for (const [code, at] of Object.entries(recallJson(opensKeyFor(owner), isRecord, {}))) {
     if (normalizeShareCode(code) === code && typeof at === "number" && Number.isFinite(at)) {
       clean[code] = at;
     }
@@ -85,12 +119,14 @@ export function markClaimedOpen(shareCode: string): void {
   // sign-out had just cleared, for whoever signs in here next; the cookie is shared
   // across tabs, so this one knows before its own session state has caught up.
   if (useSession().presence.value === "signedOut") return;
-  const opens = readOpens();
+  const owner = storageOwner();
+  if (!owner) return;
+  const opens = readOpens(owner);
   opens[code] = Date.now();
   const kept = Object.entries(opens)
     .sort((a, b) => b[1] - a[1])
     .slice(0, OPENS_KEPT);
-  remember(CLAIMED_OPENS_KEY, JSON.stringify(Object.fromEntries(kept)));
+  remember(opensKeyFor(owner), JSON.stringify(Object.fromEntries(kept)));
 }
 
 /** Drop one code from the ledger: the list is gone, detached, or the claim no
@@ -98,10 +134,12 @@ export function markClaimedOpen(shareCode: string): void {
 export function forgetClaimedOpen(shareCode: string): void {
   const code = normalizeShareCode(shareCode);
   if (!import.meta.client || !code) return;
-  const opens = readOpens();
+  const owner = storageOwner();
+  if (!owner) return;
+  const opens = readOpens(owner);
   if (!(code in opens)) return;
   delete opens[code];
-  remember(CLAIMED_OPENS_KEY, JSON.stringify(opens));
+  remember(opensKeyFor(owner), JSON.stringify(opens));
 }
 
 /** Drop every ledger code not in `keep` — the account's rows as the server has just
@@ -112,21 +150,24 @@ export function forgetClaimedOpen(shareCode: string): void {
  *  longer held — offline, into its stale copy as "offline", with no way to notice. */
 export function pruneClaimedOpens(keep: Iterable<string>): void {
   if (!import.meta.client) return;
+  const owner = storageOwner();
+  if (!owner) return;
   const live = new Set([...keep].map(normalizeShareCode));
-  const opens = readOpens();
+  const opens = readOpens(owner);
   const kept = Object.fromEntries(Object.entries(opens).filter(([code]) => live.has(code)));
   if (Object.keys(kept).length === Object.keys(opens).length) return; // nothing to drop, no write
-  remember(CLAIMED_OPENS_KEY, JSON.stringify(kept));
+  remember(opensKeyFor(owner), JSON.stringify(kept));
 }
 
 const isClaimedRow = (r: unknown): r is ClaimedList =>
   !!r && typeof r === "object" && typeof (r as ClaimedList).shareCode === "string";
 
-function readCachedRows(): ClaimedList[] {
+function readCachedRows(owner = storageOwner()): ClaimedList[] {
+  if (!owner) return [];
   // Element by element, not just "is it an array": a null or a number in here would
   // reach mergeSwitcherRows and registryStale as `l.shareCode` and throw — in the
   // switcher's render, and on every keystroke of a claimed open.
-  return recallJson(CLAIMED_ROWS_KEY, Array.isArray, []).filter(isClaimedRow);
+  return recallJson(rowsKeyFor(owner), Array.isArray, []).filter(isClaimedRow);
 }
 
 /** The registry as one comparable string. Exported so the session plugin, which
@@ -143,7 +184,35 @@ let following = false;
 export function useClaimedLists() {
   const lists = useState<ClaimedList[]>("claimed-lists", () => []);
   const loaded = useState<boolean>("claimed-loaded", () => false);
-  const { signedIn, hasSessionHint, presence } = useSession();
+  // One shared ordering gate for every account-owned response. Two surfaces can
+  // refresh at once (the switcher and share panel); the newer answer is the only
+  // one entitled to replace the cache. resetClaimMark() advances it too, so a
+  // forced A → B session change immediately retires A's pending work.
+  const claimedLoadGeneration = useState<number>("claimed-load-generation", () => 0);
+  const session = useSession();
+  const { signedIn, hasSessionHint, presence } = session;
+  // Some lightweight unit callers mock the older session seam. The production
+  // session always supplies this ref; the fallback preserves those focused callers
+  // while still giving a stable generation in their single-account world.
+  const accountGeneration = session.accountGeneration ?? ref(0);
+
+  // Every network answer in this file belongs to an account. `signedIn` alone is
+  // not enough after an account switch, so retain the real email when available.
+  // A few lightweight callers/tests intentionally expose only `signedIn`; their
+  // stable fallback still invalidates work at sign-out without broadening that
+  // public seam merely for a response guard.
+  const accountKey = () => signedIn.value ? session.user?.value?.email ?? "signed-in" : null;
+  type Owner = { account: number; key: string; generation: number };
+  const beginOwnedRequest = (): Owner | null => {
+    const key = accountKey();
+    if (!key) return null;
+    return { account: accountGeneration.value, key, generation: ++claimedLoadGeneration.value };
+  };
+  const ownsResponse = (owner: Owner | null) =>
+    !!owner &&
+    owner.account === accountGeneration.value &&
+    owner.key === accountKey() &&
+    owner.generation === claimedLoadGeneration.value;
 
   /** Adopt rows and mirror them to the device, so the next cold load — which may
    *  have no network — starts from what this browser last knew. The ONE owner of the
@@ -151,8 +220,13 @@ export function useClaimedLists() {
    *  account leave nothing behind and "empty" reads the same either way. */
   function adopt(rows: ClaimedList[]): void {
     lists.value = rows;
-    if (rows.length) remember(CLAIMED_ROWS_KEY, JSON.stringify(rows));
-    else forget(CLAIMED_ROWS_KEY);
+    const owner = storageOwner();
+    // A response guard has already established account ownership before callers
+    // reach here. Still refuse an unscoped write if a session changed between the
+    // guard and this synchronous adoption.
+    if (!owner) return;
+    if (rows.length) remember(rowsKeyFor(owner), JSON.stringify(rows));
+    else forget(rowsKeyFor(owner));
   }
 
   /** The server's answer, adopted whole — and held against the opens ledger (see
@@ -181,7 +255,11 @@ export function useClaimedLists() {
    */
   function restoreFromDevice(): void {
     if (!import.meta.client) return;
-    if (presence.value !== "signedOut" && !loaded.value && !lists.value.length) {
+    // A hint only says a session may exist; using a device-global cache here made
+    // a cold B launch briefly draw A's list names. Wait for the resolved owner and
+    // then read only its namespace. Offline still keeps the registry half of Your
+    // lists, rather than risking another person's account rows.
+    if (storageOwner() && !loaded.value && !lists.value.length) {
       const cached = readCachedRows();
       if (cached.length) lists.value = cached;
     }
@@ -189,7 +267,10 @@ export function useClaimedLists() {
     following = true;
     window.addEventListener("storage", (e) => {
       // a null key is the other tab clearing storage outright — read again either way
-      if (e.key !== null && e.key !== CLAIMED_ROWS_KEY) return;
+      const owner = storageOwner();
+      if (!owner) return;
+      const key = rowsKeyFor(owner);
+      if (e.key !== null && e.key !== key) return;
       lists.value = readCachedRows();
     });
   }
@@ -212,8 +293,11 @@ export function useClaimedLists() {
       return;
     }
     if (!signedIn.value) return; // presumed: nothing to ask with yet, nothing to throw away
+    const owner = beginOwnedRequest();
+    if (!owner) return;
     try {
       const res = await $fetch<{ lists: ClaimedList[] }>("/api/lists/claimed");
+      if (!ownsResponse(owner)) return;
       adoptFromServer(res.lists || []);
       loaded.value = true;
     } catch {
@@ -263,11 +347,17 @@ export function useClaimedLists() {
       if (!loaded.value) await refresh();
       return;
     }
+    // Acquire the ordering lease only when this call will actually issue the
+    // claim request. Doing it before the no-op branch above would retire an
+    // in-flight refresh without replacing it, leaving the account rows stale.
+    const owner = beginOwnedRequest();
+    if (!owner) return;
     try {
       const res = await $fetch<{ claimed: number; lists: ClaimedList[] }>("/api/lists/claim", {
         method: "POST",
         body: { editTokens, openedTokens },
       });
+      if (!ownsResponse(owner)) return;
       adoptFromServer(res.lists || []);
       loaded.value = true;
       remember(CLAIMED_MARK_KEY, mark); // a blocked write just means claiming again next time
@@ -280,11 +370,14 @@ export function useClaimedLists() {
    *  counterpart of the automatic sweep above, for a list someone shared with you.
    *  Deliberately a choice rather than a side effect of signing in. */
   async function claimOne(editToken: string): Promise<boolean> {
+    const owner = beginOwnedRequest();
+    if (!owner) return false;
     try {
       const res = await $fetch<{ lists: ClaimedList[] }>("/api/lists/claim", {
         method: "POST",
         body: { editTokens: [editToken] },
       });
+      if (!ownsResponse(owner)) return false;
       adoptFromServer(res.lists || []);
       loaded.value = true;
       return true;
@@ -313,7 +406,10 @@ export function useClaimedLists() {
    *  contract as useMyLists().deleteList: already-gone counts as done, any other
    *  failure leaves everything standing so the user can retry. */
   async function deleteClaimed(shareCode: string): Promise<boolean> {
+    const owner = beginOwnedRequest();
+    if (!owner) return false;
     if (!(await deleteListOnServer({ [LIST_CODE_HEADER]: shareCode }))) return false;
+    if (!ownsResponse(owner)) return false;
     adopt(lists.value.filter((l) => l.shareCode !== shareCode));
     // drop the claimed open's on-device copy too — the list is gone for good, so
     // the bare address must stop offering to resume it as well
@@ -325,11 +421,14 @@ export function useClaimedLists() {
   /** Detach a list from the account. The list itself is untouched — anyone holding
    *  its edit link, this user included, can still open it. */
   async function unclaim(shareCode: string): Promise<boolean> {
+    const owner = beginOwnedRequest();
+    if (!owner) return false;
     try {
       const res = await $fetch<{ ok: boolean }>("/api/lists/unclaim", {
         method: "POST",
         body: { shareCode },
       });
+      if (!ownsResponse(owner)) return false;
       // the list itself survives, but this account is no longer a way into it —
       // and a claimed resume is only as good as that claim
       if (res.ok) {
@@ -346,12 +445,26 @@ export function useClaimedLists() {
    *  on this browser claims its own registry rather than seeing ours already done. */
   function resetClaimMark(): void {
     if (!import.meta.client) return;
+    claimedLoadGeneration.value++;
     forget(CLAIMED_MARK_KEY); // a blocked remove is nothing to do about; the mark is an optimisation, not state we depend on
     // the cached rows and the opens ledger are this account's too: leaving either
     // behind would show the last person's lists in the switcher, and could resume
     // the bare address into one of them
+    // Retire the legacy unscoped keys and every scoped account cache on a session
+    // boundary. The latter is deliberately conservative: one browser's local
+    // cache is a convenience, never a reason to expose one person's list names
+    // to another after an account switch.
     forget(CLAIMED_ROWS_KEY);
     forget(CLAIMED_OPENS_KEY);
+    try {
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const key = localStorage.key(i);
+        if (key?.startsWith(`${CLAIMED_ROWS_KEY}.`) || key?.startsWith(`${CLAIMED_OPENS_KEY}.`))
+          localStorage.removeItem(key);
+      }
+    } catch {
+      /* storage blocked — in-memory rows below still clear */
+    }
     lists.value = [];
     loaded.value = false;
   }

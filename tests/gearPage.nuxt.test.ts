@@ -19,8 +19,11 @@ import GearPage from "~/pages/gear.vue";
 
 // hasVault true so the page loads; vaultFetch REAL so the page's URL choice has to
 // resolve against the routes below — the same passthrough gearList.nuxt.test.ts uses.
+const hasVault = ref(true);
+const accountGeneration = ref(0);
 mockNuxtImport("useVaultAccess", () => () => ({
-  hasVault: ref(true),
+  hasVault,
+  accountGeneration,
   // Mirrors the real vaultFetch, including WHY it casts: `$fetch` is generic over
   // the app's routes, so typing the call drags Nuxt's route matcher in and blows
   // TypeScript's depth limit from a mock (see useVaultAccess).
@@ -45,11 +48,15 @@ const entry = (id: number, name: string): VaultEntry => ({
 
 let listRows: VaultEntry[] = [];
 let listFolders: VaultFolder[] = [];
-registerEndpoint("/api/vault/list", () => ({
-  items: listRows,
-  removed: [],
-  folders: listFolders,
-}));
+let deferList = false;
+let settleLists: Array<() => void> = [];
+registerEndpoint("/api/vault/list", async () => {
+  // Snapshot at request time. That lets the account-lifetime regression below
+  // distinguish the old account's response from the new account's later one.
+  const response = { items: [...listRows], removed: [], folders: [...listFolders] };
+  if (deferList) await new Promise<void>((resolve) => settleLists.push(resolve));
+  return response;
+});
 
 // what "Remove" sent — the id is the assertion, the ok is what lets the row leave
 let removedIds: number[] = [];
@@ -87,6 +94,11 @@ describe("the /gear page's vault calls", () => {
     document.body.innerHTML = "";
     storage.clear();
     removedIds = [];
+    hasVault.value = true;
+    accountGeneration.value = 0;
+    deferList = false;
+    for (const settleList of settleLists) settleList();
+    settleLists = [];
   });
 
   it("loads the gear from /api/vault/list rather than erroring", async () => {
@@ -111,4 +123,30 @@ describe("the /gear page's vault calls", () => {
     expect(w.find(".vault__error").exists()).toBe(false);
     expect(w.findAll(".vault__row")).toHaveLength(0);
   });
+
+  it("does not show an old account's late load after signing back in", async () => {
+    listRows = [entry(1, "Old account pack")];
+    listFolders = [];
+    deferList = true;
+    const w = await openPage();
+    expect(settleLists).toHaveLength(1);
+
+    // A → B remains signed in, so hasVault deliberately stays true. The account
+    // generation must clear the old list and start B's request on its own.
+    listRows = [entry(2, "New account pack")];
+    accountGeneration.value++;
+    await settle();
+    expect(settleLists).toHaveLength(2);
+
+    settleLists[0]!();
+    await settle();
+    expect(w.text()).not.toContain("Old account pack");
+    expect(w.findAll(".vault__row")).toHaveLength(0);
+
+    settleLists[1]!();
+    await settle();
+    expect(w.text()).toContain("New account pack");
+    expect(w.findAll(".vault__row")).toHaveLength(1);
+  });
+
 });

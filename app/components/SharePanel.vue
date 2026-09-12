@@ -67,7 +67,8 @@ const holdsEditLink = computed(() => !!props.editToken);
 // someone shared with you that you want to keep. It sits under "Replace this
 // link" because it belongs to the edit link — the two things you can do about
 // who holds this list.
-const { signedIn } = useSession();
+const session = useSession();
+const { signedIn, accountGeneration } = session;
 const claimed = useClaimedLists();
 const claiming = ref(false);
 const claimFailed = ref(false);
@@ -83,6 +84,7 @@ const canAddToAccount = computed(
 
 async function addToAccount() {
   if (claiming.value) return;
+  const account = accountGeneration.value;
   claiming.value = true;
   claimFailed.value = false;
   // claimOne folds the server's refreshed claim set into useClaimedLists, so
@@ -90,6 +92,10 @@ async function addToAccount() {
   // place: the list is on the account, which is what you asked for and what the
   // absence now means.
   const ok = await useClaimedLists().claimOne(props.editToken);
+  if (account !== accountGeneration.value) {
+    claiming.value = false;
+    return;
+  }
   claimFailed.value = !ok;
   claiming.value = false;
 }
@@ -124,18 +130,34 @@ const activityOpen = ref(false);
 
 async function loadActivity() {
   if (isDraft.value) return; // no server row yet — nothing to list
+  // An edit link is its own capability, but a claimed open is authenticated by
+  // the account cookie. Its A activity must not land in this panel after B takes
+  // over while the snapshots request is in flight.
+  const account = accountGeneration.value;
+  const ownsActivity = () => !!props.editToken || account === accountGeneration.value;
   activityState.value = "loading";
   try {
     const res = await $fetch<{ snapshots: SnapshotMeta[] }>("/api/edit/snapshots", {
       headers: props.authHeaders,
     });
+    if (!ownsActivity()) return;
     activity.value = res.snapshots ?? [];
     now.value = Date.now();
     activityState.value = "idle";
   } catch {
-    activityState.value = "error";
+    if (ownsActivity()) activityState.value = "error";
   }
 }
+watch([signedIn, accountGeneration], ([yes]) => {
+  // Drop A's recovery points immediately. A successful B session reloads them;
+  // a signed-out result keeps the panel empty rather than pretending A is open.
+  if (props.editToken) return;
+  activity.value = [];
+  activityState.value = "idle";
+  claiming.value = false;
+  claimFailed.value = false;
+  if (yes) void loadActivity();
+});
 onMounted(() => {
   void loadActivity();
   // The claim set, fetched the same way: on open, because the panel is the first

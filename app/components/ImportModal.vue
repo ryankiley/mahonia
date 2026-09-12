@@ -19,6 +19,8 @@ const emit = defineEmits<{ close: [] }>();
 
 const router = useRouter();
 const myLists = useMyLists();
+const vaultAccess = useVaultAccess();
+const accountGeneration = vaultAccess.accountGeneration ?? useSession().accountGeneration;
 
 const text = ref("");
 // what to call the list; empty falls back to the backup's own title, then "Imported list"
@@ -27,6 +29,15 @@ const importNote = useImportNote();
 const importing = ref(false);
 const error = ref("");
 const fileRef = useTemplateRef<HTMLInputElement>("fileRef");
+
+// This modal survives a forced account refresh. Do not leave B looking at A's
+// pasted content, busy label, or error while the replacement session resolves.
+watch(accountGeneration, () => {
+  importing.value = false;
+  error.value = "";
+  text.value = "";
+  title.value = "";
+});
 
 // fresh form each time the dialog is opened
 watch(
@@ -44,12 +55,23 @@ watch(
 // A JSON-backup restore arrives as the whole list — its meta (title, unit, the route
 // read off a GPX, the trip dates) around its content; CSV/LighterPack imports are
 // content alone and keep the stock title.
-async function createFrom(list: Partial<ListMeta> & { data: ListData }) {
+async function createFrom(
+  list: Partial<ListMeta> & { data: ListData },
+  // FileReader and the LighterPack resolver both run before this function. Their
+  // caller passes its account lifetime through so a switch in that earlier wait
+  // cannot make this later stage look as though B started the import.
+  account = accountGeneration.value,
+) {
   // a folders-only JSON backup is still a real restore; an empty CSV is not
   if (!list.data.items.length && !list.data.folders.length) {
     error.value = "No items found. Paste a CSV with a header row.";
     return;
   }
+  // Importing creates a device-owned list, but its automatic gear capture is
+  // account-owned. A forced session refresh can move A → B without ever making
+  // this dialog unmount, so use the account lifetime that started this work.
+  if (account !== accountGeneration.value) return;
+  const ownsImport = () => account === accountGeneration.value;
   importing.value = true;
   error.value = "";
   try {
@@ -57,6 +79,7 @@ async function createFrom(list: Partial<ListMeta> & { data: ListData }) {
     // matcher is exact-only). One request; if it fails the list still imports, unlinked —
     // the link is a nicety on top of the import, never a condition of it.
     const linked = await linkToCatalog(list.data.items);
+    if (!ownsImport()) return;
     const data: ListData = { ...list.data, items: linked.items };
     const res = await $fetch<{ editToken: string; snapshot: ListSnapshot }>("/api/lists/create", {
       method: "POST",
@@ -66,11 +89,13 @@ async function createFrom(list: Partial<ListMeta> & { data: ListData }) {
       // now reaches the restore without anyone remembering to add it here.
       body: { ...list, data, title: title.value.trim() || list.title || "Imported list" },
     });
+    if (!ownsImport()) return;
     emit("close");
     tally("import");
     // an import arrives whole (no ops) — capture it here, where the device knows
-    // it just created this list from data you supplied
-    useVaultCapture().captureNewList(res.snapshot, res.editToken);
+    // it just created this list from data you supplied. Do not let an import A
+    // started while catalog matching/creation was pending bank gear into B.
+    useVaultCapture().captureNewList(res.snapshot, res.editToken, account);
     // set before the navigation, so the editor finds it the moment the list lands; a
     // list where nothing matched gets no note — "0 of 25" reads as a failure it isn't
     importNote.value = linked.matched
@@ -78,9 +103,9 @@ async function createFrom(list: Partial<ListMeta> & { data: ListData }) {
       : null;
     router.push(editLinkPath(res.snapshot.shareCode, myLists.registerCreated(res)));
   } catch {
-    error.value = "Import failed. Check the file and try again.";
+    if (ownsImport()) error.value = "Import failed. Check the file and try again.";
   } finally {
-    importing.value = false;
+    if (ownsImport()) importing.value = false;
   }
 }
 
@@ -101,6 +126,10 @@ async function linkToCatalog(items: ListData["items"]): Promise<{ items: ListDat
 async function importFromText() {
   const raw = text.value.trim();
   if (!raw) return;
+  // Capture ownership before the LighterPack resolver (or any future async
+  // preparser) begins. `createFrom` receives this rather than sampling B after
+  // an A-owned request eventually returns.
+  const account = accountGeneration.value;
   // a LighterPack share link → resolve + parse its sanctioned CSV export server-side
   if (lighterpackId(raw)) {
     importing.value = true;
@@ -110,8 +139,9 @@ async function importFromText() {
         method: "POST",
         body: { url: raw },
       });
-      await createFrom({ data });
+      await createFrom({ data }, account);
     } catch (e: unknown) {
+      if (account !== accountGeneration.value) return;
       const err = e as { data?: { statusMessage?: string; message?: string } };
       error.value =
         err?.data?.statusMessage || err?.data?.message || "Couldn’t import that LighterPack link.";
@@ -122,12 +152,12 @@ async function importFromText() {
   // a pasted JSON backup (the menus' "Download JSON") — restored at full fidelity
   if (raw.startsWith("{")) {
     const parsed = jsonToListImport(raw);
-    if (parsed) return createFrom(parsed);
+    if (parsed) return createFrom(parsed, account);
     error.value = "That looks like JSON, but not a list backup. Use “Download JSON” to make one.";
     return;
   }
   // otherwise treat the pasted text as CSV/TSV — parsed client-side
-  createFrom({ data: csvToListData(raw) });
+  void createFrom({ data: csvToListData(raw) }, account);
 }
 
 function onFile(e: Event) {
@@ -138,21 +168,25 @@ function onFile(e: Event) {
   // natural retry after fixing it — fires no change event while a value sticks
   input.value = "";
   if (!file) return;
+  // Reading a local file is asynchronous too. Keep the account that selected it
+  // through `onload`, rather than sampling whoever happens to be signed in then.
+  const account = accountGeneration.value;
   const isJson = /\.json$/i.test(file.name) || file.type === "application/json";
   const reader = new FileReader();
   reader.onload = () => {
+    if (account !== accountGeneration.value) return;
     const text = String(reader.result);
     // a .json file is a "Download JSON" backup — full-fidelity restore. Sniff
     // {-leading content too, so a mis-extensioned backup still restores.
     if (isJson || text.trimStart().startsWith("{")) {
       const parsed = jsonToListImport(text);
-      if (parsed) return void createFrom(parsed);
+      if (parsed) return void createFrom(parsed, account);
       if (isJson) {
         error.value = "Couldn’t read that file as a list backup. Use “Download JSON” to make one.";
         return;
       }
     }
-    void createFrom({ data: csvToListData(text) });
+    void createFrom({ data: csvToListData(text) }, account);
   };
   reader.readAsText(file);
 }

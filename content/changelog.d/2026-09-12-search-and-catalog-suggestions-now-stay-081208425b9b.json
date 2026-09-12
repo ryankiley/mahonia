@@ -1,0 +1,11 @@
+{
+  "date": "2026-09-12",
+  "fixed": [
+    "Search and catalog suggestions now stay tied to the list and query you are editing.",
+    "My Gear now clears stale data when you switch accounts or lists.",
+    "Route imports now ignore incomplete or out-of-range coordinates instead of adding false points.",
+    "CSV imports now stop at the same item and folder limits as saved lists.",
+    "Nested worn items now show their worn quantity in Markdown exports.",
+    "Vault folder changes now reject invalid or duplicate edits cleanly."
+  ]
+}

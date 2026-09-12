@@ -741,6 +741,7 @@ async function deleteThisList() {
   // (see useClaimedLists.deleteClaimed), a held link through the token path
   const token = c.editToken;
   const code = token ? "" : c.claimCode;
+  const account = session.accountGeneration.value;
   if (!token && !code) return;
   if (!(await askConfirm({
     title: "Delete this list",
@@ -748,6 +749,12 @@ async function deleteThisList() {
     confirmLabel: "Delete",
     danger: true,
   }))) return;
+  // A claimed open is authorized by the current account cookie, not the URL. If
+  // a forced A → B refresh happened while its confirmation was open, do not let
+  // A's confirmation delete through B's session. Token-held lists keep their
+  // normal capability semantics, but still must name the same open session.
+  if (token ? c.editToken !== token : c.claimCode !== code || account !== session.accountGeneration.value)
+    return;
   // CLOSE THE SESSION FIRST, then delete — the order is the whole of it. Teardown
   // flushes the queue and writes this list's on-device copy; run the other way round,
   // that write lands after useMyLists.forget() has cleared the record and leaves a

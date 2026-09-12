@@ -7,12 +7,26 @@
 // does, so the test sees exactly what a release would.
 
 import { describe, expect, it } from "vitest";
-import { readArchive, readFragments } from "../scripts/changelogSources";
+import { parseChangelogRelease, readArchive, readFragments } from "../scripts/changelogSources";
 import { mergeReleases, sortReleases, type ChangelogRelease } from "../shared/changelog";
 
 const archive = readArchive();
 const fragments = readFragments();
 const everything: ChangelogRelease[] = [...archive, ...fragments.map((f) => f.release)];
+
+describe("parseChangelogRelease", () => {
+  it("rejects rollover dates and malformed content before it reaches release rendering", () => {
+    expect(() => parseChangelogRelease({ date: "2026-02-31", added: ["Impossible day."] }, "fixture")).toThrow(
+      "real YYYY-MM-DD calendar date",
+    );
+    expect(() => parseChangelogRelease({ date: "2026-02-28", added: [" "] }, "fixture")).toThrow(
+      'blank entry in "added"',
+    );
+    expect(() => parseChangelogRelease({ date: "2026-02-28", title: "Only a heading" }, "fixture")).toThrow(
+      "needs at least one",
+    );
+  });
+});
 
 describe("sortReleases", () => {
   it("orders newest date first", () => {

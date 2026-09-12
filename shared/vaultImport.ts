@@ -10,6 +10,7 @@
 // the endpoint re-derives everything it stores anyway (vaultRepo's sanitize).
 
 import { csvToListData } from "./exporters/csv";
+import { isCatalogId } from "./ops";
 import type { Item } from "./types";
 import {
   VAULT_IMPORT_MAX,
@@ -88,7 +89,9 @@ export function vaultImportFromJson(text: string): VaultImport | null {
       weightMg: typeof item.weightMg === "number" ? item.weightMg : 0,
       classification: item.classification as VaultCapture["classification"],
       kcal: typeof item.kcal === "number" ? item.kcal : undefined,
-      catalogItemId: typeof item.catalogItemId === "number" ? item.catalogItemId : undefined,
+      // Keep the import preview truthful: the server cannot store an ID outside
+      // the catalog table's Postgres integer range and will drop it as well.
+      catalogItemId: isCatalogId(item.catalogItemId) ? item.catalogItemId : undefined,
       productUrl: typeof item.productUrl === "string" ? item.productUrl : undefined,
       description: typeof item.description === "string" ? item.description : undefined,
       priceCents: typeof item.priceCents === "number" ? item.priceCents : undefined,
@@ -116,7 +119,10 @@ export function vaultImportFromJson(text: string): VaultImport | null {
  * file you haven't weighed yet.
  */
 export function vaultImportFromCsv(text: string): VaultImport {
-  const list = csvToListData(text);
+  // `MAX_FOLDERS` is a packing-list limit, not a property of a vault. Preserve a
+  // category for every importable row here; vault persistence applies its own
+  // folder ceiling when it creates folders for the restored gear.
+  const list = csvToListData(text, { maxFolders: VAULT_IMPORT_MAX });
   const name = new Map(list.folders.map((f) => [f.id, f.name]));
   // parents are containers, not gear — the one capture exclusion that still holds
   // for a deliberate import ("Cook kit" is a heading; its children are the gear)

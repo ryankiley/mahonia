@@ -17,7 +17,9 @@
 import { renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { mergeReleases } from "../shared/changelog";
+import { shiftIsoDate } from "../shared/calendar";
 import { ARCHIVE_FILE, FRAGMENT_DIR, readArchive, readFragments } from "./changelogSources";
+import { CHANGELOG_TZ, todayIn } from "./releaseNotes";
 
 const argv = process.argv.slice(2);
 let days = 30;
@@ -36,11 +38,10 @@ for (let i = 0; i < argv.length; i++) {
   }
 }
 
-// Local time, matching the ship-date semantics scripts/changelog.mjs writes with.
-const cutoffMs = Date.now() - days * 86_400_000;
-const cutoff = new Date(cutoffMs);
-const pad = (n: number) => String(n).padStart(2, "0");
-const cutoffIso = `${cutoff.getFullYear()}-${pad(cutoff.getMonth() + 1)}-${pad(cutoff.getDate())}`;
+// Changelog dates are Pacific calendar days, not this process's local clock. Use
+// calendar arithmetic too: subtracting 86,400,000 ms crosses a DST change at the
+// wrong local hour and can compact a day early/late around the transition.
+const cutoffIso = shiftIsoDate(todayIn(CHANGELOG_TZ), -days);
 
 const fragments = readFragments();
 const settled = all ? fragments : fragments.filter((f) => f.release.date < cutoffIso);

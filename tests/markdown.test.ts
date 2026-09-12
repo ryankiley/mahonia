@@ -38,6 +38,12 @@ describe("listToMarkdown", () => {
     expect(md).toContain("**Base weight:** 738 g"); // duplex + 2×100g socks
   });
 
+  it("annotates a nested row's worn split too", () => {
+    const s = snap();
+    s.items.push({ id: "i3", folderId: "f1", parentId: "i1", name: "Socks", unitWeightMg: 100000, qty: 3, wornQty: 1, classification: null, sortOrder: 0 });
+    expect(listToMarkdown(s)).toContain("| ↳ Socks | 3 (1 worn) | 300 g |");
+  });
+
   it("adds a Carried line once the list has both worn and consumable weight", () => {
     const s = snap();
     // the base snapshot is base + worn only, so Carried would just restate Base

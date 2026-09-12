@@ -25,18 +25,65 @@ const DECISION_KEY = (editToken: string) => `gear.vault.for.${editToken}`;
 
 type VaultDecision = "yes" | "no" | "ask";
 
+// The token identifies a list, not the person looking at it. A browser can keep
+// that token while its session changes, so a bare `yes` would let the next person
+// inherit a judgement about *their* vault. The session composable resolves this
+// scope before exposing an account; until then persisted consent is deliberately
+// unusable. `undefined` is reserved for the small non-Nuxt helper tests that use
+// these pure local-storage functions without a session at all.
+type VaultConsentScope = { resolved: boolean; owner: string | null };
+type StoredDecision = { owner: string; decision: "yes" | "no" };
+type StoredExclusions = { owner: string; keys: string[] };
+let vaultConsentScope: VaultConsentScope | undefined;
+
+const isStoredDecision = (value: unknown): value is StoredDecision =>
+  !!value &&
+  typeof value === "object" &&
+  !Array.isArray(value) &&
+  typeof (value as StoredDecision).owner === "string" &&
+  ((value as StoredDecision).decision === "yes" || (value as StoredDecision).decision === "no");
+const isStoredExclusions = (value: unknown): value is StoredExclusions =>
+  !!value &&
+  typeof value === "object" &&
+  !Array.isArray(value) &&
+  typeof (value as StoredExclusions).owner === "string" &&
+  Array.isArray((value as StoredExclusions).keys);
+
+/** Bind device-local vault consent to the resolved account. A missing owner is
+ * still a resolved state (signed out); `resolved: false` is the unsafe interval
+ * while a changed cookie is being verified, where no old choice may be used. */
+export function setVaultConsentScope(email: string | null, resolved: boolean): void {
+  vaultConsentScope = {
+    resolved,
+    owner: email ? email.trim().toLocaleLowerCase() : null,
+  };
+}
+
 export function vaultDecisionFor(editToken: string): VaultDecision {
   if (!import.meta.client || !editToken) return "yes"; // a draft is yours by definition
   try {
+    // No scope is only possible in a standalone helper environment. The app's
+    // session refresh always sets one before account-bound UI can run.
+    if (vaultConsentScope === undefined) {
+      const legacy = localStorage.getItem(DECISION_KEY(editToken));
+      return legacy === "yes" || legacy === "no" ? legacy : "ask";
+    }
+    if (!vaultConsentScope.resolved || !vaultConsentScope.owner) return "ask";
     const v = localStorage.getItem(DECISION_KEY(editToken));
-    return v === "yes" || v === "no" ? v : "ask";
+    const stored = v ? JSON.parse(v) : null;
+    return isStoredDecision(stored) && stored.owner === vaultConsentScope.owner ? stored.decision : "ask";
   } catch {
     return "ask";
   }
 }
 
 export function setVaultDecisionFor(editToken: string, decision: "yes" | "no"): void {
-  if (editToken) remember(DECISION_KEY(editToken), decision);
+  if (!editToken) return;
+  // Keep the standalone helper seam backwards-compatible; production always has
+  // a scope and therefore never writes an unowned legacy value.
+  if (vaultConsentScope === undefined) return remember(DECISION_KEY(editToken), decision);
+  if (!vaultConsentScope.resolved || !vaultConsentScope.owner) return;
+  remember(DECISION_KEY(editToken), JSON.stringify({ owner: vaultConsentScope.owner, decision }));
 }
 
 // "Yes" is rarely the whole truth on a list you shared. On a trip you planned
@@ -53,16 +100,35 @@ const EXCLUDE_KEY = (editToken: string) => `gear.vault.not.${editToken}`;
 /** The normKeys this device said were somebody else's, for this list. */
 export function vaultExclusionsFor(editToken: string): Set<string> {
   if (!import.meta.client || !editToken) return new Set();
-  // unreadable or malformed reads as none — capture everything rather than nothing
+  // unreadable, malformed, or another account's choice reads as none — capture
+  // nothing automatically until the current person explicitly answers.
+  if (vaultConsentScope === undefined)
+    return new Set(
+      recallJson(EXCLUDE_KEY(editToken), Array.isArray, []).filter((k): k is string => typeof k === "string"),
+    );
+  if (!vaultConsentScope.resolved || !vaultConsentScope.owner) return new Set();
+  const stored = recallJson(EXCLUDE_KEY(editToken), isStoredExclusions, null);
   return new Set(
-    recallJson(EXCLUDE_KEY(editToken), Array.isArray, []).filter((k): k is string => typeof k === "string"),
+    stored?.owner === vaultConsentScope.owner
+      ? stored.keys.filter((k): k is string => typeof k === "string")
+      : [],
   );
 }
 
 export function setVaultExclusionsFor(editToken: string, normKeys: string[]): void {
   if (!editToken) return;
   try {
-    if (normKeys.length) localStorage.setItem(EXCLUDE_KEY(editToken), JSON.stringify(normKeys));
+    if (vaultConsentScope === undefined) {
+      if (normKeys.length) localStorage.setItem(EXCLUDE_KEY(editToken), JSON.stringify(normKeys));
+      else localStorage.removeItem(EXCLUDE_KEY(editToken));
+      return;
+    }
+    if (!vaultConsentScope.resolved || !vaultConsentScope.owner) return;
+    if (normKeys.length)
+      localStorage.setItem(
+        EXCLUDE_KEY(editToken),
+        JSON.stringify({ owner: vaultConsentScope.owner, keys: normKeys }),
+      );
     else localStorage.removeItem(EXCLUDE_KEY(editToken));
   } catch {
     /* storage blocked — the choice holds for this session only */
@@ -117,7 +183,12 @@ let timer: ReturnType<typeof setTimeout> | undefined;
 // Capture rows built and waiting: either for the debounce to elapse, or for a
 // retry after a failed send. Held as built rows (not raw items) so the page-hide
 // flush can beacon them synchronously — it has no chance to await anything.
-let pending: { items: VaultCapture[]; fingerprint: string } | null = null;
+let pending: { items: VaultCapture[]; fingerprint: string; account: number } | null = null;
+// resetVaultCapture() runs when the account changes. Dynamic imports and network
+// responses can outlive that reset, so they need a generation as well as clearing
+// the current timer/payload: otherwise an old account's late work can recreate a
+// pending capture and send it under the next account's cookie.
+let captureGeneration = 0;
 
 /**
  * Capture the gear in a list into this device's vault.
@@ -147,7 +218,11 @@ export type CaptureOneResult = "saved" | "unworthy" | "removed" | "full" | "fail
 export function useVaultCapture() {
   // hasVault as well as the fetch: capture must not ASK someone who has no vault
   // (see sync below), and the two come from the same place.
-  const { hasVault, vaultFetch } = useVaultAccess();
+  const access = useVaultAccess();
+  const { hasVault, vaultFetch } = access;
+  // Older focused mocks predate the account generation seam. Production always
+  // supplies it; falling back keeps those test doubles deliberately narrow.
+  const accountGeneration = access.accountGeneration ?? useSession().accountGeneration;
 
   /**
    * Note a change to the list.
@@ -173,10 +248,13 @@ export function useVaultCapture() {
     } = {},
   ): void {
     if (!import.meta.client) return;
+    const mine = captureGeneration;
+    const account = accountGeneration.value;
     void (async () => {
       let built: { caps: VaultCapture[]; fingerprint: string } | null = null;
       try {
         const { captureFromList, captureFingerprint } = await import("~~/shared/vault");
+        if (mine !== captureGeneration || account !== accountGeneration.value) return;
         const all = captureFromList(items, folders);
         if (!all.length) return;
         // Gear declined in the chooser stays declined on every later edit — this is
@@ -215,21 +293,27 @@ export function useVaultCapture() {
         return; // chunk fetch failed (offline before the SW cached it) — skip
       }
       // already stored, or already queued for exactly this state
+      if (mine !== captureGeneration || account !== accountGeneration.value) return;
       if (built.fingerprint === lastFingerprint || built.fingerprint === pending?.fingerprint) return;
-      pending = { items: built.caps, fingerprint: built.fingerprint };
+      pending = { items: built.caps, fingerprint: built.fingerprint, account };
       clearTimeout(timer);
-      timer = setTimeout(send, captureDebounceMs);
+      timer = setTimeout(() => void send(mine, account), captureDebounceMs);
     })();
   }
 
-  async function send(): Promise<void> {
+  async function send(mine: number, account: number): Promise<void> {
+    if (mine !== captureGeneration || account !== accountGeneration.value) return;
     const sending = pending;
-    if (!sending) return;
+    if (!sending || sending.account !== account) return;
     try {
       await vaultFetch("/api/vault/capture", {
         method: "POST",
         body: { items: sending.items },
       });
+      // A sign-out or account switch happened while this request was in flight.
+      // The server may have accepted the old account's request, but its response
+      // must not memoize anything for the account now on screen.
+      if (mine !== captureGeneration || account !== accountGeneration.value) return;
       // Nothing is fed back to the rows from here, and nothing needs to be: this
       // path runs ONLY when the list's stored answer is "yes" (sync returns above
       // for "no" and for "ask"), which is exactly when vaultAuto already covers
@@ -240,6 +324,7 @@ export function useVaultCapture() {
       // only clear if nothing newer arrived while this was in flight
       if (pending?.fingerprint === sending.fingerprint) pending = null;
     } catch {
+      if (mine !== captureGeneration || account !== accountGeneration.value) return;
       // Offline, rate-limited, or the token no longer resolves. Leave the rows
       // pending so the page-hide flush (or the next edit) retries. Capture is a
       // background convenience — it must never surface an error over the list.
@@ -262,6 +347,12 @@ export function useVaultCapture() {
    */
   function flush(): void {
     if (!import.meta.client || !pending || !navigator.sendBeacon) return;
+    // pagehide can race a cookie/session change; a beacon has no response guard,
+    // so it must retain the account that built its payload too.
+    if (pending.account !== accountGeneration.value) {
+      pending = null;
+      return;
+    }
     const blob = new Blob([JSON.stringify({ items: pending.items })], {
       type: "application/json",
     });
@@ -323,7 +414,15 @@ export function useVaultCapture() {
   function captureNewList(
     snapshot: { items: Item[]; folders?: Folder[] },
     editToken: string,
+    expectedAccountGeneration?: number,
   ): void {
+    // The create/import response can outlive a forced A → B refresh. Its list is
+    // still valid, but it must not create B's vault consent or enqueue a capture.
+    if (
+      expectedAccountGeneration !== undefined &&
+      expectedAccountGeneration !== accountGeneration.value
+    )
+      return;
     // Recording the answer, not just capturing: you made this list, so its gear is
     // yours and the editor must never go on to ask about it. Without this an
     // imported or cloned list captured once here and then, on your very next edit,
@@ -380,9 +479,12 @@ export function useVaultCapture() {
   ): Promise<{ result: CaptureOneResult; landed: VaultGearKey[] }> {
     const nothing: VaultGearKey[] = [];
     if (!import.meta.client) return { result: "failed", landed: nothing };
+    const mine = captureGeneration;
+    const account = accountGeneration.value;
     let caps: VaultCapture[];
     try {
       const { captureFromList } = await import("~~/shared/vault");
+      if (mine !== captureGeneration || account !== accountGeneration.value) return { result: "failed", landed: nothing };
       // the folder list is passed so the row lands filed, not in a flat pile
       caps = captureFromList([item], folders);
     } catch {
@@ -399,6 +501,7 @@ export function useVaultCapture() {
         "/api/vault/capture",
         { method: "POST", body: { items: caps } },
       );
+      if (mine !== captureGeneration || account !== accountGeneration.value) return { result: "failed", landed: nothing };
       landed = res?.keys ?? [];
       full = !!res?.full;
     } catch {
@@ -439,6 +542,7 @@ export function useVaultCapture() {
 /** Reset the capture memo — called when a device switches vaults, so
  *  the next vault doesn't inherit the previous one's "already sent". */
 export function resetVaultCapture(): void {
+  captureGeneration++;
   clearTimeout(timer);
   lastFingerprint = "";
   pending = null;
@@ -462,10 +566,12 @@ export function resetVaultCapture(): void {
  * trigram code — this composable is a fetch and a timer.
  */
 export function useVaultSearch() {
-  const { hasVault, vaultFetch } = useVaultAccess();
+  const access = useVaultAccess();
+  const { hasVault, vaultFetch } = access;
+  const accountGeneration = access.accountGeneration ?? useSession().accountGeneration;
   // the timer / abort / stale-guard scaffold (and the 140ms) is useDebouncedSearch's,
   // shared with the catalog search — see its header
-  return useDebouncedSearch<VaultEntry>(
+  const search = useDebouncedSearch<VaultEntry>(
     async (q, signal) => {
       const res = await vaultFetch<{ results: VaultEntry[] }>("/api/vault/search", {
         query: { q },
@@ -477,6 +583,11 @@ export function useVaultSearch() {
       // With no vault there is nothing to search — skip the round trip entirely
       // rather than asking the server on every keystroke for a guaranteed [].
       ready: () => hasVault.value,
+      context: () => accountGeneration.value,
     },
   );
+  // Clear visible A results as soon as a forced session refresh starts, even if
+  // the replacement B is also signed in and `hasVault` never changes.
+  watch(accountGeneration, () => search.clear());
+  return search;
 }

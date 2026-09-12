@@ -11,6 +11,8 @@ import { vi } from "vitest";
 export function stubLocalStorage(): Map<string, string> {
   const storage = new Map<string, string>();
   vi.stubGlobal("localStorage", {
+    get length() { return storage.size; },
+    key: (i: number) => [...storage.keys()][i] ?? null,
     getItem: (k: string) => storage.get(k) ?? null,
     setItem: (k: string, v: string) => void storage.set(k, String(v)),
     removeItem: (k: string) => void storage.delete(k),

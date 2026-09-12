@@ -283,7 +283,7 @@ export async function catalogRowsById(db: Db, ids: readonly number[]): Promise<M
 }
 
 export async function bumpUsage(db: Db, ids: number[]): Promise<void> {
-  const clean = [...new Set(ids.filter((n) => Number.isInteger(n) && n > 0))].slice(0, 50);
+  const clean = [...new Set(ids.filter(isCatalogId))].slice(0, 50);
   if (!clean.length) return;
   await db
     .update(catalogItems)
@@ -383,7 +383,7 @@ export async function proposeCorrection(
   input: { catalogItemId: number; newWeightMg: number; sourceUrl?: string; reason?: string },
 ): Promise<CorrectionOutcome> {
   const id = Number(input.catalogItemId);
-  if (!Number.isInteger(id) || id <= 0) return { status: "rejected" };
+  if (!isCatalogId(id)) return { status: "rejected" };
   const newW = Math.round(input.newWeightMg);
   // 100 kg per-item ceiling — the SAME cap the list reducer clamps to (shared/ops)
   if (!Number.isFinite(newW) || newW <= 0 || newW > UNIT_WEIGHT_MAX_MG) return { status: "rejected" };
@@ -444,7 +444,11 @@ export async function recentChanges(db: Db, limit = 50): Promise<RecentChange[]>
     })
     .from(catalogEdits)
     .leftJoin(catalogItems, eq(catalogEdits.catalogItemId, catalogItems.id))
-    .orderBy(desc(catalogEdits.createdAt))
+    // Timestamps are commonly equal for back-to-back edits (including on
+    // PGlite), so the serial id is the deterministic second half of "newest".
+    // Without it the admin feed can hand the stale-revert guard the newer edit
+    // as though it were the older one.
+    .orderBy(desc(catalogEdits.createdAt), desc(catalogEdits.id))
     .limit(Math.min(100, Math.max(1, limit)));
   return rows.map((r) => ({
     id: r.id,
@@ -462,7 +466,8 @@ export async function recentChanges(db: Db, limit = 50): Promise<RecentChange[]>
 /** One-click revert (admin): restore an applied edit's prior weight + mark it reverted. */
 export async function revertEdit(db: Db, editId: number): Promise<CorrectionOutcome> {
   const id = Number(editId);
-  if (!Number.isInteger(id) || id <= 0) return { status: "rejected" };
+  // catalog_edits.id is the same PostgreSQL serial range as catalog_items.id.
+  if (!isCatalogId(id)) return { status: "rejected" };
   const rows = await db.select().from(catalogEdits).where(eq(catalogEdits.id, id)).limit(1);
   const edit = rows[0];
   if (!edit) return { status: "notfound" };

@@ -19,6 +19,9 @@ export function useDebouncedSearch<T>(
   opts: {
     /** false → treat as nothing to search (full teardown, no request) */
     ready?: () => boolean;
+    /** A caller-owned lifetime such as the signed-in account. A response may draw
+     * only if it still belongs to the same context that started the search. */
+    context?: () => unknown;
     /** every successful result set, even one a newer keystroke has superseded */
     onResults?: (results: T[]) => void;
     /** what to show when the request FAILS (not: was aborted) — undefined keeps
@@ -29,39 +32,57 @@ export function useDebouncedSearch<T>(
   const results = ref<T[]>([]) as Ref<T[]>;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let controller: AbortController | undefined;
-  let lastQ = "";
+  // A query can change while its replacement is still sitting in the debounce.
+  // `lastQ` used to change only when that replacement's timer fired, which left a
+  // 140 ms window where the old request could resolve and overwrite the menu for
+  // the text now in the field. A monotonically increasing intent changes at input
+  // time, before the next request exists, so an old response can never become the
+  // current query again (including A → B → A).
+  let intent = 0;
 
   function clear() {
     clearTimeout(timer);
+    timer = undefined;
     controller?.abort();
+    controller = undefined;
     results.value = [];
-    lastQ = "";
+    intent++;
   }
 
   function search(raw: string) {
     const q = raw.trim();
     clearTimeout(timer);
+    timer = undefined;
+    // Abort as soon as the text changes, rather than 140 ms later when its
+    // replacement starts. Apart from saving a needless request, this makes the
+    // old request's cancellation match the visible query immediately.
+    controller?.abort();
+    controller = undefined;
+    const mine = ++intent;
+    const context = opts.context?.();
     if (q.length < 2 || opts.ready?.() === false) {
-      // full teardown, not just an empty results list: an in-flight request (and
-      // its lastQ) would otherwise land later and reopen the menu with results
-      // for a query the user already deleted. Resetting lastQ also suppresses the
-      // aborted fetch's fallback (its guard sees lastQ !== q).
-      clear();
+      // Full teardown, not just an empty results list: an in-flight request would
+      // otherwise land later and reopen the menu with results for a query the user
+      // already deleted. `mine` already invalidated it above.
+      results.value = [];
       return;
     }
     timer = setTimeout(async () => {
-      lastQ = q;
-      controller?.abort();
-      controller = new AbortController();
+      // A later keystroke cancelled this timer just before it got CPU time.
+      if (mine !== intent || context !== opts.context?.()) return;
+      const request = new AbortController();
+      controller = request;
       try {
-        const got = await fetch(q, controller.signal);
-        if (lastQ === q) results.value = got;
+        const got = await fetch(q, request.signal);
+        if (mine === intent && controller === request && context === opts.context?.()) results.value = got;
+        // A superseded answer is still real catalog data, so callers that warm a
+        // local cache intentionally receive it even though it no longer draws.
         opts.onResults?.(got);
       } catch {
-        // A newer keystroke aborted this request → lastQ !== q, leave results be.
-        // A genuine failure (offline / network) → the caller's fallback, if it has
-        // one; otherwise keep the prior results.
-        if (lastQ === q) {
+        // A newer keystroke aborted this request → its intent no longer owns the
+        // menu. A genuine failure (offline / network) asks the caller for a
+        // fallback; otherwise keep the prior results.
+        if (mine === intent && controller === request && context === opts.context?.()) {
           const fb = opts.fallback?.(q);
           if (fb) results.value = fb;
         }
