@@ -12,7 +12,8 @@
 // A day is released once it is over (in the changelog's own timezone, Pacific), so its
 // entries are settled. A fragment dated D that merges on D+2 still lands in release D:
 // the workflow rewrites a release's notes whenever they differ from the entries, so
-// the body is never stale, only the tag stands still.
+// the body is never stale, only the tag stands still. The Releases page IS the
+// changelog: the site no longer renders one, and /changelog redirects here.
 
 import type { ChangelogRelease } from "../shared/changelog";
 
@@ -57,13 +58,10 @@ const GROUPS = [
   ["fixed", "Fixed"],
 ] as const;
 
-/**
- * The release body: the day's entries grouped Added / Changed / Fixed, Keep-a-Changelog
- * style, and a line pointing at the site, which is the canonical copy.
- */
-export function releaseBody(rel: ChangelogRelease, site = "https://mahonia.app"): string {
+/** The release body: the day's entries grouped Added / Changed / Fixed, Keep-a-Changelog style. */
+export function releaseBody(rel: ChangelogRelease): string {
   const sections = GROUPS.filter(([key]) => rel[key]?.length).map(
     ([key, label]) => `### ${label}\n\n${rel[key]!.map((item) => `- ${item}`).join("\n")}`,
   );
-  return `${sections.join("\n\n")}\n\n[What's new](${site}/changelog) on the site has every release.\n`;
+  return `${sections.join("\n\n")}\n`;
 }

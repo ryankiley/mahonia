@@ -1,6 +1,6 @@
-// The "What's new" changelog — the framework-agnostic type, ordering and merge
-// for the site's product changelog. Pure, so it unit-tests without Nuxt or a
-// database.
+// The changelog — the framework-agnostic type, ordering and merge for the product
+// changelog, which is published as one GitHub Release per day that shipped something
+// (.github/workflows/releases.yml). Pure, so it unit-tests without Nuxt or a database.
 //
 // Entries live in TWO places, and mergeReleases below is what makes them one:
 //
@@ -12,8 +12,7 @@
 // release object at the top of changelog.json, so two PRs open at once conflicted
 // on the same handful of lines — 28 commits touched that file on one day. Two PRs
 // cannot conflict on files neither of them shares, so an entry became a new file.
-// scripts/build-changelog.ts folds both into content/changelog.generated.json at
-// build time, which is what the /about endpoint reads.
+// scripts/release-notes.ts reads both and hands each day to the release workflow.
 //
 // Entries are hand-written per PR — never auto-generated. A changelog-reminder
 // comment nudges a user-facing PR that's missing one, but nothing scrapes the PR

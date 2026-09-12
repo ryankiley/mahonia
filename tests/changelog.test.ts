@@ -1,11 +1,10 @@
-// The "What's new" changelog: unit-test the ordering and merge helpers, and gate
+// The changelog: unit-test the ordering and merge helpers, and gate
 // the committed content (archive + every fragment) so a malformed entry (bad
 // date, empty group, blank bullet) fails `npm test` instead of shipping to the
 // page.
 //
-// Reads the SOURCES, not content/changelog.generated.json — the generated file is
-// a build artifact, and a test that only looked at it would pass on a stale build
-// and fail on a clean checkout that hasn't built yet.
+// Reads the SOURCES (the archive and the fragments), the same way the release script
+// does, so the test sees exactly what a release would.
 
 import { describe, expect, it } from "vitest";
 import { readArchive, readFragments } from "../scripts/changelogSources";

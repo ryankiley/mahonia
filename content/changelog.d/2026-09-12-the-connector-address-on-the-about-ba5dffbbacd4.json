@@ -4,6 +4,6 @@
     "The connector address on the About page is set in a small chip, level with the text around it."
   ],
   "fixed": [
-    "An entry in What's new that opens with a quote mark no longer sits on top of its bullet in Safari."
+    "A bullet whose text opens with a quote mark no longer sits on top of its dot in Safari."
   ]
 }

@@ -89,9 +89,9 @@ as `app.mahonia/mahonia`; [`server.json`](server.json) is the listing, published
 
 ## Changelog
 
-The site's [“What’s new”](https://mahonia.app/about#whats-new) section (on the About page) renders
-the changelog. When a change is user-facing, add a plain one- or two-sentence entry as part of
-the same PR:
+The changelog is [GitHub Releases](https://github.com/ryankiley/mahonia/releases): one release
+per day that ships something, tagged by date (`v2026.09.12`), cut by a workflow from the entries
+below. When a change is user-facing, add a plain one-sentence entry as part of the same PR:
 
 ```bash
 npm run changelog -- --added "Sort folders by weight."
@@ -103,13 +103,13 @@ implementation.
 
 Each run writes its own file under `content/changelog.d/`, so entries from PRs open at the
 same time never collide — [`content/changelog.json`](content/changelog.json) is the settled
-archive, and `npm run changelog:compact` folds fragments into it now and then. The build
-merges the two into `content/changelog.generated.json` (generated, not checked in), which is
-what the page reads.
+archive, and `npm run changelog:compact` folds fragments into it now and then. Once a day is
+over (Pacific), `.github/workflows/releases.yml` turns it into a release; a late entry updates
+its day's notes.
 
 A PR comment reminds any user-facing PR that's missing an entry — but nothing auto-fills it,
-so the entry is always hand-written (the page stays plain, curated prose). If a PR merges
-without one, the page just omits that change until it's backfilled. For non-user-facing work,
+so the entry is always hand-written (plain, curated prose). If a PR merges
+without one, that day's release just omits the change until it's backfilled. For non-user-facing work,
 prefix the PR title (`refactor:`, `chore:`, `ci:`, `test:`, `docs:`, `perf:`) or label it
 **`skip-changelog`**.
 
