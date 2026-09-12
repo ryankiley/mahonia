@@ -3399,19 +3399,22 @@ textarea.item__note {
      its (the desktop rule, where the trailing glyphs line up on the grip), so it
      centres here too. The grip keeps its flush treatment (.grip: the glyph right-
      aligned in the box and shifted a third of itself out to the edge), which puts
-     its dots' centre 2px short of the box's right edge; a centred glyph's centre is
-     half a box in. So the grip's box comes back by half a box less those 2px, and
-     the dots land one box-plus-gap after the ⋯, like every other pair. The box is
-     --tap on a coarse pointer and --icon-btn on a fine one (.btn--icon's own rule),
-     hence the token, set both ways. Replaces .grip's --grip-pull here: that pull
-     evens the desktop cluster, where the ⋯ is right-aligned; this is the same idea
-     for a centred one. */
+     its dots, a narrow glyph, hard against the box's right edge; a centred glyph's
+     centre is half a box in. Even to the EYE is even gaps between ink, not between
+     centres: the dots are a third the width of the round glyphs, so equal centres
+     left a wider hole before the grip (Ryan, 2026-09-12: "still don't look evenly
+     spaced"). So the grip's box comes back by half a box and a little more, which
+     puts the dots' left edge the same 32px past the ⋯'s ink as each glyph sits past
+     the last. The box is --tap on a coarse pointer and --icon-btn on a fine one
+     (.btn--icon's own rule), hence the token, set both ways. Replaces .grip's
+     --grip-pull here: that pull evens the desktop cluster, where the ⋯ is
+     right-aligned; this is the same idea for a centred one. */
   .item__trail :deep(.item__morebtn) {
     justify-content: center;
   }
   .item__trail .item__grip {
     --trail-box: var(--icon-btn);
-    margin-left: calc(-1 * (var(--trail-box) / 2 - 2px));
+    margin-left: calc(-1 * (var(--trail-box) / 2 + 2px));
   }
   @media (pointer: coarse) {
     .item__trail .item__grip {
