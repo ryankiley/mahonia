@@ -2,16 +2,19 @@
 import type { ChangelogEntry } from "~~/server/api/changelog.get";
 
 // CONTACT_EMAIL is auto-imported from app/utils/site.
-// About + What's new live together on one page (two sections, #about / #whats-new),
-// the same shape /legal takes for Privacy + Terms. /changelog redirects here
-// (routeRules). They belong together: "what is this" and "what changed lately" are
-// the same question asked by the same visitor, and neither filled a page on its own.
+// About, with the NEWEST release of What's new at its foot and a link to the rest. The
+// whole log lived here for two months (two sections, #about / #whats-new, the shape
+// /legal takes for Privacy + Terms), and outgrew the page it was a section of: six
+// hundred words of About over four hundred and fifty entries. /changelog is its own
+// page again; this keeps one release, so "what is this" still ends with "and here is
+// what changed this week". #whats-new stays on the section for the links that carry it.
 //
-// Fetched, not imported. A module-scope `import` of content/changelog.json bundled
-// every entry into this route's client chunk — content that only grows, on PRs that
-// often ship no code. The server route does the read + the group flattening; this page
-// is prerendered, so that runs at build time and the entries arrive in the payload.
-const { data } = await useFetch<{ releases: ChangelogEntry[] }>("/api/changelog");
+// Fetched, not imported, and only ONE release: the payload this prerendered page
+// carries is what a visitor downloads to read what Mahonia is, and the full log is
+// fifty kilobytes of text they didn't come for.
+const { data } = await useFetch<{ releases: ChangelogEntry[] }>("/api/changelog", {
+  query: { limit: 1 },
+});
 const releases = computed(() => data.value?.releases ?? []);
 
 useHead({
@@ -19,27 +22,11 @@ useHead({
   meta: [
     {
       name: "description",
-      content: "What Mahonia is, why it's named after the Oregon grape, and what's shipped lately.",
+      content: "What Mahonia is, why it's named after the Oregon grape, and how it works.",
     },
   ],
 });
 
-// Dates print through formatCalendarDate (app/utils/time, auto-imported): parsed in
-// LOCAL time from the parts, because `new Date("2026-06-27")` is UTC midnight and
-// renders as the day before west of UTC — and in a FIXED locale, never `undefined`:
-// the page is prerendered, so a runtime-locale format would differ between the build
-// server and the visitor's browser and trip a hydration mismatch. Both rules live
-// there (and shared/calendar.ts) rather than as this page's own copies.
-
-// "Last updated" is just the newest entry's date, formatted like the legal
-// page's stamped line ("17 July 2026") — so it updates itself whenever an entry
-// is added, with no commit hook to forget and no way to drift from the content.
-// computed, not a module-scope constant: `releases` is fetched, so this has to
-// track it rather than read an empty array once at setup
-const lastUpdated = computed(() => {
-  const iso = releases.value[0]?.date;
-  return iso ? formatCalendarDate(iso) : "";
-});
 </script>
 
 <template>
@@ -49,10 +36,7 @@ const lastUpdated = computed(() => {
     <main id="main-content" tabindex="-1" class="wrap page">
       <div class="prose">
         <h1 class="t-title">About</h1>
-        <p>
-          What Mahonia is, and what's changed lately. Jump to
-          <a href="#whats-new">What's new</a>.
-        </p>
+        <p>What Mahonia is, and how it works.</p>
 
         <!-- ================= About ================= -->
         <h2 id="about">What it is</h2>
@@ -163,31 +147,17 @@ const lastUpdated = computed(() => {
       <!-- a sibling of .prose rather than a child: the release list is a two-column
            spec sheet (date rail + entries), not running text, so it wants its own grid
            and its own gaps. It keeps the prose COLUMN though — same width, same edges —
-           see .log. -->
+           see .log. Only the newest release; the page is /changelog. -->
       <section id="whats-new" class="log">
         <header class="log__head">
           <h2 class="t-title">What's new</h2>
           <p class="t-sm t-muted">
-            Mahonia is built in the open and changes often. Here’s what’s shipped, newest first.
+            Mahonia is built in the open and changes often. The latest is below; everything that
+            has shipped is on <NuxtLink to="/changelog">What's new</NuxtLink>.
           </p>
-          <p v-if="lastUpdated" class="t-sm t-muted">Last updated {{ lastUpdated }}</p>
         </header>
 
-        <section v-for="rel in releases" :key="rel.date" class="log__rel">
-          <h3 class="log__date">
-            <time :datetime="rel.date" class="t-title">{{ formatCalendarDate(rel.date) }}</time>
-            <span v-if="rel.title" class="log__title t-sm t-muted">{{ rel.title }}</span>
-          </h3>
-
-          <div class="log__body">
-            <div v-for="g in rel.groups" :key="g.label" class="log__group">
-              <p class="log__label t-label">{{ g.label }}</p>
-              <ul class="bullets">
-                <li v-for="(item, i) in g.items" :key="i">{{ item }}</li>
-              </ul>
-            </div>
-          </div>
-        </section>
+        <ChangelogReleases :releases="releases" />
       </section>
     </main>
   </div>
@@ -236,48 +206,5 @@ const lastUpdated = computed(() => {
    full 42rem while every paragraph above them stopped at 64ch. */
 .log__head p {
   max-width: 64ch;
-}
-
-/* date rail on the left, entries on the right — spec-sheet rhythm */
-.log__rel {
-  display: grid;
-  grid-template-columns: 12rem 1fr;
-  gap: var(--space-5);
-  padding-top: var(--space-5);
-  border-top: 1px solid var(--line);
-}
-.log__date {
-  align-self: start;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-.log__title {
-  font-weight: 400;
-}
-
-.log__body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  min-width: 0;
-}
-.log__group {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-.log__label {
-  color: var(--ink-2);
-}
-/* the list, its marks, its ink and its measure are the shared `.bullets` (main.scss) —
-   this is the same list the prose sections above it are, so it is now literally the
-   same rule rather than a hand-copy that had drifted in size, position and measure */
-
-@media (max-width: $bp-stack) {
-  .log__rel {
-    grid-template-columns: 1fr;
-    gap: var(--space-3);
-  }
 }
 </style>
