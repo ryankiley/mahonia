@@ -16,8 +16,12 @@
 // packing list. The arithmetic the reducer and the charts need — parsing a stored profile,
 // climbs per day, grade bands — lives in profile.ts precisely so this file can stay off
 // that path. Import FROM profile.ts freely; never make profile.ts import from here.
-import { PROFILE_SAMPLES, totalClimb } from "./profile";
+import { CLIMB_SAMPLE_M, PROFILE_SAMPLES, totalClimb } from "./profile";
 import type { WaypointKind } from "./types";
+
+// The one binary format, in its own file for legibility and re-exported here so the
+// composable's single `await import()` still fetches every reader as one chunk.
+export { fitRoute, isFit, MAX_FIT_PINS, type FitRoute } from "./fit";
 
 /** One point off the track. `ele` is often absent — plenty of tracks carry no elevation. */
 export interface TrackPoint {
@@ -215,21 +219,30 @@ function localText(el: Element, name: string): string | null {
   return null;
 }
 
+/** One file out of a zip: its name as the archive spells it, and its bytes, inflated. */
+export interface ZipMember {
+  name: string;
+  bytes: Uint8Array;
+}
+
 /**
- * KMZ — a KML in a zip, which is what Google Earth saves by default.
+ * The first member of a zip whose name `want` accepts, unpacked. Null for anything that
+ * isn't a zip, holds no such member, or packs it some way other than stored or deflate.
  *
- * Unzipped here rather than with a library: `DecompressionStream` is built into the
- * browser, so this costs no dependency and, more to the point, keeps the promise the rest
- * of this file makes. A zip library would be the first thing in the read path that isn't
- * a built-in, and "your file never leaves your browser" is only worth saying while nothing
- * in the chain could send it anywhere.
+ * Two files arrive this way: a KMZ, which is a KML in a zip and what Google Earth saves
+ * by default, and the "Export Original" a Garmin Connect activity offers, which is the
+ * watch's own FIT in a zip. Both are unzipped here rather than with a library:
+ * `DecompressionStream` is built into the browser, so this costs no dependency and, more
+ * to the point, keeps the promise the rest of this file makes. A zip library would be the
+ * first thing in the read path that isn't a built-in, and "your file never leaves your
+ * browser" is only worth saying while nothing in the chain could send it anywhere.
  *
  * Reads the CENTRAL DIRECTORY rather than the local headers. A local header is allowed to
  * carry zeroes for the sizes and defer them to a data descriptor after the payload, which
  * is exactly what streaming zip writers emit — parsing those first would work on files
  * made by one tool and fail on another. The central directory always has the real numbers.
  */
-export async function kmzToKml(buffer: ArrayBuffer): Promise<string | null> {
+export async function zipMember(buffer: ArrayBuffer, want: (name: string) => boolean): Promise<ZipMember | null> {
   const view = new DataView(buffer);
   const bytes = new Uint8Array(buffer);
   if (bytes[0] !== 0x50 || bytes[1] !== 0x4b) return null; // not "PK"
@@ -257,19 +270,25 @@ export async function kmzToKml(buffer: ArrayBuffer): Promise<string | null> {
     const localAt = view.getUint32(at + 42, true);
     const name = new TextDecoder().decode(bytes.subarray(at + 46, at + 46 + nameLen));
     at += 46 + nameLen + extraLen + commentLen;
-    if (!/\.kml$/i.test(name)) continue;
+    if (!want(name)) continue;
 
     // the local header repeats the name and extra fields at its own lengths
     if (view.getUint32(localAt, true) !== 0x04034b50) return null;
     const dataAt =
       localAt + 30 + view.getUint16(localAt + 26, true) + view.getUint16(localAt + 28, true);
     const payload = bytes.subarray(dataAt, dataAt + compressed);
-    if (method === 0) return new TextDecoder().decode(payload); // stored
-    if (method !== 8) return null; // anything but deflate is beyond what a KMZ should be
+    if (method === 0) return { name, bytes: payload }; // stored
+    if (method !== 8) return null; // anything but deflate is beyond what these zips should be
     const stream = new Blob([payload]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
-    return await new Response(stream).text();
+    return { name, bytes: new Uint8Array(await new Response(stream).arrayBuffer()) };
   }
   return null;
+}
+
+/** KMZ — the KML inside, as text. */
+export async function kmzToKml(buffer: ArrayBuffer): Promise<string | null> {
+  const member = await zipMember(buffer, (name) => /\.kml$/i.test(name));
+  return member ? new TextDecoder().decode(member.bytes) : null;
 }
 
 /**
@@ -400,6 +419,28 @@ function resampleByDistance(cumulative: number[], elevations: number[]): number[
 }
 
 /**
+ * The elevation every `stepM` along the track, interpolated between samples, ending on
+ * the track's last reading so the final stretch counts. The measuring-grade cousin of
+ * resampleByDistance above: the same walk along the cumulative distances, but at a
+ * spacing rather than a count, and unrounded, because this series is measured and never
+ * stored.
+ */
+function resampleEvery(cumulative: number[], elevations: number[], stepM: number): number[] {
+  const total = cumulative[cumulative.length - 1] ?? 0;
+  const out: number[] = [];
+  let j = 0;
+  for (let target = 0; target < total; target += stepM) {
+    while (j < cumulative.length - 2 && cumulative[j + 1]! < target) j++;
+    const d0 = cumulative[j]!;
+    const span = cumulative[j + 1]! - d0;
+    const f = span > 0 ? (target - d0) / span : 0;
+    out.push(elevations[j]! + (elevations[j + 1]! - elevations[j]!) * f);
+  }
+  out.push(elevations[elevations.length - 1]!);
+  return out;
+}
+
+/**
  * Distance, climb and a profile from a track. Null when there isn't enough to say
  * anything — one point is a location, not a route.
  *
@@ -428,13 +469,26 @@ export function gpxStats(points: readonly TrackPoint[]): GpxStats | null {
   let profile: number[] = [];
 
   if (withEle.length) {
-    minEleM = Math.min(...withEle);
-    maxEleM = Math.max(...withEle);
+    // a loop, not Math.min(...withEle): spreading a long track's elevations into a call
+    // overflows the argument list somewhere past a hundred thousand points, which a
+    // watch reaches in a day and a half of recording
+    minEleM = withEle[0]!;
+    maxEleM = withEle[0]!;
+    for (const e of withEle) {
+      if (e < minEleM) minEleM = e;
+      if (e > maxEleM) maxEleM = e;
+    }
     // Smoothed and thresholded rather than summed — profile.ts owns that pairing and the
     // calibration behind it. Measured across the FULL track here, which is the whole
     // reason the figure is stored separately from the resampled profile below: the
     // resampling smooths away real undulation, so it draws well and measures badly.
-    ({ ascentM, descentM } = totalClimb(withEle));
+    //
+    // …on a series no denser than the filter was calibrated for (CLIMB_SAMPLE_M, and the
+    // note there). A track sampled every second is resampled to that spacing first; a
+    // sparser one is measured as it is, since interpolating it finer would only undo the
+    // smoothing its exporter already did.
+    const dense = distanceM / (withEle.length - 1) < CLIMB_SAMPLE_M;
+    ({ ascentM, descentM } = totalClimb(dense ? resampleEvery(cumulative, withEle, CLIMB_SAMPLE_M) : withEle));
     profile = resampleByDistance(cumulative, withEle);
   }
 

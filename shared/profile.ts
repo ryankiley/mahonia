@@ -57,6 +57,19 @@ export const PROFILE_SAMPLES = 240;
  */
 const ASCENT_THRESHOLD_M = 2;
 const SMOOTH_WINDOW = 5;
+/**
+ * The spacing the two numbers above were calibrated at, in metres between samples.
+ *
+ * The window is counted in SAMPLES, so it only smooths the ground it was tuned on if
+ * the samples are as far apart as they were then: the Timberline export, 3,522 points
+ * over 64 km, one every 18 m. A watch writing every second puts a point every metre
+ * or two, and at that density the same window covers a stride rather than a bend, so
+ * GPS noise passes through it and the threshold reads it as climb, several times over
+ * (a flat 22 km with 4 m of noise came to 4,190 m of ascent at 1.2 m spacing against
+ * 267 m at 18 m). gpxStats resamples a denser track to this spacing before measuring,
+ * so every source meets the filter in the regime it was tuned for.
+ */
+export const CLIMB_SAMPLE_M = 18;
 
 /** Centred moving average, edge-clamped so the series keeps its length and its ends. */
 function smooth(values: readonly number[], window: number): number[] {

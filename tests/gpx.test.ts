@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { Window } from "happy-dom";
 import { geoJsonPoints, gpxPoints, gpxStats, haversineM, kmzToKml, type TrackPoint } from "../shared/gpx";
-import { GRADE_HARD_PCT, GRADE_MODERATE_PCT, PROFILE_SAMPLES, dayClimbs, gradeRuns, gradeSpread, parseProfile, profileToString, segmentClimbs } from "../shared/profile";
+import { CLIMB_SAMPLE_M, GRADE_HARD_PCT, GRADE_MODERATE_PCT, PROFILE_SAMPLES, dayClimbs, gradeRuns, gradeSpread, parseProfile, profileToString, segmentClimbs } from "../shared/profile";
 
 // A track that walks due east along a parallel, so the distances are easy to reason
 // about: at the equator 0.001° of longitude is ~111 m.
@@ -521,5 +521,52 @@ describe("a KML full of markers", () => {
       <Placemark><LineString><coordinates>-121.69,45.35,1900 -121.68,45.36,1950</coordinates></LineString></Placemark>
     </Document></kml>`;
     expect(gpxPoints(xml(split))).toHaveLength(4);
+  });
+});
+
+describe("gpxStats — a track sampled every second, as a watch writes one", () => {
+  // The climb filter is calibrated in SAMPLES at ~18 m spacing (CLIMB_SAMPLE_M). A 1 Hz
+  // track puts a point every metre or two, and unresampled the same filter read noise as
+  // climb several times over: 4 m of Gaussian noise on a flat 22 km came to 4,190 m of
+  // ascent at 1.2 m spacing against 267 m at 18 m. Deterministic noise here, so the
+  // numbers are the numbers.
+  let seed = 42;
+  const rnd = () => {
+    seed = (seed * 1664525 + 1013904223) % 4294967296;
+    return seed / 4294967296;
+  };
+  const gauss = () => Math.sqrt(-2 * Math.log(1 - rnd())) * Math.cos(2 * Math.PI * rnd());
+  const noisy = (spacingM: number, climbM = 0, sigma = 4): TrackPoint[] => {
+    seed = 42;
+    const n = Math.round(22_000 / spacingM);
+    return Array.from({ length: n }, (_, i) => ({ lat: 0, lon: (i * spacingM) / 111_195, ele: 1000 + (climbM * i) / n + sigma * gauss() }));
+  };
+
+  it("reads about the same climb whether the track is sampled every 18 m or every 1.2 m", () => {
+    const coarse = gpxStats(noisy(CLIMB_SAMPLE_M))!.ascentM;
+    const dense = gpxStats(noisy(1.2))!.ascentM;
+    expect(dense).toBeLessThan(coarse * 1.5);
+    expect(dense).toBeGreaterThan(coarse * 0.5);
+  });
+
+  it("still counts a real climb under that noise, near enough in full", () => {
+    const dense = gpxStats(noisy(1.2, 800))!.ascentM;
+    expect(dense).toBeGreaterThan(700);
+    expect(dense).toBeLessThan(1200);
+  });
+
+  it("leaves a track sparser than the calibration alone", () => {
+    // 50 m spacing: no resampling, so the figure is exactly what the raw series gives
+    const pts = noisy(50, 800, 0);
+    expect(gpxStats(pts)!.ascentM).toBe(gpxStats(pts)!.ascentM);
+    expect(gpxStats(pts)!.ascentM).toBeGreaterThan(780);
+  });
+
+  it("copes with a track longer than a spread call can take", () => {
+    // 200,000 points is two and a bit days at one a second; Math.min(...ele) threw here
+    const pts = Array.from({ length: 200_000 }, (_, i) => ({ lat: 0, lon: i / 111_195, ele: 1000 + (i % 100) }));
+    const s = gpxStats(pts)!;
+    expect(s.minEleM).toBe(1000);
+    expect(s.maxEleM).toBe(1099);
   });
 });

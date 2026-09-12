@@ -1,7 +1,7 @@
 import { ref, type Ref } from "vue";
 import { profileToString } from "~~/shared/profile";
 import { cumulativeM, decodePolyline, nearestAlongM, routeGeometryFromPoints } from "~~/shared/polyline";
-import type { FilePin } from "~~/shared/gpx";
+import type { FilePin, TrackPoint } from "~~/shared/gpx";
 import type { Op } from "~~/shared/ops";
 import type { ListSnapshot, WaypointKind } from "~~/shared/types";
 
@@ -110,7 +110,7 @@ export function useGpxImport(snapshot: Ref<ListSnapshot | null>, c: GpxTarget) {
       // lines of XML dialects, a zip decoder and GeoJSON that would otherwise ride the
       // first load of every packing list. `gpxBusy` is already true, so the fetch shows
       // as "Reading…" like the parse it precedes.
-      const { MAX_GPX_BYTES, filePins, geoJsonPoints, gpxPoints, gpxStats, kmzToKml, pinKind } =
+      const { MAX_GPX_BYTES, filePins, fitRoute, geoJsonPoints, gpxPoints, gpxStats, isFit, pinKind, zipMember } =
         await import("~~/shared/gpx");
       // Checked BEFORE reading. DOMParser on a 30 MB string blocks the main thread for
       // seconds; declining is cheaper than a worker, and honest. (After the import rather
@@ -120,32 +120,44 @@ export function useGpxImport(snapshot: Ref<ListSnapshot | null>, c: GpxTarget) {
         gpxError.value = "That file is too big to read here.";
         return;
       }
-      // A KMZ is a zip, so it has to be unwrapped before anything can read it. Sniffed by
-      // its "PK" signature rather than its name, like the format check below.
-      const head = new Uint8Array(await file.slice(0, 2).arrayBuffer());
-      const text =
-        head[0] === 0x50 && head[1] === 0x4b
-          ? ((await kmzToKml(await file.arrayBuffer())) ?? "")
-          : await file.text();
-      if (!text) throw new Error("empty");
-      // JSON or XML, decided by the CONTENT rather than the extension — a file saved as
-      // .txt or renamed by a share sheet is still the route it was, and the first
-      // non-space character tells us which family it belongs to more reliably than a name.
-      const first = text.trimStart()[0];
-      let points;
+      // Sniffed by CONTENT, never by name — a file saved as .txt or renamed by a share
+      // sheet is still the route it was. Twelve bytes are enough to tell the two binary
+      // shapes apart: "PK" is a zip (a KMZ, or the FIT-in-a-zip Garmin Connect's "Export
+      // Original" hands out), ".FIT" at byte 8 is a watch's file as it was written.
+      const head = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+      let fit: Uint8Array | null = isFit(head) ? new Uint8Array(await file.arrayBuffer()) : null;
+      let text = "";
+      if (!fit && head[0] === 0x50 && head[1] === 0x4b) {
+        const member = await zipMember(await file.arrayBuffer(), (name) => /\.(kml|fit)$/i.test(name));
+        if (member && isFit(member.bytes)) fit = member.bytes;
+        else if (member) text = new TextDecoder().decode(member.bytes);
+      } else if (!fit) {
+        text = await file.text();
+      }
+      let points: TrackPoint[];
       let pins: FilePin[] = [];
-      if (first === "{" || first === "[") {
-        points = geoJsonPoints(JSON.parse(text));
+      if (fit) {
+        // binary end to end: no text, no DOM, and the course's placed points come out of
+        // the same pass as its track (offered, not applied — see confirmPins)
+        ({ points, pins } = fitRoute(fit));
       } else {
-        const doc = new DOMParser().parseFromString(text, "application/xml");
-        if (doc.querySelector("parsererror")) throw new Error("not xml");
-        // gpxPoints reads GPX, KML and TCX — same track, different dialects
-        points = gpxPoints(doc);
-        // The pins the file carried, read SEPARATELY from the track and deliberately not
-        // applied yet — see confirmPins. gpxPoints never touches <wpt>, and that
-        // separation is load-bearing: a KML's marker placemarks once inflated a 39.8-mile
-        // trail to 58.5.
-        pins = filePins(doc);
+        if (!text) throw new Error("empty");
+        // JSON or XML, decided by the first non-space character, which tells us which
+        // family the text belongs to more reliably than a name would
+        const first = text.trimStart()[0];
+        if (first === "{" || first === "[") {
+          points = geoJsonPoints(JSON.parse(text));
+        } else {
+          const doc = new DOMParser().parseFromString(text, "application/xml");
+          if (doc.querySelector("parsererror")) throw new Error("not xml");
+          // gpxPoints reads GPX, KML and TCX — same track, different dialects
+          points = gpxPoints(doc);
+          // The pins the file carried, read SEPARATELY from the track and deliberately not
+          // applied yet — see confirmPins. gpxPoints never touches <wpt>, and that
+          // separation is load-bearing: a KML's marker placemarks once inflated a 39.8-mile
+          // trail to 58.5.
+          pins = filePins(doc);
+        }
       }
       const stats = gpxStats(points);
       if (!stats) throw new Error("no track");
