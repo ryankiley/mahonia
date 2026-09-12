@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { HugeiconsIcon, type IconChild, type IconNode } from "~/utils/hugeicon";
-import { ChevronDownIcon, Delete02Icon, Fire02Icon, HelpCircleIcon, RacingFlagIcon, RouteIcon, Stairs01Icon, Sun03Icon, TentIcon } from "@hugeicons/core-free-icons";
+import { ChevronDownIcon, Delete02Icon, Fire02Icon, HelpCircleIcon, MountainIcon, RacingFlagIcon, RouteIcon, Stairs01Icon, Sun03Icon, TentIcon } from "@hugeicons/core-free-icons";
 import type { ListSnapshot, Totals, Waypoint } from "~~/shared/types";
 import { burnDownMg, dayEnd, dayRanges, estimateDay, heightIsDerived, nextOwnedDay, shownHeightM } from "~~/shared/tripPlan";
+import { coolerByC, dayFacts, type DayFacts } from "~~/shared/dayFacts";
 import { dayClimbs, parseProfile } from "~~/shared/profile";
 import { MAX_DAYS } from "~~/shared/ops";
 import { dayColorSequence } from "~~/shared/categories";
@@ -18,6 +19,7 @@ import {
   bodyWeightFieldValue,
   distanceFieldValue,
   formatBodyWeight,
+  formatDistance,
   formatDistancePadded,
   heightFieldValue,
   heightUnitFor,
@@ -464,6 +466,58 @@ const dayEnds = computed(() =>
 
 /** The one day that has a finish, for the map — the rows ask per day, the map asks once. */
 const routeFinishM = computed(() => dayEnds.value.find((e) => e?.kind === "finish")?.alongM ?? null);
+
+// ---- what the day is like, read off the profile ----
+// The camp's altitude, the high point, the longest climb and the steepest stretch
+// (shared/dayFacts): derived, said in the estimate's ink, silent on a day with no
+// distance. Nothing here is typed; the profile is public but this reads on /e for now.
+const facts = computed(() =>
+  ranges.value.map((r) => dayFacts(profile.value, props.snapshot.trailDistanceM, r, props.snapshot.trailAscentM)),
+);
+/** a height in the list's own unit, with its unit word */
+const heightWord = (m: number) => `${heightValue(m, distanceUnit.value, distanceUnit.value === "mi" ? 10 : 1)} ${ascentUnit.value}`;
+/** the lapse-rate rule of thumb, in the degrees the list's unit system speaks */
+function coolerWord(aboveM: number): string {
+  const c = coolerByC(aboveM);
+  const v = distanceUnit.value === "mi" ? c * 1.8 : c;
+  const n = Math.round(Math.abs(v));
+  if (n < 1) return "";
+  return `about ${n} °${distanceUnit.value === "mi" ? "F" : "C"} ${v > 0 ? "cooler" : "warmer"}`;
+}
+// Whether day `i` ends the WALK. Asked of dayEnd without the stored end pins: those
+// stand the finish ROW down, because the pin's own row already says it, but the
+// sentence still has to say finish rather than camp, and on a point-to-point route
+// (every import that isn't a loop seeds an end pin) the pin is always there.
+const dayFinishes = computed(() =>
+  ranges.value.map(
+    (_, i) =>
+      dayEnd({ index: i, ranges: ranges.value, dayDistancesM: dayDistancesM.value, hasRest: hasRest.value })?.kind ===
+      "finish",
+  ),
+);
+/** "Camp at 1,850 m, 650 m above the trailhead and about 4 °C cooler. High point 2,410 m." */
+function campSentence(i: number, f: DayFacts): string {
+  const end = dayFinishes.value[i] ? "Finish" : "Camp";
+  const parts = [`${end} at ${heightWord(f.campM)}`];
+  const above = Math.round(f.aboveTrailheadM);
+  if (Math.abs(above) >= 10) {
+    const cooler = coolerWord(f.aboveTrailheadM);
+    parts.push(`${heightWord(Math.abs(above))} ${above > 0 ? "above" : "below"} the trailhead${cooler ? ` and ${cooler}` : ""}`);
+  }
+  let s = parts.join(", ") + ".";
+  if (f.highM - f.campM >= 10) s += ` High point ${heightWord(f.highM)}.`;
+  return s;
+}
+/** "Longest climb 620 m over 3.1 km, from 4.2 km. Steepest stretch 14% at 6.8 km." */
+function groundSentence(f: DayFacts): string {
+  const parts: string[] = [];
+  if (f.climb) parts.push(`Longest climb ${heightWord(f.climb.gainM)} over ${formatDistance(f.climb.lengthM, distanceUnit.value)}, from ${formatDistance(f.climb.startM, distanceUnit.value)}.`);
+  if (f.steepest) {
+    const g = f.steepest.gradePct;
+    parts.push(`Steepest stretch ${Math.abs(g)}% ${g < 0 ? "downhill" : "uphill"} at ${formatDistance(f.steepest.atM, distanceUnit.value)}.`);
+  }
+  return parts.join(" ");
+}
 
 /**
  * WHERE a point on the route actually is, worked out rather than looked up.
@@ -960,6 +1014,21 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
 
         </div>
 
+        <!-- What the day is like, read off the profile: two derived sentences in the
+             estimate's ink. The first is where you end up and how high; the second is
+             the climb you'll remember and the steepest bit. Both go quiet when there
+             is nothing to say (flat ground, a day with no distance). -->
+        <template v-if="!collapsed[d?.id ?? ''] && dayDistancesM[i] && facts[i]">
+          <p class="t-sm plan__fact">
+            <HugeiconsIcon :icon="dayFinishes[i] ? RacingFlagIcon : TentIcon" class="plan__gl" :size="16" :stroke-width="2" aria-hidden="true" />
+            <span>{{ campSentence(i, facts[i]!) }}</span>
+          </p>
+          <p v-if="groundSentence(facts[i]!)" class="t-sm plan__fact">
+            <HugeiconsIcon :icon="MountainIcon" class="plan__gl" :size="16" :stroke-width="2" aria-hidden="true" />
+            <span>{{ groundSentence(facts[i]!) }}</span>
+          </p>
+        </template>
+
         <!-- The pins on THIS day's stretch, and how you add one — the place in a day that
              "Add an item" holds in a folder, and deliberately the same gesture: arming
              from here clamps the tap to this day's leg, so what you add lands in the day
@@ -1222,6 +1291,20 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
    this only keeps the eye on what's yours */
 .plan__cell--est {
   color: var(--ink-3);
+}
+/* a derived sentence under the day's figures, in the estimate's ink, with a glyph for
+   its subject so a stack of them scans by shape */
+.plan__fact {
+  margin-top: var(--space-1);
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  color: var(--ink-3);
+}
+.plan__fact .plan__gl {
+  /* the glyph's box sits on the baseline row; nudge it to the text's optical centre */
+  position: relative;
+  top: 0.2em;
 }
 /* THE CLIMB AND ITS DROP SHARE ONE CELL, so they share one column.
    Every other cell holds a different kind of fact, and the fixed width lines those up down
