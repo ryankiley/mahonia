@@ -299,8 +299,8 @@ export function gradeSeries(profile: readonly number[], totalDistanceM: number):
  * The profile cut into runs of like difficulty — `[from, to]` sample indices, inclusive,
  * each meeting the next so a renderer can draw them without a hairline of paper between.
  *
- * Lives here rather than in the component because it is arithmetic, it needs `smooth()`
- * (which is private to this file), and both the shading and anything else that wants to
+ * Lives here rather than in the component because it is arithmetic on the same smoothed
+ * series everything else here reads, and both the shading and anything else that wants to
  * say "how much of this route is steep" must agree on one answer.
  */
 export function gradeRuns(

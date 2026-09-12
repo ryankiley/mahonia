@@ -4,8 +4,8 @@ import { dayRanges } from "../shared/tripPlan";
 
 // A 24 km route sampled every 100 m (241 samples): flat at 1,000 m for 6 km, a steady
 // climb of 600 m over 6 km, a 2 km summit plateau at 1,600 m, a descent to 1,200 m over
-// 4 km, then flat to the end. Two days of 12 km each: day 1 ends on the summit plateau
-// (hmm, at 12 km, the top of the climb), day 2 ends at 1,200 m.
+// 4 km, then flat to the end. Two days of 12 km each: day 1 ends at 12 km, the top of
+// the climb and the start of the plateau; day 2 ends at 1,200 m.
 const ROUTE_M = 24_000;
 const profile = Array.from({ length: 241 }, (_, i) => {
   const km = i / 10;
@@ -43,6 +43,21 @@ describe("dayFacts", () => {
     expect(d1.climb!.lengthM).toBeLessThanOrEqual(6_200);
     // day 2 only descends: no climb worth naming
     expect(dayFacts(profile, ROUTE_M, ranges[1]!)!.climb).toBeUndefined();
+  });
+
+  it("finds the climb's foot on a noisy flat approach, not the deepest wobble before it", () => {
+    // The ±4 m the ascent filter is calibrated against (tests/gpx.test.ts), on the same
+    // ground. The run opens wherever the flat last touched a new low, which under noise
+    // is a wobble anywhere in the first 6 km; the foot has to be read off the series
+    // against the threshold, or the climb reads as starting at the trailhead.
+    const noisy = profile.map((e, i) => e + (i % 2 ? 4 : -4));
+    const d1 = dayFacts(noisy, ROUTE_M, ranges[0]!)!;
+    expect(d1.climb!.startM).toBeGreaterThanOrEqual(5_500);
+    expect(d1.climb!.startM).toBeLessThanOrEqual(6_200);
+    expect(d1.climb!.lengthM).toBeGreaterThanOrEqual(5_600);
+    expect(d1.climb!.lengthM).toBeLessThanOrEqual(6_800);
+    expect(d1.climb!.gainM).toBeGreaterThanOrEqual(560);
+    expect(d1.climb!.gainM).toBeLessThanOrEqual(610);
   });
 
   it("scales the climb's gain by the route's full-resolution ascent, as the day's climb figure is", () => {

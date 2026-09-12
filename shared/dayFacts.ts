@@ -113,9 +113,22 @@ export function dayFacts(
     let highAt = first;
     const close = () => {
       const gain = (runHigh - runLow) * scale;
-      if (gain >= MIN_CLIMB_GAIN_M && (!best || gain > best.gainM)) {
-        best = { startM: runStart * stepM, lengthM: (highAt - runStart) * stepM, gainM: Math.round(gain) };
+      if (gain < MIN_CLIMB_GAIN_M || (best && gain <= best.gainM)) return;
+      // Where the climb STARTS and TOPS OUT is read off the series against the threshold,
+      // not off where the run happened to open and peak. runStart is wherever the ground
+      // last touched a new low, and on a flat approach with any noise at all that is the
+      // deepest wobble: kilometres before the climb on a jittery track, at the trailhead
+      // under the ±4 m the ascent filter is calibrated against. The foot is the last
+      // sample still within the threshold of the run's low, which is where the ground
+      // stops being flat; the top is its mirror, the first sample within the threshold of
+      // the high, rather than the highest wobble somewhere along a summit plateau.
+      let foot = runStart;
+      for (let j = runStart; j <= highAt; j++) if (eased[j]! <= runLow + ASCENT_THRESHOLD_M) foot = j;
+      let top = highAt;
+      for (let j = foot; j <= highAt; j++) {
+        if (eased[j]! >= runHigh - ASCENT_THRESHOLD_M) { top = j; break; }
       }
+      best = { startM: foot * stepM, lengthM: (top - foot) * stepM, gainM: Math.round(gain) };
     };
     for (let i = first + 1; i <= last; i++) {
       const e = eased[i]!;

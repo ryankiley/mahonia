@@ -484,9 +484,20 @@ function coolerWord(aboveM: number): string {
   if (n < 1) return "";
   return `about ${n} °${distanceUnit.value === "mi" ? "F" : "C"} ${v > 0 ? "cooler" : "warmer"}`;
 }
+// Whether day `i` ends the WALK. Asked of dayEnd without the stored end pins: those
+// stand the finish ROW down, because the pin's own row already says it, but the
+// sentence still has to say finish rather than camp, and on a point-to-point route
+// (every import that isn't a loop seeds an end pin) the pin is always there.
+const dayFinishes = computed(() =>
+  ranges.value.map(
+    (_, i) =>
+      dayEnd({ index: i, ranges: ranges.value, dayDistancesM: dayDistancesM.value, hasRest: hasRest.value })?.kind ===
+      "finish",
+  ),
+);
 /** "Camp at 1,850 m, 650 m above the trailhead and about 4 °C cooler. High point 2,410 m." */
 function campSentence(i: number, f: DayFacts): string {
-  const end = dayEnds.value[i]?.kind === "finish" ? "Finish" : "Camp";
+  const end = dayFinishes.value[i] ? "Finish" : "Camp";
   const parts = [`${end} at ${heightWord(f.campM)}`];
   const above = Math.round(f.aboveTrailheadM);
   if (Math.abs(above) >= 10) {
@@ -1009,7 +1020,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
              is nothing to say (flat ground, a day with no distance). -->
         <template v-if="!collapsed[d?.id ?? ''] && dayDistancesM[i] && facts[i]">
           <p class="t-sm plan__fact">
-            <HugeiconsIcon :icon="dayEnds[i]?.kind === 'finish' ? RacingFlagIcon : TentIcon" class="plan__gl" :size="16" :stroke-width="2" aria-hidden="true" />
+            <HugeiconsIcon :icon="dayFinishes[i] ? RacingFlagIcon : TentIcon" class="plan__gl" :size="16" :stroke-width="2" aria-hidden="true" />
             <span>{{ campSentence(i, facts[i]!) }}</span>
           </p>
           <p v-if="groundSentence(facts[i]!)" class="t-sm plan__fact">
