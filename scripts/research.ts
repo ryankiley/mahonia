@@ -5,7 +5,7 @@
 
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { RowAttributes } from "./catalogAttributes";
+import type { AttributeKey, RowAttributes } from "./catalogAttributes";
 
 /** One row of cited research exactly as authored. Superset shape — each script
  *  validates only the fields it needs. `category_hint` is `string | null` (the
@@ -64,6 +64,12 @@ export interface ResearchRow {
   // A value the row's own quote already states needs neither.
   attributes_source_url?: string | null;
   attributes_quote?: string | null;
+  // Axes the row's gear type is sold by that the maker does NOT publish a single value for:
+  // a garment whose weight names no size, a sack listed by flat dimensions only, a pack sold
+  // as a 25–40 L range. Recorded after the page was read, so the audit's to-do list stops
+  // naming the row and the next pass doesn't re-read the page. An axis here and in
+  // `attributes` at once is an error.
+  attributes_unpublished?: AttributeKey[] | null;
   category_hint?: string | null;
   // the item's common name ("tent", "trekking poles") — REQUIRED for a new row to build
   // (a row with no common_name here, no seed/common-names.json entry, and no derivable

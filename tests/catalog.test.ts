@@ -168,6 +168,18 @@ describe("serializeCsv + csvToCatalogRows round-trip", () => {
     expect(() => csvToCatalogRows(bad)).toThrow(/row 2 \(Revelation\).*temp_f/);
   });
 
+  it("parses attributes_unpublished as a list of axes, empty when blank or absent", () => {
+    const csv2 =
+      "brand,name,variant,attributes,attributes_unpublished,category_hint,weight_mg,weight_source,source_url\n" +
+      "Acme,Hoody,Men's,fit=Men's,size,clothing,300000,manufacturer,https://x\n" +
+      "Acme,Tent,,,,shelter,900000,manufacturer,https://x\n";
+    const rows = csvToCatalogRows(csv2);
+    expect(rows[0].attributesUnpublished).toEqual(["size"]);
+    expect(rows[1].attributesUnpublished).toEqual([]);
+    expect(csvToCatalogRows(csv)[0].attributesUnpublished).toEqual([]);
+    expect(() => csvToCatalogRows(csv2.replace(",size,", ",colour,"))).toThrow(/attributes_unpublished/);
+  });
+
   it("rejects a non-positive or fractional kcal", () => {
     const bad = (v: string) =>
       `brand,name,variant,category_hint,weight_mg,weight_source,source_url,kcal\nX,Y,,consumable,100,manufacturer,https://x,${v}\n`;

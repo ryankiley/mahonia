@@ -49,6 +49,7 @@ type BuiltRow = {
   common_name: string;
   variant: string;
   attributes: string;
+  attributes_unpublished: string;
   category_hint: string;
   weight_mg: number;
   weight_source: string;
@@ -180,6 +181,7 @@ function main() {
         common_name: "",
         variant: normalizeVariant(row.variant ?? ""),
         attributes: "",
+        attributes_unpublished: (row.attributes_unpublished ?? []).join("; "),
         category_hint: category,
         weight_mg: weightMg,
         weight_source: source,
@@ -253,7 +255,7 @@ function main() {
   for (const r of built) byCat.set(r.category_hint, (byCat.get(r.category_hint) ?? 0) + 1);
   console.log(`\n✓ Wrote ${built.length} rows to seed/catalog.csv`);
   console.log(`  with kcal:   ${built.filter((r) => r.kcal != null).length}`);
-  console.log(`  with attributes: ${built.filter((r) => r.attributes).length} of ${built.filter((r) => r.variant).length} with a variant (${handWritten} rows carry hand-written ones)`);
+  console.log(`  with attributes: ${built.filter((r) => r.attributes).length} (${handWritten} rows carry hand-written ones; ${built.filter((r) => r.attributes_unpublished).length} record an axis the maker doesn't publish)`);
   console.log("  by category:");
   for (const cat of CATEGORY_ORDER) {
     if (byCat.has(cat)) console.log(`    ${cat.padEnd(12)} ${byCat.get(cat)}`);

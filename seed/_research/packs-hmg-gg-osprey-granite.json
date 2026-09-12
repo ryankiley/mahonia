@@ -76,6 +76,7 @@
       "brand": "Pa'lante",
       "name": "V2",
       "variant": "Gridstop, 16\" / 19\"",
+      "attributes_unpublished": ["volume_l"],
       "category_hint": "pack",
       "weight_value": 17.7,
       "weight_unit": "oz",

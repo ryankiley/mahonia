@@ -9,7 +9,7 @@
 // ERRORS gate the build. WARNINGS (weight-range plausibility) are for a human.
 // Pure and fs-free: the caller reads the files (scripts/research.ts) and passes them in.
 
-import { validateAttributes } from "./catalogAttributes";
+import { ATTRIBUTE_KEYS, validateAttributes } from "./catalogAttributes";
 import type { Finding } from "./catalogChecks";
 import { gearLabel } from "./catalogChecks";
 import { identityKey, isCitationUrl, isWeightSource, specToMg, type SpecUnit } from "./catalogCsv";
@@ -91,6 +91,16 @@ export function runResearchChecks(files: ResearchFile[]): Finding[] {
       if (aUrl || aQuote) {
         if (!isCitationUrl(aUrl) || !aQuote) err("attr-cite", `${where}: attributes_source_url and attributes_quote go together (a real URL plus a verbatim quote)`);
         if (!r.attributes || !Object.keys(r.attributes).length) err("attr-cite", `${where}: an attributes citation with no attributes`);
+      }
+      // an axis recorded as unpublished is a real key, and not one the row also states
+      if (r.attributes_unpublished != null) {
+        if (!Array.isArray(r.attributes_unpublished) || !r.attributes_unpublished.length) err("attr-unpublished", `${where}: attributes_unpublished must be a non-empty list of axes`);
+        else {
+          for (const k of r.attributes_unpublished) {
+            if (!(ATTRIBUTE_KEYS as readonly string[]).includes(k)) err("attr-unpublished", `${where}: "${k}" is not an axis (one of ${ATTRIBUTE_KEYS.join(", ")})`);
+            else if (r.attributes && (r.attributes as Record<string, unknown>)[k] != null) err("attr-unpublished", `${where}: ${k} is both stated in attributes and listed as unpublished`);
+          }
+        }
       }
 
       // the cited weight must convert

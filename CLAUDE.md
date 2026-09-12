@@ -45,5 +45,8 @@ A variant's axes are read out of it at build time into the CSV's `attributes` co
 (`scripts/catalogAttributes.ts`; the vocabulary and what each gear type is sold by live in
 `shared/catalogAxes.ts`). A research row writes in `attributes` only what its variant doesn't state
 (an R-value, a quilt's rating), in the canonical form; a value that contradicts the variant, a
-variant that claims one axis twice, or a value outside its form is a build error.
+variant that claims one axis twice, or a value outside its form is a build error. A value read from
+a page other than the row's own cites it with `attributes_source_url` + `attributes_quote` (the kcal
+bar); an axis the maker was found not to publish is recorded in `attributes_unpublished` so the
+audit's to-do list names only unread rows.
 

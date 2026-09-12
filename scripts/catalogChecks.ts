@@ -498,8 +498,10 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   // and these are the rows where the maker's page still has to be read. Worked in
   // usage order (the catalog counts picks; the audit can't see them, so the ordered
   // snapshot lives with #336).
+  // An axis the maker was found not to publish (attributes_unpublished on the research
+  // row) is researched, not missing: the list names only rows nobody has read yet.
   for (const r of rows) {
-    const missing = soldByOf(r.commonName).filter((k) => r.attributes?.[k] === undefined);
+    const missing = soldByOf(r.commonName).filter((k) => r.attributes?.[k] === undefined && !r.attributesUnpublished.includes(k));
     if (missing.length) warn("attr-gap", `${gearLabel(r)}: a ${(r.commonName ?? "").toLowerCase()} without ${missing.join(", ")} — read the maker's page`);
   }
 

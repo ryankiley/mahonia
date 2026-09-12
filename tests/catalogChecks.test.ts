@@ -13,6 +13,7 @@ const row = (o: Partial<CatalogCsvRow> & { name: string }): CatalogCsvRow => ({
   commonName: "Tent",
   variant: null,
   attributes: null,
+  attributesUnpublished: [],
   categoryHint: "shelter",
   weightMg: 1_000_000,
   kcal: null,
@@ -52,6 +53,8 @@ describe("catalog conventions are errors, not warnings", () => {
     const pad = row({ name: "XLite", categoryHint: "sleep", weightMg: 370_000, commonName: "Sleeping pad" });
     expect(codes([pad], "warning")).toContain("attr-gap");
     expect(codes([{ ...pad, attributes: { r_value: 4.5, length: "Regular" } }], "warning")).not.toContain("attr-gap");
+    // an axis the maker was found not to publish is researched, not a gap
+    expect(codes([{ ...pad, attributes: { length: "Regular" }, attributesUnpublished: ["r_value"] }], "warning")).not.toContain("attr-gap");
     // every footwear type, booties included, is sold by a size
     expect(codes([row({ name: "Down Booties", categoryHint: "clothing", weightMg: 60_000, commonName: "Booties" })], "warning")).toContain("attr-gap");
     // a gear type sold one way has no gap to fill, and a laptop is not a top
@@ -135,6 +138,17 @@ describe("research-level attributes check", () => {
     expect(errs({ length: "6 ft" })).toContain("attr");
     expect(errs({ persons: 2 })).toEqual([]);
     expect(errs(undefined)).toEqual([]);
+  });
+  it("attr-unpublished: a real axis, and never one the row also states", () => {
+    const withUnpub = (attributes: unknown, unpublished: unknown) => {
+      const f = file(attributes);
+      (f.rows[0] as Record<string, unknown>).attributes_unpublished = unpublished;
+      return runResearchChecks([f]).filter((x) => x.level === "error").map((x) => x.code);
+    };
+    expect(withUnpub(undefined, ["r_value"])).toEqual([]);
+    expect(withUnpub(undefined, ["colour"])).toContain("attr-unpublished");
+    expect(withUnpub(undefined, [])).toContain("attr-unpublished");
+    expect(withUnpub({ persons: 2 }, ["persons"])).toContain("attr-unpublished");
   });
 });
 
