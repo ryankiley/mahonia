@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon, type IconChild, type IconNode } from "~/utils/hugeicon";
-import { ChevronDownIcon, Delete02Icon, Fire02Icon, HelpCircleIcon, RacingFlagIcon, RouteIcon, Stairs01Icon, TentIcon } from "@hugeicons/core-free-icons";
+import { ChevronDownIcon, Delete02Icon, Fire02Icon, HelpCircleIcon, RacingFlagIcon, RouteIcon, Stairs01Icon, Sun03Icon, TentIcon } from "@hugeicons/core-free-icons";
 import type { ListSnapshot, Totals, Waypoint } from "~~/shared/types";
 import { burnDownMg, dayEnd, dayRanges, estimateDay, heightIsDerived, nextOwnedDay, shownHeightM } from "~~/shared/tripPlan";
 import { dayClimbs, parseProfile } from "~~/shared/profile";
@@ -9,6 +9,7 @@ import { dayColorSequence } from "~~/shared/categories";
 import { shiftIsoDate } from "~~/shared/calendar";
 import { cumulativeM, decodePolyline, formatLatLon, pointAlong } from "~~/shared/polyline";
 import { dayLabel } from "~~/shared/tripDay";
+import { DAYLIGHT_MARGIN_H, daylightHours, formatDaylight, lightIsShort } from "~~/shared/daylight";
 import { isWaterName } from "~~/shared/water";
 import { lineMg, effectiveClassification, formatWeight } from "~~/shared/weights";
 import type { BodyWeightUnit } from "~~/shared/trailDistance";
@@ -492,6 +493,36 @@ function onPlace(alongM: number) {
   // stays armed: one tap, one pin — drop three water sources in three taps, then name them
 }
 
+// ---- the light ----
+/**
+ * How much daylight each day has: sunrise to sunset at the middle of the day's stretch,
+ * on the day's date (shared/daylight). Arithmetic on two things the list already holds,
+ * so nothing is fetched and nothing is stored.
+ *
+ * Owner-only by construction rather than by a check: it needs the route's geometry,
+ * which never rides a read path (rowToSnapshot), so the shared view simply has no
+ * figure here. A dateless list, or a day with no distance, gets null rather than a
+ * guess. The midpoint is the honest one place to ask: a day walks a stretch, and even
+ * a long one moves the Sun's answer by well under a minute end to end.
+ */
+const dayDaylight = computed<(number | null)[]>(() => {
+  const start = props.snapshot.startDate;
+  if (!start || !routePoints.value.length) return days.value.map(() => null);
+  return ranges.value.map((r, i) => {
+    if (!(r.toM > r.fromM)) return null;
+    const at = pointAlong(routePoints.value, (r.fromM + r.toM) / 2, routeCum.value);
+    return at ? daylightHours(at, shiftIsoDate(start, i)) : null;
+  });
+});
+/** the walk above runs past the day's light, less the margin (shared/daylight) */
+const lightShort = (i: number) => lightIsShort(estimates.value[i]?.hours, dayDaylight.value[i]);
+function lightTip(i: number): string {
+  const base = "Sunrise to sunset at the middle of the day's route, from its coordinates and the date. Not a forecast, and no allowance for the terrain.";
+  return lightShort(i)
+    ? `${base} The walking time leaves under ${DAYLIGHT_MARGIN_H} hours of it to spare, so the day may end in the dark.`
+    : base;
+}
+
 // Naming a day lives in shared/tripDay.ts — a shared list shows the itinerary too, and
 // the two views must agree on what a day is called.
 const dayOrdinal = (i: number) => dayLabel(i, props.snapshot.startDate);
@@ -896,6 +927,27 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
             </Tooltip>
           </span>
 
+          <!-- How much light there is to walk in: sunrise to sunset at the middle of the
+               day's stretch, on its date. Arithmetic rather than an estimate, so it carries
+               no `~` and no band. It takes the caution ink when the walking time before it
+               runs past the light less a margin (lightIsShort): a walk that ends in the dark
+               is the one thing about a day that a week's notice fixes. Only a dated list
+               with a route has it; everything else renders nothing rather than a guess. -->
+          <span
+            v-if="dayDaylight[i] != null"
+            class="plan__cell plan__cell--est plan__cell--light"
+            :class="{ 'is-short': lightShort(i) }"
+          >
+            <HugeiconsIcon :icon="Sun03Icon" class="plan__gl" :size="16" :stroke-width="2" aria-hidden="true" />
+            <span class="t-num">{{ formatDaylight(dayDaylight[i]!) }}</span>
+            <span class="visually-hidden"> of daylight</span>
+            <Tooltip :text="lightTip(i)" preferred-placement="top">
+              <button type="button" class="plan__why" aria-label="How the daylight is worked out">
+                <HugeiconsIcon :icon="HelpCircleIcon" :size="14" :stroke-width="2" aria-hidden="true" />
+              </button>
+            </Tooltip>
+          </span>
+
           <span class="plan__cell plan__cell--est">
             <HugeiconsIcon :icon="Fire02Icon" class="plan__gl" :size="16" :stroke-width="2" aria-hidden="true" />
             <span class="t-num">{{ estimates[i] ? `~${roundKcal(estimates[i]!.totalKcal).toLocaleString()}` : "—" }}</span>
@@ -1195,6 +1247,16 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
 /* a climb read off the GPX rather than typed */
 .plan__cell.is-derived .plan__num {
   color: var(--ink-3);
+}
+/* The light, when the walk runs past it: the figure and its sun step FORWARD to full
+   ink, from the estimate's step back. Not --danger: that token is spent on destruction
+   alone (tokens.scss), and the chrome is monochrome by rule, so a caution here is the
+   same move every emphasis on this site makes, a darker ink. On a row of stepped-back
+   figures one at full strength is the thing the eye lands on, and the (?) beside it
+   says why. */
+.plan__cell--light.is-short,
+.plan__cell--light.is-short .plan__gl {
+  color: var(--ink);
 }
 /* the (?) — quiet until wanted, and a real button so it's reachable by keyboard and
    by touch, unlike the title= it replaces */
