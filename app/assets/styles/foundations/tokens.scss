@@ -425,6 +425,10 @@ $bp-full: 1024px !default;
      It was the literal 9px in all six — the one value in the token layer that a retune
      had to find by grep. */
   --grip-pull: 9px;
+  /* how far the grip's glyph reaches past its button's right edge (the translateX in
+     .grip svg: a third of the 16px glyph), which is how far a row's paint-contained box
+     has to reach into the gutter so the dots aren't shaved (.item-wrap, atoms/item.scss) */
+  --grip-bleed: 6px;
   /* field height — .field's min-height, mirrored by the add affordances and the
      packing-row height calc so toggling modes never jumps the row height */
   --field-h: 36px;

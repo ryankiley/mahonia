@@ -477,6 +477,16 @@
 .item-wrap {
   content-visibility: auto;
   contain-intrinsic-size: auto 64px;
+  /* Paint containment comes with content-visibility, and it clips at this box's
+     padding edge. The grip's dots are shifted OUT of the row's right edge by design
+     (.grip in atoms/controls.scss: the glyph's own internal padding goes into the
+     page gutter so the dots sit flush), and a shifted dot that lands a fraction past
+     the edge is shaved off, which is what a phone showed: every row's grip missing
+     its right column while the folder's, in no contained box, kept both (Ryan,
+     2026-09-12). So the box reaches into the gutter by the shift and pads the same
+     amount back, and the layout does not move. */
+  padding-inline-end: var(--grip-bleed);
+  margin-inline-end: calc(-1 * var(--grip-bleed));
 }
 /* …lifted where containment would clip what a row hangs outside its box, since paint
    containment comes with it (measured: the suggestion menu's lower options became
