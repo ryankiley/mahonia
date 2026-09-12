@@ -4,6 +4,9 @@ import { sql } from "drizzle-orm";
 import * as schema from "../../server/db/schema";
 import { randomEditToken, randomShareCode, sha256Hex } from "../../server/utils/tokens";
 
+// the one instance this worker process boots — see createTestDb
+let pglite: Promise<PGlite> | undefined;
+
 /**
  * A throwaway Postgres with the schema already on it.
  *
@@ -16,23 +19,35 @@ import { randomEditToken, randomShareCode, sha256Hex } from "../../server/utils/
  *
  *   const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL);
  *
- * WHAT THIS COSTS, because it is the suite's dominant expense and the number is
- * not obvious: a PGlite instance is a WASM Postgres, and booting one measures
- * ~494 ms while running all 46 DDL statements measures ~15 ms. The schema is
- * free; the boot is everything. At ~96 calls across the suite that is ~49 s of
- * setup, and because vitest runs files in parallel those boots contend for CPU —
- * which is why the DB-backed files are the ones that time out first on a small
- * runner (see vitest.config.ts, which already raised the timeout once for this).
+ * WHAT THIS COSTS, because it was the suite's dominant expense: a PGlite instance
+ * is a WASM Postgres, and booting one measures ~460 ms (~740 ms for the first in a
+ * process, which also compiles the module), while running all 46 DDL statements
+ * measures ~15 ms and wiping the schema measures ~3 ms. So the process boots ONE
+ * instance, on the first call, and every call after that drops `public` and
+ * rebuilds it from the groups it was handed — a database as empty as a new one, at
+ * the price of the DDL alone. Vitest gives each test file its own worker process
+ * (the default `isolate`), so "one per process" is one per file; the five heaviest
+ * DB files went from 88 s to 7 s on the change, and the 20 s timeouts in
+ * vitest.config.ts stopped being the first thing to fail under load.
  *
- * So the optimization worth doing, if this ever needs one, is fewer BOOTS — one
- * instance per file with the schema reset between cases, not a faster DDL. It is
- * deliberately not done here: the ensure-helpers memoize "this schema is already
- * built" per process (server/utils/memoize.ts), so reusing an instance means
- * resetting every one of those memos in lockstep, and getting that subtly wrong
- * trades a slow suite for a lying one.
+ * What makes the reuse safe, since the earlier version of this comment said it
+ * wasn't: the schema-ensure helpers memoize "already built" per process
+ * (server/utils/memoize.ts), and a memo that ran against one instance is exactly as
+ * stale against the next fresh instance as it is against a wiped one — either way
+ * the table it remembers is gone, and either way it is this function's DDL, run
+ * directly, that puts the schema back. A case that wants the ensure itself to run
+ * resets its memo (see snapshots.test.ts, hydrateCatalogNames.test.ts), which works
+ * the same on a wiped database. Tests within a file run one at a time (nothing here
+ * is `.concurrent`), so no case sees another's wipe; a case that builds a second
+ * database mid-way (auth.test.ts) gets the same instance rebuilt, and the handle it
+ * held before is the same database with the new schema — fine as long as it uses
+ * only the new handle from there, which is what those cases do.
  */
 export async function createTestDb(...ddlGroups: string[][]): Promise<TestDb> {
-  const db = drizzle(new PGlite(), { schema });
+  pglite ??= PGlite.create();
+  const pg = await pglite;
+  await pg.exec("drop schema public cascade; create schema public;");
+  const db = drizzle(pg, { schema });
   for (const group of ddlGroups) {
     for (const stmt of group) await db.execute(sql.raw(stmt));
   }

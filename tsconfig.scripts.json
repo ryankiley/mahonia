@@ -10,7 +10,8 @@
   // tipped TypeScript's instantiation limit on an unrelated composable
   // (useVaultAccess's untyped-URL $fetch reported "excessive stack depth", and
   // reverting the include alone cleared it). This project holds scripts/ and what
-  // they import, and no app/ code — so `npm run typecheck` runs both.
+  // they import, and no app/ code — so `npm run typecheck` runs both (all three,
+  // side by side: scripts/typecheck.mjs).
   "extends": "./.nuxt/tsconfig.json",
   "compilerOptions": {
     // Same exemption tsconfig.tests.json takes, for the same reason. A script walks
@@ -20,7 +21,11 @@
     // already know. These run at a developer's keyboard, not in a request — a wrong
     // index throws on the spot with the row in hand. What this project IS here to
     // catch is the stale reference: a field the schema dropped, an import that moved.
-    "noUncheckedIndexedAccess": false
+    "noUncheckedIndexedAccess": false,
+    // Incremental, like the app project (see tsconfig.json): a re-check after a
+    // small edit costs seconds, not the whole program.
+    "incremental": true,
+    "tsBuildInfoFile": "./node_modules/.cache/typecheck/scripts.tsbuildinfo"
   },
   "include": [".nuxt/nuxt.d.ts", "scripts/**/*"]
 }
