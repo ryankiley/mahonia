@@ -223,9 +223,16 @@ export function splitKnownBrand(
 //   • temperature: no degree symbol, no space, uppercase ("20°F" → "20F", "-6 c" → "-6C")
 //   • volume: no parens/space, uppercase L ("(68 L)" → "68L")
 //   • trailing parenthetical qualifiers unwrapped ("Regular (6 ft)" → "Regular, 6 ft")
-//   • no "Size" prefix before a letter size ("Size M" → "M"; "Size D" / "Size 9" keep
-//     theirs — an insole letter or a shoe number isn't self-describing alone)
-//   • a gender prefix takes no comma ("Men's, M" → "Men's M", the catalog's house form)
+//   • an S/M/L-family size is a WORD: "M" → "Medium", "Men's M" → "Men's Medium",
+//     "XS" → "X-Small", "M torso" → "Medium torso" (Ryan, 2026-09-12: "I want the
+//     catalogue to say Medium"; it reverses the 2026-09-05 letters rule). A range
+//     stays as the maker writes it ("S/M", "L/XL"), and so does a letter the maker
+//     uses as a scale of its own ("M+", "Size D"). The attributes column keeps the
+//     letter (scripts/catalogAttributes reads the word back to it), so search and
+//     the size axis are untouched; only what a person reads changes.
+//   • no "Size" prefix before such a size ("Size M" → "Medium"; "Size D" / "Size 9"
+//     keep theirs — an insole letter or a shoe number isn't self-describing alone)
+//   • a gender prefix takes no comma ("Men's, M" → "Men's Medium", the house form)
 //   • a number and its unit are one token — "6 ft" → "6ft", "400 ml" → "400ml", "1 m" →
 //     "1m" — matching the "68L" / "20F" forms above; prime marks spell out as ft / in
 //     ("9'" → "9ft", '17" torso' → "17in torso") so a variant never carries a bare quote
@@ -238,6 +245,39 @@ export function splitKnownBrand(
 
 // crude "looks like a measured value": has a digit AND a unit-ish char (letter, ", ')
 const hasNumUnit = (s: string) => /\d/.test(s) && /[a-zA-Z"']/.test(s);
+
+/** The S/M/L family, letter to word and back. The catalog's variant says the word;
+ *  the attributes column and the size axis keep the letter. */
+export const SIZE_LETTER_WORD: Record<string, string> = {
+  XXS: "XX-Small",
+  XS: "X-Small",
+  S: "Small",
+  M: "Medium",
+  L: "Large",
+  XL: "X-Large",
+  XXL: "XX-Large",
+};
+const SIZE_WORD_LETTER: Record<string, string> = Object.fromEntries(
+  Object.entries(SIZE_LETTER_WORD).map(([letter, word]) => [word.toLowerCase(), letter]),
+);
+// a letter size standing as a token: at the start of the string or after a space, a
+// comma or an opening paren; followed by the end, a space, a comma or a closing paren.
+// NOT before "/" or "+" (a range or the maker's own "M+"), not "M's" (a footwear
+// abbreviation of Men's), and not the L of a litre written with a space ("27 L",
+// which normalizeVariant closes up to "27L" but a raw research row may still carry).
+const LETTER_TOKEN = /(^|[\s,(])(?<!\d\s*)(XXS|XS|S|M|L|XL|XXL)(?=$|[\s,)])/g;
+const WORD_TOKEN = /(^|[\s,(])(XX-Small|X-Small|Small|Medium|Large|X-Large|XX-Large)(?=$|[\s,)])/gi;
+
+/** "M" → "Medium", "Men's M" → "Men's Medium", "M torso" → "Medium torso"; ranges and
+ *  everything else untouched. */
+export function sizeLettersToWords(v: string): string {
+  return v.replace(LETTER_TOKEN, (_m, lead: string, letter: string) => lead + SIZE_LETTER_WORD[letter]!);
+}
+/** The inverse, for the attributes reader: "Medium" → "M". Case-insensitive on the
+ *  way in, since a research row may spell "medium". */
+export function sizeWordsToLetters(v: string): string {
+  return v.replace(WORD_TOKEN, (_m, lead: string, word: string) => lead + SIZE_WORD_LETTER[word.toLowerCase()]!);
+}
 
 /** Strip orphan leading/trailing separators + whitespace from one dimension. */
 function cleanDim(s: string): string {
@@ -282,10 +322,12 @@ export function normalizeVariant(input: string | null | undefined): string {
       for (const p of parts) dims.push(p);
     }
   }
-  return dims
+  const joined = dims
     .map(cleanDim)
     .filter(Boolean)
     .join(", ")
-    // a gender prefix and its letter size are ONE dimension: "Men's, M" → "Men's M"
-    .replace(/\b(Men's|Women's), (?=(?:XXS|XS|S|M|L|XL|XXL)\b)/g, "$1 ");
+    // a gender prefix and its size are ONE dimension: "Men's, M" → "Men's M"
+    .replace(/\b(Men's|Women's), (?=(?:XXS|XS|S|M|L|XL|XXL|XX-Small|X-Small|Small|Medium|Large|X-Large|XX-Large)\b)/gi, "$1 ");
+  // 5. the size as a word (see the header)
+  return sizeLettersToWords(joined);
 }

@@ -42,7 +42,7 @@
     {
       "brand": "Appalachian Gear Company",
       "name": "All-Paca Fleece Hoodie",
-      "variant": "Women's M",
+      "variant": "Women's Medium",
       "category_hint": "clothing",
       "weight_value": 10,
       "weight_unit": "oz",
@@ -146,7 +146,7 @@
     {
       "brand": "Decathlon (Simond)",
       "name": "MT100 Hooded Down Jacket",
-      "variant": "Women's L",
+      "variant": "Women's Large",
       "category_hint": "clothing",
       "weight_value": 11.3,
       "weight_unit": "oz",
@@ -192,7 +192,7 @@
     {
       "brand": "finetrack",
       "name": "Polygon UL Jacket",
-      "variant": "Women's M",
+      "variant": "Women's Medium",
       "category_hint": "clothing",
       "weight_value": 165,
       "weight_unit": "g",
@@ -239,7 +239,7 @@
     {
       "brand": "Houdini",
       "name": "Desoli Light Half Zip",
-      "variant": "Women's M",
+      "variant": "Women's Medium",
       "category_hint": "clothing",
       "weight_value": 178,
       "weight_unit": "g",
@@ -250,7 +250,7 @@
     {
       "brand": "Katabatic Gear",
       "name": "Women's Crest Windshell",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 48,
       "weight_unit": "g",
@@ -308,7 +308,7 @@
     {
       "brand": "La Sportiva",
       "name": "Ethereal Pro Jacket",
-      "variant": "Women's M",
+      "variant": "Women's Medium",
       "category_hint": "clothing",
       "weight_value": 144,
       "weight_unit": "g",
@@ -331,7 +331,7 @@
     {
       "brand": "LightHeart Gear",
       "name": "Alpha Direct 90 Hoodie",
-      "variant": "Women's M",
+      "variant": "Women's Medium",
       "category_hint": "clothing",
       "weight_value": 5.4,
       "weight_unit": "oz",
@@ -342,7 +342,7 @@
     {
       "brand": "Melanzana",
       "name": "Micro Grid Hoodie V2",
-      "variant": "Women's M",
+      "variant": "Women's Medium",
       "category_hint": "clothing",
       "weight_value": 9.3,
       "weight_unit": "oz",
@@ -365,7 +365,7 @@
     {
       "brand": "Montbell",
       "name": "Alpine Light Down Parka",
-      "variant": "Women's M",
+      "variant": "Women's Medium",
       "category_hint": "clothing",
       "weight_value": 363,
       "weight_unit": "g",
@@ -376,7 +376,7 @@
     {
       "brand": "Montbell",
       "name": "EX Light Down Jacket",
-      "variant": "Women's M, full-zip",
+      "variant": "Women's Medium, full-zip",
       "category_hint": "clothing",
       "weight_value": 135,
       "weight_unit": "g",
@@ -387,7 +387,7 @@
     {
       "brand": "Montbell",
       "name": "Storm Cruiser Jacket",
-      "variant": "Women's M",
+      "variant": "Women's Medium",
       "category_hint": "clothing",
       "weight_value": 253,
       "weight_unit": "g",
@@ -420,7 +420,7 @@
     {
       "brand": "Montbell",
       "name": "Versalite Jacket",
-      "variant": "Women's M",
+      "variant": "Women's Medium",
       "category_hint": "clothing",
       "weight_value": 165,
       "weight_unit": "g",
@@ -431,7 +431,7 @@
     {
       "brand": "Montbell",
       "name": "Versalite Pants",
-      "variant": "Women's M",
+      "variant": "Women's Medium",
       "category_hint": "clothing",
       "weight_value": 83,
       "weight_unit": "g",
@@ -497,7 +497,7 @@
     {
       "brand": "Nanga",
       "name": "Aurora Down Jacket",
-      "variant": "Women's L",
+      "variant": "Women's Large",
       "category_hint": "clothing",
       "weight_value": 600,
       "weight_unit": "g",
@@ -599,7 +599,7 @@
     {
       "brand": "Outdoor Research",
       "name": "Aspire II GORE-TEX Jacket",
-      "variant": "Women's M",
+      "variant": "Women's Medium",
       "category_hint": "clothing",
       "weight_value": 11.7,
       "weight_unit": "oz",
@@ -610,7 +610,7 @@
     {
       "brand": "Outdoor Research",
       "name": "Echo Hoodie",
-      "variant": "Women's M",
+      "variant": "Women's Medium",
       "category_hint": "clothing",
       "weight_value": 112,
       "weight_unit": "g",
@@ -633,7 +633,7 @@
     {
       "brand": "Outdoor Research",
       "name": "Ferrosi Pants",
-      "variant": "Women's M",
+      "variant": "Women's Medium",
       "category_hint": "clothing",
       "weight_value": 255,
       "weight_unit": "g",
@@ -644,7 +644,7 @@
     {
       "brand": "Outdoor Research",
       "name": "Helium Rain Jacket",
-      "variant": "Women's M",
+      "variant": "Women's Medium",
       "category_hint": "clothing",
       "weight_value": 179,
       "weight_unit": "g",
@@ -655,7 +655,7 @@
     {
       "brand": "Outdoor Research",
       "name": "Helium Rain Pants",
-      "variant": "Women's M",
+      "variant": "Women's Medium",
       "category_hint": "clothing",
       "weight_value": 173,
       "weight_unit": "g",
@@ -666,7 +666,7 @@
     {
       "brand": "Patagonia",
       "name": "Capilene Cool Lightweight Shirt",
-      "variant": "Women's M, short sleeve",
+      "variant": "Women's Medium, short sleeve",
       "category_hint": "clothing",
       "weight_value": 60,
       "weight_unit": "g",
@@ -677,7 +677,7 @@
     {
       "brand": "Patagonia",
       "name": "Capilene Midweight Bottoms",
-      "variant": "Women's M",
+      "variant": "Women's Medium",
       "category_hint": "clothing",
       "weight_value": 156,
       "weight_unit": "g",
@@ -688,7 +688,7 @@
     {
       "brand": "Patagonia",
       "name": "Down Sweater Hoody",
-      "variant": "Women's M",
+      "variant": "Women's Medium",
       "category_hint": "clothing",
       "weight_value": 343,
       "weight_unit": "g",
@@ -699,7 +699,7 @@
     {
       "brand": "Patagonia",
       "name": "Houdini Jacket",
-      "variant": "Women's M",
+      "variant": "Women's Medium",
       "category_hint": "clothing",
       "weight_value": 96,
       "weight_unit": "g",
@@ -710,7 +710,7 @@
     {
       "brand": "Patagonia",
       "name": "Long-Sleeved Sun Stretch Shirt",
-      "variant": "Women's M",
+      "variant": "Women's Medium",
       "category_hint": "clothing",
       "weight_value": 190,
       "weight_unit": "g",
@@ -721,7 +721,7 @@
     {
       "brand": "Patagonia",
       "name": "Micro Puff Hoody",
-      "variant": "Women's M",
+      "variant": "Women's Medium",
       "category_hint": "clothing",
       "weight_value": 255,
       "weight_unit": "g",
@@ -732,7 +732,7 @@
     {
       "brand": "Patagonia",
       "name": "Quandary Pants",
-      "variant": "Women's M, Regular",
+      "variant": "Women's Medium, Regular",
       "category_hint": "clothing",
       "weight_value": 283,
       "weight_unit": "g",
@@ -743,7 +743,7 @@
     {
       "brand": "Patagonia",
       "name": "R1 Air Full-Zip Hoody",
-      "variant": "Women's M",
+      "variant": "Women's Medium",
       "category_hint": "clothing",
       "weight_value": 309,
       "weight_unit": "g",
@@ -754,7 +754,7 @@
     {
       "brand": "Patagonia",
       "name": "Terrebonne Joggers",
-      "variant": "Women's M",
+      "variant": "Women's Medium",
       "category_hint": "clothing",
       "weight_value": 139,
       "weight_unit": "g",
@@ -844,7 +844,7 @@
     {
       "brand": "SkyGOAT",
       "name": "Women's Full Zip Fleece Jacket",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 275,
       "weight_unit": "g",
@@ -855,7 +855,7 @@
     {
       "brand": "Smartwool",
       "name": "Merino 150 Base Layer Long Sleeve",
-      "variant": "Women's M",
+      "variant": "Women's Medium",
       "category_hint": "clothing",
       "weight_value": 133,
       "weight_unit": "g",
@@ -866,7 +866,7 @@
     {
       "brand": "Territory Run Co.",
       "name": "Women's Long Haul Short",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 4,
       "weight_unit": "oz",
@@ -877,7 +877,7 @@
     {
       "brand": "Teton Bros",
       "name": "Wind River Hoody",
-      "variant": "Women's M",
+      "variant": "Women's Medium",
       "category_hint": "clothing",
       "weight_value": 90,
       "weight_unit": "g",
@@ -899,7 +899,7 @@
     {
       "brand": "The North Face",
       "name": "ThermoBall Eco Hoodie",
-      "variant": "Women's M",
+      "variant": "Women's Medium",
       "category_hint": "clothing",
       "weight_value": 390,
       "weight_unit": "g",
@@ -938,7 +938,7 @@
     {
       "brand": "Wūru Wool",
       "name": "Women's 100% Merino Short Sleeve Shirt",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 198,
       "weight_unit": "g",

@@ -91,7 +91,7 @@
     {
       "brand": "Topo Designs",
       "name": "Global Jacket",
-      "variant": "Men's M",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 300,
       "weight_unit": "g",
@@ -113,7 +113,7 @@
     {
       "brand": "Topo Designs",
       "name": "Mountain Puffer Hoodie",
-      "variant": "Men's M",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 450,
       "weight_unit": "g",
@@ -135,7 +135,7 @@
     {
       "brand": "Gramicci",
       "name": "NN-Pant",
-      "variant": "Men's M",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 460,
       "weight_unit": "g",
@@ -146,7 +146,7 @@
     {
       "brand": "Gramicci",
       "name": "G-Short",
-      "variant": "Men's M",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 14,
       "weight_unit": "oz",
@@ -157,7 +157,7 @@
     {
       "brand": "Klättermusen",
       "name": "Allgrön 2.0 Jacket",
-      "variant": "Men's M",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 624,
       "weight_unit": "g",
@@ -168,7 +168,7 @@
     {
       "brand": "Klättermusen",
       "name": "Bore 2.0 Down Jacket",
-      "variant": "Men's M",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 800,
       "weight_unit": "g",
@@ -179,7 +179,7 @@
     {
       "brand": "Nanga",
       "name": "Aurora Down Jacket",
-      "variant": "Men's M",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 650,
       "weight_unit": "g",
@@ -190,7 +190,7 @@
     {
       "brand": "Nanga",
       "name": "Takibi Down Jacket",
-      "variant": "Men's M",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 1134,
       "weight_unit": "g",
@@ -234,7 +234,7 @@
     {
       "brand": "Stone Island Shadow Project",
       "name": "DPM Map Down Jacket",
-      "variant": "Men's M",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 750,
       "weight_unit": "g",
@@ -245,7 +245,7 @@
     {
       "brand": "Stone Island Shadow Project",
       "name": "Tie Up Cargo Pant",
-      "variant": "Men's M, IT 50",
+      "variant": "Men's Medium, IT 50",
       "category_hint": "clothing",
       "weight_value": 580,
       "weight_unit": "g",

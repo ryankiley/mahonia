@@ -3,7 +3,7 @@
     {
       "brand": "Zpacks",
       "name": "Ultralight Dog Bowl",
-      "variant": "S",
+      "variant": "Small",
       "category_hint": "other",
       "weight_value": 4,
       "weight_unit": "g",
@@ -14,7 +14,7 @@
     {
       "brand": "Zpacks",
       "name": "Ultralight Dog Bowl",
-      "variant": "L",
+      "variant": "Large",
       "category_hint": "other",
       "weight_value": 8,
       "weight_unit": "g",

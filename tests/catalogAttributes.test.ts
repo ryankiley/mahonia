@@ -97,7 +97,11 @@ describe("extractAttributes reads what a variant states outright", () => {
     ["6ft 06in", "Sleeping bag", "sleep", {}],
     ["M+", "Quilt", "sleep", {}],
     // size words on gear sold in named sizes
-    ["Large", "Pillow", "sleep", { size: "Large" }],
+    // the variant's word is the axis's letter (the S/M/L family; a pillow is not length-scaled)
+    ["Large", "Pillow", "sleep", { size: "L" }],
+    ["Medium", "Backpack", "pack", { torso: "M" }],
+    ["Men's Medium", "Sun hoodie", "clothing", { fit: "Men's", size: "M" }],
+    ["Medium torso", "Backpack", "pack", { torso: "M" }],
     ["Jumbo", "Stuff sack", "other", { size: "Jumbo" }],
     ["M+", "Pillow", "sleep", { size: "M+" }],
     ["Standard", "Food bag", "other", {}],

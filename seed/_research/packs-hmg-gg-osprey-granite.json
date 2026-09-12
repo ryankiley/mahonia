@@ -3,7 +3,7 @@
     {
       "brand": "Gossamer Gear",
       "name": "Mariposa 60",
-      "variant": "M, M Straight hipbelt",
+      "variant": "Medium, Medium Straight hipbelt",
       "attributes": {"volume_l": 60},
       "category_hint": "pack",
       "weight_value": 34.2,
@@ -15,7 +15,7 @@
     {
       "brand": "Gossamer Gear",
       "name": "Gorilla 50",
-      "variant": "M",
+      "variant": "Medium",
       "attributes": {"volume_l": 50},
       "category_hint": "pack",
       "weight_value": 31.9,
@@ -27,7 +27,7 @@
     {
       "brand": "Gossamer Gear",
       "name": "Kumo 36",
-      "variant": "M",
+      "variant": "Medium",
       "attributes": {"volume_l": 36},
       "category_hint": "pack",
       "weight_value": 20,

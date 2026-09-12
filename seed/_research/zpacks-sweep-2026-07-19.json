@@ -706,7 +706,7 @@
     {
       "brand": "Zpacks",
       "name": "Food Bag",
-      "variant": "L",
+      "variant": "Large",
       "attributes": {"volume_l": 14},
       "attributes_source_url": "https://zpacks.com/products/large-food-bag",
       "attributes_quote": "Volume: 850 cubic inches / 14 Liters",
@@ -976,7 +976,7 @@
     {
       "brand": "Zpacks",
       "name": "Stuff Sack",
-      "variant": "L",
+      "variant": "Large",
       "attributes": {"volume_l": 12.3},
       "attributes_source_url": "https://zpacks.com/products/large-stuff-sack",
       "attributes_quote": "11\" wide by 5.5\" deep by 12\" tall (28 cm x 14 cm x 30 cm) / 750 cubic inches (12.3L)",
@@ -1008,7 +1008,7 @@
     {
       "brand": "Zpacks",
       "name": "Stuff Sack",
-      "variant": "M",
+      "variant": "Medium",
       "attributes": {"volume_l": 5.6},
       "attributes_source_url": "https://zpacks.com/products/medium-stuff-sack",
       "attributes_quote": "6\" diameter by 12\" tall (15 cm x 30.5 cm) / 340 cubic inches (5.6L)",
@@ -1040,7 +1040,7 @@
     {
       "brand": "Zpacks",
       "name": "Stuff Sack",
-      "variant": "S",
+      "variant": "Small",
       "attributes": {"volume_l": 1.7},
       "attributes_source_url": "https://zpacks.com/products/small-stuff-sack",
       "attributes_quote": "~5\" diameter x 6\" tall (13 cm x 15 cm) / 105 cubic inches (1.7L)",
@@ -1139,7 +1139,7 @@
     {
       "brand": "Zpacks",
       "name": "Rectangle Dry Bag",
-      "variant": "L",
+      "variant": "Large",
       "attributes": {"volume_l": 14},
       "attributes_source_url": "https://zpacks.com/products/large-rectangle-dry-bag",
       "attributes_quote": "Volume: 850 cubic inches / 14 Liters",
@@ -1187,7 +1187,7 @@
     {
       "brand": "Zpacks",
       "name": "Dry Bag",
-      "variant": "M",
+      "variant": "Medium",
       "attributes": {"volume_l": 5.6},
       "attributes_source_url": "https://zpacks.com/products/medium-dry-bag",
       "attributes_quote": "Volume: 340 cubic inches / 5.6 Liters",
@@ -1235,7 +1235,7 @@
     {
       "brand": "Zpacks",
       "name": "Dry Bag",
-      "variant": "S",
+      "variant": "Small",
       "attributes": {"volume_l": 2.2},
       "attributes_source_url": "https://zpacks.com/products/small-dry-bag",
       "attributes_quote": "Volume: 135 cubic inches / 2.2 Liters",
