@@ -1,27 +1,62 @@
-# Deletes the Neon preview branch when a PR closes, so per-preview branches stop
-# piling up against Neon's Free-plan branch limit (which is what broke preview
-# deploys — a full 10/10 project fails to provision the next preview's branch).
+# Keeps Neon's per-preview database branches from piling up against the Free plan's
+# 10-branch limit — which is what breaks preview deploys: a full project fails to
+# provision the next preview's branch, and Vercel reports that as "Resource
+# provisioning failed" with a 0 ms build and no logs. Nothing in the failure names
+# Neon; the only place the cause appears is the deployment page in Vercel's
+# dashboard ("Create database branch for deployment — Branch limit reached").
 #
-# The Neon–Vercel integration names each preview branch `preview/<git-branch>`, so
-# for this repo's `claude/*` branches it's `preview/claude/<name>`. Closing the PR
-# (merged or not) deletes that branch, freeing the slot immediately — rather than
-# waiting on Vercel's 180-day deployment-retention cleanup.
+# The Neon–Vercel integration creates `preview/<git-branch>` for a git branch's first
+# preview deploy (so `preview/claude/<name>` for this repo's `claude/*` branches) and
+# reuses it for the later ones. On its own it only deletes the branch when Vercel
+# drops the deployment — 180 days later by default. Two jobs close that gap:
+#
+#   • delete-preview-branch — when a PR closes (merged or not), delete `preview/<head>`
+#     so the slot frees immediately.
+#   • sweep — nightly and on demand, list every branch in the project and delete each
+#     `preview/<x>` that nothing needs any more:
+#       1. `<x>` is no longer a branch on origin: merged and deleted, or pushed and
+#          discarded without a PR. The PR-close job saw neither — when the limit
+#          filled on 2026-09-12 the leak included a branch merged and deleted ten days
+#          earlier and one that never had a PR.
+#       2. `<x>` still exists but has no open PR and has been idle for IDLE_DAYS: no
+#          commit on it, no compute activity on its database, and the Neon branch
+#          itself is at least that old (a fresh preview of an old commit is not idle).
+#          The next push to `<x>` provisions the branch again, exactly as it did the
+#          first time, so the cost of being wrong is one redeploy plus whatever that
+#          preview had written to its own copy of the data — never the code.
+#     Never `preview/main`, never Neon's default branch, never a protected one, and
+#     never a branch whose git branch has an open PR, however quiet. A dry run
+#     (workflow_dispatch → dry_run) logs the same decisions and deletes nothing.
+#     The sweep does not use continue-on-error: a bad API key or a refused delete has
+#     to show as a red run, because a silent failure here is exactly how the limit
+#     fills unnoticed.
 #
 # One-time setup (repo → Settings):
 #   • Variables → Actions → New variable  NEON_PROJECT_ID = young-mouse-86728110
 #   • Secrets   → Actions → New secret     NEON_API_KEY   = a Neon API key
 #     (Neon Console → Account settings → API keys → Create; needs branch delete access)
-name: Delete Neon preview branch on PR close
+name: Neon preview branches
 
 on:
   pull_request:
     types: [closed]
+  schedule:
+    # 09:35 UTC is 02:35 Pacific, past midnight either side of daylight saving
+    - cron: "35 9 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Log what the sweep would delete, and delete nothing
+        type: boolean
+        default: false
 
-# talks only to the Neon API — no repo write access needed
-permissions: {}
+# reads branches and open PRs; talks to Neon over HTTPS. Nothing is written back.
+permissions:
+  contents: read
 
 jobs:
   delete-preview-branch:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     steps:
       - name: Delete preview/<branch> in Neon
@@ -32,3 +67,142 @@ jobs:
           project_id: ${{ vars.NEON_PROJECT_ID }}
           branch: preview/${{ github.head_ref }}
           api_key: ${{ secrets.NEON_API_KEY }}
+
+  sweep:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    # a manual run beside the nightly one would race it over the same deletes
+    concurrency:
+      group: neon-preview-sweep
+      cancel-in-progress: false
+    permissions:
+      contents: read # the branch list, and each idle candidate's tip commit
+      pull-requests: read # which branches still have an open PR
+    steps:
+      - name: Delete stale preview/* branches
+        uses: actions/github-script@v7
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+          # a branch with no open PR is idle once nothing has touched it or its
+          # database for this many days
+          IDLE_DAYS: "7"
+          DRY_RUN: ${{ inputs.dry_run == true }}
+        with:
+          script: |
+            const NEON = "https://console.neon.tech/api/v2";
+            const { NEON_API_KEY: apiKey, NEON_PROJECT_ID: projectId } = process.env;
+            const idleDays = Number(process.env.IDLE_DAYS);
+            const dryRun = process.env.DRY_RUN === "true";
+            if (!apiKey || !projectId) {
+              core.setFailed("NEON_API_KEY (secret) and NEON_PROJECT_ID (variable) must both be set");
+              return;
+            }
+
+            const neon = async (method, path) => {
+              const res = await fetch(NEON + path, {
+                method,
+                headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" },
+              });
+              if (!res.ok) {
+                throw new Error(`${method} ${path} → HTTP ${res.status}: ${(await res.text()).slice(0, 300)}`);
+              }
+              // 204 is "already gone" on a delete — the PR-close job may have got there first
+              return res.status === 204 ? null : res.json();
+            };
+
+            // Every branch in the project, following the cursor. The Free plan holds ten,
+            // but the page size is the API's to choose.
+            const neonBranches = [];
+            for (let cursor; ; ) {
+              const q = new URLSearchParams({ limit: "100", sort_by: "name", sort_order: "asc" });
+              if (cursor) q.set("cursor", cursor);
+              const page = await neon("GET", `/projects/${projectId}/branches?${q}`);
+              neonBranches.push(...page.branches);
+              cursor = page.pagination?.next;
+              if (!cursor) break;
+            }
+
+            // When each branch's compute last ran — i.e. when anything last spoke to
+            // its database. Absent for a compute that has never started.
+            const lastActive = new Map();
+            for (const ep of (await neon("GET", `/projects/${projectId}/endpoints`)).endpoints) {
+              if (!ep.last_active) continue;
+              const t = Date.parse(ep.last_active);
+              if (t > (lastActive.get(ep.branch_id) ?? -Infinity)) lastActive.set(ep.branch_id, t);
+            }
+
+            const { owner, repo } = context.repo;
+            const gitBranches = new Map();
+            for (const b of await github.paginate(github.rest.repos.listBranches, { owner, repo, per_page: 100 })) {
+              gitBranches.set(b.name, b.commit.sha);
+            }
+            // A branch list without main is a broken list, not an empty repo — and every
+            // preview branch would read as stale against it.
+            if (!gitBranches.has("main")) {
+              throw new Error("origin's branch list has no main; refusing to treat every preview branch as stale");
+            }
+            const openPrHeads = new Set(
+              (await github.paginate(github.rest.pulls.list, { owner, repo, state: "open", per_page: 100 }))
+                .map((pr) => pr.head.ref),
+            );
+
+            const daysSince = (ms) => ((Date.now() - ms) / 86_400_000).toFixed(1);
+            const olderThanIdle = (ms) => Date.now() - ms > idleDays * 86_400_000;
+
+            // → [delete?, why]
+            const decide = async (b) => {
+              if (!b.name.startsWith("preview/")) return [false, "not a preview branch"];
+              if (b.default) return [false, "the project's default branch"];
+              if (b.protected) return [false, "protected"];
+              const git = b.name.slice("preview/".length);
+              if (git === "main") return [false, "never main"];
+              const sha = gitBranches.get(git);
+              if (!sha) return [true, "its git branch is gone"];
+              if (openPrHeads.has(git)) return [false, "its git branch has an open PR"];
+
+              const { data: tip } = await github.rest.git.getCommit({ owner, repo, commit_sha: sha });
+              const committed = Date.parse(tip.committer.date);
+              const created = Date.parse(b.created_at);
+              const active = lastActive.get(b.id);
+              const idle =
+                olderThanIdle(committed) && olderThanIdle(created) && (active === undefined || olderThanIdle(active));
+              const why =
+                `no open PR; last commit ${daysSince(committed)} d ago, ` +
+                `database last active ${active === undefined ? "never" : `${daysSince(active)} d ago`}, ` +
+                `branch created ${daysSince(created)} d ago` +
+                (idle ? ` — idle for more than ${idleDays} d` : "");
+              return [idle, why];
+            };
+
+            const deleted = [];
+            const failed = [];
+            for (const b of neonBranches) {
+              const [del, why] = await decide(b);
+              const label = `${b.name} (${b.id})`;
+              if (!del) {
+                core.info(`keep    ${label} — ${why}`);
+              } else if (dryRun) {
+                core.info(`WOULD DELETE ${label} — ${why}`);
+                deleted.push(b.name);
+              } else {
+                try {
+                  await neon("DELETE", `/projects/${projectId}/branches/${b.id}`);
+                  core.info(`DELETED ${label} — ${why}`);
+                  deleted.push(b.name);
+                } catch (e) {
+                  core.error(`failed to delete ${label} — ${why}: ${e.message}`);
+                  failed.push(b.name);
+                }
+              }
+            }
+
+            const verb = dryRun ? "Would delete" : "Deleted";
+            const headline = `${verb} ${deleted.length} of ${neonBranches.length} Neon branches`;
+            core.info(deleted.length ? `${headline}: ${deleted.join(", ")}` : headline);
+            await core.summary
+              .addHeading(headline, 3)
+              .addList(deleted.length ? deleted : ["(none)"])
+              .write();
+            if (failed.length) core.setFailed(`${failed.length} delete(s) refused: ${failed.join(", ")}`);
