@@ -748,6 +748,14 @@ const noteRef = useTemplateRef<HTMLTextAreaElement>("noteRef");
 // mid-edit), then cleared by onRowBlur. An empty field just folds back up — nothing is
 // written by revealing it.
 const nameEditing = ref(false);
+// Landing in ANY of the row's text fields offers the sub-line, not only the name box:
+// a person editing the weight is editing the row, and the gear type, size and note are
+// one tab away from there too (Ryan, 2026-09-12: "clicking into any text field on the
+// row should probably expose all rows"). Fields only: the row's buttons and menus take
+// focus as well, and opening the ⋯ menu is not editing.
+function onFieldFocus(e: FocusEvent) {
+  if ((e.target as HTMLElement | null)?.matches?.("input, textarea")) nameEditing.value = true;
+}
 // A GROUP's own name is already the everyday label — that's where it comes from
 // (useGearList.containerFor lifts the wrapped product's common name up to be the
 // group's name), so offering a group a second one is circular. A parent therefore
@@ -1303,7 +1311,7 @@ function dismissFix() {
       <span v-if="item.commonName || variantOnRow" class="t-sm item__csub">{{ item.commonName }}<span v-if="variantOnRow" class="item__cvariant">{{ item.commonName ? " · " : "" }}{{ item.variant }}</span></span>
     </label>
 
-    <div v-if="everEdit" class="item-row item">
+    <div v-if="everEdit" class="item-row item" @focusin="onFieldFocus">
       <!-- editable row (default) -->
       <!-- focusin (it bubbles, unlike focus) rather than binding ItemInput's own input:
            the name cell is the whole "what is this item" affordance, so landing anywhere
@@ -1313,7 +1321,7 @@ function dismissFix() {
              under the NAME, not under the sub-line below), the group's name·chevron flex
              line, and the focusin target — landing anywhere in it offers the gear type
              + note underneath (nameEditing); focus arriving in those fields does not. -->
-        <div class="item__namebox" :class="{ 'item__namebox--group': isParent }" @focusin="nameEditing = true">
+        <div class="item__namebox" :class="{ 'item__namebox--group': isParent }">
           <!-- no catalog / My Gear suggestions on a GROUP. A pick stamps the product's
                weight onto the row (onNameCommit), and a group's weight cell is read-only
                and shows the total of its children — so that weight would land where no
