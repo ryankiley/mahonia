@@ -30,6 +30,9 @@ describe("robots.txt", () => {
     expect(lines).toContain("Disallow: /api/");
     // no rule of any spelling touches /s: not "/s", not "/s/", not "/s/*"
     expect(lines.filter((l) => /^Disallow:\s*\/s(\/|\*|$)/.test(l))).toEqual([]);
+    // nor /mcp: the endpoint says noindex itself on every answer, and a fetcher a
+    // person points at it should read its 405 body rather than a robots refusal
+    expect(lines.filter((l) => /^Disallow:\s*\/mcp/.test(l))).toEqual([]);
     // the host comes from the request, so any deploy domain names its own sitemap
     expect(lines).toContain("Sitemap: http://mahonia.test/sitemap.xml");
     expect(event.node.res.getHeader("content-type")).toBe("text/plain; charset=utf-8");
@@ -46,6 +49,8 @@ describe("robots.txt", () => {
       "server/api/s/[code].get.ts",
       "server/middleware/shareMarkdown.ts",
       "server/routes/og/s/[code].get.ts",
+      "server/routes/mcp.get.ts",
+      "server/routes/mcp.post.ts",
     ]) {
       expect(readFileSync(`${ROOT}${file}`, "utf8"), file).toContain("setNoIndex(event)");
     }
