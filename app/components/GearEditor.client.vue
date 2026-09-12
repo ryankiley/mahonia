@@ -10,7 +10,8 @@ import { chipWeightLabels, filterItemsForPerson, hasUnassignedTopLevel, personNa
 import { countedForPacking } from "~~/shared/packing";
 import type { Item, Unit } from "~~/shared/types";
 import type { EditorMode } from "~/composables/useEditorMode";
-import { CHILDREN_BY_PARENT, PEOPLE_CTX } from "~/components/ItemRow.vue";
+import { CHILDREN_BY_PARENT, PEOPLE_CTX, VARIANT_SHOWN } from "~/components/ItemRow.vue";
+import { variantShownIds } from "~~/shared/variantShown";
 import { bySortOrder, computeTotals, groupItemsByFolder, groupItemsByParent, ungroupedTopLevel } from "~~/shared/weights";
 
 // The whole editor surface (its own sticky topbar + flex shell). Rendered by
@@ -131,6 +132,11 @@ const itemsByFolder = computed(() => groupItemsByFolder(snapshot.value?.items ??
 // hand rows that only ever read the empty default a value they don't look at.
 const childrenByParent = computed(() => groupItemsByParent(snapshot.value?.items ?? []));
 provide(CHILDREN_BY_PARENT, childrenByParent);
+// the rows whose variant shows beside the name on the checklist face: the same
+// product held in two variants (shared/variantShown). Provided for the reason the
+// children map is: one pass per snapshot, and a row subscribes only to its own
+// membership. The edit face never shows one beside the name (its sub-line has it).
+provide(VARIANT_SHOWN, computed(() => variantShownIds(snapshot.value?.items ?? [])));
 const NO_ITEMS: Item[] = [];
 
 // Which of the three views of this list you're in. Was a single `packed` boolean; it

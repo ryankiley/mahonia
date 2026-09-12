@@ -55,9 +55,34 @@ export function classificationToCategory(c: string | null | undefined): string {
   return "other"; // base / null → widest plausibility band
 }
 
+// The typed gear type, read for a plausibility band. A base row's class says nothing
+// about what it is, and "other" tops out at 1.6 kg, so a corroborated 1.7 kg tent or
+// pack typed by hand was rejected for good; "Tent" in the gear type field says which
+// band applies. Matched on the last word ("Trail runners", "Rain jacket", "Cook pot"),
+// then the whole phrase, lowercased; anything unrecognised falls back to the class.
+const GEAR_TYPE_CATEGORY: Record<string, string> = {
+  tent: "shelter", tarp: "shelter", shelter: "shelter", bivy: "shelter", footprint: "shelter", groundsheet: "shelter", hammock: "shelter",
+  quilt: "sleep", bag: "sleep", pad: "sleep", mattress: "sleep", pillow: "sleep", liner: "sleep",
+  pack: "pack", backpack: "pack", daypack: "pack",
+  stove: "cook", pot: "cook", pan: "cook", mug: "cook", cup: "cook", bowl: "cook", spoon: "cook", spork: "cook", cookset: "cook", windscreen: "cook", lighter: "cook",
+  bottle: "water", flask: "water", reservoir: "water", bladder: "water", filter: "water", purifier: "water",
+  jacket: "clothing", shirt: "clothing", tee: "clothing", shorts: "clothing", pants: "clothing", fleece: "clothing", hoodie: "clothing", puffy: "clothing",
+  gloves: "clothing", mittens: "clothing", hat: "clothing", beanie: "clothing", cap: "clothing", buff: "clothing", gaiters: "clothing", socks: "clothing",
+  shoes: "clothing", boots: "clothing", sandals: "clothing", runners: "clothing", baselayer: "clothing", underwear: "clothing", sunglasses: "clothing",
+  headlamp: "electronics", battery: "electronics", "power bank": "electronics", charger: "electronics", cable: "electronics", phone: "electronics", watch: "electronics", gps: "electronics", camera: "electronics",
+  "first aid kit": "firstaid", "first aid": "firstaid",
+  food: "consumable", fuel: "consumable", canister: "consumable", snack: "consumable", meal: "consumable", tablets: "consumable",
+};
+export function categoryForGearType(commonName: string | null | undefined): string | null {
+  const phrase = normKey(commonName);
+  if (!phrase) return null;
+  const last = phrase.split(" ").pop()!;
+  return GEAR_TYPE_CATEGORY[phrase] ?? GEAR_TYPE_CATEGORY[last] ?? null;
+}
+
 // Generic gear nouns that are NOT branded products — a bare one of these (even
 // corroborated) must never become a catalog row ("tent", "snacks", "water bottle").
-const GENERIC_GEAR_TERMS = new Set<string>([
+export const GENERIC_GEAR_TERMS = new Set<string>([
   "tent", "tents", "tarp", "tarps", "shelter", "bivy", "footprint", "groundsheet",
   "pack", "backpack", "daypack", "bag", "dry bag", "stuff sack", "fanny pack", "hip pack",
   "quilt", "sleeping bag", "sleeping pad", "pad", "pillow", "liner",
@@ -110,6 +135,27 @@ export function isBrandedTypedItem(p: {
   const hasModel = toks.some((t) => (/\d/.test(t) && /[a-z]/i.test(t)) || /^\d{2,}$/.test(t));
   const hasDistinctive = nonNumeric.some((t) => t.length >= 2 && !GENERIC_GEAR_TERMS.has(t));
   return hasModel && hasDistinctive;
+}
+
+/**
+ * A known brand at the front of a typed name, split out: "Zpacks Duplex" → brand
+ * "Zpacks", name "Duplex", spelled the way the catalog spells the brand. A typed row
+ * has no brand field (the name line is one string), so this is how a community row
+ * promoted from typed rows comes to carry a brand like the cited rows do. Longest
+ * match first, up to four words ("Sea to Summit"); the whole name being a brand is
+ * not a split (there would be no product left). `spellings` maps normKey(brand) to
+ * the catalog's own spelling.
+ */
+export function splitKnownBrand(
+  name: string,
+  spellings: ReadonlyMap<string, string>,
+): { brand: string | null; name: string } {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  for (let n = Math.min(4, words.length - 1); n >= 1; n--) {
+    const brand = spellings.get(normKey(words.slice(0, n).join(" ")));
+    if (brand) return { brand, name: words.slice(n).join(" ") };
+  }
+  return { brand: null, name: name.trim() };
 }
 
 // --- Variant canonical formatting -----------------------------------------

@@ -1091,17 +1091,24 @@ export async function applyOpsByEditHash(
         await captureSnapshot(d, row, summarizeOps(ops, before).slice(0, MAX_SUMMARY_LEN) || "edit");
       // community intake: stage typed (non-catalog) items touched by this batch so
       // the catalog can grow from real use. Best-effort — never break/slow a save.
+      // "Touched" is any patch to what the candidate records: the name, but also the
+      // brand, the size or version, the weight and the class. A row is named first
+      // and weighed a moment later, in a later batch; staging on the name alone
+      // recorded most typed rows weightless, and a candidate needs two weights to
+      // become anything (candidates.ts). The upsert keeps the last observation, so
+      // re-staging on each of these is what lets the weight catch up.
       try {
         const touched = new Set<string>();
+        const STAGED_KEYS = ["name", "brand", "variant", "commonName", "unitWeightMg", "classification"] as const;
         for (const op of ops) {
           if (!isOpObject(op)) continue; // same tolerance as applyOps (see touchesMeta)
           if (op.t === "addItem") touched.add(op.item.id);
-          else if (op.t === "updateItem" && typeof op.patch?.name === "string") touched.add(op.id);
+          else if (op.t === "updateItem" && op.patch && STAGED_KEYS.some((k) => op.patch![k] !== undefined)) touched.add(op.id);
         }
         const typed: CandidateObservation[] = [];
         for (const it of state.items) {
           if (!touched.has(it.id) || it.catalogItemId != null || !it.name?.trim()) continue;
-          typed.push({ brand: it.brand, name: it.name, weightMg: it.unitWeightMg, classification: it.classification });
+          typed.push({ brand: it.brand, name: it.name, variant: it.variant, commonName: it.commonName, weightMg: it.unitWeightMg, classification: it.classification });
         }
         if (typed.length) await stageCandidates(d, row.id, typed);
       } catch { /* intake must never break a list save */ }
