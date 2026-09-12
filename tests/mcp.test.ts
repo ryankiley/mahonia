@@ -6,7 +6,7 @@ import mcpDelete from "../server/routes/mcp.delete";
 import mcpGet from "../server/routes/mcp.get";
 import mcpHead from "../server/routes/mcp.head";
 import mcp from "../server/routes/mcp.post";
-import { GET_LIST_MAX_BYTES, MCP_TOOLS, describeList, editHashFrom, fitList, shareCodeFrom } from "../server/utils/mcp";
+import { GET_LIST_MAX_BYTES, MCP_TOOLS, describeList, editHashFrom, fitList, fitMarkdown, shareCodeFrom } from "../server/utils/mcp";
 import { sha256Hex } from "../server/utils/tokens";
 import { listToMarkdown } from "../shared/exporters/markdown";
 import { MAX_ITEMS, MAX_ITEM_NOTE_LEN } from "../shared/ops";
@@ -29,7 +29,10 @@ vi.mock("../server/utils/listRepo", () => repo);
 const catalog = vi.hoisted(() => ({ searchCatalog: vi.fn(), productVariants: vi.fn(), catalogRowsById: vi.fn(async () => new Map()) }));
 vi.mock("../server/utils/catalog", () => catalog);
 vi.mock("../server/utils/db", () => ({ useCatalogDb: async () => ({}) }));
-const limiter = vi.hoisted(() => ({ rateLimit: vi.fn<(event: unknown, action: string) => Promise<void>>(async () => {}) }));
+const limiter = vi.hoisted(() => ({
+  rateLimit: vi.fn<(event: unknown, action: string) => Promise<void>>(async () => {}),
+  rateLimitSubject: vi.fn<(action: string, subject: string) => Promise<void>>(async () => {}),
+}));
 vi.mock("../server/utils/rateLimit", () => limiter);
 
 const TOKEN = "AbCdEfGhIjKlMnOpQrStUvWxYz0123456789-_ABCDE";
@@ -101,6 +104,8 @@ beforeEach(() => {
   catalog.catalogRowsById.mockResolvedValue(new Map());
   limiter.rateLimit.mockReset();
   limiter.rateLimit.mockResolvedValue(undefined);
+  limiter.rateLimitSubject.mockReset();
+  limiter.rateLimitSubject.mockResolvedValue(undefined);
 });
 
 describe("the endpoint's transport", () => {
@@ -203,13 +208,48 @@ describe("the endpoint's transport", () => {
     expect((await post(rpc("ping"), { "mcp-protocol-version": "2025-03-26" })).status).toBe(400);
   });
 
-  it("spends the mcp budget before reading a byte of the body, and a write spends the write budget too", async () => {
+  it("spends the endpoint's budget before reading a byte of the body", async () => {
     await post("{not json");
     expect(limiter.rateLimit).toHaveBeenCalledWith(expect.anything(), "mcp");
-    limiter.rateLimit.mockClear();
+    expect(limiter.rateLimitSubject).not.toHaveBeenCalled();
+  });
+
+  it("counts reads per list and edits per list, by the capability the call carries, not by the address", async () => {
+    // every claude.ai user of the connector arrives from one address range, so a
+    // per-address budget would be one bucket for all of them
+    repo.getByShareCode.mockResolvedValue(snap());
+    await call("get_list", { share_code: "abc123def456" });
+    expect(limiter.rateLimitSubject).toHaveBeenCalledWith("mcp-read", "ABC123DEF456");
+    // …spent before the lookup, so a refused one reaches no database
+    expect(limiter.rateLimitSubject.mock.invocationCallOrder[0]!).toBeLessThan(repo.getByShareCode.mock.invocationCallOrder[0]!);
+    repo.getTextByShareCode.mockResolvedValue(snap());
+    await call("get_list_markdown", { share_code: "ABC123DEF456" });
+    expect(limiter.rateLimitSubject).toHaveBeenLastCalledWith("mcp-read", "ABC123DEF456");
+
     repo.getByEditHash.mockResolvedValue(null);
     await call("add_items", { edit_link: EDIT_LINK, items: [{ name: "Spoon" }] });
-    expect(limiter.rateLimit.mock.calls.map((c) => c[1])).toEqual(["mcp", "mcp-write"]);
+    expect(limiter.rateLimitSubject).toHaveBeenLastCalledWith("mcp-write", sha256Hex(TOKEN));
+    repo.applyOpsByEditHash.mockResolvedValue(null);
+    await call("set_trip", { edit_link: EDIT_LINK, title: "x" });
+    expect(limiter.rateLimitSubject).toHaveBeenLastCalledWith("mcp-write", sha256Hex(TOKEN));
+    // the address bucket is only the endpoint's own guard: nothing else keys on it…
+    expect(limiter.rateLimit.mock.calls.map((c) => c[1])).toEqual(["mcp", "mcp", "mcp", "mcp"]);
+    // …except create_list, which has no list to key on yet
+    await call("create_list", { title: "x" });
+    expect(limiter.rateLimit.mock.calls.map((c) => c[1]).slice(-2)).toEqual(["mcp", "mcp-write"]);
+    // a call with no usable capability spends no list budget at all
+    limiter.rateLimitSubject.mockClear();
+    await call("add_items", { edit_link: "https://mahonia.app/s/ABC123DEF456", items: [{ name: "x" }] });
+    await call("get_list", { share_code: "not a code #" });
+    expect(limiter.rateLimitSubject).not.toHaveBeenCalled();
+  });
+
+  it("answers a refused list budget inside the tool result, as the sentence the model can act on", async () => {
+    limiter.rateLimitSubject.mockRejectedValueOnce(Object.assign(new Error("Too many requests"), { statusCode: 429 }));
+    const r = await call("get_list", { share_code: "ABC123DEF456" });
+    expect(r.status).toBe(200);
+    expect(toolText(r)).toMatchObject({ isError: true, text: expect.stringContaining("Too many requests") });
+    expect(repo.getByShareCode).not.toHaveBeenCalled();
   });
 
   it("answers a refused budget as a JSON-RPC error with a 429, not the framework's error page", async () => {
@@ -722,5 +762,80 @@ describe("fitList", () => {
     expect(Buffer.byteLength(text)).toBeLessThanOrEqual(GET_LIST_MAX_BYTES);
     expect(JSON.parse(text)).toEqual(structured);
     expect(structured!.truncated).toMatchObject({ notes: true, rows: expect.any(Number) });
+  });
+});
+
+describe("fitMarkdown", () => {
+  const size = (text: string) => Buffer.byteLength(text);
+  const rows = (text: string) => text.split("\n").filter((l) => l.startsWith("| ") && !l.startsWith("| Item |") && !l.startsWith("| --- |"));
+  /** three folders of `perFolder` rows, each with one nested row, under long names */
+  const big = (perFolder: number): ListSnapshot => {
+    const folders = ["Shelter", "Sleep", "Kitchen"].map((name, i) => ({ id: `f${i}`, name, defaultClassification: "base" as const, sortOrder: i }));
+    const items: Item[] = [];
+    for (const f of folders) {
+      for (let i = 0; i < perFolder; i++) {
+        const id = `${f.id}-${i}`;
+        items.push({ id, folderId: f.id, name: `Row ${i} of ${f.name} ${"x".repeat(150)}`, brand: "Maker", variant: "Long", commonName: "Thing", unitWeightMg: 100_000, qty: 1, classification: null, sortOrder: i });
+        items.push({ id: `${id}-k`, folderId: f.id, parentId: id, name: `Part ${i}`, unitWeightMg: 10_000, qty: 1, classification: null, sortOrder: 0 });
+      }
+    }
+    return snap({ folders, items, people: [], days: [] });
+  };
+
+  it("returns text under the ceiling untouched", () => {
+    const md = listToMarkdown(snap());
+    expect(fitMarkdown(md)).toBe(md);
+    expect(fitMarkdown(md, size(md))).toBe(md);
+  });
+
+  it("cuts rows off the end of the tables, keeps the totals, and says how many are missing", () => {
+    const md = listToMarkdown(big(166));
+    expect(size(md)).toBeGreaterThan(GET_LIST_MAX_BYTES);
+    const out = fitMarkdown(md);
+    expect(size(out)).toBeLessThanOrEqual(GET_LIST_MAX_BYTES);
+    const kept = rows(out);
+    const all = rows(md);
+    // a prefix of the rows, in order
+    expect(kept).toEqual(all.slice(0, kept.length));
+    expect(kept.length).toBeGreaterThan(100);
+    // the notice names exactly the rows that are gone, and sits above the totals
+    const missing = all.length - kept.length;
+    const foot = md.slice(md.lastIndexOf("\n---\n"));
+    expect(out.endsWith(`\n_${missing} more rows not shown; the totals count every row._\n${foot}`)).toBe(true);
+    expect(out).toContain("**Total:**");
+    // no folder is left as a bare heading
+    for (const [i, line] of out.split("\n").entries()) if (line.startsWith("## ")) expect(out.split("\n")[i + 4]).toMatch(/^\| /);
+  });
+
+  it("holds to any ceiling, one row at a time, a nested row before its parent", () => {
+    const md = listToMarkdown(big(4));
+    const all = rows(md);
+    let previous = all.length;
+    for (let max = size(md) - 1; max > 400; max -= 97) {
+      const out = fitMarkdown(md, max);
+      expect(size(out), `at ${max}`).toBeLessThanOrEqual(max);
+      const kept = rows(out);
+      expect(kept).toEqual(all.slice(0, kept.length));
+      expect(kept.length).toBeLessThanOrEqual(previous);
+      previous = kept.length;
+      expect(out).toMatch(new RegExp(`_${all.length - kept.length} more rows? not shown`));
+      // the last row kept is a parent whose nested row went, or a nested row: never a
+      // nested row whose parent went
+      if (kept.length) expect(kept.at(-1)!.startsWith("| ↳ ") ? kept.at(-2) : kept.at(-1)).toMatch(/^\| Maker Row/);
+    }
+    // down to nothing but the title, the notice and the totals
+    const bare = fitMarkdown(md, 400);
+    expect(rows(bare)).toEqual([]);
+    expect(bare).not.toContain("## ");
+    expect(bare).toContain(`_${all.length} more rows not shown`);
+    expect(bare).toContain("**Total:**");
+  });
+
+  it("get_list_markdown answers the cut text", async () => {
+    repo.getTextByShareCode.mockResolvedValue(big(166));
+    const { text, isError } = toolText(await call("get_list_markdown", { share_code: "ABC123DEF456" }));
+    expect(isError).toBe(false);
+    expect(size(text)).toBeLessThanOrEqual(GET_LIST_MAX_BYTES);
+    expect(text).toMatch(/_\d+ more rows not shown; the totals count every row\._/);
   });
 });

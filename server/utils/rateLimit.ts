@@ -209,11 +209,18 @@ const RATE_LIMITS = {
   // public read views (/l, /s) — edge-cached, so origin hits are rare; a generous
   // per-IP cap bounds cache-busted floods
   "public-read": 120,
-  // the MCP endpoint (/mcp): its own budget beside public-read, since an assistant's
-  // traffic arrives from a handful of fixed addresses and must neither starve the
-  // share pages nor be starved by them. Reads are the roomy one; the write tools spend
-  // the second as well, which is the create + mutate budgets' order of magnitude
-  "mcp": 120,
+  // the MCP endpoint (/mcp). Its traffic arrives from a handful of fixed addresses:
+  // every claude.ai user of the connector leaves Anthropic's one published range, so a
+  // per-address budget is one bucket for all of them, and a single busy user would lock
+  // the rest out. So the per-address "mcp" is only the flood guard for the endpoint as
+  // a whole (ten a second, and it spends before the body is read, so a malformed flood
+  // costs a parse and nothing more), and what is fair is counted per LIST, by the
+  // capability the call carries: reads by the share code (rateLimitSubject), the
+  // roomy one; adds and trip changes by the edit hash, the create + mutate budgets'
+  // order of magnitude. create_list carries no capability yet, so it alone spends the
+  // write budget per address.
+  "mcp": 600,
+  "mcp-read": 120,
   "mcp-write": 30,
   // heavier / abuse-prone writes
   "publish": 20,

@@ -1,0 +1,7 @@
+{
+  "date": "2026-09-12",
+  "changed": [
+    "The connector counts its limits per list rather than per address, so one busy assistant no longer holds up everyone else's.",
+    "Through the connector, a Markdown list too long to return whole is cut the same way, with a line saying how many rows are missing."
+  ]
+}
