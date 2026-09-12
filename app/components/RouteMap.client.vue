@@ -653,7 +653,29 @@ function renderPins() {
 }
 
 /**
- * Draw (or redraw) one line per day.
+ * The ground no day has claimed: the light-theme --ink-3, as a literal.
+ *
+ * The route is drawn in full BEFORE any day colours it — see renderLegs — and the stretch
+ * outside the itinerary wears this. Grey rather than a category colour, for the reason the
+ * elevation chart gives its unassigned tail the same token: it is precisely the part of
+ * the route that has no day to belong to yet. A literal rather than the token itself,
+ * like every other mark on this map (see .routemap__trace), because the basemap stays
+ * light in both themes and a dark-theme --ink-3 would fade into it.
+ */
+const GROUND = "#767676";
+
+/**
+ * Draw (or redraw) the route: the whole track as ground, then one coloured line per day
+ * over it.
+ *
+ * THE WHOLE TRACK, FIRST. The legs are cut from the itinerary, so a route with no days
+ * planned yet had no legs — and this map drew nothing but its two end pins on a sheet of
+ * contours. A file imported a minute ago, the one moment a person most wants to see where
+ * the line goes, was the moment the map had the least to show. The same held for the
+ * ground past the last planned day: the chart shows it as an uncoloured ridge, and the
+ * boundary handles are described as bounding a day against it, but nothing here drew it.
+ * The ground is one line of the full geometry in the neutral above; each day's leg then
+ * lands exactly over its stretch of it, so what stays visible is what nobody has claimed.
  *
  * Leaflet's default renderer is SVG, which is why the route can wear the app's own tokens
  * at all: every leg is a real <path> in the DOM. Its Canvas renderer would be pixels no
@@ -663,6 +685,38 @@ function renderLegs() {
   if (!map || !L) return;
   for (const line of legs) line.remove();
   legs = [];
+  // The ground: casing under fill, the same two strokes a leg is made of, so the unclaimed
+  // stretch reads as a leg that has no day rather than as a different kind of line. Not
+  // interactive — a click belongs to the map (placing) and a hover to the leg on top, and
+  // the ground says nothing on hover because it has nothing to say. It stands down with
+  // the rest when a stretch is armed: whatever the armed leg covers is hidden under it
+  // anyway, and the rest of the ground is exactly the context that should fade.
+  const track = points.value.map((p) => [p.lat, p.lon] as [number, number]);
+  if (track.length >= 2) {
+    const groundOpacity = props.armedRange ? DIM : 1;
+    const casing = L.polyline(track, {
+      weight: 7,
+      opacity: groundOpacity,
+      color: casingFor(GROUND),
+      interactive: false,
+      lineCap: "round",
+      lineJoin: "round",
+      className: "routemap__casing",
+    }).addTo(map);
+    const ground = L.polyline(track, {
+      weight: 4,
+      opacity: groundOpacity,
+      interactive: false,
+      lineCap: "round",
+      lineJoin: "round",
+      className: "routemap__ground",
+    }).addTo(map);
+    // inline style, as the legs' own fill is set below — the one place a colour function
+    // is known to land on a Leaflet path in every engine
+    const el = ground.getElement() as SVGElement | null;
+    if (el) el.style.stroke = fillFor(GROUND);
+    legs.push(casing, ground);
+  }
   // The CASING first, so every coloured leg is drawn on top of it.
   //
   // Standard cartography, and here it is load-bearing rather than decorative: the basemap
@@ -1470,6 +1524,7 @@ onBeforeUnmount(() => {
 }
 
 .routemap__leg,
+.routemap__ground,
 .routemap__casing {
   // the day's colour arrives as inline style (see renderLegs); this is the shape of the mark
   fill: none;
