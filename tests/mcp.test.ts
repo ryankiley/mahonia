@@ -446,6 +446,9 @@ describe("writing", () => {
       { trail_url: "javascript:alert(1)" },
       { items: Array.from({ length: 1001 }, (_, i) => ({ name: `Row ${i}` })) },
       { folders: Array.from({ length: 51 }, (_, i) => ({ name: `F${i}` })) },
+      // A blank folder used to become an unexpected default-named folder after the
+      // server normalized it. The connector should say what is wrong up front.
+      { folders: [{ name: "   " }] },
       // a catalog id the column can't hold would fail every later read of the list
       { items: [{ name: "x", catalog_id: 3_000_000_000 }] },
       { items: [{ name: "x", catalog_id: 1e300 }] },
