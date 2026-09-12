@@ -1,0 +1,103 @@
+// New-list capture is a view of the ordinary editor, not a second item model.
+// The gate never appears on a loaded list or a share view. Leaving capture simply
+// exposes the same Items folder and rows with all their existing controls.
+.item__capture-weight {
+  display: none;
+}
+
+.editor__body[data-capture] {
+  max-width: 760px;
+  gap: var(--space-6);
+  padding-top: var(--space-7);
+
+  .head,
+  .head__trail,
+  .folder__head,
+  .item-nest__add,
+  .item-wrap > .reveal {
+    display: none !important;
+  }
+
+  .editor__folders {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .capture__intro {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+
+  .capture__prompt {
+    font-size: var(--text-title);
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .capture__hint {
+    font-size: var(--text-base);
+    color: var(--ink-3);
+  }
+
+  // The first input is already present, so a second Add button would ask for the
+  // same action twice. If a later blank is abandoned, the button reappears.
+  .folder__items:has(.item-wrap[data-capture-empty]) + .folder__add {
+    display: none;
+  }
+
+  .folder__items > .item-wrap[data-capture-empty]:only-child {
+    border-bottom: 1px solid var(--line);
+    padding-bottom: var(--space-3);
+  }
+
+  .item-wrap:not(:focus-within) .item:not(.item--check),
+  .item-wrap[data-capture-empty] .item:not(.item--check) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "name weight";
+    align-items: center;
+    gap: var(--space-3);
+  }
+
+  .item-wrap:not(:focus-within) .item__meta,
+  .item-wrap[data-capture-empty] .item__meta,
+  .item-wrap:not(:focus-within) .item__name .reveal,
+  .item-wrap[data-capture-empty] .item__name .reveal {
+    display: none !important;
+  }
+
+  .item-wrap:not(:focus-within) .item__capture-weight {
+    display: block;
+    grid-area: weight;
+    white-space: nowrap;
+  }
+
+  .item-wrap[data-capture-empty] .item__capture-weight,
+  .item-wrap:focus-within .item__capture-weight {
+    display: none;
+  }
+
+  .item-wrap[data-capture-empty] .ac__input {
+    font-size: var(--text-base);
+  }
+
+  .capture__organize {
+    align-self: flex-start;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--ink-3);
+    font: inherit;
+    font-size: var(--text-base);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+  }
+
+  .capture__organize:hover,
+  .capture__organize:focus-visible {
+    color: var(--ink);
+  }
+}

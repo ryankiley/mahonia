@@ -53,6 +53,12 @@ const keylessCode = c.keylessCode;
 // lists" via the footer). shareCode/items are reactive, so it recedes the moment
 // the first real item lands (which is also when the draft gets its shareCode).
 const savedCount = computed(() => my.entries.value.length);
+// A new list begins in a lightweight capture view. This is presentation state,
+// not list data: its ordinary Items folder and rows save through the same path
+// as every other list. The visitor can reveal the full editor when ready.
+const captureMode = ref(false);
+const hasNamedItems = computed(() => !!snapshot.value?.items.some((i) => i.name.trim()));
+const captureKey = (code: string) => `gear.capture.${code}`;
 const isFirstRun = computed(() => {
   const s = snapshot.value;
   if (!s || s.shareCode) return false;
@@ -147,6 +153,34 @@ const NO_ITEMS: Item[] = [];
 // stays ignorant that planning exists.
 const { mode, everPlan, switching: modeSwitching } = useEditorMode();
 const packed = computed(() => mode.value === "pack");
+// Keep the lightweight view on this device when its first item turns the draft
+// into a saved list, and on a later visit. Existing lists have no marker and
+// continue to open in the full editor. The explicit handoff clears it.
+watch(() => snapshot.value?.shareCode, (code) => {
+  if (!code) return;
+  if (captureMode.value) localStorage.setItem(captureKey(code), "1");
+  else if (localStorage.getItem(captureKey(code)) === "1") {
+    captureMode.value = true;
+    mode.value = "edit";
+  }
+});
+function showFullEditor() {
+  // The capture view intentionally keeps its next blank line on reload. It is
+  // an invitation here, but would be clutter beside the full editor's Add row.
+  for (const it of [...(snapshot.value?.items ?? [])]) {
+    if (!it.name.trim()) c.discardEmpty(it.id);
+  }
+  const code = snapshot.value?.shareCode;
+  if (code) localStorage.removeItem(captureKey(code));
+  captureMode.value = false;
+}
+// An older unsaved draft can be restored asynchronously after startDraft paints
+// the new one-folder shell. If it had its own organization already, don't mask
+// those folders under the first-run presentation.
+watch(() => snapshot.value?.folders, (folders) => {
+  if (!captureMode.value || !snapshot.value || snapshot.value.shareCode) return;
+  if (folders?.length !== 1 || folders[0]?.name !== "Items") captureMode.value = false;
+});
 
 // ---- people ----
 // The filter itself lives in usePersonFilter (a module singleton, like the mode)
@@ -446,8 +480,12 @@ let ownedEpoch: number | undefined;
 // and by newList's in-place reset alike.
 function startSession(cap?: { token?: string; code?: string }) {
   c.dispose(ownedEpoch);
+  captureMode.value = !cap?.token && !cap?.code;
   if (cap?.token || cap?.code) c.load(cap);
-  else c.startDraft();
+  else {
+    mode.value = "edit";
+    c.startDraft();
+  }
   ownedEpoch = c.epoch; // load()/startDraft() mint their epoch synchronously
 }
 // Drive load off the reactive hash so back/forward + same-route nav between two
@@ -1190,6 +1228,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
       class="wrap editor__body"
       :class="{ 'is-rowswitching': modeSwitching, 'has-people': people.length > 0 }"
       :data-mode="mode"
+      :data-capture="captureMode || null"
       :data-filter-person="personFilterAttr"
     >
       <!-- WHICH VIEW OF THIS LIST. First thing under the toolbar, and part of the PAGE
@@ -1197,7 +1236,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
            rather than a seat in the bar above, because that row has no width left — it
            measures 338px of its 343px budget on a 375px phone, and words need ~207px
            against the 116px three icons took. -->
-      <ModeBar class="editor__modes" :modes="MODES" :current="mode" label="View mode" @pick="(k) => (mode = k as EditorMode)" />
+      <ModeBar v-if="!captureMode" class="editor__modes" :modes="MODES" :current="mode" label="View mode" @pick="(k) => (mode = k as EditorMode)" />
       <!-- The list name is a page title, not a toolbar field: large, borderless, with a
            ghosted placeholder, at the top of the content — matching what the two read
            views have always done (ReadonlyListView's h1). -->
@@ -1212,6 +1251,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
            jumped and re-counted every time. Here it stays put and only the value under it
            changes, which is also what lets the count tween between modes. -->
       <Headline
+        v-if="!captureMode"
         class="editor__headline"
         :value="headline.value"
         :unit="headline.unit"
@@ -1230,6 +1270,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
            legend all describe that person's pack. The `??` never runs — see the
            `view` computed — it only narrows the type for the template. -->
       <TotalsBar
+        v-if="!captureMode"
         v-show="mode !== 'plan'"
         :headline="false"
         :list="view.list ?? snapshot"
@@ -1338,6 +1379,10 @@ function onCorrected(res: { status: string; itemName?: string }) {
            two-Transition comment). display:none takes the rows out of layout, paint
            and the accessibility tree exactly as absence did. -->
       <div v-show="mode !== 'plan'" class="editor__folders">
+        <div v-if="captureMode" class="capture__intro">
+          <p class="capture__prompt">{{ hasNamedItems ? 'Keep adding.' : 'Start with one item.' }}</p>
+          <p class="capture__hint">Press Enter to keep adding.</p>
+        </div>
         <FolderSection
           v-for="f in sortedFolders"
           :key="f.id"
@@ -1365,11 +1410,18 @@ function onCorrected(res: { status: string; itemName?: string }) {
         />
       </section>
 
+      <button
+        v-if="captureMode && hasNamedItems"
+        type="button"
+        class="capture__organize"
+        @click="showFullEditor"
+      >Name, organize, or add details</button>
+
       <!-- v-show, matching the folder chrome: presence is constant, visibility follows
            the mode, and a switch mounts nothing. (A half-typed folder name can't leak
            across modes — any pointer or Tab out of the input commits it via blur
            before the mode can change.) -->
-      <div v-show="mode === 'edit'" class="addfolder editor__addfolder">
+      <div v-show="mode === 'edit' && !captureMode" class="addfolder editor__addfolder">
         <input
           v-if="addingFolder"
           ref="newFolderRef"

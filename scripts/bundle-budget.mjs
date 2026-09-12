@@ -299,7 +299,11 @@ import { brotliCompressSync, gzipSync, constants } from "node:zlib";
 // above argue for. The largest chunk is now the framework (`vendor`, 52.9 KB) rather
 // than Leaflet, and that is the point of the split: vue, vue-router and unhead only
 // change hash on a dependency bump, so a returning visitor keeps them across deploys.
-const FIRST_LOAD_BUDGET_KB = 151;
+// 151 → 154 for the first-item capture view. Measured 151.7 KB after adding its
+// small presentation state and CSS to the editor's boot path. This is the screen
+// every new visitor sees, so deferring it would defer the core interaction; 154
+// restores roughly the 2–3 KB working headroom of the previous anchor.
+const FIRST_LOAD_BUDGET_KB = 154;
 // TOTAL of every built file, the backstop. Deliberately slack: its job is to catch
 // a route chunk ballooning or a heavy dep landing somewhere unnoticed, NOT to price
 // ordinary feature work. Set clear of the current total (269.0) so it only speaks up when
@@ -386,7 +390,9 @@ const FIRST_LOAD_BUDGET_KB = 151;
 // shape this backstop is explicitly not supposed to police. FIRST LOAD is untouched by it,
 // 150.4 → 150.6 against 151, because none of it is on the editor's path. MAX_CHUNK unmoved
 // at 52.9 against 72. 283 restores the ~4 KB of slack the re-anchors above keep arguing for.
-const TOTAL_BUDGET_KB = 283;
+// The capture build measures 282.8 KB in total; 283 left almost no backstop
+// slack, so 285 restores room for ordinary work without touching MAX_CHUNK.
+const TOTAL_BUDGET_KB = 285;
 // Largest single chunk, brotli. LOAD-BEARING, and the one number here that should not move
 // to accommodate a dependency: it is what a heavy map library fails. MapLibre GL ships as a
 // single ~200 KB brotli chunk and was ruled out on this line alone — a dep that needs the

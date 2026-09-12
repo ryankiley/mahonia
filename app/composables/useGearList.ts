@@ -31,6 +31,10 @@ function create() {
   // a freshly "Add an item" row that's still empty — it autofocuses on mount and
   // discards itself if you click away without typing (so the list isn't littered)
   const pendingBlankId = ref<string | null>(null);
+  // The first capture line is present on arrival but never autofocuses (especially
+  // important on a phone). Keep it if the visitor taps away while the draft is
+  // still empty; ordinary subsequently added blank rows keep their usual cleanup.
+  let firstDraftBlankId = "";
   let editToken = "";
   // The OTHER way into a list: the share code of a CLAIMED one, opened through the
   // signed-in session instead of an edit link (see server/utils/editAuth). Never
@@ -678,7 +682,7 @@ function create() {
     status.value = "missing";
   }
 
-  // Open a fresh, NOT-yet-persisted list (starter folders, no items). It lives only
+  // Open a fresh, NOT-yet-persisted list (one folder and one empty capture line). It lives only
   // in memory until the first real content lands (createFromDraft), so a visitor who
   // never adds anything never creates a server row.
   function startDraft() {
@@ -700,6 +704,7 @@ function create() {
       defaultClassification: p.defaultClassification,
       sortOrder: i,
     }));
+    firstDraftBlankId = uid();
     snapshot.value = {
       // Empty, not "Untitled list": the title input is a page heading now, and an
       // unnamed draft should show its ghosted placeholder rather than a literal string
@@ -710,7 +715,15 @@ function create() {
       description: "",
       displayUnit: "g",
       folders,
-      items: [],
+      items: [{
+        id: firstDraftBlankId,
+        folderId: folders[0]!.id,
+        name: "",
+        unitWeightMg: 0,
+        qty: 1,
+        classification: null,
+        sortOrder: 0,
+      }],
       shareCode: "",
       slug: "",
       version: 0,
@@ -721,7 +734,25 @@ function create() {
     // Async (IndexedDB), so the fresh starter paints first and is replaced if found.
     store.get(DRAFT_KEY).then((local) => {
       if (myEpoch !== epoch || editToken || !local) return;
-      snapshot.value = tidyListText(local.snapshot); // same backfill as the token path
+      const restored = tidyListText(local.snapshot); // same backfill as the token path
+      // Older title-only drafts had no rows. Preserve what they held, but still
+      // leave a first input on screen after the async restore replaces our paint.
+      if (!hasRealContent(restored) && !restored.items.length) {
+        const id = uid();
+        restored.items.push({
+          id,
+          folderId: restored.folders[0]?.id ?? null,
+          name: "",
+          unitWeightMg: 0,
+          qty: 1,
+          classification: null,
+          sortOrder: 0,
+        });
+      }
+      snapshot.value = restored;
+      firstDraftBlankId = !hasRealContent(restored)
+        ? (restored.items.find((it) => !it.name.trim())?.id ?? "")
+        : "";
       pending = local.pending ?? [];
       status.value = "synced";
       // a restored draft that already has real content resumes its create attempt
@@ -1422,6 +1453,7 @@ function create() {
   function discardEmpty(id: string) {
     const it = snapshot.value?.items.find((i) => i.id === id);
     if (!it) return;
+    if (id === firstDraftBlankId && snapshot.value && !hasRealContent(snapshot.value)) return;
     if (
       // A NAME, A GEAR TYPE, or anything carriesContent counts (shared/weights — the one
       // list, shared with unwrapEmptied, which deletes on the same reasoning). Both of

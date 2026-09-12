@@ -181,6 +181,29 @@ registerEndpoint("/api/edit/mutate", {
 const awaitMutateInFlight = () =>
   vi.waitFor(() => expect(mutateCalls).toBe(1), { timeout: 5_000, interval: 25 });
 
+describe("useGearList — first item", () => {
+  beforeEach(() => records.clear());
+  afterEach(() => useGearList().dispose());
+
+  it("starts with one ordinary folder and an unfocused capture row", () => {
+    const c = useGearList();
+    c.startDraft();
+    const draft = c.snapshot.value!;
+    expect(draft.folders.map((f) => f.name)).toEqual(["Items"]);
+    expect(draft.items).toHaveLength(1);
+    expect(draft.items[0]?.folderId).toBe(draft.folders[0]?.id);
+    expect(draft.items[0]?.name).toBe("");
+    expect(c.pendingBlankId.value).toBeNull(); // arrival must not summon a phone keyboard
+
+    c.discardEmpty(draft.items[0]!.id);
+    expect(c.snapshot.value?.items).toHaveLength(1); // tapping away keeps the first invitation
+
+    const laterBlank = c.addBlankItem(draft.folders[0]!.id);
+    c.discardEmpty(laterBlank);
+    expect(c.snapshot.value?.items).toHaveLength(1); // subsequent abandoned blanks still tidy up
+  });
+});
+
 describe("useGearList — a flush that fails after the editor moved on", () => {
   beforeEach(() => {
     records.clear();

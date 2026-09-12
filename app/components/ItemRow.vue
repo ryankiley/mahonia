@@ -1154,6 +1154,7 @@ function dismissFix() {
     ref="wrapRef"
     class="item-wrap"
     :data-item-id="item.id"
+    :data-capture-empty="!item.name.trim() || null"
     :data-parent="item.parentId || null"
     :data-person="personSlotAttr"
     :class="{ 'is-dragging': isDragging, 'is-drop-before': isDropBefore, 'is-nest-parent': isNestParent }"
@@ -1347,6 +1348,8 @@ function dismissFix() {
           </div>
         </Transition>
       </div>
+
+      <span v-if="rowWeightMg > 0" class="item__capture-weight t-num t-sm t-muted">{{ formatWeight(rowWeightMg, rowUnit) }}</span>
 
       <!-- metadata + controls: display:contents on desktop, so qty/weight/class/
            actions drop into the shared grid columns; on mobile the wrapper turns

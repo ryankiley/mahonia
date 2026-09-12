@@ -1,6 +1,6 @@
 // Canonical category color keys (map to `--cat-*` tokens in SCSS) and the
-// starter folder set a brand-new list begins with. Folders are user-named and
-// fully editable — these are just sensible defaults.
+// starter folder a brand-new list begins with. Folders are user-named and
+// fully editable.
 
 import type { Classification } from "./types";
 
@@ -26,13 +26,10 @@ interface FolderPreset {
   defaultClassification: Classification;
 }
 
-// A calm, minimal starter set — just the Big 3 so a new list isn't empty but
-// isn't a wall of folders either. Everything's user-named + editable; "+ Add
-// folder" covers the rest (On Body → worn, Food & Fuel → consumable, etc.).
+// A single ordinary folder lets a new list start with items, not a decision
+// about categories. The owner can rename it and add folders later.
 export const STARTER_FOLDERS: FolderPreset[] = [
-  { name: "Shelter", colorKey: "shelter", defaultClassification: "base" },
-  { name: "Sleep", colorKey: "sleep", defaultClassification: "base" },
-  { name: "Pack", colorKey: "pack", defaultClassification: "base" },
+  { name: "Items", colorKey: "other", defaultClassification: "base" },
 ];
 
 // Assignable hues, ordered so consecutive picks sit far apart on the colour wheel
