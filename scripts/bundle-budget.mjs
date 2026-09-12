@@ -401,7 +401,18 @@ const FIRST_LOAD_BUDGET_KB = 153;
 // shape this backstop is explicitly not supposed to police. FIRST LOAD is untouched by it,
 // 150.4 → 150.6 against 151, because none of it is on the editor's path. MAX_CHUNK unmoved
 // at 52.9 against 72. 283 restores the ~4 KB of slack the re-anchors above keep arguing for.
-const TOTAL_BUDGET_KB = 283;
+//
+// 283 → 287, the Trip tab reading three more things off what a list already holds: the
+// hours of daylight per day (#348), the longest dry carry between the water pins (#357),
+// and the camp's height, the longest climb and the steepest stretch off the profile
+// (#359). Measured both ways: main at e4acf7f builds to 280.8 against 283 (2.2 KB of
+// slack), 283.1 with the three together — each passed on its own, and it is the sum
+// that crosses the line. The +2.3 is all on the planning panel's chunk (three shared
+// modules and their sentences), which only a list opened in Trip view downloads. FIRST
+// LOAD is untouched, 151.1 → 151.0 against 153, because none of it is on the editor's
+// path. MAX_CHUNK unmoved at 52.9 against 72. 287 restores the ~4 KB of slack the
+// re-anchors above keep arguing for.
+const TOTAL_BUDGET_KB = 287;
 // Largest single chunk, brotli. LOAD-BEARING, and the one number here that should not move
 // to accommodate a dependency: it is what a heavy map library fails. MapLibre GL ships as a
 // single ~200 KB brotli chunk and was ruled out on this line alone — a dep that needs the
