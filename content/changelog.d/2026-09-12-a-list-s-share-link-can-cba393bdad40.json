@@ -1,0 +1,6 @@
+{
+  "date": "2026-09-12",
+  "fixed": [
+    "A list's share link can be read again by the assistants and tools that honour a site's robots rules, so pasting one into an AI chat works. Share links stay out of search results, as they always have."
+  ]
+}

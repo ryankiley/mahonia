@@ -23,6 +23,9 @@ export default defineEventHandler((event) => {
     "",
     `- [About](${origin}/about): what Mahonia is and how it works`,
     `- [Public lists](${origin}/sitemap.xml): every shared public list, at /l/{slug}`,
+    "- A list shared with you by link is readable at /s/{code}: server-rendered, every",
+    "  row in the HTML. It is deliberately noindex and appears in no listing; the code",
+    "  in the address is what grants the read.",
     `- [Legal](${origin}/legal): privacy policy and terms of use`,
     "",
   ].join("\n");
