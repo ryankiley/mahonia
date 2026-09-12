@@ -1,6 +1,6 @@
 {
   "date": "2026-09-11",
   "added": [
-    "Each day on the Trip tab now shows its hours of daylight, worked out from the route and the trip's dates. The figure comes forward in full ink when the day's walking time runs past the light with under two hours to spare."
+    "Each day on the Trip tab shows its hours of daylight, and the figure comes forward when the walk runs past the light."
   ]
 }
