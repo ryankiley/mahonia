@@ -1,6 +1,6 @@
 {
   "date": "2026-09-11",
   "fixed": [
-    "The Trip map draws the whole route as soon as a map file is imported — it used to show only the pins until a day was planned, and the stretch past the last planned day was never drawn."
+    "The Trip map draws the whole route as soon as a map file is imported. It used to show only the pins until a day was planned, and the stretch past the last planned day was never drawn."
   ]
 }

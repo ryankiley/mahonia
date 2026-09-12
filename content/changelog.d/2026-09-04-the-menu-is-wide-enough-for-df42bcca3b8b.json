@@ -1,7 +1,7 @@
 {
   "date": "2026-09-04",
   "changed": [
-    "Every row of the ⋯ menu now leads with an icon, in one column — including the four under Export, each marked with its own format.",
+    "Every row of the ⋯ menu now leads with an icon, in one column, including the four under Export, each marked with its own format.",
     "Keyboard shortcuts is marked with a keyboard rather than a ⌘, a key only some keyboards have.",
     "Send feedback is marked with a bug."
   ],

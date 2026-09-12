@@ -1,6 +1,6 @@
 {
   "date": "2026-09-11",
   "fixed": [
-    "“Import map file” in the trail panel opens the file picker again — pressing it used to close the panel instead, and the same press could close it from Remove link or the unit picker in Safari."
+    "“Import map file” in the trail panel opens the file picker again. Pressing it used to close the panel instead, and the same press could close it from Remove link or the unit picker in Safari."
   ]
 }

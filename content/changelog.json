@@ -3,14 +3,14 @@
     "date": "2026-08-10",
     "added": [
       "Add a piece of gear to My Gear by hand, without putting it in a list first.",
-      "Edit anything in My Gear in place — weight, name, gear type, calories, product link.",
+      "Edit anything in My Gear in place: weight, name, gear type, calories, product link.",
       "What you correct in My Gear sticks: your lists stop overwriting a field once you've fixed it there.",
       "Sort My Gear by weight, by name, or by how often you pack something, and narrow it to one kind of gear."
     ],
     "changed": [
       "My Gear searches the way the item autocomplete does, so a typo still finds your tent.",
       "My Gear shows every weight in the same unit, so a column of gear reads at a glance.",
-      "My Gear moved out of the site footer — it's in the account menu, and the editor's gear panel opens the full page."
+      "My Gear moved out of the site footer. It's in the account menu, and the editor's gear panel opens the full page."
     ],
     "fixed": [
       "In My Gear, the folder menu on a group's last row was cut off by the group's own edge."
@@ -21,7 +21,7 @@
     "changed": [
       "Tapping a control on a phone or tablet no longer raises a tooltip describing the thing you just pressed.",
       "On a touchscreen, scrolling now closes an open menu instead of leaving it parked over the list.",
-      "The lit Worn and Consumable marks, and the selected view in the Gear / Packing / Planning bar, now sit a shade lighter — and they hold their shape on a row you're dragging or a row with gear nested under it, where the old tone all but disappeared.",
+      "The lit Worn and Consumable marks, and the selected view in the Gear / Packing / Planning bar, now sit a shade lighter, and they hold their shape on a row you're dragging or a row with gear nested under it, where the old tone all but disappeared.",
       "The Worn and Consumable switches now read as a filled track rather than an outlined one, and are easier to see when they're off.",
       "The message that appears when you remove something is a little rounder at the corners."
     ],
@@ -35,7 +35,7 @@
     "added": [
       "Delete a list from the editor's ⋯ menu, instead of leaving it to find the list on another page.",
       "Forget a list from the editor's ⋯ menu: it leaves this device but stays online for anyone holding its link.",
-      "When a saved list can’t be opened anymore — deleted elsewhere, or its link changed — the page now names it and lets you forget it, so the dead entry doesn’t linger in your lists.",
+      "When a saved list can’t be opened anymore (deleted elsewhere, or its link changed) the page now names it and lets you forget it, so the dead entry doesn’t linger in your lists.",
       "Food and fuel picked from the catalog arrive already marked consumable, so a Clif bar never quietly counts toward your base weight.",
       "My Gear now remembers the calories you've entered for a food, and brings them back the next time you add it to a list.",
       "The sharing panel says when a list was opened from your account rather than through its edit link, and replacing the link from there hands this device a fresh one."
@@ -45,40 +45,40 @@
       "Deleting a list from the editor's ⋯ menu now reads in red, so it's clear which row is the destructive one before you reach it.",
       "Each action in the editor's ⋯ menu now carries an icon, so the menu can be scanned by shape as well as read.",
       "Your gear vault is now called My Gear, everywhere it's named.",
-      "\"Your lists\" is no longer a separate page — your lists live in the editor's switcher, and forgetting or deleting one is in its ⋯ menu. Old links redirect.",
+      "\"Your lists\" is no longer a separate page. Your lists live in the editor's switcher, and forgetting or deleting one is in its ⋯ menu. Old links redirect.",
       "When a list's gear is already reaching My Gear on its own, each row's save button reads \"Already in My Gear\" and goes quiet, instead of offering to save what's already saved.",
-      "The consumable and worn toggles swapped places on every row, and a water row now carries a lit consumable mark — so those marks line up in one column all the way down the list, water included.",
+      "The consumable and worn toggles swapped places on every row, and a water row now carries a lit consumable mark, so those marks line up in one column all the way down the list, water included.",
       "When a list's gear is already reaching My Gear on its own, each row's save button now steps aside entirely instead of sitting dimmed, and shines back into place when saving would do something again.",
       "The save button now sits first in a row's trailing icons, left of nesting, so the icons every row shares hold a steady column whether or not it's offered.",
-      "A brand-new row no longer offers Save to My Gear before there's anything to save — the button arrives once the row has a name and a weight or a catalog pick.",
-      "Coming back to the planning view is instant, and it keeps where you left it — the map's position, folded days — instead of starting over each visit.",
+      "A brand-new row no longer offers Save to My Gear before there's anything to save. The button arrives once the row has a name and a weight or a catalog pick.",
+      "Coming back to the planning view is instant, and it keeps where you left it (the map's position, folded days) instead of starting over each visit.",
       "A shared list's heading is tighter: who made it and when it was last edited now read as one line, with the trail and the dates on the next.",
-      "A shared list no longer labels itself \"Read-only\" — there was never anything on the page to edit.",
-      "On a wide screen, an item's quantity now has a + and a − beside the number, so changing a count is a click rather than retyping it. On a phone the number stays a plain field — that row is already carrying enough.",
+      "A shared list no longer labels itself \"Read-only\". There was never anything on the page to edit.",
+      "On a wide screen, an item's quantity now has a + and a − beside the number, so changing a count is a click rather than retyping it. On a phone the number stays a plain field. That row is already carrying enough.",
       "The packs button's corners now match the Gear / Packing / Planning switcher it sits above."
     ],
     "fixed": [
       "A pack whose edit link had been rotated could show up twice in the list switcher, both rows marked as the one you're in and one of them a link that no longer worked. It now appears once, and the stale row clears itself the next time you open that pack.",
-      "Forgetting or deleting a list now sticks — it no longer turns up again in the list switcher.",
+      "Forgetting or deleting a list now sticks. It no longer turns up again in the list switcher.",
       "Renaming a list now shows up in the list switcher straight away, including when you rename and leave the list in one move.",
       "The browser tab shows a list's new name the moment you refresh, instead of the name it was carrying a minute ago.",
       "Renaming a row to a different piece of gear no longer leaves the old product's catalog weight behind, so the row stops offering to \"fix\" the new item's catalog entry with a weight that was never its own.",
-      "Typing a list's name while the list is still loading no longer loses the start of it — \"South Sister Summit\" stays whole instead of saving as \"Summit\".",
-      "Correcting how a piece of gear is spelled — or its product link — now reaches My Gear straight away, instead of waiting for the next weight or name change to carry it along.",
-      "A list that can't reach the server now says \"Not saved\" and holds still, instead of flickering between that and \"Syncing…\" while it retries — and it retries with a growing pause rather than every second.",
+      "Typing a list's name while the list is still loading no longer loses the start of it. \"South Sister Summit\" stays whole instead of saving as \"Summit\".",
+      "Correcting how a piece of gear is spelled, or its product link, now reaches My Gear straight away, instead of waiting for the next weight or name change to carry it along.",
+      "A list that can't reach the server now says \"Not saved\" and holds still, instead of flickering between that and \"Syncing…\" while it retries. It retries with a growing pause rather than every second.",
       "The editor's toolbar icons sit at the right edge again on a list that hasn't been edited yet, instead of bunching up beside the pack switcher.",
       "Forgetting a list that’s no longer online now warns that the copy saved on this device may be all that’s left, instead of claiming the list stays online.",
-      "Water rows no longer offer a Save to My Gear button. Pressing it could only ever answer with an error — water is a volume you carry, not gear that gets saved.",
-      "On a phone, switching to packing mode no longer shows each item twice — the checklist row and the editing row underneath it.",
-      "Typing \"water\" and tapping away now marks the row consumable, the same as choosing the water suggestion — it used to take the folder's default and could land in base weight.",
-      "A list made while signed in on one device now shows up in the list switcher on your other signed-in devices — and opens there straight from the account, no edit link needed.",
+      "Water rows no longer offer a Save to My Gear button. Pressing it could only ever answer with an error, since water is a volume you carry, not gear that gets saved.",
+      "On a phone, switching to packing mode no longer shows each item twice, as the checklist row and the editing row underneath it.",
+      "Typing \"water\" and tapping away now marks the row consumable, the same as choosing the water suggestion. It used to take the folder's default and could land in base weight.",
+      "A list made while signed in on one device now shows up in the list switcher on your other signed-in devices, and opens there straight from the account, no edit link needed.",
       "The Worn and Consumable switches now read clearly when they're off. In dark mode the off switch was a faint dot on a dark card with no track around it, so there was nothing to tell you it was a switch at all.",
       "The Worn and Consumable switches are now a full-size tap target. The switch still looks the same; the area that responds to a finger is no longer smaller than the guideline minimum.",
       "Saying \"click Consumable\" to a speech-input tool now finds the Consumable switch. Its spoken name was \"Food, fuel or water\", which shared no word with the label printed beside it.",
       "A row's ⋯ menu now opens upward when the row sits near the bottom of the screen, instead of opening off the bottom edge where you couldn't reach it.",
       "\"New list\" in the pack switcher now lights up under the pointer and the keyboard, like the lists above it.",
       "On a water row the weight's unit now lines up with every other row's instead of sitting slightly right of the column.",
-      "Adding an item near the bottom of the page no longer throws the page a long way up — it now scrolls just far enough to show the new row.",
+      "Adding an item near the bottom of the page no longer throws the page a long way up. It now scrolls just far enough to show the new row.",
       "The unit menu on a folder's last item no longer gets cut off at the folder's edge."
     ]
   },
@@ -87,37 +87,37 @@
     "added": [
       "Lists now have a third view, Planning, alongside editing and packing: lay the trip out day by day and see what each day asks of you.",
       "Drop a GPX file on a trail link and the route's length, climb and descent fill themselves in, and its elevation profile is drawn under the distance. The file never leaves your browser.",
-      "Give a day a distance and it works out that day's climb from the route, roughly how long it will take to walk, and roughly what it will burn — with your pack's weight that morning, which drops as you eat.",
+      "Give a day a distance and it works out that day's climb from the route, roughly how long it will take to walk, and roughly what it will burn, with your pack's weight that morning, which drops as you eat.",
       "Run your cursor along the elevation profile to read the distance, height and gradient at any point on the route, with each day's stretch in its own colour.",
-      "Set your body weight — in kilograms or pounds — to sharpen the calorie estimates. It stays private to you and is never on a shared list.",
-      "The elevation profile now shades how hard the ground is — red where it's steep, yellow where it's moderate — with each day's stretch still drawn in its own colour on the line above it.",
-      "Routes can now be read from Google Earth KML, Garmin TCX and GeoJSON files as well as GPX — whichever your mapping app exports.",
+      "Set your body weight, in kilograms or pounds, to sharpen the calorie estimates. It stays private to you and is never on a shared list.",
+      "The elevation profile now shades how hard the ground is: red where it's steep, yellow where it's moderate. Each day's stretch is still drawn in its own colour on the line above it.",
+      "Routes can now be read from Google Earth KML, Garmin TCX and GeoJSON files as well as GPX, whichever your mapping app exports.",
       "Map files can now be read as Google Earth KMZ and GeoRSS as well as GPX, KML, TCX and GeoJSON.",
-      "A route imported from a map file is now drawn on the terrain it crosses, in the same colours the days wear on the elevation profile. The map is yours alone — it never appears on a shared or published list.",
-      "Mark what's on a route — water, a camp, a landmark — from the day you'll reach it on: tap the map and the pin drops on that day's stretch, with its distance beside it. Pins move between days by themselves as you change how far each day walks.",
+      "A route imported from a map file is now drawn on the terrain it crosses, in the same colours the days wear on the elevation profile. The map is yours alone. It never appears on a shared or published list.",
+      "Mark what's on a route (water, a camp, a landmark) from the day you'll reach it on: tap the map and the pin drops on that day's stretch, with its distance beside it. Pins move between days by themselves as you change how far each day walks.",
       "The map opens full screen for placing, with a bar of the trip's days across the top so you can pick which day the next pin lands in without leaving it.",
-      "Each pin on the map now carries its own mark — a droplet for water, a tent for a camp — and its row names the kind in words.",
+      "Each pin on the map now carries its own mark (a droplet for water, a tent for a camp), and its row names the kind in words.",
       "Press and hold a pin on the map to pick it up, then slide it along the route to move it. It re-files itself under whichever day it lands in.",
       "Tap a pin on the map to name it or remove it, without hunting for its row.",
-      "Drag the tent handle where one day ends on the map and the two days either side trade miles — the trip's total never changes.",
-      "Each day now lists where it ends — the camp — with the distance in, and you can name it.",
+      "Drag the tent handle where one day ends on the map and the two days either side trade miles. The trip's total never changes.",
+      "Each day now lists where it ends (the camp) with the distance in, and you can name it.",
       "Trace the elevation profile and a dot follows on the map below, so you can see where a climb or a descent actually is on the ground.",
       "The last day now shows where the walk finishes, with the coordinate beside it, and you can name it the way you name a camp.",
       "A colour key under the map names each day's colour and how far it walks, so the map and the elevation chart can be read without hunting."
     ],
     "changed": [
-      "Your body weight is now remembered on your device instead of saved with each list, so you set it once and every trip uses it — and it never leaves your browser at all.",
+      "Your body weight is now remembered on your device instead of saved with each list, so you set it once and every trip uses it. It never leaves your browser at all.",
       "The elevation profile's distance scale now shows more marks on a wider window, and the grade you read off the chart always matches the shading beneath it.",
       "A day now shows its descent alongside its climb, the trip's figures line up in columns down the list, and the route's total descent only appears when it differs from the climb.",
       "The trail panel's file button now reads \"Import map file\" and names the formats it takes.",
-      "Switching between Gear, Packing and Planning now uses a labelled bar under the list's title instead of three icons in the toolbar, and shared lists get one too — Gear or Trip.",
+      "Switching between Gear, Packing and Planning now uses a labelled bar under the list's title instead of three icons in the toolbar, and shared lists get one too: Gear or Trip.",
       "Hold ⌘ or Ctrl and scroll, or pinch on a trackpad, to zoom the route map.",
       "The map now opens and closes with the terrain growing out of its place on the page, and the trip's figures sit the same distance under the big number in all three views.",
-      "Walking times now read as a range — \"4–4.5 hr\" rather than \"4 h 11\" — since the estimate is only good to about a fifth either way.",
+      "Walking times now read as a range, \"4–4.5 hr\" rather than \"4 h 11\", since the estimate is only good to about a fifth either way.",
       "Map pins are now white drops with the mark in colour, the day lines carry a darker edge of their own hue, and the end of each day shows as a camp you can drag.",
       "The trip's time figure is now labelled \"Walking time\", since it counts time on your feet and not the days the trip takes.",
       "Setting what a waypoint is now takes one tap on the kind you want, the way an item's type works in Gear.",
-      "Camp is no longer something you pick — every day's end draws one, and the pins you place are water or a landmark.",
+      "Camp is no longer something you pick. Every day's end draws one, and the pins you place are water or a landmark.",
       "The elevation chart now leaves easy ground unshaded, breaks cleanly between days, and keeps its difficulty shading readable at the route's low points.",
       "The elevation profile now leaves a real gap between one day and the next, on the shading as well as the line.",
       "A day's climb and its drop now sit together as one pair, and the figures after them line up down the list.",
@@ -129,7 +129,7 @@
       "On a phone, a weight like 0.68 lb no longer has its last digit clipped, and a water row's figure lines up with the rows above it.",
       "A shared list no longer carries the owner's packing tick-offs in its data.",
       "Clearing a day's distance or climb now sticks, instead of coming back the moment the list saved.",
-      "Calorie estimates were too high for heavier walkers — resting energy was billed per kilogram, which over-charged anyone above about 65 kg, and a night's sleep was charged at the same rate as an evening in camp.",
+      "Calorie estimates were too high for heavier walkers. Resting energy was billed per kilogram, which over-charged anyone above about 65 kg, and a night's sleep was charged at the same rate as an evening in camp.",
       "Waypoint rows now fit a phone screen: the name gets its own line, and the coordinate and distance sit at either end of the one below it instead of overlapping the buttons beside them.",
       "Map pins now point exactly at the spot on the route they mark, rather than a little below it.",
       "Routes imported before trailheads existed now get their start pin, and the route's own start and finish can no longer be turned into something else or deleted by mistake."
@@ -138,7 +138,7 @@
   {
     "date": "2026-08-05",
     "added": [
-      "Add a hike's distance to its trail link — in miles or kilometres, whichever you prefer — and see it beside the trail's name.",
+      "Add a hike's distance to its trail link, in miles or kilometres, whichever you prefer, and see it beside the trail's name.",
       "Lists with calories and trip dates now show what that works out to per day, so you can tell at a glance whether there's enough food in the pack."
     ],
     "changed": [
@@ -166,12 +166,12 @@
   {
     "date": "2026-08-04",
     "added": [
-      "Copy your list as plain text — one run of names, ready to paste into a comment or a post where formatting doesn't survive. It ends with your base and total weight, and the read-only link."
+      "Copy your list as plain text: one run of names, ready to paste into a comment or a post where formatting doesn't survive. It ends with your base and total weight, and the read-only link."
     ],
     "changed": [
-      "Every picker — units, folder sorting, and moving gear between folders — now opens the app's own menu instead of your device's dropdown.",
+      "Every picker (units, folder sorting, and moving gear between folders) now opens the app's own menu instead of your device's dropdown.",
       "The trail link panel now matches the other floating panels.",
-      "The account, sharing and gear vault panels now share one header — same title, same close button in the same place.",
+      "The account, sharing and gear vault panels now share one header: same title, same close button in the same place.",
       "Section labels in the sharing and account panels are smaller than the panel's own title, so the two read as different things."
     ],
     "fixed": [
@@ -183,14 +183,14 @@
     "date": "2026-08-03",
     "added": [
       "Switch between your lists from the editor's toolbar, without leaving the one you're in.",
-      "Recent changes now name what happened — \"Removed Nunatak quilt liner\", \"Swapped Durston X-Mid 2 for Big Agnes Copper Spur\" — instead of \"Edited 1 item\"."
+      "Recent changes now name what happened, \"Removed Nunatak quilt liner\" or \"Swapped Durston X-Mid 2 for Big Agnes Copper Spur\", instead of \"Edited 1 item\"."
     ],
     "changed": [
       "The toolbar now says when your list was last edited, and only mentions syncing when there's something to say.",
       "The gear vault's sign-in prompt is one line now, and reads the same on the vault page and beside a list.",
       "A folder's controls now stay visible instead of appearing on hover.",
       "On a shared list, the export formats group under one \"Export\" item, matching the editor.",
-      "On a shared list, \"Copy this list\" is now \"Duplicate this list\" — the same name the editor uses, and no longer confusable with the clipboard actions beside it.",
+      "On a shared list, \"Copy this list\" is now \"Duplicate this list\", the same name the editor uses, and no longer confusable with the clipboard actions beside it.",
       "On a shared list, signing in is an icon in the top bar like the rest of it, and the ⋯ menu sits at the end.",
       "The trail link panel asks for a \"URL\".",
       "The footer no longer links to the page you're already on.",
@@ -217,12 +217,12 @@
       "Send feedback about a list from the editor's actions menu.",
       "Give a list its trip dates.",
       "Shared lists now show the calories on each food item, not just the total.",
-      "Reach your account from the toolbar while you're editing a list — sign in, open your gear vault, or sign out without leaving the page."
+      "Reach your account from the toolbar while you're editing a list: sign in, open your gear vault, or sign out without leaving the page."
     ],
     "changed": [
       "Worn and consumable are now two toggles on the row, each opening its own small panel.",
       "Row actions now stay visible instead of appearing only on hover.",
-      "Sharing now lives in one panel — both links, replacing the edit link, and recent changes.",
+      "Sharing now lives in one panel: both links, replacing the edit link, and recent changes.",
       "Export options group together in the actions menu.",
       "Icons have a new, rounder look.",
       "List and folder names now show when they can be edited.",
@@ -254,11 +254,11 @@
   {
     "date": "2026-08-01",
     "added": [
-      "Create an account with a passkey — your face, fingerprint or screen lock, no password to pick.",
+      "Create an account with a passkey: your face, fingerprint or screen lock, no password to pick.",
       "Sign in with a passkey in one tap, or have a link emailed to you instead.",
       "Set a display name and it shows under the title on lists you share or publish. Leave it blank and they stay anonymous.",
-      "Delete your account from the account page — it takes your gear vault with it, and asks separately whether to delete your lists.",
-      "Sign out everywhere, from your account page — ends every session on every device.",
+      "Delete your account from the account page. It takes your gear vault with it, and asks separately whether to delete your lists.",
+      "Sign out everywhere, from your account page. It ends every session on every device.",
       "Mahonia emails you when a passkey is added to your account, so you find out if it wasn't you."
     ],
     "changed": [
@@ -291,7 +291,7 @@
       "Change the weight unit from the vault's total, the same way you do on a list.",
       "Removing gear from your vault now offers an undo, like removing an item from a list.",
       "The vault slides in when you open it beside a list, instead of appearing all at once.",
-      "Vault search now forgives typos and matches on gear type, like the item search does — and bolds what you typed.",
+      "Vault search now forgives typos and matches on gear type, like the item search does, and bolds what you typed.",
       "The vault is now called your gear vault, everywhere it's named.",
       "Gear rows in the vault use icons for their actions instead of a word.",
       "The vault prompt now sits inline under the weight chart, and slides away when dismissed."
@@ -306,7 +306,7 @@
     "date": "2026-07-27",
     "changed": [
       "The trail link's card shows the destination without the https:// and www., so more of the address fits.",
-      "In the editor, tapping a trail link now opens its card instead of leaving the page — the link itself is in the card. On a shared list it still goes straight there.",
+      "In the editor, tapping a trail link now opens its card instead of leaving the page. The link itself is in the card. On a shared list it still goes straight there.",
       "The trail link's address is capped at a readable length instead of running the width of the card."
     ],
     "fixed": [
@@ -318,10 +318,10 @@
   {
     "date": "2026-07-26",
     "added": [
-      "Attach a link to the trail a list was packed for — it shows on the shared and public views, with the site's icon.",
-      "The summary now shows a carried weight — base plus consumable, the weight actually on your back — alongside the three figures it's drawn from.",
+      "Attach a link to the trail a list was packed for. It shows on the shared and public views, with the site's icon.",
+      "The summary now shows a carried weight (base plus consumable, the weight actually on your back) alongside the three figures it's drawn from.",
       "Copying a list as Markdown includes the carried weight too.",
-      "Your vault: gear you put in a list is remembered in one place, ready to pull into the next list without retyping. No account — the vault is yours by link, like a list.",
+      "Your vault: gear you put in a list is remembered in one place, ready to pull into the next list without retyping. No account needed. The vault is yours by link, like a list.",
       "Add gear from your vault without typing: a panel beside the list you're building, with everything you own a click away.",
       "Open your vault on another device with a link, the same way you already move a list."
     ],
@@ -342,7 +342,7 @@
     ],
     "changed": [
       "On a shared list, each item's weight now sits closer to its name instead of drifting out to the far right of a wide window.",
-      "Item names on a shared list no longer carry a permanent underline — the search link shows itself as you move down the list.",
+      "Item names on a shared list no longer carry a permanent underline. The search link shows itself as you move down the list.",
       "The pack total no longer repeats itself as a \"Base\" figure directly underneath when everything in the list is base weight.",
       "The About and Legal pages now sit centred in the page instead of hugging the left edge."
     ],
@@ -354,7 +354,7 @@
   {
     "date": "2026-07-22",
     "changed": [
-      "The packing checklist's checkboxes are now drawn by the same icon set as the toolbar's packing toggle — the same square-and-tick glyph, with the tick still popping in."
+      "The packing checklist's checkboxes are now drawn by the same icon set as the toolbar's packing toggle: the same square-and-tick glyph, with the tick still popping in."
     ]
   },
   {
@@ -369,61 +369,61 @@
   {
     "date": "2026-07-19",
     "added": [
-      "Every item now carries a gear type like \"tent\" or \"trail runners\" — filled in automatically when you pick it, shown as a quiet line under the product, and renamable per list.",
+      "Every item now carries a gear type like \"tent\" or \"trail runners\", filled in automatically when you pick it, shown as a quiet line under the product, and renamable per list.",
       "Start a new list straight from the editor's ⋯ menu."
     ],
     "changed": [
       "Typing a gear name now surfaces closer name matches first, above merely-popular ones.",
       "Editing and packing modes now ease from one to the other when you switch, instead of snapping.",
-      "Empty folders no longer draw a faint line under their name — the divider only shows between rows once you've added items.",
+      "Empty folders no longer draw a faint line under their name. The divider only shows between rows once you've added items.",
       "Editing an item's name now offers its gear type right below, so gear you type in yourself can carry one too.",
       "CSV exports carry a \"Gear Type\" column; older files with a \"Common Name\" column still import.",
-      "A group row no longer offers a gear type of its own — the group's name already is one."
+      "A group row no longer offers a gear type of its own. The group's name already is one."
     ],
     "fixed": [
-      "Switching to packing mode no longer makes the rows taller — editing and packing keep the same row height, so the list doesn't jump on toggle.",
+      "Switching to packing mode no longer makes the rows taller. Editing and packing keep the same row height, so the list doesn't jump on toggle.",
       "Item notes sit the same distance below their name in shared and public lists as they do in the editor.",
       "The “Add an item” button now lines up with your list's row spacing on phone and desktop, instead of sitting a touch below it.",
-      "Nesting an item under a piece of gear that already has a weight now groups the two, so that gear's own weight stays on its own line — visible and editable — instead of vanishing into the group total.",
+      "Nesting an item under a piece of gear that already has a weight now groups the two, so that gear's own weight stays on its own line, visible and editable, instead of vanishing into the group total.",
       "Renaming a catalog item to your own name now clears the gear type that came with it, instead of leaving the old label stuck on the row for good.",
       "Un-nesting an item out of a group the app created for you now hands its gear type back and removes the leftover group row.",
       "Dragging one weighed item onto another no longer pops the keyboard open on a phone.",
       "The gear type and note button now says what it will actually open, and opens to the field you asked for instead of the one already showing.",
       "Screen readers and voice control can now reach an item's gear type and note button.",
-      "\"Create a list\" from the editor menu no longer drops the list you were on out of your browser history — Back returns to it.",
+      "\"Create a list\" from the editor menu no longer drops the list you were on out of your browser history. Back returns to it.",
       "Printed lists no longer show an \"Add an item\" line under each group.",
       "A renamed catalog item now keeps tracking the catalog's gear type, and an item with your own gear type still tracks the catalog's product name.",
-      "A CSV column called \"Type\" is no longer imported as a gear type — only a \"Gear Type\" or \"Common Name\" column is.",
+      "A CSV column called \"Type\" is no longer imported as a gear type. Only a \"Gear Type\" or \"Common Name\" column is.",
       "An unnamed item no longer shows the placeholder label \"Group\" unless it really is a group."
     ]
   },
   {
     "date": "2026-07-17",
     "added": [
-      "A “What’s new” page — a running list of features and fixes as they ship.",
-      "Search the gear catalog by everyday name — type “tent” to find tents, or “rucksack” and “backpack” to reach the same packs.",
-      "Women’s versions across the gear catalog — about a hundred new entries covering footwear, apparel, packs, and sleep.",
-      "Nest items one level deep — split a tent into body, fly, poles, and stakes on their own lines, with the group total on the parent row.",
-      "Drag an item into or out of a nested group — drag it right to tuck it under the row above, left to pop it back out.",
-      "Collapse a group of nested items — a chevron by the group's name hides or shows its children (and remembers your choice), just like a folder."
+      "A “What’s new” page: a running list of features and fixes as they ship.",
+      "Search the gear catalog by everyday name: type “tent” to find tents, or “rucksack” and “backpack” to reach the same packs.",
+      "Women’s versions across the gear catalog: about a hundred new entries covering footwear, apparel, packs, and sleep.",
+      "Nest items one level deep: split a tent into body, fly, poles, and stakes on their own lines, with the group total on the parent row.",
+      "Drag an item into or out of a nested group: drag it right to tuck it under the row above, left to pop it back out.",
+      "Collapse a group of nested items. A chevron by the group's name hides or shows its children (and remembers your choice), just like a folder."
     ],
     "changed": [
       "Combined the Privacy and Terms pages into a single Legal page.",
-      "On phones, an item's extra actions (add a note, nest, un-nest) tuck into a ⋯ menu, so each row stays uncluttered — delete and drag stay put."
+      "On phones, an item's extra actions (add a note, nest, un-nest) tuck into a ⋯ menu, so each row stays uncluttered. Delete and drag stay put."
     ],
     "fixed": [
-      "Nested items now work in packing mode — you can check them off, and pack progress can reach 100%.",
+      "Nested items now work in packing mode: you can check them off, and pack progress can reach 100%.",
       "Dragging a grouped item into another folder now carries its nested items along, so weights stay correct.",
       "Copying a list with nested items no longer leaves hidden phantom rows in the copy.",
       "Shared and public lists now show folders in the same order you arranged them.",
-      "Reorder items and folders from the keyboard — focus the grip and press the up/down arrows.",
-      "Search an accented brand by its plain spelling — typing \"Fjallraven\" now finds Fjällräven (and Klattermusen finds Klättermusen)."
+      "Reorder items and folders from the keyboard: focus the grip and press the up/down arrows.",
+      "Search an accented brand by its plain spelling: typing \"Fjallraven\" now finds Fjällräven (and Klattermusen finds Klättermusen)."
     ]
   },
   {
     "date": "2026-07-16",
     "added": [
-      "Sort any folder by name, heaviest, or lightest — or keep your own manual order."
+      "Sort any folder by name, heaviest, or lightest, or keep your own manual order."
     ]
   },
   {
@@ -438,7 +438,7 @@
       "A quiet line in the editor tells you when your list last saved and synced."
     ],
     "fixed": [
-      "The undo toast is easier to catch — it now stays for ten seconds, pauses when you hover or focus it, and no longer swallows a stray click as it fades."
+      "The undo toast is easier to catch. It now stays for ten seconds, pauses when you hover or focus it, and no longer swallows a stray click as it fades."
     ]
   },
   {
@@ -459,7 +459,7 @@
   {
     "date": "2026-06-27",
     "added": [
-      "Build a packing list and share it with a link — no account, no app, no ads.",
+      "Build a packing list and share it with a link. No account, no app, no ads.",
       "Live pack-weight totals, with a base / worn / consumable breakdown and a category bar. Weights are optional; a list with none just stays quiet.",
       "A curated, cited gear-weight database with autocomplete, so most items weigh themselves as you type.",
       "Light and dark themes."
