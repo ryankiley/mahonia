@@ -87,4 +87,21 @@ describe("listToMarkdown", () => {
   it("omits the Unfiled table when every item has a folder", () => {
     expect(listToMarkdown(snap())).not.toContain("## Unfiled");
   });
+
+  it("escapes a pipe in the Item cell, so a name can't push its weight a column over", () => {
+    const s = snap();
+    s.items[0]!.name = "Socks | 3 pr";
+    s.items[0]!.commonName = "Wool | synthetic";
+    s.items.push({ id: "i7", folderId: "f1", parentId: "i1", name: "Liner | thin", unitWeightMg: 20000, qty: 1, classification: null, sortOrder: 1 });
+    const md = listToMarkdown(s);
+    expect(md).toContain("| Socks \\| 3 pr — Wool \\| synthetic | 1 | 558 g |");
+    expect(md).toContain("| ↳ Liner \\| thin | 1 | 20 g |");
+    // every table row still has exactly three cells once the escaped pipes are set aside
+    for (const line of md.split("\n").filter((l) => l.startsWith("| ") && !l.startsWith("| ---"))) {
+      expect(line.replace(/\\\|/g, "").split("|").length - 2, line).toBe(3);
+    }
+    // nothing else in a name is touched: Markdown in a name reads as Markdown
+    s.items[1]!.name = "*Rain* <jacket>";
+    expect(listToMarkdown(s)).toContain("| *Rain* <jacket> | 1 | 300 g |");
+  });
 });

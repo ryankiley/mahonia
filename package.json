@@ -50,6 +50,7 @@
     "@types/node": "^24",
     "@vite-pwa/nuxt": "^1.1.1",
     "@vue/test-utils": "^2.4.11",
+    "ajv": "^8.20.0",
     "happy-dom": "^20.11.1",
     "jiti": "^2.7.0",
     "sass": "^1.101.0",

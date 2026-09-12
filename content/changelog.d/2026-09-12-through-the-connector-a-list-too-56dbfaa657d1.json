@@ -1,0 +1,10 @@
+{
+  "date": "2026-09-12",
+  "changed": [
+    "Through the connector, a list too long to return whole comes back cut to fit, and says what was left out.",
+    "The connector's tools say what shape their answers take, so a client can check an answer before trusting it."
+  ],
+  "fixed": [
+    "A pipe in an item's name no longer breaks the table in the Markdown export, or in a share link's .md twin."
+  ]
+}

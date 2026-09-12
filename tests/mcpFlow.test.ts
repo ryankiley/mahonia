@@ -8,6 +8,7 @@ import { CATALOG_DDL } from "../server/utils/catalog";
 import { LISTS_DDL, SNAPSHOTS_DDL, TRAIL_FAVICONS_DDL, _resetSnapshotEnsured } from "../server/utils/db";
 import { createTestDb } from "./helpers/db";
 import { stubFetch } from "./helpers/http";
+import { declaresOutput, expectConforms } from "./helpers/mcpSchema";
 
 // The MCP tools end to end against a real (in-memory) database: an assistant makes a
 // list, adds to it, sets its trip, and reads it back the way a person would see it on
@@ -39,6 +40,8 @@ async function rpc(method: string, params?: unknown, id = 1) {
 }
 const call = async (name: string, args: unknown) => {
   const r = await rpc("tools/call", { name, arguments: args });
+  // a real database's values, held to the declared shape as the stubbed suite's are
+  if (!r.isError && declaresOutput(name)) expectConforms(name, r.structuredContent);
   return { data: r.structuredContent as Record<string, unknown>, text: r.content[0]!.text, isError: r.isError ?? false };
 };
 

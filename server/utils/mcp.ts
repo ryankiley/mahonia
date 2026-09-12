@@ -101,11 +101,218 @@ const EDIT_ARG = {
   description: "The list's edit link, whole (mahonia.app/e/CODE#token). The part after # is the write capability.",
 };
 
+// ---- what the tools hand back ---------------------------------------------------
+// The result shapes as JSON Schema (MCP's outputSchema), declared so a client that
+// validates structured results can, and so the field set is documented where the tool
+// is. "User text" marks a field somebody typed into the list; the rest is the server's.
+// A stored number is declared `number`, not `integer`: the reducer rounds every one on
+// the way in, but a read doesn't check, and a schema is a promise about what THIS code
+// hands back, not about what the writer meant to store. `integer` is for figures this
+// file computes. additionalProperties is left open on purpose, so a field added later
+// doesn't fail a client that validated against the old listing.
+
+const USER_TEXT = "User text.";
+const str = (description?: string) => ({ type: "string", ...(description ? { description } : {}) });
+const nullable = (type: "string" | "number", description?: string) => ({ type: [type, "null"], ...(description ? { description } : {}) });
+
+const TOTALS_SCHEMA = {
+  type: "object",
+  description: "Whole grams, summed over every row of the list.",
+  properties: {
+    base_g: { type: "integer", description: "In the pack, consumables aside." },
+    worn_g: { type: "integer", description: "On your body." },
+    consumable_g: { type: "integer", description: "Food, fuel, water." },
+    carried_g: { type: "integer", description: "base_g plus consumable_g: what is on your back." },
+    total_g: { type: "integer", description: "carried_g plus worn_g." },
+    item_count: { type: "integer", description: "Rows, nested ones included." },
+    kcal: { type: "number", description: "Only when a food row carries calories." },
+  },
+  required: ["base_g", "worn_g", "consumable_g", "carried_g", "total_g", "item_count"],
+};
+
+/** one row of get_list; a nested row is the same minus its own nesting */
+const rowSchema = (nested: boolean): Record<string, unknown> => ({
+  type: "object",
+  properties: {
+    name: str(`The product name, without brand or variant. ${USER_TEXT}`),
+    display_name: str("Brand, name and variant joined, the way the list shows the row."),
+    qty: { type: "number", description: "How many; weight_g is for one." },
+    weight_g: { type: "number", description: "One unit, in grams to a tenth. 0 when the row has no weight." },
+    classification: { type: "string", enum: CLASSIFICATIONS, description: "The row's own, or its folder's when it has none." },
+    brand: str(USER_TEXT),
+    variant: str(`Size, length or configuration. ${USER_TEXT}`),
+    gear_type: str(`What kind of thing it is. ${USER_TEXT}`),
+    worn_qty: { type: "number", description: "Of qty, how many are worn rather than carried." },
+    note: str(USER_TEXT),
+    kcal: { type: "number", description: "Calories per unit." },
+    catalog_id: { type: "number", description: "The catalog row the item was picked from." },
+    carried_by: str(`Who carries it. A nested row without one is carried by its parent's carrier. ${USER_TEXT}`),
+    ...(nested ? {} : { items: { type: "array", description: "Rows nested under this one. The parent's weight_g is its own, not the group's.", items: rowSchema(true) } }),
+  },
+  required: ["name", "display_name", "qty", "weight_g", "classification"],
+});
+
+const DATES_SCHEMA = {
+  type: "object",
+  properties: { start: nullable("string", "YYYY-MM-DD."), end: nullable("string", "YYYY-MM-DD.") },
+  required: ["start", "end"],
+};
+const TRAIL_SCHEMA = {
+  type: "object",
+  properties: {
+    url: nullable("string"),
+    label: nullable("string", USER_TEXT),
+    distance_m: nullable("number"),
+    ascent_m: nullable("number"),
+    descent_m: nullable("number"),
+  },
+  required: ["url", "label", "distance_m", "ascent_m", "descent_m"],
+};
+
+const LIST_OUTPUT = {
+  type: "object",
+  properties: {
+    title: str(USER_TEXT),
+    share_code: str("The list's share code, the read capability."),
+    share_link: str("The list's share link."),
+    unit: { type: "string", enum: UNITS, description: "The unit the list displays in. Weights here are in grams regardless." },
+    totals: TOTALS_SCHEMA,
+    folders: {
+      type: "array",
+      description: "In the list's order, each with its rows in order. A folder with no rows is left out; rows in no folder come last, under Unfiled.",
+      items: {
+        type: "object",
+        properties: { name: str(USER_TEXT), items: { type: "array", items: rowSchema(false) } },
+        required: ["name", "items"],
+      },
+    },
+    description: str(`The list's own notes. ${USER_TEXT}`),
+    dates: DATES_SCHEMA,
+    trail: TRAIL_SCHEMA,
+    days: {
+      type: "array",
+      description: "The trip's days in order, when the owner has planned them.",
+      items: {
+        type: "object",
+        properties: {
+          day: str("Day 1; with trip dates, the weekday too: Saturday, Day 1."),
+          label: str(`The owner's name for the day. ${USER_TEXT}`),
+          distance_m: nullable("number"),
+          ascent_m: nullable("number", "Typed by the owner, or read off the route's profile."),
+        },
+        required: ["day", "distance_m", "ascent_m"],
+      },
+    },
+    people: { type: "array", items: str(USER_TEXT), description: "The people who carry the list's rows, when it names any." },
+    author: str(USER_TEXT),
+    truncated: {
+      type: "object",
+      description:
+        "Present only when the list was too large to return whole. notes: true when every row's note was dropped; items: how many rows were left off the end, nested rows counted. The totals still count every row. get_list_markdown returns the same rows in about a third of the space, without notes.",
+      properties: { notes: { type: "boolean" }, items: { type: "integer" } },
+    },
+  },
+  required: ["title", "share_code", "share_link", "unit", "totals", "folders"],
+};
+
+/** one catalog row, in the two catalog tools' common fields */
+const CATALOG_ROW = {
+  id: { type: "integer", description: "The catalog row id, the one add_items and create_list take as catalog_id." },
+  variant: nullable("string", "Size, length or rating; null on a product sold one way."),
+  weight_g: { type: "number", description: "The cited weight in grams, to a tenth." },
+  verified: { type: "boolean", description: "Whether the cited weight has been verified." },
+  weight_source: str("Where the weight comes from: manufacturer, measured, community or imported."),
+  kcal: nullable("number", "Calories per unit, on food."),
+};
+
+const SEARCH_OUTPUT = {
+  type: "object",
+  properties: {
+    query: str("The query as searched: trimmed, at most 100 characters."),
+    results: {
+      type: "array",
+      description: "Best first.",
+      items: {
+        type: "object",
+        properties: {
+          ...CATALOG_ROW,
+          brand: nullable("string"),
+          name: str("The product name, without brand or variant."),
+          display_name: str("Brand, name and variant joined."),
+          gear_type: nullable("string", "What kind of thing it is: Tent, Quilt, Trail runners."),
+          category: nullable("string", "The catalog's category: shelter, sleep, pack, and so on."),
+        },
+        required: ["id", "brand", "name", "variant", "display_name", "weight_g", "gear_type", "category", "kcal", "verified", "weight_source"],
+      },
+    },
+  },
+  required: ["query", "results"],
+};
+
+const PRODUCT_OUTPUT = {
+  type: "object",
+  properties: {
+    brand: nullable("string"),
+    name: str("The product name, without brand or variant."),
+    gear_type: nullable("string"),
+    category: nullable("string"),
+    variants: {
+      type: "array",
+      description: "Every active variant, in variant order.",
+      items: {
+        type: "object",
+        properties: { ...CATALOG_ROW, source_url: nullable("string", "The page the weight was read from.") },
+        required: ["id", "variant", "weight_g", "verified", "weight_source", "source_url", "kcal"],
+      },
+    },
+  },
+  required: ["brand", "name", "gear_type", "category", "variants"],
+};
+
+const CREATE_OUTPUT = {
+  type: "object",
+  properties: {
+    title: str(USER_TEXT),
+    edit_link: str("The write capability. Keep it; it is the only way back into the list."),
+    share_link: str("The read capability, safe to pass on."),
+    share_code: str(),
+    folders: { type: "integer", description: "Folders made." },
+    items: { type: "integer", description: "Rows made." },
+    totals: TOTALS_SCHEMA,
+  },
+  required: ["title", "edit_link", "share_link", "share_code", "folders", "items", "totals"],
+};
+
+const ADD_OUTPUT = {
+  type: "object",
+  properties: {
+    added: { type: "integer", description: "Rows added." },
+    folders_made: { type: "array", items: str(USER_TEXT), description: "Folders that didn't exist and were made for these rows." },
+    share_link: str(),
+    totals: TOTALS_SCHEMA,
+  },
+  required: ["added", "folders_made", "share_link", "totals"],
+};
+
+const TRIP_OUTPUT = {
+  type: "object",
+  properties: {
+    title: str(USER_TEXT),
+    unit: { type: "string", enum: UNITS },
+    dates: { ...DATES_SCHEMA, type: ["object", "null"] },
+    trail: { ...TRAIL_SCHEMA, type: ["object", "null"] },
+    share_link: str(),
+  },
+  required: ["title", "unit", "dates", "trail", "share_link"],
+};
+
 export interface McpTool {
   name: string;
   title: string;
   description: string;
   inputSchema: Record<string, unknown>;
+  /** the shape of structuredContent, on every tool that returns it */
+  outputSchema?: Record<string, unknown>;
   annotations: { readOnlyHint: boolean; destructiveHint: boolean; idempotentHint: boolean; openWorldHint: boolean };
 }
 
@@ -119,8 +326,9 @@ export const MCP_TOOLS: McpTool[] = [
   {
     name: "get_list",
     title: "Read a shared list",
-    description: `A shared list as data: title, unit, dates, trail, totals in grams, and every folder with its rows (brand, name, variant, quantity, weight of one unit in grams, classification, note, calories, who carries it; a nested row without carried_by is carried by its parent's carrier). Takes a share code or share link. ${PROVENANCE}`,
+    description: `A shared list as data: title, unit, dates, trail, totals in grams, and every folder with its rows (brand, name, variant, quantity, weight of one unit in grams, classification, note, calories, who carries it; a nested row without carried_by is carried by its parent's carrier). Takes a share code or share link. A list too large to return whole comes back cut and says so in a truncated field: notes go first, then rows off the end, and the totals still count every row. ${PROVENANCE}`,
     inputSchema: { type: "object", properties: { share_code: SHARE_ARG }, required: ["share_code"] },
+    outputSchema: LIST_OUTPUT,
     annotations: READ,
   },
   {
@@ -143,6 +351,7 @@ export const MCP_TOOLS: McpTool[] = [
       },
       required: ["query"],
     },
+    outputSchema: SEARCH_OUTPUT,
     annotations: READ,
   },
   {
@@ -158,6 +367,7 @@ export const MCP_TOOLS: McpTool[] = [
         name: { type: "string", description: "The product name without brand or variant." },
       },
     },
+    outputSchema: PRODUCT_OUTPUT,
     annotations: READ,
   },
   {
@@ -191,6 +401,7 @@ export const MCP_TOOLS: McpTool[] = [
         items: { type: "array", description: "Rows not placed through a folder above; each may name its folder.", items: ITEM_SCHEMA },
       },
     },
+    outputSchema: CREATE_OUTPUT,
     annotations: ADD,
   },
   {
@@ -206,6 +417,7 @@ export const MCP_TOOLS: McpTool[] = [
       },
       required: ["edit_link", "items"],
     },
+    outputSchema: ADD_OUTPUT,
     annotations: ADD,
   },
   {
@@ -227,6 +439,7 @@ export const MCP_TOOLS: McpTool[] = [
       },
       required: ["edit_link"],
     },
+    outputSchema: TRIP_OUTPUT,
     annotations: SET,
   },
 ];
@@ -296,7 +509,7 @@ async function getList(event: H3Event, args: Record<string, unknown>): Promise<T
   if (!code) return fail(NO_SHARE);
   const snap = await getByShareCode(code);
   if (!snap) return fail(NO_LIST);
-  return ok(describeList(snap, trustedOrigin(event)));
+  return ok(fitList(describeList(snap, trustedOrigin(event))));
 }
 
 async function getListMarkdown(args: Record<string, unknown>): Promise<ToolResult> {
@@ -385,6 +598,60 @@ export function describeList(snap: ListSnapshot, origin: string): Record<string,
   if (snap.people?.length) out.people = snap.people.map((p) => p.name);
   if (snap.authorName) out.author = snap.authorName;
   return out;
+}
+
+/**
+ * The most get_list may answer with, in characters of its JSON. Claude Code refuses a
+ * tool result past 25,000 tokens (its MAX_MCP_OUTPUT_TOKENS default), and the whole
+ * answer is lost then, not cut short; JSON runs three to four characters a token, so
+ * this is 16,000 to 22,000 and under the line either way. A list within MAX_ITEMS can
+ * be twice this: a row is 150-odd characters before its note, and a note up to 2,000.
+ */
+export const GET_LIST_MAX_CHARS = 65_536;
+
+/**
+ * A described list cut down to the ceiling when it is over it: notes first (the
+ * longest free text on a row, and the field a model needs least to reason about a
+ * pack), then rows off the end, a top-level row and its nested rows together, the most
+ * that fit found by bisection. What was cut is said in one `truncated` field rather
+ * than in prose, and the totals stay as computed over the whole list. A list under
+ * the ceiling comes back as it was, with no field.
+ */
+export function fitList(described: Record<string, unknown>, max = GET_LIST_MAX_CHARS): Record<string, unknown> {
+  const size = (value: unknown) => JSON.stringify(value).length;
+  if (size(described) <= max) return described;
+  type Row = Record<string, unknown> & { items?: Row[] };
+  type Folder = { name: string; items: Row[] };
+  // `truncated` goes BEFORE the folders, so a reader meets the notice before the rows
+  const { folders: whole, ...head } = described as Record<string, unknown> & { folders: Folder[] };
+  let notes = 0;
+  const stripNote = ({ note, items, ...rest }: Row): Row => {
+    if (note !== undefined) notes++;
+    return items ? { ...rest, items: items.map(stripNote) } : rest;
+  };
+  const folders = whole.map((f) => ({ ...f, items: f.items.map(stripNote) }));
+  const rowsIn = (rows: Row[]) => rows.reduce((n, r) => n + 1 + (r.items?.length ?? 0), 0);
+  const total = folders.reduce((n, f) => n + rowsIn(f.items), 0);
+  // the folder each top-level row sits in, in reading order: keeping the first n of
+  // these keeps the first n rows across the folders, and drops a folder left empty
+  const slots = folders.flatMap((f, fi) => f.items.map(() => fi));
+  const build = (n: number) => {
+    const kept = new Map<number, number>();
+    for (const fi of slots.slice(0, n)) kept.set(fi, (kept.get(fi) ?? 0) + 1);
+    const out = folders.flatMap((f, fi) => (kept.get(fi) ? [{ ...f, items: f.items.slice(0, kept.get(fi)) }] : []));
+    const omitted = total - out.reduce((n, f) => n + rowsIn(f.items), 0);
+    const truncated = { ...(notes ? { notes: true } : {}), ...(omitted ? { items: omitted } : {}) };
+    return { ...head, ...(Object.keys(truncated).length ? { truncated } : {}), folders: out };
+  };
+  let lo = 0;
+  let hi = slots.length;
+  if (notes && size(build(hi)) <= max) return build(hi);
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >> 1;
+    if (size(build(mid)) <= max) lo = mid;
+    else hi = mid;
+  }
+  return build(lo);
 }
 
 async function search(args: Record<string, unknown>): Promise<ToolResult> {
