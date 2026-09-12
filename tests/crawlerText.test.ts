@@ -68,5 +68,6 @@ describe("llms.txt", () => {
     // and still steers a fetcher away from the editor shell, which serves it nothing
     expect(body).toContain("The list editor (/e)");
     expect(body).toContain("http://mahonia.test/about");
+    expect(body).toContain("http://mahonia.test/changelog");
   });
 });

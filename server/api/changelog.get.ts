@@ -1,4 +1,4 @@
-import { defineEventHandler, setHeader } from "h3";
+import { defineEventHandler, getQuery, setHeader } from "h3";
 import changelog from "../../content/changelog.generated.json";
 import { sortReleases, type ChangelogRelease } from "../../shared/changelog";
 
@@ -22,6 +22,10 @@ import { sortReleases, type ChangelogRelease } from "../../shared/changelog";
 //
 // The Added/Changed/Fixed flattening lives here too — dropping empty groups server-side
 // means the template just iterates, and the payload doesn't carry empty arrays.
+//
+// `?limit=N` returns the newest N releases. /about asks for one: it shows the latest
+// as a taste of /changelog, and the whole log is fifty kilobytes a prerendered page
+// would otherwise carry in its payload for a visitor who came to read what Mahonia is.
 const GROUP_DEFS = [
   { key: "added", label: "Added" },
   { key: "changed", label: "Changed" },
@@ -42,7 +46,10 @@ export default defineEventHandler((event) => {
   // Checked-in content that only changes on deploy — cache hard at the edge. (No
   // rate limit, unlike /changes: this reads no database and does no per-request work.)
   setHeader(event, "Cache-Control", "public, max-age=300, s-maxage=3600");
-  const releases: ChangelogEntry[] = sortReleases(changelog as ChangelogRelease[]).map((rel) => ({
+  const limit = Number(getQuery(event).limit);
+  const sorted = sortReleases(changelog as ChangelogRelease[]);
+  const shown = Number.isInteger(limit) && limit > 0 ? sorted.slice(0, limit) : sorted;
+  const releases: ChangelogEntry[] = shown.map((rel) => ({
     date: rel.date,
     title: rel.title,
     groups: GROUP_DEFS.map((g) => ({ label: g.label, items: rel[g.key] ?? [] })).filter(

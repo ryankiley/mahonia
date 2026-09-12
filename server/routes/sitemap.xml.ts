@@ -13,9 +13,8 @@ export default defineEventHandler(async (event) => {
   const rows = await listPublicSlugs().catch(() => []);
   const urls = [
     `  <url><loc>${esc(origin)}/</loc></url>`,
-    // /about absorbed the old /changelog page (it's the "What's new" section now),
-    // so the crawlable copy that used to live at /changelog is listed here instead
     `  <url><loc>${esc(origin)}/about</loc></url>`,
+    `  <url><loc>${esc(origin)}/changelog</loc></url>`,
     ...rows.map((r) => {
       const d = r.updatedAt ? new Date(r.updatedAt) : null;
       const lastmod = d && !isNaN(d.getTime()) ? `<lastmod>${d.toISOString().slice(0, 10)}</lastmod>` : "";

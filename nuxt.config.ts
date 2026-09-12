@@ -276,8 +276,8 @@ export default defineNuxtConfig({
     // waits on — a request on the critical path of the site's two front doors, for
     // a payload that is 69 bytes of nothing. With "client" the payload is inlined
     // in the HTML on first load, and the `_payload.json` files are still written and
-    // still used for client-side navigation (the footer's link to /about reads the
-    // prerendered changelog from its payload instead of calling the API). This is
+    // still used for client-side navigation (the footer's link to /changelog reads
+    // the prerendered log from its payload instead of calling the API). This is
     // the default Nuxt 5 will move to.
     payloadExtraction: "client",
   },
@@ -410,15 +410,14 @@ export default defineNuxtConfig({
     "/e": { prerender: true },
     // pure-static pages → build-time prerender (CDN-served, zero invocations)
     "/about": { prerender: true },
+    "/changelog": { prerender: true },
     "/legal": { prerender: true },
-    // Privacy + Terms were merged into /legal (two sections), and What's new into
-    // /about the same way — keep the old URLs working with a permanent redirect
-    // (bookmarks, external links, llms.txt history). No #hash on the changelog
-    // redirect: a fragment never reaches the server, so it can't be preserved
-    // through one; /about carries the "Jump to What's new" link instead.
+    // Privacy + Terms were merged into /legal (two sections) — keep the old URLs
+    // working with a permanent redirect (bookmarks, external links, llms.txt history).
+    // /changelog took the same trip into /about and came back out (the log outgrew the
+    // page it was a section of), so it is a page again and no longer a redirect.
     "/privacy": { redirect: { to: "/legal", statusCode: 301 } },
     "/terms": { redirect: { to: "/legal", statusCode: 301 } },
-    "/changelog": { redirect: { to: "/about", statusCode: 301 } },
     // "Your lists" was a page; it is the editor's switcher now, and the two actions it
     // owned (forget on this device, delete for everyone) are rows in the editor's ⋯
     // menu. Redirected rather than dropped: it was linked from the footer of every
