@@ -4,6 +4,10 @@
 // attribute and string literal in app/, shared/ and server/ — comments and CSS
 // stripped — and fails on any dash that isn't one of the deliberate exceptions
 // below (title separators, the empty-value cell, numeric ranges, log lines).
+//
+// The changelog too: content/changelog.d/*.json and the archive are prose a visitor
+// reads on /about, and a hundred dashes had gathered there while this test looked
+// only at code (swept 2026-09-12).
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -11,6 +15,12 @@ import { describe, expect, it } from "vitest";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const ROOTS = ["app", "shared", "server"];
+const CHANGELOG = [
+  "content/changelog.json",
+  ...readdirSync(join(ROOT, "content/changelog.d"))
+    .filter((f) => f.endsWith(".json")) // the folder's README is for us, not the page
+    .map((f) => `content/changelog.d/${f}`),
+];
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
@@ -50,16 +60,16 @@ const ALLOWED: RegExp[] = [
 describe("user-facing prose", () => {
   it("carries no em or en dashes outside the deliberate exceptions", () => {
     const offenders: string[] = [];
-    for (const root of ROOTS) {
-      for (const file of walk(join(ROOT, root))) {
-        const raw = readFileSync(file, "utf8");
-        const src = file.endsWith(".vue") ? stripVue(raw) : stripJs(raw);
-        src.split("\n").forEach((line, i) => {
-          if (!/[—–]/.test(line)) return;
-          if (ALLOWED.some((re) => re.test(line))) return;
-          offenders.push(`${file.slice(ROOT.length)}:${i + 1}: ${line.trim()}`);
-        });
-      }
+    const files = [...ROOTS.flatMap((root) => walk(join(ROOT, root))), ...CHANGELOG.map((f) => join(ROOT, f))];
+    for (const file of files) {
+      const raw = readFileSync(file, "utf8");
+      // JSON has no comments to strip: every string in it is a sentence on the page
+      const src = file.endsWith(".vue") ? stripVue(raw) : file.endsWith(".json") ? raw : stripJs(raw);
+      src.split("\n").forEach((line, i) => {
+        if (!/[—–]/.test(line)) return;
+        if (ALLOWED.some((re) => re.test(line))) return;
+        offenders.push(`${file.slice(ROOT.length)}:${i + 1}: ${line.trim()}`);
+      });
     }
     expect(offenders).toEqual([]);
   });

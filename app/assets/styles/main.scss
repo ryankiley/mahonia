@@ -112,6 +112,11 @@
 .bullets > li {
   padding-left: var(--space-4);
   position: relative;
+  /* No leading hang here. The root hangs a line's first quote outside the measure
+     (reset.scss), which on a bare paragraph is the margin and on one of these is the
+     gutter the mark sits in: an entry opening with “ put its quote against the dot and
+     read as a bullet with no gap. The trailing hang stays; that edge is still free. */
+  hanging-punctuation: last;
 }
 /* Drawn, not a glyph — crisp and identical across fonts — and sized in em so it tracks
    the text.
@@ -155,6 +160,26 @@
 .prose a:not(.btn):hover {
   // deepen on hover, but never to full ink — keeps the underline soft (see --underline)
   border-bottom-color: var(--ink-2);
+}
+/* A token set in running text: an address to copy, a thing to type. The shortcuts sheet's
+   keycap (.keys__kbd), in a sentence rather than a column. The browser's default is the
+   wrong size twice over: mono glyphs at the paragraph's 16px read a size up from the
+   text beside them, and a box at that size stands the line taller than its neighbours.
+   One step down to --text-chrome brings the glyphs level and keeps the chip inside the
+   24px line (14 × 1.4 + the padding = 22.4). The ground is the well's tint rather than
+   the keycap's edged paper: a keycap is a thing you press, and this is only a thing you
+   read. */
+.prose code {
+  display: inline-block;
+  max-width: 100%;
+  padding: 0.1em 0.45em;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: var(--text-chrome);
+  line-height: 1.4;
+  color: var(--ink);
+  background: color-mix(in oklab, var(--ink) 8%, transparent);
+  border-radius: var(--radius-2);
+  overflow-wrap: anywhere;
 }
 
 // Motion — one signature ease (SPACE10), opacity + transform only. The load
