@@ -29,12 +29,12 @@
       "variant": "",
       "attributes": {"persons": 2},
       "category_hint": "shelter",
-      "weight_value": 2,
+      "weight_value": 3,
       "weight_unit": "lb",
-      "weight_secondary": "13 oz",
+      "weight_secondary": "3 oz",
       "weight_source": "manufacturer",
-      "source_url": "https://jrifecompany.com/products/big-agnes-copper-spur-hv-ul2-mtnglo%C2%AE",
-      "quote": "Trail Weight: 2lb 13oz / 1.28kg"
+      "source_url": "https://www.bigagnes.com/products/copper-spur-ul2-mtnglo",
+      "quote": "Trail Weight: 2lb 12oz. Total Weight: 3lb 3oz. Fast Fly / Shelter Mode Weight: 2lb 1oz"
     },
     {
       "brand": "REI Co-op",

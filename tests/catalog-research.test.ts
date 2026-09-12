@@ -5,13 +5,13 @@
 
 import { describe, expect, it } from "vitest";
 import { runResearchChecks } from "../scripts/researchChecks";
-import { RESEARCH_DIR } from "../scripts/paths";
-import { readResearchFiles } from "../scripts/research";
+import { COMMON_NAMES_JSON, RESEARCH_DIR } from "../scripts/paths";
+import { loadCommonNames, readResearchFiles } from "../scripts/research";
 
-const findings = runResearchChecks(readResearchFiles(RESEARCH_DIR));
+const findings = runResearchChecks(readResearchFiles(RESEARCH_DIR), loadCommonNames(COMMON_NAMES_JSON));
 
 describe("seed/_research data quality", () => {
-  it("has NO error-level defects (quote mismatches, kcal not in its panel, unstated food weight basis, dup identities)", () => {
+  it("has NO error-level defects (quote mismatches, kcal not in its panel, unstated food weight basis, a tent at trail weight, dup identities)", () => {
     expect(findings.filter((f) => f.level === "error").map((f) => `[${f.code}] ${f.message}`)).toEqual([]);
   });
 });

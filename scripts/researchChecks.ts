@@ -13,7 +13,7 @@ import { ATTRIBUTE_KEYS, validateAttributes } from "./catalogAttributes";
 import type { Finding } from "./catalogChecks";
 import { gearLabel } from "./catalogChecks";
 import { identityKey, isCitationUrl, isWeightSource, specToMg, type SpecUnit } from "./catalogCsv";
-import type { ResearchFile } from "./research";
+import { researchGearType, type ResearchFile } from "./research";
 import { RANGE_G } from "../shared/catalogQuality";
 
 /** All gram-equivalent figures mentioned in a quote (kg converted to g).
@@ -62,7 +62,35 @@ export function kcalMatchesQuote(kcal: number, kcalQuote: string, servings: numb
 const POUCH_MEAL = /^meal$/i;
 const AS_CARRIED_EVIDENCE = /total weight|package weight|packaged weight|pouch included|as carried|weighed/i;
 
-export function runResearchChecks(files: ResearchFile[]): Finding[] {
+// Tents are the shelter rows where a maker prints two figures 100–300 g apart: the
+// "trail" or "minimum" weight (fly, inner, poles) and the "packed" / "packaged" / "total"
+// / "typical" weight (everything in the box: stakes, guylines, bags). The catalog stores
+// the PACKAGED figure, the food rule's "what you carry" applied to shelter (decided
+// 2026-09-12). A row that could only be sourced at trail weight says "trail weight" in
+// its variant, and the audit lists it as a to-do.
+const TRAIL_WEIGHT = /\b(?:min(?:imum)?\.?\s*(?:\(?trail\)?\s*)?weight|trail\s*weight|fly\s*\+\s*inner|fly and inner|without stakes|no stakes)\b/i;
+const PACKED_WEIGHT = /\b(?:pack(?:ed|aged)?\s*weight|package\s*weight|total\s*weight|typical\s*weight|full\s*weight|with stakes|including (?:all )?stakes|all[- ]in)\b/i;
+const TRAIL_TOKEN = "trail weight";
+
+/** The first gram-equivalent figure after `re` in `q`, or null. */
+function figureAfter(q: string, re: RegExp): number | null {
+  const i = q.search(re);
+  if (i < 0) return null;
+  const m = q.slice(i).match(/(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)\s*(g|kg|oz|lbs?)\b/i);
+  if (!m) return null;
+  const n = parseFloat(m[1].replace(/,/g, ""));
+  const u = m[2].toLowerCase();
+  let g = u === "g" ? n : u === "kg" ? n * 1000 : u === "oz" ? n * 28.3495 : n * 453.592;
+  // "3 lb 5 oz": add a trailing ounce remainder
+  if (u.startsWith("lb")) {
+    const rest = q.slice(i + m.index! + m[0].length).match(/^[.,]?\s*,?\s*(\d+(?:\.\d+)?)\s*oz\b/i);
+    if (rest) g += parseFloat(rest[1]) * 28.3495;
+  }
+  return g;
+}
+const near = (a: number, b: number) => Math.abs(a - b) <= Math.max(8, 0.03 * b);
+
+export function runResearchChecks(files: ResearchFile[], commonNames: Map<string, string> = new Map()): Finding[] {
   const out: Finding[] = [];
   const err = (code: string, message: string) => out.push({ level: "error", code, message });
   const warn = (code: string, message: string) => out.push({ level: "warning", code, message });
@@ -156,7 +184,8 @@ export function runResearchChecks(files: ResearchFile[]): Finding[] {
       // FOOD WEIGHT BASIS — a pouch meal stores what you carry (pouch included) or
       // says "net". Either the quote shows a packaged/weighed figure, or the variant
       // carries "net"; a row that does neither is ambiguous about 20–30 g.
-      const isPouchMeal = (r.category_hint ?? "").toLowerCase() === "consumable" && POUCH_MEAL.test((r.common_name ?? "").trim());
+      const gearType = researchGearType(r, commonNames);
+      const isPouchMeal = (r.category_hint ?? "").toLowerCase() === "consumable" && POUCH_MEAL.test(gearType);
       if (isPouchMeal) {
         const saysNet = (r.variant ?? "").split(/,\s*/).includes("net");
         const evidence = AS_CARRIED_EVIDENCE.test(r.quote ?? "");
@@ -165,6 +194,31 @@ export function runResearchChecks(files: ResearchFile[]): Finding[] {
         }
         if (saysNet && evidence) {
           err("food-weight-basis", `${where}: the quote shows an as-carried figure — store it and drop "net"`);
+        }
+      }
+
+      // TENT WEIGHT BASIS — a tent row stores the packaged weight (everything in the box).
+      // Read from the quote: the figure after a "trail"/"minimum" label and the figure
+      // after a "packed"/"total"/"typical" label. Storing the trail figure when the packed
+      // one is on the page is an error; a row that could only be sourced at trail weight
+      // says "trail weight" in its variant and is listed as a to-do.
+      if (/^tent$/i.test(gearType)) {
+        const q = r.quote ?? "";
+        const saysTrail = (r.variant ?? "").split(/,\s*/).includes(TRAIL_TOKEN);
+        const trail = figureAfter(q, TRAIL_WEIGHT);
+        const packed = figureAfter(q, PACKED_WEIGHT);
+        // the stored figure is the trail one when it matches the figure after a trail label,
+        // or when the quote calls its only figure a minimum weight and gives no packed one
+        const storedIsTrail = trail != null
+          ? near(g, trail) && !(packed != null && near(g, packed))
+          : packed == null && TRAIL_WEIGHT.test(q);
+        if (saysTrail) {
+          if (packed != null) err("tent-weight-basis", `${where}: the quote shows a packaged figure (${packed.toFixed(0)} g) — store it and drop "trail weight"`);
+          else warn("tent-trail-weight", `${where}: stored at trail weight — find the packaged weight (maker "packed" / "total" / "typical" weight) and drop "trail weight"`);
+        } else if (storedIsTrail) {
+          err("tent-weight-basis", packed != null
+            ? `${where}: ${g.toFixed(0)} g is the trail/minimum weight; the packaged weight on the same page is ${packed.toFixed(0)} g — store that`
+            : `${where}: ${g.toFixed(0)} g is the trail/minimum weight — find the packaged weight, or say "trail weight" in the variant`);
         }
       }
     }

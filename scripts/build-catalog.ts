@@ -21,7 +21,7 @@ import {
 } from "./catalogCsv";
 import { extractAttributes, serializeAttributes, validateAttributes } from "./catalogAttributes";
 import { CATALOG_CSV, COMMON_NAMES_JSON, RESEARCH_DIR } from "./paths";
-import { readResearchFiles } from "./research";
+import { loadCommonNames, readResearchFiles } from "./research";
 import { normalizeVariant } from "../shared/catalogQuality";
 import { deriveNoun } from "./searchTerms";
 import { normalizeGearType } from "./gearTypes";
@@ -60,47 +60,17 @@ type BuiltRow = {
 const identity = (r: { brand: string; name: string; variant: string }) =>
   identityKey(r.brand, r.name, r.variant);
 
-// The default gear types, keyed by identity. Source of truth for the `common_name` CSV
-// column — HAND-AUTHORED in seed/common-names.json (nothing generates it; it survives
-// rebuilds, unlike a hand-edited CSV column). Missing rows fall back to deriveNoun(name).
-//
-// Because the key is brand|name|variant, editing any of those three in a research row
-// orphans its entry here and the row silently falls back to a different label — so main()
-// reports entries that matched nothing (see `orphaned` below) rather than letting the map
-// rot quietly. New rows should carry `common_name` on the research row itself; this file
-// is the one-time backfill for everything that predates that.
-function loadCommonNames(): Map<string, string> {
-  const m = new Map<string, string>();
-  try {
-    const arr = JSON.parse(readFileSync(COMMON_NAMES_JSON, "utf8")) as Array<{
-      brand?: string;
-      name?: string;
-      variant?: string;
-      common_name?: string;
-    }>;
-    for (const e of arr) {
-      const cn = (e.common_name ?? "").trim();
-      if (!cn) continue;
-      m.set(
-        identity({
-          brand: (e.brand ?? "").trim(),
-          name: (e.name ?? "").trim(),
-          variant: normalizeVariant(e.variant ?? ""),
-        }),
-        cn,
-      );
-    }
-  } catch {
-    // no map yet → every row falls back to deriveNoun (or blank)
-  }
-  return m;
-}
-
+// The default gear types, keyed by identity: the hand-authored seed/common-names.json,
+// loaded by scripts/research.ts (the research checks read the same map). Because the key is
+// brand|name|variant, editing any of those three in a research row orphans its entry and
+// the row silently falls back to a different label, so main() reports entries that matched
+// nothing (see `orphaned` below). New rows carry `common_name` inline; the map is the
+// one-time backfill for everything that predates that.
 function main() {
   const built: BuiltRow[] = [];
   const seen = new Map<string, string>(); // identity -> source file (for dup reporting)
   const skipped: string[] = [];
-  const commonNames = loadCommonNames();
+  const commonNames = loadCommonNames(COMMON_NAMES_JSON);
   const usedCommonKeys = new Set<string>(); // which map entries actually matched a row
   let handWritten = 0; // research rows carrying attributes their variant doesn't state
 

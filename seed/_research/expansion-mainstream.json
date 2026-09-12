@@ -39,7 +39,7 @@
     {
       "brand": "Marmot",
       "name": "Tungsten UL 2P",
-      "variant": "",
+      "variant": "trail weight",
       "attributes": {"persons": 2},
       "category_hint": "shelter",
       "weight_value": 1340,
@@ -63,7 +63,7 @@
     {
       "brand": "Marmot",
       "name": "Tungsten 2P",
-      "variant": "",
+      "variant": "trail weight",
       "attributes": {"persons": 2},
       "category_hint": "shelter",
       "weight_value": 4.98,
@@ -101,11 +101,12 @@
       "name": "Late Start 2",
       "variant": "2P",
       "category_hint": "shelter",
-      "weight_value": 4.3125,
+      "weight_value": 4,
       "weight_unit": "lb",
+      "weight_secondary": "12 oz",
       "weight_source": "manufacturer",
-      "source_url": "https://kelty.com/products/late-start-2p",
-      "quote": "Minimum weight: 4 lbs 5 oz / 1.9 kg"
+      "source_url": "https://www.kelty.com/late-start-2p/",
+      "quote": "Minimum Weight: 4 lbs 5 oz / 1.9 kg. Packed Weight: 4 lbs 12 oz / 2.1 kg"
     },
     {
       "brand": "Klymit",
@@ -182,7 +183,7 @@
     {
       "brand": "Naturehike",
       "name": "Cloud Up 2",
-      "variant": "20D",
+      "variant": "20D, trail weight",
       "attributes": {"persons": 2},
       "category_hint": "shelter",
       "weight_value": 1.38,

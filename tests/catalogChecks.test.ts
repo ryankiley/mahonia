@@ -152,6 +152,28 @@ describe("research-level attributes check", () => {
   });
 });
 
+describe("research-level tent weight basis", () => {
+  const tent = (variant: string, weight_value: number, quote: string): ResearchFile => ({
+    file: "synthetic.json",
+    rows: [{ brand: "Acme", name: "Ridge 2", variant, common_name: "tent", category_hint: "shelter", weight_value, weight_unit: "g", weight_source: "manufacturer", source_url: "https://acme.example/ridge", quote }],
+  });
+  const codes = (f: ResearchFile, level: "error" | "warning") => runResearchChecks([f]).filter((x) => x.level === level).map((x) => x.code);
+  it("a tent stored at the trail figure when the page also gives the packaged one is an error", () => {
+    expect(codes(tent("2P", 1190, "Trail Weight: 1.19kg / 2lb 10oz. Packed Weight: 1.33kg / 2lb 15oz"), "error")).toContain("tent-weight-basis");
+    expect(codes(tent("2P", 1330, "Trail Weight: 1.19kg / 2lb 10oz. Packed Weight: 1.33kg / 2lb 15oz"), "error")).toEqual([]);
+  });
+  it("a tent stored at a trail-only figure must say so, and saying so is a to-do", () => {
+    expect(codes(tent("2P", 1340, "Minimum Weight: 1340g"), "error")).toContain("tent-weight-basis");
+    expect(codes(tent("2P, trail weight", 1340, "Minimum Weight: 1340g"), "error")).toEqual([]);
+    expect(codes(tent("2P, trail weight", 1340, "Minimum Weight: 1340g"), "warning")).toContain("tent-trail-weight");
+    // "trail weight" while the page shows a packaged figure: store that instead
+    expect(codes(tent("2P, trail weight", 1190, "Minimum Weight: 1190 g. Packed Weight: 1330 g"), "error")).toContain("tent-weight-basis");
+  });
+  it("a tent quoted at one unlabelled figure raises nothing", () => {
+    expect(codes(tent("2P", 509, "Tent: 17.9 oz / 509 g (Dyneema floor)"), "error")).toEqual([]);
+  });
+});
+
 describe("research-level kcal cross-check", () => {
   it("reads servings from the variant or the quote", () => {
     expect(servingsOf("2 servings", "")).toBe(2);

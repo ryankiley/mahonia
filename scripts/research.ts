@@ -6,6 +6,10 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { AttributeKey, RowAttributes } from "./catalogAttributes";
+import { identityKey } from "./catalogCsv";
+import { normalizeGearType } from "./gearTypes";
+import { deriveNoun } from "./searchTerms";
+import { normalizeVariant } from "../shared/catalogQuality";
 
 /** One row of cited research exactly as authored. Superset shape — each script
  *  validates only the fields it needs. `category_hint` is `string | null` (the
@@ -38,6 +42,10 @@ export interface ResearchRow {
   //     that could only be sourced at net contents says "net" in its variant, and the audit
   //     lists it as a to-do. Bars and chews stay at label weight (a wrapper is a gram or two).
   //     Fuel canisters keep "net fuel": the weight is the gas alone, not the can.
+  //   • A tent row weighs what is in the BOX — the maker's "packed" / "packaged" / "total" /
+  //     "typical" weight, stakes and bags included — never the "trail" or "minimum" figure
+  //     (fly, inner, poles), which sits 100–300 g lighter on the same page. A row that could
+  //     only be sourced at trail weight says "trail weight" in its variant and is a to-do.
   //   • Servings: a multi-serving pouch says "2 servings"; single-serving is the unmarked default
   //     ("1 serving" is filler). A maker's format name stays ("Pro-Pak").
   //   • Several of a thing read "3-pack" or "sleeve of 10". A number and its unit are one
@@ -96,6 +104,33 @@ export interface ResearchFile {
   file: string;
   rows: ResearchRow[];
   parseError?: string;
+}
+
+/** The hand-authored gear-type map (seed/common-names.json) keyed by identity, for rows
+ *  that predate an inline `common_name`. Empty when the file is missing. Shared by the
+ *  build (which also reports orphans) and the research checks (which need a row's gear
+ *  type to know a tent from a stove). */
+export function loadCommonNames(path: string): Map<string, string> {
+  const m = new Map<string, string>();
+  try {
+    const arr = JSON.parse(readFileSync(path, "utf8")) as Array<{ brand?: string; name?: string; variant?: string; common_name?: string }>;
+    for (const e of arr) {
+      const cn = (e.common_name ?? "").trim();
+      if (!cn) continue;
+      m.set(identityKey((e.brand ?? "").trim(), (e.name ?? "").trim(), normalizeVariant(e.variant ?? "")), cn);
+    }
+  } catch {
+    // no map yet: every row falls back to its own common_name or a derived noun
+  }
+  return m;
+}
+
+/** A research row's canonical gear type, resolved the way the build resolves it: the
+ *  row's own `common_name`, else the hand-authored map, else a noun derived from the name. */
+export function researchGearType(row: ResearchRow, commonNames: Map<string, string>): string {
+  const own = typeof row.common_name === "string" ? row.common_name.trim() : "";
+  const mapped = commonNames.get(identityKey((row.brand ?? "").trim(), (row.name ?? "").trim(), normalizeVariant(row.variant ?? "")));
+  return normalizeGearType(own || mapped || deriveNoun((row.name ?? "").trim()) || "");
 }
 
 /** Read + JSON-parse every `*.json` under `researchDir`, sorted by filename. Never

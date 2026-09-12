@@ -44,11 +44,11 @@
       "attributes_source_url": "https://www.tarptent.com/product/notch/",
       "attributes_quote": "Sleeps: 1",
       "category_hint": "shelter",
-      "weight_value": 26,
-      "weight_unit": "oz",
+      "weight_value": 812,
+      "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://www.tarptent.com/product/notch/",
-      "quote": "Minimum Weight 26 oz / 737 g (with solid interior; not including stakes or bags)"
+      "quote": "Minimum Weight: 26 oz / 737 g (with solid interior; not including stakes or bags). Typical Weight: 28.65 oz / 812 g (with solid interior; including stakes and bags)"
     },
     {
       "brand": "Tarptent",
@@ -58,16 +58,16 @@
       "attributes_source_url": "https://www.tarptent.com/product/notch-li/",
       "attributes_quote": "Sleeps: 1",
       "category_hint": "shelter",
-      "weight_value": 20,
-      "weight_unit": "oz",
+      "weight_value": 645,
+      "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://www.tarptent.com/product/notch-li/",
-      "quote": "Minimum Weight: 20 oz / 567 g (with DCF floor mesh interior; not including stakes, bags, or apex guy lines)"
+      "quote": "Minimum Weight: 20.2 oz / 573 g (with DCF floor mesh interior; no stakes or bags). Typical Weight: 22.75 oz / 645 g (with DCF floor mesh interior; including all stakes and bags)"
     },
     {
       "brand": "Tarptent",
       "name": "ProTrail Li",
-      "variant": "",
+      "variant": "trail weight",
       "category_hint": "shelter",
       "weight_value": 15.95,
       "weight_unit": "oz",
@@ -81,16 +81,16 @@
       "variant": "",
       "attributes": {"persons": 2},
       "category_hint": "shelter",
-      "weight_value": 35.9,
-      "weight_unit": "oz",
+      "weight_value": 1118,
+      "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://www.tarptent.com/product/double-rainbow/",
-      "quote": "Minimum Weight: 35.9 oz / 1018 g (with carbon arch pole; not including bags, stakes, or freestanding kit)"
+      "quote": "Minimum Weight: 35.9 oz / 1018 g (with carbon arch pole; not including bags, stakes, or freestanding kit). Typical Weight: 39.45 oz / 1118 g (with carbon arch pole, including all bags and stakes)"
     },
     {
       "brand": "Tarptent",
       "name": "Double Rainbow Li",
-      "variant": "",
+      "variant": "trail weight",
       "attributes": {"persons": 2},
       "category_hint": "shelter",
       "weight_value": 26.2,
@@ -107,16 +107,16 @@
       "attributes_source_url": "https://www.tarptent.com/product/aeon-li/",
       "attributes_quote": "Sleeps: 1",
       "category_hint": "shelter",
-      "weight_value": 16.85,
-      "weight_unit": "oz",
+      "weight_value": 571,
+      "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://www.tarptent.com/product/aeon-li/",
-      "quote": "Minimum Weight: 16.85 oz / 478 g (without stakes and bags)"
+      "quote": "Minimum Weight: 16.85 oz / 478 g (without stakes and bags). Typical Weight: 20.15 oz / 571 g (with stakes and bags)"
     },
     {
       "brand": "Tarptent",
       "name": "StratoSpire 2",
-      "variant": "",
+      "variant": "trail weight",
       "attributes": {"persons": 2},
       "category_hint": "shelter",
       "weight_value": 38.8,
@@ -133,11 +133,11 @@
       "attributes_source_url": "https://www.tarptent.com/product/stratospire-li/",
       "attributes_quote": "Sleeps: 2",
       "category_hint": "shelter",
-      "weight_value": 29.7,
-      "weight_unit": "oz",
+      "weight_value": 951,
+      "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://www.tarptent.com/product/stratospire-li/",
-      "quote": "Minimum Weight: 29.7 oz / 842 g (wide interior, no bags or stakes or apex guylines)"
+      "quote": "Minimum Weight: 29.7 oz / 842 g (no bags or stakes or apex guylines). Typical Weight: 33.55 oz / 951 g (includes stakes, bags, struts, and apex guylines)"
     },
     {
       "brand": "Mountain Laurel Designs",

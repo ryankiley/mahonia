@@ -34,12 +34,12 @@
       "variant": "",
       "attributes": {"persons": 1},
       "category_hint": "shelter",
-      "weight_value": 1.87,
+      "weight_value": 2,
       "weight_unit": "lb",
-      "weight_secondary": "848 g",
+      "weight_secondary": "2 oz",
       "weight_source": "manufacturer",
-      "source_url": "https://www.bigagnes.com/products/tiger-wall-ul-one.json",
-      "quote": "Tiger Wall UL1 weight 1.87 lb (848 g); cross-checked trail weight \"1 lb 14 oz\" (Treeline Review, https://www.treelinereview.com/gearreviews/big-agnes-tiger-wall-review)"
+      "source_url": "https://www.bigagnes.com/products/tiger-wall-ul-one",
+      "quote": "Trail Weight: 1lb 14oz. Total Weight: 2lb 2oz. Fast Fly / Shelter Mode Weight: 1lb 7oz"
     },
     {
       "brand": "Zpacks",
