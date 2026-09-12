@@ -41,7 +41,9 @@ plausibility, pouch meals still at net weight, food rows without kcal, rows miss
 gear type is sold by). `catalog:build` also fails on a `seed/common-names.json` entry that matches
 no row.
 
-A variant's axes are typed beside it in `attributes` (`scripts/catalogAttributes.ts`): a row whose
-variant says `20F` without `temp_f: 20` is a build error, as is a value outside its canonical form.
-What the variant doesn't state (an R-value, a quilt's rating) is researched and written by hand.
+A variant's axes are read out of it at build time into the CSV's `attributes` column
+(`scripts/catalogAttributes.ts`; the vocabulary and what each gear type is sold by live in
+`shared/catalogAxes.ts`). A research row writes in `attributes` only what its variant doesn't state
+(an R-value, a quilt's rating), in the canonical form; a value that contradicts the variant, a
+variant that claims one axis twice, or a value outside its form is a build error.
 

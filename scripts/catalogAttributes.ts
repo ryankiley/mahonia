@@ -1,159 +1,113 @@
-// Typed attributes on a catalog row — the axes a variant string has always crammed into
-// prose. "20F, 950FP, Regular" is a temperature, a fill power and a length; "Men's US 9"
-// is a fit and a size; "65L" is a volume. A research row carries them as an `attributes`
-// object beside its variant, the build serialises them into one CSV column, and the
-// checks hold them to units (here) and to the variant text (scripts/catalogChecks.ts).
+// Typed attributes on a catalog row: the axes a variant string has always crammed into
+// prose, read out of it at build time. "20F, 950FP, Regular" is a temperature, a fill
+// power and a length; "Men's US 9" is a fit and a size; "65L" is a volume. The build
+// serialises them into one CSV column, a research row adds by hand only what its variant
+// does not state, and the checks hold every value to one form and the two sources to
+// each other.
 //
-// Two halves, both pure:
-//   • validateAttributes — the unit rules. Every value has one canonical form, so a
-//     row can't say "20°F" here and "20F" there, or store a fill power as "850fp".
-//   • extractAttributes — the MECHANICAL reading of a variant string, keyed on the gear
+// Three parts, all pure:
+//   • validateAttributes: the unit rules. Every value has one canonical form, so a row
+//     can't say "20°F" here and "20F" there, or store a fill power as "850fp".
+//   • serializeAttributes / parseAttributes: the CSV cell, `temp_f=20; length=Regular`.
+//   • extractAttributes: the MECHANICAL reading of a variant string, keyed on the gear
 //     type where a token is ambiguous ("Regular" is a length on a quilt, a torso on a
-//     pack, an inseam on pants, a size on a pillow). The first pass over the catalog
-//     was this function; the CSV check re-runs it on every row, so a variant that
-//     states "20F" with no `temp_f: 20` beside it fails the build — the same way a
-//     "6 ft" that isn't "6ft" does. Everything it does NOT read (a bare "Standard"
-//     that is a width on a Zpacks quilt and a length on a Hammock Gear one, "LW Mummy",
-//     "Double Wide") is left for research, which writes the attribute by hand.
+//     pack, an inseam on pants, a size on a pillow; "3L" is litres on a reservoir and a
+//     fabric on a jacket). scripts/build-catalog.ts runs it on every row; the CSV check
+//     re-runs it, so a hand-edited CSV that says "20F" without temp_f 20 fails the build.
+//     It never emits a value the validator would refuse ("330mAh", "10, 000mAh" stay in
+//     the variant for research), and it reports a variant that claims one axis twice.
+//     What it does NOT read (a bare "Standard" that is a width on a Zpacks quilt and a
+//     length on a Hammock Gear one, "LW Mummy", "Double Wide") is left for research.
 //
-// Build-time only (scripts/), like catalogChecks and gearTypes: the runtime reads the
-// seeded column, it never re-derives these.
+// The vocabulary (keys, row shape, what each gear type is sold by) is shared/catalogAxes.ts.
+// Build-time only otherwise: nothing seeds the column to the database yet; #335 adds it
+// when search returns products with axes.
 
-export interface RowAttributes {
-  /** "Men's" | "Women's" | "Unisex" | "Kids" — the gendered version, never a size. */
-  fit?: string;
-  /** A letter ("M", "XL", "S/M", "M+"), a footwear size with its region ("US 9",
-   *  "UK 8", "EU 42", "JP 3"), a size word the maker uses ("Regular", "Jumbo"), or the
-   *  maker's own scale ("4", "3-4", "D", "32"). Sleep + shelter lengths go in `length`. */
-  size?: string;
-  /** Pack torso: a letter, a range ("S/M"), a word ("Regular"), or inches ("17in"). */
-  torso?: string;
-  /** A length word ("Short", "Regular", "Long", "Tall", "Petite", "Small", "Large",
-   *  "X-Large", or a letter where the maker's length scale is letters) or a measurement
-   *  ("6ft", "6ft 6in", "72in", "120cm", "100-120cm", "1m"). */
-  length?: string;
-  /** "Slim" | "Standard" | "Regular" | "Wide" | "Extra Wide" or inches / cm. */
-  width?: string;
-  /** Temperature rating in °F (integer). A Celsius-only rating is converted. */
-  temp_f?: number;
-  /** Down fill power (500–1000). */
-  fill_power?: number;
-  /** Sleeping-pad R-value (0.5–15, one decimal). */
-  r_value?: number;
-  /** Shelter capacity in people (1–8, halves allowed: a 1.5P tent). */
-  persons?: number;
-  /** Volume in litres (up to three decimals: 500ml is 0.5, 525ml is 0.525). */
-  volume_l?: number;
-  /** Battery capacity in mAh. */
-  capacity_mah?: number;
-  /** A fuel canister's net fuel, grams (the stored weight IS the gas). */
-  fuel_g?: number;
-  /** Stove / canister fuel type. */
-  fuel?: string;
-}
+import { ATTRIBUTE_KEYS, INSEAM_TYPE, traitsOf, type AttributeKey, type RowAttributes } from "../shared/catalogAxes";
+import { ML_PER_UNIT } from "../shared/water";
 
-/** Column order in the CSV cell and the canonical key order in research JSON. */
-export const ATTRIBUTE_KEYS = [
-  "fit",
-  "size",
-  "torso",
-  "length",
-  "width",
-  "temp_f",
-  "fill_power",
-  "r_value",
-  "persons",
-  "volume_l",
-  "capacity_mah",
-  "fuel_g",
-  "fuel",
-] as const;
-export type AttributeKey = (typeof ATTRIBUTE_KEYS)[number];
-
-const NUMERIC_KEYS = new Set<AttributeKey>(["temp_f", "fill_power", "r_value", "persons", "volume_l", "capacity_mah", "fuel_g"]);
+export { ATTRIBUTE_KEYS } from "../shared/catalogAxes";
+export type { AttributeKey, RowAttributes } from "../shared/catalogAxes";
 
 // --- canonical forms ---------------------------------------------------------
 
-const LETTER = "XXS|XS|S|M|L|XL|XXL|XXXL|2XL|3XL";
+export const LETTER = "XXS|XS|S|M|L|XL|XXL|XXXL|2XL|3XL";
 const LETTER_SIZE = new RegExp(`^(?:${LETTER})\\+?$`);
 const LETTER_RANGE = new RegExp(`^(?:${LETTER})/(?:${LETTER})$`);
-const SHOE_SIZE = /^(?:US|UK|EU|JP) \d{1,2}(?:\.5)?$/;
+/** The regions a footwear size is written in; the footwear-size check reads the same list. */
+export const SHOE_REGIONS = "US|UK|EU|JP";
+const SHOE_SIZE = new RegExp(`^(?:${SHOE_REGIONS}) \\d{1,2}(?:\\.5)?$`);
 // size words a maker sells several of, outside the S/M/L family (which is letters)
 const WORD_SIZE = /^(?:X-Small|Small|Medium|Large|X-Large|Regular|Short|Long|Tall|Wide|Slim|Mini|Jumbo|Big|Nano|Petite|Standard)$/;
 // the maker's own scale: Gnuhr "4" / "3-4", Superfeet "D", a waist "32"
 const SCALE_SIZE = /^(?:\d{1,2}(?:-\d{1,2})?|[A-Z])$/;
-const LENGTH_WORD = new RegExp(`^(?:Short|Regular|Long|Tall|Petite|Small|Medium|Large|X-Large|Standard|${LETTER})$`);
+const LENGTH_WORDS = "Short|Regular|Long|Tall|Petite|Small|Medium|Large|X-Large";
+const LENGTH_WORD = new RegExp(`^(?:${LENGTH_WORDS}|Standard|${LETTER})$`);
 const LENGTH_MEASURE = /^(?:\d+ft(?: [1-9]\d?in)?|\d+(?:\.\d+)?in|\d+(?:-\d+)?cm|\d+(?:\.\d+)?m)$/;
 const WIDTH_FORM = /^(?:Slim|Standard|Regular|Wide|Extra Wide|\d+(?:\.\d+)?in|\d+cm)$/;
 const TORSO_FORM = new RegExp(`^(?:${LETTER}|(?:${LETTER})/(?:${LETTER})|Short|Regular|Long|Tall|\\d+(?:\\.\\d+)?in|\\d+-\\d+in)$`);
 const FIT_FORM = /^(?:Men's|Women's|Unisex|Kids)$/;
 const FUEL_FORM = /^(?:isobutane|butane|propane|alcohol|solid fuel|wood|white gas)$/;
 
-const isSizeForm = (s: string) => LETTER_SIZE.test(s) || LETTER_RANGE.test(s) || SHOE_SIZE.test(s) || WORD_SIZE.test(s) || SCALE_SIZE.test(s);
+// One table per value kind. `_everyKey` fails to compile if a key of ATTRIBUTE_KEYS is in
+// neither, so a new axis cannot validate as "anything" by being forgotten here.
+const NUMERIC_RULES = {
+  temp_f: { min: -60, max: 80, step: 1, why: "a whole °F between -60 and 80" },
+  fill_power: { min: 500, max: 1000, step: 1, why: "a whole fill power between 500 and 1000" },
+  r_value: { min: 0.5, max: 15, step: 0.1, why: "an R-value between 0.5 and 15 with at most one decimal" },
+  persons: { min: 1, max: 8, step: 0.5, why: "1–8 people, in halves" },
+  volume_l: { min: 0.001, max: 500, step: 0.001, why: "litres, 0.001 to 500, to the millilitre" },
+  capacity_mah: { min: 500, max: 200_000, step: 1, why: "whole mAh between 500 and 200000" },
+  fuel_g: { min: 50, max: 1000, step: 1, why: "whole grams between 50 and 1000" },
+} as const;
+type NumericKey = keyof typeof NUMERIC_RULES;
+const STRING_FORM = {
+  fit: (v: string) => FIT_FORM.test(v),
+  size: (v: string) => LETTER_SIZE.test(v) || LETTER_RANGE.test(v) || SHOE_SIZE.test(v) || WORD_SIZE.test(v) || SCALE_SIZE.test(v),
+  torso: (v: string) => TORSO_FORM.test(v),
+  length: (v: string) => LENGTH_WORD.test(v) || LENGTH_MEASURE.test(v),
+  width: (v: string) => WIDTH_FORM.test(v),
+  fuel: (v: string) => FUEL_FORM.test(v),
+} as const;
+type StringKey = keyof typeof STRING_FORM;
+const _everyKey: Record<AttributeKey, unknown> = { ...NUMERIC_RULES, ...STRING_FORM };
+void _everyKey;
 
-const decimals = (n: number) => {
-  const s = String(n);
-  const dot = s.indexOf(".");
-  return dot === -1 ? 0 : s.length - dot - 1;
+const isAttributeKey = (k: string): k is AttributeKey => (ATTRIBUTE_KEYS as readonly string[]).includes(k);
+const isNumericKey = (k: string): k is NumericKey => Object.hasOwn(NUMERIC_RULES, k);
+/** On the grid of `step` (to floating-point tolerance): 0.525 on 0.001, 1.5 on 0.5. */
+const onStep = (v: number, step: number) => {
+  const q = v / step;
+  return Math.abs(q - Math.round(q)) < 1e-6;
 };
 
 /** Every way a row's attributes can be wrong, as messages; `[]` when they're fine.
- *  `undefined` / `null` (no attributes) is fine too. Unknown keys are errors — a typo
+ *  `undefined` / `null` (no attributes) is fine too. Unknown keys are errors: a typo
  *  ("temp": 20) must not ship as a silent nothing. */
 export function validateAttributes(input: unknown): string[] {
   if (input == null) return [];
   if (typeof input !== "object" || Array.isArray(input)) return ["attributes must be an object"];
   const problems: string[] = [];
-  const a = input as Record<string, unknown>;
-  for (const key of Object.keys(a)) {
-    if (!(ATTRIBUTE_KEYS as readonly string[]).includes(key)) {
+  for (const [key, v] of Object.entries(input as Record<string, unknown>)) {
+    if (!isAttributeKey(key)) {
       problems.push(`unknown attribute "${key}" (one of ${ATTRIBUTE_KEYS.join(", ")})`);
       continue;
     }
-    const v = a[key];
     if (v == null) {
-      problems.push(`${key}: empty — omit the key instead`);
+      problems.push(`${key}: empty, omit the key instead`);
       continue;
     }
-    if (NUMERIC_KEYS.has(key as AttributeKey)) {
-      if (typeof v !== "number" || !Number.isFinite(v)) {
-        problems.push(`${key}: must be a number, got ${JSON.stringify(v)}`);
-        continue;
-      }
-      const bad = (why: string) => problems.push(`${key}: ${v} ${why}`);
-      switch (key as AttributeKey) {
-        case "temp_f":
-          if (!Number.isInteger(v) || v < -60 || v > 80) bad("must be a whole °F between -60 and 80");
-          break;
-        case "fill_power":
-          if (!Number.isInteger(v) || v < 500 || v > 1000) bad("must be a whole fill power between 500 and 1000");
-          break;
-        case "r_value":
-          if (v < 0.5 || v > 15 || decimals(v) > 1) bad("must be an R-value between 0.5 and 15 with at most one decimal");
-          break;
-        case "persons":
-          if (v < 1 || v > 8 || (v * 2) % 1 !== 0) bad("must be 1–8 people, in halves");
-          break;
-        case "volume_l":
-          if (v <= 0 || v > 500 || decimals(v) > 3) bad("must be litres, 0 < v ≤ 500, at most three decimals");
-          break;
-        case "capacity_mah":
-          if (!Number.isInteger(v) || v < 500 || v > 200_000) bad("must be whole mAh between 500 and 200000");
-          break;
-        case "fuel_g":
-          if (!Number.isInteger(v) || v < 50 || v > 1000) bad("must be whole grams between 50 and 1000");
-          break;
-      }
+    if (isNumericKey(key)) {
+      const rule = NUMERIC_RULES[key];
+      if (typeof v !== "number" || !Number.isFinite(v)) problems.push(`${key}: must be a number, got ${JSON.stringify(v)}`);
+      else if (v < rule.min || v > rule.max || !onStep(v, rule.step)) problems.push(`${key}: ${v} must be ${rule.why}`);
       continue;
     }
     if (typeof v !== "string" || !v.trim() || v !== v.trim() || /[,;=]/.test(v)) {
       problems.push(`${key}: must be a trimmed string without , ; or =, got ${JSON.stringify(v)}`);
       continue;
     }
-    const form: Record<string, RegExp> = { fit: FIT_FORM, torso: TORSO_FORM, width: WIDTH_FORM, fuel: FUEL_FORM };
-    const ok =
-      key === "size" ? isSizeForm(v) : key === "length" ? LENGTH_WORD.test(v) || LENGTH_MEASURE.test(v) : form[key]!.test(v);
-    if (!ok) problems.push(`${key}: "${v}" is not a canonical ${key}`);
+    if (!STRING_FORM[key as StringKey](v)) problems.push(`${key}: "${v}" is not a canonical ${key}`);
   }
   return problems;
 }
@@ -175,6 +129,10 @@ export function serializeAttributes(a: RowAttributes | null | undefined): string
   return parts.join("; ");
 }
 
+// a number as the serialiser writes it: digits, an optional sign and decimals, nothing
+// Number() would also accept ("", "0x14", "2e1", " 20")
+const NUMBER_FORM = /^-?\d+(?:\.\d+)?$/;
+
 /** Parse a CSV cell back; null for a blank cell. Throws on anything malformed or
  *  non-canonical, so the seeder can never load an attribute the checks would reject. */
 export function parseAttributes(cell: string | null | undefined): RowAttributes | null {
@@ -186,69 +144,83 @@ export function parseAttributes(cell: string | null | undefined): RowAttributes 
     if (eq <= 0) throw new Error(`attributes: "${part}" is not key=value`);
     const key = part.slice(0, eq);
     const raw = part.slice(eq + 1);
-    if (key in out) throw new Error(`attributes: "${key}" given twice`);
-    out[key] = NUMERIC_KEYS.has(key as AttributeKey) ? Number(raw) : raw;
+    if (Object.hasOwn(out, key)) throw new Error(`attributes: "${key}" given twice`);
+    if (isNumericKey(key)) {
+      if (!NUMBER_FORM.test(raw)) throw new Error(`attributes: ${key}=${JSON.stringify(raw)} is not a plain number`);
+      out[key] = Number(raw);
+    } else {
+      out[key] = raw;
+    }
   }
   const problems = validateAttributes(out);
   if (problems.length) throw new Error(`attributes: ${problems.join("; ")}`);
   return out as RowAttributes;
 }
 
-/** Canonical key order for research JSON, so a hand-written object and a scripted one
- *  serialise the same way. Drops nothing, validates nothing. */
-export function orderAttributes(a: RowAttributes): RowAttributes {
-  const out: Record<string, unknown> = {};
-  for (const key of ATTRIBUTE_KEYS) if (a[key] != null) out[key] = a[key];
-  return out as RowAttributes;
-}
-
 // --- mechanical extraction from a variant string ------------------------------
 
-// Where Small / Regular / Long (and a maker's letters) are a LENGTH scale.
-const LENGTH_SCALED = new Set(["quilt", "sleeping bag", "sleeping pad", "bivy", "sleeping bag liner", "hammock", "foam pad"]);
-// Where a bare Short / Regular / Tall is the torso.
-const PACK_TYPES = new Set(["backpack", "fastpack", "daypack"]);
-// Where Short / Regular / Long beside a letter size is the inseam.
-const INSEAM_TYPE = /\b(?:pants|leggings|tights|bottoms)$/;
-// Where "16oz" is fluid ounces, not a net weight (a 2oz balm, a 1.75oz snack).
-const CONTAINER_TYPES = new Set([
-  "jar", "squeeze bottle", "water bottle", "soft flask", "water treatment", "cup", "pot", "kettle", "dropper bottle",
-  "spray bottle", "toiletry bottle", "insect repellent", "water filter", "flask", "bottle",
-]);
-// Where a bare "6in" is a length (not a stool's height or a ball's diameter).
-const LENGTH_IN_TYPES = new Set([
-  "tent stakes", "straps", "strap", "rubber bands", "straw", "tent poles", "shoulder straps", "snowshoes", "cord",
-  "paracord", "guyline", "ridgeline", "trekking poles", "ice axe", "charging cable",
-]);
-
-const OZ_TO_L = 0.0295735;
+// the length scale with an optional width word and a shape word the axis model doesn't
+// carry: "Regular", "Long Wide", "Regular Mummy", "M Wide", "Regular Wide Mummy"
+const LENGTH_SCALE_TOKEN = new RegExp(`^(${LENGTH_WORDS}|${LETTER})(?: (Wide|Slim|Regular))?(?: Mummy)?$`);
+const LENGTH_WORD_ONLY = new RegExp(`^(?:${LENGTH_WORDS})$`);
+const HALF_SIZE = /^\d{1,2}(?:-\d{1,2})?$/;
 const round = (n: number, places: number) => Number(n.toFixed(places));
+
+/** The spelling family of a value, so two spellings of ONE fact ("Regular, 6ft", "US 9,
+ *  EU 42", "M, JP 3") are told apart from two claims in the same form ("Regular, Long"). */
+function formOf(value: string | number): string {
+  if (typeof value === "number") return "number";
+  const region = value.match(new RegExp(`^(${SHOE_REGIONS}) `));
+  if (region) return `region:${region[1]}`;
+  if (/^\d/.test(value)) return "measure";
+  if (LETTER_SIZE.test(value) || LETTER_RANGE.test(value)) return "letter";
+  return "word";
+}
 
 /**
  * Read the attributes a variant string states outright. Deterministic and conservative:
- * a token is read only where its meaning is unambiguous for the gear type, and the first
- * token to claim an axis keeps it ("M, JP 3" is size M; the JP 3 stays in the variant).
- * Runs on the NORMALISED variant (the CSV form). See the file header for what it leaves.
+ * a token is read only where its meaning is unambiguous for the gear type, a value the
+ * validator would refuse is not read at all, and the first token to claim an axis keeps
+ * it. A second claim in another spelling is that same fact restated and stays in the
+ * variant ("M, JP 3" is size M); a second claim in the SAME spelling family contradicts
+ * the first and is reported through `onConflict`. Runs on the NORMALISED variant (the
+ * CSV form). See the file header for what it leaves.
  */
-export function extractAttributes(variant: string | null | undefined, commonName: string | null | undefined, categoryHint: string | null | undefined): RowAttributes {
+export function extractAttributes(
+  variant: string | null | undefined,
+  commonName: string | null | undefined,
+  categoryHint: string | null | undefined,
+  onConflict?: (message: string) => void,
+): RowAttributes {
   const out: RowAttributes = {};
   const v = (variant ?? "").trim();
   if (!v) return out;
   const type = (commonName ?? "").trim().toLowerCase();
   const cat = (categoryHint ?? "").trim().toLowerCase();
-  const lengthScaled = LENGTH_SCALED.has(type);
-  const set = <K extends AttributeKey>(key: K, value: RowAttributes[K]) => {
-    if (out[key] === undefined) out[key] = value;
+  const traits = traitsOf(type);
+  const lengthScaled = traits.lengthScaled === true;
+  const pack = traits.pack === true;
+  const set = <K extends AttributeKey>(key: K, value: NonNullable<RowAttributes[K]>) => {
+    if (validateAttributes({ [key]: value }).length) return;
+    const prev = out[key];
+    if (prev === undefined) {
+      out[key] = value;
+    } else if (prev !== value && onConflict && formOf(prev) === formOf(value)) {
+      onConflict(`${key}: "${prev}" and "${value}"`);
+    }
   };
-  // a size token in any scale, after a gender or on its own; on sleep gear a plain
-  // letter is the maker's length scale (Zenbivy Regular / Large / XL)
+  // a size token in any scale, after a gender or on its own: a shoe size is a size
+  // anywhere; a letter is the maker's length scale on sleep gear (Zenbivy XL), the torso
+  // on a pack (Zpacks M, Osprey S/M), and the size elsewhere
   const sizeToken = (s: string, afterGender: boolean): boolean => {
     if (LETTER_SIZE.test(s) || LETTER_RANGE.test(s) || SHOE_SIZE.test(s)) {
-      if (lengthScaled && /^(?:XXS|XS|S|M|L|XL|XXL)$/.test(s)) set("length", s);
+      if (SHOE_SIZE.test(s)) set("size", s);
+      else if (lengthScaled) set("length", s);
+      else if (pack) set("torso", s);
       else set("size", s);
       return true;
     }
-    if ((afterGender || cat === "clothing") && /^\d{1,2}(?:-\d{1,2})?$/.test(s)) {
+    if ((afterGender || cat === "clothing") && HALF_SIZE.test(s)) {
       set("size", s);
       return true;
     }
@@ -260,8 +232,8 @@ export function extractAttributes(variant: string | null | undefined, commonName
     if (!dim) continue;
     let m: RegExpMatchArray | null;
 
-    // a spaced " / " joins two spellings of ONE figure ("32oz / 1L", "20F / -6C") — read
-    // the maker's metric one — or two labels for one row ("Men's US 9 / Women's US 10"),
+    // a spaced " / " joins two spellings of ONE figure ("32oz / 1L", "20F / -6C"): read
+    // the maker's metric one; or two labels for one row ("Men's US 9 / Women's US 10"),
     // which no single axis can hold: left for research
     if ((m = dim.match(/^\d+(?:\.\d+)?oz \/ (\d+(?:\.\d+)?)L$/))) {
       set("volume_l", Number(m[1]));
@@ -282,7 +254,7 @@ export function extractAttributes(variant: string | null | undefined, commonName
     // Osprey's women's fits: "WM/L", "WXS/S"
     if ((m = dim.match(/^W(XS\/S|S\/M|M\/L|L\/XL)$/))) {
       set("fit", "Women's");
-      set("size", m[1]);
+      sizeToken(m[1], true);
       continue;
     }
 
@@ -316,7 +288,7 @@ export function extractAttributes(variant: string | null | undefined, commonName
       continue;
     }
     // torso: "M torso", "Regular torso", "17in torso", "S/M torso"
-    if ((m = dim.match(/^(.+) torso$/)) && TORSO_FORM.test(m[1])) {
+    if ((m = dim.match(/^(.+) torso$/))) {
       set("torso", m[1]);
       continue;
     }
@@ -332,15 +304,15 @@ export function extractAttributes(variant: string | null | undefined, commonName
         continue;
       }
       if ((m = dim.match(/^(\d+)qt$/))) {
-        set("volume_l", round(Number(m[1]) * 0.946353, 3));
+        set("volume_l", round((Number(m[1]) * ML_PER_UNIT.qt) / 1000, 3));
         continue;
       }
       if ((m = dim.match(/^(\d+)gal$/))) {
-        set("volume_l", round(Number(m[1]) * 3.78541, 3));
+        set("volume_l", round((Number(m[1]) * ML_PER_UNIT.gal) / 1000, 3));
         continue;
       }
-      if (CONTAINER_TYPES.has(type) && (m = dim.match(/^(\d+(?:\.\d+)?) ?(?:fl )?oz$/))) {
-        set("volume_l", round(Number(m[1]) * OZ_TO_L, 3));
+      if (traits.container && (m = dim.match(/^(\d+(?:\.\d+)?) ?(?:fl )?oz$/))) {
+        set("volume_l", round((Number(m[1]) * ML_PER_UNIT.floz) / 1000, 3));
         continue;
       }
     }
@@ -358,21 +330,20 @@ export function extractAttributes(variant: string | null | undefined, commonName
       continue;
     }
     // other measured lengths: "50ft" / "50ft hank" (cord), "120cm" / "100-120cm" (poles,
-    // ice axes), "1m" (a cable) — anything but clothing; bare inches only where the gear's
+    // ice axes), "1m" (a cable), anything but clothing; bare inches only where the gear's
     // one dimension is its length, and on a sheet it's the pad width it fits
     if (cat !== "clothing" && (m = dim.match(/^(\d+ft|\d+(?:-\d+)?cm|\d+m)(?: hank)?$/))) {
       set("length", m[1]);
       continue;
     }
     if ((m = dim.match(/^(\d+(?:\.\d+)?in)$/))) {
-      if (LENGTH_IN_TYPES.has(type)) set("length", m[1]);
-      else if (type === "sheet") set("width", m[1]);
+      if (traits.lengthIn) set("length", m[1]);
+      else if (traits.widthIn) set("width", m[1]);
       continue;
     }
 
-    // sleep + shelter: a length scale, optionally followed by a width word, and a
-    // shape word the axis model doesn't carry: "Regular", "Long Wide", "Regular Mummy",
-    // "M Wide", "Regular Wide Mummy"; El Coyote writes "Regular, Regular" (length, width)
+    // sleep gear: a length scale, optionally followed by a width word; El Coyote writes
+    // "Regular, Regular" (length, width); Zpacks writes "Slim-Short" (width-length)
     if (lengthScaled) {
       if ((m = dim.match(/^(Slim|Standard|Regular|Wide)-(Short|Regular|Long|Medium)$/))) {
         set("width", m[1]);
@@ -383,7 +354,7 @@ export function extractAttributes(variant: string | null | undefined, commonName
         set("width", dim);
         continue;
       }
-      if ((m = dim.match(new RegExp(`^(Short|Regular|Long|Tall|Petite|Small|Medium|Large|X-Large|${LETTER})(?: (Wide|Slim|Regular))?(?: Mummy)?$`)))) {
+      if ((m = dim.match(LENGTH_SCALE_TOKEN))) {
         set("length", m[1]);
         if (m[2]) set("width", m[2]);
         continue;
@@ -392,7 +363,7 @@ export function extractAttributes(variant: string | null | undefined, commonName
     }
 
     // packs: a bare length word is the torso
-    if (PACK_TYPES.has(type) && /^(?:Short|Regular|Long|Tall)$/.test(dim)) {
+    if (pack && /^(?:Short|Regular|Long|Tall)$/.test(dim)) {
       set("torso", dim);
       continue;
     }
@@ -408,7 +379,7 @@ export function extractAttributes(variant: string | null | undefined, commonName
     }
     // everything else that reads as a size: letters, ranges, a shoe size, a size word
     if (sizeToken(dim, false)) continue;
-    if (WORD_SIZE.test(dim) && dim !== "Standard") set("size", dim);
+    if ((WORD_SIZE.test(dim) || LENGTH_WORD_ONLY.test(dim)) && dim !== "Standard") set("size", dim);
   }
   return out;
 }
