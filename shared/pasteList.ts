@@ -83,7 +83,9 @@ const MAX_LINE = MAX_ITEM_NAME_LEN + 40;
  */
 export function pasteRows(text: string): string[] {
   const rows: string[] = [];
-  for (const line of text.split(/\r\n|\r|\n/)) {
+  // every line break a clipboard can carry: CRLF, CR, LF, and the Unicode line and
+  // paragraph separators and the vertical tab a soft return becomes in some editors
+  for (const line of text.split(/\r\n|[\r\n\u2028\u2029\v\f]/)) {
     let row = line.trim();
     for (let prev = ""; prev !== row; ) {
       prev = row;

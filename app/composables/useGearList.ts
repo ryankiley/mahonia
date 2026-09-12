@@ -1538,8 +1538,13 @@ function create() {
         dispatch({ t: "removeItem", id, quiet: true });
       }
       // and the row the paste landed in goes back to what it was, every field the
-      // first line (or its catalog link) could have touched
-      if (before && snapshot.value?.items.some((i) => i.id === before.id)) dispatch({ t: "updateItem", id: before.id, patch: restorePatch(before) });
+      // first line (or its catalog link) could have touched. A row that was the
+      // untouched blank of "Add an item" is that again, and goes the way an abandoned
+      // blank goes (discardEmpty leaves a named row alone).
+      if (before && snapshot.value?.items.some((i) => i.id === before.id)) {
+        dispatch({ t: "updateItem", id: before.id, patch: restorePatch(before) });
+        discardEmpty(before.id);
+      }
     }, "Added");
 
     // The catalog, asked once for all of them, and for the row pasted INTO as well:
