@@ -124,6 +124,32 @@ const lastUpdated = computed(() => {
           is the permission to read and an edit link the permission to change, exactly as they
           are for a person.
         </p>
+        <p>
+          One click for
+          <a
+            href="https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=Mahonia&connectorUrl=https%3A%2F%2Fmahonia.app%2Fmcp"
+            target="_blank"
+            rel="noopener noreferrer"
+            >Claude</a
+          >,
+          <a
+            href="https://cursor.com/install-mcp?name=mahonia&config=eyJ1cmwiOiJodHRwczovL21haG9uaWEuYXBwL21jcCJ9"
+            target="_blank"
+            rel="noopener noreferrer"
+            >Cursor</a
+          >
+          or
+          <a
+            href="https://insiders.vscode.dev/redirect/mcp/install?name=mahonia&config=%7B%22type%22%3A%22http%22%2C%22url%22%3A%22https%3A%2F%2Fmahonia.app%2Fmcp%22%7D"
+            target="_blank"
+            rel="noopener noreferrer"
+            >VS Code</a
+          >; the
+          <a href="https://github.com/ryankiley/mahonia#mcp-connector" target="_blank" rel="noopener noreferrer"
+            >README</a
+          >
+          has the line for every other client.
+        </p>
 
         <h2>Contact</h2>
         <p>

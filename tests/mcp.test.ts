@@ -102,7 +102,7 @@ describe("the endpoint's transport", () => {
     const res = resultOf(r)!;
     expect(res.protocolVersion).toBe("2025-06-18");
     expect(res.capabilities).toEqual({ tools: {} });
-    expect(res.serverInfo).toMatchObject({ name: "mahonia", version: "1" });
+    expect(res.serverInfo).toMatchObject({ name: "mahonia", version: "1.0.0" });
     expect(typeof res.instructions).toBe("string");
     expect(r.event.node.res.getHeader("mcp-session-id")).toBeUndefined();
     expect(r.event.node.res.getHeader("cache-control")).toBe("no-store");
