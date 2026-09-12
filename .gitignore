@@ -19,3 +19,9 @@ node_modules
 .DS_Store
 *.log
 .vercel
+
+# scripts/bundle-budget.mjs --report and the CI delta step, when run locally
+bundle-report.json
+delta.md
+base.zip
+base/

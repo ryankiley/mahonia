@@ -1,418 +1,73 @@
 #!/usr/bin/env node
 // Brotli bundle-budget gate. The product shaves grams; the site shaves bytes.
 //
-// THE RATCHET IS FIRST LOAD — the JS/CSS a visitor to the editor actually
-// downloads, read from the assets the prerendered /e references. Everything else
-// in _nuxt (the /vault, /account, /about, /legal route chunks, the lazy modals
-// and panes) is counted only against a deliberately loose TOTAL backstop.
+// THE NUMBER THAT MATTERS IS FIRST LOAD — the JS/CSS a visitor to the editor actually
+// downloads, read from the assets the prerendered /e references. Everything else in
+// _nuxt (the /gear, /account, /about, /legal route chunks, the lazy modals, menus and
+// panes) is counted only against a deliberately loose TOTAL backstop.
 //
-// It used to gate on the sum of every built file, and that measured the wrong
-// thing by a wide margin: on the vault + accounts work it reported +19.0 KB where
-// a visitor downloaded +8.3 KB — 2.3× the real cost. Worse, the gap WAS the
-// lazy-loading. Route-splitting a page and dynamically importing a pane bought
+// It used to gate on the sum of every built file, and that measured the wrong thing
+// by a wide margin: route-splitting a page and dynamically importing a pane bought
 // nothing against the gate, so the guardrail actively taxed the optimisation the
-// codebase is built around, and every new page was billed to people who never
-// open it. Splitting the two numbers puts the incentive back the right way up:
-// move code off the hot path and the ratchet falls.
+// codebase is built around. Splitting the two numbers puts the incentive back the
+// right way up: move code off the hot path and the first-load number falls.
 //
-// Run after `nuxt build`: `npm run build && npm run bundle-budget`.
-// Budgets are a ratchet — set a little above current so a heavy dep or accidental
-// client import trips the gate, not normal growth. Bump deliberately, with intent.
+// FIRST LOAD HAS TWO LINES, because one number was being asked to do two jobs and
+// could only do one of them:
+//
+//   the CEILING  — a product decision. What the editor may cost every visitor, full
+//                  stop. It is NOT re-anchored when a feature lands over it: the
+//                  feature shaves in the same PR, or makes the product case for a
+//                  heavier editor and moves the ceiling with that case written down.
+//                  Moves for a framework major, or a decision — never for "the row
+//                  grew a button".
+//   the TRIPWIRE — an accident detector, ~2 KB above the last measurement. A heavy
+//                  dependency, a stray static import of something meant to be lazy,
+//                  a checked-in JSON riding a page: all trip it before they reach the
+//                  ceiling. Re-anchor it freely, in the PR that spends it, to current
+//                  + ~2 — no essay: CI posts every PR's delta against main, by source,
+//                  and that comment is the record.
+//
+// For eleven weeks the tripwire was the only line, and it was raised twenty-one times
+// with a paragraph each and lowered twice — scripts/bundle-budget-ledger.md keeps every
+// one of those paragraphs. They are good history and they were never a "no"; the
+// ceiling is.
+//
+// Run after `nuxt build`: `npm run build && npm run bundle-budget`. With
+// `--report=<path>` it also writes the measurement as JSON — per file, and per source
+// when the build carried hidden sourcemaps (CI's does: BUNDLE_MAPS=1, see nuxt.config)
+// — which is what scripts/bundle-delta.mjs diffs against main's.
 
-import { readdirSync, readFileSync, existsSync } from "node:fs";
+import { readdirSync, readFileSync, existsSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { brotliCompressSync, gzipSync, constants } from "node:zlib";
+import { kb } from "./bundleReport.mjs";
 
-// all client JS + CSS, brotli. Bumped 125→127 for nested items (an item can hold nested
-// items — the same editable row one level down: catalog autocomplete, weight/qty/class,
-// nest/un-nest, drag) landing on a main baseline already grown to ~124.5 by the changelog
-// page + catalog search-terms. Bumped 127→128 for two interaction features: drag an item
-// in/out of a nested group, and the mobile ⋯ overflow menu (a CircleEllipsis glyph + the
-// per-row menu that tucks the note/nesting actions away on the crowded two-line row).
-// Bumped 128→133 for the nuxt 4.4.8→4.5.0 client-runtime growth (~4.5 KB brotli); no app
-// code changed, just the framework we ship.
+// THE CEILING. 150 KB brotli for the editor's first load, set 2026-09-12 at 146.6
+// measured, after a menu left the hot path and the icon set lost its fourth decimal.
+// Of that 146.6: 66 KB is the framework (vue, nuxt, vue-router, unhead, ofetch —
+// the floor, movable only by a framework change), 14 KB is CSS, 8 KB is glyphs,
+// 54 KB is the product, and the rest is chunk glue. The product's share had grown
+// from ~48 to ~80 KB in the seven weeks before this line was drawn (118.6 → 151.1
+// on this number, net of a 10 KB delivery pass), which is the growth the line
+// exists to price.
 //
-// NOT a bump, but the reason current dropped ~2.4 KB: content/changelog.json used to be a
-// module-scope import in the changelog page, so every entry was bundled into that
-// route's client chunk. It was served from a server route after that (the page was
-// prerendered, so the read happens at build time). That matters beyond the one-off saving
-// — the house rule is a changelog entry per user-facing PR, so the old shape grew what
-// this gate measures on PRs that ship no code at all, and the ratchet slowly became a
-// tax on writing changelog entries. Watch for the same shape in any other checked-in
-// content: import it in a server route, not a page.
-//
-// Bumped 133→134 to RE-ANCHOR after that shave, not to make room for anything. The shave
-// left current at 132.9 against a 133 budget — 0.1 KB, which is below the noise floor
-// (reflowing a comment in a .vue file can move it), so the gate would have failed on the
-// next trivial change and been bumped reflexively. That is the failure this ratchet
-// exists to avoid: a threshold nobody trusts gets raised on autopilot, and then it isn't
-// a threshold. 134 restores roughly the ~1 KB gap the earlier anchors carried — enough
-// that a heavy dep or a stray client import still trips it, but ordinary work doesn't.
-//
-// Bumped 134→136 for the trail link + the list-title block: a new list-level field
-// threaded through the reducer, shared/trailLink.ts (URL guard + the name derived from a
-// URL's path), ListHead.vue (the page title, its hover affordance, the link row), and the
-// matching render on the two read views. ~2.0 KB brotli, measured — the gate caught it at
-// 134.9 and this is the deliberate answer, not a nudge to make red go green. Worth noting
-// what it did NOT cost: the favicons are fetched server-side and inlined as data: URLs
-// into SSR HTML, which this gate doesn't measure at all, and the whole page-metadata
-// scraper the feature originally implied was dropped rather than shipped to the client.
-// 136 keeps the same ~1 KB working headroom the anchor is supposed to carry.
-//
-// Bumped 136→138 for the hover tooltip + the carried weight. Measured against the same
-// build both ways: 135.6 KB before, 137.0 after, so +1.4 KB brotli. Most of that is the
-// tooltip — a new shared component (Tooltip.vue: the flip/clamp positioning, the teleported
-// popup) plus atoms/tooltip.scss and the two motion curves it brought with it, one of which
-// is a 51-sample linear() spring. The carried weight itself is nearly free: one derived
-// field on Totals, one chip, one line in the Markdown export. The tooltip is priced as
-// infrastructure rather than as one feature — it exists to be reused, and the second and
-// third consumer cost almost nothing on top of this. 138 restores the ~1 KB headroom.
-//
-// FIRST LOAD, the ratchet. 118.6 KB with the vault; 120 keeps the working headroom.
-//
-// RE-ANCHORED 130→120, and NOT because anything got smaller: the measurement was
-// wrong. firstLoadAssets() counted every /_nuxt ref in the prerendered /e HTML,
-// including rel="prefetch" — 15 files, ~11 KB brotli, among them VaultPane.css,
-// ImportModal.css and CatalogCorrectionModal.css. Prefetch is fetched at idle, after
-// interactive; it is not what a visitor waits on. Counting it contradicted this
-// file's own header and inverted the incentive the split exists to create — a lazy
-// pane earned nothing on the ratchet, and growing one was billed to first load
-// anyway. See firstLoadAssets() for the fix.
-//
-// The anchor moves with the yardstick so the gate stays exactly as tight as it was:
-// 130 sat ~1.2% above the 128.5 it was measuring, and 120 sits ~1.2% above the 118.6
-// it measures now. Same ~1.4 KB of working headroom, same trip-wire, real number.
-// Nothing about the shipped bundle changed in this commit — the two figures are the
-// same build measured two ways.
-//
-// Bumped 126→130 for the vault. This is the honest price of it: +6.7 KB on the hot
-// path, paid by every visitor whether or not they ever open a vault, because
-// useVaultToken, useVaultSearch and the vault rows in the item autocomplete all land
-// in the editor chunk — the input offers your own gear alongside the catalog, so that
-// part can't be lazy. Everything else IS: /vault is a route chunk, VaultPane and
-// shared/vault.ts are dynamically imported, and the old whole-output gate would have
-// charged another 4.6 KB for exactly that splitting. If the vault should cost the hot
-// path less, the lever is the autocomplete integration, not the page.
-//
-// 120→123 on merging main in. Measured 121.1 KB, and the ~2.5 KB since 118.6 is
-// mostly the framework: main brought nuxt 4.5.1 and a dependency refresh (#154,
-// #155), which land in the entry chunk. The vault work added to this branch since
-// — the "which gear is mine" chooser and the merge-another-vault form — is a lazy
-// modal and a route chunk respectively; what reaches first load from them is the
-// small amount of controller state in useGearList/useVault that the editor already
-// pulls in. Same ~1.2% headroom rule as the re-anchor above.
-//
-// NOTE main independently wrote this same first-load split (8d63e65) and landed on
-// 126, measuring 121.8. That number is NOT comparable: it was measured with the
-// broader firstLoadAssets() that counts rel="prefetch". This branch's narrower
-// reading is the one kept, so the anchor is re-derived from what it actually
-// measures rather than carried over.
-// 123→125 for per-row calories + remembered entry units. Measured 123.1 KB, i.e.
-// the row work costs ~0.1 KB on the hot path, which is what it should cost: the
-// only new first-load code is the kcal popover's markup and the entryUnit reads in
-// ItemRow, both inside a chunk the editor already pulls. computeTotals gained two
-// accumulators in a loop it already ran; formatKcal is six lines beside
-// formatWeight. The headroom above the measurement is the usual ~1.2% rule, not
-// room budgeted for anything in particular.
-//
-// 125→128 for the row's vault button and the always-visible action cluster.
-// Measured 125.9 KB. The ~2.2 KB since the last anchor is three things, all of them
-// row-level and so unavoidably on the editor's first load: two more Lucide glyphs
-// (Vault + Check), the <Tooltip> now wrapped around the row's icon buttons (the
-// component was already in the graph — this is the extra instances), and
-// captureOne's call path in useGearList. shared/vault itself is NOT here: captureOne
-// reaches it through the same dynamic import the automatic capture uses, which is
-// what keeps the vault module off this number. Same ~1.2% headroom rule.
-//
-// 128→130 for "Send feedback". Measured 128.4 KB. The dialog itself is NOT in this
-// number — it's a LazyFeedbackModal behind an everOpened guard, so the markup, the
-// POST and its copy stay in their own chunk. What lands here is the footer's trigger
-// and the two refs guarding it, and the footer is the one component on every routed
-// page, so anything it gains is first-load by definition. ~0.5 KB is the honest
-// price of an entry point that has to be reachable from everywhere.
-//
-// 130→133 for the lucide → hugeicons swap. Measured 130.6 KB, i.e. +2.2 KB, which
-// lines up with the +1.9 KB the 2026-07-22 preview measured for the same swap: their
-// path data is curve-heavy, so each glyph costs more than lucide's. Both packages
-// tree-shake per-glyph, so this is the price of 32 drawings, not of a library.
-// The swap reverses that preview's "lucide stays" call — see the wiki note, which
-// has been corrected.
-//
-// 133→135 for the editor's row and meta-row work. Measured 133.3 KB, i.e. +2.7 KB
-// since the icon anchor, and all of it is on the hot path for the honest reason:
-// it IS the row. The classification select became two toggle buttons with a popover
-// each (the worn split, and calories), the row grew a unit selector and a nesting
-// menu, its actions stopped being hover-hidden, and the meta row gained the dates
-// affordance and the title pencil. New glyphs across both (Shirt, Cookie,
-// Calculator, Edit02, Location01, Calendar03, Copy01, and the two account marks)
-// are the largest single share, at hugeicons' curve-heavy per-glyph rate.
-//
-// What is deliberately NOT in this number: the sharing panel, the feedback dialog,
-// the import dialog, the catalog-correction popover, the vault pane, and the date
-// picker's month grid. All six are Lazy behind an open guard, which is the rule this
-// gate exists to reward. DateRangePicker was the one that nearly wasn't — ListHead
-// is first-load, so a statically-imported calendar shipped to every visitor who
-// never opened it. Making it Lazy is where 0.8 of the overage went; the gate caught
-// it, which is the gate working. Same ~1.2% headroom rule as the anchors above.
-//
-// Bumped 135→137 for the list switcher — a labelled count in the editor toolbar
-// opening a filterable menu of the lists this browser holds, replacing a trip out
-// to /mine. Measured both ways against the same build: 133.4 before, 135.0 after,
-// so +1.6 KB brotli. It is first-load by definition (it's in the toolbar), and most
-// of it is the menu's own filtering and the travelling plate's measuring.
-//
-// The plate went into the shared .menu atom rather than into this one component, so
-// the ⋯, account and read-view menus all took it for the cost of a span and four
-// handlers each — the marginal menu is nearly free, which is the argument for
-// paying once here. 137 restores the ~1 KB working headroom the anchors carry;
-// 135.0 against a 135 budget is the zero-slack state this file's own note warns
-// gets raised reflexively on the next trivial change.
-//
-// 137 → 139 for the ACCOUNT MODAL. Measured 135.5 on main before, 137.1 after, so
-// +1.6 KB brotli. Almost none of that is the account itself — AccountView, the passkey
-// ceremony and the delete flow are behind <LazyAccountModal v-if="everOpened">, so a
-// visit that never opens it downloads none of them. What lands on first load is the
-// part that has to: the singleton + the mount in app.vue, and GLOBAL CSS — the .check
-// atom (a native checkbox wearing the house icons, now shared by the delete dialog and
-// VaultPickerModal), the dialog's option row, .dlg's max-height/scroll, and --danger.
-//
-// A lazy <BaseCheckbox> was tried to keep the two icons off first load and made it
-// WORSE — 137.3 — because the extra async chunk costs more than the icons it defers.
-// Reverted; recording it so the next person doesn't repeat it.
-//
-// 139 and not 138, for the same reason the last note gives: 137.1 against 137 is the
-// zero-slack state this file warns about, and it is what just happened. ~1.9 KB of
-// working headroom is the point, not tracking current.
-//
-// 139 → 142 for a dependency update — the same shape as the nuxt 4.4.8→4.5.0 note at the
-// top of this file, and no app code changed. `npm update` inside the existing semver
-// ranges; measured both lockfiles against the same tree: 138.7 before, 139.7 after, so
-// +1.0 KB brotli. Nearly all of it is one chunk, the Nuxt entry (+2.3 KB raw / +0.7 KB
-// brotli), which is where unhead 3.2.3→3.3.1 and devalue 5.8.2→5.9.0 land. vue 3.5.40→
-// 3.5.41 and vite 8.1.5→8.2.0 moved the runtime and the chunking by ~0.1 KB each.
-//
-// There is nothing to shave here — it is vendor runtime arriving through a routine bump,
-// and the alternative was pinning a transitive dep to hold a number, which buys 1 KB and
-// owes a revisit. Worth being honest that the gate was ALREADY at zero slack before this:
-// 138.7 against 139, spent by the plain-text exporter, so the +1.0 KB is what tipped a
-// budget that had no room left rather than the whole story. 142 re-anchors with the ~2 KB
-// of working headroom the notes above keep arguing for, so the next heavy dep still trips
-// the gate and ordinary work doesn't.
-// 142 → 151, and this one needs its two causes kept apart, because the visible change is
-// a map and the map is not what spent the budget.
-//
-// Measured both ways against the same tree and the same node_modules, as the notes above
-// require — a second worktree at the commit before the map work, built with the same
-// lockfile: 147.0 before, 148.3 after. So the whole route map costs +1.3 KB on the
-// ratchet, and the gate was ALREADY 5.0 KB over at 147.0 before a line of it was written.
-// That overage is trail planning itself — the panel, the profile, grade shading, the day
-// rows — landing over several commits with no build run between them. It is real work and
-// it belongs on the first load; it just never got priced, and attributing it to the map
-// now would make the record wrong in a way nobody could untangle later.
-//
-// +1.3 KB is what a map costs because almost none of it is here. Leaflet is a dynamic
-// import behind a `v-if` on a list having a route, so it is a 36.5 KB chunk that a plain
-// packing list never requests — TOTAL pays for it, which is the whole reason these are two
-// numbers. What DOES land is the waypoint ops and the polyline codec: the reducer runs on
-// both client and server, so it has to be complete for op replay, and normalizeRouteGeometry
-// re-encodes canonically and therefore pulls the decoder with it.
-//
-// Paid for in part by splitting shared/gpx.ts: reading a map file — XML dialects, a zip
-// decoder, GeoJSON — is several hundred lines that only run when somebody picks a file,
-// yet the reducer's `parseProfile` import put all of it on the first load of every packing
-// list. The arithmetic moved to shared/profile.ts and ListHead reaches the reader through
-// `await import()`. Worth 1.1 KB, and worth more as a rule than as a number: nothing that
-// only runs on one interaction belongs on the load before it.
-//
-// 151 keeps the ~2 KB of working headroom these notes keep arguing for.
-//
-// 151 → 154 for the rest of trail planning: the waypoint rows and their kind toggles, the
-// day-boundary handles, the camp each day ends at, the Gear/Packing/Planning bar, and the
-// corrected burn model. 148.3 at the anchor above, 151.2 now — +2.9 KB, measured by this
-// script both times against an unchanged lockfile (nothing has touched package.json since
-// the commit that set 151), so it is a like-for-like reading rather than a fresh two-build
-// run.
-//
-// Worth recording what did NOT have to be paid, because both are the split working:
-// Leaflet is still a 36.5 KB chunk the editor's HTML never references — the ▸ check the
-// map notes ask for still passes — and the planning panel itself is a <LazyTrailPlanPanel>,
-// so the panel's own components are not on this line either. What lands here is the
-// reducer's share: waypoint ops, the boundary arithmetic, the estimator. The reducer runs
-// on both client and server and has to be complete for op replay, so it cannot be deferred
-// the way a panel can.
-//
-// 154 restores the same ~2.8 KB gap 151 carried over its own measurement.
-//
-// 154 → 157, and this one is not feature work at all: the gate was ALREADY over when an
-// audit first ran it. 154.5 against 154, on a tree with nothing of the audit's own in it
-// — measured in a second worktree at main, same lockfile, to be sure the audit branch
-// wasn't the cause. Somewhere between the 151.2 reading above and here, ~3.3 KB landed
-// across several commits with no build run between them, which is the same way the 147.0
-// overage in the map notes happened. Nothing in CI ran this script, so nothing said so.
-// The CI workflow added alongside this note is the actual fix; the number below only
-// stops recording a failure nobody caused.
-//
-// What it is, measured two ways against the same tree: @vercel/analytics is 4.7 KB of it.
-// Building with the module removed from nuxt.config's `modules` and changing nothing else
-// gives 149.8; putting it back gives 154.5. That is a real price for page views and Web
-// Vitals on every first load, and it was a deliberate keep once seen — analytics is named
-// in the privacy policy (app/pages/legal.vue) and holds a CSP entry, so dropping it is a
-// product decision, not a cleanup. Recorded here so the 4.7 KB stays a known, chosen cost
-// rather than drifting back into the noise.
-//
-// 157 restores the ~2.5 KB of working headroom every anchor above argues for.
-//
-// 157 → 162, the design review (#302) and the group row (#307, #308), measured both ways
-// as ever. main before #302 (7f9c9bf) builds to 156.9 against 157: a tenth of a KB of the
-// ~2.5 KB the last re-anchor restored was left, spent across the merges since, none of
-// them over the line. #302 adds 1.9 to first load (158.8): a way back to your last list
-// from the bare address, a fragment-less edit link that opens your own list, the
-// first-run screen standing down Export and Duplicate, Report through the feedback box,
-// and six event counters — editor surface, all of it, on the chunk every visitor gets.
-// The catalog matching an import does is on the import modal's lazy chunk and costs this
-// line nothing. The group row's calories and italic total (#307) and the totals row's
-// order (#308) add 0.3 between them (159.1). Those merged without CI running this script
-// — squashed straight from a session — so, as with 154 → 157, the first run to see the
-// number was a later PR's (#309), and this note is where it gets recorded. 162 restores
-// the ~2.9 KB of working headroom the anchors above argue for.
-//
-// 162 → 151, and this one is a re-anchor DOWNWARD after a loading pass, measured both
-// ways on the same tree and lockfile: 158.4 KB / 45 files before, 148.5 KB / 22 files
-// after. Nothing was removed from the editor; the bytes stopped being split. The
-// bundler cuts one chunk per distinct set of importers, so every module the app shell
-// shares with a lazy panel or a route had its own file — 39 scripts on this line, 22 of
-// them under 1 KB brotli, one carrying a 27-byte module — and the split cost ~17 KB of
-// compression at the file boundaries on top of the requests. nuxt.config's codeSplitting
-// groups merge the boot graph into a framework chunk and a boot chunk (the reasoning is
-// there); the payload the prerendered pages fetched separately is inlined; the bare
-// address renders the editor instead of redirecting an empty page to it, so its HTML
-// preloads the editor's chunks alongside the shell's (it used to fetch them a round trip
-// after mount — and this line, measured from /e, never saw that); and two modules that
-// only the offline ranker and the reducer needed left the hot path of every page (the
-// text folds moved to shared/searchText.ts, rebaseOnto moved beside applyOps). The
-// share views dropped 129.4 → 116.6 and About 106.5 → 90.6 from the same work, which
-// this line doesn't measure either.
-//
-// The number you see here is the editor's; the editor is the one route that needs the
-// reducer, so moving it off the shell cost this line 1.1 KB and four files against the
-// 6 KB every other page saved. 151 keeps the ~2.5 KB of working headroom the anchors
-// above argue for. The largest chunk is now the framework (`vendor`, 52.9 KB) rather
-// than Leaflet, and that is the point of the split: vue, vue-router and unhead only
-// change hash on a dependency bump, so a returning visitor keeps them across deploys.
-//
-// 151 → 153, a re-anchor after the connector work. Measured on a clean build of main at
-// e8db794: 151.0 against 151, i.e. no headroom at all. What spent the 2.5 KB since the
-// anchor above (148.5): the variant-and-brand rules on every row (#315, #346's shape),
-// the trip-date year rule (#309), the resume path (#311, #317), and, from the MCP server
-// (#352), two things the reducer now owns for every caller and therefore every visitor
-// downloads: the catalog-id bound (`isCatalogId`) and the clear-with-link rule
-// (`CLEARS_WITH_LINK`, moved to shared/trailLink from the head component). None of that
-// is a page's worth; it is the editor growing a few dozen bytes per feature, which is
-// what the anchors above call ordinary. At exactly the line, a branch that adds NOTHING
-// to the first load fails on the hundred bytes a different chunk graph shuffles between
-// builds (the account takeout that follows this measured 151.0 too, every byte of it on the account
-// chunk and the server). 153 restores ~2 KB of working headroom, a little less than the
-// re-anchors above kept, on purpose: the next feature that lands on the editor's path
-// should be the one that has to argue.
-const FIRST_LOAD_BUDGET_KB = 153;
+// When it bites, the levers in order: a surface that only opens on a click goes
+// Lazy (the shape every modal, the ⋯ menu and the panes already have); an icon
+// sprite as a static asset (~8 KB off this number, cached across deploys, and a
+// third of the row's DOM with it); the account and vault machinery behind a
+// signed-in check (~4 KB an anonymous visitor never needs). Beyond those it is a
+// product conversation, and this is the number that starts it.
+const FIRST_LOAD_CEILING_KB = 150;
+// THE TRIPWIRE, ~2 KB over the last measurement (146.6 on 2026-09-12). Re-anchor to
+// current + ~2 in the PR that spends it; keep it under the ceiling.
+const FIRST_LOAD_BUDGET_KB = 149;
 // TOTAL of every built file, the backstop. Deliberately slack: its job is to catch
 // a route chunk ballooning or a heavy dep landing somewhere unnoticed, NOT to price
-// ordinary feature work. Set clear of the current total (269.0) so it only speaks up when
-// something has genuinely gone wrong. If you find yourself bumping this one often,
-// something is being shipped to every page that shouldn't be.
-//
-// Bumped 180→186 to RE-ANCHOR, not to make room: current had crept to 180.4 against
-// 180. A backstop with no slack is not a backstop — it fails on the next trivial
-// change and gets raised without anyone thinking about it, which is the exact
-// failure the first-load note above describes. Nothing here grew unexpectedly.
-//
-// 186 → 192, and re-anchoring again for the same reason: current had reached 186.1
-// against 186. The growth is a plain-text exporter — an ON-DEMAND chunk, fetched when
-// someone opens the export menu and never on a page load, so first load is untouched.
-// That is precisely the "ordinary feature work" this note says the backstop should not
-// be pricing, and a backstop sitting 0.1 KB above current cannot catch the thing it
-// exists for. 192 restores the ~6 KB of slack the last re-anchor set.
-// 192 → 258, and unlike the re-anchors above this one is buying something specific.
-//
-// Same two-build measurement: 204.3 before the map work, 251.8 after. Two thirds of that
-// +47.5 KB is Leaflet and its stylesheet, and every byte is in an async chunk the editor's
-// HTML does not reference — a list with no route never asks for it. This is exactly the
-// split these two numbers exist to express: a feature that costs the ratchet almost
-// nothing and the backstop a lot is one that only its users download, which is the right
-// shape for a map inside a packing-list app.
-//
-// It also means the backstop stops being able to say much about the map, so the thing that
-// actually polices it is MAX_CHUNK below. Note the 204.3 was already 12.3 KB over 192 for
-// the same unpriced-planning-work reason the first-load note gives.
-//
-// 258 restores the ~6 KB of slack the last two re-anchors set.
-//
-// 258 → 267, the ordinary-feature-work re-anchor this note keeps describing. 251.8 at the
-// anchor above, 260.5 now. Most of the +8.7 KB is the map chunk growing up: placing a pin,
-// the press-and-hold that lifts one, the day-boundary handles, the popup, full screen. All
-// of it is inside the chunk a list without a route never asks for, which is the shape this
-// backstop is explicitly not supposed to police.
-//
-// MAX_CHUNK is still what actually watches that chunk: 36.5 KB against 72, unmoved by any
-// of it. 267 restores the ~6 KB of slack.
-//
-// 267 → 273, and this one is My Gear growing a page of its own (#224): adding and editing
-// gear in place, the item modal, the add row, the view/sort/show menus. Measured the same
-// two ways this note has always asked for — main at that commit builds to 269.0 against
-// 267, before any of the audit branch's own work, which then adds 0.2. So the backstop was
-// already 2.0 KB under water on work that is precisely what it says it must not price: a
-// route people visit deliberately, not something shipped to every page.
-//
-// Worth recording that this is the FIRST bump measured by the CI job landing in the same
-// branch. Every re-anchor above was found by somebody running the script by hand, after the
-// fact; #224 went in with the total already over and nothing said so. That is the gap
-// closing, and the reason the number is honest rather than convenient.
-//
-// FIRST LOAD is untouched by it — 154.5 → 154.8, a third of a KB — because the page is its
-// own route chunk. MAX_CHUNK is unmoved at 36.5 against 72. 273 restores the ~4 KB of slack
-// the re-anchors above keep arguing for.
-//
-// 273 → 281, the people feature: naming who's on a trip, a "carried by" picker on every
-// row, filter chips on the editor and both read views, and a manage dialog. Measured both
-// ways as ever: main at this commit builds to 269.9 against 273 — 3.1 KB of slack before a
-// line of this work — and the feature adds 5.8 total. Most of it is genuinely shared
-// surface (the chips + row picker render on the editor AND the share pages, which is the
-// point of the feature), so unlike the map chunk it can't all hide off the hot path; the
-// dialog is the part that could be Lazy and is. FIRST LOAD wears its share honestly too,
-// 151.1 → 154.2 against the 157 ratchet, inside the working headroom that number was last
-// re-anchored to keep. MAX_CHUNK unmoved at 36.5 against 72. 281 restores the ~5 KB of
-// slack the re-anchors above keep arguing for.
-//
-// 281 → 288, the same work: 279.9 before #302 against 281 (1.1 KB of slack), 283.0 after
-// it (#302's 3.1 is its share of the editor, plus the catalog-match chunk the import modal
-// loads on demand, plus the bare-address page's own chunk), 283.3 after #307 and #308.
-// MAX_CHUNK unmoved at 36.5 against 72. 288 restores the ~4.7 KB of slack the re-anchors
-// above keep arguing for.
-//
-// 288 → 278, the same re-anchor: 282.6 KB / 111 files → 272.3 KB / 88 files, all of it
-// the boot-graph merge above (fewer files compress better) — nothing left the build.
-// 278 restores the ~5.7 KB of slack the re-anchors above keep arguing for.
-//
-// 278 → 283, My Gear keeping the note and the price, and exporting (#244). Measured both
-// ways: main at this commit builds to 274.6 against 278 (3.4 KB of slack), 279.0 with the
-// branch. The +4.4 is the /gear route chunk growing (price + note on the row and in the
-// dialog, the ⋯ menu, the total), plus two chunks nobody downloads until they ask — the
-// CSV/JSON exporter behind the menu, and the import dialog with its parser — which is the
-// shape this backstop is explicitly not supposed to police. FIRST LOAD is untouched by it,
-// 150.4 → 150.6 against 151, because none of it is on the editor's path. MAX_CHUNK unmoved
-// at 52.9 against 72. 283 restores the ~4 KB of slack the re-anchors above keep arguing for.
-//
-// 283 → 287, the Trip tab reading three more things off what a list already holds: the
-// hours of daylight per day (#348), the longest dry carry between the water pins (#357),
-// and the camp's height, the longest climb and the steepest stretch off the profile
-// (#359). Measured both ways: main at e4acf7f builds to 280.8 against 283 (2.2 KB of
-// slack), 283.1 with the three together — each passed on its own, and it is the sum
-// that crosses the line. The +2.3 is all on the planning panel's chunk (three shared
-// modules and their sentences), which only a list opened in Trip view downloads. FIRST
-// LOAD is untouched, 151.1 → 151.0 against 153, because none of it is on the editor's
-// path. MAX_CHUNK unmoved at 52.9 against 72. 287 restores the ~4 KB of slack the
-// re-anchors above keep arguing for.
-const TOTAL_BUDGET_KB = 287;
+// ordinary feature work. Set ~6 KB clear of the current total (281.9) so it only
+// speaks up when something has genuinely gone wrong. If you find yourself bumping
+// this one often, something is being shipped to every page that shouldn't be.
+const TOTAL_BUDGET_KB = 288;
 // Largest single chunk, brotli. LOAD-BEARING, and the one number here that should not move
 // to accommodate a dependency: it is what a heavy map library fails. MapLibre GL ships as a
 // single ~200 KB brotli chunk and was ruled out on this line alone — a dep that needs the
@@ -441,7 +96,6 @@ if (!dir) {
 
 const brotli = (buf) =>
   brotliCompressSync(buf, { params: { [constants.BROTLI_PARAM_QUALITY]: 11 } }).length;
-const kb = (n) => (n / 1024).toFixed(1);
 
 /**
  * The assets the editor's first load pulls — read from the prerendered /e HTML,
@@ -492,7 +146,7 @@ for (const f of files) {
   totalRaw += buf.length;
   totalBr += br;
   totalGz += gz;
-  rows.push({ f, raw: buf.length, br, first: firstLoad?.has(f) ?? false });
+  rows.push({ f, buf, raw: buf.length, br, first: firstLoad?.has(f) ?? false });
 }
 rows.sort((a, b) => b.br - a.br);
 
@@ -501,6 +155,153 @@ const firstBrKb = firstBr / 1024;
 const totalBrKb = totalBr / 1024;
 const maxChunk = rows[0] ?? { f: "—", br: 0 };
 const maxChunkBrKb = maxChunk.br / 1024;
+
+/**
+ * Where the bytes come from, by source — when the build carried hidden client
+ * sourcemaps (BUNDLE_MAPS=1 → nuxt.config's sourcemap.client). Chunk names are
+ * hashes, so a per-file delta says "the 29 KB chunk grew 1.1 KB", which is nothing;
+ * a per-source one says "ItemRow.vue +0.8, the icon set +0.3", which is something a
+ * reviewer can act on. Hidden maps leave the JS byte-identical, so the numbers above
+ * don't move with them (a local build without maps simply reports no attribution).
+ *
+ * EVERY BYTE IS CHARGED TO SOMETHING, so the rows sum to the totals they explain:
+ * a mapped chunk's segments go to their source files, the bytes before a line's
+ * first segment and on lines with no segment (the `import{…}from` headers and the
+ * preload tables the bundler writes, which grow with the chunk graph) to "(glue)",
+ * a CSS file to `css:<its stem>` (a .css has no map, but its name is stable across
+ * hashes), and a script with no map to "(unmapped chunk)". Without this the receipt
+ * could say "+1.5 KB" up top and "nothing moved" underneath — the CSS-only change.
+ *
+ * A source's brotli is estimated at its chunk's own compression ratio — an
+ * estimate, and a fair one: a file compresses about the same whichever chunk it
+ * lands in. Each chunk is walked once; first-load and total are two sums over it.
+ */
+const B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+function vlq(str) {
+  const out = [];
+  let shift = 0;
+  let value = 0;
+  for (const ch of str) {
+    let digit = B64.indexOf(ch);
+    const more = digit & 32;
+    digit &= 31;
+    value += digit << shift;
+    if (more) {
+      shift += 5;
+      continue;
+    }
+    out.push(value & 1 ? -(value >> 1) : value >> 1);
+    value = 0;
+    shift = 0;
+  }
+  return out;
+}
+
+// A source path → the name a reviewer reads. node_modules collapse to the package;
+// the repo's own files keep their path from the repo root; the bundler's virtual
+// modules and Nuxt's generated ones are "(virtual)". Matched anywhere in the path,
+// not at its start: a source is usually `../../app/…`, but a build whose
+// node_modules is a symlink (a scratch worktree) records the absolute target.
+function sourceName(s) {
+  if (s.startsWith("(") || s.startsWith("css:")) return s;
+  const pkg = s.match(/node_modules\/(?:\.cache\/[^/]+\/)?((?:@[^/]+\/)?[^/]+)/);
+  if (pkg) return `npm:${pkg[1]}`;
+  if (/^virtual:|^\0|^#|(?:^|\/)\.nuxt\//.test(s)) return "(virtual)";
+  const own = s.replace(/\?.*$/, "").replace(/^(\.\.\/)+/, "").replace(/^\.\//, "");
+  // an absolute path outside the repo we can't place: keep its last three segments
+  return own.startsWith("/") ? own.split("/").slice(-3).join("/") : own;
+}
+
+// bytes per source for ONE built file, at that file's compression ratio
+function chunkSources(r) {
+  const ratio = r.br / r.raw;
+  const out = new Map();
+  const charge = (src, raw) => out.set(src, (out.get(src) ?? 0) + raw * ratio);
+  if (r.f.endsWith(".css")) {
+    charge(`css:${r.f.replace(/\.[A-Za-z0-9_-]{8}\.css$/, "")}`, r.raw);
+    return { sources: out, mapped: false };
+  }
+  const mapPath = join(dir, r.f + ".map");
+  if (!existsSync(mapPath)) {
+    charge("(unmapped chunk)", r.raw);
+    return { sources: out, mapped: false };
+  }
+  const map = JSON.parse(readFileSync(mapPath, "utf8"));
+  if (typeof map.mappings !== "string" || !Array.isArray(map.sources)) throw new Error(`${r.f}.map has no mappings`);
+  const lines = r.buf.toString("utf8").split("\n");
+  let srcIdx = 0;
+  map.mappings.split(";").forEach((line, li) => {
+    const lineLen = (lines[li] ?? "").length + 1;
+    const cols = [];
+    let genCol = 0;
+    for (const seg of line.split(",")) {
+      if (!seg) continue;
+      const v = vlq(seg);
+      genCol += v[0];
+      if (v.length >= 4) srcIdx += v[1];
+      cols.push({ col: genCol, src: v.length >= 4 ? map.sources[srcIdx] : null });
+    }
+    // the run before the first segment — or the whole line, when it has none
+    charge("(glue)", Math.min(cols.length ? cols[0].col : lineLen, lineLen));
+    for (let i = 0; i < cols.length; i++) {
+      const end = i + 1 < cols.length ? cols[i + 1].col : lineLen;
+      charge(cols[i].src ?? "(glue)", Math.max(0, end - cols[i].col));
+    }
+  });
+  return { sources: out, mapped: true };
+}
+
+/**
+ * { firstLoadSources, totalSources } — each a name → brotli-bytes map sorted by
+ * size, or both null when no chunk carried a map (a build without BUNDLE_MAPS).
+ *
+ * NEVER THE GATE'S PROBLEM. A map that won't parse, or a shape this walker doesn't
+ * expect, costs the receipt its per-source rows and nothing else: the budget is
+ * decided on the files' own bytes, above, and the report is still written. Before
+ * this a broken map on a push to main failed the check and uploaded no baseline.
+ */
+function attribute() {
+  try {
+    const first = new Map();
+    const total = new Map();
+    let mapped = false;
+    for (const r of rows) {
+      const c = chunkSources(r);
+      mapped ||= c.mapped;
+      for (const [src, br] of c.sources) {
+        const name = sourceName(src);
+        total.set(name, (total.get(name) ?? 0) + br);
+        if (r.first) first.set(name, (first.get(name) ?? 0) + br);
+      }
+    }
+    if (!mapped) return { firstLoadSources: null, totalSources: null };
+    const sorted = (m) => Object.fromEntries([...m].sort((a, b) => b[1] - a[1]).map(([k, v]) => [k, Math.round(v)]));
+    return { firstLoadSources: firstLoad ? sorted(first) : null, totalSources: sorted(total) };
+  } catch (e) {
+    console.warn(`  ! per-source attribution skipped: ${e.message}\n`);
+    return { firstLoadSources: null, totalSources: null };
+  }
+}
+
+const reportPath = (process.argv.find((a) => a.startsWith("--report=")) ?? "").slice(9);
+if (reportPath) {
+  writeFileSync(
+    reportPath,
+    JSON.stringify(
+      {
+        firstLoad: firstLoad ? firstBr : null,
+        total: totalBr,
+        maxChunk: { file: maxChunk.f, br: maxChunk.br },
+        budgets: { ceiling: FIRST_LOAD_CEILING_KB, firstLoad: FIRST_LOAD_BUDGET_KB, total: TOTAL_BUDGET_KB, maxChunk: MAX_CHUNK_BUDGET_KB },
+        files: rows.map((r) => ({ file: r.f, br: r.br, first: r.first })),
+        // bytes by source on the first load, and across every chunk — both brotli
+        ...attribute(),
+      },
+      null,
+      2,
+    ) + "\n",
+  );
+}
 
 console.log(`Client bundle (${files.length} files from ${dir}):`);
 for (const r of rows.slice(0, 8)) {
@@ -514,7 +315,7 @@ console.log(`  (▸ = on the editor's first load)`);
 console.log("");
 if (firstLoad) {
   console.log(
-    `  FIRST LOAD   : ${kb(firstBr)} KB brotli  (budget ${FIRST_LOAD_BUDGET_KB} KB)  ← the ratchet`,
+    `  FIRST LOAD   : ${kb(firstBr)} KB brotli  (tripwire ${FIRST_LOAD_BUDGET_KB} KB · ceiling ${FIRST_LOAD_CEILING_KB} KB)  ← what every visitor downloads`,
   );
 }
 console.log(`  total raw    : ${kb(totalRaw)} KB`);
@@ -523,6 +324,7 @@ console.log(`  total brotli : ${kb(totalBr)} KB  (budget ${TOTAL_BUDGET_KB} KB) 
 console.log(
   `  largest chunk: ${kb(maxChunk.br)} KB brotli — ${maxChunk.f}  (budget ${MAX_CHUNK_BUDGET_KB} KB)`,
 );
+if (reportPath) console.log(`  report       : ${reportPath}`);
 console.log("");
 
 const failures = [];
@@ -541,9 +343,17 @@ else {
   if (vendorImports.length)
     failures.push(`vendor chunk ${vendor} imports ${vendorImports.join(", ")} — it must be a leaf (see nuxt.config's vendor group)`);
 }
-if (firstLoad && firstBrKb > FIRST_LOAD_BUDGET_KB)
+// the tripwire can't sit above the ceiling — a re-anchor that crosses it is the
+// ceiling being moved without saying so
+if (FIRST_LOAD_BUDGET_KB > FIRST_LOAD_CEILING_KB)
+  failures.push(`the tripwire (${FIRST_LOAD_BUDGET_KB} KB) is above the ceiling (${FIRST_LOAD_CEILING_KB} KB) — move the ceiling deliberately or lower the tripwire`);
+if (firstLoad && firstBrKb > FIRST_LOAD_CEILING_KB)
   failures.push(
-    `first load ${kb(firstBr)} KB > ${FIRST_LOAD_BUDGET_KB} KB budget — this is what every visitor downloads`,
+    `first load ${kb(firstBr)} KB is over the ${FIRST_LOAD_CEILING_KB} KB CEILING — shave in this PR (a surface that only opens on a click goes Lazy; see the levers in scripts/bundle-budget.mjs), or make the product case and move the ceiling with it`,
+  );
+else if (firstLoad && firstBrKb > FIRST_LOAD_BUDGET_KB)
+  failures.push(
+    `first load ${kb(firstBr)} KB tripped the ${FIRST_LOAD_BUDGET_KB} KB tripwire — check the PR's bundle comment for what grew; if it's the feature, re-anchor FIRST_LOAD_BUDGET_KB to current + ~2 (under the ${FIRST_LOAD_CEILING_KB} KB ceiling); if it's an accident, shave it`,
   );
 if (!firstLoad)
   console.warn("  ! /e not in the build output — first-load gate skipped, total only.\n");
@@ -557,9 +367,9 @@ if (maxChunkBrKb > MAX_CHUNK_BUDGET_KB)
 if (failures.length) {
   console.error("✗ Over budget:");
   for (const m of failures) console.error(`  - ${m}`);
-  console.error("\n  Shave the bundle or bump the budget deliberately in scripts/bundle-budget.mjs.");
+  console.error("\n  See scripts/bundle-budget.mjs for what each line is for.");
   process.exit(1);
 }
 console.log(
-  `✓ Within budget — first load ${kb(firstBr)}/${FIRST_LOAD_BUDGET_KB} KB, total ${kb(totalBr)}/${TOTAL_BUDGET_KB} KB, largest ${kb(maxChunk.br)}/${MAX_CHUNK_BUDGET_KB} KB; ${vendor} is a leaf.`,
+  `✓ Within budget — first load ${kb(firstBr)}/${FIRST_LOAD_BUDGET_KB} KB (ceiling ${FIRST_LOAD_CEILING_KB}), total ${kb(totalBr)}/${TOTAL_BUDGET_KB} KB, largest ${kb(maxChunk.br)}/${MAX_CHUNK_BUDGET_KB} KB; ${vendor} is a leaf.`,
 );

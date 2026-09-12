@@ -4,7 +4,7 @@ import type { ListSnapshot } from "~~/shared/types";
 
 // The ⋯ menus' four export actions (Copy as plain text / Copy as Markdown / Download
 // CSV / Download JSON) + the exporter warm-up + the ROWS that draw them — shared by
-// the editor's kebab (GearEditor) and the read views' menu (ReadonlyMenu), so neither
+// the editor's kebab (EditorMenu) and the read views' menu (ReadonlyMenu), so neither
 // the copy, the error handling nor the menu's own wording and marks can drift.
 //
 // The exporters are menu actions, not part of either surface's boot path — they
