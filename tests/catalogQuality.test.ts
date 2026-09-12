@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isVariantRedundant, normalizeVariant } from "../shared/catalogQuality";
+import { emergingBrandTokens, isBrandedTypedItem, isVariantRedundant, normalizeVariant, splitKnownBrand } from "../shared/catalogQuality";
 
 describe("normalizeVariant", () => {
   const cases: [string, string][] = [
@@ -86,5 +86,40 @@ describe("isVariantRedundant", () => {
     expect(isVariantRedundant("Women's Tarn Down Jacket", "S")).toBe(false); // the "s" of a possessive is not a size
     expect(isVariantRedundant("Ether Light XT Insulated", "Regular")).toBe(false);
     expect(isVariantRedundant("Plex Solo", "")).toBe(false);
+  });
+});
+
+describe("catalog-intake brands", () => {
+  const spellings = new Map([
+    ["katabatic gear", "Katabatic Gear"],
+    ["ula equipment", "ULA Equipment"],
+    ["big agnes", "Big Agnes"],
+    ["big sky", "Big Sky"],
+  ]);
+
+  it("accepts and splits an unambiguous first word of a known multi-word brand", () => {
+    const knownBrands = new Set(spellings.keys());
+    expect(isBrandedTypedItem({ name: "Katabatic Alsek", knownBrands })).toBe(true);
+    expect(splitKnownBrand("Katabatic Alsek", spellings)).toEqual({ brand: "Katabatic Gear", name: "Alsek" });
+    expect(splitKnownBrand("ULA Circuit", spellings)).toEqual({ brand: "ULA Equipment", name: "Circuit" });
+  });
+
+  it("refuses ambiguous or generic brand shorthand", () => {
+    const knownBrands = new Set(spellings.keys());
+    expect(isBrandedTypedItem({ name: "Big Tent", knownBrands })).toBe(false);
+    expect(splitKnownBrand("Big Tent", spellings)).toEqual({ brand: null, name: "Big Tent" });
+  });
+
+  it("only treats a new leading token as a brand after two corroborated product names", () => {
+    const emerging = emergingBrandTokens([
+      { normKey: "timmermade sul 15", name: "Timmermade SUL 1.5" },
+      { normKey: "timmermade bilby", name: "Timmermade Bilby" },
+      { normKey: "single maker", name: "Solitary Maker" },
+    ]);
+    expect(emerging).toEqual(new Set(["timmermade"]));
+    expect(isBrandedTypedItem({ name: "Timmermade Alpha Cruiser", knownBrands: new Set(), emergingBrands: emerging })).toBe(true);
+    expect(isBrandedTypedItem({ name: "Solitary Maker", knownBrands: new Set(), emergingBrands: emerging })).toBe(false);
+    expect(splitKnownBrand("Timmermade Alpha Cruiser", new Map(), emerging))
+      .toEqual({ brand: "Timmermade", name: "Alpha Cruiser" });
   });
 });

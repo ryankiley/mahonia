@@ -112,6 +112,55 @@ export function isAcceptableTypedItem(p: { brand?: string | null; name: string }
 const tokens = (s: string) => normKey(s).split(" ").filter(Boolean);
 
 /**
+ * A uniquely identifying first word of a multi-word catalog brand. This accepts
+ * "Katabatic" for "Katabatic Gear", but not "Big" when both Big Agnes and Big Sky
+ * exist. Generic gear nouns can never become a brand shorthand.
+ */
+function uniqueKnownBrandForFirstWord(
+  firstWord: string | undefined,
+  knownBrands: Iterable<string>,
+): string | undefined {
+  if (!firstWord || firstWord.length < 3 || GENERIC_GEAR_TERMS.has(firstWord)) return undefined;
+  let match: string | undefined;
+  for (const brand of knownBrands) {
+    const words = tokens(brand);
+    if (words.length < 2 || words[0] !== firstWord) continue;
+    if (match) return undefined;
+    match = brand;
+  }
+  return match;
+}
+
+/** A plausible new maker token at the front of a typed product name. */
+function emergingBrandToken(name: string): string | undefined {
+  const first = tokens(name)[0];
+  return first && first.length >= 4 && !GENERIC_GEAR_TERMS.has(first) && !/^\d/.test(first)
+    ? first
+    : undefined;
+}
+
+/**
+ * Brand tokens corroborated across distinct open candidates. Each candidate supplied
+ * here already has two independent lists behind it; `normKey` must identify a product
+ * rather than a variant, so Long and Regular do not teach the catalog a maker alone.
+ * Requiring two product names prevents one typo or one model family from doing so.
+ */
+export function emergingBrandTokens(
+  candidates: readonly { normKey: string; name: string }[],
+): Set<string> {
+  const candidatesByBrand = new Map<string, Set<string>>();
+  for (const candidate of candidates) {
+    const brand = emergingBrandToken(candidate.name);
+    if (!brand) continue;
+    (candidatesByBrand.get(brand) ?? candidatesByBrand.set(brand, new Set()).get(brand)!)
+      .add(candidate.normKey);
+  }
+  return new Set(
+    [...candidatesByBrand].filter(([, names]) => names.size >= 2).map(([brand]) => brand),
+  );
+}
+
+/**
  * Is a typed item a BRANDED product worth adding (vs a generic noun)? Accepts when
  * the leading tokens match a known catalog brand OR the name has a real model token
  * (a digit/model code) alongside a distinctive word. Rejects all-generic names.
@@ -120,6 +169,7 @@ export function isBrandedTypedItem(p: {
   brand?: string | null;
   name: string;
   knownBrands: Set<string>;
+  emergingBrands?: ReadonlySet<string>;
 }): boolean {
   const toks = tokens([p.brand, p.name].filter(Boolean).join(" "));
   if (!toks.length) return false;
@@ -130,6 +180,8 @@ export function isBrandedTypedItem(p: {
   for (let n = Math.min(4, toks.length); n >= 1; n--) {
     if (p.knownBrands.has(toks.slice(0, n).join(" "))) return true;
   }
+  if (uniqueKnownBrandForFirstWord(toks[0], p.knownBrands)) return true;
+  if (p.emergingBrands?.has(toks[0]!)) return true;
   // clear product shape: a model token (alnum-with-digit or a 2+ digit number) plus
   // a distinctive (non-generic) word
   const hasModel = toks.some((t) => (/\d/.test(t) && /[a-z]/i.test(t)) || /^\d{2,}$/.test(t));
@@ -149,12 +201,16 @@ export function isBrandedTypedItem(p: {
 export function splitKnownBrand(
   name: string,
   spellings: ReadonlyMap<string, string>,
+  emergingBrands?: ReadonlySet<string>,
 ): { brand: string | null; name: string } {
   const words = name.trim().split(/\s+/).filter(Boolean);
   for (let n = Math.min(4, words.length - 1); n >= 1; n--) {
     const brand = spellings.get(normKey(words.slice(0, n).join(" ")));
     if (brand) return { brand, name: words.slice(n).join(" ") };
   }
+  const known = uniqueKnownBrandForFirstWord(normKey(words[0]), spellings.keys());
+  if (known) return { brand: spellings.get(known)!, name: words.slice(1).join(" ") };
+  if (emergingBrands?.has(normKey(words[0]))) return { brand: words[0]!, name: words.slice(1).join(" ") };
   return { brand: null, name: name.trim() };
 }
 
