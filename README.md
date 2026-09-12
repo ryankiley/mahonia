@@ -110,8 +110,8 @@ its day's notes.
 A PR comment reminds any user-facing PR that's missing an entry — but nothing auto-fills it,
 so the entry is always hand-written (plain, curated prose). If a PR merges
 without one, that day's release just omits the change until it's backfilled. For non-user-facing work,
-prefix the PR title (`refactor:`, `chore:`, `ci:`, `test:`, `docs:`, `perf:`) or label it
-**`skip-changelog`**.
+prefix the PR title (`refactor:`, `chore:`, `ci:`, `test:`, `docs:`, `build:`) or label it
+**`skip-changelog`** — `perf:` and `style:` don't count, since both are things a visitor notices.
 
 ## License
 

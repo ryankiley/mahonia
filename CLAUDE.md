@@ -23,8 +23,10 @@ it; `npm run changelog:compact` folds settled fragments in, occasionally, on its
 See `shared/changelog.ts`.
 
 Not user-facing (refactor, deps, infra, catalog data)? Prefix the PR title —
-`refactor:`, `chore:`, `ci:`, `test:`, `docs:`, `perf:` — or put the `skip-changelog`
+`refactor:`, `chore:`, `ci:`, `test:`, `docs:`, `build:` — or put the `skip-changelog`
 label on it. Either silences the reminder; the prefix needs no trip to the GitHub UI.
+`perf:` and `style:` deliberately do NOT silence it (a speed-up and a CSS change are both
+things a visitor can notice here); a perf change nobody could notice takes the label.
 
 Nothing auto-fills this. A `changelog-reminder` comment nudges any user-facing PR that's
 missing an entry, but if one merges without it, that day's release simply omits the change
