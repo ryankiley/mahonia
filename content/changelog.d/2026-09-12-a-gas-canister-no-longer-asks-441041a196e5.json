@@ -1,0 +1,7 @@
+{
+  "date": "2026-09-12",
+  "changed": [
+    "A gas canister no longer asks for calories: the kcal field is offered on food, and on fuel only while it already holds a number.",
+    "A fuel row has no Worn toggle, in the editor and in My Gear: nobody wears a gas canister. A row already marked worn keeps it."
+  ]
+}

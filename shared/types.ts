@@ -88,7 +88,10 @@ export interface Item {
   // counted, on rows whose EFFECTIVE classification is consumable: kcal on a tent
   // is a typo, and counting a value the row doesn't offer to edit would be a number
   // with no way back to its source. Flipping a row base → consumable therefore
-  // brings a stored value back, which is what you'd want after a mis-click.
+  // brings a stored value back, which is what you'd want after a mis-click. One
+  // consumable is offered the field only while it already holds a number: stove
+  // fuel, whose calories are not food (offersKcal in fuel.ts) — counted all the same
+  // if present, and never reachable without being clearable.
   kcal?: number;
   description?: string; // optional freeform user text
   productUrl?: string;

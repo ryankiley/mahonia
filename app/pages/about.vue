@@ -50,8 +50,8 @@ const copyrightYear = new Date().getFullYear();
           </li>
           <li>Weights are backed by a curated, cited gear catalog, but you can override anything.</li>
           <li>
-            A list remembers more than weights: calories on food and fuel, the unit you typed each
-            row in, and the dates of the trip it's for.
+            A list remembers more than weights: calories on food, the unit you typed each row
+            in, and the dates of the trip it's for.
           </li>
           <li>
             Flip the same list into a checklist for the night before, and tick things off as they
