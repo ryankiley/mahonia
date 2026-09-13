@@ -1,6 +1,6 @@
 {
   "date": "2026-09-12",
   "fixed": [
-    "The catalog weight under a row, and the weights in the suggestions beside its name, now read in the unit the row is set to — a row in grams on a pounds list no longer says “Catalog: 1.22 lb”."
+    "The catalog weight under a row, and the weights in its suggestions, now read in the unit the row is set to, not the list's."
   ]
 }
