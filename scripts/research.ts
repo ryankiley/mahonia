@@ -34,6 +34,12 @@ export interface ResearchRow {
   //     gender. The attributes column keeps the letter for the size axis.
   //   • Sleep + shelter keep the maker's LENGTH words ("Regular", "Long", "Large").
   //   • Footwear states the region: "Men's US 9", "Women's US 8", "UK 8", "US 9" (unisex).
+  //   • An axis is stated ONCE, in the maker's own scale (2026-09-12). Goldwin sells by
+  //     number, so "JP 3", not "Medium, JP 3"; Feathered Friends by Regular / Long, so no
+  //     "6ft" beside the word; a shoe's second region ("Men's US 9, EU 42") goes. The
+  //     maker's chart equivalent belongs in the quote, if anywhere. A second claim on an
+  //     axis fails the build whatever its spelling (attr-conflict), and the reseed moves
+  //     a row whose variant was tidied to its new text in place, id kept (seedRenames.ts).
   //   • Worn-in-pairs apparel carries no unit label; only trekking poles say "per pair".
   //   • A variant exists only to tell a row apart from a sibling, or to state a size the
   //     maker sells several of. "One size", "Unisex", "Standard" on a one-row product, and

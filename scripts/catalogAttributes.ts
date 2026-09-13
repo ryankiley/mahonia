@@ -15,7 +15,9 @@
 //     fabric on a jacket). scripts/build-catalog.ts runs it on every row; the CSV check
 //     re-runs it, so a hand-edited CSV that says "20F" without temp_f 20 fails the build.
 //     It never emits a value the validator would refuse ("330mAh", "10, 000mAh" stay in
-//     the variant for research), and it reports a variant that claims one axis twice.
+//     the variant for research), and it reports a variant that claims one axis twice —
+//     a contradiction or a second scale alike ("Medium, JP 3"): each axis is stated
+//     once, in the maker's own scale.
 //     What it does NOT read (a bare "Standard" that is a width on a Zpacks quilt and a
 //     length on a Hammock Gear one, "LW Mummy", "Double Wide") is left for research.
 //
@@ -170,25 +172,16 @@ const LENGTH_WORD_ONLY = new RegExp(`^(?:${LENGTH_WORDS})$`);
 const HALF_SIZE = /^\d{1,2}(?:-\d{1,2})?$/;
 const round = (n: number, places: number) => Number(n.toFixed(places));
 
-/** The spelling family of a value, so two spellings of ONE fact ("Regular, 6ft", "US 9,
- *  EU 42", "M, JP 3") are told apart from two claims in the same form ("Regular, Long"). */
-function formOf(value: string | number): string {
-  if (typeof value === "number") return "number";
-  const region = value.match(new RegExp(`^(${SHOE_REGIONS}) `));
-  if (region) return `region:${region[1]}`;
-  if (/^\d/.test(value)) return "measure";
-  if (LETTER_SIZE.test(value) || LETTER_RANGE.test(value)) return "letter";
-  return "word";
-}
-
 /**
  * Read the attributes a variant string states outright. Deterministic and conservative:
  * a token is read only where its meaning is unambiguous for the gear type, a value the
  * validator would refuse is not read at all, and the first token to claim an axis keeps
- * it. A second claim in another spelling is that same fact restated and stays in the
- * variant ("M, JP 3" is size M); a second claim in the SAME spelling family contradicts
- * the first and is reported through `onConflict`. Runs on the NORMALISED variant (the
- * CSV form). See the file header for what it leaves.
+ * it. A second claim on the same axis is reported through `onConflict`, whatever its
+ * spelling: a contradiction ("Regular, Long") and a restatement in another scale
+ * ("Medium, JP 3", "Men's US 9, EU 42", "Regular, 6ft") both fail, because a variant
+ * states each axis once, in the maker's own scale (2026-09-12; until then a second
+ * scale was read as the same fact and left in the variant). Runs on the NORMALISED
+ * variant (the CSV form). See the file header for what it leaves.
  */
 export function extractAttributes(
   variant: string | null | undefined,
@@ -209,7 +202,7 @@ export function extractAttributes(
     const prev = out[key];
     if (prev === undefined) {
       out[key] = value;
-    } else if (prev !== value && onConflict && formOf(prev) === formOf(value)) {
+    } else if (prev !== value && onConflict) {
       onConflict(`${key}: "${prev}" and "${value}"`);
     }
   };
