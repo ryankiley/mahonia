@@ -161,6 +161,7 @@ describe("the endpoint's transport", () => {
     for (const t of tools) {
       expect(t.inputSchema.type).toBe("object");
       expect(t.description.length).toBeGreaterThan(20);
+      expect(t).not.toHaveProperty("run");
     }
     expect(tools.filter((t) => t.annotations.readOnlyHint).map((t) => t.name)).toEqual(["get_list", "get_list_markdown", "search_catalog", "get_catalog_product"]);
     // the two adding tools are additive; set_trip replaces and clears, and says so

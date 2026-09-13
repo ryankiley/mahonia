@@ -301,13 +301,16 @@ export interface McpTool {
   annotations: { readOnlyHint: boolean; destructiveHint: boolean; idempotentHint: boolean; openWorldHint: boolean };
 }
 
+type McpToolHandler = (event: H3Event, args: Record<string, unknown>) => Promise<ToolResult>;
+type RegisteredMcpTool = McpTool & { run: McpToolHandler };
+
 const READ = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false };
 const ADD = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false };
 // destructive, honestly: set_trip REPLACES a title and can clear the dates or the
 // trail, and the hint's own definition says false means additive updates only
 const SET = { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false };
 
-export const MCP_TOOLS: McpTool[] = [
+const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
   {
     name: "get_list",
     title: "Read a shared list",
@@ -315,6 +318,7 @@ export const MCP_TOOLS: McpTool[] = [
     inputSchema: { type: "object", properties: { share_code: SHARE_ARG }, required: ["share_code"] },
     outputSchema: LIST_OUTPUT,
     annotations: READ,
+    run: getList,
   },
   {
     name: "get_list_markdown",
@@ -322,6 +326,7 @@ export const MCP_TOOLS: McpTool[] = [
     description: `The same list as Markdown: one table per folder and a totals block, the text the site's own Markdown export produces. Takes a share code or share link. A list too large to return whole loses rows off the end of the tables, a line under them says how many, and the totals still count every row. ${PROVENANCE}`,
     inputSchema: { type: "object", properties: { share_code: SHARE_ARG }, required: ["share_code"] },
     annotations: READ,
+    run: (_event, args) => getListMarkdown(args),
   },
   {
     name: "search_catalog",
@@ -338,6 +343,7 @@ export const MCP_TOOLS: McpTool[] = [
     },
     outputSchema: SEARCH_OUTPUT,
     annotations: READ,
+    run: (_event, args) => search(args),
   },
   {
     name: "get_catalog_product",
@@ -354,6 +360,7 @@ export const MCP_TOOLS: McpTool[] = [
     },
     outputSchema: PRODUCT_OUTPUT,
     annotations: READ,
+    run: (_event, args) => product(args),
   },
   {
     name: "create_list",
@@ -388,6 +395,7 @@ export const MCP_TOOLS: McpTool[] = [
     },
     outputSchema: CREATE_OUTPUT,
     annotations: ADD,
+    run: create,
   },
   {
     name: "add_items",
@@ -409,6 +417,7 @@ export const MCP_TOOLS: McpTool[] = [
     },
     outputSchema: ADD_OUTPUT,
     annotations: ADD,
+    run: addItems,
   },
   {
     name: "set_trip",
@@ -431,8 +440,13 @@ export const MCP_TOOLS: McpTool[] = [
     },
     outputSchema: TRIP_OUTPUT,
     annotations: SET,
+    run: setTrip,
   },
 ];
+
+/** Public protocol metadata. Handlers stay server-only and never reach tools/list. */
+export const MCP_TOOLS: McpTool[] = MCP_TOOL_REGISTRY.map(({ run: _run, ...tool }) => tool);
+const mcpToolByName = new Map(MCP_TOOL_REGISTRY.map((tool) => [tool.name, tool]));
 
 export interface ToolResult {
   content: { type: "text"; text: string }[];
@@ -449,7 +463,7 @@ const ok = (structured: Record<string, unknown>, text = JSON.stringify(structure
 });
 
 export function isKnownTool(name: unknown): name is string {
-  return typeof name === "string" && MCP_TOOLS.some((t) => t.name === name);
+  return typeof name === "string" && mcpToolByName.has(name);
 }
 
 /**
@@ -460,24 +474,8 @@ export function isKnownTool(name: unknown): name is string {
  */
 export async function callTool(event: H3Event, name: string, rawArgs: unknown): Promise<ToolResult> {
   const args = (rawArgs && typeof rawArgs === "object" ? rawArgs : {}) as Record<string, unknown>;
-  switch (name) {
-    case "get_list":
-      return getList(event, args);
-    case "get_list_markdown":
-      return getListMarkdown(args);
-    case "search_catalog":
-      return search(args);
-    case "get_catalog_product":
-      return product(args);
-    case "create_list":
-      return create(event, args);
-    case "add_items":
-      return addItems(event, args);
-    case "set_trip":
-      return setTrip(event, args);
-    default:
-      return fail(`Unknown tool: ${name}`);
-  }
+  const tool = mcpToolByName.get(name);
+  return tool ? tool.run(event, args) : fail(`Unknown tool: ${name}`);
 }
 
 // ---- reading ---------------------------------------------------------------------
