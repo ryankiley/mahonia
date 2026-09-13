@@ -3,7 +3,7 @@
 
 import type { Item, ListData, ListSnapshot, Unit } from "../types";
 import { colorKeyForName, nextFolderColor } from "../categories";
-import { MAX_PEOPLE } from "../ops";
+import { MAX_FOLDERS, MAX_ITEMS, MAX_PEOPLE } from "../ops";
 import { carrierName } from "../people";
 import { effectiveClassification, fromMg, itemDisplayName, splitWornQty, toMg, UNIT_ALIASES } from "../weights";
 import { exportSections } from "./rows";
@@ -123,8 +123,14 @@ export function parseCsv(text: string): string[][] {
   return rows.filter((r) => r.some((c) => c.trim() !== ""));
 }
 
+/** Import limits that depend on the thing receiving the CSV. */
+export interface CsvImportOptions {
+  /** A packing list holds 50 folders; a vault has its own, larger ceiling. */
+  maxFolders?: number;
+}
+
 /** Map a CSV (ours or LighterPack's) into ListData. Tolerant of column order/naming. */
-export function csvToListData(text: string): ListData {
+export function csvToListData(text: string, { maxFolders = MAX_FOLDERS }: CsvImportOptions = {}): ListData {
   const rows = parseCsv(text);
   if (rows.length < 2) return { folders: [], items: [] };
   const header = rows[0]!.map((h) => h.trim().toLowerCase());
@@ -169,6 +175,10 @@ export function csvToListData(text: string): ListData {
     const key = name.trim();
     if (!key) return null;
     if (!folderId.has(key)) {
+      // Match createList's hard limit before the import reaches catalog matching or
+      // the create request. Without this, a large CSV built an over-limit client
+      // payload, then the server silently changed its shape under the user.
+      if (folders.length >= maxFolders) return null;
       const id = uid();
       folderId.set(key, id);
       // name-match first (Water→blue, First Aid→red), palette walk as the fallback:
@@ -227,6 +237,9 @@ export function csvToListData(text: string): ListData {
     // spacer in someone's spreadsheet, and importing it as a nameless 0 g item puts
     // a phantom row in the list.
     if (!name && unitWeightMg <= 0) continue;
+    // The server caps persisted lists at MAX_ITEMS. Stop at the same boundary here
+    // so the client never spends work matching or sending rows it cannot keep.
+    if (items.length >= MAX_ITEMS) break;
     const gearType = cell(iCommon); // read once — it also decides the override flag below
     const cat = iCat >= 0 ? stripFormulaGuard(row[iCat] ?? "") : "";
     const fId = ensureFolder(cat || "Imported");

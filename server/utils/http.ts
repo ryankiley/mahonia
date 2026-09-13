@@ -122,14 +122,24 @@ export async function readResponseCapped(
   for (;;) {
     const { value, done } = await reader.read();
     if (done) break;
-    total += value.byteLength;
-    chunks.push(value);
-    // stop pulling either way — we have what we need, or we've decided we don't want it
-    if (total > maxBytes) {
+    const remaining = maxBytes - total;
+    if (value.byteLength > remaining) {
+      // Do not retain an entire oversized network chunk. A subarray is only a
+      // view, so keeping one would keep the chunk's whole backing ArrayBuffer
+      // alive until Buffer.concat runs. Copy just the prefix instead.
+      if (onOversize === "truncate" && remaining > 0) {
+        const prefix = new Uint8Array(remaining);
+        prefix.set(value.subarray(0, remaining));
+        chunks.push(prefix);
+      }
+      // stop pulling either way — we have what we need, or we've decided we don't want it
       await reader.cancel();
       if (onOversize === "reject") return { ok: false, reason: "oversize" };
+      total = maxBytes;
       break;
     }
+    total += value.byteLength;
+    chunks.push(value);
   }
   return { ok: true, body: total ? Buffer.concat(chunks.map((c) => Buffer.from(c))) : null };
 }

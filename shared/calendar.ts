@@ -24,6 +24,39 @@
 
 const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 
+type CalendarParts = { year: number; month: number; day: number; utcMs: number };
+
+/**
+ * Read a strict calendar date once for both the local-display and UTC-arithmetic
+ * sides. The shape check alone is not enough: JavaScript silently turns
+ * `2026-02-31` into March 3, which makes an invalid stored value look like a
+ * different, legitimate trip day.
+ */
+function calendarParts(iso: string | undefined): CalendarParts | null {
+  const m = iso ? ISO_DATE.exec(iso) : null;
+  if (!m) return null;
+  const utcMs = Date.parse(`${iso}T00:00:00Z`);
+  if (Number.isNaN(utcMs) || new Date(utcMs).toISOString().slice(0, 10) !== iso) return null;
+  return { year: Number(m[1]), month: Number(m[2]), day: Number(m[3]), utcMs };
+}
+
+/**
+ * True only for a real, canonical `YYYY-MM-DD` calendar date. Accepts unknown
+ * input so importers and command-line tools can validate untyped data before
+ * passing it into the date helpers below.
+ */
+export function isCalendarDate(raw: unknown): raw is string {
+  return typeof raw === "string" && calendarParts(raw) !== null;
+}
+
+/** A local Date without Date's special 1900 offset for years 0–99. */
+function localDate({ year, month, day }: CalendarParts): Date {
+  const d = new Date(0);
+  d.setFullYear(year, month - 1, day);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
 /** One calendar day, in milliseconds — the unit the UTC side counts in. */
 export const DAY_MS = 86_400_000;
 
@@ -32,13 +65,13 @@ export const DAY_MS = 86_400_000;
  * anything that isn't one (including undefined, so an unset date needs no guard).
  */
 export function parseIsoDate(iso: string | undefined): Date | null {
-  const m = iso ? ISO_DATE.exec(iso) : null;
-  return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null;
+  const parts = calendarParts(iso);
+  return parts ? localDate(parts) : null;
 }
 
 /** A local Date's calendar day as `YYYY-MM-DD` — the inverse of parseIsoDate. */
 export function isoDate(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return `${String(d.getFullYear()).padStart(4, "0")}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 /**
@@ -46,7 +79,7 @@ export function isoDate(d: Date): string {
  * a date, so a caller can refuse rather than compute on garbage.
  */
 export function utcMidnight(iso: string): number {
-  return Date.parse(`${iso}T00:00:00Z`);
+  return calendarParts(iso)?.utcMs ?? Number.NaN;
 }
 
 /**
@@ -57,6 +90,9 @@ export function utcMidnight(iso: string): number {
  */
 export function shiftIsoDate(iso: string, days: number): string {
   const ms = utcMidnight(iso);
-  if (Number.isNaN(ms)) return iso;
-  return new Date(ms + days * DAY_MS).toISOString().slice(0, 10);
+  if (Number.isNaN(ms) || !Number.isSafeInteger(days)) return iso;
+  const shifted = new Date(ms + days * DAY_MS);
+  if (Number.isNaN(shifted.getTime())) return iso;
+  const next = shifted.toISOString().slice(0, 10);
+  return ISO_DATE.test(next) ? next : iso;
 }

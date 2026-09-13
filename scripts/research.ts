@@ -110,22 +110,98 @@ export interface ResearchFile {
 }
 
 /** The hand-authored gear-type map (seed/common-names.json) keyed by identity, for rows
- *  that predate an inline `common_name`. Empty when the file is missing. Shared by the
- *  build (which also reports orphans) and the research checks (which need a row's gear
- *  type to know a tent from a stove). */
+ *  that predate an inline `common_name`. Empty when the file is missing; a present but
+ *  malformed map is a build error, never an excuse to silently fall back to guesses.
+ *  Shared by the build (which also reports orphans) and the research checks (which need
+ *  a row's gear type to know a tent from a stove). */
 export function loadCommonNames(path: string): Map<string, string> {
   const m = new Map<string, string>();
+  const entriesByIdentity = new Map<string, number>();
+  let parsed: unknown;
   try {
-    const arr = JSON.parse(readFileSync(path, "utf8")) as Array<{ brand?: string; name?: string; variant?: string; common_name?: string }>;
-    for (const e of arr) {
-      const cn = (e.common_name ?? "").trim();
-      if (!cn) continue;
-      m.set(identityKey((e.brand ?? "").trim(), (e.name ?? "").trim(), normalizeVariant(e.variant ?? "")), cn);
+    parsed = JSON.parse(readFileSync(path, "utf8"));
+  } catch (e) {
+    // No map yet: every row falls back to its own common_name or a derived noun.
+    // Anything else is a broken checked-in map and must stop the caller instead of
+    // quietly removing every explicit gear type it carried.
+    if ((e as NodeJS.ErrnoException).code === "ENOENT") return m;
+    throw new Error(`Couldn't read common-name map ${path}: ${(e as Error).message}`);
+  }
+  if (!Array.isArray(parsed)) throw new Error(`Common-name map ${path} must be a JSON array.`);
+  for (const [index, raw] of parsed.entries()) {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+      throw new Error(`Common-name map ${path} entry ${index + 1} must be an object.`);
     }
-  } catch {
-    // no map yet: every row falls back to its own common_name or a derived noun
+    const entry = raw as Record<string, unknown>;
+    const text = (key: "brand" | "name" | "variant" | "common_name") => {
+      const value = entry[key];
+      if (value != null && typeof value !== "string") {
+        throw new Error(`Common-name map ${path} entry ${index + 1} has a non-text ${key}.`);
+      }
+      return typeof value === "string" ? value.trim() : "";
+    };
+    // Validate every identity field before deciding an empty common_name makes
+    // this entry irrelevant. Otherwise malformed, inactive-looking records can
+    // stay in a checked-in map until someone fills in the name and breaks a build.
+    const brand = text("brand");
+    const name = text("name");
+    const variant = text("variant");
+    const cn = text("common_name");
+    if (!cn) continue;
+    const identity = identityKey(brand, name, normalizeVariant(variant));
+    const prior = entriesByIdentity.get(identity);
+    if (prior != null) {
+      throw new Error(
+        `Common-name map ${path} entry ${index + 1} duplicates entry ${prior} for ${identity}.`,
+      );
+    }
+    entriesByIdentity.set(identity, index + 1);
+    m.set(identity, cn);
   }
   return m;
+}
+
+const RESEARCH_TEXT_FIELDS = [
+  "brand",
+  "name",
+  "variant",
+  "attributes_source_url",
+  "attributes_quote",
+  "category_hint",
+  "common_name",
+  "weight_unit",
+  "weight_secondary",
+  "weight_source",
+  "source_url",
+  "quote",
+  "kcal_source_url",
+  "kcal_quote",
+] as const;
+
+/** The reader owns basic JSON shape, so downstream per-row checks can report bad
+ * values instead of crashing on an untyped scalar's `.trim()` / `.toLowerCase()`.
+ * It deliberately leaves semantic checks (required fields, units, attribute forms)
+ * to build-catalog and researchChecks, where their specific diagnostics belong. */
+function researchRowProblem(raw: unknown, position: number): string | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return `row ${position} must be an object`;
+  const row = raw as Record<string, unknown>;
+  for (const field of RESEARCH_TEXT_FIELDS) {
+    const value = row[field];
+    if (value != null && typeof value !== "string") return `row ${position} has a non-text ${field}`;
+  }
+  for (const field of ["weight_value", "kcal"] as const) {
+    const value = row[field];
+    if (value != null && typeof value !== "number") return `row ${position} has a non-numeric ${field}`;
+  }
+  if (row.attributes != null && (typeof row.attributes !== "object" || Array.isArray(row.attributes))) {
+    return `row ${position} has non-object attributes`;
+  }
+  if (row.attributes_unpublished != null) {
+    if (!Array.isArray(row.attributes_unpublished) || row.attributes_unpublished.some((key) => typeof key !== "string")) {
+      return `row ${position} has a non-text attributes_unpublished entry`;
+    }
+  }
+  return null;
 }
 
 /** A research row's canonical gear type, resolved the way the build resolves it: the
@@ -144,10 +220,16 @@ export function readResearchFiles(researchDir: string): ResearchFile[] {
     .sort();
   return files.map((file) => {
     try {
-      const parsed = JSON.parse(readFileSync(join(researchDir, file), "utf8")) as {
-        rows?: ResearchRow[];
-      };
-      return { file, rows: parsed.rows ?? [] };
+      const parsed: unknown = JSON.parse(readFileSync(join(researchDir, file), "utf8"));
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        throw new Error('expected an object with a "rows" array');
+      }
+      if (!("rows" in parsed)) throw new Error('expected an object with a "rows" array');
+      const rows = (parsed as { rows?: unknown }).rows;
+      if (!Array.isArray(rows)) throw new Error('expected "rows" to be an array');
+      const problem = rows.map((row, index) => researchRowProblem(row, index + 1)).find(Boolean);
+      if (problem) throw new Error(problem);
+      return { file, rows: rows as ResearchRow[] };
     } catch (e) {
       return { file, rows: [], parseError: (e as Error).message };
     }

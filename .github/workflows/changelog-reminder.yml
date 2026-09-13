@@ -35,6 +35,10 @@ permissions:
 
 jobs:
   remind:
+    # Fork and Dependabot PRs receive a read-only GITHUB_TOKEN, regardless of
+    # this workflow's requested permission. The reminder only writes a comment,
+    # so skip it there instead of turning an otherwise valid PR red.
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/github-script@v7

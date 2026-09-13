@@ -1,0 +1,8 @@
+{
+  "date": "2026-09-12",
+  "fixed": [
+    "A route file's blank or impossible coordinates are skipped, and a point without an altitude no longer counts as sea level.",
+    "A pasted or uploaded CSV stops at the 50 folders and 1,000 items a list can hold, so what the import shows is what gets saved.",
+    "A nested item's worn count shows in the Markdown export, as it already did on a top-level row."
+  ]
+}

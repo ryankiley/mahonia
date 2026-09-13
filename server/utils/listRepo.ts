@@ -5,7 +5,7 @@
 import { createError } from "h3";
 import { and, desc, eq, inArray, isNotNull, isNull, lt, lte, notInArray, sql } from "drizzle-orm";
 import { listClaims, catalogItems, listSnapshots, lists, type ListRow, users } from "../db/schema";
-import { applyOps, isOpObject, MAX_DAYS, MAX_FOLDERS, MAX_ITEMS, MAX_PEOPLE, MAX_WAYPOINTS, normalizeCalendarDate, normalizeDay, normalizeFolder, normalizeItem, normalizePerson, normalizeWaypoint, tidyListText, type Op, MAX_TITLE_LEN, isCatalogId } from "../../shared/ops";
+import { applyOps, isOpObject, MAX_DAYS, MAX_FOLDERS, MAX_ITEMS, MAX_PEOPLE, MAX_WAYPOINTS, normalizeCalendarDate, normalizeDay, normalizeFolder, normalizeItem, normalizePerson, normalizeWaypoint, seedRouteEnds, tidyListText, type Op, MAX_TITLE_LEN, isCatalogId } from "../../shared/ops";
 import { UNASSIGNED, uniquifyPersonNames } from "../../shared/people";
 import { computeTotals } from "../../shared/weights";
 import {
@@ -626,13 +626,28 @@ export async function restoreSnapshotByEditHash(
   // re-normalize through the SAME reducer helpers (defensive — a snapshot must not
   // be a clamp-bypass back into raw JSONB), and re-validate the unit
   const data = normalizeListData(s);
-  const totals = computeTotals(data);
   // tidied like createList's, because normalizeListData just tidied every item and
   // folder name in this same restore. Without it one operation returns an internally
   // inconsistent list — rows reading "Ryan’s tent" under a title still reading
   // "  Ryan's   Trip  " — which is the mixed state the tidy exists to remove.
   const title = tidyText((s.title ?? "").slice(0, MAX_TITLE_LEN)) || "Untitled list";
   const displayUnit: Unit = UNITS.includes(s.displayUnit as Unit) ? (s.displayUnit as Unit) : "g";
+  // Snapshot metadata is old, externally recoverable input: run every field
+  // through the same gates as create/setMeta before it can re-enter a live row.
+  const trailDistanceM = normalizeTrailDistanceM(s.trailDistanceM);
+  const trailDistanceUnit = normalizeDistanceUnit(s.trailDistanceUnit);
+  const trailProfile = parseProfile(s.trailProfile).join(",") || undefined;
+  const trailAscentM = normalizeTrailAscentM(s.trailAscentM);
+  const trailDescentM = normalizeTrailAscentM(s.trailDescentM);
+  const routeGeometry = normalizeRouteGeometry(s.routeGeometry);
+  // Waypoints are distances along this exact geometry. Restoring a malformed or
+  // re-encoded route must follow setMeta's route-change rule, rather than leave
+  // pins pointing at a route that no longer exists (or has changed underneath).
+  if (!routeGeometry || routeGeometry !== s.routeGeometry)
+    data.waypoints = seedRouteEnds(routeGeometry ?? "");
+  const startDate = normalizeCalendarDate(s.startDate);
+  const endDate = normalizeCalendarDate(s.endDate);
+  const totals = computeTotals(data);
   // restore writes title/description like a mutate does, so it's the same link-spam
   // vector: publish clean, then restore a link-stuffed earlier snapshot. Re-check
   // here too (set-only, mirroring applyOpsByEditHash) so this path can't smuggle
@@ -663,25 +678,18 @@ export async function restoreSnapshotByEditHash(
         // a javascript: value out of the :href a stranger clicks on a shared list.
         trailUrl: normalizeTrailUrl(s.trailUrl) ?? null,
         trailLabel: normalizeTrailLabel(s.trailLabel) ?? null,
-        // NOT normalized, unlike the three above — and that asymmetry is a merge artefact
-        // rather than a decision. The clamp-bypass argument in that comment is about this
-        // whole block, so these belong behind their normalizers too (parseProfile,
-        // normalizeTrailDistanceM, normalizeDistanceUnit, normalizeTrailAscentM,
-        // normalizeRouteGeometry). Left alone here so the merge stays a merge; doing it
-        // properly means deciding what an unparseable profile restores AS, since
-        // parseProfile returns [] where the others return undefined.
-        trailDistanceM: s.trailDistanceM ?? null,
-        trailDistanceUnit: s.trailDistanceUnit ?? null,
-        trailProfile: s.trailProfile ?? null,
-        trailAscentM: s.trailAscentM ?? null,
-        trailDescentM: s.trailDescentM ?? null,
+        trailDistanceM: trailDistanceM ?? null,
+        trailDistanceUnit: trailDistanceUnit ?? null,
+        trailProfile: trailProfile ?? null,
+        trailAscentM: trailAscentM ?? null,
+        trailDescentM: trailDescentM ?? null,
         // WRITTEN here, unlike body weight was. Geometry rides the snapshot chain because
         // it is a property of the LIST, and it is the one field the owner cannot retype —
         // it came off a file they may no longer have. Leaving it out of the write would
         // NULL it on every restore, which is the exact bug trailProfile already had.
-        routeGeometry: s.routeGeometry ?? null,
-        startDate: s.startDate ?? null,
-        endDate: s.endDate ?? null,
+        routeGeometry: routeGeometry ?? null,
+        startDate: startDate ?? null,
+        endDate: endDate ?? null,
         displayUnit,
         data,
         ...weightColumns(totals),

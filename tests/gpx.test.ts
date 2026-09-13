@@ -1,6 +1,7 @@
+import { deflateRawSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 import { Window } from "happy-dom";
-import { geoJsonPoints, gpxPoints, gpxStats, haversineM, kmzToKml, type TrackPoint } from "../shared/gpx";
+import { filePins, geoJsonPoints, gpxPoints, gpxStats, haversineM, kmzToKml, MAX_GPX_BYTES, zipMember, type TrackPoint } from "../shared/gpx";
 import { CLIMB_SAMPLE_M, GRADE_HARD_PCT, GRADE_MODERATE_PCT, PROFILE_SAMPLES, dayClimbs, gradeRuns, gradeSpread, parseProfile, profileToString, segmentClimbs } from "../shared/profile";
 
 // A track that walks due east along a parallel, so the distances are easy to reason
@@ -37,6 +38,11 @@ describe("gpxStats — distance", () => {
     expect(gpxStats([{ lat: 0, lon: 0 }])).toBeNull();
     // two points in the same place have no length
     expect(gpxStats([{ lat: 0, lon: 0 }, { lat: 0, lon: 0 }])).toBeNull();
+  });
+
+  it("declines malformed coordinates instead of calculating a plausible route from them", () => {
+    expect(gpxStats([{ lat: 0, lon: 0 }, { lat: 91, lon: 0 }])).toBeNull();
+    expect(gpxStats([{ lat: 0, lon: 0, ele: Number.NaN }, { lat: 0, lon: 1, ele: 10 }])?.profile).toEqual([]);
   });
 });
 
@@ -411,42 +417,86 @@ describe("reading a route out of somebody else's file", () => {
     expect(geoJsonPoints({ type: "LineString", coordinates: [["a", "b"], [1]] })).toEqual([]);
     expect(gpxPoints(xml(`<kml xmlns="http://www.opengis.net/kml/2.2"><Document/></kml>`))).toEqual([]);
   });
+
+  it("drops out-of-range coordinates across every text format", () => {
+    const valid = [{ lat: 45.33, lon: -121.71 }];
+    expect(gpxPoints(xml(`<gpx><trk><trkseg><trkpt lat="45.33" lon="-121.71"/><trkpt lat="95" lon="-121.70"/></trkseg></trk></gpx>`))).toEqual(valid);
+    expect(gpxPoints(xml(`<kml><Document><Placemark><LineString><coordinates>-121.71,45.33 181,45.34</coordinates></LineString></Placemark></Document></kml>`))).toEqual(valid);
+    expect(gpxPoints(xml(`<TrainingCenterDatabase><Trackpoint><Position><LatitudeDegrees>45.33</LatitudeDegrees><LongitudeDegrees>-121.71</LongitudeDegrees></Position></Trackpoint><Trackpoint><Position><LatitudeDegrees>45.34</LatitudeDegrees><LongitudeDegrees>-181</LongitudeDegrees></Position></Trackpoint></TrainingCenterDatabase>`))).toEqual(valid);
+    expect(geoJsonPoints({ type: "LineString", coordinates: [[-121.71, 45.33], [181, 45.34]] })).toEqual(valid);
+  });
+
+  it("leaves an altitude absent when a TCX trackpoint omits its tag", () => {
+    const [point] = gpxPoints(xml(`<TrainingCenterDatabase><Trackpoint><Position><LatitudeDegrees>45.33</LatitudeDegrees><LongitudeDegrees>-121.71</LongitudeDegrees></Position></Trackpoint></TrainingCenterDatabase>`));
+    expect(point).toEqual({ lat: 45.33, lon: -121.71 });
+  });
+
+  it("does not turn missing or empty coordinate text into a phantom point at zero", () => {
+    expect(gpxPoints(xml(`<gpx><trk><trkseg><trkpt lon="-121.71"/></trkseg></trk></gpx>`))).toEqual([]);
+    expect(gpxPoints(xml(`<TrainingCenterDatabase><Trackpoint><Position><LatitudeDegrees></LatitudeDegrees><LongitudeDegrees>-121.71</LongitudeDegrees></Position></Trackpoint></TrainingCenterDatabase>`))).toEqual([]);
+    expect(gpxPoints(xml(`<kml><Document><Placemark><LineString><coordinates>,</coordinates></LineString></Placemark></Document></kml>`))).toEqual([]);
+    expect(gpxPoints(xml(`<feed><line>,</line></feed>`))).toEqual([]);
+    expect(filePins(xml(`<gpx><wpt lat="" lon="-121.71"/></gpx>`))).toEqual([]);
+  });
 });
 
 describe("KMZ — a KML in a zip", () => {
   /** A real zip, built here rather than mocked, so the central-directory walk is
    *  genuinely exercised. `method` 0 is stored; 8 would be deflate. */
-  function zip(name: string, body: string): ArrayBuffer {
+  type ZipInput = { name: string; body: string | Uint8Array; deflate?: boolean };
+
+  function zipEntries(entries: readonly ZipInput[]): ArrayBuffer {
     const enc = new TextEncoder();
-    const nameB = enc.encode(name);
-    const data = enc.encode(body);
-    const local = 30 + nameB.length;
-    const central = 46 + nameB.length;
-    const buf = new Uint8Array(local + data.length + central + 22);
+    const prepared = entries.map(({ name, body, deflate = false }) => {
+      const raw = typeof body === "string" ? enc.encode(body) : body;
+      return {
+        nameB: enc.encode(name),
+        raw,
+        data: deflate ? new Uint8Array(deflateRawSync(raw)) : raw,
+        method: deflate ? 8 : 0,
+        localAt: 0,
+      };
+    });
+    const localSize = prepared.reduce((size, entry) => size + 30 + entry.nameB.length + entry.data.length, 0);
+    const centralSize = prepared.reduce((size, entry) => size + 46 + entry.nameB.length, 0);
+    const buf = new Uint8Array(localSize + centralSize + 22);
     const dv = new DataView(buf.buffer);
     let o = 0;
-    dv.setUint32(o, 0x04034b50, true);            // local header
-    dv.setUint16(o + 8, 0, true);                  // stored
-    dv.setUint32(o + 18, data.length, true);       // compressed size
-    dv.setUint32(o + 22, data.length, true);       // uncompressed size
-    dv.setUint16(o + 26, nameB.length, true);
-    buf.set(nameB, o + 30);
-    buf.set(data, o + local);
-    const cdAt = local + data.length;
-    o = cdAt;
-    dv.setUint32(o, 0x02014b50, true);            // central directory
-    dv.setUint16(o + 10, 0, true);
-    dv.setUint32(o + 20, data.length, true);
-    dv.setUint16(o + 28, nameB.length, true);
-    dv.setUint32(o + 42, 0, true);                 // local header offset
-    buf.set(nameB, o + 46);
-    o = cdAt + central;
+
+    for (const entry of prepared) {
+      entry.localAt = o;
+      dv.setUint32(o, 0x04034b50, true);            // local header
+      dv.setUint16(o + 8, entry.method, true);
+      dv.setUint32(o + 18, entry.data.length, true); // compressed size
+      dv.setUint32(o + 22, entry.raw.length, true);  // uncompressed size
+      dv.setUint16(o + 26, entry.nameB.length, true);
+      buf.set(entry.nameB, o + 30);
+      buf.set(entry.data, o + 30 + entry.nameB.length);
+      o += 30 + entry.nameB.length + entry.data.length;
+    }
+
+    const cdAt = o;
+    for (const entry of prepared) {
+      dv.setUint32(o, 0x02014b50, true);            // central directory
+      dv.setUint16(o + 10, entry.method, true);
+      dv.setUint32(o + 20, entry.data.length, true);
+      dv.setUint32(o + 24, entry.raw.length, true);
+      dv.setUint16(o + 28, entry.nameB.length, true);
+      dv.setUint32(o + 42, entry.localAt, true);    // local header offset
+      buf.set(entry.nameB, o + 46);
+      o += 46 + entry.nameB.length;
+    }
+
     dv.setUint32(o, 0x06054b50, true);            // end of central directory
-    dv.setUint16(o + 8, 1, true);                  // entries on this disk
-    dv.setUint16(o + 10, 1, true);                 // entries total
+    dv.setUint16(o + 8, prepared.length, true);    // entries on this disk
+    dv.setUint16(o + 10, prepared.length, true);   // entries total
+    dv.setUint32(o + 12, centralSize, true);
     dv.setUint32(o + 16, cdAt, true);              // where the directory starts
     return buf.buffer;
   }
+
+  const zip = (name: string, body: string, { deflate = false }: { deflate?: boolean } = {}) =>
+    zipEntries([{ name, body, deflate }]);
 
   it("pulls the KML out and reads the route in it", async () => {
     const kml = await kmzToKml(zip("doc.kml", KML));
@@ -459,6 +509,44 @@ describe("KMZ — a KML in a zip", () => {
     expect(await kmzToKml(zip("files/route.kml", KML))).toContain("coordinates");
   });
 
+  it("finds an archive whose maximum-length comment follows the directory", async () => {
+    const base = new Uint8Array(zip("doc.kml", KML));
+    const comment = new Uint8Array(65_535);
+    const withComment = new Uint8Array(base.length + comment.length);
+    withComment.set(base);
+    new DataView(withComment.buffer).setUint16(base.length - 2, comment.length, true);
+    expect(await kmzToKml(withComment.buffer)).toContain("coordinates");
+  });
+
+  it("ignores EOCD magic inside the archive comment", async () => {
+    const base = new Uint8Array(zip("doc.kml", KML));
+    const comment = new Uint8Array(40);
+    // This looks like an EOCD after the real record, but its zero-length comment
+    // stops short of the end of the file. The real EOCD owns all 40 comment bytes.
+    comment.set([0x50, 0x4b, 0x05, 0x06], 10);
+    const withComment = new Uint8Array(base.length + comment.length);
+    withComment.set(base);
+    withComment.set(comment, base.length);
+    new DataView(withComment.buffer).setUint16(base.length - 2, comment.length, true);
+    expect(await kmzToKml(withComment.buffer)).toContain("coordinates");
+  });
+
+  it("inflates a standard deflate member within the route-size budget", async () => {
+    expect(await kmzToKml(zip("doc.kml", KML, { deflate: true }))).toContain("coordinates");
+  });
+
+  it("skips a large unrelated member but keeps the selected-member limit", async () => {
+    const archive = zipEntries([
+      // Deflate makes this 10 MB attachment tiny on disk. It is a valid KMZ member,
+      // but it is not the KML the route importer will ever unpack.
+      { name: "previews/full-resolution.png", body: new Uint8Array(MAX_GPX_BYTES + 1), deflate: true },
+      { name: "doc.kml", body: KML },
+    ]);
+
+    expect(await kmzToKml(archive)).toContain("coordinates");
+    await expect(zipMember(archive, () => true)).resolves.toBeNull();
+  });
+
   it("declines anything that isn't a zip, rather than guessing", async () => {
     expect(await kmzToKml(new TextEncoder().encode("<gpx/>").buffer)).toBeNull();
     expect(await kmzToKml(new ArrayBuffer(0))).toBeNull();
@@ -466,6 +554,21 @@ describe("KMZ — a KML in a zip", () => {
 
   it("declines a zip with no KML in it", async () => {
     expect(await kmzToKml(zip("readme.txt", "not a route"))).toBeNull();
+  });
+
+  it("declines a corrupt directory or a truncated member without throwing", async () => {
+    const badOffset = new Uint8Array(22);
+    const view = new DataView(badOffset.buffer);
+    view.setUint32(0, 0x06054b50, true); // end of central directory
+    view.setUint16(10, 1, true);
+    view.setUint32(16, 0xffff_ffff, true); // no central header there
+    await expect(zipMember(badOffset.buffer, () => true)).resolves.toBeNull();
+
+    const truncated = new Uint8Array(zip("doc.kml", KML));
+    const end = truncated.length - 22;
+    const centralAt = new DataView(truncated.buffer).getUint32(end + 16, true);
+    new DataView(truncated.buffer).setUint32(centralAt + 20, 100_000, true);
+    await expect(zipMember(truncated.buffer, () => true)).resolves.toBeNull();
   });
 });
 
