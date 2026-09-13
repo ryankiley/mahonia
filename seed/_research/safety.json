@@ -96,11 +96,11 @@
       "name": "inReach Mini 3",
       "variant": "",
       "category_hint": "electronics",
-      "weight_value": 122,
+      "weight_value": 122.2,
       "weight_unit": "g",
-      "weight_source": "measured",
-      "source_url": "https://www.dcrainmaker.com/2025/12/garmin-inreach-mini-3-3-plus-in-depth-review-upgrade.html",
-      "quote": "inReach Mini 3 Base: 122g (without anything, cause it didn't include any clips/tethers)"
+      "weight_source": "manufacturer",
+      "source_url": "https://www.garmin.com/en-US/p/1756582/pn/010-03387-00",
+      "quote": "Weight: 4.31 oz (122.2 g)"
     },
     {
       "brand": "Garmin",
