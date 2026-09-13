@@ -33,7 +33,7 @@ async function makeUser(db: DB, email: string): Promise<number> {
 }
 
 /** A list carrying one named piece of gear, so the backfill has something to fold. */
-async function makeListWithGear(db: DB, title: string, gear: string) {
+async function makeListWithGear(db: DB, title: string, gear: string, weightMg = 500_000) {
   const editToken = randomEditToken();
   const shareCode = randomShareCode();
   const rows = await db
@@ -50,7 +50,7 @@ async function makeListWithGear(db: DB, title: string, gear: string) {
             id: `i-${gear}`,
             folderId: null,
             name: gear,
-            unitWeightMg: 500_000,
+            unitWeightMg: weightMg,
             qty: 1,
             classification: "base",
             sortOrder: 0,
@@ -128,6 +128,21 @@ describe("rebuilding a vault from claimed lists", () => {
     await backfillVaultFromClaims(db as never, user);
     const vault = await vaultIdFor(db, user);
     expect(await gearIn(db, vault!)).toEqual(["Stove Y", "Tent X"]);
+  });
+
+  it("uses the most recently updated list when claimed lists disagree about a weight", async () => {
+    const user = await makeUser(db, "ryan@example.com");
+    // Insert the old row first so physical/insertion order cannot accidentally
+    // stand in for the documented freshness rule.
+    const older = await makeListWithGear(db, "Sierra", "Tent X", 500_000);
+    const newer = await makeListWithGear(db, "Cascades", "Tent X", 700_000);
+    await db.update(schema.lists).set({ updatedAt: new Date("2026-01-01T00:00:00Z") }).where(sql`id = ${older.id}`);
+    await db.update(schema.lists).set({ updatedAt: new Date("2026-02-01T00:00:00Z") }).where(sql`id = ${newer.id}`);
+    await claimLists(db as never, user, [older.editToken, newer.editToken]);
+
+    await backfillVaultFromClaims(db as never, user);
+    const vault = (await vaultIdFor(db, user))!;
+    expect((await listVaultItems(db as never, vault))[0]!.weightMg).toBe(700_000);
   });
 
   it("is idempotent — running it twice doesn't duplicate rows", async () => {

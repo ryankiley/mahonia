@@ -7,7 +7,8 @@
 import { describe, expect, it } from "vitest";
 import { vaultToCsv, vaultToJson } from "../shared/exporters/vault";
 import { parseVaultImport, vaultImportFromCsv, vaultImportFromJson } from "../shared/vaultImport";
-import type { VaultEntry, VaultFolder } from "../shared/vault";
+import { MAX_CATALOG_ID, MAX_FOLDERS } from "../shared/ops";
+import { VAULT_IMPORT_MAX, type VaultEntry, type VaultFolder } from "../shared/vault";
 
 let nextId = 1;
 const row = (over: Partial<VaultEntry> = {}): VaultEntry => ({
@@ -76,6 +77,13 @@ describe("vaultImportFromJson — our own backup, back", () => {
     expect(back.rows[0]!.normKey).toBe("");
   });
 
+  it("drops a catalog id outside the database range before showing the import preview", () => {
+    const back = vaultImportFromJson(
+      JSON.stringify({ folders: [], items: [{ name: "Duplex", catalogItemId: MAX_CATALOG_ID + 1 }] }),
+    )!;
+    expect(back.rows[0]!.catalogItemId).toBeUndefined();
+  });
+
   it("drops a pin token that isn't one, and rows with no name", () => {
     const back = vaultImportFromJson(
       JSON.stringify({
@@ -125,6 +133,32 @@ describe("vaultImportFromCsv — any spreadsheet, as gear", () => {
   it("states no pins — a CSV records values, not decisions", () => {
     const back = vaultImportFromCsv("Item Name,Weight,Unit\nDuplex,539,g");
     expect(back.rows[0]!.pinned).toBeUndefined();
+  });
+
+  it("keeps folder names beyond a packing list's folder limit", () => {
+    const csv = [
+      "Category,Item Name,Weight,Unit",
+      ...Array.from({ length: MAX_FOLDERS + 1 }, (_, i) => `Folder ${i},Item ${i},1,g`),
+    ].join("\n");
+
+    const back = vaultImportFromCsv(csv);
+    expect(back.rows).toHaveLength(MAX_FOLDERS + 1);
+    expect(back.rows.find((row) => row.name === `Item ${MAX_FOLDERS}`)?.folder).toBe(`Folder ${MAX_FOLDERS}`);
+  });
+
+  it("fills its own ceiling from the rows that are gear, past a packing list's item limit", () => {
+    // a spreadsheet with weighted spacer rows and no names: a list keeps those as rows,
+    // and a list-sized cap counted them, so the gear after row 1,000 never arrived
+    // although the server takes VAULT_IMPORT_MAX pieces of real gear
+    const csv = [
+      "Item Name,Weight,Unit",
+      ...Array.from({ length: 60 }, () => ",100,g"),
+      ...Array.from({ length: VAULT_IMPORT_MAX }, (_, i) => `Item ${i},1,g`),
+    ].join("\n");
+
+    const back = vaultImportFromCsv(csv);
+    expect(back.rows).toHaveLength(VAULT_IMPORT_MAX);
+    expect(back.rows.at(-1)!.name).toBe(`Item ${VAULT_IMPORT_MAX - 1}`);
   });
 });
 

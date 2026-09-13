@@ -1,4 +1,5 @@
 import { createError, defineEventHandler } from "h3";
+import { isCatalogId } from "../../../shared/ops";
 import { parseWeightInput } from "../../../shared/weights";
 import { proposeCorrection } from "../../utils/catalog";
 import { useCatalogDb } from "../../utils/db";
@@ -27,7 +28,7 @@ export default defineEventHandler(async (event) => {
   }>(event, 8_000);
 
   const catalogItemId = Number(body?.catalogItemId);
-  if (!Number.isInteger(catalogItemId) || catalogItemId <= 0)
+  if (!isCatalogId(catalogItemId))
     throw createError({ statusCode: 400, statusMessage: "Bad request" });
 
   // per-item throttle (shared KV, IP-independent) — bounds flood-vandalism of one row

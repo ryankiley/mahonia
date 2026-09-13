@@ -2,17 +2,20 @@ import { PGlite } from "@electric-sql/pglite";
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import * as schema from "../server/db/schema";
+import { MAX_CATALOG_ID } from "../shared/ops";
 import { MG_PER_UNIT } from "../shared/weights";
 import { createTestDb } from "./helpers/db";
 import { parseCsv } from "../shared/exporters/csv";
 import {
   csvToCatalogRows,
+  isCitationUrl,
   serializeCsv,
   specToMg,
 } from "../scripts/catalogCsv";
 import {
   CATALOG_DDL,
   activeCatalogRows,
+  bumpUsage,
   isHttpUrl,
   isTrustedSource,
   proposeCorrection,
@@ -62,6 +65,21 @@ describe("specToMg — cited spec → integer milligrams", () => {
   it("throws on a bad unit or value", () => {
     expect(() => specToMg(5, "stone" as never)).toThrow();
     expect(() => specToMg(NaN, "g")).toThrow();
+  });
+});
+
+describe("isCitationUrl", () => {
+  it("accepts absolute http(s) URLs with a host", () => {
+    expect(isCitationUrl("https://example.com/spec")).toBe(true);
+    expect(isCitationUrl("http://www.example.com")).toBe(true);
+  });
+
+  it("rejects malformed or non-web citation strings", () => {
+    expect(isCitationUrl("https://")).toBe(false);
+    expect(isCitationUrl("https://#footnote")).toBe(false);
+    expect(isCitationUrl("https://?source=maker")).toBe(false);
+    expect(isCitationUrl("ftp://example.com/spec")).toBe(false);
+    expect(isCitationUrl("not a URL")).toBe(false);
   });
 });
 
@@ -324,6 +342,25 @@ describe("proposeCorrection — trust-tiered wiki edits", () => {
     expect((await proposeCorrection(db, { catalogItemId: row.id, newWeightMg: 1e12 })).status).toBe("rejected");
     expect((await proposeCorrection(db, { catalogItemId: row.id, newWeightMg: 1_000 })).status).toBe("noop");
     expect((await proposeCorrection(db, { catalogItemId: 99_999, newWeightMg: 500 })).status).toBe("notfound");
+  });
+
+  it("rejects ids beyond the database serial range before querying them", async () => {
+    const db = await freshCatalogDb();
+    const [row] = await db
+      .insert(schema.catalogItems)
+      .values({ name: "Stake", weightMg: 12_000, weightSource: "community", verified: false })
+      .returning();
+
+    await expect(bumpUsage(db, [row.id, MAX_CATALOG_ID + 1])).resolves.toBeUndefined();
+    const [after] = await db
+      .select()
+      .from(schema.catalogItems)
+      .where(eq(schema.catalogItems.id, row.id));
+    expect(after.usageCount).toBe(1);
+    expect(
+      (await proposeCorrection(db, { catalogItemId: MAX_CATALOG_ID + 1, newWeightMg: 9_000 })).status,
+    ).toBe("rejected");
+    expect((await revertEdit(db, MAX_CATALOG_ID + 1)).status).toBe("rejected");
   });
 });
 

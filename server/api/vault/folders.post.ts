@@ -2,7 +2,7 @@ import { defineEventHandler } from "h3";
 import { readJsonBodyCapped, setNoIndex, setPrivate } from "../../utils/http";
 import { rateLimit } from "../../utils/rateLimit";
 import { requireVault } from "../../utils/vaultAuth";
-import { applyVaultFolderOp, type VaultFolderOp } from "../../utils/vaultRepo";
+import { applyVaultFolderOp } from "../../utils/vaultRepo";
 
 // Every folder mutation on a vault, through ONE route taking an op — the same
 // shape /api/edit/mutate takes for a list, and for the same reason: add, rename,
@@ -20,9 +20,7 @@ export default defineEventHandler(async (event) => {
   const { db, vaultId } = await requireVault(event);
 
   const body = await readJsonBodyCapped<{ op?: unknown }>(event, 4_000);
-  const op = body?.op as VaultFolderOp | undefined;
-  // shape checking beyond this belongs to applyVaultFolderOp, whose switch
-  // answers an unknown or missing `t` with false
-  if (!op || typeof op !== "object") return { ok: false };
-  return { ok: await applyVaultFolderOp(db, vaultId, op) };
+  // The repository is the one JSON boundary shared by this route and direct
+  // callers, so it validates malformed or missing operation shapes uniformly.
+  return { ok: await applyVaultFolderOp(db, vaultId, body?.op) };
 });

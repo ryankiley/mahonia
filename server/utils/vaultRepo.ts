@@ -6,7 +6,7 @@
 import { and, asc, desc, eq, inArray, isNotNull, isNull, lt, sql, type SQL } from "drizzle-orm";
 import type { PgColumn } from "drizzle-orm/pg-core";
 import { vaultFolders, vaultItems, vaults } from "../db/schema";
-import type { Db } from "./db";
+import { isUniqueViolation, type Db } from "./db";
 import {
   VAULT_CAPTURE_MAX,
   VAULT_IMPORT_MAX,
@@ -22,7 +22,7 @@ import {
   type VaultPinField,
 } from "../../shared/vault";
 import type { Classification } from "../../shared/types";
-import { clampUnitWeightMg, KCAL_MAX } from "../../shared/ops";
+import { clampUnitWeightMg, isSerialId, KCAL_MAX } from "../../shared/ops";
 import { PRICE_MAX_CENTS } from "../../shared/money";
 import { tidyText } from "../../shared/tidyText";
 import { rankVaultRows } from "../../shared/vaultSearch";
@@ -190,7 +190,9 @@ function sanitize(caps: VaultCapture[]): VaultCapture[] {
         ? c.classification
         : undefined,
       kcal: kcalOf(c.kcal),
-      catalogItemId: Number.isInteger(c.catalogItemId) ? c.catalogItemId : undefined,
+      // catalog_items.id is a Postgres integer. Keep a forged capture/import ID
+      // from turning the whole otherwise-valid upsert into an overflow error.
+      catalogItemId: isSerialId(c.catalogItemId) ? c.catalogItemId : undefined,
     });
   }
   return [...out.values()];
@@ -635,6 +637,7 @@ export async function searchVaultItems(db: Db, vaultId: number, q: string): Prom
  * was actually removed.
  */
 export async function removeVaultItem(db: Db, vaultId: number, id: number): Promise<boolean> {
+  if (!isSerialId(id)) return false;
   const done = await db
     .update(vaultItems)
     .set({ removedAt: new Date(), updatedAt: new Date() })
@@ -649,6 +652,7 @@ export async function removeVaultItem(db: Db, vaultId: number, id: number): Prom
  *  WHERE, not a check on the result: filtering afterwards would already have
  *  written to another account's row. */
 export async function restoreVaultItem(db: Db, vaultId: number, id: number): Promise<boolean> {
+  if (!isSerialId(id)) return false;
   const done = await db
     .update(vaultItems)
     .set({ removedAt: null, updatedAt: new Date() })
@@ -930,7 +934,7 @@ async function addVaultItem(db: Db, vaultId: number, op: Extract<VaultItemOp, { 
   // one — so it takes the same in-scope check the "move" op does. Filing gear under
   // a heading its owner can never see would be worse than not filing it at all.
   if (op.folderId != null) {
-    if (!Number.isInteger(op.folderId)) return null;
+    if (!isSerialId(op.folderId)) return null;
     if (!(await ownsFolder(db, vaultId, op.folderId))) return null;
   }
 
@@ -1024,7 +1028,7 @@ async function addVaultItem(db: Db, vaultId: number, op: Extract<VaultItemOp, { 
  * edit the list too, which is a second deliberate act.
  */
 async function editVaultItem(db: Db, vaultId: number, op: Extract<VaultItemOp, { t: "edit" }>) {
-  if (!Number.isInteger(op.id)) return null;
+  if (!isSerialId(op.id)) return null;
   const set = cleanVaultPatch(op.patch);
   if (!set) return null;
   if (Array.isArray(op.unpin)) {
@@ -1168,11 +1172,16 @@ const FOLDER_NAME_MAX = 120;
 export async function applyVaultFolderOp(
   db: Db,
   vaultId: number,
-  op: VaultFolderOp,
+  op: unknown,
 ): Promise<boolean> {
-  switch (op.t) {
+  // This is the JSON boundary for /api/vault/folders. Keep the public tagged
+  // union above for callers, but validate the actual wire value here rather than
+  // trusting a TypeScript cast in the route.
+  if (!op || typeof op !== "object") return false;
+  const raw = op as Record<string, unknown>;
+  switch (raw.t) {
     case "add": {
-      const name = (op.name ?? "").trim().slice(0, FOLDER_NAME_MAX);
+      const name = str(raw.name, FOLDER_NAME_MAX);
       if (!name) return false;
       const [{ max, n } = { max: 0, n: 0 }] = await db
         .select({
@@ -1194,31 +1203,42 @@ export async function applyVaultFolderOp(
       return done.length > 0;
     }
     case "rename": {
-      const name = (op.name ?? "").trim().slice(0, FOLDER_NAME_MAX);
-      if (!name) return false;
-      const done = await db
-        .update(vaultFolders)
-        .set({ name })
-        .where(and(eq(vaultFolders.id, op.id), eq(vaultFolders.vaultId, vaultId)))
-        .returning();
-      return done.length > 0;
+      const name = str(raw.name, FOLDER_NAME_MAX);
+      if (!name || !isSerialId(raw.id)) return false;
+      // An add treats an existing name as a harmless no-op. Match that for a rename
+      // into a sibling's name: the unique index on (vault, name) is the one check that
+      // also holds against a concurrent add, so it is the only check — a preflight
+      // SELECT would be a second round trip that still couldn't close that window.
+      try {
+        const done = await db
+          .update(vaultFolders)
+          .set({ name })
+          .where(and(eq(vaultFolders.id, raw.id), eq(vaultFolders.vaultId, vaultId)))
+          .returning();
+        return done.length > 0;
+      } catch (error) {
+        if (isUniqueViolation(error)) return false;
+        throw error;
+      }
     }
     case "remove": {
+      if (!isSerialId(raw.id)) return false;
       // The GEAR survives — deleting a folder unfiles what was in it rather than
       // taking it with it. A folder is a label here, not a container, and losing
       // gear because you tidied a heading would be indefensible.
       await db
         .update(vaultItems)
         .set({ folderId: null, updatedAt: new Date() })
-        .where(and(eq(vaultItems.folderId, op.id), eq(vaultItems.vaultId, vaultId)));
+        .where(and(eq(vaultItems.folderId, raw.id), eq(vaultItems.vaultId, vaultId)));
       const done = await db
         .delete(vaultFolders)
-        .where(and(eq(vaultFolders.id, op.id), eq(vaultFolders.vaultId, vaultId)))
+        .where(and(eq(vaultFolders.id, raw.id), eq(vaultFolders.vaultId, vaultId)))
         .returning();
       return done.length > 0;
     }
     case "reorder": {
-      const ids = (op.ids ?? []).filter((n) => Number.isInteger(n)).slice(0, 200);
+      if (!Array.isArray(raw.ids)) return false;
+      const ids = [...new Set(raw.ids.filter(isSerialId))].slice(0, VAULT_FOLDERS_MAX);
       if (!ids.length) return false;
       // sequential rather than one CASE statement: a vault has a handful of
       // folders, and the readable version is worth more than the round trips here
@@ -1231,14 +1251,16 @@ export async function applyVaultFolderOp(
       return true;
     }
     case "move": {
-      if (!Number.isInteger(op.itemId)) return false;
+      // absent reads as null — unfile — the way the wire contract has always been
+      const folderId = raw.folderId ?? null;
+      if (!isSerialId(raw.itemId) || (folderId !== null && !isSerialId(folderId))) return false;
       // a folderId from another vault would file gear under a heading you can't
       // see, so it's verified in the same scope before being written
-      if (op.folderId != null && !(await ownsFolder(db, vaultId, op.folderId))) return false;
+      if (folderId !== null && !(await ownsFolder(db, vaultId, folderId))) return false;
       const done = await db
         .update(vaultItems)
-        .set({ folderId: op.folderId ?? null, updatedAt: new Date() })
-        .where(and(eq(vaultItems.id, op.itemId), eq(vaultItems.vaultId, vaultId)))
+        .set({ folderId, updatedAt: new Date() })
+        .where(and(eq(vaultItems.id, raw.itemId), eq(vaultItems.vaultId, vaultId)))
         .returning();
       return done.length > 0;
     }

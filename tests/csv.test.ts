@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { csvToListData, listToCsv, parseCsv } from "../shared/exporters/csv";
+import { MAX_FOLDERS, MAX_ITEMS } from "../shared/ops";
 import type { ListSnapshot } from "../shared/types";
 import { toMg } from "../shared/weights";
 
@@ -271,5 +272,24 @@ describe("CSV round-trip — nothing changes weight", () => {
     const back = csvToListData(listToCsv(list));
     expect(back.items.find((i) => i.name === "Zpacks Duplex")!.qty).toBe(0);
     expect(totalMg(back.items)).toBe(totalMg(list.items));
+  });
+});
+
+describe("CSV import limits", () => {
+  it("matches the persisted list caps before catalog matching or create", () => {
+    const csv = [
+      "Category,Item Name,Qty,Weight,Unit",
+      ...Array.from(
+        { length: MAX_ITEMS + 20 },
+        (_, i) => `Folder ${i % (MAX_FOLDERS + 2)},Item ${i},1,1,g`,
+      ),
+    ].join("\n");
+    const data = csvToListData(csv);
+
+    expect(data.items).toHaveLength(MAX_ITEMS);
+    expect(data.folders).toHaveLength(MAX_FOLDERS);
+    // Categories after the folder cap degrade to unfiled, exactly as createList's
+    // bulk normalizer does for an item pointing at an omitted folder.
+    expect(data.items.find((i) => i.name === `Item ${MAX_FOLDERS}`)?.folderId).toBeNull();
   });
 });

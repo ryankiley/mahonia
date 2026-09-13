@@ -4,6 +4,7 @@
 // MERGE: two editors adding different items both succeed with no conflict; the
 // version counter only signals "you're behind, refetch", not "rejected".
 
+import { isCalendarDate } from "./calendar";
 import { parseProfile } from "./profile";
 import { tidyProse, tidyText } from "./tidyText";
 import { boundedRound, normalizeDistanceUnit, normalizeTrailAscentM, normalizeTrailDistanceM } from "./trailDistance";
@@ -95,7 +96,6 @@ const CLASSES: Classification[] = ["base", "worn", "consumable"];
 
 // `YYYY-MM-DD`, and a date that actually exists — the regex alone would accept
 // 2026-02-31, which Date normalises to March and would silently move the trip.
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
  * A trip date, or nothing.
@@ -109,11 +109,8 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 export function normalizeCalendarDate(raw: unknown): string | undefined {
   if (typeof raw !== "string") return undefined;
   const value = raw.trim();
-  if (!DATE_RE.test(value)) return undefined;
-  // round-trip through Date: if the parts survive, the day exists
-  const d = new Date(`${value}T00:00:00Z`);
-  if (Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== value) return undefined;
-  return value;
+  // shared/calendar.ts owns what a date is — the same rule the display side reads by
+  return isCalendarDate(value) ? value : undefined;
 }
 
 /**
@@ -184,15 +181,19 @@ const META_RULES: {
 // real lists, but bound row size / DoS and keep summed totals exact under the
 // bigint(mode:number) columns (MAX_ITEMS × qtyMax × UNIT_WEIGHT_MAX_MG < 2^53).
 /**
- * A catalog row id the database can hold: catalog_items.id is a Postgres integer, so
- * anything past 2^31 - 1 isn't an id but a query that fails, and it fails on every
- * later READ of the list as well as the write (hydrateCatalogNames looks the ids up).
- * One guard for the reducer, the row normalizer and the MCP tools, since a made-up id
- * is exactly what an assistant produces when it guesses.
+ * A row id the database can hold. Every id column in the schema is a Postgres
+ * `serial` (an integer), so anything past 2^31 - 1 isn't an id but a query that
+ * fails — and for a catalog id it fails on every later READ of the list as well as
+ * the write (hydrateCatalogNames looks the ids up). One guard for the reducer, the
+ * row normalizer, the MCP tools and every route that takes an id off the wire, since
+ * a made-up id is exactly what an assistant, or a hand-rolled request, produces.
  */
-export const MAX_CATALOG_ID = 2_147_483_647;
-export const isCatalogId = (raw: unknown): raw is number =>
-  typeof raw === "number" && Number.isInteger(raw) && raw >= 1 && raw <= MAX_CATALOG_ID;
+export const MAX_SERIAL_ID = 2_147_483_647;
+export const isSerialId = (raw: unknown): raw is number =>
+  typeof raw === "number" && Number.isInteger(raw) && raw >= 1 && raw <= MAX_SERIAL_ID;
+/** The same range under the name the catalog call sites read it by. */
+export const MAX_CATALOG_ID = MAX_SERIAL_ID;
+export const isCatalogId = isSerialId;
 
 export const MAX_ITEMS = 1000;
 export const MAX_FOLDERS = 50;
