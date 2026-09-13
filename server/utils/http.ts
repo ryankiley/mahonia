@@ -210,29 +210,36 @@ export async function readResponseCapped(
   if (!reader) return { ok: true, body: null };
   const chunks: Uint8Array[] = [];
   let total = 0;
-  for (;;) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    const remaining = maxBytes - total;
-    if (value.byteLength > remaining) {
-      // Do not retain an entire oversized network chunk. A subarray is only a
-      // view, so keeping one would keep the chunk's whole backing ArrayBuffer
-      // alive until Buffer.concat runs. Copy just the prefix instead.
-      if (onOversize === "truncate" && remaining > 0) {
-        const prefix = new Uint8Array(remaining);
-        prefix.set(value.subarray(0, remaining));
-        chunks.push(prefix);
+  try {
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      const remaining = maxBytes - total;
+      if (value.byteLength > remaining) {
+        // Do not retain an entire oversized network chunk. A subarray is only a
+        // view, so keeping one would keep the chunk's whole backing ArrayBuffer
+        // alive until Buffer.concat runs. Copy just the prefix instead.
+        if (onOversize === "truncate" && remaining > 0) {
+          const prefix = new Uint8Array(remaining);
+          prefix.set(value.subarray(0, remaining));
+          chunks.push(prefix);
+        }
+        // stop pulling either way — we have what we need, or we've decided we don't want it
+        await reader.cancel();
+        if (onOversize === "reject") return { ok: false, reason: "oversize" };
+        total = maxBytes;
+        break;
       }
-      // stop pulling either way — we have what we need, or we've decided we don't want it
-      await reader.cancel();
-      if (onOversize === "reject") return { ok: false, reason: "oversize" };
-      total = maxBytes;
-      break;
+      total += value.byteLength;
+      chunks.push(value);
     }
-    total += value.byteLength;
-    chunks.push(value);
+    return { ok: true, body: total ? Buffer.concat(chunks.map((c) => Buffer.from(c))) : null };
+  } finally {
+    // A completed or cancelled stream has no more data to pull, but the reader
+    // still owns its lock until it is released. Some callers retain the Response
+    // while handling an error, so do not leave that lifecycle to eventual GC.
+    reader.releaseLock?.();
   }
-  return { ok: true, body: total ? Buffer.concat(chunks.map((c) => Buffer.from(c))) : null };
 }
 
 /**

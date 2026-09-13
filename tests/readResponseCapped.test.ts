@@ -49,6 +49,7 @@ describe("readResponseCapped", () => {
     expect(read).toEqual({ ok: false, reason: "oversize" });
     expect(state.cancelled).toBe(true);
     expect(state.pulled).toBeLessThanOrEqual(3);
+    expect(res.body?.locked).toBe(false);
   });
 
   it("truncates past the cap instead, when the caller only wants the prefix", async () => {
