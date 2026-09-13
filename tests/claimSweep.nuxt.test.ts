@@ -86,6 +86,7 @@ beforeEach(() => {
   hasHint.value = true;
   entries.value = [];
   storage.clear();
+  document.cookie = "mh_session_owner=1; path=/";
   posted.length = 0;
   served = [];
   onRefresh = () => {};
@@ -159,8 +160,8 @@ describe("claimDeviceLists — what goes to the server", () => {
   });
 });
 
-const ROWS_KEY = "gear.claimed.rows.v1";
-const OPENS_KEY = "gear.claimed.opens.v1";
+const ROWS_KEY = "gear.claimed.rows.v2.1";
+const OPENS_KEY = "gear.claimed.opens.v2.1";
 const cachedTitles = () =>
   (JSON.parse(storage.get(ROWS_KEY) ?? "[]") as ClaimedList[]).map((l) => l.title);
 

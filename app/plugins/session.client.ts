@@ -47,8 +47,8 @@ export default defineNuxtPlugin(() => {
     // the whole registry — the same set the claim sends, both buckets
     deviceFingerprint(useMyLists().entries.value.map((e) => e.editToken)),
   );
-  watch([session.signedIn, registryFingerprint], ([yes, fingerprint]) => {
-    if (!yes) return;
+  watch([() => session.user.value?.id, registryFingerprint], ([owner, fingerprint]) => {
+    if (!owner) return;
     void useClaimedLists().claimDeviceLists(fingerprint);
   });
 });

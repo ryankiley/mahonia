@@ -26,6 +26,7 @@ import {
   resolveSession,
   startSession,
 } from "../server/utils/authSession";
+import { SESSION_OWNER_COOKIE } from "../shared/session";
 import { sha256Hex } from "../server/utils/tokens";
 import { createTestDb, type TestDb } from "./helpers/db";
 import { setCookieValue } from "./helpers/http";
@@ -83,13 +84,18 @@ describe("startSession → resolveSession", () => {
     const token = setCookieValue(start, SESSION_COOKIE)!;
     // the readable hint rides along, carrying no capability
     expect(setCookieValue(start, SESSION_HINT_COOKIE)).toBe("1");
+    expect(setCookieValue(start, SESSION_OWNER_COOKIE)).toBe(String(userId));
     // only the hash ever touches the table — a dump mints no sign-in
     const rows = await db.select().from(schema.sessions);
     expect(rows).toHaveLength(1);
     expect(rows[0]!.tokenHash).toBe(sha256Hex(token));
 
-    const user = await resolveSession(makeEvent(`${SESSION_COOKIE}=${token}`));
+    const resolved = makeEvent(`${SESSION_COOKIE}=${token}`);
+    const user = await resolveSession(resolved);
     expect(user).toEqual({ id: userId, email: "ryan@example.com", displayName: null });
+    // Sessions from before the marker existed acquire it without reissuing their
+    // credential or writing the database.
+    expect(setCookieValue(resolved, SESSION_OWNER_COOKIE)).toBe(String(userId));
   });
 
   it("resolves nothing for no cookie, a made-up cookie, or an expired session", async () => {
@@ -108,7 +114,7 @@ describe("startSession → resolveSession", () => {
     const token = await signIn(db, userId);
     const before = (await db.select().from(schema.sessions))[0]!;
 
-    const event = makeEvent(`${SESSION_COOKIE}=${token}`);
+    const event = makeEvent(`${SESSION_COOKIE}=${token}; ${SESSION_OWNER_COOKIE}=${userId}`);
     expect((await resolveSession(event))?.id).toBe(userId);
 
     // under the 24h refresh floor: the row is untouched and the response carries
@@ -129,7 +135,7 @@ describe("startSession → resolveSession", () => {
       .set({ lastUsedAt: staleLastUsed, expiresAt: staleExpiry })
       .where(eq(schema.sessions.userId, userId));
 
-    const event = makeEvent(`${SESSION_COOKIE}=${token}`);
+    const event = makeEvent(`${SESSION_COOKIE}=${token}; ${SESSION_OWNER_COOKIE}=${userId}`);
     expect((await resolveSession(event))?.id).toBe(userId);
 
     const after = (await db.select().from(schema.sessions))[0]!;
@@ -140,6 +146,7 @@ describe("startSession → resolveSession", () => {
     // browser drops the cookie 90 days after sign-in however often it's used.
     expect(setCookieValue(event, SESSION_COOKIE)).toBe(token);
     expect(setCookieValue(event, SESSION_HINT_COOKIE)).toBe("1");
+    expect(setCookieValue(event, SESSION_OWNER_COOKIE)).toBe(String(userId));
   });
 });
 
@@ -165,9 +172,10 @@ describe("endSession — sign out THIS device", () => {
     expect(left).not.toContain(sha256Hex(mine));
     expect(left).toContain(sha256Hex(myOtherDevice));
     expect(left).toContain(sha256Hex(theirs));
-    // both cookies cleared, and the dead token no longer resolves anywhere
+    // all session cookies cleared, and the dead token no longer resolves anywhere
     expect(setCookieValue(event, SESSION_COOKIE)).toBe("");
     expect(setCookieValue(event, SESSION_HINT_COOKIE)).toBe("");
+    expect(setCookieValue(event, SESSION_OWNER_COOKIE)).toBe("");
     expect(await resolveSession(makeEvent(`${SESSION_COOKIE}=${mine}`))).toBeNull();
   });
 

@@ -15,6 +15,7 @@ import { useAccountDb, type Db } from "./db";
 import { setNoIndex, setPrivate } from "./http";
 import { rateLimit, type RateLimitAction } from "./rateLimit";
 import { randomSecret, sha256Hex } from "./tokens";
+import { SESSION_OWNER_COOKIE } from "../../shared/session";
 
 /** The session cookie's name. `mh_` prefixed so it's obviously ours in devtools. */
 export const SESSION_COOKIE = "mh_session";
@@ -290,10 +291,10 @@ function isSecureRequest(event: H3Event): boolean {
  * needs. Every mutating vault endpoint is a POST, so Lax alone carries the CSRF
  * defence here.
  */
-/** Write both cookies with one expiry. Split out because sign-in and the sliding
+/** Write the session cookie and its two readable companions with one expiry. Split out because sign-in and the sliding
  *  refresh both set them, and a difference between the two would be invisible
  *  until someone was logged out early. */
-function setSessionCookies(event: H3Event, token: string, expiresAt: Date): void {
+function setSessionCookies(event: H3Event, token: string, userId: number, expiresAt: Date): void {
   setCookie(event, SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
@@ -309,13 +310,23 @@ function setSessionCookies(event: H3Event, token: string, expiresAt: Date): void
     path: "/",
     expires: expiresAt,
   });
+  // Like the hint, this carries no authority. It lets the browser choose the
+  // correct offline cache before /api/auth/me answers; changing it can only make
+  // the browser hide its own cached data, never access another account.
+  setCookie(event, SESSION_OWNER_COOKIE, String(userId), {
+    httpOnly: false,
+    sameSite: "lax",
+    secure: isSecureRequest(event),
+    path: "/",
+    expires: expiresAt,
+  });
 }
 
 export async function startSession(event: H3Event, db: Db, userId: number): Promise<void> {
   const token = randomSecret();
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
   await db.insert(sessions).values({ tokenHash: sha256Hex(token), userId, expiresAt });
-  setSessionCookies(event, token, expiresAt);
+  setSessionCookies(event, token, userId, expiresAt);
 }
 
 /**
@@ -335,6 +346,7 @@ export async function resolveSession(event: H3Event): Promise<ResolvedUser | nul
     .select({
       sessionId: sessions.id,
       lastUsedAt: sessions.lastUsedAt,
+      expiresAt: sessions.expiresAt,
       id: users.id,
       email: users.email,
       displayName: users.displayName,
@@ -362,7 +374,17 @@ export async function resolveSession(event: H3Event): Promise<ResolvedUser | nul
     // who uses Mahonia every week is signed out on day 90 while holding a session
     // the server considers perfectly valid — and the hint cookie expires with it,
     // so the app doesn't even ask.
-    setSessionCookies(event, raw, expiresAt);
+    setSessionCookies(event, raw, row.id, expiresAt);
+  } else if (getCookie(event, SESSION_OWNER_COOKIE) !== String(row.id)) {
+    // Sessions created before this marker existed acquire it on their next read.
+    // Do not reissue the credential or write the database for that migration.
+    setCookie(event, SESSION_OWNER_COOKIE, String(row.id), {
+      httpOnly: false,
+      sameSite: "lax",
+      secure: isSecureRequest(event),
+      path: "/",
+      expires: row.expiresAt,
+    });
   }
   return { id: row.id, email: row.email, displayName: row.displayName ?? null };
 }
@@ -401,12 +423,13 @@ export async function requireAccount(
   return { user, db };
 }
 
-/** The clear-side twin of setSessionCookies, and for the same reason: both
+/** The clear-side twin of setSessionCookies, and for the same reason: all three
  *  cookies drop together, so a sign-out can never leave the hint behind
  *  claiming a session that's gone. */
 function clearSessionCookies(event: H3Event): void {
   deleteCookie(event, SESSION_COOKIE, { path: "/" });
   deleteCookie(event, SESSION_HINT_COOKIE, { path: "/" });
+  deleteCookie(event, SESSION_OWNER_COOKIE, { path: "/" });
 }
 
 /** Sign out: drop the session row (so the cookie is dead even if it's already been

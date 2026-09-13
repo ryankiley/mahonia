@@ -17,5 +17,5 @@ export default defineEventHandler(async (event) => {
   // the display name rides along (resolveSession already joins users for it) so
   // the account page and anything that renders a byline read one source rather
   // than each fetching their own
-  return { user: { email: user.email, displayName: user.displayName } };
+  return { user: { id: user.id, email: user.email, displayName: user.displayName } };
 });
