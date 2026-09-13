@@ -1522,8 +1522,8 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
   gap: var(--space-px);
   padding: var(--space-1);
   border-radius: var(--radius-2);
-  background: #fff;
-  box-shadow: 0 1px 4px #0000001f;
+  background: var(--map-paper);
+  box-shadow: var(--map-control-shadow);
 }
 .plan__armchip {
   display: inline-flex;
@@ -1533,7 +1533,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
   padding: 0 var(--space-2);
   border-radius: var(--radius-1);
   font-size: var(--text-chrome);
-  color: #555;
+  color: var(--map-ink-3);
   white-space: nowrap;
   cursor: pointer;
 }
@@ -1542,15 +1542,15 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
    latched hover plate beside it would put two chips forward at once. */
 @media (hover: hover) and (pointer: fine) {
   .plan__armchip:hover {
-    background: #0000000d;
-    color: #111;
+    background: var(--map-control-hover);
+    color: var(--map-ink);
   }
 }
 /* armed is a STATE, and it has to hold its plate whether the pointer is on it or not —
    it is the only thing on screen saying which day the next tap lands in */
 .plan__armchip.is-on {
-  background: #00000014;
-  color: #111;
+  background: var(--map-control-selected);
+  color: var(--map-ink);
   font-weight: 600;
 }
 .plan__armdot {
@@ -1560,7 +1560,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
 }
 /* the unclaimed stretch has no day colour, because it is nobody's */
 .plan__armdot--rest {
-  background: #9a9a9a;
+  background: var(--map-unassigned);
 }
 
 /* A day's pins, sitting under its figures the way a folder's items sit under its name —

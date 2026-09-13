@@ -232,7 +232,7 @@ const planTip = computed(() => {
   /* half-step between the type system's two trackings: the full --track-tight
      visibly pinches a bare two-letter unit ("oz"), while normal tracking reads
      loose beside the tightly-tracked display figure */
-  letter-spacing: -0.01em;
+  letter-spacing: var(--track-unit);
 }
 /* the mark and its turn are the shared .chev (atoms/controls.scss); pointing at the
    figure lights it. The copy that lived here transitioned `color` only while still

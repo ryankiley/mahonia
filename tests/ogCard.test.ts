@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import { Resvg } from "@resvg/resvg-js";
 import type { SatoriOptions } from "satori";
-import { DRAWABLE_RANGES, ogCardAlt, ogCardModel, ogCardTitle } from "../shared/ogCard";
+import { DRAWABLE_RANGES, OG_FONT_FACES, ogCardAlt, ogCardModel, ogCardTitle } from "../shared/ogCard";
 import { ogCardSvg, renderOgCard, renderOgSiteCard } from "../server/utils/ogCard";
 import type { Totals, Unit } from "../shared/types";
 import { totals } from "./helpers/totals";
@@ -120,14 +120,8 @@ describe("ogCardAlt — the image described as a sentence", () => {
 // The drawing pipeline, with the real subset fonts the server ships — satori
 // lays out to SVG (deterministic string), resvg rasterizes to PNG bytes. Read
 // once at module scope; every test shares the same four buffers.
-const FACES = [
-  ["inter-regular.ttf", "Inter", 400],
-  ["inter-semibold.ttf", "Inter", 600],
-  ["interdisplay-regular.ttf", "InterDisplay", 400],
-  ["interdisplay-bold.ttf", "InterDisplay", 700],
-] as const;
 const fontsLoaded: Promise<SatoriOptions["fonts"]> = Promise.all(
-  FACES.map(async ([file, name, weight]) => ({
+  OG_FONT_FACES.map(async ([file, name, weight]) => ({
     name,
     weight,
     style: "normal" as const,

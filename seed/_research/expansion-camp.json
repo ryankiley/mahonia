@@ -230,7 +230,7 @@
     {
       "brand": "REI Co-op",
       "name": "Multi Towel Lite",
-      "variant": "S",
+      "variant": "Small",
       "category_hint": "other",
       "weight_value": 0.75,
       "weight_unit": "oz",
@@ -241,7 +241,7 @@
     {
       "brand": "REI Co-op",
       "name": "Multi Towel Lite",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "other",
       "weight_value": 1.4,
       "weight_unit": "oz",
@@ -252,7 +252,7 @@
     {
       "brand": "REI Co-op",
       "name": "Multi Towel Lite",
-      "variant": "XL",
+      "variant": "X-Large",
       "category_hint": "other",
       "weight_value": 6.4,
       "weight_unit": "oz",

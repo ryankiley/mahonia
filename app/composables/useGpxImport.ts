@@ -1,8 +1,8 @@
-import { ref, type Ref } from "vue";
+import { ref, watch, type Ref } from "vue";
 import { profileToString } from "~~/shared/profile";
 import { cumulativeM, decodePolyline, nearestAlongM, routeGeometryFromPoints } from "~~/shared/polyline";
 import type { FilePin, TrackPoint } from "~~/shared/gpx";
-import type { Op } from "~~/shared/ops";
+import { MAX_WAYPOINTS, type Op } from "~~/shared/ops";
 import type { ListSnapshot, WaypointKind } from "~~/shared/types";
 
 /**
@@ -41,6 +41,13 @@ const PIN_DEDUP_M = 60;
  *  `typeof` guard, and dropped the climb off an imported route with no error
  *  anywhere. Inline in ListHead that was a compile error, and it is again. */
 interface GpxTarget {
+  /** The controller's list lifetime (useGearList's epoch): a file is read
+   *  asynchronously through a SINGLETON, so a parse that finishes after the editor
+   *  has moved on must not write its route into the list opened next. Optional —
+   *  a focused caller without a controller has nothing to outlive. The ref is the
+   *  same count for the one thing that has to react to it (the held pin offer). */
+  readonly epoch?: number;
+  readonly epochRef?: Readonly<Ref<number>>;
   snapshot: Ref<ListSnapshot | null>;
   addWaypoint: (alongM: number, kind: WaypointKind) => void;
   updateWaypoint: (id: string, patch: { label?: string }) => void;
@@ -50,6 +57,10 @@ interface GpxTarget {
 export function useGpxImport(snapshot: Ref<ListSnapshot | null>, c: GpxTarget) {
   const gpxError = ref("");
   const gpxBusy = ref(false);
+  // Which read owns the outcome: a second file chosen while the first is still
+  // parsing supersedes it, and so does the list changing underneath (see GpxTarget).
+  let reads = 0;
+  const targetEpoch = () => c.epochRef?.value ?? c.epoch;
 
   /**
    * Pins the file offered, held until someone says yes.
@@ -62,12 +73,14 @@ export function useGpxImport(snapshot: Ref<ListSnapshot | null>, c: GpxTarget) {
     geometry: string;
     pins: FilePin[];
     kindOf: (p: Pick<FilePin, "sym" | "name">) => WaypointKind;
+    /** the list the offer was made for — a yes given to another list is no answer */
+    epoch: number | undefined;
   } | null>(null);
 
   async function confirmPins() {
     const p = pending.value;
     pending.value = null;
-    if (!p) return;
+    if (!p || p.epoch !== targetEpoch()) return;
     // polyline is a static import (this file already had it at the top for the
     // geometry); it's shared/gpx.ts that stays a lazy chunk, see onGpx
     const line = decodePolyline(p.geometry);
@@ -79,7 +92,13 @@ export function useGpxImport(snapshot: Ref<ListSnapshot | null>, c: GpxTarget) {
     // and not a coordinate. A water source 200 m off-trail is recorded where you'd leave
     // the trail for it, which is the useful place to be told about it.
     const taken = (snapshot.value?.waypoints ?? []).map((w) => w.alongM);
+    // The room left is re-read HERE, not only when the offer was made: it can sit open
+    // for minutes while a collaborator fills the list, and the reducer drops any pin
+    // past its cap without a word — so stop where it would, rather than queue ops it
+    // will refuse.
+    let room = Math.max(0, MAX_WAYPOINTS - taken.length);
     for (const pin of p.pins) {
+      if (!room) break;
       const alongM = nearestAlongM(line, pin, cum);
       if (alongM < 0 || alongM > total) continue;
       // Don't re-place the ends the reducer seeded with the route, and don't stack two
@@ -88,6 +107,7 @@ export function useGpxImport(snapshot: Ref<ListSnapshot | null>, c: GpxTarget) {
       if (taken.some((t) => Math.abs(t - alongM) < PIN_DEDUP_M)) continue;
       taken.push(alongM);
       c.addWaypoint(alongM, p.kindOf(pin));
+      room--;
       // The label is a separate op because addWaypoint mints the id — see useGearList.
       // The reducer sorts by alongM, so the pin just added is findable by the position
       // we gave it.
@@ -103,8 +123,13 @@ export function useGpxImport(snapshot: Ref<ListSnapshot | null>, c: GpxTarget) {
     const file = input.files?.[0];
     input.value = ""; // so choosing the same file twice still fires a change
     if (!file) return;
+    const mine = ++reads;
+    const epoch = targetEpoch();
+    // still the read that matters, and still the list it was chosen for
+    const current = () => mine === reads && epoch === targetEpoch();
     gpxError.value = "";
     gpxBusy.value = true;
+    pending.value = null;
     try {
       // The reader arrives HERE, on the one interaction that needs it — several hundred
       // lines of XML dialects, a zip decoder and GeoJSON that would otherwise ride the
@@ -112,6 +137,7 @@ export function useGpxImport(snapshot: Ref<ListSnapshot | null>, c: GpxTarget) {
       // as "Reading…" like the parse it precedes.
       const { MAX_GPX_BYTES, filePins, fitRoute, geoJsonPoints, gpxPoints, gpxStats, isFit, pinKind, zipMember } =
         await import("~~/shared/gpx");
+      if (!current()) return;
       // Checked BEFORE reading. DOMParser on a 30 MB string blocks the main thread for
       // seconds; declining is cheaper than a worker, and honest. (After the import rather
       // than before it only because the limit lives with the reader — a chunk fetch is
@@ -134,6 +160,8 @@ export function useGpxImport(snapshot: Ref<ListSnapshot | null>, c: GpxTarget) {
       } else if (!fit) {
         text = await file.text();
       }
+      // the reads above are where a navigation slips in; everything past here is sync
+      if (!current()) return;
       let points: TrackPoint[];
       let pins: FilePin[] = [];
       if (fit) {
@@ -181,12 +209,30 @@ export function useGpxImport(snapshot: Ref<ListSnapshot | null>, c: GpxTarget) {
       // c.ensureRouteEnds(), which dedupes on those fixed ids.
       // Everything else the file offered is an OFFER. A track can carry thousands of pins;
       // fifty is not glanceable and undoing them is fifty taps, so it waits for a yes.
-      pending.value = geometry && pins.length ? { geometry, pins, kindOf: pinKind } : null;
+      // Offered only as many as the list can still hold — after the ends the setMeta
+      // above just seeded — so the question is answerable as asked: "add 98" is what
+      // will happen, where "add 400" was 98 added and the rest dropped in silence.
+      const room = Math.max(0, MAX_WAYPOINTS - (c.snapshot.value?.waypoints?.length ?? 0));
+      const offered = pins.slice(0, room);
+      pending.value = geometry && offered.length ? { geometry, pins: offered, kindOf: pinKind, epoch } : null;
     } catch {
-      gpxError.value = "Couldn't read a route out of that file.";
+      if (current()) gpxError.value = "Couldn't read a route out of that file.";
     } finally {
-      gpxBusy.value = false;
+      if (mine === reads) gpxBusy.value = false;
     }
+  }
+
+  // The offer, the error and the busy label are all about ONE list. The controller
+  // is a singleton, and `dispose(); startDraft()` swaps its list in a single tick
+  // without unmounting the head that shows them — so they clear on the epoch, not
+  // on a remount that may never come.
+  if (c.epochRef) {
+    watch(c.epochRef, () => {
+      reads++;
+      pending.value = null;
+      gpxError.value = "";
+      gpxBusy.value = false;
+    });
   }
 
   return { gpxError, gpxBusy, pending, confirmPins, onGpx };

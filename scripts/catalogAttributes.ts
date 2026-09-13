@@ -28,6 +28,7 @@ import { ML_PER_UNIT } from "../shared/water";
 
 export { ATTRIBUTE_KEYS } from "../shared/catalogAxes";
 export type { AttributeKey, RowAttributes } from "../shared/catalogAxes";
+import { sizeWordsToLetters } from "../shared/catalogQuality";
 
 // --- canonical forms ---------------------------------------------------------
 
@@ -37,7 +38,10 @@ const LETTER_RANGE = new RegExp(`^(?:${LETTER})/(?:${LETTER})$`);
 /** The regions a footwear size is written in; the footwear-size check reads the same list. */
 export const SHOE_REGIONS = "US|UK|EU|JP";
 const SHOE_SIZE = new RegExp(`^(?:${SHOE_REGIONS}) \\d{1,2}(?:\\.5)?$`);
-// size words a maker sells several of, outside the S/M/L family (which is letters)
+// size words a maker sells several of, outside the S/M/L family (which the variant
+// spells as words too since 2026-09-12, but which this reader takes back to the letter
+// first — see the top of the loop in attributesFromVariant — so the size axis stays
+// the letter it has always been)
 const WORD_SIZE = /^(?:X-Small|Small|Medium|Large|X-Large|Regular|Short|Long|Tall|Wide|Slim|Mini|Jumbo|Big|Nano|Petite|Standard)$/;
 // the maker's own scale: Gnuhr "4" / "3-4", Superfeet "D", a waist "32"
 const SCALE_SIZE = /^(?:\d{1,2}(?:-\d{1,2})?|[A-Z])$/;
@@ -228,7 +232,12 @@ export function extractAttributes(
   };
 
   for (const raw of v.split(/,\s*/)) {
-    const dim = raw.trim();
+    // The variant says "Medium"; the axis says "M" (shared/catalogQuality, the size
+    // words). Read the letter back before anything else looks at the token, so every
+    // rule below sees the form it was written for. Sleep and shelter are the
+    // exception: there Small / Medium / Large is a LENGTH scale the maker names in
+    // words, and the length axis keeps the word.
+    const dim = lengthScaled ? raw.trim() : sizeWordsToLetters(raw.trim());
     if (!dim) continue;
     let m: RegExpMatchArray | null;
 

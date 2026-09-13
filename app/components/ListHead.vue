@@ -603,11 +603,12 @@ onClickOutside(trailEl, closeTrail);
         </p>
         <p v-if="gpxError" class="head__gpxerr t-sm">{{ gpxError }}</p>
         <!-- An OFFER, not an import. The route is already in by the time this appears —
-             this is only the pins the file also carried, and they wait because a file can
-             hold thousands and undoing them would be one tap each. Phrased with the count
-             so the answer is informed: "add 11" is a different question from "add 400". -->
+             this is only the pins the file also carried, as many as the list still has room
+             for, and they wait because a file can hold thousands and undoing them would be
+             one tap each. Phrased with the count so the answer is informed: "add 11" is a
+             different question from "add 98" — and 98 is what a yes will do, not a guess. -->
         <p v-if="pending" class="head__gpxerr t-sm">
-          That file also has {{ pending.pins.length }}
+          This route can add {{ pending.pins.length }}
           {{ pending.pins.length === 1 ? "marked place" : "marked places" }}.
           <button type="button" class="head__gpxyes" @click="confirmPins">Add them</button>
           <button type="button" class="head__gpxno" @click="pending = null">No thanks</button>
@@ -832,7 +833,7 @@ onClickOutside(trailEl, closeTrail);
 .head__icon {
   flex: none;
   align-self: center;
-  border-radius: 2px;
+  border-radius: var(--radius-icon);
 }
 /* the globe stands in for a real mark, so it should read as a placeholder rather than
    as the site's own icon — a step lighter than the link text it sits beside */
@@ -929,7 +930,7 @@ onClickOutside(trailEl, closeTrail);
 .head__cardicon {
   flex: none;
   display: block;
-  border-radius: 2px;
+  border-radius: var(--radius-icon);
 }
 /* The URL FLEXES between a floor and a ceiling rather than being sized by its content.
    Content-sizing gave the two bad ends: a 45-character URL made the card wider than the
@@ -1081,7 +1082,7 @@ onClickOutside(trailEl, closeTrail);
   color: var(--ink);
   /* stays at 16px while the labels above drop to 12px: 14 would sit better with them,
      but anything under 16px makes iOS Safari zoom the page on focus (atoms/controls.scss) */
-  font-size: 1rem;
+  font-size: var(--text-input);
 }
 .head__panelinput:focus {
   outline: none;
@@ -1145,7 +1146,7 @@ onClickOutside(trailEl, closeTrail);
   color: var(--ink-2);
   cursor: pointer;
   text-decoration: underline;
-  text-underline-offset: 2px;
+  text-underline-offset: var(--underline-offset);
 }
 /* the input is the label's, so the whole phrase is the target and no bare file chrome
    lands in a panel built out of the app's own fields */
@@ -1174,7 +1175,7 @@ onClickOutside(trailEl, closeTrail);
 .head__gpxyes,
 .head__gpxno {
   text-decoration: underline;
-  text-underline-offset: 2px;
+  text-underline-offset: var(--underline-offset);
   transition: color var(--dur) var(--ease);
 }
 .head__gpxyes {

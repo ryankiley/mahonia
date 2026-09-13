@@ -330,8 +330,8 @@ onMounted(() => {
    visible — without a cue you are moving an invisible caret around a month. Only on
    :focus-visible, so a mouse click doesn't leave a ring behind. */
 .cal__day:focus-visible {
-  outline: 2px solid var(--ink);
-  outline-offset: -2px;
+  outline: var(--focus-ring) solid var(--ink);
+  outline-offset: var(--focus-offset-inset);
   border-radius: var(--radius-2);
 }
 /* today is MARKED, not selected — a ring rather than a fill, so it can't be mistaken

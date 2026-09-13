@@ -27,7 +27,7 @@
     {
       "brand": "Zenbivy",
       "name": "Ultralight Quilt",
-      "variant": "25F, 900FP, XL",
+      "variant": "25F, 900FP, X-Large",
       "category_hint": "sleep",
       "weight_value": 623,
       "weight_unit": "g",
@@ -63,7 +63,7 @@
     {
       "brand": "Zenbivy",
       "name": "Ultralight Quilt",
-      "variant": "10F, 900FP, XL",
+      "variant": "10F, 900FP, X-Large",
       "category_hint": "sleep",
       "weight_value": 936,
       "weight_unit": "g",
@@ -99,7 +99,7 @@
     {
       "brand": "Zenbivy",
       "name": "Ultralight Quilt",
-      "variant": "25F, 950FP, XL",
+      "variant": "25F, 950FP, X-Large",
       "category_hint": "sleep",
       "weight_value": 595,
       "weight_unit": "g",
@@ -135,7 +135,7 @@
     {
       "brand": "Zenbivy",
       "name": "Ultralight Quilt",
-      "variant": "10F, 950FP, XL",
+      "variant": "10F, 950FP, X-Large",
       "category_hint": "sleep",
       "weight_value": 850,
       "weight_unit": "g",
@@ -171,7 +171,7 @@
     {
       "brand": "Zenbivy",
       "name": "Ultralight Quilt",
-      "variant": "25F, Synthetic, XL",
+      "variant": "25F, Synthetic, X-Large",
       "category_hint": "sleep",
       "weight_value": 936,
       "weight_unit": "g",
