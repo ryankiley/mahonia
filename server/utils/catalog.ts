@@ -449,7 +449,10 @@ export async function recentChanges(db: Db, limit = 50): Promise<RecentChange[]>
     // Without it the admin feed can hand the stale-revert guard the newer edit
     // as though it were the older one.
     .orderBy(desc(catalogEdits.createdAt), desc(catalogEdits.id))
-    .limit(Math.min(100, Math.max(1, limit)));
+    // Whole, not merely clamped: Drizzle hands LIMIT to Postgres as given, and the
+    // route's `?limit=2.5` reached here as 2.5 and failed the query (a 500 for a
+    // hand-edited URL). NaN would fail the same way, so it takes the default.
+    .limit(Math.min(100, Math.max(1, Math.trunc(Number.isFinite(limit) ? limit : 50))));
   return rows.map((r) => ({
     id: r.id,
     // the left join leaves brand/name/variant null for an edit whose item is gone

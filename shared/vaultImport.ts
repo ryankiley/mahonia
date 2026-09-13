@@ -11,6 +11,7 @@
 
 import { csvToListData } from "./exporters/csv";
 import { isCatalogId } from "./ops";
+import { isRecord } from "./record";
 import type { Item } from "./types";
 import {
   VAULT_IMPORT_MAX,
@@ -37,9 +38,6 @@ export interface VaultImport {
   /** How the file was read, so the dialog can say so before anything is sent. */
   from: "json" | "csv";
 }
-
-const isRecord = (v: unknown): v is Record<string, unknown> =>
-  !!v && typeof v === "object" && !Array.isArray(v);
 
 const PINS = new Set<string>(VAULT_PIN_FIELDS);
 

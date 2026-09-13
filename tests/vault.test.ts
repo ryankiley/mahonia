@@ -260,10 +260,16 @@ describe("vault capture — the upsert's merge rules", () => {
     expect(rows[0]!.timesSeen).toBe(2);
   });
 
-  it("takes the newer weight — your latest measurement is your truth", async () => {
-    await captureVaultItems(db as any, VAULT, [cap()]);
+  it("fills a missing vault weight", async () => {
+    await captureVaultItems(db as any, VAULT, [cap({ weightMg: 0 })]);
     await captureVaultItems(db as any, VAULT, [cap({ weightMg: 545_000 })]);
     expect((await listVaultItems(db as any, VAULT))[0]!.weightMg).toBe(545_000);
+  });
+
+  it("does not overwrite an existing unpinned weight from another list", async () => {
+    await captureVaultItems(db as any, VAULT, [cap()]);
+    await captureVaultItems(db as any, VAULT, [cap({ weightMg: 545_000 })]);
+    expect((await listVaultItems(db as any, VAULT))[0]!.weightMg).toBe(539_000);
   });
 
   it("never lets a zero weight erase a real one", async () => {
@@ -853,7 +859,7 @@ describe("vault ceilings", () => {
       (await db.select({ n: sql<number>`count(*)` }).from(vaultItems).where(eq(vaultItems.vaultId, VAULT)))[0]!.n,
     );
 
-  it("at the item ceiling, updates still land but new keys are dropped", async () => {
+  it("at the item ceiling, existing rows still record use but new keys are dropped", async () => {
     const now = new Date();
     await db.insert(vaultItems).values(
       Array.from({ length: VAULT_ITEMS_MAX }, (_, i) => ({
@@ -867,7 +873,7 @@ describe("vault ceilings", () => {
       })),
     );
     await captureVaultItems(db as any, VAULT, [
-      cap({ brand: undefined, name: "Seed 0", weightMg: 999 }), // update — rides free
+      cap({ brand: undefined, name: "Seed 0", weightMg: 999 }), // existing row — rides free
       cap({ name: "Brand New Thing" }), // new key — over the ceiling, dropped
     ]);
     expect(await itemCount()).toBe(VAULT_ITEMS_MAX);
@@ -875,7 +881,8 @@ describe("vault ceilings", () => {
       .select()
       .from(vaultItems)
       .where(eq(vaultItems.normKey, vaultNormKey(null, "Seed 0", null)));
-    expect(Number(seed0[0]!.weightMg)).toBe(999);
+    expect(Number(seed0[0]!.weightMg)).toBe(1); // automatic capture never rewrites it
+    expect(seed0[0]!.timesSeen).toBe(2);
   });
 
   it("capture stops minting folders at the ceiling; the gear still lands, unfiled", async () => {
@@ -955,10 +962,9 @@ describe("a gear edit wins — the pin", () => {
     expect((await only(db))!.weightMg).toBe(545_000);
   });
 
-  it("an UNEDITED weight still takes the newer capture", async () => {
-    // the control: without this the pin could be per-row and nobody would notice
+  it("an UNEDITED weight still keeps the first captured value", async () => {
     await captureVaultItems(db as any, VAULT, [{ ...DUPLEX, weightMg: 512_000 } as any]);
-    expect((await only(db))!.weightMg).toBe(512_000);
+    expect((await only(db))!.weightMg).toBe(DUPLEX.weightMg);
   });
 
   it("pinning one field leaves the rest open", async () => {
@@ -1080,10 +1086,12 @@ describe("a gear edit wins — the pin", () => {
     expect((await only(db))!.weightMg).toBe(531_000);
   });
 
-  it("unpin releases a field", async () => {
+  it("an explicit save can replace an unpinned field", async () => {
     await edit({ weightMg: 545_000 });
     await edit({}, ["weight"]);
-    await captureVaultItems(db as any, VAULT, [{ ...DUPLEX, weightMg: 539_000 } as any]);
+    await captureVaultItemsReporting(db as any, VAULT, [{ ...DUPLEX, weightMg: 539_000 } as any], {
+      overwriteWeight: true,
+    });
     expect((await only(db))!.weightMg).toBe(539_000);
   });
 
@@ -1099,7 +1107,9 @@ describe("a gear edit wins — the pin", () => {
     await captureVaultItems(db as any, VAULT, [
       { ...DUPLEX, weightMg: 400_000, pinned: ["weight"], weightPinned: true } as any,
     ]);
-    await captureVaultItems(db as any, VAULT, [{ ...DUPLEX, weightMg: 410_000 } as any]);
+    await captureVaultItemsReporting(db as any, VAULT, [{ ...DUPLEX, weightMg: 410_000 } as any], {
+      overwriteWeight: true,
+    });
     expect((await only(db))!.weightMg).toBe(410_000);
   });
 });

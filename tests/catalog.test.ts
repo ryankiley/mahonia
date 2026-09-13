@@ -420,3 +420,17 @@ describe("activeCatalogRows — the import matcher's pool", () => {
     expect(typeof rows[0]!.weightMg).toBe("number");
   });
 });
+
+describe("recentChanges — the limit reaches SQL whole", () => {
+  it("truncates a fractional limit and defaults a NaN one, rather than failing the query", async () => {
+    const db = await freshCatalogDb();
+    const [row] = await db
+      .insert(schema.catalogItems)
+      .values({ name: "Stake", weightMg: 100_000, weightSource: "community", verified: false })
+      .returning();
+    for (const newWeightMg of [101_000, 102_000, 103_000]) await proposeCorrection(db, { catalogItemId: row!.id, newWeightMg });
+
+    await expect(recentChanges(db, 2.5)).resolves.toHaveLength(2);
+    await expect(recentChanges(db, Number.NaN)).resolves.toHaveLength(3);
+  });
+});
