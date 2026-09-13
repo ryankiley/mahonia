@@ -235,23 +235,35 @@ export async function readResponseCapped(
   return { ok: true, body: total ? Buffer.concat(chunks.map((c) => Buffer.from(c))) : null };
 }
 
-export async function readJsonBodyCapped<T>(event: H3Event, maxBytes: number): Promise<T> {
+/**
+ * Read an inbound body with a hard cap on bytes received. Unlike h3's readRawBody,
+ * normal Node requests are streamed, so a chunked request cannot allocate past the cap
+ * before its consumer gets a chance to reject it. Callers that need protocol-specific
+ * parse errors (MCP's JSON-RPC transport) use this raw form; ordinary JSON endpoints use
+ * readJsonBodyCapped below for the established empty-object malformed-input fallback.
+ */
+export async function readBodyCapped(event: H3Event, maxBytes: number): Promise<Buffer | null> {
   const webBody = event.web?.request?.body ?? (event._requestBody instanceof ReadableStream ? event._requestBody : null);
-  let raw: Buffer | null | undefined;
+  // `readRawBody` concatenates every incoming chunk before returning. Normal node
+  // requests must go through the streaming path, otherwise a chunked body can bypass
+  // Content-Length and allocate arbitrarily before this helper sees it.
+  const raw = webBody
+    ? await readWebBodyCapped(webBody, maxBytes)
+    : hasPreReadBody(event)
+      ? await readRawBody(event, false)
+      : await readNodeBodyCapped(event, maxBytes);
+  if (raw && raw.length > maxBytes) throw payloadTooLarge();
+  return raw ?? null;
+}
+
+export async function readJsonBodyCapped<T>(event: H3Event, maxBytes: number): Promise<T> {
+  let raw: Buffer | null;
   try {
-    // `readRawBody` concatenates every incoming chunk before returning. Normal node
-    // requests must go through the streaming path, otherwise a chunked body can
-    // bypass Content-Length and allocate arbitrarily before this helper sees it.
-    raw = webBody
-      ? await readWebBodyCapped(webBody, maxBytes)
-      : hasPreReadBody(event)
-        ? await readRawBody(event, false)
-        : await readNodeBodyCapped(event, maxBytes);
+    raw = await readBodyCapped(event, maxBytes);
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode === 413) throw error;
     return {} as T;
   }
-  if (raw && raw.length > maxBytes) throw payloadTooLarge();
   if (!raw || raw.length === 0) return {} as T;
   try {
     return JSON.parse(raw.toString("utf8")) as T;

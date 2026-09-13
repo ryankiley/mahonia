@@ -49,16 +49,19 @@ const TOKEN = "AbCdEfGhIjKlMnOpQrStUvWxYz0123456789-_ABCDE";
 const EDIT_LINK = `https://mahonia.test/e/ABC123DEF456#${TOKEN}`;
 
 function request(method: string, body?: unknown, headers: Record<string, string> = {}, url = "/mcp") {
+  const chunks = body === undefined ? [] : [typeof body === "string" ? Buffer.from(body) : Buffer.from(JSON.stringify(body))];
+  return requestChunks(method, chunks, headers, url);
+}
+function requestChunks(method: string, chunks: Buffer[], headers: Record<string, string> = {}, url = "/mcp") {
   const req = new IncomingMessage(new Socket());
   req.method = method;
   req.url = url;
   req.headers = { host: "mahonia.test", accept: "application/json, text/event-stream", ...headers };
-  if (body !== undefined) {
-    const buf = typeof body === "string" ? Buffer.from(body) : Buffer.from(JSON.stringify(body));
+  if (chunks.length) {
     req.headers["content-type"] = "application/json";
-    req.headers["content-length"] = String(buf.length);
-    req.push(buf);
+    req.headers["content-length"] ??= String(chunks.reduce((size, chunk) => size + chunk.length, 0));
   }
+  for (const chunk of chunks) req.push(chunk);
   req.push(null);
   return createEvent(req, new ServerResponse(req));
 }
@@ -201,6 +204,17 @@ describe("the endpoint's transport", () => {
     const notRpc = await post({ method: "ping", id: 1 });
     expect(notRpc.status).toBe(400);
     expect(notRpc.out!.error).toMatchObject({ code: -32600 });
+  });
+
+  it("refuses a chunked oversized request before H3 buffers it, even with a false length", async () => {
+    const event = requestChunks(
+      "POST",
+      [Buffer.from('{"jsonrpc":"2.0","id":1,"method":"ping","padding":"'), Buffer.from("x".repeat(300_000)), Buffer.from('"}')],
+      { "content-length": "2" },
+    );
+    const out = await mcp(event) as Record<string, unknown>;
+    expect(event.node.res.statusCode).toBe(413);
+    expect(out.error).toMatchObject({ code: -32600, message: "Request too large" });
   });
 
   it("refuses a foreign Origin with 403 and an unknown MCP-Protocol-Version with 400, never with the newer spec's codes", async () => {

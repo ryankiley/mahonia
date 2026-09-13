@@ -1,6 +1,6 @@
-import { defineEventHandler, getHeader, readRawBody, send, setHeader, setResponseStatus, type H3Event } from "h3";
+import { defineEventHandler, getHeader, send, setHeader, setResponseStatus, type H3Event } from "h3";
 import { MCP_INSTRUCTIONS, MCP_LATEST_VERSION, MCP_PROTOCOL_VERSIONS, MCP_SERVER_INFO, MCP_TOOLS, callTool, isKnownTool } from "../utils/mcp";
-import { setNoIndex } from "../utils/http";
+import { readBodyCapped, setNoIndex } from "../utils/http";
 import { trustedOrigin } from "../utils/origin";
 import { rateLimit } from "../utils/rateLimit";
 
@@ -59,10 +59,17 @@ export default defineEventHandler(async (event) => {
     return error(null, -32000, "Too many requests; wait a minute and try again");
   }
 
-  const raw = await readRawBody(event, false).catch(() => undefined);
-  if (raw && raw.length > MAX_BODY_BYTES) {
-    setResponseStatus(event, 413);
-    return error(null, -32600, "Request too large");
+  let raw: Buffer | null | undefined;
+  try {
+    raw = await readBodyCapped(event, MAX_BODY_BYTES);
+  } catch (e) {
+    if ((e as { statusCode?: number }).statusCode === 413) {
+      setResponseStatus(event, 413);
+      return error(null, -32600, "Request too large");
+    }
+    // A read failure used to land at the ordinary invalid-request response below. Keep
+    // that protocol behaviour, while the cap itself is now enforced during the read.
+    raw = undefined;
   }
   let message: unknown;
   try {
