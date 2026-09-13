@@ -603,11 +603,12 @@ onClickOutside(trailEl, closeTrail);
         </p>
         <p v-if="gpxError" class="head__gpxerr t-sm">{{ gpxError }}</p>
         <!-- An OFFER, not an import. The route is already in by the time this appears —
-             this is only the pins the file also carried, and they wait because a file can
-             hold thousands and undoing them would be one tap each. Phrased with the count
-             so the answer is informed: "add 11" is a different question from "add 400". -->
+             this is only the pins the file also carried, as many as the list still has room
+             for, and they wait because a file can hold thousands and undoing them would be
+             one tap each. Phrased with the count so the answer is informed: "add 11" is a
+             different question from "add 98" — and 98 is what a yes will do, not a guess. -->
         <p v-if="pending" class="head__gpxerr t-sm">
-          That file also has {{ pending.pins.length }}
+          This route can add {{ pending.pins.length }}
           {{ pending.pins.length === 1 ? "marked place" : "marked places" }}.
           <button type="button" class="head__gpxyes" @click="confirmPins">Add them</button>
           <button type="button" class="head__gpxno" @click="pending = null">No thanks</button>

@@ -35,6 +35,7 @@
 // hostile file full of 255-field messages costs no more per byte than a real one.
 
 import type { FilePin, TrackPoint } from "./gpx";
+import { MAX_WAYPOINTS } from "./ops";
 
 /** degrees per semicircle: the format stores 180° as 2^31 */
 const SEMICIRCLE_DEG = 180 / 2 ** 31;
@@ -44,9 +45,11 @@ const COURSE_POINT = 32;
 const SIGNATURE = [0x2e, 0x46, 0x49, 0x54];
 /**
  * A course file can carry a point per metre; the offer is "N marked places, add them?",
- * and nobody wants that question about a thousand. The first few hundred, in file order.
+ * and nobody wants that question about a thousand. The first list's-worth, in file
+ * order — a list holds MAX_WAYPOINTS, so decoding more than that is work for an offer
+ * that could never be taken up.
  */
-export const MAX_FIT_PINS = 500;
+export const MAX_FIT_PINS = MAX_WAYPOINTS;
 
 /** The width of each base type, by the low five bits of its byte. */
 const BASE_SIZE: Record<number, number> = {
