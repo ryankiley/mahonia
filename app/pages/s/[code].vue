@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { READ_EDGE_CACHE_CONTROL } from "~/utils/site";
 import type { ListSnapshot } from "~~/shared/types";
 
 const route = useRoute();
@@ -13,8 +14,7 @@ const snapshot = computed<ListSnapshot | null>(() => data.value?.snapshot ?? nul
 
 // edge-cache the HTML for a short window, mirroring /l — collapses the burst when
 // a share link makes the rounds; a read-only view tolerates 30 s of staleness.
-useResponseHeader("Cache-Control").value =
-  "public, max-age=0, s-maxage=30, stale-while-revalidate=120";
+useResponseHeader("Cache-Control").value = READ_EDGE_CACHE_CONTROL;
 
 const { unit, fullTotals, personFilter, viewProps } = useReadonlyList(snapshot);
 

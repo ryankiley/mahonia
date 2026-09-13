@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyOps, isOpObject, normalizeCalendarDate, normalizeItem, tidyListText, type Op } from "../shared/ops";
+import { applyOps, clampUnitWeightMg, isOpObject, normalizeCalendarDate, normalizeItem, tidyListText, type Op } from "../shared/ops";
 import type { Item, ListState } from "../shared/types";
 
 const base = (): ListState => ({
@@ -14,6 +14,12 @@ const base = (): ListState => ({
 });
 
 describe("op reducer", () => {
+  it("uses one bounded rounding rule for every item weight", () => {
+    expect(clampUnitWeightMg(-0.5)).toBe(0);
+    expect(clampUnitWeightMg(12.5)).toBe(13);
+    expect(clampUnitWeightMg(Number.MAX_VALUE)).toBe(100_000_000);
+  });
+
   it("adds items, idempotent on duplicate id", () => {
     const s = base();
     const item = {

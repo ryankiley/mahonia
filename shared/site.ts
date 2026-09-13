@@ -32,3 +32,7 @@
  * self-hosted deploy on another domain sets instead of editing this line.
  */
 export const CANONICAL_ORIGIN = "https://mahonia.app";
+
+/** The short shared-cache window for a read-only list and its SSR page. */
+export const READ_EDGE_CACHE_CONTROL =
+  "public, max-age=0, s-maxage=30, stale-while-revalidate=120";

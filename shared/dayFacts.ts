@@ -35,6 +35,13 @@ export interface DayFacts {
   steepest?: { gradePct: number; atM: number };
 }
 
+/** Profile-wide work shared by every day cut from the same route. */
+interface DayFactsTerrain {
+  eased: number[];
+  climbScale: number;
+  grades: number[];
+}
+
 /**
  * How much cooler the air is at a height, as a rule of thumb: the environmental lapse
  * rate, 6.5 °C per kilometre of altitude. The standard atmosphere's figure and the
@@ -57,6 +64,19 @@ function elevationAt(profile: readonly number[], routeM: number, alongM: number)
   return profile[i]! + (profile[i + 1]! - profile[i]!) * f;
 }
 
+function terrainFor(
+  profile: readonly number[],
+  routeM: number,
+  routeAscentM: number | undefined,
+): DayFactsTerrain {
+  const wholeProfileClimb = totalClimb(profile).ascentM;
+  return {
+    eased: smooth(profile, SMOOTH_WINDOW),
+    climbScale: routeAscentM && wholeProfileClimb > 0 ? routeAscentM / wholeProfileClimb : 1,
+    grades: gradeSeries(profile, routeM),
+  };
+}
+
 /**
  * The facts for one day. Null when there is nothing to read: no profile, no route
  * length, or a day that owns no ground.
@@ -68,11 +88,12 @@ function elevationAt(profile: readonly number[], routeM: number, alongM: number)
  * full-resolution ascent the way dayClimbs scales, since the stored profile smooths
  * away some real undulation and under-reads a climb by the same share.
  */
-export function dayFacts(
+function readDayFacts(
   profile: readonly number[],
   routeM: number | undefined,
   range: DayRange,
   routeAscentM?: number,
+  prepared?: DayFactsTerrain,
 ): DayFacts | null {
   if (profile.length < 2 || !routeM || !(routeM > 0) || !(range.toM > range.fromM)) return null;
   const n = profile.length;
@@ -103,9 +124,8 @@ export function dayFacts(
   // extending while the ground keeps rising past the threshold and ending when it
   // drops by as much
   if (last > first) {
-    const eased = smooth(profile, SMOOTH_WINDOW);
-    const wholeProfileClimb = totalClimb(profile).ascentM;
-    const scale = routeAscentM && wholeProfileClimb > 0 ? routeAscentM / wholeProfileClimb : 1;
+    const terrain = prepared ?? terrainFor(profile, routeM, routeAscentM);
+    const { eased, climbScale: scale, grades } = terrain;
     let best: Climb | undefined;
     let runStart = first;
     let runLow = eased[first]!;
@@ -156,7 +176,6 @@ export function dayFacts(
     if (best) out.climb = best;
 
     // the steepest stretch, off the one grade series the chart shades by
-    const grades = gradeSeries(profile, routeM);
     let steepest: { gradePct: number; atM: number } | undefined;
     for (let i = first; i <= last; i++) {
       const g = grades[i]!;
@@ -165,4 +184,31 @@ export function dayFacts(
     if (steepest && Math.abs(steepest.gradePct) >= 1) out.steepest = { gradePct: Math.round(steepest.gradePct), atM: steepest.atM };
   }
   return out;
+}
+
+/** Facts for one day. Kept as the simple single-day API used by focused callers/tests. */
+export function dayFacts(
+  profile: readonly number[],
+  routeM: number | undefined,
+  range: DayRange,
+  routeAscentM?: number,
+): DayFacts | null {
+  return readDayFacts(profile, routeM, range, routeAscentM);
+}
+
+/**
+ * Facts for a whole itinerary. The profile's smoothing, climb calibration and grades
+ * are route-wide, so calculate them once rather than once for every day on the Trip tab.
+ */
+export function dayFactsForRanges(
+  profile: readonly number[],
+  routeM: number | undefined,
+  ranges: readonly DayRange[],
+  routeAscentM?: number,
+): (DayFacts | null)[] {
+  const ownsGround = ranges.some((range) => range.toM > range.fromM);
+  const prepared = profile.length >= 2 && routeM && routeM > 0 && ownsGround
+    ? terrainFor(profile, routeM, routeAscentM)
+    : undefined;
+  return ranges.map((range) => readDayFacts(profile, routeM, range, routeAscentM, prepared));
 }

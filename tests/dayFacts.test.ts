@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { coolerByC, dayFacts } from "../shared/dayFacts";
+import { coolerByC, dayFacts, dayFactsForRanges } from "../shared/dayFacts";
 import { dayRanges } from "../shared/tripPlan";
 
 // A 24 km route sampled every 100 m (241 samples): flat at 1,000 m for 6 km, a steady
@@ -18,6 +18,12 @@ const profile = Array.from({ length: 241 }, (_, i) => {
 const ranges = dayRanges([12_000, 12_000]);
 
 describe("dayFacts", () => {
+  it("shares the route-wide terrain work across the itinerary without changing any day", () => {
+    expect(dayFactsForRanges(profile, ROUTE_M, ranges, 660)).toEqual(
+      ranges.map((range) => dayFacts(profile, ROUTE_M, range, 660)),
+    );
+  });
+
   it("reads the camp, the high and low points and the height over the trailhead off the profile", () => {
     const d1 = dayFacts(profile, ROUTE_M, ranges[0]!)!;
     expect(d1.campM).toBe(1600);

@@ -16,7 +16,7 @@ defineProps<{
   folder: Folder;
   items: Item[];
   childrenByParent: Map<string, Item[]>;
-  /** rows kept only as a label for a matching child — see ReadonlyListView */
+  /** rows kept only as a label for a matching child — see useReadonlyList */
   contextOnlyIds?: ReadonlySet<string>;
   /** rows whose variant shows beside the name — see ReadonlyListView */
   variantShownIds?: ReadonlySet<string>;

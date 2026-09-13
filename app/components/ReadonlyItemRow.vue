@@ -10,7 +10,7 @@ const NO_ITEMS: ItemT[] = [];
 import { HugeiconsIcon } from "~/utils/hugeicon";
 import { personColor } from "~~/shared/people";
 import type { Classification, Item, ListSnapshot } from "~~/shared/types";
-import { effectiveClassification, formatKcal, formatWeight, isBareGroup, rowDisplayMg, splitWornQty, rowDisplayKcal } from "~~/shared/weights";
+import { effectiveClassificationInFolder, formatKcal, formatWeight, isBareGroup, rowDisplayMg, splitWornQty, rowDisplayKcal } from "~~/shared/weights";
 import { itemQtyLabel } from "~~/shared/water";
 import { classLabel, classMark } from "~/utils/itemMarks";
 
@@ -29,7 +29,7 @@ const props = withDefaults(
     childrenByParent: Map<string, Item[]>;
     /**
      * Rows kept on screen only as a label for a matching child, under a person
-     * filter (ReadonlyListView computes the set). Such a row's own line is not in
+     * filter (useReadonlyList computes the set). Such a row's own line is not in
      * this page's totals, so it prints no weight — the editor blanks the same cell
      * in CSS, which is the only way it can, since no row there sees the filter.
      */
@@ -53,7 +53,12 @@ const variantOnRow = computed(() => !!props.variantShownIds?.has(props.item.id))
 /** this row is scaffolding around a match, not one of the filtered person's own */
 const isContextOnly = computed(() => !!props.contextOnlyIds?.has(props.item.id));
 
-const effClass = computed(() => effectiveClassification(props.item, props.list.folders));
+// Both the effective class and the exception mark need this folder. Resolve it once per
+// row rather than searching the folder list for each derived value.
+const folder = computed(() =>
+  props.item.folderId ? props.list.folders.find((itemFolder) => itemFolder.id === props.item.folderId) : undefined,
+);
+const effClass = computed(() => effectiveClassificationInFolder(props.item, folder.value));
 // one level of nesting: a nested row never renders its own children
 const children = computed(() =>
   props.nested ? NO_ITEMS : (props.childrenByParent.get(props.item.id) ?? NO_ITEMS),
@@ -97,7 +102,7 @@ const isWorn = computed(() => effClass.value === "worn" || splitWorn.value > 0);
 // The class the row would have said nothing to earn — its folder's default, which is
 // what every row in it inherits unless it says otherwise.
 const folderDefault = computed<Classification>(
-  () => props.list.folders.find((f) => f.id === props.item.folderId)?.defaultClassification ?? "base",
+  () => folder.value?.defaultClassification ?? "base",
 );
 // A mark is drawn only where the row DEPARTS from that. The overwhelmingly common
 // list is LighterPack-shaped — a "Worn" folder and a "Consumables" folder — and there

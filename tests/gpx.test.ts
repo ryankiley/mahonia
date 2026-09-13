@@ -2,7 +2,7 @@ import { deflateRawSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 import { Window } from "happy-dom";
 import { filePins, geoJsonPoints, gpxPoints, gpxStats, haversineM, kmzToKml, MAX_GPX_BYTES, zipMember, type TrackPoint } from "../shared/gpx";
-import { CLIMB_SAMPLE_M, GRADE_HARD_PCT, GRADE_MODERATE_PCT, PROFILE_SAMPLES, dayClimbs, gradeRuns, gradeSpread, parseProfile, profileToString, segmentClimbs } from "../shared/profile";
+import { CLIMB_SAMPLE_M, GRADE_HARD_PCT, GRADE_MODERATE_PCT, PROFILE_SAMPLES, dayClimbs, gradeRuns, gradeSpread, parseProfile, profileToString, segmentClimbs, smooth } from "../shared/profile";
 
 // A track that walks due east along a parallel, so the distances are easy to reason
 // about: at the equator 0.001° of longitude is ~111 m.
@@ -12,6 +12,14 @@ const eastward = (n: number, ele?: (i: number) => number): TrackPoint[] =>
     lon: i * 0.001,
     ...(ele ? { ele: ele(i) } : {}),
   }));
+
+describe("smooth", () => {
+  it("keeps the former edge-clamped moving average", () => {
+    expect(smooth([0, 10, 20, 30, 40], 5)).toEqual([6, 12, 20, 28, 34]);
+    // Even windows have always centred on floor(window / 2), making a five-sample span.
+    expect(smooth([0, 10, 20, 30, 40], 4)).toEqual([6, 12, 20, 28, 34]);
+  });
+});
 
 describe("haversineM", () => {
   it("measures a known separation", () => {

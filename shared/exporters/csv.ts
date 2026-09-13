@@ -5,7 +5,7 @@ import type { Item, ListData, ListSnapshot, Unit } from "../types";
 import { colorKeyForName, nextFolderColor } from "../categories";
 import { MAX_FOLDERS, MAX_ITEMS, MAX_PEOPLE } from "../ops";
 import { carrierName } from "../people";
-import { effectiveClassification, fromMg, itemDisplayName, splitWornQty, toMg, UNIT_ALIASES } from "../weights";
+import { effectiveClassificationInFolder, fromMg, itemDisplayName, splitWornQty, toMg, UNIT_ALIASES } from "../weights";
 import { exportSections } from "./rows";
 import { csvCell, stripFormulaGuard } from "./csvCell";
 import { uid } from "../id";
@@ -35,9 +35,10 @@ const CSV_DECIMALS: Record<Unit, number> = { g: 3, kg: 6, oz: 6, lb: 6 };
 export function listToCsv(list: ListSnapshot): string {
   const u = list.displayUnit;
   const esc = csvCell;
-  // one lookup table, not a folders.find() per row
-  const folderById = new Map(list.folders.map((f) => [f.id, f.name]));
-  const folderName = (id: string | null) => (id ? folderById.get(id) : undefined) ?? "";
+  // One lookup table for both the exported folder name and effective class; an export
+  // can contain hundreds of rows, so each must not scan every folder twice.
+  const folderById = new Map(list.folders.map((folder) => [folder.id, folder]));
+  const folderName = (id: string | null) => (id ? folderById.get(id)?.name : undefined) ?? "";
 
   // Kcal and Person are APPENDED, never inserted: the importer maps columns by
   // header name (see idx() below), but third-party tooling reading our export
@@ -61,7 +62,10 @@ export function listToCsv(list: ListSnapshot): string {
     s.rows.flatMap((r) => [r.item, ...r.children]),
   );
   for (const it of ordered) {
-    const cls = effectiveClassification(it, list.folders);
+    const cls = effectiveClassificationInFolder(
+      it,
+      it.folderId ? folderById.get(it.folderId) : undefined,
+    );
     // Each row exports in the unit it READS in, not the list's. The Unit column is
     // already per-row and the importer already honours it per-row, so this is what
     // makes a row typed in ounces come back as ounces instead of being flattened to

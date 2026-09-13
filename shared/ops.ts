@@ -241,7 +241,8 @@ const MAX_ID_LEN = 128;
 // tracking beacon) onto a shared list a viewer opens.
 const SAFE_COLOR_KEY = /^[a-z0-9-]{1,40}$/;
 
-const clampWeight = (n: number) =>
+/** One physical item cannot weigh less than zero or more than the shared item cap. */
+export const clampUnitWeightMg = (n: number) =>
   Math.max(0, Math.min(UNIT_WEIGHT_MAX_MG, Math.round(n)));
 
 /**
@@ -308,7 +309,7 @@ function cleanItemPatch(patch: ItemPatch): Partial<Item> {
   // does it is a live sink on a page strangers open. "" clears it, like brand/variant.
   if (typeof patch.productUrl === "string") out.productUrl = httpUrl(patch.productUrl);
   if (typeof patch.unitWeightMg === "number" && isFinite(patch.unitWeightMg))
-    out.unitWeightMg = clampWeight(patch.unitWeightMg);
+    out.unitWeightMg = clampUnitWeightMg(patch.unitWeightMg);
   // entryUnit is DISPLAY ONLY (see types.ts) — validated against the unit list so a
   // hostile op can't put arbitrary text where a unit label renders. null/"" clears
   // it, dropping the row back to the list's displayUnit.
@@ -343,7 +344,7 @@ function cleanItemPatch(patch: ItemPatch): Partial<Item> {
     out.catalogWeightMgAtLink = undefined;
   } else if (isCatalogId(patch.catalogItemId)) out.catalogItemId = patch.catalogItemId;
   if (patch.catalogItemId !== null && typeof patch.catalogWeightMgAtLink === "number" && isFinite(patch.catalogWeightMgAtLink))
-    out.catalogWeightMgAtLink = clampWeight(patch.catalogWeightMgAtLink);
+    out.catalogWeightMgAtLink = clampUnitWeightMg(patch.catalogWeightMgAtLink);
   if (typeof patch.packed === "boolean") out.packed = patch.packed;
   // who carries it: null clears; a string is only clamped here and validated against
   // the list's people in applyOp's updateItem arm — same division of labor as the
@@ -821,7 +822,7 @@ export function normalizeItem(raw: Item): Item {
     commonName: raw.commonName ? cleanText(String(raw.commonName), MAX_GEAR_TYPE_LEN) || undefined : undefined,
     commonNameOverridden: raw.commonNameOverridden ? true : undefined,
     nameOverridden: raw.nameOverridden ? true : undefined,
-    unitWeightMg: clampWeight(Number(raw.unitWeightMg) || 0),
+    unitWeightMg: clampUnitWeightMg(Number(raw.unitWeightMg) || 0),
     weightOverridden: !!raw.weightOverridden,
     // display-only, but it must survive normalize or a JSON round-trip (and every
     // addItem, which also runs through here) would quietly reset each row to the
@@ -845,7 +846,7 @@ export function normalizeItem(raw: Item): Item {
         : undefined,
     catalogWeightMgAtLink:
       typeof raw.catalogWeightMgAtLink === "number" && isFinite(raw.catalogWeightMgAtLink)
-        ? clampWeight(raw.catalogWeightMgAtLink)
+        ? clampUnitWeightMg(raw.catalogWeightMgAtLink)
         : undefined,
     packed: !!raw.packed,
     // clamped only — the reducer's addItem case validates it against the list's

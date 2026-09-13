@@ -405,6 +405,24 @@ export interface DayEnd {
   alongM: number;
 }
 
+/** The last itinerary row that owns ground, or -1 when none do. */
+export function lastOwnedDayIndex(dayDistancesM: readonly number[]): number {
+  for (let i = dayDistancesM.length - 1; i >= 0; i--) if (dayDistancesM[i]! > 0) return i;
+  return -1;
+}
+
+function endAt(
+  range: DayRange | undefined,
+  index: number,
+  finishIndex: number,
+  endPinsAtM: readonly number[] | undefined,
+): DayEnd | null {
+  if (!range || range.toM <= range.fromM) return null;
+  if (index !== finishIndex) return { kind: "camp", alongM: range.toM };
+  if (endPinsAtM?.some((m) => Math.abs(m - range.toM) <= 1)) return null;
+  return { kind: "finish", alongM: range.toM };
+}
+
 /**
  * How a day ends, if it ends anywhere worth drawing a row for.
  *
@@ -426,19 +444,25 @@ export interface DayEnd {
  */
 export function dayEnd(opts: {
   index: number;
-  ranges: DayRange[];
-  dayDistancesM: number[];
+  ranges: readonly DayRange[];
+  dayDistancesM: readonly number[];
   hasRest: boolean;
   endPinsAtM?: readonly number[];
 }): DayEnd | null {
   const { index, ranges, dayDistancesM, hasRest, endPinsAtM } = opts;
-  const r = ranges[index];
-  // a day with no distance yet occupies no ground, so it ends nowhere
-  if (!r || r.toM <= r.fromM) return null;
+  return endAt(ranges[index], index, hasRest ? -1 : lastOwnedDayIndex(dayDistancesM), endPinsAtM);
+}
 
-  const isLast = !dayDistancesM.some((d, k) => k > index && d > 0);
-  if (!isLast || hasRest) return { kind: "camp", alongM: r.toM };
-
-  if (endPinsAtM?.some((m) => Math.abs(m - r.toM) <= 1)) return null;
-  return { kind: "finish", alongM: r.toM };
+/**
+ * Every itinerary end at once. The finish is found once, rather than making every row
+ * scan all following days to discover whether it is last.
+ */
+export function dayEnds(opts: {
+  ranges: readonly DayRange[];
+  dayDistancesM: readonly number[];
+  hasRest: boolean;
+  endPinsAtM?: readonly number[];
+}): (DayEnd | null)[] {
+  const finishIndex = opts.hasRest ? -1 : lastOwnedDayIndex(opts.dayDistancesM);
+  return opts.ranges.map((range, index) => endAt(range, index, finishIndex, opts.endPinsAtM));
 }
