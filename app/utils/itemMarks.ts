@@ -1,8 +1,7 @@
-import { Backpack02Icon, CookieIcon, DropletIcon, Fuel01Icon, ShirtIcon } from "@hugeicons/core-free-icons";
+import { CookieIcon, DropletIcon, Fuel01Icon } from "@hugeicons/core-free-icons";
 import type { IconNode } from "./hugeicon";
 import { isWaterName } from "~~/shared/water";
 import { isFuelRow, type Named } from "~~/shared/fuel";
-import type { Classification } from "~~/shared/types";
 
 /**
  * The glyph the CONSUMABLE mark wears — a droplet on water, a fuel can on stove fuel
@@ -26,26 +25,11 @@ import type { Classification } from "~~/shared/types";
  * not `shared/`, too: the glyphs come from the Hugeicons package, which the server
  * has no business importing. (The text rules themselves — which rows are water, which
  * are fuel — live in shared/, where the server can read them.)
+ *
+ * Only this one glyph rule lives here. The share row's other two pictures — the shirt
+ * and the BACKPACK for a base row that departs from its folder — are that row's own
+ * (ReadonlyItemRow, its one reader): this module rides the editor's first load now,
+ * and an icon the editor never draws has no business on it.
  */
 export const consumableIcon = (row: Named): IconNode =>
   isWaterName(row.name) ? DropletIcon : isFuelRow(row) ? Fuel01Icon : CookieIcon;
-
-/**
- * A CLASSIFICATION's glyph — the full three, where the editor's toggles only ever had
- * two (worn, consumable; base is both of them unlit, which works only where the
- * toggles are on screen to be unlit).
- *
- * Base takes the BACKPACK, and it is the app's own word for the class rather than a
- * new one: base weight is what's in the pack, which is what the Carried tooltip says
- * in as many words ("everything in the pack, nothing worn on your body"). The share
- * views' rows need a picture for it: a base row inside a consumable folder — the stove
- * filed with the food — is the one row on the page that departs from its folder, and
- * the only class with no mark was exactly the class that needed one. (The totals chips
- * drew it too, once; they are words alone now, and this is the one reader.)
- */
-export const classMark = (cls: Classification, row: Named): IconNode =>
-  cls === "worn" ? ShirtIcon : cls === "consumable" ? consumableIcon(row) : Backpack02Icon;
-
-/** The word beside that glyph — the label a flattened reader gets, and the chips' own. */
-export const classLabel = (cls: Classification): string =>
-  cls === "worn" ? "Worn" : cls === "consumable" ? "Consumable" : "Base";

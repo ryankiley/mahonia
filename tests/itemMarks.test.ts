@@ -1,9 +1,9 @@
 // The picture on a consumable mark is one rule read by three surfaces (the editor row,
 // the share row, /gear), so it is pinned once, here, rather than once per surface. The
 // text rules it reads — which rows are water, which are fuel — are pinned in fuel.test.ts.
-import { Backpack02Icon, CookieIcon, DropletIcon, Fuel01Icon, ShirtIcon } from "@hugeicons/core-free-icons";
+import { CookieIcon, DropletIcon, Fuel01Icon } from "@hugeicons/core-free-icons";
 import { describe, expect, it } from "vitest";
-import { classMark, consumableIcon } from "../app/utils/itemMarks";
+import { consumableIcon } from "../app/utils/itemMarks";
 
 describe("consumableIcon", () => {
   it("draws the droplet on water, the fuel can on fuel and the cookie on everything else", () => {
@@ -19,14 +19,5 @@ describe("consumableIcon", () => {
     // "water" is exact-match, so the only row that is both is one whose GEAR TYPE says
     // fuel — reachable, if odd — and the order of the two tests is the contract
     expect(consumableIcon({ name: "water", commonName: "Fuel canister" })).toBe(DropletIcon);
-  });
-});
-
-describe("classMark", () => {
-  it("is the shirt, the consumable's own picture, or the backpack", () => {
-    const row = { name: "Gas canister" };
-    expect(classMark("worn", row)).toBe(ShirtIcon);
-    expect(classMark("consumable", row)).toBe(Fuel01Icon);
-    expect(classMark("base", row)).toBe(Backpack02Icon);
   });
 });
