@@ -1,5 +1,5 @@
 {
-  "_comment": "Mountain Hardwear pass 2026-09-12 — the catalog had twelve Mountain Hardwear rows; a list in this month's candidate scan typed the Rockrydge Pant. mountainhardwear.com sits behind PerimeterX (curl is redirected to a challenge and the browser was asked to press-and-hold), so the rows come from the maker's own Japanese store, mountainhardwear.jp (Columbia Sportswear Japan), which prints every product's English name, style number, fit and a weight — '重量(g) (目安) 350 g(Mサイズ)' — the same home-market move as Montbell's and Snow Peak's Japanese pages. Garment weights are the size the page names (Medium, or the waist and inseam a pant is listed at, kept in the variant and the length attribute); a Japan-only Asian-fit product says so in its variant, since the same name in the US line is a different cut. Weights without a size (hats, gloves, packs, duffels, bags) are as printed; sleeping bags are the Regular length the store sells with the rating in the name carried as temp_f. Tents, the Direttissima, Scrambler 35, AMG 75, Alakazam and Kazam packs print no weight there and are not added; the Ghoul 20F and the men's Ghost Whisperer Hoody are already cited from the US line and are left alone. Quotes are NFKC-normalised (a full-width ｇ becomes g), figures untouched. The women's Microchill Pullover Crew prints the same 242 g as the men's, which the duplicate check reads as one product twice, so only the men's row is kept. 2026-09-12, later the same day: every International-fit garment here that mountainhardwear.com also lists is re-cited to the US page in place (same name and variant, so the row keeps its id): the Japanese store's figures ran 2–7 % heavier than the US site's for the same style, with one 19 % outlier (Rockrydge Pant, 426 vs 357 g). The size basis stays what the Japanese listing states (size M); the US page prints one unsized 'Approx. Weight*'. Rows the US site has no figure for (Asian-fit styles, hats, gloves, the Butter Up and Microchill Pullover Crew, Sunblocker, Peak Rambler, Warp Factor Insulated Jacket, Summit Grid Hoody) keep the Japanese citation.",
+  "_comment": "Mountain Hardwear pass 2026-09-12 — the catalog had twelve Mountain Hardwear rows; a list in this month's candidate scan typed the Rockrydge Pant. mountainhardwear.com sits behind PerimeterX (curl is redirected to a challenge and the browser was asked to press-and-hold), so the rows come from the maker's own Japanese store, mountainhardwear.jp (Columbia Sportswear Japan), which prints every product's English name, style number, fit and a weight — '重量(g) (目安) 350 g(Mサイズ)' — the same home-market move as Montbell's and Snow Peak's Japanese pages. Garment weights are the size the page names (Medium, or the waist and inseam a pant is listed at, kept in the variant and the length attribute); a Japan-only Asian-fit product says so in its variant, since the same name in the US line is a different cut. Weights without a size (hats, gloves, packs, duffels, bags) are as printed; sleeping bags are the Regular length the store sells with the rating in the name carried as temp_f. Tents, the Direttissima, Scrambler 35, AMG 75, Alakazam and Kazam packs print no weight there and are not added; the Ghoul 20F and the men's Ghost Whisperer Hoody are already cited from the US line and are left alone. Quotes are NFKC-normalised (a full-width ｇ becomes g), figures untouched. The women's Microchill Pullover Crew prints the same 242 g as the men's, which the duplicate check reads as one product twice, so only the men's row is kept. 2026-09-12, later the same day: every International-fit garment here that mountainhardwear.com also lists is re-cited to the US page in place (same name and variant, so the row keeps its id): the Japanese store's figures ran 2–7 % heavier than the US site's for the same style, with one 19 % outlier (Rockrydge Pant, 426 vs 357 g). The size basis stays what the Japanese listing states (size M); the US page prints one unsized 'Approx. Weight*'. Rows the US site has no figure for (Asian-fit styles, hats, gloves, the Butter Up and Microchill Pullover Crew, Sunblocker, Peak Rambler, Warp Factor Insulated Jacket, Summit Grid Hoody) keep the Japanese citation. The men's and women's Stretchdown Hooded Jacket rows were removed later the same day: the catalog already carried both as 'Stretchdown Hoody' (the classic name), now re-cited to the same US pages.",
   "rows": [
     {
       "brand": "Mountain Hardwear",
@@ -672,18 +672,6 @@
     },
     {
       "brand": "Mountain Hardwear",
-      "name": "Stretchdown Hooded Jacket",
-      "variant": "Women's Medium",
-      "category_hint": "clothing",
-      "common_name": "down jacket",
-      "weight_value": 430,
-      "weight_unit": "g",
-      "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.com/p/womens-stretchdown-hooded-jacket-2166401.html",
-      "quote": "Approx. Weight*: 15.2 oz / 430 g (the maker's Japanese listing of this style states its weight for size M)"
-    },
-    {
-      "brand": "Mountain Hardwear",
       "name": "Free Element Hooded Jacket",
       "variant": "Women's Medium",
       "category_hint": "clothing",
@@ -1224,18 +1212,6 @@
       "weight_source": "manufacturer",
       "source_url": "https://www.mountainhardwear.com/p/mens-stretchdown-jacket-2166131.html",
       "quote": "Approx. Weight*: 1 lb 0.1 oz / 457 g (the maker's Japanese listing of this style states its weight for size M)"
-    },
-    {
-      "brand": "Mountain Hardwear",
-      "name": "Stretchdown Hooded Jacket",
-      "variant": "Men's Medium",
-      "category_hint": "clothing",
-      "common_name": "down jacket",
-      "weight_value": 495,
-      "weight_unit": "g",
-      "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.com/p/mens-stretchdown-hooded-jacket-2166121.html",
-      "quote": "Approx. Weight*: 1 lb 1.5 oz / 495 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
