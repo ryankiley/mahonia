@@ -1159,6 +1159,19 @@ export async function applyOpsByEditHash(
 const LIST_REAP_STALE_DAYS = Math.max(1, Number(process.env.LIST_REAP_STALE_DAYS) || 30);
 const REAP_BATCH_MAX = 10_000;
 
+// These helpers are also called by maintenance scripts and tests, not only the
+// cron route. Keep their optional numeric controls finite before they become a
+// Date offset or SQL LIMIT.
+function maintenanceDays(value: number | undefined, fallback: number): number {
+  const days = typeof value === "number" && Number.isFinite(value) ? value : fallback;
+  return Math.max(1, Math.floor(days));
+}
+
+function maintenanceBatchLimit(value: number | undefined): number {
+  const limit = typeof value === "number" && Number.isFinite(value) ? value : 5_000;
+  return Math.max(1, Math.min(REAP_BATCH_MAX, Math.floor(limit)));
+}
+
 /**
  * Soft-delete near-empty abandoned lists (<= 1 item, untouched for `staleDays`).
  * Real lists (2+ items) are never eligible, however stale. Batched (`limit`) so one
@@ -1170,8 +1183,8 @@ export async function reapAbandonedLists(
   opts?: { staleDays?: number; limit?: number },
 ): Promise<{ reaped: number }> {
   const d = db ?? (await useDb());
-  const staleDays = Math.max(1, Math.floor(opts?.staleDays ?? LIST_REAP_STALE_DAYS));
-  const limit = Math.max(1, Math.min(REAP_BATCH_MAX, Math.floor(opts?.limit ?? 5_000)));
+  const staleDays = maintenanceDays(opts?.staleDays, LIST_REAP_STALE_DAYS);
+  const limit = maintenanceBatchLimit(opts?.limit);
   const cutoff = new Date(Date.now() - staleDays * 86_400_000);
 
   // Select the eligible ids first (bounded), then soft-delete them and count via
@@ -1225,8 +1238,8 @@ export async function purgeDeletedLists(
   opts?: { graceDays?: number; limit?: number },
 ): Promise<{ purged: number }> {
   const d = db ?? (await useDb());
-  const graceDays = Math.max(1, Math.floor(opts?.graceDays ?? LIST_PURGE_GRACE_DAYS));
-  const limit = Math.max(1, Math.min(REAP_BATCH_MAX, Math.floor(opts?.limit ?? 5_000)));
+  const graceDays = maintenanceDays(opts?.graceDays, LIST_PURGE_GRACE_DAYS);
+  const limit = maintenanceBatchLimit(opts?.limit);
   const cutoff = new Date(Date.now() - graceDays * 86_400_000);
 
   const doomed = await d

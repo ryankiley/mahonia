@@ -428,8 +428,22 @@ export async function proposeCorrection(
 }
 
 
+const DEFAULT_RECENT_CHANGES_LIMIT = 50;
+const MAX_RECENT_CHANGES_LIMIT = 100;
+
+// Drizzle passes LIMIT through to SQL. Normalize here as well as at the HTTP
+// boundary so direct callers cannot hand a fractional or non-finite value to
+// the database.
+function recentChangesLimit(limit: number): number {
+  if (!Number.isFinite(limit)) return DEFAULT_RECENT_CHANGES_LIMIT;
+  return Math.min(MAX_RECENT_CHANGES_LIMIT, Math.max(1, Math.trunc(limit)));
+}
+
 /** Recent catalog weight changes (newest first) — the patrol / transparency feed. */
-export async function recentChanges(db: Db, limit = 50): Promise<RecentChange[]> {
+export async function recentChanges(
+  db: Db,
+  limit = DEFAULT_RECENT_CHANGES_LIMIT,
+): Promise<RecentChange[]> {
   const rows = await db
     .select({
       id: catalogEdits.id,
@@ -449,7 +463,7 @@ export async function recentChanges(db: Db, limit = 50): Promise<RecentChange[]>
     // Without it the admin feed can hand the stale-revert guard the newer edit
     // as though it were the older one.
     .orderBy(desc(catalogEdits.createdAt), desc(catalogEdits.id))
-    .limit(Math.min(100, Math.max(1, limit)));
+    .limit(recentChangesLimit(limit));
   return rows.map((r) => ({
     id: r.id,
     // the left join leaves brand/name/variant null for an edit whose item is gone

@@ -797,6 +797,13 @@ describe("vault reaping — bounding a table nothing else ever shrinks", () => {
     expect(await reapAbandonedVaults(db as any, { limit: 2 })).toEqual({ vaultsReaped: 2 });
     expect(await reapAbandonedVaults(db as any, { limit: 2 })).toEqual({ vaultsReaped: 1 });
   });
+
+  it("falls back from non-finite maintenance controls", async () => {
+    await seedVault(200);
+    expect(
+      await reapAbandonedVaults(db as any, { staleDays: Number.NaN, limit: Number.NaN }),
+    ).toEqual({ vaultsReaped: 1 });
+  });
 });
 
 // ---------------------------------------------------------------------------

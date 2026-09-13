@@ -13,7 +13,9 @@ export default defineEventHandler(async (event) => {
   setNoIndex(event);
   setHeader(event, "Cache-Control", "public, max-age=30");
   const q = getQuery(event);
-  const limit = Math.min(100, Math.max(1, Number(q.limit) || 50));
+  // Drizzle requires an integer LIMIT; preserve the old default for an absent
+  // or zero value, then discard a fractional query value before it reaches SQL.
+  const limit = Math.min(100, Math.max(1, Math.trunc(Number(q.limit) || 50)));
   const db = await useCatalogDb();
   return { changes: await recentChanges(db, limit) };
 });

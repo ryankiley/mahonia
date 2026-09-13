@@ -148,6 +148,14 @@ describe("reapAbandonedLists — soft-deletes near-empty abandoned lists", () =>
     expect((await reapAbandonedLists(db, { limit: 2 })).reaped).toBe(1);
     expect((await reapAbandonedLists(db, { limit: 2 })).reaped).toBe(0);
   });
+
+  it("falls back from non-finite maintenance controls", async () => {
+    const db = await freshDb();
+    await seed(db, { updatedAt: stale() });
+    expect(
+      await reapAbandonedLists(db, { staleDays: Number.NaN, limit: Number.NaN }),
+    ).toEqual({ reaped: 1 });
+  });
 });
 
 const softDeleted = (days: number) => new Date(Date.now() - days * DAY);
@@ -217,5 +225,13 @@ describe("purgeDeletedLists — hard-deletes rows past the grace window", () => 
     expect((await purgeDeletedLists(db, { limit: 2 })).purged).toBe(2);
     expect((await purgeDeletedLists(db, { limit: 2 })).purged).toBe(1);
     expect((await purgeDeletedLists(db, { limit: 2 })).purged).toBe(0);
+  });
+
+  it("falls back from non-finite maintenance controls", async () => {
+    const db = await freshDb();
+    await seed(db, { deletedAt: softDeleted(100) });
+    expect(
+      await purgeDeletedLists(db, { graceDays: Number.NaN, limit: Number.NaN }),
+    ).toEqual({ purged: 1 });
   });
 });

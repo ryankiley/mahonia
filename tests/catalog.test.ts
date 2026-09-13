@@ -407,6 +407,22 @@ describe("revertEdit — one-click undo of an applied edit", () => {
   });
 });
 
+describe("recentChanges — bounded database limits", () => {
+  it("truncates fractional direct-call limits before passing them to SQL", async () => {
+    const db = await freshCatalogDb();
+    const [row] = await db
+      .insert(schema.catalogItems)
+      .values({ name: "Stake", weightMg: 100_000, weightSource: "community", verified: false })
+      .returning();
+    await proposeCorrection(db, { catalogItemId: row.id, newWeightMg: 101_000 });
+    await proposeCorrection(db, { catalogItemId: row.id, newWeightMg: 102_000 });
+    await proposeCorrection(db, { catalogItemId: row.id, newWeightMg: 103_000 });
+
+    await expect(recentChanges(db, 2.5)).resolves.toHaveLength(2);
+    await expect(recentChanges(db, Number.NaN)).resolves.toHaveLength(3);
+  });
+});
+
 describe("activeCatalogRows — the import matcher's pool", () => {
   it("returns active rows in the autocomplete's result shape (weight a number, nullables null)", async () => {
     const db = await freshCatalogDb();

@@ -689,7 +689,16 @@ const VAULT_PURGE_GRACE_DAYS = Math.max(
 const VAULT_REAP_BATCH_MAX = 10_000;
 
 function batchLimit(n: number | undefined): number {
-  return Math.max(1, Math.min(VAULT_REAP_BATCH_MAX, Math.floor(n ?? 5_000)));
+  const limit = typeof n === "number" && Number.isFinite(n) ? n : 5_000;
+  return Math.max(
+    1,
+    Math.min(VAULT_REAP_BATCH_MAX, Math.floor(limit)),
+  );
+}
+
+function maintenanceDays(value: number | undefined, fallback: number): number {
+  const days = typeof value === "number" && Number.isFinite(value) ? value : fallback;
+  return Math.max(1, Math.floor(days));
 }
 
 /** Soft-delete vaults not seen in `staleDays`. Batched, so one run can never issue
@@ -698,7 +707,7 @@ export async function reapAbandonedVaults(
   db: Db,
   opts?: { staleDays?: number; limit?: number },
 ): Promise<{ vaultsReaped: number }> {
-  const staleDays = Math.max(1, Math.floor(opts?.staleDays ?? VAULT_REAP_STALE_DAYS));
+  const staleDays = maintenanceDays(opts?.staleDays, VAULT_REAP_STALE_DAYS);
   const cutoff = new Date(Date.now() - staleDays * 86_400_000);
   const candidates = await db
     .select({ id: vaults.id })
@@ -721,7 +730,7 @@ export async function purgeDeletedVaults(
   db: Db,
   opts?: { graceDays?: number; limit?: number },
 ): Promise<{ vaultsPurged: number }> {
-  const graceDays = Math.max(1, Math.floor(opts?.graceDays ?? VAULT_PURGE_GRACE_DAYS));
+  const graceDays = maintenanceDays(opts?.graceDays, VAULT_PURGE_GRACE_DAYS);
   const cutoff = new Date(Date.now() - graceDays * 86_400_000);
   const doomed = await db
     .select({ id: vaults.id })
