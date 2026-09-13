@@ -1,7 +1,7 @@
 import { deflateRawSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 import { Window } from "happy-dom";
-import { filePins, geoJsonPoints, gpxPoints, gpxStats, haversineM, kmzToKml, MAX_GPX_BYTES, zipMember, type TrackPoint } from "../shared/gpx";
+import { filePins, geoJsonPoints, gpxPoints, gpxStats, haversineM, kmzToKml, MAX_FILE_PINS, MAX_GPX_BYTES, zipMember, type TrackPoint } from "../shared/gpx";
 import { CLIMB_SAMPLE_M, GRADE_HARD_PCT, GRADE_MODERATE_PCT, PROFILE_SAMPLES, dayClimbs, gradeRuns, gradeSpread, parseProfile, profileToString, segmentClimbs } from "../shared/profile";
 
 // A track that walks due east along a parallel, so the distances are easy to reason
@@ -437,6 +437,17 @@ describe("reading a route out of somebody else's file", () => {
     expect(gpxPoints(xml(`<kml><Document><Placemark><LineString><coordinates>,</coordinates></LineString></Placemark></Document></kml>`))).toEqual([]);
     expect(gpxPoints(xml(`<feed><line>,</line></feed>`))).toEqual([]);
     expect(filePins(xml(`<gpx><wpt lat="" lon="-121.71"/></gpx>`))).toEqual([]);
+  });
+
+  it("keeps a file's optional pins within the list waypoint limit, in file order", () => {
+    const pins = Array.from(
+      { length: MAX_FILE_PINS + 1 },
+      (_, i) => `<wpt lat="45.${i}" lon="-121.71"><name>Place ${i}</name></wpt>`,
+    ).join("");
+    const parsed = filePins(xml(`<gpx>${pins}</gpx>`));
+    expect(parsed).toHaveLength(MAX_FILE_PINS);
+    expect(parsed[0]!.name).toBe("Place 0");
+    expect(parsed.at(-1)!.name).toBe(`Place ${MAX_FILE_PINS - 1}`);
   });
 });
 

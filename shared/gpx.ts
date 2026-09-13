@@ -17,6 +17,7 @@
 // climbs per day, grade bands — lives in profile.ts precisely so this file can stay off
 // that path. Import FROM profile.ts freely; never make profile.ts import from here.
 import { CLIMB_SAMPLE_M, PROFILE_SAMPLES, totalClimb } from "./profile";
+import { MAX_WAYPOINTS } from "./ops";
 import type { WaypointKind } from "./types";
 
 // The one binary format, in its own file for legibility and re-exported here so the
@@ -43,6 +44,12 @@ export interface GpxStats {
 
 /** Refuse rather than block the main thread for seconds on a huge track. */
 export const MAX_GPX_BYTES = 10_000_000;
+
+/**
+ * A route can only hold this many waypoints. Keep a file's optional pin offer within
+ * that same bound before it reaches the reactive editor or projection loop.
+ */
+export const MAX_FILE_PINS = MAX_WAYPOINTS;
 
 const EARTH_R_M = 6_371_008.8;
 const rad = (deg: number) => (deg * Math.PI) / 180;
@@ -177,12 +184,14 @@ export function pinKind(pin: Pick<FilePin, "sym" | "name">): WaypointKind {
  * this branch: a KML export's twelve marker placemarks inflated a 39.8-mile trail to 58.5,
  * because a pin off in a car park is a coordinate but not a step anyone walks.
  *
- * So they come back separately, and the caller decides. They stay OFF by default because a
- * file can carry thousands: fifty pins is not glanceable, and undoing them is fifty taps.
+ * So they come back separately, and the caller decides. They stay OFF by default, and only
+ * the first MAX_FILE_PINS valid pins are retained: a file can carry thousands, but a list
+ * cannot hold more than its waypoint limit.
  */
 export function filePins(doc: Document): FilePin[] {
   const out: FilePin[] = [];
   for (const n of byLocalName(doc, "wpt")) {
+    if (out.length >= MAX_FILE_PINS) break;
     const lat = finiteTextNumber(n.getAttribute("lat"));
     const lon = finiteTextNumber(n.getAttribute("lon"));
     if (!validLatLon(lat, lon)) continue;
@@ -197,6 +206,7 @@ export function filePins(doc: Document): FilePin[] {
   // KML says the same thing with a Placemark holding a Point. Only those — a Placemark
   // wrapping a LineString is the ROUTE, and picking it up here would put a pin on it.
   for (const pm of byLocalName(doc, "Placemark")) {
+    if (out.length >= MAX_FILE_PINS) break;
     const point = [...pm.getElementsByTagName("*")].find((el) => el.localName.toLowerCase() === "point");
     if (!point) continue;
     const raw = localText(point, "coordinates")?.trim();

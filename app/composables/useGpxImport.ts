@@ -74,6 +74,7 @@ export function useGpxImport(snapshot: Ref<ListSnapshot | null>, c: GpxTarget) {
     geometry: string;
     pins: FilePin[];
     kindOf: (p: Pick<FilePin, "sym" | "name">) => WaypointKind;
+    maxWaypoints: number;
     generation: number;
     epoch: number | undefined;
   } | null>(null);
@@ -94,7 +95,12 @@ export function useGpxImport(snapshot: Ref<ListSnapshot | null>, c: GpxTarget) {
     // and not a coordinate. A water source 200 m off-trail is recorded where you'd leave
     // the trail for it, which is the useful place to be told about it.
     const taken = (snapshot.value?.waypoints ?? []).map((w) => w.alongM);
+    // The list can change while its optional pin offer is open. Recheck the reducer's
+    // capacity here as well as when the offer was made, rather than enqueueing writes it
+    // will silently reject after a collaborator or another editor filled the last slots.
+    let remaining = Math.max(0, p.maxWaypoints - taken.length);
     for (const pin of p.pins) {
+      if (!remaining) break;
       const alongM = nearestAlongM(line, pin, cum);
       if (alongM < 0 || alongM > total) continue;
       // Don't re-place the ends the reducer seeded with the route, and don't stack two
@@ -103,6 +109,7 @@ export function useGpxImport(snapshot: Ref<ListSnapshot | null>, c: GpxTarget) {
       if (taken.some((t) => Math.abs(t - alongM) < PIN_DEDUP_M)) continue;
       taken.push(alongM);
       c.addWaypoint(alongM, p.kindOf(pin));
+      remaining--;
       // The label is a separate op because addWaypoint mints the id — see useGearList.
       // The reducer sorts by alongM, so the pin just added is findable by the position
       // we gave it.
@@ -129,7 +136,7 @@ export function useGpxImport(snapshot: Ref<ListSnapshot | null>, c: GpxTarget) {
       // lines of XML dialects, a zip decoder and GeoJSON that would otherwise ride the
       // first load of every packing list. `gpxBusy` is already true, so the fetch shows
       // as "Reading…" like the parse it precedes.
-      const { MAX_GPX_BYTES, filePins, fitRoute, geoJsonPoints, gpxPoints, gpxStats, isFit, pinKind, zipMember } =
+      const { MAX_FILE_PINS, MAX_GPX_BYTES, filePins, fitRoute, geoJsonPoints, gpxPoints, gpxStats, isFit, pinKind, zipMember } =
         await import("~~/shared/gpx");
       if (!current()) return;
       // Checked BEFORE reading. DOMParser on a 30 MB string blocks the main thread for
@@ -202,10 +209,14 @@ export function useGpxImport(snapshot: Ref<ListSnapshot | null>, c: GpxTarget) {
       // stacked on the same two metres — in the plan's list and on the map — and another
       // pair on every re-import of the same file. If a call is ever needed here again it is
       // c.ensureRouteEnds(), which dedupes on those fixed ids.
-      // Everything else the file offered is an OFFER. A track can carry thousands of pins;
-      // fifty is not glanceable and undoing them is fifty taps, so it waits for a yes.
-      pending.value = geometry && pins.length
-        ? { geometry, pins, kindOf: pinKind, generation: mine, epoch: sourceEpoch }
+      // Everything else the file offered is an OFFER. The route's own ends have just been
+      // seeded, so reserve their slots before offering any optional pins. Readers already
+      // retain at most MAX_FILE_PINS, which keeps this slice and the later projection work
+      // bounded even when a source file carries thousands of markers.
+      const slots = Math.max(0, MAX_FILE_PINS - (c.snapshot.value?.waypoints?.length ?? 0));
+      const offeredPins = pins.slice(0, slots);
+      pending.value = geometry && offeredPins.length
+        ? { geometry, pins: offeredPins, kindOf: pinKind, maxWaypoints: MAX_FILE_PINS, generation: mine, epoch: sourceEpoch }
         : null;
     } catch {
       if (current()) gpxError.value = "Couldn't read a route out of that file.";
