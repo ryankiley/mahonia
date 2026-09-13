@@ -131,7 +131,7 @@ const showMark = computed(
 );
 // worn wins over the effective class for the picture, so a split reads as the shirt
 const markClass = computed<Classification>(() => (isWorn.value ? "worn" : effClass.value));
-const markIcon = computed(() => classMark(markClass.value, props.item.name));
+const markIcon = computed(() => classMark(markClass.value, props.item));
 // the hover title, matching the editor's tooltip: a split names its count, since
 // "Worn" alone would overstate a row that is mostly in the pack
 const markTitle = computed(() =>
