@@ -1,5 +1,5 @@
 {
-  "_comment": "Mountain Hardwear pass 2026-09-12 — the catalog had twelve Mountain Hardwear rows; a list in this month's candidate scan typed the Rockrydge Pant. mountainhardwear.com sits behind PerimeterX (curl is redirected to a challenge and the browser was asked to press-and-hold), so the rows come from the maker's own Japanese store, mountainhardwear.jp (Columbia Sportswear Japan), which prints every product's English name, style number, fit and a weight — '重量(g) (目安) 350 g(Mサイズ)' — the same home-market move as Montbell's and Snow Peak's Japanese pages. Garment weights are the size the page names (Medium, or the waist and inseam a pant is listed at, kept in the variant and the length attribute); a Japan-only Asian-fit product says so in its variant, since the same name in the US line is a different cut. Weights without a size (hats, gloves, packs, duffels, bags) are as printed; sleeping bags are the Regular length the store sells with the rating in the name carried as temp_f. Tents, the Direttissima, Scrambler 35, AMG 75, Alakazam and Kazam packs print no weight there and are not added; the Ghoul 20F and the men's Ghost Whisperer Hoody are already cited from the US line and are left alone. Quotes are NFKC-normalised (a full-width ｇ becomes g), figures untouched. The women's Microchill Pullover Crew prints the same 242 g as the men's, which the duplicate check reads as one product twice, so only the men's row is kept.",
+  "_comment": "Mountain Hardwear pass 2026-09-12 — the catalog had twelve Mountain Hardwear rows; a list in this month's candidate scan typed the Rockrydge Pant. mountainhardwear.com sits behind PerimeterX (curl is redirected to a challenge and the browser was asked to press-and-hold), so the rows come from the maker's own Japanese store, mountainhardwear.jp (Columbia Sportswear Japan), which prints every product's English name, style number, fit and a weight — '重量(g) (目安) 350 g(Mサイズ)' — the same home-market move as Montbell's and Snow Peak's Japanese pages. Garment weights are the size the page names (Medium, or the waist and inseam a pant is listed at, kept in the variant and the length attribute); a Japan-only Asian-fit product says so in its variant, since the same name in the US line is a different cut. Weights without a size (hats, gloves, packs, duffels, bags) are as printed; sleeping bags are the Regular length the store sells with the rating in the name carried as temp_f. Tents, the Direttissima, Scrambler 35, AMG 75, Alakazam and Kazam packs print no weight there and are not added; the Ghoul 20F and the men's Ghost Whisperer Hoody are already cited from the US line and are left alone. Quotes are NFKC-normalised (a full-width ｇ becomes g), figures untouched. The women's Microchill Pullover Crew prints the same 242 g as the men's, which the duplicate check reads as one product twice, so only the men's row is kept. 2026-09-12, later the same day: every International-fit garment here that mountainhardwear.com also lists is re-cited to the US page in place (same name and variant, so the row keeps its id): the Japanese store's figures ran 2–7 % heavier than the US site's for the same style, with one 19 % outlier (Rockrydge Pant, 426 vs 357 g). The size basis stays what the Japanese listing states (size M); the US page prints one unsized 'Approx. Weight*'. Rows the US site has no figure for (Asian-fit styles, hats, gloves, the Butter Up and Microchill Pullover Crew, Sunblocker, Peak Rambler, Warp Factor Insulated Jacket, Summit Grid Hoody) keep the Japanese citation.",
   "rows": [
     {
       "brand": "Mountain Hardwear",
@@ -361,11 +361,11 @@
       "variant": "Women's Medium",
       "category_hint": "clothing",
       "common_name": "softshell hoodie",
-      "weight_value": 448,
+      "weight_value": 446,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOL0250361---XS000/",
-      "quote": "重量(g) (目安) 448 g(Mサイズ)"
+      "source_url": "https://www.mountainhardwear.com/p/womens-chockstonealpine-light-hooded-jacket-2063331.html",
+      "quote": "Approx. Weight*: 15.7 oz / 446 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -373,11 +373,11 @@
       "variant": "Women's Medium, Short",
       "category_hint": "clothing",
       "common_name": "hiking pants",
-      "weight_value": 312,
+      "weight_value": 327,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOL0253010---XS00S/",
-      "quote": "重量(g) (目安) 312g[M-Sサイズ]"
+      "source_url": "https://www.mountainhardwear.com/p/womens-chockstone-alpine-light-pant-2063361.html",
+      "quote": "Approx. Weight*: 11.5 oz / 327 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -397,11 +397,11 @@
       "variant": "Women's Medium",
       "category_hint": "clothing",
       "common_name": "leggings",
-      "weight_value": 270,
+      "weight_value": 267,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOL0539010---XS00R/",
-      "quote": "重量(g) (目安) 270g(Mサイズ)"
+      "source_url": "https://www.mountainhardwear.com/p/womens-kor-alloy-tight-2077651.html",
+      "quote": "Approx. Weight*: 9.4 oz / 267 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -421,11 +421,11 @@
       "variant": "Women's Medium",
       "category_hint": "clothing",
       "common_name": "hiking pants",
-      "weight_value": 506,
+      "weight_value": 483,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOL0857010---XS00S/",
-      "quote": "重量(g) (目安) 506g(Mサイズ)"
+      "source_url": "https://www.mountainhardwear.com/p/womens-chockstone-alpine-pant-2092441.html",
+      "quote": "Approx. Weight*: 1 lb 1 oz / 483 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -433,11 +433,11 @@
       "variant": "Women's Medium",
       "category_hint": "clothing",
       "common_name": "down pants",
-      "weight_value": 270,
+      "weight_value": 256,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOL0866010---XS00S/",
-      "quote": "重量(g) (目安) 270 g(Mサイズ)"
+      "source_url": "https://www.mountainhardwear.com/p/womens-ghost-whisperer-pant-2092691.html",
+      "quote": "Approx. Weight*: 9 oz / 256 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -445,11 +445,11 @@
       "variant": "Women's Medium",
       "category_hint": "clothing",
       "common_name": "insulated jacket",
-      "weight_value": 320,
+      "weight_value": 307,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOL0869010---XS000/",
-      "quote": "重量(g) (目安) 320 g(Mサイズ)"
+      "source_url": "https://www.mountainhardwear.com/p/womens-kor-airshell-warm-hoody-2092731.html",
+      "quote": "Approx. Weight*: 10.8 oz / 307 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -457,11 +457,11 @@
       "variant": "Women's Medium",
       "category_hint": "clothing",
       "common_name": "rain jacket",
-      "weight_value": 424,
+      "weight_value": 451,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOL0908341---XS000/",
-      "quote": "重量(g) (目安) 424g(Mサイズ)"
+      "source_url": "https://www.mountainhardwear.com/p/womens-trailverse-gore-tex-rain-jacket-2092851.html",
+      "quote": "Approx. Weight*: 15.9 oz / 451 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -472,8 +472,8 @@
       "weight_value": 280,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOL0911059---XS000/",
-      "quote": "重量(g) (目安) 280g(Mサイズ)"
+      "source_url": "https://www.mountainhardwear.com/p/womens-stretch-ozonic-rain-jacket-2093471.html",
+      "quote": "Approx. Weight*: 9.9 oz / 280 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -484,8 +484,8 @@
       "weight_value": 220,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOL1942010---XS000/",
-      "quote": "重量(g) (目安) 220g(Mサイズ)"
+      "source_url": "https://www.mountainhardwear.com/p/womens-ghost-whisperer-down-jacket-2104741.html",
+      "quote": "Approx. Weight*: 7.8 oz / 220 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -493,11 +493,11 @@
       "variant": "Women's Medium",
       "category_hint": "clothing",
       "common_name": "shorts",
-      "weight_value": 163,
+      "weight_value": 153,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOL2069038---XS00R/",
-      "quote": "重量(g) (目安) 163g(Mサイズ)"
+      "source_url": "https://www.mountainhardwear.com/p/womens-dynama-bermuda-short-2095491.html",
+      "quote": "Approx. Weight*: 5.4 oz / 153 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -505,11 +505,11 @@
       "variant": "Women's Medium",
       "category_hint": "clothing",
       "common_name": "hiking pants",
-      "weight_value": 210,
+      "weight_value": 202,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOL2075008--XXS00R/",
-      "quote": "重量(g) (目安) 210 g(Mサイズ)"
+      "source_url": "https://www.mountainhardwear.com/p/womens-dynama-ankle-pant-2095541.html",
+      "quote": "Approx. Weight*: 7.1 oz / 202 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -520,8 +520,8 @@
       "weight_value": 386,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOL2100010---XS000/",
-      "quote": "重量(g) (目安) 386g(Mサイズ)"
+      "source_url": "https://www.mountainhardwear.com/p/womens-polartec-power-grid-full-zip-hoody-2104821.html",
+      "quote": "Approx. Weight*: 13.6 oz / 386 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -529,11 +529,11 @@
       "variant": "Women's Medium",
       "category_hint": "clothing",
       "common_name": "fleece",
-      "weight_value": 454,
+      "weight_value": 421,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOL2120090---XS000/",
-      "quote": "重量(g) (目安) 454 g(Mサイズ)"
+      "source_url": "https://www.mountainhardwear.com/p/womens-polartec-high-loft-jacket-2104841.html",
+      "quote": "Approx. Weight*: 14.9 oz / 421 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -541,11 +541,11 @@
       "variant": "Women's Medium",
       "category_hint": "clothing",
       "common_name": "fleece pants",
-      "weight_value": 307,
+      "weight_value": 333,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOL2121090---XS00S/",
-      "quote": "重量(g) (目安) 307 g(Mサイズ)"
+      "source_url": "https://www.mountainhardwear.com/p/womens-polartec-high-loft-pant-2104851.html",
+      "quote": "Approx. Weight*: 11.7 oz / 333 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -553,11 +553,11 @@
       "variant": "Women's Medium",
       "category_hint": "clothing",
       "common_name": "sun shirt",
-      "weight_value": 120,
+      "weight_value": 130,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOL3366102---XS000/",
-      "quote": "重量(g) (目安) 120g(Mサイズ)"
+      "source_url": "https://www.mountainhardwear.com/p/womens-crater-lake-long-sleeve-shirt-1982721.html",
+      "quote": "Approx. Weight*: 4.6 oz / 130 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -565,11 +565,11 @@
       "variant": "Women's Medium",
       "category_hint": "clothing",
       "common_name": "wind jacket",
-      "weight_value": 132,
+      "weight_value": 123,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOL4211010---XS000/",
-      "quote": "重量(g) (目安) 132g(Mサイズ)"
+      "source_url": "https://www.mountainhardwear.com/p/womens-kor-airshell-hoody-2123801.html",
+      "quote": "Approx. Weight*: 4.3 oz / 123 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -577,11 +577,11 @@
       "variant": "Women's Medium",
       "category_hint": "clothing",
       "common_name": "fleece",
-      "weight_value": 426,
+      "weight_value": 433.5,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOL4302010---XS000/",
-      "quote": "重量(g) (目安) 426g(Mサイズ)"
+      "source_url": "https://www.mountainhardwear.com/p/womens-polartec-high-loft-hooded-jacket-2128641.html",
+      "quote": "Approx. Weight*: 15.3 oz / 433.5 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -589,11 +589,11 @@
       "variant": "Women's Medium",
       "category_hint": "clothing",
       "common_name": "sun hoodie",
-      "weight_value": 155,
+      "weight_value": 158.5,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOL4440004---XS000/",
-      "quote": "重量(g) (目安) 155g (Mサイズ)"
+      "source_url": "https://www.mountainhardwear.com/p/womens-airmesh-long-sleeve-hoody-2129551.html",
+      "quote": "Approx. Weight*: 5.6 oz / 158.5 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -616,8 +616,8 @@
       "weight_value": 316,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOL6335020---XS000/",
-      "quote": "重量(g) (目安) 316g(Mサイズ)"
+      "source_url": "https://www.mountainhardwear.com/p/womens-cloud-cipher-hooded-rain-jacket-2146761.html",
+      "quote": "Approx. Weight*: 11.1 oz / 316 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -640,11 +640,11 @@
       "variant": "Women's Medium",
       "category_hint": "clothing",
       "common_name": "sun shirt",
-      "weight_value": 150,
+      "weight_value": 131,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOL6519004---XS000/",
-      "quote": "重量(g) (目安) 150g(Mサイズ)"
+      "source_url": "https://www.mountainhardwear.com/p/womens-airmesh-half-zip-2145781.html",
+      "quote": "Approx. Weight*: 4.6 oz / 131 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -652,11 +652,11 @@
       "variant": "Women's Medium, Regular",
       "category_hint": "clothing",
       "common_name": "hiking pants",
-      "weight_value": 378,
+      "weight_value": 370.5,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOL6689010---XS00R/",
-      "quote": "重量(g) (目安) 378g[M-Rサイズ]"
+      "source_url": "https://www.mountainhardwear.com/p/womens-rockrydge-pant-2162081.html",
+      "quote": "Approx. Weight*: 13.1 oz / 370.5 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -664,11 +664,11 @@
       "variant": "Women's Medium",
       "category_hint": "clothing",
       "common_name": "insulated jacket",
-      "weight_value": 324,
+      "weight_value": 300,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOL6712010---XS000/",
-      "quote": "重量(g) (目安) 324g[Mサイズ]"
+      "source_url": "https://www.mountainhardwear.com/p/womens-kor-alloy-hooded-jacket-2166371.html",
+      "quote": "Approx. Weight*: 10.6 oz / 300 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -676,11 +676,11 @@
       "variant": "Women's Medium",
       "category_hint": "clothing",
       "common_name": "down jacket",
-      "weight_value": 428,
+      "weight_value": 430,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOL6804010---XS000/",
-      "quote": "重量(g) (目安) 428g[Mサイズ]"
+      "source_url": "https://www.mountainhardwear.com/p/womens-stretchdown-hooded-jacket-2166401.html",
+      "quote": "Approx. Weight*: 15.2 oz / 430 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -688,11 +688,11 @@
       "variant": "Women's Medium",
       "category_hint": "clothing",
       "common_name": "insulated jacket",
-      "weight_value": 368,
+      "weight_value": 355,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOL6822010---XS000/",
-      "quote": "重量(g) (目安) 368g[Mサイズ]"
+      "source_url": "https://www.mountainhardwear.com/p/womens-free-element-hooded-jacket-2166451.html",
+      "quote": "Approx. Weight*: 12.5 oz / 355 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -700,11 +700,11 @@
       "variant": "Women's Medium",
       "category_hint": "clothing",
       "common_name": "fleece",
-      "weight_value": 252,
+      "weight_value": 240,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOL6961010---XS000/",
-      "quote": "重量(g) (目安) 252g[Mサイズ]"
+      "source_url": "https://www.mountainhardwear.com/p/womens-microchill-jacket-2169291.html",
+      "quote": "Approx. Weight*: 8.5 oz / 240 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -712,11 +712,11 @@
       "variant": "Women's Medium",
       "category_hint": "clothing",
       "common_name": "insulated jacket",
-      "weight_value": 286,
+      "weight_value": 270,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOL6980010---XS000/",
-      "quote": "重量(g) (目安) 286g[Mサイズ]"
+      "source_url": "https://www.mountainhardwear.com/p/womens-kor-alloy-jacket-2179841.html",
+      "quote": "Approx. Weight*: 9.5 oz / 270 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -736,11 +736,11 @@
       "variant": "Men's Medium, Regular",
       "category_hint": "clothing",
       "common_name": "hiking pants",
-      "weight_value": 346,
+      "weight_value": 484,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOM0206010----S00R/",
-      "quote": "重量(g) (目安) 346g[M-Rサイズ]"
+      "source_url": "https://www.mountainhardwear.com/p/mens-chockstone-alpine-light-pant-2063201.html",
+      "quote": "Approx. Weight*: 1 lb 1.1 oz / 484 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -748,11 +748,11 @@
       "variant": "Men's Medium",
       "category_hint": "clothing",
       "common_name": "softshell hoodie",
-      "weight_value": 470,
+      "weight_value": 489,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOM0208010----S000/",
-      "quote": "重量(g) (目安) 470 g(Mサイズ)"
+      "source_url": "https://www.mountainhardwear.com/p/mens-chockstone-alpine-light-hooded-jacket-2063191.html",
+      "quote": "Approx. Weight*: 1 lb 1.2 oz / 489 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -760,11 +760,11 @@
       "variant": "Men's Medium",
       "category_hint": "clothing",
       "common_name": "leggings",
-      "weight_value": 290,
+      "weight_value": 272,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOM0374010----S00R/",
-      "quote": "重量(g) (目安) 290g(Mサイズ)"
+      "source_url": "https://www.mountainhardwear.com/p/mens-kor-alloy-tight-2077621.html",
+      "quote": "Approx. Weight*: 9.6 oz / 272 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -784,11 +784,11 @@
       "variant": "Men's Medium",
       "category_hint": "clothing",
       "common_name": "hiking pants",
-      "weight_value": 527,
+      "weight_value": 498,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOM0609010----S00R/",
-      "quote": "重量(g) (目安) 527g(Mサイズ)"
+      "source_url": "https://www.mountainhardwear.com/p/mens-chockstone-alpine-pant-2091871.html",
+      "quote": "Approx. Weight*: 1 lb 1.6 oz / 498 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -796,11 +796,11 @@
       "variant": "Men's Medium",
       "category_hint": "clothing",
       "common_name": "insulated jacket",
-      "weight_value": 558,
+      "weight_value": 756,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOM0618010----S000/",
-      "quote": "重量(g) (目安) 558g(Mサイズ)"
+      "source_url": "https://www.mountainhardwear.com/p/mens-compressor-alpine-hooded-insulated-jacket-2091911.html",
+      "quote": "Approx. Weight*: 1 lb 10.7 oz / 756 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -808,11 +808,11 @@
       "variant": "Men's Medium",
       "category_hint": "clothing",
       "common_name": "down pants",
-      "weight_value": 273,
+      "weight_value": 222,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOM0658010----S00S/",
-      "quote": "重量(g) (目安) 273 g(Mサイズ)"
+      "source_url": "https://www.mountainhardwear.com/p/mens-ghost-whisperer-pant-2092031.html",
+      "quote": "Approx. Weight*: 7.8 oz / 222 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -820,11 +820,11 @@
       "variant": "Men's Medium",
       "category_hint": "clothing",
       "common_name": "insulated jacket",
-      "weight_value": 350,
+      "weight_value": 326,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOM0676010----S000/",
-      "quote": "重量(g) (目安) 350 g(Mサイズ)"
+      "source_url": "https://www.mountainhardwear.com/p/mens-kor-airshell-warm-hoody-2092121.html",
+      "quote": "Approx. Weight*: 11.5 oz / 326 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -844,11 +844,11 @@
       "variant": "Men's Medium",
       "category_hint": "clothing",
       "common_name": "down jacket",
-      "weight_value": 504,
+      "weight_value": 492,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOM0690010----S000/",
-      "quote": "重量(g) (目安) 504g[Mサイズ]"
+      "source_url": "https://www.mountainhardwear.com/p/mens-phantom-alpine-hooded-down-jacket-2092271.html",
+      "quote": "Approx. Weight*: 1 lb 1.4 oz / 492 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -856,11 +856,11 @@
       "variant": "Men's Medium",
       "category_hint": "clothing",
       "common_name": "rain jacket",
-      "weight_value": 456,
+      "weight_value": 478,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOM0700010----S000/",
-      "quote": "重量(g) (目安) 456 g(Mサイズ)"
+      "source_url": "https://www.mountainhardwear.com/p/mens-trailverse-gore-tex-rain-jacket-2092321.html",
+      "quote": "Approx. Weight*: 1 lb 0.9 oz / 478 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -868,11 +868,11 @@
       "variant": "Men's Medium",
       "category_hint": "clothing",
       "common_name": "rain jacket",
-      "weight_value": 292,
+      "weight_value": 304,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOM0704038----S000/",
-      "quote": "重量(g) (目安) 292g(Mサイズ)"
+      "source_url": "https://www.mountainhardwear.com/p/mens-stretch-ozonic-rain-jacket-2093461.html",
+      "quote": "Approx. Weight*: 10.7 oz / 304 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -880,11 +880,11 @@
       "variant": "Men's Medium",
       "category_hint": "clothing",
       "common_name": "rain pants",
-      "weight_value": 310,
+      "weight_value": 264,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOM0708038----S00R/",
-      "quote": "重量(g) (目安) 310g(Mサイズ)"
+      "source_url": "https://www.mountainhardwear.com/p/mens-stretch-ozonic-rain-pant-2093501.html",
+      "quote": "Approx. Weight*: 9.3 oz / 264 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -892,11 +892,11 @@
       "variant": "Men's Medium",
       "category_hint": "clothing",
       "common_name": "down jacket",
-      "weight_value": 230,
+      "weight_value": 226,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOM0786010----S000/",
-      "quote": "重量(g) (目安) 230g(Mサイズ)"
+      "source_url": "https://www.mountainhardwear.com/p/mens-ghost-whisperer-down-jacket-2104461.html",
+      "quote": "Approx. Weight*: 8 oz / 226 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -904,11 +904,11 @@
       "variant": "Men's Medium",
       "category_hint": "clothing",
       "common_name": "vest",
-      "weight_value": 164,
+      "weight_value": 160,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOM0787010----S000/",
-      "quote": "重量(g) (目安) 164g[Mサイズ]"
+      "source_url": "https://www.mountainhardwear.com/p/mens-ghost-whisperer-vest-2104471.html",
+      "quote": "Approx. Weight*: 5.6 oz / 160 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -916,11 +916,11 @@
       "variant": "Men's Medium",
       "category_hint": "clothing",
       "common_name": "fleece",
-      "weight_value": 425,
+      "weight_value": 427,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOM0793010----S000/",
-      "quote": "重量(g) (目安) 425 g(Mサイズ)"
+      "source_url": "https://www.mountainhardwear.com/p/mens-polartec-power-grid-full-zip-hoody-2104541.html",
+      "quote": "Approx. Weight*: 15.1 oz / 427 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -928,11 +928,11 @@
       "variant": "Men's Medium",
       "category_hint": "clothing",
       "common_name": "fleece",
-      "weight_value": 512,
+      "weight_value": 490,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOM0795091----S000/",
-      "quote": "重量(g) (目安) 512 g(Mサイズ)"
+      "source_url": "https://www.mountainhardwear.com/p/mens-polartec-high-loft-jacket-2104591.html",
+      "quote": "Approx. Weight*: 1 lb 1.3 oz / 490 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -943,8 +943,8 @@
       "weight_value": 362,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOM0797090----S00R/",
-      "quote": "重量(g) (目安) 362 g(Mサイズ)"
+      "source_url": "https://www.mountainhardwear.com/p/mens-polartec-high-loft-pant-2104611.html",
+      "quote": "Approx. Weight*: 12.8 oz / 362 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -958,8 +958,8 @@
       "weight_value": 252,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOM1024010----S030/",
-      "quote": "重量(g) (目安) 252g[M-30サイズ]"
+      "source_url": "https://www.mountainhardwear.com/p/mens-dynama-pull-on-pant-2110371.html",
+      "quote": "Approx. Weight*: 8.9 oz / 252 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -967,11 +967,11 @@
       "variant": "Men's Medium",
       "category_hint": "clothing",
       "common_name": "shorts",
-      "weight_value": 190,
+      "weight_value": 189.5,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOM1026010----S007/",
-      "quote": "重量(g) (目安) 190g(Mサイズ)"
+      "source_url": "https://www.mountainhardwear.com/p/mens-dynama-short-2110381.html",
+      "quote": "Approx. Weight*: 6.7 oz / 189.5 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -982,11 +982,11 @@
       },
       "category_hint": "clothing",
       "common_name": "shorts",
-      "weight_value": 166,
+      "weight_value": 165.5,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOM1027010----S005/",
-      "quote": "重量(g) (目安) 166g[M-5サイズ]"
+      "source_url": "https://www.mountainhardwear.com/p/mens-shade-lite-short-2110391.html",
+      "quote": "Approx. Weight*: 5.8 oz / 165.5 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -994,11 +994,11 @@
       "variant": "Men's Medium",
       "category_hint": "clothing",
       "common_name": "wind jacket",
-      "weight_value": 129,
+      "weight_value": 120,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOM1144010----S000/",
-      "quote": "重量(g) (目安) 129g(Mサイズ)"
+      "source_url": "https://www.mountainhardwear.com/p/mens-kor-airshell-full-zip-jacket-2123791.html",
+      "quote": "Approx. Weight*: 4.2 oz / 120 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -1006,11 +1006,11 @@
       "variant": "Men's Medium",
       "category_hint": "clothing",
       "common_name": "wind jacket",
-      "weight_value": 142,
+      "weight_value": 132.5,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOM1145010----S000/",
-      "quote": "重量(g) (目安) 142g(Mサイズ)"
+      "source_url": "https://www.mountainhardwear.com/p/mens-kor-airshell-hoody-2123781.html",
+      "quote": "Approx. Weight*: 4.7 oz / 132.5 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -1018,11 +1018,11 @@
       "variant": "Men's Medium",
       "category_hint": "clothing",
       "common_name": "fleece",
-      "weight_value": 574,
+      "weight_value": 550,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOM1274010----S000/",
-      "quote": "重量(g) (目安) 574g(Mサイズ)"
+      "source_url": "https://www.mountainhardwear.com/p/mens-polartec-high-loft-hooded-jacket-2128431.html",
+      "quote": "Approx. Weight*: 1 lb 3.4 oz / 550 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -1030,11 +1030,11 @@
       "variant": "Men's Medium",
       "category_hint": "clothing",
       "common_name": "sun hoodie",
-      "weight_value": 182,
+      "weight_value": 178,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOM1295004----S000/",
-      "quote": "重量(g) (目安) 182g(Mサイズ)"
+      "source_url": "https://www.mountainhardwear.com/p/mens-airmesh-long-sleeve-hoody-2128931.html",
+      "quote": "Approx. Weight*: 6.3 oz / 178 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -1042,11 +1042,11 @@
       "variant": "Men's Medium",
       "category_hint": "clothing",
       "common_name": "sun shirt",
-      "weight_value": 160,
+      "weight_value": 157,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOM1302004----S000/",
-      "quote": "重量(g) (目安) 160g(Mサイズ)"
+      "source_url": "https://www.mountainhardwear.com/p/mens-airmesh-long-sleeve-2128941.html",
+      "quote": "Approx. Weight*: 5.5 oz / 157 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -1093,8 +1093,8 @@
       "weight_value": 333,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOM1625010----S000/",
-      "quote": "重量(g) (目安) 333g(Mサイズ)"
+      "source_url": "https://www.mountainhardwear.com/p/mens-cloud-cipher-hooded-rain-jacket-2146671.html",
+      "quote": "Approx. Weight*: 11.7 oz / 333 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -1102,11 +1102,11 @@
       "variant": "Men's Medium",
       "category_hint": "clothing",
       "common_name": "wind jacket",
-      "weight_value": 174,
+      "weight_value": 164,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOM1627010----S000/",
-      "quote": "重量(g) (目安) 174g[Mサイズ]"
+      "source_url": "https://www.mountainhardwear.com/p/mens-wind-veil-hooded-jacket-2146681.html",
+      "quote": "Approx. Weight*: 5.8 oz / 164 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -1171,11 +1171,11 @@
       "variant": "Men's Medium",
       "category_hint": "clothing",
       "common_name": "hiking pants",
-      "weight_value": 426,
+      "weight_value": 357,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOM1641007----S00R/",
-      "quote": "重量(g) (目安) 426g(Mサイズ)"
+      "source_url": "https://www.mountainhardwear.com/p/mens-rockrydge-pant-2154291.html",
+      "quote": "Approx. Weight*: 12.6 oz / 357 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -1195,11 +1195,11 @@
       "variant": "Men's Medium",
       "category_hint": "clothing",
       "common_name": "insulated jacket",
-      "weight_value": 364,
+      "weight_value": 349,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOM1810010----S000/",
-      "quote": "重量(g) (目安) 364g[Mサイズ]"
+      "source_url": "https://www.mountainhardwear.com/p/mens-kor-alloy-hooded-jacket-2166041.html",
+      "quote": "Approx. Weight*: 12.3 oz / 349 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -1207,11 +1207,11 @@
       "variant": "Men's Medium",
       "category_hint": "clothing",
       "common_name": "down jacket",
-      "weight_value": 792,
+      "weight_value": 788,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOM1812010----S000/",
-      "quote": "重量(g) (目安) 792g[Mサイズ]"
+      "source_url": "https://www.mountainhardwear.com/p/mens-stretchdown-parka-2166111.html",
+      "quote": "Approx. Weight*: 1 lb 11.8 oz / 788 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -1219,11 +1219,11 @@
       "variant": "Men's Medium",
       "category_hint": "clothing",
       "common_name": "down jacket",
-      "weight_value": 458,
+      "weight_value": 457,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOM1814010----S000/",
-      "quote": "重量(g) (目安) 458g[Mサイズ]"
+      "source_url": "https://www.mountainhardwear.com/p/mens-stretchdown-jacket-2166131.html",
+      "quote": "Approx. Weight*: 1 lb 0.1 oz / 457 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -1231,11 +1231,11 @@
       "variant": "Men's Medium",
       "category_hint": "clothing",
       "common_name": "down jacket",
-      "weight_value": 506,
+      "weight_value": 495,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOM1817010----S000/",
-      "quote": "重量(g) (目安) 506g[Mサイズ]"
+      "source_url": "https://www.mountainhardwear.com/p/mens-stretchdown-hooded-jacket-2166121.html",
+      "quote": "Approx. Weight*: 1 lb 1.5 oz / 495 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -1243,11 +1243,11 @@
       "variant": "Men's Medium",
       "category_hint": "clothing",
       "common_name": "insulated jacket",
-      "weight_value": 412,
+      "weight_value": 410,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOM1820010----S000/",
-      "quote": "重量(g) (目安) 412g[Mサイズ]"
+      "source_url": "https://www.mountainhardwear.com/p/mens-free-element-hooded-jacket-2166201.html",
+      "quote": "Approx. Weight*: 14.5 oz / 410 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -1255,11 +1255,11 @@
       "variant": "Men's Medium",
       "category_hint": "clothing",
       "common_name": "insulated jacket",
-      "weight_value": 376,
+      "weight_value": 365,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOM1821010----S000/",
-      "quote": "重量(g) (目安) 376g[Mサイズ]"
+      "source_url": "https://www.mountainhardwear.com/p/mens-free-element-jacket-2166211.html",
+      "quote": "Approx. Weight*: 12.9 oz / 365 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -1267,11 +1267,11 @@
       "variant": "Men's Medium",
       "category_hint": "clothing",
       "common_name": "vest",
-      "weight_value": 246,
+      "weight_value": 238,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOM1823010----S000/",
-      "quote": "重量(g) (目安) 246g[Mサイズ]"
+      "source_url": "https://www.mountainhardwear.com/p/mens-free-element-vest-2166221.html",
+      "quote": "Approx. Weight*: 8.4 oz / 238 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -1291,11 +1291,11 @@
       "variant": "Men's Medium",
       "category_hint": "clothing",
       "common_name": "down jacket",
-      "weight_value": 1020,
+      "weight_value": 1017,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOM1830011----S000/",
-      "quote": "重量(g) (目安) 1020g[Mサイズ]"
+      "source_url": "https://www.mountainhardwear.com/p/mens-flow-factor-down-jacket-2166261.html",
+      "quote": "Approx. Weight*: 2 lb 3.9 oz / 1017 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -1303,11 +1303,11 @@
       "variant": "Men's Medium",
       "category_hint": "clothing",
       "common_name": "fleece",
-      "weight_value": 516,
+      "weight_value": 521,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOM1849011----S000/",
-      "quote": "重量(g) (目安) 516g[Mサイズ]"
+      "source_url": "https://www.mountainhardwear.com/p/mens-apr%C3%A8s-pro-fleece-jacket-2166361.html",
+      "quote": "Approx. Weight*: 1 lb 2.4 oz / 521 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -1315,11 +1315,11 @@
       "variant": "Men's Medium",
       "category_hint": "clothing",
       "common_name": "shirt",
-      "weight_value": 338,
+      "weight_value": 372.5,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOM1866011----S000/",
-      "quote": "重量(g) (目安) 338g[Mサイズ]"
+      "source_url": "https://www.mountainhardwear.com/p/mens-hardwear-supply-short-sleeve-2166881.html",
+      "quote": "Approx. Weight*: 13.1 oz / 372.5 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -1327,11 +1327,11 @@
       "variant": "Men's Medium",
       "category_hint": "clothing",
       "common_name": "shirt",
-      "weight_value": 414,
+      "weight_value": 415,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOM1869011----S000/",
-      "quote": "重量(g) (目安) 414g[Mサイズ]"
+      "source_url": "https://www.mountainhardwear.com/p/mens-hardwear-supply-long-sleeve-shirt-2166871.html",
+      "quote": "Approx. Weight*: 14.6 oz / 415 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -1363,11 +1363,11 @@
       "variant": "Men's Medium",
       "category_hint": "clothing",
       "common_name": "fleece",
-      "weight_value": 296,
+      "weight_value": 283,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOM1975010----S000/",
-      "quote": "重量(g) (目安) 296g[Mサイズ]"
+      "source_url": "https://www.mountainhardwear.com/p/mens-microchill-jacket-2169161.html",
+      "quote": "Approx. Weight*: 10 oz / 283 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -1375,11 +1375,11 @@
       "variant": "Men's Medium",
       "category_hint": "clothing",
       "common_name": "insulated jacket",
-      "weight_value": 322,
+      "weight_value": 321,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOM2086010----S000/",
-      "quote": "重量(g) (目安) 322g[Mサイズ]"
+      "source_url": "https://www.mountainhardwear.com/p/mens-kor-alloy-jacket-2179831.html",
+      "quote": "Approx. Weight*: 11.3 oz / 321 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -1411,11 +1411,11 @@
       "variant": "Men's Medium",
       "category_hint": "clothing",
       "common_name": "sun shirt",
-      "weight_value": 175,
+      "weight_value": 158.5,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOM7942004----S000/",
-      "quote": "重量(g) (目安) 175g(Mサイズ)"
+      "source_url": "https://www.mountainhardwear.com/p/mens-airmesh-half-zip-2145811.html",
+      "quote": "Approx. Weight*: 5.6 oz / 158.5 g (the maker's Japanese listing of this style states its weight for size M)"
     },
     {
       "brand": "Mountain Hardwear",
@@ -1504,11 +1504,11 @@
       "variant": "",
       "category_hint": "clothing",
       "common_name": "beanie",
-      "weight_value": 56,
+      "weight_value": 70,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOU6265099----R000/",
-      "quote": "重量(g) (目安) 56g"
+      "source_url": "https://www.mountainhardwear.com/p/power-stretch-beanie-1554961.html",
+      "quote": "Approx. Weight*: 2.5 oz / 70 g"
     },
     {
       "brand": "Mountain Hardwear",
@@ -1624,11 +1624,11 @@
       "variant": "",
       "category_hint": "clothing",
       "common_name": "mittens",
-      "weight_value": 119,
+      "weight_value": 137,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOU7452010----S000/",
-      "quote": "重量(g) (目安) 119g"
+      "source_url": "https://www.mountainhardwear.com/p/compressor-gore-tex-mitt-2096411.html",
+      "quote": "Approx. Weight*: 4.8 oz / 137 g"
     },
     {
       "brand": "Mountain Hardwear",
@@ -1810,8 +1810,8 @@
       "weight_value": 69,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOU8031010----R000/",
-      "quote": "重量(g) (目安) 69g"
+      "source_url": "https://www.mountainhardwear.com/p/power-stretch-balaclava-1852661.html",
+      "quote": "Approx. Weight*: 2.3 oz / 69 g"
     },
     {
       "brand": "Mountain Hardwear",
@@ -1825,8 +1825,8 @@
       "weight_value": 842,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.jp/shop/g/gOU8045339--OZS000/",
-      "quote": "重量(g) (目安) 842g"
+      "source_url": "https://www.mountainhardwear.com/p/gnarwhal-18l-backpack-2165061.html",
+      "quote": "Approx. Pack Weight Regular*: 1 lb 13.7 oz / 842 g"
     },
     {
       "brand": "Mountain Hardwear",
