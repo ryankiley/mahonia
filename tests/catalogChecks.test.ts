@@ -123,6 +123,16 @@ describe("catalog conventions are errors, not warnings", () => {
     expect(codes([row({ name: "Merino Sock", variant: "M, per pair", categoryHint: "clothing", weightMg: 60_000, commonName: "Socks" })], "error")).toContain("per-pair-label");
   });
 
+  it("kcal-on-non-food: a canister's energy content is not a ration", () => {
+    const can = row({ name: "IsoPro Fuel Canister", variant: "110g, net fuel", categoryHint: "consumable", weightMg: 110_000, commonName: "Fuel canister", attributes: { fuel_g: 110 } });
+    expect(codes([can], "error")).not.toContain("kcal-on-non-food");
+    expect(codes([{ ...can, kcal: 1350 }], "error")).toContain("kcal-on-non-food");
+    // a stove, with or without a fuel axis, is not food either
+    expect(codes([row({ name: "PocketRocket 2", categoryHint: "cook", weightMg: 73_000, commonName: "Stove", kcal: 100, attributes: { fuel: "isobutane" } })], "error")).toContain("kcal-on-non-food");
+    // food keeps its kcal
+    expect(codes([row({ name: "Pad Thai", variant: "2 servings", categoryHint: "consumable", weightMg: 176_000, kcal: 760, commonName: "Meal" })], "error")).not.toContain("kcal-on-non-food");
+  });
+
   it("food rows: net is a to-do, missing kcal is a to-do — both warnings, not errors", () => {
     const meal = row({ name: "Pad Thai", variant: "2 servings, net", categoryHint: "consumable", weightMg: 176_000, kcal: 760, commonName: "Meal" });
     expect(codes([meal], "warning")).toContain("food-net-weight");

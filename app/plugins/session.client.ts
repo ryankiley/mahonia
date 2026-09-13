@@ -47,8 +47,11 @@ export default defineNuxtPlugin(() => {
     // the whole registry — the same set the claim sends, both buckets
     deviceFingerprint(useMyLists().entries.value.map((e) => e.editToken)),
   );
-  watch([session.signedIn, registryFingerprint], ([yes, fingerprint]) => {
-    if (!yes) return;
+  // On the OWNER, not on signedIn: an account replaced by another in this browser
+  // (B's sign-in link redeemed while A was in) never flips signedIn, and the
+  // switcher kept A's lists until a reload.
+  watch([() => session.user.value?.owner, registryFingerprint], ([owner, fingerprint]) => {
+    if (!owner) return;
     void useClaimedLists().claimDeviceLists(fingerprint);
   });
 });

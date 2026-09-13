@@ -1,0 +1,6 @@
+{
+  "date": "2026-09-12",
+  "fixed": [
+    "When two accounts share a browser, the list switcher shows only the signed-in account's lists, and switching accounts refreshes it at once."
+  ]
+}

@@ -24,8 +24,10 @@ import {
   endSession,
   findOrCreateUser,
   resolveSession,
+  sessionOwnerMarker,
   startSession,
 } from "../server/utils/authSession";
+import { SESSION_OWNER_COOKIE, SESSION_OWNER_PATTERN } from "../shared/session";
 import { sha256Hex } from "../server/utils/tokens";
 import { createTestDb, type TestDb } from "./helpers/db";
 import { setCookieValue } from "./helpers/http";
@@ -83,13 +85,30 @@ describe("startSession → resolveSession", () => {
     const token = setCookieValue(start, SESSION_COOKIE)!;
     // the readable hint rides along, carrying no capability
     expect(setCookieValue(start, SESSION_HINT_COOKIE)).toBe("1");
+    // and the owner marker: derived from the token's hash, never the id, so a
+    // cookie anyone can read says nothing about the account or how many there are
+    const owner = sessionOwnerMarker(sha256Hex(token));
+    expect(setCookieValue(start, SESSION_OWNER_COOKIE)).toBe(owner);
+    expect(owner).toMatch(/^[0-9a-f]{16}$/);
+    expect(owner).toMatch(SESSION_OWNER_PATTERN);
     // only the hash ever touches the table — a dump mints no sign-in
     const rows = await db.select().from(schema.sessions);
     expect(rows).toHaveLength(1);
     expect(rows[0]!.tokenHash).toBe(sha256Hex(token));
 
-    const user = await resolveSession(makeEvent(`${SESSION_COOKIE}=${token}`));
-    expect(user).toEqual({ id: userId, email: "ryan@example.com", displayName: null });
+    const resolved = makeEvent(`${SESSION_COOKIE}=${token}`);
+    const user = await resolveSession(resolved);
+    expect(user).toEqual({ id: userId, email: "ryan@example.com", displayName: null, owner });
+    // Sessions from before the marker existed acquire it without reissuing their
+    // credential or writing the database.
+    expect(setCookieValue(resolved, SESSION_OWNER_COOKIE)).toBe(owner);
+
+    // per SESSION, by design: signing in again mints a different marker, which the
+    // browser reads as a change of owner and starts its caches over
+    const again = makeEvent();
+    await startSession(again, db as never, userId);
+    expect(setCookieValue(again, SESSION_OWNER_COOKIE)).toMatch(/^[0-9a-f]{16}$/);
+    expect(setCookieValue(again, SESSION_OWNER_COOKIE)).not.toBe(owner);
   });
 
   it("resolves nothing for no cookie, a made-up cookie, or an expired session", async () => {
@@ -108,7 +127,7 @@ describe("startSession → resolveSession", () => {
     const token = await signIn(db, userId);
     const before = (await db.select().from(schema.sessions))[0]!;
 
-    const event = makeEvent(`${SESSION_COOKIE}=${token}`);
+    const event = makeEvent(`${SESSION_COOKIE}=${token}; ${SESSION_OWNER_COOKIE}=${sessionOwnerMarker(sha256Hex(token))}`);
     expect((await resolveSession(event))?.id).toBe(userId);
 
     // under the 24h refresh floor: the row is untouched and the response carries
@@ -129,7 +148,7 @@ describe("startSession → resolveSession", () => {
       .set({ lastUsedAt: staleLastUsed, expiresAt: staleExpiry })
       .where(eq(schema.sessions.userId, userId));
 
-    const event = makeEvent(`${SESSION_COOKIE}=${token}`);
+    const event = makeEvent(`${SESSION_COOKIE}=${token}; ${SESSION_OWNER_COOKIE}=${sessionOwnerMarker(sha256Hex(token))}`);
     expect((await resolveSession(event))?.id).toBe(userId);
 
     const after = (await db.select().from(schema.sessions))[0]!;
@@ -140,6 +159,8 @@ describe("startSession → resolveSession", () => {
     // browser drops the cookie 90 days after sign-in however often it's used.
     expect(setCookieValue(event, SESSION_COOKIE)).toBe(token);
     expect(setCookieValue(event, SESSION_HINT_COOKIE)).toBe("1");
+    // the same session slid, so the same marker: the caches it keys survive a refresh
+    expect(setCookieValue(event, SESSION_OWNER_COOKIE)).toBe(sessionOwnerMarker(sha256Hex(token)));
   });
 });
 
@@ -165,9 +186,10 @@ describe("endSession — sign out THIS device", () => {
     expect(left).not.toContain(sha256Hex(mine));
     expect(left).toContain(sha256Hex(myOtherDevice));
     expect(left).toContain(sha256Hex(theirs));
-    // both cookies cleared, and the dead token no longer resolves anywhere
+    // all session cookies cleared, and the dead token no longer resolves anywhere
     expect(setCookieValue(event, SESSION_COOKIE)).toBe("");
     expect(setCookieValue(event, SESSION_HINT_COOKIE)).toBe("");
+    expect(setCookieValue(event, SESSION_OWNER_COOKIE)).toBe("");
     expect(await resolveSession(makeEvent(`${SESSION_COOKIE}=${mine}`))).toBeNull();
   });
 

@@ -12,7 +12,8 @@ import { personColor } from "~~/shared/people";
 import type { Classification, Item, ListSnapshot } from "~~/shared/types";
 import { effectiveClassificationInFolder, formatKcal, formatWeight, isBareGroup, rowDisplayMg, splitWornQty, rowDisplayKcal } from "~~/shared/weights";
 import { itemQtyLabel } from "~~/shared/water";
-import { classLabel, classMark } from "~/utils/itemMarks";
+import { consumableIcon } from "~/utils/itemMarks";
+import { Backpack02Icon, ShirtIcon } from "@hugeicons/core-free-icons";
 
 // The share views' row (/s + /l): name (a web-search link via <ItemName search>),
 // amount, line weight — and its nested children, rendered the SAME way one level down
@@ -109,7 +110,7 @@ const folderDefault = computed<Classification>(
 // every row inside inherited, so the column was a run of identical glyphs under a
 // heading that already said the word in full. What carries information is the
 // exception: the rain jacket filed under Clothing but worn, the stove filed with the
-// food. Which is also why base has a glyph of its own here (classMark) where the
+// food. Which is also why base has a glyph of its own here (markIcon) where the
 // editor's pair of toggles never needed one — inside a consumable folder, "not food"
 // is precisely the departure worth drawing, and it was the one class that had no
 // picture to draw it with.
@@ -131,13 +132,23 @@ const showMark = computed(
 );
 // worn wins over the effective class for the picture, so a split reads as the shirt
 const markClass = computed<Classification>(() => (isWorn.value ? "worn" : effClass.value));
-const markIcon = computed(() => classMark(markClass.value, props.item.name));
+// The glyph: the shirt, the consumable's own picture (consumableIcon — the one rule the
+// editor toggle and /gear read too), or the BACKPACK. Base takes the backpack, and it is
+// the app's own word for the class rather than a new one: base weight is what's in the
+// pack, which is what the Carried tooltip says in as many words. This row is the one
+// place that needs a picture for it — the editor's pair of toggles never did (base is
+// both of them unlit) — which is why the backpack is drawn here and not in itemMarks,
+// a module on the editor's first load.
+const markIcon = computed(() =>
+  markClass.value === "worn" ? ShirtIcon : markClass.value === "consumable" ? consumableIcon(props.item) : Backpack02Icon,
+);
 // the hover title, matching the editor's tooltip: a split names its count, since
-// "Worn" alone would overstate a row that is mostly in the pack
+// "Worn" alone would overstate a row that is mostly in the pack. The word is also the
+// label a flattened reader gets (the visually-hidden text in the template).
 const markTitle = computed(() =>
   splitWorn.value > 0
     ? `${splitWorn.value} of ${props.item.qty} worn`
-    : classLabel(markClass.value),
+    : markClass.value === "worn" ? "Worn" : markClass.value === "consumable" ? "Consumable" : "Base",
 );
 // A quantity of one is the default — see itemQtyLabel's `hideSingle`. A BARE GROUP
 // carries no count in this column at all (`group`): the weight beside it is the group's
