@@ -1,0 +1,9 @@
+{
+  "date": "2026-09-12",
+  "changed": [
+    "A catalog row states a size once, in the maker's own scale: Goldwin's JP 3 on its own, not Medium and JP 3 side by side."
+  ],
+  "fixed": [
+    "Rows added from the catalog keep following it when the catalog tidies the size on that row, instead of freezing at the text they were added with."
+  ]
+}

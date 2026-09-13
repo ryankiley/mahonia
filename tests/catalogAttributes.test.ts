@@ -54,7 +54,7 @@ describe("extractAttributes reads what a variant states outright", () => {
     ["Women's UK 10", "Rain jacket", "clothing", { fit: "Women's", size: "UK 10" }],
     ["EU 42", "Hiking boots", "clothing", { size: "EU 42" }],
     ["Men's US 9 / Women's US 10", "Hiking shoes", "clothing", {}],
-    ["M, JP 3", "Rain jacket", "clothing", { size: "M" }],
+    ["JP 3", "Rain jacket", "clothing", { size: "JP 3" }], // Goldwin sells by its own number
     ["JP 3", "Backpack", "pack", { size: "JP 3" }],
     ["4", "Fleece", "clothing", { size: "4" }],
     ["3-4", "Leggings", "clothing", { size: "3-4" }],
@@ -114,7 +114,7 @@ describe("extractAttributes reads what a variant states outright", () => {
     });
   }
 
-  it("reports a variant that claims one axis twice in the same spelling, and not one that restates a fact", () => {
+  it("reports a variant that claims one axis twice — a contradiction or a second scale alike", () => {
     const conflicts = (variant: string, type: string, cat: string) => {
       const out: string[] = [];
       extractAttributes(variant, type, cat, (c) => out.push(c));
@@ -122,10 +122,12 @@ describe("extractAttributes reads what a variant states outright", () => {
     };
     expect(conflicts("Regular, Long", "Quilt", "sleep")).toEqual(['length: "Regular" and "Long"']);
     expect(conflicts("20F, 30F", "Quilt", "sleep")).toEqual(['temp_f: "20" and "30"']);
-    expect(conflicts("Regular, 6ft, 20F", "Sleeping bag", "sleep")).toEqual([]); // a word and a measurement
-    expect(conflicts("Men's US 9, EU 42", "Hiking boots", "clothing")).toEqual([]); // two regions
-    expect(conflicts("M, JP 3", "Rain jacket", "clothing")).toEqual([]); // a letter and a region
+    // one fact in two scales is still two claims: an axis is stated once, in the maker's own
+    expect(conflicts("Regular, 6ft, 20F", "Sleeping bag", "sleep")).toEqual(['length: "Regular" and "6ft"']);
+    expect(conflicts("Men's US 9, EU 42", "Hiking boots", "clothing")).toEqual(['size: "US 9" and "EU 42"']);
+    expect(conflicts("Medium, JP 3", "Rain jacket", "clothing")).toEqual(['size: "M" and "JP 3"']);
     expect(conflicts("10F, Regular, Regular", "Quilt", "sleep")).toEqual([]); // length, then width
+    expect(conflicts("Regular Wide, 20F", "Quilt", "sleep")).toEqual([]); // length and width in one token
   });
 });
 
