@@ -37,6 +37,16 @@ import { WEIGHT_SOURCES, type RecentChange } from "../../shared/types";
 // importer (candidates.ts) keeps its import path.
 export { trigramScore } from "../../shared/catalogSearch";
 
+/** Suggest the active catalog's vocabulary without downloading its product rows. */
+export async function catalogGearTypes(db: Db): Promise<string[]> {
+  await ensureCatalogSchema(db);
+  const rows = await db.selectDistinct({ name: catalogItems.commonName })
+    .from(catalogItems)
+    .where(eq(catalogItems.status, "active"))
+    .orderBy(catalogItems.commonName);
+  return rows.flatMap(({ name }) => name?.trim() ? [name] : []);
+}
+
 const isNeon = () => Boolean(process.env.DATABASE_URL);
 
 // Safe on BOTH PGlite and Neon. Single source of truth; also spread into db.ts's
