@@ -11,7 +11,7 @@
  * to be mounted to check what a line becomes.
  */
 
-import { MAX_ITEM_NAME_LEN } from "./ops";
+import { MAX_ITEMS, MAX_ITEM_NAME_LEN } from "./ops";
 import { UNIT_ALIASES } from "./weights";
 
 // The unit words the weight field itself reads (shared/weights, the one vocabulary), and
@@ -74,6 +74,25 @@ const LINE_MARKER = /^(?:[-*•·◦▪–—](?:\s+|$)|\d{1,3}[.)](?:\s+|$)|\[[
 const MAX_LINE = MAX_ITEM_NAME_LEN + 40;
 
 /**
+ * A multi-line paste can never add more than this many rows to a list. Keeping one
+ * clipboard gesture within that bound avoids allocating or walking an arbitrary number
+ * of lines before the controller reaches its own item cap.
+ */
+export const MAX_PASTE_ROWS = MAX_ITEMS;
+
+// Enough text for MAX_PASTE_ROWS longest useful lines plus their separators. This bounds
+// the scan even when the clipboard starts with one enormous line or a sea of blank ones.
+const MAX_PASTE_CHARS = MAX_PASTE_ROWS * (MAX_LINE + 1);
+
+export interface ParsedPasteRows {
+  rows: string[];
+  /** More nonblank rows, or more clipboard text, followed the retained rows. */
+  truncated: boolean;
+}
+
+const isLineBreak = (ch: string) => ch === "\r" || ch === "\n" || ch === "\u2028" || ch === "\u2029" || ch === "\v" || ch === "\f";
+
+/**
  * The rows a pasted text makes: one per line that says anything, in order. Blank lines
  * are dropped, list markers are stripped, and the rest of the line is kept as typed
  * (weights included — see splitWeightTail for the next step).
@@ -81,17 +100,35 @@ const MAX_LINE = MAX_ITEM_NAME_LEN + 40;
  * One line is not a list. The caller checks `length > 1` before treating a paste as
  * rows, so the browser's own paste keeps handling the single-line case.
  */
-export function pasteRows(text: string): string[] {
+export function parsePasteRows(text: string): ParsedPasteRows {
   const rows: string[] = [];
+  const input = text.slice(0, MAX_PASTE_CHARS);
+  let truncated = input.length < text.length;
+  let at = 0;
   // every line break a clipboard can carry: CRLF, CR, LF, and the Unicode line and
   // paragraph separators and the vertical tab a soft return becomes in some editors
-  for (const line of text.split(/\r\n|[\r\n\u2028\u2029\v\f]/)) {
-    let row = line.trim();
+  while (at < input.length) {
+    let end = at;
+    while (end < input.length && !isLineBreak(input[end]!)) end++;
+    // Trim before the marker loop, not after it: a long run of list markers is no more
+    // entitled to unbounded work than a long item name is.
+    let row = input.slice(at, Math.min(end, at + MAX_LINE)).trim();
     for (let prev = ""; prev !== row; ) {
       prev = row;
       row = row.replace(LINE_MARKER, "").trim();
     }
-    if (row) rows.push(row.slice(0, MAX_LINE));
+    if (row) {
+      if (rows.length < MAX_PASTE_ROWS) rows.push(row);
+      else truncated = true;
+    }
+    if (end === input.length) break;
+    // CRLF is one separator, not a CR row followed by a blank LF row.
+    at = end + (input[end] === "\r" && input[end + 1] === "\n" ? 2 : 1);
   }
-  return rows;
+  return { rows, truncated };
+}
+
+/** The rows alone, for callers that do not need to explain an oversized paste. */
+export function pasteRows(text: string): string[] {
+  return parsePasteRows(text).rows;
 }

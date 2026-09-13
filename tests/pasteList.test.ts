@@ -4,7 +4,7 @@
 // ("Tent 540 g", "UL2" staying whole) alongside the ones the paste added (a dash, a
 // colon, parentheses between name and weight).
 import { describe, expect, it } from "vitest";
-import { pasteRows, splitWeightTail } from "../shared/pasteList";
+import { MAX_PASTE_ROWS, parsePasteRows, pasteRows, splitWeightTail } from "../shared/pasteList";
 
 describe("splitWeightTail", () => {
   it("takes a trailing weight off the name, as the field always has", () => {
@@ -137,5 +137,18 @@ describe("pasteRows", () => {
   it("is one row for one line, which the caller treats as no list", () => {
     expect(pasteRows("Tent 540 g")).toEqual(["Tent 540 g"]);
     expect(pasteRows("")).toEqual([]);
+  });
+
+  it("bounds an enormous clipboard to rows a list can actually use", () => {
+    const parsed = parsePasteRows(Array.from({ length: MAX_PASTE_ROWS + 1 }, (_, i) => `Item ${i}`).join("\n"));
+    expect(parsed.rows).toHaveLength(MAX_PASTE_ROWS);
+    expect(parsed.rows.at(-1)).toBe(`Item ${MAX_PASTE_ROWS - 1}`);
+    expect(parsed.truncated).toBe(true);
+  });
+
+  it("keeps an enormous first line bounded before stripping markers", () => {
+    const parsed = parsePasteRows("- ".repeat(500_000));
+    expect(parsed.rows).toEqual([]);
+    expect(parsed.truncated).toBe(true);
   });
 });

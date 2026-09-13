@@ -529,10 +529,10 @@ function onWeightStep(e: KeyboardEvent, dir: 1 | -1) {
 // them is where Enter's next blank row goes (onAdvance), since that is the end of the
 // list just pasted, not the middle of it.
 const advanceAfter = ref<string | null>(null);
-function onPasteRows({ first, rest }: { first: NameCommit | null; rest: string[] }) {
+function onPasteRows({ first, rest, truncated }: { first: NameCommit | null; rest: string[]; truncated: boolean }) {
   const before = { ...props.item };
   if (first) onNameCommit(first);
-  advanceAfter.value = c.pasteItemsAfter(props.item.id, rest, before) || null;
+  advanceAfter.value = c.pasteItemsAfter(props.item.id, rest, before, truncated) || null;
 }
 // Enter opens a blank row below: below the rows a paste just made, when there was
 // one and they are still there; else directly below this row (todo-list entry)

@@ -1517,9 +1517,10 @@ function create() {
    * deletes otherwise. Undo takes the rows away (a row someone nested under one of
    * them in the meantime steps out first, rather than going with it) and puts the
    * pasted-into row back as it was. Lines past the list's cap are not made, and
-   * the label says how many were.
+   * the label says how many were — or "the rest" when the bounded clipboard parser
+   * deliberately stopped counting an enormous paste.
    */
-  function pasteItemsAfter(afterId: string, lines: string[], before?: Item): string {
+  function pasteItemsAfter(afterId: string, lines: string[], before?: Item, truncated = false): string {
     const snap = snapshot.value;
     const src = snap?.items.find((i) => i.id === afterId);
     if (!snap || !src) return "";
@@ -1592,7 +1593,9 @@ function create() {
     const made = items.length;
     if (!made) return "";
     const rows = `${made} row${made === 1 ? "" : "s"}`;
-    const label = capped ? `${rows} (a list holds ${MAX_ITEMS} items; ${capped} did not fit)` : rows;
+    const label = capped || truncated
+      ? `${rows} (a list holds ${MAX_ITEMS} items; ${truncated ? "the rest" : capped} did not fit)`
+      : rows;
     offerUndo(label, () => {
       // quiet: undoing the paste means the rows were never there, so the history
       // shouldn't read "Removed" twelve times over. A row nested under a pasted row

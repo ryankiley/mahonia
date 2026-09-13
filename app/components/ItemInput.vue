@@ -8,7 +8,7 @@ import { highlightParts } from "~~/shared/searchText";
 import { MAX_ITEM_NAME_LEN } from "~~/shared/ops";
 import { tidyText } from "~~/shared/tidyText";
 import { catalogNameKeys, foldName } from "~~/shared/catalogMatch";
-import { pasteRows, splitWeightTail } from "~~/shared/pasteList";
+import { parsePasteRows, splitWeightTail } from "~~/shared/pasteList";
 import { formatVolume, isWaterName, parseVolumeMl, waterMgFromMl, waterPhraseMl } from "~~/shared/water";
 import type { CatalogResult, NameCommit } from "~/composables/useCatalogSearch";
 import type { VaultEntry } from "~~/shared/vault";
@@ -49,7 +49,7 @@ const emit = defineEmits<{
   // what the row was before the line landed and offer that back with the paste's
   // undo. `rest` are the lines after it, one row each, for the parent to make below
   // this one (see onPaste).
-  pasteRows: [{ first: NameCommit | null; rest: string[] }];
+  pasteRows: [{ first: NameCommit | null; rest: string[]; truncated: boolean }];
 }>();
 
 const { results, search, clear } = useCatalogSearch();
@@ -427,7 +427,7 @@ function commitFree() {
 // it (the paste's undo gives that row back). One line is left to the browser, so an
 // ordinary paste of a product name behaves exactly as it always has.
 function onPaste(e: ClipboardEvent) {
-  const rows = pasteRows(e.clipboardData?.getData("text/plain") ?? "");
+  const { rows, truncated } = parsePasteRows(e.clipboardData?.getData("text/plain") ?? "");
   if (rows.length < 2) return;
   e.preventDefault();
   const el = e.target as HTMLInputElement;
@@ -438,7 +438,7 @@ function onPaste(e: ClipboardEvent) {
   // text the store never kept, and every later blur would commit it as a rename
   const text = (draft.value.slice(0, from) + first + draft.value.slice(to)).trim().slice(0, MAX_ITEM_NAME_LEN);
   const c = text && tidyText(text) !== tidyText(props.initial) ? freeCommit(text) : null;
-  emit("pasteRows", { first: c, rest });
+  emit("pasteRows", { first: c, rest, truncated });
   // the field shows what got stored: the first line's name, or, when it named nothing,
   // the name the row still has — never text the store didn't take
   setDraftQuiet(props.clearOnCommit ? "" : (c?.name ?? props.initial));
