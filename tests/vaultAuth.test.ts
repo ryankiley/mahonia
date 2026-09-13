@@ -18,6 +18,7 @@ import {
   applyVaultFolderOp,
   applyVaultItemOp,
   captureVaultItems,
+  captureVaultItemsReporting,
   listVaultFolders,
   listVaultItems,
   reapAbandonedVaults,
@@ -183,8 +184,12 @@ describe("vault isolation — one vault can never reach another's gear", () => {
     const row = (await listVaultItems(db as never, mine))[0]!;
     await applyVaultItemOp(db as never, mine, { t: "edit", id: row.id, patch: { weightMg: 545_000 } });
 
-    await captureVaultItems(db as never, mine, [cap("Duplex", { weightMg: 900 })]);
-    await captureVaultItems(db as never, theirs, [cap("Duplex", { weightMg: 900 })]);
+    // the deliberate path — a background capture would leave both alone now, so
+    // it could not tell a pin from the fill-only rule; an explicit save can
+    const save = (vaultId: number) =>
+      captureVaultItemsReporting(db as never, vaultId, [cap("Duplex", { weightMg: 900 })], { overwriteWeight: true });
+    await save(mine);
+    await save(theirs);
 
     expect((await listVaultItems(db as never, mine))[0]!.weightMg).toBe(545_000);
     expect((await listVaultItems(db as never, theirs))[0]!.weightMg).toBe(900);

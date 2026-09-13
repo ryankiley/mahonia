@@ -38,7 +38,7 @@ export default defineEventHandler(async (event) => {
 
   // 200 rows of gear with their optional URLs — generous for the cap above, still
   // far below the platform body limit
-  const body = await readJsonBodyCapped<{ items?: unknown }>(event, 256_000);
+  const body = await readJsonBodyCapped<{ items?: unknown; overwriteWeight?: unknown }>(event, 256_000);
   const items = Array.isArray(body?.items)
     ? (body.items.filter((i) => i && typeof i === "object") as VaultCapture[]).slice(
         0,
@@ -57,7 +57,12 @@ export default defineEventHandler(async (event) => {
   // The write reports its own result — no second query, and no chance of asking
   // about a key the server spelled differently than the client did (sanitize
   // re-derives normKey from the tidied text).
-  const { keys, full } = await captureVaultItemsReporting(db, vaultId, items);
+  // The ordinary, whole-list capture only fills an unknown vault weight. The one
+  // explicit row action opts in to replacing an unpinned value, so an old list
+  // cannot silently roll My Gear back while a deliberate save still can update it.
+  const { keys, full } = await captureVaultItemsReporting(db, vaultId, items, {
+    overwriteWeight: body?.overwriteWeight === true,
+  });
   // `full` only ever means "new gear was refused for space". The automatic path
   // ignores it (capture is a side effect of editing, and must never put an error
   // over the list); a hand press needs it, because "the vault is full" and "you
